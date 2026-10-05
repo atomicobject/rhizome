@@ -1,0 +1,16 @@
+{
+  "exposed_rhizome_labeled_tool_events": 6,
+  "exposed_tool_invocations": 17,
+  "incomplete": false,
+  "malformed_count": 0,
+  "terminal_event": "turn.completed",
+  "usage": {
+    "cached_tokens": 230144,
+    "input_tokens": 272412,
+    "output_tokens": 4996,
+    "reasoning_tokens": 2531,
+    "source": [
+      "event.usage"
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+apiVersion: rhizome.view.v1
+id: complex-domain.uncovered-requirements
+name: Uncovered Requirements
+description: Accepted or high-priority requirements whose structural spec, story, or criterion coverage needs review.
+source:
+  kind: ontology_type
+  type: Requirement
+mount:
+  kind: standalone
+  group: Domain
+  order: 20
+defaults:
+  variant: table
+  first: 100
+  group:
+    field: status
+  sort:
+    - field: priority
+      direction: asc
+    - field: reviewStatus
+      direction: asc
+    - field: title
+      direction: asc
+filterPresets:
+  - id: accepted
+    label: Accepted
+    filters:
+      - field: status
+        op: eq
+        value: accepted
+  - id: missing-review
+    label: Review Needed
+    filters:
+      - field: reviewStatus
+        op: in
+        values: [unreviewed, needs_review, stale]
+variants:
+  table:
+    columns:
+      - field: id
+        label: ID
+      - field: title
+        label: Requirement
+      - field: status
+        label: Status
+      - field: priority
+        label: Priority
+      - field: featureAreas
+        label: Feature Areas
+      - field: specs
+        label: Specs
+      - field: storyRefs
+        label: Story Refs
+      - field: acceptanceCriterionRefs
+        label: Criterion Refs

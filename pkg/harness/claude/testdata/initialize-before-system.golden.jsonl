@@ -1,0 +1,2 @@
+{"type":"control_response","response":{"subtype":"success","request_id":"init-1","response":{"account":{"email":"person@example.com","subscriptionType":"Max"}}}}
+{"type":"system","subtype":"init","session_id":"captured-session","claude_code_version":"2.0.9"}

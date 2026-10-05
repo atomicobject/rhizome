@@ -1,0 +1,12 @@
+apiVersion: rhizome.view.v1
+id: e2e.views.tasks
+name: Demo tasks
+source:
+  kind: ontology_type
+  type: ViewDemoTask
+mount:
+  kind: standalone
+  hidden: true
+variants:
+  table:
+    columns: [{ field: title }, { field: status }]

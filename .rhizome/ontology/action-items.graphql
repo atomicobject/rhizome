@@ -1,0 +1,10 @@
+"""
+Checkbox action item that can appear in any in-scope note.
+"""
+type ActionItem implements Section
+  @node(locator: EMBEDDED)
+  @source(shape: CHECKBOX_ITEM, marker: "#action-item", paths: ["**/*.md"]) {
+  done: Boolean! @display(importance: KEY) @field(sourceKind: CHECKBOX) @authoring(style: CHECKBOX)
+  assignee: Person! @display(importance: KEY) @link
+  due: Date @display(importance: KEY) @field @authoring(style: INLINE_PROPERTY)
+}

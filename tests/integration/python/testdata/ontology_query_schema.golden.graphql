@@ -1,0 +1,1197 @@
+scalar Date
+scalar DateTime
+scalar URL
+scalar JSON
+
+enum PropertySource { ANY FRONTMATTER INLINE }
+enum NeighborDirection { OUTBOUND INBOUND BOTH }
+
+enum SectionLevel { H1 H2 H3 H4 H5 H6 }
+
+enum NodeKind { NOTE SECTION EMBEDDED CODE_FILE CODE_SYMBOL MODULE }
+
+enum FieldDisplayImportance { KEY NORMAL DETAIL }
+
+enum TraversalDirection { OUTBOUND INBOUND BOTH }
+enum GraphProfile { ONTOLOGY_NATIVE NOTES_ONLY CODE_AWARE }
+
+enum OntologySemanticsKind { BEHAVIORAL DOCUMENTARY }
+directive @semantics(kind: OntologySemanticsKind!) on OBJECT | FIELD_DEFINITION
+
+type NodeRef {
+  ref: String!
+  notePath: String
+  path: String
+  fragment: String
+  kind: NodeKind!
+  nodeId: String
+  structural: String
+  typeName: String
+}
+
+type NodeRefResolution {
+  input: String!
+  found: Boolean!
+  ref: NodeRef
+  candidates: [NodeRef!]!
+  kind: NodeKind
+  title: String
+  path: String
+  resolvedType: String
+  reason: String
+}
+
+type NodeLinkTarget {
+  ref: NodeRef!
+  markdown: String
+  wikilink: String
+  displayLabel: String
+  exists: Boolean!
+  requiresFix: Boolean!
+  blockId: String
+}
+
+type NodeLocatorDiagnostic {
+  code: String!
+  notePath: String
+  ref: NodeRef
+  blockId: String
+  message: String!
+}
+
+type NodeLinkFixAction {
+  ref: NodeRef!
+  blockId: String!
+}
+
+type NodeLocator {
+  ref: NodeRef!
+  kind: NodeKind!
+  sourceLocator: String!
+  status: String!
+  linkTarget: NodeLinkTarget
+  diagnostics: [NodeLocatorDiagnostic!]!
+  fixActions: [NodeLinkFixAction!]!
+  wikilink: String
+  markdown: String
+  exists: Boolean!
+  requiresFix: Boolean!
+}
+
+type NodeNeighborhood {
+  edges: [NodeRelationEdge!]!
+  nodes: [Node!]!
+  truncated: Boolean!
+}
+
+type NodeRelationEdge {
+  source: NodeRef!
+  target: NodeRef!
+  direction: TraversalDirection!
+  relation: String
+  provenance: String
+  structural: Boolean!
+  targetType: String
+  depth: Int!
+}
+
+type LocalGraph {
+  nodes: [LocalGraphNode!]!
+  edges: [LocalGraphEdge!]!
+  truncated: Boolean!
+  diagnostics: JSON
+}
+
+type LocalGraphNode {
+  id: ID!
+  ref: NodeRef
+  nodeKind: String!
+  path: String
+  notePath: String
+  nodeId: String
+  typeName: String
+  title: String!
+  sourceLocator: String
+  parentId: ID
+}
+
+type LocalGraphEdge {
+  source: ID!
+  target: ID!
+  kind: String!
+  relation: String
+  relationLabel: String
+  provenance: String
+  structural: Boolean!
+  weight: Int
+  confidence: Float
+}
+
+type PageInfo {
+  queryShapeVersion: String!
+  requestedFirst: Int!
+  returnedCount: Int!
+  truncated: Boolean!
+  maxFirst: Int!
+}
+
+type NodeBatchResult {
+  items: [NodeBatchItem!]!
+  pageInfo: PageInfo!
+}
+
+type NodeBatchItem {
+  requestedRef: String!
+  ref: NodeRef
+  node: Node
+  error: RuntimeWarning
+}
+
+type NoteConnection {
+  nodes: [NoteNode!]!
+  pageInfo: PageInfo!
+  warnings: [RuntimeWarning!]!
+}
+
+type NodeSearchResult {
+  nodes: [NoteNode!]!
+  pageInfo: PageInfo!
+  query: [String!]!
+  warnings: [RuntimeWarning!]!
+}
+
+type ValidationState {
+  status: String!
+  generation: Int!
+  publishedGeneration: Int!
+  completion: String
+  staleReason: String
+  error: String
+  ok: Boolean!
+  issueCount: Int!
+  errorCount: Int!
+  affectedFileCount: Int!
+  affectedNoteCount: Int!
+  repairActionCount: Int!
+  scope: ValidationScope!
+  selectedChecks: [String!]!
+  checks: [ValidationCheck!]!
+}
+
+type ValidationScope {
+  kind: String!
+  key: String
+}
+
+type ValidationCheck {
+  name: String!
+  ok: Boolean!
+  skipped: Boolean!
+  outcome: String!
+  issueCount: Int!
+  summary: String
+  error: String
+  issues(first: Int = 100): [ValidationIssue!]!
+}
+
+type ValidationIssue {
+  issueKey: String!
+  check: String!
+  code: String
+  path: String
+  field: String
+  source: String
+  target: String
+  message: String
+  line: Int
+  data: JSON
+  affectedPaths: [String!]!
+  affectedNotePaths: [String!]!
+  affectedNodeIds: [String!]!
+  affectedTypes: [String!]!
+  affectedInterfaces: [String!]!
+  actionIds: [String!]!
+}
+
+"Composable source-preserving metadata used by node workspace clients."
+type NodeWorkspaceProjection {
+  "Schema-aware semantic parent of the focused node, skipping structural wrappers."
+  parentRef: NodeRef
+  "Display title of parentRef, read from the index."
+  parentTitle: String
+  fields: [NodeFieldState!]!
+  collections: [NodeCollectionState!]!
+  "Source-preserving structural nodes, capped at 200 per workspace selection."
+  bodies(first: Int = 200): [NodeBodyProjection!]!
+  "Source-ordered authored links and embeds, capped at 100 per workspace selection."
+  sourceLinks(first: Int = 100): [NodeWorkspaceSourceLink!]!
+  capabilities: NodeCapabilities!
+  status: NodeStatus!
+  version: String!
+  "Full source revision captured by the same projection as the editable values."
+  sourceRevision: NodeSourceRevision!
+  assessment: NodeAssessment
+  structure: [NodeStructure!]!
+  relationGroups: [NodeRelationGroup!]!
+  loaded: NodeLoadedDomains!
+}
+
+"Source-preserving structural nodes for reconstructing a workspace body graph."
+type NodeBodyProjection {
+  ref: NodeRef!
+  title: String!
+  resolvedType: String
+  locator: String!
+  parentRef: NodeRef
+  markdown: String!
+  level: String
+  blockId: String
+  fragment: String
+  binding: NodeBodyBinding
+  fields: [NodeFieldState!]!
+  collections: [NodeCollectionState!]!
+  blocks: [NodeBodyBlock!]!
+}
+
+"One authored internal link or embed in source order."
+type NodeWorkspaceSourceLink {
+  target: String!
+  authoredTarget: String!
+  text: String
+  kind: String!
+  anchor: String
+  embed: Boolean!
+  targetKind: String!
+  resolved: Boolean!
+  resolvedRef: NodeRef
+  title: String
+  preview: String
+}
+
+"Schema-derived placement and display metadata for one structural body node."
+type NodeBodyBinding {
+  typeName: String
+  fieldName: String
+  fieldPath: String
+  fieldList: Boolean!
+  sectionDisplay: String
+  properties: JSON
+  identifierField: String
+  previewTemplate: String
+  collapsed: Boolean!
+}
+
+"One source-ordered block in a structural node body."
+type NodeBodyBlock {
+  kind: String!
+  range: NodeRange!
+  markdown: String
+  fieldName: String
+  rawKey: String
+  childRef: NodeRef
+  childRefs: [NodeRef!]!
+  sectionDisplay: String
+}
+
+type NodeRange {
+  start: Int!
+  end: Int!
+}
+
+type NodeFieldState {
+  name: String!
+  kind: String!
+  sourceKind: String
+  present: Boolean!
+  status: NodeStatus!
+  range: NodeRange!
+  valueRanges: [NodeRange!]!
+  values: [String!]!
+  "One entry per value of a relation field, in values order, with its resolved target. Empty for other fields."
+  links: [NodeFieldLink!]!
+  sectionNodes: [NodeRef!]!
+  capability: NodeFieldCapability!
+  issues: [NodeAssessmentIssue!]!
+}
+
+"One authored relation-field value. Unresolved or ambiguous values keep ref and title null."
+type NodeFieldLink {
+  value: String!
+  resolved: Boolean!
+  ref: NodeRef
+  title: String
+}
+
+"Authoritative schema and authoring metadata for one field on its owning node."
+type NodeFieldCapability {
+  ownerRef: NodeRef!
+  ownerType: String!
+  typeName: String!
+  valueKind: String!
+  list: Boolean!
+  required: Boolean!
+  enumValues: [String!]!
+  "Display label and tone for each enum value, in enumValues order."
+  enumOptions: [NodeFieldEnumOption!]!
+  targetType: String
+  sourceKind: String
+  valueOrigin: String!
+  identifier: Boolean!
+  preferredIdentifier: Boolean!
+  displayImportance: FieldDisplayImportance!
+  writeOperation: String
+  readOnlyReason: String
+}
+
+"One admitted enum value. label is the @view(label:) or the raw value; stage is its declared or inferred lifecycle stage."
+type NodeFieldEnumOption {
+  value: String!
+  label: String!
+  tone: String
+  stage: String
+}
+
+type NodeSourceRevision {
+  notePath: String!
+  contentFingerprint: String!
+  content: String!
+}
+
+type NodeCollectionState {
+  name: String!
+  kind: String!
+  status: NodeStatus!
+  range: NodeRange!
+  items: [NodeCollectionItem!]!
+  orderFingerprint: String
+}
+
+type NodeCollectionItem {
+  ref: NodeRef!
+  range: NodeRange!
+}
+
+type NodeCapabilities {
+  canEdit: Boolean!
+  canEditFields: Boolean!
+  canEditCollections: Boolean!
+  canNavigateChildren: Boolean!
+  canSubscribe: Boolean!
+}
+
+type NodeStatus {
+  dirty: Boolean!
+  validation: NodeValidationStatus!
+  freshness: NodeFreshnessStatus!
+  session: NodeSessionStatus!
+  hasWarnings: Boolean!
+}
+
+type NodeValidationStatus { issueCount: Int! }
+type NodeFreshnessStatus { state: String }
+type NodeSessionStatus { state: String }
+
+type NodeAssessment {
+  notePath: String!
+  declaredType: String
+  resolvedType: String
+  candidateTypes: [String!]!
+  issues: [NodeAssessmentIssue!]!
+  fields: [NodeFieldAssessment!]!
+  relations: [NodeRelationAssessment!]!
+}
+
+type NodeAssessmentIssue {
+  code: String
+  notePath: String
+  typeName: String
+  fieldName: String
+  nodeRef: String
+  nodeId: String
+  line: Int
+  message: String!
+}
+
+type NodeFieldAssessment {
+  name: String!
+  description: String
+  kind: String!
+  typeName: String!
+  required: Boolean!
+  list: Boolean!
+  source: String
+  sourceKind: String
+  present: Boolean!
+  values: [String!]!
+  validValues: [String!]!
+  issues: [NodeAssessmentIssue!]!
+}
+
+type NodeRelationAssessment {
+  name: String!
+  description: String
+  kind: String!
+  typeName: String!
+  required: Boolean!
+  list: Boolean!
+  source: String
+  sourceKind: String
+  direction: String
+  present: Boolean!
+  values: [String!]!
+  targets: [NodeRelationTarget!]!
+  issues: [NodeAssessmentIssue!]!
+}
+
+type NodeRelationTarget {
+  path: String!
+  typeName: String
+  provenance: String
+  structural: Boolean!
+}
+
+type NodeStructure {
+  ref: NodeRef!
+  parentRef: NodeRef
+  title: String!
+  level: String
+  content: String
+}
+
+type NodeRelationGroup {
+  key: String!
+  label: String!
+  ownerTitle: String
+  navigation: Boolean!
+  items: [NodeRelationItem!]!
+}
+
+type NodeRelationItem {
+  ref: NodeRef!
+  title: String!
+  targetTitle: String
+  resolvedType: String
+  relationName: String
+  provenance: String
+  structural: Boolean!
+  current: Boolean!
+}
+
+type NodeLoadedDomains {
+  rendered: Boolean!
+  assessment: Boolean!
+  structure: Boolean!
+  relations: Boolean!
+}
+
+enum ActionStatus {
+  open
+  blocked
+  done
+}
+
+input PropertyFilterInput {
+  name: String!
+  value: String!
+  source: PropertySource = ANY
+}
+
+enum FieldFilterOperator {
+  eq
+  in
+  exists
+  gt
+  gte
+  lt
+  lte
+  contains
+  neq
+}
+
+enum SortDirection {
+  asc
+  desc
+}
+
+"""For @link fields, eq/in test uniquely resolved target membership and exists tests presence. contains is for scalar text fields."""
+input FieldFilterInput {
+  field: String!
+  op: FieldFilterOperator = eq
+  value: String
+  values: [String!]
+}
+
+input SortInput {
+  field: String!
+  direction: SortDirection = asc
+}
+
+interface Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+}
+
+interface Note implements Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  summary: String
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+interface NoteNode implements Node & Note {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  content: String!
+  format: String!
+  sourceRepresentation: String!
+  evidenceRepresentation: String!
+  sourceCapabilities: [String!]!
+  frontmatter: JSON
+  tags: [String!]!
+  score: Float
+  linked(type: String, first: Int = 20): [NoteNode!]!
+  backlinked(type: String, first: Int = 20): [NoteNode!]!
+  connected(type: String, first: Int = 20): [NoteNode!]!
+  summary: String
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+"""
+Synthetic heading-derived section node.
+"""
+interface Section implements Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  id: ID!
+  notePath: String!
+  level: SectionLevel!
+  content: String!
+  children(first: Int = 20): [Section!]!
+}
+
+"""
+Fallback concrete type for untyped synthetic sections.
+"""
+type UntypedSection implements Node & Section {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  id: ID!
+  notePath: String!
+  level: SectionLevel!
+  content: String!
+  children(first: Int = 20): [Section!]!
+}
+
+type CodeFile implements Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  language: String
+  symbols(first: Int = 50): [CodeSymbol!]!
+}
+
+type CodeSymbol implements Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  language: String
+  symbol: String
+  fqn: String
+  signature: String
+  docComment: String
+}
+
+type Query {
+  node(ref: String!): Node
+  nodes(refs: [String!]!, first: Int = 50): NodeBatchResult!
+  note(path: String, ref: String): NoteNode
+  resolve(ref: String!): NodeRefResolution!
+  notes(type: String, find: String, property: PropertyFilterInput, semantic: [String!], first: Int = 20): NoteConnection!
+  search(query: [String!]!, type: String, first: Int = 20): NodeSearchResult!
+  validation(check: String, scopeKind: String = "global", scopeKey: String, firstIssues: Int = 100): ValidationState!
+  ontology: OntologyRuntime!
+  code: CodeRuntime!
+  actionItem(first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [ActionItem!]!
+  conversation(path: String, find: String, property: PropertyFilterInput, semantic: [String!], first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [Conversation!]!
+  decision(path: String, find: String, property: PropertyFilterInput, semantic: [String!], first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [Decision!]!
+  editableActionItem(first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [EditableActionItem!]!
+  meeting(path: String, find: String, property: PropertyFilterInput, semantic: [String!], first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [Meeting!]!
+  person(path: String, find: String, property: PropertyFilterInput, semantic: [String!], first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [Person!]!
+  project(path: String, find: String, property: PropertyFilterInput, semantic: [String!], first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [Project!]!
+  spec(path: String, find: String, property: PropertyFilterInput, semantic: [String!], first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [Spec!]!
+  team(path: String, find: String, property: PropertyFilterInput, semantic: [String!], first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [Team!]!
+  userStory(first: Int = 20, offset: Int = 0, filters: [FieldFilterInput!], sort: [SortInput!]): [UserStory!]!
+}
+
+type ActionItem implements Section & Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  id: ID!
+  notePath: String!
+  level: SectionLevel!
+  content: String!
+  children(first: Int = 20): [Section!]!
+  done: Boolean!
+  assignee: Person!
+  due: Date
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+type Conversation implements NoteNode & Node & Note {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  content: String!
+  format: String!
+  sourceRepresentation: String!
+  evidenceRepresentation: String!
+  sourceCapabilities: [String!]!
+  frontmatter: JSON
+  tags: [String!]!
+  score: Float
+  linked(type: String, first: Int = 20): [NoteNode!]!
+  backlinked(type: String, first: Int = 20): [NoteNode!]!
+  connected(type: String, first: Int = 20): [NoteNode!]!
+  actionItems: [ActionItem!]
+  summary: String
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+type Decision implements NoteNode & Node & Note {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  content: String!
+  format: String!
+  sourceRepresentation: String!
+  evidenceRepresentation: String!
+  sourceCapabilities: [String!]!
+  frontmatter: JSON
+  tags: [String!]!
+  score: Float
+  linked(type: String, first: Int = 20): [NoteNode!]!
+  backlinked(type: String, first: Int = 20): [NoteNode!]!
+  connected(type: String, first: Int = 20): [NoteNode!]!
+  name: String!
+  summary: String
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+type DetailsSection implements Section & Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  id: ID!
+  notePath: String!
+  level: SectionLevel!
+  content: String!
+  children(first: Int = 20): [Section!]!
+}
+
+type EditableActionItem implements Section & Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  id: ID!
+  notePath: String!
+  level: SectionLevel!
+  content: String!
+  children(first: Int = 20): [Section!]!
+  done: Boolean!
+  status: ActionStatus
+  assignedTo: Person
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+type Meeting implements NoteNode & Node & Note {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  content: String!
+  format: String!
+  sourceRepresentation: String!
+  evidenceRepresentation: String!
+  sourceCapabilities: [String!]!
+  frontmatter: JSON
+  tags: [String!]!
+  score: Float
+  linked(type: String, first: Int = 20): [NoteNode!]!
+  backlinked(type: String, first: Int = 20): [NoteNode!]!
+  connected(type: String, first: Int = 20): [NoteNode!]!
+  actionItems: [ActionItem!]
+  editableActionItems: [EditableActionItem!]
+  summary: String
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+type Person implements NoteNode & Node & Note {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  content: String!
+  format: String!
+  sourceRepresentation: String!
+  evidenceRepresentation: String!
+  sourceCapabilities: [String!]!
+  frontmatter: JSON
+  tags: [String!]!
+  score: Float
+  linked(type: String, first: Int = 20): [NoteNode!]!
+  backlinked(type: String, first: Int = 20): [NoteNode!]!
+  connected(type: String, first: Int = 20): [NoteNode!]!
+  name: String!
+  role: String
+  team: Team
+  projects: [Project!]
+  summary: String
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+type Project implements NoteNode & Node & Note {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  content: String!
+  format: String!
+  sourceRepresentation: String!
+  evidenceRepresentation: String!
+  sourceCapabilities: [String!]!
+  frontmatter: JSON
+  tags: [String!]!
+  score: Float
+  linked(type: String, first: Int = 20): [NoteNode!]!
+  backlinked(type: String, first: Int = 20): [NoteNode!]!
+  connected(type: String, first: Int = 20): [NoteNode!]!
+  name: String!
+  owner: Person!
+  decisionNotes: [Decision!]
+  decisions(first: Int): [Decision!]
+  summary: String
+  """
+  Count of the decisions relation.
+  """
+  decisionsCount: Int!
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+type RequirementsSection implements Section & Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  id: ID!
+  notePath: String!
+  level: SectionLevel!
+  content: String!
+  children(first: Int = 20): [Section!]!
+  details: DetailsSection!
+  decisions(first: Int): [Decision!]
+  """
+  Count of the decisions relation.
+  """
+  decisionsCount: Int!
+}
+
+type Spec implements NoteNode & Node & Note {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  content: String!
+  format: String!
+  sourceRepresentation: String!
+  evidenceRepresentation: String!
+  sourceCapabilities: [String!]!
+  frontmatter: JSON
+  tags: [String!]!
+  score: Float
+  linked(type: String, first: Int = 20): [NoteNode!]!
+  backlinked(type: String, first: Int = 20): [NoteNode!]!
+  connected(type: String, first: Int = 20): [NoteNode!]!
+  name: String!
+  requirements: RequirementsSection!
+  stories: StoriesSection
+  summary: String
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+type StoriesSection implements Section & Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  id: ID!
+  notePath: String!
+  level: SectionLevel!
+  content: String!
+  children(first: Int = 20): [Section!]!
+  stories: [UserStory!]
+}
+
+type Team implements NoteNode & Node & Note {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  content: String!
+  format: String!
+  sourceRepresentation: String!
+  evidenceRepresentation: String!
+  sourceCapabilities: [String!]!
+  frontmatter: JSON
+  tags: [String!]!
+  score: Float
+  linked(type: String, first: Int = 20): [NoteNode!]!
+  backlinked(type: String, first: Int = 20): [NoteNode!]!
+  connected(type: String, first: Int = 20): [NoteNode!]!
+  name: String!
+  members: [Person!]
+  summary: String
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+type UserStory implements Section & Node {
+  ref: NodeRef!
+  nodeId: String!
+  nodeKind: String!
+  path: String
+  title: String!
+  resolvedType: String
+  locator: NodeLocator!
+  workspace: NodeWorkspaceProjection
+  neighborhood(direction: TraversalDirection = OUTBOUND, relation: String, type: String, first: Int = 20): NodeNeighborhood!
+  localGraph(profile: GraphProfile = ONTOLOGY_NATIVE, nodeLimit: Int = 50, edgeLimit: Int = 100, includeCodeEdges: Boolean = false): LocalGraph!
+  id: ID!
+  notePath: String!
+  level: SectionLevel!
+  content: String!
+  children(first: Int = 20): [Section!]!
+  storyId: String
+  status: String
+  spec: Spec
+  """Indexed mtime of the source note file (RFC3339), or null without indexed metadata. Not the last commit: a fresh clone gives every file the same time. Interfaces declare it only when every implementor does."""
+  updatedAt: DateTime
+  """Published validation issues on the record's note, or on its node for an embedded record; 0 before validation publishes. Interfaces declare it only when every implementor does."""
+  issueCount: Int!
+}
+
+type RuntimeWarning {
+  code: String
+  message: String
+  path: String
+}
+
+enum IdentifierStrategy { SEQUENTIAL DATETIME }
+
+type IdentifierFormat {
+  strategy: IdentifierStrategy!
+  prefix: String
+  separator: String
+  pad: Int
+}
+
+type OntologyField {
+  name: String!
+  type: String!
+  kind: String
+  required: Boolean!
+  list: Boolean!
+  source: String
+  description: String
+  identifierFormat: IdentifierFormat
+  capability: OntologyFieldCapability!
+}
+
+type OntologyFieldCapability {
+  valueKind: String
+  filterOps: [String!]!
+  indexedFilterOps: [String!]!
+  residualFilterOps: [String!]!
+  sortable: Boolean!
+  groupable: Boolean!
+  targetType: String
+  enumName: String
+}
+
+type OntologyType {
+  name: String!
+  role: String!
+  description: String
+  paths: [String!]!
+  interfaces: [String!]!
+  fields: [OntologyField!]!
+}
+
+type OntologyAuthoringGuide {
+  type: String
+  markdown: String!
+  available: Boolean!
+  warnings: [RuntimeWarning!]!
+}
+
+type OntologyNextID {
+  type: String
+  identifierField: String
+  strategy: IdentifierStrategy
+  source: String
+  prefix: String
+  separator: String
+  pad: Int
+  next: String
+  ids: [String!]!
+  count: Int
+  last: String
+  currentMax: Int
+  currentMaxValue: String
+  currentMaxOwner: String
+  ownersScanned: Int
+  sharedWith: [String!]!
+  ownersMatched: [String!]!
+  ownersSkipped: [String!]!
+  notes: [String!]!
+  paths: [String!]!
+  allocations: [OntologyIDAllocation!]!
+  available: Boolean!
+  errorCode: String
+  error: String
+  warnings: [RuntimeWarning!]!
+}
+
+type OntologyIDAllocation {
+  path: String!
+  id: String!
+  base: String
+  disambiguator: Int
+}
+
+type OntologyCurrentUser {
+  configured: Boolean!
+  ref: String
+  found: Boolean!
+  resolvedRef: String
+  path: String
+  title: String
+  typeName: String
+  errorCode: String
+  error: String
+  warnings: [RuntimeWarning!]!
+}
+
+type OntologyQueryPlan {
+  type: String!
+  root: String!
+  execution: String!
+  projection: String!
+  first: Int!
+  pushedFilters: [String!]!
+  residualFilters: [String!]!
+  pushedSort: [String!]!
+  residualSort: [String!]!
+  warnings: [RuntimeWarning!]!
+}
+
+type OntologyRuntime {
+  schemaHash: String!
+  type(name: String!): OntologyType
+  types(first: Int = 50): [OntologyType!]!
+  authoringGuide(type: String!): OntologyAuthoringGuide!
+  nextId(type: String!, count: Int = 1, paths: [String!] = []): OntologyNextID!
+  currentUser: OntologyCurrentUser!
+  queryPlan(type: String!, first: Int = 20, filters: [FieldFilterInput!], sort: [SortInput!], select: [String!]): OntologyQueryPlan!
+}
+
+type RuntimePath {
+  path: String!
+  title: String
+  kind: String
+  reason: String
+  snippet: String
+  content: String
+  line: Int
+  truncated: Boolean!
+}
+
+type CodeContextPack {
+  inputPath: String
+  normalizedPath: String
+  available: Boolean!
+  warnings: [RuntimeWarning!]!
+  docs: [RuntimePath!]!
+  notes: [RuntimePath!]!
+  code: [RuntimePath!]!
+  tests: [RuntimePath!]!
+}
+
+type CodeRuntime {
+  docsForCode(path: String!, first: Int = 20): CodeContextPack!
+  codeForNote(path: String!, first: Int = 20): CodeContextPack!
+  testsForCode(path: String!, first: Int = 20): CodeContextPack!
+}

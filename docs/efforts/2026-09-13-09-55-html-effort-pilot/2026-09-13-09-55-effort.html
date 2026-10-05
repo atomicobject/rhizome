@@ -1,0 +1,139 @@
+<!doctype html>
+<!--
+THESIS: A small effort overview makes the plan and execution history easy to find.
+OWN-WORLD: Inherit Rhizome's restrained workbench palette, serif document title,
+teal links, flat document rows, and system body typography.
+STORY: Drew understands the proposal, reads the visual plan, and gives feedback.
+FIRST VIEWPORT: Effort identity and pilot state, concise purpose, then plan and log links.
+FORM: Read-mode document overview with a narrow contents rail; directly shaped from
+the requested three-document format, without a separate visual-world exercise.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML efforts and connected materials</title>
+  <link rel="stylesheet" href="effort.css">
+  <script id="rhizome-metadata" type="application/json">
+  {
+    "type": "EffortWorkspace",
+    "id": "EFF-2026-09-13-09-55",
+    "aliases": ["EFF-2026-09-13-09-55"],
+    "title": "HTML efforts and connected materials",
+    "name": "HTML efforts and connected materials",
+    "summary": "Dogfood the shared effort contract with an HTML overview, visual implementation plan, and separate Markdown work log; complete lifecycle and creation-cost verification.",
+    "created-at": "2026-09-13T13:55:12Z",
+    "status": "active",
+    "tags": ["effort-pilot", "agentic-engineering"],
+    "implementation-plan": "docs/efforts/2026-09-13-09-55-html-effort-pilot/plan.html",
+    "work-log": "docs/efforts/2026-09-13-09-55-html-effort-pilot/work-log.md",
+    "materials": [],
+    "governing-specs": [
+      "docs/specs/product/multi-format-html-notes.md",
+      "docs/specs/technical/format-aware-root-ontology-projection.md",
+      "docs/specs/technical/format-aware-note-maintenance-mutations.md"
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar"><div>
+    <a class="brand" href="#main">Rhizome / effort pilot</a>
+    <nav aria-label="Effort documents">
+      <a href="2026-09-13-09-55-effort.html" aria-current="page">Overview</a>
+      <a href="plan.html">Implementation plan</a>
+      <a href="work-log.md">Work log</a>
+    </nav>
+  </div></header>
+  <main id="main">
+    <div class="meta"><span class="mono">EFF-2026-09-13-09-55</span><span class="state">Pilot active</span><span>September 13, 2026</span></div>
+    <h1>HTML efforts and connected materials</h1>
+    <p class="lead">Try an effort that has room for the work: a concise overview, a visual implementation plan, and a separate execution history.</p>
+    <p class="muted">Current step: finish the <a href="plan.html#implementation-status">r5 integrated verification and creation-cost gates</a>. Drew Colthorp authorized implementation on September 13, 2026, after current-user validation. Implementation is in progress.</p>
+    <div class="layout">
+      <div class="body">
+        <section id="documents" aria-labelledby="documents-title">
+          <h2 id="documents-title">Start with the plan</h2>
+          <a class="document-link" href="plan.html">
+            <span class="file-label">HTML</span><span><strong>Implementation plan</strong><span>Authorized plan r5, implemented slices, and remaining verification.</span></span><span class="arrow" aria-hidden="true">→</span>
+          </a>
+          <a class="document-link" href="work-log.md">
+            <span class="file-label">MD</span><span><strong>Work log</strong><span>Decisions, observations, validation evidence, and the next resume point.</span></span><span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </section>
+        <section id="scope" aria-labelledby="scope-title">
+          <h2 id="scope-title">Shipped support and remaining pilot work</h2>
+          <div class="scope-grid">
+            <div><h3>Shipped support</h3><ul>
+              <li>Use Markdown <code>EffortNote</code> or HTML <code>EffortWorkspace</code> through the shared <code>Effort</code> interface.</li>
+              <li>Link a workspace plan, Markdown work log, and selected supporting materials explicitly.</li>
+              <li>Read both forms through lifecycle recipes and collect their release evidence.</li>
+              <li>Create either form from reusable starter assets while preserving historical efforts.</li>
+            </ul></div>
+            <div><h3>Remaining pilot gates</h3><ul>
+              <li>Complete approval, revision, resume, and closure evidence for both forms.</li>
+              <li>Verify report navigation and reconcile acceptance evidence.</li>
+              <li>Measure creation cost for one Markdown and two folder runs from the same brief.</li>
+              <li>Resolve or classify outstanding integrated validation and second-init findings.</li>
+            </ul></div>
+          </div>
+          <p>Both forms are supported choices for new work. This active pilot uses the folder form under authorized plan r5. The <a href="../../specs/technical/effort-representation-contract.md">effort representation contract</a> records the implemented behavior; the <a href="work-log.md#execution-notes">latest execution history</a> records verification and unresolved gates.</p>
+        </section>
+        <section id="structure" aria-labelledby="structure-title">
+          <h2 id="structure-title">One effort, separate documents</h2>
+          <figure class="flow">
+            <div class="flow-owner"><strong>Effort overview</strong><span class="muted">Identity · scope · status · outcome · explicit links</span></div>
+            <div class="flow-children">
+              <div><a href="plan.html"><strong>Implementation plan ↗</strong></a><p>HTML for diagrams, batches, and implementation detail.</p></div>
+              <div><a href="work-log.md"><strong>Work log ↗</strong></a><p>Markdown for append-only, timestamped history.</p></div>
+            </div>
+            <figcaption>These are authored relationships in the current pilot. Supporting reports and prototypes can be added as the work produces them.</figcaption>
+          </figure>
+          <p>Each document owns its content. The overview links to the plan and log instead of copying them. The plan and log both link back here.</p>
+          <p>Component membership comes only from authored <code>implementation-plan</code>, <code>work-log</code>, and <code>materials</code> metadata. <code>EffortMaterial</code> classification does not attach neighboring files to this effort. Optional folder discovery remains future work; frozen scope and plan approval stay explicit.</p>
+        </section>
+        <section id="feedback" aria-labelledby="feedback-title">
+          <h2 id="feedback-title">What to look for while using it</h2>
+          <ol>
+            <li><strong>Finding your place.</strong> Can you quickly tell what this effort is doing and where the details live?</li>
+            <li><strong>Understanding the plan.</strong> Which diagram, table, or batch helps? Where does the presentation get in your way?</li>
+            <li><strong>The document split.</strong> Does moving the log and plan out make the overview useful, or add too much navigation?</li>
+            <li><strong>Missing context.</strong> What would you need to resume this work tomorrow without reconstructing the conversation?</li>
+          </ol>
+          <p>Give feedback in the conversation, using a section name or batch number. We will append the observation and its disposition to the work log, then revise the relevant document.</p>
+        </section>
+        <section id="outcome" aria-labelledby="outcome-title">
+          <h2 id="outcome-title">Intended outcome and closure</h2>
+          <p>The pilot should establish whether the supported document split works through a complete effort lifecycle and whether its creation cost is justified. Adoption feedback and remaining verification must be recorded before closure.</p>
+          <p><strong>Delivered so far:</strong> the pilot documents, shared effort contract, HTML viewer improvements, lifecycle context, templates and guidance, and release evidence support. See <a href="plan.html#implementation-status">r5 implementation status</a> for remaining gates. Verification evidence is recorded in the <a href="work-log.md#verification">work log</a>.</p>
+          <ul>
+            <li>Pilot opens and its explicit links resolve.</li>
+            <li>Drew's feedback is recorded and addressed or carried forward.</li>
+            <li>A decision to adopt, revise, or stop the experiment is recorded.</li>
+            <li>Implementation of the plan was explicitly authorized by Drew Colthorp on September 13, 2026; material scope changes still require a decision.</li>
+          </ul>
+          <p class="muted">The effort remains active while the format is being tried. Creating this artifact does not complete the product work.</p>
+        </section>
+        <section id="constraints" aria-labelledby="constraints-title">
+          <h2 id="constraints-title">Existing constraints</h2>
+          <ul>
+            <li><a href="../../specs/product/multi-format-html-notes.md">Multi-format HTML notes</a>: canonical files, static indexing, note ownership, and explicit filenames.</li>
+            <li><a href="../../specs/technical/format-aware-root-ontology-projection.md">Format-aware root ontology projection</a>: HTML metadata and typed root links, with no structural HTML sections today.</li>
+            <li><a href="../../specs/technical/format-aware-note-maintenance-mutations.md">Format-aware note maintenance</a>: source preservation and supported mutation boundaries.</li>
+            <li><a href="../../reference/guides/html-notes.md">Current HTML guide</a>: the shipped viewer and editing limitations.</li>
+          </ul>
+          <details><summary>Pilot implementation notes</summary>
+            <p>This overview uses the shared <code>EffortWorkspace</code> type; its plan and log use <code>EffortMaterial</code>. The shared schema in <code>.rhizome/ontology/spec-driven.graphql</code> replaces the original exact-path experiment. <code>Effort</code> queries cover both workspace and Markdown effort identities.</p>
+            <p>The timestamped overview filename follows the workspace selector and DATETIME allocation contract. Allocation targets the concrete effort type; both forms share the EFF identifier pool.</p>
+            <p>Shared lifecycle recipes read workspace component references and the linked Markdown log sections, while retaining inline Markdown effort evidence. Release collection reads canonical HTML metadata and its explicit work-log link from the same Git snapshot, grouping changed explicitly linked components under the owning entry. Consumption does not imply approval or completion; this pilot remains active.</p>
+            <p>The starter supports HTML effort files and reusable folder assets. CSS remains a supporting asset. The overview owns identity and frozen scope; complete plan and log source reads remain necessary to assess approval, delivery, and closure evidence.</p>
+          </details>
+        </section>
+        <footer>Effort overview · <a href="plan.html#implementation-status">Plan r5 · Implementation in progress</a> · <a href="work-log.md">Execution history</a></footer>
+      </div>
+      <aside><nav aria-label="On this page"><strong>On this page</strong><a href="#documents">Documents</a><a href="#scope">Scope</a><a href="#structure">Document structure</a><a href="#feedback">Give feedback</a><a href="#outcome">Outcome and closure</a><a href="#constraints">Existing constraints</a></nav></aside>
+    </div>
+  </main>
+</body>
+</html>

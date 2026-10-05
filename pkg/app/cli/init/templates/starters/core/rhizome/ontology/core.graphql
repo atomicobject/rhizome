@@ -1,0 +1,7 @@
+"""
+Canonical human identity shared by Rhizome starters.
+"""
+type Person @node(paths: ["people/**/*.md", "docs/people/**/*.md"]) @display(singular: "Person", plural: "People", group: "People") {
+  displayName: String! @field(source: "display-name")
+  aliases: [String!] @display(importance: DETAIL) @field(source: "aliases")
+}

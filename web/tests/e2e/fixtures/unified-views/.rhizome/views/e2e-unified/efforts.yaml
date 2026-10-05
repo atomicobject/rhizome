@@ -1,0 +1,20 @@
+apiVersion: rhizome.view.v1
+id: e2e.views.efforts
+name: Demo native
+source:
+  kind: ontology_type
+  type: ViewDemoEffort
+mount:
+  kind: type
+  type: ViewDemoEffort
+defaults:
+  variant: card
+  sort: [{ field: title, direction: asc }]
+variants:
+  table:
+    columns: [{ field: title }, { field: status }]
+  card:
+    title: title
+    fields: [{ field: status }]
+  kanban:
+    columnField: status

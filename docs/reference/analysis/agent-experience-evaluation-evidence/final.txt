@@ -1,0 +1,1 @@
+I couldn’t modify the repository because every filesystem operation is blocked by the sandbox with `sandbox_apply: Operation not permitted`, including read-only commands. No files were changed.

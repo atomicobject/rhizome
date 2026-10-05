@@ -1,0 +1,91 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+    - ineffassign
+    - unused
+  settings:
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+      exclude-functions:
+        # fmt print functions - errors are typically not actionable
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Print
+        - fmt.Printf
+        - fmt.Println
+        # io operations in defer - errors can't be handled
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (io.ReadCloser).Close
+        - (*http.Response.Body).Close
+        - (*sql.Rows).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.DB).Close
+        - (*database/sql.Tx).Rollback
+        # hash write operations - never fail for in-memory hashes
+        - io.WriteString
+        - io.ReadAll
+        - (hash.Hash).Write
+        # pflag operations - failures are programming errors, not runtime
+        - (*github.com/spf13/pflag.FlagSet).MarkHidden
+        - (*github.com/spf13/pflag.FlagSet).MarkDeprecated
+        # test cleanup - errors can't be meaningfully handled
+        - os.RemoveAll
+        - os.Remove
+        - os.Chdir
+        - os.Mkdir
+        - os.ReadFile
+        # filesystem utilities - best-effort operations
+        - filepath.WalkDir
+        - filepath.Rel
+        - filepath.Abs
+        - filepath.EvalSymlinks
+        # glob matching - second return is error but often not needed
+        - (github.com/bmatcuk/doublestar/v4).Match
+        # watcher operations
+        - (*github.com/fsnotify/fsnotify.Watcher).Add
+        - (*github.com/fsnotify/fsnotify.Watcher).Close
+        # cache/store close operations - typically in defer
+        - (*github.com/atomicobject/rhizome/pkg/cache.Service).Close
+        - (*github.com/atomicobject/rhizome/pkg/embeddings/sqlite.Store).Close
+        # frontmatter extraction - second return is error
+        - (github.com/atomicobject/rhizome/pkg/obsidian).ExtractFrontmatter
+        # http response writes - errors get logged elsewhere
+        - (net/http.ResponseWriter).Write
+        # database pragmas - best-effort configuration
+        - (*database/sql.DB).Exec
+    staticcheck:
+      checks:
+        - all
+        - "-ST1000"  # package comments - too noisy for existing codebase
+        - "-ST1003"  # naming convention (Uri -> URI, Url -> URL) - would break existing API
+        - "-ST1005"  # error strings should not be capitalized - existing API
+        - "-ST1021"  # comment format on exported types - too prescriptive
+    revive:
+      rules:
+        # Disable exported comment requirements - too noisy for existing codebase
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+        - name: blank-imports
+          disabled: true
+        - name: unused-parameter
+          disabled: true
+
+issues:
+  exclude-rules:
+    # Exclude errcheck in test files for common patterns
+    - path: _test\.go
+      linters:
+        - errcheck

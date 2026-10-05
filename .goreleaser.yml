@@ -1,0 +1,118 @@
+version: 2
+
+before:
+  hooks:
+    - ./scripts/vendor/ensure_tree_sitter_sources.sh
+    - make web-build
+    - python3 ./scripts/release/build_installer.py --output-dir .tmp/goreleaser-extra
+
+builds:
+  # macOS builds - native (run on macOS runner)
+  - id: rzm-darwin
+    binary: rzm
+    hooks:
+      post:
+        - python3 scripts/teamkeys/release.py --check-artifact "{{ .Path }}"
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=1
+    flags:
+      - -mod=vendor
+      - -tags=fts5
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/atomicobject/rhizome/pkg/vault/version.Version={{.Version}}
+      - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
+
+  # Linux builds - cross-compiled with zig
+  - id: rzm-linux
+    binary: rzm
+    hooks:
+      post:
+        - python3 scripts/teamkeys/release.py --check-artifact "{{ .Path }}"
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=1
+    flags:
+      - -mod=vendor
+      - -tags=fts5
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/atomicobject/rhizome/pkg/vault/version.Version={{.Version}}
+      - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
+    overrides:
+      - goos: linux
+        goarch: amd64
+        env:
+          - CGO_ENABLED=1
+          - CC=zig cc -target x86_64-linux-gnu
+          - CXX=zig c++ -target x86_64-linux-gnu
+      - goos: linux
+        goarch: arm64
+        env:
+          - CGO_ENABLED=1
+          - CC=zig cc -target aarch64-linux-gnu
+          - CXX=zig c++ -target aarch64-linux-gnu
+
+  # Windows amd64 - cross-compiled with mingw-w64
+  - id: rzm-windows-amd64
+    binary: rzm
+    hooks:
+      post:
+        - python3 scripts/teamkeys/release.py --check-artifact "{{ .Path }}"
+    goos:
+      - windows
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-w64-mingw32-gcc
+      - CXX=x86_64-w64-mingw32-g++
+    flags:
+      - -mod=vendor
+      - -tags=fts5
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/atomicobject/rhizome/pkg/vault/version.Version={{.Version}}
+      - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
+
+release:
+  target_commitish: "{{ .Commit }}"
+  prerelease: auto
+  extra_files:
+    - glob: .tmp/goreleaser-extra/install-rzm.sh
+    - glob: .tmp/goreleaser-extra/install-rzm.sh.sha256
+
+archives:
+  - formats: [tar.gz]
+    name_template: "rhizome-{{ .Os }}-{{ .Arch }}"
+    files:
+      - LICENSE
+      - THIRD_PARTY_LICENSES.md
+      - licenses/**
+
+brews:
+  - name: rhizome
+    homepage: https://github.com/atomicobject/rhizome
+    repository:
+      owner: atomicobject
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.BREW_GITHUB_TOKEN }}"
+    # commit_author:
+    #   name: your-name
+    #   email: your-email@atomicobject.com
+
+checksum:
+  name_template: "checksums.txt"

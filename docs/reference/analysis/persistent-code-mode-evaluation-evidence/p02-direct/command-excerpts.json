@@ -1,0 +1,100 @@
+[
+  {
+    "command": "/bin/zsh -c \"sed -n '1,240p' .agents/skills/agentic-engineering/SKILL.md && sed -n '241,520p' .agents/skills/agentic-engineering/SKILL.md && printf '\\\\n--- RHIZOME SKILL ---\\\\n' && sed -n '1,260p' .agents/skills/rhizome/SKILL.md && sed -n '261,620p' .agents/skills/rhizome/SKILL.md\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"printf '%s\\\\n' '--- files ---' && rg --files -g '\"'!*.lock'\"' | sed -n '1,160p' && printf '%s\\\\n' '--- git status ---' && git status --short --branch && printf '%s\\\\n' '--- workflow state reference ---' && sed -n '1,280p' .agents/skills/agentic-engineering/references/workflow-state.md && printf '%s\\\\n' '--- implementation reference ---' && sed -n '1,320p' .agents/skills/agentic-engineering/references/implementation.md && printf '%s\\\\n' '--- quality gates reference ---' && sed -n '1,320p' .agents/skills/agentic-engineering/references/quality-gates.md && printf '%s\\\\n' '--- reconciliation reference ---' && sed -n '1,320p' .agents/skills/agentic-engineering/references/reconciliation.md\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"printf '%s\\\\n' '--- effort ---' && sed -n '1,360p' docs/efforts/2026-09-07-12-00-retry-limit.md && printf '%s\\\\n' '--- spec ---' && sed -n '1,300p' docs/specs/retry-limit.md && printf '%s\\\\n' '--- source ---' && nl -ba src/retry.py && printf '%s\\\\n' '--- tests ---' && nl -ba tests/test_retry.py && printf '%s\\\\n' '--- engineering README ---' && sed -n '1,240p' docs/engineering/README.md && printf '%s\\\\n' '--- testing policy ---' && sed -n '1,260p' docs/engineering/testing-policy.md && printf '%s\\\\n' '--- quality gates policy ---' && sed -n '1,260p' docs/engineering/quality-gates.md && printf '%s\\\\n' '--- documentation policy ---' && sed -n '1,260p' docs/engineering/documentation.md && printf '%s\\\\n' '--- architecture policy ---' && sed -n '1,240p' docs/engineering/architecture.md && printf '%s\\\\n' '--- launcher ---' && sed -n '1,240p' scripts/rzm\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c './scripts/rzm query-recipe run --id effort-execution-context; ./scripts/rzm query-recipe run --id runtime-code-evidence-pack; ./scripts/rzm query-recipe run --id closure-drift-pack'",
+    "command_truncated": false,
+    "exit_code": 1,
+    "failure_output_excerpt": "comparison between frozen intent, plan approval, execution evidence, actual delivery, deviations, checklist, and current effort status.\",\"rules\":[\"Keep actual-delivery and deviations content visible so closure does not rely on plan text alone.\",\"Keep frozen spec identity and story scope content visible for backport decisions.\",\"Keep effort status and status-section content visible for closeout gating.\"]},\"examples\":[{\"name\":\"Saved-query-recipes closure\",\"inputs\":{\"path\":\"docs/efforts/2026-04-30-13-31-saved-query-recipes.md\"}}],\"tags\":[\"spec-driven\",\"closure\",\"drift\"],\"source\":{\"path\":\"<EXECUTION_P02-DIRECT>/.rhizome/query-recipes/spec-driven.yaml\",\"line\":1,\"block\":\"document-6\"}}],\"issues\":[{\"code\":\"missing_required_input\",\"message\":\"input path is required\",\"recipe\":\"closure-drift-pack\",\"path\":\"<EXECUTION_P02-DIRECT>/.rhizome/query-recipes/spec-driven.yaml\",\"line\":1,\"field\":\"inputSpec.path\"}]}\nUsage:\n  rzm query-recipe run [flags]\n\nFlags:\n      --anchor stringArray   anchor input value (repeatable)\n  -h, --help                 help for run\n      --id string            recipe id to run\n      --input stringArray    named input as key=value (repeatable)\n      --inputs-file string   path to JSON object of named recipe inputs\n      --inputs-json string   JSON object of named recipe inputs\n      --path string          recipe markdown/yaml file or directory (defaults to shared recipe registries)\n      --summary              after the JSON envelope, write a human-readable summary footer to stderr\n\nGlobal Flags:\n      --no-pager       disable paging (when stdout is a TTY)\n  -v, --vault string   vault name (uses default if unset)\n\n",
+    "status": "failed"
+  },
+  {
+    "command": "/bin/zsh -c './scripts/rzm query-recipe run --id effort-execution-context --input path=docs/efforts/2026-09-07-12-00-retry-limit.md; ./scripts/rzm query-recipe run --id runtime-code-evidence-pack --input path=src/retry.py; ./scripts/rzm query-recipe run --id closure-drift-pack --input path=docs/efforts/2026-09-07-12-00-retry-limit.md'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'python3 -m unittest discover -s tests'",
+    "command_truncated": false,
+    "exit_code": 1,
+    "failure_output_excerpt": "..F.\n======================================================================\nFAIL: test_stops_at_limit (test_retry.RetryLimitTests.test_stops_at_limit)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<EXECUTION_P02-DIRECT>/tests/test_retry.py\", line 12, in test_stops_at_limit\n    self.assertFalse(should_retry(3, max_attempts=3))\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: True is not false\n\n----------------------------------------------------------------------\nRan 4 tests in 0.000s\n\nFAILED (failures=1)\n",
+    "status": "failed"
+  },
+  {
+    "command": "/bin/zsh -c \"python3 -m unittest discover -s tests; printf '\\\\n--- diff ---\\\\n'; git diff -- src/retry.py tests/test_retry.py; printf '\\\\n--- status ---\\\\n'; git status --short\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"printf '%s\\\\n' '--- closure reference ---' && sed -n '1,360p' .agents/skills/agentic-engineering/references/closure.md && printf '%s\\\\n' '--- closure report contract ---' && sed -n '1,360p' .agents/skills/agentic-engineering/references/closure-report-contract.md && printf '%s\\\\n' '--- structured markdown reference ---' && sed -n '1,360p' .agents/skills/rhizome/references/structured-markdown.md && printf '%s\\\\n' '--- validation reference ---' && sed -n '1,340p' .agents/skills/rhizome/references/validation-and-repair.md && printf '%s\\\\n' '--- note help ---' && ./scripts/rzm note --help && printf '%s\\\\n' '--- top help relevant ---' && ./scripts/rzm --help\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"./scripts/rzm agent --help; printf '\\\\n--- ontology inspect help ---\\\\n'; ./scripts/rzm agent ontology-inspect --help; printf '\\\\n--- ontology authoring help ---\\\\n'; ./scripts/rzm agent ontology-authoring-guide --help; printf '\\\\n--- note info ---\\\\n'; ./scripts/rzm note info docs/efforts/2026-09-07-12-00-retry-limit.md; printf '\\\\n--- ontology inspect effort ---\\\\n'; ./scripts/rzm agent ontology-inspect --input docs/efforts/2026-09-07-12-00-retry-limit.md\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c './scripts/rzm agent ontology-authoring-guide --type EffortNote'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"printf '%s\\\\n' '--- alignment reference ---' && sed -n '1,360p' .agents/skills/agentic-engineering/references/alignment.md && printf '%s\\\\n' '--- review/approval ---' && sed -n '1,280p' docs/engineering/review-and-approval.md && printf '%s\\\\n' '--- release ---' && sed -n '1,260p' docs/engineering/release.md && printf '%s\\\\n' '--- validate list ---' && ./scripts/rzm validate list && printf '%s\\\\n' '--- validate help ---' && ./scripts/rzm validate --help && printf '%s\\\\n' '--- ontology help ---' && ./scripts/rzm ontology --help\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"date -u '+%Y-%m-%dT%H:%MZ'\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"nl -ba CONTEXT.md | sed -n '1,260p'\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'python3 -m unittest discover -s tests; ./scripts/rzm validate ontology; ./scripts/rzm validate identifiers; ./scripts/rzm validate broken-links; ./scripts/rzm validate frozen-scope-drift; git diff --check; git status --short'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"./scripts/rzm query-recipe run --id closure-drift-pack --input path=docs/efforts/2026-09-07-12-00-retry-limit.md; ./scripts/rzm ontology inspect --input docs/efforts/2026-09-07-12-00-retry-limit.md; ./scripts/rzm validate all; printf '\\\\n--- final diff stat ---\\\\n'; git diff --stat; printf '\\\\n--- final diff ---\\\\n'; git diff -- docs/efforts/2026-09-07-12-00-retry-limit.md src/retry.py\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c './scripts/rzm ontology inspect docs/efforts/2026-09-07-12-00-retry-limit.md; ./scripts/rzm validate frozen-scope-drift; git status --short --branch'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  }
+]

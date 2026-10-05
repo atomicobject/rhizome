@@ -1,0 +1,311 @@
+/* Markdown editing surfaces: narrative blocks, whole-file source, Mermaid.
+   Atomic Editor reads its theme from --atomic-editor-* custom properties; every
+   one it consumes is mapped here so its dark defaults never reach a light
+   surface. */
+
+.body-narrative--editor {
+  display: grid;
+  gap: var(--sp-3);
+  margin: var(--sp-3) 0;
+}
+
+/* The editor already reserves a transparent 1px border. Recoloring that
+   existing border marks a changed block without moving the document. */
+.body-narrative--editor.is-dirty .cm-editor {
+  background: color-mix(in srgb, var(--warning-soft) 70%, var(--surface) 30%);
+}
+
+.body-narrative--editor.is-dirty .cm-editor:not(.cm-focused) {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+}
+
+.ontology-source-editor,
+.body-narrative--empty-editor {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.ontology-source-editor > label,
+.body-narrative--empty-editor > label {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ontology-source-editor > small {
+  color: var(--text-muted);
+}
+
+.ontology-source-editor__warning {
+  border-left: 1px solid var(--warning-ink);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+.body-narrative--empty-editor textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 150px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  padding: var(--sp-4);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  resize: vertical;
+  tab-size: 2;
+}
+
+.body-narrative--empty-editor textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.markdown-editor {
+  width: 100%;
+}
+
+.markdown-editor--atomic {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  --atomic-editor-font: var(--font-sans);
+  --atomic-editor-font-mono: var(--font-mono);
+  --atomic-editor-body-size: 14px;
+  --atomic-editor-body-leading: 1.65;
+  --atomic-editor-measure: none;
+  --atomic-editor-radius: var(--radius, 6px);
+  --atomic-editor-fg: var(--text);
+  --atomic-editor-fg-muted: var(--text-muted);
+  --atomic-editor-fg-faint: var(--text-faint);
+  --atomic-editor-bg: var(--surface);
+  --atomic-editor-bg-panel: var(--surface);
+  --atomic-editor-bg-surface: var(--surface-alt);
+  --atomic-editor-border: var(--border);
+  --atomic-editor-accent: var(--accent);
+  --atomic-editor-accent-bright: var(--accent);
+  --atomic-editor-accent-soft: var(--accent-soft);
+  --atomic-editor-selection-bg: color-mix(in srgb, var(--accent) 18%, transparent);
+  --atomic-editor-search-bg: var(--warning-soft);
+  --atomic-editor-search-bg-active: color-mix(in srgb, var(--warning) 55%, transparent);
+  --atomic-editor-initial-reveal-bg: var(--warning-soft);
+  --atomic-editor-initial-reveal-bg-strong: color-mix(in srgb, var(--warning) 45%, transparent);
+  --atomic-editor-link: var(--link);
+  --atomic-editor-link-hover: var(--link);
+  --atomic-editor-code-bg: var(--surface-sunk);
+  --atomic-editor-code-rail: var(--border);
+  --atomic-editor-hl-keyword: #cf222e;
+  --atomic-editor-hl-string: #0a3069;
+  --atomic-editor-hl-number: #0550ae;
+  --atomic-editor-hl-comment: #6e7781;
+  --atomic-editor-hl-type: #953800;
+  --atomic-editor-hl-function: #8250df;
+  --atomic-editor-hl-property: #0550ae;
+  --atomic-editor-hl-regexp: #116329;
+  --atomic-editor-hl-escape: #0550ae;
+  --atomic-editor-hl-tag: #116329;
+  --atomic-editor-hl-variable: #24292f;
+  --atomic-editor-hl-operator: #cf222e;
+  --atomic-editor-hl-invalid: #82071e;
+}
+
+.markdown-editor--atomic .atomic-cm-editor,
+.markdown-editor--atomic .cm-editor,
+.markdown-editor--atomic .cm-scroller {
+  height: auto;
+  max-height: none;
+}
+
+/* The editor is the document, not a form field: no box at rest, a hairline on
+   hover, and the shared input focus ring only while focused. */
+.markdown-editor--atomic .cm-editor {
+  min-height: 2.5rem;
+  margin: 0 calc(-1 * var(--sp-3));
+  padding: 0 var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius, 6px);
+  background: var(--surface);
+  transition:
+    border-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.markdown-editor--atomic .cm-editor:hover {
+  border-color: var(--border);
+}
+
+/* A read-only document offers nothing on hover; only keyboard focus draws
+   the ring so the caret's home stays findable. */
+.markdown-editor--readonly .cm-editor,
+.markdown-editor--readonly .cm-editor:hover {
+  border-color: transparent;
+}
+
+.markdown-editor--readonly .cm-editor.cm-focused {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.ontology-source-view {
+  min-width: 0;
+}
+
+.markdown-editor--atomic .cm-editor.cm-focused {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.markdown-editor--atomic .cm-scroller {
+  min-height: 2.5rem;
+  overflow: visible;
+}
+
+.markdown-editor--atomic .cm-content {
+  padding: var(--sp-2) 0 var(--sp-3);
+}
+
+/* Atomic tints inline code with its link color; here code is evidence, not a
+   link, so it keeps body ink on the sunk code background like read mode. */
+.markdown-editor--atomic .cm-atomic-inline-code,
+.markdown-editor--atomic .cm-atomic-inline-code * {
+  color: var(--text);
+}
+
+.markdown-editor--atomic .cm-tooltip.cm-tooltip-autocomplete {
+  max-width: 480px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 6px);
+  background: var(--surface);
+  box-shadow:
+    0 1px 3px rgba(42, 39, 36, 0.08),
+    0 2px 6px rgba(42, 39, 36, 0.04);
+  overflow: hidden;
+}
+
+.markdown-editor--atomic .cm-tooltip.cm-tooltip-autocomplete > ul {
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+}
+
+.markdown-editor--atomic .cm-tooltip.cm-tooltip-autocomplete > ul > li {
+  padding: 4px var(--sp-3);
+  color: var(--text);
+}
+
+.markdown-editor--atomic .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.markdown-editor--atomic .cm-tooltip.cm-tooltip-autocomplete .cm-completionDetail {
+  margin-left: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-style: normal;
+  color: var(--text-faint);
+}
+
+.mermaid-block {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  margin: var(--sp-5) 0;
+  overflow-x: auto;
+  color: var(--text);
+  text-align: center;
+}
+
+.mermaid-block svg {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.mermaid-block--loading {
+  min-height: 3rem;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.mermaid-block--error {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border: 1px solid var(--accent-line);
+  background: var(--surface-alt);
+  color: var(--text);
+  text-align: left;
+}
+
+.mermaid-block--error pre {
+  max-width: 100%;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.mermaid-block--error p {
+  margin: 0;
+  color: var(--accent-ink);
+  font-size: var(--fs-sm);
+}
+
+/* In the editor the diagram is a control: hovering or focusing it names the
+   only action it has, and the caret lands in the fence on activation. */
+.mermaid-block--editor {
+  position: relative;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: var(--radius, 6px);
+  transition: border-color 120ms ease-out;
+}
+
+.mermaid-block--editor:hover,
+.mermaid-block--editor:focus-visible {
+  border-color: var(--border);
+  outline: none;
+}
+
+.mermaid-block--editor:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.mermaid-block--editor::after {
+  content: "Edit source";
+  position: absolute;
+  top: var(--sp-2);
+  right: var(--sp-2);
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 4px);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  pointer-events: none;
+}
+
+.mermaid-block--editor:hover::after,
+.mermaid-block--editor:focus-visible::after,
+.mermaid-block--editor.mermaid-block--error::after {
+  opacity: 1;
+}

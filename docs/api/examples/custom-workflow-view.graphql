@@ -1,0 +1,120 @@
+query CustomWorkflowView($type: String! = "EffortNote") {
+  work: notes(type: $type, first: 25) {
+    pageInfo {
+      returnedCount
+      truncated
+      maxFirst
+    }
+    warnings {
+      code
+      message
+    }
+    nodes {
+      ref {
+        kind
+        path
+      }
+      path
+      title
+      ... on EffortNote {
+        summary
+        status
+        currentBlocker
+        auditStatus
+        backportStatus
+        compoundStatus
+      }
+      ... on ProductSpec {
+        summary
+        status
+        stories {
+          path
+          title
+          status
+          summary
+        }
+      }
+    }
+  }
+  refs: nodes(refs: ["docs/efforts/2026-05-02-22-33-public-api-foundation.md"]) {
+    items {
+      requestedRef
+      node {
+        nodeKind
+        title
+      }
+      error {
+        code
+        message
+      }
+    }
+  }
+  triage: validation(firstIssues: 10) {
+    ok
+    issueCount
+    checks {
+      name
+      issueCount
+      issues {
+        code
+        path
+        message
+      }
+    }
+  }
+  relatedSearch: search(query: "public API validation", type: $type, first: 10) {
+    mode
+    warnings {
+      code
+      message
+    }
+    nodes {
+      title
+      score
+    }
+  }
+  ontology {
+    nextId(type: "Spec") {
+      available
+      next
+    }
+  }
+  selected: node(ref: "docs/efforts/2026-05-02-22-33-public-api-foundation.md") {
+    nodeKind
+    path
+    title
+    neighborhood(first: 10) {
+      edges {
+        target {
+          kind
+          notePath
+          fragment
+          typeName
+        }
+        relation
+        structural
+      }
+      truncated
+    }
+    localGraph(nodeLimit: 40, edgeLimit: 80) {
+      nodes {
+        id
+        nodeKind
+        title
+        typeName
+        sourceLocator
+      }
+      edges {
+        source
+        target
+        kind
+        relation
+        structural
+      }
+      truncated
+    }
+    ... on Note {
+      resolvedType
+    }
+  }
+}

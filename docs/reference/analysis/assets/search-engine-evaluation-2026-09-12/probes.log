@@ -1,0 +1,19 @@
+=== RUN   TestEvaluationMergeIdenticalEvidence
+    search_evaluation_probe_test.go:14: original=0.600 merged-identical=0.930
+    search_evaluation_probe_test.go:15: repeating identical evidence changes score
+--- FAIL: TestEvaluationMergeIdenticalEvidence (0.00s)
+=== RUN   TestEvaluationFusionFallbackConfig
+    search_evaluation_probe_test.go:22: expected lexical=0.123 maxPerOwner=3; actual lexical=0.800 maxPerOwner=1
+    search_evaluation_probe_test.go:23: fusion decorator loses fallback configuration
+--- FAIL: TestEvaluationFusionFallbackConfig (0.00s)
+FAIL
+FAIL	github.com/atomicobject/rhizome/pkg/search	0.307s
+=== RUN   TestEvaluationScoreOrder
+    search_evaluation_probe_test.go:15: a-weak.md: 1.000
+    search_evaluation_probe_test.go:15: b-weak.md: 0.975
+    search_evaluation_probe_test.go:15: z-relevant.md: 0.950
+    search_evaluation_probe_test.go:16: strongest result was displaced by clipping and path sorting
+--- FAIL: TestEvaluationScoreOrder (0.00s)
+FAIL
+FAIL	github.com/atomicobject/rhizome/pkg/app/mcp	0.331s
+FAIL

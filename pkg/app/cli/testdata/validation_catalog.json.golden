@@ -1,0 +1,52 @@
+{
+  "checks": [
+    {
+      "name": "broken-links",
+      "description": "broken internal note, heading, and block targets",
+      "category": "links",
+      "suites": [
+        "default",
+        "all"
+      ],
+      "applicability": "always",
+      "projectionDomains": [
+        "validation"
+      ],
+      "executionSurfaces": [
+        "local",
+        "ci",
+        "agent"
+      ],
+      "prerequisiteMode": "auto_managed",
+      "missingPrerequisiteOutcome": "blocked",
+      "remediation": {
+        "kind": "plan",
+        "command": "rzm validate fix broken-links"
+      }
+    },
+    {
+      "name": "code-anchors",
+      "description": "code anchor matches",
+      "category": "code",
+      "suites": [
+        "all"
+      ],
+      "applicability": "code_anchor_roots_configured",
+      "projectionDomains": [
+        "validation",
+        "code"
+      ],
+      "executionSurfaces": [
+        "local",
+        "agent"
+      ],
+      "prerequisiteMode": "external_persisted",
+      "missingPrerequisiteOutcome": "blocked",
+      "preparationCommand": "rzm index",
+      "remediation": {
+        "kind": "plan",
+        "command": "rzm validate fix code-anchors"
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+apiVersion: rhizome.view.v1
+id: poc.delivery-radar
+name: Delivery Radar
+description: Proof-of-concept custom view. Efforts by status beside the spec pipeline.
+source:
+  kind: custom
+  entry: delivery-radar.tsx
+mount:
+  kind: standalone
+  group: Custom
+  order: 20

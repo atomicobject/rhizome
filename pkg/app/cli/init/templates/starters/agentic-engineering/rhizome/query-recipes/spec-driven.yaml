@@ -1,0 +1,964 @@
+apiVersion: rhizome.query-recipe.v1
+id: note-by-path
+name: Note by path
+problem: Load one known note and its immediate note neighborhood before reshaping prose, frontmatter, links, or typed structure.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative note path.
+query:
+  graphQL: |
+    query NoteByPath($path: String!) {
+      note(path: $path) {
+        path
+        title
+        frontmatter
+        linked(first: 20) {
+          path
+          title
+        }
+        backlinked(first: 20) {
+          path
+          title
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - note.path
+    - note.frontmatter
+    - note.linked.path
+    - note.backlinked.path
+  empty: The note path did not resolve; confirm the vault-relative path before editing.
+  partial: Use the returned neighborhood and call out missing linked or backlinked notes before widening.
+  highVolume: Keep the first page and ask before widening the neighborhood.
+adaptationGuidance:
+  summary: Keep this packet centered on one known note path and its immediate linked/backlinked context.
+  rules:
+    - Use this before ad hoc note-neighborhood GraphQL when the target note path is already known.
+    - Preserve path, title, frontmatter, linked, and backlinked fields in the result.
+tags:
+  - notes
+  - neighborhood
+---
+apiVersion: rhizome.query-recipe.v1
+id: effort-execution-context
+name: Effort execution context
+problem: Load the active effort's frozen scope, plan approval, execution plan, delivery truth, deviations, and closure checklist before planning, implementing, auditing, backporting, or compounding.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative Markdown effort note or HTML effort workspace entry path.
+query:
+  graphQL: |
+    query EffortExecutionContext($path: String!) {
+      note(path: $path) {
+        path
+        title
+        ref { ref notePath typeName }
+        ... on Effort {
+          id
+          name
+          status
+          summary
+          planApprovedBy
+        }
+        ... on EffortNote {
+          scope {
+            content
+          }
+          specSetFrozen {
+            content
+            frozenSpecs {
+              id
+              summary
+              specStatus
+              lastUpdated
+              ... on TechnicalSpec { path title }
+              ... on ProductSpec { path title }
+              ... on ProcessSpec { path title }
+              ... on ExperienceSpec { path title }
+              ... on OperationsSpec { path title }
+            }
+          }
+          storiesInScopeFrozen {
+            content
+          }
+          specCoverageChecklist {
+            content
+          }
+          plan {
+            content
+          }
+          originalIntendedDelivery {
+            content
+          }
+          actualDelivered {
+            content
+          }
+          executionNotes {
+            content
+          }
+          deviations {
+            content
+          }
+          closureChecklist {
+            content
+          }
+          compoundingFollowUps {
+            content
+          }
+          statusSection {
+            content
+          }
+        }
+        ... on EffortWorkspace {
+          implementationPlan { path title ref { ref notePath typeName } }
+          workLog {
+            path title ref { ref notePath typeName }
+            specSetFrozen { content }
+            storiesInScopeFrozen { content }
+            planApproval { content }
+            originalIntendedDelivery { content }
+            actualDelivered { content }
+            deviations { content }
+            closureChecklist { content }
+            statusSection { content }
+            executionNotes { content }
+          }
+          materials { path title ref { ref notePath typeName } }
+          governingSpecs {
+            id summary specStatus lastUpdated
+            ... on NoteNode { path title ref { ref notePath typeName } }
+          }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - note.path
+    - note.specSetFrozen.frozenSpecs.path
+    - note.closureChecklist.content
+    - note.ref.ref
+    - note.implementationPlan.path
+    - note.workLog.path
+    - note.workLog.planApproval.content
+    - note.workLog.actualDelivered.content
+    - note.workLog.closureChecklist.content
+    - note.materials.path
+    - note.governingSpecs.path
+  empty: The effort path did not resolve; confirm the current effort before making scope or closure decisions.
+  partial: A blank planApprovedBy means no approval is recorded on the effort, not that approval is missing. Policy accepts explicit approval in chat and requires recording it only when a current user is configured, so reconcile the metadata with the actual authorization in the conversation before asking again, and ask only when neither exists. Expected paths are form-dependent; Markdown efforts return inline sections, while workspaces return explicit component and governing-spec links with source references. Work-log lifecycle sections are explicit snapshots, not substitutes for source reads. Read the workspace entry source and linked plan, log, and materials before interpreting frozen scope or closure evidence. Compare the frozen snapshots with the entry and require an exact approved plan revision; report disagreements rather than choosing authority silently. Missing components, unresolved links, or empty delivery evidence must be reported; absence does not authorize execution or closure. A resolved non-effort note is the wrong anchor.
+  highVolume: Keep this anchored to one effort. Do not broaden to every effort unless doing a process audit.
+adaptationGuidance:
+  summary: Preserve one-effort anchored loading of frozen scope, plan approval, plan, delivery truth, execution notes, deviations, closure checklist, and current status.
+  rules:
+    - Preserve both concrete effort forms under the single note(path) anchor and use ref.typeName to interpret the returned fields.
+    - Keep workspace component paths, titles, and source references. Read only explicitly linked components; never infer membership from directory proximity or substitute inline Markdown sections for unread HTML sources.
+    - Component links use canonical vault-relative paths. Preserve missing or partial evidence explicitly and fetch sources by the returned paths before lifecycle decisions.
+    - Keep `path` as the primary input so phase skills can load a known effort without discovery.
+    - Preserve frozen spec identity, closure checklist, and status evidence even if section field names evolve.
+    - If effort lifecycle fields move, adapt the query to keep audit/backport/compound/status evidence visible.
+examples:
+  - name: Saved-query-recipes effort
+    inputs:
+      path: docs/efforts/2026-04-30-13-31-saved-query-recipes.md
+tags:
+  - spec-driven
+  - effort
+  - phase-context
+---
+apiVersion: rhizome.query-recipe.v1
+id: frozen-spec-index-pack
+name: Frozen spec index pack
+problem: Load a compact index-first view of one frozen spec so agents can decide which requirements, stories, criteria, references, or prior efforts need deeper fetching.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative spec note path.
+query:
+  graphQL: |
+    query FrozenSpecIndexPack($path: String!) {
+      note(path: $path) {
+        path
+        title
+        linked(type: "ReferenceDoc", first: 20) {
+          path
+          title
+        }
+        backlinked(type: "Effort", first: 20) {
+          path
+          title
+        }
+        ... on TechnicalSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          requirements {
+            references { path title summary referenceKind }
+          }
+          technicalStories: userStories {
+            stories {
+              id
+              title
+              summary
+              status
+              increment
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                content
+              }
+            }
+          }
+        }
+        ... on ProductSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          requirements {
+            references { path title summary referenceKind }
+          }
+          productStories: userStories {
+            stories {
+              id
+              title
+              summary
+              status
+              increment
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                content
+              }
+            }
+          }
+        }
+        ... on ProcessSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          requirements {
+            references { path title summary referenceKind }
+          }
+        }
+        ... on ExperienceSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          requirements {
+            references { path title summary referenceKind }
+          }
+          experienceStories: userStories {
+            stories {
+              id
+              title
+              summary
+              status
+              increment
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                content
+              }
+            }
+          }
+        }
+        ... on OperationsSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          requirements {
+            references { path title summary referenceKind }
+          }
+          operationsStories: userStories {
+            stories {
+              id
+              title
+              summary
+              status
+              increment
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                content
+              }
+            }
+          }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - note.path
+    - note.linked.path
+    - note.backlinked.path
+    - note.technicalStories.stories.acceptanceCriteria.content
+    - note.productStories.stories.acceptanceCriteria.content
+    - note.experienceStories.stories.acceptanceCriteria.content
+    - note.operationsStories.stories.acceptanceCriteria.content
+  empty: The spec path did not resolve; confirm the frozen spec path before planning or auditing against it.
+  partial: Process specs may not have user stories. Use returned paths, summaries, ids, statuses, references, and acceptance criteria content to decide whether to run the detail pack or fetch full files. The inbound effort list is capped at 20 and includes closed efforts, so it is for reading only; after editing the spec, list affected efforts with `validate frozen-scope-drift` and the Deviations search described in the specification reference.
+  highVolume: Prefer this index pack before the detail pack when an effort has several frozen specs.
+adaptationGuidance:
+  summary: Preserve compact index-first loading of one governing spec without full section content.
+  rules:
+    - Keep path, id, title, summary, status, and lastUpdated for spec identity.
+    - Keep story ids, statuses, acceptance criteria content, and reference paths for targeted follow-up.
+    - Keep reference, decision, and inbound effort summaries so agents can choose deeper context intentionally.
+examples:
+  - name: Saved-query-recipes spec index
+    inputs:
+      path: docs/specs/technical/saved-query-recipes.md
+tags:
+  - spec-driven
+  - spec
+  - phase-context
+  - index-first
+---
+apiVersion: rhizome.query-recipe.v1
+id: frozen-spec-detail-pack
+name: Frozen spec detail pack
+problem: Load full governing spec section content after the frozen spec index shows that this spec needs deeper reading for planning, implementation, audit, or backport.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative spec note path.
+query:
+  graphQL: |
+    query FrozenSpecDetailPack($path: String!) {
+      note(path: $path) {
+        path
+        title
+        frontmatter
+        linked(type: "ReferenceDoc", first: 20) {
+          path
+          title
+        }
+        backlinked(type: "Effort", first: 20) {
+          path
+          title
+        }
+        ... on TechnicalSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          summarySection { content }
+          goals { content }
+          nonGoals { content }
+          requirements {
+            content
+            references { path title summary referenceKind }
+          }
+          technicalStories: userStories {
+            stories {
+              id
+              title
+              summary
+              status
+              increment
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                content
+              }
+            }
+          }
+          openQuestions { content }
+        }
+        ... on ProductSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          summarySection { content }
+          goals { content }
+          nonGoals { content }
+          requirements {
+            content
+            references { path title summary referenceKind }
+          }
+          productStories: userStories {
+            stories {
+              id
+              title
+              summary
+              status
+              increment
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                content
+              }
+            }
+          }
+          openQuestions { content }
+        }
+        ... on ProcessSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          summarySection { content }
+          goals { content }
+          nonGoals { content }
+          requirements {
+            content
+            references { path title summary referenceKind }
+          }
+          openQuestions { content }
+        }
+        ... on ExperienceSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          summarySection { content }
+          goals { content }
+          nonGoals { content }
+          requirements {
+            content
+            references { path title summary referenceKind }
+          }
+          experienceStories: userStories {
+            stories {
+              id
+              title
+              summary
+              status
+              increment
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                content
+              }
+            }
+          }
+          openQuestions { content }
+        }
+        ... on OperationsSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          summarySection { content }
+          goals { content }
+          nonGoals { content }
+          requirements {
+            content
+            references { path title summary referenceKind }
+          }
+          operationsStories: userStories {
+            stories {
+              id
+              title
+              summary
+              status
+              increment
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                content
+              }
+            }
+          }
+          openQuestions { content }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - note.path
+    - note.linked.path
+    - note.backlinked.path
+    - note.technicalStories.stories.references.path
+    - note.productStories.stories.references.path
+    - note.experienceStories.stories.references.path
+    - note.operationsStories.stories.references.path
+  empty: The spec path did not resolve; confirm the frozen spec path before planning or auditing against it.
+  partial: Process specs may not have user stories. For story-bearing specs, missing stories or criteria means the effort should not assume acceptance coverage.
+  highVolume: Prefer `frozen-spec-index-pack` first when there are several frozen specs; run this detail pack only for specs whose full section content is needed.
+adaptationGuidance:
+  summary: Preserve anchored deep loading of one governing spec's requirements, stories, criteria, references, and inbound efforts.
+  rules:
+    - Keep generic `note(path:)` plus concrete spec fragments so the recipe works across spec families.
+    - Preserve story ids, titles, statuses, references, and acceptance criteria content for story-bearing specs.
+    - Preserve linked references and backlinked efforts so planning can detect prior art and ownership.
+examples:
+  - name: Saved-query-recipes spec
+    inputs:
+      path: docs/specs/technical/saved-query-recipes.md
+tags:
+  - spec-driven
+  - spec
+  - phase-context
+---
+apiVersion: rhizome.query-recipe.v1
+id: story-acceptance-pack
+name: Story acceptance pack
+problem: Load the story and acceptance-criterion scope for a spec so effort creation, planning, implementation, and audits freeze exact story ids and acceptance criteria content.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative story-bearing spec note path.
+query:
+  graphQL: |
+    query StoryAcceptancePack($path: String!) {
+      note(path: $path) {
+        path
+        title
+        ... on TechnicalSpec {
+          id
+          summary
+          specStatus
+          technicalStories: userStories {
+            stories {
+              id
+              locator { wikilink requiresFix linkTarget { blockId } }
+              title
+              summary
+              status
+              increment
+              efforts { id status ... on NoteNode { path title } }
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                id
+                content
+                criteria {
+                  summary
+                  verification
+                  locator { wikilink requiresFix linkTarget { blockId } }
+                }
+              }
+            }
+          }
+        }
+        ... on ProductSpec {
+          id
+          summary
+          specStatus
+          productStories: userStories {
+            stories {
+              id
+              locator { wikilink requiresFix linkTarget { blockId } }
+              title
+              summary
+              status
+              increment
+              efforts { id status ... on NoteNode { path title } }
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                id
+                content
+                criteria {
+                  summary
+                  verification
+                  locator { wikilink requiresFix linkTarget { blockId } }
+                }
+              }
+            }
+          }
+        }
+        ... on ExperienceSpec {
+          id
+          summary
+          specStatus
+          experienceStories: userStories {
+            stories {
+              id
+              locator { wikilink requiresFix linkTarget { blockId } }
+              title
+              summary
+              status
+              increment
+              efforts { id status ... on NoteNode { path title } }
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                id
+                content
+                criteria {
+                  summary
+                  verification
+                  locator { wikilink requiresFix linkTarget { blockId } }
+                }
+              }
+            }
+          }
+        }
+        ... on OperationsSpec {
+          id
+          summary
+          specStatus
+          operationsStories: userStories {
+            stories {
+              id
+              locator { wikilink requiresFix linkTarget { blockId } }
+              title
+              summary
+              status
+              increment
+              efforts { id status ... on NoteNode { path title } }
+              references { path title summary referenceKind }
+              acceptanceCriteria {
+                id
+                content
+                criteria {
+                  summary
+                  verification
+                  locator { wikilink requiresFix linkTarget { blockId } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - note.path
+    - note.technicalStories.stories.efforts.path
+    - note.technicalStories.stories.locator.wikilink
+    - note.technicalStories.stories.acceptanceCriteria.criteria.locator.wikilink
+    - note.productStories.stories.efforts.path
+    - note.productStories.stories.locator.wikilink
+    - note.productStories.stories.acceptanceCriteria.criteria.locator.wikilink
+    - note.experienceStories.stories.efforts.path
+    - note.experienceStories.stories.locator.wikilink
+    - note.experienceStories.stories.acceptanceCriteria.criteria.locator.wikilink
+    - note.operationsStories.stories.efforts.path
+    - note.operationsStories.stories.locator.wikilink
+    - note.operationsStories.stories.acceptanceCriteria.criteria.locator.wikilink
+    - note.technicalStories.stories.references.path
+    - note.productStories.stories.references.path
+    - note.experienceStories.stories.references.path
+    - note.operationsStories.stories.references.path
+  empty: The spec path did not resolve or the spec family does not carry embedded user stories.
+  partial: "Only stories with `status: ready` should be selected for ordinary execution efforts unless the effort is explicitly story-shaping work."
+  highVolume: Do not widen beyond one spec during effort creation; freeze explicit story ids, acceptance criteria content, and durable link locators.
+adaptationGuidance:
+  summary: Preserve ready story, acceptance criterion, locator, reference, decision, and prior effort visibility for story selection, implementation linking, and audit.
+  rules:
+    - Keep story ids, status, increment, acceptance criteria content, and locator fields in the result. Select an individual criterion through its `criteria` entry; the section-level result is context, not a criterion link.
+    - Use `locator.wikilink` or `locator.linkTarget` for code/doc links only when `requiresFix` is false. A planned locator does not exist yet and must never be persisted as a citation. When `requiresFix` is true, inspect the repair with `rzm agent node-link --ensure plan`; if source mutation is authorized, apply it through a write-capable Rhizome surface, rerun this recipe, and cite only the returned durable link. Otherwise cite the nearest durable parent and record the missing precise target as follow-up.
+    - Keep prior effort links so agents avoid reselecting stale or already-closed scope blindly.
+    - If story families move out of spec notes, adapt this recipe to the new story root while keeping exact story ids, acceptance criteria content, and locator metadata.
+examples:
+  - name: Saved-query-recipes stories
+    inputs:
+      path: docs/specs/technical/saved-query-recipes.md
+tags:
+  - spec-driven
+  - stories
+  - acceptance-criteria
+---
+apiVersion: rhizome.query-recipe.v1
+id: closure-drift-pack
+name: Closure drift pack
+problem: Load effort delivery truth, frozen scope, deviations, checklist, and closure fields so audit, backport, and compound compare actual work against frozen intent.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative Markdown effort note or HTML effort workspace entry path.
+query:
+  graphQL: |
+    query ClosureDriftPack($path: String!) {
+      note(path: $path) {
+        path
+        title
+        ref { ref notePath typeName }
+        ... on Effort {
+          id
+          planApprovedBy
+          status
+          summary
+        }
+        ... on EffortNote {
+          specSetFrozen {
+            content
+            frozenSpecs {
+              id
+              summary
+              specStatus
+              lastUpdated
+              ... on TechnicalSpec { path title }
+              ... on ProductSpec { path title }
+              ... on ProcessSpec { path title }
+              ... on ExperienceSpec { path title }
+              ... on OperationsSpec { path title }
+            }
+          }
+          storiesInScopeFrozen {
+            content
+          }
+          specCoverageChecklist {
+            content
+          }
+          originalIntendedDelivery {
+            content
+          }
+          actualDelivered {
+            content
+          }
+          deviations {
+            content
+          }
+          plan {
+            content
+          }
+          executionNotes {
+            content
+          }
+          closureChecklist {
+            content
+          }
+          compoundingFollowUps {
+            content
+          }
+          statusSection {
+            content
+          }
+        }
+        ... on EffortWorkspace {
+          implementationPlan { path title ref { ref notePath typeName } }
+          workLog {
+            path title ref { ref notePath typeName }
+            specSetFrozen { content }
+            storiesInScopeFrozen { content }
+            planApproval { content }
+            originalIntendedDelivery { content }
+            actualDelivered { content }
+            deviations { content }
+            closureChecklist { content }
+            statusSection { content }
+            executionNotes { content }
+          }
+          materials { path title ref { ref notePath typeName } }
+          governingSpecs {
+            id summary specStatus lastUpdated
+            ... on NoteNode { path title ref { ref notePath typeName } }
+          }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - note.path
+    - note.specSetFrozen.frozenSpecs.path
+    - note.closureChecklist.content
+    - note.ref.ref
+    - note.implementationPlan.path
+    - note.workLog.path
+    - note.workLog.planApproval.content
+    - note.workLog.actualDelivered.content
+    - note.workLog.closureChecklist.content
+    - note.materials.path
+    - note.governingSpecs.path
+  empty: The effort path did not resolve; do not audit or close until the owning effort is known.
+  partial: A blank planApprovedBy means no approval is recorded on the effort, not that approval is missing. Policy accepts explicit approval in chat and requires recording it only when a current user is configured, so reconcile the metadata with the actual authorization in the conversation before asking again, and ask only when neither exists. Expected paths are form-dependent; Markdown efforts return inline sections, while workspaces return explicit component and governing-spec links with source references. Work-log lifecycle sections are explicit snapshots, not substitutes for source reads. Read the workspace entry source and linked plan, log, and materials before interpreting frozen scope or closure evidence. Compare the frozen snapshots with the entry and require an exact approved plan revision; report disagreements rather than choosing authority silently. Missing components, unresolved links, or empty delivery evidence must be reported; absence does not authorize execution or closure. A resolved non-effort note is the wrong anchor.
+  highVolume: Keep this anchored to one effort during closure; use broader effort queries only for process audits.
+adaptationGuidance:
+  summary: Preserve closure comparison between frozen intent, plan approval, execution evidence, actual delivery, deviations, checklist, and current effort status.
+  rules:
+    - Preserve both concrete effort forms under the single note(path) anchor and use ref.typeName to interpret the returned fields.
+    - Keep workspace component paths, titles, and source references. Read only explicitly linked components; never infer membership from directory proximity or substitute inline Markdown sections for unread HTML sources.
+    - Component links use canonical vault-relative paths. Preserve missing or partial evidence explicitly and fetch sources by the returned paths before lifecycle decisions.
+    - Keep actual-delivery and deviations content visible so closure does not rely on plan text alone.
+    - Keep frozen spec identity and story scope content visible for backport decisions.
+    - Keep effort status and status-section content visible for closeout gating.
+examples:
+  - name: Saved-query-recipes closure
+    inputs:
+      path: docs/efforts/2026-04-30-13-31-saved-query-recipes.md
+tags:
+  - spec-driven
+  - closure
+  - drift
+---
+apiVersion: rhizome.query-recipe.v1
+id: runtime-code-evidence-pack
+name: Runtime code evidence pack
+problem: Load code-adjacent docs, linked notes, and tests through GraphQL before planning or implementation.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative code path.
+query:
+  graphQL: |
+    query RuntimeCodeEvidence($path: String!) {
+      code {
+        docsForCode(path: $path, first: 12) {
+          available
+          normalizedPath
+          docs { path kind truncated }
+          notes { path title kind line snippet }
+          warnings { code message path }
+        }
+        testsForCode(path: $path, first: 12) {
+          available
+          normalizedPath
+          tests { path kind reason }
+          warnings { code message path }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - code.docsForCode.available
+    - code.testsForCode.available
+  empty: The code runtime did not resolve; fall back to file-context and targeted semantic-query modes.
+  partial: Missing code anchors, code index, or tests should be surfaced through warnings rather than silently widening.
+  highVolume: Keep first limits small; ask for a narrower code path before broadening.
+adaptationGuidance:
+  summary: Preserve bounded code/doc/test evidence loading and explicit unavailable warnings.
+  rules:
+    - Keep normalizedPath and warnings visible for path-boundary debugging.
+    - Keep docs, notes, and tests buckets separate so skills can choose the right follow-up.
+tags:
+  - spec-driven
+  - runtime
+  - code
+---
+apiVersion: rhizome.query-recipe.v1
+id: runtime-note-code-evidence-pack
+name: Runtime note-to-code evidence pack
+problem: Load code paths anchored from a note through GraphQL before editing a code-linked spec, decision, reference, or code-anchor note.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative note path.
+query:
+  graphQL: |
+    query RuntimeNoteCodeEvidence($path: String!) {
+      code {
+        codeForNote(path: $path, first: 20) {
+          available
+          normalizedPath
+          code { path kind reason }
+          warnings { code message path }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - code.codeForNote.available
+    - code.codeForNote.code.path
+  empty: The note path did not resolve to code anchors; fall back to file-context from known code paths or semantic-query discovery.
+  partial: Missing code anchors should be surfaced through warnings rather than silently widening to unrelated code.
+  highVolume: Keep this anchored to one note. Broaden only after inspecting the returned code paths.
+adaptationGuidance:
+  summary: Preserve bounded note-to-code evidence loading for code-linked typed notes and anchor notes.
+  rules:
+    - Keep normalizedPath and warnings visible for note path-boundary debugging.
+    - Keep code paths separate from docsForCode results so skills can decide whether they are starting from a note or from code.
+tags:
+  - spec-driven
+  - runtime
+  - code
+  - notes
+---
+apiVersion: rhizome.query-recipe.v1
+id: topic-typed-survey
+name: Topic typed survey
+problem: Survey one typed ontology slice for one or more topics and return ranked note candidates with scores before an agent drafts specs or triages reference context.
+inputSpec:
+  mode: none
+  inputs:
+    - name: topics
+      required: true
+      kind: list
+      description: One or more topic/search phrases to union across the typed slice.
+    - name: type
+      required: false
+      kind: string
+      description: Ontology type or interface to survey, such as SpecLike, FeatureArea, or ReferenceDoc.
+    - name: first
+      required: false
+      kind: int
+      description: Maximum ranked typed nodes to return; default 50.
+query:
+  graphQL: |
+    query TopicTypedSurvey($topics: [String!]!, $type: String = "SpecLike", $first: Int = 50) {
+      notes(type: $type, semantic: $topics, first: $first) {
+        nodes {
+          path
+          title
+          score
+          ... on SpecLike {
+            id
+            summary
+            specStatus
+            lastUpdated
+          }
+          ... on ReferenceDoc {
+            summary
+            referenceKind
+            referenceStatus: status
+            lastVerified
+          }
+          ... on FeatureArea {
+            featureAreaId: id
+            summary
+            owner
+          }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - notes.nodes.path
+    - notes.nodes.title
+    - notes.nodes.score
+    - notes.nodes.summary
+  empty: No typed nodes matched the supplied topics; try a broader type/interface or fall back to semantic-query for mixed code and note chunks.
+  partial: Scores are ranking evidence, not proof of relevance. Inspect the top candidates before freezing scope or deciding no related contract exists.
+  highVolume: Raise `first` only when the typed corpus has outgrown the default page; prefer adding another focused topic over widening to all notes.
+adaptationGuidance:
+  summary: Preserve typed-slice, multi-topic semantic survey with score, path, title, and thin typed projections.
+  rules:
+    - "Keep `semantic: $topics` on a typed `notes(type: $type, ...)` root so execution uses the typed survey path."
+    - Keep `score` visible so agents can triage borderline candidates without rerunning chunk search.
+    - Preserve SpecLike, FeatureArea, and ReferenceDoc projections for the spec-driven prior-art workflow.
+examples:
+  - name: Related specs for a feature topic
+    inputs:
+      type: SpecLike
+      topics: typed semantic survey; query recipe prior art
+  - name: Architecture reference and rationale
+    inputs:
+      type: ReferenceDoc
+      topics: semantic retrieval ranking
+tags:
+  - spec-driven
+  - semantic
+  - ontology
+  - survey

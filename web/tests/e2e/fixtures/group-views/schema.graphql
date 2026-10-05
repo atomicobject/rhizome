@@ -1,0 +1,72 @@
+enum GvStage {
+  backlog @view(label: "Backlog", order: 10, stage: "open")
+  doing @view(label: "Doing", order: 20, stage: "active")
+  blocked @view(label: "Blocked", order: 30, tone: "warning", stage: "active")
+  done @view(label: "Done", order: 90, stage: "done")
+}
+
+interface GvWork @display(singular: "Work item", plural: "Work items", group: "E2E Planning") {
+  title: String!
+  stage: GvStage @display(importance: KEY)
+  area: GvArea @link
+  owner: GvContact @link
+}
+
+type GvStory implements GvWork
+  @display(singular: "Story", plural: "Stories")
+  @node(paths: ["notes/group-views/work/story-*.md"]) {
+  title: String!
+  stage: GvStage @display(importance: KEY)
+  area: GvArea @link
+  owner: GvContact @link
+}
+
+type GvBug implements GvWork
+  @display(singular: "Bug", plural: "Bugs")
+  @node(paths: ["notes/group-views/work/bug-*.md"]) {
+  title: String!
+  stage: GvStage @display(importance: KEY)
+  area: GvArea @link
+  owner: GvContact @link
+  severity: String!
+}
+
+enum GvHealth {
+  steady @view(label: "Steady")
+  strained @view(label: "Strained", tone: "risk")
+}
+
+type GvArea
+  @display(singular: "Area", plural: "Areas", group: "E2E Planning")
+  @node(paths: ["notes/group-views/areas/*.md"]) {
+  title: String!
+  parent: GvArea @display(role: PARENT) @link
+  lead: String @display(importance: KEY)
+  health: GvHealth
+}
+
+type GvRelease
+  @display(singular: "Release", plural: "Releases", group: "E2E Planning")
+  @node(paths: ["notes/group-views/releases/*.md"]) {
+  title: String!
+  items: [GvWork!] @link
+}
+
+type GvContact
+  @display(singular: "Contact", plural: "Contacts", group: "E2E Contacts")
+  @node(paths: ["notes/group-views/contacts/*.md"]) {
+  title: String!
+  watching: [GvWork!] @link
+}
+
+type GvBook
+  @display(singular: "Book", plural: "Books", group: "E2E Library")
+  @node(paths: ["notes/group-views/library/book-*.md"]) {
+  title: String!
+}
+
+type GvArticle
+  @display(singular: "Article", plural: "Articles", group: "E2E Library")
+  @node(paths: ["notes/group-views/library/article-*.md"]) {
+  title: String!
+}

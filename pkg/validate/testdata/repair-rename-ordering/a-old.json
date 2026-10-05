@@ -1,0 +1,92 @@
+{
+  "manifest": {
+    "version": 1,
+    "transactionId": "transaction:v1:67699adc09c14e776f11bc6a90f98d4d6954e2bd738f7cef095ea7fc3ff35621",
+    "planFingerprint": "plan:v2:686c378525d4ed45df19ef7f5d2ed05e1209526f43160ffcaf1f1f39d79ba813",
+    "createdAt": "2026-10-04T06:35:50.701164Z",
+    "operationIds": [
+      "legacy-link",
+      "legacy-move"
+    ],
+    "actionIds": [
+      "legacy-rename"
+    ],
+    "issueKeys": [
+      "legacy-issue"
+    ],
+    "changed": [
+      "m-link.md",
+      "z-new.md"
+    ],
+    "renamed": [
+      {
+        "from": "a-old.md",
+        "to": "z-new.md"
+      }
+    ],
+    "checks": [
+      "ontology"
+    ],
+    "ownedArtifacts": [
+      "${VAULT_ROOT}/a-old.md.rzm-repair-7eeed93b7e3c-000.backup",
+      "${VAULT_ROOT}/m-link.md.rzm-repair-7eeed93b7e3c-001.backup",
+      "${VAULT_ROOT}/m-link.md.rzm-repair-7eeed93b7e3c-001.stage",
+      "${VAULT_ROOT}/z-new.md.rzm-repair-7eeed93b7e3c-002.stage"
+    ],
+    "entries": [
+      {
+        "path": "a-old.md",
+        "originalPath": "a-old.md",
+        "originalExists": true,
+        "originalMode": 416,
+        "originalHash": "sha256:b8ba0fea8820a5096318ec1bc5977ed6bc5ee03cd8c2c370130a6f1e0f7b0764",
+        "finalExists": false,
+        "finalMode": 416,
+        "backupPath": "${VAULT_ROOT}/a-old.md.rzm-repair-7eeed93b7e3c-000.backup"
+      },
+      {
+        "path": "m-link.md",
+        "originalPath": "m-link.md",
+        "originalExists": true,
+        "originalMode": 384,
+        "originalHash": "sha256:a2a10ad12b5f527a83612b221602c6b294e1f4d661fd9f6a4c070778dbec91b8",
+        "finalExists": true,
+        "finalMode": 384,
+        "finalHash": "sha256:96654004becc0650bb55da7b2cce10397720059ccdbe7890a5a0d0578389783f",
+        "backupPath": "${VAULT_ROOT}/m-link.md.rzm-repair-7eeed93b7e3c-001.backup",
+        "stagePath": "${VAULT_ROOT}/m-link.md.rzm-repair-7eeed93b7e3c-001.stage"
+      },
+      {
+        "path": "z-new.md",
+        "originalPath": "z-new.md",
+        "originalExists": false,
+        "finalExists": true,
+        "finalMode": 416,
+        "finalHash": "sha256:1eb1de95b702ac696e184fe1a500a1e561430bcd430197e1704e544715686293",
+        "stagePath": "${VAULT_ROOT}/z-new.md.rzm-repair-7eeed93b7e3c-002.stage"
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "a-old.md.rzm-repair-7eeed93b7e3c-000.backup",
+      "content": "source before\n",
+      "mode": 416
+    },
+    {
+      "path": "m-link.md",
+      "content": "link after\n",
+      "mode": 384
+    },
+    {
+      "path": "m-link.md.rzm-repair-7eeed93b7e3c-001.backup",
+      "content": "link before\n",
+      "mode": 384
+    },
+    {
+      "path": "z-new.md",
+      "content": "source after\n",
+      "mode": 416
+    }
+  ]
+}

@@ -1,0 +1,1571 @@
+#!/usr/bin/env bash
+set -euo pipefail
+RELEASES_URL="${RZM_GITHUB_RELEASES_URL:-https://api.github.com/repos/atomicobject/rhizome/releases}"
+MANIFEST_URL="${RZM_UPDATE_MANIFEST_URL:-${RELEASES_URL}/latest}"
+YES=0
+USER_INSTALL=0
+VERSION=""
+VERSION_EXPLICIT=0
+PROJECT_ROOT=""
+PROJECT_EXPLICIT=0
+LAUNCHER_PATH="bin/rzm"
+LAUNCHER_EXPLICIT=0
+USER_BINARY_POLICY="auto"
+USER_BINARY_POLICY_EXPLICIT=0
+JSON_OUTPUT=0
+USER_SCOPE_TOUCHED=0
+LAUNCHER_OVERWRITE_CHECKED=0
+PIN_SELECTION_SOURCE=""
+LEGACY_LAUNCHER_PATH=""
+LEGACY_SELF_REFRESH=0
+INITIAL_RZM_PATH=""
+if initial_rzm_path="$(command -v rzm 2>/dev/null)"; then
+  INITIAL_RZM_PATH="$initial_rzm_path"
+fi
+if [[ $# -eq 2 && "$1" == "--yes" && "$2" != --* ]]; then
+  LEGACY_SELF_REFRESH=1
+fi
+usage() {
+  cat <<'EOF'
+Usage:
+  install-rzm.sh --project <root> [--launcher <relative-path>]
+      [--user-binary auto|install|skip] [--version vX.Y.Z] [--yes] [--json]
+  install-rzm.sh --user [--yes] [--version vX.Y.Z]
+
+Project mode installs a pinned launcher inside the selected project. The
+launcher defaults to bin/rzm. Omit --version to preserve an existing project
+pin, or use the latest release when the project has no pin.
+
+--user-binary controls the separate ~/.local/bin/rzm installation. Use skip for
+a project-only install. --yes is accepted in project mode only when --project
+and --user-binary are both explicit. --yes is non-interactive and never invokes
+sudo; on macOS, register ~/.local/bin first or omit --yes if paths.d needs
+privileged setup. --json requires --yes, writes one result object to stdout,
+and sends progress to stderr.
+
+--user remains the advanced user-only binary installation channel.
+EOF
+}
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --user) USER_INSTALL=1; shift ;;
+    --project)
+      [[ $# -ge 2 && -n "${2:-}" && "${2:-}" != --* ]] || { echo "error: --project requires a path" >&2; exit 1; }
+      PROJECT_ROOT="$2"; PROJECT_EXPLICIT=1; shift 2 ;;
+    --launcher)
+      [[ $# -ge 2 && -n "${2:-}" && "${2:-}" != --* ]] || { echo "error: --launcher requires a relative path" >&2; exit 1; }
+      LAUNCHER_PATH="$2"; LAUNCHER_EXPLICIT=1; shift 2 ;;
+    --user-binary)
+      [[ $# -ge 2 && -n "${2:-}" && "${2:-}" != --* ]] || { echo "error: --user-binary requires auto, install, or skip" >&2; exit 1; }
+      USER_BINARY_POLICY="$2"; USER_BINARY_POLICY_EXPLICIT=1; shift 2 ;;
+    --no-user)
+      echo "error: --no-user has been removed; use --project <root> --user-binary skip" >&2
+      exit 1 ;;
+    --yes|-y) YES=1; shift ;;
+    --version)
+      [[ $# -ge 2 && -n "${2:-}" && "${2:-}" != --* ]] || { echo "error: --version requires a version" >&2; exit 1; }
+      VERSION="$2"; VERSION_EXPLICIT=1; shift 2 ;;
+    --json) JSON_OUTPUT=1; shift ;;
+    --help|-h) usage; exit 0 ;;
+    --*) echo "error: unknown argument $1" >&2; usage >&2; exit 1 ;;
+    *)
+      if [[ -n "$LEGACY_LAUNCHER_PATH" ]]; then
+        echo "error: positional launcher paths are no longer supported; use --project <root> --launcher <relative-path>" >&2
+        exit 1
+      fi
+      LEGACY_LAUNCHER_PATH="$1"
+      shift
+      ;;
+  esac
+done
+validate_user_binary_policy() {
+  case "$USER_BINARY_POLICY" in
+    auto|install|skip) ;;
+    *) echo "error: --user-binary must be auto, install, or skip" >&2; return 1 ;;
+  esac
+}
+validate_user_binary_policy
+progress() {
+  if [[ "$JSON_OUTPUT" == "1" ]]; then
+    printf '%s\n' "$*" >&2
+  else
+    printf '%s\n' "$*"
+  fi
+}
+need() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "error: $1 is required" >&2
+    exit 1
+  fi
+}
+need curl
+need tar
+need perl
+if command -v shasum >/dev/null 2>&1; then
+  SHA256_CMD=(shasum -a 256)
+elif command -v sha256sum >/dev/null 2>&1; then
+  SHA256_CMD=(sha256sum)
+else
+  echo "error: shasum or sha256sum is required" >&2
+  exit 1
+fi
+prompt() {
+  local message="$1" default="$2" answer
+  if [[ "$YES" == "1" ]]; then
+    printf '%s\n' "$default"
+    return
+  fi
+  printf "%s [%s]: " "$message" "$default" >&2
+  read -r answer
+  printf '%s\n' "${answer:-$default}"
+}
+confirm_overwrite() {
+  local path="$1" answer
+  if [[ "$YES" == "1" ]]; then
+    return 0
+  fi
+  if [[ ! -t 0 ]]; then
+    echo "error: $path exists and is not a Rhizome-managed launcher; rerun with --yes to overwrite" >&2
+    return 1
+  fi
+  printf "Overwrite existing non-Rhizome file at %s? [y/N]: " "$path" >&2
+  read -r answer
+  case "$answer" in
+    y|Y|yes|YES|Yes) return 0 ;;
+    *) echo "error: refusing to overwrite $path" >&2; return 1 ;;
+  esac
+}
+ensure_launcher_overwritable() {
+  local path="$1"
+  if [[ -d "$path" ]]; then
+    echo "error: launcher path is a directory: $path" >&2
+    return 1
+  fi
+  if [[ ( -e "$path" || -L "$path" ) ]] && ! is_managed_launcher "$path"; then
+    confirm_overwrite "$path"
+  fi
+  LAUNCHER_OVERWRITE_CHECKED=1
+}
+is_current_managed_launcher() {
+  local path="$1"
+  [[ -f "$path" && ! -L "$path" ]] || return 1
+  perl -0777 -e '
+    my $text = <>;
+    my $header = "#!/usr/bin/env bash\n"
+      . "# RZM MANAGED LAUNCHER\n"
+      . "# Generated by install-rzm.sh; local edits will be replaced.\n"
+      . "set -euo pipefail\n";
+    exit 1 unless index($text, $header) == 0;
+    exit 1 unless $text =~ /^managed_launcher_path\(\) \{/m;
+    exit 1 unless $text =~ /^install_pinned\(\) \{/m;
+    exit 1 unless $text =~ /^exec "\$target" "\$@"$/m;
+    exit 0;
+  ' "$path" 2>/dev/null
+}
+is_legacy_managed_launcher() {
+  local path="$1" actual
+  [[ -f "$path" && ! -L "$path" ]] || return 1
+  actual="$("${SHA256_CMD[@]}" "$path" | awk '{print $1}')"
+  # WHY: these are whole-file fingerprints of every managed launcher emitted
+  # between the manifest-backed installer and the explicit project interface.
+  # Keep this a closed, one-generation migration bridge; structural markers are
+  # intentionally insufficient to claim ownership of a user file.
+  case "$actual" in
+    1f85ac28d8d853d36e8432305011e9e21dfae6f30529161897ef59131eabe665|\
+    97ed150b2437bc65b0d8497a8795773c76c01ae746bafcd641610a47300008c8|\
+    72a5bffd1bc3a909efce11269e554af0e11b40bf04774c1f1de5b9f3974bce02|\
+    2fbde795e4d82a2703c75755f8d239b9e51c759fccfc6e71663eec44036a08a2|\
+    95d0da1eef6b338d773c1b1c7d78cd77a5c908ae7f3ac761b16449f6e2eb6a66)
+      return 0
+      ;;
+    *) return 1 ;;
+  esac
+}
+is_managed_launcher() {
+  is_current_managed_launcher "$1" || is_legacy_managed_launcher "$1"
+}
+expand_path() {
+  case "$1" in
+    "~") printf '%s\n' "$HOME" ;;
+    "~/"*) printf '%s/%s\n' "$HOME" "${1#~/}" ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+canonical_project_root() {
+  local path
+  path="$(expand_path "$1")"
+  case "$path" in
+    [A-Za-z]:*|//*|*\\*)
+      echo "error: --project does not accept Windows-style drive, UNC, or backslash paths" >&2
+      return 1
+      ;;
+  esac
+  if [[ ! -d "$path" ]]; then
+    echo "error: project root does not exist or is not a directory: $path" >&2
+    return 1
+  fi
+  (cd "$path" && pwd -P)
+}
+resolve_launcher_path() {
+  local project="$1" relative="$2" candidate probe resolved
+  case "$relative" in
+    [A-Za-z]:*|//*|*\\*)
+      echo "error: --launcher does not accept Windows-style drive, UNC, or backslash paths" >&2
+      return 1
+      ;;
+  esac
+  if [[ "$relative" == /* ]]; then
+    echo "error: --launcher must be relative to the project root" >&2
+    return 1
+  fi
+  while [[ "$relative" == ./* ]]; do
+    relative="${relative#./}"
+  done
+  if [[ -z "$relative" || "$relative" == "." || "$relative" == ".." || "$relative" == ../* || "$relative" == */../* || "$relative" == */.. ]]; then
+    echo "error: --launcher must stay inside the project root" >&2
+    return 1
+  fi
+  candidate="$project/$relative"
+  if [[ -L "$candidate" ]]; then
+    echo "error: --launcher must not be a symlink: $relative" >&2
+    return 1
+  fi
+  probe="$candidate"
+  while [[ ! -e "$probe" && ! -L "$probe" ]]; do
+    if [[ "$probe" == "$project" ]]; then
+      break
+    fi
+    probe="$(dirname "$probe")"
+  done
+  if [[ "$probe" != "$candidate" && ! -d "$probe" ]]; then
+    echo "error: launcher path ancestor is not a directory: $probe" >&2
+    return 1
+  fi
+  resolved="$(perl -MCwd=abs_path -e 'my $p = abs_path($ARGV[0]); defined($p) or exit 1; print $p' "$probe")" || {
+    echo "error: could not resolve launcher path ancestor: $probe" >&2
+    return 1
+  }
+  case "$resolved" in
+    "$project"|"$project"/*) ;;
+    *) echo "error: --launcher escapes the project root through a symlink: $relative" >&2; return 1 ;;
+  esac
+  printf '%s\n' "$candidate"
+}
+preflight_parent_writable() {
+  local target="$1" label="$2" probe
+  probe="$(dirname "$target")"
+  while [[ ! -e "$probe" && ! -L "$probe" ]]; do
+    probe="$(dirname "$probe")"
+  done
+  if [[ ! -d "$probe" ]]; then
+    echo "error: $label parent is not a directory: $probe" >&2
+    return 1
+  fi
+  if [[ ! -w "$probe" ]]; then
+    echo "error: $label parent is not writable: $probe" >&2
+    return 1
+  fi
+}
+preflight_regular_file_target() {
+  local path="$1" label="$2" will_write="$3"
+  if [[ -L "$path" || ( -e "$path" && ! -f "$path" ) ]]; then
+    echo "error: $label must be a regular file when it exists: $path" >&2
+    return 1
+  fi
+  if [[ "$will_write" == "1" && -e "$path" && ! -w "$path" ]]; then
+    echo "error: $label is not writable: $path" >&2
+    return 1
+  fi
+  if [[ ! -e "$path" ]]; then
+    preflight_parent_writable "$path" "$label"
+  fi
+}
+repo_binary_manager() {
+  local config="$1"
+  [[ -f "$config" ]] || return 1
+  perl - "$config" <<'PL'
+use strict; use warnings;
+open my $fh, "<", $ARGV[0] or die "repo_binary_manager: open $ARGV[0]: $!\n";
+my $inside = 0;
+my $child_indent;
+while (my $line = <$fh>) {
+  chomp $line;
+  if ($line =~ /^rhizome\s*:\s*(?:#.*)?$/) { $inside = 1; next; }
+  if ($inside && $line =~ /^[^ \t#].*:/) { last; }
+  next unless $inside;
+  next if $line =~ /^\s*(?:#.*)?$/;
+  $child_indent = $1 if !defined($child_indent) && $line =~ /^( +)\S/;
+  if (defined($child_indent) && $line =~ /^\Q$child_indent\E(?:binaryManager|"binaryManager"|'binaryManager')\s*:\s*(.*?)\s*$/) {
+    my $manager = $1;
+    if ($manager =~ /^[>|][+-]?(?:\s+#.*)?$/) {
+      my @parts;
+      while (my $block_line = <$fh>) {
+        chomp $block_line;
+        next if $block_line =~ /^\s*(?:#.*)?$/;
+        last unless $block_line =~ /^\Q$child_indent\E +(.+)$/;
+        push @parts, $1;
+      }
+      $manager = join " ", @parts;
+    } elsif ($manager =~ /^"(.*)"(?:\s+#.*)?$/ || $manager =~ /^'(.*)'(?:\s+#.*)?$/) {
+      $manager = $1;
+    } else {
+      $manager =~ s/\s+#.*$//;
+    }
+    $manager =~ s/^\s+|\s+$//g;
+    print "$manager\n";
+    exit 0;
+  }
+}
+exit 1;
+PL
+}
+reject_external_binary_manager() {
+  local config="$1" manager
+  if manager="$(repo_binary_manager "$config" 2>/dev/null)"; then
+    if [[ "$manager" == "external" ]]; then
+      echo "error: Rhizome is externally managed for this project; change the configured version through the external binary manager instead of using the Rhizome project installer" >&2
+    else
+      echo "error: rhizome.binaryManager '$manager' owns this project; the Rhizome project installer cannot create a competing launcher or version pin" >&2
+    fi
+    return 1
+  fi
+}
+preflight_project_targets() {
+  local project="$1" launcher="$2" rhizome_dir config ignore
+  rhizome_dir="$project/.rhizome"
+  config="$rhizome_dir/config.yml"
+  ignore="$rhizome_dir/.gitignore"
+
+  if [[ -L "$rhizome_dir" || ( -e "$rhizome_dir" && ! -d "$rhizome_dir" ) ]]; then
+    echo "error: .rhizome must be a directory inside the project: $rhizome_dir" >&2
+    return 1
+  fi
+  if [[ -d "$rhizome_dir" && ! -w "$rhizome_dir" ]]; then
+    echo "error: .rhizome is not writable: $rhizome_dir" >&2
+    return 1
+  fi
+  preflight_regular_file_target "$config" "config.yml" 1
+  validate_repo_config_shape "$config"
+  reject_external_binary_manager "$config"
+  preflight_regular_file_target "$ignore" ".gitignore" 0
+  preflight_regular_file_target "$launcher" "launcher" 1
+}
+validate_repo_config_shape() {
+  local config="$1"
+  [[ -f "$config" ]] || return 0
+  perl - "$config" <<'PL'
+use strict; use warnings;
+open my $fh, "<", $ARGV[0] or die "validate_repo_config_shape: open $ARGV[0]: $!\n";
+my $root_pending = 1;
+my $inside_rhizome = 0;
+my $child_indent;
+while (my $line = <$fh>) {
+  next if $line =~ /^\s*(?:#.*)?$/;
+  if ($root_pending) {
+    my $root = $line;
+    chomp $root;
+    next if $root =~ /^\s*(?:#.*)?$/ || $root =~ /^\s*%/;
+    if ($root =~ /^\s*---(?:\s+(.*))?\s*$/) {
+      $root = $1 // "";
+      next if $root =~ /^\s*(?:#.*)?$/;
+    }
+    if ($root =~ /^\s*\{/) {
+      print STDERR "error: unsupported Rhizome config shape: top-level configuration must use a block mapping, not a flow mapping\n";
+      exit 1;
+    }
+    if ($line !~ /^[A-Za-z_][A-Za-z0-9_-]*\s*:/) {
+      print STDERR "error: unsupported Rhizome config shape: top-level keys must be unquoted block-mapping keys at column zero\n";
+      exit 1;
+    }
+    $root_pending = 0;
+  }
+  if ($line =~ /^\S/) {
+    if ($line !~ /^[A-Za-z_][A-Za-z0-9_-]*\s*:/ && $line !~ /^\.\.\.\s*(?:#.*)?$/) {
+      print STDERR "error: unsupported Rhizome config shape: top-level keys must be unquoted block-mapping keys; YAML merges are unsupported\n";
+      exit 1;
+    }
+    $inside_rhizome = 0;
+    undef $child_indent;
+  }
+  if ($line =~ /^rhizome\s*:(.*)$/) {
+    my $rest = $1;
+    $rest =~ s/^\s+//;
+    if ($rest ne "" && $rest !~ /^#/) {
+      print STDERR "error: unsupported Rhizome config shape: rhizome must use a block mapping, not an inline value\n";
+      exit 1;
+    }
+    $inside_rhizome = 1;
+    next;
+  }
+  if ($inside_rhizome) {
+    $child_indent = $1 if !defined($child_indent) && $line =~ /^( +)\S/;
+    if (!defined($child_indent) || $line =~ /^\Q$child_indent\E\S/) {
+      if ($line !~ /^ +(?:[A-Za-z_][A-Za-z0-9_-]*|"[A-Za-z_][A-Za-z0-9_-]*"|'[A-Za-z_][A-Za-z0-9_-]*')\s*:/) {
+        print STDERR "error: unsupported Rhizome config shape: rhizome must use literal block-mapping keys, not a flow mapping, YAML merge, or complex key\n";
+        exit 1;
+      }
+    }
+  }
+}
+exit 0;
+PL
+}
+normalize_version() {
+  local version="$1"
+  if [[ -z "$version" || "$version" == "latest" ]]; then
+    printf '%s\n' "$version"
+  elif [[ "$version" == v* ]]; then
+    printf '%s\n' "$version"
+  else
+    printf 'v%s\n' "$version"
+  fi
+}
+verify_downloaded_binary_version() {
+  local binary="$1" expected="$2" output actual
+  if ! output="$(RZM_SKIP_REPO_DELEGATE=1 "$binary" --version 2>/dev/null)"; then
+    echo "error: downloaded Rhizome binary failed --version" >&2
+    return 1
+  fi
+  expected="$(normalize_version "$expected")"
+  actual="$(normalize_version "${output##* }")"
+  if [[ "$actual" != "$expected" ]]; then
+    echo "error: downloaded Rhizome binary reports $output; expected $expected" >&2
+    return 1
+  fi
+}
+agent_surface_structure_status() {
+  local repo="$1" guidance_present=0 guidance_complete=0 skill_present=0 skill_complete=0 path
+  local reference candidate_complete
+  local required_skill_references=(
+    configuration.md
+    documentation-bindings.md
+    file-context.md
+    indexing-and-freshness.md
+    installation-and-integration.md
+    markdown-mutations.md
+    onboarding.md
+    ontology-authoring.md
+    ontology-usage.md
+    reports-and-health.md
+    search-and-code-evidence.md
+    sessions.md
+    skill-authoring.md
+    structured-markdown.md
+    validation-and-repair.md
+  )
+  for path in "$repo/AGENTS.md" "$repo/CLAUDE.md"; do
+    [[ -f "$path" ]] || continue
+    if grep -q "RZM INIT RHIZOME BLOCK" "$path"; then
+      guidance_present=1
+    fi
+    if perl -0777 -e '
+      my $text = <>;
+      exit($text =~ /<!-- BEGIN RZM INIT RHIZOME BLOCK -->.*<!-- END RZM INIT RHIZOME BLOCK -->/s ? 0 : 1);
+    ' "$path"; then
+      guidance_complete=1
+    fi
+  done
+  for path in \
+    "$repo/.agents/skills/rhizome" \
+    "$repo/.claude/skills/rhizome"; do
+    [[ -f "$path/SKILL.md" ]] || continue
+    skill_present=1
+    if perl -0777 -e '
+         my $text = <>;
+         my ($frontmatter) = $text =~ /\A---\r?\n(.*?)\r?\n---[ \t]*\r?\n/s;
+         exit(defined($frontmatter) && $frontmatter =~ /^name:[ \t]*rhizome[ \t]*$/m ? 0 : 1);
+       ' "$path/SKILL.md"; then
+      candidate_complete=1
+      for reference in "${required_skill_references[@]}"; do
+        if ! grep -Fq "references/$reference" "$path/SKILL.md" ||
+           [[ ! -f "$path/references/$reference" || -L "$path/references/$reference" ]]; then
+          candidate_complete=0
+          break
+        fi
+      done
+      if [[ "$candidate_complete" == "1" ]]; then
+        skill_complete=1
+      fi
+    fi
+  done
+  if [[ "$guidance_complete" == "1" && "$skill_complete" == "1" ]]; then
+    printf 'present\n'
+  elif [[ "$guidance_present" == "0" && "$skill_present" == "0" ]]; then
+    printf 'init-required\n'
+  else
+    printf 'incomplete\n'
+  fi
+}
+agent_surface_structure_reason() {
+  case "$1" in
+    present)
+      printf 'managed guidance and the consolidated rhizome skill have the expected structure\n'
+      ;;
+    init-required)
+      printf 'managed guidance and the consolidated rhizome skill are absent\n'
+      ;;
+    incomplete)
+      printf 'managed guidance or the consolidated rhizome skill is partial or missing\n'
+      ;;
+    *)
+      echo "error: unknown agent surface structure status: $1" >&2
+      return 1
+      ;;
+  esac
+}
+# init_candidate_args prints the init arguments that set up agent surfaces for
+# a pinned release. Releases after v0.50.5 do it with plain `init`; older pins
+# need the per-surface flags those releases still accept. Unparseable
+# versions, such as source builds, are treated as current.
+init_candidate_args() {
+  if perl -e 'my @v = (shift =~ /^v?(\d+)\.(\d+)\.(\d+)/) or exit 1; exit((($v[0] <=> 0) || ($v[1] <=> 50) || ($v[2] <=> 5)) > 0 ? 1 : 0)' "$1"; then
+    printf '%s\n' "init --agentsmd on --agent-skills on --yes"
+  else
+    printf '%s\n' "init"
+  fi
+}
+write_json_result() {
+  local repo="$1" launcher="$2" launcher_relative="$3" pin="$4" touched="$5"
+  local status="$6" reason="$7" latest="$8" pin_source="$9" pin_relation="${10}"
+  local installer_self="${11}" init_args
+  init_args="$(init_candidate_args "$pin")"
+  perl -MJSON::PP -e '
+    my ($repo, $launcher, $launcher_relative, $pin, $touched, $status,
+        $reason, $latest, $pin_source, $pin_relation, $installer_self, $init_args) = @ARGV;
+    my @next = $status eq "present"
+      ? ($launcher, "agent", "start", "--intent", "verify Rhizome integration")
+      : ();
+    my $repair;
+    if ($status ne "present") {
+      my $pin_change;
+      if ($pin_relation eq "different") {
+        $pin_change = [
+          "bash", $installer_self,
+          "--project", $repo,
+          "--launcher", $launcher_relative,
+          "--user-binary", "skip",
+          "--version", $latest,
+          "--yes", "--json",
+        ];
+      }
+      $repair = {
+        capabilityStatus => "unverified",
+        requiresConfirmation => JSON::PP::true,
+        initCandidate => [$launcher, split(/ /, $init_args)],
+        advertisedLatestPinChangeCandidate => $pin_change,
+      };
+    }
+    print JSON::PP->new->canonical->encode({
+      projectRoot => $repo,
+      launcher => $launcher,
+      pin => $pin,
+      pinSelectionSource => $pin_source,
+      latestRelease => $latest,
+      pinRelationToLatest => $pin_relation,
+      userScopeTouched => $touched ? JSON::PP::true : JSON::PP::false,
+      agentSurfaceStructureStatus => $status,
+      agentSurfaceStructureReason => $reason,
+      agentSurfaceRepair => $repair,
+      next => \@next,
+    }), "\n";
+  ' "$repo" "$launcher" "$launcher_relative" "$pin" "$touched" "$status" \
+    "$reason" "$latest" "$pin_source" "$pin_relation" "$installer_self" "$init_args"
+}
+release_asset_url() {
+  perl - "$1" "$2" <<'PL'
+use strict; use warnings; use JSON::PP;
+my ($path, $name) = @ARGV;
+open my $fh, "<", $path or die "release_asset_url: open $path: $!\n";
+local $/;
+my $release = decode_json(scalar <$fh>);
+my @matches = grep {
+  ref($_) eq "HASH" && defined($_->{name}) && $_->{name} eq $name
+} @{ $release->{assets} // [] };
+die "release asset '$name' is missing or duplicated in $path\n" unless @matches == 1;
+my $url = $matches[0]->{browser_download_url} // "";
+die "release asset '$name' has no download URL in $path\n" if $url eq "";
+print "$url\n";
+PL
+}
+validate_release() {
+  perl - "$1" "$2" "$3" <<'PL'
+use strict; use warnings; use JSON::PP;
+my ($path, $expected, $allow_prerelease) = @ARGV;
+open my $fh, "<", $path or die "validate_release: open $path: $!\n";
+local $/;
+my $release = decode_json(scalar <$fh>);
+my $tag = $release->{tag_name} // "";
+die "GitHub release is missing tag_name\n" if $tag eq "";
+die "GitHub release $tag is a draft\n" if $release->{draft};
+die "latest GitHub release $tag is a prerelease\n"
+  if $release->{prerelease} && !$allow_prerelease;
+die "GitHub release tag $tag does not match requested $expected\n"
+  if $expected ne "" && $tag ne $expected;
+print "$tag\n";
+PL
+}
+fetch_release() {
+  local requested="$1" destination="$2" url expected="" allow_prerelease=0
+  if [[ -z "$requested" || "$requested" == "latest" ]]; then
+    url="$MANIFEST_URL"
+  else
+    expected="$(normalize_version "$requested")"
+    allow_prerelease=1
+    url="${RELEASES_URL%/}/tags/${expected}"
+  fi
+  curl --fail --location --silent --show-error \
+    --connect-timeout 10 --max-time 60 --retry 2 \
+    -H "Accept: application/vnd.github+json" \
+    -H "User-Agent: rhizome-installer" \
+    "$url" -o "$destination" || return 1
+  validate_release "$destination" "$expected" "$allow_prerelease" || return 1
+}
+checksum_for_asset() {
+  perl - "$1" "$2" <<'PL'
+use strict; use warnings;
+my ($path, $name) = @ARGV;
+open my $fh, "<", $path or die "checksum_for_asset: open $path: $!\n";
+my @matches;
+while (my $line = <$fh>) {
+  chomp $line;
+  if ($line =~ /^([0-9A-Fa-f]{64})\s+\*?(.+)$/ && $2 eq $name) {
+    push @matches, lc $1;
+  }
+}
+die "checksum for '$name' is missing or duplicated in $path\n" unless @matches == 1;
+print "$matches[0]\n";
+PL
+}
+fetch_checksums() {
+  local release="$1" destination="$2" url
+  url="$(release_asset_url "$release" "checksums.txt")" || return 1
+  curl --fail --location --silent --show-error \
+    --connect-timeout 10 --max-time 60 --retry 2 \
+    -H "Accept: application/octet-stream" \
+    -H "User-Agent: rhizome-installer" \
+    "$url" -o "$destination" || return 1
+}
+repo_pin() {
+  local config="$1"
+  [[ -f "$config" ]] || return 1
+  perl - "$config" <<'PL'
+use strict; use warnings;
+open my $fh, "<", $ARGV[0] or die "repo_pin: open $ARGV[0]: $!\n";
+my $inside = 0;
+my $child_indent;
+while (my $line = <$fh>) {
+  chomp $line;
+  if ($line =~ /^rhizome:\s*(?:#.*)?$/) { $inside = 1; next; }
+  if ($inside && $line =~ /^[^ \t#].*:/) { last; }
+  next unless $inside;
+  next if $line =~ /^\s*(?:#.*)?$/;
+  $child_indent = $1 if !defined($child_indent) && $line =~ /^( +)\S/;
+  if (defined($child_indent) && $line =~ /^\Q$child_indent\Eversion:\s*(\S+)(?:\s+#.*)?\s*$/) {
+    my $v = $1;
+    $v =~ s/^["']|["']$//g;
+    print "$v\n";
+    exit 0;
+  }
+}
+exit 1;
+PL
+}
+write_repo_config() {
+  local repo="$1" version="$2"
+  mkdir -p "$repo/.rhizome"
+  perl - "$repo/.rhizome/config.yml" "$version" <<'PL'
+use strict; use warnings;
+my ($path, $version) = @ARGV;
+my $indent = "  ";
+sub detect_child_indent {
+  my @lines = @_;
+  for (my $i = 0; $i <= $#lines; $i++) {
+    next unless $lines[$i] =~ /^rhizome:\s*(?:#.*)?$/;
+    for (my $j = $i + 1; $j <= $#lines; $j++) {
+      last if $lines[$j] =~ /^[^ \t#].*:/;
+      next if $lines[$j] =~ /^\s*(?:#.*)?$/;
+      return $1 if $lines[$j] =~ /^( +)\S/;
+    }
+  }
+  for my $line (@lines) {
+    next if $line =~ /^\s*(?:#.*)?$/;
+    return $1 if $line =~ /^( +)\S/;
+  }
+  return $indent;
+}
+unless (-e $path) {
+  open my $fh, ">", $path or die "write_repo_config: $path: $!\n";
+  print $fh "rhizome:\n${indent}version: $version\n";
+  exit 0;
+}
+open my $in, "<", $path or die "write_repo_config: $path: $!\n";
+my @raw = map { chomp; $_ } <$in>;
+close $in;
+my @lines = @raw;
+my $child_indent = detect_child_indent(@lines);
+my @out;
+my $i = 0;
+my $replaced = 0;
+while ($i <= $#lines) {
+  my $line = $lines[$i];
+  push @out, $line;
+  if ($line =~ /^rhizome:\s*(?:#.*)?$/) {
+    $i++;
+    my $saw_version = 0;
+    while ($i <= $#lines && ($lines[$i] !~ /^[^ \t#].*:/ || $lines[$i] !~ /\S/)) {
+      if ($lines[$i] =~ /^\Q$child_indent\Eversion:\s*\S*(\s+#.*)?\s*$/) {
+        my $comment = $1 // "";
+        push @out, "${child_indent}version: $version$comment";
+        $saw_version = 1;
+      } elsif ($lines[$i] !~ /^\Q$child_indent\EbinaryPath:\s*/) {
+        push @out, $lines[$i];
+      }
+      $i++;
+    }
+    push @out, "${child_indent}version: $version" unless $saw_version;
+    $replaced = 1;
+    next;
+  }
+  $i++;
+}
+unless ($replaced) {
+  push @out, "" if @out && $out[-1] =~ /\S/;
+  push @out, "rhizome:", "${child_indent}version: $version";
+}
+open my $w, ">", $path or die "write_repo_config: $path: $!\n";
+print $w join("\n", @out), "\n";
+PL
+}
+write_rhizome_gitignore() {
+  local repo="$1"
+  local path="$repo/.rhizome/.gitignore"
+  if [[ -f "$path" ]]; then
+    return
+  fi
+  cat > "$path" <<'EOF'
+# Generated by Rhizome installer. Re-run rzm init to refresh.
+*
+!.gitignore
+!config.yml
+!ignore
+!workflows.yml
+!generated-files.yml
+!ontology/
+!ontology/**
+EOF
+}
+detect_os() {
+  case "$(uname -s)" in
+    Darwin) printf 'darwin\n' ;;
+    Linux) printf 'linux\n' ;;
+    MINGW*|MSYS*|CYGWIN*) printf 'windows\n' ;;
+    *) echo "error: unsupported OS $(uname -s)" >&2; exit 1 ;;
+  esac
+}
+detect_arch() {
+  case "$(uname -m)" in
+    arm64|aarch64) printf 'arm64\n' ;;
+    x86_64|amd64) printf 'amd64\n' ;;
+    *) echo "error: unsupported architecture $(uname -m)" >&2; exit 1 ;;
+  esac
+}
+preflight_macos_paths_d() {
+  local bin_dir="$1" os_name paths_file paths_dir paths_entry paths_parent
+  os_name="${RZM_TEST_OS:-$(detect_os)}"
+  if [[ "$os_name" != "darwin" ]]; then
+    return 0
+  fi
+  paths_file="${RZM_PATHS_FILE:-/etc/paths}"
+  paths_dir="${RZM_PATHS_D_DIR:-/etc/paths.d}"
+  paths_entry="${paths_dir}/rhizome"
+  paths_parent="$(dirname "$paths_dir")"
+  if [[ -f "$paths_file" ]] && grep -Fxq "$bin_dir" "$paths_file"; then
+    return 0
+  fi
+  if [[ -f "$paths_entry" ]] && grep -Fxq "$bin_dir" "$paths_entry"; then
+    return 0
+  fi
+  if [[ -d "$paths_dir" ]] && grep -R -F -x -q "$bin_dir" "$paths_dir" 2>/dev/null; then
+    return 0
+  fi
+  if [[ -e "$paths_dir" && ! -d "$paths_dir" ]]; then
+    echo "error: cannot register $bin_dir because $paths_dir exists and is not a directory" >&2
+    return 1
+  fi
+  if [[ -w "$paths_dir" || ( ! -e "$paths_dir" && -d "$paths_parent" && -w "$paths_parent" ) ]]; then
+    return 0
+  fi
+  if [[ "$YES" == "1" || "$JSON_OUTPUT" == "1" || ! -t 0 ]]; then
+    echo "error: non-interactive install cannot use sudo to register $bin_dir in $paths_entry; register it first or rerun interactively without --yes or --json" >&2
+    return 1
+  fi
+}
+ensure_macos_paths_d() {
+  local bin_dir="$1" os_name paths_file paths_dir paths_entry paths_parent tmp_file existing
+  os_name="${RZM_TEST_OS:-$(detect_os)}"
+  if [[ "$os_name" != "darwin" ]]; then
+    return 0
+  fi
+  paths_file="${RZM_PATHS_FILE:-/etc/paths}"
+  paths_dir="${RZM_PATHS_D_DIR:-/etc/paths.d}"
+  paths_entry="${paths_dir}/rhizome"
+  paths_parent="$(dirname "$paths_dir")"
+  existing=""
+  if [[ -f "$paths_file" ]] && grep -Fxq "$bin_dir" "$paths_file"; then
+    existing=1
+  elif [[ -f "$paths_entry" ]] && grep -Fxq "$bin_dir" "$paths_entry"; then
+    existing=1
+  elif [[ -d "$paths_dir" ]] && grep -R -F -x -q "$bin_dir" "$paths_dir" 2>/dev/null; then
+    existing=1
+  fi
+  if [[ -n "$existing" ]]; then
+    progress "$bin_dir is already registered with macOS paths."
+    return 0
+  fi
+
+  tmp_file="$(mktemp)"
+  printf '%s\n' "$bin_dir" > "$tmp_file"
+  if [[ -e "$paths_dir" && ! -d "$paths_dir" ]]; then
+    rm -f "$tmp_file"
+    echo "error: cannot register $bin_dir because $paths_dir exists and is not a directory" >&2
+    return 1
+  fi
+  if [[ -w "$paths_dir" || ( ! -e "$paths_dir" && -d "$paths_parent" && -w "$paths_parent" ) ]]; then
+    mkdir -p "$paths_dir"
+    install -m 0644 "$tmp_file" "$paths_entry"
+    rm -f "$tmp_file"
+    progress "Registered $bin_dir in $paths_entry for macOS apps and shells."
+    return 0
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    progress "Registering $bin_dir in $paths_entry; sudo may ask for your password."
+    if sudo mkdir -p "$paths_dir" && sudo install -m 0644 "$tmp_file" "$paths_entry"; then
+      rm -f "$tmp_file"
+      progress "Registered $bin_dir in $paths_entry for macOS apps and shells."
+      return 0
+    fi
+  fi
+  rm -f "$tmp_file"
+  echo "error: could not register $bin_dir in $paths_entry. Add it manually or rerun with sudo access so desktop apps can find rzm." >&2
+  return 1
+}
+download_binary() {
+  local version="$1" target="$2" tmp_dir release checksums release_version os_name arch_name archive_name url sha archive extract bin actual exe
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "$tmp_dir"' RETURN
+  release="$tmp_dir/release.json"
+  release_version="$(fetch_release "$version" "$release")" || return 1
+  version="$(normalize_version "$release_version")"
+  checksums="$tmp_dir/checksums.txt"
+  fetch_checksums "$release" "$checksums" || return 1
+  os_name="$(detect_os)"
+  arch_name="$(detect_arch)"
+  archive_name="rhizome-${os_name}-${arch_name}.tar.gz"
+  url="$(release_asset_url "$release" "$archive_name")" || return 1
+  sha="$(checksum_for_asset "$checksums" "$archive_name")" || return 1
+  archive="$tmp_dir/$archive_name"
+  curl --fail --location --silent --show-error \
+    --connect-timeout 10 --max-time 300 --retry 2 \
+    -H "Accept: application/octet-stream" \
+    -H "User-Agent: rhizome-installer" \
+    "$url" -o "$archive" || return 1
+  actual="$("${SHA256_CMD[@]}" "$archive" | awk '{print $1}')"
+  if [[ "$actual" != "$sha" ]]; then
+    echo "error: sha256 mismatch for $url" >&2
+    exit 1
+  fi
+  extract="$tmp_dir/extract"
+  mkdir -p "$extract" "$(dirname "$target")"
+  exe="rzm"
+  [[ "$os_name" == "windows" ]] && exe="rzm.exe"
+  tar -xzf "$archive" -C "$extract" "$exe" || return 1
+  bin="$extract/$exe"
+  if [[ ! -f "$bin" ]]; then
+    echo "error: archive did not contain rzm" >&2
+    exit 1
+  fi
+  chmod 755 "$bin"
+  if ! verify_downloaded_binary_version "$bin" "$version"; then
+    return 1
+  fi
+  install -m 0755 "$bin" "$target"
+  printf '%s\n' "$version"
+}
+write_launcher() {
+  local path="$1"
+  if [[ "$LAUNCHER_OVERWRITE_CHECKED" != "1" ]]; then
+    ensure_launcher_overwritable "$path"
+  fi
+  mkdir -p "$(dirname "$path")"
+  cat > "$path" <<'LAUNCHER'
+#!/usr/bin/env bash
+# RZM MANAGED LAUNCHER
+# Generated by install-rzm.sh; local edits will be replaced.
+set -euo pipefail
+
+RELEASES_URL="${RZM_GITHUB_RELEASES_URL:-https://api.github.com/repos/atomicobject/rhizome/releases}"
+MANIFEST_URL="${RZM_UPDATE_MANIFEST_URL:-${RELEASES_URL}/latest}"
+
+find_root() {
+  local dir
+  dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  while [[ "$dir" != "/" ]]; do
+    if [[ -f "$dir/.rhizome/config.yml" ]]; then
+      printf '%s\n' "$dir"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  echo "error: could not find .rhizome/config.yml above launcher" >&2
+  return 1
+}
+need() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "error: $1 is required" >&2
+    exit 1
+  fi
+}
+detect_os() {
+  case "$(uname -s)" in
+    Darwin) printf 'darwin\n' ;;
+    Linux) printf 'linux\n' ;;
+    MINGW*|MSYS*|CYGWIN*) printf 'windows\n' ;;
+    *) echo "error: unsupported OS $(uname -s)" >&2; exit 1 ;;
+  esac
+}
+detect_arch() {
+  case "$(uname -m)" in
+    arm64|aarch64) printf 'arm64\n' ;;
+    x86_64|amd64) printf 'amd64\n' ;;
+    *) echo "error: unsupported architecture $(uname -m)" >&2; exit 1 ;;
+  esac
+}
+repo_pin() {
+  perl - "$1" <<'PL'
+use strict; use warnings;
+open my $fh, "<", $ARGV[0] or die "repo_pin: open $ARGV[0]: $!\n";
+my $inside = 0;
+my $child_indent;
+while (my $line = <$fh>) {
+  chomp $line;
+  if ($line =~ /^rhizome:\s*(?:#.*)?$/) { $inside = 1; next; }
+  if ($inside && $line =~ /^[^ \t#].*:/) { last; }
+  next unless $inside;
+  next if $line =~ /^\s*(?:#.*)?$/;
+  $child_indent = $1 if !defined($child_indent) && $line =~ /^( +)\S/;
+  if (defined($child_indent) && $line =~ /^\Q$child_indent\Eversion:\s*(\S+)(?:\s+#.*)?\s*$/) {
+    my $v = $1;
+    $v =~ s/^["']|["']$//g;
+    print "$v\n";
+    exit 0;
+  }
+}
+die "rhizome.version missing in .rhizome/config.yml\n";
+PL
+}
+repo_dev_binary_dir() {
+  perl - "$1" <<'PL'
+use strict; use warnings;
+open my $fh, "<", $ARGV[0] or die "repo_dev_binary_dir: open $ARGV[0]: $!\n";
+my $inside = 0;
+my $child_indent;
+while (my $line = <$fh>) {
+  chomp $line;
+  if ($line =~ /^rhizome:\s*(?:#.*)?$/) { $inside = 1; next; }
+  if ($inside && $line =~ /^[^ \t#].*:/) { last; }
+  next unless $inside;
+  next if $line =~ /^\s*(?:#.*)?$/;
+  $child_indent = $1 if !defined($child_indent) && $line =~ /^( +)\S/;
+  if (defined($child_indent) && $line =~ /^\Q$child_indent\EdevBinaryDir:\s*(.+?)(?:\s+#.*)?\s*$/) {
+    my $v = $1;
+    $v =~ s/^["']|["']$//g;
+    print "$v\n";
+    exit 0;
+  }
+}
+exit 1;
+PL
+}
+configured_dev_binary() {
+  local root="$1" os_name="$2" exe="$3" dev_dir base target
+  if ! dev_dir="$(repo_dev_binary_dir "$root/.rhizome/config.yml" 2>/dev/null)"; then
+    return 1
+  fi
+  if [[ "$dev_dir" = /* ]]; then
+    base="$dev_dir"
+  else
+    base="$root/$dev_dir"
+  fi
+  target="$base/${os_name}/${exe}"
+  if [[ -x "$target" ]]; then
+    printf '%s\n' "$target"
+    return 0
+  fi
+  if [[ -e "$target" ]]; then
+    echo "error: configured rhizome.devBinaryDir target is not executable: $target" >&2
+  else
+    echo "error: configured rhizome.devBinaryDir target missing: $target; run make build" >&2
+  fi
+  return 2
+}
+
+release_asset_url() {
+  perl - "$1" "$2" <<'PL'
+use strict; use warnings; use JSON::PP;
+my ($path, $name) = @ARGV;
+open my $fh, "<", $path or die "release_asset_url: open $path: $!\n";
+local $/;
+my $release = decode_json(scalar <$fh>);
+my @matches = grep {
+  ref($_) eq "HASH" && defined($_->{name}) && $_->{name} eq $name
+} @{ $release->{assets} // [] };
+die "release asset '$name' is missing or duplicated in $path\n" unless @matches == 1;
+my $url = $matches[0]->{browser_download_url} // "";
+die "release asset '$name' has no download URL in $path\n" if $url eq "";
+print "$url\n";
+PL
+}
+validate_release() {
+  perl - "$1" "$2" "$3" <<'PL'
+use strict; use warnings; use JSON::PP;
+my ($path, $expected, $allow_prerelease) = @ARGV;
+open my $fh, "<", $path or die "validate_release: open $path: $!\n";
+local $/;
+my $release = decode_json(scalar <$fh>);
+my $tag = $release->{tag_name} // "";
+die "GitHub release is missing tag_name\n" if $tag eq "";
+die "GitHub release $tag is a draft\n" if $release->{draft};
+die "latest GitHub release $tag is a prerelease\n"
+  if $release->{prerelease} && !$allow_prerelease;
+die "GitHub release tag $tag does not match requested $expected\n"
+  if $expected ne "" && $tag ne $expected;
+print "$tag\n";
+PL
+}
+fetch_release() {
+  local requested="$1" destination="$2" url expected="" allow_prerelease=0
+  if [[ -z "$requested" || "$requested" == "latest" ]]; then
+    url="$MANIFEST_URL"
+  else
+    expected="$(normalize_version "$requested")"
+    allow_prerelease=1
+    url="${RELEASES_URL%/}/tags/${expected}"
+  fi
+  curl --fail --location --silent --show-error \
+    --connect-timeout 10 --max-time 60 --retry 2 \
+    -H "Accept: application/vnd.github+json" \
+    -H "User-Agent: rhizome-installer" \
+    "$url" -o "$destination" || return 1
+  validate_release "$destination" "$expected" "$allow_prerelease" || return 1
+}
+checksum_for_asset() {
+  perl - "$1" "$2" <<'PL'
+use strict; use warnings;
+my ($path, $name) = @ARGV;
+open my $fh, "<", $path or die "checksum_for_asset: open $path: $!\n";
+my @matches;
+while (my $line = <$fh>) {
+  chomp $line;
+  if ($line =~ /^([0-9A-Fa-f]{64})\s+\*?(.+)$/ && $2 eq $name) {
+    push @matches, lc $1;
+  }
+}
+die "checksum for '$name' is missing or duplicated in $path\n" unless @matches == 1;
+print "$matches[0]\n";
+PL
+}
+fetch_checksums() {
+  local release="$1" destination="$2" url
+  url="$(release_asset_url "$release" "checksums.txt")" || return 1
+  curl --fail --location --silent --show-error \
+    --connect-timeout 10 --max-time 60 --retry 2 \
+    -H "Accept: application/octet-stream" \
+    -H "User-Agent: rhizome-installer" \
+    "$url" -o "$destination" || return 1
+}
+
+managed_launcher_path() {
+  local dir base
+  dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  base="$(basename "${BASH_SOURCE[0]}")"
+  printf '%s/%s\n' "$dir" "$base"
+}
+
+rhizome_dev_binary() {
+  local dir="$1" os_name="$2" exe="$3" target
+  while [[ "$dir" != "/" ]]; do
+    if [[ -f "$dir/go.mod" ]] && grep -q '^module github.com/atomicobject/rhizome$' "$dir/go.mod" 2>/dev/null; then
+      target="$dir/bin/${os_name}/${exe}"
+      [[ -x "$target" ]] && printf '%s\n' "$target" && return 0
+      return 1
+    fi
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
+
+normalize_version() {
+  local version="$1"
+  if [[ "$version" == v* ]]; then
+    printf '%s\n' "$version"
+  else
+    printf 'v%s\n' "$version"
+  fi
+}
+
+rzm_debug() {
+  [[ "${RZM_DEBUG:-0}" == "1" ]] || return 0
+  printf '[rzm-shim] %s\n' "$*" >&2
+}
+
+pinned_binary_current() {
+  local target="$1" version="$2" output normalized last
+  if [[ ! -x "$target" ]]; then
+    rzm_debug "no cached binary at $target"
+    return 1
+  fi
+  version="$(normalize_version "$version")"
+  if ! output="$(RZM_SKIP_REPO_DELEGATE=1 "$target" --version 2>/dev/null)"; then
+    rzm_debug "cached $target --version failed; will redownload"
+    return 1
+  fi
+  normalized="$(normalize_version "$output")"
+  last="$(normalize_version "${output##* }")"
+  if [[ "$normalized" == "$version" || "$last" == "$version" ]]; then
+    rzm_debug "cached binary matches pin $version (raw='$output')"
+    return 0
+  fi
+  rzm_debug "cached binary $target=$output (normalized='$normalized', last='$last') != pin $version"
+  return 1
+}
+
+preflight_cache_target() {
+  local root="$1" target="$2" cache_root platform_dir path
+  cache_root="$root/.rhizome/bin"
+  platform_dir="$(dirname "$target")"
+  case "$target" in
+    "$cache_root"/*) ;;
+    *) echo "error: pinned binary cache target is outside $cache_root: $target" >&2; return 1 ;;
+  esac
+  for path in "$root/.rhizome" "$cache_root" "$platform_dir"; do
+    if [[ -L "$path" ]]; then
+      echo "error: pinned binary cache path must not contain symlinks: $path" >&2
+      return 1
+    fi
+    if [[ -e "$path" && ! -d "$path" ]]; then
+      echo "error: pinned binary cache ancestor must be a directory: $path" >&2
+      return 1
+    fi
+  done
+  if [[ -L "$target" || ( -e "$target" && ! -f "$target" ) ]]; then
+    echo "error: pinned binary cache target must be a regular file, not a symlink: $target" >&2
+    return 1
+  fi
+}
+
+install_pinned() {
+  local root="$1" version="$2" target="$3" tmp_dir release checksums os_name arch_name archive_name url sha archive actual extract bin staged exe
+  need curl
+  need tar
+  need perl
+  if command -v shasum >/dev/null 2>&1; then
+    sha_cmd=(shasum -a 256)
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha_cmd=(sha256sum)
+  else
+    echo "error: shasum or sha256sum is required" >&2
+    exit 1
+  fi
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "$tmp_dir"' RETURN
+  release="$tmp_dir/release.json"
+  version="$(normalize_version "$version")"
+  fetch_release "$version" "$release" >/dev/null || return 1
+  checksums="$tmp_dir/checksums.txt"
+  fetch_checksums "$release" "$checksums" || return 1
+  os_name="$(detect_os)"
+  arch_name="$(detect_arch)"
+  archive_name="rhizome-${os_name}-${arch_name}.tar.gz"
+  url="$(release_asset_url "$release" "$archive_name")" || return 1
+  sha="$(checksum_for_asset "$checksums" "$archive_name")" || return 1
+  archive="$tmp_dir/$archive_name"
+  curl --fail --location --silent --show-error \
+    --connect-timeout 10 --max-time 300 --retry 2 \
+    -H "Accept: application/octet-stream" \
+    -H "User-Agent: rhizome-installer" \
+    "$url" -o "$archive" || return 1
+  actual="$("${sha_cmd[@]}" "$archive" | awk '{print $1}')"
+  if [[ "$actual" != "$sha" ]]; then
+    echo "error: sha256 mismatch for $url" >&2
+    exit 1
+  fi
+  extract="$tmp_dir/extract"
+  mkdir -p "$extract" "$(dirname "$target")"
+  exe="rzm"
+  [[ "$os_name" == "windows" ]] && exe="rzm.exe"
+  tar -xzf "$archive" -C "$extract" "$exe" || return 1
+  bin="$extract/$exe"
+  if [[ ! -f "$bin" ]]; then
+    echo "error: archive did not contain rzm" >&2
+    exit 1
+  fi
+  chmod 755 "$bin"
+  if ! pinned_binary_current "$bin" "$version"; then
+    echo "error: downloaded Rhizome binary does not report selected pin $version" >&2
+    exit 1
+  fi
+  staged="${target}.new"
+  install -m 0755 "$bin" "$staged"
+  mv "$staged" "$target"
+}
+
+update_launcher() {
+  local root="$1" self="$2" tmp_dir release url checksum_url sha installer actual self_relative
+  need curl
+  need perl
+  if command -v shasum >/dev/null 2>&1; then
+    sha_cmd=(shasum -a 256)
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha_cmd=(sha256sum)
+  else
+    echo "error: shasum or sha256sum is required" >&2
+    exit 1
+  fi
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "$tmp_dir"' RETURN
+  release="$tmp_dir/release.json"
+  fetch_release latest "$release" >/dev/null || return 1
+  url="$(release_asset_url "$release" "install-rzm.sh")" || return 1
+  checksum_url="$(release_asset_url "$release" "install-rzm.sh.sha256")" || return 1
+  installer="$tmp_dir/install-rzm.sh"
+  curl --fail --location --silent --show-error \
+    --connect-timeout 10 --max-time 60 --retry 2 \
+    -H "Accept: application/octet-stream" \
+    -H "User-Agent: rhizome-installer" \
+    "$url" -o "$installer" || return 1
+  curl --fail --location --silent --show-error \
+    --connect-timeout 10 --max-time 60 --retry 2 \
+    -H "Accept: application/octet-stream" \
+    -H "User-Agent: rhizome-installer" \
+    "$checksum_url" -o "$tmp_dir/install-rzm.sh.sha256" || return 1
+  sha="$(checksum_for_asset "$tmp_dir/install-rzm.sh.sha256" "install-rzm.sh")" || return 1
+  actual="$("${sha_cmd[@]}" "$installer" | awk '{print $1}')"
+  if [[ "$actual" != "$sha" ]]; then
+    echo "error: sha256 mismatch for $url" >&2
+    exit 1
+  fi
+  chmod 755 "$installer"
+  case "$self" in
+    "$root"/*) self_relative="${self#"$root"/}" ;;
+    *) echo "error: managed launcher is outside project root: $self" >&2; exit 1 ;;
+  esac
+  "$installer" --project "$root" --launcher "$self_relative" --user-binary skip --yes
+}
+
+launcher_update_kind() {
+  local command_seen=0 consumes_value=0 pinned_seen=0 pinned_only=1 arg
+  for arg in "$@"; do
+    if [[ "$consumes_value" == "1" ]]; then
+      consumes_value=0
+      continue
+    fi
+    if [[ "$command_seen" == "0" ]]; then
+      case "$arg" in
+        update) command_seen=1; continue ;;
+        --vault|-v) consumes_value=1; continue ;;
+        --manifest-url|--set-version) consumes_value=1; pinned_only=0; continue ;;
+        --manifest-url=*|--set-version=*) pinned_only=0; continue ;;
+        --vault=*|--*) continue ;;
+        -*) continue ;;
+        *) printf 'none\n'; return 0 ;;
+      esac
+    fi
+    case "$arg" in
+      --) pinned_only=0; break ;;
+      --manifest-url|--set-version) consumes_value=1; pinned_only=0 ;;
+      --manifest-url=*|--set-version=*) pinned_only=0 ;;
+      --pinned|--pinned=true) pinned_seen=1 ;;
+      --pinned=false) pinned_seen=0 ;;
+      --yes|--yes=true|--yes=false|--no-pager|--no-pager=true|--no-pager=false) ;;
+      --latest|--latest=*|--help|-h) pinned_only=0 ;;
+      *) pinned_only=0 ;;
+    esac
+  done
+  if [[ "$command_seen" == "1" ]]; then
+    if [[ "$pinned_seen" == "1" && "$pinned_only" == "1" && "$consumes_value" == "0" ]]; then
+      printf 'pinned\n'
+      return 0
+    fi
+    printf 'plain\n'
+  else
+    printf 'none\n'
+  fi
+}
+
+root="$(find_root)"
+os_name="$(detect_os)"
+arch_name="$(detect_arch)"
+exe="rzm"
+if [[ "$os_name" == "windows" ]]; then
+  exe="rzm.exe"
+fi
+if dev_target="$(configured_dev_binary "$root" "$os_name" "$exe")"; then
+  rzm_debug "using configured dev binary $dev_target"
+  exec "$dev_target" "$@"
+else
+  dev_status=$?
+  if [[ "$dev_status" == "2" ]]; then
+    exit 1
+  fi
+fi
+# Any `rzm update [...]` invocation refreshes the managed launcher itself
+# first so users picking up new shim behavior (download semantics, debug
+# breadcrumbs, new flags) don't have to remember a separate command. A configured
+# dev binary is authoritative and intercepts update before this point.
+update_kind="$(launcher_update_kind "$@")"
+if [[ "$update_kind" != "none" ]]; then
+  update_launcher "$root" "$(managed_launcher_path)"
+fi
+version="$(repo_pin "$root/.rhizome/config.yml")"
+if [[ -z "$version" ]]; then
+  echo "error: rhizome.version is empty in $root/.rhizome/config.yml" >&2
+  exit 1
+fi
+rzm_debug "root=$root pin=$version"
+target="$root/.rhizome/bin/${os_name}-${arch_name}/${exe}"
+preflight_cache_target "$root" "$target"
+if [[ "$update_kind" == "none" ]] && dev_target="$(rhizome_dev_binary "$root" "$os_name" "$exe" 2>/dev/null)"; then
+  rzm_debug "using dev binary $dev_target (skipping pin check)"
+  exec "$dev_target" "$@"
+fi
+if ! pinned_binary_current "$target" "$version" || [[ "$update_kind" == "pinned" ]]; then
+  install_pinned "$root" "$version" "$target"
+  if [[ "$update_kind" == "pinned" ]]; then
+    echo "Updated $target to Rhizome $version"
+    exit 0
+  fi
+fi
+exec "$target" "$@"
+LAUNCHER
+  chmod 755 "$path"
+}
+translate_legacy_self_refresh() {
+  local root candidate relative
+  [[ -n "$LEGACY_LAUNCHER_PATH" ]] || return 0
+  if [[ "$LEGACY_SELF_REFRESH" != "1" ]]; then
+    echo "error: positional launcher paths are no longer supported; use --project <root> --launcher <relative-path>" >&2
+    return 1
+  fi
+  if [[ "$USER_INSTALL" == "1" || "$PROJECT_EXPLICIT" == "1" || "$LAUNCHER_EXPLICIT" == "1" ||
+        "$USER_BINARY_POLICY_EXPLICIT" == "1" || "$VERSION_EXPLICIT" == "1" || "$JSON_OUTPUT" == "1" ]]; then
+    echo "error: the legacy launcher self-refresh bridge accepts only --yes <absolute-managed-launcher>" >&2
+    return 1
+  fi
+  root="$(pwd -P)"
+  if [[ ! -f "$root/.rhizome/config.yml" ]]; then
+    echo "error: legacy launcher self-refresh requires .rhizome/config.yml in the current project root" >&2
+    return 1
+  fi
+  if [[ "$LEGACY_LAUNCHER_PATH" != /* || -L "$LEGACY_LAUNCHER_PATH" || ! -f "$LEGACY_LAUNCHER_PATH" ]]; then
+    echo "error: legacy launcher self-refresh requires an absolute, regular, non-symlink launcher" >&2
+    return 1
+  fi
+  candidate="$(perl -MCwd=abs_path -e 'my $p = abs_path($ARGV[0]); defined($p) or exit 1; print $p' "$LEGACY_LAUNCHER_PATH")" || {
+    echo "error: could not resolve legacy launcher path: $LEGACY_LAUNCHER_PATH" >&2
+    return 1
+  }
+  case "$candidate" in
+    "$root"/*) relative="${candidate#"$root"/}" ;;
+    *) echo "error: legacy launcher self-refresh target must stay inside the current project" >&2; return 1 ;;
+  esac
+  if ! is_legacy_managed_launcher "$candidate"; then
+    echo "error: positional launcher path is not a verified legacy Rhizome-managed launcher" >&2
+    return 1
+  fi
+  PROJECT_ROOT="$root"
+  PROJECT_EXPLICIT=1
+  LAUNCHER_PATH="$relative"
+  LAUNCHER_EXPLICIT=1
+  USER_BINARY_POLICY="skip"
+  USER_BINARY_POLICY_EXPLICIT=1
+}
+translate_legacy_self_refresh
+if [[ "$JSON_OUTPUT" == "1" && "$YES" != "1" ]]; then
+  echo "error: --json requires --yes so machine-readable installs cannot prompt" >&2
+  exit 1
+fi
+if [[ "$USER_INSTALL" == "1" && ( "$PROJECT_EXPLICIT" == "1" || "$LAUNCHER_EXPLICIT" == "1" || "$USER_BINARY_POLICY_EXPLICIT" == "1" ) ]]; then
+  echo "error: --user cannot be combined with --project, --launcher, or --user-binary" >&2
+  exit 1
+fi
+if [[ "$USER_INSTALL" == "1" && "$JSON_OUTPUT" == "1" ]]; then
+  echo "error: --json is supported only with --project" >&2
+  exit 1
+fi
+if [[ "$USER_INSTALL" == "0" && "$PROJECT_EXPLICIT" == "0" && "$LAUNCHER_EXPLICIT" == "1" ]]; then
+  echo "error: --launcher requires --project" >&2
+  exit 1
+fi
+if [[ "$USER_INSTALL" == "0" && "$PROJECT_EXPLICIT" == "0" && "$USER_BINARY_POLICY_EXPLICIT" == "1" ]]; then
+  echo "error: --user-binary requires an explicit --project" >&2
+  exit 1
+fi
+if [[ "$USER_INSTALL" == "0" && "$PROJECT_EXPLICIT" == "0" ]]; then
+  if [[ "$YES" == "1" || "$JSON_OUTPUT" == "1" ]]; then
+    echo "error: --yes and --json project installs require an explicit --project" >&2
+    exit 1
+  fi
+  choice="$(prompt "Install user binary or project launcher? (user/project)" "user")"
+  case "$choice" in
+    user) USER_INSTALL=1 ;;
+    project)
+      PROJECT_ROOT="$(prompt "Project root" ".")"
+      USER_BINARY_POLICY="$(prompt "User binary policy (auto/install/skip)" "auto")"
+      ;;
+    *) echo "error: choose user or project" >&2; exit 1 ;;
+  esac
+fi
+validate_user_binary_policy
+if [[ "$USER_INSTALL" == "0" && "$YES" == "1" && "$USER_BINARY_POLICY_EXPLICIT" == "0" ]]; then
+  echo "error: --yes project installs require an explicit --user-binary auto, install, or skip" >&2
+  exit 1
+fi
+install_user_binary() {
+  local target installed_version
+  target="$(expand_path "$HOME/.local/bin/rzm")"
+  installed_version="$(download_binary "$VERSION" "$target")"
+  USER_SCOPE_TOUCHED=1
+  progress "Installed Rhizome $installed_version at $target"
+  ensure_macos_paths_d "$(dirname "$target")"
+  case ":${PATH:-}:" in
+    *":$(dirname "$target"):"*) ;;
+    *) progress "Add $(dirname "$target") to PATH if your shell cannot find rzm." ;;
+  esac
+  USER_BINARY_PATH="$target"
+}
+user_binary_install_planned() {
+  if [[ "$USER_INSTALL" == "1" ]]; then
+    return 0
+  fi
+  case "$USER_BINARY_POLICY" in
+    install) return 0 ;;
+    auto) [[ -z "$INITIAL_RZM_PATH" ]] ;;
+    skip) return 1 ;;
+  esac
+}
+if user_binary_install_planned; then
+  user_binary_target="$(expand_path "$HOME/.local/bin/rzm")"
+  preflight_macos_paths_d "$(dirname "$user_binary_target")"
+fi
+if [[ "$USER_INSTALL" == "1" ]]; then
+  if [[ "$VERSION_EXPLICIT" == "0" ]]; then
+    VERSION="latest"
+  else
+    VERSION="$(normalize_version "$VERSION")"
+  fi
+  install_user_binary
+  exit 0
+fi
+repo="$(canonical_project_root "$PROJECT_ROOT")"
+launcher="$(resolve_launcher_path "$repo" "$LAUNCHER_PATH")"
+config="$repo/.rhizome/config.yml"
+# Complete path, overwrite, dependency, and release preflight before writing
+# project or user-scoped files.
+preflight_project_targets "$repo" "$launcher"
+ensure_launcher_overwritable "$launcher"
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+manifest="$tmp_dir/latest-release.json"
+latest_version="$(fetch_release latest "$manifest")"
+latest_version="$(normalize_version "$latest_version")"
+if [[ "$VERSION_EXPLICIT" == "1" ]]; then
+  PIN_SELECTION_SOURCE="explicit"
+  if [[ "$VERSION" == "latest" ]]; then
+    VERSION="$latest_version"
+  else
+    VERSION="$(normalize_version "$VERSION")"
+  fi
+elif pin="$(repo_pin "$config" 2>/dev/null)"; then
+  VERSION="$(normalize_version "$pin")"
+  PIN_SELECTION_SOURCE="preserved"
+else
+  VERSION="$latest_version"
+  PIN_SELECTION_SOURCE="latest"
+fi
+# Repo installation writes only the launcher, but it still proves the selected
+# pin has an artifact for this platform before changing project files.
+selected_manifest="$manifest"
+if [[ "$VERSION" != "$latest_version" ]]; then
+  selected_manifest="$tmp_dir/selected-release.json"
+  fetch_release "$VERSION" "$selected_manifest" >/dev/null
+fi
+platform="$(detect_os)/$(detect_arch)"
+artifact_name="rhizome-${platform%/*}-${platform#*/}.tar.gz"
+artifact_url="$(release_asset_url "$selected_manifest" "$artifact_name")"
+selected_checksums="$tmp_dir/selected-checksums.txt"
+fetch_checksums "$selected_manifest" "$selected_checksums"
+artifact_sha="$(checksum_for_asset "$selected_checksums" "$artifact_name")"
+if [[ -z "$artifact_url" || -z "$artifact_sha" ]]; then
+  echo "error: GitHub release has an empty artifact URL or SHA256 for $platform" >&2
+  exit 1
+fi
+write_repo_config "$repo" "$VERSION"
+write_rhizome_gitignore "$repo"
+write_launcher "$launcher"
+progress "Installed Rhizome project launcher at $launcher"
+progress "Pinned Rhizome $VERSION in $config"
+case "$USER_BINARY_POLICY" in
+  skip)
+    progress "Skipped user binary installation; use $launcher for project commands."
+    ;;
+  install)
+    install_user_binary
+    ;;
+  auto)
+    if [[ -n "$INITIAL_RZM_PATH" ]]; then
+      progress "rzm already on PATH ($INITIAL_RZM_PATH); skipping user binary install."
+    else
+      progress "No rzm on PATH; installing the requested automatic user binary."
+      install_user_binary
+    fi
+    ;;
+esac
+status="$(agent_surface_structure_status "$repo")"
+reason="$(agent_surface_structure_reason "$status")"
+normalized_selected_version="$(normalize_version "$VERSION")"
+if [[ "$normalized_selected_version" == "$latest_version" ]]; then
+  pin_relation="same"
+else
+  pin_relation="different"
+fi
+launcher_relative="${launcher#"$repo"/}"
+installer_self="$(perl -MCwd=abs_path -e 'my $p = abs_path($ARGV[0]); defined($p) or exit 1; print $p' "${BASH_SOURCE[0]}")" || {
+  echo "error: could not resolve installer path: ${BASH_SOURCE[0]}" >&2
+  exit 1
+}
+if [[ "$JSON_OUTPUT" == "1" ]]; then
+  write_json_result "$repo" "$launcher" "$launcher_relative" "$VERSION" \
+    "$USER_SCOPE_TOUCHED" "$status" "$reason" "$latest_version" \
+    "$PIN_SELECTION_SOURCE" "$pin_relation" "$installer_self"
+elif [[ "$status" == "present" ]]; then
+  progress "Agent surface structure is present. Verify runtime integration: $launcher agent start --intent \"verify Rhizome integration\""
+elif [[ "$pin_relation" == "different" ]]; then
+  printf -v init_candidate '%q %s' "$launcher" "$(init_candidate_args "$VERSION")"
+  printf -v pin_change_candidate \
+    'bash %q --project %q --launcher %q --user-binary skip --version %q --yes --json' \
+    "$installer_self" "$repo" "$launcher_relative" "$latest_version"
+  if [[ "$PIN_SELECTION_SOURCE" == "preserved" ]]; then
+    pin_description="The preserved project pin"
+  else
+    pin_description="The selected project pin"
+  fi
+  progress "Rhizome agent surface structure is $status: $reason."
+  progress "$pin_description $VERSION differs from advertised latest $latest_version and may not support the consolidated rhizome skill. The installer cannot verify that capability; it did not run init or change the pin."
+  progress "After owner approval and confirmation that the selected release supports the surface, init candidate: $init_candidate"
+  progress "To intentionally select advertised latest after confirming it supports the surface, rerun: $pin_change_candidate"
+else
+  printf -v init_candidate '%q %s' "$launcher" "$(init_candidate_args "$VERSION")"
+  progress "Rhizome agent surface structure is $status: $reason."
+  progress "The selected pin $VERSION matches advertised latest $latest_version, but the installer cannot verify that the release can generate the consolidated rhizome skill; it did not run init."
+  progress "After owner approval, try the exact init candidate: $init_candidate. If the skill remains missing, select a release known to support it with an explicit installer --version change."
+fi

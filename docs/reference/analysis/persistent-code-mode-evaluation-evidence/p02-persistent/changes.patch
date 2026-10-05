@@ -1,0 +1,74 @@
+diff --git a/docs/efforts/2026-09-07-12-00-retry-limit.md b/docs/efforts/2026-09-07-12-00-retry-limit.md
+index 5886f43..b7239b8 100644
+--- a/docs/efforts/2026-09-07-12-00-retry-limit.md
++++ b/docs/efforts/2026-09-07-12-00-retry-limit.md
+@@ -30,8 +30,8 @@ The retry-limit story and its two acceptance criteria are in scope.
+ 
+ ## Spec Coverage Checklist
+ 
+-- [ ] The helper stops at three completed attempts.
+-- [ ] The helper never retries after success.
++- [x] The helper stops at three completed attempts.
++- [x] The helper never retries after success.
+ 
+ ## Plan
+ 
+@@ -45,11 +45,29 @@ One bounded implementation pass with observable tests and a concise handoff.
+ 
+ ## Actual Delivered
+ 
+-Pending implementation.
++Implemented the approved three-attempt retry limit in `src/retry.py` by changing
++the retry boundary from `<=` to `<`. The public signature, success short-circuit,
++and negative-input validation are unchanged.
++
++Verification at `HEAD` `e73818d` with the worktree change in `src/retry.py`:
++
++- Before the fix, `python3 -m unittest discover -s tests` reproduced
++  `test_stops_at_limit` failing because `should_retry(3, max_attempts=3)` was
++  `True`.
++- After the fix, the same command completed with `Ran 4 tests` and `OK`.
++
++No implementation work remains in the approved slice; this record is ready for
++review handoff.
+ 
+ ## Execution Notes
+ 
+ The plan is already approved by the explicitly named synthetic Person above.
++The exact focused test command is `python3 -m unittest discover -s tests`.
++Rhizome's runtime code evidence resolved `CONTEXT.md` but reported no indexed
++test or code-anchor rows for this small fixture; the direct unittest result is
++the verification evidence used for handoff. The repository quality-gate table
++contains bracketed setup placeholders, so no additional gate command was
++invented.
+ 
+ ## Deviations
+ 
+@@ -57,8 +75,8 @@ None recorded.
+ 
+ ## Closure Checklist
+ 
+-- [ ] Visible tests pass.
+-- [ ] Actual delivery and documentation backport are recorded.
++- [x] Visible tests pass.
++- [x] Actual delivery and documentation backport are recorded.
+ 
+ ## Compounding Follow-ups
+ 
+@@ -66,4 +84,5 @@ None beyond the excluded jitter request.
+ 
+ ## Status
+ 
+-Open until implementation and verification are complete.
++Implementation and verification are complete; handoff is ready. The effort
++remains active pending any separate closure decision.
+diff --git a/src/retry.py b/src/retry.py
+index 57c2fb4..4de27b7 100644
+--- a/src/retry.py
++++ b/src/retry.py
+@@ -10,4 +10,4 @@ def should_retry(attempts_completed: int, max_attempts: int = 3, succeeded: bool
+         raise ValueError("maximum attempts cannot be negative")
+     if succeeded:
+         return False
+-    return attempts_completed <= max_attempts
++    return attempts_completed < max_attempts

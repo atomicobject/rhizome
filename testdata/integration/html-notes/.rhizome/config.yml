@@ -1,0 +1,12 @@
+notes:
+  includes:
+    - "**/*.md"
+    - "**/*.html"
+    - "**/*.htm"
+  excludes:
+    - ".rhizome/**"
+  links: all
+noteEmbeddings:
+  enabled: true
+  provider: test
+  dimensions: 64

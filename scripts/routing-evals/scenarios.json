@@ -1,0 +1,17 @@
+[
+ {"id":"S01-typo","prompt":"Fix the typo 'recieve' in README.md line 12.","expect":{"route":"agentic-engineering implement or no skill","stop":false,"tests":false,"escalate":false}},
+ {"id":"S02-bugfix","prompt":"rzm validate panics with a nil pointer when a note has an empty frontmatter block. Here is the stack trace: pkg/vault/frontmatter/parse.go:88. Fix it.","expect":{"route":"agentic-engineering implement","stop":false,"tests":true,"escalate":false}},
+ {"id":"S03-ambiguous-feature","prompt":"Add a way to snooze action items until a later date.","expect":{"route":"agentic-engineering specify","stop":true,"tests":false,"escalate":true}},
+ {"id":"S04-braindump","prompt":"Here's a brain dump: we keep losing track of which specs are stale; maybe a report, maybe a view, maybe a validation check, not sure. Turn this into something.","expect":{"route":"agentic-engineering specify (strawman)","stop":true,"tests":false,"escalate":true}},
+ {"id":"S05-open-effort","prompt":"Open an effort for SPEC-0038 story US2.","expect":{"route":"agentic-engineering effort","stop":true,"tests":false,"escalate":false}},
+ {"id":"S06-plan","prompt":"Write the implementation plan for the effort docs/efforts/2026-09-04-17-52-engineering-concern-docs.md.","expect":{"route":"agentic-engineering plan","stop":true,"tests":false,"escalate":false}},
+ {"id":"S07-implement-approved","prompt":"The plan in docs/efforts/2026-09-04-17-52-engineering-concern-docs.md is approved. Implement task T004.","expect":{"route":"agentic-engineering implement","stop":false,"tests":true,"escalate":false}},
+ {"id":"S08-finish","prompt":"Close out the effort docs/efforts/2026-09-04-17-52-engineering-concern-docs.md.","expect":{"route":"agentic-engineering finish","stop":false,"tests":false,"escalate":false}},
+ {"id":"S09-transcript","prompt":"Here is a transcript of yesterday's customer interview (attached as docs/meetings/2026-09-03-acme-interview.md). Capture what matters.","expect":{"route":"ingest-transcript","stop":true,"tests":false,"escalate":false}},
+ {"id":"S10-disguised-cross-cutting","prompt":"Small tweak: change effort ids from EFF-YYYY-MM-DD-HH-MM to EFF-YYYYMMDD-HHMM.","expect":{"route":"agentic-engineering (escalate to specify/effort)","stop":true,"tests":false,"escalate":true}},
+ {"id":"S11-testing-question","prompt":"I'm changing how pkg/stores batches SQLite writes. Which tests should I write and at what layer?","expect":{"route":"answer using docs/engineering/testing-policy.md (no skill invocation required)","stop":false,"tests":false,"escalate":false}},
+ {"id":"S12-foundation","prompt":"Phase 1 of the approved plan in docs/efforts/2026-07-19-15-33-agentic-engineering-starter.md requested a foundation review. It's done; review it.","expect":{"route":"foundation-review","stop":true,"tests":false,"escalate":false}},
+ {"id":"S13-gates","prompt":"Run the quality gates for my current changes.","expect":{"route":"agentic-engineering gates","stop":false,"tests":false,"escalate":false}},
+ {"id":"S14-flag","prompt":"Add a --quiet flag to rzm index that suppresses the progress bar.","expect":{"route":"agentic-engineering implement","stop":false,"tests":true,"escalate":false}},
+ {"id":"S15-stale-skill","prompt":"Use the development-loop skill to work through this: add retry to the S3 upload in the release script.","expect":{"route":"agentic-engineering implement (development-loop is retired)","stop":false,"tests":true,"escalate":false}}
+]

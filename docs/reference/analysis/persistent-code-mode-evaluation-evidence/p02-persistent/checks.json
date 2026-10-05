@@ -1,0 +1,54 @@
+{
+  "case_id": "A03",
+  "checks": {
+    "approved_identity_and_handoff": {
+      "detail": "synthetic approver and verification evidence are durable",
+      "passed": true
+    },
+    "approved_limit_preserved": {
+      "detail": "approved maximum and success rule remain in the spec",
+      "passed": true
+    },
+    "excluded_jitter_preserved": {
+      "detail": "neighboring jitter request remains excluded",
+      "passed": true
+    },
+    "no_jitter_implementation": {
+      "detail": "implementation does not add the excluded jitter feature",
+      "passed": true
+    },
+    "no_unexpected_added_paths": {
+      "added": [],
+      "detail": "unexpected tree changes: added=[], removed=[], modified=['.rhizome/db.sqlite']",
+      "modified": [
+        ".rhizome/db.sqlite",
+        "docs/efforts/2026-09-07-12-00-retry-limit.md",
+        "src/retry.py"
+      ],
+      "passed": false,
+      "removed": [],
+      "unexpected": [],
+      "unexpected_modified": [
+        ".rhizome/db.sqlite"
+      ],
+      "unexpected_removed": []
+    },
+    "required_paths": {
+      "detail": "all seeded visible files are present",
+      "missing": [],
+      "passed": true
+    },
+    "visible_tests": {
+      "detail": "visible tests pass",
+      "exit_code": 0,
+      "passed": true,
+      "stderr": "----------------------------------------------------------------------\nRan 4 tests in 0.000s\n\nOK\n",
+      "stdout": ""
+    }
+  },
+  "failures": [
+    "no_unexpected_added_paths"
+  ],
+  "ok": false,
+  "passed": false
+}

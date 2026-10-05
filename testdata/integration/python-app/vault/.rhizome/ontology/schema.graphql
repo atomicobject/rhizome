@@ -1,0 +1,84 @@
+interface Note {
+  summary: String
+}
+
+type Team @node(paths: ["notes/teams/*.md"]) {
+  name: String!
+  members: [Person!] @link(inverse: "team")
+}
+
+type Person @node(paths: ["notes/people/*.md"]) {
+  name: String!
+  role: String
+  team: Team @link(inverse: "members")
+  projects: [Project!] @link(inverse: "owner")
+}
+
+enum ActionStatus {
+  open
+  blocked
+  done
+}
+
+type Decision @node(matches: ["tag:type/decision"]) {
+  name: String!
+}
+
+type ActionItem implements Section
+  @node(locator: EMBEDDED)
+  @source(shape: CHECKBOX_ITEM, marker: "#action-item", paths: ["notes/**/*.md"]) {
+  done: Boolean! @field(sourceKind: CHECKBOX)
+  assignee: Person! @link
+  due: Date @field
+}
+
+type EditableActionItem implements Section
+  @node(locator: EMBEDDED)
+  @source(shape: CHECKBOX_ITEM, marker: "#editable-action-item", paths: ["notes/meetings/*.md"]) {
+  done: Boolean! @field(sourceKind: CHECKBOX)
+  status: ActionStatus @field
+  assignedTo: Person @link
+}
+
+type Conversation @node(paths: ["notes/meetings/*.md"]) {
+  title: String!
+  actionItems: [ActionItem!] @contains(shape: CHECKBOX_ITEM, marker: "#action-item")
+}
+
+type DetailsSection implements Section {
+}
+
+type RequirementsSection implements Section {
+  details: DetailsSection @contains(level: H3, heading: "Details", required: true)
+  decisions: [Decision!] @neighbors(direction: OUTBOUND, type: "Decision", scope: SUBTREE)
+}
+
+type UserStory implements Section
+  @node(locator: EMBEDDED) {
+  storyId: String @field
+  status: String @field
+  spec: Spec @link
+}
+
+type StoriesSection implements Section {
+  stories: [UserStory!] @contains(level: H3)
+}
+
+type Project @node(paths: ["notes/projects/*.md"]) {
+  name: String!
+  owner: Person! @link(inverse: "projects")
+  decisionNotes: [Decision!] @link(source: "decisionNotes")
+  decisions: [Decision!] @neighbors(direction: BOTH, type: "Decision")
+}
+
+type Meeting @node(paths: ["notes/meetings/*.md"]) {
+  title: String!
+  actionItems: [ActionItem!] @contains(shape: CHECKBOX_ITEM, marker: "#action-item")
+  editableActionItems: [EditableActionItem!] @contains(shape: CHECKBOX_ITEM, marker: "#editable-action-item")
+}
+
+type Spec @node(paths: ["notes/specs/*.md"]) {
+  name: String!
+  requirements: RequirementsSection @contains(level: H2, heading: "Requirements", required: true)
+  stories: StoriesSection @contains(level: H2, heading: "Stories")
+}

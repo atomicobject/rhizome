@@ -1,0 +1,142 @@
+diff --git a/docs/efforts/2026-09-07-13-00-retention-source-review.md b/docs/efforts/2026-09-07-13-00-retention-source-review.md
+index 02255fc..f799ef0 100644
+--- a/docs/efforts/2026-09-07-13-00-retention-source-review.md
++++ b/docs/efforts/2026-09-07-13-00-retention-source-review.md
+@@ -26,12 +26,18 @@ contract: 30 days.
+ 
+ ## Stories In Scope (Frozen)
+ 
+-The source-review story and its two criteria are in scope.
++[[retention-controls#^SPEC-9005-US1|US1 - Review a changed source]] is in scope
++with both criteria in its acceptance-criteria section:
++[[retention-controls#^SPEC-9005-US1-AC1|Acceptance Criteria]]
++(`SPEC-9005-US1-AC1` and `SPEC-9005-US1-AC2`).
+ 
+ ## Spec Coverage Checklist
+ 
+-- [ ] Preserve v1 and v2 provenance and exact source locations.
+-- [ ] Record conflict and partial delivery evidence.
++- [x] Preserve v1 and v2 provenance and exact source locations: v1 at
++  `signed-agreement.pdf` section 4.2 and v2 at
++  `change-request-2026-09-01.pdf` section 2.
++- [x] Record conflict and partial delivery evidence while retaining the
++  accepted 30-day contract.
+ 
+ ## Plan
+ 
+@@ -45,8 +51,17 @@ Produce a source-grounded review record without promoting candidate evidence.
+ 
+ ## Actual Delivered
+ 
+-Pending review. The baseline has one of two criteria delivered; the requirement
+-must remain unimplemented until the second criterion has evidence.
++The changed-source assessment and coverage update are recorded. The reviewed
++signed agreement (`SRC-A05-V1`) remains the current evidence for 30 days. The
++later proposal (`SRC-A05-V2`) supplies candidate evidence for 14 days and
++remains `needs_review`; it does not replace the agreement or change the frozen
++spec. Existing implementation and unit-test evidence (`src/retention.py:4-7`
++and `tests/test_retention.py:7-8`) reflects the current 30-day behavior.
++
++This is partial delivery evidence, not a business decision or a completed
++requirement lifecycle change. `REQ-A05-RETENTION` remains accepted and
++unimplemented, and the candidate 14-day proposal remains unpromoted pending an
++authorized reviewer decision.
+ 
+ ## Execution Notes
+ 
+@@ -54,14 +69,28 @@ Current evidence: 30 days from `SRC-A05-V1` at `signed-agreement.pdf` section
+ 4.2. Candidate evidence: 14 days from `SRC-A05-V2` at
+ `change-request-2026-09-01.pdf` section 2. The conflict is unresolved.
+ 
++- `2026-09-07T20:19Z` [validation] Changed-domain impact and requirement-trace
++  retrieval confirmed both source versions, the affected requirement, the
++  retention process/workflow, and the frozen spec. The requirement now carries
++  typed source and delivery coverage plus authored story and criterion refs.
++- `2026-09-07T20:19Z` [handoff] The source-review record is complete, but the
++  v1/v2 retention conflict remains open. Keep v1 and the 30-day contract
++  current until an authorized reviewer decides whether v2 should replace it.
++- `2026-09-07T20:21Z` [blocker] The current spec index exposes one durable
++  acceptance-criteria section target, while `SPEC-9005-US1-AC2` has no separate
++  resolvable node target. The exact AC2 identifier is retained as an authored
++  ref; no fragile or fabricated link was added.
++
+ ## Deviations
+ 
+ None recorded.
+ 
+ ## Closure Checklist
+ 
+-- [ ] Source versions and exact locations remain preserved.
+-- [ ] Conflict and partial delivery evidence are recorded without changing the contract.
++- [x] Source versions and exact locations remain preserved.
++- [x] Conflict and partial delivery evidence are recorded without changing the contract.
++- [ ] Obtain an authorized reviewer disposition on whether the candidate v2
++  proposal should replace the signed v1 agreement.
+ 
+ ## Compounding Follow-ups
+ 
+@@ -69,7 +98,9 @@ None recorded.
+ 
+ ## Status
+ 
+-Open pending a targeted reviewer decision.
++Source assessment and durable coverage update are complete. The effort remains
++active pending an authorized reviewer decision; no candidate evidence has been
++promoted and the frozen 30-day contract is unchanged.
+ 
+ ## Partial Backport
+ 
+diff --git a/docs/reference/requirements/requirements/retention-limit.md b/docs/reference/requirements/requirements/retention-limit.md
+index 2fee38a..95dbee5 100644
+--- a/docs/reference/requirements/requirements/retention-limit.md
++++ b/docs/reference/requirements/requirements/retention-limit.md
+@@ -1,23 +1,36 @@
+ ---
+-type: Requirement
+-id: REQ-9005
++acceptance-criterion-refs:
++    - SPEC-9005-US1-AC1
++    - SPEC-9005-US1-AC2
+ aliases:
+-  - REQ-9005
+-  - REQ-A05-RETENTION
+-summary: "Accepted records remain available for 30 days."
+-status: accepted
++    - REQ-9005
++    - REQ-A05-RETENTION
++confidence: source_backed
++id: REQ-9005
+ kind: constraint
++last-reviewed: 2026-09-01T00:00:00Z
++owner: Synthetic Approver
+ priority: high
+-confidence: source_backed
++processes:
++    - '[[docs/reference/domain/processes/retention-review|PROC-A05]]'
+ review-status: reviewed
+-owner: "Synthetic Approver"
+ source-locations:
+-  - "SRC-A05-V1: signed-agreement.pdf §4.2"
+-  - "SRC-A05-V2: change-request-2026-09-01.pdf §2 (candidate conflict)"
+-verification-hint: "Retention behavior and source conflict review remain separately verifiable."
+-last-reviewed: 2026-09-01
++    - 'SRC-A05-V1: signed-agreement.pdf §4.2'
++    - 'SRC-A05-V2: change-request-2026-09-01.pdf §2 (candidate conflict)'
++sources:
++    - '[[docs/reference/requirements/sources/policy-v1|SRC-A05-V1]]'
++    - '[[docs/reference/requirements/sources/policy-v2|SRC-A05-V2]]'
++specs:
++    - '[[docs/specs/retention-controls|SPEC-A05-RETENTION]]'
++status: accepted
++story-refs:
++    - SPEC-9005-US1
++summary: Accepted records remain available for 30 days.
++type: Requirement
++verification-hint: Retention behavior and source conflict review remain separately verifiable.
++workflows:
++    - '[[docs/reference/domain/workflows/review-retention-change|WF-A05]]'
+ ---
+-
+ # Retention requirement
+ 
+ The accepted obligation is to retain records for **30 days** under the current

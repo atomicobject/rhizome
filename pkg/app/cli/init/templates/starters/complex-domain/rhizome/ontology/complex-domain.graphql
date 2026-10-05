@@ -1,0 +1,195 @@
+enum DomainLifecycleStatus
+  @guidance(
+    meaning: "Review and operating lifecycle for complex-domain notes.",
+    authoring: "Use the narrowest truthful state. Keep draft for provisional knowledge, active for current operating truth, superseded when a successor owns the contract, and archived for retained history.",
+    agentImplications: "Treat draft knowledge as context, active knowledge as a current constraint, and superseded knowledge as historical unless the successor is missing."
+  ) {
+  draft @view(label: "Draft", order: 10, stage: "open")
+  active @view(label: "Active", order: 20, stage: "done")
+  superseded @view(label: "Superseded", order: 90, collapsed: true, stage: "dropped")
+  archived @view(label: "Archived", order: 100, collapsed: true, stage: "dropped")
+}
+
+enum DomainReviewStatus {
+  unreviewed @view(label: "Unreviewed", order: 10)
+  needs_review @view(label: "Needs Review", order: 20, tone: "warning")
+  reviewed @view(label: "Reviewed", order: 80, tone: "success")
+  stale @view(label: "Stale", order: 90, collapsed: true)
+}
+
+enum DomainConfidence {
+  assumption @view(label: "Assumption", order: 10, tone: "warning")
+  inferred @view(label: "Inferred", order: 20, tone: "neutral")
+  source_backed @view(label: "Source Backed", order: 30, tone: "info")
+  verified @view(label: "Verified", order: 80, tone: "success")
+}
+
+enum RequirementStatus {
+  candidate @view(label: "Candidate", order: 10, stage: "open")
+  accepted @view(label: "Accepted", order: 20, stage: "active")
+  implemented @view(label: "Implemented", order: 70, stage: "done")
+  superseded @view(label: "Superseded", order: 90, collapsed: true, stage: "dropped")
+  rejected @view(label: "Rejected", order: 100, collapsed: true, stage: "dropped")
+}
+
+enum RequirementKind {
+  capability
+  constraint
+  data
+  workflow
+  quality
+  compliance
+}
+
+enum RequirementPriority {
+  low @view(label: "Low", order: 30, tone: "neutral")
+  medium @view(label: "Medium", order: 20, tone: "info")
+  high @view(label: "High", order: 10, tone: "warning")
+  critical @view(label: "Critical", order: 1, tone: "risk")
+}
+
+enum RequirementSourceKind {
+  document
+  transcript
+  workshop
+  recording
+  spreadsheet
+  regulation
+  stakeholder_note
+  system_observation
+}
+
+"""
+Bounded domain context such as a bounded context, business area, regulatory area, or subdomain.
+Use this when the same vocabulary, processes, and rules should be read together.
+"""
+type DomainContext
+  @node(paths: ["docs/reference/domain/contexts/**/*.md"])
+  @display(singular: "Domain context", plural: "Domain contexts", group: "Domain & requirements")
+  @companionDocs(paths: ["docs/reference/guides/complex-domain-workflow.md"], purpose: "workflow")
+  {
+  id: String @field(source: "id") @identifier(preferred: true, prefix: "CTX")
+  summary: String!
+  status: DomainLifecycleStatus! @display(importance: KEY)
+  owner: String @field
+  reviewStatus: DomainReviewStatus @field(source: "review-status")
+  lastReviewed: Date @display(importance: DETAIL) @field(source: "last-reviewed")
+  domainTypes: [DomainType!] @display(hover: false) @neighbors(direction: INBOUND, type: "DomainType")
+  processes: [DomainProcess!] @display(hover: false) @neighbors(direction: INBOUND, type: "DomainProcess")
+  requirements: [Requirement!] @neighbors(direction: INBOUND, type: "Requirement")
+}
+
+"""
+Domain object, vocabulary term, stateful entity, value object, or external concept.
+Create one when requirements or specs depend on precise meaning, states, relationships, or invariants.
+"""
+type DomainType
+  @node(paths: ["docs/reference/domain/types/**/*.md"])
+  @display(singular: "Domain type", plural: "Domain types", group: "Domain & requirements")
+  @companionDocs(paths: ["docs/reference/domain/types/README.md"], purpose: "workflow")
+  {
+  id: String @field(source: "id") @identifier(preferred: true, prefix: "DT")
+  summary: String!
+  status: DomainLifecycleStatus! @display(importance: KEY)
+  confidence: DomainConfidence @field
+  reviewStatus: DomainReviewStatus @field(source: "review-status")
+  lastReviewed: Date @display(importance: DETAIL) @field(source: "last-reviewed")
+  contexts: [DomainContext!] @display(hover: false) @link
+  requirements: [Requirement!] @neighbors(direction: INBOUND, type: "Requirement")
+}
+
+"""
+Business or system process with states, decisions, handoffs, invariants, and rule points.
+Keep this distinct from UserWorkflow, which describes actor-facing tasks and journeys.
+"""
+type DomainProcess
+  @node(paths: ["docs/reference/domain/processes/**/*.md"])
+  @display(singular: "Domain process", plural: "Domain processes", group: "Domain & requirements")
+  @companionDocs(paths: ["docs/reference/domain/processes/README.md"], purpose: "workflow")
+  {
+  id: String @field(source: "id") @identifier(preferred: true, prefix: "PROC")
+  summary: String!
+  status: DomainLifecycleStatus! @display(importance: KEY)
+  owner: String @field
+  reviewStatus: DomainReviewStatus @field(source: "review-status")
+  lastReviewed: Date @display(importance: DETAIL) @field(source: "last-reviewed")
+  contexts: [DomainContext!] @display(hover: false) @link
+  requirements: [Requirement!] @neighbors(direction: INBOUND, type: "Requirement")
+  workflows: [UserWorkflow!] @display(hover: false) @neighbors(direction: INBOUND, type: "UserWorkflow")
+}
+
+"""
+Actor-facing workflow, journey, task flow, screen sequence, or operational path.
+Use this for user-visible work; link to DomainProcess when a workflow participates in a broader business process.
+"""
+type UserWorkflow
+  @node(paths: ["docs/reference/domain/workflows/**/*.md"])
+  @display(singular: "User workflow", plural: "User workflows", group: "Domain & requirements")
+  @companionDocs(paths: ["docs/reference/domain/workflows/README.md"], purpose: "workflow")
+  {
+  id: String @field(source: "id") @identifier(preferred: true, prefix: "WF")
+  summary: String!
+  status: DomainLifecycleStatus! @display(importance: KEY)
+  actors: [String!] @field
+  reviewStatus: DomainReviewStatus @field(source: "review-status")
+  lastReviewed: Date @display(importance: DETAIL) @field(source: "last-reviewed")
+  processes: [DomainProcess!] @display(hover: false) @link
+  requirements: [Requirement!] @neighbors(direction: INBOUND, type: "Requirement")
+}
+
+"""
+Source artifact that requirements or domain facts were extracted from.
+Use this for source documents, transcripts, workshops, recordings, spreadsheets, regulations, and stakeholder notes.
+"""
+type RequirementSource
+  @node(paths: ["docs/reference/requirements/sources/**/*.md"])
+  @display(singular: "Requirement source", plural: "Requirement sources", group: "Domain & requirements")
+  @companionDocs(paths: ["docs/reference/requirements/sources/README.md"], purpose: "workflow")
+  {
+  id: String @field(source: "id") @identifier(preferred: true, prefix: "SRC")
+  summary: String!
+  sourceKind: RequirementSourceKind! @display(importance: KEY) @field(source: "source-kind")
+  sourceDate: Date @field(source: "source-date")
+  sourceVersion: String @display(importance: DETAIL) @field(source: "source-version")
+  provenance: String @display(importance: DETAIL) @field
+  confidence: DomainConfidence @field
+  reviewStatus: DomainReviewStatus @field(source: "review-status")
+  lastExtracted: Date @display(importance: DETAIL) @field(source: "last-extracted")
+  requirements: [Requirement!] @neighbors(direction: INBOUND, type: "Requirement")
+}
+
+"""
+Curated atomic requirement with provenance and structural links to the domain things it constrains.
+Keep one obligation, capability, constraint, rule, or quality expectation per note.
+"""
+type Requirement
+  @node(paths: ["docs/reference/requirements/requirements/**/*.md"])
+  @display(singular: "Requirement", plural: "Requirements", group: "Domain & requirements")
+  @requiresWhen(field: "status", equals: "superseded", require: [{ field: "supersededBy" }])
+  @companionDocs(paths: ["docs/reference/requirements/requirements/README.md", "docs/reference/guides/complex-domain-workflow.md"], purpose: "workflow")
+  {
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "REQ")
+  summary: String!
+  status: RequirementStatus! @display(importance: KEY)
+  kind: RequirementKind! @display(importance: KEY)
+  priority: RequirementPriority @display(importance: KEY) @field
+  confidence: DomainConfidence!
+  reviewStatus: DomainReviewStatus @field(source: "review-status")
+  owner: String @field
+  reviewer: String @display(importance: DETAIL) @field
+  sourceLocations: [String!] @display(importance: DETAIL) @field(source: "source-locations")
+  verificationHint: String @display(importance: DETAIL) @field(source: "verification-hint")
+  lastReviewed: Date @display(importance: DETAIL) @field(source: "last-reviewed")
+  sources: [RequirementSource!] @link
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  contexts: [DomainContext!] @display(hover: false) @link
+  domainTypes: [DomainType!] @display(hover: false) @link(source: "domain-types")
+  processes: [DomainProcess!] @display(hover: false) @link
+  workflows: [UserWorkflow!] @display(hover: false) @link
+  specs: [SpecLike!] @link
+  storyRefs: [String!] @display(importance: DETAIL) @field(source: "story-refs")
+  acceptanceCriterionRefs: [String!] @display(importance: DETAIL) @field(source: "acceptance-criterion-refs")
+  duplicates: [Requirement!] @link
+  conflicts: [Requirement!] @link
+  supersededBy: Requirement @display(importance: KEY) @link(source: "superseded-by")
+}

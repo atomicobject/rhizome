@@ -1,0 +1,1046 @@
+"""
+Lifecycle for normative specs.
+"""
+enum SpecStatus
+  @guidance(
+    meaning: "Marks whether a spec is still being shaped, is the active delivery contract, or is kept mainly as historical context.",
+    authoring: "Choose the value that matches the real contract role of the spec rather than a vague sense of completeness.",
+    agentImplications: "Treat status changes as semantic contract changes, not cosmetic edits."
+  ) {
+  proposed
+    @view(label: "Proposed", order: 10, stage: "open")
+    @guidance(
+      meaning: "The spec is still being shaped or reviewed.",
+      authoring: "Use this before the spec becomes the active contract for planning and execution.",
+      agentImplications: "Do not assume the note is stable enough to freeze into an effort."
+    )
+  active
+    @view(label: "Active", order: 20, stage: "done")
+    @guidance(
+      meaning: "This is the live normative contract for delivery.",
+      authoring: "Use this for the governing spec that planning, execution, and backport should follow, and evolve it in place by default.",
+      agentImplications: "Treat the spec as authoritative while editing and execution planning."
+    )
+  superseded
+    @view(label: "Superseded", order: 90, collapsed: true, stage: "dropped")
+    @guidance(
+      meaning: "A newer successor contract now exceptionally owns this area.",
+      authoring: "Use this only when a newer note explicitly succeeds this one; routine workflow should update the active spec in place.",
+      agentImplications: "Prefer the successor contract for current work."
+    )
+  archived
+    @view(label: "Archived", order: 100, collapsed: true, stage: "dropped")
+    @guidance(
+      meaning: "Historical spec retained for traceability.",
+      authoring: "Keep it discoverable as history, not as the active delivery surface.",
+      agentImplications: "Do not use it as the main governing source for new work."
+    )
+}
+
+"""
+Lifecycle for bounded execution efforts.
+"""
+enum EffortStatus
+  @guidance(
+    meaning: "Marks whether an effort is being prepared, actively executed, complete, or historical.",
+    authoring: "Keep effort status aligned with real execution state.",
+    agentImplications: "Use this to infer whether the effort is live, closed, or historical."
+  ) {
+  planned
+    @view(label: "Planned", order: 10, stage: "open")
+    @guidance(
+      meaning: "The effort exists and scope is frozen, but active execution has not started yet.",
+      authoring: "Use this while planning is underway or approval/execution is still pending.",
+      agentImplications: "Expect frozen scope and planning context, but not a mature execution trail yet."
+    )
+  active
+    @view(label: "Active", order: 20, stage: "active")
+    @guidance(
+      meaning: "Execution is currently live.",
+      authoring: "Keep status, execution notes, and deviations current while work is underway.",
+      agentImplications: "Treat the effort note as the live execution contract."
+    )
+  complete
+    @view(label: "Complete", order: 90, collapsed: true, stage: "done")
+    @guidance(
+      meaning: "The bounded slice is finished and the effort stands as the completed delivery record.",
+      authoring: "Use this only after actual outcome, deviations, and closure context are recorded.",
+      agentImplications: "Treat the note as closed execution history unless the workflow explicitly resumes it."
+    )
+  archived
+    @view(label: "Archived", order: 100, collapsed: true, stage: "dropped")
+    @guidance(
+      meaning: "Historical effort retained for provenance.",
+      authoring: "Keep it for traceability, not as a live execution surface.",
+      agentImplications: "Prefer newer efforts for current work."
+    )
+}
+
+"""
+Lifecycle for embedded user stories inside authoritative specs.
+"""
+enum UserStoryStatus
+  @guidance(
+    meaning: "Marks whether a story is still being shaped, ready for effort selection, or satisfied by delivered/backported reality.",
+    authoring: "Use status for contract readiness and satisfaction truthfully rather than as a generic progress label.",
+    agentImplications: "Use this to decide whether the story belongs in the next effort slice."
+  ) {
+  draft
+    @view(label: "Draft", order: 10, stage: "open")
+    @guidance(
+      meaning: "The story is in scope conceptually but not ready for selection into an effort.",
+      authoring: "Keep this for later or still-forming story work.",
+      agentImplications: "Do not pull this into frozen effort scope unless the work is explicitly about shaping it."
+    )
+  ready
+    @view(label: "Ready", order: 20, stage: "open", tone: "info")
+    @guidance(
+      meaning: "The story is groomed enough to be selected into a bounded effort.",
+      authoring: "Use this when acceptance criteria and scope are clear enough for planning and execution.",
+      agentImplications: "This is the normal selection state for effort planning."
+    )
+  satisfied
+    @view(label: "Satisfied", order: 90, collapsed: true, stage: "done")
+    @guidance(
+      meaning: "The story's intended behavior has been delivered and the governing spec/backport reflects that reality.",
+      authoring: "Use this only when the acceptance criteria are satisfied and the governing spec can reflect that truthfully.",
+      agentImplications: "Treat this as satisfied contract state, not merely work started or code merged."
+    )
+}
+
+enum ReferenceKind {
+  """How-to or operating guidance."""
+  guide
+    @guidance(
+      meaning: "Reference preserves procedural or operating guidance.",
+      authoring: "Use for durable how-to material that should be read with related work.",
+      agentImplications: "Use this as workflow context, not as normative spec scope."
+    )
+  """Analysis, research, comparison, or evaluation."""
+  analysis
+    @guidance(
+      meaning: "Reference preserves analysis, research, comparison, or evaluation.",
+      authoring: "Use for evidence and reasoning that inform but do not directly define the contract.",
+      agentImplications: "Use this as rationale/evidence and check whether conclusions are still current."
+    )
+  """Descriptive architecture, subsystem map, or current-state technical explanation."""
+  architecture
+    @guidance(
+      meaning: "Reference preserves architecture context that explains how a subsystem works today.",
+      authoring: "Use for descriptive architecture docs, subsystem maps, diagrams, and operating boundaries that support but do not replace normative technical specs.",
+      agentImplications: "Use this as architecture context before changing related code or specs."
+    )
+}
+
+"""
+Thin section type for summary, goals, non-goals, plans, and status blocks.
+Use it when the section heading is load-bearing but the body remains freeform.
+"""
+type NarrativeSection implements Section {
+}
+
+"""Frozen governing spec set for an effort."""
+type FrozenSpecSetSection implements Section {
+  """Specs linked from the frozen spec-set subtree."""
+  frozenSpecs: [SpecLike!] @neighbors(direction: OUTBOUND, type: "SpecLike", scope: SUBTREE)
+}
+
+"""
+Frozen story and acceptance-criterion slice for an effort.
+Author selected stories and criteria as wikilinks to their embedded `#^...` node targets;
+plain text ids are not enough because the effort-owned graph relation is indexed from links.
+"""
+type FrozenStoryScopeSection implements Section {
+}
+
+"""Wrapper section for a story's repeated acceptance criteria."""
+type AcceptanceCriteriaSection implements Section {
+  """Embedded acceptance criteria authored as direct list items inside the section."""
+  criteria: [AcceptanceCriterion!]
+    @contains(shape: LIST_ITEM, min: 1)
+    @guidance(
+      meaning: "Wrapper for observable story-level completion criteria.",
+      authoring: "Write each criterion as one direct unordered list item under `#### Acceptance Criteria`. Use `**Short title**: observable outcome` when a title improves scanning; otherwise the whole first line is the criterion summary. Put optional Gherkin, callouts, nested examples, or `verification::` on indented continuation lines only when needed. Prefer externally observable behavior over vague verbs like 'works' or implementation-step phrasing.",
+      agentImplications: "Treat individual criteria as the smallest durable completion and test-mapping targets. Use them to decide what must be proven before a story can be `satisfied`."
+    )
+}
+
+"""
+Embedded acceptance criterion node persisted inside a story's Acceptance Criteria section.
+Use this for observable story outcomes. The list-item text is the human-readable
+handle. Add a plain block locator only when the criterion needs a durable external link target.
+"""
+type AcceptanceCriterion
+  implements Section
+  @node(locator: EMBEDDED)
+  @guidance(
+    meaning: "Observable criterion for satisfying a user story; individually addressable when externally cited.",
+    authoring: "Write the list item as a short observable criterion, with one criterion per node. Use a bold prefix title only when it helps distinguish criteria quickly. Add indented continuation lines only for necessary behavior detail, edge cases, Given/When/Then text, callouts, nested examples, or `verification::` hints. Avoid vague verbs, bundled multi-part outcomes, and implementation chores unless the story itself is technical. Do not author an `id::` field for criteria. If a criterion is externally cited or selected into an effort, inspect the on-demand source edit with `rzm agent node-link --target <spec#criterion-fragment> --ensure plan` so Rhizome can mint a plain block locator; when mutation is authorized, apply the repair through a write-capable Rhizome surface, rerun the helper, and cite only after `requiresFix` is false. Use `verification::` only for a concise check hint when known.",
+    agentImplications: "Use these nodes for test planning, coverage checklists, audit evidence, and code/doc links when they are more precise than the parent story. Treat vague criterion text as under-authored before marking a story `ready`. Link by on-demand block locator, not by authored criterion locator."
+  ) {
+  """Criterion first-line outcome text, excluding an optional bold title prefix."""
+  summary: String! @field(sourceKind: ITEM_SUMMARY)
+
+  """Indented behavior detail such as Gherkin, callouts, examples, or edge cases."""
+  detail: String @field(sourceKind: ITEM_DETAIL)
+
+  """Optional concise check, command, or evidence path that can verify this criterion."""
+  verification: String @field
+
+  """Efforts that selected this criterion through their frozen story scope."""
+  efforts: [Effort!]
+    @neighbors(direction: INBOUND, type: "Effort", scope: SUBTREE)
+    @guidance(
+      meaning: "Effort-owned relation showing which efforts selected this criterion through `Stories In Scope (Frozen)`.",
+      authoring: "Do not author effort links on criteria. Link the criterion from the owning effort's frozen scope instead.",
+      agentImplications: "Use this inbound relation for criterion-level execution provenance, coverage, audit, and backport evidence."
+    )
+}
+
+"""
+Requirements subtree for a spec.
+Use this for cross-cutting, system-level, or non-story-specific constraints.
+Keep story-local "done" criteria inside each user story's Acceptance Criteria subtree.
+"""
+type RequirementsSection
+  implements Section
+  @guidance(
+    meaning: "Normative obligations that apply across the spec or define system-level constraints outside one story's done criteria.",
+    authoring: "Write requirements as testable MUST/SHOULD/MAY obligations. Keep them technology-neutral unless the technology choice is itself the contract. Link supporting evidence or decisions where they materially constrain the requirement, and do not duplicate story-local acceptance criteria.",
+    agentImplications: "Use this section as the cross-story contract surface for audits, planning, and backport. Treat vague aspirations, implementation task lists, and uncited assumptions as drafting defects."
+  ) {
+  """Reference docs linked from this requirements subtree."""
+  references: [ReferenceDoc!] @neighbors(direction: OUTBOUND, type: "ReferenceDoc", scope: SUBTREE)
+}
+
+"""
+Shared contract for normative specs in the spec-driven delivery starter.
+Specs define the desired world-state. They should stay stable enough to freeze into efforts.
+"""
+interface SpecLike
+  @display(singular: "Spec", plural: "Specs", group: "Delivery")
+  @guidance(
+    meaning: "Shared contract for normative spec artifacts that define intended world-state.",
+    authoring: "Write specs as cohesive contracts, not patch logs. Make the problem, desired outcome, boundaries, requirements, evidence, and unresolved decisions explicit enough that an effort can freeze a slice without rediscovering intent in chat.",
+    agentImplications: "Treat spec-like notes as the governing intent artifacts for delivery. Before planning, check whether the spec is coherent, testable, and specific enough to drive implementation and audit."
+  ) {
+  """Short statement of what this spec defines and why it matters."""
+  summary: String!
+
+  """Stable identifier for cross-referencing the spec from efforts, plans, and discussions."""
+  id: String!
+
+  """Lifecycle state for the spec."""
+  specStatus: SpecStatus! @display(importance: KEY)
+    @field(source: "spec-status")
+    @guidance(
+      meaning: "Contract-lifecycle marker for the spec note itself.",
+      authoring: "Change this only when the spec's real contract role changes.",
+      agentImplications: "Use the enum value guidance before editing or planning against the spec."
+    )
+
+  """Explicit successor note when this spec is exceptionally replaced rather than evolved in place."""
+  successor: SpecLike @link
+
+  """Last substantive revision date for the spec contract."""
+  lastUpdated: Date @display(importance: DETAIL) @field(source: "last-updated")
+
+  """Product or capability areas this spec belongs to."""
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+}
+
+"""
+Product or capability area used to organize specs, efforts, and later requirement coverage.
+Use it as a lightweight planning boundary, not as a replacement for a spec.
+"""
+type FeatureArea
+  @node(paths: ["docs/feature-areas/**/*.md", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/feature-areas/**/*.md"])
+  @display(singular: "Feature area", plural: "Feature areas", group: "Delivery")
+  @companionDocs(paths: ["docs/engineering/review-and-approval.md"], purpose: "workflow")
+  {
+  """Stable feature-area identifier, e.g. FA-0001."""
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "FA")
+
+  """Short statement of the product or capability area."""
+  summary: String!
+
+  """Optional accountable owner for this area."""
+  owner: String @field
+
+  """Broader feature area this one sits under; empty for a top-level area."""
+  parent: FeatureArea @display(role: PARENT)
+    @link(includeBodyLinks: false, includeBacklinks: false)
+    @guidance(
+      meaning: "The one broader feature area that contains this area, forming a tree of areas.",
+      authoring: "Set `parent:` frontmatter to the broader area's wikilink only when this area is a genuine subdivision of it. Leave it empty for a top-level area, and never create a parent cycle. Attach specs to the most specific area that fits rather than to its ancestors.",
+      agentImplications: "Read an area's ancestors for broader context, and expect specs on the most specific area. Do not infer parents from body links or folder placement."
+    )
+
+  """Specs linked to this feature area."""
+  specs: [SpecLike!] @neighbors(direction: INBOUND, type: "SpecLike")
+}
+
+"""
+Process spec describing how the team defines, plans, executes, and backports work.
+Create one when a process needs to be normative rather than tribal knowledge.
+"""
+type ProcessSpec
+  implements SpecLike
+  @display(singular: "Process spec", plural: "Process specs")
+  @node(matches: ["type:ProcessSpec"])
+  @requiresWhen(field: "specStatus", equals: "superseded", require: [{ field: "successor" }])
+  @companionDocs(paths: ["docs/engineering/review-and-approval.md"], purpose: "workflow")
+  @guidance(
+    meaning: "Normative process contract for how the team does work.",
+    authoring: "Write process specs as enforceable operating rules: name the trigger, required sequence, exit criteria, responsible artifact, and validation path. Separate MUST workflow rules from rationale and examples.",
+    agentImplications: "Use ProcessSpec notes to decide how to proceed, not merely to understand background practice."
+  )
+  {
+  summary: String!
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "SPEC")
+  specStatus: SpecStatus! @display(importance: KEY)
+    @field(source: "spec-status")
+    @guidance(
+      meaning: "Contract-lifecycle marker for the spec note itself.",
+      authoring: "Change this only when the spec's real contract role changes.",
+      agentImplications: "Use the enum value guidance before editing or planning against the spec."
+    )
+  successor: SpecLike
+    @link
+    @guidance(
+      meaning: "Explicit successor spec when this note has been exceptionally replaced instead of evolving in place.",
+      authoring: "Populate this only when the current spec is truly superseded by a newer note. Leave it empty during the normal in-place evolution workflow.",
+      agentImplications: "When present, prefer the linked successor for current planning and execution."
+    )
+  lastUpdated: Date @display(importance: DETAIL) @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  summarySection: NarrativeSection
+    @contains(level: H2, heading: "Summary", required: true, display: INLINE)
+    @guidance(
+      meaning: "Concise orientation to the process contract.",
+      authoring: "State the process this spec governs, why it exists, and the most important operating invariant in one or two paragraphs.",
+      agentImplications: "Use this to orient quickly, then read Requirements for enforceable rules."
+    )
+  goals: NarrativeSection
+    @contains(level: H2, heading: "Goals", required: true)
+    @guidance(
+      meaning: "Positive outcomes the process must preserve.",
+      authoring: "List concrete process outcomes, not generic quality aspirations.",
+      agentImplications: "Use goals to judge whether proposed workflow changes preserve the process intent."
+    )
+  nonGoals: NarrativeSection
+    @contains(level: H2, heading: "Non-Goals", required: true)
+    @guidance(
+      meaning: "Boundaries that keep the process spec from overreaching.",
+      authoring: "Write exclusions that prevent likely misuse or scope creep.",
+      agentImplications: "Use non-goals to reject changes that belong in another process, spec, or tool."
+    )
+  requirements: RequirementsSection
+    @contains(level: H2, heading: "Requirements", required: true)
+    @guidance(
+      meaning: "Enforceable workflow obligations.",
+      authoring: "Use MUST/SHOULD/MAY bullets with clear triggers, outputs, and validation checks.",
+      agentImplications: "Treat these as the operating rules to follow during execution."
+    )
+  openQuestions: NarrativeSection
+    @contains(level: H2, heading: "Open Questions")
+    @guidance(
+      meaning: "Known unresolved process questions.",
+      authoring: "Keep only real unresolved decisions here; remove or resolve stale questions during substantive edits.",
+      agentImplications: "Surface these before treating the process as fully settled."
+    )
+}
+
+"""
+Product spec defining user-visible behavior, workflow, scope, or business intent.
+Create one when product expectations need to be frozen and reviewed explicitly.
+"""
+type ProductSpec
+  implements SpecLike
+  @display(singular: "Product spec", plural: "Product specs")
+  @node(matches: ["type:ProductSpec"])
+  @requiresWhen(field: "specStatus", equals: "superseded", require: [{ field: "successor" }])
+  @companionDocs(paths: ["docs/engineering/review-and-approval.md"], purpose: "workflow")
+  @guidance(
+    meaning: "Normative contract for user-visible behavior, workflow, scope, or business intent.",
+    authoring: "Write from user and business outcomes first. Capture actors, workflow states, edge cases, success/failure behavior, and explicit scope boundaries. Avoid burying implementation design in product requirements.",
+    agentImplications: "Use ProductSpec notes to understand what the product must do and why before proposing technical work."
+  )
+  {
+  summary: String!
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "SPEC")
+  specStatus: SpecStatus! @display(importance: KEY)
+    @field(source: "spec-status")
+    @guidance(
+      meaning: "Contract-lifecycle marker for the spec note itself.",
+      authoring: "Change this only when the spec's real contract role changes.",
+      agentImplications: "Use the enum value guidance before editing or planning against the spec."
+    )
+  successor: SpecLike
+    @link
+    @guidance(
+      meaning: "Explicit successor spec when this note has been exceptionally replaced instead of evolving in place.",
+      authoring: "Populate this only when the current spec is truly superseded by a newer note. Leave it empty during the normal in-place evolution workflow.",
+      agentImplications: "When present, prefer the linked successor for current planning and execution."
+    )
+  lastUpdated: Date @display(importance: DETAIL) @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  summarySection: NarrativeSection
+    @contains(level: H2, heading: "Summary", required: true, display: INLINE)
+    @guidance(
+      meaning: "Short product contract orientation.",
+      authoring: "State the user-visible change, who it serves, and the product reason it matters. Avoid implementation mechanism unless it is user-facing.",
+      agentImplications: "Use this to choose the right product slice and avoid drifting into unrelated technical detail."
+    )
+  goals: NarrativeSection
+    @contains(level: H2, heading: "Goals", required: true)
+    @guidance(
+      meaning: "Desired product outcomes.",
+      authoring: "Write goals as observable user or business outcomes, not tasks. Include success/failure states when they define the experience.",
+      agentImplications: "Use goals to judge whether stories and requirements preserve the intended outcome."
+    )
+  nonGoals: NarrativeSection
+    @contains(level: H2, heading: "Non-Goals", required: true)
+    @guidance(
+      meaning: "Product scope exclusions.",
+      authoring: "Name likely tempting features, workflows, audiences, or behaviors that are intentionally out of scope.",
+      agentImplications: "Use non-goals to keep effort planning from expanding the product contract."
+    )
+  userStories: UserStoriesSection
+    @contains(level: H2, heading: "User Stories", required: true)
+    @guidance(
+      meaning: "Story-level product outcomes that can be selected into efforts.",
+      authoring: "Keep each story to one user-facing outcome with typed acceptance criteria. Link personas, requirements references, or decisions inside the story subtree when they materially constrain the behavior.",
+      agentImplications: "Use stories as the normal effort-selection units for ProductSpec delivery."
+    )
+  requirements: RequirementsSection
+    @contains(level: H2, heading: "Requirements", required: true)
+    @guidance(
+      meaning: "Cross-story product obligations.",
+      authoring: "Use this for rules that span stories: permissions, data visibility, policy, edge cases, limits, and behavior that must hold across the workflow.",
+      agentImplications: "Audit these alongside story acceptance criteria."
+    )
+  openQuestions: NarrativeSection
+    @contains(level: H2, heading: "Open Questions")
+    @guidance(
+      meaning: "Unresolved product decisions.",
+      authoring: "Use explicit proposed answers or decision prompts; do not hide blocking ambiguity in vague prose.",
+      agentImplications: "Do not mark related stories `ready` while a blocking question remains unresolved."
+    )
+}
+
+"""
+Technical spec defining implementation-facing contracts, boundaries, or architecture work.
+Create one when engineers need a normative technical target rather than a transient design sketch.
+Technical specs may use embedded user stories when story decomposition helps execution,
+but they may also be requirements-only when the work is better expressed as subsystem constraints.
+"""
+type TechnicalSpec
+  implements SpecLike
+  @display(singular: "Technical spec", plural: "Technical specs")
+  @node(matches: ["type:TechnicalSpec"])
+  @requiresWhen(field: "specStatus", equals: "superseded", require: [{ field: "successor" }])
+  @companionDocs(paths: ["docs/engineering/review-and-approval.md"], purpose: "workflow")
+  @guidance(
+    meaning: "Normative contract for implementation-facing behavior, subsystem boundaries, APIs, data, or architecture.",
+    authoring: "Write the engineering target clearly enough for implementation and review: name affected modules, invariants, interfaces, data/contracts, migration path, failure modes, observability, and test strategy. Keep product intent linked but avoid restating product stories as architecture.",
+    agentImplications: "Use TechnicalSpec notes to constrain code changes, test design, and refactors. Treat missing invariants, ownership boundaries, or verification strategy as spec gaps."
+  )
+  {
+  summary: String!
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "SPEC")
+  specStatus: SpecStatus! @display(importance: KEY)
+    @field(source: "spec-status")
+    @guidance(
+      meaning: "Contract-lifecycle marker for the spec note itself.",
+      authoring: "Change this only when the spec's real contract role changes.",
+      agentImplications: "Use the enum value guidance before editing or planning against the spec."
+    )
+  successor: SpecLike
+    @link
+    @guidance(
+      meaning: "Explicit successor spec when this note has been exceptionally replaced instead of evolving in place.",
+      authoring: "Populate this only when the current spec is truly superseded by a newer note. Leave it empty during the normal in-place evolution workflow.",
+      agentImplications: "When present, prefer the linked successor for current planning and execution."
+    )
+  lastUpdated: Date @display(importance: DETAIL) @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  summarySection: NarrativeSection
+    @contains(level: H2, heading: "Summary", required: true, display: INLINE)
+    @guidance(
+      meaning: "Short technical contract orientation.",
+      authoring: "State the subsystem or interface being changed, the target behavior or invariant, and the technical reason it matters.",
+      agentImplications: "Use this to select relevant code paths and avoid treating the spec as a product brief."
+    )
+  goals: NarrativeSection
+    @contains(level: H2, heading: "Goals", required: true)
+    @guidance(
+      meaning: "Technical outcomes the implementation must achieve.",
+      authoring: "Write goals as durable engineering properties: boundaries, API behavior, data shape, correctness, performance, migration, or operability outcomes.",
+      agentImplications: "Use goals to evaluate implementation architecture and test coverage."
+    )
+  nonGoals: NarrativeSection
+    @contains(level: H2, heading: "Non-Goals", required: true)
+    @guidance(
+      meaning: "Technical scope exclusions.",
+      authoring: "Name subsystems, compatibility work, migrations, optimizations, or redesigns intentionally left out.",
+      agentImplications: "Use non-goals to prevent refactor creep."
+    )
+  userStories: UserStoriesSection
+    @contains(level: H2, heading: "User Stories")
+    @guidance(
+      meaning: "Optional execution slices for technical work.",
+      authoring: "Use stories when the technical work has separable deliverable outcomes. Omit them when a requirements-only subsystem contract is clearer.",
+      agentImplications: "Do not force story decomposition when requirements and implementation phases are the better planning surface."
+    )
+  requirements: RequirementsSection
+    @contains(level: H2, heading: "Requirements", required: true)
+    @guidance(
+      meaning: "Implementation-facing obligations and constraints.",
+      authoring: "Include module/API contracts, data invariants, migration requirements, error handling, concurrency, observability, security, and test obligations when relevant.",
+      agentImplications: "Use these as the audit checklist for code and tests."
+    )
+  openQuestions: NarrativeSection
+    @contains(level: H2, heading: "Open Questions")
+    @guidance(
+      meaning: "Unresolved technical decisions.",
+      authoring: "Record the concrete decision needed, the leading option, and what evidence would resolve it.",
+      agentImplications: "Do not proceed to implementation planning if a MUST-level technical question remains open."
+    )
+}
+
+"""
+Experience spec for interaction design, flows, or content behavior that deserves a maintained contract.
+Create one when UX decisions should not be rediscovered from implementation alone.
+"""
+type ExperienceSpec
+  implements SpecLike
+  @display(singular: "Experience spec", plural: "Experience specs")
+  @node(matches: ["type:ExperienceSpec"])
+  @requiresWhen(field: "specStatus", equals: "superseded", require: [{ field: "successor" }])
+  @companionDocs(paths: ["docs/engineering/review-and-approval.md"], purpose: "workflow")
+  @guidance(
+    meaning: "Normative contract for interaction design, flows, content behavior, and UX states.",
+    authoring: "Write the experience as concrete user flows and states: entry points, default/empty/loading/error states, accessibility expectations, responsive behavior, content rules, and acceptance criteria for observable interactions.",
+    agentImplications: "Use ExperienceSpec notes to preserve interaction intent and state coverage during UI implementation."
+  )
+  {
+  summary: String!
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "SPEC")
+  specStatus: SpecStatus! @display(importance: KEY)
+    @field(source: "spec-status")
+    @guidance(
+      meaning: "Contract-lifecycle marker for the spec note itself.",
+      authoring: "Change this only when the spec's real contract role changes.",
+      agentImplications: "Use the enum value guidance before editing or planning against the spec."
+    )
+  successor: SpecLike
+    @link
+    @guidance(
+      meaning: "Explicit successor spec when this note has been exceptionally replaced instead of evolving in place.",
+      authoring: "Populate this only when the current spec is truly superseded by a newer note. Leave it empty during the normal in-place evolution workflow.",
+      agentImplications: "When present, prefer the linked successor for current planning and execution."
+    )
+  lastUpdated: Date @display(importance: DETAIL) @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  summarySection: NarrativeSection
+    @contains(level: H2, heading: "Summary", required: true, display: INLINE)
+    @guidance(
+      meaning: "Short experience contract orientation.",
+      authoring: "State the flow, audience, and experience quality this spec governs.",
+      agentImplications: "Use this to locate the UI/content surface and preserve the right interaction intent."
+    )
+  goals: NarrativeSection
+    @contains(level: H2, heading: "Goals", required: true)
+    @guidance(
+      meaning: "Desired experience outcomes.",
+      authoring: "Write goals as user-perceivable outcomes, flow qualities, content clarity, accessibility, or state coverage.",
+      agentImplications: "Use goals to evaluate whether UI changes feel complete, not just functional."
+    )
+  nonGoals: NarrativeSection
+    @contains(level: H2, heading: "Non-Goals", required: true)
+    @guidance(
+      meaning: "Experience scope exclusions.",
+      authoring: "Name interactions, platforms, personas, visual treatments, or content work intentionally excluded.",
+      agentImplications: "Use non-goals to avoid expanding a focused UX slice."
+    )
+  userStories: UserStoriesSection
+    @contains(level: H2, heading: "User Stories", required: true)
+    @guidance(
+      meaning: "Interaction outcomes selectable into efforts.",
+      authoring: "Keep each story tied to one user action, decision, or state transition and include typed acceptance criteria for state behavior.",
+      agentImplications: "Use these stories to drive UI state tests and visual verification."
+    )
+  requirements: RequirementsSection
+    @contains(level: H2, heading: "Requirements", required: true)
+    @guidance(
+      meaning: "Cross-story UX obligations.",
+      authoring: "Capture state coverage, accessibility, responsive behavior, content constraints, validation, and error handling that apply across the flow.",
+      agentImplications: "Use these requirements alongside screenshots, tests, and accessibility checks."
+    )
+  openQuestions: NarrativeSection
+    @contains(level: H2, heading: "Open Questions")
+    @guidance(
+      meaning: "Unresolved experience decisions.",
+      authoring: "Record decision prompts about flows, copy, visual treatment, state behavior, or accessibility tradeoffs.",
+      agentImplications: "Surface these before treating a UI plan as complete."
+    )
+}
+
+"""
+Operations spec for deployment, support, migration, or operational readiness contracts.
+Create one when the operating path must stay aligned with delivery work.
+"""
+type OperationsSpec
+  implements SpecLike
+  @display(singular: "Operations spec", plural: "Operations specs")
+  @node(matches: ["type:OperationsSpec"])
+  @requiresWhen(field: "specStatus", equals: "superseded", require: [{ field: "successor" }])
+  @companionDocs(paths: ["docs/engineering/review-and-approval.md"], purpose: "workflow")
+  @guidance(
+    meaning: "Normative contract for deployment, migration, support, reliability, or operational readiness.",
+    authoring: "Write the operating path explicitly: rollout, rollback, migration, monitoring, support ownership, readiness checks, failure handling, and required evidence. Separate operating requirements from implementation tasks.",
+    agentImplications: "Use OperationsSpec notes to verify delivery can be safely shipped, observed, supported, and recovered."
+  )
+  {
+  summary: String!
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "SPEC")
+  specStatus: SpecStatus! @display(importance: KEY)
+    @field(source: "spec-status")
+    @guidance(
+      meaning: "Contract-lifecycle marker for the spec note itself.",
+      authoring: "Change this only when the spec's real contract role changes.",
+      agentImplications: "Use the enum value guidance before editing or planning against the spec."
+    )
+  successor: SpecLike
+    @link
+    @guidance(
+      meaning: "Explicit successor spec when this note has been exceptionally replaced instead of evolving in place.",
+      authoring: "Populate this only when the current spec is truly superseded by a newer note. Leave it empty during the normal in-place evolution workflow.",
+      agentImplications: "When present, prefer the linked successor for current planning and execution."
+    )
+  lastUpdated: Date @display(importance: DETAIL) @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  summarySection: NarrativeSection
+    @contains(level: H2, heading: "Summary", required: true, display: INLINE)
+    @guidance(
+      meaning: "Short operations contract orientation.",
+      authoring: "State the operating scenario, risk, and readiness outcome this spec governs.",
+      agentImplications: "Use this to identify deployment/support surfaces before planning changes."
+    )
+  goals: NarrativeSection
+    @contains(level: H2, heading: "Goals", required: true)
+    @guidance(
+      meaning: "Operational outcomes the work must preserve.",
+      authoring: "Write goals as safe rollout, recoverability, supportability, observability, migration, or compliance outcomes.",
+      agentImplications: "Use goals to decide which checks and runbook updates are required."
+    )
+  nonGoals: NarrativeSection
+    @contains(level: H2, heading: "Non-Goals", required: true)
+    @guidance(
+      meaning: "Operating scope exclusions.",
+      authoring: "Name environments, migrations, support processes, reliability goals, or automation intentionally out of scope.",
+      agentImplications: "Use non-goals to keep operational readiness work bounded."
+    )
+  userStories: UserStoriesSection
+    @contains(level: H2, heading: "User Stories", required: true)
+    @guidance(
+      meaning: "Operational scenarios selectable into efforts.",
+      authoring: "Keep each story tied to one operator, deployer, support, or recovery outcome with observable acceptance criteria.",
+      agentImplications: "Use these stories to drive readiness and runbook validation."
+    )
+  requirements: RequirementsSection
+    @contains(level: H2, heading: "Requirements", required: true)
+    @guidance(
+      meaning: "Cross-scenario operating obligations.",
+      authoring: "Capture rollout, rollback, migration, alerts, dashboards, data integrity, support handoff, and evidence requirements when relevant.",
+      agentImplications: "Use these as closure checks before marking operations work delivered."
+    )
+  openQuestions: NarrativeSection
+    @contains(level: H2, heading: "Open Questions")
+    @guidance(
+      meaning: "Unresolved operational decisions.",
+      authoring: "Record unknowns about ownership, environment behavior, rollout sequencing, monitoring thresholds, or support expectations.",
+      agentImplications: "Surface these as readiness risks."
+    )
+}
+
+"""
+Wrapper section for the repeated embedded user stories under a spec's
+`## User Stories` heading.
+Use this wrapper so story-level inline fields and acceptance-criteria subtrees
+bind per `###` story instead of flattening at the parent H2 section.
+"""
+type UserStoriesSection implements Section {
+  """Embedded user stories authored as repeated H3 headings inside the section."""
+  stories: [UserStory!]
+    @contains(level: H3, min: 1)
+    @guidance(
+      meaning: "Wrapper for the authoritative story subtree inside the spec.",
+      authoring: "Keep stories here as durable execution units with descriptive `USn - Outcome` H3 titles, bullet metadata lines, and list-style acceptance criteria.",
+      agentImplications: "Treat this section as the canonical source for effort-selection units."
+    )
+}
+
+"""
+Embedded user story node persisted inside a spec note's User Stories section.
+Use this when the spec should carry story-level scope, status, acceptance criteria,
+and the currently associated execution effort.
+"""
+type UserStory
+  implements Section
+  @node(locator: EMBEDDED)
+  @title(pattern: "^US[0-9]+ - .+", notPattern: "(?i)^As an?\\b")
+  @guidance(
+    meaning: "Embedded execution unit inside an authoritative spec.",
+    authoring: "Keep each story to one actor-facing or system-facing outcome. Title it as `USn - <descriptive outcome>` rather than `As a...`; put actor/context and behavior in the summary or body. Author metadata as bullet lines (`- id::`, `- summary::`, `- status::`, optional `- increment::`). Include list-style acceptance criteria before marking it `ready`.",
+    agentImplications: "Treat these as canonical effort-selection units rather than generic progress notes. If a story bundles multiple outcomes or lacks testable criteria, split or keep it `draft`."
+  ) {
+  """Required story identifier and block target, e.g. `- id:: ^SPEC-0007-US1`."""
+  id: ID! @field @identifier(preferred: true, derivedSuffix: "US", populate: ON_CREATE) @authoring(style: LIST_METADATA)
+
+  """Short statement of the user-facing outcome for this story."""
+  summary: String!
+    @field
+    @authoring(style: LIST_METADATA)
+    @guidance(
+      meaning: "One-sentence outcome statement for the story.",
+      authoring: "State who or what benefits and what observable outcome changes. Avoid task phrasing such as 'implement X' unless the story is explicitly technical/operator-facing.",
+      agentImplications: "Use this to judge whether the story is coherent enough to freeze into an effort."
+    )
+
+  """Readiness/completion state for spec grooming and delivery tracking."""
+  status: UserStoryStatus! @display(importance: KEY)
+    @field
+    @authoring(style: LIST_METADATA)
+    @guidance(
+      meaning: "Readiness/completion marker for the story within the authoritative spec.",
+      authoring: "Use this to reflect readiness and delivery truthfully.",
+      agentImplications: "Status changes affect effort selection and completion semantics."
+    )
+
+  """Optional spec-local delivery increment number for this story, such as 1, 2, or 3."""
+  increment: Int
+    @field
+    @authoring(style: LIST_METADATA)
+    @guidance(
+      meaning: "Intended delivery increment for this story within the parent spec's own rollout sequence.",
+      authoring: "Use small positive integers when the spec is intentionally scoped across multiple increments. The numbering is local to the spec, not a repo-wide release train. Omit it when the spec has only one obvious delivery slice.",
+      agentImplications: "Treat this as rollout grouping within the spec, not as readiness or implementation-task sequencing. It can help select stories for an effort, but effort scope should still freeze the exact story set."
+    )
+
+  """Efforts that selected this story through their frozen story scope."""
+  efforts: [Effort!]
+    @neighbors(direction: INBOUND, type: "Effort", scope: SUBTREE)
+    @guidance(
+      meaning: "Effort-owned relation showing which efforts selected this story through `Stories In Scope (Frozen)`.",
+      authoring: "Do not author effort links on stories. Add or preserve story ids in the owning effort's frozen scope instead.",
+      agentImplications: "Use this inbound relation for execution provenance while keeping specs free of live effort state."
+    )
+
+  """Reference docs linked from this story subtree."""
+  references: [ReferenceDoc!] @neighbors(direction: OUTBOUND, type: "ReferenceDoc", scope: SUBTREE)
+
+  """Observable completion criteria for this story."""
+  acceptanceCriteria: AcceptanceCriteriaSection
+    @contains(level: H4, heading: "Acceptance Criteria", required: true, display: INLINE)
+    @guidance(
+      meaning: "Observable completion contract for the story.",
+      authoring: "Write criteria as dense direct list items; use indented continuation lines only for necessary details, Gherkin, callouts, nested examples, or `verification::` hints. Add a criterion locator only when the criterion is externally cited or selected into effort scope.",
+      agentImplications: "Use individual criteria as the strongest completion tests when deciding whether the story is satisfied."
+    )
+}
+
+"""
+Shared identity and lifecycle for a bounded execution effort.
+Markdown efforts keep inline sections; workspace efforts link their components explicitly.
+The interface does not normalize plan bodies, infer folder membership, or grant approval.
+"""
+interface Effort @display(singular: "Effort", plural: "Efforts", group: "Delivery") {
+  """Stable filename-derived local-minute identifier for the effort, e.g. EFF-2026-08-05-14-32."""
+  id: String! @field(source: "id")
+
+  """Human-readable effort title."""
+  name: String! @display(hover: false)
+
+  """Canonical effort creation/start timestamp."""
+  createdAt: DateTime! @display(importance: DETAIL)
+    @field(source: "created-at")
+    @guidance(
+      meaning: "Canonical timestamp for when this bounded effort note was opened as the active execution slice.",
+      authoring: "Record the real effort creation or start time here. Do not split this into separate date/time fields or reuse plan approval time.",
+      agentImplications: "Treat this as the canonical effort creation timestamp for ordering, auditability, and resume context."
+    )
+
+  """Approver for the frozen plan."""
+  planApprovedBy: String @display(importance: DETAIL)
+    @field(source: "plan-approved-by")
+    @guidance(
+      meaning: "Identity of the real human approver for the frozen plan.",
+      authoring: "Leave blank until actual approval exists. Record a real human identity, not a placeholder.",
+      agentImplications: "Never fabricate this value."
+    )
+    @policy(requiresUserConfirmation: true, reason: "Plan approval must reflect a real human approver.")
+
+  """Current effort state."""
+  status: EffortStatus! @display(importance: KEY)
+    @guidance(
+      meaning: "Current execution-state marker for the effort.",
+      authoring: "Keep this aligned with the real state of execution.",
+      agentImplications: "Use the enum value guidance to interpret whether the effort is live or historical."
+    )
+
+  """Short statement of what this effort is executing."""
+  summary: String!
+
+  """Frozen governing spec set; preserve exact selected sources."""
+  governingSpecs: [SpecLike!] @link(source: "governing-specs", includeBodyLinks: false, includeBacklinks: false)
+    @policy(forbidAutonomousSemanticEdits: true, editScope: "FROZEN_SNAPSHOT", reason: "Frozen normative spec input for the effort.")
+}
+
+"""A file explicitly linkable as collateral within an effort workspace. Folder location establishes type only, never membership."""
+type EffortMaterial
+  @display(singular: "Material", plural: "Materials", parent: "EffortWorkspace")
+  @node(paths: ["docs/efforts/*/plan.html", "docs/efforts/*/work-log.md", "docs/efforts/*/materials/*.md", "docs/efforts/*/materials/*.html", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/plan.html", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/work-log.md", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/materials/*.md", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/materials/*.html"]) {
+  title: String
+
+  """Optional lifecycle snapshots in the explicitly linked Markdown work log. Missing sections are missing evidence, never approval or completion. Read the full entry, plan, and log sources before acting; the entry remains the identity and frozen-scope owner."""
+  specSetFrozen: NarrativeSection @contains(level: H2, heading: "Spec Set (Frozen)")
+  storiesInScopeFrozen: NarrativeSection @contains(level: H2, heading: "Stories In Scope (Frozen)")
+  planApproval: NarrativeSection @contains(level: H2, heading: "Plan Approval")
+  originalIntendedDelivery: NarrativeSection @contains(level: H2, heading: "Original Intended Delivery")
+  actualDelivered: NarrativeSection @contains(level: H2, heading: "Actual Delivered")
+  deviations: NarrativeSection @contains(level: H2, heading: "Deviations")
+  closureChecklist: NarrativeSection @contains(level: H2, heading: "Closure Checklist")
+  statusSection: NarrativeSection @contains(level: H2, heading: "Status")
+  executionNotes: NarrativeSection @contains(level: H2, heading: "Execution Notes")
+}
+
+"""
+HTML entry note for an effort with separately linked materials.
+Use a timestamped basename ending in -effort.html inside its dedicated effort folder.
+The entry note owns identity and frozen scope; directory proximity confers no relationship.
+"""
+type EffortWorkspace implements Effort
+  @display(singular: "Effort workspace", plural: "Effort workspaces")
+  @node(paths: ["docs/efforts/*/*-effort.html", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/*-effort.html"])
+  @companionDocs(paths: ["docs/efforts/README.md", "docs/engineering/review-and-approval.md"], purpose: "workflow") {
+  """Stable filename-derived local-minute identifier for the effort, e.g. EFF-2026-08-05-14-32."""
+  id: String! @field(source: "id") @identifier(strategy: DATETIME, preferred: true, prefix: "EFF")
+
+  """Human-readable effort title."""
+  name: String! @display(hover: false)
+
+  """Canonical effort creation/start timestamp."""
+  createdAt: DateTime! @display(importance: DETAIL)
+    @field(source: "created-at")
+    @guidance(
+      meaning: "Canonical timestamp for when this bounded effort note was opened as the active execution slice.",
+      authoring: "Record the real effort creation or start time here. Do not split this into separate date/time fields or reuse plan approval time.",
+      agentImplications: "Treat this as the canonical effort creation timestamp for ordering, auditability, and resume context."
+    )
+
+  """Approver for the frozen plan."""
+  planApprovedBy: String @display(importance: DETAIL)
+    @field(source: "plan-approved-by")
+    @guidance(
+      meaning: "Identity of the real human approver for the frozen plan.",
+      authoring: "Leave blank until actual approval exists. Record a real human identity, not a placeholder.",
+      agentImplications: "Never fabricate this value."
+    )
+    @policy(requiresUserConfirmation: true, reason: "Plan approval must reflect a real human approver.")
+
+  """Current effort state."""
+  status: EffortStatus! @display(importance: KEY)
+    @guidance(
+      meaning: "Current execution-state marker for the effort.",
+      authoring: "Keep this aligned with the real state of execution.",
+      agentImplications: "Use the enum value guidance to interpret whether the effort is live or historical."
+    )
+
+  """Short statement of what this effort is executing."""
+  summary: String!
+
+  """Explicit implementation plan; read its source before interpreting approval."""
+  implementationPlan: EffortMaterial! @display(hover: false) @link(source: "implementation-plan", includeBodyLinks: false, includeBacklinks: false) @workspaceMember(label: "Implementation plan")
+
+  """Explicit append-only execution history."""
+  workLog: EffortMaterial! @display(hover: false) @link(source: "work-log", includeBodyLinks: false, includeBacklinks: false) @workspaceMember(label: "Work log")
+
+  """Supporting materials explicitly selected by the author, never inferred from the folder."""
+  materials: [EffortMaterial!] @display(hover: false) @link(includeBodyLinks: false, includeBacklinks: false) @workspaceMember
+
+  """Frozen governing spec set; preserve exact selected sources."""
+  governingSpecs: [SpecLike!]! @link(source: "governing-specs", includeBodyLinks: false, includeBacklinks: false)
+    @policy(forbidAutonomousSemanticEdits: true, editScope: "FROZEN_SNAPSHOT", reason: "Frozen normative spec input for the effort.")
+
+
+}
+
+"""
+Effort note for one bounded execution thread against a frozen set of specs.
+Create one when implementation starts. Efforts record the approved plan, execution trail,
+deviations, and closure/backport work for that slice of delivery.
+"""
+type EffortNote
+  implements Effort
+  @display(singular: "Effort note", plural: "Effort notes")
+  @node(paths: ["docs/efforts/**/*.md", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/**/*.md"])
+  @companionDocs(paths: ["docs/efforts/README.md", "docs/engineering/review-and-approval.md", "docs/engineering/review-and-approval.md"], purpose: "workflow")
+  @guidance(
+    meaning: "Bounded execution artifact for one frozen slice of delivery.",
+    authoring: "Use this as the durable home for frozen scope, approved plan, execution history, deviations, and actual delivery.",
+    agentImplications: "Treat this as the primary execution contract once planning begins."
+  ) {
+  """Stable filename-derived local-minute identifier for the effort, e.g. EFF-2026-08-05-14-32."""
+  id: String! @field(source: "id") @identifier(strategy: DATETIME, preferred: true, prefix: "EFF")
+
+  """Human-readable effort title."""
+  name: String! @display(hover: false)
+
+  """Canonical effort creation/start timestamp."""
+  createdAt: DateTime! @display(importance: DETAIL)
+    @field(source: "created-at")
+    @guidance(
+      meaning: "Canonical timestamp for when this bounded effort note was opened as the active execution slice.",
+      authoring: "Record the real effort creation or start time here. Do not split this into separate date/time fields or reuse plan approval time.",
+      agentImplications: "Treat this as the canonical effort creation timestamp for ordering, auditability, and resume context."
+    )
+
+  """Approver for the frozen plan."""
+  planApprovedBy: String @display(importance: DETAIL)
+    @field(source: "plan-approved-by")
+    @guidance(
+      meaning: "Identity of the real human approver for the frozen plan.",
+      authoring: "Leave blank until actual approval exists. Record a real human identity, not a placeholder.",
+      agentImplications: "Never fabricate this value."
+    )
+    @policy(requiresUserConfirmation: true, reason: "Plan approval must reflect a real human approver.")
+
+  """Current effort state."""
+  status: EffortStatus! @display(importance: KEY)
+    @guidance(
+      meaning: "Current execution-state marker for the effort.",
+      authoring: "Keep this aligned with the real state of execution.",
+      agentImplications: "Use the enum value guidance to interpret whether the effort is live or historical."
+    )
+
+  """Short statement of what this effort is executing."""
+  summary: String!
+
+  """Frozen governing spec set, matching the Spec Set (Frozen) section. Older effort notes may omit it."""
+  governingSpecs: [SpecLike!] @link(source: "governing-specs", includeBodyLinks: false, includeBacklinks: false)
+    @policy(forbidAutonomousSemanticEdits: true, editScope: "FROZEN_SNAPSHOT", reason: "Frozen normative spec input for the effort.")
+
+  scope: NarrativeSection @contains(level: H2, heading: "Scope", required: true)
+  specSetFrozen: FrozenSpecSetSection
+    @contains(level: H2, heading: "Spec Set (Frozen)", required: true)
+    @guidance(
+      meaning: "Normative frozen spec input for the effort.",
+      authoring: "Record the exact governing spec set and snapshot context. Do not treat this as a casual related-spec list.",
+      agentImplications: "Preserve this as frozen execution input rather than silently rewriting it later."
+    )
+    @policy(forbidAutonomousSemanticEdits: true, editScope: "FROZEN_SNAPSHOT", reason: "This section captures the frozen normative spec input for the effort.")
+  storiesInScopeFrozen: FrozenStoryScopeSection
+    @contains(level: H2, heading: "Stories In Scope (Frozen)", required: true)
+    @guidance(
+      meaning: "Frozen selected story slice and snapshot context for this effort.",
+      authoring: "Record the exact story and acceptance-criterion slice as wikilinks to embedded node block targets, preserving readable ids as link display text. Do not use plain text ids; they will not index effort-to-story / effort-to-criterion graph edges.",
+      agentImplications: "Preserve this as frozen execution scope rather than silently reselecting stories later. Treat missing wikilinks here as a graph-integrity bug."
+    )
+    @policy(forbidAutonomousSemanticEdits: true, editScope: "FROZEN_SNAPSHOT", reason: "This section captures the frozen story slice selected for the effort.")
+  specCoverageChecklist: NarrativeSection
+    @contains(level: H2, heading: "Spec Coverage Checklist", required: true)
+    @guidance(
+      meaning: "Checklist that maps the frozen scope against the governing spec commitments for this effort.",
+      authoring: "Use this to verify that the planned effort covers the relevant spec obligations and to make any deliberate omissions visible. When checklist items refer to selected stories or acceptance criteria, reuse the durable wikilinks from `Stories In Scope (Frozen)` instead of plain bracketed ids.",
+      agentImplications: "Treat this as a scope-accounting aid, not as disposable planning filler. Plain `[SPEC-0007.US1]` labels do not create graph edges; prefer `[[spec-file#^SPEC-0007-US1|SPEC-0007.US1]]`."
+    )
+  plan: NarrativeSection
+    @contains(level: H2, heading: "Plan", required: true)
+    @guidance(
+      meaning: "Decision-complete implementation contract for executing the effort.",
+      authoring: "For complex efforts, include goal/outcome, selected scope, current-state gap, architecture decisions, implementation phases, task breakdown, validation plan, docs/backport plan, and open decisions or assumptions. Each phase should include objective, affected files or modules, concrete tasks, tests, docs, and exit criteria. Include a foundation phase when the effort establishes schemas, storage contracts, public APIs, internal module interfaces, ownership boundaries, or reusable architectural patterns. Task breakdowns should cite selected stories and acceptance criteria with their durable wikilinks, using readable aliases such as `SPEC-0007.US1`.",
+      agentImplications: "Do not infer schema-level workflow state from prose phases inside this section. Preserve story and criterion links so plan tasks remain navigable and queryable. Treat a sparse plan without concrete tasks, validation, documentation, and phase exit criteria as not decision-complete."
+    )
+  originalIntendedDelivery: NarrativeSection
+    @contains(level: H2, heading: "Original Intended Delivery", required: true)
+    @guidance(
+      meaning: "Snapshot of what the effort originally intended to deliver when execution began.",
+      authoring: "Capture the original intended outcome here and preserve it as a baseline. Do not silently rewrite it to match later reality.",
+      agentImplications: "Treat this as frozen intent baseline used to interpret deviations and actual delivery."
+    )
+    @policy(forbidAutonomousSemanticEdits: true, editScope: "FROZEN_SNAPSHOT", reason: "This section preserves the original intended delivery baseline for the effort.")
+  actualDelivered: NarrativeSection
+    @contains(level: H2, heading: "Actual Delivered", required: true)
+    @guidance(
+      meaning: "Outcome-truth record of what this effort actually shipped or completed.",
+      authoring: "Describe the real delivered outcome here, including partial delivery where relevant. Do not just restate the plan.",
+      agentImplications: "Use this as the outcome truth for audit, backport, and closure rather than assuming the original plan fully landed."
+    )
+  executionNotes: NarrativeSection
+    @contains(level: H2, heading: "Execution Notes", required: true)
+    @guidance(
+      meaning: "Append-only effort-local journal. Append-only historical execution evidence for the effort. Use this for human decisions, agent surprises, learnings, validation, blockers, handoffs, and resume points.",
+      authoring: "Append new timestamped entries instead of rewriting prior history. Use UTC second-precision DateTime entries with event kinds like `[decision]`, `[surprise]`, `[learning]`, `[validation]`, `[blocker]`, `[handoff]`, and `[resume]`.",
+      agentImplications: "Preserve prior entries and add new ones in order. Keep decisions and surprises here unless they change authoritative spec, reference, code-doc, or skill truth; then backport that truth separately and leave the effort entry as provenance."
+    )
+    @policy(forbidAutonomousSemanticEdits: true, editScope: "APPEND_ONLY", reason: "Execution Notes are an append-only historical record.")
+  deviations: NarrativeSection
+    @contains(level: H2, heading: "Deviations", required: true)
+    @guidance(
+      meaning: "Running record of real divergence between frozen plan or scope and execution reality.",
+      authoring: "Record deviations when they happen, including omitted work, changed behavior, or delivery reality that differs from the original plan.",
+      agentImplications: "Do not bury divergence in chat or code alone. Keep this current whenever execution departs from the frozen contract."
+    )
+  closureChecklist: NarrativeSection
+    @contains(level: H2, heading: "Closure Checklist", required: true)
+    @guidance(
+      meaning: "Human-reviewable checklist for effort closure evidence.",
+      authoring: "Track quality gates, alignment check, specs/docs backport, and follow-up or compounding triage here. Use checkboxes instead of separate closure-status frontmatter.",
+      agentImplications: "Treat unchecked closure items as remaining work before marking the effort complete."
+    )
+  compoundingFollowUps: NarrativeSection
+    @contains(level: H2, heading: "Compounding Follow-ups", required: true)
+    @guidance(
+      meaning: "Future-capacity follow-ups discovered during the effort.",
+      authoring: "Record repeated friction, missing support, missing agent capabilities, and the smallest durable fix. Use this for compounding triage, not ordinary execution history.",
+      agentImplications: "Use this section before closing the effort to decide what should become tests, scripts, specs, skills, evidence rules, access paths, safety gates, or follow-on efforts."
+    )
+  statusSection: NarrativeSection
+    @contains(level: H2, heading: "Status", required: true)
+    @guidance(
+      meaning: "Narrative status block that explains the current effort state in prose.",
+      authoring: "Keep this aligned with the `status` field and use it to explain the current state, blocker, or closure condition in human-readable terms.",
+      agentImplications: "Keep this prose synchronized with the effort lifecycle state rather than letting the field and section drift apart."
+    )
+}
+
+"""
+Broad reference note family for durable supporting context.
+Use `reference-kind` to distinguish guides, analysis notes, and descriptive architecture docs.
+Split a new concrete subtype only when the family needs different ontology-owned semantics.
+"""
+type ReferenceDoc
+  @display(singular: "Reference doc", plural: "Reference docs", group: "Knowledge")
+  @node(paths: [
+    "docs/reference/**/*.md",
+    "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/reference/**/*.md"
+  ])
+  @companionDocs(paths: ["docs/reference/README.md", "docs/reference/guides/ontology-driven-transcript-ingestion.md"], purpose: "workflow")
+  {
+  """Short statement of what this reference note explains."""
+  summary: String!
+
+  """Kind of supporting context this reference note carries."""
+  referenceKind: ReferenceKind! @field(source: "reference-kind")
+
+  """Source notes, meetings, or transcripts this note was derived from."""
+  derivedFrom: [String!] @display(importance: DETAIL) @field(source: "derived-from")
+
+  """Last time the team re-verified the contents against the source of truth."""
+  lastVerified: Date @display(importance: DETAIL) @field(source: "last-verified")
+
+  """Optional lifecycle marker for the note."""
+  status: String @display(importance: KEY)
+}

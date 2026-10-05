@@ -1,0 +1,19 @@
+# Implementation
+
+Deliverable: the approved slice, or the clear local task, with focused evidence and material deviations recorded as they happen. Given an effort path, load `query-recipe run --id effort-execution-context` for approval, frozen scope, plan, execution notes, and checklist. For a substantive change, load `query-recipe run --id runtime-code-evidence-pack` for a known code path or `query-recipe run --id runtime-note-code-evidence-pack` for a known code-linked note when it could expose a relevant constraint. Deepen only when evidence is missing or conflicting. Check off completed plan items and preserve useful current evidence.
+
+Execute each approved batch through its implementation, focused verification, and routine corrections before handing it back. A checkpoint is a progress record, not a new approval gate. Escalate only at the plan's material decision boundaries or when governing policy requires it. At a batch exit, record the outcome, checks, remaining gaps, and next action; retain useful evidence instead of repeating completed work. Follow the plan's experiment stopping conditions and reconsider an unsuccessful approach before adding more tuning or evaluation machinery.
+
+Consult `docs/engineering/testing-policy.md` when deciding coverage, `docs/engineering/quality-gates.md` for which checks are safe to run unprompted, `docs/engineering/architecture.md` when a change crosses a boundary, and `docs/engineering/documentation.md` when the slice changes reusable knowledge such as a durable decision, boundary, API, or procedure. Update only its smallest durable owner; effort-specific rationale stays in execution notes. Load `references/traceability.md` only when a code or test link needs a precise durable target.
+
+<!-- rzm:skill-slot id="inputs.additional-context" mode="extension" -->
+<!-- /rzm:skill-slot -->
+
+When several context packets or source reads belong together, compose them in one script through the `rhizome` skill's code-mode route and return only the evidence the next decision needs. The approved plan, local-task exit, and documentation obligations still govern the work.
+
+If a fix would show that intended behavior is wrong or has drifted, route to specification or alignment instead of patching around it. Keep changes to what the request needs; report other findings as follow-ups.
+
+<!-- rzm:skill-slot id="docs.additional-traceability" mode="extension" -->
+<!-- /rzm:skill-slot -->
+
+Decision boundaries: do not convert candidate context, a failing guess, or a new architectural idea into accepted behavior without approval, and never set effort status to complete here. Routine refactors, test repairs, and review fixes within approved behavior retain the plan's authorization. A clear local task finishes after its applicable checks, durable-knowledge assessment, and concise result report; it requires no effort, closure pack, or new document. Effort-driven work continues through its required gates and closure.

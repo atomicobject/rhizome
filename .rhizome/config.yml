@@ -1,0 +1,43 @@
+rhizome:
+  devBinaryDir: bin
+notes:
+  includes:
+    - '**/*.md'
+    - docs/efforts/**/*.html
+code:
+  enabled: true
+  python:
+    roots:
+      - scripts
+      - testdata/integration/python-app/vault/src
+      - testdata/integration/python-app/vault/scripts
+      - testdata/integration/python-app/vault/packages
+  go:
+    roots:
+      - .
+  typescript:
+    roots:
+      - web
+  disabledLanguages:
+    - python
+    - cs
+noteEmbeddings:
+  enabled: true
+  provider: voyage
+  model: voyage-4-lite
+  endpoint: https://api.voyageai.com/v1/embeddings
+codeEmbeddings:
+  enabled: true
+  provider: voyage
+  model: voyage-4-lite
+  endpoint: https://api.voyageai.com/v1/embeddings
+agents:
+  claude: "on"
+  codex: "on"
+  agentSkills: "on"
+  agentsmd: "on"
+validation:
+  brokenLinks:
+    # Documentation links here are meant to resolve; a typo must fail the gate
+    # rather than pass as a never-created placeholder.
+    placeholders: strict

@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rzm-serve",
+      "runtimeExecutable": "./bin/darwin/rzm",
+      "runtimeArgs": ["serve", "--host", "127.0.0.1", "--port", "4747"],
+      "port": 4747
+    },
+    {
+      "name": "web-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "web", "--", "--port", "5183", "--strictPort"],
+      "port": 5183,
+      "env": { "VITE_RHIZOME_API_ORIGIN": "http://127.0.0.1:4747" }
+    }
+  ]
+}

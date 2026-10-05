@@ -1,0 +1,54 @@
+apiVersion: rhizome.view.v1
+id: spec-driven.user-stories
+name: User Stories
+description: Stories across every spec by readiness. Moving a card stages a status change for review.
+source:
+  kind: ontology_type
+  type: UserStory
+mount:
+  kind: type
+  type: UserStory
+  default: true
+defaults:
+  variant: kanban
+  first: 500
+  group:
+    field: status
+  sort:
+    - field: id
+      direction: asc
+filterPresets:
+  - id: open
+    label: Open
+    filters:
+      - field: status
+        op: in
+        values: [draft, ready]
+variants:
+  kanban:
+    columnField: status
+    card:
+      eyebrow: id
+      title: title
+      preview: summary
+      fields:
+        - field: increment
+          label: Increment
+        - field: efforts
+          label: Efforts
+  table:
+    columns:
+      - field: id
+        label: ID
+      - field: title
+        label: Story
+      - field: status
+        label: Status
+      - field: summary
+        label: Summary
+      - field: increment
+        label: Increment
+      - field: efforts
+        label: Efforts
+      - field: notePath
+        label: Spec

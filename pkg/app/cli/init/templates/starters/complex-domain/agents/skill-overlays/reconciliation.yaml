@@ -1,0 +1,10 @@
+apiVersion: rhizome.skill-overlay.v1
+id: complex-domain.reconciliation
+targetSkill: agentic-engineering
+fragments:
+  - file: references/reconciliation.md
+    slot: reconciliation.additional-targets
+    op: append
+    order: 10
+    content: |
+      For evidenced changes to requirements or domain knowledge, invoke `domain-backport` with the alignment finding, approved scope or deviation, affected targets, and verification evidence. Preserve source history, prior cited evidence, partial-delivery state, and remaining gaps. Mark a requirement `implemented` only with authorization and full-obligation evidence; other lifecycle changes require an authorized source-backed disposition. Record source/code disagreement before deciding which artifact is wrong; code alone does not make a source stale. Keep normative spec decisions and effort completion with Agentic Engineering.

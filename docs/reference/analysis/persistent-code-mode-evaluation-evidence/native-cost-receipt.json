@@ -1,0 +1,513 @@
+{
+  "accounting": {
+    "aggregation": "unique atomic calls only",
+    "cached_input": "included within input_tokens and charged at the cached-input rate",
+    "effort": "metadata only; no price multiplier applied",
+    "reasoning": "included within output_tokens and not added again"
+  },
+  "agents": [
+    {
+      "agent_id": "root",
+      "calls_complete": false,
+      "role": "parent"
+    },
+    {
+      "agent_id": "surface_inventory",
+      "calls_complete": false,
+      "role": "delegate"
+    },
+    {
+      "agent_id": "persistent_transport",
+      "calls_complete": false,
+      "role": "delegate"
+    },
+    {
+      "agent_id": "code_contracts",
+      "calls_complete": false,
+      "role": "delegate"
+    },
+    {
+      "agent_id": "evaluation_campaign",
+      "calls_complete": false,
+      "role": "delegate"
+    },
+    {
+      "agent_id": "persistent_review",
+      "calls_complete": false,
+      "role": "reviewer"
+    },
+    {
+      "agent_id": "persistent_review_2",
+      "calls_complete": false,
+      "role": "reviewer"
+    },
+    {
+      "agent_id": "persistent_review_2/spec_axis",
+      "calls_complete": false,
+      "role": "reviewer"
+    },
+    {
+      "agent_id": "persistent_review_2/standards_axis",
+      "calls_complete": false,
+      "role": "reviewer"
+    },
+    {
+      "agent_id": "current_user_boundary",
+      "calls_complete": false,
+      "role": "delegate"
+    },
+    {
+      "agent_id": "catalog_dispatch",
+      "calls_complete": false,
+      "role": "delegate"
+    },
+    {
+      "agent_id": "persistent_review_3",
+      "calls_complete": false,
+      "role": "reviewer"
+    },
+    {
+      "agent_id": "search_signal_audit",
+      "calls_complete": false,
+      "role": "reviewer"
+    },
+    {
+      "agent_id": "integrity_fix_review",
+      "calls_complete": false,
+      "role": "reviewer"
+    },
+    {
+      "agent_id": "integrity_fix_review/spec_evidence_axis",
+      "calls_complete": false,
+      "role": "reviewer"
+    },
+    {
+      "agent_id": "integrity_fix_review/standards_axis",
+      "calls_complete": false,
+      "role": "reviewer"
+    }
+  ],
+  "billing_notice": "API-equivalent estimate only; no ChatGPT bill or usage-credit deduction is implied.",
+  "calls": [
+    {
+      "agent_id": "root",
+      "cached_input_tokens": null,
+      "call_id": "root-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "parent",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "surface_inventory",
+      "cached_input_tokens": null,
+      "call_id": "surface_inventory-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "delegate",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "persistent_transport",
+      "cached_input_tokens": null,
+      "call_id": "persistent_transport-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "delegate",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "code_contracts",
+      "cached_input_tokens": null,
+      "call_id": "code_contracts-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "delegate",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "evaluation_campaign",
+      "cached_input_tokens": null,
+      "call_id": "evaluation_campaign-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "delegate",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "persistent_review",
+      "cached_input_tokens": null,
+      "call_id": "persistent_review-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "reviewer",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "persistent_review_2",
+      "cached_input_tokens": null,
+      "call_id": "persistent_review_2-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "reviewer",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "persistent_review_2/spec_axis",
+      "cached_input_tokens": null,
+      "call_id": "persistent_review_2/spec_axis-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "reviewer",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "persistent_review_2/standards_axis",
+      "cached_input_tokens": null,
+      "call_id": "persistent_review_2/standards_axis-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "reviewer",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "current_user_boundary",
+      "cached_input_tokens": null,
+      "call_id": "current_user_boundary-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "delegate",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "catalog_dispatch",
+      "cached_input_tokens": null,
+      "call_id": "catalog_dispatch-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "delegate",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "persistent_review_3",
+      "cached_input_tokens": null,
+      "call_id": "persistent_review_3-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "reviewer",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "search_signal_audit",
+      "cached_input_tokens": null,
+      "call_id": "search_signal_audit-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "reviewer",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "integrity_fix_review",
+      "cached_input_tokens": null,
+      "call_id": "integrity_fix_review-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "reviewer",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "integrity_fix_review/spec_evidence_axis",
+      "cached_input_tokens": null,
+      "call_id": "integrity_fix_review/spec_evidence_axis-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "reviewer",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    },
+    {
+      "agent_id": "integrity_fix_review/standards_axis",
+      "cached_input_tokens": null,
+      "call_id": "integrity_fix_review/standards_axis-telemetry-unavailable",
+      "context": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "effort": "unobservable",
+      "input_tokens": null,
+      "model": "unobservable",
+      "output_tokens": null,
+      "reason": "no rate for model unobservable",
+      "reasoning_tokens_included_in_output": null,
+      "role": "reviewer",
+      "service_tier": {
+        "source": "assumed",
+        "value": "standard"
+      },
+      "status": "unavailable",
+      "usage_kind": "unavailable",
+      "usage_source": "native orchestration tools; no atomic token telemetry exposed"
+    }
+  ],
+  "coverage": {
+    "agent_roster_complete": false,
+    "declared_agent_ids": [
+      "root",
+      "surface_inventory",
+      "persistent_transport",
+      "code_contracts",
+      "evaluation_campaign",
+      "persistent_review",
+      "persistent_review_2",
+      "persistent_review_2/spec_axis",
+      "persistent_review_2/standards_axis",
+      "current_user_boundary",
+      "catalog_dispatch",
+      "persistent_review_3",
+      "search_signal_audit",
+      "integrity_fix_review",
+      "integrity_fix_review/spec_evidence_axis",
+      "integrity_fix_review/standards_axis"
+    ],
+    "final_parent_usage_cutoff": false,
+    "reasons": [
+      "agent roster is not asserted complete",
+      "call enumeration is incomplete for: root, surface_inventory, persistent_transport, code_contracts, evaluation_campaign, persistent_review, persistent_review_2, persistent_review_2/spec_axis, persistent_review_2/standards_axis, current_user_boundary, catalog_dispatch, persistent_review_3, search_signal_audit, integrity_fix_review, integrity_fix_review/spec_evidence_axis, integrity_fix_review/standards_axis",
+      "whole_task scope requires a final parent usage cutoff"
+    ],
+    "scope": "whole_task",
+    "status": "unavailable"
+  },
+  "illustrative": false,
+  "known_routed_cost_usd": null,
+  "pricing": {
+    "currency": "USD",
+    "eligibility": "standard_short_context",
+    "implementation_max_input_tokens": 128000,
+    "path": "<USER_HOME>/.codex/plugins/cache/astra-advisor/astra-advisor/0.2.0/pricing/2026-09-04.json",
+    "provenance": {
+      "context_threshold_note": "The calculator conservatively supports at most 128,000 input tokens per call. This is an implementation safety boundary, not a claim about an official pricing threshold.",
+      "method": "Official model pages fetched by the recording coordinator.",
+      "notice": "These rates estimate equivalent API prices only. They do not represent ChatGPT subscription billing or usage-credit consumption."
+    },
+    "snapshot_date": "2026-09-04",
+    "unit": "per_million_tokens",
+    "verified_on": "2026-09-04"
+  },
+  "same_token_api_price_comparison": {
+    "reason": "coverage is incomplete",
+    "status": "unavailable"
+  },
+  "schema_version": 1,
+  "status": "unavailable",
+  "task_id": "persistent-code-mode-delivery-2026-09-07"
+}

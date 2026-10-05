@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "kind": "deterministic-code-mode-comparison",
+  "source_sha": "6b050f23733856429ca67d8ad2839b0fc55051d0",
+  "binary": "/private/tmp/agent-experience-eval-binaries/code-mode/rzm",
+  "binary_sha256": "e54bf4e41f9de114fa94eb316e4fc026b03c024f05d56d1ce7ee1056cba6f703",
+  "build_receipt": "/private/tmp/agent-experience-eval-binaries/code-mode/build.json",
+  "build_receipt_sha256": "b2659108e87069140efe7324c71e5555261b19fe0c9f3c0d61fbadca9b7d24d5",
+  "fixture_registry": "testdata/agent-experience/code-mode/registry.json",
+  "fixture_registry_sha256": "ce3a134aa3b03d44e759d3dbdef1a440b9f6a4c15ff068136546f1b41e47efcc",
+  "tasks": ["base-context", "coverage", "trivial-lookup"],
+  "arms": ["direct", "batched", "typed"],
+  "repetitions": ["first", "repeat"],
+  "model_launches_authorized": 0
+}

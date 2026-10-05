@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>View context fixture</title>
+    <script src="/kit/v1/boot.js"></script>
+  </head>
+  <body>
+    <h1 id="title"></h1>
+    <output aria-label="View context" id="context"></output>
+    <output aria-label="View configuration" id="configuration"></output>
+    <script type="module">
+      import { getViewInvocation, getViewContext, getViewConfiguration } from "@rhizome/kit";
+
+      document.getElementById("title").textContent = getViewInvocation().view.name;
+      document.getElementById("context").textContent = JSON.stringify(getViewContext());
+      document.getElementById("configuration").textContent = JSON.stringify(getViewConfiguration());
+    </script>
+  </body>
+</html>

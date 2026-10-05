@@ -1,0 +1,8 @@
+{
+  "case_id": "A04",
+  "checks": [
+    "producer records zero-attempt behavior in durable context",
+    "consumer completes the remaining phase from copied worktree state",
+    "phase one work is preserved and no transcript resume is required"
+  ]
+}

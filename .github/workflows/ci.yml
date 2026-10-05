@@ -1,0 +1,348 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      go: ${{ github.event_name != 'pull_request' || steps.filter.outputs.go }}
+      web: ${{ github.event_name != 'pull_request' || steps.filter.outputs.web }}
+      desktop: ${{ github.event_name != 'pull_request' || steps.filter.outputs.desktop }}
+    steps:
+      - name: Filter paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3
+        with:
+          predicate-quantifier: every
+          # Go tests read docs, skills, and CHANGELOG.md, so only web/ is safe to skip.
+          filters: |
+            go:
+              - '!web/**'
+            web:
+              - '{web/**,pkg/app/web/openapi.yaml,Makefile,.github/workflows/ci.yml}'
+            desktop:
+              - '{desktop/**,pkg/app/{desktop,repoexec,runtime,update}/**,pkg/repositorytrust/**,pkg/vault/obsidian/**,cmd/repo_delegate*.go,cmd/desktop*.go,cmd/new_worktree*.go,pkg/sqliteutil/**,go.mod,go.sum,Makefile,.github/workflows/ci.yml}'
+
+  lint:
+    name: Lint
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+          cache: true
+
+      - name: Check formatting
+        run: |
+          UNFORMATTED=$(find . -name '*.go' -not -path './vendor/*' -not -path './worktrees/*' -not -path './.worktrees/*' -not -path './.claude/worktrees/*' -exec gofmt -l {} +)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "The following files are not formatted correctly:"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet -tags fts5 ./...
+
+  unit-tests:
+    name: Unit Tests (${{ matrix.os }}, ${{ matrix.shard }})
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        # Shards are balanced on Windows package timings. "rest" takes every
+        # package the named shards do not match, so new packages always run.
+        shard: [cmd-validate, anchors-app, web-cli, rest]
+    env:
+      SHARD_cmd_validate: /rhizome/(cmd|pkg/validate)(/|$)
+      SHARD_anchors_app: /rhizome/pkg/(anchors|app/(indexing|mcp|bootstrap|views|codeintel|runtime))(/|$)
+      SHARD_web_cli: /rhizome/pkg/app/(web|cli)(/|$)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+          # setup-go keys its cache on go.sum alone, so it never refreshes.
+          cache: false
+
+      - name: Locate Go build cache
+        shell: bash
+        run: echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+
+      - name: Restore Go build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/go-build
+          key: go-build-${{ runner.os }}-${{ github.sha }}
+          restore-keys: go-build-${{ runner.os }}-
+
+      - name: Run unit tests
+        shell: bash
+        env:
+          # The race detector is OS-agnostic; Windows runs for path and file-locking behavior.
+          RACE: ${{ matrix.os == 'ubuntu-latest' && '-race' || '' }}
+        run: |
+          named="$SHARD_cmd_validate|$SHARD_anchors_app|$SHARD_web_cli"
+          case "${{ matrix.shard }}" in
+            cmd-validate) pkgs=$(go list -tags fts5 ./... | grep -E "$SHARD_cmd_validate") ;;
+            anchors-app) pkgs=$(go list -tags fts5 ./... | grep -E "$SHARD_anchors_app") ;;
+            web-cli) pkgs=$(go list -tags fts5 ./... | grep -E "$SHARD_web_cli") ;;
+            rest) pkgs=$(go list -tags fts5 ./... | grep -Ev "$named") ;;
+          esac
+          go test $RACE -tags fts5 $pkgs
+
+      # One cache per OS, written from main by the shard with the widest
+      # dependency closure; every Go test job restores it.
+      - name: Save Go build cache
+        if: matrix.shard == 'rest' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/go-build
+          key: go-build-${{ runner.os }}-${{ github.sha }}
+
+  installer-tests:
+    name: Installer Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run installer contract tests
+        run: python3 scripts/install/rzm_test.py
+
+      - name: Run benchmark contract tests
+        run: make benchmark-test
+
+  rhizome-content:
+    name: Rhizome Content
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+          cache: true
+
+      - name: Validate Rhizome content
+        run: go run -tags fts5 . ci --format github
+
+  integration-tests:
+    name: Integration Tests (${{ matrix.os }})
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The race detector is OS-agnostic; Windows runs for path and file-locking behavior.
+        include:
+          - os: ubuntu-latest
+            race: -race
+          - os: windows-latest
+            race: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+          # setup-go keys its cache on go.sum alone, so it never refreshes.
+          cache: false
+
+      - name: Locate Go build cache
+        shell: bash
+        run: echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+
+      - name: Restore Go build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/go-build
+          key: go-build-${{ runner.os }}-${{ github.sha }}
+          restore-keys: go-build-${{ runner.os }}-
+
+      - name: Run integration tests
+        # PowerShell reports only the last command's exit code, which hid
+        # failures in the first go test on Windows.
+        shell: bash
+        run: |
+          # -count=1: these tests exec a freshly built rzm, which Go's test
+          # result cache cannot see, so a restored cache must not skip them.
+          go test ${{ matrix.race }} -count=1 -tags "fts5 integration" ./tests/integration/...
+          go test ${{ matrix.race }} -count=1 -tags "fts5 integration" -run '^TestIntegration' ./pkg/vault/cache ./pkg/anchors ./pkg/validate
+
+  web-tests:
+    name: Web Tests
+    needs: [changes]
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Generate API types
+        working-directory: web
+        run: npm run generate:api
+
+      - name: Typecheck web app
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Typecheck web tooling
+        working-directory: web
+        run: npm run typecheck:node
+
+      - name: Lint and format-check web code
+        run: make web-lint
+
+      - name: Run web unit tests
+        run: make web-test
+
+  web-e2e:
+    name: Web E2E
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Generate API types
+        working-directory: web
+        run: npm run generate:api
+
+      - name: Install Playwright Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run web e2e
+        run: make web-e2e
+
+  build:
+    name: Build
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary: bin/linux/rzm
+          - os: windows-latest
+            binary: bin/windows/rzm.exe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+          cache: true
+
+      - name: Build
+        run: go build -tags fts5 -o ${{ matrix.binary }}
+
+  desktop:
+    name: Desktop (macOS)
+    needs: [changes]
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Set up Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: desktop-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+
+      - name: Install desktop dependencies
+        run: make desktop-deps
+
+      - name: Check desktop
+        run: make desktop-check
+
+      - name: Build desktop application
+        run: make desktop-build

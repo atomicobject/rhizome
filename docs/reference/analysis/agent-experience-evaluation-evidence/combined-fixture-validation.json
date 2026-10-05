@@ -1,0 +1,190 @@
+{
+  "schema_version": 1,
+  "classification": "affected deterministic installed validation refresh; no evaluated-model calls",
+  "source_sha": "1ae34b2b754816df4d39189d4161972df282d483",
+  "source_tree": "573c8eacd6afc69a82bfe05f8ec3ead7f4dab682",
+  "binary_sha256": "2fec7e22bb3f795ffde061caae1347f0fc0aac7cfec9fbc6e105613427447ea7",
+  "go_version": "go version go1.24.2 darwin/arm64",
+  "build_flags": [
+    "-mod=vendor",
+    "-tags",
+    "fts5"
+  ],
+  "build_provenance": "Operator build from git archive of this exact source revision; no embedded VCS revision.",
+  "fixture_source_sha": "fcb246dc71bec74e5771f5d05938d01c32c276dd",
+  "raw_evidence_sha256": "48fd5c4ef2e52ea8fa8e2be9c8532eb98183f855d5be20cbdaa1c8c03b2c4fca",
+  "procedure_sha256": "2e10ada1562886840f1efe877845f277fb946bdcf8c4888eecd03347646e9f94",
+  "procedure": [
+    "Materialize unchanged A03/A04/A05 fixture sources in fresh scratch directories.",
+    "Invoke exact binary with RZM_SKIP_REPO_DELEGATE=1; install selected starter twice and compare guidance hashes.",
+    "Set noteEmbeddings.enabled and codeEmbeddings.enabled false after init; index; retain explicit bounded config.",
+    "Start a local agent session and run agent validate with its session ID.",
+    "Compare every authored fixture file hash with its pre-install hash."
+  ],
+  "historical_evidence": "fixture-validation.json remains unchanged and records source 6b050f23733856429ca67d8ad2839b0fc55051d0.",
+  "limitations": [
+    "This verifies installed schema, identifier, and link validity; it does not evaluate model task behavior.",
+    "The earlier exploratory refresh preceded explicit post-init embedding-disable correction; final evidence here comes only from fresh corrected installs."
+  ],
+  "cases": {
+    "A03": {
+      "installation": "agentic-engineering",
+      "repeat_init_guidance_unchanged": true,
+      "authored_sources_unchanged": true,
+      "authored_sources": {
+        "CONTEXT.md": "c0a1159221f6e3f8b2689ae87776589facc9371cf4ee1996218399de600beac6",
+        "README.md": "1555e9a9e2fb566c89f6e732a2180e93b6e2922b2f9374e7fc853743b6fc7b73",
+        "tests/test_retry.py": "2dca9459bf9a64f2fb57eb998f2c9a9f477219c1176ebd41a6f8640f12c97ba2",
+        "src/retry.py": "c7dbc1bcc7ede33ce9054df71f8f68a92577596a5438fd47f1fca4deeea54578",
+        "docs/specs/retry-limit.md": "b018774cd2628667d73d98fa54360a4bd0d35fafa879edc3dc5f20d68e682377",
+        "docs/backlog/retry-jitter.md": "4c4316429b1607080b9d8b0be8acf292ef0fbe093832102025280d82bd86b63a",
+        "docs/people/Synthetic Approver.md": "af0ffa2e365d46b42cbcbc259732707def29585477289def96103c448b914752",
+        "docs/efforts/2026-09-07-12-00-retry-limit.md": "1f80b9728c53b735e35f0a40aa1dc975aa3e5358ecc89778ba457716c37c3854"
+      },
+      "index_config": "rhizome:\n  devBinaryDir: bin\nnoteEmbeddings:\n  enabled: false\ncodeEmbeddings:\n  enabled: false\ncode:\n  enabled: true\n  python:\n    roots: [src]\nagents:\n  codex: on\n  claude: off\n  cursor: off\n  agentSkills: on\n  agentsmd: on\n",
+      "raw_sha256": "60c69a2aa6ba4bffe218b7dfc9bb5f2d7a498d2e9d40786f8440c51df94a1d17",
+      "steps_sha256": "b12edd6dee826e6cfde7b868888d5441434096d44e671a23fb0ef30ec9c097e0",
+      "validation": {
+        "ok": true,
+        "issueCount": 0,
+        "errorCount": 0,
+        "selector": "default",
+        "effectiveChecks": [
+          "ontology",
+          "identifiers",
+          "broken-links"
+        ],
+        "checks": [
+          {
+            "name": "ontology",
+            "ok": true,
+            "issueCount": 0,
+            "summary": "ontology valid",
+            "durationMs": 5
+          },
+          {
+            "name": "identifiers",
+            "ok": true,
+            "issueCount": 0,
+            "summary": "3 identifier nodes checked",
+            "durationMs": 3
+          },
+          {
+            "name": "broken-links",
+            "ok": true,
+            "issueCount": 0,
+            "summary": "no broken links",
+            "durationMs": 2
+          }
+        ]
+      }
+    },
+    "A04": {
+      "installation": "agentic-engineering",
+      "repeat_init_guidance_unchanged": true,
+      "authored_sources_unchanged": true,
+      "authored_sources": {
+        "CONTEXT.md": "b769e4517a518f97549305bc8a61edb0ba68f4c5d5c28dcb099ecc671633edcf",
+        "README.md": "5660de562e4255f6c692aaf87102d4a6bf319e4f16c255f3adb08c5ac71301cf",
+        "tests/test_retry.py": "4a20898a31d2a9d0f7385992635e47f13c2127d19c0329345de20611cec7f148",
+        "src/retry.py": "fc5ee859ec28baa2705c62805aa04c1c626f3e8f1e06b9951ed4b241ee0d5983",
+        "docs/specs/two-phase-retry.md": "0a299c54373b6791f9f76a83d11d18c473478b58da605b90da63af8ab86c8420",
+        "docs/people/Synthetic Approver.md": "e0297489ed82b34f50be55ba1e21411dca0570433c1d191f7a1ca257932913c2",
+        "docs/efforts/2026-09-07-12-30-two-phase-retry.md": "21f3ca3332a141dd933e4b710de925c8f3ffe5da40d21f7e1ec58074c1748aa0"
+      },
+      "index_config": "rhizome:\n  devBinaryDir: bin\nnoteEmbeddings:\n  enabled: false\ncodeEmbeddings:\n  enabled: false\ncode:\n  enabled: true\n  python:\n    roots: [src]\nagents:\n  codex: on\n  claude: off\n  cursor: off\n  agentSkills: on\n  agentsmd: on\n",
+      "raw_sha256": "2a68dcd92b052868fdbcb9bfe07c3334c600b5ac4963636a87f5a25c1dc249ca",
+      "steps_sha256": "70f3c1c23436849cccb856b851a5b78b63b23dcc0da4e5c04f23b2acc868f3cd",
+      "validation": {
+        "ok": true,
+        "issueCount": 0,
+        "errorCount": 0,
+        "selector": "default",
+        "effectiveChecks": [
+          "ontology",
+          "identifiers",
+          "broken-links"
+        ],
+        "checks": [
+          {
+            "name": "ontology",
+            "ok": true,
+            "issueCount": 0,
+            "summary": "ontology valid",
+            "durationMs": 5
+          },
+          {
+            "name": "identifiers",
+            "ok": true,
+            "issueCount": 0,
+            "summary": "3 identifier nodes checked",
+            "durationMs": 3
+          },
+          {
+            "name": "broken-links",
+            "ok": true,
+            "issueCount": 0,
+            "summary": "no broken links",
+            "durationMs": 2
+          }
+        ]
+      }
+    },
+    "A05": {
+      "installation": "complex-domain",
+      "repeat_init_guidance_unchanged": true,
+      "authored_sources_unchanged": true,
+      "authored_sources": {
+        "CONTEXT.md": "5e22d76d4b42de58cb6c83b0ec185461a335f472dd5d169aabcff8e4082b5b4b",
+        "README.md": "1c9dd0ad2162ff23f79dc25784590338f3cf33992408495e46d24a718e9cae14",
+        "tests/test_retention.py": "42455e6b8a65ddea08028f68414bbdf7a9a956a8f62219cc4570c88c2f99cd73",
+        "src/retention.py": "3e81e4ff9d67abdc9a93bb58c4270181b530e333e869303c1d625e33d6c226cb",
+        "docs/specs/retention-controls.md": "074094c60933cb3d3f74dbd84ef385fbb0b91de7f989909977acb9524b218040",
+        "docs/people/Synthetic Approver.md": "c695f07d58889f6bfc0481f70852e7cf659e89ae7703e08ab526315f6963d971",
+        "docs/efforts/2026-09-07-13-00-retention-source-review.md": "d123fb30ca6cf9ba90add9342018fc2576eb668ec693434057ff6f5fffe975f8",
+        "docs/reference/domain/processes/retention-review.md": "642e27917029e5e3ecb442b3632453221a8bb253ae9dbe1d7e23ba44e084196d",
+        "docs/reference/domain/workflows/review-retention-change.md": "af940dfbf01dd4dd2bab439e18ecc66fe6ef16bee6d5499f3030dd716c7728ef",
+        "docs/reference/requirements/requirements/retention-limit.md": "134bd47d97bc7f4191f6451106e3dc6a03f7ccb360800891bfa85835fe9401b1",
+        "docs/reference/requirements/sources/policy-v2.md": "61549e5ed8df17ed5cdc38010e75ab496f5d32978a651f056a7dc6d23a01837f",
+        "docs/reference/requirements/sources/policy-v1.md": "eae4fc01aaf2434286cf0c41737fe3c54c016090d74492754d36ff331aab8359"
+      },
+      "index_config": "rhizome:\n  devBinaryDir: bin\nnoteEmbeddings:\n  enabled: false\ncodeEmbeddings:\n  enabled: false\ncode:\n  enabled: true\n  python:\n    roots: [src]\nagents:\n  codex: on\n  claude: off\n  cursor: off\n  agentSkills: on\n  agentsmd: on\n",
+      "raw_sha256": "6fa3094134e7195869b214e0163cc709983dd839c88491c4d3930bd3a0ddbbf2",
+      "steps_sha256": "a25219a1a25c259365e0f2510f784cf0809f90260c621b098bb2a42ca657675e",
+      "validation": {
+        "ok": true,
+        "issueCount": 0,
+        "errorCount": 0,
+        "selector": "default",
+        "effectiveChecks": [
+          "ontology",
+          "identifiers",
+          "broken-links"
+        ],
+        "checks": [
+          {
+            "name": "ontology",
+            "ok": true,
+            "issueCount": 0,
+            "summary": "ontology valid",
+            "durationMs": 7
+          },
+          {
+            "name": "identifiers",
+            "ok": true,
+            "issueCount": 0,
+            "summary": "8 identifier nodes checked",
+            "durationMs": 4
+          },
+          {
+            "name": "broken-links",
+            "ok": true,
+            "issueCount": 0,
+            "summary": "no broken links",
+            "durationMs": 4
+          }
+        ]
+      }
+    }
+  }
+}

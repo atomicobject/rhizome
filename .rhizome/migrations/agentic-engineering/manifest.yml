@@ -1,0 +1,86 @@
+version: 1
+records:
+    - path: docs/specs/process/README.md
+      classification: modified
+      fingerprint: aa29bf71f723cacfa99c0fbd10c362e318966966525f95abef46b71967339fb5
+      followUp: Keep and reconcile the local policy into docs/engineering before deleting.
+    - path: docs/specs/process/agent-skills.md
+      classification: modified
+      fingerprint: 98db7c9418cf2177dd46b45cd2841fca861fc18b4c7e0c78e0768f79d65aeabf
+      originalStatus: active
+      followUp: Keep and reconcile the local policy into docs/engineering before deleting.
+    - path: docs/specs/process/agent-workflow.md
+      classification: exact-shipped-referenced
+      fingerprint: 035a35bc1f7a520020f7127fd81af92b834a96a96b69d9fa85624efe569b748c
+      originalStatus: active
+      followUp: Retained because authored links resolve to this document; reconcile those references before deleting.
+    - path: docs/specs/process/audits.md
+      classification: modified
+      fingerprint: 10112161019a434ba74872198973c7e2842df0960966509a01007c5ded396e01
+      originalStatus: active
+      followUp: Keep and reconcile the local policy into docs/engineering before deleting.
+    - path: docs/specs/process/compounding-work.md
+      classification: modified
+      fingerprint: a38c7ce145ece985cda0b9a03bbfd79a85736c090d3b4a289fcb534e886d3470
+      originalStatus: active
+      followUp: Keep and reconcile the local policy into docs/engineering before deleting.
+    - path: docs/specs/process/debugging-workflow.md
+      classification: exact-shipped-match
+      fingerprint: e4aad2e26f77e915f4658cf0d7ee2f9fa5780f69307a1dcb39d5fc5495724115
+      followUp: Deleted after replacement engineering docs were present.
+    - path: docs/specs/process/development-loop.md
+      classification: exact-shipped-referenced
+      fingerprint: 05a37bcb66d8658ef59fc83aeb0ccbb01e032cba915ba33cd1300bbab3f25d2d
+      originalStatus: active
+      followUp: Retained because authored links resolve to this document; reconcile those references before deleting.
+    - path: docs/specs/process/effort-lifecycle.md
+      classification: modified
+      fingerprint: aba8a6852c1fc4d6b07e22e2a28aee8375ac0e97cdc5ec709d005df7fd058337
+      originalStatus: active
+      followUp: Keep and reconcile the local policy into docs/engineering before deleting.
+    - path: docs/specs/process/id-allocation.md
+      classification: modified
+      fingerprint: 209800644dd57094e6d631473368f0f1a69d247c3ee603cdfcf6e3817955c186
+      originalStatus: active
+      followUp: Keep and reconcile the local policy into docs/engineering before deleting.
+    - path: docs/specs/process/lifecycle-immutability.md
+      classification: exact-shipped-referenced
+      fingerprint: b7e76324bc9fde3d1af82a6223e3b8ed0bc4289e9e516a57a3b2b4fccde27cfe
+      originalStatus: active
+      followUp: Retained because authored links resolve to this document; reconcile those references before deleting.
+    - path: docs/specs/process/ontology-design-principles.md
+      classification: modified
+      fingerprint: 235419b71d0bb9bf86206b96588f5544ed0780e819b9ff18cce2c519370e6f16
+      originalStatus: active
+      followUp: Keep and reconcile the local policy into docs/engineering before deleting.
+    - path: docs/specs/process/quality-gates.md
+      classification: modified
+      fingerprint: 9b589486b0e11256909c353296ff4d13bef373bb3d35b4cf5bcabae2553b891f
+      originalStatus: active
+      followUp: Keep and reconcile the local policy into docs/engineering before deleting.
+    - path: docs/specs/process/repo-layout.md
+      classification: exact-shipped-match
+      fingerprint: 1911705c2b58bd32f81af367bac2191fe4ed2de185b3101eb877831304e69918
+      followUp: Deleted after replacement engineering docs were present.
+    - path: docs/specs/process/review-handling.md
+      classification: exact-shipped-match
+      fingerprint: 67af4a51a4c1666aa73e1cc09c5ced9afce88a1d7e61392cdecf511fd5269182
+      followUp: Deleted after replacement engineering docs were present.
+    - path: docs/specs/process/specs-organization.md
+      classification: modified
+      fingerprint: 203b9176f9eaf0f543302388a61005da32e790037d9f3394042bde5043084d66
+      originalStatus: active
+      followUp: Keep and reconcile the local policy into docs/engineering before deleting.
+    - path: docs/specs/process/story-lifecycle.md
+      classification: modified
+      fingerprint: fdb1085d36f137b75106da627697bb958b7be72e89fdbedd1902e7634ce79573
+      originalStatus: active
+      followUp: Keep and reconcile the local policy into docs/engineering before deleting.
+    - path: docs/specs/process/testing-policy.md
+      classification: exact-shipped-match
+      fingerprint: 101b102337f1b738ae54c9350c726b26ede0d8fe257e3e277b0506453d4deab0
+      followUp: Deleted after replacement engineering docs were present.
+    - path: docs/specs/process/transcript-ingestion.md
+      classification: exact-shipped-match
+      fingerprint: 0d4fced552ff4997de8c7808d21729cbb964b8d868d29884670051502a5f6a91
+      followUp: Deleted after replacement engineering docs were present.

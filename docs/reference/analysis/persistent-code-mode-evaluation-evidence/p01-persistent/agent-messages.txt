@@ -1,0 +1,16 @@
+I’m using the Rhizome skill because this is substantive repository work and the governing context may affect both the fix and validation. I’ll keep Rhizome operations on one generated JavaScript client connected to one persistent `rzm agent code serve` process, as required.
+
+The applicable route is code-mode retrieval: first I’ll identify the expiration implementation and tests, then use one generated client for the governing file context and exact code evidence before editing. I’m checking the repository and the live code-mode surface now.
+
+The governing policy and local context establish the repair precisely: validity is strict-before-expiry, timestamps remain UTC-aware, and public signatures/storage stay unchanged. The implementation currently uses `<=`, while the focused test already captures the required equality behavior. I’m generating the single code-mode client now and will use it for the repository evidence packet.
+
+The single persistent code-mode process returned high-confidence exact evidence for `src.expiry.is_valid`: the faulty line is `return current <= expiry.astimezone(UTC)`. It also confirmed the active policy and API constraints. Rhizome reported a stale indexed-enrichment warning for the test file, but the fresh source read and exact symbol evidence are sufficient for this focused one-line repair.
+
+Fixed the expiration boundary bug in [src/expiry.py:22](<EXECUTION_P01-PERSISTENT>/src/expiry.py:22) by changing `<=` to `<`.
+
+Focused checks passed:
+
+- `python3 -m unittest discover -s tests` — 4 tests passed
+- `git diff --check` — clean
+
+The governing policy and code evidence were retrieved through one generated JS client and one persistent Rhizome code-mode process.

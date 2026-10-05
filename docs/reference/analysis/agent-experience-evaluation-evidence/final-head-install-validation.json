@@ -1,0 +1,60 @@
+{
+  "base": {
+    "skill_files": 28,
+    "second_run_skills_unchanged": true,
+    "mirrors_equal": true
+  },
+  "ae": {
+    "skill_files": 52,
+    "second_run_skills_unchanged": true,
+    "mirrors_equal": true
+  },
+  "domain": {
+    "skill_files": 69,
+    "second_run_skills_unchanged": true,
+    "mirrors_equal": true
+  },
+  "explicit": {
+    "skill_files": 69,
+    "second_run_skills_unchanged": true,
+    "mirrors_equal": true
+  },
+  "validation_ontology": 0,
+  "validation_query-recipes": 0,
+  "validation_views": 0,
+  "validation_skill-overlays": 0,
+  "validation_broken-links": 0,
+  "source_head": "076f6764e491db6a1829267e63cfdd6fd7533a4b",
+  "binary_sha256": "04c9f82020ba18111d94c32947ee028f90abaea90624d4af724f168ea5131e8b",
+  "procedure": {
+    "build": "make build",
+    "isolation": "four disposable directories with rhizome.devBinaryDir set to bin",
+    "templates": [
+      "none",
+      "agentic-engineering",
+      "complex-domain",
+      "agentic-engineering,complex-domain"
+    ],
+    "init_options": [
+      "--agent-skills",
+      "on",
+      "--agentsmd",
+      "on",
+      "--claude",
+      "on",
+      "--codex",
+      "off",
+      "--cursor",
+      "off",
+      "--yes"
+    ],
+    "checks": [
+      "SHA-256 maps of all installed skill files equal both harnesses and repeat init",
+      "Domain skill files equal explicit AE+Domain skill files",
+      "No rendered slot markers",
+      "AE-only alignment/reconciliation omit Domain hooks; Domain includes them",
+      "Combined Domain install validates ontology, query-recipes, views, skill-overlays and broken-links"
+    ],
+    "model_calls": 0
+  }
+}

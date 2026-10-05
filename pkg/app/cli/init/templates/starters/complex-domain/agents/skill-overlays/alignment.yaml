@@ -1,0 +1,10 @@
+apiVersion: rhizome.skill-overlay.v1
+id: complex-domain.alignment
+targetSkill: agentic-engineering
+fragments:
+  - file: references/alignment.md
+    slot: alignment.additional-context
+    op: append
+    order: 10
+    content: |
+      When selected scope depends on domain requirements, reuse its still-applicable domain context or refresh only changed anchors, then invoke `traceability-review`. Classify missing authored links, invalid story or criterion locators, uncovered obligations, partial delivery, stale evidence, conflicts, and capped or degraded retrieval against actual delivery evidence. Keep authored coverage, readable targets, obligation satisfaction, and authorized lifecycle changes distinct, and feed the findings into the normal alignment result.

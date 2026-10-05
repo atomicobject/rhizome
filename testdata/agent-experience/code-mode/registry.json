@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "case_id": "E01",
+      "relative_path": "E01-progressive-context",
+      "installation": "complex-domain",
+      "prompt": "Gather bounded code context for the expiration and retention paths, then report accepted coverage gaps without promoting candidate evidence.",
+      "expected_code_paths": [
+        "src/expiry.py",
+        "src/retention.py"
+      ],
+      "expected_current_docs": [
+        "docs/reference/expiry-policy.md",
+        "docs/reference/retention-policy.md"
+      ],
+      "expected_historical_docs": [
+        "docs/reference/analysis/expiry-local-time.md",
+        "docs/reference/analysis/retention-policy-v1.md"
+      ],
+      "requirements": {
+        "accepted_untraced": "REQ-9010",
+        "accepted_covered": "REQ-9011",
+        "candidate": "REQ-9012"
+      }
+    },
+    {
+      "case_id": "E02",
+      "relative_path": "E02-invalid-source-trace",
+      "installation": "complex-domain",
+      "expected_validation": "invalid_by_design",
+      "invalid_reasons": [
+        "unsupported RequirementSource source-kind",
+        "broken source and spec trace targets",
+        "story and acceptance-criterion refs point to absent nodes"
+      ]
+    }
+  ]
+}

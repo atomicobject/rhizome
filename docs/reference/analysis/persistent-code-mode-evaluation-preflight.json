@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-09-07T18:24:38Z",
+  "campaign_ready": false,
+  "model_launches": 0,
+  "provider_usage": null,
+  "provider_usage_reason": "No evaluated model was launched and zero-call probes emit no token usage event.",
+  "required_model": "gpt-5.6-luna",
+  "required_reasoning": "xhigh",
+  "subscription_auth": {
+    "current_home_status": "Logged in using ChatGPT",
+    "clean_home_status": "not prepared"
+  },
+  "toolchain": {
+    "codex": "codex-cli 0.153.4",
+    "python": "Python 3.14.7",
+    "node": "v26.8.1",
+    "git": "git version 2.54.0 (Apple Git-157)"
+  },
+  "provisional_binary": {
+    "version": "rzm version v0.50.5",
+    "sha256": "6730778ff601e0ca04a442268ffb57ebc47b4838904a71eb6a563f8e13f5370e",
+    "final_candidate": false,
+    "build_receipt_present": false,
+    "code_surface_help": "passed",
+    "persistent_serve_help": "passed"
+  },
+  "native_isolation_probe": {
+    "status": "passed outside the calling task sandbox",
+    "network": "disabled",
+    "workspace": "write",
+    "homebrew_runtime": "read",
+    "checks": [
+      "provisional rzm executable",
+      "rzm agent code serve help",
+      "Python 3.11 or newer",
+      "Node 20 or newer"
+    ]
+  },
+  "blockers": [
+    "Final candidate executable and matching build.json are not available.",
+    "Six paired fixtures, clean Codex homes, immutable manifest, environment binding and empty ledger are intentionally not materialized until the final candidate is supplied.",
+    "Per-run clean-home subscription authentication and full native isolation preflight therefore remain pending."
+  ]
+}

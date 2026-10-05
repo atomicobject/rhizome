@@ -1,0 +1,10 @@
+diff --git a/src/expiry.py b/src/expiry.py
+index eca442d..c99e237 100644
+--- a/src/expiry.py
++++ b/src/expiry.py
+@@ -19,4 +19,4 @@ def is_valid(expiry: datetime, now: datetime | None = None) -> bool:
+     """Return whether the record is valid at the current time."""
+ 
+     current = (now or datetime.now(UTC)).astimezone(UTC)
+-    return current <= expiry.astimezone(UTC)
++    return current < expiry.astimezone(UTC)

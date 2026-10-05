@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "kind": "persistent-code-mode-evaluation-profile",
+  "campaign_id": "persistent-code-mode-subscription-evaluation-2026-09-07",
+  "model": "gpt-5.6-luna",
+  "reasoning": "xhigh",
+  "max_launches": 6,
+  "per_run_seconds": 600,
+  "total_seconds": 3600,
+  "cases": [
+    {
+      "pair_id": "P01",
+      "case_id": "A01",
+      "workflow": "starter-free-substantive-fix",
+      "task_prompt": "Fix the expiration boundary bug. Inspect the governing repository context, implement the repair, and run the focused checks."
+    },
+    {
+      "pair_id": "P02",
+      "case_id": "A03",
+      "workflow": "agentic-engineering-execution-resume",
+      "task_prompt": "Resume the approved retry-limit effort from its durable worktree state. Complete the implementation and handoff, updating the owning durable effort record with actual verification evidence."
+    },
+    {
+      "pair_id": "P03",
+      "case_id": "A05",
+      "workflow": "domain-provenance-coverage",
+      "task_prompt": "Assess the revised retention source and record its implications for the current feature. Preserve source provenance, distinguish the unresolved conflict, and update the durable coverage record without promoting candidate evidence."
+    }
+  ],
+  "method_instructions": {
+    "direct": "Use direct rzm commands for Rhizome operations, batching independent CLI calls in one shell invocation when useful. Do not use rzm agent code.",
+    "persistent": "Use one generated JavaScript client connected to one persistent rzm agent code serve process for Rhizome operations. Direct rzm commands are allowed only for code-mode discovery, generation, lifecycle setup, or verification without a generated operation."
+  },
+  "comparison_design": "forced-arm",
+  "natural_adoption_claim_authorized": false,
+  "automatic_retries": 0,
+  "api_fallback": false,
+  "historical_campaign_reuse": false
+}

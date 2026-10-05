@@ -1,0 +1,1215 @@
+/* Shared styling for the bundled group views. Kit theme tokens only; dense
+   expert tables with hairline dividers. Teal marks links, AO red only risk. */
+
+.gv-page {
+  min-height: 100vh;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+  padding-bottom: 40px;
+}
+
+.gv-state {
+  margin: 0;
+  padding: 14px 20px;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
+.gv-num {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.gv-faint {
+  color: var(--text-faint);
+}
+
+.gv-strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.gv-dash {
+  color: var(--ao-gray-300);
+}
+
+.gv-right,
+.gv-table .gv-right {
+  text-align: right;
+}
+
+.gv-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Buttons that read as text: record titles, links, collection headings. */
+.gv-record,
+.gv-link,
+.gv-member,
+.gv-issues,
+.gv-bad {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gv-link {
+  color: var(--link);
+}
+
+.gv-link:hover,
+.gv-record:hover,
+.gv-member:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+.gv-record {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+
+.gv-member {
+  color: var(--text);
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+.gv-issues,
+.gv-bad {
+  color: var(--accent-active);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.gv-ok {
+  color: var(--ao-teal-ink);
+}
+
+.gv-record:focus-visible,
+.gv-link:focus-visible,
+.gv-member:focus-visible,
+.gv-issues:focus-visible,
+.gv-bad:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  border-radius: var(--r-sm);
+}
+
+/* Marks: an 11px slot so titles align whether or not a record has a lifecycle. */
+.gv-mark,
+.gv-square,
+.gv-mark-slot {
+  flex: none;
+  margin-top: 2px;
+}
+
+.gv-mark-slot {
+  width: 11px;
+  height: 11px;
+}
+
+/* A record bullet for members without a lifecycle, drawn small and solid so
+   it never reads as a checkbox. */
+.gv-square {
+  width: 11px;
+  height: 11px;
+  background: linear-gradient(var(--ao-gray-300), var(--ao-gray-300)) center / 6px 6px no-repeat;
+}
+
+/* The strip under the host's title. */
+.gv-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
+  padding: 7px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+  font-size: 12px;
+}
+
+.gv-facts-note {
+  color: var(--text-faint);
+  min-width: 0;
+}
+
+.gv-facts-list {
+  display: flex;
+  gap: 14px;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.gv-facts-list b {
+  color: var(--text);
+}
+
+.gv-facts-warn {
+  flex-basis: 100%;
+  color: var(--warning-ink);
+}
+
+/* Sections */
+.gv-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.gv-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 20px 6px;
+  min-width: 0;
+}
+
+.gv-section-head h2 {
+  margin: 0;
+  font-size: inherit;
+}
+
+.gv-desc {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-faint);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.gv-counts {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.gv-counts > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.gv-none,
+.gv-foot {
+  margin: 0;
+  padding: 0 20px 12px;
+  font-size: 12px;
+}
+
+.gv-none {
+  color: var(--text-faint);
+}
+
+.gv-foot {
+  padding-top: 6px;
+}
+
+.gv-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.gv-table th {
+  padding: 4px 10px;
+  border-top: 1px solid var(--border-faint);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font: var(--label-font);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.gv-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border-faint);
+  color: var(--ao-ink-2);
+  font-size: 12px;
+  vertical-align: top;
+}
+
+.gv-table th:first-child,
+.gv-table td:first-child {
+  width: 55%;
+  padding-left: 20px;
+}
+
+.gv-table th:last-child,
+.gv-table td:last-child {
+  padding-right: 20px;
+}
+
+.gv-table .gv-changed {
+  width: 1%;
+}
+
+.gv-table .gv-num {
+  padding-top: 6px;
+}
+
+.gv-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.gv-title .gv-issues {
+  margin-left: 4px;
+  padding-top: 1px;
+}
+
+.gv-branch {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin: 0 -2px 0 -12px;
+  border-left: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.gv-summary {
+  display: -webkit-box;
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--ao-ink-3);
+  font-size: 12px;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Briefing: three columns at desktop widths, two, then one in narrower frames. */
+.gv-brief {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.gv-brief-col {
+  min-width: 0;
+  padding: 14px 20px 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gv-brief-side {
+  background: var(--surface-alt);
+}
+
+@media (min-width: 720px) {
+  .gv-brief {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gv-brief-col:first-child {
+    border-right: 1px solid var(--border);
+  }
+
+  .gv-brief-side {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 960px) {
+  .gv-brief {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(260px, 320px);
+    min-height: calc(100vh - 40px);
+  }
+
+  .gv-brief-col {
+    border-bottom: 0;
+    border-right: 1px solid var(--border);
+  }
+
+  .gv-brief-side {
+    grid-column: auto;
+    border-right: 0;
+  }
+}
+
+.gv-blk + .gv-blk {
+  margin-top: 22px;
+}
+
+.gv-blk-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 2px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gv-blk-head .gv-num {
+  margin-left: auto;
+}
+
+.gv-cap,
+.gv-quiet {
+  margin: 0 0 6px;
+  color: var(--text-faint);
+  font-size: 11.5px;
+}
+
+.gv-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gv-sub {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.gv-more {
+  font-size: 11.5px;
+}
+
+/* Titles inside running text: open a record or note without reading as a link. */
+.gv-inline {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gv-inline:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+.gv-inline:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  border-radius: var(--r-sm);
+}
+
+/* Needs attention */
+.gv-sig {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 1px 8px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-top: 1px solid var(--border-faint);
+}
+
+.gv-sig-count {
+  color: var(--warning-ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.gv-sig[data-severity="risk"] .gv-sig-count {
+  color: var(--accent-active);
+}
+
+.gv-sig[data-severity="context"] .gv-sig-count {
+  color: var(--text-muted);
+}
+
+.gv-sig[data-severity="ok"] .gv-sig-count {
+  color: var(--ao-teal-ink);
+}
+
+.gv-sig-text {
+  font-size: 12.5px;
+}
+
+.gv-sig-text b {
+  font-weight: 600;
+}
+
+.gv-sig-act {
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.gv-sig-detail {
+  grid-column: 2 / 4;
+  color: var(--text-faint);
+  font-size: 11.5px;
+}
+
+.gv-why {
+  color: var(--ao-ink-3);
+}
+
+.gv-sep {
+  color: var(--ao-gray-300);
+}
+
+/* In motion */
+.gv-mo-group + .gv-mo-group {
+  margin-top: 4px;
+}
+
+.gv-mo-type {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.gv-mo {
+  padding: 7px 0;
+  border-top: 1px solid var(--border-faint);
+}
+
+.gv-mo-time {
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.gv-mo-note {
+  display: -webkit-box;
+  margin: 2px 0 0 18px;
+  overflow: hidden;
+  color: var(--ao-ink-3);
+  font-size: 12px;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.gv-mo-note em {
+  margin-right: 5px;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.gv-mo-more {
+  padding: 4px 0 0 18px;
+}
+
+.gv-hint {
+  margin: 8px 0 0;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+  color: var(--text-faint);
+  font-size: 11.5px;
+}
+
+.gv-hint code {
+  color: var(--ao-ink-3);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+/* Recent changes */
+.gv-day-head {
+  margin: 12px 0 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.gv-day:first-of-type .gv-day-head {
+  margin-top: 4px;
+}
+
+.gv-evt {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border-faint);
+  font-size: 12px;
+}
+
+.gv-evt .gv-num {
+  padding-top: 1px;
+}
+
+.gv-chips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: -6px;
+}
+
+.gv-burst {
+  color: var(--text-faint);
+  font-size: 11.5px;
+}
+
+.gv-burst b {
+  color: var(--ao-ink-2);
+  font-weight: 600;
+}
+
+/* Outside the group */
+.gv-outsum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+
+.gv-outsum b {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.gv-out {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border-faint);
+  font-size: 12px;
+}
+
+/* In this group */
+.gv-typ {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.gv-typ:first-child {
+  padding-top: 4px;
+  border-top: 0;
+}
+
+.gv-typ-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.gv-typ-top .gv-member {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.gv-typ-count {
+  margin-left: auto;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.gv-typ-desc {
+  display: -webkit-box;
+  margin: 1px 0 0;
+  overflow: hidden;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.gv-dist {
+  display: flex;
+  gap: 2px;
+  height: 5px;
+  margin-top: 6px;
+}
+
+.gv-dist i {
+  display: block;
+  border-radius: 1px;
+  background: var(--ao-gray-300);
+}
+
+.gv-dist i[data-tone="progress"],
+.gv-dist i[data-tone="info"] {
+  background: var(--info);
+}
+
+.gv-dist i[data-tone="success"] {
+  background: var(--ao-teal-ink);
+}
+
+.gv-dist i[data-tone="warning"] {
+  background: var(--warning-ink);
+}
+
+.gv-dist i[data-tone="risk"],
+.gv-dist i[data-tone="danger"] {
+  background: var(--accent-active);
+}
+
+.gv-dist i[data-tone="muted"] {
+  background: var(--ao-gray-200);
+}
+
+.gv-typ .gv-counts {
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin: 4px 0 0;
+  white-space: normal;
+}
+
+.gv-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* Connections */
+.gv-mx {
+  margin-top: 4px;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.gv-mx th {
+  padding: 2px 4px;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.gv-mx thead th {
+  height: 96px;
+  padding: 4px 2px;
+  vertical-align: bottom;
+  text-align: left;
+}
+
+.gv-mx thead th span {
+  display: inline-block;
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.gv-mx td {
+  width: 26px;
+  height: 22px;
+  border: 1px solid var(--border-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: center;
+}
+
+.gv-mx thead td {
+  border: 0;
+}
+
+.gv-mx td[data-cell="used"] {
+  background: var(--ao-teal-soft);
+  color: var(--ao-teal-ink);
+  font-weight: 700;
+}
+
+.gv-mx td[data-cell="unused"] {
+  background: repeating-linear-gradient(135deg, transparent 0 4px, var(--border-faint) 4px 5px);
+  color: var(--warning-ink);
+}
+
+.gv-mx td[data-cell="self"] {
+  background: var(--surface-sunk);
+}
+
+/* Views and guide */
+.gv-res {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+
+.gv-res .gv-sub {
+  margin-left: auto;
+  text-align: right;
+}
+
+/* Trace: a matrix of spine rows and linked-record columns. The page scrolls in
+   both directions, so the header sticks to the top and the spine to the left.
+   The page grows to the matrix's width; the facts strip, the toolbar, and the
+   footer stay at the frame's width, which is the width of the page's main. */
+.gv-page:has(> .gv-trace-page) {
+  container-type: inline-size;
+  padding-bottom: 0;
+}
+
+.gv-trace-page {
+  min-height: 100vh;
+  padding-bottom: 40px;
+  background: var(--surface);
+}
+
+.gv-trace-page > .gv-facts,
+.gv-trace-page > .gv-toolbar,
+.gv-trace-page > .gv-trace-foot {
+  position: sticky;
+  left: 0;
+  box-sizing: border-box;
+  width: 100cqi;
+}
+
+.gv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 7px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.gv-label {
+  font: var(--label-font);
+  color: var(--text-muted);
+}
+
+.gv-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.gv-seg label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-right: 1px solid var(--border);
+  color: var(--ao-ink-3);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.gv-seg label:last-child {
+  border-right: 0;
+}
+
+.gv-seg label:hover {
+  background: var(--surface-alt);
+}
+
+.gv-seg label:has(:checked) {
+  background: var(--ao-ink);
+  color: var(--ao-white);
+}
+
+.gv-seg label:has(:checked) .gv-num {
+  color: var(--ao-gray-300);
+}
+
+.gv-seg label:has(:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.gv-default-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ao-teal);
+  vertical-align: 1px;
+}
+
+.gv-trace {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.gv-col-spine {
+  width: 26%;
+}
+
+.gv-col-narrow {
+  width: 30px;
+}
+
+.gv-trace th,
+.gv-trace td {
+  padding: 7px 10px;
+  border-right: 1px solid var(--border-faint);
+  border-bottom: 1px solid var(--border-faint);
+  color: var(--ao-ink-2);
+  font-size: 12px;
+  font-weight: 400;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.gv-trace thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 7px 10px 6px;
+  border-bottom-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.gv-trace .gv-trace-spine {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-left: 20px;
+  background: color-mix(in srgb, var(--surface-sunk) 60%, var(--surface));
+  box-shadow: inset -1px 0 0 var(--border);
+}
+
+.gv-trace thead .gv-trace-spine {
+  z-index: 3;
+}
+
+.gv-trace .gv-outcol {
+  background: color-mix(in srgb, var(--ao-teal-soft) 22%, var(--surface));
+}
+
+.gv-head .gv-num {
+  margin-left: 2px;
+}
+
+.gv-trace .gv-member {
+  font-size: 12.5px;
+}
+
+.gv-cov {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.gv-cov b {
+  color: var(--ao-ink-3);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.gv-cov .gv-thin {
+  color: var(--warning-ink);
+}
+
+.gv-trace .gv-narrow {
+  padding: 8px 0;
+  text-align: center;
+}
+
+.gv-vertical {
+  writing-mode: vertical-rl;
+  color: var(--text-faint);
+  font: 700 10.5px var(--font-sans);
+  white-space: nowrap;
+}
+
+.gv-trace .gv-vertical .gv-num {
+  font-size: 10px;
+}
+
+.gv-band th {
+  padding: 4px 20px;
+  border-bottom-color: var(--border);
+  background: var(--bg-tint);
+}
+
+.gv-band-toggle {
+  position: sticky;
+  left: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ao-ink-2);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gv-band-toggle .gv-num {
+  font-weight: 400;
+}
+
+.gv-caret {
+  width: 8px;
+  color: var(--text-faint);
+  font-size: 9px;
+}
+
+.gv-twisty,
+.gv-twisty-slot {
+  flex: none;
+  width: 12px;
+  margin: 0 2px 0 -2px;
+}
+
+.gv-twisty {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.gv-band-toggle:focus-visible,
+.gv-twisty:focus-visible,
+.gv-trace-more:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  border-radius: var(--r-sm);
+}
+
+.gv-trace .gv-record {
+  font-size: 13px;
+}
+
+.gv-nested {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.gv-kv {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--ao-ink-2);
+}
+
+.gv-kv em {
+  flex: none;
+  padding-top: 1px;
+  color: var(--text-faint);
+  font: 700 10.5px var(--font-sans);
+  font-style: normal;
+  text-transform: uppercase;
+}
+
+.gv-kv span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.gv-trace .gv-chip {
+  display: flex;
+  margin: 0 -6px 1px -6px;
+}
+
+.gv-out-dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin: 6px 3px 0;
+  border-radius: 50%;
+  background: var(--ao-teal-ink);
+}
+
+.gv-trace-more {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.gv-trace-more:hover {
+  color: var(--link);
+}
+
+.gv-rollup {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+/* Below the row's own records, a dashed rule sets the subtree total apart. */
+.gv-rollup:not(:first-child) {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px dashed var(--border);
+}
+
+.gv-rollup b {
+  color: var(--ao-ink-3);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.gv-more-row td {
+  padding: 6px 20px;
+  background: var(--surface);
+}
+
+.gv-trace-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  padding: 10px 20px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.gv-trace-foot .gv-ok {
+  font-weight: 600;
+}
+
+/* Type Briefing: field spreads, the primary date by month, and relation fill. */
+.gv-spread {
+  margin-top: 10px;
+}
+
+.gv-spread-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  color: var(--ao-ink-2);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.gv-dist-wide {
+  height: 8px;
+  margin: 5px 0 4px;
+}
+
+.gv-dist i[data-tone="category"] {
+  background: var(--ao-gray-400);
+}
+
+.gv-dist i[data-other] {
+  background: repeating-linear-gradient(90deg, var(--ao-gray-400) 0 1px, var(--surface) 1px 3px);
+}
+
+.gv-dist i[data-empty] {
+  background: repeating-linear-gradient(135deg, var(--border) 0 3px, var(--surface) 3px 5px);
+}
+
+.gv-spread-key {
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 0;
+  white-space: normal;
+}
+
+.gv-spread .gv-kinds {
+  margin-top: 3px;
+}
+
+.gv-hist {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 64px;
+  margin-top: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gv-hist i {
+  flex: 1 1 0;
+  min-height: 1px;
+  background: var(--ao-teal-ink);
+  opacity: 0.75;
+}
+
+.gv-hist-axis {
+  display: flex;
+  justify-content: space-between;
+  margin: 3px 0 0;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.gv-rel {
+  padding: 7px 0;
+  border-top: 1px solid var(--border-faint);
+}
+
+.gv-rel:first-child {
+  border-top: 0;
+}
+
+.gv-rel-top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.gv-rel-top b {
+  font-weight: 600;
+}
+
+.gv-rel-top .gv-num {
+  margin-left: auto;
+}
+
+.gv-fill {
+  height: 3px;
+  margin: 4px 0 3px;
+  background: var(--border-faint);
+}
+
+.gv-fill i {
+  display: block;
+  height: 100%;
+  background: var(--ao-teal-ink);
+}
+
+.gv-fill i[data-thin] {
+  background: var(--warning-ink);
+}
+
+.gv-tops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 0;
+  color: var(--ao-ink-2);
+  font-size: 12px;
+}
+
+.gv-rel-none {
+  margin: 0;
+  color: var(--warning-ink);
+  font-size: 11.5px;
+}

@@ -1,0 +1,14 @@
+apiVersion: rhizome.skill-overlay.v1
+id: complex-domain.ingest-transcript
+targetSkill: ingest-transcript
+fragments:
+  - slot: source.additional-preflight
+    op: append
+    order: 10
+    content: |
+      When a transcript contains domain facts, requirements, process details, workflow examples, or constraints, run bounded `domain-inventory-pack` queries for `RequirementSource` and `Requirement` before optional `domain-topic-survey` duplicate ranking. Reuse the same source identity and preserve version/date, provenance, and exact locations; an unchanged rerun must not create parallel sources or candidates.
+  - slot: synthesis.additional-tracks
+    op: append
+    order: 10
+    content: |
+      Add a complex-domain track when warranted: atomic candidate requirements, source-backed facts, process/workflow observations, conflicts, affected accepted requirements, accountable action items, and evidence qualifications. Route extraction to `requirements-ingest`; route lifecycle decisions to `requirements-curation`. Sufficient metadata alone does not authorize acceptance.

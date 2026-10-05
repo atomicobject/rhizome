@@ -1,0 +1,26 @@
+## pkg/vault/obsidian
+
+Core vault primitives: config, note parsing (frontmatter/tags), wikilink scanning/rewriting, graph analysis.
+
+The optional `diagnostics` configuration uses `pkg/diagnostics.Config`. Ordinary loads and init preserve its authored values. The diagnostics package applies recording defaults and validates its settings independently so offline readers can bypass broken repository configuration.
+
+Graph algorithms and backlink derivation consume `GraphSnapshot`, a source-neutral DTO. `BuildGraphSnapshot` is the live-note adapter; persisted metadata supplies the same DTO through `notemeta.LoadPersistedGraphSnapshot`. Keep algorithms on the DTO instead of adding source-specific graph implementations.
+Exact `CONTEXT.md` files are system notes: discovery selects them outside `notes.includes` and `notes.excludes`, while root containment, built-in infrastructure skips, Git ignores, and `.rhizome/ignore` remain authoritative. Ordinary notes retain the full configured matcher. Graph analysis separately broadens configured file-context doc patterns outside note includes.
+
+- **Entry points**: `VaultDefinition`, `LoadLocalConfig`, `LoadLocalWorkflowConfig`, `LocalRhizomeConfig.UsesExternalBinaryManager`, `NoteReader`, `ScanWikilinks`, `VaultFileIndex`, `ScanStructuredLinkSnapshot`, `ExtractMarkdownReferenceDefinitions`, `ScanIdentifierReviewCandidates`, `EnumerateMarkdownTargets`, `SingleMarkdownH1Title`, `FirstMarkdownH1Title`, `PlainMarkdownTitle`, `ExtractInlinePropertyOccurrences`.
+- **Key invariants**: paths normalize through `pkg/paths`; repo config and workflow-state loads accept one YAML document (with blank/comment-only files treated as empty mappings), preserve unknown keys on disk, and return path-aware `ConfigWarning` values while malformed YAML, known-field type errors, and invalid binary ownership remain fatal. Omitted `rhizome.binaryManager` preserves Rhizome ownership; `external` is the only non-empty mode and cannot coexist with version or binary-location fields. Loads never write, and typed saves merge owned fields into the source YAML so unknown top-level and nested fields survive. Typed saves skip byte-identical config/workflow replacements after merging and serialization, preserving file identity and timestamps; unchanged main config never skips workflow persistence. `rzm init` alone performs the bounded v0.49 workflow-key migration. Wikilinks resolve through `NotePathCache`, with an exact authored Markdown path winning before basename-collision lookup; fragment health and persistence share the canonical Markdown-target parser; structured link scans bind exact source spans (including sealed empty results), skip all Markdown code forms, keep URI schemes external, and expose plain prose/code identifier tokens only as review candidates. Reference-definition extraction uses the same code protection and returns internal destinations for explicit caller-side resolution.
+
+Markdown projection adapters reuse these syntax primitives rather than reparse source: `ExtractFrontmatter`, `ExtractHashtags`, `ExtractInlinePropertyOccurrences`, `ScanStructuredLinkSnapshot`, `SingleMarkdownH1Title`, and `EnumerateMarkdownTargets`. The inline occurrence API preserves authored order but deliberately exposes no editable spans. `StructuredLink.ResolverInput` is the exact compatibility input to shared resolution; generic consumers branch on the closed resolution semantic rather than a format ID.
+
+Repo config and workflow readers use `pkg/fileio` cooperative reads. Atomic writers sync and close their temporary sibling before its shared replacement operation, retain the old target on failure, and remove their own failed temporary file. Windows readers share deletion so existing handles retain complete old bytes while new readers see the replacement. Noncooperating external readers can still deny publication and return an error. Serialization, mode preservation, and byte-identical save avoidance remain here.
+
+### Deep docs
+
+- [[Graph (Hub)]]
+- [[List + prompt matching DSL]]
+
+Exact cached non-Markdown paths retain their authored suffix and fragment in `ResolveNoteCandidates`, before Markdown alias lookup. This applies only to admitted cached sources and does not broaden note discovery.
+
+Markdown destinations split the raw fragment delimiter before decoding URL path escapes once (`+` stays literal, malformed escapes keep authored bytes). Resolution returns the unique cached canonical path without reparsing a decoded filename hash. Link-health checks pass the raw path to the cache and decode once for filesystem fallback, classification, and diagnostics; both resolution routes check fragments on the canonical file. `%20` names a space; a filename containing literal `%20` uses `%2520`. Emitted relative paths escape first-segment colons so filenames cannot become URI schemes; later-segment colons remain literal. `ScanCommentLinks` is the narrow source-comment exception to ordinary note code-span protection.
+
+Rename old-path alternatives match authored aliases and canonical source paths within one original-content pass, retaining the caller's basename policy and counting each link once. Normal note code spans remain protected.

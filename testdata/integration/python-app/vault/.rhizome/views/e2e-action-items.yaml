@@ -1,0 +1,45 @@
+apiVersion: rhizome.view.v1
+id: e2e.action-items
+name: Action Items Editing Fixture
+source:
+  kind: ontology_type
+  type: EditableActionItem
+mount:
+  kind: standalone
+  group: Work
+  order: 10
+defaults:
+  variant: table
+  filters:
+    - field: status
+      op: exists
+  sort:
+    - field: title
+      direction: asc
+variants:
+  table:
+    columns:
+      - field: status
+        label: Status
+      - field: done
+        label: Done
+      - field: assignedTo
+        label: Assigned To
+      - field: title
+        label: Action
+  card:
+    eyebrow: status
+    title: title
+    fields:
+      - field: done
+        label: Done
+      - field: assignedTo
+        label: Assigned To
+  kanban:
+    columnField: done
+    card:
+      eyebrow: status
+      title: title
+      fields:
+        - field: assignedTo
+          label: Assigned To

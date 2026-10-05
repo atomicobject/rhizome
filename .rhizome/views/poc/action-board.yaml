@@ -1,0 +1,11 @@
+apiVersion: rhizome.view.v1
+id: poc.action-board
+name: Action Board
+description: Proof-of-concept custom view. Action items grouped by assignee, with done toggles that write back to the note.
+source:
+  kind: custom
+  entry: action-board.tsx
+mount:
+  kind: standalone
+  group: Custom
+  order: 10

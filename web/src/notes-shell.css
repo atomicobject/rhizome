@@ -1,0 +1,1606 @@
+.notes-shell {
+  min-height: 0;
+}
+
+.app-shell__notes-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-width: 0;
+  margin-left: auto;
+  max-width: 100%;
+  color: var(--ao-gray-300);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.app-shell__notes-tools b {
+  color: var(--ao-white);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.app-shell__notes-tools .has-problems,
+.app-shell__notes-tools .has-problems b {
+  color: var(--accent-line);
+}
+
+.app-shell__nav .app-shell__notes-search {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: clamp(180px, 22vw, 300px);
+  min-width: 0;
+  height: 24px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--ao-black);
+  border-radius: var(--r);
+  background: var(--ao-ink-2);
+  color: var(--ao-gray-300);
+  font-size: 10px;
+  text-align: left;
+}
+
+.app-shell__notes-search span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell__notes-search kbd {
+  color: var(--ao-gray-300);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+@media (max-width: 1120px) {
+  .app-shell__notes-tools > span {
+    display: none;
+  }
+}
+
+.notes-tabs {
+  display: flex;
+  min-height: 38px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* Fixed height: opening the first note tab must not push the workspace down. */
+.notes-shell__tabs-row {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  height: 33px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.notes-shell__tabs-row .notes-tabs {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  border-bottom: 0;
+}
+
+.notes-shell__session {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 3px var(--sp-3);
+}
+
+.notes-shell__session .ontology-edit-toggle {
+  min-height: 26px;
+  padding-block: 3px;
+}
+
+.notes-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 110px;
+  max-width: 230px;
+  padding: 0 6px 0 10px;
+  font-size: 12px;
+  border-right: 1px solid var(--border);
+  color: var(--muted);
+  cursor: default;
+  user-select: none;
+}
+
+/* Home stays reachable however far the strip scrolls. */
+.notes-tab--pinned-home {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: none;
+  background: var(--surface);
+  min-width: 0;
+  padding: 0 11px;
+  justify-content: center;
+}
+
+.notes-tab__home-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.notes-tab:not(.is-active):hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.notes-tab.is-active {
+  color: var(--ink);
+  background: var(--panel);
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+.notes-tab__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notes-tab__dirty {
+  color: var(--warning);
+  font-size: 9px;
+}
+.notes-tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.notes-tab__close:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+/* Configured views open as retained tabs; they read like collection tabs. */
+.notes-tab--view .notes-tab__title {
+  max-width: 180px;
+}
+
+.notes-shell__body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) auto;
+  min-height: 0;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.notes-shell__body--search {
+  display: block;
+  overflow: hidden;
+}
+
+.notes-shell__body--search .notes-shell__panel.is-active {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.notes-shell__note-surfaces {
+  display: contents;
+}
+
+.notes-shell__note-surfaces[hidden] {
+  display: none;
+}
+
+.search-workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--surface);
+}
+
+.search-workspace__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  padding: var(--sp-5) var(--sp-6) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
+.search-workspace h1 {
+  max-width: 70vw;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-workspace__query {
+  max-width: 48vw;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-workspace h1 mark {
+  color: inherit;
+  background: transparent;
+}
+
+.search-workspace__filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.search-workspace__filters > button,
+.search-workspace__filters select,
+.search-workspace__filters input {
+  height: 27px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.search-workspace__filters > button {
+  cursor: pointer;
+}
+
+.search-workspace__filters > button.is-active,
+.search-workspace__filters > button[aria-pressed="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.search-workspace__filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-faint);
+  font-size: 10px;
+}
+
+.search-workspace__filters label span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.search-workspace__meta,
+.search-workspace__warning,
+.search-workspace__state,
+.search-workspace__end {
+  margin: var(--sp-4) auto 0;
+  width: min(100% - 2 * var(--sp-6), 920px);
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.search-workspace__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.search-workspace__status {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.search-workspace__status > span:not(:first-child)::before {
+  content: "·";
+  margin: 0 var(--sp-2);
+  color: var(--text-faint);
+}
+
+.search-workspace__warning {
+  padding: 7px 9px;
+  border: 1px solid var(--warning);
+  border-radius: var(--r-sm);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
+.search-workspace__state {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-8) var(--sp-4);
+  text-align: center;
+}
+
+.search-workspace__state strong {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.search-workspace__state button,
+.search-workspace__load-more {
+  padding: 6px 11px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.search-workspace__results {
+  display: grid;
+  gap: 0;
+  width: min(100% - 2 * var(--sp-6), 920px);
+  margin: var(--sp-3) auto 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.search-workspace__result {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.search-workspace__result-kind {
+  color: var(--text-faint);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.search-workspace__result-link {
+  display: block;
+  max-width: 100%;
+  margin-top: 3px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.search-workspace__result-link:hover,
+.search-workspace__result-link:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.search-workspace__result-source {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-workspace__result p {
+  max-width: 78ch;
+  margin: 7px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.search-workspace__result p.is-missing {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.search-workspace__result mark {
+  border-radius: 2px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.search-workspace__load-more,
+.search-workspace__end {
+  margin-bottom: var(--sp-6);
+  align-self: center;
+}
+
+.search-workspace__end {
+  text-align: center;
+}
+
+.notes-left-rail {
+  width: 220px;
+  min-width: 0;
+  overflow: hidden;
+  display: grid;
+  /* The collections take what they need, up to half the rail; the note list gets the rest. */
+  grid-template-rows: fit-content(50%) minmax(0, 1fr);
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.notes-left-rail__collections,
+.notes-left-rail__notes {
+  min-height: 0;
+  overflow: auto;
+}
+
+.notes-left-rail__collections {
+  max-height: none;
+}
+
+.notes-left-rail__notes {
+  border-top: 1px solid var(--border);
+}
+
+.notes-left-rail__notes .ontology-list__body {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.notes-left-rail .ontology-rail__views {
+  gap: 1px;
+  padding: 4px 6px;
+}
+
+.notes-left-rail .ontology-view-row {
+  display: flex;
+  gap: 0;
+  min-height: 24px;
+  /* Leading 22px matches the caret gutter of the type rows below. */
+  padding: 3px 8px 3px 22px;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+/* The view glyph hangs in the caret gutter so view and type labels align. */
+.notes-left-rail .ontology-view-row__icon {
+  width: 14px;
+  margin-left: -16px;
+  margin-right: 2px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+/* Views inside a type group line up with that group's type rows. */
+.notes-left-rail .ontology-rail__views--nested {
+  padding: 0;
+}
+
+.notes-left-rail .ontology-rail__views--nested .ontology-view-row {
+  padding-left: 40px;
+}
+
+.notes-left-rail .ontology-note__main {
+  min-height: 32px;
+  gap: 0;
+  padding: 3px 29px 3px 8px;
+}
+
+.notes-left-rail .ontology-note__title {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.notes-left-rail .ontology-note__meta {
+  gap: 5px;
+  padding-left: 0;
+  font-size: 9px;
+  line-height: 1.15;
+}
+
+.notes-left-rail .ontology-note__type-mini {
+  position: static;
+  flex: none;
+  max-width: 80px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: inherit;
+  text-transform: none;
+}
+
+.notes-left-rail .ontology-note .ontology-compare-icon {
+  top: 50%;
+  right: 4px;
+  left: auto;
+  transform: translateY(-50%);
+}
+
+.notes-left-rail .ontology-type-list {
+  padding: 2px 6px 6px;
+}
+
+.notes-left-rail .ontology-type-row {
+  min-height: 24px;
+  gap: 6px;
+  padding: 2px 6px 2px 4px;
+  font-size: 12px;
+}
+
+.notes-left-rail .ontology-type-row__count {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.notes-left-rail .ontology-type-row--pseudo {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.notes-left-rail .ontology-type-row--issues:not(.is-selected) {
+  color: var(--text);
+}
+
+.notes-left-rail .ontology-type-row--group,
+.notes-left-rail .ontology-rail__views-label {
+  gap: 0;
+  margin-top: 6px;
+  font: var(--label-font);
+  color: var(--label-color);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.notes-left-rail .ontology-type-row--group {
+  cursor: pointer;
+}
+
+.notes-left-rail .ontology-rail__views-label {
+  margin-top: 0;
+  padding: 4px 4px 2px 22px;
+}
+
+.notes-left-rail .ontology-list__title h2 {
+  font-size: 15px;
+}
+
+.notes-shell__panel {
+  grid-column: 2;
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.notes-right-rail {
+  position: relative;
+  grid-column: 3;
+  width: 300px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.notes-right-rail.is-collapsed {
+  width: 36px;
+}
+
+.notes-right-rail__tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+
+.notes-right-rail__tab {
+  min-height: 38px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notes-right-rail__tab:hover,
+.notes-right-rail__tab:focus-visible {
+  color: var(--text);
+  background: var(--bg-tint);
+}
+
+.notes-right-rail__tab[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.notes-right-rail__content,
+.notes-right-rail__content > [role="tabpanel"] {
+  flex: 1;
+  min-height: 0;
+}
+
+.notes-right-rail__content {
+  display: flex;
+  overflow: hidden;
+}
+
+.notes-right-rail__content > [role="tabpanel"] {
+  width: 100%;
+  overflow: auto;
+}
+
+.notes-right-rail__outline {
+  padding: var(--sp-4);
+}
+
+.notes-right-rail__graph {
+  height: 100%;
+  min-height: 0;
+}
+
+.notes-right-rail__graph .ontology-local-graph {
+  height: 100%;
+  margin: 0;
+  border: 0;
+}
+
+.notes-right-rail__graph-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.notes-right-rail__toggle {
+  position: absolute;
+  z-index: 2;
+  top: 5px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.notes-right-rail__toggle:hover,
+.notes-right-rail__toggle:focus-visible {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.notes-right-rail__toggle:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.notes-right-rail__collapsed-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 100%;
+  padding-top: 4px;
+  color: var(--text-faint);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  writing-mode: horizontal-tb;
+}
+
+.notes-right-rail__collapsed-strip > span {
+  writing-mode: vertical-rl;
+}
+
+.notes-right-rail__collapsed-strip .notes-right-rail__toggle {
+  position: static;
+  flex: none;
+}
+
+.ontology-sidebar-properties__long-value summary {
+  color: var(--text);
+  cursor: pointer;
+  list-style-position: outside;
+}
+
+.ontology-sidebar-properties__long-value div {
+  margin-top: var(--sp-2);
+  color: var(--text-muted);
+}
+
+.ontology-pane__type {
+  flex: none;
+}
+
+.ontology-pane__toolbar-path {
+  min-width: 80px;
+  max-width: min(34vw, 420px);
+  overflow: hidden;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ontology-pane__section-tabs {
+  display: flex;
+  align-self: stretch;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.ontology-pane__section-tabs button {
+  flex: none;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.ontology-pane__section-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.ontology-source {
+  display: block;
+  margin: calc(-1 * var(--sp-6));
+  padding: var(--sp-4) 0 var(--sp-8);
+  overflow: visible;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.ontology-source__line {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  min-height: 19px;
+}
+
+.ontology-source__number {
+  padding-right: var(--sp-3);
+  color: var(--border-strong);
+  text-align: right;
+  user-select: none;
+}
+
+.ontology-source__line code {
+  padding: 0 var(--sp-5);
+  color: inherit;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+
+.ontology-markdown--html {
+  width: 100%;
+  max-width: none;
+}
+
+.ontology-pane__main--html {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ontology-pane__main--html > * {
+  flex-shrink: 0;
+}
+
+.ontology-pane__main--html > .ontology-markdown--html {
+  display: flex;
+  flex: 1;
+  /* Cancel the pane padding so the viewer runs edge to edge and reaches the pane bottom. */
+  width: auto;
+  margin: 0 calc(-1 * var(--sp-6)) calc(-1 * var(--sp-6));
+  min-height: min(70vh, 640px);
+  max-width: none;
+}
+
+.ontology-properties__html-summary {
+  display: list-item;
+  cursor: pointer;
+}
+
+.ontology-properties__html-summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.html-note-viewer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-alt);
+}
+
+.html-note-viewer.is-hidden {
+  display: none;
+}
+
+/* Chrome-free note page (`?bare=1`): the viewer is the whole window. */
+.bare-html-note {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-alt);
+}
+
+.html-note-viewer__toolbar,
+.html-note-viewer__action {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.html-note-viewer__format {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.html-note-viewer__state {
+  color: var(--text-faint);
+}
+
+.html-note-viewer__spacer {
+  flex: 1;
+}
+
+.html-note-viewer__toolbar button,
+.html-note-viewer__toolbar a,
+.html-note-viewer__action button {
+  border: 0;
+  background: transparent;
+  color: var(--accent-ink);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.html-note-viewer__toolbar button:hover,
+.html-note-viewer__toolbar a:hover,
+.html-note-viewer__action button:hover {
+  text-decoration: underline;
+}
+
+.html-note-viewer__problem {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: var(--fs-xs);
+}
+
+.html-note-viewer__action {
+  justify-content: flex-end;
+  background: var(--surface);
+}
+
+.html-note-viewer__action > span {
+  min-width: 0;
+  margin-right: auto;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-view-frame {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  background: var(--bg);
+}
+
+.html-note-viewer__frame {
+  flex: 1;
+  width: 100%;
+  height: 0;
+  min-height: 0;
+  border: 0;
+  background: white;
+}
+
+@media (max-width: 700px) {
+  .html-note-viewer__state {
+    display: none;
+  }
+}
+
+.ontology-pane__refresh-status {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding: 3px var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-faint);
+  font-size: 10px;
+}
+
+/* The refreshing pill floats over the content so a refetch does not shift it. */
+.ontology-pane__refresh-status:not(.is-error) {
+  width: max-content;
+  height: 22px;
+  margin: 0 0 -22px auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  line-height: 14px;
+}
+
+.ontology-pane__refresh-status.is-error {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}
+
+.notes-shell__panel.is-active {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.notes-note-tab {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.notes-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--sp-4);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.notes-crumbs button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--link);
+  font: inherit;
+  cursor: pointer;
+}
+
+.notes-crumbs button:hover {
+  text-decoration: underline;
+}
+
+/* Notes Home keeps one graph mounted while the compact information band changes. */
+.home-workspace,
+.home-workspace__body,
+.home-graph-layout {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.home-workspace,
+.home-graph-layout {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.home-workspace__header-slot:empty {
+  display: none;
+}
+
+.home-workspace__header-slot {
+  flex: none;
+  min-width: 0;
+}
+
+/*
+ * One fixed-height header serves Home, type homes, and type tables, so
+ * switching between them never moves the body below it.
+ */
+.ontology-home__hero {
+  display: grid;
+  /* The title keeps room; the stats and view switcher shrink into the rest. */
+  grid-template-columns: minmax(min(16rem, 40%), 1fr) minmax(0, auto);
+  align-items: center;
+  gap: 20px;
+  height: 68px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.ontology-home__hero-title {
+  min-width: 0;
+}
+
+.ontology-home__hero-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ontology-home__hero-title h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ontology-home__hero-eyebrow {
+  flex: none;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.ontology-home__hero-link {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-decoration: none;
+}
+
+.ontology-home__hero-link:hover,
+.ontology-home__hero-link:focus-visible {
+  color: var(--accent-ink);
+  text-decoration: underline;
+}
+
+.ontology-home__hero-title p {
+  display: -webkit-box;
+  max-width: 110ch;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ontology-home__hero-stats {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  min-width: 0;
+}
+
+.ontology-home__stat {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.ontology-home__stat b {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ontology-home__stat span {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+/* Recent / most linked / problems: three hairline-separated columns of fixed height. */
+.home-graph-layout > .ontology-home {
+  flex: none;
+  height: 98px;
+  padding: 8px 16px 6px;
+  overflow: hidden;
+}
+
+.ontology-home__band {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  height: 100%;
+}
+
+.ontology-home__section {
+  min-width: 0;
+  padding: 0 14px;
+  border-left: 1px solid var(--border-faint);
+}
+
+.ontology-home__section:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.ontology-home__section:last-child {
+  padding-right: 0;
+}
+
+.ontology-home__card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.ontology-home__card-head h3 {
+  margin: 0;
+  font: var(--label-font);
+  color: var(--label-color);
+}
+
+.ontology-home__link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ontology-home__link:hover,
+.ontology-home__link:focus-visible {
+  color: var(--accent-ink);
+  text-decoration: underline;
+}
+
+.ontology-home__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ontology-home__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% + 8px);
+  min-height: 22px;
+  margin: 0 -4px;
+  padding: 1px 4px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ontology-home__row:hover,
+.ontology-home__row:focus-visible {
+  background: var(--bg-tint);
+}
+
+.ontology-home__row-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ontology-home__row-pill {
+  flex: none;
+}
+
+.ontology-home__row-type {
+  flex: none;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.ontology-home__row-meta {
+  flex: none;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.ontology-home__section--problems .ontology-home__row-meta {
+  color: var(--accent-ink);
+}
+
+.ontology-home__hero-loading,
+.ontology-home__empty-row {
+  padding: 3px 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.ontology-home__unavailable {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--warning);
+  border-radius: var(--r-sm);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+  font-size: 12px;
+}
+
+.ontology-home__unavailable p {
+  margin: 2px 0 0;
+}
+
+.ontology-home__unavailable button {
+  flex: none;
+  padding: 3px 10px;
+  border: 1px solid var(--warning-ink);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--warning-ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* The graph is the dominant element: no card around it, only its own hairline frame. */
+.home-graph-layout__graph {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0 16px 12px;
+}
+
+.home-graph-layout__graph > .ontology-home__card-head {
+  flex: none;
+  margin: 2px 0 4px;
+}
+
+.home-graph-layout__graph > .ontology-home__unavailable {
+  flex: none;
+  margin-bottom: 6px;
+}
+
+/* A refetch reports itself over the graph instead of pushing the canvas down. */
+.home-graph-layout__graph > .ontology-home__hero-loading {
+  position: absolute;
+  z-index: 3;
+  top: 32px;
+  left: 50%;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: 11px;
+  transform: translateX(-50%);
+}
+
+.ontology-home__hint {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.ontology-home__graph-canvas {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.home-graph-layout__graph .graph-container {
+  min-height: 0;
+}
+
+/* Keep the hover card above the two-line type legend at every Home width. */
+.home-graph-layout__graph .graph-type-legend {
+  max-height: 82px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.home-graph-layout__graph .graph-hover {
+  bottom: calc(var(--sp-3) + 82px + var(--sp-2));
+  min-width: 0;
+  width: min(280px, calc(100% - 2 * var(--sp-3)));
+  overflow: hidden;
+  z-index: 3;
+}
+
+.home-graph-layout__graph .graph-hover-meta {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.home-graph-layout__graph .graph-hover-kind,
+.home-graph-layout__graph .graph-hover-connections {
+  flex: none;
+  white-space: nowrap;
+}
+
+.home-graph-layout__graph .graph-hover-id {
+  min-width: 0;
+  flex: 1 1 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .notes-shell__body {
+    grid-template-columns: 180px minmax(0, 1fr) 36px;
+  }
+  .notes-left-rail {
+    width: 180px;
+  }
+
+  .notes-right-rail:not(.is-collapsed) {
+    position: absolute;
+    inset: 0 0 0 auto;
+    z-index: 10;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-tab,
+  .notes-right-rail__tab,
+  .notes-right-rail__toggle,
+  .notes-left-rail .ontology-note,
+  .notes-left-rail .ontology-note__main,
+  .notes-left-rail .ontology-view-row {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
+
+/* View switcher: standard views as segments, custom views behind one icon
+   segment. Many or long names shrink and truncate instead of wrapping. */
+.view-selector {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.view-selector > .segmented {
+  max-width: 100%;
+}
+
+.view-selector > .view-preferences {
+  margin-left: var(--sp-2);
+  white-space: nowrap;
+}
+
+.view-selector > .segmented > button {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.view-selector__label {
+  min-width: 0;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.view-selector__icon,
+.view-selector__check {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.view-selector__chevron {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-right: -3px;
+}
+
+/* The target's default view: a small dot in the text color, named by the
+   segment's tooltip and accessible description. */
+.view-selector__default {
+  flex: none;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.view-selector__menu {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-width: 320px;
+  padding: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.view-selector__menu > button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px 0 6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.view-selector__menu > button:hover {
+  background: var(--bg-tint);
+}
+
+.view-selector__menu > button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.view-selector__menu > button[aria-checked="false"] .view-selector__check {
+  visibility: hidden;
+}
+
+.view-selector__menu > button[aria-checked="true"] {
+  font-weight: 700;
+}
+
+/* A collection view lists its own records, so the rail's copy folds to its header. */
+.notes-left-rail--list-collapsed {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.notes-left-rail--list-collapsed .ontology-list__filters,
+.notes-left-rail--list-collapsed .ontology-list__body {
+  display: none;
+}
+
+.notes-left-rail--list-collapsed .ontology-list__title h2 {
+  min-width: 0;
+}
+
+.notes-left-rail--list-collapsed .ontology-list__count {
+  flex: none;
+  white-space: nowrap;
+}
+
+.notes-left-rail__list-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.notes-left-rail__list-toggle > span {
+  color: var(--text-faint);
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
+.notes-right-rail__record {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.notes-right-rail__record-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  color: var(--label-color);
+  font: var(--label-font);
+}

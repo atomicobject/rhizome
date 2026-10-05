@@ -1,0 +1,34 @@
+apiVersion: rhizome.view.v1
+id: action-items
+name: Action Items
+source:
+  kind: ontology_type
+  type: ActionItem
+mount:
+  kind: standalone
+defaults:
+  first: 50
+  filters:
+    - field: done
+      op: eq
+      value: "false"
+  sort:
+    - field: due
+      direction: asc
+    - field: notePath
+      direction: asc
+filterPresets:
+  - id: mine
+    label: Mine
+    filters:
+      - field: assignee
+        op: eq
+        valueFrom: ontology.currentUser.resolvedRef
+variants:
+  table:
+    columns:
+      - field: title
+      - field: assignee
+      - field: due
+      - field: notePath
+      - field: done

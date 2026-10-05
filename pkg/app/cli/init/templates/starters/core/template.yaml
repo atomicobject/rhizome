@@ -1,0 +1,7 @@
+id: core
+name: Core identity
+installedAssetTypes:
+  - docs
+  - ontology
+  - query-recipes
+  - managed-docs

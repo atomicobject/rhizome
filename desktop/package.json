@@ -1,0 +1,44 @@
+{
+  "name": "rhizome-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "build:app": "tauri build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:native": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "tauri": "tauri",
+    "bridge": "node scripts/build-bridge.mjs",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "lint": "oxlint src && oxfmt --check src scripts *.json *.ts src-tauri/*.json src-tauri/capabilities/*.json",
+    "format": "oxfmt src scripts *.json *.ts src-tauri/*.json src-tauri/capabilities/*.json"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "6.1.1",
+    "jsdom": "^29.1.1",
+    "oxfmt": "^0.66.0",
+    "oxlint": "^1.81.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.4",
+    "vitest": "4.1.10"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

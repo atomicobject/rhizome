@@ -1,0 +1,63 @@
+---
+type: EffortNote
+id: {{effort_id_yaml}}
+aliases: [{{effort_id_yaml}}]
+name: {{effort_title_yaml}}
+created-at: {{created_at_iso_yaml}}
+status: planned
+summary: {{summary_yaml}}
+governing-specs: {{governing_specs_yaml}}
+---
+
+# {{effort_title}}
+
+## Scope
+
+State the outcome, boundaries, and exclusions.
+
+## Spec Set (Frozen)
+
+Link the exact governing specs with vault-relative paths and record snapshot revisions. List the same specs in `governing-specs` frontmatter.
+
+## Stories In Scope (Frozen)
+
+Link selected story and acceptance-criterion block targets with readable aliases. Preserve the selected slice.
+
+## Spec Coverage Checklist
+
+Map each selected obligation to planned work and evidence.
+
+## Plan
+
+Describe current-state gaps, architecture decisions, phases, concrete tasks, affected files, validation, documentation, and exit criteria.
+
+## Original Intended Delivery
+
+Preserve the original intended outcome once execution begins.
+
+## Actual Delivered
+
+Record verified delivery, including partial outcomes.
+
+## Execution Notes
+
+Append timestamped UTC second-precision entries for decisions, surprises, learnings, validation, blockers, handoffs, and resumes.
+
+## Deviations
+
+Record differences from the frozen plan and scope, with their authority.
+
+## Closure Checklist
+
+- [ ] Required quality gates pass.
+- [ ] Alignment and actual outcomes are verified.
+- [ ] Specs and documentation are reconciled.
+- [ ] Follow-ups are triaged.
+
+## Compounding Follow-ups
+
+Record recurring friction and the smallest durable improvement.
+
+## Status
+
+Explain the current state, next unfinished task, and any blocker.

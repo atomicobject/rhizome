@@ -1,0 +1,263 @@
+{
+  "A03": {
+    "raw_sha256": "b8e9d331747cb24b75f4403ab7c4c7ef138233c8f938a35a19aa8d4fd8bdeca9",
+    "issue_count": 4,
+    "issues": [
+      {
+        "issueKey": "issue:v1:ac3abf843d03a93f269f4a3cd01004a75dd6c4ca444c4b00e3f59d406dc2bf61",
+        "code": "broken_note_link",
+        "path": "docs/efforts/README.md",
+        "target": "../engineering/efforts.md",
+        "message": "unresolved mdlink target \"../engineering/efforts.md\"",
+        "line": 9,
+        "data": {
+          "linkKind": "mdlink"
+        }
+      },
+      {
+        "issueKey": "issue:v1:2d78b0747a96f3a666eb218a69675e04b67a32f0373ea80633495134c000ce61",
+        "code": "missing_required_field",
+        "path": "docs/reference/README.md",
+        "type": "ReferenceDoc",
+        "field": "referenceKind",
+        "message": "required field referenceKind is missing"
+      },
+      {
+        "issueKey": "issue:v1:faaa44b5e2b30eb7cce536643c37dc0b21374fd544470d798e1cee929c8dfab6",
+        "code": "missing_required_field",
+        "path": "docs/reference/analysis/README.md",
+        "type": "ReferenceDoc",
+        "field": "referenceKind",
+        "message": "required field referenceKind is missing"
+      },
+      {
+        "issueKey": "issue:v1:4957e608f0673d920ed3de21a61bdc6c3f700cf7811fde928990424144475c77",
+        "code": "missing_required_field",
+        "path": "docs/reference/guides/README.md",
+        "type": "ReferenceDoc",
+        "field": "referenceKind",
+        "message": "required field referenceKind is missing"
+      }
+    ],
+    "classification": "generated starter baseline; no fixture-specific issues in this run",
+    "checks": [
+      {
+        "name": "ontology",
+        "ok": false,
+        "issueCount": 4,
+        "summary": "4 ontology issues"
+      },
+      {
+        "name": "identifiers",
+        "ok": true,
+        "issueCount": 0,
+        "summary": "3 identifier nodes checked"
+      },
+      {
+        "name": "broken-links",
+        "ok": true,
+        "issueCount": 0,
+        "summary": "no broken links"
+      }
+    ],
+    "source_sha": "6b050f23733856429ca67d8ad2839b0fc55051d0",
+    "source_tree": "5706b7b1c0f5630272f9715f9d136026421675f4",
+    "binary_sha256": "e54bf4e41f9de114fa94eb316e4fc026b03c024f05d56d1ce7ee1056cba6f703",
+    "command": "RZM_SKIP_REPO_DELEGATE=1 <E_BINARY> agent validate",
+    "later_owner_fixes": {
+      "AE": "98deb338",
+      "Domain": "634c5bd6",
+      "verification": "reported by coordinator; combined-staging deterministic refresh pending merges"
+    }
+  },
+  "A04": {
+    "raw_sha256": "838cf2f52d1d815329bb0d593a0369f97823ea0bd2c6fdb6ff19c472bef38eee",
+    "issue_count": 4,
+    "issues": [
+      {
+        "issueKey": "issue:v1:ac3abf843d03a93f269f4a3cd01004a75dd6c4ca444c4b00e3f59d406dc2bf61",
+        "code": "broken_note_link",
+        "path": "docs/efforts/README.md",
+        "target": "../engineering/efforts.md",
+        "message": "unresolved mdlink target \"../engineering/efforts.md\"",
+        "line": 9,
+        "data": {
+          "linkKind": "mdlink"
+        }
+      },
+      {
+        "issueKey": "issue:v1:2d78b0747a96f3a666eb218a69675e04b67a32f0373ea80633495134c000ce61",
+        "code": "missing_required_field",
+        "path": "docs/reference/README.md",
+        "type": "ReferenceDoc",
+        "field": "referenceKind",
+        "message": "required field referenceKind is missing"
+      },
+      {
+        "issueKey": "issue:v1:faaa44b5e2b30eb7cce536643c37dc0b21374fd544470d798e1cee929c8dfab6",
+        "code": "missing_required_field",
+        "path": "docs/reference/analysis/README.md",
+        "type": "ReferenceDoc",
+        "field": "referenceKind",
+        "message": "required field referenceKind is missing"
+      },
+      {
+        "issueKey": "issue:v1:4957e608f0673d920ed3de21a61bdc6c3f700cf7811fde928990424144475c77",
+        "code": "missing_required_field",
+        "path": "docs/reference/guides/README.md",
+        "type": "ReferenceDoc",
+        "field": "referenceKind",
+        "message": "required field referenceKind is missing"
+      }
+    ],
+    "classification": "generated starter baseline; no fixture-specific issues in this run",
+    "checks": [
+      {
+        "name": "ontology",
+        "ok": false,
+        "issueCount": 4,
+        "summary": "4 ontology issues"
+      },
+      {
+        "name": "identifiers",
+        "ok": true,
+        "issueCount": 0,
+        "summary": "3 identifier nodes checked"
+      },
+      {
+        "name": "broken-links",
+        "ok": true,
+        "issueCount": 0,
+        "summary": "no broken links"
+      }
+    ],
+    "source_sha": "6b050f23733856429ca67d8ad2839b0fc55051d0",
+    "source_tree": "5706b7b1c0f5630272f9715f9d136026421675f4",
+    "binary_sha256": "e54bf4e41f9de114fa94eb316e4fc026b03c024f05d56d1ce7ee1056cba6f703",
+    "command": "RZM_SKIP_REPO_DELEGATE=1 <E_BINARY> agent validate",
+    "later_owner_fixes": {
+      "AE": "98deb338",
+      "Domain": "634c5bd6",
+      "verification": "reported by coordinator; combined-staging deterministic refresh pending merges"
+    }
+  },
+  "A05": {
+    "raw_sha256": "0e6767630720a02e26e4e73d90caeededac184cf56e74e8c49a294221b22a5ee",
+    "issue_count": 10,
+    "issues": [
+      {
+        "issueKey": "issue:v1:ac3abf843d03a93f269f4a3cd01004a75dd6c4ca444c4b00e3f59d406dc2bf61",
+        "code": "broken_note_link",
+        "path": "docs/efforts/README.md",
+        "target": "../engineering/efforts.md",
+        "message": "unresolved mdlink target \"../engineering/efforts.md\"",
+        "line": 9,
+        "data": {
+          "linkKind": "mdlink"
+        }
+      },
+      {
+        "issueKey": "issue:v1:2d78b0747a96f3a666eb218a69675e04b67a32f0373ea80633495134c000ce61",
+        "code": "missing_required_field",
+        "path": "docs/reference/README.md",
+        "type": "ReferenceDoc",
+        "field": "referenceKind",
+        "message": "required field referenceKind is missing"
+      },
+      {
+        "issueKey": "issue:v1:faaa44b5e2b30eb7cce536643c37dc0b21374fd544470d798e1cee929c8dfab6",
+        "code": "missing_required_field",
+        "path": "docs/reference/analysis/README.md",
+        "type": "ReferenceDoc",
+        "field": "referenceKind",
+        "message": "required field referenceKind is missing"
+      },
+      {
+        "issueKey": "issue:v1:2df895bdf50214da6fe57cd6941632629f20c99d3d4e1ff4a022ca1128ea5b7f",
+        "code": "missing_required_field",
+        "path": "docs/reference/domain/contexts/README.md",
+        "type": "DomainContext",
+        "field": "status",
+        "message": "required field status is missing"
+      },
+      {
+        "issueKey": "issue:v1:28547c43ce2aad2ac553828405eb7a2f85a101f1de2b2729a65ec2f7052df7c7",
+        "code": "missing_required_field",
+        "path": "docs/reference/domain/processes/README.md",
+        "type": "DomainProcess",
+        "field": "status",
+        "message": "required field status is missing"
+      },
+      {
+        "issueKey": "issue:v1:91423f6451a9bed2d810e074e39fb48b69e60601e8e28430a56bfcd52f60f197",
+        "code": "missing_required_field",
+        "path": "docs/reference/domain/types/README.md",
+        "type": "DomainType",
+        "field": "status",
+        "message": "required field status is missing"
+      },
+      {
+        "issueKey": "issue:v1:a1eff73df66b38edbbbf31adbd7bb09faf72e000174e92b83fe19749ce8756e3",
+        "code": "missing_required_field",
+        "path": "docs/reference/domain/workflows/README.md",
+        "type": "UserWorkflow",
+        "field": "status",
+        "message": "required field status is missing"
+      },
+      {
+        "issueKey": "issue:v1:4957e608f0673d920ed3de21a61bdc6c3f700cf7811fde928990424144475c77",
+        "code": "missing_required_field",
+        "path": "docs/reference/guides/README.md",
+        "type": "ReferenceDoc",
+        "field": "referenceKind",
+        "message": "required field referenceKind is missing"
+      },
+      {
+        "issueKey": "issue:v1:4b76812ee5985aa15d2975ae8323c3f9af134fde956bb9db93134db7bd12708d",
+        "code": "missing_required_field",
+        "path": "docs/reference/requirements/requirements/README.md",
+        "type": "ReferenceDoc",
+        "field": "referenceKind",
+        "message": "required field referenceKind is missing"
+      },
+      {
+        "issueKey": "issue:v1:b8dcb0d1ed8abe9ff0450b80903c34f67978e90e0dff70135eb9a11694ca7393",
+        "code": "missing_required_field",
+        "path": "docs/reference/requirements/sources/README.md",
+        "type": "RequirementSource",
+        "field": "sourceKind",
+        "message": "required field sourceKind is missing"
+      }
+    ],
+    "classification": "generated starter baseline; no fixture-specific issues in this run",
+    "checks": [
+      {
+        "name": "ontology",
+        "ok": false,
+        "issueCount": 10,
+        "summary": "10 ontology issues"
+      },
+      {
+        "name": "identifiers",
+        "ok": true,
+        "issueCount": 0,
+        "summary": "13 identifier nodes checked"
+      },
+      {
+        "name": "broken-links",
+        "ok": true,
+        "issueCount": 0,
+        "summary": "no broken links"
+      }
+    ],
+    "source_sha": "6b050f23733856429ca67d8ad2839b0fc55051d0",
+    "source_tree": "5706b7b1c0f5630272f9715f9d136026421675f4",
+    "binary_sha256": "e54bf4e41f9de114fa94eb316e4fc026b03c024f05d56d1ce7ee1056cba6f703",
+    "command": "RZM_SKIP_REPO_DELEGATE=1 <E_BINARY> agent validate",
+    "later_owner_fixes": {
+      "AE": "98deb338",
+      "Domain": "634c5bd6",
+      "verification": "reported by coordinator; combined-staging deterministic refresh pending merges"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+if ! command -v claude >/dev/null 2>&1; then
+	printf 'scripts/claude-fable: claude is not installed or not on PATH\n' >&2
+	exit 127
+fi
+
+# Force Claude Code to use its OAuth login instead of API-key billing.
+unset ANTHROPIC_API_KEY
+
+permission_mode=${CLAUDE_FABLE_PERMISSION_MODE:-plan}
+
+exec claude \
+	--print \
+	--model fable \
+	--permission-mode "$permission_mode" \
+	--no-session-persistence \
+	-- \
+	"$@"

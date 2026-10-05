@@ -1,0 +1,14 @@
+/* Copy to effort.css beside the overview and plan. No runtime dependencies. */
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.6; }
+body { margin: 0; }
+main { max-width: 72ch; margin: 3rem auto; padding: 0 1.25rem; }
+h1, h2 { line-height: 1.2; }
+h2 { margin-top: 2rem; }
+nav, .phase-flow { display: flex; flex-wrap: wrap; gap: 1rem; }
+.phase-flow { padding: 0; list-style-position: inside; }
+.phase-flow li { border: 1px solid currentColor; border-radius: .4rem; padding: .6rem; }
+figure { margin: 1.5rem 0; }
+figcaption { font-size: .9rem; }
+a { text-underline-offset: .15em; }
+:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+@media print { main { max-width: none; margin: 0; } }

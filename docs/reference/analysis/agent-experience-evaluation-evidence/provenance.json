@@ -1,0 +1,49 @@
+{
+  "adapter": {
+    "path": "codex_adapter.py",
+    "sha256": "428494952c2f467824daebd2fc243b697c3526a017e80e07b2f38d5e1a95da9e"
+  },
+  "build_receipt": {
+    "sha256": "178685835c56a719170062b7f251346516c9dbbd8bb030815da09365b6208bb7"
+  },
+  "checker": {
+    "path": "fixtures.py",
+    "sha256": "3fd88e8e580362293b88ede7d450511ced55df65285b08c76856eddb8f5beeb6"
+  },
+  "guidance": {
+    ".agents/skills/client-harness-builder/.rhizome-managed": "cd6e5359de18f4d01d48ebdce4ec97486a977640faa16ee19a1fa51cd22e2e05",
+    ".agents/skills/client-harness-builder/SKILL.md": "b9628572ae42e0325e41b1ce0a46ae77442c36d1a4379c165731df3b34810d4e",
+    ".agents/skills/client-harness-builder/references/document-table.md": "0b985bcda68184ae322f80d6bb4bfc3be92de8246e580facc746de6dd568ae80",
+    ".agents/skills/client-harness-builder/references/generate-arch-overview.md": "2986e809ed7820d95a6818d2eb2d7f07eb728d6a4f1b09f1138bca7f8883f622",
+    ".agents/skills/client-harness-builder/references/update-module-docs.md": "5971d86917c6fe000bec044024904175c7391539a6370d1243652db65c94f068",
+    ".agents/skills/legacy-codebase-assessor/.rhizome-managed": "cd6e5359de18f4d01d48ebdce4ec97486a977640faa16ee19a1fa51cd22e2e05",
+    ".agents/skills/legacy-codebase-assessor/SKILL.md": "55e5eba7e088fab5ea2ddec6f647d887022fd016569e9b3e46732e97c0527fb9",
+    ".agents/skills/legacy-codebase-assessor/references/findings-template.md": "360803e49cdd796fb1d9d75426126dffe9c59d76594d0d91317a97e1aefd3d04",
+    ".agents/skills/rhizome/.rhizome-managed": "cd6e5359de18f4d01d48ebdce4ec97486a977640faa16ee19a1fa51cd22e2e05",
+    ".agents/skills/rhizome/SKILL.md": "2fd659355cc41c821407b6d2798126009e30f64301613ebe23ab6320b7ebb136",
+    ".agents/skills/rhizome/references/configuration.md": "0ac5c529f6dcf21bab97b19ecbb6cb98cbb88947ee8896212ff41aeba90af6d3",
+    ".agents/skills/rhizome/references/documentation-bindings.md": "f0a15ac56e6caf20a084513ecc8aae2fa008f9c7d394c354e80c66d8a1672c98",
+    ".agents/skills/rhizome/references/file-context.md": "5e703ba36f8b66d2f754ae8cb2331189fd95333fbc9aed596b52423e227f684e",
+    ".agents/skills/rhizome/references/indexing-and-freshness.md": "8110d6ca39ce7ca59ee43d114adbd5789e29d017ce8f741705132587db37787b",
+    ".agents/skills/rhizome/references/installation-and-integration.md": "df4abd9bdf54aaab037e5b2632b7db73905fcd03931248926417542e493db93b",
+    ".agents/skills/rhizome/references/markdown-mutations.md": "adb18f3ed56403cf1ad542b712533510a641a70b4f18f57754b65286c517e5b5",
+    ".agents/skills/rhizome/references/onboarding.md": "d4eae83a3447931f66cc394bfb34176eee0cfb5234ab1a9e92a2b9aa328165fc",
+    ".agents/skills/rhizome/references/ontology-authoring.md": "a480ff2c84a3f5f75ffd1796b24bfd70cf7c8f5998c25b241b89bd35c83aa0a4",
+    ".agents/skills/rhizome/references/ontology-usage.md": "e8d5cfed54a297b22ed28ab05d2cfc9d8aefb4b0a3ff51afec343cb9653e8fbe",
+    ".agents/skills/rhizome/references/reports-and-health.md": "75cba26045eec4bfa6849ddcd6f5c08558cb03f11d553e9a22a169fd478557b1",
+    ".agents/skills/rhizome/references/search-and-code-evidence.md": "1083c465838557beec5f03954178b59cbdf0abae1fcd6948bfa81d58544dfcc8",
+    ".agents/skills/rhizome/references/sessions.md": "82e0c2e8dc71607fe2d28b03e7b1e3080c7f40b4b08ed9162624df16bc6f416d",
+    ".agents/skills/rhizome/references/skill-authoring.md": "a116d0afa2df2279ecc7a06caebd67cc1d684d79465a42a6c86b9f6eeefc3d64",
+    ".agents/skills/rhizome/references/structural-analysis.md": "5d0ea28f00edcd983f142d6a5a7bc3077fa5258b5e33965f0aafcaae479799e4",
+    ".agents/skills/rhizome/references/structured-markdown.md": "011752f5cac984c30820bbac259c04e2b6abfcafb3efd3d964ad72a08500d505",
+    ".agents/skills/rhizome/references/troubleshooting.md": "cd11fc45a675213e3ea4f28393d7e2f0e81e865052960736e40050e94b46c5eb",
+    ".agents/skills/rhizome/references/validation-and-repair.md": "a03d4d1256f49de6a127dfbe7e8479e5ec766cd9b87eace5d1f5e1451e876204",
+    ".rhizome/config.yml": "747f7208e8b23092a3449c8bfa869153b234606a8f3b904dbd83b284177c29be",
+    "AGENTS.md": "36d15f8bec4e7bce50c9f2a980d199ceb47c01d3d4d74a9a0a29a5c84bea6767",
+    "CONTEXT.md": "12cb7ff0e04a869a1746ea598a6c481e7e307a887486202bb81e7ed9d47f9d3a"
+  },
+  "oracle": {
+    "case_id": "A01",
+    "sha256": "e6f83599a26252483049699874f4ed29128e01ab8cd4e6cf0e9ff597334d9e40"
+  }
+}

@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "campaign_id": "agent-experience-four-launch-2026-09-07",
+  "model": "gpt-5.6-luna",
+  "reasoning": "xhigh",
+  "authorization": "User explicitly approved remaining Luna evaluations through Codex ChatGPT subscription authentication only; original launch/time caps retained.",
+  "launches_reserved": 4,
+  "max_launches": 4,
+  "total_elapsed_seconds": 153.1523371259973,
+  "max_total_seconds": 2400,
+  "max_per_run_seconds": 600,
+  "remaining_launches": 0,
+  "original_failure_retained": true,
+  "original_reservation": {
+    "hash": "dd134007aa1cd52a4611fed26ec4f3f9753ce17107ca24292e3b1048e0cc2279",
+    "previous_hash": null,
+    "reserved_at": "2026-09-07T13:26:27.640125+00:00",
+    "run_hash": "d4f015f8260ac5919c8b477559b2715a48be2725936627eff3d5a073dac1bd78",
+    "run_id": "a01-baseline"
+  },
+  "final_reservation_head": "183ed0ddc4ff788155350821b7d3e22439a2031d4684d6a1b01ee34507bb1f6c",
+  "ledger_sha256": "a24393706d3aa6a4f568bb54b06cc828a72e1a7530ee963464eae2e8daa5073c",
+  "environment_overlay_sha256": "113bef6cb68c57c708132e6c36678e593b7f08470d91e2ef0f86c50ba3b06003",
+  "ledger_checkpoint": {
+    "ledger_sha256": "4b06f53ca8c3433bb2065f86846dd2e8a481f5c88f44675aa793cfd22250193f",
+    "launches_reserved": 1,
+    "reservation_head": "dd134007aa1cd52a4611fed26ec4f3f9753ce17107ca24292e3b1048e0cc2279",
+    "consumed_run_ids": [
+      "a01-baseline"
+    ],
+    "consumed_run_hash": "d4f015f8260ac5919c8b477559b2715a48be2725936627eff3d5a073dac1bd78",
+    "total_elapsed_seconds": 62.13589933399635
+  },
+  "human_behavioral_review": "Not supplied; deterministic checks and observed traces are reported separately.",
+  "limitations": [
+    "A01 baseline is infrastructure-unusable because nested sandbox creation failed; it was not retried.",
+    "A01 candidate passed correctness checks but adapter PATH hid the fixture Rhizome launcher and preferred Python 3.9. The model recovered to Python 3.14 and tested successfully; the run does not establish Rhizome-assisted behavior.",
+    "PATH was corrected and its shell resolution verified before A02 candidate. This setup change and one run per cell prevent comparative timing or improvement claims.",
+    "No A03-A06 model trials were authorized or run."
+  ],
+  "runs": {
+    "a02-baseline": {
+      "source_sha": "3b93489c4e404981fc4bb193e75c0d70e9eac7a7",
+      "binary_sha256": "9fe90070c684daec27a4584158b7e04737f800870fbb08e9cdfc6c34293a955a",
+      "fixture_commit": "bfd9893f3940851c2a7c00def88cc98d0654d7bd",
+      "fixture_tree": "02cb5a0cabfbe1bb6afa9eb77ab69ebd8668f59f",
+      "thread_id": "01a07c59-ddc5-7f41-b107-21e6d4d132a8",
+      "process_status": "complete",
+      "exit_code": 0,
+      "process_elapsed_seconds": 16.76031362500362,
+      "deterministic_checks_passed": true,
+      "artifact_errors": [],
+      "authentication": {
+        "method": "ChatGPT",
+        "passed": true
+      },
+      "native_smoke": {
+        "passed": true
+      },
+      "read_write_probe": {
+        "denied_paths": 166,
+        "passed": true,
+        "stdout": "[]"
+      },
+      "shell_runtime": {
+        "checked": false,
+        "limitation": "Adapter v1 PATH defect recorded."
+      },
+      "usage": {
+        "input_tokens": 72574,
+        "cached_input_tokens": 51456,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 456,
+        "reasoning_output_tokens": 96
+      },
+      "completed_command_execution_events": 2,
+      "completed_file_change_events": 1,
+      "raw_lexical_rhizome_matches": 0,
+      "observed_rhizome_cli_invocations": 0,
+      "implementation_hashes": {
+        "adapter_support.py": "d8e0a31905d9fb2a3cd2a3bd9bbb8da0b53e66a5f1de70938c19237372a16286",
+        "clean_codex_adapter.py": "4b0967524ad040de1f8a3f388dfea52660e9a977c2fc407636ca14cf371a06df",
+        "codex_adapter.py": "f23b231d8c5a3e623093165feb3a405a1a6c12606590c4098eda8187e791d682",
+        "environment_overlay.py": "6a2b8d3e31de1b6e779e352b05a44a338cddd5346b24f626998e58cb223e1800"
+      },
+      "raw_hashes_before_redaction": {
+        "events.jsonl": "70a25571a77b628f405a9cf57f350f4b549ec322916bdd54ce2e2163537ca755",
+        "checks.json": "25d1d19b5d59d6f29bc16b4e06f2d7e0e25edd78dc1c86d14ec91c5704e99ee8",
+        "changes.patch": "9dd174e1a81e3b83a6bd27e4bbe500f6bcd42b8e3c6c86b49ea6871c0acb03ff",
+        "final.txt": "e32cda4060c753f385ab119b9b01800514cf91974441e207d6f9061d66868c61",
+        "preflight.json": "7086a0ac5190a0f2a6d2b87945ed346971e403fbbf4c33873fa449c008293cc5",
+        "command.json": "c98656a03d369aef59274dfeaa9a5878a7652134b1cb5964c6d582ffb473bb80",
+        "provenance.json": "9dcf78e822dde72164bc5b3d5eb6f0a26c4552a3a181f89058d81b263d4cee09",
+        "environment.json": "a9f642d11b70a5a6544d0107dd9a5845b4aa268ea6be3b20bfc1b38e0715e360",
+        "before.json": "967196ae05d0714af156c721db39deaed909098f49391473eaf5b6a03818ece1",
+        "after.json": "b4406fd60c9c9368b82123b35052108384d0ded8f8e02a577a820956687424b8",
+        "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "a01-candidate": {
+      "source_sha": "d88cbf23a2d2f27c1e61f9ec014ce2e05122dea5",
+      "binary_sha256": "4d8219c107293c85657bf7a857bf6a1433511953b522b149829c914eac573f3d",
+      "fixture_commit": "004c09f5fcd34b1b6d298af399cd73bfee07b8fc",
+      "fixture_tree": "3ab74d9e95fabfd0420834bd508e0c6a0f40b082",
+      "thread_id": "01a07c5a-a64f-7960-904f-3a1e1b44016f",
+      "process_status": "complete",
+      "exit_code": 0,
+      "process_elapsed_seconds": 59.55160604199773,
+      "deterministic_checks_passed": true,
+      "artifact_errors": [],
+      "authentication": {
+        "method": "ChatGPT",
+        "passed": true
+      },
+      "native_smoke": {
+        "passed": true
+      },
+      "read_write_probe": {
+        "denied_paths": 166,
+        "passed": true,
+        "stdout": "[]"
+      },
+      "shell_runtime": {
+        "checked": false,
+        "limitation": "Adapter v1 PATH defect recorded."
+      },
+      "usage": {
+        "input_tokens": 197798,
+        "cached_input_tokens": 167936,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2320,
+        "reasoning_output_tokens": 878
+      },
+      "completed_command_execution_events": 7,
+      "completed_file_change_events": 1,
+      "raw_lexical_rhizome_matches": 2,
+      "observed_rhizome_cli_invocations": 0,
+      "implementation_hashes": {
+        "adapter_support.py": "d8e0a31905d9fb2a3cd2a3bd9bbb8da0b53e66a5f1de70938c19237372a16286",
+        "clean_codex_adapter.py": "4b0967524ad040de1f8a3f388dfea52660e9a977c2fc407636ca14cf371a06df",
+        "codex_adapter.py": "f23b231d8c5a3e623093165feb3a405a1a6c12606590c4098eda8187e791d682",
+        "environment_overlay.py": "6a2b8d3e31de1b6e779e352b05a44a338cddd5346b24f626998e58cb223e1800"
+      },
+      "raw_hashes_before_redaction": {
+        "events.jsonl": "9b91300d27b661648fbd9c84a438a35915f1afbdd815f7bd49085c1c344a2a5d",
+        "checks.json": "eb52605adfca01a65ec7555a0e70dd2d6f731caff11885964a9d7a3253ae66ba",
+        "changes.patch": "81b25872970d978366f37713580ddb5d0fb0db9373426572d3958f71efa0bc9e",
+        "final.txt": "94fb3a15524312cdce2214adb69fe61b26f7e743b34e4498f88303d843197067",
+        "preflight.json": "9b1dc84cb9395ecadace1952f286d8f2e1dbc9249df99a7b38413fc035df04da",
+        "command.json": "97c5af03351d6d0081f7fb78311cd5d3d85a20513196e41963005b374a5f7620",
+        "provenance.json": "495c202fdacc98729bbecf44fa5a9d21f6aa57bc6ab783e915a289264dd1ffdc",
+        "environment.json": "64c5ab989cc1f63172b704096747af4b5b22f046d3d46dd867683c90f4337272",
+        "before.json": "be74bbee277b3b8497075dd44af3ba5d7d1e7cc6a6ff1b47928ccaa29accb9bc",
+        "after.json": "27ebf78dc7a5da7b46a8681db03b926761c1612571298252e8d24114c1dea2ec",
+        "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "a02-candidate": {
+      "source_sha": "d88cbf23a2d2f27c1e61f9ec014ce2e05122dea5",
+      "binary_sha256": "4d8219c107293c85657bf7a857bf6a1433511953b522b149829c914eac573f3d",
+      "fixture_commit": "6dafac594b434607822f0f7a5be288277b29518e",
+      "fixture_tree": "1bc341401627adf85ed43ad396229ebe15d0816d",
+      "thread_id": "01a07c5e-6004-7d52-a50d-f541fb088371",
+      "process_status": "complete",
+      "exit_code": 0,
+      "process_elapsed_seconds": 14.704518124999595,
+      "deterministic_checks_passed": true,
+      "artifact_errors": [],
+      "authentication": {
+        "method": "ChatGPT",
+        "passed": true
+      },
+      "native_smoke": {
+        "passed": true
+      },
+      "read_write_probe": {
+        "denied_paths": 166,
+        "passed": true,
+        "stdout": "[]"
+      },
+      "shell_runtime": {
+        "launcher": "<FIXTURE>/scripts/rzm",
+        "passed": true,
+        "python_minimum": "3.11",
+        "stdout": "rzm version v0.50.5"
+      },
+      "usage": {
+        "input_tokens": 72598,
+        "cached_input_tokens": 56320,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 421,
+        "reasoning_output_tokens": 60
+      },
+      "completed_command_execution_events": 2,
+      "completed_file_change_events": 1,
+      "raw_lexical_rhizome_matches": 0,
+      "observed_rhizome_cli_invocations": 0,
+      "implementation_hashes": {
+        "adapter_support.py": "d8e0a31905d9fb2a3cd2a3bd9bbb8da0b53e66a5f1de70938c19237372a16286",
+        "clean_codex_adapter.py": "6f225b8d3a4e9cd46db9f86bd6130a995751eb19024ede21d55fc6cd5418ae54",
+        "codex_adapter.py": "f23b231d8c5a3e623093165feb3a405a1a6c12606590c4098eda8187e791d682",
+        "environment_overlay.py": "6a2b8d3e31de1b6e779e352b05a44a338cddd5346b24f626998e58cb223e1800"
+      },
+      "raw_hashes_before_redaction": {
+        "events.jsonl": "7f8c0c11ecf856ee28062f9e84e0b0ea88e5a1ade4d21f8e26b7dee8f6984199",
+        "checks.json": "25d1d19b5d59d6f29bc16b4e06f2d7e0e25edd78dc1c86d14ec91c5704e99ee8",
+        "changes.patch": "9dd174e1a81e3b83a6bd27e4bbe500f6bcd42b8e3c6c86b49ea6871c0acb03ff",
+        "final.txt": "352a740d44941fcc5514d183721ab08279728cbc7568858006e6d8c423bf0dec",
+        "preflight.json": "d27a098ef7a8ec02fe9806b5b6a4bacb797257b1db1e72f3d7f946a14f64040d",
+        "command.json": "38bbe37541ba154c636ed93ecc69a128b3dafa6354d1ac6e4935fed7d41c2918",
+        "provenance.json": "d8112f95a761802c2c79eb13e00c258080ae90a51bf73ba056cf88726233259e",
+        "environment.json": "670d1120fd14d3e1f31980c95067ec9973fb2b45952aab4dd9ba3cb77be9973c",
+        "before.json": "56fdd710f8a00bdadca64707c0ab9ad059a41a592cdeda6d9530db77bc239fe4",
+        "after.json": "5d7f2c3b3c2acc39fbc72648f62d2db751d529e793dbea22ffb44341a6c402e8",
+        "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  }
+}

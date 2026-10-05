@@ -1,0 +1,95 @@
+apiVersion: rhizome.query-recipe.v1
+id: fixture-action-items
+name: Fixture action items
+problem: Query checkbox-backed ActionItem embedded nodes directly without knowing which Conversation note contains them.
+inputSpec:
+  mode: none
+query:
+  graphQL: |
+    query FixtureActionItems {
+      actionItem(first: 20) {
+        title
+        content
+        done
+        assignee { path title name }
+        due
+        notePath
+        ref { ref kind fragment typeName }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - actionItem.ref.ref
+    - actionItem.done
+    - actionItem.assignee.path
+    - actionItem.due
+    - actionItem.notePath
+  empty: No Conversation notes with marker-backed action items were found in the fixture.
+  partial: Ordinary checkboxes without the marker are expected to be absent; inspect the source note before treating absence as missing work.
+  highVolume: This fixture recipe should stay bounded to the small integration vault.
+adaptationGuidance:
+  summary: Preserve broad retrieval of checkbox-backed ActionItem rows through the saved recipe runner.
+  rules:
+    - Keep the query rooted at actionItem so callers do not need a source note path or containing Conversation.
+    - Keep ActionItem refs, checkbox state, assignee, and notePath visible for row identity and edit-session follow-up.
+    - Keep the fixture's unmarked checkbox excluded so marker-gated matching remains observable.
+examples:
+  - name: Fixture action item rows
+    inputs: {}
+tags:
+  - fixture
+  - action-items
+  - checkbox-items
+---
+apiVersion: rhizome.query-recipe.v1
+id: fixture-my-action-items
+name: Fixture my action items
+problem: Query open action items assigned to one Person without traversing a containing conversation.
+inputSpec:
+  mode: named
+  inputs:
+    - name: assignee
+      required: true
+      description: Person node ref or note path for the assignee.
+query:
+  graphQL: |
+    query FixtureMyActionItems($assignee: String!) {
+      actionItem(
+        first: 20
+        filters: [
+          { field: "assignee", op: eq, value: $assignee }
+          { field: "done", op: eq, value: "false" }
+        ]
+        sort: [
+          { field: "due", direction: asc }
+          { field: "notePath", direction: asc }
+        ]
+      ) {
+        title
+        done
+        due
+        notePath
+        assignee { path title name }
+        ref { ref }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - actionItem.ref.ref
+    - actionItem.assignee.path
+    - actionItem.due
+  empty: No open action items are assigned to the requested person.
+  partial: Completed rows are intentionally excluded.
+  highVolume: Keep the direct ActionItem root and pushed filters before increasing first.
+adaptationGuidance:
+  summary: Use this when testing current-user-like action item lookup in the fixture.
+  rules:
+    - Pass the resolved Person ref or path as assignee.
+    - Keep done=false as a pushed filter for the "my action items" behavior.
+examples:
+  - name: Alice open action items
+    inputs:
+      assignee: notes/people/alice
+tags:
+  - fixture
+  - action-items

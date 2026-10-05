@@ -1,0 +1,10 @@
+id: action-items
+name: Action items
+requires:
+  - core
+installedAssetTypes:
+  - ontology
+  - query-recipes
+  - views
+  - skills
+  - managed-docs

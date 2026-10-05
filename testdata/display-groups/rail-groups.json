@@ -1,0 +1,29 @@
+{
+  "description": "Shared by pkg/ontology/viewconfig (DisplayGroups, NavigationMembers) and web/src/components/noteRailGroups.ts (buildRailGroups). Both must produce `expected` from this input so group mounts and the Notes rail agree. Types are listed in a non-alphabetical order so name-order claims are tested; the two interfaces order differently under localeCompare (archived < Tracked) and code-unit comparison (Tracked < archived).",
+  "types": [
+    { "name": "Beta", "role": "NOTE", "displayGroup": "BetaGroup", "displayParent": "Alpha" },
+    { "name": "Alpha", "role": "NOTE", "displayGroup": "AlphaGroup", "displayParent": "Beta" },
+    { "name": "Effort", "role": "NOTE", "pluralLabel": "Efforts", "displayGroup": "Delivery", "implements": ["Archived", "Tracked"] },
+    { "name": "Ghost", "role": "", "displayGroup": "Ghost" },
+    { "name": "Heading", "role": "SECTION", "displayGroup": "Sections" },
+    { "name": "Clip", "role": "EMBEDDED_NODE", "displayGroup": "EmbeddedOnly" },
+    { "name": "Plain", "role": "NOTE", "implements": ["Blank"] }
+  ],
+  "interfaces": [
+    { "name": "Archived", "pluralLabel": "archived work", "displayGroup": "Archive" },
+    { "name": "Tracked", "pluralLabel": "Tracked work", "displayGroup": "Tracking" },
+    { "name": "Hidden" },
+    { "name": "Blank", "displayGroup": "   ", "displayParent": " " }
+  ],
+  "expected": {
+    "summaryTypes": ["Alpha", "Beta", "Clip", "Effort", "Plain"],
+    "summaryInterfaces": { "Archived": ["Effort"], "Tracked": ["Effort"] },
+    "parents": { "Alpha": "Beta", "Effort": "Tracked" },
+    "groups": [
+      { "name": "Archive", "roots": ["Archived"] },
+      { "name": "BetaGroup", "roots": ["Beta"] },
+      { "name": "Tracking", "roots": ["Tracked"] },
+      { "name": "Other", "roots": ["Plain"] }
+    ]
+  }
+}

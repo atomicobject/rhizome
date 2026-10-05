@@ -1,0 +1,18 @@
+I’m resuming this as an approved engineering effort, using the `agentic-engineering` workflow for implementation/verification and the `rhizome` skill for the durable effort record. I’ll use direct `rzm` commands only, as requested, and first inspect the saved worktree and effort state.
+
+The durable worktree is clean and the effort is still `active`. Its saved plan is exactly the scoped fix plus the unittest command; the current defect is the inclusive `<=` boundary, while success handling and negative-input validation already match the contract. I’m now loading the Rhizome context packets and live query results before editing.
+
+The live context confirms approval by `Synthetic Approver`, frozen scope limited to `src/retry.py`, and no deviations. Rhizome’s code evidence finds the ancestor `CONTEXT.md` and no indexed tests (the repository still has the visible unittest suite), so I’ll preserve that evidence gap in the handoff. I’m reproducing the boundary failure now, then I’ll apply the one-line approved fix.
+
+The approved fix is implemented: `should_retry` now permits a retry only while `attempts_completed < max_attempts`. The planned unittest command now passes all 4 tests; the pre-fix run reproduced the exact limit failure. I’m loading the closure/mutation guidance next so the effort note is updated through the supported direct Rhizome route with precise evidence.
+
+The owning note’s ontology confirms the safe edit scope: frozen scope/plan/intent remain untouched; `Actual Delivered`, `Execution Notes` (append-only), coverage, closure checklist, and lifecycle status are the appropriate handoff fields. No reusable documentation change is needed because `CONTEXT.md` and the frozen spec already state the three-attempt and success-stop behavior. I’m recording the implementation, the pre-fix reproduction, the passing command, and the handoff now.
+
+The handoff record is updated and the focused gates pass: 4 unit tests, ontology validation, identifier integrity, broken-link validation, and whitespace checks. The lifecycle-aware drift selector reports “no live efforts to check” because the effort is now `complete`; I’ll verify the final durable record through its closure recipe and inspect the final diff before reporting.
+
+Implemented and handed off the retry-limit effort.
+
+- Fixed the boundary in [src/retry.py](<EXECUTION_P02-DIRECT>/src/retry.py:13).
+- Updated the durable [effort record](<EXECUTION_P02-DIRECT>/docs/efforts/2026-09-07-12-00-retry-limit.md:6) with evidence and marked it `complete`.
+- Verification: `python3 -m unittest discover -s tests` — 4 tests passed.
+- Rhizome `validate all` — 0 issues/errors.

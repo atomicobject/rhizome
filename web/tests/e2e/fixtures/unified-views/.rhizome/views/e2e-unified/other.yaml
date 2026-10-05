@@ -1,0 +1,16 @@
+apiVersion: rhizome.view.v1
+id: e2e.views.other
+name: Other native
+source:
+  kind: ontology_type
+  type: ViewDemoOther
+mount:
+  kind: type
+  type: ViewDemoOther
+  default: true
+defaults:
+  variant: card
+variants:
+  card:
+    title: title
+    fields: [{ field: status }]

@@ -1,0 +1,4435 @@
+openapi: 3.0.3
+info:
+  title: Rhizome Public REST API
+  description: Public `/api/v1` REST transport contract. GraphQL object fields are owned by SDL/introspection, not OpenAPI.
+  version: 0.0.1
+paths:
+  /api/v1/files/tree:
+    get:
+      operationId: getPublicTree
+      parameters:
+        - in: query
+          name: path
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: editSessionId
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tree payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreeResponse"
+  /api/v1/files/view:
+    get:
+      operationId: getPublicFileView
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File view payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileView"
+  /api/v1/files/rendered:
+    get:
+      operationId: getPublicRenderedFile
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rendered note payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenderedFile"
+  /api/v1/html-viewers:
+    post:
+      operationId: createHTMLViewer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HTMLViewerCreateRequest"
+      responses:
+        "201":
+          description: Ephemeral isolated HTML viewer capability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTMLViewerSession"
+        "400":
+          description: Invalid note or origin request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Note is not currently admitted for active viewing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/html-viewers/{id}:
+    delete:
+      operationId: revokeHTMLViewer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Viewer capability revoked
+  /api/v1/suggest:
+    get:
+      operationId: getPublicSuggestions
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Suggestion payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestResponse"
+  /api/v1/search:
+    get:
+      operationId: searchPublicPaths
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: seed
+          schema:
+            type: string
+        - in: query
+          name: intent
+          schema:
+            type: string
+        - in: query
+          name: scope
+          description: Result scope, all, notes, or code.
+          schema:
+            type: string
+            enum: [all, notes, code]
+        - in: query
+          name: pathPrefix
+          description: Exact vault-relative path or descendant folder to search.
+          schema:
+            type: string
+        - in: query
+          name: folder
+          description: Alias for pathPrefix.
+          schema:
+            type: string
+        - in: query
+          name: noteType
+          description: Resolved owning note ontology type.
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: budget
+          schema:
+            type: integer
+        - in: query
+          name: continuationToken
+          description: Opaque token returned by a prior search response.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+  /api/v1/search/notes:
+    get:
+      operationId: searchPublicNotes
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: type
+          schema:
+            type: string
+        - in: query
+          name: pathPrefix
+          schema:
+            type: string
+        - in: query
+          name: tag
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: offset
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Note search payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteSearchResponse"
+  /api/v1/graphs/global:
+    get:
+      operationId: getPublicGlobalGraph
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: depth
+          schema:
+            type: integer
+        - in: query
+          name: notesOnly
+          schema:
+            type: boolean
+        - in: query
+          name: diagnostics
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Graph payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/graphs/local:
+    get:
+      operationId: getPublicLocalGraph
+      parameters:
+        - in: query
+          name: path
+          schema:
+            type: string
+        - in: query
+          name: ref
+          schema:
+            type: string
+        - in: query
+          name: nodeId
+          schema:
+            type: string
+        - in: query
+          name: kind
+          schema:
+            type: string
+        - in: query
+          name: structural
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: depth
+          schema:
+            type: integer
+        - in: query
+          name: notesOnly
+          schema:
+            type: boolean
+        - in: query
+          name: diagnostics
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Graph payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/graphs/expand:
+    get:
+      operationId: getPublicExpandedModuleGraph
+      parameters:
+        - in: query
+          name: module
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: diagnostics
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Graph payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/ontology/summary:
+    get:
+      operationId: getPublicOntologySummary
+      responses:
+        "200":
+          description: Ontology summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologySummaryResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/display-groups:
+    get:
+      operationId: getPublicDisplayGroups
+      description: Every effective display group with the members the Notes rail shows under it, sorted by name. Ungrouped roots form the rail's "Other" group, which absorbs an authored group of that name and sorts last. Groups without roots are omitted.
+      responses:
+        "200":
+          description: Display groups
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplayGroupsResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/ontology/types:
+    get:
+      operationId: getPublicOntologyTypes
+      responses:
+        "200":
+          description: Ontology type summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OntologyTypeSummary"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/ontology/types/{name}:
+    get:
+      operationId: getPublicOntologyType
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: notes
+          required: false
+          description: "`none` returns schema documentation and counts without the notes list."
+          schema:
+            type: string
+            enum: [none]
+      responses:
+        "200":
+          description: Ontology type detail. Example items may be file-root notes or embedded-node instances; `ref` is canonical and `path` is the compatibility string form.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyTypeResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+    post:
+      operationId: readPublicOntologyType
+      description: Same as GET, with an optional edit session whose staged edits the listing reflects.
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StagedReadRequest"
+      responses:
+        "200":
+          description: Ontology type detail with staged edits applied.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyTypeResponse"
+        "400":
+          description: Invalid edit session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Request body too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/ontology/atlas:
+    get:
+      operationId: getPublicOntologyAtlas
+      responses:
+        "200":
+          description: Ontology atlas (all types + interfaces with vault counts)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyAtlasResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/ontology/inspect:
+    get:
+      operationId: getPublicOntologyInspect
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ontology inspect payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyInspectResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/ontology/query-schema:
+    get:
+      operationId: getPublicOntologyQuerySchema
+      responses:
+        "200":
+          description: Ontology GraphQL schema
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyQuerySchemaResponse"
+  /api/v1/status:
+    get:
+      operationId: getPublicStatus
+      responses:
+        "200":
+          description: Public status payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+  /api/v1/capabilities:
+    get:
+      operationId: getPublicCapabilities
+      responses:
+        "200":
+          description: Public API capability discovery payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicCapabilitiesResponse"
+  /api/v1/validate:
+    get:
+      deprecated: true
+      operationId: getRetiredValidation
+      responses:
+        "410":
+          description: Retired result contract. Use /api/v2/validate and generation-bound diagnostic pages.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/validate:
+    get:
+      operationId: getPublicValidate
+      responses:
+        "200":
+          description: Cached validation lifecycle and generation-bound snapshot metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidateEnvelope"
+  /api/v2/validate/refresh:
+    post:
+      operationId: refreshPublicValidation
+      responses:
+        "202":
+          description: Validation refresh queued for the runtime lifetime
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accepted]
+                properties:
+                  accepted: { type: boolean }
+        "503":
+          description: Validation runtime is initializing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/validation/diagnostics:
+    get:
+      operationId: getPublicValidationDiagnostics
+      parameters:
+        - name: generation
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: check
+          in: query
+          schema: { type: string }
+        - name: code
+          in: query
+          schema: { type: string }
+        - name: variant
+          in: query
+          description: Variant key within the selected code; requires code.
+          schema: { type: string }
+        - name: path
+          in: query
+          schema: { type: string }
+        - name: text
+          in: query
+          schema: { type: string }
+        - name: scopeKind
+          in: query
+          description: A type scope includes issues inside notes currently resolved to that type as well as schema issues about it.
+          schema: { type: string, enum: [file, note, node, type, interface] }
+        - name: scopeKey
+          in: query
+          schema: { type: string }
+        - name: repairAvailability
+          in: query
+          description: present/absent test for any repair action; applicable/inapplicable test for a safe or needs_confirmation action (agent_required guidance is not applicable).
+          schema: { type: string, enum: [any, present, absent, applicable, inapplicable], default: any }
+        - name: sort
+          in: query
+          description: file orders by primary path (else first affected path, else vault-wide) and adds fileTotals.
+          schema: { type: string, enum: [diagnostic_order, file], default: diagnostic_order }
+      responses:
+        "200":
+          description: One generation-bound page of cached validation diagnostics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationDiagnosticPage"
+        "400":
+          description: Invalid page limit, cursor, filter, or sort
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Requested validation generation has expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/validation/summaries:
+    post:
+      operationId: getPublicValidationScopeSummaries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationScopeSummaryRequest"
+      responses:
+        "200":
+          description: Batched generation-bound validation summaries for visible scopes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationScopeSummaryResponse"
+        "400":
+          description: Invalid scope request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Requested validation generation has expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/validation/groups:
+    post:
+      operationId: getPublicValidationIssueGroups
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationIssueGroupRequest"
+      responses:
+        "200":
+          description: Generation-bound issue counts grouped by check, code, and variant for one scope and filter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationIssueGroupResponse"
+        "400":
+          description: Invalid scope or filter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Requested validation generation has expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/validation/repair-reviews:
+    post:
+      operationId: createPublicValidationRepairReview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRepairReviewCreateRequest"
+      responses:
+        "201":
+          description: Server-owned repair review with exact diffs and confirmation requirements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepairReview"
+        "409":
+          description: Selection, transaction, generation, or manual-draft conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Live repair authority is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/validation/repair-reviews/{id}:
+    get:
+      operationId: getPublicValidationRepairReview
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Current repair review state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepairReview"
+        "404":
+          description: Review is absent, was lost on restart, or belongs to another vault
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Review expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/validation/repair-reviews/{id}/apply:
+    post:
+      operationId: applyPublicValidationRepairReview
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRepairReviewApplyRequest"
+      responses:
+        "200":
+          description: Recorded canonical repair result; duplicate submissions return the same terminal outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationRepairApplyResponse"
+        "404":
+          description: Review is absent, was lost on restart, or belongs to another vault
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Confirmation, generation, source, lifecycle, overlap, or apply conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Review expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/events:
+    get:
+      operationId: streamPublicEvents
+      responses:
+        "200":
+          description: Server-sent event stream of public invalidation envelopes
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /api/v1/nodes/preview:
+    get:
+      operationId: getNodePreview
+      parameters:
+        - name: ref
+          in: query
+          required: true
+          schema: { type: string }
+          description: Note path, canonical node ref, or either with a fragment.
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+          description: Vault-relative path containing the link, used to resolve relative targets.
+      responses:
+        "200":
+          description: Index-backed node hover preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodePreview"
+        "400":
+          description: Missing or invalid ref
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Ref did not resolve
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "405":
+          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Ontology or index unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: readNodePreview
+      description: Same as GET, with an optional edit session whose staged edits the preview reflects.
+      parameters:
+        - name: ref
+          in: query
+          required: true
+          schema: { type: string }
+          description: Note path, canonical node ref, or either with a fragment.
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+          description: Vault-relative path containing the link, used to resolve relative targets.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StagedReadRequest"
+      responses:
+        "200":
+          description: Index-backed node hover preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodePreview"
+        "400":
+          description: Missing or invalid ref
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Ref did not resolve
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "405":
+          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Ontology or index unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/nodes/events:
+    get:
+      operationId: streamPublicNodeEvents
+      parameters:
+        - name: ref
+          in: query
+          required: true
+          schema:
+            type: array
+            items: { type: string }
+          style: form
+          explode: true
+        - name: nodeId
+          in: query
+          required: false
+          schema:
+            type: array
+            items: { type: string }
+          style: form
+          explode: true
+        - name: structural
+          in: query
+          required: false
+          schema:
+            type: array
+            items: { type: string }
+          style: form
+          explode: true
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: array
+            items: { type: string }
+          style: form
+          explode: true
+      responses:
+        "200":
+          description: Server-sent event stream scoped to one or more public node refs
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /api/v1/graphql:
+    post:
+      operationId: queryPublicGraphQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OntologyQueryRequest"
+      responses:
+        "200":
+          description: Public GraphQL result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyQueryResult"
+        "400":
+          description: Public REST wrapper error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/graphql/schema:
+    get:
+      operationId: getPublicGraphQLSchema
+      responses:
+        "200":
+          description: Public GraphQL SDL
+          content:
+            text/plain:
+              schema:
+                type: string
+        "503":
+          description: GraphQL schema unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/query-recipes:
+    get:
+      operationId: listPublicQueryRecipes
+      responses:
+        "200":
+          description: Saved query recipes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicQueryRecipeListResponse"
+  /api/v1/query-recipes/{id}:
+    get:
+      operationId: getPublicQueryRecipe
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Saved query recipe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryRecipe"
+        "404":
+          description: Recipe not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/query-recipes/{id}/execute:
+    post:
+      operationId: executePublicQueryRecipe
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicQueryRecipeExecuteRequest"
+      responses:
+        "200":
+          description: Query recipe run result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryRecipeRunResult"
+        "400":
+          description: Recipe input or compile error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/view-preferences:
+    get:
+      operationId: getViewPreferences
+      description: Reads durable personal preferences without requiring a registered view or a ready index.
+      parameters:
+        - in: query
+          name: scope
+          required: true
+          description: JSON-encoded ViewPreferenceScope, at most 4096 bytes.
+          schema: { type: string, maxLength: 4096 }
+      responses:
+        "200":
+          $ref: "#/components/responses/ViewPreferencesSnapshot"
+        "400":
+          $ref: "#/components/responses/ViewPreferencesInvalid"
+    patch:
+      operationId: patchViewPreferences
+      description: Atomically sets and explicitly unsets named keys. Null is a stored value. Requires the current revision. Request bodies are limited to 256 KiB.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViewPreferencesPatchRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ViewPreferencesSnapshot"
+        "400":
+          $ref: "#/components/responses/ViewPreferencesInvalid"
+        "409":
+          $ref: "#/components/responses/ViewPreferencesConflict"
+  /api/v1/view-preferences/reset:
+    post:
+      operationId: resetViewPreferences
+      description: Removes personal overrides while retaining the scope revision and migration tombstone. includeSlots resets the host and all its widget scopes atomically, including unmounted widgets, and closes migration for future widgets. Does not change shared view YAML.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViewPreferencesResetRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ViewPreferencesSnapshot"
+        "400":
+          $ref: "#/components/responses/ViewPreferencesInvalid"
+        "409":
+          $ref: "#/components/responses/ViewPreferencesConflict"
+  /api/v1/view-preferences/import:
+    post:
+      operationId: importViewPreferences
+      description: >-
+        Claims a legacy browser source migrationId once across all scopes in this vault.
+        Imports fill missing keys without overwriting prior imports. Changes and reset permanently close scope migration.
+        A suppressed import still claims its source. Repeated claims do not modify their target scope.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViewPreferencesImportRequest"
+      responses:
+        "200":
+          description: Current preferences and whether this request imported them
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ViewPreferencesSnapshot"
+                  - type: object
+                    required: [imported]
+                    properties:
+                      imported: { type: boolean }
+        "400":
+          $ref: "#/components/responses/ViewPreferencesInvalid"
+  /api/v1/views:
+    get:
+      operationId: listPublicViews
+      responses:
+        "200":
+          description: Configured view catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewCatalog"
+  /api/v1/views/{id}:
+    get:
+      operationId: getPublicView
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Configured view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewCatalogEntry"
+        "404":
+          description: View not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/views/{id}/execute:
+    post:
+      operationId: executePublicView
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViewExecuteRequest"
+      responses:
+        "200":
+          description: Configured view table result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewExecuteResponse"
+        "400":
+          description: Invalid view request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: View not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/views/{id}/save:
+    post:
+      operationId: savePublicView
+      description: >-
+        Writes the given view state to view YAML under .rhizome/views (SPEC-0112).
+        From a generated view it creates a native view mounted on the type or
+        interface with mount.replaceGenerated; from an authored view it updates that
+        file's defaults and variants in place, preserving comments and other keys.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViewSaveRequest"
+      responses:
+        "200":
+          description: View saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewSaveResponse"
+        "400":
+          description: Invalid state, or the resulting definition fails view validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: View not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The target file changed since the view was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/views/{id}/field-candidates:
+    get:
+      operationId: listPublicViewFieldCandidates
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: field
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Candidate values for a view field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewFieldCandidatesResponse"
+        "400":
+          description: Invalid candidate request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: View not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+    post:
+      operationId: readPublicViewFieldCandidates
+      description: Same as GET, with an optional edit session whose staged edits the candidates reflect.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: field
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StagedReadRequest"
+      responses:
+        "200":
+          description: Candidate values for a view field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewFieldCandidatesResponse"
+        "400":
+          description: Invalid candidate request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: View not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/edit-sessions:
+    post:
+      operationId: createPublicEditSession
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OntologyEditSessionCreateRequest"
+      responses:
+        "200":
+          description: Created edit session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyEditSessionResponse"
+        "400":
+          description: Invalid edit-session request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/edit-sessions/{id}:
+    get:
+      operationId: getPublicEditSession
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Edit session state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyEditSessionResponse"
+        "404":
+          description: Edit session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deletePublicEditSession
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Edit session deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted: { type: boolean }
+        "404":
+          description: Edit session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/edit-sessions/{id}/stage:
+    post:
+      operationId: stagePublicEditSession
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OntologyEditSessionStageRequest"
+      responses:
+        "200":
+          description: Staged edit session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyEditSessionResponse"
+        "409":
+          description: Staged edit session conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyEditSessionResponse"
+  /api/v1/edit-sessions/{id}/preview:
+    post:
+      operationId: previewPublicEditSession
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OntologyEditSessionPreviewRequest"
+      responses:
+        "200":
+          description: Edit session preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyEditSessionResponse"
+        "409":
+          description: Edit session conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyEditSessionResponse"
+  /api/v1/edit-sessions/{id}/diff:
+    post:
+      operationId: diffPublicEditSession
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OntologyEditSessionPreviewRequest"
+      responses:
+        "200":
+          description: Modified notes represented by the edit session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModifiedNotesResponse"
+  /api/v1/edit-sessions/{id}/commit:
+    post:
+      operationId: commitPublicEditSession
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OntologyEditSessionCommitRequest"
+      responses:
+        "200":
+          description: Committed edit session state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyEditSessionResponse"
+        "409":
+          description: Edit session conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyEditSessionResponse"
+components:
+  responses:
+    ViewPreferencesSnapshot:
+      description: Current personal preferences. Responses are not cached. Successful mutations publish view_preferences.changed with scope, revision, and vaultKey on the vault SSE stream (family reset also sets includeSlots to true); clients refresh on focus and reconnect for cross-process changes.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ViewPreferencesSnapshot"
+    ViewPreferencesInvalid:
+      description: Invalid scope, revision, or preference values
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ViewPreferencesConflict:
+      description: Stale revision; details.current contains the current committed snapshot
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, code, details]
+            properties:
+              error: { type: string }
+              code: { type: string, enum: [CONFLICT] }
+              details:
+                type: object
+                required: [current]
+                properties:
+                  current:
+                    $ref: "#/components/schemas/ViewPreferencesSnapshot"
+    IndexInitializing:
+      description: Index-dependent read deferred until first-launch indexing is ready
+      headers:
+        Retry-After:
+          description: Seconds before the client should retry the request.
+          schema:
+            type: integer
+            minimum: 0
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    ViewPreferenceContext:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      description: Exactly one concrete subject. Standalone has no subject; type, interface and group require only their matching named field; node requires type and ref. No live ontology resolution is required.
+      properties:
+        kind: { type: string, enum: [group, type, interface, node, standalone] }
+        type: { type: string, minLength: 1, maxLength: 256 }
+        interface: { type: string, minLength: 1, maxLength: 256 }
+        group: { type: string, minLength: 1, maxLength: 256 }
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+    ViewPreferenceScope:
+      type: object
+      additionalProperties: false
+      required: [viewId, context]
+      description: >-
+        A view instance in the server vault, including optional local slot. The view need not be registered.
+        The reserved viewId $selection stores target-level view selection.
+        Node identity normalizes notePath, retains semantic kind/type and prefers embedded nodeId,
+        then structuralFingerprint, then fragment. Byte offsets and parentId are excluded.
+      properties:
+        viewId: { type: string, minLength: 1, maxLength: 256 }
+        context:
+          $ref: "#/components/schemas/ViewPreferenceContext"
+        slot: { type: string, maxLength: 256, description: Optional host instance slot inherited by widgets. }
+        widgetSlot: { type: string, maxLength: 256, description: Optional widget child slot within the host instance. }
+    ViewPreferenceValues:
+      type: object
+      maxProperties: 256
+      additionalProperties: {}
+      description: JSON values including null. Keys are at most 128 bytes, each value at most 64 KiB, and the sum of encoded keys and values at most 128 KiB.
+    ViewPreferencesSnapshot:
+      type: object
+      required: [scope, revision, values, migrationClosed]
+      properties:
+        scope:
+          $ref: "#/components/schemas/ViewPreferenceScope"
+        revision: { type: integer, minimum: 0 }
+        values:
+          $ref: "#/components/schemas/ViewPreferenceValues"
+        migrationClosed: { type: boolean }
+    ViewPreferencesPatchRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, expectedRevision]
+      properties:
+        scope:
+          $ref: "#/components/schemas/ViewPreferenceScope"
+        expectedRevision: { type: integer, minimum: 0 }
+        set:
+          $ref: "#/components/schemas/ViewPreferenceValues"
+        unset:
+          type: array
+          maxItems: 256
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 128 }
+    ViewPreferencesResetRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, expectedRevision]
+      properties:
+        scope:
+          $ref: "#/components/schemas/ViewPreferenceScope"
+        expectedRevision: { type: integer, minimum: 0 }
+        includeSlots: { type: boolean, default: false, description: Reset all widget children of this host scope. Requires widgetSlot to be absent. }
+    ViewPreferencesImportRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, migrationId, values]
+      properties:
+        scope:
+          $ref: "#/components/schemas/ViewPreferenceScope"
+        migrationId: { type: string, minLength: 1, maxLength: 1024 }
+        values:
+          $ref: "#/components/schemas/ViewPreferenceValues"
+    StatusResponse:
+      type: object
+      required: [vaultName, vaultPath, embeddings, codeIndex, validation, updatedAt, ready, indexState]
+      properties:
+        vaultName: { type: string }
+        vaultPath: { type: string }
+        indexPath: { type: string }
+        embeddings: { type: boolean }
+        codeIndex: { type: boolean }
+        validation:
+          $ref: "#/components/schemas/ValidationStatusInfo"
+        updatedAt: { type: string, format: date-time }
+        ready: { type: boolean }
+        readyReason: { type: string }
+        indexState:
+          type: string
+          enum: [initializing, ready]
+          description: >-
+            Whether index-dependent reads are safe. `initializing` while the
+            first-launch gate is closed; `ready` after it opens exactly once.
+            Gated reads return 503 with `Retry-After` and error code
+            `INDEX_INITIALIZING` while initializing.
+        live:
+          $ref: "#/components/schemas/LiveHealth"
+    LiveHealth:
+      type: object
+      required: [role, watcherMode, pendingDirtyCount, scheduler]
+      properties:
+        role: { type: string, enum: [leader, follower, unknown] }
+        watcherMode: { type: string }
+        pendingDirtyCount: { type: integer }
+        scheduler:
+          $ref: "#/components/schemas/LiveSchedulerHealth"
+        currentEpoch:
+          $ref: "#/components/schemas/LiveEpoch"
+        lastCompletedEpoch:
+          $ref: "#/components/schemas/LiveEpoch"
+        failedPhase: { type: string }
+        error: { type: string }
+        degradedReasons:
+          type: array
+          items: { type: string }
+    LiveSchedulerHealth:
+      type: object
+      required: [embeddingPendingNotes, embeddingPendingCode, embeddingRunning, graphPending, graphRunning, graphLockContention]
+      properties:
+        embeddingPendingNotes: { type: integer }
+        embeddingPendingCode: { type: boolean }
+        embeddingRunning: { type: boolean }
+        embeddingBackoff: { type: string }
+        graphPending: { type: boolean }
+        graphRunning: { type: boolean }
+        graphLockContention: { type: boolean }
+    LiveEpoch:
+      type: object
+      required: [id, status, startedAt, phase]
+      properties:
+        id: { type: integer, format: int64 }
+        status: { type: string, enum: [started, completed, failed, degraded] }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+        phase: { type: string }
+        dirtyPaths:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveDirtyPath"
+        deletedPaths:
+          type: array
+          items: { type: string }
+        error: { type: string }
+        degradedReasons:
+          type: array
+          items: { type: string }
+    LiveDirtyPath:
+      type: object
+      required: [path, kind]
+      properties:
+        path: { type: string }
+        kind: { type: string, enum: [unknown, created, modified, removed, renamed, recreated, resync] }
+    PublicCapabilitiesResponse:
+      type: object
+      required: [rhizomeVersion, apiVersion, vault, status, graphql, rest, events, queryRecipes, views, validation, index, providers, editSessions, errors, generatedAt]
+      properties:
+        rhizomeVersion: { type: string }
+        apiVersion: { type: string }
+        vault:
+          type: object
+          required: [name, path]
+          properties:
+            name: { type: string }
+            path: { type: string }
+        status:
+          $ref: "#/components/schemas/StatusResponse"
+        graphql:
+          type: object
+          required: [available, endpoint, schemaEndpoint, introspection]
+          properties:
+            available: { type: boolean }
+            endpoint: { type: string }
+            schemaEndpoint: { type: string }
+            explorerUrl: { type: string }
+            schemaHash: { type: string }
+            ontologyHash: { type: string }
+            introspection: { type: boolean }
+            operations:
+              type: array
+              items: { type: string }
+        rest:
+          type: object
+          required: [basePath, openapi, resources]
+          properties:
+            basePath: { type: string }
+            openapi: { type: string }
+            resources:
+              type: array
+              items: { type: string }
+        events:
+          type: object
+          required: [endpoint, format, replay, heartbeat, reconnect, invalidations, streamedKinds, supportedKinds]
+          properties:
+            endpoint: { type: string }
+            nodeEndpoint: { type: string }
+            format: { type: string }
+            replay: { type: string }
+            heartbeat: { type: string }
+            reconnect: { type: string }
+            invalidations:
+              type: array
+              items: { type: string }
+            streamedKinds:
+              type: array
+              items: { type: string }
+            nodeStreamedKinds:
+              type: array
+              items: { type: string }
+            supportedKinds:
+              type: array
+              items: { type: string }
+        queryRecipes:
+          type: object
+          required: [available, count, issues, endpoints]
+          properties:
+            available: { type: boolean }
+            generation: { type: string }
+            count: { type: integer }
+            issues: { type: integer }
+            endpoints:
+              type: array
+              items: { type: string }
+        views:
+          type: object
+          required: [available, count, issues, endpoints]
+          properties:
+            available: { type: boolean }
+            generation: { type: string }
+            count: { type: integer }
+            issues: { type: integer }
+            endpoints:
+              type: array
+              items: { type: string }
+        validation:
+          type: object
+          required: [available, endpoint, repairAvailable]
+          properties:
+            available: { type: boolean }
+            endpoint: { type: string }
+            endpoints:
+              type: array
+              items: { type: string }
+            repairAvailable: { type: boolean }
+            repairEndpoints:
+              type: array
+              items: { type: string }
+            generation: { type: string }
+            status: { type: string, enum: [never_ran, running, ok, error] }
+        index:
+          type: object
+          required: [available]
+          properties:
+            available: { type: boolean }
+            generation: { type: string }
+        providers:
+          type: object
+          required: [embeddings, codeIndex]
+          properties:
+            embeddings:
+              $ref: "#/components/schemas/PublicProviderState"
+            codeIndex:
+              $ref: "#/components/schemas/PublicProviderState"
+        editSessions:
+          type: object
+          required: [available, endpoints]
+          properties:
+            available: { type: boolean }
+            endpoints:
+              type: array
+              items: { type: string }
+        errors:
+          type: object
+          required: [format, codes]
+          properties:
+            format: { type: string }
+            codes:
+              type: array
+              items: { type: string }
+        degradedReasons:
+          type: array
+          items: { type: string }
+        generatedAt: { type: string, format: date-time }
+        compatibilityUrl: { type: string }
+    PublicProviderState:
+      type: object
+      required: [available, state]
+      properties:
+        available: { type: boolean }
+        state: { type: string }
+    ValidationStatusInfo:
+      type: object
+      required: [status, health, generation, publishedGeneration]
+      properties:
+        status: { type: string, enum: [never_ran, running, ok, error] }
+        health:
+          $ref: "#/components/schemas/ValidationHealth"
+        generation: { type: integer, format: int64 }
+        publishedGeneration: { type: integer, format: int64 }
+        computedAt: { type: string, format: date-time }
+        durationMs: { type: integer, format: int64 }
+        error: { type: string }
+    ValidationHealth:
+      type: string
+      enum: [never_checked, running, current_clean, current_issues, incomplete, failed, stale]
+    ValidateEnvelope:
+      type: object
+      required: [status, health, generation, publishedGeneration]
+      properties:
+        refreshPending:
+          type: boolean
+          description: A server-owned refresh is queued, waiting for startup, or executing, including any coalesced replacement.
+        status: { type: string, enum: [never_ran, running, ok, error] }
+        health:
+          $ref: "#/components/schemas/ValidationHealth"
+        generation: { type: integer, format: int64 }
+        publishedGeneration: { type: integer, format: int64 }
+        startedAt: { type: string, format: date-time }
+        computedAt: { type: string, format: date-time }
+        durationMs: { type: integer, format: int64 }
+        error: { type: string }
+        snapshot:
+          $ref: "#/components/schemas/ValidationSnapshot"
+    ValidationSnapshot:
+      type: object
+      required: [vaultIdentity, generation, scope, selectedChecks, startedAt, finishedAt, durationMs, completion, issueCount, errorCount, affectedFileCount, affectedNoteCount, repairActionCount, checks]
+      properties:
+        issueCodes:
+          description: Complete sorted issue-code vocabulary for this generation, independent of loaded pages or filters.
+          type: array
+          items: { type: string }
+        vaultIdentity: { type: string }
+        generation: { type: integer, format: int64 }
+        scope: { type: string }
+        selectedChecks:
+          type: array
+          items: { type: string }
+        schemaIdentity: { type: string }
+        configIdentity: { type: string }
+        inputRevision: { type: string }
+        startedAt: { type: integer, format: int64 }
+        finishedAt: { type: integer, format: int64 }
+        durationMs: { type: integer, format: int64 }
+        completion: { type: string, enum: [complete, incomplete] }
+        staleReason: { type: string }
+        issueCount: { type: integer }
+        errorCount: { type: integer }
+        affectedFileCount: { type: integer }
+        affectedNoteCount: { type: integer }
+        repairActionCount: { type: integer }
+        repairPlanFingerprint: { type: string }
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationCheckSnapshot"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationActionSnapshot"
+    ValidationCheckSnapshot:
+      type: object
+      required: [check, outcome, issueCount, durationMs]
+      properties:
+        check: { type: string }
+        outcome: { type: string, enum: [completed, failed, blocked, not_applicable, skipped] }
+        issueCount: { type: integer }
+        summary: { type: string }
+        notes:
+          type: array
+          items: { type: string }
+        error: { type: string }
+        durationMs: { type: integer, format: int64 }
+    ValidationDiagnosticPage:
+      type: object
+      required: [generation, filterIdentity, sort, returned, total, diagnostics]
+      properties:
+        generation: { type: integer, format: int64 }
+        filterIdentity: { type: string }
+        sort: { type: string, enum: [diagnostic_order, file] }
+        returned: { type: integer }
+        total: { type: integer }
+        diagnostics:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationDiagnostic"
+        nextCursor: { type: string }
+        fileTotals:
+          description: File sort only. Filtered issue total for every file key on this page; "" is vault-wide.
+          type: object
+          additionalProperties: { type: integer }
+    ValidationDiagnostic:
+      type: object
+      required: [issueKey, check]
+      properties:
+        issueKey: { type: string }
+        check: { type: string }
+        code: { type: string }
+        message: { type: string }
+        evidence:
+          type: object
+          additionalProperties: true
+        primaryPath: { type: string }
+        affectedPaths:
+          type: array
+          items: { type: string }
+        affectedNotePaths:
+          type: array
+          items: { type: string }
+        type: { type: string }
+        field: { type: string }
+        source: { type: string }
+        target: { type: string }
+        location:
+          $ref: "#/components/schemas/ValidationDiagnosticLocation"
+        actionIds:
+          type: array
+          items: { type: string }
+        affectedNodeIds:
+          type: array
+          items: { type: string }
+        affectedTypes:
+          type: array
+          items: { type: string }
+        affectedInterfaces:
+          type: array
+          items: { type: string }
+        variant:
+          $ref: "#/components/schemas/ValidationIssueVariant"
+    ValidationIssueVariant:
+      type: object
+      description: The specific case of a finding within its issue code. Findings of codes without cases omit it.
+      required: [key, label]
+      properties:
+        key: { type: string, description: Stable within check and code. }
+        label: { type: string }
+    ValidationIssueGroupRequest:
+      type: object
+      required: [generation]
+      properties:
+        generation: { type: integer, format: int64, minimum: 1 }
+        scope:
+          $ref: "#/components/schemas/ValidationScope"
+        filter:
+          $ref: "#/components/schemas/ValidationDiagnosticFilter"
+    ValidationIssueGroup:
+      type: object
+      required: [check, issueCount, affectedFileCount, applicableRepairCount]
+      properties:
+        check: { type: string }
+        code: { type: string }
+        variant:
+          $ref: "#/components/schemas/ValidationIssueVariant"
+        issueCount: { type: integer }
+        affectedFileCount: { type: integer }
+        applicableRepairCount: { type: integer, description: Issues with a safe or needs_confirmation action. }
+        otherVariants:
+          type: integer
+          description: Set on the one row per code that rolls up the variants beyond the first 25 by issue count. That row has no variant; filter by code alone to read its findings.
+    ValidationIssueGroupResponse:
+      type: object
+      required: [generation, groups]
+      properties:
+        generation: { type: integer, format: int64 }
+        groups:
+          type: array
+          description: Ordered by first diagnostic order of each code, then by issue count descending and variant key within a code. A code row without a variant holds that code's variant-free issues; filter by code alone to read them. Each code returns at most 25 variant rows; the rest share one row with otherVariants set, ordered after that code's variant rows.
+          items:
+            $ref: "#/components/schemas/ValidationIssueGroup"
+    ValidationDiagnosticLocation:
+      type: object
+      required: [unit, start, end]
+      properties:
+        unit: { type: string, enum: [utf8_bytes, line] }
+        start: { type: integer }
+        end: { type: integer }
+        nodeId: { type: string }
+        field: { type: string }
+        relation: { type: string }
+    ValidationScope:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [global, file, note, node, type, interface] }
+        key: { type: string }
+    ValidationScopeSummary:
+      type: object
+      required: [scope, issueCount, affectedFileCount, affectedNoteCount, repairActionCount]
+      properties:
+        scope:
+          $ref: "#/components/schemas/ValidationScope"
+        issueCount: { type: integer }
+        affectedFileCount: { type: integer }
+        affectedNoteCount: { type: integer }
+        repairActionCount: { type: integer }
+    ValidationScopeSummaryRequest:
+      type: object
+      required: [generation, scopes]
+      properties:
+        generation: { type: integer, format: int64, minimum: 1 }
+        scopes:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/ValidationScope"
+        filter:
+          $ref: "#/components/schemas/ValidationDiagnosticFilter"
+    ValidationDiagnosticFilter:
+      type: object
+      properties:
+        check: { type: string }
+        code: { type: string }
+        variant: { type: string, description: Variant key within code; requires code. }
+        path: { type: string }
+        text: { type: string }
+        repairAvailability: { type: string, enum: [any, present, absent, applicable, inapplicable] }
+    ValidationScopeSummaryResponse:
+      type: object
+      required: [generation, summaries]
+      properties:
+        generation: { type: integer, format: int64 }
+        summaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationScopeSummary"
+    ValidationActionSnapshot:
+      type: object
+      required: [id, check, kind, safety, title]
+      properties:
+        id: { type: string }
+        check: { type: string }
+        issueCode: { type: string }
+        kind: { type: string }
+        safety: { type: string, enum: [safe, needs_confirmation, agent_required] }
+        title: { type: string }
+        summary: { type: string }
+        question: { type: string }
+        instanceCount: { type: integer }
+        issueKeys:
+          type: array
+          items: { type: string }
+        affectedPaths:
+          type: array
+          items: { type: string }
+        candidatePaths:
+          type: array
+          items: { type: string }
+    ValidationRepairReviewCreateRequest:
+      type: object
+      required: [generation, planFingerprint, actionIds]
+      properties:
+        generation: { type: integer, format: int64, minimum: 1 }
+        planFingerprint: { type: string }
+        actionIds:
+          type: array
+          minItems: 1
+          items: { type: string }
+    ValidationRepairReviewApplyRequest:
+      type: object
+      required: [generation, planFingerprint, selectionFingerprint]
+      properties:
+        generation: { type: integer, format: int64, minimum: 1 }
+        planFingerprint: { type: string }
+        selectionFingerprint: { type: string }
+        confirmations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepairReviewConfirmation"
+    RepairReviewConfirmation:
+      type: object
+      required: [actionId]
+      properties:
+        actionId: { type: string }
+        question: { type: string }
+        candidatePath: { type: string }
+        affectedPaths:
+          type: array
+          items: { type: string }
+    RepairPreviewFile:
+      type: object
+      required: [path, kind, diff]
+      properties:
+        path: { type: string }
+        originalPath: { type: string }
+        kind: { type: string, enum: [write, rename, delete] }
+        beforeHash: { type: string }
+        afterHash: { type: string }
+        diff: { type: string }
+    RepairReview:
+      type: object
+      required: [id, vaultIdentity, generation, planFingerprint, selectionFingerprint, actionIds, transactionIds, affectedPaths, preview, state, createdAt, lastAccessedAt, expiresAt]
+      properties:
+        id: { type: string }
+        vaultIdentity: { type: string }
+        generation: { type: integer, format: int64 }
+        planFingerprint: { type: string }
+        selectionFingerprint: { type: string }
+        actionIds:
+          type: array
+          items: { type: string }
+        transactionIds:
+          type: array
+          items: { type: string }
+        affectedPaths:
+          type: array
+          items: { type: string }
+        preview:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepairPreviewFile"
+        requiredConfirmations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepairReviewConfirmation"
+        state: { type: string, enum: [pending, applying, applied, failed, stale, expired] }
+        createdAt: { type: string, format: date-time }
+        lastAccessedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        staleReason: { type: string }
+    ValidationRepairApplyResponse:
+      type: object
+      required: [review, result]
+      properties:
+        review:
+          $ref: "#/components/schemas/RepairReview"
+        result:
+          $ref: "#/components/schemas/ValidateResult"
+        execution:
+          $ref: "#/components/schemas/FixExecution"
+    FixExecution:
+      type: object
+      required: [requested]
+      additionalProperties: true
+      properties:
+        requested: { type: boolean }
+        planFingerprint: { type: string }
+        plannedTransactions: { type: integer }
+        appliedTransactions: { type: integer }
+        plannedWrites: { type: integer }
+        appliedWrites: { type: integer }
+        applied:
+          type: array
+          items: { type: string }
+        skipped:
+          type: array
+          items: { type: string }
+        failed:
+          type: array
+          items: { type: string }
+        remainingIssueKeys:
+          type: array
+          items: { type: string }
+        remainingFindings: { type: integer }
+        replanCommand: { type: string }
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepairTransactionExecution"
+    RepairTransactionExecution:
+      type: object
+      required: [transactionId, status]
+      properties:
+        transactionId: { type: string }
+        status: { type: string }
+        reason: { type: string }
+        operationIds:
+          type: array
+          items: { type: string }
+        affectedPaths:
+          type: array
+          items: { type: string }
+    ValidateIssue:
+      type: object
+      properties:
+        code: { type: string }
+        path: { type: string }
+        field: { type: string }
+        source: { type: string }
+        target: { type: string }
+        message: { type: string }
+        line: { type: integer }
+        data:
+          type: object
+          additionalProperties: true
+    ValidateFixEdit:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string }
+        notePath: { type: string }
+        property: { type: string }
+        value: { type: string }
+        values:
+          type: array
+          items: { type: string }
+        oldTarget: { type: string }
+        newTarget: { type: string }
+    ValidateFixAction:
+      type: object
+      required: [id, check, kind, safety, title]
+      properties:
+        id: { type: string }
+        check: { type: string }
+        issueCode: { type: string }
+        kind: { type: string }
+        safety: { type: string, enum: [safe, needs_confirmation, agent_required] }
+        title: { type: string }
+        summary: { type: string }
+        question: { type: string }
+        instanceCount: { type: integer }
+        affectedPaths:
+          type: array
+          items: { type: string }
+        candidatePaths:
+          type: array
+          items: { type: string }
+        edits:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidateFixEdit"
+    ValidateFixPlan:
+      type: object
+      required: [totalCount, safeCount, confirmationCount, agentCount]
+      properties:
+        totalCount: { type: integer }
+        safeCount: { type: integer }
+        confirmationCount: { type: integer }
+        agentCount: { type: integer }
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidateFixAction"
+    ValidateNextAction:
+      type: object
+      required: [category, title, message]
+      properties:
+        category: { type: string }
+        title: { type: string }
+        message: { type: string }
+        command: { type: string }
+        count: { type: integer }
+    ValidateNextActions:
+      type: object
+      properties:
+        safeAutoFixCommand: { type: string }
+        safeFixCount: { type: integer }
+        needsConfirmationCount: { type: integer }
+        agentRequiredCount: { type: integer }
+        unclassifiedIssueCount: { type: integer }
+        checkErrorCount: { type: integer }
+        classificationRequired: { type: boolean }
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidateNextAction"
+    ValidateCheckResult:
+      type: object
+      required: [name, ok, issueCount, durationMs]
+      properties:
+        name: { type: string }
+        ok: { type: boolean }
+        skipped: { type: boolean }
+        issueCount: { type: integer }
+        summary: { type: string }
+        error: { type: string }
+        durationMs: { type: integer, format: int64 }
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidateIssue"
+        fixes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidateFixAction"
+    ValidateResult:
+      type: object
+      required: [ok, issueCount, errorCount, selectedChecks, checks]
+      properties:
+        ok: { type: boolean }
+        issueCount: { type: integer }
+        errorCount: { type: integer }
+        durationMs: { type: integer, format: int64 }
+        selectedChecks:
+          type: array
+          items: { type: string }
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidateCheckResult"
+        fixPlan:
+          $ref: "#/components/schemas/ValidateFixPlan"
+        nextActions:
+          $ref: "#/components/schemas/ValidateNextActions"
+    TreeEntry:
+      type: object
+      required: [name, path, kind, hasChildren]
+      properties:
+        name: { type: string }
+        path: { type: string }
+        kind: { type: string }
+        lang: { type: string }
+        hasChildren: { type: boolean }
+    TreeResponse:
+      type: object
+      required: [path, entries]
+      properties:
+        path: { type: string }
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/TreeEntry"
+        truncated: { type: boolean }
+    RelatedNote:
+      type: object
+      required: [path]
+      properties:
+        path: { type: string }
+        title: { type: string }
+        reason: { type: string }
+        anchorLabel: { type: string }
+    LinkRef:
+      type: object
+      required: [target, kind]
+      properties:
+        target: { type: string }
+        text: { type: string }
+        kind: { type: string }
+        anchor: { type: string }
+    CodeRef:
+      type: object
+      required: [target, line]
+      properties:
+        target: { type: string }
+        kind: { type: string }
+        line: { type: integer }
+        snippet: { type: string }
+    FileView:
+      type: object
+      required: [path, kind]
+      properties:
+        path: { type: string }
+        kind: { type: string }
+        title: { type: string }
+        lang: { type: string }
+        content: { type: string }
+        frontmatter:
+          type: object
+          additionalProperties: true
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkRef"
+        codeRefs:
+          type: array
+          items:
+            $ref: "#/components/schemas/CodeRef"
+        relatedNotes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelatedNote"
+    RenderedEmbed:
+      type: object
+      required: [target, kind, resolved]
+      properties:
+        target: { type: string }
+        title: { type: string }
+        kind: { type: string }
+        preview: { type: string }
+        resolved: { type: boolean }
+    RenderedSection:
+      type: object
+      required: [id, title, level]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        level: { type: string }
+        content: { type: string }
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/RenderedSection"
+        notePath: { type: string }
+        parentId: { type: string }
+        locator: { type: string }
+        blockId: { type: string }
+        typeName: { type: string }
+        fieldName: { type: string }
+        fieldPath: { type: string }
+        fieldList: { type: boolean }
+        sectionDisplay: { type: string }
+        properties:
+          type: object
+          additionalProperties: { type: string }
+        identifierField: { type: string }
+        previewTemplate: { type: string }
+        collapsed: { type: boolean }
+    RenderedFile:
+      type: object
+      required: [path, title]
+      properties:
+        path: { type: string }
+        title: { type: string }
+        resolvedType: { type: string }
+        content: { type: string }
+        rendered: { type: string }
+        frontmatter:
+          type: object
+          additionalProperties: true
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkRef"
+        embeds:
+          type: array
+          items:
+            $ref: "#/components/schemas/RenderedEmbed"
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/RenderedSection"
+    GraphNode:
+      type: object
+      required: [id, label, kind]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        kind: { type: string }
+        lang: { type: string }
+        path: { type: string }
+        notePath: { type: string }
+        nodeId: { type: string }
+        nodeRef:
+          $ref: "#/components/schemas/NodeRef"
+        sourceLocator: { type: string }
+        module: { type: string }
+        community: { type: string }
+        resolvedType: { type: string }
+        hub: { type: number }
+        authority: { type: number }
+        pageRank: { type: number }
+        score: { type: number }
+        collapsed: { type: boolean }
+        childCount: { type: integer }
+    GraphEdge:
+      type: object
+      required: [source, target, kind]
+      properties:
+        source: { type: string }
+        target: { type: string }
+        kind: { type: string }
+        weight: { type: integer }
+        relationName: { type: string }
+        relationLabel: { type: string }
+        provenance: { type: string }
+        structural: { type: boolean }
+    GraphResponse:
+      type: object
+      required: [nodes, edges]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphEdge"
+        truncated: { type: boolean }
+        centerID: { type: string }
+        needsIndex: { type: boolean }
+        diagnostics:
+          $ref: "#/components/schemas/GraphDiagnostics"
+    GraphDiagnostics:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNodeDiagnostic"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphEdgeDiagnostic"
+        skips:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphSkipDiagnostic"
+        dedupe:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphDedupeDiagnostic"
+    GraphNodeDiagnostic:
+      type: object
+      properties:
+        id: { type: string }
+        source: { type: string }
+        reason: { type: string }
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+        locator: { type: string }
+    GraphEdgeDiagnostic:
+      type: object
+      properties:
+        source: { type: string }
+        target: { type: string }
+        kind: { type: string }
+        relationName: { type: string }
+        provenance: { type: string }
+        reason: { type: string }
+    GraphSkipDiagnostic:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        reason: { type: string }
+    GraphDedupeDiagnostic:
+      type: object
+      properties:
+        source: { type: string }
+        target: { type: string }
+        suppressedKind: { type: string }
+        preferredKind: { type: string }
+        reason: { type: string }
+    SuggestMatch:
+      type: object
+      required: [path, kind]
+      properties:
+        path: { type: string }
+        title: { type: string }
+        kind: { type: string }
+        lang: { type: string }
+        score: { type: integer }
+    SuggestResponse:
+      type: object
+      required: [query, matches]
+      properties:
+        query: { type: string }
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/SuggestMatch"
+    SearchMatch:
+      type: object
+      properties:
+        type: { type: string }
+        path: { type: string }
+        title: { type: string }
+        symbol: { type: string }
+        fqn: { type: string }
+        anchorID: { type: string }
+        nodeID: { type: string }
+        nodeRefJson: { type: string }
+        sourceLocator: { type: string }
+        nodeKind: { type: string }
+        parentNodeID: { type: string }
+        nodeRef:
+          $ref: "#/components/schemas/NodeRef"
+        linkTarget:
+          $ref: "#/components/schemas/NodeLinkTarget"
+        kind: { type: string }
+        chunkIndex: { type: integer }
+        startLine: { type: integer }
+        endLine: { type: integer }
+        score: { type: number }
+        heading: { type: string }
+        snippet: { type: string }
+        snippetKind: { type: string }
+        snippetStatus: { type: string, enum: [available, unavailable] }
+        snippetTruncated: { type: boolean }
+        noteType: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+    SearchResponse:
+      type: object
+      required: [count]
+      properties:
+        query: { type: string }
+        returned: { type: integer }
+        total: { type: integer }
+        count: { type: integer }
+        continuationToken: { type: string }
+        text: { type: string }
+        profile: { type: string }
+        policy:
+          type: object
+          properties:
+            profile: { type: string }
+            visibleLimit: { type: integer }
+            candidateWindow: { type: integer }
+            maxPerOwner: { type: integer }
+            budgetChars: { type: integer }
+            deadlineMillis: { type: integer }
+        targetStatus: { type: string }
+        confidence:
+          type: object
+          properties:
+            level: { type: string }
+            reason: { type: string }
+            missingSignals:
+              type: array
+              items: { type: string }
+        coverage:
+          type: object
+          properties:
+            docs: { type: boolean }
+            code: { type: boolean }
+            tests: { type: boolean }
+            decisions: { type: boolean }
+            examples: { type: boolean }
+            missing:
+              type: array
+              items: { type: string }
+        warnings:
+          type: array
+          items:
+            type: object
+            required: [code, message]
+            properties:
+              code: { type: string }
+              kind: { type: string }
+              source: { type: string }
+              message: { type: string }
+        lanes:
+          type: array
+          items:
+            type: object
+            required: [lane, status]
+            properties:
+              lane: { type: string }
+              status: { type: string }
+              reason: { type: string }
+              retrievers:
+                type: array
+                items: { type: string }
+              resultCount: { type: integer }
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchMatch"
+    NoteSearchMatch:
+      type: object
+      required: [path, title]
+      properties:
+        path: { type: string }
+        title: { type: string }
+        resolvedType: { type: string }
+        heading: { type: string }
+        snippet: { type: string }
+        score: { type: number }
+        tags:
+          type: array
+          items: { type: string }
+    NoteSearchResponse:
+      type: object
+      required: [query, offset, limit, count, total]
+      properties:
+        query: { type: string }
+        offset: { type: integer }
+        limit: { type: integer }
+        count: { type: integer }
+        total: { type: integer }
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/NoteSearchMatch"
+    OntologyTypeSummary:
+      type: object
+      required: [name, count]
+      properties:
+        name: { type: string }
+        label: { type: string }
+        pluralLabel: { type: string }
+        displayGroup: { type: string }
+        displayParent: { type: string }
+        color: { type: string }
+        description: { type: string }
+        role:
+          type: string
+          enum: [note, embedded]
+        count: { type: integer }
+        issueCount: { type: integer }
+        startingNotes:
+          type: array
+          items: { type: string }
+    DisplayGroupsResponse:
+      type: object
+      required: [groups]
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/DisplayGroup"
+    DisplayGroup:
+      type: object
+      required: [name, members]
+      properties:
+        name: { type: string }
+        members:
+          type: array
+          description: The group's root members in the rail's order.
+          items:
+            $ref: "#/components/schemas/DisplayGroupMember"
+    DisplayGroupMember:
+      type: object
+      required: [name, kind, label, pluralLabel, count, issueCount, implementors, children]
+      properties:
+        name: { type: string }
+        kind:
+          type: string
+          enum: [type, interface]
+        label: { type: string }
+        pluralLabel: { type: string }
+        description: { type: string }
+        count: { type: integer }
+        issueCount:
+          type: integer
+          description: Issues in the published validation snapshot within the member's type or interface scope (an interface covers its implementors' notes), the count `/api/v1/validation/summaries` reports for that scope. 0 before validation publishes. The Notes rail and ontology summary count notes with ontology issues instead.
+        implementors:
+          type: array
+          description: Node types implementing an interface; empty for a type.
+          items: { type: string }
+        children:
+          type: array
+          description: Members nested under this one, such as implementors an interface claims and types naming it as display parent.
+          items:
+            $ref: "#/components/schemas/DisplayGroupMember"
+    OntologyInterfaceSummary:
+      type: object
+      required: [name, count, implementors]
+      properties:
+        name: { type: string }
+        label: { type: string }
+        pluralLabel: { type: string }
+        displayGroup: { type: string }
+        displayParent: { type: string }
+        description: { type: string }
+        count: { type: integer }
+        issueCount: { type: integer }
+        implementors:
+          type: array
+          items: { type: string }
+    TypeDoc:
+      type: object
+      additionalProperties: true
+      properties:
+        name: { type: string }
+        summary: { type: string }
+        meaning: { type: string }
+        authoring: { type: string }
+        agentImplications: { type: string }
+        description: { type: string }
+        role: { type: string }
+        locator: { type: string }
+        label: { type: string }
+        pluralLabel: { type: string }
+        color: { type: string }
+        keyField: { type: string }
+        propertyCase: { type: string }
+        semantics: { type: string }
+        implements:
+          type: array
+          items: { type: string }
+        paths:
+          type: array
+          items: { type: string }
+        matches:
+          type: array
+          items: { type: string }
+        companionDocs:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompanionDocRef"
+        annotations:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: true
+        enums:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnumDoc"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/TypeFieldDoc"
+        summaryField:
+          type: string
+          description: Effective summary field, either the SUMMARY display role or the conventional field named `summary`.
+        parentField:
+          type: string
+          description: Field carrying the PARENT display role, which links a record to its parent record.
+        profile:
+          $ref: "#/components/schemas/TypeProfile"
+    CompanionDocRef:
+      type: object
+      required: [path]
+      properties:
+        path: { type: string }
+        purpose: { type: string }
+    TypeFieldDoc:
+      type: object
+      additionalProperties: true
+      properties:
+        name: { type: string }
+        summary: { type: string }
+        meaning: { type: string }
+        authoring: { type: string }
+        agentImplications: { type: string }
+        description: { type: string }
+        kind: { type: string }
+        typeName: { type: string }
+        required: { type: boolean }
+        list: { type: boolean }
+        source: { type: string }
+        sourceAliases:
+          type: array
+          items: { type: string }
+        sourceKind: { type: string }
+        inverse: { type: string }
+        reverseField: { type: string }
+        direction: { type: string }
+        scope: { type: string }
+        includeBodyLinks: { type: boolean }
+        includeBacklinks: { type: boolean }
+        sectionHeading: { type: string }
+        sectionLevel: { type: string }
+        sectionRequired: { type: boolean }
+        sectionDisplay: { type: string }
+        semantics: { type: string }
+        enumValues:
+          type: array
+          items: { type: string }
+        enum:
+          $ref: "#/components/schemas/EnumDoc"
+        companionDocs:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompanionDocRef"
+        policy:
+          $ref: "#/components/schemas/PolicyHint"
+        display:
+          $ref: "#/components/schemas/FieldDisplay"
+        annotations:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: true
+        requiredWhen:
+          type: array
+          description: The `@requiresWhen` conditions under which this field becomes required.
+          items:
+            $ref: "#/components/schemas/FieldCondition"
+    FieldCondition:
+      type: object
+      required: [field, equals]
+      properties:
+        field: { type: string }
+        equals: { type: string }
+    EnumDoc:
+      type: object
+      additionalProperties: true
+      properties:
+        name: { type: string }
+        summary: { type: string }
+        meaning: { type: string }
+        authoring: { type: string }
+        agentImplications: { type: string }
+        description: { type: string }
+        values:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnumValueDoc"
+    EnumValueDoc:
+      type: object
+      additionalProperties: true
+      properties:
+        name: { type: string }
+        summary: { type: string }
+        meaning: { type: string }
+        authoring: { type: string }
+        agentImplications: { type: string }
+        description: { type: string }
+        policy:
+          $ref: "#/components/schemas/PolicyHint"
+        label:
+          type: string
+          description: Display label from `@view`, omitted when not authored.
+        order:
+          type: integer
+          description: Display order from `@view`, omitted when not authored.
+        tone:
+          type: string
+          enum: [neutral, info, progress, success, warning, risk, muted]
+          description: Tone from `@view`, else the default of the value's declared stage (SPEC-0112); omitted when neither applies.
+        collapsed:
+          type: boolean
+          description: Whether the value starts collapsed, from `@view`, else true for a declared `dropped` stage; omitted when neither applies.
+        stage:
+          type: string
+          enum: [open, active, done, dropped]
+          description: The value's lifecycle stage (SPEC-0112), declared or inferred from authored tone or collapsed metadata; omitted when the enum has no stages.
+        stageDeclared:
+          type: boolean
+          description: True when the schema declares the stage; false or omitted when it was inferred.
+    PolicyHint:
+      type: object
+      additionalProperties: true
+    FieldDisplay:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [SUMMARY, PARENT]
+          description: Effective display role. The conventional `summary` field reports SUMMARY.
+        importance: { type: string, enum: [KEY, NORMAL, DETAIL] }
+        hideHover: { type: boolean }
+    NodePreview:
+      type: object
+      required: [ref, path, title, format, fragmentResolved, fields, hasIssues]
+      properties:
+        ref: { type: string }
+        path: { type: string }
+        title: { type: string }
+        typeName: { type: string }
+        typeLabel: { type: string }
+        format: { type: string }
+        identifier: { type: string }
+        summary: { type: string }
+        fragmentResolved: { type: boolean }
+        fragment:
+          $ref: "#/components/schemas/NodePreviewFragment"
+        fields:
+          type: array
+          maxItems: 24
+          items:
+            $ref: "#/components/schemas/NodePreviewField"
+        tags:
+          type: array
+          items: { type: string }
+        updatedAt: { type: integer, format: int64 }
+        hasIssues: { type: boolean }
+    NodePreviewFragment:
+      type: object
+      required: [kind, text]
+      properties:
+        kind: { type: string, enum: [heading, block, element_id] }
+        text: { type: string }
+    NodePreviewField:
+      type: object
+      required: [name, label, kind, importance, values]
+      properties:
+        name: { type: string }
+        label: { type: string }
+        kind: { type: string, enum: [scalar, enum, link] }
+        importance: { type: string, enum: [KEY, NORMAL] }
+        values:
+          type: array
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/NodePreviewValue"
+        truncated: { type: integer }
+    NodePreviewValue:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+        target: { type: string }
+    OntologyNoteListItem:
+      type: object
+      required: [ref, path, title, hasIssues]
+      properties:
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+        path:
+          type: string
+          description: Compatibility string form of the canonical ref. For embedded nodes this may be a canonical `NodeRef.String()` locator, not just a note path.
+        title: { type: string }
+        resolvedType: { type: string }
+        hasIssues: { type: boolean }
+        relationCount: { type: integer }
+        updatedAt: { type: integer }
+        tags:
+          type: array
+          items: { type: string }
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyNoteIssueItem"
+        identityStatus:
+          type: string
+          description: |
+            Resolved value of the type's identity-level status field for this
+            note (the first enum field whose lowercased name ends in "status"),
+            or omitted/empty when the type has no such field or the note's value
+            is empty. Lets the type-home card render a status pill without a
+            per-note workspace fetch.
+    OntologyNoteIssueItem:
+      type: object
+      required: [message]
+      properties:
+        code: { type: string }
+        field: { type: string }
+        message: { type: string }
+        fixable: { type: boolean }
+        fixOps:
+          type: array
+          items:
+            type: object
+            properties:
+              kind: { type: string }
+              path: { type: string }
+              field: { type: string }
+              value: { type: string }
+              values:
+                type: array
+                items: { type: string }
+    OntologyTypeResponse:
+      type: object
+      required: [count]
+      properties:
+        type:
+          $ref: "#/components/schemas/TypeDoc"
+        count: { type: integer }
+        issueCount: { type: integer }
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyNoteListItem"
+        authoringGuide:
+          type: string
+          description: Rendered markdown of the ontology authoring guide scoped to this type.
+    OntologyAtlasTypeEntry:
+      type: object
+      required: [type, count]
+      properties:
+        type:
+          $ref: "#/components/schemas/TypeDoc"
+        count: { type: integer }
+        issueCount: { type: integer }
+        startingNotes:
+          type: array
+          items: { type: string }
+    OntologyAtlasResponse:
+      type: object
+      required: [schemaPresent]
+      properties:
+        schemaPresent: { type: boolean }
+        schemaHash: { type: string }
+        vaultName: { type: string }
+        types:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyAtlasTypeEntry"
+        interfaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/TypeDoc"
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/TypeDoc"
+    NodeRef:
+      type: object
+      required: [notePath, kind]
+      properties:
+        notePath: { type: string }
+        fragment: { type: string }
+        nodeId: { type: string }
+        typeName: { type: string }
+        kind: { type: string }
+        startByte: { type: integer }
+        endByte: { type: integer }
+        parentId: { type: string }
+        structuralFingerprint: { type: string }
+    PreviewRefLineage:
+      type: object
+      required: [original, preview]
+      properties:
+        original:
+          $ref: "#/components/schemas/NodeRef"
+        preview:
+          $ref: "#/components/schemas/NodeRef"
+    NodeLinkTarget:
+      type: object
+      required: [ref, exists]
+      properties:
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+        markdown: { type: string }
+        wikilink: { type: string }
+        displayLabel: { type: string }
+        exists: { type: boolean }
+        requiresFix: { type: boolean }
+        blockId: { type: string }
+    NodeLinkFixAction:
+      type: object
+      required: [ref, blockId]
+      properties:
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+        blockId: { type: string }
+    NodeLinkDiagnostic:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        notePath: { type: string }
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+        blockId: { type: string }
+        message: { type: string }
+    OntologyEditOp:
+      type: object
+      required: [kind, path]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        path: { type: string }
+        nodeId: { type: string }
+        structuralFingerprint: { type: string }
+        field: { type: string }
+        collection: { type: string }
+        value: { type: string }
+        values:
+          type: array
+          items: { type: string }
+        fieldValue:
+          $ref: "#/components/schemas/OntologyEditFieldValue"
+        expected:
+          $ref: "#/components/schemas/OntologyEditExpected"
+        markdown: { type: string }
+        previousMarkdown: { type: string }
+        rangeStart: { type: integer }
+        rangeEnd: { type: integer }
+        heading: { type: string }
+        body: { type: string }
+        blockId: { type: string }
+        orderedFragments:
+          type: array
+          items: { type: string }
+        oldTarget: { type: string }
+        newTarget: { type: string }
+        property: { type: string }
+        level: { type: string }
+    OntologyEditFieldValue:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [unset, scalar, list]
+        scalar: { type: string }
+        items:
+          type: array
+          items: { type: string }
+    OntologyEditExpected:
+      type: object
+      properties:
+        field:
+          $ref: "#/components/schemas/OntologyEditFieldValue"
+        sourceHash: { type: string }
+        sourceContent: { type: string }
+    OntologyEditBaseDocument:
+      type: object
+      required: [notePath, fingerprint, content]
+      properties:
+        notePath: { type: string }
+        fingerprint: { type: string }
+        content: { type: string }
+    OntologyEditSessionCreateRequest:
+      type: object
+      properties:
+        sessionId: { type: string }
+        ops:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyEditOp"
+    StagedReadRequest:
+      type: object
+      description: Body of a read route's POST form. The route keeps its query parameters; the edit session makes the result reflect staged edits.
+      properties:
+        editSession:
+          $ref: "#/components/schemas/EditSessionReadRequest"
+    EditSessionReadRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Alias for sessionId.
+        sessionId: { type: string }
+        snapshot:
+          $ref: "#/components/schemas/OntologyEditSessionSnapshot"
+    OntologyEditSessionSnapshot:
+      type: object
+      properties:
+        version: { type: integer }
+        revision: { type: integer, minimum: 0 }
+        sessionId: { type: string }
+        ops:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyEditOp"
+        baseFingerprints:
+          type: object
+          additionalProperties: { type: string }
+        baseDocuments:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyEditBaseDocument"
+    OntologyEditSessionStageRequest:
+      type: object
+      properties:
+        requestId: { type: string }
+        expectedRevision: { type: integer, minimum: 0 }
+        ops:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyEditOp"
+        replace: { type: boolean }
+        snapshot:
+          $ref: "#/components/schemas/OntologyEditSessionSnapshot"
+    OntologyEditSessionPreviewRequest:
+      type: object
+      properties:
+        snapshot:
+          $ref: "#/components/schemas/OntologyEditSessionSnapshot"
+    OntologyEditSessionCommitRequest:
+      type: object
+      properties:
+        requestId: { type: string }
+        expectedRevision: { type: integer, minimum: 0 }
+        snapshot:
+          $ref: "#/components/schemas/OntologyEditSessionSnapshot"
+    OntologyEditSessionResponse:
+      type: object
+      additionalProperties: true
+      required: [sessionId, revision, status, ops, hasUncommittedChanges]
+      properties:
+        sessionId: { type: string }
+        revision: { type: integer, minimum: 0 }
+        status:
+          type: string
+          enum: [clean, dirty, stale, rebased, conflicted]
+        outcome:
+          type: string
+          enum: [committed, unchanged, conflicted, failed]
+        ops:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyEditOp"
+        hasUncommittedChanges: { type: boolean }
+        touchedPaths:
+          type: array
+          items: { type: string }
+        touchedNodes:
+          type: array
+          items: { type: string }
+        touchedNodeRefs:
+          type: array
+          items:
+            $ref: "#/components/schemas/NodeRef"
+        refLineage:
+          type: array
+          description: Strong refs carried through this successful commit's exact field replay. No mappings are inferred for deleted, replaced, or ambiguous nodes.
+          items:
+            $ref: "#/components/schemas/PreviewRefLineage"
+        baseDocuments:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyEditBaseDocument"
+        conflicts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        warnings:
+          type: array
+          items: { type: string }
+    ModifiedNotesResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        notes:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    NodeLocator:
+      type: object
+      required: [ref, kind, sourceLocator, status]
+      properties:
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+        kind: { type: string }
+        sourceLocator: { type: string }
+        linkTarget:
+          $ref: "#/components/schemas/NodeLinkTarget"
+        status:
+          type: string
+          enum: [linkable, requires_fix, unsupported, unresolved]
+        diagnostics:
+          type: array
+          items:
+            $ref: "#/components/schemas/NodeLinkDiagnostic"
+        fixActions:
+          type: array
+          items:
+            $ref: "#/components/schemas/NodeLinkFixAction"
+    ValidationIssue:
+      type: object
+      additionalProperties: true
+      properties:
+        code: { type: string }
+        message: { type: string }
+        path:
+          type: array
+          items: { type: string }
+    RelationTarget:
+      type: object
+      additionalProperties: true
+      properties:
+        path: { type: string }
+        typeName: { type: string }
+        provenance: { type: string }
+        structural: { type: boolean }
+    FieldAssessment:
+      type: object
+      additionalProperties: true
+      properties:
+        name: { type: string }
+        description: { type: string }
+        kind: { type: string }
+        typeName: { type: string }
+        required: { type: boolean }
+        list: { type: boolean }
+        source: { type: string }
+        semantics: { type: string }
+        present: { type: boolean }
+        values:
+          type: array
+          items: { type: string }
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationIssue"
+    RelationAssessment:
+      type: object
+      additionalProperties: true
+      properties:
+        name: { type: string }
+        description: { type: string }
+        kind: { type: string }
+        typeName: { type: string }
+        required: { type: boolean }
+        list: { type: boolean }
+        direction: { type: string }
+        semantics: { type: string }
+        present: { type: boolean }
+        values:
+          type: array
+          items: { type: string }
+        targets:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelationTarget"
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationIssue"
+    NoteAssessment:
+      type: object
+      additionalProperties: true
+      properties:
+        notePath: { type: string }
+        declaredType: { type: string }
+        resolvedType: { type: string }
+        candidateTypes:
+          type: array
+          items: { type: string }
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationIssue"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldAssessment"
+        relations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelationAssessment"
+    PersistedRelation:
+      type: object
+      additionalProperties: true
+      properties:
+        relationName: { type: string }
+        sourcePath: { type: string }
+        destinationPath: { type: string }
+        destinationType: { type: string }
+        provenance: { type: string }
+        structural: { type: boolean }
+    InspectNote:
+      type: object
+      additionalProperties: true
+      properties:
+        path: { type: string }
+        resolvedType: { type: string }
+        assessment:
+          $ref: "#/components/schemas/NoteAssessment"
+        typeDoc:
+          $ref: "#/components/schemas/TypeDoc"
+        persistedRelations:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersistedRelation"
+    OntologyInspectResponse:
+      type: object
+      required: [ontologyAvailable]
+      properties:
+        ontologyAvailable: { type: boolean }
+        schemaHash: { type: string }
+        note:
+          $ref: "#/components/schemas/InspectNote"
+    OntologySummaryResponse:
+      type: object
+      required: [schemaPresent, totalNotes, typedNotes, untypedNotes, ambiguousNotes, issueNotes]
+      properties:
+        schemaPresent: { type: boolean }
+        schemaHash: { type: string }
+        querySchemaSDL: { type: string }
+        rebuilding:
+          type: boolean
+          description: The index is republishing note metadata; counts are the last published snapshot, or zero before the first one.
+        totalNotes: { type: integer }
+        typedNotes: { type: integer }
+        untypedNotes: { type: integer }
+        ambiguousNotes: { type: integer }
+        issueNotes: { type: integer }
+        types:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyTypeSummary"
+        interfaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyInterfaceSummary"
+    OntologyQueryRequest:
+      type: object
+      required: [query]
+      properties:
+        query: { type: string }
+        variables:
+          type: object
+          additionalProperties: true
+        operationName: { type: string }
+        editSession:
+          $ref: "#/components/schemas/EditSessionReadRequest"
+    OntologyQueryError:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        path:
+          type: array
+          items: { type: string }
+        extensions:
+          type: object
+          additionalProperties: true
+    OntologyQueryResult:
+      type: object
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyQueryError"
+    OntologyQuerySchemaResponse:
+      type: object
+      required: [schemaPresent]
+      properties:
+        schemaPresent: { type: boolean }
+        schemaHash: { type: string }
+        sdl: { type: string }
+    PublicQueryRecipeListResponse:
+      type: object
+      required: [recipes]
+      properties:
+        recipes:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueryRecipe"
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueryRecipeIssue"
+    PublicQueryRecipeExecuteRequest:
+      type: object
+      properties:
+        inputs:
+          type: object
+          additionalProperties:
+            type: string
+    QueryRecipe:
+      type: object
+      required: [apiVersion, id, name, problem, inputSpec, query, outputContract, adaptationGuidance]
+      properties:
+        apiVersion: { type: string }
+        id: { type: string }
+        name: { type: string }
+        problem: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        inputSpec:
+          type: object
+          properties:
+            mode: { type: string }
+            primaryInput: { type: string }
+            broadAlternativeId: { type: string }
+            inputs:
+              type: array
+              items:
+                type: object
+                properties:
+                  name: { type: string }
+                  required: { type: boolean }
+                  kind: { type: string }
+                  description: { type: string }
+                  default: { type: string }
+        query:
+          type: object
+          properties:
+            graphQL: { type: string }
+        outputContract:
+          $ref: "#/components/schemas/QueryRecipeOutputContract"
+        adaptationGuidance:
+          type: object
+          properties:
+            summary: { type: string }
+            rules:
+              type: array
+              items: { type: string }
+    QueryRecipeIssue:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        recipe: { type: string }
+        path: { type: string }
+        line: { type: integer }
+        field: { type: string }
+    QueryRecipeOutputContract:
+      type: object
+      properties:
+        expectedPaths:
+          type: array
+          items: { type: string }
+        rowPath: { type: string }
+        empty: { type: string }
+        partial: { type: string }
+        highVolume: { type: string }
+    QueryRecipeRunResult:
+      type: object
+      required: [recipe, query, outputContract, result]
+      properties:
+        recipe:
+          $ref: "#/components/schemas/QueryRecipe"
+        inputs:
+          type: object
+          additionalProperties: { type: string }
+        variables:
+          type: object
+          additionalProperties: true
+        query: { type: string }
+        outputContract:
+          $ref: "#/components/schemas/QueryRecipeOutputContract"
+        result:
+          $ref: "#/components/schemas/OntologyQueryResult"
+    ViewCatalog:
+      type: object
+      required: [views, targets]
+      properties:
+        views:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewCatalogEntry"
+        targets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewTarget"
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewIssue"
+    ViewTarget:
+      type: object
+      required: [kind, name, choices, defaultChoiceId]
+      properties:
+        kind:
+          type: string
+          enum: [type, interface, group, node, standalone]
+        name: { type: string }
+        defaultChoiceId: { type: string }
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewChoice"
+    ViewChoice:
+      type: object
+      required: [id, name, renderer]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        renderer:
+          type: string
+          enum: [overview, table, card, kanban, read, source, custom]
+        viewId: { type: string }
+        variant:
+          type: string
+          enum: [table, card, kanban]
+        custom: { type: boolean }
+    ViewCatalogEntry:
+      type: object
+      required: [id, name, source, mount, defaults, variants, definition]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        configuration:
+          type: object
+          additionalProperties: true
+        description: { type: string }
+        generated: { type: boolean }
+        origin:
+          type: string
+          enum: [bundled, repository, generated]
+          description: Where the definition comes from; the server always sends it. A repository view replaces the bundled view with the same id; generated views are runtime defaults for types and interfaces.
+        source:
+          $ref: "#/components/schemas/ViewSourceSpec"
+        mount:
+          $ref: "#/components/schemas/ViewMountSpec"
+        defaults:
+          $ref: "#/components/schemas/ViewDefaultsSpec"
+        variants:
+          $ref: "#/components/schemas/ViewVariantSet"
+        availableVariants:
+          type: array
+          items: { type: string }
+        definition:
+          $ref: "#/components/schemas/ViewDefinition"
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewIssue"
+    ViewDefinition:
+      type: object
+      additionalProperties: true
+      required: [apiVersion, id, name, source, mount, variants]
+      properties:
+        apiVersion: { type: string }
+        id: { type: string }
+        name: { type: string }
+        configuration:
+          type: object
+          additionalProperties: true
+        description: { type: string }
+        generated: { type: boolean }
+        source:
+          $ref: "#/components/schemas/ViewSourceSpec"
+        mount:
+          $ref: "#/components/schemas/ViewMountSpec"
+        defaults:
+          $ref: "#/components/schemas/ViewDefaultsSpec"
+        variants:
+          $ref: "#/components/schemas/ViewVariantSet"
+    ViewSourceSpec:
+      type: object
+      additionalProperties: true
+      required: [kind]
+      properties:
+        kind: { type: string }
+        type: { type: string }
+        interface: { type: string }
+        queryRecipe: { type: string }
+        resultPath: { type: string }
+        entry:
+          type: string
+          description: Entry file of a custom view, relative to the definition's folder. The view renders at /views/{id}.
+        inputs:
+          type: object
+          additionalProperties:
+            type: string
+    ViewMountSpec:
+      type: object
+      additionalProperties: true
+      required: [kind]
+      properties:
+        kind: { type: string }
+        type: { type: string }
+        interface: { type: string }
+        group: { type: string }
+        order: { type: integer }
+        default: { type: boolean }
+        hidden: { type: boolean }
+        replaceGenerated: { type: boolean }
+    ViewDefaultsSpec:
+      type: object
+      additionalProperties: true
+      properties:
+        variant: { type: string }
+        first: { type: integer }
+        sourceCap: { type: integer }
+        search: { type: string }
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewFilterSpec"
+        sort:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewSortSpec"
+        group:
+          $ref: "#/components/schemas/ViewGroupSpec"
+        page:
+          $ref: "#/components/schemas/ViewPageRequest"
+    ViewVariantSet:
+      type: object
+      additionalProperties: true
+      properties:
+        table:
+          $ref: "#/components/schemas/ViewTableVariant"
+        card:
+          $ref: "#/components/schemas/ViewCardSpec"
+        kanban:
+          $ref: "#/components/schemas/ViewKanbanVariant"
+    ViewCardSpec:
+      type: object
+      additionalProperties: true
+      properties:
+        eyebrow: { type: string }
+        title: { type: string }
+        preview: { type: string }
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewTableColumn"
+    ViewKanbanVariant:
+      type: object
+      additionalProperties: true
+      required: [columnField]
+      properties:
+        columnField: { type: string }
+        hideEmptyColumns: { type: boolean }
+        laneField: { type: string, description: Field that splits the board into lanes; empty uses the profile default and "none" disables lanes. }
+        card:
+          $ref: "#/components/schemas/ViewCardSpec"
+    ViewCardLayout:
+      type: object
+      required: [title, fields]
+      properties:
+        eyebrow:
+          $ref: "#/components/schemas/ViewTableColumn"
+        title:
+          $ref: "#/components/schemas/ViewTableColumn"
+        preview:
+          $ref: "#/components/schemas/ViewTableColumn"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewTableColumn"
+    ViewBoardLayout:
+      type: object
+      required: [columnField, editable, columns]
+      properties:
+        columnField: { type: string }
+        editable: { type: boolean }
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewBoardColumn"
+        laneField: { type: string }
+        lanes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewBoardLane"
+    ViewBoardLane:
+      type: object
+      required: [key, value, label, count, cells]
+      properties:
+        key: { type: string }
+        value: { type: string }
+        label: { type: string }
+        tone: { type: string }
+        count: { type: integer }
+        cells:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewBoardLaneCell"
+    ViewBoardLaneCell:
+      type: object
+      required: [value, rows]
+      properties:
+        value: { type: string }
+        rows:
+          type: array
+          description: Indexes into ViewExecuteResponse.rows.
+          items: { type: integer }
+    ViewBoardColumn:
+      type: object
+      required: [key, value, label, count, rowStart, rowEnd]
+      properties:
+        key: { type: string }
+        value: { type: string }
+        label: { type: string }
+        tone: { type: string }
+        count: { type: integer }
+        rowStart: { type: integer }
+        rowEnd: { type: integer }
+        collapsedByDefault: { type: boolean }
+    ViewTableVariant:
+      type: object
+      additionalProperties: true
+      properties:
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewTableColumn"
+        density: { type: string, enum: [two-line, one-line] }
+    ViewTableColumn:
+      type: object
+      additionalProperties: true
+      required: [field]
+      properties:
+        field: { type: string }
+        label: { type: string }
+    ViewExecuteRequest:
+      type: object
+      properties:
+        variant: { type: string }
+        filterPreset: { type: string }
+        search: { type: string }
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewFilterSpec"
+        sort:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewSortSpec"
+        group:
+          $ref: "#/components/schemas/ViewGroupSpec"
+        page:
+          $ref: "#/components/schemas/ViewPageRequest"
+        source:
+          $ref: "#/components/schemas/ViewSourceRequest"
+        inputs:
+          type: object
+          additionalProperties:
+            type: string
+        editSession:
+          $ref: "#/components/schemas/EditSessionReadRequest"
+        columnField: { type: string, description: "Board column field: the view's configured column field or a lifecycle or ordered field (SPEC-0112). Empty keeps the configured field." }
+        laneField: { type: string, description: "Board lane field, or \"none\" for no lanes. Empty uses the view's laneField, else the profile default." }
+    ViewExecuteResponse:
+      type: object
+      required: [view, variant, state, columns, rows, pageInfo, definitionFingerprint, sourceFingerprint, executionFingerprint]
+      properties:
+        view:
+          $ref: "#/components/schemas/ViewCatalogEntry"
+        variant: { type: string }
+        state:
+          $ref: "#/components/schemas/ViewExecutionState"
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewFieldCapability"
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewTableColumn"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewTableRow"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewTableGroup"
+        card:
+          $ref: "#/components/schemas/ViewCardLayout"
+        board:
+          $ref: "#/components/schemas/ViewBoardLayout"
+        pageInfo:
+          $ref: "#/components/schemas/ViewPageInfo"
+        profile:
+          $ref: "#/components/schemas/TypeProfile"
+        stats:
+          $ref: "#/components/schemas/ViewExecutionStats"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewWarning"
+        constraintPlan: { type: boolean }
+        pushedConstraints:
+          $ref: "#/components/schemas/ViewSourceConstraints"
+        residualConstraints:
+          $ref: "#/components/schemas/ViewSourceConstraints"
+        plan:
+          $ref: "#/components/schemas/ViewConstraintPlanSummary"
+        definitionFingerprint: { type: string }
+        sourceFingerprint: { type: string }
+        executionFingerprint: { type: string }
+    ViewSourceConstraints:
+      type: object
+      properties:
+        search: { type: string }
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewFilterSpec"
+        sort:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewSortSpec"
+        page:
+          $ref: "#/components/schemas/ViewPageRequest"
+    ViewConstraintPlanSummary:
+      type: object
+      properties:
+        pushed:
+          $ref: "#/components/schemas/ViewSourceConstraints"
+        residual:
+          $ref: "#/components/schemas/ViewSourceConstraints"
+        candidateLimit: { type: integer }
+        candidateCount: { type: integer }
+        sourceCompleteness:
+          type: string
+          enum: [complete, bounded, unknown]
+        reliability:
+          type: string
+          enum: [exact, cap_bound, not_planned]
+        capPolicy:
+          $ref: "#/components/schemas/ViewSourceCapPolicy"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewWarning"
+    ViewSourceCapPolicy:
+      type: object
+      properties:
+        limit: { type: integer }
+        source: { type: string }
+    ViewExecutionState:
+      allOf:
+        - $ref: "#/components/schemas/ViewExecuteRequest"
+        - type: object
+          required: [page]
+    ViewTableRow:
+      type: object
+      required: [ref]
+      properties:
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+        path: { type: string }
+        title: { type: string }
+        resolvedType: { type: string }
+        updatedAt: { type: integer, format: int64 }
+        hasIssues: { type: boolean }
+        tags:
+          type: array
+          items: { type: string }
+        fields:
+          type: object
+          additionalProperties: true
+        relationValues:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/ViewTableRelationValue"
+    ViewTableRelationValue:
+      type: object
+      required: [value]
+      properties:
+        value: { type: string }
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+        title: { type: string }
+        status:
+          $ref: "#/components/schemas/ViewTableRelationStatus"
+    ViewTableRelationStatus:
+      type: object
+      description: >-
+        The linked record's lifecycle value from its type's profile. Board and card executions set it for
+        up to eight values per field and row; table executions leave it unset.
+      required: [value]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        tone: { type: string }
+        stage: { type: string, enum: [open, active, done, dropped] }
+    ViewFieldCapability:
+      type: object
+      required: [key, sortable, groupable]
+      properties:
+        key: { type: string }
+        policyReason: { type: string }
+        label: { type: string }
+        valueKind: { type: string }
+        canonicalField: { type: string }
+        sourceKeys:
+          type: array
+          items: { type: string }
+        sourceKind: { type: string }
+        semanticRole: { type: string }
+        required: { type: boolean }
+        importance:
+          type: string
+          enum: [KEY, NORMAL, DETAIL]
+          description: Defaults to NORMAL when the schema omits importance.
+        sortable: { type: boolean }
+        indexedSortable: { type: boolean }
+        residualSortable: { type: boolean }
+        groupable: { type: boolean }
+        filterOps:
+          type: array
+          items: { type: string }
+        indexedFilterOps:
+          type: array
+          items: { type: string }
+        residualFilterOps:
+          type: array
+          items: { type: string }
+        completeness:
+          type: string
+          enum: [complete, bounded, unknown]
+        source: { type: string }
+        values:
+          type: array
+          items: {}
+        facets:
+          $ref: "#/components/schemas/ViewFacetCapability"
+        filter:
+          $ref: "#/components/schemas/ViewFilterCapability"
+        group:
+          $ref: "#/components/schemas/ViewGroupCapability"
+        enumName: { type: string }
+        enumValues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewFieldEnumValue"
+        edit:
+          $ref: "#/components/schemas/ViewEditCapability"
+    ViewFacetCapability:
+      type: object
+      properties:
+        values:
+          type: array
+          items: {}
+        labels:
+          type: object
+          description: Target note titles for link values, keyed by value.
+          additionalProperties: { type: string }
+    ViewFilterCapability:
+      type: object
+      properties:
+        ops:
+          type: array
+          items: { type: string }
+        options:
+          type: array
+          items: {}
+    ViewGroupCapability:
+      type: object
+      properties:
+        values:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewFieldEnumValue"
+    ViewFieldEnumValue:
+      type: object
+      required: [value]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        description: { type: string }
+        rank: { type: integer }
+        tone: { type: string }
+        collapsedByDefault: { type: boolean }
+        stage: { type: string, enum: [open, active, done, dropped] }
+        stageDeclared: { type: boolean }
+    ViewSaveRequest:
+      type: object
+      required: [state]
+      properties:
+        definitionFingerprint: { type: string, description: The definition fingerprint the client loaded; a mismatch returns 409. }
+        state:
+          $ref: "#/components/schemas/ViewSaveState"
+    ViewSaveState:
+      type: object
+      description: >-
+        View state to save. variant, search, filters, and sort are written as given; empty ones remove
+        their keys. group, columns, density, columnField, and laneField leave the view's setting unchanged
+        when absent, so a client that omits them never deletes authored keys.
+      properties:
+        variant: { type: string }
+        search: { type: string }
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewFilterSpec"
+        sort:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewSortSpec"
+        group:
+          $ref: "#/components/schemas/ViewGroupSpec"
+          description: >-
+            Absent leaves the grouping unchanged. A group whose field is empty or "none" saves an explicit
+            "no grouping" (group field none) that no default grouping overrides.
+        columns:
+          type: array
+          description: Visible table columns in display order; absent or empty leaves them unchanged.
+          items:
+            $ref: "#/components/schemas/ViewTableColumn"
+        density:
+          type: string
+          enum: [two-line, one-line, ""]
+          description: Absent leaves the density unchanged; empty removes it so the default applies.
+        columnField: { type: string, description: Board column field; absent leaves it unchanged. }
+        laneField:
+          type: string
+          description: Board lane field, or "none" to turn lanes off. Absent leaves it unchanged; empty removes it so the default lanes apply.
+    ViewSaveResponse:
+      type: object
+      required: [id, path, created]
+      properties:
+        id: { type: string, description: The saved view's id, which now replaces the generated layouts when it was created from one. }
+        path: { type: string, description: Vault-relative path of the written YAML file. }
+        created: { type: boolean }
+    TypeProfile:
+      type: object
+      description: Schema-derived profile of a type or interface (SPEC-0112).
+      required: [shape]
+      properties:
+        shape: { type: string, enum: [workflow, contract, dated, catalog, reference] }
+        lifecycleField: { type: string }
+        orderedFields: { type: array, items: { type: string } }
+        categoryFields: { type: array, items: { type: string } }
+        summaryField: { type: string }
+        primaryDateField: { type: string }
+        peopleFields: { type: array, items: { type: string } }
+        keyTextFields: { type: array, items: { type: string } }
+        relationFields: { type: array, items: { type: string } }
+        reverseFields: { type: array, items: { type: string } }
+        gapFields: { type: array, items: { type: string }, description: KEY fields other than required, lifecycle, and @requiresWhen-conditional fields. }
+    ViewExecutionStats:
+      type: object
+      description: Summary of every matching row, computed before paging.
+      required: [total, issueCount, staleCount]
+      properties:
+        total: { type: integer }
+        issueCount: { type: integer }
+        staleCount: { type: integer }
+        lifecycle:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewStatsValueCount"
+        kinds:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewStatsValueCount"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewStatsFieldFill"
+        dates:
+          $ref: "#/components/schemas/ViewStatsDateRange"
+        truncated:
+          type: boolean
+          description: True when the source cap may have cut rows, so these statistics cover only the rows the source returned.
+    ViewStatsValueCount:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string }
+        count: { type: integer }
+    ViewStatsFieldFill:
+      type: object
+      required: [field, filled]
+      properties:
+        field: { type: string }
+        filled: { type: integer }
+    ViewStatsDateRange:
+      type: object
+      required: [field]
+      properties:
+        field: { type: string }
+        first: { type: string }
+        last: { type: string }
+        months:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewStatsValueCount"
+    ViewEditCapability:
+      type: object
+      required: [kind, operation, field]
+      properties:
+        kind: { type: string }
+        operation: { type: string }
+        field: { type: string }
+        list: { type: boolean }
+        inputMode: { type: string }
+        valueKind: { type: string }
+        options:
+          type: array
+          items: { type: string }
+        targetType: { type: string }
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewEditCandidate"
+    ViewEditCandidate:
+      type: object
+      required: [ref, value, label]
+      properties:
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+        value: { type: string }
+        label: { type: string }
+        path: { type: string }
+    ViewFieldCandidatesResponse:
+      type: object
+      required: [field]
+      properties:
+        field: { type: string }
+        targetType: { type: string }
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewEditCandidate"
+        hasMore: { type: boolean }
+    ViewFilterSpec:
+      type: object
+      additionalProperties: true
+      required: [field, op]
+      description: >-
+        A filter on a row field. The reserved field "stale" (unless the source has a field by that name)
+        takes op eq and value "true" or "false" and matches rows in an active-stage lifecycle value
+        unchanged for 30 days by the server clock, the rule stats.staleCount uses; it always runs residually.
+      properties:
+        field: { type: string }
+        op: { type: string, description: "eq, neq, in, contains, gt, gte, lt, lte, exists, or missing (no value; SPEC-0112)." }
+        value: {}
+        values:
+          type: array
+          items: {}
+    ViewSortSpec:
+      type: object
+      additionalProperties: true
+      required: [field]
+      properties:
+        field: { type: string }
+        direction: { type: string }
+    ViewGroupSpec:
+      type: object
+      additionalProperties: true
+      properties:
+        field: { type: string, description: 'The field to group by. "none" as the only field means explicitly ungrouped.' }
+        fields:
+          type: array
+          items: { type: string }
+        values:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewGroupValueSpec"
+        bucket: { type: string, enum: [month], description: Groups a Date or DateTime field by calendar month, newest first. }
+    ViewGroupValueSpec:
+      type: object
+      required: [value]
+      properties:
+        field: { type: string }
+        value: { type: string }
+        label: { type: string }
+        order: { type: integer }
+        collapsedByDefault: { type: boolean }
+    ViewPageRequest:
+      type: object
+      properties:
+        offset: { type: integer }
+        first: { type: integer }
+    ViewSourceRequest:
+      type: object
+      properties:
+        maxRows: { type: integer }
+    ViewPageInfo:
+      type: object
+      required: [total, offset, first, returned, hasMore]
+      properties:
+        total: { type: integer }
+        offset: { type: integer }
+        first: { type: integer }
+        returned: { type: integer }
+        hasMore: { type: boolean }
+    ViewTableGroup:
+      type: object
+      required: [field, key, value, count, depth, rowStart, rowEnd]
+      properties:
+        field: { type: string }
+        key: { type: string }
+        label: { type: string }
+        value: { type: string }
+        count: { type: integer }
+        totalCount: { type: integer }
+        tone: { type: string }
+        depth: { type: integer }
+        rowStart: { type: integer }
+        rowEnd: { type: integer }
+        collapsedByDefault: { type: boolean }
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewTableGroup"
+    ViewWarning:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        path: { type: string }
+    ViewIssue:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        view: { type: string }
+        path: { type: string }
+        line: { type: integer }
+        field: { type: string }
+    HTMLViewerCreateRequest:
+      type: object
+      required: [path]
+      properties:
+        path: { type: string }
+        query: { type: string }
+        fragment: { type: string }
+      additionalProperties: false
+    HTMLViewerSession:
+      type: object
+      required: [id, url, nonce, expiresAt]
+      properties:
+        id: { type: string }
+        url: { type: string }
+        nonce: { type: string }
+        expiresAt: { type: string, format: date-time }
+      additionalProperties: false
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        code: { type: string }
+        details:
+          type: object
+          additionalProperties: true
+    NoteWorkspaceLink:
+      type: object
+      required: [path, title, kind]
+      properties:
+        path: { type: string }
+        title: { type: string }
+        targetTitle: { type: string }
+        kind: { type: string }
+        resolvedType: { type: string }
+        anchor: { type: string }
+        structuralNode:
+          $ref: "#/components/schemas/StructuralNodeResponse"
+        relationName: { type: string }
+        provenance: { type: string }
+        structural: { type: boolean }
+        current: { type: boolean }
+        score: { type: number }
+        summary: { type: string }
+    NoteWorkspaceGroup:
+      type: object
+      required: [key, label]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        ownerTitle: { type: string }
+        navigation: { type: boolean }
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NoteWorkspaceLink"
+    StructuralNodeResponse:
+      type: object
+      required: [nodeId, title, locator, notePath]
+      properties:
+        nodeId: { type: string }
+        fragment: { type: string }
+        title: { type: string }
+        typeName: { type: string }
+        locator: { type: string }
+        notePath: { type: string }
+        parentNodeId: { type: string }
+        fieldName: { type: string }
+        fieldPath: { type: string }
+        fieldList: { type: boolean }
+        sectionDisplay: { type: string }
+        level: { type: string }
+        kind: { type: string }
+        label: { type: string }
+        content: { type: string }
+        properties:
+          type: object
+          additionalProperties: { type: string }
+        identifierField: { type: string }
+        preview: { type: string }
+        previewTemplate: { type: string }
+        collapsed: { type: boolean }
+        list: { type: boolean }
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/StructuralNodeResponse"
+    StructuralTabResponse:
+      type: object
+      required: [key, label, count]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        fieldName: { type: string }
+        count: { type: integer }
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/StructuralNodeResponse"
+    StructuralViewResponse:
+      type: object
+      required: [root]
+      properties:
+        root:
+          $ref: "#/components/schemas/StructuralNodeResponse"
+        tabs:
+          type: array
+          items:
+            $ref: "#/components/schemas/StructuralTabResponse"
+        defaultView: { type: string }

@@ -1,0 +1,57 @@
+{
+  "case_id": "A01",
+  "checks": {
+    "boundary_behavior": {
+      "detail": "exact boundary is expired and persisted values are UTC-aware; probe failed",
+      "exit_code": 1,
+      "passed": false,
+      "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    from datetime import datetime, timezone; from src.expiry import is_valid, parse_persisted_expiry; expiry = parse_persisted_expiry('2026-09-07T16:00:00Z'); assert not is_valid(expiry, datetime(2026, 9, 7, 16, 0, 0, tzinfo=timezone.utc)); assert expiry.tzinfo == timezone.utc\n                                                                                                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "stdout": ""
+    },
+    "current_policy_is_explicit": {
+      "detail": "current policy states the UTC and exact-boundary invariants",
+      "passed": true
+    },
+    "no_unexpected_added_paths": {
+      "added": [],
+      "detail": "no unexpected files were added, removed, or modified",
+      "modified": [],
+      "passed": true,
+      "removed": [],
+      "unexpected": [],
+      "unexpected_modified": [],
+      "unexpected_removed": []
+    },
+    "preserved_seeded_files": {
+      "changed": [],
+      "detail": "protected seeded files are unchanged",
+      "passed": true
+    },
+    "public_surface_preserved": {
+      "detail": "expiry public function signatures remain stable",
+      "passed": true
+    },
+    "required_paths": {
+      "detail": "all seeded visible files are present",
+      "missing": [],
+      "passed": true
+    },
+    "superseded_rule_is_marked": {
+      "detail": "older local-time guidance is visibly superseded",
+      "passed": true
+    },
+    "visible_tests": {
+      "detail": "visible tests failed",
+      "exit_code": 1,
+      "passed": false,
+      "stderr": "======================================================================\nFAIL: test_invalid_at_exact_expiry (test_expiry.ExpiryTests.test_invalid_at_exact_expiry)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<FIXTURE>/tests/test_expiry.py\", line 15, in test_invalid_at_exact_expiry\n    self.assertFalse(is_valid(self.expiry, datetime(2026, 9, 7, 16, 0, 0, tzinfo=timezone.utc)))\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: True is not false\n\n----------------------------------------------------------------------\nRan 4 tests in 0.000s\n\nFAILED (failures=1)\n",
+      "stdout": ""
+    }
+  },
+  "failures": [
+    "visible_tests",
+    "boundary_behavior"
+  ],
+  "ok": false,
+  "passed": false
+}

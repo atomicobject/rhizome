@@ -1,0 +1,58 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+.vscode
+
+__pycache__
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+# Dependency directories (remove the comment below to include it)
+# vendor/
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+bin/
+.idea/
+rzm
+!scripts/rzm
+.gocache/
+.gopath/
+.gomodcache/
+.gotmp/
+dist/
+.release/
+pkg/app/web/assets/dist/
+node_modules/
+web/test-results/
+web/playwright-report/
+
+# Local tooling/config (Codex, direnv, Claude Code)
+.codex/*
+!.codex/prompts
+!.codex/environments
+.codex-cache/
+.env
+.env.*
+!.env.example
+local.mk
+.claude/settings.local.json
+.impeccable/config.local.json
+
+worktrees/*
+.cache
+.tmp
+.claude/worktrees
+
+__pycache__
+
+# Private 1Password tenant defaults
+.1password/account
+.1password/environment-id

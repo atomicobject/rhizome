@@ -1,0 +1,180 @@
+{
+  "ignorePatterns": ".agents/skills/impeccable/**\n.claude/skills/impeccable/**\n.github/skills/impeccable/**",
+  "rules": [
+    {
+      "id": "subsystem-agent-surface",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/agent-surface.md. Design constraints and review checklist for the agent surface: rzm agent * command family, agentapi in-process bridge, contextpack budgeting, answer packets, presentation packing. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/app/agent/**",
+        "pkg/app/agentapi/**",
+        "pkg/app/agentcode/**",
+        "pkg/app/agentstart/**",
+        "pkg/app/contextpack/**",
+        "pkg/app/answer/**",
+        "pkg/app/presentation/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-cli",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/cli.md. Design constraints, parity duties, and review checklist for the CLI layer: thin Cobra commands in cmd/, orchestration in pkg/app/cli (incl. init templates). Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "cmd/**",
+        "pkg/app/cli/**",
+        "pkg/app/repoexec/**",
+        "pkg/app/desktop/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-code-intel",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/code-intel.md. Design constraints, fixture pattern, and review checklist for the code intelligence subsystem: code anchors (note→code), coderefs (code→note), and code pattern globs. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/anchors/**",
+        "pkg/app/codeintel/**",
+        "pkg/vault/coderefs/**",
+        "pkg/vault/codepatterns/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-graphql-query",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/graphql-query.md. Design constraints and review checklist for the typed GraphQL query layer: SDL-driven execution, SQLite pushdown, and saved query recipes. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/ontology/query/**",
+        "pkg/ontology/pushdown/**",
+        "pkg/ontology/queryrecipe/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-harness",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/harness.md. Design constraints and review checklist for the coding-agent harness boundary: child-process drivers for Codex app-server and Claude Code stream-json, sessions, approvals, and one-shot generation. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/harness/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-indexing",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/indexing.md. Operational design constraints and review checklist for the indexing subsystem: pipeline stages, single queued writer lane, batching policy, index lock, and watcher integration. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/app/indexing/**",
+        "pkg/app/indexcore/**",
+        "pkg/app/indexwriter/**",
+        "pkg/app/indexingpipe/**",
+        "pkg/vault/indexlock/**",
+        "pkg/indexingperf/**",
+        "pkg/vault/watchhub/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-mcp-server",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/mcp-server.md. Design constraints, responsiveness/async-init rules, and review checklist for MCP handlers, catalog dispatch, and per-call live capability snapshots. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/app/mcp/**",
+        "pkg/app/agentapi/**",
+        "pkg/app/runtimeview/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-noderead",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/noderead.md. Design constraints, invariants, and review checklist for the noderead/readmodel typed read seam: request-scoped Scope batching, hydration profiles, edit-session read overlays, graph assembly, and consumer caching. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/ontology/noderead/**",
+        "pkg/ontology/readmodel/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-notemeta",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/notemeta.md. Design constraints, invariants, and review checklist for pkg/notemeta — the provider-aware raw-note metadata index and NoteSourceSnapshot contract. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/notemeta/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-ontology",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/ontology.md. Design constraints, invariants, and review checklist for the ontology core: schema compile, projection, node catalog, sync, policy, sections, and identifier allocation under pkg/ontology. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/ontology/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-search",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/search.md. Design constraints and review checklist for the unified search pipeline (retrieval → ranking → packing) and chunk-based semantic search. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/search/**",
+        "pkg/app/searchengine/**",
+        "pkg/app/unifiedsearch/**",
+        "pkg/app/semanticops/**",
+        "pkg/app/semanticruntime/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-stores",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/stores.md. Operational constraints for the SQLite store layer: shared single-writer mutex, retrying write transactions, DSN/pragma policy, domain-versioned migrations, FTS5 build tag, and store contracts. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/sqliteutil/**",
+        "pkg/anchors/sqlite/**",
+        "pkg/app/userstate/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-validate",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/validate.md. Design constraints and review checklist for vault validation checks (pkg/validate) and their CLI/agent/web surfaces. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/validate/**",
+        "pkg/app/validationrun/**",
+        "pkg/app/validationproduct/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-vault-core",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/vault-core.md. Operational design constraints and review checklist for vault core: path normalization through pkg/paths, vault/link/tag primitives in pkg/vault/obsidian, config discovery, blessed frontmatter, and unified ignore matching. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/fileio/**",
+        "pkg/noteformat/**",
+        "pkg/vault/notediscovery/**",
+        "pkg/vault/obsidian/**",
+        "pkg/paths/**",
+        "pkg/vault/config/**",
+        "pkg/vault/frontmatter/**",
+        "pkg/vault/ignore/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-vault-runtime",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/vault-runtime.md. Design constraints and review checklist for the vault runtime: one auto-started serve process per vault root that wins the runtime lock, publishes a probe-verified manifest, runs every indexing job on one lane, and serves the loopback control API that rzm index and code mode execute through. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/app/runtime/**",
+        "pkg/app/bootstrap/**",
+        "pkg/app/cli/serve/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    }
+  ]
+}

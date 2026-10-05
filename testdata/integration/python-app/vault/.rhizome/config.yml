@@ -1,0 +1,32 @@
+code:
+  enabled: true
+  python:
+    roots:
+      - src
+      - packages
+      - scripts
+  go:
+    roots:
+      - go
+  typescript:
+    roots:
+      - tsapp
+      - ts-workspace
+  csharp:
+    roots:
+      - csharp
+  php:
+    roots:
+      - php
+noteEmbeddings:
+  enabled: true
+  provider: test
+  dimensions: 256
+  endpoint: http://localhost:11434/api/embed
+  model: nomic-embed-text:latest
+codeEmbeddings:
+  enabled: true
+  provider: test
+  dimensions: 256
+  endpoint: http://localhost:11434/api/embed
+  model: nomic-embed-text:latest

@@ -1,0 +1,75 @@
+# Synthetic types for SPEC-0112 browser tests: one per type-collection shape.
+
+enum TvWorkStage {
+  backlog @view(label: "Backlog", order: 10, stage: "open")
+  ready @view(label: "Ready", order: 20, stage: "open")
+  doing @view(label: "Doing", order: 30, stage: "active")
+  review @view(label: "In review", order: 40, stage: "active")
+  shipped @view(label: "Shipped", order: 90, stage: "done")
+  cancelled @view(label: "Cancelled", order: 100, stage: "dropped")
+}
+
+enum TvPriority {
+  high @view(label: "High", order: 10, tone: "warning")
+  medium @view(label: "Medium", order: 20, tone: "info")
+  low @view(label: "Low", order: 30, tone: "neutral")
+}
+
+enum TvGuideKind {
+  howto
+  reference
+  explanation
+}
+
+"""
+Reference shape: a lane target with no lifecycle, date, or category.
+"""
+type TvProject
+  @display(singular: "Lane project", plural: "Lane projects", group: "E2E Type views")
+  @node(paths: ["notes/type-views/projects/*.md"]) {
+  title: String!
+  summary: String
+  workItems: [TvWorkItem!] @reverse(field: "project")
+}
+
+"""
+Workflow shape: a declared-stage lifecycle with active values.
+"""
+type TvWorkItem
+  @display(singular: "Work item", plural: "Work items", group: "E2E Type views")
+  @node(paths: ["notes/type-views/items/*.md"]) {
+  title: String!
+  summary: String
+  stage: TvWorkStage! @display(importance: KEY)
+  nextStep: String
+    @display(importance: KEY)
+    @field(source: "next-step")
+    @policy(reason: "Every open item names its next step.")
+  project: TvProject @display(importance: KEY) @link
+  owner: Person @link
+  priority: TvPriority
+  meetings: [TvMeeting!] @reverse(field: "items")
+}
+
+"""
+Dated shape: a KEY date and no lifecycle.
+"""
+type TvMeeting
+  @display(singular: "Review meeting", plural: "Review meetings", group: "E2E Type views")
+  @node(paths: ["notes/type-views/meetings/*.md"]) {
+  title: String!
+  date: Date! @display(importance: KEY)
+  attendees: [Person!] @link
+  items: [TvWorkItem!] @link
+}
+
+"""
+Catalog shape: a category enum without view metadata.
+"""
+type TvGuide
+  @display(singular: "Field guide", plural: "Field guides", group: "E2E Type views")
+  @node(paths: ["notes/type-views/guides/*.md"]) {
+  title: String!
+  summary: String
+  kind: TvGuideKind
+}

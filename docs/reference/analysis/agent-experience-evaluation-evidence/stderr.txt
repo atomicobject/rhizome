@@ -1,0 +1,13 @@
+2026-09-07T13:26:27.710087Z ERROR codex_skills_extension::host_service: failed to install system skills: io error while remove existing system skills dir: Operation not permitted (os error 1)
+2026-09-07T13:26:27.725670Z ERROR codex_skills_extension::host_service: failed to install system skills: io error while remove existing system skills dir: Operation not permitted (os error 1)
+2026-09-07T13:26:27.752214Z ERROR codex_skills_extension::loader::host: failed to scan skill path file://<USER_HOME>/.codex/skills/.system: Operation not permitted (os error 1)
+2026-09-07T13:26:27.752295Z ERROR codex_skills_extension::loader::host: failed to scan skill path file://<USER_HOME>/.codex/skills: Operation not permitted (os error 1)
+2026-09-07T13:26:27.752302Z ERROR codex_skills_extension::loader::host: failed to scan skill path file://<USER_HOME>/.agents/skills: Operation not permitted (os error 1)
+2026-09-07T13:26:27.756713Z ERROR codex_skills_extension::host_service: failed to install system skills: io error while remove existing system skills dir: Operation not permitted (os error 1)
+2026-09-07T13:26:27.757967Z ERROR codex_skills_extension::host_service: failed to install system skills: io error while remove existing system skills dir: Operation not permitted (os error 1)
+2026-09-07T13:26:27.770660Z ERROR codex_skills_extension::host_service: failed to install system skills: io error while remove existing system skills dir: Operation not permitted (os error 1)
+2026-09-07T13:26:27.917557Z ERROR codex_core::shell_snapshot: Shell snapshot validation failed: Snapshot command exited with status exit status: 127: zsh:.:1: operation not permitted: <USER_HOME>/.codex/shell_snapshots/01a07c0c-7a8a-7300-b054-1f5184f8ba51.tmp-1788787587724475000
+
+2026-09-07T13:26:53.541894Z ERROR codex_core::tools::router: error=patch rejected: empty patch
+2026-09-07T13:27:19.332093Z ERROR codex_core::tools::router: error=unable to locate image at `<FIXTURE>/AGENTS.md`: fs sandbox helper failed with status exit status: 71: sandbox-exec: sandbox_apply: Operation not permitted
+2026-09-07T13:27:24.156771Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to read file to update <FIXTURE>/AGENTS.md: fs sandbox helper failed with status exit status: 71: sandbox-exec: sandbox_apply: Operation not permitted

@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "seed": 20260912,
+  "owners": {
+    "total": 5000,
+    "code": 3000,
+    "prose": 2000,
+    "chunksPerOwner": 10
+  },
+  "graph": {
+    "edgesPerCodeOwner": 2,
+    "edgesPerNoteOwner": 2
+  },
+  "embeddings": {
+    "provider": "deterministic",
+    "model": "search-perf-hash-1024-v1",
+    "dimensions": 1024
+  },
+  "queries": [
+    {
+      "id": "code-exact-symbol",
+      "text": "Owner0007",
+      "intent": "go_to_def",
+      "laneMode": "lexical",
+      "types": [
+        "code"
+      ],
+      "pack": true
+    },
+    {
+      "id": "prose-title",
+      "text": "Guide0012",
+      "intent": "search",
+      "laneMode": "lexical",
+      "types": [
+        "note"
+      ],
+      "pack": true
+    },
+    {
+      "id": "mixed-concept",
+      "text": "shared mixed workload cohort 0042",
+      "intent": "search",
+      "laneMode": "hybrid",
+      "pack": false
+    },
+    {
+      "id": "code-path-selective",
+      "text": "Owner0107",
+      "intent": "search",
+      "laneMode": "lexical",
+      "types": [
+        "code"
+      ],
+      "pathPrefixes": [
+        "src/domain-07"
+      ],
+      "pack": false
+    },
+    {
+      "id": "prose-path-selective",
+      "text": "Guide0112",
+      "intent": "search",
+      "laneMode": "hybrid",
+      "types": [
+        "note"
+      ],
+      "pathPrefixes": [
+        "notes/domain-12"
+      ],
+      "pack": false
+    },
+    {
+      "id": "code-concept-packed",
+      "text": "durable workload topic 0242 implementation",
+      "intent": "search",
+      "laneMode": "hybrid",
+      "types": [
+        "code"
+      ],
+      "pack": true,
+      "requireBody": true
+    },
+    {
+      "id": "prose-concept-packed",
+      "text": "durable workload guide topic 0242 explanation",
+      "intent": "search",
+      "laneMode": "hybrid",
+      "types": [
+        "note"
+      ],
+      "pack": true,
+      "requireBody": true
+    },
+    {
+      "id": "note-graph-expansion",
+      "text": "related workload guides",
+      "intent": "related_to_seed",
+      "laneMode": "graph",
+      "seeds": [
+        "notes/domain-12/guide_0012.md"
+      ],
+      "pack": false
+    }
+  ],
+  "protocol": {
+    "warmups": 20,
+    "warmSamples": 200,
+    "coldSamples": 30,
+    "concurrencies": [
+      1,
+      4
+    ]
+  }
+}

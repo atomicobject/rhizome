@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","method":"mcpServer/startupStatus/updated","params":{"name":"rhizome","status":"failed","error":"connection refused","failureReason":"notFound","threadId":"thr_1"}}

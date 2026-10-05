@@ -1,0 +1,5 @@
+These synthetic journal-v1 fixtures were created by public `ApplyFixPlan` using immutable transaction sources from commit `6a5a46e6a90d226d736f8b5da72c8ed5846381b5`. Each connected action renamed a source with updated bytes and rewrote a backlink, then interrupted after the third installation before the committed marker. The stored entries use the original alphabetical publication order.
+
+The snapshots retain the actual manifest, ownership records, hashes, modes, final files, and remaining backup files. Capture normalized the complete canonical temporary vault root to `${VAULT_ROOT}` and formatted the JSON; it did not reorder entries or artifacts. Tests restore that root from the canonical vault path with native path spelling into a disposable vault, use public recovery, and compare the manifest bytes before cleanup.
+
+Both source-first and destination-first filename directions are included. The controls interrupt reverse rollback, repeat startup recovery, finish through the normal refresh and cleanup boundary, and reject a recreated distinct source even when it contains the original bytes.

@@ -1,0 +1,36 @@
+{
+  "case_id": "A02",
+  "checks": {
+    "exact_replacement": {
+      "detail": "README contains only the requested one-word replacement",
+      "initial_occurrences": 1,
+      "passed": true,
+      "remaining_occurrences": 0
+    },
+    "no_unexpected_added_paths": {
+      "added": [],
+      "detail": "no unexpected files were added, removed, or modified",
+      "modified": [
+        "README.md"
+      ],
+      "passed": true,
+      "removed": [],
+      "unexpected": [],
+      "unexpected_modified": [],
+      "unexpected_removed": []
+    },
+    "preserved_seeded_files": {
+      "changed": [],
+      "detail": "protected seeded files are unchanged",
+      "passed": true
+    },
+    "required_paths": {
+      "detail": "all seeded visible files are present",
+      "missing": [],
+      "passed": true
+    }
+  },
+  "failures": [],
+  "ok": true,
+  "passed": true
+}

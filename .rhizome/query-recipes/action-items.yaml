@@ -1,0 +1,251 @@
+apiVersion: rhizome.query-recipe.v1
+id: all-action-items
+name: All action items
+problem: List bounded ActionItem rows directly, without querying through a conversation, meeting, spec, effort, or project note first.
+inputSpec:
+  mode: none
+query:
+  graphQL: |
+    query AllActionItems {
+      actionItem(first: 100) {
+        ref { ref notePath kind nodeId fragment typeName }
+        title
+        done
+        assignee { ref { ref notePath typeName } title displayName }
+        due
+        notePath
+      }
+    }
+outputContract:
+  expectedPaths:
+    - actionItem.ref.ref
+    - actionItem.done
+    - actionItem.assignee.ref.ref
+    - actionItem.due
+    - actionItem.notePath
+  empty: No action items were found; confirm the notes contain checkbox items marked with #action-item.
+  partial: If results are truncated, keep the direct ActionItem root and narrow by assignee, source note, due date, or completion state.
+  highVolume: Keep the first page and add filters before broadening.
+adaptationGuidance:
+  summary: Preserve direct ActionItem root usage so action items are not coupled to any containing note type.
+  rules:
+    - Keep node identity, done, assignee, due, and source note fields visible.
+    - Do not replace this with a conversation- or meeting-root query.
+tags:
+  - action-items
+---
+apiVersion: rhizome.query-recipe.v1
+id: my-action-items
+name: My action items
+problem: Answer "what are my action items?" by resolving the configured current user and querying ActionItem rows assigned to that Person.
+inputSpec:
+  mode: none
+  inputs:
+    - name: assignee
+      required: true
+      kind: string
+      description: Person title or resolved ref from `rzm agent current-user validate`.
+query:
+  graphQL: |
+    query MyActionItems($assignee: String!) {
+      actionItem(
+        first: 100
+        filters: [
+          { field: "assignee", op: eq, value: $assignee }
+          { field: "done", op: eq, value: "false" }
+        ]
+        sort: [{ field: "due", direction: asc }, { field: "notePath", direction: asc }]
+      ) {
+        ref { ref notePath kind nodeId fragment typeName }
+        title
+        done
+        assignee { ref { ref notePath typeName } title displayName }
+        due
+        notePath
+      }
+    }
+outputContract:
+  expectedPaths:
+    - actionItem.ref.ref
+    - actionItem.assignee.ref.ref
+    - actionItem.done
+  empty: No matching action items were found for the configured current user.
+  partial: Keep the assignee and done filters on the direct ActionItem root before widening.
+  highVolume: Narrow by due date or source note before increasing the page size.
+adaptationGuidance:
+  summary: Resolve current user first, then keep direct ActionItem root usage.
+  rules:
+    - Run `rzm agent current-user validate` before this recipe.
+    - Treat missing or non-Person current-user state as setup work, not as permission to infer identity.
+    - Pass the validated current-user Person title or resolved ref as `assignee`.
+tags:
+  - action-items
+  - current-user
+---
+apiVersion: rhizome.query-recipe.v1
+id: assigned-action-items
+name: Assigned action items
+problem: List open ActionItem rows assigned to an explicit Person.
+inputSpec:
+  mode: none
+  inputs:
+    - name: assignee
+      required: true
+      kind: string
+      description: Person title, alias, wikilink target, or resolved ref to match against ActionItem.assignee.
+query:
+  graphQL: |
+    query AssignedActionItems($assignee: String!) {
+      actionItem(
+        first: 100
+        filters: [
+          { field: "assignee", op: eq, value: $assignee }
+          { field: "done", op: eq, value: "false" }
+        ]
+        sort: [{ field: "due", direction: asc }, { field: "notePath", direction: asc }]
+      ) {
+        ref { ref notePath kind nodeId fragment typeName }
+        title
+        done
+        assignee { ref { ref notePath typeName } title displayName }
+        due
+        notePath
+      }
+    }
+outputContract:
+  expectedPaths:
+    - actionItem.ref.ref
+    - actionItem.assignee.ref.ref
+    - actionItem.done
+  empty: No open action items were found for that assignee.
+  partial: Keep direct ActionItem root filters before widening.
+  highVolume: Narrow by due date or source note before increasing the page size.
+adaptationGuidance:
+  summary: Use this for explicit assignee queries that are not necessarily about the configured current user.
+  rules:
+    - Require a Person title, alias, wikilink target, or resolved ref from the user or from a prior Person lookup.
+    - Do not infer an assignee from prose.
+tags:
+  - action-items
+---
+apiVersion: rhizome.query-recipe.v1
+id: action-items-in-note
+name: Action items in note
+problem: Find ActionItem rows whose source note is a known vault-relative note path.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative source note path.
+query:
+  graphQL: |
+    query ActionItemsInNote($path: String!) {
+      actionItem(first: 100, filters: [{ field: "notePath", op: eq, value: $path }]) {
+        ref { ref notePath kind nodeId fragment typeName }
+        title
+        done
+        assignee { ref { ref notePath typeName } title displayName }
+        due
+        notePath
+      }
+    }
+outputContract:
+  expectedPaths:
+    - actionItem.ref.ref
+    - actionItem.notePath
+  empty: The note has no #action-item checkbox rows.
+  partial: Keep the source-note filter on the direct ActionItem root before widening.
+  highVolume: Keep the direct root and narrow by notePath before widening.
+adaptationGuidance:
+  summary: Preserve source-note filtering without introducing a containing type dependency.
+  rules:
+    - Pass the source note path as `path`.
+tags:
+  - action-items
+  - source-context
+---
+apiVersion: rhizome.query-recipe.v1
+id: assessment-assumptions
+name: Assessment assumptions
+problem: List open ActionItem assumptions so legacy-codebase documentation work can turn uncertain findings into reviewable kickoff questions.
+inputSpec:
+  mode: none
+query:
+  graphQL: |
+    query AssessmentAssumptions {
+      actionItem(
+        first: 100
+        filters: [{ field: "done", op: eq, value: "false" }]
+        sort: [{ field: "notePath", direction: asc }]
+      ) {
+        ref { ref notePath kind nodeId fragment typeName }
+        title
+        done
+        assignee { ref { ref notePath typeName } title displayName }
+        due
+        notePath
+      }
+    }
+outputContract:
+  expectedPaths:
+    - actionItem.ref.ref
+    - actionItem.title
+    - actionItem.done
+    - actionItem.notePath
+  empty: No open action items were found; confirm assumptions use the ActionItem checkbox shape and #assumption tags.
+  partial: Filter the returned open ActionItem rows client-side to titles containing #assumption before drafting questions.
+  highVolume: Keep the first page and narrow by notePath or assumption type before widening.
+adaptationGuidance:
+  summary: Preserve direct open ActionItem retrieval; assumption tags remain a client-side classification because they are authored in item text.
+  rules:
+    - Keep title, done, notePath, assignee, and due visible for grouping and meeting-question drafting.
+    - Do not infer assumptions from arbitrary prose or include completed items in the synthesis set.
+tags:
+  - action-items
+  - assessment
+  - assumptions
+---
+apiVersion: rhizome.query-recipe.v1
+id: action-items-for-context
+name: Action items for context
+problem: Find ActionItem rows owned by a source context note such as a spec, effort, project, meeting, or reference note.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative path for the source context note.
+query:
+  graphQL: |
+    query ActionItemsForContext($path: String!) {
+      actionItem(first: 100, filters: [{ field: "notePath", op: eq, value: $path }]) {
+        ref { ref notePath kind nodeId fragment typeName }
+        title
+        done
+        assignee { ref { ref notePath typeName } title displayName }
+        due
+        notePath
+      }
+    }
+outputContract:
+  expectedPaths:
+    - actionItem.ref.ref
+    - actionItem.notePath
+    - actionItem.done
+    - actionItem.assignee.ref.ref
+  empty: The source context note has no #action-item checkbox rows.
+  partial: Keep the source-context path filter before widening to broader action-item inventory.
+  highVolume: Keep the direct ActionItem root and narrow by done state, assignee, or due date before increasing the page size.
+adaptationGuidance:
+  summary: Use this when a user asks for action items belonging to a particular spec, effort, project, meeting, or other source note.
+  rules:
+    - Resolve the source context to a vault-relative note path first.
+    - Keep the direct ActionItem root; do not query through a containing note type.
+tags:
+  - action-items
+  - source-context

@@ -1,0 +1,55 @@
+apiVersion: rhizome.view.v1
+id: complex-domain.sources-needing-review
+name: Sources Needing Review
+description: Requirement sources with review status, source version, extraction date, and extracted requirements.
+source:
+  kind: ontology_type
+  type: RequirementSource
+mount:
+  kind: standalone
+  group: Domain
+  order: 50
+defaults:
+  variant: table
+  first: 100
+  group:
+    field: reviewStatus
+  sort:
+    - field: reviewStatus
+      direction: asc
+    - field: sourceDate
+      direction: desc
+    - field: title
+      direction: asc
+filterPresets:
+  - id: review-needed
+    label: Review Needed
+    filters:
+      - field: reviewStatus
+        op: in
+        values: [unreviewed, needs_review, stale]
+  - id: unreviewed
+    label: Unreviewed
+    filters:
+      - field: reviewStatus
+        op: eq
+        value: unreviewed
+variants:
+  table:
+    columns:
+      - field: id
+        label: ID
+      - field: title
+        label: Source
+      - field: sourceKind
+        label: Kind
+      - field: sourceDate
+        label: Source Date
+      - field: sourceVersion
+        label: Version
+      - field: reviewStatus
+        label: Review
+      - field: lastExtracted
+        label: Extracted
+      - field: requirements
+        label: Requirements

@@ -1,0 +1,19 @@
+I’m using the Rhizome skill because this is a substantive repository fix and the governing context may affect the correct boundary semantics. I’ll use direct `rzm` CLI commands only, then patch the implementation and run the narrowest relevant checks.
+
+The governing policy is explicit: validity is strictly before expiry, so equality must be invalid; stored values must remain UTC-aware and public signatures/storage stable. The current defect is the inclusive `<=` comparison in `is_valid`. I’m now collecting Rhizome’s indexed context and exact symbol evidence before making the one-line behavioral repair.
+
+Rhizome confirms the active policy and the indexed `is_valid` definition: the defect is exactly the inclusive comparison, with no required caller or storage changes. Its semantic-search lane is unavailable because embeddings are disabled, so I’m compensating with exact indexed code references and file retrieval before patching.
+
+The repair is applied: `is_valid` now uses a strict `<` comparison while leaving UTC normalization, parsing, signatures, and persistence untouched. I’m running the focused unit suite plus lightweight syntax/diff checks now.
+
+The checks passed, but the syntax check generated one untracked bytecode artifact. I’m removing that exact generated file so the final worktree contains only the intended source change.
+
+Fixed the expiration boundary bug in [src/expiry.py:22](<EXECUTION_P01-DIRECT>/src/expiry.py:22) by changing `<=` to `<`.
+
+Checks passed:
+
+- `python3 -m unittest discover -s tests` — 4 tests
+- `python3 -m compileall -q src`
+- `git diff --check`
+
+Rhizome exact context confirmed the active UTC policy and superseded historical guidance. Semantic search was unavailable because embeddings are disabled.

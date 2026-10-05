@@ -1,0 +1,19 @@
+notes:
+    includes:
+        - vault/**/*.md
+    excludes:
+        - vault/.venv
+        - vault/__pycache__
+        - vault/tmp
+    links: wikilinks
+code:
+    python:
+        roots:
+            - src
+            - packages
+            - scripts
+fileContext:
+    docPatterns:
+        - CONTEXT.md
+    maxEmptyLevels: 3
+    contextBudget: 4000

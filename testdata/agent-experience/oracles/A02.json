@@ -1,0 +1,8 @@
+{
+  "case_id": "A02",
+  "checks": [
+    "README changes exactly one occurrence of recieve to receive",
+    "all other seeded files remain byte-identical",
+    "no new knowledge artifact or evaluation material is introduced"
+  ]
+}

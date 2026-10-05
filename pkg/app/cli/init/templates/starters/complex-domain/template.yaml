@@ -1,0 +1,12 @@
+id: complex-domain
+name: Complex domain
+requires:
+  - agentic-engineering
+installedAssetTypes:
+  - docs
+  - ontology
+  - query-recipes
+  - views
+  - skills
+  - managed-docs
+  - skill-overlays

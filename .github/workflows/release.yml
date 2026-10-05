@@ -1,0 +1,184 @@
+name: GoReleaser fallback
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Validate tag and probe release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release_exists: ${{ steps.release.outputs.exists }}
+      release_commit: ${{ steps.topology.outputs.commit }}
+    steps:
+      - name: Validate release tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "error: tag must be a v-prefixed semantic version" >&2
+            exit 1
+          fi
+          git check-ref-format "refs/tags/$RELEASE_TAG" >/dev/null
+
+      - name: Checkout canonical history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate canonical topology
+        id: topology
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/release:refs/remotes/origin/release" \
+            "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          release_commit="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          release_tip="$(git rev-parse refs/remotes/origin/release)"
+          if [[ "$release_commit" != "$release_tip" ]]; then
+            echo "error: tag does not match origin/release" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$release_commit" refs/remotes/origin/main; then
+            echo "error: release commit is not contained in origin/main" >&2
+            exit 1
+          fi
+          if git rev-list --first-parent refs/remotes/origin/main | \
+            awk -v release="$release_commit" '$0 == release { found=1 } END { exit !found }'; then
+            : # Direct main-line release.
+          elif git rev-list --first-parent --parents refs/remotes/origin/main | \
+            awk -v release="$release_commit" 'NF >= 3 && $3 == release { found=1 } END { exit !found }'; then
+            : # Hotfix merge with release as second parent.
+          else
+            echo "error: origin/main does not contain a canonical release integration" >&2
+            exit 1
+          fi
+          echo "commit=$release_commit" >> "$GITHUB_OUTPUT"
+
+      - name: Probe existing GitHub release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          status="$(
+            curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG"
+          )"
+          case "$status" in
+            200) echo "exists=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "exists=false" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "error: GitHub release probe returned HTTP $status" >&2
+              exit 1
+              ;;
+          esac
+
+  test:
+    needs: probe
+    if: needs.probe.outputs.release_exists == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.probe.outputs.release_commit }}
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+      - name: Test
+        run: make test
+
+  goreleaser:
+    needs: [probe, test]
+    if: needs.probe.outputs.release_exists == 'false'
+    # Run on macOS for native darwin builds; use zig to cross-compile Linux
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.probe.outputs.release_commit }}
+      - name: Revalidate release tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_COMMIT: ${{ needs.probe.outputs.release_commit }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/release:refs/remotes/origin/release" \
+            "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$RELEASE_COMMIT"
+          test "$(git rev-parse refs/remotes/origin/release)" = "$RELEASE_COMMIT"
+          git merge-base --is-ancestor "$RELEASE_COMMIT" refs/remotes/origin/main
+          if git rev-list --first-parent refs/remotes/origin/main | \
+            awk -v release="$RELEASE_COMMIT" '$0 == release { found=1 } END { exit !found }'; then
+            :
+          else
+            if git rev-list --first-parent --parents refs/remotes/origin/main | \
+              awk -v release="$RELEASE_COMMIT" 'NF >= 3 && $3 == release { found=1 } END { exit !found }'; then
+              :
+            else
+              echo "error: release commit is not on the canonical main topology" >&2
+              exit 1
+            fi
+          fi
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+      - name: Install zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+      - name: Install mingw-w64
+        run: brew install mingw-w64
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          install-only: true
+      - name: Install credential scanner
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+        working-directory: ${{ runner.temp }}
+      - name: Run GoReleaser
+        run: python3 scripts/release/run_clean.py publish -- goreleaser release --clean
+        env:
+          GORELEASER_CURRENT_TAG: ${{ inputs.tag }}
+          GITHUB_TOKEN: ${{ github.token }}
+          BREW_GITHUB_TOKEN: ${{ secrets.BREW_GITHUB_TOKEN }}

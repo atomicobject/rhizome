@@ -1,0 +1,10 @@
+{
+  "name": "@fixture/library",
+  "type": "module",
+  "imports": {
+    "#internal": "./src/internal.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

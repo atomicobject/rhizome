@@ -1,0 +1,21 @@
+I’m routing this as complex-domain source ingestion plus traceability/coverage maintenance, with Rhizome operations performed through one generated JavaScript client and one persistent `rzm agent code serve` process as required. I’ll first inspect the local workflow instructions and existing source/feature records, then ingest the revision as candidate evidence, record the conflict explicitly, and validate the resulting links without accepting anything.
+
+The fixture confirms the intended boundary: v1 is the reviewed 30-day agreement, v2 is a later 14-day proposal, and the frozen spec explicitly requires preserving both while leaving the decision open. The durable effort record already contains the key facts but its coverage checklist and actual-delivery fields are still pending, so I’m checking the live Rhizome graph and authored note contracts before making only the authorized documentation update.
+
+I’m using the changed-source impact route and a requirement trace pack, with the existing effort note as the durable coverage destination. The source and requirement are already authored and indexed, so this is a refresh/assessment rather than creation of a new source or a new candidate; any lifecycle state will remain unchanged. Next I’m discovering the exact code-mode contracts before starting the single persistent process.
+
+The live recipe definitions match the intended evidence path: `changed-domain-impact-pack` for the revised source, `requirement-trace-pack` for the affected obligation, `spec-domain-context-pack` for the frozen feature contract, plus bounded coverage/source-review packs. I’ve generated one client artifact and will now run those reads serially through one client/process, including exact note reads and live authoring guidance for the effort record.
+
+The retrieved context supports a narrow update: both source notes already preserve identity, version/date, provenance, exact locations, and review state; the requirement is still `accepted` with the 30-day wording; the spec remains frozen at 30 days; and only one of the two acceptance criteria has delivery evidence. I’m leaving all source, requirement, and spec lifecycle fields untouched and will update the effort’s outcome/coverage journal, with the unresolved reviewer decision captured separately rather than silently changing scope.
+
+The durable effort record now marks the two requested coverage obligations complete and records the exact v1/v2 citations, the unresolved 30-vs-14-day conflict, and the partial-delivery consequence. It explicitly says the proposal remains candidate evidence; no source, requirement, spec, or lifecycle state was promoted. I’m running focused Rhizome verification now, then I’ll check the diff and tests/status.
+
+Verification is clean: Rhizome reports `ok: true`, zero issues across ontology, identifiers, links, recipes, views, and companion docs; `git diff --check` also passes. I’m removing only the temporary generated client artifacts so the worktree contains just the durable effort-note change.
+
+Updated [retention source review]( <EXECUTION_P03-PERSISTENT>/docs/efforts/2026-09-07-13-00-retention-source-review.md:31 ).
+
+- Preserved v1/v2 provenance and exact citations.
+- Recorded the unresolved 30-day vs. 14-day conflict and reviewer follow-up.
+- Kept the accepted requirement, frozen spec, and 30-day contract unchanged.
+- Recorded partial delivery; requirement remains unimplemented.
+- Rhizome validation passed with zero issues; diff check passed.

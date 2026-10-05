@@ -1,0 +1,11 @@
+apiVersion: rhizome.view.v1
+id: e2e.views.standalone
+name: Standalone demo
+configuration:
+  greeting: standalone configuration
+source:
+  kind: custom
+  entry: context.html
+mount:
+  kind: standalone
+  hidden: true

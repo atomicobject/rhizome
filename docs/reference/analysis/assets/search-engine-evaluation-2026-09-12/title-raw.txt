@@ -1,0 +1,284 @@
+ 1. 181.8% [anchor] HITSResult (pkg/search/graphalg/hits.go)
+         6 │ // HITSResult contains the hub and authority scores from the HITS algorithm.
+         7 │ type HITSResult struct {
+         8 │ 	Hubs        map[string]float64
+         9 │ 	Authorities map[string]float64
+        10 │ }
+
+ 2. 166.0% [note] Search (Hub) Search (Hub) < _FallbackNote < docs/hubs/Search (Hub).md (docs/hubs/Search (Hub).md)
+  166.0% chunk 0 - Search (Hub) < _FallbackNote < docs/hubs/Search (Hub).md
+ 3. 156.6% [note] Deep docs Deep docs < _FallbackSection < pkg/search/CONTEXT.md (pkg/search/CONTEXT.md)
+  156.6% chunk 0 - Deep docs < _FallbackSection < pkg/search/CONTEXT.md
+      Unified search pipeline: retrieval → ranking → packing. Orchestrates multiple
+      retrievers, blends evidence, renders budgeted context.
+
+      - **Entry point**: `Service.Search(ctx, spec)` - **Key invariant**: same-handle
+      candidates merge evidence; `MaxPerOwner` limits per-note/file results; ontology-node
+      chunks must have catalog identity before they become candidates. - **Rationale
+      evidence**: `rationale_fts` is support-only. It can add `rationale_fts_match` evidence
+      to an anchor/file found by another retriever, but support-only candidates are filtered
+      before ranking so code comments do not become standalone search results.
+ 4. 154.7% [note] Deep docs Deep docs < _FallbackSection < pkg/search/planner/CONTEXT.md (pkg/search/planner/CONTEXT.md)
+  154.7% chunk 0 - Deep docs < _FallbackSection < pkg/search/planner/CONTEXT.md
+      Translates QuerySpec into a Plan (retrievers + ranker + packer). Handles seed expansion
+      and intent-based weight tuning.
+
+      - **Entry point**: `Planner.Plan(ctx, spec)` - **Key invariant**: planner builds plans,
+      doesn't execute; seed expansion happens before retriever construction
+ 5. 154.3% [note] Deep docs Deep docs < _FallbackSection < pkg/search/retrieval/CONTEXT.md (pkg/search/retrieval/CONTEXT.md)
+  154.3% chunk 0 - Deep docs < _FallbackSection < pkg/search/retrieval/CONTEXT.md
+      Individual retriever implementations producing Candidates with Evidence for the ranker.
+
+      - **Entry points**: `VectorRetriever`, `GraphRetriever`, `DocLinksRetriever`, etc. -
+      **Key invariant**: same Handle = same entity; evidence merges across retrievers -
+      **Provider root lexical evidence**: visible and supplemental search regions use the
+      canonical note handle. Supplemental BM25 weighting is applied in SQLite before the
+      result limit, so scripts and inline data cannot consume the visible result window at
+      full strength. - **Deadline behavior**: broad search treats timed-out nested retrievers
+      as degraded lanes; use `search.RetrieverStageContext` when adding parallel
+      sub-retrievers so one slow lane cannot consume the whole caller deadline. - **Graph
+      boundary**: graph-aware retrievers may consume `noderead` graph facts/read-model rows
+      for ontology-aware neighborhoods, but must not depend on `pkg/app/web` graph JSON
+      (`GraphNode`, module collapse, typed `nodeRef` payload shape, colors, or click-routing
+      fields). Indexed-only graph sources use fresh derived scores or a persisted-readiness
+      `GraphSnapshot` without claiming live note freshness and never call the live note
+      reader; ordinary callers retain the measured filesystem fallback. Web graph APIs are
+      adapters over canonical graph reads; search owns candidate/evidence semantics only.
+ 6. 153.9% [note] Deep docs Deep docs < _FallbackSection < pkg/search/knowledge/CONTEXT.md (pkg/search/knowledge/CONTEXT.md)
+  153.9% chunk 0 - Deep docs < _FallbackSection < pkg/search/knowledge/CONTEXT.md
+      Handle system for addressing entities in unified search (notes, anchors, chunks, files).
+
+      - **Entry point**: `Handle`, `ParseHandle()`, `NoteHandle()`, `AnchorHandle()` - **Key
+      invariant**: Handle.String() is the canonical identity; Owner() enables diversity
+      limiting - **Boundary**: keep this package handle/owner focused. Ontology-node metadata
+      belongs to ontology/noderead and is mapped into search candidates at retrieval adapter
+      boundaries.
+ 7. 151.5% [note] Indexing pipeline (Hub) Indexing pipeline (Hub) < _FallbackNote < docs/hubs/Indexing pipeline (Hub).md (docs/hubs/Indexing pipeline (Hub).md)
+  151.5% chunk 0 - Indexing pipeline (Hub) < _FallbackNote < docs/hubs/Indexing pipeline (Hub).md
+ 8. 151.5% [note] Cache (Hub) Cache (Hub) < _FallbackNote < docs/hubs/Cache (Hub).md (docs/hubs/Cache (Hub).md)
+  151.5% chunk 0 - Cache (Hub) < _FallbackNote < docs/hubs/Cache (Hub).md
+ 9. 151.4% [note] Contextpack (Hub) Contextpack (Hub) < _FallbackNote < docs/hubs/Contextpack (Hub).md (docs/hubs/Contextpack (Hub).md)
+  151.4% chunk 0 - Contextpack (Hub) < _FallbackNote < docs/hubs/Contextpack (Hub).md
+10. 151.3% [note] Graph (Hub) Graph (Hub) < _FallbackNote < docs/hubs/Graph (Hub).md (docs/hubs/Graph (Hub).md)
+  151.3% chunk 0 - Graph (Hub) < _FallbackNote < docs/hubs/Graph (Hub).md
+11. 151.2% [note] Code Intel (Hub) Code Intel (Hub) < _FallbackNote < docs/hubs/Code Intel (Hub).md (docs/hubs/Code Intel (Hub).md)
+  151.2% chunk 0 - Code Intel (Hub) < _FallbackNote < docs/hubs/Code Intel (Hub).md
+12. 150.5% [note] Init (Hub) Init (Hub) < _FallbackNote < docs/hubs/Init (Hub).md (docs/hubs/Init (Hub).md)
+  150.5% chunk 0 - Init (Hub) < _FallbackNote < docs/hubs/Init (Hub).md
+13. 150.1% [note] Code Index (Hub) Code Index (Hub) < _FallbackNote < docs/hubs/Code Index (Hub).md (docs/hubs/Code Index (Hub).md)
+  150.1% chunk 0 - Code Index (Hub) < _FallbackNote < docs/hubs/Code Index (Hub).md
+14. 150.0% [doc_section] What this hub is for (docs/hubs/Code Index (Hub).md)
+  150.0% chunk 1 - What this hub is for
+      - One place to understand the **physical storage layer**: the single
+      `.rhizome/db.sqlite` file and the table families inside it (`intel_*`, `code_*`,
+      `emb_*`, plus graph/ontology/note tables). - A map from **Go store layers**
+      (`pkg/anchors/sqlite`, `pkg/search/embeddings/sqlite`,
+      `pkg/search/embeddings/codeindex/sqlite`) to the tables they own and how they **share
+      one SQLite handle** under `serve`. - **Not** the data model and **not** the build
+      pipeline: - [[Code Intel (Hub)]] is the higher-level data-model/spine (stable IDs, typed
+      edges, retrieval semantics). This hub is the file those concepts persist into. -
+      [[Indexing pipeline (Hub)]] is the build process (parse → chunk → embed → write).
+      This hub is the destination it writes to.
+15. 150.0% [doc_section] What this hub is for (docs/hubs/Code anchors (Hub).md)
+  150.0% chunk 1 - What this hub is for
+      - **Purpose**: Understand and safely change the codeanchor subsystem (`pkg/anchors`):
+      how notes declare anchors in frontmatter, how anchors match code symbols/calls/paths,
+      how scopes are materialized and recomputed, and how the watcher keeps everything
+      current. - Code anchors are the **note → code** half of bidirectional binding. The
+      code → note half lives in [[Coderefs (Hub)]]. Both feed the unified index ([[Code
+      Index (Hub)]]) and surface through [[Code Intel (Hub)]] and [[Search (Hub)]].
+16. 150.0% [doc_section] Integration points (docs/hubs/Code anchors (Hub).md)
+  150.0% chunk 6 - Integration points
+      - `pkg/app/cli/file_context.go` — `rzm agent file-context` surfaces `NotesForFile`
+      results as anchored docs for a file - `pkg/search/retrieval/code_anchor_notes.go` —
+      search retriever that turns anchored notes into evidence ([[Search (Hub)]]) -
+      `cmd/code.go` — `rzm code anchors explain` / `rzm code symbols` diagnostics for why
+      anchors match - `pkg/app/web/files.go` — web file view consumes the same
+      `NotesForFile` read path - [[Indexing pipeline (Hub)]] — owns the WatchHub event
+      source and the unified index lifecycle this subsystem plugs into - [[Coderefs (Hub)]]
+      — the reciprocal code→note direction; both land in the same store
+17. 150.0% [doc_section] What this hub is for (docs/hubs/Contextpack (Hub).md)
+  150.0% chunk 1 - What this hub is for
+      - **Purpose**: Understand how Rhizome turns already-ranked results, notes, and code into
+      a single text body that fits a caller's character budget — including deterministic
+      greedy packing, the layered budget surfaces, and when optional LLM compression densifies
+      instead of truncates. - **Scope**: `pkg/app/contextpack` (the budget-aware packer +
+      compression) and `pkg/app/presentation` (the search-result renderer that produces
+      pieces). Consumes [[Search (Hub)]] output; feeds the `rzm agent` context commands. -
+      **Not in scope**: retrieval, ranking, and answer role selection — those live upstream
+      in [[Search (Hub)]]. Contextpack never fetches, ranks, or re-orders by relevance;
+      callers hand it pre-rendered pieces whose `Priority` already encodes product semantics.
+18. 150.0% [doc_section] Related (docs/hubs/Contextpack (Hub).md)
+  150.0% chunk 9 - Related
+      - [[Search (Hub)]] — produces the ranked results contextpack packs. - [[Cache (Hub)]]
+      — compression-output cache for `vault_context`. - [[Contextpack - Budget surfaces]]
+      — the layered budget model in detail. - [[Intent-driven compression]] — compression
+      contracts and intent prioritization.
+19. 150.0% [doc_section] What this hub is for (docs/hubs/Embeddings (Hub).md)
+  150.0% chunk 1 - What this hub is for
+      - **Purpose**: Safely evolve Rhizome's semantic embeddings — how text becomes vectors
+      (provider contract + chunk families), how they persist (SQLite `vec0` stores under the
+      unified DB), how sync stays incremental and hash-stable, and how similarity blends with
+      graph signals at rank time. - **Boundary**: this hub owns the semantic-vector surface.
+      For end-to-end indexing phase ownership use [[Indexing pipeline (Hub)]] and [[Indexing
+      pipeline - Phase ownership matrix]]; for provider lane execution rules use
+      [[semantic-runtime-lane-policy]]; for primary chunk identity/invalidation use
+      [[primary-semantic-chunks-and-noderef-search]]; for downstream retrieval/ranking use
+      [[Search (Hub)]].
+20. 150.0% [doc_section] What this hub is for (docs/hubs/Graph (Hub).md)
+  150.0% chunk 1 - What this hub is for
+      - **Purpose**: Understand and safely change Rhizome's graph analysis — the pure graph
+      algorithms (`pkg/search/graphalg`) and the persistence/build layer
+      (`pkg/search/graphdb`) that turn indexed wikilinks, mentions, coderefs, and call edges
+      into HITS hub/authority scores, communities, and anchor PageRank, and how those signals
+      reach ranking, retrieval, and `graph` commands. - **Scope boundary**: This hub covers
+      the **unified doc graph** persisted in the intel DB (notes + code, scored over
+      `noderead.GraphFacts`). For the separate **Obsidian vault graph** (recency cascade,
+      bridges, weak components computed in-memory from wikilinks) see
+      `pkg/vault/obsidian/graph.go` and [[Graph analysis (wikilinks + communities +
+      authority)]]. The two share the "graph" name but are distinct subsystems.
+21. 150.0% [doc_section] Related hubs (docs/hubs/Rhizome Codebase Documentation Best Practices (Hub).md)
+  150.0% chunk 8 - Related hubs
+      - [[Vision + Operating Model (Hub)]] - [[Coderefs (Hub)]] - [[Code anchors (Hub)]] -
+      [[Search (Hub)]] - [[Indexing pipeline (Hub)]] - [[Agent Skills (Hub)]]
+22. 150.0% [doc_section] What this hub is for (docs/hubs/Search (Hub).md)
+  150.0% chunk 1 - What this hub is for
+      - **Purpose**: Understand how Rhizome's unified search works: from focused query or seed
+      to ranked candidates, answer packet, and optional packed context.
+23. 150.0% [doc_section] Read this first (docs/hubs/Search (Hub).md)
+  150.0% chunk 2 - Read this first
+      - [[Vision + Operating Model (Hub)]] - [[Code Intel (Hub)]] — code-aware retrieval
+      context - [[Embeddings (Hub)]] — semantic embedding details -
+      [[search-answer-workflow]] — product contract for answer-shaped search -
+      [[search-quality-evaluation-corpus]] — canonical search-quality corpus and update
+      workflow - [[unified-search-answer-architecture]] — implementation boundaries -
+      [[search-diagnostics-explain-architecture]] — raw/explain diagnostic payload contract
+      - [[answer-packet-diagnostics-contract]] — answer-stage role selection and omission
+      rationale
+24. 150.0% [doc_section] The operating loop (docs/hubs/Vision + Operating Model (Hub).md)
+  150.0% chunk 3 - The operating loop
+      1. **Capture intent** — record decisions, invariants, goals, and rationale as notes /
+      `CONTEXT.md` during normal work, not as an afterthought. 2. **Bind to code** — attach
+      docs with [[Coderefs (Hub)]] (code→note) or [[Code anchors (Hub)]] (note→symbol) so
+      they get retrieved. 3. **Index** — the [[Indexing pipeline (Hub)]] discovers, parses,
+      and stores notes + code + bindings into the unified [[Code Index (Hub)]]. 4. **Enrich**
+      — [[Embeddings (Hub)]] add semantic recall, [[Graph (Hub)]] adds authority/community
+      signals, [[Ontology (Hub)]] adds typed-note structure. 5. **Retrieve in context** —
+      [[Search (Hub)]] / [[Code Intel (Hub)]] rank evidence; [[Contextpack (Hub)]] packs it to
+      the caller's budget. 6. **Operate within constraints** — agents (set up by [[Init
+      (Hub)]], driven by [[Agent Skills (Hub)]]) read the surfaced contracts, act, and update
+      docs — closing the loop.
+25. 150.0% [doc_section] Subsystem map (docs/hubs/Vision + Operating Model (Hub).md)
+  150.0% chunk 4 - Subsystem map
+      **Binding & capture** - [[Coderefs (Hub)]] — code→note half of binding
+      (comment/docstring scanning, rewrite on rename). - [[Code anchors (Hub)]] —
+      note→symbol half (frontmatter rules, matching, watcher behavior). - [[Rhizome Codebase
+      Documentation Best Practices (Hub)]] — how to document so retrieval stays high-signal
+      (token-dense, two-tier, right layer).
+
+      **Indexing & enrichment** - [[Indexing pipeline (Hub)]] — end-to-end discovery →
+      parse → store → enrich → live updates. - [[Code Index (Hub)]] — the unified
+      SQLite spine (embeddings + anchors + code-intel tables). - [[Embeddings (Hub)]] —
+      provider contract, chunk families, vec stores, incremental sync. - [[Graph (Hub)]] —
+      wikilink graph, communities, hub/authority and recency scores. - [[Ontology (Hub)]] —
+      GraphQL SDL, typed-note model, NodeRef identity, query recipes, and source-owned primary
+      semantic chunks. - [[Cache (Hub)]] — cache/watch/refresh behavior that keeps the index
+      live.
+
+      **Retrieval & delivery** - [[Search (Hub)]] — unified search/answer pipeline: plan →
+      retrieve → rank → answer → pack. - [[Code Intel (Hub)]] — code-aware retrieval,
+      navigation, and Dependency API Cards. - [[Contextpack (Hub)]] — budget-aware packing
+      and caller budgets.
+
+      **Agent operating surface** - [[Init (Hub)]] — `rzm init`: repo setup, managed agent
+      docs, command-backed helper artifacts, skill templates. - [[Agent Skills (Hub)]] —
+      packaged workflows across Cursor, Claude, Codex, and MCP. - [[Agentic Engineering
+      starter (Hub)]] — bundled engineering routing, delivery workflow, and typed note
+      families.
+26. 150.0% [doc_section] Related docs (docs/reference/subsystems/search.md)
+  150.0% chunk 6 - Related docs
+      - [[Search (Hub)]] — pipeline stages, intent catalog, CLI mapping -
+      [[search-answer-workflow]], [[unified-search-answer-architecture]] -
+      [[search-diagnostics-explain-architecture]], [[answer-packet-diagnostics-contract]] -
+      [[search-quality-evaluation-corpus]] - [[Embeddings (Hub)]], [[Contextpack (Hub)]] -
+      `docs/code-anchors/search.md`, `docs/code-anchors/search-answer.md` — anchor contracts
+      attached to callers
+27. 149.9% [anchor] handle.go (pkg/search/knowledge/handle.go)
+      ↳ Exports: AnchorHandle, CodeChunkHandle, FileHandle, Fragments, Handle, ID, Kind, NodeChunkHan…
+28. 149.9% [anchor] search.go (pkg/search/semantic/search.go)
+      ↳ Exports: AnchorID, Breadcrumb, ChunkIndex, CodeProvider, FQN, Filters, Granularity, Handle, H…
+29. 149.9% [anchor] graph_doc_score_ranker.go (pkg/search/relevance/graph_doc_score_ranker.go)
+      ↳ Exports: ApproxChannelWeights, ApproxMaxPerOwner, Base, GraphDocScoreRanker, Rank, Store, cla…
+30. 149.9% [anchor] graph_anchor_score_ranker.go (pkg/search/relevance/graph_anchor_score_ranker.go)
+      ↳ Exports: ApproxChannelWeights, ApproxMaxPerOwner, Base, GraphAnchorScoreRanker, Rank, Store,…
+31. 149.9% [anchor] types.go (pkg/search/embeddings/types.go)
+      ↳ Exports: Breadcrumb, ChunkIndex, ChunkInput, CreatedAt, Dimensions, Embedding, FinalScore, Fi…
+32. 149.9% [anchor] ranker.go (pkg/search/relevance/ranker.go)
+      ↳ Exports: ApproxChannelWeights, ApproxMaxPerOwner, DefaultWeights, Fusion, Graph, Lexical, Max…
+33. 149.9% [anchor] Hubs (pkg/search/graphalg/hits.go)
+         8 │ Hubs        map[string]float64
+
+34. 149.9% [anchor] types.go (pkg/search/types.go)
+      ↳ Exports: AllowsCandidateType, AllowsPath, AllowsType, AnchorID, ApproxScoreProvider, Breadcru…
+35. 149.9% [anchor] Hub (pkg/app/bootstrap/live.go)
+      1069 │ // Hub returns the watchhub (nil until search ready, may be nil if unavailable).
+      1070 │ func (rt *LiveRuntime) Hub() *watchhub.Hub {
+      1071 │ 	return rt.hub.Load()
+      1072 │ }
+
+36. 149.8% [anchor] planner.go (pkg/search/planner/planner.go)
+      ↳ Exports: CodeFileCount, CodeFirstDocs, CodeIndex, Deps, DirectorySeedExpansion, DirectorySeed…
+37. 149.8% [anchor] Handle (pkg/search/knowledge/handle.go)
+        27 │ // Handle is a stable, string-addressable reference to an entity in the unified sea…
+        28 │ //
+        29 │ // Handles serve as the primary identifier throughout the search pipeline: retrieve…
+        30 │ // candidates with handles, rankers merge evidence by handle, and packers render re…
+        31 │ // using handle metadata. The Owner() method enables diversity limiting (MaxPerOwne…
+        32 │ // grouping chunk handles under their owning entity.
+        33 │ //
+        34 │ // Canonical format:
+        35 │ //
+        36 │ //	kind:id[#fragment...]
+        37 │ //
+        38 │ // Examples:
+      …
+
+38. 149.8% [anchor] Service (pkg/search/service.go)
+        15 │ // Service is the unified search pipeline executor.
+        16 │ // It runs a pre-built Plan: retrieval → ranking → rollup → packing.
+        17 │ //
+        18 │ // Construct a Plan via planner.Planner.Plan(), then call Service.Search().
+        19 │ // Service handles deadline-aware progressive retrieval and fallback ranking.
+        20 │ //
+        21 │ // Docs: [Search (Hub)](docs/hubs/Search (Hub).md)
+        22 │ type Service struct {
+        23 │ 	Retrievers []Retriever // Ordered list of retrievers to run
+        24 │ 	Ranker     Ranker      // Blends evidence into final scores
+        25 │ 	Rollupper  Rollupper   // Optional: collapses fine-grained results
+        26 │ 	Shaper     Shaper      // Optional: reorders results for task-shaped top windows
+      …
+
+39. 149.8% [doc_section] Deep docs (pkg/search/relevance/CONTEXT.md)
+  149.8% chunk 1 - Deep docs
+      - [[Search (Hub)]] - [[Search - Intent and weight tuning]] - [[Search - Answer engine
+      packets]]
+40. 149.8% [anchor] chunker.go (pkg/search/semantic/chunker.go)
+      ↳ Exports: Budget, BuildBodyChunks, BuildModuleChunk, BuildPrimaryAnchorChunk, BuildSymbolChunk…
+
+Timings:
+- stage      search                   294ms ok
+- stage      retrieve                 292ms ok
+- retriever  auto_expand              292ms ok
+- retriever  auto_expand.base         290ms ok
+- retriever  auto_expand.base.vector   290ms ok
+- retriever  auto_expand.base.symbol_probe     0ms ok
+- retriever  semantic.embed.shared    199ms ok
+- retriever  auto_expand.base.note_lexical     1ms ok
+- retriever  auto_expand.base.intel_lexical    13ms ok
+- retriever  auto_expand.refs           1ms ok
+- retriever  refs.anchor_graph          1ms ok
+- retriever  refs.code_anchor_notes     0ms ok
+- retriever  refs.code_anchor_refs      0ms ok
+- retriever  refs.doc_links             1ms ok
+- stage      rank                       1ms ok
+- stage      rollup                     0ms ok

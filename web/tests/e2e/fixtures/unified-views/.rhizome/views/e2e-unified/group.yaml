@@ -1,0 +1,12 @@
+apiVersion: rhizome.view.v1
+id: e2e.views.group
+name: Exact group dashboard
+configuration:
+  greeting: exact configuration
+source:
+  kind: custom
+  entry: context.html
+mount:
+  kind: group
+  group: E2E Views
+  default: true

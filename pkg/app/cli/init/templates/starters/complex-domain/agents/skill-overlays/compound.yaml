@@ -1,0 +1,10 @@
+apiVersion: rhizome.skill-overlay.v1
+id: complex-domain.compound
+targetSkill: agentic-engineering
+fragments:
+  - file: references/compounding.md
+    slot: routing.additional-compounding
+    op: append
+    order: 10
+    content: |
+      For complex-domain compounding, evidence repeated missing links, duplicate extraction, unclear process/workflow boundaries, source-review friction, requirement conflicts, or views that cannot answer bounded coverage questions. Treat the configured coverage and stale-source views as triage. Propose a process or tool change only after inspecting the underlying notes and result qualifications.

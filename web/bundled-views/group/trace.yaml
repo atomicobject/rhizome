@@ -1,0 +1,11 @@
+apiVersion: rhizome.view.v1
+id: group.trace
+name: Trace
+description: Records of one member type as rows, with everything they connect to as columns.
+source:
+  kind: custom
+  entry: trace.tsx
+mount:
+  kind: group
+  group: "*"
+  order: 2

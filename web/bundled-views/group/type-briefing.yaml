@@ -1,0 +1,10 @@
+apiVersion: rhizome.view.v1
+id: type.briefing
+name: Briefing
+description: What needs attention, what is moving, what changed, and how the type's records spread and connect.
+source:
+  kind: custom
+  entry: type-briefing.tsx
+mount:
+  kind: type
+  type: "*"

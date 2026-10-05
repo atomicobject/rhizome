@@ -1,0 +1,12 @@
+apiVersion: rhizome.view.v1
+id: e2e.views.node
+name: Demo node workspace
+configuration:
+  greeting: node configuration
+source:
+  kind: custom
+  entry: node.tsx
+mount:
+  kind: node
+  type: ViewDemoEffort
+  default: true

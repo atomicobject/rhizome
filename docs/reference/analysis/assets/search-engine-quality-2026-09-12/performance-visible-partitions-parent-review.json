@@ -1,0 +1,137 @@
+{
+  "status": "frozen-deterministic-concurrency-gate-passed",
+  "artifact": "performance-visible-partitions-1024-v1.json",
+  "sha256": "1dab88722b26729b53a300832140c2dec847768e1aef1dfa887fbfa81e8b6abd",
+  "manifestFingerprint": "0e8a5b2b0b33114262f002a5d4859e979875138965d84ec4704e86bb0ec7aa97",
+  "indexFingerprint": "fcf777db192968733d18c94fcff79544dd9f3afcd6089f581dfdf83a6e1fcbba",
+  "counts": {
+    "owners": 5000,
+    "codeOwners": 3000,
+    "docOwners": 2000,
+    "chunks": 50000,
+    "embeddings": 50000,
+    "graphEdges": 9997
+  },
+  "samples": 6880,
+  "cells": 48,
+  "errors": 0,
+  "deadlines": 0,
+  "comparisons": [
+    {
+      "profile": "agent",
+      "queryId": "code-concept-packed",
+      "serialP95Ms": 84.622,
+      "concurrentP95Ms": 99.492,
+      "ratio": 1.1757226253220203
+    },
+    {
+      "profile": "agent",
+      "queryId": "code-exact-symbol",
+      "serialP95Ms": 17.778,
+      "concurrentP95Ms": 18.976,
+      "ratio": 1.0673866576667792
+    },
+    {
+      "profile": "agent",
+      "queryId": "code-path-selective",
+      "serialP95Ms": 15.989,
+      "concurrentP95Ms": 16.851,
+      "ratio": 1.0539120645443742
+    },
+    {
+      "profile": "agent",
+      "queryId": "mixed-concept",
+      "serialP95Ms": 136.032,
+      "concurrentP95Ms": 150.63,
+      "ratio": 1.1073129851799575
+    },
+    {
+      "profile": "agent",
+      "queryId": "note-graph-expansion",
+      "serialP95Ms": 47.196,
+      "concurrentP95Ms": 64.723,
+      "ratio": 1.3713662174760572
+    },
+    {
+      "profile": "agent",
+      "queryId": "prose-concept-packed",
+      "serialP95Ms": 86.166,
+      "concurrentP95Ms": 106.128,
+      "ratio": 1.2316691038228536
+    },
+    {
+      "profile": "agent",
+      "queryId": "prose-path-selective",
+      "serialP95Ms": 39.472,
+      "concurrentP95Ms": 40.699,
+      "ratio": 1.0310853263072557
+    },
+    {
+      "profile": "agent",
+      "queryId": "prose-title",
+      "serialP95Ms": 23.086,
+      "concurrentP95Ms": 25.84,
+      "ratio": 1.1192930780559647
+    },
+    {
+      "profile": "interactive",
+      "queryId": "code-concept-packed",
+      "serialP95Ms": 79.214,
+      "concurrentP95Ms": 88.048,
+      "ratio": 1.1115206907869821
+    },
+    {
+      "profile": "interactive",
+      "queryId": "code-exact-symbol",
+      "serialP95Ms": 18.762,
+      "concurrentP95Ms": 21.461,
+      "ratio": 1.143854599722844
+    },
+    {
+      "profile": "interactive",
+      "queryId": "code-path-selective",
+      "serialP95Ms": 16.962,
+      "concurrentP95Ms": 17.909,
+      "ratio": 1.055830680344299
+    },
+    {
+      "profile": "interactive",
+      "queryId": "mixed-concept",
+      "serialP95Ms": 121.346,
+      "concurrentP95Ms": 136.554,
+      "ratio": 1.1253275756926475
+    },
+    {
+      "profile": "interactive",
+      "queryId": "note-graph-expansion",
+      "serialP95Ms": 38.896,
+      "concurrentP95Ms": 49.391,
+      "ratio": 1.2698220896750307
+    },
+    {
+      "profile": "interactive",
+      "queryId": "prose-concept-packed",
+      "serialP95Ms": 73.465,
+      "concurrentP95Ms": 80.73,
+      "ratio": 1.0988906281902946
+    },
+    {
+      "profile": "interactive",
+      "queryId": "prose-path-selective",
+      "serialP95Ms": 38.949,
+      "concurrentP95Ms": 42.794,
+      "ratio": 1.0987188374541066
+    },
+    {
+      "profile": "interactive",
+      "queryId": "prose-title",
+      "serialP95Ms": 23.613,
+      "concurrentP95Ms": 27.759,
+      "ratio": 1.1755812476178378
+    }
+  ],
+  "limitations": [
+    "Does not establish real provider latency",
+    "Does not establish relevance or full SPEC0102 acceptance"
+  ]
+}

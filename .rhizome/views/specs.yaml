@@ -1,0 +1,73 @@
+apiVersion: rhizome.view.v1
+id: spec-driven.specs
+name: Specs
+description: Specs by lifecycle status, with cards grouped by feature area and a table.
+source:
+  kind: ontology_interface
+  interface: SpecLike
+mount:
+  kind: interface
+  interface: SpecLike
+  default: true
+defaults:
+  variant: kanban
+  first: 200
+  group:
+    field: featureAreas
+  sort:
+    - field: specStatus
+      direction: asc
+    - field: id
+      direction: asc
+filterPresets:
+  - id: live
+    label: Live
+    filters:
+      - field: specStatus
+        op: in
+        values: [proposed, active]
+  - id: proposed
+    label: Proposed
+    filters:
+      - field: specStatus
+        op: eq
+        value: proposed
+variants:
+  card:
+    eyebrow: id
+    title: title
+    preview: summary
+    fields:
+      - field: specStatus
+        label: Status
+      - field: resolvedType
+        label: Kind
+      - field: lastUpdated
+        label: Updated
+  kanban:
+    columnField: specStatus
+    card:
+      eyebrow: id
+      title: title
+      preview: summary
+      fields:
+        - field: featureAreas
+          label: Areas
+        - field: lastUpdated
+          label: Updated
+  table:
+    columns:
+      - field: id
+        label: ID
+      - field: title
+        label: Spec
+      - field: specStatus
+        label: Status
+      - field: resolvedType
+        label: Kind
+      - field: featureAreas
+        label: Feature areas
+      - field: lastUpdated
+        label: Updated
+      - field: hasIssues
+        label: Issues

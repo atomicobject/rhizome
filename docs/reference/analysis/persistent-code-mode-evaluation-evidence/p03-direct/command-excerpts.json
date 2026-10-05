@@ -1,0 +1,218 @@
+[
+  {
+    "command": "/bin/zsh -c \"sed -n '1,240p' .agents/skills/complex-domain/SKILL.md && sed -n '1,260p' .agents/skills/rhizome/SKILL.md && sed -n '1,260p' .agents/skills/requirements-ingest/SKILL.md && sed -n '1,240p' .agents/skills/requirements-curation/SKILL.md\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"sed -n '1,280p' .agents/skills/complex-domain/references/retrieval-and-evidence.md && sed -n '1,320p' .agents/skills/rhizome/references/structured-markdown.md && sed -n '1,280p' .agents/skills/rhizome/references/ontology-usage.md && sed -n '1,260p' .agents/skills/rhizome/references/validation-and-repair.md\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"printf '%s\\\\n' '--- files ---'; rg --files -g '\"'!*.pyc'\"' | sed -n '1,240p'; printf '%s\\\\n' '--- git status ---'; git status --short; printf '%s\\\\n' '--- top-level ---'; ls -la\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"sed -n '1,260p' CONTEXT.md; sed -n '1,260p' README.md; sed -n '1,320p' docs/efforts/2026-09-07-13-00-retention-source-review.md; sed -n '1,260p' docs/reference/requirements/sources/policy-v1.md; sed -n '1,320p' docs/reference/requirements/sources/policy-v2.md; sed -n '1,320p' docs/reference/requirements/requirements/retention-limit.md; sed -n '1,320p' docs/specs/retention-controls.md; sed -n '1,280p' docs/feature-areas/README.md; sed -n '1,300p' docs/reference/domain/workflows/review-retention-change.md; sed -n '1,260p' docs/reference/domain/processes/retention-review.md; sed -n '1,300p' docs/engineering/quality-gates.md; sed -n '1,260p' docs/engineering/review-and-approval.md; sed -n '1,260p' docs/engineering/documentation.md\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"sed -n '1,260p' scripts/rzm; find .rhizome -maxdepth 2 -type f -print | sort | while read f; do echo \\\"--- \"'$f\"; sed -n '\"'1,220p' \\\"\"'$f\"; done; rzm --help; rzm agent surface --help; rzm agent ontology-inspect --help; rzm agent ontology-authoring-guide --help; rzm query-recipe --help 2>/dev/null || true; rzm agent query-recipe --help 2>/dev/null || true'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rzm query-recipe list; rzm query-recipe show changed-domain-impact-pack; rzm query-recipe show requirement-trace-pack; rzm query-recipe run --help; rzm note --help; rzm note open --help; rzm note find --help; rzm validate list; rzm ontology --help'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rzm query-recipe run --id changed-domain-impact-pack --anchor docs/reference/requirements/sources/policy-v2.md --summary; rzm query-recipe run --id requirement-trace-pack --anchor docs/reference/requirements/requirements/retention-limit.md --summary'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rzm agent ontology-inspect --input docs/efforts/2026-09-07-13-00-retention-source-review.md --input docs/reference/requirements/sources/policy-v2.md --input docs/reference/requirements/requirements/retention-limit.md; rzm agent ontology-authoring-guide --type EffortNote,RequirementSource,Requirement,ActionItem'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"rzm agent ontology-authoring-guide --type EffortNote | sed -n '1,260p'; rzm agent ontology-authoring-guide --type RequirementSource | sed -n '1,240p'; rzm agent ontology-authoring-guide --type Requirement | sed -n '1,300p'\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"sed -n '1,320p' docs/reference/guides/complex-domain-workflow.md; sed -n '1,320p' docs/reference/guides/ontology-driven-transcript-ingestion.md; sed -n '1,240p' docs/reference/requirements/sources/README.md; sed -n '1,280p' docs/reference/requirements/requirements/README.md; sed -n '1,320p' docs/efforts/README.md; sed -n '1,280p' docs/reference/guides/action-items.md\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"sed -n '1,260p' src/retention.py; sed -n '1,320p' tests/test_retention.py; git log --oneline --decorate -8; git show --stat --oneline HEAD; rg -n \\\"retention|14|30|AC1|AC2|candidate|conflict|coverage|review\\\" docs src tests\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"sed -n '1,180p' 'docs/people/Synthetic Approver.md'; sed -n '1,260p' .agents/skills/requirements-curation/SKILL.md; sed -n '1,260p' .agents/skills/agentic-engineering/SKILL.md; sed -n '1,220p' .agents/skills/agentic-engineering/references/reconciliation.md; sed -n '1,220p' .agents/skills/agentic-engineering/references/closure.md; sed -n '1,220p' .agents/skills/agentic-engineering/references/traceability.md\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rzm query-recipe show closure-drift-pack; rzm query-recipe show story-acceptance-pack; rzm query-recipe show effort-execution-context; rzm query-recipe run --id closure-drift-pack --anchor docs/efforts/2026-09-07-13-00-retention-source-review.md --summary; rzm query-recipe run --id story-acceptance-pack --anchor docs/specs/retention-controls.md --summary'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"sed -n '1,260p' .agents/skills/rhizome/references/markdown-mutations.md; rzm agent node-link --help; rzm agent validate --help; rzm agent validate all --help; rzm validate --help; rzm note properties --help; rzm note create --help; rzm note print --help; rzm note info --help\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"rg -n -C 3 \\\"type Requirement|type RequirementSource|type EffortNote|sources|processes|workflows|specs|userStories|efforts|acceptanceCriterionRefs|storyRefs\\\" .rhizome/ontology/complex-domain.graphql .rhizome/ontology/spec-driven.graphql | sed -n '1,360p'; rg -n -C 3 \\\"type Requirement|type RequirementSource|type EffortNote\\\" .rhizome/query-recipes/complex-domain.yaml .rhizome/query-recipes/spec-driven.yaml | sed -n '1,320p'\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"sed -n '140,198p' .rhizome/ontology/complex-domain.graphql; sed -n '700,870p' .rhizome/ontology/spec-driven.graphql; sed -n '1,140p' .rhizome/query-recipes/complex-domain.yaml; sed -n '1,120p' .rhizome/query-recipes/spec-driven.yaml\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"rzm agent node-link --target 'docs/specs/retention-controls.md#\"'^SPEC-9005-US1'\"' --ensure plan; rzm agent node-link --target 'docs/specs/retention-controls.md#\"'^SPEC-9005-US1-AC1'\"' --ensure plan; rzm agent node-link --target 'docs/specs/retention-controls.md#\"'^SPEC-9005-US1-AC2'\"' --ensure plan\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"rzm agent ontology-inspect --input docs/specs/retention-controls.md | jq -c '.notes[0].assessment | {resolvedType,fields:[.fields[]|select(.name==\\\"userStories\\\" or .name==\\\"acceptanceCriteria\\\")]}' 2>/dev/null || true; rzm agent ontology-authoring-guide --type ProductSpec | rg -n -A35 -B8 'AcceptanceCriteria|UserStory|storiesInScope|locator|criterion' | sed -n '1,260p'; rzm agent node-link --target 'docs/specs/retention-controls.md#Acceptance Criteria' --ensure plan\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"rg -n -A100 -B10 '\"'^type (Acceptance|UserStory|UserStories)'\"' .rhizome/ontology/spec-driven.graphql | sed -n '1,360p'; rg -n -A80 -B5 'type UserStoriesSection|type AcceptanceCriteriaSection|type UserStory' .rhizome/ontology/spec-driven.graphql\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rzm agent validate ontology --max-issues 100; rzm agent validate identifiers --max-issues 100; rzm agent validate broken-links --max-issues 100; rzm agent validate fragile-external --scope-note docs/efforts/2026-09-07-13-00-retention-source-review.md --max-issues 100'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rzm query-recipe run --id sources-needing-review-pack --summary; rzm query-recipe run --id coverage-gap-pack --summary; rzm query-recipe run --id action-items-in-note --anchor docs/efforts/2026-09-07-13-00-retention-source-review.md --summary'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rg -n -C 3 \"story-refs|acceptance-criterion-refs|''^sources:|''^processes:|''^workflows:|''^specs:\" --glob '\"'*.md' --glob '\"'!AGENTS.md'\"' .; rg -n -C 4 \\\"storyRefs|acceptanceCriterionRefs\\\" .rhizome/query-recipes .agents/skills | sed -n '1,300p'; rg -n -C 4 \\\"sources:|processes:|workflows:|specs:\\\" docs .agents/skills --glob '*.md' | sed -n '1,320p'\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"nl -ba docs/specs/retention-controls.md | sed -n '28,58p'; rzm agent node-link --target 'docs/specs/retention-controls.md#\"'^SPEC-9005-US1-AC2'\"' --ensure never; rzm agent node-link --ref '{\\\"notePath\\\":\\\"docs/specs/retention-controls.md\\\",\\\"fragment\\\":\\\"\"'^SPEC-9005-US1-AC2\",\"typeName\":\"AcceptanceCriterion\",\"kind\":\"EMBEDDED\"}'\"' --ensure plan\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rzm note properties set --help; rzm note properties delete --help; rzm note properties rename --help; rzm note create --help; rzm agent note-rename-heading --help 2>/dev/null || true'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"rzm note properties set sources --value '[\\\"[[docs/reference/requirements/sources/policy-v1|SRC-A05-V1]]\\\", \\\"[[docs/reference/requirements/sources/policy-v2|SRC-A05-V2]]\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --dry-run --json; rzm note properties set processes --value '[\\\"[[docs/reference/domain/processes/retention-review|PROC-A05]]\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --dry-run --json; rzm note properties set workflows --value '[\\\"[[docs/reference/domain/workflows/review-retention-change|WF-A05]]\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --dry-run --json; rzm note properties set specs --value '[\\\"[[docs/specs/retention-controls|SPEC-A05-RETENTION]]\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --dry-run --json; rzm note properties set story-refs --value '[\\\"SPEC-9005-US1\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --dry-run --json; rzm note properties set acceptance-criterion-refs --value '[\\\"SPEC-9005-US1-AC1\\\", \\\"SPEC-9005-US1-AC2\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --dry-run --json\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"date -u '+%Y-%m-%dT%H:%MZ'\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"rzm note properties set sources --value '[\\\"[[docs/reference/requirements/sources/policy-v1|SRC-A05-V1]]\\\", \\\"[[docs/reference/requirements/sources/policy-v2|SRC-A05-V2]]\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --json; rzm note properties set processes --value '[\\\"[[docs/reference/domain/processes/retention-review|PROC-A05]]\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --json; rzm note properties set workflows --value '[\\\"[[docs/reference/domain/workflows/review-retention-change|WF-A05]]\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --json; rzm note properties set specs --value '[\\\"[[docs/specs/retention-controls|SPEC-A05-RETENTION]]\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --json; rzm note properties set story-refs --value '[\\\"SPEC-9005-US1\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --json; rzm note properties set acceptance-criterion-refs --value '[\\\"SPEC-9005-US1-AC1\\\", \\\"SPEC-9005-US1-AC2\\\"]' --inputs docs/reference/requirements/requirements/retention-limit.md --json\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"sed -n '1,110p' docs/reference/requirements/requirements/retention-limit.md; git diff -- docs/reference/requirements/requirements/retention-limit.md\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"git diff --check; git diff --stat; git diff -- docs/efforts/2026-09-07-13-00-retention-source-review.md docs/reference/requirements/requirements/retention-limit.md; sed -n '1,180p' docs/efforts/2026-09-07-13-00-retention-source-review.md\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"rzm index --help; rzm agent surface | jq -c '.[].name? // empty' 2>/dev/null | head -20 || true\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rzm index'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"rzm query-recipe run --id changed-domain-impact-pack --anchor docs/reference/requirements/sources/policy-v2.md | jq '{source: .result.data.note | {path,title,sourceVersion,provenance,reviewStatus,linked,backlinked,requirements}}'; rzm query-recipe run --id requirement-trace-pack --anchor docs/reference/requirements/requirements/retention-limit.md | jq '{requirement: .result.data.note | {path,title,status,summary,sourceLocations,sources,processes,workflows,specs,storyRefs,acceptanceCriterionRefs,conflicts}}'; rzm query-recipe run --id coverage-gap-pack | jq '{coverage: .result.data.notes}'; rzm query-recipe run --id story-acceptance-pack --anchor docs/specs/retention-controls.md | jq '{stories: .result.data.note.productStories.stories | map({id,title,status,efforts,acceptanceCriteria})}'; rzm query-recipe run --id closure-drift-pack --anchor docs/efforts/2026-09-07-13-00-retention-source-review.md | jq '{effort: .result.data.effortNote}'\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rzm agent validate ontology --max-issues 100; rzm agent validate identifiers --max-issues 100; rzm agent validate broken-links --max-issues 100; rzm agent validate fragile-external --scope-note docs/efforts/2026-09-07-13-00-retention-source-review.md --max-issues 100; rzm agent validate frozen-scope-drift --max-issues 100'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"sed -n '1,320p' .agents/skills/action-items/SKILL.md; git status --short; git diff --check; git diff --name-only\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c \"date -u '+%Y-%m-%dT%H:%MZ'\"",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  },
+  {
+    "command": "/bin/zsh -c 'rzm index >/tmp/p03-retention-index.log && tail -n 3 /tmp/p03-retention-index.log; rzm agent validate ontology --max-issues 100; rzm agent validate identifiers --max-issues 100; rzm agent validate broken-links --max-issues 100; rzm agent validate fragile-external --scope-note docs/efforts/2026-09-07-13-00-retention-source-review.md --max-issues 100; rzm agent validate frozen-scope-drift --max-issues 100; git diff --check; git status --short'",
+    "command_truncated": false,
+    "exit_code": 0,
+    "status": "completed"
+  }
+]

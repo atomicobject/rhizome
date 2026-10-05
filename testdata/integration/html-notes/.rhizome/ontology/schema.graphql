@@ -1,0 +1,5 @@
+type Report @node(paths: ["reports/typed-report.html", "reports/prototype.html"]) {
+  title: String!
+  status: String
+  tags: [String!]
+}

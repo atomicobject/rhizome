@@ -1,0 +1,34 @@
+apiVersion: rhizome.view.v1
+id: reference.subsystem-guidance
+name: Subsystem Guidance
+description: Subsystem guidance notes ordered by last-verified ascending so stale guidance surfaces first during audits.
+source:
+  kind: ontology_type
+  type: ReferenceDoc
+mount:
+  kind: standalone
+  group: Reference
+  order: 40
+defaults:
+  variant: table
+  first: 50
+  filters:
+    - field: path
+      op: contains
+      value: docs/reference/subsystems/
+  sort:
+    - field: lastVerified
+      direction: asc
+    - field: path
+      direction: asc
+variants:
+  table:
+    columns:
+      - field: title
+        label: Note
+      - field: summary
+        label: Summary
+      - field: lastVerified
+        label: Last Verified
+      - field: status
+        label: Status

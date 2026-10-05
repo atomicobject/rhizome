@@ -1,0 +1,4 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"rhizome","title":"Rhizome","version":"dev"}}}
+{"jsonrpc":"2.0","method":"initialized"}
+{"jsonrpc":"2.0","id":2,"method":"thread/start","params":{"model":"gpt-test","cwd":"/tmp/project","approvalPolicy":"untrusted","sandbox":"read-only"}}
+{"jsonrpc":"2.0","id":3,"method":"turn/start","params":{"threadId":"thr_1","input":[{"type":"text","text":"hello"}],"model":"gpt-test","effort":"high","cwd":"/tmp/project","approvalPolicy":"untrusted","sandboxPolicy":{"type":"readOnly"}}}

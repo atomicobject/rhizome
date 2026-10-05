@@ -1,0 +1,11 @@
+apiVersion: rhizome.view.v1
+id: group.sections
+name: Sections
+description: Each member type of the group as a compact table.
+source:
+  kind: custom
+  entry: sections.tsx
+mount:
+  kind: group
+  group: "*"
+  order: 3

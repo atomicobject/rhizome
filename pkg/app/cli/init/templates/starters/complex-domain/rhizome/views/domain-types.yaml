@@ -1,0 +1,62 @@
+apiVersion: rhizome.view.v1
+id: complex-domain.domain-types
+name: Domain Types
+description: Domain vocabulary as cards grouped by domain context.
+source:
+  kind: ontology_type
+  type: DomainType
+mount:
+  kind: type
+  type: DomainType
+  default: true
+defaults:
+  variant: card
+  first: 200
+  group:
+    field: contexts
+  sort:
+    - field: title
+      direction: asc
+filterPresets:
+  - id: needs-review
+    label: Needs Review
+    filters:
+      - field: reviewStatus
+        op: in
+        values: [unreviewed, needs_review, stale]
+  - id: low-confidence
+    label: Low Confidence
+    filters:
+      - field: confidence
+        op: in
+        values: [assumption, inferred]
+variants:
+  card:
+    eyebrow: id
+    title: title
+    preview: summary
+    fields:
+      - field: status
+        label: Status
+      - field: confidence
+        label: Confidence
+      - field: requirements
+        label: Requirements
+  table:
+    columns:
+      - field: id
+        label: ID
+      - field: title
+        label: Domain type
+      - field: contexts
+        label: Contexts
+      - field: status
+        label: Status
+      - field: confidence
+        label: Confidence
+      - field: requirements
+        label: Requirements
+      - field: reviewStatus
+        label: Review
+      - field: lastReviewed
+        label: Last reviewed

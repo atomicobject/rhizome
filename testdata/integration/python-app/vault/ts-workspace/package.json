@@ -1,0 +1,16 @@
+{
+  "name": "@fixture/app",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "dependencies": {
+    "@acme/client": ">=2 <3",
+    "@acme/widgets": "~3.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.0"
+  }
+}

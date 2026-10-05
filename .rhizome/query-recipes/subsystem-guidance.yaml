@@ -1,0 +1,39 @@
+apiVersion: rhizome.query-recipe.v1
+id: subsystem-guidance-notes
+name: Subsystem guidance notes by verification age
+problem: Surface stale subsystem guidance during audits by listing ReferenceDoc notes under docs/reference/subsystems/ ordered oldest-verified first; bump last-verified when re-verifying a note against code.
+inputSpec:
+  mode: none
+query:
+  graphQL: |
+    query SubsystemGuidanceNotes {
+      referenceDoc(
+        first: 50
+        filters: [{ field: "path", op: contains, value: "docs/reference/subsystems/" }]
+        sort: [{ field: "lastVerified", direction: asc }, { field: "path", direction: asc }]
+      ) {
+        path
+        title
+        summary
+        lastVerified
+        status
+      }
+    }
+outputContract:
+  expectedPaths:
+    - referenceDoc.path
+    - referenceDoc.summary
+    - referenceDoc.lastVerified
+  empty: No subsystem guidance notes resolved; confirm docs/reference/subsystems/ notes carry type ReferenceDoc and the index is current.
+  partial: Treat the oldest lastVerified rows as the audit priority; do not widen beyond docs/reference/subsystems/ before reviewing them.
+  highVolume: Keep the first page; the oldest-verified notes at the top are the audit targets.
+adaptationGuidance:
+  summary: Keep the path scope on docs/reference/subsystems/ and the ascending lastVerified sort so stale guidance always sorts first.
+  rules:
+    - Use this during audits or before subsystem work to find guidance that has not been re-verified recently.
+    - After re-verifying a note's content against the code it describes, update its last-verified frontmatter to today's date.
+    - Preserve path, summary, and lastVerified in the result so staleness is visible at a glance.
+tags:
+  - reference
+  - subsystems
+  - audits

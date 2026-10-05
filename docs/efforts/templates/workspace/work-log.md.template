@@ -1,0 +1,43 @@
+# {{effort_title}}: work log
+
+Effort: [[{{effort_folder_vault_path}}/{{timestamp}}-effort.html]]
+
+These named sections are the lifecycle evidence contract. Keep the frozen snapshots consistent with the owning overview. Read the complete overview, linked plan, log, and explicitly selected materials before approval, resume, closure, or release decisions. Missing evidence is unresolved, not permission. Preserve frozen snapshots; record authorized changes and their reasons in Execution Notes.
+
+## Spec Set (Frozen)
+
+Record each selected spec as a canonical vault-relative wikilink with its frozen revision. Use the same revision syntax as a Markdown effort's frozen spec set. State explicitly when no governing specs apply.
+
+## Stories In Scope (Frozen)
+
+Record the exact selected story and acceptance-criterion block links from the overview, including explicit exclusions or partial selections. Keep these links on the owning overview too so story provenance remains effort-owned.
+
+## Plan Approval
+
+Leave approval pending until it exists. Record the actual human approver, approval time, exact plan path and approved revision, and the scope of authority. Keep overview plan-approved-by consistent. A plan link or a populated template is not approval. Material plan edits invalidate approval for changed work; record the new exact revision and required approval before dependent execution. Approval times use UTC seconds (`YYYY-MM-DDTHH:MM:SSZ`).
+
+## Original Intended Delivery
+
+Preserve the frozen intended outcome and boundaries.
+
+## Actual Delivered
+
+Record verified delivered outcomes with revision and verification evidence. Leave undelivered work explicit.
+
+## Deviations
+
+Record differences from frozen intent, their reasons, and any approval required. State explicitly when there are no known deviations after review.
+
+## Closure Checklist
+
+Record gate results, alignment, documentation reconciliation, follow-up triage, and closure authority with source evidence. Incomplete or unchecked items remain open.
+
+## Status
+
+Record current revision, next unfinished item, blockers or decisions, and next useful action. Keep overview status consistent. Handoff does not imply completion or publication authority.
+
+## Execution Notes
+
+Append entries in chronological order. Preserve earlier evidence. Each entry uses a UTC second-precision timestamp (`YYYY-MM-DDTHH:MM:SSZ`) and an event kind: decision, surprise, learning, validation, blocker, handoff, or resume.
+
+Include relevant revision, actual command and result, next unfinished item, blockers, and next useful action.

@@ -1,0 +1,240 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-27T14:55:15Z",
+  "title": "Design System: Rhizome",
+  "extensions": {
+    "colorMeta": {
+      "primary-red": {
+        "role": "primary",
+        "displayName": "Workbench Red",
+        "canonical": "#fd4f57",
+        "tonalRamp": ["oklch(28% 0.16 25)", "oklch(38% 0.19 25)", "oklch(48% 0.21 25)", "oklch(61% 0.22 25)", "oklch(72% 0.17 25)", "oklch(82% 0.11 25)", "oklch(91% 0.05 25)", "oklch(97% 0.02 25)"]
+      },
+      "connection-teal": {
+        "role": "secondary",
+        "displayName": "Connection Teal",
+        "canonical": "#16cbc4",
+        "tonalRamp": ["oklch(24% 0.09 190)", "oklch(34% 0.11 190)", "oklch(45% 0.13 190)", "oklch(70% 0.14 190)", "oklch(78% 0.10 190)", "oklch(86% 0.07 190)", "oklch(93% 0.04 190)", "oklch(97% 0.02 190)"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Warm Ink",
+        "canonical": "#2a2724",
+        "tonalRamp": ["#2a2724", "#3a3734", "#4c4845", "#5c5853", "#8a8682", "#c3c3c3", "#e4e2dd", "#f7f7f7"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Canvas White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#2a2724", "#4c4845", "#8a8682", "#c3c3c3", "#e4e2dd", "#f2f1ec", "#f7f7f7", "#ffffff"]
+      },
+      "warning-gold": {
+        "role": "tertiary",
+        "displayName": "Warning Gold",
+        "canonical": "#dcad66",
+        "tonalRamp": ["oklch(26% 0.09 75)", "oklch(38% 0.11 75)", "oklch(50% 0.12 75)", "oklch(70% 0.13 75)", "oklch(80% 0.09 75)", "oklch(88% 0.06 75)", "oklch(94% 0.03 75)", "oklch(98% 0.01 75)"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Brand wordmark, workspace titles, and rare document title moments."
+      },
+      "body": {
+        "displayName": "Product UI",
+        "purpose": "All working UI, controls, lists, tables, panels, and prose excerpts."
+      },
+      "mono": {
+        "displayName": "Evidence Mono",
+        "purpose": "Paths, ids, GraphQL, schema fields, commands, code refs, and query fragments."
+      }
+    },
+    "shadows": [
+      {
+        "name": "resting-surface",
+        "value": "none",
+        "purpose": "Default for panes, tables, cards, rails, and graph cards."
+      },
+      {
+        "name": "low-structural-lift",
+        "value": "0 1px 2px rgba(42, 39, 36, 0.06)",
+        "purpose": "Compact controls that need tactile definition."
+      },
+      {
+        "name": "overlay-lift",
+        "value": "0 1px 3px rgba(42, 39, 36, 0.08), 0 2px 6px rgba(42, 39, 36, 0.04)",
+        "purpose": "Menus, popovers, and small panels."
+      },
+      {
+        "name": "command-lift",
+        "value": "0 10px 28px rgba(42, 39, 36, 0.10)",
+        "purpose": "Command palette, overlays, and high-priority drawers."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Default state transition easing."
+      },
+      {
+        "name": "duration-fast",
+        "value": "150ms",
+        "purpose": "Hover, focus, active, and compact state changes."
+      },
+      {
+        "name": "duration-overlay",
+        "value": "220ms",
+        "purpose": "Command palette, popover, and drawer entrance."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "720px"
+      },
+      {
+        "name": "workspace",
+        "value": "1024px"
+      },
+      {
+        "name": "wide-workbench",
+        "value": "1440px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "High-signal execution button for run, save, commit, or apply actions.",
+      "html": "<button class='ds-btn-primary'>Run command</button>",
+      "css": ".ds-btn-primary { background: #fd4f57; color: #fff; border: 1px solid #fd4f57; border-radius: 4px; padding: 8px 12px; font: 700 13px/1.2 Barlow, system-ui, sans-serif; transition: background 150ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 150ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-btn-primary:hover { background: #e63e46; border-color: #e63e46; } .ds-btn-primary:focus-visible { outline: 2px solid #9c1d24; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Default workbench command button for non-destructive actions.",
+      "html": "<button class='ds-btn-secondary'>Edit view</button>",
+      "css": ".ds-btn-secondary { background: #fff; color: #2a2724; border: 1px solid #c9c6bf; border-radius: 4px; padding: 8px 12px; font: 700 13px/1.2 Barlow, system-ui, sans-serif; transition: background 150ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 150ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-btn-secondary:hover { background: #fbfbfa; border-color: #8a8682; } .ds-btn-secondary:focus-visible { outline: 2px solid #16cbc4; outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Compact searchable control for notes, nodes, commands, and configured views.",
+      "html": "<label class='ds-field'><span>Search view</span><input placeholder='Filter notes, types, issues...' /></label>",
+      "css": ".ds-field { display: grid; gap: 6px; color: #4c4845; font: 700 11px/1.2 Barlow, system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; } .ds-field input { width: 320px; background: #fff; color: #2a2724; border: 1px solid #c9c6bf; border-radius: 4px; padding: 8px 10px; font: 400 13px/1.45 Barlow, system-ui, sans-serif; } .ds-field input::placeholder { color: #595959; } .ds-field input:focus-visible { outline: 2px solid #16cbc4; outline-offset: 2px; border-color: #11b5ae; }"
+    },
+    {
+      "name": "Type Chip",
+      "kind": "chip",
+      "refersTo": "chip-type",
+      "description": "Typed note, ontology, filter, or provenance chip with count-first scanning.",
+      "html": "<button class='ds-chip'><strong>121</strong><span>Requirement</span></button>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; background: #fff; color: #4c4845; border: 1px solid #e4e2dd; border-radius: 10px; padding: 3px 8px; font: 600 12px/1.2 Barlow, system-ui, sans-serif; } .ds-chip strong { color: #2a2724; font-weight: 800; } .ds-chip:hover { border-color: #16cbc4; background: #d8f7f5; } .ds-chip:focus-visible { outline: 2px solid #16cbc4; outline-offset: 2px; }"
+    },
+    {
+      "name": "Active Navigation Item",
+      "kind": "nav",
+      "refersTo": "nav-active",
+      "description": "Current route or selected rail row using red as a rare focus signal.",
+      "html": "<button class='ds-nav-active'>Notes</button>",
+      "css": ".ds-nav-active { background: #ffeaec; color: #9c1d24; border: 1px solid #fccfd2; border-radius: 4px; padding: 7px 12px; font: 800 13px/1.2 Barlow, system-ui, sans-serif; } .ds-nav-active:focus-visible { outline: 2px solid #fd4f57; outline-offset: 2px; }"
+    },
+    {
+      "name": "Pane Surface",
+      "kind": "card",
+      "refersTo": "surface-panel",
+      "description": "Flat workbench pane for notes, relation lists, ontology cards, and detail drawers.",
+      "html": "<section class='ds-pane'><header><span>TechnicalSpec</span><strong>Action items starter template</strong></header><p>docs/specs/technical/action-items-starter-template.md</p></section>",
+      "css": ".ds-pane { width: 360px; background: #fff; color: #2a2724; border: 1px solid #e4e2dd; border-radius: 6px; padding: 14px; box-shadow: none; font: 400 13px/1.45 Barlow, system-ui, sans-serif; } .ds-pane header { display: grid; gap: 6px; border-bottom: 1px solid #e4e2dd; padding-bottom: 10px; margin-bottom: 10px; } .ds-pane span { width: max-content; background: #ffeaec; color: #9c1d24; border-radius: 4px; padding: 3px 6px; font: 800 11px/1 Barlow, system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; } .ds-pane strong { font: 800 18px/1.2 Barlow, system-ui, sans-serif; } .ds-pane p { margin: 0; color: #595959; font: 500 12px/1.35 JetBrains Mono, monospace; }"
+    },
+    {
+      "name": "Command Palette",
+      "kind": "custom",
+      "refersTo": "command-palette",
+      "description": "Keyboard-first agent and navigation surface with provenance preview.",
+      "html": "<div class='ds-command'><input value='summarize selected note' aria-label='Command' /><div><button class='is-active'>Summarize selected note</button><button>Find related specs</button><button>Validate links and hygiene</button></div></div>",
+      "css": ".ds-command { width: 520px; background: #fff; color: #2a2724; border: 1px solid #e4e2dd; border-radius: 10px; padding: 12px; box-shadow: 0 10px 28px rgba(42,39,36,0.10); font: 400 13px/1.45 Barlow, system-ui, sans-serif; } .ds-command input { width: 100%; border: 1px solid #fd4f57; border-radius: 4px; padding: 10px 12px; color: #2a2724; font: 500 14px/1.3 Barlow, system-ui, sans-serif; } .ds-command input:focus-visible { outline: 2px solid #9c1d24; outline-offset: 2px; } .ds-command div { display: grid; gap: 4px; margin-top: 10px; } .ds-command button { text-align: left; background: #fff; color: #2a2724; border: 0; border-radius: 4px; padding: 8px 10px; font: 600 13px/1.2 Barlow, system-ui, sans-serif; } .ds-command button.is-active { background: #fd4f57; color: #fff; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Structured Workbench",
+    "overview": "Rhizome should feel like a precise professional workbench for structured markdown, code context, ontology, and agent collaboration. It is not a consumer notes app and not an AI chat wrapper. The product is used mid-task by developers and technical leads who need dense surfaces that stay readable while exposing provenance, relations, status, and next actions. The visual system builds from Atomic Object-inspired foundations: red for high-signal focus and risk, teal for connection and provenance, warm black for structure, warm white for calm working surfaces, and Merriweather / Barlow / JetBrains Mono as the type family.",
+    "keyCharacteristics": [
+      "Dense, inspectable, and keyboard-friendly.",
+      "Light-first, warm-neutral, AO-inspired, not generic SaaS.",
+      "Structured surfaces over decorative cards.",
+      "Typography that distinguishes brand, UI, and code/data roles.",
+      "Status always paired with text, icons, shape, or position; never color alone."
+    ],
+    "rules": [
+      {
+        "name": "The Red Rarity Rule",
+        "body": "Red is for focus, action, and risk. A normal screen should not have red spread across more than a few high-signal elements.",
+        "section": "colors"
+      },
+      {
+        "name": "The Teal Means Connection Rule",
+        "body": "Teal means relationship, provenance, success, or confirmed link. Do not use teal as generic decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Purple Theme Rule",
+        "body": "Purple can categorize schema data, but purple-on-white gradients and purple-dominant AI-tool palettes are prohibited.",
+        "section": "colors"
+      },
+      {
+        "name": "The Product Type Rule",
+        "body": "Barlow owns the working UI. Merriweather is brand and high-level document display only.",
+        "section": "typography"
+      },
+      {
+        "name": "The Fixed Scale Rule",
+        "body": "Product typography uses fixed sizes, not viewport-fluid scaling. Dense tools must remain predictable at different window sizes.",
+        "section": "typography"
+      },
+      {
+        "name": "The Mono Evidence Rule",
+        "body": "Use JetBrains Mono when the text is evidence: paths, ids, schema fields, commands, query fragments, and code references.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Workbench Rule",
+        "body": "Working surfaces are flat at rest. If a table, pane, or graph card needs hierarchy, use spacing, borders, typography, or tonal bands before shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Overlay Only Rule",
+        "body": "Large soft shadows belong to transient overlays only. Do not pair decorative wide shadows with 1px card borders.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve dense professional workflows: left rail, typed lists, stacked panes, ontology canvas, configured tables, and command palette.",
+      "Do use AO-inspired red, warm black, teal, and supporting palette as the product foundation.",
+      "Do keep repeated workflows fast to scan, compare, filter, and act on.",
+      "Do make confidence inspectable with provenance, links, counts, status, and source paths.",
+      "Do use Merriweather for brand/display, Barlow for UI, and JetBrains Mono for paths, code, ids, GraphQL, and schema evidence.",
+      "Do pair color with labels, icons, shape, or position for all validation, graph state, risk, and status signals.",
+      "Do target WCAG AA, preserve visible focus, and respect reduced motion.",
+      "Do use motion only for state feedback, overlay entrance, focus, and loading feedback in the 150ms to 250ms range.",
+      "Do treat current UI as context to learn from, not a visual ceiling."
+    ],
+    "donts": [
+      "Don't use AI-slop aesthetics: purple-on-white gradients, glassmorphism, oversized hero layouts, vague productivity SaaS copy, generic card grids, decorative blobs/orbs, or soft marketing polish that reduces information density.",
+      "Don't use consumer-app bloat: empty whitespace, gamified onboarding, overanimated transitions, modal-heavy flows, cheerful simplification, or single-purpose layouts that cannot scale to expert work.",
+      "Don't drift away from Atomic Object brand foundations into an unrelated palette or generic SaaS type system.",
+      "Don't treat the temporary red orb or any unreviewed proposal as the final identity.",
+      "Don't make Rhizome feel like a chatbot wrapper, landing page, toy knowledge graph demo, or glossy consumer knowledge app.",
+      "Don't turn Notion/Coda inspiration into a blocky consumer document editor. Rhizome is closer to Obsidian plus Linear plus Raycast, filtered through AO identity.",
+      "Don't use thick colored side stripes, nested cards, huge rounded containers, decorative shadows, or card grids as default layout scaffolding.",
+      "Don't use display fonts in labels, buttons, tables, or data.",
+      "Don't rely on color alone for status, validation, graph state, risk, or selected state.",
+      "Don't hide complexity behind friendly summaries when the user needs structure, provenance, and constraints."
+    ]
+  }
+}

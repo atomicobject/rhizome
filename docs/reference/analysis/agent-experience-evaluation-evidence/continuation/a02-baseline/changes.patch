@@ -1,0 +1,12 @@
+diff --git a/README.md b/README.md
+index 6b289f4..c554a71 100644
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,6 @@
+ # Small release note
+ 
+-The command line client can recieve a short status message from the local
++The command line client can receive a short status message from the local
+ worker. This example is intentionally a one-word documentation correction.
+ 
+ The requested edit is limited to this README. Preserve the file's headings,

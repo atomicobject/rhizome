@@ -1,0 +1,33 @@
+ 1. 200.0% [anchor] interleaveScoredChunksByOwner (pkg/search/semantic/search.go)
+       509 │ func interleaveScoredChunksByOwner(scored []semdb.ScoredChunk, limit int) []semdb.S…
+       510 │ 	if limit <= 0 || len(scored) <= limit {
+       511 │ 		return scored
+       512 │ 	}
+       513 │ 	type bucket struct {
+       514 │ 		key   string
+       515 │ 		items []semdb.ScoredChunk
+       516 │ 	}
+       517 │ 	byKey := make(map[string]int, len(scored))
+       518 │ 	buckets := make([]bucket, 0, len(scored))
+       519 │ 	for _, sc := range scored {
+       520 │ 		key := scoredChunkDiversityKey(sc)
+      …
+
+ 2. 140.0% [anchor] search.go (pkg/search/semantic/search.go)
+      ↳ Exports: AnchorID, Breadcrumb, ChunkIndex, CodeProvider, FQN, Filters, Granularity, Handle, H…
+ 3. 140.0% [note] Go anchor - Search subsystem (docs/code-anchors/search.md)
+ 4. 140.0% [note] Search subsystem guidance (docs/reference/subsystems/search.md)
+ 5. 112.0% [anchor] sortSurveyChunks (pkg/search/semantic/search.go)
+       484 │ func sortSurveyChunks(scored []semdb.ScoredChunk) {
+       485 │ 	sort.SliceStable(scored, func(i, j int) bool {
+       486 │ 		if scored[i].Score != scored[j].Score {
+       487 │ 			return scored[i].Score > scored[j].Score
+       488 │ 		}
+       489 │ 		if scored[i].Path != scored[j].Path {
+       490 │ 			return scored[i].Path < scored[j].Path
+       491 │ 		}
+       492 │ 		if scored[i].OwnerID != scored[j].OwnerID {
+       493 │ 			return scored[i].OwnerID < scored[j].OwnerID
+       494 │ 		}
+       495 │ 		return scored[i].ChunkID < scored[j].ChunkID
+      …

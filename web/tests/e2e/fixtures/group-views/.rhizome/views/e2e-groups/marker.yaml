@@ -1,0 +1,9 @@
+apiVersion: rhizome.view.v1
+id: e2e.groups.marker
+name: Planning notes
+source:
+  kind: custom
+  entry: marker.tsx
+mount:
+  kind: group
+  group: E2E Planning

@@ -1,0 +1,16 @@
+apiVersion: rhizome.skill-overlay.v1
+id: complex-domain.specify
+targetSkill: agentic-engineering
+fragments:
+  - file: references/specification.md
+    slot: context.after-discovery
+    op: append
+    order: 10
+    content: |
+      When behavior depends on domain concepts, processes, workflows, sources, or traceable requirements, reuse known anchors and their structural packs. A topic-only request begins with bounded `domain-inventory-pack` queries for the relevant live types; use `domain-topic-survey` afterward only to rank unresolved semantic candidates. Treat unresolved anchors, missing authored coverage, degraded retrieval, capped results, and stale evidence as distinct qualifications.
+  - file: references/specification.md
+    slot: context.constraint-extraction
+    op: append
+    order: 10
+    content: |
+      Extract accepted requirements and their source confidence and qualifications; candidate requirements that should not yet become delivery commitments; process rules, workflow variants, domain concepts, conflicts, and accountable action items. Link the spec to the smallest durable upstream notes. Keep authored links, readable targets, satisfaction evidence, and lifecycle authorization separate; do not promote candidates into delivery scope.

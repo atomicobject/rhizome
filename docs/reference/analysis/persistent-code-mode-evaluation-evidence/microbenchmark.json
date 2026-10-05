@@ -1,0 +1,68 @@
+{
+  "arm_order": [
+    "batched",
+    "persistent"
+  ],
+  "batched_round_ms": [
+    130.403791,
+    128.47775
+  ],
+  "binary_sha256": "be8fcb81e49684dbbe86ebc4639b161744699225646f84b8bd81b8c1f31a4615",
+  "equivalence": {
+    "checks": [
+      {
+        "operation": "fileContext",
+        "passed": true,
+        "round": 0
+      },
+      {
+        "operation": "files",
+        "passed": true,
+        "round": 0
+      },
+      {
+        "operation": "queryRecipe",
+        "passed": true,
+        "round": 0
+      },
+      {
+        "operation": "fileContext",
+        "passed": true,
+        "round": 1
+      },
+      {
+        "operation": "files",
+        "passed": true,
+        "round": 1
+      },
+      {
+        "operation": "queryRecipe",
+        "passed": true,
+        "round": 1
+      }
+    ],
+    "normalization": [
+      "vault path/name",
+      "ephemeral sessionId",
+      "unordered files enumeration sorted by path"
+    ],
+    "passed": true
+  },
+  "generation_ms": 31.880917,
+  "indexed_enrichment": {
+    "reads": 3,
+    "results": 0,
+    "status": "available"
+  },
+  "notes": [
+    "Each arm has a separately initialized and indexed equivalent fixture. OS caches are uncontrolled; CLI ran first.",
+    "Persistent first call includes asynchronous Rhizome startup and handshake; node outer elapsed includes Node startup, imports, workflow, output, and close.",
+    "Second round reuses the same persistent process. Application runtimes remain request-local. Two rounds are descriptive only."
+  ],
+  "persistent_outer_ms": 174.263,
+  "persistent_round_ms": [
+    82.335833,
+    61.842083
+  ],
+  "source_sha": "8d84d11ee743a51112e0a11b389f302bb79ae556"
+}

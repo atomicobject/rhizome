@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="effort.css">
+  <title>{{effort_title_html}}: implementation plan</title>
+</head>
+<body>
+<main>
+  <h1>Implementation plan</h1>
+  <p><a href="{{timestamp}}-effort.html">Effort overview</a></p>
+  <h2>Outcome and selected scope</h2>
+  <p>Link selected specs, stories, and acceptance criteria using canonical vault-relative targets. Explain current-state gaps.</p>
+  <h2>Architecture and decisions</h2>
+  <p>Record chosen boundaries, alternatives, assumptions, and unresolved decisions.</p>
+  <figure>
+    <ol class="phase-flow" aria-label="Plan sequence">
+      <li>Confirm scope</li>
+      <li>Establish contracts</li>
+      <li>Implement and verify</li>
+      <li>Reconcile and close</li>
+    </ol>
+    <figcaption>Replace this illustrative sequence with the approved phases and dependencies.</figcaption>
+  </figure>
+  <h2>Implementation phases</h2>
+  <p>For each phase: objective, affected files or modules, concrete tasks, selected obligations, tests, documentation, and exit criteria. Include a foundation phase when establishing reusable contracts.</p>
+  <h2>Validation and documentation</h2>
+  <p>Specify observable evidence, applicable local gates, and required backports.</p>
+  <h2>Approval context</h2>
+  <p>Identify the exact revision submitted for approval and link the recorded decision. Do not infer approval from the existence of this file.</p>
+</main>
+</body>
+</html>

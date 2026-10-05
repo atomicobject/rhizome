@@ -1,0 +1,712 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-05T19:35Z",
+  "method": "20 fresh processes per checkpoint; repository delegation disabled; timings enabled",
+  "baseRevision": "74e755fd29103d9da6c02de35787b6888dd39ba3",
+  "rhizome": {
+    "before": {
+      "binarySha256": "030cf0edcb170f043d758f49b3a53865733f11f4870236f700eb2294a7bebcbd",
+      "sourceState": "base revision before EFF-0071 changes",
+      "corpus": {
+        "configSha256": "d8d1395369fe8119882efbbdb6fbcdc4ef2a054f031cfc0ca63970e54d1f10ba",
+        "index": {
+          "mtimeNs": 1785956811715704760,
+          "path": "/private/tmp/eff0071-bench.xksEzE/.rhizome/db.sqlite",
+          "sha256": "b7a8f85915ebc53b8660bdf11e4587ca0bb67f4e9d6e8de5099372fc9969ec6d",
+          "sizeBytes": 450412544
+        },
+        "markdownFiles": 1505
+      },
+      "command": [
+        "/private/tmp/eff0071-head.GlLs9I/bin/darwin/rzm",
+        "agent",
+        "semantic-query",
+        "--path",
+        "pkg/app/mcp",
+        "--query",
+        "semantic query transaction invariants identifier mappings",
+        "--limit",
+        "20",
+        "--timings"
+      ],
+      "samples": 20,
+      "durationsMs": [
+        1475.627,
+        994.414,
+        1298.197,
+        997.606,
+        996.747,
+        1024.476,
+        1009.096,
+        975.516,
+        998.805,
+        981.893,
+        1025.497,
+        1029.292,
+        979.248,
+        990.895,
+        989.02,
+        1016.984,
+        1023.791,
+        1011.509,
+        996.092,
+        1001.576
+      ],
+      "medianMs": 1000.19,
+      "p95Ms": 1298.197,
+      "normalizedOutputSha256": "e846972be319e76dc3f703a0f32049a90b7801a4a497e6a6e5721c0df1b0d70f",
+      "userVisibleOutputSha256": "af5b17adf93127f695cba3ee3fa330e8e749729dbf9e21372e8d86f8b38cfb1d",
+      "candidateCounts": {"count": 20, "total": 181, "returned": 20},
+      "uniqueNormalizedOutputs": 1,
+      "medianPhasesMs": {
+        "seedResolution": 190,
+        "search": 762.5,
+        "shaping": 4
+      },
+      "medianSearchMs": {
+        "vector": 395,
+        "provider": 196.5,
+        "graph": 306
+      },
+      "operationRanges": [
+        {
+          "label": "semantic_query.note.passes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.repo.walks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.note.reads",
+          "min": 18,
+          "max": 18
+        },
+        {
+          "label": "semantic_query.code.reads",
+          "min": 3,
+          "max": 3
+        },
+        {
+          "label": "semantic_query.sqlite.fallback_store_opens",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.schema_statements",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.integrity_checks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.index.writes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.provider.calls",
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "midpoint": {
+      "binarySha256": "c7114b91ad9ca64b7f44e173d6fb97b687c3681f5c590b994445a4acf4777f5a",
+      "sourceState": "EFF-0071 filesystem-sensitive midpoint artifact",
+      "corpus": {
+        "configSha256": "d8d1395369fe8119882efbbdb6fbcdc4ef2a054f031cfc0ca63970e54d1f10ba",
+        "index": {
+          "mtimeNs": 1785956811715704760,
+          "path": "/private/tmp/eff0071-bench.xksEzE/.rhizome/db.sqlite",
+          "sha256": "b7a8f85915ebc53b8660bdf11e4587ca0bb67f4e9d6e8de5099372fc9969ec6d",
+          "sizeBytes": 450412544
+        },
+        "markdownFiles": 1505
+      },
+      "command": [
+        "/private/tmp/rzm-eff0071-midpoint",
+        "agent",
+        "semantic-query",
+        "--path",
+        "pkg/app/mcp",
+        "--query",
+        "semantic query transaction invariants identifier mappings",
+        "--limit",
+        "20",
+        "--timings"
+      ],
+      "samples": 20,
+      "durationsMs": [
+        563.131,
+        500.79,
+        506.211,
+        515.791,
+        514.401,
+        529.61,
+        501.965,
+        535.175,
+        495.792,
+        490.913,
+        500.489,
+        498.408,
+        557.913,
+        511.08,
+        523.677,
+        510.255,
+        514.172,
+        515.795,
+        505.082,
+        504.37
+      ],
+      "medianMs": 510.667,
+      "p95Ms": 557.913,
+      "normalizedOutputSha256": "e846972be319e76dc3f703a0f32049a90b7801a4a497e6a6e5721c0df1b0d70f",
+      "userVisibleOutputSha256": "af5b17adf93127f695cba3ee3fa330e8e749729dbf9e21372e8d86f8b38cfb1d",
+      "candidateCounts": {"count": 20, "total": 181, "returned": 20},
+      "uniqueNormalizedOutputs": 1,
+      "medianPhasesMs": {
+        "seedResolution": 0,
+        "search": 467.5,
+        "shaping": 4
+      },
+      "medianSearchMs": {
+        "vector": 397,
+        "provider": 197,
+        "graph": 13
+      },
+      "operationRanges": [
+        {
+          "label": "semantic_query.note.passes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.repo.walks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.note.reads",
+          "min": 18,
+          "max": 18
+        },
+        {
+          "label": "semantic_query.code.reads",
+          "min": 2,
+          "max": 2
+        },
+        {
+          "label": "semantic_query.sqlite.fallback_store_opens",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.schema_statements",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.integrity_checks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.index.writes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.provider.calls",
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "after": {
+      "binarySha256": "c91864a02bc4fabede2f35dda8d8e9d2306a3aa697d2c7adec841ea8932ecb47",
+      "sourceState": "EFF-0071 final KNN artifact",
+      "corpus": {
+        "configSha256": "d8d1395369fe8119882efbbdb6fbcdc4ef2a054f031cfc0ca63970e54d1f10ba",
+        "index": {
+          "mtimeNs": 1785956811715704760,
+          "path": "/private/tmp/eff0071-bench.xksEzE/.rhizome/db.sqlite",
+          "sha256": "b7a8f85915ebc53b8660bdf11e4587ca0bb67f4e9d6e8de5099372fc9969ec6d",
+          "sizeBytes": 450412544
+        },
+        "markdownFiles": 1505
+      },
+      "command": [
+        "<worktree>/bin/darwin/rzm",
+        "agent",
+        "semantic-query",
+        "--path",
+        "pkg/app/mcp",
+        "--query",
+        "semantic query transaction invariants identifier mappings",
+        "--limit",
+        "20",
+        "--timings"
+      ],
+      "samples": 20,
+      "durationsMs": [
+        1310.356,
+        377.773,
+        414.55,
+        396.672,
+        406.496,
+        392.161,
+        466.101,
+        384.289,
+        388.778,
+        378.566,
+        386.981,
+        386.192,
+        418.979,
+        408.437,
+        375.405,
+        381.173,
+        394.482,
+        404.374,
+        371.649,
+        395.047
+      ],
+      "medianMs": 393.321,
+      "p95Ms": 466.101,
+      "normalizedOutputSha256": "e846972be319e76dc3f703a0f32049a90b7801a4a497e6a6e5721c0df1b0d70f",
+      "userVisibleOutputSha256": "af5b17adf93127f695cba3ee3fa330e8e749729dbf9e21372e8d86f8b38cfb1d",
+      "candidateCounts": {"count": 20, "total": 181, "returned": 20},
+      "uniqueNormalizedOutputs": 1,
+      "medianPhasesMs": {
+        "seedResolution": 0,
+        "search": 344.5,
+        "shaping": 5
+      },
+      "medianSearchMs": {
+        "vector": 270.5,
+        "provider": 198,
+        "graph": 14
+      },
+      "operationRanges": [
+        {
+          "label": "semantic_query.note.passes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.repo.walks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.note.reads",
+          "min": 18,
+          "max": 18
+        },
+        {
+          "label": "semantic_query.code.reads",
+          "min": 2,
+          "max": 2
+        },
+        {
+          "label": "semantic_query.sqlite.fallback_store_opens",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.schema_statements",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.integrity_checks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.index.writes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.provider.calls",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "label": "semantic_query.vector.knn_queries",
+          "min": 2,
+          "max": 2
+        },
+        {
+          "label": "semantic_query.vector.tie_retries",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.vector.scalar_fallbacks",
+          "min": 0,
+          "max": 0
+        }
+      ]
+    }
+  },
+  "drewsVault": {
+    "before": {
+      "binarySha256": "030cf0edcb170f043d758f49b3a53865733f11f4870236f700eb2294a7bebcbd",
+      "sourceState": "base revision before EFF-0071 changes",
+      "corpus": {
+        "configSha256": "f9b42cb56a9fd6dd4282aabec69cdd54532d265213bc35c92f082c332f496815",
+        "index": {
+          "mtimeNs": 1785956965903128467,
+          "path": "/private/tmp/eff0071-drews.eZCYTZ/.rhizome/db.sqlite",
+          "sha256": "dfbdf8b267b73b65cd0f3b481d8f49ca6ea04c8c338436afb5057e4a3caa072a",
+          "sizeBytes": 284164096
+        },
+        "markdownFiles": 2772
+      },
+      "command": [
+        "/private/tmp/eff0071-head.GlLs9I/bin/darwin/rzm",
+        "agent",
+        "semantic-query",
+        "--path",
+        "Clippings",
+        "--query",
+        "agentic coding software architecture",
+        "--limit",
+        "20",
+        "--timings"
+      ],
+      "samples": 20,
+      "durationsMs": [
+        1219.007,
+        1020.376,
+        1042.716,
+        1026.095,
+        1033.849,
+        1084.052,
+        1105.268,
+        1054.133,
+        1034.223,
+        1200.526,
+        1067.754,
+        1075.938,
+        1044.725,
+        1016.354,
+        1022.916,
+        1039.571,
+        1030.275,
+        1035.037,
+        1057.327,
+        1047.974
+      ],
+      "medianMs": 1043.72,
+      "p95Ms": 1200.526,
+      "normalizedOutputSha256": "dadfe2d32860e8460d8fdf2e0e48cd090d104d0705bc91bf295b8d280171895b",
+      "userVisibleOutputSha256": "4fa43f107c3d0f6aa029cfbdbb88980abb53d4ae41f882837774c1309c3a7fa6",
+      "candidateCounts": {"count": 20, "total": 245, "returned": 20},
+      "uniqueNormalizedOutputs": 1,
+      "medianPhasesMs": {
+        "seedResolution": 30,
+        "search": 977.5,
+        "shaping": 3
+      },
+      "medianSearchMs": {
+        "vector": 194.5,
+        "provider": 193.5,
+        "graph": 690
+      },
+      "operationRanges": [
+        {
+          "label": "semantic_query.note.passes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.repo.walks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.note.reads",
+          "min": 20,
+          "max": 20
+        },
+        {
+          "label": "semantic_query.code.reads",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.fallback_store_opens",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.schema_statements",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.integrity_checks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.index.writes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.provider.calls",
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "midpoint": {
+      "binarySha256": "c7114b91ad9ca64b7f44e173d6fb97b687c3681f5c590b994445a4acf4777f5a",
+      "sourceState": "EFF-0071 filesystem-sensitive midpoint artifact",
+      "corpus": {
+        "configSha256": "f9b42cb56a9fd6dd4282aabec69cdd54532d265213bc35c92f082c332f496815",
+        "index": {
+          "mtimeNs": 1785956965903128467,
+          "path": "/private/tmp/eff0071-drews.eZCYTZ/.rhizome/db.sqlite",
+          "sha256": "dfbdf8b267b73b65cd0f3b481d8f49ca6ea04c8c338436afb5057e4a3caa072a",
+          "sizeBytes": 284164096
+        },
+        "markdownFiles": 2772
+      },
+      "command": [
+        "/private/tmp/rzm-eff0071-midpoint",
+        "agent",
+        "semantic-query",
+        "--path",
+        "Clippings",
+        "--query",
+        "agentic coding software architecture",
+        "--limit",
+        "20",
+        "--timings"
+      ],
+      "samples": 20,
+      "durationsMs": [
+        623.804,
+        527.922,
+        539.113,
+        539.654,
+        548.644,
+        561.277,
+        553.389,
+        539.512,
+        521.807,
+        543.465,
+        562.603,
+        542.915,
+        537.354,
+        543.989,
+        565.983,
+        591.596,
+        584.401,
+        571.353,
+        608.9,
+        691.717
+      ],
+      "medianMs": 551.016,
+      "p95Ms": 623.804,
+      "normalizedOutputSha256": "dadfe2d32860e8460d8fdf2e0e48cd090d104d0705bc91bf295b8d280171895b",
+      "userVisibleOutputSha256": "4fa43f107c3d0f6aa029cfbdbb88980abb53d4ae41f882837774c1309c3a7fa6",
+      "candidateCounts": {"count": 20, "total": 245, "returned": 20},
+      "uniqueNormalizedOutputs": 1,
+      "medianPhasesMs": {
+        "seedResolution": 0,
+        "search": 514,
+        "shaping": 3
+      },
+      "medianSearchMs": {
+        "vector": 197,
+        "provider": 196,
+        "graph": 224.5
+      },
+      "operationRanges": [
+        {
+          "label": "semantic_query.note.passes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.repo.walks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.note.reads",
+          "min": 20,
+          "max": 20
+        },
+        {
+          "label": "semantic_query.code.reads",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.fallback_store_opens",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.schema_statements",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.integrity_checks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.index.writes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.provider.calls",
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "after": {
+      "binarySha256": "c91864a02bc4fabede2f35dda8d8e9d2306a3aa697d2c7adec841ea8932ecb47",
+      "sourceState": "EFF-0071 final KNN artifact",
+      "corpus": {
+        "configSha256": "f9b42cb56a9fd6dd4282aabec69cdd54532d265213bc35c92f082c332f496815",
+        "index": {
+          "mtimeNs": 1785956965903128467,
+          "path": "/private/tmp/eff0071-drews.eZCYTZ/.rhizome/db.sqlite",
+          "sha256": "dfbdf8b267b73b65cd0f3b481d8f49ca6ea04c8c338436afb5057e4a3caa072a",
+          "sizeBytes": 284164096
+        },
+        "markdownFiles": 2772
+      },
+      "command": [
+        "<worktree>/bin/darwin/rzm",
+        "agent",
+        "semantic-query",
+        "--path",
+        "Clippings",
+        "--query",
+        "agentic coding software architecture",
+        "--limit",
+        "20",
+        "--timings"
+      ],
+      "samples": 20,
+      "durationsMs": [
+        670.268,
+        552.142,
+        541.226,
+        544.887,
+        537.88,
+        544.083,
+        548.41,
+        550.744,
+        559.95,
+        774.748,
+        571.225,
+        566.786,
+        536.563,
+        566.595,
+        552.735,
+        561.077,
+        539.077,
+        558.973,
+        534.678,
+        535.389
+      ],
+      "medianMs": 551.443,
+      "p95Ms": 670.268,
+      "normalizedOutputSha256": "dadfe2d32860e8460d8fdf2e0e48cd090d104d0705bc91bf295b8d280171895b",
+      "userVisibleOutputSha256": "4fa43f107c3d0f6aa029cfbdbb88980abb53d4ae41f882837774c1309c3a7fa6",
+      "candidateCounts": {"count": 20, "total": 245, "returned": 20},
+      "uniqueNormalizedOutputs": 1,
+      "medianPhasesMs": {
+        "seedResolution": 0,
+        "search": 513.5,
+        "shaping": 3
+      },
+      "medianSearchMs": {
+        "vector": 197,
+        "provider": 196,
+        "graph": 225.5
+      },
+      "operationRanges": [
+        {
+          "label": "semantic_query.note.passes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.repo.walks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.note.reads",
+          "min": 20,
+          "max": 20
+        },
+        {
+          "label": "semantic_query.code.reads",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.fallback_store_opens",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.schema_statements",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.sqlite.integrity_checks",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.index.writes",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.provider.calls",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "label": "semantic_query.vector.knn_queries",
+          "min": 2,
+          "max": 2
+        },
+        {
+          "label": "semantic_query.vector.tie_retries",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "label": "semantic_query.vector.scalar_fallbacks",
+          "min": 0,
+          "max": 0
+        }
+      ]
+    }
+  }
+}

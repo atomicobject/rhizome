@@ -1,0 +1,160 @@
+{
+  "assessment": "post-run diagnostic correction; original checks and comparison unchanged; no model reruns",
+  "checker_sha256": "16bfda76f5e4f7c548d4987b2f584614beafaa3ddfe20495b1a77e17c5189ca3",
+  "policy": "Exact SQLite runtime paths are allowed tree effects, retained in snapshots; authored configuration and source remain protected.",
+  "runs": [
+    {
+      "captured_inputs_sha256": {
+        "after.json": "789fa5171e84ec11520ef8ab7d6342dd98e0200b4d035393be3415a2356179ed",
+        "before.json": "e0fa047f6846910e5a46fde3dd9db81e94a2c9df99c48332bca184ce6547612c",
+        "checks.json": "015500cf38b83ef75146fd011f98a8763864a5d361d1608f9297cdeaa0977db9"
+      },
+      "corrected_integrity_passed": true,
+      "id": "p01-direct",
+      "other_original_checks_passed": true,
+      "raw_checks_passed": false,
+      "runtime_changes": {
+        "added": [],
+        "modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "removed": []
+      },
+      "snapshot_changes_match_raw_check": true,
+      "unexpected_changes_under_corrected_policy": {
+        "added": [],
+        "modified": [],
+        "removed": []
+      }
+    },
+    {
+      "captured_inputs_sha256": {
+        "after.json": "b1ba6786cbac379bdac278ce6487771b9853f5e8636a53382219bc14b7f84b57",
+        "before.json": "08e096f58bf8cf366dd4cb1cfe59f317d3c5ed1a689520ce4efa53dac11c3aae",
+        "checks.json": "bb98f6f0b17b3270fcab7ee3cc245a7f6773ddeaf3bbf546815daa63a77f3381"
+      },
+      "corrected_integrity_passed": true,
+      "id": "p01-persistent",
+      "other_original_checks_passed": true,
+      "raw_checks_passed": false,
+      "runtime_changes": {
+        "added": [
+          ".rhizome/db.sqlite-shm",
+          ".rhizome/db.sqlite-wal"
+        ],
+        "modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "removed": []
+      },
+      "snapshot_changes_match_raw_check": true,
+      "unexpected_changes_under_corrected_policy": {
+        "added": [],
+        "modified": [],
+        "removed": []
+      }
+    },
+    {
+      "captured_inputs_sha256": {
+        "after.json": "705c33479d4ec08845b6eddecfd8108e02ac00193d40c2894ee9929333da0078",
+        "before.json": "84113ee7a79ac7bb152ecabe3ed10014b2ffe174f014679a4adc91bc38979578",
+        "checks.json": "189cbe3f2d957e218a716825d48cffda7f7bfe25254065850eb622a97f74251e"
+      },
+      "corrected_integrity_passed": true,
+      "id": "p02-direct",
+      "other_original_checks_passed": true,
+      "raw_checks_passed": false,
+      "runtime_changes": {
+        "added": [],
+        "modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "removed": []
+      },
+      "snapshot_changes_match_raw_check": true,
+      "unexpected_changes_under_corrected_policy": {
+        "added": [],
+        "modified": [],
+        "removed": []
+      }
+    },
+    {
+      "captured_inputs_sha256": {
+        "after.json": "00804482a01f3d22796a139b4f073a11a860ae48395b535e1e8edd80f497fd11",
+        "before.json": "c1676500c3e4a73d770b8b771a38a1d2b558d72014c78e9216b8830b8a7ea170",
+        "checks.json": "189cbe3f2d957e218a716825d48cffda7f7bfe25254065850eb622a97f74251e"
+      },
+      "corrected_integrity_passed": true,
+      "id": "p02-persistent",
+      "other_original_checks_passed": true,
+      "raw_checks_passed": false,
+      "runtime_changes": {
+        "added": [],
+        "modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "removed": []
+      },
+      "snapshot_changes_match_raw_check": true,
+      "unexpected_changes_under_corrected_policy": {
+        "added": [],
+        "modified": [],
+        "removed": []
+      }
+    },
+    {
+      "captured_inputs_sha256": {
+        "after.json": "5ff3bed0772d4ea4fdbac1701d623bf32eb63bfcf011755ee9f1bb0bf99e5b99",
+        "before.json": "9c8ea88a76934d000b1d35cf2e555e1af1301c394a874b798ac8131eee831024",
+        "checks.json": "a2cc2f7729f979cd26a4867f37a0de5930f3e5c900cc0326705b23b8980c64b7"
+      },
+      "corrected_integrity_passed": true,
+      "id": "p03-direct",
+      "other_original_checks_passed": true,
+      "raw_checks_passed": false,
+      "runtime_changes": {
+        "added": [],
+        "modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "removed": []
+      },
+      "snapshot_changes_match_raw_check": true,
+      "unexpected_changes_under_corrected_policy": {
+        "added": [],
+        "modified": [],
+        "removed": []
+      }
+    },
+    {
+      "captured_inputs_sha256": {
+        "after.json": "9c2ca0b7d0586a535cd0744774691ddc0a519f0492fa7104bfc969ea9ae2d16d",
+        "before.json": "261d583be4686266d51fd1cb1f05565196e3b76a1479c01f50e9600342f55f34",
+        "checks.json": "0b429da46106b9264271d16571e3eec4580d48892529b02fd0989e019b50336c"
+      },
+      "corrected_integrity_passed": true,
+      "id": "p03-persistent",
+      "other_original_checks_passed": true,
+      "raw_checks_passed": false,
+      "runtime_changes": {
+        "added": [],
+        "modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "removed": []
+      },
+      "snapshot_changes_match_raw_check": true,
+      "unexpected_changes_under_corrected_policy": {
+        "added": [],
+        "modified": [],
+        "removed": []
+      }
+    }
+  ],
+  "runtime_paths": [
+    ".rhizome/db.sqlite",
+    ".rhizome/db.sqlite-journal",
+    ".rhizome/db.sqlite-shm",
+    ".rhizome/db.sqlite-wal"
+  ]
+}

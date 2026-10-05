@@ -1,0 +1,61 @@
+apiVersion: rhizome.view.v1
+id: complex-domain.requirements-by-process
+name: Requirements by Process
+description: Requirements grouped by process and kind for constraint, workflow, and compliance review.
+source:
+  kind: ontology_type
+  type: Requirement
+mount:
+  kind: standalone
+  group: Domain
+  order: 30
+defaults:
+  variant: table
+  first: 100
+  group:
+    field: processes
+  sort:
+    - field: priority
+      direction: asc
+    - field: status
+      direction: asc
+    - field: title
+      direction: asc
+filterPresets:
+  - id: constraints
+    label: Constraints
+    filters:
+      - field: kind
+        op: in
+        values: [constraint, compliance, data, workflow]
+  - id: accepted
+    label: Accepted
+    filters:
+      - field: status
+        op: eq
+        value: accepted
+variants:
+  table:
+    columns:
+      - field: id
+        label: ID
+      - field: title
+        label: Requirement
+      - field: kind
+        label: Kind
+      - field: processes
+        label: Processes
+      - field: workflows
+        label: Workflows
+      - field: status
+        label: Status
+      - field: priority
+        label: Priority
+      - field: confidence
+        label: Confidence
+      - field: reviewStatus
+        label: Review
+      - field: sources
+        label: Sources
+      - field: specs
+        label: Specs

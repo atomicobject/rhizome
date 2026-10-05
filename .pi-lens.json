@@ -1,0 +1,6 @@
+{
+	"lsp": true,
+	"linters": true,
+	"includePatterns": ["**/*.go"],
+	"excludePatterns": [".git/**", "vendor/**", "node_modules/**", "dist/**", "build/**"]
+}

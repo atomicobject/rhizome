@@ -1,0 +1,12 @@
+apiVersion: rhizome.view.v1
+id: e2e.views.collection
+name: Demo dashboard
+configuration:
+  greeting: collection configuration
+source:
+  kind: custom
+  entry: dashboard.tsx
+mount:
+  kind: type
+  type: ViewDemoEffort
+  default: true

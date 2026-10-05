@@ -1,0 +1,723 @@
+apiVersion: rhizome.query-recipe.v1
+id: domain-inventory-pack
+name: Domain inventory pack
+problem: Return a deterministic, bounded inventory of one live complex-domain type, optionally narrowed by text.
+inputSpec:
+  mode: none
+  inputs:
+    - name: type
+      required: true
+      kind: string
+      description: Live ontology type to inventory; discover valid names with ontology-query-schema or ontology-authoring-guide.
+    - name: find
+      required: false
+      kind: string
+      description: Optional text selector used to narrow the chosen type.
+    - name: first
+      required: false
+      kind: int
+      default: "50"
+      description: Maximum notes to return; default 50.
+query:
+  graphQL: |
+    query DomainInventoryPack($type: String!, $find: String, $first: Int = 50) {
+      notes(type: $type, find: $find, first: $first) {
+        nodes { path title }
+        pageInfo { requestedFirst returnedCount truncated maxFirst }
+        warnings { code message }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - notes.nodes.path
+    - notes.nodes.title
+    - notes.pageInfo.truncated
+    - notes.warnings.code
+  empty: No notes of the selected live type matched. Confirm the type and selector before treating the domain family as absent.
+  partial: A truncated page is a bounded sample; narrow by supported type, text, property, or an anchored relation before making a completeness claim.
+  highVolume: Keep the inventory bounded and narrow the selector instead of repeatedly increasing `first`.
+adaptationGuidance:
+  summary: Use this deterministic typed inventory before semantic candidate discovery when no known anchor exists.
+  rules:
+    - Discover current type names from the live schema rather than guessing them.
+    - Treat pageInfo and warnings as part of the result contract.
+tags:
+  - complex-domain
+  - inventory
+  - deterministic
+---
+apiVersion: rhizome.query-recipe.v1
+id: domain-topic-survey
+name: Domain topic survey
+problem: Rank semantic candidates inside one typed complex-domain family after deterministic structural context has been loaded.
+inputSpec:
+  mode: none
+  inputs:
+    - name: topics
+      required: true
+      kind: list
+      description: Topic phrases to search across the complex-domain inventory.
+    - name: type
+      required: true
+      kind: string
+      description: Type to survey, such as FeatureArea, Requirement, DomainContext, DomainType, DomainProcess, UserWorkflow, or RequirementSource.
+    - name: first
+      required: false
+      kind: int
+      description: Maximum typed notes to return; default 50.
+query:
+  graphQL: |
+    query DomainTopicSurvey($topics: [String!]!, $type: String!, $first: Int = 50) {
+      notes(type: $type, semantic: $topics, first: $first) {
+        nodes {
+          path
+          title
+          score
+          frontmatter
+        }
+        pageInfo { requestedFirst returnedCount truncated maxFirst }
+        warnings { code message }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - notes.nodes.path
+    - notes.nodes.title
+    - notes.nodes.score
+    - notes.pageInfo.truncated
+    - notes.warnings.code
+  empty: No typed complex-domain notes matched the supplied topics. Use deterministic inventories next; do not infer absence from semantic search alone.
+  partial: Treat scores as candidate-ranking evidence, not traceability proof.
+  highVolume: Narrow by type and topic before increasing `first`; a capped semantic page remains candidate ranking, not complete inventory.
+adaptationGuidance:
+  summary: Keep this as typed candidate discovery after deterministic context is exhausted.
+  rules:
+    - "Preserve `notes(type: $type, semantic: $topics)` so the search stays inside a chosen complex-domain family."
+    - Keep path, title, score, and family-specific identifiers visible for follow-up recipe calls.
+tags:
+  - complex-domain
+  - discovery
+  - semantic
+---
+apiVersion: rhizome.query-recipe.v1
+id: domain-context-pack
+name: Domain context pack
+problem: Load one known complex-domain note and its typed requirement/domain neighborhood before modeling, curation, spec drafting, planning, audit, or backport.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative path to a complex-domain note.
+query:
+  graphQL: |
+    query DomainContextPack($path: String!) {
+      note(path: $path) {
+        path
+        title
+        frontmatter
+        linked(first: 30) { path title }
+        backlinked(first: 30) { path title }
+        ... on FeatureArea {
+          specs {
+            id summary specStatus
+            ... on ProcessSpec { path title }
+            ... on ProductSpec { path title }
+            ... on TechnicalSpec { path title }
+            ... on ExperienceSpec { path title }
+            ... on OperationsSpec { path title }
+          }
+        }
+        ... on RequirementSource {
+          id
+          summary
+          sourceKind
+          sourceDate
+          sourceVersion
+          provenance
+          confidence
+          reviewStatus
+          lastExtracted
+          requirements { path title id summary status priority confidence reviewStatus }
+        }
+        ... on DomainContext {
+          domainTypes { path title id summary status }
+          processes { path title id summary status }
+          requirements { path title id summary status priority confidence }
+        }
+        ... on DomainType {
+          contexts { path title id }
+          requirements { path title id summary status priority confidence }
+        }
+        ... on DomainProcess {
+          contexts { path title id }
+          requirements { path title id summary status priority confidence }
+          workflows { path title id summary status actors }
+        }
+        ... on UserWorkflow {
+          processes { path title id summary status }
+          requirements { path title id summary status priority confidence }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - note.path
+    - note.linked.path
+    - note.backlinked.path
+    - note.requirements.path
+  empty: The path did not resolve to a complex-domain note. Confirm the note path before widening.
+  partial: Missing relations are meaningful only after checking whether the note is still draft or unreviewed.
+  highVolume: Keep this anchored to one note. Run inventory recipes rather than broadening linked/backlinked pages repeatedly.
+adaptationGuidance:
+  summary: Preserve one-note anchored structural loading for domain modeling and spec handoff.
+  rules:
+    - Keep identity, status, review state, and linked requirements visible for each supported domain family.
+    - Use requirement-trace-pack for detailed source, domain, conflict, and delivery context on a returned requirement.
+    - Use this before semantic-query when the user names a known domain note.
+tags:
+  - complex-domain
+  - domain
+  - context
+---
+apiVersion: rhizome.query-recipe.v1
+id: requirement-trace-pack
+name: Requirement trace pack
+problem: Load one known requirement with source evidence, domain links, delivery links, and duplicate/conflict markers.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative requirement note path.
+query:
+  graphQL: |
+    query RequirementTracePack($path: String!) {
+      note(path: $path) {
+        path
+        title
+        frontmatter
+        linked(first: 40) { path title }
+        backlinked(first: 40) { path title }
+        ... on Requirement {
+          id
+          summary
+          status
+          kind
+          priority
+          confidence
+          reviewStatus
+          owner
+          reviewer
+          sourceLocations
+          verificationHint
+          lastReviewed
+          sources { path title id summary sourceKind sourceDate sourceVersion reviewStatus lastExtracted }
+          featureAreas { path title id summary owner }
+          contexts { path title id summary status }
+          domainTypes { path title id summary status confidence }
+          processes { path title id summary status owner reviewStatus }
+          workflows { path title id summary status actors reviewStatus }
+          specs {
+            id
+            summary
+            specStatus
+            lastUpdated
+            ... on ProcessSpec { path title }
+            ... on ProductSpec { path title }
+            ... on TechnicalSpec { path title }
+            ... on ExperienceSpec { path title }
+            ... on OperationsSpec { path title }
+          }
+          storyRefs
+          acceptanceCriterionRefs
+          duplicates { path title id summary status confidence }
+          conflicts { path title id summary status confidence }
+          supersededBy { path title id summary status }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - note.path
+    - note.sources.path
+    - note.featureAreas.path
+    - note.specs.path
+  empty: The requirement path did not resolve. Confirm the path before treating the requirement as missing.
+  partial: Missing sources, specs, or domain links are traceability gaps; name them rather than filling them by semantic inference.
+  highVolume: Keep this anchored to one requirement and then branch to explicit linked nodes.
+adaptationGuidance:
+  summary: Preserve requirement-level traceability from source evidence through domain links and delivery links.
+  rules:
+    - Keep duplicate, conflict, supersession, review, and source fields visible.
+    - Preserve storyRefs and acceptanceCriterionRefs as authored refs until embedded Section targets support direct link fields.
+tags:
+  - complex-domain
+  - requirement
+  - traceability
+---
+apiVersion: rhizome.query-recipe.v1
+id: spec-domain-context-pack
+name: Spec domain context pack
+problem: Load domain and requirement context structurally linked from a spec before spec edits, effort creation, planning, implementation, audit, or backport.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative spec path.
+query:
+  graphQL: |
+    query SpecDomainContextPack($path: String!) {
+      note(path: $path) {
+        path
+        title
+        frontmatter
+        linked(type: "Requirement", first: 50) {
+          path
+          title
+          ... on Requirement {
+            id
+            summary
+            status
+            kind
+            priority
+            confidence
+            reviewStatus
+            featureAreas { path title id }
+            processes { path title id }
+            workflows { path title id }
+            sources { path title id sourceKind sourceVersion reviewStatus }
+          }
+        }
+        linkedFeatureAreas: linked(type: "FeatureArea", first: 30) { path title }
+        linkedProcesses: linked(type: "DomainProcess", first: 30) { path title }
+        linkedWorkflows: linked(type: "UserWorkflow", first: 30) { path title }
+        incomingRequirementCandidates: backlinked(type: "Requirement", first: 50) {
+          path
+          title
+          ... on Requirement {
+            id
+            summary
+            status
+            reviewStatus
+            specs {
+              id
+              specStatus
+              ... on ProcessSpec { path title }
+              ... on ProductSpec { path title }
+              ... on TechnicalSpec { path title }
+              ... on ExperienceSpec { path title }
+              ... on OperationsSpec { path title }
+            }
+          }
+        }
+        ... on TechnicalSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          requirements { content }
+          technicalStories: userStories { stories { id title summary status acceptanceCriteria { content } } }
+        }
+        ... on ProductSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          requirements { content }
+          productStories: userStories { stories { id title summary status acceptanceCriteria { content } } }
+        }
+        ... on ExperienceSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          requirements { content }
+          experienceStories: userStories { stories { id title summary status acceptanceCriteria { content } } }
+        }
+        ... on OperationsSpec {
+          id
+          summary
+          specStatus
+          lastUpdated
+          requirements { content }
+          operationsStories: userStories { stories { id title summary status acceptanceCriteria { content } } }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - note.path
+    - note.linked.path
+    - note.linkedFeatureAreas.path
+    - note.linkedProcesses.path
+    - note.linkedWorkflows.path
+    - note.incomingRequirementCandidates.path
+    - note.incomingRequirementCandidates.specs.path
+  empty: The spec path did not resolve. Confirm the governing spec before loading domain context.
+  partial: Missing outbound requirements and confirmed incoming typed specs links means no structural upstream coverage was found in these bounded lists; it does not prove no requirements exist.
+  highVolume: Keep this anchored to one spec. A relation list at its explicit limit may be truncated; confirm named requirements with requirement-trace-pack.
+adaptationGuidance:
+  summary: Preserve spec-anchored loading of upstream requirements and domain nodes.
+  rules:
+    - Keep structurally linked requirements separate from linked feature areas, processes, and workflows.
+    - Treat incomingRequirementCandidates as candidates until each requirement's specs list confirms the anchored spec.
+    - Treat semantically similar requirements as candidates only after this structural pack is loaded.
+tags:
+  - complex-domain
+  - spec-driven
+  - traceability
+---
+apiVersion: rhizome.query-recipe.v1
+id: changed-domain-impact-pack
+name: Changed domain impact pack
+problem: Load downstream requirements, domain nodes, and specs impacted by a changed source, requirement, process, workflow, feature area, or domain context.
+inputSpec:
+  mode: required_anchor
+  primaryInput: path
+  inputs:
+    - name: path
+      required: true
+      kind: string
+      description: Vault-relative changed domain/source/requirement note path.
+query:
+  graphQL: |
+    query ChangedDomainImpactPack($path: String!) {
+      note(path: $path) {
+        path
+        title
+        frontmatter
+        linked(first: 50) { path title }
+        backlinked(first: 80) { path title }
+        ... on RequirementSource {
+          id
+          summary
+          sourceKind
+          sourceDate
+          sourceVersion
+          provenance
+          confidence
+          reviewStatus
+          lastExtracted
+          requirements {
+            path title id summary status priority confidence reviewStatus sourceLocations storyRefs acceptanceCriterionRefs
+            sources { path title id sourceDate sourceVersion provenance reviewStatus lastExtracted }
+            conflicts { path title id summary status confidence }
+            specs {
+              id summary specStatus
+              ... on ProcessSpec { path title }
+              ... on ProductSpec { path title }
+              ... on TechnicalSpec { path title }
+              ... on ExperienceSpec { path title }
+              ... on OperationsSpec { path title }
+            }
+          }
+        }
+        ... on Requirement {
+          specs {
+            id summary specStatus
+            ... on ProcessSpec { path title }
+            ... on ProductSpec { path title }
+            ... on TechnicalSpec { path title }
+            ... on ExperienceSpec { path title }
+            ... on OperationsSpec { path title }
+          }
+          storyRefs
+          acceptanceCriterionRefs
+          sourceLocations
+          sources { path title id sourceDate sourceVersion provenance reviewStatus lastExtracted }
+          conflicts { path title id summary status confidence }
+          featureAreas { path title id summary }
+          processes { path title id summary status }
+          workflows { path title id summary status }
+        }
+        ... on FeatureArea {
+          specs {
+            id summary specStatus
+            ... on ProcessSpec { path title }
+            ... on ProductSpec { path title }
+            ... on TechnicalSpec { path title }
+            ... on ExperienceSpec { path title }
+            ... on OperationsSpec { path title }
+          }
+        }
+        ... on DomainProcess {
+          workflows { path title id summary status }
+          requirements {
+            path title id summary status priority confidence reviewStatus sourceLocations storyRefs acceptanceCriterionRefs
+            specs {
+              id summary specStatus
+              ... on ProcessSpec { path title }
+              ... on ProductSpec { path title }
+              ... on TechnicalSpec { path title }
+              ... on ExperienceSpec { path title }
+              ... on OperationsSpec { path title }
+            }
+          }
+        }
+        ... on UserWorkflow {
+          processes { path title id summary status }
+          requirements {
+            path title id summary status priority confidence reviewStatus sourceLocations storyRefs acceptanceCriterionRefs
+            specs {
+              id summary specStatus
+              ... on ProcessSpec { path title }
+              ... on ProductSpec { path title }
+              ... on TechnicalSpec { path title }
+              ... on ExperienceSpec { path title }
+              ... on OperationsSpec { path title }
+            }
+          }
+        }
+        ... on DomainContext {
+          requirements {
+            path title id summary status priority confidence reviewStatus sourceLocations storyRefs acceptanceCriterionRefs
+            specs {
+              id summary specStatus
+              ... on ProcessSpec { path title }
+              ... on ProductSpec { path title }
+              ... on TechnicalSpec { path title }
+              ... on ExperienceSpec { path title }
+              ... on OperationsSpec { path title }
+            }
+          }
+        }
+        ... on DomainType {
+          requirements {
+            path title id summary status priority confidence reviewStatus sourceLocations storyRefs acceptanceCriterionRefs
+            specs {
+              id summary specStatus
+              ... on ProcessSpec { path title }
+              ... on ProductSpec { path title }
+              ... on TechnicalSpec { path title }
+              ... on ExperienceSpec { path title }
+              ... on OperationsSpec { path title }
+            }
+          }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - note.path
+    - note.linked.path
+    - note.backlinked.path
+    - note.requirements.path
+    - note.requirements.specs.path
+  empty: The changed note path did not resolve. Confirm the note before assessing impact.
+  partial: Use missing specs or requirements as impact-analysis gaps to review; source dates, versions, locations, and review state qualify the evidence available.
+  highVolume: Keep this anchored to one changed node. Relation lists are bounded; expand only affected requirements with requirement-trace-pack.
+adaptationGuidance:
+  summary: Preserve changed-node impact loading for audit, backport, and source refresh workflows.
+  rules:
+    - Keep downstream requirements and specs visible when present.
+    - Preserve source identity, version, review, extraction, and requirement source-location fields needed to compare changed evidence.
+    - Treat backlinked notes as impact candidates, not automatically confirmed coverage.
+tags:
+  - complex-domain
+  - impact
+  - backport
+---
+apiVersion: rhizome.query-recipe.v1
+id: feature-area-backlog-pack
+name: Feature area backlog pack
+problem: Return bounded requirement inventory rows with feature-area, source, and delivery-trace fields for evidence review and triage.
+inputSpec:
+  mode: none
+  inputs:
+    - name: find
+      required: false
+      kind: string
+      description: Optional text selector used to narrow Requirement rows.
+    - name: first
+      required: false
+      kind: int
+      default: "200"
+      description: Maximum Requirement rows to return; default 200.
+query:
+  graphQL: |
+    query FeatureAreaBacklogPack($find: String, $first: Int = 200) {
+      notes(type: "Requirement", find: $find, first: $first) {
+        nodes {
+          path
+          title
+          ... on Requirement {
+            id
+            summary
+            status
+            kind
+            priority
+            confidence
+            reviewStatus
+            owner
+            reviewer
+            lastReviewed
+            featureAreas { path title id }
+            sources { path title id sourceKind sourceVersion reviewStatus }
+            processes { path title id }
+            workflows { path title id }
+            specs { id specStatus }
+            storyRefs
+            acceptanceCriterionRefs
+          }
+        }
+        pageInfo { requestedFirst returnedCount truncated maxFirst }
+        warnings { code message }
+      }
+    }
+outputContract:
+  rowPath: notes.nodes
+  expectedPaths:
+    - notes.nodes.path
+    - notes.nodes.id
+    - notes.nodes.featureAreas.path
+    - notes.nodes.sources.path
+    - notes.pageInfo.truncated
+    - notes.warnings.code
+  empty: No Requirement rows matched the current selector. Confirm with an unfiltered or otherwise adequate inventory before concluding no requirements exist.
+  partial: Requirements without feature areas, sources, or specs should be treated as triage gaps.
+  highVolume: Narrow with `find` or an anchored feature-area query before widening; a truncated page is not a complete backlog.
+adaptationGuidance:
+  summary: Preserve row-shaped Requirement inventory for views and skill triage.
+  rules:
+    - "Keep `rowPath: notes.nodes`."
+    - Keep row identity through path/title/id.
+    - Keep source, feature area, and spec trace fields visible for coverage review.
+tags:
+  - complex-domain
+  - requirements
+  - view
+---
+apiVersion: rhizome.query-recipe.v1
+id: coverage-gap-pack
+name: Coverage gap pack
+problem: Return bounded requirement inventory rows with delivery trace fields for evidence review of weak or missing structural spec/story coverage.
+inputSpec:
+  mode: none
+  inputs:
+    - name: find
+      required: false
+      kind: string
+      description: Optional text selector used to narrow Requirement rows.
+    - name: first
+      required: false
+      kind: int
+      default: "200"
+      description: Maximum Requirement rows to return; default 200.
+query:
+  graphQL: |
+    query CoverageGapPack($find: String, $first: Int = 200) {
+      notes(type: "Requirement", find: $find, first: $first) {
+        nodes {
+          path
+          title
+          ... on Requirement {
+            id
+            summary
+            status
+            kind
+            priority
+            confidence
+            reviewStatus
+            featureAreas { path title id }
+            sources { path title id reviewStatus }
+            specs { id specStatus lastUpdated }
+            storyRefs
+            acceptanceCriterionRefs
+          }
+        }
+        pageInfo { requestedFirst returnedCount truncated maxFirst }
+        warnings { code message }
+      }
+    }
+outputContract:
+  rowPath: notes.nodes
+  expectedPaths:
+    - notes.nodes.path
+    - notes.nodes.id
+    - notes.nodes.status
+    - notes.nodes.storyRefs
+    - notes.nodes.acceptanceCriterionRefs
+    - notes.pageInfo.truncated
+    - notes.warnings.code
+  empty: No Requirement rows matched the current selector. Confirm with an unfiltered or otherwise adequate inventory before concluding there are no coverage gaps.
+  partial: A row with no specs, storyRefs, or acceptanceCriterionRefs is an authored structural gap that still requires evidence review before classifying satisfaction.
+  highVolume: Narrow with `find` or a supported typed/property query before widening; a truncated page cannot establish complete coverage.
+adaptationGuidance:
+  summary: Preserve structural delivery trace fields; do not substitute semantic similarity as coverage.
+  rules:
+    - Keep specs, storyRefs, and acceptanceCriterionRefs visible.
+    - Use linked action items or effort deviations for ambiguity that intentionally blocks coverage.
+tags:
+  - complex-domain
+  - coverage
+  - view
+---
+apiVersion: rhizome.query-recipe.v1
+id: sources-needing-review-pack
+name: Sources needing review pack
+problem: Return bounded source inventory rows with extracted requirements for evidence review of authored freshness and review state.
+inputSpec:
+  mode: none
+  inputs:
+    - name: find
+      required: false
+      kind: string
+      description: Optional text selector used to narrow RequirementSource rows.
+    - name: first
+      required: false
+      kind: int
+      default: "200"
+      description: Maximum RequirementSource rows to return; default 200.
+query:
+  graphQL: |
+    query SourcesNeedingReviewPack($find: String, $first: Int = 200) {
+      notes(type: "RequirementSource", find: $find, first: $first) {
+        nodes {
+          path
+          title
+          ... on RequirementSource {
+            id
+            summary
+            sourceKind
+            sourceDate
+            sourceVersion
+            provenance
+            confidence
+            reviewStatus
+            lastExtracted
+            requirements { path title id status confidence reviewStatus }
+          }
+        }
+        pageInfo { requestedFirst returnedCount truncated maxFirst }
+        warnings { code message }
+      }
+    }
+outputContract:
+  rowPath: notes.nodes
+  expectedPaths:
+    - notes.nodes.path
+    - notes.nodes.id
+    - notes.nodes.reviewStatus
+    - notes.nodes.requirements.path
+    - notes.pageInfo.truncated
+    - notes.warnings.code
+  empty: No RequirementSource rows matched the current selector. Confirm with an unfiltered or otherwise adequate inventory before concluding no sources exist.
+  partial: Sources without extracted requirements may still need review; authored dates and review fields require comparison with the source before declaring freshness.
+  highVolume: Narrow with `find` or a supported typed/property query before widening; a truncated page is not a freshness calculation.
+adaptationGuidance:
+  summary: Preserve source review fields and extracted requirement links.
+  rules:
+    - Keep source version/date/provenance visible.
+    - Keep linked requirements visible for stale-source review.
+tags:
+  - complex-domain
+  - source-review
+  - view

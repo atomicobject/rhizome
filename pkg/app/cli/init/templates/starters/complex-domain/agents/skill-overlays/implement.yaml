@@ -1,0 +1,16 @@
+apiVersion: rhizome.skill-overlay.v1
+id: complex-domain.implement
+targetSkill: agentic-engineering
+fragments:
+  - file: references/implementation.md
+    slot: inputs.additional-context
+    op: append
+    order: 10
+    content: |
+      For domain-dependent work, reuse the spec and requirement context selected in the approved effort. Refresh `spec-domain-context-pack`, `requirement-trace-pack`, or a changed anchor only when scope, source revision, delivery evidence, or capability state changed. When the failure may be caused by misunderstood domain rules or workflow variants, use those same packs before choosing the fix. Accepted requirements constrain implementation; candidates, conflicts, stale evidence, unresolved action items, and retrieval limits remain hypotheses or explicit assumptions unless the approved contract resolves them.
+  - file: references/implementation.md
+    slot: docs.additional-traceability
+    op: append
+    order: 10
+    content: |
+      Link tests, docs, and code rationale to the smallest durable requirement, process, workflow, feature area, or source that actually supports the claim. Record partial delivery and source/code disagreement for `traceability-review` and `domain-backport`; do not infer full satisfaction, requirement lifecycle changes, or source obsolescence from implementation alone.

@@ -1,0 +1,213 @@
+Warning (inferred_seed_paths): Inferred local seed paths from query text: pkg/ontology/query/execute.go
+ 1. 120.0% [code] pkg/ontology/query/read_availability_test.go (pkg/ontology/query/read_availability_test.go)
+      ↳ Exports: TestNodeByRefRemainsAvailableDuringUnrelatedOwnershipReconciliation, TestPreparedQue…
+ 2. 120.0% [code] pkg/ontology/query/workspace_bodies_markdown_test.go (pkg/ontology/query/workspace_bodies_markdown_test.go)
+      ↳ Exports: TestExecute_WorkspaceNarrativePreservesWhitespaceForEditReplay
+ 3. 120.0% [code] pkg/ontology/query/node_root_locators_test.go (pkg/ontology/query/node_root_locators_test.go)
+      ↳ Exports: TestExecute_NodeRootStructuralLocatorRequiresMatchingDocumentIdentity, TestExecute_S…
+ 4. 120.0% [code] pkg/ontology/query/validation_selection_test.go (pkg/ontology/query/validation_selection_test.go)
+      ↳ Exports: TestValidationInvalidCheckCannotBecomeCleanAfterScopeRead
+ 5. 120.0% [doc_section] Validation Plan (docs/efforts/2026-04-30-13-31-saved-query-recipes.md)
+  120.0% chunk 12 - Validation Plan
+      - Focused first: `go test ./pkg/ontology/queryrecipe ./pkg/ontology/query ./pkg/validate
+      ./cmd` - Phase 6 focused first: `go test ./pkg/ontology/query ./pkg/ontology/queryrecipe
+      ./cmd` - CLI smoke: `go run . ontology query-recipe validate --path <fixture>` and `go
+      run . agent query-recipe run --path <fixture> --id <id>` - Phase 6 CLI smoke: `go run .
+      ontology query --variables-file <fixture-vars.json> '<query-with-variables>'` and `go
+      run . agent ontology-query --json '<payload-with-variables>'` - Repo validation: `rzm
+      agent validate --check ontology --check aliases --check query-recipes --max-issues 80` -
+      Phase 7 focused first: `go test ./pkg/app/agentchat ./pkg/app/mcp ./cmd ./pkg/validate
+      ./pkg/app/cli/init` - Phase 7 CLI/MCP smoke: variable-backed raw ontology query, recipe
+      list/validate/run from skill refs, recipe list/validate/run from
+      `.rhizome/query-recipes/`, and `rzm agent surface` examples for recipe execution. -
+      Phase 8 recipe smoke: `rzm agent query-recipe validate`, then run each bundled
+      spec-driven GraphQL recipe against a representative effort/spec/story path. - Phase 8
+      retrieval-pattern smoke: run the documented `related-contracts-before-spec` semantic
+      query, `spec-code-evidence-discovery` semantic/file-context pattern, `rzm agent next-id`
+      pattern, and `rzm agent validate --check frozen-scope-drift` against this repo. - Full
+      handoff gate when implementation completes: `make check`
+
+      Phase 7 implemented for CLI, in-app agent tools, MCP handlers/capabilities, shared
+      registry discovery, tracked `.rhizome/query-recipes/`, and focused tests. Remaining
+      follow-up: deepen direct MCP execution tests and migrate additional live/generator
+      skills to concrete saved recipes where their ontology lookup patterns stabilize.
+ 6. 120.0% [doc_section] Technical Context (docs/efforts/2026-04-30-13-31-saved-query-recipes.md)
+  120.0% chunk 6 - Technical Context
+      - Runtime: Go CLI, Cobra commands, vendored dependencies, tests beside implementation. -
+      Current query engine: `pkg/ontology/query` already builds an executable schema,
+      prepares/validates GraphQL, executes read-only roots, and supports
+      note/property/semantic roots. - Current GraphQL variable gap:
+      `pkg/ontology/query.Prepare` rejects variable definitions and execution currently passes
+      `nil` into `ArgumentMap(...)`; Phase 6 changes this contract per
+      [SPEC-0042](../specs/technical/ontology-graphql-query-contract.md#graphql-variables). -
+      Current CLI surfaces: `cmd/ontology_query.go` and `cmd/agent_ontology.go` expose raw
+      `ontology query/schema/reference/authoring-guide`; `cmd/agent_surface.go` advertises
+      agent-safe commands. - Current validation architecture: `pkg/validate` owns suite
+      checks, check names, issue/fix payloads, and optional `--fix`; `cmd/validate.go` and
+      `cmd/agent_validate.go` share it. - Current recipe-adjacent precedent:
+      `pkg/app/mcp/context_recipe.go` uses versioned structured recipes for replaying context
+      calls, but saved query recipes are ontology-query assets, not context-recipe calls. -
+      Current skill surfaces: generated skill templates live under
+      `pkg/app/cli/init/templates/skills/...`; durable Rhizome guidance mirrors through
+      `docs/rhizome-md-templates/*`. - Current non-browser integration gaps:
+      `pkg/app/agentchat/tools.go` exposes raw `ontology_query` but not variables or recipe
+      execution; `pkg/app/mcp` capabilities do not expose ontology query or query recipes;
+      `rzm agent surface` advertises the parent recipe command but not child command usage;
+      live `.agents/skills/*` still mostly teach ad hoc ontology queries;
+      `.rhizome/.gitignore` currently allowlists ontology config but not a future
+      `.rhizome/query-recipes/` registry. - Current spec-driven template gap: phase skills
+      manually rediscover current effort, frozen specs, selected stories, acceptance criteria,
+      related specs, and code evidence through prose. This is now stable enough for a bundled
+      recipe set plus required semantic/file-context patterns. - Current pulled-in lifecycle
+      updates: local `main` added `rzm agent next-id` for typed identifier allocation and
+      `validate --check frozen-scope-drift` for active efforts whose frozen specs changed
+      after effort creation. Phase 8 should treat both as required command/validation patterns
+      adjacent to the GraphQL recipe bundle.
+ 7. 120.0% [doc_section] Phase 6 — Validation (docs/efforts/2026-05-01-11-04-query-recipe-promotion-and-humanization.md)
+  120.0% chunk 16 - Phase 6 — Validation
+      - [ ] T034 Run `gofmt`, `golangci-lint run`, `go vet ./...`, `go test ./...`, `go test
+      -race -tags=integration ./...` (per AGENTS.md gate). - [ ] T035 Run `rzm agent validate
+      --check broken-links --check ontology --check code-frontmatter --check code-anchors
+      --check query-recipes --check frozen-scope-drift --check aliases --max-issues 60`.
+      Record results in `Execution Notes` with the schema hash. - [ ] T036 Manual smoke: `rzm
+      query-recipe list`, `rzm query-recipe show effort-execution-context`, `rzm query-recipe
+      validate`, `rzm query-recipe run --id story-acceptance-pack --anchor
+      docs/specs/technical/saved-query-recipes.md --summary`. Append output snippets to
+      `Execution Notes`. - [ ] T037 Append `Actual Delivered` content describing what shipped,
+      with file references and the alignment-audit summary. Flip `audit-status`,
+      `backport-status`, `compound-status`, and `status` to `complete`. `plan-approved-by` was
+      already populated at plan approval; do not edit.
+ 8. 120.0% [doc_section] Phase 2: noderead and GraphQL Indexed Execution (docs/efforts/2026-05-06-17-35-indexed-ontology-node-field-values.md)
+  120.0% chunk 11 - Phase 2: noderead and GraphQL Indexed Execution
+      - [x] T014 [[noderef-batch-traversal-read-api#^SPEC-0022-US7|SPEC-0022.US7]] Extend
+      `noderead.Scope.TypeInstances` and `Hydrate` so summary-profile embedded records can
+      include indexed field values without projection. - [x] T015 `SPEC-0042` Add a query
+      planner path in `pkg/ontology/query` that maps embedded-root `FieldFilterInput` and
+      `SortInput` to the indexed store plan when every predicate/sort is supported. - [x] T016
+      `SPEC-0042` Preserve residual fallback behavior: unsupported filters should either
+      return a structured warning/error where the contract requires pushdown or execute after
+      an indexed bounded candidate set, never after unbounded note projection. - [x] T017
+      `SPEC-0042` Answer scalar/enum/boolean/date/link field selections from field rows when
+      available; project only for content/workspace/children or non-indexed fields. - [x] T018
+      `SPEC-0042` Add direct GraphQL tests in `pkg/ontology/query/query_test.go` for `eq`,
+      `in`, `exists`, date `gt/gte/lt/lte`, boolean equality, link equality by ref, sort,
+      pagination-before-residual, and deterministic tie-breaks. - [x] T019 `SPEC-0042` Add
+      diagnostics/warnings that distinguish indexed root execution, residual filter fallback,
+      projection fallback, and stale/missing index rows.
+ 9. 120.0% [doc_section] Technical Context (docs/efforts/2026-06-17-15-54-ontology-note-base-and-migration-validation.md)
+  120.0% chunk 6 - Technical Context
+      - Runtime: Go 1.23+ CLI and web backend. - Schema compiler: `pkg/ontology/schema.go`
+      loads the prelude and authored SDL, validates directives, fields, interfaces, and type
+      roles. - Type assessment: `pkg/ontology/build_assessment.go`,
+      `pkg/ontology/matchers.go`, `pkg/ontology/type_specificity.go`, and
+      `pkg/ontology/sync.go` decide note membership, field validation, link validation, and
+      incremental parity. - Query runtime: `pkg/ontology/query/schema.go`,
+      `runtime_schema.go`, `execute.go`, and tests generate and execute the read-only GraphQL
+      contract. - Read boundary: `pkg/ontology/noderead` hides internal fallback types from
+      public type-list reads. - Validation: `pkg/validate` owns stable issue shapes, fix
+      safety, agent JSON, and CLI rendering.
+10. 120.0% [doc_section] Scope (docs/reference/subsystems/graphql-query.md)
+  120.0% chunk 1 - Scope
+      The typed query layer executes read-only GraphQL-shaped queries over the note graph.
+      `pkg/ontology/query` compiles the ontology schema into executable SDL and resolves
+      roots/selections; `pkg/ontology/pushdown` decides which filters/sorts can be served by
+      the indexed SQLite read model versus evaluated residually in memory;
+      `pkg/ontology/queryrecipe` loads, validates, binds, and compiles saved deterministic
+      recipes that skills and views invoke by id. The ontology core (schema compile, indexing,
+      edges) is upstream — see [[ontology]]. Relation scheduling, hydration, batching, and
+      limits are owned by `noderead` — see [[noderead]]; this layer compiles selections into
+      a `noderead.NodeReadPlan` rather than reading SQLite/files itself.
+
+      Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVariables`,
+      `query.Execute` (`pkg/ontology/query/schema.go`, `prepare.go`, `execute.go`);
+      `pushdown.Planner` (`pkg/ontology/pushdown/planner.go`);
+      `queryrecipe.LoadDefaultSources` / `Validate` / `BindVariables` / `Compile`
+      (`pkg/ontology/queryrecipe/load.go`, `validate.go`, `bind.go`). CLI surfaces: `rzm agent
+      ontology-query` / `ontology-query-schema` (`cmd/agent_ontology.go`,
+      `cmd/ontology_query.go`) and `rzm query-recipe` / `rzm agent query-recipe`
+      (`cmd/query_recipe.go`). MCP: `pkg/app/mcp/tool_ontology.go`. Web/public API:
+      `pkg/app/web/ontology.go`, `public_api.go`.
+11. 120.0% [doc_section] Key files (docs/reference/subsystems/graphql-query.md)
+  120.0% chunk 5 - Key files
+      - `pkg/ontology/query/schema.go` — SDL generation, root naming, executable schema -
+      `pkg/ontology/query/prepare.go` — query validation, root bounds, limits -
+      `pkg/ontology/query/execute.go` — execution, pushdown integration, warnings -
+      `pkg/ontology/query/loaders.go` — batching, `noderead.Scope` wiring -
+      `pkg/ontology/query/introspection.go`, `runtime_schema.go`, `runtime_execute.go` —
+      introspection + runtime roots - `pkg/ontology/pushdown/planner.go`, `resolver.go`,
+      `types.go`, `values.go` — predicate/sort planning, field-key resolution, coercion -
+      `pkg/ontology/queryrecipe/load.go`, `validate.go`, `bind.go`, `types.go` — recipe
+      discovery, schema-compiled validation, variable binding - `cmd/agent_ontology.go`,
+      `cmd/ontology_query.go`, `cmd/query_recipe.go` — CLI surfaces
+12. 120.0% [doc_section] Must-dos when changing this subsystem (docs/reference/subsystems/graphql-query.md)
+  120.0% chunk 3 - Must-dos when changing this subsystem
+      - New root, argument, filter op, or field capability: it must appear in the generated
+      SDL (`schema.go`), pass `Prepare` validation, survive introspection, and show up in
+      `ontology-query-schema` / authoring-guide output. A capability that executes but does
+      not introspect is invisible to agents and therefore broken. - Pushdown changes: add
+      equivalence coverage proving pushed and residual paths agree (extend
+      `pkg/ontology/pushdown/planner_test.go` and the end-to-end cases in
+      `pkg/ontology/query/query_test.go`). Check both consumers — views and GraphQL —
+      since they share the planner. - Recipe envelope or binding changes: update
+      `Validate`/`Compile` so `rzm agent validate query-recipes` catches the new failure mode,
+      and migrate or explicitly reject existing recipe files (the apiVersion bump precedent in
+      `queryrecipe/types.go` documents the pattern). - New limits or warnings: prefer
+      structured warnings over silent narrowing/widening; keep ordinary roots quiet and put
+      explanation behind `ontology.queryPlan(...)` diagnostics. - Keep
+      `pkg/ontology/query/CONTEXT.md` and [[ontology-graphql-query-contract]] in sync with
+      behavior changes; CLI/MCP descriptions (`cmd/agent_ontology.go`,
+      `pkg/app/mcp/tool_ontology.go`) follow. - Run `go test ./pkg/ontology/query/...
+      ./pkg/ontology/pushdown/... ./pkg/ontology/queryrecipe/...` plus `go test
+      -tags=integration ./...` when execution or recipe surfaces change.
+13. 120.0% [doc_section] Validate after edits (docs/rhizome-md-templates/Ontology revision workflow.md)
+  120.0% chunk 2 - Validate after edits
+      - `rzm ontology validate` — schema + typed-note validation, unresolved internal
+      note-link checks, and per-type note inventory. - `rzm ontology query-schema` — confirm
+      the executable SDL still compiles. - `rzm ontology reference` — confirm descriptions,
+      `contextInclude` flags, and companion-doc links surface correctly. - `rzm ontology
+      inspect <representative-note>` — spot-check the authoring contract for a real note. -
+      `rzm ontology query --query '{ ... }'` — smoke-test typed roots if query ergonomics
+      changed. - `rzm ontology query --query '{ ... on InterfaceName { ... } }'` —
+      smoke-test interface fragments if you added shared contracts. - `rzm ontology inspect
+      <representative-section-note>` — confirm section contracts, heading levels, and
+      required subtree structure render as expected. - If you introduced a new note family,
+      verify the companion guidance notes still match the type docstring contract.
+14. 120.0% [doc_section] Goals (docs/specs/technical/ontology-graphql-query-contract.md)
+  120.0% chunk 3 - Goals
+      - Define the public GraphQL query shape generated from the compiled ontology schema. -
+      Preserve predictable read behavior for agents and browser code that query typed notes. -
+      Keep query execution read-only, bounded, deterministic, and safe for broad list
+      selections. - Support first-class GraphQL variables so reusable recipes and agent calls
+      do not rewrite query text to inject input. - Make `NodeRef` locator fields available for
+      notes, structural sections, and embedded nodes. - Document the edge cases tests must
+      preserve when changing schema generation, preparation, loaders, or execution.
+15. 120.0% [doc_section] Implementation Surface (docs/specs/technical/ontology-graphql-query-contract.md)
+  120.0% chunk 2 - Implementation Surface
+      - `pkg/ontology/query/schema.go` generates the executable SDL from the compiled ontology
+      schema. - `pkg/ontology/query/prepare.go` validates the supported query subset and root
+      bounds before execution. - `pkg/ontology/query/execute.go` resolves roots, note fields,
+      section fields, locators, structural relations, ambient relations, semantic roots, and
+      partial-data errors. - `pkg/ontology/query/runtime_execute.go` exposes explicit runtime
+      diagnostics such as `ontology.queryPlan(...)` for indexed ontology-node root planning. -
+      `pkg/ontology/query/loaders.go` creates one `noderead.Scope` per execution loader set
+      and batches hydration, type rows, assessments, and relation traversal behind that scope.
+      - `pkg/ontology/query/query_test.go` is the normative regression fixture for this
+      contract; add coverage there before changing query semantics.
+16. 120.0% [code] pkg/ontology/query/engine_b14_query_selectors_test.go (pkg/ontology/query/engine_b14_query_selectors_test.go)
+17. 120.0% [code] pkg/ontology/query/note_reads_test.go (pkg/ontology/query/note_reads_test.go)
+18. 120.0% [code] pkg/ontology/query/query_test.go (pkg/ontology/query/query_test.go)
+19. 120.0% [code] pkg/ontology/query/selector_inventory_test.go (pkg/ontology/query/selector_inventory_test.go)
+20. 119.8% [anchor] TestB14SelectorRootInstrumentation (pkg/ontology/query/engine_b14_query_selectors_test.go)
+        59 │ // TestB14SelectorRootInstrumentation locks down the fixture's discriminating
+        60 │ // evidence. Three identical find roots share one successful metadata inventory
+        61 │ // and one type lookup within an execution, while fresh executions still read
+        62 │ // the current inventory.
+        63 │ func TestB14SelectorRootInstrumentation(t *testing.T) {
+        64 │ 	fixture := newB14SelectorFixture(t, 1_000)
+        65 │ 	for _, selector := range b14SelectorCases {
+        66 │ 		t.Run(selector.name, func(t *testing.T) {
+        67 │ 			store := &b14CountingStore{Store: fixture.store}
+        68 │ 			result := Execute(context.Background(), fixture.deps(store), fixture.schema, fix…
+        69 │ 			assertB14SelectorResult(t, result, selector)
+        70 │
+      …

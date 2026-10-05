@@ -1,0 +1,23 @@
+title = "Rhizome credential protection"
+[extend]
+useDefault = true
+
+[[rules]]
+id = "rhizome-encrypted-bundle"
+description = "Encrypted release bundles must not enter Git"
+regex = '''encryptedKeys\s*=\s*"(?:rhizome-internal-keys-v1:)?([A-Za-z0-9+/=]{40,})"'''
+secretGroup = 1
+
+[[rules]]
+id = "rhizome-unlock-literal"
+description = "Team unlock keys must be generated in tests or supplied at runtime"
+regex = '''[A-Za-z0-9+/]{43}='''
+path = '''(?:teamkeys|credentials).*\.go$'''
+
+[[rules]]
+id = "rhizome-internal-mirror-suffix"
+description = "The internal mirror's legacy suffix lives only in the release 1Password Environment"
+regex = '''rhizome-(?:amd64|arm64)-(?:darwin|linux|windows)-([a-z0-9]{10})\.tbz'''
+secretGroup = 1
+[rules.allowlist]
+regexes = ['''abcde12345''']

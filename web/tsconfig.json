@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node", "vite/client", "vitest/globals"],
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@rhizome/kit": ["./kit/index.tsx"],
+      "@rhizome/ui": ["./kit/ui/index.ts"]
+    }
+  },
+  "include": ["src", "kit", "bundled-views", "tests", "vitest.setup.ts"]
+}

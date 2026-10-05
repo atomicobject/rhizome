@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+python3 scripts/secrets/check.py
+
+if git diff --cached --name-only --diff-filter=ACMR | grep -q '^web/'; then
+  echo "pre-commit: checking web formatting and lint"
+  make web-lint
+fi

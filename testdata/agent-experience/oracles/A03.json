@@ -1,0 +1,8 @@
+{
+  "case_id": "A03",
+  "checks": [
+    "approved retry behavior and tests pass",
+    "named synthetic approver and verification handoff remain durable",
+    "excluded jitter request is not implemented"
+  ]
+}

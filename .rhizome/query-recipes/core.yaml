@@ -1,0 +1,106 @@
+apiVersion: rhizome.query-recipe.v1
+id: runtime-authoring-context
+name: Runtime authoring context
+problem: Load typed note context together with ontology authoring guidance and next identifier metadata before drafting or reshaping a typed note.
+inputSpec:
+  mode: required_anchor
+  primaryInput: type
+  inputs:
+    - name: type
+      required: true
+      kind: string
+      description: Ontology type name to author.
+    - name: paths
+      kind: list
+      description: Optional ordered prospective vault-relative paths for filename-derived identifier allocation.
+query:
+  graphQL: |
+    query RuntimeAuthoringContext($type: String!, $paths: [String!] = []) {
+      ontology {
+        schemaHash
+        type(name: $type) {
+          name
+          role
+          description
+          paths
+          fields {
+            name
+            type
+            required
+            list
+            source
+            identifierFormat { strategy prefix separator pad }
+          }
+        }
+        authoringGuide(type: $type) {
+          available
+          markdown
+          warnings { code message path }
+        }
+        nextId(type: $type, paths: $paths) {
+          available
+          next
+          errorCode
+          error
+          prefix
+          separator
+          pad
+          sharedWith
+          paths
+          allocations { path id base disambiguator }
+          warnings { code message path }
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - ontology.schemaHash
+    - ontology.authoringGuide.markdown
+    - ontology.nextId.available
+  empty: The ontology runtime did not resolve; fall back to ontology-authoring-guide and next-id commands before authoring.
+  partial: If nextId is unavailable, keep the authoring guide and allocate manually or through the fallback command.
+  highVolume: Keep this anchored to one ontology type.
+adaptationGuidance:
+  summary: Preserve co-loading of type metadata, authoring-guide markdown, and next-id allocation state.
+  rules:
+    - Keep authoringGuide.markdown available for skills that need the rendered contract.
+    - Keep nextId.errorCode visible so skills can branch on unsupported identifier formats.
+    - Pass prospective paths in authoring order when the identifier strategy is filename-derived.
+tags:
+  - core
+  - runtime
+  - authoring
+---
+apiVersion: rhizome.query-recipe.v1
+id: runtime-schema-capability-pack
+name: Runtime schema capability pack
+problem: Load public runtime schema metadata that skills need before choosing typed retrieval and validation paths.
+inputSpec:
+  mode: none
+query:
+  graphQL: |
+    query RuntimeSchemaCapabilityPack {
+      ontology {
+        schemaHash
+        types(first: 50) {
+          name
+          role
+        }
+      }
+    }
+outputContract:
+  expectedPaths:
+    - ontology.schemaHash
+    - ontology.types.name
+  empty: The ontology runtime did not resolve; fall back to rzm agent ontology-query-schema.
+  partial: Missing type rows should be treated as unavailable metadata, not as permission to invent ontology types.
+  highVolume: Use this as a compact schema capability pack; do not turn it into full SDL.
+adaptationGuidance:
+  summary: Preserve safe public schema discovery without arbitrary command execution.
+  rules:
+    - Keep schemaHash and type names visible for stale-schema and root-selection debugging.
+    - Do not add agent chat/session/runtime fields to this public GraphQL recipe.
+tags:
+  - core
+  - runtime
+  - ontology

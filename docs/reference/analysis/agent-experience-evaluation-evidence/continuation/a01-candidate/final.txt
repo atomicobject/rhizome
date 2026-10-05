@@ -1,0 +1,3 @@
+Fixed the expiration boundary bug in [src/expiry.py:22](<FIXTURE>/src/expiry.py:22) by making equality expired (`<` instead of `<=`).
+
+Verification: all 4 tests pass with Python 3.14.7.

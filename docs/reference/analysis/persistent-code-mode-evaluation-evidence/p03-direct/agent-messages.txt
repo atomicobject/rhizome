@@ -1,0 +1,30 @@
+I’m routing this through the complex-domain and Rhizome workflows because the task involves source provenance, an unresolved requirement conflict, and a durable coverage update. I’ll use only direct `rzm` commands for Rhizome operations, as requested.
+
+The fixture confirms the key authority boundary: v1 is the reviewed signed source at 30 days; v2 is a later 14-day proposal marked `needs_review`. The accepted requirement and frozen spec already preserve both locations, but the durable effort record is still marked pending, so I’m checking the live Rhizome contracts and existing links before making a targeted update.
+
+The live graph confirms a meaningful coverage gap: the notes are body-linked, but the requirement’s typed `sources`/delivery links and the effort’s frozen story scope are not represented in the ontology projections. The approved effort explicitly allows link/documentation repairs, so I’m checking those exact link targets and baseline validation before updating only the review/coverage record.
+
+The baseline checks are clean, but the coverage query is explicitly reporting an authored structural gap: `REQ-A05-RETENTION` has no typed source/spec/story fields even though its prose links resolve. I’ll repair those links, add exact story/criterion references without changing lifecycle, and update the effort’s actual-delivery/checklist/status record. The unresolved 14-day decision will remain open; no reviewer assignment will be invented.
+
+The typed coverage repair is now applied through direct `rzm note properties set` calls; the requirement remains `accepted`, its 30-day wording is unchanged, and v2 is still only a source-backed candidate. I’m now recording the assessed outcome in the effort, including partial implementation evidence and the unresolved reviewer decision.
+
+The durable record now shows the review outcome, partial 30-day delivery evidence, and an unchecked reviewer-disposition item. I preserved the effort’s frozen spec and original intent; the only scope repair is replacing prose-only coverage with resolved story/acceptance-section links and exact criterion refs, while explicitly noting that the second criterion target is not separately resolvable. I’m reindexing and then re-running focused Rhizome queries/validation.
+
+Focused validation passes: ontology, identifiers, broken links, scoped fragile links, and frozen-scope drift are all clean. The refreshed queries now show both source versions and the active spec/process/workflow coverage; v2 remains `needs_review`, while the requirement remains accepted. I’m doing one final action-item/working-tree check, then I’ll hand off the unresolved decision explicitly.
+
+One final retrieval qualification is now durable: the spec index exposes a linkable acceptance-criteria section, but not a separate AC2 node, so I retained AC2 as an authored reference and deliberately added no fabricated target. I’m reindexing that append-only note entry and running the final focused checks.
+
+Updated the durable coverage record.
+
+- Preserved v1 (30 days) and v2 (14-day proposal) provenance and exact locations.
+- Added typed requirement coverage for both sources, process, workflow, spec, story, and criteria.
+- Recorded partial 30-day implementation evidence.
+- Kept v2 `needs_review`; no candidate promotion, contract rewrite, or lifecycle change.
+- Left the reviewer decision open. AC2 remains an authored ref without a fabricated link.
+
+Changed:
+
+- [Retention requirement](<EXECUTION_P03-DIRECT>/docs/reference/requirements/requirements/retention-limit.md)
+- [Retention source review effort](<EXECUTION_P03-DIRECT>/docs/efforts/2026-09-07-13-00-retention-source-review.md)
+
+Rhizome index and focused ontology, identifier, link, fragile-link, and frozen-scope validations all pass.

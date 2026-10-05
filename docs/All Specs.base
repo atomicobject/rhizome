@@ -1,0 +1,17 @@
+filters:
+  and:
+    - type.endsWith("Spec")
+views:
+  - type: table
+    name: Table
+    order:
+      - type
+      - file.name
+      - summary
+    sort:
+      - property: file.name
+        direction: ASC
+      - property: type
+        direction: ASC
+  - type: list
+    name: View

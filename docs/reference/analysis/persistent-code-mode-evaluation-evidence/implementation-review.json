@@ -1,0 +1,11 @@
+{
+  "actual_model_effort_usage": "unobservable",
+  "candidate": "8d84d11ee743a51112e0a11b389f302bb79ae556",
+  "effort_requested": "high",
+  "findings": [],
+  "method": "Independent read-only full source inspection and supplied final gate logs; final SHA/cleanliness/diff-check verified.",
+  "model_requested": "gpt-5.6-sol",
+  "reviewer": "persistent_review_3",
+  "reviewer_kind": "agent",
+  "verdict": "ship"
+}

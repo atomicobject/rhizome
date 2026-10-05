@@ -1,0 +1,13 @@
+id: agentic-engineering
+name: Agentic Engineering
+requires:
+  - core
+activatesByDefault:
+  - action-items
+installedAssetTypes:
+  - docs
+  - ontology
+  - query-recipes
+  - views
+  - skills
+  - managed-docs

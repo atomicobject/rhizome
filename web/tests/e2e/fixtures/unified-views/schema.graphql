@@ -1,0 +1,28 @@
+enum ViewDemoStatus {
+  ready
+  active
+  done
+}
+
+type ViewDemoTask implements Section @node(locator: EMBEDDED) {
+  status: ViewDemoStatus @field
+}
+
+type ViewDemoTasks implements Section {
+  tasks: [ViewDemoTask!] @contains(level: H3)
+}
+
+type ViewDemoEffort
+  @display(singular: "View demo effort", plural: "View demo efforts", group: "E2E Views")
+  @node(paths: ["notes/view-demo/effort-*.md"]) {
+  title: String!
+  status: ViewDemoStatus
+  tasks: ViewDemoTasks @contains(level: H2, heading: "Tasks")
+}
+
+type ViewDemoOther
+  @display(singular: "Other demo", plural: "Other demos", group: "E2E Other")
+  @node(paths: ["notes/view-demo/other.md"]) {
+  title: String!
+  status: ViewDemoStatus
+}

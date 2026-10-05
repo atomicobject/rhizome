@@ -1,0 +1,49 @@
+/*
+Source: https://stackoverflow.com/a/78935771
+Posted by: u-ways
+Retrieved: 2026-05-29
+License: CC BY-SA 4.0
+
+Obsidian loads this file when the docs directory is opened as a vault and the
+"full-width-mermaid" CSS snippet is enabled in .obsidian/appearance.json.
+*/
+
+/** Set Mermaid diagrams to the full width of the reading pane by default. */
+.markdown-preview-view .mermaid,
+.markdown-source-view.mod-cm6 .mermaid {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.markdown-preview-view .mermaid svg,
+.markdown-source-view.mod-cm6 .mermaid svg {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  margin: 0;
+  padding: 0;
+}
+
+/** On hover, keep the block full width and allow wide diagrams to pan sideways. */
+.markdown-preview-view div:has(> .mermaid):hover,
+.markdown-source-view.mod-cm6 div:has(> .mermaid):hover {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.markdown-preview-view .mermaid:hover,
+.markdown-source-view.mod-cm6 .mermaid:hover {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.markdown-preview-view .mermaid:hover svg,
+.markdown-source-view.mod-cm6 .mermaid:hover svg {
+  width: auto;
+  min-width: 100%;
+}

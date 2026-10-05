@@ -1,0 +1,20 @@
+{
+  "verifiedAt": "2026-09-13",
+  "baseline": {
+    "fingerprint": "3ee26ddb6d6416a0c8ef1ab4051b6b633192a43c44f9c4bd3de6ef2778264d28",
+    "chunks": 50000,
+    "vectors": 50000,
+    "orphanVectors": 0,
+    "intelEdges": 5997,
+    "graphEdges": 4000
+  },
+  "ownerPartitionAndVisibleSplit": {
+    "fingerprint": "3ee26ddb6d6416a0c8ef1ab4051b6b633192a43c44f9c4bd3de6ef2778264d28",
+    "chunks": 50000,
+    "vectors": 50000,
+    "orphanVectors": 0,
+    "intelEdges": 5997,
+    "graphEdges": 4000
+  },
+  "equal": true
+}

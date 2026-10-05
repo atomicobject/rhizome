@@ -1,0 +1,22 @@
+Validation checks
+
+- broken-links: broken internal note, heading, and block targets
+  Category: links
+  Suites: default, all
+  Applicability: always
+  Required projections: validation
+  Supported surfaces: local, ci, agent
+  Prerequisite mode: auto_managed
+  Missing prerequisite: blocked
+  Remediation: plan (rzm validate fix broken-links)
+
+- code-anchors: code anchor matches
+  Category: code
+  Suites: all
+  Applicability: code_anchor_roots_configured
+  Required projections: validation, code
+  Supported surfaces: local, agent
+  Prerequisite mode: external_persisted
+  Missing prerequisite: blocked
+  Preparation: rzm index
+  Remediation: plan (rzm validate fix code-anchors)

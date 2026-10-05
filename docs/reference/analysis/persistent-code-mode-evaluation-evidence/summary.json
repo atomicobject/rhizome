@@ -1,0 +1,254 @@
+{
+  "candidate_binary_sha256": "be8fcb81e49684dbbe86ebc4639b161744699225646f84b8bd81b8c1f31a4615",
+  "candidate_source_sha": "8d84d11ee743a51112e0a11b389f302bb79ae556",
+  "human_review": "not performed; formal comparisons remain inconclusive",
+  "launches_reserved": 6,
+  "model_requested": "gpt-5.6-luna",
+  "reasoning_requested": "xhigh",
+  "runs": [
+    {
+      "arm": "direct",
+      "artifact_errors": [],
+      "case_id": "A01",
+      "events_sha256": "2733951a9b568b336d6fe6632cb0b5b31c3df8faf7e17bf54d9dfed271fa1c9c",
+      "exposed_tool_invocations": 10,
+      "id": "p01-direct",
+      "integrity_detail": {
+        "added": [],
+        "detail": "unexpected tree changes: added=[], removed=[], modified=['.rhizome/db.sqlite']",
+        "modified": [
+          ".rhizome/db.sqlite",
+          "src/expiry.py"
+        ],
+        "passed": false,
+        "removed": [],
+        "unexpected": [],
+        "unexpected_modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "unexpected_removed": []
+      },
+      "other_deterministic_checks_passed": true,
+      "raw_failures": [
+        "no_unexpected_added_paths"
+      ],
+      "raw_hidden_checks_passed": false,
+      "seconds": 102.79880854100338,
+      "status": "complete",
+      "usage": {
+        "cached_tokens": 271360,
+        "input_tokens": 306483,
+        "output_tokens": 4641,
+        "reasoning_tokens": 2412,
+        "source": [
+          "event.usage"
+        ]
+      }
+    },
+    {
+      "arm": "persistent",
+      "artifact_errors": [],
+      "case_id": "A01",
+      "events_sha256": "25c3af30b90c4cfc906fcd6985473c0ab3c7af1d1f97214fe900155a352174bf",
+      "exposed_tool_invocations": 17,
+      "id": "p01-persistent",
+      "integrity_detail": {
+        "added": [
+          ".rhizome/db.sqlite-shm",
+          ".rhizome/db.sqlite-wal"
+        ],
+        "detail": "unexpected tree changes: added=['.rhizome/db.sqlite-shm', '.rhizome/db.sqlite-wal'], removed=[], modified=['.rhizome/db.sqlite']",
+        "modified": [
+          ".rhizome/db.sqlite",
+          "src/expiry.py"
+        ],
+        "passed": false,
+        "removed": [],
+        "unexpected": [
+          ".rhizome/db.sqlite-shm",
+          ".rhizome/db.sqlite-wal"
+        ],
+        "unexpected_modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "unexpected_removed": []
+      },
+      "other_deterministic_checks_passed": true,
+      "raw_failures": [
+        "no_unexpected_added_paths"
+      ],
+      "raw_hidden_checks_passed": false,
+      "seconds": 101.40120387499337,
+      "status": "complete",
+      "usage": {
+        "cached_tokens": 230144,
+        "input_tokens": 272412,
+        "output_tokens": 4996,
+        "reasoning_tokens": 2531,
+        "source": [
+          "event.usage"
+        ]
+      }
+    },
+    {
+      "arm": "direct",
+      "artifact_errors": [],
+      "case_id": "A03",
+      "events_sha256": "7c215a7aa81422be023c6e8b40486795932158903addba773642b0e434e9e092",
+      "exposed_tool_invocations": 16,
+      "id": "p02-direct",
+      "integrity_detail": {
+        "added": [],
+        "detail": "unexpected tree changes: added=[], removed=[], modified=['.rhizome/db.sqlite']",
+        "modified": [
+          ".rhizome/db.sqlite",
+          "docs/efforts/2026-09-07-12-00-retry-limit.md",
+          "src/retry.py"
+        ],
+        "passed": false,
+        "removed": [],
+        "unexpected": [],
+        "unexpected_modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "unexpected_removed": []
+      },
+      "other_deterministic_checks_passed": true,
+      "raw_failures": [
+        "no_unexpected_added_paths"
+      ],
+      "raw_hidden_checks_passed": false,
+      "seconds": 185.15686604200164,
+      "status": "complete",
+      "usage": {
+        "cached_tokens": 675328,
+        "input_tokens": 752622,
+        "output_tokens": 9246,
+        "reasoning_tokens": 5052,
+        "source": [
+          "event.usage"
+        ]
+      }
+    },
+    {
+      "arm": "persistent",
+      "artifact_errors": [],
+      "case_id": "A03",
+      "events_sha256": "d3121c8f9272d421298a73df25c23984f4f9e395175a2a21d71680a6d7b7ae3b",
+      "exposed_tool_invocations": 28,
+      "id": "p02-persistent",
+      "integrity_detail": {
+        "added": [],
+        "detail": "unexpected tree changes: added=[], removed=[], modified=['.rhizome/db.sqlite']",
+        "modified": [
+          ".rhizome/db.sqlite",
+          "docs/efforts/2026-09-07-12-00-retry-limit.md",
+          "src/retry.py"
+        ],
+        "passed": false,
+        "removed": [],
+        "unexpected": [],
+        "unexpected_modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "unexpected_removed": []
+      },
+      "other_deterministic_checks_passed": true,
+      "raw_failures": [
+        "no_unexpected_added_paths"
+      ],
+      "raw_hidden_checks_passed": false,
+      "seconds": 544.0428495420056,
+      "status": "complete",
+      "usage": {
+        "cached_tokens": 2040832,
+        "input_tokens": 2140003,
+        "output_tokens": 14779,
+        "reasoning_tokens": 7538,
+        "source": [
+          "event.usage"
+        ]
+      }
+    },
+    {
+      "arm": "direct",
+      "artifact_errors": [],
+      "case_id": "A05",
+      "events_sha256": "99ca2fb39b83f1b038c16797d263410132d6449930eb21fb72cb5853098f860f",
+      "exposed_tool_invocations": 36,
+      "id": "p03-direct",
+      "integrity_detail": {
+        "added": [],
+        "detail": "unexpected tree changes: added=[], removed=[], modified=['.rhizome/db.sqlite']",
+        "modified": [
+          ".rhizome/db.sqlite",
+          "docs/efforts/2026-09-07-13-00-retention-source-review.md",
+          "docs/reference/requirements/requirements/retention-limit.md"
+        ],
+        "passed": false,
+        "removed": [],
+        "unexpected": [],
+        "unexpected_modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "unexpected_removed": []
+      },
+      "other_deterministic_checks_passed": true,
+      "raw_failures": [
+        "no_unexpected_added_paths"
+      ],
+      "raw_hidden_checks_passed": false,
+      "seconds": 539.7511973330111,
+      "status": "complete",
+      "usage": {
+        "cached_tokens": 3762432,
+        "input_tokens": 3930025,
+        "output_tokens": 24583,
+        "reasoning_tokens": 16041,
+        "source": [
+          "event.usage"
+        ]
+      }
+    },
+    {
+      "arm": "persistent",
+      "artifact_errors": [],
+      "case_id": "A05",
+      "events_sha256": "8c815672e8b9a45734732ea09d34ff9ca14f54d094f82f5b7e0fa4f14afae229",
+      "exposed_tool_invocations": 57,
+      "id": "p03-persistent",
+      "integrity_detail": {
+        "added": [],
+        "detail": "unexpected tree changes: added=[], removed=[], modified=['.rhizome/db.sqlite']",
+        "modified": [
+          ".rhizome/db.sqlite",
+          "docs/efforts/2026-09-07-13-00-retention-source-review.md"
+        ],
+        "passed": false,
+        "removed": [],
+        "unexpected": [],
+        "unexpected_modified": [
+          ".rhizome/db.sqlite"
+        ],
+        "unexpected_removed": []
+      },
+      "other_deterministic_checks_passed": true,
+      "raw_failures": [
+        "no_unexpected_added_paths"
+      ],
+      "raw_hidden_checks_passed": false,
+      "seconds": 312.797875749995,
+      "status": "complete",
+      "usage": {
+        "cached_tokens": 1794816,
+        "input_tokens": 1927592,
+        "output_tokens": 14577,
+        "reasoning_tokens": 8646,
+        "source": [
+          "event.usage"
+        ]
+      }
+    }
+  ],
+  "total_elapsed_seconds": 1785.94880108301
+}

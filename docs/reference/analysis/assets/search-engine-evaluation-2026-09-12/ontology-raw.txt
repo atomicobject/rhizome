@@ -1,0 +1,288 @@
+ 1. 166.6% [note] Ontology query guide Ontology query guide < _FallbackNote < docs/rhizome-md-templates/Ontology query guide.md (docs/rhizome-md-templates/Ontology query guide.md)
+  166.6% chunk 0 - Ontology query guide < _FallbackNote < docs/rhizome-md-templates/Ontology query guide.md
+      Rhizome generates a read-only GraphQL query schema from the ontology.
+ 2. 160.2% [note] Deep docs Deep docs < _FallbackSection < pkg/ontology/query/CONTEXT.md (pkg/ontology/query/CONTEXT.md)
+  160.2% chunk 0 - Deep docs < _FallbackSection < pkg/ontology/query/CONTEXT.md
+      Builds GraphQL-shaped query results from compiled SDL, indexed note metadata, ontology
+      edges, markdown projection, and synthetic runtime roots. Keep this as a bounded read
+      layer: note roots need path/find/property/semantic bounds, runtime roots must stay
+      read-only/provider-backed, and relation scheduling compiles through
+      `noderead.Scope.Execute` rather than becoming a second indexing runtime.
+
+      - **Entry points**: `BuildExecutableSchema`, `Prepare`, `Execute`. - **Bounded identity
+      reads**: target resolution keeps catalog and ambiguity handling inside
+      `noderead.Scope.Resolve`, opting out of unused locator rendering. The shared scope owns
+      provider-current fallback and known misses; query loaders must not repeat fallback with
+      a whole-vault snapshot. - **Path availability during reconciliation**: an operation
+      containing only singular note-owned `node` / `note` roots may use application-supplied
+      exact metadata, properties, and tags after provider and ownership checks when every
+      nested selection is backed by raw-note projection. Fragmented `node` refs require the
+      complete model because section and embedded-node resolution uses the ontology catalog
+      and projection. `__typename`, `resolvedType`, `ref.typeName`, and type-conditioned
+      fragments also require the complete type model even when their selected fields are
+      raw-note-backed. The application supplies exact facts through immutable loaders
+      materialized from one SQLite read transaction, so one request cannot mix publication
+      generations. Workspace, neighborhood, local-graph, built-in relation, authored
+      node/link, and section selections require complete readiness. Broad, mixed, identifier,
+      code, runtime, semantic, validation, and introspection operations retain complete
+      readiness; callers without the optional exact-row dependency retain globally gated Store
+      reads. - **Projection-owned children**: field bindings and global-source refs emitted
+      from the current `DocumentSnapshot` may use bound projection, which verifies range and
+      structural identity together so identical unanchored children remain listable. External,
+      catalog, copied, and replayed refs stay on ordinary resolution and preserve ambiguity
+      errors. - **Runtime roots**: `ontology`, `code`, and `agent` are built-in query roots,
+      not ontology SDL types. They adapt existing
+      authoring-guide/idalloc/file-context/agent-surface providers into structured read
+      results with warnings when optional providers are unavailable. `ontology.nextId` accepts
+      ordered prospective `paths` and returns additive path-correlated allocation metadata;
+      sequential-only numeric metadata is nullable for non-sequential strategies. - **Note
+      interfaces**: `NoteNode` is the universal runtime interface for file-backed note reads.
+      When the authored schema defines `interface Note`, generated `NoteNode` implements it
+      and every file-backed note object exposes those nullable general fields, including
+      otherwise-untyped `note(path:)` reads. Domain-specific interfaces remain explicit
+      opt-in. - **Source contract**: `NoteNode.content` is authored raw UTF-8. `format`,
+      `sourceRepresentation`, `evidenceRepresentation`, and `sourceCapabilities` let clients
+      select rendering and editing behavior from the admitted executable provider rather than
+      an extension. - **Workspace projection**: `Node.workspace` is the composable public
+      replacement for browser node-workspace reads. It exposes the focused node's schema-aware
+      semantic `parentRef`, source-preserving field/collection metadata, bounded
+      `bodies(first:)` entries with ordered body blocks and typed structural bindings, bounded
+      `sourceLinks(first:)` occurrences in authored order, assessment, canonical structural
+      refs, typed relation groups plus bounded `connected`/`backlinks`/`code` graph evidence,
+      status/capabilities, version, and selected-domain flags. Source links preserve each
+      authored internal link or embed while resolving unique known-note targets in one shared
+      scope batch; unresolved/unsupported syntax stays visible with its authored target. Body
+      block Markdown preserves the projection's whitespace, including leading separators and
+      indentation, so staged narrative edits cannot join prose to a block locator. Body
+      entries include metadata-only PANE/collection descendants so clients can render compact
+      child identity without forcing nested body content; only the focus and INLINE paths
+      carry body blocks. Relation targets retain their exact note/section/embedded/code kind;
+      pane stacks, rails, tabs, and rendered-outline orchestration remain frontend adapter
+      concerns. - **Document root locators**: serialize NOTE refs as their bare note path even
+      when catalog identity includes a structural fingerprint or node ID. Previously emitted
+      `#struct:` root locators resolve as notes only when the fingerprint matches the current
+      projected document root; missing section or root identities remain errors. - **Locator
+      contract**: public `NodeLocator` is a direct projection of the canonical ontology
+      locator: its own `ref`/`kind`, the link target's `ref`, diagnostics, and proposed
+      `fixActions` stay selectable so a client can stage make-linkable work without
+      fabricating node identity or inferring a block ID. The projection remains read-only;
+      applying an action stays on the explicit edit-session path. - **Key invariants**: note
+      roots require path/find/property/semantic bounds; runtime roots require bounded field
+      arguments; generated roots mirror compiled SDL; structural `@link` and ambient
+      `@neighbors` stay separate; `NodeRef` locators must survive note/section selection. -
+      **Execution shape**: roots resolve to bounded note records/`NodeRef`s, then note
+      selection sets compile into a `noderead.NodeReadPlan`. GraphQL keeps JSON projection,
+      aliases/fragments, nullability/errors, and section rendering; `noderead` owns BFS
+      relation scheduling, hydration, request cache reuse, limits, and diagnostics. -
+      **Indexed ontology-node roots**: note and embedded types can push supported
+      `filters`/`sort` into `OntologyNodesByTypePlan` before pagination and hydrate selected
+      indexed fields from `ontology_node_field_values`. Project markdown only for `content`,
+      children/workspace bodies, or non-indexed selections. - **Diagnostics**: keep ordinary
+      roots quiet. Use `ontology.queryPlan(...)` when callers need to explain indexed vs
+      residual vs projection fallback behavior or stale/missing indexed roots. - **Broad
+      selector inventory**: find and interface roots share a successful metadata inventory
+      read within one execution. Failed reads remain retryable, cancellation still propagates,
+      and the next execution consults the provider again. Ranking, type filtering, and
+      pagination retain their existing order; candidate type reads remain batched through the
+      scope. - **Batching**: one loader set creates one `noderead.Scope`; relation caches are
+      keyed by relation/provenance/type/limit and must remember empty source groups. Selection
+      pre-execution should warm the same scope used by scalar/relation resolvers so per-parent
+      field resolution hits cache instead of requerying SQLite/files. - **Sections**:
+      note-level section selections are still projected in this package, but they must request
+      note content through `noderead` content hydration. Section neighbor/subtree behavior
+      remains GraphQL-local unless generalized in `noderead`. - **Section refs**: explicit
+      Markdown paths with generated heading fragments resolve as `SECTION`; keep those
+      fragments separate from explicit `#^block-id` refs. A caret-qualified ref must never
+      widen to or be shadowed by a generated heading fragment with the same text. -
+      **Semantics**: semantic search is only an explicit root selector. Missing searcher,
+      unavailable runtime providers, unresolved roots, unsupported fields, and relation misses
+      must return warnings/errors/nulls instead of widening. A bounded read of the shared
+      `noderead.Scope` note's own preferred field gates comprehensive preferred-identifier
+      discovery: participating note hits union note and embedded candidates so mixed-kind
+      collisions remain explicitly ambiguous, while unrelated path/alias hits keep their
+      established precedence without type-wide scans. - **Validation selection**:
+      `validation(check:, scopeKind:, scopeKey:)` resolves IDs, public names, and aliases
+      through the shared validation catalog and global/file/note/node/type/interface scopes
+      through the persisted membership model. Unknown checks, invalid scopes, and invalid page
+      limits return typed GraphQL errors. Scope counts and each nested `issues(first:)` page
+      use the same generation, filters, and canonical check identity.
+ 3. 157.1% [note] Open Questions Open Questions < NarrativeSection < docs/specs/technical/ontology-graphql-query-contract.md (docs/specs/technical/ontology-graphql-query-contract.md)
+  157.1% chunk 0 - Open Questions < NarrativeSection < docs/specs/technical/ontology-graphql-query-contract.md
+ 4. 155.6% [note] Ontology interfaces Ontology interfaces < _FallbackNote < docs/rhizome-md-templates/Ontology interfaces.md (docs/rhizome-md-templates/Ontology interfaces.md)
+  155.6% chunk 0 - Ontology interfaces < _FallbackNote < docs/rhizome-md-templates/Ontology interfaces.md
+      Use GraphQL `interface` and `implements` for shared contracts across concrete note
+      types.
+
+      - Interfaces are abstract schema contracts, not note families. - Do not put `@node` on
+      an interface. - Do not create query roots for interfaces; roots stay concrete note
+      types. - Use interfaces when multiple concrete note types should share the same authored
+      fields or query shape. - Keep interface fields small and stable so `query-schema`,
+      `reference`, and `authoring-guide` can dedupe the shared contract cleanly.
+ 5. 155.3% [note] Ontology (Hub) Ontology (Hub) < _FallbackNote < docs/hubs/Ontology (Hub).md (docs/hubs/Ontology (Hub).md)
+  155.3% chunk 0 - Ontology (Hub) < _FallbackNote < docs/hubs/Ontology (Hub).md
+ 6. 155.2% [note] Primary semantic indexing can request node records and bounded ancestor context docs/specs/technical/noderef-batch-traversal-read-api.md#item-32377 < AcceptanceCriterion < docs/specs/technical/noderef-batch-traversal-read-api.md (docs/specs/technical/noderef-batch-traversal-read-api.md)
+  155.2% chunk 0 - docs/specs/technical/noderef-batch-traversal-read-api.md#item-32377 < AcceptanceCriterion < docs/specs/technical/noderef-batch-traversal-read-api.md
+ 7. 155.1% [note] Open Questions Open Questions < NarrativeSection < docs/specs/technical/structural-node-model-and-ontology-read-path.md (docs/specs/technical/structural-node-model-and-ontology-read-path.md)
+  155.1% chunk 0 - Open Questions < NarrativeSection < docs/specs/technical/structural-node-model-and-ontology-read-path.md
+ 8. 154.7% [code] doc.go pkg/ontology/query/doc.go (pkg/ontology/query/doc.go)
+ 9. 154.6% [note] US3 - Use note-focused semantic search, type filters, and NodeRef-aware results to discover the right node faster than path-only search US3 - Use note-focused semantic search, type filters, and NodeRef-aware results to discover the right node faster than path-only search < UserStory < docs/specs/product/ontology-browser-workspace.md (docs/specs/product/ontology-browser-workspace.md)
+  154.6% chunk 0 - US3 - Use note-focused semantic search, type filters, and NodeRef-aware results to discover the right node faster than path-only search < UserStory < docs/specs/product/ontology-browser-workspace.md
+10. 154.5% [note] Ontology sections Ontology sections < _FallbackNote < docs/rhizome-md-templates/Ontology sections.md (docs/rhizome-md-templates/Ontology sections.md)
+  154.5% chunk 0 - Ontology sections < _FallbackNote < docs/rhizome-md-templates/Ontology sections.md
+      Use sections when a note's body structure needs to be queried, validated, or authored as
+      a typed subtree.
+
+      - Sections are synthetic heading-derived nodes inside a note, not standalone notes. -
+      `@contains(level:, heading:, required:)` binds a section-shaped field to an exact
+      heading and exact heading level. - `@contains(shape: LIST_ITEM|CHECKBOX_ITEM, marker:)`
+      is the lighter source-span form for contextual embedded nodes. Note-level item sources
+      require `marker:` so ordinary bullets stay untyped; section-scoped item collections may
+      omit `marker:` when every direct child item in that section belongs to the typed
+      collection. - `SectionLevel` is the heading-depth enum for `@contains` values: `H1`
+      through `H6`. - Use section fields for prose structure such as `requirements`,
+      `decisionLog`, or `operatingNotes`. - Specialized section types should `implement
+      Section` when a subsection needs its own fields or section-local relations. - Section
+      fields should target a concrete section type or the built-in `Section` contract, not an
+      arbitrary interface. - `@neighbors(direction: OUTBOUND, scope: SUBTREE)` keeps body-link
+      traversal inside the matched section subtree. - Inbound or `BOTH` subtree neighbors are
+      intentionally unsupported for now. - V1 section matching should be exact heading text
+      plus exact level only. - Validation should catch missing required sections, duplicate
+      singular matches, wrong heading level, and empty required content.
+11. 154.4% [note] ontology-usage ontology-usage < _FallbackNote < pkg/app/cli/init/templates/skills/markdown/rhizome/references/ontology-usage.md (pkg/app/cli/init/templates/skills/markdown/rhizome/references/ontology-usage.md)
+  154.4% chunk 0 - ontology-usage < _FallbackNote < pkg/app/cli/init/templates/skills/markdown/rhizome/references/ontology-usage.md
+      Use this route to understand, query, or diagnose the current ontology without changing
+      its schema.
+
+      - `ontology-reference` explains live types, relations, directives, and companion
+      guidance. - `ontology-inspect` resolves the type and authoring context for a note or
+      finder. - `ontology-authoring-guide` gives the drafting/validation contract for a type.
+      - `query-recipe list/run/validate` exposes and checks saved, repeatable typed questions.
+      - `ontology-query-schema` is the authority before a one-off GraphQL query. -
+      `ontology-query` executes that schema-validated query.
+
+      Discover only the types and relationships needed for the current decision; reuse
+      still-current schema and recipe knowledge. Valid shape and a successful query do not
+      prove acceptance, truth, freshness, or complete coverage. Read relevant lifecycle and
+      provenance semantics from the configured ontology without assuming starter vocabulary.
+
+      Prefer a saved recipe when it answers the same workflow question, accepts compatible
+      inputs, bounds output, and documents adaptation. Otherwise inspect the schema and write
+      a narrow query.
+
+      The public GraphQL layer supports typed note/relationship retrieval, semantic-only note
+      or node surveys, ontology metadata, authoring/schema metadata, and bounded known-path
+      code/document/test evidence. It does not expose an `agent` root, does not replace broad
+      mixed note/code `semantic-query`, and is not arbitrary code search. Use exact code tools
+      for symbol/reference proof and `rzm agent surface` for agent-family capabilities.
+
+      Empty or partial typed results may mean the selector was too narrow, content is untyped,
+      the index is stale, or the ontology does not model that relationship. Diagnose those
+      separately before falling back to broad search.
+12. 154.4% [code] queryOntology web/src/api/client.ts (web/src/api/client.ts)
+       745 │ function queryOntology(body: OntologyQueryRequest) {
+       746 │   return queryPublicGraphQL(body);
+       747 │ }
+
+13. 150.0% [doc_section] Entry points (code) (docs/hubs/Ontology (Hub).md)
+  150.0% chunk 5 - Entry points (code)
+      - `pkg/ontology/CONTEXT.md` — package projection/edit/read contract. -
+      `pkg/ontology/schema.go` — `LoadSchema`; SDL load, directive compilation
+      (`@node`/`@link`/`@neighbors`/`@contains`/`@identifier`/`@retrieval`/`@traversal`),
+      docstring/format capture. - `pkg/ontology/projection.go`, `pkg/ontology/body.go` —
+      `ProjectNode`, `NodeRef`, snapshots, field/collection/body-block spans. -
+      `pkg/ontology/sync.go`, `pkg/ontology/node_catalog.go` — `SyncPaths`, catalog + edge +
+      field-value indexing and convergence. - `pkg/ontology/edit_session.go` —
+      `NewEditSession`, staged-op replay, rebase, typed conflicts. -
+      `pkg/ontology/node_link.go`, `pkg/ontology/fixes.go` — embedded-node link-target
+      planning/repair; validation fix ops. - `pkg/ontology/idalloc/allocator.go` —
+      schema-driven next-id allocation (`max+1`, gaps preserved). -
+      `pkg/ontology/noderead/CONTEXT.md` — `Scope` batched read facade (hydrate, traverse,
+      graph, type instances, locators). - `pkg/ontology/query/CONTEXT.md` —
+      `BuildExecutableSchema` / `Prepare` / `Execute`; typed roots + `ontology`/`code`/`agent`
+      runtime roots. - `pkg/ontology/queryrecipe/` — saved typed-note query recipes
+      (load/bind/validate) per [[saved-query-recipes|SPEC-0052]]. - `pkg/ontology/readmodel/`
+      — `GraphStore` row/interface contract. - `pkg/anchors/sqlite/graph_readmodel.go`,
+      `graph_readmodel_doc_edges.go` — SQLite implementation of the graph read model. -
+      `pkg/app/cli/context_text.go` (`renderNoteOntologyBlock`) — `file_context` ontology
+      rendering. - `pkg/app/web/node_workspace.go`, `pkg/app/web/graph.go`,
+      `pkg/app/web/ontology_sessions.go` — browser node workspace, graph, and edit-session
+      HTTP surfaces. - `cmd/ontology.go`, `cmd/ontology_query.go`, `cmd/ontology_inspect.go`,
+      `cmd/agent_ontology.go`, `cmd/agent_next_id.go` — CLI + agent surfaces.
+14. 150.0% [doc_section] Architecture overview (docs/hubs/Ontology (Hub).md)
+  150.0% chunk 2 - Architecture overview
+      ```mermaid flowchart TB SDL["GraphQL SDL\n.rhizome/ontology/*.graphql"] Compile["Schema
+      compile\nLoadSchema"] Schema["Typed-note model\ntypes + directives"]
+
+      Project["Projection\nNodeRef + spans"] Sync["Ontology sync\nSyncPaths"] Read["Indexed
+      read model\nontology_nodes/edges/fields"]
+
+      Noderead["noderead.Scope\nbatched reads"] Query["GraphQL query engine\nPrepare/Execute"]
+      Recipes["Saved query recipes\nqueryrecipe"] Chunks["Primary node chunks\nidentity +
+      ancestry + body"] Graph["Graph + facts\nScope.Graph"]
+
+      Search["Search retrieval"] Browser["Browser workspace"] Edit["Edit
+      replay\nedit_session"]
+
+      SDL --> Compile --> Schema Schema --> Project Project --> Sync --> Read Read -->
+      Noderead Schema --> Query Noderead --> Query Query --> Recipes Schema --> Chunks
+      Noderead --> Chunks Noderead --> Graph Chunks --> Search Graph --> Search Graph -->
+      Browser Query --> Browser Browser --> Edit Edit --> Project ```
+
+      Stages:
+
+      1. **Authoring** (`.rhizome/ontology/*.graphql`) — note families, structural/ambient
+      relations, identifiers, sections, and retrieval/traversal hints. See [[Ontology schema
+      authoring]]. 2. **Compile** (`pkg/ontology/schema.go`) — SDL → typed-note model;
+      validates directives, docstrings, and identifier formats. 3. **Project**
+      (`pkg/ontology/projection.go`, `body.go`) — typed markdown → source-preserving
+      `NodeRef` snapshots, fields, collections, byte ranges. 4. **Index**
+      (`pkg/ontology/sync.go`, `node_catalog.go`) — projection → SQLite `ontology_nodes` /
+      `ontology_edges` / `ontology_node_field_values` per
+      [[ontology-indexed-read-model-contract]]. 5. **Read** (`pkg/ontology/noderead`) —
+      request/job-scoped batched hydration, traversal, graph facts, and type lists. 6.
+      **Serve** — GraphQL queries + recipes, source-owned primary chunks, graph/browser, and
+      search expansion. 7. **Write** (`pkg/ontology/edit_session.go`) — the *only* mutating
+      path; replays staged semantic ops with rebase + typed conflicts per
+      [[ontology-edit-replay-conflict-contract]].
+15. 150.0% [doc_section] Related docs (docs/reference/subsystems/ontology.md)
+  150.0% chunk 6 - Related docs
+      - [[Ontology (Hub)]] — subsystem map and reading order - [[Go anchor - Ontology
+      subsystem]], [[Go anchor - Ontology workspace]] -
+      [[ontology-indexed-read-model-contract]] (SPEC-0040),
+      [[structural-node-model-and-ontology-read-path]] (SPEC-0013) -
+      [[ontology-edit-replay-conflict-contract]] (SPEC-0046),
+      [[linkable-embedded-node-identifiers]] (SPEC-0023), [[id-allocation]] (SPEC-0006) -
+      Sibling subsystem notes cover `pkg/ontology/query` + `queryrecipe` (GraphQL query layer)
+      and `noderead` + `readmodel` (batched reads)
+16. 149.8% [anchor] Node (pkg/ontology/query/types.go)
+       487 │ Node       *ontology.SectionNode
+
+17. 149.8% [anchor] Node (pkg/ontology/query/execute.go)
+       290 │ Node  *resolvedNode
+
+18. 149.8% [doc_section] Phase 3 - Query, Graph, Views, And Agents (docs/efforts/2026-05-05-20-44-non-section-embedded-node-source-shapes.md)
+  149.8% chunk 12 - Phase 3 - Query, Graph, Views, And Agents
+      - [x] Extend `pkg/ontology/query` section-matching and node hydration logic to match
+      shape-neutral child nodes. - [x] Update query schema output if source shape or boolean
+      checkbox capability needs to be exposed to typed query authors. - [x] Update
+      `pkg/app/views` capabilities so configured table sources over embedded-node types
+      receive boolean field capabilities, display text, parent context, and canonical row
+      identity for list/checkbox nodes. - [x] Update browser workspace graph and node
+      workspace DTOs where they assume `SectionNodes` or section-only block IDs. - [x] Add at
+      least one query recipe or agent example test that can answer an action-item-style
+      question without relying on an aggregate markdown file path. - [x] Add focused tests in
+      `pkg/ontology/query`, `pkg/ontology/noderead`, and `pkg/app/views` for list/checkbox
+      nodes as ordinary ontology-backed row sources.
+19. 149.8% [anchor] node_root_locators_test.go (pkg/ontology/query/node_root_locators_test.go)
+      ↳ Exports: TestExecute_NodeRootStructuralLocatorRequiresMatchingDocumentIdentity, TestExecute_S…
+20. 149.8% [anchor] codeNodeRef (pkg/ontology/query/execute.go)
+      3588 │ func codeNodeRef(node *codeRecord) ontology.NodeRef {
+      3589 │ 	ref := ontology.NodeRef{NotePath: node.Path, Kind: "CODE_FILE", TypeName: "CodeFil…
+      3590 │ 	if node != nil && node.Anchor != nil {
+      3591 │ 		ref.Kind = "CODE_SYMBOL"
+      3592 │ 		ref.TypeName = "CodeSymbol"
+      3593 │ 		ref.NodeID = node.Anchor.AnchorID
+      3594 │ 		ref.Fragment = "symbol:" + firstNonEmpty(node.Anchor.FQN, node.Anchor.Symbol, nod…
+      3595 │ 	}
+      3596 │ 	return ref
+      3597 │ }

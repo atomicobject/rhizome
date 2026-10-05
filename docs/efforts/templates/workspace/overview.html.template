@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="effort.css">
+  <title>{{effort_title_html}}</title>
+  <script id="rhizome-metadata" type="application/json">
+  {
+    "type": "EffortWorkspace",
+    "id": {{effort_id_json}},
+    "aliases": [{{effort_id_json}}],
+    "name": {{effort_title_json}},
+    "title": {{effort_title_json}},
+    "created-at": {{created_at_iso_json}},
+    "status": "planned",
+    "summary": {{summary_json}},
+    "implementation-plan": {{implementation_plan_path_json}},
+    "work-log": {{work_log_path_json}},
+    "governing-specs": {{governing_specs_json}},
+    "materials": {{materials_json}}
+  }
+  </script>
+</head>
+<body>
+<main>
+  <h1>{{effort_title_html}}</h1>
+  <p>{{summary_html}}</p>
+  <nav aria-label="Effort documents">
+    <a href="plan.html">Implementation plan</a>
+    <a href="work-log.md">Work log</a>
+  </nav>
+  <h2>Scope</h2>
+  <p>State the intended outcome, boundaries, and exclusions.</p>
+  <h2>Frozen scope</h2>
+  <p>Record governing spec paths and revisions, selected story and acceptance-criterion block links, and original intended delivery. Preserve this snapshot once frozen and record the same selection and revisions in the work log's Spec Set (Frozen), Stories In Scope (Frozen), and Original Intended Delivery sections.</p>
+  <h2>Approval</h2>
+  <p>Record the actual approval and its exact plan revision in the work log's Plan Approval section when it exists. Leave plan-approved-by absent until a human has approved; keep it consistent with that evidence.</p>
+  <h2>Selected materials</h2>
+  <p>List only the supporting documents explicitly selected in metadata, with links and their purpose. Folder proximity does not establish membership.</p>
+  <h2>Actual delivered and deviations</h2>
+  <p>Summarize verified outcomes and link to the work log's Actual Delivered and Deviations evidence.</p>
+  <h2>Status and closure</h2>
+  <p>Keep metadata status consistent with the work log's Status section. Link to its Closure Checklist for gate evidence, alignment, documentation reconciliation, and follow-up triage.</p>
+</main>
+</body>
+</html>

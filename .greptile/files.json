@@ -1,0 +1,12 @@
+{
+  "files": [
+    {
+      "path": "docs/reference/subsystems/overview.md",
+      "description": "Architecture map: how indexing, stores, ontology, read models, search, and the agent surface connect (write path + read path)."
+    },
+    {
+      "path": "docs/reference/subsystems/README.md",
+      "description": "Index of per-subsystem guidance notes and the folder->note mapping that backs the scoped rules in config.json."
+    }
+  ]
+}

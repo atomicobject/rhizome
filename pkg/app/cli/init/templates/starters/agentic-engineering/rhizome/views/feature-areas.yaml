@@ -1,0 +1,41 @@
+apiVersion: rhizome.view.v1
+id: spec-driven.feature-areas
+name: Feature Areas
+description: Product and capability areas with their owners and linked specs.
+source:
+  kind: ontology_type
+  type: FeatureArea
+mount:
+  kind: type
+  type: FeatureArea
+  default: true
+defaults:
+  variant: card
+  first: 200
+  sort:
+    - field: id
+      direction: asc
+variants:
+  card:
+    eyebrow: id
+    title: title
+    preview: summary
+    fields:
+      - field: owner
+        label: Owner
+      - field: specs
+        label: Specs
+  table:
+    columns:
+      - field: id
+        label: ID
+      - field: title
+        label: Feature area
+      - field: summary
+        label: Summary
+      - field: owner
+        label: Owner
+      - field: specs
+        label: Specs
+      - field: hasIssues
+        label: Issues

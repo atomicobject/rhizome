@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "case_id": "A01",
+      "installation": "none",
+      "relative_path": "base/A01-expiration",
+      "prompt": "Fix the expiration boundary bug.",
+      "expected_paths": [
+        "README.md",
+        "CONTEXT.md",
+        "src/CONTEXT.md",
+        "src/expiry.py",
+        "tests/test_expiry.py",
+        "docs/reference/expiry-policy.md",
+        "docs/history/expiry-policy-local-time.md"
+      ],
+      "allowed_changes": [
+        "src/expiry.py",
+        "tests/test_expiry.py"
+      ],
+      "notes": "Current UTC policy is authoritative; the local-time note is explicitly superseded."
+    },
+    {
+      "case_id": "A02",
+      "installation": "none",
+      "relative_path": "base/A02-typo",
+      "prompt": "Change ‘recieve’ to ‘receive’ in README.md; change nothing else.",
+      "expected_paths": [
+        "README.md",
+        "CONTEXT.md"
+      ],
+      "allowed_changes": [
+        "README.md"
+      ],
+      "notes": "The seeded README contains exactly one occurrence of the misspelling."
+    },
+    {
+      "case_id": "A03",
+      "installation": "agentic-engineering",
+      "relative_path": "engineering/A03-retry-limit",
+      "prompt": "Implement the approved retry limit feature and complete its handoff.",
+      "expected_paths": [
+        "README.md",
+        "CONTEXT.md",
+        "src/retry.py",
+        "tests/test_retry.py",
+        "docs/specs/retry-limit.md",
+        "docs/efforts/2026-09-07-12-00-retry-limit.md",
+        "docs/people/Synthetic Approver.md",
+        "docs/backlog/retry-jitter.md"
+      ],
+      "allowed_changes": [
+        "src/retry.py",
+        "docs/efforts/2026-09-07-12-00-retry-limit.md"
+      ],
+      "notes": "The approved plan is bounded to three attempts and excludes jitter."
+    },
+    {
+      "case_id": "A04",
+      "installation": "agentic-engineering",
+      "relative_path": "engineering/A04-handoff",
+      "prompt": "Producer: complete phase 1 of the approved two-phase effort and write enough durable context for a fresh agent to resume. Inspect and document the zero-attempt edge case before phase 2 changes it.",
+      "follow_up_prompt": "Consumer: Continue the remaining approved work.",
+      "expected_paths": [
+        "README.md",
+        "CONTEXT.md",
+        "src/retry.py",
+        "tests/test_retry.py",
+        "docs/specs/two-phase-retry.md",
+        "docs/efforts/2026-09-07-12-30-two-phase-retry.md",
+        "docs/people/Synthetic Approver.md"
+      ],
+      "allowed_changes": [
+        "src/retry.py",
+        "docs/efforts/2026-09-07-12-30-two-phase-retry.md",
+        "docs/decisions/retry-zero-attempts.md"
+      ],
+      "notes": "The consumer is a new invocation with copied worktree state, not a resumed transcript."
+    },
+    {
+      "case_id": "A05",
+      "installation": "complex-domain",
+      "relative_path": "domain/A05-source-conflict",
+      "prompt": "Assess this revised source and record the implications for the current feature.",
+      "expected_paths": [
+        "README.md",
+        "CONTEXT.md",
+        "docs/reference/requirements/sources/policy-v1.md",
+        "docs/reference/requirements/sources/policy-v2.md",
+        "docs/reference/requirements/requirements/retention-limit.md",
+        "docs/reference/domain/processes/retention-review.md",
+        "docs/reference/domain/workflows/review-retention-change.md",
+        "docs/specs/retention-controls.md",
+        "docs/efforts/2026-09-07-13-00-retention-source-review.md",
+        "docs/people/Synthetic Approver.md",
+        "src/retention.py",
+        "tests/test_retention.py"
+      ],
+      "allowed_changes": [
+        "docs/reference/requirements/requirements/retention-limit.md",
+        "docs/reference/domain/processes/retention-review.md",
+        "docs/reference/domain/workflows/review-retention-change.md",
+        "docs/specs/retention-controls.md",
+        "docs/efforts/2026-09-07-13-00-retention-source-review.md"
+      ],
+      "notes": "The v2 proposal conflicts with a still-current signed agreement. The accepted requirement has two criteria and only one delivered criterion."
+    },
+    {
+      "case_id": "A06",
+      "installation": "none",
+      "relative_path": "base/A06-degraded-retrieval",
+      "prompt": "Find the rule for expiration, explain what you can verify, and fix the README typo.",
+      "expected_paths": [
+        "README.md",
+        "CONTEXT.md",
+        "docs/reference/expiry-policy.md"
+      ],
+      "allowed_changes": [
+        "README.md"
+      ],
+      "notes": "This case intentionally has note context but no code index or semantic provider."
+    }
+  ]
+}

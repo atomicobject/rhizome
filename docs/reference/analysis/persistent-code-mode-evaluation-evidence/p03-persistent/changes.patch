@@ -1,0 +1,54 @@
+diff --git a/docs/efforts/2026-09-07-13-00-retention-source-review.md b/docs/efforts/2026-09-07-13-00-retention-source-review.md
+index 02255fc..3a1f040 100644
+--- a/docs/efforts/2026-09-07-13-00-retention-source-review.md
++++ b/docs/efforts/2026-09-07-13-00-retention-source-review.md
+@@ -30,8 +30,8 @@ The source-review story and its two criteria are in scope.
+ 
+ ## Spec Coverage Checklist
+ 
+-- [ ] Preserve v1 and v2 provenance and exact source locations.
+-- [ ] Record conflict and partial delivery evidence.
++- [x] Preserve v1 and v2 provenance and exact source locations.
++- [x] Record conflict and partial delivery evidence.
+ 
+ ## Plan
+ 
+@@ -45,8 +45,15 @@ Produce a source-grounded review record without promoting candidate evidence.
+ 
+ ## Actual Delivered
+ 
+-Pending review. The baseline has one of two criteria delivered; the requirement
+-must remain unimplemented until the second criterion has evidence.
++Completed the source and traceability review for
++[[docs/reference/requirements/requirements/retention-limit|REQ-A05-RETENTION]].
++Preserved the reviewed 30-day evidence from `SRC-A05-V1` at
++`signed-agreement.pdf` section 4.2 and the later 14-day proposal from
++`SRC-A05-V2` at `change-request-2026-09-01.pdf` section 2. The proposal remains
++candidate evidence and does not replace the accepted 30-day requirement or the
++frozen spec. The conflict remains unresolved and is routed for reviewer
++decision. The baseline has evidence for one of two criteria; the second remains
++uncovered, so the requirement remains accepted and unimplemented.
+ 
+ ## Execution Notes
+ 
+@@ -54,14 +61,18 @@ Current evidence: 30 days from `SRC-A05-V1` at `signed-agreement.pdf` section
+ 4.2. Candidate evidence: 14 days from `SRC-A05-V2` at
+ `change-request-2026-09-01.pdf` section 2. The conflict is unresolved.
+ 
++- 2026-09-07T20:26Z [validation] Confirmed the changed-source impact, requirement
++  trace, frozen spec context, and bounded coverage evidence. No source,
++  requirement, or spec lifecycle state was promoted or rewritten.
++
+ ## Deviations
+ 
+ None recorded.
+ 
+ ## Closure Checklist
+ 
+-- [ ] Source versions and exact locations remain preserved.
+-- [ ] Conflict and partial delivery evidence are recorded without changing the contract.
++- [x] Source versions and exact locations remain preserved.
++- [x] Conflict and partial delivery evidence are recorded without changing the contract.
+ 
+ ## Compounding Follow-ups
+ 

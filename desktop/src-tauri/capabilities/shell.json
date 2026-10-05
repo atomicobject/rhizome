@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "shell",
+  "description": "Only each window's bundled shell can manage repositories and installations. Repository content webviews receive no capabilities.",
+  "local": true,
+  "webviews": ["shell-*"],
+  "permissions": [
+    "allow-desktop-request",
+    "allow-desktop-attach",
+    "dialog:allow-open",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize"
+  ]
+}

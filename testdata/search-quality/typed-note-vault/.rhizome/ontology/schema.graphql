@@ -1,0 +1,40 @@
+interface Note { summary: String }
+
+type Person @node(paths: ["people/*.md"]) {
+  name: String!
+  role: String
+}
+
+type Project @node(paths: ["projects/*.md"]) {
+  name: String!
+  owner: Person! @link
+  decisions: [Decision!] @link(source: "decisions")
+}
+
+type Decision @node(matches: ["tag:type/decision"]) {
+  name: String!
+  status: String
+}
+
+type Incident @node(paths: ["incidents/*.md"]) {
+  name: String!
+  severity: String
+  runbook: Runbook @link
+}
+
+type Runbook @node(paths: ["runbooks/*.md"]) {
+  name: String!
+}
+
+type ActionItem implements Section
+  @node(locator: EMBEDDED)
+  @source(shape: CHECKBOX_ITEM, marker: "#action-item", paths: ["meetings/*.md"]) {
+  done: Boolean! @field(sourceKind: CHECKBOX)
+  assignee: Person! @link
+  due: Date @field
+}
+
+type Meeting @node(paths: ["meetings/*.md"]) {
+  name: String!
+  actionItems: [ActionItem!] @contains(shape: CHECKBOX_ITEM, marker: "#action-item")
+}

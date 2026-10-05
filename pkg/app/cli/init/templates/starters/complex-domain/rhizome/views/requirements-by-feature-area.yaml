@@ -1,0 +1,65 @@
+apiVersion: rhizome.view.v1
+id: complex-domain.requirements-by-feature-area
+name: Requirements by Feature Area
+description: Requirement inventory grouped by feature area for backlog triage and coverage review.
+source:
+  kind: ontology_type
+  type: Requirement
+mount:
+  kind: standalone
+  group: Domain
+  order: 10
+defaults:
+  variant: table
+  first: 100
+  group:
+    field: featureAreas
+  sort:
+    - field: priority
+      direction: asc
+    - field: status
+      direction: asc
+    - field: title
+      direction: asc
+filterPresets:
+  - id: accepted
+    label: Accepted
+    filters:
+      - field: status
+        op: eq
+        value: accepted
+  - id: high-priority
+    label: High Priority
+    filters:
+      - field: priority
+        op: in
+        values: [high, critical]
+  - id: needs-review
+    label: Needs Review
+    filters:
+      - field: reviewStatus
+        op: in
+        values: [unreviewed, needs_review, stale]
+variants:
+  table:
+    columns:
+      - field: id
+        label: ID
+      - field: title
+        label: Requirement
+      - field: featureAreas
+        label: Feature Areas
+      - field: status
+        label: Status
+      - field: priority
+        label: Priority
+      - field: confidence
+        label: Confidence
+      - field: reviewStatus
+        label: Review
+      - field: sources
+        label: Sources
+      - field: specs
+        label: Specs
+      - field: storyRefs
+        label: Story Refs

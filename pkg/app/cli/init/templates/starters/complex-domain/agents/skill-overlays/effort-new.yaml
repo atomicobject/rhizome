@@ -1,0 +1,10 @@
+apiVersion: rhizome.skill-overlay.v1
+id: complex-domain.effort-new
+targetSkill: agentic-engineering
+fragments:
+  - file: references/effort-setup.md
+    slot: scope.additional-context
+    op: append
+    order: 10
+    content: |
+      When selected specs depend on domain requirements, load `spec-domain-context-pack` and focused `requirement-trace-pack` results before freezing scope. Record accepted constraints, candidate context, sources and versions, processes, workflows, action items, conflicts, and retrieval qualifications. A resolved spec with no authored requirements is a coverage gap; an unresolved anchor or degraded/capped result is an evidence limitation. Preserve the selected subset in the effort so later phases can reuse it.

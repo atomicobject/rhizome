@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "model": "gpt-5.6-luna",
+  "reasoning": "xhigh",
+  "launches_used": 1,
+  "launches_remaining": 3,
+  "source_sha": "3b93489c4e404981fc4bb193e75c0d70e9eac7a7",
+  "candidate_sha": "d88cbf23a2d2f27c1e61f9ec014ce2e05122dea5",
+  "process_status": "complete",
+  "process_elapsed_seconds": 62.13589933399635,
+  "task_outcome": "infrastructure-blocked",
+  "checks_passed": false,
+  "fixture_source_changes": {
+    "added": [],
+    "modified": [],
+    "removed": []
+  },
+  "usage": {
+    "source": [
+      "event.usage"
+    ],
+    "input_tokens": 115914,
+    "output_tokens": 2326,
+    "cached_tokens": 97536,
+    "reasoning_tokens": 1404
+  },
+  "tool_measurement": "CLI JSONL exposed no executed tool records; failed tool attempts appear in messages/stderr, so zero emitted records is not zero attempted tool calls.",
+  "events_sha256": "5e313cda954b4a614d85753bd99aa2963aaf4f43920d649f8c1ed51554e714b8",
+  "comparison": "inconclusive; only one infrastructure-blocked run; no retries"
+}

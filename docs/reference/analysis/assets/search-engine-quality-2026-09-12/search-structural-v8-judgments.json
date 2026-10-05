@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "packetSHA256": "c8ec92e16ee583462107ce85c8c2a78f2a5e1e3e26eaf7f51fa498d7d763837d",
+  "inputFileSHA256": "331adf3d5f62c8bc792cdd2d826fb520946ef0de01d791104f97c83c3749c55d",
+  "judgmentMethod": "parent_source_inspection_blinded_to_rank_and_score",
+  "judgments": [
+    {
+      "assessmentId": "DS8-6625C73E9E64",
+      "grade": 3,
+      "locator": "pkg/app/mcp/semantic_query_rollup.go#L24",
+      "rationale": "applicationSemanticGroups directly calls searchapplication.CanonicalSourceIdentity when constructing each semantic query group key.",
+      "supportedRoles": [
+        "implementation"
+      ],
+      "supportedRelationships": [
+        "caller"
+      ],
+      "supportedFacets": []
+    },
+    {
+      "assessmentId": "DS8-1685A4439EED",
+      "grade": 0,
+      "locator": "docs/performance/engine-follow-up-handoff.md#L101",
+      "rationale": "This section discusses schema and recipe reuse and derived identity costs, but identifies no caller of CanonicalSourceIdentity and contains no call to that function.",
+      "supportedRoles": [],
+      "supportedRelationships": [],
+      "supportedFacets": []
+    }
+  ]
+}

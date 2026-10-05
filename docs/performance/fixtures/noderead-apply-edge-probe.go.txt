@@ -1,0 +1,43 @@
+//go:build research
+
+package noderead
+
+import (
+	"context"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
+	"testing"
+)
+
+func TestResearchApplyEdgeIdentity(t *testing.T) {
+	ctx := context.Background()
+	vault, store, schema := buildFixture(t, `
+type ProductSpec @node(paths: ["specs/product.md"]) { stories: StoriesSection @contains(level:H2, heading:"Stories") }
+type StoriesSection implements Section { stories: [UserStory!] @contains(level:H3) }
+type UserStory implements Section @node(locator:EMBEDDED) { related: ProductSpec @link }
+`, "# Product\n\n## Stories\n\n### Story A\nrelated:: [[specs/product]]\n")
+	scope := NewService(vault, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{})
+	before, err := scope.TypeInstances(ctx, TypeInstancesRequest{TypeName: "UserStory"})
+	require.NoError(t, err)
+	require.Len(t, before.Items, 1)
+
+	traversal := TraverseRequest{Sources: []ontology.NodeRef{{NotePath: "specs/product.md", Kind: ontology.NodeKindNote}}, Structural: true, Relation: ""}
+	warm, err := scope.Traverse(ctx, traversal)
+	require.NoError(t, err)
+	require.Len(t, warm.EdgesBySource["specs/product.md"], 1)
+	fixed, err := scope.Resolve(ctx, ResolveRequest{Targets: []NodeTarget{{Input: "specs/product.md#Story A"}}, EnsureLinkTarget: ontology.EnsureLinkTargetApply})
+	require.NoError(t, err)
+	require.Len(t, fixed.Resolved, 1)
+	same, err := scope.Traverse(ctx, traversal)
+	require.NoError(t, err)
+	fresh, err := NewService(vault, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{}).Traverse(ctx, traversal)
+	require.NoError(t, err)
+	require.Len(t, same.EdgesBySource["specs/product.md"], 1)
+	require.Len(t, fresh.EdgesBySource["specs/product.md"], 1)
+
+	t.Logf("beforeNode=%s fixedNode=%s warmSrc=%s sameScopeSrc=%s freshScopeSrc=%s", before.Items[0].Ref.NodeID, fixed.Resolved[0].Ref.NodeID, warm.EdgesBySource["specs/product.md"][0].SrcNodeID, same.EdgesBySource["specs/product.md"][0].SrcNodeID, fresh.EdgesBySource["specs/product.md"][0].SrcNodeID)
+	require.NotEqual(t, before.Items[0].Ref.NodeID, fixed.Resolved[0].Ref.NodeID)
+	require.Equal(t, warm.EdgesBySource["specs/product.md"][0].SrcNodeID, fresh.EdgesBySource["specs/product.md"][0].SrcNodeID)
+	require.NotEqual(t, fixed.Resolved[0].Ref.NodeID, fresh.EdgesBySource["specs/product.md"][0].SrcNodeID)
+}

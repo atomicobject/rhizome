@@ -1,0 +1,77 @@
+package obsidian_test
+
+import (
+	"errors"
+	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
+
+func TestUriConstruct(t *testing.T) {
+	baseUri := "base-uri"
+	var tests = []struct {
+		testName string
+		in       map[string]string
+		want     string
+	}{
+		{"Empty map", map[string]string{}, baseUri},
+		{"One key", map[string]string{"key": "value"}, fmt.Sprintf("%s?key=value", baseUri)},
+		{"Empty value", map[string]string{"key": ""}, baseUri},
+		{"Mix of empty and non-empty values", map[string]string{"key1": "value1", "key2": ""}, fmt.Sprintf("%s?key1=value1", baseUri)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.testName, func(t *testing.T) {
+			// Act
+			uriManager := obsidian.Uri{}
+			got := uriManager.Construct(baseUri, test.in)
+			// Assert
+			assert.Equal(t, test.want, got)
+		})
+	}
+
+	// Test with multiple key-value pairs separately due to map iteration order
+	t.Run("Multiple keys", func(t *testing.T) {
+		uriManager := obsidian.Uri{}
+		params := map[string]string{"key1": "value1", "key2": "value2"}
+		got := uriManager.Construct(baseUri, params)
+
+		// Check that base URI is present and both key-value pairs are in the result
+		assert.Contains(t, got, baseUri)
+		assert.Contains(t, got, "key1=value1")
+		assert.Contains(t, got, "key2=value2")
+		assert.Contains(t, got, "&") // Check that params are joined with &
+	})
+}
+
+func TestUriExecute(t *testing.T) {
+	// Temporarily override the Run function
+	originalOpenerFunc := obsidian.Run
+	defer func() { obsidian.Run = originalOpenerFunc }()
+
+	t.Run("Valid URI", func(t *testing.T) {
+		var supplied string
+		obsidian.Run = func(uri string) error { supplied = uri; return nil }
+		// Arrange
+		uriManager := obsidian.Uri{}
+		// Act
+		err := uriManager.Execute("https://example.com")
+		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, "https://example.com", supplied)
+	})
+
+	t.Run("Invalid URI", func(t *testing.T) {
+		var supplied string
+		obsidian.Run = func(uri string) error { supplied = uri; return errors.New("mock error") }
+		// Arrange
+		uriManager := obsidian.Uri{}
+		// Act
+		err := uriManager.Execute("foo")
+		// Assert
+		assert.EqualError(t, err, obsidian.ExecuteUriError)
+		assert.Equal(t, "foo", supplied)
+	})
+
+}

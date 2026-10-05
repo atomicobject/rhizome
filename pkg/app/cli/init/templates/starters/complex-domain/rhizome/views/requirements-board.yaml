@@ -1,0 +1,61 @@
+apiVersion: rhizome.view.v1
+id: complex-domain.requirements-board
+name: Requirements Board
+description: Requirements by lifecycle status. Moving a card stages a status change for review; acceptance stays a human decision.
+source:
+  kind: ontology_type
+  type: Requirement
+mount:
+  kind: standalone
+  group: Domain
+  order: 5
+defaults:
+  variant: kanban
+  first: 500
+  group:
+    field: status
+  sort:
+    - field: priority
+      direction: asc
+    - field: id
+      direction: asc
+filterPresets:
+  - id: high-priority
+    label: High Priority
+    filters:
+      - field: priority
+        op: in
+        values: [high, critical]
+  - id: needs-review
+    label: Needs Review
+    filters:
+      - field: reviewStatus
+        op: in
+        values: [unreviewed, needs_review, stale]
+variants:
+  kanban:
+    columnField: status
+    card:
+      eyebrow: id
+      title: title
+      fields:
+        - field: priority
+          label: Priority
+        - field: featureAreas
+          label: Areas
+        - field: reviewStatus
+          label: Review
+  table:
+    columns:
+      - field: id
+        label: ID
+      - field: title
+        label: Requirement
+      - field: status
+        label: Status
+      - field: priority
+        label: Priority
+      - field: featureAreas
+        label: Feature Areas
+      - field: reviewStatus
+        label: Review

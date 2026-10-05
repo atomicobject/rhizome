@@ -1,0 +1,9 @@
+{
+  "case_id": "A01",
+  "checks": [
+    "visible boundary and UTC tests pass",
+    "current policy and superseded history remain authoritative in their existing notes",
+    "public function signatures and persisted representation are preserved",
+    "no unrelated seeded files or hidden evaluation material are changed"
+  ]
+}

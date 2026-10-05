@@ -1,0 +1,10 @@
+apiVersion: rhizome.view.v1
+id: e2e.views.task-node
+name: Demo task workspace
+source:
+  kind: custom
+  entry: node.tsx
+mount:
+  kind: node
+  type: ViewDemoTask
+  default: true

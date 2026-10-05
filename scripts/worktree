@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF' >&2
+Usage:
+  worktree <name> [start-point]
+
+Creates a git worktree at worktrees/<name>, copies local Codex + Rhizome state
+into it, and drops you into a shell in the new worktree.
+
+Examples:
+  worktree my-branch
+  worktree fix-thing origin/main
+EOF
+}
+
+if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -lt 1 ]]; then
+  usage
+  exit 2
+fi
+
+name="$1"
+start_point="${2:-}"
+
+root="$(git rev-parse --show-toplevel)"
+worktrees_dir="$root/worktrees"
+worktree_dir="$worktrees_dir/$name"
+
+mkdir -p "$worktrees_dir"
+
+if [[ -e "$worktree_dir" ]]; then
+  echo "error: worktree path already exists: $worktree_dir" >&2
+  exit 1
+fi
+
+cd "$root"
+
+if git show-ref --verify --quiet "refs/heads/$name"; then
+  git worktree add "$worktree_dir" "$name"
+else
+  if [[ -n "$start_point" ]]; then
+    git worktree add -b "$name" "$worktree_dir" "$start_point"
+  else
+    git worktree add -b "$name" "$worktree_dir"
+  fi
+fi
+
+src_auth="$root/.codex/auth.json"
+if [[ -f "$src_auth" ]]; then
+  mkdir -p "$worktree_dir/.codex"
+  cp -p "$src_auth" "$worktree_dir/.codex/auth.json"
+fi
+
+src_db="$root/.rhizome/db.sqlite"
+if [[ -f "$src_db" ]]; then
+  mkdir -p "$worktree_dir/.rhizome"
+  cp -p "$src_db" "$worktree_dir/.rhizome/db.sqlite"
+fi
+
+cd "$worktree_dir"
+make
+direnv allow
+exec "${SHELL:-bash}" -l
+

@@ -1,0 +1,10 @@
+notes:
+  include:
+    - "**/*.md"
+code:
+  enabled: true
+  go:
+    roots:
+      - internal
+noteEmbeddings:
+  provider: ollama

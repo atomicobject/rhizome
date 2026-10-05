@@ -1,0 +1,74 @@
+apiVersion: rhizome.view.v1
+id: action-items.open
+name: Action Items
+description: Action items from any in-scope note.
+source:
+  kind: ontology_type
+  type: ActionItem
+mount:
+  kind: standalone
+  group: Work
+  order: 20
+defaults:
+  variant: table
+  first: 100
+  group:
+    field: done
+    values:
+      - value: "false"
+        label: Open
+        order: 10
+      - value: "true"
+        label: Done
+        order: 90
+        collapsed: true
+  sort:
+    - field: done
+      direction: asc
+    - field: due
+      direction: asc
+    - field: notePath
+      direction: asc
+filterPresets:
+  - id: open
+    label: Open
+    filters:
+      - field: done
+        op: eq
+        value: "false"
+  - id: done
+    label: Done
+    filters:
+      - field: done
+        op: eq
+        value: "true"
+  - id: mine
+    label: Mine
+    filters:
+      - field: assignee
+        op: eq
+        valueFrom: ontology.currentUser.resolvedRef
+variants:
+  table:
+    columns:
+      - field: done
+        label: Done
+      - field: title
+        label: Action
+      - field: assignee
+        label: Assignee
+      - field: due
+        label: Due
+      - field: notePath
+        label: Source
+  kanban:
+    columnField: done
+    card:
+      title: title
+      fields:
+        - field: assignee
+          label: Assignee
+        - field: due
+          label: Due
+        - field: notePath
+          label: Source

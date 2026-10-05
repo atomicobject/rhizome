@@ -1,0 +1,190 @@
+<!doctype html>
+<!--
+THESIS: The reader can understand delivery order before opening detailed tasks.
+OWN-WORLD: Rhizome Read mode, matching the effort overview and shared stylesheet.
+STORY: Inspect the document model, follow the delivery batches, then review open decisions.
+FIRST VIEWPORT: Implementation status, outcome, batch navigation, and the proposed relationship diagram.
+FORM: Visual implementation plan with a batch sequence and native disclosure for detail;
+the three-document structure is prescribed by the pilot brief.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Implementation plan: HTML efforts</title>
+  <link rel="stylesheet" href="effort.css">
+  <script id="rhizome-metadata" type="application/json">
+  {
+    "type": "EffortMaterial",
+    "title": "Implementation plan: HTML efforts",
+    "summary": "Authorized delivery plan for Markdown and folder efforts with a shared query contract, linked components, and optional folder membership.",
+    "revision": "r5",
+    "status": "approved",
+    "tags": ["effort-pilot", "implementation-plan"],
+    "effort": "docs/efforts/2026-09-13-09-55-html-effort-pilot/2026-09-13-09-55-effort.html"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar"><div><a class="brand" href="2026-09-13-09-55-effort.html">Rhizome / effort pilot</a><nav aria-label="Effort documents"><a href="2026-09-13-09-55-effort.html">Overview</a><a href="plan.html" aria-current="page">Implementation plan</a><a href="work-log.md">Work log</a></nav></div></header>
+  <main id="main">
+    <div class="meta"><span class="mono">EFF-2026-09-13-09-55 / r5</span><span class="state">Implementation in progress</span></div>
+    <h1>Make the effort a place for the work</h1>
+    <p class="lead">Keep Markdown efforts for straightforward work. Add effort folders with an HTML overview and plan, a Markdown log, and collateral when separate materials help. Query both as efforts.</p>
+    <section id="implementation-status" aria-labelledby="implementation-status-title">
+      <h2 id="implementation-status-title">r5: implementation in progress</h2>
+      <p>Drew Colthorp explicitly authorized implementation on September 13, 2026, after current-user validation resolved his note-backed Person identity. This revision records that authorization and delivery progress; r1 through r4 and the earlier work-log entries remain historical planning evidence.</p>
+      <p><strong>Implemented:</strong> the shared Effort interface and concrete-form allocation, HTML link resolution and provider provenance, collapsed metadata and a workspace-filling viewer, lifecycle context recipes, reusable templates and init inclusion, lifecycle guidance, and release evidence from linked logs. Installed-template fixtures cover both new forms and historical reads; focused suites, <code>make check</code>, and <code>make build</code> passed before the latest-main merge, as recorded in the log. After merging latest main <code>2dd0ad61</code> through <code>c9f8f0d3</code>, <code>make check</code> failed on three search tests outside this effort diff. Final CI run <code>34769751723</code> on <code>b0e8b3e4</code> passed Installer, Rhizome Content, Lint, Web Tests, and both Integration jobs, but Ubuntu and Windows Unit Tests failed on search and Codex tests outside this effort diff. Web E2E failed the existing duplicate <code>pong</code> locator in <code>tests/e2e/agent.spec.ts</code> (40 passed, 6 did not run); local <code>make web-e2e</code> passed 47 tests. The work log records the exact failing tests. The post-merge repository gate is not green.</p>
+      <p><strong>Remaining gates:</strong> execute creation, planning, approval, execution, resume, and closure for one new Markdown effort and one new folder effort; verify a material plan edit invalidates prior approval through the agent workflow; follow an authored report link in the UI and agent context; reconcile acceptance evidence without inventing frozen product stories; and preserve historical source bytes. Complete the bounded same-brief creation comparison with one Markdown run and two folder runs, separating setup, planning, and validation time.</p>
+      <p>The built-binary second init run must report no updates. That gate remains unsatisfied: the second run removed <code>- **Links mode**: both</code> from AGENTS.md, also reproduced with the core starter. Finish with <code>./scripts/rzm validate</code>, <code>./scripts/rzm validate frozen-scope-drift</code>, and current policy-required <code>make check</code> evidence; reuse web E2E evidence only while valid. Approval and closure remain agent workflow obligations, with no new runtime enforcement contract. Automatic folder membership remains optional.</p>
+    </section>
+    <ol class="phase-track" aria-label="Delivery sequence">
+      <li><a href="#phase-0">0. Try it</a><small>Current pilot</small></li>
+      <li><a href="#phase-1">1. Define it</a><small>Contract and approval</small></li>
+      <li><a href="#phase-2">2. Read it</a><small>HTML workspace</small></li>
+      <li><a href="#phase-3">3. Use either form</a><small>Runtime, skills, upgrades</small></li>
+      <li><a href="#phase-4">4. Prove it</a><small>End-to-end behavior</small></li>
+    </ol>
+    <div class="layout">
+      <div class="body">
+        <section id="format-choice" aria-labelledby="format-choice-title">
+          <h2 id="format-choice-title">Two supported forms of an effort</h2>
+          <p>Drew's second review keeps Markdown as a first-class choice for new efforts. Choose the representation according to the work's materials and planning needs. A bug fix with a short plan and log usually fits one note; an investigation with benchmarks, prototypes, or a substantial visual plan benefits from a folder. Task labels alone do not decide the format.</p>
+          <div class="table-scroll"><table aria-label="When to use each effort format"><thead><tr><th>Form</th><th>Use when</th><th>Content location</th></tr></thead><tbody>
+            <tr><td>Markdown effort</td><td>A concise plan and execution record fit naturally in one note.</td><td>Inline sections, with ordinary links as needed.</td></tr>
+            <tr><td>Effort folder</td><td>Several materials or a substantial plan deserve separate documents.</td><td>An HTML entry note with explicit links to the plan, log, and collateral.</td></tr>
+          </tbody></table></div>
+          <p><strong>Recommended shared contract:</strong> an <code>Effort</code> interface implemented by the existing <code>EffortNote</code> and a proposed <code>EffortWorkspace</code> entry-note type. The entry note holds the folder effort's identity; the directory is its material location. Start with fields both forms actually share, such as ID, name, summary, status, and creation time.</p>
+          <p>Rhizome already uses interfaces such as <code>SpecLike</code>. A GraphQL union groups alternatives but does not declare shared fields, so an interface fits uniform effort reads. Authored unions are currently rejected by the ontology compiler. General union support should remain a separate capability decision rather than a prerequisite for this effort.</p>
+          <p>A shared interface does not normalize inline plans and linked plans by itself. Define one execution-context recipe or read contract that returns the effort's scope, plan, log, and approval evidence with precise source references. Preserve representation-specific writes, section identities, and existing approval meanings. Optional promotion from a note to a folder would need explicit identity and link preservation; no automatic conversion is required.</p>
+        </section>
+        <section id="feedback-revision" aria-labelledby="feedback-revision-title">
+          <h2 id="feedback-revision-title">First feedback: improve reading and reduce setup</h2>
+          <p>Drew's first review establishes two HTML viewer requirements. The first implementation batch should make metadata expandable and collapsed by default, and make the document fill the remaining width and height of the note workspace. These are requirements for Rhizome's viewer, not styling rules each effort must reproduce.</p>
+          <p>The metadata disclosure should cover both typed properties and HTML root metadata. Keep editing, unsaved changes, and issue navigation discoverable. Verify resizing, split panes, short and long documents, and expanding metadata. Preserve the isolated HTML viewer; filling the available workspace does not require merging document content into the application DOM.</p>
+          <div class="table-scroll"><table aria-label="What the first pilot changes in the plan"><thead><tr><th>Learning</th><th>Plan change</th></tr></thead><tbody>
+            <tr><td>Normal HTML navigation works, but typed metadata needed extensionless targets.</td><td>Fix explicit HTML path resolution and add cross-format link cases before publishing templates.</td></tr>
+            <tr><td>The pilot's exact-path types do not participate in existing effort workflows.</td><td>Prove creation, resume, approval, and closure against one shared effort contract, using paired historical and new efforts.</td></tr>
+            <tr><td>Docs-scoped search omitted HTML results in the initial probe.</td><td>Investigate scope classification and test equivalent HTML and Markdown retrieval. The probe is a reproduction, not a complete diagnosis.</td></tr>
+            <tr><td>The initial draft took a reported 21 minutes, including schema setup, custom presentation, integration investigation, and verification.</td><td>Provide reusable templates and a supported creation path. Routine effort creation must require no new schema, CSS design, or manual inclusion configuration.</td></tr>
+          </tbody></table></div>
+          <p>Automatic folder membership should be a separate optional extension after the explicit format works. Its ownership and invalidation rules should not delay useful HTML efforts. A folder can already hold collateral and the overview can link to it.</p>
+        </section>
+        <section id="model" aria-labelledby="model-title">
+          <h2 id="model-title">The folder form</h2>
+          <figure class="diagram-wrap" tabindex="0" aria-label="Document relationship diagram; scroll horizontally in a narrow window">
+            <svg class="diagram" viewBox="0 0 700 340" role="img" aria-labelledby="diagram-title diagram-desc">
+              <title id="diagram-title">An effort owns explicit component links and may discover nearby materials</title>
+              <desc id="diagram-desc">The effort overview links to a Markdown spec, an HTML plan, and a Markdown log. Optional folder membership is a separate relationship to supporting materials. It does not select scope or approve a plan.</desc>
+              <defs><marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--link)"/></marker></defs>
+              <rect class="box" x="226" y="20" width="248" height="66" rx="4"/>
+              <text x="350" y="47" text-anchor="middle" font-weight="600">Effort overview · HTML</text><text class="caption" x="350" y="69" text-anchor="middle">identity, scope, state, outcome</text>
+              <path class="edge" d="M 274 86 L 274 110 L 112 110 L 112 149" marker-end="url(#arrowhead)"/>
+              <path class="edge" d="M 350 86 L 350 149" marker-end="url(#arrowhead)"/>
+              <path class="edge" d="M 426 86 L 426 110 L 588 110 L 588 149" marker-end="url(#arrowhead)"/>
+              <text class="caption" x="367" y="133">authored links</text>
+              <rect class="box" x="12" y="154" width="200" height="62" rx="4"/><text x="112" y="181" text-anchor="middle" font-weight="600">Specs · Markdown</text><text class="caption" x="112" y="201" text-anchor="middle">selected scope stays explicit</text>
+              <rect class="box" x="250" y="154" width="200" height="62" rx="4"/><text x="350" y="181" text-anchor="middle" font-weight="600">Plan · HTML</text><text class="caption" x="350" y="201" text-anchor="middle">decisions and delivery sequence</text>
+              <rect class="box" x="488" y="154" width="200" height="62" rx="4"/><text x="588" y="181" text-anchor="middle" font-weight="600">Log · Markdown</text><text class="caption" x="588" y="201" text-anchor="middle">append-only execution history</text>
+              <path class="edge" stroke-dasharray="5 5" d="M 474 53 L 696 53 L 696 262 L 350 262 L 350 289" marker-end="url(#arrowhead)"/>
+              <text class="caption" x="468" y="250" text-anchor="middle">optional folder membership · proposed</text>
+              <rect class="box" x="170" y="294" width="360" height="40" rx="4"/><text x="350" y="320" text-anchor="middle">Reports, prototypes, and other materials</text>
+            </svg>
+            <figcaption>Solid lines are explicit relationships. The dashed membership rule is proposed product work and is not implemented by this pilot.</figcaption>
+          </figure>
+          <div class="table-scroll"><table aria-label="Responsibilities of the effort documents"><thead><tr><th>Document</th><th>Owns</th><th>Changes when</th></tr></thead><tbody>
+            <tr><td>Overview</td><td>Identity, scope, status, component links, delivered outcome</td><td>The effort's scope or state changes</td></tr>
+            <tr><td>Plan</td><td>Architecture, decisions, delivery batches, verification</td><td>The proposed or approved approach changes</td></tr>
+            <tr><td>Work log</td><td>Timestamped decisions, deviations, observations, evidence, handoffs</td><td>New execution evidence needs preserving</td></tr>
+          </tbody></table></div>
+        </section>
+        <section id="phases" aria-labelledby="phases-title">
+          <h2 id="phases-title">Delivery batches</h2>
+          <p>Each batch combines the implementation, tests, and documentation needed for its outcome. Implementation has progressed through the shared effort contract, viewer layout, templates, lifecycle guidance, and release evidence. The appended work log records the completed units and focused checks. Integrated verification, acceptance reconciliation, and the bounded creation-cost comparison remain open; this status does not claim closure. Batch descriptions below retain their original contract and exit requirements; the work log records subsequent implementation and review evidence.</p>
+          <article class="phase" id="phase-0">
+            <div class="phase-head"><span class="phase-number">Batch 0</span><h3>Use the pilot to decide what to adopt</h3></div>
+            <p>The split has been tried with real feedback, and Drew can decide whether to adopt, revise, or stop it. The initial pilot has now informed the implemented contract and viewer changes recorded in the work log.</p>
+            <p><strong>Scope and ownership:</strong> This folder, the exact-path pilot ontology, and its scoped inclusion configuration. Existing effort workflows do not consume the pilot types.</p>
+            <p><strong>Dependencies:</strong> The three linked documents are available. Feedback on format choice and the viewer is already recorded in the work log.</p>
+            <details open><summary>Work, evidence, and decision boundary</summary>
+              <p><strong>Work:</strong> Retain the current artifacts and explicit links; record further reading or authoring friction. Use one additional review cycle of the revised plan as the experiment allowance. Compare the same brief in one note and in these linked documents. Success means the reader can locate scope, plan, log, and collateral and explain when the split helps. Stop and record an adopt, revise, or defer decision after that cycle; repeated friction calls for a design decision, not more styling iterations.</p>
+              <p class="exit"><strong>Exit evidence:</strong> Existing navigation and retrieval evidence plus recorded feedback; rerun <code>./scripts/rzm validate</code> for document revisions and inspect changed reading flows in Rhizome. This batch does not claim product compatibility.</p>
+              <p><strong>Escalation boundary:</strong> Drew decides adoption. Routine pilot revisions continue within existing authority; product implementation requires the scope and approval in batch 1.</p>
+            </details>
+          </article>
+          <article class="phase" id="phase-1">
+            <div class="phase-head"><span class="phase-number">Batch 1</span><h3>Settle the shared effort contract</h3></div>
+            <p>An approved specification and executable implementation scope cover both new effort forms and unchanged historical efforts.</p>
+            <p><strong>Scope and ownership:</strong> <code>docs/specs/</code>, canonical Agentic Engineering ontology and recipes under <code>pkg/app/cli/init/templates/</code>, and the ontology, note metadata, agent-context, and HTML mutation contracts. General unions, automatic conversion, and inferred folder membership are outside the core scope.</p>
+            <p><strong>Dependencies:</strong> Batch 0 feedback. The governing HTML specs constrain implementation, but this pilot has no frozen product stories. Freeze the selected stories and criteria and load their execution context before implementation.</p>
+            <details><summary>Work, evidence, and decision boundary</summary>
+              <p><strong>Work:</strong> Resolve the named decisions below: shared Effort interface and execution-context read; entry naming and the existing EFF allocator; plan-revision approval and representation-specific writes. Specify linked plan/log cardinality, missing-component diagnostics, frozen node targets, lifecycle and closure evidence, and collateral selectors that cannot classify arbitrary Markdown as efforts. Preserve historical paths, IDs, fields, and approvals without adding required metadata. Record the contract in the spec and map each selected criterion to the batch evidence below. Do not copy the exact-path pilot types into the starter.</p>
+              <p class="exit"><strong>Exit evidence:</strong> Paired Markdown and folder contract examples cover common fields, source references, required components, approval after a material plan edit, and unchanged historical reads. A <code>foundation-review</code> exit settles the public schema and ownership decisions before dependent work. Record explicit implementation-plan approval on the effort after current-user identity validation succeeds.</p>
+              <p><strong>Escalation boundary:</strong> The shared schema, naming/allocation, approval semantics, or unsupported HTML writes require a decision before dependent implementation. A foundation review is required here; later routine batch checkpoints do not require renewed approval.</p>
+            </details>
+          </article>
+          <article class="phase" id="phase-2">
+            <div class="phase-head"><span class="phase-number">Batch 2</span><h3>Make HTML plans comfortable to read</h3></div>
+            <p>The existing pilot is usable in the Notes workspace: metadata starts collapsed and expands, while the HTML document fills the remaining width and height.</p>
+            <p><strong>Scope and ownership:</strong> <code>web/src/components/OntologyNotePane.tsx</code>, <code>HTMLRootMetadataPanel</code>, <code>HTMLNoteViewer</code>, and <code>web/src/notes-shell.css</code>. Preserve iframe isolation and existing edit/issue behavior.</p>
+            <p><strong>Dependencies:</strong> Batch 1 approved viewer scope. This batch can proceed independently of the new effort schema implementation after approval.</p>
+            <details><summary>Work, evidence, and decision boundary</summary>
+              <p><strong>Work:</strong> Implement one disclosure covering typed and HTML root metadata, with discoverable errors and unsaved edits. Correct the surrounding flex layout and scrolling. Add focused component regressions and a representative browser flow in the same batch. Update the owning viewer documentation and changelog with the behavior.</p>
+              <p class="exit"><strong>Exit evidence:</strong> Focused web tests and <code>make web-e2e</code> demonstrate initial collapse, keyboard expansion, editing and issue navigation, short and long documents, resizing, split panes, and narrow/light/dark layouts. Inspect the actual pilot in Rhizome. Run <code>make check</code> before committing code as required by policy.</p>
+              <p><strong>Escalation boundary:</strong> A change to HTML isolation, edit permissions, or document execution is outside this layout fix. Layout corrections within the approved behavior are routine.</p>
+            </details>
+          </article>
+          <article class="phase" id="phase-3">
+            <div class="phase-head"><span class="phase-number">Batch 3</span><h3>Create and operate either effort form</h3></div>
+            <p>An installed or upgraded starter can create a new Markdown effort or HTML effort folder and retrieve, plan, approve, resume, and close either through the shared contract.</p>
+            <p><strong>Scope and ownership:</strong> <code>pkg/ontology</code> and its query layer, <code>pkg/notemeta</code>, <code>pkg/vault/obsidian</code>, note discovery and indexing, agent execution-context reads, canonical init templates and recipes, and <code>scripts/release/effort_evidence.py</code>. Each owning module carries its implementation, tests, and documentation together.</p>
+            <p><strong>Dependencies:</strong> Batch 1 contract and approval. Batch 2 is required for the final comfortable reading experience, but does not block schema and workflow work.</p>
+            <details><summary>Work, evidence, and decision boundary</summary>
+              <p><strong>Work:</strong> Implement common queries, relations, and source-preserving context reads; retain representation-specific writes and shared ID allocation. Reproduce and fix explicit HTML metadata-link resolution and docs-scoped retrieval before claiming parity. Provide reusable static HTML overview/plan templates and a Markdown log with automatic explicit component and collateral links. Make the supported creation path install the necessary schema, styling, and inclusion configuration without per-effort hand edits. Teach format choice, capability checks, both resume paths, approval, and closure. Adapt release evidence. Document ordinary spec folders with tags and links. Update affected subsystem notes with <code>last-verified</code>, user guidance, canonical templates, and changelog alongside their changes.</p>
+              <p class="exit"><strong>Exit evidence:</strong> Focused tests in changed Go packages and <code>go test ./pkg/app/cli/init/...</code>; integration fixtures compare both new forms and historical efforts. Cover interface fragments and concrete-type discrimination, common-field filtering/sorting/backlinks, exact cross-format links, missing components, collateral exclusion, full/incremental indexing, scoped retrieval, approval invalidation, and release evidence. Test fresh install, compatible upgrade, older-runtime capability handling, customized schemas, and sequential/DATETIME IDs. Run <code>make build</code> and the built binary's <code>rzm init --yes</code> twice in a disposable fixture; the second run must report no updates. Run <code>make check</code> before code commits.</p>
+              <p><strong>Escalation boundary:</strong> If a shared field forces historical rewrites, a capability fallback changes approval meaning, or a public write contract must expand, return to the named contract decision. Do not add compatibility shims or silently weaken the scope.</p>
+            </details>
+          </article>
+          <article class="phase" id="phase-4">
+            <div class="phase-head"><span class="phase-number">Batch 4</span><h3>Verify the integrated workflow and repeat-creation cost</h3></div>
+            <p>The delivered workflow satisfies the frozen criteria, and measured repeat creation shows whether reusable templates removed the pilot setup burden.</p>
+            <p><strong>Scope and ownership:</strong> Existing integration and browser fixtures, the pilot work log, and final spec/effort reconciliation. Product tests and owning documentation already belong to batches 2 and 3.</p>
+            <p><strong>Dependencies:</strong> Batches 2 and 3 complete. Reuse their evidence unless integration changes or a coverage gap invalidate it.</p>
+            <details><summary>Work, evidence, and decision boundary</summary>
+              <p><strong>Work:</strong> Run one new Markdown effort and one new folder effort through creation, planning, approval, execution, resume, and closure; read a historical effort without modifying it. Add a report and follow its authored link in the UI and agent context. Audit every frozen acceptance criterion against the recorded evidence. For creation cost, use one prepared brief with the same required content: one Markdown run and two folder runs in an already configured fixture. Separately record artifact setup, content planning, and validation time. Success requires no new schema authoring, CSS design, or manual inclusion work per effort. Stop after these three runs and report timings and friction; do not use the reported 21 minutes as a measured baseline or build a benchmark framework.</p>
+              <p class="exit"><strong>Exit evidence:</strong> Recorded lifecycle and report-navigation results, criterion-to-evidence coverage, unchanged historical files, and the bounded creation comparison. Run <code>./scripts/rzm validate</code>, <code>./scripts/rzm validate frozen-scope-drift</code>, and the policy-required <code>make check</code> before merge or closure; reuse current <code>make web-e2e</code> evidence unless invalidated. Classify unrelated findings explicitly. Record actual changes, results, remaining gaps, and next action in the work log at each implementation batch exit.</p>
+              <p><strong>Escalation boundary:</strong> A failed acceptance obligation stays open. Drew decides whether measured authoring friction warrants a scope revision. Publishing a release or adopting optional membership requires separate authority.</p>
+            </details>
+          </article>
+          <p>Acceptance coverage before scope freeze: document choice and explicit links map to batches 0 and 3; shared queries, lifecycle, historical compatibility, and upgrades to batches 1 and 3; metadata disclosure and full workspace sizing to batch 2; complete lifecycle and creation cost to batch 4. Batch 1 replaces this provisional mapping with the selected spec criterion references. Optional membership is excluded.</p>
+        </section>
+        <section id="optional-membership" aria-labelledby="optional-membership-title">
+          <h2 id="optional-membership-title">Optional extension: discover unlinked materials</h2>
+          <p>After the core format works, decide whether missing links justify schema-controlled folder membership. Activate ownership explicitly and keep derived membership distinguishable from authored links. Co-location must never select frozen scope or approve a plan.</p>
+          <p>If adopted, define and test nested and competing owners, ignored files, attachments, containment, and root or member moves, removals, and reclassification. Use indexed paths and bounded invalidation; verify full and incremental results agree after restart or rebuild. This extension does not gate the core format's adoption.</p>
+        </section>
+        <section id="decisions" aria-labelledby="decisions-title">
+          <h2 id="decisions-title">Decisions to test, then settle</h2>
+          <p>Batch 1 must settle three tensions before dependent work: common effort reads versus preserving each source format; a simple entry filename versus the existing basename-based ID allocator; and convenient plan editing versus approval tied to a specific revision. The implemented contract uses the shared Effort interface, concrete-form allocation, explicit component links, and approval evidence tied to a plan revision; see the later work-log entries. The table retains the original decision questions for comparison. Format choice is settled by Drew's feedback; folder ownership belongs to the optional extension.</p>
+          <div class="table-scroll"><table><thead><tr><th>Decision</th><th>Working recommendation</th><th>Evidence needed</th></tr></thead><tbody>
+            <tr><td>Format selection</td><td>Markdown for work that fits one note; a folder with HTML overview and plan when separate materials help.</td><td>Simple and material-rich examples; both forms remain available for new work.</td></tr>
+            <tr><td>Effort contract</td><td>A shared Effort interface plus a uniform execution-context read, preserving each form's source references.</td><td>Mixed-type queries, relations, and lifecycle workflows that preserve existing meanings.</td></tr>
+            <tr><td>Folder ownership</td><td>Schema capability plus explicit activation on the owner.</td><td>Legacy shared folders, nested roots, conflict behavior.</td></tr>
+            <tr><td>Entry filename</td><td>A simple name such as <code>effort.html</code> if allocation supports it.</td><td>A creation rule that preserves existing ID strategies.</td></tr>
+            <tr><td>Approval</td><td>Reference a particular plan revision; preserve the decision in the log.</td><td>A reliable way to detect later material plan changes.</td></tr>
+          </tbody></table></div>
+        </section>
+        <section id="limits" aria-labelledby="limits-title">
+          <h2 id="limits-title">What this pilot can prove</h2>
+          <p>It can test reading, document ownership, explicit typed links, and the practicality of editing separate files. Focused tests now cover shared effort recipes, copied workspace installation, identifier preservation, and release evidence. Automatic membership is outside scope; end-to-end lifecycle verification and the creation-cost comparison remain open. Recorded approval evidence does not itself enforce approval.</p>
+          <p>Current HTML body editing and graph-safe file moves are limited. This pilot keeps its paths stable and changes authored files directly. Any future move workflow must satisfy the existing source-preservation contract.</p>
+          <p><a href="2026-09-13-09-55-effort.html#feedback">Return to feedback prompts</a> · <a href="work-log.md">Read execution evidence</a></p>
+        </section>
+        <footer>r5 · Implementation authorized by Drew Colthorp on 2026-09-13 · In progress · Linked to <a href="2026-09-13-09-55-effort.html">EFF-2026-09-13-09-55</a></footer>
+      </div>
+      <aside><nav aria-label="On this page"><strong>Read the plan</strong><a href="#format-choice">Choose the format</a><a href="#feedback-revision">First feedback</a><a href="#model">Document model</a><a href="#phase-0">0. Try the pilot</a><a href="#phase-1">1. Define the contract</a><a href="#phase-2">2. Read HTML comfortably</a><a href="#phase-3">3. Operate both forms</a><a href="#phase-4">4. Verify the experience</a><a href="#optional-membership">Optional discovery</a><a href="#decisions">Open decisions</a><a href="#limits">Pilot limits</a></nav></aside>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,60 @@
+apiVersion: rhizome.view.v1
+id: spec-driven.efforts
+name: Efforts
+description: Efforts by lifecycle status. Moving a card stages a status change for review.
+source:
+  kind: ontology_interface
+  interface: Effort
+mount:
+  kind: interface
+  interface: Effort
+  default: true
+defaults:
+  variant: kanban
+  first: 500
+  group:
+    field: status
+  sort:
+    - field: createdAt
+      direction: desc
+filterPresets:
+  - id: in-flight
+    label: In flight
+    filters:
+      - field: status
+        op: in
+        values: [planned, active]
+  - id: closed
+    label: Closed
+    filters:
+      - field: status
+        op: in
+        values: [complete, archived]
+variants:
+  kanban:
+    columnField: status
+    card:
+      eyebrow: id
+      title: name
+      preview: summary
+      fields:
+        - field: planApprovedBy
+          label: Approved by
+        - field: createdAt
+          label: Created
+  table:
+    columns:
+      - field: id
+        label: ID
+      - field: name
+        label: Effort
+      - field: status
+        label: Status
+      - field: summary
+        label: Summary
+      - field: planApprovedBy
+        label: Approved by
+      - field: createdAt
+        label: Created
+      - field: hasIssues
+        label: Issues

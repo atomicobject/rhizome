@@ -1,0 +1,44 @@
+[
+  {
+    "preflight": {
+      "errors": [
+        "zero-call probe failed (sandbox): sandbox-exec: sandbox_apply: Operation not permitted\n"
+      ],
+      "model_calls": 0,
+      "read_denial_probe": {
+        "checked_paths": 72,
+        "passed": true
+      },
+      "ready": false
+    },
+    "run_id": "a02-baseline"
+  },
+  {
+    "preflight": {
+      "errors": [
+        "zero-call probe failed (sandbox): sandbox-exec: sandbox_apply: Operation not permitted\n"
+      ],
+      "model_calls": 0,
+      "read_denial_probe": {
+        "checked_paths": 72,
+        "passed": true
+      },
+      "ready": false
+    },
+    "run_id": "a01-candidate"
+  },
+  {
+    "preflight": {
+      "errors": [
+        "zero-call probe failed (sandbox): sandbox-exec: sandbox_apply: Operation not permitted\n"
+      ],
+      "model_calls": 0,
+      "read_denial_probe": {
+        "checked_paths": 72,
+        "passed": true
+      },
+      "ready": false
+    },
+    "run_id": "a02-candidate"
+  }
+]

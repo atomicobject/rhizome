@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-05",
+  "host": "Drews-Mac-mini.local",
+  "release": {
+    "sourceCommit": "db055b359568ac402d1e2be3500b951afea1671d",
+    "binarySha256": "7093c612795630056724882f2fe715dc73783f69fb9208ee74cb39c4fc893d24"
+  },
+  "candidate": {
+    "branch": "codex/semantic-query-performance",
+    "baseCommit": "db055b359568ac402d1e2be3500b951afea1671d",
+    "binarySha256": "7e567f8b374a863d8e12bcfe923c2d892d08e1625deddce06f77838bd2d20f0b"
+  },
+  "rhizome": {
+    "configSha256": "d8d1395369fe8119882efbbdb6fbcdc4ef2a054f031cfc0ca63970e54d1f10ba",
+    "indexBytes": 449736704,
+    "markdownFiles": 1504,
+    "releaseRepeatedNoSessionMs": [3272.340, 3091.189, 3500.417, 5357.691, 3826.922, 3289.642, 3266.822, 3576.397, 3166.948, 3035.164, 2981.501, 2979.461, 3253.104, 3271.673, 3138.019, 3016.697, 3058.967, 3154.252, 3183.972, 3124.739],
+    "candidateRepeatedNoSessionMs": [1656.147, 1111.483, 1114.194, 1073.192, 1143.356, 1106.095, 1105.227, 1117.896, 1078.484, 1111.259, 1104.047, 1095.033, 1131.416, 1105.551, 1098.743, 1127.689, 1114.853, 1077.666, 1116.678, 1129.542],
+    "releaseMedianMs": 3175.460,
+    "releaseP95Ms": 3826.922,
+    "candidateMedianMs": 1111.371,
+    "candidateP95Ms": 1143.356,
+    "orderedResultLaneWarningSha256": "e846972be319e76dc3f703a0f32049a90b7801a4a497e6a6e5721c0df1b0d70f",
+    "candidateFirstNoSessionMs": [1483.632],
+    "candidateRepeatedSessionMs": [1128.292, 1142.831, 1153.735, 1123.953, 1100.098, 1139.129, 1131.869],
+    "candidateOverviewMs": [1164.001, 1119.134, 1100.389, 1108.550, 1109.010, 1082.220, 1131.531],
+    "candidatePrecisionMs": [1165.543, 1133.269, 1136.621, 1108.784, 1096.155, 1113.165, 1124.123],
+    "overviewOrderedResultLaneWarningSha256s": ["6333ddbfec4e9bffe5a9a4d1a1fbf9fc64b61603374bf3fda81f413ac5c3df36", "d3fa49215af62d4aed917c8a2135f9e783b7b11ef8809a9ec0b61d5da81efe12"],
+    "precisionOrderedResultLaneWarningSha256s": ["303eb14ea8f429e7fc85952819ec4206fe11f65845da771fed4816cc6f6c63d3", "acca0f7422c85e6d3f5a7186b33657f48fd8698f87125dc71affce23a7f2a780"]
+  },
+  "drewsVaultRefreshedTemporaryCopy": {
+    "note": "The original index lacked durable indexer/scope proof and was not mutated. Both binaries used the same temporary refreshed copy.",
+    "configSha256": "f9b42cb56a9fd6dd4282aabec69cdd54532d265213bc35c92f082c332f496815",
+    "indexBytes": 284164096,
+    "markdownFiles": 2772,
+    "releaseRepeatedNoSessionMs": [920.619, 844.993, 874.227, 909.027, 872.973, 888.865, 875.918, 885.957, 874.640, 925.040, 894.515, 863.792, 855.480, 882.117, 885.419, 873.019, 862.572, 842.546, 884.926, 874.703],
+    "candidateRepeatedNoSessionMs": [288.185, 275.677, 284.037, 279.945, 261.891, 284.655, 279.840, 275.443, 291.878, 277.645, 266.578, 284.118, 315.573, 267.160, 274.859, 281.129, 282.594, 291.087, 277.543, 283.634],
+    "releaseMedianMs": 875.311,
+    "releaseP95Ms": 920.619,
+    "candidateMedianMs": 280.537,
+    "candidateP95Ms": 291.878,
+    "orderedResultLaneWarningSha256": "cafffaaa27b933e94e921f5444a09f5a4701fb5ec1e5a2f725e3ddc490d2f18b"
+  },
+  "representativeCandidateDiagnostics": {
+    "bootstrapMs": 3,
+    "seedResolutionMs": 240,
+    "searchMs": 838,
+    "shapingMs": 5,
+    "notePasses": 0,
+    "repositoryWalks": 0,
+    "boundedNoteReads": 18,
+    "boundedCodeReads": 3,
+    "fallbackStoreOpens": 0,
+    "schemaStatements": 0,
+    "integrityChecks": 0,
+    "indexWrites": 0,
+    "providerCalls": 1
+  }
+}

@@ -1,0 +1,5 @@
+{"type":"system","subtype":"init","cwd":"/private/tmp/rz-harness","session_id":"16a01242-bab7-449a-afb0-cbc73c4d0641","tools":[],"mcp_servers":[],"model":"claude-haiku-4-5-20251001","permissionMode":"dontAsk","claude_code_version":"2.1.269"}
+{"type":"control_response","response":{"subtype":"success","request_id":"init-1","response":{"models":[{"value":"haiku","resolvedModel":"claude-haiku-4-5-20251001","supportedEffortLevels":[]}],"account":{"email":"person@example.com","subscriptionType":"Claude Max"}}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"pong"}},"session_id":"16a01242-bab7-449a-afb0-cbc73c4d0641"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"pong"}]},"session_id":"16a01242-bab7-449a-afb0-cbc73c4d0641"}
+{"type":"result","subtype":"success","result":"pong","is_error":false,"session_id":"16a01242-bab7-449a-afb0-cbc73c4d0641","usage":{"input_tokens":10,"cache_creation_input_tokens":8197,"cache_read_input_tokens":0,"output_tokens":67}}

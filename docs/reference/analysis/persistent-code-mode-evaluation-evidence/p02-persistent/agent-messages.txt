@@ -1,0 +1,20 @@
+I’m resuming the retry-limit effort from the repository state, using the agentic-engineering workflow for implementation and handoff plus Rhizome for durable-state retrieval and record updates. I’ll keep Rhizome mutations on one generated JavaScript client connected to one persistent `rzm agent code serve` process, and use direct `rzm` only for setup/discovery or verification.
+
+The durable record is active with an approved plan, and the checkout is still at the seeded bug: `should_retry` uses `<=`, so it allows a retry after three completed attempts. The repository’s quality-gate table still contains bracketed setup placeholders, so I’m treating the effort’s explicit unittest command as the applicable verification contract and will record that exact evidence. I’ve also started the single Rhizome session needed for the durable-context pass.
+
+The Rhizome context confirms the approved boundary and excludes jitter. Its indexed code evidence also reports a known gap: `tests/test_retry.py` is not present in the code-index test bucket, and `should_retry` is not indexed, so I’ll use the repository’s direct unittest command as the authoritative runtime evidence and preserve that gap in the handoff if validation still reports it. The current source confirms the defect is exactly the `<=` comparison.
+
+The regression reproduces before the edit (`test_stops_at_limit` saw `True` at three attempts), and the approved one-line boundary fix now makes all four tests pass. I’m at the handoff phase: I’ll validate the changed effort note through the same persistent generated Rhizome client, then update only that effort’s delivery/checklist/status sections with the exact pre-fix and post-fix evidence.
+
+The handoff record now contains the actual implementation, the reproduced pre-fix failure, the passing post-fix command, the Rhizome indexing limitation, and the active-effort handoff state. I caught and removed an accidental duplicate checklist line during the post-edit review; I’m now rerunning scoped note validation and rereading the durable record through the still-running generated client.
+
+Scoped Rhizome validation is clean after the note update: the effort note passes `ontology` with zero issues, and `frozen-scope-drift` reports no drift. The same client reread confirms both checklists and the handoff evidence are persisted. I’m closing the temporary generated-client workspace now, then I’ll run the final local diff/test checks and report the active handoff state.
+
+Implemented and handed off the retry-limit effort.
+
+- Fixed the boundary in [src/retry.py:13](.../src/retry.py:13) from `<=` to `<`.
+- Updated the durable effort record with scope coverage, before/after test evidence, revision, and handoff status: [effort note](.../docs/efforts/2026-09-07-12-00-retry-limit.md:46).
+- Verification: 4 tests pass; `git diff --check` passes.
+- Rhizome ontology and frozen-scope validation both pass with zero issues, using one generated client and persistent serve process.
+
+The effort remains active pending a separate closure decision; no implementation work remains.

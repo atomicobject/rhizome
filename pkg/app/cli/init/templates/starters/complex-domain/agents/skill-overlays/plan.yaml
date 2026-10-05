@@ -1,0 +1,16 @@
+apiVersion: rhizome.skill-overlay.v1
+id: complex-domain.plan
+targetSkill: agentic-engineering
+fragments:
+  - file: references/planning.md
+    slot: integration-map.additional-dimensions
+    op: append
+    order: 10
+    content: |
+      For domain-dependent scope, map the accepted requirements and source provenance loaded with `spec-domain-context-pack` and focused requirement traces to the affected feature areas, contexts, types, processes, workflows, stories, and acceptance criteria. Include open `ActionItem` decisions and qualified gaps from `coverage-gap-pack` or `complex-domain.uncovered-requirements`. Narrow capped results; do not convert a partial inventory into a completeness claim.
+  - file: references/planning.md
+    slot: architecture-decisions.additional-checks
+    op: append
+    order: 10
+    content: |
+      Identify formative domain decisions separately: which accepted requirements constrain implementation, which candidates remain context, how source conflicts or workflow variants affect the design, and what evidence will demonstrate each full obligation. Preserve process/workflow distinctions and plan for partial delivery without marking an entire requirement implemented.

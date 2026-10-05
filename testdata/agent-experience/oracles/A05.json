@@ -1,0 +1,9 @@
+{
+  "case_id": "A05",
+  "checks": [
+    "v1 and v2 source versions, dates, locations, and facts remain distinct",
+    "the accepted 30-day requirement is traced to process, workflow, sources, and spec",
+    "the 14-day proposal remains a conflict requiring review",
+    "partial two-criterion evidence does not promote the requirement to implemented"
+  ]
+}

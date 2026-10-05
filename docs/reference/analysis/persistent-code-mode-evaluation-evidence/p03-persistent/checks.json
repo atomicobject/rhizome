@@ -1,0 +1,63 @@
+{
+  "case_id": "A05",
+  "checks": {
+    "accepted_requirement_remains_unimplemented": {
+      "detail": "accepted requirement is not promoted to implemented",
+      "passed": true
+    },
+    "conflict_and_partial_backport_recorded": {
+      "detail": "review record preserves conflict and partial delivery evidence",
+      "passed": true
+    },
+    "domain_layers_remain_distinct": {
+      "detail": "process and actor workflow retain distinct meanings",
+      "passed": true
+    },
+    "frozen_spec_not_rewritten": {
+      "detail": "the conflicting proposal does not rewrite the frozen contract",
+      "passed": true
+    },
+    "no_unexpected_added_paths": {
+      "added": [],
+      "detail": "unexpected tree changes: added=[], removed=[], modified=['.rhizome/db.sqlite']",
+      "modified": [
+        ".rhizome/db.sqlite",
+        "docs/efforts/2026-09-07-13-00-retention-source-review.md"
+      ],
+      "passed": false,
+      "removed": [],
+      "unexpected": [],
+      "unexpected_modified": [
+        ".rhizome/db.sqlite"
+      ],
+      "unexpected_removed": []
+    },
+    "preserved_seeded_files": {
+      "changed": [],
+      "detail": "protected seeded files are unchanged",
+      "passed": true
+    },
+    "required_paths": {
+      "detail": "all seeded visible files are present",
+      "missing": [],
+      "passed": true
+    },
+    "review_record_updated": {
+      "detail": "source review leaves an updated durable record when a before snapshot is available",
+      "passed": true
+    },
+    "source_versions_and_locations_preserved": {
+      "detail": "both source versions retain dates, locations, and distinct facts",
+      "passed": true
+    },
+    "traceability_is_explicit": {
+      "detail": "requirement, process, workflow, source, and spec links remain explicit",
+      "passed": true
+    }
+  },
+  "failures": [
+    "no_unexpected_added_paths"
+  ],
+  "ok": false,
+  "passed": false
+}

@@ -1,0 +1,67 @@
+{
+  "case_id": "A01",
+  "checks": {
+    "boundary_behavior": {
+      "detail": "exact boundary is expired and persisted values are UTC-aware",
+      "exit_code": 0,
+      "passed": true,
+      "stderr": "",
+      "stdout": ""
+    },
+    "current_policy_is_explicit": {
+      "detail": "current policy states the UTC and exact-boundary invariants",
+      "passed": true
+    },
+    "no_unexpected_added_paths": {
+      "added": [
+        ".rhizome/db.sqlite-shm",
+        ".rhizome/db.sqlite-wal"
+      ],
+      "detail": "unexpected tree changes: added=['.rhizome/db.sqlite-shm', '.rhizome/db.sqlite-wal'], removed=[], modified=['.rhizome/db.sqlite']",
+      "modified": [
+        ".rhizome/db.sqlite",
+        "src/expiry.py"
+      ],
+      "passed": false,
+      "removed": [],
+      "unexpected": [
+        ".rhizome/db.sqlite-shm",
+        ".rhizome/db.sqlite-wal"
+      ],
+      "unexpected_modified": [
+        ".rhizome/db.sqlite"
+      ],
+      "unexpected_removed": []
+    },
+    "preserved_seeded_files": {
+      "changed": [],
+      "detail": "protected seeded files are unchanged",
+      "passed": true
+    },
+    "public_surface_preserved": {
+      "detail": "expiry public function signatures remain stable",
+      "passed": true
+    },
+    "required_paths": {
+      "detail": "all seeded visible files are present",
+      "missing": [],
+      "passed": true
+    },
+    "superseded_rule_is_marked": {
+      "detail": "older local-time guidance is visibly superseded",
+      "passed": true
+    },
+    "visible_tests": {
+      "detail": "visible tests pass",
+      "exit_code": 0,
+      "passed": true,
+      "stderr": "----------------------------------------------------------------------\nRan 4 tests in 0.000s\n\nOK\n",
+      "stdout": ""
+    }
+  },
+  "failures": [
+    "no_unexpected_added_paths"
+  ],
+  "ok": false,
+  "passed": false
+}

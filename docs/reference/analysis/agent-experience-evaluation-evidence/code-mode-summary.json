@@ -1,0 +1,1529 @@
+{
+  "schema_version": 1,
+  "manifest": {
+    "arms": [
+      "direct",
+      "batched",
+      "typed"
+    ],
+    "binary": "<E_BINARY>",
+    "binary_sha256": "e54bf4e41f9de114fa94eb316e4fc026b03c024f05d56d1ce7ee1056cba6f703",
+    "build_receipt": "/private/tmp/agent-experience-eval-binaries/code-mode/build.json",
+    "build_receipt_sha256": "b2659108e87069140efe7324c71e5555261b19fe0c9f3c0d61fbadca9b7d24d5",
+    "fixture_registry": "testdata/agent-experience/code-mode/registry.json",
+    "fixture_registry_sha256": "ce3a134aa3b03d44e759d3dbdef1a440b9f6a4c15ff068136546f1b41e47efcc",
+    "kind": "deterministic-code-mode-comparison",
+    "model_launches_authorized": 0,
+    "repetitions": [
+      "first",
+      "repeat"
+    ],
+    "resolved_fixture_registry": "<USER_HOME>/.codex/worktrees/6196/rhizome/testdata/agent-experience/code-mode/registry.json",
+    "schema_version": 1,
+    "source_sha": "6b050f23733856429ca67d8ad2839b0fc55051d0",
+    "tasks": [
+      "base-context",
+      "coverage",
+      "trivial-lookup"
+    ]
+  },
+  "binary_sha256": "e54bf4e41f9de114fa94eb316e4fc026b03c024f05d56d1ce7ee1056cba6f703",
+  "registry_sha256": "ce3a134aa3b03d44e759d3dbdef1a440b9f6a4c15ff068136546f1b41e47efcc",
+  "arm_execution_order": [
+    "direct",
+    "batched",
+    "typed"
+  ],
+  "checks": {
+    "accepted_coverage_rows": {
+      "batched": [
+        {
+          "acceptanceCriterionRefs": [
+            "SPEC-9010-US1-AC1"
+          ],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9011",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-covered.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [
+            {
+              "id": "SRC-9010",
+              "path": "docs/reference/requirements/sources/retention-agreement-v1.md",
+              "reviewStatus": "reviewed",
+              "title": "Retention agreement v1"
+            }
+          ],
+          "specs": [
+            {
+              "id": "SPEC-9010",
+              "lastUpdated": "2026-09-07",
+              "specStatus": "active"
+            }
+          ],
+          "status": "accepted",
+          "storyRefs": [
+            "SPEC-9010-US1"
+          ],
+          "summary": "Accepted records remain available for 30 days under the signed agreement.",
+          "title": "Accepted and covered requirement"
+        },
+        {
+          "acceptanceCriterionRefs": [],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9010",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-untraced.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [],
+          "specs": [],
+          "status": "accepted",
+          "storyRefs": [],
+          "summary": "Expiration comparisons use an aware UTC value and expire at equality.",
+          "title": "Accepted but untraced requirement"
+        }
+      ],
+      "direct": [
+        {
+          "acceptanceCriterionRefs": [
+            "SPEC-9010-US1-AC1"
+          ],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9011",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-covered.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [
+            {
+              "id": "SRC-9010",
+              "path": "docs/reference/requirements/sources/retention-agreement-v1.md",
+              "reviewStatus": "reviewed",
+              "title": "Retention agreement v1"
+            }
+          ],
+          "specs": [
+            {
+              "id": "SPEC-9010",
+              "lastUpdated": "2026-09-07",
+              "specStatus": "active"
+            }
+          ],
+          "status": "accepted",
+          "storyRefs": [
+            "SPEC-9010-US1"
+          ],
+          "summary": "Accepted records remain available for 30 days under the signed agreement.",
+          "title": "Accepted and covered requirement"
+        },
+        {
+          "acceptanceCriterionRefs": [],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9010",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-untraced.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [],
+          "specs": [],
+          "status": "accepted",
+          "storyRefs": [],
+          "summary": "Expiration comparisons use an aware UTC value and expire at equality.",
+          "title": "Accepted but untraced requirement"
+        }
+      ],
+      "typed": [
+        {
+          "acceptanceCriterionRefs": [
+            "SPEC-9010-US1-AC1"
+          ],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9011",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-covered.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [
+            {
+              "id": "SRC-9010",
+              "path": "docs/reference/requirements/sources/retention-agreement-v1.md",
+              "reviewStatus": "reviewed",
+              "title": "Retention agreement v1"
+            }
+          ],
+          "specs": [
+            {
+              "id": "SPEC-9010",
+              "lastUpdated": "2026-09-07",
+              "specStatus": "active"
+            }
+          ],
+          "status": "accepted",
+          "storyRefs": [
+            "SPEC-9010-US1"
+          ],
+          "summary": "Accepted records remain available for 30 days under the signed agreement.",
+          "title": "Accepted and covered requirement"
+        },
+        {
+          "acceptanceCriterionRefs": [],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9010",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-untraced.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [],
+          "specs": [],
+          "status": "accepted",
+          "storyRefs": [],
+          "summary": "Expiration comparisons use an aware UTC value and expire at equality.",
+          "title": "Accepted but untraced requirement"
+        }
+      ]
+    },
+    "all_operations_succeeded": {
+      "batched": true,
+      "direct": true,
+      "typed": true
+    },
+    "context": {
+      "batched": [
+        {
+          "path": "docs/reference/expiry-policy.md",
+          "sha256": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab"
+        },
+        {
+          "path": "docs/reference/retention-policy.md",
+          "sha256": "00ae671373e32e40adddc42f863bc9f1d9fd5ea1c13fb6c64dd4a6311549ef03"
+        },
+        {
+          "path": "docs/reference/analysis/expiry-local-time.md",
+          "sha256": "ad232cfef6271f892cb102a82779ff48f3de4746324a8b05b0fece52bc508397"
+        },
+        {
+          "path": "docs/reference/analysis/retention-policy-v1.md",
+          "sha256": "08231f5e1ae637f565e5af59bc5449ba18d505ab327762be678f7e7ebd7388ea"
+        }
+      ],
+      "direct": [
+        {
+          "path": "docs/reference/expiry-policy.md",
+          "sha256": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab"
+        },
+        {
+          "path": "docs/reference/retention-policy.md",
+          "sha256": "00ae671373e32e40adddc42f863bc9f1d9fd5ea1c13fb6c64dd4a6311549ef03"
+        },
+        {
+          "path": "docs/reference/analysis/expiry-local-time.md",
+          "sha256": "ad232cfef6271f892cb102a82779ff48f3de4746324a8b05b0fece52bc508397"
+        },
+        {
+          "path": "docs/reference/analysis/retention-policy-v1.md",
+          "sha256": "08231f5e1ae637f565e5af59bc5449ba18d505ab327762be678f7e7ebd7388ea"
+        }
+      ],
+      "typed": [
+        {
+          "path": "docs/reference/expiry-policy.md",
+          "sha256": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab"
+        },
+        {
+          "path": "docs/reference/retention-policy.md",
+          "sha256": "00ae671373e32e40adddc42f863bc9f1d9fd5ea1c13fb6c64dd4a6311549ef03"
+        },
+        {
+          "path": "docs/reference/analysis/expiry-local-time.md",
+          "sha256": "ad232cfef6271f892cb102a82779ff48f3de4746324a8b05b0fece52bc508397"
+        },
+        {
+          "path": "docs/reference/analysis/retention-policy-v1.md",
+          "sha256": "08231f5e1ae637f565e5af59bc5449ba18d505ab327762be678f7e7ebd7388ea"
+        }
+      ]
+    },
+    "context_complete": {
+      "batched": true,
+      "direct": true,
+      "typed": true
+    },
+    "coverage_classification": {
+      "batched": {
+        "accepted_ids_exact": true,
+        "candidate_preserved_raw": true,
+        "covered": true,
+        "untraced": true
+      },
+      "direct": {
+        "accepted_ids_exact": true,
+        "candidate_preserved_raw": true,
+        "covered": true,
+        "untraced": true
+      },
+      "typed": {
+        "accepted_ids_exact": true,
+        "candidate_preserved_raw": true,
+        "covered": true,
+        "untraced": true
+      }
+    },
+    "coverage_has_untraced": {
+      "batched": true,
+      "direct": true,
+      "typed": true
+    },
+    "coverage_rows_nonempty": {
+      "batched": true,
+      "direct": true,
+      "typed": true
+    },
+    "equivalent_context": true,
+    "equivalent_coverage_rows": true,
+    "equivalent_trivial_lookup": true,
+    "invalid_fixture": {
+      "invalid_source_kind": true,
+      "nonzero": true,
+      "unresolvable_trace": true
+    },
+    "passed": true,
+    "raw_coverage_rows": {
+      "batched": [
+        {
+          "acceptanceCriterionRefs": [
+            "SPEC-9010-US1-AC1"
+          ],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9011",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-covered.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [
+            {
+              "id": "SRC-9010",
+              "path": "docs/reference/requirements/sources/retention-agreement-v1.md",
+              "reviewStatus": "reviewed",
+              "title": "Retention agreement v1"
+            }
+          ],
+          "specs": [
+            {
+              "id": "SPEC-9010",
+              "lastUpdated": "2026-09-07",
+              "specStatus": "active"
+            }
+          ],
+          "status": "accepted",
+          "storyRefs": [
+            "SPEC-9010-US1"
+          ],
+          "summary": "Accepted records remain available for 30 days under the signed agreement.",
+          "title": "Accepted and covered requirement"
+        },
+        {
+          "acceptanceCriterionRefs": [],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9010",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-untraced.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [],
+          "specs": [],
+          "status": "accepted",
+          "storyRefs": [],
+          "summary": "Expiration comparisons use an aware UTC value and expire at equality.",
+          "title": "Accepted but untraced requirement"
+        },
+        {
+          "acceptanceCriterionRefs": [],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9012",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-candidate.md",
+          "priority": "medium",
+          "reviewStatus": "needs_review",
+          "sources": [
+            {
+              "id": "SRC-9011",
+              "path": "docs/reference/requirements/sources/retention-proposal-v2.md",
+              "reviewStatus": "needs_review",
+              "title": "Retention proposal v2"
+            }
+          ],
+          "specs": [],
+          "status": "candidate",
+          "storyRefs": [],
+          "summary": "Candidate proposal would reduce retention to 14 days.",
+          "title": "Candidate requirement"
+        }
+      ],
+      "direct": [
+        {
+          "acceptanceCriterionRefs": [
+            "SPEC-9010-US1-AC1"
+          ],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9011",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-covered.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [
+            {
+              "id": "SRC-9010",
+              "path": "docs/reference/requirements/sources/retention-agreement-v1.md",
+              "reviewStatus": "reviewed",
+              "title": "Retention agreement v1"
+            }
+          ],
+          "specs": [
+            {
+              "id": "SPEC-9010",
+              "lastUpdated": "2026-09-07",
+              "specStatus": "active"
+            }
+          ],
+          "status": "accepted",
+          "storyRefs": [
+            "SPEC-9010-US1"
+          ],
+          "summary": "Accepted records remain available for 30 days under the signed agreement.",
+          "title": "Accepted and covered requirement"
+        },
+        {
+          "acceptanceCriterionRefs": [],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9010",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-untraced.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [],
+          "specs": [],
+          "status": "accepted",
+          "storyRefs": [],
+          "summary": "Expiration comparisons use an aware UTC value and expire at equality.",
+          "title": "Accepted but untraced requirement"
+        },
+        {
+          "acceptanceCriterionRefs": [],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9012",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-candidate.md",
+          "priority": "medium",
+          "reviewStatus": "needs_review",
+          "sources": [
+            {
+              "id": "SRC-9011",
+              "path": "docs/reference/requirements/sources/retention-proposal-v2.md",
+              "reviewStatus": "needs_review",
+              "title": "Retention proposal v2"
+            }
+          ],
+          "specs": [],
+          "status": "candidate",
+          "storyRefs": [],
+          "summary": "Candidate proposal would reduce retention to 14 days.",
+          "title": "Candidate requirement"
+        }
+      ],
+      "typed": [
+        {
+          "acceptanceCriterionRefs": [
+            "SPEC-9010-US1-AC1"
+          ],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9011",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-covered.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [
+            {
+              "id": "SRC-9010",
+              "path": "docs/reference/requirements/sources/retention-agreement-v1.md",
+              "reviewStatus": "reviewed",
+              "title": "Retention agreement v1"
+            }
+          ],
+          "specs": [
+            {
+              "id": "SPEC-9010",
+              "lastUpdated": "2026-09-07",
+              "specStatus": "active"
+            }
+          ],
+          "status": "accepted",
+          "storyRefs": [
+            "SPEC-9010-US1"
+          ],
+          "summary": "Accepted records remain available for 30 days under the signed agreement.",
+          "title": "Accepted and covered requirement"
+        },
+        {
+          "acceptanceCriterionRefs": [],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9010",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-untraced.md",
+          "priority": "high",
+          "reviewStatus": "reviewed",
+          "sources": [],
+          "specs": [],
+          "status": "accepted",
+          "storyRefs": [],
+          "summary": "Expiration comparisons use an aware UTC value and expire at equality.",
+          "title": "Accepted but untraced requirement"
+        },
+        {
+          "acceptanceCriterionRefs": [],
+          "confidence": "source_backed",
+          "featureAreas": [],
+          "id": "REQ-9012",
+          "kind": "constraint",
+          "path": "docs/reference/requirements/requirements/retention-candidate.md",
+          "priority": "medium",
+          "reviewStatus": "needs_review",
+          "sources": [
+            {
+              "id": "SRC-9011",
+              "path": "docs/reference/requirements/sources/retention-proposal-v2.md",
+              "reviewStatus": "needs_review",
+              "title": "Retention proposal v2"
+            }
+          ],
+          "specs": [],
+          "status": "candidate",
+          "storyRefs": [],
+          "summary": "Candidate proposal would reduce retention to 14 days.",
+          "title": "Candidate requirement"
+        }
+      ]
+    },
+    "source_preserved": {
+      "batched": true,
+      "direct": true,
+      "typed": true
+    },
+    "trivial_lookup": {
+      "batched": {
+        "path": "docs/reference/expiry-policy.md",
+        "sha256": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab"
+      },
+      "direct": {
+        "path": "docs/reference/expiry-policy.md",
+        "sha256": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab"
+      },
+      "typed": {
+        "path": "docs/reference/expiry-policy.md",
+        "sha256": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab"
+      }
+    }
+  },
+  "source_inventory": {
+    "batched": {
+      "after": {
+        "CONTEXT.md": "8c7f66332e73d88bccb0f4ce1597c8046399a9d3281b05bbf11264f1d8c186ff",
+        "README.md": "aa62fd4bdb19fb8b078cb2cb894df968ebff4ce58a67ffa8ad71daeb84e7f3cd",
+        "docs/reference/analysis/expiry-local-time.md": "ad232cfef6271f892cb102a82779ff48f3de4746324a8b05b0fece52bc508397",
+        "docs/reference/analysis/retention-policy-v1.md": "08231f5e1ae637f565e5af59bc5449ba18d505ab327762be678f7e7ebd7388ea",
+        "docs/reference/expiry-policy.md": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab",
+        "docs/reference/requirements/requirements/retention-candidate.md": "e41f554d98e96269d04f268c330cff6b088f2483bafdb197453cd26a965fb872",
+        "docs/reference/requirements/requirements/retention-covered.md": "9c32e76043c7afae69328465e5bc81e778bcdb3452593703254142f09b3bf39a",
+        "docs/reference/requirements/requirements/retention-untraced.md": "74b315fad279ae93f8c42052f1ad2dca65c1a27045b495bb22a3794eae4c53d6",
+        "docs/reference/requirements/sources/retention-agreement-v1.md": "2ae9f5b1fa57403f7059e9290fc52c21d61d0470787f6b3f31c5c5a172a2f57d",
+        "docs/reference/requirements/sources/retention-proposal-v2.md": "a8447286ec3c916bfc1923f0f858c9045554eb264d2bd57b5cf1202d697eb828",
+        "docs/reference/retention-policy.md": "00ae671373e32e40adddc42f863bc9f1d9fd5ea1c13fb6c64dd4a6311549ef03",
+        "docs/specs/retention-context.md": "a7b305ad4704c5b8e2658fbba6b9f370e20b307429f4a0f0fc10a56d25bdc92d",
+        "src/CONTEXT.md": "ffc50d57f8de3e81b57449e172c9d4c47bcfc4cda53eb9e1758208331623a751",
+        "src/expiry.py": "c68d9bde9ba1973bf78331cad078fa0bb762575167d3d25f7e4bd7fe7488050c",
+        "src/retention.py": "1372997823e3e05cf99c82728fe684db328885d55516ff21650955d5cbee7c27",
+        "tests/test_expiry.py": "85b0976a57ced09182568f2129f6f3d8962db2d662ce035c5e19c2fababa5162",
+        "tests/test_retention.py": "42455e6b8a65ddea08028f68414bbdf7a9a956a8f62219cc4570c88c2f99cd73"
+      },
+      "before": {
+        "CONTEXT.md": "8c7f66332e73d88bccb0f4ce1597c8046399a9d3281b05bbf11264f1d8c186ff",
+        "README.md": "aa62fd4bdb19fb8b078cb2cb894df968ebff4ce58a67ffa8ad71daeb84e7f3cd",
+        "docs/reference/analysis/expiry-local-time.md": "ad232cfef6271f892cb102a82779ff48f3de4746324a8b05b0fece52bc508397",
+        "docs/reference/analysis/retention-policy-v1.md": "08231f5e1ae637f565e5af59bc5449ba18d505ab327762be678f7e7ebd7388ea",
+        "docs/reference/expiry-policy.md": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab",
+        "docs/reference/requirements/requirements/retention-candidate.md": "e41f554d98e96269d04f268c330cff6b088f2483bafdb197453cd26a965fb872",
+        "docs/reference/requirements/requirements/retention-covered.md": "9c32e76043c7afae69328465e5bc81e778bcdb3452593703254142f09b3bf39a",
+        "docs/reference/requirements/requirements/retention-untraced.md": "74b315fad279ae93f8c42052f1ad2dca65c1a27045b495bb22a3794eae4c53d6",
+        "docs/reference/requirements/sources/retention-agreement-v1.md": "2ae9f5b1fa57403f7059e9290fc52c21d61d0470787f6b3f31c5c5a172a2f57d",
+        "docs/reference/requirements/sources/retention-proposal-v2.md": "a8447286ec3c916bfc1923f0f858c9045554eb264d2bd57b5cf1202d697eb828",
+        "docs/reference/retention-policy.md": "00ae671373e32e40adddc42f863bc9f1d9fd5ea1c13fb6c64dd4a6311549ef03",
+        "docs/specs/retention-context.md": "a7b305ad4704c5b8e2658fbba6b9f370e20b307429f4a0f0fc10a56d25bdc92d",
+        "src/CONTEXT.md": "ffc50d57f8de3e81b57449e172c9d4c47bcfc4cda53eb9e1758208331623a751",
+        "src/expiry.py": "c68d9bde9ba1973bf78331cad078fa0bb762575167d3d25f7e4bd7fe7488050c",
+        "src/retention.py": "1372997823e3e05cf99c82728fe684db328885d55516ff21650955d5cbee7c27",
+        "tests/test_expiry.py": "85b0976a57ced09182568f2129f6f3d8962db2d662ce035c5e19c2fababa5162",
+        "tests/test_retention.py": "42455e6b8a65ddea08028f68414bbdf7a9a956a8f62219cc4570c88c2f99cd73"
+      },
+      "changed_or_missing": []
+    },
+    "direct": {
+      "after": {
+        "CONTEXT.md": "8c7f66332e73d88bccb0f4ce1597c8046399a9d3281b05bbf11264f1d8c186ff",
+        "README.md": "aa62fd4bdb19fb8b078cb2cb894df968ebff4ce58a67ffa8ad71daeb84e7f3cd",
+        "docs/reference/analysis/expiry-local-time.md": "ad232cfef6271f892cb102a82779ff48f3de4746324a8b05b0fece52bc508397",
+        "docs/reference/analysis/retention-policy-v1.md": "08231f5e1ae637f565e5af59bc5449ba18d505ab327762be678f7e7ebd7388ea",
+        "docs/reference/expiry-policy.md": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab",
+        "docs/reference/requirements/requirements/retention-candidate.md": "e41f554d98e96269d04f268c330cff6b088f2483bafdb197453cd26a965fb872",
+        "docs/reference/requirements/requirements/retention-covered.md": "9c32e76043c7afae69328465e5bc81e778bcdb3452593703254142f09b3bf39a",
+        "docs/reference/requirements/requirements/retention-untraced.md": "74b315fad279ae93f8c42052f1ad2dca65c1a27045b495bb22a3794eae4c53d6",
+        "docs/reference/requirements/sources/retention-agreement-v1.md": "2ae9f5b1fa57403f7059e9290fc52c21d61d0470787f6b3f31c5c5a172a2f57d",
+        "docs/reference/requirements/sources/retention-proposal-v2.md": "a8447286ec3c916bfc1923f0f858c9045554eb264d2bd57b5cf1202d697eb828",
+        "docs/reference/retention-policy.md": "00ae671373e32e40adddc42f863bc9f1d9fd5ea1c13fb6c64dd4a6311549ef03",
+        "docs/specs/retention-context.md": "a7b305ad4704c5b8e2658fbba6b9f370e20b307429f4a0f0fc10a56d25bdc92d",
+        "src/CONTEXT.md": "ffc50d57f8de3e81b57449e172c9d4c47bcfc4cda53eb9e1758208331623a751",
+        "src/expiry.py": "c68d9bde9ba1973bf78331cad078fa0bb762575167d3d25f7e4bd7fe7488050c",
+        "src/retention.py": "1372997823e3e05cf99c82728fe684db328885d55516ff21650955d5cbee7c27",
+        "tests/test_expiry.py": "85b0976a57ced09182568f2129f6f3d8962db2d662ce035c5e19c2fababa5162",
+        "tests/test_retention.py": "42455e6b8a65ddea08028f68414bbdf7a9a956a8f62219cc4570c88c2f99cd73"
+      },
+      "before": {
+        "CONTEXT.md": "8c7f66332e73d88bccb0f4ce1597c8046399a9d3281b05bbf11264f1d8c186ff",
+        "README.md": "aa62fd4bdb19fb8b078cb2cb894df968ebff4ce58a67ffa8ad71daeb84e7f3cd",
+        "docs/reference/analysis/expiry-local-time.md": "ad232cfef6271f892cb102a82779ff48f3de4746324a8b05b0fece52bc508397",
+        "docs/reference/analysis/retention-policy-v1.md": "08231f5e1ae637f565e5af59bc5449ba18d505ab327762be678f7e7ebd7388ea",
+        "docs/reference/expiry-policy.md": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab",
+        "docs/reference/requirements/requirements/retention-candidate.md": "e41f554d98e96269d04f268c330cff6b088f2483bafdb197453cd26a965fb872",
+        "docs/reference/requirements/requirements/retention-covered.md": "9c32e76043c7afae69328465e5bc81e778bcdb3452593703254142f09b3bf39a",
+        "docs/reference/requirements/requirements/retention-untraced.md": "74b315fad279ae93f8c42052f1ad2dca65c1a27045b495bb22a3794eae4c53d6",
+        "docs/reference/requirements/sources/retention-agreement-v1.md": "2ae9f5b1fa57403f7059e9290fc52c21d61d0470787f6b3f31c5c5a172a2f57d",
+        "docs/reference/requirements/sources/retention-proposal-v2.md": "a8447286ec3c916bfc1923f0f858c9045554eb264d2bd57b5cf1202d697eb828",
+        "docs/reference/retention-policy.md": "00ae671373e32e40adddc42f863bc9f1d9fd5ea1c13fb6c64dd4a6311549ef03",
+        "docs/specs/retention-context.md": "a7b305ad4704c5b8e2658fbba6b9f370e20b307429f4a0f0fc10a56d25bdc92d",
+        "src/CONTEXT.md": "ffc50d57f8de3e81b57449e172c9d4c47bcfc4cda53eb9e1758208331623a751",
+        "src/expiry.py": "c68d9bde9ba1973bf78331cad078fa0bb762575167d3d25f7e4bd7fe7488050c",
+        "src/retention.py": "1372997823e3e05cf99c82728fe684db328885d55516ff21650955d5cbee7c27",
+        "tests/test_expiry.py": "85b0976a57ced09182568f2129f6f3d8962db2d662ce035c5e19c2fababa5162",
+        "tests/test_retention.py": "42455e6b8a65ddea08028f68414bbdf7a9a956a8f62219cc4570c88c2f99cd73"
+      },
+      "changed_or_missing": []
+    },
+    "typed": {
+      "after": {
+        "CONTEXT.md": "8c7f66332e73d88bccb0f4ce1597c8046399a9d3281b05bbf11264f1d8c186ff",
+        "README.md": "aa62fd4bdb19fb8b078cb2cb894df968ebff4ce58a67ffa8ad71daeb84e7f3cd",
+        "docs/reference/analysis/expiry-local-time.md": "ad232cfef6271f892cb102a82779ff48f3de4746324a8b05b0fece52bc508397",
+        "docs/reference/analysis/retention-policy-v1.md": "08231f5e1ae637f565e5af59bc5449ba18d505ab327762be678f7e7ebd7388ea",
+        "docs/reference/expiry-policy.md": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab",
+        "docs/reference/requirements/requirements/retention-candidate.md": "e41f554d98e96269d04f268c330cff6b088f2483bafdb197453cd26a965fb872",
+        "docs/reference/requirements/requirements/retention-covered.md": "9c32e76043c7afae69328465e5bc81e778bcdb3452593703254142f09b3bf39a",
+        "docs/reference/requirements/requirements/retention-untraced.md": "74b315fad279ae93f8c42052f1ad2dca65c1a27045b495bb22a3794eae4c53d6",
+        "docs/reference/requirements/sources/retention-agreement-v1.md": "2ae9f5b1fa57403f7059e9290fc52c21d61d0470787f6b3f31c5c5a172a2f57d",
+        "docs/reference/requirements/sources/retention-proposal-v2.md": "a8447286ec3c916bfc1923f0f858c9045554eb264d2bd57b5cf1202d697eb828",
+        "docs/reference/retention-policy.md": "00ae671373e32e40adddc42f863bc9f1d9fd5ea1c13fb6c64dd4a6311549ef03",
+        "docs/specs/retention-context.md": "a7b305ad4704c5b8e2658fbba6b9f370e20b307429f4a0f0fc10a56d25bdc92d",
+        "src/CONTEXT.md": "ffc50d57f8de3e81b57449e172c9d4c47bcfc4cda53eb9e1758208331623a751",
+        "src/expiry.py": "c68d9bde9ba1973bf78331cad078fa0bb762575167d3d25f7e4bd7fe7488050c",
+        "src/retention.py": "1372997823e3e05cf99c82728fe684db328885d55516ff21650955d5cbee7c27",
+        "tests/test_expiry.py": "85b0976a57ced09182568f2129f6f3d8962db2d662ce035c5e19c2fababa5162",
+        "tests/test_retention.py": "42455e6b8a65ddea08028f68414bbdf7a9a956a8f62219cc4570c88c2f99cd73"
+      },
+      "before": {
+        "CONTEXT.md": "8c7f66332e73d88bccb0f4ce1597c8046399a9d3281b05bbf11264f1d8c186ff",
+        "README.md": "aa62fd4bdb19fb8b078cb2cb894df968ebff4ce58a67ffa8ad71daeb84e7f3cd",
+        "docs/reference/analysis/expiry-local-time.md": "ad232cfef6271f892cb102a82779ff48f3de4746324a8b05b0fece52bc508397",
+        "docs/reference/analysis/retention-policy-v1.md": "08231f5e1ae637f565e5af59bc5449ba18d505ab327762be678f7e7ebd7388ea",
+        "docs/reference/expiry-policy.md": "ad80341780bfa7ea093c2ec2e9ba05a44b36e172e0e260ffdcd4e9b25bed93ab",
+        "docs/reference/requirements/requirements/retention-candidate.md": "e41f554d98e96269d04f268c330cff6b088f2483bafdb197453cd26a965fb872",
+        "docs/reference/requirements/requirements/retention-covered.md": "9c32e76043c7afae69328465e5bc81e778bcdb3452593703254142f09b3bf39a",
+        "docs/reference/requirements/requirements/retention-untraced.md": "74b315fad279ae93f8c42052f1ad2dca65c1a27045b495bb22a3794eae4c53d6",
+        "docs/reference/requirements/sources/retention-agreement-v1.md": "2ae9f5b1fa57403f7059e9290fc52c21d61d0470787f6b3f31c5c5a172a2f57d",
+        "docs/reference/requirements/sources/retention-proposal-v2.md": "a8447286ec3c916bfc1923f0f858c9045554eb264d2bd57b5cf1202d697eb828",
+        "docs/reference/retention-policy.md": "00ae671373e32e40adddc42f863bc9f1d9fd5ea1c13fb6c64dd4a6311549ef03",
+        "docs/specs/retention-context.md": "a7b305ad4704c5b8e2658fbba6b9f370e20b307429f4a0f0fc10a56d25bdc92d",
+        "src/CONTEXT.md": "ffc50d57f8de3e81b57449e172c9d4c47bcfc4cda53eb9e1758208331623a751",
+        "src/expiry.py": "c68d9bde9ba1973bf78331cad078fa0bb762575167d3d25f7e4bd7fe7488050c",
+        "src/retention.py": "1372997823e3e05cf99c82728fe684db328885d55516ff21650955d5cbee7c27",
+        "tests/test_expiry.py": "85b0976a57ced09182568f2129f6f3d8962db2d662ce035c5e19c2fababa5162",
+        "tests/test_retention.py": "42455e6b8a65ddea08028f68414bbdf7a9a956a8f62219cc4570c88c2f99cd73"
+      },
+      "changed_or_missing": []
+    }
+  },
+  "raw_evidence_sha256": "7f6a5d4e6800ff473bd4ca77fd49913cd25aef91b048b77906b076e70d58548a",
+  "measurement_scopes": {
+    "batched": {
+      "generation": null,
+      "setup": [
+        {
+          "argv": [
+            "<E_BINARY>",
+            "init",
+            "--path",
+            "<COMPARISON>/scratch/batched",
+            "--template",
+            "complex-domain",
+            "--codex",
+            "on",
+            "--claude",
+            "off",
+            "--cursor",
+            "off",
+            "--agent-skills",
+            "on",
+            "--agentsmd",
+            "on",
+            "--yes"
+          ],
+          "elapsed_ns": 45840000,
+          "exit_code": 0,
+          "stderr_bytes": 0,
+          "stdout_bytes": 586
+        },
+        {
+          "argv": [
+            "<E_BINARY>",
+            "index",
+            "--rebuild"
+          ],
+          "elapsed_ns": 142633000,
+          "exit_code": 0,
+          "stderr_bytes": 1803,
+          "stdout_bytes": 0
+        }
+      ],
+      "tasks": {
+        "base-context": {
+          "repetitions": [
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "file-context",
+                    "--file",
+                    "src/expiry.py",
+                    "--file",
+                    "src/retention.py",
+                    "--ensure-link-targets",
+                    "never"
+                  ],
+                  "elapsed_ns": 29612000,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 3439
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/expiry-policy.md",
+                    "--input",
+                    "docs/reference/retention-policy.md",
+                    "--input",
+                    "docs/reference/analysis/expiry-local-time.md",
+                    "--input",
+                    "docs/reference/analysis/retention-policy-v1.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "4"
+                  ],
+                  "elapsed_ns": 23189125,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 2904
+                }
+              ],
+              "elapsed_ns": 52828333,
+              "output_bytes": 6343
+            },
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "file-context",
+                    "--file",
+                    "src/expiry.py",
+                    "--file",
+                    "src/retention.py",
+                    "--ensure-link-targets",
+                    "never"
+                  ],
+                  "elapsed_ns": 28462583,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 3439
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/expiry-policy.md",
+                    "--input",
+                    "docs/reference/retention-policy.md",
+                    "--input",
+                    "docs/reference/analysis/expiry-local-time.md",
+                    "--input",
+                    "docs/reference/analysis/retention-policy-v1.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "4"
+                  ],
+                  "elapsed_ns": 24216292,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 2904
+                }
+              ],
+              "elapsed_ns": 52704958,
+              "output_bytes": 6343
+            }
+          ],
+          "transport": "cli-mediated-batched"
+        },
+        "coverage": {
+          "repetitions": [
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "query-recipe",
+                    "run",
+                    "--id",
+                    "coverage-gap-pack"
+                  ],
+                  "elapsed_ns": 61995708,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 4380
+                }
+              ],
+              "elapsed_ns": 62010500,
+              "output_bytes": 4380
+            },
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "query-recipe",
+                    "run",
+                    "--id",
+                    "coverage-gap-pack"
+                  ],
+                  "elapsed_ns": 58896209,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 4380
+                }
+              ],
+              "elapsed_ns": 58908709,
+              "output_bytes": 4380
+            }
+          ],
+          "transport": "cli-mediated-batched"
+        },
+        "trivial-lookup": {
+          "repetitions": [
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/expiry-policy.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 21849042,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 885
+                }
+              ],
+              "elapsed_ns": 21863167,
+              "output_bytes": 885
+            },
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/expiry-policy.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 22629917,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 885
+                }
+              ],
+              "elapsed_ns": 22641417,
+              "output_bytes": 885
+            }
+          ],
+          "transport": "cli-mediated-batched"
+        }
+      }
+    },
+    "direct": {
+      "generation": null,
+      "setup": [
+        {
+          "argv": [
+            "<E_BINARY>",
+            "init",
+            "--path",
+            "<COMPARISON>/scratch/direct",
+            "--template",
+            "complex-domain",
+            "--codex",
+            "on",
+            "--claude",
+            "off",
+            "--cursor",
+            "off",
+            "--agent-skills",
+            "on",
+            "--agentsmd",
+            "on",
+            "--yes"
+          ],
+          "elapsed_ns": 41945667,
+          "exit_code": 0,
+          "stderr_bytes": 0,
+          "stdout_bytes": 584
+        },
+        {
+          "argv": [
+            "<E_BINARY>",
+            "index",
+            "--rebuild"
+          ],
+          "elapsed_ns": 141821750,
+          "exit_code": 0,
+          "stderr_bytes": 1802,
+          "stdout_bytes": 0
+        }
+      ],
+      "tasks": {
+        "base-context": {
+          "repetitions": [
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "file-context",
+                    "--file",
+                    "src/expiry.py",
+                    "--ensure-link-targets",
+                    "never"
+                  ],
+                  "elapsed_ns": 34546500,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 2063
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "file-context",
+                    "--file",
+                    "src/retention.py",
+                    "--ensure-link-targets",
+                    "never"
+                  ],
+                  "elapsed_ns": 30009833,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 2072
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/expiry-policy.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 22611000,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 884
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/retention-policy.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 21929833,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 841
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/analysis/expiry-local-time.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 22474458,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 771
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/analysis/retention-policy-v1.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 22393625,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 797
+                }
+              ],
+              "elapsed_ns": 154023375,
+              "output_bytes": 7428
+            },
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "file-context",
+                    "--file",
+                    "src/expiry.py",
+                    "--ensure-link-targets",
+                    "never"
+                  ],
+                  "elapsed_ns": 29412083,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 2063
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "file-context",
+                    "--file",
+                    "src/retention.py",
+                    "--ensure-link-targets",
+                    "never"
+                  ],
+                  "elapsed_ns": 30173042,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 2072
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/expiry-policy.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 21736958,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 884
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/retention-policy.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 22079291,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 841
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/analysis/expiry-local-time.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 22842916,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 771
+                },
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/analysis/retention-policy-v1.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 22039750,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 797
+                }
+              ],
+              "elapsed_ns": 148336167,
+              "output_bytes": 7428
+            }
+          ],
+          "transport": "cli-mediated-direct"
+        },
+        "coverage": {
+          "repetitions": [
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "query-recipe",
+                    "run",
+                    "--id",
+                    "coverage-gap-pack"
+                  ],
+                  "elapsed_ns": 56399125,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 4379
+                }
+              ],
+              "elapsed_ns": 56410667,
+              "output_bytes": 4379
+            },
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "query-recipe",
+                    "run",
+                    "--id",
+                    "coverage-gap-pack"
+                  ],
+                  "elapsed_ns": 58022958,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 4379
+                }
+              ],
+              "elapsed_ns": 58036167,
+              "output_bytes": 4379
+            }
+          ],
+          "transport": "cli-mediated-direct"
+        },
+        "trivial-lookup": {
+          "repetitions": [
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/expiry-policy.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 22595417,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 884
+                }
+              ],
+              "elapsed_ns": 22605750,
+              "output_bytes": 884
+            },
+            {
+              "calls": [
+                {
+                  "argv": [
+                    "<E_BINARY>",
+                    "agent",
+                    "files",
+                    "--input",
+                    "docs/reference/expiry-policy.md",
+                    "--include-content",
+                    "true",
+                    "--max-depth",
+                    "0",
+                    "--limit",
+                    "1"
+                  ],
+                  "elapsed_ns": 21289041,
+                  "exit_code": 0,
+                  "stderr_bytes": 0,
+                  "stdout_bytes": 884
+                }
+              ],
+              "elapsed_ns": 21300625,
+              "output_bytes": 884
+            }
+          ],
+          "transport": "cli-mediated-direct"
+        }
+      }
+    },
+    "typed": {
+      "generation": {
+        "argv": [
+          "<E_BINARY>",
+          "agent",
+          "code",
+          "generate",
+          "--operation",
+          "files",
+          "--operation",
+          "file_context",
+          "--output",
+          "<COMPARISON>/task-artifacts/typed/generated"
+        ],
+        "elapsed_ns": 25702000,
+        "exit_code": 0,
+        "stderr_bytes": 0,
+        "stdout_bytes": 997
+      },
+      "setup": [
+        {
+          "argv": [
+            "<E_BINARY>",
+            "init",
+            "--path",
+            "<COMPARISON>/scratch/typed",
+            "--template",
+            "complex-domain",
+            "--codex",
+            "on",
+            "--claude",
+            "off",
+            "--cursor",
+            "off",
+            "--agent-skills",
+            "on",
+            "--agentsmd",
+            "on",
+            "--yes"
+          ],
+          "elapsed_ns": 43714250,
+          "exit_code": 0,
+          "stderr_bytes": 0,
+          "stdout_bytes": 582
+        },
+        {
+          "argv": [
+            "<E_BINARY>",
+            "index",
+            "--rebuild"
+          ],
+          "elapsed_ns": 142701958,
+          "exit_code": 0,
+          "stderr_bytes": 1801,
+          "stdout_bytes": 0
+        }
+      ],
+      "tasks": {
+        "base-context": {
+          "calls": [
+            {
+              "inner_repetitions": [
+                {
+                  "elapsed_ns": 46785625,
+                  "result": {
+                    "exitCode": 0,
+                    "ok": true
+                  }
+                },
+                {
+                  "elapsed_ns": 45061125,
+                  "result": {
+                    "exitCode": 0,
+                    "ok": true
+                  }
+                }
+              ],
+              "outer": {
+                "argv": [
+                  "node",
+                  "<COMPARISON>/task-artifacts/typed/run-client.mjs",
+                  "<COMPARISON>/task-artifacts/typed/runtime-manifest.json",
+                  "fileContext",
+                  "{\"files\": [\"src/expiry.py\", \"src/retention.py\"]}"
+                ],
+                "elapsed_ns": 117356625,
+                "exit_code": 0,
+                "stderr_bytes": 0,
+                "stdout_bytes": 14132
+              }
+            },
+            {
+              "inner_repetitions": [
+                {
+                  "elapsed_ns": 42806417,
+                  "result": {
+                    "exitCode": 0,
+                    "ok": true
+                  }
+                },
+                {
+                  "elapsed_ns": 39707417,
+                  "result": {
+                    "exitCode": 0,
+                    "ok": true
+                  }
+                }
+              ],
+              "outer": {
+                "argv": [
+                  "node",
+                  "<COMPARISON>/task-artifacts/typed/run-client.mjs",
+                  "<COMPARISON>/task-artifacts/typed/runtime-manifest.json",
+                  "files",
+                  "{\"inputs\": [\"docs/reference/expiry-policy.md\", \"docs/reference/retention-policy.md\", \"docs/reference/analysis/expiry-local-time.md\", \"docs/reference/analysis/retention-policy-v1.md\"], \"includeContent\": true, \"limit\": 4}"
+                ],
+                "elapsed_ns": 111413875,
+                "exit_code": 0,
+                "stderr_bytes": 0,
+                "stdout_bytes": 12126
+              }
+            }
+          ],
+          "outer_node_elapsed_ns": 228770500,
+          "transport": "typed-client"
+        },
+        "coverage": {
+          "calls": {
+            "repetitions": [
+              {
+                "calls": [
+                  {
+                    "argv": [
+                      "<E_BINARY>",
+                      "agent",
+                      "query-recipe",
+                      "run",
+                      "--id",
+                      "coverage-gap-pack"
+                    ],
+                    "elapsed_ns": 58648500,
+                    "exit_code": 0,
+                    "stderr_bytes": 0,
+                    "stdout_bytes": 4378
+                  }
+                ],
+                "elapsed_ns": 58664542,
+                "output_bytes": 4378
+              },
+              {
+                "calls": [
+                  {
+                    "argv": [
+                      "<E_BINARY>",
+                      "agent",
+                      "query-recipe",
+                      "run",
+                      "--id",
+                      "coverage-gap-pack"
+                    ],
+                    "elapsed_ns": 56430709,
+                    "exit_code": 0,
+                    "stderr_bytes": 0,
+                    "stdout_bytes": 4378
+                  }
+                ],
+                "elapsed_ns": 56446000,
+                "output_bytes": 4378
+              }
+            ],
+            "transport": "cli-mediated-batched"
+          },
+          "transport": "hybrid-common-cli"
+        },
+        "trivial-lookup": {
+          "inner_repetitions": [
+            {
+              "elapsed_ns": 40961833,
+              "result": {
+                "exitCode": 0,
+                "ok": true
+              }
+            },
+            {
+              "elapsed_ns": 37793209,
+              "result": {
+                "exitCode": 0,
+                "ok": true
+              }
+            }
+          ],
+          "outer": {
+            "argv": [
+              "node",
+              "<COMPARISON>/task-artifacts/typed/run-client.mjs",
+              "<COMPARISON>/task-artifacts/typed/runtime-manifest.json",
+              "files",
+              "{\"inputs\": [\"docs/reference/expiry-policy.md\"], \"includeContent\": true, \"limit\": 1}"
+            ],
+            "elapsed_ns": 104168917,
+            "exit_code": 0,
+            "stderr_bytes": 0,
+            "stdout_bytes": 3822
+          },
+          "outer_node_elapsed_ns": 104168917,
+          "outer_output_bytes": 3822,
+          "transport": "typed-client"
+        }
+      }
+    }
+  },
+  "generated_artifacts": [
+    {
+      "path": "task-artifacts/typed/generated/ff236716c43500e22c87c78aa9894155b554132e5c6cf4ff362fcb49ac822630/index.d.mts",
+      "bytes": 2396,
+      "sha256": "215837235d024e3a0b527ff7573b145531a8aad89ba495e7976d8aca0390da40"
+    },
+    {
+      "path": "task-artifacts/typed/generated/ff236716c43500e22c87c78aa9894155b554132e5c6cf4ff362fcb49ac822630/index.mjs",
+      "bytes": 13333,
+      "sha256": "3435d188d373af5796d85946d46f4d75875cc3aa946aa0baac50ace4fb8b3bef"
+    },
+    {
+      "path": "task-artifacts/typed/generated/ff236716c43500e22c87c78aa9894155b554132e5c6cf4ff362fcb49ac822630/manifest.json",
+      "bytes": 489,
+      "sha256": "ee9390274e756abe5ad50eb522b09335dfd8dac64216b4c4d12a8cc1be1ca3b7"
+    },
+    {
+      "path": "task-artifacts/typed/generated/manifest.json",
+      "bytes": 489,
+      "sha256": "ee9390274e756abe5ad50eb522b09335dfd8dac64216b4c4d12a8cc1be1ca3b7"
+    },
+    {
+      "path": "task-artifacts/typed/run-client.mjs",
+      "bytes": 631,
+      "sha256": "7b87e98d5cf226284ad4fd258e286dc578bb49eb87eb82a96b0f8548428bc719"
+    },
+    {
+      "path": "task-artifacts/typed/runtime-manifest.json",
+      "bytes": 1020,
+      "sha256": "d37dcd630d4e37a361c58b4784d5dbd1432105fe242a958071645a4db628074c"
+    }
+  ],
+  "model_launches": 0
+}
