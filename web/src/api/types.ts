@@ -51,16 +51,9 @@ export type NodePreview = components["schemas"]["NodePreview"];
 
 export type StatusResponse = components["schemas"]["StatusResponse"];
 
-// SPEC-0117 adds the workspace target; drop these overrides once generated.ts has it.
-type GeneratedViewTarget = components["schemas"]["ViewTarget"];
+export type ViewTarget = components["schemas"]["ViewTarget"];
 
-export type ViewTarget = Omit<GeneratedViewTarget, "kind"> & {
-  kind: GeneratedViewTarget["kind"] | "workspace";
-};
-
-export type ViewCatalog = Omit<components["schemas"]["ViewCatalog"], "targets"> & {
-  targets: ViewTarget[];
-};
+export type ViewCatalog = components["schemas"]["ViewCatalog"];
 
 export type ViewChoice = components["schemas"]["ViewChoice"];
 
