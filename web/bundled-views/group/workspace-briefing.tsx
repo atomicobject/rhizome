@@ -22,7 +22,7 @@ import {
   type ViewModuleProps,
 } from "@rhizome/kit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.ts";
 import { Block, BlockBody, lower, plural } from "./briefing-parts.tsx";
@@ -48,6 +48,9 @@ const GLOBAL = [{ kind: "global" as const }];
 
 const fmt = (count: number) => count.toLocaleString("en-US");
 
+/** A generation-bound read answered 410 Gone: a newer generation replaced it. */
+class GenerationExpired extends Error {}
+
 async function postJSON(path: string, body: JsonObject, signal: AbortSignal): Promise<JsonValue> {
   const response = await fetch(path, {
     method: "POST",
@@ -55,6 +58,8 @@ async function postJSON(path: string, body: JsonObject, signal: AbortSignal): Pr
     headers: { accept: "application/json", "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+
+  if (response.status === 410) throw new GenerationExpired(`${path} answered 410`);
 
   if (!response.ok) throw new Error(`${path} answered ${response.status}`);
 
@@ -65,6 +70,7 @@ function NeedsAttention() {
   const queryClient = useQueryClient();
   const validation = useValidationSummaries(GLOBAL);
   const generation = validation.generation ?? 0;
+  const { refreshGeneration } = validation;
 
   const groups = useQuery({
     queryKey: ["group-views", "issue-groups", generation],
@@ -77,7 +83,16 @@ function NeedsAttention() {
         ),
       ),
     enabled: generation > 0,
+    retry: (failures, error) => !(error instanceof GenerationExpired) && failures < 3,
   });
+
+  // An expired generation means a newer one was published: reread it once,
+  // and the new generation keys a fresh read.
+  const expired = groups.error instanceof GenerationExpired;
+
+  useEffect(() => {
+    if (expired) void refreshGeneration();
+  }, [expired, refreshGeneration]);
 
   const reads: Read[] = [
     {
@@ -89,7 +104,18 @@ function NeedsAttention() {
             query.state.status === "error" && query.queryKey.includes("validation"),
         }),
     },
-    ...(generation > 0 ? [readOf(groups)] : []),
+    ...(generation > 0
+      ? [
+          {
+            ...readOf(groups),
+            retry: async () => {
+              if (expired) await refreshGeneration();
+
+              await groups.refetch();
+            },
+          },
+        ]
+      : []),
   ];
 
   const status = blockStatus(reads);

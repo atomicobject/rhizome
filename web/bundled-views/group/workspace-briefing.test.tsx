@@ -208,12 +208,66 @@ it("fails one block without the others", async () => {
   );
 });
 
+const envelopeAt = (generation: number) =>
+  jsonReply({ ...VALIDATION_ENVELOPE, generation: generation + 1, snapshot: { generation } });
+
+const groupsAt = (current: () => number) => (request: FakeFetchRequest) =>
+  // SAFETY: the view posts a ValidationIssueGroupRequest.
+  (JSON.parse(request.body ?? "{}") as { generation: number }).generation === current()
+    ? jsonReply(ISSUE_GROUPS)
+    : jsonReply({ error: "validation generation expired" }, 410);
+
+it("reads issues at the published generation and rereads it when a read expires", async () => {
+  // The envelope's own generation is a run in progress; only the snapshot's
+  // generation is readable. Generation 2 expires as the server publishes 3.
+  let published = 2;
+  const groups = groupsAt(() => 3);
+
+  const view = await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    settle: false,
+    routes: routes({
+      "GET /api/v2/validate": () => envelopeAt(published),
+      "POST /api/v1/validation/groups": (request: FakeFetchRequest) => {
+        published = 3;
+
+        return groups(request);
+      },
+    }),
+  });
+
+  await waitFor(() => expect(within(region("Needs attention")).getByText("5")).toBeVisible());
+  expect(view.http.count("POST", "/api/v1/validation/groups")).toBe(2);
+  expect(within(region("Needs attention")).queryByRole("alert")).toBeNull();
+});
+
+it("shows a Retry when the published generation stays unreadable", async () => {
+  let served = 4;
+
+  await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    settle: false,
+    routes: routes({
+      "GET /api/v2/validate": () => envelopeAt(3),
+      "POST /api/v1/validation/groups": groupsAt(() => served),
+    }),
+  });
+
+  const alert = await within(region("Needs attention")).findByRole("alert");
+  expect(alert).toHaveTextContent("Could not load what needs attention");
+
+  served = 3;
+  fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+
+  await waitFor(() => expect(within(region("Needs attention")).getByText("5")).toBeVisible());
+});
+
 it("says when validation has not published results and nothing is in motion", async () => {
   await renderGroupView(loadBriefing, {
     context: WORKSPACE,
     routes: routes({
       "GET /api/v2/validate": () =>
-        jsonReply({ ...VALIDATION_ENVELOPE, generation: 0, publishedGeneration: 0 }),
+        jsonReply({ status: "running", health: "running", generation: 1, publishedGeneration: 0 }),
       "POST /api/v1/graphql": () => jsonReply({ data: { Story: [], Bug: [], Release: [] } }),
     }),
   });

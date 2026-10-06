@@ -140,7 +140,7 @@ function IssueCounts() {
   );
 }
 
-it("reads summaries for the current validation generation and follows validation changes", async () => {
+it("reads summaries for the published validation generation and follows validation changes", async () => {
   let generation = 7;
 
   const summaries = (request: FakeFetchRequest) => {
@@ -164,7 +164,9 @@ it("reads summaries for the current validation generation and follows validation
 
   const view = await renderView(async () => ({ default: IssueCounts }), {
     routes: {
-      "GET /api/v2/validate": () => jsonReply({ health: "fresh", generation }),
+      // `generation` counts runs, one past the published snapshot while a run is in progress.
+      "GET /api/v2/validate": () =>
+        jsonReply({ health: "running", generation: generation + 1, snapshot: { generation } }),
       "POST /api/v1/validation/summaries": summaries,
     },
   });
