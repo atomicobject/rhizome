@@ -3,14 +3,16 @@
 // - fixtureModel(group, docs?): the GroupModel the loader would build.
 // - collectionModel(name): the model of a type or interface collection, over
 //   the collection fixtures in collections.ts.
-// - groupRoutes(overrides?), collectionRoutes(overrides?): fake HTTP routes
-//   answering every request the loader makes, for the kit's `renderView` harness.
+// - groupRoutes(overrides?), collectionRoutes(overrides?), scopeRoutes(overrides?):
+//   fake HTTP routes answering every request the loader or the scope pages
+//   make, for the kit's `renderView` harness.
 // - renderGroupView(load, options): renders a view module for a group, or for
 //   another `context`, as the workspace frames it when `embedded`, and records
-//   what it posts to the host.
+//   what it posts to the host, and waits for every block to load.
 import type { DisplayGroup, TypeDoc, ViewContext, ViewModuleProps } from "@rhizome/kit";
 import type { ComponentType } from "react";
-import { onTestFinished, vi } from "vitest";
+import { waitFor } from "@testing-library/react";
+import { expect, onTestFinished, vi } from "vitest";
 
 import { jsonReply, type FakeFetch } from "../../../src/test/fakeFetch";
 import type { ViewRoutes } from "../../../kit/testing.tsx";
@@ -23,6 +25,13 @@ import {
   type JsonValue,
 } from "../api.ts";
 import { buildGroupModel, collectionGroup, planMembers, type GroupModel } from "../model.ts";
+import {
+  AGGREGATE_PARTS,
+  SCOPE_DOCS,
+  SCOPE_GROUPS,
+  SUMMARIES_JSON,
+  VALIDATION_ENVELOPE,
+} from "./aggregate.ts";
 import {
   COLLECTION_CATALOG,
   COLLECTION_DATA,
@@ -118,6 +127,46 @@ export function collectionRoutes(overrides: ViewRoutes = {}): ViewRoutes {
   return { ...routes, ...overrides };
 }
 
+/**
+ * Routes answering the scope pages' reads: one aggregate part per request,
+ * every display group including `Other`, type summaries with roles, and a
+ * global issue count, plus the group model's reads.
+ */
+export function scopeRoutes(overrides: ViewRoutes = {}): ViewRoutes {
+  const routes: ViewRoutes = {
+    ...groupRoutes(),
+    "GET /api/v1/display-groups": () => jsonReply(SCOPE_GROUPS),
+    "GET /api/v1/ontology/types": () => jsonReply(SUMMARIES_JSON),
+    "GET /api/v1/ontology/shape": (request) => {
+      const part = request.query.get("parts");
+
+      return part === "members" || part === "links" || part === "folders"
+        ? jsonReply(AGGREGATE_PARTS[part])
+        : jsonReply({ error: `unexpected parts ${part}` }, 400);
+    },
+    "GET /api/v2/validate": () => jsonReply(VALIDATION_ENVELOPE),
+    "POST /api/v1/validation/summaries": (request) =>
+      jsonReply({
+        generation: 3,
+        summaries: [
+          {
+            scope: { kind: "global" },
+            issueCount: request.body?.includes("global") ? 5 : 0,
+            affectedFileCount: 0,
+            affectedNoteCount: 0,
+            repairActionCount: 0,
+          },
+        ],
+      }),
+  };
+
+  for (const [name, doc] of Object.entries(SCOPE_DOCS)) {
+    routes[`GET /api/v1/ontology/types/${name}`] = () => jsonReply({ type: doc, count: 0 });
+  }
+
+  return { ...routes, ...overrides };
+}
+
 /** Routes answering the loader's requests from the fixtures; `overrides` replace any of them. */
 export function groupRoutes(overrides: ViewRoutes = {}): ViewRoutes {
   const routes: ViewRoutes = {
@@ -145,6 +194,7 @@ export type PostedMessage = {
   scope?: JsonValue;
   id?: string;
   context?: JsonValue;
+  folder?: string;
 };
 
 /**
@@ -164,6 +214,8 @@ export async function renderGroupView(
     now?: number;
     /** A fake shared across mounts, such as one holding remembered preferences. */
     http?: FakeFetch;
+    /** Wait until no block shows its loading line; true by default. */
+    settle?: boolean;
   } = {},
 ) {
   const posted: PostedMessage[] = [];
@@ -201,6 +253,10 @@ export async function renderGroupView(
     routes: options.routes ?? groupRoutes(),
     http: options.http,
   });
+
+  // Blocks that load on their own show a spinner until their reads arrive.
+  if (options.settle ?? true)
+    await waitFor(() => expect(document.querySelector(".gv-spin")).toBeNull());
 
   return { ...view, posted };
 }

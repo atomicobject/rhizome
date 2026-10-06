@@ -1,16 +1,17 @@
-// Briefing (SPEC-0111): what needs attention, what is in motion, what changed,
-// which notes outside the group touch it, and what the group holds, in three
-// columns that fold to two and one in narrower frames.
+// Briefing (SPEC-0111, SPEC-0117 US6): what needs attention, what is in
+// motion, and what changed in a display group, in two columns that fold to
+// one in narrower frames. The group's structure is on Overview. The frame and
+// every block's heading paint at once; each block fills in when the records
+// it reads arrive and fails on its own with a retry.
 import { HighlightProvider, openCollection, type ViewModuleProps } from "@rhizome/kit";
 import { useMemo } from "react";
 
-import { boundary, inMotion, needsAttention } from "./activity.ts";
-import { MotionRow, OutsideNotes, RecentChanges, StageHints } from "./briefing-activity.tsx";
+import { inMotion, needsAttention } from "./activity.ts";
+import { MotionRow, RecentChanges, StageHints } from "./briefing-activity.tsx";
 import { NeedsAttention } from "./briefing-attention.tsx";
-import { Connections, InThisGroup, ViewsAndGuide } from "./briefing-contents.tsx";
-import { Block, heldLabels, lower, memberOf } from "./briefing-parts.tsx";
-import { GroupFacts, GroupPage } from "./components.tsx";
-import { linkGraph, type LinkGraph } from "./graph.ts";
+import { Block, ModelBlock, heldLabels, lower, memberOf } from "./briefing-parts.tsx";
+import { GroupFrame } from "./components.tsx";
+import { linkGraph } from "./graph.ts";
 import { useGroupModel } from "./load.ts";
 import { memberLabel, type GroupModel } from "./model.ts";
 
@@ -67,22 +68,8 @@ function InMotion({ model }: { model: GroupModel }) {
   );
 }
 
-function GroupOutside({ model }: { model: GroupModel }) {
-  const outside = useMemo(() => boundary(model), [model]);
-
-  return (
-    <OutsideNotes
-      title="Outside the group"
-      outside={outside}
-      model={model}
-      caption={`Notes that link to or from ${model.name} records, most connected first.`}
-      empty="No notes outside the group link to or from its records."
-    />
-  );
-}
-
-function GroupAttention({ model, graph }: { model: GroupModel; graph: LinkGraph }) {
-  const signals = useMemo(() => needsAttention(model, graph, Date.now()), [model, graph]);
+function GroupAttention({ model }: { model: GroupModel }) {
+  const signals = useMemo(() => needsAttention(model, linkGraph(model), Date.now()), [model]);
 
   return (
     <NeedsAttention
@@ -93,33 +80,29 @@ function GroupAttention({ model, graph }: { model: GroupModel; graph: LinkGraph 
   );
 }
 
-function BriefingBody({ model }: { model: GroupModel }) {
-  const graph = useMemo(() => linkGraph(model), [model]);
+export default function Briefing(_props: ViewModuleProps) {
+  // Every block reads the group's records, so they share one cached read.
+  const state = useGroupModel({ views: false });
 
   return (
-    <HighlightProvider>
-      <GroupFacts model={model} />
-      <div className="gv-brief">
-        <div className="gv-brief-col">
-          <GroupAttention model={model} graph={graph} />
-          <InMotion model={model} />
+    <GroupFrame state={state}>
+      <HighlightProvider>
+        <div className="gv-brief gv-brief-two">
+          <div className="gv-brief-col">
+            <ModelBlock state={state} title="Needs attention" what="what needs attention">
+              {(model) => <GroupAttention model={model} />}
+            </ModelBlock>
+            <ModelBlock state={state} title="In motion" what="work in motion">
+              {(model) => <InMotion model={model} />}
+            </ModelBlock>
+          </div>
+          <div className="gv-brief-col">
+            <ModelBlock state={state} title="Recent changes" what="recent changes">
+              {(model) => <RecentChanges model={model} />}
+            </ModelBlock>
+          </div>
         </div>
-        <div className="gv-brief-col">
-          <RecentChanges model={model} />
-          <GroupOutside model={model} />
-        </div>
-        <div className="gv-brief-col gv-brief-side">
-          <InThisGroup model={model} />
-          {graph.linked && model.members.length > 1 && <Connections model={model} graph={graph} />}
-          <ViewsAndGuide model={model} />
-        </div>
-      </div>
-    </HighlightProvider>
+      </HighlightProvider>
+    </GroupFrame>
   );
-}
-
-export default function Briefing(_props: ViewModuleProps) {
-  const state = useGroupModel();
-
-  return <GroupPage state={state}>{(model) => <BriefingBody model={model} />}</GroupPage>;
 }

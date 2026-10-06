@@ -399,11 +399,14 @@ export function parseRecords(data: JsonObject, docs: readonly TypeDoc[]): Parsed
 
 /** The bundled views, which the page's switcher already offers beside these. */
 const BUNDLED_VIEW_IDS = new Set([
+  "group.overview",
   "group.briefing",
   "group.trace",
   "group.sections",
   "type.briefing",
   "interface.briefing",
+  "workspace.overview",
+  "workspace.briefing",
 ]);
 
 export type SubjectKind = "group" | "type" | "interface";

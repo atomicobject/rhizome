@@ -7,7 +7,6 @@ import { isJsonObject, type JsonValue } from "./api.ts";
 import {
   buildHierarchy,
   compareAdvanced,
-  connections,
   defaultSpine,
   flattenTree,
   lifecycleRank,
@@ -287,12 +286,6 @@ it("resolves a link to an embedded record by its node, not its host note", () =>
   const fall = recordAt(model, PATHS.fall);
 
   expect([...(embeddedGraph.adjacent.get(fall.key) ?? [])]).toContain(`${PATHS.fall}#chk`);
-
-  const checklist = connections(model, embeddedGraph)
-    .flat()
-    .find((cell) => cell.from === "Release" && cell.to === "Checklist");
-
-  expect(checklist).toMatchObject({ allowed: true, count: 1 });
 });
 
 it("ranks lifecycle values most advanced first, terminal values next, and empty last", () => {
@@ -353,20 +346,6 @@ it("keeps a record hanging off a parent cycle beneath the cycle", () => {
     ["Loop C", 1],
     ["Loop B", 1],
   ]);
-});
-
-it("counts record links per member pair and marks allowed relations nothing uses", () => {
-  const cells = connections(planning, graph).flat();
-
-  const cell = (from: string, to: string) =>
-    cells.find((entry) => entry.from === from && entry.to === to);
-
-  expect(cell("Work", "Area")).toEqual({ from: "Work", to: "Area", allowed: true, count: 5 });
-  expect(cell("Release", "Work")).toMatchObject({ allowed: true, count: 2 });
-  expect(cell("Release", "Checklist")).toMatchObject({ allowed: true, count: 1 });
-  expect(cell("Release", "Area")).toMatchObject({ allowed: true, count: 0 });
-  expect(cell("Area", "Work")).toMatchObject({ allowed: false, count: 0 });
-  expect(cell("Work", "Work")).toMatchObject({ allowed: false });
 });
 
 it("orders sections like Trace columns when the group links, else by record count", () => {

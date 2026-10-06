@@ -7,11 +7,11 @@
 // and Release's `area` relation is declared but unused. Story links to Person
 // (People) and to untyped notes, outside the group. Library's only links are
 // plain links from Memo to untyped notes.
-import type { DisplayGroupsResponse } from "@rhizome/kit";
+import type { DisplayGroupsResponse, TypeDoc } from "@rhizome/kit";
 
 import type { JsonObject, JsonValue } from "../api.ts";
 import { parseAggregate, parseTypeSummaries, UNTYPED } from "../aggregate.ts";
-import { DISPLAY_GROUPS, NOW } from "./groups.ts";
+import { DISPLAY_GROUPS, NOW, profile } from "./groups.ts";
 
 /** Unix seconds, as the aggregate reports change times. */
 const seconds = (hoursAgo: number) => Math.floor((NOW - hoursAgo * 3_600_000) / 1000);
@@ -212,4 +212,27 @@ export const SCOPE_GROUPS: DisplayGroupsResponse = {
       ],
     },
   ],
+};
+
+const plainDoc = (name: string, label: string, pluralLabel: string): TypeDoc => ({
+  name,
+  role: "NOTE",
+  label,
+  pluralLabel,
+  profile: profile({}),
+  fields: [],
+});
+
+/** Documentation for the ungrouped types, beside groups.ts's TYPE_DOCS. */
+export const SCOPE_DOCS = {
+  Meeting: plainDoc("Meeting", "Meeting", "Meetings"),
+  Notice: plainDoc("Notice", "Notice", "Notices"),
+} satisfies Record<string, TypeDoc>;
+
+/** `GET /api/v2/validate` with a published generation. */
+export const VALIDATION_ENVELOPE: JsonObject = {
+  status: "ok",
+  health: "current_issues",
+  generation: 3,
+  publishedGeneration: 3,
 };

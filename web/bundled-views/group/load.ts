@@ -52,11 +52,11 @@ export type GroupModelState =
   | { status: "loading" }
   /** The view was not opened for its kind of subject, or the subject no longer exists. */
   | { status: "missing"; name: string | null }
-  | { status: "error"; error: Error }
+  | { status: "error"; error: Error; retry: () => void }
   /** `refreshError`: the last refresh failed, so the model is the last one loaded. */
   | { status: "ready"; model: GroupModel; refreshing: boolean; refreshError: Error | null };
 
-async function getJSON(path: string, signal: AbortSignal): Promise<JsonValue> {
+export async function getJSON(path: string, signal: AbortSignal): Promise<JsonValue> {
   const response = await fetch(path, { signal, headers: { accept: "application/json" } });
 
   if (!response.ok) throw new Error(`${path} answered ${response.status}`);
@@ -64,8 +64,8 @@ async function getJSON(path: string, signal: AbortSignal): Promise<JsonValue> {
   return response.json();
 }
 
-/** Query keys for this module's own REST reads; the kit refreshes them as data. */
-const groupViewKeys = {
+/** Query keys for the group views' own REST reads; the kit refreshes them as data. */
+export const groupViewKeys = {
   catalog: ["group-views", "catalog"],
   typeLabels: ["group-views", "type-labels"],
 } as const;
@@ -75,6 +75,8 @@ const NO_DOCS: readonly TypeDoc[] = [];
 const EMPTY_DATA: JsonObject = {};
 
 const NO_TYPE_LABELS: JsonValue = [];
+
+const NO_CATALOG: JsonValue = {};
 
 const COLLECTION_RECORDS: RecordsOptions = { reverse: true, neighbors: "INBOUND" };
 
@@ -100,7 +102,11 @@ function subjectGroup(subject: Subject, groups: readonly DisplayGroup[]): Displa
     : collectionGroup(groups, subject.name);
 }
 
-function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions): GroupModelState {
+function useSubjectModel(
+  kinds: readonly SubjectKind[],
+  options: RecordsOptions,
+  withViews = true,
+): GroupModelState {
   const context = useViewContext();
 
   const subject = useMemo(() => {
@@ -149,7 +155,10 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
   const catalog = useQuery({
     queryKey: groupViewKeys.catalog,
     queryFn: ({ signal }) => getJSON("/api/v1/views", signal),
+    enabled: withViews,
   });
+
+  const catalogData = withViews ? catalog.data : NO_CATALOG;
 
   // Labels for types outside the group are a nicety: a failure falls back to
   // type names rather than holding up the page.
@@ -168,7 +177,7 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
     // Until every member type's documentation loads, the records cannot be read.
     if (!docsReady || !subject) return null;
 
-    if (!group || !groups.groups || !recordData || catalog.data === undefined) return null;
+    if (!group || !groups.groups || !recordData || catalogData === undefined) return null;
 
     if (labelData === undefined) return null;
 
@@ -177,8 +186,8 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
       groups: groups.groups,
       docs: docs.docs,
       records: parseRecords(recordData, orderedDocs),
-      views: parseTargetViews(catalog.data, subject.kind, subject.name),
-      tableChoice: parseTableChoice(catalog.data, subject.kind, subject.name),
+      views: parseTargetViews(catalogData, subject.kind, subject.name),
+      tableChoice: parseTableChoice(catalogData, subject.kind, subject.name),
       typeLabels: parseTypeLabels(labelData),
     });
   }, [
@@ -189,7 +198,7 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
     docs.docs,
     recordData,
     orderedDocs,
-    catalog.data,
+    catalogData,
     labelData,
   ]);
 
@@ -211,7 +220,17 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
     };
   }
 
-  if (error) return { status: "error", error };
+  if (error)
+    return {
+      status: "error",
+      error,
+      retry: () => {
+        void groups.refetch();
+        void records.refetch();
+
+        if (withViews) void catalog.refetch();
+      },
+    };
 
   if (name === null || (groups.groups && !group)) return { status: "missing", name };
 
@@ -222,9 +241,12 @@ const GROUP: readonly SubjectKind[] = ["group"];
 
 const COLLECTION: readonly SubjectKind[] = ["type", "interface"];
 
-/** The model of the display group the view was opened for. */
-export function useGroupModel(): GroupModelState {
-  return useSubjectModel(GROUP, {});
+/**
+ * The model of the display group the view was opened for. Without `views`,
+ * it neither reads nor waits for the view catalog, and lists no views.
+ */
+export function useGroupModel({ views = true }: { views?: boolean } = {}): GroupModelState {
+  return useSubjectModel(GROUP, {}, views);
 }
 
 /**

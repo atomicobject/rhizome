@@ -1,43 +1,10 @@
-// Briefing's side column: the group's members, the connections matrix, and
-// the group's views and guide.
-import { openNote, openView, orderedEnumValues, typeLabel } from "@rhizome/kit";
-import { useMemo } from "react";
+// The group Overview's "Guide and views" block, the guide note the most
+// members share and the authored views the group's switcher offers, and the
+// type Briefing's implementing types of an interface.
+import { openNote, openView, typeLabel } from "@rhizome/kit";
 
-import { Block, memberOf, plural } from "./briefing-parts.tsx";
-import { LifecycleCounts, MemberHeading, openMemberIssues } from "./components.tsx";
-import { connections, type LinkGraph } from "./graph.ts";
-import {
-  fieldLabel,
-  firstSentence,
-  lifecycleValue,
-  memberLabel,
-  type GroupModel,
-  type Member,
-} from "./model.ts";
-
-/** A member's lifecycle distribution as a bar; LifecycleCounts carries the labels. */
-function DistributionBar({ member }: { member: Member }) {
-  if (!member.lifecycle) return null;
-  const { values } = member.lifecycle;
-
-  const segments = orderedEnumValues(values).flatMap((value) => {
-    const count = member.records.filter(
-      (record) => lifecycleValue(member, record) === value.name,
-    ).length;
-
-    return count ? [{ value, count }] : [];
-  });
-
-  if (!segments.length) return null;
-
-  return (
-    <div className="gv-dist" aria-hidden="true">
-      {segments.map(({ value, count }) => (
-        <i key={value.name} data-tone={value.tone ?? "neutral"} style={{ flexGrow: count }} />
-      ))}
-    </div>
-  );
-}
+import { Block, plural } from "./briefing-parts.tsx";
+import { fieldLabel, type GroupModel, type Member } from "./model.ts";
 
 /** Records of an interface member by implementing type, most first. */
 export function Implementors({ model, member }: { model: GroupModel; member: Member }) {
@@ -66,135 +33,42 @@ export function Implementors({ model, member }: { model: GroupModel; member: Mem
   );
 }
 
-export function InThisGroup({ model }: { model: GroupModel }) {
-  return (
-    <Block title="In this group">
-      <ul className="gv-list">
-        {model.members.map((member) => (
-          <li key={member.name} className="gv-typ">
-            <div className="gv-typ-top">
-              <MemberHeading model={model} member={member} />
-              {member.kind === "interface" && <span className="gv-sub">interface</span>}
-              {member.issueCount > 0 && (
-                <button
-                  type="button"
-                  className="gv-issues"
-                  onClick={() => openMemberIssues(member)}
-                >
-                  {member.issueCount} {plural(member.issueCount, "issue", "issues")}
-                </button>
-              )}
-              <span className="gv-num gv-typ-count">{member.count}</span>
-            </div>
-            {member.description && (
-              <p className="gv-typ-desc">{firstSentence(member.description)}</p>
-            )}
-            <DistributionBar member={member} />
-            <LifecycleCounts member={member} />
-            <Implementors model={model} member={member} />
-          </li>
-        ))}
-      </ul>
-    </Block>
-  );
-}
-
-export function Connections({ model, graph }: { model: GroupModel; graph: LinkGraph }) {
-  const rows = useMemo(() => connections(model, graph), [model, graph]);
-
-  const label = (name: string) => {
-    const member = memberOf(model, name);
-
-    return member ? memberLabel(model, member, { plural: true }) : name;
-  };
-
-  return (
-    <Block
-      title="Connections"
-      caption="Record links from row to column. Hatched: the schema allows the link, but no record uses it."
-    >
-      <table className="gv-mx">
-        <thead>
-          <tr>
-            <td />
-            {model.members.map((member) => (
-              <th key={member.name} scope="col">
-                <span>{label(member.name)}</span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={model.members[index]?.name}>
-              <th scope="row">{label(model.members[index]?.name ?? "")}</th>
-              {row.map((cell) => {
-                if (cell.from === cell.to)
-                  return (
-                    <td key={cell.to} data-cell="self">
-                      <span className="sr-only">Same type</span>
-                    </td>
-                  );
-
-                if (!cell.allowed)
-                  return (
-                    <td key={cell.to}>
-                      <span className="sr-only">No link field</span>
-                    </td>
-                  );
-
-                return (
-                  <td key={cell.to} data-cell={cell.count ? "used" : "unused"}>
-                    {cell.count}
-                    {cell.count === 0 && <span className="sr-only"> (allowed, unused)</span>}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Block>
-  );
-}
-
-export function ViewsAndGuide({ model }: { model: GroupModel }) {
+export function GuideAndViews({ model }: { model: GroupModel }) {
   const { guide, views } = model;
 
   return (
-    <>
-      {views.length > 0 && (
-        <Block title="Views">
-          <ul className="gv-list">
-            {views.map((view) => (
-              <li key={view.id} className="gv-res">
-                <button
-                  type="button"
-                  className="gv-link"
-                  onClick={() => openView(view.id, { kind: "group", group: model.name })}
-                >
-                  {view.name}
-                </button>
-                {view.description && <span className="gv-sub">{view.description}</span>}
-              </li>
-            ))}
-          </ul>
-        </Block>
-      )}
+    <Block title="Guide and views">
+      {!guide && !views.length && <p className="gv-quiet">No guide note or authored views.</p>}
       {guide && (
-        <Block title="Guide">
+        <>
           <p className="gv-res">
             <button type="button" className="gv-link" onClick={() => openNote(guide.path)}>
               {guide.title}
             </button>
             <span className="gv-sub">
-              shared by {guide.sharedBy} of {model.members.length}{" "}
+              guide shared by {guide.sharedBy} of {model.members.length}{" "}
               {plural(model.members.length, "type", "types")}
             </span>
           </p>
           {guide.summary && <p className="gv-typ-desc">{guide.summary}</p>}
-        </Block>
+        </>
       )}
-    </>
+      {views.length > 0 && (
+        <ul className="gv-list">
+          {views.map((view) => (
+            <li key={view.id} className="gv-res">
+              <button
+                type="button"
+                className="gv-link"
+                onClick={() => openView(view.id, { kind: "group", group: model.name })}
+              >
+                {view.name}
+              </button>
+              {view.description && <span className="gv-sub">{view.description}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Block>
   );
 }

@@ -1,6 +1,8 @@
 // React pieces the group views share. Styling lives in group.css.
 //
 // - GroupPage: loading, missing, and error states around a ready model.
+// - GroupFrame: the facts strip or the group's state line, with blocks that
+//   load on their own.
 // - GroupFacts: the strip under the host's title (records, members, issues,
 //   last change, guide, truncation, a failed refresh), with view-specific
 //   text on the left.
@@ -95,6 +97,55 @@ export function GroupPage({
       <p className="gv-state" role={state.status === "error" ? "alert" : "status"}>
         {message}
       </p>
+    </main>
+  );
+}
+
+/** The state line for a group that is not ready: loading, missing, or failed with a retry. */
+function GroupStateLine({ state }: { state: Exclude<GroupModelState, { status: "ready" }> }) {
+  const text = STATE_TEXT.group;
+
+  if (state.status === "error")
+    return (
+      <p className="gv-state" role="alert">
+        {text.failed}: {state.error.message}{" "}
+        <button type="button" className="gv-link" onClick={state.retry}>
+          Retry
+        </button>
+      </p>
+    );
+
+  return (
+    <p className="gv-state" role="status">
+      {state.status === "loading"
+        ? text.loading
+        : state.name === null
+          ? text.outside
+          : text.missing(state.name)}
+    </p>
+  );
+}
+
+/**
+ * The frame of a group page whose blocks load on their own: the facts strip
+ * once the group loads, its loading or failure line until then, and the
+ * blocks at once. A missing group shows only its line.
+ */
+export function GroupFrame({ state, children }: { state: GroupModelState; children: ReactNode }) {
+  if (state.status !== "ready")
+    return (
+      <main className="gv-page">
+        <GroupStateLine state={state} />
+        {state.status !== "missing" && children}
+      </main>
+    );
+
+  return (
+    <main className="gv-page" aria-busy={state.refreshing || undefined}>
+      <RefreshError.Provider value={state.refreshError}>
+        <GroupFacts model={state.model} />
+        {children}
+      </RefreshError.Provider>
     </main>
   );
 }
