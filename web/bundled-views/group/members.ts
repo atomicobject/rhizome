@@ -143,19 +143,20 @@ function gapCells(node: ScopeNode, docs: Readonly<Record<string, TypeDoc>>): Gap
 }
 
 /**
- * Records of `node` with a link to any type in `others`, by the target sets
- * of its types. Embedded types never count.
+ * Records of `node` with a link to another member, by the target sets of its
+ * types. `isOther(source, target)` says whether a link from a record of
+ * `source` to `target` counts.
  */
 function linkedRecords(
   node: ScopeNode,
   members: MemberFigures,
-  isOther: (type: string) => boolean,
+  isOther: (source: string, target: string) => boolean,
 ) {
   let linked = 0;
 
   for (const type of node.types) {
     for (const set of members.types.get(type)?.targetSets ?? []) {
-      if (set.types.some(isOther)) linked += set.records;
+      if (set.types.some((target) => isOther(type, target))) linked += set.records;
     }
   }
 
@@ -194,8 +195,11 @@ function row(
   const own = new Set(node.types);
   const workspace = model.scope.kind === "workspace";
 
-  const isOther = (type: string) =>
-    !own.has(type) && (workspace ? !input.summaries.get(type)?.embedded : model.types.has(type));
+  // At All notes every other note type counts, even one the same member holds.
+  const isOther = (source: string, target: string) =>
+    workspace
+      ? target !== source && !input.summaries.get(target)?.embedded
+      : !own.has(target) && model.types.has(target);
 
   const scope = workspace
     ? new Set([...model.types, UNTYPED].filter((type) => !own.has(type)))

@@ -156,6 +156,44 @@ it("expands a named group's row into its members", () => {
   expect(rowOf(all, "Planning").links).toBe(5);
 });
 
+it("counts an expanded interface's links between its own implementors in linked share at All notes", () => {
+  const story = members.types.get("Story")!;
+  const bug = members.types.get("Bug")!;
+
+  // Stories link only to Bugs, and Bugs only to Stories, both inside Work.
+  const figures = {
+    ...members,
+    types: new Map([
+      ...members.types,
+      ["Story", { ...story, targetSets: [{ types: ["Bug"], records: 3 }] }],
+      ["Bug", { ...bug, targetSets: [{ types: ["Story"], records: 1 }] }],
+    ]),
+  };
+
+  const set = new Set(["Planning"]);
+
+  const model = scopeModel({
+    scope: { kind: "workspace" },
+    groups: SCOPE_GROUPS.groups,
+    members: figures,
+    summaries: SUMMARIES,
+    expanded: set,
+  });
+
+  if (!model) throw new Error("no scope");
+
+  const all = memberRows(model, {
+    members: figures,
+    pairs,
+    docs: TYPE_DOCS,
+    summaries: SUMMARIES,
+    expanded: set,
+  });
+
+  expect(rowOf(all, "Work items").linkedShare).toBeCloseTo(4 / 6);
+  expect(rowOf(all, "Stories").linkedShare).toBeCloseTo(3 / 4);
+});
+
 it("lists folders with untyped notes, most first, with the two types they link to most", () => {
   expect(folderLines(AGGREGATE.folders!, SUMMARIES)).toEqual([
     {
