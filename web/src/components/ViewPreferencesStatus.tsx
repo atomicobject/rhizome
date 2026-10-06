@@ -34,10 +34,7 @@ export function ViewPreferencesStatus({
           Saving preferences…
         </span>
       )}
-      {/* ponytail: the host reads only its own scope, so overrides kept solely
-          under a widget slot do not show this control; a server family flag
-          would cover them. */}
-      {Object.keys(preferences.values).length > 0 && (
+      {(includeWidgets || Object.keys(preferences.values).length > 0) && (
         <button
           type="button"
           className="view-preferences__reset"
