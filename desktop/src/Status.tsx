@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useReducer, useState, type ReactNode } from "react";
 import type { Failure, OpenState } from "./api";
 
 const progress: Partial<Record<OpenState["step"], string>> = {
@@ -7,6 +7,23 @@ const progress: Partial<Record<OpenState["step"], string>> = {
   starting: "Starting Rhizome",
   loading: "Loading the workspace",
 };
+
+/** Progress shorter than this, such as reopening a running worktree, shows nothing. */
+const QUIET_MS = 800;
+
+/** Whether `delay` has passed since `started`, rerendering when it does. It
+ * reads the clock while rendering, so a new `started` is judged on its own
+ * first render rather than by the previous one's elapsed time. */
+function useElapsedPast(started: number, delay: number) {
+  const [, rerender] = useReducer((count: number) => count + 1, 0);
+  useEffect(() => {
+    const wait = started + delay - Date.now();
+    if (wait <= 0) return;
+    const timer = window.setTimeout(rerender, wait);
+    return () => window.clearTimeout(timer);
+  }, [started, delay]);
+  return Date.now() - started >= delay;
+}
 
 function Elapsed({ started }: { started: number }) {
   const [now, setNow] = useState(() => Date.now());
@@ -46,6 +63,7 @@ export function OpenStatus({
   onManageInstallation: () => void;
 }) {
   const title = progress[state.step];
+  const shown = useElapsedPast(state.started, QUIET_MS);
   if (state.reconnecting && (title || state.step === "error")) {
     return (
       <div className="status-panel" role="status" aria-live="polite">
@@ -62,6 +80,7 @@ export function OpenStatus({
     );
   }
   if (title) {
+    if (!shown) return null;
     return (
       <div className="status-panel" role="status" aria-live="polite">
         <span className="spinner" aria-hidden="true" />
@@ -78,6 +97,18 @@ export function OpenStatus({
             The new worktree starts from the primary worktree’s index, then catches up.
           </p>
         )}
+      </div>
+    );
+  }
+  if (state.step === "sleeping") {
+    return (
+      <div className="status-panel">
+        <h1>Rhizome is sleeping</h1>
+        <p>You stopped Rhizome for this worktree. It starts again when you open it.</p>
+        <p className="path">{state.worktree}</p>
+        <button className="primary" disabled={busy} onClick={onRetry}>
+          Start Rhizome
+        </button>
       </div>
     );
   }

@@ -357,6 +357,18 @@
   background: var(--surface);
   color: var(--text-muted);
   font-size: 11px;
+  /* One save sends several index events; refetches that finish quickly show nothing. */
+  animation: configured-view-loading-reveal 0s 400ms both;
+}
+
+@keyframes configured-view-loading-reveal {
+  from {
+    visibility: hidden;
+  }
+
+  to {
+    visibility: visible;
+  }
 }
 
 /* The board is a flex row, so an in-flow pill would become a column. */

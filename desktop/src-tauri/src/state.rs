@@ -214,6 +214,13 @@ impl Library {
             .ok_or_else(|| "This repository is no longer in your library.".into())
     }
 
+    /// Orders repositories as `ids` lists them. Repositories it omits, such as
+    /// one another window added meanwhile, keep their order after the rest.
+    pub fn reorder(&mut self, ids: &[String]) {
+        self.repositories
+            .sort_by_key(|r| ids.iter().position(|id| *id == r.id).unwrap_or(usize::MAX));
+    }
+
     /// Adds a newly discovered repository, acknowledging the worktrees present
     /// now. An existing entry with the same identity keeps its settings. Returns
     /// whether the library changed.
@@ -407,6 +414,22 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    #[test]
+    fn reordering_keeps_unlisted_repositories_after_the_listed_ones() {
+        let mut library = Library::default();
+        for (id, root) in [('a', "/a"), ('b', "/b"), ('c', "/c"), ('d', "/d")] {
+            library.add(&discovery(id, root, &[root]));
+        }
+        let id = |c: char| c.to_string().repeat(64);
+        library.reorder(&[id('c'), id('a'), "gone".into()]);
+        let roots: Vec<_> = library
+            .repositories
+            .iter()
+            .map(|r| r.root.as_str())
+            .collect();
+        assert_eq!(roots, ["/c", "/a", "/b", "/d"]);
     }
 
     #[test]

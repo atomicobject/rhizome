@@ -29,7 +29,7 @@ Contract per note: `## Scope` (entry points), `## Design constraints` (hard inva
 | [validate](validate.md) | `pkg/validate`, `pkg/app/validationrun`, `pkg/app/validationproduct` | `validate-subsystem` |
 | [code-intel](code-intel.md) | `pkg/anchors`, `pkg/app/codeintel`, `pkg/vault/coderefs`, `pkg/vault/codepatterns` | `code-intel-subsystem` |
 | [harness](harness.md) | `pkg/harness` | `harness-subsystem` |
-| [vault-runtime](vault-runtime.md) | `pkg/app/runtime`, `pkg/app/bootstrap`, `pkg/app/cli/serve` | `vault-runtime-subsystem` |
+| [vault-runtime](vault-runtime.md) | `pkg/app/runtime`, `pkg/app/bootstrap`, `pkg/app/cli/serve`, `pkg/app/runtimestop` | `vault-runtime-subsystem` |
 
 Each note also carries `code-anchors` glob refs that broadly track its `code-paths`, so the full guidance auto-surfaces in `rzm agent file-context` for files in those folders. The two lists are intentionally not identical: anchors are tuned for retrieval (e.g. a precise file glob, or omitting a package a sibling note already claims), while `code-paths` is the folder contract for review tooling. Query recipe `subsystem-guidance-notes` (and view `reference.subsystem-guidance`) lists these notes by `last-verified` age for staleness review.
 

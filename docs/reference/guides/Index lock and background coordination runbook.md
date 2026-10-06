@@ -99,7 +99,7 @@ Heartbeats and release verify the full ownership token. Metadata creation, stale
 | --- | --- | --- |
 | Concurrent start, serve, and index clients | One elected runtime; competing clients attach or report the owner. | `tests/integration/runtime/runtime_test.go`, `pkg/app/runtime/ensure_test.go` |
 | Ctrl-C, immediate restart, and startup behind a writer | Cancellation drains owned work; recovery waits without stealing the writer lock. | `tests/integration/runtime/startup_interrupt_test.go`, `startup_contention_test.go` |
-| Stop or stop-all during startup or shutdown | Cancel the observed start and drain it; a missing HTTP manifest does not mean the owner has exited, and a successor retains its own token. | `pkg/app/cli/serve/stop_test.go`, `startup_contention_test.go` |
+| Stop or stop-all during startup or shutdown | Cancel the observed start and drain it; a missing HTTP manifest does not mean the owner has exited, and a successor retains its own token. | `pkg/app/runtimestop/stop_test.go`, `startup_contention_test.go` |
 | Save while indexing, with a changed source or a retry | Background work yields; source preconditions are checked after waiting; saved edits retain retry receipts. | Ontology edit and validation repair tests; browser save journeys. |
 | Filesystem change or manual validation refresh | Changed inputs invalidate validation; queued refreshes eventually publish and retain truthful progress. | Readiness/lane tests, validation API tests, Problems browser journeys. |
 | Runtime crash, reboot, and paused writer | Dead owners recover, including proven earlier local boots; live owners remain exclusive regardless of heartbeat age. | `pkg/vault/indexlock/hardening_test.go`, `reboot_test.go`, runtime crash and reboot integration tests. |

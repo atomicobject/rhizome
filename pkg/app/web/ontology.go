@@ -230,14 +230,14 @@ func (s *Server) ontologySummary(ctx context.Context) (OntologySummaryResponse, 
 	if ready, err := notemeta.MetadataStateReady(ctx, store); err != nil {
 		return resp, err
 	} else if !ready {
-		return s.rebuildingSummary(resp), nil
+		return s.rebuildingSummary(resp, defs), nil
 	}
 	counted, err := s.countOntologySummary(ctx, store, defs, resp)
 	if err != nil {
 		return counted, err
 	}
 	if ready, err := notemeta.MetadataStateReady(ctx, store); err != nil || !ready {
-		return s.rebuildingSummary(resp), err
+		return s.rebuildingSummary(resp, defs), err
 	}
 	s.summaryMu.Lock()
 	s.lastSummary = &counted
@@ -246,8 +246,10 @@ func (s *Server) ontologySummary(ctx context.Context) (OntologySummaryResponse, 
 }
 
 // rebuildingSummary keeps the fresh schema fields of resp and fills counts and
-// types from the last published summary, if any.
-func (s *Server) rebuildingSummary(resp OntologySummaryResponse) OntologySummaryResponse {
+// types from the last published summary. Before the first one, as right after
+// a start, it lists the schema's types without counts, so the rail, type
+// routes, and type colors work while counts stay unknown (zero totals).
+func (s *Server) rebuildingSummary(resp OntologySummaryResponse, defs *ontologyDefinitions) OntologySummaryResponse {
 	s.summaryMu.Lock()
 	last := s.lastSummary
 	s.summaryMu.Unlock()
@@ -259,6 +261,11 @@ func (s *Server) rebuildingSummary(resp OntologySummaryResponse) OntologySummary
 		resp.IssueNotes = last.IssueNotes
 		resp.Types = last.Types
 		resp.Interfaces = last.Interfaces
+	} else if defs != nil && defs.schema != nil {
+		if types, interfaces, err := schemaSummaryEntries(defs); err == nil {
+			resp.Types = types
+			resp.Interfaces = interfaces
+		}
 	}
 	resp.Rebuilding = true
 	return resp
@@ -308,9 +315,54 @@ func (s *Server) countOntologySummary(ctx context.Context, store *semdb.Store, d
 		}
 	}
 
-	typeDocs, err := ontology.SchemaDocs(defs.schema, "")
+	resp.AmbiguousNotes = ambiguousCount
+	resp.IssueNotes = issueCount
+	types, interfaces, err := schemaSummaryEntries(defs)
 	if err != nil {
 		return resp, err
+	}
+	for i := range types {
+		result, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: types[i].Name})
+		if err != nil {
+			return resp, err
+		}
+		types[i].Count = result.Count
+		types[i].IssueCount = result.IssueCount
+		types[i].StartingNotes = ontologyItemStartingRefs(result.Items, 5)
+	}
+	for i := range interfaces {
+		result, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: interfaces[i].Name})
+		if err != nil {
+			return resp, err
+		}
+		interfaces[i].Count = result.Count
+		interfaces[i].IssueCount = result.IssueCount
+	}
+	sortByCountThenName(types, func(t OntologyTypeSummary) (int, string) { return t.Count, t.Name })
+	sortByCountThenName(interfaces, func(i OntologyInterfaceSummary) (int, string) { return i.Count, i.Name })
+	resp.Types = types
+	resp.Interfaces = interfaces
+	return resp, nil
+}
+
+// sortByCountThenName orders summary entries by count, largest first, then name.
+func sortByCountThenName[T any](items []T, key func(T) (int, string)) {
+	sort.SliceStable(items, func(i, j int) bool {
+		ci, ni := key(items[i])
+		cj, nj := key(items[j])
+		if ci != cj {
+			return ci > cj
+		}
+		return ni < nj
+	})
+}
+
+// schemaSummaryEntries lists the rail's types and interfaces from the schema
+// alone, without counts, sorted by name.
+func schemaSummaryEntries(defs *ontologyDefinitions) ([]OntologyTypeSummary, []OntologyInterfaceSummary, error) {
+	typeDocs, err := ontology.SchemaDocs(defs.schema, "")
+	if err != nil {
+		return nil, nil, err
 	}
 	typeDocByName := make(map[string]ontology.TypeDoc, len(typeDocs))
 	for _, doc := range typeDocs {
@@ -320,21 +372,14 @@ func (s *Server) countOntologySummary(ctx context.Context, store *semdb.Store, d
 	// Shared with viewconfig.DisplayGroups so group mounts see the rail's members.
 	typeNames, interfaceMembers := viewconfig.NavigationMembers(defs.schema)
 
-	resp.AmbiguousNotes = ambiguousCount
-	resp.IssueNotes = issueCount
-	summaries := make([]OntologyTypeSummary, 0, len(typeNames))
+	types := make([]OntologyTypeSummary, 0, len(typeNames))
 	for _, typeName := range typeNames {
-		role := defs.schema.Types[typeName].Role
 		roleLabel := "note"
-		if role == ontology.TypeRoleEmbeddedNode {
+		if defs.schema.Types[typeName].Role == ontology.TypeRoleEmbeddedNode {
 			roleLabel = "embedded"
 		}
 		doc := typeDocByName[typeName]
-		result, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: typeName})
-		if err != nil {
-			return resp, err
-		}
-		summaries = append(summaries, OntologyTypeSummary{
+		types = append(types, OntologyTypeSummary{
 			Name:          typeName,
 			Label:         doc.Label,
 			PluralLabel:   doc.PluralLabel,
@@ -343,50 +388,29 @@ func (s *Server) countOntologySummary(ctx context.Context, store *semdb.Store, d
 			Color:         doc.Color,
 			Description:   doc.Description,
 			Role:          roleLabel,
-			Count:         result.Count,
-			IssueCount:    result.IssueCount,
-			StartingNotes: ontologyItemStartingRefs(result.Items, 5),
 		})
 	}
-	sort.SliceStable(summaries, func(i, j int) bool {
-		if summaries[i].Count != summaries[j].Count {
-			return summaries[i].Count > summaries[j].Count
-		}
-		return summaries[i].Name < summaries[j].Name
-	})
-	resp.Types = summaries
+	sort.SliceStable(types, func(i, j int) bool { return types[i].Name < types[j].Name })
 
 	interfaceNames := make([]string, 0, len(interfaceMembers))
 	for name := range interfaceMembers {
 		interfaceNames = append(interfaceNames, name)
 	}
 	sort.Strings(interfaceNames)
+	interfaces := make([]OntologyInterfaceSummary, 0, len(interfaceNames))
 	for _, ifaceName := range interfaceNames {
-		impls := interfaceMembers[ifaceName]
 		doc := typeDocByName[ifaceName]
-		result, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: ifaceName})
-		if err != nil {
-			return resp, err
-		}
-		resp.Interfaces = append(resp.Interfaces, OntologyInterfaceSummary{
+		interfaces = append(interfaces, OntologyInterfaceSummary{
 			Name:          ifaceName,
 			Label:         doc.Label,
 			PluralLabel:   doc.PluralLabel,
 			DisplayGroup:  doc.DisplayGroup,
 			DisplayParent: doc.DisplayParent,
 			Description:   doc.Description,
-			Count:         result.Count,
-			IssueCount:    result.IssueCount,
-			Implementors:  impls,
+			Implementors:  interfaceMembers[ifaceName],
 		})
 	}
-	sort.SliceStable(resp.Interfaces, func(i, j int) bool {
-		if resp.Interfaces[i].Count != resp.Interfaces[j].Count {
-			return resp.Interfaces[i].Count > resp.Interfaces[j].Count
-		}
-		return resp.Interfaces[i].Name < resp.Interfaces[j].Name
-	})
-	return resp, nil
+	return types, interfaces, nil
 }
 
 // ontologyAtlas builds the single-fetch atlas payload used by the web UI's

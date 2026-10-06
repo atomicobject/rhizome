@@ -1,11 +1,12 @@
 use crate::{
     bridge::{self, Failure, Request},
+    menu::{self, MenuEntry},
     pane::Panes,
     pipeline,
     presence::Presence,
     security,
     state::{migrate, valid_id, Discovery, Library, Stored},
-    windows::{self, MenuEntry, Sessions},
+    windows::{self, Sessions},
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -18,6 +19,7 @@ use std::{
     },
 };
 use tauri::{ipc::Channel, AppHandle, LogicalPosition, LogicalSize, Manager, Rect, State, Webview};
+use tauri_plugin_opener::OpenerExt;
 use tokio::sync::{Mutex, MutexGuard};
 
 /// Serializes library file updates, global installation, and each worktree's
@@ -203,6 +205,19 @@ pub enum Action {
         id: String,
         worktree: String,
     },
+    Stop {
+        worktree: String,
+    },
+    Reveal {
+        worktree: String,
+    },
+    OpenInBrowser {
+        id: String,
+        worktree: String,
+    },
+    Reorder {
+        ids: Vec<String>,
+    },
     Browse {
         to: windows::Browse,
     },
@@ -382,6 +397,42 @@ pub async fn desktop_request(
             pipeline::restart(app, id, worktree, true).await?;
             Ok(Value::Null)
         }
+        Action::Stop { worktree } => {
+            absolute_worktree(&worktree)?;
+            pipeline::stop(app, worktree).await?;
+            Ok(Value::Null)
+        }
+        Action::Reveal { worktree } => {
+            absolute_worktree(&worktree)?;
+            app.opener()
+                .reveal_item_in_dir(&worktree)
+                .map_err(|e| e.to_string())?;
+            Ok(Value::Null)
+        }
+        Action::OpenInBrowser { id, worktree } => {
+            absolute_worktree(&worktree)?;
+            // The page this window shows, else the runtime's home page, started
+            // first when it is not running.
+            let url = match windows::worktree_page_url(&window, &worktree) {
+                Some(url) => url,
+                None => {
+                    pipeline::open_runtime(&app, &id, &worktree, false, false)
+                        .await?
+                        .ok_or("Rhizome did not start for this worktree.".to_string())?
+                        .url
+                }
+            };
+            app.state::<Presence>().refresh();
+            app.opener()
+                .open_url(url.as_str(), None::<&str>)
+                .map_err(|e| e.to_string())?;
+            Ok(Value::Null)
+        }
+        Action::Reorder { ids } => {
+            let (_lock, mut library) = state.library().await?;
+            library.reorder(&ids);
+            save(&app, &state, &library)
+        }
         Action::Browse { to } => {
             windows::browse(&window, to)?;
             Ok(Value::Null)
@@ -414,7 +465,7 @@ pub async fn desktop_request(
             Ok(Value::Null)
         }
         Action::Menu { x, y, items } => {
-            windows::popup(&window, x, y, &items)?;
+            menu::popup(&window, x, y, &items)?;
             Ok(Value::Null)
         }
     }

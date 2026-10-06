@@ -20,6 +20,11 @@ import {
 // the server's graph_web_revision; compare revisions instead once one does.
 const GLOBAL_GRAPH_INVALIDATE_DELAY_MS = 5_000;
 
+// One save publishes several index events a few hundred milliseconds apart:
+// the watcher batch, then one per derived domain. The first refetches at once;
+// later ones in the window refetch once when it closes.
+const INDEX_INVALIDATE_WINDOW_MS = 750;
+
 const isGlobalGraphQuery = (query: { queryKey: QueryKey }) =>
   query.queryKey[1] === "graph" && query.queryKey[2] === "global";
 
@@ -58,13 +63,40 @@ export function VaultInvalidationBridge() {
       }, GLOBAL_GRAPH_INVALIDATE_DELAY_MS);
     };
 
-    const invalidateIndex = () => {
-      advanceVaultIndexRevision();
+    let indexWindow: ReturnType<typeof setTimeout> | undefined;
+    let indexPending = false;
+
+    const refetchIndexQueries = () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.all,
         predicate: (query) => !isGlobalGraphQuery(query) && !isValidationSnapshotQuery(query),
       });
       invalidateGlobalGraphSoon();
+    };
+
+    const closeIndexWindow = () => {
+      if (!indexPending) {
+        indexWindow = undefined;
+
+        return;
+      }
+
+      indexPending = false;
+      refetchIndexQueries();
+      indexWindow = setTimeout(closeIndexWindow, INDEX_INVALIDATE_WINDOW_MS);
+    };
+
+    const invalidateIndex = () => {
+      advanceVaultIndexRevision();
+
+      if (indexWindow !== undefined) {
+        indexPending = true;
+
+        return;
+      }
+
+      refetchIndexQueries();
+      indexWindow = setTimeout(closeIndexWindow, INDEX_INVALIDATE_WINDOW_MS);
     };
 
     const invalidateValidation = () => {
@@ -120,6 +152,7 @@ export function VaultInvalidationBridge() {
 
     return () => {
       clearGlobalGraphTimer();
+      clearTimeout(indexWindow);
       stop();
     };
   }, [queryClient]);

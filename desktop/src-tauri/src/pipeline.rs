@@ -146,8 +146,15 @@ async fn remember(app: &AppHandle, id: &str, worktree: &str) -> Result<(Library,
 /// unless a newer open or a deselection replaced it. Trust and settings are
 /// unchanged, so this starts the same runtime the user last opened.
 pub fn relaunch(app: &AppHandle, window: &str, generation: u64) {
+    reopen(app, window, generation, Some("stopped"));
+}
+
+/// Reopens the worktree a window targets as the app's own generation. With a
+/// `reason` the shell shows a reconnect and a failure keeps supervision so the
+/// supervisor retries; without one the open looks like the user's own.
+fn reopen(app: &AppHandle, window: &str, generation: u64, reason: Option<&'static str>) {
     let Some(Some((generation, id, worktree))) = app.state::<Panes>().with(window, |pane| {
-        let generation = pane.resume(generation, started(), "stopped")?;
+        let generation = pane.resume(generation, started(), reason)?;
         let (id, worktree) = pane.target();
         Some((generation, id, worktree))
     }) else {
@@ -167,10 +174,10 @@ pub fn relaunch(app: &AppHandle, window: &str, generation: u64) {
             .await
             .map(|(_, library)| library);
         match library {
-            Ok(library) => drive(progress, library, id, worktree, false, true).await,
+            Ok(library) => drive(progress, library, id, worktree, false, reason.is_some()).await,
             Err(failure) => {
                 progress.fail(&failure);
-                progress.settle(true);
+                progress.settle(reason.is_some());
             }
         }
     });
@@ -179,10 +186,9 @@ pub fn relaunch(app: &AppHandle, window: &str, generation: u64) {
 /// Moves the worktree `generation` displayed to the verified address of its
 /// replacement runtime, unless a newer open or a deselection replaced it.
 pub fn follow(app: &AppHandle, window: &str, generation: u64, url: Url, pid: i64) {
-    let Some(Some(generation)) = app
-        .state::<Panes>()
-        .with(window, |pane| pane.resume(generation, started(), "moved"))
-    else {
+    let Some(Some(generation)) = app.state::<Panes>().with(window, |pane| {
+        pane.resume(generation, started(), Some("moved"))
+    }) else {
         return;
     };
     let progress = Progress {
@@ -208,30 +214,97 @@ pub async fn restart(
     worktree: String,
     force: bool,
 ) -> Result<(), Failure> {
+    // A build change seen before the user stopped this runtime must not start
+    // it again, so an automatic restart replaces only a running runtime.
+    let Some(opened) = open_runtime(&app, &id, &worktree, force, !force).await? else {
+        return Ok(());
+    };
+    app.state::<Presence>().refresh();
+    if !opened.spawned {
+        return Ok(());
+    }
+    let (url, pid) = (opened.url, opened.pid);
+    for (window, generation) in app.state::<Panes>().showing(&worktree) {
+        follow(&app, &window, generation, url.clone(), pid);
+    }
+    Ok(())
+}
+
+/// Stops a worktree's runtime because the user asked. Every window showing it
+/// sleeps first, leaving the page so its event stream ends, and none relaunches
+/// it until the user opens the worktree again.
+pub async fn stop(app: AppHandle, worktree: String) -> Result<(), Failure> {
+    let slept = app.state::<Panes>().sleep(&worktree);
+    for (window, _, cleared) in &slept {
+        if let (true, Some(window)) = (*cleared, app.get_window(window)) {
+            windows::blank(&window);
+            let _ = windows::sync_visibility(&window);
+        }
+    }
+    presence::publish(&app);
     let desktop = app.state::<Desktop>();
-    let library = desktop.library().await?.1;
-    let repository = library.repository(&id)?;
-    let opened = {
+    let stopped = {
         let lock = desktop.worktree(&worktree);
         let _serialized = lock.lock().await;
         bridge::call(
             &desktop.directory,
             Request {
-                operation: "open",
+                operation: "stop",
                 folder: Some(&worktree),
-                executable: repository.executables.get(&worktree).map(String::as_str),
-                global_executable: library.global_executable.as_deref(),
-                restart: force,
                 ..Request::default()
             },
             bridge::TIMEOUT,
         )
-        .await?
+        .await
     };
     app.state::<Presence>().refresh();
-    if !opened["spawned"].as_bool().unwrap_or(false) {
-        return Ok(());
+    if stopped.is_err() {
+        // The runtime still runs, so the windows that slept show it again.
+        for (window, generation, _) in slept {
+            reopen(&app, &window, generation, None);
+        }
     }
+    stopped.map(|_| ())
+}
+
+/// A runtime the companion opened and verified.
+pub struct Opened {
+    pub url: Url,
+    pub pid: i64,
+    pub spawned: bool,
+}
+
+/// Opens `worktree`'s runtime through the companion, starting it when needed,
+/// or replacing it when `replace` is set. With `only_running`, a runtime that
+/// is not running when the worktree's lock is taken is left alone (`None`).
+pub async fn open_runtime(
+    app: &AppHandle,
+    id: &str,
+    worktree: &str,
+    replace: bool,
+    only_running: bool,
+) -> Result<Option<Opened>, Failure> {
+    let desktop = app.state::<Desktop>();
+    let library = desktop.library().await?.1;
+    let repository = library.repository(id)?;
+    let lock = desktop.worktree(worktree);
+    let _serialized = lock.lock().await;
+    if only_running && !running(&desktop, worktree).await {
+        return Ok(None);
+    }
+    let opened = bridge::call(
+        &desktop.directory,
+        Request {
+            operation: "open",
+            folder: Some(worktree),
+            executable: repository.executables.get(worktree).map(String::as_str),
+            global_executable: library.global_executable.as_deref(),
+            restart: replace,
+            ..Request::default()
+        },
+        bridge::TIMEOUT,
+    )
+    .await?;
     let url = security::runtime_url(
         opened["url"]
             .as_str()
@@ -240,10 +313,27 @@ pub async fn restart(
     let pid = opened["pid"]
         .as_i64()
         .ok_or("Rhizome returned no runtime process.".to_string())?;
-    for (window, generation) in app.state::<Panes>().showing(&worktree) {
-        follow(&app, &window, generation, url.clone(), pid);
-    }
-    Ok(())
+    Ok(Some(Opened {
+        url,
+        pid,
+        spawned: opened["spawned"].as_bool().unwrap_or(false),
+    }))
+}
+
+/// Whether the companion verifies `worktree`'s runtime as running right now.
+async fn running(desktop: &Desktop, worktree: &str) -> bool {
+    let folders = [worktree.to_string()];
+    bridge::call(
+        &desktop.directory,
+        Request {
+            operation: "status",
+            folders: Some(&folders),
+            ..Request::default()
+        },
+        bridge::TIMEOUT,
+    )
+    .await
+    .is_ok_and(|status| status["runtimes"][worktree]["state"] == "running")
 }
 
 /// Clears the page of the worktree `generation` gave up on, unless a newer

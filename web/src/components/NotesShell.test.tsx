@@ -193,6 +193,40 @@ describe("NotesShell", () => {
     });
   });
 
+  it("closes the active note tab when the desktop app asks, but never Home", async () => {
+    render(<NotesShell />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Demo plan.*plans\/demo-plan\.md/i }),
+    );
+    expect(await screen.findByRole("tab", { name: /demo-plan\.md/i })).toBeVisible();
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("rhizome:close-tab"));
+    });
+    await waitFor(() => expect(screen.queryByRole("tab", { name: /demo-plan\.md/i })).toBeNull());
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("rhizome:close-tab"));
+    });
+    expect(screen.getByRole("tab", { name: "Home" })).toBeVisible();
+  });
+
+  it("leaves note tabs alone when the desktop app asks while Notes is not on screen", async () => {
+    const shell = render(<NotesShell />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Demo plan.*plans\/demo-plan\.md/i }),
+    );
+    expect(await screen.findByRole("tab", { name: /demo-plan\.md/i })).toBeVisible();
+    shell.rerender(<NotesShell active={false} />);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("rhizome:close-tab"));
+    });
+    expect(screen.getByRole("tab", { name: /demo-plan\.md/i, hidden: true })).toBeInTheDocument();
+  });
+
   it("opens Problems in its own reusable tab from the left rail", async () => {
     http.json("GET", "/api/v1/ontology/types/__issues__", typeDetail("Issues", []));
     render(<NotesShell />);

@@ -17,7 +17,7 @@ import { NOTES_ROOT_PATH, parseNotesLocation } from "./notesRoute";
 import { OntologyAtlasWorkspace } from "./OntologyAtlasWorkspace";
 import { isOntologyPath, ONTOLOGY_ROOT_PATH } from "./ontologyRoute";
 import { OntologyEditSessionProvider } from "./useOntologyEditSession";
-import { useOntologySummaryQuery, useValidationQuery } from "./useNotesQueries";
+import { summaryCountsKnown, useOntologySummaryQuery, useValidationQuery } from "./useNotesQueries";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import { validationHealth } from "./validation/validationPresentation";
 
@@ -157,8 +157,9 @@ function NotesNavTools() {
 
   return (
     <div className="app-shell__notes-tools">
-      {/* Unknown counts stay hidden rather than reading as zero. */}
-      {summary && (
+      {/* Unknown counts stay hidden rather than reading as zero, as while the
+          first index after a start is still rebuilding. */}
+      {summary && summaryCountsKnown(summary) && (
         <>
           <span>
             <b>{summary.typedNotes}</b> typed

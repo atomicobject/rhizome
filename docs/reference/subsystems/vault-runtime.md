@@ -1,11 +1,12 @@
 ---
 summary: "Design constraints and review checklist for the vault runtime: one auto-started serve process per vault root that wins the runtime lock, publishes a probe-verified manifest, runs every indexing job on one lane, and serves the loopback control API that rzm index and code mode execute through."
 reference-kind: guide
-last-verified: 2026-10-04
+last-verified: 2026-10-05
 code-paths:
   - pkg/app/runtime
   - pkg/app/bootstrap
   - pkg/app/cli/serve
+  - pkg/app/runtimestop
 tags: [subsystem/vault-runtime]
 code-anchors:
   go:
@@ -15,6 +16,8 @@ code-anchors:
       ref: glob:pkg/app/bootstrap/**/*.go
     - label: subsystem.vault-runtime.guidance.2
       ref: glob:pkg/app/cli/serve/**/*.go
+    - label: subsystem.vault-runtime.guidance.3
+      ref: glob:pkg/app/runtimestop/**/*.go
 ---
 
 # Vault runtime guidance
@@ -24,8 +27,9 @@ code-anchors:
 - `pkg/app/runtime`: discovery and client contract. `InstanceManifest` (`.rhizome/runtime.json`, mode 0600, carries run id, build id, mode, control token), `LiveManifest`/`Probe` with three error classes, `Ensure` (find or spawn a headless runtime under the spawn lease), the loopback control routes and timing constants, `AutostartEnabled`/`IdleTimeout` configuration, and the global instance `Registry`.
 - `pkg/fileio` owns the cooperative read and namespace replacement primitives used by runtime manifests, registry entries, and port preferences as well as repository configuration. Runtime publishers retain their temporary-file and permission responsibilities; the lower-level OS contract is documented in the vault-core note.
 - `pkg/app/bootstrap`: `LiveRuntime`, the phased async bootstrap for long-running processes and one-shot commands; election on `.rhizome/runtime.lock` (`live_election.go`); leader indexing startup (`live_indexing.go`) and the indexing lane (`lane/`): the single serialized executor for boot catch-up, watcher ownership batches, validation projections, embedding cycles, graph cycles, and explicit index jobs.
-- `pkg/app/cli/serve`: serve orchestration below Cobra: readiness gates, interrupted-write recovery, `ControlHooks` assembly into `web.RuntimeControl`, headless lifecycle (log file, idle exit, root removal), `rzm stop`.
-- Consumers: `cmd/serve.go`, `cmd/stop.go`, `cmd/index.go` (delegation), `cmd/agent_code_serve.go` (agent operations), `cmd/agent_start.go` and `cmd/mcp.go` (ensure only). Contract: [[vault-runtime-coordination|SPEC-0104]].
+- `pkg/app/cli/serve`: serve orchestration below Cobra: readiness gates, interrupted-write recovery, `ControlHooks` assembly into `web.RuntimeControl`, headless lifecycle (log file, idle exit, root removal).
+- `pkg/app/runtimestop`: stopping a vault's runtime for `rzm stop` and the desktop companion: cancel a pending start, request graceful shutdown, then terminate only a headless runtime. It depends on `pkg/app/runtime` alone, so the companion does not link the server.
+- Consumers: `cmd/serve.go`, `cmd/stop.go`, `pkg/app/desktop/stop.go` (desktop Stop Rhizome), `cmd/index.go` (delegation), `cmd/agent_code_serve.go` (agent operations), `cmd/agent_start.go` and `cmd/mcp.go` (ensure only). Contract: [[vault-runtime-coordination|SPEC-0104]].
 
 ## Diagnostics
 

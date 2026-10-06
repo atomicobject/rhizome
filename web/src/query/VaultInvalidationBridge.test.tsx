@@ -60,6 +60,32 @@ describe("VaultInvalidationBridge", () => {
     expect(isInvalidated(client, globalGraphKey)).toBe(true);
   });
 
+  it("refetches at once for the first event of a save's burst and once after it", () => {
+    vi.useFakeTimers();
+    const { client, source } = mountWithCachedQueries();
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+
+    const indexCalls = () =>
+      invalidate.mock.calls.filter(([filters]) => filters?.queryKey?.[1] !== "graph").length;
+
+    act(() => source.emit("", "node.changed"));
+    expect(indexCalls()).toBe(1);
+
+    act(() => {
+      for (const delay of [200, 150, 100, 200]) {
+        vi.advanceTimersByTime(delay);
+        source.emit("", "index.changed");
+      }
+    });
+    expect(indexCalls()).toBe(1);
+
+    act(() => vi.advanceTimersByTime(2000));
+    expect(indexCalls()).toBe(2);
+
+    act(() => source.emit("", "edit_session.invalidated"));
+    expect(indexCalls()).toBe(3);
+  });
+
   it("coalesces an index-event burst into one global graph invalidation", () => {
     vi.useFakeTimers();
     const { client, source } = mountWithCachedQueries();

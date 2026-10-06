@@ -224,6 +224,24 @@ describe("NotesLeftRail", () => {
     expect(screen.queryByText("Loading notes…")).not.toBeInTheDocument();
   });
 
+  it("lists types without counts while the first index after a start rebuilds", async () => {
+    const rebuilding: OntologySummaryResponse = {
+      ...summary,
+      rebuilding: true,
+      totalNotes: 0,
+      typedNotes: 0,
+      issueNotes: 0,
+      types: (summary.types ?? []).map((type) => ({ ...type, count: 0, issueCount: 0 })),
+    };
+
+    render(<NotesLeftRail {...props({ summary: rebuilding })} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Expand Other" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand Document" }));
+
+    expect(await screen.findByRole("button", { name: "Plan" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Plan (0)" })).not.toBeInTheDocument();
+  });
+
   it("keeps type groups the way the user left them after a remount", async () => {
     const first = render(<NotesLeftRail {...props()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Expand Other" }));

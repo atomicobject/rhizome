@@ -36,7 +36,12 @@ import {
   PSEUDO_TYPE_MODIFIED,
   splitNoteTarget,
 } from "./notesRoute";
-import { useOntologyTypeQuery, useValidationQuery, useViewCatalogQuery } from "./useNotesQueries";
+import {
+  summaryCountsKnown,
+  useOntologyTypeQuery,
+  useValidationQuery,
+  useViewCatalogQuery,
+} from "./useNotesQueries";
 import { usePopoverDismiss } from "./focusManagement";
 import { useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
 import { useValidationScopeSummaries, validationScopeKey } from "./useValidationScopeSummaries";
@@ -250,9 +255,7 @@ export function NotesLeftRail({
   const standaloneGroups = useMemo(() => groupStandaloneViews(catalog), [catalog]);
   const railGroups = useMemo(() => buildRailGroups(summary), [summary]);
 
-  // A rebuilding summary with no published snapshot yet has no real count.
-  const totalNotes =
-    !summary || (summary.rebuilding && summary.totalNotes === 0) ? null : summary.totalNotes;
+  const totalNotes = summary && summaryCountsKnown(summary) ? summary.totalNotes : null;
 
   const activeAncestors = useMemo(
     () => activeRailAncestors(railGroups, selectedType),
@@ -537,7 +540,9 @@ export function NotesLeftRail({
           <button
             type="button"
             disabled={embedded}
-            aria-label={embedded ? label(item) : `${label(item)} (${item.count})`}
+            aria-label={
+              embedded || totalNotes === null ? label(item) : `${label(item)} (${item.count})`
+            }
             className={`ontology-type-row${depth > 1 ? " ontology-type-row--child" : ""}${node.kind === "interface" ? " ontology-type-row--interface" : ""}${embedded ? " ontology-type-row--embedded" : ""}${activeCollection === item.name ? " is-selected" : ""}`}
             onClick={() => onSelectCollection(item.name)}
           >
@@ -548,7 +553,9 @@ export function NotesLeftRail({
               presenceOnly
               label={`${typeIssues ?? "Unknown"} validation issues in ${label(item)}`}
             />
-            {!embedded && <span className="ontology-type-row__count">{item.count}</span>}
+            {!embedded && totalNotes !== null && (
+              <span className="ontology-type-row__count">{item.count}</span>
+            )}
           </button>
         </div>
         {hasChildren && expandedNode && node.children.map((child) => renderNode(child, depth + 1))}

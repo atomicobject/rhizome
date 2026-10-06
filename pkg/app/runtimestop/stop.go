@@ -1,4 +1,5 @@
-package serve
+// Package runtimestop stops vault runtimes for `rzm stop` and the desktop app.
+package runtimestop
 
 import (
 	"context"
@@ -77,6 +78,15 @@ func Stop(ctx context.Context, opts StopOptions) error {
 		return ErrStopIncomplete
 	}
 	return nil
+}
+
+// StopVault stops one vault's runtime as `rzm stop` does and returns why it
+// did not stop. Zero grace uses appruntime.StopGrace.
+func StopVault(ctx context.Context, vaultPath string, grace time.Duration) error {
+	if grace <= 0 {
+		grace = appruntime.StopGrace
+	}
+	return stopOne(ctx, vaultPath, grace, io.Discard)
 }
 
 func stopTargets(ctx context.Context, opts StopOptions) ([]string, error) {
