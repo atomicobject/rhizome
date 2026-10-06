@@ -93,8 +93,8 @@ function WorkspaceFacts({ data }: { data: ScopeData }) {
 
 function GroupFactsList({ data }: { data: ScopeData }) {
   if (!data.model) return null;
-  const records = data.model.nodes.reduce((sum, node) => sum + node.count, 0);
-  const issues = data.model.nodes.reduce((sum, node) => sum + node.issueCount, 0);
+  const records = data.model.totals.count;
+  const issues = data.model.totals.issueCount;
 
   return (
     <span className="gv-facts-list">

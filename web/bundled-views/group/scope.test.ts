@@ -1,3 +1,4 @@
+import type { DisplayGroupMember } from "@rhizome/kit";
 import { expect, it } from "vitest";
 
 import { AGGREGATE, AGGREGATE_PARTS, SCOPE_GROUPS, SUMMARIES } from "./__fixtures__/aggregate.ts";
@@ -235,4 +236,141 @@ it("marks each declared relation toward another member used or unused", () => {
     ["Release", "checklist", "Checklist", 1],
     ["Release", "area", "Area", 0],
   ]);
+});
+
+/** Interfaces IA(A, B) and IB(B, C) in one group, beside a type X that links to B. */
+function overlapping(scope: Scope) {
+  const entry = (
+    name: string,
+    kind: "type" | "interface",
+    implementors: string[] = [],
+  ): DisplayGroupMember => ({
+    name,
+    kind,
+    label: name,
+    pluralLabel: name,
+    count: 0,
+    issueCount: 0,
+    implementors,
+    children: implementors.map((type) => entry(type, "type")),
+  });
+
+  const stats = (name: string, count: number, issueCount: number) => ({
+    name,
+    count,
+    issueCount,
+    lastChanged: null,
+    lifecycle: null,
+    gaps: [],
+  });
+
+  const figures = {
+    types: new Map(
+      (
+        [
+          ["A", 3, 1],
+          ["B", 2, 2],
+          ["C", 3, 0],
+          ["X", 1, 0],
+        ] as const
+      ).map(([name, count, issues]) => [name, { ...stats(name, count, issues), targetSets: [] }]),
+    ),
+    interfaces: new Map([
+      ["IA", { ...stats("IA", 5, 3), implementors: ["A", "B"] }],
+      ["IB", { ...stats("IB", 5, 2), implementors: ["B", "C"] }],
+    ]),
+    untyped: { count: 0, links: 0 },
+  };
+
+  const built = scopeModel({
+    scope,
+    groups: [
+      {
+        name: "Ops",
+        members: [
+          entry("IA", "interface", ["A", "B"]),
+          entry("IB", "interface", ["B", "C"]),
+          entry("X", "type"),
+        ],
+      },
+    ],
+    members: figures,
+    summaries: new Map(),
+    expanded: new Set(),
+  });
+
+  if (!built) throw new Error("no scope");
+
+  return built;
+}
+
+it("lets overlapping interfaces both hold a shared implementor and counts it once in totals", () => {
+  const ops = overlapping({ kind: "group", group: "Ops" });
+
+  expect(ops.nodeIndex.get("IB")).toMatchObject({ types: ["B", "C"], count: 5 });
+  expect(ops.nodesOf.get("B")).toEqual(["IA", "IB"]);
+  expect(ops.totals).toEqual({ count: 9, issueCount: 3 });
+
+  const links = linkModel(
+    ops,
+    [{ a: "B", b: "X", links: 1, relationLinks: 1, plainLinks: 0, fields: [] }],
+    new Map(),
+  );
+
+  expect(links.edgeIndex.get(edgeKey("IA", "X"))?.links).toBe(1);
+  expect(links.edgeIndex.get(edgeKey("IB", "X"))?.links).toBe(1);
+
+  const collapsed = overlapping({ kind: "workspace" }).nodeIndex.get(groupNodeId("Ops"));
+
+  expect(collapsed).toMatchObject({ count: 9, issueCount: 3 });
+});
+
+it("resolves a relation declared toward an interface to the members holding its implementors", () => {
+  const groups = [
+    {
+      name: "Ship",
+      members: SCOPE_GROUPS.groups[2].members
+        .flatMap((root) => [root, ...root.children])
+        .filter((entry) => entry.name === "Release" || entry.name === "Story")
+        .map((entry) => ({ ...entry, children: [] })),
+    },
+    { name: "Library", members: SCOPE_GROUPS.groups[0].members },
+  ];
+
+  // A vault that declares `Note` as an interface still keeps broad `Note` fields out.
+  const figures = {
+    ...members,
+    interfaces: new Map([
+      ...members.interfaces,
+      [
+        "Note",
+        { ...members.interfaces.get("Work")!, name: "Note", implementors: ["Memo", "Glossary"] },
+      ],
+    ]),
+  };
+
+  const scoped = (group: string) => {
+    const built = scopeModel({
+      scope: { kind: "group", group },
+      groups,
+      members: figures,
+      summaries: SUMMARIES,
+      expanded: new Set(),
+    });
+
+    if (!built) throw new Error("no scope");
+
+    return built;
+  };
+
+  // Release.works is typed by the Work interface; Story implements it, and no Release links a Story.
+  expect(
+    declaredRelations(scoped("Ship"), TYPE_DOCS, pairs).map((relation) => [
+      relation.member,
+      relation.field,
+      relation.target,
+      relation.count,
+    ]),
+  ).toEqual([["Release", "works", "Story", 0]]);
+  expect(declaredRelations(scoped("Library"), TYPE_DOCS, pairs)).toEqual([]);
 });

@@ -71,10 +71,14 @@ export type ScopeModel = {
   /** The map's nodes, most records first. */
   nodes: readonly ScopeNode[];
   nodeIndex: ReadonlyMap<string, ScopeNode>;
-  /** The node ids each concrete type counts toward; several only for a type in two named groups. */
+  /** The node ids each concrete type counts toward; several for a type two members or named groups hold. */
   nodesOf: ReadonlyMap<string, readonly string[]>;
   /** Every concrete type inside the scope. */
   types: ReadonlySet<string>;
+  /** Each interface's note implementors, as the shape counts them. */
+  implementors: ReadonlyMap<string, readonly string[]>;
+  /** Records and issues of the scope's types, each type counted once however many members hold it. */
+  totals: { count: number; issueCount: number };
   /** Named groups in API order, then the ungrouped types; empty for a group scope. */
   sections: readonly ScopeSection[];
   /** Named groups, for colors and the legend. */
@@ -104,16 +108,22 @@ const latest = (values: readonly (number | null)[]) => {
   return times.length ? Math.max(...times) : null;
 };
 
-/** A group's members without embedded types; an interface keeps only its note implementors. */
+/**
+ * A group's members without embedded types. A member stands for every note
+ * type its figures count: a type for itself, an interface for each note type
+ * the shape counts as its implementor, even one an earlier member also holds.
+ */
 function notePlans(group: DisplayGroup, input: ScopeInput): MemberPlan[] {
   const isNote = (type: string) => !input.summaries.get(type)?.embedded;
 
   return planMembers(group).flatMap((plan) => {
-    const concreteTypes = plan.concreteTypes.filter(isNote);
+    if (plan.kind === "type")
+      return isNote(plan.name) ? [{ ...plan, concreteTypes: [plan.name] }] : [];
 
-    if (plan.kind === "type" && !isNote(plan.name)) return [];
+    const concreteTypes =
+      input.members.interfaces.get(plan.name)?.implementors ?? plan.concreteTypes.filter(isNote);
 
-    if (plan.kind === "interface" && !concreteTypes.length && plan.concreteTypes.length) return [];
+    if (!concreteTypes.length && plan.concreteTypes.length) return [];
 
     return [{ ...plan, concreteTypes }];
   });
@@ -168,6 +178,17 @@ function typeNode(name: string, input: ScopeInput): ScopeNode {
   };
 }
 
+/** Records, issues, and last change of concrete types, each type counted once. */
+function totalsOf(types: Iterable<string>, input: ScopeInput) {
+  const stats = [...new Set(types)].flatMap((type) => input.members.types.get(type) ?? []);
+
+  return {
+    count: sum(stats.map((type) => type.count)),
+    issueCount: sum(stats.map((type) => type.issueCount)),
+    lastChanged: latest(stats.map((type) => type.lastChanged)),
+  };
+}
+
 function groupNode(name: string, members: readonly ScopeNode[], input: ScopeInput): ScopeNode {
   const types = [...new Set(members.flatMap((member) => member.types))];
 
@@ -178,9 +199,7 @@ function groupNode(name: string, members: readonly ScopeNode[], input: ScopeInpu
     label: name,
     description: "",
     types,
-    count: sum(types.map((type) => input.members.types.get(type)?.count ?? 0)),
-    issueCount: sum(members.map((member) => member.issueCount)),
-    lastChanged: latest(members.map((member) => member.lastChanged)),
+    ...totalsOf(types, input),
     group: name,
     members,
     stats: null,
@@ -203,6 +222,9 @@ function untypedNode(input: ScopeInput): ScopeNode {
     stats: null,
   };
 }
+
+const implementorsOf = (input: ScopeInput) =>
+  new Map([...input.members.interfaces.values()].map((entry) => [entry.name, entry.implementors]));
 
 function indexNodes(nodes: readonly ScopeNode[]) {
   const nodesOf = new Map<string, string[]>();
@@ -227,13 +249,17 @@ function groupScope(input: ScopeInput, name: string): ScopeModel | null {
   const prefix = sharedLabelPrefix(plans.map((plan) => plan.pluralLabel));
   const color = name === UNGROUPED ? null : name;
   const nodes = plans.map((plan) => planNode(plan, input, color, prefix)).sort(byCount);
+  const types = new Set(nodes.flatMap((node) => node.types));
+  const { count, issueCount } = totalsOf(types, input);
 
   return {
     scope: input.scope,
     nodes,
     nodeIndex: new Map(nodes.map((node) => [node.id, node])),
     nodesOf: indexNodes(nodes),
-    types: new Set(nodes.flatMap((node) => node.types)),
+    types,
+    implementors: implementorsOf(input),
+    totals: { count, issueCount },
     sections: [],
     groupNames: color ? [color] : [],
     untyped: null,
@@ -275,6 +301,12 @@ function workspaceScope(input: ScopeInput): ScopeModel {
   const untyped = untypedNode(input);
   const all = [...nodes, ...ungrouped, untyped].sort(byCount);
 
+  const types = new Set(
+    [...input.members.types.keys()].filter((type) => !input.summaries.get(type)?.embedded),
+  );
+
+  const { count, issueCount } = totalsOf(types, input);
+
   return {
     scope: input.scope,
     nodes: all,
@@ -285,9 +317,9 @@ function workspaceScope(input: ScopeInput): ScopeModel {
       ]),
     ),
     nodesOf: indexNodes(all),
-    types: new Set(
-      [...input.members.types.keys()].filter((type) => !input.summaries.get(type)?.embedded),
-    ),
+    types,
+    implementors: implementorsOf(input),
+    totals: { count, issueCount },
     sections,
     groupNames: named.map((group) => group.name),
     untyped,
@@ -445,29 +477,32 @@ export type DeclaredRelation = {
   count: number;
 };
 
-/** The member node a declared target type or interface belongs to. */
-function ownerOf(model: ScopeModel, typeName: string) {
-  if (model.nodeIndex.has(typeName)) return typeName;
-  const owners = model.nodesOf.get(typeName) ?? [];
+/** The member nodes a field's declared target type or interface reaches, through an interface's implementors. */
+function targetsOf(model: ScopeModel, typeName: string): readonly string[] {
+  if (model.nodeIndex.has(typeName)) return [typeName];
+  const types = model.implementors.get(typeName) ?? [typeName];
 
-  return owners.length === 1 ? owners[0] : null;
+  return [...new Set(types.flatMap((type) => model.nodesOf.get(type) ?? []))];
 }
 
 /**
  * Each member's relation fields toward another member, merged across the
- * concrete types that declare them, with the record links they carry. Read
- * from each concrete type's documentation.
+ * concrete types that declare them, with the record links they carry to that
+ * member. Read from each concrete type's documentation. A broad field typed
+ * by `Note` relates to nothing in particular, so it never counts.
  */
 export function declaredRelations(
   model: ScopeModel,
   docs: Readonly<Record<string, TypeDoc>>,
   pairs: readonly LinkPair[],
 ): DeclaredRelation[] {
+  // Relation links by declaring type, field, and the type at the other end.
   const used = new Map<string, number>();
 
   for (const pair of pairs) {
     for (const field of pair.fields) {
-      const key = `${field.type}\u0000${field.field}`;
+      const other = pair.a === field.type ? pair.b : pair.a;
+      const key = `${field.type}\u0000${field.field}\u0000${other}`;
       used.set(key, (used.get(key) ?? 0) + field.count);
     }
   }
@@ -477,14 +512,23 @@ export function declaredRelations(
   for (const node of model.nodes) {
     for (const type of node.types) {
       for (const field of docs[type]?.fields ?? []) {
-        if (field.kind !== "link" || !field.typeName) continue;
-        const target = ownerOf(model, field.typeName);
+        if (field.kind !== "link" || !field.typeName || field.typeName === "Note") continue;
 
-        if (target === null || target === node.id) continue;
-        const key = `${node.id}\u0000${field.name}\u0000${target}`;
-        const relation = found.get(key) ?? { member: node.id, field: field.name, target, count: 0 };
-        relation.count += used.get(`${type}\u0000${field.name}`) ?? 0;
-        found.set(key, relation);
+        for (const target of targetsOf(model, field.typeName)) {
+          if (target === node.id) continue;
+          const key = `${node.id}\u0000${field.name}\u0000${target}`;
+
+          const relation = found.get(key) ?? {
+            member: node.id,
+            field: field.name,
+            target,
+            count: 0,
+          };
+
+          for (const other of model.nodeIndex.get(target)?.types ?? [])
+            relation.count += used.get(`${type}\u0000${field.name}\u0000${other}`) ?? 0;
+          found.set(key, relation);
+        }
       }
     }
   }
