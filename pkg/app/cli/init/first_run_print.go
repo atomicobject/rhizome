@@ -161,6 +161,16 @@ func readyLabel(ready bool, yes, no string) string {
 // printSetupSummary reports a first run grouped by purpose, then the next
 // steps.
 func printSetupSummary(out io.Writer, report syncReport, templates []string, skips []skip, savedKey string) {
+	fmt.Fprintln(out)
+	check := styleOK(out, "✓")
+	for _, line := range setupSummaryLines(report, templates, skips, savedKey) {
+		fmt.Fprintf(out, "  %s %s\n", check, line)
+	}
+	printKeptAndWarnings(out, report)
+}
+
+// setupSummaryLines groups a first run's writes by purpose.
+func setupSummaryLines(report syncReport, templates []string, skips []skip, savedKey string) []string {
 	paths := append(append([]string{}, report.Created...), report.Updated...)
 	var guidance, skillNames, harnesses, docDirs []string
 	schema := false
@@ -181,35 +191,47 @@ func printSetupSummary(out io.Writer, report syncReport, templates []string, ski
 			}
 		}
 	}
-	fmt.Fprintln(out)
-	check := styleOK(out, "✓")
-	fmt.Fprintf(out, "  %s .rhizome/config.yml\n", check)
+	lines := []string{".rhizome/config.yml"}
 	if len(guidance) > 0 {
-		fmt.Fprintf(out, "  %s Rhizome guidance in %s\n", check, joinHumanPaths(guidance))
+		lines = append(lines, "Rhizome guidance in "+joinHumanPaths(guidance))
 	}
 	if len(skillNames) > 0 {
-		fmt.Fprintf(out, "  %s %s in %s\n", check, countNoun(len(skillNames), "skill"), joinHumanPaths(harnessDirs(harnesses)))
+		lines = append(lines, fmt.Sprintf("%s in %s", countNoun(len(skillNames), "skill"), joinHumanPaths(harnessDirs(harnesses))))
 	}
 	if len(docDirs) > 0 {
 		if len(docDirs) > 3 {
 			docDirs = append(docDirs[:3], "more")
 		}
-		fmt.Fprintf(out, "  %s %s docs in %s\n", check, workflowName(templates), joinHumanPaths(docDirs))
+		lines = append(lines, fmt.Sprintf("%s docs in %s", workflowName(templates), joinHumanPaths(docDirs)))
 	}
 	if schema {
-		fmt.Fprintf(out, "  %s Schema, saved queries, and views in .rhizome/\n", check)
+		lines = append(lines, "Schema, saved queries, and views in .rhizome/")
 	}
 	if len(skips) > 0 {
-		fmt.Fprintf(out, "  %s Skipped %s in .rhizome/ignore\n", check, skipSummary(skips))
+		lines = append(lines, fmt.Sprintf("Skipped %s in .rhizome/ignore", skipSummary(skips)))
 	}
 	if savedKey != "" {
-		fmt.Fprintf(out, "  %s %s saved to ~/.config/rhizome/config.yml\n", check, savedKey)
+		lines = append(lines, savedKey+" saved to ~/.config/rhizome/config.yml")
 	}
-	printKeptAndWarnings(out, report)
+	return lines
 }
 
 // printNextSteps closes a first run with what to do now.
 func printNextSteps(out io.Writer, report syncReport, hint string, needIndex bool) {
+	notes := []string{"Commit " + joinHumanPaths(commitPaths(report)) + " so your team shares this setup."}
+	if hint != "" {
+		notes = append([]string{hint}, notes...)
+	}
+	var steps [][2]string
+	if needIndex {
+		steps = append(steps, [2]string{"rzm index", "build the search index"})
+	}
+	printNext(out, steps, notes...)
+}
+
+// commitPaths lists the top-level paths a first run wrote, for the commit
+// reminder.
+func commitPaths(report syncReport) []string {
 	commit := []string{".rhizome/"}
 	seen := map[string]bool{}
 	for _, path := range append(append([]string{}, report.Created...), report.Updated...) {
@@ -223,15 +245,7 @@ func printNextSteps(out io.Writer, report syncReport, hint string, needIndex boo
 		seen[top] = true
 		commit = append(commit, top)
 	}
-	notes := []string{"Commit " + joinHumanPaths(commit) + " so your team shares this setup."}
-	if hint != "" {
-		notes = append([]string{hint}, notes...)
-	}
-	var steps [][2]string
-	if needIndex {
-		steps = append(steps, [2]string{"rzm index", "build the search index"})
-	}
-	printNext(out, steps, notes...)
+	return commit
 }
 
 func harnessDirs(harnesses []string) []string {

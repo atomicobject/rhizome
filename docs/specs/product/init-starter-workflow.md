@@ -3,7 +3,7 @@ type: ProductSpec
 summary: "Defines the user-facing rzm init workflow: a one-screen first run, maintenance-first reruns, a four-section settings menu, single-pass credential onboarding with Voyage AI as the default, one ownership rule for generated files, ignored-subtree inclusion, agentic-engineering starter selection and migration, and starter ejection."
 id: SPEC-0038
 spec-status: active
-last-updated: 2026-10-01
+last-updated: 2026-10-06
 aliases:
   - SPEC-0038
   - init-starter-workflow
@@ -73,6 +73,7 @@ The first run should feel inspectable rather than magical, and it should not ask
   - Missing-key and readiness notes appear once, in the summary.
 - Non-interactive runs express the same choices through options. ^SPEC-0038-US1-AC5
   - Without a terminal, `rzm init` uses the recommendations, writes, and prints the same summary of what it did.
+  - A first run also accepts `--addons`, `--skip`, `--keep-indexed`, and `--search-key-stdin`, and `--json` writes one machine-readable document, as [[desktop-repository-setup|SPEC-0118]] defines for scripts and the desktop app.
 - Semantic search turns on only with a usable key. ^SPEC-0038-US1-AC7
   - When no key resolves and none is pasted, semantic search stays off (no semantic search section is written) and init prints one line saying how to turn it on, so `rzm index` keeps working without a key.
   - A later rerun whose change list finds a usable key for Voyage AI offers to turn semantic search on.

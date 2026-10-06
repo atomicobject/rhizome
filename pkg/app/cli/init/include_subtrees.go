@@ -2,7 +2,6 @@ package init
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,29 +16,21 @@ import (
 // .rhizome/ignore so humans can find and prune them (SPEC-0064).
 const includedSubtreesHeader = "# rhizome: included subtrees"
 
-// appendIncludedSubtrees appends `!/<rel>/` negation lines for the given
-// root-relative paths under a labeled comment block in .rhizome/ignore.
+// withIncludedSubtrees returns content with a `!/<rel>/` negation for each
+// of rels under the included subtrees block.
 //
 // CORRECTNESS TRAP: when .rhizome/ignore is missing or empty, the built-in
-// default ignore layer only applies because the file is absent. Writing a bare
-// file with just negations would silently disable the defaults, so we first
-// materialize ignore.DefaultIgnoreFile() (see pkg/vault/ignore/load.go).
-func appendIncludedSubtrees(projectRoot string, rels []string) error {
+// default ignore layer only applies because the file has no rules. Writing a
+// bare file with just negations would silently disable the defaults, so
+// content without rules first becomes ignore.DefaultIgnoreFile() (see
+// pkg/vault/ignore/load.go).
+func withIncludedSubtrees(content string, rels []string) string {
 	if len(rels) == 0 {
-		return nil
+		return content
 	}
-	path := filepath.Join(projectRoot, ".rhizome", "ignore")
-	data, err := os.ReadFile(path)
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-		data = []byte(ignore.DefaultIgnoreFile())
-	case err != nil:
-		return err
-	case len(strings.TrimSpace(string(data))) == 0:
-		data = []byte(ignore.DefaultIgnoreFile())
+	if len(strings.TrimSpace(content)) == 0 {
+		content = ignore.DefaultIgnoreFile()
 	}
-
-	content := string(data)
 	existing := map[string]bool{}
 	hasHeader := false
 	for _, line := range strings.Split(content, "\n") {
@@ -78,15 +69,7 @@ func appendIncludedSubtrees(projectRoot string, rels []string) error {
 			b.WriteString("\n")
 		}
 	}
-
-	out := b.String()
-	if out == content {
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(path, []byte(out), 0o644)
+	return b.String()
 }
 
 func includeIgnoredInputs(projectRoot string, inputs []string) ([]string, error) {

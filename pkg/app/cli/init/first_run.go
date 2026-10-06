@@ -167,9 +167,21 @@ func (r *initRun) runFirstRun(s *setup, workflowChosen bool) (firstRunOutcome, e
 		return outcome, err
 	}
 	ready := searchReady(provider, r.session, nil)
+	if key := strings.TrimSpace(r.opts.SearchKey); key != "" {
+		need, ok := searchNeed(provider)
+		if !ok {
+			return outcome, fmt.Errorf("--search-key-stdin needs --search voyage or openai")
+		}
+		if ready, outcome.savedKey, err = saveKey(r.session, need, key); err != nil {
+			return outcome, err
+		}
+	}
 	applySearchChoice(&rec, provider, ready)
 	s.cfg = rec
 	keep := readIgnoreFileState(r.layout.ProjectRoot).keep
+	for _, p := range s.keep {
+		keep[p] = true
+	}
 	s.skips = mergeSkips(s.skips, detectSkips(r.layout.ProjectRoot, s.cfg.Notes, r.layout.Code.Files, keep))
 
 	outcome.provider, outcome.ready = provider, ready

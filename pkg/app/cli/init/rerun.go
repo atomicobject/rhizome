@@ -31,6 +31,9 @@ type initRun struct {
 	session *credentials.Session
 	ui      ownershipUI
 	layout  DetectedLayout
+	// detectedAgents are the agents repository markers show, before
+	// installed commands and choices change the layout's harnesses.
+	detectedAgents AgentHarnesses
 }
 
 // setup is what init will write: the config plus choices that live outside
@@ -148,14 +151,8 @@ func (r *initRun) apply(s setup, res resolved) (syncReport, error) {
 			return report, err
 		}
 	}
-	if err := ensureIgnoreFile(root); err != nil {
-		return report, err
-	}
-	if err := appendIncludedSubtrees(root, s.includeIgnored); err != nil {
-		return report, fmt.Errorf("include ignored folder: %w", err)
-	}
-	if err := writeSkipChanges(root, s.skips, s.keep); err != nil {
-		return report, fmt.Errorf("write suggested skips: %w", err)
+	if err := writeIgnore(root, s); err != nil {
+		return report, fmt.Errorf("write .rhizome/ignore: %w", err)
 	}
 	return report, nil
 }

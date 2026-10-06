@@ -394,6 +394,7 @@ A first run that asks at most three questions and writes quietly, a rerun that n
 - Batch 3 first added per-language code drift; Batch 5 replaced it with folder-limit removal, which matches how the indexer treats folders as one union.
 - The agents checklist has no separate AGENTS.md switch, and Codex adds nothing beyond the shared files because no command templates ship today.
 - Regenerating this repository needed one grouped answer for the core `SKILL.md` copies, which had no record yet; they matched the committed generated output, so the update was taken.
+- 2026-10-06 (frozen-scope-drift acknowledged for SPEC-0038): EFF-2026-10-06-08-07 added one bullet to SPEC-0038 US1-AC5 pointing to the first-run options and `--json` that [[desktop-repository-setup|SPEC-0118]] owns. The edit records a contract delivered by that effort and changes no behavior this effort froze.
 
 ## Execution Notes
 

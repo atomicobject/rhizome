@@ -17,53 +17,34 @@ func readIgnoreFile(t *testing.T, root string) string {
 	return string(data)
 }
 
-func TestAppendIncludedSubtrees(t *testing.T) {
-	t.Run("fresh file gets defaults plus block", func(t *testing.T) {
-		root := t.TempDir()
-		require.NoError(t, appendIncludedSubtrees(root, []string{"app"}))
-		body := readIgnoreFile(t, root)
-		require.True(t, strings.HasPrefix(body, ignore.DefaultIgnoreFile()), "defaults must be materialized before negations")
-		require.Contains(t, body, includedSubtreesHeader)
-		require.Contains(t, body, "!/app/\n")
+func TestWithIncludedSubtrees(t *testing.T) {
+	t.Run("content without rules gets defaults plus block", func(t *testing.T) {
+		for _, content := range []string{"", "  \n"} {
+			body := withIncludedSubtrees(content, []string{"app"})
+			require.True(t, strings.HasPrefix(body, ignore.DefaultIgnoreFile()), "defaults must be materialized before negations")
+			require.Contains(t, body, includedSubtreesHeader)
+			require.Contains(t, body, "!/app/\n")
+		}
 	})
 
-	t.Run("existing file gets block appended", func(t *testing.T) {
-		root := t.TempDir()
-		require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ignore"), []byte("node_modules/\n"), 0o644))
-		require.NoError(t, appendIncludedSubtrees(root, []string{"app"}))
-		body := readIgnoreFile(t, root)
+	t.Run("existing rules get block appended", func(t *testing.T) {
+		body := withIncludedSubtrees("node_modules/\n", []string{"app"})
 		require.True(t, strings.HasPrefix(body, "node_modules/\n"))
 		require.NotContains(t, body, ignore.DefaultIgnoreFile())
 		require.Contains(t, body, includedSubtreesHeader+"\n!/app/\n")
 	})
 
 	t.Run("idempotent", func(t *testing.T) {
-		root := t.TempDir()
-		require.NoError(t, appendIncludedSubtrees(root, []string{"app"}))
-		first := readIgnoreFile(t, root)
-		require.NoError(t, appendIncludedSubtrees(root, []string{"app"}))
-		require.Equal(t, first, readIgnoreFile(t, root))
+		first := withIncludedSubtrees("", []string{"app"})
+		require.Equal(t, first, withIncludedSubtrees(first, []string{"app"}))
 		require.Equal(t, 1, strings.Count(first, includedSubtreesHeader))
 	})
 
 	t.Run("nested rel paths and second append reuse block", func(t *testing.T) {
-		root := t.TempDir()
-		require.NoError(t, appendIncludedSubtrees(root, []string{"modules/app"}))
-		require.NoError(t, appendIncludedSubtrees(root, []string{"modules/web", "modules/app"}))
-		body := readIgnoreFile(t, root)
+		body := withIncludedSubtrees(withIncludedSubtrees("", []string{"modules/app"}), []string{"modules/web", "modules/app"})
 		require.Equal(t, 1, strings.Count(body, includedSubtreesHeader))
 		require.Equal(t, 1, strings.Count(body, "!/modules/app/\n"))
 		require.Contains(t, body, "!/modules/web/\n")
-	})
-
-	t.Run("empty existing file treated as missing", func(t *testing.T) {
-		root := t.TempDir()
-		require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ignore"), []byte("  \n"), 0o644))
-		require.NoError(t, appendIncludedSubtrees(root, []string{"app"}))
-		body := readIgnoreFile(t, root)
-		require.True(t, strings.HasPrefix(body, ignore.DefaultIgnoreFile()))
 	})
 }
 

@@ -6,7 +6,6 @@ package init
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -264,17 +263,19 @@ func skipLines(skips []skip) []planLine {
 type ignoreFileState struct {
 	skipped []skip          // entries in the suggested skips section, with their reasons
 	keep    map[string]bool // paths marked keep indexed
+	reasons map[int]string  // suggested skip reasons by 1-based line number
 }
 
 func readIgnoreFileState(projectRoot string) ignoreFileState {
-	state := ignoreFileState{keep: map[string]bool{}}
-	data, err := os.ReadFile(filepath.Join(projectRoot, ".rhizome", "ignore"))
-	if err != nil {
-		return state
-	}
+	data, _ := os.ReadFile(filepath.Join(projectRoot, ".rhizome", "ignore"))
+	return parseIgnoreFileState(string(data))
+}
+
+func parseIgnoreFileState(content string) ignoreFileState {
+	state := ignoreFileState{keep: map[string]bool{}, reasons: map[int]string{}}
 	inSection := false
 	reason := ""
-	for _, line := range strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
+	for i, line := range strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n") {
 		trimmed := strings.TrimSpace(line)
 		switch {
 		case strings.HasPrefix(trimmed, keepIndexedPrefix):
@@ -288,6 +289,7 @@ func readIgnoreFileState(projectRoot string) ignoreFileState {
 			reason = strings.TrimPrefix(trimmed, "# ")
 		case !strings.HasPrefix(trimmed, "#"):
 			state.skipped = append(state.skipped, skip{path: unescapeSkipPattern(trimmed), reason: firstNonEmpty(reason, reasonManual)})
+			state.reasons[i+1] = firstNonEmpty(reason, reasonManual)
 			reason = ""
 		}
 	}
@@ -304,22 +306,17 @@ func cleanSkipPath(p string) string {
 	return string(rel)
 }
 
-// writeSkipChanges adds skips to the suggested skips section of
-// .rhizome/ignore, removes entries for paths in keep, and records keep lines
-// so init does not propose those paths again. The file already exists.
+// withSkipChanges returns content with add in the suggested skips section,
+// the entries for paths in keep removed with their reason lines, and a keep
+// line for each path in keep, so init does not propose those paths again.
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US10-AC2]]
-func writeSkipChanges(projectRoot string, add []skip, keep []string) error {
+func withSkipChanges(content string, add []skip, keep []string) string {
 	if len(add) == 0 && len(keep) == 0 {
-		return nil
+		return content
 	}
-	file := filepath.Join(projectRoot, ".rhizome", "ignore")
-	data, err := os.ReadFile(file)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	lines := strings.Split(strings.TrimRight(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n"), "\n")
-	if len(data) == 0 {
+	lines := strings.Split(strings.TrimRight(strings.ReplaceAll(content, "\r\n", "\n"), "\n"), "\n")
+	if len(content) == 0 {
 		lines = nil
 	}
 	keepSet := map[string]bool{}
@@ -386,10 +383,7 @@ func writeSkipChanges(projectRoot string, add []skip, keep []string) error {
 		out = append(out, section...)
 		out = append(out, lines[end:]...)
 	}
-	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(file, []byte(strings.Join(out, "\n")+"\n"), 0o644)
+	return strings.Join(out, "\n") + "\n"
 }
 
 // skipPattern anchors a root-relative path for .rhizome/ignore, escaping
