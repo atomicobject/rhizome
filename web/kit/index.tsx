@@ -364,7 +364,10 @@ export function openCollection(name: string) {
   window.location.assign(buildNotesPath({ kind: "type", typeName: name }));
 }
 
-/** Open a project search tab filtered to a vault folder, optionally with a query. */
+/**
+ * Open a project search tab filtered to a vault folder, optionally with a
+ * query. `folder: "/"` lists the notes at the vault root, which sit in no folder.
+ */
 export function openSearch({ folder, query }: { folder: string; query?: string }) {
   if (embedded) {
     postToHost(
@@ -374,7 +377,9 @@ export function openSearch({ folder, query }: { folder: string; query?: string }
     return;
   }
 
-  window.location.assign(buildNotesLocation({ selection: { kind: "all" }, search: query, folder }));
+  window.location.assign(
+    buildNotesLocation({ selection: { kind: "all" }, search: query ?? "", folder }),
+  );
 }
 
 export function noteHref(path: string) {
