@@ -72,7 +72,7 @@ The Overview reads:
 
 - `GET /api/v1/ontology/shape?parts=members`, `…=links`, and `…=folders`, each part by the blocks that need it, never records or the note graph for its counts.
 - Display groups, type documentation (for lifecycle stages, required gap fields, and declared relations), and `GET /api/v1/ontology/types` for labels, roles, and descriptions.
-- On a group, the group model's capped records query for Outside the group, and the view catalog for Guide and views.
+- On a group, Outside the group reads the neighbors of each member's 20 newest records, 10 each, so at most 200 notes per member, and says its list is partial when a record or member has more; Guide and views reads only the guide note and the view catalog. Each is its own request.
 - At All notes, the published global issue count for the facts strip.
 
 The All notes Briefing reads the published validation generation and `POST /api/v1/validation/groups` for issues by variant, the aggregate's members part with type documentation and one GraphQL query for each type's newest records in an active lifecycle value (at most five per type, one more read to tell there are more), and `GET /api/v1/ontology/types/__all__?limit=12` for the newest notes, untyped included.
@@ -87,7 +87,7 @@ The type Briefing models its collection as a group of one member: the type's or 
 
 - `GET /api/v1/display-groups` (via `useDisplayGroups`) for membership.
 - Type documentation (via `useTypeDocs`) for every member and every concrete member type.
-- One GraphQL query for at most 500 records of each type, most recently changed first, with their links, neighbors, `updatedAt`, and `issueCount`, plus the guide note. It reads with `partial: true`, so a record missing a required field stays on the page with its issue count instead of failing the load. A type with more records shows its 500 most recently changed and says so.
+- One GraphQL query for at most 500 records of each type, most recently changed first, with their links, neighbors, `updatedAt`, and `issueCount`, plus the guide note. It reads with `partial: true`, so a record missing a required field stays on the page with its issue count instead of failing the load. A type with more records shows its 500 most recently changed and says so. A `read` (`GroupRead`) narrows the query: fewer records per member or type, no neighbors, links, or scalar fields, or only the guide note. The group Briefing's facts strip and each of its blocks read only what they show, each in its own request, so one block's failure or slow read leaves the others: Needs attention reads values and links without neighbors, In motion values without links, and Recent changes the 100 newest records of each type.
 - `GET /api/v1/views` for the authored views the switcher offers, generic views included, and for a collection, its Table choice.
 - `GET /api/v1/ontology/types` for labels of types outside the group; interface labels come from the display groups.
 

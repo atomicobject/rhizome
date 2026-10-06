@@ -20,6 +20,13 @@ export const lower = (label: string) =>
 
 export const plural = (count: number, one: string, many: string) => (count === 1 ? one : many);
 
+/** What a scope block says instead of counts while the index rebuilds. */
+export const Rebuilding = () => (
+  <p className="gv-quiet" role="status">
+    The index is rebuilding; counts appear when it finishes.
+  </p>
+);
+
 export const memberOf = (model: GroupModel, name: string) => model.memberIndex.get(name);
 
 /** "3 work items", with the member's label inside the group. */

@@ -7,16 +7,22 @@
 // - display groups (`useDisplayGroups`) for membership and every group's roots;
 // - type documentation (`useTypeDocs`) for every member, whose profile names
 //   its field roles, and every concrete member type;
-// - one GraphQL query for every record of those types and the guide; for a
-//   collection it also reads each reverse field's count and a capped sample of
-//   its targets, and a capped list of only the notes that link in;
+// - one GraphQL query for the records of those types and the guide, narrowed
+//   by what the caller reads (`GroupRead`); for a collection it also reads
+//   each reverse field's count and a capped sample of its targets, and a
+//   capped list of only the notes that link in;
 // - `GET /api/v1/views` for the authored views the switcher offers;
 // - `GET /api/v1/ontology/types` for labels of types outside the group.
 //
 // The kit refreshes all of it on vault, schema, and validation events, so the
 // model stays current without polling. While a refresh runs, the previous
 // model stays on screen with `refreshing: true`.
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { useMemo, useRef } from "react";
 
 import {
@@ -34,6 +40,7 @@ import {
   parseTableChoice,
   parseTargetViews,
   parseTypeLabels,
+  RECORD_CAP,
   recordsQuery,
   type JsonObject,
   type JsonValue,
@@ -46,6 +53,7 @@ import {
   pickGuide,
   planMembers,
   type GroupModel,
+  type MemberPlan,
 } from "./model.ts";
 
 export type GroupModelState =
@@ -78,7 +86,42 @@ const NO_TYPE_LABELS: JsonValue = [];
 
 const NO_CATALOG: JsonValue = {};
 
-const COLLECTION_RECORDS: RecordsOptions = { reverse: true, neighbors: "INBOUND" };
+const COLLECTION_RECORDS: GroupRead = { reverse: true, neighbors: "INBOUND" };
+
+/**
+ * What a view or block reads of the group's records. `perMember` caps the
+ * records of each member, shared by its concrete types, and `perType` those
+ * of each type; `records: false` reads only the guide note.
+ */
+export type GroupRead = Omit<RecordsOptions, "first"> & {
+  perMember?: number;
+  perType?: number;
+  records?: boolean;
+};
+
+/** Refetch whichever type documentation failed to load. */
+export const refetchFailedTypeDocs = (queryClient: QueryClient) =>
+  queryClient.refetchQueries({
+    predicate: (query) => query.state.status === "error" && query.queryKey.includes("type-doc"),
+  });
+
+/** Records per concrete type a read takes; undefined when it reads `RECORD_CAP` of each. */
+function recordCaps(plans: readonly MemberPlan[], read: GroupRead) {
+  const { perMember, perType } = read;
+
+  if (perMember === undefined && perType === undefined) return undefined;
+
+  return new Map(
+    plans.flatMap((plan) =>
+      plan.concreteTypes.map((type): [string, number] => [
+        type,
+        perMember === undefined
+          ? (perType ?? RECORD_CAP)
+          : Math.max(1, Math.floor(perMember / plan.concreteTypes.length)),
+      ]),
+    ),
+  );
+}
 
 type Subject = { kind: SubjectKind; name: string };
 
@@ -104,9 +147,10 @@ function subjectGroup(subject: Subject, groups: readonly DisplayGroup[]): Displa
 
 function useSubjectModel(
   kinds: readonly SubjectKind[],
-  options: RecordsOptions,
+  read: GroupRead,
   withViews = true,
 ): GroupModelState {
+  const queryClient = useQueryClient();
   const context = useViewContext();
 
   const subject = useMemo(() => {
@@ -141,7 +185,18 @@ function useSubjectModel(
   );
 
   const guidePath = useMemo(() => pickGuide(plans, docs.docs)?.path ?? null, [plans, docs.docs]);
-  const document = group && orderedDocs.length ? recordsQuery(orderedDocs, guidePath, options) : "";
+
+  const options = useMemo(
+    (): RecordsOptions => ({ ...read, first: recordCaps(plans, read) }),
+    [read, plans],
+  );
+
+  const readDocs = read.records === false ? NO_DOCS : orderedDocs;
+
+  const document =
+    group && docsReady && (readDocs.length || (guidePath && options.guide !== false))
+      ? recordsQuery(readDocs, guidePath, options)
+      : "";
 
   // A record missing a required field answers with an error beside its data;
   // validation already reports it, so the views keep the data.
@@ -185,7 +240,7 @@ function useSubjectModel(
       group,
       groups: groups.groups,
       docs: docs.docs,
-      records: parseRecords(recordData, orderedDocs),
+      records: parseRecords(recordData, readDocs, options),
       views: parseTargetViews(catalogData, subject.kind, subject.name),
       tableChoice: parseTableChoice(catalogData, subject.kind, subject.name),
       typeLabels: parseTypeLabels(labelData),
@@ -197,7 +252,8 @@ function useSubjectModel(
     groups.groups,
     docs.docs,
     recordData,
-    orderedDocs,
+    readDocs,
+    options,
     catalogData,
     labelData,
   ]);
@@ -226,6 +282,7 @@ function useSubjectModel(
       error,
       retry: () => {
         void groups.refetch();
+        void refetchFailedTypeDocs(queryClient);
         void records.refetch();
 
         if (withViews) void catalog.refetch();
@@ -241,12 +298,19 @@ const GROUP: readonly SubjectKind[] = ["group"];
 
 const COLLECTION: readonly SubjectKind[] = ["type", "interface"];
 
+const ALL_RECORDS: GroupRead = {};
+
 /**
- * The model of the display group the view was opened for. Without `views`,
- * it neither reads nor waits for the view catalog, and lists no views.
+ * The model of the display group the view was opened for, from what `read`
+ * reads of its records (every record and field by default). Without `views`,
+ * it neither reads nor waits for the view catalog, and lists no views. Pass
+ * a module constant as `read`: the model rebuilds when it changes.
  */
-export function useGroupModel({ views = true }: { views?: boolean } = {}): GroupModelState {
-  return useSubjectModel(GROUP, {}, views);
+export function useGroupModel({
+  views = true,
+  read = ALL_RECORDS,
+}: { views?: boolean; read?: GroupRead } = {}): GroupModelState {
+  return useSubjectModel(GROUP, read, views);
 }
 
 /**

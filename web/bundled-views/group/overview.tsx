@@ -18,17 +18,11 @@ import {
 } from "@rhizome/kit";
 import { useMemo } from "react";
 
-import { Block, BlockBody, plural } from "./briefing-parts.tsx";
+import { Block, BlockBody, Rebuilding, plural } from "./briefing-parts.tsx";
 import "./components.tsx";
 import { memberRows } from "./members.ts";
 import { ScopeMap } from "./overview-map.tsx";
-import {
-  CoverageLine,
-  DeclaredUnused,
-  FolderBlock,
-  GroupRecordsBlocks,
-  Rebuilding,
-} from "./overview-side.tsx";
+import { CoverageLine, DeclaredUnused, FolderBlock, GroupRecordsBlocks } from "./overview-side.tsx";
 import { MemberTable, ScopeMatrix } from "./overview-tables.tsx";
 import { useRememberedOpen } from "./remembered.ts";
 import { declaredRelations, linkModel, scopeOf, type Scope } from "./scope.ts";

@@ -132,19 +132,15 @@ function GroupStateLine({ state }: { state: Exclude<GroupModelState, { status: "
  * blocks at once. A missing group shows only its line.
  */
 export function GroupFrame({ state, children }: { state: GroupModelState; children: ReactNode }) {
-  if (state.status !== "ready")
-    return (
-      <main className="gv-page">
-        <GroupStateLine state={state} />
-        {state.status !== "missing" && children}
-      </main>
-    );
+  const ready = state.status === "ready";
 
+  // The blocks keep one place in the tree, so they stay mounted, with their
+  // own reads, when the facts arrive.
   return (
-    <main className="gv-page" aria-busy={state.refreshing || undefined}>
-      <RefreshError.Provider value={state.refreshError}>
-        <GroupFacts model={state.model} />
-        {children}
+    <main className="gv-page" aria-busy={(ready && state.refreshing) || undefined}>
+      <RefreshError.Provider value={ready ? state.refreshError : null}>
+        {ready ? <GroupFacts model={state.model} /> : <GroupStateLine state={state} />}
+        {state.status !== "missing" && children}
       </RefreshError.Provider>
     </main>
   );

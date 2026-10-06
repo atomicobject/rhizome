@@ -221,28 +221,38 @@ it("paints every block's heading at once and fills each in when the records arri
   expect(screen.queryByText("Loading the group…")).toBeNull();
 });
 
-it("says what failed in each block and retries the read", async () => {
+it("fails one block's read without the others and retries it", async () => {
   let fail = true;
 
-  await renderGroupView(loadBriefing, {
+  // Only Needs attention reads link fields without neighbors.
+  const isAttention = (body: string) =>
+    body.includes("blockedBy") && !body.includes("neighborhood");
+
+  const view = await renderGroupView(loadBriefing, {
     settle: false,
     routes: groupRoutes({
-      "POST /api/v1/graphql": () =>
-        fail ? jsonReply({ error: "unavailable" }, 503) : jsonReply({ data: RECORDS_DATA }),
+      "POST /api/v1/graphql": (request) =>
+        fail && isAttention(request.body ?? "")
+          ? jsonReply({ error: "unavailable" }, 503)
+          : jsonReply({ data: RECORDS_DATA }),
     }),
   });
 
   const attention = await within(region("Needs attention")).findByRole("alert");
   expect(attention).toHaveTextContent("Could not load what needs attention");
-  expect(within(region("Recent changes")).getByRole("alert")).toBeVisible();
+  await waitFor(() =>
+    expect(within(region("In motion")).getByText("Checkout redesign")).toBeVisible(),
+  );
+  expect(within(region("Recent changes")).queryByRole("alert")).toBeNull();
+  expect(screen.queryByText("Loading the group…")).toBeNull();
+  // The facts strip, Needs attention, In motion, and Recent changes each read on their own.
+  expect(view.http.count("POST", "/api/v1/graphql")).toBeGreaterThanOrEqual(4);
 
   fail = false;
   fireEvent.click(within(attention).getByRole("button", { name: "Retry" }));
 
-  await waitFor(() =>
-    expect(within(region("In motion")).getByText("Checkout redesign")).toBeVisible(),
-  );
-  expect(screen.queryByRole("alert")).toBeNull();
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(within(region("Needs attention")).getByText(/Checkout redesign/)).toBeVisible();
 });
 
 it("says when no record has a change time", async () => {
@@ -357,4 +367,25 @@ it("keeps an optional priority with a user-only policy out of Needs attention", 
   expect(attention).not.toHaveTextContent("Priority empty");
   expect(region("Context")).toHaveTextContent("Priority empty");
   expect(region("Context")).toHaveTextContent(reason);
+});
+
+it("retries type documentation that failed to load", async () => {
+  let fail = true;
+
+  await renderGroupView(loadBriefing, {
+    settle: false,
+    routes: groupRoutes({
+      "GET /api/v1/ontology/types/Area": () =>
+        fail ? jsonReply({ error: "down" }, 500) : jsonReply({ type: TYPE_DOCS.Area, count: 0 }),
+    }),
+  });
+
+  const alert = await within(region("In motion")).findByRole("alert");
+
+  fail = false;
+  fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+
+  await waitFor(() =>
+    expect(within(region("In motion")).getByText("Checkout redesign")).toBeVisible(),
+  );
 });

@@ -419,3 +419,39 @@ it("rereads member issue counts when validation publishes a new generation", asy
 
   await waitFor(() => expect(screen.getByText("5 issues")).toBeVisible());
 });
+
+it("reads Outside the group and Guide and views on their own, so one failing leaves the other", async () => {
+  let fail = true;
+
+  const view = await renderGroupView(loadOverview, {
+    settle: false,
+    routes: scopeRoutes({
+      "GET /api/v1/views": () =>
+        fail ? jsonReply({ error: "down" }, 500) : jsonReply({ views: [] }),
+    }),
+  });
+
+  const alert = await within(region("Guide and views")).findByRole("alert");
+  expect(alert).toHaveTextContent("Could not load the guide and views");
+  await waitFor(() =>
+    expect(within(region("Outside the group")).getByText("4 notes")).toBeVisible(),
+  );
+
+  // Outside reads at most 200 neighbors per member: 20 records with 10 neighbors
+  // each, the Work interface's records shared by Story and Bug.
+  const outsideQuery = view.http
+    .requests("POST", "/api/v1/graphql")
+    .find((request) => request.body?.includes("neighborhood"))?.body;
+
+  expect(outsideQuery).toContain("neighborhood(direction: BOTH, first: 10)");
+  expect(outsideQuery).toContain("area(first: 21,");
+  expect(outsideQuery).toContain("story(first: 11,");
+
+  fail = false;
+  fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+
+  await waitFor(() => expect(within(region("Guide and views")).queryByRole("alert")).toBeNull());
+  expect(
+    within(region("Guide and views")).getByRole("button", { name: "Planning guide" }),
+  ).toBeVisible();
+});

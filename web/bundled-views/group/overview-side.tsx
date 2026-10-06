@@ -8,8 +8,8 @@ import { Fragment, useMemo, type ReactNode } from "react";
 import { boundary } from "./activity.ts";
 import { OutsideNotes } from "./briefing-activity.tsx";
 import { GuideAndViews } from "./briefing-contents.tsx";
-import { Block, BlockBody, ModelBlock } from "./briefing-parts.tsx";
-import { useGroupModel } from "./load.ts";
+import { Block, BlockBody, ModelBlock, Rebuilding } from "./briefing-parts.tsx";
+import { useGroupModel, type GroupRead } from "./load.ts";
 import { coverage, folderLines } from "./members.ts";
 import type { GroupModel } from "./model.ts";
 import { declaredRelations, type DeclaredRelation, type ScopeModel } from "./scope.ts";
@@ -22,13 +22,6 @@ import {
 } from "./scope-load.ts";
 
 const fmt = (count: number) => count.toLocaleString("en-US");
-
-/** What the scope's own facts say instead of counts while the index rebuilds. */
-export const Rebuilding = () => (
-  <p className="gv-quiet" role="status">
-    The index is rebuilding; counts appear when it finishes.
-  </p>
-);
 
 const linksText = (targets: readonly { label: string; count: number }[]) =>
   targets.map((target) => `${target.label} ${fmt(target.count)}`).join(", ") || undefined;
@@ -246,8 +239,26 @@ export function DeclaredUnused({
   );
 }
 
+/**
+ * The neighbors of each member's newest records, at most 200 notes per member
+ * however many records it has, plus their typed links and the guide to leave out.
+ */
+const OUTSIDE_READ: GroupRead = {
+  scalars: false,
+  perMember: 20,
+  neighborCap: 10,
+};
+
+/** Only the guide note. */
+const GUIDE_READ: GroupRead = { records: false };
+
 function GroupOutside({ model }: { model: GroupModel }) {
-  const outside = useMemo(() => boundary(model), [model]);
+  // Records past the read cap may link to notes not listed, so the list is partial.
+  const outside = useMemo(() => {
+    const found = boundary(model);
+
+    return { ...found, incomplete: found.incomplete || model.truncated };
+  }, [model]);
 
   return (
     <OutsideNotes
@@ -260,16 +271,17 @@ function GroupOutside({ model }: { model: GroupModel }) {
   );
 }
 
-/** "Outside the group" and "Guide and views", both read from the group's records. */
+/** "Outside the group" and "Guide and views", each from its own read. */
 export function GroupRecordsBlocks() {
-  const state = useGroupModel();
+  const outside = useGroupModel({ views: false, read: OUTSIDE_READ });
+  const guide = useGroupModel({ read: GUIDE_READ });
 
   return (
     <>
-      <ModelBlock state={state} title="Outside the group" what="outside notes">
+      <ModelBlock state={outside} title="Outside the group" what="outside notes">
         {(model) => <GroupOutside model={model} />}
       </ModelBlock>
-      <ModelBlock state={state} title="Guide and views" what="the guide and views">
+      <ModelBlock state={guide} title="Guide and views" what="the guide and views">
         {(model) => <GuideAndViews model={model} />}
       </ModelBlock>
     </>
