@@ -27,6 +27,7 @@ import {
 } from "./notesRoute";
 import { TypeWorkspaceHeader } from "./TypeWorkspaceHeader";
 import {
+  summaryCountsKnown,
   useOntologySummaryQuery,
   useOntologyTypeQuery,
   useValidationQuery,
@@ -198,7 +199,7 @@ export function HomeTab({
       ) / 10
     : 0;
 
-  const indexing = Boolean(summary?.rebuilding && summary.totalNotes === 0);
+  const indexing = Boolean(summary) && !summaryCountsKnown(summary);
 
   const services: ViewServices = {
     ...editSession,

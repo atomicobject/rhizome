@@ -9,10 +9,23 @@ import {
 } from "../api/client";
 import { executePublicView, getPublicValidate, listPublicViews } from "../api/publicClient";
 import { queryKeys } from "../api/queryKeys";
-import type { NodeRef, ValidateEnvelope, ViewExecuteRequest } from "../api/types";
+import type {
+  NodeRef,
+  OntologySummaryResponse,
+  ValidateEnvelope,
+  ViewExecuteRequest,
+} from "../api/types";
 import { useStagedQuery, type EditReadLifecycle, type StagedSession } from "../staging/stagedQuery";
 
 const FOCUSED_GRAPH_OPTIONS = { notesOnly: true } as const;
+
+/**
+ * Whether a summary's counts are real. A rebuilding summary with no published
+ * snapshot yet, as during the first index after a start, has none.
+ */
+export function summaryCountsKnown(summary: OntologySummaryResponse | null | undefined) {
+  return Boolean(summary) && !(summary?.rebuilding && summary.totalNotes === 0);
+}
 
 export function useOntologySummaryQuery(enabled = true) {
   return useQuery({

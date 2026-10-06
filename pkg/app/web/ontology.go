@@ -338,21 +338,23 @@ func (s *Server) countOntologySummary(ctx context.Context, store *semdb.Store, d
 		interfaces[i].Count = result.Count
 		interfaces[i].IssueCount = result.IssueCount
 	}
-	sort.SliceStable(types, func(i, j int) bool {
-		if types[i].Count != types[j].Count {
-			return types[i].Count > types[j].Count
-		}
-		return types[i].Name < types[j].Name
-	})
-	sort.SliceStable(interfaces, func(i, j int) bool {
-		if interfaces[i].Count != interfaces[j].Count {
-			return interfaces[i].Count > interfaces[j].Count
-		}
-		return interfaces[i].Name < interfaces[j].Name
-	})
+	sortByCountThenName(types, func(t OntologyTypeSummary) (int, string) { return t.Count, t.Name })
+	sortByCountThenName(interfaces, func(i OntologyInterfaceSummary) (int, string) { return i.Count, i.Name })
 	resp.Types = types
 	resp.Interfaces = interfaces
 	return resp, nil
+}
+
+// sortByCountThenName orders summary entries by count, largest first, then name.
+func sortByCountThenName[T any](items []T, key func(T) (int, string)) {
+	sort.SliceStable(items, func(i, j int) bool {
+		ci, ni := key(items[i])
+		cj, nj := key(items[j])
+		if ci != cj {
+			return ci > cj
+		}
+		return ni < nj
+	})
 }
 
 // schemaSummaryEntries lists the rail's types and interfaces from the schema

@@ -36,7 +36,12 @@ import {
   PSEUDO_TYPE_MODIFIED,
   splitNoteTarget,
 } from "./notesRoute";
-import { useOntologyTypeQuery, useValidationQuery, useViewCatalogQuery } from "./useNotesQueries";
+import {
+  summaryCountsKnown,
+  useOntologyTypeQuery,
+  useValidationQuery,
+  useViewCatalogQuery,
+} from "./useNotesQueries";
 import { usePopoverDismiss } from "./focusManagement";
 import { useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
 import { useValidationScopeSummaries, validationScopeKey } from "./useValidationScopeSummaries";
@@ -250,9 +255,7 @@ export function NotesLeftRail({
   const standaloneGroups = useMemo(() => groupStandaloneViews(catalog), [catalog]);
   const railGroups = useMemo(() => buildRailGroups(summary), [summary]);
 
-  // A rebuilding summary with no published snapshot yet has no real count.
-  const totalNotes =
-    !summary || (summary.rebuilding && summary.totalNotes === 0) ? null : summary.totalNotes;
+  const totalNotes = summary && summaryCountsKnown(summary) ? summary.totalNotes : null;
 
   const activeAncestors = useMemo(
     () => activeRailAncestors(railGroups, selectedType),

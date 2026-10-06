@@ -469,9 +469,12 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     [tabs],
   );
 
-  // The desktop app's File > Close Tab (Cmd+W) closes the active note tab.
+  // The desktop app's File > Close Tab (Cmd+W) closes the active note tab,
+  // only while Notes is the route on screen; it stays mounted under others.
   // Browsers reserve Cmd+W, so a page cannot offer it there.
   useEffect(() => {
+    if (!active) return;
+
     const onCloseTab = () => {
       if (tabs.activeTab.kind !== "home") closeTab(tabs.activeId);
     };
@@ -479,7 +482,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     window.addEventListener("rhizome:close-tab", onCloseTab);
 
     return () => window.removeEventListener("rhizome:close-tab", onCloseTab);
-  }, [closeTab, tabs.activeId, tabs.activeTab.kind]);
+  }, [active, closeTab, tabs.activeId, tabs.activeTab.kind]);
 
   const locationForCollection = (tab: CollectionTab): NotesLocation => {
     if (tabs.activeId === tab.id) return location;
