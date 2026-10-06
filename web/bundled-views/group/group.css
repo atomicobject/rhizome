@@ -1576,6 +1576,11 @@
   gap: 6px;
 }
 
+/* The flex row aligns the figure with its bar; the cell already sets the baseline. */
+.gv-table .gv-ov-share .gv-num {
+  padding-top: 0;
+}
+
 .gv-ov-mini {
   display: inline-block;
   width: 46px;

@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 
 import { AGGREGATE, SCOPE_GROUPS, SUMMARIES } from "./__fixtures__/aggregate.ts";
 import { TYPE_DOCS } from "./__fixtures__/groups.ts";
-import { layoutMap, type LayoutInput } from "./map-layout.ts";
+import { layoutMap, placeEdgeLabels, type LayoutInput } from "./map-layout.ts";
 import {
   coverage,
   folderLines,
@@ -224,4 +224,24 @@ it("puts members without links in a bottom row and outside neighbors on the ring
     expect(layout.positions.get(id)?.y).toBeLessThan(310);
   expect(layout.positions.has("Person")).toBe(true);
   expect(layoutMap({ ...LAYOUT, edges: [] }).looseTop).toBe(280);
+});
+
+it("moves an edge count off a node label along its edge, and drops it when nothing is clear", () => {
+  const positions = new Map([
+    ["A", { x: 0, y: 100 }],
+    ["B", { x: 200, y: 100 }],
+  ]);
+
+  const edge = { a: "A", b: "B", links: 12, label: { key: "A|B", text: "12" } };
+  // A node label across the middle of the edge.
+  const middle = { x: 80, y: 80, w: 40, h: 30 };
+
+  // 38% and 62% along still touch it; 28% clears it.
+  const moved = placeEdgeLabels(positions, [edge], [middle]).get("A|B");
+  expect(moved?.x).toBeCloseTo(56);
+  expect(moved?.y).toBe(97);
+
+  const covered = { x: 0, y: 80, w: 200, h: 30 };
+  expect(placeEdgeLabels(positions, [edge], [covered]).has("A|B")).toBe(false);
+  expect(placeEdgeLabels(positions, [{ ...edge, label: undefined }], []).size).toBe(0);
 });

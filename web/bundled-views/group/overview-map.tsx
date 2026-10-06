@@ -26,16 +26,18 @@ const WIDTH = 760;
 
 const HEIGHT = 340;
 
-const HUES = ["var(--ao-purple)", "var(--ao-blue)", "var(--ao-gold)", "var(--ao-teal-600)"];
+// Categorical hues for named groups. Blue marks types in no named group and
+// AO red stays reserved for risk.
+const HUES = ["var(--ao-purple)", "var(--ao-gold)", "var(--ao-teal-600)", "var(--ao-teal-ink)"];
 
 const fmt = (count: number) => count.toLocaleString("en-US");
 
-/** A node's color: its named group's hue, gray without one, light gray for untyped notes. */
+/** A node's color: its named group's hue, blue without one, light gray for untyped notes. */
 export function nodeHue(model: ScopeModel, node: Pick<ScopeNode, "kind" | "group">) {
   if (node.kind === "untyped") return "var(--ao-gray-300)";
   const index = node.group === null ? -1 : model.groupNames.indexOf(node.group);
 
-  return index < 0 ? "var(--ao-gray-500)" : HUES[index % HUES.length];
+  return index < 0 ? "var(--ao-blue)" : HUES[index % HUES.length];
 }
 
 /** Declared relations no record uses between members with no edge, one hairline per pair. */
@@ -168,8 +170,16 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
   const unused = useMemo(() => unusedPairs(links, relations), [links, relations]);
   const radius = nodeRadius(model);
 
+  const maxLinks = Math.max(
+    1,
+    ...links.edges.map((edge) => edge.links),
+    ...ring.map((neighbor) => neighbor.links),
+  );
+
   const layout = useMemo(() => {
     const size = nodeRadius(model);
+    // A group labels every edge; All notes only edges carrying a visible share of links.
+    const showCount = (edge: MapEdge) => group !== null || edge.links >= maxLinks * 0.03;
 
     return layoutMap({
       width: WIDTH,
@@ -179,21 +189,18 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
         radius: size(node),
         label: nodeText(node),
       })),
-      edges: links.edges,
+      edges: links.edges.map((edge) => ({
+        ...edge,
+        label: showCount(edge) ? { key: edge.key, text: fmt(edge.links) } : undefined,
+      })),
       outside: links.outside.slice(0, OUTSIDE_RING).map((neighbor) => ({
         ...neighbor,
         label: `${neighbor.label} ${fmt(neighbor.links)} links`,
       })),
     });
-  }, [model, links]);
+  }, [model, links, group, maxLinks]);
 
   const at = (id: string): Point => layout.positions.get(id) ?? { x: 0, y: 0 };
-
-  const maxLinks = Math.max(
-    1,
-    ...links.edges.map((edge) => edge.links),
-    ...ring.map((neighbor) => neighbor.links),
-  );
 
   const stroke = (count: number) => 1 + 7 * Math.sqrt(count / maxLinks);
   const label = (id: string) => model.nodeIndex.get(id)?.label ?? id;
@@ -255,7 +262,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
     (a, b) => b.count - a.count || a.label.localeCompare(b.label),
   );
 
-  const showLabel = (edge: MapEdge) => group !== null || edge.links >= maxLinks * 0.03;
+  const countAt = (edge: MapEdge) => layout.edgeLabels.get(edge.key);
 
   return (
     <div className="gv-map-wrap">
@@ -326,12 +333,8 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                   openView("group.trace", { kind: "group", group });
               }}
             />
-            {showLabel(edge) && (
-              <text
-                className="gv-map-count"
-                x={(at(edge.a).x + at(edge.b).x) / 2}
-                y={(at(edge.a).y + at(edge.b).y) / 2 - 3}
-              >
+            {countAt(edge) && (
+              <text className="gv-map-count" x={countAt(edge)?.x} y={countAt(edge)?.y}>
                 {fmt(edge.links)}
               </text>
             )}
