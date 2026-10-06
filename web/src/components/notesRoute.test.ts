@@ -157,6 +157,38 @@ describe("parseNotesLocation", () => {
     });
   });
 
+  it("round-trips a folder listing, which is a search with an empty query", () => {
+    const url = buildNotesLocation({
+      selection: { kind: "all" },
+      search: "",
+      folder: "Notes/",
+      searchTabID: "search-tab:3",
+    });
+
+    expect(url).toBe("/notes?search=&folder=Notes&searchTab=search-tab%3A3");
+    const [, query] = url.split("?");
+    expect(parseNotesLocation("/notes", `?${query}`, "")).toMatchObject({
+      search: "",
+      searchFilters: { scope: "all", noteType: null, folder: "Notes" },
+      searchTabID: "search-tab:3",
+    });
+  });
+
+  it("round-trips a query with a folder", () => {
+    const url = buildNotesLocation({ selection: { kind: "all" }, search: "plan", folder: "Notes" });
+
+    expect(url).toBe("/notes?search=plan&folder=Notes");
+    expect(parseNotesLocation("/notes", url.slice("/notes".length), "")).toMatchObject({
+      search: "plan",
+      searchFilters: { folder: "Notes" },
+    });
+  });
+
+  it("ignores an empty search without a folder", () => {
+    expect(buildNotesLocation({ selection: { kind: "all" }, search: " " })).toBe("/notes");
+    expect(parseNotesLocation("/notes", "?search=", "").search).toBeUndefined();
+  });
+
   it("gives an explicit note URL precedence over search parameters", () => {
     const location = parseNotesLocation("/notes", "?note=a.md&search=ignored", "");
     expect(location.note).toBe("a.md");

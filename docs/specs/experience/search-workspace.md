@@ -3,7 +3,7 @@ type: ExperienceSpec
 id: SPEC-0098
 summary: "Defines project-wide ranked search in a retained workspace tab, with note/code, type, and folder filters, no note sidebars, and stable note-context navigation when returning to a note."
 spec-status: active
-last-updated: 2026-09-11
+last-updated: 2026-10-06
 aliases:
   - SPEC-0098
 ---
@@ -77,6 +77,7 @@ This spec extends [Notes workspace shell](notes-workspace-shell.md) and consumes
 - The results toolbar offers All, Notes, and Code, plus "Type: Any" and "Folder: Anywhere" controls. Relevance is the default ordering. Clearing filters restores the full project scope for the current query.
 - Selecting a concrete note type selects Notes scope. Selecting Code clears the note-type filter. Available note types come from the live ontology, and schema-less vaults remain searchable without a type control.
 - A folder selection constrains results to that vault-relative directory and its descendants. Directory boundaries are respected, so selecting `docs/specs` does not match `docs/specs-old`.
+- A search tab opened with a folder and no query, such as from a view's folder search, lists that folder's notes newest first instead of running ranked search; its own query field turns it into a ranked search of the same folder.
 - Filters apply on the server before counting and pagination across eligible search candidates. A match outside the first unfiltered page can still appear in a filtered search. Filtering only the already-loaded browser rows does not satisfy this story.
 - A filter change updates the current search tab, resets its continuation and scroll to the first page, and presents the new state as loading. Counts describe the effective search scope and any engine cap; exact totals and per-scope badges appear only when the backend can support their meaning.
 
