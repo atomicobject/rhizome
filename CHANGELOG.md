@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- New Rhizome logo and app icon: a Merriweather r growing out of a rhizome runner that ends in an AO-red node. Small icon sizes use a simplified mark so the desktop app stays legible in the Dock, Finder, and favicon.
 - Configured tables show the reorder grip as a compact handle beside each row's checkbox instead of a dotted strip that spanned the whole table. A row grouped under several values of a list field, such as an idea linked to two opportunities, can be reordered by drag or Alt+Arrow within any of its groups.
 - Remember personal view settings and expansion choices per concrete view instance in ignored repository-local SQLite, independently of the index; provide reset, visible retryable failures, explicit shared YAML saving, and matching React and HTML kit APIs for custom views.
 - Restore builds after the live indexing and code-mode runtime changes merge together. Typed runtime reads synchronize disk edits through the current watcher while background embeddings continue.
