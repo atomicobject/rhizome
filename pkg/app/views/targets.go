@@ -159,7 +159,7 @@ func resolveTarget(target ViewTarget, entries []CatalogEntry, shape targetShape)
 	target.Choices = []ViewChoice{}
 	switch target.Kind {
 	case viewconfig.MountKindGroup:
-		target.Choices = append(target.Choices, ViewChoice{ID: "builtin:overview", Name: "Overview", Renderer: "overview"})
+		target.Choices = append(target.Choices, ViewChoice{ID: "builtin:overview", Name: "Types", Renderer: "overview"})
 		target.DefaultChoiceID = "builtin:overview"
 	case viewconfig.MountKindNode:
 		target.Choices = append(target.Choices, ViewChoice{ID: "builtin:read", Name: "Structured", Renderer: "read"}, ViewChoice{ID: "builtin:source", Name: "Source", Renderer: "source"})

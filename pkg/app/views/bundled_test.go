@@ -91,7 +91,7 @@ func TestRepositoryViewReplacesBundledViewWithSameID(t *testing.T) {
 	for _, choice := range delivery.Choices {
 		names = append(names, choice.Name)
 	}
-	require.Equal(t, []string{"Overview", "Our briefing", "Trace", "Sections"}, names, "the repository copy takes the bundled Briefing's slot, once")
+	require.Equal(t, []string{"Types", "Our briefing", "Trace", "Sections"}, names, "the repository copy takes the bundled Briefing's slot, once")
 }
 
 func TestGroupDefaultFollowsShapeWithoutAuthoredDefault(t *testing.T) {
@@ -212,7 +212,9 @@ func TestBundledEntriesAreValidatedInTheirOwnFilesystem(t *testing.T) {
 func TestNoBundledViewsKeepsOverviewGroupDefault(t *testing.T) {
 	catalog, err := New(ServiceOptions{Schema: deliverySchema()}).Catalog(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, "builtin:overview", findTarget(t, catalog, viewconfig.MountKindGroup, "Delivery").DefaultChoiceID)
+	delivery := findTarget(t, catalog, viewconfig.MountKindGroup, "Delivery")
+	require.Equal(t, "builtin:overview", delivery.DefaultChoiceID)
+	require.Equal(t, "Types", delivery.Choices[0].Name, "the navigation fallback does not borrow Overview's name")
 }
 
 func TestBundledGroupViewsAreStandardChoicesBeforeCustomOnes(t *testing.T) {
