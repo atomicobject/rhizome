@@ -26,7 +26,6 @@ import {
 } from "./notesRoute";
 import { TypeWorkspaceHeader } from "./TypeWorkspaceHeader";
 import {
-  summaryCountsKnown,
   useOntologySummaryQuery,
   useOntologyTypeQuery,
   useValidationQuery,
@@ -205,8 +204,6 @@ export function HomeTab({
       ) / 10
     : 0;
 
-  const indexing = Boolean(summary) && !summaryCountsKnown(summary);
-
   const services: ViewServices = {
     ...editSession,
     onOpenNote,
@@ -239,7 +236,7 @@ export function HomeTab({
               group ??
               (realType
                 ? (typeQuery.data?.type?.pluralLabel ?? typeQuery.data?.type?.label ?? realType)
-                : "Workspace")
+                : "All notes")
             }
             eyebrow={
               group
@@ -250,35 +247,17 @@ export function HomeTab({
                     : "Type"
                   : ""
             }
-            description={
-              group
-                ? null
-                : realType
-                  ? typeQuery.data?.type?.description
-                  : indexing
-                    ? "Indexing notes…"
-                    : `${summary?.typedNotes ?? 0} of ${summary?.totalNotes ?? 0} notes typed across ${summary?.types?.length ?? 0} types.`
-            }
-            totalNotes={
-              group
-                ? null
-                : realType
-                  ? (typeQuery.data?.count ?? null)
-                  : indexing
-                    ? null
-                    : (summary?.totalNotes ?? null)
-            }
+            description={realType ? typeQuery.data?.type?.description : null}
+            totalNotes={realType ? (typeQuery.data?.count ?? null) : null}
             meanRelations={group || !typeQuery.data ? null : mean}
             issueCount={
               realType
                 ? summaries.summaries.get(validationScopeKey({ kind, key: realType }))?.issueCount
-                : group
-                  ? undefined
-                  : (validation?.snapshot?.issueCount ?? summary?.issueNotes)
+                : undefined
             }
             validationHealth={validation?.health}
             onOpenIssues={() => openIssues(realType ? { kind, key: realType } : undefined)}
-            showStats={!group && !collectionView}
+            showStats={Boolean(realType) && !collectionView}
             viewSelector={
               shownTarget &&
               choice && (

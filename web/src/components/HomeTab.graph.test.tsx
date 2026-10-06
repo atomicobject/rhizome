@@ -96,7 +96,7 @@ function renderAllHome() {
 }
 
 describe("All home header", () => {
-  it("summarizes typed notes and summary issues without reading every note", async () => {
+  it("titles All notes and leaves its facts to the view", async () => {
     http.json("GET", "/api/v1/ontology/summary", {
       types: [{ name: "Spec", count: 1 }],
       interfaces: [],
@@ -107,10 +107,11 @@ describe("All home header", () => {
     http.json("GET", "/api/v2/validate", { status: "never_ran", generation: 0 });
     renderAllHome();
 
-    expect(await screen.findByText("1 of 2 notes typed across 1 types.")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: /Validation issues in Workspace/ }),
-    ).toHaveTextContent("4");
+    expect(await screen.findByRole("heading", { name: "All notes" })).toBeVisible();
+    // SPEC-0117 US3: the Overview's facts strip and the Briefing state each fact once.
+    expect(screen.queryByText(/notes typed/)).toBeNull();
+    expect(screen.queryByText("avg links")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Validation issues in/ })).toBeNull();
     expect(http.count("GET", "/api/v1/ontology/types/__all__")).toBe(0);
     expect(http.count("GET", "/api/v1/graphs/global")).toBe(0);
   });
@@ -121,22 +122,7 @@ describe("All home header", () => {
 
     await waitFor(() => expect(http.count("GET", "/api/v1/ontology/summary")).toBe(1));
     expect(screen.queryByText(/notes typed/)).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Workspace" })).toBeNull();
-  });
-
-  it("shows indexing instead of zero counts while the index rebuilds", async () => {
-    http.json("GET", "/api/v1/ontology/summary", {
-      types: [],
-      interfaces: [],
-      totalNotes: 0,
-      typedNotes: 0,
-      issueNotes: 0,
-      rebuilding: true,
-    });
-    renderAllHome();
-
-    expect(await screen.findByText("Indexing notes…")).toBeVisible();
-    expect(screen.queryByText(/0 of 0 notes typed/)).toBeNull();
+    expect(screen.queryByRole("heading", { name: "All notes" })).toBeNull();
   });
 });
 

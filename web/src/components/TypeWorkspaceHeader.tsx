@@ -22,7 +22,7 @@ export type TypeWorkspaceHeaderProps = {
   viewSelector?: ReactNode;
   onOpenIssues?: () => void;
   /**
-   * False for display groups, whose views report their own counts, and for
+   * False for All notes and display groups, whose views report their own counts, and for
    * every type or interface view but Overview: the Briefing, Table, Board, and
    * Cards report their own. The collection issues badge stays either way.
    */
