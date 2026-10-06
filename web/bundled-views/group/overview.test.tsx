@@ -11,7 +11,6 @@ import { jsonReply } from "../../src/test/fakeFetch";
 import { AGGREGATE_MEMBERS, AGGREGATE_PARTS } from "./__fixtures__/aggregate.ts";
 import { PATHS, PLANNING_GUIDE } from "./__fixtures__/groups.ts";
 import { renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
-import { OPEN_SEARCH_MESSAGE } from "./overview-side.tsx";
 
 const loadOverview = () => import("./overview.tsx");
 
@@ -274,8 +273,8 @@ it("lists untyped notes by folder and searches a folder, with the coverage line 
   expect(within(folders).queryByText("Work/")).toBeNull();
 
   fireEvent.click(within(folders).getByRole("button", { name: "Inbox/" }));
-  expect(posted.filter((message) => message.type === OPEN_SEARCH_MESSAGE)).toEqual([
-    { type: OPEN_SEARCH_MESSAGE, folder: "Inbox" },
+  expect(posted.filter((message) => message.type === "rhizome:open-search")).toEqual([
+    { type: "rhizome:open-search", folder: "Inbox" },
   ]);
 
   expect(region("Coverage")).toHaveTextContent(

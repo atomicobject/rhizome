@@ -2,7 +2,7 @@
 // untyped notes by folder and the coverage line. On a group: relations
 // declared but unused, the notes outside the group linking to the most of its
 // records, and the group's guide and views.
-import { embedded } from "@rhizome/kit";
+import { openSearch } from "@rhizome/kit";
 import { Fragment, useMemo, type ReactNode } from "react";
 
 import { boundary } from "./activity.ts";
@@ -22,16 +22,6 @@ import {
 } from "./scope-load.ts";
 
 const fmt = (count: number) => count.toLocaleString("en-US");
-
-/** Posted to the workspace to open project search filtered to a folder. */
-export const OPEN_SEARCH_MESSAGE = "rhizome:open-search";
-
-// ponytail: local stand-in for the kit's `openSearch({ folder })`, which posts
-// the same message; switch to the kit export once it ships.
-export function openSearch({ folder }: { folder: string }) {
-  if (embedded)
-    window.parent.postMessage({ type: OPEN_SEARCH_MESSAGE, folder }, window.location.origin);
-}
 
 /** What the scope's own facts say instead of counts while the index rebuilds. */
 export const Rebuilding = () => (
