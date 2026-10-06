@@ -3,6 +3,8 @@ import path from "node:path";
 import { expect, test, type APIRequestContext, type FrameLocator, type Page } from "./fixtures";
 import { chooseView, expectView, workspaceView } from "./workspaceView";
 
+test.use({ timezoneId: "America/Detroit", locale: "en-US" });
+
 // Synthetic groups from fixtures/group-views:
 // - E2E Planning: the Work items interface over Story and Bug, the
 //   hierarchical Areas type that work items link to, and Releases that link to
@@ -161,6 +163,7 @@ test("Sections renders member tables from metadata and navigates to records, col
 test("Briefing summarizes the group from metadata and navigates to records, collections, and issues", async ({
   page,
 }) => {
+  await page.clock.setFixedTime(new Date("2026-10-05T23:59:00-04:00"));
   await page.goto("/notes");
   await openGroup(page, "E2E Planning");
   await expectView(page, "Briefing");
@@ -188,7 +191,6 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
     motion.getByRole("listitem").filter({ hasText: "Crash on empty vault" }),
   ).toHaveCount(1);
 
-  // The fixture is copied at once, so its records changed together.
   const recent = frame.getByRole("region", { name: "Recent changes" });
   await expect(recent.getByRole("heading", { name: "Today" })).toBeVisible();
   await recent
@@ -250,6 +252,23 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
   await expect(problems.locator("[data-issue-key]")).toHaveCount(1);
   await expect(problems.locator("[data-issue-key]")).toContainText("bug-crash.md");
 });
+
+for (const { time, heading } of [
+  { time: "2026-10-05T23:59:00-04:00", heading: "Today" },
+  { time: "2026-10-06T00:01:00-04:00", heading: "Yesterday, Oct 5" },
+]) {
+  test(`Briefing groups recent changes as ${heading} across midnight`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date(time));
+    await page.goto("/notes");
+    await openGroup(page, "E2E Planning");
+    await expectView(page, "Briefing");
+
+    const recent = customFrame(page).getByRole("region", { name: "Recent changes" });
+    await expect(recent.getByRole("heading")).toHaveText(["Recent changes", heading]);
+    await expect(recent.locator("time")).toHaveAttribute("datetime", "2026-10-06T03:58:00.000Z");
+    await expect(recent.locator("time")).toHaveText("23:58");
+  });
+}
 
 test("Trace defaults to the area tree, nests and rolls up rows, and switches its rows", async ({
   page,

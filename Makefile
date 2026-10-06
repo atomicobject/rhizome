@@ -142,6 +142,11 @@ check-full:
 	$(MAKE) integration-packages
 	$(MAKE) integration-mixed
 
+verify:
+	$(MAKE) build
+	$(MAKE) check-full
+	$(MAKE) web-e2e
+
 check-serial:
 	$(MAKE) web-generate
 	$(MAKE) lint
@@ -265,7 +270,7 @@ dev-frontend: dev-web-prepare
 	cd $(WEB_DIR) && npm run dev
 
 # Docs: [Release process](docs/RELEASING.md)
-.PHONY: build build-release build-all web-build web-generate web-test web-lint web-typecheck web-typecheck-node web-fix web-e2e e2e clean clean-web clean-all lint vet test test-fast credential-check benchmark-test integration integration-packages integration-mixed check check-fast check-full check-serial test_all test_coverage greptile-check setup setup-reset hooks-setup hooks-reset vendor-treesitter build-stripped build-small-vault dev-build-backend dev-web-prepare dev dev-backend dev-frontend release release-plan release-dry release-build release-apply release-publish release-resume cut-release release-s3 release-s3-check release-s3-dry
+.PHONY: build build-release build-all web-build web-generate web-test web-lint web-typecheck web-typecheck-node web-fix web-e2e e2e clean clean-web clean-all lint vet test test-fast credential-check benchmark-test integration integration-packages integration-mixed check check-fast check-full verify check-serial test_all test_coverage greptile-check setup setup-reset hooks-setup hooks-reset vendor-treesitter build-stripped build-small-vault dev-build-backend dev-web-prepare dev dev-backend dev-frontend release release-plan release-dry release-build release-apply release-publish release-resume cut-release release-s3 release-s3-check release-s3-dry
 release:
 	@if ! git describe --tags --exact-match >/dev/null 2>&1; then \
 		echo "error: HEAD is not an exact release tag"; \
