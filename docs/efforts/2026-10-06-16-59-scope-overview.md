@@ -66,14 +66,14 @@ These are settled so the batches can proceed in parallel.
 
 ## Spec Coverage Checklist
 
-- [ ] US1 group map, Matrix, outside ring, unused relations, Trace on relation edges
-- [ ] US2 member table
-- [ ] US3 All notes map with collapsed groups and member table
-- [ ] US4 untyped-by-folder block, coverage line, folder action through search
-- [ ] US5 All notes Briefing as default; graph and Most linked removed
-- [ ] US6 group Briefing trimmed; Declared unused, Outside, Guide and views on Overview
-- [ ] US7 frame first, per-block loading and failure, every scope, rebuilding state
-- [ ] Requirements: shape endpoint and budget, recent-notes limit, workspace mount, built-in fallback relabel, preferences, accessibility, density, performance check
+- [x] US1 group map, Matrix, outside ring, unused relations, Trace on relation edges
+- [x] US2 member table
+- [x] US3 All notes map with collapsed groups and member table
+- [x] US4 untyped-by-folder block, coverage line, folder action through search
+- [x] US5 All notes Briefing as default; graph and Most linked removed
+- [x] US6 group Briefing trimmed; Declared unused, Outside, Guide and views on Overview
+- [x] US7 frame first, per-block loading and failure, every scope, rebuilding state
+- [x] Requirements: shape endpoint and budget, recent-notes limit, workspace mount, built-in fallback relabel, preferences, accessibility, density, performance check
 
 ## Plan
 
@@ -92,6 +92,8 @@ SPEC-0117 implemented on `feat/scope-overview` with a pull request, all gates gr
 
 ## Actual Delivered
 
+SPEC-0117 as frozen, on `feat/scope-overview`: the `workspace` mount kind end to end; `GET /api/v1/ontology/shape` and `__all__?limit=N`; the kit `openSearch` host action with folder-only search tabs (including the vault root); All notes on the workspace Briefing (default) and Overview, with the note graph page removed; the bundled Overview (map, Matrix, member table, untyped-by-folder and coverage, Declared unused, Outside the group, Guide and views) shared by groups and All notes; the group Briefing trimmed to Needs attention, In motion, and Recent changes; per-block loading and failure; sibling spec, CHANGELOG, README, CONTEXT, and authoring-template updates.
+
 ## Execution Notes
 
 - 2026-10-06: Effort opened after the GPT-6.1 Sol review fixes landed in the spec (`2b9e99f5`).
@@ -100,7 +102,9 @@ SPEC-0117 implemented on `feat/scope-overview` with a pull request, all gates gr
 - 2026-10-06: Batch 3 (views, Opus 5.5) merged: Overview modules, All notes Briefing, trimmed group Briefing with per-block states. Its local `openSearch` stand-in was replaced with the kit export.
 - 2026-10-06: Gates on the integrated branch: `make check` passed (Go unit tests and 1,486 web tests). `make web-e2e` (port 4191) failed 3 tests that assumed the built-in group Overview and Briefing's structure blocks; updated them and added group Overview and All notes tests; the two affected spec files pass (17 tests).
 - 2026-10-06: Dogfood against a copy of a real vault (2,515 notes): shape response 80 ms cold; catalog offers Briefing then Overview at All notes. Findings sent to a views fix round: All notes Needs attention stuck on 410 from validation reads, duplicated header facts, "Reset to shared" on first load, folder and declared-unused layout at 1280, map colors, edge labels over node labels.
-- 2026-10-06: Performance on the real vault, ten switches from a group to All notes: header paint p95 35 ms (budget 100). Longest task 97 ms: layout of all 2,515 rail note rows. Fixed with `content-visibility: auto` on rail rows; re-measure pending.
+- 2026-10-06: GPT-6.1 Sol implementation review: no P0/P1; eleven P2/P3 findings (overlapping interfaces, interface linked share, interface-target unused relations, stale issue counts after validation, docs retry, root folder, standalone openSearch, shared group-block reads, rebuilding in All notes Briefing, stale templates, fallback label) all fixed with failing-first tests in a follow-up round, plus a 20,000-note shape benchmark: 293–320 ms mean, 340 ms max warm (budget 1 s).
+- 2026-10-06: Performance on the real vault, ten switches from a group to All notes: header paint p95 35 ms (budget 100). Longest task 97 ms: layout of all 2,515 rail note rows. Fixed with `content-visibility: auto` on rail rows; re-measure after the fix: header paint p95 21 ms, longest frame gap p95 21 ms.
+- 2026-10-06: Final gates on `feat/scope-overview`: `make check` passed (Go unit tests, 1,500 web tests); `make web-e2e` (port 4191) 94/94 passed; `rzm init --check` exit 0; `rzm validate` clean after filling this effort's sections.
 - 2026-10-06: Backend batch 1 implemented in `so/backend`: workspace mounts, scope view slots, shape aggregates, bounded recent notes, OpenAPI, and generated API types. The views worker must replace the no-op `overview.tsx` and `workspace-briefing.tsx` entries; they exist only because the bundled loader checks entry existence. Embedded typed endpoints and fields are excluded; independent host document links remain plain, matching the existing index. An independent review found no remaining contract bugs after correcting published validation issue counts and metadata/ontology publication witnesses.
 - Backend verification passed: `cd web && npm ci && npm run generate:api`; `GOCACHE=/Users/colthorp/Library/Caches/go-build make check-fast`; `GOCACHE=/Users/colthorp/Library/Caches/go-build go test -tags fts5 -mod=vendor ./pkg/ontology/viewconfig ./pkg/app/views ./pkg/app/userstate ./pkg/ontology/noderead ./pkg/ontology/readmodel ./pkg/anchors/sqlite ./pkg/app/web`; `GOCACHE=/Users/colthorp/Library/Caches/go-build NO_WEB=1 make build`; `GOCACHE=/Users/colthorp/Library/Caches/go-build make check` (all Go packages and 1,433 web tests passed). No web end-to-end gate was run in this backend batch.
 - Shape latency: `GOCACHE=/Users/colthorp/Library/Caches/go-build go test -tags fts5 -mod=vendor ./pkg/app/web -run TestOntologyShapeWarmLatency2500Notes -count=1 -v` is the repeatable measurement command. The focused shape regression run measured 39.232466 ms mean and 50.194250 ms maximum across ten warm HTTP-handler requests, including JSON encoding, on a synthetic persisted fixture with 2,500 notes, 15 types, and 17,500 distinct note pairs. No note hydration or new write path is used.
@@ -108,6 +112,10 @@ SPEC-0117 implemented on `feat/scope-overview` with a pull request, all gates gr
 
 
 ## Deviations
+
+- Folder actions open a folder-only search tab that lists the folder's notes from the rail's note list rather than running ranked search, because unified search requires a query. SPEC-0098 gained one sentence; the tab's "Search this folder" field is an exception to its single query field.
+- "Reset to shared" stays visible on custom views. An integration fix hid it without a host-scope override, which broke resetting widget-slot preferences (SPEC-0114); the change was reverted.
+- Rail note rows use `content-visibility: auto` to meet the 50 ms task budget; this host change was not named in the plan.
 
 ## Closure Checklist
 
@@ -117,6 +125,9 @@ SPEC-0117 implemented on `feat/scope-overview` with a pull request, all gates gr
 - [ ] PR opened and linked
 
 ## Compounding Follow-ups
+
+- Generated skill copies had been edited without updating `.rhizome/generated-files.yml`, so `rzm init` held them back as user edits. A check that generated copies match their manifest fingerprints would catch this before review.
+- Measuring with Playwright `getByRole` scans large lists on the main thread and pollutes performance profiles; performance checks should click through the DOM and read frame gaps or the Long Tasks API.
 
 ## Status
 
