@@ -985,6 +985,10 @@
  */
 .ontology-note {
   position: relative;
+  /* The All notes list can hold thousands of rows; skip layout for rows off
+     screen so opening All notes stays under the 50 ms task budget (SPEC-0117). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 33px;
   border-bottom: 1px solid var(--border-faint);
   border-left: 2px solid transparent;
   transition:
