@@ -21,7 +21,7 @@ import {
   parseTypeSummaries,
   type AggregatePart,
 } from "./aggregate.ts";
-import { getJSON, groupViewKeys } from "./load.ts";
+import { getJSON, groupViewKeys, refetchFailedTypeDocs } from "./load.ts";
 import { scopeModel, type Scope, type ScopeModel } from "./scope.ts";
 
 /** One query's part in a block's state. */
@@ -146,10 +146,7 @@ export function useScopeDocs(model: ScopeModel | null) {
   const read: Read = {
     pending: !model || (!ready && !docs.error),
     error: docs.error,
-    retry: () =>
-      queryClient.refetchQueries({
-        predicate: (query) => query.state.status === "error" && query.queryKey.includes("type-doc"),
-      }),
+    retry: () => refetchFailedTypeDocs(queryClient),
   };
 
   return { docs: ready ? docs.docs : NO_DOCS, read };

@@ -7,7 +7,7 @@ import {
   OPEN_NODE_MESSAGE,
 } from "../../src/lib/customViewMessages";
 import { jsonReply, type FakeFetchRequest } from "../../src/test/fakeFetch";
-import { AGGREGATE, VALIDATION_ENVELOPE } from "./__fixtures__/aggregate.ts";
+import { AGGREGATE, AGGREGATE_PARTS, VALIDATION_ENVELOPE } from "./__fixtures__/aggregate.ts";
 import { NOW, TYPE_DOCS } from "./__fixtures__/groups.ts";
 import { renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
 import type { JsonObject } from "./api.ts";
@@ -276,4 +276,38 @@ it("says when validation has not published results and nothing is in motion", as
     within(region("Needs attention")).getByText("Validation has not published results yet."),
   ).toBeVisible();
   expect(within(region("In motion")).getByText("Nothing in an active stage.")).toBeVisible();
+});
+
+it("retries the type documentation In motion failed to read", async () => {
+  let fail = true;
+
+  await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    settle: false,
+    routes: routes({
+      "GET /api/v1/ontology/types/Release": () =>
+        fail ? jsonReply({ error: "down" }, 500) : jsonReply({ type: TYPE_DOCS.Release, count: 0 }),
+    }),
+  });
+
+  const alert = await within(region("In motion")).findByRole("alert");
+
+  fail = false;
+  fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+
+  await waitFor(() => expect(region("In motion").querySelectorAll("h3")).toHaveLength(2));
+});
+
+it("says In motion waits while the index rebuilds, reading no records", async () => {
+  const view = await renderGroupView(loadBriefing, {
+    context: WORKSPACE,
+    routes: routes({
+      "GET /api/v1/ontology/shape": () =>
+        jsonReply({ ...AGGREGATE_PARTS.members, rebuilding: true }),
+    }),
+  });
+
+  expect(within(region("In motion")).getByText(/The index is rebuilding/)).toBeVisible();
+  expect(view.http.count("POST", "/api/v1/graphql")).toBe(0);
+  expect(view.http.count("GET", "/api/v1/ontology/types/Story")).toBe(0);
 });

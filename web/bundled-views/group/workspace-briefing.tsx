@@ -25,9 +25,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 
 import { isString, parseRecords, type JsonObject, type JsonValue } from "./api.ts";
-import { Block, BlockBody, lower, plural } from "./briefing-parts.tsx";
+import { Block, BlockBody, Rebuilding, lower, plural } from "./briefing-parts.tsx";
 import "./components.tsx";
-import { getJSON } from "./load.ts";
+import { getJSON, refetchFailedTypeDocs } from "./load.ts";
 import {
   blockStatus,
   readOf,
@@ -170,9 +170,12 @@ function NeedsAttention() {
 }
 
 function InMotion() {
+  const queryClient = useQueryClient();
   const members = useAggregatePart("members");
   const summaries = useTypeSummaries();
-  const figures = members.data?.members;
+  // While the index rebuilds, its figures are empty: read nothing until it finishes.
+  const rebuilding = members.data?.facts.rebuilding ?? false;
+  const figures = rebuilding ? undefined : members.data?.members;
 
   const names = useMemo(
     () =>
@@ -214,9 +217,9 @@ function InMotion() {
     members.read,
     summaries.read,
     {
-      pending: !figures || (!docsReady && !docs.error),
+      pending: !rebuilding && (!figures || (!docsReady && !docs.error)),
       error: docs.error,
-      retry: () => members.refetch(),
+      retry: () => refetchFailedTypeDocs(queryClient),
     },
     ...(document ? [readOf(records)] : []),
   ]);
@@ -234,6 +237,8 @@ function InMotion() {
     >
       <BlockBody status={status} what="work in motion">
         {() => {
+          if (rebuilding) return <Rebuilding />;
+
           const moving = types.flatMap((entry) => {
             const page = pages?.get(entry.type)?.records ?? [];
 
