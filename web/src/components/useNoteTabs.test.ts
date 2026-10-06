@@ -87,6 +87,20 @@ describe("parseStoredTabs", () => {
     ]);
   });
 
+  it("restores a folder listing but drops an empty search without a folder", () => {
+    expect(
+      parseStoredTabs(
+        JSON.stringify({
+          v: 3,
+          tabs: [
+            { kind: "search", id: "search-tab:1", query: "", folder: "Notes" },
+            { kind: "search", id: "search-tab:2", query: "" },
+          ],
+        }),
+      ),
+    ).toMatchObject([{ id: "search-tab:1", query: "", filters: { folder: "Notes" } }]);
+  });
+
   it("writes search and view tabs with the version 3 payload", () => {
     expect(
       JSON.parse(
@@ -359,6 +373,34 @@ describe("useNoteTabs", () => {
     act(() => result.current.openSearch("architecture review", { scope: "code" }));
     expect(result.current.tabs.filter((tab) => tab.kind === "search")).toHaveLength(2);
     expect(new URLSearchParams(window.location.search).get("scope")).toBe("code");
+  });
+
+  it("opens and reuses a folder listing, then turns it into a ranked search", () => {
+    const { result } = renderHook(() => useNoteTabs("vault-a"));
+
+    act(() => result.current.openSearch("", { folder: "" }));
+    expect(result.current.tabs.some((tab) => tab.kind === "search")).toBe(false);
+
+    act(() => result.current.openSearch("", { folder: "Notes" }));
+    const id = result.current.activeId;
+    expect(result.current.activeTab).toMatchObject({
+      kind: "search",
+      query: "",
+      filters: { folder: "Notes" },
+    });
+    expect(new URLSearchParams(window.location.search).get("search")).toBe("");
+
+    act(() => result.current.openSearch("", { folder: "/Notes/" }));
+    expect(result.current.tabs.filter((tab) => tab.kind === "search")).toHaveLength(1);
+    expect(result.current.activeId).toBe(id);
+
+    act(() => result.current.refineSearch(id, { folder: "" }));
+    expect(result.current.activeTab).toMatchObject({ query: "", filters: { folder: "Notes" } });
+
+    act(() => result.current.refineSearch(id, { folder: "Notes" }, "plan"));
+    expect(result.current.activeId).toBe(id);
+    expect(result.current.activeTab).toMatchObject({ query: "plan", filters: { folder: "Notes" } });
+    expect(new URLSearchParams(window.location.search).get("search")).toBe("plan");
   });
 
   it("refines one search tab in place and keeps its stable tab identity", () => {

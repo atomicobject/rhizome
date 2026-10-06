@@ -38,6 +38,6 @@ export function searchTabIdentity(query: string, filters?: Partial<SearchFilters
   return `search:${encodeURIComponent(JSON.stringify([normalizedQuery, effective]))}`;
 }
 
-export function searchTabLabel(query: string): string {
-  return normalizeSearchQuery(query) || "Search";
+export function searchTabLabel(query: string, folder?: string | null): string {
+  return normalizeSearchQuery(query) || (folder ? `${folder}/` : "Search");
 }

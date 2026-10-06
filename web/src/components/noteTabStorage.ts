@@ -131,7 +131,7 @@ export function parseStoredTabs(raw: string | null): Array<NoteTab | SearchTab |
     }
 
     if (value.kind === "search") {
-      if (!isString(value.query) || !value.query.trim()) continue;
+      if (!isString(value.query)) continue;
       const storedScope = value.scope;
 
       const scope =
@@ -145,6 +145,8 @@ export function parseStoredTabs(raw: string | null): Array<NoteTab | SearchTab |
         folder: isString(value.folder) ? value.folder : null,
       });
 
+      // An empty query lists a folder's notes, so it needs a folder.
+      if (!value.query.trim() && !filters.folder) continue;
       const identity = searchTabIdentity(value.query, filters);
 
       if (searchIdentities.has(identity)) continue;

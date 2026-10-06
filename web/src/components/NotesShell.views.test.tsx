@@ -447,5 +447,17 @@ describe("NotesShell configured views", () => {
     );
     expect(new URLSearchParams(window.location.search).get("search")).toBe("plan");
     expect(screen.getByRole("tab", { name: /plan/ })).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.click(screen.getByRole("tab", { name: /Home/ }));
+    await waitFor(() => expect(frame("Briefing")).not.toBeNull());
+    post("Briefing", { type: OPEN_SEARCH_MESSAGE, folder: "notes" });
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: /notes\// })).toHaveAttribute("aria-selected", "true"),
+    );
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("search")).toBe("");
+    expect(params.get("folder")).toBe("notes");
+    expect(await screen.findByRole("heading", { name: "Notes in notes/" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Alpha Spec" })).toBeInTheDocument();
   });
 });

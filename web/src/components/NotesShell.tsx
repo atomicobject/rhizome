@@ -304,8 +304,6 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     [openNode, tabs.openView, viewCatalogQuery.data],
   );
 
-  // ponytail: search needs a query, so a folder alone opens no tab until search
-  // accepts folder-only requests.
   const openSearch = useCallback(
     ({ folder, query }: { folder: string; query?: string }) =>
       tabs.openSearch(query ?? "", { folder }),
@@ -595,6 +593,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                     tab={tab}
                     active={active && tabs.activeId === tab.id}
                     types={summary?.types ?? []}
+                    editSession={editSession.session}
                     onRefineSearch={tabs.refineSearch}
                     onOpenNote={openTab}
                     onScrollPosition={tabs.setSearchScroll}

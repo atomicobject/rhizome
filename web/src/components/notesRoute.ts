@@ -139,8 +139,9 @@ export function parseNotesLocation(pathname: string, search: string, hash: strin
   const note = params.get("note") || null;
   const query = !note ? null : params.get("noteQuery");
   const view = params.get("view") || null;
-  const rawSearch = normalizeSearchQuery(params.get("search") || "");
-  const searchQuery = note || !rawSearch ? null : rawSearch;
+
+  const searchQuery =
+    note || !params.has("search") ? null : normalizeSearchQuery(params.get("search") || "");
 
   const location: NotesLocation = {
     selection: parseNotesRoute(pathname),
@@ -168,18 +169,18 @@ export function parseNotesLocation(pathname: string, search: string, hash: strin
 
   if (issueKey) location.issueKey = issueKey;
 
-  if (searchQuery) {
+  const rawScope = params.get("scope");
+
+  const searchFilters = normalizeSearchFilters({
+    scope: rawScope === "all" || rawScope === "notes" || rawScope === "code" ? rawScope : undefined,
+    noteType: params.get("noteType"),
+    folder: params.get("folder"),
+  });
+
+  // An empty query is a folder listing, so it needs a folder.
+  if (searchQuery !== null && (searchQuery || searchFilters.folder)) {
     location.search = searchQuery;
-    const rawScope = params.get("scope");
-
-    const scope =
-      rawScope === "all" || rawScope === "notes" || rawScope === "code" ? rawScope : undefined;
-
-    location.searchFilters = normalizeSearchFilters({
-      scope,
-      noteType: params.get("noteType"),
-      folder: params.get("folder"),
-    });
+    location.searchFilters = searchFilters;
     const stableSearchTabID = normalizeSearchTabID(params.get("searchTab"));
 
     if (stableSearchTabID) location.searchTabID = stableSearchTabID;
@@ -238,9 +239,10 @@ export function buildNotesLocation({
     params.set("note", note);
   }
 
-  if (!note && search && normalizeSearchQuery(search)) {
+  const filters = normalizeSearchFilters({ scope: scope ?? undefined, noteType, folder });
+
+  if (!note && search != null && (normalizeSearchQuery(search) || filters.folder)) {
     params.set("search", normalizeSearchQuery(search));
-    const filters = normalizeSearchFilters({ scope: scope ?? undefined, noteType, folder });
 
     if (filters.scope !== "all") params.set("scope", filters.scope);
 
