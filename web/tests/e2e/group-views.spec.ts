@@ -78,7 +78,7 @@ test("a group opens the bundled view its shape calls for and remembers a choice"
   ).toBeVisible();
 
   await chooseView(page, "Overview");
-  await expect(page.locator("iframe.custom-view-frame")).toHaveCount(0);
+  await expect(customFrame(page).getByRole("region", { name: "Map" })).toBeVisible();
   await openGroup(page, "E2E Library");
   await expectView(page, "Briefing");
   await openGroup(page, "E2E Contacts");
@@ -199,48 +199,12 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
     .click();
   await expect(recent.getByRole("button", { name: "Autumn release" })).toBeVisible();
 
-  // Ada is the typed owner of one work item and watches another from outside;
-  // Lin is named only in a body link.
-  const outside = frame.getByRole("region", { name: "Outside the group" });
-  await expect(outside.getByRole("heading")).toHaveText(/^Outside the group\s*2 notes$/);
-  await expect(outside.getByRole("listitem")).toHaveText([
-    /^Ada Example contact\s*2\s*linked records$/,
-    /^Lin Example contact\s*1\s*linked record$/,
-  ]);
-
-  const members = frame.getByRole("region", { name: "In this group" }).getByRole("listitem");
-  const work = members.filter({ has: frame.getByRole("button", { name: "Work items" }) });
-  await expect(work).toContainText(/Backlog\s*1\s*Doing\s*1\s*Blocked\s*1\s*Done\s*1/);
-  await expect(work).toContainText(/Story\s*3\s*Bug\s*1/);
-
-  const matrix = frame.getByRole("region", { name: "Connections" }).getByRole("table");
-  await expect(matrix.getByRole("columnheader")).toHaveText(["Areas", "Releases", "Work items"]);
-
-  const matrixRow = (name: string) =>
-    matrix.getByRole("row").filter({ has: frame.getByRole("rowheader", { name }) });
-
-  await expect(matrixRow("Work items").getByRole("cell")).toHaveText([
-    "4",
-    "No link field",
-    "Same type",
-  ]);
-  await expect(matrixRow("Releases").getByRole("cell")).toHaveText([
-    "No link field",
-    "Same type",
-    "1",
-  ]);
-
   // A record opens in a tab.
   await motion.getByRole("button", { name: "Faster indexing" }).click();
   await expect(page).toHaveURL(/note=notes%2Fgroup-views%2Fwork%2Fstory-indexing\.md/);
   await expect(
     page.getByRole("tablist", { name: "Open notes" }).getByRole("tab", { name: /Faster indexing/ }),
   ).toHaveCount(1);
-
-  // A member name opens its collection.
-  await page.goBack();
-  await members.getByRole("button", { name: "Areas", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Areas", exact: true })).toBeVisible();
 
   // The issue action opens the issues of the member that holds them.
   await page.goBack();
@@ -251,6 +215,57 @@ test("Briefing summarizes the group from metadata and navigates to records, coll
   await expect(problems).toContainText("interface · GvWork");
   await expect(problems.locator("[data-issue-key]")).toHaveCount(1);
   await expect(problems.locator("[data-issue-key]")).toContainText("bug-crash.md");
+});
+
+test("group Overview maps member types, lists members and outside notes, and switches to the matrix", async ({
+  page,
+}) => {
+  await page.goto("/notes");
+  await openGroup(page, "E2E Planning");
+  await chooseView(page, "Overview");
+  const frame = customFrame(page);
+
+  const map = frame.getByRole("region", { name: "Map" });
+  await expect(map.getByRole("group", { name: "E2E Planning map" })).toBeVisible();
+
+  for (const name of ["Areas", "Releases", "Work items"])
+    await expect(map.getByRole("button", { name: new RegExp(`^${name}\\b`) })).toHaveCount(1);
+
+  const members = frame.getByRole("region", { name: "Members" });
+
+  for (const name of ["Areas", "Releases", "Work items"])
+    await expect(members.getByRole("button", { name, exact: true })).toBeVisible();
+
+  // Ada is the typed owner of one work item and watches another from outside;
+  // Lin is named only in a body link.
+  const outside = frame.getByRole("region", { name: "Outside the group" });
+  await expect(outside).toContainText("Ada Example");
+  await expect(outside).toContainText("Lin Example");
+
+  await map.getByRole("button", { name: "Matrix" }).click();
+
+  const matrix = map.getByRole("table");
+  await expect(matrix.getByRole("rowheader", { name: "Work items" })).toBeVisible();
+
+  // A member name opens its collection.
+  await members.getByRole("button", { name: "Areas", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Areas", exact: true })).toBeVisible();
+});
+
+test("All notes opens on its Briefing and offers the Overview", async ({ page }) => {
+  await page.goto("/notes");
+  await expectView(page, "Briefing");
+  const frame = customFrame(page);
+
+  for (const name of ["Needs attention", "In motion", "Recent changes"])
+    await expect(frame.getByRole("region", { name })).toBeVisible();
+
+  await expect(page.locator("canvas")).toHaveCount(0);
+
+  await chooseView(page, "Overview");
+  await expect(frame.getByRole("region", { name: "Map" })).toBeVisible();
+  await expect(frame.getByRole("region", { name: "Untyped notes by folder" })).toBeVisible();
+  await expect(frame.getByRole("region", { name: "Members" })).toBeVisible();
 });
 
 for (const { time, heading } of [
