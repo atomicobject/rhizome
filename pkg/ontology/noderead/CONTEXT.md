@@ -34,3 +34,5 @@
 - Explicit relative wikilinks resolve against the referring note before canonical hydration. Missing relative targets remain unresolved, even when another directory contains the same basename.
 
 - **Canceled reads are retryable operation failures**: preserve cancellation and deadline errors before publishing projection/ref misses, source-snapshot errors, or unresolved locators. Check the context after lower readers return, including readers that produce diagnostics. A source child deadline also remains a typed operation error while the caller context stays live. Ordinary per-host error tolerance and real-miss memoization remain unchanged.
+
+- **Scope shape**: `OntologyShape` reads the committed `readmodel.ShapeStore` snapshot without hydration or overlays. It excludes embedded schema roles, deduplicates note pairs, classifies broad `Note` fields as plain links, and derives interface lifecycle/gaps from the interface profile. Parts select members, links, or folder aggregates; rebuilding marks unpublished or mismatched index state.

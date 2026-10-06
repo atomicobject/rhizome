@@ -246,6 +246,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/ontology/shape": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Scope aggregates from a committed index snapshot. Embedded types are excluded. Note pairs count once; broad Note fields count as plain links. Interfaces use their own profiles over note-type implementors. Selected parts are omitted when unrequested; totals and rebuilding are always returned. */
+    get: operations["getPublicOntologyShape"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/ontology/atlas": {
     parameters: {
       query?: never;
@@ -834,10 +851,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
-    /** @description Exactly one concrete subject. Standalone has no subject; type, interface and group require only their matching named field; node requires type and ref. No live ontology resolution is required. */
+    /** @description Exactly one concrete subject. Standalone and workspace have no subject; type, interface and group require only their matching named field; node requires type and ref. No live ontology resolution is required. */
     ViewPreferenceContext: {
       /** @enum {string} */
-      kind: "group" | "type" | "interface" | "node" | "standalone";
+      kind: "group" | "type" | "interface" | "node" | "standalone" | "workspace";
       type?: string;
       interface?: string;
       group?: string;
@@ -2266,9 +2283,102 @@ export interface components {
       targets: components["schemas"]["ViewTarget"][];
       issues?: components["schemas"]["ViewIssue"][];
     };
+    OntologyShapeResponse: {
+      rebuilding: boolean;
+      totalNotes: number;
+      typedNotes: number;
+      untypedNotes: number;
+      ambiguousNotes: number;
+      members?: components["schemas"]["OntologyShapeMembers"];
+      links?: components["schemas"]["OntologyShapeLinks"];
+      folders?: components["schemas"]["OntologyShapeFolders"];
+    };
+    OntologyShapeMembers: {
+      types: components["schemas"]["OntologyShapeMember"][];
+      interfaces: components["schemas"]["OntologyShapeInterface"][];
+      untyped: components["schemas"]["OntologyShapeUntyped"];
+    };
+    OntologyShapeMember: {
+      name: string;
+      /** @enum {string} */
+      kind: "type";
+      count: number;
+      issueCount: number;
+      /** Format: int64 */
+      lastChanged: number;
+      lifecycle: components["schemas"]["OntologyShapeLifecycle"] | null;
+      gaps: components["schemas"]["OntologyShapeGap"][];
+      targetSets: components["schemas"]["OntologyShapeTargetSet"][];
+    };
+    OntologyShapeInterface: {
+      name: string;
+      count: number;
+      issueCount: number;
+      /** Format: int64 */
+      lastChanged: number;
+      lifecycle: components["schemas"]["OntologyShapeLifecycle"] | null;
+      gaps: components["schemas"]["OntologyShapeGap"][];
+      implementors: string[];
+    };
+    OntologyShapeUntyped: {
+      count: number;
+      links: number;
+    };
+    OntologyShapeLifecycle: {
+      field: string;
+      values: components["schemas"]["OntologyShapeValue"][];
+    };
+    OntologyShapeValue: {
+      name: string;
+      count: number;
+    };
+    OntologyShapeGap: {
+      field: string;
+      empty: number;
+    };
+    OntologyShapeTargetSet: {
+      /** @description Sorted set of other concrete types and __untyped__ reached by each record; excludes its own type. */
+      types: string[];
+      records: number;
+    };
+    OntologyShapeLinks: {
+      pairs: components["schemas"]["OntologyShapePair"][];
+    };
+    OntologyShapePair: {
+      /** @description Concrete type or __untyped__; lexically at most b. */
+      a: string;
+      /** @description Concrete type or __untyped__; equals a for links among one type. */
+      b: string;
+      links: number;
+      relationLinks: number;
+      plainLinks: number;
+      fields: components["schemas"]["OntologyShapePairField"][];
+    };
+    OntologyShapePairField: {
+      type: string;
+      field: string;
+      /** @description Distinct note pairs using this field; counts may sum above relationLinks. */
+      count: number;
+    };
+    OntologyShapeFolders: {
+      rows: components["schemas"]["OntologyShapeFolder"][];
+    };
+    OntologyShapeFolder: {
+      /** @description Top-level folder; empty for vault-root notes. */
+      folder: string;
+      total: number;
+      untyped: number;
+      typed: {
+        [key: string]: number;
+      };
+      untypedLinksTo: {
+        [key: string]: number;
+      };
+    };
     ViewTarget: {
       /** @enum {string} */
-      kind: "type" | "interface" | "group" | "node" | "standalone";
+      kind: "type" | "interface" | "group" | "node" | "standalone" | "workspace";
+      /** @description Concrete target name; empty for the workspace target. */
       name: string;
       defaultChoiceId: string;
       choices: components["schemas"]["ViewChoice"][];
@@ -3254,6 +3364,8 @@ export interface operations {
   getPublicOntologyType: {
     parameters: {
       query?: {
+        /** @description For __all__ only, returns the N most recently changed notes, including untyped notes, newest first. Enrichment is capped before reading records. */
+        limit?: number;
         /** @description `none` returns schema documentation and counts without the notes list. */
         notes?: "none";
       };
@@ -3272,6 +3384,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["OntologyTypeResponse"];
+        };
+      };
+      /** @description Invalid limit */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
       503: components["responses"]["IndexInitializing"];
@@ -3312,6 +3433,39 @@ export interface operations {
       };
       /** @description Request body too large */
       413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      503: components["responses"]["IndexInitializing"];
+    };
+  };
+  getPublicOntologyShape: {
+    parameters: {
+      query?: {
+        /** @description Comma-separated subset of members,links,folders; defaults to all three. */
+        parts?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Scope shape; rebuilding signals index republication. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OntologyShapeResponse"];
+        };
+      };
+      /** @description Invalid part selector */
+      400: {
         headers: {
           [name: string]: unknown;
         };

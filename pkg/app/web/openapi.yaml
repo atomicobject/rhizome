@@ -366,6 +366,10 @@ paths:
           schema:
             type: string
         - in: query
+          name: limit
+          description: For __all__ only, returns the N most recently changed notes, including untyped notes, newest first. Enrichment is capped before reading records.
+          schema: { type: integer, minimum: 1, maximum: 500 }
+        - in: query
           name: notes
           required: false
           description: "`none` returns schema documentation and counts without the notes list."
@@ -379,6 +383,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OntologyTypeResponse"
+        "400":
+          description: Invalid limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/IndexInitializing"
     post:
@@ -411,6 +421,30 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "413":
           description: Request body too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/ontology/shape:
+    get:
+      operationId: getPublicOntologyShape
+      description: Scope aggregates from a committed index snapshot. Embedded types are excluded. Note pairs count once; broad Note fields count as plain links. Interfaces use their own profiles over note-type implementors. Selected parts are omitted when unrequested; totals and rebuilding are always returned.
+      parameters:
+        - in: query
+          name: parts
+          description: Comma-separated subset of members,links,folders; defaults to all three.
+          schema: { type: string, default: "members,links,folders" }
+      responses:
+        "200":
+          description: Scope shape; rebuilding signals index republication.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OntologyShapeResponse"
+        "400":
+          description: Invalid part selector
           content:
             application/json:
               schema:
@@ -1483,9 +1517,9 @@ components:
       type: object
       additionalProperties: false
       required: [kind]
-      description: Exactly one concrete subject. Standalone has no subject; type, interface and group require only their matching named field; node requires type and ref. No live ontology resolution is required.
+      description: Exactly one concrete subject. Standalone and workspace have no subject; type, interface and group require only their matching named field; node requires type and ref. No live ontology resolution is required.
       properties:
-        kind: { type: string, enum: [group, type, interface, node, standalone] }
+        kind: { type: string, enum: [group, type, interface, node, standalone, workspace] }
         type: { type: string, minLength: 1, maxLength: 256 }
         interface: { type: string, minLength: 1, maxLength: 256 }
         group: { type: string, minLength: 1, maxLength: 256 }
@@ -3578,14 +3612,159 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ViewIssue"
+    OntologyShapeResponse:
+      type: object
+      required: [rebuilding, totalNotes, typedNotes, untypedNotes, ambiguousNotes]
+      properties:
+        rebuilding: { type: boolean }
+        totalNotes: { type: integer }
+        typedNotes: { type: integer }
+        untypedNotes: { type: integer }
+        ambiguousNotes: { type: integer }
+        members:
+          $ref: "#/components/schemas/OntologyShapeMembers"
+        links:
+          $ref: "#/components/schemas/OntologyShapeLinks"
+        folders:
+          $ref: "#/components/schemas/OntologyShapeFolders"
+    OntologyShapeMembers:
+      type: object
+      required: [types, interfaces, untyped]
+      properties:
+        types:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyShapeMember"
+        interfaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyShapeInterface"
+        untyped:
+          $ref: "#/components/schemas/OntologyShapeUntyped"
+    OntologyShapeMember:
+      type: object
+      required: [name, kind, count, issueCount, lastChanged, lifecycle, gaps, targetSets]
+      properties:
+        name: { type: string }
+        kind: { type: string, enum: [type] }
+        count: { type: integer }
+        issueCount: { type: integer }
+        lastChanged: { type: integer, format: int64 }
+        lifecycle:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/OntologyShapeLifecycle"
+        gaps:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyShapeGap"
+        targetSets:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyShapeTargetSet"
+    OntologyShapeInterface:
+      type: object
+      required: [name, count, issueCount, lastChanged, lifecycle, gaps, implementors]
+      properties:
+        name: { type: string }
+        count: { type: integer }
+        issueCount: { type: integer }
+        lastChanged: { type: integer, format: int64 }
+        lifecycle:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/OntologyShapeLifecycle"
+        gaps:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyShapeGap"
+        implementors: { type: array, items: { type: string } }
+    OntologyShapeUntyped:
+      type: object
+      required: [count, links]
+      properties:
+        count: { type: integer }
+        links: { type: integer }
+    OntologyShapeLifecycle:
+      type: object
+      required: [field, values]
+      properties:
+        field: { type: string }
+        values:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyShapeValue"
+    OntologyShapeValue:
+      type: object
+      required: [name, count]
+      properties:
+        name: { type: string }
+        count: { type: integer }
+    OntologyShapeGap:
+      type: object
+      required: [field, empty]
+      properties:
+        field: { type: string }
+        empty: { type: integer }
+    OntologyShapeTargetSet:
+      type: object
+      required: [types, records]
+      properties:
+        types: { type: array, items: { type: string }, description: Sorted set of other concrete types and __untyped__ reached by each record; excludes its own type. }
+        records: { type: integer }
+    OntologyShapeLinks:
+      type: object
+      required: [pairs]
+      properties:
+        pairs:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyShapePair"
+    OntologyShapePair:
+      type: object
+      required: [a, b, links, relationLinks, plainLinks, fields]
+      properties:
+        a: { type: string, description: Concrete type or __untyped__; lexically at most b. }
+        b: { type: string, description: Concrete type or __untyped__; equals a for links among one type. }
+        links: { type: integer }
+        relationLinks: { type: integer }
+        plainLinks: { type: integer }
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyShapePairField"
+    OntologyShapePairField:
+      type: object
+      required: [type, field, count]
+      properties:
+        type: { type: string }
+        field: { type: string }
+        count: { type: integer, description: Distinct note pairs using this field; counts may sum above relationLinks. }
+    OntologyShapeFolders:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/OntologyShapeFolder"
+    OntologyShapeFolder:
+      type: object
+      required: [folder, total, untyped, typed, untypedLinksTo]
+      properties:
+        folder: { type: string, description: Top-level folder; empty for vault-root notes. }
+        total: { type: integer }
+        untyped: { type: integer }
+        typed: { type: object, additionalProperties: { type: integer } }
+        untypedLinksTo: { type: object, additionalProperties: { type: integer } }
     ViewTarget:
       type: object
       required: [kind, name, choices, defaultChoiceId]
       properties:
         kind:
           type: string
-          enum: [type, interface, group, node, standalone]
-        name: { type: string }
+          enum: [type, interface, group, node, standalone, workspace]
+        name: { type: string, description: Concrete target name; empty for the workspace target. }
         defaultChoiceId: { type: string }
         choices:
           type: array

@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, invariants, and review checklist for the noderead/readmodel typed read seam: request-scoped Scope batching, hydration profiles, edit-session read overlays, graph assembly, and consumer caching."
 reference-kind: guide
-last-verified: 2026-10-04
+last-verified: 2026-10-06
 code-paths:
   - pkg/ontology/noderead
   - pkg/ontology/readmodel
@@ -52,6 +52,8 @@ code-anchors:
 - **Consumer caches must be freshness-guarded.** Web's `nodeProjectionCache` validates entries on `(schemaHash, modTime)` per note (`node_projection_cache.go`). The `SharedNodeCache` seam in `types.go` requires invalidation-aware implementations before broad use — Scope remains the authoritative cache boundary today.
 
 - **Ensure-apply owns source and durable convergence together.** `Service.ApplyLinkTargets` is an explicit app-owned capability backed by the same live vault/store as the Scope. Missing capability or a preview overlay rejects apply before source mutation. Apply always invokes convergence for resolved embedded refs, including already-linkable refs after an earlier publication failure. The app holds the canonical index lock across the source edit and queued metadata/ontology publication; noderead never writes the catalog directly. After any attempt, all request caches and shared derived state are invalidated. Source-committed/index-incomplete errors propagate; success resolves again with ensure=never. Retained published read bundles cannot receive this capability. Graph, GraphFacts, and note-path builders capture the scope cache generation before unlocked work and publish only if it still matches; apply invalidation advances that generation. Overlapping reads may finish, but cannot restore pre-apply entries for later reads.
+
+- **Scope aggregates are committed index reads.** `OntologyShape` uses `readmodel.ShapeStore` to read one SQLite snapshot, then derives profiles, distinct note pairs, target sets, and folder counts without hydration. Embedded/section relation endpoints are excluded; independent host document links and broad `Note` fields count as plain links. Member issue counts use published validation scopes through the web adapter, matching the issues panel. Interfaces use their own profiles over note-type implementors. `Scope.RecentNotes` uses `readmodel.RecentStore` to select the newest 1..500 notes in SQL before enrichment, with All notes identity and untyped inclusion. Requested parts are independent, and mismatched metadata/ontology publication witnesses or a schema mismatch set `rebuilding`. Materialized assessment flags require current materialization evidence; stale snapshots decode their retained assessments.
 
 ## Must-dos when changing this subsystem
 

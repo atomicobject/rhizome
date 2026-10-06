@@ -95,6 +95,11 @@ SPEC-0117 implemented on `feat/scope-overview` with a pull request, all gates gr
 ## Execution Notes
 
 - 2026-10-06: Effort opened after the GPT-6.1 Sol review fixes landed in the spec (`2b9e99f5`).
+- 2026-10-06: Backend batch 1 implemented in `so/backend`: workspace mounts, scope view slots, shape aggregates, bounded recent notes, OpenAPI, and generated API types. The views worker must replace the no-op `overview.tsx` and `workspace-briefing.tsx` entries; they exist only because the bundled loader checks entry existence. Embedded typed endpoints and fields are excluded; independent host document links remain plain, matching the existing index. An independent review found no remaining contract bugs after correcting published validation issue counts and metadata/ontology publication witnesses.
+- Backend verification passed: `cd web && npm ci && npm run generate:api`; `GOCACHE=/Users/colthorp/Library/Caches/go-build make check-fast`; `GOCACHE=/Users/colthorp/Library/Caches/go-build go test -tags fts5 -mod=vendor ./pkg/ontology/viewconfig ./pkg/app/views ./pkg/app/userstate ./pkg/ontology/noderead ./pkg/ontology/readmodel ./pkg/anchors/sqlite ./pkg/app/web`; `GOCACHE=/Users/colthorp/Library/Caches/go-build NO_WEB=1 make build`; `GOCACHE=/Users/colthorp/Library/Caches/go-build make check` (all Go packages and 1,433 web tests passed). No web end-to-end gate was run in this backend batch.
+- Shape latency: `GOCACHE=/Users/colthorp/Library/Caches/go-build go test -tags fts5 -mod=vendor ./pkg/app/web -run TestOntologyShapeWarmLatency2500Notes -count=1 -v` is the repeatable measurement command. The focused shape regression run measured 39.232466 ms mean and 50.194250 ms maximum across ten warm HTTP-handler requests, including JSON encoding, on a synthetic persisted fixture with 2,500 notes, 15 types, and 17,500 distinct note pairs. No note hydration or new write path is used.
+- `RZM_SKIP_REPO_DELEGATE=1 ./scripts/rzm validate` completed all configured checks: identifiers and broken links passed; ontology reported three existing empty sections in this active effort (`actualDelivered`, `deviations`, `compoundingFollowUps`). These are pre-existing coordinator closure work, outside backend batch 1. The sandboxed validation prerequisite attempt failed; the approved unsandboxed retry prepared the projection successfully.
+
 
 ## Deviations
 
