@@ -25,6 +25,7 @@
 | `workspaceViewHref(id, context)` | Build the corresponding Rhizome workspace URL, including a selected presentation. |
 | `customViewHref(id, context)` | A contextual `/views/<id>` URL for embedded/direct launch parity. |
 | `openCollection(name)` | Open a type or interface collection in the workspace. |
+| `openSearch({ folder, query? })` | Open a project search tab filtered to a vault folder, listing the folder's notes, or ranking matches when `query` is set. `folder: "/"` lists the notes at the vault root, which sit in no folder. |
 | `openIssues(scope?)` | Open the issues panel, optionally scoped to `{ kind: "type" \| "interface" \| "note", key }`. Without a scope, a view presenting a note opens that note's issues; a view anywhere else, or a standalone page, opens every issue. |
 | `embedded` | `true` when the Rhizome UI frames the view, `false` when it is the page. A cross-origin parent, such as an IDE preview, does not count: the view runs as its own page there. |
 
@@ -33,13 +34,14 @@ Context shapes:
 ```ts
 type ViewContext =
   | { kind: "standalone" }
+  | { kind: "workspace" }
   | { kind: "type"; type: string }
   | { kind: "interface"; interface: string }
   | { kind: "group"; group: string }
   | { kind: "node"; type: string; ref: NodeRef };
 ```
 
-`"*"` is an applicability pattern, never an invocation group. Node refs require `notePath` and `kind`; preserve all supplied identity fields. Query `ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }` for contextual navigation, using the alias to match the REST/kit field name, and pass it unchanged. Native rows already carry canonical refs. Ordinary `NoteLink`/`openNote` are conveniences for whole-note paths; use canonical node helpers for embedded nodes.
+`workspace` is the All notes page, which has no subject. `"*"` is an applicability pattern, never an invocation group. Node refs require `notePath` and `kind`; preserve all supplied identity fields. Query `ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }` for contextual navigation, using the alias to match the REST/kit field name, and pass it unchanged. Native rows already carry canonical refs. Ordinary `NoteLink`/`openNote` are conveniences for whole-note paths; use canonical node helpers for embedded nodes.
 
 `useViewRows` accepts the public native execution request: `variant`, `search`, `filters`, `sort`, `group`, and `page`, among its schema-defined fields. Discover the existing definition and API before supplying field names. The hook handles the workspace session; do not pass a separately created session or duplicate collection logic. See `mounted-example.md`.
 

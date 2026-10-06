@@ -131,7 +131,7 @@ In an embedded workspace, the button stages an edit for review/save; it does not
 
 ## Reusable groups and HTML
 
-To make a page available for every group, register `mount: { kind: group, group: "*" }`. Keep actual subject access as `context.group`. Choose explicit queries or a configurable native source appropriate to the page. To adapt to whatever group opens it, read the group's members with `useDisplayGroup()` and their fields and lifecycles with `useTypeDocs(names)` rather than naming types. Rhizome's bundled Briefing, Trace, and Sections pages work this way; `rzm view eject group.briefing` copies them for study or change. An exact group default overrides the generic default, and either overrides the bundled default; all compatible choices remain available.
+To make a page available for every group, register `mount: { kind: group, group: "*" }`. Keep actual subject access as `context.group`. Choose explicit queries or a configurable native source appropriate to the page. To adapt to whatever group opens it, read the group's members with `useDisplayGroup()` and their fields and lifecycles with `useTypeDocs(names)` rather than naming types. Rhizome's bundled Overview, Briefing, Trace, and Sections pages work this way; `rzm view eject group.briefing` copies them for study or change. An exact group default overrides the generic default, and either overrides the bundled default; all compatible choices remain available.
 
 HTML uses the same accessors. Point a definition at this entry and launch through its registered URL so the invocation reaches the page:
 
