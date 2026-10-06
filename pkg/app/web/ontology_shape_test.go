@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func shapeGET(t *testing.T, s *Server, target string) *httptest.ResponseRecorder {
+func shapeGET(t testing.TB, s *Server, target string) *httptest.ResponseRecorder {
 	t.Helper()
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, newApplicationRequest(http.MethodGet, target, nil))
@@ -93,7 +93,11 @@ func TestOntologyShapeHTTPPartsAndRecentNotes(t *testing.T) {
 
 // Synthetic persisted inputs mirror a 2,500-note, 15-type vault with seven
 // links per note. This times the real HTTP endpoint, including JSON encoding.
-func TestOntologyShapeWarmLatency2500Notes(t *testing.T) {
+// newShapeLatencyServer serves the shape of a generated vault of `notes` notes
+// across 15 types, each note linking to the next seven by wikilink and to the
+// first of them by a typed relation.
+func newShapeLatencyServer(t testing.TB, notes int) *Server {
+	t.Helper()
 	root := t.TempDir()
 	ctx := context.Background()
 	dir := filepath.Join(root, ".rhizome", "ontology")
@@ -111,8 +115,8 @@ func TestOntologyShapeWarmLatency2500Notes(t *testing.T) {
 	metadata := semdb.NoteMetadataSnapshot{State: semdb.NoteMetadataState{Ready: true, LoadedAt: 1, NotesHash: "fixture"}}
 	snapshot := semdb.OntologySnapshot{SchemaState: semdb.OntologySchemaState{Ready: true, LoadedAt: 1, NotesHash: "fixture", SchemaHash: schema.Hash, MaterializationVersion: ontology.OntologyMaterializationVersion}}
 	model := codeanchor.IntelOntologyNodeReadModel{}
-	pathFor := func(i int) string { return fmt.Sprintf("Type%02d/n%04d.md", i%15, i) }
-	for i := 0; i < 2500; i++ {
+	pathFor := func(i int) string { return fmt.Sprintf("Type%02d/n%05d.md", i%15, i) }
+	for i := 0; i < notes; i++ {
 		path := pathFor(i)
 		typ := fmt.Sprintf("Type%02d", i%15)
 		id := fmt.Sprintf("note-%d", i)
@@ -122,7 +126,7 @@ func TestOntologyShapeWarmLatency2500Notes(t *testing.T) {
 		model.Nodes = append(model.Nodes, codeanchor.IntelOntologyNode{NodeID: id, NotePath: path, NodeRefJSON: "{}", NodeKind: "NOTE", TypeName: typ, SchemaHash: schema.Hash, UpdatedAt: 1})
 		model.FieldValues = append(model.FieldValues, codeanchor.IntelOntologyNodeFieldValue{NodeID: id, NotePath: path, TypeName: typ, FieldName: "stage", ValueKind: "enum", ValueText: "open", ValueNorm: "open", SchemaHash: schema.Hash, UpdatedAt: 1})
 		for j := 1; j <= 7; j++ {
-			target := (i + j) % 2500
+			target := (i + j) % notes
 			metadata.WikilinkEdges = append(metadata.WikilinkEdges, semdb.GraphDocEdgeRow{SrcPath: path, DstPath: pathFor(target), Kind: "wikilink"})
 			if j == 1 {
 				snapshot.Edges = append(snapshot.Edges, semdb.OntologyEdgeRow{SrcPath: path, SrcNodeID: id, DstPath: pathFor(target), DstNodeID: fmt.Sprintf("note-%d", target), RelationName: "peers", DstType: fmt.Sprintf("Type%02d", target%15), Structural: true, SchemaHash: schema.Hash, UpdatedAt: 1})
@@ -134,6 +138,28 @@ func TestOntologyShapeWarmLatency2500Notes(t *testing.T) {
 	require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, model))
 	s := &Server{cfg: Config{VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}}, runtime: &Runtime{IntelStore: store}, mux: http.NewServeMux()}
 	s.mux.HandleFunc("/api/v1/ontology/shape", publicGET(s.requireIndexReady(s.handleOntologyShape)))
+	return s
+}
+
+// warmShapeLatency requests the whole shape once to warm it, then `runs`
+// times, and returns the mean and slowest request.
+func warmShapeLatency(t testing.TB, s *Server, runs int) (mean, worst time.Duration) {
+	t.Helper()
+	require.Equal(t, http.StatusOK, shapeGET(t, s, "/api/v1/ontology/shape").Code)
+	var total time.Duration
+	for range runs {
+		start := time.Now()
+		w := shapeGET(t, s, "/api/v1/ontology/shape")
+		elapsed := time.Since(start)
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		total += elapsed
+		worst = max(worst, elapsed)
+	}
+	return total / time.Duration(runs), worst
+}
+
+func TestOntologyShapeWarmLatency2500Notes(t *testing.T) {
+	s := newShapeLatencyServer(t, 2500)
 	w := shapeGET(t, s, "/api/v1/ontology/shape")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	var shape noderead.ShapeResponse
@@ -141,20 +167,8 @@ func TestOntologyShapeWarmLatency2500Notes(t *testing.T) {
 	require.Equal(t, 2500, shape.TotalNotes)
 	require.Len(t, shape.Members.Types, 15)
 	require.False(t, shape.Rebuilding)
-	samples := make([]time.Duration, 10)
-	for i := range samples {
-		start := time.Now()
-		w = shapeGET(t, s, "/api/v1/ontology/shape")
-		samples[i] = time.Since(start)
-		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	}
-	var total time.Duration
-	var worst time.Duration
-	for _, elapsed := range samples {
-		total += elapsed
-		worst = max(worst, elapsed)
-	}
-	t.Logf("2500 notes, 15 types, 17500 note pairs: warm HTTP mean %s, max %s (%d runs)", total/time.Duration(len(samples)), worst, len(samples))
+	mean, worst := warmShapeLatency(t, s, 10)
+	t.Logf("2500 notes, 15 types, 17500 note pairs: warm HTTP mean %s, max %s (10 runs)", mean, worst)
 	// The budget is measured in the focused run; competing package tests can
 	// contend for the CPU in make check, so timing is reported, not asserted.
 	s.cfg.VaultPath = t.TempDir()
@@ -163,6 +177,17 @@ func TestOntologyShapeWarmLatency2500Notes(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &shape))
 	require.Equal(t, 2500, shape.UntypedNotes)
 	require.False(t, shape.Rebuilding, "a schema-less vault has usable untyped shape")
+}
+
+// BenchmarkOntologyShapeWarm20000Notes measures SPEC-0117's 20,000-note budget
+// (under one second warm): go test ./pkg/app/web -run '^$' -bench Shape -benchtime 1x.
+func BenchmarkOntologyShapeWarm20000Notes(b *testing.B) {
+	s := newShapeLatencyServer(b, 20000)
+	for b.Loop() {
+		mean, worst := warmShapeLatency(b, s, 10)
+		b.ReportMetric(float64(mean.Milliseconds()), "mean-ms")
+		b.ReportMetric(float64(worst.Milliseconds()), "max-ms")
+	}
 }
 
 func TestOntologyShapeIndexInitializingUsesPublic503(t *testing.T) {
