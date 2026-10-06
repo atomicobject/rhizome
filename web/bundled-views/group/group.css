@@ -593,34 +593,6 @@
   font-size: 12px;
 }
 
-/* In this group */
-.gv-typ {
-  padding: 8px 0;
-  border-top: 1px solid var(--border);
-}
-
-.gv-typ:first-child {
-  padding-top: 4px;
-  border-top: 0;
-}
-
-.gv-typ-top {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.gv-typ-top .gv-member {
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.gv-typ-count {
-  margin-left: auto;
-  color: var(--text);
-  font-weight: 600;
-}
-
 .gv-typ-desc {
   display: -webkit-box;
   margin: 1px 0 0;
@@ -666,13 +638,6 @@
   background: var(--ao-gray-200);
 }
 
-.gv-typ .gv-counts {
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  margin: 4px 0 0;
-  white-space: normal;
-}
-
 .gv-kinds {
   display: flex;
   flex-wrap: wrap;
@@ -682,7 +647,7 @@
   font-size: 11px;
 }
 
-/* Connections */
+/* Matrix */
 .gv-mx {
   margin-top: 4px;
   border-collapse: collapse;
@@ -722,12 +687,6 @@
 
 .gv-mx thead td {
   border: 0;
-}
-
-.gv-mx td[data-cell="used"] {
-  background: var(--ao-teal-soft);
-  color: var(--ao-teal-ink);
-  font-weight: 700;
 }
 
 .gv-mx td[data-cell="unused"] {
@@ -1212,4 +1171,471 @@
   margin: 0;
   color: var(--warning-ink);
   font-size: 11.5px;
+}
+
+/* Briefing with two columns: activity only (SPEC-0117 US6). */
+@media (min-width: 960px) {
+  .gv-brief.gv-brief-two {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+
+  .gv-brief-two .gv-brief-col:last-child {
+    border-right: 0;
+  }
+}
+
+/* A block's controls beside its heading, its loading line, and its failure. */
+.gv-blk-controls {
+  display: inline-flex;
+  margin-left: auto;
+  font-weight: 400;
+}
+
+.gv-blk-head .gv-num + .gv-blk-controls {
+  margin-left: 8px;
+}
+
+.gv-toggle button {
+  padding: 1px 7px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.gv-toggle button[aria-pressed="true"] {
+  background: var(--surface-sunk);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.gv-toggle button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.gv-spin,
+.gv-fail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.gv-fail {
+  color: var(--warning-ink);
+}
+
+.gv-spin i {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--ao-teal);
+  border-radius: 50%;
+  animation: gv-spin 0.8s linear infinite;
+}
+
+@keyframes gv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gv-spin i {
+    animation: none;
+  }
+}
+
+/* Space reserved for each Overview block, so blocks fill in without shifting the page. */
+.gv-slot-map {
+  min-height: 400px;
+}
+
+.gv-slot-members {
+  min-height: 140px;
+}
+
+.gv-slot-side {
+  min-height: 160px;
+}
+
+/* Overview: the map beside the scope's own blocks, then the member table. */
+.gv-ov {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+
+.gv-ov-main,
+.gv-ov-side,
+.gv-ov-members {
+  min-width: 0;
+  padding: 12px 20px 16px;
+}
+
+.gv-ov-side {
+  border-top: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
+.gv-ov-members {
+  padding: 12px 0 16px;
+}
+
+.gv-ov-members > .gv-blk > .gv-blk-head {
+  padding: 0 20px;
+}
+
+@media (min-width: 960px) {
+  .gv-ov {
+    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr);
+  }
+
+  .gv-ov-side {
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+}
+
+/* The map. */
+.gv-map-wrap {
+  position: relative;
+}
+
+.gv-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+}
+
+.gv-map text {
+  fill: var(--text);
+  font: 11px var(--font-sans);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.gv-map .gv-map-n {
+  fill: var(--text-muted);
+  font: 10.5px var(--font-mono);
+}
+
+.gv-map text[data-group="true"] {
+  font-weight: 700;
+}
+
+.gv-map-row line {
+  stroke: var(--border-faint);
+}
+
+.gv-map-row text {
+  fill: var(--text-faint);
+  font-size: 10.5px;
+}
+
+.gv-map-unused {
+  stroke: var(--text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0.7;
+}
+
+.gv-map-spoke {
+  stroke: var(--border);
+}
+
+.gv-map-edge line {
+  stroke-linecap: round;
+}
+
+.gv-map-edge[data-kind="relation"] line:first-child {
+  stroke: var(--ao-teal);
+  stroke-opacity: 0.85;
+}
+
+.gv-map-edge[data-kind="plain"] line:first-child {
+  stroke: var(--ao-gray-300);
+}
+
+.gv-map .gv-map-hit {
+  stroke: transparent;
+  stroke-width: 12;
+}
+
+.gv-map-hit[data-action="trace"] {
+  cursor: pointer;
+}
+
+.gv-map .gv-map-count {
+  fill: var(--ao-teal-ink);
+  font: 10px var(--font-mono);
+  text-anchor: middle;
+}
+
+.gv-map-edge[data-kind="plain"] .gv-map-count {
+  fill: var(--text-faint);
+}
+
+.gv-map-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.gv-map-node[data-outside="true"] {
+  cursor: default;
+}
+
+.gv-map-node[data-outside="true"] circle {
+  fill: var(--ao-gray-200);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+.gv-map-node[data-outside="true"] text {
+  fill: var(--text-faint);
+}
+
+.gv-map-node circle {
+  stroke-width: 1.5;
+}
+
+.gv-map-node .gv-map-ring {
+  fill: none;
+  stroke-dasharray: 2 3;
+}
+
+.gv-map-node:focus-visible circle:last-of-type {
+  stroke: var(--ring);
+  stroke-width: 2.5;
+}
+
+.gv-map[data-dim="true"] .gv-map-edge,
+.gv-map[data-dim="true"] .gv-map-node,
+.gv-map[data-dim="true"] .gv-map-spoke,
+.gv-map[data-dim="true"] .gv-map-unused {
+  opacity: 0.15;
+}
+
+.gv-map[data-dim="true"] [data-hot="true"] {
+  opacity: 1;
+}
+
+.gv-map-tip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 300px;
+  padding: 6px 9px;
+  border-radius: var(--r-sm);
+  background: var(--ao-ink);
+  color: var(--ao-white);
+  font-size: 12px;
+  pointer-events: none;
+  transform: translate(12px, 12px);
+}
+
+.gv-map-tip span {
+  color: var(--ao-gray-300);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.gv-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+.gv-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+
+.gv-legend .gv-legend-outside {
+  background: var(--ao-gray-200);
+}
+
+.gv-legend s {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  margin-right: 5px;
+  border-top: 3px solid var(--ao-teal);
+  vertical-align: 3px;
+}
+
+.gv-legend s[data-kind="plain"] {
+  border-top-color: var(--ao-gray-300);
+}
+
+.gv-legend s[data-kind="unused"] {
+  border-top: 1px dashed var(--text-faint);
+}
+
+/* The Overview Matrix: relation, plain, and Outside cells. */
+.gv-mx-wrap {
+  overflow-x: auto;
+}
+
+.gv-ov-mx th[scope="row"] {
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.gv-mx td[data-cell="relation"] {
+  background: var(--ao-teal-soft);
+  color: var(--ao-teal-ink);
+  font-weight: 700;
+}
+
+.gv-mx td[data-cell="plain"] {
+  color: var(--text-muted);
+}
+
+/* The member table. */
+.gv-ov-table th:first-child,
+.gv-ov-table td:first-child {
+  width: auto;
+}
+
+.gv-ov-table td {
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.gv-ov-table tr[data-kind="group"] td,
+.gv-ov-table tr[data-kind="heading"] td {
+  background: var(--surface-sunk);
+  font-weight: 700;
+}
+
+.gv-ov-table tr[data-kind="implementor"] td {
+  color: var(--text-muted);
+}
+
+.gv-ov-table .gv-record,
+.gv-ov-table .gv-member,
+.gv-ov-name {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.gv-ov-chev {
+  width: 12px;
+  color: var(--text-faint);
+}
+
+.gv-ov-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border: 1px solid;
+  border-radius: 50%;
+}
+
+.gv-ov-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gv-dist.gv-ov-bar {
+  width: 110px;
+  height: 7px;
+  margin-top: 0;
+}
+
+.gv-ov-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gv-ov-mini {
+  display: inline-block;
+  width: 46px;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--surface-sunk);
+  vertical-align: middle;
+}
+
+.gv-ov-mini i {
+  display: block;
+  height: 100%;
+  background: var(--ao-teal);
+}
+
+.gv-ov-mini[data-kind="untyped"] i {
+  background: var(--ao-gray-300);
+}
+
+.gv-ov-gaps {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  white-space: normal;
+}
+
+.gv-ov-gaps [data-required="true"] {
+  color: var(--accent-active);
+}
+
+/* The folder block and coverage line. */
+.gv-ov-folders td:first-child,
+.gv-ov-folders th:first-child {
+  width: auto;
+  padding-left: 0;
+}
+
+.gv-ov-folders th:last-child,
+.gv-ov-folders td:last-child {
+  padding-right: 0;
+}
+
+.gv-ov-folder {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.gv-ov-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 12px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.gv-ov-kv dt {
+  color: var(--text-faint);
+}
+
+.gv-ov-kv dd {
+  margin: 0;
 }

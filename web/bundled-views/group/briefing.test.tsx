@@ -1,15 +1,13 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 
 import {
   OPEN_COLLECTION_MESSAGE,
   OPEN_ISSUES_MESSAGE,
   OPEN_NODE_MESSAGE,
-  OPEN_NOTE_MESSAGE,
-  OPEN_VIEW_MESSAGE,
 } from "../../src/lib/customViewMessages";
 import { jsonReply } from "../../src/test/fakeFetch";
-import { NOW, PATHS, PLANNING_GUIDE, RECORDS_DATA, TYPE_DOCS } from "./__fixtures__/groups.ts";
+import { NOW, PATHS, RECORDS_DATA, TYPE_DOCS } from "./__fixtures__/groups.ts";
 import { groupRoutes, renderGroupView } from "./__fixtures__/harness.tsx";
 import { isJsonObject } from "./api.ts";
 import { SIGNAL_RECORDS } from "./briefing-attention.tsx";
@@ -181,106 +179,73 @@ it("lists recent changes by day and time, collapsing a burst until expanded", as
   );
 });
 
-it("counts notes outside the group by type and lists the most connected first", async () => {
-  await renderGroupView(loadBriefing);
-  const outside = await screen.findByRole("region", { name: "Outside the group" });
-
-  expect(within(outside).getByText("4 notes")).toBeVisible();
-  expect(outside.querySelector(".gv-outsum")).toHaveTextContent("1 person3 untyped notes");
-  expect(items(outside).map((entry) => entry.textContent)).toEqual([
-    "Ada Lovelace person2 linked records",
-    "Kickoff untyped note2 linked records",
-    "Release guide untyped note1 linked record",
-    "Scratch untyped note1 linked record",
-  ]);
-});
-
-it("summarizes each member with its count, description, lifecycle, and implementing types", async () => {
-  await renderGroupView(loadBriefing);
-  const group = await screen.findByRole("region", { name: "In this group" });
-
-  const work = item(group, "Work items");
-  expect(work.getByText("interface")).toBeVisible();
-  expect(work.getByText("Planned work.")).toBeVisible();
-  expect(work.getByText("6")).toBeVisible();
-  expect(work.getByText("2 issues")).toBeVisible();
-  // The lifecycle distribution is labeled, not only drawn.
-  expect(group.querySelector(".gv-counts")).toHaveTextContent("Backlog1Doing2Blocked1Done2");
-  expect(group.querySelector(".gv-kinds")).toHaveTextContent("Story 4Bug 2");
-
-  expect(items(group).map((entry) => entry.querySelector(".gv-member")?.textContent)).toEqual([
-    "Work items",
-    "Areas",
-    "Releases",
-    "Checklists",
-  ]);
-});
-
-it("shows record links between members as a table, marking allowed but unused links", async () => {
-  await renderGroupView(loadBriefing);
-  const connections = await screen.findByRole("region", { name: "Connections" });
-  const table = within(connections).getByRole("table");
+it("shows only activity: Needs attention, In motion, and Recent changes", async () => {
+  await renderGroupView(loadBriefing, { group: "People" });
 
   expect(
-    within(table)
-      .getAllByRole("columnheader")
-      .map((header) => header.textContent),
-  ).toEqual(["Work items", "Areas", "Releases", "Checklists"]);
-
-  const row = (name: string) =>
-    within(table).getByRole("rowheader", { name }).closest("tr")?.querySelectorAll("td") ?? [];
-
-  expect([...row("Work items")].map((cell) => cell.textContent)).toEqual([
-    "Same type",
-    "5",
-    "No link field",
-    "No link field",
-  ]);
-  expect([...row("Releases")].map((cell) => cell.textContent)).toEqual([
-    "2",
-    "0 (allowed, unused)",
-    "Same type",
-    "1",
-  ]);
-});
-
-it("renders a one-root group without connections", async () => {
-  await renderGroupView(loadBriefing, { group: "People" });
-  const group = await screen.findByRole("region", { name: "In this group" });
-
-  expect(items(group)).toHaveLength(1);
+    screen.getAllByRole("region").map((block) => block.querySelector("h2 span")?.textContent),
+  ).toEqual(["Needs attention", "In motion", "Recent changes"]);
   expect(within(region("Needs attention")).getByText("No validation issues")).toBeVisible();
-
-  expect(screen.queryByRole("region", { name: "Connections" })).toBeNull();
   expect(
     within(region("Recent changes")).getByRole("button", { name: /Ada Lovelace/ }),
   ).toBeVisible();
 });
 
-it("says the outside count is a lower bound when a record has more neighbors than were read", async () => {
-  const people = [
-    {
-      path: PATHS.ada,
-      title: "Ada Lovelace",
-      neighborhood: {
-        truncated: true,
-        nodes: [{ path: "notes/kickoff.md", title: "Kickoff", resolvedType: null }],
-      },
-    },
-  ];
+it("paints every block's heading at once and fills each in when the records arrive", async () => {
+  let release = () => {};
 
-  await renderGroupView(loadBriefing, {
-    group: "People",
-    routes: groupRoutes({ "POST /api/v1/graphql": () => jsonReply({ data: { Person: people } }) }),
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
   });
 
-  const outside = await screen.findByRole("region", { name: "Outside the group" });
+  await renderGroupView(loadBriefing, {
+    settle: false,
+    routes: groupRoutes({
+      "POST /api/v1/graphql": async () => {
+        await held;
 
-  expect(within(outside).getByText("at least 1 note")).toBeVisible();
-  expect(within(outside).getByText(/have more links than were read/)).toBeVisible();
+        return jsonReply({ data: RECORDS_DATA });
+      },
+    }),
+  });
+
+  for (const name of ["Needs attention", "In motion", "Recent changes"])
+    expect(within(region(name)).getByRole("status")).toHaveTextContent("Loading");
+  expect(screen.getByText("Loading the group…")).toBeVisible();
+
+  release();
+
+  await waitFor(() =>
+    expect(within(region("In motion")).getByText("Checkout redesign")).toBeVisible(),
+  );
+  expect(screen.queryByText("Loading the group…")).toBeNull();
 });
 
-it("says when nothing outside the group links in and no record has a change time", async () => {
+it("says what failed in each block and retries the read", async () => {
+  let fail = true;
+
+  await renderGroupView(loadBriefing, {
+    settle: false,
+    routes: groupRoutes({
+      "POST /api/v1/graphql": () =>
+        fail ? jsonReply({ error: "unavailable" }, 503) : jsonReply({ data: RECORDS_DATA }),
+    }),
+  });
+
+  const attention = await within(region("Needs attention")).findByRole("alert");
+  expect(attention).toHaveTextContent("Could not load what needs attention");
+  expect(within(region("Recent changes")).getByRole("alert")).toBeVisible();
+
+  fail = false;
+  fireEvent.click(within(attention).getByRole("button", { name: "Retry" }));
+
+  await waitFor(() =>
+    expect(within(region("In motion")).getByText("Checkout redesign")).toBeVisible(),
+  );
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("says when no record has a change time", async () => {
   const people = [{ path: PATHS.ada, title: "Ada Lovelace" }];
 
   await renderGroupView(loadBriefing, {
@@ -289,12 +254,6 @@ it("says when nothing outside the group links in and no record has a change time
   });
 
   expect(await screen.findByText("No change times recorded.")).toBeVisible();
-  expect(within(region("Outside the group")).getByText("0 notes")).toBeVisible();
-  expect(
-    within(region("Outside the group")).getByText(
-      "No notes outside the group link to or from its records.",
-    ),
-  ).toBeVisible();
 });
 
 it("keeps records that arrive with field errors, such as a missing required field", async () => {
@@ -320,7 +279,7 @@ it("keeps records that arrive with field errors, such as a missing required fiel
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-it("opens records, collections, scoped issues, notes, and the group's views through the workspace", async () => {
+it("opens records, collections, and scoped issues through the workspace", async () => {
   const { posted } = await renderGroupView(loadBriefing, { embedded: true, now: NOW });
   const attention = await screen.findByRole("region", { name: "Needs attention" });
 
@@ -332,10 +291,6 @@ it("opens records, collections, scoped issues, notes, and the group's views thro
   fireEvent.click(
     item(region("Context"), "Next step empty").getByRole("button", { name: "Open work items" }),
   );
-  fireEvent.click(within(region("Outside the group")).getByRole("button", { name: "Kickoff" }));
-  fireEvent.click(within(region("In this group")).getByRole("button", { name: "Areas" }));
-  fireEvent.click(within(region("Views")).getByRole("button", { name: "Planning board" }));
-  fireEvent.click(within(region("Guide")).getByRole("button", { name: "Planning guide" }));
 
   expect(opened(posted)).toEqual([
     { type: OPEN_ISSUES_MESSAGE, scope: { kind: "interface", key: "Work" } },
@@ -345,14 +300,6 @@ it("opens records, collections, scoped issues, notes, and the group's views thro
     },
     { type: OPEN_COLLECTION_MESSAGE, name: "Release" },
     { type: OPEN_COLLECTION_MESSAGE, name: "Work" },
-    { type: OPEN_NOTE_MESSAGE, path: PATHS.kickoff, beside: false },
-    { type: OPEN_COLLECTION_MESSAGE, name: "Area" },
-    {
-      type: OPEN_VIEW_MESSAGE,
-      id: "planning.board",
-      context: { kind: "group", group: "Planning" },
-    },
-    { type: OPEN_NOTE_MESSAGE, path: PLANNING_GUIDE, beside: false },
   ]);
 });
 

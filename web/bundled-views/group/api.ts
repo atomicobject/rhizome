@@ -101,7 +101,8 @@ export function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-const isNumber = (value: JsonValue | undefined): value is number => typeof value === "number";
+export const isNumber = (value: JsonValue | undefined): value is number =>
+  typeof value === "number";
 
 export function isBoolean(value: JsonValue | undefined): value is boolean;
 export function isBoolean(value: unknown): value is boolean;
@@ -398,11 +399,14 @@ export function parseRecords(data: JsonObject, docs: readonly TypeDoc[]): Parsed
 
 /** The bundled views, which the page's switcher already offers beside these. */
 const BUNDLED_VIEW_IDS = new Set([
+  "group.overview",
   "group.briefing",
   "group.trace",
   "group.sections",
   "type.briefing",
   "interface.briefing",
+  "workspace.overview",
+  "workspace.briefing",
 ]);
 
 export type SubjectKind = "group" | "type" | "interface";
