@@ -101,7 +101,8 @@ export function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-const isNumber = (value: JsonValue | undefined): value is number => typeof value === "number";
+export const isNumber = (value: JsonValue | undefined): value is number =>
+  typeof value === "number";
 
 export function isBoolean(value: JsonValue | undefined): value is boolean;
 export function isBoolean(value: unknown): value is boolean;
