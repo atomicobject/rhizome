@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useReducer, useState, type ReactNode } from "react";
 import type { Failure, OpenState } from "./api";
 
 const progress: Partial<Record<OpenState["step"], string>> = {
@@ -11,17 +11,18 @@ const progress: Partial<Record<OpenState["step"], string>> = {
 /** Progress shorter than this, such as reopening a running worktree, shows nothing. */
 const QUIET_MS = 800;
 
-/** Whether `delay` has passed since `started`, rerendering when it does. */
+/** Whether `delay` has passed since `started`, rerendering when it does. It
+ * reads the clock while rendering, so a new `started` is judged on its own
+ * first render rather than by the previous one's elapsed time. */
 function useElapsedPast(started: number, delay: number) {
-  const [past, setPast] = useState(() => Date.now() - started >= delay);
+  const [, rerender] = useReducer((count: number) => count + 1, 0);
   useEffect(() => {
     const wait = started + delay - Date.now();
-    setPast(wait <= 0);
     if (wait <= 0) return;
-    const timer = window.setTimeout(() => setPast(true), wait);
+    const timer = window.setTimeout(rerender, wait);
     return () => window.clearTimeout(timer);
   }, [started, delay]);
-  return past;
+  return Date.now() - started >= delay;
 }
 
 function Elapsed({ started }: { started: number }) {
@@ -46,7 +47,6 @@ export function OpenStatus({
   state,
   busy,
   onRetry,
-  onWake,
   onTrust,
   onSetup,
   onSkipSeed,
@@ -56,7 +56,6 @@ export function OpenStatus({
   state: OpenState;
   busy: boolean;
   onRetry: () => void;
-  onWake: () => void;
   onTrust: () => void;
   onSetup: () => void;
   onSkipSeed: () => void;
@@ -107,7 +106,7 @@ export function OpenStatus({
         <h1>Rhizome is sleeping</h1>
         <p>You stopped Rhizome for this worktree. It starts again when you open it.</p>
         <p className="path">{state.worktree}</p>
-        <button className="primary" disabled={busy} onClick={onWake}>
+        <button className="primary" disabled={busy} onClick={onRetry}>
           Start Rhizome
         </button>
       </div>

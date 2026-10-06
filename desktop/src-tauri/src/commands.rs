@@ -1,11 +1,12 @@
 use crate::{
     bridge::{self, Failure, Request},
+    menu::{self, MenuEntry},
     pane::Panes,
     pipeline,
-    presence::{Presence, State as RuntimeState},
+    presence::Presence,
     security,
     state::{migrate, valid_id, Discovery, Library, Stored},
-    windows::{self, MenuEntry, Sessions},
+    windows::{self, Sessions},
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -211,6 +212,7 @@ pub enum Action {
         worktree: String,
     },
     OpenInBrowser {
+        id: String,
         worktree: String,
     },
     Reorder {
@@ -407,16 +409,20 @@ pub async fn desktop_request(
                 .map_err(|e| e.to_string())?;
             Ok(Value::Null)
         }
-        Action::OpenInBrowser { worktree } => {
-            let url = windows::page_url(&window, Some(&worktree))
-                .or_else(|| {
-                    let runtimes = app.state::<Presence>().runtimes();
-                    let runtime = runtimes
-                        .get(&worktree)
-                        .filter(|r| r.state == RuntimeState::Running)?;
-                    security::runtime_url(runtime.url.as_deref()?).ok()
-                })
-                .ok_or("Rhizome is not running for this worktree.".to_string())?;
+        Action::OpenInBrowser { id, worktree } => {
+            absolute_worktree(&worktree)?;
+            // The page this window shows, else the runtime's home page, started
+            // first when it is not running.
+            let url = match windows::worktree_page_url(&window, &worktree) {
+                Some(url) => url,
+                None => {
+                    pipeline::open_runtime(&app, &id, &worktree, false, false)
+                        .await?
+                        .ok_or("Rhizome did not start for this worktree.".to_string())?
+                        .url
+                }
+            };
+            app.state::<Presence>().refresh();
             app.opener()
                 .open_url(url.as_str(), None::<&str>)
                 .map_err(|e| e.to_string())?;
@@ -459,7 +465,7 @@ pub async fn desktop_request(
             Ok(Value::Null)
         }
         Action::Menu { x, y, items } => {
-            windows::popup(&window, x, y, &items)?;
+            menu::popup(&window, x, y, &items)?;
             Ok(Value::Null)
         }
     }

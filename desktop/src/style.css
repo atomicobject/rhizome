@@ -180,6 +180,9 @@ body,
 .runtime-dot.stopped {
   border: 1.5px solid #b9b6ae;
 }
+.runtime-dot.sleeping {
+  border: 1.5px dashed #8a877f;
+}
 .sidebar {
   overflow-y: auto;
   border-right: 1px solid #e4e2dd;

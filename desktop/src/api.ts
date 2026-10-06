@@ -101,6 +101,8 @@ export type Message =
   /** A worktree opened from the terminal, chosen in this window. */
   | { type: "select"; library: Library; repository: string; worktree: string }
   | ({ type: "alert" } & Failure)
+  /** A brief confirmation, such as after Copy Page URL. */
+  | { type: "notice"; message: string }
   | { type: "menu"; id: string }
   | { type: "command"; command: "add-repository" | "toggle-sidebar" | "settings" };
 export interface MenuEntry {
@@ -155,7 +157,7 @@ type Args = {
   restart: { id: string; worktree: string };
   stop: { worktree: string };
   reveal: { worktree: string };
-  "open-in-browser": { worktree: string };
+  "open-in-browser": { id: string; worktree: string };
   /** Repository ids in the order the sidebar lists them. */
   reorder: { ids: string[] };
   browse: { to: "back" | "forward" | "reload" };

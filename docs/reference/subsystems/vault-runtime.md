@@ -29,7 +29,7 @@ code-anchors:
 - `pkg/app/bootstrap`: `LiveRuntime`, the phased async bootstrap for long-running processes and one-shot commands; election on `.rhizome/runtime.lock` (`live_election.go`); leader indexing startup (`live_indexing.go`) and the indexing lane (`lane/`): the single serialized executor for boot catch-up, watcher ownership batches, validation projections, embedding cycles, graph cycles, and explicit index jobs.
 - `pkg/app/cli/serve`: serve orchestration below Cobra: readiness gates, interrupted-write recovery, `ControlHooks` assembly into `web.RuntimeControl`, headless lifecycle (log file, idle exit, root removal).
 - `pkg/app/runtimestop`: stopping a vault's runtime for `rzm stop` and the desktop companion: cancel a pending start, request graceful shutdown, then terminate only a headless runtime. It depends on `pkg/app/runtime` alone, so the companion does not link the server.
-- Consumers: `cmd/serve.go`, `cmd/stop.go`, `cmd/index.go` (delegation), `cmd/agent_code_serve.go` (agent operations), `cmd/agent_start.go` and `cmd/mcp.go` (ensure only). Contract: [[vault-runtime-coordination|SPEC-0104]].
+- Consumers: `cmd/serve.go`, `cmd/stop.go`, `pkg/app/desktop/stop.go` (desktop Stop Rhizome), `cmd/index.go` (delegation), `cmd/agent_code_serve.go` (agent operations), `cmd/agent_start.go` and `cmd/mcp.go` (ensure only). Contract: [[vault-runtime-coordination|SPEC-0104]].
 
 ## Diagnostics
 

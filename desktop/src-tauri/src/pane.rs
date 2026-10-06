@@ -117,13 +117,20 @@ impl Pane {
     }
 
     /// Starts the app's own generation for the target `generation` displayed,
-    /// keeping supervision. Returns `None` when that generation was replaced.
-    pub fn resume(&mut self, generation: u64, started: u64, reason: &'static str) -> Option<u64> {
+    /// keeping supervision. `reason` names why the shell sees a reconnect;
+    /// `None` reopens quietly, as after a stop that failed. Returns `None`
+    /// when that generation was replaced.
+    pub fn resume(
+        &mut self,
+        generation: u64,
+        started: u64,
+        reason: Option<&'static str>,
+    ) -> Option<u64> {
         if !self.current(generation) || self.worktree.is_empty() {
             return None;
         }
         let (repository, worktree) = self.target();
-        Some(self.restart(started, &repository, &worktree, Some(reason)))
+        Some(self.restart(started, &repository, &worktree, reason))
     }
 
     fn restart(
@@ -153,9 +160,16 @@ impl Pane {
             return false;
         }
         self.selection = selection;
-        self.generation += 1;
         self.repository.clear();
         self.worktree.clear();
+        self.idle();
+        self.unload();
+        true
+    }
+
+    /// Starts a generation with nothing opening, loading, or supervised.
+    fn idle(&mut self) {
+        self.generation += 1;
         self.pending = None;
         self.overdue = None;
         self.ready = false;
@@ -164,31 +178,21 @@ impl Pane {
         self.supervised = None;
         self.stopped = 0;
         self.failures = 0;
-        self.unload();
-        true
     }
 
     /// Puts a pane targeting `worktree` to sleep after the user stopped its
     /// runtime: a new generation the supervisor leaves alone, so nothing
     /// relaunches the runtime until the user opens the worktree again. Returns
-    /// `None` for a pane targeting another worktree, else whether the caller
-    /// must clear the content view.
-    pub fn sleep(&mut self, worktree: &str) -> Option<bool> {
+    /// `None` for a pane targeting another worktree, else the sleeping
+    /// generation and whether the caller must clear the content view.
+    pub fn sleep(&mut self, worktree: &str) -> Option<(u64, bool)> {
         if self.worktree != worktree {
             return None;
         }
-        self.generation += 1;
-        self.pending = None;
-        self.overdue = None;
-        self.ready = false;
-        self.opening = false;
-        self.reconnecting = None;
-        self.supervised = None;
-        self.stopped = 0;
-        self.failures = 0;
+        self.idle();
         let cleared = self.unload();
         self.report(self.generation, "sleeping", json!({}));
-        Some(cleared)
+        Some((self.generation, cleared))
     }
 
     /// Whether the content view holds a loaded page of `worktree`'s runtime.
@@ -445,14 +449,17 @@ impl Panes {
         }
     }
 
-    /// Puts every pane targeting `worktree` to sleep. Returns the windows whose
-    /// content view must be cleared.
-    pub fn sleep(&self, worktree: &str) -> Vec<String> {
+    /// Puts every pane targeting `worktree` to sleep. Returns each window with
+    /// its sleeping generation and whether its content view must be cleared.
+    pub fn sleep(&self, worktree: &str) -> Vec<(String, u64, bool)> {
         self.0
             .lock()
             .unwrap()
             .iter_mut()
-            .filter_map(|(window, pane)| pane.sleep(worktree)?.then(|| window.clone()))
+            .filter_map(|(window, pane)| {
+                let (generation, cleared) = pane.sleep(worktree)?;
+                Some((window.clone(), generation, cleared))
+            })
             .collect()
     }
 
@@ -549,7 +556,7 @@ mod tests {
         let first = open(&mut pane, 1, "/w");
         pane.expect(first, &origin, 1, true);
         assert_eq!(finish(&mut pane, &origin), Some(first));
-        let generation = pane.resume(first, 2, "moved").unwrap();
+        let generation = pane.resume(first, 2, Some("moved")).unwrap();
         pane.expect(generation, &origin, 2, true);
         assert_eq!(
             pane.loaded(&origin),
@@ -700,7 +707,7 @@ mod tests {
         let Some(Supervise::Relaunch(generation)) = pane.observe(Some(stopped), false) else {
             panic!("expected a relaunch");
         };
-        let generation = pane.resume(generation, 2, "stopped").unwrap();
+        let generation = pane.resume(generation, 2, Some("stopped")).unwrap();
         assert_eq!(pane.observe(Some(stopped), false), None, "busy");
         pane.settle(generation, true);
     }
@@ -733,7 +740,7 @@ mod tests {
         let Some(Supervise::Relaunch(generation)) = pane.observe(Some(&stopped), false) else {
             panic!("expected a relaunch");
         };
-        let generation = pane.resume(generation, 3, "stopped").unwrap();
+        let generation = pane.resume(generation, 3, Some("stopped")).unwrap();
         pane.expect(generation, &url(B), 2, true);
         pane.settle(generation, true);
         finish(&mut pane, &url(B));
@@ -761,7 +768,7 @@ mod tests {
     #[test]
     fn a_failed_reconnect_follows_a_runtime_started_elsewhere() {
         let mut pane = displayed(A);
-        let generation = pane.resume(pane.generation, 2, "stopped").unwrap();
+        let generation = pane.resume(pane.generation, 2, Some("stopped")).unwrap();
         pane.settle(generation, true);
         assert_eq!(
             pane.observe(Some(&runtime(State::Running, A, 9)), false),
@@ -779,7 +786,7 @@ mod tests {
         };
         let (_, cleared) = pane.select(2, 2, "other", "/other").unwrap();
         assert!(cleared, "the other worktree's page leaves the view");
-        assert_eq!(pane.resume(follow, 3, "moved"), None);
+        assert_eq!(pane.resume(follow, 3, Some("moved")), None);
         assert_eq!(pane.target(), ("other".into(), "/other".into()));
 
         let mut pane = displayed(A);
@@ -789,7 +796,7 @@ mod tests {
             panic!("expected a relaunch");
         };
         assert!(pane.deselect(2));
-        assert_eq!(pane.resume(relaunch, 3, "stopped"), None);
+        assert_eq!(pane.resume(relaunch, 3, Some("stopped")), None);
     }
 
     #[test]
@@ -820,7 +827,11 @@ mod tests {
         let mut other = Pane::default();
         open(&mut other, 1, "/other");
         panes.insert("window-3".into(), other);
-        let mut cleared = panes.sleep("/w");
+        let mut cleared: Vec<_> = panes
+            .sleep("/w")
+            .into_iter()
+            .filter_map(|(window, _, cleared)| cleared.then_some(window))
+            .collect();
         cleared.sort();
         assert_eq!(cleared, ["window-1", "window-2"]);
         let stopped = BTreeMap::from([("/w".to_string(), runtime(State::Stopped, A, 0))]);
@@ -836,6 +847,24 @@ mod tests {
             finish(pane, &url(A));
             assert!(pane.visible(), "opening again wakes it");
         });
+    }
+
+    #[test]
+    fn sleep_fences_an_open_in_progress_and_a_failed_stop_wakes_quietly() {
+        let mut pane = Pane::default();
+        let opening = open(&mut pane, 1, "/w");
+        let (sleeping, _) = pane.sleep("/w").unwrap();
+        assert!(matches!(
+            pane.expect(opening, &url(A), 1, false),
+            Load::Stale
+        ));
+        assert!(!pane.busy(), "the supervisor and other windows see no open");
+
+        let woken = pane.resume(sleeping, 2, None).unwrap();
+        assert!(pane.reconnecting.is_none(), "shown as an ordinary open");
+        pane.expect(woken, &url(A), 1, false);
+        finish(&mut pane, &url(A));
+        assert!(pane.visible());
     }
 
     #[test]

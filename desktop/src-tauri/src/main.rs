@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod bridge;
 mod commands;
+mod menu;
 mod pane;
 mod pipeline;
 mod presence;
@@ -32,7 +33,7 @@ fn main() {
             app.manage(pane::Panes::default());
             app.manage(presence::Presence::default());
             app.manage(terminal::Focus::default());
-            windows::install_menu(app.handle())?;
+            menu::install_menu(app.handle())?;
             windows::restore(app.handle(), session)?;
             terminal::handle(app.handle(), &std::env::args().collect::<Vec<_>>());
             presence::start(app.handle().clone());

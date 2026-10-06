@@ -315,6 +315,52 @@ describe("desktop shell", () => {
     await waitFor(() => expect(opened()).toHaveLength(2));
   });
 
+  it("shows no progress on the first frame of a selection after an earlier slow one", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "loading" });
+    expect(screen.getByRole("status")).toHaveTextContent("Loading the workspace");
+    report({ generation: 2, step: "checking", started: Date.now() });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("keeps a selection still discovering from reopening a runtime the user stopped", async () => {
+    let finishDiscovery: (found: Discovery) => void = () => {};
+    let discoveries = 0;
+    start(undefined, (operation) => {
+      if (operation === "stop") return null;
+      if (operation === "discover" && ++discoveries === 2)
+        return new Promise<Discovery>((resolve) => (finishDiscovery = resolve));
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    act(() =>
+      emit({
+        type: "presence",
+        repositories: { [repository.id]: { info: discovery } },
+        runtimes: { [main]: { state: "running", mode: "headless" } },
+      }),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: /project/ }));
+    await waitFor(() => expect(discoveries).toBe(2));
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /project/ }));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
+    const [, menu] = call.mock.calls.filter(([operation]) => operation === "menu").at(-1)!;
+    const stop = (menu as { items: MenuEntry[] }).items.find((item) =>
+      item.label?.startsWith("Stop Rhizome"),
+    )!;
+    act(() => emit({ type: "menu", id: stop.id! }));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("stop", { worktree: main }));
+    await act(async () => finishDiscovery(discovery));
+    expect(opened()).toHaveLength(1);
+  });
+
+  it("confirms a copied page URL briefly in the toolbar", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    act(() => emit({ type: "notice", message: "Copied the page URL" }));
+    expect(screen.getByText("Copied the page URL")).toBeVisible();
+  });
+
   it("reorders repositories from the keyboard", async () => {
     start(undefined, (operation, args) => {
       if (operation === "list") return both;

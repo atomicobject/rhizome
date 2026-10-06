@@ -12,16 +12,15 @@ import {
   type Message,
   type OpenState,
   type Repository,
-  type Runtime,
   type Worktree,
 } from "./api";
+import { newWorktrees, RepositoryList, runtimeText, type Runtimes } from "./RepositoryList";
 import { Settings } from "./Settings";
 import { Notice, OpenStatus } from "./Status";
 
 type Found = { info?: Discovery; error?: Failure };
 type Item = Omit<MenuEntry, "id" | "items"> & { run?: () => void; items?: Item[] };
 type Target = { repository?: string; worktree?: string; after: number };
-type Runtimes = Record<string, Runtime>;
 
 export function worktreeName(worktree: Worktree) {
   return worktree.branch || (worktree.head ? `detached ${worktree.head}` : basename(worktree.path));
@@ -29,24 +28,6 @@ export function worktreeName(worktree: Worktree) {
 function basename(path: string) {
   return path.split("/").filter(Boolean).pop() ?? path;
 }
-export function newWorktrees(repository: Repository, found?: Discovery) {
-  return found?.worktrees.filter((w) => !repository.acknowledged.includes(w.path)) ?? [];
-}
-/** The most active runtime state among a repository's worktrees. */
-function repositoryState(runtimes: Runtimes, found?: Discovery) {
-  const states = found?.worktrees.map((w) => runtimes[w.path]?.state) ?? [];
-  return states.includes("running")
-    ? "running"
-    : states.includes("starting")
-      ? "starting"
-      : undefined;
-}
-const runtimeLabel = { running: " · Running", starting: " · Starting…", stopped: "" };
-const runtimeTitle = {
-  running: "Rhizome running",
-  starting: "Rhizome starting",
-  stopped: "Rhizome sleeping",
-};
 
 export function App() {
   const [library, setStoredLibrary] = useState<Library | null>(null);
@@ -61,8 +42,7 @@ export function App() {
   const [busy, setBusy] = useState("");
   const [alert, setAlert] = useState<Failure | null>(null);
   const [open, setOpen] = useState<OpenState | null>(null);
-  const [dragging, setDragging] = useState<string | null>(null);
-  const [dropAt, setDropAt] = useState<{ id: string; after: boolean } | null>(null);
+  const [notice, setNotice] = useState("");
   const target = useRef<Target>({ after: 0 });
   // Numbers each selection when the user makes it; only the newest may open.
   const selecting = useRef(0);
@@ -206,6 +186,12 @@ export function App() {
     }).catch(() => {});
   }, [restored, selection, collapsed]);
 
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 2000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const covered = settings || !selection.worktree;
   const report = useCallback(() => {
     const box = region.current?.getBoundingClientRect();
@@ -246,16 +232,6 @@ export function App() {
     );
   }
 
-  /** Moves a repository before or after another in the sidebar. */
-  function moveRepository(id: string, target: string, after: boolean) {
-    if (id === target) return;
-    const ids = repositories.map((r) => r.id).filter((other) => other !== id);
-    ids.splice(ids.indexOf(target) + (after ? 1 : 0), 0, id);
-    void request("reorder", { ids })
-      .then(setLibrary)
-      .catch((cause) => setAlert(failure(cause)));
-  }
-
   function addRepository() {
     void perform("Adding repository…", async () => {
       const path = await pickPath(true);
@@ -288,7 +264,7 @@ export function App() {
     const fresh = newWorktrees(selected, info).map((w) => w.path);
     popup(
       info.worktrees.map((w) => ({
-        label: `${fresh.includes(w.path) ? "● " : ""}${worktreeName(w)} — ${basename(w.path)}${w.path === info.primary ? " (primary)" : ""}${w.error ? " · Unavailable" : runtimeLabel[runtimes[w.path]?.state ?? "stopped"]}`,
+        label: `${fresh.includes(w.path) ? "● " : ""}${worktreeName(w)} — ${basename(w.path)}${w.path === info.primary ? " (primary)" : ""}${w.error ? " · Unavailable" : runtimeText[runtimes[w.path]?.state ?? "stopped"].menu}`,
         checked: w.path === selection.worktree,
         run: () => void openWorktree(selected.id, w.path),
       })),
@@ -314,12 +290,12 @@ export function App() {
       [
         {
           label: "Open in Browser",
-          disabled: state !== "running",
+          disabled: !path,
           run: () =>
             path &&
-            void request("open-in-browser", { worktree: path }).catch((cause) =>
-              setAlert(failure(cause)),
-            ),
+            void perform("Opening in browser…", async () => {
+              await request("open-in-browser", { id: repository.id, worktree: path });
+            }),
         },
         {
           label: "Reveal in Finder",
@@ -335,6 +311,13 @@ export function App() {
           run: () =>
             path &&
             void perform("Stopping Rhizome…", async () => {
+              // A selection of this repository still discovering its
+              // worktrees would otherwise reopen what this stops.
+              if (target.current.repository === repository.id) {
+                selecting.current += 1;
+                target.current = { repository: repository.id, worktree: path, after: seen.current };
+                setSelection({ repository: repository.id, worktree: path });
+              }
               await request("stop", { worktree: path });
             }),
         },
@@ -416,6 +399,8 @@ export function App() {
       } else if (message.type === "select") {
         setLibrary(message.library);
         void selectRepository(message.library, message.repository, message.worktree);
+      } else if (message.type === "notice") {
+        setNotice(message.message);
       } else if (message.type === "alert") {
         setAlert({ code: message.code, message: message.message });
       } else if (message.type === "presence") {
@@ -534,7 +519,6 @@ export function App() {
         state={open}
         busy={!!busy}
         onRetry={() => void openWorktree(open.repository, open.worktree)}
-        onWake={() => void openWorktree(open.repository, open.worktree)}
         onSkipSeed={() => void openWorktree(open.repository, open.worktree, true)}
         onTrust={() =>
           void perform("Trusting worktree…", async () => {
@@ -608,7 +592,7 @@ export function App() {
           </button>
         )}
         <span className="toolbar-space" data-tauri-drag-region />
-        {busy && <span className="busy">{busy}</span>}
+        {(busy || notice) && <span className="busy">{busy || notice}</span>}
         <button
           className="icon-button"
           aria-label="Settings"
@@ -634,93 +618,20 @@ export function App() {
               +
             </button>
           </div>
-          <div role="tablist" aria-orientation="vertical">
-            {repositories.map((repository) => {
-              const state = found[repository.id];
-              const fresh = newWorktrees(repository, state?.info).length;
-              const runtime = repositoryState(runtimes, state?.info);
-              const drop =
-                dropAt?.id === repository.id ? (dropAt.after ? " drop-after" : " drop-before") : "";
-              return (
-                <div
-                  className={`repository-tab${dragging === repository.id ? " dragging" : ""}${drop}`}
-                  key={repository.id}
-                  draggable
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    repositoryMenu(repository, { x: e.clientX, y: e.clientY });
-                  }}
-                  onDragStart={(e) => {
-                    e.dataTransfer.effectAllowed = "move";
-                    e.dataTransfer.setData("text/plain", repository.name);
-                    setDragging(repository.id);
-                  }}
-                  onDragEnd={() => {
-                    setDragging(null);
-                    setDropAt(null);
-                  }}
-                  onDragOver={(e) => {
-                    if (!dragging) return;
-                    e.preventDefault();
-                    const box = e.currentTarget.getBoundingClientRect();
-                    const after = e.clientY > box.top + box.height / 2;
-                    if (dropAt?.id !== repository.id || dropAt.after !== after)
-                      setDropAt({ id: repository.id, after });
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (dragging && dropAt) moveRepository(dragging, dropAt.id, dropAt.after);
-                    setDragging(null);
-                    setDropAt(null);
-                  }}
-                >
-                  <button
-                    role="tab"
-                    aria-selected={repository.id === selection.repository}
-                    aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-                    title={repository.root}
-                    onClick={() => library && void selectRepository(library, repository.id)}
-                    onKeyDown={(e) => {
-                      if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
-                      e.preventDefault();
-                      const index = repositories.indexOf(repository);
-                      const neighbor = repositories[index + (e.key === "ArrowUp" ? -1 : 1)];
-                      if (neighbor)
-                        moveRepository(repository.id, neighbor.id, e.key === "ArrowDown");
-                    }}
-                  >
-                    <span className="name">{repository.name}</span>
-                    {state?.error && (
-                      <span className="tab-status warning">
-                        {state.error.code === "folder_missing" ? "Missing" : "Error"}
-                      </span>
-                    )}
-                    {state?.info && (
-                      <span
-                        className={`runtime-dot ${runtime ?? "stopped"}`}
-                        role="img"
-                        aria-label={runtimeTitle[runtime ?? "stopped"]}
-                        title={runtimeTitle[runtime ?? "stopped"]}
-                      />
-                    )}
-                    {fresh > 0 && (
-                      <span
-                        className="new-dot"
-                        title={`${fresh} new ${fresh === 1 ? "worktree" : "worktrees"}`}
-                      />
-                    )}
-                  </button>
-                  <button
-                    className="icon-button options"
-                    aria-label={`Options for ${repository.name}`}
-                    onClick={(e) => repositoryMenu(repository, e.currentTarget)}
-                  >
-                    •••
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+          <RepositoryList
+            repositories={repositories}
+            found={found}
+            runtimes={runtimes}
+            selected={selection.repository}
+            sleeping={open?.step === "sleeping" ? open.repository : undefined}
+            onSelect={(id) => library && void selectRepository(library, id)}
+            onMenu={repositoryMenu}
+            onReorder={(ids) =>
+              void request("reorder", { ids })
+                .then(setLibrary)
+                .catch((cause) => setAlert(failure(cause)))
+            }
+          />
         </nav>
       )}
       <main className="main">

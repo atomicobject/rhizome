@@ -185,46 +185,74 @@ func TestRebuildStopsAndRestartsTheHeadlessRuntime(t *testing.T) {
 
 // Restart Rhizome in the desktop app sends the bridge an open with restart,
 // which replaces a headless runtime even when its build already matches.
-func TestDesktopRestartReplacesAMatchingHeadlessRuntime(t *testing.T) {
-	t.Parallel()
-	vault := newRuntimeVault(t, "")
+// desktopBridge builds the desktop companion and returns a function that sends
+// it one request for vault and returns the raw response.
+func desktopBridge(t *testing.T, vault *runtimeVault) func(request map[string]any) []byte {
+	t.Helper()
 	bridge := filepath.Join(t.TempDir(), "rhizome-desktop-bridge"+filepath.Ext(vault.binary))
 	build := exec.Command("go", "build", "-mod=vendor", "-tags", "fts5", "-o", bridge, "./desktop/bridge")
 	build.Dir = fixture.RepoRoot(t)
 	output, err := build.CombinedOutput()
 	require.NoError(t, err, "%s", output)
 	stateDir := t.TempDir()
-	open := func(restart bool) appruntime.Health {
+	return func(request map[string]any) []byte {
 		t.Helper()
-		request, err := json.Marshal(map[string]any{
-			"protocol": 1, "operation": "open", "folder": vault.root,
-			"globalExecutable": vault.binary, "restart": restart,
-		})
+		request["protocol"] = 1
+		request["folder"] = vault.root
+		encoded, err := json.Marshal(request)
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 		defer cancel()
 		command := exec.CommandContext(ctx, bridge, "--state-dir", stateDir)
 		command.Dir = vault.root
 		command.Env = vault.environment(nil)
-		command.Stdin = bytes.NewReader(request)
+		command.Stdin = bytes.NewReader(encoded)
 		response, err := command.Output()
 		require.NoError(t, err, "response=%s", response)
-		var decoded struct {
-			Result struct{ PID int } `json:"result"`
-		}
-		require.NoError(t, json.Unmarshal(response, &decoded))
-		vault.rememberRuntimePID(decoded.Result.PID)
-		health := vault.requireLiveRuntime(t)
-		require.Equal(t, decoded.Result.PID, health.PID)
-		return health
+		return response
 	}
+}
 
-	first := open(false)
-	restarted := open(true)
+// desktopOpen opens vault through the companion and returns the live runtime.
+func desktopOpen(t *testing.T, vault *runtimeVault, call func(map[string]any) []byte, restart bool) appruntime.Health {
+	t.Helper()
+	response := call(map[string]any{"operation": "open", "globalExecutable": vault.binary, "restart": restart})
+	var decoded struct {
+		Result struct{ PID int } `json:"result"`
+	}
+	require.NoError(t, json.Unmarshal(response, &decoded))
+	vault.rememberRuntimePID(decoded.Result.PID)
+	health := vault.requireLiveRuntime(t)
+	require.Equal(t, decoded.Result.PID, health.PID)
+	return health
+}
+
+func TestDesktopRestartReplacesAMatchingHeadlessRuntime(t *testing.T) {
+	t.Parallel()
+	vault := newRuntimeVault(t, "")
+	call := desktopBridge(t, vault)
+
+	first := desktopOpen(t, vault, call, false)
+	restarted := desktopOpen(t, vault, call, true)
 	require.NotEqual(t, first.PID, restarted.PID)
 	require.Equal(t, first.BuildID, restarted.BuildID, "the same build, replaced on request")
 	requirePIDExits(t, first.PID, 15*time.Second)
-	require.Equal(t, restarted.PID, open(false).PID, "an open without restart attaches")
+	require.Equal(t, restarted.PID, desktopOpen(t, vault, call, false).PID, "an open without restart attaches")
+}
+
+func TestDesktopStopEndsTheRuntimeUntilTheNextOpen(t *testing.T) {
+	t.Parallel()
+	vault := newRuntimeVault(t, "")
+	call := desktopBridge(t, vault)
+	first := desktopOpen(t, vault, call, false)
+
+	require.JSONEq(t, `{"protocol":1,"result":{"stopped":true}}`, string(call(map[string]any{"operation": "stop"})))
+	requirePIDExits(t, first.PID, 15*time.Second)
+	_, err := appruntime.ReadManifest(vault.root)
+	require.Error(t, err, "a stopped runtime removes its manifest")
+	require.JSONEq(t, `{"protocol":1,"result":{"stopped":true}}`, string(call(map[string]any{"operation": "stop"})), "stopping again is a no-op")
+
+	require.NotEqual(t, first.PID, desktopOpen(t, vault, call, false).PID, "the next open starts a fresh runtime")
 }
 
 func TestAttachedServeReplacesHeadlessAndASecondServeExits3(t *testing.T) {
