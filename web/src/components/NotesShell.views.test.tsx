@@ -15,6 +15,11 @@ import { jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { NotesShell } from "./NotesShell";
 import { viewSegment } from "../test/workspaceView";
+import {
+  OPEN_SEARCH_MESSAGE,
+  OPEN_VIEW_MESSAGE,
+  type ViewMessage,
+} from "../lib/customViewMessages";
 
 const http = withFakeFetch();
 
@@ -376,5 +381,71 @@ describe("NotesShell configured views", () => {
     expect(http.count("POST", "/api/v1/views/editable.notes/execute")).toBeGreaterThan(
       executionsBeforeSave,
     );
+  });
+
+  it("routes a framed view's workspace view and folder search requests", async () => {
+    const custom = (id: string, name: string): ViewCatalogEntry => ({
+      id,
+      name,
+      source: { kind: "custom", entry: "overview.tsx" },
+      mount: { kind: "workspace" },
+      defaults: {},
+      variants: {},
+      definition: {
+        apiVersion: "rhizome.view.v1",
+        id,
+        name,
+        source: { kind: "custom", entry: "overview.tsx" },
+        mount: { kind: "workspace" },
+        variants: {},
+      },
+    });
+
+    registerReads([]);
+    http.json("GET", "/api/v1/views", {
+      views: [custom("workspace.briefing", "Briefing"), custom("workspace.overview", "Overview")],
+      targets: [
+        {
+          kind: "workspace",
+          name: "",
+          defaultChoiceId: "briefing",
+          choices: [
+            { id: "briefing", name: "Briefing", renderer: "custom", viewId: "workspace.briefing" },
+            { id: "overview", name: "Overview", renderer: "custom", viewId: "workspace.overview" },
+          ],
+        },
+      ],
+    });
+    http.json("GET", "/api/v1/search", { matches: [], total: 0 });
+
+    const frame = (title: string) =>
+      document.querySelector<HTMLIFrameElement>(`iframe[title="${title}"]`);
+
+    const post = (title: string, data: ViewMessage) =>
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: frame(title)!.contentWindow,
+          origin: window.location.origin,
+          data,
+        }),
+      );
+
+    render(<NotesShell />);
+    await waitFor(() => expect(frame("Briefing")).not.toBeNull());
+    post("Briefing", {
+      type: OPEN_VIEW_MESSAGE,
+      id: "workspace.overview",
+      context: { kind: "workspace" },
+    });
+    await waitFor(() => expect(window.location.pathname).toBe("/notes"));
+    expect(window.location.search).toBe("?presentation=workspace.overview");
+    await waitFor(() => expect(frame("Overview")).not.toBeNull());
+
+    post("Overview", { type: OPEN_SEARCH_MESSAGE, folder: "Notes", query: "plan" });
+    await waitFor(() =>
+      expect(new URLSearchParams(window.location.search).get("folder")).toBe("Notes"),
+    );
+    expect(new URLSearchParams(window.location.search).get("search")).toBe("plan");
+    expect(screen.getByRole("tab", { name: /plan/ })).toHaveAttribute("aria-selected", "true");
   });
 });

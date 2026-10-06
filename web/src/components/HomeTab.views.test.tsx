@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { OntologySummaryResponse, ViewCatalog, ViewCatalogEntry } from "../api/types";
 import { deferredReply, withFakeFetch } from "../test/fakeFetch";
@@ -43,6 +43,23 @@ function registerReads() {
   http
     .json("GET", "/api/v1/ontology/summary", summary)
     .json("GET", "/api/v2/validate", { status: "never_ran", generation: 0 });
+}
+
+function renderAll() {
+  const location = parseNotesLocation("/notes", "", "");
+
+  return renderWithQueryClient(
+    <HomeTab
+      summary={summary}
+      selection={location.selection}
+      selectedType="__all__"
+      location={location}
+      editSession={{ session: null, replaceOps: async () => undefined, vaultKey: "vault" }}
+      onOpenNote={vi.fn()}
+      onSelectCollection={vi.fn()}
+      onStageOps={async () => undefined}
+    />,
+  );
 }
 
 function renderGroup(group: string) {
@@ -209,5 +226,64 @@ describe("mounted collection defaults", () => {
     http.json("GET", "/api/v1/views", { views: [], targets: [] });
     renderGroup("Empty");
     expect(await screen.findByText("No types are in Empty.")).toBeVisible();
+  });
+
+  it("opens All notes on the workspace target's default with a workspace context", async () => {
+    registerReads();
+
+    const briefing: ViewCatalogEntry = {
+      ...custom,
+      id: "workspace.briefing",
+      name: "Briefing",
+      mount: { kind: "workspace" },
+      definition: { ...custom.definition, id: "workspace.briefing", mount: { kind: "workspace" } },
+    };
+
+    http.json("GET", "/api/v1/views", {
+      views: [briefing],
+      targets: [
+        {
+          kind: "workspace",
+          name: "",
+          defaultChoiceId: "briefing",
+          choices: [
+            { id: "briefing", name: "Briefing", renderer: "custom", viewId: briefing.id },
+            { id: "overview", name: "Overview", renderer: "custom", viewId: "workspace.overview" },
+          ],
+        },
+      ],
+    });
+    renderAll();
+
+    const frame = await screen.findByTitle("Briefing");
+    const params = new URL(frame.getAttribute("src")!, "http://localhost").searchParams;
+    expect(JSON.parse(params.get("context")!)).toEqual({ kind: "workspace" });
+    await waitFor(() => expect(viewSegment("Briefing")).toHaveAttribute("aria-pressed", "true"));
+    expect(viewSegment("Overview")).toHaveAttribute("aria-pressed", "false");
+    expect(http.count("GET", "/api/v1/graphs/global")).toBe(0);
+    expect(http.count("GET", "/api/v1/ontology/types/__all__")).toBe(0);
+  });
+
+  it("shows an error with retry instead of a graph when All notes cannot load its views", async () => {
+    registerReads();
+    http.json("GET", "/api/v1/views", { error: "offline" }, 503);
+    renderAll();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("All notes views could not be loaded.");
+    expect(http.count("GET", "/api/v1/graphs/global")).toBe(0);
+    const before = http.count("GET", "/api/v1/views");
+    act(() => within(alert).getByRole("button", { name: "Retry" }).click());
+    await waitFor(() => expect(http.count("GET", "/api/v1/views")).toBeGreaterThan(before));
+  });
+
+  it("labels a group's built-in fallback Types when the catalog cannot load", async () => {
+    registerReads();
+    http.json("GET", "/api/v1/views", { error: "offline" }, 503);
+    renderGroup("Delivery");
+
+    expect(await screen.findByText(/Types remains available/)).toBeVisible();
+    expect(screen.getByText("No types are in Delivery.")).toBeVisible();
+    expect(screen.queryByText(/Overview/)).toBeNull();
   });
 });

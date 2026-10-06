@@ -21,7 +21,6 @@ import { NotesModifiedHome } from "./NotesModifiedHome";
 import {
   isPseudoType,
   type NotesLocation,
-  PSEUDO_TYPE_ALL,
   PSEUDO_TYPE_ISSUES,
   PSEUDO_TYPE_MODIFIED,
 } from "./notesRoute";
@@ -58,11 +57,15 @@ type Props = {
   onPresentation?: (id: string | null) => void;
   onOpenNode?: ViewServices["onOpenNode"];
   onOpenView?: ViewServices["onOpenView"];
+  onOpenSearch?: ViewServices["onOpenSearch"];
   /** Reports whether a type or interface collection view (not Overview) is showing. */
   onCollectionViewChange?: (showing: boolean) => void;
 };
 
 const OVERVIEW: ViewChoice = { id: "builtin:overview", name: "Overview", renderer: "overview" };
+
+// A group's built-in navigation list, offered only while the catalog cannot load.
+const TYPES: ViewChoice = { ...OVERVIEW, name: "Types" };
 
 const RENDERERS = { overview: BuiltinOverview };
 
@@ -81,6 +84,7 @@ export function HomeTab({
   onPresentation,
   onOpenNode,
   onOpenView,
+  onOpenSearch,
   onCollectionViewChange,
 }: Props) {
   const summaryQuery = useOntologySummaryQuery(active);
@@ -95,27 +99,32 @@ export function HomeTab({
       ? kind === "interface"
         ? { kind: "interface", interface: realType }
         : { kind: "type", type: realType }
-      : { kind: "standalone" };
+      : { kind: "workspace" };
 
   const catalogQuery = useViewCatalogQuery(active);
+  const targetKind = group ? "group" : realType ? kind : "workspace";
+  const targetName = group ?? realType ?? "";
 
   const target =
     catalogQuery.data?.targets?.find(
-      (target) => target.kind === (group ? "group" : kind) && target.name === (group ?? realType),
+      (target) => target.kind === targetKind && target.name === targetName,
     ) ?? null;
 
-  const targetKind = group ? "group" : kind;
-  const targetName = group ?? realType ?? "";
+  // All notes has no built-in view; without the catalog it shows an error instead.
+  const builtin = targetKind === "workspace" ? null : group ? TYPES : OVERVIEW;
 
-  const fallback: ViewTarget = useMemo(
-    () => ({
-      kind: targetKind,
-      name: targetName,
-      choices: [OVERVIEW],
-      defaultChoiceId: OVERVIEW.id,
-    }),
-    [targetKind, targetName],
+  const fallback: ViewTarget | null = useMemo(
+    () =>
+      builtin && {
+        kind: targetKind,
+        name: targetName,
+        choices: [builtin],
+        defaultChoiceId: builtin.id,
+      },
+    [builtin, targetKind, targetName],
   );
+
+  const shownTarget = target ?? fallback;
 
   const selectionState = useViewSelection({
     // Until the summary loads, an interface still looks like a type, so wait to
@@ -127,23 +136,20 @@ export function HomeTab({
     onSelect: onPresentation,
   });
 
-  const choice = selectionState.choice ?? OVERVIEW;
-  const collectionView = Boolean(realType) && choice.renderer !== "overview";
+  const choice = selectionState.choice ?? builtin;
+  const collectionView = Boolean(realType) && choice?.renderer !== "overview";
 
   useEffect(() => {
     if (active) onCollectionViewChange?.(collectionView);
   }, [active, collectionView, onCollectionViewChange]);
-  const definition = catalogQuery.data?.views.find((view) => view.id === choice.viewId) ?? null;
-
-  // The All home reads the "__all__" detail for its mean relations.
-  const detailType = realType ?? (selectedType === PSEUDO_TYPE_ALL ? selectedType : null);
+  const definition = catalogQuery.data?.views.find((view) => view.id === choice?.viewId) ?? null;
 
   // Overview fetches this same query key itself. Disabled here, the header still
   // reads Overview's cached result without a second mount-time refetch.
   const typeQuery = useOntologyTypeQuery(
-    detailType,
+    realType,
     editSession.session,
-    active && Boolean(detailType) && choice.renderer !== "overview",
+    active && Boolean(realType) && choice?.renderer !== "overview",
   );
 
   const validationQuery = useValidationQuery(active);
@@ -207,6 +213,7 @@ export function HomeTab({
     onSelectCollection,
     onOpenNode,
     onOpenView,
+    onOpenSearch,
     onStageOps,
     onOpenIssues: openIssues,
   };
@@ -214,6 +221,17 @@ export function HomeTab({
   return (
     <div className={realType || group ? "type-workspace" : "home-workspace"}>
       <div className="home-workspace__header-slot">
+        {!summary && summaryQuery.isError && (
+          <div className="ontology-home__unavailable" role="alert">
+            <span>
+              Workspace data is unavailable. {summaryQuery.error.message} Check that the Rhizome
+              server is reachable, then retry.
+            </span>
+            <button type="button" onClick={() => void summaryQuery.refetch()}>
+              Retry connection
+            </button>
+          </div>
+        )}
         {(realType || group || summary) && (
           <TypeWorkspaceHeader
             typeName={realType ?? ""}
@@ -262,21 +280,33 @@ export function HomeTab({
             onOpenIssues={() => openIssues(realType ? { kind, key: realType } : undefined)}
             showStats={!group && !collectionView}
             viewSelector={
-              <ViewSelector
-                target={target ?? fallback}
-                selectedId={choice.id}
-                onSelect={selectionState.select}
-                status={selectionState}
-              />
+              shownTarget &&
+              choice && (
+                <ViewSelector
+                  target={shownTarget}
+                  selectedId={choice.id}
+                  onSelect={selectionState.select}
+                  status={selectionState}
+                />
+              )
             }
           />
         )}
       </div>
       <div className="home-workspace__body">
-        {((realType || group) &&
-          ((!catalogQuery.data && !catalogQuery.isError) || (!summary && !summaryQuery.isError))) ||
+        {(!catalogQuery.data && !catalogQuery.isError) ||
+        ((realType || group) && !summary && !summaryQuery.isError) ||
         (selectionState.loading && !location.presentation) ? (
           <p role="status">Loading views…</p>
+        ) : !choice && catalogQuery.isError ? (
+          <div className="ontology-home__unavailable" role="alert">
+            <span>All notes views could not be loaded.</span>
+            <button type="button" onClick={() => void catalogQuery.refetch()}>
+              Retry
+            </button>
+          </div>
+        ) : !choice ? (
+          <p className="ontology-empty">No views are available for All notes.</p>
         ) : (
           <ViewHost
             view={{ id: choice.viewId ?? choice.id, name: choice.name }}
@@ -305,8 +335,10 @@ export function HomeTab({
             </ul>
           </details>
         )}
-        {catalogQuery.isError && (
-          <p role="alert">View configuration could not be loaded. Overview remains available.</p>
+        {catalogQuery.isError && builtin && (
+          <p role="alert">
+            View configuration could not be loaded. {builtin.name} remains available.
+          </p>
         )}
       </div>
     </div>

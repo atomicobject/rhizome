@@ -21,6 +21,7 @@ import { NodePresentationHost } from "./NodePresentationHost";
 import { ViewSelector } from "../views/ViewSelector";
 import { useViewSelection } from "../views/useViewSelection";
 import { type OpenNodeOptions, type ViewContext } from "../views/context";
+import type { ViewServices } from "../views/ViewHost";
 import { flushEditors } from "./editing/editorFlush";
 import { OntologyNotePane } from "./OntologyNotePane";
 import { buildNoteWebHref } from "../lib/content";
@@ -56,6 +57,7 @@ export function NoteTab({
   onPresentation,
   onOpenNode: openCanonicalNode,
   onOpenView,
+  onOpenSearch,
 }: {
   tab: NoteTabModel;
   active: boolean;
@@ -81,6 +83,7 @@ export function NoteTab({
   onSelectCollection?: (typeName: string) => void;
   onOpenNode?: (ref: NodeRef, options: OpenNodeOptions) => void;
   onOpenView?: (id: string, context: ViewContext) => void;
+  onOpenSearch?: ViewServices["onOpenSearch"];
   views?: ViewCatalog;
   onPresentation?: (tabId: string, presentation: string | null) => void;
 }) {
@@ -384,6 +387,7 @@ export function NoteTab({
                       onOpenIssues: (scope) =>
                         scope && onSelectIssues ? onSelectIssues(scope) : onOpenIssues?.(),
                       onSelectCollection,
+                      onOpenSearch,
                     }}
                   />
                 )
