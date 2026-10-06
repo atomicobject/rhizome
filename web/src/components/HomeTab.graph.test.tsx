@@ -96,13 +96,7 @@ function renderAllHome() {
 }
 
 describe("All home header", () => {
-  beforeEach(() => http.json("GET", "/api/v1/graphs/global", emptyGraph));
-
-  it("summarizes typed notes, mean relations, and summary issues before validation runs", async () => {
-    http.json("GET", "/api/v1/ontology/types/__all__", {
-      ...typeDetail,
-      notes: typeDetail.notes?.map((note) => ({ ...note, relationCount: 3 })),
-    });
+  it("summarizes typed notes and summary issues without reading every note", async () => {
     http.json("GET", "/api/v1/ontology/summary", {
       types: [{ name: "Spec", count: 1 }],
       interfaces: [],
@@ -114,12 +108,11 @@ describe("All home header", () => {
     renderAllHome();
 
     expect(await screen.findByText("1 of 2 notes typed across 1 types.")).toBeVisible();
-    await waitFor(() =>
-      expect(screen.getByTitle("Average relations per note")).toHaveTextContent("3"),
-    );
     expect(
       screen.getByRole("button", { name: /Validation issues in Workspace/ }),
     ).toHaveTextContent("4");
+    expect(http.count("GET", "/api/v1/ontology/types/__all__")).toBe(0);
+    expect(http.count("GET", "/api/v1/graphs/global")).toBe(0);
   });
 
   it("shows no zero counts while the summary loads", async () => {
@@ -144,21 +137,6 @@ describe("All home header", () => {
 
     expect(await screen.findByText("Indexing notes…")).toBeVisible();
     expect(screen.queryByText(/0 of 0 notes typed/)).toBeNull();
-  });
-
-  it("explains an unreachable server and retries the summary", async () => {
-    http.json("GET", "/api/v1/ontology/summary", { error: "offline" }, 503);
-    renderAllHome();
-
-    expect(
-      await screen.findByText(/Check that the Rhizome server is reachable, then retry\./),
-    ).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Workspace" })).toBeNull();
-    const before = http.count("GET", "/api/v1/ontology/summary");
-    fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
-    await waitFor(() =>
-      expect(http.count("GET", "/api/v1/ontology/summary")).toBeGreaterThan(before),
-    );
   });
 });
 
@@ -258,38 +236,36 @@ describe("Home graph reads", () => {
     expect(order()).toEqual(["Bravo", "Charlie", "Alpha"]);
   });
 
-  it.each(["Spec", "__all__"])(
-    "retries failed graph reads independently of %s content",
-    async (selectedType) => {
-      const pending = deferredReply<GraphResponse>();
-      http.on("GET", "/api/v1/graphs/global", () => pending.promise);
-      const location = parseNotesLocation("/notes", "", "");
-      renderWithQueryClient(
-        <HomeTab
-          summary={null}
-          selection={location.selection}
-          selectedType={selectedType}
-          location={location}
-          editSession={{ session: null, replaceOps: async () => {} }}
-          onOpenNote={vi.fn()}
-          onSelectCollection={vi.fn()}
-          onStageOps={async () => {}}
-        />,
-      );
-      expect(await screen.findByText("Demo spec")).toBeVisible();
-      expect(screen.getByText("Loading graph…")).toBeVisible();
-      expect(screen.queryByText("No graph data yet")).toBeNull();
-      await act(async () => pending.reject(new Error("Graph offline")));
-      expect(await screen.findByRole("alert")).toHaveTextContent("Graph offline");
-      expect(screen.getByText("Demo spec")).toBeVisible();
-      expect(screen.queryByText("No graph data yet")).toBeNull();
-      http.json("GET", "/api/v1/graphs/global", emptyGraph);
-      fireEvent.click(screen.getByRole("button", { name: "Retry graph" }));
-      expect(await screen.findByText("No graph data yet")).toBeVisible();
-      expect(http.count("GET", "/api/v1/graphs/global")).toBe(2);
-      expect(http.count("GET", `/api/v1/ontology/types/${selectedType}`)).toBe(1);
-    },
-  );
+  it("retries failed graph reads independently of type content", async () => {
+    const selectedType = "Spec";
+    const pending = deferredReply<GraphResponse>();
+    http.on("GET", "/api/v1/graphs/global", () => pending.promise);
+    const location = parseNotesLocation("/notes", "", "");
+    renderWithQueryClient(
+      <HomeTab
+        summary={null}
+        selection={location.selection}
+        selectedType={selectedType}
+        location={location}
+        editSession={{ session: null, replaceOps: async () => {} }}
+        onOpenNote={vi.fn()}
+        onSelectCollection={vi.fn()}
+        onStageOps={async () => {}}
+      />,
+    );
+    expect(await screen.findByText("Demo spec")).toBeVisible();
+    expect(screen.getByText("Loading graph…")).toBeVisible();
+    expect(screen.queryByText("No graph data yet")).toBeNull();
+    await act(async () => pending.reject(new Error("Graph offline")));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Graph offline");
+    expect(screen.getByText("Demo spec")).toBeVisible();
+    expect(screen.queryByText("No graph data yet")).toBeNull();
+    http.json("GET", "/api/v1/graphs/global", emptyGraph);
+    fireEvent.click(screen.getByRole("button", { name: "Retry graph" }));
+    expect(await screen.findByText("No graph data yet")).toBeVisible();
+    expect(http.count("GET", "/api/v1/graphs/global")).toBe(2);
+    expect(http.count("GET", `/api/v1/ontology/types/${selectedType}`)).toBe(1);
+  });
 
   it("surfaces a validation transport failure on the Problems home", async () => {
     const pendingValidation = deferredReply();
@@ -439,7 +415,7 @@ describe("Home graph reads", () => {
     // commit that changes the selected type.
     const { rerender } = renderWithQueryClient(tab("__all__"));
     await waitFor(() => expect(http.count("GET", "/api/v1/views")).toBe(1));
-    await screen.findByText("Demo spec");
+    await screen.findByText("No views are available for All notes.");
     rerender(tab("Spec"));
 
     await waitFor(() => expect(viewSegment("Cards")).toHaveAttribute("aria-pressed", "true"));

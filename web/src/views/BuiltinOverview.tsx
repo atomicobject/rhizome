@@ -77,9 +77,7 @@ export function BuiltinOverview(props: ViewRuntimeProps) {
       ? context.type
       : context.kind === "interface"
         ? context.interface
-        : context.kind === "standalone"
-          ? "__all__"
-          : null;
+        : null;
 
   const summary = useOntologySummaryQuery(active);
 
@@ -89,7 +87,7 @@ export function BuiltinOverview(props: ViewRuntimeProps) {
     active && Boolean(selectedType),
   );
 
-  const graph = useGlobalNotesGraphQuery(active && context.kind !== "group");
+  const graph = useGlobalNotesGraphQuery(active && Boolean(selectedType));
   const validation = useValidationQuery(active);
 
   const scopes = useMemo(
@@ -163,8 +161,7 @@ export function BuiltinOverview(props: ViewRuntimeProps) {
 
   return (
     <HomeGraphLayout
-      mode={selectedType && selectedType !== "__all__" ? "type" : "all"}
-      selectedType={selectedType === "__all__" ? null : selectedType}
+      selectedType={selectedType}
       summary={summary.data ?? null}
       typeDetail={detail.data ?? null}
       // Hold the graph until the summary settles: drawing it before its type

@@ -22,6 +22,7 @@ type Props = {
   onStageOps: ViewServices["onStageOps"];
   onOpenIssues: NonNullable<ViewServices["onOpenIssues"]>;
   onSelectCollection?: ViewServices["onSelectCollection"];
+  onOpenSearch?: ViewServices["onOpenSearch"];
   onTitle: (id: string, title: string) => void;
 };
 
@@ -35,6 +36,7 @@ export function ViewTab({
   onStageOps,
   onOpenIssues,
   onSelectCollection,
+  onOpenSearch,
   onTitle,
 }: Props) {
   const catalog = useViewCatalogQuery(active);
@@ -95,6 +97,7 @@ export function ViewTab({
         onStageOps,
         onOpenIssues,
         onSelectCollection,
+        onOpenSearch,
       }}
       embedded={embedded}
     />

@@ -33,6 +33,9 @@ export const OPEN_ISSUES_MESSAGE = "rhizome:open-issues";
 /** View → host: open a type or interface collection. `{ name }` */
 export const OPEN_COLLECTION_MESSAGE = "rhizome:open-collection";
 
+/** View → host: open a project search tab filtered to a folder. `{ folder, query? }` */
+export const OPEN_SEARCH_MESSAGE = "rhizome:open-search";
+
 /** The validation scopes a view may open the issues panel at. */
 export type IssueScope = { kind: "type" | "interface" | "note"; key: string };
 
@@ -43,7 +46,8 @@ export type ViewMessage =
   | { type: typeof EDIT_SESSION_HELLO_MESSAGE }
   | { type: typeof STAGE_OPS_MESSAGE; requestId: string; ops: OntologyEditOp[] }
   | { type: typeof OPEN_ISSUES_MESSAGE; scope?: IssueScope }
-  | { type: typeof OPEN_COLLECTION_MESSAGE; name: string };
+  | { type: typeof OPEN_COLLECTION_MESSAGE; name: string }
+  | { type: typeof OPEN_SEARCH_MESSAGE; folder: string; query?: string };
 
 export type HostMessage =
   | {

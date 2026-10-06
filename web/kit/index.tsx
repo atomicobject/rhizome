@@ -40,6 +40,7 @@ import {
   OPEN_NODE_MESSAGE,
   OPEN_VIEW_MESSAGE,
   OPEN_NOTE_MESSAGE,
+  OPEN_SEARCH_MESSAGE,
   type IssueScope,
   type ViewMessage,
 } from "../src/lib/customViewMessages";
@@ -361,6 +362,19 @@ export function openCollection(name: string) {
   }
 
   window.location.assign(buildNotesPath({ kind: "type", typeName: name }));
+}
+
+/** Open a project search tab filtered to a vault folder, optionally with a query. */
+export function openSearch({ folder, query }: { folder: string; query?: string }) {
+  if (embedded) {
+    postToHost(
+      query ? { type: OPEN_SEARCH_MESSAGE, folder, query } : { type: OPEN_SEARCH_MESSAGE, folder },
+    );
+
+    return;
+  }
+
+  window.location.assign(buildNotesLocation({ selection: { kind: "all" }, search: query, folder }));
 }
 
 export function noteHref(path: string) {

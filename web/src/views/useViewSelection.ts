@@ -139,8 +139,8 @@ function selectionScope(
         ? { kind: "interface", interface: target.name }
         : target.kind === "group"
           ? { kind: "group", group: target.name }
-          : target.kind === "standalone"
-            ? { kind: "standalone" }
+          : target.kind === "standalone" || target.kind === "workspace"
+            ? { kind: target.kind }
             : null);
 
   if (!subject) return null;

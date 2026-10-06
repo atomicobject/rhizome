@@ -8,6 +8,7 @@ export type ViewContext =
   | { kind: "interface"; interface: string }
   | { kind: "group"; group: string }
   | { kind: "node"; type: string; ref: NodeRef }
+  | { kind: "workspace" }
   | { kind: "standalone" };
 
 export type ViewModuleProps = {
@@ -33,6 +34,7 @@ export function isViewContext(value: unknown): value is ViewContext {
 
   switch (value.kind) {
     case "standalone":
+    case "workspace":
       return Object.keys(value).length === 1;
     case "type":
       return (
@@ -103,6 +105,8 @@ export function workspaceViewHref(id: string, context: ViewContext = { kind: "st
   if (context.kind === "node") return nodeHref(context.ref, { view: id });
 
   if (context.kind === "standalone") return `/notes?${new URLSearchParams({ view: id })}`;
+
+  if (context.kind === "workspace") return `/notes?${new URLSearchParams({ presentation: id })}`;
 
   const path =
     context.kind === "group"

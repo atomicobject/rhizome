@@ -101,35 +101,20 @@ it("keeps missing graph validation summaries unknown", () => {
 });
 
 function layoutProps(
-  mode: "all" | "type",
+  selectedType: string | null,
   onOpenNote: (path: string, mode?: "activate" | "beside") => void,
 ) {
-  if (mode === "all") {
-    return {
-      mode,
-      summary,
-      selectedType: null,
-      typeDetail,
-      graph,
-      typeColors,
-      onOpenNote,
-      onRetry: () => {},
-      onRetryGraph: () => {},
-      onOpenIssues: () => {},
-    } as const;
-  }
-
   return {
-    mode,
     summary,
-    selectedType: "Traceable",
+    selectedType,
     typeDetail,
     graph,
     typeColors,
     onOpenNote,
     onRetry: () => {},
     onRetryGraph: () => {},
-  } as const;
+    onOpenIssues: () => {},
+  };
 }
 
 describe("HomeGraphLayout", () => {
@@ -146,7 +131,7 @@ describe("HomeGraphLayout", () => {
 
   it("distinguishes graph loading, failure, and empty success while preserving type content", async () => {
     const onRetryGraph = vi.fn();
-    const props = layoutProps("type", vi.fn());
+    const props = layoutProps("Traceable", vi.fn());
 
     const { rerender } = render(
       <HomeGraphLayout {...props} graph={null} graphLoading onRetryGraph={onRetryGraph} />,
@@ -180,7 +165,7 @@ describe("HomeGraphLayout", () => {
   });
 
   it("keeps the loaded graph mounted during refresh and refresh failure", async () => {
-    const props = layoutProps("all", vi.fn());
+    const props = layoutProps(null, vi.fn());
     const { container, rerender } = render(<HomeGraphLayout {...props} />);
     await waitFor(() => expect(container.querySelector(".graph-surface canvas")).not.toBeNull());
     const canvas = container.querySelector(".graph-surface canvas");
@@ -216,7 +201,7 @@ describe("HomeGraphLayout", () => {
   it("keeps one global graph renderer while selection changes its type highlights", async () => {
     const onOpenNote = vi.fn();
     const sigmaOn = vi.spyOn(Sigma.prototype, "on");
-    const { container, rerender } = render(<HomeGraphLayout {...layoutProps("all", onOpenNote)} />);
+    const { container, rerender } = render(<HomeGraphLayout {...layoutProps(null, onOpenNote)} />);
 
     const initialSurface = await waitFor(() => {
       const surface = container.querySelector(".graph-surface");
@@ -233,7 +218,7 @@ describe("HomeGraphLayout", () => {
     const camera = renderer.getCamera();
     const cameraState = camera.getState();
 
-    rerender(<HomeGraphLayout {...layoutProps("type", onOpenNote)} />);
+    rerender(<HomeGraphLayout {...layoutProps("Traceable", onOpenNote)} />);
 
     await waitFor(() => expect(container.querySelector(".graph-surface")).toBe(initialSurface));
     expect(initialSurface.querySelector("canvas")).toBe(canvas);
