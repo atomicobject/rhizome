@@ -537,7 +537,9 @@ export function NotesLeftRail({
           <button
             type="button"
             disabled={embedded}
-            aria-label={embedded ? label(item) : `${label(item)} (${item.count})`}
+            aria-label={
+              embedded || totalNotes === null ? label(item) : `${label(item)} (${item.count})`
+            }
             className={`ontology-type-row${depth > 1 ? " ontology-type-row--child" : ""}${node.kind === "interface" ? " ontology-type-row--interface" : ""}${embedded ? " ontology-type-row--embedded" : ""}${activeCollection === item.name ? " is-selected" : ""}`}
             onClick={() => onSelectCollection(item.name)}
           >
@@ -548,7 +550,9 @@ export function NotesLeftRail({
               presenceOnly
               label={`${typeIssues ?? "Unknown"} validation issues in ${label(item)}`}
             />
-            {!embedded && <span className="ontology-type-row__count">{item.count}</span>}
+            {!embedded && totalNotes !== null && (
+              <span className="ontology-type-row__count">{item.count}</span>
+            )}
           </button>
         </div>
         {hasChildren && expandedNode && node.children.map((child) => renderNode(child, depth + 1))}

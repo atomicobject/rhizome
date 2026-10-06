@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
@@ -164,6 +165,24 @@ func TestOntologySummary_ReportsRebuildingBeforeFirstPublication(t *testing.T) {
 	require.Zero(t, summary.UntypedNotes)
 	require.Zero(t, summary.AmbiguousNotes)
 	require.Zero(t, summary.IssueNotes)
-	require.Empty(t, summary.Types)
-	require.Empty(t, summary.Interfaces)
+
+	// The schema's types still list, without counts, so the rail, type routes,
+	// and type colors work during the first index after a start.
+	published, err := newSummaryParityFixture(t).ontologySummary(ctx)
+	require.NoError(t, err)
+	names := func(types []OntologyTypeSummary) []string {
+		out := make([]string, 0, len(types))
+		for _, entry := range types {
+			out = append(out, entry.Name)
+		}
+		sort.Strings(out)
+		return out
+	}
+	require.NotEmpty(t, summary.Types)
+	require.Equal(t, names(published.Types), names(summary.Types))
+	require.Len(t, summary.Interfaces, len(published.Interfaces))
+	for _, entry := range summary.Types {
+		require.Zero(t, entry.Count, entry.Name)
+		require.NotEmpty(t, entry.Label, entry.Name)
+	}
 }

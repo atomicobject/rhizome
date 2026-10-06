@@ -157,8 +157,9 @@ function NotesNavTools() {
 
   return (
     <div className="app-shell__notes-tools">
-      {/* Unknown counts stay hidden rather than reading as zero. */}
-      {summary && (
+      {/* Unknown counts stay hidden rather than reading as zero, as while the
+          first index after a start is still rebuilding. */}
+      {summary && !(summary.rebuilding && summary.totalNotes === 0) && (
         <>
           <span>
             <b>{summary.typedNotes}</b> typed
