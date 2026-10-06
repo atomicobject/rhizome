@@ -151,3 +151,42 @@ func TestHostedNodeContextPreservesStagedIdentityWithoutSessionURL(t *testing.T)
 		}
 	}
 }
+
+func TestWorkspaceContextHasNoSubjectOrOntologyDependency(t *testing.T) {
+	srv := newCustomViewTestServer(t, "board.tsx", map[string]string{"poc/board.tsx": "export default null"})
+	def := viewconfig.ViewDefinition{ID: "workspace", Name: "Workspace", Mount: viewconfig.MountSpec{Kind: viewconfig.MountKindWorkspace}}
+	for _, raw := range []string{"", `{"kind":"workspace"}`} {
+		invocation, err := srv.customViewInvocation(t.Context(), def, raw, false)
+		if err != nil || invocation.Context.Kind != viewconfig.MountKindWorkspace {
+			t.Fatalf("workspace context: %+v %v", invocation, err)
+		}
+	}
+	for _, raw := range []string{`{"kind":"workspace","type":"Doc"}`, `{"kind":"workspace","interface":"Doc"}`, `{"kind":"workspace","group":"Delivery"}`, `{"kind":"workspace","ref":{"notePath":"a.md","kind":"NOTE"}}`, `{"kind":"standalone"}`} {
+		if _, err := srv.customViewInvocation(t.Context(), def, raw, false); err == nil {
+			t.Fatalf("accepted %s", raw)
+		}
+	}
+}
+
+func TestWorkspaceHTMLRedirectCarriesInferredContext(t *testing.T) {
+	srv := newCustomViewTestServer(t, "board.html", map[string]string{"poc/board.html": "<html></html>"})
+	definition := filepath.Join(srv.cfg.VaultPath, ".rhizome", "views", "poc", "board.yaml")
+	data, err := os.ReadFile(definition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(definition, []byte(strings.Replace(string(data), "kind: standalone", "kind: workspace", 1)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	w := getCustomView(srv, "/views/poc.board")
+	if w.Code != http.StatusFound {
+		t.Fatalf("redirect: %d %s", w.Code, w.Body.String())
+	}
+	target, err := url.Parse(w.Header().Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target.Query().Get("context") != `{"kind":"workspace"}` {
+		t.Fatalf("workspace context lost: %s", target)
+	}
+}

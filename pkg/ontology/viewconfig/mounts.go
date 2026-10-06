@@ -20,6 +20,8 @@ func MatchesMount(mount MountSpec, kind MountKind, name string) bool {
 		return mount.Interface == name || mount.Interface == "*"
 	case MountKindGroup:
 		return mount.Group == name || mount.Group == "*"
+	case MountKindWorkspace:
+		return name == ""
 	case MountKindStandalone:
 		return true
 	default:

@@ -280,6 +280,8 @@ func validateMount(def ViewDefinition, opts ValidateOptions) []Issue {
 			issues = append(issues, issue(def, "invalid_mount_target", "mount.group", fmt.Sprintf("display group %q does not exist in navigation", def.Mount.Group)))
 		}
 		issues = append(issues, unexpectedMountFields(def, "mount.type", def.Mount.Type, "mount.interface", def.Mount.Interface)...)
+	case MountKindWorkspace:
+		issues = append(issues, unexpectedMountFields(def, "mount.type", def.Mount.Type, "mount.interface", def.Mount.Interface, "mount.group", def.Mount.Group)...)
 	case MountKindStandalone:
 		issues = append(issues, unexpectedMountFields(def, "mount.type", def.Mount.Type, "mount.interface", def.Mount.Interface)...)
 	case "":

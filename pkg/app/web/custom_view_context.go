@@ -45,8 +45,8 @@ func (s *Server) customViewInvocation(ctx context.Context, def viewconfig.ViewDe
 	if c.Kind == viewconfig.MountKindGroup {
 		c.Group = def.Mount.Group
 	}
-	if c.Kind == viewconfig.MountKindStandalone {
-		c = ViewContext{Kind: viewconfig.MountKindStandalone}
+	if c.Kind == viewconfig.MountKindStandalone || c.Kind == viewconfig.MountKindWorkspace {
+		c = ViewContext{Kind: c.Kind}
 	}
 	if raw != "" {
 		c = ViewContext{}
@@ -61,9 +61,9 @@ func (s *Server) customViewInvocation(ctx context.Context, def viewconfig.ViewDe
 	}
 	name := ""
 	switch c.Kind {
-	case viewconfig.MountKindStandalone:
+	case viewconfig.MountKindStandalone, viewconfig.MountKindWorkspace:
 		if c.Type != "" || c.Interface != "" || c.Group != "" || c.Ref != nil {
-			return customViewInvocation{}, fmt.Errorf("standalone context cannot contain a subject")
+			return customViewInvocation{}, fmt.Errorf("%s context cannot contain a subject", c.Kind)
 		}
 	case viewconfig.MountKindType:
 		name = c.Type
@@ -122,7 +122,7 @@ func (s *Server) customViewInvocation(ctx context.Context, def viewconfig.ViewDe
 	if !viewconfig.MatchesMount(def.Mount, c.Kind, name) {
 		return customViewInvocation{}, fmt.Errorf("view %q is not available for %s %q", def.ID, c.Kind, name)
 	}
-	if c.Kind != viewconfig.MountKindStandalone {
+	if c.Kind != viewconfig.MountKindStandalone && c.Kind != viewconfig.MountKindWorkspace {
 		defs, err := s.ontologyDefinitions()
 		if err != nil {
 			return customViewInvocation{}, err

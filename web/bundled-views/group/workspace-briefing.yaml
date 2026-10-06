@@ -1,0 +1,9 @@
+apiVersion: rhizome.view.v1
+id: workspace.briefing
+name: Briefing
+source:
+  kind: custom
+  entry: workspace-briefing.tsx
+mount:
+  kind: workspace
+  order: 0

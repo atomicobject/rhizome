@@ -178,3 +178,18 @@ func TestViewPreferencesHostResetIncludesSlotsAndPublishesFamilyEvent(t *testing
 	require.Empty(t, read.Values)
 	require.EqualValues(t, 2, read.Revision)
 }
+
+func TestWorkspaceViewPreferencesPersistAndRejectSubjects(t *testing.T) {
+	s := preferencesTestServer(t)
+	scope := userstate.Scope{ViewID: "workspace.overview", Context: userstate.Context{Kind: viewconfig.MountKindWorkspace}}
+	w := preferencesRequest(t, s, http.MethodPatch, "/api/v1/view-preferences", map[string]any{"scope": scope, "expectedRevision": 0, "set": map[string]any{"matrix": true}})
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	encoded, err := json.Marshal(scope)
+	require.NoError(t, err)
+	w = preferencesRequest(t, s, http.MethodGet, "/api/v1/view-preferences?scope="+url.QueryEscape(string(encoded)), nil)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.Contains(t, w.Body.String(), `"matrix":true`)
+	scope.Context.Group = "Delivery"
+	w = preferencesRequest(t, s, http.MethodPatch, "/api/v1/view-preferences", map[string]any{"scope": scope, "expectedRevision": 0, "set": map[string]any{"matrix": true}})
+	require.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
+}
