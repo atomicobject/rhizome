@@ -8,7 +8,12 @@ import {
   OPEN_VIEW_MESSAGE,
 } from "../../src/lib/customViewMessages";
 import { jsonReply } from "../../src/test/fakeFetch";
-import { AGGREGATE_MEMBERS, AGGREGATE_PARTS } from "./__fixtures__/aggregate.ts";
+import { isJsonObject } from "./api.ts";
+import {
+  AGGREGATE_MEMBERS,
+  AGGREGATE_PARTS,
+  VALIDATION_ENVELOPE,
+} from "./__fixtures__/aggregate.ts";
 import { PATHS, PLANNING_GUIDE } from "./__fixtures__/groups.ts";
 import { renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
 
@@ -378,4 +383,39 @@ it("says the index is rebuilding instead of drawing empty counts", async () => {
   expect(document.querySelector(".gv-facts")).toHaveTextContent("The index is rebuilding");
   expect(within(region("Map")).getByText(/index is rebuilding/)).toBeVisible();
   expect(within(region("Members")).queryByRole("table")).toBeNull();
+});
+
+it("rereads member issue counts when validation publishes a new generation", async () => {
+  let generation = 3;
+  let storyIssues = 2;
+
+  const members = () => ({
+    ...AGGREGATE_PARTS.members,
+    members: {
+      ...AGGREGATE_MEMBERS,
+      types: (Array.isArray(AGGREGATE_MEMBERS.types) ? AGGREGATE_MEMBERS.types : []).map((entry) =>
+        isJsonObject(entry) && entry.name === "Story"
+          ? { ...entry, issueCount: storyIssues }
+          : entry,
+      ),
+    },
+  });
+
+  const view = await renderGroupView(loadOverview, {
+    routes: scopeRoutes({
+      "GET /api/v1/ontology/shape": (request) =>
+        request.query.get("parts") === "members"
+          ? jsonReply(members())
+          : jsonReply(AGGREGATE_PARTS.links),
+      "GET /api/v2/validate": () =>
+        jsonReply({ ...VALIDATION_ENVELOPE, generation, snapshot: { generation } }),
+    }),
+  });
+
+  expect(screen.getByText("2 issues")).toBeVisible();
+  generation = 4;
+  storyIssues = 5;
+  await view.emit("validation.invalidated");
+
+  await waitFor(() => expect(screen.getByText("5 issues")).toBeVisible());
 });

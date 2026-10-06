@@ -11,8 +11,8 @@
 // - readOf(query), blockStatus(reads): one block's loading, failure, and retry.
 // - useAggregatePart(part), useTypeSummaries(), useScopeModel(scope, expanded),
 //   useScopeDocs(model): the queries, each with its read.
-import { useDisplayGroups, useTypeDocs, type TypeDoc } from "@rhizome/kit";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDisplayGroups, useTypeDocs, useValidationSummaries, type TypeDoc } from "@rhizome/kit";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import {
@@ -54,10 +54,17 @@ export function blockStatus(reads: readonly Read[]): BlockStatus {
   return reads.some((read) => read.pending) ? { status: "loading" } : { status: "ready" };
 }
 
+const NO_SCOPES: Parameters<typeof useValidationSummaries>[0] = [];
+
 export function useAggregatePart(part: AggregatePart) {
+  // Issue counts come from published validation, which data events do not
+  // announce, so the members part rereads when a new generation publishes.
+  const { generation } = useValidationSummaries(NO_SCOPES);
+
   const query = useQuery({
-    queryKey: ["group-views", "aggregate", part],
+    queryKey: ["group-views", "aggregate", part, ...(part === "members" ? [generation] : [])],
     queryFn: async ({ signal }) => parseAggregate(await getJSON(aggregatePath(part), signal)),
+    placeholderData: keepPreviousData,
   });
 
   return { ...query, read: readOf(query) };
