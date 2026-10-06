@@ -174,6 +174,16 @@ describe("parseNotesLocation", () => {
     });
   });
 
+  it("round-trips a listing of the vault root's own notes as folder /", () => {
+    const url = buildNotesLocation({ selection: { kind: "all" }, search: "", folder: "/" });
+
+    expect(url).toBe("/notes?search=&folder=%2F");
+    expect(parseNotesLocation("/notes", url.slice("/notes".length), "")).toMatchObject({
+      search: "",
+      searchFilters: { folder: "/" },
+    });
+  });
+
   it("round-trips a query with a folder", () => {
     const url = buildNotesLocation({ selection: { kind: "all" }, search: "plan", folder: "Notes" });
 

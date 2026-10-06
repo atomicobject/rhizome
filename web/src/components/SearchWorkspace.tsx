@@ -16,7 +16,14 @@ import { useOntologyTypeQuery } from "./useNotesQueries";
 import { notifyLocationChange } from "./locationStore";
 import { useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
 import type { OpenMode, SearchTab } from "./useNoteTabs";
-import { normalizeSearchFilters, normalizeSearchQuery, type SearchFilters } from "./searchState";
+import {
+  ROOT_FOLDER,
+  folderLabel,
+  inFolder,
+  normalizeSearchFilters,
+  normalizeSearchQuery,
+  type SearchFilters,
+} from "./searchState";
 
 const PAGE_SIZE = 40;
 
@@ -155,7 +162,7 @@ function FolderNotesWorkspace({
   const notes = useMemo(
     () =>
       (notesQuery.data?.notes ?? [])
-        .filter((note) => note.path.startsWith(`${folder}/`))
+        .filter((note) => inFolder(note.path, folder))
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)),
     [folder, notesQuery.data?.notes],
   );
@@ -174,14 +181,14 @@ function FolderNotesWorkspace({
     <main
       ref={scrollRef}
       className="search-workspace"
-      aria-label={`Notes in ${folder}/`}
+      aria-label={`Notes in ${folderLabel(folder)}`}
       onScroll={(event) => {
         if (active) onScrollPosition(tab.id, event.currentTarget.scrollTop);
       }}
     >
       <header className="search-workspace__header">
         <div>
-          <h1>Notes in {folder}/</h1>
+          <h1>Notes in {folderLabel(folder)}</h1>
           {notesQuery.data ? (
             <p className="search-workspace__query">
               {notes.length} {notes.length === 1 ? "note" : "notes"}
@@ -189,18 +196,21 @@ function FolderNotesWorkspace({
           ) : null}
         </div>
         <div className="search-workspace__filters" aria-label="Search filters">
-          <label>
-            <span>Search</span>
-            <input
-              aria-label="Search this folder"
-              placeholder="Search this folder"
-              value={queryDraft}
-              onChange={(event) => setQueryDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") submitQuery();
-              }}
-            />
-          </label>
+          {/* Ranked search filters by path prefix, which cannot hold to the root's own notes. */}
+          {folder !== ROOT_FOLDER && (
+            <label>
+              <span>Search</span>
+              <input
+                aria-label="Search this folder"
+                placeholder="Search this folder"
+                value={queryDraft}
+                onChange={(event) => setQueryDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") submitQuery();
+                }}
+              />
+            </label>
+          )}
           <label>
             <span>Folder</span>
             <input
@@ -229,7 +239,7 @@ function FolderNotesWorkspace({
         </div>
       ) : notes.length === 0 ? (
         <div className="search-workspace__state" role="status">
-          <strong>No notes in {folder}/</strong>
+          <strong>No notes in {folderLabel(folder)}</strong>
         </div>
       ) : (
         <ol className="search-workspace__results">

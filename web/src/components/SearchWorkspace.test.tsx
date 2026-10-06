@@ -448,6 +448,29 @@ describe("SearchWorkspace folder listing", () => {
     expect(await screen.findByText("No notes in Notes/")).toBeVisible();
   });
 
+  it("lists only the notes in no folder for the vault root, without a ranked search field", async () => {
+    http.json("GET", "/api/v1/ontology/types/__all__", {
+      count: 2,
+      notes: [note("Top.md", "Top note", 3), note("Notes/old.md", "Old note", 1)],
+    });
+    render(
+      <SearchWorkspace
+        tab={{ ...folderTab, filters: { ...folderTab.filters, folder: "/" } }}
+        active
+        types={[]}
+        onRefineSearch={vi.fn()}
+        onOpenNote={vi.fn()}
+        onScrollPosition={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Notes in /" })).toBeVisible();
+    expect(await screen.findByText("1 note")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Top note" })).toBeVisible();
+    expect(screen.queryByText("Old note")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Search this folder" })).toBeNull();
+  });
+
   it("offers retry when the note list fails", async () => {
     http.on("GET", "/api/v1/ontology/types/__all__", () => jsonReply({ error: "down" }, 500));
     render(

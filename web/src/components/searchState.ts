@@ -12,6 +12,23 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
   folder: null,
 };
 
+/** The folder filter for notes at the vault root, which sit in no folder. */
+export const ROOT_FOLDER = "/";
+
+/** A folder filter without surrounding slashes; slashes alone name the vault root. */
+function normalizeFolder(folder: string | null | undefined) {
+  const trimmed = folder?.trim();
+
+  return trimmed ? trimmed.replace(/^\/+|\/+$/g, "") || ROOT_FOLDER : null;
+}
+
+/** Whether a note path lies in a folder: directly at the root for the root folder, else anywhere under it. */
+export const inFolder = (path: string, folder: string) =>
+  folder === ROOT_FOLDER ? !path.includes("/") : path.startsWith(`${folder}/`);
+
+/** A folder as the workspace names it, with a trailing slash; the root is `/`. */
+export const folderLabel = (folder: string) => (folder === ROOT_FOLDER ? "/" : `${folder}/`);
+
 export function normalizeSearchQuery(query: string): string {
   return query.trim().replace(/\s+/g, " ");
 }
@@ -27,7 +44,7 @@ export function normalizeSearchFilters(filters?: Partial<SearchFilters>): Search
   return {
     scope,
     noteType: scope === "code" ? null : noteType,
-    folder: filters?.folder?.trim().replace(/^\/+|\/+$/g, "") || null,
+    folder: normalizeFolder(filters?.folder),
   };
 }
 
@@ -39,5 +56,5 @@ export function searchTabIdentity(query: string, filters?: Partial<SearchFilters
 }
 
 export function searchTabLabel(query: string, folder?: string | null): string {
-  return normalizeSearchQuery(query) || (folder ? `${folder}/` : "Search");
+  return normalizeSearchQuery(query) || (folder ? folderLabel(folder) : "Search");
 }

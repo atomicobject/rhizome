@@ -333,6 +333,7 @@ describe("CustomViewFrame", () => {
 
     post(frame, origin, search);
     post(frame, origin, { type: OPEN_SEARCH_MESSAGE, folder: "Notes", query: "plan" });
+    post(frame, origin, { type: OPEN_SEARCH_MESSAGE, folder: "/" });
     post(frame, origin, {
       type: OPEN_VIEW_MESSAGE,
       id: "workspace.overview",
@@ -341,6 +342,7 @@ describe("CustomViewFrame", () => {
     expect(onOpenSearch.mock.calls).toEqual([
       [{ folder: "Notes" }],
       [{ folder: "Notes", query: "plan" }],
+      [{ folder: "/" }],
     ]);
     expect(onOpenView).toHaveBeenCalledExactlyOnceWith("workspace.overview", { kind: "workspace" });
   });

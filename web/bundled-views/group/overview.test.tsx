@@ -292,6 +292,34 @@ it("lists untyped notes by folder and searches a folder, with the coverage line 
   expect(screen.queryByRole("region", { name: "Declared, unused" })).toBeNull();
 });
 
+it("searches the vault root's own untyped notes as folder /", async () => {
+  const { posted } = await renderGroupView(loadOverview, {
+    context: WORKSPACE,
+    embedded: true,
+    routes: scopeRoutes({
+      "GET /api/v1/ontology/shape": (request) =>
+        request.query.get("parts") === "folders"
+          ? jsonReply({
+              ...AGGREGATE_PARTS.folders,
+              folders: {
+                rows: [{ folder: "", total: 3, untyped: 2, typed: {}, untypedLinksTo: {} }],
+              },
+            })
+          : jsonReply(
+              request.query.get("parts") === "members"
+                ? AGGREGATE_PARTS.members
+                : AGGREGATE_PARTS.links,
+            ),
+    }),
+  });
+
+  fireEvent.click(within(region("Untyped notes by folder")).getByRole("button", { name: "/" }));
+
+  expect(posted.filter((message) => message.type === "rhizome:open-search")).toEqual([
+    { type: "rhizome:open-search", folder: "/" },
+  ]);
+});
+
 it("paints every block's heading at once and fills each in as its part arrives", async () => {
   let release = () => {};
 

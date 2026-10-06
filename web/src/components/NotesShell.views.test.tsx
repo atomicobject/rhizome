@@ -459,5 +459,13 @@ describe("NotesShell configured views", () => {
     expect(params.get("folder")).toBe("notes");
     expect(await screen.findByRole("heading", { name: "Notes in notes/" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Alpha Spec" })).toBeInTheDocument();
+
+    // The vault root's own notes sit in no folder; "/" names the root.
+    fireEvent.click(screen.getByRole("tab", { name: /Home/ }));
+    await waitFor(() => expect(frame("Briefing")).not.toBeNull());
+    post("Briefing", { type: OPEN_SEARCH_MESSAGE, folder: "/" });
+    expect(await screen.findByRole("heading", { name: "Notes in /" })).toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get("folder")).toBe("/");
+    expect(await screen.findByText("No notes in /")).toBeInTheDocument();
   });
 });

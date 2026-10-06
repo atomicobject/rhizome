@@ -68,7 +68,8 @@ export function FolderBlock() {
                         <button
                           type="button"
                           className="gv-link gv-ov-folder"
-                          onClick={() => openSearch({ folder: line.folder })}
+                          // Notes at the vault root sit in no folder; "/" names the root.
+                          onClick={() => openSearch({ folder: line.folder || "/" })}
                         >
                           {line.folder}/
                         </button>
