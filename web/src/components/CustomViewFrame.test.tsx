@@ -9,6 +9,7 @@ import {
   OPEN_ISSUES_MESSAGE,
   OPEN_NOTE_MESSAGE,
   OPEN_NODE_MESSAGE,
+  OPEN_SEARCH_MESSAGE,
   OPEN_VIEW_MESSAGE,
   STAGE_OPS_MESSAGE,
   STAGE_RESULT_MESSAGE,
@@ -42,6 +43,10 @@ type MalformedMessage = {
   ops?: string;
   name?: string | number;
   scope?: { kind: string; key?: string };
+  folder?: string | number;
+  query?: number;
+  id?: string;
+  context?: { kind: string; group?: string };
 };
 
 function post(
@@ -294,5 +299,49 @@ describe("CustomViewFrame", () => {
     post(frame, origin, collection);
     expect(onOpenIssues.mock.calls).toEqual([[{ kind: "type", key: "Spec" }], [undefined]]);
     expect(onSelectCollection).toHaveBeenCalledExactlyOnceWith("Spec");
+  });
+
+  it("opens a folder search or a workspace view only for well-formed requests from its frame", () => {
+    const onOpenSearch = vi.fn();
+    const onOpenView = vi.fn();
+    render(
+      <CustomViewFrame
+        view={view}
+        session={null}
+        onOpenNote={vi.fn()}
+        onStageOps={vi.fn()}
+        onOpenSearch={onOpenSearch}
+        onOpenView={onOpenView}
+      />,
+    );
+    const frame = screen.getByTitle<HTMLIFrameElement>("Action Board").contentWindow;
+    const origin = window.location.origin;
+    const search: ViewMessage = { type: OPEN_SEARCH_MESSAGE, folder: "Notes" };
+
+    post(window, origin, search);
+    post(frame, "https://elsewhere.example", search);
+    post(frame, origin, { type: OPEN_SEARCH_MESSAGE, folder: " " });
+    post(frame, origin, { type: OPEN_SEARCH_MESSAGE, folder: 7 });
+    post(frame, origin, { type: OPEN_SEARCH_MESSAGE, folder: "Notes", query: 7 });
+    post(frame, origin, {
+      type: OPEN_VIEW_MESSAGE,
+      id: "workspace.overview",
+      context: { kind: "workspace", group: "Delivery" },
+    });
+    expect(onOpenSearch).not.toHaveBeenCalled();
+    expect(onOpenView).not.toHaveBeenCalled();
+
+    post(frame, origin, search);
+    post(frame, origin, { type: OPEN_SEARCH_MESSAGE, folder: "Notes", query: "plan" });
+    post(frame, origin, {
+      type: OPEN_VIEW_MESSAGE,
+      id: "workspace.overview",
+      context: { kind: "workspace" },
+    });
+    expect(onOpenSearch.mock.calls).toEqual([
+      [{ folder: "Notes" }],
+      [{ folder: "Notes", query: "plan" }],
+    ]);
+    expect(onOpenView).toHaveBeenCalledExactlyOnceWith("workspace.overview", { kind: "workspace" });
   });
 });
