@@ -55,6 +55,16 @@ for (const overlay of ["unified-views", "group-views", "type-views"]) {
   );
 }
 
+const groupNotes = path.join(fixtureRoot, "notes", "group-views");
+
+const groupChangedAt = new Date("2026-10-05T23:58:00-04:00");
+
+for (const note of fs.readdirSync(groupNotes, { recursive: true })) {
+  if (note.endsWith(".md")) {
+    fs.utimesSync(path.join(groupNotes, note), groupChangedAt, groupChangedAt);
+  }
+}
+
 const goEnv = {
   GOCACHE: process.env.GOCACHE || path.join(repoRoot, ".gocache"),
   GOMODCACHE: process.env.GOMODCACHE || path.join(repoRoot, ".gomodcache"),
