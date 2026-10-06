@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- New Rhizome logo and app icon: a Merriweather r growing out of a rhizome runner that ends in an AO-red node. Small icon sizes use a simplified mark so the desktop app stays legible in the Dock, Finder, and favicon.
 - The desktop app passes drag and drop through to the page, so configured tables, cards, and boards reorder in the app as they do in a browser. A repository's context menu can open its runtime in the default browser, reveal it in Finder, and stop it. A stopped worktree shows as sleeping and starts again when you open it. Repositories reorder by dragging or with Alt+Up and Alt+Down. File > Close Tab (Cmd+W) closes the active note tab and Close Window moves to Shift+Cmd+W; Edit > Copy Page URL (Shift+Cmd+C) copies the page's address. Reopening a running worktree no longer flashes a progress screen.
 - Right after a runtime starts, the type list, type colors, and type links work while the first index runs; counts stay hidden until they are known. A save refreshes open views at most twice instead of once per index event, and the "Refreshing view" label appears only for refreshes longer than 400 ms.
 - Configured tables show the reorder grip as a compact handle beside each row's checkbox instead of a dotted strip that spanned the whole table. A row grouped under several values of a list field, such as an idea linked to two opportunities, can be reordered by drag or Alt+Arrow within any of its groups.
