@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/logo.png" alt="Rhizome" width="200">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/rhizome-wordmark-reversed.svg">
+    <img src="docs/brand/rhizome-wordmark.svg" alt="Rhizome" width="320">
+  </picture>
 </p>
 
 # Rhizome

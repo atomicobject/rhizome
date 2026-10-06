@@ -34,7 +34,7 @@ Rhizome operates inside real repositories and Markdown vaults. Teams install and
 
 ## Brand Commitments
 
-The product voice is precise, grounded, practical, technical, and quietly opinionated: direct enough for expert users, restrained enough for repeated daily use, and confident without hype. Rhizome's identity is visibly inspired by Atomic Object, with AO red, warm black, teal, Merriweather, Barlow, and JetBrains Mono as established foundations unless a future reviewed redesign deliberately replaces them. Preserve the Rhizome name and the existing `docs/logo.png` asset as current evidence; do not treat the temporary in-product red orb as a final identity.
+The product voice is precise, grounded, practical, technical, and quietly opinionated: direct enough for expert users, restrained enough for repeated daily use, and confident without hype. Rhizome's identity is visibly inspired by Atomic Object, with AO red, warm black, teal, Merriweather, Barlow, and JetBrains Mono as established foundations unless a future reviewed redesign deliberately replaces them. The mark is the runner r: a Merriweather Black r growing out of a horizontal runner that ends in one AO-red node, with roots below; the wordmark sets "rhizome" on the same runner. SVG masters live in `docs/brand/`, and app icons are generated from them. Do not treat the temporary in-product red diamond as the final identity.
 
 ## Evidence on Hand
 
@@ -42,7 +42,7 @@ The product voice is precise, grounded, practical, technical, and quietly opinio
 - Repository-owned product, technical, process, and experience specs under `docs/specs/`.
 - Executable unit, integration, web, and end-to-end test suites.
 - Setup, operating, and agent-surface documentation in `README.md` and `docs/reference/`.
-- The current Rhizome logo at `docs/logo.png`.
+- The Rhizome mark and wordmark in `docs/brand/`.
 - No customer testimonials, adoption claims, comparative benchmarks, or external proof assets are established here; future work must not fabricate them.
 
 ## Product Principles
