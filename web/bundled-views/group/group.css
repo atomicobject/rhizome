@@ -593,34 +593,6 @@
   font-size: 12px;
 }
 
-/* In this group */
-.gv-typ {
-  padding: 8px 0;
-  border-top: 1px solid var(--border);
-}
-
-.gv-typ:first-child {
-  padding-top: 4px;
-  border-top: 0;
-}
-
-.gv-typ-top {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.gv-typ-top .gv-member {
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.gv-typ-count {
-  margin-left: auto;
-  color: var(--text);
-  font-weight: 600;
-}
-
 .gv-typ-desc {
   display: -webkit-box;
   margin: 1px 0 0;
@@ -666,13 +638,6 @@
   background: var(--ao-gray-200);
 }
 
-.gv-typ .gv-counts {
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  margin: 4px 0 0;
-  white-space: normal;
-}
-
 .gv-kinds {
   display: flex;
   flex-wrap: wrap;
@@ -682,7 +647,7 @@
   font-size: 11px;
 }
 
-/* Connections */
+/* Matrix */
 .gv-mx {
   margin-top: 4px;
   border-collapse: collapse;
@@ -722,12 +687,6 @@
 
 .gv-mx thead td {
   border: 0;
-}
-
-.gv-mx td[data-cell="used"] {
-  background: var(--ao-teal-soft);
-  color: var(--ao-teal-ink);
-  font-weight: 700;
 }
 
 .gv-mx td[data-cell="unused"] {
@@ -1532,7 +1491,7 @@
   border-top: 1px dashed var(--text-faint);
 }
 
-/* The Matrix: Connections styling, plus relation, plain, and Outside cells. */
+/* The Overview Matrix: relation, plain, and Outside cells. */
 .gv-mx-wrap {
   overflow-x: auto;
 }
