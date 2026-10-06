@@ -168,6 +168,34 @@ impl Pane {
         true
     }
 
+    /// Puts a pane targeting `worktree` to sleep after the user stopped its
+    /// runtime: a new generation the supervisor leaves alone, so nothing
+    /// relaunches the runtime until the user opens the worktree again. Returns
+    /// `None` for a pane targeting another worktree, else whether the caller
+    /// must clear the content view.
+    pub fn sleep(&mut self, worktree: &str) -> Option<bool> {
+        if self.worktree != worktree {
+            return None;
+        }
+        self.generation += 1;
+        self.pending = None;
+        self.overdue = None;
+        self.ready = false;
+        self.opening = false;
+        self.reconnecting = None;
+        self.supervised = None;
+        self.stopped = 0;
+        self.failures = 0;
+        let cleared = self.unload();
+        self.report(self.generation, "sleeping", json!({}));
+        Some(cleared)
+    }
+
+    /// Whether the content view holds a loaded page of `worktree`'s runtime.
+    pub fn shows(&self, worktree: &str) -> bool {
+        self.worktree == worktree && self.ready
+    }
+
     /// Forgets the content view's page and allowed origin. Returns whether the
     /// view may hold a runtime page, which the caller then navigates away from
     /// so its event streams stop keeping that runtime alive.
@@ -415,6 +443,17 @@ impl Panes {
         for pane in self.0.lock().unwrap().values() {
             pane.send(message.clone());
         }
+    }
+
+    /// Puts every pane targeting `worktree` to sleep. Returns the windows whose
+    /// content view must be cleared.
+    pub fn sleep(&self, worktree: &str) -> Vec<String> {
+        self.0
+            .lock()
+            .unwrap()
+            .iter_mut()
+            .filter_map(|(window, pane)| pane.sleep(worktree)?.then(|| window.clone()))
+            .collect()
     }
 
     /// Windows displaying `worktree`'s runtime, with their generations.
@@ -771,6 +810,32 @@ mod tests {
         assert!(!pane.abandon(gave_up), "the newer selection owns the view");
         assert_eq!(*pane.expected.read().unwrap(), Some(url(B)));
         assert!(pane.visible());
+    }
+
+    #[test]
+    fn a_sleeping_worktree_is_not_relaunched_until_opened_again() {
+        let panes = Panes::default();
+        panes.insert("window-1".into(), displayed(A));
+        panes.insert("window-2".into(), displayed(A));
+        let mut other = Pane::default();
+        open(&mut other, 1, "/other");
+        panes.insert("window-3".into(), other);
+        let mut cleared = panes.sleep("/w");
+        cleared.sort();
+        assert_eq!(cleared, ["window-1", "window-2"]);
+        let stopped = BTreeMap::from([("/w".to_string(), runtime(State::Stopped, A, 0))]);
+        for _ in 0..3 {
+            assert!(panes.supervise(&stopped).is_empty());
+        }
+        panes.with("window-1", |pane| {
+            assert!(!pane.visible());
+            assert_eq!(pane.target().1, "/w", "the selection stays");
+            let generation = open(pane, 2, "/w");
+            pane.expect(generation, &url(A), 2, true);
+            pane.settle(generation, true);
+            finish(pane, &url(A));
+            assert!(pane.visible(), "opening again wakes it");
+        });
     }
 
     #[test]

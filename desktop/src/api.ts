@@ -67,6 +67,8 @@ export type Step =
   | "starting"
   | "loading"
   | "ready"
+  /** The user stopped this worktree's runtime; opening it again starts it. */
+  | "sleeping"
   | "error"
   | "seed-error";
 export interface OpenState {
@@ -125,6 +127,10 @@ type Results = {
   open: { generation: number; library: Library };
   deselect: null;
   restart: null;
+  stop: null;
+  reveal: null;
+  "open-in-browser": null;
+  reorder: Library;
   browse: null;
   session: null;
   layout: null;
@@ -147,6 +153,11 @@ type Args = {
   open: { id: string; worktree: string; skipSeed?: boolean; selection: number };
   deselect: { selection: number };
   restart: { id: string; worktree: string };
+  stop: { worktree: string };
+  reveal: { worktree: string };
+  "open-in-browser": { worktree: string };
+  /** Repository ids in the order the sidebar lists them. */
+  reorder: { ids: string[] };
   browse: { to: "back" | "forward" | "reload" };
   session: { repository: string | null; worktree: string | null; sidebarCollapsed: boolean };
   layout: { x: number; y: number; width: number; height: number; covered: boolean };

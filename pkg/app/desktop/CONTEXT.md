@@ -45,6 +45,10 @@ input and returns protocol 1 responses on both success and failure.
   then calls `runtime.Ensure` with its exact executable and build identity.
   Existing manifest and health folder identity must agree; returned origins use
   literal loopback IPs. Control tokens never enter JSON responses.
+- Stop shuts down the folder's runtime with `runtimestop.Stop`, the code
+  behind `rzm stop`: graceful shutdown, then termination of a headless runtime
+  that ignores it; an attached runtime is reported, not killed. It runs no
+  repository executable, so it needs no trust.
 - External managers may supply a verified existing runtime or a user-selected
   absolute executable or shim. Their manager owns build identity, so desktop
   does not derive a replacement build ID from a shim file. Desktop never

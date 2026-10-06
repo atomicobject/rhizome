@@ -177,6 +177,9 @@ body,
 .runtime-dot.starting {
   border: 1.5px solid #c98a16;
 }
+.runtime-dot.stopped {
+  border: 1.5px solid #b9b6ae;
+}
 .sidebar {
   overflow-y: auto;
   border-right: 1px solid #e4e2dd;
@@ -202,6 +205,15 @@ body,
 }
 .repository-tab:hover {
   background: #ecebe6;
+}
+.repository-tab.dragging {
+  opacity: 0.5;
+}
+.repository-tab.drop-before {
+  box-shadow: inset 0 2px 0 #c8313a;
+}
+.repository-tab.drop-after {
+  box-shadow: inset 0 -2px 0 #c8313a;
 }
 .repository-tab [role="tab"] {
   flex: 1;

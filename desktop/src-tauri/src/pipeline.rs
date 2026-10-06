@@ -246,6 +246,36 @@ pub async fn restart(
     Ok(())
 }
 
+/// Stops a worktree's runtime because the user asked. Every window showing it
+/// sleeps first, leaving the page so its event stream ends, and none relaunches
+/// it until the user opens the worktree again.
+pub async fn stop(app: AppHandle, worktree: String) -> Result<(), Failure> {
+    for window in app.state::<Panes>().sleep(&worktree) {
+        if let Some(window) = app.get_window(&window) {
+            windows::blank(&window);
+            let _ = windows::sync_visibility(&window);
+        }
+    }
+    presence::publish(&app);
+    let desktop = app.state::<Desktop>();
+    let stopped = {
+        let lock = desktop.worktree(&worktree);
+        let _serialized = lock.lock().await;
+        bridge::call(
+            &desktop.directory,
+            Request {
+                operation: "stop",
+                folder: Some(&worktree),
+                ..Request::default()
+            },
+            bridge::TIMEOUT,
+        )
+        .await
+    };
+    app.state::<Presence>().refresh();
+    stopped.map(|_| ())
+}
+
 /// Clears the page of the worktree `generation` gave up on, unless a newer
 /// open or a deselection replaced that generation and now owns the view.
 pub fn abandon(app: &AppHandle, window: &str, generation: u64) {

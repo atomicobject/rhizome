@@ -20,7 +20,8 @@ use tauri::{
     menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu},
     webview::{NewWindowResponse, PageLoadEvent, WebviewBuilder},
     window::WindowBuilder,
-    AppHandle, LogicalPosition, LogicalSize, Manager, Rect, WebviewUrl, Window, WindowEvent, Wry,
+    AppHandle, LogicalPosition, LogicalSize, Manager, Rect, Url, WebviewUrl, Window, WindowEvent,
+    Wry,
 };
 use tauri_plugin_opener::OpenerExt;
 
@@ -269,6 +270,8 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     window.add_child(
         WebviewBuilder::new(&shell, WebviewUrl::App("index.html".into()))
             .auto_resize()
+            // The sidebar reorders repositories with HTML5 drag and drop.
+            .disable_drag_drop_handler()
             .on_navigation(move |url| {
                 security::shell_authorized(&shell, url, cfg!(debug_assertions))
             }),
@@ -282,6 +285,9 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             WebviewUrl::External("about:blank".parse().unwrap()),
         )
         .initialization_script(CLICK_GUARD)
+        // Tauri's native file-drop handler claims every drag, so the page never
+        // sees dragover or drop; the runtime UI needs HTML5 drag and drop.
+        .disable_drag_drop_handler()
         .on_navigation(move |target| {
             expected.read().is_ok_and(|origin| match origin.as_ref() {
                 Some(origin) => {
@@ -390,6 +396,63 @@ pub fn sync_visibility(window: &Window) -> Result<(), String> {
         content.hide()
     }
     .map_err(|e| e.to_string())
+}
+
+/// The address of the runtime page the content view shows: any page, or only
+/// one of `worktree`'s runtime when a worktree is named.
+pub fn page_url(window: &Window, worktree: Option<&str>) -> Option<Url> {
+    let shown =
+        window
+            .app_handle()
+            .state::<Panes>()
+            .with(window.label(), |pane| match worktree {
+                Some(worktree) => pane.shows(worktree),
+                None => pane.visible(),
+            })?;
+    if !shown {
+        return None;
+    }
+    window
+        .get_webview(&content_label(window.label()))?
+        .url()
+        .ok()
+}
+
+/// Asks the web UI to close its active note tab; the Home tab stays open.
+fn close_active_tab(window: &Window) {
+    if page_url(window, None).is_none() {
+        return;
+    }
+    if let Some(content) = window.get_webview(&content_label(window.label())) {
+        let _ = content.eval("window.dispatchEvent(new CustomEvent('rhizome:close-tab'))");
+    }
+}
+
+fn copy_page_url(window: &Window) -> Result<(), String> {
+    let url = page_url(window, None).ok_or("No Rhizome page is open in this window.")?;
+    copy_text(url.as_str())
+}
+
+#[cfg(target_os = "macos")]
+fn copy_text(text: &str) -> Result<(), String> {
+    use std::{io::Write, process::Stdio};
+    let mut child = std::process::Command::new("/usr/bin/pbcopy")
+        .stdin(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Cannot copy the address: {e}"))?;
+    child
+        .stdin
+        .take()
+        .ok_or("Cannot copy the address.")?
+        .write_all(text.as_bytes())
+        .map_err(|e| format!("Cannot copy the address: {e}"))?;
+    child.wait().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn copy_text(_: &str) -> Result<(), String> {
+    Err("Copying the page address is available only on macOS.".into())
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -532,6 +595,21 @@ fn command(app: &AppHandle, name: &str) {
 pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
     let new_window = MenuItem::with_id(app, "new-window", "New Window", true, Some("CmdOrCtrl+N"))?;
+    let close_tab = MenuItem::with_id(app, "close-tab", "Close Tab", true, Some("CmdOrCtrl+W"))?;
+    let close_window = MenuItem::with_id(
+        app,
+        "close-window",
+        "Close Window",
+        true,
+        Some("CmdOrCtrl+Shift+W"),
+    )?;
+    let copy_url = MenuItem::with_id(
+        app,
+        "copy-url",
+        "Copy Page URL",
+        true,
+        Some("CmdOrCtrl+Shift+C"),
+    )?;
     let add = MenuItem::with_id(
         app,
         "add-repository",
@@ -570,7 +648,8 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &new_window,
             &add,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::close_window(app, None)?,
+            &close_tab,
+            &close_window,
         ],
     )?;
     let edit_menu = Submenu::with_items(
@@ -585,6 +664,8 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::copy(app, None)?,
             &PredefinedMenuItem::paste(app, None)?,
             &PredefinedMenuItem::select_all(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &copy_url,
         ],
     )?;
     let reload = MenuItem::with_id(app, "reload", "Reload Page", true, Some("CmdOrCtrl+R"))?;
@@ -637,6 +718,25 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
                 let _ = create(app, session);
             }
             "add-repository" | "toggle-sidebar" | "settings" => command(app, id),
+            "close-tab" => {
+                if let Some(window) = focused_window(app) {
+                    close_active_tab(&window);
+                }
+            }
+            "close-window" => {
+                if let Some(window) = focused_window(app) {
+                    let _ = window.close();
+                }
+            }
+            "copy-url" => {
+                if let Some(window) = focused_window(app) {
+                    if let Err(message) = copy_page_url(&window) {
+                        app.state::<Panes>().with(window.label(), |pane| {
+                            pane.send(json!({"type": "alert", "code": "desktop_error", "message": message}))
+                        });
+                    }
+                }
+            }
             "reload" | "back" | "forward" => {
                 let to = match id {
                     "reload" => Browse::Reload,

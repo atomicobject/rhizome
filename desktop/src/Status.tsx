@@ -8,6 +8,22 @@ const progress: Partial<Record<OpenState["step"], string>> = {
   loading: "Loading the workspace",
 };
 
+/** Progress shorter than this, such as reopening a running worktree, shows nothing. */
+const QUIET_MS = 800;
+
+/** Whether `delay` has passed since `started`, rerendering when it does. */
+function useElapsedPast(started: number, delay: number) {
+  const [past, setPast] = useState(() => Date.now() - started >= delay);
+  useEffect(() => {
+    const wait = started + delay - Date.now();
+    setPast(wait <= 0);
+    if (wait <= 0) return;
+    const timer = window.setTimeout(() => setPast(true), wait);
+    return () => window.clearTimeout(timer);
+  }, [started, delay]);
+  return past;
+}
+
 function Elapsed({ started }: { started: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -30,6 +46,7 @@ export function OpenStatus({
   state,
   busy,
   onRetry,
+  onWake,
   onTrust,
   onSetup,
   onSkipSeed,
@@ -39,6 +56,7 @@ export function OpenStatus({
   state: OpenState;
   busy: boolean;
   onRetry: () => void;
+  onWake: () => void;
   onTrust: () => void;
   onSetup: () => void;
   onSkipSeed: () => void;
@@ -46,6 +64,7 @@ export function OpenStatus({
   onManageInstallation: () => void;
 }) {
   const title = progress[state.step];
+  const shown = useElapsedPast(state.started, QUIET_MS);
   if (state.reconnecting && (title || state.step === "error")) {
     return (
       <div className="status-panel" role="status" aria-live="polite">
@@ -62,6 +81,7 @@ export function OpenStatus({
     );
   }
   if (title) {
+    if (!shown) return null;
     return (
       <div className="status-panel" role="status" aria-live="polite">
         <span className="spinner" aria-hidden="true" />
@@ -78,6 +98,18 @@ export function OpenStatus({
             The new worktree starts from the primary worktree’s index, then catches up.
           </p>
         )}
+      </div>
+    );
+  }
+  if (state.step === "sleeping") {
+    return (
+      <div className="status-panel">
+        <h1>Rhizome is sleeping</h1>
+        <p>You stopped Rhizome for this worktree. It starts again when you open it.</p>
+        <p className="path">{state.worktree}</p>
+        <button className="primary" disabled={busy} onClick={onWake}>
+          Start Rhizome
+        </button>
       </div>
     );
   }

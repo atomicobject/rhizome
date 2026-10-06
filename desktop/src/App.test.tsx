@@ -97,10 +97,11 @@ function report(state: Partial<OpenState>) {
     emit({
       type: "open",
       generation,
-      started: Date.now(),
       repository: repository.id,
       worktree: main,
       step: "checking",
+      // Past the quiet period, so progress shows at once.
+      started: Date.now() - 1000,
       ...state,
     }),
   );
@@ -260,11 +261,75 @@ describe("desktop shell", () => {
     fireEvent.contextMenu(screen.getByRole("tab", { name: /project/ }));
     await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
     const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
-    const restart = (menu as { items: MenuEntry[] }).items[0];
+    const restart = (menu as { items: MenuEntry[] }).items.find((item) =>
+      item.label?.startsWith("Restart"),
+    )!;
     expect(restart).toMatchObject({ label: "Restart Rhizome for main", disabled: false });
     act(() => emit({ type: "menu", id: restart.id! }));
     await waitFor(() =>
       expect(call).toHaveBeenCalledWith("restart", { id: repository.id, worktree: main }),
+    );
+  });
+
+  it("shows nothing for progress that finishes within the quiet period", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "loading", started: Date.now() });
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(await screen.findByRole("status", {}, { timeout: 2000 })).toHaveTextContent(
+      "Loading the workspace",
+    );
+  });
+
+  it("stops Rhizome from the context menu and starts it again from the sleeping view", async () => {
+    start(undefined, (operation) => (operation === "stop" ? null : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    act(() =>
+      emit({
+        type: "presence",
+        repositories: { [repository.id]: { info: discovery } },
+        runtimes: { [main]: { state: "running", mode: "headless" } },
+      }),
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /project/ }));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
+    const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
+    const items = (menu as { items: MenuEntry[] }).items;
+    expect(items.slice(0, 2).map((item) => [item.label, item.disabled])).toEqual([
+      ["Open in Browser", false],
+      ["Reveal in Finder", false],
+    ]);
+    const stop = items.find((item) => item.label === "Stop Rhizome for main")!;
+    act(() => emit({ type: "menu", id: stop.id! }));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("stop", { worktree: main }));
+    report({ generation: 2, step: "sleeping" });
+    act(() =>
+      emit({
+        type: "presence",
+        repositories: { [repository.id]: { info: discovery } },
+        runtimes: { [main]: { state: "stopped", mode: null } },
+      }),
+    );
+    expect(screen.getByLabelText("Rhizome sleeping")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Start Rhizome" }));
+    await waitFor(() => expect(opened()).toHaveLength(2));
+  });
+
+  it("reorders repositories from the keyboard", async () => {
+    start(undefined, (operation, args) => {
+      if (operation === "list") return both;
+      if (operation === "discover")
+        return (args as { id: string }).id === other.id ? otherDiscovery : discovery;
+      if (operation === "reorder")
+        return { ...both, repositories: [other, repository], revision: 3 };
+    });
+    const tab = await screen.findByRole("tab", { name: /project/ });
+    fireEvent.keyDown(tab, { key: "ArrowDown", altKey: true });
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("reorder", { ids: [other.id, repository.id] }),
+    );
+    await waitFor(() =>
+      expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["other", "project"]),
     );
   });
 

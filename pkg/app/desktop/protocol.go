@@ -95,6 +95,8 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 			response.Result, err = s.Trust(req.Folder)
 		case "open":
 			response.Result, err = s.Open(ctx, req)
+		case "stop":
+			response.Result, err = s.Stop(ctx, req)
 		case "initialize":
 			response.Result, err = s.Initialize(ctx, req)
 		case "global-status":
