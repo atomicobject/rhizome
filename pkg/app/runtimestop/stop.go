@@ -1,4 +1,5 @@
-package serve
+// Package runtimestop stops vault runtimes for `rzm stop` and the desktop app.
+package runtimestop
 
 import (
 	"context"

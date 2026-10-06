@@ -171,7 +171,8 @@
       "scope": [
         "pkg/app/runtime/**",
         "pkg/app/bootstrap/**",
-        "pkg/app/cli/serve/**"
+        "pkg/app/cli/serve/**",
+        "pkg/app/runtimestop/**"
       ],
       "severity": "medium",
       "enabled": true

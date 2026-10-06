@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	appserve "github.com/atomicobject/rhizome/pkg/app/cli/serve"
+	"github.com/atomicobject/rhizome/pkg/app/runtimestop"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/spf13/cobra"
 )
@@ -17,7 +17,7 @@ var stopCmd = &cobra.Command{
 		"A headless runtime that ignores shutdown is terminated after a grace period;\n" +
 		"an attached one is reported instead, so the terminal that started it stays in control.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		opts := appserve.StopOptions{All: stopAll, Out: cmd.OutOrStdout()}
+		opts := runtimestop.StopOptions{All: stopAll, Out: cmd.OutOrStdout()}
 		if !stopAll {
 			resolvedName := vaultName
 			if resolvedName == "" {
@@ -33,7 +33,7 @@ var stopCmd = &cobra.Command{
 			}
 			opts.VaultPath = vaultDef.BasePath()
 		}
-		return appserve.Stop(cmd.Context(), opts)
+		return runtimestop.Stop(cmd.Context(), opts)
 	},
 }
 
