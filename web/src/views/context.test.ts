@@ -31,11 +31,18 @@ describe("view context URLs", () => {
     expect(customViewHref("legacy")).toBe("/views/legacy");
   });
 
+  it("accepts the workspace subject with no other keys", () => {
+    expect(isViewContext({ kind: "workspace" })).toBe(true);
+    const url = new URL(customViewHref("workspace.briefing", { kind: "workspace" }), "https://x");
+    expect(JSON.parse(url.searchParams.get("context") ?? "")).toEqual({ kind: "workspace" });
+  });
+
   it("rejects incomplete subjects and session state", () => {
     for (const value of [
       { kind: "group", group: "*" },
       { kind: "node", type: "Story" },
       { kind: "type", type: "Story", sessionId: "private" },
+      { kind: "workspace", group: "Delivery" },
     ]) {
       expect(isViewContext(value)).toBe(false);
     }
@@ -50,4 +57,7 @@ it("routes registered native/custom IDs and normalized builtin choices to their 
     workspaceViewHref("builtin:overview", { kind: "group", group: "Delivery & Planning" }),
   ).toBe("/notes/group/Delivery%20%26%20Planning?presentation=builtin%3Aoverview");
   expect(workspaceViewHref("standalone.board")).toBe("/notes?view=standalone.board");
+  expect(workspaceViewHref("workspace.overview", { kind: "workspace" })).toBe(
+    "/notes?presentation=workspace.overview",
+  );
 });
