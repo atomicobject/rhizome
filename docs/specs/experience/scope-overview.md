@@ -21,9 +21,10 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 ## Terms
 
 - **Scope**: the rail node above a type that the Home tab shows. All notes is the root scope; each display group, including the rail's `Other` group of ungrouped types, is a group scope.
-- **Members**: for a group scope, the group's members as [[group-views-and-view-platform|SPEC-0111]] defines them; an interface member stands for its implementing types. For All notes, the members are each named display group, each type no named group lists, and untyped notes as one member. Embedded types are never members: their records are fragments of notes already counted, and the rail omits them for the same reason.
+- **Members**: for a group scope, the group's members as [[group-views-and-view-platform|SPEC-0111]] defines them; an interface member stands for its implementing types. For All notes, the members are each named display group, each type no named group lists, and untyped notes as one member. Embedded types are never members, and an interface member counts only its note-type implementors: embedded records are fragments of notes already counted. Overview filters membership by schema role itself rather than relying on the display tree, which omits embedded roots but can still nest embedded types under parents or interfaces.
 - **Link**: a pair of notes or records connected in either direction by a schema relation or a plain note link, counted once per pair.
 - **Relation link**: a link through a relation field whose declared target is the member at the other end, meaning its type or an interface that type implements, as in [[group-views-and-view-platform|SPEC-0111]]. If any relation field connects a pair, the pair is a relation link and does not also count as plain. Every other link is a plain link, including links through a broad field such as a `related` field typed by `Note`. Counting plain links is specific to Overview; Trace and the other SPEC-0111 views keep counting relation links only.
+- **Counting**: a link between two members counts once however many relation fields connect the pair; per-field counts are reported separately and may sum to more than the pair total. An interface member's statistics come from its own profile (its lifecycle and gap fields) over its implementors' records. A record that belongs to more than one named group, through an interface, counts in each group's own figures; at All notes a collapsed group's node and summed row count each record once, and links between two groups that share a record are not drawn as a self-loop.
 - **Linked share**: the fraction of a member's records with at least one link to another member of the scope. At All notes, any other type and untyped notes count.
 
 ## Goals
@@ -60,8 +61,8 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 - Types and untyped notes outside the group that link to its records appear as faded nodes on a ring at the map's edge, at most seven, each with its link count; the legend says how many more exist.
 - Members with no links to other members sit in a labeled row along the bottom of the map.
 - Hovering or focusing a node highlights its edges and shows its record count, its links to other members, and links among its own records. Hovering an edge shows its relation fields with counts and its plain-link count.
-- Activating a member node opens that type. Activating an edge with relation links opens Trace for the pair; a plain-only edge has no action, because Trace would show no connection.
-- A Matrix toggle replaces the map with a table of the same counts: members as rows and columns, the diagonal showing links among a member's own records, and an Outside column summing links that leave the group. It is the accessible alternative to the map.
+- Activating a member node opens that type. Activating an edge with relation links between two members opens the group's Trace; Trace keeps its own row choice, because it has no contract for opening on a chosen pair. Plain-only edges and edges to outside neighbors have no action.
+- A Matrix toggle, always available, replaces the map with a table of the same counts: members as rows and columns, the diagonal showing links among a member's own records, and an Outside column summing links that leave the group. It is the accessible alternative to the map.
 - The layout is deterministic: the same data draws the same positions on every load.
 
 ### US2 - Compare members in one table
@@ -100,7 +101,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 #### Acceptance Criteria
 
 - At All notes, an "Untyped notes by folder" block lists top-level folders by untyped count, each with its untyped notes, their share of the folder, and the two types its untyped notes link to most.
-- Activating a folder sets the rail's note-list filter to the folder path.
+- Activating a folder opens a project search tab filtered to that folder, through the existing search folder filter.
 - A coverage line beneath names types with no records, types with records but no links, and embedded types with their record counts, which the map does not draw.
 - This block appears only at All notes.
 
@@ -126,7 +127,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 
 - The group Briefing shows Needs attention, In motion, and Recent changes, and drops "In this group", Connections, "Outside the group", Views, and Guide.
 - The group Overview's side column shows "Declared, unused" (each member's relation fields toward other members that no record uses), "Outside the group" (the notes outside the group linking to the most of its records, without the group's guide note), and "Guide and views" (the shared guide note and the group's authored views).
-- The group default stays as [[group-views-and-view-platform|SPEC-0111]] sets it: Briefing for groups with two or more members, Sections for one.
+- The group default stays as [[group-views-and-view-platform|SPEC-0111]] sets it: Briefing for groups with two or more member roots, Sections for one.
 
 ### US7 - Every scope opens fast and fits its data
 
@@ -139,21 +140,22 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 - Activating a scope paints the header, view switcher, and every block's heading at once, without waiting for any block's data.
 - Each block loads from its own request and shows a localized loading indicator in space reserved for it, so blocks fill in independently without shifting the page. A page-level loading state appears only while the scope's own facts are still loading.
 - A block whose request fails says what failed and offers retry, without affecting the other blocks.
-- One view definition serves All notes and every group, including `Other`.
-- A group whose members have no links draws the nodes, says that no member records link to each other, and hides the Matrix toggle. A one-member group shows the map with its outside neighbors and a one-row table.
+- One implementation serves All notes and every group, including `Other`: a workspace definition and a group definition share one entry module, as the type and interface Briefings already do, because a view definition carries a single mount.
+- A group whose members have no links draws the nodes and says that no member records link to each other; the Matrix stays available, since self-links and outside neighbors may remain. A one-member group shows the map with its outside neighbors and a one-row table.
 - While the index is rebuilding, the page says so instead of drawing empty counts.
 
 ## Requirements
 
 - MUST ship Overview as a bundled kit view in `web/bundled-views/group/` and follow its module rules: public kit and APIs only, derivations in plain TypeScript, and ejection with the other group views.
 - MUST derive every block from schema metadata, type profiles, and links. It MUST NOT branch on type, field, or group names.
-- MUST serve Overview from a public aggregate endpoint, proposed as `GET /api/v1/ontology/shape`, and load no records and no note graph. The endpoint returns per member type: record count, lifecycle value counts, gap-field empty counts, issue count, last change, and enough to compute linked share for any scope (such as record counts by the set of types each record links to). It also returns type-pair link counts split by relation field and plain links, with untyped notes as one node, and the untyped folder rollup. It MUST respond within 200 ms on a 2,500-note vault and within one second on a 20,000-note vault with a warm index.
+- MUST give every block its own loader and failure state. Overview's counts come from a public aggregate endpoint, proposed as `GET /api/v1/ontology/shape`, which accepts a `parts` selector (`members`, `links`, `folders`) so each block requests only its part; Overview loads no records and no note graph for its counts. The endpoint returns per member type: record count, lifecycle value counts, gap-field empty counts, issue count, last change, and enough to compute linked share for any scope (such as record counts by the set of types each record links to). It also returns type-pair link counts split by relation field and plain links, with untyped notes as one node, and the untyped folder rollup. It MUST respond within 200 ms on a 2,500-note vault and within one second on a 20,000-note vault with a warm index.
+- MAY read capped note summaries where counts are not enough: "Outside the group" reads at most 200 neighboring notes per member through the public records query (as the current block does) and says when its list is partial; "Guide and views" reads the guide note's title and summary and the view catalog.
 - MUST load the All notes Briefing without reading every note or record. Needs attention reads the validation groups API. Recent changes reads a capped, newest-first page of notes, untyped included; add a limit to the public note list if it lacks one. In motion reads only records whose lifecycle value is in an active stage, capped per type.
-- MUST paint a scope's frame within 100 ms of activation, and MUST NOT run a main-thread task longer than 50 ms while switching scopes or filling blocks. Work that cannot meet that budget runs in a worker or in bounded chunks.
-- MUST add a `workspace` mount kind to [[unified-view-contract|SPEC-0110]], with `{ kind: "workspace" }` as its concrete context, so Overview and Briefing can mount on All notes alongside `group: "*"`. The change reaches the view configuration's mount kinds, catalog targets, view-context validation, view-preference canonicalization and its store, the OpenAPI contract, and the kit's types.
+- MUST paint a scope's frame within 100 ms of activation, and MUST NOT run a main-thread task longer than 50 ms while switching scopes or filling blocks, measured at the 95th percentile of ten switches. The reference workload is the integration fixture vault scaled to 2,500 notes, 15 types, and about 7 links per note, in headless Chromium on an Apple M-series laptop, with a warm index, warm HTTP cache, and the view frame already loaded once; first paint is the frame's header becoming visible, and long tasks come from the Long Tasks API. The budget covers the host, the rail, and the view frame together. Work that cannot meet it runs in a worker or in bounded chunks.
+- MUST add a `workspace` mount kind to [[unified-view-contract|SPEC-0110]], with `{ kind: "workspace" }` as its concrete context, so Overview and Briefing can register a workspace definition beside their `group: "*"` definitions. The change reaches the view configuration's mount kinds, catalog targets, view-context validation, view-preference canonicalization and its store, the OpenAPI contract, and the kit's types.
 - MUST stop offering the built-in group navigation list as a choice once the bundled Overview is available. It remains only as the fallback [[unified-view-contract|SPEC-0110]] requires when no bundled view can load, under a label that does not collide with Overview.
 - MUST remember the map/matrix toggle per scope and the expanded groups at All notes through the kit's view preferences ([[view-preferences|SPEC-0114]]).
-- MUST let a kit view set the rail's note-list filter through the host bridge, for US4's folder action.
+- MUST add a kit host action, `openSearch({ folder })`, that opens a project search tab with the existing folder filter, for US4's folder action. The rail's note-list filter stays private to the rail.
 - MUST give map nodes keyboard focus in descending record-count order, activation with Enter or Space, and accessible names, and keep the Matrix a complete text alternative.
 - MUST use the kit's theme tokens and stay dense: hairline dividers, mono numbers, no cards inside cards. The page MUST fit without horizontal scrolling at 1280px with the rail open, and the member table SHOULD begin above the fold at 1440 by 1000.
 - SHOULD reuse the Briefing building blocks, including the existing "Outside the group" list and the views-and-guide block, instead of duplicating them.
@@ -184,15 +186,15 @@ A throwaway prototype drew these pages from a snapshot of a real personal vault 
 ## Dependencies and Assumptions
 
 - Record lifecycle stages, gap fields, and summary fields come from type profiles as [[type-collection-views|SPEC-0112]] defines them.
-- Display group membership comes from `GET /api/v1/display-groups`, which already excludes embedded types and synthesizes `Other`.
-- The group Briefing keeps its current loader; only its block list changes.
+- Display group membership comes from `GET /api/v1/display-groups`, which synthesizes `Other` and omits embedded roots; Overview still filters members by role, since embedded types can appear nested.
+- The group Briefing's loader, which waits for documentation, records, and the catalog before showing anything, does not meet US7 as is. Each Briefing block gets its own loader over the queries it needs, sharing cached responses where blocks overlap.
 
 ## Verification
 
 - Unit tests for the derivations from shape-endpoint fixtures: map nodes and edges with relation, plain, and mixed pairs, unused declared relations, outside neighbors, collapsed and expanded groups, member rows, linked share, and the folder rollup. They need no browser.
 - Endpoint tests for the shape aggregate against the integration fixture vault, including interface members, embedded types, and broad fields.
 - Browser checks at 1280px and 1440px on the fixture vault for All notes Overview and Briefing, a multi-type group, a one-type group, and a group with no member links. With responses delayed, check that the frame paints first and each block shows its own indicator; with one response failing, check that only that block shows the error.
-- A performance check that switches from a group to All notes and asserts the frame paints within 100 ms and no long task exceeds 50 ms.
+- A performance check on the reference workload that switches from a group to All notes ten times and asserts the 95th-percentile frame paint is under 100 ms and no long task, in the host, rail, or frame, exceeds 50 ms.
 - A dogfood pass on a real vault with a large untyped share, checking the map, table, and folder block against counts from the API.
 
 ## Documentation Plan
