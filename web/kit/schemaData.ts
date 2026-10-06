@@ -1,8 +1,9 @@
 // Hooks for display-group membership, type documentation, and validation
 // summaries. Their query keys belong to the freshness classes in freshness.ts.
 import { useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useEffect } from "react";
 
-import { fetchJSON, getPublicValidate } from "../src/api/client";
+import { ApiError, fetchJSON, getPublicValidate } from "../src/api/client";
 import type { JsonValue } from "../src/api/parse";
 import type { ValidationScope } from "../src/api/types";
 import { useValidationScopeSummaries } from "../src/components/useValidationScopeSummaries";
@@ -82,8 +83,10 @@ export function useTypeDocs(names: readonly string[]) {
 }
 
 /**
- * Issue counts for each scope from the current validation generation. Look a
- * scope up in `summaries` with `validationScopeKey(scope)`.
+ * Issue counts for each scope from the published validation generation. Look a
+ * scope up in `summaries` with `validationScopeKey(scope)`. `generation` is
+ * null until validation publishes; `refreshGeneration` rereads it after a
+ * generation-bound read answers 410 Gone.
  */
 export function useValidationSummaries(scopes: ValidationScope[]) {
   const envelope = useQuery({
@@ -91,12 +94,22 @@ export function useValidationSummaries(scopes: ValidationScope[]) {
     queryFn: ({ signal }) => getPublicValidate({ signal }),
   });
 
-  const summaries = useValidationScopeSummaries(envelope.data?.generation ?? null, scopes);
+  // The envelope's own `generation` counts runs, including one still in
+  // progress; only the published snapshot's generation can be read.
+  const generation = envelope.data?.snapshot?.generation ?? null;
+  const summaries = useValidationScopeSummaries(generation, scopes);
+  const { refetch } = envelope;
+  const expired = summaries.error instanceof ApiError && summaries.error.status === 410;
+
+  useEffect(() => {
+    if (expired) void refetch();
+  }, [expired, refetch]);
 
   return {
     summaries: summaries.summaries,
-    generation: envelope.data?.generation ?? null,
+    generation,
     isLoading: envelope.isLoading || summaries.isLoading,
     error: envelope.error ?? summaries.error,
+    refreshGeneration: refetch,
   };
 }

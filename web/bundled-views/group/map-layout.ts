@@ -10,7 +10,13 @@
 
 export type LayoutNode = { id: string; radius: number; label: string };
 
-export type LayoutEdge = { a: string; b: string; links: number };
+export type LayoutEdge = {
+  a: string;
+  b: string;
+  links: number;
+  /** Text to draw on the edge, looked up in `edgeLabels` by its key. */
+  label?: { key: string; text: string };
+};
 
 export type LayoutOutside = { id: string; label: string; byMember: ReadonlyMap<string, number> };
 
@@ -33,6 +39,8 @@ export type MapLayout = {
   loose: readonly string[];
   /** The top of the bottom rows, or null when every member is linked. */
   looseTop: number | null;
+  /** Where each edge label sits; an edge whose label would cover a node or its label has none. */
+  edgeLabels: ReadonlyMap<string, Point>;
 };
 
 export const OUTSIDE_RADIUS = 6;
@@ -223,7 +231,7 @@ function placeRing(
   }
 }
 
-type Box = { x: number; y: number; w: number; h: number };
+export type Box = { x: number; y: number; w: number; h: number };
 
 const overlaps = (a: Box, b: Box) =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -283,7 +291,46 @@ function placeLabels(
     labels.set(item.id, { x: chosen.x, y: chosen.y, anchor: chosen.anchor });
   }
 
-  return labels;
+  return { labels, boxes };
+}
+
+/** Where along an edge its label may sit, nearest the middle first. */
+const EDGE_STOPS = [0.5, 0.38, 0.62, 0.28, 0.72];
+
+/**
+ * Each labeled edge's label at the first stop along it whose box clears
+ * `occupied` (node circles and labels) and the labels placed before it,
+ * heaviest edges first; an edge with no clear stop gets no label.
+ */
+export function placeEdgeLabels(
+  positions: ReadonlyMap<string, Point>,
+  edges: readonly LayoutEdge[],
+  occupied: readonly Box[],
+) {
+  const boxes = [...occupied];
+  const placed = new Map<string, Point>();
+  const labeled = edges.filter((edge) => edge.label);
+
+  for (const edge of labeled.sort((a, b) => b.links - a.links)) {
+    const a = positions.get(edge.a);
+    const b = positions.get(edge.b);
+
+    if (!a || !b || !edge.label) continue;
+    const w = edge.label.text.length * GLYPH + 4;
+
+    const spot = EDGE_STOPS.map((t) => {
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t - 3;
+
+      return { x, y, box: { x: x - w / 2, y: y - 9, w, h: 11 } };
+    }).find((candidate) => !boxes.some((box) => overlaps(box, candidate.box)));
+
+    if (!spot) continue;
+    boxes.push(spot.box);
+    placed.set(edge.label.key, { x: spot.x, y: spot.y });
+  }
+
+  return placed;
 }
 
 export function layoutMap(input: LayoutInput): MapLayout {
@@ -303,7 +350,7 @@ export function layoutMap(input: LayoutInput): MapLayout {
 
   if (ring) placeRing(positions, input.outside, width, top);
 
-  const labels = placeLabels(
+  const { labels, boxes } = placeLabels(
     positions,
     [
       ...input.nodes.map((node) => ({ ...node, loose: !linked.has(node.id) })),
@@ -318,5 +365,11 @@ export function layoutMap(input: LayoutInput): MapLayout {
     height,
   );
 
-  return { positions, labels, loose: loose.map((node) => node.id), looseTop: rows ? top : null };
+  return {
+    positions,
+    labels,
+    loose: loose.map((node) => node.id),
+    looseTop: rows ? top : null,
+    edgeLabels: placeEdgeLabels(positions, input.edges, boxes),
+  };
 }
