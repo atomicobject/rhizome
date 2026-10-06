@@ -63,7 +63,7 @@ func CanonicalScope(vaultPath string, scope Scope) (Scope, string, error) {
 	c := &scope.Context
 	valid := false
 	switch c.Kind {
-	case viewconfig.MountKindStandalone:
+	case viewconfig.MountKindStandalone, viewconfig.MountKindWorkspace:
 		valid = c.Type == "" && c.Interface == "" && c.Group == "" && c.Ref == nil
 	case viewconfig.MountKindType:
 		valid = validIdentifier(c.Type, 256) && c.Type != "*" && c.Interface == "" && c.Group == "" && c.Ref == nil

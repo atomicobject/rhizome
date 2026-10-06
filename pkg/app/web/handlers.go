@@ -212,8 +212,27 @@ func (s *Server) handleOntologyTypeByName(w http.ResponseWriter, r *http.Request
 	if r.URL.Query().Get("notes") == "none" {
 		read = s.ontologyTypeDoc
 	}
-	resp, err := read(r.Context(), typeName, overlay)
+	var resp OntologyTypeResponse
+	if raw, present := r.URL.Query()["limit"]; present {
+		limit, parseErr := strconv.Atoi(raw[0])
+		if parseErr != nil || limit < 1 || limit > 500 || typeName != pseudoTypeAll || r.Method != http.MethodGet {
+			writeError(w, http.StatusBadRequest, errors.New("limit must be 1..500 on GET types/__all__"))
+			return
+		}
+		if r.URL.Query().Get("notes") == "none" {
+			resp, err = read(r.Context(), typeName, overlay)
+		} else {
+			resp, err = s.ontologyRecentNotes(r.Context(), limit)
+		}
+	} else {
+		resp, err = read(r.Context(), typeName, overlay)
+	}
 	if err != nil {
+		if errors.Is(err, errIndexInitializing) {
+			w.Header().Set("Retry-After", "5")
+			writePublicError(w, http.StatusServiceUnavailable, PublicErrorIndexInitializing, errIndexInitializing)
+			return
+		}
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}

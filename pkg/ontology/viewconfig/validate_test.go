@@ -478,3 +478,21 @@ func TestValidateReplaceGeneratedOnlyForNativeTypeAndInterfaceMounts(t *testing.
 		require.NotEqual(t, "c", issue.View, "hidden views do not replace")
 	}
 }
+
+func TestWorkspaceMountHasNoSubjectAndConflictsOnDefaults(t *testing.T) {
+	def := ViewDefinition{APIVersion: APIVersion, ID: "workspace.one", Name: "One", SourceSpec: SourceSpec{Kind: SourceKindCustom, Entry: "one.tsx"}, Mount: MountSpec{Kind: MountKindWorkspace, Default: true}}
+	require.Empty(t, validateMount(def, ValidateOptions{CheckReferences: true}))
+	require.True(t, MatchesMount(def.Mount, MountKindWorkspace, ""))
+	require.False(t, MatchesMount(def.Mount, MountKindWorkspace, "Other"))
+	require.False(t, MatchesMount(def.Mount, MountKindStandalone, ""))
+	for _, mount := range []MountSpec{{Kind: MountKindWorkspace, Type: "A"}, {Kind: MountKindWorkspace, Interface: "A"}, {Kind: MountKindWorkspace, Group: "A"}} {
+		bad := def
+		bad.Mount = mount
+		requireIssueCode(t, validateMount(bad, ValidateOptions{}), "unexpected_field")
+	}
+	other := def
+	other.ID = "workspace.two"
+	issues := validateMountedDefaults([]ViewDefinition{def, other}, nil)
+	require.Len(t, issues, 2)
+	requireIssueCode(t, issues, "duplicate_mount_default")
+}

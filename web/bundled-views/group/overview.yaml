@@ -1,0 +1,10 @@
+apiVersion: rhizome.view.v1
+id: group.overview
+name: Overview
+source:
+  kind: custom
+  entry: overview.tsx
+mount:
+  kind: group
+  group: "*"
+  order: 0

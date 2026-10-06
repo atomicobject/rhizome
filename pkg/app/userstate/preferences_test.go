@@ -216,6 +216,7 @@ func TestScopeIdentityDistinguishesSubjectsAndIgnoresNodeOffsets(t *testing.T) {
 	}
 	for _, scope := range []Scope{
 		{ViewID: "$selection", Context: Context{Kind: viewconfig.MountKindStandalone}, Slot: "navigation"},
+		{ViewID: "$selection", Context: Context{Kind: viewconfig.MountKindWorkspace}},
 		{ViewID: "tasks", Context: Context{Kind: viewconfig.MountKindType, Type: "Task"}},
 		{ViewID: "tasks", Context: Context{Kind: viewconfig.MountKindInterface, Interface: "Task"}},
 		testScope("Task"),

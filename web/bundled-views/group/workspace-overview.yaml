@@ -1,0 +1,9 @@
+apiVersion: rhizome.view.v1
+id: workspace.overview
+name: Overview
+source:
+  kind: custom
+  entry: overview.tsx
+mount:
+  kind: workspace
+  order: 1
