@@ -161,6 +161,8 @@ it("lists relations declared between members that no record uses", async () => {
 
   expect(within(unused).getByText("1")).toBeVisible();
   expect(unused).toHaveTextContent("Releasesarea → Areas");
+  // A long list truncates beside the name; the full list is its title.
+  expect(within(unused).getByTitle("area → Areas")).toBeVisible();
 });
 
 it("lists the notes outside the group most connected first, then the guide and views", async () => {
@@ -267,9 +269,11 @@ it("lists untyped notes by folder and searches a folder, with the coverage line 
 
   const folders = region("Untyped notes by folder");
   expect(within(folders).getByText("20 notes")).toBeVisible();
-  expect(rowNamed(within(folders).getByRole("table"), "Notes/")).toHaveTextContent(
-    "Notes/1240% of 30Meetings 4, People 2",
-  );
+  const notes = rowNamed(within(folders).getByRole("table"), "Notes/");
+  // One line per row: the folder size and full link list live in titles.
+  expect(notes).toHaveTextContent("Notes/1240%Meetings 4, People 2");
+  expect(notes.querySelector("[title='12 of 30 notes in Notes/']")).not.toBeNull();
+  expect(notes.querySelector(".gv-ov-links")).toHaveAttribute("title", "Meetings 4, People 2");
   expect(within(folders).queryByText("Work/")).toBeNull();
 
   fireEvent.click(within(folders).getByRole("button", { name: "Inbox/" }));

@@ -30,6 +30,9 @@ export const Rebuilding = () => (
   </p>
 );
 
+const linksText = (targets: readonly { label: string; count: number }[]) =>
+  targets.map((target) => `${target.label} ${fmt(target.count)}`).join(", ") || undefined;
+
 export function FolderBlock() {
   const folders = useAggregatePart("folders");
   const summaries = useTypeSummaries();
@@ -78,14 +81,17 @@ export function FolderBlock() {
                         </button>
                       </td>
                       <td className="gv-right gv-num">{fmt(line.untyped)}</td>
-                      <td>
-                        <span className="gv-num">{percent}%</span>
-                        <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
-                          <i style={{ width: `${percent}%` }} />
-                        </span>{" "}
-                        <span className="gv-num gv-faint">of {fmt(line.total)}</span>
+                      <td
+                        title={`${fmt(line.untyped)} of ${fmt(line.total)} notes in ${line.folder}/`}
+                      >
+                        <span className="gv-ov-share">
+                          <span className="gv-num">{percent}%</span>
+                          <span className="gv-ov-mini" data-kind="untyped" aria-hidden="true">
+                            <i style={{ width: `${percent}%` }} />
+                          </span>
+                        </span>
                       </td>
-                      <td>
+                      <td className="gv-ov-links" title={linksText(line.linksTo)}>
                         {line.linksTo.length ? (
                           line.linksTo.map((target, index) => (
                             <Fragment key={target.type}>
@@ -198,6 +204,10 @@ export function DeclaredUnused({
   );
 
   const label = (id: string) => model?.nodeIndex.get(id)?.label ?? id;
+
+  const relationsText = (relations: readonly DeclaredRelation[]) =>
+    relations.map((relation) => `${relation.field} → ${label(relation.target)}`).join(" · ");
+
   const byMember = new Map<string, DeclaredRelation[]>();
 
   for (const relation of unused)
@@ -214,17 +224,15 @@ export function DeclaredUnused({
           unused.length ? (
             <ul className="gv-list">
               {[...byMember].map(([member, relations]) => (
-                <li key={member} className="gv-out">
+                <li key={member} className="gv-out gv-ov-unused">
                   <span>
                     {label(member)}
                     {model?.nodeIndex.get(member)?.count === 0 && (
                       <span className="gv-faint"> (empty)</span>
                     )}
                   </span>
-                  <span className="gv-sub">
-                    {relations
-                      .map((relation) => `${relation.field} → ${label(relation.target)}`)
-                      .join(" · ")}
+                  <span className="gv-sub" title={relationsText(relations)}>
+                    {relationsText(relations)}
                   </span>
                 </li>
               ))}

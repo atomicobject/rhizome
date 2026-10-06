@@ -1619,9 +1619,33 @@
   padding-right: 0;
 }
 
+.gv-ov-folders td {
+  white-space: nowrap;
+}
+
+/* "Links to" takes the remaining width and truncates; the full list is its title. */
+.gv-ov-folders .gv-ov-links {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .gv-ov-folder {
   font-family: var(--font-mono);
   font-size: 11.5px;
+}
+
+/* Declared, unused: the name sized to content, the field list truncating beside it. */
+.gv-ov-unused {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.gv-ov-unused > .gv-sub {
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gv-ov-kv {
