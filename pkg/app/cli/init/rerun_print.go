@@ -80,13 +80,8 @@ func searchStatus(cfg obsidian.LocalConfig, session *credentials.Session) string
 func workflowLabel(workflows, ejected []string) string {
 	ejected = normalizeMetadataIDs(ejected)
 	workflows = removeTemplateIDs(workflows, stringSet(ejected))
-	label := "Search and agent guidance only"
-	switch {
-	case contains(workflows, templateComplexDomain):
-		label = "Agentic Engineering with domain modeling"
-	case contains(workflows, templateAgenticEngineering):
-		label = "Agentic Engineering"
-	case len(workflows) > 0:
+	label := workflowChoiceFor(workflows).label
+	if !contains(workflows, templateComplexDomain) && !contains(workflows, templateAgenticEngineering) && len(workflows) > 0 {
 		label = strings.Join(workflows, ", ")
 	}
 	if len(ejected) > 0 {

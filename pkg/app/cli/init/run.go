@@ -30,26 +30,47 @@ func checkSkillTemplates(templates []string) error {
 
 // Run executes the init workflow: detect, ask only in a terminal, and write.
 func Run(opts RunOptions) error {
-	binaryManager, err := normalizeBinaryManagerOption(opts)
+	r, s, workflowChosen, err := start(opts)
 	if err != nil {
 		return err
+	}
+	if r.layout.HasExistingConfig {
+		return r.rerun(s)
+	}
+	return r.firstRun(s, workflowChosen)
+}
+
+// start validates options, migrates legacy workflow state, and detects the
+// repository: everything a run does before it decides what to write. It
+// returns the setup to complete and whether --workflow chose the workflow.
+func start(opts RunOptions) (*initRun, setup, bool, error) {
+	fail := func(err error) (*initRun, setup, bool, error) { return nil, setup{}, false, err }
+	binaryManager, err := normalizeBinaryManagerOption(opts)
+	if err != nil {
+		return fail(err)
 	}
 	opts.BinaryManager = binaryManager
 	workflows, err := parseWorkflowOption(opts.Workflow)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	workflowChosen := strings.TrimSpace(opts.Workflow) != ""
 	if _, err := normalizeSearchOption(opts.Search); err != nil {
-		return err
+		return fail(err)
 	}
 	if _, err := agentFlagModes(opts.Agents); err != nil {
-		return err
+		return fail(err)
+	}
+	if err := checkAddonsOption(opts.Addons); err != nil {
+		return fail(err)
+	}
+	if opts.Check && strings.TrimSpace(opts.SearchKey) != "" {
+		return fail(fmt.Errorf("--search-key-stdin saves the key, so it cannot be used with --check"))
 	}
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return err
+			return fail(err)
 		}
 		opts.Dir = cwd
 	}
@@ -86,7 +107,7 @@ func Run(opts RunOptions) error {
 	if !opts.Check {
 		root, migrated, err := migrateLegacyWorkflowConfig(opts.Dir)
 		if err != nil {
-			return err
+			return fail(err)
 		}
 		if migrated {
 			fmt.Fprintf(opts.Stdout, "Migrated v0.49 workflow state to %s/.rhizome/workflows.yml\n", root)
@@ -95,14 +116,18 @@ func Run(opts RunOptions) error {
 
 	r.layout, err = DetectLayout(opts.Dir)
 	if err != nil {
-		return err
+		return fail(err)
+	}
+	r.detectedAgents = r.layout.AgentHarnesses
+	if r.layout.HasExistingConfig && hasFirstRunOption(opts) {
+		return fail(fmt.Errorf("%w; use rzm index scope to change what gets indexed", ErrNotFirstRun))
 	}
 	if !r.layout.HasExistingConfig && hasStarterManagementOption(opts) {
-		return fmt.Errorf("--eject and --restore need an existing Rhizome setup; run rzm init first")
+		return fail(fmt.Errorf("--eject and --restore need an existing Rhizome setup; run rzm init first"))
 	}
 	includeIgnored, err := includeIgnoredInputs(r.layout.ProjectRoot, opts.IncludeIgnored)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	mergeDeferredIgnoredCodeSuggestions(&r.layout, includeIgnored)
 	// Non-interactive runs cannot ask about ignored nested repositories, so
@@ -119,15 +144,18 @@ func Run(opts RunOptions) error {
 	}
 	if !workflowChosen {
 		if workflows, err = inferTemplateChoices(r.layout.ProjectRoot, &r.layout.ExistingLocal); err != nil {
-			return err
+			return fail(err)
 		}
 	}
-	s := setup{workflows: workflows, includeIgnored: includeIgnored}
+	skips, keep, err := skipOptions(r.layout.ProjectRoot, opts)
+	if err != nil {
+		return fail(err)
+	}
+	s := setup{workflows: workflows, includeIgnored: includeIgnored, skips: skips, keep: keep}
 	if r.layout.HasExistingConfig {
 		s.cfg = r.layout.ExistingLocal
-		return r.rerun(s)
 	}
-	return r.firstRun(s, workflowChosen)
+	return r, s, workflowChosen, nil
 }
 
 // firstRun sets up a repository that has no Rhizome config.
@@ -135,13 +163,7 @@ func Run(opts RunOptions) error {
 // Docs: [[init-starter-workflow#^SPEC-0038-US1]]
 func (r *initRun) firstRun(s setup, workflowChosen bool) error {
 	out := r.opts.Stdout
-	if !r.opts.Interactive && !workflowChosen {
-		s.workflows = []string{templateAgenticEngineering}
-	}
-	if _, err := applyBinaryManagerOption(&s.cfg, r.opts); err != nil {
-		return err
-	}
-	outcome, err := r.runFirstRun(&s, workflowChosen)
+	s, res, outcome, err := r.prepareFirstRun(s, workflowChosen)
 	if errors.Is(err, errSetupCancelled) {
 		if outcome.savedKey != "" {
 			fmt.Fprintf(out, "Setup cancelled; nothing was written to this repository. The %s you pasted stays saved in ~/.config/rhizome/config.yml.\n", outcome.savedKey)
@@ -150,13 +172,6 @@ func (r *initRun) firstRun(s setup, workflowChosen bool) error {
 		}
 		return nil
 	}
-	if err != nil {
-		return err
-	}
-	// Render guidance from the config as it will be written, so the next run
-	// renders the same blocks.
-	pruneConfigForWrite(&s.cfg)
-	res, err := r.resolve(s)
 	if err != nil {
 		return err
 	}
@@ -181,6 +196,32 @@ func (r *initRun) firstRun(s setup, workflowChosen bool) error {
 	indexed, indexErr := r.offerIndex("Build the search index now? [Y/n]: ")
 	printNextSteps(out, report, searchHint(outcome.provider, outcome.ready), !indexed)
 	return indexErr
+}
+
+// prepareFirstRun completes a first run's setup, asking in a terminal, and
+// resolves what it writes. The outcome is returned even with an error, so a
+// key saved before the error is still reported.
+func (r *initRun) prepareFirstRun(s setup, workflowChosen bool) (setup, resolved, firstRunOutcome, error) {
+	if !r.opts.Interactive && !workflowChosen {
+		s.workflows = []string{templateAgenticEngineering}
+	}
+	if _, err := applyBinaryManagerOption(&s.cfg, r.opts); err != nil {
+		return s, resolved{}, firstRunOutcome{}, err
+	}
+	outcome, err := r.runFirstRun(&s, workflowChosen)
+	if err != nil {
+		return s, resolved{}, outcome, err
+	}
+	if strings.TrimSpace(r.opts.Addons) != "" {
+		if err := chooseAddons(&s, r.opts.Addons); err != nil {
+			return s, resolved{}, outcome, err
+		}
+	}
+	// Render guidance from the config as it will be written, so the next run
+	// renders the same blocks.
+	pruneConfigForWrite(&s.cfg)
+	res, err := r.resolve(s)
+	return s, res, outcome, err
 }
 
 // plannedStarterNotePaths lists the starter doc paths that will exist after

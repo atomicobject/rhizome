@@ -44,6 +44,7 @@ Keep source the team maintains, docs that describe this system, and tests that e
 
 - `rzm index --status` shows whether semantic search is on and which code folders the index covers.
 - `rzm index --explain <path>` shows whether a candidate is already ignored; an ignored path needs no new rule.
+- `rzm index scope` lists every rule by layer with its file and line, including what `.gitignore` files contribute (`--json` for a machine-readable result).
 
 ## Write rules
 
@@ -61,7 +62,8 @@ Rules use gitignore syntax. Put Rhizome-only rules in `.rhizome/ignore`; change 
 - A leading `/` anchors the rule at the repository root. Without it, `generated/` matches a folder with that name at any depth.
 - Start each group with one comment line that says why, so the next reader can judge the rule.
 - After the first run, init writes only to its own sections, `# rhizome: suggested skips` and `# rhizome: included subtrees`. A blank line ends the suggested skips section, so keep team rules in their own group after a blank line.
-- `# rhizome: keep indexed <path>` anywhere in the file stops init from proposing that path. To index a path init skipped, delete its rule and the reason line above it, then add the keep line; without it, the next rerun proposes the skip again.
+- `# rhizome: keep indexed <path>` anywhere in the file stops init from proposing that path. To index a path init skipped, delete its rule and the reason line above it, then add the keep line; without it, the next rerun proposes the skip again. `rzm index scope --remove-rule <rule>` does all three.
+- `rzm index scope --skip <path>` adds a path to the suggested skips, and `--include-ignored <path>` writes an include boundary. Edits in one command apply together or not at all.
 - `!/path/` under `# rhizome: included subtrees` indexes a folder Git ignores. It is an include boundary: the folder's own `.gitignore`, the built-in rules, and later rules still apply inside it. `rzm init --include-ignored <path>` writes the same line. Avoid `!path/**`, which also brings back everything the folder's own `.gitignore` excludes.
 
 ## Verify

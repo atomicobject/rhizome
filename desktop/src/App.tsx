@@ -15,7 +15,9 @@ import {
   type Worktree,
 } from "./api";
 import { newWorktrees, RepositoryList, runtimeText, type Runtimes } from "./RepositoryList";
+import { ScopePage } from "./IndexScope";
 import { Settings } from "./Settings";
+import { SetupSheet } from "./SetupSheet";
 import { Notice, OpenStatus } from "./Status";
 
 type Found = { info?: Discovery; error?: Failure };
@@ -38,6 +40,8 @@ export function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [restored, setRestored] = useState(false);
   const [settings, setSettings] = useState(false);
+  /** The worktree whose What gets indexed page covers the content area. */
+  const [scopeView, setScopeView] = useState<{ repository: string; worktree: string } | null>(null);
   const [global, setGlobal] = useState<GlobalInfo | null>(null);
   const [busy, setBusy] = useState("");
   const [alert, setAlert] = useState<Failure | null>(null);
@@ -97,6 +101,7 @@ export function App() {
     target.current = { repository: id, worktree, after: seen.current };
     setSelection({ repository: id, worktree });
     setSettings(false);
+    setScopeView(null);
     setOpen({
       type: "open",
       generation: seen.current,
@@ -133,6 +138,7 @@ export function App() {
   function deselect(repository?: string, ticket = ++selecting.current) {
     target.current = { repository, after: seen.current };
     setSelection(repository ? { repository } : {});
+    setScopeView(null);
     setOpen(null);
     void request("deselect", { selection: ticket }).catch(() => {});
   }
@@ -192,7 +198,7 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  const covered = settings || !selection.worktree;
+  const covered = settings || !!scopeView || !selection.worktree;
   const report = useCallback(() => {
     const box = region.current?.getBoundingClientRect();
     if (!box) return;
@@ -254,6 +260,7 @@ export function App() {
   }
 
   function openSettings() {
+    setScopeView(null);
     setSettings(true);
     void perform("Checking Rhizome…", async () => setGlobal(await request("global-status", {})));
   }
@@ -303,6 +310,15 @@ export function App() {
           run: () =>
             path &&
             void request("reveal", { worktree: path }).catch((cause) => setAlert(failure(cause))),
+        },
+        {
+          label: "What Gets Indexed…",
+          disabled: !path || !subject?.configured,
+          run: () => {
+            if (!path) return;
+            setSettings(false);
+            setScopeView({ repository: repository.id, worktree: path });
+          },
         },
         { separator: true },
         {
@@ -473,6 +489,18 @@ export function App() {
         />
       );
     }
+    if (scopeView) {
+      return (
+        <ScopePage
+          key={scopeView.worktree}
+          repository={scopeView.repository}
+          worktree={scopeView.worktree}
+          name={repositories.find((r) => r.id === scopeView.repository)?.name ?? ""}
+          onClose={() => setScopeView(null)}
+          onManageInstallation={openSettings}
+        />
+      );
+    }
     if (loadError) {
       return (
         <Notice title="Could not load your repositories" failure={loadError}>
@@ -514,6 +542,17 @@ export function App() {
       );
     }
     if (!open) return null;
+    if (open.step === "setup") {
+      return (
+        <SetupSheet
+          key={open.worktree}
+          repository={open.repository}
+          worktree={open.worktree}
+          onOpen={() => void openWorktree(open.repository, open.worktree)}
+          onManageInstallation={openSettings}
+        />
+      );
+    }
     return (
       <OpenStatus
         state={open}
@@ -524,13 +563,6 @@ export function App() {
           void perform("Trusting worktree…", async () => {
             const ticket = ++selecting.current;
             await request("trust", { id: open.repository, worktree: open.worktree });
-            await openWorktree(open.repository, open.worktree, false, ticket);
-          })
-        }
-        onSetup={() =>
-          void perform("Setting up Rhizome…", async () => {
-            const ticket = ++selecting.current;
-            await request("initialize", { id: open.repository, worktree: open.worktree });
             await openWorktree(open.repository, open.worktree, false, ticket);
           })
         }

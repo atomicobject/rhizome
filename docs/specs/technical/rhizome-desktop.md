@@ -3,7 +3,7 @@ type: TechnicalSpec
 id: SPEC-0113
 aliases: [SPEC-0113]
 spec-status: active
-last-updated: 2026-10-04
+last-updated: 2026-10-07
 summary: "A desktop app presents each Rhizome repository as one unit with switchable worktrees, starts the selected worktree's configured runtime with visible loading states, and manages the user installation."
 ---
 
@@ -56,7 +56,7 @@ Repository content MUST render in a webview separate from the app's own interfac
 
 ### Opening a worktree
 
-Opening MUST select the worktree's configured Rhizome instance through existing executable-selection behavior. External binary ownership MUST require an explicit external launcher or selected executable rather than silently substituting the global binary. Executable trust MUST remain explicit and per worktree, using Rhizome's canonical checkout trust store; the app MUST ask for trust in the content area rather than inherit it from another worktree. An unconfigured worktree MUST show setup guidance or an explicit initialization action.
+Opening MUST select the worktree's configured Rhizome instance through existing executable-selection behavior. External binary ownership MUST require an explicit external launcher or selected executable rather than silently substituting the global binary. Executable trust MUST remain explicit and per worktree, using Rhizome's canonical checkout trust store; the app MUST ask for trust in the content area rather than inherit it from another worktree. An unconfigured worktree MUST show setup guidance or an explicit initialization action; [[desktop-repository-setup|SPEC-0118]] specifies the setup sheet and the What gets indexed page.
 
 The native controller MUST verify runtime identity and liveness before showing its URL. It MUST bind local starts to loopback and use dynamically selected ports. Repeated or concurrent selection of a worktree MUST converge on one runtime. A previously running runtime MUST remain owned by its existing lifecycle; closing a window or switching away MUST NOT terminate any runtime. Runtime control tokens MUST NOT reach the frontend or logs.
 

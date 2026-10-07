@@ -1,5 +1,6 @@
 id: action-items
 name: Action items
+description: "Track #action-item commitments in notes, with assignees and due dates"
 requires:
   - core
 installedAssetTypes:

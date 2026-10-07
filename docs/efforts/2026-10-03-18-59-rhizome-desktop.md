@@ -132,6 +132,8 @@ Native HTML verification exposed a macOS ATS requirement. A localhost-only excep
 
 The public release feed has no published release at verification time. Global install/update behavior is implemented and tested with local releases; real downloads depend on publishing a compatible release. Current development binaries work. Signing, notarization, and public distribution remain outside this delivery.
 
+Pointer added on 2026-10-07 (frozen-scope-drift acknowledged for SPEC-0113): EFF-2026-10-06-08-07 added a pointer from the unconfigured-worktree requirement to [[desktop-repository-setup|SPEC-0118]], which owns the setup sheet and the What gets indexed page. The requirement itself is unchanged.
+
 ## Closure Checklist
 
 - [x] Requirements exercised on the actual application.

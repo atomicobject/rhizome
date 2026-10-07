@@ -273,19 +273,6 @@ func TestRuntimeFailureAndCancellationRemainErrors(t *testing.T) {
 	code(t, err, "runtime_error")
 }
 
-func TestInitializeRequiresExplicitUnconfiguredFolder(t *testing.T) {
-	s := testService(t)
-	folder := t.TempDir()
-	target := script(t, filepath.Join(t.TempDir(), "rzm"), `[ "$1" = init ] && [ "$2" = --path ] && [ "$3" = "$PWD" ] || exit 3
-mkdir -p "$3/.rhizome"
-printf 'rhizome:\n  version: v1.2.3\n' > "$3/.rhizome/config.yml"`)
-	result, err := s.Initialize(context.Background(), Request{Folder: folder, GlobalExecutable: target})
-	require.NoError(t, err)
-	require.True(t, result.Configured)
-	_, err = s.Initialize(context.Background(), Request{Folder: folder, GlobalExecutable: target})
-	code(t, err, "invalid_request")
-}
-
 func TestGlobalStatusUsesNeutralCwdAndProtectsExternalInstallations(t *testing.T) {
 	s := testService(t)
 	target := script(t, s.managedPath(), `[ ! -f .rhizome/config.yml ] || exit 4

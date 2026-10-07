@@ -5,114 +5,18 @@ use crate::{
     pipeline,
     presence::Presence,
     security,
-    state::{migrate, valid_id, Discovery, Library, Stored},
+    setup::{ScopeEdits, Secret, SetupChoices},
+    state::{valid_id, Discovery, Library},
     windows::{self, Sessions},
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
-};
+use std::path::Path;
 use tauri::{ipc::Channel, AppHandle, LogicalPosition, LogicalSize, Manager, Rect, State, Webview};
 use tauri_plugin_opener::OpenerExt;
-use tokio::sync::{Mutex, MutexGuard};
-
-/// Serializes library file updates, global installation, and each worktree's
-/// open, trust, and setup work. Different worktrees never wait on each other.
-pub struct Desktop {
-    pub directory: PathBuf,
-    library: Mutex<()>,
-    /// Counts library saves since launch. Shells apply a library snapshot only
-    /// when its revision is newer than the one they hold, so a snapshot that
-    /// arrives late cannot restore an entry a later save removed.
-    revision: AtomicU64,
-    global: Mutex<()>,
-    // ponytail: one small lock per worktree ever touched, never pruned.
-    worktrees: std::sync::Mutex<HashMap<String, Arc<Mutex<()>>>>,
-}
-
-impl Desktop {
-    pub fn new(directory: PathBuf) -> Self {
-        Self {
-            directory,
-            library: Mutex::default(),
-            revision: AtomicU64::new(0),
-            global: Mutex::default(),
-            worktrees: std::sync::Mutex::default(),
-        }
-    }
-
-    pub fn worktree(&self, path: &str) -> Arc<Mutex<()>> {
-        self.worktrees
-            .lock()
-            .unwrap()
-            .entry(path.into())
-            .or_default()
-            .clone()
-    }
-
-    /// Loads the library, migrating a version 1 folder library on first use.
-    /// Hold the returned guard while changing and saving the library.
-    pub async fn library(&self) -> Result<(MutexGuard<'_, ()>, Library), Failure> {
-        let guard = self.library.lock().await;
-        let library = match Library::load(&self.directory)? {
-            Stored::Current(library) => library,
-            Stored::Legacy(legacy) if legacy.folders.is_empty() => Library {
-                global_executable: legacy.global_executable,
-                ..Library::default()
-            },
-            Stored::Legacy(legacy) => {
-                let mut found = vec![];
-                for folder in &legacy.folders {
-                    found.push(match self.discover(&folder.path, None).await {
-                        Ok(value) => Some(discovery(&value)?),
-                        Err(failure) if failure.code == "desktop_error" => return Err(failure),
-                        Err(_) => None,
-                    });
-                }
-                let library = migrate(legacy, &found);
-                self.store(&library)?;
-                library
-            }
-        };
-        Ok((guard, library))
-    }
-
-    /// Writes the library under the next revision and returns the snapshot
-    /// shells receive. Hold the library guard.
-    fn store(&self, library: &Library) -> Result<Value, Failure> {
-        library.save(&self.directory)?;
-        self.revision.fetch_add(1, Ordering::SeqCst);
-        Ok(self.snapshot(library))
-    }
-
-    /// The library as shells receive it, with the revision of the last save.
-    /// Hold the library guard, so the revision is the one that wrote it.
-    pub fn snapshot(&self, library: &Library) -> Value {
-        let mut snapshot = json!(library);
-        snapshot["revision"] = self.revision.load(Ordering::SeqCst).into();
-        snapshot
-    }
-
-    pub async fn discover(&self, path: &str, primary: Option<&str>) -> Result<Value, Failure> {
-        bridge::call(
-            &self.directory,
-            Request {
-                operation: "repository",
-                folder: Some(path),
-                primary,
-                ..Request::default()
-            },
-            bridge::TIMEOUT,
-        )
-        .await
-    }
-}
+mod state;
+use state::finish_global_operation;
+pub use state::Desktop;
 
 /// Saves the library and sends it to every window's shell, so a change made in
 /// one window appears in all of them. Returns the snapshot the shells received.
@@ -185,9 +89,25 @@ pub enum Action {
         id: String,
         worktree: String,
     },
+    SetupReport {
+        id: String,
+        worktree: String,
+        choices: Option<SetupChoices>,
+    },
     Initialize {
         id: String,
         worktree: String,
+        choices: SetupChoices,
+        key: Option<Secret>,
+    },
+    Scope {
+        id: String,
+        worktree: String,
+    },
+    ScopeEdit {
+        id: String,
+        worktree: String,
+        edits: ScopeEdits,
     },
     /// `selection` numbers the user's choices in this window's shell.
     #[serde(rename_all = "camelCase")]
@@ -378,9 +298,82 @@ pub async fn desktop_request(
             }
             Ok(result)
         }
-        Action::Trust { id, worktree } => worktree_action(&state, "trust", &id, &worktree).await,
-        Action::Initialize { id, worktree } => {
-            worktree_action(&state, "initialize", &id, &worktree).await
+        Action::Trust { id, worktree } => {
+            worktree_action(
+                &state,
+                &id,
+                &worktree,
+                Request {
+                    operation: "trust",
+                    ..Request::default()
+                },
+            )
+            .await
+        }
+        Action::SetupReport {
+            id,
+            worktree,
+            choices,
+        } => {
+            worktree_action(
+                &state,
+                &id,
+                &worktree,
+                Request {
+                    operation: "setup-report",
+                    setup: choices.as_ref(),
+                    ..Request::default()
+                },
+            )
+            .await
+        }
+        Action::Initialize {
+            id,
+            worktree,
+            choices,
+            key,
+        } => {
+            worktree_action(
+                &state,
+                &id,
+                &worktree,
+                Request {
+                    operation: "initialize",
+                    setup: Some(&choices),
+                    key: key.as_ref(),
+                    ..Request::default()
+                },
+            )
+            .await
+        }
+        Action::Scope { id, worktree } => {
+            worktree_action(
+                &state,
+                &id,
+                &worktree,
+                Request {
+                    operation: "scope",
+                    ..Request::default()
+                },
+            )
+            .await
+        }
+        Action::ScopeEdit {
+            id,
+            worktree,
+            edits,
+        } => {
+            worktree_action(
+                &state,
+                &id,
+                &worktree,
+                Request {
+                    operation: "scope-edit",
+                    edits: Some(&edits),
+                    ..Request::default()
+                },
+            )
+            .await
         }
         Action::Open {
             id,
@@ -471,14 +464,16 @@ pub async fn desktop_request(
     }
 }
 
-/// Trust and setup run the worktree's selected executable only for a current
+/// Trust, setup, and scope run the worktree's selected executable only for a current
 /// worktree of a saved repository.
 async fn worktree_action(
     state: &Desktop,
-    operation: &str,
     id: &str,
     worktree: &str,
+    request: Request<'_>,
 ) -> Result<Value, Failure> {
+    let lock = state.worktree(worktree);
+    let _serialized = lock.lock().await;
     let library = state.library().await?.1;
     let repository = library.repository(id)?;
     let found = discovery(
@@ -491,121 +486,18 @@ async fn worktree_action(
             .to_string()
             .into());
     }
-    let lock = state.worktree(worktree);
-    let _serialized = lock.lock().await;
     bridge::call(
         &state.directory,
         Request {
-            operation,
             folder: Some(worktree),
             executable: repository.executables.get(worktree).map(String::as_str),
             global_executable: library.global_executable.as_deref(),
-            ..Request::default()
+            ..request
         },
         bridge::TIMEOUT,
     )
     .await
 }
 
-fn finish_global_operation(
-    operation: &str,
-    result: Result<Value, Failure>,
-    library: &mut Library,
-    desktop: &Desktop,
-) -> Result<Value, Failure> {
-    let result = result?;
-    if operation != "global-status" {
-        let executable = result["path"]
-            .as_str()
-            .ok_or("Rhizome returned no installed executable path.".to_string())?
-            .to_string();
-        absolute_executable(&Some(executable.clone()))?;
-        library.global_executable = Some(executable);
-        desktop.store(library)?;
-    }
-    Ok(result)
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::state::Stored;
-
-    fn saved_global(directory: &Path) -> Option<String> {
-        match Library::load(directory).unwrap() {
-            Stored::Current(library) => library.global_executable,
-            Stored::Legacy(_) => None,
-        }
-    }
-
-    #[test]
-    fn completed_install_and_update_select_the_reported_executable() {
-        let directory = tempfile::tempdir().unwrap();
-        let executable = directory.path().join("rzm");
-        std::fs::write(&executable, b"fixture").unwrap();
-        let desktop = Desktop::new(directory.path().into());
-        for operation in ["global-install", "global-update"] {
-            let mut library = Library {
-                global_executable: Some("/previous/rzm".into()),
-                ..Library::default()
-            };
-            library.save(directory.path()).unwrap();
-            let info = json!({"path": executable, "installed": true});
-            let returned =
-                finish_global_operation(operation, Ok(info.clone()), &mut library, &desktop)
-                    .unwrap();
-            assert_eq!(returned, info);
-            assert_eq!(
-                saved_global(directory.path()).as_deref(),
-                executable.to_str()
-            );
-        }
-    }
-
-    #[test]
-    fn failed_install_leaves_existing_selection_on_disk() {
-        let directory = tempfile::tempdir().unwrap();
-        let mut library = Library {
-            global_executable: Some("/previous/rzm".into()),
-            ..Library::default()
-        };
-        library.save(directory.path()).unwrap();
-        let desktop = Desktop::new(directory.path().into());
-        let failure = Failure {
-            code: "install_error".into(),
-            message: "Installation was interrupted.".into(),
-        };
-        assert!(
-            finish_global_operation("global-install", Err(failure), &mut library, &desktop)
-                .is_err()
-        );
-        assert_eq!(
-            saved_global(directory.path()).as_deref(),
-            Some("/previous/rzm")
-        );
-    }
-
-    #[test]
-    fn every_library_save_advances_the_revision_shells_receive() {
-        let directory = tempfile::tempdir().unwrap();
-        let desktop = Desktop::new(directory.path().into());
-        let mut library = Library::default();
-        assert_eq!(desktop.snapshot(&library)["revision"], 0);
-        assert_eq!(desktop.store(&library).unwrap()["revision"], 1);
-        library.global_executable = Some("/bin/rzm".into());
-        let saved = desktop.store(&library).unwrap();
-        assert_eq!(saved["revision"], 2);
-        assert_eq!(saved["globalExecutable"], "/bin/rzm");
-        assert_eq!(desktop.snapshot(&library), saved);
-        let executable = directory.path().join("rzm");
-        std::fs::write(&executable, b"fixture").unwrap();
-        finish_global_operation(
-            "global-install",
-            Ok(json!({"path": executable})),
-            &mut library,
-            &desktop,
-        )
-        .unwrap();
-        assert_eq!(desktop.snapshot(&library)["revision"], 3);
-    }
-}
+mod tests;

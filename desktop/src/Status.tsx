@@ -25,7 +25,7 @@ function useElapsedPast(started: number, delay: number) {
   return Date.now() - started >= delay;
 }
 
-function Elapsed({ started }: { started: number }) {
+export function Elapsed({ started }: { started: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -48,7 +48,6 @@ export function OpenStatus({
   busy,
   onRetry,
   onTrust,
-  onSetup,
   onSkipSeed,
   onChooseExecutable,
   onManageInstallation,
@@ -57,7 +56,6 @@ export function OpenStatus({
   busy: boolean;
   onRetry: () => void;
   onTrust: () => void;
-  onSetup: () => void;
   onSkipSeed: () => void;
   onChooseExecutable: () => void;
   onManageInstallation: () => void;
@@ -123,21 +121,6 @@ export function OpenStatus({
         <p className="path confirmation-path">{state.worktree}</p>
         <button className="primary" disabled={busy} onClick={onTrust}>
           Trust and open
-        </button>
-      </div>
-    );
-  }
-  if (state.step === "setup") {
-    return (
-      <div className="status-panel">
-        <h1>Rhizome is not set up here</h1>
-        <p>
-          Setup creates Rhizome’s configuration and agent guidance in this worktree. Existing
-          configuration is preserved. You can also run <code>rzm init</code> yourself.
-        </p>
-        <p className="path confirmation-path">{state.worktree}</p>
-        <button className="primary" disabled={busy} onClick={onSetup}>
-          Set up Rhizome
         </button>
       </div>
     );

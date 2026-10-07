@@ -36,6 +36,7 @@ const (
 type starterTemplateMetadata struct {
 	ID                  string   `yaml:"id"`
 	Name                string   `yaml:"name,omitempty"`
+	Description         string   `yaml:"description,omitempty"`
 	Requires            []string `yaml:"requires,omitempty"`
 	ActivatesByDefault  []string `yaml:"activatesByDefault,omitempty"`
 	InstalledAssetTypes []string `yaml:"installedAssetTypes,omitempty"`

@@ -37,6 +37,17 @@ type RunOptions struct {
 	// Search chooses the semantic search provider: voyage, openai, ollama, or off.
 	Search string
 
+	// Addons chooses add-on starters on a first run: ids, comma-separated, or
+	// none. Default add-ons of the workflow that are not listed are disabled.
+	Addons string
+	// Skip and KeepIndexed add paths to the suggested skips and decline
+	// suggested skips on a first run.
+	Skip        []string
+	KeepIndexed []string
+	// SearchKey is a key for the chosen search provider, saved on a first run
+	// as the terminal prompt saves a pasted key. It is never printed.
+	SearchKey string
+
 	RefreshDocs    bool // offer updates to existing starter docs; by default they are only created
 	IncludeIgnored []string
 	Eject          string // keep these workflows' files (comma-separated) and stop updating them

@@ -11,7 +11,6 @@ import (
 	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/vault/codepatterns"
-	"github.com/atomicobject/rhizome/pkg/vault/ignore"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"gopkg.in/yaml.v3"
 )
@@ -394,17 +393,6 @@ func isEmptyGraphConfig(cfg *obsidian.LocalGraphConfig) bool {
 	return len(cfg.Ignore) == 0 &&
 		len(cfg.KeyNotePatterns) == 0 &&
 		len(cfg.AuthorityFactors) == 0
-}
-
-func ensureIgnoreFile(root string) error {
-	path := filepath.Join(root, ".rhizome", "ignore")
-	if _, err := os.Stat(path); err == nil {
-		return nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	body := ignore.DefaultIgnoreFile()
-	return os.WriteFile(path, []byte(body), 0o644)
 }
 
 func ensureRhizomeGitIgnore(root string) error {

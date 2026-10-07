@@ -9,32 +9,51 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
 )
 
+// workflowChoice is one answer to the workflow question. The first is
+// recommended.
+type workflowChoice struct {
+	id          string // the --workflow value
+	label       string
+	description string
+	starters    []string
+}
+
+var workflowChoices = []workflowChoice{
+	{"agentic-engineering", "Agentic Engineering", "Specs, efforts, and engineering policy docs your agents follow", []string{templateAgenticEngineering}},
+	{"domain", "Agentic Engineering with domain modeling", "Adds sources, requirements, and traceability for regulated or complex domains", []string{templateComplexDomain}},
+	{"none", "Search and agent guidance only", "Search, code navigation, and Rhizome guidance, with no workflow docs", nil},
+}
+
+// workflowChoiceFor returns the choice that installs workflows.
+func workflowChoiceFor(workflows []string) workflowChoice {
+	switch {
+	case contains(workflows, templateComplexDomain):
+		return workflowChoices[1]
+	case contains(workflows, templateAgenticEngineering):
+		return workflowChoices[0]
+	}
+	return workflowChoices[2]
+}
+
 // promptWorkflow asks which workflow to install. current marks the existing
 // choice on reruns.
 func promptWorkflow(reader *bufio.Reader, out io.Writer, current []string) []string {
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, styleHeading(out, "Workflow"))
-	fmt.Fprintln(out, "  1  Agentic Engineering (recommended)")
-	fmt.Fprintln(out, styleDim(out, "     Specs, efforts, and engineering policy docs your agents follow"))
-	fmt.Fprintln(out, "  2  Agentic Engineering with domain modeling")
-	fmt.Fprintln(out, styleDim(out, "     Adds sources, requirements, and traceability for regulated or complex domains"))
-	fmt.Fprintln(out, "  3  Search and agent guidance only")
-	fmt.Fprintln(out, styleDim(out, "     Search, code navigation, and Rhizome guidance, with no workflow docs"))
 	def := "1"
-	switch {
-	case contains(current, templateComplexDomain):
-		def = "2"
-	case current != nil && !contains(current, templateAgenticEngineering):
-		def = "3"
+	for i, choice := range workflowChoices {
+		label := choice.label
+		if i == 0 {
+			label += " (recommended)"
+		}
+		fmt.Fprintf(out, "  %d  %s\n", i+1, label)
+		fmt.Fprintln(out, styleDim(out, "     "+choice.description))
+		if current != nil && choice.id == workflowChoiceFor(current).id {
+			def = fmt.Sprint(i + 1)
+		}
 	}
-	switch askChoice(reader, out, "Choose ["+def+"]: ", def, "1", "2", "3") {
-	case "2":
-		return []string{templateComplexDomain}
-	case "3":
-		return nil
-	default:
-		return []string{templateAgenticEngineering}
-	}
+	answer := askChoice(reader, out, "Choose ["+def+"]: ", def, "1", "2", "3")
+	return cloneTemplates(workflowChoices[answer[0]-'1'].starters)
 }
 
 // promptSearchKey asks for a key for provider. In a build that bundles team
