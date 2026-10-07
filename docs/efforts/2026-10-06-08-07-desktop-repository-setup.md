@@ -37,7 +37,7 @@ Excluded: the rerun maintenance from the app, the path tester, and the other exc
 - [x] Setup sheet: findings, choices, the Writes row, progress, summary, and errors.
 - [x] What gets indexed page before and after setup, opened from the sheet and the repository menu.
 - [x] Go, Rust, and shell tests; native verification on a fixture repository (bridge level; UI click-through pending, see Execution Notes); documentation; independent review.
-- [ ] Pull request opened and linked.
+- [x] Pull request opened and linked: https://github.com/atomicobject/rhizome/pull/7.
 
 ## Plan
 
@@ -107,7 +107,7 @@ Rhizome Desktop shows an unconfigured worktree a setup sheet built from that rep
 - [x] `make check`, `make desktop-check`, `make desktop-build`, and the generated-surfaces gate pass.
 - [ ] Native verification recorded with screenshots. Browser screenshots of every state with real rzm output and bridge-level packaged-app verification are recorded; packaged-app UI screenshots need a session with GUI access.
 - [x] `./scripts/rzm validate` and `frozen-scope-drift` clean, with deviations recorded for SPEC-0113 and SPEC-0038.
-- [ ] Independent review resolved, and the pull request opened and linked.
+- [x] Independent review resolved, and the pull request opened and linked (#7).
 
 ## Compounding Follow-ups
 
@@ -115,4 +115,4 @@ None yet.
 
 ## Status
 
-Active. All four batches implemented and verified; final review and pull request in progress. A manual click-through of the packaged app UI remains.
+Active. All four batches implemented, reviewed, and verified; pull request #7 is open for Drew's review. A manual click-through of the packaged app UI remains before closure.
