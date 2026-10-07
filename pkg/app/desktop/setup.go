@@ -92,6 +92,9 @@ func (s *Service) setupTarget(ctx context.Context, req Request, configured bool)
 	}
 	help, err := repoexec.Probe(ctx, target, info.Path, probe...)
 	if err != nil || !strings.Contains(help, flag) {
+		if configured {
+			return info, "", problem("setup_unsupported", "This Rhizome version cannot show what gets indexed in the app. Update Rhizome, or run `rzm index --explain` and edit .rhizome/ignore.")
+		}
 		return info, "", problem("setup_unsupported", "This Rhizome version cannot set up from the app. Update Rhizome or run `rzm init` in a terminal.")
 	}
 	return info, target, nil
