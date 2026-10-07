@@ -14,7 +14,13 @@ import {
   type Repository,
   type Worktree,
 } from "./api";
-import { newWorktrees, RepositoryList, runtimeText, type Runtimes } from "./RepositoryList";
+import {
+  NewCount,
+  newWorktrees,
+  RepositoryList,
+  runtimeText,
+  type Runtimes,
+} from "./RepositoryList";
 import { ScopePage } from "./IndexScope";
 import { Settings } from "./Settings";
 import { SetupSheet } from "./SetupSheet";
@@ -618,7 +624,7 @@ export function App() {
             <span className="branch">{worktree ? worktreeName(worktree) : "…"}</span>
             {worktree && <span className="path-hint">{basename(worktree.path)}</span>}
             {newWorktrees(selected, selectedFound?.info).length > 0 && (
-              <span className="new-dot" title="New worktrees" />
+              <NewCount count={newWorktrees(selected, selectedFound?.info).length} />
             )}
             <span aria-hidden="true">▾</span>
           </button>

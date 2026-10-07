@@ -18,6 +18,18 @@ export function newWorktrees(repository: Repository, found?: Discovery) {
   return found?.worktrees.filter((w) => !repository.acknowledged.includes(w.path)) ?? [];
 }
 
+/** Worktrees discovered since the repository was added and not opened yet.
+ * A count in words, not a dot, so it never reads as a second runtime status. */
+export function NewCount({ count }: { count: number }) {
+  return (
+    <span className="new-count" title={`${count} new ${count === 1 ? "worktree" : "worktrees"}`}>
+      {/* The leading space keeps the count apart from the name in the tab's
+          accessible name; flex layout drops it visually. */}
+      {` ${count} new`}
+    </span>
+  );
+}
+
 /** The most active runtime state among a repository's worktrees. */
 function repositoryState(runtimes: Runtimes, found?: Discovery) {
   const states = found?.worktrees.map((w) => runtimes[w.path]?.state) ?? [];
@@ -124,18 +136,13 @@ export function RepositoryList({
                   {state.error.code === "folder_missing" ? "Missing" : "Error"}
                 </span>
               )}
+              {fresh > 0 && <NewCount count={fresh} />}
               {state?.info && (
                 <span
                   className={`runtime-dot ${runtime}`}
                   role="img"
                   aria-label={runtimeText[runtime].title}
                   title={runtimeText[runtime].title}
-                />
-              )}
-              {fresh > 0 && (
-                <span
-                  className="new-dot"
-                  title={`${fresh} new ${fresh === 1 ? "worktree" : "worktrees"}`}
                 />
               )}
             </button>
