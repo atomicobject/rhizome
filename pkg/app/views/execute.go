@@ -371,7 +371,9 @@ func orderedBuckets(rows []TableRow, field string, cap FieldCapability, override
 		for _, raw := range values {
 			value := groupBucketValue(raw, cap)
 			identity, label := value, ""
+			var link TableRelationValue
 			if relation && value != "" {
+				link = links[strings.TrimSpace(value)]
 				identity, value, label = relationGroupIdentity(value, links)
 			}
 			if _, ok := seen[identity]; ok {
@@ -387,9 +389,13 @@ func orderedBuckets(rows []TableRow, field string, cap FieldCapability, override
 			// Unresolved spellings of one target keep the least, so the
 			// group's value and key do not depend on row order.
 			if label != "" && (!ok || value < out[idx].value) {
-				// Link groups order by title, case-insensitively.
+				// Link groups follow their targets' rank, then title,
+				// case-insensitively.
 				out[idx].value, out[idx].label = value, label
 				out[idx].sortKey, out[idx].sortKeyReady = groupSortValue{kind: 3, text: strings.ToLower(label)}, true
+				if link.ranked {
+					out[idx].sortKey = groupSortValue{kind: 1, number: link.rank}
+				}
 			}
 			out[idx].rows = append(out[idx].rows, row)
 		}

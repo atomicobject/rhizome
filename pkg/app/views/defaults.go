@@ -115,6 +115,9 @@ func generatedDefault(schema *ontology.Schema, name string, fields []*ontology.F
 }
 
 func generatedSort(profile ontology.TypeProfile) []viewconfig.SortSpec {
+	if profile.RankField != "" {
+		return []viewconfig.SortSpec{{Field: profile.RankField, Direction: "asc"}, {Field: "title", Direction: "asc"}}
+	}
 	switch profile.Shape {
 	case ontology.ShapeDated:
 		return []viewconfig.SortSpec{{Field: profile.PrimaryDateField, Direction: "desc"}}

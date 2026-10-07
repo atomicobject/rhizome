@@ -414,6 +414,7 @@ const (
 	FieldDisplayRoleNone    FieldDisplayRole = ""
 	FieldDisplayRoleSummary FieldDisplayRole = "SUMMARY"
 	FieldDisplayRoleParent  FieldDisplayRole = "PARENT"
+	FieldDisplayRoleRank    FieldDisplayRole = "RANK"
 )
 
 type FieldDisplayImportance string
@@ -461,6 +462,18 @@ func SummaryField(fields []*Field) *Field {
 func ParentField(fields []*Field) *Field {
 	for _, field := range fields {
 		if field != nil && field.Display.Role == FieldDisplayRoleParent {
+			return field
+		}
+	}
+	return nil
+}
+
+// RankField returns the field carrying the RANK display role, which orders a
+// type's records ascending wherever they are listed without a view's own sort.
+// Compile guarantees at most one.
+func RankField(fields []*Field) *Field {
+	for _, field := range fields {
+		if field != nil && field.Display.Role == FieldDisplayRoleRank {
 			return field
 		}
 	}
