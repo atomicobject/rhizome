@@ -178,9 +178,8 @@ func runSetupJSON(ctx context.Context, target, folder string, args []string, key
 	var doc struct {
 		Error    *Problem `json:"error"`
 		SavedKey string   `json:"savedKey"`
-		Pin      struct {
-			Error string `json:"error"`
-		} `json:"pin"`
+		// A setup plan's pin is a version string; a setup result's is an object.
+		Pin json.RawMessage `json:"pin"`
 	}
 	raw := bytes.TrimSpace(stdout.Bytes())
 	// Even a misbehaving executable cannot echo the supplied secret to the app.
@@ -202,7 +201,7 @@ func runSetupJSON(ctx context.Context, target, folder string, args []string, key
 		if key != "" && setupJSONContainsKey(raw, key) {
 			return nil, problem(failureCode, "Rhizome returned a response containing the search key; the response was discarded.")
 		}
-		if runErr == nil || (allowPinFailure && doc.Pin.Error != "" && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1) {
+		if runErr == nil || (allowPinFailure && pinFailed(doc.Pin) && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1) {
 			return json.RawMessage(raw), nil
 		}
 	}
@@ -219,6 +218,14 @@ func runSetupJSON(ctx context.Context, target, folder string, args []string, key
 		message += "\n" + detail
 	}
 	return nil, problem(failureCode, message)
+}
+
+// pinFailed reports whether a setup result's pinned-executable install failed.
+func pinFailed(raw json.RawMessage) bool {
+	var pin struct {
+		Error string `json:"error"`
+	}
+	return json.Unmarshal(raw, &pin) == nil && pin.Error != ""
 }
 
 // Inspect decoded strings as well, since JSON may escape part of the key.

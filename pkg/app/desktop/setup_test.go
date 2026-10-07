@@ -39,7 +39,8 @@ func argv(t *testing.T, path string) []string {
 }
 
 func TestSetupReportPreservesJSONAndChoiceFlags(t *testing.T) {
-	const doc = `{"schema":1,"configured":false,"unknownFutureField":{"value":42}}`
+	// A setup plan names its pin as a string, unlike a setup result.
+	const doc = `{"schema":1,"configured":false,"pin":"v0.50.5","unknownFutureField":{"value":42}}`
 	for _, choices := range []*SetupChoices{nil, {}, {
 		Workflow: "agentic-engineering", Addons: []string{"action-items"}, Agents: []string{"claude", "codex"}, Search: "off",
 		Skip: []string{"build", "dist"}, KeepIndexed: []string{"testdata"}, IncludeIgnored: []string{"nested"},
