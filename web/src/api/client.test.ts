@@ -884,6 +884,32 @@ describe("api client", () => {
     );
   });
 
+  it.each([
+    ["docs/spec.md#pre-party-logistics-387", "docs/spec.md#pre-party-logistics-387"],
+    ["section-387", "docs/spec.md#node:section-387"],
+  ])("routes a section node ID %s through public GraphQL", async (nodeId, expectedRef) => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: vi.fn().mockResolvedValue(publicWorkspaceResponse(expectedRef)),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getNodeWorkspace({ notePath: "docs/spec.md", nodeId, kind: "SECTION" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/graphql",
+      expect.objectContaining({
+        body: JSON.stringify({
+          query: PUBLIC_NODE_DETAIL_QUERY,
+          variables: { ref: expectedRef },
+          operationName: "PublicNodeDetail",
+        }),
+      }),
+    );
+  });
+
   it("uses structural identity for an unanchored embedded workspace ref", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

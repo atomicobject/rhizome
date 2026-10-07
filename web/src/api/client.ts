@@ -582,7 +582,11 @@ export function publicWorkspaceRef(ref: string | NodeRef): string {
 
   if (ref.fragment) return `${ref.notePath}#${ref.fragment}`;
 
-  if (ref.nodeId) return `${ref.notePath}#node:${ref.nodeId}`;
+  if (ref.nodeId) {
+    return ref.nodeId.startsWith(`${ref.notePath}#`)
+      ? ref.nodeId
+      : `${ref.notePath}#node:${ref.nodeId}`;
+  }
 
   return ref.notePath;
 }
