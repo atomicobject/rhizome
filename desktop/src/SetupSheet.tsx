@@ -450,7 +450,7 @@ export function SetupSheet({
 
         {plan.ignoredRepositories.length > 0 && (
           <div className="setup-row" role="group" aria-labelledby="setup-nested">
-            <h2 id="setup-nested">Ignored repositories</h2>
+            <h2 id="setup-nested">Ignored repos</h2>
             <div className="choices">
               {plan.ignoredRepositories.map((repo) => (
                 <label key={repo.path} className="choice">

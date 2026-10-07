@@ -576,6 +576,9 @@ label.choice {
   margin: 3px 0 0;
   accent-color: #2a2724;
 }
+.inline-choices input {
+  margin: 0;
+}
 .choice-label {
   font-weight: 500;
 }
@@ -606,7 +609,7 @@ label.choice {
 }
 .inline-choices label {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   margin: 0;
   font-weight: 400;
@@ -747,6 +750,8 @@ label.choice {
 .scope-table td {
   height: 28px;
   padding: 0 8px;
+  vertical-align: baseline;
+  line-height: 27px;
   overflow: hidden;
   border-top: 1px solid #ecebe6;
   white-space: nowrap;
@@ -784,7 +789,31 @@ label.choice {
   padding: 0 8px;
   border-color: #e4e2dd;
   font-size: 12px;
+  line-height: 20px;
   color: #595959;
+}
+/* Row actions stay quiet until the row is pointed at or focused. */
+.scope-table .row-action {
+  border-color: transparent;
+  background: transparent;
+  color: #706c68;
+}
+.scope-table tr:hover .row-action,
+.scope-table tr:focus-within .row-action {
+  border-color: #c9c6bf;
+  background: #fff;
+  color: #2a2724;
+}
+.scope-table tr.more td {
+  padding-left: 0;
+  color: #706c68;
+  text-overflow: ellipsis;
+}
+.more-preview {
+  margin-left: 10px;
+  font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  white-space: pre;
 }
 .scope-empty {
   padding: 6px 0;

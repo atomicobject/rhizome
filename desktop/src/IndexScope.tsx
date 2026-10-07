@@ -28,8 +28,41 @@ const layers: { layer: ScopeRule["layer"]; title: string; hint?: string }[] = [
   },
 ];
 
-function where(rule: ScopeRule) {
-  if (rule.planned) return "planned";
+/** Runs of more plain rules than this collapse to their first few. */
+const COLLAPSE_AFTER = 8;
+const COLLAPSED_HEAD = 3;
+
+type Row = { rule: ScopeRule } | { key: string; hidden: ScopeRule[] };
+
+/** Rules in order, with long runs of rules that need no comment, such as a
+ * copied built-in list, collapsed unless expanded. */
+function rowsFor(rules: ScopeRule[], expanded: Set<string>): Row[] {
+  const rows: Row[] = [];
+  let run: ScopeRule[] = [];
+  const flush = () => {
+    const key = run[0] ? `${run[0].source}:${run[0].line}` : "";
+    if (run.length > COLLAPSE_AFTER && !expanded.has(key)) {
+      rows.push(...run.slice(0, COLLAPSED_HEAD).map((rule) => ({ rule })));
+      rows.push({ key, hidden: run.slice(COLLAPSED_HEAD) });
+    } else {
+      rows.push(...run.map((rule) => ({ rule })));
+    }
+    run = [];
+  };
+  for (const rule of rules) {
+    if (rule.reason || rule.included || rule.folder) {
+      flush();
+      rows.push({ rule });
+    } else {
+      run.push(rule);
+    }
+  }
+  flush();
+  return rows;
+}
+
+function where(rule: ScopeRule, mixed: boolean) {
+  if (rule.planned) return mixed ? "new" : "";
   if (!rule.line) return rule.source ?? "";
   return rule.layer === "rhizome" ? `line ${rule.line}` : `${rule.source}:${rule.line}`;
 }
@@ -72,6 +105,7 @@ export function IndexScope({
   closeLabel: string;
 }) {
   const [entry, setEntry] = useState("");
+  const [expanded, setExpanded] = useState(new Set<string>());
   const value = entry.trim();
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -123,6 +157,8 @@ export function IndexScope({
       {layers.map(({ layer, title, hint }) => {
         const rules = scope.rules.filter((rule) => rule.layer === layer);
         if (rules.length === 0 && layer !== "gitignore" && layer !== "rhizome") return null;
+        const planned = rules.filter((rule) => rule.planned).length;
+        const mixed = planned > 0 && planned < rules.length;
         return (
           <section key={layer} className="scope-group" aria-label={title}>
             <h2>
@@ -130,21 +166,37 @@ export function IndexScope({
               {layer === "rhizome" && <span className="scope-source">.rhizome/ignore</span>}
             </h2>
             {hint && <p className="hint">{hint}</p>}
+            {planned > 0 && !mixed && <p className="hint">Setup writes these rules.</p>}
             {rules.length === 0 ? (
               <p className="scope-empty">None.</p>
             ) : (
               <table className="scope-table">
                 <tbody>
-                  {rules.map((rule) => {
+                  {rowsFor(rules, expanded).map((row) => {
+                    if ("hidden" in row) {
+                      return (
+                        <tr key={`more:${row.key}`} className="more">
+                          <td colSpan={4}>
+                            <button
+                              className="link-button"
+                              onClick={() => setExpanded(new Set(expanded).add(row.key))}
+                            >
+                              Show {row.hidden.length} more
+                            </button>
+                            <span className="more-preview">
+                              {row.hidden.map((rule) => rule.pattern).join("  ")}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    const { rule } = row;
                     const action = actionFor(rule);
                     return (
-                      <tr
-                        key={`${rule.source}:${rule.line}:${rule.pattern}`}
-                        className={rule.planned ? "planned" : undefined}
-                      >
+                      <tr key={`${rule.source}:${rule.line}:${rule.pattern}`}>
                         <td className="pattern">{rule.pattern}</td>
                         <td className="why">{why(rule)}</td>
-                        <td className="where">{where(rule)}</td>
+                        <td className="where">{where(rule, mixed)}</td>
                         <td className="act">
                           {action && (
                             <button
