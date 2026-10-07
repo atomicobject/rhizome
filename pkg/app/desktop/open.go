@@ -7,11 +7,9 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
@@ -156,30 +154,4 @@ func openResult(folder string, result appruntime.EnsureResult) (OpenResult, erro
 		return OpenResult{}, problem("runtime_error", "The running Rhizome identity does not match this folder.")
 	}
 	return OpenResult{URL: origin, Version: health.Version, PID: health.PID, Mode: string(health.Mode), Spawned: result.Spawned}, nil
-}
-
-func (s *Service) Initialize(ctx context.Context, req Request) (FolderInfo, error) {
-	info, plan, err := s.inspect(req.Folder)
-	if err != nil {
-		return info, err
-	}
-	if info.Configured {
-		return info, problem("invalid_request", "This folder is already configured for Rhizome.")
-	}
-	if info.TrustRequired {
-		return info, problem("trust_required", "Confirm trust before running this folder's selected Rhizome executable.")
-	}
-	target, err := s.prepare(ctx, info, plan, req)
-	if err != nil {
-		return info, err
-	}
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, target, "init", "--path", info.Path)
-	cmd.Dir = info.Path
-	cmd.Env = append(os.Environ(), "RZM_REPO_DELEGATED=1", "RZM_SKIP_REPO_DELEGATE=1")
-	if err := cmd.Run(); err != nil {
-		return info, problem("runtime_error", fmt.Sprintf("Rhizome setup failed: %v", err))
-	}
-	return s.Inspect(info.Path)
 }

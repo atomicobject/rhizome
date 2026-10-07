@@ -15,12 +15,15 @@ const Protocol = 1
 const MaxRequestBytes = 1 << 20
 
 type Request struct {
-	Protocol         int    `json:"protocol"`
-	Operation        string `json:"operation"`
-	Folder           string `json:"folder,omitempty"`
-	Executable       string `json:"executable,omitempty"`
-	GlobalExecutable string `json:"globalExecutable,omitempty"`
-	Primary          string `json:"primary,omitempty"`
+	Protocol         int           `json:"protocol"`
+	Operation        string        `json:"operation"`
+	Folder           string        `json:"folder,omitempty"`
+	Executable       string        `json:"executable,omitempty"`
+	GlobalExecutable string        `json:"globalExecutable,omitempty"`
+	Primary          string        `json:"primary,omitempty"`
+	Setup            *SetupChoices `json:"setup,omitempty"`
+	Key              string        `json:"key,omitempty"`
+	Edits            *ScopeEdits   `json:"edits,omitempty"`
 	// Restart makes open replace a live headless runtime with a fresh one.
 	Restart bool `json:"restart,omitempty"`
 	// Folders and Repositories select what the status operation reports.
@@ -79,7 +82,9 @@ func Serve(ctx context.Context, s *Service, input io.Reader, output io.Writer) e
 func (s *Service) Handle(ctx context.Context, req Request) Response {
 	response := Response{Protocol: Protocol}
 	var err error
-	if req.Protocol != Protocol {
+	if req.Key != "" && req.Operation != "initialize" {
+		err = problem("invalid_request", "A search key is accepted only during initialization.")
+	} else if req.Protocol != Protocol {
 		err = problem("invalid_request", "Unsupported desktop bridge protocol.")
 	} else {
 		switch req.Operation {
@@ -97,6 +102,10 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 			response.Result, err = s.Open(ctx, req)
 		case "stop":
 			response.Result, err = s.Stop(ctx, req)
+		case "setup-report":
+			response.Result, err = s.SetupReport(ctx, req)
+		case "scope", "scope-edit":
+			response.Result, err = s.Scope(ctx, req)
 		case "initialize":
 			response.Result, err = s.Initialize(ctx, req)
 		case "global-status":
