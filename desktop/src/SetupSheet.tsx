@@ -106,8 +106,10 @@ export function SetupSheet({
   }
 
   async function setUp() {
-    if (!choices) return;
-    const typed = key.trim();
+    if (!choices || !plan) return;
+    const chosen = plan.search.providers.find((p) => p.id === choices.search);
+    // Only a provider that still needs a key receives one.
+    const typed = chosen?.key && !chosen.ready ? key.trim() : "";
     // The key leaves the sheet only with this request, and only once.
     setKey("");
     setSetupError(null);
@@ -405,9 +407,7 @@ export function SetupSheet({
               ))}
             </div>
             <p className="hint">
-              {choices.agents.length > 0
-                ? "AGENTS.md and shared skills in .agents/ are written for every agent; most agents read them."
-                : "No agent guidance is written."}
+              AGENTS.md and shared skills in .agents/ are always written; most agents read them.
             </p>
           </div>
         </div>
@@ -421,7 +421,11 @@ export function SetupSheet({
               <select
                 id="setup-search"
                 value={choices.search}
-                onChange={(e) => change({ ...choices, search: e.target.value })}
+                onChange={(e) => {
+                  // A key typed for one provider never goes to another.
+                  setKey("");
+                  change({ ...choices, search: e.target.value });
+                }}
               >
                 {plan.search.providers.map((p) => (
                   <option key={p.id} value={p.id}>

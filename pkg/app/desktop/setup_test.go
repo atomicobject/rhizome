@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -55,7 +56,7 @@ func TestSetupReportPreservesJSONAndChoiceFlags(t *testing.T) {
 			want := []string{"init", "--path", req.Folder, "--check", "--json"}
 			if choices != nil {
 				if choices.Workflow == "" {
-					want = append(want, "--addons", "none", "--agents", "none")
+					want = append(want, "--addons", "none", "--agents", "shared")
 				} else {
 					want = append(want, "--workflow", "agentic-engineering", "--addons", "action-items", "--agents", "claude,codex", "--search", "off", "--skip", "build", "--skip", "dist", "--keep-indexed", "testdata", "--include-ignored", "nested")
 				}
@@ -105,7 +106,7 @@ func TestInitializeKeyIsOnlyOnStdinAndTrustFollowsConfiguration(t *testing.T) {
 			data, err := json.Marshal(response)
 			require.NoError(t, err)
 			require.NotContains(t, string(data), key)
-			require.Equal(t, []string{"init", "--path", req.Folder, "--json", "--workflow", "knowledge-base", "--addons", "none", "--agents", "none", "--search", "voyage", "--search-key-stdin"}, argv(t, args))
+			require.Equal(t, []string{"init", "--path", req.Folder, "--json", "--workflow", "knowledge-base", "--addons", "none", "--agents", "shared", "--search", "voyage", "--search-key-stdin"}, argv(t, args))
 			stdin, err := os.ReadFile(filepath.Join(req.Folder, "stdin"))
 			require.NoError(t, err)
 			require.Equal(t, key+"\n", string(stdin))
@@ -114,6 +115,20 @@ func TestInitializeKeyIsOnlyOnStdinAndTrustFollowsConfiguration(t *testing.T) {
 			require.Equal(t, outcome.configured, trusted)
 		})
 	}
+}
+
+func TestSetupReportsASlowProbeAsATimeout(t *testing.T) {
+	s := testService(t)
+	req, _ := setupFixture(t, "exit 9")
+	req.GlobalExecutable = script(t, req.GlobalExecutable, "sleep 5")
+	req.Operation = "setup-report"
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	_, err := s.SetupReport(ctx, req)
+	var failure *Problem
+	require.ErrorAs(t, err, &failure)
+	require.Equal(t, "runtime_error", failure.Code)
+	require.Contains(t, failure.Message, "took too long")
 }
 
 func TestSetupChecksBeforeExecution(t *testing.T) {

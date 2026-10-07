@@ -174,6 +174,19 @@ describe("setup sheet", () => {
     expect(onOpen).toHaveBeenCalled();
   });
 
+  it("never sends a key typed for another provider", async () => {
+    serve();
+    sheet();
+    fireEvent.change(await screen.findByLabelText("Voyage API Key"), {
+      target: { value: "pa-voyage" },
+    });
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "off" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set up Rhizome" }));
+    await screen.findByRole("heading", { name: "Rhizome is set up in acme" });
+    expect(calls("initialize")[0]).not.toHaveProperty("key");
+    expect(calls("initialize")[0]).toMatchObject({ choices: { search: "off" } });
+  });
+
   it("follows a workflow's default add-ons when the workflow changes", async () => {
     serve();
     sheet();

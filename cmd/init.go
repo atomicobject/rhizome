@@ -207,7 +207,7 @@ func init() {
 	initCmd.Flags().BoolVar(&initCheck, "check", false, "show what init would change without writing; exit 1 when something would change")
 	initCmd.Flags().StringVar(&initPath, "path", "", "project directory to set up (default: current directory or Git root)")
 	initCmd.Flags().StringVar(&initWorkflow, "workflow", "", "workflow to install: agentic-engineering, domain, or none")
-	initCmd.Flags().StringVar(&initAgents, "agents", "", "agents to set up: claude, codex, cursor (comma-separated), or none")
+	initCmd.Flags().StringVar(&initAgents, "agents", "", "agents to set up: claude, codex, cursor (comma-separated), shared for AGENTS.md and shared skills only, or none")
 	initCmd.Flags().StringVar(&initSearch, "search", "", "semantic search provider: voyage (default), openai, ollama, or off")
 	initCmd.Flags().BoolVar(&initRefreshDocs, "refresh-docs", false, "offer Rhizome's latest versions of the starter docs your team owns")
 	initCmd.Flags().StringArrayVar(&initIncludeIgnored, "include-ignored", nil, "index a folder Git ignores (repeatable)")

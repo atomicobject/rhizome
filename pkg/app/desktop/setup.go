@@ -43,13 +43,15 @@ func choiceFlags(choices *SetupChoices) []string {
 	if choices.Workflow != "" {
 		args = append(args, "--workflow", choices.Workflow)
 	}
+	// No add-ons is none; no agent harness still writes AGENTS.md and the
+	// shared skills, which the sheet promises for every setup.
 	for _, list := range []struct {
-		flag   string
-		values []string
-	}{{"--addons", choices.Addons}, {"--agents", choices.Agents}} {
+		flag, empty string
+		values      []string
+	}{{"--addons", "none", choices.Addons}, {"--agents", "shared", choices.Agents}} {
 		value := strings.Join(list.values, ",")
 		if value == "" {
-			value = "none"
+			value = list.empty
 		}
 		args = append(args, list.flag, value)
 	}
@@ -92,6 +94,9 @@ func (s *Service) setupTarget(ctx context.Context, req Request, configured bool)
 		probe, flag = []string{"index", "scope", "--help"}, "--remove-rule"
 	}
 	help, err := repoexec.Probe(ctx, target, info.Path, probe...)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return info, "", problem("runtime_error", "Rhizome took too long to answer. Try again.")
+	}
 	if err != nil || !strings.Contains(help, flag) {
 		if configured {
 			return info, "", problem("setup_unsupported", "This Rhizome version cannot show what gets indexed in the app. Update Rhizome, or run `rzm index --explain` and edit .rhizome/ignore.")

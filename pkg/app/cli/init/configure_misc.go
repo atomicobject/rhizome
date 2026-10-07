@@ -29,8 +29,10 @@ func agentFlagModes(agents string) (map[string]string, error) {
 		switch name {
 		case "claude", "codex", "cursor":
 			modes[name] = agentModeOn
+		case "shared":
+			// AGENTS.md and .agents/skills only, which every list writes.
 		default:
-			return nil, fmt.Errorf("unknown agent %q for --agents; use claude, codex, cursor, or none", name)
+			return nil, fmt.Errorf("unknown agent %q for --agents; use claude, codex, cursor, shared, or none", name)
 		}
 	}
 	return modes, nil

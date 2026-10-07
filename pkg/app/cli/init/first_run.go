@@ -167,14 +167,10 @@ func (r *initRun) runFirstRun(s *setup, workflowChosen bool) (firstRunOutcome, e
 		return outcome, err
 	}
 	ready := searchReady(provider, r.session, nil)
-	if key := strings.TrimSpace(r.opts.SearchKey); key != "" {
-		need, ok := searchNeed(provider)
-		if !ok {
-			return outcome, fmt.Errorf("--search-key-stdin needs --search voyage or openai")
-		}
-		if ready, outcome.savedKey, err = saveKey(r.session, need, key); err != nil {
-			return outcome, err
-		}
+	key := strings.TrimSpace(r.opts.SearchKey)
+	need, needsKey := searchNeed(provider)
+	if key != "" && !needsKey {
+		return outcome, fmt.Errorf("--search-key-stdin needs --search voyage or openai")
 	}
 	applySearchChoice(&rec, provider, ready)
 	s.cfg = rec
@@ -183,6 +179,14 @@ func (r *initRun) runFirstRun(s *setup, workflowChosen bool) (firstRunOutcome, e
 		keep[p] = true
 	}
 	s.skips = mergeSkips(s.skips, detectSkips(r.layout.ProjectRoot, s.cfg.Notes, r.layout.Code.Files, keep))
+	// Saving a key exports it to this process's environment, so it waits until
+	// detection has run its git child, as a key pasted at the prompt does.
+	if key != "" {
+		if ready, outcome.savedKey, err = saveKey(r.session, need, key); err != nil {
+			return outcome, err
+		}
+		applySearchChoice(&s.cfg, provider, ready)
+	}
 
 	outcome.provider, outcome.ready = provider, ready
 	if !r.opts.Interactive {

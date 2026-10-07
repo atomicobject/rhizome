@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -123,6 +124,39 @@ func TestApplySavesAKeyFromOptionsWithoutReportingIt(t *testing.T) {
 	doc, err := json.Marshal(result)
 	require.NoError(t, err)
 	require.NotContains(t, string(doc), "pa-from-a-pipe")
+}
+
+func TestAPipedKeyIsSavedAfterDetectionRunsGit(t *testing.T) {
+	root := machineRunRepo(t)
+	original := trackedFiles
+	var seen []string
+	trackedFiles = func(projectRoot string) map[string]bool {
+		seen = append(seen, os.Getenv("VOYAGE_API_KEY"))
+		return original(projectRoot)
+	}
+	t.Cleanup(func() { trackedFiles = original })
+
+	_, err := Apply(RunOptions{Dir: root, SearchKey: "pa-not-for-children"})
+	require.NoError(t, err)
+	require.NotEmpty(t, seen)
+	require.NotContains(t, seen, "pa-not-for-children")
+}
+
+func TestSharedAgentsWriteOnlyTheSharedGuidance(t *testing.T) {
+	root := machineRunRepo(t)
+	plan, err := Plan(RunOptions{Dir: root, Agents: "shared"})
+	require.NoError(t, err)
+	for _, agent := range plan.Agents {
+		require.False(t, agent.Enabled, agent.ID)
+	}
+	require.Contains(t, plan.Writes.Files, "AGENTS.md")
+	require.NotContains(t, plan.Writes.Files, "CLAUDE.md")
+
+	_, err = Apply(RunOptions{Dir: root, Agents: "shared"})
+	require.NoError(t, err)
+	require.FileExists(t, filepath.Join(root, "AGENTS.md"))
+	require.DirExists(t, filepath.Join(root, ".agents", "skills"))
+	require.NoFileExists(t, filepath.Join(root, "CLAUDE.md"))
 }
 
 func TestASearchKeyFromOptionsRecognizesTheTeamKey(t *testing.T) {

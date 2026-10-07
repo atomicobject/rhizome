@@ -22,6 +22,9 @@ func Probe(ctx context.Context, target, cwd string, args ...string) (string, err
 	out := &boundedOutput{limit: 256 * 1024}
 	cmd.Stdout = out
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return "", fmt.Errorf("selected executable did not complete %s in time: %w", strings.Join(args, " "), ctx.Err())
+		}
 		return "", fmt.Errorf("selected executable did not complete %s successfully: %w", strings.Join(args, " "), err)
 	}
 	return out.String(), nil
