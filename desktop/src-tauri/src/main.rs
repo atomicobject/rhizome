@@ -6,6 +6,7 @@ mod pane;
 mod pipeline;
 mod presence;
 mod security;
+mod setup;
 mod state;
 mod terminal;
 mod windows;

@@ -1,3 +1,4 @@
+use crate::setup::{ScopeEdits, Secret, SetupChoices};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{path::Path, process::Stdio, time::Duration};
@@ -34,6 +35,12 @@ pub struct Request<'a> {
     pub global_executable: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub setup: Option<&'a SetupChoices>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<&'a Secret>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edits: Option<&'a ScopeEdits>,
     /// Replaces a live headless runtime with a fresh one during open.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub restart: bool,
