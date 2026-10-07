@@ -138,6 +138,7 @@ export function App() {
   function deselect(repository?: string, ticket = ++selecting.current) {
     target.current = { repository, after: seen.current };
     setSelection(repository ? { repository } : {});
+    setScopeView(null);
     setOpen(null);
     void request("deselect", { selection: ticket }).catch(() => {});
   }

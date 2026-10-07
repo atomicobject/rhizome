@@ -85,6 +85,7 @@ export function IndexScope({
   note,
   actionFor,
   kept,
+  pending = [],
   onSkip,
   onInclude,
   onClose,
@@ -99,6 +100,8 @@ export function IndexScope({
   note: string;
   actionFor: (rule: ScopeRule) => RuleAction;
   kept: { path: string; undo?: () => void }[];
+  /** Edits held for setup that are not rules yet, such as a refused path. */
+  pending?: { label: string; path: string; undo: () => void }[];
   onSkip: (path: string) => void;
   onInclude: (path: string) => void;
   onClose: () => void;
@@ -152,6 +155,23 @@ export function IndexScope({
       {error && (
         <p className="error-text" role="alert">
           {error.message}
+        </p>
+      )}
+      {pending.length > 0 && (
+        <p className="scope-kept">
+          <span className="hint">Not in the rules yet:</span>{" "}
+          {pending.map((item) => (
+            <span key={`${item.label}:${item.path}`} className="kept-path">
+              {item.label} <code>{item.path}</code>
+              <button
+                className="row-action"
+                aria-label={`Undo ${item.label.toLowerCase()}: ${item.path}`}
+                onClick={item.undo}
+              >
+                Undo
+              </button>
+            </span>
+          ))}
         </p>
       )}
       {layers.map(({ layer, title, hint }) => {

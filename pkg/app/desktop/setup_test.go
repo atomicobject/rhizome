@@ -75,7 +75,7 @@ func TestInitializeKeyIsOnlyOnStdinAndTrustFollowsConfiguration(t *testing.T) {
 	}{
 		{"success", `echo '{"schema":1,"summary":["ready"],"savedKey":"VOYAGE_API_KEY","pin":{}}'`, true, ""},
 		{"pin failure", `echo '{"schema":1,"summary":["ready"],"pin":{"error":"download failed"}}'; exit 1`, true, ""},
-		{"partial error", `echo '{"schema":1,"error":{"code":"write_failed","message":"later write failed"},"savedKey":"VOYAGE_API_KEY"}'; exit 1`, true, "setup_failed"},
+		{"partial error", `echo '{"schema":1,"error":{"code":"write_failed","message":"later write failed"},"savedKey":"VOYAGE_API_KEY"}'; exit 1`, true, "setup_partial"},
 		{"no writes", `echo '{"schema":1,"error":{"code":"write_failed","message":"no writes"}}'; exit 1`, false, "setup_failed"},
 	} {
 		t.Run(outcome.name, func(t *testing.T) {
@@ -99,7 +99,7 @@ func TestInitializeKeyIsOnlyOnStdinAndTrustFollowsConfiguration(t *testing.T) {
 			} else {
 				require.Equal(t, outcome.wantCode, response.Error.Code)
 				if outcome.name == "partial error" {
-					require.Equal(t, "later write failed The key stays saved in ~/.config/rhizome/config.yml.", response.Error.Message)
+					require.Equal(t, "later write failed The key stays saved in ~/.config/rhizome/config.yml. Rhizome wrote part of the setup; open the workspace to continue.", response.Error.Message)
 				}
 			}
 			data, err := json.Marshal(response)

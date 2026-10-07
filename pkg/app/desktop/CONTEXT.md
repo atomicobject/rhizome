@@ -48,7 +48,10 @@ installation. `protocol.go` bounds input and returns protocol 1 responses on bot
   `--search-key-stdin`. After any initialization run, configuration that now
   exists causes trust to be recorded through Trust at the canonical root.
   A pin-only install failure remains a setup result; JSON error documents become
-  `setup_failed` problems, including guidance when a key stays saved.
+  `setup_failed` problems, including guidance when a key stays saved, or
+  `setup_partial` when the folder is configured after the failed run, so the
+  shell offers opening instead of a setup that can no longer run. A run that
+  outlives its deadline reports that it timed out.
 - Scope and scope-edit require configuration and trust, prepare the worktree's
   selected executable, and probe `index scope --help` for `--remove-rule` before
   running `index scope --json`. JSON documents pass through; error documents

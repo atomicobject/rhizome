@@ -31,12 +31,13 @@ Excluded: the rerun maintenance from the app, the path tester, and the other exc
 
 ## Spec Coverage Checklist
 
-- [ ] `rzm init --json` report (with planned rules) and apply results, the JSON error contract, `--addons`, `--skip`, `--keep-indexed`, and `--search-key-stdin`.
-- [ ] `rzm index scope` report across four layers for configured folders, and all-or-nothing edits.
-- [ ] Bridge operations, capability probe, key handling, trust after success, and worktree serialization.
-- [ ] Setup sheet: findings, choices, the Writes row, progress, summary, and errors.
-- [ ] What gets indexed page before and after setup, opened from the sheet and the repository menu.
-- [ ] Go, Rust, and shell tests; native verification on a fixture repository; documentation; independent review; pull request.
+- [x] `rzm init --json` report (with planned rules) and apply results, the JSON error contract, `--addons`, `--skip`, `--keep-indexed`, and `--search-key-stdin`.
+- [x] `rzm index scope` report across four layers for configured folders, and all-or-nothing edits.
+- [x] Bridge operations, capability probe, key handling, trust after success, and worktree serialization.
+- [x] Setup sheet: findings, choices, the Writes row, progress, summary, and errors.
+- [x] What gets indexed page before and after setup, opened from the sheet and the repository menu.
+- [x] Go, Rust, and shell tests; native verification on a fixture repository (bridge level; UI click-through pending, see Execution Notes); documentation; independent review.
+- [ ] Pull request opened and linked.
 
 ## Plan
 
@@ -78,7 +79,9 @@ Rhizome Desktop sets up an unconfigured worktree from one reviewed sheet with th
 
 ## Actual Delivered
 
-Not started.
+`rzm init --check --json` reports a first run's findings, every choice with its recommendation, the pin, the planned index rules, and the files it would write. `rzm init --json` applies the given choices and reports what it wrote. First-run options `--addons`, `--skip`, `--keep-indexed`, and `--search-key-stdin` (pipe only) complete the set the desktop sheet offers. `rzm index scope` lists every ignore rule by layer, including rules inherited from `.gitignore`, and edits `.rhizome/ignore` all or nothing. Init plans and writes `.rhizome/ignore` through the same transforms, so planned rules equal written ones.
+
+Rhizome Desktop shows an unconfigured worktree a setup sheet built from that report: findings; workflow and add-ons; agents with why each is recommended; search with an optional key sent only on stdin; ignored nested repositories; and the files setup writes, refreshed as choices change. Set up writes everything in one `rzm init` run, records trust whenever the folder is configured afterward, and shows the terminal's summary, including a pinned-install failure. The What gets indexed page opens from the sheet's Skip row before setup, holding edits as init options, and from the repository menu afterward, writing each edit through the worktree's own Rhizome. An executable without these contracts gets an update prompt.
 
 ## Execution Notes
 
@@ -87,6 +90,11 @@ Not started.
 - 2026-10-06: Batch 1 implemented. `pkg/vault/ignore` gained `LoadMatcherWithRhizomeLines` and `Matcher.Rules` (pruned walk for nested `.gitignore`). `pkg/app/cli/init` gained `Plan` and `Apply` (`first_run_json.go`), first-run options (`first_run_options.go`: `--addons`, `--skip`, `--keep-indexed`, `ErrNotFirstRun`), and the scope model (`scope.go`). `Run` now shares `start` and `prepareFirstRun` with them. The three `.rhizome/ignore` writers became pure transforms that `apply` and the plan share through `plannedIgnore`. `promptWorkflow` and `workflowLabel` read one `workflowChoices` table, `setupSummaryLines` and `commitPaths` came out of the printers, and the Action items starter gained a `description`. `cmd/init.go` added `--json`, `--addons`, `--skip`, `--keep-indexed`, and `--search-key-stdin` (pipe only, refused from a terminal), and `cmd/index_scope.go` added `rzm index scope`. Evidence: `go test ./cmd/... ./pkg/app/cli/... ./pkg/vault/ignore/...` passed; `make check-fast` passed after `npm ci` in `web/`; `make build`, then `rzm init` (updated only the two generated `index-scope.md` copies), then `rzm init --check` exited 0; `./scripts/rzm validate` and `frozen-scope-drift` were clean. On a fixture repository with a nested repository that `.gitignore` excludes, `rzm init --check --json`, then `rzm init --json` with non-default choices, then `rzm init --check` exited 0. `rzm index scope` read and edited the rules, and the error documents matched the spec. The pinned download still returns 404 because no release is published; it is reported in `pin.error` with exit 1.
 - 2026-10-06: An independent review of the Batch 1 code (Claude Fable advisor) found no regressions in the terminal paths, no key exposure, and clean JSON stdout. Fixed: `--addons` ids are now checked before any write, including a piped key; the plan's Writes files and the result's created and updated lists name `.rhizome/config.yml`, `.rhizome/workflows.yml`, and `.rhizome/ignore`; and a `.rhizome/ignore` with comments but no rules keeps its comments when the built-in list is written ahead of the first rule. That last fix also corrects a pre-existing case where init's first skip or include in such a file silently dropped the built-in list. Recheck: init, ignore, and `cmd` tests and `make check-fast` passed.
 - 2026-10-07T09:59:22Z: Foundation review. Drew confirmed the four Batch 1 decisions after reviewing real JSON samples of the setup plan, the apply result, the failure document, and the scope report ("yes"). Batches 2 and 3 start in parallel: a delegated worker builds the bridge and native layer in a separate worktree against the shared request contract, and the shell is built in this checkout.
+- 2026-10-07: Batch 2 delegated to GPT-6.1-Sol (high) in a separate worktree (`t3/843b0a8b-bridge`) against a written request contract, then reviewed and cherry-picked (`b7fd0bfe`, `ec77364f`). `pkg/app/desktop/setup.go` adds `setup-report`, `initialize` with choices and a stdin key, `scope`, and `scope-edit`. It runs capability probes (`setup_unsupported`), returns `trust_required` before running anything, and records trust whenever the folder is configured after the run. Key handling has layers: the key goes on stdin only, an echoed key is redacted, and a response containing the key is discarded. The Rust native layer adds the four `Action` variants through `worktree_action`, with the key in a redacting `Secret` type; `Desktop` moved to `commands/state.rs` to keep `commands.rs` under the size guideline. The worker ran `go test ./pkg/app/desktop/...`, `cargo fmt --check`, `cargo test --locked` (52 passed), clippy, `npm run check`, and `make check`. A follow-up commit (`12eb3de9`) names the scope capability in the unsupported message for scope operations.
+- 2026-10-07: Batch 3 built in this checkout: `desktop/src/SetupSheet.tsx`, `desktop/src/IndexScope.tsx` (the page plus the configured-mode `ScopePage`), types in `api.ts`, wiring in `App.tsx` (the setup step renders the sheet, the repository menu gains "What Gets Indexed…", and the page covers the content area as Settings does), and styles. A browser pass with a temporary harness that fakes the native layer with real `rzm` output covered every state at 1280 and 1440 widths. It led to two changes: long runs of plain rules collapse to "Show N more", and row actions stay quiet until the row is hovered or focused. `npm run check` passed with 34 tests.
+- 2026-10-07: Batch 4 verification. `make check`, `make desktop-check`, `make build`, and `make desktop-build` passed. The packaged app launched with `RHIZOME_DESKTOP_DATA_DIR` set to a temporary directory, and `rzm desktop` added an unconfigured Git fixture with a nested repository that `.gitignore` excludes. This session has no accessibility or screen-recording access to other apps, so the packaged app's UI could not be clicked or captured. Verification therefore drove the packaged app's own bridge with the JSON requests its native layer sends. The global 0.50.5 executable returned `setup_unsupported`. With the current build, `setup-report` with non-default choices (domain workflow, no add-ons, Claude Code and Cursor, search off, the nested repository included, one skip, one declined suggestion) wrote nothing and returned the matching plan. `initialize` returned the summary and the expected pin 404, and the folder was configured and trusted. All 174 written files, including `.rhizome/ignore` and `workflows.yml`, were byte-identical to a terminal `rzm init --json` with the same options. `scope` reported the gitignore layer (with the nested `web/.gitignore` folder). `scope-edit` produced a `.rhizome/ignore` identical to the terminal `rzm index scope` with the same edits, and an unknown rule returned `scope_failed`. With the pinned binary placed where a release install puts it, a relaunched app opened the worktree on its own, with no trust prompt, and its headless runtime reported ready and built `db.sqlite`. Cleanup stopped the runtime, quit the app, and revoked the fixture's trust entry. No search key was sent natively, because saving one would overwrite the real key in the global configuration; unit tests cover stdin key handling.
+- 2026-10-07: Native verification found an integration bug the worker's fixtures missed: the bridge decoded the plan's `pin` (a version string) as the result's object, so every real report failed. It was fixed in `8c2a7107` with a regression test using the real document shape. Remaining gap: a manual click-through of the packaged app's sheet, page, and menu item on a machine with GUI access.
+- 2026-10-07: The final independent review (Claude Fable advisor) of the whole branch returned "ship after fix 1". It verified the bridge-to-rzm contract field by field, key handling, trust semantics, locking shared with the open pipeline, and timeouts under the native 300-second limit. Fixed: (1) a held skip or include that rzm refuses is now listed on the What gets indexed page with Undo, so a bad path no longer locks the sheet; (2) a failed setup that left the folder configured returns `setup_partial`, and the sheet offers only Open workspace; (3) removing a repository while its page is open closes the page; (4) a run that times out says so. Recheck: `go test ./pkg/app/desktop/...` and `npm run check` (36 tests) passed.
 
 ## Deviations
 
@@ -95,10 +103,10 @@ Not started.
 
 ## Closure Checklist
 
-- [ ] Spec coverage checklist complete, with evidence in Execution Notes.
-- [ ] `make check`, `make desktop-check`, `make desktop-build`, and the generated-surfaces gate pass.
-- [ ] Native verification recorded with screenshots.
-- [ ] `./scripts/rzm validate` and `frozen-scope-drift` clean, with deviations recorded for SPEC-0113 and SPEC-0038.
+- [x] Spec coverage checklist complete, with evidence in Execution Notes.
+- [x] `make check`, `make desktop-check`, `make desktop-build`, and the generated-surfaces gate pass.
+- [ ] Native verification recorded with screenshots. Browser screenshots of every state with real rzm output and bridge-level packaged-app verification are recorded; packaged-app UI screenshots need a session with GUI access.
+- [x] `./scripts/rzm validate` and `frozen-scope-drift` clean, with deviations recorded for SPEC-0113 and SPEC-0038.
 - [ ] Independent review resolved, and the pull request opened and linked.
 
 ## Compounding Follow-ups
@@ -107,4 +115,4 @@ None yet.
 
 ## Status
 
-Active. Batch 1 committed (8d63d3d6) and confirmed in foundation review; Batches 2 and 3 in progress.
+Active. All four batches implemented and verified; final review and pull request in progress. A manual click-through of the packaged app UI remains.

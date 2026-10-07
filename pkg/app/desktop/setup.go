@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -135,6 +136,14 @@ func (s *Service) Initialize(ctx context.Context, req Request) (InitializeResult
 		folder, err = s.Trust(folder.Path)
 	}
 	if runErr != nil {
+		// The folder is configured now, so setup cannot run again; opening it
+		// continues through the normal open steps.
+		if err == nil && folder.Configured {
+			var failed *Problem
+			if errors.As(runErr, &failed) {
+				return InitializeResult{}, problem("setup_partial", failed.Message+" Rhizome wrote part of the setup; open the workspace to continue.")
+			}
+		}
 		return InitializeResult{}, runErr
 	}
 	if err != nil {
@@ -204,6 +213,9 @@ func runSetupJSON(ctx context.Context, target, folder string, args []string, key
 		if runErr == nil || (allowPinFailure && pinFailed(doc.Pin) && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1) {
 			return json.RawMessage(raw), nil
 		}
+	}
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return nil, problem(failureCode, "Rhizome took too long and was stopped. Try again.")
 	}
 	status := "exit status 0"
 	if runErr != nil {

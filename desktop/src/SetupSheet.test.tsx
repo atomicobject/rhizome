@@ -257,6 +257,46 @@ describe("setup sheet", () => {
     );
   });
 
+  it("lets a refused held edit be undone", async () => {
+    serve({
+      "setup-report": (args) => {
+        const { choices } = args as { choices?: { skip: string[] } };
+        if (choices?.skip.includes("nope")) {
+          throw {
+            code: "setup_failed",
+            message: "nope is not a folder or file in this repository",
+          };
+        }
+        return plan;
+      },
+    });
+    sheet();
+    fireEvent.click(await screen.findByRole("button", { name: "What gets indexed…" }));
+    fireEvent.change(screen.getByLabelText("Folder or file"), { target: { value: "nope" } });
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("nope is not a folder or file");
+
+    fireEvent.click(screen.getByRole("button", { name: "Undo skip: nope" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Back to setup" }));
+    expect(screen.getByRole("button", { name: "Set up Rhizome" })).toBeEnabled();
+  });
+
+  it("offers only Open workspace when setup wrote part of the configuration", async () => {
+    serve({
+      initialize: () => {
+        throw { code: "setup_partial", message: "later write failed" };
+      },
+    });
+    const { onOpen } = sheet();
+    fireEvent.click(await screen.findByRole("button", { name: "Set up Rhizome" }));
+    expect(await screen.findByText("Setup failed: later write failed")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(calls("setup-report")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Open workspace" }));
+    expect(onOpen).toHaveBeenCalled();
+  });
+
   it("keeps the sheet and its choices when setup fails", async () => {
     serve({
       initialize: () => {

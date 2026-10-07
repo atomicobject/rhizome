@@ -122,8 +122,11 @@ export function SetupSheet({
       if (alive.current) setResult(done.result);
     } catch (cause) {
       if (!alive.current) return;
-      setSetupError(failure(cause));
-      void report(choices);
+      const problem = failure(cause);
+      setSetupError(problem);
+      // A key saved before the failure changes readiness; a partial setup
+      // has configured the folder, so there is no report to refresh.
+      if (problem.code !== "setup_partial") void report(choices);
     } finally {
       if (alive.current) setStarted(null);
     }
@@ -256,8 +259,26 @@ export function SetupSheet({
   };
 
   if (view === "scope") {
+    const ruled = new Set(
+      plan.scope.rules.filter((r) => r.layer === "rhizome").map((r) => rulePath(r.pattern)),
+    );
+    const unruled = (list: string[]) => list.filter((value) => !ruled.has(rulePath(value)));
+    const pending = [
+      ...unruled(choices.skip).map((path) => ({
+        label: "Skip",
+        path,
+        undo: () => change({ ...choices, skip: choices.skip.filter((v) => v !== path) }),
+      })),
+      ...unruled(choices.includeIgnored).map((path) => ({
+        label: "Index",
+        path,
+        undo: () =>
+          change({ ...choices, includeIgnored: choices.includeIgnored.filter((v) => v !== path) }),
+      })),
+    ];
     return (
       <IndexScope
+        pending={pending}
         name={plan.name}
         path={plan.root}
         scope={plan.scope}
@@ -282,6 +303,8 @@ export function SetupSheet({
   const provider = plan.search.providers.find((p) => p.id === choices.search);
   const needsKey = !!provider?.key && !provider.ready;
   const running = started !== null;
+  // Setup wrote part of the configuration, so it cannot run again here.
+  const partial = setupError?.code === "setup_partial";
 
   return (
     <section className="setup-sheet" aria-labelledby="setup-title">
@@ -508,11 +531,15 @@ export function SetupSheet({
       {setupError && (
         <div className="setup-error" role="alert">
           <p className="error-text">Setup failed: {setupError.message}</p>
-          <button onClick={onOpen}>Open workspace</button>
+          {partial && (
+            <button className="primary" onClick={onOpen}>
+              Open workspace
+            </button>
+          )}
         </div>
       )}
       <div className="setup-actions">
-        {running ? (
+        {partial ? null : running ? (
           <span className="setup-running" role="status" aria-live="polite">
             <span className="spinner" aria-hidden="true" />
             Setting up Rhizome… <Elapsed started={started} />
