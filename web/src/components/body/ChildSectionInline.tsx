@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { isContentNode, type NodeBodyBlock, type WorkspaceNode } from "../../api/types";
 import { BodyWalker } from "./BodyWalker";
 import { structuralNodeFromWorkspace } from "./childIdentity";
+import { ChildSectionRouter } from "./ChildSectionRouter";
 import { NarrativeView } from "./NarrativeView";
 import type { BodyRendererProps } from "./registry";
 
@@ -52,37 +53,40 @@ export function ChildSectionInline({ block, context }: BodyRendererProps) {
             </button>
           ),
         )}
-      {projected ? (
-        <BodyWalker node={child} context={context} />
-      ) : (
-        // The server projects blocks for every inline section up to its
-        // body cap. Past it, sections still carry their markdown, so they
-        // read from that; editing happens when the section opens as a node.
-        markdownBody(child, context).map((part, index) =>
-          part.kind === "narrative" ? (
-            <NarrativeView
-              key="narrative"
-              block={part}
-              kindOrdinal={0}
-              node={child}
-              context={context}
-            />
-          ) : (
-            <ChildSectionInline
-              key={part.childRef?.nodeId || index}
-              block={part}
-              kindOrdinal={index}
-              node={child}
-              context={context}
-            />
-          ),
-        )
-      )}
+      <ChildSectionBody child={child} context={context} />
     </section>
   );
 }
 
-function hasBodyBlocks(node: WorkspaceNode): boolean {
+/** A child section's body: its projected blocks, or its markdown past the body cap. */
+export function ChildSectionBody({
+  child,
+  context,
+}: {
+  child: WorkspaceNode;
+  context: BodyRendererProps["context"];
+}) {
+  if (hasBodyBlocks(child)) return <BodyWalker node={child} context={context} />;
+
+  // The server projects blocks for every inline section up to its body cap.
+  // Past it, sections still carry their markdown, so they read from that;
+  // editing happens when the section opens as a node.
+  return markdownBody(child, context).map((part, index) =>
+    part.kind === "narrative" ? (
+      <NarrativeView key="narrative" block={part} kindOrdinal={0} node={child} context={context} />
+    ) : (
+      <ChildSectionRouter
+        key={part.childRef?.nodeId || index}
+        block={part}
+        kindOrdinal={index}
+        node={child}
+        context={context}
+      />
+    ),
+  );
+}
+
+export function hasBodyBlocks(node: WorkspaceNode): boolean {
   return (node.body || []).some((block) => block.kind !== "inline_field");
 }
 
@@ -134,14 +138,14 @@ function markdownBody(
   return blocks;
 }
 
-function headingTag(node: WorkspaceNode): string {
+export function headingTag(node: WorkspaceNode): string {
   const level = isContentNode(node) ? node.data.level : undefined;
   const depth = Number(level?.match(/^H([1-6])$/i)?.[1] ?? 2);
 
   return `h${depth}`;
 }
 
-function resolveChild(
+export function resolveChild(
   nodeId: string | undefined,
   context: BodyRendererProps["context"],
 ): WorkspaceNode | undefined {

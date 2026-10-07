@@ -827,6 +827,7 @@ type NodeRelationItem {
   resolvedType: String
   relationName: String
   provenance: String
+  direction: TraversalDirection
   structural: Boolean!
   current: Boolean!
 }

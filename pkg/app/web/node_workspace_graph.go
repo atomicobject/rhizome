@@ -273,10 +273,10 @@ func fieldDocsByName(typeDoc *ontology.TypeDoc) map[string]ontology.FieldDoc {
 }
 
 // attachFocusedBody projects the body block list for the node the pane is
-// currently rendering plus any child-section descendants that render inline
-// (declared INLINE or undeclared headings). Compact
-// collection/link rows do not need bodies, but ChildSectionInline recurses
-// through BodyWalker and therefore needs the child node's Body populated.
+// currently rendering plus every child-section descendant (INLINE sections
+// and undeclared headings read open, PANE sections as collapsed disclosures).
+// Compact collection rows do not need bodies, but the section renderers
+// recurse through BodyWalker and therefore need the child node's Body.
 func (b *workspaceGraphBuilder) attachFocusedBody(focusedID string) {
 	if b.snapshot == nil || b.schema == nil {
 		return

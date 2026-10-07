@@ -240,7 +240,9 @@ function workspaceWithSectionsAndNearby(): NodeWorkspace {
 }
 
 function groupSection(title: string): HTMLElement {
-  const section = screen.getByRole("heading", { name: title }).closest("section");
+  const section = screen
+    .getByRole("heading", { name: (name) => name.replace(/\d+$/, "") === title })
+    .closest("section");
 
   if (!section) throw new Error(`no sidebar section rendered for ${title}`);
 
@@ -252,7 +254,7 @@ describe("NotesSidebarInfo", () => {
     const onOpen = vi.fn();
     render(<NotesSidebarInfo workspace={workspaceWithEmbeddedRelation()} onOpen={onOpen} />);
 
-    const link = within(groupSection("Related notes")).getByRole("button", {
+    const link = within(groupSection("Relations")).getByRole("button", {
       name: "Decide rain-date contingency by end of May",
     });
 
@@ -260,6 +262,113 @@ describe("NotesSidebarInfo", () => {
 
     fireEvent.click(link);
     expect(onOpen).toHaveBeenCalledWith("docs/playground/pizza-party-2026.md#item-1030", "stack");
+  });
+
+  it("groups field relations by direction and merges body links and backlinks per note", () => {
+    const workspace = workspaceWithEmbeddedRelation();
+    workspace.relations = [
+      {
+        key: "structural",
+        label: "Structural relations",
+        items: [
+          {
+            path: "ideas/a.md",
+            title: "Idea A",
+            kind: "note",
+            resolvedType: "Idea",
+            relationName: "opportunities",
+            provenance: "field",
+            direction: "incoming",
+            structural: true,
+          },
+          {
+            path: "impacts/b.md",
+            title: "Impact B",
+            kind: "note",
+            resolvedType: "Impact",
+            relationName: "impacts",
+            provenance: "field",
+            direction: "outgoing",
+            structural: true,
+          },
+        ],
+      },
+      {
+        key: "ambient",
+        label: "Ambient relations",
+        items: [
+          { path: "ideas/a.md", title: "Idea A", kind: "note", relationName: "related" },
+          {
+            path: "people/c.md",
+            title: "Person C",
+            kind: "note",
+            resolvedType: "Person",
+            relationName: "related",
+            provenance: "body_link",
+            direction: "outgoing",
+          },
+          {
+            path: "people/c.md",
+            title: "Person C",
+            kind: "note",
+            resolvedType: "Person",
+            relationName: "related",
+            provenance: "backlink",
+            direction: "incoming",
+          },
+        ],
+      },
+      {
+        key: "backlinks",
+        label: "Backlinks",
+        items: [
+          { path: "Log/2026-10-01.md", title: "2026-10-01", kind: "note", direction: "incoming" },
+          {
+            path: "Log/2026-10-02.md",
+            title: "2026-10-02",
+            kind: "note",
+            provenance: "backlink",
+            direction: "outgoing",
+          },
+        ],
+      },
+    ];
+    render(<NotesSidebarInfo workspace={workspace} onOpen={vi.fn()} />);
+
+    const relations = groupSection("Relations");
+    expect(relations).toHaveTextContent(/←\s*Opportunities\s*Links here\s*Idea\s*1\s*Idea A/);
+    expect(relations).toHaveTextContent(/Impacts\s*→\s*Links to\s*Impact\s*1\s*Impact B/);
+
+    const linked = groupSection("Linked notes");
+    expect(within(linked).queryByRole("button", { name: "Idea A" })).toBeNull();
+    // An explicit direction wins over the legacy backlink-provenance fallback.
+    expect(within(linked).getByRole("img", { name: "Links to" })).toBeTruthy();
+    expect(within(linked).getAllByRole("button", { name: "Person C" })).toHaveLength(1);
+    expect(within(linked).getByRole("img", { name: "Linked both ways" })).toBeTruthy();
+    expect(linked).toHaveTextContent("Person");
+    expect(linked).toHaveTextContent("Log/");
+  });
+
+  it("collapses long buckets behind a toggle", () => {
+    const workspace = workspaceWithEmbeddedRelation();
+    workspace.relations = [
+      {
+        key: "backlinks",
+        label: "Backlinks",
+        items: Array.from({ length: 8 }, (_, index) => ({
+          path: `Log/day-${index}.md`,
+          title: `Day ${index}`,
+          kind: "note",
+          direction: "incoming" as const,
+        })),
+      },
+    ];
+    render(<NotesSidebarInfo workspace={workspace} onOpen={vi.fn()} />);
+
+    const linked = groupSection("Linked notes");
+    expect(within(linked).getAllByRole("listitem")).toHaveLength(5);
+    fireEvent.click(within(linked).getByRole("button", { name: "3 more" }));
+    expect(within(linked).getAllByRole("listitem")).toHaveLength(8);
   });
 
   it("renders schema-declared workspace navigation separately and marks the current member", () => {
@@ -277,11 +386,11 @@ describe("NotesSidebarInfo", () => {
       "Plan details",
     );
 
-    const related = groupSection("Related notes");
+    const related = groupSection("Relations");
     expect(
       within(related).getByRole("button", { name: "Governing product behavior" }),
     ).toBeTruthy();
-    expect(related).toHaveTextContent("Governing specs · 1");
+    expect(related).toHaveTextContent("Governing specs");
     expect(within(related).queryByRole("button", { name: "Implementation plan" })).toBeNull();
 
     fireEvent.click(within(navigation).getByRole("button", { name: "Work log" }));
@@ -321,7 +430,7 @@ describe("NotesSidebarInfo note previews", () => {
 
     const view = renderSidebar(workspaceWithEmbeddedRelation());
 
-    const button = within(groupSection("Related notes")).getByRole("button", {
+    const button = within(groupSection("Relations")).getByRole("button", {
       name: "Decide rain-date contingency by end of May",
     });
 
@@ -359,7 +468,7 @@ describe("NotesSidebarInfo note previews", () => {
     workspace.relations![0].items![0].path = "docs/playground/pizza-party-2026.md#item-1030";
     const view = renderSidebar(workspace);
 
-    const button = within(groupSection("Related notes")).getByRole("button", {
+    const button = within(groupSection("Relations")).getByRole("button", {
       name: "Decide rain-date contingency by end of May",
     });
 
@@ -380,8 +489,8 @@ describe("NotesSidebarInfo note previews", () => {
     http.json("GET", "/api/v1/nodes/preview", preview);
     const view = renderSidebar(workspaceWithSectionsAndNearby());
 
-    const section = within(groupSection("Sections")).getByRole("button", {
-      name: "supportingSections",
+    const section = within(groupSection("Relations")).getByRole("button", {
+      name: "Old section heading",
     });
 
     fireEvent.mouseEnter(section);
@@ -432,7 +541,7 @@ describe("NotesSidebarInfo note previews", () => {
 
     renderSidebar(workspaceWithEmbeddedRelation());
 
-    const button = within(groupSection("Related notes")).getByRole("button", {
+    const button = within(groupSection("Relations")).getByRole("button", {
       name: "Decide rain-date contingency by end of May",
     });
 
@@ -451,7 +560,7 @@ describe("NotesSidebarInfo note previews", () => {
     http.json("GET", "/api/v1/nodes/preview", preview);
     const view = renderSidebar(workspaceWithEmbeddedRelation());
 
-    const button = within(groupSection("Related notes")).getByRole("button", {
+    const button = within(groupSection("Relations")).getByRole("button", {
       name: "Decide rain-date contingency by end of May",
     });
 

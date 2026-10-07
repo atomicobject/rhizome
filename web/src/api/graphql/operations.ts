@@ -590,6 +590,7 @@ export const PUBLIC_NODE_DETAIL_QUERY = /* GraphQL */ `
             resolvedType
             relationName
             provenance
+            direction
             structural
             current
           }

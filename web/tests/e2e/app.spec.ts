@@ -250,10 +250,13 @@ test("edits and restores Atomic narrative markdown", async ({ context, page }) =
   ).toBeVisible();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
 
+  // The Requirements section edits in place once expanded; no drill-in.
   const notePane = page.getByRole("article").first();
-  await notePane.getByRole("button", { name: /requirements-section Requirements/ }).click();
+  const requirements = notePane.locator('details.body-disclosure[data-field="requirements"]');
+  await requirements.locator("> summary").click();
+  await expect(requirements).toHaveAttribute("open");
 
-  const editor = page.locator(".body-narrative--editor").last().getByRole("textbox", {
+  const editor = requirements.locator(".body-narrative--editor").first().getByRole("textbox", {
     name: "Narrative markdown",
   });
 

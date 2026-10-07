@@ -19,7 +19,8 @@ const (
 	NodeBodyBlockKindInlineField NodeBodyBlockKind = "inline_field"
 	// NodeBodyBlockKindChildSection is a single non-list child section or
 	// embedded node. SectionDisplay (from the parent's @contains binding)
-	// tells the walker whether to recurse inline or render an open-pane link.
+	// tells the walker whether the section reads open (INLINE) or as a
+	// collapsed disclosure (PANE); both render their body in place.
 	NodeBodyBlockKindChildSection NodeBodyBlockKind = "child_section"
 	// NodeBodyBlockKindCollection groups consecutive list-bound siblings under
 	// one block so the UI can render them as one typed collection (searchable
@@ -49,10 +50,11 @@ func (b NodeBodyBlock) Undeclared() bool {
 }
 
 // RendersInline reports whether a child_section block's body belongs inside
-// its parent's body: declared INLINE sections and undeclared headings.
+// its parent's body. Every child section does: INLINE sections and undeclared
+// headings read open, and PANE sections read as collapsed disclosures that
+// still edit in place. Collection items stay rows that open as their own node.
 func (b NodeBodyBlock) RendersInline() bool {
-	return b.Kind == NodeBodyBlockKindChildSection && b.ChildRef != nil &&
-		(b.SectionDisplay == SectionDisplayInline || b.FieldName == "")
+	return b.Kind == NodeBodyBlockKindChildSection && b.ChildRef != nil
 }
 
 // BuildNodeBody emits the ordered sequence of body blocks for a projection.

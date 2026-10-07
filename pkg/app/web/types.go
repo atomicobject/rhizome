@@ -958,10 +958,28 @@ type NoteWorkspaceLink struct {
 	StructuralNode *StructuralNodeResponse `json:"structuralNode,omitempty"`
 	RelationName   string                  `json:"relationName,omitempty"`
 	Provenance     string                  `json:"provenance,omitempty"`
+	Direction      string                  `json:"direction,omitempty"`
 	Structural     bool                    `json:"structural,omitempty"`
 	Current        bool                    `json:"current,omitempty"`
 	Score          float64                 `json:"score,omitempty"`
 	Summary        string                  `json:"summary,omitempty"`
+}
+
+// Direction values for NoteWorkspaceLink: whether the focused note points at
+// the target or the target points at the focused note.
+const (
+	linkDirectionOutgoing = "outgoing"
+	linkDirectionIncoming = "incoming"
+)
+
+// workspaceLinkDirection reports which way the authored link runs given the
+// edge's orientation relative to the focused note. The index mirrors every
+// body link A→B with a synthetic B→A edge whose provenance is "backlink".
+func workspaceLinkDirection(inbound bool, provenance string) string {
+	if inbound != (provenance == "backlink") {
+		return linkDirectionIncoming
+	}
+	return linkDirectionOutgoing
 }
 
 // ResolvedLink represents a parsed markdown or wikilink.

@@ -541,7 +541,9 @@ func (e *executor) resolveWorkspaceStructure(item workspaceStructureNode, set as
 type workspaceRelationItem struct {
 	Ref                                                                   ontology.NodeRef
 	Title, TargetTitle, RoleLabel, ResolvedType, RelationName, Provenance string
-	Structural, Current                                                   bool
+	// Direction is relative to the workspace source; empty for navigation.
+	Direction           noderead.TraversalDirection
+	Structural, Current bool
 }
 type workspaceRelationGroup struct {
 	Key, Label, OwnerTitle string
@@ -571,12 +573,13 @@ func (e *executor) workspaceRelationGroups(ctx context.Context, source ontology.
 	groups := map[bool][]workspaceRelationItem{true: {}, false: {}}
 	seen := make(map[string]struct{})
 	for _, edge := range result.Edges {
-		key := edge.Target.String() + "\x00" + edge.RelationName + "\x00" + edge.Provenance
+		direction := workspaceLinkDirection(edge.Direction, edge.Provenance)
+		key := edge.Target.String() + "\x00" + edge.RelationName + "\x00" + edge.Provenance + "\x00" + string(direction)
 		if _, ok := seen[key]; ok {
 			continue
 		}
 		seen[key] = struct{}{}
-		groups[edge.Structural] = append(groups[edge.Structural], workspaceRelationItem{Ref: edge.Target, Title: workspaceRefTitle(edge.Target), ResolvedType: edge.TargetType, RelationName: edge.RelationName, Provenance: edge.Provenance, Structural: edge.Structural})
+		groups[edge.Structural] = append(groups[edge.Structural], workspaceRelationItem{Ref: edge.Target, Title: workspaceRefTitle(edge.Target), ResolvedType: edge.TargetType, RelationName: edge.RelationName, Provenance: edge.Provenance, Direction: direction, Structural: edge.Structural})
 	}
 	var out []workspaceRelationGroup
 	for _, structural := range []bool{true, false} {
@@ -609,12 +612,14 @@ func (e *executor) workspaceRelationGroups(ctx context.Context, source ontology.
 		}
 		otherID := ""
 		groupKey := ""
+		direction := noderead.TraversalDirectionOutbound
 		if _, ok := sourceIDs[edge.Source]; ok {
 			otherID = edge.Target
 			groupKey = "connected"
 		} else if _, ok := sourceIDs[edge.Target]; ok {
 			otherID = edge.Source
 			groupKey = "backlinks"
+			direction = noderead.TraversalDirectionInbound
 		} else {
 			continue
 		}
@@ -637,6 +642,7 @@ func (e *executor) workspaceRelationGroups(ctx context.Context, source ontology.
 			ResolvedType: other.TypeName,
 			RelationName: edge.RelationName,
 			Provenance:   firstNonEmpty(edge.Provenance, edge.Kind),
+			Direction:    direction,
 			Structural:   edge.Structural,
 		})
 	}
@@ -685,6 +691,23 @@ func (e *executor) workspaceRelationGroups(ctx context.Context, source ontology.
 		})
 	}
 	return out
+}
+
+// workspaceLinkDirection reports which way the authored link runs. The index
+// mirrors every body link A→B with a synthetic B→A edge whose provenance is
+// "backlink", so that edge's traversal direction is the reverse of the link's.
+func workspaceLinkDirection(traversal noderead.TraversalDirection, provenance string) noderead.TraversalDirection {
+	if provenance != "backlink" {
+		return traversal
+	}
+	switch traversal {
+	case noderead.TraversalDirectionOutbound:
+		return noderead.TraversalDirectionInbound
+	case noderead.TraversalDirectionInbound:
+		return noderead.TraversalDirectionOutbound
+	default:
+		return traversal
+	}
 }
 
 func workspaceNavigationRefSet(groups []workspaceRelationGroup) map[string]struct{} {
@@ -1145,6 +1168,12 @@ func (e *executor) resolveWorkspaceRelationGroup(item workspaceRelationGroup, se
 						entry[childKey] = emptyNil(value.RelationName)
 					case "provenance":
 						entry[childKey] = emptyNil(value.Provenance)
+					case "direction":
+						if value.Direction == "" {
+							entry[childKey] = nil
+						} else {
+							entry[childKey] = traversalDirectionGraphQLValue(value.Direction)
+						}
 					case "structural":
 						entry[childKey] = value.Structural
 					case "current":

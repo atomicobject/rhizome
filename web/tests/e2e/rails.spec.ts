@@ -64,7 +64,7 @@ test("keeps context scoped to the active note while relations open beside it", a
   await expect(contextTabs).toBeVisible();
   await contextTabs.getByRole("tab", { name: "Info", exact: true }).click();
   const context = page.getByRole("complementary", { name: "Note context" });
-  const related = context.getByRole("heading", { name: "Related notes" }).locator("..");
+  const related = context.getByRole("region", { name: "Focused note context" });
   await related
     .getByRole("button", { name: "Engineering", exact: true })
     .first()
@@ -75,9 +75,12 @@ test("keeps context scoped to the active note while relations open beside it", a
     "aria-selected",
     "true",
   );
-  await expect(context.getByRole("heading", { name: "Task Flow", exact: true })).toBeVisible();
+  // Context follows the active tab: Task Flow lists Engineering, and
+  // Engineering lists Task Flow as a note that links to it.
+  await expect(related.getByRole("button", { name: "Engineering", exact: true })).toBeVisible();
   await tabs.getByRole("tab", { name: /engineering/i }).click();
-  await expect(context.getByRole("heading", { name: "Engineering", exact: true })).toBeVisible();
+  await expect(related.getByRole("button", { name: "Task Flow", exact: true })).toBeVisible();
+  await expect(related.getByRole("button", { name: "Engineering", exact: true })).toHaveCount(0);
   const body = page.locator(".ontology-pane__main:visible");
   await expect
     .poll(() => body.evaluate((element) => element.clientWidth))

@@ -2895,6 +2895,8 @@ export interface components {
       structuralNode?: components["schemas"]["StructuralNodeResponse"];
       relationName?: string;
       provenance?: string;
+      /** @enum {string} */
+      direction?: "outgoing" | "incoming";
       structural?: boolean;
       current?: boolean;
       score?: number;
