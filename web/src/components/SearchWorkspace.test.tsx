@@ -16,6 +16,63 @@ const tab: SearchTab = {
   scrollTop: 0,
 };
 
+describe("search tab scroll restoration", () => {
+  const http = withFakeFetch();
+
+  it.each(["ranked", "folder"])("does not rewind live scrolling in a %s tab", async (kind) => {
+    http.json("GET", "/api/v1/search", { count: 0, matches: [] });
+    http.json("GET", "/api/v1/ontology/types/__all__", { count: 0, notes: [] });
+    const searchTab = { ...tab, query: kind === "folder" ? "" : tab.query, scrollTop: 80 };
+    const onScrollPosition = vi.fn();
+
+    const workspace = (scrollTop: number, active = true, restoreReady = true) => (
+      <SearchWorkspace
+        tab={{ ...searchTab, scrollTop }}
+        active={active}
+        restoreReady={restoreReady}
+        types={[]}
+        onRefineSearch={vi.fn()}
+        onOpenNote={vi.fn()}
+        onScrollPosition={onScrollPosition}
+      />
+    );
+
+    const { rerender } = render(workspace(80, true, false));
+    const container = screen.getByRole("main");
+    await screen.findByText(kind === "folder" ? "No notes in /" : "No matches");
+    expect(container.scrollTop).toBe(0);
+    rerender(workspace(80));
+    await waitFor(() => expect(container.scrollTop).toBe(80));
+
+    container.scrollTop = 120;
+    fireEvent.scroll(container);
+    expect(onScrollPosition).toHaveBeenLastCalledWith(tab.id, 120);
+    // Native scrolling can advance before React commits the previous scroll event.
+    container.scrollTop = 160;
+    rerender(workspace(120));
+    expect(container.scrollTop).toBe(160);
+
+    rerender(workspace(160, false));
+    container.scrollTop = 0;
+    rerender(workspace(160));
+    expect(container.scrollTop).toBe(160);
+
+    rerender(workspace(0));
+    expect(container.scrollTop).toBe(160);
+    rerender(
+      <SearchWorkspace
+        tab={{ ...searchTab, scrollTop: 0, filters: { ...tab.filters, folder: "Notes" } }}
+        active
+        types={[]}
+        onRefineSearch={vi.fn()}
+        onOpenNote={vi.fn()}
+        onScrollPosition={onScrollPosition}
+      />,
+    );
+    await waitFor(() => expect(container.scrollTop).toBe(0));
+  });
+});
+
 describe("SearchWorkspace", () => {
   const http = withFakeFetch();
 

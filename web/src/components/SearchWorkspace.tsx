@@ -1,5 +1,13 @@
 import { publicTypeName } from "../lib/typeNames";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -121,12 +129,37 @@ function NoteResultLink({
 type SearchWorkspaceProps = {
   tab: SearchTab;
   active: boolean;
+  restoreReady?: boolean;
   types: OntologyTypeSummary[];
   editSession?: StagedSession;
   onRefineSearch: (id: string, filters: Partial<SearchFilters>, query?: string) => void;
   onOpenNote: (target: string, mode?: OpenMode) => void;
   onScrollPosition: (id: string, scrollTop: number) => void;
 };
+
+function useSearchScrollRestoration(tab: SearchTab, active: boolean, ready: boolean) {
+  const scrollRef = useRef<HTMLElement>(null);
+
+  const restoreScroll = useEffectEvent(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = tab.scrollTop;
+  });
+
+  // Restore on activation or refinement, after content loads. Scroll events only save
+  // position: replaying them can rewind native scrolling before React catches up.
+  useLayoutEffect(() => {
+    if (active && ready) restoreScroll();
+  }, [
+    active,
+    ready,
+    tab.id,
+    tab.query,
+    tab.filters.folder,
+    tab.filters.noteType,
+    tab.filters.scope,
+  ]);
+
+  return scrollRef;
+}
 
 /** A search tab with no query lists its folder's notes instead of running ranked search. */
 export function SearchWorkspace(props: SearchWorkspaceProps) {
@@ -140,6 +173,7 @@ export function SearchWorkspace(props: SearchWorkspaceProps) {
 function FolderNotesWorkspace({
   tab,
   active,
+  restoreReady = true,
   editSession = null,
   onRefineSearch,
   onOpenNote,
@@ -148,16 +182,17 @@ function FolderNotesWorkspace({
   const folder = tab.filters.folder || "";
   const [folderDraft, setFolderDraft] = useState(folder);
   const [queryDraft, setQueryDraft] = useState("");
-  const scrollRef = useRef<HTMLElement>(null);
   const notesQuery = useOntologyTypeQuery(PSEUDO_TYPE_ALL, editSession, active);
+
+  const scrollRef = useSearchScrollRestoration(
+    tab,
+    active,
+    restoreReady && Boolean(notesQuery.data),
+  );
 
   useEffect(() => {
     setFolderDraft(folder);
   }, [tab.id, folder]);
-
-  useEffect(() => {
-    if (active && scrollRef.current) scrollRef.current.scrollTop = tab.scrollTop;
-  }, [active, tab.scrollTop]);
 
   const notes = useMemo(
     () =>
@@ -265,13 +300,13 @@ function FolderNotesWorkspace({
 function RankedSearchWorkspace({
   tab,
   active,
+  restoreReady = true,
   types,
   onRefineSearch,
   onOpenNote,
   onScrollPosition,
 }: SearchWorkspaceProps) {
   const [folderDraft, setFolderDraft] = useState(tab.filters.folder || "");
-  const scrollRef = useRef<HTMLElement>(null);
   const queryClient = useQueryClient();
 
   const request = useMemo(
@@ -295,13 +330,11 @@ function RankedSearchWorkspace({
     enabled: active,
   });
 
+  const scrollRef = useSearchScrollRestoration(tab, active, restoreReady && Boolean(query.data));
+
   useEffect(() => {
     setFolderDraft(tab.filters.folder || "");
   }, [tab.id, tab.filters.folder, tab.filters.noteType, tab.filters.scope]);
-
-  useEffect(() => {
-    if (active && scrollRef.current) scrollRef.current.scrollTop = tab.scrollTop;
-  }, [active, tab.scrollTop]);
 
   const pages = query.data?.pages ?? [];
   const results = pages.flatMap((page) => page.matches || []);

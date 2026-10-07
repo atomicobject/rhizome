@@ -85,6 +85,7 @@ export function openModeFor(event: { metaKey: boolean; ctrlKey: boolean }): Open
 }
 
 export type NoteTabsApi = {
+  hydrated: boolean;
   tabs: Tab[];
   activeId: string;
   activeTab: Tab;
@@ -1203,6 +1204,8 @@ export function useNoteTabs(
       if (!nextQuery && !effectiveFilters.folder) return;
       const identity = searchTabIdentity(nextQuery, effectiveFilters);
 
+      if (identity === searchTabIdentity(current.query, current.filters)) return;
+
       const collision = currentTabs.find(
         (tab) =>
           isSearchTab(tab) &&
@@ -1416,6 +1419,7 @@ export function useNoteTabs(
 
   return useMemo(
     () => ({
+      hydrated: vaultName !== null && hydratedVault === vaultName,
       tabs,
       activeId,
       activeTab,
@@ -1435,6 +1439,8 @@ export function useNoteTabs(
       findByPath,
     }),
     [
+      vaultName,
+      hydratedVault,
       activeId,
       activeTab,
       activate,

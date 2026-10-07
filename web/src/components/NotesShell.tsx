@@ -592,6 +592,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                   <SearchWorkspace
                     tab={tab}
                     active={active && tabs.activeId === tab.id}
+                    restoreReady={tabs.hydrated}
                     types={summary?.types ?? []}
                     editSession={editSession.session}
                     onRefineSearch={tabs.refineSearch}
