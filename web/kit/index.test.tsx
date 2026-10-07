@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it, onTestFinished, vi } from "vitest";
 
 import type { OntologyEditSessionResponse } from "../src/api/types";
 import { INITIAL_EDIT_READ_LIFECYCLE } from "../src/staging/stagedQuery";
@@ -10,6 +10,7 @@ import { withFakeEventSource } from "../src/test/fakeEventSource";
 import { mountView } from "./index";
 import {
   EDIT_SESSION_MESSAGE,
+  OPEN_SEARCH_MESSAGE,
   OPEN_COLLECTION_MESSAGE,
   OPEN_ISSUES_MESSAGE,
   VAULT_EVENT_MESSAGE,
@@ -264,7 +265,7 @@ it("takes a hosted view's freshness from the workspace without polling its folde
   await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
 });
 
-it("asks the hosting workspace to open issues and collections", async () => {
+it("asks the hosting workspace to open issues, collections, and folder searches", async () => {
   const frame = document.createElement("iframe");
   document.body.append(frame);
   const parent = frame.contentWindow!;
@@ -276,6 +277,7 @@ it("asks the hosting workspace to open issues and collections", async () => {
   kit.openIssues({ kind: "interface", key: "Work" });
   kit.openIssues();
   kit.openCollection("Spec");
+  kit.openSearch({ folder: "Notes" });
 
   expect(sent.mock.calls).toEqual([
     [
@@ -284,6 +286,32 @@ it("asks the hosting workspace to open issues and collections", async () => {
     ],
     [{ type: OPEN_ISSUES_MESSAGE }, window.location.origin],
     [{ type: OPEN_COLLECTION_MESSAGE, name: "Spec" }, window.location.origin],
+    [{ type: OPEN_SEARCH_MESSAGE, folder: "Notes" }, window.location.origin],
+  ]);
+});
+
+it("opens a folder search as its own page when standalone", async () => {
+  vi.resetModules();
+  const kit = await import("./index");
+  const assign = vi.fn();
+  const location = Object.getOwnPropertyDescriptor(window, "location");
+
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: { ...window.location, assign },
+  });
+  onTestFinished(() => {
+    if (location) Object.defineProperty(window, "location", location);
+  });
+
+  kit.openSearch({ folder: "Notes" });
+  kit.openSearch({ folder: "/" });
+  kit.openSearch({ folder: "Notes", query: "plan" });
+
+  expect(assign.mock.calls).toEqual([
+    ["/notes?search=&folder=Notes"],
+    ["/notes?search=&folder=%2F"],
+    ["/notes?search=plan&folder=Notes"],
   ]);
 });
 

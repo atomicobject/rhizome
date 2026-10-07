@@ -391,3 +391,114 @@ describe("SearchWorkspace", () => {
     expect(screen.getByRole("button", { name: "Cached contract" })).toBeVisible();
   });
 });
+
+describe("SearchWorkspace folder listing", () => {
+  const http = withFakeFetch();
+  const folderTab: SearchTab = { ...tab, query: "", filters: { ...tab.filters, folder: "Notes" } };
+
+  function note(path: string, title: string, updatedAt: number, resolvedType?: string) {
+    return { ref: { notePath: path }, path, title, updatedAt, resolvedType, hasIssues: false };
+  }
+
+  function renderFolder(
+    notes = [
+      note("Notes/old.md", "Old note", 1, "Spec"),
+      note("Notes2/other.md", "Sibling folder note", 9),
+      note("Notes/deep/new.md", "New note", 5),
+      note("Archive/Notes/elsewhere.md", "Nested elsewhere", 7),
+    ],
+  ) {
+    http.json("GET", "/api/v1/ontology/types/__all__", { count: notes.length, notes });
+    const onRefineSearch = vi.fn();
+    const onOpenNote = vi.fn();
+
+    render(
+      <SearchWorkspace
+        tab={folderTab}
+        active
+        types={[]}
+        onRefineSearch={onRefineSearch}
+        onOpenNote={onOpenNote}
+        onScrollPosition={vi.fn()}
+      />,
+    );
+
+    return { onRefineSearch, onOpenNote };
+  }
+
+  it("lists the folder's notes newest first without running ranked search", async () => {
+    const { onOpenNote } = renderFolder();
+
+    expect(screen.getByRole("heading", { name: "Notes in Notes/" })).toBeVisible();
+    expect(await screen.findByText("2 notes")).toBeVisible();
+    const links = screen.getAllByRole("button", { name: /note$/ });
+    expect(links.map((link) => link.textContent)).toEqual(["New note", "Old note"]);
+    expect(screen.getByText("untyped")).toBeVisible();
+    expect(screen.getByText("Notes/old.md")).toBeVisible();
+    expect(screen.queryByText("Sibling folder note")).toBeNull();
+    expect(http.count("GET", "/api/v1/search")).toBe(0);
+
+    fireEvent.click(links[1]!);
+    expect(onOpenNote).toHaveBeenCalledWith("Notes/old.md", "activate");
+  });
+
+  it("states an empty folder", async () => {
+    renderFolder([note("Notes2/other.md", "Sibling folder note", 9)]);
+
+    expect(await screen.findByText("No notes in Notes/")).toBeVisible();
+  });
+
+  it("lists only the notes in no folder for the vault root, without a ranked search field", async () => {
+    http.json("GET", "/api/v1/ontology/types/__all__", {
+      count: 2,
+      notes: [note("Top.md", "Top note", 3), note("Notes/old.md", "Old note", 1)],
+    });
+    render(
+      <SearchWorkspace
+        tab={{ ...folderTab, filters: { ...folderTab.filters, folder: "/" } }}
+        active
+        types={[]}
+        onRefineSearch={vi.fn()}
+        onOpenNote={vi.fn()}
+        onScrollPosition={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Notes in /" })).toBeVisible();
+    expect(await screen.findByText("1 note")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Top note" })).toBeVisible();
+    expect(screen.queryByText("Old note")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Search this folder" })).toBeNull();
+  });
+
+  it("offers retry when the note list fails", async () => {
+    http.on("GET", "/api/v1/ontology/types/__all__", () => jsonReply({ error: "down" }, 500));
+    render(
+      <SearchWorkspace
+        tab={folderTab}
+        active
+        types={[]}
+        onRefineSearch={vi.fn()}
+        onOpenNote={vi.fn()}
+        onScrollPosition={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Notes unavailable");
+  });
+
+  it("turns into a ranked search when a query is entered and keeps the folder", async () => {
+    const { onRefineSearch } = renderFolder();
+    const input = screen.getByRole("textbox", { name: "Search this folder" });
+
+    fireEvent.change(input, { target: { value: "plan" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onRefineSearch).toHaveBeenCalledWith("search-tab:1", folderTab.filters, "plan");
+
+    const folder = screen.getByRole("textbox", { name: "Search folder" });
+    fireEvent.change(folder, { target: { value: "" } });
+    fireEvent.blur(folder);
+    expect(folder).toHaveValue("Notes");
+    expect(onRefineSearch).toHaveBeenCalledTimes(1);
+  });
+});

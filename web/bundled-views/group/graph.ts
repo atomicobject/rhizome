@@ -1,13 +1,12 @@
 // How a group's members connect, and the structures built on those links:
-// Trace's spine, columns, and row cells, record trees, the connections matrix,
-// and Sections' order, rows, and columns (SPEC-0111). Pure.
+// Trace's spine, columns, and row cells, record trees, and Sections' order,
+// rows, and columns (SPEC-0111). Pure.
 //
 // - linkGraph(model): member-level and record-level links.
 // - defaultSpine(model, graph), spineChoices(model, graph): Trace's rows.
 // - traceColumns(model, graph, spine), traceRow(model, graph, columns, record).
 // - lifecycleRank(lifecycle, value), compareAdvanced(member): "most advanced first".
 // - buildHierarchy(member, records), flattenTree(roots), subtreeRecords(node).
-// - connections(model, graph): record-link counts per member pair.
 // - sectionOrder(model, graph), sectionRows(member), sectionColumns(member, rows).
 import { isTerminalValue, orderedEnumValues } from "@rhizome/kit";
 
@@ -429,34 +428,6 @@ export function flattenTree(roots: readonly TreeNode[]): TreeNode[] {
 /** A node's record and every record below it. */
 export function subtreeRecords(node: TreeNode): GroupRecord[] {
   return [node.record, ...node.children.flatMap(subtreeRecords)];
-}
-
-export type ConnectionCell = {
-  from: string;
-  to: string;
-  /** The schema declares a link from `from` to `to`. */
-  allowed: boolean;
-  /** Record links from `from` records to `to` records. */
-  count: number;
-};
-
-/** Record-link counts for every ordered pair of members, rows and columns in member order. */
-export function connections(model: GroupModel, graph: LinkGraph): ConnectionCell[][] {
-  const counts = new Map<string, number>();
-
-  for (const edge of graph.edges) {
-    const pair = `${model.records.get(edge.from)?.member}\u0000${model.records.get(edge.to)?.member}`;
-    counts.set(pair, (counts.get(pair) ?? 0) + 1);
-  }
-
-  return model.members.map((from) =>
-    model.members.map((to) => ({
-      from: from.name,
-      to: to.name,
-      allowed: from !== to && out(graph, from.name).has(to.name),
-      count: counts.get(`${from.name}\u0000${to.name}`) ?? 0,
-    })),
-  );
 }
 
 /** Sections' member order: like Trace's columns when the group has links, otherwise by record count. */

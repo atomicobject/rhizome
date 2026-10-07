@@ -5,7 +5,7 @@ description: Build or fix Rhizome HTML/TSX views for type collections, display g
 
 # Custom views
 
-A custom view is a definition and an HTML or script entry in `.rhizome/views/<folder>/`. `rzm` serves it with the kit and per-file TSX transform; no install, bundler, or second server is needed. Overview, Table, Cards, Kanban, and custom entries share registration, context, configuration, lifecycle, navigation, and workspace edit services. The host handles React versus frame rendering. Rhizome's own Briefing, Trace, and Sections group pages and its type Briefing are custom views built on the same public kit and APIs; see [Start from a bundled view](#start-from-a-bundled-view).
+A custom view is a definition and an HTML or script entry in `.rhizome/views/<folder>/`. `rzm` serves it with the kit and per-file TSX transform; no install, bundler, or second server is needed. Overview, Table, Cards, Kanban, and custom entries share registration, context, configuration, lifecycle, navigation, and workspace edit services. The host handles React versus frame rendering. Rhizome's own All notes and group Overview and Briefing pages, its Trace and Sections group pages, and its type Briefing are custom views built on the same public kit and APIs; see [Start from a bundled view](#start-from-a-bundled-view).
 
 The code runs with the user's full Rhizome authority, like a build script in the repository. Write it accordingly.
 
@@ -35,9 +35,9 @@ mount:
   order: 10
 ```
 
-`defaults`, `variants`, and `filterPresets` are native execution fields and are rejected on custom views. Supply page settings through top-level `configuration`. Several definitions can share a folder and components. Mount one on a named group with `kind: group, group: Delivery`; use `group: "*"` for a reusable group page. Type and node mounts name a concrete `type`; interface mounts name an `interface`. A page about one type or interface belongs on that type or interface mount, where it joins the collection's view list; reserve `standalone` for tools spanning several types or a sidebar entry the user explicitly asks for. `mount.default: true` selects the configured default, with exact group defaults preceding generic ones.
+`defaults`, `variants`, and `filterPresets` are native execution fields and are rejected on custom views. Supply page settings through top-level `configuration`. Several definitions can share a folder and components. Mount one on a named group with `kind: group, group: Delivery`; use `group: "*"` for a reusable group page. `kind: workspace` mounts a page on All notes, beside its Briefing and Overview; it takes no subject fields. Type and node mounts name a concrete `type`; interface mounts name an `interface`. A page about one type or interface belongs on that type or interface mount, where it joins the collection's view list; reserve `standalone` for tools spanning several types or a sidebar entry the user explicitly asks for. `mount.default: true` selects the configured default, with exact group defaults preceding generic ones.
 
-`board.tsx` default-exports a component receiving `{ view: { id, name }, context, configuration }`. The context is standalone, type, interface, group, or node; node context includes the canonical ref. It renders in kit providers and an error boundary. Use `useViewContext()` in React or `getViewContext()` in HTML/self-mounted code. Reuse canonical refs unchanged and use `openNode(ref, { view })` to select a node presentation. Never hardcode one node into a parameterized page.
+`board.tsx` default-exports a component receiving `{ view: { id, name }, context, configuration }`. The context is standalone, workspace, type, interface, group, or node; node context includes the canonical ref. It renders in kit providers and an error boundary. Use `useViewContext()` in React or `getViewContext()` in HTML/self-mounted code. Reuse canonical refs unchanged and use `openNode(ref, { view })` to select a node presentation. Never hardcode one node into a parameterized page.
 
 ## Remember personal choices
 
@@ -63,7 +63,7 @@ Set `entry: index.html` to own the whole document. Put `<script src="/kit/v1/boo
 
 ## Start from a bundled view
 
-The group views Briefing (`group.briefing`), Trace (`group.trace`), and Sections (`group.sections`), and the type Briefing (`type.briefing` and `interface.briefing`, mounted on `type: "*"` and `interface: "*"`), ship inside `rzm` in one folder, since they share modules. To change one, copy that folder into the repository:
+The group views Overview (`group.overview`), Briefing (`group.briefing`), Trace (`group.trace`), and Sections (`group.sections`), the All notes Briefing and Overview (`workspace.briefing` and `workspace.overview`, mounted on `kind: workspace`), and the type Briefing (`type.briefing` and `interface.briefing`, mounted on `type: "*"` and `interface: "*"`) ship inside `rzm` in one folder, since they share modules. To change one, copy that folder into the repository:
 
 ```bash
 rzm view eject group.briefing

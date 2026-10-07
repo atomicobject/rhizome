@@ -27,6 +27,7 @@ export type ViewServices = {
   onOpenView?: (id: string, context: ViewContext) => void;
   onStageOps: (ops: OntologyEditOp[]) => Promise<void>;
   onOpenIssues?: (scope?: ValidationScope) => void;
+  onOpenSearch?: (search: { folder: string; query?: string }) => void;
 };
 
 export type ViewRuntimeProps = ViewModuleProps & {
@@ -98,6 +99,7 @@ export function ViewHost(
           onStageOps={services.onStageOps}
           onOpenIssues={services.onOpenIssues}
           onSelectCollection={services.onSelectCollection}
+          onOpenSearch={services.onOpenSearch}
         />
       </>
     ) : null;

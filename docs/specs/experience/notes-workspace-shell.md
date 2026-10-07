@@ -3,7 +3,7 @@ type: ExperienceSpec
 summary: "Defines the Notes workspace shell: pinned Home, note and project-search tabs, note-browser rails, Structure/Markdown modes, and a graph-dominant Home whose type selection dims rather than filters."
 id: SPEC-0090
 spec-status: active
-last-updated: 2026-10-02
+last-updated: 2026-10-06
 aliases:
   - SPEC-0090
 ---
@@ -128,6 +128,8 @@ This spec succeeds [[ontology-browser-navigation-model|SPEC-0030]]. It carries f
 - id:: ^SPEC-0090-US7
 - summary:: Land on a Home whose graph fills the page and whose listings sit in a compact band above it, with a selected type highlighted inside the full graph rather than filtered out of it.
 - status:: satisfied
+
+Superseded for the All notes page by [[scope-overview|SPEC-0117]], which replaces the note graph there with a Briefing and a type-level Overview; Explorer keeps the note graph. Type and interface pages already open the type Briefing from [[type-collection-views|SPEC-0112]].
 
 #### Acceptance Criteria
 

@@ -7,16 +7,22 @@
 // - display groups (`useDisplayGroups`) for membership and every group's roots;
 // - type documentation (`useTypeDocs`) for every member, whose profile names
 //   its field roles, and every concrete member type;
-// - one GraphQL query for every record of those types and the guide; for a
-//   collection it also reads each reverse field's count and a capped sample of
-//   its targets, and a capped list of only the notes that link in;
+// - one GraphQL query for the records of those types and the guide, narrowed
+//   by what the caller reads (`GroupRead`); for a collection it also reads
+//   each reverse field's count and a capped sample of its targets, and a
+//   capped list of only the notes that link in;
 // - `GET /api/v1/views` for the authored views the switcher offers;
 // - `GET /api/v1/ontology/types` for labels of types outside the group.
 //
 // The kit refreshes all of it on vault, schema, and validation events, so the
 // model stays current without polling. While a refresh runs, the previous
 // model stays on screen with `refreshing: true`.
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { useMemo, useRef } from "react";
 
 import {
@@ -34,6 +40,7 @@ import {
   parseTableChoice,
   parseTargetViews,
   parseTypeLabels,
+  RECORD_CAP,
   recordsQuery,
   type JsonObject,
   type JsonValue,
@@ -46,17 +53,18 @@ import {
   pickGuide,
   planMembers,
   type GroupModel,
+  type MemberPlan,
 } from "./model.ts";
 
 export type GroupModelState =
   | { status: "loading" }
   /** The view was not opened for its kind of subject, or the subject no longer exists. */
   | { status: "missing"; name: string | null }
-  | { status: "error"; error: Error }
+  | { status: "error"; error: Error; retry: () => void }
   /** `refreshError`: the last refresh failed, so the model is the last one loaded. */
   | { status: "ready"; model: GroupModel; refreshing: boolean; refreshError: Error | null };
 
-async function getJSON(path: string, signal: AbortSignal): Promise<JsonValue> {
+export async function getJSON(path: string, signal: AbortSignal): Promise<JsonValue> {
   const response = await fetch(path, { signal, headers: { accept: "application/json" } });
 
   if (!response.ok) throw new Error(`${path} answered ${response.status}`);
@@ -64,8 +72,8 @@ async function getJSON(path: string, signal: AbortSignal): Promise<JsonValue> {
   return response.json();
 }
 
-/** Query keys for this module's own REST reads; the kit refreshes them as data. */
-const groupViewKeys = {
+/** Query keys for the group views' own REST reads; the kit refreshes them as data. */
+export const groupViewKeys = {
   catalog: ["group-views", "catalog"],
   typeLabels: ["group-views", "type-labels"],
 } as const;
@@ -76,7 +84,44 @@ const EMPTY_DATA: JsonObject = {};
 
 const NO_TYPE_LABELS: JsonValue = [];
 
-const COLLECTION_RECORDS: RecordsOptions = { reverse: true, neighbors: "INBOUND" };
+const NO_CATALOG: JsonValue = {};
+
+const COLLECTION_RECORDS: GroupRead = { reverse: true, neighbors: "INBOUND" };
+
+/**
+ * What a view or block reads of the group's records. `perMember` caps the
+ * records of each member, shared by its concrete types, and `perType` those
+ * of each type; `records: false` reads only the guide note.
+ */
+export type GroupRead = Omit<RecordsOptions, "first"> & {
+  perMember?: number;
+  perType?: number;
+  records?: boolean;
+};
+
+/** Refetch whichever type documentation failed to load. */
+export const refetchFailedTypeDocs = (queryClient: QueryClient) =>
+  queryClient.refetchQueries({
+    predicate: (query) => query.state.status === "error" && query.queryKey.includes("type-doc"),
+  });
+
+/** Records per concrete type a read takes; undefined when it reads `RECORD_CAP` of each. */
+function recordCaps(plans: readonly MemberPlan[], read: GroupRead) {
+  const { perMember, perType } = read;
+
+  if (perMember === undefined && perType === undefined) return undefined;
+
+  return new Map(
+    plans.flatMap((plan) =>
+      plan.concreteTypes.map((type): [string, number] => [
+        type,
+        perMember === undefined
+          ? (perType ?? RECORD_CAP)
+          : Math.max(1, Math.floor(perMember / plan.concreteTypes.length)),
+      ]),
+    ),
+  );
+}
 
 type Subject = { kind: SubjectKind; name: string };
 
@@ -100,7 +145,12 @@ function subjectGroup(subject: Subject, groups: readonly DisplayGroup[]): Displa
     : collectionGroup(groups, subject.name);
 }
 
-function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions): GroupModelState {
+function useSubjectModel(
+  kinds: readonly SubjectKind[],
+  read: GroupRead,
+  withViews = true,
+): GroupModelState {
+  const queryClient = useQueryClient();
   const context = useViewContext();
 
   const subject = useMemo(() => {
@@ -135,7 +185,18 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
   );
 
   const guidePath = useMemo(() => pickGuide(plans, docs.docs)?.path ?? null, [plans, docs.docs]);
-  const document = group && orderedDocs.length ? recordsQuery(orderedDocs, guidePath, options) : "";
+
+  const options = useMemo(
+    (): RecordsOptions => ({ ...read, first: recordCaps(plans, read) }),
+    [read, plans],
+  );
+
+  const readDocs = read.records === false ? NO_DOCS : orderedDocs;
+
+  const document =
+    group && docsReady && (readDocs.length || (guidePath && options.guide !== false))
+      ? recordsQuery(readDocs, guidePath, options)
+      : "";
 
   // A record missing a required field answers with an error beside its data;
   // validation already reports it, so the views keep the data.
@@ -149,7 +210,10 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
   const catalog = useQuery({
     queryKey: groupViewKeys.catalog,
     queryFn: ({ signal }) => getJSON("/api/v1/views", signal),
+    enabled: withViews,
   });
+
+  const catalogData = withViews ? catalog.data : NO_CATALOG;
 
   // Labels for types outside the group are a nicety: a failure falls back to
   // type names rather than holding up the page.
@@ -168,7 +232,7 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
     // Until every member type's documentation loads, the records cannot be read.
     if (!docsReady || !subject) return null;
 
-    if (!group || !groups.groups || !recordData || catalog.data === undefined) return null;
+    if (!group || !groups.groups || !recordData || catalogData === undefined) return null;
 
     if (labelData === undefined) return null;
 
@@ -176,9 +240,9 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
       group,
       groups: groups.groups,
       docs: docs.docs,
-      records: parseRecords(recordData, orderedDocs),
-      views: parseTargetViews(catalog.data, subject.kind, subject.name),
-      tableChoice: parseTableChoice(catalog.data, subject.kind, subject.name),
+      records: parseRecords(recordData, readDocs, options),
+      views: parseTargetViews(catalogData, subject.kind, subject.name),
+      tableChoice: parseTableChoice(catalogData, subject.kind, subject.name),
       typeLabels: parseTypeLabels(labelData),
     });
   }, [
@@ -188,8 +252,9 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
     groups.groups,
     docs.docs,
     recordData,
-    orderedDocs,
-    catalog.data,
+    readDocs,
+    options,
+    catalogData,
     labelData,
   ]);
 
@@ -211,7 +276,18 @@ function useSubjectModel(kinds: readonly SubjectKind[], options: RecordsOptions)
     };
   }
 
-  if (error) return { status: "error", error };
+  if (error)
+    return {
+      status: "error",
+      error,
+      retry: () => {
+        void groups.refetch();
+        void refetchFailedTypeDocs(queryClient);
+        void records.refetch();
+
+        if (withViews) void catalog.refetch();
+      },
+    };
 
   if (name === null || (groups.groups && !group)) return { status: "missing", name };
 
@@ -222,9 +298,19 @@ const GROUP: readonly SubjectKind[] = ["group"];
 
 const COLLECTION: readonly SubjectKind[] = ["type", "interface"];
 
-/** The model of the display group the view was opened for. */
-export function useGroupModel(): GroupModelState {
-  return useSubjectModel(GROUP, {});
+const ALL_RECORDS: GroupRead = {};
+
+/**
+ * The model of the display group the view was opened for, from what `read`
+ * reads of its records (every record and field by default). Without `views`,
+ * it neither reads nor waits for the view catalog, and lists no views. Pass
+ * a module constant as `read`: the model rebuilds when it changes.
+ */
+export function useGroupModel({
+  views = true,
+  read = ALL_RECORDS,
+}: { views?: boolean; read?: GroupRead } = {}): GroupModelState {
+  return useSubjectModel(GROUP, read, views);
 }
 
 /**

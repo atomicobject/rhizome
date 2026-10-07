@@ -285,10 +285,11 @@ export function NotesShell({ active = true }: { active?: boolean }) {
         return;
       }
 
-      if (context.kind === "group") {
+      if (context.kind === "group" || context.kind === "workspace") {
         navigate(
           buildNotesLocation({
-            selection: { kind: "group", group: context.group },
+            selection:
+              context.kind === "group" ? { kind: "group", group: context.group } : { kind: "all" },
             presentation: id,
           }),
         );
@@ -301,6 +302,12 @@ export function NotesShell({ active = true }: { active?: boolean }) {
       if (view) tabs.openView(view);
     },
     [openNode, tabs.openView, viewCatalogQuery.data],
+  );
+
+  const openSearch = useCallback(
+    ({ folder, query }: { folder: string; query?: string }) =>
+      tabs.openSearch(query ?? "", { folder }),
+    [tabs.openSearch],
   );
 
   const selectPresentation = useCallback(
@@ -532,6 +539,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
       onOpenNote={openTab}
       onOpenNode={openNode}
       onOpenView={openView}
+      onOpenSearch={openSearch}
       onPresentation={selectPresentation}
       onSelectCollection={selectCollection}
       onOpenIssues={selectIssues}
@@ -585,6 +593,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                     tab={tab}
                     active={active && tabs.activeId === tab.id}
                     types={summary?.types ?? []}
+                    editSession={editSession.session}
                     onRefineSearch={tabs.refineSearch}
                     onOpenNote={openTab}
                     onScrollPosition={tabs.setSearchScroll}
@@ -679,6 +688,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                         onOpenNote={openTab}
                         onOpenNode={openNode}
                         onOpenView={openView}
+                        onOpenSearch={openSearch}
                         onStageOps={stageOps}
                         onOpenIssues={selectIssues}
                         onSelectCollection={selectCollection}
@@ -705,6 +715,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                         onPresentation={tabs.setPresentation}
                         onOpenNode={openNode}
                         onOpenView={openView}
+                        onOpenSearch={openSearch}
                         active={noteSurfacesActive && tabs.activeId === tab.id}
                         anchor={
                           tabs.activeId === tab.id &&

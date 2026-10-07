@@ -1277,12 +1277,6 @@
   flex: none;
 }
 
-.ontology-home__row-type {
-  flex: none;
-  color: var(--text-faint);
-  font-size: 11px;
-}
-
 .ontology-home__row-meta {
   flex: none;
   color: var(--text-faint);

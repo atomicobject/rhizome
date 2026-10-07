@@ -51,9 +51,9 @@ export type NodePreview = components["schemas"]["NodePreview"];
 
 export type StatusResponse = components["schemas"]["StatusResponse"];
 
-export type ViewCatalog = components["schemas"]["ViewCatalog"];
-
 export type ViewTarget = components["schemas"]["ViewTarget"];
+
+export type ViewCatalog = components["schemas"]["ViewCatalog"];
 
 export type ViewChoice = components["schemas"]["ViewChoice"];
 

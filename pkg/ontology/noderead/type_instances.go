@@ -1132,7 +1132,7 @@ func (s *Scope) listAll() ontology.TypeListResult {
 	}
 	sortNodeListItems(items)
 	return ontology.TypeListResult{
-		TypeDoc:    &ontology.TypeDoc{Name: ontology.TypeScopeAll, Label: "All notes", Description: "Every indexed note, regardless of resolved ontology type."},
+		TypeDoc:    allNotesTypeDoc(),
 		Count:      len(items),
 		IssueCount: s.issueCountForItems(items),
 		Items:      items,

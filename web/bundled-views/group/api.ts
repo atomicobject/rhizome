@@ -101,7 +101,8 @@ export function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-const isNumber = (value: JsonValue | undefined): value is number => typeof value === "number";
+export const isNumber = (value: JsonValue | undefined): value is number =>
+  typeof value === "number";
 
 export function isBoolean(value: JsonValue | undefined): value is boolean;
 export function isBoolean(value: unknown): value is boolean;
@@ -214,36 +215,57 @@ function reverseSelection(doc: TypeDoc, name: string, aliases: ReadonlyMap<strin
 export type RecordsOptions = {
   /** Read the profile's reverse fields. */
   reverse?: boolean;
-  /** Which links `neighbors` follows: both ways (the default) or only links in. */
-  neighbors?: "BOTH" | "INBOUND";
+  /** Which links `neighbors` follows: both ways (the default), only links in, or none. */
+  neighbors?: "BOTH" | "INBOUND" | "NONE";
+  /** Neighbors read per record, in place of the direction's cap. */
+  neighborCap?: number;
+  /** Read link fields; true by default. */
+  links?: boolean;
+  /** Read the type's enum, KEY, date, and summary fields; true by default. */
+  scalars?: boolean;
+  /** Records read per type, newest first, by type name; `RECORD_CAP` for a type it leaves out. */
+  first?: ReadonlyMap<string, number>;
+  /** Read the guide note; true by default. */
+  guide?: boolean;
 };
+
+/** Records `options` reads of a type. */
+export const recordCap = (options: RecordsOptions, type: string) =>
+  options.first?.get(type) ?? RECORD_CAP;
 
 // `neighborhood` rather than `connected`, which reads only body links and
 // backlinks and so misses typed links in either direction.
-const neighborSelection = (direction: "BOTH" | "INBOUND") =>
-  `neighborhood(direction: ${direction}, first: ${direction === "INBOUND" ? INBOUND_CAP : NEIGHBOR_CAP}) { truncated nodes { ... on Node { path title resolvedType } } }`;
+const neighborSelection = (direction: "BOTH" | "INBOUND", cap?: number) =>
+  `neighborhood(direction: ${direction}, first: ${cap ?? (direction === "INBOUND" ? INBOUND_CAP : NEIGHBOR_CAP)}) { truncated nodes { ... on Node { path title resolvedType } } }`;
 
 function typeSelection(doc: TypeDoc, options: RecordsOptions) {
   const aliases = countAliases(doc);
+  const neighbors = options.neighbors ?? "BOTH";
+  const scalars = options.scalars ?? true;
 
   const fields = [
     "ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }",
     "path title updatedAt issueCount",
-    ...(hasNeighbors(doc) ? [neighborSelection(options.neighbors ?? "BOTH")] : []),
-    ...selectedScalars(doc).map((field) => field.name),
-    ...(summarySection(doc) ? [`${doc.summaryField} { content }`] : []),
-    ...linkFields(doc).map((field) => `${field.name} ${NODE_TARGET}`),
+    ...(hasNeighbors(doc) && neighbors !== "NONE"
+      ? [neighborSelection(neighbors, options.neighborCap)]
+      : []),
+    ...(scalars ? selectedScalars(doc).map((field) => field.name) : []),
+    ...(scalars && summarySection(doc) ? [`${doc.summaryField} { content }`] : []),
+    ...((options.links ?? true)
+      ? linkFields(doc).map((field) => `${field.name} ${NODE_TARGET}`)
+      : []),
     ...(options.reverse
       ? reverseFields(doc).flatMap((name) => reverseSelection(doc, name, aliases))
       : []),
   ];
 
-  return `  ${doc.name}: ${lowerFirst(doc.name)}(first: ${RECORD_CAP + 1}, ${NEWEST_FIRST}) {\n    ${fields.join("\n    ")}\n  }`;
+  return `  ${doc.name}: ${lowerFirst(doc.name)}(first: ${recordCap(options, doc.name) + 1}, ${NEWEST_FIRST}) {\n    ${fields.join("\n    ")}\n  }`;
 }
 
 /**
  * One query for every record of `docs`' types, each aliased by its type name.
- * The guide note is read with the `$guide` variable when `guidePath` is set.
+ * The guide note is read with the `$guide` variable when `guidePath` is set,
+ * unless `options.guide` is false. `options` narrows what each record reads.
  * Link targets use a `Node` fragment because a link may be typed by an
  * interface, such as a spec interface, that declares no title of its own.
  */
@@ -254,7 +276,8 @@ export function recordsQuery(
 ) {
   const selections = docs.map((doc) => typeSelection(doc, options));
 
-  if (guidePath === null) return `query GroupRecords {\n${selections.join("\n")}\n}`;
+  if (guidePath === null || options.guide === false)
+    return `query GroupRecords {\n${selections.join("\n")}\n}`;
 
   const guide = `  ${GUIDE_ALIAS}: note(path: $guide) { path title frontmatter }`;
 
@@ -378,19 +401,24 @@ function parseGuide(value: JsonValue | undefined): GuideNote | null {
   return { path, title: text(value.title) ?? path, summary: text(frontmatter.summary) };
 }
 
-/** Decode a `recordsQuery` response. A type absent from `data` reads as empty. */
-export function parseRecords(data: JsonObject, docs: readonly TypeDoc[]): ParsedRecords {
+/**
+ * Decode a `recordsQuery` response read with `options`. A type absent from
+ * `data` reads as empty.
+ */
+export function parseRecords(
+  data: JsonObject,
+  docs: readonly TypeDoc[],
+  options: RecordsOptions = {},
+): ParsedRecords {
   const pages = new Map<string, RecordPage>();
 
   for (const doc of docs) {
     const rows = objects(data[doc.name]);
     const aliases = countAliases(doc);
+    const cap = recordCap(options, doc.name);
+    const records = rows.slice(0, cap).flatMap((row) => parseRecord(row, doc, aliases) ?? []);
 
-    const records = rows
-      .slice(0, RECORD_CAP)
-      .flatMap((row) => parseRecord(row, doc, aliases) ?? []);
-
-    pages.set(doc.name, { records, truncated: rows.length > RECORD_CAP });
+    pages.set(doc.name, { records, truncated: rows.length > cap });
   }
 
   return { pages, guide: parseGuide(data[GUIDE_ALIAS]) };
@@ -398,11 +426,14 @@ export function parseRecords(data: JsonObject, docs: readonly TypeDoc[]): Parsed
 
 /** The bundled views, which the page's switcher already offers beside these. */
 const BUNDLED_VIEW_IDS = new Set([
+  "group.overview",
   "group.briefing",
   "group.trace",
   "group.sections",
   "type.briefing",
   "interface.briefing",
+  "workspace.overview",
+  "workspace.briefing",
 ]);
 
 export type SubjectKind = "group" | "type" | "interface";

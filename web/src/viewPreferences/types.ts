@@ -41,8 +41,8 @@ export function canonicalPreferenceScope(scope: ViewPreferenceScope): ViewPrefer
         ? { kind: "interface", interface: context.interface }
         : context.kind === "group"
           ? { kind: "group", group: context.group }
-          : context.kind === "standalone"
-            ? { kind: "standalone" }
+          : context.kind === "standalone" || context.kind === "workspace"
+            ? { kind: context.kind }
             : context;
 
   if (context.kind === "node") {

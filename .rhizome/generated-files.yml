@@ -23,10 +23,10 @@ written:
   .agents/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .agents/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .agents/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
-  .agents/skills/custom-views/SKILL.md: 432f6ef78ee66ef6
+  .agents/skills/custom-views/SKILL.md: d087a8e4dc3ad4a1
   .agents/skills/custom-views/references/example.md: 63094cc4c529eb2c
-  .agents/skills/custom-views/references/kit-api.md: 3f6dd8d37c342985
-  .agents/skills/custom-views/references/mounted-example.md: e1df7da7e04327c9
+  .agents/skills/custom-views/references/kit-api.md: b690cd858850b308
+  .agents/skills/custom-views/references/mounted-example.md: b92d990ea22f8cfb
   .agents/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
   .agents/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .agents/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
@@ -52,7 +52,7 @@ written:
   .agents/skills/rhizome/references/skill-scripts.md: 9bc5e247cf8bf273
   .agents/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429
   .agents/skills/rhizome/references/validation-and-repair.md: d19b7023dc899b6c
-  .agents/skills/rhizome/references/views.md: 02009965b5d5d8cf
+  .agents/skills/rhizome/references/views.md: 26fb7388f96eefbc
   .claude/skills/action-items/SKILL.md: d4eb4805c8cb8fda
   .claude/skills/agentic-engineering/SKILL.md: 1f2d046c8f00b7b7
   .claude/skills/agentic-engineering/references/alignment.md: 5270a7ef418a6feb
@@ -74,10 +74,10 @@ written:
   .claude/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .claude/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .claude/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
-  .claude/skills/custom-views/SKILL.md: 432f6ef78ee66ef6
+  .claude/skills/custom-views/SKILL.md: d087a8e4dc3ad4a1
   .claude/skills/custom-views/references/example.md: 63094cc4c529eb2c
-  .claude/skills/custom-views/references/kit-api.md: 3f6dd8d37c342985
-  .claude/skills/custom-views/references/mounted-example.md: e1df7da7e04327c9
+  .claude/skills/custom-views/references/kit-api.md: b690cd858850b308
+  .claude/skills/custom-views/references/mounted-example.md: b92d990ea22f8cfb
   .claude/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
   .claude/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .claude/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
@@ -103,7 +103,7 @@ written:
   .claude/skills/rhizome/references/skill-scripts.md: 9bc5e247cf8bf273
   .claude/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429
   .claude/skills/rhizome/references/validation-and-repair.md: d19b7023dc899b6c
-  .claude/skills/rhizome/references/views.md: 02009965b5d5d8cf
+  .claude/skills/rhizome/references/views.md: 26fb7388f96eefbc
   .rhizome/ontology/action-items.graphql: b2b177dd9acbd65c
   .rhizome/ontology/core.graphql: 157ef7679ea0bec5
   .rhizome/ontology/spec-driven.graphql: 08586516cff0bc34

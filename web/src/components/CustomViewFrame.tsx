@@ -15,6 +15,7 @@ import {
   OPEN_ISSUES_MESSAGE,
   OPEN_NOTE_MESSAGE,
   OPEN_NODE_MESSAGE,
+  OPEN_SEARCH_MESSAGE,
   OPEN_VIEW_MESSAGE,
   STAGE_OPS_MESSAGE,
   STAGE_RESULT_MESSAGE,
@@ -47,6 +48,7 @@ type Props = {
   onStageOps: (ops: OntologyEditOp[]) => Promise<void>;
   onOpenIssues?: (scope?: ValidationScope) => void;
   onSelectCollection?: (name: string) => void;
+  onOpenSearch?: (search: { folder: string; query?: string }) => void;
 };
 
 type ViewRequest =
@@ -56,7 +58,8 @@ type ViewRequest =
   | { kind: "hello" }
   | { kind: "stage"; requestId: string; ops: OntologyEditOp[] }
   | { kind: "open-issues"; scope?: IssueScope }
-  | { kind: "open-collection"; name: string };
+  | { kind: "open-collection"; name: string }
+  | { kind: "open-search"; search: { folder: string; query?: string } };
 
 /* oxlint-disable anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters -- These helpers validate values at the postMessage trust boundary. */
 function issueScope(value: unknown): IssueScope | null {
@@ -132,6 +135,17 @@ function viewRequest(data: unknown): ViewRequest | null {
     return { kind: "open-collection", name: data.name };
   }
 
+  if (data.type === OPEN_SEARCH_MESSAGE) {
+    if (!("folder" in data) || typeof data.folder !== "string" || !data.folder.trim()) return null;
+
+    if (!("query" in data) || data.query === undefined)
+      return { kind: "open-search", search: { folder: data.folder } };
+
+    if (typeof data.query !== "string") return null;
+
+    return { kind: "open-search", search: { folder: data.folder, query: data.query } };
+  }
+
   return null;
 }
 /* oxlint-enable anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters */
@@ -157,6 +171,7 @@ export function CustomViewFrame({
   onStageOps,
   onOpenIssues,
   onSelectCollection,
+  onOpenSearch,
 }: Props) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const sessionRef = useRef({ session, readLifecycle });
@@ -201,12 +216,22 @@ export function CustomViewFrame({
       if (request?.kind === "open-issues") onOpenIssues?.(request.scope);
 
       if (request?.kind === "open-collection") onSelectCollection?.(request.name);
+
+      if (request?.kind === "open-search") onOpenSearch?.(request.search);
     };
 
     window.addEventListener("message", onMessage);
 
     return () => window.removeEventListener("message", onMessage);
-  }, [onOpenNote, onOpenNode, onOpenView, onStageOps, onOpenIssues, onSelectCollection]);
+  }, [
+    onOpenNote,
+    onOpenNode,
+    onOpenView,
+    onStageOps,
+    onOpenIssues,
+    onSelectCollection,
+    onOpenSearch,
+  ]);
 
   useEffect(
     () =>

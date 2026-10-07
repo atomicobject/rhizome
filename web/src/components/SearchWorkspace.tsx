@@ -1,14 +1,29 @@
 import { publicTypeName } from "../lib/typeNames";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError, publicWorkspaceRef, searchWorkspace } from "../api/client";
+import {
+  ApiError,
+  publicOntologyListItemRef,
+  publicWorkspaceRef,
+  searchWorkspace,
+} from "../api/client";
 import type { OntologyTypeSummary, WorkspaceSearchMatch } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
+import type { StagedSession } from "../staging/stagedQuery";
+import { PSEUDO_TYPE_ALL } from "./notesRoute";
+import { useOntologyTypeQuery } from "./useNotesQueries";
 import { notifyLocationChange } from "./locationStore";
 import { useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
 import type { OpenMode, SearchTab } from "./useNoteTabs";
-import { normalizeSearchFilters, normalizeSearchQuery, type SearchFilters } from "./searchState";
+import {
+  ROOT_FOLDER,
+  folderLabel,
+  inFolder,
+  normalizeSearchFilters,
+  normalizeSearchQuery,
+  type SearchFilters,
+} from "./searchState";
 
 const PAGE_SIZE = 40;
 
@@ -71,17 +86,15 @@ function openCodeSource(path: string, line?: number) {
   notifyLocationChange();
 }
 
-function SearchNoteResultLink({
-  match,
-  query,
+function NoteResultLink({
+  target,
+  children,
   onOpenNote,
 }: {
-  match: WorkspaceSearchMatch;
-  query: string;
+  target: string;
+  children: ReactNode;
   onOpenNote: SearchWorkspaceProps["onOpenNote"];
 }) {
-  const target = noteTargetForMatch(match);
-
   const previewTrigger = useNotePreviewTrigger<HTMLButtonElement>({
     target,
     open: (path, mode) => onOpenNote(path, mode === "beside" ? "beside" : "activate"),
@@ -98,7 +111,7 @@ function SearchNoteResultLink({
           onOpenNote(target, event.metaKey || event.ctrlKey ? "beside" : "activate");
         }}
       >
-        {highlightLiteral(resultLabel(match), query)}
+        {children}
       </button>
       {previewTrigger.preview}
     </>
@@ -109,12 +122,147 @@ type SearchWorkspaceProps = {
   tab: SearchTab;
   active: boolean;
   types: OntologyTypeSummary[];
-  onRefineSearch: (id: string, filters: Partial<SearchFilters>) => void;
+  editSession?: StagedSession;
+  onRefineSearch: (id: string, filters: Partial<SearchFilters>, query?: string) => void;
   onOpenNote: (target: string, mode?: OpenMode) => void;
   onScrollPosition: (id: string, scrollTop: number) => void;
 };
 
-export function SearchWorkspace({
+/** A search tab with no query lists its folder's notes instead of running ranked search. */
+export function SearchWorkspace(props: SearchWorkspaceProps) {
+  return props.tab.query ? (
+    <RankedSearchWorkspace {...props} />
+  ) : (
+    <FolderNotesWorkspace {...props} />
+  );
+}
+
+function FolderNotesWorkspace({
+  tab,
+  active,
+  editSession = null,
+  onRefineSearch,
+  onOpenNote,
+  onScrollPosition,
+}: SearchWorkspaceProps) {
+  const folder = tab.filters.folder || "";
+  const [folderDraft, setFolderDraft] = useState(folder);
+  const [queryDraft, setQueryDraft] = useState("");
+  const scrollRef = useRef<HTMLElement>(null);
+  const notesQuery = useOntologyTypeQuery(PSEUDO_TYPE_ALL, editSession, active);
+
+  useEffect(() => {
+    setFolderDraft(folder);
+  }, [tab.id, folder]);
+
+  useEffect(() => {
+    if (active && scrollRef.current) scrollRef.current.scrollTop = tab.scrollTop;
+  }, [active, tab.scrollTop]);
+
+  const notes = useMemo(
+    () =>
+      (notesQuery.data?.notes ?? [])
+        .filter((note) => inFolder(note.path, folder))
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)),
+    [folder, notesQuery.data?.notes],
+  );
+
+  const applyFolder = () => {
+    // Clearing the folder would leave nothing to list, so the field reverts instead.
+    if (!normalizeSearchFilters({ folder: folderDraft }).folder) setFolderDraft(folder);
+    else onRefineSearch(tab.id, { ...tab.filters, folder: folderDraft });
+  };
+
+  const submitQuery = () => {
+    if (normalizeSearchQuery(queryDraft)) onRefineSearch(tab.id, tab.filters, queryDraft);
+  };
+
+  return (
+    <main
+      ref={scrollRef}
+      className="search-workspace"
+      aria-label={`Notes in ${folderLabel(folder)}`}
+      onScroll={(event) => {
+        if (active) onScrollPosition(tab.id, event.currentTarget.scrollTop);
+      }}
+    >
+      <header className="search-workspace__header">
+        <div>
+          <h1>Notes in {folderLabel(folder)}</h1>
+          {notesQuery.data ? (
+            <p className="search-workspace__query">
+              {notes.length} {notes.length === 1 ? "note" : "notes"}
+            </p>
+          ) : null}
+        </div>
+        <div className="search-workspace__filters" aria-label="Search filters">
+          {/* Ranked search filters by path prefix, which cannot hold to the root's own notes. */}
+          {folder !== ROOT_FOLDER && (
+            <label>
+              <span>Search</span>
+              <input
+                aria-label="Search this folder"
+                placeholder="Search this folder"
+                value={queryDraft}
+                onChange={(event) => setQueryDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") submitQuery();
+                }}
+              />
+            </label>
+          )}
+          <label>
+            <span>Folder</span>
+            <input
+              aria-label="Search folder"
+              value={folderDraft}
+              onChange={(event) => setFolderDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") applyFolder();
+              }}
+              onBlur={applyFolder}
+            />
+          </label>
+        </div>
+      </header>
+      {notesQuery.isError && !notesQuery.data ? (
+        <div className="search-workspace__state" role="alert">
+          <strong>Notes unavailable</strong>
+          <span>The workspace could not list this folder's notes.</span>
+          <button type="button" onClick={() => void notesQuery.refetch()}>
+            Retry
+          </button>
+        </div>
+      ) : notesQuery.isPending ? (
+        <div className="search-workspace__state" role="status">
+          Loading notes…
+        </div>
+      ) : notes.length === 0 ? (
+        <div className="search-workspace__state" role="status">
+          <strong>No notes in {folderLabel(folder)}</strong>
+        </div>
+      ) : (
+        <ol className="search-workspace__results">
+          {notes.map((note) => (
+            <li key={note.path}>
+              <article className="search-workspace__result">
+                <div className="search-workspace__result-kind">
+                  {publicTypeName(note.resolvedType) || "untyped"}
+                </div>
+                <NoteResultLink target={publicOntologyListItemRef(note)} onOpenNote={onOpenNote}>
+                  {note.title || note.path}
+                </NoteResultLink>
+                <div className="search-workspace__result-source">{note.path}</div>
+              </article>
+            </li>
+          ))}
+        </ol>
+      )}
+    </main>
+  );
+}
+
+function RankedSearchWorkspace({
   tab,
   active,
   types,
@@ -377,11 +525,9 @@ export function SearchWorkspace({
                       {publicTypeName(match.noteType) ? ` · ${publicTypeName(match.noteType)}` : ""}
                     </div>
                     {isNoteMatch(match) ? (
-                      <SearchNoteResultLink
-                        match={match}
-                        query={tab.query}
-                        onOpenNote={onOpenNote}
-                      />
+                      <NoteResultLink target={noteTargetForMatch(match)} onOpenNote={onOpenNote}>
+                        {highlightLiteral(resultLabel(match), tab.query)}
+                      </NoteResultLink>
                     ) : (
                       <button
                         type="button"

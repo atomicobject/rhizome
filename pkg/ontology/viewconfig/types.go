@@ -27,6 +27,7 @@ const (
 	MountKindType       MountKind = "type"
 	MountKindInterface  MountKind = "interface"
 	MountKindStandalone MountKind = "standalone"
+	MountKindWorkspace  MountKind = "workspace"
 	MountKindGroup      MountKind = "group"
 	MountKindNode       MountKind = "node"
 )

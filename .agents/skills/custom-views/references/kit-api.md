@@ -25,6 +25,7 @@
 | `workspaceViewHref(id, context)` | Build the corresponding Rhizome workspace URL, including a selected presentation. |
 | `customViewHref(id, context)` | A contextual `/views/<id>` URL for embedded/direct launch parity. |
 | `openCollection(name)` | Open a type or interface collection in the workspace. |
+| `openSearch({ folder, query? })` | Open a project search tab filtered to a vault folder, listing the folder's notes, or ranking matches when `query` is set. `folder: "/"` lists the notes at the vault root, which sit in no folder. |
 | `openIssues(scope?)` | Open the issues panel, optionally scoped to `{ kind: "type" \| "interface" \| "note", key }`. Without a scope, a view presenting a note opens that note's issues; a view anywhere else, or a standalone page, opens every issue. |
 | `embedded` | `true` when the Rhizome UI frames the view, `false` when it is the page. A cross-origin parent, such as an IDE preview, does not count: the view runs as its own page there. |
 
@@ -33,13 +34,14 @@ Context shapes:
 ```ts
 type ViewContext =
   | { kind: "standalone" }
+  | { kind: "workspace" }
   | { kind: "type"; type: string }
   | { kind: "interface"; interface: string }
   | { kind: "group"; group: string }
   | { kind: "node"; type: string; ref: NodeRef };
 ```
 
-`"*"` is an applicability pattern, never an invocation group. Node refs require `notePath` and `kind`; preserve all supplied identity fields. Query `ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }` for contextual navigation, using the alias to match the REST/kit field name, and pass it unchanged. Native rows already carry canonical refs. Ordinary `NoteLink`/`openNote` are conveniences for whole-note paths; use canonical node helpers for embedded nodes.
+`workspace` is the All notes page, which has no subject. `"*"` is an applicability pattern, never an invocation group. Node refs require `notePath` and `kind`; preserve all supplied identity fields. Query `ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }` for contextual navigation, using the alias to match the REST/kit field name, and pass it unchanged. Native rows already carry canonical refs. Ordinary `NoteLink`/`openNote` are conveniences for whole-note paths; use canonical node helpers for embedded nodes.
 
 `useViewRows` accepts the public native execution request: `variant`, `search`, `filters`, `sort`, `group`, and `page`, among its schema-defined fields. Discover the existing definition and API before supplying field names. The hook handles the workspace session; do not pass a separately created session or duplicate collection logic. See `mounted-example.md`.
 
@@ -86,7 +88,7 @@ These hooks read public APIs through TanStack Query and refresh with the [freshn
 | `useDisplayGroups()` | Query state plus `groups`: every effective display group from `GET /api/v1/display-groups`, sorted by name with the rail's `Other` group (ungrouped types) last. |
 | `useDisplayGroup(name?)` | One group's members, defaulting to the invocation's group. `group` is `undefined` while loading and `null` when no such group exists. Members are the roots the Notes rail lists under the group, with `name`, `kind` (`type` or `interface`), `label`, `pluralLabel`, `description`, `count`, `issueCount` (published validation issues in the member's type or interface scope, the count `openIssues({ kind, key: name })` opens on), `implementors`, and nested `children`. |
 | `useTypeDocs(names)` | `{ docs, isLoading, error }`: type documentation from `GET /api/v1/ontology/types/{name}?notes=none`, keyed by the names that have loaded. Lists such as `fields` and `enums` are always present, possibly empty, and labels fall back to the type name. A response that does not match this contract fails the read with an error naming the mismatched part, as does one from `useDisplayGroups`. |
-| `useValidationSummaries(scopes)` | `{ summaries, generation, isLoading, error }` for the current validation generation. `summaries` is a `Map`; read it with `summaries.get(validationScopeKey(scope))`. A scope is `{ kind, key? }` with kind `global`, `file`, `note`, `node`, `type`, or `interface`. Memoize the scopes array. |
+| `useValidationSummaries(scopes)` | `{ summaries, generation, isLoading, error, refreshGeneration }` for the published validation generation; `generation` is null until validation publishes. Pass `generation` to a generation-bound read such as `POST /api/v1/validation/groups`; when it answers 410 Gone, call `refreshGeneration()` to reread the published generation. `summaries` is a `Map`; read it with `summaries.get(validationScopeKey(scope))`. A scope is `{ kind, key? }` with kind `global`, `file`, `note`, `node`, `type`, or `interface`. Memoize the scopes array. |
 
 Type documentation includes everything a generic page needs to read a type without naming it:
 

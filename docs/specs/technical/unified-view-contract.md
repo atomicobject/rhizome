@@ -4,7 +4,7 @@ id: SPEC-0110
 aliases: [SPEC-0110, Unified view contract]
 summary: "One registration, invocation context, configuration, lifecycle, and service contract for built-in and custom views mounted on type collections, display groups, and individual nodes."
 spec-status: active
-last-updated: 2026-10-04
+last-updated: 2026-10-06
 ---
 
 # Unified view contract
@@ -41,7 +41,7 @@ This extends [[configured-view-engine-and-repo-config|SPEC-0058]] and [[custom-v
 - Each selectable view MUST have a stable identity, name, applicable target, ordering, renderer, configuration, and configured-default marker. A declarative definition's variants become separately selectable choices without duplicating its native source engine.
 - Overview, Table, Cards, and eligible Kanban layouts MUST register through the same normalized contract as custom views. Built-ins MUST remain available when an authored default exists.
 - Definition, mount, and invocation MUST remain independent. A mount limits availability; it does not silently change query semantics.
-- Custom code MUST support `type`, `interface`, `group`, `node`, and existing `standalone` mounts. A `type` names one concrete collection type; an `interface` names its implementing collection; a `node` names one concrete node type.
+- Custom code MUST support `type`, `interface`, `group`, `node`, `workspace`, and existing `standalone` mounts. A `workspace` mount has no subject and targets the All notes page, whose concrete context is `{ kind: "workspace" }` ([[scope-overview|SPEC-0117]]). A `type` names one concrete collection type; an `interface` names its implementing collection; a `node` names one concrete node type.
 - `group` mounts MUST accept one effective display-group name or `"*"`. The latter means any display group and receives the selected group as context. A specific mount MUST appear only for its group.
 - Multiple definitions MUST be available for the same target. Ordering MUST be deterministic; conflicting defaults at the same specificity MUST produce diagnostics and retain a usable deterministic result.
 - Effective group discovery MUST share the navigation interpretation, including existing parent relationships. Display groups remain presentation metadata, never ontology membership.

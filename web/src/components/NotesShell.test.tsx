@@ -172,8 +172,7 @@ describe("NotesShell", () => {
   it("loads rail and home data and retains each opened file tab", async () => {
     render(<NotesShell />);
 
-    await screen.findByRole("region", { name: "All notes home" });
-    expect(await screen.findByRole("heading", { name: "Workspace" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "All notes" })).toBeVisible();
     await screen.findByRole("button", { name: "All notes (2)" });
     expect(screen.getByRole("button", { name: "All notes (2)" })).toBeVisible();
     expect(screen.getByRole("button", { name: /Demo plan.*plans\/demo-plan\.md/i })).toBeVisible();
@@ -283,20 +282,13 @@ describe("NotesShell", () => {
 
     render(<NotesShell />);
 
-    const home = await screen.findByRole("region", { name: "All notes home" });
-    await within(home).findByText("Workspace data is unavailable");
-    expect(within(home).getByText(/No counts or empty-state conclusions/)).toBeVisible();
-    expect(within(home).getByRole("button", { name: "Retry connection" })).toBeVisible();
-    expect(within(home).queryByText("0 notes")).toBeNull();
+    expect(await screen.findByText(/Workspace data is unavailable/)).toBeVisible();
+    expect(screen.queryByText("0 notes")).toBeNull();
 
-    fireEvent.click(within(home).getByRole("button", { name: "Retry connection" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
     await waitFor(() => expect(attempts).toBe(2));
-    await waitFor(() =>
-      expect(within(home).queryByText("Workspace data is unavailable")).toBeNull(),
-    );
-    expect(screen.getByRole("heading", { name: "Workspace" }).closest("header")).toHaveTextContent(
-      /2\s*notes/,
-    );
+    await waitFor(() => expect(screen.queryByText(/Workspace data is unavailable/)).toBeNull());
+    expect(document.querySelector(".type-workspace-header h2")).toHaveTextContent("All notes");
   });
 
   it("shows a retryable type failure and does not present zero notes as loaded data", async () => {

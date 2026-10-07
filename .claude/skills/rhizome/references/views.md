@@ -35,6 +35,7 @@ Choose a mount independently of the source:
 | `interface` | `interface: "*"` | Any interface collection, parameterized by the selected interface |
 | `group` | `group: <name>` | One named display group |
 | `group` | `group: "*"` | Any display group, parameterized by the selected group |
+| `workspace` | None | The All notes page |
 | `node` | `type: <name>` | Individual nodes of one concrete note or embedded-node type (not a section type) |
 | `standalone` | Optional `group`, `order` | A Notes rail entry; `group` names its rail section |
 
@@ -99,13 +100,16 @@ Rhizome ships custom views built on the public kit. They read schema metadata an
 
 Every type and interface offers **Briefing** (`type.briefing` and `interface.briefing`, mounted with `type: "*"` and `interface: "*"`) as its first choice, where Overview used to be; Overview remains only for display groups. The Briefing shows what needs attention (validation issues, warning and risk values, stale active records, profile gap fields with their `@policy` reasons, and reverse fields most records fill but some do not), active-stage records newest first, recent changes with same-minute bursts collapsed, a distribution per lifecycle, ordered, and category field, the primary date per month, fill counts and most common targets per people, relation, and reverse field, notes of other types that link in, and the companion guide. It is never the default: without an authored default, the collection still opens its generated Table or Board. It reads up to 500 records per concrete type in one query and says when a type has more.
 
-Every display group offers three bundled views, mounted with `group: "*"`:
+Every display group offers four bundled views, mounted with `group: "*"`:
 
-- **Briefing** (`group.briefing`): what needs attention, what is in motion, recent changes, links outside the group, the member types, and the links between them.
+- **Overview** (`group.overview`): the member types as a map whose edges count the record links between them (or the same counts as a matrix), one comparable row per member with its lifecycle, gap fields, linked share, links, and issues, relations declared between members that no record uses, the notes outside the group linking to the most of its records, and the guide and authored views.
+- **Briefing** (`group.briefing`): what needs attention, what is in motion, and recent changes.
 - **Trace** (`group.trace`): records of one member type as rows, with the records they connect to as columns.
 - **Sections** (`group.sections`): each member type as a compact table.
 
-A group's member roots are the types and interfaces the Notes rail lists directly under it; an interface root stands for its implementing types. Without an authored default, a group with two or more member roots opens Briefing and a group with one opens Sections. Trace is offered only when two member roots link to each other through a forward `@link` whose declared target is a member root or a type within one; a field typed by a broader interface such as `Note` does not count. Overview stays selectable.
+A group's member roots are the types and interfaces the Notes rail lists directly under it; an interface root stands for its implementing types. Without an authored default, a group with two or more member roots opens Briefing and a group with one opens Sections. Trace is offered only when two member roots link to each other through a forward `@link` whose declared target is a member root or a type within one; a field typed by a broader interface such as `Note` does not count. Overview leads the choices. If it is hidden or cannot load, the built-in list of member types takes its place under the name Types.
+
+All notes offers two bundled views, mounted with `kind: workspace`: **Briefing** (`workspace.briefing`), its default, with what needs attention across the vault (validation issues by variant, untyped and ambiguous notes included), records in an active stage across all types, and recent changes to any note; and **Overview** (`workspace.overview`), which draws each display group as one node that expands into its types, beside ungrouped types and untyped notes, and lists untyped notes by top-level folder. Overview reads its counts from `GET /api/v1/ontology/shape`, never every record.
 
 The views get better as the schema says more: `@view` stage, order, and tone on lifecycle enums, `KEY` importance, `@requiresWhen`, links between member types, and `@display(role: PARENT)` for trees (see `ontology-authoring.md`).
 

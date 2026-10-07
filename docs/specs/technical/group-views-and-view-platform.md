@@ -4,7 +4,7 @@ id: SPEC-0111
 aliases: [SPEC-0111, Group views and view platform]
 summary: "Rhizome ships Briefing, Trace, and Sections display-group views as ordinary kit views, and closes the custom-view platform gaps those views expose so a repository can build views of the same complexity."
 spec-status: active
-last-updated: 2026-10-03
+last-updated: 2026-10-06
 ---
 
 # Group views and view platform
@@ -62,10 +62,7 @@ This extends [[unified-view-contract|SPEC-0110]], which reserved a bundled gener
   - A "No validation issues" line MUST appear when no record has issues.
 - **In motion** MUST list records whose lifecycle value is in the `active` stage, grouped by type and ordered newest first, each with its first key text field or its summary. Types whose lifecycle has no `active` stage MUST be named with a hint to declare one.
 - **Recent changes** MUST list records newest first by day and time. Four or more records changed in the same minute MUST collapse into one expandable line with counts by type.
-- **Outside the group** MUST count and list notes that link to or from group records, by resolved type.
-- **In this group** MUST list each member type with its count, the first sentence of its description, its lifecycle distribution, and, for an interface, counts by implementing type.
-- **Connections** MUST show links between member types as a matrix of record-link counts, marking relations the schema allows but no record uses.
-- Briefing MUST link the group's views and its guide, which is the companion document shared by the most member types.
+- [[scope-overview|SPEC-0117]] moved the structure blocks this section once listed (Outside the group, In this group, Connections, and the views and guide links) to the group Overview, so Briefing shows Needs attention, In motion, and Recent changes at every level. A bundled Overview (`group.overview`) now takes the built-in Overview's place among a group's choices.
 
 ### Trace
 

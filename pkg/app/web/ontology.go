@@ -521,6 +521,10 @@ func (s *Server) ontologyType(ctx context.Context, typeName string, overlay *nod
 	if err != nil || nodeScope == nil {
 		return OntologyTypeResponse{}, err
 	}
+	return s.enrichOntologyType(ctx, typeName, overlay, schema, nodeScope, result)
+}
+
+func (s *Server) enrichOntologyType(ctx context.Context, typeName string, overlay *noderead.ReadOverlay, schema *ontology.Schema, nodeScope *noderead.Scope, result ontology.TypeListResult) (OntologyTypeResponse, error) {
 	pathsList := uniqueOntologyItemNotePaths(result.Items)
 	tagsByPath := map[string][]string{}
 	issuesByPath := map[string]bool{}

@@ -266,6 +266,18 @@ describe("view selection", () => {
     expect(window.localStorage.length).toBe(0);
   });
 
+  it("remembers the All notes choice under the workspace subject", async () => {
+    const workspace = { ...target, kind: "workspace" as const, name: "" };
+    const { result } = renderHook(() => useViewSelection({ target: workspace, vaultKey: "vault" }));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.select("builtin:overview"));
+    await waitFor(() => expect(result.current.pending).toBe(false));
+    expect(
+      server.read({ viewId: "$selection", context: { kind: "workspace" } }).values.choice,
+    ).toBe("builtin:overview");
+  });
+
   it("scopes node selections by canonical node subject", async () => {
     const nodeTarget = { ...target, kind: "node" as const, name: "Task" };
 

@@ -316,8 +316,8 @@ func (s *Server) findCustomView(ctx context.Context, id string) (viewconfig.View
 	return entry.Definition, nil
 }
 
-// findCustomViewWithoutOntology keeps standalone links working while the
-// ontology cannot load (for example a schema mid-edit). Standalone mounts need
+// findCustomViewWithoutOntology keeps standalone and workspace links working
+// while the ontology cannot load (for example a schema mid-edit). These mounts need
 // no schema, so schema-less validation is complete for them; subject mounts
 // cannot be checked and report unavailable.
 func (s *Server) findCustomViewWithoutOntology(id string, cause error) (viewconfig.ViewDefinition, error) {
@@ -334,7 +334,7 @@ func (s *Server) findCustomViewWithoutOntology(id string, cause error) (viewconf
 		if def.ID != id || def.SourceSpec.Kind != viewconfig.SourceKindCustom {
 			continue
 		}
-		if def.Mount.Kind != viewconfig.MountKindStandalone {
+		if def.Mount.Kind != viewconfig.MountKindStandalone && def.Mount.Kind != viewconfig.MountKindWorkspace {
 			return def, fmt.Errorf("%w: %v", errCustomViewUnavailable, cause)
 		}
 		for _, issue := range validation.Issues {

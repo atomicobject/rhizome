@@ -95,13 +95,8 @@ test("group specificity, wildcard context, fallback and native variant default w
     customFrame(page).getByRole("heading", { name: "Exact group dashboard" }),
   ).toBeVisible();
   await chooseView(page, "Overview");
-  await expect(page.locator("iframe.custom-view-frame")).toHaveCount(0);
+  await expect(customFrame(page).getByRole("region", { name: "Members" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "E2E Views", exact: true })).toBeVisible();
-  await expect(
-    page
-      .getByRole("navigation", { name: "E2E Views types" })
-      .getByRole("link", { name: "View demo efforts", exact: true }),
-  ).toBeVisible();
 
   // Without an exact default, a one-root group opens the bundled Sections view;
   // the wildcard dashboard is still offered there with that group's context.

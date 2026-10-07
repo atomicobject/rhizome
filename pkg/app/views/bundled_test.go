@@ -91,7 +91,7 @@ func TestRepositoryViewReplacesBundledViewWithSameID(t *testing.T) {
 	for _, choice := range delivery.Choices {
 		names = append(names, choice.Name)
 	}
-	require.Equal(t, []string{"Overview", "Our briefing", "Trace", "Sections"}, names, "the repository copy takes the bundled Briefing's slot, once")
+	require.Equal(t, []string{"Types", "Our briefing", "Trace", "Sections"}, names, "the repository copy takes the bundled Briefing's slot, once")
 }
 
 func TestGroupDefaultFollowsShapeWithoutAuthoredDefault(t *testing.T) {
@@ -212,7 +212,9 @@ func TestBundledEntriesAreValidatedInTheirOwnFilesystem(t *testing.T) {
 func TestNoBundledViewsKeepsOverviewGroupDefault(t *testing.T) {
 	catalog, err := New(ServiceOptions{Schema: deliverySchema()}).Catalog(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, "builtin:overview", findTarget(t, catalog, viewconfig.MountKindGroup, "Delivery").DefaultChoiceID)
+	delivery := findTarget(t, catalog, viewconfig.MountKindGroup, "Delivery")
+	require.Equal(t, "builtin:overview", delivery.DefaultChoiceID)
+	require.Equal(t, "Types", delivery.Choices[0].Name, "the navigation fallback does not borrow Overview's name")
 }
 
 func TestBundledGroupViewsAreStandardChoicesBeforeCustomOnes(t *testing.T) {
@@ -231,4 +233,35 @@ func TestBundledGroupViewsAreStandardChoicesBeforeCustomOnes(t *testing.T) {
 	require.Equal(t, []string{BriefingViewID, TraceViewID, SectionsViewID}, standard, "the switcher shows group views as plain segments")
 	require.Equal(t, []string{"team-dashboard"}, custom)
 	require.Equal(t, "team-dashboard", delivery.Choices[len(delivery.Choices)-1].ViewID, "custom choices follow the standard ones")
+}
+
+func TestBundledScopeDefinitionsHaveStandardSlots(t *testing.T) {
+	bundled := bundledGroupViews()
+	for _, v := range []struct{ file, id, name, kind, extra string }{
+		{"overview", OverviewViewID, "Overview", "group", ", group: '*'"},
+		{"workspace-overview", WorkspaceOverviewViewID, "Overview", "workspace", ""},
+		{"workspace-briefing", WorkspaceBriefingViewID, "Briefing", "workspace", ""},
+	} {
+		bundled["group/"+v.file+".yaml"] = &fstest.MapFile{Data: fmt.Appendf(nil, "apiVersion: rhizome.view.v1\nid: %s\nname: %s\nsource: {kind: custom, entry: %s.tsx}\nmount: {kind: %s%s, order: 99}\n", v.id, v.name, v.file, v.kind, v.extra)}
+		bundled["group/"+v.file+".tsx"] = &fstest.MapFile{Data: []byte("export default null")}
+	}
+	catalog, err := New(ServiceOptions{Schema: deliverySchema(), Bundled: bundled}).Catalog(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, catalog.Issues)
+	workspace := findTarget(t, catalog, viewconfig.MountKindWorkspace, "")
+	require.Equal(t, []string{WorkspaceBriefingViewID, WorkspaceOverviewViewID}, choiceViewIDs(workspace))
+	require.Equal(t, viewChoiceID(WorkspaceBriefingViewID, "custom"), workspace.DefaultChoiceID)
+	for _, c := range workspace.Choices {
+		require.False(t, c.Custom)
+		require.NotEqual(t, "overview", c.Renderer)
+	}
+	for _, group := range []string{"Delivery", "Library"} {
+		target := findTarget(t, catalog, viewconfig.MountKindGroup, group)
+		require.Equal(t, OverviewViewID, target.Choices[0].ViewID)
+		for _, c := range target.Choices {
+			require.NotEqual(t, "builtin:overview", c.ID)
+		}
+	}
+	require.Equal(t, viewChoiceID(BriefingViewID, "custom"), findTarget(t, catalog, viewconfig.MountKindGroup, "Delivery").DefaultChoiceID)
+	require.Equal(t, viewChoiceID(SectionsViewID, "custom"), findTarget(t, catalog, viewconfig.MountKindGroup, "Library").DefaultChoiceID)
 }

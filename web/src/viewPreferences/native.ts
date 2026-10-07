@@ -54,7 +54,9 @@ export function nativePreferenceScope(
         ? { kind: "interface", interface: mount.interface }
         : mount.kind === "group" && mount.group
           ? { kind: "group", group: mount.group }
-          : { kind: "standalone" };
+          : mount.kind === "workspace"
+            ? { kind: "workspace" }
+            : { kind: "standalone" };
 
   const scope: ViewPreferenceScope = { viewId: view.id, context: context ?? inferred };
 

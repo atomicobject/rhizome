@@ -79,41 +79,51 @@ func (s *Server) countDisplayGroupIssues(ctx context.Context, groups []DisplayGr
 	for i := range groups {
 		collect(groups[i].Members)
 	}
-	store := s.runtime.Intel()
-	if store == nil || len(members) == 0 {
-		return nil
+	scopes := make([]semdb.ValidationScope, len(members))
+	for i, member := range members {
+		scopes[i] = semdb.ValidationScope{Kind: member.Kind, Key: member.Name}
 	}
-	err := s.countMemberIssues(ctx, store, members)
-	// Publishing keeps two generations, so one retry from the newest suffices
-	// unless validation publishes twice during this request.
-	if errors.Is(err, semdb.ErrValidationGenerationExpired) {
-		err = s.countMemberIssues(ctx, store, members)
-	}
-	return err
-}
-
-func (s *Server) countMemberIssues(ctx context.Context, store *semdb.Store, members []*DisplayGroupMember) error {
-	state, err := store.GetValidationState(ctx)
-	if err != nil || state.PublishedGeneration <= 0 {
+	counts, err := s.validationScopeIssueCounts(ctx, scopes, s.validationInterfaceImplementors())
+	if err != nil {
 		return err
 	}
-	filter := semdb.ValidationDiagnosticFilter{InterfaceImplementors: s.validationInterfaceImplementors()}
-	for start := 0; start < len(members); start += semdb.ValidationScopeBatchMax {
-		batch := members[start:min(start+semdb.ValidationScopeBatchMax, len(members))]
-		scopes := make([]semdb.ValidationScope, len(batch))
-		for i, member := range batch {
-			scopes[i] = semdb.ValidationScope{Kind: member.Kind, Key: member.Name}
-		}
-		response, err := store.GetValidationScopeSummaries(ctx, semdb.ValidationScopeSummaryRequest{Generation: state.PublishedGeneration, Scopes: scopes, Filter: filter})
-		if err != nil {
-			return err
-		}
-		// Summaries come back in request order.
-		for i, summary := range response.Summaries {
-			batch[i].IssueCount = summary.IssueCount
-		}
+	for i, count := range counts {
+		members[i].IssueCount = count
 	}
 	return nil
+}
+
+// validationScopeIssueCounts uses the same published scopes as the issues panel.
+// Counts stay zero until validation publishes; an expired generation retries once.
+func (s *Server) validationScopeIssueCounts(ctx context.Context, scopes []semdb.ValidationScope, implementors map[string][]string) ([]int, error) {
+	counts := make([]int, len(scopes))
+	store := s.runtime.Intel()
+	if store == nil || len(scopes) == 0 {
+		return counts, nil
+	}
+	read := func() error {
+		state, err := store.GetValidationState(ctx)
+		if err != nil || state.PublishedGeneration <= 0 {
+			return err
+		}
+		filter := semdb.ValidationDiagnosticFilter{InterfaceImplementors: implementors}
+		for start := 0; start < len(scopes); start += semdb.ValidationScopeBatchMax {
+			batch := scopes[start:min(start+semdb.ValidationScopeBatchMax, len(scopes))]
+			response, err := store.GetValidationScopeSummaries(ctx, semdb.ValidationScopeSummaryRequest{Generation: state.PublishedGeneration, Scopes: batch, Filter: filter})
+			if err != nil {
+				return err
+			}
+			for i, summary := range response.Summaries {
+				counts[start+i] = summary.IssueCount
+			}
+		}
+		return nil
+	}
+	err := read()
+	if errors.Is(err, semdb.ErrValidationGenerationExpired) {
+		err = read()
+	}
+	return counts, err
 }
 
 // displayGroups arranges the summary's members with viewconfig.DisplayTree,

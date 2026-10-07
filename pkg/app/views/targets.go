@@ -37,12 +37,13 @@ func viewChoiceID(viewID, variant string) string {
 func resolveTargets(schema *ontology.Schema, entries []CatalogEntry) []ViewTarget {
 	targets := map[string]ViewTarget{}
 	add := func(kind viewconfig.MountKind, name string) {
-		if name == "" || name == "*" {
+		if (name == "" && kind != viewconfig.MountKindWorkspace) || name == "*" {
 			return
 		}
 		key, _ := json.Marshal([]string{string(kind), name})
 		targets[string(key)] = ViewTarget{Kind: kind, Name: name}
 	}
+	add(viewconfig.MountKindWorkspace, "")
 	if schema != nil {
 		for name, noteType := range schema.Types {
 			add(viewconfig.MountKindType, name)
@@ -94,13 +95,16 @@ func resolveTargets(schema *ontology.Schema, entries []CatalogEntry) []ViewTarge
 // Bundled group views (SPEC-0111). Their ids keep these rules after a
 // repository view replaces them, so an ejected copy behaves like the original.
 const (
-	BriefingViewID = "group.briefing"
-	TraceViewID    = "group.trace"
-	SectionsViewID = "group.sections"
+	OverviewViewID          = "group.overview"
+	WorkspaceBriefingViewID = "workspace.briefing"
+	WorkspaceOverviewViewID = "workspace.overview"
+	BriefingViewID          = "group.briefing"
+	TraceViewID             = "group.trace"
+	SectionsViewID          = "group.sections"
 )
 
 func isGroupViewID(id string) bool {
-	return id == BriefingViewID || id == TraceViewID || id == SectionsViewID
+	return id == OverviewViewID || id == BriefingViewID || id == TraceViewID || id == SectionsViewID
 }
 
 // The bundled type Briefing (SPEC-0112), one definition per collection kind
@@ -155,7 +159,7 @@ func resolveTarget(target ViewTarget, entries []CatalogEntry, shape targetShape)
 	target.Choices = []ViewChoice{}
 	switch target.Kind {
 	case viewconfig.MountKindGroup:
-		target.Choices = append(target.Choices, ViewChoice{ID: "builtin:overview", Name: "Overview", Renderer: "overview"})
+		target.Choices = append(target.Choices, ViewChoice{ID: "builtin:overview", Name: "Types", Renderer: "overview"})
 		target.DefaultChoiceID = "builtin:overview"
 	case viewconfig.MountKindNode:
 		target.Choices = append(target.Choices, ViewChoice{ID: "builtin:read", Name: "Structured", Renderer: "read"}, ViewChoice{ID: "builtin:source", Name: "Source", Renderer: "source"})
@@ -186,6 +190,10 @@ func resolveTarget(target ViewTarget, entries []CatalogEntry, shape targetShape)
 		}
 		return matching[i].ID < matching[j].ID
 	})
+	if slices.ContainsFunc(matching, func(entry CatalogEntry) bool { return entry.ID == OverviewViewID }) && target.Kind == viewconfig.MountKindGroup {
+		target.Choices = nil
+		target.DefaultChoiceID = viewChoiceID(OverviewViewID, "custom")
+	}
 	var standard *CatalogEntry
 	var generated *CatalogEntry
 	var briefing []CatalogEntry
@@ -195,7 +203,8 @@ func resolveTarget(target ViewTarget, entries []CatalogEntry, shape targetShape)
 		switch {
 		case isCollectionViewID(target.Kind, entry.ID):
 			briefing = append(briefing, entry)
-		case target.Kind == viewconfig.MountKindGroup && isGroupViewID(entry.ID):
+		case (target.Kind == viewconfig.MountKindGroup && isGroupViewID(entry.ID)) ||
+			(target.Kind == viewconfig.MountKindWorkspace && (entry.ID == WorkspaceBriefingViewID || entry.ID == WorkspaceOverviewViewID)):
 			groupViews = append(groupViews, entry)
 		case entry.Generated:
 			generated = &matching[i]
@@ -216,6 +225,20 @@ func resolveTarget(target ViewTarget, entries []CatalogEntry, shape targetShape)
 	if standard != nil {
 		target.Choices = append(target.Choices, entryChoices(*standard, false)...)
 	}
+	// Standard scope views have fixed ordering, including repository overrides.
+	sort.SliceStable(groupViews, func(i, j int) bool {
+		rank := func(id string) int {
+			switch id {
+			case OverviewViewID, WorkspaceBriefingViewID:
+				return 0
+			case WorkspaceOverviewViewID:
+				return 1
+			default:
+				return 2
+			}
+		}
+		return rank(groupViews[i].ID) < rank(groupViews[j].ID)
+	})
 	for _, entry := range groupViews {
 		target.Choices = append(target.Choices, entryChoices(entry, false)...)
 	}
@@ -249,6 +272,14 @@ func resolveTarget(target ViewTarget, entries []CatalogEntry, shape targetShape)
 	// Without an authored default, a group opens Briefing when it has several
 	// roots to brief on and Sections when it has one, else whichever of the two
 	// is available.
+	if target.Kind == viewconfig.MountKindWorkspace && defaultPriority == 0 {
+		for _, choice := range target.Choices {
+			if choice.ViewID == WorkspaceBriefingViewID {
+				target.DefaultChoiceID = choice.ID
+				break
+			}
+		}
+	}
 	if target.Kind == viewconfig.MountKindGroup && defaultPriority == 0 {
 		preference := []string{SectionsViewID, BriefingViewID}
 		if shape.roots >= 2 {

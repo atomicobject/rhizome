@@ -311,3 +311,27 @@ func TestCustomViewsWhileOntologyCannotLoad(t *testing.T) {
 		t.Fatalf("subject-mounted view: want 503, got %d %s", response.Code, response.Body.String())
 	}
 }
+
+func TestWorkspaceCustomViewServesWithBrokenOntology(t *testing.T) {
+	srv := newCustomViewTestServer(t, "board.tsx", map[string]string{"poc/board.tsx": "export default null"})
+	definition := filepath.Join(srv.cfg.VaultPath, ".rhizome", "views", "poc", "board.yaml")
+	data, err := os.ReadFile(definition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(definition, []byte(strings.Replace(string(data), "kind: standalone", "kind: workspace", 1)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	addCustomViewTestSchema(t, srv)
+	if err := os.WriteFile(filepath.Join(srv.cfg.VaultPath, ".rhizome", "ontology", "schema.graphql"), []byte("broken schema"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	shell := getCustomView(srv, "/views/poc.board?context="+url.QueryEscape(`{"kind":"workspace"}`))
+	if shell.Code != http.StatusOK || !strings.Contains(shell.Body.String(), `"context":{"kind":"workspace"}`) {
+		t.Fatalf("workspace shell: %d %s", shell.Code, shell.Body.String())
+	}
+	invalid := getCustomView(srv, "/views/poc.board?context="+url.QueryEscape(`{"kind":"workspace","group":"Delivery"}`))
+	if invalid.Code != http.StatusBadRequest {
+		t.Fatalf("accepted workspace subject: %d", invalid.Code)
+	}
+}

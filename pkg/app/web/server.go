@@ -557,6 +557,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/v1/files/tree", publicGET(s.handleTree))
 	s.mux.HandleFunc("/api/v1/files/view", publicGET(s.handleFileView))
 	s.mux.HandleFunc("/api/v1/files/rendered", publicGET(s.handleRenderedFile))
+	s.mux.HandleFunc("/api/v1/ontology/shape", publicGET(s.requireIndexReady(s.handleOntologyShape)))
 	s.mux.HandleFunc("/api/v1/ontology/summary", publicGET(s.requireIndexReady(s.handleOntologySummary)))
 	s.mux.HandleFunc("/api/v1/display-groups", publicGET(s.requireIndexReady(s.handleDisplayGroups)))
 	s.mux.HandleFunc("/api/v1/ontology/atlas", publicGET(s.requireIndexReady(s.handleOntologyAtlas)))

@@ -10,7 +10,6 @@ import type {
 import type { OpenMode } from "./useNoteTabs";
 import { graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
 import { noteIssueCounts as countNoteIssues } from "./useValidationScopeSummaries";
-import { NotesAllHome } from "./NotesAllHome";
 import { NotesTypeHome } from "./NotesTypeHome";
 import { isPseudoType } from "./notesRoute";
 import type { GraphDisplay, GraphNodeClickOptions } from "./useSigmaGraph";
@@ -46,21 +45,12 @@ type CommonProps = {
   onGraphDisplayChange?: (patch: Partial<GraphDisplay>) => void;
 };
 
-export type HomeGraphLayoutProps =
-  | (CommonProps & {
-      mode: "all";
-      unavailable?: string | null;
-      onRetry: () => void;
-      onOpenIssues?: () => void;
-      validation?: ValidateEnvelope | null;
-    })
-  | (CommonProps & {
-      mode: "type";
-      unavailable?: string | null;
-      onRetry: () => void;
-      onOpenIssues?: () => void;
-      validation?: ValidateEnvelope | null;
-    });
+export type HomeGraphLayoutProps = CommonProps & {
+  unavailable?: string | null;
+  onRetry: () => void;
+  onOpenIssues?: () => void;
+  validation?: ValidateEnvelope | null;
+};
 
 function buildHomeHighlightTypes(
   selectedType: string | null,
@@ -119,7 +109,7 @@ export function buildHomeProblemCounts(
 }
 
 export function HomeGraphLayout(props: HomeGraphLayoutProps) {
-  const { graph, loading, mode, onOpenNote, selectedType, summary, typeColors, typeDetail } = props;
+  const { graph, loading, onOpenNote, selectedType, summary, typeColors, typeDetail } = props;
 
   const selectedHighlights = useMemo(
     () => buildHomeHighlightTypes(selectedType, summary),
@@ -172,32 +162,18 @@ export function HomeGraphLayout(props: HomeGraphLayoutProps) {
     : undefined;
 
   return (
-    <div className={`home-graph-layout home-graph-layout--${mode}`}>
-      {mode === "all" ? (
-        <NotesAllHome
-          summary={summary}
-          typeDetail={typeDetail}
-          loading={loading}
-          unavailable={props.unavailable}
-          onRetry={props.onRetry}
-          onOpenNote={onOpenNote}
-          onOpenIssues={openIssues}
-          validation={props.validation}
-          noteIssueCounts={noteIssueCounts}
-        />
-      ) : (
-        <NotesTypeHome
-          typeDetail={typeDetail}
-          onOpenNote={onOpenNote}
-          onOpenIssues={openIssues}
-          validation={props.validation}
-          issueCount={selectedIssueCount}
-          noteIssueCounts={noteIssueCounts}
-          loading={loading}
-          unavailable={props.unavailable}
-          onRetry={props.onRetry}
-        />
-      )}
+    <div className="home-graph-layout home-graph-layout--type">
+      <NotesTypeHome
+        typeDetail={typeDetail}
+        onOpenNote={onOpenNote}
+        onOpenIssues={openIssues}
+        validation={props.validation}
+        issueCount={selectedIssueCount}
+        noteIssueCounts={noteIssueCounts}
+        loading={loading}
+        unavailable={props.unavailable}
+        onRetry={props.onRetry}
+      />
       <section className="ontology-home__graph home-graph-layout__graph">
         <header className="ontology-home__card-head">
           <h3>Graph</h3>

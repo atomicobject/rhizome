@@ -103,7 +103,8 @@ export type NoteTabsApi = {
   openCollection: (collection: CollectionKind) => void;
   openView: (view: ViewCatalogEntry) => void;
   openSearch: (query: string, filters?: Partial<SearchFilters>) => void;
-  refineSearch: (id: string, filters: Partial<SearchFilters>) => void;
+  /** Changes a search tab's filters, and its query when one is given, in place. */
+  refineSearch: (id: string, filters: Partial<SearchFilters>, query?: string) => void;
   setSearchScroll: (id: string, scrollTop: number) => void;
   close: (id: string) => void;
   activate: (id: string) => void;
@@ -322,7 +323,7 @@ function activeIdForLocation(tabs: Tab[], location: NotesLocation): string {
     );
   }
 
-  if (search) {
+  if (search != null) {
     const stableID = normalizeSearchTabID(searchTabID);
 
     if (stableID && tabs.some((tab) => isSearchTab(tab) && tab.id === stableID)) {
@@ -461,7 +462,7 @@ function tabsForLocation(
       locationNodeRef(location),
     ).tabs;
 
-  if (location.search) {
+  if (location.search != null) {
     return openSearchInto(withView, location.search, location.searchFilters, location.searchTabID)
       .tabs;
   }
@@ -590,7 +591,7 @@ function mergeInitialTabs(
   }
 
   if (
-    location.search &&
+    location.search != null &&
     !searches.has(searchTabIdentity(location.search, location.searchFilters))
   ) {
     return openSearchInto(withView, location.search, location.searchFilters, location.searchTabID)
@@ -934,7 +935,7 @@ export function useNoteTabs(
 
   useEffect(() => {
     const selectedCollection = collectionForSelection(location.selection);
-    const requested = location.note || location.search ? null : selectedCollection;
+    const requested = location.note || location.search != null ? null : selectedCollection;
 
     let next = tabsRef.current.filter(
       (tab) => !isCollectionTab(tab) || collectionAvailable(tab.collection, changesAvailable),
@@ -1034,7 +1035,7 @@ export function useNoteTabs(
   }, [commitTabs, location.view]);
 
   useEffect(() => {
-    if (!location.search) return;
+    if (location.search == null) return;
 
     const result = openSearchInto(
       tabsRef.current,
@@ -1138,9 +1139,10 @@ export function useNoteTabs(
   const openSearch = useCallback(
     (query: string, filters?: Partial<SearchFilters>) => {
       const normalizedQuery = normalizeSearchQuery(query);
-
-      if (!normalizedQuery) return;
       const effectiveFilters = normalizeSearchFilters(filters);
+
+      // An empty query lists a folder's notes, so it needs a folder.
+      if (!normalizedQuery && !effectiveFilters.folder) return;
       const result = openSearchInto(tabsRef.current, normalizedQuery, effectiveFilters);
       commitTabs(result.tabs, true);
       writeLocation(
@@ -1189,14 +1191,17 @@ export function useNoteTabs(
   );
 
   const refineSearch = useCallback(
-    (id: string, filters: Partial<SearchFilters>) => {
+    (id: string, filters: Partial<SearchFilters>, query?: string) => {
       const currentTabs = tabsRef.current;
       const index = currentTabs.findIndex((tab) => tab.id === id);
       const current = currentTabs[index];
 
       if (index < 0 || !current || !isSearchTab(current)) return;
       const effectiveFilters = normalizeSearchFilters(filters);
-      const identity = searchTabIdentity(current.query, effectiveFilters);
+      const nextQuery = query === undefined ? current.query : normalizeSearchQuery(query);
+
+      if (!nextQuery && !effectiveFilters.folder) return;
+      const identity = searchTabIdentity(nextQuery, effectiveFilters);
 
       const collision = currentTabs.find(
         (tab) =>
@@ -1209,7 +1214,7 @@ export function useNoteTabs(
         ? currentTabs.filter((tab) => tab.id !== id)
         : currentTabs.map((tab) =>
             tab.id === id && isSearchTab(tab)
-              ? { ...tab, filters: effectiveFilters, scrollTop: 0 }
+              ? { ...tab, query: nextQuery, filters: effectiveFilters, scrollTop: 0 }
               : tab,
           );
 
@@ -1217,7 +1222,7 @@ export function useNoteTabs(
       writeLocation(
         buildNotesLocation({
           selection: location.selection,
-          search: current.query,
+          search: nextQuery,
           scope: effectiveFilters.scope,
           noteType: effectiveFilters.noteType,
           folder: effectiveFilters.folder,
