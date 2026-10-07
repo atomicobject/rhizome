@@ -4,7 +4,7 @@ id: EFF-2026-10-06-16-59
 aliases: [EFF-2026-10-06-16-59]
 name: All notes and display group Overview
 created-at: 2026-10-06T20:59:54Z
-status: active
+status: complete
 summary: "Deliver SPEC-0117: one scope Overview for All notes and display groups, Briefing for activity at every level, a workspace view mount, a public shape aggregate endpoint, and per-block loading."
 plan-approved-by: Drew Colthorp
 governing-specs:
@@ -119,10 +119,10 @@ SPEC-0117 as frozen, on `feat/scope-overview`: the `workspace` mount kind end to
 
 ## Closure Checklist
 
-- [ ] All stories and requirements delivered or deviations recorded
-- [ ] Gates recorded with commands and results
-- [ ] Documentation plan done
-- [ ] PR opened and linked
+- [x] All stories and requirements delivered or deviations recorded
+- [x] Gates recorded with commands and results
+- [x] Documentation plan done
+- [x] PR opened and linked
 
 ## Compounding Follow-ups
 
@@ -131,4 +131,4 @@ SPEC-0117 as frozen, on `feat/scope-overview`: the `workspace` mount kind end to
 
 ## Status
 
-Active.
+Complete. Spec merged in #4 (`cc8af880`) and implementation in #5 (`a6ddc0e7`) on 2026-10-07, both approved by Drew Colthorp, with all pull-request checks green (one Windows live-indexing timing test in an untouched package failed once and passed on rerun).
