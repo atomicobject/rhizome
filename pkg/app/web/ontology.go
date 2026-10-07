@@ -1578,11 +1578,11 @@ func (s *Server) workspaceGroups(ctx context.Context, nodeScope *noderead.Scope,
 		_, ok := seen[kind+"|"+path]
 		return ok
 	}
-	addRelationItem := func(items *[]NoteWorkspaceLink, relationName, targetPath, targetTitle, kind, resolvedType, provenance string, structural bool) {
+	addRelationItem := func(items *[]NoteWorkspaceLink, relationName, targetPath, targetTitle, kind, resolvedType, provenance, direction string, structural bool) {
 		if targetPath == "" || targetPath == notePath {
 			return
 		}
-		key := fmt.Sprintf("%t|%s|%s", structural, relationName, targetPath)
+		key := fmt.Sprintf("%t|%s|%s|%s", structural, relationName, targetPath, direction)
 		if _, ok := relationSeen[key]; ok {
 			return
 		}
@@ -1594,6 +1594,7 @@ func (s *Server) workspaceGroups(ctx context.Context, nodeScope *noderead.Scope,
 			ResolvedType: resolvedType,
 			RelationName: relationName,
 			Provenance:   provenance,
+			Direction:    direction,
 			Structural:   structural,
 		})
 		addSeen("note", targetPath)
@@ -1609,9 +1610,9 @@ func (s *Server) workspaceGroups(ctx context.Context, nodeScope *noderead.Scope,
 		for _, relation := range inspected.Assessment.Relations {
 			for _, target := range relation.Targets {
 				if target.Structural {
-					addRelationItem(&structural, relation.Name, target.Path, titleFromPath(target.Path), s.pathKind(target.Path), target.TypeName, target.Provenance, true)
+					addRelationItem(&structural, relation.Name, target.Path, titleFromPath(target.Path), s.pathKind(target.Path), target.TypeName, target.Provenance, workspaceLinkDirection(false, target.Provenance), true)
 				} else {
-					addRelationItem(&ambient, relation.Name, target.Path, titleFromPath(target.Path), s.pathKind(target.Path), target.TypeName, target.Provenance, false)
+					addRelationItem(&ambient, relation.Name, target.Path, titleFromPath(target.Path), s.pathKind(target.Path), target.TypeName, target.Provenance, workspaceLinkDirection(false, target.Provenance), false)
 				}
 			}
 		}
@@ -1620,14 +1621,16 @@ func (s *Server) workspaceGroups(ctx context.Context, nodeScope *noderead.Scope,
 		for _, relation := range persistedRelations {
 			targetPath := relation.DestinationPath
 			targetType := relation.DestinationType
-			if strings.EqualFold(targetPath, notePath) {
+			inbound := strings.EqualFold(targetPath, notePath)
+			if inbound {
 				targetPath = relation.SourcePath
 				targetType = ""
 			}
+			direction := workspaceLinkDirection(inbound, relation.Provenance)
 			if relation.Structural {
-				addRelationItem(&structural, relation.RelationName, targetPath, titleFromPath(targetPath), s.pathKind(targetPath), targetType, relation.Provenance, true)
+				addRelationItem(&structural, relation.RelationName, targetPath, titleFromPath(targetPath), s.pathKind(targetPath), targetType, relation.Provenance, direction, true)
 			} else {
-				addRelationItem(&ambient, relation.RelationName, targetPath, titleFromPath(targetPath), s.pathKind(targetPath), targetType, relation.Provenance, false)
+				addRelationItem(&ambient, relation.RelationName, targetPath, titleFromPath(targetPath), s.pathKind(targetPath), targetType, relation.Provenance, direction, false)
 			}
 		}
 	}
@@ -1677,17 +1680,20 @@ func (s *Server) workspaceGroups(ctx context.Context, nodeScope *noderead.Scope,
 		return nil, fetchErr
 	}
 	backlinkItems := make([]NoteWorkspaceLink, 0, len(backlinks))
+	backlinkSeen := make(map[string]struct{}, len(backlinks))
 	for _, backlink := range backlinks {
-		if hasSeen("note", backlink.Referrer) {
+		if _, ok := backlinkSeen[backlink.Referrer]; ok || hasSeen("note", backlink.Referrer) {
 			continue
 		}
+		backlinkSeen[backlink.Referrer] = struct{}{}
 		backlinkItems = append(backlinkItems, NoteWorkspaceLink{
 			Path:       backlink.Referrer,
 			Title:      titleFromPath(backlink.Referrer),
 			Kind:       "note",
 			Provenance: string(backlink.LinkType),
+			Direction:  linkDirectionIncoming,
 		})
-		addSeen("note", backlink.Referrer)
+		// Not marked seen: a note that also links back keeps its outbound row.
 	}
 
 	connectedItems := make([]NoteWorkspaceLink, 0)
@@ -1700,6 +1706,7 @@ func (s *Server) workspaceGroups(ctx context.Context, nodeScope *noderead.Scope,
 			Title:      titleFromPath(link.Target),
 			Kind:       "note",
 			Provenance: link.Kind,
+			Direction:  linkDirectionOutgoing,
 		})
 		addSeen("note", link.Target)
 	}
@@ -1845,6 +1852,7 @@ func (s *Server) sectionRelationGroups(ctx context.Context, notePath string, ren
 			Anchor:         pending.anchor,
 			StructuralNode: structuralNode,
 			Provenance:     pending.provenance,
+			Direction:      linkDirectionOutgoing,
 		})
 	}
 
@@ -1867,6 +1875,7 @@ func (s *Server) sectionRelationGroups(ctx context.Context, notePath string, ren
 			Title:      titleFromPath(backlink.Referrer),
 			Kind:       "note",
 			Provenance: string(backlink.LinkType),
+			Direction:  linkDirectionIncoming,
 		})
 	}
 

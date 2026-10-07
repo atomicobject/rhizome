@@ -178,6 +178,7 @@ describe("nodeWorkspaceFromPublicGraphQL", () => {
                   title: "Plan",
                   relationName: "plans",
                   provenance: "field",
+                  direction: "INBOUND",
                   structural: true,
                 },
               ],
@@ -220,6 +221,7 @@ describe("nodeWorkspaceFromPublicGraphQL", () => {
       expect.objectContaining({
         path: "specs/plan.md",
         relationName: "plans",
+        direction: "incoming",
       }),
     );
     expect(workspace.loaded).toEqual({

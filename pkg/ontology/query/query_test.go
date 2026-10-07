@@ -1069,7 +1069,7 @@ See [[connected]].
 	prepared, errs := PrepareWithVariables(env.execSchema, `query Workspace($ref: String!) {
   node(ref: $ref) {
     workspace {
-      relationGroups { key items { ref { ref kind } provenance } }
+      relationGroups { key items { ref { ref kind } provenance direction } }
     }
   }
 }`, map[string]any{"ref": "notes/source.md"})
@@ -1086,10 +1086,49 @@ See [[connected]].
 	}
 	require.Equal(t, "notes/connected.md", byKey["connected"][0].(map[string]any)["ref"].(map[string]any)["ref"], "ordinary outbound wikilinks remain visible")
 	require.Equal(t, "notes/backlink.md", byKey["backlinks"][0].(map[string]any)["ref"].(map[string]any)["ref"], "ordinary inbound wikilinks remain visible")
+	require.Equal(t, "OUTBOUND", byKey["connected"][0].(map[string]any)["direction"])
+	require.Equal(t, "INBOUND", byKey["backlinks"][0].(map[string]any)["direction"])
 	require.NotEmpty(t, byKey["code"], "note-code links remain visible")
 	codeRef := byKey["code"][0].(map[string]any)["ref"].(map[string]any)
 	require.Equal(t, "CODE_FILE", codeRef["kind"])
 	require.Equal(t, "pkg/roadmap.go", codeRef["ref"])
+}
+
+func TestExecute_NodeWorkspaceRelationDirectionFollowsTheAuthoredLink(t *testing.T) {
+	env := newCustomQueryTestEnv(t, `
+type Topic @node(paths: ["notes/*.md"]) {
+  name: String
+}
+`, map[string]string{
+		"notes/source.md": "# Source\n\nSee [[target]].\n",
+		"notes/target.md": "# Target\n",
+	})
+
+	// The index mirrors each body link with a synthetic "backlink" edge; both
+	// halves must report the authored direction so a one-way link never reads
+	// as mutual.
+	directions := func(ref, other string) map[string]bool {
+		prepared, errs := PrepareWithVariables(env.execSchema, `query Workspace($ref: String!) {
+  node(ref: $ref) { workspace { relationGroups { key items { ref { ref } direction } } } }
+}`, map[string]any{"ref": ref})
+		require.Empty(t, errs)
+		result := Execute(context.Background(), env.deps(nil), env.schema, prepared)
+		require.Empty(t, result.Errors)
+		out := map[string]bool{}
+		groups := result.Data["node"].(map[string]any)["workspace"].(map[string]any)["relationGroups"].([]any)
+		for _, raw := range groups {
+			for _, rawItem := range raw.(map[string]any)["items"].([]any) {
+				item := rawItem.(map[string]any)
+				if item["ref"].(map[string]any)["ref"] == other {
+					out[item["direction"].(string)] = true
+				}
+			}
+		}
+		return out
+	}
+
+	require.Equal(t, map[string]bool{"OUTBOUND": true}, directions("notes/source.md", "notes/target.md"))
+	require.Equal(t, map[string]bool{"INBOUND": true}, directions("notes/target.md", "notes/source.md"))
 }
 
 func TestExecute_NodeWorkspaceRelationGroupsTitleFragmentTargetsFromTheNode(t *testing.T) {
@@ -1764,6 +1803,16 @@ type Spec @node(paths: ["notes/specs/*.md"]) {
 	require.Equal(t, "NOTE", noteBody["ref"].(map[string]any)["kind"])
 	require.Equal(t, "FILE", noteBody["locator"])
 	require.Contains(t, noteBody["blocks"].([]any)[0].(map[string]any)["childRef"].(map[string]any)["ref"], "#")
+	var paneSection map[string]any
+	for _, raw := range noteBodies {
+		body := raw.(map[string]any)
+		if binding, ok := body["binding"].(map[string]any); ok && binding["fieldName"] == "userStories" {
+			paneSection = body
+		}
+	}
+	require.NotNil(t, paneSection)
+	require.Equal(t, "PANE", paneSection["binding"].(map[string]any)["sectionDisplay"])
+	require.NotEmpty(t, paneSection["blocks"].([]any), "PANE sections carry blocks so they read and edit in place")
 
 	section := result.Data["section"].([]any)[0].(map[string]any)
 	sectionBodies := section["userStories"].(map[string]any)["workspace"].(map[string]any)["bodies"].([]any)

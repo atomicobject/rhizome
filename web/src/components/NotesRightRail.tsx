@@ -151,7 +151,11 @@ function useCurrentSection(
       let next: string | null = null;
 
       for (const { id, element } of targets) {
-        if (element && element.getBoundingClientRect().top <= top) next = id;
+        // A section inside a collapsed disclosure is not on screen; the
+        // disclosure's own heading is, so only ancestors count.
+        if (!element || element.parentElement?.closest("details:not([open])")) continue;
+
+        if (element.getBoundingClientRect().top <= top) next = id;
       }
 
       setCurrent(next);
@@ -169,12 +173,15 @@ function useCurrentSection(
 
     schedule();
     document.addEventListener("scroll", schedule, { capture: true, passive: true });
+    // Opening or closing a section moves everything after it; `toggle` does not bubble.
+    document.addEventListener("toggle", schedule, { capture: true });
     USER_SCROLL_EVENTS.forEach((type) =>
       document.addEventListener(type, release, { capture: true, passive: true }),
     );
 
     return () => {
       document.removeEventListener("scroll", schedule, { capture: true });
+      document.removeEventListener("toggle", schedule, { capture: true });
       USER_SCROLL_EVENTS.forEach((type) =>
         document.removeEventListener(type, release, { capture: true }),
       );

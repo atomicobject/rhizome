@@ -1,5 +1,5 @@
 import { ChildSectionInline } from "./ChildSectionInline";
-import { ChildSectionLink } from "./ChildSectionLink";
+import { ChildSectionDisclosure } from "./ChildSectionDisclosure";
 import type { BodyRendererProps } from "./registry";
 
 /**
@@ -9,8 +9,9 @@ import type { BodyRendererProps } from "./registry";
  * and edit modes at the same router — the INLINE vs PANE split is purely
  * a schema decision, not a mode decision.
  *
- * The PANE default belongs to `@contains` declarations. A heading no field
- * declares (no `fieldName`) is ordinary document structure and reads inline.
+ * The PANE default belongs to `@contains` declarations and reads as a
+ * collapsed disclosure. A heading no field declares (no `fieldName`) is
+ * ordinary document structure and reads inline.
  */
 export function ChildSectionRouter(props: BodyRendererProps) {
   const { fieldName, sectionDisplay } = props.block;
@@ -19,5 +20,5 @@ export function ChildSectionRouter(props: BodyRendererProps) {
     return <ChildSectionInline {...props} />;
   }
 
-  return <ChildSectionLink {...props} />;
+  return <ChildSectionDisclosure {...props} />;
 }

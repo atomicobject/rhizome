@@ -176,7 +176,6 @@ describe("NotesRightRail", () => {
     );
 
     const rail = screen.getByRole("complementary", { name: "Note context" });
-    expect(within(rail).getByRole("heading", { name: "Alpha" })).toBeVisible();
     const tabs = within(rail).getByRole("tablist", { name: "Note context" });
     expect(within(tabs).getAllByRole("tab")).toHaveLength(3);
     expect(within(tabs).getByRole("tab", { name: "Info" })).toHaveAttribute(
@@ -186,13 +185,8 @@ describe("NotesRightRail", () => {
     expect(await screen.findByRole("button", { name: "Beta" })).toBeVisible();
     expect(within(rail).queryByText("A useful summary")).not.toBeInTheDocument();
     expect(within(rail).queryByText("notes/alpha.md#details")).not.toBeInTheDocument();
-    fireEvent.click(within(rail).getByRole("button", { name: "requirements" }));
-    expect(onOpen).toHaveBeenCalledWith("notes/alpha.md#details", "stack");
-    fireEvent.click(within(rail).getByRole("button", { name: "requirements" }), {
-      ctrlKey: true,
-    });
-    expect(onOpen).toHaveBeenLastCalledWith("notes/alpha.md#details", "beside");
-
+    // The note's own sections are on the page and in Outline, not in Info.
+    expect(within(rail).queryByRole("button", { name: "details" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Beta" }));
     expect(onOpen).toHaveBeenCalledWith("notes/beta.md", "stack");
     fireEvent.click(screen.getByRole("button", { name: "Beta" }), { ctrlKey: true });

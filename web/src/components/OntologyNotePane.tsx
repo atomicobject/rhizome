@@ -602,6 +602,18 @@ function structuralNodeBadge(node: StructuralNode): string | null {
   return null;
 }
 
+// Collapsed sections keep their bodies mounted; open the target (when it is a
+// disclosure itself) and every disclosure around it so it can scroll into view.
+function openEnclosingDisclosures(target: HTMLElement) {
+  for (
+    let details = target.closest("details");
+    details;
+    details = details.parentElement?.closest("details") ?? null
+  ) {
+    details.open = true;
+  }
+}
+
 function structuralNodeOwnMarkdown(node: StructuralNode): string {
   return convertWikilinks(node.content || "");
 }
@@ -1356,8 +1368,8 @@ export function OntologyNotePane({
     return parents;
   }, [outlineRoots]);
 
-  // The outline moves within this note. A section that renders elsewhere
-  // (inside a pane-only parent) scrolls to its nearest rendered ancestor.
+  // The outline moves within this note, expanding collapsed sections on the
+  // way. A section that does not render here scrolls to its nearest ancestor.
   const navigateOutline = useCallback(
     (section: RenderedSection) => {
       const sourceLine = sourceSectionLines.get(section.id);
@@ -1376,6 +1388,7 @@ export function OntologyNotePane({
         const target = outlineTarget(current);
 
         if (target) {
+          openEnclosingDisclosures(target);
           target.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
 
           return;
@@ -1433,9 +1446,7 @@ export function OntologyNotePane({
     setFocusUnavailable(!target);
 
     if (!target) return;
-    const disclosure = target.closest("details");
-
-    if (disclosure) disclosure.open = true;
+    openEnclosingDisclosures(target);
     target.classList.add("is-issue-target");
     target.tabIndex = -1;
     target.scrollIntoView({ block: "center" });

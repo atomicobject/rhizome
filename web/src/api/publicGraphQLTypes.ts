@@ -306,6 +306,7 @@ export type PublicNodeWorkspaceProjection = {
       resolvedType?: string | null;
       relationName?: string | null;
       provenance?: string | null;
+      direction?: "OUTBOUND" | "INBOUND" | "BOTH" | null;
       structural: boolean;
       current?: boolean;
     }>;

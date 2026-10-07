@@ -18,8 +18,8 @@ test("retains one tab per file and restores all open files across reload", async
   await expect(tabs.getByRole("tab", { name: /Task Flow/ })).not.toHaveClass(/preview/);
 
   await chooseView(page, "Structure");
-  // Plain headings read inline instead of as drill-in section cards.
-  await expect(page.locator(".body-child-link")).toHaveCount(0);
+  // Plain headings read inline instead of as collapsed section disclosures.
+  await expect(page.locator(".body-disclosure")).toHaveCount(0);
   await expect(page.getByText(/_Fallback|fallback-section|fallback-note/i)).toHaveCount(0);
   await page.getByRole("link", { name: "communities/engineering", exact: true }).click();
   await expect(tabs.getByRole("tab")).toHaveCount(3);

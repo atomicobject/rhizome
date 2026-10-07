@@ -3088,8 +3088,25 @@ func TestWorkspaceGroups_UsesOtherEndpointForInboundAmbientRelations(t *testing.
 	require.NoError(t, err)
 	require.Len(t, groups, 1)
 	require.Equal(t, "ambient", groups[0].Key)
-	require.Len(t, groups[0].Items, 1)
-	require.Equal(t, "concepts/clarity-loop.md", groups[0].Items[0].Path)
+	// A mutual link keeps one row per direction; the rail merges them.
+	require.Len(t, groups[0].Items, 2)
+	directions := map[string]string{}
+	for _, item := range groups[0].Items {
+		require.Equal(t, "concepts/clarity-loop.md", item.Path)
+		directions[item.Direction] = item.Path
+	}
+	require.Contains(t, directions, linkDirectionIncoming)
+	require.Contains(t, directions, linkDirectionOutgoing)
+}
+
+func TestWorkspaceLinkDirection_FlipsSyntheticBacklinks(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, linkDirectionOutgoing, workspaceLinkDirection(false, "body_link"))
+	require.Equal(t, linkDirectionIncoming, workspaceLinkDirection(true, "body_link"))
+	// The index mirrors A→B as a "backlink" edge B→A, so orientation flips.
+	require.Equal(t, linkDirectionIncoming, workspaceLinkDirection(false, "backlink"))
+	require.Equal(t, linkDirectionOutgoing, workspaceLinkDirection(true, "backlink"))
 }
 
 func TestBuildGlobalGraphMode_NotesOnlySkipsModuleCollapse(t *testing.T) {

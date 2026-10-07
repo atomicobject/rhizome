@@ -533,8 +533,37 @@ describe("BodyWalker", () => {
   });
 });
 
+it("renders a PANE section's body inside its collapsed disclosure and registers it", () => {
+  const workspace = makeWorkspace();
+  const parent = workspace.nodes!.find((node) => node.id === "node|story")!;
+  parent.body = parent.body?.map((block) =>
+    block.kind === "child_section" ? { ...block, sectionDisplay: "PANE" } : block,
+  );
+  const registerSectionTarget = vi.fn();
+
+  const { container } = render(
+    <BodyWalker
+      node={parent}
+      context={{
+        workspace,
+        mode: "edit",
+        registerSectionTarget,
+        lookupNode: (id) => workspace.nodes?.find((node) => node.id === id),
+      }}
+    />,
+  );
+
+  // Editing works in place: the body mounts its narrative editors.
+  const disclosure = container.querySelector<HTMLDetailsElement>("details.body-disclosure")!;
+  expect(disclosure.querySelector(".body-disclosure__body .body-narrative--editor")).not.toBeNull();
+  expect(registerSectionTarget).toHaveBeenCalledWith("docs/spec.md#acceptance-200", disclosure);
+
+  fireEvent.click(disclosure.querySelector("summary")!);
+  expect(disclosure.open).toBe(true);
+});
+
 it.each(["_FallbackSection", "_FallbackNote"])(
-  "hides %s badges while preserving child navigation",
+  "hides %s badges in a collapsed PANE section and keeps drill-in",
   (typeName) => {
     const workspace = makeWorkspace();
     const parent = workspace.nodes!.find((node) => node.id === "node|story")!;
@@ -562,9 +591,11 @@ it.each(["_FallbackSection", "_FallbackNote"])(
       />,
     );
 
-    const link = screen.getByRole("button", { name: /Acceptance Criteria/ });
-    expect(link).not.toHaveTextContent(/fallback/i);
-    expect(container.querySelector(".body-child-link__type")).toBeNull();
+    const disclosure = container.querySelector<HTMLDetailsElement>("details.body-disclosure")!;
+    expect(disclosure.open).toBe(false);
+    expect(disclosure.querySelector("summary")).not.toHaveTextContent(/fallback/i);
+
+    const link = screen.getByRole("button", { name: "Open section Acceptance Criteria" });
     fireEvent.click(link);
     expect(onOpenNode).toHaveBeenCalledWith(
       expect.objectContaining({ nodeId: child.ref.nodeId, typeName }),

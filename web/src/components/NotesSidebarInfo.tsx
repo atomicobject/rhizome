@@ -2,19 +2,19 @@ import { sessionStateLabel } from "../staging/stagedState";
 import { publicWorkspaceRef } from "../api/client";
 import { displayTitle } from "../lib/labels";
 import { publicTypeName } from "../lib/typeNames";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import type {
   NodeWorkspace,
   NoteWorkspaceGroup,
   NoteWorkspaceLink,
   WorkspaceContentNode,
-  WorkspaceFieldNode,
 } from "../api/types";
+import { isContentNode } from "../api/types";
 import { selectWorkspaceRelationGroups } from "./workspaceGraph";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import type { ValidationHealth } from "../api/types";
 import { useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
-import { useTypeLabel } from "./typeLabels";
+import { type TypeLabelFn, useTypeLabel } from "./typeLabels";
 
 // Only genuine code evidence belongs under the Code rail. Section and embedded
 // targets (headings, action items) are note content and stay with Related notes.
@@ -70,39 +70,133 @@ function humanizeRelationName(name: string): string {
   return spaced ? spaced[0].toUpperCase() + spaced.slice(1) : name;
 }
 
-// Server groups can share a reader-facing label (two link groups); show one
-// bucket per label and each target once.
-function mergeBucketsByLabel(groups: NoteWorkspaceGroup[]): NoteWorkspaceGroup[] {
-  const byLabel = new Map<string, NoteWorkspaceGroup & { items: NoteWorkspaceLink[] }>();
+type Direction = "outgoing" | "incoming" | "both";
 
-  for (const group of groups) {
-    const label = compactRelationLabel(group);
-    const bucket = byLabel.get(label);
+// Servers before `direction` existed only marked backlinks.
+function itemDirection(item: NoteWorkspaceLink): Direction {
+  if (item.direction) return item.direction;
 
-    if (!bucket) {
-      byLabel.set(label, { ...group, label, items: [...(group.items || [])] });
-      continue;
-    }
+  return item.provenance === "backlink" ? "incoming" : "outgoing";
+}
 
-    for (const item of group.items || []) {
-      const target = relationTarget(item);
+const DIRECTION_GLYPH: Record<Direction, string> = { outgoing: "→", incoming: "←", both: "↔" };
 
-      if (!bucket.items.some((existing) => relationTarget(existing) === target)) {
-        bucket.items.push(item);
-      }
+const DIRECTION_LABEL: Record<Direction, string> = {
+  outgoing: "Links to",
+  incoming: "Links here",
+  both: "Linked both ways",
+};
+
+type RailRow = {
+  key: string;
+  target: string;
+  label: string;
+  title: string;
+  typeName: string;
+  direction: Direction;
+  current?: boolean;
+  openable: boolean;
+};
+
+type RailBucket = {
+  key: string;
+  label: string;
+  hint?: string;
+  direction?: Direction;
+  rows: RailRow[];
+};
+
+function railRow(item: NoteWorkspaceLink, typeLabel: TypeLabelFn): RailRow {
+  const target = relationTarget(item);
+  const type = publicTypeName(item.resolvedType || item.structuralNode?.typeName);
+
+  return {
+    key: target,
+    target,
+    label: displayTitle(item.title) || target,
+    title: item.targetTitle || item.title || target,
+    typeName: type ? typeLabel(type) : "",
+    direction: itemDirection(item),
+    current: item.current,
+    openable: isNoteContent(item),
+  };
+}
+
+// Typed field relations, one bucket per field and direction ("Impacts →",
+// "← Opportunities"). The type moves to the header when every target shares it.
+function relationBuckets(items: NoteWorkspaceLink[], typeLabel: TypeLabelFn): RailBucket[] {
+  const buckets = new Map<string, RailBucket>();
+
+  for (const item of items) {
+    const row = railRow(item, typeLabel);
+    const relation = item.relationName || item.provenance || "relation";
+    const name = humanizeRelationName(relation);
+    // Key by the schema field, not its label: `partOf` and `part_of` stay apart.
+    const key = `${row.direction}:${relation}`;
+    const bucket = buckets.get(key) ?? { key, label: name, direction: row.direction, rows: [] };
+
+    if (!bucket.rows.some((existing) => existing.target === row.target)) bucket.rows.push(row);
+    buckets.set(key, bucket);
+  }
+
+  return Array.from(buckets.values()).map((bucket) => {
+    const types = new Set(bucket.rows.map((row) => row.typeName));
+
+    if (types.size !== 1) return bucket;
+
+    return {
+      ...bucket,
+      hint: bucket.rows[0].typeName,
+      rows: bucket.rows.map((row) => ({ ...row, typeName: "" })),
+    };
+  });
+}
+
+function folderOf(target: string): string {
+  const slash = target.indexOf("/");
+
+  return slash > 0 ? `${target.slice(0, slash)}/` : "Notes";
+}
+
+// Body links and backlinks, one row per note with its direction, bucketed by
+// type; untyped notes fall back to their top folder ("Log/").
+function linkedBuckets(
+  items: NoteWorkspaceLink[],
+  exclude: ReadonlySet<string>,
+  typeLabel: TypeLabelFn,
+): RailBucket[] {
+  const rows = new Map<string, RailRow>();
+
+  for (const item of items) {
+    const row = railRow(item, typeLabel);
+
+    if (exclude.has(row.target)) continue;
+    const existing = rows.get(row.target);
+
+    if (!existing) {
+      rows.set(row.target, row);
+    } else if (existing.direction !== row.direction) {
+      existing.direction = "both";
     }
   }
 
-  return Array.from(byLabel.values());
-}
+  const buckets = new Map<string, RailBucket & { typed: boolean }>();
 
-function relationGroupWithItems(
-  group: NoteWorkspaceGroup,
-  items: NoteWorkspaceLink[],
-): NoteWorkspaceGroup | null {
-  if (items.length === 0) return null;
+  for (const row of rows.values()) {
+    const typed = Boolean(row.typeName);
+    const label = row.typeName || folderOf(row.target);
+    const key = `${typed ? "type" : "folder"}:${label}`;
+    const bucket = buckets.get(key) ?? { key, label, typed, rows: [] };
+    bucket.rows.push({ ...row, typeName: "" });
+    buckets.set(key, bucket);
+  }
 
-  return { ...group, items };
+  return Array.from(buckets.values()).sort(
+    (a, b) =>
+      Number(b.typed) - Number(a.typed) ||
+      b.rows.length - a.rows.length ||
+      a.label.localeCompare(b.label),
+  );
 }
 
 function nearbyStructuralNodes(workspace: NodeWorkspace): WorkspaceContentNode[] {
@@ -177,65 +271,137 @@ function SidebarPreviewButton({
   );
 }
 
-function SidebarContextLink({
-  item,
-  group,
+type OpenFn = (path: string, target?: "current" | "stack" | "beside") => void;
+
+function RailRowItem({
+  row,
+  showDirection,
   from,
   onOpen,
 }: {
-  item: NoteWorkspaceLink;
-  group: NoteWorkspaceGroup;
+  row: RailRow;
+  showDirection: boolean;
   from: string;
-  onOpen: (path: string, target?: "current" | "stack" | "beside") => void;
+  onOpen: OpenFn;
 }) {
-  const relation = item.relationName
-    ? humanizeRelationName(item.relationName)
-    : compactRelationLabel(group);
-
-  const provenance = item.provenance ? humanizeRelationName(item.provenance) : "";
-  const typeLabel = useTypeLabel();
-
-  const meta = [
-    item.current ? "Current" : null,
-    publicTypeName(item.resolvedType) && typeLabel(item.resolvedType),
-    relation,
-    provenance && provenance !== relation ? provenance.toLowerCase() : null,
-  ].filter(Boolean);
-
-  const target = relationTarget(item);
-
   return (
-    <li className="ontology-sidebar-context__item">
-      {isNoteContent(item) ? (
+    <li className="rail-row">
+      {showDirection && (
+        <span
+          className={`rail-row__dir rail-row__dir--${row.direction}`}
+          role="img"
+          aria-label={DIRECTION_LABEL[row.direction]}
+          title={DIRECTION_LABEL[row.direction]}
+        >
+          {DIRECTION_GLYPH[row.direction]}
+        </span>
+      )}
+      {row.openable ? (
         <SidebarPreviewButton
-          target={target}
-          label={displayTitle(item.title) || target}
-          title={item.targetTitle || item.title || target}
-          current={item.current}
+          target={row.target}
+          label={row.label}
+          title={row.title}
+          current={row.current}
           from={from}
           onOpen={onOpen}
         />
       ) : (
-        <span>{displayTitle(item.title) || target}</span>
+        <span className="rail-row__label" title={row.title}>
+          {row.label}
+        </span>
       )}
-      {meta.length > 0 && <div className="ontology-sidebar-context__meta">{meta.join(" · ")}</div>}
-      <div className="ontology-sidebar-context__path" title={target}>
-        {target}
-      </div>
+      {row.typeName && <span className="rail-row__type">{row.typeName}</span>}
     </li>
   );
 }
 
+const BUCKET_LIMIT = 5;
+
+function RailBucketList({
+  bucket,
+  showDirection,
+  from,
+  onOpen,
+}: {
+  bucket: RailBucket;
+  showDirection: boolean;
+  from: string;
+  onOpen: OpenFn;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  // Show everything when only one row would hide behind the toggle.
+  const limit = bucket.rows.length <= BUCKET_LIMIT + 1 ? bucket.rows.length : BUCKET_LIMIT;
+  const rows = expanded ? bucket.rows : bucket.rows.slice(0, limit);
+  const hidden = bucket.rows.length - rows.length;
+
+  return (
+    <div className="rail-bucket">
+      <div className="rail-bucket__head">
+        {bucket.direction && bucket.direction !== "outgoing" && (
+          <span className="rail-bucket__dir" aria-hidden="true">
+            {DIRECTION_GLYPH[bucket.direction]}
+          </span>
+        )}
+        <span className="rail-bucket__label">{bucket.label}</span>
+        {bucket.direction === "outgoing" && (
+          <span className="rail-bucket__dir" aria-hidden="true">
+            {DIRECTION_GLYPH.outgoing}
+          </span>
+        )}
+        {bucket.direction && <span className="sr-only">{DIRECTION_LABEL[bucket.direction]}</span>}
+        {bucket.hint && <span className="rail-bucket__hint">{bucket.hint}</span>}
+        <span className="rail-bucket__count">{bucket.rows.length}</span>
+      </div>
+      <ul>
+        {rows.map((row) => (
+          <RailRowItem
+            key={row.key}
+            row={row}
+            showDirection={showDirection}
+            from={from}
+            onOpen={onOpen}
+          />
+        ))}
+      </ul>
+      {bucket.rows.length > limit && (
+        <button
+          type="button"
+          className="rail-bucket__more"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? "Show fewer" : `${hidden} more`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Empty groups stay hidden; the panel says once when nothing is indexed.
-function SidebarContextGroup({ title, children }: { title: string; children?: ReactNode }) {
+function SidebarContextGroup({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count?: number;
+  children?: ReactNode;
+}) {
   if (!children) return null;
 
   return (
     <section className="ontology-sidebar-context__group">
-      <h3>{title}</h3>
+      <h3>
+        {title}
+        {count !== undefined && <span className="ontology-sidebar-context__count">{count}</span>}
+      </h3>
       {children}
     </section>
   );
+}
+
+function rowCount(buckets: RailBucket[]): number {
+  return buckets.reduce((total, bucket) => total + bucket.rows.length, 0);
 }
 
 export function NotesSidebarInfo({
@@ -245,63 +411,68 @@ export function NotesSidebarInfo({
   validationHealth = "never_checked",
 }: {
   workspace: NodeWorkspace | null;
-  onOpen: (path: string, target?: "current" | "stack" | "beside") => void;
+  onOpen: OpenFn;
   validationIssueCount?: number;
   validationHealth?: ValidationHealth;
 }) {
+  const typeLabel = useTypeLabel();
+
+  const path =
+    workspace?.node?.notePath || workspace?.content?.path || workspace?.requestedRef || "";
+
   const relationGroups = useMemo(
     () => (workspace ? selectWorkspaceRelationGroups(workspace, workspace.focusedNodeId) : []),
     [workspace],
   );
 
   const navigationGroups = relationGroups.filter((group) => group.navigation);
-
-  const nonCodeGroups = relationGroups.filter(
-    (group) => !group.navigation && !isCodeContextGroup(group),
-  );
-
   const codeGroups = relationGroups.filter(isCodeContextGroup);
 
-  const relatedGroups = nonCodeGroups.flatMap((group) => {
-    const related = relationGroupWithItems(
-      group,
-      (group.items || []).filter((item) => item.provenance !== "backlink"),
+  const { relations, linked } = useMemo(() => {
+    const noteItems = relationGroups
+      .filter((group) => !group.navigation && !isCodeContextGroup(group))
+      .flatMap((group) => group.items || []);
+
+    // Section-valued fields that point into other notes are relations too;
+    // this note's own sections are already on the page and in Outline.
+    const sectionItems: NoteWorkspaceLink[] = (workspace?.nodes || []).flatMap((node) =>
+      node.kind === "field" &&
+      (!workspace?.focusedNodeId || node.parentId === workspace.focusedNodeId)
+        ? (node.field.sectionRefs || [])
+            .filter((ref) => ref.notePath !== path)
+            .map((ref) => ({
+              path: publicWorkspaceRef(ref),
+              title: ref.fragment || ref.nodeId || ref.notePath,
+              kind: "section",
+              relationName: node.field.name,
+              structural: true,
+            }))
+        : [],
     );
 
-    return related ? [related] : [];
-  });
-
-  const incomingGroups = nonCodeGroups.flatMap((group) => {
-    const incoming = relationGroupWithItems(
-      group,
-      (group.items || []).filter((item) => item.provenance === "backlink"),
+    const relationBucketsList = relationBuckets(
+      [...noteItems.filter((item) => item.structural), ...sectionItems],
+      typeLabel,
     );
 
-    return incoming ? [incoming] : [];
-  });
+    const relationTargets = new Set(
+      relationBucketsList.flatMap((bucket) => bucket.rows.map((row) => row.target)),
+    );
+
+    return {
+      relations: relationBucketsList,
+      linked: linkedBuckets(
+        noteItems.filter((item) => !item.structural),
+        relationTargets,
+        typeLabel,
+      ),
+    };
+  }, [relationGroups, workspace, path, typeLabel]);
 
   const nearbyNodes = useMemo(
     () => (workspace ? nearbyStructuralNodes(workspace) : []),
     [workspace],
   );
-
-  const issues = workspace?.content?.assessment?.issues || [];
-
-  const focusedFields = useMemo(
-    () =>
-      (workspace?.nodes || []).filter(
-        (node): node is WorkspaceFieldNode =>
-          node.kind === "field" &&
-          (!workspace?.focusedNodeId || node.parentId === workspace.focusedNodeId),
-      ),
-    [workspace],
-  );
-
-  const sectionFields = focusedFields.filter((node) => (node.field.sectionRefs?.length ?? 0) > 0);
-  const typeLabel = useTypeLabel();
-
-  const path =
-    workspace?.node?.notePath || workspace?.content?.path || workspace?.requestedRef || "";
 
   if (!workspace) {
     return (
@@ -313,140 +484,132 @@ export function NotesSidebarInfo({
     );
   }
 
+  const issues = workspace.content?.assessment?.issues || [];
   const title = displayTitle(workspace.content?.title || workspace.node?.title) || "Untitled";
+  const sessionLabel = sessionStateLabel(workspace.status?.session?.state);
 
-  const resolvedType = publicTypeName(
-    workspace.content?.resolvedType || workspace.node?.resolvedType,
+  const focusedSection = (workspace.nodes || []).find(
+    (node) => node.id === workspace.focusedNodeId && node.kind !== "note" && isContentNode(node),
   );
-
-  const typeName = resolvedType && typeLabel(resolvedType);
-
-  const issueCount = validationIssueCount;
 
   return (
     <section className="ontology-sidebar-info">
       <div className="ontology-sidebar-info__meta">
         <header className="ontology-sidebar-context__identity">
-          <div className={`ontology-sidebar-info__type type-chip${typeName ? "" : " is-untyped"}`}>
-            {typeName || "Untyped"}
-          </div>
-          <h2>{title}</h2>
-          <div className="ontology-sidebar-info__path" title={path}>
-            {path}
-          </div>
+          {focusedSection && isContentNode(focusedSection) && (
+            <h2 className="ontology-sidebar-context__focus" title={path}>
+              {focusedSection.data.title || focusedSection.kind}
+            </h2>
+          )}
           <div className="ontology-sidebar-context__chips">
             <ValidationIssueBadge
-              count={issueCount}
+              count={validationIssueCount}
               health={validationHealth}
               showUnit
               label={`Validation issues in ${title}`}
             />
             {workspace.status?.dirty && <span>Staged</span>}
-            {sessionStateLabel(workspace.status?.session?.state) && (
-              <span>{sessionStateLabel(workspace.status?.session?.state)}</span>
-            )}
+            {sessionLabel && <span>{sessionLabel}</span>}
           </div>
         </header>
 
         <section className="ontology-sidebar-context" aria-label="Focused note context">
           {navigationGroups.map((group) => (
             <SidebarContextGroup key={group.key} title={group.label}>
-              <div className="ontology-sidebar-context__stack">
-                {group.ownerTitle && (
-                  <div className="ontology-sidebar-context__owner">{group.ownerTitle}</div>
-                )}
-                <ul>
-                  {(group.items || []).map((item, index) => (
-                    <SidebarContextLink
-                      key={relationItemKey(group, item, index)}
-                      item={item}
-                      group={group}
-                      from={path}
-                      onOpen={onOpen}
-                    />
-                  ))}
-                </ul>
-              </div>
+              {group.ownerTitle && (
+                <div className="ontology-sidebar-context__owner">{group.ownerTitle}</div>
+              )}
+              <ul>
+                {(group.items || []).map((item, index) => (
+                  <RailRowItem
+                    key={relationItemKey(group, item, index)}
+                    row={railRow(item, typeLabel)}
+                    showDirection={false}
+                    from={path}
+                    onOpen={onOpen}
+                  />
+                ))}
+              </ul>
             </SidebarContextGroup>
           ))}
-          <SidebarContextGroup title="Sections">
-            {sectionFields.length > 0 && (
-              <ul>
-                {sectionFields.flatMap((node) =>
-                  (node.field.sectionRefs || []).map((ref, index) => {
-                    const target = publicWorkspaceRef(ref);
-
-                    return (
-                      <li
-                        key={`${node.id}-${target}-${index}`}
-                        className="ontology-sidebar-context__item"
-                      >
-                        <SidebarPreviewButton
-                          target={target}
-                          label={node.field.name}
-                          from={path}
-                          onOpen={onOpen}
-                        />
-                        <div className="ontology-sidebar-context__path" title={target}>
-                          {ref.fragment || ref.nodeId || ref.notePath}
-                        </div>
-                      </li>
-                    );
-                  }),
-                )}
-              </ul>
-            )}
+          <SidebarContextGroup title="Relations" count={rowCount(relations)}>
+            {relations.length > 0 &&
+              relations.map((bucket) => (
+                <RailBucketList
+                  key={bucket.key}
+                  bucket={bucket}
+                  showDirection={false}
+                  from={path}
+                  onOpen={onOpen}
+                />
+              ))}
           </SidebarContextGroup>
-          <SidebarContextGroup title="Related notes">
-            {relatedGroups.length > 0 && (
-              <ContextGroupList groups={relatedGroups} limit={6} from={path} onOpen={onOpen} />
-            )}
-          </SidebarContextGroup>
-          <SidebarContextGroup title="Incoming references">
-            {incomingGroups.length > 0 && (
-              <ContextGroupList groups={incomingGroups} limit={6} from={path} onOpen={onOpen} />
-            )}
+          <SidebarContextGroup title="Linked notes" count={rowCount(linked)}>
+            {linked.length > 0 &&
+              linked.map((bucket) => (
+                <RailBucketList
+                  key={bucket.key}
+                  bucket={bucket}
+                  showDirection
+                  from={path}
+                  onOpen={onOpen}
+                />
+              ))}
           </SidebarContextGroup>
           <SidebarContextGroup title="Code">
-            {codeGroups.length > 0 && (
-              <ContextGroupList groups={codeGroups} limit={8} from={path} onOpen={onOpen} />
-            )}
+            {codeGroups.length > 0 &&
+              codeGroups.map((group) => (
+                <RailBucketList
+                  key={group.key}
+                  bucket={{
+                    key: group.key,
+                    label: compactRelationLabel(group),
+                    rows: (group.items || []).map((item) => railRow(item, typeLabel)),
+                  }}
+                  showDirection={false}
+                  from={path}
+                  onOpen={onOpen}
+                />
+              ))}
           </SidebarContextGroup>
           {issues.length > 0 && (
-            <SidebarContextGroup title="Problems">
-              {issues.length > 0 && (
-                <ul>
-                  {issues.slice(0, 5).map((issue) => (
-                    <li
-                      key={`${issue.code || "issue"}-${issue.message || ""}`}
-                      className="ontology-sidebar-context__item"
-                    >
-                      <span>{issue.message || issue.code || "Unknown issue"}</span>
-                      {issue.code && (
-                        <div className="ontology-sidebar-context__meta">{issue.code}</div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <SidebarContextGroup title="Problems" count={issues.length}>
+              <ul>
+                {issues.slice(0, 5).map((issue) => (
+                  <li
+                    key={`${issue.code || "issue"}-${issue.message || ""}`}
+                    className="rail-row rail-row--problem"
+                    title={issue.code}
+                  >
+                    <span className="rail-row__label">
+                      {issue.message || issue.code || "Unknown issue"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </SidebarContextGroup>
           )}
           <SidebarContextGroup title="Nearby nodes">
             {nearbyNodes.length > 0 && (
               <ul>
                 {nearbyNodes.map((node) => (
-                  <li key={node.id} className="ontology-sidebar-context__item">
-                    <SidebarPreviewButton
-                      target={publicWorkspaceRef(node.ref)}
-                      label={node.data.title || node.notePath}
-                      from={path}
-                      onOpen={onOpen}
-                    />
-                    <div className="ontology-sidebar-context__meta">
-                      {publicTypeName(node.data.binding?.typeName || node.data.resolvedType) ||
-                        node.kind}
-                    </div>
-                  </li>
+                  <RailRowItem
+                    key={node.id}
+                    row={{
+                      key: node.id,
+                      target: publicWorkspaceRef(node.ref),
+                      label: node.data.title || node.notePath,
+                      title: node.data.title || node.notePath,
+                      typeName:
+                        publicTypeName(node.data.binding?.typeName || node.data.resolvedType) ||
+                        node.kind,
+                      direction: "outgoing",
+                      openable: true,
+                    }}
+                    showDirection={false}
+                    from={path}
+                    onOpen={onOpen}
+                  />
                 ))}
               </ul>
             )}
@@ -459,40 +622,5 @@ export function NotesSidebarInfo({
         )}
       </div>
     </section>
-  );
-}
-
-function ContextGroupList({
-  groups,
-  limit,
-  from,
-  onOpen,
-}: {
-  groups: NoteWorkspaceGroup[];
-  limit: number;
-  from: string;
-  onOpen: (path: string, target?: "current" | "stack" | "beside") => void;
-}) {
-  return (
-    <div className="ontology-sidebar-context__stack">
-      {mergeBucketsByLabel(groups).map((group) => (
-        <div key={group.key} className="ontology-sidebar-context__bucket">
-          <div className="ontology-sidebar-context__bucket-title">
-            {compactRelationLabel(group)} · {(group.items || []).length}
-          </div>
-          <ul>
-            {(group.items || []).slice(0, limit).map((item, index) => (
-              <SidebarContextLink
-                key={relationItemKey(group, item, index)}
-                item={item}
-                group={group}
-                from={from}
-                onOpen={onOpen}
-              />
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
   );
 }

@@ -67,17 +67,15 @@ test("opens HTML notes from the Explorer tree in the note workspace", async ({ p
   ).toBeVisible();
 });
 
-test("previews child sections and collection items before opening them", async ({ page }) => {
+test("expands child sections in place and previews collection items", async ({ page }) => {
   await page.goto("/notes?note=notes%2Fspecs%2Fsearch-rewrite.md");
   await chooseView(page, "Structure");
-  const stories = page.locator('.body-child-link[data-field="stories"]');
-  await stories.focus();
+  const stories = page.locator('.body-disclosure[data-field="stories"]');
+  await expect(stories).not.toHaveAttribute("open");
+  await stories.locator("> summary").click();
+  await expect(stories).toHaveAttribute("open");
   const preview = page.locator(".note-preview[role=region]");
-  await expect(preview).toBeVisible();
-  await expect(preview.locator(".note-preview__title")).toHaveText("Stories");
-  await page.keyboard.press("Escape");
-  await stories.click();
-  const story = page.locator(".body-collection__row:visible").first();
+  const story = stories.locator(".body-collection__row:visible").first();
   await story.focus();
   await expect(preview).toBeVisible();
   await expect(preview.locator(".note-preview__title")).toHaveText("Stable typed retrieval");
@@ -86,17 +84,40 @@ test("previews child sections and collection items before opening them", async (
   await expect(page).toHaveURL(/#%5Estory-001/);
 });
 
+test("outline skips collapsed sections and expands them on navigation", async ({ page }) => {
+  // Short enough that the note scrolls past its collapsed sections.
+  await page.setViewportSize({ width: 1280, height: 420 });
+  await page.goto("/notes?note=notes%2Fspecs%2Fsearch-rewrite.md");
+  await chooseView(page, "Structure");
+  const requirements = page.locator('.body-disclosure[data-field="requirements"]');
+  await expect(requirements).not.toHaveAttribute("open");
+  const context = page.getByRole("complementary", { name: "Note context" });
+  await context.getByRole("tab", { name: "Outline", exact: true }).click();
+  const details = context.getByRole("button", { name: "Details", exact: true });
+
+  // A section hidden inside a collapsed disclosure never becomes current.
+  await page.locator(".body-disclosure").last().hover();
+  await page.mouse.wheel(0, 4000);
+  await expect(details).not.toHaveAttribute("aria-current", "location");
+
+  await details.click();
+  await expect(requirements).toHaveAttribute("open");
+  await expect(details).toHaveAttribute("aria-current", "location");
+  await expect(requirements.getByRole("heading", { name: /^Details\b/ })).toBeVisible();
+});
+
 test("keeps focused note previews open and returns focus after Escape", async ({ page }) => {
   await page.goto("/notes?note=notes%2Fspecs%2Fsearch-rewrite.md");
   const context = page.getByRole("complementary", { name: "Note context" });
   await context.getByRole("tab", { name: "Info", exact: true }).click();
-  const sections = context.getByRole("heading", { name: "Sections", exact: true }).locator("..");
-  const section = sections.getByRole("button").first();
+  const linked = context.getByRole("heading", { name: /^Linked notes/ }).locator("..");
+  const section = linked.getByRole("button").first();
+  const title = await section.innerText();
   await section.focus();
   await section.hover();
   const preview = page.locator(".note-preview[role=region]");
   await expect(preview).toBeVisible();
-  await expect(preview.locator(".note-preview__title")).toHaveText("Requirements");
+  await expect(preview.locator(".note-preview__title")).toHaveText(title);
   await page.mouse.move(0, 0);
   await expect(preview).toBeVisible();
   await page.keyboard.press("Tab");

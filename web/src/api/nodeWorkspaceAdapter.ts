@@ -690,6 +690,14 @@ function mergeLocalGraphNodes(
   return [...byID.values()];
 }
 
+function relationDirection(
+  direction: string | null | undefined,
+): "outgoing" | "incoming" | undefined {
+  if (direction === "INBOUND") return "incoming";
+
+  return direction === "OUTBOUND" ? "outgoing" : undefined;
+}
+
 export function nodeWorkspaceFromPublicGraphQL(
   data: PublicNodeDetailData,
   requestedRef: string,
@@ -787,6 +795,7 @@ export function nodeWorkspaceFromPublicGraphQL(
         resolvedType: item.resolvedType || undefined,
         relationName: item.relationName || undefined,
         provenance: item.provenance || undefined,
+        direction: relationDirection(item.direction),
         structural: item.structural,
         current: Boolean(item.current),
       })),
