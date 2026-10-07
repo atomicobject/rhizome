@@ -408,6 +408,10 @@ describe("useNoteTabs", () => {
     act(() => result.current.openSearch("architecture review"));
     const id = result.current.activeId;
 
+    act(() => result.current.setSearchScroll(id, 160));
+    act(() => result.current.refineSearch(id, { scope: "all" }, " architecture review "));
+    expect(result.current.activeTab).toMatchObject({ scrollTop: 160 });
+
     act(() => result.current.refineSearch(id, { scope: "notes", noteType: "Spec" }));
 
     expect(result.current.activeId).toBe(id);

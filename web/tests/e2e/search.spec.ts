@@ -210,10 +210,52 @@ test("searches from shared chrome in a retained full-width workspace", async ({
   await page.screenshot({ path: testInfo.outputPath("search-workspace-1440.png") });
 });
 
+test("scrolls smoothly after returning to search and restores its position on reload", async ({
+  page,
+}) => {
+  await page.route("**/api/v1/search?*", (route) =>
+    route.fulfill({
+      json: {
+        count: 40,
+        matches: Array.from({ length: 40 }, (_, index) => ({
+          type: "note",
+          path: `notes/result-${index}.md`,
+          title: `Result ${index}`,
+          snippetStatus: "available",
+          snippet: "Search scrolling regression evidence.",
+        })),
+      },
+    }),
+  );
+  await page.goto("/notes?search=scrolling");
+  const results = page.getByRole("main", { name: "Search results for scrolling" });
+  await expect(results.getByRole("button", { name: "Result 39", exact: true })).toBeAttached();
+  const top = () => results.evaluate((element) => element.scrollTop);
+
+  // Switching tabs blurs this unchanged filter without resetting the saved position.
+  await page.getByLabel("Search folder").focus();
+  await results.hover();
+  await page.mouse.wheel(0, 400);
+  await expect.poll(top).toBeGreaterThan(300);
+  const saved = await top();
+
+  await page.getByRole("tab", { name: "Home", exact: true }).click();
+  await page.getByRole("tab", { name: /scrolling/i }).click();
+  await expect.poll(top).toBe(saved);
+  await results.hover();
+  await page.mouse.wheel(0, 400);
+  await expect.poll(top).toBeGreaterThan(saved + 300);
+  const advanced = await top();
+  await page.reload();
+  // Browser scroll anchoring may adjust slightly as the reloaded header settles.
+  await expect.poll(async () => Math.abs((await top()) - advanced)).toBeLessThan(16);
+});
+
 test("keeps independent searches and restores them after reload", async ({ page }) => {
   await page.goto("/notes?search=typed+retrieval");
   const tabs = page.getByRole("tablist", { name: "Open notes" });
   await expect(tabs.getByRole("tab", { name: /typed retrieval/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Search Rewrite" })).toBeVisible();
 
   const search = page.getByRole("searchbox", { name: "Search this project" });
   await search.fill("second search");
