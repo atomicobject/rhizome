@@ -2,8 +2,8 @@
 type: ExperienceSpec
 id: SPEC-0117
 summary: "One Overview view shows the shape of All notes and of every display group: a type-level link map, a member table, and scope-only blocks. Briefing shows activity at every level, All notes gains one, and every block loads on its own so switching scopes never freezes the workspace."
-spec-status: proposed
-last-updated: 2026-10-06
+spec-status: active
+last-updated: 2026-10-07
 aliases:
   - SPEC-0117
 ---
@@ -51,7 +51,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 
 - id:: ^SPEC-0117-US1
 - summary:: See a group's member types as a map whose edges count the record links between them, so the group's real structure is visible at a glance.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -69,7 +69,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 
 - id:: ^SPEC-0117-US2
 - summary:: Compare every member's size, progress, completeness, and connection in one dense table, which replaces Briefing's "In this group" block.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -83,7 +83,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 
 - id:: ^SPEC-0117-US3
 - summary:: Open Overview at All notes and see how groups, ungrouped types, and untyped notes connect, without a note-level graph.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -96,7 +96,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 
 - id:: ^SPEC-0117-US4
 - summary:: See where untyped notes live and which types they already link to, so the user can decide what to type next.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -109,7 +109,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 
 - id:: ^SPEC-0117-US5
 - summary:: Open All notes on a Briefing that shows what needs attention, what is in motion, and what changed across the whole vault.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -121,7 +121,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 
 - id:: ^SPEC-0117-US6
 - summary:: See only activity on a group's Briefing, with its structure on Overview.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -133,7 +133,7 @@ This spec revises [[group-views-and-view-platform|SPEC-0111]], whose Briefing lo
 
 - id:: ^SPEC-0117-US7
 - summary:: Switch to any scope and see its frame at once, with each block filling in as its data arrives, on any vault and in any data state.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
