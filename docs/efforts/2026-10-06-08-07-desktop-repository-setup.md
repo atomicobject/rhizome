@@ -91,6 +91,7 @@ Not started.
 ## Deviations
 
 - 2026-10-06, Batch 1 (frozen-scope-drift acknowledged for SPEC-0118): implementation settled three details in SPEC-0118's executable contracts without changing intent. `rzm init --check --json` exits 0 when it produced a report, since a first run always has changes. The apply result drops "whether configuration was written", because the bridge decides trust by inspecting the folder after the run, which also covers a run that fails partway. Trust follows "configuration exists after the setup run" for the same reason.
+- 2026-10-07 (frozen-scope-drift acknowledged for SPEC-0113 and SPEC-0038): as planned, this effort added cross-references from SPEC-0113's unconfigured-worktree requirement and SPEC-0038 US1-AC5 to SPEC-0118, with matching deviations on EFF-2026-10-03-18-59 and EFF-2026-10-01-10-06. Neither spec's requirements changed.
 
 ## Closure Checklist
 
