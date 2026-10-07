@@ -176,6 +176,54 @@ describe("desktop shell", () => {
     expect(call).toHaveBeenCalledWith("trust", { id: repository.id, worktree: main });
   });
 
+  it("shows the setup sheet for a worktree that needs setup", async () => {
+    start(undefined, (operation) => {
+      if (operation === "setup-report") throw { code: "setup_unsupported", message: "Too old" };
+      return undefined;
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "setup" });
+    expect(
+      await screen.findByRole("heading", {
+        name: "Rhizome needs an update to set up from the app",
+      }),
+    ).toBeVisible();
+    expect(call).toHaveBeenCalledWith("setup-report", { id: repository.id, worktree: main });
+  });
+
+  it("opens What Gets Indexed from the repository menu over the workspace", async () => {
+    start(undefined, (operation) =>
+      operation === "scope"
+        ? { builtInApplies: false, rules: [], keepIndexed: [], root: main }
+        : undefined,
+    );
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    act(() =>
+      emit({
+        type: "presence",
+        repositories: { [repository.id]: { info: discovery } },
+        runtimes: {},
+      }),
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /project/ }));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
+    const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
+    const item = (menu as { items: MenuEntry[] }).items.find(
+      (entry) => entry.label === "What Gets Indexed…",
+    )!;
+    expect(item.disabled).toBe(false);
+    act(() => emit({ type: "menu", id: item.id! }));
+    expect(
+      await screen.findByRole("heading", { name: "What gets indexed in project" }),
+    ).toBeVisible();
+    expect(call).toHaveBeenCalledWith("scope", { id: repository.id, worktree: main });
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("layout", expect.objectContaining({ covered: true })),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("heading", { name: "What gets indexed in project" })).toBeNull();
+  });
+
   it("offers retry and starting without copying after a seeding failure", async () => {
     start();
     await waitFor(() => expect(opened()).toHaveLength(1));

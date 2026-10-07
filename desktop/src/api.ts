@@ -105,6 +105,81 @@ export type Message =
   | { type: "notice"; message: string }
   | { type: "menu"; id: string }
   | { type: "command"; command: "add-repository" | "toggle-sidebar" | "settings" };
+/** Choices a setup sheet passes to `rzm init`; see SPEC-0118. */
+export interface SetupChoices {
+  workflow: string;
+  addons: string[];
+  agents: string[];
+  search: string;
+  skip: string[];
+  keepIndexed: string[];
+  includeIgnored: string[];
+}
+export interface ScopeRule {
+  /** default is the built-in list. */
+  layer: "default" | "gitignore" | "rhizome" | "config";
+  source?: string;
+  line?: number;
+  pattern: string;
+  /** The folder a nested .gitignore applies to. */
+  folder?: string;
+  /** Why init suggested skipping the path. */
+  reason?: string;
+  included?: boolean;
+  /** A rule setup will write. */
+  planned?: boolean;
+}
+export interface Scope {
+  builtInApplies: boolean;
+  rules: ScopeRule[];
+  keepIndexed: string[];
+}
+export interface ScopeEdits {
+  skip: string[];
+  removeRules: string[];
+  includeIgnored: string[];
+}
+export interface SearchProvider {
+  id: string;
+  label: string;
+  ready: boolean;
+  key?: string;
+  keyLabel?: string;
+  teamKey?: boolean;
+  hint?: string;
+}
+/** `rzm init --check --json`: what setup would do, and every choice it offers. */
+export interface SetupPlan {
+  root: string;
+  name: string;
+  findings: { docs: string; code: string; skip?: string };
+  workflow: string;
+  workflows: { id: string; label: string; description: string; recommended: boolean }[];
+  addons: {
+    id: string;
+    label: string;
+    description: string;
+    defaultFor: string[];
+    enabled: boolean;
+  }[];
+  agents: { id: string; label: string; enabled: boolean; detected?: "marker" | "installed" }[];
+  search: { provider: string; ready: boolean; hint?: string; providers: SearchProvider[] };
+  ignoredRepositories: { path: string; included: boolean; source?: string; line?: number }[];
+  pin: string;
+  scope: Scope;
+  writes: { summary: string[]; files: string[] };
+}
+/** `rzm init --json`: what setup wrote. */
+export interface SetupResult {
+  root: string;
+  summary: string[];
+  commit: string[];
+  warnings: string[];
+  kept: string[];
+  savedKey?: string;
+  searchHint?: string;
+  pin: { version?: string; error?: string };
+}
 export interface MenuEntry {
   id?: string;
   label?: string;
@@ -125,7 +200,10 @@ type Results = {
   "global-install": GlobalInfo;
   "global-update": GlobalInfo;
   trust: unknown;
-  initialize: unknown;
+  "setup-report": SetupPlan;
+  initialize: { result: SetupResult; folder: unknown };
+  scope: Scope & { root: string };
+  "scope-edit": Scope & { root: string };
   open: { generation: number; library: Library };
   deselect: null;
   restart: null;
@@ -150,7 +228,12 @@ type Args = {
   "global-install": Record<string, never>;
   "global-update": Record<string, never>;
   trust: { id: string; worktree: string };
-  initialize: { id: string; worktree: string };
+  /** Without choices, the report uses Rhizome's recommendations. */
+  "setup-report": { id: string; worktree: string; choices?: SetupChoices };
+  /** A key is sent only here, never with a report. */
+  initialize: { id: string; worktree: string; choices: SetupChoices; key?: string };
+  scope: { id: string; worktree: string };
+  "scope-edit": { id: string; worktree: string; edits: ScopeEdits };
   /** `selection` numbers the user's choices in this window, oldest first. */
   open: { id: string; worktree: string; skipSeed?: boolean; selection: number };
   deselect: { selection: number };
