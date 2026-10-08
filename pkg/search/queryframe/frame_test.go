@@ -217,6 +217,19 @@ func TestScoreFieldsCapsEachConceptAtItsShare(t *testing.T) {
 	require.LessOrEqual(t, oneConcept.RankValue, 0.65)
 	require.Equal(t, 1.0, oneConcept.Value, "identity strength for answer assembly is unchanged")
 
-	single := ScoreFields(Extract("drivers"), Fields{Path: "Notes/Drivers.md", Title: "Drivers"})
-	require.Equal(t, single.Value, single.RankValue, "a one-concept query keeps its full scale")
+	single := ScoreFields(Extract("chunker"), Fields{Path: "pkg/search/chunker.go", Symbol: "Chunker"})
+	require.Equal(t, single.Value, single.RankValue, "a one-concept query without variants keeps its scale")
+}
+
+// A word's variants ("driver", "drivers") are one concept, so a field that
+// contains the word counts once. Otherwise a note that mentions the second
+// query word only in body text reaches full specificity.
+func TestScoreFieldsCountsAConceptOncePerField(t *testing.T) {
+	frame := Extract("volunteer drivers")
+	titleAndBody := ScoreFields(frame, Fields{
+		Path:    "Notes/Volunteer pressure group pilots new routes.md",
+		Title:   "Volunteer pressure group pilots new routes",
+		Snippet: "Several of the drivers in the pilot later trained new recruits.",
+	})
+	require.Less(t, titleAndBody.RankValue, 0.9)
 }

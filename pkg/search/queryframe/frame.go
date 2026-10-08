@@ -42,9 +42,9 @@ type Score struct {
 	// Value is identity-field match strength; answer assembly calibrates its
 	// confidence thresholds against it.
 	Value float64
-	// RankValue is Value with each query concept capped at its share, so
-	// one word repeated across fields cannot cover for unmatched words. It
-	// is the query_specificity ranking evidence.
+	// RankValue scores each query concept once per field, capped at its
+	// share, so one word repeated across fields cannot cover for unmatched
+	// words. It is the query_specificity ranking evidence.
 	RankValue        float64
 	SupportValue     float64
 	Matched          []string
@@ -119,9 +119,10 @@ func ScoreFields(frame Frame, fields Fields) Score {
 		{fields.Snippet, 0.7},
 	}
 
-	// Each query concept (a term and its variants) earns at most its share of
-	// the score, so one word repeated across path, title, breadcrumb, and
-	// heading cannot stand in for the words a source does not match.
+	// RankValue scores query concepts (a term and its variants): a concept
+	// counts once per field and earns at most its share of the score, so one
+	// word repeated across path, title, breadcrumb, and heading cannot stand
+	// in for the words a source does not match.
 	concepts := conceptIndex(scoringTerms)
 	conceptTotals := make([]float64, len(concepts.groups))
 	matched := map[string]struct{}{}
@@ -133,6 +134,7 @@ func ScoreFields(frame Frame, fields Fields) Score {
 		}
 		normalized := strings.Join(tokenize(raw), " ")
 		compact := strings.ReplaceAll(strings.ReplaceAll(normalized, " ", ""), "-", "")
+		fieldConcepts := map[int]struct{}{}
 		for _, term := range scoringTerms {
 			if term == "" {
 				continue
@@ -140,29 +142,39 @@ func ScoreFields(frame Frame, fields Fields) Score {
 			if strings.Contains(raw, term) || strings.Contains(normalized, term) || strings.Contains(compact, strings.ReplaceAll(term, "_", "")) {
 				matched[term] = struct{}{}
 				total += field.weight
-				conceptTotals[concepts.of[term]] += field.weight
+				fieldConcepts[concepts.of[term]] = struct{}{}
 			}
+		}
+		for concept := range fieldConcepts {
+			conceptTotals[concept] += field.weight
 		}
 	}
 	if total == 0 {
 		return Score{}
 	}
 
-	denom := math.Max(3, float64(len(scoringTerms)))
-	share := 1 / float64(len(conceptTotals))
-	rankValue := 0.0
-	for _, conceptTotal := range conceptTotals {
-		rankValue += math.Min(share, conceptTotal/denom)
-	}
-	bonus := 0.0
-	if len(matched) >= 2 {
-		bonus += 0.15
-	}
+	codeBonus := 0.0
 	if hasCodeFormMatch(matched) {
-		bonus += 0.2
+		codeBonus = 0.2
 	}
-	value := math.Min(1, total/denom+bonus)
-	rankValue = math.Min(1, rankValue+bonus)
+	termBonus := 0.0
+	if len(matched) >= 2 {
+		termBonus = 0.15
+	}
+	value := math.Min(1, total/math.Max(3, float64(len(scoringTerms)))+termBonus+codeBonus)
+
+	conceptCount := float64(len(conceptTotals))
+	rankValue, matchedConcepts := 0.0, 0
+	for _, conceptTotal := range conceptTotals {
+		if conceptTotal > 0 {
+			matchedConcepts++
+		}
+		rankValue += math.Min(1/conceptCount, conceptTotal/math.Max(3, conceptCount))
+	}
+	if matchedConcepts >= 2 {
+		rankValue += 0.15
+	}
+	rankValue = math.Min(1, rankValue+codeBonus)
 	out := make([]string, 0, len(matched))
 	for term := range matched {
 		out = append(out, term)
