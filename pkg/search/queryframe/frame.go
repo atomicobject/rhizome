@@ -119,10 +119,10 @@ func ScoreFields(frame Frame, fields Fields) Score {
 		{fields.Snippet, 0.7},
 	}
 
-	// RankValue scores query concepts (a term and its variants): a concept
-	// counts once per field and earns at most its share of the score, so one
-	// word repeated across path, title, breadcrumb, and heading cannot stand
-	// in for the words a source does not match.
+	// For a short, title-like query, RankValue scores query concepts (a term
+	// and its variants): a concept counts once per field and earns at most its
+	// share of the score, so one word repeated across path, title, breadcrumb,
+	// and heading cannot stand in for the words a source does not match.
 	concepts := conceptIndex(scoringTerms)
 	conceptTotals := make([]float64, len(concepts.groups))
 	matched := map[string]struct{}{}
@@ -162,19 +162,6 @@ func ScoreFields(frame Frame, fields Fields) Score {
 		termBonus = 0.15
 	}
 	value := math.Min(1, total/math.Max(3, float64(len(scoringTerms)))+termBonus+codeBonus)
-
-	conceptCount := float64(len(conceptTotals))
-	rankValue, matchedConcepts := 0.0, 0
-	for _, conceptTotal := range conceptTotals {
-		if conceptTotal > 0 {
-			matchedConcepts++
-		}
-		rankValue += math.Min(1/conceptCount, conceptTotal/math.Max(3, conceptCount))
-	}
-	if matchedConcepts >= 2 {
-		rankValue += 0.15
-	}
-	rankValue = math.Min(1, rankValue+codeBonus)
 	out := make([]string, 0, len(matched))
 	for term := range matched {
 		out = append(out, term)
@@ -184,8 +171,33 @@ func ScoreFields(frame Frame, fields Fields) Score {
 	identity := sortedTokenSet(exactMatchedTerms(frame.Terms, identityText))
 	content := sortedTokenSet(exactMatchedTerms(frame.Terms, fields.SourceSnippet))
 	support := scoreSupportingFields(frame.SupportTermGroups, fields)
-	return Score{Value: value, RankValue: rankValue, SupportValue: support, Matched: out, IdentityMatched: identity, ContentMatched: content, ContentAvailable: strings.TrimSpace(fields.SourceSnippet) != ""}
+	contentAvailable := strings.TrimSpace(fields.SourceSnippet) != ""
+
+	if len(conceptTotals) > maxTitleConcepts {
+		return Score{Value: value, RankValue: value, SupportValue: support, Matched: out, IdentityMatched: identity, ContentMatched: content, ContentAvailable: contentAvailable}
+	}
+	conceptCount := float64(len(conceptTotals))
+	rankValue, matchedConcepts := 0.0, 0
+	for _, conceptTotal := range conceptTotals {
+		if conceptTotal > 0 {
+			matchedConcepts++
+		}
+		rankValue += math.Min(1/conceptCount, conceptTotal/3)
+	}
+	if matchedConcepts >= 2 {
+		rankValue += 0.15
+	}
+	rankValue = math.Min(1, rankValue+codeBonus)
+	return Score{Value: value, RankValue: rankValue, SupportValue: support, Matched: out, IdentityMatched: identity, ContentMatched: content, ContentAvailable: contentAvailable}
 }
+
+// maxTitleConcepts bounds the queries whose concepts must all match to earn
+// full ranking specificity. Longer questions rarely name every concept in one
+// title, and a strong identity match on their key word is the signal, so
+// they keep Value. Measured on 2026-10-08: capping a seven-concept question
+// dropped decorators.py for "Python instrumentation decorator" (nDCG@10
+// 0.984 -> 0.604).
+const maxTitleConcepts = 3
 
 type conceptGroups struct {
 	groups [][]string

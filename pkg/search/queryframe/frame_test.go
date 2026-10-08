@@ -233,3 +233,16 @@ func TestScoreFieldsCountsAConceptOncePerField(t *testing.T) {
 	})
 	require.Less(t, titleAndBody.RankValue, 0.9)
 }
+
+// A long question rarely names every concept in one title, and a strong
+// identity match on its key word (decorators.py for "decorator") is the
+// signal, so the concept cap applies only to short, title-like queries.
+func TestScoreFieldsKeepsLongQuestionScale(t *testing.T) {
+	frame := Extract("how does the Python instrumentation decorator preserve calls and attach metadata")
+	score := ScoreFields(frame, Fields{
+		Path:   "packages/observability/decorators.py",
+		Symbol: "instrumented",
+		FQN:    "observability.decorators.instrumented",
+	})
+	require.Equal(t, score.Value, score.RankValue)
+}
