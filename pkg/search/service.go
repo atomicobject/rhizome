@@ -101,6 +101,7 @@ func (s *Service) Search(ctx context.Context, spec QuerySpec) (response Response
 	candidates = filterSupportOnlyCandidates(candidates)
 	candidates = filterCandidatesByQuery(candidates, spec.Filters)
 	indexingperf.AddCount(ctx, "search.candidates.filtered", int64(len(candidates)))
+	candidates = coalesceNoteCandidates(candidates)
 
 	var results []RankedResult
 	approxWeights, approxMaxPerOwner := ApproxScoringConfig(spec, s.Ranker)

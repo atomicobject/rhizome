@@ -39,7 +39,13 @@ type Fields struct {
 }
 
 type Score struct {
-	Value            float64
+	// Value is identity-field match strength; answer assembly calibrates its
+	// confidence thresholds against it.
+	Value float64
+	// RankValue scores each query concept once per field, capped at its
+	// share, so one word repeated across fields cannot cover for unmatched
+	// words. It is the query_specificity ranking evidence.
+	RankValue        float64
 	SupportValue     float64
 	Matched          []string
 	IdentityMatched  []string
@@ -113,6 +119,13 @@ func ScoreFields(frame Frame, fields Fields) Score {
 		{fields.Snippet, 0.7},
 	}
 
+	// For a short, title-like query (not an explanatory question), RankValue
+	// scores query concepts (a term and its variants): a concept counts once
+	// per field and earns at most its share of the score, so one word repeated
+	// across path, title, breadcrumb, and heading cannot stand in for the
+	// words a source does not match.
+	concepts := conceptIndex(scoringTerms)
+	conceptTotals := make([]float64, len(concepts.groups))
 	matched := map[string]struct{}{}
 	total := 0.0
 	for _, field := range fieldWeights {
@@ -122,6 +135,7 @@ func ScoreFields(frame Frame, fields Fields) Score {
 		}
 		normalized := strings.Join(tokenize(raw), " ")
 		compact := strings.ReplaceAll(strings.ReplaceAll(normalized, " ", ""), "-", "")
+		fieldConcepts := map[int]struct{}{}
 		for _, term := range scoringTerms {
 			if term == "" {
 				continue
@@ -129,24 +143,26 @@ func ScoreFields(frame Frame, fields Fields) Score {
 			if strings.Contains(raw, term) || strings.Contains(normalized, term) || strings.Contains(compact, strings.ReplaceAll(term, "_", "")) {
 				matched[term] = struct{}{}
 				total += field.weight
+				fieldConcepts[concepts.of[term]] = struct{}{}
 			}
+		}
+		for concept := range fieldConcepts {
+			conceptTotals[concept] += field.weight
 		}
 	}
 	if total == 0 {
 		return Score{}
 	}
 
-	denom := math.Max(3, float64(len(scoringTerms)))
-	value := total / denom
-	if len(matched) >= 2 {
-		value += 0.15
-	}
+	codeBonus := 0.0
 	if hasCodeFormMatch(matched) {
-		value += 0.2
+		codeBonus = 0.2
 	}
-	if value > 1 {
-		value = 1
+	termBonus := 0.0
+	if len(matched) >= 2 {
+		termBonus = 0.15
 	}
+	value := math.Min(1, total/math.Max(3, float64(len(scoringTerms)))+termBonus+codeBonus)
 	out := make([]string, 0, len(matched))
 	for term := range matched {
 		out = append(out, term)
@@ -156,7 +172,57 @@ func ScoreFields(frame Frame, fields Fields) Score {
 	identity := sortedTokenSet(exactMatchedTerms(frame.Terms, identityText))
 	content := sortedTokenSet(exactMatchedTerms(frame.Terms, fields.SourceSnippet))
 	support := scoreSupportingFields(frame.SupportTermGroups, fields)
-	return Score{Value: value, SupportValue: support, Matched: out, IdentityMatched: identity, ContentMatched: content, ContentAvailable: strings.TrimSpace(fields.SourceSnippet) != ""}
+	contentAvailable := strings.TrimSpace(fields.SourceSnippet) != ""
+
+	if frame.IsExplain() || len(conceptTotals) > maxTitleConcepts {
+		return Score{Value: value, RankValue: value, SupportValue: support, Matched: out, IdentityMatched: identity, ContentMatched: content, ContentAvailable: contentAvailable}
+	}
+	conceptCount := float64(len(conceptTotals))
+	rankValue, matchedConcepts := 0.0, 0
+	for _, conceptTotal := range conceptTotals {
+		if conceptTotal > 0 {
+			matchedConcepts++
+		}
+		rankValue += math.Min(1/conceptCount, conceptTotal/3)
+	}
+	if matchedConcepts >= 2 {
+		rankValue += 0.15
+	}
+	rankValue = math.Min(1, rankValue+codeBonus)
+	return Score{Value: value, RankValue: rankValue, SupportValue: support, Matched: out, IdentityMatched: identity, ContentMatched: content, ContentAvailable: contentAvailable}
+}
+
+// maxTitleConcepts bounds the queries whose concepts must all match to earn
+// full ranking specificity. Longer queries and explanatory questions (how,
+// what, where, why, explain) rarely name every concept in one title, and a
+// strong identity match on their key word is the signal, so they keep Value.
+// Short who, which, and when questions keep the cap; "who owns inventory
+// reconciliation" measured better with it (nDCG@10 0.834 -> 1.0). Measured on 2026-10-08: the cap dropped
+// decorators.py for a seven-concept decorator question (nDCG@10 0.984 ->
+// 0.604) and the Container class for "how does Container work?" (1.0 -> 0.71).
+const maxTitleConcepts = 3
+
+type conceptGroups struct {
+	groups [][]string
+	of     map[string]int
+}
+
+// conceptIndex groups scoring terms that are variants of one another. A term
+// outside every support group (the stop-word fallback) is its own concept.
+func conceptIndex(terms []string) conceptGroups {
+	index := conceptGroups{groups: supportTermGroups(terms), of: make(map[string]int, len(terms))}
+	for i, group := range index.groups {
+		for _, term := range group {
+			index.of[term] = i
+		}
+	}
+	for _, term := range terms {
+		if _, ok := index.of[term]; !ok {
+			index.of[term] = len(index.groups)
+			index.groups = append(index.groups, []string{term})
+		}
+	}
+	return index
 }
 
 func scoreSupportingFields(groups [][]string, fields Fields) float64 {
@@ -267,7 +333,7 @@ func EnrichCandidate(frame Frame, c search.Candidate) search.Candidate {
 	}
 	c.Evidence = append(c.Evidence, search.MustNormalizeEvidence(search.Evidence{
 		Type:     "query_specificity",
-		RawScore: score.Value,
+		RawScore: score.RankValue,
 		Source:   "queryframe",
 		Details: map[string]string{
 			"matched":           strings.Join(score.Matched, ","),

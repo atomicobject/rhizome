@@ -39,12 +39,12 @@ func TestDevelopmentCorpusFamiliesUseDistinctPhysicalCollections(t *testing.T) {
 			require.NoError(t, err, "%s: %s", c.ID, source)
 		}
 	}
-	require.Len(t, roots, 4)
+	require.Len(t, roots, 5)
 	unique := map[string]struct{}{}
 	for _, root := range roots {
 		unique[root] = struct{}{}
 	}
-	require.Len(t, unique, 4)
+	require.Len(t, unique, 5)
 }
 
 func TestCorpusVaultSupportsExplicitHeldOutRootsAndExactSourcePrefixes(t *testing.T) {

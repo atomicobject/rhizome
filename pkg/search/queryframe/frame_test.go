@@ -196,3 +196,64 @@ func TestSupportSpecificityNormalizesByOriginalMeaningfulGroups(t *testing.T) {
 	require.Less(t, SupportSpecificityScore(shortContent.Evidence), .7, "one generic body term remains useful")
 	require.Less(t, SupportSpecificityScore(longDistractor.Evidence), .7, "three terms cannot saturate an arbitrarily longer request")
 }
+
+// One query concept repeated across path, title, breadcrumb, and heading
+// must not reach the score of a source that matches every concept. Before
+// each concept was capped at its share, "Drivers" saturated like the note
+// titled with the whole phrase (dogfood query "Innovation teams").
+func TestScoreFieldsCapsEachConceptAtItsShare(t *testing.T) {
+	frame := Extract("volunteer drivers")
+	oneConcept := ScoreFields(frame, Fields{
+		Path:       "Notes/Drivers.md",
+		Title:      "Drivers",
+		Breadcrumb: "Notes/Drivers.md > Drivers",
+		Heading:    "Drivers",
+	})
+	everyConcept := ScoreFields(frame, Fields{
+		Path:  "Projects/Opportunity - Volunteer drivers and rural routes.md",
+		Title: "Opportunity - Volunteer drivers and rural routes",
+	})
+	require.Equal(t, 1.0, everyConcept.RankValue)
+	require.Equal(t, 0.5, oneConcept.RankValue, "one of two concepts earns half; no multi-concept bonus")
+	require.Equal(t, 1.0, oneConcept.Value, "identity strength for answer assembly is unchanged")
+
+	single := ScoreFields(Extract("chunker"), Fields{Path: "pkg/search/chunker.go", Symbol: "Chunker"})
+	require.Equal(t, single.Value, single.RankValue, "a one-concept query without variants keeps its scale")
+}
+
+// A word's variants ("driver", "drivers") are one concept, so a field that
+// contains the word counts once. Otherwise a note that mentions the second
+// query word only in body text reaches full specificity.
+func TestScoreFieldsCountsAConceptOncePerField(t *testing.T) {
+	frame := Extract("volunteer drivers")
+	titleAndBody := ScoreFields(frame, Fields{
+		Path:    "Notes/Volunteer pressure group pilots new routes.md",
+		Title:   "Volunteer pressure group pilots new routes",
+		Snippet: "Several of the drivers in the pilot later trained new recruits.",
+	})
+	require.Less(t, titleAndBody.RankValue, 0.9)
+}
+
+// A long question rarely names every concept in one title, and a strong
+// identity match on its key word (decorators.py for "decorator") is the
+// signal, so the concept cap applies only to short, title-like queries.
+func TestScoreFieldsKeepsLongQuestionScale(t *testing.T) {
+	frame := Extract("how does the Python instrumentation decorator preserve calls and attach metadata")
+	score := ScoreFields(frame, Fields{
+		Path:   "packages/observability/decorators.py",
+		Symbol: "instrumented",
+		FQN:    "observability.decorators.instrumented",
+	})
+	require.Equal(t, score.Value, score.RankValue)
+}
+
+// A short question is not a title: "work" in "how does Container work?" is
+// filler, so capping "container" at half its weight let any source that
+// mentions both words outrank the Container class.
+func TestScoreFieldsKeepsShortQuestionScale(t *testing.T) {
+	score := ScoreFields(Extract("how does Container work?"), Fields{
+		Path:   "src/container.py",
+		Symbol: "Container",
+	})
+	require.Equal(t, score.Value, score.RankValue)
+}

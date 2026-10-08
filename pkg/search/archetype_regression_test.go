@@ -92,3 +92,60 @@ func TestArchetypeRegression_OntologyHeavyPrefersStructuralOverAmbient(t *testin
 	require.NoError(t, err)
 	require.Equal(t, "notes/decision-a.md", results[0].Path)
 }
+
+type fixedRetriever struct {
+	name       string
+	candidates []search.Candidate
+}
+
+func (r fixedRetriever) Name() string { return r.name }
+
+func (r fixedRetriever) Retrieve(context.Context, search.QuerySpec) ([]search.Candidate, error) {
+	return r.candidates, nil
+}
+
+// A note found by the vector lane and the title lane is one source, so its
+// lanes add up. Before whole-note candidates were coalesced before ranking,
+// each lane's row was scored alone and a note with a slightly higher cosine
+// and no title match led (dogfood query "Innovation teams", 2026-10-08).
+func TestArchetypeRegression_WholeNoteLaneAgreementOutranksOneLane(t *testing.T) {
+	target := "Projects/Opportunity - Volunteer drivers and rural routes.md"
+	rival := "Notes/Drivers.md"
+	wholeNoteChunk := func(path string, cosine float64) search.Candidate {
+		return search.Candidate{
+			Handle:      knowledge.NodeChunkHandle("node-"+path, path, "node_body", 0),
+			Owner:       knowledge.NoteHandle(path),
+			Type:        "note",
+			Path:        path,
+			Granularity: "node_body",
+			Evidence:    []search.Evidence{{Type: "note_vector_similarity", RawScore: cosine}},
+		}
+	}
+	titleMatch := search.Candidate{
+		Handle:     knowledge.NoteHandle(target),
+		Owner:      knowledge.NoteHandle(target),
+		Type:       "note",
+		Path:       target,
+		ChunkIndex: -1,
+		Evidence:   []search.Evidence{{Type: "note_title_match", RawScore: 1}},
+	}
+	service := search.Service{
+		Retrievers: []search.Retriever{
+			fixedRetriever{name: "vector", candidates: []search.Candidate{wholeNoteChunk(rival, 0.66), wholeNoteChunk(target, 0.62)}},
+			fixedRetriever{name: "note_lexical", candidates: []search.Candidate{titleMatch}},
+		},
+		Ranker: &relevance.WeightedRanker{Weights: relevance.DefaultWeights(), MaxPerOwner: 3},
+	}
+
+	response, err := service.Search(context.Background(), search.QuerySpec{Text: "volunteer drivers", Limits: search.Limits{Total: 10}})
+	require.NoError(t, err)
+	require.Len(t, response.Results, 2)
+	require.Equal(t, target, response.Results[0].Path)
+	require.Equal(t, "node_body", response.Results[0].Granularity, "the best whole-note chunk stays the displayed node")
+	var types []string
+	for _, ev := range response.Results[0].Evidence {
+		types = append(types, ev.Type)
+	}
+	require.Contains(t, types, "note_vector_similarity")
+	require.Contains(t, types, "note_title_match")
+}

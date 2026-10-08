@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 // MergeCandidate combines two candidates with the same handle identity.
@@ -92,6 +94,68 @@ func MergeCandidate(a, b Candidate) Candidate {
 	}
 	if out.handleKey == "" {
 		out.handleKey = out.Handle.String()
+	}
+	return out
+}
+
+// coalesceNoteCandidates merges each note's whole-note candidates into one
+// before ranking, so lanes that found the same note under different handles (a
+// vector chunk and a title match) add up instead of being scored apart. A
+// whole-note candidate is a note-type candidate whose canonical identity is the
+// note path; embedded and section nodes keep their own identity, and Intel FTS
+// sections have their own type. The member with the strongest semantic
+// evidence is the base, so the best-matching chunk remains the displayed node.
+// MergeCandidate dedupes repeated facts, so several chunks of one note count
+// their similarity once; only the base keeps query_specificity, which the
+// ranker recomputes and the deadline fallback must not stack.
+func coalesceNoteCandidates(candidates []Candidate) []Candidate {
+	wholeNote := func(c Candidate) bool {
+		return c.Type == "note" && c.Owner.String() != "" && (c.NodeRef == nil || c.NodeRef.Kind == "" || c.NodeRef.Kind == ontology.NodeKindNote)
+	}
+	groups := make(map[string][]Candidate)
+	for _, c := range candidates {
+		if wholeNote(c) {
+			groups[c.Owner.String()] = append(groups[c.Owner.String()], c)
+		}
+	}
+	out := make([]Candidate, 0, len(candidates))
+	emitted := make(map[string]bool, len(groups))
+	for _, c := range candidates {
+		key := c.Owner.String()
+		members := groups[key]
+		if !wholeNote(c) || len(members) < 2 {
+			out = append(out, c)
+			continue
+		}
+		if emitted[key] {
+			continue
+		}
+		emitted[key] = true
+		semantic := func(c Candidate) float64 {
+			return AggregateEvidenceScoresForRanking(c.Evidence)[EvidenceChannelSemantic]
+		}
+		sort.SliceStable(members, func(i, j int) bool {
+			if si, sj := semantic(members[i]), semantic(members[j]); si != sj {
+				return si > sj
+			}
+			return members[i].Handle.String() < members[j].Handle.String()
+		})
+		merged := members[0]
+		for _, member := range members[1:] {
+			member.Evidence = withoutEvidenceType(member.Evidence, "query_specificity")
+			merged = MergeCandidate(merged, member)
+		}
+		out = append(out, merged)
+	}
+	return out
+}
+
+func withoutEvidenceType(evidence []Evidence, typ string) []Evidence {
+	out := make([]Evidence, 0, len(evidence))
+	for _, ev := range evidence {
+		if ev.Type != typ {
+			out = append(out, ev)
+		}
 	}
 	return out
 }

@@ -628,11 +628,13 @@ func (expiredRanker) Rank(context.Context, QuerySpec, []Candidate) ([]RankedResu
 }
 
 func TestSearch_RankFallbackUsesRankerMaxPerOwner(t *testing.T) {
+	// Sections of one note share an owner; note-type candidates of one owner
+	// are coalesced before ranking, so the cap is exercised with sections.
 	candidate := func(path, owner string, score float64) Candidate {
 		return Candidate{
 			Handle:   knowledge.NoteHandle(path),
 			Owner:    knowledge.NoteHandle(owner),
-			Type:     "note",
+			Type:     "doc_section",
 			Path:     path,
 			Evidence: []Evidence{{Type: "intel_fts_match", RawScore: score}},
 		}

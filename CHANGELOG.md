@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Search ranks notes whose titles contain every word of a short query above notes that match one word. A note found by both its title and its embedding now scores as one result instead of two weaker ones, and a single query word repeated across a note's path, title, and headings no longer counts as a full match. Continuation tokens from earlier searches report stale and must be refreshed.
 - Fix duplicated note paths when opening containing sections from action items in untyped notes.
 - Search and folder tabs scroll smoothly after switching away and back, and restore their saved position after reload without replaying older scroll updates.
 - All notes opens on a Briefing (what needs attention, what is in motion, and what changed across the vault) instead of a graph of every note, so switching to it no longer freezes the workspace. A new Overview for All notes and every display group shows how groups and types connect on a type-level map with a matrix alternative, a member table with stages, gaps, linked share, and issues, untyped notes by folder, and a group's unused relations, outside notes, guide, and views. Each block loads on its own. Views can mount on All notes with the new `workspace` mount kind, read type-level counts from `GET /api/v1/ontology/shape`, and open a folder-filtered search with the kit's `openSearch`. Explorer keeps the note graph.
