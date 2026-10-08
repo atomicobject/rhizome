@@ -246,3 +246,14 @@ func TestScoreFieldsKeepsLongQuestionScale(t *testing.T) {
 	})
 	require.Equal(t, score.Value, score.RankValue)
 }
+
+// A short question is not a title: "work" in "how does Container work?" is
+// filler, so capping "container" at half its weight let any source that
+// mentions both words outrank the Container class.
+func TestScoreFieldsKeepsShortQuestionScale(t *testing.T) {
+	score := ScoreFields(Extract("how does Container work?"), Fields{
+		Path:   "src/container.py",
+		Symbol: "Container",
+	})
+	require.Equal(t, score.Value, score.RankValue)
+}

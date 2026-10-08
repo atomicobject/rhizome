@@ -119,10 +119,11 @@ func ScoreFields(frame Frame, fields Fields) Score {
 		{fields.Snippet, 0.7},
 	}
 
-	// For a short, title-like query, RankValue scores query concepts (a term
-	// and its variants): a concept counts once per field and earns at most its
-	// share of the score, so one word repeated across path, title, breadcrumb,
-	// and heading cannot stand in for the words a source does not match.
+	// For a short, title-like query (not a question), RankValue scores query
+	// concepts (a term and its variants): a concept counts once per field and
+	// earns at most its share of the score, so one word repeated across path,
+	// title, breadcrumb, and heading cannot stand in for the words a source
+	// does not match.
 	concepts := conceptIndex(scoringTerms)
 	conceptTotals := make([]float64, len(concepts.groups))
 	matched := map[string]struct{}{}
@@ -173,7 +174,7 @@ func ScoreFields(frame Frame, fields Fields) Score {
 	support := scoreSupportingFields(frame.SupportTermGroups, fields)
 	contentAvailable := strings.TrimSpace(fields.SourceSnippet) != ""
 
-	if len(conceptTotals) > maxTitleConcepts {
+	if frame.IsExplain() || len(conceptTotals) > maxTitleConcepts {
 		return Score{Value: value, RankValue: value, SupportValue: support, Matched: out, IdentityMatched: identity, ContentMatched: content, ContentAvailable: contentAvailable}
 	}
 	conceptCount := float64(len(conceptTotals))
@@ -192,11 +193,11 @@ func ScoreFields(frame Frame, fields Fields) Score {
 }
 
 // maxTitleConcepts bounds the queries whose concepts must all match to earn
-// full ranking specificity. Longer questions rarely name every concept in one
-// title, and a strong identity match on their key word is the signal, so
-// they keep Value. Measured on 2026-10-08: capping a seven-concept question
-// dropped decorators.py for "Python instrumentation decorator" (nDCG@10
-// 0.984 -> 0.604).
+// full ranking specificity. Longer queries and questions rarely name every
+// concept in one title, and a strong identity match on their key word is the
+// signal, so they keep Value. Measured on 2026-10-08: the cap dropped
+// decorators.py for a seven-concept decorator question (nDCG@10 0.984 ->
+// 0.604) and the Container class for "how does Container work?" (1.0 -> 0.71).
 const maxTitleConcepts = 3
 
 type conceptGroups struct {
