@@ -6,6 +6,7 @@ import { queryKeys } from "../api/queryKeys";
 import type { StatusResponse } from "../api/types";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { BareHTMLNote } from "./BareHTMLNote";
+import { desktopTitle, inDesktop, type Section, useDesktopCommands } from "./desktopHost";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ExplorerWorkspace } from "./ExplorerWorkspace";
 import { IndexReadyBanner } from "./IndexReadyBanner";
@@ -21,7 +22,7 @@ import { summaryCountsKnown, useOntologySummaryQuery, useValidationQuery } from 
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import { validationHealth } from "./validation/validationPresentation";
 
-type Route = "agent" | "explorer" | "graphql" | "notes" | "ontology";
+type Route = Section;
 
 const GraphQLExplorer = lazy(() => import("./GraphQLExplorer"));
 
@@ -80,6 +81,29 @@ function navigateTo(next: Route) {
   notifyLocationChange();
 }
 
+/** Runs a project search; it opens in the Notes workspace's search tab. */
+function runProjectSearch(text: string) {
+  const query = text.trim();
+
+  if (!query) return;
+  const { pathname, search } = window.location;
+  const inNotes = isNotesPath(pathname);
+  const params = new URLSearchParams(inNotes ? search : "");
+  params.delete("note");
+  params.delete("scope");
+  params.delete("noteType");
+  params.delete("folder");
+  params.delete("searchTab");
+  params.set("search", query);
+  window.history.pushState({}, "", `${inNotes ? pathname : NOTES_ROOT_PATH}?${params.toString()}`);
+  notifyLocationChange();
+}
+
+function openIssues() {
+  window.history.pushState({}, "", "/notes/issues");
+  notifyLocationChange();
+}
+
 function GlobalSearch({ route }: { route: Route }) {
   const snapshot = useLocationSnapshot();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -109,22 +133,6 @@ function GlobalSearch({ route }: { route: Route }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const submit = () => {
-    const query = value.trim();
-
-    if (!query) return;
-    const params = new URLSearchParams(route === "notes" ? snapshot.search : "");
-    params.delete("note");
-    params.delete("scope");
-    params.delete("noteType");
-    params.delete("folder");
-    params.delete("searchTab");
-    params.set("search", query);
-    const pathname = route === "notes" ? snapshot.pathname : NOTES_ROOT_PATH;
-    window.history.pushState({}, "", `${pathname}?${params.toString()}`);
-    notifyLocationChange();
-  };
-
   return (
     <form
       className="app-shell__global-search"
@@ -132,7 +140,7 @@ function GlobalSearch({ route }: { route: Route }) {
       aria-label="Project search"
       onSubmit={(event) => {
         event.preventDefault();
-        submit();
+        runProjectSearch(value);
       }}
     >
       <input
@@ -173,13 +181,26 @@ function NotesNavTools() {
         count={issueCount}
         health={health}
         label={issueCount ? `Open ${issueCount} validation issues` : "Open validation status"}
-        onClick={() => {
-          window.history.pushState({}, "", "/notes/issues");
-          notifyLocationChange();
-        }}
+        onClick={openIssues}
       />
     </div>
   );
+}
+
+/** Reports the page state the desktop toolbar shows, through the title. */
+function DesktopReporter({ route }: { route: Route }) {
+  const snapshot = useLocationSnapshot();
+  const notes = route === "notes";
+  const validationQuery = useValidationQuery(notes);
+  const search = notes ? new URLSearchParams(snapshot.search).get("search") || "" : "";
+  const issues = notes ? (validationQuery.data?.snapshot?.issueCount ?? null) : undefined;
+  const health = notes ? validationHealth(validationQuery.data ?? null) : undefined;
+
+  useEffect(() => {
+    document.title = desktopTitle({ section: route, search, issues, health });
+  }, [route, search, issues, health]);
+
+  return null;
 }
 
 export function AppShell() {
@@ -194,6 +215,17 @@ export function AppShell() {
       : null;
 
   const [notesVisited, setNotesVisited] = useState(route === "notes");
+  const [desktop] = useState(inDesktop);
+
+  useDesktopCommands((command) => {
+    if (command.command === "section") {
+      navigateTo(command.section);
+    } else if (command.command === "search") {
+      runProjectSearch(command.query);
+    } else if (command.command === "issues") {
+      openIssues();
+    }
+  });
 
   useEffect(() => {
     if (route === "notes") setNotesVisited(true);
@@ -221,10 +253,10 @@ export function AppShell() {
   const vaultName = status?.vaultName || null;
 
   useEffect(() => {
-    if (vaultName) {
+    if (vaultName && !desktop) {
       document.title = `Rhizome · ${vaultName}`;
     }
-  }, [vaultName]);
+  }, [vaultName, desktop]);
 
   if (bareNote?.note) {
     return (
@@ -234,61 +266,68 @@ export function AppShell() {
 
   return (
     <div className="app-shell">
-      <header className="app-shell__nav">
-        <div className="app-shell__brand">
-          <div>
-            <span>Rhizome</span>
-            <small>{vaultName ?? (statusQuery.isError ? "Status unavailable" : "")}</small>
+      {desktop ? (
+        <>
+          <DesktopReporter route={route} />
+          <KeyboardShortcuts trigger={false} />
+        </>
+      ) : (
+        <header className="app-shell__nav">
+          <div className="app-shell__brand">
+            <div>
+              <span>Rhizome</span>
+              <small>{vaultName ?? (statusQuery.isError ? "Status unavailable" : "")}</small>
+            </div>
           </div>
-        </div>
-        <nav aria-label="Primary">
-          <button
-            type="button"
-            className={route === "notes" ? "is-active" : ""}
-            aria-current={route === "notes" ? "page" : undefined}
-            onClick={() => navigateTo("notes")}
-          >
-            Notes
-          </button>
-          <button
-            type="button"
-            className={route === "ontology" ? "is-active" : ""}
-            aria-current={route === "ontology" ? "page" : undefined}
-            onClick={() => navigateTo("ontology")}
-          >
-            Ontology
-          </button>
-          <button
-            type="button"
-            className={route === "explorer" ? "is-active" : ""}
-            aria-current={route === "explorer" ? "page" : undefined}
-            onClick={() => navigateTo("explorer")}
-          >
-            Explorer
-          </button>
-          <button
-            type="button"
-            className={route === "agent" ? "is-active" : ""}
-            aria-current={route === "agent" ? "page" : undefined}
-            onClick={() => navigateTo("agent")}
-          >
-            Agent
-          </button>
-          <button
-            type="button"
-            className={route === "graphql" ? "is-active" : ""}
-            aria-current={route === "graphql" ? "page" : undefined}
-            onClick={() => navigateTo("graphql")}
-          >
-            GraphQL
-          </button>
-        </nav>
-        <div className="app-shell__header-tools">
-          <GlobalSearch route={route} />
-          {route === "notes" ? <NotesNavTools /> : null}
-          <KeyboardShortcuts />
-        </div>
-      </header>
+          <nav aria-label="Primary">
+            <button
+              type="button"
+              className={route === "notes" ? "is-active" : ""}
+              aria-current={route === "notes" ? "page" : undefined}
+              onClick={() => navigateTo("notes")}
+            >
+              Notes
+            </button>
+            <button
+              type="button"
+              className={route === "ontology" ? "is-active" : ""}
+              aria-current={route === "ontology" ? "page" : undefined}
+              onClick={() => navigateTo("ontology")}
+            >
+              Ontology
+            </button>
+            <button
+              type="button"
+              className={route === "explorer" ? "is-active" : ""}
+              aria-current={route === "explorer" ? "page" : undefined}
+              onClick={() => navigateTo("explorer")}
+            >
+              Explorer
+            </button>
+            <button
+              type="button"
+              className={route === "agent" ? "is-active" : ""}
+              aria-current={route === "agent" ? "page" : undefined}
+              onClick={() => navigateTo("agent")}
+            >
+              Agent
+            </button>
+            <button
+              type="button"
+              className={route === "graphql" ? "is-active" : ""}
+              aria-current={route === "graphql" ? "page" : undefined}
+              onClick={() => navigateTo("graphql")}
+            >
+              GraphQL
+            </button>
+          </nav>
+          <div className="app-shell__header-tools">
+            <GlobalSearch route={route} />
+            {route === "notes" ? <NotesNavTools /> : null}
+            <KeyboardShortcuts />
+          </div>
+        </header>
+      )}
       {connectionError && (
         <div className="app-shell__connection" role="alert">
           <div>

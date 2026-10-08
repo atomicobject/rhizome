@@ -149,3 +149,19 @@ fn setup_and_scope_actions_decode_the_shell_contract() {
     unknown_choices["surprise"] = true.into();
     assert!(serde_json::from_value::<Action>(json!({"operation":"setup-report", "id":"repo", "worktree":"/worktree", "choices":unknown_choices})).is_err());
 }
+
+#[test]
+fn page_requests_carry_the_command_beside_the_operation() {
+    let action: Action = serde_json::from_value(
+        json!({"operation": "page", "command": "section", "section": "agent"}),
+    )
+    .unwrap();
+    assert!(matches!(
+        action,
+        Action::Page(crate::page::Command::Section { .. })
+    ));
+    assert!(serde_json::from_value::<Action>(
+        json!({"operation": "page", "command": "section", "section": "x"})
+    )
+    .is_err());
+}

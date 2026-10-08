@@ -1,8 +1,12 @@
 //! The application menu bar and the shell's native popup menus.
 use crate::{
+    page,
     pane::Panes,
     state::WindowSession,
-    windows::{browse, content_label, create, focused_window, visible_page_url, Browse, Sessions},
+    windows::{
+        browse, content_label, create, focused_window, shell_label, visible_page_url, Browse,
+        Sessions,
+    },
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -93,6 +97,36 @@ fn close_active_tab(window: &Window) {
     }
 }
 
+/// Focuses the toolbar's search field, or the page's own field when the page
+/// shows its own header and the toolbar has none.
+fn focus_search(window: &Window) {
+    let reported = window
+        .app_handle()
+        .state::<Panes>()
+        .with(window.label(), |pane| pane.reported)
+        .unwrap_or(false);
+    if !reported {
+        if let (Some(_), Some(content)) = (
+            visible_page_url(window),
+            window.get_webview(&content_label(window.label())),
+        ) {
+            let _ = content.set_focus();
+            let _ = content.eval(page::LEGACY_SEARCH);
+        }
+        return;
+    }
+    // The search field is in the shell, which may not hold focus.
+    if let Some(shell) = window.get_webview(&shell_label(window.label())) {
+        let _ = shell.set_focus();
+    }
+    window
+        .app_handle()
+        .state::<Panes>()
+        .with(window.label(), |pane| {
+            pane.send(json!({"type": "command", "command": "focus-search"}))
+        });
+}
+
 fn copy_page_url(window: &Window) -> Result<(), String> {
     let url = visible_page_url(window).ok_or("No Rhizome page is open in this window.")?;
     copy_text(url.as_str())
@@ -154,6 +188,13 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         true,
         Some("CmdOrCtrl+Shift+C"),
     )?;
+    let search = MenuItem::with_id(
+        app,
+        "search",
+        "Search This Project",
+        true,
+        Some("CmdOrCtrl+K"),
+    )?;
     let add = MenuItem::with_id(
         app,
         "add-repository",
@@ -209,6 +250,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::paste(app, None)?,
             &PredefinedMenuItem::select_all(app, None)?,
             &PredefinedMenuItem::separator(app)?,
+            &search,
             &copy_url,
         ],
     )?;
@@ -262,6 +304,11 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
                 let _ = create(app, session);
             }
             "add-repository" | "toggle-sidebar" | "settings" => command(app, id),
+            "search" => {
+                if let Some(window) = focused_window(app) {
+                    focus_search(&window);
+                }
+            }
             "close-tab" => {
                 if let Some(window) = focused_window(app) {
                     close_active_tab(&window);

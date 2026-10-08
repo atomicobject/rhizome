@@ -104,7 +104,30 @@ export type Message =
   /** A brief confirmation, such as after Copy Page URL. */
   | { type: "notice"; message: string }
   | { type: "menu"; id: string }
-  | { type: "command"; command: "add-repository" | "toggle-sidebar" | "settings" };
+  | { type: "command"; command: "add-repository" | "toggle-sidebar" | "settings" | "focus-search" }
+  /** The workspace page's reported state, or null when no page has reported. */
+  | { type: "page"; state: PageState | null };
+export type PageSection = "notes" | "ontology" | "explorer" | "agent" | "graphql";
+/** What the toolbar's page controls show; see SPEC-0119. */
+export interface PageState {
+  section: PageSection;
+  search: string;
+  /** Present on Notes once validation has run. */
+  issues?: number;
+  health?:
+    | "never_checked"
+    | "running"
+    | "current_clean"
+    | "current_issues"
+    | "incomplete"
+    | "failed"
+    | "stale";
+}
+export type PageCommand =
+  | { command: "section"; section: PageSection }
+  | { command: "search"; query: string }
+  | { command: "issues" }
+  | { command: "shortcuts" };
 /** Choices a setup sheet passes to `rzm init`; see SPEC-0118. */
 export interface SetupChoices {
   workflow: string;
@@ -212,6 +235,7 @@ type Results = {
   "open-in-browser": null;
   reorder: Library;
   browse: null;
+  page: null;
   session: null;
   layout: null;
   menu: null;
@@ -244,6 +268,7 @@ type Args = {
   /** Repository ids in the order the sidebar lists them. */
   reorder: { ids: string[] };
   browse: { to: "back" | "forward" | "reload" };
+  page: PageCommand;
   session: { repository: string | null; worktree: string | null; sidebarCollapsed: boolean };
   layout: { x: number; y: number; width: number; height: number; covered: boolean };
   menu: { x: number; y: number; items: MenuEntry[] };

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 
+import { useDesktopCommands } from "./desktopHost";
+
 const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
   [
     "Anywhere",
@@ -68,9 +70,14 @@ function typingIn(target: EventTarget | null) {
   );
 }
 
-/** A `?` key and header button open a modal list of the app's shortcuts. */
-export function KeyboardShortcuts() {
+/** A `?` key and header button open a modal list of the app's shortcuts.
+ * Inside Rhizome Desktop the button lives in the native toolbar instead. */
+export function KeyboardShortcuts({ trigger = true }: { trigger?: boolean }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useDesktopCommands((command) => {
+    if (command.command === "shortcuts") dialogRef.current?.showModal();
+  });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -86,16 +93,18 @@ export function KeyboardShortcuts() {
 
   return (
     <>
-      <button
-        type="button"
-        className="app-shell__shortcuts-button"
-        aria-label="Keyboard shortcuts"
-        aria-keyshortcuts="Shift+?"
-        title="Keyboard shortcuts (?)"
-        onClick={() => dialogRef.current?.showModal()}
-      >
-        ?
-      </button>
+      {trigger && (
+        <button
+          type="button"
+          className="app-shell__shortcuts-button"
+          aria-label="Keyboard shortcuts"
+          aria-keyshortcuts="Shift+?"
+          title="Keyboard shortcuts (?)"
+          onClick={() => dialogRef.current?.showModal()}
+        >
+          ?
+        </button>
+      )}
       <dialog
         ref={dialogRef}
         className="keyboard-shortcuts"
