@@ -36,7 +36,7 @@ It also states how results from one linked group may be shown together, which is
 
 - **Source**: a search result's canonical identity: a note, an embedded node such as a section, or a code file or symbol, as [[search-engine-quality|SPEC-0102]] US9 defines it.
 - **Link**: a directed connection from one source to another: a body wiki link or Markdown link, a link inside a typed property (frontmatter or inline field), or an ontology relation. A link from inside a section belongs to that section and to its note.
-- **Link text**: the label a link displays (its alias, or the target's name when it has none) and the block of text that contains it: the paragraph, list item, or table cell.
+- **Link text**: the label a link displays (its alias, or the target's name when it has none) and the line that contains it: the paragraph, list item, table row, or frontmatter property line, capped at a few hundred characters around the link.
 - **Aboutness**: evidence that a source matches the query by its own content or identity, as the search subsystem defines it today: identity matches, title, heading, and body term matches, and embedding similarity. Graph scores, retriever ranks, and query specificity alone are not aboutness.
 - **Candidate window**: the bounded set of candidates retrieved for one request before ranking ([[search-engine-quality|SPEC-0102]] US5).
 
@@ -50,7 +50,7 @@ It also states how results from one linked group may be shown together, which is
 
 ## Non-Goals
 
-- Retrieving new candidates from the graph. Existing auto-expansion keeps its role; this spec changes how candidates in the window are scored and presented, not which candidates exist.
+- Expanding the candidate window by graph traversal. Existing auto-expansion keeps its role. Link text is lexical retrieval: it may surface a source that no other lane found, because the query's words describe it.
 - Learned ranking, graph neural networks, graph embeddings, or a separate graph database.
 - Changing the persisted HITS, community, or anchor PageRank computations, except to stop using a signal that the evaluation shows hurts relevance.
 - Public per-signal weight controls; profiles and intents choose weights as they do today.
@@ -63,29 +63,29 @@ It also states how results from one linked group may be shown together, which is
 
 - id:: ^SPEC-0120-US1
 - summary:: A person searching with the words that linking notes use for a source finds that source, even when its own title and body use different words.
-- status:: draft
+- status:: ready
 
 #### Acceptance Criteria
 
 - A source whose incoming link labels or link blocks contain the query's concepts gains lexical evidence for those concepts. The evidence names the linking source and the link, so diagnostics can show why the source matched.
 - A label that repeats the target's own title adds nothing beyond the title match the source already has.
 - Many links with the same label count with diminishing returns, so a heavily linked hub cannot outrank a better-matching source by link volume. Links from one linking source to the same target count once.
-- A link from a source to itself, from its own sections, or from a generated index or hub note that lists every member of a type adds no link-text evidence. [TODO: Confirm with Drew] Proposed: treat a note as a generated list when most of its body is links, and exclude its links.
+- A link from a source to itself or from its own sections adds no link-text evidence. A source that links to many targets, such as an index or hub note, counts less for each of them: beyond 20 distinct targets, each link counts 20 divided by the source's target count.
 - Link-text evidence is ranking evidence, not identity evidence: it never satisfies exact-title or exact-path precedence, and on its own it does not make a source must-read or reach high confidence.
-- A link that points at a heading or block gives its link text to that section, and to its note at a lower weight.
+- A link that points at a heading or block gives its link text to the note that holds it, and the evidence records the heading or block. Scoring the section itself waits for section-level link data.
 
 ### US2 - Prefer a source that sits among other relevant sources
 
 - id:: ^SPEC-0120-US2
 - summary:: Among sources that are about the query, one linked with other sources that are also about the query ranks above an otherwise similar isolated source.
-- status:: draft
+- status:: ready
 
 #### Acceptance Criteria
 
 - A candidate gains linked-corroboration evidence only when it has aboutness of its own, and only from linked candidates in the same window that also have aboutness. A candidate with no aboutness gains nothing, however many relevant sources link to it.
 - Corroboration is computed from links among candidates in the window, in both directions, at query time. It does not read persisted popularity scores.
-- Corroboration is bounded: it is capped per candidate, it grows with diminishing returns, and it is too small to lift a candidate over one with clearly stronger evidence of its own. [TODO: Confirm with Drew] Proposed: corroboration cannot move a candidate more than a few places on its own, and the evaluation reports the largest rank change it causes.
-- Typed relations and section-to-section links may weigh more than plain body links. [TODO: Confirm with Drew] Proposed: start equal, and add edge-type weights only where the evaluation shows a gain.
+- Corroboration is bounded: it is capped per candidate, it grows with diminishing returns, and it is too small to lift a candidate over one with clearly stronger evidence of its own. The evaluation reports the largest rank change it causes.
+- Every link kind counts equally at first. Typed relations or section links gain their own weights only where the evaluation shows a gain.
 - A source's sections corroborate their own note once, not once per section, so a long note does not support itself.
 - Exact-target precedence, owner caps, and multi-facet coverage behave as [[search-engine-quality|SPEC-0102]] US1 and US6 require.
 
@@ -97,7 +97,7 @@ It also states how results from one linked group may be shown together, which is
 
 #### Acceptance Criteria
 
-- [TODO: Confirm with Drew] Proposed: the web Notes search page nests a note's matched sections under one row first (the D4 follow-up from EFF-2026-10-08-07-40), then groups strongly linked notes under the highest-ranked member. Grouping changes presentation only; rank order, continuation, and agent results stay as the engine returns them.
+- The web Notes search page nests a note's matched sections under one row first (the D4 follow-up from EFF-2026-10-08-07-40), then groups strongly linked notes under the highest-ranked member. Grouping changes presentation only; rank order, continuation, and agent results stay as the engine returns them.
 - A group shows why its members belong together: the links between them.
 - Grouping never hides a source: every ranked source remains reachable in the order the engine returned it.
 
@@ -105,7 +105,7 @@ It also states how results from one linked group may be shown together, which is
 
 - id:: ^SPEC-0120-US4
 - summary:: A maintainer can measure each link signal on its own, against judged cases built around linked topics, before it changes default ranking.
-- status:: draft
+- status:: ready
 
 #### Acceptance Criteria
 
@@ -127,12 +127,14 @@ It also states how results from one linked group may be shown together, which is
 - SHOULD apply to note, section, and code sources alike where links exist; code-to-code call edges keep their existing anchor PageRank treatment.
 - MAY retire an existing graph signal (`graph_hits_authority`, `graph_hits_hub`, `same_community`, or link-expansion seeding) for an intent when the ablation shows the new evidence replaces it.
 
-## Open Questions
+## Decisions
 
-1. **What counts as link text?** [TODO: Confirm with Drew] Proposed: the label and the containing block, capped at a few hundred characters, with the label weighted above the block. Whole linking sections are too broad: they would turn every daily note into evidence for every note it mentions.
-2. **Ranking boost or grouped presentation first?** [TODO: Confirm with Drew] Proposed: build link text first, because it is the cheapest and the most likely to help navigation. Measure linked corroboration next; if its ranking effect is small or noisy, deliver the clustering idea as US3 presentation instead of as a score.
-3. **Should a hub's links count?** [TODO: Confirm with Drew] Proposed: downweight links from sources with very high outgoing link counts, because a note that links to everything says little about any one target.
-4. **What happens to the existing graph features?** They are off for text queries, apparently by accident, and `same_community` is a query-independent community label over the whole vault. [TODO: Confirm with Drew] Proposed: measure them enabled as the US4 baseline, then enable, fix, or remove each one based on that measurement, rather than leaving dead stages in the planner.
+Drew asked on 2026-10-08 to implement this spec, which accepted the proposed answers to its open questions:
+
+1. **Link text** is the label and the line that contains the link, with the label weighted above the line. Whole linking sections are too broad: they would make every daily note evidence for every note it mentions.
+2. **Order of work.** Link text comes first, because it is the cheapest and the most likely to help navigation. Linked corroboration follows and ships only if it measures. Grouped presentation (US3) follows the ranking signals, in a later effort.
+3. **Hub links count less**, as US1 states, because a note that links to everything says little about any one target.
+4. **Existing graph features** are measured enabled for text queries as the US4 baseline, then enabled, fixed, or removed based on that measurement, rather than left as dead planner stages.
 
 ## Documentation plan
 
