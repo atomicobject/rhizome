@@ -36,7 +36,8 @@ export function PageTools({
   onCommand,
 }: Props & { searchRef: Ref<HTMLInputElement> }) {
   const [query, setQuery] = useState(state.search);
-  useEffect(() => setQuery(state.search), [state.search]);
+  // A draft belongs to the section it was typed in, as in the web header.
+  useEffect(() => setQuery(state.search), [state.search, state.section]);
 
   return (
     <>

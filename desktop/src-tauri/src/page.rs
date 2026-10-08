@@ -62,16 +62,18 @@ pub fn decode(title: &str, page: &Url, runtime: Option<&Url>) -> Option<Report> 
 /// webview from inside its own callback.
 pub fn loading(pane: &mut Pane, url: &Url) {
     pane.document = Some(url.clone());
+    pane.reported = false;
     pane.send(json!({"type": "page", "state": null}));
 }
 
 /// Relays the current document's title to the shell as its page state.
-pub fn titled(pane: &Pane, title: &str) {
+pub fn titled(pane: &mut Pane, title: &str) {
     let runtime = pane.expected.read().unwrap().clone();
     let report = pane
         .document
         .as_ref()
         .and_then(|document| decode(title, document, runtime.as_ref()));
+    pane.reported = report.is_some();
     pane.send(json!({"type": "page", "state": report}));
 }
 
@@ -82,6 +84,11 @@ pub fn on_runtime(pane: &Pane) -> bool {
         && matches!((runtime.as_ref(), pane.document.as_ref()),
             (Some(runtime), Some(document)) if security::same_origin(runtime, document))
 }
+
+/// Hands ⌘K to a page that shows its own header, as a runtime older than this
+/// contract does; the menu shortcut would otherwise swallow it.
+pub const LEGACY_SEARCH: &str =
+    "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))";
 
 /// A toolbar control's command to the page.
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
@@ -201,15 +208,23 @@ mod tests {
         page_states();
 
         loading(&mut pane, &viewer);
-        titled(&pane, report);
+        titled(&mut pane, report);
         assert_eq!(page_states(), vec![json!(null), json!(null)]);
         assert!(!on_runtime(&pane));
+        assert!(!pane.reported);
 
         loading(&mut pane, &page("/agent"));
-        titled(&pane, report);
+        titled(&mut pane, "Rhizome · vault");
+        assert!(!pane.reported, "an older runtime's title is not a report");
+        titled(&mut pane, report);
+        assert!(pane.reported);
         assert_eq!(
             page_states(),
-            vec![json!(null), json!({"section": "agent", "search": ""})]
+            vec![
+                json!(null),
+                json!(null),
+                json!({"section": "agent", "search": ""})
+            ]
         );
         assert!(on_runtime(&pane));
         pane.cover(true);

@@ -1,5 +1,6 @@
 //! The application menu bar and the shell's native popup menus.
 use crate::{
+    page,
     pane::Panes,
     state::WindowSession,
     windows::{
@@ -94,6 +95,36 @@ fn close_active_tab(window: &Window) {
     if let Some(content) = window.get_webview(&content_label(window.label())) {
         let _ = content.eval("window.dispatchEvent(new CustomEvent('rhizome:close-tab'))");
     }
+}
+
+/// Focuses the toolbar's search field, or the page's own field when the page
+/// shows its own header and the toolbar has none.
+fn focus_search(window: &Window) {
+    let reported = window
+        .app_handle()
+        .state::<Panes>()
+        .with(window.label(), |pane| pane.reported)
+        .unwrap_or(false);
+    if !reported {
+        if let (Some(_), Some(content)) = (
+            visible_page_url(window),
+            window.get_webview(&content_label(window.label())),
+        ) {
+            let _ = content.set_focus();
+            let _ = content.eval(page::LEGACY_SEARCH);
+        }
+        return;
+    }
+    // The search field is in the shell, which may not hold focus.
+    if let Some(shell) = window.get_webview(&shell_label(window.label())) {
+        let _ = shell.set_focus();
+    }
+    window
+        .app_handle()
+        .state::<Panes>()
+        .with(window.label(), |pane| {
+            pane.send(json!({"type": "command", "command": "focus-search"}))
+        });
 }
 
 fn copy_page_url(window: &Window) -> Result<(), String> {
@@ -274,13 +305,9 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             }
             "add-repository" | "toggle-sidebar" | "settings" => command(app, id),
             "search" => {
-                // The search field is in the shell, which may not hold focus.
-                if let Some(shell) =
-                    focused_window(app).and_then(|w| w.get_webview(&shell_label(w.label())))
-                {
-                    let _ = shell.set_focus();
+                if let Some(window) = focused_window(app) {
+                    focus_search(&window);
                 }
-                command(app, "focus-search");
             }
             "close-tab" => {
                 if let Some(window) = focused_window(app) {

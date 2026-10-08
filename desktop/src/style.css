@@ -100,7 +100,9 @@ body,
 .toolbar {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(min-content, 1fr) auto minmax(min-content, 1fr);
+  /* The end column may shrink below its content: transient text, then the
+     search field, give way so fixed controls stay on screen. */
+  grid-template-columns: minmax(min-content, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 6px;
   padding: 0 8px;
@@ -126,6 +128,7 @@ body,
   justify-content: flex-end;
 }
 .busy {
+  flex-shrink: 100;
   min-width: 0;
   overflow: hidden;
   font-size: 11px;
@@ -225,6 +228,7 @@ body,
   pointer-events: none;
 }
 .issue-badge {
+  flex-shrink: 0;
   height: 26px;
   padding: 0 4px;
   border-color: transparent;
@@ -254,13 +258,16 @@ body,
 }
 @media (max-width: 960px) {
   .worktree-selector {
-    max-width: 72px;
+    max-width: 56px;
+  }
+  .page-search {
+    min-width: 56px;
   }
   .worktree-selector .branch {
     display: none;
   }
   .page-sections button {
-    padding: 0 5px;
+    padding: 0 4px;
     font-size: 12px;
   }
   .page-search kbd {

@@ -444,6 +444,18 @@ describe("desktop shell", () => {
     expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull();
   });
 
+  it("drops a search draft when the page moves to another section", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    act(() => emit({ type: "page", state: { section: "notes", search: "" } }));
+    const search = screen.getByRole<HTMLInputElement>("searchbox", { name: "Search this project" });
+    fireEvent.change(search, { target: { value: "half typed" } });
+
+    act(() => emit({ type: "page", state: { section: "ontology", search: "" } }));
+    expect(search.value).toBe("");
+  });
+
   it("hides the page controls while the shell covers the page", async () => {
     start(undefined, (operation) => (operation === "global-status" ? null : undefined));
     await waitFor(() => expect(opened()).toHaveLength(1));
