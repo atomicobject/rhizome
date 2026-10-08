@@ -96,6 +96,52 @@ func MergeCandidate(a, b Candidate) Candidate {
 	return out
 }
 
+// coalesceNoteCandidates merges the note-type candidates of each note into one
+// candidate before ranking, so lanes that found the same note under different
+// handles (a vector chunk and a title match) add up instead of being scored
+// apart. It groups by owner, the rule CanonicalizeSources applies after
+// ranking; section candidates from Intel FTS have their own type and stay
+// distinct. The member with the strongest semantic evidence is the base, so
+// the best-matching chunk remains the displayed node. MergeCandidate dedupes
+// repeated facts, so several chunks of one note count their similarity once.
+func coalesceNoteCandidates(candidates []Candidate) []Candidate {
+	groups := make(map[string][]Candidate)
+	for _, c := range candidates {
+		if key := c.Owner.String(); c.Type == "note" && key != "" {
+			groups[key] = append(groups[key], c)
+		}
+	}
+	out := make([]Candidate, 0, len(candidates))
+	emitted := make(map[string]bool, len(groups))
+	for _, c := range candidates {
+		key := c.Owner.String()
+		members := groups[key]
+		if c.Type != "note" || key == "" || len(members) < 2 {
+			out = append(out, c)
+			continue
+		}
+		if emitted[key] {
+			continue
+		}
+		emitted[key] = true
+		semantic := func(c Candidate) float64 {
+			return AggregateEvidenceScoresForRanking(c.Evidence)[EvidenceChannelSemantic]
+		}
+		sort.SliceStable(members, func(i, j int) bool {
+			if si, sj := semantic(members[i]), semantic(members[j]); si != sj {
+				return si > sj
+			}
+			return members[i].Handle.String() < members[j].Handle.String()
+		})
+		merged := members[0]
+		for _, member := range members[1:] {
+			merged = MergeCandidate(merged, member)
+		}
+		out = append(out, merged)
+	}
+	return out
+}
+
 const (
 	maxEvidenceTotal   = 12
 	maxEvidencePerType = 3
