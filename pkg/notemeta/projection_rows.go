@@ -1,6 +1,7 @@
 package notemeta
 
 import (
+	"bytes"
 	"sort"
 	"strings"
 
@@ -194,8 +195,9 @@ func projectionLinkRows(vaultDef obsidian.VaultDefinition, cache *obsidian.NoteP
 	if cache == nil {
 		return nil
 	}
+	content := entry.Source.Bytes()
 	rows := make([]semdb.GraphDocEdgeRow, 0, len(entry.Links)*2)
-	seen := make(map[string]struct{}, len(entry.Links)*2)
+	index := make(map[string]int, len(entry.Links)*2)
 	for _, link := range entry.Links {
 		if !resolutionSupported(vaultDef, link.Resolution) {
 			continue
@@ -206,15 +208,37 @@ func projectionLinkRows(vaultDef obsidian.VaultDefinition, cache *obsidian.NoteP
 		}
 		for _, kind := range projectionEdgeKinds(link) {
 			key := entry.Source.Path().String() + "\x00" + target + "\x00" + kind
-			if _, duplicate := seen[key]; duplicate {
-				continue
+			i, seen := index[key]
+			if !seen {
+				i = len(rows)
+				index[key] = i
+				confidence, score := semdb.GraphDocEdgeConfidenceDefaults(kind)
+				rows = append(rows, semdb.GraphDocEdgeRow{SrcPath: entry.Source.Path().String(), DstPath: target, Kind: kind, Confidence: confidence, ConfidenceScore: score})
 			}
-			seen[key] = struct{}{}
-			confidence, score := semdb.GraphDocEdgeConfidenceDefaults(kind)
-			rows = append(rows, semdb.GraphDocEdgeRow{SrcPath: entry.Source.Path().String(), DstPath: target, Kind: kind, Confidence: confidence, ConfidenceScore: score})
+			if kind == semdb.GraphDocEdgeKindWikilink || kind == semdb.GraphDocEdgeKindMarkdownLink {
+				rows[i].LinkText = semdb.AppendLinkText(rows[i].LinkText, link.Display, linkLine(content, link.RawRange))
+			}
 		}
 	}
 	return rows
+}
+
+// linkLine returns the source line that holds a link, trimmed to
+// semdb.MaxLinkLineBytes around it, so link text carries the words written
+// next to the link without pulling in the rest of the note.
+func linkLine(content []byte, raw noteformat.SourceRange) string {
+	if raw.StartByte < 0 || raw.EndByte > len(content) || raw.StartByte > raw.EndByte {
+		return ""
+	}
+	start := bytes.LastIndexByte(content[:raw.StartByte], '\n') + 1
+	end := len(content)
+	if n := bytes.IndexByte(content[raw.EndByte:], '\n'); n >= 0 {
+		end = raw.EndByte + n
+	}
+	half := semdb.MaxLinkLineBytes / 2
+	start = max(start, raw.StartByte-half)
+	end = min(end, raw.EndByte+half)
+	return strings.ToValidUTF8(string(content[start:end]), "")
 }
 
 func resolutionSupported(vaultDef obsidian.VaultDefinition, resolution noteformat.LinkResolution) bool {

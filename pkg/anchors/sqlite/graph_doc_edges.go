@@ -16,6 +16,64 @@ type GraphDocEdgeRow struct {
 	Kind            string
 	Confidence      string
 	ConfidenceScore float64
+	// LinkText holds the label and line of each link from SrcPath to DstPath,
+	// in the form AppendLinkText builds. Only coarse note-link kinds carry it.
+	LinkText string
+}
+
+const (
+	// MaxLinkLineBytes caps the line kept around one link.
+	MaxLinkLineBytes = 300
+	// maxLinkTextEntries caps the links one edge row describes; a source that
+	// links one target more often than this adds no new vocabulary.
+	maxLinkTextEntries = 8
+)
+
+// LinkTextEntry is one link's label (empty when the link has none) and the
+// line that holds it.
+type LinkTextEntry struct {
+	Label string
+	Line  string
+}
+
+// AppendLinkText adds one link's label and line to an edge row's link text,
+// skipping duplicates and stopping at maxLinkTextEntries.
+func AppendLinkText(text, label, line string) string {
+	entry := linkTextField(label) + "\t" + linkTextField(line)
+	if entry == "\t" {
+		return text
+	}
+	entries := strings.Split(text, "\n")
+	if text == "" {
+		entries = nil
+	}
+	if len(entries) >= maxLinkTextEntries {
+		return text
+	}
+	for _, existing := range entries {
+		if existing == entry {
+			return text
+		}
+	}
+	return strings.Join(append(entries, entry), "\n")
+}
+
+// ParseLinkText splits an edge row's link text into its entries.
+func ParseLinkText(text string) []LinkTextEntry {
+	if text == "" {
+		return nil
+	}
+	lines := strings.Split(text, "\n")
+	out := make([]LinkTextEntry, 0, len(lines))
+	for _, line := range lines {
+		label, rest, _ := strings.Cut(line, "\t")
+		out = append(out, LinkTextEntry{Label: label, Line: rest})
+	}
+	return out
+}
+
+func linkTextField(value string) string {
+	return strings.TrimSpace(strings.NewReplacer("\t", " ", "\n", " ", "\r", " ").Replace(value))
 }
 
 const (
@@ -300,3 +358,56 @@ const (
 	EdgeConfidenceInferred  = "inferred"  // heuristic: indirect relationship
 	EdgeConfidenceAmbiguous = "ambiguous" // uncertain: direction/nature unclear
 )
+
+// LinkTextRow is one source-to-target note link's text with the number of
+// distinct notes the source links to.
+type LinkTextRow struct {
+	SrcPath    string
+	DstPath    string
+	LinkText   string
+	SrcTargets int
+}
+
+// NoteLinkTextMatches returns coarse note-link rows whose link text contains
+// any of the given terms, case-insensitively, ordered by path.
+// ponytail: LIKE scan over every link row; add an FTS index if vaults with
+// hundreds of thousands of links make it slow.
+func (s *Store) NoteLinkTextMatches(ctx context.Context, terms []string, limit int) ([]LinkTextRow, error) {
+	var likes []string
+	var args []any
+	for _, term := range terms {
+		term = strings.ToLower(strings.TrimSpace(term))
+		if term == "" {
+			continue
+		}
+		likes = append(likes, `lower(e.link_text) LIKE ? ESCAPE '\'`)
+		args = append(args, "%"+strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(term)+"%")
+	}
+	if len(likes) == 0 {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 2000
+	}
+	args = append(args, limit)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT e.src_path, e.dst_path, e.link_text,
+			(SELECT COUNT(DISTINCT o.dst_path) FROM graph_doc_edges o WHERE o.src_path = e.src_path AND o.kind IN ('wikilink', 'mdlink'))
+		FROM graph_doc_edges e
+		WHERE e.kind IN ('wikilink', 'mdlink') AND e.link_text != '' AND (`+strings.Join(likes, " OR ")+`)
+		ORDER BY e.dst_path, e.src_path, e.kind
+		LIMIT ?`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []LinkTextRow
+	for rows.Next() {
+		var row LinkTextRow
+		if err := rows.Scan(&row.SrcPath, &row.DstPath, &row.LinkText, &row.SrcTargets); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}

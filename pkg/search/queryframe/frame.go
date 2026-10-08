@@ -604,3 +604,24 @@ func sourceOwnedSnippetEvidence(evidence search.Evidence) bool {
 		return false
 	}
 }
+
+// ConceptCoverage returns the share of the query's concepts whose term or a
+// variant appears as a word in text.
+func (f Frame) ConceptCoverage(text string) float64 {
+	if len(f.SupportTermGroups) == 0 {
+		return 0
+	}
+	words := map[string]struct{}{}
+	for _, tok := range tokenize(text) {
+		for _, variant := range appendTokenVariants([]string{tok}, tok) {
+			words[variant] = struct{}{}
+		}
+	}
+	matched := 0
+	for _, group := range f.SupportTermGroups {
+		if termGroupMatches(words, group) {
+			matched++
+		}
+	}
+	return float64(matched) / float64(len(f.SupportTermGroups))
+}

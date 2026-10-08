@@ -988,3 +988,40 @@ func TestReplaceNoteMetadataSnapshot_IgnoresDuplicateSearchTermRows(t *testing.T
 	require.True(t, indexed)
 	require.Equal(t, []string{"Notes/Weekly Sync.md"}, paths)
 }
+
+func TestNoteLinkTextMatchesReadsCoarseLinkText(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(currentSchemaTestDBPath(t, "link-text.db"))
+	require.NoError(t, err)
+	defer func() { _ = store.Close() }()
+
+	text := AppendLinkText("", "catalog migration", "- Kickoff for the 100% catalog_migration")
+	require.NoError(t, store.ReplaceNoteMetadataSnapshot(ctx, NoteMetadataSnapshot{
+		State: NoteMetadataState{NotesHash: "h", LoadedAt: 1, Ready: true},
+		Notes: []NoteMetadataRow{
+			{Path: "a.md", Title: "A", ContentHash: "a"},
+			{Path: "b.md", Title: "B", ContentHash: "b"},
+			{Path: "c.md", Title: "C", ContentHash: "c"},
+		},
+		WikilinkEdges: []GraphDocEdgeRow{
+			{SrcPath: "a.md", DstPath: "b.md", Kind: GraphDocEdgeKindWikilink, LinkText: text},
+			{SrcPath: "a.md", DstPath: "b.md", Kind: NoteLinkKind("wikilink", "alias"), LinkText: text},
+			{SrcPath: "a.md", DstPath: "c.md", Kind: GraphDocEdgeKindWikilink},
+		},
+	}))
+
+	rows, err := store.NoteLinkTextMatches(ctx, []string{"MIGRATION"}, 0)
+	require.NoError(t, err)
+	require.Equal(t, []LinkTextRow{{SrcPath: "a.md", DstPath: "b.md", LinkText: text, SrcTargets: 2}}, rows)
+
+	// LIKE wildcards in terms are literal.
+	rows, err = store.NoteLinkTextMatches(ctx, []string{"100%"}, 0)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	rows, err = store.NoteLinkTextMatches(ctx, []string{"g_m"}, 0)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	rows, err = store.NoteLinkTextMatches(ctx, []string{"0_%"}, 0)
+	require.NoError(t, err)
+	require.Empty(t, rows)
+}

@@ -143,9 +143,9 @@ func (s *Store) withWriteTx(ctx context.Context, fn func(tx *sql.Tx) error) erro
 
 const (
 	intelBaselineVersion          = 56
-	currentSchemaVersion          = 71
+	currentSchemaVersion          = 72
 	intelVecTablePrefix           = "intel_embeddings_vec_d"
-	currentIntelSchemaFingerprint = "intel-schema-v71-2026-10-04-derived-work"
+	currentIntelSchemaFingerprint = "intel-schema-v72-2026-10-08-link-text"
 )
 
 // forwardSchemaMigrations contains only migrations added after the consolidated
@@ -205,7 +205,20 @@ var forwardSchemaMigrations = []domains.TxStep{
 	func(ctx context.Context, tx *sql.Tx) error { // v69 -> v70
 		return addValidationDiagnosticVariantSchema(ctx, tx)
 	},
-	createDerivedWorkSchema, // v70 -> v71
+	createDerivedWorkSchema,       // v70 -> v71
+	addGraphDocEdgeLinkTextSchema, // v71 -> v72
+}
+
+// addGraphDocEdgeLinkTextSchema stores each note link's label and line on its
+// edge row so search can score a note by the words other notes use for it.
+// Existing rows stay empty until notemeta rederives links.
+func addGraphDocEdgeLinkTextSchema(ctx context.Context, tx *sql.Tx) error {
+	hasColumn, err := tableHasColumnQuery(ctx, tx, "graph_doc_edges", "link_text")
+	if err != nil || hasColumn {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `ALTER TABLE graph_doc_edges ADD COLUMN link_text TEXT NOT NULL DEFAULT ''`)
+	return err
 }
 
 // addValidationDiagnosticVariantSchema adds the optional issue variant to

@@ -1041,6 +1041,39 @@ aliases: [SPEC-001]
 	require.Contains(t, byKind, semdb.NoteLinkKind("wikilink", "alias"))
 }
 
+func TestBuildSnapshot_StoresLinkLabelAndLineOnCoarseEdge(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "Project Larkspur.md"), []byte("# Project Larkspur\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "standup.md"), []byte(`---
+project: "[[Project Larkspur]]"
+---
+
+Intro paragraph without links.
+- Kickoff for the [[Project Larkspur|catalog migration]] with branch staff
+- Repeat: [[Project Larkspur|catalog migration]] with branch staff
+`), 0o644))
+
+	store, err := sqlitefixture.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
+	require.NoError(t, err)
+	defer func() { _ = store.Close() }()
+	delta, err := testIndexer(t).BuildPathDelta(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, store, []string{"Project Larkspur.md", "standup.md"}, nil)
+	require.NoError(t, err)
+
+	var coarse semdb.GraphDocEdgeRow
+	for _, edge := range delta.WikilinkEdges {
+		if edge.Kind == semdb.GraphDocEdgeKindWikilink {
+			coarse = edge
+		} else {
+			require.Empty(t, edge.LinkText, "only the coarse edge carries link text")
+		}
+	}
+	require.Equal(t, []semdb.LinkTextEntry{
+		{Label: "", Line: `project: "[[Project Larkspur]]"`},
+		{Label: "catalog migration", Line: "- Kickoff for the [[Project Larkspur|catalog migration]] with branch staff"},
+		{Label: "catalog migration", Line: "- Repeat: [[Project Larkspur|catalog migration]] with branch staff"},
+	}, semdb.ParseLinkText(coarse.LinkText))
+}
+
 func TestBuildProjectionAliasCache_PreservesCandidateUnionAndEveryAliasClaimant(t *testing.T) {
 	cache := obsidian.BuildNotePathCache([]string{"notes/a.md", "notes/b.md"})
 	cache = buildProjectionAliasCache(cache, map[string][]string{

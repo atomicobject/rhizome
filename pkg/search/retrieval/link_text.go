@@ -1,0 +1,145 @@
+package retrieval
+
+import (
+	"context"
+	"sort"
+	"strconv"
+	"strings"
+
+	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/search"
+	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	"github.com/atomicobject/rhizome/pkg/search/queryframe"
+)
+
+// LinkTextSource reads note links whose label or line contains a term.
+type LinkTextSource interface {
+	NoteLinkTextMatches(ctx context.Context, terms []string, limit int) ([]semdb.LinkTextRow, error)
+}
+
+// LinkTextRetriever finds notes by the words other notes use when they link
+// to them (SPEC-0120 US1). A label counts fully and the line around the link
+// counts half; each linking note counts once and at most linkTextSourceWeight,
+// notes that link to many targets count less, and agreeing notes combine as
+// independent evidence, so one stray label cannot match a label many notes use.
+type LinkTextRetriever struct {
+	Store LinkTextSource
+}
+
+const (
+	// linkTextLineWeight is how much a match in the line around a link counts
+	// relative to a match in its label.
+	linkTextLineWeight = 0.5
+	// linkTextHubTargets is how many distinct targets a note may link to
+	// before each of its links counts less.
+	linkTextHubTargets = 20
+	// linkTextSourceWeight is the most one linking note can contribute.
+	linkTextSourceWeight = 0.5
+)
+
+func (r *LinkTextRetriever) Name() string { return "link_text" }
+
+func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([]search.Candidate, error) {
+	frame := queryframe.Extract(spec.Text)
+	if r.Store == nil || len(frame.SupportTermGroups) == 0 || len(spec.Filters.NoteTypes) > 0 {
+		return nil, nil
+	}
+	var terms []string
+	for _, group := range frame.SupportTermGroups {
+		terms = append(terms, group...)
+	}
+	rows, err := r.Store.NoteLinkTextMatches(ctx, terms, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	type link struct {
+		src   string
+		score float64
+		label string
+	}
+	byTarget := map[string][]link{}
+	for _, row := range rows {
+		dst, ok := cleanTypedNotePath(row.DstPath)
+		if !ok || row.SrcPath == row.DstPath || !pathMatchesPrefix(dst, spec.Filters.PathPrefixes) || !spec.Filters.AllowsTestPath(dst) {
+			continue
+		}
+		best := link{src: row.SrcPath}
+		for _, entry := range semdb.ParseLinkText(row.LinkText) {
+			if score := frame.ConceptCoverage(entry.Label); score > best.score {
+				best.score, best.label = score, entry.Label
+			}
+			if score := linkTextLineWeight * frame.ConceptCoverage(entry.Line); score > best.score {
+				best.score, best.label = score, ""
+			}
+		}
+		if best.score == 0 {
+			continue
+		}
+		if row.SrcTargets > linkTextHubTargets {
+			best.score *= float64(linkTextHubTargets) / float64(row.SrcTargets)
+		}
+		byTarget[dst] = append(byTarget[dst], best)
+	}
+
+	type scored struct {
+		path  string
+		score float64
+		links []link
+	}
+	targets := make([]scored, 0, len(byTarget))
+	for dst, links := range byTarget {
+		sort.Slice(links, func(i, j int) bool {
+			if links[i].score != links[j].score {
+				return links[i].score > links[j].score
+			}
+			return links[i].src < links[j].src
+		})
+		missing := 1.0
+		for _, l := range links {
+			missing *= 1 - linkTextSourceWeight*l.score
+		}
+		targets = append(targets, scored{path: dst, score: 1 - missing, links: links})
+	}
+	sort.Slice(targets, func(i, j int) bool {
+		if targets[i].score != targets[j].score {
+			return targets[i].score > targets[j].score
+		}
+		return targets[i].path < targets[j].path
+	})
+	limit := spec.Limits.Total
+	if limit <= 0 {
+		limit = 25
+	}
+	if len(targets) > limit {
+		targets = targets[:limit]
+	}
+
+	out := make([]search.Candidate, 0, len(targets))
+	for _, t := range targets {
+		sources := make([]string, 0, 3)
+		label := ""
+		for _, l := range t.links[:min(3, len(t.links))] {
+			sources = append(sources, l.src)
+			if label == "" {
+				label = l.label
+			}
+		}
+		details := map[string]string{"sources": strings.Join(sources, ", "), "linking_notes": strconv.Itoa(len(t.links))}
+		if label != "" {
+			details["label"] = label
+		}
+		h := knowledge.NoteHandle(t.path)
+		out = append(out, search.Candidate{
+			Handle:     h,
+			Owner:      h,
+			Evidence:   []search.Evidence{{Type: "link_text_match", RawScore: t.score, Source: "link_text", Details: details}},
+			Type:       "note",
+			NoteID:     t.path,
+			Path:       t.path,
+			Title:      titleFromPath(t.path),
+			ChunkIndex: -1,
+		})
+	}
+	return out, nil
+}

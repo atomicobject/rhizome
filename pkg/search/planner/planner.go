@@ -254,6 +254,9 @@ func (p *Planner) Plan(ctx context.Context, spec search.QuerySpec) (Plan, error)
 			}(),
 		})
 	}
+	if hasText && search.IsBroadIntent(intent) && p.Deps.IntelStore != nil && spec.Filters.AllowsType("note") {
+		base = append(base, &retrieval.LinkTextRetriever{Store: p.Deps.IntelStore})
+	}
 	if opts.EnableIntel && hasText && search.IsBroadIntent(intent) && p.Deps.IntelStore != nil && spec.Filters.AllowsType("code") {
 		base = append(base, &retrieval.SymbolProbeRetriever{
 			Store: p.Deps.IntelStore,

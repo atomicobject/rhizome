@@ -41,6 +41,7 @@ func Execute(ctx context.Context, request Request) (search.Response, error) {
 	if request.IntelStore != nil {
 		ranker = &relevance.GraphAnchorScoreRanker{Base: ranker, Store: request.IntelStore}
 		ranker = &relevance.GraphDocScoreRanker{Base: ranker, Store: request.IntelStore}
+		ranker = &relevance.LinkedCorroborationRanker{Base: ranker, Store: request.IntelStore}
 	}
 	if reranker, rerankCfg, enabled := rerank.NewFromEnv(); enabled {
 		ranker = &relevance.RerankingRanker{Base: ranker, Reranker: reranker, Model: rerankCfg.Model}
