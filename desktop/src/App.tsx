@@ -11,11 +11,14 @@ import {
   type MenuEntry,
   type Message,
   type OpenState,
+  type PageCommand,
+  type PageState,
   type Repository,
   type Worktree,
 } from "./api";
 import { newWorktrees, RepositoryList, runtimeText, type Runtimes } from "./RepositoryList";
 import { ScopePage } from "./IndexScope";
+import { PageSections, PageTools } from "./PageControls";
 import { Settings } from "./Settings";
 import { SetupSheet } from "./SetupSheet";
 import { Notice, OpenStatus } from "./Status";
@@ -47,6 +50,9 @@ export function App() {
   const [alert, setAlert] = useState<Failure | null>(null);
   const [open, setOpen] = useState<OpenState | null>(null);
   const [notice, setNotice] = useState("");
+  /** The state the workspace page last reported for the toolbar. */
+  const [page, setPage] = useState<PageState | null>(null);
+  const searchField = useRef<HTMLInputElement>(null);
   const target = useRef<Target>({ after: 0 });
   // Numbers each selection when the user makes it; only the newest may open.
   const selecting = useRef(0);
@@ -216,6 +222,10 @@ export function App() {
     if (region.current) observer.observe(region.current);
     return () => observer.disconnect();
   }, [report]);
+
+  // Page controls appear only while the page they act on is on screen.
+  const shown = !covered && open?.step === "ready" ? page : null;
+  const pageCommand = (command: PageCommand) => void request("page", command).catch(() => {});
 
   const repositories = library?.repositories ?? [];
   const selected = repositories.find((r) => r.id === selection.repository);
@@ -422,6 +432,8 @@ export function App() {
       } else if (message.type === "presence") {
         setFound((current) => ({ ...current, ...message.repositories }));
         setRuntimes(message.runtimes);
+      } else if (message.type === "page") {
+        setPage(message.state);
       } else if (message.type === "menu") {
         const run = menus.current[message.id];
         menus.current = {};
@@ -430,6 +442,10 @@ export function App() {
         if (message.command === "add-repository") addRepository();
         if (message.command === "toggle-sidebar") setCollapsed((value) => !value);
         if (message.command === "settings") openSettings();
+        if (message.command === "focus-search") {
+          searchField.current?.focus();
+          searchField.current?.select();
+        }
       }
     };
   });
@@ -575,67 +591,76 @@ export function App() {
   return (
     <div className={collapsed ? "shell collapsed" : "shell"}>
       <header className="toolbar" data-tauri-drag-region>
-        <button
-          className="icon-button"
-          aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
-          aria-pressed={!collapsed}
-          onClick={() => setCollapsed(!collapsed)}
-        >
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
-            <path d="M6 2.5v11" />
-          </svg>
-        </button>
-        {(
-          [
-            ["back", "Back", "M10 3.5 5.5 8l4.5 4.5"],
-            ["forward", "Forward", "M6 3.5 10.5 8 6 12.5"],
-            ["reload", "Reload", "M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 2.5v2.8H9.7"],
-          ] as const
-        ).map(([to, label, path]) => (
+        <div className="toolbar-start" data-tauri-drag-region>
           <button
-            key={to}
             className="icon-button"
-            aria-label={label}
-            title={to === "reload" ? "Reload (⌘R)" : label}
-            disabled={covered || open?.step !== "ready"}
-            onClick={() => void request("browse", { to }).catch(() => {})}
+            aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
+            aria-pressed={!collapsed}
+            onClick={() => setCollapsed(!collapsed)}
           >
             <svg viewBox="0 0 16 16" aria-hidden="true">
-              <path d={path} />
+              <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+              <path d="M6 2.5v11" />
             </svg>
           </button>
-        ))}
-        {selected && (
-          <button
-            className="worktree-selector"
-            aria-haspopup="menu"
-            aria-label="Worktree"
-            disabled={!selectedFound?.info}
-            onClick={(e) => worktreeMenu(e.currentTarget)}
-          >
-            <strong>{selected.name}</strong>
-            <span className="branch">{worktree ? worktreeName(worktree) : "…"}</span>
-            {worktree && <span className="path-hint">{basename(worktree.path)}</span>}
-            {newWorktrees(selected, selectedFound?.info).length > 0 && (
-              <span className="new-dot" title="New worktrees" />
-            )}
-            <span aria-hidden="true">▾</span>
-          </button>
+          {(
+            [
+              ["back", "Back", "M10 3.5 5.5 8l4.5 4.5"],
+              ["forward", "Forward", "M6 3.5 10.5 8 6 12.5"],
+              ["reload", "Reload", "M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 2.5v2.8H9.7"],
+            ] as const
+          ).map(([to, label, path]) => (
+            <button
+              key={to}
+              className="icon-button"
+              aria-label={label}
+              title={to === "reload" ? "Reload (⌘R)" : label}
+              disabled={covered || open?.step !== "ready"}
+              onClick={() => void request("browse", { to }).catch(() => {})}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path d={path} />
+              </svg>
+            </button>
+          ))}
+          {selected && (
+            <button
+              className="worktree-selector"
+              aria-haspopup="menu"
+              aria-label="Worktree"
+              disabled={!selectedFound?.info}
+              onClick={(e) => worktreeMenu(e.currentTarget)}
+            >
+              <strong>{selected.name}</strong>
+              <span className="branch">{worktree ? worktreeName(worktree) : "…"}</span>
+              {worktree && <span className="path-hint">{basename(worktree.path)}</span>}
+              {newWorktrees(selected, selectedFound?.info).length > 0 && (
+                <span className="new-dot" title="New worktrees" />
+              )}
+              <span aria-hidden="true">▾</span>
+            </button>
+          )}
+        </div>
+        {shown ? (
+          <PageSections state={shown} onCommand={pageCommand} />
+        ) : (
+          <span data-tauri-drag-region />
         )}
-        <span className="toolbar-space" data-tauri-drag-region />
-        {(busy || notice) && <span className="busy">{busy || notice}</span>}
-        <button
-          className="icon-button"
-          aria-label="Settings"
-          aria-pressed={settings}
-          onClick={() => (settings ? setSettings(false) : openSettings())}
-        >
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <circle cx="8" cy="8" r="2.2" />
-            <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
-          </svg>
-        </button>
+        <div className="toolbar-end" data-tauri-drag-region>
+          {(busy || notice) && <span className="busy">{busy || notice}</span>}
+          {shown && <PageTools state={shown} searchRef={searchField} onCommand={pageCommand} />}
+          <button
+            className="icon-button"
+            aria-label="Settings"
+            aria-pressed={settings}
+            onClick={() => (settings ? setSettings(false) : openSettings())}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="8" r="2.2" />
+              <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
+            </svg>
+          </button>
+        </div>
       </header>
       {!collapsed && (
         <nav className="sidebar" aria-label="Repositories">

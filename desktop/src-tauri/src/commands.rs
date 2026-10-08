@@ -141,6 +141,8 @@ pub enum Action {
     Browse {
         to: windows::Browse,
     },
+    /// A toolbar control's command to the workspace page.
+    Page(crate::page::Command),
     #[serde(rename_all = "camelCase")]
     Session {
         repository: Option<String>,
@@ -428,6 +430,10 @@ pub async fn desktop_request(
         }
         Action::Browse { to } => {
             windows::browse(&window, to)?;
+            Ok(Value::Null)
+        }
+        Action::Page(command) => {
+            windows::page_command(&window, &command);
             Ok(Value::Null)
         }
         Action::Session {

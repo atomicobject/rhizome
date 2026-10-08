@@ -1,4 +1,5 @@
 use crate::{
+    page,
     pane::{Pane, Panes},
     presence::Presence,
     security,
@@ -282,6 +283,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             WebviewUrl::External("about:blank".parse().unwrap()),
         )
         .initialization_script(CLICK_GUARD)
+        .initialization_script(page::MARKER)
         // Tauri's native file-drop handler claims every drag, so the page never
         // sees dragover or drop; the runtime UI needs HTML5 drag and drop.
         .disable_drag_drop_handler()
@@ -294,6 +296,13 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
                 }
                 None => security::empty_frame_document(target),
             })
+        })
+        // The page reports the state the toolbar shows through its title.
+        .on_document_title_changed(|webview, title| {
+            webview
+                .app_handle()
+                .state::<Panes>()
+                .with(webview.window().label(), |pane| page::titled(pane, &title));
         })
         .on_new_window(move |target, _| {
             if security::external_url(&target) {
@@ -319,6 +328,12 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
                 return;
             }
             if payload.event() == PageLoadEvent::Started {
+                webview
+                    .app_handle()
+                    .state::<Panes>()
+                    .with(webview.window().label(), |pane| {
+                        page::loading(pane, payload.url())
+                    });
                 crate::pipeline::navigation_started(
                     webview.app_handle(),
                     webview.window().label(),
@@ -444,6 +459,20 @@ pub fn browse(window: &Window, to: Browse) -> Result<(), String> {
         Browse::Reload => content.reload(),
     }
     .map_err(|e| e.to_string())
+}
+
+/// Hands a toolbar command to the workspace page while the content view shows
+/// one on the verified runtime origin; otherwise there is no page to receive it.
+pub fn page_command(window: &Window, command: &page::Command) {
+    let shown = window
+        .app_handle()
+        .state::<Panes>()
+        .with(window.label(), |pane| page::on_runtime(pane))
+        .unwrap_or(false);
+    let content = window.get_webview(&content_label(window.label()));
+    if let (true, Some(content), Some(script)) = (shown, content, command.script()) {
+        let _ = content.eval(script);
+    }
 }
 
 pub fn focused_window(app: &AppHandle) -> Option<Window> {

@@ -2,7 +2,10 @@
 use crate::{
     pane::Panes,
     state::WindowSession,
-    windows::{browse, content_label, create, focused_window, visible_page_url, Browse, Sessions},
+    windows::{
+        browse, content_label, create, focused_window, shell_label, visible_page_url, Browse,
+        Sessions,
+    },
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -154,6 +157,13 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         true,
         Some("CmdOrCtrl+Shift+C"),
     )?;
+    let search = MenuItem::with_id(
+        app,
+        "search",
+        "Search This Project",
+        true,
+        Some("CmdOrCtrl+K"),
+    )?;
     let add = MenuItem::with_id(
         app,
         "add-repository",
@@ -209,6 +219,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::paste(app, None)?,
             &PredefinedMenuItem::select_all(app, None)?,
             &PredefinedMenuItem::separator(app)?,
+            &search,
             &copy_url,
         ],
     )?;
@@ -262,6 +273,15 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
                 let _ = create(app, session);
             }
             "add-repository" | "toggle-sidebar" | "settings" => command(app, id),
+            "search" => {
+                // The search field is in the shell, which may not hold focus.
+                if let Some(shell) =
+                    focused_window(app).and_then(|w| w.get_webview(&shell_label(w.label())))
+                {
+                    let _ = shell.set_focus();
+                }
+                command(app, "focus-search");
+            }
             "close-tab" => {
                 if let Some(window) = focused_window(app) {
                     close_active_tab(&window);

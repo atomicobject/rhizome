@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { KeyboardShortcuts } from "./KeyboardShortcuts";
@@ -56,5 +56,21 @@ describe("KeyboardShortcuts", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
     expect(dialog()).toBeVisible();
+  });
+  it("opens from the desktop toolbar when the page has no button", () => {
+    render(<KeyboardShortcuts trigger={false} />);
+
+    expect(screen.queryByRole("button", { name: "Keyboard shortcuts" })).toBeNull();
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("rhizome:desktop", { detail: { command: "shortcuts" } }),
+      );
+    });
+
+    expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveAttribute("open");
+    screen.getByRole("dialog", { name: "Keyboard shortcuts" }).close();
+
+    fireEvent.keyDown(document.body, { key: "?" });
+    expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveAttribute("open");
   });
 });

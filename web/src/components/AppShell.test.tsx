@@ -4,6 +4,7 @@ import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import type { OntologyEditSessionResponse } from "../api/types";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { AppShell } from "./AppShell";
+import type { DesktopCommand } from "./desktopHost";
 
 type StatusStub = { vaultName: string; vaultPath: string; indexState?: "initializing" | "ready" };
 
@@ -244,5 +245,91 @@ describe("AppShell", () => {
     expect(search).toHaveFocus();
     expect(search.selectionStart).toBe(0);
     expect(search.selectionEnd).toBe("existing query".length);
+  });
+
+  describe("inside Rhizome Desktop", () => {
+    const send = (detail: DesktopCommand | { command: "section"; section: string }) =>
+      act(() => {
+        window.dispatchEvent(new CustomEvent("rhizome:desktop", { detail }));
+      });
+
+    const report = () => JSON.parse(document.title.replace(/^rhizome-desktop:/, ""));
+
+    beforeEach(() => {
+      window.__RHIZOME_DESKTOP__ = true;
+      statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x" });
+    });
+
+    afterEach(() => {
+      delete window.__RHIZOME_DESKTOP__;
+    });
+
+    it("hides the header and reports the section, search, and issues in the title", async () => {
+      http.json("GET", "/api/v2/validate", {
+        status: "ok",
+        generation: 1,
+        health: "current_issues",
+        snapshot: { issueCount: 37 },
+      });
+      window.history.replaceState({}, "", "/notes?search=meetings");
+
+      render(<AppShell />);
+
+      expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("searchbox", { name: "Search this project" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Keyboard shortcuts" })).toBeNull();
+      await waitFor(() =>
+        expect(report()).toEqual({
+          v: 1,
+          section: "notes",
+          search: "meetings",
+          issues: 37,
+          health: "current_issues",
+        }),
+      );
+      // The vault title never replaces the report.
+      await waitFor(() => expect(http.count("GET", "/api/v1/status")).toBe(1));
+      expect(document.title).toMatch(/^rhizome-desktop:/);
+    });
+
+    it("switches sections, searches, and opens issues on app commands", async () => {
+      render(<AppShell />);
+
+      await send({ command: "section", section: "ontology" });
+      expect(window.location.pathname).toBe("/ontology");
+      await waitFor(() => expect(report()).toEqual({ v: 1, section: "ontology", search: "" }));
+
+      // The report follows history the page moves through on its own.
+      await act(async () => {
+        window.history.back();
+        await new Promise((resolve) =>
+          window.addEventListener("popstate", resolve, { once: true }),
+        );
+      });
+      await waitFor(() => expect(report().section).toBe("notes"));
+      await send({ command: "section", section: "ontology" });
+
+      await send({ command: "section", section: "settings" });
+      expect(window.location.pathname).toBe("/ontology");
+
+      await send({ command: "search", query: "  embedded node identifiers  " });
+      expect(window.location.pathname).toBe("/notes");
+      expect(new URLSearchParams(window.location.search).get("search")).toBe(
+        "embedded node identifiers",
+      );
+      await waitFor(() => expect(report().search).toBe("embedded node identifiers"));
+
+      await send({ command: "issues" });
+      expect(window.location.pathname).toBe("/notes/issues");
+    });
+
+    it("leaves ⌘K to the app", () => {
+      render(<AppShell />);
+      const focused = document.activeElement;
+
+      fireEvent.keyDown(window, { key: "k", metaKey: true });
+
+      expect(document.activeElement).toBe(focused);
+    });
   });
 });

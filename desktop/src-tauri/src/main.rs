@@ -2,6 +2,7 @@
 mod bridge;
 mod commands;
 mod menu;
+mod page;
 mod pane;
 mod pipeline;
 mod presence;

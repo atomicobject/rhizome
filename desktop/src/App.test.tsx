@@ -402,6 +402,64 @@ describe("desktop shell", () => {
     expect(opened()).toHaveLength(1);
   });
 
+  it("draws the workspace page's controls in the toolbar once the page reports", async () => {
+    start(undefined, (operation) => (operation === "page" ? null : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull();
+
+    act(() =>
+      emit({
+        type: "page",
+        state: { section: "notes", search: "meetings", issues: 37, health: "current_issues" },
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Notes" })).toHaveAttribute("aria-current", "page");
+    const search = screen.getByRole<HTMLInputElement>("searchbox", { name: "Search this project" });
+    expect(search.value).toBe("meetings");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ontology" }));
+    expect(call).toHaveBeenCalledWith("page", { command: "section", section: "ontology" });
+    fireEvent.click(screen.getByRole("button", { name: "Open 37 validation issues" }));
+    expect(call).toHaveBeenCalledWith("page", { command: "issues" });
+    fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
+    expect(call).toHaveBeenCalledWith("page", { command: "shortcuts" });
+    fireEvent.change(search, { target: { value: "decisions" } });
+    fireEvent.submit(search.closest("form")!);
+    expect(call).toHaveBeenCalledWith("page", { command: "search", query: "decisions" });
+
+    act(() => emit({ type: "command", command: "focus-search" }));
+    expect(search).toHaveFocus();
+
+    // The active tab follows the page, and the badge belongs to Notes.
+    act(() => emit({ type: "page", state: { section: "ontology", search: "" } }));
+    expect(screen.getByRole("button", { name: "Ontology" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.queryByRole("button", { name: /validation/ })).toBeNull();
+    expect(search.value).toBe("");
+
+    act(() => emit({ type: "page", state: null }));
+    expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull();
+  });
+
+  it("hides the page controls while the shell covers the page", async () => {
+    start(undefined, (operation) => (operation === "global-status" ? null : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    act(() => emit({ type: "page", state: { section: "agent", search: "" } }));
+    expect(screen.getByRole("navigation", { name: "Sections" })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("navigation", { name: "Sections" })).toBeVisible();
+
+    report({ step: "starting" });
+    expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull();
+  });
+
   it("confirms a copied page URL briefly in the toolbar", async () => {
     start();
     await waitFor(() => expect(opened()).toHaveLength(1));

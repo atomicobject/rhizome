@@ -95,27 +95,47 @@ body,
 .shell.collapsed {
   grid-template-columns: minmax(0, 1fr);
 }
+/* The section tabs sit centered in the window, between the window
+   controls and the page tools, and give way when space runs short. */
 .toolbar {
   grid-column: 1 / -1;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(min-content, 1fr) auto minmax(min-content, 1fr);
   align-items: center;
   gap: 6px;
-  padding: 0 8px 0 80px;
+  padding: 0 8px;
   border-bottom: 1px solid #e4e2dd;
   background: #f2f1ec;
   user-select: none;
   -webkit-user-select: none;
 }
-.toolbar-space {
-  flex: 1;
+.toolbar-start,
+.toolbar-end {
+  display: flex;
+  align-items: center;
   align-self: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+/* Room for the window's traffic lights, kept out of the toolbar's own
+   padding so the centered column stays centered in the window. */
+.toolbar-start {
+  padding-left: 72px;
+}
+.toolbar-end {
+  justify-content: flex-end;
 }
 .busy {
+  min-width: 0;
+  overflow: hidden;
   font-size: 11px;
   color: #706c68;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .icon-button {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   min-width: 26px;
@@ -139,11 +159,20 @@ body,
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  max-width: 60%;
+  min-width: 56px;
+  /* A fixed cap, unlike a percentage, also limits the width the toolbar
+     reserves for the name, so long names truncate instead of crowding. */
+  max-width: 320px;
   height: 26px;
   padding: 0 9px;
+  overflow: hidden;
   border-color: transparent;
   background: transparent;
+}
+.worktree-selector strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .worktree-selector .branch {
   font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
@@ -156,6 +185,90 @@ body,
   font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.page-sections {
+  display: flex;
+  gap: 1px;
+}
+.page-sections button {
+  height: 26px;
+  padding: 0 9px;
+  border-color: transparent;
+  background: transparent;
+  color: #595959;
+}
+.page-sections button[aria-current="page"] {
+  border-color: #d8d5cf;
+  background: #fff;
+  color: #2a2724;
+  font-weight: 600;
+}
+.page-search {
+  position: relative;
+  flex: 0 1 240px;
+  min-width: 72px;
+}
+.page-search input {
+  width: 100%;
+  height: 26px;
+  padding: 3px 34px 3px 8px;
+  font-size: 12px;
+}
+.page-search kbd {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  transform: translateY(-50%);
+  color: #8a8682;
+  font-family: inherit;
+  font-size: 11px;
+  pointer-events: none;
+}
+.issue-badge {
+  height: 26px;
+  padding: 0 4px;
+  border-color: transparent;
+  background: transparent;
+  color: #c8313a;
+  font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+.issue-badge:hover:enabled {
+  border-color: transparent;
+  background: transparent;
+  text-decoration: underline;
+}
+.issue-badge.running,
+.issue-badge.stale,
+.issue-badge.incomplete {
+  color: #9a6a0e;
+}
+@media (max-width: 1180px) {
+  .path-hint {
+    display: none;
+  }
+  .worktree-selector {
+    max-width: 200px;
+  }
+}
+@media (max-width: 960px) {
+  .worktree-selector {
+    max-width: 72px;
+  }
+  .worktree-selector .branch {
+    display: none;
+  }
+  .page-sections button {
+    padding: 0 5px;
+    font-size: 12px;
+  }
+  .page-search kbd {
+    display: none;
+  }
+  .page-search input {
+    padding-right: 8px;
+  }
 }
 .new-dot {
   flex-shrink: 0;

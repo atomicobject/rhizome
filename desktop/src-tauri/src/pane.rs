@@ -54,6 +54,8 @@ pub struct Pane {
     failures: u8,
     /// The runtime origin whose page last finished loading in the content view.
     page: Option<Url>,
+    /// The content view's current top-level document, from its last page load.
+    pub document: Option<Url>,
     pub expected: Arc<RwLock<Option<Url>>>,
     pub channel: Option<Channel<Value>>,
     /// A message for a shell that has not attached yet.
