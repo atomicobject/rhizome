@@ -104,7 +104,7 @@ On branch `t3/e2b5cb4d`, for one pull request to `main`:
 
 - `testdata/search-quality/title-phrase-vault` and eight `TITLE_PHRASE_VAULT-NAVIGATION-*` cases in `corpus-v2.json`, mapped in `tools/searchquality`.
 - D1: `coalesceNoteCandidates` merges each note's whole-note candidates by owning note before ranking; `RankingPolicyVersion` is `search-quality-v2`, so older continuation tokens report stale.
-- D2: `queryframe.Score.RankValue` is the `query_specificity` ranking evidence. For queries that are not questions and have at most three concepts, each concept counts once per field and earns at most its share; otherwise it equals `Value`, which answer assembly still uses.
+- D2: `queryframe.Score.RankValue` is the `query_specificity` ranking evidence. For queries with at most three concepts that are not explanatory questions (how, what, where, why, explain), each concept counts once per field and earns at most its share; otherwise it equals `Value`, which answer assembly still uses.
 - Regression tests in `pkg/search/archetype_regression_test.go` and `pkg/search/queryframe/frame_test.go`; the search subsystem note and changelog describe the new behavior.
 - Measured: title-phrase corpus nav@1 0.750 → 1.000 live and nDCG@10 0.790 → 0.860 fast; live existing-corpora nav@1 up on both splits; the fast-mode short-query secondary-rank losses, the near-tie swaps, and the ambiguous-control confidence change are recorded in Execution Notes. D3 and relative BM25 were not delivered (Deviations).
 
@@ -134,7 +134,7 @@ On branch `t3/e2b5cb4d`, for one pull request to `main`:
 
 ## Deviations
 
-- 2026-10-08 — D2 changed shape during execution: the concept cap lives in a new `Score.RankValue` rather than `Score.Value`, applies only to queries that are not questions and have at most three concepts, and counts a concept once per field. `Value`, and therefore answer confidence, is unchanged. Authority: the approved D2 intent (specificity must not let one concept cover for others); each refinement followed a measured regression recorded in Execution Notes.
+- 2026-10-08 — D2 changed shape during execution: the concept cap lives in a new `Score.RankValue` rather than `Score.Value`, applies only to queries that are not explanatory questions and have at most three concepts, and counts a concept once per field. `Value`, and therefore answer confidence, is unchanged. Authority: the approved D2 intent (specificity must not let one concept cover for others); each refinement followed a measured regression recorded in Execution Notes.
 - 2026-10-08 — D3 (title-phrase evidence) was not implemented. After D1 and D2, every note whose title contains all query words already outranks one-word title matches in both fast and live runs; the remaining lexical-only rank-1 misses are ties among notes that all contain the phrase, which a phrase signal cannot separate. The lexical channel also clamps at 1, so a phrase item there would add nothing for a note that already has a full title match. Recorded here instead of adding code that measures as a no-op; Drew can reopen it.
 - 2026-10-08 — The plan's conditional relative-BM25 change was not made. Lexical ties still decide some short-query secondary ranks (all Intel FTS similarities sit near 0.97), but changing that rebalances lexical against semantic evidence for every query and needs its own measured effort. Recorded as a follow-up.
 
