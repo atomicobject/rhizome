@@ -2,6 +2,7 @@ package retrieval
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,6 +34,9 @@ const (
 	// linkTextHubTargets is how many distinct targets a note may link to
 	// before each of its links counts less.
 	linkTextHubTargets = 20
+	// linkTextAliasNotes is how many linking notes must share a label before
+	// it counts like an alias of the target.
+	linkTextAliasNotes = 2
 	// linkTextSourceWeight is the most one linking note can contribute.
 	linkTextSourceWeight = 0.5
 )
@@ -54,9 +58,10 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 	}
 
 	type link struct {
-		src   string
-		score float64
-		label string
+		src    string
+		score  float64
+		label  string
+		labels []string
 	}
 	byTarget := map[string][]link{}
 	for _, row := range rows {
@@ -66,6 +71,9 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		}
 		best := link{src: row.SrcPath}
 		for _, entry := range semdb.ParseLinkText(row.LinkText) {
+			if entry.Label != "" && !slices.Contains(best.labels, entry.Label) {
+				best.labels = append(best.labels, entry.Label)
+			}
 			if score := frame.ConceptCoverage(entry.Label); score > best.score {
 				best.score, best.label = score, entry.Label
 			}
@@ -129,6 +137,9 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		if label != "" {
 			details["label"] = label
 		}
+		if alias := consensusLabel(t.links, func(l link) []string { return l.labels }); alias != "" {
+			details[search.LinkTextAliasDetail] = alias
+		}
 		h := knowledge.NoteHandle(t.path)
 		out = append(out, search.Candidate{
 			Handle:     h,
@@ -142,4 +153,36 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		})
 	}
 	return out, nil
+}
+
+// consensusLabel returns the label the most linking notes use, case-insensitively,
+// when at least linkTextAliasNotes of them agree. One note's label is an
+// opinion; several notes using the same words make it a name.
+func consensusLabel[T any](links []T, labels func(T) []string) string {
+	counts := map[string]int{}
+	spelling := map[string]string{}
+	for _, l := range links {
+		seen := map[string]bool{}
+		for _, label := range labels(l) {
+			key := strings.ToLower(label)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			counts[key]++
+			if spelling[key] == "" {
+				spelling[key] = label
+			}
+		}
+	}
+	best := ""
+	for key, n := range counts {
+		if n < linkTextAliasNotes {
+			continue
+		}
+		if best == "" || n > counts[best] || (n == counts[best] && key < best) {
+			best = key
+		}
+	}
+	return spelling[best]
 }

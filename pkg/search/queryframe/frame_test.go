@@ -257,3 +257,13 @@ func TestScoreFieldsKeepsShortQuestionScale(t *testing.T) {
 	})
 	require.Equal(t, score.Value, score.RankValue)
 }
+
+func TestScoreCandidateReadsAgreedLinkLabelsWithTheTitle(t *testing.T) {
+	frame := Extract("catalog migration")
+	plain := search.Candidate{Path: "Projects/Project Kestrel.md", Title: "Project Kestrel"}
+	require.Zero(t, ScoreCandidate(frame, plain).RankValue)
+
+	aliased := plain
+	aliased.Evidence = []search.Evidence{{Type: "link_text_match", RawScore: 0.9, Details: map[string]string{search.LinkTextAliasDetail: "catalog migration"}}}
+	require.Equal(t, ScoreCandidate(frame, search.Candidate{Path: plain.Path, Title: "catalog migration"}).RankValue, ScoreCandidate(frame, aliased).RankValue)
+}

@@ -108,6 +108,10 @@ func NormalizeEvidenceList(evidence []Evidence) ([]Evidence, error) {
 	return out, nil
 }
 
+// LinkTextAliasDetail names the link_text_match detail holding a label that
+// several linking notes use for the target.
+const LinkTextAliasDetail = "alias"
+
 func EvidenceScore(ev Evidence) float64 {
 	if ev.Score > 0 {
 		return ev.Score

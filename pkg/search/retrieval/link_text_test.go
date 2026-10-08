@@ -47,6 +47,9 @@ func TestLinkTextRetrieverScoresTargetsByWhatLinkingNotesCallThem(t *testing.T) 
 	require.Equal(t, "Projects/Larkspur.md", got[0].Path)
 	require.Equal(t, "3", got[0].Evidence[0].Details["linking_notes"])
 	require.Equal(t, "catalog migration", got[0].Evidence[0].Details["label"])
+	require.Equal(t, "catalog migration", got[0].Evidence[0].Details[search.LinkTextAliasDetail], "three notes agree on the label")
+	require.Equal(t, "Birds/Club list.md", got[1].Path)
+	require.NotContains(t, got[1].Evidence[0].Details, search.LinkTextAliasDetail, "one note's label is not an alias")
 }
 
 func TestLinkTextRetrieverSkipsTypeFilteredQueries(t *testing.T) {

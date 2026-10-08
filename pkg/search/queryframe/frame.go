@@ -296,7 +296,7 @@ func termGroupMatches(available map[string]struct{}, group []string) bool {
 func ScoreCandidate(frame Frame, c search.Candidate) Score {
 	return ScoreFields(frame, Fields{
 		Path:          c.Path,
-		Title:         c.Title,
+		Title:         strings.TrimSpace(c.Title + " " + linkTextAliases(c.Evidence)),
 		Symbol:        c.Symbol,
 		FQN:           c.FQN,
 		Breadcrumb:    c.Breadcrumb,
@@ -624,4 +624,17 @@ func (f Frame) ConceptCoverage(text string) float64 {
 		}
 	}
 	return float64(matched) / float64(len(f.SupportTermGroups))
+}
+
+// linkTextAliases joins the labels that several linking notes agree on. They
+// name the note the way its title does, so query specificity reads them with
+// the title.
+func linkTextAliases(evidence []search.Evidence) string {
+	var aliases []string
+	for _, ev := range evidence {
+		if alias := ev.Details[search.LinkTextAliasDetail]; ev.Type == "link_text_match" && alias != "" {
+			aliases = append(aliases, alias)
+		}
+	}
+	return strings.Join(aliases, " ")
 }
