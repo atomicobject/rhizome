@@ -896,6 +896,7 @@ var defaultCorpusRoots = map[string]corpusRoot{
 	"polyglot-code-fixture": {Root: "testdata/integration/python-app/vault", SourcePrefix: "testdata/integration/python-app/vault"},
 	"typed-note-fixture":    {Root: "testdata/search-quality/typed-note-vault", SourcePrefix: "testdata/search-quality/typed-note-vault"},
 	"prose-knowledge-vault": {Root: "testdata/search-quality/prose-vault", SourcePrefix: "testdata/search-quality/prose-vault"},
+	"title-phrase-vault":    {Root: "testdata/search-quality/title-phrase-vault", SourcePrefix: "testdata/search-quality/title-phrase-vault"},
 }
 
 func readCorpusRoots(path string) (map[string]corpusRoot, error) {

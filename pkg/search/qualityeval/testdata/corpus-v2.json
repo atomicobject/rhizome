@@ -18053,6 +18053,2198 @@
       "judgmentMethod": "canonical_spec_or_audit_source_inspection",
       "judgedAt": "2026-09-12",
       "uncertainty": "Correctness case requires five-page identity traversal in the runner, separate from single-run relevance scoring."
+    },
+    {
+      "id": "TITLE_PHRASE_VAULT-NAVIGATION-VOLUNTEER_DRIVERS-01",
+      "split": "development",
+      "corpus": "title-phrase-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "volunteer drivers"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md",
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; the note is about the volunteer driver program.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; a checklist for the drivers themselves.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md": {
+          "grade": 2,
+          "rationale": "Meeting log whose title has the singular phrase; directly about scheduling volunteer drivers.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md": {
+          "grade": 2,
+          "rationale": "The phrase appears only in the H1; the talk is about retaining volunteer drivers.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md": {
+          "grade": 1,
+          "rationale": "General volunteer onboarding; touches transportation volunteers only in passing.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md": {
+          "grade": 0,
+          "rationale": "Volunteer appreciation, not drivers.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md": {
+          "grade": 1,
+          "rationale": "About coordinators and scheduling generally, not the driver program.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Drivers.md": {
+          "grade": 1,
+          "rationale": "Defines paid drivers; one query word, wrong group of people.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md": {
+          "grade": 1,
+          "rationale": "Training for paid drivers, not volunteers.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md": {
+          "grade": 1,
+          "rationale": "Title matches one word and the body mentions drivers; a pilot program, not the driver pool.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md": {
+          "grade": 0,
+          "rationale": "Map of content with links only.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md": {
+          "grade": 1,
+          "rationale": "Related staffing pattern; does not address volunteer drivers.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grants.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grants.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Forms library.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Forms library.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md#L1"
+        }
+      }
+    },
+    {
+      "id": "TITLE_PHRASE_VAULT-NAVIGATION-VOLUNTEER_DRIVERS-02",
+      "split": "development",
+      "corpus": "title-phrase-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "volunteer driver"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md",
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; the note is about the volunteer driver program.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; a checklist for the drivers themselves.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md": {
+          "grade": 2,
+          "rationale": "Meeting log whose title has the singular phrase; directly about scheduling volunteer drivers.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md": {
+          "grade": 2,
+          "rationale": "The phrase appears only in the H1; the talk is about retaining volunteer drivers.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md": {
+          "grade": 1,
+          "rationale": "General volunteer onboarding; touches transportation volunteers only in passing.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md": {
+          "grade": 0,
+          "rationale": "Volunteer appreciation, not drivers.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md": {
+          "grade": 1,
+          "rationale": "About coordinators and scheduling generally, not the driver program.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Drivers.md": {
+          "grade": 1,
+          "rationale": "Defines paid drivers; one query word, wrong group of people.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md": {
+          "grade": 1,
+          "rationale": "Training for paid drivers, not volunteers.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md": {
+          "grade": 1,
+          "rationale": "Title matches one word and the body mentions drivers; a pilot program, not the driver pool.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md": {
+          "grade": 0,
+          "rationale": "Map of content with links only.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md": {
+          "grade": 1,
+          "rationale": "Related staffing pattern; does not address volunteer drivers.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grants.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grants.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Forms library.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Forms library.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md#L1"
+        }
+      }
+    },
+    {
+      "id": "TITLE_PHRASE_VAULT-NAVIGATION-GRANT_REPORTING-01",
+      "split": "development",
+      "corpus": "title-phrase-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "grant reporting"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md",
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; the note is about automating grant reports.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; a template for grant reports.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md": {
+          "grade": 2,
+          "rationale": "Meeting log whose title has the singular phrase; directly about grant report deadlines.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md": {
+          "grade": 2,
+          "rationale": "The phrase appears only in the H1; the retreat notes are about grant reporting lessons.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md": {
+          "grade": 1,
+          "rationale": "Grant writing, not reporting.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grants.md": {
+          "grade": 1,
+          "rationale": "Defines grants; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grants.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md": {
+          "grade": 1,
+          "rationale": "Internal reporting, not grant reports.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md": {
+          "grade": 1,
+          "rationale": "Internal reporting cadence; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md": {
+          "grade": 0,
+          "rationale": "Fundraising pipeline, not reporting.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md": {
+          "grade": 1,
+          "rationale": "Title matches one word and the body mentions reporting; about planning, not the reports.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md": {
+          "grade": 0,
+          "rationale": "Map of content with links only.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md": {
+          "grade": 1,
+          "rationale": "Metrics that feed reports; does not address grant reporting itself.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Forms library.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Forms library.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md#L1"
+        }
+      }
+    },
+    {
+      "id": "TITLE_PHRASE_VAULT-NAVIGATION-GRANT_REPORTING-02",
+      "split": "development",
+      "corpus": "title-phrase-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "grant report"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md",
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; the note is about automating grant reports.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; a template for grant reports.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md": {
+          "grade": 2,
+          "rationale": "Meeting log whose title has the singular phrase; directly about grant report deadlines.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md": {
+          "grade": 2,
+          "rationale": "The phrase appears only in the H1; the retreat notes are about grant reporting lessons.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md": {
+          "grade": 1,
+          "rationale": "Grant writing, not reporting.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grants.md": {
+          "grade": 1,
+          "rationale": "Defines grants; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grants.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md": {
+          "grade": 1,
+          "rationale": "Internal reporting, not grant reports.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md": {
+          "grade": 1,
+          "rationale": "Internal reporting cadence; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md": {
+          "grade": 0,
+          "rationale": "Fundraising pipeline, not reporting.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md": {
+          "grade": 1,
+          "rationale": "Title matches one word and the body mentions reporting; about planning, not the reports.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md": {
+          "grade": 0,
+          "rationale": "Map of content with links only.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md": {
+          "grade": 1,
+          "rationale": "Metrics that feed reports; does not address grant reporting itself.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Forms library.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Forms library.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md#L1"
+        }
+      }
+    },
+    {
+      "id": "TITLE_PHRASE_VAULT-NAVIGATION-INTAKE_FORMS-01",
+      "split": "held-out",
+      "corpus": "title-phrase-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "intake forms"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md",
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grants.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grants.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; about intake forms for walk-ins.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; a rewrite of the intake forms.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md": {
+          "grade": 2,
+          "rationale": "Meeting log whose title has the singular phrase; about the intake form backlog.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md": {
+          "grade": 2,
+          "rationale": "The phrase appears only in the H1; about intake form accessibility.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md": {
+          "grade": 1,
+          "rationale": "The intake process broadly, not the forms.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake.md": {
+          "grade": 1,
+          "rationale": "Defines intake; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Forms library.md": {
+          "grade": 1,
+          "rationale": "Forms generally; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Forms library.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md": {
+          "grade": 1,
+          "rationale": "Consent forms, not intake forms.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md": {
+          "grade": 1,
+          "rationale": "Title matches one word and the body mentions forms; about staffing rotation.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md": {
+          "grade": 0,
+          "rationale": "Front desk equipment; not about intake forms specifically.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md": {
+          "grade": 0,
+          "rationale": "Map of content with links only.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md": {
+          "grade": 1,
+          "rationale": "Screening rules that intake applies; not the forms.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md#L1"
+        }
+      }
+    },
+    {
+      "id": "TITLE_PHRASE_VAULT-NAVIGATION-INTAKE_FORMS-02",
+      "split": "held-out",
+      "corpus": "title-phrase-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "intake form"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md",
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grants.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grants.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; about intake forms for walk-ins.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; a rewrite of the intake forms.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md": {
+          "grade": 2,
+          "rationale": "Meeting log whose title has the singular phrase; about the intake form backlog.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md": {
+          "grade": 2,
+          "rationale": "The phrase appears only in the H1; about intake form accessibility.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md": {
+          "grade": 1,
+          "rationale": "The intake process broadly, not the forms.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake.md": {
+          "grade": 1,
+          "rationale": "Defines intake; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Forms library.md": {
+          "grade": 1,
+          "rationale": "Forms generally; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Forms library.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md": {
+          "grade": 1,
+          "rationale": "Consent forms, not intake forms.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md": {
+          "grade": 1,
+          "rationale": "Title matches one word and the body mentions forms; about staffing rotation.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md": {
+          "grade": 0,
+          "rationale": "Front desk equipment; not about intake forms specifically.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md": {
+          "grade": 0,
+          "rationale": "Map of content with links only.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md": {
+          "grade": 1,
+          "rationale": "Screening rules that intake applies; not the forms.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md#L1"
+        }
+      }
+    },
+    {
+      "id": "TITLE_PHRASE_VAULT-NAVIGATION-BOARD_COMMITTEES-01",
+      "split": "held-out",
+      "corpus": "title-phrase-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "board committees"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md",
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grants.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grants.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Forms library.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Forms library.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; about board committees.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; a charter template for the committees.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md": {
+          "grade": 2,
+          "rationale": "Meeting log whose title has the singular phrase; about committee assignments.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md": {
+          "grade": 2,
+          "rationale": "The phrase appears only in the H1; about running board committees.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md": {
+          "grade": 1,
+          "rationale": "Board onboarding, not committees.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board.md": {
+          "grade": 1,
+          "rationale": "Defines the board; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md": {
+          "grade": 1,
+          "rationale": "Minutes practice for any committee; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md": {
+          "grade": 1,
+          "rationale": "One committee's scope; related but not about board committees as a whole.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md": {
+          "grade": 1,
+          "rationale": "Title matches one word and the body mentions committees; about the chair's workload.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md": {
+          "grade": 0,
+          "rationale": "Advisory council, not committees.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md": {
+          "grade": 0,
+          "rationale": "Map of content with links only.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md": {
+          "grade": 1,
+          "rationale": "Bylaws mention committees in passing.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md#L1"
+        }
+      }
+    },
+    {
+      "id": "TITLE_PHRASE_VAULT-NAVIGATION-BOARD_COMMITTEES-02",
+      "split": "held-out",
+      "corpus": "title-phrase-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "board committee"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md",
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Volunteer drivers and rural routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Reference checklist for volunteer drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Dispatch sync - Volunteer driver scheduling, 2026-05-04.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2023 transit summit talk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer onboarding.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Volunteer appreciation events.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer coordinators carry the scheduling load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Drivers.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Drivers.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Driver safety training.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer pressure group pilots new routes.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Volunteer Roles MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Mixed crews of paid and volunteer staff.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Grant reporting automation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Shared template for grant reporting.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Finance sync - Grant report deadlines, 2026-03-11.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2024 board retreat.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Grant writing basics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grants.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grants.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Monthly reporting dashboard.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Reporting cadence for program leads.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Foundation grants pipeline.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Grant calendar drives quarterly planning.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Funder relationships MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Outcome metrics.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Intake forms for walk-in clients.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Plain-language rewrite of intake forms.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Front desk sync - Intake form backlog, 2026-02-17.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2025 accessibility review.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Client intake process.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Forms library.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Forms library.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Consent forms and data retention.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Intake staff rotate weekly.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Paper versus tablets at the front desk.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Client Services MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md": {
+          "grade": 0,
+          "rationale": "Different topic cluster; shares no query concept with this request.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Eligibility screening.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; about board committees.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Opportunity - Board committees and term limits.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md": {
+          "grade": 3,
+          "rationale": "The filename and H1 contain the requested phrase; a charter template for the committees.",
+          "locator": "testdata/search-quality/title-phrase-vault/Projects/Idea - Charter template for board committees.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md": {
+          "grade": 2,
+          "rationale": "Meeting log whose title has the singular phrase; about committee assignments.",
+          "locator": "testdata/search-quality/title-phrase-vault/Log/Governance sync - Board committee assignments, 2026-01-20.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md": {
+          "grade": 2,
+          "rationale": "The phrase appears only in the H1; about running board committees.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/2022 nonprofit leadership workshop.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md": {
+          "grade": 1,
+          "rationale": "Board onboarding, not committees.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Board orientation.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board.md": {
+          "grade": 1,
+          "rationale": "Defines the board; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md": {
+          "grade": 1,
+          "rationale": "Minutes practice for any committee; one query word.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Committee meeting minutes practice.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md": {
+          "grade": 1,
+          "rationale": "One committee's scope; related but not about board committees as a whole.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Finance committee scope.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md": {
+          "grade": 1,
+          "rationale": "Title matches one word and the body mentions committees; about the chair's workload.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Board chair carries the agenda load.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md": {
+          "grade": 0,
+          "rationale": "Advisory council, not committees.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Advisory council versus board.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md": {
+          "grade": 0,
+          "rationale": "Map of content with links only.",
+          "locator": "testdata/search-quality/title-phrase-vault/Notes/Governance MOC.md#L1"
+        },
+        "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md": {
+          "grade": 1,
+          "rationale": "Bylaws mention committees in passing.",
+          "locator": "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md#L1"
+        }
+      }
     }
   ]
 }
