@@ -134,6 +134,8 @@ The public release feed has no published release at verification time. Global in
 
 Pointer added on 2026-10-07 (frozen-scope-drift acknowledged for SPEC-0113): EFF-2026-10-06-08-07 added a pointer from the unconfigured-worktree requirement to [[desktop-repository-setup|SPEC-0118]], which owns the setup sheet and the What gets indexed page. The requirement itself is unchanged.
 
+New-worktree marker on 2026-10-07 (frozen-scope-drift acknowledged for SPEC-0113): Drew reported that opening the rhizome repository left its new marker lit, because only the opened worktree was acknowledged while agent tools keep adding others. SPEC-0113 now says opening any of a repository's worktrees acknowledges every worktree it has at that moment, so the marker shows only worktrees that appeared since; the sidebar and toolbar show it as a muted count instead of a red dot that read as a second status.
+
 ## Closure Checklist
 
 - [x] Requirements exercised on the actual application.

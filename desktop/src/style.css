@@ -157,12 +157,12 @@ body,
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.new-dot {
+.new-count {
   flex-shrink: 0;
-  width: 7px;
-  height: 7px;
-  border-radius: 100%;
-  background: #c8313a;
+  font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 400;
+  color: #706c68;
 }
 .runtime-dot {
   flex-shrink: 0;

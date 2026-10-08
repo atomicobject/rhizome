@@ -214,6 +214,18 @@ impl Library {
             .ok_or_else(|| "This repository is no longer in your library.".into())
     }
 
+    /// Marks every worktree `found` lists as seen in its repository, so the
+    /// new marker shows only worktrees that appear after the repository was
+    /// last opened. Returns whether anything changed.
+    pub fn acknowledge(&mut self, found: &Discovery) -> Result<bool, String> {
+        let repository = self.repository_mut(&found.id)?;
+        let before = repository.acknowledged.len();
+        repository
+            .acknowledged
+            .extend(found.worktrees.iter().map(|w| w.path.clone()));
+        Ok(repository.acknowledged.len() != before)
+    }
+
     /// Orders repositories as `ids` lists them. Repositories it omits, such as
     /// one another window added meanwhile, keep their order after the rest.
     pub fn reorder(&mut self, ids: &[String]) {
@@ -380,6 +392,32 @@ pub fn data_directory(default: PathBuf) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn opening_a_repository_acknowledges_every_worktree_it_has() {
+        let mut library = Library {
+            repositories: vec![Repository::discovered(&discovery(
+                'a',
+                "/work/.git",
+                &["/work/project"],
+            ))],
+            ..Library::default()
+        };
+        let now = discovery(
+            'a',
+            "/work/.git",
+            &["/work/project", "/work/agent-1", "/work/agent-2"],
+        );
+        assert_eq!(library.acknowledge(&now), Ok(true));
+        let acknowledged = &library.repositories[0].acknowledged;
+        assert!(["/work/project", "/work/agent-1", "/work/agent-2"]
+            .iter()
+            .all(|p| acknowledged.contains(*p)));
+        assert_eq!(library.acknowledge(&now), Ok(false));
+        assert!(library
+            .acknowledge(&discovery('b', "/other/.git", &["/other"]))
+            .is_err());
+    }
 
     fn folder(id: char, path: &str, executable: Option<&str>, last_opened: Option<u64>) -> Folder {
         Folder {

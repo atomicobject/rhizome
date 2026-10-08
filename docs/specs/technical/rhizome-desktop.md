@@ -40,7 +40,7 @@ The app MUST persist repositories in user application data. A Git repository's i
 
 ### Worktrees
 
-The app MUST discover a repository's worktrees from Git, excluding prunable worktrees whose directory is missing, and MUST refresh them when a window gains focus and periodically while a window is visible. A worktree first discovered after the repository was added, and not yet opened in the app, MUST show a new indicator until it is opened.
+The app MUST discover a repository's worktrees from Git, excluding prunable worktrees whose directory is missing, and MUST refresh them when a window gains focus and periodically while a window is visible. A worktree that appeared after the repository was last opened in the app MUST show a new indicator until the repository is opened again; opening any of a repository's worktrees acknowledges every worktree it has at that moment.
 
 Each repository MUST have a primary worktree that seeds missing databases. By default it is the worktree that has the remote default branch checked out, otherwise the main working tree. The user MAY choose another primary worktree per repository.
 

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
@@ -134,7 +134,8 @@ describe("desktop shell", () => {
 
   it("marks worktrees that have not been opened", async () => {
     start();
-    expect(await screen.findByTitle("1 new worktree")).toBeVisible();
+    const sidebar = screen.getByRole("navigation", { name: "Repositories" });
+    expect(await within(sidebar).findByTitle("1 new worktree")).toHaveTextContent("1 new");
     fireEvent.click(await screen.findByRole("button", { name: "Worktree" }));
     await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
     const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
@@ -277,7 +278,8 @@ describe("desktop shell", () => {
       }),
     );
     expect(screen.getByLabelText("Rhizome running")).toBeVisible();
-    expect(screen.getByTitle("1 new worktree")).toBeVisible();
+    const sidebar = screen.getByRole("navigation", { name: "Repositories" });
+    expect(within(sidebar).getByTitle("1 new worktree")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Worktree" }));
     await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
     const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
@@ -423,7 +425,10 @@ describe("desktop shell", () => {
       expect(call).toHaveBeenCalledWith("reorder", { ids: [other.id, repository.id] }),
     );
     await waitFor(() =>
-      expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["other", "project"]),
+      expect(screen.getAllByRole("tab").map((t) => t.querySelector(".name")?.textContent)).toEqual([
+        "other",
+        "project",
+      ]),
     );
   });
 

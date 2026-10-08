@@ -419,6 +419,13 @@ async fn run(
     if !progress.current() {
         return Ok(false);
     }
+    {
+        // Opening a repository shows its worktrees, so none it has now stays new.
+        let (_lock, mut saved) = desktop.library().await?;
+        if saved.acknowledge(&found)? {
+            commands::save(&progress.app, &desktop, &saved)?;
+        }
+    }
     if !entry.configured {
         progress.step("setup", json!({}));
         return Ok(false);
