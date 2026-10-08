@@ -196,3 +196,27 @@ func TestSupportSpecificityNormalizesByOriginalMeaningfulGroups(t *testing.T) {
 	require.Less(t, SupportSpecificityScore(shortContent.Evidence), .7, "one generic body term remains useful")
 	require.Less(t, SupportSpecificityScore(longDistractor.Evidence), .7, "three terms cannot saturate an arbitrarily longer request")
 }
+
+// One query concept repeated across path, title, breadcrumb, and heading
+// must not reach the score of a source that matches every concept. Before
+// each concept was capped at its share, "Drivers" saturated like the note
+// titled with the whole phrase (dogfood query "Innovation teams").
+func TestScoreFieldsCapsEachConceptAtItsShare(t *testing.T) {
+	frame := Extract("volunteer drivers")
+	oneConcept := ScoreFields(frame, Fields{
+		Path:       "Notes/Drivers.md",
+		Title:      "Drivers",
+		Breadcrumb: "Notes/Drivers.md > Drivers",
+		Heading:    "Drivers",
+	})
+	everyConcept := ScoreFields(frame, Fields{
+		Path:  "Projects/Opportunity - Volunteer drivers and rural routes.md",
+		Title: "Opportunity - Volunteer drivers and rural routes",
+	})
+	require.Equal(t, 1.0, everyConcept.RankValue)
+	require.LessOrEqual(t, oneConcept.RankValue, 0.65)
+	require.Equal(t, 1.0, oneConcept.Value, "identity strength for answer assembly is unchanged")
+
+	single := ScoreFields(Extract("drivers"), Fields{Path: "Notes/Drivers.md", Title: "Drivers"})
+	require.Equal(t, single.Value, single.RankValue, "a one-concept query keeps its full scale")
+}
