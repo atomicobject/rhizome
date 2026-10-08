@@ -63,7 +63,9 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		label  string
 		labels []string
 	}
-	byTarget := map[string][]link{}
+	// One linking note counts once per target, even when it links by both
+	// wiki and Markdown syntax and so has two edge rows.
+	bySource := map[[2]string]link{}
 	for _, row := range rows {
 		dst, ok := cleanTypedNotePath(row.DstPath)
 		if !ok || row.SrcPath == row.DstPath || !pathMatchesPrefix(dst, spec.Filters.PathPrefixes) || !spec.Filters.AllowsTestPath(dst) {
@@ -87,7 +89,22 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		if row.SrcTargets > linkTextHubTargets {
 			best.score *= float64(linkTextHubTargets) / float64(row.SrcTargets)
 		}
-		byTarget[dst] = append(byTarget[dst], best)
+		key := [2]string{dst, row.SrcPath}
+		if prior, ok := bySource[key]; ok {
+			for _, label := range prior.labels {
+				if !slices.Contains(best.labels, label) {
+					best.labels = append(best.labels, label)
+				}
+			}
+			if prior.score >= best.score {
+				best.score, best.label = prior.score, prior.label
+			}
+		}
+		bySource[key] = best
+	}
+	byTarget := map[string][]link{}
+	for key, l := range bySource {
+		byTarget[key[0]] = append(byTarget[key[0]], l)
 	}
 
 	type scored struct {

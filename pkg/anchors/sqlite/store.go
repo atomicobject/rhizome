@@ -3754,7 +3754,7 @@ func (s *Store) validateIntelSchemaTx(ctx context.Context, tx *sql.Tx) error {
 		"intel_rationale":                        {"rationale_id", "path", "symbol_fqn", "kind", "content", "start_line", "end_line", "fingerprint", "updated_at"},
 		"intel_rationale_fts_rowid":              {"rationale_id", "fts_rowid"},
 		"graph_doc_scores":                       {"doc_path", "doc_type", "hub", "authority", "community", "inbound", "outbound", "updated_at"},
-		"graph_doc_edges":                        {"src_path", "dst_path", "confidence", "confidence_score", "source_location"},
+		"graph_doc_edges":                        {"src_path", "dst_path", "confidence", "confidence_score", "source_location", "link_text"},
 		"graph_anchor_scores":                    {"anchor_id", "pagerank", "updated_at"},
 		"graph_web_revision":                     {"id", "incarnation", "revision"},
 		"ontology_note_assessments":              {"note_path", "declared_type", "resolved_type", "assessment_json", "has_issues", "type_ambiguous", "schema_hash", "updated_at"},

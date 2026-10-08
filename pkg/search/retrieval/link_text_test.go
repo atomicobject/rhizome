@@ -24,6 +24,7 @@ func TestLinkTextRetrieverScoresTargetsByWhatLinkingNotesCallThem(t *testing.T) 
 		{SrcPath: "b.md", DstPath: "Projects/Larkspur.md", LinkText: label, SrcTargets: 3},
 		{SrcPath: "c.md", DstPath: "Projects/Larkspur.md", LinkText: label, SrcTargets: 3},
 		{SrcPath: "d.md", DstPath: "Birds/Club list.md", LinkText: label, SrcTargets: 3},
+		{SrcPath: "d.md", DstPath: "Birds/Club list.md", LinkText: label, SrcTargets: 3}, // the same note's Markdown link
 		{SrcPath: "e.md", DstPath: "Notes/Line only.md", LinkText: linkText("", "notes on the catalog migration plan"), SrcTargets: 3},
 		{SrcPath: "Index.md", DstPath: "Notes/Hub listed.md", LinkText: label, SrcTargets: 40},
 		{SrcPath: "Projects/Larkspur.md", DstPath: "Projects/Larkspur.md", LinkText: label, SrcTargets: 3},

@@ -387,7 +387,7 @@ func (s *Store) NoteLinkTextMatches(ctx context.Context, terms []string, limit i
 		return nil, nil
 	}
 	if limit <= 0 {
-		limit = 2000
+		limit = -1 // SQLite: no limit
 	}
 	args = append(args, limit)
 	rows, err := s.db.QueryContext(ctx, `
