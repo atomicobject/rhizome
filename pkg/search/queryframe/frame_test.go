@@ -214,7 +214,7 @@ func TestScoreFieldsCapsEachConceptAtItsShare(t *testing.T) {
 		Title: "Opportunity - Volunteer drivers and rural routes",
 	})
 	require.Equal(t, 1.0, everyConcept.RankValue)
-	require.LessOrEqual(t, oneConcept.RankValue, 0.65)
+	require.Equal(t, 0.5, oneConcept.RankValue, "one of two concepts earns half; no multi-concept bonus")
 	require.Equal(t, 1.0, oneConcept.Value, "identity strength for answer assembly is unchanged")
 
 	single := ScoreFields(Extract("chunker"), Fields{Path: "pkg/search/chunker.go", Symbol: "Chunker"})

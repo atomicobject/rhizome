@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 // MergeCandidate combines two candidates with the same handle identity.
@@ -96,19 +98,24 @@ func MergeCandidate(a, b Candidate) Candidate {
 	return out
 }
 
-// coalesceNoteCandidates merges the note-type candidates of each note into one
-// candidate before ranking, so lanes that found the same note under different
-// handles (a vector chunk and a title match) add up instead of being scored
-// apart. It groups by owner, the rule CanonicalizeSources applies after
-// ranking; section candidates from Intel FTS have their own type and stay
-// distinct. The member with the strongest semantic evidence is the base, so
-// the best-matching chunk remains the displayed node. MergeCandidate dedupes
-// repeated facts, so several chunks of one note count their similarity once.
+// coalesceNoteCandidates merges each note's whole-note candidates into one
+// before ranking, so lanes that found the same note under different handles (a
+// vector chunk and a title match) add up instead of being scored apart. A
+// whole-note candidate is a note-type candidate whose canonical identity is the
+// note path; embedded and section nodes keep their own identity, and Intel FTS
+// sections have their own type. The member with the strongest semantic
+// evidence is the base, so the best-matching chunk remains the displayed node.
+// MergeCandidate dedupes repeated facts, so several chunks of one note count
+// their similarity once; only the base keeps query_specificity, which the
+// ranker recomputes and the deadline fallback must not stack.
 func coalesceNoteCandidates(candidates []Candidate) []Candidate {
+	wholeNote := func(c Candidate) bool {
+		return c.Type == "note" && c.Owner.String() != "" && (c.NodeRef == nil || c.NodeRef.Kind == "" || c.NodeRef.Kind == ontology.NodeKindNote)
+	}
 	groups := make(map[string][]Candidate)
 	for _, c := range candidates {
-		if key := c.Owner.String(); c.Type == "note" && key != "" {
-			groups[key] = append(groups[key], c)
+		if wholeNote(c) {
+			groups[c.Owner.String()] = append(groups[c.Owner.String()], c)
 		}
 	}
 	out := make([]Candidate, 0, len(candidates))
@@ -116,7 +123,7 @@ func coalesceNoteCandidates(candidates []Candidate) []Candidate {
 	for _, c := range candidates {
 		key := c.Owner.String()
 		members := groups[key]
-		if c.Type != "note" || key == "" || len(members) < 2 {
+		if !wholeNote(c) || len(members) < 2 {
 			out = append(out, c)
 			continue
 		}
@@ -135,9 +142,20 @@ func coalesceNoteCandidates(candidates []Candidate) []Candidate {
 		})
 		merged := members[0]
 		for _, member := range members[1:] {
+			member.Evidence = withoutEvidenceType(member.Evidence, "query_specificity")
 			merged = MergeCandidate(merged, member)
 		}
 		out = append(out, merged)
+	}
+	return out
+}
+
+func withoutEvidenceType(evidence []Evidence, typ string) []Evidence {
+	out := make([]Evidence, 0, len(evidence))
+	for _, ev := range evidence {
+		if ev.Type != typ {
+			out = append(out, ev)
+		}
 	}
 	return out
 }

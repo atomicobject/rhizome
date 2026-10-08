@@ -171,3 +171,55 @@ func TestMergeEvidenceCapRetainsDeterministicTiedFact(t *testing.T) {
 		require.Equal(t, "a", merged.Evidence[maxEvidenceTotal-1].Details["fact"])
 	}
 }
+
+func TestCoalesceNoteCandidatesMergesOnlyWholeNoteIdentity(t *testing.T) {
+	path := "notes/plan.md"
+	owner := knowledge.NoteHandle(path)
+	rootChunk := Candidate{
+		Handle: knowledge.NodeChunkHandle("root", path, "node_body", 0), Owner: owner, Type: "note", Path: path,
+		NodeRef:  &ontology.NodeRef{NotePath: path, Kind: ontology.NodeKindNote},
+		Evidence: []Evidence{{Type: "note_vector_similarity", RawScore: 0.6}, {Type: "query_specificity", RawScore: 0.9, Details: map[string]string{"matched": "plan"}}},
+	}
+	titleMatch := Candidate{
+		Handle: owner, Owner: owner, Type: "note", Path: path, ChunkIndex: -1,
+		Evidence: []Evidence{{Type: "note_title_match", RawScore: 1}, {Type: "query_specificity", RawScore: 0.5, Details: map[string]string{"matched": "plan,review"}}},
+	}
+	// An embedded node keeps its own canonical identity, so facets that rank
+	// it see the same source whichever chunk is strongest.
+	embedded := Candidate{
+		Handle: knowledge.NodeChunkHandle("decision", path, "node_body", 0), Owner: owner, Type: "note", Path: path,
+		NodeRef:  &ontology.NodeRef{NotePath: path, NodeID: "decision", Kind: "EMBEDDED"},
+		Evidence: []Evidence{{Type: "note_vector_similarity", RawScore: 0.8}},
+	}
+	section := Candidate{Handle: knowledge.FileHandle(path), Owner: owner, Type: "doc_section", Path: path, Evidence: []Evidence{{Type: "intel_doc_match", RawScore: 0.9}}}
+
+	orders := [][]Candidate{
+		{rootChunk, titleMatch, embedded, section},
+		{section, embedded, titleMatch, rootChunk},
+		{titleMatch, section, rootChunk, embedded},
+	}
+	var first []Candidate
+	for i, order := range orders {
+		got := coalesceNoteCandidates(order)
+		require.Len(t, got, 3, "order %d", i)
+		byHandle := map[string]Candidate{}
+		for _, c := range got {
+			byHandle[c.Handle.String()] = c
+		}
+		merged, ok := byHandle[rootChunk.Handle.String()]
+		require.True(t, ok, "the strongest whole-note member is the base (order %d)", i)
+		types := map[string]int{}
+		for _, ev := range merged.Evidence {
+			types[ev.Type]++
+		}
+		require.Equal(t, 1, types["note_title_match"])
+		require.Equal(t, 1, types["query_specificity"], "only the base member's specificity survives (order %d)", i)
+		require.Contains(t, byHandle, embedded.Handle.String())
+		require.Contains(t, byHandle, section.Handle.String())
+		if first == nil {
+			first = []Candidate{merged}
+			continue
+		}
+		require.Equal(t, first[0].Evidence, merged.Evidence, "order %d", i)
+	}
+}
