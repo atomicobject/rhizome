@@ -176,6 +176,10 @@ jobs:
       - name: Install credential scanner
         run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
         working-directory: ${{ runner.temp }}
+        # gitleaks needs Go 1.24.11 or newer. Without a pin, Go switches to the
+        # newest release, which can 404 while that release is still propagating.
+        env:
+          GOTOOLCHAIN: go1.24.11
       - name: Run GoReleaser
         run: python3 scripts/release/run_clean.py publish -- goreleaser release --clean
         env:
