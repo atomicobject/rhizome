@@ -2,7 +2,7 @@
 type: ProductSpec
 id: SPEC-0120
 summary: "Search uses the vault's links as relevance evidence: the words other notes use when they link to a source count for that source, and a source that is about the query gains bounded support from linked sources that are also about the query. Popularity never counts as relevance, and every effect is measured on a link-dense corpus before it ships."
-spec-status: proposed
+spec-status: active
 last-updated: 2026-10-08
 aliases:
   - SPEC-0120
@@ -71,14 +71,14 @@ It also states how results from one linked group may be shown together, which is
 - A label that repeats the target's own title adds nothing beyond the title match the source already has.
 - Many links with the same label count with diminishing returns, so a heavily linked hub cannot outrank a better-matching source by link volume. Links from one linking source to the same target count once.
 - A link from a source to itself or from its own sections adds no link-text evidence. A source that links to many targets, such as an index or hub note, counts less for each of them: beyond 20 distinct targets, each link counts 20 divided by the source's target count.
-- Link-text evidence is ranking evidence, not identity evidence: it never satisfies exact-title or exact-path precedence, and on its own it does not make a source must-read or reach high confidence.
+- Link-text evidence never satisfies exact-title or exact-path precedence and is not a retrieval lane for confidence. A label that at least two linking notes agree on, and that names every query concept, counts like the source's title in query specificity, because several notes using the same words make it a name. One note's label, and the line around a link, are ranking evidence only.
 - A link that points at a heading or block gives its link text to the note that holds it, and the evidence records the heading or block. Scoring the section itself waits for section-level link data.
 
 ### US2 - Prefer a source that sits among other relevant sources
 
 - id:: ^SPEC-0120-US2
 - summary:: Among sources that are about the query, one linked with other sources that are also about the query ranks above an otherwise similar isolated source.
-- status:: ready
+- status:: draft
 
 #### Acceptance Criteria
 
@@ -135,6 +135,8 @@ Drew asked on 2026-10-08 to implement this spec, which accepted the proposed ans
 2. **Order of work.** Link text comes first, because it is the cheapest and the most likely to help navigation. Linked corroboration follows and ships only if it measures. Grouped presentation (US3) follows the ranking signals, in a later effort.
 3. **Hub links count less**, as US1 states, because a note that links to everything says little about any one target.
 4. **Existing graph features** are measured enabled for text queries as the US4 baseline, then enabled, fixed, or removed based on that measurement, rather than left as dead planner stages.
+
+Measured on 2026-10-08 (EFF-2026-10-08-16-23): link text passed the US4 rule and ships. Turning today's graph features on for text queries changed nothing measurable, so they stay seed-only. Linked corroboration lowered conceptual nDCG@10 slightly (0.716 to 0.707) because, with live vectors, nearly every candidate in the window counts as relevant and distractors link to each other; US2 returns to draft until a stricter aboutness test exists.
 
 ## Documentation plan
 

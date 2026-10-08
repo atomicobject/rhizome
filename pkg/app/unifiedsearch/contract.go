@@ -31,7 +31,7 @@ const (
 	ProfileAgent       = searchapplication.ProfileAgent
 )
 
-const RankingPolicyVersion = "search-quality-v2"
+const RankingPolicyVersion = "search-quality-v3"
 
 type EffectivePolicy = searchapplication.EffectivePolicy
 
