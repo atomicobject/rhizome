@@ -897,6 +897,7 @@ var defaultCorpusRoots = map[string]corpusRoot{
 	"typed-note-fixture":    {Root: "testdata/search-quality/typed-note-vault", SourcePrefix: "testdata/search-quality/typed-note-vault"},
 	"prose-knowledge-vault": {Root: "testdata/search-quality/prose-vault", SourcePrefix: "testdata/search-quality/prose-vault"},
 	"title-phrase-vault":    {Root: "testdata/search-quality/title-phrase-vault", SourcePrefix: "testdata/search-quality/title-phrase-vault"},
+	"linked-topics-vault":   {Root: "testdata/search-quality/linked-topics-vault", SourcePrefix: "testdata/search-quality/linked-topics-vault"},
 }
 
 func readCorpusRoots(path string) (map[string]corpusRoot, error) {
