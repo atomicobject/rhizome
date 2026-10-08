@@ -68,7 +68,7 @@ describe("KeyboardShortcuts", () => {
     });
 
     expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveAttribute("open");
-    screen.getByRole("dialog", { name: "Keyboard shortcuts" }).close();
+    screen.getByRole<HTMLDialogElement>("dialog", { name: "Keyboard shortcuts" }).close();
 
     fireEvent.keyDown(document.body, { key: "?" });
     expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveAttribute("open");

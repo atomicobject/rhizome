@@ -28,11 +28,11 @@ Excluded: the non-goals SPEC-0119 lists. No release is published. [[rhizome-desk
 
 ## Spec Coverage Checklist
 
-- [ ] Web desktop mode: header hidden, state report in the title, page events handled through the existing navigation and search code. Browser unchanged.
-- [ ] Native relay: desktop marker, title report checked against the verified origin and relayed to the shell, page commands as fixed events, state cleared on loads and navigation, ⌘K menu item.
-- [ ] Shell toolbar: tabs, search, issue badge, shortcuts; hidden while covered or unreported; usable at the minimum width.
-- [ ] Older runtime keeps its own header with no page controls in the toolbar.
-- [ ] Tests in each layer; gates; native verification; documentation; independent review; pull request.
+- [x] Web desktop mode: header hidden, state report in the title, page events handled through the existing navigation and search code. Browser unchanged.
+- [x] Native relay: desktop marker, title report checked against the verified origin and relayed to the shell, page commands as fixed events, state cleared on loads and navigation, ⌘K menu item.
+- [x] Shell toolbar: tabs, search, issue badge, shortcuts; hidden while covered or unreported; usable at the minimum width.
+- [x] Older runtime keeps its own header with no page controls in the toolbar.
+- [x] Tests in each layer; gates; native verification (packaged app, click-level; keystrokes left to Drew's click-through); documentation; independent reviews (Claude Fable, GPT-6.1-Sol); pull request #13. Greptile did not respond on this repository during the run.
 
 ## Plan
 
@@ -72,7 +72,7 @@ A Rhizome Desktop window that shows a workspace page has one top bar. The native
 
 ## Actual Delivered
 
-Not started.
+In Rhizome Desktop, a window showing a workspace page has one top bar. The native toolbar draws the section tabs (centered in the window), project search, the Notes issue badge, and the keyboard shortcuts button, and they act on and follow the page. The web UI hides its header only when the app marks the content view; in a browser it is unchanged. The page reports its state through a checked `rhizome-desktop:` document title, and the app sends commands as fixed `rhizome:desktop` events, so the content view gains no native permissions. ⌘K focuses the toolbar's search, or an older runtime's own search when its page has not reported. An older runtime keeps its own header and the toolbar adds nothing. Native AppKit controls are a follow-up Drew chose to take separately.
 
 ## Execution Notes
 
@@ -83,7 +83,8 @@ Not started.
 - 2026-10-07: While integrating, the title handler's call to `webview.url()` was replaced: on the main thread that call runs inline against the runtime's window table, which a title event fired during another webview operation could find borrowed. The pane now records each page load's URL (`Pane::document`), and the title handler and page commands check that against the verified origin.
 - 2026-10-07: Gates passed before review fixes: `make desktop-check` and `make check` (web 1509 tests), then `make desktop-build`. Native run of the packaged app with `RHIZOME_DESKTOP_DATA_DIR` in a temporary directory, the global executable set to this build, and a copy of the fixture vault added through `rzm desktop`. This session could capture the window (`screencapture -l`) and post mouse events after activating the app. Captured: one top bar with the web header gone and Notes active from the page's report; clicking Ontology switched the page to the Ontology Atlas and moved the active tab. Keystrokes could not be delivered reliably because the app would not stay frontmost, so ⌘K and typed search rest on unit tests and Drew's click-through.
 - 2026-10-07: Independent review (Claude Fable advisor): "ship after small fixes", no correctness or security defect. Applied: a pane-level Rust test for `loading`, `titled`, and `on_runtime`; `.busy` truncates instead of crowding the search field; web tests for the report following history and for `?` opening the dialog without a page button. The reviewer's back-forward-cache concern (a restored page may not emit a title change) stays a click-through item.
-- 2026-10-07: Drew asked to center the section tabs. The toolbar is now a three-column grid (`minmax(min-content, 1fr) auto minmax(min-content, 1fr)`), with the traffic-light inset moved into the start group so the middle column is centered in the window (measured exact at 1280 and 1440). The worktree selector uses fixed width caps per breakpoint, since a percentage did not limit the width the grid reserved for its name; at 760 the tabs shift right of center and every control fits. Drew also asked whether the toolbar can use native controls; that is pending his decision.
+- 2026-10-07: Drew asked to center the section tabs. The toolbar is now a three-column grid (`minmax(min-content, 1fr) auto minmax(min-content, 1fr)`), with the traffic-light inset moved into the start group so the middle column is centered in the window (measured exact at 1280 and 1440). The worktree selector uses fixed width caps per breakpoint, since a percentage did not limit the width the grid reserved for its name; at 760 the tabs shift right of center and every control fits. Drew also asked whether the toolbar can use native controls; he chose to land this toolbar first, with native AppKit controls as a follow-up.
+- 2026-10-08: Pull request #13 opened. At Drew's request, GPT-6.1-Sol (xhigh, personal connector) ran a code review and requested changes, reproducing each finding. Fixed in `1206bf57`: (1) ⌘K swallowed by the menu item when an older runtime shows its own header; the pane now records whether the current document reported (`Pane::reported`), and ⌘K focuses the content view and hands the page its own ⌘K otherwise. (2) A notice or a four-digit issue count pushed Settings off screen at 760; the end column may now shrink (`minmax(0, 1fr)`), the notice shrinks first, and the selector, tabs, and search tighten below 960. Measured: Settings ends at 752 with a notice and 1234 issues at 760. (3) A search draft survived a section change; it now resets with the section. Evidence: `cargo test` (57) and clippy, `npm run check` in `desktop/` (40 tests).
 
 ## Deviations
 
