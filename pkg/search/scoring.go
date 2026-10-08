@@ -51,7 +51,6 @@ var evidenceSpecs = map[string]EvidenceSpec{
 	"graph_edge_confidence":        {Channel: EvidenceChannelGraph, Normalize: clampUnit, Rankable: true},
 	"graph_anchor_pagerank":        {Channel: EvidenceChannelGraph, Normalize: clampUnit, Rankable: true},
 	"direct_link_out":              {Channel: EvidenceChannelGraph, Normalize: clampUnit, Rankable: true},
-	"linked_corroboration":         {Channel: EvidenceChannelGraph, Normalize: clampUnit, Rankable: true},
 	"ontology_relation_structural": {Channel: EvidenceChannelOntologyStructural, Normalize: clampUnit, Rankable: true},
 	"ontology_relation_ambient":    {Channel: EvidenceChannelOntologyAmbient, Normalize: clampUnit, Rankable: true},
 	"doc_link":                     {Channel: EvidenceChannelRefs, Normalize: clampUnit, Rankable: true},
