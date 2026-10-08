@@ -4,7 +4,7 @@ id: EFF-2026-10-08-07-40
 aliases: [EFF-2026-10-08-07-40]
 name: Title matches and lane agreement in search ranking
 created-at: 2026-10-08T11:40:19Z
-status: active
+status: complete
 summary: Make a note found by several retrieval lanes score as one source, make query specificity measure concept coverage, and reward a title that contains the query phrase, measured on a new synthetic title-phrase corpus.
 governing-specs:
   - "[[search-engine-quality]]"
@@ -100,7 +100,7 @@ Batches 0–3 as approved on 2026-10-08: the title-phrase corpus and baselines; 
 
 ## Actual Delivered
 
-On branch `t3/e2b5cb4d`, for one pull request to `main`:
+Merged to `main` in #14 as `ee1a2796` (branch `t3/improve-search-relevance`):
 
 - `testdata/search-quality/title-phrase-vault` and eight `TITLE_PHRASE_VAULT-NAVIGATION-*` cases in `corpus-v2.json`, mapped in `tools/searchquality`.
 - D1: `coalesceNoteCandidates` merges each note's whole-note candidates by owning note before ranking; `RankingPolicyVersion` is `search-quality-v2`, so older continuation tokens report stale.
@@ -131,6 +131,7 @@ On branch `t3/e2b5cb4d`, for one pull request to `main`:
   - Every no-answer control stays low confidence. The repository ambiguous-target control "common policy implementation" (two duplicate cases) moved from low to high: D2 lowered code files that match only "policy", and D1 joined an HTML effort plan's Intel FTS region and vector chunk into one candidate, which satisfies the existing two-lane rule for high confidence. The source is unjudged. Changing confidence calibration is outside this effort; recorded as a follow-up.
 - 2026-10-08T13:11:49Z — Independent review (Claude Fable, read-only) of `10e54947..b4714b72` found no blocking defect and confirmed determinism, fact dedupe, the exact-navigation tier, `MaxPerOwner`, support-only ordering, and fallback parity. Acted on: coalescing had absorbed embedded ontology nodes and vector section chunks, so a facet's merged row could take a different canonical identity per query and lose cross-facet coverage; `923efb75` restricts it to whole-note identity (as D1 stated), keeps only the base member's `query_specificity` so the deadline fallback cannot stack it, and adds an input-order permutation test. Documented rather than changed: answer `Specificity`, the auto-expansion seed gate, and MCP match specificity read `RankValue`; recall, confidence, and must-read metrics in the runs above capture the effect. Left as is: `note_lexical` and `intel_lexical` emit `note_title_match` with different detail keys, which predates this effort and is bounded by the lexical clamp. The final evaluation reruns on `923efb75`.
 - 2026-10-08T13:21:33Z — Final rerun at `923efb75`: every fast run and the title-phrase live run are identical to `b4714b72`. Live existing-corpora runs moved by at most 0.02 nDCG@10 (held-out agent 0.788 against baseline 0.778; development recall@20 0.958, equal to baseline); nav@1, must-read precision, role coverage, and high-confidence precision match the `b4714b72` figures above, and the ambiguous-target control still reaches high confidence.
+- 2026-10-08T15:30:18Z — Closure. Greptile's one finding on #14 was that the subsystem note said every question skips the concept cap, while only explanatory questions (how, what, where, why, explain) do; `2396e0d5` corrected the wording. All 18 pull-request checks passed (two skipped), and Drew had #14 squash-merged to `main` as `ee1a2796` at 2026-10-08T14:03:31Z. SPEC-0102 and SPEC-0041 needed no change; the search subsystem note and changelog shipped with the work.
 
 ## Deviations
 
@@ -140,18 +141,19 @@ On branch `t3/e2b5cb4d`, for one pull request to `main`:
 
 ## Closure Checklist
 
-- [ ] Required quality gates pass.
-- [ ] Alignment and actual outcomes are verified.
-- [ ] Specs and documentation are reconciled.
-- [ ] Follow-ups are triaged.
+- [x] Required quality gates pass.
+- [x] Alignment and actual outcomes are verified.
+- [x] Specs and documentation are reconciled.
+- [x] Follow-ups are triaged.
 
 ## Compounding Follow-ups
 
 - D4: nest a note's matched sections under one row in the web Notes search page (Drew's choice on 2026-10-08), so a note with several matching sections appears once.
 - Coalescing lets a note's lanes satisfy the two-lane high-confidence rule. The repository ambiguous-target control "common policy implementation" now reaches high confidence on an unjudged HTML effort plan. Judge that source and decide whether ambiguous or underspecified queries should cap confidence.
 - Intel FTS similarity is a sigmoid of BM25 that maps nearly every hit to about 0.97, so lexical evidence cannot express term rarity or field strength. Short-query secondary ranks ("Search (Hub)", "Python slugify helper") are now decided by coverage and small graph scores where BM25 would know better. A relative-BM25 change needs its own effort with live measurements.
+- Drew's graph-native search idea (score tightly linked notes and nodes about the query topic together) starts as a new specification on `t3/graph-native-search`, beginning with incoming link-label evidence and a graph-shaped evaluation fixture.
 - Held-out prose and typed cases whose judgments point outside their fixture roots abort isolated runs (`PROSE_KNOWLEDGE_VAULT-NAVIGATION-02` names `testdata/agent-experience/...`); this effort baselines those corpora on the development split only.
 
 ## Status
 
-Active. Batches 0–2 are delivered on `t3/e2b5cb4d` and measured; D3 was dropped by recorded deviation. Independent review findings are resolved in `923efb75`. Next: the pull request and CI, then closure after merge.
+Complete. Batches 0–2 merged in #14 (`ee1a2796`) on 2026-10-08 with all pull-request checks green; D3 and the relative-BM25 change were dropped by recorded deviation, and the follow-ups above carry the remaining work.
