@@ -82,22 +82,34 @@ func recordRank(schema *ontology.Schema, record noderead.NodeRecord) (float64, b
 	if field == nil {
 		return 0, false
 	}
+	// The first authored source decides, as in indexed field extraction.
 	for _, source := range append(ontology.FieldSourceNames(field), field.Name) {
-		// Catalog-hydrated records lowercase frontmatter keys, as with inline props.
-		value, ok := record.Frontmatter[source]
+		value, ok := rankSourceValue(record, field.SourceKind, source)
 		if !ok {
-			value = record.Frontmatter[strings.ToLower(source)]
+			continue
 		}
-		if field.SourceKind == ontology.FieldSourceInline {
-			if values, ok := lookupInlineProp(record.InlineProps, source); ok && len(values) > 0 {
-				value = values[0]
-			}
-		}
-		if rank, ok := numberValue(value); ok && !math.IsNaN(rank) {
-			return rank, true
-		}
+		rank, ok := numberValue(value)
+		return rank, ok && !math.IsNaN(rank)
 	}
 	return 0, false
+}
+
+// rankSourceValue reads one source of a RANK field from the place its
+// source kind names.
+func rankSourceValue(record noderead.NodeRecord, kind ontology.FieldSource, source string) (any, bool) {
+	if kind == ontology.FieldSourceInline {
+		values, ok := lookupInlineProp(record.InlineProps, source)
+		if !ok || len(values) == 0 {
+			return nil, false
+		}
+		return values[0], true
+	}
+	// Catalog-hydrated records lowercase frontmatter keys, as with inline props.
+	if value, ok := record.Frontmatter[source]; ok {
+		return value, true
+	}
+	value, ok := record.Frontmatter[strings.ToLower(source)]
+	return value, ok
 }
 
 // linkFieldKeys lists every key the given link fields' values may sit under.

@@ -344,3 +344,24 @@ func TestRecordRankReadsInlineValue(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, 2.0, rank)
 }
+
+func TestRecordRankUsesFirstAuthoredSource(t *testing.T) {
+	rankRole := ontology.FieldDisplay{Role: ontology.FieldDisplayRoleRank}
+	frontmatter := &ontology.Field{Name: "rank", Source: "rank", SourceAliases: []string{"oldRank"}, Display: rankRole}
+	inline := &ontology.Field{Name: "rank", Source: "rank", SourceKind: ontology.FieldSourceInline, Display: rankRole}
+	cases := map[string]struct {
+		field  *ontology.Field
+		record noderead.NodeRecord
+	}{
+		"invalid primary hides alias": {frontmatter, noderead.NodeRecord{Frontmatter: map[string]any{"rank": "unknown", "oldrank": 1}}},
+		"inline ignores frontmatter":  {inline, noderead.NodeRecord{Frontmatter: map[string]any{"rank": 1}}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Opportunity": {Fields: []*ontology.Field{tc.field}}}}
+			tc.record.TypeName = "Opportunity"
+			_, ok := recordRank(schema, tc.record)
+			require.False(t, ok)
+		})
+	}
+}
