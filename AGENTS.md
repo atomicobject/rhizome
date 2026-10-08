@@ -18,7 +18,7 @@ When delegating, assign independent ownership, use the available model appropria
 ## Protocol
 
 - Engineering policy lives in `docs/engineering/` (testing, quality gates, documentation, review and approval, architecture, release) and outranks skill defaults. It owns the gate commands, test layers, file-size and compatibility rules, commit conventions, and release flow; do not restate them here.
-- Use `gh` CLI (outside sandbox) for PRs/CI.
+- Use `gh` CLI (outside sandbox) for PRs/CI. Before opening or merging a PR for effort-driven work, follow the effort-closure rule in [release policy](docs/engineering/release.md).
 - Follow [credential policy](docs/engineering/secrets.md): no live credentials or encrypted bundles in Git, synthetic fixtures only, no credentials in release artifacts. Never print secrets or copy them into agent context.
 - Never read `.env` files, `~/.config/rhizome/config.yml`, or credential environment variables (`env`, `printenv`, `echo $X_API_KEY`, `ATOMIC_RHIZOME_KEY`). Check whether a credential is set without showing it (`[ -n "$VOYAGE_API_KEY" ]`). Never write a key value into code, tests, docs, or commands; use synthetic fixtures. The pre-commit check (`make hooks-setup`) blocks staged files containing local credential values — do not bypass it.
 - When an independent analysis or review would help, `scripts/claude-fable '<prompt>'` runs Claude Fable through Claude Code OAuth (removes `ANTHROPIC_API_KEY`, defaults to read-only plan mode). Set `CLAUDE_FABLE_PERMISSION_MODE=acceptEdits` only when edits are explicitly authorized; inspect its diff before keeping changes.
