@@ -691,7 +691,7 @@ func pruneCandidates(cands map[string]Candidate, keep int, weights map[EvidenceC
 		items = append(items, kv{
 			key:       k,
 			score:     candidateBaseScore(c, weights),
-			protected: candidateHasEvidence(c, "symbol_exact", "symbol_match"),
+			protected: candidateHasEvidence(c, "symbol_exact", "symbol_match") || hasLinkTextAlias(c),
 		})
 	}
 	sort.SliceStable(items, func(i, j int) bool {
@@ -711,6 +711,18 @@ func pruneCandidates(cands map[string]Candidate, keep int, weights map[EvidenceC
 		out[it.key] = cands[it.key]
 	}
 	return out
+}
+
+// hasLinkTextAlias reports whether linking notes agree on a label that names
+// every query concept. Query specificity reads that label with the title only
+// at ranking time, so pruning must not drop the note first.
+func hasLinkTextAlias(c Candidate) bool {
+	for _, ev := range c.Evidence {
+		if ev.Type == "link_text_match" && ev.Details[LinkTextAliasDetail] != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func candidateHasEvidence(c Candidate, evidenceTypes ...string) bool {

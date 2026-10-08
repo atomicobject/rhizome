@@ -108,7 +108,7 @@ func NormalizeEvidenceList(evidence []Evidence) ([]Evidence, error) {
 }
 
 // LinkTextAliasDetail names the link_text_match detail holding a label that
-// several linking notes use for the target.
+// several linking notes use for the target and that names every query concept.
 const LinkTextAliasDetail = "alias"
 
 func EvidenceScore(ev Evidence) float64 {
