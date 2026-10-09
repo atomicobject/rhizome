@@ -354,6 +354,10 @@ type TableRelationValue struct {
 	// Status is the linked record's lifecycle value from its type's profile,
 	// set on board and card executions for up to eight values per field.
 	Status *TableRelationStatus `json:"status,omitempty"`
+	// rank is the target's RANK field value, when ranked. Link groups and
+	// relation lanes list ranked targets first, by rank.
+	rank   float64
+	ranked bool
 }
 
 // TableRelationStatus is a linked record's lifecycle value.

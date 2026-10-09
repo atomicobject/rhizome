@@ -1844,7 +1844,7 @@ export interface components {
        * @description Effective display role. The conventional `summary` field reports SUMMARY.
        * @enum {string}
        */
-      role?: "SUMMARY" | "PARENT";
+      role?: "SUMMARY" | "PARENT" | "RANK";
       /** @enum {string} */
       importance?: "KEY" | "NORMAL" | "DETAIL";
       hideHover?: boolean;
@@ -2732,6 +2732,8 @@ export interface components {
       orderedFields?: string[];
       categoryFields?: string[];
       summaryField?: string;
+      /** @description Field carrying the RANK display role. Records list by it ascending, missing values last, wherever no view sort applies. */
+      rankField?: string;
       primaryDateField?: string;
       peopleFields?: string[];
       keyTextFields?: string[];

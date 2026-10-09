@@ -45,7 +45,7 @@ directive @companionDocs(paths: [String!], purpose: String) on OBJECT | FIELD_DE
 enum OntologySemanticsKind { BEHAVIORAL DOCUMENTARY }
 directive @semantics(kind: OntologySemanticsKind!) on OBJECT | FIELD_DEFINITION
 directive @guidance(meaning: String, authoring: String, agentImplications: String) on OBJECT | INTERFACE | FIELD_DEFINITION | ENUM | ENUM_VALUE
-enum FieldDisplayRole { SUMMARY PARENT }
+enum FieldDisplayRole { SUMMARY PARENT RANK }
 enum FieldDisplayImportance { KEY NORMAL DETAIL }
 directive @display(singular: String, plural: String, group: String, parent: String, role: FieldDisplayRole, importance: FieldDisplayImportance = NORMAL, hover: Boolean = true) on OBJECT | INTERFACE | FIELD_DEFINITION
 directive @title(pattern: String, notPattern: String) on OBJECT

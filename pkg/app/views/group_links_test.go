@@ -2,6 +2,7 @@ package views
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"path/filepath"
 	"testing"
@@ -217,6 +218,7 @@ func newLinkGroupService(t *testing.T, files map[string]string, group *viewconfi
 	writeSourceFixture(t, root, ".rhizome/ontology/schema.graphql", `
 type Opportunity @node(paths: ["opportunities/**/*.md"]) {
   name: String @field(source: "name")
+  rank: Float @field(sources: ["rank", "oldRank"]) @display(role: RANK)
 }
 
 type Idea @node(paths: ["ideas/**/*.md"]) {
@@ -258,6 +260,43 @@ type Idea @node(paths: ["ideas/**/*.md"]) {
 	})
 }
 
+// Link groups, board columns, and relation lanes list targets by their type's
+// RANK field; unranked and unresolved targets follow by title.
+func TestLinkGroupsFollowTargetRank(t *testing.T) {
+	ctx := context.Background()
+	service := newLinkGroupService(t, map[string]string{
+		"opportunities/a.md": "---\nrank: 3\n---\n# Alpha\n",
+		"opportunities/b.md": "---\noldRank: 1\n---\n# Beta\n",
+		"opportunities/c.md": "---\nrank: 2.5\n---\n# Gamma\n",
+		"opportunities/d.md": "# Delta\n",
+		"ideas/one.md":       "---\nopportunities: [\"[[a]]\", \"[[d]]\"]\ncategory: \"[[a]]\"\n---\n# One\n",
+		"ideas/two.md":       "---\nopportunities: [\"[[b]]\", \"[[c]]\"]\ncategory: \"[[d]]\"\n---\n# Two\n",
+		"ideas/three.md":     "---\nopportunities: [\"[[Missing]]\", \"[[b]]\"]\ncategory: \"[[c]]\"\n---\n# Three\n",
+	}, nil)
+
+	resp, err := service.Execute(ctx, "ideas", ExecuteRequest{Group: &viewconfig.GroupSpec{Field: "opportunities"}})
+	require.NoError(t, err)
+	labels := make([]string, 0, len(resp.Groups))
+	for _, g := range resp.Groups {
+		labels = append(labels, g.Label)
+	}
+	require.Equal(t, []string{"Beta", "Gamma", "Alpha", "Delta", "Missing"}, labels)
+
+	board, err := service.Execute(ctx, "ideas", ExecuteRequest{Variant: "kanban", LaneField: "opportunities"})
+	require.NoError(t, err)
+	require.NotNil(t, board.Board)
+	columns := make([]string, 0, len(board.Board.Columns))
+	for _, column := range board.Board.Columns {
+		columns = append(columns, column.Label)
+	}
+	require.Equal(t, []string{"Gamma", "Alpha", "Delta"}, columns)
+	lanes := make([]string, 0, len(board.Board.Lanes))
+	for _, lane := range board.Board.Lanes {
+		lanes = append(lanes, lane.Label)
+	}
+	require.Equal(t, []string{"Beta", "Gamma", "Alpha", "Delta", "Missing"}, lanes, "Beta has two ideas but ranks first anyway")
+}
+
 // Residual filtering matches a canonical option to the row's resolved target,
 // however the note spelled the link.
 func TestResidualLinkFilterMatchesCanonicalOption(t *testing.T) {
@@ -279,4 +318,50 @@ func TestResidualLinkFilterMatchesCanonicalOption(t *testing.T) {
 	ok, err := rowMatchesFilter(row, viewconfig.FilterSpec{Field: "category", Op: "neq", Value: "[[opportunities/AI]]"}, caps)
 	require.NoError(t, err)
 	require.False(t, ok)
+}
+
+// A relation lane ranks every target, not only the first eight a row links.
+func TestRelationLanesRankEveryLink(t *testing.T) {
+	files := map[string]string{"opportunities/z.md": "---\nrank: 0\n---\n# Zed\n"}
+	links := ""
+	for i := 1; i <= 8; i++ {
+		files[fmt.Sprintf("opportunities/o%d.md", i)] = fmt.Sprintf("---\nrank: %d\n---\n# O%d\n", i, i)
+		links += fmt.Sprintf("\"[[o%d]]\", ", i)
+	}
+	files["ideas/one.md"] = "---\nopportunities: [" + links + "\"[[z]]\"]\n---\n# One\n"
+	board, err := newLinkGroupService(t, files, nil).Execute(context.Background(), "ideas", ExecuteRequest{Variant: "kanban", LaneField: "opportunities"})
+	require.NoError(t, err)
+	require.NotNil(t, board.Board)
+	require.NotEmpty(t, board.Board.Lanes)
+	require.Equal(t, "Zed", board.Board.Lanes[0].Label)
+}
+
+// An inline RANK field reads its first value.
+func TestRecordRankReadsInlineValue(t *testing.T) {
+	field := &ontology.Field{Name: "rank", Source: "rank", SourceKind: ontology.FieldSourceInline, Display: ontology.FieldDisplay{Role: ontology.FieldDisplayRoleRank}}
+	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Opportunity": {Fields: []*ontology.Field{field}}}}
+	rank, ok := recordRank(schema, noderead.NodeRecord{TypeName: "Opportunity", InlineProps: map[string][]string{"rank": {"2"}}})
+	require.True(t, ok)
+	require.Equal(t, 2.0, rank)
+}
+
+func TestRecordRankUsesFirstAuthoredSource(t *testing.T) {
+	rankRole := ontology.FieldDisplay{Role: ontology.FieldDisplayRoleRank}
+	frontmatter := &ontology.Field{Name: "rank", Source: "rank", SourceAliases: []string{"oldRank"}, Display: rankRole}
+	inline := &ontology.Field{Name: "rank", Source: "rank", SourceKind: ontology.FieldSourceInline, Display: rankRole}
+	cases := map[string]struct {
+		field  *ontology.Field
+		record noderead.NodeRecord
+	}{
+		"invalid primary hides alias": {frontmatter, noderead.NodeRecord{Frontmatter: map[string]any{"rank": "unknown", "oldrank": 1}}},
+		"inline ignores frontmatter":  {inline, noderead.NodeRecord{Frontmatter: map[string]any{"rank": 1}}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Opportunity": {Fields: []*ontology.Field{tc.field}}}}
+			tc.record.TypeName = "Opportunity"
+			_, ok := recordRank(schema, tc.record)
+			require.False(t, ok)
+		})
+	}
 }

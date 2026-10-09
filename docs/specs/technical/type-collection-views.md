@@ -4,7 +4,7 @@ id: SPEC-0112
 aliases: [SPEC-0112, Type collection views]
 summary: "Every type and interface collection gets Table, Board, and Cards views whose defaults come from a schema-derived profile, enum values declare lifecycle stages that drive behavior while tone stays presentation, and a type Briefing replaces Overview."
 spec-status: active
-last-updated: 2026-10-04
+last-updated: 2026-10-07
 ---
 
 # Type collection views
@@ -53,6 +53,7 @@ The server MUST derive a profile for every type and interface from the compiled 
 - **Lifecycle field:** the first single-valued enum field, KEY fields first and then declaration order, whose enum declares stages; otherwise the first single-valued KEY enum field with inferred stages. A Boolean or list field is never a lifecycle.
 - **Ordered fields:** other enum fields whose enum has stages (declared or inferred). **Category fields:** enum fields with no stages.
 - **Summary field:** the field with `@display(role: SUMMARY)`, else the conventional `summary` field.
+- **Rank field:** the field with `@display(role: RANK)`, a singular Int or Float field, at most one per type. It is the type's own record order: ascending, missing values last.
 - **Primary date field:** the first KEY Date or DateTime field, else the first required one; otherwise, for a type with no lifecycle field, its only Date or DateTime field that is not DETAIL importance.
 - **People fields:** link fields whose target is the core identity type (`identity.CurrentUserType`).
 - **Key text fields:** KEY scalar String fields other than the title, identifier, and summary.
@@ -63,9 +64,10 @@ The server MUST derive a profile for every type and interface from the compiled 
 
 ### Generated defaults
 
-- Generated sort MUST be: primary date descending for `dated`; changed descending within groups for `workflow` and `contract`; title ascending otherwise.
+- Generated sort MUST be: the rank field ascending, then title, when the type has one; otherwise primary date descending for `dated`; changed descending within groups for `workflow` and `contract`; title ascending otherwise.
 - Generated grouping MUST be: the lifecycle field for `workflow` and `contract`, with groups in stage order (`active`, `open`, `done`, `dropped`) and declaration order within a stage; the primary date by calendar month, newest first, for `dated`; the first category field for `catalog`; none for `reference`.
 - Date and DateTime fields MUST be groupable by calendar month in any native view.
+- Groups and board columns over a link field MUST list targets by their type's rank field, ranked targets first, then the rest by title. Authored `group.values` order still wins.
 - Generated table columns MUST be, up to ten: title, identifier, implementing type for interfaces, lifecycle, KEY ordered and category fields, key text fields, people fields, relation fields, reverse fields as labeled counts, the primary or first date field, and Changed. Issues MUST remain available as a column and as a row marker but MUST NOT be a generated default column.
 - Table MUST always be offered. Board MUST be offered when a lifecycle field exists, using it as the column field. Cards MUST be offered when a summary field exists.
 - The generated default variant MUST be Board when the shape is `workflow`, at least two `open` or `active` lifecycle values have records, and at most 60 records are `open` or `active`; otherwise Table. The catalog's default choice for the type MUST make the same decision.
@@ -100,7 +102,7 @@ The execution response for a type or interface source MUST include statistics co
 ### Board
 
 - Lifecycle values with no records that are not collapsed MUST render as narrow labeled strips that still accept drops. Collapsed values MUST render as narrow strips with counts.
-- A Lanes control MUST offer ordered fields, people fields, and relation fields. The default lane field MUST be the first KEY ordered field with values, else the first KEY relation field with values whose filled records average at most 1.25 targets, else none. A record whose lane field holds several targets MUST appear in each of those lanes and say how many others. Lanes for a relation MUST be ordered by the target's lifecycle stage and then record count; enum lanes by enum order; the lane for records without a value comes last.
+- A Lanes control MUST offer ordered fields, people fields, and relation fields. The default lane field MUST be the first KEY ordered field with values, else the first KEY relation field with values whose filled records average at most 1.25 targets, else none. A record whose lane field holds several targets MUST appear in each of those lanes and say how many others. Lanes for a relation MUST be ordered by the target's rank, ranked targets first, then by its lifecycle stage and then record count; enum lanes by enum order; the lane for records without a value comes last.
 - A card MUST show the title, a two-line summary, the first filled key text field with its label, ordered-field tags, the first filled relation field other than the lane field, reverse fields as labeled counts, people as initials, and Changed. A card in an `active` value unchanged for 30 days MUST show a stale marker, and the column header MUST count them.
 - A column holding more than 24 cards MUST render compact cards showing the title and, for an interface, the implementing type.
 - The board's column field MUST be switchable among the lifecycle and ordered fields.

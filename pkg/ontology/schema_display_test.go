@@ -289,3 +289,33 @@ func TestHumanizeFieldName(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadSchemaRankRolePlacement(t *testing.T) {
+	for _, body := range []string{
+		`type Idea @node(paths: ["ideas/*.md"]) { rank: Float @field @display(role: RANK) }`,
+		`type Idea @node(paths: ["ideas/*.md"]) { rank: Int @field @display(role: RANK) }`,
+	} {
+		root := t.TempDir()
+		writeOntologySchema(t, root, body)
+		schema, err := LoadSchema(root)
+		require.NoError(t, err)
+		require.Same(t, schema.Types["Idea"].ByName["rank"], RankField(schema.Types["Idea"].Fields))
+		profile, ok := DeriveTypeProfile(schema, "Idea", "")
+		require.True(t, ok)
+		require.Equal(t, "rank", profile.RankField)
+	}
+
+	for _, tc := range []struct{ body, message string }{
+		{`type Idea @node(paths: ["ideas/*.md"]) { rank: String @field @display(role: RANK) }`, "field Idea.rank declares role RANK but must be a singular Int or Float field"},
+		{`type Idea @node(paths: ["ideas/*.md"]) { rank: [Int!] @field @display(role: RANK) }`, "field Idea.rank declares role RANK but must be a singular Int or Float field"},
+		{`type Idea @node(paths: ["ideas/*.md"]) {
+  rank: Int @field @display(role: RANK)
+  score: Float @field @display(role: RANK)
+}`, "type Idea declares role RANK on more than one field (Idea.rank and Idea.score)"},
+	} {
+		root := t.TempDir()
+		writeOntologySchema(t, root, tc.body)
+		_, err := LoadSchema(root)
+		require.ErrorContains(t, err, tc.message)
+	}
+}

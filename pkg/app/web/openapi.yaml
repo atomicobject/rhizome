@@ -2927,7 +2927,7 @@ components:
       properties:
         role:
           type: string
-          enum: [SUMMARY, PARENT]
+          enum: [SUMMARY, PARENT, RANK]
           description: Effective display role. The conventional `summary` field reports SUMMARY.
         importance: { type: string, enum: [KEY, NORMAL, DETAIL] }
         hideHover: { type: boolean }
@@ -4312,6 +4312,9 @@ components:
         orderedFields: { type: array, items: { type: string } }
         categoryFields: { type: array, items: { type: string } }
         summaryField: { type: string }
+        rankField:
+          type: string
+          description: Field carrying the RANK display role. Records list by it ascending, missing values last, wherever no view sort applies.
         primaryDateField: { type: string }
         peopleFields: { type: array, items: { type: string } }
         keyTextFields: { type: array, items: { type: string } }

@@ -25,7 +25,7 @@ written:
   .agents/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
   .agents/skills/custom-views/SKILL.md: d087a8e4dc3ad4a1
   .agents/skills/custom-views/references/example.md: 63094cc4c529eb2c
-  .agents/skills/custom-views/references/kit-api.md: b690cd858850b308
+  .agents/skills/custom-views/references/kit-api.md: cdd2e0e80ec3afb9
   .agents/skills/custom-views/references/mounted-example.md: b92d990ea22f8cfb
   .agents/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
   .agents/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
@@ -43,7 +43,7 @@ written:
   .agents/skills/rhizome/references/installation-and-integration.md: fe24d6e8a30a8860
   .agents/skills/rhizome/references/markdown-mutations.md: adb18f3ed56403cf
   .agents/skills/rhizome/references/onboarding.md: 1edce60ff7bca8ee
-  .agents/skills/rhizome/references/ontology-authoring.md: f44c7294af19aaed
+  .agents/skills/rhizome/references/ontology-authoring.md: f1690778f3fde4f6
   .agents/skills/rhizome/references/ontology-usage.md: fcce56df27de9801
   .agents/skills/rhizome/references/reports-and-health.md: 47849fa37df2132c
   .agents/skills/rhizome/references/search-and-code-evidence.md: 517c10d908edc627
@@ -76,7 +76,7 @@ written:
   .claude/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
   .claude/skills/custom-views/SKILL.md: d087a8e4dc3ad4a1
   .claude/skills/custom-views/references/example.md: 63094cc4c529eb2c
-  .claude/skills/custom-views/references/kit-api.md: b690cd858850b308
+  .claude/skills/custom-views/references/kit-api.md: cdd2e0e80ec3afb9
   .claude/skills/custom-views/references/mounted-example.md: b92d990ea22f8cfb
   .claude/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
   .claude/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
@@ -94,7 +94,7 @@ written:
   .claude/skills/rhizome/references/installation-and-integration.md: fe24d6e8a30a8860
   .claude/skills/rhizome/references/markdown-mutations.md: adb18f3ed56403cf
   .claude/skills/rhizome/references/onboarding.md: 1edce60ff7bca8ee
-  .claude/skills/rhizome/references/ontology-authoring.md: f44c7294af19aaed
+  .claude/skills/rhizome/references/ontology-authoring.md: f1690778f3fde4f6
   .claude/skills/rhizome/references/ontology-usage.md: fcce56df27de9801
   .claude/skills/rhizome/references/reports-and-health.md: 47849fa37df2132c
   .claude/skills/rhizome/references/search-and-code-evidence.md: 517c10d908edc627

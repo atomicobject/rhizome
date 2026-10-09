@@ -167,6 +167,10 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 		rows, filtered, err = hydrateGroupAndFacetTitles(ctx, scope, rows, filtered, capabilities, group)
 		relationErr = cmp.Or(relationErr, err)
 		capabilities = withRelationFacetLabels(capabilities, rows)
+		if group != nil {
+			filtered, err = hydrateLinkRanks(ctx, scope, s.opts.Schema, filtered, capabilities, normalizedGroupFields(group))
+			relationErr = cmp.Or(relationErr, err)
+		}
 	}
 	var stats *ExecutionStats
 	var counted []string
@@ -214,7 +218,11 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 			}
 			if capability, ok := resolveCapability(capabilities, laneField); ok && laneField != laneFieldNone {
 				board.LaneField = capability.Key
-				board.Lanes = boardLanes(board, capability, pageRows)
+				laneRows, err := hydrateLinkRanks(ctx, scope, s.opts.Schema, pageRows, capabilities, []string{capability.Key})
+				if err != nil {
+					warnings = append(warnings, Warning{Code: "view_relation_hydration_failed", Message: err.Error()})
+				}
+				board.Lanes = boardLanes(board, capability, laneRows)
 			}
 		}
 	}
