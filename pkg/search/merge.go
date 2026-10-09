@@ -106,8 +106,8 @@ func MergeCandidate(a, b Candidate) Candidate {
 // sections have their own type. The member with the strongest semantic
 // evidence is the base, so the best-matching chunk remains the displayed node.
 // MergeCandidate dedupes repeated facts, so several chunks of one note count
-// their similarity once; only the base keeps query_specificity, which the
-// ranker recomputes and the deadline fallback must not stack.
+// their similarity once; the note keeps one query_specificity, the strongest
+// member's, which the ranker recomputes and the deadline fallback must not stack.
 func coalesceNoteCandidates(candidates []Candidate) []Candidate {
 	wholeNote := func(c Candidate) bool {
 		return c.Type == "note" && c.Owner.String() != "" && (c.NodeRef == nil || c.NodeRef.Kind == "" || c.NodeRef.Kind == ontology.NodeKindNote)
@@ -140,10 +140,24 @@ func coalesceNoteCandidates(candidates []Candidate) []Candidate {
 			}
 			return members[i].Handle.String() < members[j].Handle.String()
 		})
+		// A member's specificity can read evidence the others lack, such as
+		// an agreed link label, so the note keeps the strongest one.
+		var specificity *Evidence
+		for _, member := range members {
+			for _, ev := range member.Evidence {
+				if ev.Type == "query_specificity" && (specificity == nil || ev.RawScore > specificity.RawScore) {
+					specificity = &ev
+				}
+			}
+		}
 		merged := members[0]
+		merged.Evidence = withoutEvidenceType(merged.Evidence, "query_specificity")
 		for _, member := range members[1:] {
 			member.Evidence = withoutEvidenceType(member.Evidence, "query_specificity")
 			merged = MergeCandidate(merged, member)
+		}
+		if specificity != nil {
+			merged.Evidence = append(merged.Evidence, *specificity)
 		}
 		out = append(out, merged)
 	}

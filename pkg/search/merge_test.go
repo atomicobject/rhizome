@@ -213,7 +213,7 @@ func TestCoalesceNoteCandidatesMergesOnlyWholeNoteIdentity(t *testing.T) {
 			types[ev.Type]++
 		}
 		require.Equal(t, 1, types["note_title_match"])
-		require.Equal(t, 1, types["query_specificity"], "only the base member's specificity survives (order %d)", i)
+		require.Equal(t, 1, types["query_specificity"], "only the strongest member's specificity survives (order %d)", i)
 		require.Contains(t, byHandle, embedded.Handle.String())
 		require.Contains(t, byHandle, section.Handle.String())
 		if first == nil {
@@ -222,4 +222,28 @@ func TestCoalesceNoteCandidatesMergesOnlyWholeNoteIdentity(t *testing.T) {
 		}
 		require.Equal(t, first[0].Evidence, merged.Evidence, "order %d", i)
 	}
+}
+
+// A link-text member's specificity reads its agreed label, which the vector
+// base lacks; the deadline fallback scores only what coalescing keeps.
+func TestCoalesceNoteCandidatesKeepsTheStrongestSpecificity(t *testing.T) {
+	path := "Projects/Project Kestrel.md"
+	owner := knowledge.NoteHandle(path)
+	vector := Candidate{
+		Handle: knowledge.NodeChunkHandle("root", path, "node_body", 0), Owner: owner, Type: "note", Path: path,
+		Evidence: []Evidence{{Type: "note_vector_similarity", RawScore: 0.6}, {Type: "query_specificity", RawScore: 0.1}},
+	}
+	linkText := Candidate{
+		Handle: owner, Owner: owner, Type: "note", Path: path, ChunkIndex: -1,
+		Evidence: []Evidence{{Type: "link_text_match", RawScore: 0.875}, {Type: "query_specificity", RawScore: 0.9}},
+	}
+	got := coalesceNoteCandidates([]Candidate{vector, linkText})
+	require.Len(t, got, 1)
+	var specificity []float64
+	for _, ev := range got[0].Evidence {
+		if ev.Type == "query_specificity" {
+			specificity = append(specificity, ev.RawScore)
+		}
+	}
+	require.Equal(t, []float64{0.9}, specificity)
 }
