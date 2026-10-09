@@ -25,6 +25,9 @@ type LinkTextSource interface {
 // independent evidence, so one stray label cannot match a label many notes use.
 type LinkTextRetriever struct {
 	Store LinkTextSource
+	// TypePathSource selects targets by owning-note type; a note-type filter
+	// without it returns nothing.
+	TypePathSource NoteTypePathSource
 }
 
 const (
@@ -45,12 +48,34 @@ func (r *LinkTextRetriever) Name() string { return "link_text" }
 
 func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([]search.Candidate, error) {
 	frame := queryframe.Extract(spec.Text)
-	if r.Store == nil || len(frame.SupportTermGroups) == 0 || len(spec.Filters.NoteTypes) > 0 {
+	if r.Store == nil || len(frame.SupportTermGroups) == 0 {
 		return nil, nil
+	}
+	var typed map[string]bool
+	if len(spec.Filters.NoteTypes) > 0 {
+		if r.TypePathSource == nil {
+			return nil, nil
+		}
+		paths, err := r.TypePathSource.NotePathsByType(ctx, spec.Filters.NoteTypes)
+		if err != nil {
+			return nil, err
+		}
+		typed = make(map[string]bool, len(paths))
+		for _, path := range paths {
+			if clean, ok := cleanTypedNotePath(path); ok {
+				typed[clean] = true
+			}
+		}
 	}
 	var terms []string
 	for _, group := range frame.SupportTermGroups {
-		terms = append(terms, group...)
+		for _, term := range group {
+			// ConceptCoverage reads "categories" as "category"; the substring
+			// prefilter needs the shared stem to load it.
+			// ponytail: SQLite LIKE folds ASCII case only, so an uppercase
+			// non-ASCII label misses; store a folded copy if that matters.
+			terms = append(terms, strings.TrimSuffix(term, "y"))
+		}
 	}
 	rows, err := r.Store.NoteLinkTextMatches(ctx, terms, 0)
 	if err != nil {
@@ -68,7 +93,7 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 	bySource := map[[2]string]link{}
 	for _, row := range rows {
 		dst, ok := cleanTypedNotePath(row.DstPath)
-		if !ok || row.SrcPath == row.DstPath || !pathMatchesPrefix(dst, spec.Filters.PathPrefixes) || !spec.Filters.AllowsTestPath(dst) {
+		if !ok || row.SrcPath == row.DstPath || !pathMatchesPrefix(dst, spec.Filters.PathPrefixes) || !spec.Filters.AllowsTestPath(dst) || (typed != nil && !typed[dst]) {
 			continue
 		}
 		best := link{src: row.SrcPath}

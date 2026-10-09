@@ -53,11 +53,21 @@ func TestLinkTextRetrieverScoresTargetsByWhatLinkingNotesCallThem(t *testing.T) 
 	require.NotContains(t, got[1].Evidence[0].Details, search.LinkTextAliasDetail, "one note's label is not an alias")
 }
 
-func TestLinkTextRetrieverSkipsTypeFilteredQueries(t *testing.T) {
-	store := fakeLinkTextSource{{SrcPath: "a.md", DstPath: "b.md", LinkText: linkText("catalog", ""), SrcTargets: 1}}
-	got, err := (&LinkTextRetriever{Store: store}).Retrieve(context.Background(), search.QuerySpec{Text: "catalog", Filters: search.Filters{NoteTypes: []string{"Project"}}})
+func TestLinkTextRetrieverKeepsOnlyTargetsOfTheFilteredType(t *testing.T) {
+	store := fakeLinkTextSource{
+		{SrcPath: "a.md", DstPath: "Projects/Larkspur.md", LinkText: linkText("catalog", ""), SrcTargets: 1},
+		{SrcPath: "a.md", DstPath: "Notes/Other.md", LinkText: linkText("catalog", ""), SrcTargets: 1},
+	}
+	spec := search.QuerySpec{Text: "catalog", Filters: search.Filters{NoteTypes: []string{"Project"}}}
+	types := NoteTypePathSourceFunc(func(context.Context, []string) ([]string, error) { return []string{"Projects/Larkspur.md"}, nil })
+	got, err := (&LinkTextRetriever{Store: store, TypePathSource: types}).Retrieve(context.Background(), spec)
 	require.NoError(t, err)
-	require.Empty(t, got)
+	require.Len(t, got, 1)
+	require.Equal(t, "Projects/Larkspur.md", got[0].Path)
+
+	got, err = (&LinkTextRetriever{Store: store}).Retrieve(context.Background(), spec)
+	require.NoError(t, err)
+	require.Empty(t, got, "without a type lookup the filter cannot be honored")
 }
 
 func TestLinkTextRetrieverPicksTheAgreedLabelThatNamesTheQuery(t *testing.T) {
@@ -93,4 +103,18 @@ func TestLinkTextRetrieverKeepsAgreedNamesPastTheLimit(t *testing.T) {
 		paths = append(paths, c.Path)
 	}
 	require.Equal(t, []string{"Notes/One.md", "Notes/Two.md", "Projects/Larkspur.md"}, paths, "five half matches outscore two full labels, but the agreed name stays")
+}
+
+type recordingLinkTextSource struct{ terms []string }
+
+func (r *recordingLinkTextSource) NoteLinkTextMatches(_ context.Context, terms []string, _ int) ([]semdb.LinkTextRow, error) {
+	r.terms = terms
+	return nil, nil
+}
+
+func TestLinkTextRetrieverLoadsPluralLabelsForASingularQuery(t *testing.T) {
+	store := &recordingLinkTextSource{}
+	_, err := (&LinkTextRetriever{Store: store}).Retrieve(context.Background(), search.QuerySpec{Text: "category"})
+	require.NoError(t, err)
+	require.Equal(t, []string{"categor"}, store.terms, "the stem matches both category and categories")
 }
