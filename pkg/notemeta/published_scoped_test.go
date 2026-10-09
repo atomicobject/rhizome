@@ -59,6 +59,11 @@ func TestScopedPublishedMetadataSurvivesOwnershipRemovalWithoutReadingUntouchedS
 	detailed, err := store.AllGraphDocEdgesWithConfidence(ctx)
 	require.NoError(t, err)
 	require.Len(t, detailed, 4, "both detailed and coarse incoming and outgoing links survive")
+	incoming, err := store.NoteLinkTextMatches(ctx, []string{"source"}, 0)
+	require.NoError(t, err)
+	require.Len(t, incoming, 1)
+	require.Equal(t, "notes/target.md", incoming[0].SrcPath)
+	require.Contains(t, incoming[0].LinkText, "See [[source]].", "the unchanged linking note keeps its link text")
 	// Comparing a full sealed rebuild proves incremental XOR/state identity.
 	target, err := noteformat.NewAuthoredSource("notes/target.md", provider.Descriptor(), []byte("# Target\nSee [[source]].\n"), baseline.rows["notes/target.md"].Mtime)
 	require.NoError(t, err)

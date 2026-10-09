@@ -71,7 +71,7 @@ func (i Indexer) CapturePublishedBaseline(ctx context.Context, vaultDef obsidian
 		}
 		for _, edge := range incident {
 			if edge.Kind == semdb.GraphDocEdgeKindWikilink || edge.Kind == semdb.GraphDocEdgeKindMarkdownLink || strings.HasPrefix(edge.Kind, "note_link:") {
-				edges = append(edges, semdb.GraphDocEdgeRow{SrcPath: edge.SrcPath, DstPath: edge.DstPath, Kind: edge.Kind, Confidence: edge.Confidence, ConfidenceScore: edge.ConfidenceScore})
+				edges = append(edges, semdb.GraphDocEdgeRow{SrcPath: edge.SrcPath, DstPath: edge.DstPath, Kind: edge.Kind, Confidence: edge.Confidence, ConfidenceScore: edge.ConfidenceScore, LinkText: edge.LinkText})
 			}
 		}
 	} else {

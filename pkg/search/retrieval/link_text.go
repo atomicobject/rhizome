@@ -111,6 +111,11 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		path  string
 		score float64
 		links []link
+		alias string
+	}
+	// Only labels that name every query concept compete to be the agreed one.
+	naming := func(l link) []string {
+		return slices.DeleteFunc(slices.Clone(l.labels), func(label string) bool { return frame.ConceptCoverage(label) < 1 })
 	}
 	targets := make([]scored, 0, len(byTarget))
 	for dst, links := range byTarget {
@@ -124,7 +129,7 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		for _, l := range links {
 			missing *= 1 - linkTextSourceWeight*l.score
 		}
-		targets = append(targets, scored{path: dst, score: 1 - missing, links: links})
+		targets = append(targets, scored{path: dst, score: 1 - missing, links: links, alias: consensusLabel(links, naming)})
 	}
 	sort.Slice(targets, func(i, j int) bool {
 		if targets[i].score != targets[j].score {
@@ -136,9 +141,15 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 	if limit <= 0 {
 		limit = 25
 	}
-	if len(targets) > limit {
-		targets = targets[:limit]
+	// A target with an agreed name stays past the limit, because pruning
+	// protects it later and partial matches must not crowd it out first.
+	kept := targets[:0]
+	for i, t := range targets {
+		if i < limit || t.alias != "" {
+			kept = append(kept, t)
+		}
 	}
+	targets = kept
 
 	out := make([]search.Candidate, 0, len(targets))
 	for _, t := range targets {
@@ -154,11 +165,8 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		if label != "" {
 			details["label"] = label
 		}
-		naming := func(l link) []string {
-			return slices.DeleteFunc(slices.Clone(l.labels), func(label string) bool { return frame.ConceptCoverage(label) < 1 })
-		}
-		if alias := consensusLabel(t.links, naming); alias != "" {
-			details[search.LinkTextAliasDetail] = alias
+		if t.alias != "" {
+			details[search.LinkTextAliasDetail] = t.alias
 		}
 		h := knowledge.NoteHandle(t.path)
 		out = append(out, search.Candidate{

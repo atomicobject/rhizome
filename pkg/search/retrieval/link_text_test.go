@@ -74,3 +74,23 @@ func TestLinkTextRetrieverPicksTheAgreedLabelThatNamesTheQuery(t *testing.T) {
 	require.Len(t, got, 1)
 	require.Equal(t, "catalog migration", got[0].Evidence[0].Details[search.LinkTextAliasDetail])
 }
+
+func TestLinkTextRetrieverKeepsAgreedNamesPastTheLimit(t *testing.T) {
+	partial := linkText("catalog", "")
+	store := fakeLinkTextSource{
+		{SrcPath: "a.md", DstPath: "Projects/Larkspur.md", LinkText: linkText("catalog migration", ""), SrcTargets: 3},
+		{SrcPath: "b.md", DstPath: "Projects/Larkspur.md", LinkText: linkText("catalog migration", ""), SrcTargets: 3},
+	}
+	for _, dst := range []string{"Notes/One.md", "Notes/Two.md"} {
+		for _, src := range []string{"c.md", "d.md", "e.md", "f.md", "g.md"} {
+			store = append(store, semdb.LinkTextRow{SrcPath: src, DstPath: dst, LinkText: partial, SrcTargets: 3})
+		}
+	}
+	got, err := (&LinkTextRetriever{Store: store}).Retrieve(context.Background(), search.QuerySpec{Text: "catalog migration", Limits: search.Limits{Total: 2}})
+	require.NoError(t, err)
+	paths := []string{}
+	for _, c := range got {
+		paths = append(paths, c.Path)
+	}
+	require.Equal(t, []string{"Notes/One.md", "Notes/Two.md", "Projects/Larkspur.md"}, paths, "five half matches outscore two full labels, but the agreed name stays")
+}

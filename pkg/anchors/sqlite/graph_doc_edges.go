@@ -250,7 +250,7 @@ func (s *Store) GraphDocEdgesWithConfidenceForPathsLimit(ctx context.Context, pa
 	args = append(args, sliceAny(paths)...)
 	args = append(args, sliceAny(paths)...)
 	query := fmt.Sprintf(`
-		SELECT src_path, dst_path, kind, confidence, confidence_score, source_location
+		SELECT src_path, dst_path, kind, confidence, confidence_score, source_location, link_text
 		FROM graph_doc_edges
 		WHERE src_path IN (%s) OR dst_path IN (%s)
 		ORDER BY src_path, dst_path, kind
@@ -268,7 +268,7 @@ func (s *Store) GraphDocEdgesWithConfidenceForPathsLimit(ctx context.Context, pa
 	var out []GraphDocEdge
 	for rows.Next() {
 		var e GraphDocEdge
-		if err := rows.Scan(&e.SrcPath, &e.DstPath, &e.Kind, &e.Confidence, &e.ConfidenceScore, &e.SourceLocation); err != nil {
+		if err := rows.Scan(&e.SrcPath, &e.DstPath, &e.Kind, &e.Confidence, &e.ConfidenceScore, &e.SourceLocation, &e.LinkText); err != nil {
 			return nil, err
 		}
 		e.Weight = 1
