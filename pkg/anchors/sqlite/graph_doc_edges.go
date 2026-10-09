@@ -377,6 +377,10 @@ type LinkTextRow struct {
 // ponytail: LIKE scan over every link row; add an FTS index if vaults with
 // hundreds of thousands of links make it slow.
 func (s *Store) NoteLinkTextMatches(ctx context.Context, terms []string, limit int) ([]LinkTextRow, error) {
+	// Edges of an unfinished metadata generation are not evidence yet.
+	if state, err := s.GetNoteMetadataState(ctx); err != nil || !state.Ready || state.LoadedAt == 0 {
+		return nil, err
+	}
 	var likes []string
 	var args []any
 	for _, term := range terms {

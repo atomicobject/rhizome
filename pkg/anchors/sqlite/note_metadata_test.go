@@ -1026,6 +1026,13 @@ func TestNoteLinkTextMatchesReadsCoarseLinkText(t *testing.T) {
 	rows, err = store.NoteLinkTextMatches(ctx, []string{"0_%"}, 0)
 	require.NoError(t, err)
 	require.Empty(t, rows)
+
+	// An ownership change clears the state; its edges are not evidence yet.
+	_, err = store.db.ExecContext(ctx, `DELETE FROM note_metadata_state`)
+	require.NoError(t, err)
+	rows, err = store.NoteLinkTextMatches(ctx, []string{"migration"}, 0)
+	require.NoError(t, err)
+	require.Empty(t, rows)
 }
 
 func TestAppendLinkTextCapsLabelAndLine(t *testing.T) {
