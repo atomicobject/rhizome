@@ -21,16 +21,19 @@ const (
 // execution, and the kit all read it instead of guessing from field names.
 // Field lists name schema fields in the order views should prefer them.
 type TypeProfile struct {
-	Shape            TypeShape `json:"shape"`
-	LifecycleField   string    `json:"lifecycleField,omitempty"`
-	OrderedFields    []string  `json:"orderedFields,omitempty"`
-	CategoryFields   []string  `json:"categoryFields,omitempty"`
-	SummaryField     string    `json:"summaryField,omitempty"`
-	PrimaryDateField string    `json:"primaryDateField,omitempty"`
-	PeopleFields     []string  `json:"peopleFields,omitempty"`
-	KeyTextFields    []string  `json:"keyTextFields,omitempty"`
-	RelationFields   []string  `json:"relationFields,omitempty"`
-	ReverseFields    []string  `json:"reverseFields,omitempty"`
+	Shape          TypeShape `json:"shape"`
+	LifecycleField string    `json:"lifecycleField,omitempty"`
+	OrderedFields  []string  `json:"orderedFields,omitempty"`
+	CategoryFields []string  `json:"categoryFields,omitempty"`
+	SummaryField   string    `json:"summaryField,omitempty"`
+	// RankField carries the RANK display role: records list by it ascending,
+	// missing values last, wherever no view sort applies.
+	RankField        string   `json:"rankField,omitempty"`
+	PrimaryDateField string   `json:"primaryDateField,omitempty"`
+	PeopleFields     []string `json:"peopleFields,omitempty"`
+	KeyTextFields    []string `json:"keyTextFields,omitempty"`
+	RelationFields   []string `json:"relationFields,omitempty"`
+	ReverseFields    []string `json:"reverseFields,omitempty"`
 	// GapFields are optional KEY fields useful to describe when empty.
 	// They exclude required fields, the lifecycle field, and
 	// fields @requiresWhen makes conditionally required. An interface field
@@ -86,6 +89,9 @@ func DeriveTypeProfile(schema *Schema, typeName string, personType string) (Type
 	var profile TypeProfile
 	if summary := SummaryField(fields); summary != nil {
 		profile.SummaryField = summary.Name
+	}
+	if rank := RankField(fields); rank != nil {
+		profile.RankField = rank.Name
 	}
 
 	// Lifecycle: the first declared-stage enum, else the first KEY enum with

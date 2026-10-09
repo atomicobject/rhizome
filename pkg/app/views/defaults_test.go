@@ -152,3 +152,9 @@ func tableColumnFields(columns []TableColumn) []string {
 	}
 	return out
 }
+
+// A RANK field orders a type's records whatever its shape.
+func TestGeneratedDefaultsSortByRankField(t *testing.T) {
+	profile := ontology.TypeProfile{Shape: ontology.ShapeWorkflow, RankField: "rank"}
+	require.Equal(t, []viewconfig.SortSpec{{Field: "rank", Direction: "asc"}, {Field: "title", Direction: "asc"}}, generatedSort(profile))
+}

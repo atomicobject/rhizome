@@ -25,7 +25,7 @@ export type EnumValueDoc = {
 export type EnumDoc = { name: string; summary?: string; values: EnumValueDoc[] };
 
 export type FieldDisplayDoc = {
-  role?: "SUMMARY" | "PARENT";
+  role?: "SUMMARY" | "PARENT" | "RANK";
   importance?: "KEY" | "NORMAL" | "DETAIL";
 };
 
@@ -61,6 +61,8 @@ export type TypeProfile = {
   /** Enum fields with no stages. */
   categoryFields: string[];
   summaryField?: string;
+  /** The RANK field: records list by it ascending, missing values last. */
+  rankField?: string;
   primaryDateField?: string;
   /** Links to the core identity type. */
   peopleFields: string[];

@@ -84,7 +84,7 @@ func inheritFieldDisplay(byName map[string]*Field, inherited []*Field) {
 }
 
 func validateDisplayFields(schema *Schema, typeName string, fields []*Field) error {
-	var summary, parent *Field
+	var summary, parent, rank *Field
 	for _, field := range fields {
 		if field == nil {
 			continue
@@ -106,6 +106,14 @@ func validateDisplayFields(schema *Schema, typeName string, fields []*Field) err
 				return duplicateDisplayRoleError(typeName, FieldDisplayRoleParent, parent, field)
 			}
 			parent = field
+		case FieldDisplayRoleRank:
+			if field.Kind != FieldKindScalar || field.List || (field.TypeName != "Int" && field.TypeName != "Float") {
+				return compileError(field.position, "field %s.%s declares role RANK but must be a singular Int or Float field", typeName, field.Name)
+			}
+			if rank != nil && rank.Name != field.Name {
+				return duplicateDisplayRoleError(typeName, FieldDisplayRoleRank, rank, field)
+			}
+			rank = field
 		}
 	}
 	return nil

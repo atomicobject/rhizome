@@ -127,18 +127,20 @@ func laneValues(row TableRow, capability FieldCapability) []laneValue {
 }
 
 type laneBuild struct {
-	lane  BoardLane
-	cells map[int][]int
-	order int
-	stage ontology.LifecycleStage
+	lane   BoardLane
+	cells  map[int][]int
+	order  int
+	rank   float64
+	ranked bool
+	stage  ontology.LifecycleStage
 }
 
 // boardLanes splits the board's page rows into lanes; each lane's cells
 // follow the board's columns and index into rows, so a row with several lane
 // values appears in each of those lanes. Enum lanes follow the enum; relation
-// lanes follow their target's lifecycle stage, read from the statuses
-// hydrateRelationStatuses set on the rows, then size; the lane without a value
-// comes last.
+// lanes follow their target's rank, set by hydrateLinkRanks, then its
+// lifecycle stage, set by hydrateRelationStatuses, then size; the lane without
+// a value comes last.
 func boardLanes(board *BoardLayout, capability FieldCapability, rows []TableRow) []BoardLane {
 	enumOrder := enumOrderMap(capability)
 	builds := map[string]*laneBuild{}
@@ -165,7 +167,9 @@ func boardLanes(board *BoardLayout, capability FieldCapability, rows []TableRow)
 					if position, ok := enumOrder[value.value]; ok {
 						build.order = position
 					}
-					if status := laneTargetStatus(rows[index], capability, value); status != nil {
+					target := laneTarget(rows[index], capability, value)
+					build.rank, build.ranked = target.rank, target.ranked
+					if status := target.Status; status != nil {
 						build.stage = status.Stage
 						build.lane.Tone = cmp.Or(status.Tone, build.lane.Tone)
 					}
@@ -188,6 +192,12 @@ func boardLanes(board *BoardLayout, capability FieldCapability, rows []TableRow)
 		}
 		if left.order != right.order {
 			return left.order < right.order
+		}
+		if left.ranked != right.ranked {
+			return left.ranked
+		}
+		if left.rank != right.rank {
+			return left.rank < right.rank
 		}
 		if rank := cmp.Compare(stageRank(left.stage), stageRank(right.stage)); rank != 0 {
 			return rank < 0
@@ -215,20 +225,20 @@ func laneLabel(value laneValue, capability FieldCapability) string {
 	return groupLabel(capability.Key, value.value, value.label, capability, nil)
 }
 
-// laneTargetStatus is the status of a relation lane's target.
-func laneTargetStatus(row TableRow, capability FieldCapability, value laneValue) *TableRelationStatus {
+// laneTarget is a relation lane's hydrated target link, or the zero value.
+func laneTarget(row TableRow, capability FieldCapability, value laneValue) TableRelationValue {
 	if value.value == "" || normalizedValueKind(capability.ValueKind) != "relation" {
-		return nil
+		return TableRelationValue{}
 	}
 	for raw, link := range rowRelationValues(row, capability.Key, capability) {
-		if link.Ref == nil || link.Status == nil {
+		if link.Ref == nil || (link.Status == nil && !link.ranked) {
 			continue
 		}
 		if identity, _, _ := relationGroupIdentity(raw, map[string]TableRelationValue{raw: link}); identity == value.identity {
-			return link.Status
+			return link
 		}
 	}
-	return nil
+	return TableRelationValue{}
 }
 
 // hydrateRelationStatuses sets the lifecycle status of linked records on page

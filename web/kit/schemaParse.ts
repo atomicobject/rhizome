@@ -118,7 +118,7 @@ function fieldDisplay(value: JsonValue | undefined, where: string): FieldDisplay
     role:
       display.role === undefined
         ? undefined
-        : oneOf(["SUMMARY", "PARENT"] as const, display.role, `${where}.role`),
+        : oneOf(["SUMMARY", "PARENT", "RANK"] as const, display.role, `${where}.role`),
     importance:
       display.importance === undefined
         ? undefined
@@ -174,6 +174,7 @@ function typeProfile(value: JsonValue | undefined, where: string): TypeProfile |
     orderedFields: names("orderedFields"),
     categoryFields: names("categoryFields"),
     summaryField: optionalText(profile, "summaryField", where),
+    rankField: optionalText(profile, "rankField", where),
     primaryDateField: optionalText(profile, "primaryDateField", where),
     peopleFields: names("peopleFields"),
     keyTextFields: names("keyTextFields"),
