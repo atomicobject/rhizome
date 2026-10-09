@@ -23,7 +23,7 @@ export default defineConfig({
   ],
   use: {
     baseURL: `http://127.0.0.1:${port}`,
-    trace: "on-first-retry",
+    trace: process.env.CI ? "retain-on-failure" : "off",
     // WHY: index.html loads a render-blocking Google Fonts stylesheet, and
     // page.goto waits for "load". A slow or stalled internet request then
     // times out navigation. Failing every non-local DNS lookup keeps the suite

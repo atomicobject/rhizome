@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test as base, type APIRequestContext } from "@playwright/test";
 import { isJsonObject, isString } from "../../src/api/parse";
 import { isViewContext, type ViewContext } from "../../src/views/context";
@@ -61,31 +64,44 @@ async function resetScope(request: APIRequestContext, scope: TestPreferenceScope
   throw new Error("Preference fixture could not reset a concurrently changing scope");
 }
 
+// The suite shares one server, so preferences a page saved outlive its test.
+// Every test first resets each scope an earlier page wrote, before its own page
+// loads. Resetting while a test ran raced its first clicks and Playwright's own
+// handling of held requests. The list lives in a file per server so a restarted
+// worker or a reused local server still resets it.
+function scopesFile(baseURL: string) {
+  return path.join(os.tmpdir(), `rhizome-e2e-preference-scopes-${new URL(baseURL).port}.json`);
+}
+
+function readScopes(file: string): string[] {
+  if (!fs.existsSync(file)) return [];
+  const scopes: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+
+  return Array.isArray(scopes) ? scopes.filter(isString) : [];
+}
+
 export const test = base.extend<{ isolatedPreferences: void }>({
   isolatedPreferences: [
-    async ({ context, request }, use) => {
-      const scopes = new Map<string, Promise<void>>();
+    async ({ baseURL, context, request }, use) => {
+      if (!baseURL) throw new Error("Preference isolation needs the suite baseURL");
+      const file = scopesFile(baseURL);
 
-      await context.route("**/api/v1/view-preferences?*", async (route) => {
-        if (route.request().method() !== "GET") return route.continue();
-        const serialized = new URL(route.request().url()).searchParams.get("scope");
+      for (const serialized of readScopes(file)) await resetScope(request, parseScope(serialized));
+      const written = new Set<string>();
 
-        if (!serialized) throw new Error("Preference read did not identify its scope");
-        let ready = scopes.get(serialized);
+      context.on("request", (incoming) => {
+        if (incoming.method() === "GET") return;
 
-        if (!ready) {
-          ready = resetScope(request, parseScope(serialized));
-          scopes.set(serialized, ready);
-        }
+        if (!new URL(incoming.url()).pathname.startsWith("/api/v1/view-preferences")) return;
+        const body: unknown = incoming.postDataJSON();
 
-        await ready;
-        await route.continue();
+        if (isJsonObject(body) && isJsonObject(body.scope)) written.add(JSON.stringify(body.scope));
       });
 
       try {
         await use();
       } finally {
-        await context.unrouteAll({ behavior: "wait" });
+        fs.writeFileSync(file, JSON.stringify([...written]));
       }
     },
     { auto: true },

@@ -163,13 +163,19 @@ func runLiveBlockedWorkload(t *testing.T, assertSecond bool) {
 	secondPath := "notes/project-0001.md"
 	require.NoError(t, os.WriteFile(filepath.Join(rt.VaultPath, secondPath), []byte(indexingworkload.Note(1, 16, "Changed")), 0o600))
 	rt.Cache().MarkDirty(secondPath, cache.DirtyModified)
-	w.processOwnershipBatch()
+	second := w.processOwnershipBatch()
 	secondStart := time.Now()
 	if assertSecond {
-		require.Eventually(t, func() bool {
-			rows, err := rt.IntelStore().CurrentNoteMetadataRowsByPaths(t.Context(), []string{secondPath})
-			return err == nil && rows[secondPath].ContentHash != before[secondPath].ContentHash
-		}, time.Second, 5*time.Millisecond, "a second structural edit must publish while the first embedding call remains blocked")
+		// The provider returns only after release below, so a second batch that
+		// waited for the blocked call would never finish; the bound limits only
+		// how long a failing run takes. Waiting on the batch itself also reports
+		// its error instead of an anonymous polling timeout.
+		watcherJobTerminal(t, second)
+		require.NoError(t, second.Err())
+		rows, err := rt.IntelStore().CurrentNoteMetadataRowsByPaths(t.Context(), []string{secondPath})
+		require.NoError(t, err)
+		require.NotEqual(t, before[secondPath].ContentHash, rows[secondPath].ContentHash, "a second structural edit must publish while the first embedding call remains blocked")
+		require.Zero(t, provider.canceled.Load(), "the second batch must not cancel the blocked embedding call")
 	} else {
 		time.Sleep(100 * time.Millisecond)
 	}
