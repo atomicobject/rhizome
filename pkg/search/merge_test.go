@@ -246,4 +246,10 @@ func TestCoalesceNoteCandidatesKeepsTheStrongestSpecificity(t *testing.T) {
 		}
 	}
 	require.Equal(t, []float64{0.9}, specificity)
+
+	for i := range 12 {
+		vector.Evidence = append(vector.Evidence, Evidence{Type: fmt.Sprintf("fact_%02d", i), RawScore: 1})
+	}
+	got = coalesceNoteCandidates([]Candidate{vector, linkText})
+	require.LessOrEqual(t, len(got[0].Evidence), maxEvidenceTotal, "the merged note stays within the evidence bound")
 }

@@ -157,7 +157,7 @@ func coalesceNoteCandidates(candidates []Candidate) []Candidate {
 			merged = MergeCandidate(merged, member)
 		}
 		if specificity != nil {
-			merged.Evidence = append(merged.Evidence, *specificity)
+			merged.Evidence = mergeEvidenceBounded(merged.Evidence, []Evidence{*specificity})
 		}
 		out = append(out, merged)
 	}
