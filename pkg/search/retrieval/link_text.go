@@ -154,7 +154,10 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		if label != "" {
 			details["label"] = label
 		}
-		if alias := consensusLabel(t.links, func(l link) []string { return l.labels }); alias != "" && frame.ConceptCoverage(alias) == 1 {
+		naming := func(l link) []string {
+			return slices.DeleteFunc(slices.Clone(l.labels), func(label string) bool { return frame.ConceptCoverage(label) < 1 })
+		}
+		if alias := consensusLabel(t.links, naming); alias != "" {
 			details[search.LinkTextAliasDetail] = alias
 		}
 		h := knowledge.NoteHandle(t.path)

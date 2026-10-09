@@ -22,7 +22,7 @@ type GraphDocEdgeRow struct {
 }
 
 const (
-	// MaxLinkLineBytes caps the line kept around one link.
+	// MaxLinkLineBytes caps the label and the line kept for one link.
 	MaxLinkLineBytes = 300
 	// maxLinkTextEntries caps the links one edge row describes; a source that
 	// links one target more often than this adds no new vocabulary.
@@ -73,7 +73,11 @@ func ParseLinkText(text string) []LinkTextEntry {
 }
 
 func linkTextField(value string) string {
-	return strings.TrimSpace(strings.NewReplacer("\t", " ", "\n", " ", "\r", " ").Replace(value))
+	value = strings.TrimSpace(strings.NewReplacer("\t", " ", "\n", " ", "\r", " ").Replace(value))
+	if len(value) > MaxLinkLineBytes {
+		value = strings.ToValidUTF8(value[:MaxLinkLineBytes], "")
+	}
+	return value
 }
 
 const (

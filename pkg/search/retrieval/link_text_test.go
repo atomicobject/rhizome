@@ -59,3 +59,18 @@ func TestLinkTextRetrieverSkipsTypeFilteredQueries(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, got)
 }
+
+func TestLinkTextRetrieverPicksTheAgreedLabelThatNamesTheQuery(t *testing.T) {
+	short, full := linkText("catalog", ""), linkText("catalog migration", "")
+	store := fakeLinkTextSource{
+		{SrcPath: "a.md", DstPath: "Projects/Larkspur.md", LinkText: short, SrcTargets: 3},
+		{SrcPath: "b.md", DstPath: "Projects/Larkspur.md", LinkText: short, SrcTargets: 3},
+		{SrcPath: "c.md", DstPath: "Projects/Larkspur.md", LinkText: short, SrcTargets: 3},
+		{SrcPath: "d.md", DstPath: "Projects/Larkspur.md", LinkText: full, SrcTargets: 3},
+		{SrcPath: "e.md", DstPath: "Projects/Larkspur.md", LinkText: full, SrcTargets: 3},
+	}
+	got, err := (&LinkTextRetriever{Store: store}).Retrieve(context.Background(), search.QuerySpec{Text: "catalog migration"})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Equal(t, "catalog migration", got[0].Evidence[0].Details[search.LinkTextAliasDetail])
+}

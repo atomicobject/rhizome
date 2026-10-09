@@ -293,17 +293,29 @@ func termGroupMatches(available map[string]struct{}, group []string) bool {
 	return false
 }
 
+// ScoreCandidate scores a candidate's own fields. A label that linking notes
+// agree on ranks like the title (SPEC-0120 US1) but proves nothing about the
+// answer, so it raises only RankValue.
 func ScoreCandidate(frame Frame, c search.Candidate) Score {
-	return ScoreFields(frame, Fields{
+	score := ScoreFields(frame, candidateFields(c, c.Title))
+	if aliases := linkTextAliases(c.Evidence); aliases != "" {
+		aliased := ScoreFields(frame, candidateFields(c, c.Title+" "+aliases))
+		score.RankValue = max(score.RankValue, aliased.RankValue)
+	}
+	return score
+}
+
+func candidateFields(c search.Candidate, title string) Fields {
+	return Fields{
 		Path:          c.Path,
-		Title:         strings.TrimSpace(c.Title + " " + linkTextAliases(c.Evidence)),
+		Title:         title,
 		Symbol:        c.Symbol,
 		FQN:           c.FQN,
 		Breadcrumb:    c.Breadcrumb,
 		Heading:       c.Heading,
 		Snippet:       evidenceSnippet(c.Evidence),
 		SourceSnippet: trustworthyEvidenceSnippet(c.Evidence),
-	})
+	}
 }
 
 // IdentifierTerms returns the normalized identifier components used by query
@@ -328,7 +340,7 @@ func EnrichCandidate(frame Frame, c search.Candidate) search.Candidate {
 	}
 	c.Evidence = filtered
 	score := ScoreCandidate(frame, c)
-	if score.Value <= 0 {
+	if score.Value <= 0 && score.RankValue <= 0 {
 		return c
 	}
 	c.Evidence = append(c.Evidence, search.MustNormalizeEvidence(search.Evidence{

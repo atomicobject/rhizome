@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
@@ -1024,4 +1026,14 @@ func TestNoteLinkTextMatchesReadsCoarseLinkText(t *testing.T) {
 	rows, err = store.NoteLinkTextMatches(ctx, []string{"0_%"}, 0)
 	require.NoError(t, err)
 	require.Empty(t, rows)
+}
+
+func TestAppendLinkTextCapsLabelAndLine(t *testing.T) {
+	long := strings.Repeat("é", MaxLinkLineBytes)
+	entries := ParseLinkText(AppendLinkText("", long, long))
+	require.Len(t, entries, 1)
+	for _, field := range []string{entries[0].Label, entries[0].Line} {
+		require.LessOrEqual(t, len(field), MaxLinkLineBytes)
+		require.True(t, utf8.ValidString(field))
+	}
 }
