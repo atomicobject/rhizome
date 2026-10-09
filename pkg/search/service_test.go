@@ -491,6 +491,14 @@ func TestPruneCandidatesKeepsNotesNamedByAgreedLinkLabels(t *testing.T) {
 	pruned := pruneCandidates(candidates, 5, map[EvidenceChannel]float64{EvidenceChannelSemantic: 1, EvidenceChannelLexical: 0.6})
 	require.Contains(t, pruned, "note:named")
 	require.NotContains(t, pruned, "note:labeled", "link text without an agreed name competes on score")
+
+	for i := 0; i < 5; i++ {
+		key := fmt.Sprintf("note:named%02d", i)
+		candidates[key] = Candidate{Handle: knowledge.NoteHandle(key), Type: "note", Path: key + ".md", Evidence: []Evidence{named}}
+	}
+	candidates["note:exact"] = Candidate{Handle: knowledge.NoteHandle("exact"), Type: "note", Path: "exact.md", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 0.1}}}
+	pruned = pruneCandidates(candidates, 5, map[EvidenceChannel]float64{EvidenceChannelSemantic: 1, EvidenceChannelLexical: 0.6})
+	require.Contains(t, pruned, "note:exact", "agreed labels never crowd out an exact title")
 }
 
 func evidenceTypes(evidence []Evidence) []string {

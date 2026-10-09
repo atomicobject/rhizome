@@ -682,21 +682,25 @@ func pruneCandidates(cands map[string]Candidate, keep int, weights map[EvidenceC
 		return cands
 	}
 	type kv struct {
-		key       string
-		score     float64
-		protected bool
+		key   string
+		score float64
+		// tier keeps exact identities first, then notes named by agreed
+		// link labels, ahead of the approximate score.
+		tier int
 	}
 	items := make([]kv, 0, len(cands))
 	for k, c := range cands {
-		items = append(items, kv{
-			key:       k,
-			score:     candidateBaseScore(c, weights),
-			protected: candidateHasEvidence(c, "symbol_exact", "symbol_match") || hasLinkTextAlias(c),
-		})
+		tier := 0
+		if candidateHasEvidence(c, "symbol_exact", "symbol_match", "note_title_exact", "path_exact") {
+			tier = 2
+		} else if hasLinkTextAlias(c) {
+			tier = 1
+		}
+		items = append(items, kv{key: k, score: candidateBaseScore(c, weights), tier: tier})
 	}
 	sort.SliceStable(items, func(i, j int) bool {
-		if items[i].protected != items[j].protected {
-			return items[i].protected
+		if items[i].tier != items[j].tier {
+			return items[i].tier > items[j].tier
 		}
 		if items[i].score != items[j].score {
 			return items[i].score > items[j].score
