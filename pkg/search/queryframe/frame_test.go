@@ -257,3 +257,17 @@ func TestScoreFieldsKeepsShortQuestionScale(t *testing.T) {
 	})
 	require.Equal(t, score.Value, score.RankValue)
 }
+
+func TestScoreCandidateReadsAgreedLinkLabelsWithTheTitle(t *testing.T) {
+	frame := Extract("catalog migration")
+	plain := search.Candidate{Path: "Projects/Project Kestrel.md", Title: "Project Kestrel"}
+	require.Zero(t, ScoreCandidate(frame, plain).RankValue)
+
+	aliased := plain
+	aliased.Evidence = []search.Evidence{{Type: "link_text_match", RawScore: 0.9, Details: map[string]string{search.LinkTextAliasDetail: "catalog migration"}}}
+	got := ScoreCandidate(frame, aliased)
+	require.Equal(t, ScoreCandidate(frame, search.Candidate{Path: plain.Path, Title: "catalog migration"}).RankValue, got.RankValue)
+	require.Zero(t, got.SupportValue, "a label ranks the note but does not prove it answers the query")
+	require.Empty(t, got.IdentityMatched)
+	require.NotEmpty(t, EnrichCandidate(frame, aliased).Evidence[1:], "the ranking boost still reaches query_specificity")
+}

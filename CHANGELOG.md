@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Search finds a note by the words other notes use when they link to it. A note that several notes link to as `[[Project Kestrel|catalog migration]]` now comes up for "catalog migration" even though its own title and text never say it, and a label two or more notes agree on counts like the note's title. The index stores each link's label and line, so the first run after updating reindexes note links. Continuation tokens from earlier searches report stale and must be refreshed.
 - Search ranks notes whose titles contain every word of a short query above notes that match one word. A note found by both its title and its embedding now scores as one result instead of two weaker ones, and a single query word repeated across a note's path, title, and headings no longer counts as a full match. Continuation tokens from earlier searches report stale and must be refreshed.
 - Fix duplicated note paths when opening containing sections from action items in untyped notes.
 - Search and folder tabs scroll smoothly after switching away and back, and restore their saved position after reload without replaying older scroll updates.

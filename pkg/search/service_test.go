@@ -478,6 +478,29 @@ func TestPruneCandidatesKeepsSymbolProbeHits(t *testing.T) {
 	require.Contains(t, pruned, "code:symbol")
 }
 
+func TestPruneCandidatesKeepsNotesNamedByAgreedLinkLabels(t *testing.T) {
+	candidates := map[string]Candidate{}
+	for i := 0; i < 20; i++ {
+		key := fmt.Sprintf("note:%02d", i)
+		candidates[key] = Candidate{Handle: knowledge.NoteHandle(key), Type: "note", Path: key + ".md", Evidence: []Evidence{{Type: "note_vector_similarity", RawScore: 1}}}
+	}
+	named := Evidence{Type: "link_text_match", RawScore: 0.9, Details: map[string]string{LinkTextAliasDetail: "catalog migration"}}
+	candidates["note:named"] = Candidate{Handle: knowledge.NoteHandle("named"), Type: "note", Path: "named.md", Evidence: []Evidence{named}}
+	candidates["note:labeled"] = Candidate{Handle: knowledge.NoteHandle("labeled"), Type: "note", Path: "labeled.md", Evidence: []Evidence{{Type: "link_text_match", RawScore: 0.9}}}
+
+	pruned := pruneCandidates(candidates, 5, map[EvidenceChannel]float64{EvidenceChannelSemantic: 1, EvidenceChannelLexical: 0.6})
+	require.Contains(t, pruned, "note:named")
+	require.NotContains(t, pruned, "note:labeled", "link text without an agreed name competes on score")
+
+	for i := 0; i < 5; i++ {
+		key := fmt.Sprintf("note:named%02d", i)
+		candidates[key] = Candidate{Handle: knowledge.NoteHandle(key), Type: "note", Path: key + ".md", Evidence: []Evidence{named}}
+	}
+	candidates["note:exact"] = Candidate{Handle: knowledge.NoteHandle("exact"), Type: "note", Path: "exact.md", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 0.1}}}
+	pruned = pruneCandidates(candidates, 5, map[EvidenceChannel]float64{EvidenceChannelSemantic: 1, EvidenceChannelLexical: 0.6})
+	require.Contains(t, pruned, "note:exact", "agreed labels never crowd out an exact title")
+}
+
 func evidenceTypes(evidence []Evidence) []string {
 	out := make([]string, 0, len(evidence))
 	for _, ev := range evidence {

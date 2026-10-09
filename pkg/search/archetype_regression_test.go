@@ -149,3 +149,55 @@ func TestArchetypeRegression_WholeNoteLaneAgreementOutranksOneLane(t *testing.T)
 	require.Contains(t, types, "note_vector_similarity")
 	require.Contains(t, types, "note_title_match")
 }
+
+// Linking notes that agree on a label name the note they link to. A note
+// only its linking notes call "catalog migration" ranked below a linking note
+// with those words in its own title; the agreed label now counts like the
+// target's title, and without it the rival leads (EFF-2026-10-08-16-23).
+func TestArchetypeRegression_AgreedLinkLabelNamesTheTarget(t *testing.T) {
+	target := "Projects/Project Kestrel.md"
+	rival := "Log/Catalog migration kickoff.md"
+	rivalText := search.Candidate{
+		Handle:     knowledge.NoteHandle(rival),
+		Owner:      knowledge.NoteHandle(rival),
+		Type:       "note",
+		Path:       rival,
+		ChunkIndex: -1,
+		Evidence:   []search.Evidence{{Type: "intel_fts_match", RawScore: 0.5}},
+	}
+	vector := func(path string, chunk int, cosine float64) search.Candidate {
+		return search.Candidate{
+			Handle:   knowledge.NodeChunkHandle("node-"+path, path, "node_section", chunk),
+			Owner:    knowledge.NoteHandle(path),
+			Type:     "note",
+			Path:     path,
+			Evidence: []search.Evidence{{Type: "note_vector_similarity", RawScore: cosine}},
+		}
+	}
+	linkText := search.Candidate{
+		Handle:     knowledge.NoteHandle(target),
+		Owner:      knowledge.NoteHandle(target),
+		Type:       "note",
+		Path:       target,
+		ChunkIndex: -1,
+		Evidence: []search.Evidence{{Type: "link_text_match", RawScore: 0.875, Source: "link_text", Details: map[string]string{
+			search.LinkTextAliasDetail: "catalog migration", "linking_notes": "3",
+		}}},
+	}
+	service := search.Service{
+		Retrievers: []search.Retriever{
+			fixedRetriever{name: "vector", candidates: []search.Candidate{vector(rival, 0, 0.66), vector(target, 0, 0.55), vector(target, 1, 0.54)}},
+			fixedRetriever{name: "link_text", candidates: []search.Candidate{linkText}},
+			fixedRetriever{name: "intel", candidates: []search.Candidate{rivalText}},
+		},
+		Ranker: &relevance.SpecificityRanker{Base: &relevance.WeightedRanker{Weights: relevance.DefaultWeights(), MaxPerOwner: 1}},
+	}
+
+	response, err := service.Search(context.Background(), search.QuerySpec{Text: "catalog migration", Limits: search.Limits{Total: 10}})
+	require.NoError(t, err)
+	var paths []string
+	for _, result := range response.Results {
+		paths = append(paths, result.Path)
+	}
+	require.Equal(t, []string{target, rival}, paths, "the named target leads, once per owner")
+}

@@ -278,6 +278,16 @@ jobs:
       - name: Run web e2e
         run: make web-e2e
 
+      # Failed tests keep a trace (playwright.config.ts); upload it so a flake
+      # that does not reproduce locally can be read: npx playwright show-trace.
+      - name: Upload e2e traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-e2e-traces
+          path: web/test-results/
+          retention-days: 7
+
   build:
     name: Build
     needs: [changes]

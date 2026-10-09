@@ -24,7 +24,7 @@ type EnsureResult struct {
 	Dirty     bool
 }
 
-const noteMetadataIndexerVersion = "12"
+const noteMetadataIndexerVersion = "13"
 
 type noteEntry struct {
 	Path            string

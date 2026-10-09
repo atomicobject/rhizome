@@ -16,6 +16,7 @@ type GraphDocEdge struct {
 	Confidence      string  // "extracted", "inferred", "ambiguous"
 	ConfidenceScore float64 // 0.0–1.0
 	SourceLocation  string  // "L{line}" or ""
+	LinkText        string  // see GraphDocEdgeRow.LinkText
 }
 
 type GraphDocDegree struct {

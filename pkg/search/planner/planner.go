@@ -229,30 +229,11 @@ func (p *Planner) Plan(ctx context.Context, spec search.QuerySpec) (Plan, error)
 					return out, nil
 				})
 			}(),
-			TypePathSource: func() retrieval.NoteTypePathSource {
-				if p.Deps.IntelStore == nil {
-					return nil
-				}
-				return retrieval.NoteTypePathSourceFunc(func(ctx context.Context, typeNames []string) ([]string, error) {
-					seen := map[string]struct{}{}
-					var out []string
-					for _, typeName := range typeNames {
-						paths, err := p.Deps.IntelStore.OntologyPathsByType(ctx, typeName, 0)
-						if err != nil {
-							return nil, err
-						}
-						for _, path := range paths {
-							if _, ok := seen[path]; ok {
-								continue
-							}
-							seen[path] = struct{}{}
-							out = append(out, path)
-						}
-					}
-					return out, nil
-				})
-			}(),
+			TypePathSource: p.noteTypePathSource(),
 		})
+	}
+	if hasText && search.IsBroadIntent(intent) && p.Deps.IntelStore != nil && spec.Filters.AllowsType("note") {
+		base = append(base, &retrieval.LinkTextRetriever{Store: p.Deps.IntelStore, TypePathSource: p.noteTypePathSource()})
 	}
 	if opts.EnableIntel && hasText && search.IsBroadIntent(intent) && p.Deps.IntelStore != nil && spec.Filters.AllowsType("code") {
 		base = append(base, &retrieval.SymbolProbeRetriever{
@@ -1175,4 +1156,30 @@ func ValidateIntent(intent string) error {
 	default:
 		return fmt.Errorf("unknown intent %q", intent)
 	}
+}
+
+// noteTypePathSource selects note paths by owning-note type, or nil without
+// an intel store.
+func (p *Planner) noteTypePathSource() retrieval.NoteTypePathSource {
+	if p.Deps.IntelStore == nil {
+		return nil
+	}
+	return retrieval.NoteTypePathSourceFunc(func(ctx context.Context, typeNames []string) ([]string, error) {
+		seen := map[string]struct{}{}
+		var out []string
+		for _, typeName := range typeNames {
+			paths, err := p.Deps.IntelStore.OntologyPathsByType(ctx, typeName, 0)
+			if err != nil {
+				return nil, err
+			}
+			for _, path := range paths {
+				if _, ok := seen[path]; ok {
+					continue
+				}
+				seen[path] = struct{}{}
+				out = append(out, path)
+			}
+		}
+		return out, nil
+	})
 }

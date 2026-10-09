@@ -699,12 +699,12 @@ func insertGraphDocEdges(ctx context.Context, tx *sql.Tx, edges []GraphDocEdgeRo
 			continue
 		}
 		confidence, confidenceScore := NormalizeGraphDocEdgeConfidence(edge.Kind, edge.Confidence, edge.ConfidenceScore)
-		values = append(values, []any{edge.SrcPath, edge.DstPath, edge.Kind, confidence, confidenceScore, ""})
+		values = append(values, []any{edge.SrcPath, edge.DstPath, edge.Kind, confidence, confidenceScore, "", edge.LinkText})
 	}
 	return execValuesBatch(ctx, tx, `
-		INSERT OR REPLACE INTO graph_doc_edges(src_path, dst_path, kind, confidence, confidence_score, source_location)
+		INSERT OR REPLACE INTO graph_doc_edges(src_path, dst_path, kind, confidence, confidence_score, source_location, link_text)
 		VALUES
-	`, values, 6, "")
+	`, values, 7, "")
 }
 
 func execValuesBatch(ctx context.Context, tx *sql.Tx, prefix string, values [][]any, valuesPerRow int, suffix string) error {

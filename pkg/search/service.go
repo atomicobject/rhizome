@@ -682,21 +682,25 @@ func pruneCandidates(cands map[string]Candidate, keep int, weights map[EvidenceC
 		return cands
 	}
 	type kv struct {
-		key       string
-		score     float64
-		protected bool
+		key   string
+		score float64
+		// tier keeps exact identities first, then notes named by agreed
+		// link labels, ahead of the approximate score.
+		tier int
 	}
 	items := make([]kv, 0, len(cands))
 	for k, c := range cands {
-		items = append(items, kv{
-			key:       k,
-			score:     candidateBaseScore(c, weights),
-			protected: candidateHasEvidence(c, "symbol_exact", "symbol_match"),
-		})
+		tier := 0
+		if candidateHasEvidence(c, "symbol_exact", "symbol_match", "note_title_exact", "path_exact") {
+			tier = 2
+		} else if hasLinkTextAlias(c) {
+			tier = 1
+		}
+		items = append(items, kv{key: k, score: candidateBaseScore(c, weights), tier: tier})
 	}
 	sort.SliceStable(items, func(i, j int) bool {
-		if items[i].protected != items[j].protected {
-			return items[i].protected
+		if items[i].tier != items[j].tier {
+			return items[i].tier > items[j].tier
 		}
 		if items[i].score != items[j].score {
 			return items[i].score > items[j].score
@@ -711,6 +715,18 @@ func pruneCandidates(cands map[string]Candidate, keep int, weights map[EvidenceC
 		out[it.key] = cands[it.key]
 	}
 	return out
+}
+
+// hasLinkTextAlias reports whether linking notes agree on a label that names
+// every query concept. Query specificity reads that label with the title only
+// at ranking time, so pruning must not drop the note first.
+func hasLinkTextAlias(c Candidate) bool {
+	for _, ev := range c.Evidence {
+		if ev.Type == "link_text_match" && ev.Details[LinkTextAliasDetail] != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func candidateHasEvidence(c Candidate, evidenceTypes ...string) bool {

@@ -293,17 +293,29 @@ func termGroupMatches(available map[string]struct{}, group []string) bool {
 	return false
 }
 
+// ScoreCandidate scores a candidate's own fields. A label that linking notes
+// agree on ranks like the title (SPEC-0120 US1) but proves nothing about the
+// answer, so it raises only RankValue.
 func ScoreCandidate(frame Frame, c search.Candidate) Score {
-	return ScoreFields(frame, Fields{
+	score := ScoreFields(frame, candidateFields(c, c.Title))
+	if aliases := linkTextAliases(c.Evidence); aliases != "" {
+		aliased := ScoreFields(frame, candidateFields(c, c.Title+" "+aliases))
+		score.RankValue = max(score.RankValue, aliased.RankValue)
+	}
+	return score
+}
+
+func candidateFields(c search.Candidate, title string) Fields {
+	return Fields{
 		Path:          c.Path,
-		Title:         c.Title,
+		Title:         title,
 		Symbol:        c.Symbol,
 		FQN:           c.FQN,
 		Breadcrumb:    c.Breadcrumb,
 		Heading:       c.Heading,
 		Snippet:       evidenceSnippet(c.Evidence),
 		SourceSnippet: trustworthyEvidenceSnippet(c.Evidence),
-	})
+	}
 }
 
 // IdentifierTerms returns the normalized identifier components used by query
@@ -328,7 +340,7 @@ func EnrichCandidate(frame Frame, c search.Candidate) search.Candidate {
 	}
 	c.Evidence = filtered
 	score := ScoreCandidate(frame, c)
-	if score.Value <= 0 {
+	if score.Value <= 0 && score.RankValue <= 0 {
 		return c
 	}
 	c.Evidence = append(c.Evidence, search.MustNormalizeEvidence(search.Evidence{
@@ -603,4 +615,38 @@ func sourceOwnedSnippetEvidence(evidence search.Evidence) bool {
 	default:
 		return false
 	}
+}
+
+// ConceptCoverage returns the share of the query's concepts whose term or a
+// variant appears as a word in text.
+func (f Frame) ConceptCoverage(text string) float64 {
+	if len(f.SupportTermGroups) == 0 {
+		return 0
+	}
+	words := map[string]struct{}{}
+	for _, tok := range tokenize(text) {
+		for _, variant := range appendTokenVariants([]string{tok}, tok) {
+			words[variant] = struct{}{}
+		}
+	}
+	matched := 0
+	for _, group := range f.SupportTermGroups {
+		if termGroupMatches(words, group) {
+			matched++
+		}
+	}
+	return float64(matched) / float64(len(f.SupportTermGroups))
+}
+
+// linkTextAliases joins the labels that several linking notes agree on. They
+// name the note the way its title does, so query specificity reads them with
+// the title.
+func linkTextAliases(evidence []search.Evidence) string {
+	var aliases []string
+	for _, ev := range evidence {
+		if alias := ev.Details[search.LinkTextAliasDetail]; ev.Type == "link_text_match" && alias != "" {
+			aliases = append(aliases, alias)
+		}
+	}
+	return strings.Join(aliases, " ")
 }

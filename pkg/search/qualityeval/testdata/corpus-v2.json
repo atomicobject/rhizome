@@ -20245,6 +20245,2815 @@
           "locator": "testdata/search-quality/title-phrase-vault/Areas/Bylaws overview.md#L1"
         }
       }
+    },
+    {
+      "id": "LINKED_TOPICS_VAULT-NAVIGATION-CATALOG_MIGRATION-01",
+      "split": "development",
+      "corpus": "linked-topics-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "catalog migration"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md": {
+          "grade": 3,
+          "rationale": "The project note for the catalog migration; eight notes link to it with that label though its own text never uses the phrase.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md": {
+          "grade": 2,
+          "rationale": "Decision record made for the migration's export.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md": {
+          "grade": 2,
+          "rationale": "Field map written for the migration.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md": {
+          "grade": 2,
+          "rationale": "How-to for problems the migration left in records.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md": {
+          "grade": 2,
+          "rationale": "Meeting on duplicate records the migration left behind.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md": {
+          "grade": 2,
+          "rationale": "Planning meeting for the migration's cutover week.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/People/Odile Varga.md": {
+          "grade": 2,
+          "rationale": "Role note for the person who led the migration's record cleanup.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Odile Varga.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md": {
+          "grade": 2,
+          "rationale": "Retrospective on the migration.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md": {
+          "grade": 1,
+          "rationale": "Uses the phrase for a volunteer seed group's index cards, not the library's records.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md": {
+          "grade": 1,
+          "rationale": "Support contacts for the new platform; mentions the move only in passing.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md": {
+          "grade": 1,
+          "rationale": "Desk training on the new system, not the record move itself.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md": {
+          "grade": 1,
+          "rationale": "Daily log noting the go-live day and missing loan history in passing.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md": {
+          "grade": 1,
+          "rationale": "Routine meeting with one short migration update.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md": {
+          "grade": 0,
+          "rationale": "A club's email list migration, not a catalog.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md": {
+          "grade": 0,
+          "rationale": "Another organization's family files, not the library catalog.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md": {
+          "grade": 0,
+          "rationale": "Receives one mislabeled 'catalog migration' link, but the note is about putting shelves in order.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md": {
+          "grade": 0,
+          "rationale": "Contains the phrase only as a mislabeled link to the shelf reading schedule.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md": {
+          "grade": 0,
+          "rationale": "Passing note about merging duplicates; nothing about the migration as a whole.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md": {
+          "grade": 0,
+          "rationale": "The county archives courier collecting township record boxes; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md": {
+          "grade": 0,
+          "rationale": "Mailing the printed newsletter to households; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md": {
+          "grade": 0,
+          "rationale": "Late vendor invoices for boiler work; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md": {
+          "grade": 0,
+          "rationale": "A food pantry merging its grocery routes; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md": {
+          "grade": 0,
+          "rationale": "Training for hospice visit volunteers; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md": {
+          "grade": 0,
+          "rationale": "A meal delivery program's driver schedule; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md": {
+          "grade": 0,
+          "rationale": "City parking tickets near a branch; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md": {
+          "grade": 0,
+          "rationale": "The school district rotating classroom book bins; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md": {
+          "grade": 0,
+          "rationale": "A toy library's own charges for late toy returns; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md": {
+          "grade": 0,
+          "rationale": "Decision record ending the outside hauling contract; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md": {
+          "grade": 0,
+          "rationale": "Decision record keeping lost item charges; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md": {
+          "grade": 0,
+          "rationale": "Decision record setting monthly home visits; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md": {
+          "grade": 0,
+          "rationale": "Rules for card blocks and item limits; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md": {
+          "grade": 0,
+          "rationale": "Notes on the collection agency contract; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md": {
+          "grade": 0,
+          "rationale": "Rules for the holds pickup shelf; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md": {
+          "grade": 0,
+          "rationale": "How-to for waiving old late charges; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md": {
+          "grade": 0,
+          "rationale": "How-to for packing transit bins; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md": {
+          "grade": 0,
+          "rationale": "How-to for packing a home visit bag; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md": {
+          "grade": 0,
+          "rationale": "How-to for enrolling a patron in home visits; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md": {
+          "grade": 0,
+          "rationale": "Description of the large print collection; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md": {
+          "grade": 0,
+          "rationale": "Desk answers about the end of late charges; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md": {
+          "grade": 0,
+          "rationale": "Repair log for the network vans; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md": {
+          "grade": 0,
+          "rationale": "Stop times for the network vans; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md": {
+          "grade": 0,
+          "rationale": "Screening rules for home visit volunteers; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Index - Everything.md": {
+          "grade": 0,
+          "rationale": "Index that lists every note by title and says nothing about any topic; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Index - Everything.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md": {
+          "grade": 0,
+          "rationale": "Daily log with passing mentions of training and hold slips; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md": {
+          "grade": 0,
+          "rationale": "Board minutes adopting the end of late charges; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md": {
+          "grade": 0,
+          "rationale": "Circulation supervisors preparing for the end of late charges; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md": {
+          "grade": 0,
+          "rationale": "Meeting log reworking the van stop order; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md": {
+          "grade": 0,
+          "rationale": "Facilities committee minutes on roofs, parking, and the sorting room; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md": {
+          "grade": 0,
+          "rationale": "Finance committee minutes on audit, insurance, and late charge revenue; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md": {
+          "grade": 0,
+          "rationale": "Outreach budget review; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md": {
+          "grade": 0,
+          "rationale": "Check-in with home visit volunteers; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md": {
+          "grade": 0,
+          "rationale": "Meeting with senior housing partners about home visits; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md": {
+          "grade": 0,
+          "rationale": "Walkthrough of the Millbrook sorting room; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md": {
+          "grade": 0,
+          "rationale": "Role note for the circulation supervisor; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md": {
+          "grade": 0,
+          "rationale": "Role note for the delivery and facilities lead; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md": {
+          "grade": 0,
+          "rationale": "Role note for the outreach coordinator; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md": {
+          "grade": 0,
+          "rationale": "Board policy ending charges for late returns; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md": {
+          "grade": 0,
+          "rationale": "Overview of the volunteer home visit program; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md": {
+          "grade": 0,
+          "rationale": "Overview of the network van fleet; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md": {
+          "grade": 0,
+          "rationale": "Results of the Pinecrest no-charge pilot; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the first month of network vans; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md": {
+          "grade": 0,
+          "rationale": "Six-month review of the home visit program; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md#L1"
+        }
+      }
+    },
+    {
+      "id": "LINKED_TOPICS_VAULT-CONCEPTUAL_DISCOVERY-CATALOG_MIGRATION-01",
+      "split": "development",
+      "corpus": "linked-topics-vault",
+      "family": "conceptual_discovery",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "what went wrong when the library records moved to the new system"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md",
+        "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md": {
+          "grade": 3,
+          "rationale": "Details the largest problem, duplicate records after go-live.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md": {
+          "grade": 3,
+          "rationale": "Lists what went wrong: duplicates, lost local headings, barcodes, and reset holds queues.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md": {
+          "grade": 2,
+          "rationale": "Explains the barcode and loan history losses in the export.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md": {
+          "grade": 2,
+          "rationale": "How staff handle the record problems left after the move.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md": {
+          "grade": 2,
+          "rationale": "Records the test load failures before the cutover.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md": {
+          "grade": 2,
+          "rationale": "Overview of the records move; scope and timeline but not its problems.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md": {
+          "grade": 1,
+          "rationale": "A similar records move that went badly, but at another organization.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md": {
+          "grade": 1,
+          "rationale": "Planning decision; notes the processing backlog it caused.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md": {
+          "grade": 1,
+          "rationale": "Where to report problems, not what they were.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md": {
+          "grade": 1,
+          "rationale": "Training on the new screens, not problems with the records.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md": {
+          "grade": 1,
+          "rationale": "Notes missing loan history on go-live day in passing.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md": {
+          "grade": 1,
+          "rationale": "Mentions merging duplicate records in passing.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md": {
+          "grade": 1,
+          "rationale": "Only a schedule update about the move.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Odile Varga.md": {
+          "grade": 1,
+          "rationale": "Role note for the cleanup lead; no account of what went wrong.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Odile Varga.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md": {
+          "grade": 0,
+          "rationale": "A club's email list, not library records.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md": {
+          "grade": 0,
+          "rationale": "A volunteer group's seed cards, not the library's records.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md": {
+          "grade": 0,
+          "rationale": "The county archives courier collecting township record boxes; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md": {
+          "grade": 0,
+          "rationale": "Mailing the printed newsletter to households; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md": {
+          "grade": 0,
+          "rationale": "Late vendor invoices for boiler work; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md": {
+          "grade": 0,
+          "rationale": "A food pantry merging its grocery routes; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md": {
+          "grade": 0,
+          "rationale": "Training for hospice visit volunteers; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md": {
+          "grade": 0,
+          "rationale": "A meal delivery program's driver schedule; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md": {
+          "grade": 0,
+          "rationale": "City parking tickets near a branch; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md": {
+          "grade": 0,
+          "rationale": "The school district rotating classroom book bins; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md": {
+          "grade": 0,
+          "rationale": "A toy library's own charges for late toy returns; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md": {
+          "grade": 0,
+          "rationale": "Decision record ending the outside hauling contract; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md": {
+          "grade": 0,
+          "rationale": "Decision record keeping lost item charges; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md": {
+          "grade": 0,
+          "rationale": "Decision record setting monthly home visits; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md": {
+          "grade": 0,
+          "rationale": "Rules for card blocks and item limits; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md": {
+          "grade": 0,
+          "rationale": "Notes on the collection agency contract; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md": {
+          "grade": 0,
+          "rationale": "Rules for the holds pickup shelf; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md": {
+          "grade": 0,
+          "rationale": "How-to for waiving old late charges; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md": {
+          "grade": 0,
+          "rationale": "How-to for packing transit bins; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md": {
+          "grade": 0,
+          "rationale": "How-to for packing a home visit bag; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md": {
+          "grade": 0,
+          "rationale": "How-to for enrolling a patron in home visits; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md": {
+          "grade": 0,
+          "rationale": "Description of the large print collection; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md": {
+          "grade": 0,
+          "rationale": "Schedule for putting shelves back in call number order; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md": {
+          "grade": 0,
+          "rationale": "Desk answers about the end of late charges; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md": {
+          "grade": 0,
+          "rationale": "Repair log for the network vans; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md": {
+          "grade": 0,
+          "rationale": "Stop times for the network vans; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md": {
+          "grade": 0,
+          "rationale": "Screening rules for home visit volunteers; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Index - Everything.md": {
+          "grade": 0,
+          "rationale": "Index that lists every note by title and says nothing about any topic; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Index - Everything.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md": {
+          "grade": 0,
+          "rationale": "Daily log with passing mentions of training and hold slips; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md": {
+          "grade": 0,
+          "rationale": "Daily log with a shelf reading note and passing desk notes; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md": {
+          "grade": 0,
+          "rationale": "Board minutes adopting the end of late charges; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md": {
+          "grade": 0,
+          "rationale": "Circulation supervisors preparing for the end of late charges; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md": {
+          "grade": 0,
+          "rationale": "Meeting log reworking the van stop order; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md": {
+          "grade": 0,
+          "rationale": "Facilities committee minutes on roofs, parking, and the sorting room; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md": {
+          "grade": 0,
+          "rationale": "Finance committee minutes on audit, insurance, and late charge revenue; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md": {
+          "grade": 0,
+          "rationale": "Outreach budget review; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md": {
+          "grade": 0,
+          "rationale": "Check-in with home visit volunteers; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md": {
+          "grade": 0,
+          "rationale": "Meeting with senior housing partners about home visits; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md": {
+          "grade": 0,
+          "rationale": "Walkthrough of the Millbrook sorting room; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md": {
+          "grade": 0,
+          "rationale": "Role note for the circulation supervisor; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md": {
+          "grade": 0,
+          "rationale": "Role note for the delivery and facilities lead; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md": {
+          "grade": 0,
+          "rationale": "Role note for the outreach coordinator; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md": {
+          "grade": 0,
+          "rationale": "Board policy ending charges for late returns; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md": {
+          "grade": 0,
+          "rationale": "Overview of the volunteer home visit program; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md": {
+          "grade": 0,
+          "rationale": "Overview of the network van fleet; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md": {
+          "grade": 0,
+          "rationale": "Results of the Pinecrest no-charge pilot; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the first month of network vans; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md": {
+          "grade": 0,
+          "rationale": "Six-month review of the home visit program; nothing about the move of the library's records to Fernbank.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md#L1"
+        }
+      }
+    },
+    {
+      "id": "LINKED_TOPICS_VAULT-NAVIGATION-COURIER_CONSOLIDATION-01",
+      "split": "development",
+      "corpus": "linked-topics-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "courier consolidation"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md": {
+          "grade": 3,
+          "rationale": "The project note for the courier consolidation; seven notes link to it with that label though its own text never uses the words.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md": {
+          "grade": 2,
+          "rationale": "Decision record that started the consolidation.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md": {
+          "grade": 2,
+          "rationale": "Meeting reworking routes after the consolidation.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md": {
+          "grade": 2,
+          "rationale": "Walkthrough of the sorting room the consolidation created.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md": {
+          "grade": 2,
+          "rationale": "Role note for the person who proposed and runs the consolidated vans.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md": {
+          "grade": 2,
+          "rationale": "Retrospective on the consolidation's first month.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md": {
+          "grade": 1,
+          "rationale": "A different courier that stops at one branch for the county archives.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md": {
+          "grade": 1,
+          "rationale": "Packing how-to for the vans; mentions the consolidation only as context.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md": {
+          "grade": 1,
+          "rationale": "Repair log for the vans.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md": {
+          "grade": 1,
+          "rationale": "Stop times for the vans, not the consolidation itself.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md": {
+          "grade": 1,
+          "rationale": "One agenda item about the sorting room.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md": {
+          "grade": 0,
+          "rationale": "A food pantry's grocery routes, not library deliveries.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md": {
+          "grade": 0,
+          "rationale": "The school district's bin rotation, not the library network.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md": {
+          "grade": 0,
+          "rationale": "Holds shelf rules; the vans appear only as a link label.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md": {
+          "grade": 0,
+          "rationale": "Passing note about ordering hold slips.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md": {
+          "grade": 0,
+          "rationale": "Passing van repair note.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md": {
+          "grade": 0,
+          "rationale": "Mailing the printed newsletter to households; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md": {
+          "grade": 0,
+          "rationale": "A birding club moving its member email list; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md": {
+          "grade": 0,
+          "rationale": "Late vendor invoices for boiler work; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md": {
+          "grade": 0,
+          "rationale": "A genealogy society moving its family files to a hosted database; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md": {
+          "grade": 0,
+          "rationale": "Training for hospice visit volunteers; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md": {
+          "grade": 0,
+          "rationale": "A meal delivery program's driver schedule; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md": {
+          "grade": 0,
+          "rationale": "City parking tickets near a branch; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md": {
+          "grade": 0,
+          "rationale": "A seed savers group moving its seed cards to a spreadsheet; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md": {
+          "grade": 0,
+          "rationale": "A toy library's own charges for late toy returns; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md": {
+          "grade": 0,
+          "rationale": "Decision record freezing record edits during the Fernbank cutover; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md": {
+          "grade": 0,
+          "rationale": "Decision record keeping lost item charges; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md": {
+          "grade": 0,
+          "rationale": "Decision record setting monthly home visits; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md": {
+          "grade": 0,
+          "rationale": "Field mapping from the Bookwright export to Fernbank; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md": {
+          "grade": 0,
+          "rationale": "Rules for card blocks and item limits; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md": {
+          "grade": 0,
+          "rationale": "Notes on the collection agency contract; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md": {
+          "grade": 0,
+          "rationale": "Support contacts for the Fernbank platform; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md": {
+          "grade": 0,
+          "rationale": "How-to for checking suspect Fernbank records; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md": {
+          "grade": 0,
+          "rationale": "How-to for waiving old late charges; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md": {
+          "grade": 0,
+          "rationale": "How-to for packing a home visit bag; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md": {
+          "grade": 0,
+          "rationale": "How-to for enrolling a patron in home visits; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md": {
+          "grade": 0,
+          "rationale": "Description of the large print collection; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md": {
+          "grade": 0,
+          "rationale": "Schedule for putting shelves back in call number order; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md": {
+          "grade": 0,
+          "rationale": "Training sessions for the Fernbank circulation screens; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md": {
+          "grade": 0,
+          "rationale": "Desk answers about the end of late charges; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md": {
+          "grade": 0,
+          "rationale": "Screening rules for home visit volunteers; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Index - Everything.md": {
+          "grade": 0,
+          "rationale": "Index that lists every note by title and says nothing about any topic; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Index - Everything.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md": {
+          "grade": 0,
+          "rationale": "Daily log from the Fernbank go-live day; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md": {
+          "grade": 0,
+          "rationale": "Daily log with a shelf reading note and passing desk notes; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md": {
+          "grade": 0,
+          "rationale": "Board minutes adopting the end of late charges; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md": {
+          "grade": 0,
+          "rationale": "Routine branch managers meeting with a Fernbank update; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md": {
+          "grade": 0,
+          "rationale": "Circulation supervisors preparing for the end of late charges; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md": {
+          "grade": 0,
+          "rationale": "Meeting log on duplicate records after the Fernbank load; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md": {
+          "grade": 0,
+          "rationale": "Finance committee minutes on audit, insurance, and late charge revenue; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md": {
+          "grade": 0,
+          "rationale": "Outreach budget review; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md": {
+          "grade": 0,
+          "rationale": "Check-in with home visit volunteers; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md": {
+          "grade": 0,
+          "rationale": "Meeting log planning the Fernbank cutover week; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md": {
+          "grade": 0,
+          "rationale": "Meeting with senior housing partners about home visits; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md": {
+          "grade": 0,
+          "rationale": "Role note for the circulation supervisor; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Odile Varga.md": {
+          "grade": 0,
+          "rationale": "Role note for the head of technical services; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Odile Varga.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md": {
+          "grade": 0,
+          "rationale": "Role note for the outreach coordinator; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md": {
+          "grade": 0,
+          "rationale": "Board policy ending charges for late returns; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md": {
+          "grade": 0,
+          "rationale": "Overview of the volunteer home visit program; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md": {
+          "grade": 0,
+          "rationale": "Overview of the move from Bookwright to Fernbank; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md": {
+          "grade": 0,
+          "rationale": "Results of the Pinecrest no-charge pilot; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the Fernbank record move; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md": {
+          "grade": 0,
+          "rationale": "Six-month review of the home visit program; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md#L1"
+        }
+      }
+    },
+    {
+      "id": "LINKED_TOPICS_VAULT-CONCEPTUAL_DISCOVERY-COURIER_CONSOLIDATION-01",
+      "split": "development",
+      "corpus": "linked-topics-vault",
+      "family": "conceptual_discovery",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "how requested books get sorted and moved between branches each day"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md",
+        "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md",
+        "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md": {
+          "grade": 3,
+          "rationale": "How items are labeled and packed to travel between branches.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md": {
+          "grade": 3,
+          "rationale": "The daily stop times that move bins between branches and the sorting room.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md": {
+          "grade": 3,
+          "rationale": "Walks through each step a requested book takes between branches.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md": {
+          "grade": 2,
+          "rationale": "Changes to the daily van loop and pickup times.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md": {
+          "grade": 2,
+          "rationale": "Overview of the van fleet and sorting room, without the daily steps.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md": {
+          "grade": 2,
+          "rationale": "Transit times and what slowed holds in the first month.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md": {
+          "grade": 1,
+          "rationale": "Books moving between schools, a similar process outside the library.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md": {
+          "grade": 1,
+          "rationale": "Contract and cost decision, not the daily process.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md": {
+          "grade": 1,
+          "rationale": "Covers only the last step, the holds shelf.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md": {
+          "grade": 1,
+          "rationale": "Van repairs, which only explain occasional delays.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md": {
+          "grade": 1,
+          "rationale": "Mentions the sorting room's equipment only.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md": {
+          "grade": 1,
+          "rationale": "Role note for who runs the vans.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md": {
+          "grade": 0,
+          "rationale": "Archive boxes collected by the county, not books between branches.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md": {
+          "grade": 0,
+          "rationale": "Grocery delivery routes, not library books.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md": {
+          "grade": 0,
+          "rationale": "Passing note about ordering hold slips.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md": {
+          "grade": 0,
+          "rationale": "Passing van repair note.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md": {
+          "grade": 0,
+          "rationale": "Mailing the printed newsletter to households; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md": {
+          "grade": 0,
+          "rationale": "A birding club moving its member email list; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md": {
+          "grade": 0,
+          "rationale": "Late vendor invoices for boiler work; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md": {
+          "grade": 0,
+          "rationale": "A genealogy society moving its family files to a hosted database; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md": {
+          "grade": 0,
+          "rationale": "Training for hospice visit volunteers; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md": {
+          "grade": 0,
+          "rationale": "A meal delivery program's driver schedule; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md": {
+          "grade": 0,
+          "rationale": "City parking tickets near a branch; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md": {
+          "grade": 0,
+          "rationale": "A seed savers group moving its seed cards to a spreadsheet; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md": {
+          "grade": 0,
+          "rationale": "A toy library's own charges for late toy returns; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md": {
+          "grade": 0,
+          "rationale": "Decision record freezing record edits during the Fernbank cutover; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md": {
+          "grade": 0,
+          "rationale": "Decision record keeping lost item charges; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md": {
+          "grade": 0,
+          "rationale": "Decision record setting monthly home visits; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md": {
+          "grade": 0,
+          "rationale": "Field mapping from the Bookwright export to Fernbank; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md": {
+          "grade": 0,
+          "rationale": "Rules for card blocks and item limits; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md": {
+          "grade": 0,
+          "rationale": "Notes on the collection agency contract; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md": {
+          "grade": 0,
+          "rationale": "Support contacts for the Fernbank platform; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md": {
+          "grade": 0,
+          "rationale": "How-to for checking suspect Fernbank records; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md": {
+          "grade": 0,
+          "rationale": "How-to for waiving old late charges; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md": {
+          "grade": 0,
+          "rationale": "How-to for packing a home visit bag; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md": {
+          "grade": 0,
+          "rationale": "How-to for enrolling a patron in home visits; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md": {
+          "grade": 0,
+          "rationale": "Description of the large print collection; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md": {
+          "grade": 0,
+          "rationale": "Schedule for putting shelves back in call number order; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md": {
+          "grade": 0,
+          "rationale": "Training sessions for the Fernbank circulation screens; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md": {
+          "grade": 0,
+          "rationale": "Desk answers about the end of late charges; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md": {
+          "grade": 0,
+          "rationale": "Screening rules for home visit volunteers; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Index - Everything.md": {
+          "grade": 0,
+          "rationale": "Index that lists every note by title and says nothing about any topic; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Index - Everything.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md": {
+          "grade": 0,
+          "rationale": "Daily log from the Fernbank go-live day; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md": {
+          "grade": 0,
+          "rationale": "Daily log with a shelf reading note and passing desk notes; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md": {
+          "grade": 0,
+          "rationale": "Board minutes adopting the end of late charges; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md": {
+          "grade": 0,
+          "rationale": "Routine branch managers meeting with a Fernbank update; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md": {
+          "grade": 0,
+          "rationale": "Circulation supervisors preparing for the end of late charges; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md": {
+          "grade": 0,
+          "rationale": "Meeting log on duplicate records after the Fernbank load; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md": {
+          "grade": 0,
+          "rationale": "Finance committee minutes on audit, insurance, and late charge revenue; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md": {
+          "grade": 0,
+          "rationale": "Outreach budget review; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md": {
+          "grade": 0,
+          "rationale": "Check-in with home visit volunteers; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md": {
+          "grade": 0,
+          "rationale": "Meeting log planning the Fernbank cutover week; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md": {
+          "grade": 0,
+          "rationale": "Meeting with senior housing partners about home visits; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md": {
+          "grade": 0,
+          "rationale": "Role note for the circulation supervisor; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Odile Varga.md": {
+          "grade": 0,
+          "rationale": "Role note for the head of technical services; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Odile Varga.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md": {
+          "grade": 0,
+          "rationale": "Role note for the outreach coordinator; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md": {
+          "grade": 0,
+          "rationale": "Board policy ending charges for late returns; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md": {
+          "grade": 0,
+          "rationale": "Overview of the volunteer home visit program; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md": {
+          "grade": 0,
+          "rationale": "Overview of the move from Bookwright to Fernbank; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md": {
+          "grade": 0,
+          "rationale": "Results of the Pinecrest no-charge pilot; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the Fernbank record move; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md": {
+          "grade": 0,
+          "rationale": "Six-month review of the home visit program; nothing about the network van fleet that replaced the outside haulers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md#L1"
+        }
+      }
+    },
+    {
+      "id": "LINKED_TOPICS_VAULT-NAVIGATION-OVERDUE_FINES-01",
+      "split": "held-out",
+      "corpus": "linked-topics-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "overdue fines"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md": {
+          "grade": 3,
+          "rationale": "The policy that ended overdue fines; eight notes link to it with that label though its own text never uses the words.",
+          "locator": "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md": {
+          "grade": 2,
+          "rationale": "Decision about which charges remain once overdue fines end.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md": {
+          "grade": 2,
+          "rationale": "How-to for clearing balances left from overdue fines.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md": {
+          "grade": 2,
+          "rationale": "Desk answers about the end of overdue fines.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md": {
+          "grade": 2,
+          "rationale": "Board minutes adopting the end of overdue fines.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md": {
+          "grade": 2,
+          "rationale": "Supervisors preparing for the end of overdue fines.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md": {
+          "grade": 2,
+          "rationale": "Committee review of the revenue that overdue fines brought in.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md": {
+          "grade": 2,
+          "rationale": "Role note for the person who ran the pilot and the cleanup.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md": {
+          "grade": 2,
+          "rationale": "Pilot that tested ending overdue fines.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md": {
+          "grade": 1,
+          "rationale": "A volunteer toy library's own late charges, not the library's.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md": {
+          "grade": 1,
+          "rationale": "Card block rules with one line about late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md": {
+          "grade": 1,
+          "rationale": "Agency contract affected by the policy, mentioned briefly.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md": {
+          "grade": 0,
+          "rationale": "Unpaid vendor invoices, not patron charges.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md": {
+          "grade": 0,
+          "rationale": "City parking tickets, not library charges.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md": {
+          "grade": 0,
+          "rationale": "Passing request for a count of blocked cards.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md": {
+          "grade": 0,
+          "rationale": "Passing note about the first week without late charges.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md": {
+          "grade": 0,
+          "rationale": "The county archives courier collecting township record boxes; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md": {
+          "grade": 0,
+          "rationale": "Mailing the printed newsletter to households; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md": {
+          "grade": 0,
+          "rationale": "A birding club moving its member email list; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md": {
+          "grade": 0,
+          "rationale": "A food pantry merging its grocery routes; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md": {
+          "grade": 0,
+          "rationale": "A genealogy society moving its family files to a hosted database; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md": {
+          "grade": 0,
+          "rationale": "Training for hospice visit volunteers; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md": {
+          "grade": 0,
+          "rationale": "A meal delivery program's driver schedule; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md": {
+          "grade": 0,
+          "rationale": "The school district rotating classroom book bins; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md": {
+          "grade": 0,
+          "rationale": "A seed savers group moving its seed cards to a spreadsheet; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md": {
+          "grade": 0,
+          "rationale": "Decision record ending the outside hauling contract; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md": {
+          "grade": 0,
+          "rationale": "Decision record freezing record edits during the Fernbank cutover; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md": {
+          "grade": 0,
+          "rationale": "Decision record setting monthly home visits; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md": {
+          "grade": 0,
+          "rationale": "Field mapping from the Bookwright export to Fernbank; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md": {
+          "grade": 0,
+          "rationale": "Support contacts for the Fernbank platform; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md": {
+          "grade": 0,
+          "rationale": "Rules for the holds pickup shelf; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md": {
+          "grade": 0,
+          "rationale": "How-to for checking suspect Fernbank records; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md": {
+          "grade": 0,
+          "rationale": "How-to for packing transit bins; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md": {
+          "grade": 0,
+          "rationale": "How-to for packing a home visit bag; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md": {
+          "grade": 0,
+          "rationale": "How-to for enrolling a patron in home visits; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md": {
+          "grade": 0,
+          "rationale": "Description of the large print collection; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md": {
+          "grade": 0,
+          "rationale": "Schedule for putting shelves back in call number order; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md": {
+          "grade": 0,
+          "rationale": "Training sessions for the Fernbank circulation screens; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md": {
+          "grade": 0,
+          "rationale": "Repair log for the network vans; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md": {
+          "grade": 0,
+          "rationale": "Stop times for the network vans; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md": {
+          "grade": 0,
+          "rationale": "Screening rules for home visit volunteers; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Index - Everything.md": {
+          "grade": 0,
+          "rationale": "Index that lists every note by title and says nothing about any topic; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Index - Everything.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md": {
+          "grade": 0,
+          "rationale": "Daily log with passing mentions of training and hold slips; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md": {
+          "grade": 0,
+          "rationale": "Daily log with van and record cleanup notes; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md": {
+          "grade": 0,
+          "rationale": "Routine branch managers meeting with a Fernbank update; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md": {
+          "grade": 0,
+          "rationale": "Meeting log reworking the van stop order; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md": {
+          "grade": 0,
+          "rationale": "Meeting log on duplicate records after the Fernbank load; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md": {
+          "grade": 0,
+          "rationale": "Facilities committee minutes on roofs, parking, and the sorting room; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md": {
+          "grade": 0,
+          "rationale": "Outreach budget review; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md": {
+          "grade": 0,
+          "rationale": "Check-in with home visit volunteers; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md": {
+          "grade": 0,
+          "rationale": "Meeting log planning the Fernbank cutover week; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md": {
+          "grade": 0,
+          "rationale": "Meeting with senior housing partners about home visits; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md": {
+          "grade": 0,
+          "rationale": "Walkthrough of the Millbrook sorting room; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md": {
+          "grade": 0,
+          "rationale": "Role note for the delivery and facilities lead; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Odile Varga.md": {
+          "grade": 0,
+          "rationale": "Role note for the head of technical services; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Odile Varga.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md": {
+          "grade": 0,
+          "rationale": "Role note for the outreach coordinator; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md": {
+          "grade": 0,
+          "rationale": "Overview of the volunteer home visit program; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md": {
+          "grade": 0,
+          "rationale": "Overview of the move from Bookwright to Fernbank; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md": {
+          "grade": 0,
+          "rationale": "Overview of the network van fleet; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the first month of network vans; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the Fernbank record move; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md": {
+          "grade": 0,
+          "rationale": "Six-month review of the home visit program; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md#L1"
+        }
+      }
+    },
+    {
+      "id": "LINKED_TOPICS_VAULT-CONCEPTUAL_DISCOVERY-OVERDUE_FINES-01",
+      "split": "held-out",
+      "corpus": "linked-topics-vault",
+      "family": "conceptual_discovery",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "evidence that ending late return charges brought patrons back to the library"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md",
+        "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md": {
+          "grade": 3,
+          "rationale": "Records the pilot evidence presented to the board and the vote.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md": {
+          "grade": 3,
+          "rationale": "Reports how many blocked cardholders came back and that returns did not slow.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md": {
+          "grade": 2,
+          "rationale": "Summarizes why the charges ended and cites the pilot.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md": {
+          "grade": 2,
+          "rationale": "States the policy and what changed, without the evidence.",
+          "locator": "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md": {
+          "grade": 1,
+          "rationale": "Another group's choice to keep its late charges; no evidence about library patrons.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md": {
+          "grade": 1,
+          "rationale": "Related charge decision; mentions the pilot only for context.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md": {
+          "grade": 1,
+          "rationale": "Card rules with one line about late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md": {
+          "grade": 1,
+          "rationale": "Staff procedure, no evidence.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md": {
+          "grade": 1,
+          "rationale": "Desk preparation, no evidence about patrons.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md": {
+          "grade": 1,
+          "rationale": "Revenue effect, not patron behavior.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md": {
+          "grade": 1,
+          "rationale": "Role note for the pilot's author; no figures.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md": {
+          "grade": 0,
+          "rationale": "Vendor invoices.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md": {
+          "grade": 0,
+          "rationale": "City parking tickets.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md": {
+          "grade": 0,
+          "rationale": "Agency contract terms, nothing about patrons returning.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md": {
+          "grade": 0,
+          "rationale": "Passing request for a count of blocked cards.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md": {
+          "grade": 0,
+          "rationale": "Passing note about the first week without late charges.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md": {
+          "grade": 0,
+          "rationale": "The county archives courier collecting township record boxes; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md": {
+          "grade": 0,
+          "rationale": "Mailing the printed newsletter to households; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md": {
+          "grade": 0,
+          "rationale": "A birding club moving its member email list; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md": {
+          "grade": 0,
+          "rationale": "A food pantry merging its grocery routes; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md": {
+          "grade": 0,
+          "rationale": "A genealogy society moving its family files to a hosted database; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md": {
+          "grade": 0,
+          "rationale": "Training for hospice visit volunteers; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md": {
+          "grade": 0,
+          "rationale": "A meal delivery program's driver schedule; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md": {
+          "grade": 0,
+          "rationale": "The school district rotating classroom book bins; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md": {
+          "grade": 0,
+          "rationale": "A seed savers group moving its seed cards to a spreadsheet; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md": {
+          "grade": 0,
+          "rationale": "Decision record ending the outside hauling contract; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md": {
+          "grade": 0,
+          "rationale": "Decision record freezing record edits during the Fernbank cutover; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md": {
+          "grade": 0,
+          "rationale": "Decision record setting monthly home visits; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md": {
+          "grade": 0,
+          "rationale": "Field mapping from the Bookwright export to Fernbank; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md": {
+          "grade": 0,
+          "rationale": "Support contacts for the Fernbank platform; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md": {
+          "grade": 0,
+          "rationale": "Rules for the holds pickup shelf; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md": {
+          "grade": 0,
+          "rationale": "How-to for checking suspect Fernbank records; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md": {
+          "grade": 0,
+          "rationale": "How-to for packing transit bins; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md": {
+          "grade": 0,
+          "rationale": "How-to for packing a home visit bag; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md": {
+          "grade": 0,
+          "rationale": "How-to for enrolling a patron in home visits; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md": {
+          "grade": 0,
+          "rationale": "Description of the large print collection; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md": {
+          "grade": 0,
+          "rationale": "Schedule for putting shelves back in call number order; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md": {
+          "grade": 0,
+          "rationale": "Training sessions for the Fernbank circulation screens; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md": {
+          "grade": 0,
+          "rationale": "Repair log for the network vans; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md": {
+          "grade": 0,
+          "rationale": "Stop times for the network vans; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md": {
+          "grade": 0,
+          "rationale": "Screening rules for home visit volunteers; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Index - Everything.md": {
+          "grade": 0,
+          "rationale": "Index that lists every note by title and says nothing about any topic; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Index - Everything.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md": {
+          "grade": 0,
+          "rationale": "Daily log with passing mentions of training and hold slips; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md": {
+          "grade": 0,
+          "rationale": "Daily log with van and record cleanup notes; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md": {
+          "grade": 0,
+          "rationale": "Routine branch managers meeting with a Fernbank update; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md": {
+          "grade": 0,
+          "rationale": "Meeting log reworking the van stop order; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md": {
+          "grade": 0,
+          "rationale": "Meeting log on duplicate records after the Fernbank load; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md": {
+          "grade": 0,
+          "rationale": "Facilities committee minutes on roofs, parking, and the sorting room; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md": {
+          "grade": 0,
+          "rationale": "Outreach budget review; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md": {
+          "grade": 0,
+          "rationale": "Check-in with home visit volunteers; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md": {
+          "grade": 0,
+          "rationale": "Meeting log planning the Fernbank cutover week; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md": {
+          "grade": 0,
+          "rationale": "Meeting with senior housing partners about home visits; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md": {
+          "grade": 0,
+          "rationale": "Walkthrough of the Millbrook sorting room; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md": {
+          "grade": 0,
+          "rationale": "Role note for the delivery and facilities lead; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Odile Varga.md": {
+          "grade": 0,
+          "rationale": "Role note for the head of technical services; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Odile Varga.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md": {
+          "grade": 0,
+          "rationale": "Role note for the outreach coordinator; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md": {
+          "grade": 0,
+          "rationale": "Overview of the volunteer home visit program; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md": {
+          "grade": 0,
+          "rationale": "Overview of the move from Bookwright to Fernbank; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md": {
+          "grade": 0,
+          "rationale": "Overview of the network van fleet; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the first month of network vans; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the Fernbank record move; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md": {
+          "grade": 0,
+          "rationale": "Six-month review of the home visit program; nothing about ending charges for late returns.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md#L1"
+        }
+      }
+    },
+    {
+      "id": "LINKED_TOPICS_VAULT-NAVIGATION-HOMEBOUND_SERVICE-01",
+      "split": "held-out",
+      "corpus": "linked-topics-vault",
+      "family": "navigation",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "homebound service"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md": {
+          "grade": 3,
+          "rationale": "The program note for the homebound service; eight notes link to it with that label though its own text never uses the words.",
+          "locator": "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md": {
+          "grade": 2,
+          "rationale": "Decision record setting the homebound service's visit schedule.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md": {
+          "grade": 2,
+          "rationale": "Volunteer how-to for homebound service visits.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md": {
+          "grade": 2,
+          "rationale": "Enrollment how-to for the homebound service.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md": {
+          "grade": 2,
+          "rationale": "Check-in with the homebound service's volunteers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md": {
+          "grade": 2,
+          "rationale": "Partner meeting about the homebound service in two buildings.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md": {
+          "grade": 2,
+          "rationale": "Role note for the coordinator who runs the homebound service.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md": {
+          "grade": 2,
+          "rationale": "Review of the homebound service's first six months.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md": {
+          "grade": 1,
+          "rationale": "Hospice visits to homebound patients, not the library's program.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md": {
+          "grade": 1,
+          "rationale": "A homebound meal program run by another organization.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md": {
+          "grade": 1,
+          "rationale": "Collection note that mentions the program in passing.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md": {
+          "grade": 1,
+          "rationale": "Screening rules for the program's volunteers, a narrow part of it.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md": {
+          "grade": 1,
+          "rationale": "One budget line for the program's readers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md": {
+          "grade": 0,
+          "rationale": "Newsletter mailing, not visits.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md": {
+          "grade": 0,
+          "rationale": "Passing note about dropping off a starter bag.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md": {
+          "grade": 0,
+          "rationale": "The county archives courier collecting township record boxes; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md": {
+          "grade": 0,
+          "rationale": "A birding club moving its member email list; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md": {
+          "grade": 0,
+          "rationale": "Late vendor invoices for boiler work; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md": {
+          "grade": 0,
+          "rationale": "A food pantry merging its grocery routes; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md": {
+          "grade": 0,
+          "rationale": "A genealogy society moving its family files to a hosted database; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md": {
+          "grade": 0,
+          "rationale": "City parking tickets near a branch; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md": {
+          "grade": 0,
+          "rationale": "The school district rotating classroom book bins; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md": {
+          "grade": 0,
+          "rationale": "A seed savers group moving its seed cards to a spreadsheet; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md": {
+          "grade": 0,
+          "rationale": "A toy library's own charges for late toy returns; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md": {
+          "grade": 0,
+          "rationale": "Decision record ending the outside hauling contract; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md": {
+          "grade": 0,
+          "rationale": "Decision record freezing record edits during the Fernbank cutover; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md": {
+          "grade": 0,
+          "rationale": "Decision record keeping lost item charges; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md": {
+          "grade": 0,
+          "rationale": "Field mapping from the Bookwright export to Fernbank; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md": {
+          "grade": 0,
+          "rationale": "Rules for card blocks and item limits; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md": {
+          "grade": 0,
+          "rationale": "Notes on the collection agency contract; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md": {
+          "grade": 0,
+          "rationale": "Support contacts for the Fernbank platform; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md": {
+          "grade": 0,
+          "rationale": "Rules for the holds pickup shelf; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md": {
+          "grade": 0,
+          "rationale": "How-to for checking suspect Fernbank records; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md": {
+          "grade": 0,
+          "rationale": "How-to for waiving old late charges; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md": {
+          "grade": 0,
+          "rationale": "How-to for packing transit bins; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md": {
+          "grade": 0,
+          "rationale": "Schedule for putting shelves back in call number order; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md": {
+          "grade": 0,
+          "rationale": "Training sessions for the Fernbank circulation screens; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md": {
+          "grade": 0,
+          "rationale": "Desk answers about the end of late charges; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md": {
+          "grade": 0,
+          "rationale": "Repair log for the network vans; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md": {
+          "grade": 0,
+          "rationale": "Stop times for the network vans; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Index - Everything.md": {
+          "grade": 0,
+          "rationale": "Index that lists every note by title and says nothing about any topic; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Index - Everything.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md": {
+          "grade": 0,
+          "rationale": "Daily log with passing mentions of training and hold slips; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md": {
+          "grade": 0,
+          "rationale": "Daily log from the Fernbank go-live day; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md": {
+          "grade": 0,
+          "rationale": "Daily log with van and record cleanup notes; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md": {
+          "grade": 0,
+          "rationale": "Board minutes adopting the end of late charges; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md": {
+          "grade": 0,
+          "rationale": "Routine branch managers meeting with a Fernbank update; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md": {
+          "grade": 0,
+          "rationale": "Circulation supervisors preparing for the end of late charges; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md": {
+          "grade": 0,
+          "rationale": "Meeting log reworking the van stop order; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md": {
+          "grade": 0,
+          "rationale": "Meeting log on duplicate records after the Fernbank load; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md": {
+          "grade": 0,
+          "rationale": "Facilities committee minutes on roofs, parking, and the sorting room; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md": {
+          "grade": 0,
+          "rationale": "Finance committee minutes on audit, insurance, and late charge revenue; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md": {
+          "grade": 0,
+          "rationale": "Meeting log planning the Fernbank cutover week; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md": {
+          "grade": 0,
+          "rationale": "Walkthrough of the Millbrook sorting room; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md": {
+          "grade": 0,
+          "rationale": "Role note for the circulation supervisor; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md": {
+          "grade": 0,
+          "rationale": "Role note for the delivery and facilities lead; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Odile Varga.md": {
+          "grade": 0,
+          "rationale": "Role note for the head of technical services; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Odile Varga.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md": {
+          "grade": 0,
+          "rationale": "Board policy ending charges for late returns; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md": {
+          "grade": 0,
+          "rationale": "Overview of the move from Bookwright to Fernbank; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md": {
+          "grade": 0,
+          "rationale": "Overview of the network van fleet; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md": {
+          "grade": 0,
+          "rationale": "Results of the Pinecrest no-charge pilot; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the first month of network vans; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the Fernbank record move; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md#L1"
+        }
+      }
+    },
+    {
+      "id": "LINKED_TOPICS_VAULT-CONCEPTUAL_DISCOVERY-HOMEBOUND_SERVICE-01",
+      "split": "held-out",
+      "corpus": "linked-topics-vault",
+      "family": "conceptual_discovery",
+      "surface": "unifiedsearch",
+      "judgmentMethod": "fixture_authored_with_judgments_before_candidate_run",
+      "judgedAt": "2026-10-08",
+      "queries": [
+        "how volunteers choose books and audiobooks for readers who can't get to a branch"
+      ],
+      "intent": "search",
+      "requiredSources": [
+        "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md",
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md"
+      ],
+      "requiredRoles": [
+        "documentation"
+      ],
+      "judgments": {
+        "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md": {
+          "grade": 3,
+          "rationale": "Explains how volunteers pick titles and set up audiobook players.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to prepare a visit bag.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md": {
+          "grade": 3,
+          "rationale": "Volunteers' discussion of choosing titles and the preference cards.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach volunteers check-in, 2026-02-05.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md": {
+          "grade": 2,
+          "rationale": "The interest form that records each reader's preferences.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to sign up a patron for home visits.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md": {
+          "grade": 2,
+          "rationale": "Overview of the program; says bags are chosen per reader without saying how.",
+          "locator": "testdata/search-quality/linked-topics-vault/Programs/Hearthside Visits.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md": {
+          "grade": 2,
+          "rationale": "Reports that bags missed readers' tastes and led to preference cards.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Six-month review of home visits.md#L1",
+          "supportedRoles": [
+            "documentation"
+          ]
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md": {
+          "grade": 1,
+          "rationale": "Hospice volunteers bring books, but the note is not about choosing them for library readers.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Hospice volunteer training.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md": {
+          "grade": 1,
+          "rationale": "Visit frequency and bag size, not title choice.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Monthly visit rotation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md": {
+          "grade": 1,
+          "rationale": "Where large print comes from, not how it is chosen.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Large print collection.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md": {
+          "grade": 1,
+          "rationale": "Budget for large print and audiobook players.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Outreach budget review, 2026-01-29.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md": {
+          "grade": 1,
+          "rationale": "Partner logistics, not title selection.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Senior housing partners meeting, 2026-03-12.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md": {
+          "grade": 1,
+          "rationale": "Role note that mentions keeping reading preferences.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Wendeline Okafor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md": {
+          "grade": 0,
+          "rationale": "Newsletter mailing, not book selection.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Home delivery of the quarterly newsletter.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md": {
+          "grade": 0,
+          "rationale": "Meal delivery, not books.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Meals on wheels driver schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md": {
+          "grade": 0,
+          "rationale": "Background checks and conduct, nothing about choosing books.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Volunteer screening for home visits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md": {
+          "grade": 0,
+          "rationale": "Passing note about dropping off a starter bag.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-06.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md": {
+          "grade": 0,
+          "rationale": "The county archives courier collecting township record boxes; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/County archives courier pickup.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md": {
+          "grade": 0,
+          "rationale": "A birding club moving its member email list; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Migrating the birding club mailing list.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md": {
+          "grade": 0,
+          "rationale": "Late vendor invoices for boiler work; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Branches/Overdue invoices from the heating contractor.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md": {
+          "grade": 0,
+          "rationale": "A food pantry merging its grocery routes; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Food pantry route consolidation.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md": {
+          "grade": 0,
+          "rationale": "A genealogy society moving its family files to a hosted database; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Genealogy society record transfer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md": {
+          "grade": 0,
+          "rationale": "City parking tickets near a branch; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Parking fines near the Main Street branch.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md": {
+          "grade": 0,
+          "rationale": "The school district rotating classroom book bins; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/School district book bin exchange.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md": {
+          "grade": 0,
+          "rationale": "A seed savers group moving its seed cards to a spreadsheet; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Seed library moves its catalog to a spreadsheet.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md": {
+          "grade": 0,
+          "rationale": "A toy library's own charges for late toy returns; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Community/Toy library late return rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md": {
+          "grade": 0,
+          "rationale": "Decision record ending the outside hauling contract; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - End the Ridgeway hauling contract.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md": {
+          "grade": 0,
+          "rationale": "Decision record freezing record edits during the Fernbank cutover; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Freeze cataloging during cutover week.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md": {
+          "grade": 0,
+          "rationale": "Decision record keeping lost item charges; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Decisions/Decision - Keep replacement charges for lost items.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md": {
+          "grade": 0,
+          "rationale": "Field mapping from the Bookwright export to Fernbank; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Bookwright export field map.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md": {
+          "grade": 0,
+          "rationale": "Rules for card blocks and item limits; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Card blocks and borrowing limits.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md": {
+          "grade": 0,
+          "rationale": "Notes on the collection agency contract; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Collection agency contract notes.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md": {
+          "grade": 0,
+          "rationale": "Support contacts for the Fernbank platform; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Fernbank vendor contacts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md": {
+          "grade": 0,
+          "rationale": "Rules for the holds pickup shelf; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Holds pickup shelf rules.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md": {
+          "grade": 0,
+          "rationale": "How-to for checking suspect Fernbank records; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to check a record after the cutover.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md": {
+          "grade": 0,
+          "rationale": "How-to for waiving old late charges; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to clear old late charges from patron accounts.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md": {
+          "grade": 0,
+          "rationale": "How-to for packing transit bins; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/How to pack a transit bin.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md": {
+          "grade": 0,
+          "rationale": "Schedule for putting shelves back in call number order; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Shelf reading schedule.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md": {
+          "grade": 0,
+          "rationale": "Training sessions for the Fernbank circulation screens; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Staff training for Fernbank circulation screens.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md": {
+          "grade": 0,
+          "rationale": "Desk answers about the end of late charges; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Talking points for patrons.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md": {
+          "grade": 0,
+          "rationale": "Repair log for the network vans; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van maintenance log.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md": {
+          "grade": 0,
+          "rationale": "Stop times for the network vans; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Guides/Van route timetable.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Index - Everything.md": {
+          "grade": 0,
+          "rationale": "Index that lists every note by title and says nothing about any topic; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Index - Everything.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md": {
+          "grade": 0,
+          "rationale": "Daily log with passing mentions of training and hold slips; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-02.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md": {
+          "grade": 0,
+          "rationale": "Daily log from the Fernbank go-live day; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-03-16.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md": {
+          "grade": 0,
+          "rationale": "Daily log with van and record cleanup notes; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Log/2026-04-20.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md": {
+          "grade": 0,
+          "rationale": "Board minutes adopting the end of late charges; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Board meeting, 2026-03-19.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md": {
+          "grade": 0,
+          "rationale": "Routine branch managers meeting with a Fernbank update; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Branch managers meeting, 2026-01-13.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md": {
+          "grade": 0,
+          "rationale": "Circulation supervisors preparing for the end of late charges; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Circulation supervisors meeting, 2026-02-25.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md": {
+          "grade": 0,
+          "rationale": "Meeting log reworking the van stop order; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Delivery routes working session, 2026-02-18.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md": {
+          "grade": 0,
+          "rationale": "Meeting log on duplicate records after the Fernbank load; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Duplicate records triage, 2026-03-24.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md": {
+          "grade": 0,
+          "rationale": "Facilities committee minutes on roofs, parking, and the sorting room; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Facilities committee, 2026-01-27.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md": {
+          "grade": 0,
+          "rationale": "Finance committee minutes on audit, insurance, and late charge revenue; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Finance committee, 2026-01-22.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md": {
+          "grade": 0,
+          "rationale": "Meeting log planning the Fernbank cutover week; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Records cutover planning, 2026-02-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md": {
+          "grade": 0,
+          "rationale": "Walkthrough of the Millbrook sorting room; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Meetings/Sorting room walkthrough, 2026-03-10.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md": {
+          "grade": 0,
+          "rationale": "Role note for the circulation supervisor; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Ines Barrow.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md": {
+          "grade": 0,
+          "rationale": "Role note for the delivery and facilities lead; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Jory Petrakis.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/People/Odile Varga.md": {
+          "grade": 0,
+          "rationale": "Role note for the head of technical services; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/People/Odile Varga.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md": {
+          "grade": 0,
+          "rationale": "Board policy ending charges for late returns; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Policies/Clearwater Resolution.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md": {
+          "grade": 0,
+          "rationale": "Overview of the move from Bookwright to Fernbank; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Project Kestrel.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md": {
+          "grade": 0,
+          "rationale": "Overview of the network van fleet; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Projects/Thistle Run.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md": {
+          "grade": 0,
+          "rationale": "Results of the Pinecrest no-charge pilot; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Pilot results - Pinecrest no-charge summer.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the first month of network vans; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - First month of network vans.md#L1"
+        },
+        "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md": {
+          "grade": 0,
+          "rationale": "Retrospective on the Fernbank record move; nothing about volunteer home visits for patrons who cannot leave home.",
+          "locator": "testdata/search-quality/linked-topics-vault/Reviews/Retrospective - Moving to Fernbank.md#L1"
+        }
+      }
     }
   ]
 }

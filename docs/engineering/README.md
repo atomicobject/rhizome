@@ -17,7 +17,7 @@ The user's request comes first, then these documents, then the skill defaults. W
 | Documentation | [documentation.md](documentation.md) | deciding which docs change with a change |
 | Review and approval | [review-and-approval.md](review-and-approval.md) | classifying risk, finding an approver, deciding whether to pause |
 | Architecture | [architecture.md](architecture.md) | placing code, crossing a boundary, reusing or adding a pattern |
-| Release | [release.md](release.md) | branching, versioning, changelog, deploy evidence |
+| Release | [release.md](release.md) | branching, opening or merging a pull request, versioning, changelog, deploy evidence |
 
 ## How agents use these
 

@@ -40,6 +40,7 @@ var evidenceSpecs = map[string]EvidenceSpec{
 	"note_title_exact":             {Channel: EvidenceChannelLexical, Normalize: clampUnit, Rankable: true},
 	"path_exact":                   {Channel: EvidenceChannelLexical, Normalize: clampUnit, Rankable: true},
 	"typo_title_match":             {Channel: EvidenceChannelLexical, Normalize: clampUnit, Rankable: true},
+	"link_text_match":              {Channel: EvidenceChannelLexical, Normalize: clampUnit, Rankable: true},
 	"tests_path":                   {Channel: EvidenceChannelLexical, Normalize: clampUnit, Rankable: true},
 	"tests_package":                {Channel: EvidenceChannelLexical, Normalize: clampUnit, Rankable: true},
 	"graph_proximity":              {Channel: EvidenceChannelGraph, Normalize: clampUnit, Rankable: true},
@@ -105,6 +106,10 @@ func NormalizeEvidenceList(evidence []Evidence) ([]Evidence, error) {
 	}
 	return out, nil
 }
+
+// LinkTextAliasDetail names the link_text_match detail holding a label that
+// several linking notes use for the target and that names every query concept.
+const LinkTextAliasDetail = "alias"
 
 func EvidenceScore(ev Evidence) float64 {
 	if ev.Score > 0 {
