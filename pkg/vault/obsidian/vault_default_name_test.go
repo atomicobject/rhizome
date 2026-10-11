@@ -62,6 +62,25 @@ func TestVaultDefaultName(t *testing.T) {
 			assert.Equal(t, paths.ResolveSymlinks(root).String(), vaultName)
 		})
 
+		t.Run("Auto-discovers the nearest ancestor config", func(t *testing.T) {
+			root := t.TempDir()
+			nested := root + "/projects/site"
+			child := nested + "/docs"
+			require.NoError(t, os.MkdirAll(root+"/.git", 0o755))
+			require.NoError(t, os.MkdirAll(root+"/.rhizome", 0o755))
+			require.NoError(t, os.MkdirAll(nested+"/.rhizome", 0o755))
+			require.NoError(t, os.MkdirAll(child, 0o755))
+			require.NoError(t, os.WriteFile(root+"/.rhizome/config.yml", []byte("notes: {}\n"), 0o644))
+			require.NoError(t, os.WriteFile(nested+"/.rhizome/config.yml", []byte("notes: {}\n"), 0o644))
+			require.NoError(t, os.Chdir(child))
+			t.Cleanup(func() { _ = os.Chdir(tmp) })
+
+			vault := obsidian.Vault{}
+			vaultName, err := vault.DefaultName()
+			require.NoError(t, err)
+			assert.Equal(t, paths.ResolveSymlinks(nested).String(), vaultName)
+		})
+
 		t.Run("Does not auto-discover local config above the git root", func(t *testing.T) {
 			parent := t.TempDir()
 			repo := parent + "/repo"
