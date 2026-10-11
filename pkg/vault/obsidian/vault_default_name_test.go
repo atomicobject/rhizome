@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/mocks"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,7 +46,44 @@ func TestVaultDefaultName(t *testing.T) {
 			assert.Equal(t, "example-rhizome", vaultName)
 		})
 
-		t.Run("Does not auto-discover parent local config", func(t *testing.T) {
+		t.Run("Auto-discovers local config in an ancestor up to the git root", func(t *testing.T) {
+			root := t.TempDir()
+			child := root + "/Notes/deeper"
+			require.NoError(t, os.MkdirAll(root+"/.git", 0o755))
+			require.NoError(t, os.MkdirAll(root+"/.rhizome", 0o755))
+			require.NoError(t, os.MkdirAll(child, 0o755))
+			require.NoError(t, os.WriteFile(root+"/.rhizome/config.yml", []byte("notes: {}\n"), 0o644))
+			require.NoError(t, os.Chdir(child))
+			t.Cleanup(func() { _ = os.Chdir(tmp) })
+
+			vault := obsidian.Vault{}
+			vaultName, err := vault.DefaultName()
+			require.NoError(t, err)
+			assert.Equal(t, paths.ResolveSymlinks(root).String(), vaultName)
+		})
+
+		t.Run("Does not auto-discover local config above the git root", func(t *testing.T) {
+			parent := t.TempDir()
+			repo := parent + "/repo"
+			require.NoError(t, os.MkdirAll(parent+"/.rhizome", 0o755))
+			require.NoError(t, os.MkdirAll(repo+"/.git", 0o755))
+			require.NoError(t, os.WriteFile(parent+"/.rhizome/config.yml", []byte("notes: {}\n"), 0o644))
+			require.NoError(t, os.Chdir(repo))
+			t.Cleanup(func() { _ = os.Chdir(tmp) })
+
+			mockCliConfigDir, mockCliConfigFile := mocks.CreateMockCliConfigDirectories(t)
+			obsidian.CliConfigPath = func() (string, string, error) {
+				return mockCliConfigDir, mockCliConfigFile, nil
+			}
+			require.NoError(t, os.WriteFile(mockCliConfigFile, []byte("default_vault_name: example-rhizome\n"), 0644))
+
+			vault := obsidian.Vault{}
+			vaultName, err := vault.DefaultName()
+			assert.Equal(t, nil, err)
+			assert.Equal(t, "example-rhizome", vaultName)
+		})
+
+		t.Run("Does not auto-discover parent local config outside a git work tree", func(t *testing.T) {
 			parent := t.TempDir()
 			child := parent + "/child"
 			require.NoError(t, os.MkdirAll(parent+"/.rhizome", 0o755))
