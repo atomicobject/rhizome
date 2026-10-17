@@ -16,6 +16,8 @@ Release-note generation is one global editorial pass, not one bullet per deliver
 
 GitHub evidence uses the authenticated `gh` account. Publishing credentials are deliberately separate: `RZM_RELEASE_GITHUB_TOKEN` is required before apply and is exposed as `GITHUB_TOKEN` only to the local GoReleaser subprocess; `BREW_GITHUB_TOKEN` remains scoped to the Homebrew tap.
 
+The desktop app is published by GoReleaser, not by a checkpoint. `build_desktop.py` is the `rzm-darwin` post-build hook: it builds the app around the arm64 binary in snapshots and when `release_publish.py` sets `RZM_RELEASE_DESKTOP=1` for a public release, and is a no-op otherwise (amd64, internal, Actions fallback). With that flag it fails without `TAURI_SIGNING_PRIVATE_KEY`, and `.goreleaser.yml` turns the four desktop asset globs into required literal paths. `run_clean.py` passes the signing key and password only to a `goreleaser` command; the hook strips publishing tokens before running Tauri. Public apply requires the key before mutation.
+
 - **Entry points**: `release_cli.py`, `cut_release.sh`, `generate_notes.py`
 - **Deep docs**: [Release process](../../docs/RELEASING.md), [[../../docs/specs/technical/evidence-grounded-release-orchestration|SPEC-0078]]
 

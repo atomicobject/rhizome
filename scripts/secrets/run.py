@@ -17,6 +17,9 @@ RELEASE = {"BREW_GITHUB_TOKEN", "RZM_RELEASE_GITHUB_TOKEN"}
 TEAM_KEYS = {"ATOMIC_RHIZOME_KEY", "VOYAGE_API_KEY", "TYPESAFE_API_KEY"}
 # Only the internal S3 publish step uses AWS; run_clean.py strips it from builds.
 AWS_RELEASE = {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"}
+# Public releases sign the desktop updater archive; run_clean.py passes these
+# only to GoReleaser.
+DESKTOP_SIGNING = {"TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"}
 SENSITIVE = re.compile(
     r"(?:^|_)(?:API_KEY|ACCESS_KEY(?:_ID)?|PRIVATE_KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIALS?)(?:$|_)"
 )
@@ -27,7 +30,7 @@ def sensitive_name(name: str) -> bool:
 
 
 def scoped_environment(source: dict[str, str], profile: str) -> dict[str, str]:
-    allowed = DEVELOPMENT if profile == "development" else RELEASE | TEAM_KEYS | AWS_RELEASE
+    allowed = DEVELOPMENT if profile == "development" else RELEASE | TEAM_KEYS | AWS_RELEASE | DESKTOP_SIGNING
     result = {key: value for key, value in source.items() if not sensitive_name(key) or key in allowed}
     if profile == "release":
         # Keep publishing auth out of ordinary gh commands. GoReleaser's adapter

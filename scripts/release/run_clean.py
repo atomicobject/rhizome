@@ -19,6 +19,9 @@ SENSITIVE = re.compile(
     r"(?:^|_)(?:API_KEY|ACCESS_KEY(?:_ID)?|PRIVATE_KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIALS?)(?:$|_)"
 )
 PUBLISH_ALLOWED = {"GITHUB_TOKEN", "BREW_GITHUB_TOKEN"}
+# GoReleaser's desktop build hook signs the updater archive with these, so they
+# reach GoReleaser in build and publish modes and no other command.
+DESKTOP_SIGNING = ("TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD")
 
 
 def sensitive_name(name: str) -> bool:
@@ -53,7 +56,10 @@ def scoped_environment(source: Mapping[str, str], mode: str) -> dict[str, str]:
 def run(mode: str, command: Sequence[str], source: Mapping[str, str] | None = None) -> int:
     if not command:
         raise ValueError("provide a command to run")
-    environment = scoped_environment(os.environ if source is None else source, mode)
+    source = os.environ if source is None else source
+    environment = scoped_environment(source, mode)
+    if Path(command[0]).name == "goreleaser":
+        environment.update({name: source[name] for name in DESKTOP_SIGNING if name in source})
     if mode == "publish":
         missing = sorted(name for name in PUBLISH_ALLOWED if not environment.get(name, "").strip())
         if missing:

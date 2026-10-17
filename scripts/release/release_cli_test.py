@@ -201,7 +201,7 @@ class Fixture:
             input_fn=self.ask,
             output_fn=self.output.append,
             today_fn=lambda: "2026-07-17",
-            environ={"RZM_RELEASE_GITHUB_TOKEN": "publish-secret"},
+            environ={"RZM_RELEASE_GITHUB_TOKEN": "publish-secret", "TAURI_SIGNING_PRIVATE_KEY": "signing-secret"},
         )
 
     def collect(self, repo, base, head, **kwargs):
@@ -382,6 +382,18 @@ class OrchestratorTest(unittest.TestCase):
         fixture.orchestrator.environ = {}
 
         with self.assertRaisesRegex(OrchestrationError, "RZM_RELEASE_GITHUB_TOKEN"):
+            fixture.orchestrator.apply(BASE, HEAD_SHA)
+
+        self.assertEqual(fixture.commands.head, HEAD_SHA)
+        self.assertFalse(any(call[:2] == ("git", "commit") for call in fixture.commands.calls))
+
+    def test_public_apply_requires_desktop_signing_key_before_mutation(self) -> None:
+        fixture = Fixture(self)
+        fixture.plan()
+        fixture.orchestrator.build(BASE, HEAD_SHA)
+        fixture.orchestrator.environ = {"RZM_RELEASE_GITHUB_TOKEN": "publish-secret"}
+
+        with self.assertRaisesRegex(OrchestrationError, "TAURI_SIGNING_PRIVATE_KEY"):
             fixture.orchestrator.apply(BASE, HEAD_SHA)
 
         self.assertEqual(fixture.commands.head, HEAD_SHA)
