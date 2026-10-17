@@ -185,12 +185,12 @@ func TestRebuildStopsAndRestartsTheHeadlessRuntime(t *testing.T) {
 
 // Restart Rhizome in the desktop app sends the bridge an open with restart,
 // which replaces a headless runtime even when its build already matches.
-// desktopBridge builds the desktop companion and returns a function that sends
-// it one request for vault and returns the raw response.
+// desktopBridge builds rzm and returns a function that sends one bridge
+// request for vault and returns the raw response.
 func desktopBridge(t *testing.T, vault *runtimeVault) func(request map[string]any) []byte {
 	t.Helper()
-	bridge := filepath.Join(t.TempDir(), "rhizome-desktop-bridge"+filepath.Ext(vault.binary))
-	build := exec.Command("go", "build", "-mod=vendor", "-tags", "fts5", "-o", bridge, "./desktop/bridge")
+	bridge := filepath.Join(t.TempDir(), "rzm"+filepath.Ext(vault.binary))
+	build := exec.Command("go", "build", "-mod=vendor", "-tags", "fts5", "-o", bridge, ".")
 	build.Dir = fixture.RepoRoot(t)
 	output, err := build.CombinedOutput()
 	require.NoError(t, err, "%s", output)
@@ -203,7 +203,7 @@ func desktopBridge(t *testing.T, vault *runtimeVault) func(request map[string]an
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 		defer cancel()
-		command := exec.CommandContext(ctx, bridge, "--state-dir", stateDir)
+		command := exec.CommandContext(ctx, bridge, "desktop-bridge", "--state-dir", stateDir)
 		command.Dir = vault.root
 		command.Env = vault.environment(nil)
 		command.Stdin = bytes.NewReader(encoded)
