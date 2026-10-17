@@ -4,7 +4,7 @@ id: EFF-2026-10-06-08-07
 aliases: [EFF-2026-10-06-08-07]
 name: Desktop repository setup
 created-at: 2026-10-06T12:07:05Z
-status: active
+status: complete
 summary: "Replace the desktop app's one-button setup with a setup sheet backed by rzm init's JSON report, and add a What gets indexed page for .rhizome/ignore with inherited .gitignore rules."
 governing-specs:
   - "[[desktop-repository-setup]]"
@@ -83,6 +83,8 @@ Rhizome Desktop sets up an unconfigured worktree from one reviewed sheet with th
 
 Rhizome Desktop shows an unconfigured worktree a setup sheet built from that report: findings; workflow and add-ons; agents with why each is recommended; search with an optional key sent only on stdin; ignored nested repositories; and the files setup writes, refreshed as choices change. Set up writes everything in one `rzm init` run, records trust whenever the folder is configured afterward, and shows the terminal's summary, including a pinned-install failure. The What gets indexed page opens from the sheet's Skip row before setup, holding edits as init options, and from the repository menu afterward, writing each edit through the worktree's own Rhizome. An executable without these contracts gets an update prompt.
 
+This merged as PR #7 (https://github.com/atomicobject/rhizome/pull/7), squash commit `fa8fdef1` on `main`, 2026-10-07, including the review fixes recorded below. A click-through of the packaged app's sheet, page, and menu item with screenshots was not done; it is an action item for Drew Colthorp.
+
 ## Execution Notes
 
 - 2026-10-06: Recon. The current one-button setup fails opaquely when the pinned download 404s after writing, because no Rhizome release is published yet. `rzm init --check` already computes the findings and files, and `pkg/vault/ignore` already models the four layers with sources and lines (`Explain`, `RuleRef`). A strawman of the sheet was reviewed in chat. SPEC-0117 is claimed by the Scope Overview draft in another checkout, so this spec is SPEC-0118.
@@ -96,24 +98,31 @@ Rhizome Desktop shows an unconfigured worktree a setup sheet built from that rep
 - 2026-10-07: Native verification found an integration bug the worker's fixtures missed: the bridge decoded the plan's `pin` (a version string) as the result's object, so every real report failed. It was fixed in `8c2a7107` with a regression test using the real document shape. Remaining gap: a manual click-through of the packaged app's sheet, page, and menu item on a machine with GUI access.
 - 2026-10-07: The final independent review (Claude Fable advisor) of the whole branch returned "ship after fix 1". It verified the bridge-to-rzm contract field by field, key handling, trust semantics, locking shared with the open pipeline, and timeouts under the native 300-second limit. Fixed: (1) a held skip or include that rzm refuses is now listed on the What gets indexed page with Undo, so a bad path no longer locks the sheet; (2) a failed setup that left the folder configured returns `setup_partial`, and the sheet offers only Open workspace; (3) removing a repository while its page is open closes the page; (4) a run that times out says so. Recheck: `go test ./pkg/app/desktop/...` and `npm run check` (36 tests) passed.
 - 2026-10-07: At Drew's request, GPT-6.1-Sol (xhigh, personal connector) reviewed the whole branch read-only and returned "merge after listed fixes". It reproduced each finding in a scratch checkout. Fixed: (1) the piped key was saved, and so exported to the process environment, before skip detection ran `git`; it is now saved after detection, as a pasted key is, and a test records the environment `git` sees. (2) Switching search providers kept a hidden key and sent it; the field now clears on a provider change, and a key goes only to a provider that needs one. (3) An empty agent selection sent `--agents none`, dropping AGENTS.md and shared skills that SPEC-0118 says are always written; `rzm init --agents shared` now writes only the shared guidance, and the bridge sends it for an empty list. (4) A capability probe that timed out reported "update Rhizome"; `repoexec.Probe` now wraps its deadline, and setup reports a timeout. The reviewer found the terminal init paths, the JSON shapes, bridge key transport, trust, locks, and the shell's stale-response guards fine.
+- 2026-10-17T17:47:00Z [validation]: Merge evidence. `gh pr view 7` reports PR #7 merged on 2026-10-07 as `fa8fdef1` ("feat: desktop repository setup sheet and What gets indexed page (SPEC-0118) (#7)"), which is on `origin/main`. Its last commits are the bridge, scope, pin-decoding, held-edit, and key-handling fixes recorded above.
+- 2026-10-17T17:47:00Z [decision]: Closed in EFF-2026-10-17-13-07's pull request at Drew Colthorp's request, because PR #7 merged without closure. The packaged-app UI click-through and screenshots became an action item assigned to Drew Colthorp instead of holding the effort open.
 
 ## Deviations
 
 - 2026-10-06, Batch 1 (frozen-scope-drift acknowledged for SPEC-0118): implementation settled three details in SPEC-0118's executable contracts without changing intent. `rzm init --check --json` exits 0 when it produced a report, since a first run always has changes. The apply result drops "whether configuration was written", because the bridge decides trust by inspecting the folder after the run, which also covers a run that fails partway. Trust follows "configuration exists after the setup run" for the same reason.
 - 2026-10-07 (frozen-scope-drift acknowledged for SPEC-0113 and SPEC-0038): as planned, this effort added cross-references from SPEC-0113's unconfigured-worktree requirement and SPEC-0038 US1-AC5 to SPEC-0118, with matching deviations on EFF-2026-10-03-18-59 and EFF-2026-10-01-10-06. Neither spec's requirements changed.
+- 2026-10-07, Batch 4: native verification drove the packaged app's bridge with the JSON requests its native layer sends, instead of clicking the UI, and no search key was sent natively, because this session had no GUI access and a native key save would overwrite the real global key. Packaged-app UI screenshots were not captured. The click-through moved to a follow-up action item.
+- 2026-10-17: the effort was not closed when PR #7 merged; it closes in the next related pull request under the release policy.
 
 ## Closure Checklist
 
 - [x] Spec coverage checklist complete, with evidence in Execution Notes.
 - [x] `make check`, `make desktop-check`, `make desktop-build`, and the generated-surfaces gate pass.
-- [ ] Native verification recorded with screenshots. Browser screenshots of every state with real rzm output and bridge-level packaged-app verification are recorded; packaged-app UI screenshots need a session with GUI access.
+- [x] Native verification recorded. Browser screenshots of every state with real rzm output and bridge-level packaged-app verification are recorded; packaged-app UI screenshots are carried forward as an action item for Drew Colthorp (see Deviations).
 - [x] `./scripts/rzm validate` and `frozen-scope-drift` clean, with deviations recorded for SPEC-0113 and SPEC-0038.
 - [x] Independent review resolved, and the pull request opened and linked (#7).
+- [x] Merged as PR #7 (`fa8fdef1`).
 
 ## Compounding Follow-ups
 
-None yet.
+- [ ] Click through the packaged Rhizome Desktop setup sheet, the What gets indexed page (from the sheet's Skip row and from the repository menu), and the menu item on an unconfigured fixture repository, and capture screenshots (EFF-2026-10-06-08-07 verified these only at the bridge level) #action-item
+  assignee:: [[Drew Colthorp]]
+- SPEC-0038 US4-AC1 says the settings menu has no Codex row, but `--agents codex` writes `.codex/prompts` and `.codex/commands` (found 2026-10-06, see Execution Notes). Not owned by this effort.
 
 ## Status
 
-Active. All four batches implemented, reviewed, and verified; pull request #7 is open for Drew's review. A manual click-through of the packaged app UI remains before closure.
+Complete. All four batches merged as PR #7 (`fa8fdef1`) on 2026-10-07. The packaged-app UI click-through is an action item for Drew Colthorp.
