@@ -14,7 +14,7 @@ func RepairQuerySpec(vaultPath string, spec QuerySpec) (QuerySpec, []Warning) {
 		return spec, nil
 	}
 	spec.Text = strings.TrimSpace(spec.Text)
-	spec.PathKinds = mergePathKinds(spec.PathKinds, pathKindsFromHandles(spec.Seeds))
+	spec.PathKinds = MergePathKinds(spec.PathKinds, pathKindsFromHandles(spec.Seeds))
 	spec.ExplicitSeedPaths = mergeNormalizedSeedPaths(
 		spec.ExplicitSeedPaths,
 		ExplicitSeedPathsFromHandles(spec.Seeds),
@@ -52,6 +52,12 @@ func RepairQuerySpec(vaultPath string, spec QuerySpec) (QuerySpec, []Warning) {
 
 	spec.repaired = true
 	return spec, warnings
+}
+
+// QueryNeedsPathOwnership reports whether repair may infer a path seed. Bare
+// symbol requests can skip the repository path catalog entirely.
+func QueryNeedsPathOwnership(spec QuerySpec) bool {
+	return intentNeedsRepair(spec.Intent) && len(explicitPathHintTokens(spec.Text)) > 0
 }
 
 func intentNeedsRepair(intent Intent) bool {
@@ -174,29 +180,6 @@ func explicitSeedPathForRepair(vaultPath, raw string) (string, bool) {
 
 func pathKindsFromHandles(handles []knowledge.Handle) map[string]PathKind {
 	return PathKindsFromHandles(handles)
-}
-
-func mergePathKinds(groups ...map[string]PathKind) map[string]PathKind {
-	out := make(map[string]PathKind)
-	hasSnapshot := false
-	for _, group := range groups {
-		if group != nil {
-			hasSnapshot = true
-		}
-		for rawPath, kind := range group {
-			path := NormalizeLocalityPath(rawPath)
-			if path == "" || (kind != PathKindNote && kind != PathKindCode) {
-				continue
-			}
-			if _, found := out[path]; !found {
-				out[path] = kind
-			}
-		}
-	}
-	if !hasSnapshot && len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 func mergeNormalizedSeedPaths(groups ...[]string) []string {

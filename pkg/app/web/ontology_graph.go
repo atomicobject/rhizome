@@ -3,9 +3,10 @@ package web
 import (
 	"context"
 	"errors"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
@@ -18,11 +19,11 @@ func (s *Server) buildGraphWithNodeRead(ctx context.Context, req noderead.GraphR
 	if intelStore == nil {
 		return nil, nil, nil, errors.New("graph index unavailable")
 	}
-	var schema *ontology.Schema
+	var schema *ontoschema.Schema
 	if defs, err := s.ontologyDefinitions(); err == nil && defs != nil {
 		schema = defs.schema
 	}
-	graph, err := noderead.NewService(s.cfg.VaultDef, &obsidian.Note{}, intelStore, schema).NewScope(ctx, noderead.ScopeOptions{}).Graph(ctx, req)
+	graph, err := noderead.NewService(s.cfg.VaultDef, &obsidian.Note{}, intelStore, schema).NewScope(noderead.ScopeOptions{}).Graph(ctx, req)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -82,7 +83,7 @@ func (s *Server) mergeReadGraphNode(nodes map[string]GraphNode, node noderead.Gr
 		graphNode = GraphNode{
 			ID:     node.ID,
 			Path:   firstGraphString(node.Path, node.NotePath),
-			Label:  firstGraphString(node.Label, titleFromPath(firstGraphString(node.NotePath, node.Path))),
+			Label:  firstGraphString(node.Label, paths.NoteTitle(firstGraphString(node.NotePath, node.Path))),
 			Kind:   kind,
 			Lang:   nodeLang(kind, firstGraphString(node.Path, node.NotePath)),
 			Module: moduleKey(firstGraphString(node.NotePath, node.Path), depth),

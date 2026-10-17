@@ -4,13 +4,15 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"slices"
 	"sort"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
-	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"github.com/atomicobject/rhizome/pkg/diag"
 )
 
 // laneFieldNone turns board lanes off.
@@ -27,7 +29,7 @@ const maxLaneTargetsPerRecord = 1.25
 // view: it yields a warning and state falls back to the profile default lane,
 // as a configured column field that cannot hold columns yields
 // view_kanban_column_unsupported.
-func checkBoardFields(def viewconfig.ViewDefinition, profile *ontology.TypeProfile, state *ExecutionState, laneRequested bool, capabilities []FieldCapability) (*Warning, error) {
+func checkBoardFields(def viewconfig.ViewDefinition, profile *ontoschema.TypeProfile, state *ExecutionState, laneRequested bool, capabilities []FieldCapability) (*diag.Warning, error) {
 	if def.Variants.Kanban == nil || state.Variant != "kanban" {
 		return nil, nil
 	}
@@ -54,23 +56,25 @@ func checkBoardFields(def viewconfig.ViewDefinition, profile *ontology.TypeProfi
 		return nil, fmt.Errorf("%w: %s", ErrInvalidRequest, message)
 	}
 	state.LaneField = ""
-	return &Warning{Code: "view_kanban_lane_unsupported", Message: message + "; using the default lanes", Path: "variants.kanban.laneField"}, nil
+	return &diag.Warning{Code: "view_kanban_lane_unsupported", Message: message + "; using the default lanes", Path: "variants.kanban.laneField"}, nil
 }
 
 // defaultLaneField is SPEC-0112's lane default: the first KEY ordered field
 // any matching record fills, else the first KEY relation field whose filled
 // records average at most 1.25 targets, else none.
-func defaultLaneField(profile *ontology.TypeProfile, columnField string, capabilities []FieldCapability, rows []TableRow) string {
+func defaultLaneField(profile *ontoschema.TypeProfile, columnField string, capabilities []FieldCapability, rows []TableRow) string {
 	if profile == nil {
 		return ""
 	}
 	keyCapability := func(name string) (FieldCapability, bool) {
 		capability, ok := resolveCapability(capabilities, name)
-		ok = ok && capability.Key != columnField && effectiveFieldImportance(capability.Importance) == ontology.FieldImportanceKey
+		ok = ok && capability.Key != columnField && effectiveFieldImportance(capability.Importance) == ontoschema.FieldImportanceKey
 		return capability, ok
 	}
 	for _, name := range profile.OrderedFields {
-		if capability, ok := keyCapability(name); ok && slices.ContainsFunc(rows, func(row TableRow) bool { return rowFillsField(row, capability) }) {
+		if capability, ok := keyCapability(name); ok && slices.ContainsFunc(rows, func(row TableRow) bool {
+			return rowFillsField(row, capability)
+		}) {
 			return capability.Key
 		}
 	}
@@ -132,7 +136,7 @@ type laneBuild struct {
 	order  int
 	rank   float64
 	ranked bool
-	stage  ontology.LifecycleStage
+	stage  ontoschema.LifecycleStage
 }
 
 // boardLanes splits the board's page rows into lanes; each lane's cells
@@ -154,16 +158,7 @@ func boardLanes(board *BoardLayout, capability FieldCapability, rows []TableRow)
 			for _, value := range values {
 				build := builds[value.identity]
 				if build == nil {
-					build = &laneBuild{
-						lane: BoardLane{
-							Key:   groupKey("", capability.Key, value.value),
-							Value: value.value,
-							Label: laneLabel(value, capability),
-							Tone:  groupTone(value.value, capability),
-						},
-						cells: map[int][]int{},
-						order: len(enumOrder),
-					}
+					build = &laneBuild{lane: BoardLane{Key: groupKey("", capability.Key, value.value), Value: value.value, Label: laneLabel(value, capability), Tone: groupTone(value.value, capability)}, cells: map[int][]int{}, order: len(enumOrder)}
 					if position, ok := enumOrder[value.value]; ok {
 						build.order = position
 					}
@@ -217,7 +212,6 @@ func boardLanes(board *BoardLayout, capability FieldCapability, rows []TableRow)
 	}
 	return lanes
 }
-
 func laneLabel(value laneValue, capability FieldCapability) string {
 	if value.value == "" {
 		return "No " + strings.ToLower(firstNonEmpty(capability.Label, labelForField(capability.Key)))
@@ -244,7 +238,7 @@ func laneTarget(row TableRow, capability FieldCapability, value laneValue) Table
 // hydrateRelationStatuses sets the lifecycle status of linked records on page
 // rows' relation values, for up to eight values per field and row, from one
 // summary hydration.
-func hydrateRelationStatuses(ctx context.Context, scope *noderead.Scope, schema *ontology.Schema, rows []TableRow) ([]TableRow, error) {
+func hydrateRelationStatuses(ctx context.Context, scope *noderead.Scope, schema *ontoschema.Schema, rows []TableRow) ([]TableRow, error) {
 	if scope == nil || schema == nil {
 		return rows, nil
 	}
@@ -295,7 +289,7 @@ func hydrateRelationStatuses(ctx context.Context, scope *noderead.Scope, schema 
 
 // recordStatus returns a record's lifecycle value from its type's profile,
 // or nil when the type has no lifecycle or the record holds no value.
-func recordStatus(schema *ontology.Schema, record noderead.NodeRecord) *TableRelationStatus {
+func recordStatus(schema *ontoschema.Schema, record noderead.NodeRecord) *TableRelationStatus {
 	noteType := schema.Types[record.TypeName]
 	profile, ok := subjectProfile(schema, record.TypeName)
 	if noteType == nil || !ok || profile.LifecycleField == "" {

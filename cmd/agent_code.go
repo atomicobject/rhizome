@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newAgentCodeCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCodeCmd() *cobra.Command {
 	command := &cobra.Command{Use: "code", Short: "Execute JavaScript with Rhizome operations or discover selected contracts"}
 	surface := &cobra.Command{
 		Use: "surface", Short: "List the bounded code-mode operations without loading schemas or runtime state", Args: cobra.NoArgs,
@@ -52,7 +52,7 @@ func newAgentCodeCmd() *cobra.Command {
 			if err != nil {
 				return agentCodeError(err)
 			}
-			def, err := vaultDefOrDefaultContext(cmd.Context())
+			def, err := commandOptions.vaultDefOrDefaultContext(cmd.Context())
 			if err != nil {
 				return agentCodeError(err)
 			}
@@ -71,7 +71,7 @@ func newAgentCodeCmd() *cobra.Command {
 	}
 	generate.Flags().StringArrayVar(&generateOperations, "operation", nil, "catalog operation name or JavaScript method to include (repeatable; required)")
 	generate.Flags().StringVar(&output, "output", "", "explicit writable task artifact directory (required)")
-	command.AddCommand(surface, describe, newAgentCodeExecuteCmd(), generate, newAgentCodeServeCmd())
+	command.AddCommand(surface, describe, commandOptions.newAgentCodeExecuteCmd(), generate, commandOptions.newAgentCodeServeCmd())
 	return command
 }
 

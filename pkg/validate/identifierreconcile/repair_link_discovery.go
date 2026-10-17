@@ -1,8 +1,10 @@
 package identifierreconcile
 
-import "github.com/atomicobject/rhizome/pkg/ontology/reference"
+import (
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+)
 
-func appendLinkDiscovery(component *CollisionRepairIntent, rewrites []reference.IdentifierRewrite, discovery *identifierLinkDiscoverySnapshot) error {
+func appendLinkDiscovery(component *CollisionRepairIntent, rewrites []identifierrewrite.IdentifierRewrite, discovery *identifierLinkDiscoverySnapshot) error {
 	for _, plan := range discovery.Plans {
 		for _, edit := range plan.Edits {
 			if _, ok := linkEditRewrite(edit, rewrites); !ok {
@@ -15,7 +17,7 @@ func appendLinkDiscovery(component *CollisionRepairIntent, rewrites []reference.
 				continue
 			}
 			diagnostic := raw
-			blocking := diagnostic.Blocking || diagnostic.Kind == reference.LinkRewriteDiagnosticUnresolvedTarget || diagnostic.Kind == reference.LinkRewriteDiagnosticAmbiguousTarget
+			blocking := diagnostic.Blocking || diagnostic.Kind == identifierrewrite.LinkRewriteDiagnosticUnresolvedTarget || diagnostic.Kind == identifierrewrite.LinkRewriteDiagnosticAmbiguousTarget
 			component.Diagnostics = append(component.Diagnostics, RepairDiagnostic{MembershipKeys: append([]string(nil), component.MembershipKeys...), Kind: string(diagnostic.Kind), Blocking: blocking, Link: &diagnostic})
 		}
 	}
@@ -27,7 +29,7 @@ func appendLinkDiscovery(component *CollisionRepairIntent, rewrites []reference.
 			diagnostic := plan.Diagnostics[index]
 			component.Diagnostics = append(component.Diagnostics, RepairDiagnostic{
 				MembershipKeys: append([]string(nil), component.MembershipKeys...),
-				Kind:           string(reference.IdentifierRewriteDiagnosticReviewOnly),
+				Kind:           string(identifierrewrite.IdentifierRewriteDiagnosticReviewOnly),
 				Blocking:       false,
 				Field:          &diagnostic,
 			})
@@ -36,7 +38,7 @@ func appendLinkDiscovery(component *CollisionRepairIntent, rewrites []reference.
 	return nil
 }
 
-func reviewCandidateMatchesRewrites(candidate reference.IdentifierReviewCandidate, rewrites []reference.IdentifierRewrite) bool {
+func reviewCandidateMatchesRewrites(candidate identifierrewrite.IdentifierReviewCandidate, rewrites []identifierrewrite.IdentifierRewrite) bool {
 	componentKeys := make(map[string]struct{}, len(rewrites))
 	for _, rewrite := range rewrites {
 		componentKeys[jsonKey(rewrite)] = struct{}{}

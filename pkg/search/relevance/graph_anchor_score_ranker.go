@@ -6,7 +6,6 @@ package relevance
 
 import (
 	"context"
-	"errors"
 
 	"github.com/atomicobject/rhizome/pkg/search"
 )
@@ -15,18 +14,14 @@ type anchorScoreStore interface {
 	AnchorScoresByIDs(ctx context.Context, anchorIDs []string) (map[string]float64, error)
 }
 
-// GraphAnchorScoreRanker injects anchor PageRank evidence, then delegates to Base.
-type GraphAnchorScoreRanker struct {
-	Base  search.Ranker
+// GraphAnchorAdjuster injects anchor PageRank evidence, then delegates to Base.
+type GraphAnchorAdjuster struct {
 	Store anchorScoreStore
 }
 
-func (r *GraphAnchorScoreRanker) Rank(ctx context.Context, spec search.QuerySpec, candidates []search.Candidate) ([]search.RankedResult, error) {
-	if r.Base == nil {
-		return nil, errors.New("missing base ranker")
-	}
+func (r *GraphAnchorAdjuster) Adjust(ctx context.Context, spec search.QuerySpec, candidates []search.Candidate) ([]search.Candidate, error) {
 	if r.Store == nil || len(candidates) == 0 {
-		return r.Base.Rank(ctx, spec, candidates)
+		return candidates, nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -39,7 +34,7 @@ func (r *GraphAnchorScoreRanker) Rank(ctx context.Context, spec search.QuerySpec
 		}
 	}
 	if len(ids) == 0 {
-		return r.Base.Rank(ctx, spec, candidates)
+		return candidates, nil
 	}
 
 	scores, err := r.Store.AnchorScoresByIDs(ctx, ids)
@@ -60,19 +55,5 @@ func (r *GraphAnchorScoreRanker) Rank(ctx context.Context, spec search.QuerySpec
 		}
 		aug = append(aug, c)
 	}
-	return r.Base.Rank(ctx, spec, aug)
-}
-
-func (r *GraphAnchorScoreRanker) ApproxChannelWeights(spec search.QuerySpec) map[search.EvidenceChannel]float64 {
-	if provider, ok := r.Base.(search.ApproxScoreProvider); ok {
-		return provider.ApproxChannelWeights(spec)
-	}
-	return search.ApproxChannelWeightsForIntent(spec.Intent)
-}
-
-func (r *GraphAnchorScoreRanker) ApproxMaxPerOwner(spec search.QuerySpec) int {
-	if provider, ok := r.Base.(search.ApproxScoreProvider); ok {
-		return provider.ApproxMaxPerOwner(spec)
-	}
-	return 1
+	return aug, nil
 }

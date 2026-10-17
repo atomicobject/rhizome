@@ -3,12 +3,10 @@ package query
 import (
 	"context"
 	"fmt"
-	"strings"
-	"testing"
-
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology/guide"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestReverseRelationshipAndLinkFilterSemantics(t *testing.T) {
@@ -32,7 +30,7 @@ type Evidence @node(paths: ["evidence/*.md"]) {
 		"evidence/mention.md":      "---\nsummary: Passing mention\n---\nRhizome public use mentions [[rhizome]] in prose.\n",
 	}
 	env := newCustomQueryTestEnv(t, schema, notes)
-	guideText, err := guide.RenderMarkdown(env.schema, []string{"Opportunity"})
+	guideText, err := schemadoc.RenderGuideMarkdown(env.schema, schemadoc.GuideOptions{Types: []string{"Opportunity"}})
 	require.NoError(t, err)
 	require.Contains(t, guideText, "reverse of authored link `Evidence.opportunities`")
 	require.Contains(t, guideText, "do not write it into note markdown")
@@ -76,9 +74,9 @@ type Evidence @node(paths: ["evidence/*.md"]) {
 			require.Equal(t, []any{map[string]any{"path": tc.wantPath}}, result.Data["evidence"])
 		})
 	}
-	require.Contains(t, env.execSchema.SDL, "evidenceCount: Int!")
-	require.Contains(t, env.execSchema.SDL, "referencesCount: Int!")
-	require.True(t, strings.Contains(env.execSchema.SDL, "evidence(first: Int): [Evidence!]"))
+	requireSchemaField(t, env.execSchema, "Opportunity", "evidenceCount", "Int!")
+	requireSchemaField(t, env.execSchema, "Opportunity", "referencesCount", "Int!")
+	require.Equal(t, "Int", requireSchemaField(t, env.execSchema, "Opportunity", "evidence", "[Evidence!]").Arguments.ForName("first").Type.String())
 }
 
 func TestLinkFilterResolvesTargetPastFirstCatalogPage(t *testing.T) {
@@ -185,8 +183,8 @@ type Area @node(paths: ["areas/*.md"]) {
 		notes[fmt.Sprintf("areas/a%d.md", i)] = fmt.Sprintf("---\ntype: Area\nname: A%d\nparent: \"[[root]]\"\n---\n# A%d\n\nSee [[root]].\n", i, i)
 	}
 	env := newCustomQueryTestEnv(t, schema, notes)
-	require.Contains(t, env.execSchema.SDL, "children(first: Int): [Area!]")
-	require.Contains(t, env.execSchema.SDL, "mentions(first: Int): [Area!]")
+	require.Equal(t, "Int", requireSchemaField(t, env.execSchema, "Area", "children", "[Area!]").Arguments.ForName("first").Type.String())
+	require.Equal(t, "Int", requireSchemaField(t, env.execSchema, "Area", "mentions", "[Area!]").Arguments.ForName("first").Type.String())
 
 	// Both orders: the batched read keeps each limit's targets apart.
 	for name, query := range map[string]string{

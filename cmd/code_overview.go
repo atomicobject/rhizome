@@ -4,91 +4,89 @@ import (
 	"fmt"
 	"strings"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/app/codeintel"
-	"github.com/atomicobject/rhizome/pkg/app/contextpack"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 )
 
-var (
-	codeOverviewBudgetChars  int
-	codeOverviewLimit        int
-	codeOverviewIncludeTests bool
-)
-
-var codeOverviewCmd = &cobra.Command{
-	Use:   "overview [roots...]",
-	Short: "Summarize key code modules and attached docs as hierarchical markdown",
-	Args:  cobra.ArbitraryArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		vaultPath, codeCfg, err := loadVaultAndCodeConfig(cmd)
-		if err != nil {
-			return err
-		}
-		vaultDef, err := vaultDefOrDefaultContext(cmd.Context())
-		if err != nil {
-			return err
-		}
-
-		var roots []string
-		for _, a := range args {
-			if strings.TrimSpace(a) == "" {
-				continue
-			}
-			absRoot, err := resolveCodeRoot(vaultPath, a)
+func (commandOptions *codeInvocationOptions) makeCodeOverviewCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "overview [roots...]",
+		Short: "Summarize key code modules and attached docs as hierarchical markdown",
+		Args:  cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			vaultPath, codeCfg, err := commandOptions.loadVaultAndCodeConfig(cmd)
 			if err != nil {
 				return err
 			}
-			if absRoot == "" {
-				continue
+			vaultDef, err := commandOptions.vaultDefOrDefaultContext(cmd.Context())
+			if err != nil {
+				return err
 			}
-			roots = append(roots, absRoot)
-		}
 
-		var intel actions.CodeOverviewIntel
-		store, cleanup, warning, err := codeintel.OpenOptionalIntelStore(vaultPath, codeCfg)
-		if err != nil {
-			return err
-		}
-		if cleanup != nil {
-			defer cleanup()
-		}
-		if store != nil {
-			intel = store
-		}
-		if strings.TrimSpace(warning) != "" {
-			fmt.Fprintln(cmd.ErrOrStderr(), warning)
-		}
+			var roots []string
+			for _, a := range args {
+				if strings.TrimSpace(a) == "" {
+					continue
+				}
+				absRoot, err := resolveCodeRoot(vaultPath, a)
+				if err != nil {
+					return err
+				}
+				if absRoot == "" {
+					continue
+				}
+				roots = append(roots, absRoot)
+			}
 
-		textResult, err := buildCodeOverviewText(cmd, intel, vaultDef, vaultPath, roots)
-		if err != nil {
-			return err
-		}
-		useColor := colorEnabled()
-		fmt.Fprintln(cmd.OutOrStdout(), formatCodeOverviewOutput(textResult, useColor))
-		return nil
-	},
+			var intel actions.CodeOverviewIntel
+			store, cleanup, warning, err := codeintel.OpenOptionalIntelStore(vaultPath, codeCfg)
+			if err != nil {
+				return err
+			}
+			if cleanup != nil {
+				defer cleanup()
+			}
+			if store != nil {
+				intel = store
+			}
+			if strings.TrimSpace(warning) != "" {
+				fmt.Fprintln(cmd.ErrOrStderr(), warning)
+			}
+
+			textResult, err := commandOptions.buildCodeOverviewText(cmd, intel, vaultDef, vaultPath, roots)
+			if err != nil {
+				return err
+			}
+			useColor := colorEnabled()
+			fmt.Fprintln(cmd.OutOrStdout(), formatCodeOverviewOutput(textResult, useColor))
+			return nil
+		},
+	}
 }
 
-func buildCodeOverviewText(cmd *cobra.Command, intel actions.CodeOverviewIntel, vaultDef obsidian.VaultDefinition, vaultPath string, roots []string) (string, error) {
-	fileCfg, _ := obsidian.FileContextConfigForVault(vaultPath)
+func (commandOptions *codeInvocationOptions) buildCodeOverviewText(cmd *cobra.Command, intel actions.CodeOverviewIntel, vaultDef obsidian.VaultDefinition, vaultPath string, roots []string) (string, error) {
+	resolvedConfig1, configErr1 := repoconfig.Load(vaultPath)
+	fileCfg, _ := resolvedConfig1.FileContext, configErr1
 	docPatterns := fileCfg.DocPatterns
 	note, err := newProjectedNoteReader(cmd.Context(), vaultDef)
 	if err != nil {
 		return "", err
 	}
 	res, text, err := actions.CodeOverview(cmd.Context(), actions.CodeOverviewOptions{
-		Vault:          &obsidian.Vault{Name: vaultName},
+		Vault:          &repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: commandOptions.vaultName},
 		Notes:          note,
 		VaultDef:       vaultDef,
 		Intel:          intel,
 		Roots:          roots,
 		DocPatterns:    docPatterns,
 		MaxEmptyLevels: fileCfg.MaxEmptyLevels,
-		BudgetChars:    codeOverviewBudgetChars,
-		LimitModules:   codeOverviewLimit,
-		IncludeTests:   codeOverviewIncludeTests,
+		BudgetChars:    commandOptions.codeOverviewBudgetChars,
+		LimitModules:   commandOptions.codeOverviewLimit,
+		IncludeTests:   commandOptions.codeOverviewIncludeTests,
 	})
 	if err != nil {
 		return "", err
@@ -102,10 +100,10 @@ func buildCodeOverviewText(cmd *cobra.Command, intel actions.CodeOverviewIntel, 
 	return text, nil
 }
 
-func init() {
-	codeOverviewCmd.Flags().IntVar(&codeOverviewBudgetChars, "budget-chars", contextpack.DefaultBudgetChars, "max output size in characters")
-	codeOverviewCmd.Flags().IntVar(&codeOverviewLimit, "limit-modules", 25, "maximum modules to include")
-	codeOverviewCmd.Flags().BoolVar(&codeOverviewIncludeTests, "include-tests", false, "include test files in module summaries")
+func (commandOptions *codeInvocationOptions) registerCodeOverviewCommands(codeOverviewCmd, codeCmd *cobra.Command) {
+	codeOverviewCmd.Flags().IntVar(&commandOptions.codeOverviewBudgetChars, "budget-chars", repoconfig.DefaultBudgetChars, "max output size in characters")
+	codeOverviewCmd.Flags().IntVar(&commandOptions.codeOverviewLimit, "limit-modules", 25, "maximum modules to include")
+	codeOverviewCmd.Flags().BoolVar(&commandOptions.codeOverviewIncludeTests, "include-tests", false, "include test files in module summaries")
 	codeCmd.AddCommand(codeOverviewCmd)
 }
 

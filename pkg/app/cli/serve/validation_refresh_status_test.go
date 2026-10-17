@@ -29,6 +29,7 @@ func TestReadinessDrainWaitsForCanceledValidationPublication(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	c := NewReadinessCoordinator(nil)
+	timers := newControlledValidationTimers(c)
 	c.ctx = ctx
 	c.live = &bootstrap.LiveRuntime{}
 	c.indexAttemptDoneOnce.Do(func() { close(c.indexAttemptDone) })
@@ -41,6 +42,7 @@ func TestReadinessDrainWaitsForCanceledValidationPublication(t *testing.T) {
 	c.validation = refresher
 	c.startWorker(func() { c.runValidationRefreshRequests(ctx) })
 	c.RequestValidationRefresh()
+	timers.next(t).fire(t)
 	select {
 	case <-refresher.started:
 	case <-time.After(time.Second):
@@ -100,6 +102,7 @@ func TestValidationRefreshPendingSurvivesOlderPublicationAndQueuedReplacement(t 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	c := NewReadinessCoordinator(nil)
+	timers := newControlledValidationTimers(c)
 	c.ctx = ctx
 	c.live = &bootstrap.LiveRuntime{}
 	c.indexAttemptDoneOnce.Do(func() { close(c.indexAttemptDone) })
@@ -121,10 +124,12 @@ func TestValidationRefreshPendingSurvivesOlderPublicationAndQueuedReplacement(t 
 	workerDone := make(chan struct{})
 	go func() { defer close(workerDone); c.runValidationRefreshRequests(ctx) }()
 	defer func() { cancel(); <-workerDone }()
+	timers.next(t).fire(t)
 	first := awaitStatusRefresh(t, r)
 	require.True(t, c.ValidationRefreshPending())
 	c.RequestValidationRefresh()
 	close(first)
+	timers.next(t).fire(t)
 	second := awaitStatusRefresh(t, r)
 	require.True(t, c.ValidationRefreshPending(), "completion must retain the queued replacement")
 	close(second)
@@ -136,6 +141,7 @@ func TestValidationRefreshPendingClearsOnCancellation(t *testing.T) {
 		t.Run(phase, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			c := NewReadinessCoordinator(nil)
+			timers := newControlledValidationTimers(c)
 			c.ctx = ctx
 			c.live = &bootstrap.LiveRuntime{}
 			r := &heldStatusRefresher{started: make(chan chan struct{}, 1)}
@@ -148,12 +154,15 @@ func TestValidationRefreshPendingClearsOnCancellation(t *testing.T) {
 			done := make(chan struct{})
 			go func() { defer close(done); c.runValidationRefreshRequests(ctx) }()
 			defer func() { cancel(); <-done }()
+			timer := timers.next(t)
+			if phase != "debounce" {
+				timer.fire(t)
+			}
 			if phase == "running" || phase == "invalidation" {
 				_ = awaitStatusRefresh(t, r)
 			}
 			if phase == "startup" {
-				time.Sleep(2 * validationRefreshDebounce)
-				require.True(t, c.ValidationRefreshPending())
+				require.True(t, c.ValidationRefreshPending(), "expired debounce must retain work waiting for boot indexing")
 			}
 			if phase == "invalidation" {
 				c.GlobalEventSink()(web.GlobalEventValidationInvalidated, map[string]any{"reason": web.GlobalEventReasonReconcileFailed})

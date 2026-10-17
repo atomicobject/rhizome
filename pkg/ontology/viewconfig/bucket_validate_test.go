@@ -1,16 +1,16 @@
 package viewconfig
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/stretchr/testify/require"
 )
 
 func TestValidateGroupBucketsDensityAndMissingFilters(t *testing.T) {
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Meeting": {Name: "Meeting", Fields: []*ontology.Field{
-		{Name: "held", Kind: ontology.FieldKindScalar, TypeName: "Date", SourceKind: ontology.FieldSourceFrontmatter, Source: "held-on"},
-		{Name: "topic", Kind: ontology.FieldKindScalar, TypeName: "String"},
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Meeting": {Name: "Meeting", Fields: []*ontoschema.Field{
+		{Name: "held", Kind: ontoschema.FieldKindScalar, TypeName: "Date", SourceKind: ontoschema.FieldSourceFrontmatter, Source: "held-on"},
+		{Name: "topic", Kind: ontoschema.FieldKindScalar, TypeName: "String"},
 	}}}}
 	view := func(group *GroupSpec, density string) ViewDefinition {
 		return ViewDefinition{

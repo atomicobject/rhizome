@@ -2,17 +2,19 @@ package indexing
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	anchors "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-
-	anchors "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBatchRecoversDelayedGraphDebtWithoutSourceChanges(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root, definition := indexedTouchParityVault(t)
 	store := openTouchParityStore(t, root)
@@ -26,7 +28,7 @@ func TestBatchRecoversDelayedGraphDebtWithoutSourceChanges(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.ActivateDerivedWork(ctx, work))
 	require.NoError(t, store.RetryDerivedWork(ctx, work[0], time.Now().Add(time.Hour)))
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: testNoteMetadataIndexer(t)}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: testkit.NoteMetadataIndexer(t)}))
 	repaired, err := store.GraphDocScores(ctx)
 	require.NoError(t, err)
 	require.Len(t, repaired, len(initial))
@@ -36,6 +38,8 @@ func TestBatchRecoversDelayedGraphDebtWithoutSourceChanges(t *testing.T) {
 }
 
 func TestBatchReplaysGlobalCodeDebtWithFreshRelatedDocumentContext(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "src"), 0755))
@@ -44,10 +48,10 @@ func TestBatchReplaysGlobalCodeDebtWithFreshRelatedDocumentContext(t *testing.T)
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "guide.md"), []byte("# Guide\n"), 0600))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "config.yml"), []byte("notes:\n  includes: [\"notes/*.md\"]\ncode:\n  enabled: true\n  goRoots: [src]\nnoteEmbeddings:\n  enabled: false\ncodeEmbeddings:\n  enabled: true\n  provider: test\n  model: test\n  dimensions: 8\n"), 0600))
-	definition, err := obsidian.LoadDefinitionFromPath(root)
+	definition, err := repoconfig.LoadDefinitionFromPath(root)
 	require.NoError(t, err)
-	opts := UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: testNoteMetadataIndexer(t), SkipConfigPersistence: true}
-	require.NoError(t, RunUnifiedCore(ctx, opts))
+	opts := UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: testkit.NoteMetadataIndexer(t), SkipConfigPersistence: true}
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, opts))
 	store := openTouchParityStore(t, root)
 	var anchorID string
 	require.NoError(t, store.DB().QueryRowContext(ctx, `SELECT anchor_id FROM intel_code_anchors WHERE path='src/foo.go' AND symbol='Foo'`).Scan(&anchorID))
@@ -61,7 +65,7 @@ func TestBatchReplaysGlobalCodeDebtWithFreshRelatedDocumentContext(t *testing.T)
 	require.NoError(t, err)
 	require.NoError(t, store.ActivateDerivedWork(ctx, work))
 	require.NoError(t, store.RetryDerivedWork(ctx, work[0], time.Now().Add(time.Hour)))
-	require.NoError(t, RunUnifiedCore(ctx, opts))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, opts))
 	chunks, err := store.IntelChunksByOwners(ctx, []string{anchorID})
 	require.NoError(t, err)
 	require.NotEmpty(t, chunks)
@@ -72,6 +76,8 @@ func TestBatchReplaysGlobalCodeDebtWithFreshRelatedDocumentContext(t *testing.T)
 }
 
 func TestBatchRecoversDelayedNoteDebtWithoutSourceChanges(t *testing.T) {
+	t.Parallel()
+
 	for _, typed := range []bool{false, true} {
 		name := "raw"
 		if typed {
@@ -87,10 +93,10 @@ func TestBatchRecoversDelayedNoteDebtWithoutSourceChanges(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ontology", "schema.graphql"), []byte("type Guide @node(paths: [\"notes/*.md\"]) { title: String }\n"), 0600))
 			}
 			require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "config.yml"), []byte("notes:\n  includes: [\"notes/*.md\"]\nnoteEmbeddings:\n  enabled: true\n  provider: test\n  model: test\n  dimensions: 8\ncodeEmbeddings:\n  enabled: false\n"), 0600))
-			definition, err := obsidian.LoadDefinitionFromPath(root)
+			definition, err := repoconfig.LoadDefinitionFromPath(root)
 			require.NoError(t, err)
-			opts := UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: testNoteMetadataIndexer(t), SkipConfigPersistence: true}
-			require.NoError(t, RunUnifiedCore(ctx, opts))
+			opts := UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: testkit.NoteMetadataIndexer(t), SkipConfigPersistence: true}
+			require.NoError(t, runUnifiedCoreForTest(t, ctx, opts))
 			store := openTouchParityStore(t, root)
 			var count int
 			require.NoError(t, store.DB().QueryRowContext(ctx, `SELECT count(*) FROM intel_embeddings`).Scan(&count))
@@ -113,7 +119,7 @@ func TestBatchRecoversDelayedNoteDebtWithoutSourceChanges(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, store.ActivateDerivedWork(ctx, work))
 			require.NoError(t, store.RetryDerivedWork(ctx, work[0], time.Now().Add(time.Hour)))
-			require.NoError(t, RunUnifiedCore(ctx, opts))
+			require.NoError(t, runUnifiedCoreForTest(t, ctx, opts))
 			require.NoError(t, store.DB().QueryRowContext(ctx, `SELECT count(*) FROM intel_embeddings`).Scan(&count))
 			require.Positive(t, count, "batch must repair vectors before acknowledging ready debt")
 			pending, err := store.HasDerivedWork(ctx, kind)

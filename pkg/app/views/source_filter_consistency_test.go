@@ -2,27 +2,16 @@ package views
 
 import (
 	"context"
-	"testing"
-
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestOntologySourceRepeatedRangeFilterAgreesWithResidual(t *testing.T) {
-	for _, tc := range []struct{ scalar, low, middle, high string }{
-		{"Int", "2", "5", "10"},
-		{"Float", "2", "5", "10"},
-		{"Date", "2026-01-01", "2026-02-01", "2026-03-01"},
-	} {
+	for _, tc := range []struct{ scalar, low, middle, high string }{{"Int", "2", "5", "10"}, {"Float", "2", "5", "10"}, {"Date", "2026-01-01", "2026-02-01", "2026-03-01"}} {
 		t.Run(tc.scalar, func(t *testing.T) {
-			service := scalarSortService(t, tc.scalar, "# Actions\n\n"+
-				"- [ ] Repeated #action-item\n  rank:: "+tc.low+"\n  rank:: "+tc.high+"\n  rank:: invalid\n"+
-				"- [ ] Middle #action-item\n  rank:: "+tc.middle+"\n"+
-				"- [ ] Invalid #action-item\n  rank:: invalid\n  rank:: invalid-again\n"+
-				"- [ ] Empty #action-item\n"+
-				"- [ ] LowNaN #action-item\n  rank:: "+tc.low+"\n  rank:: NaN\n"+
-				"- [ ] HighNaN #action-item\n  rank:: "+tc.high+"\n  rank:: NaN\n"+
-				"- [ ] OnlyNaN #action-item\n  rank:: NaN\n  rank:: NaN\n")
+			service := scalarSortService(t, tc.scalar, "# Actions\n\n"+"- [ ] Repeated #action-item\n  rank:: "+tc.low+"\n  rank:: "+tc.high+"\n  rank:: invalid\n"+"- [ ] Middle #action-item\n  rank:: "+tc.middle+"\n"+"- [ ] Invalid #action-item\n  rank:: invalid\n  rank:: invalid-again\n"+"- [ ] Empty #action-item\n"+"- [ ] LowNaN #action-item\n  rank:: "+tc.low+"\n  rank:: NaN\n"+"- [ ] HighNaN #action-item\n  rank:: "+tc.high+"\n  rank:: NaN\n"+"- [ ] OnlyNaN #action-item\n  rank:: NaN\n  rank:: NaN\n")
 			opts := service.opts
 			indexed := opts.SourceResolver
 			opts.SourceResolver = SourceResolverFunc(func(ctx context.Context, def viewconfig.ViewDefinition, req ExecuteRequest) (SourceResult, error) {
@@ -62,30 +51,16 @@ func TestOntologySourceRepeatedRangeFilterAgreesWithResidual(t *testing.T) {
 		})
 	}
 }
-
 func TestExecuteRangeFilterAcceptsAdapterLists(t *testing.T) {
 	type ranks []int
 	for _, tc := range []struct {
 		name  string
 		value any
-	}{
-		{"typed", []int{2, 10}},
-		{"named", ranks{2, 10}},
-		{"array", [2]int{2, 10}},
-		{"nested", []any{[]int{2}, ranks{10}}},
-		{"strings", []string{"2", "10"}},
-	} {
+	}{{"typed", []int{2, 10}}, {"named", ranks{2, 10}}, {"array", [2]int{2, 10}}, {"nested", []any{[]int{2}, ranks{10}}}, {"strings", []string{"2", "10"}}} {
 		t.Run(tc.name, func(t *testing.T) {
-			service := New(ServiceOptions{
-				Views: []viewconfig.ViewDefinition{testViewDefinition("work")},
-				SourceResolver: SourceResolverFunc(func(context.Context, viewconfig.ViewDefinition, ExecuteRequest) (SourceResult, error) {
-					return SourceResult{Rows: []TableRow{
-						testRow("match.md", "Match", map[string]any{"rank": tc.value}),
-						testRow("empty.md", "Empty", map[string]any{"rank": ranks(nil)}),
-						testRow("middle.md", "Middle", map[string]any{"rank": []int{5}}),
-					}, Capabilities: []FieldCapability{{Key: "frontmatter.rank", ValueKind: "number", FilterOps: []string{"gt", "gte", "lt", "lte"}}}}, nil
-				}),
-			})
+			service := New(ServiceOptions{Views: []viewconfig.ViewDefinition{testViewDefinition("work")}, SourceResolver: SourceResolverFunc(func(context.Context, viewconfig.ViewDefinition, ExecuteRequest) (SourceResult, error) {
+				return SourceResult{Rows: []TableRow{testRow("match.md", "Match", map[string]any{"rank": tc.value}), testRow("empty.md", "Empty", map[string]any{"rank": ranks(nil)}), testRow("middle.md", "Middle", map[string]any{"rank": []int{5}})}, Capabilities: []FieldCapability{{Key: "frontmatter.rank", ValueKind: "number", FilterOps: []string{"gt", "gte", "lt", "lte"}}}}, nil
+			})})
 			for _, op := range []string{"gt", "gte", "lt", "lte"} {
 				t.Run(op, func(t *testing.T) {
 					resp, err := service.Execute(context.Background(), "work", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "frontmatter.rank", Op: op, Value: "5"}}})
@@ -100,33 +75,13 @@ func TestExecuteRangeFilterAcceptsAdapterLists(t *testing.T) {
 		})
 	}
 }
-
 func TestOntologySourceScalarFiltersAgreeWithResidual(t *testing.T) {
 	rangeOps := []string{"gt", "gte", "lt", "lte"}
 	equalOps := []string{"eq", "in"}
 	for _, tc := range []struct {
 		name, scalar, actual, threshold string
 		ops, matching                   []string
-	}{
-		{"large integer", "Int", "9007199254740993", "9007199254740992", rangeOps, []string{"gt", "gte"}},
-		{"datetime offset", "DateTime", "2026-05-08T09:00:00+02:00", "2026-05-08T08:00:00Z", rangeOps, []string{"gt", "gte"}},
-		{"datetime fractions range", "DateTime", "2026-05-08T09:00:00.999Z", "2026-05-08T09:00:00Z", rangeOps, []string{"gte", "lte"}},
-		{"text case", "String", "APPLE", "apple", equalOps, equalOps},
-		{"text link", "String", "[[Apple|Label]]", "apple", equalOps, equalOps},
-		{"float spelling", "Float", "2.0", "2", equalOps, equalOps},
-		{"invalid integer", "Int", "INVALID", "invalid", equalOps, equalOps},
-		{"NaN equality", "Float", "NaN", "NaN", equalOps, nil},
-		{"integer spelling", "Int", "002", "2", equalOps, equalOps},
-		{"datetime offset equality", "DateTime", "2026-05-08T09:00:00+02:00", "2026-05-08T08:00:00Z", equalOps, nil},
-		{"datetime fractions equality", "DateTime", "2026-05-08T09:00:00.999Z", "2026-05-08T09:00:00Z", equalOps, equalOps},
-		{"invalid Int threshold", "Int", "2", "junk", rangeOps, []string{"lt", "lte"}},
-		{"invalid Float threshold", "Float", "2", "junk", rangeOps, []string{"lt", "lte"}},
-		{"invalid Date threshold", "Date", "2026-05-08", "junk", rangeOps, []string{"lt", "lte"}},
-		{"invalid DateTime threshold", "DateTime", "2026-05-08T09:00:00Z", "junk", rangeOps, []string{"lt", "lte"}},
-		{"datetime normalized-text fallback", "DateTime", "2026-05-08T09:00:00.999Z", "2026-05-08t09:00:00.9z", rangeOps, []string{"gt", "gte"}},
-		{"unparseable date-shaped threshold", "Date", "2026-05-08", "9999-99-99", rangeOps, []string{"lt", "lte"}},
-		{"NaN range", "Float", "2", "NaN", rangeOps, nil},
-	} {
+	}{{"large integer", "Int", "9007199254740993", "9007199254740992", rangeOps, []string{"gt", "gte"}}, {"datetime offset", "DateTime", "2026-05-08T09:00:00+02:00", "2026-05-08T08:00:00Z", rangeOps, []string{"lt", "lte"}}, {"datetime fractions range", "DateTime", "2026-05-08T09:00:00.999Z", "2026-05-08T09:00:00Z", rangeOps, []string{"gt", "gte"}}, {"text case", "String", "APPLE", "apple", equalOps, equalOps}, {"text link", "String", "[[Apple|Label]]", "apple", equalOps, nil}, {"float spelling", "Float", "2.0", "2", equalOps, equalOps}, {"invalid integer", "Int", "INVALID", "invalid", equalOps, equalOps}, {"NaN equality", "Float", "NaN", "NaN", equalOps, equalOps}, {"integer spelling", "Int", "002", "2", equalOps, equalOps}, {"datetime offset equality", "DateTime", "2026-05-08T09:00:00+02:00", "2026-05-08T08:00:00Z", equalOps, nil}, {"datetime equal instant", "DateTime", "2026-05-08T09:00:00+02:00", "2026-05-08T07:00:00Z", equalOps, equalOps}, {"literal pipe", "String", "Ship | Docs", "ship", equalOps, nil}, {"literal pipe equality", "String", "Ship | Docs", "ship | docs", equalOps, equalOps}, {"datetime fractions equality", "DateTime", "2026-05-08T09:00:00.999Z", "2026-05-08T09:00:00Z", equalOps, nil}, {"invalid Int threshold", "Int", "2", "junk", rangeOps, []string{"lt", "lte"}}, {"invalid Float threshold", "Float", "2", "junk", rangeOps, []string{"lt", "lte"}}, {"invalid Date threshold", "Date", "2026-05-08", "junk", rangeOps, []string{"lt", "lte"}}, {"invalid DateTime threshold", "DateTime", "2026-05-08T09:00:00Z", "junk", rangeOps, []string{"lt", "lte"}}, {"datetime normalized-text fallback", "DateTime", "2026-05-08T09:00:00.999Z", "2026-05-08t09:00:00.9z", rangeOps, []string{"lt", "lte"}}, {"unparseable date-shaped threshold", "Date", "2026-05-08", "9999-99-99", rangeOps, []string{"lt", "lte"}}, {"NaN range", "Float", "2", "NaN", rangeOps, []string{"lt", "lte"}}} {
 		t.Run(tc.name, func(t *testing.T) {
 			service := scalarSortService(t, tc.scalar, "# Actions\n\n- [ ] Match #action-item\n  rank:: "+tc.actual+"\n- [ ] Empty #action-item\n")
 			opts := service.opts
@@ -160,5 +115,18 @@ func TestOntologySourceScalarFiltersAgreeWithResidual(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+func TestOntologySourceBlankAndMissingRuntimeFiltersDoNotDisappear(t *testing.T) {
+	service := scalarSortService(t, "String", "- [ ] Match #action-item\n  rank:: value\n- [ ] Empty #action-item\n")
+	for _, filter := range []viewconfig.FilterSpec{{Field: "rank", Op: "eq", Value: ""}, {Field: "rank", Op: "eq", ValueFrom: "ontology.currentUser.resolvedRef"}, {Field: "rank", Op: "neq", ValueFrom: "ontology.currentUser.resolvedRef"}} {
+		result, err := service.Execute(context.Background(), "actions", ExecuteRequest{Filters: []viewconfig.FilterSpec{filter}})
+		require.NoError(t, err)
+		require.Empty(t, result.Rows)
+		if filter.ValueFrom != "" {
+			require.Contains(t, result.Warnings, diag.Warning{Code: "current_user_unavailable", Message: "current-user runtime provider is unavailable"})
+		} else {
+			require.Equal(t, []viewconfig.FilterSpec{filter}, result.ResidualConstraints.Filters)
+		}
 	}
 }

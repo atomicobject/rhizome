@@ -4,6 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/app/queryengine"
+	"github.com/atomicobject/rhizome/pkg/app/queryengine/runtimeproviders"
+	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
+	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/notemeta"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/validate"
+	"github.com/atomicobject/rhizome/pkg/vault/cache"
+	"github.com/atomicobject/rhizome/pkg/vault/identity"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,28 +33,10 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/indexing"
-	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
-	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/guide"
-	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
-	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
-	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
-	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
-	"github.com/atomicobject/rhizome/pkg/validate"
-	"github.com/atomicobject/rhizome/pkg/vault/cache"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 type ontologyDefinitions struct {
-	schema  *ontology.Schema
+	schema  *ontoschema.Schema
 	exec    *ontologyquery.ExecutableSchema
 	execErr error
 }
@@ -42,13 +45,17 @@ func (s *Server) ontologyDefinitions() (*ontologyDefinitions, error) {
 	if s == nil {
 		return nil, nil
 	}
-	currentHash, err := ontology.SchemaSourceHash(s.cfg.VaultPath)
-	if errors.Is(err, ontology.ErrNoOntologyFiles) {
-		currentHash, err = "", nil
+	schema, err := ontoschema.LoadSchema(s.cfg.VaultPath)
+	if errors.Is(err, ontoschema.ErrNoOntologyFiles) {
+		s.ontologyMu.Lock()
+		s.ontologyDefs = nil
+		s.ontologyMu.Unlock()
+		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	currentHash := schema.Hash
 
 	s.ontologyMu.RLock()
 	cached := s.ontologyDefs
@@ -63,17 +70,6 @@ func (s *Server) ontologyDefinitions() (*ontologyDefinitions, error) {
 		return s.ontologyDefs, nil
 	}
 
-	schema, err := ontology.LoadSchema(s.cfg.VaultPath)
-	if err != nil {
-		if errors.Is(err, ontology.ErrNoOntologyFiles) {
-			s.ontologyDefs = nil
-			return nil, nil
-		}
-		return nil, err
-	}
-	if schema.Hash != currentHash {
-		return nil, fmt.Errorf("%w: ontology schema changed during reload", errIndexInitializing)
-	}
 	exec, execErr := ontologyquery.BuildExecutableSchema(schema)
 	s.ontologyDefs = &ontologyDefinitions{schema: schema, exec: exec, execErr: execErr}
 	return s.ontologyDefs, nil
@@ -88,14 +84,14 @@ func (s *Server) ontologyContext() (*ontology.Service, *ontologyDefinitions, err
 	if store == nil {
 		return nil, defs, nil
 	}
-	return ontology.NewService(s.cfg.VaultDef, s.defaultOntologyNoteReader(), store, defs.schema), defs, nil
+	return ontology.NewService(store, defs.schema), defs, nil
 }
 
-func (s *Server) ontologyQueryDeps(service *ontology.Service, noteReader obsidian.NoteReader) ontologyquery.Deps {
+func (s *Server) ontologyQueryDeps(service *ontology.Service, noteReader obsidian.NoteReader) (ontologyquery.Deps, error) {
 	return s.ontologyQueryDepsForExactPaths(service, noteReader, nil)
 }
 
-func (s *Server) ontologyQueryDepsForExactPaths(service *ontology.Service, noteReader obsidian.NoteReader, exactSnapshot *exactNoteReadSnapshot) ontologyquery.Deps {
+func (s *Server) ontologyQueryDepsForExactPaths(service *ontology.Service, noteReader obsidian.NoteReader, exactSnapshot *exactNoteReadSnapshot) (ontologyquery.Deps, error) {
 	if noteReader == nil {
 		noteReader = s.defaultOntologyNoteReader()
 	}
@@ -107,8 +103,8 @@ func (s *Server) ontologyQueryDepsForExactPaths(service *ontology.Service, noteR
 		VaultDef:   s.cfg.VaultDef,
 		NoteReader: noteReader,
 		Store:      store,
-		Service:    service,
-		PathOwner:  s.ontologyQueryPathOwner,
+
+		PathOwner: s.ontologyQueryPathOwner,
 	}
 	if formats, err := s.noteMetadata.FormatRuntime(); err == nil {
 		deps.NoteFormats = formats
@@ -127,23 +123,24 @@ func (s *Server) ontologyQueryDepsForExactPaths(service *ontology.Service, noteR
 		}
 	}
 	_, noteProvider := s.runtime.NoteEmbeddings()
-	if store != nil && noteProvider != nil {
-		deps.SemanticSearcher = &semantic.Searcher{
-			NoteProvider: noteProvider,
-			IntelStore:   store,
-		}
+	_, codeProvider := s.runtime.CodeEmbeddings()
+	deps, err := queryengine.Dependencies(deps, unifiedsearch.Options{VaultPath: s.cfg.VaultPath, VaultDef: s.cfg.VaultDef, IntelStore: store, NoteProvider: noteProvider, CodeProvider: codeProvider})
+	if err != nil {
+		return ontologyquery.Deps{}, err
 	}
-	if store != nil {
-		_, codeProvider := s.runtime.CodeEmbeddings()
-		deps.NoteSearcher = unifiedsearch.NoteSearcher{Runtime: unifiedsearch.Options{
-			VaultPath:    s.cfg.VaultPath,
-			VaultDef:     s.cfg.VaultDef,
-			IntelStore:   store,
-			NoteProvider: noteProvider,
-			CodeProvider: codeProvider,
-		}}
+	var schema *ontoschema.Schema
+	var exec *ontologyquery.ExecutableSchema
+	if service != nil {
+		schema = service.Schema
 	}
-	return deps
+	s.ontologyMu.RLock()
+	if s.ontologyDefs != nil && (schema == nil || s.ontologyDefs.schema == schema) {
+		schema, exec = s.ontologyDefs.schema, s.ontologyDefs.exec
+	}
+	s.ontologyMu.RUnlock()
+	providers := runtimeproviders.New(schema, exec, deps, s.codeAnchorService())
+	deps.OntologyRuntime, deps.CodeRuntime = providers, providers
+	return deps, nil
 }
 
 func (s *Server) exactNoteMetadataRowsFromStore(ctx context.Context, store *semdb.Store, paths []string) (map[string]semdb.NoteMetadataRow, error) {
@@ -282,7 +279,7 @@ func (s *Server) countOntologySummary(ctx context.Context, store *semdb.Store, d
 		return resp, nil
 	}
 
-	nodeScope := noderead.NewService(s.cfg.VaultDef, &obsidian.Note{}, store, defs.schema).NewScope(ctx, noderead.ScopeOptions{})
+	nodeScope := noderead.NewService(s.cfg.VaultDef, s.defaultOntologyNoteReader(), store, defs.schema).NewScope(noderead.ScopeOptions{})
 	all, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: ontology.TypeScopeAll})
 	if err != nil {
 		return resp, err
@@ -321,20 +318,25 @@ func (s *Server) countOntologySummary(ctx context.Context, store *semdb.Store, d
 	if err != nil {
 		return resp, err
 	}
+	typeNames := make([]string, 0, len(types)+len(interfaces))
+	for _, entry := range types {
+		typeNames = append(typeNames, entry.Name)
+	}
+	for _, entry := range interfaces {
+		typeNames = append(typeNames, entry.Name)
+	}
+	summaries, err := nodeScope.TypeSummaries(ctx, typeNames, 5)
+	if err != nil {
+		return resp, err
+	}
 	for i := range types {
-		result, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: types[i].Name})
-		if err != nil {
-			return resp, err
-		}
+		result := summaries[types[i].Name]
 		types[i].Count = result.Count
 		types[i].IssueCount = result.IssueCount
 		types[i].StartingNotes = ontologyItemStartingRefs(result.Items, 5)
 	}
 	for i := range interfaces {
-		result, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: interfaces[i].Name})
-		if err != nil {
-			return resp, err
-		}
+		result := summaries[interfaces[i].Name]
 		interfaces[i].Count = result.Count
 		interfaces[i].IssueCount = result.IssueCount
 	}
@@ -360,11 +362,11 @@ func sortByCountThenName[T any](items []T, key func(T) (int, string)) {
 // schemaSummaryEntries lists the rail's types and interfaces from the schema
 // alone, without counts, sorted by name.
 func schemaSummaryEntries(defs *ontologyDefinitions) ([]OntologyTypeSummary, []OntologyInterfaceSummary, error) {
-	typeDocs, err := ontology.SchemaDocs(defs.schema, "")
+	typeDocs, err := schemadoc.SchemaDocs(defs.schema, "", identity.CurrentUserType)
 	if err != nil {
 		return nil, nil, err
 	}
-	typeDocByName := make(map[string]ontology.TypeDoc, len(typeDocs))
+	typeDocByName := make(map[string]schemadoc.TypeDoc, len(typeDocs))
 	for _, doc := range typeDocs {
 		typeDocByName[doc.Name] = doc
 	}
@@ -375,7 +377,7 @@ func schemaSummaryEntries(defs *ontologyDefinitions) ([]OntologyTypeSummary, []O
 	types := make([]OntologyTypeSummary, 0, len(typeNames))
 	for _, typeName := range typeNames {
 		roleLabel := "note"
-		if defs.schema.Types[typeName].Role == ontology.TypeRoleEmbeddedNode {
+		if defs.schema.Types[typeName].Role == ontoschema.TypeRoleEmbeddedNode {
 			roleLabel = "embedded"
 		}
 		doc := typeDocByName[typeName]
@@ -431,36 +433,37 @@ func (s *Server) ontologyAtlas(ctx context.Context) (OntologyAtlasResponse, erro
 	}
 	resp.SchemaPresent = true
 	resp.SchemaHash = defs.schema.Hash
-	nodeScope := noderead.NewService(s.cfg.VaultDef, &obsidian.Note{}, s.runtime.Intel(), defs.schema).NewScope(ctx, noderead.ScopeOptions{})
+	nodeScope := noderead.NewService(s.cfg.VaultDef, s.defaultOntologyNoteReader(), s.runtime.Intel(), defs.schema).NewScope(noderead.ScopeOptions{})
 
-	docs, err := ontology.SchemaDocs(defs.schema, "")
+	docs, err := schemadoc.SchemaDocs(defs.schema, "", identity.CurrentUserType)
 	if err != nil {
 		return resp, err
 	}
-	docsByName := make(map[string]ontology.TypeDoc, len(docs))
+	docsByName := make(map[string]schemadoc.TypeDoc, len(docs))
 	for _, doc := range docs {
 		docsByName[doc.Name] = doc
 	}
 
 	atlasTypeNames := make([]string, 0, len(defs.schema.Types))
 	for name, noteType := range defs.schema.Types {
-		if noteType == nil {
+		if noteType == nil || ontoschema.OntologyTypeVisibility(name) == ontoschema.TypeVisibilityInternal {
 			continue
 		}
-		if noteType.Role != ontology.TypeRoleNote && noteType.Role != ontology.TypeRoleEmbeddedNode {
+		if noteType.Role != ontoschema.TypeRoleNote && noteType.Role != ontoschema.TypeRoleEmbeddedNode {
 			continue
 		}
 		atlasTypeNames = append(atlasTypeNames, name)
 	}
 	sort.Strings(atlasTypeNames)
 
+	summaries, err := nodeScope.TypeSummaries(ctx, atlasTypeNames, 5)
+	if err != nil {
+		return resp, err
+	}
 	entries := make([]OntologyAtlasTypeEntry, 0, len(atlasTypeNames))
 	for _, name := range atlasTypeNames {
 		doc := docsByName[name]
-		result, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: name})
-		if err != nil {
-			return resp, err
-		}
+		result := summaries[name]
 		typeDoc := doc
 		entries = append(entries, OntologyAtlasTypeEntry{
 			Type:          &typeDoc,
@@ -490,7 +493,7 @@ func (s *Server) ontologyAtlas(ctx context.Context) (OntologyAtlasResponse, erro
 
 	sectionNames := make([]string, 0, len(defs.schema.Types))
 	for name, noteType := range defs.schema.Types {
-		if noteType == nil || noteType.Role != ontology.TypeRoleSection {
+		if noteType == nil || noteType.Role != ontoschema.TypeRoleSection {
 			continue
 		}
 		sectionNames = append(sectionNames, name)
@@ -521,109 +524,87 @@ func (s *Server) ontologyType(ctx context.Context, typeName string, overlay *nod
 	if err != nil || nodeScope == nil {
 		return OntologyTypeResponse{}, err
 	}
-	return s.enrichOntologyType(ctx, typeName, overlay, schema, nodeScope, result)
+	return s.enrichOntologyType(ctx, typeName, schema, nodeScope, result)
 }
 
-func (s *Server) enrichOntologyType(ctx context.Context, typeName string, overlay *noderead.ReadOverlay, schema *ontology.Schema, nodeScope *noderead.Scope, result ontology.TypeListResult) (OntologyTypeResponse, error) {
+func (s *Server) enrichOntologyType(ctx context.Context, typeName string, schema *ontoschema.Schema, nodeScope *noderead.Scope, result ontology.TypeListResult) (OntologyTypeResponse, error) {
 	pathsList := uniqueOntologyItemNotePaths(result.Items)
-	tagsByPath := map[string][]string{}
-	issuesByPath := map[string]bool{}
-	issueItemsByPath := map[string][]OntologyNoteIssueItem{}
-	relationCountByPath := map[string]int{}
-	identityStatusByItemRef := map[string]string{}
-	issueCount := result.IssueCount
-	identityStatusField := pickIdentityStatusField(result.TypeDoc)
-	var fetchErr error
-	var fetchMu sync.Mutex
-	var wg sync.WaitGroup
-	setErr := func(err error) {
-		if err == nil {
-			return
+	itemRefs := make([]ontology.NodeRef, 0, len(result.Items))
+	summaryRefs := make([]ontology.NodeRef, 0, len(result.Items)+len(pathsList))
+	seen := make(map[string]bool, len(result.Items)+len(pathsList))
+	addSummaryRef := func(ref ontology.NodeRef) {
+		key := noderead.RefIdentityKey(ref)
+		if !seen[key] {
+			seen[key] = true
+			summaryRefs = append(summaryRefs, ref)
 		}
-		fetchMu.Lock()
-		if fetchErr == nil {
-			fetchErr = err
-		}
-		fetchMu.Unlock()
 	}
-
-	wg.Add(4)
-	go func() {
-		defer wg.Done()
-		tagRows, err := s.noteTagsByPaths(ctx, pathsList)
-		if err != nil {
-			setErr(err)
-			return
-		}
-		fetchMu.Lock()
-		tagsByPath = tagRows
-		fetchMu.Unlock()
-	}()
-	go func() {
-		defer wg.Done()
-		assessments, err := nodeScope.AssessmentsByPaths(ctx, pathsList)
-		if err != nil {
-			setErr(err)
-			return
-		}
-		issues, items, _, totalIssues, err := assessmentIssueDetails(ctx, schema, assessments, nodeScope.AssessmentsByPaths)
-		if err != nil {
-			setErr(err)
-			return
-		}
-		fetchMu.Lock()
-		issuesByPath = issues
-		issueItemsByPath = items
-		issueCount = totalIssues
-		fetchMu.Unlock()
-	}()
-	go func() {
-		defer wg.Done()
-		refs := make([]ontology.NodeRef, 0, len(pathsList))
-		for _, path := range pathsList {
-			refs = append(refs, ontology.NodeRef{NotePath: path, Kind: ontology.NodeKindNote})
-		}
-		countResult, err := nodeScope.RelationCounts(ctx, noderead.RelationCountsRequest{
-			Sources:           refs,
-			Direction:         noderead.TraversalDirectionBoth,
-			IncludeStructural: true,
-			IncludeAmbient:    true,
-		})
-		if err != nil {
-			setErr(err)
-			return
-		}
-		counts := make(map[string]int, len(pathsList))
-		for _, item := range countResult.Sources {
-			counts[item.Source.NotePath] = item.Count
-		}
-		fetchMu.Lock()
-		relationCountByPath = counts
-		fetchMu.Unlock()
-	}()
-	go func() {
-		defer wg.Done()
-		statusByRef, err := s.identityStatusByItemRefs(ctx, result.Items, identityStatusField)
-		if err != nil {
-			setErr(err)
-			return
-		}
-		fetchMu.Lock()
-		identityStatusByItemRef = statusByRef
-		fetchMu.Unlock()
-	}()
-	wg.Wait()
-	if fetchErr != nil {
-		return OntologyTypeResponse{}, fetchErr
+	for _, item := range result.Items {
+		itemRefs = append(itemRefs, item.Ref)
+		addSummaryRef(item.Ref)
 	}
-	if err := overlayIdentityStatuses(ctx, nodeScope, overlay, result.Items, identityStatusField, identityStatusByItemRef); err != nil {
+	for _, path := range pathsList {
+		addSummaryRef(ontology.NodeRef{NotePath: path, Kind: ontology.NodeKindNote})
+	}
+	records, err := nodeScope.Hydrate(ctx, summaryRefs, noderead.HydrateOptions{Profile: noderead.HydrateSummary})
+	if err != nil {
 		return OntologyTypeResponse{}, err
 	}
-	s.overlayNoteTags(overlay, pathsList, tagsByPath)
+	tagsByPath := make(map[string][]string, len(pathsList))
+	recordsByRef := make(map[string]noderead.NodeRecord, len(records))
+	for _, record := range records {
+		recordsByRef[noderead.RefIdentityKey(record.Ref)] = record
+		if record.Ref.Kind == ontology.NodeKindNote || record.Ref.Kind == "" {
+			tagsByPath[record.Ref.NotePath] = record.Tags
+		}
+	}
+	identityStatusByItemRef := map[string]string{}
+	if field := pickIdentityStatusField(result.TypeDoc); field != nil {
+		indexed, err := nodeScope.IndexedRecordFieldValues(ctx, records)
+		if err != nil {
+			return OntologyTypeResponse{}, err
+		}
+		for _, record := range records {
+			key := noderead.RefIdentityKey(record.Ref)
+			if rows := indexed[key]; len(rows) > 0 {
+				if record.FieldValues == nil {
+					record.FieldValues = make(map[string][]readmodel.FieldValueRow)
+				}
+				record.FieldValues[field.Name] = nil
+				for _, row := range rows {
+					if strings.EqualFold(row.FieldName, field.Name) {
+						record.FieldValues[field.Name] = append(record.FieldValues[field.Name], row)
+					}
+				}
+			}
+			if values := nodeScope.FieldValues(record, field.Name); len(values) > 0 {
+				identityStatusByItemRef[key] = strings.TrimSpace(values[0])
+			}
+		}
+	}
+	assessments, err := nodeScope.AssessmentsByPaths(ctx, pathsList)
+	if err != nil {
+		return OntologyTypeResponse{}, err
+	}
+	issuesByPath, issueItemsByPath, _, issueCount, err := assessmentIssueDetails(ctx, schema, assessments, nodeScope.AssessmentsByPaths)
+	if err != nil {
+		return OntologyTypeResponse{}, err
+	}
+	countResult, err := nodeScope.RelationCounts(ctx, noderead.RelationCountsRequest{
+		Sources: itemRefs, Direction: noderead.TraversalDirectionBoth, IncludeStructural: true, IncludeAmbient: true,
+	})
+	if err != nil {
+		return OntologyTypeResponse{}, err
+	}
+	relationCountByRef := make(map[string]int, len(itemRefs))
+	for _, item := range countResult.Sources {
+		relationCountByRef[noderead.RefIdentityKey(item.Source)] = item.Count
+	}
 
 	items := make([]OntologyNoteListItem, 0, len(result.Items))
 	for _, item := range result.Items {
-		hasIssues := item.HasIssues || issuesByPath[item.NotePath]
+		key := noderead.RefIdentityKey(item.Ref)
+		hasIssues := item.HasIssues || recordsByRef[key].HasIssues || issuesByPath[item.NotePath]
 		itemRef := item.Ref.String()
 		if itemRef == "" {
 			itemRef = item.NotePath
@@ -634,11 +615,11 @@ func (s *Server) enrichOntologyType(ctx context.Context, typeName string, overla
 			Title:          item.Title,
 			ResolvedType:   item.ResolvedType,
 			HasIssues:      hasIssues,
-			RelationCount:  relationCountByPath[item.NotePath],
+			RelationCount:  relationCountByRef[key],
 			Tags:           tagsByPath[item.NotePath],
 			UpdatedAt:      item.UpdatedAt,
 			Issues:         issueItemsByPath[item.NotePath],
-			IdentityStatus: identityStatusByItemRef[itemRef],
+			IdentityStatus: identityStatusByItemRef[key],
 		})
 	}
 	sort.SliceStable(items, func(i, j int) bool {
@@ -655,7 +636,7 @@ func (s *Server) enrichOntologyType(ctx context.Context, typeName string, overla
 	}
 	if result.TypeDoc != nil && typeName != pseudoTypeAll && typeName != pseudoTypeIssues {
 		if schema != nil {
-			if text, err := guide.RenderMarkdownWithResolver(schema, []string{typeName}, s.ontologyCompanionResolver()); err == nil {
+			if text, err := schemadoc.RenderGuideMarkdown(schema, schemadoc.GuideOptions{Types: []string{typeName}, ResolveCompanion: s.ontologyCompanionResolver()}); err == nil {
 				resp.AuthoringGuide = text
 			}
 		}
@@ -675,7 +656,7 @@ func (s *Server) ontologyTypeDoc(ctx context.Context, typeName string, overlay *
 
 // ontologyTypeInstances reads a type's documentation and instances from the
 // indexed read model. A nil scope means the index store is unavailable.
-func (s *Server) ontologyTypeInstances(ctx context.Context, typeName string, overlay *noderead.ReadOverlay) (*ontology.Schema, *noderead.Scope, ontology.TypeListResult, error) {
+func (s *Server) ontologyTypeInstances(ctx context.Context, typeName string, overlay *noderead.ReadOverlay) (*ontoschema.Schema, *noderead.Scope, ontology.TypeListResult, error) {
 	_, defs, err := s.ontologyContext()
 	if err != nil {
 		return nil, nil, ontology.TypeListResult{}, err
@@ -684,11 +665,11 @@ func (s *Server) ontologyTypeInstances(ctx context.Context, typeName string, ove
 	if store == nil {
 		return nil, nil, ontology.TypeListResult{}, nil
 	}
-	var schema *ontology.Schema
+	var schema *ontoschema.Schema
 	if defs != nil {
 		schema = defs.schema
 	}
-	nodeScope := noderead.NewService(s.cfg.VaultDef, &obsidian.Note{}, store, schema).NewScope(ctx, noderead.ScopeOptions{ReadOverlay: overlay})
+	nodeScope := noderead.NewService(s.cfg.VaultDef, s.defaultOntologyNoteReader(), store, schema).NewScope(noderead.ScopeOptions{ReadOverlay: overlay})
 	result, err := nodeScope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: typeName})
 	if err != nil {
 		return nil, nil, ontology.TypeListResult{}, err
@@ -701,15 +682,15 @@ func (s *Server) ontologyTypeInstances(ctx context.Context, typeName string, ove
 
 // ontologyCompanionResolver returns a guide.CompanionDocResolver backed by the
 // server's vault config, mirroring the CLI authoring-guide behavior.
-func (s *Server) ontologyCompanionResolver() guide.CompanionDocResolver {
+func (s *Server) ontologyCompanionResolver() schemadoc.CompanionDocResolver {
 	note := &obsidian.Note{}
 	vaultDef := s.cfg.VaultDef
-	return func(path string) (guide.CompanionDocMeta, bool) {
+	return func(path string) (schemadoc.CompanionDocMeta, bool) {
 		content, err := note.GetContents(vaultDef, path)
 		if err != nil {
-			return guide.CompanionDocMeta{}, false
+			return schemadoc.CompanionDocMeta{}, false
 		}
-		meta := guide.CompanionDocMeta{}
+		meta := schemadoc.CompanionDocMeta{}
 		if title, ok := note.Title(path); ok {
 			meta.Title = strings.TrimSpace(title)
 		}
@@ -845,9 +826,13 @@ func (s *Server) executeOntologyQueryOperation(ctx context.Context, rawQuery str
 	traceStep("context")
 	deps.ReadOverlay = overlay
 	traceStep("deps")
-	result := ontologyquery.ExecutePrepared(ctx, deps, defs.schema, defs.exec, prepared)
+	engine, err := queryengine.New(defs.schema, defs.exec, deps)
+	if err != nil {
+		return ontologyquery.Result{}, err
+	}
+	result, err := engine.Run(ctx, prepared)
 	traceStep("execute-prepared")
-	return result, nil
+	return result, err
 }
 
 func (s *Server) ontologyQueryDepsForPrepared(ctx context.Context, defs *ontologyDefinitions, prepared *ontologyquery.PreparedQuery) (ontologyquery.Deps, error) {
@@ -858,8 +843,8 @@ func (s *Server) ontologyQueryDepsForPrepared(ctx context.Context, defs *ontolog
 	if store == nil {
 		return ontologyquery.Deps{}, fmt.Errorf("ontology is unavailable")
 	}
-	service := ontology.NewService(s.cfg.VaultDef, s.defaultOntologyNoteReader(), store, defs.schema)
-	return s.ontologyQueryDepsForExactPaths(service, nil, exactSnapshot), nil
+	service := ontology.NewService(store, defs.schema)
+	return s.ontologyQueryDepsForExactPaths(service, nil, exactSnapshot)
 }
 
 func (s *Server) waitForPreparedQuery(ctx context.Context, prepared *ontologyquery.PreparedQuery) (*semdb.Store, *exactNoteReadSnapshot, error) {
@@ -1201,8 +1186,7 @@ func (s *Server) recoverPendingOntologyEditRepairs(ctx context.Context) error {
 	}
 	noteReader := obsidian.NoteReader(&obsidian.Note{})
 	runCtx := validate.RunContext{
-		VaultDef: s.cfg.VaultDef, VaultPath: vaultPath, VaultMgr: s.cfg.Vault,
-		NoteReader: noteReader, NoteMetadata: s.noteMetadata, MaxIssues: 20,
+		VaultDef: s.cfg.VaultDef, VaultPath: vaultPath, NoteReader: noteReader, NoteMetadata: s.noteMetadata, MaxIssues: 20,
 	}
 	pending, err := validate.DetectPendingRepairJournals(runCtx)
 	if err != nil {
@@ -1216,9 +1200,9 @@ func (s *Server) recoverPendingOntologyEditRepairs(ctx context.Context) error {
 		Checks:         []validate.CheckResult{{Name: validate.CheckOntology, OK: true}},
 		RepairJournals: pending,
 	}
-	_, _, err = validate.ApplyRepairSession(ctx, planned, runCtx, validate.Options{
+	_, _, err = validate.ApplyRepairSession(ctx, planned, runCtx, validate.ApplyOptions{
 		Fix: true, NonInteractive: true,
-		PostApplyRefresher: indexing.ValidationProjectionPostApplyRefresher{
+		PostApplyRefresher: validationproduct.ValidationProjectionPostApplyRefresher{
 			VaultPath: vaultPath, VaultDef: s.cfg.VaultDef,
 			NoteMetadata: s.noteMetadata, NoteReader: noteReader,
 		},
@@ -1308,16 +1292,15 @@ func (s *Server) commitTransientOntologyEditSession(ctx context.Context, session
 			vaultPath = s.cfg.VaultDef.BasePath()
 		}
 		runCtx := validate.RunContext{
-			VaultDef: s.cfg.VaultDef, VaultPath: vaultPath, VaultMgr: s.cfg.Vault,
-			NoteReader: noteReader, NoteMetadata: s.noteMetadata, MaxIssues: 20,
+			VaultDef: s.cfg.VaultDef, VaultPath: vaultPath, NoteReader: noteReader, NoteMetadata: s.noteMetadata, MaxIssues: 20,
 		}
 		planned, buildErr := validate.BuildOntologyEditSessionRepairResult(ctx, runCtx, session.ID, validationPlan)
 		if buildErr != nil {
 			return ontologyEditApplyConflictResponse(session, resp, ops, validationPlan, buildErr), nil
 		}
-		applyOptions := validate.Options{
+		applyOptions := validate.ApplyOptions{
 			Fix: true, NonInteractive: true,
-			PostApplyRefresher: indexing.ValidationProjectionPostApplyRefresher{
+			PostApplyRefresher: validationproduct.ValidationProjectionPostApplyRefresher{
 				VaultPath: vaultPath, VaultDef: s.cfg.VaultDef,
 				NoteMetadata: s.noteMetadata, NoteReader: noteReader,
 			},
@@ -1508,7 +1491,7 @@ func (s *Server) readRenderedNote(ctx context.Context, rel string) (RenderedFile
 
 	title := s.lookupNoteTitle(ctx, rel)
 	if title == "" {
-		title = titleFromPath(rel)
+		title = paths.NoteTitle(rel)
 	}
 	snapshot, markdown, err := s.markdownDocumentSnapshotCompat(rel, content, info.ModTime())
 	if err != nil {
@@ -1610,9 +1593,9 @@ func (s *Server) workspaceGroups(ctx context.Context, nodeScope *noderead.Scope,
 		for _, relation := range inspected.Assessment.Relations {
 			for _, target := range relation.Targets {
 				if target.Structural {
-					addRelationItem(&structural, relation.Name, target.Path, titleFromPath(target.Path), s.pathKind(target.Path), target.TypeName, target.Provenance, workspaceLinkDirection(false, target.Provenance), true)
+					addRelationItem(&structural, relation.Name, target.Path, paths.NoteTitle(target.Path), s.pathKind(target.Path), target.TypeName, target.Provenance, workspaceLinkDirection(false, target.Provenance), true)
 				} else {
-					addRelationItem(&ambient, relation.Name, target.Path, titleFromPath(target.Path), s.pathKind(target.Path), target.TypeName, target.Provenance, workspaceLinkDirection(false, target.Provenance), false)
+					addRelationItem(&ambient, relation.Name, target.Path, paths.NoteTitle(target.Path), s.pathKind(target.Path), target.TypeName, target.Provenance, workspaceLinkDirection(false, target.Provenance), false)
 				}
 			}
 		}
@@ -1628,9 +1611,9 @@ func (s *Server) workspaceGroups(ctx context.Context, nodeScope *noderead.Scope,
 			}
 			direction := workspaceLinkDirection(inbound, relation.Provenance)
 			if relation.Structural {
-				addRelationItem(&structural, relation.RelationName, targetPath, titleFromPath(targetPath), s.pathKind(targetPath), targetType, relation.Provenance, direction, true)
+				addRelationItem(&structural, relation.RelationName, targetPath, paths.NoteTitle(targetPath), s.pathKind(targetPath), targetType, relation.Provenance, direction, true)
 			} else {
-				addRelationItem(&ambient, relation.RelationName, targetPath, titleFromPath(targetPath), s.pathKind(targetPath), targetType, relation.Provenance, direction, false)
+				addRelationItem(&ambient, relation.RelationName, targetPath, paths.NoteTitle(targetPath), s.pathKind(targetPath), targetType, relation.Provenance, direction, false)
 			}
 		}
 	}
@@ -1688,7 +1671,7 @@ func (s *Server) workspaceGroups(ctx context.Context, nodeScope *noderead.Scope,
 		backlinkSeen[backlink.Referrer] = struct{}{}
 		backlinkItems = append(backlinkItems, NoteWorkspaceLink{
 			Path:       backlink.Referrer,
-			Title:      titleFromPath(backlink.Referrer),
+			Title:      paths.NoteTitle(backlink.Referrer),
 			Kind:       "note",
 			Provenance: string(backlink.LinkType),
 			Direction:  linkDirectionIncoming,
@@ -1703,7 +1686,7 @@ func (s *Server) workspaceGroups(ctx context.Context, nodeScope *noderead.Scope,
 		}
 		connectedItems = append(connectedItems, NoteWorkspaceLink{
 			Path:       link.Target,
-			Title:      titleFromPath(link.Target),
+			Title:      paths.NoteTitle(link.Target),
 			Kind:       "note",
 			Provenance: link.Kind,
 			Direction:  linkDirectionOutgoing,
@@ -1802,7 +1785,7 @@ func (s *Server) sectionRelationGroups(ctx context.Context, notePath string, ren
 		}
 		seen := make(map[string]struct{})
 		for _, link := range links {
-			resolved, ok := resolveLinkDetail(cache, s.cfg.VaultDef, notePath, obsidian.LinkDetail{
+			resolved, ok := resolveLinkDetail(cache, s.cfg.VaultDef, notePath, markdownsyntax.LinkDetail{
 				Target:   link.Text,
 				LinkType: link.Kind,
 			})
@@ -1846,7 +1829,7 @@ func (s *Server) sectionRelationGroups(ctx context.Context, notePath string, ren
 		}
 		outboundBySection[pending.sectionID] = append(outboundBySection[pending.sectionID], NoteWorkspaceLink{
 			Path:           pending.fullTarget,
-			Title:          titleFromPath(pending.targetPath),
+			Title:          paths.NoteTitle(pending.targetPath),
 			Kind:           "note",
 			ResolvedType:   "",
 			Anchor:         pending.anchor,
@@ -1872,7 +1855,7 @@ func (s *Server) sectionRelationGroups(ctx context.Context, notePath string, ren
 		}
 		inboundBySection[section.ID] = append(inboundBySection[section.ID], NoteWorkspaceLink{
 			Path:       backlink.Referrer,
-			Title:      titleFromPath(backlink.Referrer),
+			Title:      paths.NoteTitle(backlink.Referrer),
 			Kind:       "note",
 			Provenance: string(backlink.LinkType),
 			Direction:  linkDirectionIncoming,
@@ -1917,7 +1900,7 @@ func (s *Server) sectionRelationGroups(ctx context.Context, notePath string, ren
 	return result, nil
 }
 
-func structuralNodeFromOntologyNode(node codeanchor.IntelOntologyNode) *StructuralNodeResponse {
+func structuralNodeFromOntologyNode(node readmodel.NodeRow) *StructuralNodeResponse {
 	if strings.TrimSpace(node.NodeID) == "" {
 		return nil
 	}
@@ -1925,7 +1908,7 @@ func structuralNodeFromOntologyNode(node codeanchor.IntelOntologyNode) *Structur
 	if locator == "" {
 		locator = string(ontology.NodeKindSection)
 	}
-	title := firstNonEmptyString(node.DisplayLabel, node.Title, titleFromPath(node.NotePath))
+	title := firstNonEmptyString(node.DisplayLabel, node.Title, paths.NoteTitle(node.NotePath))
 	return &StructuralNodeResponse{
 		NodeID:       node.NodeID,
 		Fragment:     node.Fragment,
@@ -1985,7 +1968,7 @@ func (s *Server) workspaceCodeRelated(ctx context.Context, nodeScope *noderead.S
 		seen[file] = struct{}{}
 		out = append(out, NoteWorkspaceLink{
 			Path:       file,
-			Title:      titleFromPath(file),
+			Title:      paths.NoteTitle(file),
 			Kind:       "code",
 			Provenance: "code-anchor",
 		})
@@ -1995,7 +1978,7 @@ func (s *Server) workspaceCodeRelated(ctx context.Context, nodeScope *noderead.S
 	// behind noderead so workspace graph consumers use the same projected read
 	// model as the graph APIs.
 	if nodeScope == nil {
-		nodeScope = noderead.NewService(s.cfg.VaultDef, &obsidian.Note{}, store, nil).NewScope(ctx, noderead.ScopeOptions{})
+		nodeScope = noderead.NewService(s.cfg.VaultDef, &obsidian.Note{}, store, nil).NewScope(noderead.ScopeOptions{})
 	}
 	codeLinks, err := nodeScope.CodeGraphLinks(ctx, ontology.NodeRef{NotePath: notePath, Kind: ontology.NodeKindNote}, 50)
 	if err != nil {
@@ -2008,7 +1991,7 @@ func (s *Server) workspaceCodeRelated(ctx context.Context, nodeScope *noderead.S
 		seen[link.Path] = struct{}{}
 		out = append(out, NoteWorkspaceLink{
 			Path:       link.Path,
-			Title:      titleFromPath(link.Path),
+			Title:      paths.NoteTitle(link.Path),
 			Kind:       "code",
 			Provenance: link.Provenance,
 		})
@@ -2022,7 +2005,7 @@ func (s *Server) noteBacklinks(notePath string) ([]obsidian.Backlink, error) {
 			rows, err := store.GraphDocBacklinksForPath(context.Background(), string(paths.NormalizeNotePath(notePath)), 0)
 			if err == nil {
 				out := make([]obsidian.Backlink, 0, len(rows))
-				seen := make(map[string]obsidian.BacklinkType, len(rows))
+				seen := make(map[string]markdownsyntax.BacklinkType, len(rows))
 				for _, row := range rows {
 					if row.SrcPath == "" {
 						continue
@@ -2046,7 +2029,7 @@ func (s *Server) noteBacklinks(notePath string) ([]obsidian.Backlink, error) {
 			}
 		}
 	}
-	backlinks, err := obsidian.CollectBacklinks(s.cfg.VaultDef, &obsidian.Note{}, []string{notePath}, obsidian.DefaultWikilinkOptions, nil)
+	backlinks, err := vaultgraph.CollectBacklinks(s.cfg.VaultDef, &obsidian.Note{}, []string{notePath}, markdownsyntax.DefaultWikilinkOptions, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2101,7 +2084,7 @@ func (s *Server) noteBacklinksDetailed(notePath string) ([]obsidian.Backlink, er
 			}
 		}
 	}
-	backlinks, err := obsidian.CollectBacklinks(s.cfg.VaultDef, &obsidian.Note{}, []string{notePath}, obsidian.DefaultWikilinkOptions, nil)
+	backlinks, err := vaultgraph.CollectBacklinks(s.cfg.VaultDef, &obsidian.Note{}, []string{notePath}, markdownsyntax.DefaultWikilinkOptions, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2133,7 +2116,7 @@ func (s *Server) resolvedNoteLinks(referrer string, noteReader obsidian.NoteRead
 	scanned := s.resolveMarkdownLinksCompat(referrer, content)
 	links := make([]resolvedNoteLink, 0, len(scanned))
 	for _, link := range scanned {
-		resolved, ok := resolveLinkDetail(cache, s.cfg.VaultDef, referrer, obsidian.LinkDetail{
+		resolved, ok := resolveLinkDetail(cache, s.cfg.VaultDef, referrer, markdownsyntax.LinkDetail{
 			Target:   link.Text,
 			LinkType: link.Kind,
 		})
@@ -2213,7 +2196,7 @@ func (s *Server) renderedEmbedTargets(ctx context.Context, rel string, links []m
 		seen[target] = struct{}{}
 		out = append(out, RenderedEmbed{
 			Target:   target,
-			Title:    titleFromPath(target),
+			Title:    paths.NoteTitle(target),
 			Kind:     s.pathKind(target),
 			Resolved: resolved,
 		})
@@ -2257,7 +2240,7 @@ func exactCachedNotePath(cache *obsidian.NotePathCache, target string) (string, 
 // — both pick the first enum field whose lowercased name ends with "status".
 // Keep these heuristics in lockstep; if you change one, change the other or the
 // type-home card pill diverges from the identity strip inside the note pane.
-func pickIdentityStatusField(typeDoc *ontology.TypeDoc) *ontology.FieldDoc {
+func pickIdentityStatusField(typeDoc *schemadoc.TypeDoc) *schemadoc.FieldDoc {
 	if typeDoc == nil {
 		return nil
 	}
@@ -2271,206 +2254,6 @@ func pickIdentityStatusField(typeDoc *ontology.TypeDoc) *ontology.FieldDoc {
 		}
 	}
 	return nil
-}
-
-// overlayIdentityStatuses replaces indexed identity statuses for notes the edit
-// session touches with their staged values, so the type list does not show a
-// committed status beside staged titles and membership.
-func overlayIdentityStatuses(ctx context.Context, scope *noderead.Scope, overlay *noderead.ReadOverlay, items []ontology.NodeListItem, field *ontology.FieldDoc, statusByRef map[string]string) error {
-	if field == nil || overlay.Empty() {
-		return nil
-	}
-	refs := make([]ontology.NodeRef, 0)
-	for _, item := range items {
-		if overlay.TouchesPath(item.NotePath) {
-			refs = append(refs, item.Ref)
-		}
-	}
-	if len(refs) == 0 {
-		return nil
-	}
-	records, err := scope.Hydrate(ctx, refs, noderead.HydrateOptions{Profile: noderead.HydrateSummary})
-	if err != nil {
-		return err
-	}
-	for _, record := range records {
-		key := record.Ref.String()
-		if values := scope.FieldValues(record, field.Name); len(values) > 0 && strings.TrimSpace(values[0]) != "" {
-			statusByRef[key] = strings.TrimSpace(values[0])
-		} else {
-			delete(statusByRef, key)
-		}
-	}
-	return nil
-}
-
-// overlayNoteTags replaces indexed tags for notes the edit session touches with
-// the tags their staged source projects, the way the indexer derives them.
-func (s *Server) overlayNoteTags(overlay *noderead.ReadOverlay, notePaths []string, tagsByPath map[string][]string) {
-	if overlay.Empty() {
-		return
-	}
-	for _, notePath := range notePaths {
-		facts, ok := s.stagedNoteFacts(overlay, notePath)
-		if !ok {
-			continue
-		}
-		seen := map[string]struct{}{}
-		tags := make([]string, 0, len(facts.Tags))
-		for _, fact := range facts.Tags {
-			tag := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(fact.Value, "#")))
-			if _, dup := seen[tag]; tag == "" || dup {
-				continue
-			}
-			seen[tag] = struct{}{}
-			tags = append(tags, tag)
-		}
-		sort.Strings(tags)
-		tagsByPath[notePath] = tags
-	}
-}
-
-// identityStatusByItemRefs reads the identity-status field value for each item
-// in the type-home list, keyed by the item's canonical ref string. Returns an
-// empty map when the type has no identity status field. Uses the same indexed
-// read path (OntologyNodeFieldValuesByNodeIDs) the node-catalog reads use, so
-// card values never disagree with the identity strip.
-func (s *Server) identityStatusByItemRefs(ctx context.Context, items []ontology.NodeListItem, field *ontology.FieldDoc) (map[string]string, error) {
-	if field == nil || len(items) == 0 {
-		return map[string]string{}, nil
-	}
-	store := s.runtime.Intel()
-	if store == nil {
-		return map[string]string{}, nil
-	}
-
-	rootPaths := make([]string, 0, len(items))
-	rootKeyByPath := make(map[string]string, len(items))
-	locators := make([]string, 0, len(items))
-	keyByLocator := make(map[string]string, len(items))
-	for _, item := range items {
-		key := item.Ref.String()
-		path := item.NotePath
-		if path == "" {
-			path = item.Ref.NotePath
-		}
-		if key == "" {
-			key = path
-		}
-		if path == "" || key == "" {
-			continue
-		}
-		if strings.TrimSpace(item.Ref.Fragment) != "" {
-			if _, ok := keyByLocator[key]; !ok {
-				keyByLocator[key] = key
-				locators = append(locators, key)
-			}
-		} else if _, ok := rootKeyByPath[path]; !ok {
-			rootKeyByPath[path] = key
-			rootPaths = append(rootPaths, path)
-		}
-	}
-	if len(rootPaths) == 0 && len(locators) == 0 {
-		return map[string]string{}, nil
-	}
-	nodeIDs := make([]string, 0, len(items))
-	keyByNodeID := make(map[string]string, len(items))
-	seenNodeIDs := make(map[string]struct{}, len(items))
-	addNode := func(node codeanchor.IntelOntologyNode, key string) {
-		if node.NodeID == "" || key == "" {
-			return
-		}
-		if _, ok := seenNodeIDs[node.NodeID]; ok {
-			return
-		}
-		seenNodeIDs[node.NodeID] = struct{}{}
-		nodeIDs = append(nodeIDs, node.NodeID)
-		keyByNodeID[node.NodeID] = key
-	}
-
-	if len(rootPaths) > 0 {
-		nodes, err := store.OntologyNodesByPaths(ctx, rootPaths)
-		if err != nil {
-			return nil, err
-		}
-		for _, node := range nodes {
-			if node.Fragment != "" {
-				continue
-			}
-			addNode(node, rootKeyByPath[node.NotePath])
-		}
-	}
-	if len(locators) > 0 {
-		nodesByLocator, err := store.OntologyNodesByNoteFragments(ctx, locators)
-		if err != nil {
-			return nil, err
-		}
-		for _, locator := range locators {
-			node, ok := nodesByLocator[locator]
-			if !ok {
-				notePath, fragment, _ := strings.Cut(locator, "#")
-				fragment = strings.TrimPrefix(fragment, "#")
-				blockID := strings.TrimPrefix(fragment, "^")
-				for _, candidate := range nodesByLocator {
-					if candidate.NotePath == notePath && (candidate.Fragment == fragment || candidate.BlockID == blockID) {
-						node = candidate
-						ok = true
-						break
-					}
-				}
-			}
-			if ok {
-				addNode(node, keyByLocator[locator])
-			}
-		}
-	}
-	if len(nodeIDs) == 0 {
-		return map[string]string{}, nil
-	}
-	rows, err := store.OntologyNodeFieldValuesByNodeIDs(ctx, nodeIDs, []string{field.Name})
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]string, len(rows))
-	for _, row := range rows {
-		// Stored FieldName is normalized lowercase; FieldDoc.Name is camelCase.
-		if !strings.EqualFold(row.FieldName, field.Name) {
-			continue
-		}
-		key := keyByNodeID[row.NodeID]
-		if key == "" {
-			continue
-		}
-		if _, exists := out[key]; exists {
-			continue
-		}
-		value := strings.TrimSpace(row.ValueText)
-		if value == "" {
-			continue
-		}
-		out[key] = value
-	}
-	return out, nil
-}
-
-func (s *Server) noteTagsByPaths(ctx context.Context, pathsList []string) (map[string][]string, error) {
-	store := s.runtime.Intel()
-	if store == nil || len(pathsList) == 0 {
-		return map[string][]string{}, nil
-	}
-	rows, err := store.CurrentNoteTags(ctx, pathsList)
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string][]string, len(pathsList))
-	for _, row := range rows {
-		out[row.NotePath] = append(out[row.NotePath], row.TagNorm)
-	}
-	for path, tags := range out {
-		sort.Strings(tags)
-		out[path] = tags
-	}
-	return out, nil
 }
 
 // assessmentLoader fetches decoded assessments for note paths that the caller
@@ -2498,7 +2281,7 @@ func hydratedAssessments(ctx context.Context, assessments map[string]*ontology.N
 // list of issue messages per note so list items can surface concrete problems
 // (e.g. on the Issues home screen). Per-note lists include the top-level
 // assessment Issues followed by field- and relation-scoped issues.
-func assessmentIssueDetails(ctx context.Context, schema *ontology.Schema, assessments map[string]*ontology.NoteAssessment, load assessmentLoader) (map[string]bool, map[string][]OntologyNoteIssueItem, int, int, error) {
+func assessmentIssueDetails(ctx context.Context, schema *ontoschema.Schema, assessments map[string]*ontology.NoteAssessment, load assessmentLoader) (map[string]bool, map[string][]OntologyNoteIssueItem, int, int, error) {
 	all, err := hydratedAssessments(ctx, assessments, load)
 	if err != nil {
 		return nil, nil, 0, 0, err
@@ -2605,7 +2388,7 @@ func visitAssessmentIssues(assessment *ontology.NoteAssessment, visit func(ontol
 	}
 }
 
-func collectAssessmentIssues(assessment *ontology.NoteAssessment, schema *ontology.Schema, allAssessments map[string]*ontology.NoteAssessment) []OntologyNoteIssueItem {
+func collectAssessmentIssues(assessment *ontology.NoteAssessment, schema *ontoschema.Schema, allAssessments map[string]*ontology.NoteAssessment) []OntologyNoteIssueItem {
 	if assessment == nil {
 		return nil
 	}
@@ -2705,9 +2488,9 @@ func indexRenderedSections(sections []RenderedSection, out map[string]*RenderedS
 // index-time assessor do.
 func annotateTypedSections(
 	nodes []*ontology.SectionNode,
-	parentType *ontology.NoteType,
-	notePropertyCase ontology.PropertyCase,
-	schema *ontology.Schema,
+	parentType *ontoschema.NoteType,
+	notePropertyCase ontoschema.PropertyCase,
+	schema *ontoschema.Schema,
 	idMap map[string]*RenderedSection,
 	parentFieldPath string,
 ) {
@@ -2715,7 +2498,7 @@ func annotateTypedSections(
 		return
 	}
 	for _, field := range parentType.Fields {
-		if field == nil || field.Kind != ontology.FieldKindSection {
+		if field == nil || field.Kind != ontoschema.FieldKindSection {
 			continue
 		}
 		matches := matchWebSectionNodesForField(nodes, field)
@@ -2767,7 +2550,7 @@ func joinFieldPath(parent, field string) string {
 	return parent + "." + field
 }
 
-func buildStructuralView(rendered RenderedFileResponse, typeDoc *ontology.TypeDoc) *StructuralViewResponse {
+func buildStructuralView(rendered RenderedFileResponse, typeDoc *schemadoc.TypeDoc) *StructuralViewResponse {
 	if len(rendered.Sections) == 0 {
 		return nil
 	}
@@ -2802,7 +2585,7 @@ func buildStructuralView(rendered RenderedFileResponse, typeDoc *ontology.TypeDo
 }
 
 func structuralFileRoot(rendered RenderedFileResponse, sections []StructuralNodeResponse) (string, []StructuralNodeResponse) {
-	if len(sections) == 1 && sections[0].Level == ontology.SectionLevelH1 {
+	if len(sections) == 1 && sections[0].Level == ontoschema.SectionLevelH1 {
 		root := sections[0]
 		if len(root.Children) > 0 {
 			return root.Content, root.Children
@@ -2847,7 +2630,7 @@ func extractStructuralPreface(markdown string) string {
 	return strings.TrimSpace(markdown)
 }
 
-func buildSectionStructuralView(section RenderedSection, typeDoc *ontology.TypeDoc) *StructuralViewResponse {
+func buildSectionStructuralView(section RenderedSection, typeDoc *schemadoc.TypeDoc) *StructuralViewResponse {
 	nodes := buildStructuralSections([]RenderedSection{section})
 	if len(nodes) == 0 {
 		return nil
@@ -2871,10 +2654,10 @@ func buildSectionStructuralView(section RenderedSection, typeDoc *ontology.TypeD
 	return view
 }
 
-func buildStructuralTabs(nodes []StructuralNodeResponse, fields []ontology.FieldDoc) []StructuralTabResponse {
+func buildStructuralTabs(nodes []StructuralNodeResponse, fields []schemadoc.FieldDoc) []StructuralTabResponse {
 	var tabs []StructuralTabResponse
 	for _, field := range fields {
-		if field.Kind != ontology.FieldKindSection {
+		if field.Kind != ontoschema.FieldKindSection {
 			continue
 		}
 		items := collectStructuralMatches(nodes, field)
@@ -2931,7 +2714,7 @@ func buildStructuralSections(sections []RenderedSection) []StructuralNodeRespons
 	return out
 }
 
-func collectStructuralMatches(nodes []StructuralNodeResponse, field ontology.FieldDoc) []StructuralNodeResponse {
+func collectStructuralMatches(nodes []StructuralNodeResponse, field schemadoc.FieldDoc) []StructuralNodeResponse {
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -2969,7 +2752,7 @@ func structuralRoots(nodes []StructuralNodeResponse) []StructuralNodeResponse {
 		return nodes
 	}
 	only := nodes[0]
-	if only.Level == ontology.SectionLevelH1 && len(only.Children) > 0 {
+	if only.Level == ontoschema.SectionLevelH1 && len(only.Children) > 0 {
 		return only.Children
 	}
 	return nodes
@@ -2997,14 +2780,12 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func identifierFieldName(noteType *ontology.NoteType) string {
+func identifierFieldName(noteType *ontoschema.NoteType) string {
 	if noteType == nil {
 		return ""
 	}
-	for _, field := range noteType.Fields {
-		if field != nil && field.IsPreferredIdentifier {
-			return field.Name
-		}
+	if field := noteType.PreferredIdentifierField(); field != nil {
+		return field.Name
 	}
 	for _, field := range noteType.Fields {
 		if field != nil && field.IsIdentifier {
@@ -3018,7 +2799,7 @@ func identifierFieldName(noteType *ontology.NoteType) string {
 // with an explicit heading resolve via FindMatchingSections; list-typed fields
 // without a heading match every direct child at the requested level in
 // document order.
-func matchWebSectionNodesForField(nodes []*ontology.SectionNode, field *ontology.Field) []*ontology.SectionNode {
+func matchWebSectionNodesForField(nodes []*ontology.SectionNode, field *ontoschema.Field) []*ontology.SectionNode {
 	if field == nil {
 		return nil
 	}
@@ -3044,7 +2825,7 @@ func matchWebSectionNodesForField(nodes []*ontology.SectionNode, field *ontology
 // extractSectionPropertyValues reads a section's inline properties (scoped to
 // its own content) and builds a display map keyed by declared field name. List
 // values are joined with ", " so the frontend renders them in a single string.
-func extractSectionPropertyValues(node *ontology.SectionNode, sectionType *ontology.NoteType, notePropertyCase ontology.PropertyCase) map[string]string {
+func extractSectionPropertyValues(node *ontology.SectionNode, sectionType *ontoschema.NoteType, notePropertyCase ontoschema.PropertyCase) map[string]string {
 	if node == nil || sectionType == nil {
 		return nil
 	}
@@ -3057,10 +2838,10 @@ func extractSectionPropertyValues(node *ontology.SectionNode, sectionType *ontol
 		if field == nil {
 			continue
 		}
-		if field.Kind != ontology.FieldKindScalar && field.Kind != ontology.FieldKindEnum {
+		if field.Kind != ontoschema.FieldKindScalar && field.Kind != ontoschema.FieldKindEnum {
 			continue
 		}
-		key := ontology.DefaultPropertyName(field.Name, notePropertyCase)
+		key := ontoschema.DefaultPropertyName(field.Name, notePropertyCase)
 		values := caseInsensitiveInlineValues(inline, key)
 		if len(values) == 0 {
 			continue
@@ -3140,7 +2921,6 @@ func (s *Server) pathKind(p string) string {
 	}
 	return kind
 }
-
 func sortWorkspaceLinks(items []NoteWorkspaceLink) {
 	sort.SliceStable(items, func(i, j int) bool {
 		if items[i].Kind != items[j].Kind {
@@ -3195,19 +2975,19 @@ func (s *Server) invalidateNoteLinksCache() {
 func sectionAnchorKeys(section RenderedSection) []string {
 	keys := make([]string, 0, 2)
 	if blockID := strings.TrimSpace(section.BlockID); blockID != "" {
-		keys = append(keys, sectionAnchorLookupKey(blockID, obsidian.BacklinkTypeBlock))
+		keys = append(keys, sectionAnchorLookupKey(blockID, markdownsyntax.BacklinkTypeBlock))
 	}
 	if title := strings.TrimSpace(section.Title); title != "" {
-		keys = append(keys, sectionAnchorLookupKey(title, obsidian.BacklinkTypeHeading))
+		keys = append(keys, sectionAnchorLookupKey(title, markdownsyntax.BacklinkTypeHeading))
 	}
 	return keys
 }
 
-func schemaTypeDoc(defs *ontologyDefinitions, typeName string) *ontology.TypeDoc {
+func schemaTypeDoc(defs *ontologyDefinitions, typeName string) *schemadoc.TypeDoc {
 	if defs == nil || defs.schema == nil || strings.TrimSpace(typeName) == "" {
 		return nil
 	}
-	docs, err := ontology.SchemaDocs(defs.schema, typeName)
+	docs, err := schemadoc.SchemaDocs(defs.schema, typeName, identity.CurrentUserType)
 	if err != nil || len(docs) == 0 {
 		return nil
 	}
@@ -3215,14 +2995,14 @@ func schemaTypeDoc(defs *ontologyDefinitions, typeName string) *ontology.TypeDoc
 	return &doc
 }
 
-func typeDocLocator(doc *ontology.TypeDoc) string {
+func typeDocLocator(doc *schemadoc.TypeDoc) string {
 	if doc == nil {
 		return ""
 	}
 	return doc.Locator
 }
 
-func sectionAnchorLookupKey(fragment string, linkType obsidian.BacklinkType) string {
+func sectionAnchorLookupKey(fragment string, linkType markdownsyntax.BacklinkType) string {
 	fragment = strings.TrimSpace(strings.TrimPrefix(fragment, "#"))
 	if fragment == "" {
 		return ""
@@ -3233,19 +3013,19 @@ func sectionAnchorLookupKey(fragment string, linkType obsidian.BacklinkType) str
 		return "block:" + strings.TrimPrefix(fragment, "^")
 	}
 	switch linkType {
-	case obsidian.BacklinkTypeBlock:
+	case markdownsyntax.BacklinkTypeBlock:
 		return "block:" + fragment
-	case obsidian.BacklinkTypeHeading:
-		return "heading:" + slugifyHeading(fragment)
+	case markdownsyntax.BacklinkTypeHeading:
+		return "heading:" + markdownsyntax.HeadingSlug(fragment)
 	default:
 		if strings.HasPrefix(strings.TrimSpace(fragment), "^") {
 			return "block:" + strings.TrimPrefix(strings.TrimSpace(fragment), "^")
 		}
-		return "heading:" + slugifyHeading(fragment)
+		return "heading:" + markdownsyntax.HeadingSlug(fragment)
 	}
 }
 
-func resolveLinkDetail(cache *obsidian.NotePathCache, vaultDef obsidian.VaultDefinition, fromNote string, link obsidian.LinkDetail) (obsidian.ResolvedNoteTarget, bool) {
+func resolveLinkDetail(cache *obsidian.NotePathCache, vaultDef obsidian.VaultDefinition, fromNote string, link markdownsyntax.LinkDetail) (obsidian.ResolvedNoteTarget, bool) {
 	if cache == nil {
 		return obsidian.ResolvedNoteTarget{}, false
 	}
@@ -3270,7 +3050,6 @@ func fragmentTypeFromResolvedTarget(target obsidian.ResolvedNoteTarget) string {
 	}
 	return "heading"
 }
-
 func joinResolvedNoteTarget(target obsidian.ResolvedNoteTarget) string {
 	path := strings.TrimSpace(target.Path)
 	if path == "" {
@@ -3289,30 +3068,6 @@ func mapValuesToSlices(in map[string][]NoteWorkspaceLink) [][]NoteWorkspaceLink 
 			continue
 		}
 		out = append(out, items)
-	}
-	return out
-}
-
-func slugifyHeading(title string) string {
-	title = strings.ToLower(strings.TrimSpace(title))
-	if title == "" {
-		return "section"
-	}
-	var b strings.Builder
-	lastDash := false
-	for _, r := range title {
-		switch {
-		case unicode.IsLetter(r), unicode.IsDigit(r):
-			b.WriteRune(r)
-			lastDash = false
-		case !lastDash:
-			b.WriteByte('-')
-			lastDash = true
-		}
-	}
-	out := strings.Trim(b.String(), "-")
-	if out == "" {
-		return "section"
 	}
 	return out
 }
@@ -3426,64 +3181,64 @@ func noteDisplayPath(path string) string {
 	return strings.TrimSpace(path)
 }
 
-func backlinkTypeForGraphKind(kind string) obsidian.BacklinkType {
+func backlinkTypeForGraphKind(kind string) markdownsyntax.BacklinkType {
 	switch kind {
 	case "wikilink", "mdlink":
-		return obsidian.BacklinkTypeBasic
+		return markdownsyntax.BacklinkTypeBasic
 	}
 	_, subtype, ok := semdb.ParseNoteLinkKind(kind)
 	if !ok {
-		return obsidian.BacklinkTypeBasic
+		return markdownsyntax.BacklinkTypeBasic
 	}
 	switch subtype {
 	case "alias":
-		return obsidian.BacklinkTypeAlias
+		return markdownsyntax.BacklinkTypeAlias
 	case "heading":
-		return obsidian.BacklinkTypeHeading
+		return markdownsyntax.BacklinkTypeHeading
 	case "block":
-		return obsidian.BacklinkTypeBlock
+		return markdownsyntax.BacklinkTypeBlock
 	case "embed":
-		return obsidian.BacklinkTypeEmbed
+		return markdownsyntax.BacklinkTypeEmbed
 	default:
-		return obsidian.BacklinkTypeBasic
+		return markdownsyntax.BacklinkTypeBasic
 	}
 }
 
-func backlinkTypeForSubtype(subtype string) obsidian.BacklinkType {
+func backlinkTypeForSubtype(subtype string) markdownsyntax.BacklinkType {
 	switch subtype {
 	case "alias":
-		return obsidian.BacklinkTypeAlias
+		return markdownsyntax.BacklinkTypeAlias
 	case "heading":
-		return obsidian.BacklinkTypeHeading
+		return markdownsyntax.BacklinkTypeHeading
 	case "block":
-		return obsidian.BacklinkTypeBlock
+		return markdownsyntax.BacklinkTypeBlock
 	case "embed":
-		return obsidian.BacklinkTypeEmbed
+		return markdownsyntax.BacklinkTypeEmbed
 	default:
-		return obsidian.BacklinkTypeBasic
+		return markdownsyntax.BacklinkTypeBasic
 	}
 }
 
-func backlinkTypeForResolvedLink(link ResolvedLink) obsidian.BacklinkType {
+func backlinkTypeForResolvedLink(link ResolvedLink) markdownsyntax.BacklinkType {
 	anchor := strings.TrimSpace(link.Anchor)
 	if strings.HasPrefix(anchor, "block:") {
-		return obsidian.BacklinkTypeBlock
+		return markdownsyntax.BacklinkTypeBlock
 	}
 	if strings.HasPrefix(anchor, "heading:") {
-		return obsidian.BacklinkTypeHeading
+		return markdownsyntax.BacklinkTypeHeading
 	}
 	return backlinkTypeForSubtype(link.Kind)
 }
 
-func backlinkTypeRank(kind obsidian.BacklinkType) int {
+func backlinkTypeRank(kind markdownsyntax.BacklinkType) int {
 	switch kind {
-	case obsidian.BacklinkTypeAlias:
+	case markdownsyntax.BacklinkTypeAlias:
 		return 1
-	case obsidian.BacklinkTypeHeading:
+	case markdownsyntax.BacklinkTypeHeading:
 		return 2
-	case obsidian.BacklinkTypeBlock:
+	case markdownsyntax.BacklinkTypeBlock:
 		return 3
-	case obsidian.BacklinkTypeEmbed:
+	case markdownsyntax.BacklinkTypeEmbed:
 		return 4
 	default:
 		return 0

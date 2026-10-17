@@ -3,18 +3,18 @@ package validate
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
 	"sort"
 	"strings"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
 )
 
 type identifierRuntimeNode struct {
-	row            codeanchor.IntelOntologyNode
-	preferred      *ontology.Field
+	row            readmodel.NodeRow
+	preferred      *ontoschema.Field
 	aliasesField   string
 	aliasesFields  []string
 	aliasesByField map[string][]string
@@ -24,7 +24,7 @@ type identifierRuntimeNode struct {
 }
 
 type identifierTypeMetadata struct {
-	preferred     *ontology.Field
+	preferred     *ontoschema.Field
 	aliasesField  string
 	aliasesFields []string
 	pool          *identifierreconcile.PoolKey
@@ -32,9 +32,9 @@ type identifierTypeMetadata struct {
 
 type identifierRuntimePool struct {
 	key                identifierreconcile.PoolKey
-	targetFormat       ontology.IdentifierFormat
+	targetFormat       ontoschema.IdentifierFormat
 	members            []identifierreconcile.MigrationMember
-	targetReservations []ontology.IdentifierReservation
+	targetReservations []ontoschema.IdentifierReservation
 	blockers           []identifierMigrationBlocker
 }
 
@@ -43,7 +43,7 @@ type identifierMigrationBlocker struct {
 	value   string
 	reason  string
 	always  bool
-	format  ontology.IdentifierFormat
+	format  ontoschema.IdentifierFormat
 	poolKey identifierreconcile.PoolKey
 }
 
@@ -75,7 +75,7 @@ func buildIdentifierRuntimeInventory(ctx context.Context, runtime *ontology.Runt
 	metadataByType := make(map[string]identifierTypeMetadata)
 	for _, typeName := range typeNames {
 		noteType := runtime.Schema.Types[typeName]
-		preferred := preferredIdentifierField(noteType)
+		preferred := noteType.PreferredIdentifierField()
 		if preferred == nil {
 			continue
 		}
@@ -179,7 +179,7 @@ func buildIdentifierRuntimeInventory(ctx context.Context, runtime *ontology.Runt
 	if err != nil {
 		return identifierRuntimeInventory{}, err
 	}
-	fieldsByNode := make(map[string][]codeanchor.IntelOntologyNodeFieldValue, len(nodes))
+	fieldsByNode := make(map[string][]readmodel.FieldValueRow, len(nodes))
 	for _, row := range fieldRows {
 		fieldsByNode[row.NodeID] = append(fieldsByNode[row.NodeID], row)
 	}
@@ -259,7 +259,7 @@ func buildIdentifierRuntimeInventory(ctx context.Context, runtime *ontology.Runt
 					}
 				}
 				if !retiringMirror {
-					pool.targetReservations = append(pool.targetReservations, ontology.IdentifierReservation{Value: alias, Owner: key.String()})
+					pool.targetReservations = append(pool.targetReservations, ontoschema.IdentifierReservation{Value: alias, Owner: key.String()})
 				}
 			}
 		}
@@ -280,7 +280,7 @@ func buildIdentifierRuntimeInventory(ctx context.Context, runtime *ontology.Runt
 func recoverIdentifierMigrationCandidates(
 	ctx context.Context,
 	runtime *ontology.Runtime,
-	rows []codeanchor.IntelOntologyNode,
+	rows []readmodel.NodeRow,
 	metadataByType map[string]identifierTypeMetadata,
 	notePaths []string,
 	rawPreferred map[string]map[string][]string,
@@ -295,7 +295,7 @@ func recoverIdentifierMigrationCandidates(
 	}
 	var blockers []identifierMigrationBlocker
 	typedPaths := make(map[string]struct{})
-	rowsByPath := make(map[string]codeanchor.IntelOntologyNode)
+	rowsByPath := make(map[string]readmodel.NodeRow)
 	for _, row := range rows {
 		if ontology.NodeKind(row.NodeKind) != ontology.NodeKindNote {
 			continue
@@ -377,19 +377,7 @@ func appendIdentifierRuntimeClaim(result *identifierRuntimeInventory, node ident
 	result.claims = append(result.claims, claim)
 }
 
-func preferredIdentifierField(noteType *ontology.NoteType) *ontology.Field {
-	if noteType == nil {
-		return nil
-	}
-	for _, field := range noteType.Fields {
-		if field != nil && field.IsPreferredIdentifier {
-			return field
-		}
-	}
-	return nil
-}
-
-func identifierAliasesFields(noteType *ontology.NoteType) []string {
+func identifierAliasesFields(noteType *ontoschema.NoteType) []string {
 	var fields []string
 	if noteType != nil {
 		for _, field := range noteType.Fields {

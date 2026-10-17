@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,18 +18,18 @@ func TestApplyFixPlanReplansUnderHeldLeaseBeforeMutation(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("before\n"), 0o644))
 	runCtx := repairRunContext(t, root)
 	action := FixAction{
-		ID: "action:identifier", Check: CheckAliases, Kind: "identifier_reconciliation",
+		ID: "action:identifier", Check: CheckIdentifiers, Kind: "identifier_reconciliation",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:identifier"},
 	}
 	preliminary := finalizedSingleWritePlan(t, action, "note.md", "before\n", "replanned\n")
 	replanned := preliminary
 	called := 0
 
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &preliminary, Options{
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &preliminary, ApplyOptions{
 		Fix: true, NonInteractive: true,
-		leaseHeldRepairPlanner: func(_ context.Context, lease *IndexLockLease) (*FixPlan, error) {
+		leaseHeldRepairPlanner: func(_ context.Context, lease *indexlock.Lease) (*FixPlan, error) {
 			called++
-			require.NoError(t, lease.RequireHeldForVault(root))
+			require.NoError(t, lease.Validate(root))
 			current, readErr := os.ReadFile(path)
 			require.NoError(t, readErr)
 			require.Equal(t, "before\n", string(current), "mapping must run before mutation")
@@ -47,15 +48,15 @@ func TestApplyFixPlanRejectsLeaseReplanAuthorityDrift(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "note.md"), []byte("before\n"), 0o644))
 	runCtx := repairRunContext(t, root)
-	action := FixAction{ID: "action:identifier", Check: CheckAliases, Kind: "identifier_reconciliation", Safety: FixSafetySafe, IssueKeys: []string{"issue:identifier"}}
+	action := FixAction{ID: "action:identifier", Check: CheckIdentifiers, Kind: "identifier_reconciliation", Safety: FixSafetySafe, IssueKeys: []string{"issue:identifier"}}
 	preliminary := finalizedSingleWritePlan(t, action, "note.md", "before\n", "preview\n")
 	drifted := action
 	drifted.IssueKeys = []string{"issue:other"}
 	replanned := finalizedSingleWritePlan(t, drifted, "note.md", "before\n", "replanned\n")
 
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &preliminary, Options{
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &preliminary, ApplyOptions{
 		Fix: true, NonInteractive: true,
-		leaseHeldRepairPlanner: func(context.Context, *IndexLockLease) (*FixPlan, error) {
+		leaseHeldRepairPlanner: func(context.Context, *indexlock.Lease) (*FixPlan, error) {
 			return &replanned, nil
 		},
 	})
@@ -74,11 +75,11 @@ func TestApplyFixPlanClassifiesReviewedTransactionsWhenHeldPlannerFails(t *testi
 	require.NoError(t, os.WriteFile(filepath.Join(root, "safe.md"), []byte("safe before\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "confirm.md"), []byte("confirm before\n"), 0o644))
 	safe := FixAction{
-		ID: "action:safe-planner-failure", Check: CheckAliases, Kind: "identifier_reconciliation",
+		ID: "action:safe-planner-failure", Check: CheckIdentifiers, Kind: "identifier_reconciliation",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:safe-planner-failure"},
 	}
 	confirm := FixAction{
-		ID: "action:confirm-planner-failure", Check: CheckAliases, Kind: "identifier_reconciliation",
+		ID: "action:confirm-planner-failure", Check: CheckIdentifiers, Kind: "identifier_reconciliation",
 		Safety: FixSafetyConfirm, IssueKeys: []string{"issue:confirm-planner-failure"},
 	}
 	plan, err := FinalizeRepairPlan(RepairPlan{
@@ -90,9 +91,9 @@ func TestApplyFixPlanClassifiesReviewedTransactionsWhenHeldPlannerFails(t *testi
 	})
 	require.NoError(t, err)
 	plannerErr := errors.New("authoritative mapper failed")
-	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
-		leaseHeldRepairPlanner: func(context.Context, *IndexLockLease) (*FixPlan, error) {
+		leaseHeldRepairPlanner: func(context.Context, *indexlock.Lease) (*FixPlan, error) {
 			return nil, plannerErr
 		},
 	})
@@ -115,15 +116,15 @@ func TestApplyFixPlanClassifiesReviewedTransactionsWhenHeldPlannerFails(t *testi
 func TestApplyFixPlanReportsUnbackedActionBeforeHeldPlannerFailure(t *testing.T) {
 	root := t.TempDir()
 	action := FixAction{
-		ID: "action:unbacked-planner-failure", Check: CheckAliases, Kind: "identifier_reconciliation",
+		ID: "action:unbacked-planner-failure", Check: CheckIdentifiers, Kind: "identifier_reconciliation",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:unbacked-planner-failure"},
 	}
 	plan, err := FinalizeRepairPlan(RepairPlan{Actions: []FixAction{action}, IssueKeys: action.IssueKeys})
 	require.NoError(t, err)
 	plannerErr := errors.New("held planner failed before mapping")
-	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
-		leaseHeldRepairPlanner: func(context.Context, *IndexLockLease) (*FixPlan, error) {
+		leaseHeldRepairPlanner: func(context.Context, *indexlock.Lease) (*FixPlan, error) {
 			return nil, plannerErr
 		},
 	})
@@ -137,7 +138,7 @@ func TestApplyFixPlanRejectsIdentifierRepairWithoutLeaseHeldRevalidation(t *test
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "note.md"), []byte("before\n"), 0o644))
 	action := FixAction{
-		ID: "action:identifier-bypass", Check: CheckAliases, Kind: "resolve_duplicate_identifier",
+		ID: "action:identifier-bypass", Check: CheckIdentifiers, Kind: "resolve_duplicate_identifier",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:identifier-bypass"},
 	}
 	plan := finalizedSingleWritePlan(t, action, "note.md", "before\n", "after\n")
@@ -145,7 +146,7 @@ func TestApplyFixPlanRejectsIdentifierRepairWithoutLeaseHeldRevalidation(t *test
 	plan, err := FinalizeRepairPlan(plan)
 	require.NoError(t, err)
 
-	_, err = ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{Fix: true, NonInteractive: true})
+	_, err = ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{Fix: true, NonInteractive: true})
 	require.ErrorContains(t, err, "requires lease-held authoritative revalidation")
 	content, readErr := os.ReadFile(filepath.Join(root, "note.md"))
 	require.NoError(t, readErr)
@@ -156,7 +157,7 @@ func TestApplyFixPlanRequiresExactHeldRemapForIdentifierPlan(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "note.md"), []byte("before\n"), 0o644))
 	action := FixAction{
-		ID: "action:identifier-exact", Check: CheckAliases, Kind: "resolve_duplicate_identifier",
+		ID: "action:identifier-exact", Check: CheckIdentifiers, Kind: "resolve_duplicate_identifier",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:identifier-exact"},
 	}
 	reviewed := finalizedSingleWritePlan(t, action, "note.md", "before\n", "reviewed\n")
@@ -168,9 +169,9 @@ func TestApplyFixPlanRequiresExactHeldRemapForIdentifierPlan(t *testing.T) {
 	changed, err = FinalizeRepairPlan(changed)
 	require.NoError(t, err)
 
-	_, err = ApplyFixPlan(context.Background(), repairRunContext(t, root), &reviewed, Options{
+	_, err = ApplyFixPlan(context.Background(), repairRunContext(t, root), &reviewed, ApplyOptions{
 		Fix: true, NonInteractive: true,
-		leaseHeldRepairPlanner: func(context.Context, *IndexLockLease) (*FixPlan, error) { return &changed, nil },
+		leaseHeldRepairPlanner: func(context.Context, *indexlock.Lease) (*FixPlan, error) { return &changed, nil },
 	})
 	require.ErrorContains(t, err, "differs from reviewed plan")
 	content, readErr := os.ReadFile(filepath.Join(root, "note.md"))
@@ -184,11 +185,11 @@ func TestApplyFixPlanRejectsLeaseReplanOperationMembershipSwap(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "confirm.md"), []byte("confirm before\n"), 0o644))
 	runCtx := repairRunContext(t, root)
 	safeAction := FixAction{
-		ID: "action:safe", Check: CheckAliases, Kind: "identifier_reconciliation",
+		ID: "action:safe", Check: CheckIdentifiers, Kind: "identifier_reconciliation",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:safe"},
 	}
 	confirmAction := FixAction{
-		ID: "action:confirm", Check: CheckAliases, Kind: "identifier_reconciliation",
+		ID: "action:confirm", Check: CheckIdentifiers, Kind: "identifier_reconciliation",
 		Safety: FixSafetyConfirm, IssueKeys: []string{"issue:confirm"},
 	}
 	preliminary, err := FinalizeRepairPlan(RepairPlan{
@@ -207,9 +208,9 @@ func TestApplyFixPlanRejectsLeaseReplanOperationMembershipSwap(t *testing.T) {
 		},
 	}
 
-	_, err = ApplyFixPlan(context.Background(), runCtx, &preliminary, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &preliminary, ApplyOptions{
 		Fix: true, NonInteractive: true,
-		leaseHeldRepairPlanner: func(context.Context, *IndexLockLease) (*FixPlan, error) {
+		leaseHeldRepairPlanner: func(context.Context, *indexlock.Lease) (*FixPlan, error) {
 			return &replanned, nil
 		},
 	})
@@ -225,7 +226,7 @@ func TestApplyFixPlanRejectsMutatedLeaseReplanWithNonemptyFingerprint(t *testing
 	require.NoError(t, os.WriteFile(path, []byte("before\n"), 0o644))
 	runCtx := repairRunContext(t, root)
 	action := FixAction{
-		ID: "action:identifier", Check: CheckAliases, Kind: "identifier_reconciliation",
+		ID: "action:identifier", Check: CheckIdentifiers, Kind: "identifier_reconciliation",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:identifier"},
 	}
 	preliminary := finalizedSingleWritePlan(t, action, "note.md", "before\n", "preview\n")
@@ -234,9 +235,9 @@ func TestApplyFixPlanRejectsMutatedLeaseReplanWithNonemptyFingerprint(t *testing
 	replanned.Operations[0].Content = []byte("tampered\n")
 	replanned.Operations[0].Expected[0].Replacement = "tampered\n"
 
-	_, err := ApplyFixPlan(context.Background(), runCtx, &preliminary, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &preliminary, ApplyOptions{
 		Fix: true, NonInteractive: true,
-		leaseHeldRepairPlanner: func(context.Context, *IndexLockLease) (*FixPlan, error) {
+		leaseHeldRepairPlanner: func(context.Context, *indexlock.Lease) (*FixPlan, error) {
 			return &replanned, nil
 		},
 	})
@@ -249,7 +250,7 @@ func TestApplyFixPlanFinishesCleanupRecoveryAsBarrierBeforeHeldPlanner(t *testin
 	runCtx := repairRunContext(t, root)
 	cleanupPlan, _, _ := leaveCommittedRepairJournal(t, runCtx)
 	cleanupInterrupted := false
-	_, err := ApplyFixPlan(context.Background(), runCtx, &cleanupPlan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &cleanupPlan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 		repairHooks: &repairExecutionHooks{AfterCleanupBoundary: func(boundary, _ string) error {
 			if boundary == cleanupAfterDetach && !cleanupInterrupted {
@@ -268,23 +269,23 @@ func TestApplyFixPlanFinishesCleanupRecoveryAsBarrierBeforeHeldPlanner(t *testin
 	path := filepath.Join(root, "new.md")
 	require.NoError(t, os.WriteFile(path, []byte("before\n"), 0o644))
 	action := FixAction{
-		ID: "action:new-cleanup-failure", Check: CheckAliases, Kind: "resolve_duplicate_identifier",
+		ID: "action:new-cleanup-failure", Check: CheckIdentifiers, Kind: "resolve_duplicate_identifier",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:new-cleanup-failure"},
 	}
 	plan := finalizedSingleWritePlan(t, action, "new.md", "before\n", "after\n")
 	postcheckCalls := 0
 	plannerCalls := 0
 	probe := &scopedRepairPostApplyProbe{repairPostApplyProbe: repairPostApplyProbe{t: t}}
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: probe,
-		postApplyCheck: func(_ context.Context, lease *IndexLockLease, _ *ontology.Runtime, scope repairPostApplyScope) error {
+		postApplyCheck: func(_ context.Context, lease *indexlock.Lease, _ *ontology.Runtime, scope repairPostApplyScope) error {
 			postcheckCalls++
-			require.NoError(t, lease.RequireHeldForVault(root))
+			require.NoError(t, lease.Validate(root))
 			require.Equal(t, []string{CheckOntology}, scope.Checks)
 			require.Equal(t, []string{"note.md"}, scope.AffectedPaths)
 			return nil
 		},
-		leaseHeldRepairPlanner: func(context.Context, *IndexLockLease) (*FixPlan, error) {
+		leaseHeldRepairPlanner: func(context.Context, *indexlock.Lease) (*FixPlan, error) {
 			plannerCalls++
 			return &plan, nil
 		},
@@ -310,21 +311,21 @@ func TestApplyFixPlanFinishesCleanupRecoveryAsBarrierBeforeHeldPlanner(t *testin
 func TestApplyFixPlanCleanupRecoveryBarrierFailsClosedWithoutRefreshOrPostcheck(t *testing.T) {
 	tests := []struct {
 		name string
-		opts func(*testing.T) Options
+		opts func(*testing.T) ApplyOptions
 	}{
 		{
 			name: "missing refresher",
-			opts: func(*testing.T) Options {
-				return Options{
+			opts: func(*testing.T) ApplyOptions {
+				return ApplyOptions{
 					Fix: true, NonInteractive: true,
-					postApplyCheck: func(context.Context, *IndexLockLease, *ontology.Runtime, repairPostApplyScope) error { return nil },
+					postApplyCheck: func(context.Context, *indexlock.Lease, *ontology.Runtime, repairPostApplyScope) error { return nil },
 				}
 			},
 		},
 		{
 			name: "missing postcheck",
-			opts: func(t *testing.T) Options {
-				return Options{Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t}}
+			opts: func(t *testing.T) ApplyOptions {
+				return ApplyOptions{Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t}}
 			},
 		},
 	}
@@ -333,7 +334,7 @@ func TestApplyFixPlanCleanupRecoveryBarrierFailsClosedWithoutRefreshOrPostcheck(
 			root := t.TempDir()
 			runCtx := repairRunContext(t, root)
 			cleanupPlan, _, _ := leaveCommittedRepairJournal(t, runCtx)
-			_, err := ApplyFixPlan(context.Background(), runCtx, &cleanupPlan, Options{
+			_, err := ApplyFixPlan(context.Background(), runCtx, &cleanupPlan, ApplyOptions{
 				Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 				repairHooks: &repairExecutionHooks{AfterCleanupBoundary: func(boundary, _ string) error {
 					if boundary == cleanupAfterDetach {
@@ -346,7 +347,7 @@ func TestApplyFixPlanCleanupRecoveryBarrierFailsClosedWithoutRefreshOrPostcheck(
 			path := filepath.Join(root, "new.md")
 			require.NoError(t, os.WriteFile(path, []byte("before\n"), 0o644))
 			action := FixAction{
-				ID: "action:cleanup-support", Check: CheckAliases, Kind: "resolve_duplicate_identifier",
+				ID: "action:cleanup-support", Check: CheckIdentifiers, Kind: "resolve_duplicate_identifier",
 				Safety: FixSafetySafe, IssueKeys: []string{"issue:cleanup-support"},
 			}
 			plan := finalizedSingleWritePlan(t, action, "new.md", "before\n", "after\n")
@@ -369,14 +370,14 @@ func TestApplyFixPlanSuppressesLeaseReplanAfterStateChangingRecovery(t *testing.
 	require.NoError(t, os.WriteFile(recoveryPath, []byte("recovery before\n"), 0o644))
 	require.NoError(t, os.WriteFile(newPath, []byte("new before\n"), 0o644))
 	recoveryAction := FixAction{
-		ID: "action:recovery", Check: CheckAliases, Kind: "identifier_reconciliation",
+		ID: "action:recovery", Check: CheckIdentifiers, Kind: "identifier_reconciliation",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:recovery"},
 	}
 	recoveryPlan := finalizedSingleWritePlan(t, recoveryAction, "recovery.md", "recovery before\n", "recovery after\n")
 	recoveryPlan.Operations[0].RequiredChecks = []string{CheckOntology}
 	recoveryPlan, err := FinalizeRepairPlan(recoveryPlan)
 	require.NoError(t, err)
-	_, err = ApplyFixPlan(context.Background(), runCtx, &recoveryPlan, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &recoveryPlan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterInstall: func(_ int, _ string) error {
 			return errSimulatedRepairInterruption
@@ -385,7 +386,7 @@ func TestApplyFixPlanSuppressesLeaseReplanAfterStateChangingRecovery(t *testing.
 	require.ErrorIs(t, err, errSimulatedRepairInterruption)
 
 	newAction := FixAction{
-		ID: "action:new", Check: CheckAliases, Kind: "identifier_reconciliation",
+		ID: "action:new", Check: CheckIdentifiers, Kind: "identifier_reconciliation",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:new"},
 	}
 	newPlan := finalizedSingleWritePlan(t, newAction, "new.md", "new before\n", "new after\n")
@@ -395,16 +396,16 @@ func TestApplyFixPlanSuppressesLeaseReplanAfterStateChangingRecovery(t *testing.
 	plannerCalls := 0
 	probe := &repairPostApplyProbe{t: t}
 	postcheckCalls := 0
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &newPlan, Options{
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &newPlan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: probe,
-		leaseHeldRepairPlanner: func(context.Context, *IndexLockLease) (*FixPlan, error) {
+		leaseHeldRepairPlanner: func(context.Context, *indexlock.Lease) (*FixPlan, error) {
 			plannerCalls++
 			return &newPlan, nil
 		},
-		postApplyCheck: func(_ context.Context, lease *IndexLockLease, _ *ontology.Runtime, scope repairPostApplyScope) error {
+		postApplyCheck: func(_ context.Context, lease *indexlock.Lease, _ *ontology.Runtime, scope repairPostApplyScope) error {
 			postcheckCalls++
-			require.NoError(t, lease.RequireHeldForVault(root))
-			require.Equal(t, []string{CheckAliases, CheckOntology}, scope.Checks)
+			require.NoError(t, lease.Validate(root))
+			require.Equal(t, []string{CheckIdentifiers, CheckOntology}, scope.Checks)
 			require.Equal(t, []string{"recovery.md"}, scope.AffectedPaths)
 			return nil
 		},
@@ -445,7 +446,7 @@ func TestApplyFixPlanCompletesPartialRecoveryPostcheckBeforeReturningCausalRepla
 	}
 	recoveryPlan, err := FinalizeRepairPlan(recoveryPlan)
 	require.NoError(t, err)
-	_, err = ApplyFixPlan(context.Background(), runCtx, &recoveryPlan, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &recoveryPlan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterInstall: func(index int, _ string) error {
 			if index == 1 {
@@ -457,7 +458,7 @@ func TestApplyFixPlanCompletesPartialRecoveryPostcheckBeforeReturningCausalRepla
 	require.ErrorIs(t, err, errSimulatedRepairInterruption)
 
 	newAction := FixAction{
-		ID: "action:new-after-partial", Check: CheckAliases, Kind: "resolve_duplicate_identifier",
+		ID: "action:new-after-partial", Check: CheckIdentifiers, Kind: "resolve_duplicate_identifier",
 		Safety: FixSafetySafe, IssueKeys: []string{"issue:new-after-partial"},
 	}
 	newPlan := finalizedSingleWritePlan(t, newAction, "new.md", "new before\n", "new after\n")
@@ -468,15 +469,15 @@ func TestApplyFixPlanCompletesPartialRecoveryPostcheckBeforeReturningCausalRepla
 	plannerCalls := 0
 	postcheckCalls := 0
 	probe := &repairPostApplyProbe{t: t}
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &newPlan, Options{
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &newPlan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: probe,
-		leaseHeldRepairPlanner: func(context.Context, *IndexLockLease) (*FixPlan, error) {
+		leaseHeldRepairPlanner: func(context.Context, *indexlock.Lease) (*FixPlan, error) {
 			plannerCalls++
 			return &newPlan, nil
 		},
-		postApplyCheck: func(_ context.Context, lease *IndexLockLease, _ *ontology.Runtime, scope repairPostApplyScope) error {
+		postApplyCheck: func(_ context.Context, lease *indexlock.Lease, _ *ontology.Runtime, scope repairPostApplyScope) error {
 			postcheckCalls++
-			require.NoError(t, lease.RequireHeldForVault(root))
+			require.NoError(t, lease.Validate(root))
 			require.Equal(t, []string{CheckBrokenLinks, CheckOntology}, scope.Checks)
 			require.Equal(t, []string{"a.md", "b.md"}, scope.AffectedPaths)
 			return nil

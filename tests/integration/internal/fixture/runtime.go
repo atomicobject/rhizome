@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/app/runtimestop"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 )
 
 // StopRuntime drains the fixture's runtime, including unpublished startup and
@@ -18,7 +18,7 @@ func StopRuntime(t testing.TB, vault string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	var output bytes.Buffer
-	if err := runtimestop.Stop(ctx, runtimestop.StopOptions{VaultPath: vault, Grace: 5 * time.Second, Out: &output}); err != nil {
+	if err := appruntime.Stop(ctx, appruntime.StopOptions{VaultPath: vault, Grace: 5 * time.Second, Out: &output}); err != nil {
 		t.Errorf("stop fixture runtime: %v\n%s", err, output.String())
 	}
 }

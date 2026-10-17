@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -8,43 +9,43 @@ import (
 )
 
 func TestBuildNodeWorkspaceProjectsOwnerSpecificFieldCapabilitiesAndSourceRevision(t *testing.T) {
-	schema := &Schema{
-		EnumTypes: map[string]*EnumType{
+	schema := &ontoschema.Schema{
+		EnumTypes: map[string]*ontoschema.EnumType{
 			"Status": {
 				Name: "Status",
-				Values: []*EnumValue{
+				Values: []*ontoschema.EnumValue{
 					{Name: "draft"},
-					{Name: "ready", View: EnumValueView{Label: "Ready to ship", Order: 1, Tone: "success"}},
+					{Name: "ready", View: ontoschema.EnumValueView{Label: "Ready to ship", Order: 1, Tone: "success"}},
 				},
 			},
 		},
 	}
-	ownerType := &NoteType{
+	ownerType := &ontoschema.NoteType{
 		Name: "Story",
-		Fields: []*Field{
+		Fields: []*ontoschema.Field{
 			{
 				Name:       "status",
-				Kind:       FieldKindEnum,
+				Kind:       ontoschema.FieldKindEnum,
 				TypeName:   "Status",
 				Required:   true,
-				SourceKind: FieldSourceInline,
-				Display:    FieldDisplay{Importance: FieldImportanceKey},
+				SourceKind: ontoschema.FieldSourceInline,
+				Display:    ontoschema.FieldDisplay{Importance: ontoschema.FieldImportanceKey},
 			},
 			{
 				Name:         "reviewers",
-				Kind:         FieldKindLink,
+				Kind:         ontoschema.FieldKindLink,
 				TypeName:     "Person",
 				List:         true,
-				SourceKind:   FieldSourceFrontmatter,
+				SourceKind:   ontoschema.FieldSourceFrontmatter,
 				IsIdentifier: false,
 			},
 		},
 	}
-	ownerType.ByName = map[string]*Field{
+	ownerType.ByName = map[string]*ontoschema.Field{
 		"status":    ownerType.Fields[0],
 		"reviewers": ownerType.Fields[1],
 	}
-	schema.Types = map[string]*NoteType{"Story": ownerType}
+	schema.Types = map[string]*ontoschema.NoteType{"Story": ownerType}
 
 	projection := &NodeProjection{
 		Ref:          NodeRef{NotePath: "stories/one.md", Fragment: "^story-1", Kind: NodeKindEmbedded, TypeName: "Story"},
@@ -56,8 +57,8 @@ func TestBuildNodeWorkspaceProjectsOwnerSpecificFieldCapabilitiesAndSourceRevisi
 			ContentFingerprint: "source-fingerprint",
 		},
 		Fields: map[string]FieldBinding{
-			"status":    {FieldName: "status", Kind: BindingKindInlineField, SourceKind: FieldSourceInline, Present: true, Values: []string{"ready"}},
-			"reviewers": {FieldName: "reviewers", Kind: BindingKindFrontmatterField, SourceKind: FieldSourceFrontmatter},
+			"status":    {FieldName: "status", Kind: BindingKindInlineField, SourceKind: ontoschema.FieldSourceInline, Present: true, Values: []string{"ready"}},
+			"reviewers": {FieldName: "reviewers", Kind: BindingKindFrontmatterField, SourceKind: ontoschema.FieldSourceFrontmatter},
 		},
 	}
 
@@ -81,18 +82,18 @@ func TestBuildNodeWorkspaceProjectsOwnerSpecificFieldCapabilitiesAndSourceRevisi
 		Required:   true,
 		EnumValues: []string{"draft", "ready"},
 		EnumOptions: []NodeFieldEnumOption{
-			{Value: "draft", Label: "draft", Tone: "neutral", Stage: StageOpen},
-			{Value: "ready", Label: "Ready to ship", Tone: "success", Stage: StageDone},
+			{Value: "draft", Label: "draft", Tone: "neutral", Stage: ontoschema.StageOpen},
+			{Value: "ready", Label: "Ready to ship", Tone: "success", Stage: ontoschema.StageDone},
 		},
-		SourceKind:        FieldSourceInline,
+		SourceKind:        ontoschema.FieldSourceInline,
 		ValueOrigin:       NodeFieldValueOriginAuthored,
-		DisplayImportance: FieldImportanceKey,
+		DisplayImportance: ontoschema.FieldImportanceKey,
 		WriteOperation:    NodeFieldWriteOperationSetField,
 	}, fields["status"].Capability)
 	require.Equal(t, NodeFieldValueKindRelation, fields["reviewers"].Capability.ValueKind)
 	require.True(t, fields["reviewers"].Capability.List)
 	require.Equal(t, "Person", fields["reviewers"].Capability.TargetType)
-	require.Equal(t, FieldImportanceNormal, fields["reviewers"].Capability.DisplayImportance)
+	require.Equal(t, ontoschema.FieldImportanceNormal, fields["reviewers"].Capability.DisplayImportance)
 	require.Equal(t, NodeFieldWriteOperationSetLinkField, fields["reviewers"].Capability.WriteOperation)
 }
 
@@ -104,7 +105,7 @@ func TestBuildNodeWorkspacePublishesProviderRootSourceRevision(t *testing.T) {
 		},
 	}
 
-	workspace := BuildNodeWorkspaceFromProjectionWithSchema(&Schema{}, projection)
+	workspace := BuildNodeWorkspaceFromProjectionWithSchema(&ontoschema.Schema{}, projection)
 
 	require.Equal(t, NodeSourceRevision{
 		NotePath: "reports/one.html", ContentFingerprint: "html-fingerprint", Content: "<html>authored</html>",
@@ -112,21 +113,21 @@ func TestBuildNodeWorkspacePublishesProviderRootSourceRevision(t *testing.T) {
 }
 
 func TestBuildNodeWorkspaceMakesIdentifiersReadOnly(t *testing.T) {
-	field := &Field{
+	field := &ontoschema.Field{
 		Name:                  "id",
-		Kind:                  FieldKindScalar,
+		Kind:                  ontoschema.FieldKindScalar,
 		TypeName:              "String",
-		SourceKind:            FieldSourceFrontmatter,
+		SourceKind:            ontoschema.FieldSourceFrontmatter,
 		IsIdentifier:          true,
 		IsPreferredIdentifier: true,
 	}
-	noteType := &NoteType{Name: "Spec", Fields: []*Field{field}, ByName: map[string]*Field{"id": field}}
-	workspace := BuildNodeWorkspaceFromProjectionWithSchema(&Schema{}, &NodeProjection{
+	noteType := &ontoschema.NoteType{Name: "Spec", Fields: []*ontoschema.Field{field}, ByName: map[string]*ontoschema.Field{"id": field}}
+	workspace := BuildNodeWorkspaceFromProjectionWithSchema(&ontoschema.Schema{}, &NodeProjection{
 		Ref:      NodeRef{NotePath: "notes/one.md", Kind: NodeKindNote, TypeName: "Spec"},
 		Type:     noteType,
 		Snapshot: &DocumentSnapshot{NotePath: "notes/one.md", Content: "# One\n"},
 		Fields: map[string]FieldBinding{
-			"id": {FieldName: "id", SourceKind: FieldSourceFrontmatter, Present: true, Values: []string{"SPEC-0001"}},
+			"id": {FieldName: "id", SourceKind: ontoschema.FieldSourceFrontmatter, Present: true, Values: []string{"SPEC-0001"}},
 		},
 	})
 

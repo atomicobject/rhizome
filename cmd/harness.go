@@ -20,9 +20,13 @@ func registeredHarnesses() map[harness.Kind]harness.Harness {
 	}
 }
 
-var harnessCmd = newAgentHarnessCmdWithRegistry(registeredHarnesses)
+func (commandOptions *vaultCommandOptions) makeHarnessCmd() *cobra.Command {
+	return newAgentHarnessCmdWithRegistry(registeredHarnesses)
+}
 
-func init() { rootCmd.AddCommand(harnessCmd) }
+func (commandOptions *vaultCommandOptions) registerHarnessCommands(rootCmd, harnessCmd *cobra.Command) {
+	rootCmd.AddCommand(harnessCmd)
+}
 
 func newAgentHarnessCmdWithRegistry(registry harnessRegistry) *cobra.Command {
 	cmd := &cobra.Command{

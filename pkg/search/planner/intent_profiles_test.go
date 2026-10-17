@@ -5,11 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -49,8 +49,8 @@ func TestIntentProfiles_P3Overrides(t *testing.T) {
 			if tc.ownerCapOne {
 				owner := knowledge.FileHandle("pkg/search/service.go")
 				candidates := []search.Candidate{
-					{Handle: knowledge.AnchorHandle("a"), Owner: owner, Type: "anchor", Path: "pkg/search/service.go", Evidence: []search.Evidence{{Type: "definition_anchor", RawScore: 1}}},
-					{Handle: knowledge.AnchorHandle("b"), Owner: owner, Type: "anchor", Path: "pkg/search/service.go", Evidence: []search.Evidence{{Type: "definition_anchor", RawScore: .8}}},
+					{SourceRef: search.SourceRef{Path: "pkg/search/service.go"}, Handle: knowledge.AnchorHandle("a"), Owner: owner, Type: "anchor", Evidence: []search.Evidence{{Type: "definition_anchor", RawScore: 1}}},
+					{SourceRef: search.SourceRef{Path: "pkg/search/service.go"}, Handle: knowledge.AnchorHandle("b"), Owner: owner, Type: "anchor", Evidence: []search.Evidence{{Type: "definition_anchor", RawScore: .8}}},
 				}
 				ranked, err := plan.Ranker.Rank(ctx, spec, candidates)
 				require.NoError(t, err)

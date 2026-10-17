@@ -1,42 +1,33 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"runtime"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 )
 
-var (
-	tagsJSON         bool
-	tagsMarkdown     bool
-	tagsMatch        []string
-	tagsMutationJSON bool
-	tagsMutationMD   bool
-	tagsDryRun       bool
-	tagsWorkers      int
-	tagsInputs       []string
-	tagsRenameTarget string
-)
-
-func runAddTags(cmd *cobra.Command, args []string) error {
-	if len(tagsInputs) == 0 {
+func (commandOptions *noteInvocationOptions) runAddTags(cmd *cobra.Command, args []string) error {
+	if len(commandOptions.tagsInputs) == 0 {
 		return fmt.Errorf("--inputs is required (e.g., tag:project, find:meeting, paths)")
 	}
 
-	if err := ensureVaultName(); err != nil {
+	if err := commandOptions.ensureVaultName(cmd.Context()); err != nil {
 		return err
 	}
 
-	vault := obsidian.Vault{Name: vaultName}
+	vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: commandOptions.vaultName}
 	note := obsidian.Note{}
 
-	inputs, expr, err := actions.ParseInputsWithExpression(tagsInputs)
+	inputs, expr, err := actions.ParseInputsWithExpression(commandOptions.tagsInputs)
 	if err != nil {
 		return fmt.Errorf("error parsing input criteria: %w", err)
 	}
@@ -59,56 +50,56 @@ func runAddTags(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	summary, err := actions.AddTagsToFilesWithWorkers(cmd.Context(), &vault, &note, args, matchingFiles, tagsDryRun, tagsWorkers)
+	summary, err := actions.AddTagsToFilesWithWorkers(cmd.Context(), &vault, &note, args, matchingFiles, commandOptions.tagsDryRun, commandOptions.tagsWorkers)
 	if err != nil {
 		return fmt.Errorf("failed to add tags: %w", err)
 	}
 
-	return outputMutationSummary(summary, "add", tagsDryRun, tagsMutationJSON, tagsMutationMD)
+	return outputMutationSummary(summary, "add", commandOptions.tagsDryRun, commandOptions.tagsMutationJSON, commandOptions.tagsMutationMD)
 }
 
-func runDeleteTags(cmd *cobra.Command, args []string) error {
-	if err := ensureVaultName(); err != nil {
+func (commandOptions *noteInvocationOptions) runDeleteTags(cmd *cobra.Command, args []string) error {
+	if err := commandOptions.ensureVaultName(cmd.Context()); err != nil {
 		return err
 	}
 
-	vault := obsidian.Vault{Name: vaultName}
+	vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: commandOptions.vaultName}
 	note := obsidian.Note{}
 
-	summary, err := actions.DeleteTagsWithWorkers(cmd.Context(), &vault, &note, args, tagsDryRun, tagsWorkers)
+	summary, err := actions.DeleteTagsWithWorkers(cmd.Context(), &vault, &note, args, commandOptions.tagsDryRun, commandOptions.tagsWorkers)
 	if err != nil {
 		return fmt.Errorf("failed to delete tags: %w", err)
 	}
 
-	return outputMutationSummary(summary, "delete", tagsDryRun, tagsMutationJSON, tagsMutationMD)
+	return outputMutationSummary(summary, "delete", commandOptions.tagsDryRun, commandOptions.tagsMutationJSON, commandOptions.tagsMutationMD)
 }
 
-func runRenameTags(cmd *cobra.Command, args []string) error {
-	if strings.TrimSpace(tagsRenameTarget) == "" {
+func (commandOptions *noteInvocationOptions) runRenameTags(cmd *cobra.Command, args []string) error {
+	if strings.TrimSpace(commandOptions.tagsRenameTarget) == "" {
 		return fmt.Errorf("--to destination tag is required")
 	}
 
-	if err := ensureVaultName(); err != nil {
+	if err := commandOptions.ensureVaultName(cmd.Context()); err != nil {
 		return err
 	}
 
-	vault := obsidian.Vault{Name: vaultName}
+	vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: commandOptions.vaultName}
 	note := obsidian.Note{}
 
-	summary, err := actions.RenameTagsWithWorkers(cmd.Context(), &vault, &note, args, tagsRenameTarget, tagsDryRun, tagsWorkers)
+	summary, err := actions.RenameTagsWithWorkers(cmd.Context(), &vault, &note, args, commandOptions.tagsRenameTarget, commandOptions.tagsDryRun, commandOptions.tagsWorkers)
 	if err != nil {
 		return fmt.Errorf("failed to rename tags: %w", err)
 	}
 
-	return outputMutationSummary(summary, "rename", tagsDryRun, tagsMutationJSON, tagsMutationMD)
+	return outputMutationSummary(summary, "rename", commandOptions.tagsDryRun, commandOptions.tagsMutationJSON, commandOptions.tagsMutationMD)
 }
 
-func runListTags(cmd *cobra.Command, _ []string) error {
-	if err := ensureVaultName(); err != nil {
+func (commandOptions *noteInvocationOptions) runListTags(cmd *cobra.Command, _ []string) error {
+	if err := commandOptions.ensureVaultName(cmd.Context()); err != nil {
 		return err
 	}
 
-	vault := obsidian.Vault{Name: vaultName}
+	vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: commandOptions.vaultName}
 	vaultDef, err := vault.Definition()
 	if err != nil {
 		return err
@@ -118,11 +109,11 @@ func runListTags(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	scanNotes, err := resolveMatches(&vault, note, tagsMatch)
+	scanNotes, err := resolveMatches(&vault, note, commandOptions.tagsMatch)
 	if err != nil {
 		return err
 	}
-	if len(tagsMatch) > 0 && len(scanNotes) == 0 {
+	if len(commandOptions.tagsMatch) > 0 && len(scanNotes) == 0 {
 		fmt.Println("No files match the specified criteria.")
 		return nil
 	}
@@ -132,11 +123,11 @@ func runListTags(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to get tags: %w", err)
 	}
 
-	if tagsJSON {
+	if commandOptions.tagsJSON {
 		return outputTagsJSON(tagSummaries)
 	}
 
-	if tagsMarkdown {
+	if commandOptions.tagsMarkdown {
 		return outputTagsMarkdown(tagSummaries)
 	}
 
@@ -255,34 +246,34 @@ func outputMutationSummaryMarkdown(summary actions.TagMutationSummary, operation
 	return nil
 }
 
-func ensureVaultName() error {
-	if vaultName != "" {
+func (commandOptions *vaultCommandOptions) ensureVaultName(ctx context.Context) error {
+	if commandOptions.vaultName != "" {
 		return nil
 	}
 
-	vault := &obsidian.Vault{}
+	vault := &repoconfig.Vault{Env: vaultconfig.FromContext(ctx)}
 	defaultName, err := vault.DefaultName()
 	if err != nil {
 		return fmt.Errorf("failed to get default vault name: %w", err)
 	}
-	vaultName = defaultName
+	commandOptions.vaultName = defaultName
 	return nil
 }
 
-func addListFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolVar(&tagsJSON, "json", false, "Output tags as JSON")
-	cmd.Flags().BoolVar(&tagsMarkdown, "markdown", false, "Output tags as markdown table")
-	cmd.Flags().StringSliceVarP(&tagsMatch, "match", "m", nil, "Restrict listing to files matched by find/tag/path patterns (only for listing)")
+func (commandOptions *noteInvocationOptions) addListFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&commandOptions.tagsJSON, "json", false, "Output tags as JSON")
+	cmd.Flags().BoolVar(&commandOptions.tagsMarkdown, "markdown", false, "Output tags as markdown table")
+	cmd.Flags().StringSliceVarP(&commandOptions.tagsMatch, "match", "m", nil, "Restrict listing to files matched by find/tag/path patterns (only for listing)")
 }
 
-func addMutationFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolVar(&tagsMutationJSON, "json", false, "Output results as JSON")
-	cmd.Flags().BoolVar(&tagsMutationMD, "markdown", false, "Output results as markdown table")
-	cmd.Flags().BoolVar(&tagsDryRun, "dry-run", false, "Show what would be changed without making changes")
-	cmd.Flags().IntVarP(&tagsWorkers, "workers", "w", runtime.NumCPU(), "Number of parallel workers")
+func (commandOptions *noteInvocationOptions) addMutationFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&commandOptions.tagsMutationJSON, "json", false, "Output results as JSON")
+	cmd.Flags().BoolVar(&commandOptions.tagsMutationMD, "markdown", false, "Output results as markdown table")
+	cmd.Flags().BoolVar(&commandOptions.tagsDryRun, "dry-run", false, "Show what would be changed without making changes")
+	cmd.Flags().IntVarP(&commandOptions.tagsWorkers, "workers", "w", runtime.NumCPU(), "Number of parallel workers")
 }
 
-func newTagsCommand() *cobra.Command {
+func (commandOptions *noteInvocationOptions) newTagsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tags",
 		Short: "Manage tags (list/add/delete/rename)",
@@ -297,42 +288,42 @@ Examples:
 		RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 	}
 
-	cmd.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+	cmd.PersistentFlags().StringVarP(&commandOptions.vaultName, "vault", "v", "", "vault name")
 
 	listCmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List tags with individual and aggregate counts",
-		RunE:    runListTags,
+		RunE:    commandOptions.runListTags,
 	}
 	addCmd := &cobra.Command{
 		Use:   "add <tag> [<tag>...] --inputs <criteria...>",
 		Short: "Add tags to notes matching input criteria",
 		Args:  cobra.MinimumNArgs(1),
-		RunE:  runAddTags,
+		RunE:  commandOptions.runAddTags,
 	}
 	deleteCmd := &cobra.Command{
 		Use:     "delete <tag> [<tag>...]",
 		Aliases: []string{"del", "rm"},
 		Short:   "Delete tags from all notes that contain them",
 		Args:    cobra.MinimumNArgs(1),
-		RunE:    runDeleteTags,
+		RunE:    commandOptions.runDeleteTags,
 	}
 	renameCmd := &cobra.Command{
 		Use:   "rename <from-tag> [<from-tag>...] --to <to-tag>",
 		Short: "Rename tags across the vault",
 		Args:  cobra.MinimumNArgs(1),
-		RunE:  runRenameTags,
+		RunE:  commandOptions.runRenameTags,
 	}
 
-	addListFlags(listCmd)
+	commandOptions.addListFlags(listCmd)
 
-	addMutationFlags(addCmd)
-	addMutationFlags(deleteCmd)
-	addMutationFlags(renameCmd)
+	commandOptions.addMutationFlags(addCmd)
+	commandOptions.addMutationFlags(deleteCmd)
+	commandOptions.addMutationFlags(renameCmd)
 
-	addCmd.Flags().StringSliceVarP(&tagsInputs, "inputs", "i", nil, "Input criteria (find:/tag:/paths or boolean expressions) to select target notes")
-	renameCmd.Flags().StringVarP(&tagsRenameTarget, "to", "t", "", "Destination tag name for rename operation")
+	addCmd.Flags().StringSliceVarP(&commandOptions.tagsInputs, "inputs", "i", nil, "Input criteria (find:/tag:/paths or boolean expressions) to select target notes")
+	renameCmd.Flags().StringVarP(&commandOptions.tagsRenameTarget, "to", "t", "", "Destination tag name for rename operation")
 
 	cmd.AddCommand(listCmd)
 	cmd.AddCommand(addCmd)
@@ -341,6 +332,6 @@ Examples:
 	return cmd
 }
 
-func init() {
-	noteCmd.AddCommand(newTagsCommand())
+func (commandOptions *noteInvocationOptions) registerTagsCommands(noteCmd *cobra.Command) {
+	noteCmd.AddCommand(commandOptions.newTagsCommand())
 }

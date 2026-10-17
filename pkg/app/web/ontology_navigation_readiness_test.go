@@ -12,7 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +31,7 @@ func TestWorkspaceNavigationWaitsForChangedNoteCatalog(t *testing.T) {
 			content, err := os.ReadFile(filepath.Join(fixture.root, path))
 			require.NoError(t, err)
 			require.NoError(t, os.WriteFile(filepath.Join(fixture.root, path), []byte(strings.ReplaceAll(string(content), "^validation", "^renamed")), 0o644))
-			indexer := testNoteMetadataIndexer(t)
+			indexer := testkit.NoteMetadataIndexer(t)
 			require.NoError(t, indexer.SyncPaths(context.Background(), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore, []string{path}, nil))
 			timeout := 100 * time.Millisecond
 			query := func(ref string) *httptest.ResponseRecorder {
@@ -49,9 +50,9 @@ func TestWorkspaceNavigationWaitsForChangedNoteCatalog(t *testing.T) {
 			require.Equal(t, http.StatusServiceUnavailable, res.Code, res.Body.String())
 			require.Contains(t, res.Body.String(), "INDEX_INITIALIZING")
 			if mode == "full" {
-				_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), indexer, fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+				_, err = ontologytest.Publish(context.Background(), indexer, fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 			} else {
-				_, err = ontology.SyncPublishedPaths(context.Background(), indexer, fixture.vaultDef, &obsidian.Note{}, fixture.intelStore, nil, []string{path}, nil)
+				_, err = ontologytest.Sync(context.Background(), indexer, fixture.vaultDef, &obsidian.Note{}, fixture.intelStore, []string{path}, nil)
 			}
 			require.NoError(t, err)
 			timeout = 5 * time.Second
@@ -94,7 +95,7 @@ func TestWorkspaceNavigationReloadsPublishedSchema(t *testing.T) {
 	updated := strings.NewReplacer("type Plan\n", "type UpdatedPlan\n", "[Plan!]", "[UpdatedPlan!]", "plan: Plan!", "plan: UpdatedPlan!").Replace(string(schema))
 	require.NotEqual(t, string(schema), updated)
 	require.NoError(t, os.WriteFile(schemaPath, []byte(updated), 0o644))
-	_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err = ontologytest.Publish(context.Background(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 
 	res := query()
@@ -119,8 +120,8 @@ type After @node(matches: ["tag:after"]) { summary: String }
 		require.NoError(t, os.WriteFile(filepath.Join(fixture.root, path), []byte("---\ntags: ["+tag+"]\n---\n# Changing\n"), 0o644))
 	}
 	write("before")
-	indexer := testNoteMetadataIndexer(t)
-	_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), indexer, fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	indexer := testkit.NoteMetadataIndexer(t)
+	_, err = ontologytest.Publish(context.Background(), indexer, fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	runtime := &Runtime{IntelStore: fixture.intelStore}
 	runtime.EnableIndexGate()
@@ -141,7 +142,7 @@ type After @node(matches: ["tag:after"]) { summary: String }
 	}
 	res := query()
 	require.Equal(t, http.StatusServiceUnavailable, res.Code, res.Body.String())
-	_, err = ontology.SyncPublishedPaths(context.Background(), indexer, fixture.vaultDef, &obsidian.Note{}, fixture.intelStore, nil, []string{path}, nil)
+	_, err = ontologytest.Sync(context.Background(), indexer, fixture.vaultDef, &obsidian.Note{}, fixture.intelStore, []string{path}, nil)
 	require.NoError(t, err)
 	timeout = 5 * time.Second
 	res = query()
@@ -178,10 +179,10 @@ func TestWorkspaceNavigationWaitsForNewNotePublication(t *testing.T) {
 		}
 	}
 	assertPending()
-	_, err := testNoteMetadataIndexer(t).EnsureIndexed(ctx, fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err := testkit.NoteMetadataIndexer(t).EnsureIndexed(ctx, fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	assertPending()
-	_, err = ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err = ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	select {
 	case <-done:

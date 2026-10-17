@@ -3,8 +3,6 @@ package noderead
 import (
 	"context"
 	"errors"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 func readCancellation(ctx context.Context, err error) error {
@@ -34,16 +32,7 @@ func (s *Scope) ensurePathStateLocked(ctx context.Context, pathsList []string) e
 	if err != nil {
 		return err
 	}
-	assessments, err := s.assessmentsByPathsLocked(ctx, knownPaths)
-	if err != nil {
-		return err
-	}
-	for _, path := range knownPaths {
-		if ontology.AssessmentHasIssues(assessments[path]) {
-			s.issueByPath[path] = true
-		}
-	}
-	return nil
+	return s.ensureIssueFlagsLocked(ctx, knownPaths)
 }
 
 func (s *Scope) loadPathMetadataLocked(ctx context.Context, pathsList []string) error {
@@ -79,33 +68,6 @@ func (s *Scope) loadPathMetadataLocked(ctx context.Context, pathsList []string) 
 		}
 	}
 	return nil
-}
-
-func (s *Scope) recordsFromSnapshotsLocked(ctx context.Context, pathsList []string) (map[string]NodeRecord, error) {
-	out := make(map[string]NodeRecord, len(pathsList))
-	for _, path := range pathsList {
-		snapshot, err := s.snapshotForPathLocked(ctx, path)
-		if err != nil {
-			return nil, err
-		}
-		if snapshot == nil {
-			continue
-		}
-		fm := snapshot.Frontmatter
-		out[path] = NodeRecord{
-			Ref:         ontology.NodeRef{NotePath: path, Kind: ontology.NodeKindNote},
-			Path:        path,
-			Title:       noteTitle(path, fm),
-			Content:     snapshot.Content,
-			Frontmatter: cloneMap(fm),
-			InlineProps: ontology.SectionInlineProperties(snapshot.Content),
-			Tags:        extractTags(fm),
-			TypeName:    stringValue(fm[ontology.TypeFieldName()]),
-			UpdatedAt:   s.noteRowByPath[path].Mtime,
-			HasIssues:   s.issueByPath[path],
-		}
-	}
-	return out, nil
 }
 
 // NoteUpdatedAt returns the indexed modification time, in Unix seconds, of

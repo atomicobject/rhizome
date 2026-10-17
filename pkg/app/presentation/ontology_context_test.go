@@ -2,47 +2,50 @@ package presentation
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/search"
+	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/knowledge"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDefaultPacker_ExpandsOntologyNodeBodyWithParentAndContextInclude(t *testing.T) {
 	root, schema, story := setupOntologyPresentationFixture(t)
-	refJSON, err := json.Marshal(story.Ref)
-	require.NoError(t, err)
+	ref := story.Ref
 
 	packer := &DefaultPacker{
 		VaultPath:      root,
 		VaultDef:       obsidian.VaultDefinition{Path: root},
 		NoteReader:     &obsidian.Note{},
 		OntologySchema: schema,
-		Intel:          newPresentationOntologyIntel("notes/specs/checkout.md"),
+		NoteFormats:    presentationNoteFormats(t),
+		NoteStore:      newPresentationOntologyIntel(t, "notes/specs/checkout.md"),
 	}
 	packed, err := packer.Pack(context.Background(), search.QuerySpec{
 		Text:   "faster checkout story",
 		Budget: search.Budget{Chars: 5000},
 	}, []search.RankedResult{{
 		Candidate: search.Candidate{
-			Handle:      knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0),
-			Owner:       knowledge.NoteHandle("notes/specs/checkout.md"),
-			Type:        "note",
-			Path:        "notes/specs/checkout.md",
-			Title:       "Faster checkout",
-			Granularity: "node_body",
-			NodeRefJSON: string(refJSON),
+			SourceRef: search.SourceRef{
+				NodeRef:     &ref,
+				Path:        "notes/specs/checkout.md",
+				Title:       "Faster checkout",
+				Granularity: "node_body",
+			},
+			Handle: knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0),
+			Owner:  knowledge.NoteHandle("notes/specs/checkout.md"),
+			Type:   "note",
 		},
 		FinalScore: 0.9,
 	}})
@@ -68,13 +71,12 @@ func TestDefaultPacker_NodeRefResultKeepsChunkFallbackWithoutOntologyScope(t *te
 Matched fallback evidence.
 `), 0o644))
 
-	refJSON, err := json.Marshal(ontology.NodeRef{
+	ref := ontology.NodeRef{
 		NotePath: "notes/story.md",
 		NodeID:   "story",
 		TypeName: "Story",
 		Kind:     ontology.NodeKindEmbedded,
-	})
-	require.NoError(t, err)
+	}
 
 	packer := &DefaultPacker{VaultPath: root}
 	packed, err := packer.Pack(context.Background(), search.QuerySpec{
@@ -82,12 +84,14 @@ Matched fallback evidence.
 		Budget: search.Budget{Chars: 2000},
 	}, []search.RankedResult{{
 		Candidate: search.Candidate{
-			Type:        "note",
-			Path:        "notes/story.md",
-			NoteID:      "notes/story.md",
-			Title:       "Story",
-			ChunkIndex:  0,
-			NodeRefJSON: string(refJSON),
+			SourceRef: search.SourceRef{
+				NodeRef:    &ref,
+				Path:       "notes/story.md",
+				NoteID:     "notes/story.md",
+				Title:      "Story",
+				ChunkIndex: 0,
+			},
+			Type: "note",
 		},
 		FinalScore: 0.8,
 	}})
@@ -113,35 +117,37 @@ Root prose should render.
 
 Fallback ontology evidence should survive presentation packing.
 `), 0o644))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
-	refJSON, err := json.Marshal(ontology.NodeRef{
+	ref := ontology.NodeRef{
 		NotePath: "notes/untyped.md",
-		TypeName: ontology.FallbackNoteTypeName,
+		TypeName: ontoschema.FallbackNoteTypeName,
 		Kind:     ontology.NodeKindNote,
-	})
-	require.NoError(t, err)
+	}
 
 	packer := &DefaultPacker{
 		VaultPath:      root,
 		VaultDef:       obsidian.VaultDefinition{Path: root},
 		NoteReader:     &obsidian.Note{},
 		OntologySchema: schema,
-		Intel:          newPresentationOntologyIntel("notes/untyped.md"),
+		NoteFormats:    presentationNoteFormats(t),
+		NoteStore:      newPresentationOntologyIntel(t, "notes/untyped.md"),
 	}
 	packed, err := packer.Pack(context.Background(), search.QuerySpec{
 		Text:   "fallback ontology evidence",
 		Budget: search.Budget{Chars: 4000},
 	}, []search.RankedResult{{
 		Candidate: search.Candidate{
-			Handle:      knowledge.NodeChunkHandle("node:fallback", "notes/untyped.md", "node_body", 1),
-			Owner:       knowledge.NoteHandle("notes/untyped.md"),
-			Type:        "note",
-			Path:        "notes/untyped.md",
-			Title:       "Untyped Research",
-			Granularity: "node_body",
-			ChunkIndex:  1,
-			NodeRefJSON: string(refJSON),
+			SourceRef: search.SourceRef{
+				NodeRef:     &ref,
+				Path:        "notes/untyped.md",
+				Title:       "Untyped Research",
+				Granularity: "node_body",
+				ChunkIndex:  1,
+			},
+			Handle: knowledge.NodeChunkHandle("node:fallback", "notes/untyped.md", "node_body", 1),
+			Owner:  knowledge.NoteHandle("notes/untyped.md"),
+			Type:   "note",
 		},
 		FinalScore: 0.9,
 	}})
@@ -157,37 +163,39 @@ Fallback ontology evidence should survive presentation packing.
 
 func TestDefaultPacker_ExpandsOntologyNeighborContextIncludeFromEdges(t *testing.T) {
 	root, schema, story := setupOntologyPresentationFixture(t)
-	refJSON, err := json.Marshal(story.Ref)
-	require.NoError(t, err)
+	ref := story.Ref
 
-	intel := newPresentationOntologyIntel("notes/specs/checkout.md")
-	intel.edges = []semdb.OntologyEdgeRow{{
+	intel := newPresentationOntologyIntel(t, "notes/specs/checkout.md")
+	intel.setEdges(t, []semdb.OntologyEdgeRow{{
 		SrcPath:      "notes/specs/checkout.md",
 		SrcNodeID:    story.Ref.NodeID,
 		RelationName: "references",
 		DstPath:      "docs/context.md",
 		DstType:      "ReferenceDoc",
 		Provenance:   "body_link",
-	}}
+	}})
 	packer := &DefaultPacker{
 		VaultPath:      root,
 		VaultDef:       obsidian.VaultDefinition{Path: root},
 		NoteReader:     &obsidian.Note{},
 		OntologySchema: schema,
-		Intel:          intel,
+		NoteFormats:    presentationNoteFormats(t),
+		NoteStore:      intel,
 	}
 	packed, err := packer.Pack(context.Background(), search.QuerySpec{
 		Text:   "ambient reference",
 		Budget: search.Budget{Chars: 5000},
 	}, []search.RankedResult{{
 		Candidate: search.Candidate{
-			Handle:      knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0),
-			Owner:       knowledge.NoteHandle("notes/specs/checkout.md"),
-			Type:        "note",
-			Path:        "notes/specs/checkout.md",
-			Title:       "Faster checkout",
-			Granularity: "node_body",
-			NodeRefJSON: string(refJSON),
+			SourceRef: search.SourceRef{
+				NodeRef:     &ref,
+				Path:        "notes/specs/checkout.md",
+				Title:       "Faster checkout",
+				Granularity: "node_body",
+			},
+			Handle: knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0),
+			Owner:  knowledge.NoteHandle("notes/specs/checkout.md"),
+			Type:   "note",
 		},
 		FinalScore: 0.9,
 	}})
@@ -218,12 +226,11 @@ func TestDefaultPackerPreservesAuthoredContextTargetPaths(t *testing.T) {
 			require.NoError(t, err)
 			story, err := ontology.ProjectNode(context.Background(), vault, &obsidian.Note{}, schema, container.Fields["stories"].SectionNodes[0])
 			require.NoError(t, err)
-			refJSON, err := json.Marshal(story.Ref)
-			require.NoError(t, err)
-			intel := newPresentationOntologyIntel("notes/specs/checkout.md")
-			intel.edges = []semdb.OntologyEdgeRow{{SrcPath: "notes/specs/checkout.md", SrcNodeID: story.Ref.NodeID, RelationName: "references", DstPath: tc.edge, DstType: "ReferenceDoc", Provenance: "body_link"}}
-			packer := &DefaultPacker{VaultPath: root, VaultDef: vault, NoteReader: &obsidian.Note{}, OntologySchema: schema, Intel: intel}
-			packed, err := packer.Pack(context.Background(), search.QuerySpec{Text: "context", Budget: search.Budget{Chars: 5000}}, []search.RankedResult{{Candidate: search.Candidate{Handle: knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0), Owner: knowledge.NoteHandle("notes/specs/checkout.md"), Type: "note", Path: "notes/specs/checkout.md", Granularity: "node_body", NodeRefJSON: string(refJSON)}, FinalScore: 0.9}})
+			ref := story.Ref
+			intel := newPresentationOntologyIntel(t, "notes/specs/checkout.md")
+			intel.setEdges(t, []semdb.OntologyEdgeRow{{SrcPath: "notes/specs/checkout.md", SrcNodeID: story.Ref.NodeID, RelationName: "references", DstPath: tc.edge, DstType: "ReferenceDoc", Provenance: "body_link"}})
+			packer := &DefaultPacker{VaultPath: root, VaultDef: vault, NoteReader: &obsidian.Note{}, OntologySchema: schema, NoteStore: intel, NoteFormats: presentationNoteFormats(t)}
+			packed, err := packer.Pack(context.Background(), search.QuerySpec{Text: "context", Budget: search.Budget{Chars: 5000}}, []search.RankedResult{{Candidate: search.Candidate{SourceRef: search.SourceRef{NodeRef: &ref, Path: "notes/specs/checkout.md", Granularity: "node_body"}, Handle: knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0), Owner: knowledge.NoteHandle("notes/specs/checkout.md"), Type: "note"}, FinalScore: 0.9}})
 			require.NoError(t, err)
 			require.Contains(t, packed.Text, "related: "+tc.want)
 			require.Contains(t, packed.Text, "references: "+tc.want)
@@ -271,7 +278,7 @@ title: Context Note
 ### Faster checkout
 Users need quicker checkout.
 `), 0o644))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	rootProjection, err := ontology.ProjectNote(ctx, obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "notes/specs/checkout.md")
 	require.NoError(t, err)
@@ -279,37 +286,39 @@ Users need quicker checkout.
 	container, err := ontology.ProjectNode(ctx, obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, containerRef)
 	require.NoError(t, err)
 	storyRef := container.Fields["stories"].SectionNodes[0]
-	refJSON, err := json.Marshal(storyRef)
-	require.NoError(t, err)
+	ref := storyRef
 
-	intel := newPresentationOntologyIntel("notes/specs/checkout.md")
-	intel.edges = []semdb.OntologyEdgeRow{{
+	intel := newPresentationOntologyIntel(t, "notes/specs/checkout.md")
+	intel.setEdges(t, []semdb.OntologyEdgeRow{{
 		SrcPath:      "notes/specs/checkout.md",
 		SrcNodeID:    storyRef.NodeID,
 		RelationName: "references",
 		DstPath:      "docs/context.md",
 		DstType:      "ReferenceDoc",
 		Provenance:   "body_link",
-	}}
+	}})
 	packer := &DefaultPacker{
 		VaultPath:      root,
 		VaultDef:       obsidian.VaultDefinition{Path: root},
 		NoteReader:     &obsidian.Note{},
 		OntologySchema: schema,
-		Intel:          intel,
+		NoteFormats:    presentationNoteFormats(t),
+		NoteStore:      intel,
 	}
 	packed, err := packer.Pack(ctx, search.QuerySpec{
 		Text:   "interface context",
 		Budget: search.Budget{Chars: 4000},
 	}, []search.RankedResult{{
 		Candidate: search.Candidate{
-			Handle:      knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0),
-			Owner:       knowledge.NoteHandle("notes/specs/checkout.md"),
-			Type:        "note",
-			Path:        "notes/specs/checkout.md",
-			Title:       "Faster checkout",
-			NodeRefJSON: string(refJSON),
-			Granularity: "node_body",
+			SourceRef: search.SourceRef{
+				NodeRef:     &ref,
+				Path:        "notes/specs/checkout.md",
+				Title:       "Faster checkout",
+				Granularity: "node_body",
+			},
+			Handle: knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0),
+			Owner:  knowledge.NoteHandle("notes/specs/checkout.md"),
+			Type:   "note",
 		},
 		FinalScore: 0.9,
 	}})
@@ -320,29 +329,31 @@ Users need quicker checkout.
 
 func TestDefaultPacker_OntologyBodyHitShowsMatchedChunk(t *testing.T) {
 	root, schema, story := setupLongOntologyPresentationFixture(t)
-	refJSON, err := json.Marshal(story.Ref)
-	require.NoError(t, err)
+	ref := story.Ref
 
 	packer := &DefaultPacker{
 		VaultPath:      root,
 		VaultDef:       obsidian.VaultDefinition{Path: root},
 		NoteReader:     &obsidian.Note{},
 		OntologySchema: schema,
-		Intel:          newPresentationOntologyIntel("notes/specs/long.md"),
+		NoteFormats:    presentationNoteFormats(t),
+		NoteStore:      newPresentationOntologyIntel(t, "notes/specs/long.md"),
 	}
 	packed, err := packer.Pack(context.Background(), search.QuerySpec{
 		Text:   "tail evidence",
 		Budget: search.Budget{Chars: 5000},
 	}, []search.RankedResult{{
 		Candidate: search.Candidate{
-			Handle:      knowledge.NodeChunkHandle("node:story", "notes/specs/long.md", "node_body", 1),
-			Owner:       knowledge.NoteHandle("notes/specs/long.md"),
-			Type:        "note",
-			Path:        "notes/specs/long.md",
-			Title:       "Long checkout",
-			Granularity: "node_body",
-			ChunkIndex:  1,
-			NodeRefJSON: string(refJSON),
+			SourceRef: search.SourceRef{
+				NodeRef:     &ref,
+				Path:        "notes/specs/long.md",
+				Title:       "Long checkout",
+				Granularity: "node_body",
+				ChunkIndex:  1,
+			},
+			Handle: knowledge.NodeChunkHandle("node:story", "notes/specs/long.md", "node_body", 1),
+			Owner:  knowledge.NoteHandle("notes/specs/long.md"),
+			Type:   "note",
 		},
 		FinalScore: 0.9,
 	}})
@@ -355,28 +366,30 @@ func TestDefaultPacker_OntologyBodyHitShowsMatchedChunk(t *testing.T) {
 
 func TestDefaultPacker_OntologyContextFitsTightBudget(t *testing.T) {
 	root, schema, story := setupOntologyPresentationFixture(t)
-	refJSON, err := json.Marshal(story.Ref)
-	require.NoError(t, err)
+	ref := story.Ref
 
 	packer := &DefaultPacker{
 		VaultPath:      root,
 		VaultDef:       obsidian.VaultDefinition{Path: root},
 		NoteReader:     &obsidian.Note{},
 		OntologySchema: schema,
-		Intel:          newPresentationOntologyIntel("notes/specs/checkout.md"),
+		NoteFormats:    presentationNoteFormats(t),
+		NoteStore:      newPresentationOntologyIntel(t, "notes/specs/checkout.md"),
 	}
 	packed, err := packer.Pack(context.Background(), search.QuerySpec{
 		Text:   "small budget",
 		Budget: search.Budget{Chars: 360},
 	}, []search.RankedResult{{
 		Candidate: search.Candidate{
-			Handle:      knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0),
-			Owner:       knowledge.NoteHandle("notes/specs/checkout.md"),
-			Type:        "note",
-			Path:        "notes/specs/checkout.md",
-			Title:       "Faster checkout",
-			Granularity: "node_body",
-			NodeRefJSON: string(refJSON),
+			SourceRef: search.SourceRef{
+				NodeRef:     &ref,
+				Path:        "notes/specs/checkout.md",
+				Title:       "Faster checkout",
+				Granularity: "node_body",
+			},
+			Handle: knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0),
+			Owner:  knowledge.NoteHandle("notes/specs/checkout.md"),
+			Type:   "note",
 		},
 		FinalScore: 0.9,
 	}})
@@ -390,8 +403,7 @@ func TestDefaultPacker_OntologyContextFitsTightBudget(t *testing.T) {
 
 func TestDefaultPacker_ReusesOntologyProjectionScopeAcrossResults(t *testing.T) {
 	root, schema, story := setupOntologyPresentationFixture(t)
-	refJSON, err := json.Marshal(story.Ref)
-	require.NoError(t, err)
+	ref := story.Ref
 	noteReader := &countingNoteReader{delegate: &obsidian.Note{}}
 
 	packer := &DefaultPacker{
@@ -399,17 +411,20 @@ func TestDefaultPacker_ReusesOntologyProjectionScopeAcrossResults(t *testing.T) 
 		VaultDef:       obsidian.VaultDefinition{Path: root},
 		NoteReader:     noteReader,
 		OntologySchema: schema,
-		Intel:          newPresentationOntologyIntel("notes/specs/checkout.md"),
+		NoteFormats:    presentationNoteFormats(t),
+		NoteStore:      newPresentationOntologyIntel(t, "notes/specs/checkout.md"),
 	}
 	result := search.RankedResult{
 		Candidate: search.Candidate{
-			Handle:      knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0),
-			Owner:       knowledge.NoteHandle("notes/specs/checkout.md"),
-			Type:        "note",
-			Path:        "notes/specs/checkout.md",
-			Title:       "Faster checkout",
-			Granularity: "node_body",
-			NodeRefJSON: string(refJSON),
+			SourceRef: search.SourceRef{
+				NodeRef:     &ref,
+				Path:        "notes/specs/checkout.md",
+				Title:       "Faster checkout",
+				Granularity: "node_body",
+			},
+			Handle: knowledge.NodeChunkHandle("node:story", "notes/specs/checkout.md", "node_body", 0),
+			Owner:  knowledge.NoteHandle("notes/specs/checkout.md"),
+			Type:   "note",
 		},
 		FinalScore: 0.9,
 	}
@@ -417,7 +432,7 @@ func TestDefaultPacker_ReusesOntologyProjectionScopeAcrossResults(t *testing.T) 
 		Text:   "repeat node",
 		Budget: search.Budget{Chars: 8000},
 	}
-	_, err = packer.Pack(context.Background(), spec, []search.RankedResult{result})
+	_, err := packer.Pack(context.Background(), spec, []search.RankedResult{result})
 	require.NoError(t, err)
 	firstReads := noteReader.contentsByPath["notes/specs/checkout.md"]
 	require.Positive(t, firstReads)
@@ -429,7 +444,7 @@ func TestDefaultPacker_ReusesOntologyProjectionScopeAcrossResults(t *testing.T) 
 	require.Equal(t, firstReads, noteReader.contentsByPath["notes/specs/checkout.md"])
 }
 
-func setupOntologyPresentationFixture(t *testing.T) (string, *ontology.Schema, *ontology.NodeProjection) {
+func setupOntologyPresentationFixture(t *testing.T) (string, *ontoschema.Schema, *ontology.NodeProjection) {
 	t.Helper()
 	root := t.TempDir()
 	schemaDir := filepath.Join(root, ".rhizome", "ontology")
@@ -478,7 +493,7 @@ storyId:: US-2
 Sibling body should not appear.
 `), 0o644))
 
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	rootProjection, err := ontology.ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "notes/specs/checkout.md")
 	require.NoError(t, err)
@@ -491,7 +506,7 @@ Sibling body should not appear.
 	return root, schema, story
 }
 
-func setupLongOntologyPresentationFixture(t *testing.T) (string, *ontology.Schema, *ontology.NodeProjection) {
+func setupLongOntologyPresentationFixture(t *testing.T) (string, *ontoschema.Schema, *ontology.NodeProjection) {
 	t.Helper()
 	root := t.TempDir()
 	schemaDir := filepath.Join(root, ".rhizome", "ontology")
@@ -521,7 +536,7 @@ HEAD-ONLY-EVIDENCE `+strings.Repeat("alpha ", 1700)+`
 TAIL-MATCH-EVIDENCE `+strings.Repeat("omega ", 500)+`
 `), 0o644))
 
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	rootProjection, err := ontology.ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "notes/specs/long.md")
 	require.NoError(t, err)
@@ -534,35 +549,42 @@ TAIL-MATCH-EVIDENCE `+strings.Repeat("omega ", 500)+`
 	return root, schema, story
 }
 
-type fakeOntologyIntel struct {
-	edges          []semdb.OntologyEdgeRow
+func presentationNoteFormats(t *testing.T) noteformat.Runtime {
+	t.Helper()
+	formats, err := builtin.NewRuntime()
+	require.NoError(t, err)
+	return formats
+}
+
+type presentationOntologyStore struct {
+	*semdb.Store
 	noteMetadata   []semdb.NoteMetadataRow
 	edgeBatchCalls int
 }
 
-func newPresentationOntologyIntel(paths ...string) *fakeOntologyIntel {
+var _ noderead.ReadStore = (*presentationOntologyStore)(nil)
+
+func newPresentationOntologyIntel(t *testing.T, paths ...string) *presentationOntologyStore {
+	t.Helper()
+	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
 	metadata := make([]semdb.NoteMetadataRow, 0, len(paths))
 	for _, path := range paths {
 		metadata = append(metadata, semdb.NoteMetadataRow{
-			Path:     path,
-			FormatID: string(noteformat.FormatID("markdown")),
-			Projection: semdb.NoteProjectionState{
-				Status: semdb.NoteProjectionStatusCurrent,
-			},
+			Path:       path,
+			FormatID:   string(noteformat.FormatID("markdown")),
+			Projection: semdb.NoteProjectionState{Status: semdb.NoteProjectionStatusCurrent},
 		})
 	}
-	return &fakeOntologyIntel{noteMetadata: metadata}
+	return &presentationOntologyStore{Store: store, noteMetadata: metadata}
 }
 
-func (f *fakeOntologyIntel) IntelAnchorByID(context.Context, string) (codeanchor.IntelAnchor, bool, error) {
-	return codeanchor.IntelAnchor{}, false, nil
-}
-
-func (f *fakeOntologyIntel) CurrentNoteMetadataRows(context.Context) ([]semdb.NoteMetadataRow, error) {
+func (f *presentationOntologyStore) CurrentNoteMetadataRows(context.Context) ([]semdb.NoteMetadataRow, error) {
 	return append([]semdb.NoteMetadataRow(nil), f.noteMetadata...), nil
 }
 
-func (f *fakeOntologyIntel) CurrentNoteMetadataRowsByPaths(_ context.Context, paths []string) (map[string]semdb.NoteMetadataRow, error) {
+func (f *presentationOntologyStore) CurrentNoteMetadataRowsByPaths(_ context.Context, paths []string) (map[string]semdb.NoteMetadataRow, error) {
 	rows := make(map[string]semdb.NoteMetadataRow, len(paths))
 	for _, row := range f.noteMetadata {
 		for _, path := range paths {
@@ -575,99 +597,18 @@ func (f *fakeOntologyIntel) CurrentNoteMetadataRowsByPaths(_ context.Context, pa
 	return rows, nil
 }
 
-func (f *fakeOntologyIntel) CurrentNotePropertyValues(context.Context, []string, []string, semdb.NotePropertySource) ([]semdb.NotePropertyValueRow, error) {
-	return nil, nil
+func (f *presentationOntologyStore) setEdges(t *testing.T, edges []semdb.OntologyEdgeRow) {
+	t.Helper()
+	var paths []string
+	for _, edge := range edges {
+		paths = append(paths, edge.SrcPath)
+	}
+	require.NoError(t, f.Store.ReplaceOntologyEdgesForSources(context.Background(), paths, edges))
 }
 
-func (f *fakeOntologyIntel) CurrentNoteTags(context.Context, []string) ([]semdb.NoteTagRow, error) {
-	return nil, nil
-}
-
-func (f *fakeOntologyIntel) OntologyAssessmentsByPaths(context.Context, []string) (map[string]semdb.OntologyNoteAssessmentRow, error) {
-	return map[string]semdb.OntologyNoteAssessmentRow{}, nil
-}
-
-func (f *fakeOntologyIntel) OntologyAssessmentFlags(context.Context) (map[string]semdb.OntologyAssessmentFlags, error) {
-	return map[string]semdb.OntologyAssessmentFlags{}, nil
-}
-
-func (f *fakeOntologyIntel) GetOntologySchemaState(context.Context) (semdb.OntologySchemaState, error) {
-	return semdb.OntologySchemaState{Ready: true, MaterializationVersion: ontology.OntologyMaterializationVersion}, nil
-}
-
-func (f *fakeOntologyIntel) OntologyTypesByPaths(context.Context, []string) (map[string]semdb.OntologyNoteTypeRow, error) {
-	return map[string]semdb.OntologyNoteTypeRow{}, nil
-}
-
-func (f *fakeOntologyIntel) OntologyPathsByType(context.Context, string, int) ([]string, error) {
-	return nil, nil
-}
-
-func (f *fakeOntologyIntel) OntologyEdgesForPaths(_ context.Context, paths []string, includeAmbient bool, relationFilter string, limit int) ([]semdb.OntologyEdgeRow, error) {
+func (f *presentationOntologyStore) OntologyNeighborhood(ctx context.Context, query readmodel.NeighborhoodQuery) ([]semdb.OntologyEdgeRow, error) {
 	f.edgeBatchCalls++
-	pathSet := make(map[string]struct{}, len(paths))
-	for _, path := range paths {
-		pathSet[path] = struct{}{}
-	}
-	var out []semdb.OntologyEdgeRow
-	for _, edge := range f.edges {
-		if edge.RelationName != relationFilter {
-			continue
-		}
-		if !includeAmbient && !edge.Structural {
-			continue
-		}
-		_, src := pathSet[edge.SrcPath]
-		_, dst := pathSet[edge.DstPath]
-		if !src && !dst {
-			continue
-		}
-		out = append(out, edge)
-		if limit > 0 && len(out) == limit {
-			break
-		}
-	}
-	return out, nil
-}
-
-func (f *fakeOntologyIntel) OntologyStructuralEdgesBySources(ctx context.Context, paths []string, relation string, limit int) ([]semdb.OntologyEdgeRow, error) {
-	rows, err := f.OntologyEdgesForPaths(ctx, paths, false, relation, limit)
-	if err != nil {
-		return nil, err
-	}
-	var out []semdb.OntologyEdgeRow
-	for _, row := range rows {
-		if row.Structural {
-			out = append(out, row)
-		}
-	}
-	return out, nil
-}
-
-func (f *fakeOntologyIntel) OntologyAmbientEdgesBySources(ctx context.Context, paths []string, relation string, limit int) ([]semdb.OntologyEdgeRow, error) {
-	rows, err := f.OntologyEdgesForPaths(ctx, paths, true, relation, limit)
-	if err != nil {
-		return nil, err
-	}
-	var out []semdb.OntologyEdgeRow
-	for _, row := range rows {
-		if !row.Structural {
-			out = append(out, row)
-		}
-	}
-	return out, nil
-}
-
-func (f *fakeOntologyIntel) OntologyNodesBySourceLocators(context.Context, []string) (map[string]codeanchor.IntelOntologyNode, error) {
-	return map[string]codeanchor.IntelOntologyNode{}, nil
-}
-
-func (f *fakeOntologyIntel) OntologyNodesByNoteFragments(context.Context, []string) (map[string]codeanchor.IntelOntologyNode, error) {
-	return map[string]codeanchor.IntelOntologyNode{}, nil
-}
-
-func (f *fakeOntologyIntel) ReplaceOntologyNodes(context.Context, []string, []codeanchor.IntelOntologyNode) error {
-	return nil
+	return f.Store.OntologyNeighborhood(ctx, query)
 }
 
 type countingNoteReader struct {

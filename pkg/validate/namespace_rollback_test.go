@@ -1,10 +1,12 @@
 package validate
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,7 +14,7 @@ func TestNativeOverwriteRollbackOriginalPairNeverMutatesEndpoints(t *testing.T) 
 	for _, recreated := range []bool{false, true} {
 		for _, equal := range []bool{false, true} {
 			t.Run(string([]byte{'0' + byteBool(recreated), '0' + byteBool(equal)}), func(t *testing.T) {
-				runCtx, manifest := namespaceRollbackFixture(t, equal)
+				runCtx := namespaceRollbackFixture(t, equal)
 				if recreated {
 					require.NoError(t, os.Rename(filepath.Join(runCtx.VaultPath, "old.md"), filepath.Join(runCtx.VaultPath, "retired.md")))
 					require.NoError(t, os.WriteFile(filepath.Join(runCtx.VaultPath, "old.md"), []byte("source\n"), 0o600))
@@ -21,15 +23,17 @@ func TestNativeOverwriteRollbackOriginalPairNeverMutatesEndpoints(t *testing.T) 
 				require.NoError(t, err)
 				beforeDestination, err := os.Stat(filepath.Join(runCtx.VaultPath, "new.md"))
 				require.NoError(t, err)
-				plan, err := buildRepairRollbackPlan(runCtx, manifest)
+				recovery, err := openRepairWriterFixture(t, runCtx, nil)
 				require.NoError(t, err)
-				for _, state := range plan.states {
-					require.Equal(t, "none", state.action)
+				defer recovery.close()
+				require.Len(t, recovery.recovery.Native, 1)
+				require.Equal(t, repairJournalRestored, recovery.recovery.Native[0].Info().State)
+				require.Equal(t, "source\n", string(mustReadFile(t, filepath.Join(runCtx.VaultPath, "old.md"))))
+				wantDestination := "destination\n"
+				if equal {
+					wantDestination = "source\n"
 				}
-				mutated, err := executeRepairRollbackPlan(runCtx, manifest, plan)
-				require.NoError(t, err)
-				require.False(t, mutated)
-				require.NoError(t, verifyNamespaceOriginalFiles(runCtx, manifest))
+				require.Equal(t, wantDestination, string(mustReadFile(t, filepath.Join(runCtx.VaultPath, "new.md"))))
 				afterSource, err := os.Stat(filepath.Join(runCtx.VaultPath, "old.md"))
 				require.NoError(t, err)
 				afterDestination, err := os.Stat(filepath.Join(runCtx.VaultPath, "new.md"))
@@ -44,7 +48,7 @@ func TestNativeOverwriteRollbackOriginalPairNeverMutatesEndpoints(t *testing.T) 
 func TestNativeOverwriteRollbackRefusesUnknownPairBeforeMutation(t *testing.T) {
 	for _, change := range []string{"final", "source", "mode", "type"} {
 		t.Run(change, func(t *testing.T) {
-			runCtx, manifest := namespaceRollbackFixture(t, false)
+			runCtx := namespaceRollbackFixture(t, false)
 			switch change {
 			case "final":
 				require.NoError(t, os.WriteFile(filepath.Join(runCtx.VaultPath, "new.md"), []byte("source\n"), 0o600))
@@ -57,16 +61,19 @@ func TestNativeOverwriteRollbackRefusesUnknownPairBeforeMutation(t *testing.T) {
 				require.NoError(t, os.Rename(filepath.Join(runCtx.VaultPath, "old.md"), filepath.Join(runCtx.VaultPath, "saved.md")))
 				require.NoError(t, os.Mkdir(filepath.Join(runCtx.VaultPath, "old.md"), 0o700))
 			}
-			_, err := buildRepairRollbackPlan(runCtx, manifest)
-			require.Error(t, err)
+			recovery, _ := openRepairWriterFixture(t, runCtx, nil)
+			defer recovery.close()
+			require.Empty(t, recovery.recovery.Native)
+			require.Error(t, sourcetxn.CheckAdmission(runCtx.VaultPath, []string{"old.md", "new.md"}))
 			require.FileExists(t, filepath.Join(runCtx.VaultPath, "new.md"))
 		})
 	}
 }
 
-func namespaceRollbackFixture(t *testing.T, equal bool) (RunContext, repairJournalManifest) {
+func namespaceRollbackFixture(t *testing.T, equal bool) RunContext {
 	t.Helper()
-	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
 	source, destination := []byte("source\n"), []byte("destination\n")
 	if equal {
 		destination = source
@@ -77,13 +84,19 @@ func namespaceRollbackFixture(t *testing.T, equal bool) (RunContext, repairJourn
 	require.NoError(t, err)
 	destinationInfo, err := os.Stat(filepath.Join(root, "new.md"))
 	require.NoError(t, err)
-	return RunContext{VaultPath: root}, repairJournalManifest{
-		Namespace: &namespaceJournalPurpose{}, Renamed: []PathRename{{From: "old.md", To: "new.md"}},
-		Entries: []repairJournalEntry{
-			{Path: "old.md", OriginalPath: "old.md", OriginalExists: true, OriginalHash: SourceHash(source), OriginalMode: repairModeBits(sourceInfo.Mode())},
-			{Path: "new.md", OriginalPath: "new.md", OriginalExists: true, OriginalHash: SourceHash(destination), OriginalMode: repairModeBits(destinationInfo.Mode()), FinalExists: true, FinalHash: SourceHash(source), FinalMode: repairModeBits(sourceInfo.Mode())},
-		},
-	}
+	run := namespaceTestRunContext(root)
+	mode := repairModeBits(sourceInfo.Mode())
+	plan, err := compileNamespacePlan(run, NamespaceMutationPlan{Operations: []RepairOperation{{
+		Kind: RepairOperationRename, Path: "old.md", DestinationPath: "new.md", SourceHash: SourceHash(source), SourceMode: &mode,
+		DestinationState: &RepairDestinationState{Kind: RepairDestinationOccupied, Content: destination, Hash: SourceHash(destination), Mode: repairModeBits(destinationInfo.Mode())},
+	}}})
+	require.NoError(t, err)
+	fixture, err := openRepairWriterFixture(t, run, nil)
+	require.NoError(t, err)
+	_, err = fixture.prepareNamespace(context.Background(), plan, true)
+	require.NoError(t, err)
+	fixture.close()
+	return run
 }
 
 func byteBool(value bool) byte {

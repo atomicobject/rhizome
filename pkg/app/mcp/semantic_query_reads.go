@@ -5,8 +5,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 )
 
 type semanticQueryReadCacheKey struct{}

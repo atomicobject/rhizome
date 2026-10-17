@@ -52,13 +52,14 @@ func TestDatabaseGuardNamesAMissingVaultRoot(t *testing.T) {
 func TestDatabaseGuardRejectsReplacementWhileJobWaitsForWriter(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "db.sqlite")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".rhizome"), 0o700))
 	require.NoError(t, os.WriteFile(path, []byte("original"), 0o600))
 	opened, err := os.Stat(path)
 	require.NoError(t, err)
 	var reasons []string
 	guard := &databaseGuard{path: path, opened: opened, shutdown: func(reason string) { reasons = append(reasons, reason) }}
 
-	lockPath := filepath.Join(dir, "index.lock")
+	lockPath := filepath.Join(dir, ".rhizome", "index.lock")
 	release, acquired, err := indexlock.TryAcquire(lockPath)
 	require.NoError(t, err)
 	require.True(t, acquired)
@@ -73,7 +74,7 @@ func TestDatabaseGuardRejectsReplacementWhileJobWaitsForWriter(t *testing.T) {
 		return err
 	})
 	ran := false
-	handle, _, err := executor.Submit(context.Background(), lane.Request{Kind: lane.KindExplicitIndex, Run: func(context.Context, lane.Reporter) error {
+	handle, _, err := executor.Submit(context.Background(), lane.Request{Kind: lane.KindExplicitIndex, Run: func(context.Context, *indexlock.Lease, lane.Reporter) error {
 		ran = true
 		return nil
 	}})

@@ -3,21 +3,21 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/pkg/app/queryengine/runtimeproviders"
+	"github.com/atomicobject/rhizome/pkg/ontology/idalloc"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
-	"sync"
 	"testing"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/idalloc"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAgentIdentifierSuggestionsUseRefreshedSchema(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	const initial = `type Spec @node(paths: ["specs/*.md"]) { id: String! @field @identifier(preferred: true, prefix: "SPEC") }`
 	const sibling = `
 type Archive @node(paths: ["archive/*.md"]) { legacyId: String! @field(source: "legacy-id") @identifier(preferred: true, prefix: "SPEC") }
@@ -42,65 +42,54 @@ type Archive @node(paths: ["archive/*.md"]) { legacyId: String! @field(source: "
 				files["specs/one.md"] = "---\nid: REQ-0007\nrecord-key: REQ-0007\naliases: [REQ-0007]\n---\n# One\n"
 			}
 			vault := setupAgentTestVault(t, files)
-			original, err := ontology.LoadSchema(vault.path)
+			original, err := ontoschema.LoadSchema(vault.path)
 			require.NoError(t, err)
-			configFile := obsidian.ObsidianConfigFile
-			t.Cleanup(func() { obsidian.ObsidianConfigFile = configFile })
-			var once sync.Once
-			var changed bool
-			var changeErr error
-			obsidian.ObsidianConfigFile = func() (string, error) {
-				pcs := make([]uintptr, 40)
-				frames := runtime.CallersFrames(pcs[:runtime.Callers(0, pcs)])
-				for {
-					frame, more := frames.Next()
-					if strings.HasSuffix(frame.Function, "/bootstrap.NewLiveRuntime") {
-						// Edit only at runtime startup, after the guide's schema load.
-						once.Do(func() {
-							schemaPath := filepath.Join(vault.path, ".rhizome/ontology/schema.graphql")
-							if tc.removeSchema {
-								changeErr = os.Rename(schemaPath, schemaPath+".disabled")
-							} else {
-								fresh := initial + sibling
-								if tc.freshSource != "" {
-									fresh = `type Spec @node(paths: ["specs/*.md"]) { id: String! @field(source: "` + tc.freshSource + `") @identifier(preferred: true, prefix: "REQ") }`
-								}
-								changeErr = os.WriteFile(schemaPath, []byte(fresh), 0o644)
-							}
-							changed = changeErr == nil
-						})
-						break
-					}
-					if !more {
-						break
-					}
+			schemaPath := filepath.Join(vault.path, ".rhizome/ontology/schema.graphql")
+			if tc.removeSchema {
+				require.NoError(t, os.Rename(schemaPath, schemaPath+".disabled"))
+			} else {
+				fresh := initial + sibling
+				if tc.freshSource != "" {
+					fresh = `type Spec @node(paths: ["specs/*.md"]) { id: String! @field(source: "` + tc.freshSource + `") @identifier(preferred: true, prefix: "REQ") }`
 				}
-				if changeErr != nil {
-					return "", changeErr
-				}
-				return configFile()
+				require.NoError(t, os.WriteFile(schemaPath, []byte(fresh), 0644))
 			}
-			stdout, stderr, runErr := runRootCLI(t, nil, []string{"agent", tc.command, "--vault", vault.name, "--type", "Spec"})
-			require.NoError(t, runErr)
-			require.Empty(t, stderr)
-			require.True(t, changed, "schema edit must occur during actual runtime startup")
+			ctx := vaultconfig.WithEnv(context.Background(), vault.env)
+			var stdout string
+			if tc.command == "next-id" {
+				var stderr string
+				var runErr error
+				stdout, stderr, runErr = runRootCLI(t, ctx, []string{"agent", tc.command, "--vault", vault.name, "--type", "Spec"})
+				require.NoError(t, runErr)
+				require.Empty(t, stderr)
+			} else {
+				// The rendering stage already holds the old schema. Runtime
+				// publication must supply one current schema for prose and IDs.
+				oldName := commandOptions.vaultName
+				commandOptions.vaultName = vault.name
+				t.Cleanup(func() { commandOptions.vaultName = oldName })
+				current, lookup, cleanup := commandOptions.authoringGuideIDLookup(ctx, original, []string{"Spec"})
+				defer cleanup()
+				stdout, err = schemadoc.RenderGuideMarkdown(current, schemadoc.GuideOptions{Types: []string{"Spec"}, ResolveCompanion: runtimeproviders.CompanionResolver(nil), LookupID: lookup})
+				require.NoError(t, err)
+			}
 			if tc.removeSchema {
 				require.Contains(t, stdout, "# Ontology Authoring Guide")
 				require.Contains(t, stdout, "## Spec")
 				require.NotContains(t, stdout, "next available id:")
 				return
 			}
-			current, err := ontology.LoadSchema(vault.path)
+			current, err := ontoschema.LoadSchema(vault.path)
 			require.NoError(t, err)
 			require.NotEqual(t, original.Hash, current.Hash)
 			store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 			require.NoError(t, err)
 			defer store.Close()
-			state, err := store.GetOntologySchemaState(context.Background())
+			state, err := store.GetOntologySchemaState(vaultconfig.WithEnv(context.Background(), vault.env))
 			require.NoError(t, err)
 			require.Equal(t, current.Hash, state.SchemaHash)
 			if tc.freshSource != "" {
-				next, err := idalloc.Allocate(context.Background(), current, store, "Spec")
+				next, err := idalloc.Allocate(vaultconfig.WithEnv(context.Background(), vault.env), current, store, "Spec")
 				require.NoError(t, err)
 				require.Equal(t, "REQ-0008", next.Next)
 				require.Contains(t, stdout, "next available id: `REQ-0008`")
@@ -110,7 +99,7 @@ type Archive @node(paths: ["archive/*.md"]) { legacyId: String! @field(source: "
 				require.Contains(t, stdout, "\n"+tc.freshSource+": REQ-0008\n")
 				return
 			}
-			owners, err := store.OntologyPathsByType(context.Background(), "Archive", 0)
+			owners, err := store.OntologyPathsByType(vaultconfig.WithEnv(context.Background(), vault.env), "Archive", 0)
 			require.NoError(t, err)
 			require.Equal(t, []string{"archive/two.md"}, owners)
 			if tc.command == "next-id" {
@@ -141,7 +130,7 @@ func TestAgentNextIDSchemaAdmissionErrors(t *testing.T) {
 				files[".rhizome/ontology/schema.graphql"] = tc.schema
 			}
 			vault := setupAgentTestVault(t, files)
-			stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "next-id", "--vault", vault.name, "--type", "Spec"})
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "next-id", "--vault", vault.name, "--type", "Spec"})
 			require.ErrorIs(t, err, silentExitError{code: 1})
 			require.Empty(t, stdout)
 			var payload map[string]any

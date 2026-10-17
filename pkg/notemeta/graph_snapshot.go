@@ -5,8 +5,10 @@ import (
 	"strings"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -14,7 +16,7 @@ import (
 // metadata state and every graph source row are current for this Indexer's
 // selected provider runtime. A stale or fatal row remains inspectable in the
 // store but causes the caller to use its existing live-source fallback.
-func (i Indexer) LoadPersistedGraphSnapshot(ctx context.Context, vaultDef obsidian.VaultDefinition, note obsidian.NoteReader, store *semdb.Store) (*obsidian.GraphSnapshot, error) {
+func (i Indexer) LoadPersistedGraphSnapshot(ctx context.Context, vaultDef obsidian.VaultDefinition, note obsidian.NoteReader, store *semdb.Store) (*vaultgraph.GraphSnapshot, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -32,7 +34,7 @@ func (i Indexer) LoadPersistedGraphSnapshot(ctx context.Context, vaultDef obsidi
 // metadata snapshot whose readiness has already been accepted by an indexed
 // read policy. Unlike LoadPersistedGraphSnapshot, it intentionally does not
 // rediscover or hash live notes to prove freshness.
-func LoadReadyPersistedGraphSnapshot(ctx context.Context, store *semdb.Store) (*obsidian.GraphSnapshot, error) {
+func LoadReadyPersistedGraphSnapshot(ctx context.Context, store *semdb.Store) (*vaultgraph.GraphSnapshot, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -46,7 +48,7 @@ func LoadReadyPersistedGraphSnapshot(ctx context.Context, store *semdb.Store) (*
 	return loadPersistedGraphSnapshot(ctx, store, nil)
 }
 
-func loadPersistedGraphSnapshot(ctx context.Context, store *semdb.Store, currentRow func(semdb.NoteMetadataRow) bool) (*obsidian.GraphSnapshot, error) {
+func loadPersistedGraphSnapshot(ctx context.Context, store *semdb.Store, currentRow func(semdb.NoteMetadataRow) bool) (*vaultgraph.GraphSnapshot, error) {
 	rows, err := store.CurrentNoteMetadataRows(ctx)
 	if err != nil || len(rows) == 0 {
 		return nil, err
@@ -64,9 +66,9 @@ func loadPersistedGraphSnapshot(ctx context.Context, store *semdb.Store, current
 		return nil, err
 	}
 
-	snapshot := &obsidian.GraphSnapshot{
-		Nodes: make(map[string]obsidian.GraphSnapshotNode, len(rows)),
-		Edges: make([]obsidian.GraphSnapshotEdge, 0, len(detailEdges)),
+	snapshot := &vaultgraph.GraphSnapshot{
+		Nodes: make(map[string]vaultgraph.GraphSnapshotNode, len(rows)),
+		Edges: make([]vaultgraph.GraphSnapshotEdge, 0, len(detailEdges)),
 	}
 	for _, row := range rows {
 		if currentRow != nil && !currentRow(row) {
@@ -76,7 +78,7 @@ func loadPersistedGraphSnapshot(ctx context.Context, store *semdb.Store, current
 		if path == "" {
 			continue
 		}
-		node := obsidian.GraphSnapshotNode{Path: path, Size: row.Size}
+		node := vaultgraph.GraphSnapshotNode{Path: path, Size: row.Size}
 		if row.Mtime > 0 {
 			node.ContentTime = time.Unix(row.Mtime, 0)
 		}
@@ -103,11 +105,11 @@ func loadPersistedGraphSnapshot(ctx context.Context, store *semdb.Store, current
 		source := persistedGraphPath(row.SrcPath)
 		target := persistedGraphPath(row.DstPath)
 		detailedPairs[source+"\x00"+target] = struct{}{}
-		snapshot.Edges = append(snapshot.Edges, obsidian.GraphSnapshotEdge{
+		snapshot.Edges = append(snapshot.Edges, vaultgraph.GraphSnapshotEdge{
 			Source:   source,
 			Target:   target,
 			LinkType: linkType,
-			Subtype:  obsidian.BacklinkType(subtype),
+			Subtype:  markdownsyntax.BacklinkType(subtype),
 		})
 	}
 	for _, edge := range coarseEdges {
@@ -116,11 +118,11 @@ func loadPersistedGraphSnapshot(ctx context.Context, store *semdb.Store, current
 		if _, ok := detailedPairs[source+"\x00"+target]; ok {
 			continue
 		}
-		snapshot.Edges = append(snapshot.Edges, obsidian.GraphSnapshotEdge{
+		snapshot.Edges = append(snapshot.Edges, vaultgraph.GraphSnapshotEdge{
 			Source:   source,
 			Target:   target,
 			LinkType: "wikilink",
-			Subtype:  obsidian.BacklinkTypeBasic,
+			Subtype:  markdownsyntax.BacklinkTypeBasic,
 		})
 	}
 	snapshot.Normalize()

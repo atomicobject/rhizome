@@ -1,14 +1,16 @@
 package cmd
 
 import (
+	"context"
 	"github.com/atomicobject/rhizome/pkg/app/contextpack"
 	"github.com/atomicobject/rhizome/pkg/app/contextpack/compress"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
-func loadContextCompressor(vaultPath string) contextpack.Compressor {
+func (commandOptions *vaultCommandOptions) loadContextCompressor(ctx context.Context, vaultPath string) contextpack.Compressor {
 	var cfg *compress.LocalCompressionConfig
-	if localCfg, err := obsidian.LoadLocalConfig(vaultPath); err == nil && localCfg != nil && localCfg.Compression != nil {
+	if localCfg, err := repoconfig.LoadLocalConfig(vaultPath); err == nil && localCfg != nil && localCfg.Compression != nil {
 		cfg = &compress.LocalCompressionConfig{
 			Enabled:               localCfg.Compression.Enabled,
 			Provider:              localCfg.Compression.Provider,
@@ -22,7 +24,7 @@ func loadContextCompressor(vaultPath string) contextpack.Compressor {
 			ReasoningEffort:       localCfg.Compression.ReasoningEffort,
 		}
 	}
-	compressor := compress.NewFromLocalConfig(cfg, debug)
+	compressor := compress.NewFromLocalConfig(vaultconfig.FromContext(ctx), cfg, commandOptions.debug)
 	if compressor == nil {
 		return nil
 	}

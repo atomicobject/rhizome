@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,7 @@ type ActionItem implements Section @node(locator: EMBEDDED) @source(shape: CHECK
 	if err := os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(sdl), 0644); err != nil {
 		b.Fatal(err)
 	}
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	if err != nil {
 		b.Fatal(err)
 	}

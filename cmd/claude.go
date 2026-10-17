@@ -1,9 +1,13 @@
 package cmd
 
+import "github.com/spf13/cobra"
+
 import "github.com/atomicobject/rhizome/pkg/app/bootstrap"
 
-var claudeCmd = newBootstrapCommand("Claude", bootstrap.RunClaude)
+func (commandOptions *vaultCommandOptions) makeClaudeCmd() *cobra.Command {
+	return newBootstrapCommand("Claude", bootstrap.RunClaude)
+}
 
-func init() {
+func (commandOptions *vaultCommandOptions) registerClaudeCommands(rootCmd, claudeCmd *cobra.Command) {
 	rootCmd.AddCommand(claudeCmd)
 }

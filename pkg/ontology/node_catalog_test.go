@@ -2,30 +2,30 @@ package ontology
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/stretchr/testify/require"
 	"path/filepath"
 	"testing"
 	"time"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/stretchr/testify/require"
 )
 
 func TestOntologyNodeFieldValueForValue_NormalizesTypedScalarsAndLinks(t *testing.T) {
-	node := codeanchor.IntelOntologyNode{NodeID: "node:1", NotePath: "notes/spec.md", TypeName: "Spec"}
-	binding := FieldBinding{SourceKind: FieldSourceFrontmatter}
+	node := readmodel.NodeRow{NodeID: "node:1", NotePath: "notes/spec.md", TypeName: "Spec"}
+	binding := FieldBinding{SourceKind: ontoschema.FieldSourceFrontmatter}
 
-	rows := []codeanchor.IntelOntologyNodeFieldValue{
-		ontologyNodeFieldValueForValue(&Schema{}, node, &Field{Name: "done", Kind: FieldKindScalar, TypeName: "Boolean"}, binding, "true", 0, 123),
-		ontologyNodeFieldValueForValue(&Schema{}, node, &Field{Name: "count", Kind: FieldKindScalar, TypeName: "Int"}, binding, "42", 0, 123),
-		ontologyNodeFieldValueForValue(&Schema{}, node, &Field{Name: "score", Kind: FieldKindScalar, TypeName: "Float"}, binding, "3.5", 0, 123),
-		ontologyNodeFieldValueForValue(&Schema{}, node, &Field{Name: "due", Kind: FieldKindScalar, TypeName: "Date"}, binding, "2026-05-06", 0, 123),
-		ontologyNodeFieldValueForValue(&Schema{}, node, &Field{Name: "updated", Kind: FieldKindScalar, TypeName: "DateTime"}, binding, "2026-05-06T12:34:56-04:00", 0, 123),
-		ontologyNodeFieldValueForValue(&Schema{}, node, &Field{Name: "homepage", Kind: FieldKindScalar, TypeName: "URL"}, binding, "https://example.com/a", 0, 123),
-		ontologyNodeFieldValueForValue(&Schema{}, node, &Field{Name: "code", Kind: FieldKindScalar, TypeName: "ID"}, binding, "SPEC-0001", 0, 123),
-		ontologyNodeFieldValueForValue(&Schema{}, node, &Field{Name: "status", Kind: FieldKindEnum, TypeName: "SpecStatus"}, binding, "Active", 0, 123),
-		ontologyNodeFieldValueForValue(&Schema{}, node, &Field{Name: "tags", Kind: FieldKindScalar, TypeName: "String", List: true}, binding, "Second", 1, 123),
-		ontologyNodeFieldValueForValue(&Schema{}, node, &Field{Name: "parent", Kind: FieldKindLink, TypeName: "Spec"}, binding, "[[docs/specs/root.md|Root]]", 0, 123),
+	rows := []readmodel.FieldValueRow{
+		ontologyNodeFieldValueForValue(&ontoschema.Schema{}, node, &ontoschema.Field{Name: "done", Kind: ontoschema.FieldKindScalar, TypeName: "Boolean"}, binding, "true", 0, 123),
+		ontologyNodeFieldValueForValue(&ontoschema.Schema{}, node, &ontoschema.Field{Name: "count", Kind: ontoschema.FieldKindScalar, TypeName: "Int"}, binding, "42", 0, 123),
+		ontologyNodeFieldValueForValue(&ontoschema.Schema{}, node, &ontoschema.Field{Name: "score", Kind: ontoschema.FieldKindScalar, TypeName: "Float"}, binding, "3.5", 0, 123),
+		ontologyNodeFieldValueForValue(&ontoschema.Schema{}, node, &ontoschema.Field{Name: "due", Kind: ontoschema.FieldKindScalar, TypeName: "Date"}, binding, "2026-05-06", 0, 123),
+		ontologyNodeFieldValueForValue(&ontoschema.Schema{}, node, &ontoschema.Field{Name: "updated", Kind: ontoschema.FieldKindScalar, TypeName: "DateTime"}, binding, "2026-05-06T12:34:56-04:00", 0, 123),
+		ontologyNodeFieldValueForValue(&ontoschema.Schema{}, node, &ontoschema.Field{Name: "homepage", Kind: ontoschema.FieldKindScalar, TypeName: "URL"}, binding, "https://example.com/a", 0, 123),
+		ontologyNodeFieldValueForValue(&ontoschema.Schema{}, node, &ontoschema.Field{Name: "code", Kind: ontoschema.FieldKindScalar, TypeName: "ID"}, binding, "SPEC-0001", 0, 123),
+		ontologyNodeFieldValueForValue(&ontoschema.Schema{}, node, &ontoschema.Field{Name: "status", Kind: ontoschema.FieldKindEnum, TypeName: "SpecStatus"}, binding, "Active", 0, 123),
+		ontologyNodeFieldValueForValue(&ontoschema.Schema{}, node, &ontoschema.Field{Name: "tags", Kind: ontoschema.FieldKindScalar, TypeName: "String", List: true}, binding, "Second", 1, 123),
+		ontologyNodeFieldValueForValue(&ontoschema.Schema{}, node, &ontoschema.Field{Name: "parent", Kind: ontoschema.FieldKindLink, TypeName: "Spec"}, binding, "[[docs/specs/root.md|Root]]", 0, 123),
 	}
 
 	require.Equal(t, "bool", rows[0].ValueKind)
@@ -38,7 +38,8 @@ func TestOntologyNodeFieldValueForValue_NormalizesTypedScalarsAndLinks(t *testin
 	require.Equal(t, "date", rows[3].ValueKind)
 	require.Equal(t, "2026-05-06", *rows[3].ValueDate)
 	require.Equal(t, "datetime", rows[4].ValueKind)
-	require.Equal(t, "2026-05-06T12:34:56-04:00", *rows[4].ValueDateTime)
+	require.Equal(t, "2026-05-06T16:34:56.000000000Z", *rows[4].ValueDateTime)
+	require.Equal(t, "2026-05-06T12:34:56-04:00", rows[4].ValueText)
 	require.Equal(t, "url", rows[5].ValueKind)
 	require.Equal(t, "id", rows[6].ValueKind)
 	require.Equal(t, "enum", rows[7].ValueKind)
@@ -50,22 +51,22 @@ func TestOntologyNodeFieldValueForValue_NormalizesTypedScalarsAndLinks(t *testin
 }
 
 func TestOntologyNodeFieldReadModelForProjection_ResolvesLinkTargetsAndDependencies(t *testing.T) {
-	node := codeanchor.IntelOntologyNode{NodeID: "node:1", NotePath: "notes/spec.md", TypeName: "Spec"}
+	node := readmodel.NodeRow{NodeID: "node:1", NotePath: "notes/spec.md", TypeName: "Spec"}
 	projection := &NodeProjection{
-		Type: &NoteType{Fields: []*Field{
-			{Name: "owner", Kind: FieldKindLink, TypeName: "Person"},
+		Type: &ontoschema.NoteType{Fields: []*ontoschema.Field{
+			{Name: "owner", Kind: ontoschema.FieldKindLink, TypeName: "Person"},
 		}},
 		Fields: map[string]FieldBinding{
 			"owner": {
-				SourceKind: FieldSourceFrontmatter,
+				SourceKind: ontoschema.FieldSourceFrontmatter,
 				Present:    true,
 				Values:     []string{"[[ALICE|Alice]]"},
 			},
 		},
 	}
 
-	rows, deps := IntelOntologyNodeFieldReadModelForProjection(&Schema{Hash: "schema-hash"}, projection, node, 123, BuildIntelOntologyNodeReadModelOptions{
-		LinkResolver: OntologyLinkTargetResolverFunc(func(field *Field, targetInput string) (OntologyLinkTarget, bool) {
+	rows, deps := IntelOntologyNodeFieldReadModelForProjection(&ontoschema.Schema{Hash: "schema-hash"}, projection, node, 123, BuildIntelOntologyNodeReadModelOptions{
+		LinkResolver: OntologyLinkTargetResolverFunc(func(field *ontoschema.Field, targetInput string) (OntologyLinkTarget, bool) {
 			require.Equal(t, "owner", field.Name)
 			require.Equal(t, "ALICE", targetInput)
 			return OntologyLinkTarget{
@@ -96,21 +97,21 @@ func TestOntologyNodeFieldReadModelForProjection_ResolvesLinkTargetsAndDependenc
 }
 
 func TestOntologyNodeFieldReadModelForProjection_SkipsEmptyLinkBindings(t *testing.T) {
-	node := codeanchor.IntelOntologyNode{NodeID: "node:1", NotePath: "notes/spec.md", TypeName: "Spec"}
+	node := readmodel.NodeRow{NodeID: "node:1", NotePath: "notes/spec.md", TypeName: "Spec"}
 	projection := &NodeProjection{
-		Type: &NoteType{Fields: []*Field{
-			{Name: "owner", Kind: FieldKindLink, TypeName: "Person"},
+		Type: &ontoschema.NoteType{Fields: []*ontoschema.Field{
+			{Name: "owner", Kind: ontoschema.FieldKindLink, TypeName: "Person"},
 		}},
 		Fields: map[string]FieldBinding{
 			"owner": {
-				SourceKind: FieldSourceFrontmatter,
+				SourceKind: ontoschema.FieldSourceFrontmatter,
 				Present:    true,
 				// Empty value (e.g. authored as `owner:: ` with nothing after).
 			},
 		},
 	}
 
-	rows, deps := IntelOntologyNodeFieldReadModelForProjection(&Schema{Hash: "schema-hash"}, projection, node, 123, BuildIntelOntologyNodeReadModelOptions{})
+	rows, deps := IntelOntologyNodeFieldReadModelForProjection(&ontoschema.Schema{Hash: "schema-hash"}, projection, node, 123, BuildIntelOntologyNodeReadModelOptions{})
 
 	require.Empty(t, rows, "empty-binding Link fields must not emit a field row")
 	require.Empty(t, deps, "empty-binding Link fields must not emit a link dependency")
@@ -144,7 +145,7 @@ name: Alice
 	content := "# Scratch\n\n- [ ] Call Alice #action-item\n  assignee:: [[people/Alice]]\n- [x] Email Alice #action-item\n  assignee:: [[people/Alice]]\n"
 	writeOntologyNote(t, root, notePath, content)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := BuildDocumentSnapshot(notePath, content, time.Time{})
 	require.NoError(t, err)
@@ -163,7 +164,7 @@ name: Alice
 			embeddedTypes = append(embeddedTypes, n.TypeName)
 		}
 	}
-	require.Equal(t, []string{FallbackNoteTypeName}, rootKinds, "untyped note matching a global source must emit a FallbackNote NOTE row")
+	require.Equal(t, []string{ontoschema.FallbackNoteTypeName}, rootKinds, "untyped note matching a global source must emit a FallbackNote NOTE row")
 	require.Equal(t, []string{"ActionItem", "ActionItem"}, embeddedTypes, "global-source children must survive alongside the FallbackNote row")
 	require.Equal(t, []string{notePath}, model.NotePaths)
 }
@@ -194,7 +195,7 @@ type ActionItem implements Section @node(locator: EMBEDDED) @source(shape: CHECK
 `
 	writeOntologyNote(t, root, notePath, content)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := BuildDocumentSnapshot(notePath, content, time.Time{})
 	require.NoError(t, err)
@@ -202,7 +203,7 @@ type ActionItem implements Section @node(locator: EMBEDDED) @source(shape: CHECK
 	require.NoError(t, err)
 
 	model, err := BuildIntelOntologyNodeReadModelWithOptions(schema, projection, 7, BuildIntelOntologyNodeReadModelOptions{
-		LinkResolver: OntologyLinkTargetResolverFunc(func(field *Field, targetInput string) (OntologyLinkTarget, bool) {
+		LinkResolver: OntologyLinkTargetResolverFunc(func(field *ontoschema.Field, targetInput string) (OntologyLinkTarget, bool) {
 			require.Equal(t, "assignee", field.Name)
 			require.Equal(t, "people/Alice", targetInput)
 			return OntologyLinkTarget{NotePath: "people/Alice.md", TypeName: "Person", NodeID: "person:alice"}, true
@@ -247,7 +248,7 @@ Nested fallback prose.
 `
 	writeOntologyNote(t, root, notePath, content)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := BuildDocumentSnapshot(notePath, content, time.Time{})
 	require.NoError(t, err)
@@ -257,12 +258,12 @@ Nested fallback prose.
 	model, err := BuildIntelOntologyNodeReadModel(schema, projection, 1)
 	require.NoError(t, err)
 
-	var noteRows, sectionRows []codeanchor.IntelOntologyNode
+	var noteRows, sectionRows []readmodel.NodeRow
 	for _, node := range model.Nodes {
 		switch node.TypeName {
-		case FallbackNoteTypeName:
+		case ontoschema.FallbackNoteTypeName:
 			noteRows = append(noteRows, node)
-		case FallbackSectionTypeName:
+		case ontoschema.FallbackSectionTypeName:
 			sectionRows = append(sectionRows, node)
 		}
 	}
@@ -311,7 +312,7 @@ Body.
 `
 	writeOntologyNote(t, root, notePath, content)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := BuildDocumentSnapshot(notePath, content, time.Time{})
 	require.NoError(t, err)
@@ -321,7 +322,7 @@ Body.
 	model, err := BuildIntelOntologyNodeReadModel(schema, projection, 99)
 	require.NoError(t, err)
 
-	var rootNode, storyNode codeanchor.IntelOntologyNode
+	var rootNode, storyNode readmodel.NodeRow
 	for _, node := range model.Nodes {
 		switch node.TypeName {
 		case "Spec":
@@ -360,11 +361,11 @@ func TestPlanOntologySync_ExpandsChangedTargetsThroughLinkDependencies(t *testin
 	require.NoError(t, err)
 	defer func() { _ = store.Close() }()
 
-	source := codeanchor.IntelOntologyNode{NodeID: "node:source", NotePath: "docs/source.md", NodeRefJSON: "{}", NodeKind: "NOTE", TypeName: "ActionItem", UpdatedAt: 1}
-	require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, codeanchor.IntelOntologyNodeReadModel{
+	source := readmodel.NodeRow{NodeID: "node:source", NotePath: "docs/source.md", NodeRefJSON: "{}", NodeKind: "NOTE", TypeName: "ActionItem", UpdatedAt: 1}
+	require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, readmodel.NodeReadModel{
 		NotePaths: []string{source.NotePath},
-		Nodes:     []codeanchor.IntelOntologyNode{source},
-		LinkDependencies: []codeanchor.IntelOntologyNodeLinkDependency{
+		Nodes:     []readmodel.NodeRow{source},
+		LinkDependencies: []readmodel.LinkDependencyRow{
 			{
 				SourceNotePath:         source.NotePath,
 				NodeID:                 source.NodeID,
@@ -398,11 +399,11 @@ func TestPlanOntologySync_ExpandsDeletedTargetsThroughLinkDependencies(t *testin
 	require.NoError(t, err)
 	defer func() { _ = store.Close() }()
 
-	source := codeanchor.IntelOntologyNode{NodeID: "node:source", NotePath: "docs/source.md", NodeRefJSON: "{}", NodeKind: "NOTE", TypeName: "ActionItem", UpdatedAt: 1}
-	require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, codeanchor.IntelOntologyNodeReadModel{
+	source := readmodel.NodeRow{NodeID: "node:source", NotePath: "docs/source.md", NodeRefJSON: "{}", NodeKind: "NOTE", TypeName: "ActionItem", UpdatedAt: 1}
+	require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, readmodel.NodeReadModel{
 		NotePaths: []string{source.NotePath},
-		Nodes:     []codeanchor.IntelOntologyNode{source},
-		LinkDependencies: []codeanchor.IntelOntologyNodeLinkDependency{
+		Nodes:     []readmodel.NodeRow{source},
+		LinkDependencies: []readmodel.LinkDependencyRow{
 			{
 				SourceNotePath:  source.NotePath,
 				NodeID:          source.NodeID,

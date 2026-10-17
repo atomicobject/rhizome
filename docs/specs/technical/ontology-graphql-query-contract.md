@@ -28,7 +28,7 @@ Related governing specs:
 
 - `pkg/ontology/query/schema.go` generates the executable SDL from the compiled ontology schema.
 - `pkg/ontology/query/prepare.go` validates the supported query subset and root bounds before execution.
-- `pkg/ontology/query/execute.go` resolves roots, note fields, section fields, locators, structural relations, ambient relations, semantic roots, and partial-data errors.
+- `pkg/ontology/query/execute.go` dispatches queries; same-package root-family files resolve identities, typed/code/graph roots, node fields, locators, relations, and partial-data errors.
 - `pkg/ontology/query/runtime_execute.go` exposes explicit runtime diagnostics such as `ontology.queryPlan(...)` for indexed ontology-node root planning.
 - `pkg/ontology/query/loaders.go` creates one `noderead.Scope` per execution loader set and batches hydration, type rows, assessments, and relation traversal behind that scope.
 - `pkg/ontology/query/query_test.go` is the normative regression fixture for this contract; add coverage there before changing query semantics.

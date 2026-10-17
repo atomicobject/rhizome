@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -32,7 +33,7 @@ type GraphRetriever struct {
 	VaultDef     obsidian.VaultDefinition
 	NoteReader   obsidian.NoteReader
 	Store        *semdb.Store
-	Options      obsidian.GraphAnalysisOptions
+	Options      vaultgraph.GraphAnalysisOptions
 	SourcePolicy GraphSourcePolicy
 
 	NeighborLimit      int
@@ -88,7 +89,7 @@ func (r *GraphRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([
 		communityLimit = 25
 	}
 
-	communitiesByID := make(map[string]obsidian.CommunitySummary, len(analysis.Communities))
+	communitiesByID := make(map[string]vaultgraph.CommunitySummary, len(analysis.Communities))
 	for _, c := range analysis.Communities {
 		communitiesByID[c.ID] = c
 	}
@@ -132,6 +133,12 @@ func (r *GraphRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([
 				title = n.Title
 			}
 			out = append(out, search.Candidate{
+				SourceRef: search.SourceRef{
+					NoteID:     nb,
+					Path:       nb,
+					Title:      title,
+					ChunkIndex: -1,
+				},
 				Handle: knowledge.NoteHandle(nb),
 				Owner:  knowledge.NoteHandle(nb),
 				Evidence: []search.Evidence{{
@@ -143,11 +150,7 @@ func (r *GraphRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([
 						"kind": "neighbor",
 					},
 				}},
-				Type:       "note",
-				NoteID:     nb,
-				Path:       nb,
-				Title:      title,
-				ChunkIndex: -1,
+				Type: "note",
 			})
 			neighborsAdded++
 		}
@@ -181,6 +184,12 @@ func (r *GraphRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([
 				title = n.Title
 			}
 			out = append(out, search.Candidate{
+				SourceRef: search.SourceRef{
+					NoteID:     member,
+					Path:       member,
+					Title:      title,
+					ChunkIndex: -1,
+				},
 				Handle: knowledge.NoteHandle(member),
 				Owner:  knowledge.NoteHandle(member),
 				Evidence: []search.Evidence{{
@@ -192,11 +201,7 @@ func (r *GraphRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([
 						"community": node.Community,
 					},
 				}},
-				Type:       "note",
-				NoteID:     member,
-				Path:       member,
-				Title:      title,
-				ChunkIndex: -1,
+				Type: "note",
 			})
 			added++
 		}
@@ -205,14 +210,14 @@ func (r *GraphRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([
 	return out, nil
 }
 
-func (r *GraphRetriever) graph(ctx context.Context) (*obsidian.GraphAnalysis, error) {
+func (r *GraphRetriever) graph(ctx context.Context) (*vaultgraph.GraphAnalysis, error) {
 	opts := r.Options
 	if r.SourcePolicy == GraphSourceIndexedOnly {
 		started := time.Now()
 		snapshot, err := notemeta.LoadReadyPersistedGraphSnapshot(ctx, r.Store)
-		addTiming(ctx, search.TimingEvent{
+		search.RecordTiming(ctx, search.TimingEvent{
 			Name: "graph.snapshot.load", Kind: "graph", Started: started,
-			Duration: time.Since(started), Status: timingStatus(err), Err: timingErr(err),
+			Duration: time.Since(started), Status: search.TimingStatus(err), Err: search.TimingError(err),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("load indexed graph snapshot: %w", err)
@@ -227,8 +232,8 @@ func (r *GraphRetriever) graph(ctx context.Context) (*obsidian.GraphAnalysis, er
 			return nil, nil
 		}
 		started = time.Now()
-		analysis := obsidian.ComputeGraphAnalysisFromSnapshot(snapshot, opts)
-		addTiming(ctx, search.TimingEvent{
+		analysis := vaultgraph.ComputeGraphAnalysisFromSnapshot(snapshot, opts)
+		search.RecordTiming(ctx, search.TimingEvent{
 			Name: "graph.snapshot.analyze", Kind: "graph", Started: started,
 			Duration: time.Since(started), Status: "ok",
 		})
@@ -238,10 +243,10 @@ func (r *GraphRetriever) graph(ctx context.Context) (*obsidian.GraphAnalysis, er
 	if _, snapshotBacked := r.NoteReader.(obsidian.NoteEntriesProvider); !snapshotBacked {
 		indexingperf.AddCount(ctx, indexingperf.AgentStartOpRepoWalks, 1)
 	}
-	a, err := obsidian.ComputeGraphAnalysis(r.VaultDef, r.NoteReader, opts)
-	addTiming(ctx, search.TimingEvent{
+	a, err := vaultgraph.ComputeGraphAnalysis(r.VaultDef, r.NoteReader, opts)
+	search.RecordTiming(ctx, search.TimingEvent{
 		Name: "graph.filesystem", Kind: "graph", Started: started,
-		Duration: time.Since(started), Status: timingStatus(err), Err: timingErr(err),
+		Duration: time.Since(started), Status: search.TimingStatus(err), Err: search.TimingError(err),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("compute graph analysis: %w", err)
@@ -266,9 +271,9 @@ func (r *GraphRetriever) retrieveFromStore(ctx context.Context, spec search.Quer
 
 	started := time.Now()
 	fresh, err := r.storeGraphFresh(ctx)
-	addTiming(ctx, search.TimingEvent{
+	search.RecordTiming(ctx, search.TimingEvent{
 		Name: "graph.store.freshness", Kind: "graph", Started: started,
-		Duration: time.Since(started), Status: timingStatus(err), Err: timingErr(err),
+		Duration: time.Since(started), Status: search.TimingStatus(err), Err: search.TimingError(err),
 	})
 	if err != nil {
 		return nil, false, err
@@ -279,9 +284,9 @@ func (r *GraphRetriever) retrieveFromStore(ctx context.Context, spec search.Quer
 
 	started = time.Now()
 	seedScores, err := r.Store.GraphDocScoresByPaths(ctx, seedPaths)
-	addTiming(ctx, search.TimingEvent{
+	search.RecordTiming(ctx, search.TimingEvent{
 		Name: "graph.store.seed_scores", Kind: "graph", Started: started,
-		Duration: time.Since(started), Status: timingStatus(err), Err: timingErr(err),
+		Duration: time.Since(started), Status: search.TimingStatus(err), Err: search.TimingError(err),
 	})
 	if err != nil {
 		return nil, false, err
@@ -293,9 +298,9 @@ func (r *GraphRetriever) retrieveFromStore(ctx context.Context, spec search.Quer
 	}
 	started = time.Now()
 	edges, err := r.Store.GraphDocNoteEdgesBySources(ctx, seedPaths)
-	addTiming(ctx, search.TimingEvent{
+	search.RecordTiming(ctx, search.TimingEvent{
 		Name: "graph.store.edges", Kind: "graph", Started: started,
-		Duration: time.Since(started), Status: timingStatus(err), Err: timingErr(err),
+		Duration: time.Since(started), Status: search.TimingStatus(err), Err: search.TimingError(err),
 	})
 	if err != nil {
 		return nil, false, err
@@ -337,9 +342,9 @@ func (r *GraphRetriever) retrieveFromStore(ctx context.Context, spec search.Quer
 	}
 	started = time.Now()
 	communityMembers, err := r.Store.GraphDocNoteScoresByCommunities(ctx, communityIDs, communityLimit+1)
-	addTiming(ctx, search.TimingEvent{
+	search.RecordTiming(ctx, search.TimingEvent{
 		Name: "graph.store.communities", Kind: "graph", Started: started,
-		Duration: time.Since(started), Status: timingStatus(err), Err: timingErr(err),
+		Duration: time.Since(started), Status: search.TimingStatus(err), Err: search.TimingError(err),
 	})
 	if err != nil {
 		return nil, false, err
@@ -358,9 +363,9 @@ func (r *GraphRetriever) retrieveFromStore(ctx context.Context, spec search.Quer
 	}
 	started = time.Now()
 	rowsByPath, err := r.Store.CurrentNoteMetadataRowsByPaths(ctx, pathsList)
-	addTiming(ctx, search.TimingEvent{
+	search.RecordTiming(ctx, search.TimingEvent{
 		Name: "graph.store.metadata", Kind: "graph", Started: started,
-		Duration: time.Since(started), Status: timingStatus(err), Err: timingErr(err),
+		Duration: time.Since(started), Status: search.TimingStatus(err), Err: search.TimingError(err),
 	})
 	if err != nil {
 		return nil, false, err
@@ -458,6 +463,12 @@ func buildGraphCandidate(kind string, score float64, seedPath, community, path s
 		}
 	}
 	return search.Candidate{
+		SourceRef: search.SourceRef{
+			NoteID:     path,
+			Path:       path,
+			Title:      title,
+			ChunkIndex: -1,
+		},
 		Handle: knowledge.NoteHandle(path),
 		Owner:  knowledge.NoteHandle(path),
 		Evidence: []search.Evidence{{
@@ -466,11 +477,7 @@ func buildGraphCandidate(kind string, score float64, seedPath, community, path s
 			Source:   "pkg/obsidian/graph",
 			Details:  details,
 		}},
-		Type:       "note",
-		NoteID:     path,
-		Path:       path,
-		Title:      title,
-		ChunkIndex: -1,
+		Type: "note",
 	}
 }
 

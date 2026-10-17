@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -46,7 +46,7 @@ func TestTraversalUsesNarrowerLimitAndBudget(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Run("Expand", func(t *testing.T) {
-				result, err := service.NewScope(ctx, ScopeOptions{}).Expand(ctx, ExpansionPlan{
+				result, err := service.NewScope(ScopeOptions{}).Expand(ctx, ExpansionPlan{
 					Sources: []ontology.NodeRef{source},
 					Steps:   []ExpansionStep{{Direction: TraversalDirectionOutbound, RelationNames: []string{"linked"}, IncludeStructural: true}},
 					Limits:  tc.limits,
@@ -58,7 +58,7 @@ func TestTraversalUsesNarrowerLimitAndBudget(t *testing.T) {
 				require.True(t, result.BySource["a.md"].Truncated)
 			})
 			t.Run("Execute", func(t *testing.T) {
-				result, err := service.NewScope(ctx, ScopeOptions{}).Execute(ctx, NodeReadPlan{
+				result, err := service.NewScope(ScopeOptions{}).Execute(ctx, NodeReadPlan{
 					Roots:     []NodeReadRoot{{Ref: source}},
 					Relations: []RelationSelection{{Direction: TraversalDirectionOutbound, RelationNames: []string{"linked"}, IncludeStructural: true}},
 					Limits:    tc.limits,

@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,15 +25,13 @@ func TestProjectionAdapterRefreshesOnceAndMapsDomains(t *testing.T) {
 	t.Parallel()
 
 	refreshCalls := 0
-	adapter := newProjectionAdapter(indexing.ValidationProjectionRequest{}, true, func(context.Context, indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
+	adapter := newProjectionAdapter(ValidationProjectionRequest{}, true, func(context.Context, ValidationProjectionRequest) (*ValidationProjectionResult, error) {
 		refreshCalls++
-		return &indexing.ValidationProjectionResult{
+		return &ValidationProjectionResult{
 			Runtime: &ontology.Runtime{},
-			Freshness: map[indexing.ProjectionDomain]indexing.ProjectionFreshness{
-				indexing.ProjectionDomainMetadata:        {State: indexing.ProjectionFresh},
-				indexing.ProjectionDomainLinks:           {State: indexing.ProjectionFresh},
-				indexing.ProjectionDomainMarkdownTargets: {State: indexing.ProjectionFresh},
-				indexing.ProjectionDomainOntology:        {State: indexing.ProjectionFresh},
+			Freshness: map[ProjectionDomain]ProjectionFreshness{
+				ProjectionDomainMetadata: {State: ProjectionFresh},
+				ProjectionDomainOntology: {State: ProjectionFresh},
 			},
 		}, nil
 	})
@@ -51,14 +49,12 @@ func TestProjectionAdapterRefreshesOnceAndMapsDomains(t *testing.T) {
 	}, ontologySnapshot)
 }
 
-func TestProjectionAdapterRequiresEveryValidationDomain(t *testing.T) {
+func TestProjectionAdapterRequiresSourceMetadata(t *testing.T) {
 	t.Parallel()
 
-	adapter := newProjectionAdapter(indexing.ValidationProjectionRequest{}, false, func(context.Context, indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
-		return &indexing.ValidationProjectionResult{Freshness: map[indexing.ProjectionDomain]indexing.ProjectionFreshness{
-			indexing.ProjectionDomainMetadata:        {State: indexing.ProjectionFresh},
-			indexing.ProjectionDomainLinks:           {State: indexing.ProjectionFresh},
-			indexing.ProjectionDomainMarkdownTargets: {State: indexing.ProjectionUnavailable},
+	adapter := newProjectionAdapter(ValidationProjectionRequest{}, false, func(context.Context, ValidationProjectionRequest) (*ValidationProjectionResult, error) {
+		return &ValidationProjectionResult{Freshness: map[ProjectionDomain]ProjectionFreshness{
+			ProjectionDomainMetadata: {State: ProjectionUnavailable},
 		}}, nil
 	})
 
@@ -71,10 +67,10 @@ func TestProjectionAdapterRequiresEveryValidationDomain(t *testing.T) {
 func TestProjectionAdapterScratchDoesNotClaimPersistedCode(t *testing.T) {
 	t.Parallel()
 
-	adapter := newProjectionAdapter(indexing.ValidationProjectionRequest{
-		Target: indexing.ValidationProjectionScratch,
-	}, true, func(context.Context, indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
-		return &indexing.ValidationProjectionResult{Runtime: &ontology.Runtime{}}, nil
+	adapter := newProjectionAdapter(ValidationProjectionRequest{
+		Target: ValidationProjectionScratch,
+	}, true, func(context.Context, ValidationProjectionRequest) (*ValidationProjectionResult, error) {
+		return &ValidationProjectionResult{Runtime: &ontology.Runtime{}}, nil
 	})
 
 	snapshot, err := adapter.CodeIndexSnapshot(context.Background())
@@ -87,18 +83,18 @@ func TestProjectionAdapterReadsPersistedCodeFactsFromLiveProjection(t *testing.T
 
 	ctx := context.Background()
 	root := writeProjectionVault(t)
-	request := indexing.ValidationProjectionRequest{
+	request := ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Path: root},
 		NoteMetadata: testProjectionNoteMetadata(t),
-		Target:       indexing.ValidationProjectionLive,
+		Target:       ValidationProjectionLive,
 	}
-	seed, err := indexing.RefreshValidationProjection(ctx, request)
+	seed, err := RefreshValidationProjection(ctx, request)
 	require.NoError(t, err)
 	seedProjectionCodeFacts(t, seed.Runtime.Store)
 	require.NoError(t, seed.Close())
 
-	adapter := newProjectionAdapter(request, true, indexing.RefreshValidationProjection)
+	adapter := newProjectionAdapter(request, true, RefreshValidationProjection)
 	snapshot, err := adapter.CodeIndexSnapshot(ctx)
 	require.NoError(t, err)
 	require.Equal(t, validate.CodeIndexSnapshot{
@@ -117,7 +113,7 @@ func TestRunWithProjectionRefreshesOnceAcrossLocalCodeProbesAndSuite(t *testing.
 	t.Parallel()
 
 	root := writeProjectionVault(t)
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{Code: obsidian.LocalCodeConfig{Enabled: true}}))
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{Code: repoconfig.LocalCodeConfig{Enabled: true}}))
 	store, err := semdb.Open(filepath.Join(t.TempDir(), "prepared.db"))
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
@@ -133,19 +129,17 @@ func TestRunWithProjectionRefreshesOnceAcrossLocalCodeProbesAndSuite(t *testing.
 			RequiredCodeIndexerVersion: "v9",
 			RequiredCodeScopeHash:      "scope-9",
 		},
-	}, indexing.ValidationProjectionRequest{
+	}, ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Path: root},
 		NoteMetadata: testProjectionNoteMetadata(t),
-		Target:       indexing.ValidationProjectionLive,
-	}, validate.Options{MaxIssues: 20}, func(context.Context, indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
+		Target:       ValidationProjectionLive,
+	}, validate.ScanOptions{MaxIssues: 20}, func(context.Context, ValidationProjectionRequest) (*ValidationProjectionResult, error) {
 		refreshCalls++
-		return &indexing.ValidationProjectionResult{
+		return &ValidationProjectionResult{
 			Runtime: &ontology.Runtime{Store: store},
-			Freshness: map[indexing.ProjectionDomain]indexing.ProjectionFreshness{
-				indexing.ProjectionDomainMetadata:        {State: indexing.ProjectionFresh},
-				indexing.ProjectionDomainLinks:           {State: indexing.ProjectionFresh},
-				indexing.ProjectionDomainMarkdownTargets: {State: indexing.ProjectionFresh},
+			Freshness: map[ProjectionDomain]ProjectionFreshness{
+				ProjectionDomainMetadata: {State: ProjectionFresh},
 			},
 		}, nil
 	})
@@ -164,11 +158,11 @@ func TestRunWithProjectionRejectsMissingProjectionIndexerBeforeRefresh(t *testin
 		Selectors: []string{"ontology"},
 		Surface:   validate.SurfaceLocal,
 		Features:  validate.VaultFeatureFacts{OntologyConfigured: true},
-	}, indexing.ValidationProjectionRequest{
+	}, ValidationProjectionRequest{
 		VaultPath: root,
 		VaultDef:  obsidian.VaultDefinition{Path: root},
-		Target:    indexing.ValidationProjectionLive,
-	}, validate.Options{}, func(context.Context, indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
+		Target:    ValidationProjectionLive,
+	}, validate.ScanOptions{}, func(context.Context, ValidationProjectionRequest) (*ValidationProjectionResult, error) {
 		refreshCalls++
 		return nil, nil
 	})
@@ -191,12 +185,12 @@ func TestRunWithProjectionRejectsMissingRunContextIndexerBeforeRefresh(t *testin
 		Selectors: []string{"ontology"},
 		Surface:   validate.SurfaceLocal,
 		Features:  validate.VaultFeatureFacts{OntologyConfigured: true},
-	}, indexing.ValidationProjectionRequest{
+	}, ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Path: root},
 		NoteMetadata: testProjectionNoteMetadata(t),
-		Target:       indexing.ValidationProjectionLive,
-	}, validate.Options{RunContext: runContext}, func(context.Context, indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
+		Target:       ValidationProjectionLive,
+	}, validate.ScanOptions{RunContext: runContext}, func(context.Context, ValidationProjectionRequest) (*ValidationProjectionResult, error) {
 		refreshCalls++
 		return nil, nil
 	})
@@ -218,12 +212,12 @@ func TestRunWithProjectionPendingJournalBlocksBeforeProjectionMutation(t *testin
 		ApplyCommand: "rzm validate fix ontology --apply --vault test --scope-note 'Notes/A B.md'",
 		Surface:      validate.SurfaceLocal,
 		Features:     validate.VaultFeatureFacts{OntologyConfigured: true},
-	}, indexing.ValidationProjectionRequest{
+	}, ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Name: "test", Path: root},
 		NoteMetadata: testProjectionNoteMetadata(t),
-		Target:       indexing.ValidationProjectionLive,
-	}, validate.Options{}, func(context.Context, indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
+		Target:       ValidationProjectionLive,
+	}, validate.ScanOptions{}, func(context.Context, ValidationProjectionRequest) (*ValidationProjectionResult, error) {
 		refreshCalls++
 		return nil, nil
 	})
@@ -255,12 +249,12 @@ func TestRunWithProjectionPendingJournalPreservesCILocalApplyCommand(t *testing.
 		Selectors:    []string{"all"},
 		ApplyCommand: "rzm validate fix all --apply --vault docs --scope-target Target.md",
 		Surface:      validate.SurfaceCI,
-	}, indexing.ValidationProjectionRequest{
+	}, ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Name: "docs", Path: root},
 		NoteMetadata: testProjectionNoteMetadata(t),
-		Target:       indexing.ValidationProjectionScratch,
-	}, validate.Options{}, func(context.Context, indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
+		Target:       ValidationProjectionScratch,
+	}, validate.ScanOptions{}, func(context.Context, ValidationProjectionRequest) (*ValidationProjectionResult, error) {
 		refreshCalls++
 		return nil, nil
 	})
@@ -290,12 +284,12 @@ func TestRunWithProjectionInstallsPreMutationJournalBarrier(t *testing.T) {
 		Selectors: []string{"ontology"},
 		Surface:   validate.SurfaceLocal,
 		Features:  validate.VaultFeatureFacts{OntologyConfigured: true},
-	}, indexing.ValidationProjectionRequest{
+	}, ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Name: "test", Path: root},
 		NoteMetadata: testProjectionNoteMetadata(t),
-		Target:       indexing.ValidationProjectionLive,
-	}, validate.Options{}, func(ctx context.Context, request indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
+		Target:       ValidationProjectionLive,
+	}, validate.ScanOptions{}, func(ctx context.Context, request ValidationProjectionRequest) (*ValidationProjectionResult, error) {
 		writePendingProjectionRepairJournal(t, root, "concurrent-repair", []string{validate.CheckOntology})
 		require.NotNil(t, request.BeforeMutation)
 		if err := request.BeforeMutation(ctx); err != nil {
@@ -326,23 +320,21 @@ func TestRunWithProjectionJournalPublishedAfterRefreshBlocksBeforeSuite(t *testi
 		ApplyCommand: exactCommand,
 		Surface:      validate.SurfaceLocal,
 		Features:     validate.VaultFeatureFacts{OntologyConfigured: true},
-	}, indexing.ValidationProjectionRequest{
+	}, ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Name: "test", Path: root},
 		NoteMetadata: testProjectionNoteMetadata(t),
-		Target:       indexing.ValidationProjectionLive,
-	}, validate.Options{}, func(ctx context.Context, request indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
+		Target:       ValidationProjectionLive,
+	}, validate.ScanOptions{}, func(ctx context.Context, request ValidationProjectionRequest) (*ValidationProjectionResult, error) {
 		require.NotNil(t, request.BeforeMutation)
 		require.NoError(t, request.BeforeMutation(ctx))
 		refreshCalls++
 		writePendingProjectionRepairJournal(t, root, "post-refresh-repair", []string{validate.CheckOntology})
-		return &indexing.ValidationProjectionResult{
+		return &ValidationProjectionResult{
 			Runtime: &ontology.Runtime{},
-			Freshness: map[indexing.ProjectionDomain]indexing.ProjectionFreshness{
-				indexing.ProjectionDomainMetadata:        {State: indexing.ProjectionFresh},
-				indexing.ProjectionDomainLinks:           {State: indexing.ProjectionFresh},
-				indexing.ProjectionDomainMarkdownTargets: {State: indexing.ProjectionFresh},
-				indexing.ProjectionDomainOntology:        {State: indexing.ProjectionFresh},
+			Freshness: map[ProjectionDomain]ProjectionFreshness{
+				ProjectionDomainMetadata: {State: ProjectionFresh},
+				ProjectionDomainOntology: {State: ProjectionFresh},
 			},
 		}, nil
 	})
@@ -365,7 +357,7 @@ func TestRunWithProjectionLocalCodeUsableButScratchCITruthfullyBlocked(t *testin
 		Selectors: []string{"code-anchors"},
 		Surface:   validate.SurfaceCI,
 		Features:  validate.VaultFeatureFacts{CodeConfigured: true, CodeAnchorRootsConfigured: true},
-	}, indexing.ValidationProjectionRequest{NoteMetadata: testProjectionNoteMetadata(t), Target: indexing.ValidationProjectionScratch}, validate.Options{}, func(context.Context, indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
+	}, ValidationProjectionRequest{NoteMetadata: testProjectionNoteMetadata(t), Target: ValidationProjectionScratch}, validate.ScanOptions{}, func(context.Context, ValidationProjectionRequest) (*ValidationProjectionResult, error) {
 		refreshCalls++
 		return nil, nil
 	})
@@ -382,12 +374,12 @@ func TestProjectionAdapterClosesScratchWithoutCodeOrProviderWork(t *testing.T) {
 	t.Parallel()
 
 	root := writeProjectionVault(t)
-	adapter := newProjectionAdapter(indexing.ValidationProjectionRequest{
+	adapter := newProjectionAdapter(ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Path: root},
 		NoteMetadata: testProjectionNoteMetadata(t),
-		Target:       indexing.ValidationProjectionScratch,
-	}, false, indexing.RefreshValidationProjection)
+		Target:       ValidationProjectionScratch,
+	}, false, RefreshValidationProjection)
 
 	snapshot, err := adapter.AutoManagedProjection(context.Background(), validate.CheckDescriptor{}, validate.ProjectionValidation)
 	require.NoError(t, err)
@@ -412,13 +404,13 @@ func TestRunWithProjectionUsesScratchPreparedRuntime(t *testing.T) {
 		Selectors: []string{"ontology"},
 		Surface:   validate.SurfaceCI,
 		Features:  validate.VaultFeatureFacts{OntologyConfigured: true},
-	}, indexing.ValidationProjectionRequest{
+	}, ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth},
 		NoteMetadata: testProjectionNoteMetadata(t),
-	}, validate.Options{MaxIssues: 20}, func(ctx context.Context, request indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error) {
-		require.Equal(t, indexing.ValidationProjectionScratch, request.Target)
-		projection, err := indexing.RefreshValidationProjection(ctx, request)
+	}, validate.ScanOptions{MaxIssues: 20}, func(ctx context.Context, request ValidationProjectionRequest) (*ValidationProjectionResult, error) {
+		require.Equal(t, ValidationProjectionScratch, request.Target)
+		projection, err := RefreshValidationProjection(ctx, request)
 		if projection != nil {
 			scratchDir = filepath.Dir(projection.IndexPath)
 		}
@@ -440,11 +432,11 @@ func TestRunWithProjectionScratchLeavesPreexistingLiveDBUnchanged(t *testing.T) 
 
 	ctx := context.Background()
 	root := writeProjectionVault(t)
-	live, err := indexing.RefreshValidationProjection(ctx, indexing.ValidationProjectionRequest{
+	live, err := RefreshValidationProjection(ctx, ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Path: root},
 		NoteMetadata: testProjectionNoteMetadata(t),
-		Target:       indexing.ValidationProjectionLive,
+		Target:       ValidationProjectionLive,
 	})
 	require.NoError(t, err)
 	seedProjectionCodeFacts(t, live.Runtime.Store)
@@ -458,11 +450,11 @@ func TestRunWithProjectionScratchLeavesPreexistingLiveDBUnchanged(t *testing.T) 
 		Selectors: []string{"ontology"},
 		Surface:   validate.SurfaceCI,
 		Features:  validate.VaultFeatureFacts{OntologyConfigured: true},
-	}, indexing.ValidationProjectionRequest{
+	}, ValidationProjectionRequest{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Path: root},
 		NoteMetadata: testProjectionNoteMetadata(t),
-	}, validate.Options{})
+	}, validate.ScanOptions{})
 	require.NoError(t, err)
 	require.Equal(t, validate.CheckOutcomeCompleted, result.Outcomes[0].Outcome)
 
@@ -471,25 +463,24 @@ func TestRunWithProjectionScratchLeavesPreexistingLiveDBUnchanged(t *testing.T) 
 	require.Equal(t, beforeHash, sha256.Sum256(after))
 }
 
-func TestRunWithProjectionRejectsUnsafeTargetOrMutation(t *testing.T) {
+func TestRunWithProjectionRejectsUnsafeTarget(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		surface validate.ExecutionSurface
-		target  indexing.ValidationProjectionTarget
-		options validate.Options
+		target  ValidationProjectionTarget
+		options validate.ScanOptions
 		wantErr string
 	}{
-		{name: "CI cannot use live", surface: validate.SurfaceCI, target: indexing.ValidationProjectionLive, wantErr: "CI validation requires a scratch projection"},
-		{name: "local cannot use scratch", surface: validate.SurfaceLocal, target: indexing.ValidationProjectionScratch, wantErr: "local validation requires the live projection"},
-		{name: "agent cannot use scratch", surface: validate.SurfaceAgent, target: indexing.ValidationProjectionScratch, wantErr: "agent validation requires the live projection"},
-		{name: "repair stays dependency owned", surface: validate.SurfaceLocal, options: validate.Options{Fix: true}, wantErr: "projected validation run is read-only"},
+		{name: "CI cannot use live", surface: validate.SurfaceCI, target: ValidationProjectionLive, wantErr: "CI validation requires a scratch projection"},
+		{name: "local cannot use scratch", surface: validate.SurfaceLocal, target: ValidationProjectionScratch, wantErr: "local validation requires the live projection"},
+		{name: "agent cannot use scratch", surface: validate.SurfaceAgent, target: ValidationProjectionScratch, wantErr: "agent validation requires the live projection"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := RunWithProjection(context.Background(), validationrun.ValidationRunRequest{Surface: tt.surface}, indexing.ValidationProjectionRequest{Target: tt.target}, tt.options)
+			_, err := RunWithProjection(context.Background(), validationrun.ValidationRunRequest{Surface: tt.surface}, ValidationProjectionRequest{Target: tt.target}, tt.options)
 			require.ErrorContains(t, err, tt.wantErr)
 		})
 	}
@@ -544,22 +535,4 @@ func seedProjectionCodeFacts(t *testing.T, store *semdb.Store) {
 	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, `INSERT OR REPLACE INTO index_metadata(key, value) VALUES (?, 'v9'), (?, 'scope-9')`, semdb.MetaKeyIndexerVersion, semdb.MetaKeyScopeConfigHash)
 	require.NoError(t, err)
-}
-
-func TestLiveVaultFeatureFactsRequireCodeAnchorRoots(t *testing.T) {
-	t.Parallel()
-
-	off, err := liveVaultFeatureFacts(t.TempDir(), &obsidian.LocalConfig{}, false)
-	require.NoError(t, err)
-	require.False(t, off.CodeAnchorRootsConfigured)
-
-	// Code on without folders covers the whole project, so anchors apply.
-	enabledOnly, err := liveVaultFeatureFacts(t.TempDir(), &obsidian.LocalConfig{Code: obsidian.LocalCodeConfig{Enabled: true, Scan: []string{"**/*.go"}}}, false)
-	require.NoError(t, err)
-	require.True(t, enabledOnly.CodeConfigured)
-	require.True(t, enabledOnly.CodeAnchorRootsConfigured)
-
-	withRoots, err := liveVaultFeatureFacts(t.TempDir(), &obsidian.LocalConfig{Code: obsidian.LocalCodeConfig{Go: &obsidian.LocalCodeLangConfig{Roots: []string{"."}}}}, false)
-	require.NoError(t, err)
-	require.True(t, withRoots.CodeAnchorRootsConfigured)
 }

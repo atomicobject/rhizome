@@ -18,12 +18,12 @@ func TestNormalize(t *testing.T) {
 		{"simple", "foo/bar", RelPath("foo/bar")},
 		{"with backslash", "foo\\bar", RelPath("foo/bar")},
 		{"with dot prefix", "./foo/bar", RelPath("foo/bar")},
-		{"with dot dot prefix", "../foo/bar", RelPath("foo/bar")},
-		{"nested dot prefix", "././foo/bar", RelPath("./foo/bar")}, // Only removes single level
+		{"with dot dot prefix", "../foo/bar", RelPath("../foo/bar")},
+		{"nested dot prefix", "././foo/bar", RelPath("foo/bar")},
 		{"windows style", "C:\\Users\\test", RelPath("C:/Users/test")},
 		{"mixed separators", "foo\\bar/baz", RelPath("foo/bar/baz")},
 		{"leading slash", "/foo/bar", RelPath("/foo/bar")},
-		{"trailing slash", "foo/bar/", RelPath("foo/bar/")},
+		{"trailing slash", "foo/bar/", RelPath("foo/bar")},
 	}
 
 	for _, tt := range tests {
@@ -36,13 +36,13 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
-func TestNormalizeNote(t *testing.T) {
+func TestExplicitNoteExtensionDefault(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
 		expected NotePath
 	}{
-		{"empty", "", NotePath(".md")},
+		{"empty", "", NotePath("")},
 		{"no suffix", "foo/bar", NotePath("foo/bar.md")},
 		{"has suffix", "foo/bar.md", NotePath("foo/bar.md")},
 		{"has uppercase suffix", "foo/Decision.MD", NotePath("foo/Decision.MD")},
@@ -53,7 +53,7 @@ func TestNormalizeNote(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := NormalizeNote(tt.input)
+			result := EnsureNoteExtension(tt.input, ".md")
 			if result != tt.expected {
 				t.Errorf("NormalizeNote(%q) = %q, want %q", tt.input, result, tt.expected)
 			}

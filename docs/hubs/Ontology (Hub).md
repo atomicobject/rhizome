@@ -56,7 +56,7 @@ flowchart TB
 Stages:
 
 1. **Authoring** (`.rhizome/ontology/*.graphql`) — note families, structural/ambient relations, identifiers, sections, and retrieval/traversal hints. See [[Ontology schema authoring]].
-2. **Compile** (`pkg/ontology/schema.go`) — SDL → typed-note model; validates directives, docstrings, and identifier formats.
+2. **Compile** (`pkg/ontology/schema/schema.go`) — SDL → typed-note model; validates directives, docstrings, and identifier formats.
 3. **Project** (`pkg/ontology/projection.go`, `body.go`) — typed markdown → source-preserving `NodeRef` snapshots, fields, collections, byte ranges.
 4. **Index** (`pkg/ontology/sync.go`, `node_catalog.go`) — projection → SQLite `ontology_nodes` / `ontology_edges` / `ontology_node_field_values` per [[ontology-indexed-read-model-contract]].
 5. **Read** (`pkg/ontology/noderead`) — request/job-scoped batched hydration, traversal, graph facts, and type lists.
@@ -117,8 +117,8 @@ erDiagram
 ### Entry points (code)
 
 - `pkg/ontology/CONTEXT.md` — package projection/edit/read contract.
-- `pkg/ontology/schema.go`, `schema_types.go`, `schema_sdl.go` — `LoadSchema`, compiled model types, and SDL preprocessing.
-- `pkg/ontology/schema_compile_types.go`, `schema_compile_fields.go`, `schema_identifiers.go`, `schema_directives.go` — type/field compilation, identifier rules, and directive metadata.
+- `pkg/ontology/schema/schema.go`, `schema_types.go`, `schema_sdl.go` — `LoadSchema`, compiled model types, and SDL preprocessing.
+- `pkg/ontology/schema/schema_compile_types.go`, `schema_compile_fields.go`, `schema_identifiers.go`, `schema_directives.go` — type/field compilation, identifier rules, and directive metadata.
 - `pkg/ontology/projection.go` — `ProjectNode`, `NodeRef`, snapshot construction, and resolver setup.
 - `pkg/ontology/projection_resolver.go`, `projection_refs.go`, `projection_identity.go`, `projection_identifiers.go` — node resolution, structural identity, and derived identifiers.
 - `pkg/ontology/projection_bindings.go`, `projection_inline.go`, `body.go` — field/collection bindings, inline source spans, and body blocks.
@@ -131,7 +131,7 @@ erDiagram
 - `pkg/ontology/queryrecipe/` — saved typed-note query recipes (load/bind/validate) per [[saved-query-recipes|SPEC-0052]].
 - `pkg/ontology/readmodel/` — `GraphStore` row/interface contract.
 - `pkg/anchors/sqlite/graph_readmodel.go`, `graph_readmodel_doc_edges.go` — SQLite implementation of the graph read model.
-- `pkg/app/cli/context_text.go` (`renderNoteOntologyBlock`) — `file_context` ontology rendering.
+- `pkg/app/operations/context_text.go` (`renderNoteOntologyBlock`) — `file_context` ontology rendering.
 - `pkg/app/web/node_workspace.go`, `pkg/app/web/graph.go`, `pkg/app/web/ontology_sessions.go` — browser node workspace, graph, and edit-session HTTP surfaces.
 - `cmd/ontology.go`, `cmd/ontology_query.go`, `cmd/ontology_inspect.go`, `cmd/agent_ontology.go`, `cmd/agent_next_id.go` — CLI + agent surfaces.
 

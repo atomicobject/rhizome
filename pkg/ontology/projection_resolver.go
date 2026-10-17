@@ -2,9 +2,11 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -20,7 +22,7 @@ func (r *projectionResolver) project(ref NodeRef) (*NodeProjection, error) {
 	}
 	if span, spanRef, ok, resolveErr := r.resolveSourceSpanRef(ref); resolveErr != nil {
 		return nil, resolveErr
-	} else if ok && span.Shape != EmbeddedSourceShapeSection {
+	} else if ok && span.Shape != ontoschema.EmbeddedSourceShapeSection {
 		return r.projectSourceSpan(span, spanRef), nil
 	}
 	node, sectionRef, err := r.resolveSectionRef(ref)
@@ -34,7 +36,7 @@ func (r *projectionResolver) project(ref NodeRef) (*NodeProjection, error) {
 // Internal traversals use it so identical unanchored siblings can both be
 // materialized without weakening fail-closed resolution of external refs.
 func (r *projectionResolver) projectCurrent(ref NodeRef) (*NodeProjection, error) {
-	if span := r.snapshot.SourceSpansByID[ref.NodeID]; span != nil && span.Shape != EmbeddedSourceShapeSection &&
+	if span := r.snapshot.SourceSpansByID[ref.NodeID]; span != nil && span.Shape != ontoschema.EmbeddedSourceShapeSection &&
 		ref.StartByte == span.Range.Start && ref.EndByte == span.Range.End {
 		current := r.sourceSpanNodeRef(span)
 		if current.Structural == ref.Structural {
@@ -71,7 +73,7 @@ func (r *projectionResolver) projectNote() *NodeProjection {
 			continue
 		}
 		switch field.Kind {
-		case FieldKindSection:
+		case ontoschema.FieldKindSection:
 			binding := r.noteSectionBinding(field)
 			projection.Fields[field.Name] = binding
 			if field.List {
@@ -92,14 +94,15 @@ func (r *projectionResolver) projectSection(node *SectionNode, ref NodeRef) *Nod
 		propertyCase = propertyCaseOrDefault(r.noteType)
 	}
 	projection := &NodeProjection{
-		Ref:          ref,
-		Snapshot:     r.snapshot,
-		ResolvedType: typeName,
-		Type:         noteType,
-		Assessment:   r.assessment,
-		PropertyCase: propertyCase,
-		Fields:       map[string]FieldBinding{},
-		Collections:  map[string]CollectionBinding{},
+		Ref:                   ref,
+		relocationFingerprint: hashText(r.stableSectionHeadingFingerprint(node)),
+		Snapshot:              r.snapshot,
+		ResolvedType:          typeName,
+		Type:                  noteType,
+		Assessment:            r.assessment,
+		PropertyCase:          propertyCase,
+		Fields:                map[string]FieldBinding{},
+		Collections:           map[string]CollectionBinding{},
 	}
 	if noteType == nil {
 		return projection
@@ -109,13 +112,13 @@ func (r *projectionResolver) projectSection(node *SectionNode, ref NodeRef) *Nod
 			continue
 		}
 		switch field.Kind {
-		case FieldKindSection:
+		case ontoschema.FieldKindSection:
 			binding := r.sectionFieldBinding(node, field)
 			projection.Fields[field.Name] = binding
 			if field.List {
 				projection.Collections[field.Name] = collectionFromFieldBinding(field.Name, binding)
 			}
-		case FieldKindScalar, FieldKindEnum, FieldKindLink:
+		case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum, ontoschema.FieldKindLink:
 			projection.Fields[field.Name] = sectionValueBinding(r.snapshot, node, field, propertyCase)
 		}
 	}
@@ -125,7 +128,7 @@ func (r *projectionResolver) projectSection(node *SectionNode, ref NodeRef) *Nod
 	// this pass, typed queries on uncited UserStory/AcceptanceCriterion nodes
 	// would expose an empty id, breaking NodeRef resolution and semantic
 	// rendering for the lazy-`id::` lifecycle.
-	if field := preferredIdentifierField(noteType); field != nil && field.IsDerivableIdentifier {
+	if field := noteType.PreferredIdentifierField(); field != nil && field.IsDerivableIdentifier {
 		if binding, ok := projection.Fields[field.Name]; ok && len(binding.Values) == 0 {
 			if derived, ok := r.deriveIdentifierValue(node, field); ok {
 				binding.Values = []string{derived}
@@ -145,14 +148,15 @@ func (r *projectionResolver) projectSourceSpan(span *MarkdownSourceSpan, ref Nod
 		propertyCase = propertyCaseOrDefault(r.noteType)
 	}
 	projection := &NodeProjection{
-		Ref:          ref,
-		Snapshot:     r.snapshot,
-		ResolvedType: typeName,
-		Type:         noteType,
-		Assessment:   r.assessment,
-		PropertyCase: propertyCase,
-		Fields:       map[string]FieldBinding{},
-		Collections:  map[string]CollectionBinding{},
+		Ref:                   ref,
+		relocationFingerprint: hashText(r.unanchoredSourceSpanFingerprint(span)),
+		Snapshot:              r.snapshot,
+		ResolvedType:          typeName,
+		Type:                  noteType,
+		Assessment:            r.assessment,
+		PropertyCase:          propertyCase,
+		Fields:                map[string]FieldBinding{},
+		Collections:           map[string]CollectionBinding{},
 	}
 	if noteType == nil {
 		return projection
@@ -162,17 +166,17 @@ func (r *projectionResolver) projectSourceSpan(span *MarkdownSourceSpan, ref Nod
 			continue
 		}
 		switch field.Kind {
-		case FieldKindSection:
+		case ontoschema.FieldKindSection:
 			binding := r.sourceSpanChildBinding(span, field)
 			projection.Fields[field.Name] = binding
 			if field.List {
 				projection.Collections[field.Name] = collectionFromFieldBinding(field.Name, binding)
 			}
-		case FieldKindScalar, FieldKindEnum, FieldKindLink:
+		case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum, ontoschema.FieldKindLink:
 			projection.Fields[field.Name] = sourceSpanValueBinding(r.snapshot, span, field, propertyCase)
 		}
 	}
-	if field := preferredIdentifierField(noteType); field != nil && field.IsDerivableIdentifier {
+	if field := noteType.PreferredIdentifierField(); field != nil && field.IsDerivableIdentifier {
 		if binding, ok := projection.Fields[field.Name]; ok && len(binding.Values) == 0 {
 			if derived, ok := r.deriveSourceSpanIdentifierValue(span, field); ok {
 				binding.Values = []string{derived}
@@ -184,7 +188,7 @@ func (r *projectionResolver) projectSourceSpan(span *MarkdownSourceSpan, ref Nod
 	return projection
 }
 
-func (r *projectionResolver) indexSectionTypesForNote(noteType *NoteType) {
+func (r *projectionResolver) indexSectionTypesForNote(noteType *ontoschema.NoteType) {
 	if noteType == nil {
 		return
 	}
@@ -197,7 +201,7 @@ func (r *projectionResolver) indexGlobalSourceTypes() {
 	}
 	typeNames := make([]string, 0, len(r.schema.Types))
 	for typeName, noteType := range r.schema.Types {
-		if noteType == nil || noteType.Role != TypeRoleEmbeddedNode || noteType.SourceShape == "" {
+		if noteType == nil || noteType.Role != ontoschema.TypeRoleEmbeddedNode || noteType.SourceShape == "" {
 			continue
 		}
 		if !sourceMatchersMatchNote(noteType.SourceMatchers, r.noteDoc) {
@@ -223,16 +227,16 @@ func (r *projectionResolver) indexGlobalSourceTypes() {
 	}
 }
 
-func (r *projectionResolver) indexNestedSectionTypes(typeName string, propertyCase PropertyCase, nodes []*SectionNode, parentID string) {
+func (r *projectionResolver) indexNestedSectionTypes(typeName string, propertyCase ontoschema.PropertyCase, nodes []*SectionNode, parentID string) {
 	noteType := r.schema.Types[typeName]
 	if noteType == nil {
 		return
 	}
 	for _, field := range noteType.Fields {
-		if field == nil || field.Kind != FieldKindSection {
+		if field == nil || field.Kind != ontoschema.FieldKindSection {
 			continue
 		}
-		if field.EmbeddedSourceShape != "" && field.EmbeddedSourceShape != EmbeddedSourceShapeSection {
+		if field.EmbeddedSourceShape != "" && field.EmbeddedSourceShape != ontoschema.EmbeddedSourceShapeSection {
 			parentSpan := r.snapshot.SourceSpansByID[parentID]
 			candidates := r.snapshot.SourceSpans
 			if parentSpan != nil {
@@ -274,12 +278,12 @@ func linkListSourceSpansToSections(spans []*MarkdownSourceSpan) {
 			continue
 		}
 		byID[span.ID] = span
-		if span.Shape == EmbeddedSourceShapeSection {
+		if span.Shape == ontoschema.EmbeddedSourceShapeSection {
 			sections = append(sections, span)
 		}
 	}
 	for _, span := range spans {
-		if span == nil || span.Shape == EmbeddedSourceShapeSection || strings.TrimSpace(span.ParentID) != "" {
+		if span == nil || span.Shape == ontoschema.EmbeddedSourceShapeSection || strings.TrimSpace(span.ParentID) != "" {
 			continue
 		}
 		parent := nearestContainingSection(sections, span.Range)
@@ -302,7 +306,7 @@ func linkListSourceSpansToSections(spans []*MarkdownSourceSpan) {
 func nearestContainingSection(sections []*MarkdownSourceSpan, child ByteRange) *MarkdownSourceSpan {
 	var best *MarkdownSourceSpan
 	for _, section := range sections {
-		if section == nil || section.Shape != EmbeddedSourceShapeSection {
+		if section == nil || section.Shape != ontoschema.EmbeddedSourceShapeSection {
 			continue
 		}
 		if section.Range.Start > child.Start || section.Range.End < child.End {
@@ -330,7 +334,7 @@ func sourceSpanChildren(parent *MarkdownSourceSpan) []*MarkdownSourceSpan {
 	}
 	out := make([]*MarkdownSourceSpan, 0, len(parent.Children))
 	for _, child := range parent.Children {
-		if child == nil || child.Shape == EmbeddedSourceShapeSection {
+		if child == nil || child.Shape == ontoschema.EmbeddedSourceShapeSection {
 			continue
 		}
 		out = append(out, child)
@@ -338,15 +342,15 @@ func sourceSpanChildren(parent *MarkdownSourceSpan) []*MarkdownSourceSpan {
 	return out
 }
 
-func matchSourceSpansForField(candidates []*MarkdownSourceSpan, field *Field) []*MarkdownSourceSpan {
-	if field == nil || field.EmbeddedSourceShape == "" || field.EmbeddedSourceShape == EmbeddedSourceShapeSection {
+func matchSourceSpansForField(candidates []*MarkdownSourceSpan, field *ontoschema.Field) []*MarkdownSourceSpan {
+	if field == nil || field.EmbeddedSourceShape == "" || field.EmbeddedSourceShape == ontoschema.EmbeddedSourceShapeSection {
 		return nil
 	}
 	return matchSourceSpansForSource(candidates, field.EmbeddedSourceShape, field.EmbeddedSourceMarker)
 }
 
-func matchSourceSpansForSource(candidates []*MarkdownSourceSpan, shape EmbeddedSourceShape, marker string) []*MarkdownSourceSpan {
-	if shape == "" || shape == EmbeddedSourceShapeSection {
+func matchSourceSpansForSource(candidates []*MarkdownSourceSpan, shape ontoschema.EmbeddedSourceShape, marker string) []*MarkdownSourceSpan {
+	if shape == "" || shape == ontoschema.EmbeddedSourceShapeSection {
 		return nil
 	}
 	marker = strings.TrimSpace(marker)
@@ -363,12 +367,13 @@ func matchSourceSpansForSource(candidates []*MarkdownSourceSpan, shape EmbeddedS
 	return out
 }
 
-func sourceMatchersMatchNote(matchers []*NoteMatcher, doc *noteDoc) bool {
+func sourceMatchersMatchNote(matchers []*ontoschema.NoteMatcher, doc *noteDoc) bool {
 	if len(matchers) == 0 {
 		return true
 	}
+	subject := selectorSubjectForDoc(doc)
 	for _, matcher := range matchers {
-		if matcher != nil && matcher.matches(doc) {
+		if matcher != nil && matcher.Matches(subject) {
 			return true
 		}
 	}
@@ -414,16 +419,16 @@ func parentIDForMatchedSourceSpan(span *MarkdownSourceSpan, fallback string) str
 	return fallback
 }
 
-func typeNameOrEmpty(noteType *NoteType) string {
+func typeNameOrEmpty(noteType *ontoschema.NoteType) string {
 	if noteType == nil {
 		return ""
 	}
 	return noteType.Name
 }
 
-func propertyCaseOrDefault(noteType *NoteType) PropertyCase {
+func propertyCaseOrDefault(noteType *ontoschema.NoteType) ontoschema.PropertyCase {
 	if noteType == nil || noteType.PropertyCase == "" {
-		return PropertyCaseKebab
+		return ontoschema.PropertyCaseKebab
 	}
 	return noteType.PropertyCase
 }
@@ -447,12 +452,12 @@ func projectionNoteTitle(notePath string, fm map[string]any, sections []*Section
 	}
 	h1Titles := make([]string, 0, 1)
 	for _, section := range sections {
-		if section == nil || section.Level != SectionLevelH1 {
+		if section == nil || section.Level != ontoschema.SectionLevelH1 {
 			continue
 		}
 		// Section titles keep authored Markdown for heading identity; the
 		// note title is what a reader sees.
-		if value := obsidian.PlainMarkdownTitle(section.Title); value != "" {
+		if value := markdownsyntax.PlainMarkdownTitle(section.Title); value != "" {
 			h1Titles = append(h1Titles, value)
 		}
 	}

@@ -14,6 +14,8 @@ import (
 )
 
 func TestInterruptedIndexDoesNotWaitForeverForRuntimeCompletion(t *testing.T) {
+	commandOptions := newIndexOptionsForTest(t)
+
 	for _, status := range []int{http.StatusAccepted, http.StatusServiceUnavailable} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			streaming := make(chan struct{})
@@ -39,7 +41,7 @@ func TestInterruptedIndexDoesNotWaitForeverForRuntimeCompletion(t *testing.T) {
 			var output bytes.Buffer
 			command.SetErr(&output)
 			done := make(chan error, 1)
-			go func() { done <- renderRuntimeIndexJob(ctx, command, client, "job-1") }()
+			go func() { done <- commandOptions.renderRuntimeIndexJob(ctx, command, client, "job-1") }()
 			select {
 			case <-streaming:
 			case <-time.After(5 * time.Second):

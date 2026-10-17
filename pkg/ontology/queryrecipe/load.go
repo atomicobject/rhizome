@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -37,26 +38,68 @@ func HasDefaultSources(vaultPath string) bool {
 
 // LoadRoots scans existing recipe roots and deduplicates files across roots.
 func LoadRoots(roots []string) ([]Recipe, []Issue) {
-	var recipes []Recipe
+	files, issues := scanSources(roots, true)
+	return loadSources(files, issues)
+}
+
+func LoadPath(path string) ([]Recipe, []Issue) {
+	files, issues := scanSources([]string{path}, false)
+	return loadSources(files, issues)
+}
+
+type sourceFile struct {
+	path string
+	data []byte
+}
+
+func scanSources(roots []string, optional bool) ([]sourceFile, []Issue) {
+	var files []sourceFile
 	var issues []Issue
-	seen := map[string]struct{}{}
+	seen := map[string]bool{}
+	readCache := map[string][]byte{}
 	for _, root := range roots {
+		root = filepath.Clean(root)
 		info, err := os.Stat(root)
 		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				_, entryErr := os.Lstat(root)
-				if errors.Is(entryErr, os.ErrNotExist) {
+			if optional && errors.Is(err, os.ErrNotExist) {
+				if _, entryErr := os.Lstat(root); errors.Is(entryErr, os.ErrNotExist) {
 					continue
-				}
-				if entryErr != nil {
-					err = entryErr
 				}
 			}
 			issues = append(issues, Issue{Code: "recipe_path_error", Path: root, Message: err.Error()})
 			continue
 		}
-		if !info.IsDir() {
+		if optional && !info.IsDir() {
 			issues = append(issues, Issue{Code: "recipe_path_error", Path: root, Message: "recipe root is not a directory"})
+			continue
+		}
+		read := func(path string, explicit bool) {
+			if seen[path] {
+				return
+			}
+			if !explicit && !isRecipeFile(path) {
+				return
+			}
+			data, cached := readCache[path]
+			var err error
+			if !cached {
+				data, err = os.ReadFile(path)
+				readCache[path] = data
+			}
+			if err != nil {
+				seen[path] = true
+				issues = append(issues, Issue{Code: "recipe_read_error", Path: path, Message: err.Error()})
+				return
+			}
+			ext := strings.ToLower(filepath.Ext(path))
+			if !explicit && (ext == ".yaml" || ext == ".yml") && !rootUsesExplicitRecipeFiles(root) && !isNamedQueryRecipeFile(path) && !yamlLooksLikeRecipe(data) {
+				return
+			}
+			seen[path] = true
+			files = append(files, sourceFile{path: path, data: data})
+		}
+		if !info.IsDir() {
+			read(root, true)
 			continue
 		}
 		_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
@@ -65,81 +108,35 @@ func LoadRoots(roots []string) ([]Recipe, []Issue) {
 				return nil
 			}
 			if d.IsDir() {
-				if strings.HasPrefix(d.Name(), ".") && path != root {
-					return filepath.SkipDir
-				}
-				if isAgentMetadataDir(path) {
+				if (strings.HasPrefix(d.Name(), ".") && path != root) || isAgentMetadataDir(path) {
 					return filepath.SkipDir
 				}
 				return nil
 			}
-			if !isRecipeFileForScan(root, path) {
-				return nil
-			}
-			if _, ok := seen[path]; ok {
-				return nil
-			}
-			seen[path] = struct{}{}
-			fileRecipes, fileIssues := LoadPath(path)
-			recipes = append(recipes, fileRecipes...)
-			issues = append(issues, fileIssues...)
+			read(path, false)
 			return nil
 		})
 	}
-	return recipes, issues
+	return files, issues
 }
 
-func LoadPath(path string) ([]Recipe, []Issue) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, []Issue{{Code: "recipe_path_error", Path: path, Message: err.Error()}}
-	}
-	if !info.IsDir() {
-		return loadFile(path)
-	}
+func loadSources(files []sourceFile, issues []Issue) ([]Recipe, []Issue) {
 	var recipes []Recipe
-	var issues []Issue
-	err = filepath.WalkDir(path, func(current string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			issues = append(issues, Issue{Code: "recipe_path_error", Path: current, Message: walkErr.Error()})
-			return nil
+	for _, file := range files {
+		var loaded []Recipe
+		var diagnostics []Issue
+		switch strings.ToLower(filepath.Ext(file.path)) {
+		case ".yaml", ".yml":
+			loaded, diagnostics = decodeRecipeYAMLDocuments(file.data, Source{Path: file.path, Line: 1})
+		case ".md", ".markdown":
+			loaded, diagnostics = parseMarkdownRecipes(file.path, string(file.data))
+		default:
+			diagnostics = []Issue{{Code: "unsupported_recipe_file", Path: file.path, Message: "expected .md, .yaml, or .yml recipe file"}}
 		}
-		if d.IsDir() {
-			if strings.HasPrefix(d.Name(), ".") && current != path {
-				return filepath.SkipDir
-			}
-			if isAgentMetadataDir(current) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !isRecipeFileForScan(path, current) {
-			return nil
-		}
-		fileRecipes, fileIssues := loadFile(current)
-		recipes = append(recipes, fileRecipes...)
-		issues = append(issues, fileIssues...)
-		return nil
-	})
-	if err != nil {
-		issues = append(issues, Issue{Code: "recipe_path_error", Path: path, Message: err.Error()})
+		recipes = append(recipes, loaded...)
+		issues = append(issues, diagnostics...)
 	}
 	return recipes, issues
-}
-
-func loadFile(path string) ([]Recipe, []Issue) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, []Issue{{Code: "recipe_read_error", Path: path, Message: err.Error()}}
-	}
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".yaml", ".yml":
-		return decodeRecipeYAMLDocuments(data, Source{Path: path, Line: 1})
-	case ".md", ".markdown":
-		return parseMarkdownRecipes(path, string(data))
-	default:
-		return nil, []Issue{{Code: "unsupported_recipe_file", Path: path, Message: "expected .md, .yaml, or .yml recipe file"}}
-	}
 }
 
 func isRecipeFile(path string) bool {
@@ -149,23 +146,6 @@ func isRecipeFile(path string) bool {
 	default:
 		return false
 	}
-}
-
-func isRecipeFileForScan(root, path string) bool {
-	if !isRecipeFile(path) {
-		return false
-	}
-	ext := strings.ToLower(filepath.Ext(path))
-	if ext == ".md" || ext == ".markdown" {
-		return true
-	}
-	if rootUsesExplicitRecipeFiles(root) {
-		return true
-	}
-	if isNamedQueryRecipeFile(path) {
-		return true
-	}
-	return yamlFileLooksLikeRecipe(path)
 }
 
 func rootUsesExplicitRecipeFiles(root string) bool {
@@ -195,13 +175,9 @@ func isNamedQueryRecipeFile(path string) bool {
 	return false
 }
 
-func yamlFileLooksLikeRecipe(path string) bool {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return true
-	}
-	return bytes.Contains(data, []byte("apiVersion: "+APIVersion)) || bytes.Contains(data, []byte("apiVersion: \""+APIVersion+"\""))
-}
+var recipeVersionLine = regexp.MustCompile(`(?m)^\s*apiVersion\s*:\s*['"]?rhizome\.(?:ontology-)?query-recipe\.`)
+
+func yamlLooksLikeRecipe(data []byte) bool { return recipeVersionLine.Match(data) }
 
 func isAgentMetadataDir(path string) bool {
 	if filepath.Base(path) != "agents" {
@@ -270,7 +246,7 @@ func decodeRecipeYAML(data []byte, source Source) (Recipe, *Issue) {
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	if err := dec.Decode(&recipe); err != nil {
-		return Recipe{}, &Issue{Code: "recipe_parse_error", Path: source.Path, Line: source.Line, Message: err.Error()}
+		return Recipe{}, &Issue{Code: "recipe_parse_error", Recipe: recipe.ID, Path: source.Path, Line: source.Line, Message: err.Error()}
 	}
 	recipe.Source = source
 	return recipe, nil
@@ -287,7 +263,7 @@ func decodeRecipeYAMLDocuments(data []byte, source Source) ([]Recipe, []Issue) {
 			if err == io.EOF {
 				break
 			}
-			return nil, []Issue{{Code: "recipe_parse_error", Path: source.Path, Line: source.Line, Message: err.Error()}}
+			return recipes, []Issue{{Code: "recipe_parse_error", Recipe: recipe.ID, Path: source.Path, Line: source.Line, Message: err.Error()}}
 		}
 		doc++
 		if strings.TrimSpace(recipe.APIVersion) == "" && strings.TrimSpace(recipe.ID) == "" && strings.TrimSpace(recipe.Name) == "" {

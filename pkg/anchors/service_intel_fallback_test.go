@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	sqlite "github.com/atomicobject/rhizome/pkg/store"
 )
 
 func TestService_IntelCallEdges_PythonFallbackWhenPkgMismatch(t *testing.T) {

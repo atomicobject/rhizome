@@ -1,8 +1,8 @@
 ## pkg/app/unifiedsearch
 
-Shared application search orchestration for CLI and adapters: provider/store bootstrap, effective profiles, seed handling, intent inference, source assessment, answer assembly, and continuation. The sibling `pkg/app/searchengine` package owns the cycle-free planner/ranker/service execution seam used by both this package and MCP.
+Shared application search orchestration for CLI and adapters: provider/store bootstrap, effective profiles, seed handling, intent inference, source assessment, answer assembly, and continuation. The planner constructs the complete production search service; this package injects presentation through the packer interface.
 
-- **Entry points**: `Execute` (every caller: CLI, MCP, HTTP, agent code mode, GraphQL `NoteSearcher`), `Run`, `searchengine.Execute`, `ResolveEffectivePolicy`, `ResolveSeedHandles`, `NormalizeQueryInputs`, `MergeSeedTokens`
+- **Entry points**: `Execute` (every caller: CLI, MCP, HTTP, agent code mode, GraphQL `NoteSearcher`), `Run`, `ResolveEffectivePolicy`, `ResolveSeedHandles`, `NormalizeQueryInputs`, `MergeSeedTokens`
 - **Key invariant**: `cmd` owns terminal rendering; this package owns retrieval planning, ranking inputs, and conversion into `pkg/app/answer` packets. Adapters hydrate only the page `Execute` returns.
 - **Provider lifetime**: factory-created providers register optional closers before store setup and close on every failed run or successful result cleanup. Matching code/note configurations reuse one provider before a second factory is called. Injected providers remain borrowed.
 - **Runtime ownership**: `Run` opens providers and stores directly from `Options` or uses injected ones. This package must not import `oneshotruntime`, `bootstrap`, or `mcp` (they depend on the MCP adapter, which calls `Execute`).

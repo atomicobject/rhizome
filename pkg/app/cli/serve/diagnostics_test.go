@@ -9,6 +9,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +19,7 @@ func TestHeadlessRunSuppressesInheritedDiagnosticStderrAndRestoresIt(t *testing.
 	recorder, err := diagnostics.Open(vault.path, diagnostics.Options{Stderr: &inherited})
 	require.NoError(t, err)
 	defer recorder.Close()
-	ctx, cancel := context.WithCancel(diagnostics.WithRecorder(context.Background(), recorder))
+	ctx, cancel := context.WithCancel(diagnostics.WithRecorder(vaultconfig.WithEnv(t.Context(), vault.env), recorder))
 	defer cancel()
 	handle := &runHandle{cancel: cancel, done: make(chan runResult, 1), stderr: &syncBuffer{}}
 	go func() {

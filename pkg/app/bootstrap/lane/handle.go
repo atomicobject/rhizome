@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 )
 
 // subscriberBuffer is the live-event headroom each subscriber gets on top of
@@ -32,7 +33,7 @@ type subscriber struct {
 type jobHandle struct {
 	id                             string
 	kind                           Kind
-	run                            func(context.Context, Reporter) error
+	run                            func(context.Context, *indexlock.Lease, Reporter) error
 	history                        int
 	started                        time.Time
 	done                           chan struct{}
@@ -61,7 +62,7 @@ type jobHandle struct {
 var _ Handle = (*jobHandle)(nil)
 var _ SummaryReporter = (*jobHandle)(nil)
 
-func newJobHandle(id string, kind Kind, run func(context.Context, Reporter) error, history int) *jobHandle {
+func newJobHandle(id string, kind Kind, run func(context.Context, *indexlock.Lease, Reporter) error, history int) *jobHandle {
 	return &jobHandle{id: id, kind: kind, run: run, history: history, started: time.Now(), done: make(chan struct{})}
 }
 

@@ -1,0 +1,40 @@
+package ontology
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+)
+
+func TestScratchReviewProbe(t *testing.T) {
+	root := t.TempDir()
+	writeOntologyTestConfig(t, root)
+	writeOntologySchema(t, root, embeddedProjectionSchema)
+	note := "---\ntype: Spec\nsummary: Test\n---\n\n# Spec\n\n## User Stories\n\n### Story A\nTBD\n\nstatus:: TODO\n\nTBD\n^story-a\n"
+	writeOntologyNote(t, root, "specs/001-test/spec.md", note)
+	schema, err := LoadSchema(root)
+	if err != nil { t.Fatal(err) }
+	ref := NodeRef{NotePath: "specs/001-test/spec.md", Fragment: "^story-a", Kind: NodeKindEmbedded}
+	projection, err := ProjectNode(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, ref)
+	if err != nil { t.Fatal(err) }
+	var narr []NodeBodyBlock
+	for _, b := range BuildNodeBody(projection, schema) { if b.Kind == NodeBodyBlockKindNarrative { narr = append(narr, b) } }
+	fmt.Printf("blocks=%d %+v\n", len(narr), narr)
+	if len(narr) < 2 { return }
+	second := narr[len(narr)-1]
+	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
+	if err := session.SetNarrative(ref, second.Range.Start, second.Range.End, second.Markdown, "EDITED SECOND"); err != nil { t.Fatal(err) }
+	if _, err := session.Preview(context.Background()); err != nil { t.Fatal(err) }
+	path := filepath.Join(root, "specs/001-test/spec.md")
+	shifted := strings.Replace(note, "## User Stories\n", "## User Stories\n\nIntro paragraph inserted externally.\n", 1)
+	if os.Getenv("SHIFT") == "1" { os.WriteFile(path, []byte(shifted), 0o644) }
+	result, err := session.Commit(context.Background())
+	fmt.Printf("outcome=%v err=%v rebased=%v\n", result.Outcome, err, result.Rebased)
+	b, _ := os.ReadFile(path)
+	fmt.Printf("%s\n", string(b))
+}

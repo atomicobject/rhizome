@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"net/url"
 	"sort"
 	"strings"
@@ -29,8 +30,8 @@ func ListModels(ctx context.Context, provider string) ([]ModelInfo, error) {
 
 func listModels(ctx context.Context, client httpClient, provider string) ([]ModelInfo, error) {
 	provider = strings.ToLower(strings.TrimSpace(provider))
-	apiKey := APIKeyForProvider(provider)
-	if provider != "mock" && apiKey == "" {
+	apiKey := APIKeyForProvider(vaultconfig.FromContext(ctx), provider)
+	if apiKey == "" {
 		return nil, fmt.Errorf("missing API key for provider %s", provider)
 	}
 	switch provider {
@@ -42,8 +43,6 @@ func listModels(ctx context.Context, client httpClient, provider string) ([]Mode
 		return listAnthropicModelsFromEndpoint(ctx, client, anthropicModelsEndpoint, apiKey)
 	case "gemini":
 		return listGeminiModelsFromEndpoint(ctx, client, geminiModelsEndpoint, apiKey)
-	case "mock":
-		return []ModelInfo{{ID: "mock", DisplayName: "Mock"}}, nil
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}

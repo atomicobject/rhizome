@@ -64,11 +64,11 @@ func TestOverviewEvidenceShaper_IgnoresPrecisionIntents(t *testing.T) {
 func noteResult(path string, score float64) RankedResult {
 	return RankedResult{
 		Candidate: Candidate{
-			Handle:   knowledge.NoteHandle(path),
-			Owner:    knowledge.NoteHandle(path),
-			Type:     "note",
-			Path:     path,
-			DocClass: InferDocClass(path, "note"),
+			SourceRef: SourceRef{Path: path},
+			Handle:    knowledge.NoteHandle(path),
+			Owner:     knowledge.NoteHandle(path),
+			Type:      "note",
+			DocClass:  InferDocClass(path, "note"),
 		},
 		FinalScore: score,
 	}
@@ -77,11 +77,11 @@ func noteResult(path string, score float64) RankedResult {
 func codeResult(path string, score float64, evidence ...Evidence) RankedResult {
 	return RankedResult{
 		Candidate: Candidate{
-			Handle:   knowledge.FileHandle(path),
-			Owner:    knowledge.FileHandle(path),
-			Type:     "code",
-			Path:     path,
-			Evidence: evidence,
+			SourceRef: SourceRef{Path: path},
+			Handle:    knowledge.FileHandle(path),
+			Owner:     knowledge.FileHandle(path),
+			Type:      "code",
+			Evidence:  evidence,
 		},
 		FinalScore: score,
 	}

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/answer"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
@@ -31,7 +30,7 @@ const (
 	ProfileAgent       = searchapplication.ProfileAgent
 )
 
-const RankingPolicyVersion = "search-quality-v3"
+const RankingPolicyVersion = "search-quality-v4"
 
 type EffectivePolicy = searchapplication.EffectivePolicy
 
@@ -121,14 +120,12 @@ type membershipPolicy struct {
 }
 
 type membershipFilters struct {
-	Inputs       []actions.ListInput `json:"inputs,omitempty"`
-	Expression   string              `json:"expression,omitempty"`
-	Types        []string            `json:"types,omitempty"`
-	Paths        []string            `json:"paths,omitempty"`
-	NoteTypes    []string            `json:"noteTypes,omitempty"`
-	TestsOnly    bool                `json:"testsOnly,omitempty"`
-	ExcludeTests bool                `json:"excludeTests,omitempty"`
-	ExactSymbols []string            `json:"exactSymbols,omitempty"`
+	Types        []string `json:"types,omitempty"`
+	Paths        []string `json:"paths,omitempty"`
+	NoteTypes    []string `json:"noteTypes,omitempty"`
+	TestsOnly    bool     `json:"testsOnly,omitempty"`
+	ExcludeTests bool     `json:"excludeTests,omitempty"`
+	ExactSymbols []string `json:"exactSymbols,omitempty"`
 }
 
 type membershipRequest struct {
@@ -161,32 +158,11 @@ func membershipIdentity(request EffectiveRequest) membershipRequest {
 		}
 		return queries[i].Text < queries[j].Text
 	})
-	inputs := make([]actions.ListInput, 0, len(request.Filters.Inputs))
-	inputSeen := map[string]struct{}{}
-	for _, input := range request.Filters.Inputs {
-		input.Property = strings.TrimSpace(input.Property)
-		input.Value = strings.TrimSpace(input.Value)
-		key := fmt.Sprintf("%d\x00%s\x00%s", input.Type, input.Property, input.Value)
-		if _, ok := inputSeen[key]; ok {
-			continue
-		}
-		inputSeen[key] = struct{}{}
-		inputs = append(inputs, input)
-	}
-	sort.Slice(inputs, func(i, j int) bool {
-		if inputs[i].Type != inputs[j].Type {
-			return inputs[i].Type < inputs[j].Type
-		}
-		if inputs[i].Property != inputs[j].Property {
-			return inputs[i].Property < inputs[j].Property
-		}
-		return inputs[i].Value < inputs[j].Value
-	})
 	return membershipRequest{
 		Queries: queries,
 		Intent:  request.Intent,
 		Seeds:   normalizeIdentityStrings(request.Seeds),
-		Filters: membershipFilters{Inputs: inputs, Expression: actions.CanonicalInputExpression(request.Filters.Expression), Types: normalizeIdentityStringsFold(request.Filters.Types), Paths: normalizeIdentityStrings(request.Filters.PathPrefixes), NoteTypes: normalizeIdentityStringsFold(request.Filters.NoteTypes), TestsOnly: request.Filters.TestsOnly, ExcludeTests: request.Filters.ExcludeTests, ExactSymbols: normalizeIdentityStrings(request.Filters.ExactSymbols)},
+		Filters: membershipFilters{Types: normalizeIdentityStringsFold(request.Filters.Types), Paths: normalizeIdentityStrings(request.Filters.PathPrefixes), NoteTypes: normalizeIdentityStringsFold(request.Filters.NoteTypes), TestsOnly: request.Filters.TestsOnly, ExcludeTests: request.Filters.ExcludeTests, ExactSymbols: normalizeIdentityStrings(request.Filters.ExactSymbols)},
 		Policy:  membershipPolicy{Profile: request.Profile, CandidateWindow: request.Policy.CandidateWindow, MaxPerOwner: request.Policy.MaxPerOwner},
 	}
 }

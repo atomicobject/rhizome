@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"strings"
-	"sync"
 
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
@@ -18,31 +17,12 @@ type keys struct {
 	TypeSafe string `json:"typesafe,omitempty"`
 }
 
-var (
-	decryptOnce sync.Once
-	decrypted   *keys
-	decryptErr  error
-)
-
-// ResetCache clears the cached decrypted keys so a newly provided
-// ATOMIC_RHIZOME_KEY can be picked up within the same process.
-func ResetCache() {
-	decryptOnce = sync.Once{}
-	decrypted = nil
-	decryptErr = nil
-}
-
-func decrypt() (*keys, error) {
-	decryptOnce.Do(func() {
-		unlockKey := vaultconfig.ResolveValue("ATOMIC_RHIZOME_KEY")
-		if unlockKey == "" || encryptedKeys == "" {
-			// No unlock key = not a team member, just return nil (not an error)
-			return
-		}
-		decrypted, decryptErr = decryptKeys(unlockKey, encryptedKeys)
-	})
-
-	return decrypted, decryptErr
+func decrypt(env vaultconfig.Env) (*keys, error) {
+	unlockKey := vaultconfig.ResolveValue(env, "ATOMIC_RHIZOME_KEY")
+	if unlockKey == "" || encryptedKeys == "" {
+		return nil, nil
+	}
+	return decryptKeys(unlockKey, encryptedKeys)
 }
 
 func decryptKeys(unlockKey, encoded string) (*keys, error) {
@@ -95,8 +75,8 @@ func decryptKeys(unlockKey, encoded string) (*keys, error) {
 }
 
 // VoyageKey returns the team Voyage AI API key, or empty string if unavailable.
-func VoyageKey() string {
-	k, _ := decrypt()
+func VoyageKey(env vaultconfig.Env) string {
+	k, _ := decrypt(env)
 	if k == nil {
 		return ""
 	}
@@ -105,8 +85,8 @@ func VoyageKey() string {
 
 // TypeSafeKey returns the team TypeSafe API key, or empty string if unavailable.
 // A bundle created before TypeSafe was added legitimately has no such key.
-func TypeSafeKey() string {
-	k, _ := decrypt()
+func TypeSafeKey(env vaultconfig.Env) string {
+	k, _ := decrypt(env)
 	if k == nil {
 		return ""
 	}
@@ -114,8 +94,8 @@ func TypeSafeKey() string {
 }
 
 // Available returns true if team keys are available (ATOMIC_RHIZOME_KEY is set and valid).
-func Available() bool {
-	k, _ := decrypt()
+func Available(env vaultconfig.Env) bool {
+	k, _ := decrypt(env)
 	return k != nil
 }
 

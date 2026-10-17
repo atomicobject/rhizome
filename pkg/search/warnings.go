@@ -1,7 +1,5 @@
 package search
 
-import "strings"
-
 // Warning captures intent-specific fallback diagnostics.
 type Warning struct {
 	Code    string `json:"code"`
@@ -85,23 +83,9 @@ func shouldWarnSubsystemOverviewFallback(spec QuerySpec, results []RankedResult)
 }
 
 func hasEvidence(results []RankedResult, types ...string) bool {
-	if len(results) == 0 || len(types) == 0 {
-		return false
-	}
-	want := make(map[string]struct{}, len(types))
-	for _, t := range types {
-		if t = strings.TrimSpace(strings.ToLower(t)); t != "" {
-			want[t] = struct{}{}
-		}
-	}
-	if len(want) == 0 {
-		return false
-	}
-	for _, res := range results {
-		for _, ev := range res.Evidence {
-			if _, ok := want[strings.ToLower(ev.Type)]; ok {
-				return true
-			}
+	for _, result := range results {
+		if HasEvidence(result.Evidence, types...) {
+			return true
 		}
 	}
 	return false

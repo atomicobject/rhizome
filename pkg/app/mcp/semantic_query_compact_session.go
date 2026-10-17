@@ -3,9 +3,10 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"strings"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 )
 
 func finalizeCompactSemanticQueryResponse(tracker *sessionTracker, encoded []byte, budgetChars int) ([]byte, error) {
@@ -53,7 +54,7 @@ func finalizeCompactSemanticQueryResponse(tracker *sessionTracker, encoded []byt
 		return nil, err
 	}
 	if budgetChars <= 0 {
-		budgetChars = DefaultBudgetChars()
+		budgetChars = repoconfig.DefaultBudgetChars
 	}
 	if len(budgeted) > budgetChars {
 		return nil, fmt.Errorf("compact response exceeds budget %d while preserving dedupe qualifications", budgetChars)

@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // editSettings shows the settings sections until the person presses Enter.
@@ -245,7 +245,7 @@ func (r *initRun) editAgents(s *setup) {
 		fmt.Fprintf(out, "  1  %s Claude Code   CLAUDE.md and skills in .claude/\n", checkbox(h.HasClaude))
 		fmt.Fprintf(out, "  2  %s Cursor        a Rhizome rule in .cursor/rules\n", checkbox(h.HasCursor))
 		fmt.Fprintln(out, "  3  Stop managing agent files")
-		prefs := obsidian.AgentPreferences{}
+		prefs := repoconfig.AgentPreferences{}
 		if s.cfg.Agents != nil {
 			prefs = *s.cfg.Agents
 		}
@@ -255,7 +255,7 @@ func (r *initRun) editAgents(s *setup) {
 		case "2":
 			prefs.Cursor = toggledMode(h.HasCursor)
 		case "3":
-			prefs = obsidian.AgentPreferences{Claude: agentModeOff, Codex: agentModeOff, Cursor: agentModeOff, AgentSkills: agentModeOff, AgentsMd: agentModeOff}
+			prefs = repoconfig.AgentPreferences{Claude: agentModeOff, Codex: agentModeOff, Cursor: agentModeOff, AgentSkills: agentModeOff, AgentsMd: agentModeOff}
 			s.cfg.Agents = &prefs
 			return
 		default:

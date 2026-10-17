@@ -9,10 +9,10 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -288,7 +288,7 @@ func TestBuildNoteSourceFactsUsesCanonicalAliasShapes(t *testing.T) {
 	} {
 		require.NoError(t, os.WriteFile(filepath.Join(root, path), []byte(content), 0o644))
 	}
-	sources, err := BuildNoteSourceFacts(context.Background(), obsidian.VaultDefinition{Path: root})
+	sources, err := testIndexer(t).BuildNoteSourceFacts(context.Background(), obsidian.VaultDefinition{Path: root})
 	require.NoError(t, err)
 	require.Len(t, sources, 4)
 	aliases := make(map[string][]string, len(sources))
@@ -343,7 +343,7 @@ func TestBuildNoteSourceFactsReadsLiveContentOnceWithoutEagerLinkResolution(t *t
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "target.md"), []byte("# Target\n"), 0o644))
 	reader := &staleCachedCountingReader{delegate: &obsidian.Note{}, reads: make(map[string]int)}
 
-	sources, err := buildNoteSourceFactsWithReader(context.Background(), obsidian.VaultDefinition{Path: root}, reader)
+	sources, err := testIndexer(t).buildNoteSourceFactsWithReader(context.Background(), obsidian.VaultDefinition{Path: root}, reader)
 	require.NoError(t, err)
 	require.Equal(t, []string{"notes/source.md", "notes/target.md"}, noteSourcePaths(sources))
 	require.Equal(t, map[string]int{"notes/source.md": 1, "notes/target.md": 1}, reader.readCounts())
@@ -375,7 +375,7 @@ func TestBuildNoteSourceFactsIgnoresStaleCacheAdapterAndEnumeratesDisk(t *testin
 	require.NoError(t, err)
 	require.Equal(t, []string{"notes/existing.md"}, stalePaths)
 
-	sources, err := BuildNoteSourceFacts(ctx, vaultDef)
+	sources, err := testIndexer(t).BuildNoteSourceFacts(ctx, vaultDef)
 	require.NoError(t, err)
 	require.Equal(t, []string{"notes/added.md", "notes/existing.md"}, noteSourcePaths(sources))
 	require.Equal(t, "new note\n", sources[0].Content)
@@ -443,7 +443,7 @@ func TestLoadNoteSourceSnapshotsHonorsCanceledContext(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-type canceledSourceStore struct{}
+type canceledSourceStore struct{ Store }
 
 func (canceledSourceStore) GetNoteMetadataState(context.Context) (MetadataState, error) {
 	return MetadataState{}, nil
@@ -461,15 +461,14 @@ func (canceledSourceStore) CurrentNoteMetadataPaths(context.Context) ([]string, 
 func (canceledSourceStore) CurrentNoteMetadataRowsByPaths(context.Context, []string) (map[string]MetadataRow, error) {
 	return nil, nil
 }
-func (canceledSourceStore) ResolveStoredNoteLinks(context.Context, []string) (map[string]string, error) {
-	return nil, nil
-}
+
 func (canceledSourceStore) CurrentNoteAliases(context.Context) (map[string][]string, error) {
 	return nil, nil
 }
 
-func TestNewContentOnlyNoteSourceSnapshotSatisfiesAnchorSourceContract(t *testing.T) {
-	snapshot := NewContentOnlyNoteSourceSnapshot("docs/source.md", "# Source\n", 123)
+func TestProjectNoteSourceSatisfiesAnchorSourceContract(t *testing.T) {
+	snapshot, err := testIndexer(t).ProjectNoteSource("docs/source.md", "# Source\n", 123)
+	require.NoError(t, err)
 
 	require.Equal(t, "docs/source.md", snapshot.NotePathString())
 	require.Equal(t, "# Source\n", snapshot.NoteContentString())
@@ -479,7 +478,7 @@ func TestNewContentOnlyNoteSourceSnapshotSatisfiesAnchorSourceContract(t *testin
 	require.Equal(t, "Source", snapshot.Title)
 }
 
-func TestNewContentOnlyNoteSourceSnapshotPreservesAuthoredMarkdownPathCase(t *testing.T) {
+func TestProjectNoteSourcePreservesAuthoredMarkdownPathCase(t *testing.T) {
 	tests := []struct {
 		name string
 		path string
@@ -491,15 +490,16 @@ func TestNewContentOnlyNoteSourceSnapshotPreservesAuthoredMarkdownPathCase(t *te
 			want: "docs/Decision.MD",
 		},
 		{
-			name: "extensionless legacy input adds markdown suffix",
-			path: "docs/decision",
-			want: "docs/decision.md",
+			name: "html format preserves authored path",
+			path: "docs/decision.html",
+			want: "docs/decision.html",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			snapshot := NewContentOnlyNoteSourceSnapshot(tt.path, "# Decision\n", 0)
+			snapshot, err := testIndexer(t).ProjectNoteSource(tt.path, "# Decision\n", 0)
+			require.NoError(t, err)
 
 			require.Equal(t, tt.want, snapshot.Path.String())
 		})

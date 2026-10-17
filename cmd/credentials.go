@@ -11,7 +11,9 @@ import (
 
 type credentialImport func(context.Context, string, []string) (int, error)
 
-var credentialsCmd = newCredentialsCommand(credentials.ImportFromOnePassword)
+func (commandOptions *vaultCommandOptions) makeCredentialsCmd() *cobra.Command {
+	return newCredentialsCommand(credentials.ImportFromOnePassword)
+}
 
 func newCredentialsCommand(importCredentials credentialImport) *cobra.Command {
 	command := &cobra.Command{
@@ -62,6 +64,6 @@ For example:
 	return command
 }
 
-func init() {
+func (commandOptions *vaultCommandOptions) registerCredentialsCommands(rootCmd, credentialsCmd *cobra.Command) {
 	rootCmd.AddCommand(credentialsCmd)
 }

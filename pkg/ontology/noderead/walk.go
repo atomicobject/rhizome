@@ -2,19 +2,17 @@ package noderead
 
 import (
 	"context"
-	"path/filepath"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"sort"
-	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/frontmatter"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // Walk builds the stable path-oriented ontology walk view on top of the
 // batched NodeRead expansion primitive. It is the sole implementation used by
 // CLI graph traversal output.
-func (s *Scope) Walk(ctx context.Context, noteMgr obsidian.NoteReader, vaultDef obsidian.VaultDefinition, seedPath string, opts ontology.WalkOptions) (*ontology.WalkResult, error) {
+func (s *Scope) Walk(ctx context.Context, seedPath string, opts WalkOptions) (*WalkResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -30,7 +28,7 @@ func (s *Scope) Walk(ctx context.Context, noteMgr obsidian.NoteReader, vaultDef 
 	}
 	seedType, ok := typeRows[seedPath]
 	if !ok {
-		return &ontology.WalkResult{}, nil
+		return &WalkResult{}, nil
 	}
 	relationNames := []string(nil)
 	if opts.RelationFilter != "" {
@@ -64,30 +62,30 @@ func (s *Scope) Walk(ctx context.Context, noteMgr obsidian.NoteReader, vaultDef 
 	if err != nil {
 		return nil, err
 	}
-	nodes := make([]ontology.WalkNode, 0, len(pathsList))
+	nodes := make([]WalkNode, 0, len(pathsList))
 	for _, path := range pathsList {
 		row, exists := typeRows[path]
 		if !exists {
 			continue
 		}
-		nodes = append(nodes, ontology.WalkNode{
+		nodes = append(nodes, WalkNode{
 			Path:        path,
 			TypeName:    row.TypeName,
-			Title:       walkTitleFromPath(path),
+			Title:       paths.NoteTitle(path),
 			Frontmatter: s.walkBlessedFrontmatter(ctx, path),
 		})
 	}
-	return &ontology.WalkResult{SeedType: seedType.TypeName, Nodes: nodes, Edges: edgeRows}, nil
+	return &WalkResult{SeedType: seedType.TypeName, Nodes: nodes, Edges: edgeRows}, nil
 }
 
 func ontologyWalkLimits(maxDepth int) TraverseLimits {
 	return TraverseLimits{MaxDepth: maxDepth}
 }
 
-func ontologyWalkEdges(edges []NeighborhoodEdge) []ontology.WalkEdge {
-	seen := make(map[string]ontology.WalkEdge, len(edges))
+func ontologyWalkEdges(edges []NeighborhoodEdge) []WalkEdge {
+	seen := make(map[string]WalkEdge, len(edges))
 	for _, edge := range edges {
-		row := ontology.WalkEdge{
+		row := WalkEdge{
 			RelationName: edge.RelationName,
 			Source:       edge.Edge.SrcPath,
 			Destination:  edge.Edge.DstPath,
@@ -100,7 +98,7 @@ func ontologyWalkEdges(edges []NeighborhoodEdge) []ontology.WalkEdge {
 		}
 		seen[key] = row
 	}
-	out := make([]ontology.WalkEdge, 0, len(seen))
+	out := make([]WalkEdge, 0, len(seen))
 	for _, edge := range seen {
 		out = append(out, edge)
 	}
@@ -117,10 +115,6 @@ func ontologyWalkEdges(edges []NeighborhoodEdge) []ontology.WalkEdge {
 		}
 	})
 	return out
-}
-
-func walkTitleFromPath(path string) string {
-	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }
 
 func (s *Scope) walkBlessedFrontmatter(ctx context.Context, path string) map[string]interface{} {

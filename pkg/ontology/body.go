@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 )
@@ -33,14 +34,14 @@ const (
 // rendered; editing a block targets exactly that range without mangling
 // surrounding structure.
 type NodeBodyBlock struct {
-	Kind           NodeBodyBlockKind `json:"kind"`
-	Range          NodeRange         `json:"range"`
-	Markdown       string            `json:"markdown,omitempty"`       // narrative
-	FieldName      string            `json:"fieldName,omitempty"`      // inline_field | child_section | collection
-	RawKey         string            `json:"rawKey,omitempty"`         // inline_field: key as authored
-	ChildRef       *NodeRef          `json:"childRef,omitempty"`       // child_section
-	ChildRefs      []NodeRef         `json:"childRefs,omitempty"`      // collection
-	SectionDisplay SectionDisplay    `json:"sectionDisplay,omitempty"` // child_section | collection
+	Kind           NodeBodyBlockKind         `json:"kind"`
+	Range          ByteRange                 `json:"range"`
+	Markdown       string                    `json:"markdown,omitempty"`       // narrative
+	FieldName      string                    `json:"fieldName,omitempty"`      // inline_field | child_section | collection
+	RawKey         string                    `json:"rawKey,omitempty"`         // inline_field: key as authored
+	ChildRef       *NodeRef                  `json:"childRef,omitempty"`       // child_section
+	ChildRefs      []NodeRef                 `json:"childRefs,omitempty"`      // collection
+	SectionDisplay ontoschema.SectionDisplay `json:"sectionDisplay,omitempty"` // child_section | collection
 }
 
 // Undeclared reports whether a child_section block is a heading that no
@@ -65,7 +66,7 @@ func (b NodeBodyBlock) RendersInline() bool {
 // get the correct `NodeKindEmbedded` for types declared `@node(locator:
 // EMBEDDED)`, so the emitted refs match the projection's canonical refs
 // used elsewhere in the workspace graph.
-func BuildNodeBody(projection *NodeProjection, schema *Schema) []NodeBodyBlock {
+func BuildNodeBody(projection *NodeProjection, schema *ontoschema.Schema) []NodeBodyBlock {
 	if projection == nil || projection.Snapshot == nil {
 		return nil
 	}
@@ -92,7 +93,7 @@ func BuildNodeBody(projection *NodeProjection, schema *Schema) []NodeBodyBlock {
 				continue
 			}
 			inlineEntries = append(inlineEntries, inlineEntry{
-				Range:     span.WholeRange,
+				Range:     inlineBodyRange(content, span.WholeRange),
 				FieldName: binding.FieldName,
 				RawKey:    span.Key,
 			})
@@ -142,7 +143,7 @@ func BuildNodeBody(projection *NodeProjection, schema *Schema) []NodeBodyBlock {
 		}
 		blocks = append(blocks, NodeBodyBlock{
 			Kind:     NodeBodyBlockKindNarrative,
-			Range:    NodeRange{Start: start, End: end},
+			Range:    ByteRange{Start: start, End: end},
 			Markdown: strings.TrimRight(chunk, " \t\n"),
 		})
 	}
@@ -187,7 +188,7 @@ func BuildNodeBody(projection *NodeProjection, schema *Schema) []NodeBodyBlock {
 			span := inlineEntries[inlineIdx]
 			blocks = append(blocks, NodeBodyBlock{
 				Kind:      NodeBodyBlockKindInlineField,
-				Range:     toNodeRange(span.Range),
+				Range:     span.Range,
 				FieldName: span.FieldName,
 				RawKey:    span.RawKey,
 			})
@@ -215,7 +216,7 @@ func BuildNodeBody(projection *NodeProjection, schema *Schema) []NodeBodyBlock {
 			}
 			blocks = append(blocks, NodeBodyBlock{
 				Kind:           NodeBodyBlockKindCollection,
-				Range:          NodeRange{Start: firstChild.StartByte, End: groupEnd},
+				Range:          ByteRange{Start: firstChild.StartByte, End: groupEnd},
 				FieldName:      binding.fieldName,
 				ChildRefs:      refs,
 				SectionDisplay: binding.sectionDisplay,
@@ -228,7 +229,7 @@ func BuildNodeBody(projection *NodeProjection, schema *Schema) []NodeBodyBlock {
 		ref := sectionNodeRef(firstChild, binding)
 		block := NodeBodyBlock{
 			Kind:     NodeBodyBlockKindChildSection,
-			Range:    NodeRange{Start: firstChild.StartByte, End: firstChild.EndByte},
+			Range:    ByteRange{Start: firstChild.StartByte, End: firstChild.EndByte},
 			ChildRef: &ref,
 		}
 		if hasBinding {
@@ -243,14 +244,26 @@ func BuildNodeBody(projection *NodeProjection, schema *Schema) []NodeBodyBlock {
 	return blocks
 }
 
+func inlineBodyRange(content string, span ByteRange) ByteRange {
+	// A field owns its line ending so replacing the following prose cannot join it.
+	end := span.End
+	if end < len(content) && content[end] == '\r' {
+		end++
+	}
+	if end < len(content) && content[end] == '\n' {
+		span.End = end + 1
+	}
+	return span
+}
+
 type childBinding struct {
 	fieldName      string
 	fieldList      bool
-	sectionDisplay SectionDisplay
+	sectionDisplay ontoschema.SectionDisplay
 	// childTypeRole is the schema Role of the declared target type (e.g.
 	// EMBEDDED_NODE for UserStory). Resolved up-front so ref construction
 	// doesn't re-walk the schema.
-	childTypeRole TypeRole
+	childTypeRole ontoschema.TypeRole
 }
 
 // nodeBodyContentRange computes the byte range covered by a node's body in
@@ -294,7 +307,7 @@ func transparentNoteWrapper(projection *NodeProjection) *SectionNode {
 		return nil
 	}
 	wrapper := children[0]
-	if wrapper.Level != SectionLevelH1 || len(wrapper.Children) == 0 {
+	if wrapper.Level != ontoschema.SectionLevelH1 || len(wrapper.Children) == 0 {
 		return nil
 	}
 	return wrapper
@@ -347,17 +360,17 @@ func sectionBlockIDRange(content string, node *SectionNode) (ByteRange, bool) {
 // match the projection's canonical Kind (EMBEDDED vs SECTION).
 func childBindingsForProjection(
 	projection *NodeProjection,
-	schema *Schema,
+	schema *ontoschema.Schema,
 ) map[string]childBinding {
 	out := map[string]childBinding{}
 	if projection == nil || projection.Type == nil {
 		return out
 	}
 	for _, field := range projection.Type.Fields {
-		if field == nil || field.Kind != FieldKindSection {
+		if field == nil || field.Kind != ontoschema.FieldKindSection {
 			continue
 		}
-		var childRole TypeRole
+		var childRole ontoschema.TypeRole
 		if schema != nil {
 			if childType := schema.Types[field.TypeName]; childType != nil {
 				childRole = childType.Role
@@ -407,7 +420,7 @@ func childBindingsForProjection(
 func sectionNodeRef(node *SectionNode, binding childBinding) NodeRef {
 	fragment := sectionFragmentFromID(node.ID)
 	kind := NodeKindSection
-	if binding.childTypeRole == TypeRoleEmbeddedNode {
+	if binding.childTypeRole == ontoschema.TypeRoleEmbeddedNode {
 		kind = NodeKindEmbedded
 	}
 	return NodeRef{
@@ -428,8 +441,4 @@ func sectionFragmentFromID(id string) string {
 
 func rangeWithin(inner, outer ByteRange) bool {
 	return inner.Start >= outer.Start && inner.End <= outer.End
-}
-
-func toNodeRange(r ByteRange) NodeRange {
-	return NodeRange{Start: r.Start, End: r.End}
 }

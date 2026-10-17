@@ -4,13 +4,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit/lanetest"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLaneProgressBarCarriesPipelineSegmentLabels(t *testing.T) {
-	fake := lane.NewFake()
-	handle, _, err := fake.Submit(context.Background(), lane.Request{Kind: lane.KindExplicitIndex, Run: func(ctx context.Context, p lane.Reporter) error {
+	fake := lanetest.NewFake()
+	handle, _, err := fake.Submit(context.Background(), lane.Request{Kind: lane.KindExplicitIndex, Run: func(ctx context.Context, _ *indexlock.Lease, p lane.Reporter) error {
 		bar := &laneProgressBar{progress: p}
 		bar.Println("Indexing code")
 		bar.Update(1, 4)

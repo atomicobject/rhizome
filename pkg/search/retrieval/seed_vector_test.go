@@ -2,17 +2,18 @@ package retrieval
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 func TestSeedVectorRetrieverUsesOntologyChunksForTypedNoteSeeds(t *testing.T) {
@@ -21,7 +22,7 @@ func TestSeedVectorRetrieverUsesOntologyChunksForTypedNoteSeeds(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = intelStore.Close() })
 
-	node := codeanchor.IntelOntologyNode{
+	node := readmodel.NodeRow{
 		NodeID:        "node:typed",
 		NotePath:      "docs/Typed.MD",
 		NodeRefJSON:   `{"notePath":"docs/Typed.MD","nodeId":"typed","typeName":"ReferenceDoc"}`,
@@ -30,13 +31,13 @@ func TestSeedVectorRetrieverUsesOntologyChunksForTypedNoteSeeds(t *testing.T) {
 		TypeName:      "ReferenceDoc",
 		Title:         "Typed",
 	}
-	require.NoError(t, intelStore.ReplaceOntologyNodes(ctx, []string{node.NotePath}, []codeanchor.IntelOntologyNode{node}))
+	require.NoError(t, intelStore.ReplaceOntologyNodes(ctx, []string{node.NotePath}, []readmodel.NodeRow{node}))
 	require.NoError(t, intelStore.ReplaceIntelChunks(ctx, []string{node.NodeID}, []codeanchor.IntelChunk{{
 		ChunkID:     "typed-node-chunk",
 		OwnerID:     node.NodeID,
 		OwnerType:   "ontology_node",
 		Ord:         0,
-		Granularity: semantic.GranularityOntologyNodeBody,
+		Granularity: embeddings.GranularityOntologyNodeBody,
 		Breadcrumb:  "Typed > Body",
 		Heading:     "Typed",
 		ContentHash: "typed-hash",
@@ -54,7 +55,8 @@ func TestSeedVectorRetrieverUsesOntologyChunksForTypedNoteSeeds(t *testing.T) {
 	require.Equal(t, node.NotePath, results[0].NoteID)
 	require.Equal(t, "note", results[0].Type)
 	require.Equal(t, node.NodeID, results[0].NodeID)
-	require.Equal(t, node.NodeRefJSON, results[0].NodeRefJSON)
+	require.NotNil(t, results[0].NodeRef)
+	require.Equal(t, "typed", results[0].NodeRef.NodeID)
 	require.Equal(t, node.ParentNodeID, results[0].ParentNodeID)
 	require.Equal(t, knowledge.KindNodeChunk, results[0].Handle.Kind)
 }
@@ -66,7 +68,7 @@ func TestSeedVectorRetrieverFallsBackToDocSectionsForPartialTypedNoteIndex(t *te
 	t.Cleanup(func() { _ = intelStore.Close() })
 
 	notePath := "docs/typed.md"
-	require.NoError(t, intelStore.ReplaceOntologyNodes(ctx, []string{notePath}, []codeanchor.IntelOntologyNode{{
+	require.NoError(t, intelStore.ReplaceOntologyNodes(ctx, []string{notePath}, []readmodel.NodeRow{{
 		NodeID:        "node:typed",
 		NotePath:      notePath,
 		NodeRefJSON:   `{"notePath":"docs/typed.md","nodeId":"typed","typeName":"ReferenceDoc"}`,
@@ -136,7 +138,7 @@ func TestSeedVectorRetrieverSkipsStaleOntologyChunksWithoutCatalogIdentity(t *te
 			OwnerID:     "stale-node",
 			OwnerType:   "ontology_node",
 			Ord:         0,
-			Granularity: semantic.GranularityOntologyNodeBody,
+			Granularity: embeddings.GranularityOntologyNodeBody,
 			Breadcrumb:  "Stale",
 			Heading:     "Stale",
 			ContentHash: "stale-hash",
@@ -166,7 +168,7 @@ func TestSeedVectorRetrieverKeepsMultipleOntologyNodesFromSameNote(t *testing.T)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = intelStore.Close() })
 
-	nodes := []codeanchor.IntelOntologyNode{
+	nodes := []readmodel.NodeRow{
 		{
 			NodeID:        "node:root",
 			NotePath:      "docs/typed.md",
@@ -194,7 +196,7 @@ func TestSeedVectorRetrieverKeepsMultipleOntologyNodesFromSameNote(t *testing.T)
 			OwnerID:     "node:root",
 			OwnerType:   "ontology_node",
 			Ord:         0,
-			Granularity: semantic.GranularityOntologyNodeBody,
+			Granularity: embeddings.GranularityOntologyNodeBody,
 			ContentHash: "root-hash",
 		},
 		{
@@ -202,7 +204,7 @@ func TestSeedVectorRetrieverKeepsMultipleOntologyNodesFromSameNote(t *testing.T)
 			OwnerID:     "node:child",
 			OwnerType:   "ontology_node",
 			Ord:         0,
-			Granularity: semantic.GranularityOntologyNodeBody,
+			Granularity: embeddings.GranularityOntologyNodeBody,
 			ContentHash: "child-hash",
 		},
 	}))

@@ -1,20 +1,15 @@
 package obsidian
 
 import (
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 var inlineCodeRegex = regexp.MustCompile("`[^`]*`")
-
-// TagEditResult represents the result of a tag editing operation
-type TagEditResult struct {
-	Content string
-	Changed bool
-}
 
 // RemoveTags removes specified tags from markdown content (both frontmatter and hashtags)
 func RemoveTags(content string, tagsToDelete []string) (string, bool) {
@@ -86,12 +81,11 @@ func AddTags(content string, tagsToAdd []string) (string, bool) {
 
 // removeFrontmatterTags removes tags from YAML frontmatter
 func removeFrontmatterTags(content string, tagsToDelete []string) (string, bool) {
-	matches := frontmatterRegex.FindStringSubmatch(content)
-	if len(matches) < 2 {
+	frontmatterYAML, _, ok := markdownsyntax.Frontmatter(content)
+	if !ok {
 		return content, false // No frontmatter found
 	}
 
-	frontmatterYAML := matches[1]
 	var frontmatter map[string]interface{}
 	err := yaml.Unmarshal([]byte(frontmatterYAML), &frontmatter)
 	if err != nil {
@@ -105,7 +99,7 @@ func removeFrontmatterTags(content string, tagsToDelete []string) (string, bool)
 	}
 
 	// Normalize existing tags
-	existingTags := normalizeTags(tagsField)
+	existingTags := markdownsyntax.NormalizeTags(tagsField)
 	if len(existingTags) == 0 {
 		return content, false
 	}
@@ -144,12 +138,11 @@ func removeFrontmatterTags(content string, tagsToDelete []string) (string, bool)
 
 // replaceFrontmatterTags replaces tags in YAML frontmatter
 func replaceFrontmatterTags(content string, fromTags []string, toTag string) (string, bool) {
-	matches := frontmatterRegex.FindStringSubmatch(content)
-	if len(matches) < 2 {
+	frontmatterYAML, _, ok := markdownsyntax.Frontmatter(content)
+	if !ok {
 		return content, false // No frontmatter found
 	}
 
-	frontmatterYAML := matches[1]
 	var frontmatter map[string]interface{}
 	err := yaml.Unmarshal([]byte(frontmatterYAML), &frontmatter)
 	if err != nil {
@@ -163,7 +156,7 @@ func replaceFrontmatterTags(content string, fromTags []string, toTag string) (st
 	}
 
 	// Normalize existing tags
-	existingTags := normalizeTags(tagsField)
+	existingTags := markdownsyntax.NormalizeTags(tagsField)
 	if len(existingTags) == 0 {
 		return content, false
 	}
@@ -220,16 +213,15 @@ func replaceFrontmatterTags(content string, fromTags []string, toTag string) (st
 
 // addFrontmatterTags adds tags to YAML frontmatter
 func addFrontmatterTags(content string, tagsToAdd []string) (string, bool) {
-	matches := frontmatterRegex.FindStringSubmatch(content)
+	frontmatterYAML, _, ok := markdownsyntax.Frontmatter(content)
 	var frontmatter map[string]interface{}
 	var err error
 
-	if len(matches) < 2 {
+	if !ok {
 		// No frontmatter found, create new frontmatter
 		frontmatter = make(map[string]interface{})
 	} else {
 		// Parse existing frontmatter
-		frontmatterYAML := matches[1]
 		err = yaml.Unmarshal([]byte(frontmatterYAML), &frontmatter)
 		if err != nil {
 			// If we can't parse existing frontmatter, create new
@@ -240,7 +232,7 @@ func addFrontmatterTags(content string, tagsToAdd []string) (string, bool) {
 	// Get existing tags
 	var existingTags []string
 	if tagsField, exists := frontmatter["tags"]; exists {
-		existingTags = normalizeTags(tagsField)
+		existingTags = markdownsyntax.NormalizeTags(tagsField)
 	}
 
 	// Create set of normalized existing tags for deduplication
@@ -272,7 +264,7 @@ func addFrontmatterTags(content string, tagsToAdd []string) (string, bool) {
 	frontmatter["tags"] = newTags
 
 	// Handle case where there was no original frontmatter
-	if len(matches) < 2 {
+	if !ok {
 		// Create new frontmatter block
 		yamlBytes, err := yaml.Marshal(frontmatter)
 		if err != nil {
@@ -456,13 +448,13 @@ func processLineSkippingInlineCode(line string, processor func(string) (string, 
 // rebuildContentWithFrontmatter rebuilds content with updated frontmatter
 func rebuildContentWithFrontmatter(content string, frontmatter map[string]interface{}) (string, bool) {
 	// Find the end of the frontmatter block
-	matches := frontmatterRegex.FindStringSubmatch(content)
-	if len(matches) < 1 {
+	_, bodyStart, ok := markdownsyntax.Frontmatter(content)
+	if !ok {
 		return content, false
 	}
 
 	// Get content after frontmatter
-	afterFrontmatter := content[len(matches[0]):]
+	afterFrontmatter := content[bodyStart:]
 
 	// If frontmatter is empty, remove the entire block
 	if len(frontmatter) == 0 {

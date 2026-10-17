@@ -41,10 +41,12 @@ func rerankFixture() []search.RankedResult {
 	result := func(path string, score float64) search.RankedResult {
 		return search.RankedResult{
 			Candidate: search.Candidate{
+				SourceRef: search.SourceRef{
+					Path:  path,
+					Title: strings.TrimSuffix(path, ".md"),
+				},
 				Handle: knowledge.NoteHandle(path),
 				Owner:  knowledge.NoteHandle(path),
-				Path:   path,
-				Title:  strings.TrimSuffix(path, ".md"),
 				Evidence: []search.Evidence{
 					{Type: "intel_fts_match", RawScore: 0.2, Details: map[string]string{"snippet": "weak " + path}},
 					{Type: "intel_doc_match", RawScore: 0.9, Details: map[string]string{"snippet": "best " + path}},
@@ -56,13 +58,13 @@ func rerankFixture() []search.RankedResult {
 	return []search.RankedResult{result("a.md", 1.0), result("b.md", 0.9), result("c.md", 0.8), result("d.md", 0.7)}
 }
 
-func TestRerankingRankerBlendsTopNAndLeavesTheTailInPlace(t *testing.T) {
+func TestRerankAdjusterBlendsTopNAndLeavesTheTailInPlace(t *testing.T) {
 	reranker := &stubReranker{scores: []float64{0, 1, 0}}
 	fixture := rerankFixture()
 	fixture[0].Evidence[1].Details["snippet"] = "best a.md " + strings.Repeat("😀", 1600)
-	r := &RerankingRanker{Base: &stubBaseRanker{results: fixture}, Reranker: reranker, Model: "rerank-2.5-lite", TopN: 3, Weight: 0.5}
+	r := &RerankAdjuster{Reranker: reranker, Model: "rerank-2.5-lite", TopN: 3, Weight: 0.5}
 
-	results, err := r.Rank(context.Background(), search.QuerySpec{Text: "ranking"}, nil)
+	results, err := r.Adjust(context.Background(), search.QuerySpec{Text: "ranking"}, fixture)
 	require.NoError(t, err)
 	require.Len(t, results, 4)
 
@@ -98,18 +100,18 @@ func TestRerankingRankerBlendsTopNAndLeavesTheTailInPlace(t *testing.T) {
 	require.Contains(t, reranker.seen[1].Text, "b.md")
 }
 
-func TestRerankingRankerKeepsBaseOrderOnError(t *testing.T) {
+func TestRerankAdjusterKeepsBaseOrderOnError(t *testing.T) {
 	reranker := &stubReranker{err: errors.New("boom")}
-	r := &RerankingRanker{Base: &stubBaseRanker{results: rerankFixture()}, Reranker: reranker, TopN: 3}
+	r := &RerankAdjuster{Reranker: reranker, TopN: 3}
 
-	results, err := r.Rank(context.Background(), search.QuerySpec{Text: "ranking"}, nil)
+	results, err := r.Adjust(context.Background(), search.QuerySpec{Text: "ranking"}, rerankFixture())
 	require.NoError(t, err)
 	require.Equal(t, []string{"a.md", "b.md", "c.md", "d.md"}, []string{results[0].Path, results[1].Path, results[2].Path, results[3].Path})
 	require.Equal(t, rerankFixture(), results)
 	for _, result := range results {
 		require.False(t, hasEvidence(result.Candidate, "rerank_score"))
 	}
-	response, err := (&search.Service{Retrievers: []search.Retriever{auditRetriever{}}, Ranker: r}).Search(context.Background(), search.QuerySpec{Text: "ranking"})
+	response, err := (&search.Service{Retrievers: []search.Retriever{auditRetriever{}}, Ranker: &stubBaseRanker{results: rerankFixture()}, Adjusters: []search.ResultAdjuster{r}}).Search(context.Background(), search.QuerySpec{Text: "ranking"})
 	require.NoError(t, err)
 	require.Equal(t, rerankFixture(), response.Results)
 	require.Contains(t, response.Warnings, search.Warning{Code: "rerank_unavailable", Kind: "degraded", Source: "rerank", Message: "reranking failed; keeping base ranking order"})
@@ -122,34 +124,63 @@ func (auditRetriever) Retrieve(context.Context, search.QuerySpec) ([]search.Cand
 	return nil, nil
 }
 
-func TestRerankingRankerKeepsBaseOrderOnScoreCountMismatch(t *testing.T) {
+func TestRerankAdjusterKeepsBaseOrderOnScoreCountMismatch(t *testing.T) {
 	reranker := &stubReranker{scores: []float64{0.9}}
-	r := &RerankingRanker{Base: &stubBaseRanker{results: rerankFixture()}, Reranker: reranker, TopN: 3}
+	r := &RerankAdjuster{Reranker: reranker, TopN: 3}
 
-	results, err := r.Rank(context.Background(), search.QuerySpec{Text: "ranking"}, nil)
+	results, err := r.Adjust(context.Background(), search.QuerySpec{Text: "ranking"}, rerankFixture())
 	require.NoError(t, err)
 	require.Equal(t, rerankFixture(), results)
 	for _, result := range results {
 		require.False(t, hasEvidence(result.Candidate, "rerank_score"))
 	}
-	response, err := (&search.Service{Retrievers: []search.Retriever{auditRetriever{}}, Ranker: r}).Search(context.Background(), search.QuerySpec{Text: "ranking"})
+	response, err := (&search.Service{Retrievers: []search.Retriever{auditRetriever{}}, Ranker: &stubBaseRanker{results: rerankFixture()}, Adjusters: []search.ResultAdjuster{r}}).Search(context.Background(), search.QuerySpec{Text: "ranking"})
 	require.NoError(t, err)
 	require.Equal(t, rerankFixture(), response.Results)
 	require.Contains(t, response.Warnings, search.Warning{Code: "rerank_unavailable", Kind: "degraded", Source: "rerank", Message: "reranking failed; keeping base ranking order"})
 }
 
-func TestRerankingRankerSkipsSingleResult(t *testing.T) {
+func TestRerankAdjusterSkipsSingleResult(t *testing.T) {
 	reranker := &stubReranker{scores: []float64{1}}
-	r := &RerankingRanker{Base: &stubBaseRanker{results: rerankFixture()[:1]}, Reranker: reranker}
+	r := &RerankAdjuster{Reranker: reranker}
 
-	results, err := r.Rank(context.Background(), search.QuerySpec{Text: "ranking"}, nil)
+	results, err := r.Adjust(context.Background(), search.QuerySpec{Text: "ranking"}, rerankFixture()[:1])
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	require.Zero(t, reranker.calls)
 }
 
-func TestRerankingRankerRequiresBase(t *testing.T) {
-	r := &RerankingRanker{}
-	_, err := r.Rank(context.Background(), search.QuerySpec{}, nil)
-	require.Error(t, err)
+type passthroughRollup struct{}
+
+func (passthroughRollup) Rollup(_ context.Context, _ search.QuerySpec, results []search.RankedResult) ([]search.RankedResult, error) {
+	return results, nil
+}
+
+func TestRerankIdentityPinSurvivesServiceSort(t *testing.T) {
+	for _, identity := range []string{"symbol_exact", "definition_anchor", "explicit_seed", "note_title_exact", "path_exact"} {
+		t.Run(identity, func(t *testing.T) {
+			fixture := rerankFixture()
+			fixture[1].Evidence = append(fixture[1].Evidence, search.Evidence{Type: identity, RawScore: 1})
+			// A zero-weight reranker swaps movable hits across the pinned slot. The
+			// identity remains at its structural base position despite changed scores.
+			base := &stubBaseRanker{results: fixture}
+			spec := search.QuerySpec{Text: "ranking"}
+			service := search.Service{Retrievers: []search.Retriever{auditRetriever{}}, Ranker: base, Rollupper: passthroughRollup{}}
+			before, err := service.Search(t.Context(), spec)
+			require.NoError(t, err)
+			service.Adjusters = []search.ResultAdjuster{&RerankAdjuster{Reranker: &stubReranker{scores: []float64{0, 1, 0}}, Weight: 1}}
+			after, err := service.Search(t.Context(), spec)
+			require.NoError(t, err)
+			index := -1
+			for i, r := range before.Results {
+				if r.Path == "b.md" {
+					index = i
+					break
+				}
+			}
+			require.NotEqual(t, -1, index)
+			require.Equal(t, "b.md", after.Results[index].Path)
+			require.NotEqual(t, before.Results, after.Results, "reranking should still move eligible hits")
+		})
+	}
 }

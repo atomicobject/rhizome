@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -44,11 +45,11 @@ func RunCodeFrontmatter(ctx context.Context, runCtx RunContext) CheckResult {
 	for _, source := range sources {
 		notePath := source.Path.String()
 		content := source.Content
-		if _, yamlErr := obsidian.ExtractFrontmatter(content); yamlErr != nil {
+		if _, yamlErr := markdownsyntax.ExtractFrontmatter(content); yamlErr != nil {
 			// Skip a template only when its template syntax is what keeps the
 			// frontmatter from parsing.
 			if neutral, ok := neutralizeTemplateFrontmatter(content); ok {
-				if _, err := obsidian.ExtractFrontmatter(neutral); err == nil {
+				if _, err := markdownsyntax.ExtractFrontmatter(neutral); err == nil {
 					skippedTemplates = append(skippedTemplates, notePath)
 					continue
 				}
@@ -78,8 +79,8 @@ func RunCodeFrontmatter(ctx context.Context, runCtx RunContext) CheckResult {
 		return result
 	}
 	if len(sources) == 0 {
-		result.Skipped = true
-		result.Summary = "no notes to validate"
+		result.NotApplicable = "no notes to validate"
+		result.Summary = result.NotApplicable
 	} else if result.IssueCount == 0 {
 		result.Summary = fmt.Sprintf("%d notes checked", len(sources))
 	} else {
@@ -94,18 +95,15 @@ var frontmatterTemplateSyntax = regexp.MustCompile(`(?s)<%.*?%>|\{\{.*?\}\}`)
 // `<% ... %>` or core `{{...}}` span in its frontmatter neutralized, and
 // whether there was any.
 func neutralizeTemplateFrontmatter(content string) (string, bool) {
-	if !strings.HasPrefix(content, "---") {
+	start, end, _, ok := markdownsyntax.FrontmatterSpan(content)
+	if !ok {
 		return "", false
 	}
-	end := strings.Index(content[3:], "\n---")
-	if end == -1 {
-		return "", false
-	}
-	block := content[3 : 3+end]
+	block := content[start:end]
 	if !frontmatterTemplateSyntax.MatchString(block) {
 		return "", false
 	}
-	return "---" + neutralizeTemplateSyntax(block) + content[3+end:], true
+	return content[:start] + neutralizeTemplateSyntax(block) + content[end:], true
 }
 
 // neutralizeTemplateSyntax replaces an inline template span with a plain

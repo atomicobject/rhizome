@@ -1,5 +1,7 @@
 package ontology
 
+import ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+
 import "strings"
 
 // FixSuggestion describes an auto-fix for a single validation issue.
@@ -35,7 +37,7 @@ type FixOp struct {
 // suggestions for mechanically resolvable problems. assessments provides
 // neighbor context (e.g. the target note's current relation values for
 // inverse_mismatch fixes).
-func SuggestFixes(assessment *NoteAssessment, schema *Schema, assessments map[string]*NoteAssessment) []FixSuggestion {
+func SuggestFixes(assessment *NoteAssessment, schema *ontoschema.Schema, assessments map[string]*NoteAssessment) []FixSuggestion {
 	if assessment == nil || schema == nil {
 		return nil
 	}
@@ -68,7 +70,7 @@ func SuggestFixes(assessment *NoteAssessment, schema *Schema, assessments map[st
 // branch for it. Insertion is driven through EnsureLinkTargetApply
 // (pkg/ontology/node_link.go) at explicit caller request.
 // Coderefs: [[linkable-embedded-node-identifiers#^spec-0023-us2]]
-func suggestFixForIssue(issue ValidationIssue, fallbackField string, assessment *NoteAssessment, schema *Schema, assessments map[string]*NoteAssessment) *FixSuggestion {
+func suggestFixForIssue(issue ValidationIssue, fallbackField string, assessment *NoteAssessment, schema *ontoschema.Schema, assessments map[string]*NoteAssessment) *FixSuggestion {
 	issue = validationIssueWithFallbackField(issue, fallbackField)
 	switch issue.Code {
 	case "inverse_mismatch":
@@ -106,7 +108,7 @@ func ValidationIssueKey(issue ValidationIssue, fallbackField string) string {
 
 // suggestInverseMismatchFix generates a setLinkField op on the target note
 // that adds the source note to the inverse field's value list.
-func suggestInverseMismatchFix(issue ValidationIssue, fallbackField string, assessment *NoteAssessment, schema *Schema, assessments map[string]*NoteAssessment) *FixSuggestion {
+func suggestInverseMismatchFix(issue ValidationIssue, fallbackField string, assessment *NoteAssessment, schema *ontoschema.Schema, assessments map[string]*NoteAssessment) *FixSuggestion {
 	if issue.FixTarget == "" || issue.FixFieldName == "" {
 		return nil
 	}

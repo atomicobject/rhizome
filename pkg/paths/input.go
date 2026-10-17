@@ -76,45 +76,6 @@ func ResolveNotePathInputWithVaultPaths(vaultPaths VaultPaths, input string) (No
 	return rel, abs, nil
 }
 
-// ResolveNoteInput converts a user-provided Markdown note path into vault-relative and absolute paths.
-// Relative inputs are treated as vault-root-relative; absolute inputs must live under the vault root.
-//
-// Deprecated: generic note paths must use ResolveNotePathInput.
-func ResolveNoteInput(vaultRoot, input string) (NotePath, AbsPath, error) {
-	vaultPaths, _ := NewVaultPaths(vaultRoot)
-	return ResolveNoteInputWithVaultPaths(vaultPaths, input)
-}
-
-// ResolveNoteInputWithVaultPaths converts a user-provided Markdown note path using a precomputed VaultPaths.
-//
-// Deprecated: generic note paths must use ResolveNotePathInputWithVaultPaths.
-func ResolveNoteInputWithVaultPaths(vaultPaths VaultPaths, input string) (NotePath, AbsPath, error) {
-	input = strings.TrimSpace(input)
-	if input == "" {
-		return NotePath(""), AbsPath(""), ErrOutsideVault
-	}
-	if vaultPaths.Root() == "" {
-		return NotePath(""), AbsPath(""), ErrOutsideVault
-	}
-	// Note/code resolvers are stricter than AbsFromInput because their Rel side
-	// is normally persisted or compared as an index key.
-	rel, err := vaultPaths.RelNoteStrict(input)
-	if err != nil || rel == "" {
-		if err == nil {
-			err = ErrOutsideVault
-		}
-		return NotePath(""), AbsPath(""), err
-	}
-	abs, err := vaultPaths.AbsNote(rel)
-	if err != nil || abs == "" {
-		if err == nil {
-			err = ErrOutsideVault
-		}
-		return NotePath(""), AbsPath(""), err
-	}
-	return rel, abs, nil
-}
-
 // ResolveNotePathRef converts a user-provided authored note path into a PathRef
 // without inferring an extension. Rel is for storage/IDs/FQNs; Abs is for
 // filesystem I/O only.
@@ -127,28 +88,6 @@ func ResolveNotePathRef(vaultRoot, input string) (NotePathRef, error) {
 // into a PathRef using a precomputed VaultPaths without inferring an extension.
 func ResolveNotePathRefWithVaultPaths(vaultPaths VaultPaths, input string) (NotePathRef, error) {
 	rel, abs, err := ResolveNotePathInputWithVaultPaths(vaultPaths, input)
-	if err != nil {
-		return NotePathRef{}, err
-	}
-	return NotePathRef{Rel: rel, Abs: abs}, nil
-}
-
-// ResolveNoteRef converts a user-provided Markdown note path into a PathRef.
-// Rel is for storage/IDs/FQNs; Abs is for filesystem I/O only.
-// Relative inputs are treated as vault-root-relative; absolute inputs must live under the vault root.
-//
-// Deprecated: generic note paths must use ResolveNotePathRef.
-func ResolveNoteRef(vaultRoot, input string) (NotePathRef, error) {
-	vaultPaths, _ := NewVaultPaths(vaultRoot)
-	return ResolveNoteRefWithVaultPaths(vaultPaths, input)
-}
-
-// ResolveNoteRefWithVaultPaths converts a user-provided Markdown note path into a PathRef using a precomputed VaultPaths.
-// Rel is for storage/IDs/FQNs; Abs is for filesystem I/O only.
-//
-// Deprecated: generic note paths must use ResolveNotePathRefWithVaultPaths.
-func ResolveNoteRefWithVaultPaths(vaultPaths VaultPaths, input string) (NotePathRef, error) {
-	rel, abs, err := ResolveNoteInputWithVaultPaths(vaultPaths, input)
 	if err != nil {
 		return NotePathRef{}, err
 	}

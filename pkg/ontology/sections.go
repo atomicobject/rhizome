@@ -2,9 +2,10 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
-	"unicode"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
 )
 
@@ -12,7 +13,7 @@ type SectionNode struct {
 	ID               string
 	NotePath         string
 	Title            string
-	Level            SectionLevel
+	Level            ontoschema.SectionLevel
 	BlockID          string
 	MalformedBlockID string
 	StartByte        int
@@ -25,7 +26,7 @@ type SectionNode struct {
 // heading. The byte offset is part of the identity so duplicate headings stay
 // addressable independently.
 func CanonicalSectionID(notePath, title string, startByte int) string {
-	return fmt.Sprintf("%s#%s-%d", notePath, slugifyHeading(title), startByte)
+	return fmt.Sprintf("%s#%s-%d", notePath, markdownsyntax.HeadingSlug(title), startByte)
 }
 
 func ParseSections(notePath, content string) []*SectionNode {
@@ -55,7 +56,7 @@ func convertParsedSections(nodes []*sectionparse.Node) []*SectionNode {
 	return out
 }
 
-func FindMatchingSections(nodes []*SectionNode, level SectionLevel, heading string) []*SectionNode {
+func FindMatchingSections(nodes []*SectionNode, level ontoschema.SectionLevel, heading string) []*SectionNode {
 	heading = strings.TrimSpace(heading)
 	if len(nodes) == 0 || heading == "" || level == "" {
 		return nil
@@ -87,44 +88,44 @@ func UnwrapSingleH1SectionRoot(nodes []*SectionNode) []*SectionNode {
 		return nodes
 	}
 	only := nodes[0]
-	if only == nil || only.Level != SectionLevelH1 || len(only.Children) == 0 {
+	if only == nil || only.Level != ontoschema.SectionLevelH1 || len(only.Children) == 0 {
 		return nodes
 	}
 	return only.Children
 }
 
-func headingLevel(n int) SectionLevel {
+func headingLevel(n int) ontoschema.SectionLevel {
 	switch n {
 	case 1:
-		return SectionLevelH1
+		return ontoschema.SectionLevelH1
 	case 2:
-		return SectionLevelH2
+		return ontoschema.SectionLevelH2
 	case 3:
-		return SectionLevelH3
+		return ontoschema.SectionLevelH3
 	case 4:
-		return SectionLevelH4
+		return ontoschema.SectionLevelH4
 	case 5:
-		return SectionLevelH5
+		return ontoschema.SectionLevelH5
 	case 6:
-		return SectionLevelH6
+		return ontoschema.SectionLevelH6
 	default:
 		return ""
 	}
 }
 
-func sectionLevelInt(level SectionLevel) int {
+func sectionLevelInt(level ontoschema.SectionLevel) int {
 	switch level {
-	case SectionLevelH1:
+	case ontoschema.SectionLevelH1:
 		return 1
-	case SectionLevelH2:
+	case ontoschema.SectionLevelH2:
 		return 2
-	case SectionLevelH3:
+	case ontoschema.SectionLevelH3:
 		return 3
-	case SectionLevelH4:
+	case ontoschema.SectionLevelH4:
 		return 4
-	case SectionLevelH5:
+	case ontoschema.SectionLevelH5:
 		return 5
-	case SectionLevelH6:
+	case ontoschema.SectionLevelH6:
 		return 6
 	default:
 		return 0
@@ -211,54 +212,6 @@ func sectionOwnContent(node *SectionNode, stripBlockIDs bool) string {
 	return strings.TrimSpace(out)
 }
 
-func slugifyHeading(title string) string {
-	title = strings.ToLower(strings.TrimSpace(title))
-	if title == "" {
-		return "section"
-	}
-	var b strings.Builder
-	lastDash := false
-	for _, r := range title {
-		switch {
-		case unicode.IsLetter(r), unicode.IsDigit(r):
-			b.WriteRune(r)
-			lastDash = false
-		case !lastDash:
-			b.WriteByte('-')
-			lastDash = true
-		}
-	}
-	out := strings.Trim(b.String(), "-")
-	if out == "" {
-		return "section"
-	}
-	return out
-}
-
-func substringBytes(s string, start, end int) string {
-	if start < 0 {
-		start = 0
-	}
-	if end > len(s) {
-		end = len(s)
-	}
-	if start >= end {
-		return ""
-	}
-	return s[start:end]
-}
-
-func countLeadingSpaces(s string) int {
-	count := 0
-	for _, r := range s {
-		if r != ' ' {
-			break
-		}
-		count++
-	}
-	return count
-}
-
 func stripStandaloneBlockIDLines(content string) string {
 	if strings.TrimSpace(content) == "" {
 		return strings.TrimSpace(content)
@@ -268,7 +221,7 @@ func stripStandaloneBlockIDLines(content string) string {
 	fence := ""
 	for _, raw := range lines {
 		line := strings.TrimSpace(raw)
-		if nextFence, toggled := fenceDelimiter(line, fence); toggled {
+		if nextFence, toggled := markdownsyntax.FenceDelimiter(line, fence); toggled {
 			fence = nextFence
 			filtered = append(filtered, raw)
 			continue
@@ -279,120 +232,11 @@ func stripStandaloneBlockIDLines(content string) string {
 		}
 		if len(line) >= 2 && strings.HasPrefix(line, "^") {
 			candidate := strings.TrimSpace(strings.TrimPrefix(line, "^"))
-			if candidate != "" && validBlockID(candidate) {
+			if candidate != "" && markdownsyntax.ValidBlockID(candidate) {
 				continue
 			}
 		}
 		filtered = append(filtered, raw)
 	}
 	return strings.TrimSpace(strings.Join(filtered, "\n"))
-}
-
-func inlineIdentifierBlockID(line string) (string, bool) {
-	line = stripInlineCodeSpans(line)
-	idx := strings.Index(line, "::")
-	if idx <= 0 {
-		return "", false
-	}
-	key := strings.TrimSpace(line[:idx])
-	value := strings.TrimSpace(line[idx+2:])
-	if key == "" || !strings.HasPrefix(value, "^") {
-		return "", false
-	}
-	candidate := strings.TrimSpace(strings.TrimPrefix(value, "^"))
-	if candidate == "" {
-		return "", false
-	}
-	return candidate, true
-}
-
-func proseBlockIDCandidate(line string) (string, bool, bool) {
-	clean := stripInlineCodeSpans(line)
-	trim := strings.TrimSpace(clean)
-	if strings.HasPrefix(trim, "^") {
-		rest := strings.TrimSpace(strings.TrimPrefix(trim, "^"))
-		if rest == "" {
-			return "", false, false
-		}
-		if validBlockID(rest) {
-			return rest, false, true
-		}
-		return rest, true, true
-	}
-	for i := 0; i < len(clean); i++ {
-		if clean[i] != '^' {
-			continue
-		}
-		if i > 0 && !isBlockIDBoundary(rune(clean[i-1])) {
-			continue
-		}
-		token := firstBlockIDToken(clean[i+1:])
-		if token == "" || !validBlockID(token) {
-			continue
-		}
-		return token, false, true
-	}
-	return "", false, false
-}
-
-func stripInlineCodeSpans(line string) string {
-	var b strings.Builder
-	inCode := false
-	for _, r := range line {
-		if r == '`' {
-			inCode = !inCode
-			b.WriteRune(' ')
-			continue
-		}
-		if inCode {
-			b.WriteRune(' ')
-			continue
-		}
-		b.WriteRune(r)
-	}
-	return b.String()
-}
-
-func firstBlockIDToken(s string) string {
-	s = strings.TrimLeft(s, " \t")
-	if s == "" {
-		return ""
-	}
-	end := 0
-	for end < len(s) {
-		r := rune(s[end])
-		if isBlockIDBoundary(r) {
-			break
-		}
-		end++
-	}
-	return strings.TrimRight(s[:end], ".,;:)")
-}
-
-func isBlockIDBoundary(r rune) bool {
-	return unicode.IsSpace(r) || r == '(' || r == '[' || r == '{'
-}
-
-func fenceDelimiter(line string, current string) (string, bool) {
-	if strings.HasPrefix(line, "```") {
-		if current == "" {
-			return "```", true
-		}
-		if current == "```" {
-			return "", true
-		}
-	}
-	if strings.HasPrefix(line, "~~~") {
-		if current == "" {
-			return "~~~", true
-		}
-		if current == "~~~" {
-			return "", true
-		}
-	}
-	return current, false
-}
-
-func validBlockID(id string) bool {
-	return ValidBlockID(id)
 }

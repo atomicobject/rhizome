@@ -13,19 +13,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"sort"
 	"strings"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 // Store is the minimal subset of *semdb.Store the allocator needs. Defining it
 // here lets tests substitute an in-memory fake without dragging in SQLite.
 type Store interface {
-	OntologyNodesByType(context.Context, string) ([]codeanchor.IntelOntologyNode, error)
-	OntologyNodeFieldValuesByNodeIDs(context.Context, []string, []string) ([]codeanchor.IntelOntologyNodeFieldValue, error)
+	OntologyNodesByType(context.Context, string) ([]readmodel.NodeRow, error)
+	OntologyNodeFieldValuesByNodeIDs(context.Context, []string, []string) ([]readmodel.FieldValueRow, error)
 	OntologyPathsByType(ctx context.Context, typeName string, limit int) ([]string, error)
 	CurrentNotePropertyValues(ctx context.Context, notePaths []string, onlyProperties []string, sourceFilter semdb.NotePropertySource) ([]semdb.NotePropertyValueRow, error)
 }
@@ -35,21 +34,21 @@ const MaxBatchCount = 100
 // Result describes the next allocation for a typed note family. It is the
 // canonical JSON shape returned by `rzm agent next-id`.
 type Result struct {
-	Type            string                      `json:"type"`
-	IdentifierField string                      `json:"identifierField"`
-	Strategy        ontology.IdentifierStrategy `json:"strategy"`
-	Source          string                      `json:"source"`
-	Prefix          string                      `json:"prefix"`
-	Separator       string                      `json:"separator"`
-	Pad             *int                        `json:"pad,omitempty"`
-	Next            string                      `json:"next"`
-	IDs             []string                    `json:"ids"`
-	Count           int                         `json:"count"`
-	Last            string                      `json:"last,omitempty"`
-	CurrentMax      *int                        `json:"currentMax,omitempty"`
-	CurrentMaxValue string                      `json:"currentMaxValue,omitempty"`
-	CurrentMaxOwner string                      `json:"currentMaxOwner,omitempty"`
-	OwnersScanned   int                         `json:"ownersScanned"`
+	Type            string                        `json:"type"`
+	IdentifierField string                        `json:"identifierField"`
+	Strategy        ontoschema.IdentifierStrategy `json:"strategy"`
+	Source          string                        `json:"source"`
+	Prefix          string                        `json:"prefix"`
+	Separator       string                        `json:"separator"`
+	Pad             *int                          `json:"pad,omitempty"`
+	Next            string                        `json:"next"`
+	IDs             []string                      `json:"ids"`
+	Count           int                           `json:"count"`
+	Last            string                        `json:"last,omitempty"`
+	CurrentMax      *int                          `json:"currentMax,omitempty"`
+	CurrentMaxValue string                        `json:"currentMaxValue,omitempty"`
+	CurrentMaxOwner string                        `json:"currentMaxOwner,omitempty"`
+	OwnersScanned   int                           `json:"ownersScanned"`
 	// SharedWith lists the other ontology types that allocate from the same
 	// `<prefix><separator>` sequence. SPEC-0006 explicitly shares one SPEC
 	// number-line across all spec variants, so an allocator that only scans
@@ -125,19 +124,19 @@ func ErrorCode(err error) string {
 //   - Off-pattern ids (legacy `SPEC-0001a`, swapped prefix, etc.) are listed in
 //     OwnersSkipped but never consume a number.
 //   - Gaps are preserved: max+1 wins, never the lowest available number.
-func Allocate(ctx context.Context, schema *ontology.Schema, store Store, typeName string) (*Result, error) {
+func Allocate(ctx context.Context, schema *ontoschema.Schema, store Store, typeName string) (*Result, error) {
 	return AllocateRequest(ctx, schema, store, Request{Type: typeName, Count: 1})
 }
 
 // AllocateBatch computes count contiguous ids for typeName from the same
 // observed max. Use this when an authoring session creates multiple notes
 // before the index has seen the freshly-written files.
-func AllocateBatch(ctx context.Context, schema *ontology.Schema, store Store, typeName string, count int) (*Result, error) {
+func AllocateBatch(ctx context.Context, schema *ontoschema.Schema, store Store, typeName string, count int) (*Result, error) {
 	return AllocateRequest(ctx, schema, store, Request{Type: typeName, Count: count})
 }
 
 // AllocateRequest dispatches allocation from the compiled identifier strategy.
-func AllocateRequest(ctx context.Context, schema *ontology.Schema, store Store, request Request) (*Result, error) {
+func AllocateRequest(ctx context.Context, schema *ontoschema.Schema, store Store, request Request) (*Result, error) {
 	if schema == nil {
 		return nil, ErrSchemaMissing
 	}
@@ -149,7 +148,7 @@ func AllocateRequest(ctx context.Context, schema *ontology.Schema, store Store, 
 	if nt == nil {
 		return nil, fmt.Errorf("%w: %q is not a typed note family", ErrTypeNotFound, typeName)
 	}
-	field := preferredIdentifierField(nt)
+	field := nt.PreferredIdentifierField()
 	if field == nil {
 		return nil, fmt.Errorf("%w: type %q has no @identifier(preferred: true) field", ErrNoPreferredIdentifier, typeName)
 	}
@@ -174,7 +173,7 @@ func AllocateRequest(ctx context.Context, schema *ontology.Schema, store Store, 
 	if err != nil {
 		return result, fmt.Errorf("%w: %v", ErrUnsupportedForType, err)
 	}
-	strategyRequest := ontology.IdentifierAllocationRequest{Count: count, Paths: paths}
+	strategyRequest := ontoschema.IdentifierAllocationRequest{Count: count, Paths: paths}
 	if err := strategy.ValidateAllocationRequest(strategyRequest); err != nil {
 		return result, translateStrategyError(err)
 	}
@@ -185,14 +184,14 @@ func AllocateRequest(ctx context.Context, schema *ontology.Schema, store Store, 
 	if err != nil {
 		return result, err
 	}
-	allocation, err := strategy.Allocate(strategyRequest, ontology.IdentifierReservationInventory{Reservations: inventory.reservations})
+	allocation, err := strategy.Allocate(strategyRequest, ontoschema.IdentifierReservationInventory{Reservations: inventory.reservations})
 	if err != nil {
 		return result, translateStrategyError(err)
 	}
 	return buildResult(result, inventory, strategy, allocation)
 }
 
-func requestResult(typeName string, field *ontology.Field, count int, paths []string) *Result {
+func requestResult(typeName string, field *ontoschema.Field, count int, paths []string) *Result {
 	source := strings.ToLower(strings.TrimSpace(field.Source))
 	if source == "" {
 		source = strings.ToLower(field.Name)
@@ -207,14 +206,14 @@ func requestResult(typeName string, field *ontology.Field, count int, paths []st
 		Count:           count,
 		Paths:           paths,
 	}
-	if field.IdentifierFormat.Strategy == "" || field.IdentifierFormat.Strategy == ontology.IdentifierStrategySequential {
+	if field.IdentifierFormat.Strategy == "" || field.IdentifierFormat.Strategy == ontoschema.IdentifierStrategySequential {
 		pad := field.IdentifierFormat.Pad
 		result.Pad = &pad
 	}
 	return result
 }
 
-func buildResult(result *Result, inventory collectedIdentifierInventory, strategy ontology.IdentifierStrategyContract, allocation ontology.IdentifierAllocationResult) (*Result, error) {
+func buildResult(result *Result, inventory collectedIdentifierInventory, strategy ontoschema.IdentifierStrategyContract, allocation ontoschema.IdentifierAllocationResult) (*Result, error) {
 	result.IDs = make([]string, 0, len(allocation.Values))
 	result.Allocations = make([]Allocation, 0, len(allocation.Values))
 	for _, value := range allocation.Values {
@@ -244,7 +243,7 @@ func buildResult(result *Result, inventory collectedIdentifierInventory, strateg
 	result.OwnersScanned = inventory.ownersScanned
 	result.OwnersMatched = renderReservations(allocation.MatchedReservations, false)
 	result.OwnersSkipped = renderReservations(allocation.SkippedReservations, true)
-	if result.Strategy == ontology.IdentifierStrategySequential {
+	if result.Strategy == ontoschema.IdentifierStrategySequential {
 		currentMax := 0
 		if allocation.HighWatermark != nil {
 			currentMax = allocation.HighWatermark.Value.Number
@@ -256,7 +255,7 @@ func buildResult(result *Result, inventory collectedIdentifierInventory, strateg
 
 	notes := make([]string, 0, 3)
 	if inventory.ownersScanned == 0 {
-		if result.Strategy == ontology.IdentifierStrategySequential {
+		if result.Strategy == ontoschema.IdentifierStrategySequential {
 			notes = append(notes, "no notes of this type yet; starting from 1")
 		} else {
 			notes = append(notes, "no notes of this type yet")
@@ -281,7 +280,7 @@ func buildResult(result *Result, inventory collectedIdentifierInventory, strateg
 	return result, nil
 }
 
-func renderReservations(reservations []ontology.IdentifierReservation, quoteValue bool) []string {
+func renderReservations(reservations []ontoschema.IdentifierReservation, quoteValue bool) []string {
 	out := make([]string, 0, len(reservations))
 	for _, reservation := range reservations {
 		if quoteValue {

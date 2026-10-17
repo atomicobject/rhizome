@@ -3,12 +3,13 @@ package identifierreconcile
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // AmbiguousLinkProvenanceResult keeps independently blockable unresolved
@@ -23,7 +24,7 @@ type AmbiguousLinkProvenanceResult struct {
 // history limits from keeper provenance.
 type AmbiguousLinkGitResolver struct {
 	runner            gitCommandRunner
-	schema            *ontology.Schema
+	schema            *ontoschema.Schema
 	maxCommitsPerPath int
 	maxBlobBytes      int
 	maxBatchBytes     int
@@ -257,7 +258,7 @@ func (r AmbiguousLinkGitResolver) loadLinkHistory(ctx context.Context, repoRoot,
 }
 
 func linkIntroductionOID(item normalizedAmbiguousLinkRequest, events []gitHistoryEvent, bareLinks []map[string]int) (string, bool) {
-	if len(events) == 0 || obsidian.StructuredLinkSourceFingerprint(string(events[0].blob)) != item.request.SourceHash {
+	if len(events) == 0 || markdownsyntax.StructuredLinkSourceFingerprint(string(events[0].blob)) != item.request.SourceHash {
 		return "", false
 	}
 	introduction := ""
@@ -281,7 +282,7 @@ func indexHistoricalBareLinks(events []gitHistoryEvent) []map[string]int {
 	out := make([]map[string]int, len(events))
 	for index, event := range events {
 		counts := make(map[string]int)
-		for _, link := range obsidian.ScanStructuredLinks(string(event.blob)) {
+		for _, link := range markdownsyntax.ScanStructuredLinks(string(event.blob)) {
 			if link.Path == link.Target && link.Fragment == "" {
 				counts[IdentifierComparisonKey(link.Target)]++
 			}

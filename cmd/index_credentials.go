@@ -2,14 +2,17 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"golang.org/x/term"
 )
 
@@ -24,14 +27,7 @@ var ErrEmbeddingCredentialsMissing = errors.New("embeddings provider keys missin
 // error. Truly missing keys prompt only when stdin is a TTY.
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US5-AC4]]
-func ensureEmbeddingCredentials(vaultPath string, in io.Reader, out io.Writer) error {
-	cfg, err := obsidian.LoadLocalConfig(vaultPath)
-	if err != nil {
-		if errors.Is(err, obsidian.ErrNoLocalConfig) {
-			return nil
-		}
-		return err
-	}
+func ensureEmbeddingCredentials(ctx context.Context, cfg *repoconfig.LocalConfig, in io.Reader, out io.Writer) error {
 	needs := credentials.CollectEmbeddingsNeeds(cfg)
 	if len(needs) == 0 {
 		return nil
@@ -41,7 +37,7 @@ func ensureEmbeddingCredentials(vaultPath string, in io.Reader, out io.Writer) e
 	if isInteractive(in) {
 		opts = append(opts, credentials.WithPrompts(bufio.NewReader(in), out))
 	}
-	return ensureEmbeddingCredentialsWithSession(credentials.NewSession(opts...), needs, out)
+	return ensureEmbeddingCredentialsWithSession(credentials.NewSession(vaultconfig.FromContext(ctx), opts...), needs, out)
 }
 
 // ensureEmbeddingCredentialsWithSession applies the per-need policy: satisfied

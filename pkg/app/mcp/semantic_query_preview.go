@@ -7,10 +7,11 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/frontmatter"
 )
 
@@ -563,17 +564,11 @@ func withoutProjectionRootMetadataEnvelope(content string, projection noteformat
 	if len(projection.Facts.RootMetadata) == 0 {
 		return content
 	}
-	lines := strings.Split(content, "\n")
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
+	_, bodyStart, ok := markdownsyntax.Frontmatter(content)
+	if !ok {
 		return content
 	}
-	for index := 1; index < len(lines); index++ {
-		marker := strings.TrimSpace(lines[index])
-		if marker == "---" || marker == "..." {
-			return strings.Join(lines[index+1:], "\n")
-		}
-	}
-	return content
+	return content[bodyStart:]
 }
 
 func summarizeBlessedFrontmatter(fm map[string]interface{}) string {

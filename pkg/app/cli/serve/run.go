@@ -9,10 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
@@ -21,66 +18,16 @@ import (
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/logging"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
-
-// ErrAlreadyRunning reports that another runtime already owns this vault. The
-// command layer turns it into appruntime.ExitCodeAlreadyRunning; the message
-// naming the winner has already been printed.
-var ErrAlreadyRunning = errors.New("another Rhizome runtime already owns this vault")
-
-const (
-	registryHeartbeatInterval = 15 * time.Second
-	httpShutdownGrace         = 5 * time.Second
-)
-
-// Options configures one serve invocation. The function-valued fields are the
-// seams the Cobra adapter and tests supply.
-type Options struct {
-	VaultName          string
-	Host               string
-	Port               int
-	ReuseDiscoveryPort bool
-	Open               bool
-	Headless           bool
-	// AttachIfLive makes this invocation join a live attached runtime (open its
-	// UI and exit successfully) instead of reporting a conflict. `rzm start`
-	// sets it. A headless runtime is replaced either way.
-	AttachIfLive      bool
-	Debug             bool
-	CommandName       string
-	HTMLContentOrigin string
-	ApplicationOrigin string
-
-	// Listen binds the HTTP listener; nil uses net.Listen.
-	Listen func(network, address string) (net.Listener, error)
-	// OpenBrowser opens the UI; nil disables browser opening.
-	OpenBrowser func(url string) error
-	// Stderr receives human-facing startup and shutdown lines. A headless
-	// runtime redirects it to the runtime log.
-	Stderr io.Writer
-	// FinalizeDiagnostics completes the command-owned recorder while this
-	// process still owns the vault. It runs after runtime resources drain.
-	FinalizeDiagnostics func(error)
-	// BackgroundIndexer performs the boot catch-up index.
-	BackgroundIndexer bootstrap.BackgroundIndexer
-	// RegisterHooks installs the lane- and code-mode-owned control hooks.
-	RegisterHooks func(*ControlHooks, *bootstrap.LiveRuntime)
-
-	// IdleTimeout overrides the configured headless idle timeout. Tests set it
-	// short; zero resolves from `runtime.idleTimeout`.
-	IdleTimeout time.Duration
-	// IdlePoll and RootPoll override the lifecycle poll intervals for tests.
-	IdlePoll time.Duration
-	RootPoll time.Duration
-}
 
 // Run is the vault runtime process (SPEC-0104). It elects an owner before it
 // binds anything, serves the UI, API, and loopback control routes, publishes
 // the manifest only once it is reachable, and removes it before releasing the
 // election lock.
 func Run(ctx context.Context, opts Options) (resultErr error) {
-	vaultDef, vaultName, err := resolveVault(opts.VaultName)
+	ctx = vaultconfig.WithEnv(ctx, vaultconfig.FromContext(ctx))
+	vaultDef, vaultName, err := resolveVault(ctx, opts.VaultName)
 	if err != nil {
 		return err
 	}
@@ -88,7 +35,7 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 	// Keep registry lookups stable if the original path traverses a symlink
 	// that disappears while this runtime is alive.
 	intentVaultPath := paths.ResolveSymlinks(vaultPath).String()
-	registry, err := appruntime.NewRegistry()
+	registry, err := appruntime.NewRegistry(vaultconfig.FromContext(ctx))
 	if err != nil {
 		return fmt.Errorf("open runtime registry: %w", err)
 	}
@@ -500,132 +447,4 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 	stoppedURL = url
 	stopped = true
 	return nil
-}
-
-func resolveVault(name string) (obsidian.VaultDefinition, string, error) {
-	if name == "" {
-		defaultName, err := (&obsidian.Vault{}).DefaultName()
-		if err != nil {
-			return obsidian.VaultDefinition{}, "", err
-		}
-		name = defaultName
-	}
-	def, err := (&obsidian.Vault{Name: name}).Definition()
-	if err != nil {
-		return obsidian.VaultDefinition{}, "", err
-	}
-	return def, name, nil
-}
-
-var (
-	buildIDOnce  sync.Once
-	buildIDValue string
-)
-
-func resolveIdleTimeout(cfg *obsidian.LocalConfig, override time.Duration) (time.Duration, error) {
-	if override > 0 {
-		return override, nil
-	}
-	return appruntime.IdleTimeout(cfg)
-}
-
-func bindListener(vaultPath string, opts Options) (net.Listener, error) {
-	listen := opts.Listen
-	if listen == nil {
-		listen = net.Listen
-	}
-	port := ResolvePort(vaultPath, opts.Port, opts.ReuseDiscoveryPort)
-	allowFallback := opts.Port == 0 && opts.ReuseDiscoveryPort
-	listener, err := listen("tcp", fmt.Sprintf("%s:%d", opts.Host, port))
-	if err == nil {
-		return listener, nil
-	}
-	if !allowFallback || port == 0 || !IsAddrInUse(err) {
-		return nil, err
-	}
-	return listen("tcp", fmt.Sprintf("%s:0", opts.Host))
-}
-
-func heartbeatRegistry(ctx context.Context, registry *appruntime.Registry, state *manifestState) {
-	if registry == nil {
-		return
-	}
-	ticker := time.NewTicker(registryHeartbeatInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			_ = registry.Write(state.Snapshot())
-		}
-	}
-}
-
-func waitForReady(ctx context.Context, out io.Writer, registry *appruntime.Registry, rt *bootstrap.LiveRuntime, state *manifestState, fail func(reason string)) {
-	// A vault with embeddings turned off is fully usable; only a semantic
-	// capability that was asked for and failed blocks readiness.
-	if err := rt.WaitForSemantic(ctx); err != nil && !errors.Is(err, bootstrap.ErrEmbeddingsDisabled) {
-		if !errors.Is(err, context.Canceled) {
-			fmt.Fprintf(out, "Rhizome readiness blocked\n  stage: semantic\n  error: %v\n", err)
-		}
-		return
-	}
-	if err := rt.WaitForCodeIndex(ctx); err != nil {
-		if !errors.Is(err, context.Canceled) {
-			fmt.Fprintf(out, "Rhizome readiness blocked\n  stage: code-index\n  error: %v\n", err)
-		}
-		return
-	}
-	manifest := state.SetReady(true)
-	if registry != nil {
-		_ = registry.Write(manifest)
-	}
-	// The Ready flag is informational (health serves readiness live), and on
-	// Windows a rewrite can lose a sharing race with a concurrent reader, so
-	// retry briefly and then warn rather than stop a working runtime.
-	var writeErr error
-	for attempt := 0; attempt < 5; attempt++ {
-		if writeErr = appruntime.WriteManifest(rt.VaultPath, manifest); writeErr == nil {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	if writeErr != nil {
-		fmt.Fprintf(out, "warning: could not record readiness in the runtime manifest: %v\n", writeErr)
-	}
-	fmt.Fprintf(out, "Rhizome ready\n  url:   %s\n", manifest.HTTPURL)
-}
-
-// ServeURL renders the address a user can open.
-func ServeURL(host string, port int) string {
-	return "http://" + net.JoinHostPort(DisplayHost(host), strconv.Itoa(port))
-}
-
-// DisplayHost turns a wildcard bind address into one a browser can reach.
-func DisplayHost(host string) string {
-	if host == "" || host == "0.0.0.0" || host == "::" {
-		return "127.0.0.1"
-	}
-	return host
-}
-
-// ResolvePort reuses the last port this worktree served on, so a restarted
-// runtime keeps its URL stable for open browser tabs.
-func ResolvePort(vaultPath string, requestedPort int, reuseDiscoveryPort bool) int {
-	if requestedPort != 0 || !reuseDiscoveryPort {
-		return requestedPort
-	}
-	return appruntime.ReadLastPort(vaultPath)
-}
-
-// IsAddrInUse reports whether a listen error means the port is taken.
-func IsAddrInUse(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, syscall.EADDRINUSE) {
-		return true
-	}
-	return strings.Contains(strings.ToLower(err.Error()), "address already in use")
 }

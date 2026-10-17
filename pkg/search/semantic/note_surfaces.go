@@ -3,15 +3,16 @@ package semantic
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"sort"
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 )
 
 type NoteSurfaceStore interface {
-	OntologyNodesByPaths(context.Context, []string) ([]codeanchor.IntelOntologyNode, error)
+	OntologyNodesByPaths(context.Context, []string) ([]readmodel.NodeRow, error)
 	IntelChunksByOwners(context.Context, []string) ([]codeanchor.IntelChunk, error)
 	IntelDocSectionsByPath(context.Context, string) ([]codeanchor.IntelDocSection, error)
 	EmbeddingsByChunkIDs(context.Context, []string) (map[string]embeddings.Embedding, error)
@@ -38,7 +39,7 @@ func NoteSemanticChunks(ctx context.Context, store NoteSurfaceStore, notePath st
 	return docSectionSemanticChunks(ctx, store, notePath, indexes, maxChunks)
 }
 
-func ontologyNodeSemanticChunks(ctx context.Context, store NoteSurfaceStore, nodes []codeanchor.IntelOntologyNode, indexes map[int]struct{}, maxChunks int) ([]embeddings.StoredChunk, error) {
+func ontologyNodeSemanticChunks(ctx context.Context, store NoteSurfaceStore, nodes []readmodel.NodeRow, indexes map[int]struct{}, maxChunks int) ([]embeddings.StoredChunk, error) {
 	ownerIDs := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		if strings.TrimSpace(node.NodeID) != "" {

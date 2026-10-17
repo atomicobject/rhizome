@@ -2,17 +2,20 @@ package indexing
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRunUnifiedCoreBuildsGoPackageRelationshipsWithEmbeddingsDisabled(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root := t.TempDir()
 	dispatchDir := filepath.Join(root, "internal", "dispatch")
@@ -31,14 +34,14 @@ type OperationStore interface { Save(string) error }
 type MemoryOperationStore struct{}
 func (*MemoryOperationStore) Save(string) error { return nil }
 `), 0o600))
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Code:           obsidian.LocalCodeConfig{Enabled: true, Go: &obsidian.LocalCodeLangConfig{Roots: []string{"internal"}}},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Code:           repoconfig.LocalCodeConfig{Enabled: true, Go: &repoconfig.LocalCodeLangConfig{Roots: []string{"internal"}}},
 		NoteEmbeddings: &embeddings.Config{Enabled: false},
 		CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
 
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{
-		VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root}, NoteMetadata: testNoteMetadataIndexer(t),
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{
+		VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root}, NoteMetadata: testkit.NoteMetadataIndexer(t),
 	}))
 	store := openTouchParityStore(t, root)
 	calls, err := store.GoDerivedRelationshipsByTargets(ctx, codeanchor.GoRelationshipCalls, []string{"example.com/app/internal/dispatch.Queue.Drain"})
@@ -57,8 +60,8 @@ func (*MemoryOperationStore) Save(string) error { return nil }
 	require.NoError(t, os.WriteFile(filepath.Join(dispatchDir, "retry.go"), []byte(`package dispatch
 func Retry(queue *Queue) { queue.Drain() }
 `), 0o600))
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{
-		VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root}, NoteMetadata: testNoteMetadataIndexer(t),
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{
+		VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root}, NoteMetadata: testkit.NoteMetadataIndexer(t),
 	}))
 	calls, err = store.GoDerivedRelationshipsByTargets(ctx, codeanchor.GoRelationshipCalls, []string{"example.com/app/internal/dispatch.Queue.Drain"})
 	require.NoError(t, err)
@@ -71,8 +74,8 @@ func Retry(queue *Queue) { queue.Drain() }
 type OperationStore interface { Save(string) error }
 type MemoryOperationStore struct{}
 `), 0o600))
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{
-		VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root}, NoteMetadata: testNoteMetadataIndexer(t),
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{
+		VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root}, NoteMetadata: testkit.NoteMetadataIndexer(t),
 	}))
 	implementers, err = store.GoDerivedRelationshipsByTargets(ctx, codeanchor.GoRelationshipImplements, []string{"example.com/app/internal/dispatch.OperationStore"})
 	require.NoError(t, err)
@@ -81,8 +84,8 @@ type MemoryOperationStore struct{}
 	for _, name := range []string{"queue.go", "worker.go", "store.go", "retry.go"} {
 		require.NoError(t, os.Rename(filepath.Join(dispatchDir, name), filepath.Join(root, name+".retired")))
 	}
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{
-		VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root}, NoteMetadata: testNoteMetadataIndexer(t),
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{
+		VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root}, NoteMetadata: testkit.NoteMetadataIndexer(t),
 	}))
 	snapshots, err := store.GoPackageSnapshotsForPaths(ctx, []string{"internal/dispatch/store.go"})
 	require.NoError(t, err)

@@ -1,5 +1,7 @@
 package ontology
 
+import ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+
 import "strings"
 
 type frontmatterSourceLine struct {
@@ -7,14 +9,14 @@ type frontmatterSourceLine struct {
 	start, end int
 }
 
-func exactFrontmatterValueRanges(snapshot *DocumentSnapshot, field *Field, values []string) ([]ByteRange, bool) {
+func exactFrontmatterValueRanges(snapshot *DocumentSnapshot, field *ontoschema.Field, values []string) ([]ByteRange, bool) {
 	if snapshot == nil || field == nil || !snapshot.FrontmatterRange.Valid(len(snapshot.Content)) || snapshot.FrontmatterRange.Len() == 0 {
 		return nil, false
 	}
 	lines := frontmatterSourceLines(snapshot.Content, snapshot.FrontmatterRange)
 	var found []ByteRange
 	matches := 0
-	for _, sourceName := range FieldSourceNames(field) {
+	for _, sourceName := range ontoschema.FieldSourceNames(field) {
 		ranges, ok, present := exactFrontmatterRangesForKey(lines, sourceName)
 		if !present {
 			continue

@@ -3,7 +3,6 @@ package validate
 import (
 	"context"
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -44,21 +43,9 @@ func mergePostApplyRemainingEvidence(exec *FixExecution, result Result) {
 	exec.RemainingFindings = len(exec.RemainingIssueKeys) + priorUnkeyedFindings + unkeyedPostcheckFindings
 }
 
-// RunSuiteOnce runs all selected checks once without applying fixes.
-func RunSuiteOnce(ctx context.Context, opts Options) (Result, RunContext, error) {
-	return runSuiteOnce(ctx, opts, nil, nil, false)
-}
-
-// RunSuiteOncePrepared executes selected checks against a caller-prepared
-// ontology runtime. Validation projection owners use this entrypoint to avoid
-// re-entering runtime refresh, reacquiring the index lock, or escaping a
-// scratch projection. A non-nil runtimeErr is reported by runtime-backed
-// checks through their ordinary CheckResult error contract.
-func RunSuiteOncePrepared(ctx context.Context, opts Options, runtime *ontology.Runtime, runtimeErr error) (Result, RunContext, error) {
-	return runSuiteOnce(ctx, opts, runtime, runtimeErr, true)
-}
-
-func runSuiteOnce(ctx context.Context, opts Options, preparedRuntime *ontology.Runtime, preparedRuntimeErr error, runtimePrepared bool) (Result, RunContext, error) {
+// RunSuiteOncePrepared executes selected checks against a caller-prepared runtime.
+// Runtime-backed checks fail when their prepared dependency is unavailable.
+func RunSuiteOncePrepared(ctx context.Context, opts ScanOptions, preparedRuntime *ontology.Runtime, preparedRuntimeErr error) (Result, RunContext, error) {
 	checks, err := ResolveChecks(opts.Checks)
 	if err != nil {
 		return Result{}, RunContext{}, err
@@ -79,7 +66,7 @@ func runSuiteOnce(ctx context.Context, opts Options, preparedRuntime *ontology.R
 		return Result{}, RunContext{}, fmt.Errorf("inspect repair journals: %w", err)
 	}
 	if len(pendingJournals) > 0 && !opts.postApplyJournalValidation {
-		out := blockedRepairJournalResult(*runCtx, checks, pendingJournals, opts.ApplyCommand)
+		out, _ := RepairRecoveryOutcome(*runCtx, checks, pendingJournals, opts.ApplyCommand)
 		return out, *runCtx, nil
 	}
 
@@ -95,7 +82,7 @@ func runSuiteOnce(ctx context.Context, opts Options, preparedRuntime *ontology.R
 	if checksNeedValidationRunSnapshot(checks) {
 		snapshotCtx := executionCtx
 		// Other checks still need whole-vault candidate and source inventories.
-		if !runtimePrepared || len(checks) != 1 || checks[0] != CheckOntology {
+		if len(checks) != 1 || checks[0] != CheckOntology {
 			snapshotCtx.postcheckPaths = nil
 		}
 		sourceSnapshot, err := captureValidationRunSnapshot(ctx, snapshotCtx)
@@ -107,24 +94,8 @@ func runSuiteOnce(ctx context.Context, opts Options, preparedRuntime *ontology.R
 		executionCtx.NoteReader = sourceSnapshot.reader(runCtx.NoteReader)
 	}
 
-	// Pre-resolve the ontology runtime once so the ontology and aliases
-	// checks share it instead of each acquiring the index lock separately.
 	sharedRuntime := preparedRuntime
-	var sharedRuntimeCleanup func()
 	sharedRuntimeErr := preparedRuntimeErr
-	needsRuntime := registryNeedsOntologyRuntime(checks)
-	if needsRuntime && !runtimePrepared && sharedRuntime == nil && sharedRuntimeErr == nil {
-		rt, cleanup, err := ontology.EnsureFreshRuntime(ctx, executionCtx.NoteMetadata, executionCtx.VaultDef, executionCtx.NoteReader)
-		if err == nil && rt != nil {
-			sharedRuntime = rt
-			sharedRuntimeCleanup = cleanup
-		} else if err != nil {
-			sharedRuntimeErr = err
-		}
-	}
-	if sharedRuntimeCleanup != nil {
-		defer sharedRuntimeCleanup()
-	}
 
 	resultsCh := make(chan CheckResult, len(checks))
 	var wg sync.WaitGroup
@@ -143,7 +114,7 @@ func runSuiteOnce(ctx context.Context, opts Options, preparedRuntime *ontology.R
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			resultsCh <- runCheckRecovered(ctx, executionCtx, opts, checkName, sharedRuntime, sharedRuntimeErr, runtimePrepared)
+			resultsCh <- runCheckRecovered(ctx, executionCtx, opts, checkName, sharedRuntime, sharedRuntimeErr)
 		}()
 	}
 	wg.Wait()
@@ -167,7 +138,7 @@ func runSuiteOnce(ctx context.Context, opts Options, preparedRuntime *ontology.R
 	}
 	// Ontology repair suggestions depend on complete assessment context, but
 	// action membership must bind only to the stable public issue identity.
-	// Enrich after key assignment and before BuildRepairPlan.
+	// Enrich after key assignment without preparing source-backed operations.
 	if !opts.postApplyJournalValidation {
 		if err := enrichOntologyRepairActions(ctx, executionCtx, results, sharedRuntime); err != nil {
 			return Result{}, RunContext{}, fmt.Errorf("enrich ontology repair actions: %w", err)
@@ -178,18 +149,27 @@ func runSuiteOnce(ctx context.Context, opts Options, preparedRuntime *ontology.R
 		return order[results[i].Name] < order[results[j].Name]
 	})
 
-	totalIssues := 0
-	totalErrors := 0
-	for _, result := range results {
-		totalIssues += result.IssueCount
-		if strings.TrimSpace(result.Error) != "" {
-			totalErrors++
-		}
+	for i := range results {
+		foldIdentifierAliasMirrorActions(&results[i])
 	}
-
-	fixPlan, err := BuildRepairPlan(ctx, *runCtx, results)
+	fixPlan, err := BuildFixPlan(results)
 	if err != nil {
-		return Result{}, RunContext{}, fmt.Errorf("build repair plan: %w", err)
+		return Result{}, RunContext{}, fmt.Errorf("summarize repair actions: %w", err)
+	}
+	var preparation *repairPreparation
+	if fixPlan != nil {
+		preparation, err = captureRepairPreparation(ctx, executionCtx, sharedRuntime, results)
+		if err != nil {
+			return Result{}, RunContext{}, err
+		}
+		fixPlan.PreparationRequired = true
+		fixPlan.AuthorityFingerprint = preparation.fingerprint
+		fingerprint, err := RepairPlanFingerprint(*fixPlan)
+		if err != nil {
+			return Result{}, RunContext{}, err
+		}
+		fixPlan.Fingerprint = fingerprint
+		preparation.summaryFingerprint = fixPlan.Fingerprint
 	}
 	visiblePendingJournals := pendingJournals
 	if opts.postApplyJournalValidation {
@@ -203,9 +183,8 @@ func runSuiteOnce(ctx context.Context, opts Options, preparedRuntime *ontology.R
 		}
 	}
 	out := Result{
-		OK:                       totalIssues == 0 && totalErrors == 0 && len(visiblePendingJournals) == 0,
-		IssueCount:               totalIssues,
-		ErrorCount:               totalErrors,
+		OK: false,
+
 		DurationMs:               time.Since(start).Milliseconds(),
 		VaultName:                strings.TrimSpace(runCtx.VaultDef.Name),
 		ApplyCommand:             strings.TrimSpace(opts.ApplyCommand),
@@ -214,12 +193,15 @@ func runSuiteOnce(ctx context.Context, opts Options, preparedRuntime *ontology.R
 		FixPlan:                  fixPlan,
 		RepairJournals:           visiblePendingJournals,
 		IdentifierReconciliation: identifierReconciliation,
+		repairPreparation:        preparation,
 	}
+	out.SummarizeChecks()
 	out.NextActions = BuildNextActions(out)
 	return out, *runCtx, nil
 }
 
-func blockedRepairJournalResult(runCtx RunContext, checks []string, journals []RepairJournalEvidence, applyCommand string) Result {
+// RepairRecoveryOutcome blocks every selected check with one exact recovery command.
+func RepairRecoveryOutcome(runCtx RunContext, checks []string, journals []RepairJournalEvidence, applyCommand string) (Result, []CheckApplicabilityResult) {
 	recoveryChecks := mergeRepairRecoveryChecks(checks, journals)
 	recoveryCommand := strings.TrimSpace(applyCommand)
 	if recoveryCommand == "" {
@@ -243,7 +225,30 @@ func blockedRepairJournalResult(runCtx RunContext, checks []string, journals []R
 			Count:    len(journals),
 		}},
 	}
-	return out
+	outcomes := make([]CheckApplicabilityResult, 0, len(checks))
+	for _, check := range checks {
+		outcomes = append(outcomes, CheckApplicabilityResult{
+			Check: check, Outcome: CheckOutcomeBlocked,
+			Summary:            "pending repair journal must be recovered before validation can inspect or refresh projections",
+			PreparationCommand: recoveryCommand,
+			Evidence:           []ApplicabilityEvidence{{Code: "pending_repair_journal", Message: "Interrupted repair evidence is present; recover it before running validation."}},
+		})
+	}
+	return out, outcomes
+}
+
+// SummarizeChecks derives totals from completed check results without losing
+// their full counts when visible issues have been truncated.
+func (result *Result) SummarizeChecks() {
+	result.IssueCount = 0
+	result.ErrorCount = 0
+	for _, check := range result.Checks {
+		result.IssueCount += check.IssueCount
+		if strings.TrimSpace(check.Error) != "" {
+			result.ErrorCount++
+		}
+	}
+	result.OK = result.IssueCount == 0 && result.ErrorCount == 0 && len(result.RepairJournals) == 0
 }
 
 func mergeRepairRecoveryChecks(selected []string, journals []RepairJournalEvidence) []string {
@@ -261,43 +266,28 @@ func normalizeCheckResult(result CheckResult) CheckResult {
 	return result
 }
 
-// RunCheck executes a single named validation check.
-func RunCheck(ctx context.Context, runCtx RunContext, opts Options, name string) CheckResult {
-	runCtx.MaxIssues = effectiveMaxIssues(runCtx, opts)
-	start := time.Now()
-	result := runRegisteredCheck(ctx, runCtx, opts, name, nil, nil, false)
-	return finalizeCheckResult(name, result, time.Since(start), runCtx.MaxIssues)
-}
-
-func runRegisteredCheck(ctx context.Context, runCtx RunContext, opts Options, name string, runtime *ontology.Runtime, runtimeErr error, runtimePrepared bool) CheckResult {
+func runRegisteredCheck(ctx context.Context, runCtx RunContext, opts ScanOptions, name string, runtime *ontology.Runtime, runtimeErr error) CheckResult {
 	registration, ok := lookupCheck(name)
 	if !ok {
 		return CheckResult{Name: name, Error: "unknown check"}
 	}
-	if runtimePrepared {
-		if registration.RuntimeRequirement == runtimeRequirementOntology && runtime == nil {
-			if runtimeErr == nil {
-				runtimeErr = fmt.Errorf("prepared ontology runtime is unavailable")
-			}
-			return sharedRuntimeError(name, runtimeErr)
+	if registration.Needs.Ontology && runtime == nil {
+		if runtimeErr == nil {
+			runtimeErr = fmt.Errorf("prepared ontology runtime is unavailable")
 		}
-		if preparedCodeStoreRequired(registration) && (runtime == nil || runtime.Store == nil) {
-			if runtimeErr == nil {
-				runtimeErr = fmt.Errorf("prepared code index store is unavailable")
-			}
-			return sharedRuntimeError(name, runtimeErr)
+		return sharedRuntimeError(name, runtimeErr)
+	}
+	if registration.Needs.CodeStore && (runtime == nil || runtime.Store == nil) {
+		if runtimeErr == nil {
+			runtimeErr = fmt.Errorf("prepared code index store is unavailable")
 		}
+		return sharedRuntimeError(name, runtimeErr)
 	}
 	runCtx.MaxIssues = effectiveMaxIssues(runCtx, opts)
-	return registration.Run(ctx, runCtx, opts, runtime, runtimeErr)
+	return registration.Run(ctx, runCtx, opts, runtime)
 }
 
-func preparedCodeStoreRequired(registration registeredCheck) bool {
-	return registration.RuntimeRequirement == runtimeRequirementNone &&
-		slices.Contains(registration.ProjectionDomains, ProjectionCode)
-}
-
-func runCheckRecovered(ctx context.Context, runCtx RunContext, opts Options, name string, sharedRuntime *ontology.Runtime, sharedRuntimeErr error, runtimePrepared bool) (result CheckResult) {
+func runCheckRecovered(ctx context.Context, runCtx RunContext, opts ScanOptions, name string, sharedRuntime *ontology.Runtime, sharedRuntimeErr error) (result CheckResult) {
 	runCtx.MaxIssues = effectiveMaxIssues(runCtx, opts)
 	start := time.Now()
 	defer func() {
@@ -310,10 +300,10 @@ func runCheckRecovered(ctx context.Context, runCtx RunContext, opts Options, nam
 		}
 		result = finalizeCheckResult(name, result, time.Since(start), runCtx.MaxIssues)
 	}()
-	return runRegisteredCheck(ctx, runCtx, opts, name, sharedRuntime, sharedRuntimeErr, runtimePrepared)
+	return runRegisteredCheck(ctx, runCtx, opts, name, sharedRuntime, sharedRuntimeErr)
 }
 
-func effectiveMaxIssues(runCtx RunContext, opts Options) int {
+func effectiveMaxIssues(runCtx RunContext, opts ScanOptions) int {
 	if runCtx.MaxIssues > 0 {
 		return runCtx.MaxIssues
 	}
@@ -325,6 +315,7 @@ func effectiveMaxIssues(runCtx RunContext, opts Options) int {
 
 func finalizeCheckResult(name string, result CheckResult, elapsed time.Duration, maxIssues int) CheckResult {
 	result.Name = name
+	result.IssueCount = len(result.Issues)
 	result.fullIssues = append([]Issue(nil), result.Issues...)
 	result.allIssueKeys = nil
 	for i := range result.fullIssues {
@@ -349,7 +340,7 @@ func finalizeCheckResult(name string, result CheckResult, elapsed time.Duration,
 		result.Issues = result.Issues[:maxIssues]
 	}
 	result = normalizeCheckResult(result)
-	if result.IssueCount == 0 && strings.TrimSpace(result.Error) == "" && !result.Skipped {
+	if result.IssueCount == 0 && strings.TrimSpace(result.Error) == "" && result.NotApplicable == "" {
 		result.OK = true
 	}
 	result.DurationMs = elapsed.Milliseconds()

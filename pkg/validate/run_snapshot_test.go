@@ -2,6 +2,7 @@ package validate
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sync"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func TestRunSuiteOnceSharesOneSourceSnapshotAcrossChecks(t *testing.T) {
 	}
 	// The tests selected here both enumerate and reread the entire note set.
 	// The suite snapshot makes those reads in-memory after one source capture.
-	result, authority, err := RunSuiteOnce(t.Context(), Options{
+	result, authority, err := preparedSuite(t, t.Context(), ScanOptions{
 		Checks: []string{CheckBrokenLinks, CheckLinkHygiene}, RunContext: runCtx,
 	})
 	require.NoError(t, err)
@@ -142,10 +143,10 @@ func TestPreparedOntologyPostcheckCapturesOnlyAffectedSources(t *testing.T) {
 				VaultDef:  obsidian.VaultDefinition{Name: "snapshot", Path: root, Links: obsidian.LinkTypeBoth},
 				VaultPath: root, NoteReader: reader, NoteMetadata: testNoteMetadata(t),
 			}
-			runtime := &ontology.Runtime{Schema: &ontology.Schema{}, Issues: []ontology.ValidationIssue{
+			runtime := &ontology.Runtime{Schema: &ontoschema.Schema{}, Issues: []ontology.ValidationIssue{
 				{Code: "inverse_mismatch", NotePath: "notes/other.md", FixTarget: "notes/edited.md", Message: "dependent issue"},
 			}}
-			result, authority, err := RunSuiteOncePrepared(t.Context(), Options{
+			result, authority, err := RunSuiteOncePrepared(t.Context(), ScanOptions{
 				Checks: tc.checks, RunContext: runCtx, postApplyJournalValidation: true,
 				postcheckPaths: []string{"notes/edited.md"},
 			}, runtime, nil)

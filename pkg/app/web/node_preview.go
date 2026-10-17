@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"net/http"
 	"sort"
 	"strconv"
@@ -12,13 +13,13 @@ import (
 	"time"
 	"unicode/utf8"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 const (
@@ -33,12 +34,12 @@ type NodePreviewValue struct {
 }
 
 type NodePreviewField struct {
-	Name       string                          `json:"name"`
-	Label      string                          `json:"label"`
-	Kind       ontology.FieldKind              `json:"kind"`
-	Importance ontology.FieldDisplayImportance `json:"importance"`
-	Values     []NodePreviewValue              `json:"values"`
-	Truncated  int                             `json:"truncated,omitempty"`
+	Name       string                            `json:"name"`
+	Label      string                            `json:"label"`
+	Kind       ontoschema.FieldKind              `json:"kind"`
+	Importance ontoschema.FieldDisplayImportance `json:"importance"`
+	Values     []NodePreviewValue                `json:"values"`
+	Truncated  int                               `json:"truncated,omitempty"`
 }
 
 type NodePreviewFragment struct {
@@ -94,7 +95,6 @@ func (s *Server) handleNodePreview(w http.ResponseWriter, r *http.Request) {
 	fromPath := strings.TrimSpace(r.URL.Query().Get("from"))
 	resolveOne := func(input string) (noderead.ResolvedNode, bool, error) {
 		result, resolveErr := scope.Resolve(r.Context(), noderead.ResolveRequest{
-			OmitLocators: true,
 			// With an edit session, fragments missing from the committed index
 			// may be staged, so resolution may project the note (from its
 			// staged source when touched); canonical paths are known only then.
@@ -150,11 +150,10 @@ func (s *Server) handleNodePreview(w http.ResponseWriter, r *http.Request) {
 		// relative to it; `from` only locates the requested ref.
 		linkFromPath := firstNonEmpty(record.Ref.NotePath, record.Path)
 		result, resolveErr := scope.Resolve(r.Context(), noderead.ResolveRequest{
-			OmitLocators: true,
-			IndexOnly:    true,
-			Targets:      targets,
-			FromPath:     linkFromPath,
-			Hydrate:      noderead.HydrateOptions{Profile: noderead.HydrateSummary},
+			IndexOnly: true,
+			Targets:   targets,
+			FromPath:  linkFromPath,
+			Hydrate:   noderead.HydrateOptions{Profile: noderead.HydrateSummary},
 		})
 		if resolveErr != nil {
 			writePublicError(w, http.StatusInternalServerError, PublicErrorInternal, resolveErr)
@@ -234,7 +233,7 @@ func matchIndexedPreviewFragment(fragment string, rows []semdb.NoteFragmentTarge
 		return nil
 	}
 
-	headingNorm := obsidian.NormalizeMarkdownHeadingFragment(fragment)
+	headingNorm := markdownsyntax.NormalizeMarkdownHeadingFragment(fragment)
 	for _, row := range rows {
 		if row.Kind == semdb.NoteFragmentTargetHeading && row.TargetNorm == headingNorm {
 			return &NodePreviewFragment{Kind: "heading", Text: row.Target}
@@ -252,7 +251,7 @@ func matchIndexedPreviewFragment(fragment string, rows []semdb.NoteFragmentTarge
 	return nil
 }
 
-func buildNodePreview(record noderead.NodeRecord, noteType *ontology.NoteType, resolvedLinks map[string]NodePreviewValue, fragmentResolved bool) NodePreview {
+func buildNodePreview(record noderead.NodeRecord, noteType *ontoschema.NoteType, resolvedLinks map[string]NodePreviewValue, fragmentResolved bool) NodePreview {
 	preview := NodePreview{
 		Ref: record.Ref.String(), Path: firstNonEmpty(record.Ref.NotePath, record.Path), Title: record.Title,
 		TypeName: record.TypeName, Format: string(record.Format), FragmentResolved: fragmentResolved,
@@ -265,9 +264,9 @@ func buildNodePreview(record noderead.NodeRecord, noteType *ontology.NoteType, r
 	// NoteType.Label falls back to the type name when no display label is authored.
 	preview.TypeLabel = noteType.Label
 	if preview.TypeLabel == "" || !noteType.LabelAuthored {
-		preview.TypeLabel = ontology.HumanizeFieldName(noteType.Name)
+		preview.TypeLabel = ontoschema.HumanizeFieldName(noteType.Name)
 	}
-	summaryField := ontology.SummaryField(noteType.Fields)
+	summaryField := ontoschema.SummaryField(noteType.Fields)
 	if summaryField != nil && !summaryField.Display.HideHover {
 		preview.Summary = capPreviewSummary(strings.Join(previewFieldValues(record, summaryField), " "))
 	}
@@ -288,10 +287,10 @@ func buildNodePreview(record noderead.NodeRecord, noteType *ontology.NoteType, r
 	}
 
 	for _, field := range noteType.Fields {
-		if field == nil || field == summaryField || field.IsIdentifier || field.Kind == ontology.FieldKindSection || field.Kind == ontology.FieldKindNeighbor || field.Kind == ontology.FieldKindReverse {
+		if field == nil || field == summaryField || field.IsIdentifier || field.Kind == ontoschema.FieldKindSection || field.Kind == ontoschema.FieldKindNeighbor || field.Kind == ontoschema.FieldKindReverse {
 			continue
 		}
-		if field.Display.HideHover || field.Display.EffectiveImportance() == ontology.FieldImportanceDetail {
+		if field.Display.HideHover || field.Display.EffectiveImportance() == ontoschema.FieldImportanceDetail {
 			continue
 		}
 		values := previewFieldValues(record, field)
@@ -301,7 +300,7 @@ func buildNodePreview(record noderead.NodeRecord, noteType *ontology.NoteType, r
 		preview.Fields = append(preview.Fields, makePreviewField(field.Name, field.Kind, field.Display.EffectiveImportance(), values, resolvedLinks))
 	}
 	sort.SliceStable(preview.Fields, func(i, j int) bool {
-		return preview.Fields[i].Importance == ontology.FieldImportanceKey && preview.Fields[j].Importance != ontology.FieldImportanceKey
+		return preview.Fields[i].Importance == ontoschema.FieldImportanceKey && preview.Fields[j].Importance != ontoschema.FieldImportanceKey
 	})
 	if len(preview.Fields) > nodePreviewFieldLimit {
 		preview.Fields = preview.Fields[:nodePreviewFieldLimit]
@@ -324,15 +323,15 @@ func buildUntypedNodePreview(preview *NodePreview, record noderead.NodeRecord) {
 			preview.Summary = capPreviewSummary(strings.Join(values, " "))
 			continue
 		}
-		preview.Fields = append(preview.Fields, makePreviewField(key, ontology.FieldKindScalar, ontology.FieldImportanceNormal, values, nil))
+		preview.Fields = append(preview.Fields, makePreviewField(key, ontoschema.FieldKindScalar, ontoschema.FieldImportanceNormal, values, nil))
 		if len(preview.Fields) == nodePreviewFieldLimit {
 			break
 		}
 	}
 }
 
-func makePreviewField(name string, kind ontology.FieldKind, importance ontology.FieldDisplayImportance, values []string, resolvedLinks map[string]NodePreviewValue) NodePreviewField {
-	field := NodePreviewField{Name: name, Label: ontology.HumanizeFieldName(name), Kind: kind, Importance: importance, Values: []NodePreviewValue{}}
+func makePreviewField(name string, kind ontoschema.FieldKind, importance ontoschema.FieldDisplayImportance, values []string, resolvedLinks map[string]NodePreviewValue) NodePreviewField {
+	field := NodePreviewField{Name: name, Label: ontoschema.HumanizeFieldName(name), Kind: kind, Importance: importance, Values: []NodePreviewValue{}}
 	limit := len(values)
 	if limit > nodePreviewValueLimit {
 		field.Truncated = limit - nodePreviewValueLimit
@@ -340,7 +339,7 @@ func makePreviewField(name string, kind ontology.FieldKind, importance ontology.
 	}
 	for _, value := range values[:limit] {
 		item := NodePreviewValue{Text: value}
-		if kind == ontology.FieldKindLink {
+		if kind == ontoschema.FieldKindLink {
 			if resolved, ok := resolvedLinks[value]; ok {
 				item = resolved
 			} else {
@@ -352,14 +351,14 @@ func makePreviewField(name string, kind ontology.FieldKind, importance ontology.
 	return field
 }
 
-func previewLinkInputs(record noderead.NodeRecord, noteType *ontology.NoteType) []string {
+func previewLinkInputs(record noderead.NodeRecord, noteType *ontoschema.NoteType) []string {
 	if noteType == nil {
 		return nil
 	}
 	seen := map[string]struct{}{}
 	var out []string
 	for _, field := range noteType.Fields {
-		if field == nil || field.Kind != ontology.FieldKindLink {
+		if field == nil || field.Kind != ontoschema.FieldKindLink {
 			continue
 		}
 		for _, value := range previewFieldValues(record, field) {
@@ -373,7 +372,7 @@ func previewLinkInputs(record noderead.NodeRecord, noteType *ontology.NoteType) 
 	return out
 }
 
-func previewFieldValues(record noderead.NodeRecord, field *ontology.Field) []string {
+func previewFieldValues(record noderead.NodeRecord, field *ontoschema.Field) []string {
 	if field == nil {
 		return nil
 	}
@@ -386,8 +385,8 @@ func previewFieldValues(record noderead.NodeRecord, field *ontology.Field) []str
 		}
 		return values
 	}
-	inline := ontology.IsSectionSummary(field) || field.SourceKind == ontology.FieldSourceInline || field.SourceKind == ontology.FieldSourceCheckbox || field.SourceKind == ontology.FieldSourceItemTitle || field.SourceKind == ontology.FieldSourceItemSummary || field.SourceKind == ontology.FieldSourceItemDetail
-	names := ontology.FieldSourceNames(field)
+	inline := ontoschema.IsSectionSummary(field) || field.SourceKind == ontoschema.FieldSourceInline || field.SourceKind == ontoschema.FieldSourceCheckbox || field.SourceKind == ontoschema.FieldSourceItemTitle || field.SourceKind == ontoschema.FieldSourceItemSummary || field.SourceKind == ontoschema.FieldSourceItemDetail
+	names := ontoschema.FieldSourceNames(field)
 	if len(names) == 0 {
 		names = []string{field.Name}
 	}

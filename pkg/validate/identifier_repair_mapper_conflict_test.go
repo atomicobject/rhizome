@@ -2,14 +2,14 @@ package validate
 
 import (
 	"context"
-	"strings"
-	"testing"
-
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+	"strings"
+	"testing"
 )
 
 func TestIdentifierRepairMapperIsolatesOntologyPreviewConflict(t *testing.T) {
@@ -24,7 +24,7 @@ func TestIdentifierRepairMapperIsolatesOntologyPreviewConflict(t *testing.T) {
 	validMembership := "collision:independent"
 	valid.memberships = map[string]struct{}{validMembership: {}}
 
-	schema, err := ontology.LoadSchema(fixture.root)
+	schema, err := ontoschema.LoadSchema(fixture.root)
 	require.NoError(t, err)
 	sourceHashes := make(map[string]string, len(snapshot.SourcePreconditions))
 	for _, source := range snapshot.SourcePreconditions {
@@ -45,8 +45,8 @@ func TestIdentifierRepairMapperIsolatesOntologyPreviewConflict(t *testing.T) {
 			validMembership:    {validAction.IssueKeys[0]},
 		},
 		requiredChecksByMembership: map[string][]string{
-			fixture.membership: {CheckAliases, CheckOntology},
-			validMembership:    {CheckAliases, CheckBrokenLinks},
+			fixture.membership: {CheckIdentifiers, CheckOntology},
+			validMembership:    {CheckIdentifiers, CheckBrokenLinks},
 		},
 	}
 	previewer := identifierConflictPreviewer{}
@@ -109,16 +109,16 @@ type Consumer @node(paths: ["notes/*.md"]) {
 	linkStart := strings.Index(original, "SPEC-0001")
 	oldRef := ontology.NodeRef{NotePath: "specs/one.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
 	newRef := ontology.NodeRef{NotePath: "specs/two.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
-	fieldEdit := reference.StructuredFieldEdit{
+	fieldEdit := identifierrewrite.StructuredFieldEdit{
 		OwnerRef:  ontology.NodeRef{NotePath: notePath, TypeName: "Consumer", Kind: ontology.NodeKindNote},
-		FieldName: "spec", Kind: reference.StructuredFieldTypedIdentifierReference,
-		Operation: reference.StructuredFieldEditReplace,
+		FieldName: "spec", Kind: identifierrewrite.StructuredFieldTypedIdentifierReference,
+		Operation: identifierrewrite.StructuredFieldEditReplace,
 		Range:     ontology.ByteRange{Start: fieldStart, End: fieldStart + len("[[SPEC-0001]]")},
 		Expected:  "[[SPEC-0001]]", Replacement: "[[SPEC-0002]]",
 		TargetOldRef: oldRef, TargetNewRef: newRef,
 	}
-	linkEdit := reference.StructuredLinkEdit{
-		NotePath: notePath, LinkIndex: 0, Component: reference.LinkComponentPath,
+	linkEdit := identifierrewrite.StructuredLinkEdit{
+		NotePath: notePath, LinkIndex: 0, Component: identifierrewrite.LinkComponentPath,
 		Range:    ontology.ByteRange{Start: linkStart, End: linkStart + len("SPEC-0001")},
 		Expected: "SPEC-0001", Replacement: "SPEC-0002",
 		TargetOldRef: oldRef, TargetNewRef: newRef,
@@ -135,14 +135,14 @@ type Consumer @node(paths: ["notes/*.md"]) {
 		memberships: map[string]struct{}{membership: {}},
 	}
 	authority := identifierBindingSet{
-		actions:                    []FixAction{{ID: "action:typed-relation", Check: CheckAliases, Safety: FixSafetySafe, IssueKeys: []string{"issue:typed-relation"}}},
+		actions:                    []FixAction{{ID: "action:typed-relation", Check: CheckIdentifiers, Safety: FixSafetySafe, IssueKeys: []string{"issue:typed-relation"}}},
 		actionIDsByMembership:      map[string][]string{membership: {"action:typed-relation"}},
 		issueKeysByMembership:      map[string][]string{membership: {"issue:typed-relation"}},
-		requiredChecksByMembership: map[string][]string{membership: {CheckAliases, CheckOntology}},
+		requiredChecksByMembership: map[string][]string{membership: {CheckIdentifiers, CheckOntology}},
 	}
 	vaultDef := obsidian.VaultDefinition{Path: root}
 	runCtx := RunContext{VaultDef: vaultDef, VaultPath: root, NoteReader: &obsidian.Note{}}
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	operation, material, err := mapIdentifierFileWork(
 		context.Background(), runCtx, schema,
@@ -174,17 +174,17 @@ type Inbound @node(paths: ["notes/*.md"]) {
 	work := &identifierFileWork{
 		path: notePath,
 		fields: map[string]identifierreconcile.FieldRepairIntent{
-			"locator": {MembershipKeys: []string{membership}, Edit: reference.StructuredFieldEdit{
+			"locator": {MembershipKeys: []string{membership}, Edit: identifierrewrite.StructuredFieldEdit{
 				OwnerRef:  ontology.NodeRef{NotePath: notePath, Fragment: "^A", TypeName: "Note", Kind: ontology.NodeKindEmbedded},
-				FieldName: reference.StructuredFieldBlockLocator, Kind: reference.StructuredFieldIdentifierBackedLocator,
-				Operation: reference.StructuredFieldEditReplace,
+				FieldName: identifierrewrite.StructuredFieldBlockLocator, Kind: identifierrewrite.StructuredFieldIdentifierBackedLocator,
+				Operation: identifierrewrite.StructuredFieldEditReplace,
 				Range:     ontology.ByteRange{Start: locatorStart, End: locatorStart + len("^A")},
 				Expected:  "^A", Replacement: "^LONGER-BLOCK-LOCATOR",
 			}},
 		},
 		links: map[string]identifierreconcile.LinkRepairIntent{
-			"link": {MembershipKeys: []string{membership}, Edit: reference.StructuredLinkEdit{
-				NotePath: notePath, LinkIndex: 0, Component: reference.LinkComponentPath,
+			"link": {MembershipKeys: []string{membership}, Edit: identifierrewrite.StructuredLinkEdit{
+				NotePath: notePath, LinkIndex: 0, Component: identifierrewrite.LinkComponentPath,
 				Range:    ontology.ByteRange{Start: linkStart, End: linkStart + len("OLD")},
 				Expected: "OLD", Replacement: "A-MUCH-LONGER-TARGET", TargetOldRef: oldRef, TargetNewRef: newRef,
 			}},
@@ -192,12 +192,12 @@ type Inbound @node(paths: ["notes/*.md"]) {
 		memberships: map[string]struct{}{membership: {}},
 	}
 	authority := identifierBindingSet{
-		actions:                    []FixAction{{ID: "action:length-changing-raw-edits", Check: CheckAliases, Safety: FixSafetySafe, IssueKeys: []string{"issue:length-changing-raw-edits"}}},
+		actions:                    []FixAction{{ID: "action:length-changing-raw-edits", Check: CheckIdentifiers, Safety: FixSafetySafe, IssueKeys: []string{"issue:length-changing-raw-edits"}}},
 		actionIDsByMembership:      map[string][]string{membership: {"action:length-changing-raw-edits"}},
 		issueKeysByMembership:      map[string][]string{membership: {"issue:length-changing-raw-edits"}},
-		requiredChecksByMembership: map[string][]string{membership: {CheckAliases, CheckBrokenLinks}},
+		requiredChecksByMembership: map[string][]string{membership: {CheckIdentifiers, CheckBrokenLinks}},
 	}
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}}
 	operation, material, err := mapIdentifierFileWork(
@@ -253,7 +253,7 @@ type identifierConflictPreviewer struct{}
 func (identifierConflictPreviewer) Preview(
 	_ context.Context,
 	_ RunContext,
-	_ *ontology.Schema,
+	_ *ontoschema.Schema,
 	request OntologyPreviewRequest,
 ) (OntologyPreviewResult, error) {
 	return OntologyPreviewResult{Conflicts: []OntologyPreviewConflict{{

@@ -2,13 +2,14 @@ package identifierreconcile
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +20,7 @@ func TestRepairAssemblyRevalidateCompleteSnapshotRejectsSchemaSourceAndInventory
 	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "a.md"), []byte("# A\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "zero.md"), []byte("plain\n"), 0o644))
 	writeIdentifierRevalidationSchema(t, root, "type NoteDoc @node(paths: [\"docs/*.md\"]) { id: String @field }")
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	vaultDef := obsidian.VaultDefinition{Path: root}
@@ -38,32 +39,32 @@ func TestRepairAssemblyRevalidateCompleteSnapshotRejectsSchemaSourceAndInventory
 	}
 	require.NoError(t, assembly.seal())
 
-	require.NoError(t, assembly.RevalidateCompleteSnapshot(context.Background(), vaultDef))
+	require.NoError(t, assembly.RevalidateCompleteSnapshot(context.Background(), vaultDef, testNoteMetadata(t)))
 	writeIdentifierRevalidationSchema(t, root, "type OtherDoc @node(paths: [\"docs/*.md\"]) { id: String @field }")
-	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), vaultDef), "schema")
+	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), vaultDef, testNoteMetadata(t)), "schema")
 	writeIdentifierRevalidationSchema(t, root, "type NoteDoc @node(paths: [\"docs/*.md\"]) { id: String @field }")
 
 	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "a.md"), []byte("# B\n"), 0o644))
-	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), vaultDef), "source inventory")
+	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), vaultDef, testNoteMetadata(t)), "source inventory")
 	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "a.md"), []byte("# A\n"), 0o644))
 
 	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "new.md"), []byte("# New\n"), 0o644))
-	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), vaultDef), "source inventory")
+	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), vaultDef, testNoteMetadata(t)), "source inventory")
 	require.NoError(t, os.Remove(filepath.Join(root, "docs", "new.md")))
 
 	require.NoError(t, os.Remove(filepath.Join(root, "docs", "zero.md")))
-	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), vaultDef), "source inventory")
+	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), vaultDef, testNoteMetadata(t)), "source inventory")
 }
 
 func TestRepairAssemblyRevalidateCompleteSnapshotRejectsUnsealedAssemblyAndMissingDependencies(t *testing.T) {
 	vaultDef := obsidian.VaultDefinition{Path: t.TempDir()}
 	writeIdentifierRevalidationSchema(t, vaultDef.Path, "type NoteDoc @node(paths: [\"docs/*.md\"]) { id: String @field }")
-	schema, err := ontology.LoadSchema(vaultDef.Path)
+	schema, err := ontoschema.LoadSchema(vaultDef.Path)
 	require.NoError(t, err)
-	require.Error(t, (&RepairAssembly{}).RevalidateCompleteSnapshot(context.Background(), vaultDef))
+	require.Error(t, (&RepairAssembly{}).RevalidateCompleteSnapshot(context.Background(), vaultDef, testNoteMetadata(t)))
 	assembly := &RepairAssembly{PlanFingerprint: "plan", SchemaHash: schema.Hash}
 	require.NoError(t, assembly.seal())
-	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{}), "vault root")
+	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{}, testNoteMetadata(t)), "vault root")
 }
 
 func writeIdentifierRevalidationSchema(t *testing.T, root, schema string) {

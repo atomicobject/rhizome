@@ -18,7 +18,8 @@ import (
 
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -64,7 +65,7 @@ func releaseFixture(t *testing.T, badChecksum bool) (*httptest.Server, *atomic.I
 func TestGlobalInstallUsesReleaseChecksumAndPreservesRepositoryPin(t *testing.T) {
 	s := testService(t)
 	server, _ := releaseFixture(t, false)
-	folder := config(t, obsidian.LocalRhizomeConfig{Version: "v9.9.9"})
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v9.9.9"})
 	before, err := os.ReadFile(filepath.Join(folder, ".rhizome", "config.yml"))
 	require.NoError(t, err)
 	prior, err := os.Getwd()
@@ -113,7 +114,7 @@ func TestGlobalChecksumFailurePreservesExistingExecutable(t *testing.T) {
 func TestManagedBootstrapRequiresTrustBeforeReleaseDownload(t *testing.T) {
 	s := testService(t)
 	server, requests := releaseFixture(t, false)
-	folder := config(t, obsidian.LocalRhizomeConfig{Version: "v1.2.3"})
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v1.2.3"})
 	s.ensurePinned = func(ctx context.Context, opts appupdate.EnsureOptions) error {
 		opts.ManifestURL = server.URL + "/releases/latest"
 		opts.HTTPClient = server.Client()
@@ -131,7 +132,7 @@ func TestManagedBootstrapRequiresTrustBeforeReleaseDownload(t *testing.T) {
 	_, err = s.Open(context.Background(), Request{Folder: folder})
 	require.NoError(t, err)
 	require.Positive(t, requests.Load())
-	_, loaded, err := obsidian.FindLocalConfigForDelegation(folder)
+	_, loaded, err := repoconfig.FindLocalConfigForDelegation(folder)
 	require.NoError(t, err)
 	require.Equal(t, "v1.2.3", loaded.Rhizome.Version)
 }

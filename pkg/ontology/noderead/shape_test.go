@@ -3,6 +3,7 @@ package noderead
 import (
 	"context"
 	"encoding/json"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
@@ -23,25 +24,25 @@ func (s *shapeFixtureStore) OntologyShapeSnapshot(_ context.Context, fields []st
 }
 
 func TestOntologyShapeContract(t *testing.T) {
-	schema := &ontology.Schema{
-		Types: map[string]*ontology.NoteType{
-			"Idea": {Name: "Idea", Role: ontology.TypeRoleNote, Implements: []string{"Work"}, Fields: []*ontology.Field{
-				{Name: "phase", Kind: ontology.FieldKindEnum, TypeName: "Stage"},
-				{Name: "nextStep", Kind: ontology.FieldKindScalar, TypeName: "String", Display: ontology.FieldDisplay{Importance: ontology.FieldImportanceKey}},
-				{Name: "opportunities", Kind: ontology.FieldKindLink, TypeName: "Opportunity"},
-				{Name: "otherWork", Kind: ontology.FieldKindLink, TypeName: "Work"},
-				{Name: "related", Kind: ontology.FieldKindLink, TypeName: "Note"},
-				{Name: "siblings", Kind: ontology.FieldKindLink, TypeName: "Idea"},
+	schema := &ontoschema.Schema{
+		Types: map[string]*ontoschema.NoteType{
+			"Idea": {Name: "Idea", Role: ontoschema.TypeRoleNote, Implements: []string{"Work"}, Fields: []*ontoschema.Field{
+				{Name: "phase", Kind: ontoschema.FieldKindEnum, TypeName: "Stage"},
+				{Name: "nextStep", Kind: ontoschema.FieldKindScalar, TypeName: "String", Display: ontoschema.FieldDisplay{Importance: ontoschema.FieldImportanceKey}},
+				{Name: "opportunities", Kind: ontoschema.FieldKindLink, TypeName: "Opportunity"},
+				{Name: "otherWork", Kind: ontoschema.FieldKindLink, TypeName: "Work"},
+				{Name: "related", Kind: ontoschema.FieldKindLink, TypeName: "Note"},
+				{Name: "siblings", Kind: ontoschema.FieldKindLink, TypeName: "Idea"},
 			}},
-			"Opportunity": {Name: "Opportunity", Role: ontology.TypeRoleNote, Implements: []string{"Work"}},
-			"Empty":       {Name: "Empty", Role: ontology.TypeRoleNote},
-			"Fragment":    {Name: "Fragment", Role: ontology.TypeRoleEmbeddedNode, Implements: []string{"Work"}},
+			"Opportunity": {Name: "Opportunity", Role: ontoschema.TypeRoleNote, Implements: []string{"Work"}},
+			"Empty":       {Name: "Empty", Role: ontoschema.TypeRoleNote},
+			"Fragment":    {Name: "Fragment", Role: ontoschema.TypeRoleEmbeddedNode, Implements: []string{"Work"}},
 		},
-		Interfaces: map[string]*ontology.InterfaceType{"Work": {Name: "Work", Fields: []*ontology.Field{
-			{Name: "state", Kind: ontology.FieldKindEnum, TypeName: "Stage"},
-			{Name: "rationale", Kind: ontology.FieldKindScalar, TypeName: "String", Display: ontology.FieldDisplay{Importance: ontology.FieldImportanceKey}},
+		Interfaces: map[string]*ontoschema.InterfaceType{"Work": {Name: "Work", Fields: []*ontoschema.Field{
+			{Name: "state", Kind: ontoschema.FieldKindEnum, TypeName: "Stage"},
+			{Name: "rationale", Kind: ontoschema.FieldKindScalar, TypeName: "String", Display: ontoschema.FieldDisplay{Importance: ontoschema.FieldImportanceKey}},
 		}}},
-		EnumTypes: map[string]*ontology.EnumType{"Stage": {Name: "Stage", Values: []*ontology.EnumValue{{Name: "open", View: ontology.EnumValueView{Stage: ontology.StageOpen}}, {Name: "active", View: ontology.EnumValueView{Stage: ontology.StageActive}}}}},
+		EnumTypes: map[string]*ontoschema.EnumType{"Stage": {Name: "Stage", Values: []*ontoschema.EnumValue{{Name: "open", View: ontoschema.EnumValueView{Stage: ontoschema.StageOpen}}, {Name: "active", View: ontoschema.EnumValueView{Stage: ontoschema.StageActive}}}}},
 	}
 	store := &shapeFixtureStore{snapshot: readmodel.ShapeSnapshot{
 		Notes: []readmodel.ShapeNote{

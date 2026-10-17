@@ -3,15 +3,16 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"maps"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +27,7 @@ func TestOntologyQueryCommandRefreshesStaleStore(t *testing.T) {
 	updated := strings.Replace(string(body), "Roadmap Refresh", "Updated Roadmap", 1)
 	require.NoError(t, os.WriteFile(projectPath, []byte(updated), 0o644))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"ontology", "query", "--vault", vault.name,
 		"--query", `{ project(path: "notes/projects/roadmap-refresh.md") { name } }`,
 	})
@@ -44,7 +45,7 @@ func TestOntologyQueryCommandRefreshesStaleStore(t *testing.T) {
 func TestOntologyQueryCommandReportsRuntimeFailureAsJSON(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"ontology", "query", "--vault", vault.name,
 		"--query", `{ project(semantic: "roadmap") { path } }`,
 	})
@@ -68,7 +69,7 @@ owner: notes/people/alice.md
 ---
 `), 0o644))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "validate", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "validate", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "missing_required_field")
@@ -80,7 +81,7 @@ owner: notes/people/alice.md
 func TestOntologyValidateCommandListsNotesByType(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "validate", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "validate", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "Ontology valid.")
@@ -157,7 +158,7 @@ Decision context also references [[backlink-decision]].
 
 	vault := setupAgentTestVault(t, files)
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "validate", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "validate", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "Ontology valid.")
@@ -199,7 +200,7 @@ status:: READY
 
 	vault := setupAgentTestVault(t, files)
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "validate", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "validate", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "Resolved notes by type:")
@@ -218,7 +219,7 @@ func TestOntologyWalkCommandRefreshesStaleStore(t *testing.T) {
 	updated := string(body) + "\nSecondary decision is [[backlink-decision]].\n"
 	require.NoError(t, os.WriteFile(projectPath, []byte(updated), 0o644))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "walk", "--vault", vault.name, "notes/projects/roadmap-refresh.md"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "walk", "--vault", vault.name, "notes/projects/roadmap-refresh.md"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "--decisions")
@@ -236,6 +237,6 @@ func indexOntologyTestVault(t *testing.T, vaultPath string) {
 	require.NoError(t, err)
 	_, err = noteMetadata.EnsureIndexed(context.Background(), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
-	_, err = ontology.EnsureIndexed(context.Background(), noteMetadata, vaultDef, &obsidian.Note{}, store)
+	_, err = ontologytest.Sync(context.Background(), noteMetadata, vaultDef, &obsidian.Note{}, store, nil, nil)
 	require.NoError(t, err)
 }

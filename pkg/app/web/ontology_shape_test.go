@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,10 +14,11 @@ import (
 	"testing"
 	"time"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -54,7 +57,7 @@ func TestOntologyShapeHTTPPartsAndRecentNotes(t *testing.T) {
 	latest := filepath.Join(s.cfg.VaultPath, "loose.md")
 	future := time.Now().Add(time.Hour)
 	require.NoError(t, os.Chtimes(latest, future, future))
-	_, err := ontology.EnsureFreshRuntimeWithStore(t.Context(), testNoteMetadataIndexer(t), s.cfg.VaultDef, &obsidian.Note{}, s.runtime.Intel())
+	_, err := ontologytest.Publish(t.Context(), testkit.NoteMetadataIndexer(t), s.cfg.VaultDef, &obsidian.Note{}, s.runtime.Intel())
 	require.NoError(t, err)
 	w = shapeGET(t, s, "/api/v1/ontology/types/__all__?limit=1")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
@@ -107,14 +110,14 @@ func newShapeLatencyServer(t testing.TB, notes int) *Server {
 		schemaText += fmt.Sprintf("type Type%02d @node(paths: [\"Type%02d/*.md\"]) { title: String @field stage: Stage @field nextStep: String @field @display(importance: KEY) peers: [Type%02d!] @link related: [Note!] @link }\n", i, i, (i+1)%15)
 	}
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schemaText), 0600))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	store, err := semdb.Open(filepath.Join(root, "fixture.db"))
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	metadata := semdb.NoteMetadataSnapshot{State: semdb.NoteMetadataState{Ready: true, LoadedAt: 1, NotesHash: "fixture"}}
 	snapshot := semdb.OntologySnapshot{SchemaState: semdb.OntologySchemaState{Ready: true, LoadedAt: 1, NotesHash: "fixture", SchemaHash: schema.Hash, MaterializationVersion: ontology.OntologyMaterializationVersion}}
-	model := codeanchor.IntelOntologyNodeReadModel{}
+	model := readmodel.NodeReadModel{}
 	pathFor := func(i int) string { return fmt.Sprintf("Type%02d/n%05d.md", i%15, i) }
 	for i := 0; i < notes; i++ {
 		path := pathFor(i)
@@ -123,8 +126,8 @@ func newShapeLatencyServer(t testing.TB, notes int) *Server {
 		metadata.Notes = append(metadata.Notes, semdb.NoteMetadataRow{Path: path, Title: fmt.Sprintf("Note %d", i), Mtime: int64(i + 1), IndexedAt: 1, FormatID: "markdown"})
 		snapshot.NoteTypes = append(snapshot.NoteTypes, semdb.OntologyNoteTypeRow{NotePath: path, TypeName: typ, SchemaHash: schema.Hash, UpdatedAt: 1})
 		model.NotePaths = append(model.NotePaths, path)
-		model.Nodes = append(model.Nodes, codeanchor.IntelOntologyNode{NodeID: id, NotePath: path, NodeRefJSON: "{}", NodeKind: "NOTE", TypeName: typ, SchemaHash: schema.Hash, UpdatedAt: 1})
-		model.FieldValues = append(model.FieldValues, codeanchor.IntelOntologyNodeFieldValue{NodeID: id, NotePath: path, TypeName: typ, FieldName: "stage", ValueKind: "enum", ValueText: "open", ValueNorm: "open", SchemaHash: schema.Hash, UpdatedAt: 1})
+		model.Nodes = append(model.Nodes, readmodel.NodeRow{NodeID: id, NotePath: path, NodeRefJSON: "{}", NodeKind: "NOTE", TypeName: typ, SchemaHash: schema.Hash, UpdatedAt: 1})
+		model.FieldValues = append(model.FieldValues, readmodel.FieldValueRow{NodeID: id, NotePath: path, TypeName: typ, FieldName: "stage", ValueKind: "enum", ValueText: "open", ValueNorm: "open", SchemaHash: schema.Hash, UpdatedAt: 1})
 		for j := 1; j <= 7; j++ {
 			target := (i + j) % notes
 			metadata.WikilinkEdges = append(metadata.WikilinkEdges, semdb.GraphDocEdgeRow{SrcPath: path, DstPath: pathFor(target), Kind: "wikilink"})
@@ -237,7 +240,7 @@ func TestOntologyShapeEmbeddedRelationsKeepHostDocumentEvidencePlain(t *testing.
 	body, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(path, append(body, []byte("related:: [[specs/proc]]\n")...), 0600))
-	_, err = ontology.EnsureFreshRuntimeWithStore(t.Context(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err = ontologytest.Publish(t.Context(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	s := newFixtureServer(t, fixture, nil)
 	w := shapeGET(t, s, "/api/v1/ontology/shape")
@@ -254,7 +257,7 @@ func TestOntologyShapeEmbeddedRelationsKeepHostDocumentEvidencePlain(t *testing.
 	require.Zero(t, iface.IssueCount, "counts stay zero before validation publication")
 	require.Equal(t, []noderead.ShapePair{{A: "ProcessSpec", B: "ProductSpec", Links: 1, PlainLinks: 1, Fields: []noderead.ShapePairField{}}}, shape.Links.Pairs,
 		"independent host document links stay plain; embedded relation fields never become host fields")
-	publishTestDiagnostics(t, s.runtime.Intel(),
+	publishTestDiagnostics(t, fixture.intelStore,
 		semdb.ValidationDiagnostic{IssueKey: "note", Check: validate.CheckBrokenLinks, Code: "broken_link", PrimaryPath: "specs/proc.md", AffectedPaths: []string{"specs/proc.md"}, AffectedNotePaths: []string{"specs/proc.md"}},
 		semdb.ValidationDiagnostic{IssueKey: "fragment", Check: validate.CheckOntology, Code: "parent_cycle", AffectedTypes: []string{"SpecMetric"}})
 	w = shapeGET(t, s, "/api/v1/ontology/shape?parts=members")

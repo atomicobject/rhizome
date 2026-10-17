@@ -1,6 +1,9 @@
 package frontmatter
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // BlessedKeys are the only frontmatter keys that are treated as "summary-like"
 // metadata for lightweight surfacing (e.g., semantic chunking, file_context stubs).
@@ -34,12 +37,18 @@ func FilterBlessed(frontmatter map[string]interface{}) map[string]interface{} {
 	// Be forgiving: Obsidian users often vary capitalization (e.g., "Summary" vs "summary").
 	// We normalize output keys to lowercase for consistent downstream handling.
 	out := make(map[string]interface{})
-	for k, v := range frontmatter {
+	keys := make([]string, 0, len(frontmatter))
+	for k := range frontmatter {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := frontmatter[k]
 		lk := strings.ToLower(strings.TrimSpace(k))
 		if _, ok := blessed[lk]; !ok {
 			continue
 		}
-		if _, exists := out[lk]; exists {
+		if _, exists := out[lk]; exists && k != lk {
 			continue
 		}
 		out[lk] = v

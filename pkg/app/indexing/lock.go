@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // LockWaitOptions configures the interactive wait for the index lock.
@@ -33,29 +34,15 @@ const (
 	LockRoleCLIIndex = "cli/index"
 )
 
-// TryAcquireIndexLock acquires the vault's index lock, waiting for the current
-// holder for as long as it needs.
-func TryAcquireIndexLock(ctx context.Context, lockPath string, requestPriority bool, debug bool, out io.Writer) (func() error, error) {
-	// Docs:
-	// - [[indexing-workflow]]
-	// - [[indexing-workflow#^spec-0036-us3-ac1]]
-	// - [[indexing-workflow#^spec-0036-us3-ac2]]
-	// - [Indexing pipeline - Concurrency + batching requirements](docs/reference/analysis/Indexing pipeline - Concurrency + batching requirements.md)
-	return TryAcquireIndexLockWithOptions(ctx, lockPath, LockWaitOptions{
-		Role:            LockRoleCLIIndex,
-		RequestPriority: requestPriority,
-		Debug:           debug,
-		Out:             out,
-	})
-}
-
-// TryAcquireIndexLockWithOptions is TryAcquireIndexLock with an explicit role,
-// poll interval, and optional wait limit.
-//
-// There is no give-up timeout: a holder that is making progress is not an
-// error, and the wait reports who holds the lock and for how long instead of
-// failing with a PID. Cancelling ctx (Ctrl-C) returns ctx.Err() cleanly.
-func TryAcquireIndexLockWithOptions(ctx context.Context, lockPath string, opts LockWaitOptions) (func() error, error) {
+// TryAcquireIndexLock waits for an owned writer lease for this vault.
+func TryAcquireIndexLock(ctx context.Context, vaultRoot string, opts LockWaitOptions) (*indexlock.Lease, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	lockPath := repoconfig.IndexLockPath(vaultRoot)
+	if opts.Role == "" {
+		opts.Role = LockRoleCLIIndex
+	}
 	out := opts.Out
 	if out == nil {
 		out = os.Stderr
@@ -66,12 +53,13 @@ func TryAcquireIndexLockWithOptions(ctx context.Context, lockPath string, opts L
 	}
 	acquire := indexlock.AcquireOptions{Role: opts.Role}
 
-	release, acquired, err := indexlock.TryAcquireWithOptions(lockPath, acquire)
+	lease, acquired, err := indexlock.TryAcquireLease(vaultRoot, acquire)
 	if err != nil {
 		return nil, fmt.Errorf("index lock error: %w", err)
 	}
 	if acquired {
-		return heartbeatUntilRelease(ctx, lockPath, release, poll), nil
+		heartbeatUntilRelease(ctx, lease, poll)
+		return lease, nil
 	}
 
 	var priority *indexlock.PriorityRequest
@@ -108,28 +96,25 @@ func TryAcquireIndexLockWithOptions(ctx context.Context, lockPath string, opts L
 		case <-timer.C:
 		}
 
-		release, acquired, err = indexlock.TryAcquireWithOptions(lockPath, acquire)
+		lease, acquired, err = indexlock.TryAcquireLease(vaultRoot, acquire)
 		if err != nil {
 			finishStatusLine(out, &printed)
 			return nil, fmt.Errorf("index lock error: %w", err)
 		}
 		if acquired {
 			finishStatusLine(out, &printed)
-			return heartbeatUntilRelease(ctx, lockPath, release, poll), nil
+			heartbeatUntilRelease(ctx, lease, poll)
+			return lease, nil
 		}
 	}
 }
 
-func heartbeatUntilRelease(ctx context.Context, lockPath string, release func() error, poll time.Duration) func() error {
+func heartbeatUntilRelease(ctx context.Context, lease *indexlock.Lease, poll time.Duration) {
 	interval := 30 * time.Second
 	if poll > 0 && poll < interval {
 		interval = poll * 10
 	}
-	stopHeartbeat := indexlock.StartHeartbeat(ctx, lockPath, interval)
-	return func() error {
-		stopHeartbeat()
-		return release()
-	}
+	lease.StartHeartbeat(ctx, interval)
 }
 
 // writeHolderStatus refreshes one status line naming the holder, its age, and

@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
-	"github.com/atomicobject/rhizome/pkg/app/codeintel"
 	"github.com/atomicobject/rhizome/pkg/app/indexcore"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 )
 
 func (w *unifiedSemanticWatcher) run() {
@@ -60,8 +60,8 @@ func (w *unifiedSemanticWatcher) processOwnershipBatch() lane.Handle {
 	handle, _, err := w.lane.Submit(w.runCtx, lane.Request{
 		Kind:     lane.KindWatcherBatch,
 		Coalesce: true,
-		Run: func(ctx context.Context, _ lane.Reporter) error {
-			err := w.reconcileBatchUnderLease(ctx)
+		Run: func(ctx context.Context, lease *indexlock.Lease, _ lane.Reporter) error {
+			err := w.reconcileBatchUnderLease(ctx, lease)
 			if err := ctx.Err(); err != nil {
 				if w.debug {
 					log.Printf("semantic watch: ownership batch interrupted: %v", err)
@@ -83,18 +83,18 @@ func (w *unifiedSemanticWatcher) processOwnershipBatch() lane.Handle {
 
 // reconcileBatchUnderLease runs with the lane's job context and the
 // index lock held.
-func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context) (batchErr error) {
+func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context, lease *indexlock.Lease) (batchErr error) {
 	ctx, finish := watchPhase(ctx, "watcher_reconcile")
 	defer func() {
 		finish(batchErr)
 		w.pendingMu.Lock()
 		pendingPaths := len(w.pendingByRel)
 		w.pendingMu.Unlock()
-		indexingperf.SetGauge(ctx, "watcher.pending_input_paths", int64(pendingPaths))
+		indexingperf.SetGauge(ctx, indexingperf.WatcherPendingInputPaths, int64(pendingPaths))
 	}()
 	cacheStarted := time.Now()
 	result, err := w.cacheService.RefreshWithResult(ctx)
-	indexingperf.ObserveLatency(ctx, "watcher.cache_refresh", time.Since(cacheStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.WatcherCacheRefresh, time.Since(cacheStarted))
 	if err != nil {
 		if w.debug {
 			log.Printf("semantic watch: cache refresh failed: %v", err)
@@ -105,11 +105,11 @@ func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context) (
 	if result.Resynced {
 		reasons = addWatchReason(reasons, "cache_recrawl_completed")
 	}
-	indexingperf.AddCount(ctx, "watcher.pending_paths", int64(len(pendingDirty)))
-	indexingperf.AddCount(ctx, "watcher.cache_drained_paths", int64(len(result.Drained)))
-	indexingperf.AddCount(ctx, "watcher.cache_changed_paths", int64(len(result.Changed)))
+	indexingperf.AddCount(ctx, indexingperf.WatcherPendingPaths, int64(len(pendingDirty)))
+	indexingperf.AddCount(ctx, indexingperf.WatcherCacheDrainedPaths, int64(len(result.Drained)))
+	indexingperf.AddCount(ctx, indexingperf.WatcherCacheChangedPaths, int64(len(result.Changed)))
 	for reason, count := range reasons {
-		indexingperf.AddCount(ctx, "watcher.trigger."+reason, count)
+		indexingperf.AddCount(ctx, indexingperf.WatcherTrigger.Select(reason), count)
 	}
 	result.Resynced = result.Resynced || pendingResync
 	dirty := cloneDirtyKinds(result.Drained)
@@ -128,7 +128,7 @@ func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context) (
 	defer func() {
 		if !completed {
 			w.restoreWatchInputs(dirty, result.Resynced, reasons)
-			indexingperf.AddCount(ctx, "watcher.restored_paths", int64(len(dirty)))
+			indexingperf.AddCount(ctx, indexingperf.WatcherRestoredPaths, int64(len(dirty)))
 			watcherEvent(ctx, slog.LevelWarn, "batch.restored", watcherReasonAttrs(reasons, slog.Int("paths", len(dirty)), slog.Bool("resync", result.Resynced))...)
 			for rel, kind := range dirty {
 				w.cacheService.MarkDirty(rel, kind)
@@ -150,20 +150,20 @@ func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context) (
 	result.Resynced = result.Resynced || unready
 	if unready {
 		reasons = addWatchReason(reasons, "unready_derived_work")
-		indexingperf.AddCount(ctx, "watcher.trigger.unready_derived_work", 1)
+		indexingperf.AddCount(ctx, indexingperf.WatcherTriggerUnreadyDerivedWork, 1)
 	}
 	if len(dirty) == 0 && !result.Resynced && !pending {
 		completed = true
 		return nil
 	}
-	indexingperf.AddCount(ctx, "watcher.dirty_paths", int64(len(dirty)))
+	indexingperf.AddCount(ctx, indexingperf.WatcherDirtyPaths, int64(len(dirty)))
 	if pending {
-		indexingperf.AddCount(ctx, "watcher.pending_reconciliation", 1)
+		indexingperf.AddCount(ctx, indexingperf.WatcherPendingReconciliation, 1)
 	}
 	watcherEvent(ctx, slog.LevelInfo, "batch.inputs", watcherReasonAttrs(reasons, slog.Int("dirty_paths", len(dirty)), slog.Bool("resync", result.Resynced), slog.Bool("pending_reconciliation", pending), slog.Int64("generation", generation))...)
 
 	epoch := w.health.begin(dirty, result.Resynced)
-	err = w.reconcileOwnershipBatch(ctx, dirty, result.Resynced, pending, generation, now, epochID(epoch))
+	err = w.reconcileOwnershipBatch(ctx, lease, dirty, result.Resynced, pending, generation, now, epochID(epoch))
 	if err != nil {
 		w.health.fail(epochID(epoch), "ownership", err)
 		w.cacheService.MarkStale()
@@ -175,7 +175,7 @@ func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context) (
 	return nil
 }
 
-func (w *unifiedSemanticWatcher) reconcileOwnershipBatch(ctx context.Context, dirty map[string]cache.DirtyKind, resynced, pending bool, generation int64, now time.Time, epoch int64) error {
+func (w *unifiedSemanticWatcher) reconcileOwnershipBatch(ctx context.Context, lease *indexlock.Lease, dirty map[string]cache.DirtyKind, resynced, pending bool, generation int64, now time.Time, epoch int64) error {
 	forceAll := resynced || pending
 	forceMetadata := false
 	forceOntology := false
@@ -200,7 +200,7 @@ func (w *unifiedSemanticWatcher) reconcileOwnershipBatch(ctx context.Context, di
 				}
 				forceAll = true
 				selectionChanged = true
-				indexingperf.AddCount(ctx, "watcher.selection_config_reload", 1)
+				indexingperf.AddCount(ctx, indexingperf.WatcherSelectionConfigReload, 1)
 			}
 			continue
 		}
@@ -211,7 +211,7 @@ func (w *unifiedSemanticWatcher) reconcileOwnershipBatch(ctx context.Context, di
 		affected[clean.String()] = struct{}{}
 		processed[clean.String()] = kind
 	}
-	indexingperf.AddCount(ctx, "watcher.internal_paths", int64(len(internal)))
+	indexingperf.AddCount(ctx, indexingperf.WatcherInternalPaths, int64(len(internal)))
 	if len(affected) == 0 && len(internal) == 0 && !resynced && !pending {
 		w.health.phase(epoch, "deferred")
 		return nil
@@ -237,10 +237,10 @@ func (w *unifiedSemanticWatcher) reconcileOwnershipBatch(ctx context.Context, di
 		case forceOntology:
 			reason = "ontology_change"
 		}
-		indexingperf.AddCount(ctx, "watcher.full_discovery."+reason, 1)
+		indexingperf.AddCount(ctx, indexingperf.WatcherFullDiscovery.Select(reason), 1)
 		watcherEvent(ctx, slog.LevelInfo, "discovery.full", slog.String("reason_code", reason), slog.Bool("resync", resynced), slog.Bool("pending_reconciliation", pending), slog.Bool("selection_changed", selectionChanged))
 	} else {
-		indexingperf.AddCount(ctx, "watcher.scoped_discovery", 1)
+		indexingperf.AddCount(ctx, indexingperf.WatcherScopedDiscovery, 1)
 	}
 	w.health.phase(epoch, "structural-index")
 	discovery, err := indexcore.Discover(ctx, request, w.intelStore)
@@ -249,25 +249,18 @@ func (w *unifiedSemanticWatcher) reconcileOwnershipBatch(ctx context.Context, di
 	}
 	queue := w.structuralWriter(ctx)
 	defer queue.Close()
-	ctx = codeintel.WithWriteQueue(ctx, queue)
-	result, err := indexcore.Publish(ctx, request, discovery, w.noteSvc, w.intelStore, queue, indexcore.PublishOptions{AfterPreparedOwnershipCommit: w.afterPreparedOwnershipCommit})
+	result, err := indexcore.Publish(ctx, lease, request, discovery, w.noteSvc, w.intelStore, queue, indexcore.PublishOptions{AfterPreparedOwnershipCommit: w.afterPreparedOwnershipCommit})
 	if err != nil {
 		return fmt.Errorf("publish live structural work: %w", err)
 	}
 	if err := queue.FlushAndWait(ctx); err != nil {
 		return err
 	}
-	if result.Reconciliation.Required() {
-		if err := queue.AcknowledgeOwnershipReconciliation(ctx, result.StructuralGeneration); err != nil {
-			return err
-		}
-		indexingperf.AddCount(ctx, "watcher.reconciliation_acknowledged", 1)
-		watcherEvent(ctx, slog.LevelInfo, "reconciliation.acknowledged", slog.Int64("generation", result.StructuralGeneration))
-	}
-	indexingperf.AddCount(ctx, "watcher.notes_ingested", int64(len(result.Notes.ChangedPaths)))
-	indexingperf.AddCount(ctx, "watcher.code_ingested", int64(len(result.Code.IndexedPaths)))
-	indexingperf.AddCount(ctx, "watcher.notes_deleted", int64(len(result.Notes.DeletedPaths)))
-	indexingperf.AddCount(ctx, "watcher.code_retired", int64(len(result.CodeRetirements)))
+
+	indexingperf.AddCount(ctx, indexingperf.WatcherNotesIngested, int64(len(result.Notes.ChangedPaths)))
+	indexingperf.AddCount(ctx, indexingperf.WatcherCodeIngested, int64(len(result.Code.IndexedPaths)))
+	indexingperf.AddCount(ctx, indexingperf.WatcherNotesDeleted, int64(len(result.Notes.DeletedPaths)))
+	indexingperf.AddCount(ctx, indexingperf.WatcherCodeRetired, int64(len(result.CodeRetirements)))
 	if w.derived != nil {
 		w.derived.notify()
 	}

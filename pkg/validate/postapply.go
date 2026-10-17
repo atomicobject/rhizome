@@ -2,77 +2,18 @@ package validate
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 )
 
-// IndexLockLease is an opaque borrow-only proof that the repair engine holds
-// the vault index lock. Only the engine can construct or release a valid lease.
-type IndexLockLease struct {
-	state *indexLockLeaseState
-}
-
-type indexLockLeaseState struct {
-	mu       sync.RWMutex
-	lockPath string
-	held     bool
-}
-
-// RequireHeld rejects absent, forged, or already-released lease tokens.
-func (l *IndexLockLease) RequireHeld() error {
-	if l == nil || l.state == nil {
-		return fmt.Errorf("index lock lease is absent")
-	}
-	l.state.mu.RLock()
-	defer l.state.mu.RUnlock()
-	if !l.state.held {
-		return fmt.Errorf("index lock lease is not held")
-	}
-	return nil
-}
-
-// RequireHeldForVault proves that this lease is live and belongs to the
-// adapter's specific vault. It reveals no release authority.
-func (l *IndexLockLease) RequireHeldForVault(vaultPath string) error {
-	vaultPaths, err := paths.NewVaultPaths(vaultPath)
-	if err != nil || vaultPaths.Root() == "" {
-		return fmt.Errorf("resolve lease vault: %w", err)
-	}
-	return l.requireHeldForPath(filepath.Join(vaultPaths.Root(), ".rhizome", "index.lock"))
-}
-
-func (l *IndexLockLease) requireHeldForPath(lockPath string) error {
-	if l == nil || l.state == nil {
-		return fmt.Errorf("index lock lease is absent")
-	}
-	resolved, err := canonicalLeaseLockPath(lockPath)
-	if err != nil {
-		return err
-	}
-	l.state.mu.RLock()
-	defer l.state.mu.RUnlock()
-	if !l.state.held {
-		return fmt.Errorf("index lock lease is not held")
-	}
-	if l.state.lockPath != resolved {
-		return fmt.Errorf("index lock lease belongs to a different vault")
-	}
-	return nil
-}
-
 // PathRename records one committed source-to-destination move.
-type PathRename struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-}
+type PathRename = sourcetxn.Rename
 
 // PostApplyTiming is one deterministic refresh phase duration.
 type PostApplyTiming struct {
@@ -140,7 +81,7 @@ func (r *PostApplyRefreshResult) validateRuntimeOwnership() error {
 type PostApplyRefresher interface {
 	Refresh(
 		context.Context,
-		*IndexLockLease,
+		*indexlock.Lease,
 		[]string,
 		[]PathRename,
 		[]string,
@@ -193,7 +134,7 @@ func (s PostApplyRefreshScope) normalized() PostApplyRefreshScope {
 type scopedPostApplyRefresher interface {
 	RefreshScoped(
 		context.Context,
-		*IndexLockLease,
+		*indexlock.Lease,
 		PostApplyRefreshScope,
 	) (PostApplyRefreshResult, error)
 }
@@ -201,7 +142,7 @@ type scopedPostApplyRefresher interface {
 func refreshPostApply(
 	ctx context.Context,
 	refresher PostApplyRefresher,
-	lease *IndexLockLease,
+	lease *indexlock.Lease,
 	scope PostApplyRefreshScope,
 ) (PostApplyRefreshResult, error) {
 	scope = scope.normalized()
@@ -220,7 +161,7 @@ type repairPostApplyScope struct {
 
 // repairPostApplyCheck is the engine-owned verification seam. It runs after
 // filesystem verification and read-model refresh, while the lease is held.
-type repairPostApplyCheck func(context.Context, *IndexLockLease, *ontology.Runtime, repairPostApplyScope) error
+type repairPostApplyCheck func(context.Context, *indexlock.Lease, *ontology.Runtime, repairPostApplyScope) error
 
 func newRepairPostApplyScope(checks, changed, deleted []string, renamed []PathRename) repairPostApplyScope {
 	paths := append(append([]string(nil), changed...), deleted...)
@@ -244,54 +185,21 @@ func repairManifestPostApplyPaths(manifest repairJournalManifest) []string {
 	return sortedUnique(paths)
 }
 
-func acquireRepairIndexLockLease(lockPath string) (*IndexLockLease, func() error, error) {
-	releaseLock, acquired, err := indexlock.TryAcquire(lockPath)
+func acquireRepairIndexLockLease(lockPath string) (*indexlock.Lease, func() error, error) {
+	root := filepath.Dir(filepath.Dir(lockPath))
+	lease, acquired, err := indexlock.TryAcquireLease(root, indexlock.AcquireOptions{Role: "interactive/repair"})
 	if err != nil {
 		return nil, nil, err
 	}
 	if !acquired {
 		return nil, nil, fmt.Errorf("index lock is held: %s", lockPath)
 	}
-	return newRepairIndexLockLease(lockPath, releaseLock)
+	return repairLeaseHeartbeat(lease)
 }
 
-func newRepairIndexLockLease(lockPath string, releaseLock func() error) (*IndexLockLease, func() error, error) {
-	resolvedLockPath, err := canonicalLeaseLockPath(lockPath)
-	if err != nil {
-		_ = releaseLock()
-		return nil, nil, err
-	}
-	state := &indexLockLeaseState{lockPath: resolvedLockPath, held: true}
-	lease := &IndexLockLease{state: state}
-	heartbeatCtx, cancelHeartbeat := context.WithCancel(context.Background())
-	stopHeartbeat := indexlock.StartHeartbeat(heartbeatCtx, lockPath, 30*time.Second)
+func repairLeaseHeartbeat(lease *indexlock.Lease) (*indexlock.Lease, func() error, error) {
+	stop := lease.StartHeartbeat(context.Background(), 30*time.Second)
 	var once sync.Once
 	var releaseErr error
-	release := func() error {
-		once.Do(func() {
-			state.mu.Lock()
-			state.held = false
-			state.mu.Unlock()
-			stopHeartbeat()
-			cancelHeartbeat()
-			releaseErr = releaseLock()
-		})
-		return releaseErr
-	}
-	return lease, release, nil
-}
-
-func canonicalLeaseLockPath(lockPath string) (string, error) {
-	abs, err := filepath.Abs(lockPath)
-	if err != nil {
-		return "", err
-	}
-	resolved, err := filepath.EvalSymlinks(abs)
-	if err == nil {
-		return filepath.Clean(resolved), nil
-	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	}
-	return filepath.Clean(abs), nil
+	return lease, func() error { once.Do(func() { stop(); releaseErr = lease.Release() }); return releaseErr }, nil
 }

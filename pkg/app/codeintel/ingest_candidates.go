@@ -7,7 +7,6 @@ import (
 	"runtime"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/app/indexingpipe"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -37,14 +36,14 @@ func (e *MarkdownCandidateReadError) Unwrap() error {
 	return e.Err
 }
 
-func validateMarkdownCandidates(root string, candidates []indexingpipe.FileCandidate) error {
+func validateMarkdownCandidates(root string, candidates []FileCandidate) error {
 	vaultPaths, err := paths.NewVaultPaths(root)
 	if err != nil || vaultPaths.Root() == "" {
 		return fmt.Errorf("Markdown candidate vault root is required")
 	}
 	for _, candidate := range candidates {
-		if candidate.Kind != indexingpipe.FileKindNote {
-			return fmt.Errorf("Markdown candidate %q has kind %q, want %q", candidate.RelPath, candidate.Kind, indexingpipe.FileKindNote)
+		if candidate.Kind != FileKindNote {
+			return fmt.Errorf("Markdown candidate %q has kind %q, want %q", candidate.RelPath, candidate.Kind, FileKindNote)
 		}
 		if !filepath.IsAbs(candidate.AbsPath) {
 			return fmt.Errorf("Markdown candidate %q has non-absolute path %q", candidate.RelPath, candidate.AbsPath)
@@ -64,7 +63,7 @@ func validateMarkdownCandidates(root string, candidates []indexingpipe.FileCandi
 // sealMarkdownCandidateSources validates immutable authored-source snapshots
 // against the already selected Markdown candidate batch and returns a private
 // map copy. It intentionally retains AuthoredSource values, never raw bytes.
-func sealMarkdownCandidateSources(root string, candidates []indexingpipe.FileCandidate, sources map[paths.NotePath]noteformat.AuthoredSource) (map[paths.NotePath]noteformat.AuthoredSource, error) {
+func sealMarkdownCandidateSources(root string, candidates []FileCandidate, sources map[paths.NotePath]noteformat.AuthoredSource) (map[paths.NotePath]noteformat.AuthoredSource, error) {
 	if err := validateMarkdownCandidates(root, candidates); err != nil {
 		return nil, err
 	}
@@ -72,7 +71,7 @@ func sealMarkdownCandidateSources(root string, candidates []indexingpipe.FileCan
 		return nil, nil
 	}
 
-	candidatesByPath := make(map[paths.NotePath]indexingpipe.FileCandidate, len(candidates))
+	candidatesByPath := make(map[paths.NotePath]FileCandidate, len(candidates))
 	for _, candidate := range candidates {
 		candidatesByPath[paths.NotePath(candidate.RelPath)] = candidate
 	}
@@ -109,42 +108,48 @@ func sealMarkdownCandidateSources(root string, candidates []indexingpipe.FileCan
 // perform stale-path cleanup: ownership orchestration owns those decisions.
 // The batch is validated before any candidate is read or index state is
 // queried, so no partial candidate batch can mutate the index.
-func IngestMarkdownCandidates(ctx context.Context, service *codeanchor.Service, root string, candidates []indexingpipe.FileCandidate, progress *indexingpipe.ProgressCallbacks) (NoteIngestResult, error) {
-	return IngestMarkdownCandidatesWithSources(ctx, service, root, candidates, nil, progress)
+func IngestMarkdownCandidates(ctx context.Context, service *codeanchor.Service, writeQueue WriteQueue, noteMetadata notemeta.Indexer, root string, candidates []FileCandidate, progress *ProgressCallbacks) (NoteIngestResult, error) {
+	return IngestMarkdownCandidatesWithSources(ctx, service, writeQueue, noteMetadata, root, candidates, nil, progress)
 }
 
 // IngestMarkdownCandidatesWithSources indexes preclassified Markdown
 // candidates, reusing any matching sealed authored-source snapshot instead of
 // reading that candidate from disk. Candidates without a supplied source stay
-// on indexingpipe.ProcessCandidates. Source and candidate batches are fully
+// on ProcessCandidates. Source and candidate batches are fully
 // validated before index state is queried or work begins.
-func IngestMarkdownCandidatesWithSources(ctx context.Context, service *codeanchor.Service, root string, candidates []indexingpipe.FileCandidate, sources map[paths.NotePath]noteformat.AuthoredSource, progress *indexingpipe.ProgressCallbacks) (NoteIngestResult, error) {
+func IngestMarkdownCandidatesWithSources(ctx context.Context, service *codeanchor.Service, writeQueue WriteQueue, noteMetadata notemeta.Indexer, root string, candidates []FileCandidate, sources map[paths.NotePath]noteformat.AuthoredSource, progress *ProgressCallbacks) (NoteIngestResult, error) {
+	if writeQueue == nil {
+		return NoteIngestResult{}, fmt.Errorf("note index writer is required")
+	}
+	if err := noteMetadata.Validate(); err != nil {
+		return NoteIngestResult{}, err
+	}
 	sealedSources, err := sealMarkdownCandidateSources(root, candidates, sources)
 	if err != nil {
 		return NoteIngestResult{}, err
 	}
-	return ingestMarkdownCandidateRun(ctx, service, func(ctx context.Context, shouldRead func(indexingpipe.FileCandidate) bool, onSkip func(indexingpipe.FileCandidate), process func(indexingpipe.FilePayload) error) error {
+	return ingestMarkdownCandidateRun(ctx, service, writeQueue, noteMetadata, func(ctx context.Context, shouldRead func(FileCandidate) bool, onSkip func(FileCandidate), process func(FilePayload) error) error {
 		return processMarkdownCandidatesWithSources(ctx, candidates, sealedSources, progress, shouldRead, onSkip, process)
-	}, markdownIngestPolicy{}, nil, markdownSourceSnapshotLookup(sealedSources))
+	})
 }
 
 func processMarkdownCandidatesWithSources(
 	ctx context.Context,
-	candidates []indexingpipe.FileCandidate,
+	candidates []FileCandidate,
 	sources map[paths.NotePath]noteformat.AuthoredSource,
-	progress *indexingpipe.ProgressCallbacks,
-	shouldRead func(indexingpipe.FileCandidate) bool,
-	onSkip func(indexingpipe.FileCandidate),
-	process func(indexingpipe.FilePayload) error,
+	progress *ProgressCallbacks,
+	shouldRead func(FileCandidate) bool,
+	onSkip func(FileCandidate),
+	process func(FilePayload) error,
 ) error {
-	fromFilesystem := make([]indexingpipe.FileCandidate, 0, len(candidates))
+	fromFilesystem := make([]FileCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		source, preloaded := sources[paths.NotePath(candidate.RelPath)]
 		if !preloaded {
 			fromFilesystem = append(fromFilesystem, candidate)
 			continue
 		}
-		indexingperf.AddCount(ctx, "fs.discovered", 1)
+		indexingperf.AddCount(ctx, indexingperf.FsDiscovered, 1)
 		if progress != nil && progress.OnDiscovered != nil {
 			progress.OnDiscovered(candidate)
 		}
@@ -152,46 +157,25 @@ func processMarkdownCandidatesWithSources(
 			if onSkip != nil {
 				onSkip(candidate)
 			}
-			indexingperf.AddCount(ctx, "fs.completed", 1)
+			indexingperf.AddCount(ctx, indexingperf.FsCompleted, 1)
 			if progress != nil && progress.OnCompleted != nil {
 				progress.OnCompleted(candidate)
 			}
 			continue
 		}
-		if err := process(indexingpipe.FilePayload{Candidate: candidate, Content: source.Bytes()}); err != nil {
+		if err := process(FilePayload{Candidate: candidate, Content: source.Bytes()}); err != nil {
 			return err
 		}
-		indexingperf.AddCount(ctx, "fs.completed", 1)
+		indexingperf.AddCount(ctx, indexingperf.FsCompleted, 1)
 		if progress != nil && progress.OnCompleted != nil {
 			progress.OnCompleted(candidate)
 		}
 	}
-	return indexingpipe.ProcessCandidates(ctx, fromFilesystem, indexingpipe.CandidateProcessOptions{
+	return ProcessCandidates(ctx, fromFilesystem, CandidateProcessOptions{
 		WorkerCount: ClampIndexWorkers(runtime.GOMAXPROCS(0)),
 		Progress:    progress,
-		OnReadError: func(_ context.Context, candidate indexingpipe.FileCandidate, err error) error {
+		OnReadError: func(_ context.Context, candidate FileCandidate, err error) error {
 			return &MarkdownCandidateReadError{Path: candidate.RelPath, Err: err}
 		},
 	}, shouldRead, onSkip, process)
-}
-
-func markdownSourceSnapshotLookup(sources map[paths.NotePath]noteformat.AuthoredSource) markdownSourceLookup {
-	if len(sources) == 0 {
-		return nil
-	}
-	return func(candidate indexingpipe.FileCandidate) (notemeta.NoteSourceSnapshot, bool) {
-		source, ok := sources[paths.NotePath(candidate.RelPath)]
-		if !ok {
-			return notemeta.NoteSourceSnapshot{}, false
-		}
-		content := source.Bytes()
-		return notemeta.NoteSourceSnapshot{
-			Path:        source.Path(),
-			Format:      source.Format(),
-			Content:     string(content),
-			ContentHash: source.ContentHash(),
-			Mtime:       source.Mtime(),
-			Size:        source.Size(),
-		}, true
-	}
 }

@@ -1,7 +1,6 @@
 package codeanchor
 
 import (
-	"context"
 	"errors"
 )
 
@@ -82,18 +81,4 @@ type IndexedOntologySummary struct {
 	TypedNotes             int                        `json:"typedNotes"`
 	UntypedNotes           int                        `json:"untypedNotes"`
 	TypeCounts             []IndexedOntologyTypeCount `json:"typeCounts,omitempty"`
-}
-
-// IndexedContextStore exposes target-scoped reads only. Implementations must
-// scope and limit in the durable store rather than loading the complete graph.
-type IndexedContextStore interface {
-	IndexedCodeNoteLinksForFile(ctx context.Context, codePath string, limit int) ([]IndexedCodeNoteLink, error)
-	IndexedCodeNoteLinksForSubtree(ctx context.Context, subtree string, limit int) ([]IndexedCodeNoteLink, error)
-	IndexedRationaleForFile(ctx context.Context, codePath string, limit int) ([]IndexedRationale, error)
-	IndexedRationaleForSubtree(ctx context.Context, subtree string, limit int) ([]IndexedRationale, error)
-	IndexedCodeEdgesForFile(ctx context.Context, codePath string, limit int) ([]IndexedCodeEdge, error)
-	IndexedCodeEdgesForSubtree(ctx context.Context, subtree string, limit int) ([]IndexedCodeEdge, error)
-	IndexedNoteMetadataForPath(ctx context.Context, notePath string) (*IndexedNoteMetadata, error)
-	IndexedGraphSummary(ctx context.Context, communityLimit int) (IndexedGraphSummary, error)
-	IndexedOntologySummary(ctx context.Context, maxTypes, maxExamples int) (IndexedOntologySummary, error)
 }

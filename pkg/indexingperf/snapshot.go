@@ -143,7 +143,7 @@ func (c *Collector) Snapshot() Snapshot {
 	return out
 }
 
-func identity(m Metric) MetricIdentity { return MetricIdentity{m.Phase, m.Name} }
+func identity(m Metric) MetricIdentity { return MetricIdentity{m.Phase, string(m.Name)} }
 func identityLess(a, b MetricIdentity) bool {
 	if a.Phase == b.Phase {
 		return a.Name < b.Name

@@ -108,76 +108,25 @@ func TestTryAcquireWithRoleRoundTrips(t *testing.T) {
 	if data.Role != "cli/index" {
 		t.Fatalf("role = %q, want cli/index", data.Role)
 	}
-	if data.ProcessLifetime {
-		t.Fatal("an ordinary lock is not process-lifetime")
-	}
 	if err := release(); err != nil {
 		t.Fatalf("release: %v", err)
 	}
 }
 
 func TestLiveLockIgnoresHeartbeatAge(t *testing.T) {
-	lockPath := filepath.Join(t.TempDir(), ".rhizome", "runtime.lock")
-	release, acquired, err := TryAcquireWithOptions(lockPath, AcquireOptions{Role: "runtime/election", ProcessLifetime: true})
+	lockPath := filepath.Join(t.TempDir(), ".rhizome", "index.lock")
+	release, acquired, err := TryAcquireWithOptions(lockPath, AcquireOptions{Role: "cli/index"})
 	if err != nil || !acquired {
 		t.Fatalf("acquire: err=%v acquired=%v", err, acquired)
 	}
 	defer func() { _ = release() }()
-
-	// Age the lock far past the heartbeat threshold. The owning PID is this
-	// live process, so the lock must stay held.
 	old := time.Now().Add(-10 * time.Minute)
 	if err := os.Chtimes(lockPath, old, old); err != nil {
-		t.Fatalf("age lock: %v", err)
+		t.Fatal(err)
 	}
-	if _, acquired, err := TryAcquireWithOptions(lockPath, AcquireOptions{ProcessLifetime: true}); err != nil || acquired {
-		t.Fatalf("a live process-lifetime lock must not be reclaimed for age: err=%v acquired=%v", err, acquired)
-	}
-	// The flag is persisted, so even a caller that forgets it must not reclaim.
 	if _, acquired, err := TryAcquire(lockPath); err != nil || acquired {
-		t.Fatalf("persisted process-lifetime flag must protect the lock: err=%v acquired=%v", err, acquired)
+		t.Fatalf("a live owner must not be reclaimed for age: err=%v acquired=%v", err, acquired)
 	}
-
-	// A paused ordinary writer can resume too, so age cannot reclaim its lock.
-	ordinaryPath := filepath.Join(filepath.Dir(lockPath), "index.lock")
-	ordinaryRelease, acquired, err := TryAcquire(ordinaryPath)
-	if err != nil || !acquired {
-		t.Fatalf("acquire ordinary: err=%v acquired=%v", err, acquired)
-	}
-	defer func() { _ = ordinaryRelease() }()
-	if err := os.Chtimes(ordinaryPath, old, old); err != nil {
-		t.Fatalf("age ordinary lock: %v", err)
-	}
-	_, acquired, err = TryAcquire(ordinaryPath)
-	if err != nil || acquired {
-		t.Fatalf("a paused ordinary lock must stay held: err=%v acquired=%v", err, acquired)
-	}
-}
-
-func TestProcessLifetimeLockIsReclaimedFromADeadPID(t *testing.T) {
-	lockPath := filepath.Join(t.TempDir(), ".rhizome", "runtime.lock")
-	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	identity, err := runtimeIdentity()
-	if err != nil {
-		t.Fatal(err)
-	}
-	dead := LockData{PID: deadPID(t), Started: time.Now().UTC().Format(time.RFC3339Nano), Host: getHostname(), Runtime: identity, ProcessLifetime: true}
-	dead.Token = dead.Started
-	raw, err := json.Marshal(dead)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(lockPath, raw, 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	release, acquired, err := TryAcquireWithOptions(lockPath, AcquireOptions{ProcessLifetime: true})
-	if err != nil || !acquired {
-		t.Fatalf("a dead owner's process-lifetime lock must be reclaimed: err=%v acquired=%v", err, acquired)
-	}
-	_ = release()
 }
 
 func TestHeartbeatStopsTouchingALockItNoLongerOwns(t *testing.T) {

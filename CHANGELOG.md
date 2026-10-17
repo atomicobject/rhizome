@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+- Open search indexes without changing their schema, metadata, or paid embedding caches. Explicit indexing owns upgrades and repairs, and database integrity checks run as requested maintenance.
+- Keep live and full ontology projections consistent across note formats, unresolved links, identifier changes, and direct database writes. Typed reads require a published readiness proof and preserve cancellation as a retryable error.
+- Use the same scalar filters and ordering in typed queries, staged previews, and configured views, including literal strings, Unicode paths, and fractional UTC timestamps. Batch typed-record hydration and bound missing-identifier and section-neighbor lookups.
+- Run saved query recipes consistently across CLI, code mode, MCP, HTTP, and views. Duplicate selected IDs are rejected, unrelated broken recipes do not block valid targets, and ontology and code runtime providers are shared across surfaces.
+- Prepare source-backed repair plans only when a preview or apply is requested. Ordinary validation retains findings and action summaries without constructing replacement payloads, and repair preparation rejects source or schema changes since the scan. Compatible field initializations share one frontmatter block per note; duplicate or contradictory source edits remain conflicts.
+- Preserve queued indexing obligations through cancellation and shutdown, share batching and publication between live and full indexing, and report observed metrics through one bounded metric catalog.
+- Use `rzm index` to refresh code alongside notes. The separate `rzm code index` and `rzm code index-anchors` commands have been removed.
+- Isolate command flags and configuration per invocation, including managed JavaScript operation calls. Relative `agent code execute --input-file` paths use the invocation directory.
+- Consolidate schema compilation, Markdown syntax, embedding storage, runtime configuration, and application composition under their owning modules. Repository checks now enforce Go unused and static analysis, a source-file size ratchet, and explicit shipped-content contracts.
+
+- Indexed, live, and command validation use the same configured selection and applicability rules. Repair previews omit complete file payloads from JSON while their fingerprints still bind every reviewed source and replacement byte.
+
 - `rzm` commands work from any subdirectory of a repository, such as a vault's `Notes/` folder. Vault selection now looks for `.rhizome/config.yml` in each parent up to the Git root instead of only the current directory, which failed with a misleading "Could not parse rhizome config file" error when no default vault was set. Outside a Git work tree only the current directory is checked.
 - Search finds a note by the words other notes use when they link to it. A note that several notes link to as `[[Project Kestrel|catalog migration]]` now comes up for "catalog migration" even though its own title and text never say it, and a label two or more notes agree on counts like the note's title. The index stores each link's label and line, so the first run after updating reindexes note links. Continuation tokens from earlier searches report stale and must be refreshed.
 - Search ranks notes whose titles contain every word of a short query above notes that match one word. A note found by both its title and its embedding now scores as one result instead of two weaker ones, and a single query word repeated across a note's path, title, and headings no longer counts as a full match. Continuation tokens from earlier searches report stale and must be refreshed.

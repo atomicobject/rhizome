@@ -77,7 +77,7 @@ func (s *AsyncCodeSemanticSubmitter) SubmitCodeIndexWork(ctx context.Context, wo
 	case <-ctx.Done():
 		return ctx.Err()
 	case s.ch <- work:
-		indexingperf.SetGauge(ctx, "codeindex.semantic_queue_depth", int64(len(s.ch)))
+		indexingperf.SetGauge(ctx, indexingperf.CodeindexSemanticQueueDepth, int64(len(s.ch)))
 		return nil
 	}
 }

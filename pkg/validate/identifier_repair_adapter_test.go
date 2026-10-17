@@ -3,17 +3,19 @@ package validate
 import (
 	"context"
 	"encoding/json"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestIdentifierRepairAdapterMapsAndAppliesOneAtomicRenameTransaction(t *testing.T) {
@@ -39,11 +41,11 @@ func TestIdentifierRepairAdapterMapsAndAppliesOneAtomicRenameTransaction(t *test
 		require.Contains(t, operation.Identities, "identifier-membership:"+fixture.membership)
 	}
 
-	_, err = ApplyFixPlan(context.Background(), fixture.runCtx, plan, Options{Fix: true, NonInteractive: true})
+	_, err = ApplyFixPlan(context.Background(), fixture.runCtx, plan, ApplyOptions{Fix: true, NonInteractive: true})
 	require.ErrorContains(t, err, "requires lease-held authoritative revalidation")
 
 	refresher := &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx}
-	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: refresher,
 	})
 	require.NoError(t, err)
@@ -80,7 +82,7 @@ func TestIdentifierRepairAdapterApplyFailsClosedWithoutPostcheckOrchestration(t 
 	fixture := buildIdentifierRepairAdapterFixture(t)
 	plan, err := BuildIdentifierRepairPlan(context.Background(), fixture.runCtx, fixture.assembly, fixture.bindings)
 	require.NoError(t, err)
-	_, err = ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{Fix: true, NonInteractive: true})
+	_, err = ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{Fix: true, NonInteractive: true})
 	require.ErrorContains(t, err, "requires prepared refresh and held-lease postcheck")
 	_, statErr := os.Stat(filepath.Join(fixture.root, filepath.FromSlash(fixture.oldPath)))
 	require.NoError(t, statErr)
@@ -98,7 +100,7 @@ func TestIdentifierRepairAdapterRejectsDifferentSealedAssemblyWithIdenticalPhysi
 	require.NotEqual(t, reviewed.AuthorityFingerprint, alternatePlan.AuthorityFingerprint)
 	require.NotEqual(t, reviewed.Fingerprint, alternatePlan.Fingerprint, "the reviewed plan fingerprint must bind complete assembly authority")
 
-	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, reviewed, alternate, fixture.bindings, Options{
+	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, reviewed, alternate, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
 	require.Nil(t, execution)
@@ -120,14 +122,14 @@ func TestIdentifierRepairAdapterPreservesReviewOnlyProseEvidenceInPlanAndApplyRe
 	require.Equal(t, fixture.membership, followUp.MembershipKeys[0])
 	require.False(t, followUp.Diagnostic.Blocking)
 	require.NotNil(t, followUp.Diagnostic.Field)
-	require.Equal(t, reference.IdentifierRewriteDiagnosticReviewOnly, followUp.Diagnostic.Field.Kind)
+	require.Equal(t, identifierrewrite.IdentifierRewriteDiagnosticReviewOnly, followUp.Diagnostic.Field.Kind)
 	require.Equal(t, "SPEC-0001", followUp.Diagnostic.Field.Value)
 	planJSON, err := json.Marshal(plan)
 	require.NoError(t, err)
 	require.Contains(t, string(planJSON), `"followUps":[{`)
 	require.Contains(t, string(planJSON), `"sourcePath":"notes/review.md"`)
 
-	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
 	require.NoError(t, err)
@@ -148,7 +150,7 @@ func TestIdentifierRepairAdapterRejectsReviewedPlanWithoutLeaseMarker(t *testing
 	plan.RequiresLeaseHeldReplan = false
 	finalized, err := FinalizeRepairPlan(*plan)
 	require.NoError(t, err)
-	_, err = ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, &finalized, fixture.assembly, fixture.bindings, Options{
+	_, err = ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, &finalized, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
 	require.ErrorContains(t, err, "lacks the engine-owned lease revalidation marker")
@@ -161,11 +163,11 @@ func TestIdentifierRepairAdapterRejectsReviewedRequiredCheckMutation(t *testing.
 	plan, err := BuildIdentifierRepairPlan(context.Background(), fixture.runCtx, fixture.assembly, fixture.bindings)
 	require.NoError(t, err)
 	for index := range plan.Operations {
-		plan.Operations[index].RequiredChecks = []string{CheckAliases}
+		plan.Operations[index].RequiredChecks = []string{CheckIdentifiers}
 	}
 	finalized, err := FinalizeRepairPlan(*plan)
 	require.NoError(t, err)
-	_, err = ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, &finalized, fixture.assembly, fixture.bindings, Options{
+	_, err = ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, &finalized, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
 	require.ErrorContains(t, err, "lease-held repair differs from reviewed plan")
@@ -186,7 +188,7 @@ func TestIdentifierRepairAdapterCanonicalizesCallerMutableDerivedTransactions(t 
 	require.Equal(t, wantChecks, canonical.Transactions[0].Checks)
 	require.NotContains(t, canonical.Transactions[0].Checks, "not-a-real-check")
 
-	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
@@ -199,7 +201,7 @@ func TestIdentifierRepairAdapterPostcheckErrorRecoversWithoutRemappingOrSecondMu
 	plan, err := BuildIdentifierRepairPlan(context.Background(), fixture.runCtx, fixture.assembly, fixture.bindings)
 	require.NoError(t, err)
 	firstRefresh := identifierInvalidOwnershipRefresher{}
-	firstExecution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+	firstExecution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: firstRefresh,
 	})
 	require.ErrorContains(t, err, "prepared post-apply runtime has no cleanup owner")
@@ -221,9 +223,7 @@ func TestIdentifierRepairAdapterPostcheckErrorRecoversWithoutRemappingOrSecondMu
 	// the manifest checks without invoking the mapper against this changed vault.
 	writeIdentifierAdapterFile(t, fixture.root, "notes/added-after-commit.md", "# Added after commit\n")
 	secondRefresh := &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx}
-	secondExecution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
-		Fix: true, NonInteractive: true, Checks: []string{"not-a-real-check"}, PostApplyRefresher: secondRefresh,
-	})
+	secondExecution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{ScanOptions: ScanOptions{Checks: []string{"not-a-real-check"}}, Fix: true, NonInteractive: true, PostApplyRefresher: secondRefresh})
 	require.NoError(t, err)
 	require.Zero(t, secondExecution.RemainingFindings)
 	require.Equal(t, 1, secondRefresh.calls)
@@ -264,7 +264,7 @@ func TestIdentifierRepairAdapterReportsOrdinaryPostcheckFindingsWithoutRetaining
 			fixture := buildIdentifierRepairAdapterFixtureWithFiles(t, tt.extra)
 			plan, err := BuildIdentifierRepairPlan(context.Background(), fixture.runCtx, fixture.assembly, fixture.bindings)
 			require.NoError(t, err)
-			execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+			execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 				Fix: true, NonInteractive: true,
 				PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 			})
@@ -315,7 +315,7 @@ func TestIdentifierRepairAdapterPromptsAndReportsOnlyConsumerAction(t *testing.T
 	require.NoError(t, err)
 	require.Len(t, plan.Actions, 1)
 	prompts := 0
-	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 		Confirm: func(question string) (bool, error) {
 			prompts++
@@ -370,7 +370,7 @@ func buildIdentifierRepairAdapterFixtureFromRoot(t *testing.T, root string, with
 	t.Helper()
 	const oldPath = "specs/SPEC-0001-loser.md"
 
-	format := &ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategySequential, Prefix: "SPEC", Separator: "-", Pad: 4}
+	format := &ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategySequential, Prefix: "SPEC", Separator: "-", Pad: 4}
 	pool, err := identifierreconcile.NewPoolKey(format)
 	require.NoError(t, err)
 	claim := func(notePath string) identifierreconcile.Claim {
@@ -403,8 +403,8 @@ func buildIdentifierRepairAdapterFixtureFromRoot(t *testing.T, root string, with
 	newPath := "specs/SPEC-0002-loser.md"
 	oldRef := ontology.NodeRef{NotePath: oldPath, TypeName: "Spec", Kind: ontology.NodeKindNote}
 	newRef := ontology.NodeRef{NotePath: newPath, TypeName: "Spec", Kind: ontology.NodeKindNote}
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef,
 		OldIdentifier: "SPEC-0001", NewIdentifier: "SPEC-0002", PreferredField: "id", AliasesField: "aliases",
 	}
 	moveRequest := obsidian.GovernedMoveRequest{
@@ -415,43 +415,32 @@ func buildIdentifierRepairAdapterFixtureFromRoot(t *testing.T, root string, with
 	require.NoError(t, err)
 	require.Nil(t, conflict)
 	vaultDef := obsidian.VaultDefinition{Path: root}
-	fields, err := identifierreconcile.DiscoverIdentifierFields(context.Background(), identifierreconcile.IdentifierFieldDiscoveryRequest{VaultDef: vaultDef, RootRewrites: []reference.IdentifierRewrite{rewrite}})
+	fields, err := identifierreconcile.DiscoverIdentifierFields(context.Background(), identifierreconcile.IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t), VaultDef: vaultDef, RootRewrites: []identifierrewrite.IdentifierRewrite{rewrite}})
 	require.NoError(t, err)
 	links, err := identifierreconcile.DiscoverIdentifierLinks(context.Background(), identifierreconcile.IdentifierLinkDiscoveryRequest{FieldDiscovery: fields})
 	require.NoError(t, err)
 	assembly, err := identifierreconcile.AssembleRekeyRepairIntents(identifierreconcile.RekeyRepairAssemblyInput{
 		Plan: identifierPlan,
 		Collisions: []identifierreconcile.CollisionRepairInput{{
-			CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite},
+			CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 			Moves: []identifierreconcile.GovernedMoveResult{{Request: moveRequest, Plan: movePlan}},
 		}},
 		FieldDiscovery: fields, LinkDiscovery: links,
 	})
 	require.NoError(t, err)
 	action := FixAction{
-		ID: "action:duplicate-identifier", Check: CheckAliases, Kind: "resolve_duplicate_identifier",
+		ID: "action:duplicate-identifier", Check: CheckIdentifiers, Kind: "resolve_duplicate_identifier",
 		Safety: FixSafetySafe, Title: "Resolve duplicate identifier", IssueKeys: []string{"issue:duplicate-identifier"},
 	}
 	return identifierRepairAdapterFixture{
 		root: root, oldPath: oldPath, newPath: newPath, membership: collision.Key,
 		runCtx: RunContext{
 			VaultDef: vaultDef, VaultPath: root,
-			VaultMgr: identifierRepairVaultManager{def: vaultDef}, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t),
+			NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t),
 		},
 		assembly: assembly,
 		bindings: []IdentifierRepairActionBinding{{MembershipKey: collision.Key, Action: action}},
 	}
-}
-
-type identifierRepairVaultManager struct {
-	def obsidian.VaultDefinition
-}
-
-func (m identifierRepairVaultManager) DefaultName() (string, error) { return m.def.Name, nil }
-func (m identifierRepairVaultManager) SetDefaultName(string) error  { return nil }
-func (m identifierRepairVaultManager) Path() (string, error)        { return m.def.BasePath(), nil }
-func (m identifierRepairVaultManager) Definition() (obsidian.VaultDefinition, error) {
-	return m.def, nil
 }
 
 type identifierRepairRuntimeRefresher struct {
@@ -465,18 +454,18 @@ type identifierRepairRuntimeRefresher struct {
 
 func (r *identifierRepairRuntimeRefresher) Refresh(
 	ctx context.Context,
-	lease *IndexLockLease,
+	lease *indexlock.Lease,
 	changed []string,
 	renamed []PathRename,
 	deleted []string,
 ) (PostApplyRefreshResult, error) {
 	r.t.Helper()
-	require.NoError(r.t, lease.RequireHeldForVault(r.runCtx.VaultPath))
+	require.NoError(r.t, lease.Validate(r.runCtx.VaultPath))
 	r.calls++
 	r.changed = append(r.changed, append([]string(nil), changed...))
 	r.renamed = append(r.renamed, append([]PathRename(nil), renamed...))
 	r.deleted = append(r.deleted, append([]string(nil), deleted...))
-	runtime, cleanup, err := ontology.EnsureFreshRuntime(ctx, r.runCtx.NoteMetadata, r.runCtx.VaultDef, &obsidian.Note{})
+	runtime, cleanup, err := ontologytest.OpenHeld(ctx, lease, r.runCtx.NoteMetadata, r.runCtx.VaultDef, &obsidian.Note{})
 	if err != nil {
 		if cleanup != nil {
 			cleanup()
@@ -501,7 +490,7 @@ type identifierInvalidOwnershipRefresher struct{}
 
 func (identifierInvalidOwnershipRefresher) Refresh(
 	context.Context,
-	*IndexLockLease,
+	*indexlock.Lease,
 	[]string,
 	[]PathRename,
 	[]string,

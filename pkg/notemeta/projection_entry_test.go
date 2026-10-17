@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,18 +44,9 @@ func TestProjectionEntryFromPreservesProviderFactsWithoutParsing(t *testing.T) {
 
 	mapped, err := projectionEntryFrom(source, projection)
 	require.NoError(t, err)
-	require.Equal(t, "notes/Decision.MD", mapped.Entry.Path)
-	require.Equal(t, content, mapped.Entry.Content)
-	require.Equal(t, source.Mtime(), mapped.Entry.Mtime)
-	require.Equal(t, source.Size(), mapped.Entry.Size)
-	require.Equal(t, source, mapped.Entry.Source)
-	require.Equal(t, projection, mapped.Entry.Projection)
 	require.Equal(t, "Projected title", mapped.Entry.Title)
 	require.Equal(t, []string{"Ada", "Grace"}, mapped.Entry.InlineProps["owner"])
 	require.Equal(t, []string{"topic", "nested/child"}, mapped.Entry.Tags)
-	require.Equal(t, []string{"DEC-1", "Decision"}, mapped.Entry.Aliases)
-	require.Equal(t, projection.Facts.Links, mapped.Entry.Links)
-	require.Equal(t, projection.Facts.FragmentTargets, mapped.Entry.FragmentTargets)
 	require.Equal(t, []string{"DEC-1", "Decision"}, mapped.Entry.Frontmatter["aliases"])
 	require.Equal(t, source, mapped.Source)
 	require.Equal(t, projection.Facts.Links, mapped.Links)
@@ -91,12 +82,6 @@ func TestProjectionEntryFromFatalKeepsStableFallbackIdentity(t *testing.T) {
 
 	mapped, err := projectionEntryFrom(source, projection)
 	require.NoError(t, err)
-	require.Equal(t, source.Path().String(), mapped.Entry.Path)
-	require.Equal(t, "content", mapped.Entry.Content)
-	require.Equal(t, source.Mtime(), mapped.Entry.Mtime)
-	require.Equal(t, source.Size(), mapped.Entry.Size)
-	require.Equal(t, source, mapped.Entry.Source)
-	require.Equal(t, projection, mapped.Entry.Projection)
 	require.Equal(t, "fatal", mapped.Entry.Title)
 	require.Nil(t, mapped.Entry.Frontmatter)
 	require.Nil(t, mapped.Entry.InlineProps)

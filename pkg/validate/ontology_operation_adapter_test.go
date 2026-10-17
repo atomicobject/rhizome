@@ -2,6 +2,7 @@ package validate
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,7 +23,7 @@ type Spec @node(paths: ["notes/*.md"], label: "Spec") {
 `,
 		"notes/one.md": "---\ntype: Spec\nid: SPEC-0001\n---\n# One\n",
 	}))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	notePath := filepath.Join(root, "notes/one.md")
 	before, err := os.ReadFile(notePath)
@@ -75,7 +76,7 @@ type Spec @node(paths: ["notes/*.md"], label: "Spec") {
 `,
 		"notes/one.md": "---\ntype: Spec\nid: SPEC-0001\naliases: [SPEC-0001]\n---\n# One\n",
 	}))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	result, err := NewOntologyOperationAdapter().Preview(
@@ -113,8 +114,8 @@ func TestOntologyOperationAdapterRejectsMissingPluralAuthority(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := &fakeOntologyPreviewSession{}
-			adapter := &OntologyOperationAdapter{newSession: func(RunContext, *ontology.Schema, bool) ontologyPreviewSession { return fake }}
-			result, err := adapter.Preview(context.Background(), RunContext{}, &ontology.Schema{}, tt.request)
+			adapter := &OntologyOperationAdapter{newSession: func(RunContext, *ontoschema.Schema, bool) ontologyPreviewSession { return fake }}
+			result, err := adapter.Preview(context.Background(), RunContext{}, &ontoschema.Schema{}, tt.request)
 			require.ErrorContains(t, err, tt.wantErr)
 			assert.Empty(t, result.Operations)
 			assert.False(t, fake.previewCurrentCalled)
@@ -142,7 +143,7 @@ type Spec @node(paths: ["notes/*.md"]) {
 `,
 				"notes/one.md": "---\ntype: Spec\n" + tt.aliases + "\n---\n# One\n",
 			}))
-			schema, err := ontology.LoadSchema(root)
+			schema, err := ontoschema.LoadSchema(root)
 			require.NoError(t, err)
 			notePath := filepath.Join(root, "notes/one.md")
 			before, err := os.ReadFile(notePath)
@@ -181,7 +182,7 @@ type Spec @node(paths: ["notes/*.md"]) {
 `,
 		"notes/one.md": "---\ntype: Spec\nid: SPEC-0001\nlegacy_ids: [OLD, KEEP]\n---\n# One\n",
 	}))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	notePath := filepath.Join(root, "notes/one.md")
 	before, err := os.ReadFile(notePath)
@@ -222,12 +223,12 @@ func TestOntologyOperationAdapterConflictReturnsNoWrites(t *testing.T) {
 		},
 	}
 	adapter := &OntologyOperationAdapter{
-		newSession: func(RunContext, *ontology.Schema, bool) ontologyPreviewSession { return fake },
+		newSession: func(RunContext, *ontoschema.Schema, bool) ontologyPreviewSession { return fake },
 	}
 	result, err := adapter.Preview(
 		context.Background(),
 		RunContext{},
-		&ontology.Schema{},
+		&ontoschema.Schema{},
 		OntologyPreviewRequest{
 			OperationID: "op-a",
 			ActionIDs:   []string{"action-a"},
@@ -276,7 +277,7 @@ func TestOntologyOperationAdapterRejectsDriftBetweenPreviewAndSourceRead(t *test
 		}}},
 	}
 	adapter := &OntologyOperationAdapter{
-		newSession: func(RunContext, *ontology.Schema, bool) ontologyPreviewSession { return fake },
+		newSession: func(RunContext, *ontoschema.Schema, bool) ontologyPreviewSession { return fake },
 	}
 	_, err := adapter.Preview(
 		context.Background(),
@@ -285,7 +286,7 @@ func TestOntologyOperationAdapterRejectsDriftBetweenPreviewAndSourceRead(t *test
 			VaultPath:  root,
 			NoteReader: &obsidian.Note{},
 		},
-		&ontology.Schema{},
+		&ontoschema.Schema{},
 		OntologyPreviewRequest{
 			OperationID: "op-a",
 			ActionIDs:   []string{"action-a"},
@@ -324,11 +325,7 @@ func (f *fakeOntologyPreviewSession) SetScalarListField(ontology.NodeRef, string
 	return nil
 }
 
-func (f *fakeOntologyPreviewSession) SetRawFrontmatterList(ontology.NodeRef, string, []string) error {
-	return nil
-}
-
-func (f *fakeOntologyPreviewSession) SetInlineField(ontology.NodeRef, string, string) error {
+func (f *fakeOntologyPreviewSession) SetRootMetadataList(ontology.NodeRef, string, []string) error {
 	return nil
 }
 

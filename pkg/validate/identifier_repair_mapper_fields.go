@@ -3,17 +3,17 @@ package validate
 import (
 	"context"
 	"fmt"
-	"sort"
-
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"sort"
 )
 
 func identifierOntologyEdits(
 	ctx context.Context,
 	runCtx RunContext,
-	schema *ontology.Schema,
+	schema *ontoschema.Schema,
 	original, overlay []byte,
 	fields map[string]identifierreconcile.FieldRepairIntent,
 	links []identifierreconcile.LinkRepairIntent,
@@ -62,17 +62,17 @@ func identifierOntologyEdits(
 		materialSemanticEdit := false
 		for _, intent := range intents {
 			edit := intent.Edit
-			if edit.Operation != reference.StructuredFieldEditAppend {
+			if edit.Operation != identifierrewrite.StructuredFieldEditAppend {
 				if !edit.Range.Valid(len(original)) || string(original[edit.Range.Start:edit.Range.End]) != edit.Expected {
 					return nil, fmt.Errorf("identifier field edit %s.%s is stale", ref.String(), fieldName)
 				}
 			}
 			switch edit.Operation {
-			case reference.StructuredFieldEditAppend:
+			case identifierrewrite.StructuredFieldEditAppend:
 				values = append(values, edit.Replacement)
 				materialSemanticEdit = true
-			case reference.StructuredFieldEditReplace, reference.StructuredFieldEditRemove:
-				if edit.Operation == reference.StructuredFieldEditReplace &&
+			case identifierrewrite.StructuredFieldEditReplace, identifierrewrite.StructuredFieldEditRemove:
+				if edit.Operation == identifierrewrite.StructuredFieldEditReplace &&
 					indexIdentifierFieldValue(field, values, edit.Replacement) >= 0 &&
 					identifierFieldTransitionAppliedByLinks(original, edit, links) {
 					continue
@@ -81,7 +81,7 @@ func identifierOntologyEdits(
 				if index < 0 {
 					return nil, fmt.Errorf("identifier field %s.%s no longer contains %q", ref.String(), fieldName, edit.Expected)
 				}
-				if edit.Operation == reference.StructuredFieldEditReplace {
+				if edit.Operation == identifierrewrite.StructuredFieldEditReplace {
 					values[index] = edit.Replacement
 				} else {
 					values = append(values[:index], values[index+1:]...)
@@ -97,7 +97,7 @@ func identifierOntologyEdits(
 		switch {
 		case field == nil:
 			out = append(out, OntologyEdit{Kind: OntologyEditSetRawFrontmatterList, Ref: ref, Field: fieldName, Values: values})
-		case field.Kind == ontology.FieldKindLink:
+		case field.Kind == ontoschema.FieldKindLink:
 			out = append(out, OntologyEdit{Kind: OntologyEditSetLink, Ref: ref, Field: fieldName, Values: values})
 		case field.List:
 			out = append(out, OntologyEdit{Kind: OntologyEditSetScalarList, Ref: ref, Field: fieldName, Values: values})
@@ -121,9 +121,9 @@ func identifierOntologyFieldKey(ref ontology.NodeRef, field string) string {
 func identifierFieldEditGroupRank(intents []identifierreconcile.FieldRepairIntent) int {
 	for _, intent := range intents {
 		switch intent.Edit.Kind {
-		case reference.StructuredFieldPreferredIdentifier:
+		case identifierrewrite.StructuredFieldPreferredIdentifier:
 			return 0
-		case reference.StructuredFieldAliasIdentifier:
+		case identifierrewrite.StructuredFieldAliasIdentifier:
 			return 2
 		}
 	}
@@ -132,7 +132,7 @@ func identifierFieldEditGroupRank(intents []identifierreconcile.FieldRepairInten
 
 func identifierFieldTransitionAppliedByLinks(
 	original []byte,
-	field reference.StructuredFieldEdit,
+	field identifierrewrite.StructuredFieldEdit,
 	links []identifierreconcile.LinkRepairIntent,
 ) bool {
 	if !field.Range.Valid(len(original)) || string(original[field.Range.Start:field.Range.End]) != field.Expected {

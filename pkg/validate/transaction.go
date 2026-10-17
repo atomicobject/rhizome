@@ -23,8 +23,8 @@ const (
 type ExpectedText struct {
 	StartByte   int    `json:"startByte"`
 	EndByte     int    `json:"endByte"`
-	Text        string `json:"text"`
-	Replacement string `json:"replacement,omitempty"`
+	Text        string `json:"-"`
+	Replacement string `json:"-"`
 }
 
 // RepairDestinationVacancyPrecondition requires a rename destination to stay
@@ -40,7 +40,7 @@ type RepairDestinationVacancyPrecondition struct {
 // Occupied content is rollback authority, never an overwrite permission alone.
 type RepairDestinationState struct {
 	Kind    RepairDestinationKind `json:"kind"`
-	Content []byte                `json:"content,omitempty"`
+	Content []byte                `json:"-"`
 	Hash    string                `json:"hash,omitempty"`
 	Mode    uint32                `json:"mode,omitempty"`
 }
@@ -71,7 +71,7 @@ type RepairOperation struct {
 	DestinationState   *RepairDestinationState               `json:"destinationState,omitempty"`
 	Expected           []ExpectedText                        `json:"expected,omitempty"`
 	Identities         []string                              `json:"identities,omitempty"`
-	Content            []byte                                `json:"content,omitempty"`
+	Content            []byte                                `json:"-"`
 	Lifecycle          LifecyclePolicyResult                 `json:"lifecycle,omitempty"`
 	LifecycleClaims    []LifecycleClaim                      `json:"lifecycleClaims,omitempty"`
 	PlanningConflicts  []RepairConflict                      `json:"planningConflicts,omitempty"`
@@ -239,7 +239,7 @@ func repairOperationConflicts(operations []RepairOperation) []RepairConflict {
 			return spans[i].span.EndByte < spans[j].span.EndByte
 		})
 		for i := 1; i < len(spans); i++ {
-			if spans[i].span.StartByte >= spans[i-1].span.EndByte {
+			if spans[i].span.StartByte >= spans[i-1].span.EndByte && spans[i].span.StartByte != spans[i-1].span.StartByte {
 				continue
 			}
 			ids := sortedUnique([]string{spans[i-1].operationID, spans[i].operationID})

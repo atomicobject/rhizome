@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 )
 
 type semanticTextBody struct {

@@ -1,6 +1,6 @@
 ---
 name: stores-subsystem
-description: Use when implementing, modifying, or reviewing code under pkg/sqliteutil, or adding any new SQLite reads/writes elsewhere. Loads single-writer, batching, and migration constraints with review checklist.
+description: Use when implementing, modifying, or reviewing code under pkg/store or pkg/sqliteutil, or adding any new SQLite reads/writes elsewhere. Loads single-writer, batching, and migration constraints with review checklist.
 ---
 
 # Stores subsystem
@@ -31,7 +31,7 @@ Read `docs/reference/subsystems/stores.md` first; its constraints are normative 
 - [ ] Schema changes shipped as migration steps with `Target` bump and `Validate` coverage
 - [ ] Batching in place for any loop that writes rows
 - [ ] `go test -tags "fts5" ./pkg/sqliteutil/...` green
-- [ ] `go test -tags "fts5" -race ./pkg/sqliteutil/...` green (plus affected store packages, e.g. `./pkg/anchors/sqlite/...`)
+- [ ] `go test -tags "fts5" -race ./pkg/sqliteutil/...` green (plus affected store packages, e.g. `./pkg/store/...`)
 - [ ] Full gate before commit per AGENTS.md (`make check`)
 - [ ] `docs/reference/subsystems/stores.md` updated if constraints changed (refresh `last-verified`)
 

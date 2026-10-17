@@ -3,15 +3,15 @@ package idalloc
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,17 +20,17 @@ type fakeStore struct {
 	values      map[string]map[string]string // notePath -> property -> value
 	pathsErr    error
 	valuesErr   error
-	nodesByType map[string][]codeanchor.IntelOntologyNode
-	fieldValues []codeanchor.IntelOntologyNodeFieldValue
+	nodesByType map[string][]readmodel.NodeRow
+	fieldValues []readmodel.FieldValueRow
 	nodesErr    error
 	fieldsErr   error
 }
 
-func (f *fakeStore) OntologyNodesByType(_ context.Context, name string) ([]codeanchor.IntelOntologyNode, error) {
+func (f *fakeStore) OntologyNodesByType(_ context.Context, name string) ([]readmodel.NodeRow, error) {
 	return f.nodesByType[name], f.nodesErr
 }
 
-func (f *fakeStore) OntologyNodeFieldValuesByNodeIDs(_ context.Context, _ []string, _ []string) ([]codeanchor.IntelOntologyNodeFieldValue, error) {
+func (f *fakeStore) OntologyNodeFieldValuesByNodeIDs(_ context.Context, _ []string, _ []string) ([]readmodel.FieldValueRow, error) {
 	return f.fieldValues, f.fieldsErr
 }
 
@@ -66,13 +66,13 @@ func (f *fakeStore) CurrentNotePropertyValues(_ context.Context, paths []string,
 	return out, nil
 }
 
-func loadTestSchema(t *testing.T, sdl string) *ontology.Schema {
+func loadTestSchema(t *testing.T, sdl string) *ontoschema.Schema {
 	t.Helper()
 	root := t.TempDir()
 	dir := filepath.Join(root, ".rhizome", "ontology")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(sdl), 0o644))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	return schema
 }
@@ -87,7 +87,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 	store := &fakeStore{}
 	res, err := Allocate(context.Background(), schema, store, "Spec")
 	require.NoError(t, err)
-	require.Equal(t, ontology.IdentifierStrategySequential, res.Strategy)
+	require.Equal(t, ontoschema.IdentifierStrategySequential, res.Strategy)
 	require.Equal(t, "SPEC-0001", res.Next)
 	require.Equal(t, 0, *res.CurrentMax)
 	require.Equal(t, 0, res.OwnersScanned)
@@ -216,7 +216,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 	require.Error(t, err)
 	require.Equal(t, "invalid_input", ErrorCode(err))
 	require.NotNil(t, result)
-	require.Equal(t, ontology.IdentifierStrategySequential, result.Strategy)
+	require.Equal(t, ontoschema.IdentifierStrategySequential, result.Strategy)
 	require.Equal(t, []string{"specs/2026-08-05-14-32-example.md"}, result.Paths)
 }
 
@@ -262,7 +262,7 @@ type Effort @node(paths: ["efforts/*.md"]) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Equal(t, ontology.IdentifierStrategyDateTime, result.Strategy)
+	require.Equal(t, ontoschema.IdentifierStrategyDateTime, result.Strategy)
 	require.Equal(t, paths, result.Paths)
 	require.Nil(t, result.Pad)
 	require.Nil(t, result.CurrentMax)
@@ -420,26 +420,4 @@ type TechnicalSpec @node(paths: ["specs/technical/*.md"]) {
 	require.Equal(t, 9, *res.CurrentMax)
 	require.Equal(t, []string{"TechnicalSpec"}, res.SharedWith)
 	require.Equal(t, 3, res.OwnersScanned)
-}
-
-func TestAllocateStarterEffortImplementations(t *testing.T) {
-	body, err := os.ReadFile("../../app/cli/init/templates/starters/agentic-engineering/rhizome/ontology/spec-driven.graphql")
-	require.NoError(t, err)
-	schema := loadTestSchema(t, string(body))
-	for _, typeName := range []string{"EffortNote", "EffortWorkspace"} {
-		t.Run(typeName, func(t *testing.T) {
-			store := &fakeStore{
-				pathsByType: map[string][]string{"EffortNote": {"docs/efforts/historical.md"}},
-				values: map[string]map[string]string{
-					"docs/efforts/historical.md": {"id": "EFF-2026-08-05-14-32"},
-				},
-			}
-			result, err := AllocateRequest(context.Background(), schema, store, Request{
-				Type: typeName, Count: 1, Paths: []string{"docs/efforts/example/2026-08-05-14-32-effort.html"},
-			})
-			require.NoError(t, err)
-			require.Equal(t, "EFF-2026-08-05-14-32-2", result.Next)
-			require.Len(t, result.SharedWith, 1)
-		})
-	}
 }

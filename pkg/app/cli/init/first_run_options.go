@@ -8,12 +8,11 @@ package init
 import (
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // ErrNotFirstRun reports a first-run option or machine-readable output on a
@@ -71,7 +70,7 @@ func chooseAddons(s *setup, raw string) error {
 	if err != nil {
 		return err
 	}
-	set, err := resolveTemplateSet(s.workflows, obsidian.WorkflowTemplateAddons{}, registry)
+	set, err := resolveTemplateSet(s.workflows, repoconfig.WorkflowTemplateAddons{}, registry)
 	if err != nil {
 		return err
 	}
@@ -81,7 +80,7 @@ func chooseAddons(s *setup, raw string) error {
 			disabled = append(disabled, id)
 		}
 	}
-	s.cfg.WorkflowTemplateAddons = obsidian.WorkflowTemplateAddons{Enabled: normalizeMetadataIDs(listed), Disabled: normalizeMetadataIDs(disabled)}
+	s.cfg.WorkflowTemplateAddons = repoconfig.WorkflowTemplateAddons{Enabled: normalizeMetadataIDs(listed), Disabled: normalizeMetadataIDs(disabled)}
 	return nil
 }
 

@@ -51,7 +51,7 @@ func PrepareWithOptions(execSchema *ExecutableSchema, raw string, opts PrepareOp
 		return nil, gqlErrors(gqlerror.List{gqlerror.Wrap(err)})
 	}
 	wrapStringSemanticVariables(doc)
-	errs := validator.Validate(execSchema.Schema, doc)
+	errs := validator.ValidateWithRules(execSchema.Schema, doc, nil)
 	if len(errs) > 0 {
 		return nil, gqlErrors(errs)
 	}

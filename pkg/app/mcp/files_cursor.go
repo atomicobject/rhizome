@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 )
 
 type filesCursor struct {

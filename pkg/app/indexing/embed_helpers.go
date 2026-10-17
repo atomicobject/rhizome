@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 )
 
 type embedAggregator struct {

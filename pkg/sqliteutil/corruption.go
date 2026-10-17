@@ -22,44 +22,30 @@ func (e IntegrityCheckFailed) Error() string {
 	return "sqlite integrity check: " + e.Result
 }
 
-// QuickIntegrityCheck runs a fast integrity check on the database.
-// Returns IntegrityCheckFailed if corruption is detected.
-// Returns other errors (busy, locked, timeout) without wrapping them as corruption.
-// Retries up to 3 times with exponential backoff for transient errors.
-func QuickIntegrityCheck(db *sql.DB) error {
-	const maxRetries = 3
-	baseDelay := 500 * time.Millisecond
-
-	var lastErr error
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			// Exponential backoff: 500ms, 1s, 2s
-			delay := baseDelay * time.Duration(1<<(attempt-1))
-			time.Sleep(delay)
-		}
-
-		err := quickIntegrityCheckOnce(db)
-		if err == nil {
-			return nil
-		}
-
-		// If it's actual corruption, don't retry
-		var checkFailed IntegrityCheckFailed
-		if errors.As(err, &checkFailed) {
-			return err
-		}
-
-		lastErr = err
-	}
-	return lastErr
+// QuickIntegrityCheck checks database pages during maintenance. Only typed
+// SQLite contention is retried, and cancellation bounds both queries and waits.
+func QuickIntegrityCheck(ctx context.Context, db *sql.DB) error {
+	return quickIntegrityCheck(ctx, db, waitForTxRetry)
 }
 
-func quickIntegrityCheckOnce(db *sql.DB) error {
-	// Use a bounded timeout to avoid blocking forever on locked databases
-	// 15 seconds is more reasonable for slow filesystems (e.g., Codespaces)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+func quickIntegrityCheck(ctx context.Context, db *sql.DB, wait func(context.Context, time.Duration) error) error {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+	for attempt := 0; ; attempt++ {
+		err := quickIntegrityCheckOnce(ctx, db)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err == nil || attempt == 2 || !IsBusyOrLocked(err) {
+			return err
+		}
+		if err := wait(ctx, 50*time.Millisecond*time.Duration(attempt+1)); err != nil {
+			return err
+		}
+	}
+}
 
+func quickIntegrityCheckOnce(ctx context.Context, db *sql.DB) error {
 	var result string
 	if err := db.QueryRowContext(ctx, "PRAGMA quick_check(1)").Scan(&result); err != nil {
 		// Query failed to run - this is NOT proof of corruption.

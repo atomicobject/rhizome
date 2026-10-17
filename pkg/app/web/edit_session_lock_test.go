@@ -9,6 +9,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,7 +33,7 @@ func TestOntologyEditSessions_SaveYieldsBackgroundWorker(t *testing.T) {
 			worker := lane.New(lane.Options{LockPath: filepath.Join(fixture.root, ".rhizome", "index.lock"), PriorityPoll: 10 * time.Millisecond})
 			defer worker.Close()
 			started := make(chan struct{})
-			job, _, err := worker.Submit(ctx, lane.Request{Kind: lane.KindEmbedCycle, Run: func(ctx context.Context, _ lane.Reporter) error {
+			job, _, err := worker.Submit(ctx, lane.Request{Kind: lane.KindEmbedCycle, Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) error {
 				close(started)
 				<-ctx.Done()
 				return ctx.Err()

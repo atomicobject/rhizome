@@ -3,20 +3,20 @@ package mcp
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
-	"testing"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
+	"github.com/atomicobject/rhizome/pkg/graph/algorithms"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/search/graphalg"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 func TestGraphPathToolUsesOntologyOnlyFacts(t *testing.T) {
@@ -36,7 +36,7 @@ func TestGraphPathToolUsesOntologyOnlyFacts(t *testing.T) {
 		},
 		SchemaState: semdb.OntologySchemaState{SchemaHash: "schema", NotesHash: "notes", LoadedAt: 1, Ready: true},
 	}))
-	require.NoError(t, store.ReplaceOntologyNodes(ctx, []string{"docs/spec.md"}, []codeanchor.IntelOntologyNode{{
+	require.NoError(t, store.ReplaceOntologyNodes(ctx, []string{"docs/spec.md"}, []readmodel.NodeRow{{
 		NodeID: ontology.OntologyNodeID(storyRef), NotePath: "docs/spec.md", NodeRefJSON: string(storyJSON),
 		NodeKind: string(ontology.NodeKindEmbedded), TypeName: "UserStory", DisplayLabel: "Story A",
 		SourceLocator: "docs/spec.md#^story-a", BlockID: "story-a", LocatorStatus: string(ontology.NodeLocatorLinkable), UpdatedAt: 1,
@@ -46,7 +46,7 @@ func TestGraphPathToolUsesOntologyOnlyFacts(t *testing.T) {
 		VaultDef:   obsidian.VaultDefinition{Name: "vault", Path: root},
 		IntelStore: store,
 	})
-	shortest := func(t *testing.T, from, to string) graphalg.PathResult {
+	shortest := func(t *testing.T, from, to string) algorithms.PathResult {
 		t.Helper()
 		resp, err := tool(ctx, mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
@@ -60,7 +60,7 @@ func TestGraphPathToolUsesOntologyOnlyFacts(t *testing.T) {
 		text, ok := resp.Content[0].(mcp.TextContent)
 		require.True(t, ok)
 		require.False(t, resp.IsError, text.Text)
-		var path graphalg.PathResult
+		var path algorithms.PathResult
 		require.NoError(t, json.Unmarshal([]byte(text.Text), &path))
 		return path
 	}
@@ -100,7 +100,7 @@ func TestAuthorityScoresToPayloadUsesCurrentProviderProjection(t *testing.T) {
 	_, err = indexer.EnsureIndexed(ctx, vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
-	payload := authorityScoresToPayload([]obsidian.AuthorityScore{{Path: "docs/overview.md", Authority: 1}}, 0, Config{
+	payload := authorityScoresToPayload([]vaultgraph.AuthorityScore{{Path: "docs/overview.md", Authority: 1}}, 0, Config{
 		VaultDef:     vaultDef,
 		IntelStore:   store,
 		NoteMetadata: indexer,

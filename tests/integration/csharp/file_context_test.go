@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/vault/coderefs"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	_ "github.com/mattn/go-sqlite3"

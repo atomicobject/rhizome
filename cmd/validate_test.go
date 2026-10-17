@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,7 +19,7 @@ func TestValidateCommandBrokenLinksPasses(t *testing.T) {
 		"B.md": "# B\n",
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"validate", "broken-links", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"validate", "broken-links", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "[completed] broken-links")
@@ -29,7 +31,7 @@ func TestValidateCommandBrokenLinksFails(t *testing.T) {
 		"A.md": "# A\n\n[[Missing]]\n",
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"validate", "broken-links", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"validate", "broken-links", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "[completed] broken-links")
@@ -56,7 +58,7 @@ name: Alpha
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "companion-docs", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "companion-docs", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -105,7 +107,7 @@ name: Alpha
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "companion-docs", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "companion-docs", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 
@@ -250,7 +252,7 @@ aliases:
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "aliases", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "aliases", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -279,7 +281,7 @@ specId: SPEC-002
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "aliases", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "aliases", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 
@@ -334,7 +336,7 @@ aliases:
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "aliases", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "aliases", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 
@@ -381,7 +383,7 @@ aliases:
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "aliases", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "aliases", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 
@@ -411,7 +413,7 @@ name: Plain Spec
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "aliases", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "aliases", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -431,7 +433,7 @@ func TestAgentValidateBrokenLinksIncludesGroupedFixSuggestion(t *testing.T) {
 		"missing-link.md": "# Candidate\n",
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "broken-links", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "broken-links", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 
@@ -488,7 +490,7 @@ specId: SPEC-002
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "fix", "aliases", "--vault", vault.name, "--apply"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "aliases", "--vault", vault.name, "--apply"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -522,7 +524,7 @@ aliases:
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "fix", "aliases", "--vault", vault.name, "--apply"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "aliases", "--vault", vault.name, "--apply"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -563,7 +565,7 @@ aliases:
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "aliases", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "aliases", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 
@@ -653,7 +655,7 @@ name: Missing Sections
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "fix", "ontology", "--vault", vault.name, "--apply"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "ontology", "--vault", vault.name, "--apply"})
 	require.Error(t, err, stdout)
 	require.Empty(t, stderr, stdout)
 

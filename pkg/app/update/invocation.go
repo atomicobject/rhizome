@@ -2,12 +2,11 @@ package update
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // Invocation identifies the executable handling an update and the repository
@@ -24,7 +23,7 @@ type Invocation struct {
 // ResolveInvocation derives executable and repository target identity from the
 // local pin. Location fields choose where a pinned binary lives; they do not
 // create a repository target without rhizome.version.
-func ResolveInvocation(executablePath, cfgDir string, cfg *obsidian.LocalConfig) (Invocation, error) {
+func ResolveInvocation(executablePath, cfgDir string, cfg *repoconfig.LocalConfig) (Invocation, error) {
 	if strings.TrimSpace(executablePath) == "" {
 		resolved, err := os.Executable()
 		if err != nil {
@@ -68,7 +67,7 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *obsidian.LocalConfig)
 	return invocation, nil
 }
 
-func invocationRepoTarget(cfgDir string, cfg *obsidian.LocalConfig) string {
+func invocationRepoTarget(cfgDir string, cfg *repoconfig.LocalConfig) string {
 	if binaryPath := strings.TrimSpace(cfg.Rhizome.BinaryPath); binaryPath != "" {
 		if filepath.IsAbs(binaryPath) {
 			return filepath.Clean(binaryPath)

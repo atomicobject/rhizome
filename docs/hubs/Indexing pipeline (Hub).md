@@ -76,10 +76,10 @@ Three layers sit under that flow:
 - `pkg/app/indexing/unified.go` — `RunUnifiedCore`, the full batch phase sequence
 - `pkg/app/indexing/semantic_core.go` — raw-note embedding compatibility helper used when ontology is unavailable
 - `pkg/app/indexwriter/writer.go` — `indexwriter.New` / `Writer.run`, the single durable write lane
-- `pkg/app/indexingpipe/files.go` — `ProcessFiles`, bounded discovery/read workers
-- `pkg/app/semanticruntime` — `PolicyFor` / `Runtime.EnsureLane`, shared provider lanes + gate
-- `pkg/search/semantic/` — primary code and ontology-node chunk synthesis + sync
-- `pkg/search/graphdb` — `ComputeDocScores`, `ComputeAnchorPageRank` (persisted graph signals)
+- `pkg/app/codeintel/candidate_workers.go`: `ProcessCandidates`, bounded read and processing workers
+- `pkg/embedindex` — `PolicyFor` / `Runtime.EnsureLane`, shared provider lanes + gate
+- `pkg/embedindex/`: primary code and ontology-node chunk synthesis and sync
+- `pkg/graph/index` — `ComputeDocScores`, `ComputeAnchorPageRank` (persisted graph signals)
 - `pkg/app/indexing/lock.go`, `pkg/vault/indexlock/lock.go` — `TryAcquireIndexLock` and the cross-process lock primitive
 - `cmd/runtime_helpers.go` — `runBackgroundIndex`, best-effort boot-time index on the live leader
 - `pkg/app/bootstrap/live.go`, `pkg/app/bootstrap/schedulers.go` — `LiveRuntime` leader work + embed/graph schedulers
@@ -108,7 +108,7 @@ Three layers sit under that flow:
 - Queues are bounded: backpressure slows producers; the fix for write-bound runs is better batching/overlap/staging, not more writer concurrency.
 - Code anchors are ingested before notes so note mentions resolve; `FlushAndWait` precedes metadata/ontology readers.
 - Call-edge-sensitive semantic planning, reverse-index, and graph recompute stay behind the final drain barrier; only call-insensitive code chunks stream early.
-- Provider-backed code/note/ontology-primary/intent work uses `semanticruntime` compatible lanes (key = provider/model/endpoint/dimensions); never add ad hoc provider batchers.
+- Provider-backed code/note/ontology-primary work uses `embedindex` compatible lanes (key = provider/model/endpoint/dimensions); never add ad hoc provider batchers.
 - Cross-process indexers coordinate through `.rhizome/index.lock`; interactive `rzm index` requests priority via `.rhizome/index.priority` and background work yields. Never delete a live, fresh lock to fix contention.
 - Routine maintenance is cheap (`ANALYZE`, `PRAGMA optimize`, checkpoint); full `VACUUM` is manual or freelist-gated only — never elapsed-time or WAL-size triggered.
 - `--timings` phase labels map to real barriers; new high-cost work lives under an existing truthful phase or adds a named `runPhase`. A repeated `auto.*` DB-write line means missing instrumentation.

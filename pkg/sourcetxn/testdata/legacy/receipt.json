@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "transactionId": "legacy-receipt-literal",
+  "phase": "prepared",
+  "entries": [
+    {"notePath": "a.md", "tempPath": "@TEMP_A@", "backupPath": "@BACKUP_A@", "oldFingerprint": "01d09d19c2139a46aebfb577780d123d7396e97201bc7ead210a2ebff8239dee", "newFingerprint": "7aa7a5359173d05b63cfd682e3c38487f3cb4f7f1d60659fe59fab1505977d4c", "mode": 416}
+  ],
+  "completion": {
+    "targetPath": "@RECEIPT@", "tempPath": "@RECEIPT_TEMP@",
+    "fingerprint": "6afd9c1cbf495f9221fe5f9d03d4f0e962babd83fd293c696e69686510611a63"
+  }
+}

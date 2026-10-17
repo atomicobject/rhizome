@@ -1,25 +1,29 @@
 package cmd
 
+import "github.com/atomicobject/rhizome/internal/testkit"
+
 import (
 	"context"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/contextpack"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
+
 	"github.com/stretchr/testify/require"
 )
 
 func TestIndexStatus_BehaviorLock(t *testing.T) {
+
 	vault := behaviorTestVault(t, behaviorVaultOptions{
 		noteEmbeddings: &embeddings.Config{
 			Enabled:  true,
@@ -38,6 +42,7 @@ func TestIndexStatus_BehaviorLock(t *testing.T) {
 }
 
 func TestIndexCommandsDetectCodeChangesWithPreservedTimestamp(t *testing.T) {
+
 	for _, tt := range []struct {
 		name string
 		args []string
@@ -63,7 +68,7 @@ func TestIndexCommandsDetectCodeChangesWithPreservedTimestamp(t *testing.T) {
 			_, _, err = runCLIWithVault(t, tt.args, "", vault)
 			require.NoError(t, err)
 
-			store, err := semdb.Open(obsidian.UnifiedIndexPath(vault, ""))
+			store, err := semdb.Open(repoconfig.UnifiedIndexPath(vault, ""))
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = store.Close() })
 			symbols, err := store.SymbolsByFile(context.Background(), "main.go")
@@ -75,6 +80,7 @@ func TestIndexCommandsDetectCodeChangesWithPreservedTimestamp(t *testing.T) {
 }
 
 func TestUnifiedSearch_BehaviorLock_NoMatches(t *testing.T) {
+
 	vault := behaviorTestVault(t, behaviorVaultOptions{
 		noteEmbeddings: &embeddings.Config{
 			Enabled:  false,
@@ -95,6 +101,7 @@ func TestUnifiedSearch_BehaviorLock_NoMatches(t *testing.T) {
 }
 
 func TestUnifiedSearch_FailsWhenProviderInvalid(t *testing.T) {
+
 	vault := behaviorTestVault(t, behaviorVaultOptions{
 		noteEmbeddings: &embeddings.Config{
 			Enabled:  true,
@@ -110,6 +117,7 @@ func TestUnifiedSearch_FailsWhenProviderInvalid(t *testing.T) {
 }
 
 func TestRootHelpOmitsRemovedAliasCommands(t *testing.T) {
+
 	stdout, stderr, err := runCLI(t, []string{"--help"}, "")
 	require.NoError(t, err)
 	require.Empty(t, strings.TrimSpace(stderr))
@@ -121,6 +129,7 @@ func TestRootHelpOmitsRemovedAliasCommands(t *testing.T) {
 }
 
 func TestUnifiedSearchHelpOmitsBackendToggleFlags(t *testing.T) {
+
 	for _, tc := range []struct {
 		name    string
 		args    []string
@@ -147,6 +156,7 @@ func TestUnifiedSearchHelpOmitsBackendToggleFlags(t *testing.T) {
 }
 
 func TestUnifiedSearchSpecificity_PrefersDirectEmbeddingEvidence(t *testing.T) {
+
 	vault := behaviorTestVault(t, behaviorVaultOptions{
 		noteEmbeddings: &embeddings.Config{Enabled: true, Provider: "test", Model: "deterministic", Dimensions: 16},
 		codeEmbeddings: &embeddings.Config{Enabled: true, Provider: "test", Model: "deterministic", Dimensions: 16},
@@ -194,7 +204,7 @@ func behaviorTestVault(t *testing.T, opts behaviorVaultOptions) string {
 	require.NoError(t, os.MkdirAll(filepath.Join(vault, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vault, "note.md"), []byte("# note\n"), 0o644))
 
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		IndexPath: filepath.Join(vault, ".rhizome", "db.sqlite"),
 	}
 	if opts.noteEmbeddings != nil {
@@ -204,101 +214,21 @@ func behaviorTestVault(t *testing.T, opts behaviorVaultOptions) string {
 		cfg.CodeEmbeddings = opts.codeEmbeddings
 	}
 	if opts.codeEnabled {
-		cfg.Code = obsidian.LocalCodeConfig{
+		cfg.Code = repoconfig.LocalCodeConfig{
 			Enabled: true,
-			Go:      &obsidian.LocalCodeLangConfig{Roots: []string{"."}},
+			Go:      &repoconfig.LocalCodeLangConfig{Roots: []string{"."}},
 		}
 	} else {
-		cfg.Code = obsidian.LocalCodeConfig{Enabled: false}
+		cfg.Code = repoconfig.LocalCodeConfig{Enabled: false}
 	}
-	require.NoError(t, obsidian.SaveLocalConfig(vault, cfg))
+	require.NoError(t, repoconfig.SaveLocalConfig(vault, cfg))
 	return vault
 }
 
-func runCLI(t *testing.T, args []string, stdin string) (stdout string, stderr string, runErr error) {
-	return runCLIWithVault(t, args, stdin, "")
-}
-
-func runCLIWithVault(t *testing.T, args []string, stdin string, forcedVault string) (stdout string, stderr string, runErr error) {
-	t.Helper()
-	resetBehaviorGlobals()
-	resetFlags(rootCmd)
-	resetCommandContexts(rootCmd)
-	if strings.TrimSpace(forcedVault) != "" {
-		vaultName = forcedVault
-	}
-
-	origOut := rootCmd.OutOrStdout()
-	origErr := rootCmd.ErrOrStderr()
-	origIn := rootCmd.InOrStdin()
-	origStdout := os.Stdout
-	origStderr := os.Stderr
-	origStdin := os.Stdin
-
-	outR, outW, err := os.Pipe()
-	require.NoError(t, err)
-	errR, errW, err := os.Pipe()
-	require.NoError(t, err)
-
-	var (
-		outBytes []byte
-		errBytes []byte
-		readWG   sync.WaitGroup
-		readErrs = make(chan error, 2)
-	)
-	readPipe := func(dst *[]byte, src *os.File) {
-		defer readWG.Done()
-		data, readErr := io.ReadAll(src)
-		if readErr != nil {
-			readErrs <- readErr
-			return
-		}
-		*dst = data
-	}
-	readWG.Add(2)
-	go readPipe(&outBytes, outR)
-	go readPipe(&errBytes, errR)
-
-	var inR *os.File
-	if stdin != "" {
-		inR, err = pipeFromString(stdin)
-		require.NoError(t, err)
-		os.Stdin = inR
-		rootCmd.SetIn(inR)
-	}
-
-	os.Stdout = outW
-	os.Stderr = errW
-	rootCmd.SetOut(outW)
-	rootCmd.SetErr(errW)
-	rootCmd.SetArgs(args)
-	runErr = rootCmd.Execute()
-	rootCmd.SetArgs([]string{})
-
-	require.NoError(t, outW.Close())
-	require.NoError(t, errW.Close())
-	readWG.Wait()
-	close(readErrs)
-	for readErr := range readErrs {
-		require.NoError(t, readErr)
-	}
-	require.NoError(t, outR.Close())
-	require.NoError(t, errR.Close())
-
-	rootCmd.SetOut(origOut)
-	rootCmd.SetErr(origErr)
-	rootCmd.SetIn(origIn)
-	os.Stdout = origStdout
-	os.Stderr = origStderr
-	os.Stdin = origStdin
-	if inR != nil {
-		require.NoError(t, inR.Close())
-	}
-
-	return string(outBytes), string(errBytes), runErr
-}
-
 func TestRunCLICapturesOutputBeyondPipeCapacity(t *testing.T) {
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	payload := strings.Repeat("large output\n", 1<<17)
 	command := &cobra.Command{
 		Use: "test-large-output",
@@ -314,82 +244,14 @@ func TestRunCLICapturesOutputBeyondPipeCapacity(t *testing.T) {
 	rootCmd.AddCommand(command)
 	defer rootCmd.RemoveCommand(command)
 
-	stdout, stderr, err := runCLI(t, []string{command.Name()}, "")
+	stdout, stderr, err := runCommandInvocation(t, rootCmd, context.Background(), []string{command.Name()}, true)
 	require.NoError(t, err)
 	require.Equal(t, payload+payload, stdout)
 	require.Equal(t, payload+payload, stderr)
 }
 
-func resetCommandContexts(cmd *cobra.Command) {
-	cmd.SetContext(context.Background())
-	for _, child := range cmd.Commands() {
-		resetCommandContexts(child)
-	}
-}
-
-func pipeFromString(value string) (*os.File, error) {
-	r, w, err := os.Pipe()
-	if err != nil {
-		return nil, err
-	}
-	if _, err := io.WriteString(w, value); err != nil {
-		_ = r.Close()
-		_ = w.Close()
-		return nil, err
-	}
-	if err := w.Close(); err != nil {
-		_ = r.Close()
-		return nil, err
-	}
-	return r, nil
-}
-
-func resetBehaviorGlobals() {
-	vaultName = ""
-
-	unifiedIntent = ""
-	unifiedSeeds = nil
-	unifiedQueries = nil
-	unifiedFiles = nil
-	unifiedLimit = 25
-	unifiedPack = false
-	unifiedBudgetChars = contextpack.DefaultBudgetChars
-	unifiedMaxPerOwner = 3
-	unifiedSeedLimit = 5
-	unifiedFast = false
-	unifiedTimeout = 4 * time.Second
-	unifiedTimings = false
-	unifiedRaw = false
-	unifiedJSON = false
-	unifiedContinuation = ""
-}
-
-func resetFlags(cmd *cobra.Command) {
-	resetFlagSet(cmd.Flags())
-	resetFlagSet(cmd.PersistentFlags())
-	for _, child := range cmd.Commands() {
-		resetFlags(child)
-	}
-}
-
-func resetFlagSet(fs *pflag.FlagSet) {
-	if fs == nil {
-		return
-	}
-	fs.VisitAll(func(f *pflag.Flag) {
-		if slice, ok := f.Value.(pflag.SliceValue); ok {
-			_ = slice.Replace(nil)
-		} else if err := f.Value.Set(f.DefValue); err != nil {
-			switch f.Value.Type() {
-			case "stringSlice", "stringArray":
-				_ = f.Value.Set("")
-			}
-		}
-		f.Changed = false
-	})
-}
-
 func TestIndexPreservesDisabledProvidersAndCodeConfiguration(t *testing.T) {
+
 	t.Setenv("VOYAGE_API_KEY", "")
 	t.Setenv("OPENAI_API_KEY", "")
 	disabled := &embeddings.Config{Enabled: false, Provider: "voyage", Model: "voyage-code-3"}
@@ -400,13 +262,13 @@ func TestIndexPreservesDisabledProvidersAndCodeConfiguration(t *testing.T) {
 	for iteration := range 2 {
 		_, _, err := runCLIWithVault(t, []string{"index"}, "", vault)
 		require.NoError(t, err)
-		cfg, err := obsidian.LoadLocalConfig(vault)
+		cfg, err := repoconfig.LoadLocalConfig(vault)
 		require.NoError(t, err)
 		require.False(t, cfg.Code.Enabled)
 		require.False(t, cfg.NoteEmbeddings.Enabled)
 		require.False(t, cfg.CodeEmbeddings.Enabled)
 		require.Equal(t, "voyage", cfg.NoteEmbeddings.Provider)
-		store, err := semdb.Open(obsidian.UnifiedIndexPath(vault, ""))
+		store, err := semdb.Open(repoconfig.UnifiedIndexPath(vault, ""))
 		require.NoError(t, err)
 		symbols, err := store.SymbolsByFile(context.Background(), "main.go")
 		require.NoError(t, err)

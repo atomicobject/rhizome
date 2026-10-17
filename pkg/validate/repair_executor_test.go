@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +26,7 @@ func TestApplyFixPlanLocksVaultDefinitionRootWhenPathIsOmitted(t *testing.T) {
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
-		_, err := ApplyFixPlan(ctx, RunContext{VaultDef: obsidian.VaultDefinition{Path: root}}, nil, Options{Fix: true})
+		_, err := ApplyFixPlan(ctx, RunContext{VaultDef: obsidian.VaultDefinition{Path: root}}, nil, ApplyOptions{Fix: true})
 		done <- err
 	}()
 	require.Eventually(t, func() bool { return indexlock.CheckPriority(lockPath) }, time.Second, 10*time.Millisecond)
@@ -61,7 +62,7 @@ func TestApplyFixPlanComposesEditIntoRenameDestination(t *testing.T) {
 
 	execution, err := ApplyFixPlan(
 		context.Background(), repairRunContext(t, root), &plan,
-		Options{Fix: true, NonInteractive: true},
+		ApplyOptions{Fix: true, NonInteractive: true},
 	)
 
 	require.NoError(t, err)
@@ -86,7 +87,7 @@ func TestApplyFixPlanRollsBackInstalledFileAfterLaterCommitFailure(t *testing.T)
 	}})
 	injected := errors.New("injected second install failure")
 
-	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{BeforeInstall: func(index int, _ string) error {
 			if index == 1 {
@@ -125,7 +126,7 @@ func TestApplyFixPlanRestoresDeletedFileAfterLaterCommitFailure(t *testing.T) {
 	}})
 	injected := errors.New("injected failure after delete")
 
-	_, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{BeforeInstall: func(index int, _ string) error {
 			if index == 1 {
@@ -156,7 +157,7 @@ func TestApplyFixPlanRecoversPreparedJournalBeforeRetry(t *testing.T) {
 	}})
 	runCtx := repairRunContext(t, root)
 
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterInstall: func(index int, _ string) error {
 			if index == 0 {
@@ -171,14 +172,14 @@ func TestApplyFixPlanRecoversPreparedJournalBeforeRetry(t *testing.T) {
 	require.Len(t, evidence, 1)
 	assert.Equal(t, repairJournalPrepared, evidence[0].State)
 
-	_, err = ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.ErrorContains(t, err, "replan")
 	assert.Equal(t, first, mustReadFile(t, filepath.Join(root, "first.md")))
 	assert.Equal(t, second, mustReadFile(t, filepath.Join(root, "second.md")))
 
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{Fix: true, NonInteractive: true})
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{Fix: true, NonInteractive: true})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"action:interrupt"}, execution.Applied)
 	assert.Equal(t, []byte("first changed\n"), mustReadFile(t, filepath.Join(root, "first.md")))
@@ -207,7 +208,7 @@ func TestApplyFixPlanCancellationPreservesConcurrentIndexLockHolder(t *testing.T
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	execution, err := ApplyFixPlan(ctx, runCtx, &plan, Options{Fix: true, NonInteractive: true})
+	execution, err := ApplyFixPlan(ctx, runCtx, &plan, ApplyOptions{Fix: true, NonInteractive: true})
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.FileExists(t, filepath.Join(root, ".rhizome", "index.lock"))
@@ -240,7 +241,7 @@ func TestApplyFixPlanAppliesIndependentTransactionWhenAnotherIsStale(t *testing.
 
 	execution, err := ApplyFixPlan(
 		context.Background(), repairRunContext(t, root), &plan,
-		Options{Fix: true, NonInteractive: true},
+		ApplyOptions{Fix: true, NonInteractive: true},
 	)
 
 	require.ErrorContains(t, err, "stale")
@@ -271,14 +272,14 @@ func TestApplyFixPlanRejectsExpectedTextMismatchWithMatchingSourceHash(t *testin
 
 	_, err := ApplyFixPlan(
 		context.Background(), repairRunContext(t, root), &plan,
-		Options{Fix: true, NonInteractive: true},
+		ApplyOptions{Fix: true, NonInteractive: true},
 	)
 
 	require.ErrorContains(t, err, "expected text mismatch")
 	assert.Equal(t, before, mustReadFile(t, path))
 }
 
-func TestRecoveryFailureBlocksNewRepairAndRetainsEvidence(t *testing.T) {
+func TestRecoveryQuarantinesChangedSourceAndAllowsDisjointRepair(t *testing.T) {
 	root := t.TempDir()
 	firstBefore := []byte("first before\n")
 	firstAfter := []byte("first after\n")
@@ -293,7 +294,7 @@ func TestRecoveryFailureBlocksNewRepairAndRetainsEvidence(t *testing.T) {
 		)},
 	}})
 	refreshErr := errors.New("leave committed recovery evidence")
-	_, err := ApplyFixPlan(context.Background(), runCtx, &firstPlan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &firstPlan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, refreshErr: refreshErr},
 	})
@@ -306,14 +307,17 @@ func TestRecoveryFailureBlocksNewRepairAndRetainsEvidence(t *testing.T) {
 		)},
 	}})
 
-	_, err = ApplyFixPlan(context.Background(), runCtx, &secondPlan, Options{Fix: true, NonInteractive: true})
+	_, err = ApplyFixPlan(context.Background(), runCtx, &secondPlan, ApplyOptions{Fix: true, NonInteractive: true})
 
-	require.ErrorContains(t, err, "recover committed transaction")
-	assert.Equal(t, secondBefore, mustReadFile(t, filepath.Join(root, "second.md")))
+	require.NoError(t, err)
+	assert.Equal(t, []byte("second after\n"), mustReadFile(t, filepath.Join(root, "second.md")))
+	assert.Equal(t, []byte("tampered\n"), mustReadFile(t, filepath.Join(root, "first.md")))
+	require.Error(t, sourcetxn.CheckAdmission(root, []string{"first.md"}))
+	require.NoError(t, sourcetxn.CheckAdmission(root, []string{"second.md"}))
 	evidence, detectErr := DetectPendingRepairJournals(runCtx)
 	require.NoError(t, detectErr)
 	require.Len(t, evidence, 1)
-	assert.Equal(t, repairJournalCommitted, evidence[0].State)
+	assert.Equal(t, "quarantined", evidence[0].State)
 }
 
 func TestApplyFixPlanRechecksSourceAfterWaitingForIndexLock(t *testing.T) {
@@ -339,7 +343,7 @@ func TestApplyFixPlanRechecksSourceAfterWaitingForIndexLock(t *testing.T) {
 	}
 	done := make(chan result, 1)
 	go func() {
-		execution, err := ApplyFixPlan(ctx, runCtx, &plan, Options{Fix: true, NonInteractive: true})
+		execution, err := ApplyFixPlan(ctx, runCtx, &plan, ApplyOptions{Fix: true, NonInteractive: true})
 		done <- result{execution, err}
 	}()
 	require.Eventually(t, func() bool { return indexlock.CheckPriority(lockPath) }, time.Second, 5*time.Millisecond)

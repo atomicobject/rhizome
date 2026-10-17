@@ -25,6 +25,3 @@ func (*TSIndexer) Lang() Lang { return LangTS }
 func (*TSIndexer) IndexFile(_ []byte, _ paths.CodePathRef) (FileSummary, error) {
 	return FileSummary{}, ErrUnsupportedLanguage
 }
-
-// TSIndexerAvailable reports whether TS indexing is supported in this build.
-func TSIndexerAvailable() bool { return false }

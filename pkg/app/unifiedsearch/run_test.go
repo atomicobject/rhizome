@@ -7,11 +7,10 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,11 +33,6 @@ func TestNormalizeExplicitQueryInputsUsesEffectiveModeBeforeDedupe(t *testing.T)
 		{Text: "policy", Mode: string(search.IntentSearch)},
 		{Text: "other", Mode: "callers"},
 	}, got)
-}
-
-func TestMergeSeedTokens(t *testing.T) {
-	got := MergeSeedTokens([]string{"a.md", "file1.go"}, []string{"file2.go", "file1.go", " "})
-	require.Equal(t, []string{"a.md", "file1.go", "file2.go"}, got)
 }
 
 func TestResolveSeedHandlesWithPathKinds_PreservesResolvedKindAndExactPath(t *testing.T) {
@@ -286,8 +280,22 @@ func TestHydrateSearchPathKinds_PrefersCurrentNotesAndOmitsStaleNotes(t *testing
 		},
 	}))
 
-	kinds, err := hydrateSearchPathKinds(ctx, store, nil)
+	for _, path := range []string{"docs/current.html", "docs/stale.html", "docs/orphan.html"} {
+		require.NoError(t, store.ReplaceIntelDocSections(ctx, path, []codeanchor.IntelDocSection{{SectionID: path + "#root", Path: path, Title: path, Level: 1, Content: "retained section", Fingerprint: path}}, nil, nil))
+	}
+
+	corpus, err := search.LoadCorpusSnapshot(ctx, store, search.CorpusMetadata)
+	kinds := corpus.PathKinds
 	require.NoError(t, err)
+	pathsOnly, err := search.LoadCorpusSnapshot(ctx, store, search.CorpusOwnership)
+	require.NoError(t, err)
+	require.Equal(t, kinds, pathsOnly.PathKinds, "code-only planning must retain identical current note ownership")
+	require.Equal(t, []string{"docs/current.html", "docs/orphan.html", "docs/stale.html"}, pathsOnly.NotePaths)
+	require.Equal(t, corpus.NotePaths, pathsOnly.NotePaths)
+	_, orphanOwned := pathsOnly.PathKinds["docs/orphan.html"]
+	require.False(t, orphanOwned)
+
+	require.Empty(t, pathsOnly.Notes)
 	require.Equal(t, search.PathKindCode, kinds["docs/code.html"])
 	require.Equal(t, search.PathKindNote, kinds["docs/current.html"])
 	require.Equal(t, search.PathKindNote, kinds["docs"])
@@ -300,17 +308,6 @@ func TestHydrateSearchPathKinds_PrefersCurrentNotesAndOmitsStaleNotes(t *testing
 
 	_, err = ResolveSeedHandles(ctx, []string{"docs/stale.html"}, t.TempDir(), store, 10)
 	require.ErrorContains(t, err, "requires configured or persisted path ownership")
-}
-
-func TestNeedsPathKindHydration_OnlySkipsKnownSuppliedPaths(t *testing.T) {
-	require.False(t, needsPathKindHydration([]string{"pkg/search/service.go"}, map[string]search.PathKind{
-		"pkg/search/service.go": search.PathKindCode,
-	}))
-	require.True(t, needsPathKindHydration([]string{"pkg/search/other.go"}, map[string]search.PathKind{
-		"pkg/search/service.go": search.PathKindCode,
-	}))
-	require.True(t, needsPathKindHydration([]string{"pkg/search/service.go"}, nil))
-	require.False(t, needsPathKindHydration([]string{"notes/decision.md"}, nil))
 }
 
 func TestAggregateMultiQueryLanesPreservesFacetAvailability(t *testing.T) {
@@ -328,93 +325,4 @@ func TestAggregateMultiQueryLanesPreservesFacetAvailability(t *testing.T) {
 	require.Len(t, partial, 2)
 	require.Equal(t, AvailabilityPartial, searchapplication.AvailabilityFromLanes(partial))
 	require.ElementsMatch(t, []string{"ownership\x00search", "outage\x00search"}, []string{partial[0].Facet, partial[1].Facet})
-}
-
-func TestBuildAnswer_SelectsTaskEvidence(t *testing.T) {
-	resp := BuildAnswer(search.IntentSubsystemOverview, "search subsystem overview", search.TargetStatusExplicitPath, nil, []search.RankedResult{
-		{Candidate: search.Candidate{Type: "code", Path: "pkg/search/service.go", Symbol: "Search", Kind: "module", Granularity: "module"}, FinalScore: 0.9},
-		{Candidate: search.Candidate{Type: "note", Path: "docs/hubs/Search (Hub).md", Title: "Search (Hub)"}, FinalScore: 0.8},
-		{Candidate: search.Candidate{Type: "code", Path: "pkg/search/service_test.go", Symbol: "TestSearch"}, FinalScore: 0.7},
-	})
-
-	require.NotEmpty(t, resp.MustRead)
-	require.True(t, resp.Coverage.Code)
-	require.True(t, resp.Coverage.Docs)
-	require.True(t, resp.Coverage.Tests)
-	require.Equal(t, "high", resp.Confidence.Level)
-}
-
-func TestBuildAnswerPreservesNodeRef(t *testing.T) {
-	resp := BuildAnswer(search.IntentSearch, "story context", search.TargetStatusNone, nil, []search.RankedResult{
-		{
-			Candidate: search.Candidate{
-				Type:    "note",
-				Path:    "docs/spec.md",
-				Title:   "Spec",
-				NodeRef: &ontology.NodeRef{NotePath: "docs/spec.md", Kind: ontology.NodeKindNote},
-			},
-			FinalScore: 0.9,
-		},
-	})
-
-	require.NotEmpty(t, resp.MustRead)
-	require.Equal(t, "docs/spec.md", resp.MustRead[0].NodeRef.NotePath)
-}
-
-func TestBuildAnswerPromotesPrimaryOntologyNodeResult(t *testing.T) {
-	resp := BuildAnswer(search.IntentSearch, "how does this story connect?", search.TargetStatusNone, nil, []search.RankedResult{
-		{
-			Candidate: search.Candidate{
-				Type:        "note",
-				Path:        "docs/specs/product/parent-spec.md",
-				Title:       "Parent Spec",
-				Granularity: "node_body",
-				NodeRef:     &ontology.NodeRef{NotePath: "docs/specs/product/parent-spec.md", TypeName: "TechnicalSpec", Kind: ontology.NodeKindNote},
-			},
-			FinalScore: 0.7,
-		},
-		{Candidate: search.Candidate{Type: "code", Path: "pkg/story/service.go", Symbol: "Service"}, FinalScore: 0.8},
-		{Candidate: search.Candidate{Type: "code", Path: "pkg/story/entry.go", Kind: "module", Granularity: "module"}, FinalScore: 0.75},
-	})
-
-	require.NotEmpty(t, resp.MustRead)
-	contextIdx := -1
-	for i := range resp.MustRead {
-		if resp.MustRead[i].Path == "docs/specs/product/parent-spec.md" {
-			contextIdx = i
-		}
-	}
-	require.NotEqual(t, -1, contextIdx)
-	contextItem := resp.MustRead[contextIdx]
-	require.Equal(t, "documentation", contextItem.Role)
-	require.Equal(t, "documentation tied to the task", contextItem.Why)
-}
-
-func TestBuildAnswerCarriesSpecificityForPrimaryChunk(t *testing.T) {
-	resp := BuildAnswer(search.IntentSearch, "how are notes embedded?", search.TargetStatusNone, nil, []search.RankedResult{
-		{
-			Candidate: search.Candidate{
-				Type:        "code",
-				Path:        "pkg/search/semantic/note_syncer.go",
-				Symbol:      "PlanNoteEmbeddings",
-				Granularity: "signature_body",
-				Evidence: []search.Evidence{
-					{Type: "query_specificity", RawScore: 0.8},
-					{Type: "code_vector_similarity", RawScore: 0.7},
-				},
-			},
-			FinalScore: 0.9,
-		},
-		{Candidate: search.Candidate{Type: "note", Path: "docs/hubs/Embeddings (Hub).md"}, FinalScore: 0.8},
-	})
-
-	require.NotEmpty(t, resp.MustRead)
-	foundCode := false
-	for _, item := range resp.MustRead {
-		if item.Path == "pkg/search/semantic/note_syncer.go" {
-			foundCode = true
-			require.Greater(t, item.Specificity, 0.0)
-		}
-	}
-	require.True(t, foundCode)
 }

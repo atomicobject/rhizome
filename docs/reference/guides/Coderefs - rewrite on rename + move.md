@@ -20,7 +20,7 @@ When note paths change, coderef rewrites update working source links without ove
 
 - `RewriteBatch(vaultPath, config, mappings)` — scans matching code files once and applies all `RefMapping{OldPath, NewPath}` rewrites; returns `RewriteResult{FilesUpdated, RefsUpdated}`.
 - `RewriteCodeRefs(...)` — single-move convenience wrapper.
-- Callers: `pkg/app/cli/rename.go` and `pkg/app/cli/move.go` (driven by `rzm note rename` / `rzm note move` when `CodeRefConfig` is set).
+- Callers: `pkg/app/operations/rename.go` and `pkg/app/operations/move.go` (driven by `rzm note rename` / `rzm note move` when `CodeRefConfig` is set).
 
 ## Mechanics
 

@@ -6,9 +6,7 @@ import (
 	"time"
 
 	anchors "github.com/atomicobject/rhizome/pkg/anchors"
-	sqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/codeintel"
-	"github.com/atomicobject/rhizome/pkg/app/indexingpipe"
 	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
 	"github.com/atomicobject/rhizome/pkg/app/noteownership"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
@@ -16,15 +14,20 @@ import (
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	sqlite "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // Publish owns the actual structural operations shared by both adapters. It
 // preserves the existing code semantic submitter carried in ctx, including
 // bounded pre-persistence preparation overlap. It invokes no embedding provider.
-func Publish(ctx context.Context, request Request, d Discovery, service *anchors.Service, store *sqlite.Store, writer Writer, options PublishOptions) (result Result, resultErr error) {
+func Publish(ctx context.Context, lease *indexlock.Lease, request Request, d Discovery, service *anchors.Service, store *sqlite.Store, writer Writer, options PublishOptions) (result Result, resultErr error) {
 	done := indexingperf.StartSpan(ctx, "structural_publication")
 	defer func() { done(resultErr) }()
+	if err := lease.Validate(request.VaultDefinition.BasePath()); err != nil {
+		return result, fmt.Errorf("structural publication lease: %w", err)
+	}
 	result = Result{FullDiscovery: d.FullDiscovery}
 	if d.noop {
 		return result, nil
@@ -32,7 +35,6 @@ func Publish(ctx context.Context, request Request, d Discovery, service *anchors
 	if service == nil || store == nil || writer == nil {
 		return result, fmt.Errorf("structural service, store, and writer are required")
 	}
-	ctx = codeintel.WithWriteQueue(ctx, writer)
 	runtime, err := request.NoteMetadata.FormatRuntime()
 	if err != nil {
 		return result, err
@@ -68,7 +70,7 @@ func Publish(ctx context.Context, request Request, d Discovery, service *anchors
 		return nil
 	}
 	for {
-		indexingperf.AddCount(ctx, "ownership.transition_passes", 1)
+		indexingperf.AddCount(ctx, indexingperf.OwnershipTransitionPasses, 1)
 		if err := mark(); err != nil {
 			return result, err
 		}
@@ -92,7 +94,7 @@ func Publish(ctx context.Context, request Request, d Discovery, service *anchors
 			continue
 		}
 		sources := sealedSources(d.Snapshot, plan)
-		err = runPhase(ctx, "prepare_note_metadata", func(ctx context.Context) error {
+		err = indexingperf.RunPhase(ctx, "prepare_note_metadata", func(ctx context.Context) error {
 			var err error
 			preparation, err = request.NoteMetadata.PreparePublishedMetadata(ctx, d.CompleteNotePaths(), sources)
 			return err
@@ -152,34 +154,34 @@ func Publish(ctx context.Context, request Request, d Discovery, service *anchors
 		}
 	}
 	if fullMetadata {
-		indexingperf.AddCount(ctx, "metadata.publication.complete", 1)
+		indexingperf.AddCount(ctx, indexingperf.MetadataPublicationComplete, 1)
 		metadata, err = request.NoteMetadata.BuildPublishedMetadataDeltaFromPreparation(ctx, request.VaultDefinition, &obsidian.Note{}, store, preparation)
 		if err != nil {
 			return result, fmt.Errorf("build complete structural metadata: %w", err)
 		}
 	}
 	if !fullMetadata {
-		indexingperf.AddCount(ctx, "metadata.publication.scoped", 1)
+		indexingperf.AddCount(ctx, indexingperf.MetadataPublicationScoped, 1)
 	}
 	codeCandidates, noteCandidates, sources := ingestCandidates(d.Snapshot, plan, d.affected, fatal)
-	indexingperf.AddCount(ctx, "structural.code_candidates", int64(len(codeCandidates)))
-	indexingperf.AddCount(ctx, "structural.note_candidates", int64(len(noteCandidates)))
+	indexingperf.AddCount(ctx, indexingperf.StructuralCodeCandidates, int64(len(codeCandidates)))
+	indexingperf.AddCount(ctx, indexingperf.StructuralNoteCandidates, int64(len(noteCandidates)))
 	var progressCallbacks = options.BeforeIngest
-	var progress *indexingpipe.ProgressCallbacks
+	var progress *codeintel.ProgressCallbacks
 	if progressCallbacks != nil {
 		progress = progressCallbacks(len(codeCandidates), len(noteCandidates))
 	}
-	err = runPhase(ctx, "index_code", func(ctx context.Context) error {
+	err = indexingperf.RunPhase(ctx, "index_code", func(ctx context.Context) error {
 		var err error
-		result.Code, err = codeintel.IndexCandidates(ctx, service, vp.Root(), codeCandidates, progress)
+		result.Code, err = codeintel.IndexCandidates(ctx, service, writer, vp.Root(), codeCandidates, progress)
 		return err
 	})
 	if err != nil {
 		return result, err
 	}
-	err = runPhase(ctx, "ingest_notes", func(ctx context.Context) error {
+	err = indexingperf.RunPhase(ctx, "ingest_notes", func(ctx context.Context) error {
 		var err error
-		result.Notes, err = codeintel.IngestMarkdownCandidatesWithSources(ctx, service, vp.Root(), noteCandidates, sources, progress)
+		result.Notes, err = codeintel.IngestMarkdownCandidatesWithSources(ctx, service, writer, request.NoteMetadata, vp.Root(), noteCandidates, sources, progress)
 		return err
 	})
 	if err != nil {
@@ -198,7 +200,7 @@ func Publish(ctx context.Context, request Request, d Discovery, service *anchors
 			metadataChanges = append(metadataChanges, row.Path)
 		}
 		metadataDeletes = metadata.DeletedPaths
-		if err := runPhase(ctx, "sync_note_metadata", func(ctx context.Context) error {
+		if err := indexingperf.RunPhase(ctx, "sync_note_metadata", func(ctx context.Context) error {
 			if err := writer.SubmitNoteMetadataDelta(ctx, *metadata); err != nil {
 				return err
 			}
@@ -226,7 +228,7 @@ func Publish(ctx context.Context, request Request, d Discovery, service *anchors
 	if err := writer.SubmitStructuralFinalize(ctx, indexwriter.StructuralFinalize{ChangedCodePaths: mergePaths(result.Code.IndexedPaths, retiredCode), ChangedCallerPaths: result.Code.ChangedCallerPaths, DefDeltas: result.Code.DefDeltas, AffectedAnchorIDs: d.Reconciliation.AffectedAnchorIDs(), Complete: d.FullDiscovery, RecomputeScopes: result.Code.Indexed > 0 || len(result.Notes.ChangedPaths) > 0 || len(result.Notes.DeletedPaths) > 0 || d.Recovery}); err != nil {
 		return result, err
 	}
-	err = runPhase(ctx, "sync_ontology", func(ctx context.Context) error {
+	err = indexingperf.RunPhase(ctx, "sync_ontology", func(ctx context.Context) error {
 		var err error
 		result.Ontology, err = ontology.SyncPublishedPaths(ctx, request.NoteMetadata, request.VaultDefinition, &obsidian.Note{}, store, writer, ontologyChanged, result.Notes.DeletedPaths)
 		return err
@@ -253,6 +255,11 @@ func Publish(ctx context.Context, request Request, d Discovery, service *anchors
 	result.Reconciliation = d.Reconciliation
 	result.CodeRetirements = retiredCode
 	result.StructuralGeneration = d.Reconciliation.AcknowledgementGeneration()
+	if result.Reconciliation.Required() {
+		if err := writer.AcknowledgeOwnershipReconciliation(ctx, result.StructuralGeneration); err != nil {
+			return result, fmt.Errorf("acknowledge structural ownership: %w", err)
+		}
+	}
 	return result, nil
 }
 

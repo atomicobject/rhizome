@@ -61,7 +61,7 @@ The compression branch is opportunistic: any failure, timeout, or empty response
 
 ### Integration points
 
-- `pkg/app/cli/context_text.go` — `BuildVaultContextText` / `BuildFileContextText` assemble pieces for `rzm agent vault-context` and `file-context`; `packContext` wraps `PackWithIntent`. For code-repo vault context it forces `AlwaysCompress` with a fixed overview `intent`.
+- `pkg/app/operations/context_text.go` — `BuildVaultContextText` / `BuildFileContextText` assemble pieces for `rzm agent vault-context` and `file-context`; `packContext` wraps `PackWithIntent`. For code-repo vault context it forces `AlwaysCompress` with a fixed overview `intent`.
 - `pkg/app/presentation/packer.go` — implements the `Packer` interface consumed by `pkg/search.Service` for `semantic-query` packed output (see [[Search (Hub)]]).
 - `pkg/app/unifiedsearch/run.go` — `rzm search --pack` path; defaults the packed-response budget to `6000` chars when none is given.
 - `cmd/agent.go` — `agentCLIBudgetFloor = 150000`; `rzm agent` runs one-shot with **compression disabled** (predictable deterministic output), so the LLM path is MCP/server-only.

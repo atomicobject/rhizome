@@ -2,21 +2,7 @@ package obsidian
 
 import (
 	"path/filepath"
-
-	"github.com/atomicobject/rhizome/pkg/llm"
 )
-
-type VaultManager interface {
-	DefaultName() (string, error)
-	SetDefaultName(name string) error
-	Path() (string, error)
-	Definition() (VaultDefinition, error)
-}
-
-type Vault struct {
-	Name               string
-	ObsidianConfigFile func() (string, error)
-}
 
 // VaultDefinition describes either a classic single-root vault (Path) or a
 // collection-style vault defined by globs (Root + Includes).
@@ -87,35 +73,4 @@ func (d VaultDefinition) SupportsMarkdownLinks() bool {
 	default:
 		return true
 	}
-}
-
-// CliConfig stores user-managed vault mappings (classic or collection).
-type CliConfig struct {
-	DefaultVaultName string                     `json:"default_vault_name" yaml:"default_vault_name"`
-	Vaults           map[string]VaultDefinition `json:"vaults,omitempty" yaml:"vaults,omitempty"`
-	LLM              *llm.Config                `json:"llm,omitempty" yaml:"llm,omitempty"`
-	Env              map[string]string          `json:"env,omitempty" yaml:"env,omitempty"`
-	Agent            *AgentUserConfig           `json:"agent,omitempty" yaml:"agent,omitempty"`
-	CredentialSkips  map[string]bool            `json:"credential_skips,omitempty" yaml:"credentialSkips,omitempty"`
-}
-
-type AgentUserConfig struct {
-	Harness   string                        `json:"harness,omitempty" yaml:"harness,omitempty"`
-	Harnesses map[string]AgentHarnessConfig `json:"harnesses,omitempty" yaml:"harnesses,omitempty"`
-}
-
-type AgentHarnessConfig struct {
-	Model          string `json:"model,omitempty" yaml:"model,omitempty"`
-	Effort         string `json:"effort,omitempty" yaml:"effort,omitempty"`
-	PermissionMode string `json:"permissionMode,omitempty" yaml:"permission-mode,omitempty"`
-}
-
-// ObsidianVaultConfig models Obsidian's own vault configuration file.
-type ObsidianVaultConfig struct {
-	Vaults map[string]VaultPathEntry `json:"vaults"`
-}
-
-// VaultPathEntry is preserved for parsing Obsidian's config file shape.
-type VaultPathEntry struct {
-	Path string `json:"path"`
 }

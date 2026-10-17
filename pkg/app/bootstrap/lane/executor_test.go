@@ -14,6 +14,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestExecutorPassesOwnedLeaseOnlyForTheJobLifetime(t *testing.T) {
+	root := t.TempDir()
+	executor := New(Options{LockPath: filepath.Join(root, ".rhizome", "index.lock")})
+	t.Cleanup(executor.Close)
+	var used *indexlock.Lease
+	handle, _, err := executor.Submit(context.Background(), Request{Kind: KindExplicitIndex,
+		Run: func(_ context.Context, lease *indexlock.Lease, _ Reporter) error {
+			used = lease
+			return lease.Validate(root)
+		},
+	})
+	require.NoError(t, err)
+	<-handle.Done()
+	require.NoError(t, handle.Err())
+	require.NotNil(t, used)
+	require.ErrorIs(t, used.Validate(root), indexlock.ErrLeaseNotHeld)
+}
+
 func newTestLane(t *testing.T, mutate func(*Options)) *Executor {
 	t.Helper()
 	opts := Options{
@@ -45,7 +63,7 @@ func TestExecutorExplicitJobPreemptsBackgroundWithinOneSecond(t *testing.T) {
 
 	backgroundStarted := make(chan struct{})
 	cancelledAt := make(chan time.Time, 1)
-	background, _, err := lane.Submit(context.Background(), Request{Kind: KindEmbedCycle, Run: func(ctx context.Context, _ Reporter) error {
+	background, _, err := lane.Submit(context.Background(), Request{Kind: KindEmbedCycle, Run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
 		close(backgroundStarted)
 		<-ctx.Done()
 		cancelledAt <- time.Now()
@@ -56,7 +74,7 @@ func TestExecutorExplicitJobPreemptsBackgroundWithinOneSecond(t *testing.T) {
 
 	explicitStarted := make(chan struct{})
 	submittedAt := time.Now()
-	explicit, joined, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Run: func(context.Context, Reporter) error {
+	explicit, joined, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Run: func(context.Context, *indexlock.Lease, Reporter) error {
 		close(explicitStarted)
 		return nil
 	}})
@@ -96,21 +114,21 @@ func TestExecutorCoalescesSameKindAndRunsBackgroundFIFO(t *testing.T) {
 		mu.Unlock()
 	}
 
-	blocker, _, err := lane.Submit(context.Background(), Request{Kind: KindBootCatchUp, Run: func(ctx context.Context, _ Reporter) error {
+	blocker, _, err := lane.Submit(context.Background(), Request{Kind: KindBootCatchUp, Run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
 		record("boot")
 		<-release
 		return nil
 	}})
 	require.NoError(t, err)
 
-	first, joined, err := lane.Submit(context.Background(), Request{Kind: KindEmbedCycle, Coalesce: true, Run: func(context.Context, Reporter) error {
+	first, joined, err := lane.Submit(context.Background(), Request{Kind: KindEmbedCycle, Coalesce: true, Run: func(context.Context, *indexlock.Lease, Reporter) error {
 		record("embed")
 		return nil
 	}})
 	require.NoError(t, err)
 	require.False(t, joined)
 
-	second, joined, err := lane.Submit(context.Background(), Request{Kind: KindEmbedCycle, Coalesce: true, Run: func(context.Context, Reporter) error {
+	second, joined, err := lane.Submit(context.Background(), Request{Kind: KindEmbedCycle, Coalesce: true, Run: func(context.Context, *indexlock.Lease, Reporter) error {
 		record("embed-duplicate")
 		return nil
 	}})
@@ -118,7 +136,7 @@ func TestExecutorCoalescesSameKindAndRunsBackgroundFIFO(t *testing.T) {
 	require.True(t, joined, "a queued job of the same kind must be joined")
 	require.Equal(t, first.ID(), second.ID())
 
-	graph, _, err := lane.Submit(context.Background(), Request{Kind: KindGraphCycle, Run: func(context.Context, Reporter) error {
+	graph, _, err := lane.Submit(context.Background(), Request{Kind: KindGraphCycle, Run: func(context.Context, *indexlock.Lease, Reporter) error {
 		record("graph")
 		return nil
 	}})
@@ -139,7 +157,7 @@ func TestExecutorReplaysHistoryThenStreamsAndAlwaysDeliversDone(t *testing.T) {
 
 	emitted := make(chan struct{})
 	finish := make(chan struct{})
-	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Run: func(_ context.Context, progress Reporter) error {
+	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Run: func(_ context.Context, _ *indexlock.Lease, progress Reporter) error {
 		progress.Log("start")
 		progress.Segment("notes", 1, 4)
 		close(emitted)
@@ -182,7 +200,7 @@ func TestExecutorCancelIsJobWide(t *testing.T) {
 	lane := newTestLane(t, nil)
 
 	started := make(chan struct{})
-	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Run: func(ctx context.Context, _ Reporter) error {
+	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
 		close(started)
 		<-ctx.Done()
 		return ctx.Err()
@@ -190,7 +208,7 @@ func TestExecutorCancelIsJobWide(t *testing.T) {
 	require.NoError(t, err)
 	<-started
 
-	joiner, joined, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Run: func(context.Context, Reporter) error { return nil }})
+	joiner, joined, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Run: func(context.Context, *indexlock.Lease, Reporter) error { return nil }})
 	require.NoError(t, err)
 	require.True(t, joined)
 
@@ -207,7 +225,7 @@ func TestExecutorCloseCancelsRunningAndDropsQueue(t *testing.T) {
 	lane := New(Options{LockPath: filepath.Join(t.TempDir(), ".rhizome", "index.lock"), PriorityPoll: 20 * time.Millisecond})
 
 	started := make(chan struct{})
-	running, _, err := lane.Submit(context.Background(), Request{Kind: KindBootCatchUp, Run: func(ctx context.Context, _ Reporter) error {
+	running, _, err := lane.Submit(context.Background(), Request{Kind: KindBootCatchUp, Run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
 		close(started)
 		<-ctx.Done()
 		return ctx.Err()
@@ -215,7 +233,7 @@ func TestExecutorCloseCancelsRunningAndDropsQueue(t *testing.T) {
 	require.NoError(t, err)
 	<-started
 
-	queued, _, err := lane.Submit(context.Background(), Request{Kind: KindGraphCycle, Run: func(context.Context, Reporter) error {
+	queued, _, err := lane.Submit(context.Background(), Request{Kind: KindGraphCycle, Run: func(context.Context, *indexlock.Lease, Reporter) error {
 		t.Error("a queued job must not run after Close")
 		return nil
 	}})
@@ -239,7 +257,7 @@ func TestExecutorHoldsBackgroundWorkWhileAPriorityRequestExists(t *testing.T) {
 	priorityPath := writeForeignPriority(t, lockPath)
 
 	ran := make(chan struct{})
-	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindEmbedCycle, Run: func(context.Context, Reporter) error {
+	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindEmbedCycle, Run: func(context.Context, *indexlock.Lease, Reporter) error {
 		close(ran)
 		return nil
 	}})
@@ -269,7 +287,7 @@ func TestExecutorCancelsRunningBackgroundJobOnExternalPriority(t *testing.T) {
 	t.Cleanup(lane.Close)
 
 	started := make(chan struct{})
-	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindEmbedCycle, Run: func(ctx context.Context, _ Reporter) error {
+	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindEmbedCycle, Run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
 		close(started)
 		<-ctx.Done()
 		return ctx.Err()
@@ -294,7 +312,7 @@ func TestExecutorWritesJobKindAsLockRole(t *testing.T) {
 	t.Cleanup(lane.Close)
 
 	roles := make(chan string, 1)
-	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindGraphCycle, Run: func(context.Context, Reporter) error {
+	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindGraphCycle, Run: func(context.Context, *indexlock.Lease, Reporter) error {
 		data, ok := indexlock.ReadLockData(lockPath)
 		require.True(t, ok)
 		roles <- data.Role
@@ -311,14 +329,14 @@ func TestExecutorWritesJobKindAsLockRole(t *testing.T) {
 
 func TestExecutorWaitsForAnExternalLockHolderAndNamesIt(t *testing.T) {
 	lockPath := filepath.Join(t.TempDir(), ".rhizome", "index.lock")
-	lane := New(Options{LockPath: lockPath, PriorityPoll: 20 * time.Millisecond, acquire: func(role string) (func() error, bool, error) {
+	lane := New(Options{LockPath: lockPath, PriorityPoll: 20 * time.Millisecond, acquire: func(role string) (*indexlock.Lease, bool, error) {
 		return nil, false, nil
 	}})
 	t.Cleanup(lane.Close)
 	require.NoError(t, os.MkdirAll(filepath.Dir(lockPath), 0o755))
 	writeLockFile(t, lockPath, indexlock.LockData{PID: 4242, Role: "cli/index"})
 
-	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Run: func(context.Context, Reporter) error { return nil }})
+	handle, _, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Run: func(context.Context, *indexlock.Lease, Reporter) error { return nil }})
 	require.NoError(t, err)
 	events, cancel := handle.Subscribe()
 	defer cancel()
@@ -366,12 +384,12 @@ func writeLockFile(t *testing.T, lockPath string, data indexlock.LockData) {
 }
 
 func TestNextPrefersAnExplicitJobQueuedDuringThePriorityCheck(t *testing.T) {
-	lockPath := filepath.Join(t.TempDir(), "index.lock")
+	lockPath := filepath.Join(t.TempDir(), ".rhizome", "index.lock")
 	var lane *Executor
 	var order []Kind
 	var mu sync.Mutex
-	record := func(kind Kind) func(context.Context, Reporter) error {
-		return func(context.Context, Reporter) error {
+	record := func(kind Kind) func(context.Context, *indexlock.Lease, Reporter) error {
+		return func(context.Context, *indexlock.Lease, Reporter) error {
 			mu.Lock()
 			order = append(order, kind)
 			mu.Unlock()
@@ -380,7 +398,9 @@ func TestNextPrefersAnExplicitJobQueuedDuringThePriorityCheck(t *testing.T) {
 	}
 	var injected sync.Once
 	lane = New(Options{LockPath: lockPath, PriorityPoll: 10 * time.Millisecond,
-		acquire: func(string) (func() error, bool, error) { return func() error { return nil }, true, nil },
+		acquire: func(string) (*indexlock.Lease, bool, error) {
+			return indexlock.TryAcquireLease(filepath.Dir(filepath.Dir(lockPath)), indexlock.AcquireOptions{})
+		},
 		checkPriority: func() bool {
 			// An explicit job arrives while the background candidate is being
 			// checked without the lock held: it must run first.
@@ -405,21 +425,23 @@ func TestNextPrefersAnExplicitJobQueuedDuringThePriorityCheck(t *testing.T) {
 }
 
 func TestPreemptedErrorNamesTheExplicitJob(t *testing.T) {
-	lockPath := filepath.Join(t.TempDir(), "index.lock")
+	lockPath := filepath.Join(t.TempDir(), ".rhizome", "index.lock")
 	lane := New(Options{LockPath: lockPath, PriorityPoll: 10 * time.Millisecond,
-		acquire:       func(string) (func() error, bool, error) { return func() error { return nil }, true, nil },
+		acquire: func(string) (*indexlock.Lease, bool, error) {
+			return indexlock.TryAcquireLease(filepath.Dir(filepath.Dir(lockPath)), indexlock.AcquireOptions{})
+		},
 		checkPriority: func() bool { return false },
 	})
 	t.Cleanup(lane.Close)
 	started := make(chan struct{})
-	background, _, err := lane.Submit(context.Background(), Request{Kind: KindBootCatchUp, Run: func(ctx context.Context, _ Reporter) error {
+	background, _, err := lane.Submit(context.Background(), Request{Kind: KindBootCatchUp, Run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
 		close(started)
 		<-ctx.Done()
 		return ctx.Err()
 	}})
 	require.NoError(t, err)
 	<-started
-	explicit, _, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Coalesce: true, Run: func(ctx context.Context, _ Reporter) error {
+	explicit, _, err := lane.Submit(context.Background(), Request{Kind: KindExplicitIndex, Coalesce: true, Run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
 		<-ctx.Done()
 		return ctx.Err()
 	}})

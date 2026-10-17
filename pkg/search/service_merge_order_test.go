@@ -3,7 +3,6 @@ package search
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
@@ -11,18 +10,13 @@ import (
 )
 
 func TestSearchKeepsMetadataPrecedenceAcrossRetrieverCompletionOrder(t *testing.T) {
-	// Two occupied slots let a third retriever witness completion of the first
-	// merge: the service releases its semaphore only after recording the lane.
-	previous := runtime.GOMAXPROCS(2)
-	defer runtime.GOMAXPROCS(previous)
 	for _, primaryLast := range []bool{true, false} {
 		t.Run(fmt.Sprintf("primary finishes last=%v", primaryLast), func(t *testing.T) {
-			entered := make(chan int, 3)
-			retrievers := make([]Retriever, 3)
-			releases := make([]chan []Candidate, 3)
-			for i := range retrievers {
-				releases[i] = make(chan []Candidate, 1)
-				retrievers[i] = mergeOrderedRetriever{index: i, entered: entered, release: releases[i]}
+			entered := make(chan mergeLaneStart, 2)
+			releases := []chan []Candidate{make(chan []Candidate, 1), make(chan []Candidate, 1)}
+			retrievers := []Retriever{
+				mergeOrderedRetriever{index: 0, entered: entered, release: releases[0]},
+				mergeOrderedRetriever{index: 1, entered: entered, release: releases[1]},
 			}
 			type outcome struct {
 				response Response
@@ -33,21 +27,21 @@ func TestSearchKeepsMetadataPrecedenceAcrossRetrieverCompletionOrder(t *testing.
 				response, err := (&Service{Retrievers: retrievers, Ranker: stubRanker{}}).Search(context.Background(), QuerySpec{Text: "shared"})
 				done <- outcome{response, err}
 			}()
-			// Whichever lanes the scheduler starts first, the earlier configured one
-			// is authoritative. The remaining lane contributes no candidate.
-			a, b := <-entered, <-entered
-			primary, fallback := min(a, b), max(a, b)
-			candidates := map[int][]Candidate{
-				primary:  {{Handle: knowledge.NoteHandle("shared"), Title: "Authored title", Evidence: []Evidence{{Type: "note_title_match", Score: 1}}}},
-				fallback: {{Handle: knowledge.NoteHandle("shared"), Title: "Filename title", NoteID: "shared", Evidence: []Evidence{{Type: "note_vector_similarity", Score: .8}}}},
+			contexts := make(map[int]context.Context)
+			for range 2 {
+				started := <-entered
+				contexts[started.index] = started.ctx
 			}
-			first, last := primary, fallback
+			candidates := [][]Candidate{
+				{{SourceRef: SourceRef{Title: "Authored title"}, Handle: knowledge.NoteHandle("shared"), Evidence: []Evidence{{Type: "note_title_match", Score: 1}}}},
+				{{SourceRef: SourceRef{Title: "Filename title", NoteID: "shared"}, Handle: knowledge.NoteHandle("shared"), Evidence: []Evidence{{Type: "note_vector_similarity", Score: .8}}}},
+			}
+			first, last := 0, 1
 			if primaryLast {
-				first, last = fallback, primary
+				first, last = last, first
 			}
 			releases[first] <- candidates[first]
-			witness := <-entered // First lane has merged and released its slot.
-			releases[witness] <- nil
+			<-contexts[first].Done()
 			releases[last] <- candidates[last]
 			result := <-done
 			require.NoError(t, result.err)
@@ -55,21 +49,25 @@ func TestSearchKeepsMetadataPrecedenceAcrossRetrieverCompletionOrder(t *testing.
 			candidate := result.response.Results[0]
 			require.Equal(t, "Authored title", candidate.Title)
 			require.Equal(t, "shared", candidate.NoteID)
-			require.True(t, hasAnyEvidence(candidate.Evidence, "note_title_match"))
-			require.True(t, hasAnyEvidence(candidate.Evidence, "note_vector_similarity"))
+			require.True(t, HasEvidence(candidate.Evidence, "note_title_match"))
+			require.True(t, HasEvidence(candidate.Evidence, "note_vector_similarity"))
 		})
 	}
 }
 
+type mergeLaneStart struct {
+	index int
+	ctx   context.Context
+}
+
 type mergeOrderedRetriever struct {
 	index   int
-	entered chan<- int
+	entered chan<- mergeLaneStart
 	release <-chan []Candidate
 }
 
-func (r mergeOrderedRetriever) Name() string                  { return fmt.Sprintf("lane%d", r.index) }
-func (r mergeOrderedRetriever) CostClass() RetrieverCostClass { return RetrieverCostCPUHeavy }
-func (r mergeOrderedRetriever) Retrieve(context.Context, QuerySpec) ([]Candidate, error) {
-	r.entered <- r.index
+func (r mergeOrderedRetriever) Name() string { return fmt.Sprintf("lane%d", r.index) }
+func (r mergeOrderedRetriever) Retrieve(ctx context.Context, _ QuerySpec) ([]Candidate, error) {
+	r.entered <- mergeLaneStart{index: r.index, ctx: ctx}
 	return <-r.release, nil
 }

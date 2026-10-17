@@ -104,7 +104,7 @@ func TestEnsureDomain_FutureSchema(t *testing.T) {
 	require.Equal(t, 3, future.Supported)
 }
 
-func TestEnsureDomain_WritesLogAndDirty(t *testing.T) {
+func TestEnsureDomain_WritesAppliedLog(t *testing.T) {
 	db := openTestDB(t)
 	ctx := context.Background()
 
@@ -119,10 +119,6 @@ func TestEnsureDomain_WritesLogAndDirty(t *testing.T) {
 		},
 	}, EnsureOptions{})
 	require.NoError(t, err)
-
-	var dirty int
-	require.NoError(t, db.QueryRowContext(ctx, `SELECT dirty FROM rzm_migration_state WHERE domain = 'logs'`).Scan(&dirty))
-	require.Equal(t, 0, dirty)
 
 	var status string
 	require.NoError(t, db.QueryRowContext(ctx, `SELECT status FROM rzm_migration_log WHERE domain = 'logs' ORDER BY id DESC LIMIT 1`).Scan(&status))

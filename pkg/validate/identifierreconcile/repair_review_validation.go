@@ -2,8 +2,7 @@ package identifierreconcile
 
 import (
 	"fmt"
-
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 )
 
 func validateReviewDiagnosticsPreserved(components []CollisionRepairIntent, discovery *identifierLinkDiscoverySnapshot) error {
@@ -11,7 +10,7 @@ func validateReviewDiagnosticsPreserved(components []CollisionRepairIntent, disc
 	for _, plan := range discovery.ReviewPlans {
 		for index, candidate := range plan.Candidates {
 			diagnostic := plan.Diagnostics[index]
-			physical := RepairDiagnostic{Kind: string(reference.IdentifierRewriteDiagnosticReviewOnly), Blocking: false, Field: &diagnostic}
+			physical := RepairDiagnostic{Kind: string(identifierrewrite.IdentifierRewriteDiagnosticReviewOnly), Blocking: false, Field: &diagnostic}
 			key := repairDiagnosticPhysicalKey(physical)
 			for _, component := range components {
 				if reviewCandidateMatchesRewrites(candidate, componentRewriteValues(component)) {
@@ -24,7 +23,7 @@ func validateReviewDiagnosticsPreserved(components []CollisionRepairIntent, disc
 	actual := make(map[string]map[string]struct{})
 	for _, component := range components {
 		for _, diagnostic := range component.Diagnostics {
-			if diagnostic.Kind == string(reference.IdentifierRewriteDiagnosticReviewOnly) && !diagnostic.Blocking && diagnostic.Field != nil {
+			if diagnostic.Kind == string(identifierrewrite.IdentifierRewriteDiagnosticReviewOnly) && !diagnostic.Blocking && diagnostic.Field != nil {
 				key := repairDiagnosticPhysicalKey(diagnostic)
 				if _, tracked := expected[key]; tracked {
 					addIntentMembership(actual, key, component.MembershipKeys[0])
@@ -38,8 +37,8 @@ func validateReviewDiagnosticsPreserved(components []CollisionRepairIntent, disc
 	return nil
 }
 
-func componentRewriteValues(component CollisionRepairIntent) []reference.IdentifierRewrite {
-	out := make([]reference.IdentifierRewrite, len(component.Rewrites))
+func componentRewriteValues(component CollisionRepairIntent) []identifierrewrite.IdentifierRewrite {
+	out := make([]identifierrewrite.IdentifierRewrite, len(component.Rewrites))
 	for index := range component.Rewrites {
 		out[index] = component.Rewrites[index].Rewrite
 	}

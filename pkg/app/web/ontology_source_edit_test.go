@@ -1,6 +1,7 @@
 package web
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -65,4 +66,15 @@ func TestValidateBoundedSourceEditProtectsGraphIdentity(t *testing.T) {
 		"# Root\n\n- First\n  ^first\n- Second\n  ^second\n",
 		"# Root\n\n- First\n  ^second\n- Second\n  ^first\n",
 	))
+}
+
+func TestBoundedSourceEditUsesSharedProtectedSpanBoundaries(t *testing.T) {
+	for _, source := range []string{
+		"\xef\xbb\xbf---\nexample: |\n  Example\n  =======\n  ^example\n---\n\n# Real heading\nBody\n",
+		"# Real heading\n\n````md\n```\nExample\n=======\n^example\n````\n",
+		"# Real heading\r\n\r\n~~~md\r\nExample\r\n=======\r\n^example\r\n~~~\r\n",
+	} {
+		updated := strings.ReplaceAll(strings.ReplaceAll(source, "Example", "Edited example"), "^example", "^edited-example")
+		require.NoError(t, validateBoundedSourceEdit(source, updated))
+	}
 }

@@ -8,13 +8,14 @@ import (
 
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 )
 
 // vaultRuntimeAutostart resolves whether this invocation may start a headless
 // runtime (RZM_RUNTIME_AUTOSTART, then `runtime.autostart`, then true).
 func vaultRuntimeAutostart(vaultPath string) bool {
-	cfg, err := obsidian.LoadLocalConfig(vaultPath)
+	cfg, err := repoconfig.LoadLocalConfig(vaultPath)
 	if err != nil {
 		cfg = nil
 	}

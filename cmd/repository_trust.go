@@ -3,10 +3,10 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +16,7 @@ func newRepositoryTrustCmd() *cobra.Command {
 		Short: "Trust this repository to select its Rhizome executable",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cwd, err := os.Getwd()
+			cwd, err := commandEnvFromContext(cmd.Context()).Getwd()
 			if err != nil {
 				return err
 			}
@@ -62,7 +62,7 @@ func newRepositoryUntrustCmd() *cobra.Command {
 		Short: "Revoke this repository's Rhizome executable trust",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cwd, err := os.Getwd()
+			cwd, err := commandEnvFromContext(cmd.Context()).Getwd()
 			if err != nil {
 				return err
 			}
@@ -89,11 +89,11 @@ func newRepositoryUntrustCmd() *cobra.Command {
 }
 
 func repositoryCheckout(cwd string) (string, error) {
-	cfgDir, _, err := obsidian.FindLocalConfigForDelegation(cwd)
+	cfgDir, _, err := repoconfig.FindLocalConfigForDelegation(cwd)
 	if err == nil {
 		return repositorytrust.CanonicalCheckout(cfgDir)
 	}
-	if !errors.Is(err, obsidian.ErrNoLocalConfig) {
+	if !errors.Is(err, repoconfig.ErrNoLocalConfig) {
 		return "", err
 	}
 	if root, ok := findRhizomeSourceRoot(cwd); ok {
@@ -102,6 +102,6 @@ func repositoryCheckout(cwd string) (string, error) {
 	return "", errors.New("no Rhizome repository checkout found from the current directory")
 }
 
-func init() {
+func (commandOptions *vaultCommandOptions) registerRepositoryTrustCommands(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(newRepositoryTrustCmd(), newRepositoryUntrustCmd())
 }

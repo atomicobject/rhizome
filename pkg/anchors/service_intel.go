@@ -1157,8 +1157,8 @@ func (s *Service) RebuildParserCallEdgesForPaths(ctx context.Context, filePaths 
 	if err != nil {
 		return err
 	}
-	indexingperf.AddCount(ctx, "calledge.direct_paths", int64(len(sources.runtimeByPath)))
-	indexingperf.AddCount(ctx, "calledge.planned_paths", int64(len(items)-len(sources.runtimeByPath)))
+	indexingperf.AddCount(ctx, indexingperf.CalledgeDirectPaths, int64(len(sources.runtimeByPath)))
+	indexingperf.AddCount(ctx, indexingperf.CalledgePlannedPaths, int64(len(items)-len(sources.runtimeByPath)))
 
 	total := len(items)
 	progress := callEdgeProgressFromContext(ctx)
@@ -1601,7 +1601,7 @@ func (s *Service) deleteIntelByPath(ctx context.Context, path string, isNote boo
 func (s *Service) resolveNoteMentions(ctx context.Context, intelPath string, sections []IntelDocSection, content string) []IntelEdge {
 	started := time.Now()
 	defer func() {
-		indexingperf.ObserveLatency(ctx, "noteindex.mentions.resolve", time.Since(started))
+		indexingperf.ObserveLatency(ctx, indexingperf.NoteindexMentionsResolve, time.Since(started))
 	}()
 	lookup, ok := s.store.(intelMentionLookup)
 	if !ok || len(sections) == 0 {
@@ -1616,7 +1616,7 @@ func (s *Service) resolveNoteMentions(ctx context.Context, intelPath string, sec
 	if len(candidates) == 0 {
 		return nil
 	}
-	indexingperf.ObserveSample(ctx, "noteindex.mentions.candidates", int64(len(candidates)))
+	indexingperf.ObserveSample(ctx, indexingperf.NoteindexMentionsCandidates, int64(len(candidates)))
 
 	type edgeKey struct {
 		src  string
@@ -1633,13 +1633,13 @@ func (s *Service) resolveNoteMentions(ctx context.Context, intelPath string, sec
 			if target == "" {
 				continue
 			}
-			indexingperf.AddCount(ctx, "noteindex.mentions.lookup.path", 1)
+			indexingperf.AddCount(ctx, indexingperf.NoteindexMentionsLookupPath, 1)
 			anchors, err := lookup.IntelAnchorsByPath(ctx, target)
 			if err != nil {
-				indexingperf.AddCount(ctx, "noteindex.mentions.lookup_error", 1)
+				indexingperf.AddCount(ctx, indexingperf.NoteindexMentionsLookupError, 1)
 				continue
 			}
-			indexingperf.ObserveSample(ctx, "noteindex.mentions.lookup.path_results", int64(len(anchors)))
+			indexingperf.ObserveSample(ctx, indexingperf.NoteindexMentionsLookupPathResults, int64(len(anchors)))
 
 			want := ""
 			if c.Fragment != "" && looksLikeIdentifier(c.Fragment) {
@@ -1679,13 +1679,13 @@ func (s *Service) resolveNoteMentions(ctx context.Context, intelPath string, sec
 				continue
 			}
 			// Conservative cap; tail-match filtering happens in-memory.
-			indexingperf.AddCount(ctx, "noteindex.mentions.lookup.symbol", 1)
+			indexingperf.AddCount(ctx, indexingperf.NoteindexMentionsLookupSymbol, 1)
 			anchors, err := lookup.IntelAnchorsBySymbol(ctx, c.Symbol, 250)
 			if err != nil {
-				indexingperf.AddCount(ctx, "noteindex.mentions.lookup_error", 1)
+				indexingperf.AddCount(ctx, indexingperf.NoteindexMentionsLookupError, 1)
 				continue
 			}
-			indexingperf.ObserveSample(ctx, "noteindex.mentions.lookup.symbol_results", int64(len(anchors)))
+			indexingperf.ObserveSample(ctx, indexingperf.NoteindexMentionsLookupSymbolResults, int64(len(anchors)))
 			for _, a := range anchors {
 				if !matchesTailQualifier(a.Path, c.Qualifier) {
 					continue
@@ -1710,7 +1710,7 @@ func (s *Service) resolveNoteMentions(ctx context.Context, intelPath string, sec
 		}
 	}
 
-	indexingperf.ObserveSample(ctx, "noteindex.mentions.edges", int64(len(out)))
+	indexingperf.ObserveSample(ctx, indexingperf.NoteindexMentionsEdges, int64(len(out)))
 	return out
 }
 

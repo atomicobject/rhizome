@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat"
@@ -22,7 +23,7 @@ type Project @node(paths: ["notes/*.md", "notes/*.html"]) {
   summary: String @field
 }
 `)
-	schema, err := LoadSchema(repo)
+	schema, err := ontoschema.LoadSchema(repo)
 	require.NoError(t, err)
 
 	markdownSource := mixedFormatSource(t, markdown.New(), "notes/alpha.md", []byte("---\ntype: Project\nstatus: active\nsummary: Shared facts\n---\n# Alpha\n"))
@@ -95,6 +96,14 @@ func mixedFormatSource(t *testing.T, projector noteformat.Projector, notePath st
 	for _, fact := range projection.Facts.RootMetadata {
 		metadata[fact.Key] = fact.Value.Export()
 	}
+	var tags []string
+	for _, tag := range projection.Facts.Tags {
+		tags = append(tags, tag.Value)
+	}
+	inline := map[string][]string{}
+	for _, property := range projection.Facts.InlineProperties {
+		inline[property.Key] = append(inline[property.Key], property.Value)
+	}
 	title := ""
 	if projection.Facts.Title != nil {
 		title = projection.Facts.Title.Value
@@ -103,6 +112,6 @@ func mixedFormatSource(t *testing.T, projector noteformat.Projector, notePath st
 		Path: canonical, Format: projector.Descriptor().ID,
 		Projection: projection, Content: string(content), RawSource: content,
 		ContentHash: source.ContentHash(), Mtime: 1, Size: int64(len(content)),
-		Title: title, Frontmatter: metadata, SearchRegions: projection.Facts.SearchRegions,
+		Title: title, Frontmatter: metadata, Tags: tags, InlineProps: inline, SearchRegions: projection.Facts.SearchRegions,
 	}
 }

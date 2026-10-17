@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,17 +39,6 @@ func (c *observedQueryContext) Done() <-chan struct{} {
 type queryEmbeddingReply struct {
 	vectors QueryEmbeddings
 	err     error
-}
-
-type queryTimingCollector struct {
-	mu     sync.Mutex
-	events map[string]TimingEvent
-}
-
-func (c *queryTimingCollector) Add(event TimingEvent) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.events[event.Name] = event
 }
 
 func startQueryEmbedding(e *QueryEmbedder, ctx context.Context, text string) <-chan queryEmbeddingReply {
@@ -330,17 +320,21 @@ func TestQueryEmbedderPreservesCausalFailureAndProviderTimings(t *testing.T) {
 	}}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	t.Cleanup(cancel)
-	timings := &queryTimingCollector{events: make(map[string]TimingEvent)}
-	ctx = WithTimingSink(ctx, timings)
+	timings := &search.Timings{}
+	ctx = search.WithTimings(ctx, timings)
 	embedder := QueryEmbedder{CodeProvider: code, NoteProvider: note}
 	_, err := embedder.Embed(ctx, "query")
 	require.ErrorIs(t, err, failure)
 	require.NotErrorIs(t, err, context.Canceled)
 	require.NoError(t, ctx.Err())
-	require.Len(t, timings.events, 2)
-	require.Equal(t, "error", timings.events["semantic.embed.note"].Status)
-	require.Equal(t, failure.Error(), timings.events["semantic.embed.note"].Err)
-	require.Equal(t, "canceled", timings.events["semantic.embed.code"].Status)
+	events := map[string]search.TimingEvent{}
+	for _, event := range timings.Snapshot() {
+		events[event.Name] = event
+	}
+	require.Len(t, events, 2)
+	require.Equal(t, "error", events["semantic.embed.note"].Status)
+	require.Equal(t, failure.Error(), events["semantic.embed.note"].Err)
+	require.Equal(t, "canceled", events["semantic.embed.code"].Status)
 }
 
 func TestQueryEmbeddingMemoDiscardsLateSuccessAfterLeaderCancellation(t *testing.T) {

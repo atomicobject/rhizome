@@ -5,12 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // RepairPostcheck names semantic validation required after applying one
@@ -35,18 +34,18 @@ type GovernedMoveResult struct {
 // CollisionRepairInput contains already-planned reference and move evidence
 // for exactly one PlannedCollision.
 type CollisionRepairInput struct {
-	CollisionKey string                        `json:"collisionKey"`
-	Rewrites     []reference.IdentifierRewrite `json:"rewrites"`
-	Moves        []GovernedMoveResult          `json:"moves,omitempty"`
+	CollisionKey string                                `json:"collisionKey"`
+	Rewrites     []identifierrewrite.IdentifierRewrite `json:"rewrites"`
+	Moves        []GovernedMoveResult                  `json:"moves,omitempty"`
 }
 
 // MigrationRepairInput binds one sealed whole-pool migration mapping to the
 // root reference rewrites and governed note moves that materialize it.
 // Descendant rewrites are supplied only by the shared sealed discovery.
 type MigrationRepairInput struct {
-	Plan     *MigrationPlan                `json:"plan"`
-	Rewrites []reference.IdentifierRewrite `json:"rewrites"`
-	Moves    []GovernedMoveResult          `json:"moves,omitempty"`
+	Plan     *MigrationPlan                        `json:"plan"`
+	Rewrites []identifierrewrite.IdentifierRewrite `json:"rewrites"`
+	Moves    []GovernedMoveResult                  `json:"moves,omitempty"`
 }
 
 // RekeyRepairAssemblyInput composes collision and whole-pool migration
@@ -60,20 +59,20 @@ type RekeyRepairAssemblyInput struct {
 }
 
 type IdentifierRepairIntent struct {
-	MembershipKeys []string                    `json:"membershipKeys"`
-	Rewrite        reference.IdentifierRewrite `json:"rewrite"`
+	MembershipKeys []string                            `json:"membershipKeys"`
+	Rewrite        identifierrewrite.IdentifierRewrite `json:"rewrite"`
 }
 
 type FieldRepairIntent struct {
-	MembershipKeys []string                      `json:"membershipKeys"`
-	SourceHash     string                        `json:"sourceHash"`
-	Edit           reference.StructuredFieldEdit `json:"edit"`
+	MembershipKeys []string                              `json:"membershipKeys"`
+	SourceHash     string                                `json:"sourceHash"`
+	Edit           identifierrewrite.StructuredFieldEdit `json:"edit"`
 }
 
 type LinkRepairIntent struct {
-	MembershipKeys []string                     `json:"membershipKeys"`
-	SourceHash     string                       `json:"sourceHash"`
-	Edit           reference.StructuredLinkEdit `json:"edit"`
+	MembershipKeys []string                             `json:"membershipKeys"`
+	SourceHash     string                               `json:"sourceHash"`
+	Edit           identifierrewrite.StructuredLinkEdit `json:"edit"`
 }
 
 type MoveRepairIntent struct {
@@ -100,12 +99,12 @@ type RepairPostcheckIntent struct {
 // RepairDiagnostic flattens planner diagnostics without erasing their typed
 // source evidence. Exactly one source pointer is populated.
 type RepairDiagnostic struct {
-	MembershipKeys []string                               `json:"membershipKeys"`
-	Kind           string                                 `json:"kind"`
-	Blocking       bool                                   `json:"blocking"`
-	Field          *reference.IdentifierRewriteDiagnostic `json:"field,omitempty"`
-	Link           *reference.LinkRewriteDiagnostic       `json:"link,omitempty"`
-	MoveConflict   *obsidian.MoveConflict                 `json:"moveConflict,omitempty"`
+	MembershipKeys []string                                       `json:"membershipKeys"`
+	Kind           string                                         `json:"kind"`
+	Blocking       bool                                           `json:"blocking"`
+	Field          *identifierrewrite.IdentifierRewriteDiagnostic `json:"field,omitempty"`
+	Link           *identifierrewrite.LinkRewriteDiagnostic       `json:"link,omitempty"`
+	MoveConflict   *obsidian.MoveConflict                         `json:"moveConflict,omitempty"`
 }
 
 // CollisionRepairIntent is the legacy-named, independently blockable semantic
@@ -146,7 +145,7 @@ type rekeyComponentInput struct {
 	kind      string
 	collision *PlannedCollision
 	migration *MigrationPlan
-	rewrites  []reference.IdentifierRewrite
+	rewrites  []identifierrewrite.IdentifierRewrite
 	moves     []GovernedMoveResult
 }
 
@@ -257,7 +256,7 @@ func AssembleRekeyRepairIntents(input RekeyRepairAssemblyInput) (*RepairAssembly
 	for _, componentInput := range expandedInputs {
 		expandedByKey[componentInput.CollisionKey] = componentInput
 	}
-	unionRewrites := make([]reference.IdentifierRewrite, 0)
+	unionRewrites := make([]identifierrewrite.IdentifierRewrite, 0)
 	for _, component := range components {
 		unionRewrites = append(unionRewrites, expandedByKey[component.key].Rewrites...)
 	}
@@ -409,7 +408,7 @@ func assembleMigrationRepair(plan *MigrationPlan, input CollisionRepairInput, fi
 	return component, nil
 }
 
-func validateMigrationRewrites(plan *MigrationPlan, rewrites []reference.IdentifierRewrite) (map[int]struct{}, map[int]struct{}, error) {
+func validateMigrationRewrites(plan *MigrationPlan, rewrites []identifierrewrite.IdentifierRewrite) (map[int]struct{}, map[int]struct{}, error) {
 	if plan == nil {
 		return nil, nil, fmt.Errorf("identifier migration plan is required")
 	}
@@ -430,7 +429,7 @@ func validateMigrationRewrites(plan *MigrationPlan, rewrites []reference.Identif
 			return nil, nil, fmt.Errorf("root rewrite maps multiple migration members")
 		}
 		rewrite := rewrites[index]
-		if rewrite.Mode != reference.IdentifierRewritePreferredRekey ||
+		if rewrite.Mode != identifierrewrite.IdentifierRewritePreferredRekey ||
 			strings.TrimSpace(rewrite.OldIdentifier) != planned.OldIdentifier ||
 			strings.TrimSpace(rewrite.NewIdentifier) != planned.NewIdentifier {
 			return nil, nil, fmt.Errorf("migration member %s root rewrite does not match sealed mapping", planned.Node.String())
@@ -469,7 +468,7 @@ func validateMigrationRewrites(plan *MigrationPlan, rewrites []reference.Identif
 	return roots, noteRoots, nil
 }
 
-func validateCollisionRewrites(collision PlannedCollision, rewrites []reference.IdentifierRewrite) (map[int]struct{}, error) {
+func validateCollisionRewrites(collision PlannedCollision, rewrites []identifierrewrite.IdentifierRewrite) (map[int]struct{}, error) {
 	roots := make(map[int]struct{}, len(collision.Losers))
 	for _, loser := range collision.Losers {
 		var matches []int
@@ -503,7 +502,7 @@ func validateCollisionRewrites(collision PlannedCollision, rewrites []reference.
 	return roots, nil
 }
 
-func validateRootRewrite(loser PlannedLoser, rewrite reference.IdentifierRewrite) error {
+func validateRootRewrite(loser PlannedLoser, rewrite identifierrewrite.IdentifierRewrite) error {
 	if IdentifierComparisonKey(rewrite.OldIdentifier) != IdentifierComparisonKey(loser.Claim.Value) {
 		return fmt.Errorf("root rewrite old identifier does not match loser claim")
 	}
@@ -512,11 +511,11 @@ func validateRootRewrite(loser PlannedLoser, rewrite reference.IdentifierRewrite
 	}
 	switch loser.Claim.Kind {
 	case ClaimPreferred:
-		if rewrite.Mode != reference.IdentifierRewritePreferredRekey || strings.TrimSpace(rewrite.NewIdentifier) != loser.Replacement {
+		if rewrite.Mode != identifierrewrite.IdentifierRewritePreferredRekey || strings.TrimSpace(rewrite.NewIdentifier) != loser.Replacement {
 			return fmt.Errorf("preferred loser requires PREFERRED_REKEY to planned replacement %q", loser.Replacement)
 		}
 	case ClaimAlias:
-		if rewrite.Mode != reference.IdentifierRewriteAliasRemoval {
+		if rewrite.Mode != identifierrewrite.IdentifierRewriteAliasRemoval {
 			return fmt.Errorf("alias loser requires ALIAS_REMOVAL")
 		}
 		if !sameRepairRef(rewrite.OldRef, rewrite.NewRef) || strings.TrimSpace(rewrite.NewIdentifier) == "" || IdentifierComparisonKey(rewrite.NewIdentifier) == IdentifierComparisonKey(rewrite.OldIdentifier) {
@@ -531,10 +530,10 @@ func validateRootRewrite(loser PlannedLoser, rewrite reference.IdentifierRewrite
 	return nil
 }
 
-func validateDerivedRewrites(rewrites []reference.IdentifierRewrite, roots map[int]struct{}) error {
+func validateDerivedRewrites(rewrites []identifierrewrite.IdentifierRewrite, roots map[int]struct{}) error {
 	parents := make(map[string]int)
 	for index, rewrite := range rewrites {
-		if rewrite.Mode != reference.IdentifierRewritePreferredRekey {
+		if rewrite.Mode != identifierrewrite.IdentifierRewritePreferredRekey {
 			continue
 		}
 		key := repairRefKey(rewrite.OldRef)
@@ -547,7 +546,7 @@ func validateDerivedRewrites(rewrites []reference.IdentifierRewrite, roots map[i
 		if rewrite.DerivedFrom.IsZero() {
 			continue
 		}
-		if rewrite.Mode != reference.IdentifierRewritePreferredRekey {
+		if rewrite.Mode != identifierrewrite.IdentifierRewritePreferredRekey {
 			return fmt.Errorf("derived rewrite %s must use PREFERRED_REKEY", rewrite.OldRef.String())
 		}
 		seen := map[int]struct{}{index: {}}
@@ -570,7 +569,7 @@ func validateDerivedRewrites(rewrites []reference.IdentifierRewrite, roots map[i
 	return nil
 }
 
-func appendMoveIntents(component *CollisionRepairIntent, rewrites []reference.IdentifierRewrite, roots map[int]struct{}, moves []GovernedMoveResult) error {
+func appendMoveIntents(component *CollisionRepairIntent, rewrites []identifierrewrite.IdentifierRewrite, roots map[int]struct{}, moves []GovernedMoveResult) error {
 	canonicalMoves := make([]GovernedMoveResult, len(moves))
 	for index, move := range moves {
 		plan, conflict, err := obsidian.PlanGovernedIdentifierMove(move.Request)
@@ -591,7 +590,7 @@ func appendMoveIntents(component *CollisionRepairIntent, rewrites []reference.Id
 	sort.Ints(rootIndexes)
 	for _, rootIndex := range rootIndexes {
 		root := rewrites[rootIndex]
-		if root.Mode == reference.IdentifierRewriteAliasRemoval {
+		if root.Mode == identifierrewrite.IdentifierRewriteAliasRemoval {
 			continue
 		}
 		var matches []int
@@ -634,21 +633,21 @@ func appendMoveIntents(component *CollisionRepairIntent, rewrites []reference.Id
 	return nil
 }
 
-func appendFieldDiscovery(component *CollisionRepairIntent, rewrites []reference.IdentifierRewrite, discovery *identifierFieldDiscoverySnapshot) error {
+func appendFieldDiscovery(component *CollisionRepairIntent, rewrites []identifierrewrite.IdentifierRewrite, discovery *identifierFieldDiscoverySnapshot) error {
 	for _, edit := range discovery.Edits {
 		rewrite, ok := fieldEditRewrite(edit, rewrites)
 		if !ok {
 			continue
 		}
 		intent := FieldRepairIntent{MembershipKeys: append([]string(nil), component.MembershipKeys...), Edit: edit}
-		if edit.Kind == reference.StructuredFieldAliasIdentifier {
-			if edit.Operation != reference.StructuredFieldEditAppend && edit.Operation != reference.StructuredFieldEditRemove {
+		if edit.Kind == identifierrewrite.StructuredFieldAliasIdentifier {
+			if edit.Operation != identifierrewrite.StructuredFieldEditAppend && edit.Operation != identifierrewrite.StructuredFieldEditRemove {
 				return fmt.Errorf("semantic alias edit must append or remove")
 			}
-			if edit.Operation == reference.StructuredFieldEditRemove && IdentifierComparisonKey(edit.Expected) != IdentifierComparisonKey(rewrite.OldIdentifier) {
+			if edit.Operation == identifierrewrite.StructuredFieldEditRemove && IdentifierComparisonKey(edit.Expected) != IdentifierComparisonKey(rewrite.OldIdentifier) {
 				return fmt.Errorf("alias removal does not match semantic rewrite membership")
 			}
-			if edit.Operation == reference.StructuredFieldEditAppend && IdentifierComparisonKey(edit.Replacement) != IdentifierComparisonKey(rewrite.NewIdentifier) {
+			if edit.Operation == identifierrewrite.StructuredFieldEditAppend && IdentifierComparisonKey(edit.Replacement) != IdentifierComparisonKey(rewrite.NewIdentifier) {
 				return fmt.Errorf("alias append does not match semantic rewrite membership")
 			}
 			component.AliasEdits = append(component.AliasEdits, intent)
@@ -661,7 +660,7 @@ func appendFieldDiscovery(component *CollisionRepairIntent, rewrites []reference
 			continue
 		}
 		diagnostic := raw
-		blocking := diagnostic.Kind != reference.IdentifierRewriteDiagnosticReviewOnly
+		blocking := diagnostic.Kind != identifierrewrite.IdentifierRewriteDiagnosticReviewOnly
 		component.Diagnostics = append(component.Diagnostics, RepairDiagnostic{MembershipKeys: append([]string(nil), component.MembershipKeys...), Kind: string(diagnostic.Kind), Blocking: blocking, Field: &diagnostic})
 	}
 	return nil
@@ -687,7 +686,7 @@ func sortCollisionIntents(component *CollisionRepairIntent) {
 func rewritesNonBlockHeading(edits []LinkRepairIntent) bool {
 	for _, intent := range edits {
 		edit := intent.Edit
-		if edit.Component == reference.LinkComponentFragment && edit.Expected != edit.Replacement && (!strings.HasPrefix(edit.Expected, "^") || !strings.HasPrefix(edit.Replacement, "^")) {
+		if edit.Component == identifierrewrite.LinkComponentFragment && edit.Expected != edit.Replacement && (!strings.HasPrefix(edit.Expected, "^") || !strings.HasPrefix(edit.Replacement, "^")) {
 			return true
 		}
 	}

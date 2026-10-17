@@ -2,12 +2,11 @@ package init
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"io"
 	"reflect"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 type resolvedManagedTemplateSet struct {
@@ -25,14 +24,14 @@ type StarterEjectionPlan struct {
 	RemainingManaged      []string
 }
 
-func resolveManagedTemplateSet(explicit []string, addons obsidian.WorkflowTemplateAddons, management obsidian.WorkflowTemplateManagement, registry map[string]starterTemplateMetadata) (resolvedManagedTemplateSet, error) {
+func resolveManagedTemplateSet(explicit []string, addons repoconfig.WorkflowTemplateAddons, management repoconfig.WorkflowTemplateManagement, registry map[string]starterTemplateMetadata) (resolvedManagedTemplateSet, error) {
 	explicit, err := normalizeTemplateNamesWithRegistry(explicit, registry)
 	if err != nil {
 		return resolvedManagedTemplateSet{}, err
 	}
 	ejected := stringSet(normalizeMetadataIDs(management.Ejected))
 	managedExplicit := removeTemplateIDs(explicit, ejected)
-	managedAddons := obsidian.WorkflowTemplateAddons{
+	managedAddons := repoconfig.WorkflowTemplateAddons{
 		Enabled:  removeTemplateIDs(addons.Enabled, ejected),
 		Disabled: normalizeMetadataIDs(addons.Disabled),
 	}
@@ -51,7 +50,7 @@ func resolveManagedTemplateSet(explicit []string, addons obsidian.WorkflowTempla
 	}, nil
 }
 
-func planStarterEjectionWithRegistry(cfg obsidian.LocalConfig, target string, cascade bool, registry map[string]starterTemplateMetadata) (StarterEjectionPlan, error) {
+func planStarterEjectionWithRegistry(cfg repoconfig.LocalConfig, target string, cascade bool, registry map[string]starterTemplateMetadata) (StarterEjectionPlan, error) {
 	targets, err := normalizeTemplateNamesWithRegistry([]string{target}, registry)
 	if err != nil {
 		return StarterEjectionPlan{}, err
@@ -117,7 +116,7 @@ func planStarterEjectionWithRegistry(cfg obsidian.LocalConfig, target string, ca
 	}, nil
 }
 
-func applyStarterEjectionPlan(cfg *obsidian.LocalConfig, plan StarterEjectionPlan) bool {
+func applyStarterEjectionPlan(cfg *repoconfig.LocalConfig, plan StarterEjectionPlan) bool {
 	if cfg == nil || plan.Blocked {
 		return false
 	}
@@ -126,7 +125,7 @@ func applyStarterEjectionPlan(cfg *obsidian.LocalConfig, plan StarterEjectionPla
 	return !reflect.DeepEqual(before, cfg.WorkflowTemplateManagement.Ejected)
 }
 
-func restoreStarterManagement(cfg *obsidian.LocalConfig, starter string) (bool, error) {
+func restoreStarterManagement(cfg *repoconfig.LocalConfig, starter string) (bool, error) {
 	if cfg == nil {
 		return false, nil
 	}
@@ -147,7 +146,7 @@ func restoreStarterManagement(cfg *obsidian.LocalConfig, starter string) (bool, 
 	return !reflect.DeepEqual(before, cfg.WorkflowTemplateManagement.Ejected), nil
 }
 
-func applyStarterManagementOptions(cfg *obsidian.LocalConfig, opts RunOptions, out io.Writer) (changeSet, error) {
+func applyStarterManagementOptions(cfg *repoconfig.LocalConfig, opts RunOptions, out io.Writer) (changeSet, error) {
 	changes := changeSet{}
 	if cfg == nil {
 		return changes, nil

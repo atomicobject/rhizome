@@ -3,6 +3,21 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	"github.com/atomicobject/rhizome/pkg/app/codeintel"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/notemeta"
+
+	anchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/cache"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,18 +26,7 @@ import (
 	"testing"
 	"time"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	anchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
-	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
-	"github.com/atomicobject/rhizome/pkg/vault/cache"
-	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
-	"github.com/stretchr/testify/require"
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 func TestLiveOwnership_HeldIndexLeaseLeavesRawDirtyPending(t *testing.T) {
@@ -33,7 +37,7 @@ func TestLiveOwnership_HeldIndexLeaseLeavesRawDirtyPending(t *testing.T) {
 	defer cacheService.Close()
 
 	cacheService.MarkDirty("note.md", cache.DirtyModified)
-	release, acquired, err := indexlock.TryAcquire(obsidian.IndexLockPath(root))
+	release, acquired, err := indexlock.TryAcquire(repoconfig.IndexLockPath(root))
 	require.NoError(t, err)
 	require.True(t, acquired)
 
@@ -78,13 +82,14 @@ func TestLiveOwnershipReloadSelectionUpdatesWatchHubExcludes(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
 	configPath := filepath.Join(root, ".rhizome", "config.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("notes:\n  includes: [\"**/*.md\"]\n  excludes: [\"private/**\"]\n"), 0o644))
-	definition, err := obsidian.LoadDefinitionFromPath(root)
+	definition, err := repoconfig.LoadDefinitionFromPath(root)
 	require.NoError(t, err)
 	w, cacheService, store := newLiveOwnershipTestWatcher(t, root, definition)
 	defer store.Close()
 	defer cacheService.Close()
 	rt := &LiveRuntime{VaultDef: definition, VaultPath: root, noteFormats: w.noteRuntime}
-	w.onNoteSelectionChanged = rt.setNoteSelectionPolicy
+	w.onConfigurationChanged = rt.publishOwnershipConfiguration
+	rt.cache.Store(cacheService)
 
 	hub, err := watchhub.NewHub(root, watchhub.Options{DisableFSNotify: true, Debounce: 5 * time.Millisecond})
 	require.NoError(t, err)
@@ -93,6 +98,7 @@ func TestLiveOwnershipReloadSelectionUpdatesWatchHubExcludes(t *testing.T) {
 	hub.Start(ctx)
 	defer func() { _ = hub.Close() }()
 	w.watchHub = hub
+	rt.hub.Store(hub)
 	eventsCh := make(chan []watchhub.WatchEvent, 1)
 	unsub := hub.Subscribe("test", watchhub.Filter{IncludeFiles: true}, func(_ context.Context, events []watchhub.WatchEvent) {
 		eventsCh <- events
@@ -131,7 +137,7 @@ func TestLiveOwnership_ProjectableHTMLPublishesCurrentIdentity(t *testing.T) {
 	defer store.Close()
 	defer cacheService.Close()
 	provider := &recordingEmbeddingProvider{}
-	w.nodeSyncer = &semantic.OntologyNodeSyncer{Store: store, Provider: provider}
+	w.nodeSyncer = &embedindex.OntologyNodeSyncer{Store: store, Provider: provider}
 
 	// HTML does not enter the Markdown compatibility cache. Its raw event still
 	// reaches ownership and publishes the provider projection.
@@ -173,7 +179,7 @@ func TestLiveOwnership_ProjectorFatalClearsDerivedEvidenceAndRecovers(t *testing
 	defer cacheService.Close()
 	w.noteRuntime = runtime
 	w.noteMetadataIndexer = indexer
-	w.noteSvc, _ = NewCodeAnchorService(CodeAnchorServiceConfig{VaultPath: root, CodeCfg: testCodeConfig(root), Store: store, IncludeIndexers: true, Linker: liveFatalLinker{}, WriteAccess: true})
+	w.noteSvc, _ = codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{VaultPath: root, CodeCfg: testCodeConfig(root), Store: store, IncludeIndexers: true, Linker: liveFatalLinker{}, WriteAccess: true})
 
 	cacheService.MarkDirty(path, cache.DirtyModified)
 	runOwnershipBatch(t, w)
@@ -219,7 +225,7 @@ func TestLiveOwnership_PreparedFatalCommitSurvivesDestinationFailure(t *testing.
 	defer cacheService.Close()
 	w.noteRuntime = runtime
 	w.noteMetadataIndexer = indexer
-	w.noteSvc, _ = NewCodeAnchorService(CodeAnchorServiceConfig{VaultPath: root, CodeCfg: testCodeConfig(root), Store: store, IncludeIndexers: true, Linker: liveFatalLinker{}, WriteAccess: true})
+	w.noteSvc, _ = codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{VaultPath: root, CodeCfg: testCodeConfig(root), Store: store, IncludeIndexers: true, Linker: liveFatalLinker{}, WriteAccess: true})
 	cacheService.MarkDirty(path, cache.DirtyModified)
 	runOwnershipBatch(t, w)
 	assertLiveFatalDerivedEvidence(t, store, path, true)
@@ -263,7 +269,7 @@ func TestLiveOwnership_PreparedCurrentRecoveryCommitSurvivesDestinationFailure(t
 	defer cacheService.Close()
 	w.noteRuntime = runtime
 	w.noteMetadataIndexer = indexer
-	w.noteSvc, _ = NewCodeAnchorService(CodeAnchorServiceConfig{VaultPath: root, CodeCfg: testCodeConfig(root), Store: store, IncludeIndexers: true, Linker: liveFatalLinker{}, WriteAccess: true})
+	w.noteSvc, _ = codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{VaultPath: root, CodeCfg: testCodeConfig(root), Store: store, IncludeIndexers: true, Linker: liveFatalLinker{}, WriteAccess: true})
 
 	cacheService.MarkDirty(path, cache.DirtyModified)
 	runOwnershipBatch(t, w)
@@ -439,7 +445,7 @@ func TestLiveOwnership_ConvergesUnreadableAffectedSourceTransition(t *testing.T)
 	w, cacheService, store := newLiveOwnershipTestWatcher(t, root, obsidian.VaultDefinition{Root: root, Includes: []string{"notes/**/*.md"}})
 	defer store.Close()
 	defer cacheService.Close()
-	w.noteSvc, _ = NewCodeAnchorService(CodeAnchorServiceConfig{VaultPath: root, CodeCfg: testCodeConfig(root), Store: store, IncludeIndexers: true, Linker: liveFatalLinker{}, WriteAccess: true})
+	w.noteSvc, _ = codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{VaultPath: root, CodeCfg: testCodeConfig(root), Store: store, IncludeIndexers: true, Linker: liveFatalLinker{}, WriteAccess: true})
 
 	cacheService.MarkDirty(source, cache.DirtyModified)
 	cacheService.MarkDirty(target, cache.DirtyModified)
@@ -490,8 +496,8 @@ func newLiveOwnershipTestWatcher(t *testing.T, root string, definition obsidian.
 	require.NoError(t, cacheService.EnsureReady(context.Background()))
 	store, err := anchorsqlite.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	noteSvc, _ := NewCodeAnchorService(CodeAnchorServiceConfig{VaultPath: root, CodeCfg: testCodeConfig(root), Store: store, IncludeIndexers: true, WriteAccess: true})
-	indexLane := lane.New(lane.Options{LockPath: obsidian.IndexLockPath(root), PriorityPoll: 20 * time.Millisecond})
+	noteSvc, _ := codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{VaultPath: root, CodeCfg: testCodeConfig(root), Store: store, IncludeIndexers: true, WriteAccess: true})
+	indexLane := lane.New(lane.Options{LockPath: repoconfig.IndexLockPath(root), PriorityPoll: 20 * time.Millisecond})
 	t.Cleanup(indexLane.Close)
 	return &unifiedSemanticWatcher{
 		runCtx:              context.Background(),
@@ -502,7 +508,7 @@ func newLiveOwnershipTestWatcher(t *testing.T, root string, definition obsidian.
 		codeCfg:             testCodeConfig(root),
 		cacheService:        cacheService,
 		noteSvc:             noteSvc,
-		noteMetadataIndexer: testNoteMetadataIndexer(t),
+		noteMetadataIndexer: testkit.NoteMetadataIndexer(t),
 		intelStore:          store,
 		health:              newLiveHealthTracker(root),
 		opts:                UnifiedSemanticWatcherOptions{}.normalize(),
@@ -523,12 +529,12 @@ func TestLiveRuntimeNotePathOwnedUsesCurrentSelectionPolicy(t *testing.T) {
 	require.False(t, rt.NotePathOwned("../escape.md"))
 }
 
-func TestLeaderOwnershipConfigurationReloadsSelectionFromDisk(t *testing.T) {
+func TestLeaderOwnershipConfigurationKeepsCapturedSelectionUntilReload(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
 	configPath := filepath.Join(root, ".rhizome", "config.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("notes:\n  includes: [\"**/*.md\"]\n  excludes: [\"private/**\"]\n"), 0o644))
-	definition, err := obsidian.LoadDefinitionFromPath(root)
+	definition, err := repoconfig.LoadDefinitionFromPath(root)
 	require.NoError(t, err)
 	runtime := testNoteRuntime(t)
 	codeCfg := testCodeConfig(root)
@@ -545,14 +551,17 @@ func TestLeaderOwnershipConfigurationReloadsSelectionFromDisk(t *testing.T) {
 	rt.setNoteSelectionPolicy(policy)
 	require.False(t, rt.NotePathOwned("private/note.md"))
 
-	// The owner always refreshes ownership from disk when it starts leader work,
-	// so a configuration edit made before startup is never missed.
+	// Leader initialization uses the same capture as its existing stores.
 	require.NoError(t, os.WriteFile(configPath, []byte("notes:\n  includes: [\"**/*.md\"]\n"), 0o644))
 	rt.leaderFlag.Store(true)
-	promotedDefinition, promotedCodeCfg, err := rt.leaderOwnershipConfiguration()
-	require.NoError(t, err)
-	require.Empty(t, promotedDefinition.Excludes)
+	promoted := rt.Snapshot()
+	promotedDefinition, promotedCodeCfg := promoted.VaultDefinition, promoted.Configuration.Code
+	require.Equal(t, []string{"private/**"}, promotedDefinition.Excludes)
 	require.NotEmpty(t, promotedCodeCfg.IndexPath)
+	require.False(t, rt.NotePathOwned("private/note.md"))
+	require.False(t, cacheService.AdmitsNotePath("private/note.md"))
+	w := &unifiedSemanticWatcher{vaultPath: root, vaultDef: definition, noteRuntime: runtime, cacheService: cacheService, onConfigurationChanged: rt.publishOwnershipConfiguration}
+	require.NoError(t, w.reloadOwnershipSelection())
 	require.True(t, rt.NotePathOwned("private/note.md"))
 	require.True(t, cacheService.AdmitsNotePath("private/note.md"))
 }
@@ -601,7 +610,7 @@ func TestLiveOwnership_ResyncKeepsCodePathsOutOfNodeEmbeddingSync(t *testing.T) 
 	defer cacheService.Close()
 	w.codeCfg.GoRoots = []string{root}
 	provider := &recordingEmbeddingProvider{}
-	w.nodeSyncer = &semantic.OntologyNodeSyncer{Store: store, Provider: provider}
+	w.nodeSyncer = &embedindex.OntologyNodeSyncer{Store: store, Provider: provider}
 
 	// The first resync rebuilds the ontology and syncs every current note path;
 	// only a later resync hands the affected set to the node syncer.

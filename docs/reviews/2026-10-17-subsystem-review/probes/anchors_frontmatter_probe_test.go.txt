@@ -1,0 +1,12 @@
+package codeanchor
+
+import "testing"
+
+func TestProbeFrontmatterSplit(t *testing.T) {
+	content := "---\ntitle: Build --- Release\ncode-anchors:\n  go:\n    - label: x\n      ref: \"glob:pkg/**/*.go\"\n---\nbody\n"
+	note, err := ParseNote("a.md", content)
+	t.Logf("title=%q anchors=%d err=%v", note.Title, len(note.DefinedAnchors), err)
+	content2 := "---\ntitle: Build Release\ncode-anchors:\n  go:\n    - label: x\n      ref: \"glob:pkg/**/*.go\"\n---\nbody\n"
+	note2, err2 := ParseNote("a.md", content2)
+	t.Logf("control title=%q anchors=%d err=%v", note2.Title, len(note2.DefinedAnchors), err2)
+}

@@ -2,15 +2,16 @@ package noderead
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
 
-func neighborhoodErrorFixture(t *testing.T) (*semdb.Store, string, *ontology.Schema) {
+func neighborhoodErrorFixture(t *testing.T) (*semdb.Store, string, *ontoschema.Schema) {
 	t.Helper()
 	root := t.TempDir()
 	store := openWalkStore(t, root)
@@ -25,16 +26,16 @@ func neighborhoodErrorFixture(t *testing.T) (*semdb.Store, string, *ontology.Sch
 		},
 		SchemaState: semdb.OntologySchemaState{SchemaHash: "abc", NotesHash: "def", LoadedAt: 1, Ready: true},
 	}))
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{
 		"Person": {Name: "Person"},
 		"Team":   {Name: "Team", Implements: []string{"Group"}},
 	}}
 	return store, root, schema
 }
 
-func newNeighborhoodScope(t *testing.T, store *semdb.Store, root string, schema *ontology.Schema) *Scope {
+func newNeighborhoodScope(t *testing.T, store *semdb.Store, root string, schema *ontoschema.Schema) *Scope {
 	t.Helper()
-	return NewService(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, store, schema).NewScope(context.Background(), ScopeOptions{})
+	return NewService(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
 }
 
 // The inbound target-type read is the only source of a target's type for

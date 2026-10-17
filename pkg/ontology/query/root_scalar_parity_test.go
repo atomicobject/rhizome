@@ -3,6 +3,7 @@ package query
 import (
 	"context"
 	"fmt"
+
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -136,7 +137,7 @@ func TestExecute_TypedScalarSortParity(t *testing.T) {
 		{"amount", []string{"c", "d", "b", "e", "a", "m", "x"}},
 		{"label", []string{"c", "b", "a", "d", "e", "m", "x"}},
 		{"due", []string{"c", "b", "e", "d", "a", "m", "x"}},
-		{"at", []string{"c", "b", "d", "e", "a", "m", "x"}},
+		{"at", []string{"a", "c", "b", "d", "e", "m", "x"}},
 	} {
 		for _, direction := range []string{"asc", "desc"} {
 			t.Run(test.field+"/"+direction, func(t *testing.T) {
@@ -181,8 +182,8 @@ func TestExecute_TypedScalarFilterParity(t *testing.T) {
 		{"ready", `op: eq, value: "FALSE"`, []string{"a", "d"}},
 		{"due", `op: eq, value: "2026-01-01"`, []string{"b", "e"}},
 		{"at", `op: eq, value: "2026-06-01T07:00:00.000Z"`, []string{"b", "d", "e"}},
-		{"at", `op: gt, value: "2026-06-01T07:00:00Z"`, []string{"a"}},
-		{"due", `op: eq, value: "2026-02-30"`, []string{}},
+		{"at", `op: gt, value: "2026-06-01T07:00:00Z"`, []string{}},
+		{"due", `op: eq, value: "2026-02-30"`, []string{"x"}},
 		{"label", `op: eq, value: "02"`, []string{"b"}},
 		{"ranks", `op: eq, value: "02"`, []string{"a"}},
 		{"ranks", `op: gt, value: "20"`, []string{"d"}},

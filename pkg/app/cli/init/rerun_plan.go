@@ -3,13 +3,12 @@ package init
 import (
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // planLine is one entry in the change list.
@@ -65,7 +64,7 @@ func (r *initRun) planRerun(before, s setup, acceptOptIn bool) (rerunPlan, error
 			plan.settings = append(plan.settings, planLine{mark: "↻", text: fmt.Sprintf("%s: %s → %s", field.label, field.value, after), done: field.label + ": " + after})
 		}
 	}
-	if before.cfg.Rhizome.BinaryManager != s.cfg.Rhizome.BinaryManager && s.cfg.Rhizome.BinaryManager == obsidian.BinaryManagerExternal {
+	if before.cfg.Rhizome.BinaryManager != s.cfg.Rhizome.BinaryManager && s.cfg.Rhizome.BinaryManager == repoconfig.BinaryManagerExternal {
 		plan.settings = append(plan.settings, planLine{mark: "↻", text: "Let an external tool such as mise own the Rhizome binary (--binary-manager external)", done: "An external tool now owns the Rhizome binary"})
 	}
 	for _, rel := range missingIncludedSubtrees(r.layout.ProjectRoot, s.includeIgnored) {
@@ -138,7 +137,7 @@ func (r *initRun) planRerun(before, s setup, acceptOptIn bool) (rerunPlan, error
 	if len(support) > 0 {
 		plan.files = append(plan.files, planLine{mark: "↻", text: "Update " + joinHumanPaths(support), done: "Updated " + joinHumanPaths(support)})
 	}
-	if _, err := os.Stat(filepath.Join(root, obsidian.RhizomeDirName, legacyRejectionsName)); err == nil {
+	if _, err := os.Stat(filepath.Join(root, repoconfig.RhizomeDirName, legacyRejectionsName)); err == nil {
 		retired := ".rhizome/" + legacyRejectionsName
 		plan.files = append(plan.files, planLine{mark: "-", text: "Remove " + retired + " (generated-files.yml replaces it)", done: "Removed " + retired})
 	}
@@ -287,7 +286,7 @@ func (r *initRun) newDefaultAddons(s setup) ([]string, []string) {
 	return ids, names
 }
 
-func recordEmbeddingsProvider(cfg *obsidian.LocalConfig, provider string) {
+func recordEmbeddingsProvider(cfg *repoconfig.LocalConfig, provider string) {
 	if cfg.NoteEmbeddings != nil && cfg.NoteEmbeddings.Enabled && strings.TrimSpace(cfg.NoteEmbeddings.Provider) == "" {
 		next := *cfg.NoteEmbeddings
 		next.Provider = provider
@@ -308,7 +307,7 @@ var allMarkdown = []string{"**/*.md"}
 // not count.
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US3-AC3]]
-func notesLimitDrift(cfg *obsidian.LocalConfig, layout DetectedLayout) []string {
+func notesLimitDrift(cfg *repoconfig.LocalConfig, layout DetectedLayout) []string {
 	includes := cfg.Notes.Includes
 	if !notesLimited(cfg.Notes) {
 		return nil
@@ -327,7 +326,7 @@ func notesLimitDrift(cfg *obsidian.LocalConfig, layout DetectedLayout) []string 
 }
 
 // notesLimited reports whether notes includes leave some Markdown out.
-func notesLimited(notes obsidian.LocalVaultConfig) bool {
+func notesLimited(notes repoconfig.LocalVaultConfig) bool {
 	return len(notes.Includes) > 0 && !(globsMatch(notes.Includes, "probe/probe.md") && globsMatch(notes.Includes, "probe.md"))
 }
 
@@ -379,7 +378,7 @@ func notePlaces(files []string) string {
 // line describing each change.
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US9-AC2]]
-func codeDrift(cfg *obsidian.LocalConfig, layout DetectedLayout) []string {
+func codeDrift(cfg *repoconfig.LocalConfig, layout DetectedLayout) []string {
 	if !cfg.Code.IndexesCode() {
 		next := cfg.Code
 		next.Enabled = true

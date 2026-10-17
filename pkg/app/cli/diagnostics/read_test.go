@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"testing"
@@ -41,7 +42,7 @@ func TestExplicitRootBypassesBrokenConfigAndIndex(t *testing.T) {
 	require.NoError(t, os.Mkdir(filepath.Join(root, ".rhizome"), 0700))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "config.yml"), []byte("not: [valid"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "index.db"), []byte("broken database"), 0600))
-	got, err := ResolveRoot(root)
+	got, err := ResolveRoot(vaultconfig.Env{WorkingDir: root}, root)
 	require.NoError(t, err)
 	canonical, err := paths.NewVaultPaths(root)
 	require.NoError(t, err)

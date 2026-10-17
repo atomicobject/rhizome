@@ -3,6 +3,8 @@ package validate
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/diag"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -15,7 +17,7 @@ func ontologyValidationIssue(issue ontology.ValidationIssue) Issue {
 	result := Issue{
 		Code: issue.Code, Path: issue.NotePath, Type: issue.TypeName,
 		Field: issue.FieldName, Message: issue.Message, Line: issue.Line,
-		Target: issue.LinkTarget, Variant: newIssueVariant(issue.VariantKey, issue.VariantLabel),
+		Target: issue.LinkTarget, Variant: diag.NewVariant(issue.VariantKey, issue.VariantLabel),
 	}
 	if nodeID := strings.TrimSpace(issue.NodeID); nodeID != "" {
 		result.AffectedNodeIDs = []string{nodeID}
@@ -69,7 +71,7 @@ func enrichOntologyRepairActions(ctx context.Context, runCtx RunContext, checks 
 func ontologyFixSuggestions(ctx context.Context, runtime *ontology.Runtime) ([]ontology.FixSuggestion, error) {
 	typeNames := make([]string, 0, len(runtime.Schema.Types))
 	for typeName, noteType := range runtime.Schema.Types {
-		if noteType != nil && noteType.Role == ontology.TypeRoleNote {
+		if noteType != nil && noteType.Role == ontoschema.TypeRoleNote {
 			typeNames = append(typeNames, typeName)
 		}
 	}
@@ -194,7 +196,7 @@ func attachOntologyStructuralActions(check *CheckResult, runtime *ontology.Runti
 		var action FixAction
 		switch issue.Code {
 		case "missing_required_field":
-			if strings.Contains(issue.FieldName, ".") || field.SourceKind != ontology.FieldSourceFrontmatter || !field.Required || !field.List {
+			if strings.Contains(issue.FieldName, ".") || field.SourceKind != ontoschema.FieldSourceFrontmatter || !field.Required || !field.List {
 				continue
 			}
 			property := strings.TrimSpace(field.Source)
@@ -207,7 +209,7 @@ func attachOntologyStructuralActions(check *CheckResult, runtime *ontology.Runti
 				Edits:   []FixEdit{{Kind: FixKindSetFrontmatter, NotePath: issue.NotePath, Property: property, Values: []string{}}},
 			}
 		case "missing_required_section":
-			if field.Kind != ontology.FieldKindSection || !field.SectionRequired || strings.TrimSpace(field.SectionHeading) == "" {
+			if field.Kind != ontoschema.FieldKindSection || !field.SectionRequired || strings.TrimSpace(field.SectionHeading) == "" {
 				continue
 			}
 			action = FixAction{
@@ -246,7 +248,7 @@ func stableIssueKeySet(check *CheckResult) map[string]struct{} {
 	return known
 }
 
-func ontologyFieldAtPath(schema *ontology.Schema, typeName, fieldPath string) (*ontology.Field, bool) {
+func ontologyFieldAtPath(schema *ontoschema.Schema, typeName, fieldPath string) (*ontoschema.Field, bool) {
 	if schema == nil {
 		return nil, false
 	}

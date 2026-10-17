@@ -2,15 +2,15 @@ package validate
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestIdentifierRepairAdapterAllowsClosedEffortInboundBrokenLinkRepair(t *testing.T) {
@@ -31,7 +31,7 @@ func TestIdentifierRepairAdapterAllowsClosedEffortInboundBrokenLinkRepair(t *tes
 	require.Equal(t, "specs/SPEC-0002-loser", claim.Replacement)
 	require.Equal(t, claim.ExpectedText, closedContent[claim.StartByte:claim.EndByte])
 
-	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
@@ -51,7 +51,7 @@ func TestIdentifierRepairAdapterAllowsClosedEffortRekeyAndRenameWithHistoricalAu
 
 	// Without historical authority the protected rekey and rename are skipped
 	// and leave the closed effort untouched.
-	skipped, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+	skipped, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
@@ -67,7 +67,7 @@ func TestIdentifierRepairAdapterAllowsClosedEffortRekeyAndRenameWithHistoricalAu
 	_, err = os.Stat(filepath.Join(fixture.root, filepath.FromSlash(fixture.newPath)))
 	require.ErrorIs(t, err, os.ErrNotExist)
 
-	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true, AllowHistorical: true,
 		PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
@@ -96,7 +96,7 @@ func TestIdentifierRepairAdapterKeepsMixedClosedEffortLinkAndIdentifierWriteProt
 	require.Contains(t, string(operation.Content), "id: EFF-0002")
 	require.Contains(t, string(operation.Content), "[[efforts/EFF-0002-loser]]")
 
-	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+	execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
@@ -144,7 +144,7 @@ type EffortNote @node(paths: ["efforts/*.md"]) {
 		writeIdentifierAdapterFile(t, root, "notes/inbound.md", "[[efforts/EFF-0001-loser]]\n")
 	}
 
-	format := &ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategySequential, Prefix: "EFF", Separator: "-", Pad: 4}
+	format := &ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategySequential, Prefix: "EFF", Separator: "-", Pad: 4}
 	pool, err := identifierreconcile.NewPoolKey(format)
 	require.NoError(t, err)
 	claim := func(notePath string) identifierreconcile.Claim {
@@ -165,8 +165,8 @@ type EffortNote @node(paths: ["efforts/*.md"]) {
 	const newPath = "efforts/EFF-0002-loser.md"
 	oldRef := ontology.NodeRef{NotePath: oldPath, TypeName: "EffortNote", Kind: ontology.NodeKindNote}
 	newRef := ontology.NodeRef{NotePath: newPath, TypeName: "EffortNote", Kind: ontology.NodeKindNote}
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef,
 		OldIdentifier: "EFF-0001", NewIdentifier: "EFF-0002", PreferredField: "id", AliasesField: "aliases",
 	}
 	moveRequest := obsidian.GovernedMoveRequest{
@@ -177,8 +177,8 @@ type EffortNote @node(paths: ["efforts/*.md"]) {
 	require.NoError(t, err)
 	require.Nil(t, conflict)
 	vaultDef := obsidian.VaultDefinition{Path: root}
-	fields, err := identifierreconcile.DiscoverIdentifierFields(context.Background(), identifierreconcile.IdentifierFieldDiscoveryRequest{
-		VaultDef: vaultDef, RootRewrites: []reference.IdentifierRewrite{rewrite},
+	fields, err := identifierreconcile.DiscoverIdentifierFields(context.Background(), identifierreconcile.IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
+		VaultDef: vaultDef, RootRewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 	})
 	require.NoError(t, err)
 	links, err := identifierreconcile.DiscoverIdentifierLinks(context.Background(), identifierreconcile.IdentifierLinkDiscoveryRequest{FieldDiscovery: fields})
@@ -186,21 +186,21 @@ type EffortNote @node(paths: ["efforts/*.md"]) {
 	assembly, err := identifierreconcile.AssembleRekeyRepairIntents(identifierreconcile.RekeyRepairAssemblyInput{
 		Plan: identifierPlan,
 		Collisions: []identifierreconcile.CollisionRepairInput{{
-			CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite},
+			CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 			Moves: []identifierreconcile.GovernedMoveResult{{Request: moveRequest, Plan: movePlan}},
 		}},
 		FieldDiscovery: fields, LinkDiscovery: links,
 	})
 	require.NoError(t, err)
 	action := FixAction{
-		ID: "action:duplicate-effort-identifier", Check: CheckAliases, Kind: "resolve_duplicate_identifier",
+		ID: "action:duplicate-effort-identifier", Check: CheckIdentifiers, Kind: "resolve_duplicate_identifier",
 		Safety: FixSafetySafe, Title: "Resolve duplicate effort identifier", IssueKeys: []string{"issue:duplicate-effort-identifier"},
 	}
 	return identifierRepairAdapterFixture{
 		root: root, oldPath: oldPath, newPath: newPath, membership: collision.Key,
 		runCtx: RunContext{
 			VaultDef: vaultDef, VaultPath: root,
-			VaultMgr: identifierRepairVaultManager{def: vaultDef}, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t),
+			NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t),
 		},
 		assembly: assembly,
 		bindings: []IdentifierRepairActionBinding{{MembershipKey: collision.Key, Action: action}},

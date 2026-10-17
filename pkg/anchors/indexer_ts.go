@@ -1594,6 +1594,3 @@ func findRepoRoot(start string) string {
 		cur = parent
 	}
 }
-
-// TSIndexerAvailable reports whether TS/JS indexing is supported in this build.
-func TSIndexerAvailable() bool { return true }

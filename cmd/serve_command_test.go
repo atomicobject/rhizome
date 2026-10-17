@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"io"
 	"net"
 	"os"
@@ -23,18 +24,22 @@ import (
 )
 
 func TestServeCommandPrintsURLAndRegistersInstance(t *testing.T) {
-	testServeLikeCommand(t, "serve", false)
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	commandOptions.testServeLikeCommand(t, "serve", false)
 }
 
 func TestServeCommandReuseDiscoveryPortFlag(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"Alpha.md": "# Alpha\n",
 	})
 	require.NoError(t, appruntime.WriteLastPort(vault.path, 45123))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(vaultconfig.WithEnv(context.Background(), vault.env))
 
-	cmd := newServeCommand("serve", "test", false)
+	cmd := commandOptions.newServeCommand("serve", "test", false)
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 	cmd.SilenceUsage = true
@@ -83,14 +88,16 @@ func TestServeCommandReuseDiscoveryPortFlag(t *testing.T) {
 }
 
 func TestServeCommandReuseDiscoveryPortFallsBackWhenPortIsBusy(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"Alpha.md": "# Alpha\n",
 	})
 	require.NoError(t, appruntime.WriteLastPort(vault.path, 45123))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(vaultconfig.WithEnv(context.Background(), vault.env))
 
-	cmd := newServeCommand("serve", "test", false)
+	cmd := commandOptions.newServeCommand("serve", "test", false)
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 	cmd.SilenceUsage = true
@@ -149,14 +156,16 @@ func TestServeCommandReuseDiscoveryPortFallsBackWhenPortIsBusy(t *testing.T) {
 }
 
 func TestServeCommandReusesDiscoveryPortByDefault(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"Alpha.md": "# Alpha\n",
 	})
 	require.NoError(t, appruntime.WriteLastPort(vault.path, 47411))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(vaultconfig.WithEnv(context.Background(), vault.env))
 
-	cmd := newServeCommand("serve", "test", false)
+	cmd := commandOptions.newServeCommand("serve", "test", false)
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 	cmd.SilenceUsage = true
@@ -242,14 +251,21 @@ func cleanupServeCommand(t *testing.T, cancel context.CancelFunc, done <-chan er
 }
 
 func TestStartCommandOpensBrowserByDefault(t *testing.T) {
-	testServeLikeCommand(t, "start", true)
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	commandOptions.testServeLikeCommand(t, "start", true)
 }
 
 func TestStartCommandOpenFlagCanBeDisabled(t *testing.T) {
-	testServeLikeCommand(t, "start", false, "--open=false")
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	commandOptions.testServeLikeCommand(t, "start", false, "--open=false")
 }
 
-func testServeLikeCommand(t *testing.T, commandName string, expectOpen bool, extraArgs ...string) {
+func (commandOptions *vaultCommandOptions) testServeLikeCommand(t *testing.T, commandName string, expectOpen bool, extraArgs ...string) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 
 	vault := setupAgentTestVault(t, map[string]string{
@@ -257,11 +273,10 @@ func testServeLikeCommand(t *testing.T, commandName string, expectOpen bool, ext
 	})
 
 	home := t.TempDir()
-	origHome := vaultconfig.UserHomeDirectory
-	vaultconfig.UserHomeDirectory = func() (string, error) { return home, nil }
-	defer func() { vaultconfig.UserHomeDirectory = origHome }()
+	env = vault.env
+	env.HomeDir = home
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(vaultconfig.WithEnv(context.Background(), env))
 	defer cancel()
 
 	done := make(chan struct {
@@ -323,7 +338,7 @@ func testServeLikeCommand(t *testing.T, commandName string, expectOpen bool, ext
 	go readPipe(&outBytes, outR)
 	go readPipe(&errBytes, errR)
 
-	cmd := newServeCommand(commandName, commandName, commandName == "start")
+	cmd := commandOptions.newServeCommand(commandName, commandName, commandName == "start")
 	cmd.SetOut(outW)
 	cmd.SetErr(errW)
 	cmd.SilenceUsage = true
@@ -431,9 +446,9 @@ func testServeLikeCommand(t *testing.T, commandName string, expectOpen bool, ext
 	}
 
 	require.NoFileExists(t, registrationPath)
-	registry, err := appruntime.NewRegistry()
+	registry, err := appruntime.NewRegistry(env)
 	require.NoError(t, err)
-	intents, err := registry.ListIntents(context.Background())
+	intents, err := registry.ListIntents(vaultconfig.WithEnv(context.Background(), env))
 	require.NoError(t, err)
 	require.Empty(t, intents)
 	_, err = os.Stat(discoveryPath)

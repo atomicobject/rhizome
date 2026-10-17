@@ -3,28 +3,26 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
-	"errors"
+
 	"fmt"
-	"io"
+
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/app/agent"
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
-	appinit "github.com/atomicobject/rhizome/pkg/app/cli/init"
+	"github.com/atomicobject/rhizome/pkg/app/agentchat"
+	"github.com/atomicobject/rhizome/pkg/app/agentservices"
 	"github.com/atomicobject/rhizome/pkg/app/contextpack"
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
+
 	"github.com/atomicobject/rhizome/pkg/llm"
-	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	codeembsql "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex/sqlite"
-	embsql "github.com/atomicobject/rhizome/pkg/search/embeddings/sqlite"
+
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // CodexParams configures the codex bootstrap command.
@@ -39,6 +37,8 @@ type CodexParams struct {
 	VaultName   string
 	Debug       bool
 	DebugAll    bool
+	// OnboardInstructions loads bundled guidance only when automatic planning needs it.
+	OnboardInstructions func() (string, error)
 }
 
 // RelatedEntry captures a tool call label and response.
@@ -100,20 +100,25 @@ func runBootstrap(ctx context.Context, params CodexParams, name string, launcher
 
 // CodexBootstrap prepares the bootstrap prompt without launching Codex.
 func CodexBootstrap(ctx context.Context, params CodexParams) (CodexResult, error) {
+	ctx = vaultconfig.WithEnv(ctx, vaultconfig.FromContext(ctx))
 	task := strings.TrimSpace(params.Task)
 	if task == "" {
 		return CodexResult{}, fmt.Errorf("task is required")
 	}
 
-	vault := obsidian.Vault{Name: params.VaultName}
+	vault := repoconfig.Vault{Env: vaultconfig.FromContext(ctx), Name: params.VaultName}
 	vaultDef, err := vault.Definition()
 	if err != nil {
 		return CodexResult{}, err
 	}
 	vaultPath := vaultDef.BasePath()
+	resolved, err := repoconfig.Load(vaultPath)
+	if err != nil {
+		return CodexResult{}, err
+	}
 	budget := params.BudgetChars
 	if budget <= 0 {
-		budget = obsidian.GetBudgetChars(vaultPath)
+		budget = resolved.BudgetChars
 	}
 
 	warnings := []string{}
@@ -127,11 +132,11 @@ func CodexBootstrap(ctx context.Context, params CodexParams) (CodexResult, error
 		warnings = append(warnings, err.Error())
 	}
 
-	formats, err := builtin.NewRuntime()
+	_, noteMetadata, err := NewBuiltinNoteRuntime()
 	if err != nil {
 		return CodexResult{}, fmt.Errorf("compose note formats: %w", err)
 	}
-	mcpCfg, err := newCodexAgentConfig(&vault, vaultPath, vaultDef, formats)
+	mcpCfg, err := newCodexAgentConfig(&vault, runtimeview.Snapshot{VaultDefinition: vaultDef, Configuration: &resolved}, noteMetadata)
 	if err != nil {
 		return CodexResult{}, err
 	}
@@ -146,21 +151,21 @@ func CodexBootstrap(ctx context.Context, params CodexParams) (CodexResult, error
 	files, fileWarnings := filterFileSeeds(vaultPath, files)
 	warnings = append(warnings, fileWarnings...)
 
-	userCalls := []agent.ToolCall{}
+	userCalls := []agentchat.ToolCall{}
 	if len(queries) > 0 {
-		userCalls = append(userCalls, agent.ToolCall{
+		userCalls = append(userCalls, agentchat.ToolCall{
 			Name:      "semantic_query",
 			Arguments: map[string]interface{}{"queries": queries},
 		})
 	}
 	if len(files) > 0 {
-		userCalls = append(userCalls, agent.ToolCall{
+		userCalls = append(userCalls, agentchat.ToolCall{
 			Name:      "file_context",
 			Arguments: map[string]interface{}{"files": files},
 		})
 	}
 
-	autoCalls := []agent.ToolCall{}
+	autoCalls := []agentchat.ToolCall{}
 	if !params.NoAuto {
 		planned, autoWarnings := planAutoToolCalls(ctx, params, vaultPath, queries, files)
 		warnings = append(warnings, autoWarnings...)
@@ -188,26 +193,20 @@ func CodexBootstrap(ctx context.Context, params CodexParams) (CodexResult, error
 	return CodexResult{Prompt: prompt, Warnings: warnings, Errors: errors, Reports: reports}, nil
 }
 
-func newCodexAgentConfig(vault *obsidian.Vault, vaultPath string, vaultDef obsidian.VaultDefinition, formats noteformat.Runtime) (agentapi.Config, error) {
-	noteMetadata, err := notemeta.NewIndexer(formats)
-	if err != nil {
-		return agentapi.Config{}, fmt.Errorf("compose note metadata indexer: %w", err)
-	}
+func newCodexAgentConfig(vault *repoconfig.Vault, snapshot runtimeview.Snapshot, noteMetadata notemeta.Indexer) (agentapi.Config, error) {
 	if err := noteMetadata.Validate(); err != nil {
 		return agentapi.Config{}, fmt.Errorf("validate note metadata indexer: %w", err)
 	}
-	return agentapi.Config{
+	return agentservices.Compose(snapshot, agentservices.Options{
 		Vault:        vault,
-		VaultPath:    vaultPath,
-		VaultDef:     vaultDef,
 		NoteMetadata: noteMetadata,
 		ReadWrite:    false,
-	}, nil
+	}), nil
 }
 
 func BuildCodexPrompt(task string, related []RelatedEntry, rhizomeText string, budget int) string {
 	if budget <= 0 {
-		budget = contextpack.DefaultBudgetChars
+		budget = repoconfig.DefaultBudgetChars
 	}
 	var b strings.Builder
 	b.WriteString("USER PROMPT: ")
@@ -268,189 +267,7 @@ func launchClaude(ctx context.Context, prompt string) error {
 	return cmd.Run()
 }
 
-func initSemanticTools(ctx context.Context, vaultPath string, cfg *agentapi.Config) (func(), []string) {
-	warnings := []string{}
-	closers := []func(){}
-	if cfg == nil || vaultPath == "" {
-		return nil, warnings
-	}
-	embCfg, err := obsidian.LoadEmbeddingsConfig(vaultPath)
-	if err != nil {
-		warnings = append(warnings, fmt.Sprintf("semantic: failed to load embeddings config: %v", err))
-		return nil, warnings
-	}
-	embCfg.IndexPath = obsidian.UnifiedIndexPath(vaultPath, embCfg.IndexPath)
-
-	codeEmbCfg, _, codeEmbErr := obsidian.EffectiveCodeEmbeddingsConfig(vaultPath, embCfg)
-	if codeEmbErr != nil {
-		warnings = append(warnings, fmt.Sprintf("semantic: failed to load code embeddings config: %v", codeEmbErr))
-	}
-
-	if embCfg.Enabled {
-		provider, providerCfg, err := embeddings.NewProviderForConfig(embCfg, "")
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("semantic: %v", embeddings.ProviderUnavailableError(embCfg, err)))
-		} else {
-			if closer, ok := provider.(io.Closer); ok {
-				closers = append(closers, func() { _ = closer.Close() })
-			}
-			store, err := embsql.OpenWithMetadata(ctx, embCfg.IndexPath, provider, embeddings.MetadataForProvider(provider, providerCfg))
-			if err != nil {
-				var metaErr embeddings.MetadataError
-				if errors.As(err, &metaErr) {
-					warnings = append(warnings, fmt.Sprintf("semantic: metadata init failed: %v", metaErr))
-				} else {
-					warnings = append(warnings, fmt.Sprintf("semantic: index unavailable at %s: %v", embCfg.IndexPath, err))
-				}
-			} else {
-				cfg.EmbeddingsOn = true
-				cfg.Embeddings = store
-				cfg.EmbedProvider = provider
-				cfg.EmbeddingsPath = embCfg.IndexPath
-				closers = append(closers, func() { _ = store.Close() })
-			}
-		}
-	}
-
-	if codeEmbCfg.Enabled {
-		provider, providerCfg, err := embeddings.NewProviderForConfig(codeEmbCfg, "")
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("semantic: %v", embeddings.ProviderUnavailableError(codeEmbCfg, err)))
-		} else {
-			if closer, ok := provider.(io.Closer); ok {
-				closers = append(closers, func() { _ = closer.Close() })
-			}
-			store, err := codeembsql.OpenWithMetadata(ctx, codeEmbCfg.IndexPath, provider, embeddings.MetadataForProvider(provider, providerCfg))
-			if err != nil {
-				var metaErr embeddings.MetadataError
-				if errors.As(err, &metaErr) {
-					warnings = append(warnings, fmt.Sprintf("semantic: code metadata init failed: %v", metaErr))
-				} else {
-					warnings = append(warnings, fmt.Sprintf("semantic: code index unavailable at %s: %v", codeEmbCfg.IndexPath, err))
-				}
-			} else {
-				cfg.CodeEmbeddingsOn = true
-				cfg.CodeEmbeddings = store
-				cfg.CodeEmbedProvider = provider
-				closers = append(closers, func() { _ = store.Close() })
-			}
-		}
-	}
-
-	if len(closers) == 0 {
-		return nil, warnings
-	}
-	return func() {
-		for i := len(closers) - 1; i >= 0; i-- {
-			closers[i]()
-		}
-	}, warnings
-}
-
-func dedupeStrings(values []string) []string {
-	seen := make(map[string]struct{}, len(values))
-	out := make([]string, 0, len(values))
-	for _, val := range values {
-		trimmed := strings.TrimSpace(val)
-		if trimmed == "" {
-			continue
-		}
-		if _, ok := seen[trimmed]; ok {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-		out = append(out, trimmed)
-	}
-	return out
-}
-
-func planAutoToolCalls(ctx context.Context, params CodexParams, vaultPath string, userQueries, userFiles []string) ([]agent.ToolCall, []string) {
-	warnings := []string{}
-	globalCfg, localCfg := loadLLMConfigs(vaultPath)
-	resolved, err := llm.ResolveProfile(params.Profile, localCfg, globalCfg, params.Model)
-	if err != nil {
-		warnings = append(warnings, fmt.Sprintf("auto planning disabled: %v", err))
-		return nil, warnings
-	}
-	provider, err := llm.NewProvider(resolved)
-	if err != nil {
-		warnings = append(warnings, fmt.Sprintf("auto planning disabled: %v", err))
-		return nil, warnings
-	}
-	instructions, err := loadOnboardInstructions()
-	if err != nil {
-		warnings = append(warnings, fmt.Sprintf("auto planning instructions unavailable: %v", err))
-	}
-	tools := []agent.ToolSpec{
-		{
-			Name:        "semantic_query",
-			Description: "Find task-shaped code/doc context. Returns must-read evidence plus raw matches. Prefer one call with multiple queries.",
-			ArgsSchema:  `{"queries":["string"],"paths":["string"],"limit":25}`,
-		},
-		{
-			Name:        "file_context",
-			Description: "Fetch context for files or directories. Prefer one call with multiple files.",
-			ArgsSchema:  `{"files":["string"]}`,
-		},
-	}
-	calls, err := agent.PlanToolCalls(ctx, provider, resolved, params.Task, instructions, tools, agent.PlanHints{Queries: userQueries, Files: userFiles})
-	if err != nil {
-		warnings = append(warnings, fmt.Sprintf("auto planning failed: %v", err))
-		return nil, warnings
-	}
-	filtered := make([]agent.ToolCall, 0, len(calls))
-	for _, call := range calls {
-		switch call.Name {
-		case "semantic_query", "file_context":
-			filtered = append(filtered, call)
-		case "vault_context":
-			warnings = append(warnings, "auto planning returned vault_context; skipping because it is always included")
-		default:
-			warnings = append(warnings, fmt.Sprintf("unsupported tool call ignored: %s", call.Name))
-		}
-	}
-	return filtered, warnings
-}
-
-func mergeToolCalls(primary, secondary []agent.ToolCall) []agent.ToolCall {
-	seen := make(map[string]struct{})
-	out := make([]agent.ToolCall, 0, len(primary)+len(secondary))
-	add := func(call agent.ToolCall) {
-		key := toolCallKey(call)
-		if key == "" {
-			return
-		}
-		if _, ok := seen[key]; ok {
-			return
-		}
-		seen[key] = struct{}{}
-		out = append(out, call)
-	}
-	for _, call := range primary {
-		add(call)
-	}
-	for _, call := range secondary {
-		add(call)
-	}
-	return out
-}
-
-func toolCallKey(call agent.ToolCall) string {
-	if call.Name == "" {
-		return ""
-	}
-	args := call.Arguments
-	if args == nil {
-		args = map[string]interface{}{}
-	}
-	b, err := json.Marshal(args)
-	if err != nil {
-		return ""
-	}
-	return call.Name + "|" + string(b)
-}
-
-func executeToolCalls(ctx context.Context, cfg agentapi.Config, calls []agent.ToolCall) ([]RelatedEntry, []ToolReport, []string, []string) {
+func executeToolCalls(ctx context.Context, cfg agentapi.Config, calls []agentchat.ToolCall) ([]RelatedEntry, []ToolReport, []string, []string) {
 	warnings := []string{}
 	errors := []string{}
 	entries := []RelatedEntry{}
@@ -495,7 +312,7 @@ func executeToolCalls(ctx context.Context, cfg agentapi.Config, calls []agent.To
 	return entries, reports, warnings, errors
 }
 
-func formatToolCallLabel(call agent.ToolCall) string {
+func formatToolCallLabel(call agentchat.ToolCall) string {
 	switch call.Name {
 	case "semantic_query":
 		queries := extractStringArray(call.Arguments["queries"])
@@ -531,10 +348,6 @@ func joinQuoted(values []string) string {
 		parts = append(parts, "'"+trimmed+"'")
 	}
 	return strings.Join(parts, " ")
-}
-
-func loadOnboardInstructions() (string, error) {
-	return appinit.LoadAgentHelperTemplate("skills/markdown/rhizome/references/onboarding.md")
 }
 
 func newToolReport(name string, args map[string]interface{}, response string, err error) ToolReport {
@@ -615,43 +428,15 @@ func extractStringArray(raw interface{}) []string {
 	}
 }
 
-func filterFileSeeds(vaultPath string, files []string) ([]string, []string) {
-	warnings := []string{}
-	if vaultPath == "" {
-		return files, warnings
-	}
-	vaultPaths, err := paths.NewVaultPaths(vaultPath)
-	if err != nil || vaultPaths.Root() == "" {
-		return files, warnings
-	}
-	out := make([]string, 0, len(files))
-	for _, file := range files {
-		trimmed := strings.TrimSpace(file)
-		if trimmed == "" {
-			continue
-		}
-		abs := trimmed
-		if !filepath.IsAbs(abs) {
-			abs = filepath.Join(vaultPaths.Root(), abs)
-		}
-		if _, err := vaultPaths.RelStrict(abs); err != nil {
-			warnings = append(warnings, fmt.Sprintf("skipping file seed outside vault: %s", trimmed))
-			continue
-		}
-		out = append(out, trimmed)
-	}
-	return out, warnings
-}
-
-func loadLLMConfigs(vaultPath string) (*llm.Config, *llm.Config) {
+func loadLLMConfigs(ctx context.Context, vaultPath string) (*llm.Config, *llm.Config) {
 	var localCfg *llm.Config
 	if vaultPath != "" {
-		if _, cfg, err := obsidian.FindLocalConfig(vaultPath); err == nil && cfg != nil {
+		if _, cfg, err := repoconfig.FindLocalConfig(vaultPath); err == nil && cfg != nil {
 			localCfg = cfg.LLM
 		}
 	}
 	globalCfg := (*llm.Config)(nil)
-	if cliCfg, err := obsidian.LoadCliConfig(true); err == nil {
+	if cliCfg, err := repoconfig.LoadCliConfig(vaultconfig.FromContext(ctx), true); err == nil {
 		globalCfg = cliCfg.LLM
 	}
 	return globalCfg, localCfg

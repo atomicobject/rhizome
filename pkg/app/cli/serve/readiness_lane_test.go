@@ -11,6 +11,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -28,11 +29,11 @@ type catchUpHarness struct {
 func newCatchUpHarness(t *testing.T) *catchUpHarness {
 	t.Helper()
 	h := &catchUpHarness{started: make(chan struct{}, 8)}
-	h.lane = lane.New(lane.Options{LockPath: filepath.Join(t.TempDir(), "index.lock"), PriorityPoll: 10 * time.Millisecond})
+	h.lane = lane.New(lane.Options{LockPath: filepath.Join(t.TempDir(), ".rhizome", "index.lock"), PriorityPoll: 10 * time.Millisecond})
 	t.Cleanup(h.lane.Close)
 	h.live = &bootstrap.LiveRuntime{}
 	h.live.SetLane(h.lane)
-	h.coord = NewReadinessCoordinator(func(ctx context.Context, _ notemeta.Indexer, _ string, _ obsidian.VaultDefinition, _ bool) error {
+	h.coord = NewReadinessCoordinator(func(ctx context.Context, _ *indexlock.Lease, _ notemeta.Indexer, _ string, _ obsidian.VaultDefinition, _ bool) error {
 		// The first run blocks until displaced; a resubmitted run completes.
 		if h.runs.Add(1) == 1 {
 			h.started <- struct{}{}
@@ -55,7 +56,7 @@ func (h *catchUpHarness) runCatchUp() <-chan error {
 func (h *catchUpHarness) displaceWith(t *testing.T, explicitErr error) {
 	t.Helper()
 	<-h.started
-	_, _, err := h.lane.Submit(context.Background(), lane.Request{Kind: lane.KindExplicitIndex, Coalesce: true, Run: func(context.Context, lane.Reporter) error {
+	_, _, err := h.lane.Submit(context.Background(), lane.Request{Kind: lane.KindExplicitIndex, Coalesce: true, Run: func(context.Context, *indexlock.Lease, lane.Reporter) error {
 		return explicitErr
 	}})
 	require.NoError(t, err)
@@ -92,11 +93,11 @@ func TestCatchUpDisplacedByAFailedIndexRunsAgain(t *testing.T) {
 
 func TestCatchUpRunsDirectlyWithoutALane(t *testing.T) {
 	var ran atomic.Bool
-	coord := NewReadinessCoordinator(func(context.Context, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	coord := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
 		ran.Store(true)
 		return nil
 	})
 
-	require.NoError(t, coord.runIndexOnLane(context.Background(), &bootstrap.LiveRuntime{}, notemeta.Indexer{}, "", obsidian.VaultDefinition{}, false))
+	require.NoError(t, coord.runIndexOnLane(context.Background(), &bootstrap.LiveRuntime{}, notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false))
 	require.True(t, ran.Load())
 }

@@ -1,5 +1,7 @@
 package validate
 
+import ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+
 // Opt-in fragile-external heading-link audit.
 //
 // WHY: SPEC-0054 keeps heading-text external links out of the default hygiene
@@ -15,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -51,26 +55,25 @@ type fragileHeadingRef struct {
 	source   string
 	target   string
 	fragment string
-	link     obsidian.WikilinkDetail
+	link     markdownsyntax.WikilinkDetail
 }
 
-func RunFragileExternal(ctx context.Context, runCtx RunContext, opts Options) CheckResult {
+func RunFragileExternal(ctx context.Context, runCtx RunContext, opts ScanOptions) CheckResult {
 	result := CheckResult{Name: CheckFragileExternal, OK: true}
-	sources, err := markdownValidationSources(ctx, runCtx)
+	inventory, err := validationLinksFor(ctx, runCtx)
 	if err != nil {
 		result.OK = false
 		result.Error = err.Error()
 		return result
 	}
-	allNotes := make([]string, 0, len(sources))
-	for _, source := range sources {
-		allNotes = append(allNotes, source.Path.String())
-	}
 
 	scopeNote := normalizeScopePath(opts.ScopeNote)
 	scopeTarget := normalizeScopePath(opts.ScopeTarget)
 	scopeRef := strings.TrimSpace(opts.ScopeRef)
-	contentByPath := markdownSourceContentByPath(sources)
+	contentByPath := make(map[string]string, len(inventory.sources))
+	for notePath, source := range inventory.sources {
+		contentByPath[notePath] = source.Content
+	}
 	getContent := func(p string) string {
 		if c, ok := contentByPath[p]; ok {
 			return c
@@ -78,42 +81,36 @@ func RunFragileExternal(ctx context.Context, runCtx RunContext, opts Options) Ch
 		return ""
 	}
 
-	cache := obsidian.BuildNotePathCacheWithAliases(allNotes, markdownSourceAliases(sources))
-	sourceNotes := allNotes
-	if scopeNote != "" {
-		sourceNotes = []string{scopeNote}
-	}
-
 	var refs []fragileHeadingRef
-	for _, source := range sourceNotes {
-		body := getContent(source)
-		if body == "" {
+	for _, link := range inventory.links {
+		fact := link.Fact
+		if fact.Resolution != noteformat.LinkResolutionNoteReference || !link.Exists || link.Target == link.Source || fact.Path == "" || fact.Fragment == "" || strings.HasPrefix(fact.Fragment, "^") {
 			continue
 		}
-		for _, link := range obsidian.ScanWikilinks(body, obsidian.DefaultWikilinkOptions) {
-			if link.InsideCodeBlock {
-				continue
-			}
-			rawTarget, fragment := splitFragment(link.Target)
-			if rawTarget == "" || fragment == "" || strings.HasPrefix(fragment, "^") {
-				continue
-			}
-			resolved, ok := cache.ResolveNote(rawTarget)
-			if !ok || resolved == source {
-				continue
-			}
-			if scopeTarget != "" && resolved != scopeTarget {
-				continue
-			}
-			refs = append(refs, fragileHeadingRef{source: source, target: resolved, fragment: fragment, link: link})
+		if scopeNote != "" && link.Source != scopeNote || scopeTarget != "" && link.Target != scopeTarget {
+			continue
 		}
+		// Heading upgrades author Markdown block IDs, so only Markdown targets admit that operation.
+		if inventory.sources[link.Target].Format != noteformat.FormatID("markdown") {
+			continue
+		}
+		body := inventory.sources[link.Source].Content
+		start := fact.RawRange.StartByte
+		if fact.Embed {
+			start++ // Repair spans begin at [[; the embed marker stays outside.
+		}
+		refs = append(refs, fragileHeadingRef{source: link.Source, target: link.Target, fragment: fact.Fragment, link: markdownsyntax.WikilinkDetail{
+			Target: body[fact.TargetRange.StartByte:fact.TargetRange.EndByte],
+			Start:  start, End: fact.RawRange.EndByte,
+			Line: 1 + strings.Count(body[:start], "\n"),
+		}})
 	}
 	if len(refs) == 0 {
 		result.Summary = "no fragile external heading references"
 		return result
 	}
 
-	schema, _ := ontology.LoadSchema(runCtx.VaultPath)
+	schema, _ := ontoschema.LoadSchema(runCtx.VaultPath)
 	sectionsByPath := map[string][]FragileExternalTarget{}
 	targetsFor := func(notePath string) []FragileExternalTarget {
 		if cached, ok := sectionsByPath[notePath]; ok {
@@ -121,8 +118,8 @@ func RunFragileExternal(ctx context.Context, runCtx RunContext, opts Options) Ch
 		}
 		body := getContent(notePath)
 		snapshot, _ := ontology.BuildDocumentSnapshot(notePath, body, time.Time{})
-		headingLine := map[int]obsidian.HeadingInfo{}
-		for _, h := range obsidian.EnumerateHeadings(body) {
+		headingLine := map[int]markdownsyntax.HeadingInfo{}
+		for _, h := range markdownsyntax.EnumerateHeadings(body) {
 			headingLine[h.Line] = h
 		}
 		var targets []FragileExternalTarget
@@ -164,7 +161,7 @@ func RunFragileExternal(ctx context.Context, runCtx RunContext, opts Options) Ch
 	var findings []Issue
 	var fixes []FixAction
 	for _, ref := range refs {
-		normalizedFragment := obsidian.NormalizeWikilinkFragment(ref.fragment)
+		normalizedFragment := markdownsyntax.NormalizeMarkdownHeadingFragment(ref.fragment)
 		matches := matchingTargets(targetsFor(ref.target), normalizedFragment)
 		class := FragileExternalLinkable
 		switch len(matches) {
@@ -285,7 +282,7 @@ func walkSections(nodes []*ontology.SectionNode, visit func(*ontology.SectionNod
 func matchingTargets(targets []FragileExternalTarget, normalized string) []FragileExternalTarget {
 	var out []FragileExternalTarget
 	for _, target := range targets {
-		if obsidian.NormalizeWikilinkFragment(target.Heading) == normalized {
+		if markdownsyntax.NormalizeMarkdownHeadingFragment(target.Heading) == normalized {
 			out = append(out, target)
 		}
 	}
@@ -294,7 +291,7 @@ func matchingTargets(targets []FragileExternalTarget, normalized string) []Fragi
 
 func nearHeadingTarget(targets []FragileExternalTarget, normalized string) (FragileExternalTarget, bool) {
 	for _, target := range targets {
-		if levenshteinAtMost(obsidian.NormalizeWikilinkFragment(target.Heading), normalized, fuzzyNearMatchDistance) {
+		if levenshteinAtMost(markdownsyntax.NormalizeMarkdownHeadingFragment(target.Heading), normalized, fuzzyNearMatchDistance) {
 			return target, true
 		}
 	}

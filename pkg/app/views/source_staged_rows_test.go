@@ -2,11 +2,14 @@ package views
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
@@ -34,7 +37,7 @@ type ActionItem implements Section @node(locator: EMBEDDED) {
 }
 `
 
-func newStagedRowsFixture(t *testing.T) (string, obsidian.VaultDefinition, *semdb.Store, *ontology.Schema) {
+func newStagedRowsFixture(t *testing.T) (string, obsidian.VaultDefinition, *semdb.Store, *ontoschema.Schema) {
 	t.Helper()
 	ctx := context.Background()
 	root := t.TempDir()
@@ -46,12 +49,12 @@ func newStagedRowsFixture(t *testing.T) (string, obsidian.VaultDefinition, *semd
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Name: "staged-rows", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	return root, vaultDef, store, runtime.Schema
 }
 
-func stagedRowsService(t *testing.T, root string, vaultDef obsidian.VaultDefinition, store *semdb.Store, schema *ontology.Schema, overlay *ontologyquery.ReadOverlay) *Service {
+func stagedRowsService(t *testing.T, root string, vaultDef obsidian.VaultDefinition, store *semdb.Store, schema *ontoschema.Schema, overlay *ontologyquery.ReadOverlay) *Service {
 	t.Helper()
 	if overlay != nil {
 		index, err := noderead.BuildReadOverlayIndex(context.Background(), schema, overlay)

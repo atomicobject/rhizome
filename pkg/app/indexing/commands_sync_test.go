@@ -2,13 +2,14 @@ package indexing
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	anchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	anchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRunUnifiedCore_SyncsNoteMetadataAndOntology(t *testing.T) {
@@ -26,13 +27,17 @@ type Project @node(paths: ["notes/*.md"]) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "project.md"), []byte(`---
 type: Project
 name: Roadmap
+code-anchors:
+  go:
+    - label: RoadmapSource
+      glob: src/**/*.go
 ---
 `), 0o644))
 
-	err := RunUnifiedCore(context.Background(), UnifiedOptions{
+	err := runUnifiedCoreForTest(t, context.Background(), UnifiedOptions{
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Path: root},
-		NoteMetadata: testNoteMetadataIndexer(t),
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
 	})
 	require.NoError(t, err)
 
@@ -53,7 +58,12 @@ name: Roadmap
 	require.True(t, ok)
 	require.Equal(t, "Project", typ.TypeName)
 
-	localCfg, err := obsidian.LoadLocalConfig(root)
+	anchors, err := store.Anchors(context.Background())
+	require.NoError(t, err)
+	require.Len(t, anchors, 1)
+	require.Equal(t, "RoadmapSource", anchors[0].Label)
+
+	localCfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.False(t, localCfg.Code.Enabled)
 	storedScopeHash, hasScopeHash, err := store.GetScopeConfigHash(context.Background())

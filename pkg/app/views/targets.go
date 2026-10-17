@@ -3,11 +3,11 @@ package views
 import (
 	"cmp"
 	"encoding/json"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"sort"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 )
 
@@ -34,7 +34,7 @@ func viewChoiceID(viewID, variant string) string {
 	return "view:" + string(encoded)
 }
 
-func resolveTargets(schema *ontology.Schema, entries []CatalogEntry) []ViewTarget {
+func resolveTargets(schema *ontoschema.Schema, entries []CatalogEntry) []ViewTarget {
 	targets := map[string]ViewTarget{}
 	add := func(kind viewconfig.MountKind, name string) {
 		if (name == "" && kind != viewconfig.MountKindWorkspace) || name == "*" {
@@ -306,7 +306,7 @@ func resolveTarget(target ViewTarget, entries []CatalogEntry, shape targetShape)
 // other (a spec's successor) do not count. Members claim types in railMembers
 // order, as the bundled views' planMembers does, so a type implementing two
 // roots belongs to the same one in both.
-func groupLinked(schema *ontology.Schema, tree viewconfig.NavigationTree, group string) bool {
+func groupLinked(schema *ontoschema.Schema, tree viewconfig.NavigationTree, group string) bool {
 	rootOf := map[string]string{}
 	roots := map[string]bool{}
 	for _, name := range railMembers(schema, tree, group) {
@@ -319,7 +319,7 @@ func groupLinked(schema *ontology.Schema, tree viewconfig.NavigationTree, group 
 	}
 	for name, root := range rootOf {
 		for _, field := range schema.Types[name].Fields {
-			if field == nil || field.Kind != ontology.FieldKindLink {
+			if field == nil || field.Kind != ontoschema.FieldKindLink {
 				continue
 			}
 			var targets []string
@@ -340,7 +340,7 @@ func groupLinked(schema *ontology.Schema, tree viewconfig.NavigationTree, group 
 
 // concreteTypes is the node types a member stands for: itself, or an
 // interface's node implementors, the only types with records to show.
-func concreteTypes(schema *ontology.Schema, name string) []string {
+func concreteTypes(schema *ontoschema.Schema, name string) []string {
 	if nt, ok := schema.Types[name]; ok && nt != nil {
 		return []string{name}
 	}
@@ -359,7 +359,7 @@ func concreteTypes(schema *ontology.Schema, name string) []string {
 // railMembers lists a group's members in the display-groups API's order:
 // each root, sorted by the label the rail shows, followed by its descendants,
 // sorted the same way.
-func railMembers(schema *ontology.Schema, tree viewconfig.NavigationTree, group string) []string {
+func railMembers(schema *ontoschema.Schema, tree viewconfig.NavigationTree, group string) []string {
 	byLabel := func(names []string) []string {
 		sort.SliceStable(names, func(i, j int) bool {
 			left, right := railLabel(schema, names[i]), railLabel(schema, names[j])
@@ -386,7 +386,7 @@ func railMembers(schema *ontology.Schema, tree viewconfig.NavigationTree, group 
 
 // railLabel is the label the rail shows for a member: its plural label, else
 // its label, else its name.
-func railLabel(schema *ontology.Schema, name string) string {
+func railLabel(schema *ontoschema.Schema, name string) string {
 	var label, plural string
 	if nt := schema.Types[name]; nt != nil {
 		label, plural = nt.Label, nt.PluralLabel

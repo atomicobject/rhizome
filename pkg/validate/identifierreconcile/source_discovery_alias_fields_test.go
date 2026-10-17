@@ -2,14 +2,14 @@ package identifierreconcile
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDerivedAliasAuthorityExcludesParentOnlyCustomFields(t *testing.T) {
@@ -36,8 +36,8 @@ type Story implements Section @node(locator: EMBEDDED) {
 	old := ontology.NodeRef{NotePath: "specs/SPEC-0001.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
 	next := old
 	next.NotePath = "specs/SPEC-0002.md"
-	rewrite := reference.IdentifierRewrite{Mode: reference.IdentifierRewritePreferredRekey, OldRef: old, NewRef: next, OldIdentifier: "SPEC-0001", NewIdentifier: "SPEC-0002", PreferredField: "id", AliasesField: "aliases", AdditionalAliasesFields: []string{"parentOnly"}}
-	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []reference.IdentifierRewrite{rewrite}})
+	rewrite := identifierrewrite.IdentifierRewrite{Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: old, NewRef: next, OldIdentifier: "SPEC-0001", NewIdentifier: "SPEC-0002", PreferredField: "id", AliasesField: "aliases", AdditionalAliasesFields: []string{"parentOnly"}}
+	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t), VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []identifierrewrite.IdentifierRewrite{rewrite}})
 	require.NoError(t, err)
 	snapshot, err := fields.validatedSnapshotFor(fields.rewrites)
 	require.NoError(t, err)
@@ -67,5 +67,5 @@ type Story implements Section @node(locator: EMBEDDED) {
 	require.Empty(t, structuredLinkPlanByPath(t, ls.Plans, "notes/inbound.md").Edits)
 	inventory, err := newIdentifierLinkResolutionInventory(fields.source.sources, fields.source.projections, snapshot.Occurrences, snapshot.Rewrites)
 	require.NoError(t, err)
-	require.Empty(t, inventory.resolve("notes/inbound.md", obsidian.StructuredLink{Kind: obsidian.StructuredLinkWikilink, Path: "CHILD-ORDINARY"}), "the ordinary child value must not resolve as an identity")
+	require.Empty(t, inventory.resolve("notes/inbound.md", markdownsyntax.StructuredLink{Kind: markdownsyntax.StructuredLinkWikilink, Path: "CHILD-ORDINARY"}), "the ordinary child value must not resolve as an identity")
 }

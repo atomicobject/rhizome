@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -9,22 +10,30 @@ import (
 // projectRootNodeForDoc projects one provider-owned file root. Markdown keeps
 // its structural projector; root-only formats bind ontology fields directly to
 // provider metadata and never acquire a synthetic Markdown snapshot.
-func projectRootNodeForDoc(doc *noteDoc, schema *Schema) (*NodeProjection, error) {
+func projectRootNodeForDoc(doc *noteDoc, schema *ontoschema.Schema) (*NodeProjection, error) {
 	if doc == nil || doc.Root == nil || schema == nil {
 		return nil, nil
 	}
+	return projectRootNodeWithAssessment(doc, schema, resolveNoteAssessment(doc, schema), nil)
+}
+
+func projectRootNodeWithAssessment(doc *noteDoc, schema *ontoschema.Schema, assessment *NoteAssessment, resolver *projectionResolver) (*NodeProjection, error) {
 	if doc.Snapshot != nil {
-		projection, err := ProjectNodeFromSnapshot(doc.Snapshot, schema, NodeRef{
-			NotePath: doc.Path, Kind: NodeKindNote, TypeName: doc.TypeName,
-		})
+		if resolver == nil {
+			var err error
+			resolver, err = newProjectionResolverForDoc(doc.Snapshot, schema, doc, assessment)
+			if err != nil {
+				return nil, err
+			}
+		}
+		projection, err := resolver.project(NodeRef{NotePath: doc.Path, Kind: NodeKindNote})
 		if projection != nil {
 			projection.RootSnapshot = doc.Root
 		}
 		return projection, err
 	}
-	assessment := resolveNoteAssessment(doc, schema)
 	typeName := ""
-	var noteType *NoteType
+	var noteType *ontoschema.NoteType
 	if assessment != nil {
 		typeName = strings.TrimSpace(assessment.ResolvedType)
 		noteType = schema.Types[typeName]
@@ -50,9 +59,9 @@ func projectRootNodeForDoc(doc *noteDoc, schema *Schema) (*NodeProjection, error
 			continue
 		}
 		switch field.Kind {
-		case FieldKindScalar, FieldKindEnum, FieldKindLink:
+		case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum, ontoschema.FieldKindLink:
 			projection.Fields[field.Name] = rootMetadataFieldBinding(doc, field)
-		case FieldKindSection:
+		case ontoschema.FieldKindSection:
 			projection.Fields[field.Name] = FieldBinding{
 				FieldName: field.Name, Kind: BindingKindSectionList,
 				SourceKind: field.SourceKind,
@@ -64,7 +73,7 @@ func projectRootNodeForDoc(doc *noteDoc, schema *Schema) (*NodeProjection, error
 
 // ProjectRootDocumentSnapshot projects a provider-current root snapshot into
 // the ontology without assuming a structural source language.
-func ProjectRootDocumentSnapshot(root *RootDocumentSnapshot, schema *Schema) (*NodeProjection, error) {
+func ProjectRootDocumentSnapshot(root *RootDocumentSnapshot, schema *ontoschema.Schema) (*NodeProjection, error) {
 	if root == nil {
 		return nil, nil
 	}
@@ -73,23 +82,23 @@ func ProjectRootDocumentSnapshot(root *RootDocumentSnapshot, schema *Schema) (*N
 		Content: string(root.RawSource), Frontmatter: cloneAnyMap(root.Metadata),
 		Inline: cloneNoteInline(root.InlineProperties), Tags: append([]string(nil), root.Tags...),
 		Links:      append([]notemeta.ResolvedNoteLink(nil), root.Links...),
-		Projection: root.Projection.Copy(), TypeName: stringValue(root.Metadata[typeFieldName]),
+		Projection: root.Projection.Copy(), TypeName: stringValue(root.Metadata[ontoschema.TypeFieldName()]),
 		Root: root, Snapshot: root.MarkdownStructure,
 	}
 	return projectRootNodeForDoc(doc, schema)
 }
 
-func rootMetadataFieldBinding(doc *noteDoc, field *Field) FieldBinding {
+func rootMetadataFieldBinding(doc *noteDoc, field *ontoschema.Field) FieldBinding {
 	binding := FieldBinding{
 		FieldName: field.Name, Kind: BindingKindFrontmatterField,
 		SourceKind: field.SourceKind,
 		Present:    fieldPresent(doc, field),
 		Values:     normalizeFieldValues(field, extractFieldValues(doc, field)),
 	}
-	if doc == nil || doc.Root == nil || field.SourceKind == FieldSourceInline {
+	if doc == nil || doc.Root == nil || field.SourceKind == ontoschema.FieldSourceInline {
 		return binding
 	}
-	names := FieldSourceNames(field)
+	names := ontoschema.FieldSourceNames(field)
 	for _, fact := range doc.Root.RootMetadata {
 		matched := false
 		for _, name := range names {
@@ -134,7 +143,7 @@ func metadataRangesExactlyMatch(source []byte, values []string, ranges []ByteRan
 // ProjectNoteSourceSnapshot uses the same provider-current source assembly as
 // structural ontology indexing. Root-only formats retain provider facts, and
 // structural capabilities attach their genuine syntax snapshot inside ontology.
-func ProjectNoteSourceSnapshot(source notemeta.NoteSourceSnapshot, schema *Schema) (*NodeProjection, error) {
+func ProjectNoteSourceSnapshot(source notemeta.NoteSourceSnapshot, schema *ontoschema.Schema) (*NodeProjection, error) {
 	doc, err := projectNoteSource(source)
 	if err != nil {
 		return nil, err

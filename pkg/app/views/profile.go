@@ -1,10 +1,10 @@
 package views
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/identity"
 )
@@ -22,23 +22,23 @@ func sourceSubject(def viewconfig.ViewDefinition) string {
 }
 
 // subjectProfile derives the SPEC-0112 profile of a type or interface.
-func subjectProfile(schema *ontology.Schema, name string) (ontology.TypeProfile, bool) {
+func subjectProfile(schema *ontoschema.Schema, name string) (ontoschema.TypeProfile, bool) {
 	if schema == nil || strings.TrimSpace(name) == "" {
-		return ontology.TypeProfile{}, false
+		return ontoschema.TypeProfile{}, false
 	}
-	return ontology.DeriveTypeProfile(schema, name, identity.CurrentUserType)
+	return ontoschema.DeriveTypeProfile(schema, name, identity.CurrentUserType)
 }
 
 // sourceProfile is the profile of a view's ontology source; ok is false for
 // query recipe and custom sources.
-func sourceProfile(schema *ontology.Schema, def viewconfig.ViewDefinition) (ontology.TypeProfile, bool) {
+func sourceProfile(schema *ontoschema.Schema, def viewconfig.ViewDefinition) (ontoschema.TypeProfile, bool) {
 	return subjectProfile(schema, sourceSubject(def))
 }
 
 // schemaFieldRole names a schema field's capability role from schema metadata
 // and the profile, never from the field's name. The web reads "identifier",
 // "status" (the lifecycle field), "summary", and "date".
-func schemaFieldRole(profile *ontology.TypeProfile, field *ontology.Field) string {
+func schemaFieldRole(profile *ontoschema.TypeProfile, field *ontoschema.Field) string {
 	switch {
 	case field == nil:
 		return ""
@@ -55,8 +55,8 @@ func schemaFieldRole(profile *ontology.TypeProfile, field *ontology.Field) strin
 	}
 }
 
-func isDateField(field *ontology.Field) bool {
-	if field == nil || field.Kind != ontology.FieldKindScalar {
+func isDateField(field *ontoschema.Field) bool {
+	if field == nil || field.Kind != ontoschema.FieldKindScalar {
 		return false
 	}
 	switch strings.ToLower(strings.TrimSpace(field.TypeName)) {
@@ -68,7 +68,7 @@ func isDateField(field *ontology.Field) bool {
 }
 
 // subjectFields lists a type's or interface's schema fields.
-func subjectFields(schema *ontology.Schema, name string) []*ontology.Field {
+func subjectFields(schema *ontoschema.Schema, name string) []*ontoschema.Field {
 	if schema == nil {
 		return nil
 	}
@@ -81,7 +81,7 @@ func subjectFields(schema *ontology.Schema, name string) []*ontology.Field {
 	return nil
 }
 
-func schemaFieldByName(fields []*ontology.Field, name string) *ontology.Field {
+func schemaFieldByName(fields []*ontoschema.Field, name string) *ontoschema.Field {
 	for _, field := range fields {
 		if field != nil && field.Name == name {
 			return field
@@ -91,7 +91,7 @@ func schemaFieldByName(fields []*ontology.Field, name string) *ontology.Field {
 }
 
 // lifecycleEnum returns the enum type behind a profile's lifecycle field.
-func lifecycleEnum(schema *ontology.Schema, fields []*ontology.Field, profile ontology.TypeProfile) *ontology.EnumType {
+func lifecycleEnum(schema *ontoschema.Schema, fields []*ontoschema.Field, profile ontoschema.TypeProfile) *ontoschema.EnumType {
 	field := schemaFieldByName(fields, profile.LifecycleField)
 	if field == nil || schema == nil {
 		return nil
@@ -101,15 +101,15 @@ func lifecycleEnum(schema *ontology.Schema, fields []*ontology.Field, profile on
 
 // stageRank orders lifecycle stages for grouping: in motion first, then
 // waiting, then finished, then dropped; values without a stage come last.
-func stageRank(stage ontology.LifecycleStage) int {
-	if index := slices.Index([]ontology.LifecycleStage{ontology.StageActive, ontology.StageOpen, ontology.StageDone, ontology.StageDropped}, stage); index >= 0 {
+func stageRank(stage ontoschema.LifecycleStage) int {
+	if index := slices.Index([]ontoschema.LifecycleStage{ontoschema.StageActive, ontoschema.StageOpen, ontoschema.StageDone, ontoschema.StageDropped}, stage); index >= 0 {
 		return index
 	}
 	return 4
 }
 
 // enumValueStages maps an enum's value names to their effective stages.
-func enumValueStages(enumType *ontology.EnumType) map[string]ontology.LifecycleStage {
+func enumValueStages(enumType *ontoschema.EnumType) map[string]ontoschema.LifecycleStage {
 	if enumType == nil {
 		return nil
 	}
@@ -117,7 +117,7 @@ func enumValueStages(enumType *ontology.EnumType) map[string]ontology.LifecycleS
 	if len(stages) != len(enumType.Values) {
 		return nil
 	}
-	out := make(map[string]ontology.LifecycleStage, len(stages))
+	out := make(map[string]ontoschema.LifecycleStage, len(stages))
 	for index, value := range enumType.Values {
 		if value != nil {
 			out[value.Name] = stages[index].Stage

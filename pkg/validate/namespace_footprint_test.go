@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"path/filepath"
 	"testing"
@@ -41,7 +42,7 @@ func namespaceCaseOnlyRecoveryFixtureFor(t *testing.T, from, to string, restored
 		decision = NamespaceRestored
 		hooks = &repairExecutionHooks{AfterMutation: func(int, string) error { return errors.New("publication rejected") }}
 	}
-	first, err := applyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) {
+	first, err := applyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) {
 		return plan, nil
 	}), &repairPostApplyProbe{t: t, refreshErr: blocked}, nil, hooks)
 	require.ErrorIs(t, err, blocked)
@@ -52,7 +53,7 @@ func namespaceCaseOnlyRecoveryFixtureFor(t *testing.T, from, to string, restored
 
 func namespaceRecoveryOnlyPlanner(t *testing.T) NamespaceMutationPlanner {
 	t.Helper()
-	return namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) {
+	return namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) {
 		t.Fatal("terminal recovery must not plan another mutation")
 		return NamespaceMutationPlan{}, nil
 	})
@@ -87,7 +88,7 @@ type namespaceSpellingMutationRefresher struct {
 	mutate func()
 }
 
-func (r namespaceSpellingMutationRefresher) Refresh(ctx context.Context, lease *IndexLockLease, changed []string, renamed []PathRename, deleted []string) (PostApplyRefreshResult, error) {
+func (r namespaceSpellingMutationRefresher) Refresh(ctx context.Context, lease *indexlock.Lease, changed []string, renamed []PathRename, deleted []string) (PostApplyRefreshResult, error) {
 	result, err := r.probe.Refresh(ctx, lease, changed, renamed, deleted)
 	r.mutate()
 	return result, err

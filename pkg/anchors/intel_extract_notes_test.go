@@ -22,3 +22,22 @@ func TestExtractIntelDocSections_IgnoresHeadingsInCodeBlocks(t *testing.T) {
 	}
 
 }
+
+func TestExtractIntelDocSectionsPersistsCanonicalSourceIdentity(t *testing.T) {
+	const path = "notes/example.md"
+	content := "# Title\n\n## Decision\nfirst\n\n## Decision\n^decision\nlast\n"
+	sections, _, _ := extractMarkdownIntelDocSections(path, content)
+	if len(sections) != 3 {
+		t.Fatalf("got %d sections", len(sections))
+	}
+	want := []string{"notes/example.md#title-0", "notes/example.md#decision-9", "notes/example.md#^decision"}
+	for i, section := range sections {
+		if section.SourceNodeID != want[i] {
+			t.Errorf("section %d identity = %q; want %q", i, section.SourceNodeID, want[i])
+		}
+	}
+	root, _, _ := extractMarkdownIntelDocSections(path, "plain body")
+	if len(root) != 1 || root[0].SourceNodeID != "" {
+		t.Fatalf("headingless identity = %#v", root)
+	}
+}

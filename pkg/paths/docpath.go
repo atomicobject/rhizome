@@ -46,7 +46,7 @@ func NormalizeRelPathAuto(rel string) string {
 		clean = strings.TrimSuffix(clean, "/")
 	}
 	if strings.HasSuffix(strings.ToLower(clean), ".md") {
-		return string(NormalizeNote(clean))
+		return string(NormalizeNotePath(clean))
 	}
 	return string(Normalize(clean))
 }

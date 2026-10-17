@@ -2,11 +2,12 @@ package init
 
 import (
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 func inferEmbeddingsProvider(cfg *embeddings.Config) string {
@@ -59,7 +60,7 @@ func providerDisplayName(provider string) string {
 // the provider is not explicitly set in the config. This is used to force
 // provider selection when upgrading old configs that predate the requirement
 // for explicit provider configuration.
-func embeddingsNeedProviderConfig(cfg obsidian.LocalConfig) bool {
+func embeddingsNeedProviderConfig(cfg repoconfig.LocalConfig) bool {
 	if cfg.NoteEmbeddings != nil && cfg.NoteEmbeddings.Enabled {
 		if strings.TrimSpace(cfg.NoteEmbeddings.Provider) == "" {
 			return true
@@ -73,7 +74,7 @@ func embeddingsNeedProviderConfig(cfg obsidian.LocalConfig) bool {
 	return false
 }
 
-func embeddingsProviderReady(cfg *embeddings.Config) (bool, string) {
+func embeddingsProviderReady(env vaultconfig.Env, cfg *embeddings.Config) (bool, string) {
 	if cfg == nil {
 		return false, ""
 	}
@@ -83,12 +84,12 @@ func embeddingsProviderReady(cfg *embeddings.Config) (bool, string) {
 	}
 	switch p {
 	case "openai":
-		if embeddings.ResolveAPIKey("") != "" {
+		if embeddings.ResolveAPIKey(env, "") != "" {
 			return true, ""
 		}
 		return false, "missing OPENAI_API_KEY or RHIZOME_OPENAI_API_KEY"
 	case "voyage":
-		if embeddings.ResolveVoyageAPIKey("") != "" {
+		if embeddings.ResolveVoyageAPIKey(env, "") != "" {
 			return true, ""
 		}
 		return false, "missing VOYAGE_API_KEY or RHIZOME_VOYAGE_API_KEY"
@@ -107,12 +108,12 @@ func embeddingsProviderReady(cfg *embeddings.Config) (bool, string) {
 	}
 }
 
-func warnEmbeddingsReadiness(cfg obsidian.LocalConfig, out io.Writer) {
+func warnEmbeddingsReadiness(env vaultconfig.Env, cfg repoconfig.LocalConfig, out io.Writer) {
 	if out == nil {
 		return
 	}
 	if cfg.NoteEmbeddings != nil && cfg.NoteEmbeddings.Enabled {
-		if ok, reason := embeddingsProviderReady(cfg.NoteEmbeddings); !ok && reason != "" {
+		if ok, reason := embeddingsProviderReady(env, cfg.NoteEmbeddings); !ok && reason != "" {
 			fmt.Fprintf(out, "%s: note embeddings enabled but %s.\n", styleWarn(out, "Warning"), reason)
 			if strings.Contains(strings.ToLower(reason), "ollama") {
 				if hints := embeddings.OllamaInstallHint(); hints != "" {
@@ -122,7 +123,7 @@ func warnEmbeddingsReadiness(cfg obsidian.LocalConfig, out io.Writer) {
 		}
 	}
 	if cfg.CodeEmbeddings != nil && cfg.CodeEmbeddings.Enabled {
-		if ok, reason := embeddingsProviderReady(cfg.CodeEmbeddings); !ok && reason != "" {
+		if ok, reason := embeddingsProviderReady(env, cfg.CodeEmbeddings); !ok && reason != "" {
 			fmt.Fprintf(out, "%s: code embeddings enabled but %s.\n", styleWarn(out, "Warning"), reason)
 			if strings.Contains(strings.ToLower(reason), "ollama") {
 				if hints := embeddings.OllamaInstallHint(); hints != "" {

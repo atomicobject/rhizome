@@ -3,11 +3,13 @@ package validate
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +36,7 @@ func TestRepairJournalCleanupInterruptionNeverRollsBackCommittedBytes(t *testing
 			plan, notePath, after := leaveCommittedRepairJournal(t, runCtx)
 			injected := errors.New("injected cleanup interruption")
 
-			_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+			_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 				Fix:                true,
 				NonInteractive:     true,
 				PostApplyRefresher: &repairPostApplyProbe{t: t},
@@ -57,9 +59,9 @@ func TestRepairJournalCleanupInterruptionNeverRollsBackCommittedBytes(t *testing
 			require.Len(t, evidence, 1)
 			assert.Equal(t, tt.evidenceState, evidence[0].State)
 
-			opts := Options{
+			opts := ApplyOptions{
 				Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
-				postApplyCheck: func(context.Context, *IndexLockLease, *ontology.Runtime, repairPostApplyScope) error { return nil },
+				postApplyCheck: func(context.Context, *indexlock.Lease, *ontology.Runtime, repairPostApplyScope) error { return nil },
 			}
 			_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, opts)
 			require.NoError(t, err, "cleanup retry must converge from every durable boundary")
@@ -75,8 +77,7 @@ func TestRepairJournalCleanupUnknownEntryRetainsDecodableCommittedEvidence(t *te
 	root := t.TempDir()
 	runCtx := repairRunContext(t, root)
 	plan, notePath, after := leaveCommittedRepairJournal(t, runCtx)
-	dir, err := repairJournalDir(runCtx, plan.Transactions[0].ID)
-	require.NoError(t, err)
+	dir := repairFixtureJournalDir(runCtx.VaultPath, plan.Transactions[0].ID)
 	manifest, err := readRepairJournalManifest(dir)
 	require.NoError(t, err)
 	require.NotEmpty(t, manifest.OwnedArtifacts)
@@ -90,7 +91,7 @@ func TestRepairJournalCleanupUnknownEntryRetainsDecodableCommittedEvidence(t *te
 	require.NotEmpty(t, retainedArtifact, "committed journal retains at least its backup artifact")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "unexpected-entry"), []byte("not engine owned\n"), 0o600))
 
-	_, err = ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix:                true,
 		NonInteractive:     true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t},
@@ -104,19 +105,19 @@ func TestRepairJournalCleanupUnknownEntryRetainsDecodableCommittedEvidence(t *te
 	evidence, detectErr := DetectPendingRepairJournals(runCtx)
 	require.NoError(t, detectErr)
 	require.Len(t, evidence, 1)
-	assert.Equal(t, repairJournalCommitted, evidence[0].State)
+	assert.Equal(t, "quarantined", evidence[0].State)
 	assert.Equal(t, plan.Transactions[0].ID, evidence[0].TransactionID)
+	require.Error(t, sourcetxn.CheckAdmission(root, []string{"note.md"}))
 }
 
 func TestRepairJournalDiscoveryFailsClosedOnUnexpectedRootFile(t *testing.T) {
 	root := t.TempDir()
 	runCtx := repairRunContext(t, root)
-	journalRoot, err := repairJournalRoot(runCtx)
-	require.NoError(t, err)
+	journalRoot := repairFixtureJournalRoot(runCtx.VaultPath)
 	require.NoError(t, os.MkdirAll(journalRoot, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(journalRoot, "unexpected-root-file"), []byte("corrupt\n"), 0o600))
 
-	_, err = DetectPendingRepairJournals(runCtx)
+	_, err := DetectPendingRepairJournals(runCtx)
 	require.ErrorContains(t, err, "unexpected repair journal root entry")
 }
 
@@ -136,7 +137,7 @@ func TestRepairJournalCleanupRetryRecognizesAlreadyRestoredRename(t *testing.T) 
 		}},
 	}})
 
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterInstall: func(_ int, path string) error {
 			if path == "new.md" {
@@ -148,19 +149,21 @@ func TestRepairJournalCleanupRetryRecognizesAlreadyRestoredRename(t *testing.T) 
 	require.ErrorIs(t, err, errSimulatedRepairInterruption)
 	require.FileExists(t, destination)
 
-	dir, err := repairJournalDir(runCtx, plan.Transactions[0].ID)
-	require.NoError(t, err)
-	unexpected := filepath.Join(dir, "unexpected-entry")
-	require.NoError(t, os.WriteFile(unexpected, []byte("operator evidence\n"), 0o600))
-	_, err = ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	injected := errors.New("transient cleanup interruption after restored rename")
+	_, err = ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
+		repairHooks: &repairExecutionHooks{AfterCleanupBoundary: func(boundary, _ string) error {
+			if boundary == cleanupBeforeDetach {
+				return injected
+			}
+			return nil
+		}},
 	})
-	require.Error(t, err)
+	require.ErrorIs(t, err, injected)
 	assert.Equal(t, before, mustReadFile(t, source))
 	assert.NoFileExists(t, destination)
 
-	require.NoError(t, os.Remove(unexpected))
-	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.NoError(t, err, "cleanup retry must not require the deleted backup after rollback restored the source")
@@ -179,7 +182,7 @@ func TestApplyRepairSessionConvergesAfterCleanupPendingRecovery(t *testing.T) {
 	runCtx := linkHygieneRunContext(t, root)
 	plan, _, _ := leaveCommittedRepairJournal(t, runCtx)
 	injected := errors.New("stop after terminal detach")
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 		repairHooks: &repairExecutionHooks{AfterCleanupBoundary: func(boundary, _ string) error {
 			if boundary == cleanupAfterDetach {
@@ -190,12 +193,12 @@ func TestApplyRepairSessionConvergesAfterCleanupPendingRecovery(t *testing.T) {
 	})
 	require.ErrorIs(t, err, injected)
 
-	blocked, scanCtx, err := RunSuiteOnce(context.Background(), Options{
+	blocked, scanCtx, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
 	require.Len(t, blocked.RepairJournals, 1, "the cleanup-pending journal must block the read-only scan")
-	result, _, err := ApplyRepairSession(context.Background(), blocked, scanCtx, Options{
+	result, _, err := ApplyRepairSession(context.Background(), blocked, scanCtx, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.NoError(t, err)
@@ -221,7 +224,7 @@ func TestRecoveredCommittedJournalBlocksDifferentPlanBeforeNewPrepare(t *testing
 		)},
 	}})
 	refreshErr := errors.New("retain first committed journal")
-	_, err := ApplyFixPlan(context.Background(), runCtx, &firstPlan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &firstPlan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, refreshErr: refreshErr},
 	})
@@ -233,7 +236,7 @@ func TestRecoveredCommittedJournalBlocksDifferentPlanBeforeNewPrepare(t *testing
 			"operation:second-overlap", "action:second-overlap", "note.md", firstAfter, secondAfter,
 		)},
 	}})
-	_, err = ApplyFixPlan(context.Background(), runCtx, &secondPlan, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &secondPlan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 		repairHooks: &repairExecutionHooks{AfterJournalPublished: func(string) error {
 			return errSimulatedRepairInterruption
@@ -261,7 +264,7 @@ func TestPreparedRecoveryReplanReportsNewUnselectedActionOnlyAsSkipped(t *testin
 			"operation:recovery", "action:recovery", "recovery.md", recoveryBefore, []byte("recovery after\n"),
 		)},
 	}})
-	_, err := ApplyFixPlan(context.Background(), runCtx, &recoveryPlan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &recoveryPlan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterInstall: func(_ int, _ string) error {
 			return errSimulatedRepairInterruption
@@ -279,7 +282,7 @@ func TestPreparedRecoveryReplanReportsNewUnselectedActionOnlyAsSkipped(t *testin
 	newPlan, err = FinalizeRepairPlan(newPlan)
 	require.NoError(t, err)
 
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &newPlan, Options{
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &newPlan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.ErrorContains(t, err, "replan")
@@ -306,7 +309,7 @@ func TestRenameRollbackRejectsRecreatedDistinctSourceWithoutMutatingEitherFile(t
 			SourceHash: SourceHash(original), Lifecycle: LifecyclePolicyResult{Decision: LifecycleNotHistorical},
 		}},
 	}})
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterInstall: func(_ int, path string) error {
 			if path == "new.md" {
@@ -316,16 +319,20 @@ func TestRenameRollbackRejectsRecreatedDistinctSourceWithoutMutatingEitherFile(t
 		}},
 	})
 	require.ErrorIs(t, err, errSimulatedRepairInterruption)
-	journals, err := discoverRepairJournals(runCtx)
-	require.NoError(t, err)
-	require.Len(t, journals, 1)
-	rollbackPlan, err := buildRepairRollbackPlan(runCtx, journals[0].manifest)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(source, userSource, 0o600))
-
-	mutated, err := executeRepairRollbackPlan(runCtx, journals[0].manifest, rollbackPlan)
+	injected := false
+	recovery, err := openRepairWriterFixture(t, runCtx, &repairExecutionHooks{
+		BeforeRollbackMutation: func(_ int, _ string) error {
+			if !injected {
+				injected = true
+				return os.WriteFile(source, userSource, 0o600)
+			}
+			return nil
+		},
+	})
+	defer recovery.close()
 	require.Error(t, err)
-	assert.False(t, mutated)
+	assert.True(t, injected, "the source reappears after recovery preflight, before its first mutation")
+	assert.Empty(t, recovery.recovery.RolledBack)
 	assert.Equal(t, userSource, mustReadFile(t, source))
 	assert.Equal(t, original, mustReadFile(t, destination))
 	evidence, detectErr := DetectPendingRepairJournals(runCtx)
@@ -346,7 +353,7 @@ func TestPreparedRecoveryRetryReplaysRollbackDeltaAfterRefreshFailure(t *testing
 			"operation:rollback-refresh", "action:rollback-refresh", "note.md", before, []byte("after\n"),
 		)},
 	}})
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterInstall: func(_ int, _ string) error {
 			return errSimulatedRepairInterruption
@@ -356,7 +363,7 @@ func TestPreparedRecoveryRetryReplaysRollbackDeltaAfterRefreshFailure(t *testing
 
 	refreshErr := errors.New("rollback refresh failed")
 	firstRefresh := &repairPostApplyProbe{t: t, refreshErr: refreshErr}
-	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: firstRefresh,
 	})
 	require.ErrorIs(t, err, refreshErr)
@@ -364,7 +371,7 @@ func TestPreparedRecoveryRetryReplaysRollbackDeltaAfterRefreshFailure(t *testing
 	assert.Equal(t, before, mustReadFile(t, path))
 
 	retryRefresh := &repairPostApplyProbe{t: t}
-	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: retryRefresh,
 	})
 	require.NoError(t, err)
@@ -391,7 +398,7 @@ func TestPartialRollbackFailureRefreshesCompletedDeltaAndRetainsJournal(t *testi
 			repairWriteOperation("operation:b-partial", "action:partial-rollback", "b.md", bBefore, []byte("b after\n")),
 		},
 	}})
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterInstall: func(_ int, path string) error {
 			if path == "b.md" {
@@ -404,7 +411,7 @@ func TestPartialRollbackFailureRefreshesCompletedDeltaAndRetainsJournal(t *testi
 
 	userEdit := []byte("a user edit during recovery\n")
 	probe := &repairPostApplyProbe{t: t}
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: probe,
 		repairHooks: &repairExecutionHooks{BeforeRollbackMutation: func(_ int, path string) error {
 			if path == "a.md" {
@@ -443,7 +450,7 @@ func leaveCommittedRepairJournal(t *testing.T, runCtx RunContext) (RepairPlan, s
 	}})
 
 	refreshErr := errors.New("retain committed journal for cleanup test")
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix:                true,
 		NonInteractive:     true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, refreshErr: refreshErr},

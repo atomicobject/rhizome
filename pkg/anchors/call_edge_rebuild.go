@@ -129,7 +129,7 @@ func suffixMetricLangSuffix(lang Lang) string {
 	}
 }
 
-func addCallEdgeCacheEntries(ctx context.Context, metric string, entries int) {
+func addCallEdgeCacheEntries(ctx context.Context, metric indexingperf.MetricName, entries int) {
 	if entries > 0 {
 		indexingperf.AddCount(ctx, metric, int64(entries))
 	}
@@ -137,38 +137,38 @@ func addCallEdgeCacheEntries(ctx context.Context, metric string, entries int) {
 
 func addCallEdgeCacheLookup(ctx context.Context, metric string, hit bool) {
 	if hit {
-		indexingperf.AddCount(ctx, metric+".hit", 1)
+		indexingperf.AddCount(ctx, indexingperf.CallEdgeCacheLookup.Select(string(metric), "hit"), 1)
 		return
 	}
-	indexingperf.AddCount(ctx, metric+".miss", 1)
+	indexingperf.AddCount(ctx, indexingperf.CallEdgeCacheLookup.Select(string(metric), "miss"), 1)
 }
 
 func addCallEdgeFallbackReason(ctx context.Context, reason string) {
 	if strings.TrimSpace(reason) == "" {
 		return
 	}
-	indexingperf.AddCount(ctx, "calledge.source_fallback."+reason+".count", 1)
+	indexingperf.AddCount(ctx, indexingperf.CallEdgeSourceFallback.Select(reason), 1)
 }
 
 func addCallEdgeSuffixSkip(ctx context.Context, reason string) {
 	if strings.TrimSpace(reason) == "" {
 		return
 	}
-	indexingperf.AddCount(ctx, "calledge.cache_build_suffix_skipped."+reason+".count", 1)
+	indexingperf.AddCount(ctx, indexingperf.CallEdgeSuffixSkip.Select(reason), 1)
 }
 
 func addCallEdgeSuffixCandidateLang(ctx context.Context, lang Lang, entries int) {
 	if entries <= 0 {
 		return
 	}
-	indexingperf.AddCount(ctx, "calledge.cache_build_suffix.candidate."+suffixMetricLangSuffix(lang)+".count", int64(entries))
+	indexingperf.AddCount(ctx, indexingperf.CallEdgeSuffixLanguage.Select(suffixMetricLangSuffix(lang)), int64(entries))
 }
 
 func addCallEdgeSuffixCandidateKind(ctx context.Context, kind string, entries int) {
 	if entries <= 0 || strings.TrimSpace(kind) == "" {
 		return
 	}
-	indexingperf.AddCount(ctx, "calledge.cache_build_suffix."+kind+"_candidate.count", int64(entries))
+	indexingperf.AddCount(ctx, indexingperf.CallEdgeSuffixKind.Select(kind), int64(entries))
 }
 
 type callEdgeSuffixPolicy struct {
@@ -361,7 +361,7 @@ func inferGoImportPath(summary FileSummary) string {
 func (s *Service) buildCallEdgeRebuildCache(ctx context.Context, items []callEdgeRebuildItem, sources callEdgeRebuildSources) (*callEdgeRebuildCache, error) {
 	cacheBuildStarted := time.Now()
 	defer func() {
-		indexingperf.ObserveLatency(ctx, "calledge.cache_build", time.Since(cacheBuildStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CalledgeCacheBuild, time.Since(cacheBuildStarted))
 	}()
 	cache := &callEdgeRebuildCache{
 		moduleIDByPath:      make(map[string]string, len(items)),
@@ -579,11 +579,11 @@ func (s *Service) buildCallEdgeRebuildCache(ctx context.Context, items []callEdg
 	for _, callerDirs := range pyCallerDirsByName {
 		pyFallbackCandidates += len(callerDirs)
 	}
-	addCallEdgeCacheEntries(ctx, "calledge.cache_build.fqn_candidate.count", fqnCandidates)
-	addCallEdgeCacheEntries(ctx, "calledge.cache_build.import_candidate.count", importCandidates)
-	addCallEdgeCacheEntries(ctx, "calledge.cache_build.go_method_candidate.count", goMethodCandidates)
-	addCallEdgeCacheEntries(ctx, "calledge.cache_build.py_fallback_candidate.count", pyFallbackCandidates)
-	addCallEdgeCacheEntries(ctx, "calledge.cache_build.fqn_skipped_py_unqualified.count", pyUnqualifiedFQNSkipped)
+	addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheBuildFqnCandidateCount, fqnCandidates)
+	addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheBuildImportCandidateCount, importCandidates)
+	addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheBuildGoMethodCandidateCount, goMethodCandidates)
+	addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheBuildPyFallbackCandidateCount, pyFallbackCandidates)
+	addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheBuildFqnSkippedPyUnqualifiedCount, pyUnqualifiedFQNSkipped)
 	for lang, candidates := range suffixCandidatesByLang {
 		addCallEdgeSuffixCandidateLang(ctx, lang, len(candidates))
 	}
@@ -649,7 +649,7 @@ func (s *Service) buildCallEdgeRebuildCache(ctx context.Context, items []callEdg
 			suffixRequested++
 		}
 	}
-	addCallEdgeCacheEntries(ctx, "calledge.cache_build.fqn_lookup.suffix_requested.count", suffixRequested)
+	addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheBuildFqnLookupSuffixRequestedCount, suffixRequested)
 
 	if suffixSeedStore != nil && suffixRequested > 0 {
 		suffixLangs := make([]Lang, 0, len(unresolvedSuffixByLang))
@@ -662,10 +662,10 @@ func (s *Service) buildCallEdgeRebuildCache(ctx context.Context, items []callEdg
 		sort.Slice(suffixLangs, func(i, j int) bool { return suffixLangs[i] < suffixLangs[j] })
 		seeds, err := suffixSeedStore.CallEdgeSuffixSeedsByLangs(ctx, suffixLangs)
 		if err == nil {
-			addCallEdgeCacheEntries(ctx, "calledge.cache_build_suffix.seed.count", len(seeds))
+			addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheBuildSuffixSeedCount, len(seeds))
 			suffixIndex := buildCallEdgeSuffixIndex(seeds)
 			if suffixIndex != nil {
-				addCallEdgeCacheEntries(ctx, "calledge.cache_build_suffix.index_entry.count", len(suffixIndex.idsByLangSuffix))
+				addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheBuildSuffixIndexEntryCount, len(suffixIndex.idsByLangSuffix))
 				suffixLookupStarted := time.Now()
 				suffixResolved := 0
 				for _, lang := range suffixLangs {
@@ -683,13 +683,13 @@ func (s *Service) buildCallEdgeRebuildCache(ctx context.Context, items []callEdg
 						suffixResolved++
 					}
 				}
-				indexingperf.ObserveLatency(ctx, "calledge.cache_build.fqn_lookup.suffix", time.Since(suffixLookupStarted))
-				addCallEdgeCacheEntries(ctx, "calledge.cache_build.fqn_lookup.suffix_resolved.count", suffixResolved)
+				indexingperf.ObserveLatency(ctx, indexingperf.CalledgeCacheBuildFqnLookupSuffix, time.Since(suffixLookupStarted))
+				addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheBuildFqnLookupSuffixResolvedCount, suffixResolved)
 			}
 		}
 	}
 	if exactResolver != nil || resolver != nil || suffixSeedStore != nil {
-		indexingperf.ObserveLatency(ctx, "calledge.cache_build.fqn_lookup", time.Since(totalFQNLookupStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CalledgeCacheBuildFqnLookup, time.Since(totalFQNLookupStarted))
 	}
 
 	if methodResolver != nil {
@@ -713,7 +713,7 @@ func (s *Service) buildCallEdgeRebuildCache(ctx context.Context, items []callEdg
 				cache.goMethodIDs[callEdgeCacheGoMethodKey(pkgImportPath, method)] = append([]string(nil), ids...)
 			}
 		}
-		indexingperf.ObserveLatency(ctx, "calledge.cache_build.go_method_lookup", time.Since(goMethodLookupStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CalledgeCacheBuildGoMethodLookup, time.Since(goMethodLookupStarted))
 	}
 
 	importLookupStarted := time.Now()
@@ -773,7 +773,7 @@ func (s *Service) buildCallEdgeRebuildCache(ctx context.Context, items []callEdg
 			}
 		}
 	}
-	indexingperf.ObserveLatency(ctx, "calledge.cache_build.import_lookup", time.Since(importLookupStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CalledgeCacheBuildImportLookup, time.Since(importLookupStarted))
 
 	if anchorLookup != nil {
 		pyFallbackLookupStarted := time.Now()
@@ -806,13 +806,13 @@ func (s *Service) buildCallEdgeRebuildCache(ctx context.Context, items []callEdg
 				cache.pyFallbackIDsByCall[callEdgeCachePyFallbackKey(callerDir, name)] = filtered
 			}
 		}
-		indexingperf.ObserveLatency(ctx, "calledge.cache_build.py_fallback_lookup", time.Since(pyFallbackLookupStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CalledgeCacheBuildPyFallbackLookup, time.Since(pyFallbackLookupStarted))
 	}
 
-	addCallEdgeCacheEntries(ctx, "calledge.cache.fqn.entry", len(cache.targetIDsByLangFQN))
-	addCallEdgeCacheEntries(ctx, "calledge.cache.import.entry", len(cache.importTargetIDs))
-	addCallEdgeCacheEntries(ctx, "calledge.cache.go_method.entry", len(cache.goMethodIDs))
-	addCallEdgeCacheEntries(ctx, "calledge.cache.py_fallback.entry", len(cache.pyFallbackIDsByCall))
+	addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheFqnEntry, len(cache.targetIDsByLangFQN))
+	addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheImportEntry, len(cache.importTargetIDs))
+	addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCacheGoMethodEntry, len(cache.goMethodIDs))
+	addCallEdgeCacheEntries(ctx, indexingperf.CalledgeCachePyFallbackEntry, len(cache.pyFallbackIDsByCall))
 
 	return cache, nil
 }
@@ -1060,7 +1060,7 @@ func (s *Service) writeCallEdgeBatches(ctx context.Context, intel intelStore, ba
 	}
 	writeStarted := time.Now()
 	defer func() {
-		indexingperf.ObserveLatency(ctx, "calledge.batch_write", time.Since(writeStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CalledgeBatchWrite, time.Since(writeStarted))
 	}()
 	if batcher, ok := s.store.(intelCallEdgesBatchStore); ok {
 		return batcher.UpsertIntelCallEdgesForPathsBatch(ctx, batches)
@@ -1094,7 +1094,7 @@ func (s *Service) loadCallEdgeRebuildSources(ctx context.Context, items []callEd
 		sources.canUseRefs = hasAnchorLookup
 	}
 	if !sources.canUseRefs || len(items) == 0 {
-		indexingperf.ObserveLatency(ctx, "calledge.source_load", time.Since(loadStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CalledgeSourceLoad, time.Since(loadStarted))
 		return sources, nil
 	}
 	var err error
@@ -1111,7 +1111,7 @@ func (s *Service) loadCallEdgeRebuildSources(ctx context.Context, items []callEd
 		if len(sources.runtimeByPath) == 0 {
 			sources.canUseRefs = false
 		}
-		indexingperf.ObserveLatency(ctx, "calledge.source_load", time.Since(loadStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CalledgeSourceLoad, time.Since(loadStarted))
 		if sources.canUseRefs {
 			sources.cache, err = s.buildCallEdgeRebuildCache(ctx, items, sources)
 			if err != nil {
@@ -1133,14 +1133,14 @@ func (s *Service) loadCallEdgeRebuildSources(ctx context.Context, items []callEd
 	if err != nil {
 		return sources, fmt.Errorf("load module defs for call-edge rebuild: %w", err)
 	}
-	indexingperf.ObserveLatency(ctx, "calledge.refs_load", time.Since(refsStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CalledgeRefsLoad, time.Since(refsStarted))
 	anchorStarted := time.Now()
 	sources.anchorsByPath, err = anchorLookup.IntelAnchorsByPaths(ctx, pathsList)
 	if err != nil {
 		return sources, fmt.Errorf("load anchors for call-edge rebuild: %w", err)
 	}
-	indexingperf.ObserveLatency(ctx, "calledge.anchor_prefetch", time.Since(anchorStarted))
-	indexingperf.ObserveLatency(ctx, "calledge.source_load", time.Since(loadStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CalledgeAnchorPrefetch, time.Since(anchorStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CalledgeSourceLoad, time.Since(loadStarted))
 	sources.cache, err = s.buildCallEdgeRebuildCache(ctx, items, sources)
 	if err != nil {
 		return sources, fmt.Errorf("build call-edge rebuild cache: %w", err)
@@ -1178,9 +1178,9 @@ func (s *Service) buildCallEdgesFromStoredRefs(ctx context.Context, item callEdg
 		return s.buildCallEdgesFromSourceFallback(ctx, item, sources)
 	}
 	if hasRuntimeSource {
-		indexingperf.AddCount(ctx, "calledge.runtime_paths", 1)
+		indexingperf.AddCount(ctx, indexingperf.CalledgeRuntimePaths, 1)
 	} else {
-		indexingperf.AddCount(ctx, "calledge.stored_paths", 1)
+		indexingperf.AddCount(ctx, indexingperf.CalledgeStoredPaths, 1)
 	}
 	intelPath := string(paths.NormalizeCode(item.path))
 	if len(anchors) == 0 {
@@ -1190,7 +1190,7 @@ func (s *Service) buildCallEdgesFromStoredRefs(ctx context.Context, item callEdg
 	if sources.cache != nil {
 		buildStarted := time.Now()
 		edges := s.buildCallEdgesFromStoredRefsWithCache(ctx, item, summary, sources.cache)
-		indexingperf.ObserveLatency(ctx, "calledge.edge_build", time.Since(buildStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CalledgeEdgeBuild, time.Since(buildStarted))
 		return edges, false, nil
 	}
 	buildStarted := time.Now()
@@ -1199,12 +1199,12 @@ func (s *Service) buildCallEdgesFromStoredRefs(ctx context.Context, item callEdg
 	edges = append(edges, s.buildIntelImportEdges(ctx, item.lang, intelPath, summary, anchors)...)
 	edges = append(edges, s.buildIntelTypeRefEdges(ctx, item.lang, intelPath, summary, anchors)...)
 	edges = append(edges, s.buildIntelMemberRefEdges(ctx, item.lang, intelPath, summary, anchors)...)
-	indexingperf.ObserveLatency(ctx, "calledge.edge_build", time.Since(buildStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CalledgeEdgeBuild, time.Since(buildStarted))
 	return edges, false, nil
 }
 
 func (s *Service) buildCallEdgesFromSourceFallback(ctx context.Context, item callEdgeRebuildItem, sources callEdgeRebuildSources) ([]IntelEdge, bool, error) {
-	indexingperf.AddCount(ctx, "calledge.source_fallback.count", 1)
+	indexingperf.AddCount(ctx, indexingperf.CalledgeSourceFallbackCount, 1)
 	idx := s.indexers[item.lang]
 	if idx == nil || sources.anchorLookup == nil {
 		return nil, false, nil
@@ -1246,7 +1246,7 @@ func (s *Service) buildCallEdgesFromSourceFallback(ctx context.Context, item cal
 	edges = append(edges, s.buildIntelImportEdges(ctx, item.lang, intelPath, summary, anchors)...)
 	edges = append(edges, s.buildIntelTypeRefEdges(ctx, item.lang, intelPath, summary, anchors)...)
 	edges = append(edges, s.buildIntelMemberRefEdges(ctx, item.lang, intelPath, summary, anchors)...)
-	indexingperf.ObserveLatency(ctx, "calledge.edge_build", time.Since(buildStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CalledgeEdgeBuild, time.Since(buildStarted))
 	return edges, false, nil
 }
 

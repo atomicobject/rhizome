@@ -6,9 +6,10 @@ package codeanchor
 
 import (
 	"fmt"
-	"path/filepath"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"gopkg.in/yaml.v3"
 )
 
@@ -87,7 +88,7 @@ func ParseNote(path, content string) (Note, error) {
 	if fm == nil {
 		return Note{
 			Path:  path,
-			Title: titleFromPath(path),
+			Title: paths.NoteTitle(path),
 		}, nil
 	}
 
@@ -105,7 +106,7 @@ func ParseNote(path, content string) (Note, error) {
 
 	title := fm.Title
 	if title == "" {
-		title = titleFromPath(path)
+		title = paths.NoteTitle(path)
 	}
 
 	return Note{
@@ -116,15 +117,10 @@ func ParseNote(path, content string) (Note, error) {
 }
 
 func extractFrontmatter(content string) *Frontmatter {
-	trimmed := strings.TrimSpace(content)
-	if !strings.HasPrefix(trimmed, "---") {
+	raw, _, ok := markdownsyntax.Frontmatter(content)
+	if !ok {
 		return nil
 	}
-	parts := strings.SplitN(trimmed, "---", 3)
-	if len(parts) < 3 {
-		return nil
-	}
-	raw := strings.TrimSpace(parts[1])
 	var fm Frontmatter
 	if err := yaml.Unmarshal([]byte(raw), &fm); err != nil {
 		// Gracefully degrade: treat invalid YAML as "no frontmatter" rather than failing.
@@ -132,13 +128,6 @@ func extractFrontmatter(content string) *Frontmatter {
 		return nil
 	}
 	return &fm
-}
-
-func titleFromPath(path string) string {
-	// Handle both POSIX and Windows separators for portable titles.
-	path = strings.ReplaceAll(path, "\\", "/")
-	base := filepath.Base(path)
-	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
 func buildAnchors(defs []AnchorDefinition) ([]Anchor, error) {

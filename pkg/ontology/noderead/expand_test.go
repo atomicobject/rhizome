@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -43,10 +45,10 @@ func TestScopeExpandPreservesCatalogRequestedSources(t *testing.T) {
 			writeFixtureNote(t, vault.Path, "people/alice.md", "# Alice\n")
 			writeFixtureNote(t, vault.Path, "destinations/one.md", "# One\n")
 			writeFixtureNote(t, vault.Path, "destinations/two.md", "# Two\n")
-			runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vault, &obsidian.Note{}, store)
+			runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vault, &obsidian.Note{}, store)
 			require.NoError(t, err)
 			service := NewService(vault, &obsidian.Note{}, store, runtime.Schema)
-			listed, err := service.NewScope(ctx, ScopeOptions{}).TypeInstances(ctx, TypeInstancesRequest{TypeName: "TaskItem"})
+			listed, err := service.NewScope(ScopeOptions{}).TypeInstances(ctx, TypeInstancesRequest{TypeName: "TaskItem"})
 			require.NoError(t, err)
 			require.Len(t, listed.Items, 2)
 			var full, partial []ontology.NodeRef
@@ -69,7 +71,7 @@ func TestScopeExpandPreservesCatalogRequestedSources(t *testing.T) {
 				{"empty steps", partial, nil, false},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
-					scope := service.NewScope(ctx, ScopeOptions{})
+					scope := service.NewScope(ScopeOptions{})
 					plan := ExpansionPlan{Sources: tc.sources, Hydrate: HydrateOptions{Profile: HydrateSummary}, Limits: TraverseLimits{MaxDepth: 1}}
 					if tc.withSteps {
 						plan.Steps = []ExpansionStep{{Direction: TraversalDirectionOutbound, RelationNames: []string{"target"}, IncludeStructural: true}}
@@ -111,7 +113,7 @@ func TestScopeExpandPreservesCatalogRequestedSources(t *testing.T) {
 					}
 				})
 			}
-			walk, err := service.NewScope(ctx, ScopeOptions{}).Walk(ctx, &obsidian.Note{}, vault, "people/alice.md", ontology.WalkOptions{MaxDepth: 2})
+			walk, err := service.NewScope(ScopeOptions{}).Walk(ctx, "people/alice.md", WalkOptions{MaxDepth: 2})
 			require.NoError(t, err)
 			var paths []string
 			for _, node := range walk.Nodes {
@@ -122,7 +124,7 @@ func TestScopeExpandPreservesCatalogRequestedSources(t *testing.T) {
 			require.Len(t, walk.Edges, 4)
 			canceled, cancel := context.WithCancel(ctx)
 			cancel()
-			_, err = service.NewScope(ctx, ScopeOptions{}).Expand(canceled, ExpansionPlan{Sources: partial})
+			_, err = service.NewScope(ScopeOptions{}).Expand(canceled, ExpansionPlan{Sources: partial})
 			require.ErrorIs(t, err, context.Canceled)
 		})
 	}
@@ -135,7 +137,7 @@ func TestScopeExpandBoundsEachSharedFrontierEmission(t *testing.T) {
 	writeFixtureNote(t, vault.Path, "notes/b.md", "---\nnext: '[[notes/shared]]'\n---\n")
 	writeFixtureNote(t, vault.Path, "notes/shared.md", "---\nnext: '[[notes/end]]'\n---\n")
 	writeFixtureNote(t, vault.Path, "notes/end.md", "# End\n")
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vault, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vault, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	service := NewService(vault, &obsidian.Note{}, store, runtime.Schema)
 	for _, tc := range []struct {
@@ -151,7 +153,7 @@ func TestScopeExpandBoundsEachSharedFrontierEmission(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.limits.MaxDepth = 2
-			scope := service.NewScope(ctx, ScopeOptions{})
+			scope := service.NewScope(ScopeOptions{})
 			result, err := scope.Expand(ctx, ExpansionPlan{
 				Sources: []ontology.NodeRef{{NotePath: "notes/a.md", Kind: ontology.NodeKindNote}, {NotePath: "notes/b.md", Kind: ontology.NodeKindNote}},
 				Steps:   []ExpansionStep{{Direction: TraversalDirectionOutbound, RelationNames: []string{"next"}, IncludeStructural: true}},
@@ -175,9 +177,9 @@ func TestScopeExpandBoundsEachSharedFrontierEmission(t *testing.T) {
 		})
 	}
 	writeFixtureNote(t, vault.Path, "notes/end.md", "---\nnext: '[[notes/shared]]'\n---\n")
-	_, err = ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vault, &obsidian.Note{}, store)
+	_, err = ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vault, &obsidian.Note{}, store)
 	require.NoError(t, err)
-	cycle, err := service.NewScope(ctx, ScopeOptions{}).Expand(ctx, ExpansionPlan{
+	cycle, err := service.NewScope(ScopeOptions{}).Expand(ctx, ExpansionPlan{
 		Sources: []ontology.NodeRef{{NotePath: "notes/a.md", Kind: ontology.NodeKindNote}, {NotePath: "notes/b.md", Kind: ontology.NodeKindNote}},
 		Steps:   []ExpansionStep{{Direction: TraversalDirectionOutbound, RelationNames: []string{"next"}, IncludeStructural: true}},
 		Limits:  TraverseLimits{MaxDepth: 5},

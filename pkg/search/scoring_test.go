@@ -27,17 +27,6 @@ func TestNormalizeEvidence_MapsRationaleFTSAsLexical(t *testing.T) {
 	require.InDelta(t, 0.7, ev.Score, 0.001)
 }
 
-func TestNormalizeEvidence_MapsRetrieverRankAsNonCompetingMetadata(t *testing.T) {
-	ev, err := NormalizeEvidence(Evidence{Type: "retriever_rank:vector", Score: 1})
-	require.NoError(t, err)
-	require.Equal(t, EvidenceChannelNone, ev.Channel)
-	require.Equal(t, 0.0, ev.Score)
-	require.Equal(t, 0.0, EvidenceScore(ev))
-
-	scores := AggregateEvidenceScoresForRanking([]Evidence{ev})
-	require.Empty(t, scores)
-}
-
 func TestNormalizeEvidence_FailsUnknownTypes(t *testing.T) {
 	_, err := NormalizeEvidence(Evidence{Type: "totally_unknown_signal", RawScore: 0.5})
 	require.Error(t, err)
@@ -65,11 +54,4 @@ func TestNormalizeEvidence_MapsInjectedGraphSignals(t *testing.T) {
 		require.NoError(t, err, typ)
 		require.Equal(t, EvidenceChannelGraph, ev.Channel, typ)
 	}
-}
-
-func TestApproxChannelWeightsForIntent_DiffersByIntent(t *testing.T) {
-	goToDef := ApproxChannelWeightsForIntent(IntentGoToDef)
-	overview := ApproxChannelWeightsForIntent(IntentOverview)
-	require.Greater(t, goToDef[EvidenceChannelRefs], overview[EvidenceChannelRefs])
-	require.Greater(t, overview[EvidenceChannelSemantic], goToDef[EvidenceChannelSemantic])
 }

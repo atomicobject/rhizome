@@ -9,9 +9,8 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/codeintel"
-	"github.com/atomicobject/rhizome/pkg/vault/ignore"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
 )
@@ -22,6 +21,11 @@ func TestPythonExternalBuiltinsPersistThroughProductionBatch(t *testing.T) {
 	ctx := context.Background()
 	ws := fixture.NewWorkspace(t)
 	root := ws.CodePath("python-external")
+	lease, acquired, err := indexlock.TryAcquireLease(ws.CodeRoot, indexlock.AcquireOptions{})
+	require.NoError(t, err)
+	require.True(t, acquired)
+	t.Cleanup(func() { require.NoError(t, lease.Release()) })
+
 	store, err := codeanchorsqlite.Open(filepath.Join(ws.CodeRoot, ".rhizome", "python-external.sqlite"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
@@ -33,8 +37,7 @@ func TestPythonExternalBuiltinsPersistThroughProductionBatch(t *testing.T) {
 		codeanchor.WithWriteAccess(),
 		codeanchor.WithoutWarmCache(),
 	)
-	result, err := codeintel.IndexRoot(ctx, svc, ws.CodeRoot, root, ignore.NewMatcher(nil), nil)
-	require.NoError(t, err)
+	result := fixture.IndexCodeRoot(t, ctx, lease, svc, ws.CodeRoot, root)
 	require.Equal(t, 1, result.Indexed)
 
 	path := "python-external/builtins.py"

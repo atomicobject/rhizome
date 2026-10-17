@@ -11,13 +11,15 @@ import (
 	"unicode/utf8"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/indexgeneration"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	protocol "github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
 )
 
 func semanticPublicationFixture(t *testing.T) (Config, string) {
@@ -25,7 +27,9 @@ func semanticPublicationFixture(t *testing.T) (Config, string) {
 	root := t.TempDir()
 	provider := embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Dimensions: 8})
 	store := newIntelStore(t)
-	cfg := Config{VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}, IntelStore: store, SessionStore: store, EmbeddingsOn: true, EmbedProvider: provider, CodeEmbeddingsOn: true, CodeEmbedProvider: provider}
+	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+		VaultPath:    root, VaultDef: obsidian.VaultDefinition{Path: root}, IntelStore: store, SessionStore: store, EmbeddingsOn: true, EmbedProvider: provider, CodeEmbeddingsOn: true, CodeEmbedProvider: provider}
 	body := "package pkg\n\nfunc Run() {\n" + strings.Repeat("    println(\"source evidence for the selected function\")\n", 90) + "    println(\"UNIQUE_FINAL_EVIDENCE\")\n}\n"
 	addSemanticPublicationSource(t, cfg, "pkg/service.go", "run", "pkg.Service.Run", body)
 	return cfg, strings.TrimSpace(body)
@@ -36,11 +40,12 @@ func addSemanticPublicationSource(t *testing.T, cfg Config, path, id, fqn, body 
 	require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(cfg.VaultPath, path)), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(cfg.VaultPath, path), []byte(body), 0o600))
 	anchor, chunk := "anchor-"+id, "chunk-"+id
+	require.NoError(t, cfg.IntelStore.UpsertFileMeta(context.Background(), codeanchor.FileMeta{Path: path, Lang: codeanchor.LangGo, Hash: "published-" + id}))
 	addAnchor(t, cfg.IntelStore, cfg.CodeEmbedProvider, path, "Run", fqn, anchor, chunk)
 	require.NoError(t, cfg.IntelStore.ReplaceIntelCodeFile(context.Background(), path, []codeanchor.IntelAnchor{{AnchorID: anchor, Lang: codeanchor.LangGo, Kind: "function", Path: path, Symbol: "Run", FQN: fqn, Signature: "func Run()", StartLine: 3, EndLine: int64(strings.Count(body, "\n")), Fingerprint: "fp-" + id}}, nil, nil))
 	require.NoError(t, cfg.IntelStore.ReplaceIntelChunks(context.Background(), []string{anchor}, []codeanchor.IntelChunk{{ChunkID: chunk, OwnerID: anchor, OwnerType: "anchor", Ord: 0, Granularity: "symbol", ContentHash: "content-" + id}}))
 	require.NoError(t, cfg.IntelStore.UpsertEmbeddings(context.Background(), map[string]embeddings.Embedding{chunk: embedSingle(t, cfg.CodeEmbedProvider, "Run")}))
-	generation, err := indexgeneration.Current(context.Background(), cfg.IntelStore, nil, nil)
+	generation, err := unifiedsearch.IndexGeneration(context.Background(), cfg.IntelStore, nil, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, generation)
 }
@@ -74,6 +79,27 @@ func decodeSemanticPublication(t *testing.T, data []byte, err error) semanticQue
 	return out
 }
 
+func publicationSourcePair(t *testing.T, out semanticQueryResponse, path, anchorID, fqn string) (anchor, file SemanticMatchPayload) {
+	t.Helper()
+	var ids []string
+	for _, match := range out.Matches {
+		if match.Path != path {
+			continue
+		}
+		require.Equal(t, "code", match.Type)
+		ids = append(ids, match.AnchorID)
+		if match.AnchorID == "" {
+			file = match
+			require.Empty(t, file.FQN)
+		} else if match.AnchorID == anchorID {
+			anchor = match
+			require.Equal(t, fqn, anchor.FQN)
+		}
+	}
+	require.ElementsMatch(t, []string{"", anchorID}, ids)
+	return anchor, file
+}
+
 func TestDetailedSemanticSessionPublishesOnlyDeliveredBodies(t *testing.T) {
 	for _, budgets := range [][2]int{{8000, 30000}, {2500, 6000}, {12000, 30000}} {
 		t.Run(fmt.Sprint(budgets[0]), func(t *testing.T) {
@@ -82,16 +108,18 @@ func TestDetailedSemanticSessionPublishesOnlyDeliveredBodies(t *testing.T) {
 			data, err := semanticPublicationCall(context.Background(), cfg, "delivery")
 			first := decodeSemanticPublication(t, data, err)
 			require.LessOrEqual(t, len(data), budgets[0])
-			require.Len(t, first.Matches, 1)
+			require.Len(t, first.Matches, 2)
+			firstAnchor, firstFile := publicationSourcePair(t, first, "pkg/service.go", "anchor-run", "pkg.Service.Run")
+			require.Nil(t, compactSourceBody(firstFile), "bounded file preview does not publish a source body")
 			fp, seen, err := cfg.IntelStore.SessionItemFingerprint(context.Background(), "delivery", "code:pkg/service.go")
 			require.NoError(t, err)
 			if budgets[0] == 12000 {
-				require.Equal(t, full, first.Matches[0].FullFileContent)
+				require.Equal(t, full, firstAnchor.FullFileContent)
 				require.True(t, seen)
 				require.Equal(t, fingerprintText(full), fp)
 			} else {
-				require.Empty(t, first.Matches[0].FullFileContent)
-				require.Empty(t, first.Matches[0].ExcerptContent)
+				require.Empty(t, firstAnchor.FullFileContent)
+				require.Empty(t, firstAnchor.ExcerptContent)
 				require.False(t, seen, "considered bodies and serialized skeletons cannot publish delivery")
 			}
 			cfg.BudgetCharsOverride = budgets[1]
@@ -99,22 +127,25 @@ func TestDetailedSemanticSessionPublishesOnlyDeliveredBodies(t *testing.T) {
 			larger := decodeSemanticPublication(t, data, err)
 			freshData, err := semanticPublicationCall(context.Background(), cfg, "fresh")
 			fresh := decodeSemanticPublication(t, freshData, err)
-			require.Len(t, larger.Matches, 1)
+			require.Len(t, larger.Matches, 2)
+			largerAnchor, _ := publicationSourcePair(t, larger, "pkg/service.go", "anchor-run", "pkg.Service.Run")
+			freshAnchor, _ := publicationSourcePair(t, fresh, "pkg/service.go", "anchor-run", "pkg.Service.Run")
 			if budgets[0] == 12000 {
-				require.True(t, larger.Matches[0].ContentDeduped)
-				require.Empty(t, larger.Matches[0].FullFileContent)
+				require.True(t, largerAnchor.ContentDeduped)
+				require.Empty(t, largerAnchor.FullFileContent)
 				require.NotContains(t, larger.Text, "source evidence for the selected function")
 			} else {
-				require.Equal(t, compactSourceBody(fresh.Matches[0]), compactSourceBody(larger.Matches[0]))
-				body := compactSourceBody(larger.Matches[0])
+				require.Equal(t, compactSourceBody(freshAnchor), compactSourceBody(largerAnchor))
+				body := compactSourceBody(largerAnchor)
+				require.NotNil(t, body)
 				require.NotEmpty(t, body.Content)
 				fp, seen, err = cfg.IntelStore.SessionItemFingerprint(context.Background(), "delivery", "code:pkg/service.go")
 				require.NoError(t, err)
 				require.True(t, seen)
 				require.Equal(t, fingerprintText(body.Content), fp)
 			}
-			require.Equal(t, first.Matches[0].Path, larger.Matches[0].Path)
-			require.Equal(t, first.Matches[0].Score, larger.Matches[0].Score)
+			require.Equal(t, firstAnchor.Path, largerAnchor.Path)
+			require.Equal(t, firstAnchor.Score, largerAnchor.Score)
 		})
 	}
 }
@@ -186,8 +217,9 @@ func TestConcurrentDetailedSemanticHandlerPublishesEachBodyOnce(t *testing.T) {
 	for range count {
 		result := <-results
 		out := decodeSemanticPublication(t, result.data, result.err)
-		require.Len(t, out.Matches, 1)
-		match := out.Matches[0]
+		require.Len(t, out.Matches, 2)
+		match, file := publicationSourcePair(t, out, "pkg/service.go", "anchor-run", "pkg.Service.Run")
+		require.Nil(t, compactSourceBody(file), "the file preview is independent of function-body reservation")
 		if match.FullFileContent != "" {
 			winners++
 			require.Equal(t, full, match.FullFileContent)
@@ -294,16 +326,20 @@ func TestDetailedSemanticGroupedTextSuppressesOnlyTheCompetingSource(t *testing.
 	cfg.BudgetCharsOverride = 60000
 	data, err := semanticPublicationCall(context.Background(), cfg, "", "pkg.Service.Run", "pkg.Other.Run")
 	control := decodeSemanticPublication(t, data, err)
-	require.Len(t, control.Matches, 2)
+	require.ElementsMatch(t, []string{"pkg/service.go", "pkg/service.go", "other/service.go", "other/service.go"}, semanticMatchPaths(control.Matches))
+	publicationSourcePair(t, control, "pkg/service.go", "anchor-run", "pkg.Service.Run")
+	blocked, _ := publicationSourcePair(t, control, "other/service.go", "anchor-other", "pkg.Other.Run")
 	require.Contains(t, control.Text, "UNIQUE_FINAL_EVIDENCE")
 	require.Contains(t, control.Text, "SECOND_UNIQUE_Δ界")
-	// Deny the second ranked source so suppression must retain the preceding
+	// Deny the other source so suppression must retain the preceding
 	// answer text, group header, and complete source without shifting its bytes.
-	blocked := control.Matches[1]
+	require.NotNil(t, compactSourceBody(blocked))
 	cfg.SessionStore = &competingSemanticReservationStore{SessionDedupeStore: cfg.IntelStore, blocked: semdb.SessionItem{Key: semanticMatchKey(blocked), Fingerprint: fingerprintText(compactSourceBody(blocked).Content)}}
 	data, err = semanticPublicationCall(context.Background(), cfg, "grouped", "pkg.Service.Run", "pkg.Other.Run")
 	out := decodeSemanticPublication(t, data, err)
 	require.Equal(t, semanticMatchPaths(control.Matches), semanticMatchPaths(out.Matches))
+	publicationSourcePair(t, out, "pkg/service.go", "anchor-run", "pkg.Service.Run")
+	publicationSourcePair(t, out, "other/service.go", "anchor-other", "pkg.Other.Run")
 	require.True(t, utf8.ValidString(out.Text))
 	for i, match := range out.Matches {
 		require.Equal(t, control.Matches[i].Score, match.Score)
@@ -311,7 +347,7 @@ func TestDetailedSemanticGroupedTextSuppressesOnlyTheCompetingSource(t *testing.
 		if match.Path == "other/service.go" {
 			marker = "SECOND_UNIQUE_Δ界"
 		}
-		if i == 1 {
+		if match.Path == "other/service.go" {
 			require.True(t, match.ContentDeduped)
 			require.Empty(t, compactSourceBody(match).Content)
 			require.NotContains(t, out.Text, marker)

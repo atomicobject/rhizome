@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -122,7 +123,7 @@ func (s *Service) Close() error {
 }
 
 func (s *Service) Settings(ctx context.Context) (SettingsResponse, error) {
-	settings, err := LoadSettings()
+	settings, err := LoadSettings(vaultconfig.FromContext(s.ctx))
 	if err != nil {
 		return SettingsResponse{}, err
 	}
@@ -131,7 +132,7 @@ func (s *Service) Settings(ctx context.Context) (SettingsResponse, error) {
 }
 
 func (s *Service) SaveSettings(ctx context.Context, settings Settings) (SettingsResponse, error) {
-	saved, err := SaveSettings(settings)
+	saved, err := SaveSettings(vaultconfig.FromContext(s.ctx), settings)
 	if err != nil {
 		return SettingsResponse{}, err
 	}
@@ -231,7 +232,7 @@ func (s *Service) SendMessage(ctx context.Context, sessionID, content string) (S
 	if session.ReadOnly {
 		return SendMessageResponse{}, fmt.Errorf("%w: pre-harness sessions are read-only", ErrConflict)
 	}
-	settings, err := LoadSettings()
+	settings, err := LoadSettings(vaultconfig.FromContext(s.ctx))
 	if err != nil {
 		return SendMessageResponse{}, err
 	}

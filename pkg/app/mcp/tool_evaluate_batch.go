@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/typesafe"
@@ -11,11 +12,17 @@ import (
 )
 
 // EvaluateBatchTool schedules independent Jev states without initializing a vault runtime.
-func EvaluateBatchTool(_ Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return evaluateBatchTool(newEvaluationClient)
+func EvaluateBatchTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	handler := evaluateBatchTool(newEvaluationClient)
+	return func(ctx context.Context, call mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		if config.Vault != nil {
+			ctx = vaultconfig.WithEnv(ctx, config.Vault.Env)
+		}
+		return handler(ctx, call)
+	}
 }
 
-func evaluateBatchTool(newClient func() (*typesafe.Client, error)) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func evaluateBatchTool(newClient func(context.Context) (*typesafe.Client, error)) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, call mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var input struct {
 			Items []struct {
@@ -49,7 +56,7 @@ func evaluateBatchTool(newClient func() (*typesafe.Client, error)) func(context.
 			}
 			items[i] = typesafe.BatchItem{ID: item.ID, Request: request}
 		}
-		client, err := newClient()
+		client, err := newClient(ctx)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}

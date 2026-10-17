@@ -16,8 +16,8 @@ func (s *Scope) RelationCounts(ctx context.Context, req RelationCountsRequest) (
 	if s == nil || s.service == nil || s.service.Store == nil {
 		return emptyRelationCounts(req.Sources), nil
 	}
-	if len(req.Selections) == 0 && len(req.TargetTypes) == 0 && len(req.TargetInterfaces) == 0 && len(req.TargetKinds) == 0 && len(req.Provenance) == 0 {
-		return s.legacyRelationCounts(ctx, req)
+	if req.Direction == "" {
+		req.Direction = TraversalDirectionBoth
 	}
 	selections := append([]RelationSelection(nil), req.Selections...)
 	if len(selections) == 0 {
@@ -32,12 +32,31 @@ func (s *Scope) RelationCounts(ctx context.Context, req RelationCountsRequest) (
 			TargetInterfaces:  req.TargetInterfaces,
 		}}
 	}
-	sources := normalizeNeighborhoodSources(req.Sources, req.SourceKinds)
-	if len(sources) == 0 {
+	sources := normalizeNeighborhoodSources(req.Sources, nil)
+	if len(req.Sources) == 0 {
 		for _, selection := range selections {
 			sources = mergeNodeRefs(sources, selection.Sources)
 		}
 	}
+	sources = normalizeNeighborhoodSources(sources, nil)
+	if len(sources) == 0 {
+		return emptyRelationCounts(nil), nil
+	}
+	s.mu.Lock()
+	canonicalSources, err := s.canonicalizeNodeRefsLocked(ctx, sources)
+	s.mu.Unlock()
+	if err != nil {
+		return RelationCountsResult{}, err
+	}
+	filteredSources := make([]ontology.NodeRef, 0, len(sources))
+	filteredCanonical := make([]ontology.NodeRef, 0, len(sources))
+	for i, source := range sources {
+		if relationCountTargetKindAllowed(req.SourceKinds, canonicalSources[i].Kind) {
+			filteredSources = append(filteredSources, source)
+			filteredCanonical = append(filteredCanonical, canonicalSources[i])
+		}
+	}
+	sources, canonicalSources = filteredSources, filteredCanonical
 	if len(sources) == 0 {
 		return emptyRelationCounts(nil), nil
 	}
@@ -46,7 +65,13 @@ func (s *Scope) RelationCounts(ctx context.Context, req RelationCountsRequest) (
 		if len(selection.Sources) == 0 {
 			selection.Sources = sources
 		}
-		selection.Sources = normalizeNeighborhoodSources(selection.Sources, req.SourceKinds)
+		s.mu.Lock()
+		canonical, err := s.canonicalizeNodeRefsLocked(ctx, selection.Sources)
+		s.mu.Unlock()
+		if err != nil {
+			return RelationCountsResult{}, err
+		}
+		selection.Sources = normalizeNeighborhoodSources(canonical, req.SourceKinds)
 		if len(selection.Sources) == 0 {
 			continue
 		}
@@ -58,7 +83,7 @@ func (s *Scope) RelationCounts(ctx context.Context, req RelationCountsRequest) (
 			if !relationCountTargetKindAllowed(req.TargetKinds, edge.Target.Kind) {
 				continue
 			}
-			sourceKey := nodeEndpointKey(edge.Source.NotePath, edge.Source.NodeID)
+			sourceKey := RefIdentityKey(edge.Source)
 			if targetsBySource[sourceKey] == nil {
 				targetsBySource[sourceKey] = map[string]struct{}{}
 			}
@@ -69,71 +94,12 @@ func (s *Scope) RelationCounts(ctx context.Context, req RelationCountsRequest) (
 	for key, targets := range targetsBySource {
 		counts[key] = len(targets)
 	}
-	for _, source := range sources {
-		counts[nodeRefResultKey(source)] = counts[nodeEndpointKey(source.NotePath, source.NodeID)]
+	for i, source := range sources {
+		count := counts[RefIdentityKey(canonicalSources[i])]
+		counts[nodeRefResultKey(source)] = count
+		counts[RefIdentityKey(source)] = count
 	}
 	return relationCountsResult(sources, counts), nil
-}
-
-func (s *Scope) legacyRelationCounts(ctx context.Context, req RelationCountsRequest) (RelationCountsResult, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	direction := req.Direction
-	if direction == "" || (direction != TraversalDirectionInbound && direction != TraversalDirectionOutbound && direction != TraversalDirectionBoth) {
-		direction = TraversalDirectionBoth
-	}
-	if !req.IncludeStructural && !req.IncludeAmbient {
-		req.IncludeStructural = true
-		req.IncludeAmbient = true
-	}
-	sources := normalizeNeighborhoodSources(req.Sources, req.SourceKinds)
-	sourcePaths := make([]string, 0, len(sources))
-	byPath := make(map[string][]ontology.NodeRef, len(sources))
-	byEndpoint := make(map[string][]ontology.NodeRef, len(sources))
-	for _, source := range sources {
-		sourcePaths = append(sourcePaths, source.NotePath)
-		byPath[source.NotePath] = append(byPath[source.NotePath], source)
-		byEndpoint[nodeEndpointKey(source.NotePath, source.NodeID)] = append(byEndpoint[nodeEndpointKey(source.NotePath, source.NodeID)], source)
-	}
-	counts := make(map[string]int, len(sources))
-	for _, relation := range relationNamesForQuery(req.RelationNames) {
-		rows, err := s.service.Store.OntologyEdgesForPaths(ctx, normalizeStrings(sourcePaths), true, relation, 0)
-		if err != nil {
-			return RelationCountsResult{}, err
-		}
-		s.diagnostics.EdgeLoads++
-		for _, row := range rows {
-			if (row.Structural && !req.IncludeStructural) || (!row.Structural && !req.IncludeAmbient) {
-				continue
-			}
-			if direction == TraversalDirectionOutbound || direction == TraversalDirectionBoth {
-				for _, source := range relationCountSourcesForEndpoint(byPath, byEndpoint, row.SrcPath, row.SrcNodeID) {
-					counts[nodeRefResultKey(source)]++
-				}
-			}
-			if row.DstPath != row.SrcPath || strings.TrimSpace(row.DstNodeID) != strings.TrimSpace(row.SrcNodeID) {
-				if direction == TraversalDirectionInbound || direction == TraversalDirectionBoth {
-					for _, source := range relationCountSourcesForEndpoint(byPath, byEndpoint, row.DstPath, row.DstNodeID) {
-						counts[nodeRefResultKey(source)]++
-					}
-				}
-			}
-		}
-	}
-	return relationCountsResult(sources, counts), nil
-}
-
-func relationCountSourcesForEndpoint(byPath map[string][]ontology.NodeRef, byEndpoint map[string][]ontology.NodeRef, path string, nodeID string) []ontology.NodeRef {
-	out := make([]ontology.NodeRef, 0)
-	for _, source := range byPath[path] {
-		if strings.TrimSpace(source.NodeID) == "" && (source.Kind == "" || source.Kind == ontology.NodeKindNote) {
-			out = append(out, source)
-		}
-	}
-	if strings.TrimSpace(nodeID) != "" {
-		out = append(out, byEndpoint[nodeEndpointKey(path, nodeID)]...)
-	}
-	return out
 }
 
 func relationCountTargetKindAllowed(kinds []ontology.NodeKind, kind ontology.NodeKind) bool {

@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,7 +31,7 @@ type Spec @node(paths: ["notes/*.md"]) {
 `)
 			content := "---\ntype: Spec\n" + tt.list + "\n---\n# One\n"
 			writeOntologyNote(t, root, "notes/one.md", content)
-			schema, err := LoadSchema(root)
+			schema, err := ontoschema.LoadSchema(root)
 			require.NoError(t, err)
 			session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 			require.NoError(t, session.SetScalarListField(
@@ -51,7 +52,7 @@ type Spec @node(paths: ["notes/*.md"]) {
 	}
 }
 
-func TestEditSessionSetRawFrontmatterListAllowsUndeclaredNoteRootField(t *testing.T) {
+func TestEditSessionSetRootMetadataListAllowsUndeclaredNoteRootField(t *testing.T) {
 	root := t.TempDir()
 	writeOntologyTestConfig(t, root)
 	writeOntologySchema(t, root, `
@@ -61,10 +62,10 @@ type Spec @node(paths: ["notes/*.md"]) {
 `)
 	content := "---\ntype: Spec\nid: SPEC-0001\nlegacy_ids: [OLD, KEEP]\n---\n# One\n"
 	writeOntologyNote(t, root, "notes/one.md", content)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
-	require.NoError(t, session.SetRawFrontmatterList(
+	require.NoError(t, session.SetRootMetadataList(
 		NodeRef{NotePath: "notes/one.md", Kind: NodeKindNote},
 		"legacy_ids",
 		[]string{"KEEP", "NEW"},
@@ -90,7 +91,7 @@ type Spec @node(paths: ["notes/*.md"]) {
 }
 `)
 	writeOntologyNote(t, root, "notes/one.md", "---\ntype: Spec\nlabels: [alpha]\n---\n# One\n")
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetScalarListField(

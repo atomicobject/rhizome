@@ -1,6 +1,7 @@
 package search
 
 import (
+	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -104,4 +105,13 @@ func TestRepairQuerySpec_DoesNotInferUnownedCodePath(t *testing.T) {
 	require.Empty(t, spec.Seeds)
 	require.Empty(t, spec.ExplicitSeedPaths)
 	require.Empty(t, warnings)
+}
+
+func TestRepairQuerySpecSeedOwnershipDoesNotMutateSharedCorpus(t *testing.T) {
+	shared := map[string]PathKind{"docs/reference.html": PathKindNote}
+	first, _ := RepairQuerySpec("", QuerySpec{Text: "source", Intent: IntentSearch, PathKinds: shared, Seeds: []knowledge.Handle{knowledge.FileHandle("pkg/new.go")}})
+	second, _ := RepairQuerySpec("", QuerySpec{Text: "other facet", Intent: IntentSearch, PathKinds: shared})
+	require.Equal(t, PathKindCode, first.PathKinds["pkg/new.go"])
+	require.Equal(t, map[string]PathKind{"docs/reference.html": PathKindNote}, shared)
+	require.Equal(t, map[string]PathKind{"docs/reference.html": PathKindNote}, second.PathKinds)
 }

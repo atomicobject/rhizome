@@ -5,7 +5,6 @@ package relevance
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"strings"
 
@@ -21,22 +20,18 @@ const (
 	rerankDocumentLimit = 1200
 )
 
-// RerankingRanker blends cross-encoder scores into the top of the base ranking.
-type RerankingRanker struct {
-	Base     search.Ranker
+// RerankAdjuster blends cross-encoder scores into the top of the base ranking.
+type RerankAdjuster struct {
 	Reranker rerank.Reranker
 	Model    string  // recorded on rerank evidence
 	TopN     int     // results reranked, default 30
-	Weight   float64 // blend weight for the rerank score, default 0.5
+	Weight   float64 // blend weight for the rerank score, default 0.3
 }
 
-func (r *RerankingRanker) Rank(ctx context.Context, spec search.QuerySpec, candidates []search.Candidate) ([]search.RankedResult, error) {
-	if r.Base == nil {
-		return nil, errors.New("missing base ranker")
-	}
-	results, err := r.Base.Rank(ctx, spec, candidates)
-	if err != nil || r.Reranker == nil || len(results) < 2 {
-		return results, err
+// Adjust reranks a finished structural ordering while retaining identity slots.
+func (r *RerankAdjuster) Adjust(ctx context.Context, spec search.QuerySpec, results []search.RankedResult) ([]search.RankedResult, error) {
+	if r.Reranker == nil || len(results) < 2 {
+		return results, nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -114,28 +109,14 @@ func hasIdentityEvidence(evidence []search.Evidence) bool {
 	return false
 }
 
-func (r *RerankingRanker) ApproxChannelWeights(spec search.QuerySpec) map[search.EvidenceChannel]float64 {
-	if provider, ok := r.Base.(search.ApproxScoreProvider); ok {
-		return provider.ApproxChannelWeights(spec)
-	}
-	return search.ApproxChannelWeightsForIntent(spec.Intent)
-}
-
-func (r *RerankingRanker) ApproxMaxPerOwner(spec search.QuerySpec) int {
-	if provider, ok := r.Base.(search.ApproxScoreProvider); ok {
-		return provider.ApproxMaxPerOwner(spec)
-	}
-	return 1
-}
-
-func (r *RerankingRanker) topN() int {
+func (r *RerankAdjuster) topN() int {
 	if r.TopN > 0 {
 		return r.TopN
 	}
 	return defaultRerankTopN
 }
 
-func (r *RerankingRanker) weight() float64 {
+func (r *RerankAdjuster) weight() float64 {
 	if r.Weight > 0 && r.Weight <= 1 {
 		return r.Weight
 	}

@@ -725,7 +725,7 @@ anchors:
         name: "Base"
 ---
 `
-	notePath := string(paths.NormalizeNote("notes/test.md"))
+	notePath := string(paths.EnsureNoteExtension("notes/test.md", ".md"))
 	_, err := ingestTestNoteFile(context.Background(), svc, notePath, noteContent)
 	require.NoError(t, err)
 

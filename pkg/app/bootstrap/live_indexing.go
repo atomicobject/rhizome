@@ -7,13 +7,16 @@ import (
 	"os"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 // startLeaderIndexing starts every indexing actor the vault owner runs. It
@@ -35,7 +38,7 @@ func (rt *LiveRuntime) startLeaderIndexing(
 
 	indexLane := rt.Lane()
 	if indexLane == nil {
-		indexLane = lane.New(lane.Options{LockPath: obsidian.IndexLockPath(rt.VaultPath), Debug: rt.debug})
+		indexLane = lane.New(lane.Options{LockPath: repoconfig.IndexLockPath(rt.VaultPath), Debug: rt.debug})
 		rt.SetLane(indexLane)
 		rt.addCloser(indexLane.Close)
 	}
@@ -64,9 +67,9 @@ func (rt *LiveRuntime) startLeaderIndexing(
 	}
 
 	noteSyncer := rt.noteSyncer.Load()
-	var nodeSyncer *semantic.OntologyNodeSyncer
+	var nodeSyncer *embedindex.OntologyNodeSyncer
 	if noteSyncer != nil && noteSyncer.Provider != nil {
-		nodeSyncer = &semantic.OntologyNodeSyncer{
+		nodeSyncer = &embedindex.OntologyNodeSyncer{
 			Store:         intelStore,
 			Provider:      noteSyncer.Provider,
 			ProviderInfo:  noteSyncer.ProviderInfo,
@@ -76,6 +79,7 @@ func (rt *LiveRuntime) startLeaderIndexing(
 			EmbeddingNode: noteSyncer.EmbeddingNode,
 		}
 	}
+	configuration := rt.Configuration()
 	watcher := StartUnifiedSemanticWatcher(rt.ctx, rt.VaultPath, WatcherDeps{
 		VaultDef:               vaultDef,
 		NoteRuntime:            rt.noteFormats,
@@ -93,7 +97,8 @@ func (rt *LiveRuntime) startLeaderIndexing(
 		Lane:                   indexLane,
 		Health:                 rt.liveHealth,
 		PublishEvent:           rt.PublishGlobalEvent,
-		OnNoteSelectionChanged: rt.setNoteSelectionPolicy,
+		OnConfigurationChanged: rt.publishOwnershipConfiguration,
+		Configuration:          &configuration,
 	}, rt.debug)
 	cacheService.MarkStale()
 	rt.liveWatcher.Store(watcher)

@@ -7,9 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -66,38 +64,6 @@ func TestDiscoverDirtyPathsReadsEveryNoteExactlyOnce(t *testing.T) {
 	require.Empty(t, dirty.Changed)
 	require.Empty(t, dirty.Deleted)
 	require.Equal(t, int64(noteCount), reader.reads.Load(), "content freshness still requires reading every note")
-}
-
-func TestNotesHashFromSourcesMatchesEntryDigest(t *testing.T) {
-	descriptor := noteformat.Descriptor{
-		ID:                "markdown",
-		Extensions:        []string{".md"},
-		ProviderVersion:   "provider-v1",
-		ProjectionVersion: "projection-v1",
-		OwnershipPolicy:   noteformat.OwnershipDefault,
-	}
-	fixtures := []struct {
-		path    string
-		content string
-		mtime   int64
-	}{
-		{path: "a.md", content: "# A\n", mtime: 11},
-		{path: "nested/b.md", content: "body b", mtime: 22},
-		{path: "c.md", content: "", mtime: 33},
-	}
-
-	sources := make([]noteformat.AuthoredSource, 0, len(fixtures))
-	entries := make([]noteEntry, 0, len(fixtures))
-	for _, fixture := range fixtures {
-		notePath, err := paths.CleanNotePath(fixture.path)
-		require.NoError(t, err)
-		source, err := noteformat.NewAuthoredSource(notePath, descriptor, []byte(fixture.content), fixture.mtime)
-		require.NoError(t, err)
-		sources = append(sources, source)
-		entries = append(entries, noteEntry{Path: fixture.path, Content: fixture.content, Mtime: fixture.mtime})
-	}
-
-	require.Equal(t, notesHashFromNoteEntries(entries), notesHashFromSources(sources))
 }
 
 func TestDiscoverDirtyPathsParityWithFullRebuild(t *testing.T) {

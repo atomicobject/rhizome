@@ -2,10 +2,11 @@ package unifiedsearch
 
 import (
 	"context"
-	"strings"
-
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/search"
+	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/diag"
 )
 
 // NoteSearcher adapts the shared application search to the GraphQL search root.
@@ -33,7 +34,6 @@ func (s NoteSearcher) SearchNotes(ctx context.Context, request ontologyquery.Not
 	opts.UseGraph = false
 	opts.Filters.Types = []string{"note"}
 	opts.Filters.NoteTypes = request.NoteTypes
-
 	policy, err := ResolveEffectivePolicy(ProfileInteractive, search.IntentSearch, 0, 0, 0)
 	if err != nil {
 		return ontologyquery.NoteSearchResponse{}, err
@@ -42,18 +42,10 @@ func (s NoteSearcher) SearchNotes(ctx context.Context, request ontologyquery.Not
 	if request.First > 0 {
 		visibleLimit = request.First
 	}
-
-	result, err := Execute(ctx, ApplicationOptions{
-		Runtime:         opts,
-		Profile:         ProfileInteractive,
-		VisibleLimit:    visibleLimit,
-		CandidateWindow: visibleLimit,
-		runRuntime:      s.runRuntime,
-	})
+	result, err := Execute(ctx, ApplicationOptions{Runtime: opts, Profile: ProfileInteractive, VisibleLimit: visibleLimit, CandidateWindow: visibleLimit, runRuntime: s.runRuntime})
 	if err != nil {
 		return ontologyquery.NoteSearchResponse{}, err
 	}
-
 	response := ontologyquery.NoteSearchResponse{}
 	byPath := make(map[string]int, len(result.Sources))
 	for _, source := range result.Sources {
@@ -73,7 +65,6 @@ func (s NoteSearcher) SearchNotes(ctx context.Context, request ontologyquery.Not
 		byPath[path] = len(response.Hits)
 		response.Hits = append(response.Hits, ontologyquery.NoteSearchHit{Path: path, Score: source.Result.FinalScore})
 	}
-
 	seenWarning := make(map[string]struct{}, len(result.Warnings))
 	for _, warning := range result.Warnings {
 		key := warning.Code + "\x00" + warning.Message
@@ -81,7 +72,7 @@ func (s NoteSearcher) SearchNotes(ctx context.Context, request ontologyquery.Not
 			continue
 		}
 		seenWarning[key] = struct{}{}
-		response.Warnings = append(response.Warnings, ontologyquery.RuntimeWarning{Code: warning.Code, Message: warning.Message})
+		response.Warnings = append(response.Warnings, diag.Warning{Code: warning.Code, Message: warning.Message})
 	}
 	return response, nil
 }

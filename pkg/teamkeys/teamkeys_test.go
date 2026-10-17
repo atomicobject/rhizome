@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,12 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func mockNoGlobalHome(t *testing.T) {
+func mockNoGlobalHome(t *testing.T) vaultconfig.Env {
 	t.Helper()
-	original := vaultconfig.UserHomeDirectory
-	home := t.TempDir()
-	vaultconfig.UserHomeDirectory = func() (string, error) { return home, nil }
-	t.Cleanup(func() { vaultconfig.UserHomeDirectory = original })
+	return vaultconfig.Env{HomeDir: t.TempDir(), LookupEnv: os.LookupEnv}
 }
 
 func syntheticBundle(t *testing.T) string {
@@ -38,24 +36,21 @@ func syntheticBundle(t *testing.T) string {
 	require.NoError(t, err)
 	original := encryptedKeys
 	encryptedKeys = base64.StdEncoding.EncodeToString(gcm.Seal(nonce, nonce, payload, nil))
-	ResetCache()
-	t.Cleanup(func() { encryptedKeys = original; ResetCache() })
+	t.Cleanup(func() { encryptedKeys = original })
 	return base64.StdEncoding.EncodeToString(key)
 }
 
 func TestSourceBuildHasNoCredentials(t *testing.T) {
 	require.Empty(t, encryptedKeys)
-	mockNoGlobalHome(t)
+	env := mockNoGlobalHome(t)
 	t.Setenv("ATOMIC_RHIZOME_KEY", base64.StdEncoding.EncodeToString(make([]byte, 32)))
-	ResetCache()
-	t.Cleanup(ResetCache)
-	require.False(t, Available())
+	require.False(t, Available(env))
 }
 
 func TestDecryptSyntheticBundle(t *testing.T) {
 	for _, mode := range []string{"environment", "global-config", "missing", "wrong"} {
 		t.Run(mode, func(t *testing.T) {
-			mockNoGlobalHome(t)
+			env := mockNoGlobalHome(t)
 			unlock := syntheticBundle(t)
 			t.Setenv("ATOMIC_RHIZOME_KEY", "")
 			switch mode {
@@ -64,20 +59,19 @@ func TestDecryptSyntheticBundle(t *testing.T) {
 			case "wrong":
 				t.Setenv("ATOMIC_RHIZOME_KEY", base64.StdEncoding.EncodeToString(make([]byte, 32)))
 			case "global-config":
-				home, err := vaultconfig.UserHomeDirectory()
-				require.NoError(t, err)
+				home := env.HomeDir
 				dir := filepath.Join(home, ".config", vaultconfig.RhizomeConfigDirectory)
 				require.NoError(t, os.MkdirAll(dir, 0o700))
 				require.NoError(t, os.WriteFile(filepath.Join(dir, vaultconfig.RhizomeConfigFile), []byte("env:\n  ATOMIC_RHIZOME_KEY: "+unlock+"\n"), 0o600))
 			}
 			if mode == "environment" || mode == "global-config" {
-				require.Equal(t, "synthetic-voyage", VoyageKey())
-				require.Equal(t, "synthetic-typesafe", TypeSafeKey())
-				require.True(t, Available())
+				require.Equal(t, "synthetic-voyage", VoyageKey(env))
+				require.Equal(t, "synthetic-typesafe", TypeSafeKey(env))
+				require.True(t, Available(env))
 			} else {
-				require.Empty(t, VoyageKey())
-				require.Empty(t, TypeSafeKey())
-				require.False(t, Available())
+				require.Empty(t, VoyageKey(env))
+				require.Empty(t, TypeSafeKey(env))
+				require.False(t, Available(env))
 			}
 		})
 	}

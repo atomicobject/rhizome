@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"regexp"
 	"strings"
 
@@ -31,7 +32,7 @@ type workspaceBodyBinding struct {
 	FieldName       string
 	FieldPath       string
 	FieldList       bool
-	SectionDisplay  ontology.SectionDisplay
+	SectionDisplay  ontoschema.SectionDisplay
 	Properties      map[string]string
 	IdentifierField string
 	PreviewTemplate string
@@ -199,10 +200,8 @@ func workspaceBodyIdentifierField(projection *ontology.NodeProjection) string {
 	if projection == nil || projection.Type == nil {
 		return ""
 	}
-	for _, field := range projection.Type.Fields {
-		if field != nil && field.IsPreferredIdentifier {
-			return field.Name
-		}
+	if field := projection.Type.PreferredIdentifierField(); field != nil {
+		return field.Name
 	}
 	for _, field := range projection.Type.Fields {
 		if field != nil && field.IsIdentifier {

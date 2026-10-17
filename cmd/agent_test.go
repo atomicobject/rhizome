@@ -1,11 +1,15 @@
 package cmd
 
+import "github.com/atomicobject/rhizome/pkg/paths"
+
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,19 +19,19 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/app/mcp"
 	"github.com/atomicobject/rhizome/pkg/app/oneshotruntime"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	noteembsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	noteembsqlite "github.com/atomicobject/rhizome/pkg/search/embeddings/sqlite"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,7 +39,7 @@ func TestAgentSurfaceCommandOutputsJSON(t *testing.T) {
 	vault := setupAgentTestVault(t, map[string]string{
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "surface", "--vault", vault.name, "--session-id", "test-session"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "surface", "--vault", vault.name, "--session-id", "test-session"})
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	require.Empty(t, stderr)
 
@@ -246,7 +250,7 @@ func TestAgentSurfaceCommandOutputsJSON(t *testing.T) {
 
 func TestAgentSurfaceCommandOrderAndCategoriesRemainStable(t *testing.T) {
 	vault := setupAgentTestVault(t, map[string]string{"Alpha.md": "# Alpha\n"})
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "surface", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "surface", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	var surface agentSurfaceResponse
@@ -301,7 +305,9 @@ func TestAgentSurfaceCommandOrderAndCategoriesRemainStable(t *testing.T) {
 }
 
 func TestAgentSurfaceAdvertisesEveryCatalogCLICommandExactlyOnce(t *testing.T) {
-	surface := buildAgentSurface()
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	surface := commandOptions.buildAgentSurface(vaultconfig.WithEnv(context.Background(), testkit.Env(t)))
 	descriptors := agentapi.AgentCLICommandDescriptors()
 	require.Len(t, surface.Commands, len(descriptors)+2, "catalog commands plus surface and note-move exceptions")
 
@@ -330,7 +336,7 @@ func TestAgentSurfaceAdvertisesEveryCatalogCLICommandExactlyOnce(t *testing.T) {
 
 func TestAgentCommandSilencesCobraOutput(t *testing.T) {
 	setupAgentTestVault(t, map[string]string{"Alpha.md": "# Alpha\n"})
-	stdout, stderr, err := runRootCLIWithRootSilence(t, nil, []string{"agent", "report"}, false)
+	stdout, stderr, err := runRootCLIWithRootSilence(t, vaultconfig.WithEnv(context.Background(), testkit.Env(t)), []string{"agent", "report"}, false)
 	require.Error(t, err)
 	require.Empty(t, stdout)
 	var payload map[string]string
@@ -351,10 +357,10 @@ func TestAgentFilesSkipLinkFlags(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			base := []string{"agent", "files", "--vault", vault.name, "--input", "Alpha.md", "--max-depth", "1", "--include-content", "false"}
-			plain, plainErr, err := runRootCLI(t, nil, base)
+			plain, plainErr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), base)
 			require.NoError(t, err, plainErr)
 			require.Contains(t, plain, tc.absent)
-			filtered, filteredErr, err := runRootCLI(t, nil, append(base, tc.flag))
+			filtered, filteredErr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), append(base, tc.flag))
 			require.NoError(t, err, filteredErr)
 			require.NotContains(t, filtered, tc.absent)
 			require.Contains(t, filtered, "Alpha.md")
@@ -363,9 +369,12 @@ func TestAgentFilesSkipLinkFlags(t *testing.T) {
 }
 
 func TestAgentListPropertiesValueCountsFlag(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	indexCmd, _, _ := rootCmd.Find([]string{"index"})
+
 	vault := setupAgentTestVault(t, map[string]string{"Alpha.md": "---\nstatus: active\n---\n# Alpha\n"})
 	t.Cleanup(func() { indexCmd.SetErr(nil) })
-	_, indexStderr, indexErr := runRootCLI(t, nil, []string{"index", "--vault", vault.name})
+	_, indexStderr, indexErr := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"index", "--vault", vault.name})
 	require.NoError(t, indexErr, indexStderr)
 	for _, tc := range []struct {
 		name   string
@@ -379,7 +388,7 @@ func TestAgentListPropertiesValueCountsFlag(t *testing.T) {
 			if tc.flag != "" {
 				args = append(args, tc.flag)
 			}
-			stdout, stderr, err := runRootCLI(t, nil, args)
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 			require.NoError(t, err, stderr)
 			require.Empty(t, stderr)
 			require.Contains(t, stdout, `"name":"status"`)
@@ -390,6 +399,9 @@ func TestAgentListPropertiesValueCountsFlag(t *testing.T) {
 }
 
 func TestAgentReportIncludeTestsFlag(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	indexCmd, _, _ := rootCmd.Find([]string{"index"})
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"go.mod":              "module example.com/fixture\n\ngo 1.24\n",
 		"pkg/service.go":      "package pkg\nfunc Service() {}\n",
@@ -397,7 +409,7 @@ func TestAgentReportIncludeTestsFlag(t *testing.T) {
 	})
 	require.NoError(t, os.WriteFile(filepath.Join(vault.path, ".rhizome", "config.yml"), []byte("notes: {}\ncode:\n  enabled: true\n"), 0o644))
 	t.Cleanup(func() { indexCmd.SetErr(nil) })
-	_, indexStderr, indexErr := runRootCLI(t, nil, []string{"index", "--vault", vault.name})
+	_, indexStderr, indexErr := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"index", "--vault", vault.name})
 	require.NoError(t, indexErr, indexStderr)
 	for _, tc := range []struct {
 		flag  string
@@ -407,7 +419,7 @@ func TestAgentReportIncludeTestsFlag(t *testing.T) {
 		if tc.flag != "" {
 			args = append(args, tc.flag)
 		}
-		stdout, stderr, err := runRootCLI(t, nil, args)
+		stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 		require.NoError(t, err, stderr)
 		var response struct {
 			Data struct {
@@ -423,6 +435,9 @@ func TestAgentReportIncludeTestsFlag(t *testing.T) {
 }
 
 func TestAgentGraphSummaryFlag(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	indexCmd, _, _ := rootCmd.Find([]string{"index"})
+
 	vault := setupAgentTestVault(t, map[string]string{
 		".rhizome/ontology/schema.graphql": "type Project @node(paths: [\"notes/projects/*.md\"]) {\n  name: String!\n}\n",
 		"notes/projects/A.md":              "---\ntype: Project\nname: A\n---\n[[notes/projects/B]]\n",
@@ -431,7 +446,7 @@ func TestAgentGraphSummaryFlag(t *testing.T) {
 	})
 	require.NoError(t, os.WriteFile(filepath.Join(vault.path, ".rhizome", "config.yml"), []byte("notes:\n  includes: [\"**/*.md\"]\n"), 0o644))
 	t.Cleanup(func() { indexCmd.SetErr(nil) })
-	_, indexStderr, indexErr := runRootCLI(t, nil, []string{"index", "--vault", vault.name})
+	_, indexStderr, indexErr := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"index", "--vault", vault.name})
 	require.NoError(t, indexErr, indexStderr)
 	for _, tc := range []struct {
 		name         string
@@ -442,7 +457,7 @@ func TestAgentGraphSummaryFlag(t *testing.T) {
 		{"graph requested", []string{"agent", "vault-context", "--profile", "vault", "--graph-summary", "--vault", vault.name}, "## Communities", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			stdout, stderr, err := runRootCLI(t, nil, tc.args)
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), tc.args)
 			require.NoError(t, err, stderr)
 			require.Contains(t, stdout, tc.want)
 			if tc.absent != "" {
@@ -457,7 +472,7 @@ func TestAgentStartCommandOutputsJSON(t *testing.T) {
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "start", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "start", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -500,7 +515,7 @@ func TestAgentStartCommandTimingsExposeStableDiagnostics(t *testing.T) {
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "start", "--timings", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "start", "--timings", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -539,6 +554,9 @@ func TestAgentStartCommandTimingsExposeStableDiagnostics(t *testing.T) {
 }
 
 func TestAgentStartExactRichDirectoryUsesIndexedFailSoftPathWithZeroLiveWork(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	indexCmd, _, _ := rootCmd.Find([]string{"index"})
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"docs/specs/example.md": "# Example\n",
 		"pkg/example.go":        "package example\n",
@@ -546,7 +564,7 @@ func TestAgentStartExactRichDirectoryUsesIndexedFailSoftPathWithZeroLiveWork(t *
 	t.Chdir(vault.path)
 	require.NoError(t, os.WriteFile(filepath.Join(vault.path, ".rhizome", "config.yml"), []byte("notes: {}\ncode:\n  enabled: true\n"), 0o644))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "start", "--timings", "--profile", "code", "--ontology",
 		"--file", "docs/specs", "--submodule-depth", "1",
 		"--intent", "Test out some rhizome stuff", "--vault", vault.name,
@@ -596,9 +614,9 @@ func TestAgentStartExactRichDirectoryUsesIndexedFailSoftPathWithZeroLiveWork(t *
 	require.Equal(t, int64(1), counts[indexingperf.AgentStartOpIndexedStatusMissing])
 
 	t.Cleanup(func() { indexCmd.SetErr(nil) })
-	_, indexStderr, indexErr := runRootCLI(t, nil, []string{"index", "--vault", vault.name})
+	_, indexStderr, indexErr := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"index", "--vault", vault.name})
 	require.NoError(t, indexErr, indexStderr)
-	currentStdout, currentStderr, currentErr := runRootCLI(t, nil, []string{
+	currentStdout, currentStderr, currentErr := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "start", "--timings", "--profile", "vault", "--file", "docs/specs", "--vault", vault.name,
 	})
 	require.NoError(t, currentErr)
@@ -625,7 +643,7 @@ func TestAgentStartWithoutIndexedStoreKeepsGuidanceAndOmitsOntology(t *testing.T
 	vault := setupAgentTestVault(t, map[string]string{"docs/specs/example.md": "# Example\n"})
 	indexPath := filepath.Join(vault.path, ".rhizome", "db.sqlite")
 	require.NoError(t, os.Remove(indexPath))
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "start", "--vault", vault.name, "--file", "docs/specs", "--ontology"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "start", "--vault", vault.name, "--file", "docs/specs", "--ontology"})
 	require.NoError(t, err, stderr)
 	require.Empty(t, stderr)
 	var resp agentStartResponse
@@ -641,7 +659,7 @@ func TestAgentStartWithoutIndexedStoreKeepsGuidanceAndOmitsOntology(t *testing.T
 
 func TestAgentStartMinimalDirectoryOmitsSemanticReadiness(t *testing.T) {
 	vault := setupAgentTestVault(t, map[string]string{"docs/specs/example.md": "# Example\n", "pkg/example.go": "package example\n"})
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "start", "--timings", "--vault", vault.name, "--profile", "code", "--file", "docs/specs"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "start", "--timings", "--vault", vault.name, "--profile", "code", "--file", "docs/specs"})
 	require.NoError(t, err, stderr)
 	require.Empty(t, stderr)
 	var resp agentStartResponse
@@ -662,7 +680,7 @@ func TestAgentValidateBrokenLinksReturnsJSONFailure(t *testing.T) {
 		"A.md": "link [[Missing]]\n",
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "broken-links", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "broken-links", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 
@@ -695,7 +713,7 @@ code-anchors:
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "code-frontmatter", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "code-frontmatter", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 
@@ -728,7 +746,7 @@ func TestAgentFilesCommandOutputsJSON(t *testing.T) {
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "files", "--vault", vault.name, "--input", "Alpha.md", "--include-content", "true", "--limit", "1"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "files", "--vault", vault.name, "--input", "Alpha.md", "--include-content", "true", "--limit", "1"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -749,13 +767,13 @@ func TestAgentFilesDepthZeroCodePathQueryIncludesIndexedCode(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(vault.path, ".rhizome", "config.yml"), []byte("notes: {}\ncode:\n  enabled: true\n"), 0o644))
 			store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 			require.NoError(t, err)
-			require.NoError(t, store.ReplaceFileSummary(context.Background(), codeanchor.FileSummary{FilePath: tc.path, Lang: codeanchor.LangGo, Hash: tc.name}))
-			config, err := obsidian.LoadLocalConfig(vault.path)
+			require.NoError(t, store.ReplaceFileSummary(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.FileSummary{FilePath: tc.path, Lang: codeanchor.LangGo, Hash: tc.name}))
+			config, err := repoconfig.LoadLocalConfig(vault.path)
 			require.NoError(t, err)
-			require.NoError(t, store.SetIndexerVersion(context.Background(), codeanchor.IndexerVersion))
-			require.NoError(t, store.SetScopeConfigHash(context.Background(), config.ScopeConfigHash()))
+			require.NoError(t, store.SetIndexerVersion(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.IndexerVersion))
+			require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), config.ScopeConfigHash()))
 			require.NoError(t, store.Close())
-			stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "files", "--vault", vault.name, "--input", tc.input, "--include-content", "false"})
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "files", "--vault", vault.name, "--input", tc.input, "--include-content", "false"})
 			require.NoError(t, err, "stderr=%s", stderr)
 			require.Empty(t, stderr)
 			var resp agentapi.FilesResponse
@@ -773,7 +791,7 @@ func TestAgentFilesContinuationUsesDecodedGraphDepth(t *testing.T) {
 		"Gamma.md": "# Gamma\n",
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "files", "--vault", vault.name,
 		"--input", "Alpha.md", "--max-depth", "1", "--limit", "1",
 	})
@@ -786,7 +804,7 @@ func TestAgentFilesContinuationUsesDecodedGraphDepth(t *testing.T) {
 	require.Equal(t, 3, first.Total)
 	require.NotEmpty(t, first.ContinuationToken)
 
-	stdout, stderr, err = runRootCLI(t, nil, []string{
+	stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "files", "--vault", vault.name,
 		"--continuation-token", first.ContinuationToken,
 	})
@@ -798,7 +816,7 @@ func TestAgentFilesContinuationUsesDecodedGraphDepth(t *testing.T) {
 	require.Equal(t, "Beta.md", next.Files[0].Path)
 	require.Equal(t, 3, next.Total)
 	require.NotEmpty(t, next.ContinuationToken)
-	stdout, stderr, err = runRootCLI(t, nil, []string{"agent", "files", "--vault", vault.name, "--continuation-token", next.ContinuationToken})
+	stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "files", "--vault", vault.name, "--continuation-token", next.ContinuationToken})
 	require.NoError(t, err, stderr)
 	require.Empty(t, stderr)
 	var last agentapi.FilesResponse
@@ -825,7 +843,7 @@ func TestAgentReportValidationErrorIsJSON(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			args := append([]string{"agent", "report", "--vault", vault.name}, tc.args...)
-			stdout, stderr, err := runRootCLI(t, nil, args)
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 			require.Error(t, err)
 			require.Empty(t, stdout)
 			var payload map[string]string
@@ -846,11 +864,11 @@ func TestAgentReportMissingIndexReturnsStructuredRemediationWithoutCreatingState
 			} else {
 				store, err := semdb.Open(indexPath)
 				require.NoError(t, err)
-				require.NoError(t, store.SetIndexerVersion(context.Background(), codeanchor.IndexerVersion))
-				require.NoError(t, store.SetScopeConfigHash(context.Background(), "stale-scope"))
+				require.NoError(t, store.SetIndexerVersion(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.IndexerVersion))
+				require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), "stale-scope"))
 				require.NoError(t, store.Close())
 			}
-			stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "report", "--vault", vault.name, "--op", "doc_coverage"})
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "report", "--vault", vault.name, "--op", "doc_coverage"})
 			require.Error(t, err)
 			require.Empty(t, stdout)
 			var payload map[string]string
@@ -871,7 +889,7 @@ func TestAgentSessionAliasSharesDedupeStateWithSessionID(t *testing.T) {
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "files", "--vault", vault.name, "--session", "shared-session",
 		"--input", "Alpha.md", "--include-content", "true",
 	})
@@ -884,7 +902,7 @@ func TestAgentSessionAliasSharesDedupeStateWithSessionID(t *testing.T) {
 	require.Contains(t, first.Files[0].Content, "hello world")
 	require.Empty(t, first.Files[0].ContentOmittedReason)
 
-	stdout, stderr, err = runRootCLI(t, nil, []string{
+	stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "files", "--vault", vault.name, "--session-id", "shared-session",
 		"--input", "Alpha.md", "--include-content", "true",
 	})
@@ -920,37 +938,35 @@ code:
 		SectionID: "alpha-section", Path: "Alpha.md", Title: "Alpha", Level: 1,
 		Content: "kickoff project", Fingerprint: "alpha-fingerprint",
 	}
-	require.NoError(t, store.ReplaceIntelDocSections(context.Background(), "Alpha.md", []codeanchor.IntelDocSection{section}, nil, nil))
+	require.NoError(t, store.ReplaceIntelDocSections(vaultconfig.WithEnv(context.Background(), vault.env), "Alpha.md", []codeanchor.IntelDocSection{section}, nil, nil))
 	chunk := codeanchor.IntelChunk{
 		ChunkID: "alpha-chunk", OwnerID: section.SectionID, OwnerType: "doc_section", Ord: 0,
 		Granularity: "section", Breadcrumb: "Alpha", Heading: "Alpha", ContentHash: "alpha-content",
 	}
-	require.NoError(t, store.ReplaceIntelChunks(context.Background(), []string{section.SectionID}, []codeanchor.IntelChunk{chunk}))
-	vectors, err := provider.EmbedTexts(context.Background(), []string{section.Content})
+	require.NoError(t, store.ReplaceIntelChunks(vaultconfig.WithEnv(context.Background(), vault.env), []string{section.SectionID}, []codeanchor.IntelChunk{chunk}))
+	vectors, err := provider.EmbedTexts(vaultconfig.WithEnv(context.Background(), vault.env), []string{section.Content})
 	require.NoError(t, err)
-	require.NoError(t, store.UpsertEmbeddings(context.Background(), map[string]embeddings.Embedding{chunk.ChunkID: vectors[0]}))
+	require.NoError(t, store.UpsertEmbeddings(vaultconfig.WithEnv(context.Background(), vault.env), map[string]embeddings.Embedding{chunk.ChunkID: vectors[0]}))
 	require.NoError(t, store.Close())
-	noteStore, err := noteembsqlite.OpenWithMetadata(
-		context.Background(),
-		filepath.Join(vault.path, ".rhizome", "db.sqlite"),
-		provider,
-		embeddings.MetadataForProvider(provider, embeddings.ProviderConfig{Provider: "test", Model: "test", Dimensions: 8}),
+	embeddingMetadata1 := embeddings.MetadataForProvider(provider, embeddings.ProviderConfig{Provider: "test", Model: "test", Dimensions: 8})
+	noteStore, err := noteembsqlite.OpenNotes(
+		vaultconfig.WithEnv(context.Background(), vault.env), noteembsqlite.File(filepath.Join(vault.path, ".rhizome", "db.sqlite")), noteembsqlite.Options{Access: noteembsqlite.WriteIndex, Dimensions: provider.Dimensions(), Metadata: &embeddingMetadata1},
 	)
 	require.NoError(t, err)
 	require.NoError(t, noteStore.Close())
-	localCfg, err := obsidian.LoadLocalConfig(vault.path)
+	localCfg, err := repoconfig.LoadLocalConfig(vault.path)
 	require.NoError(t, err)
 	store, err = semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	require.NoError(t, store.SetIndexerVersion(context.Background(), codeanchor.IndexerVersion))
-	require.NoError(t, store.SetScopeConfigHash(context.Background(), localCfg.ScopeConfigHash()))
+	require.NoError(t, store.SetIndexerVersion(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.IndexerVersion))
+	require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), localCfg.ScopeConfigHash()))
 	require.NoError(t, store.Close())
 
 	args := []string{
 		"agent", "semantic-query", "--vault", vault.name,
 		"--session-id", "semantic-dedupe-session", "--query", "kickoff project", "--limit", "1",
 	}
-	stdout, stderr, err := runRootCLI(t, nil, args)
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	require.Empty(t, stderr)
 	var first agentapi.SemanticQueryResponse
@@ -959,7 +975,7 @@ code:
 	require.Zero(t, first.DedupeHits)
 	require.NotEmptyf(t, first.Matches, "semantic query response: %s", stdout)
 
-	stdout, stderr, err = runRootCLI(t, nil, args)
+	stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	require.Empty(t, stderr)
 	var second agentapi.SemanticQueryResponse
@@ -979,7 +995,7 @@ func TestAgentFileContextDedupeAcrossSeparateInvocations(t *testing.T) {
 		"--anchor-kind", "function",
 	}
 
-	stdout, stderr, err := runRootCLI(t, nil, args)
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	require.Empty(t, stderr)
 	var first struct {
@@ -990,7 +1006,7 @@ func TestAgentFileContextDedupeAcrossSeparateInvocations(t *testing.T) {
 	require.Zero(t, first.DedupeHits)
 	require.Contains(t, first.Text, "## Alpha (note)")
 
-	stdout, stderr, err = runRootCLI(t, nil, args)
+	stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	require.Empty(t, stderr)
 	var second struct {
@@ -1011,7 +1027,7 @@ func TestAgentVaultContextDedupeDegradesWithoutSuppressingFirstResponse(t *testi
 		"--session-id", "shared-vault-context-session", "--profile", "code",
 	}
 
-	stdout, stderr, err := runRootCLI(t, nil, args)
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	require.Empty(t, stderr)
 	var first struct {
@@ -1021,7 +1037,7 @@ func TestAgentVaultContextDedupeDegradesWithoutSuppressingFirstResponse(t *testi
 	require.NoError(t, json.Unmarshal([]byte(stdout), &first))
 	require.Contains(t, first.Text, "tool: vault_context")
 
-	stdout, stderr, err = runRootCLI(t, nil, args)
+	stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	require.Empty(t, stderr)
 	var second struct {
@@ -1038,7 +1054,7 @@ func TestAgentFilesInvalidContinuationTokenIsJSON(t *testing.T) {
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "files", "--vault", vault.name, "--continuation-token", "not-a-token"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "files", "--vault", vault.name, "--continuation-token", "not-a-token"})
 	require.Error(t, err)
 	require.Empty(t, stdout)
 
@@ -1048,6 +1064,8 @@ func TestAgentFilesInvalidContinuationTokenIsJSON(t *testing.T) {
 }
 
 func TestBuildAgentConfigDisablesCompressionForAgentCLI(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
@@ -1058,7 +1076,7 @@ func TestBuildAgentConfigDisablesCompressionForAgentCLI(t *testing.T) {
 	originalTransport := http.DefaultTransport
 	http.DefaultTransport = transport
 	t.Cleanup(func() { http.DefaultTransport = originalTransport })
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "files", "--vault", vault.name, "--input", "Alpha.md", "--include-content", "compress"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "files", "--vault", vault.name, "--input", "Alpha.md", "--include-content", "compress"})
 	require.NoError(t, err, stderr)
 	require.Empty(t, stderr)
 	var response agentapi.FilesResponse
@@ -1066,9 +1084,9 @@ func TestBuildAgentConfigDisablesCompressionForAgentCLI(t *testing.T) {
 	require.Len(t, response.Files, 1)
 	require.Contains(t, response.Files[0].Content, "hello world")
 	require.Zero(t, transport.calls)
-	vaultName = vault.name
+	commandOptions.vaultName = vault.name
 	for _, tc := range []struct{ override, want int }{{0, 150000}, {4321, 4321}} {
-		cfg, rt, err := buildAgentConfigForOperation(context.Background(), tc.override, "files", "agent.files")
+		cfg, rt, err := commandOptions.buildAgentConfigForOperation(vaultconfig.WithEnv(context.Background(), vault.env), tc.override, "files", "agent.files")
 		require.NoError(t, err)
 		require.Equal(t, tc.want, cfg.BudgetChars())
 		if rt != nil {
@@ -1078,15 +1096,17 @@ func TestBuildAgentConfigDisablesCompressionForAgentCLI(t *testing.T) {
 }
 
 func TestFilesRequestPlanUsesSessionWriterWithoutCodeIndex(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
-	vaultName = vault.name
+	commandOptions.vaultName = vault.name
 	args := map[string]any{"inputs": []string{"Alpha.md"}, "sessionId": "stable"}
-	require.NoError(t, normalizeAgentRequestPlanArgs(context.Background(), "agent.files", args))
+	require.NoError(t, commandOptions.normalizeAgentRequestPlanArgs(vaultconfig.WithEnv(context.Background(), vault.env), "agent.files", args))
 	plan, err := oneshotruntime.RequestPlan("agent.files", args)
 	require.NoError(t, err)
-	cfg, rt, err := buildAgentConfigForRequestPlan(context.Background(), 0, "files", "agent.files", plan)
+	cfg, rt, err := commandOptions.buildAgentConfigForRequestPlan(vaultconfig.WithEnv(context.Background(), vault.env), 0, "files", "agent.files", plan)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, rt.Close())
@@ -1106,20 +1126,22 @@ func TestFilesRequestPlanUsesSessionWriterWithoutCodeIndex(t *testing.T) {
 }
 
 func TestFilesRequestPlanWithoutSessionDoesNotOpenRuntimeOrSQLiteSidecars(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
-	vaultName = vault.name
+	commandOptions.vaultName = vault.name
 	args := map[string]any{"inputs": []string{"Alpha.md"}}
-	require.NoError(t, normalizeAgentRequestPlanArgs(context.Background(), "agent.files", args))
+	require.NoError(t, commandOptions.normalizeAgentRequestPlanArgs(vaultconfig.WithEnv(context.Background(), vault.env), "agent.files", args))
 	plan, err := oneshotruntime.RequestPlan("agent.files", args)
 	require.NoError(t, err)
 	require.False(t, plan.RequiresRuntime())
-	cfg, rt, err := buildAgentConfigForRequestPlan(context.Background(), 0, "files", "agent.files", plan)
+	cfg, rt, err := commandOptions.buildAgentConfigForRequestPlan(vaultconfig.WithEnv(context.Background(), vault.env), 0, "files", "agent.files", plan)
 	require.NoError(t, err)
 	require.Nil(t, rt)
 
-	payload, err := agentapi.CallJSON(context.Background(), cfg, "files", map[string]any{"inputs": []any{"Alpha.md"}})
+	payload, err := agentapi.CallJSON(vaultconfig.WithEnv(context.Background(), vault.env), cfg, "files", map[string]any{"inputs": []any{"Alpha.md"}})
 	require.NoError(t, err)
 	require.Contains(t, string(payload), "Alpha.md")
 	for _, suffix := range []string{"-wal", "-shm"} {
@@ -1158,7 +1180,7 @@ func TestPlannedLiveFallbackActionsDoNotCreateMetadataStore(t *testing.T) {
 
 			args := append([]string{"agent"}, tt.args...)
 			args = append(args, "--vault", vault.name)
-			stdout, stderr, err := runRootCLI(t, nil, args)
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 			require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 			require.Empty(t, stderr)
 			require.Contains(t, stdout, tt.want)
@@ -1177,6 +1199,9 @@ func TestPlannedLiveFallbackActionsDoNotCreateMetadataStore(t *testing.T) {
 }
 
 func TestPlannedReadOnlyActionsDoNotMutateSQLite(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	indexCmd, _, _ := rootCmd.Find([]string{"index"})
+
 	tests := []struct {
 		name string
 		args []string
@@ -1195,22 +1220,22 @@ func TestPlannedReadOnlyActionsDoNotMutateSQLite(t *testing.T) {
 			})
 			if tt.name == "files graph enrichment" {
 				t.Cleanup(func() { indexCmd.SetErr(nil) })
-				_, stderr, err := runRootCLI(t, nil, []string{"index", "--vault", vault.name})
+				_, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"index", "--vault", vault.name})
 				require.NoError(t, err, stderr)
 			}
 			indexPath := filepath.Join(vault.path, ".rhizome", "db.sqlite")
 			store, err := semdb.Open(indexPath)
 			require.NoError(t, err)
 			if tt.name == "files graph enrichment" {
-				require.NoError(t, store.ReplaceOntologySnapshot(context.Background(), semdb.OntologySnapshot{
+				require.NoError(t, store.ReplaceOntologySnapshot(vaultconfig.WithEnv(context.Background(), vault.env), semdb.OntologySnapshot{
 					Edges:       []semdb.OntologyEdgeRow{{SrcPath: "Alpha.md", RelationName: "related", DstPath: "Beta.md", DstType: "Note", Provenance: "field", Structural: true}},
 					SchemaState: semdb.OntologySchemaState{SchemaHash: "schema", NotesHash: "notes", LoadedAt: 1, Ready: true},
 				}))
 			}
-			cfg, err := obsidian.LoadLocalConfig(vault.path)
+			cfg, err := repoconfig.LoadLocalConfig(vault.path)
 			require.NoError(t, err)
-			require.NoError(t, store.SetIndexerVersion(context.Background(), codeanchor.IndexerVersion))
-			require.NoError(t, store.SetScopeConfigHash(context.Background(), cfg.ScopeConfigHash()))
+			require.NoError(t, store.SetIndexerVersion(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.IndexerVersion))
+			require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), cfg.ScopeConfigHash()))
 			require.NoError(t, store.Close())
 			for _, path := range []string{indexPath + "-wal", indexPath + "-shm"} {
 				if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -1222,7 +1247,7 @@ func TestPlannedReadOnlyActionsDoNotMutateSQLite(t *testing.T) {
 
 			args := append([]string{"agent"}, tt.args...)
 			args = append(args, "--vault", vault.name)
-			stdout, stderr, err := runRootCLI(t, nil, args)
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 			require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 			require.Empty(t, stderr)
 			require.Contains(t, stdout, tt.want)
@@ -1237,13 +1262,15 @@ func TestPlannedReadOnlyActionsDoNotMutateSQLite(t *testing.T) {
 }
 
 func TestBuildAgentConfigFileContextUsesScopedReadOnlyRuntime(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
 	markAgentTestIndexCurrent(t, vault)
 
-	vaultName = vault.name
-	cfg, rt, err := buildAgentConfigForOperation(context.Background(), 0, "file_context", agentOperationIDForToolName("file_context"))
+	commandOptions.vaultName = vault.name
+	cfg, rt, err := commandOptions.buildAgentConfigForOperation(vaultconfig.WithEnv(context.Background(), vault.env), 0, "file_context", agentOperationIDForToolName("file_context"))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, rt.Close())
@@ -1264,19 +1291,21 @@ func TestBuildAgentConfigFileContextUsesScopedReadOnlyRuntime(t *testing.T) {
 	require.NotNil(t, cfg.GetIntelStore())
 	require.NotNil(t, snapshot.SessionStore)
 	require.NotSame(t, cfg.GetIntelStore(), snapshot.SessionStore)
-	require.Error(t, cfg.GetIntelStore().EnsureSession(context.Background(), "read-only-session"))
-	require.NoError(t, snapshot.SessionStore.EnsureSession(context.Background(), "writable-session"))
+	require.Error(t, cfg.GetIntelStore().EnsureSession(vaultconfig.WithEnv(context.Background(), vault.env), "read-only-session"))
+	require.NoError(t, snapshot.SessionStore.EnsureSession(vaultconfig.WithEnv(context.Background(), vault.env), "writable-session"))
 	require.Nil(t, rt.NoteSyncer())
 	require.Nil(t, rt.CodeSyncer())
 }
 
 func TestBuildAgentConfigCodeSymbolContextExemptionKeepsLiveStore(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"pkg/a.go": "package pkg\n",
 	})
 
-	vaultName = vault.name
-	cfg, rt, err := buildAgentConfigForOperation(context.Background(), 0, "code_symbol_context", agentOperationIDForToolName("code_symbol_context"))
+	commandOptions.vaultName = vault.name
+	cfg, rt, err := commandOptions.buildAgentConfigForOperation(vaultconfig.WithEnv(context.Background(), vault.env), 0, "code_symbol_context", agentOperationIDForToolName("code_symbol_context"))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, rt.Close())
@@ -1285,18 +1314,20 @@ func TestBuildAgentConfigCodeSymbolContextExemptionKeepsLiveStore(t *testing.T) 
 
 	require.NotNil(t, cfg.GetIntelStore())
 	require.Equal(t, mcp.IntelStoreFallbackAllowed, cfg.IntelStorePolicy)
-	require.NoError(t, cfg.GetIntelStore().EnsureSession(context.Background(), "full-runtime-parity"))
+	require.NoError(t, cfg.GetIntelStore().EnsureSession(vaultconfig.WithEnv(context.Background(), vault.env), "full-runtime-parity"))
 }
 
 func TestBuildAgentConfigExactIndexPlansExposeNoSessionStore(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	for _, toolName := range []string{"code_symbol", "code_references", "code_rationale", "graph_path"} {
 		t.Run(toolName, func(t *testing.T) {
 			vault := setupAgentTestVault(t, map[string]string{
 				"pkg/a.go": "package pkg\n",
 			})
 			markAgentTestIndexCurrent(t, vault)
-			vaultName = vault.name
-			cfg, rt, err := buildAgentConfigForOperation(context.Background(), 0, toolName, agentOperationIDForToolName(toolName))
+			commandOptions.vaultName = vault.name
+			cfg, rt, err := commandOptions.buildAgentConfigForOperation(vaultconfig.WithEnv(context.Background(), vault.env), 0, toolName, agentOperationIDForToolName(toolName))
 			require.NoError(t, err)
 			t.Cleanup(func() {
 				require.NoError(t, rt.Close())
@@ -1316,14 +1347,14 @@ func TestBuildAgentConfigExactIndexPlansExposeNoSessionStore(t *testing.T) {
 			require.NotNil(t, cfg.GetIntelStore())
 			require.Nil(t, snapshot.SessionStore)
 			require.Equal(t, mcp.IntelStoreManagedReadOnly, cfg.IntelStorePolicy)
-			require.Error(t, cfg.GetIntelStore().EnsureSession(context.Background(), "read-only-session"))
+			require.Error(t, cfg.GetIntelStore().EnsureSession(vaultconfig.WithEnv(context.Background(), vault.env), "read-only-session"))
 		})
 	}
 }
 
 func TestLiveRuntimeReportsExplicitlyOmittedCapabilitiesUnavailable(t *testing.T) {
 	vault := setupAgentTestVault(t, map[string]string{"Alpha.md": "# Alpha\n"})
-	rt, err := bootstrap.NewLiveRuntime(context.Background(), bootstrap.LiveOptions{
+	rt, err := bootstrap.NewLiveRuntime(vaultconfig.WithEnv(context.Background(), vault.env), bootstrap.LiveOptions{
 		VaultName:         vault.name,
 		DisableLeaderWork: true,
 		Requirements:      bootstrap.RequireRuntimeCapabilities(),
@@ -1334,9 +1365,9 @@ func TestLiveRuntimeReportsExplicitlyOmittedCapabilitiesUnavailable(t *testing.T
 		waitForVaultFileRelease(t, vault.path)
 	})
 
-	require.ErrorContains(t, rt.WaitForSearch(context.Background()), "not requested")
-	require.ErrorContains(t, rt.WaitForSemantic(context.Background()), "not requested")
-	require.ErrorContains(t, rt.WaitForCodeIndex(context.Background()), "not requested")
+	require.ErrorContains(t, rt.WaitForSearch(vaultconfig.WithEnv(context.Background(), vault.env)), "not requested")
+	require.ErrorContains(t, rt.WaitForSemantic(vaultconfig.WithEnv(context.Background(), vault.env)), "not requested")
+	require.ErrorContains(t, rt.WaitForCodeIndex(vaultconfig.WithEnv(context.Background(), vault.env)), "not requested")
 	snapshot := rt.Snapshot()
 	require.False(t, snapshot.Search.Ready)
 	require.False(t, snapshot.Semantic.Ready)
@@ -1351,21 +1382,23 @@ func TestLiveRuntimeReportsExplicitlyOmittedCapabilitiesUnavailable(t *testing.T
 }
 
 func TestBuildAgentConfigSemanticQueryWaitsForIndexedRuntimeWithoutCache(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
-	localCfg, err := obsidian.LoadLocalConfig(vault.path)
+	localCfg, err := repoconfig.LoadLocalConfig(vault.path)
 	require.NoError(t, err)
 	store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	require.NoError(t, store.SetIndexerVersion(context.Background(), codeanchor.IndexerVersion))
-	require.NoError(t, store.SetScopeConfigHash(context.Background(), localCfg.ScopeConfigHash()))
+	require.NoError(t, store.SetIndexerVersion(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.IndexerVersion))
+	require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), localCfg.ScopeConfigHash()))
 	require.NoError(t, store.Close())
 
-	vaultName = vault.name
+	commandOptions.vaultName = vault.name
 	plan, err := oneshotruntime.RequestPlan("agent.semantic-query", map[string]any{"sessionId": "query-session"})
 	require.NoError(t, err)
-	cfg, rt, err := buildAgentConfigForRequestPlan(context.Background(), 0, "semantic_query", "agent.semantic-query", plan)
+	cfg, rt, err := commandOptions.buildAgentConfigForRequestPlan(vaultconfig.WithEnv(context.Background(), vault.env), 0, "semantic_query", "agent.semantic-query", plan)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, rt.Close())
@@ -1384,19 +1417,21 @@ func TestBuildAgentConfigSemanticQueryWaitsForIndexedRuntimeWithoutCache(t *test
 }
 
 func TestBuildAgentConfigSemanticQueryWithholdsStaleIndexedRuntime(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		"Alpha.md": "# Alpha\n\nhello world\n",
 	})
 	store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	require.NoError(t, store.SetIndexerVersion(context.Background(), codeanchor.IndexerVersion))
-	require.NoError(t, store.SetScopeConfigHash(context.Background(), "stale-scope"))
+	require.NoError(t, store.SetIndexerVersion(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.IndexerVersion))
+	require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), "stale-scope"))
 	require.NoError(t, store.Close())
 
-	vaultName = vault.name
+	commandOptions.vaultName = vault.name
 	plan, err := oneshotruntime.RequestPlan("agent.semantic-query", nil)
 	require.NoError(t, err)
-	cfg, rt, err := buildAgentConfigForRequestPlan(context.Background(), 0, "semantic_query", "agent.semantic-query", plan)
+	cfg, rt, err := commandOptions.buildAgentConfigForRequestPlan(vaultconfig.WithEnv(context.Background(), vault.env), 0, "semantic_query", "agent.semantic-query", plan)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, rt.Close())
@@ -1409,7 +1444,7 @@ func TestBuildAgentConfigSemanticQueryWithholdsStaleIndexedRuntime(t *testing.T)
 	require.Equal(t, "rzm index", cfg.IndexedContextUnavailable.Remediation)
 	require.Nil(t, cfg.GetIntelStore(), "stale indexed state must not be published to semantic retrieval")
 
-	payload, err := agentapi.CallJSON(context.Background(), cfg, "semantic_query", map[string]any{
+	payload, err := agentapi.CallJSON(vaultconfig.WithEnv(context.Background(), vault.env), cfg, "semantic_query", map[string]any{
 		"queries": []string{"hello world"},
 	})
 	require.NoError(t, err)
@@ -1429,6 +1464,8 @@ func TestIndexedContextUnavailableClassifiesEmbeddingMetadataMismatchAsIncompati
 }
 
 func TestAgentRuntimeRejectsUndeclaredOperationBeforeOpeningStore(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	for _, absent := range []bool{false, true} {
 		t.Run(fmt.Sprintf("absent=%t", absent), func(t *testing.T) {
 			vault := setupAgentTestVault(t, map[string]string{"Alpha.md": "# Alpha\n"})
@@ -1442,8 +1479,8 @@ func TestAgentRuntimeRejectsUndeclaredOperationBeforeOpeningStore(t *testing.T) 
 				before, err = os.ReadFile(indexPath)
 				require.NoError(t, err)
 			}
-			vaultName = vault.name
-			cfg, rt, err := prepareAgentJSONTool(context.Background(), 0, "unknown", "agent.unknown", nil)
+			commandOptions.vaultName = vault.name
+			cfg, rt, err := commandOptions.prepareAgentJSONTool(vaultconfig.WithEnv(context.Background(), vault.env), 0, "unknown", "agent.unknown", nil)
 			if absent {
 				for _, path := range []string{indexPath, indexPath + "-wal", indexPath + "-shm"} {
 					require.NoFileExists(t, path)
@@ -1466,9 +1503,8 @@ func TestAgentFindConnectionsUsesCurrentSemanticStoreReadOnly(t *testing.T) {
 		"Alpha.md": "---\noffice: AOGR\n---\n# Alpha\n\nkickoff project context\n",
 		"Beta.md":  "# Beta\n\nkickoff project followup\n",
 	})
-	require.NoError(t, os.WriteFile(filepath.Join(vault.path, ".rhizome", "config.yml"), []byte("notes: {}\nnoteEmbeddings:\n  enabled: true\n  provider: test\n  model: test\n  dimensions: 8\ncode:\n  enabled: true\n"), 0o644))
-	t.Cleanup(func() { indexCmd.SetErr(nil) })
-	_, indexStderr, indexErr := runRootCLI(t, nil, []string{"index", "--vault", vault.name})
+	require.NoError(t, os.WriteFile(filepath.Join(vault.path, ".rhizome", "config.yml"), []byte("notes: {}\nnoteEmbeddings:\n  enabled: true\n  provider: test\n  model: test\n  dimensions: 8\ncodeEmbeddings:\n  enabled: true\n  provider: test\n  model: test\n  dimensions: 8\ncode:\n  enabled: true\n"), 0o644))
+	_, indexStderr, indexErr := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"index", "--vault", vault.name})
 	require.NoError(t, indexErr, indexStderr)
 	provider := embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Dimensions: 8})
 	indexPath := filepath.Join(vault.path, ".rhizome", "db.sqlite")
@@ -1479,25 +1515,29 @@ func TestAgentFindConnectionsUsesCurrentSemanticStoreReadOnly(t *testing.T) {
 		{"Beta.md", "beta", "kickoff project followup"},
 	} {
 		section := codeanchor.IntelDocSection{SectionID: tc.id + "-section", Path: tc.path, Title: tc.id, Level: 1, Content: tc.content, Fingerprint: tc.id + "-fingerprint"}
-		require.NoError(t, store.ReplaceIntelDocSections(context.Background(), tc.path, []codeanchor.IntelDocSection{section}, nil, nil))
+		require.NoError(t, store.ReplaceIntelDocSections(vaultconfig.WithEnv(context.Background(), vault.env), tc.path, []codeanchor.IntelDocSection{section}, nil, nil))
 		chunk := codeanchor.IntelChunk{ChunkID: tc.id + "-chunk", OwnerID: section.SectionID, OwnerType: "doc_section", Ord: 0, Granularity: "section", Breadcrumb: tc.id, Heading: tc.id, ContentHash: tc.id + "-content"}
-		require.NoError(t, store.ReplaceIntelChunks(context.Background(), []string{section.SectionID}, []codeanchor.IntelChunk{chunk}))
-		vectors, err := provider.EmbedTexts(context.Background(), []string{section.Content})
+		require.NoError(t, store.ReplaceIntelChunks(vaultconfig.WithEnv(context.Background(), vault.env), []string{section.SectionID}, []codeanchor.IntelChunk{chunk}))
+		vectors, err := provider.EmbedTexts(vaultconfig.WithEnv(context.Background(), vault.env), []string{section.Content})
 		require.NoError(t, err)
-		require.NoError(t, store.UpsertEmbeddings(context.Background(), map[string]embeddings.Embedding{chunk.ChunkID: vectors[0]}))
+		require.NoError(t, store.UpsertEmbeddings(vaultconfig.WithEnv(context.Background(), vault.env), map[string]embeddings.Embedding{chunk.ChunkID: vectors[0]}))
 	}
-	require.NoError(t, store.SetIndexerVersion(context.Background(), codeanchor.IndexerVersion))
-	localCfg, err := obsidian.LoadLocalConfig(vault.path)
+	require.NoError(t, store.SetIndexerVersion(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.IndexerVersion))
+	localCfg, err := repoconfig.LoadLocalConfig(vault.path)
 	require.NoError(t, err)
-	require.NoError(t, store.SetScopeConfigHash(context.Background(), localCfg.ScopeConfigHash()))
+	require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), localCfg.ScopeConfigHash()))
 	require.NoError(t, store.Close())
-	noteStore, err := noteembsqlite.OpenWithMetadata(context.Background(), indexPath, provider, embeddings.MetadataForProvider(provider, embeddings.ProviderConfig{Provider: "test", Model: "test", Dimensions: 8}))
+	embeddingMetadata2 := embeddings.MetadataForProvider(provider, embeddings.ProviderConfig{Provider: "test", Model: "test", Dimensions: 8})
+	noteStore, err := noteembsqlite.OpenNotes(vaultconfig.WithEnv(context.Background(), vault.env), noteembsqlite.File(indexPath), noteembsqlite.Options{Access: noteembsqlite.WriteIndex, Dimensions: provider.Dimensions(), Metadata: &embeddingMetadata2})
 	require.NoError(t, err)
 	require.NoError(t, noteStore.Close())
+	codeStore, err := noteembsqlite.OpenCode(vaultconfig.WithEnv(context.Background(), vault.env), noteembsqlite.File(indexPath), noteembsqlite.Options{Access: noteembsqlite.WriteIndex, Dimensions: provider.Dimensions(), Metadata: &embeddingMetadata2})
+	require.NoError(t, err)
+	require.NoError(t, codeStore.Close())
 	store, err = semdb.Open(indexPath)
 	require.NoError(t, err)
-	require.NoError(t, store.SetIndexerVersion(context.Background(), codeanchor.IndexerVersion))
-	require.NoError(t, store.SetScopeConfigHash(context.Background(), "stale-code-scope"))
+	require.NoError(t, store.SetIndexerVersion(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.IndexerVersion))
+	require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), "stale-code-scope"))
 	require.NoError(t, store.Close())
 	before, err := os.ReadFile(indexPath)
 	require.NoError(t, err)
@@ -1506,7 +1546,7 @@ func TestAgentFindConnectionsUsesCurrentSemanticStoreReadOnly(t *testing.T) {
 		{"note", "--note", "Alpha.md", "Beta.md"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "find-connections", "--vault", vault.name, tc.flag, tc.value})
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "find-connections", "--vault", vault.name, tc.flag, tc.value})
 			require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 			require.Empty(t, stderr)
 			var payload struct {
@@ -1530,11 +1570,11 @@ func TestAgentFindConnectionsUsesCurrentSemanticStoreReadOnly(t *testing.T) {
 	}
 	store, err = semdb.Open(indexPath)
 	require.NoError(t, err)
-	require.NoError(t, store.SetScopeConfigHash(context.Background(), localCfg.ScopeConfigHash()))
+	require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), localCfg.ScopeConfigHash()))
 	require.NoError(t, store.Close())
 	before, err = os.ReadFile(indexPath)
 	require.NoError(t, err)
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "semantic-query", "--vault", vault.name, "--query", "kickoff project", "--limit", "1"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "semantic-query", "--vault", vault.name, "--query", "kickoff project", "--limit", "1"})
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	require.Empty(t, stderr)
 	var semantic agentapi.SemanticQueryResponse
@@ -1546,9 +1586,9 @@ func TestAgentFindConnectionsUsesCurrentSemanticStoreReadOnly(t *testing.T) {
 
 	store, err = semdb.Open(indexPath)
 	require.NoError(t, err)
-	require.NoError(t, store.SetScopeConfigHash(context.Background(), "stale-code-scope"))
+	require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), "stale-code-scope"))
 	require.NoError(t, store.Close())
-	stdout, stderr, err = runRootCLI(t, nil, []string{"agent", "list-properties", "--vault", vault.name, "--only", "office"})
+	stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "list-properties", "--vault", vault.name, "--only", "office"})
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	require.Empty(t, stderr)
 	var properties mcp.PropertyListResponse
@@ -1558,6 +1598,7 @@ func TestAgentFindConnectionsUsesCurrentSemanticStoreReadOnly(t *testing.T) {
 }
 
 type agentTestVault struct {
+	env  vaultconfig.Env
 	name string
 	path string
 }
@@ -1594,7 +1635,7 @@ func writeAgentTestDB(t *testing.T, target string) {
 
 func markAgentTestIndexCurrent(t *testing.T, vault agentTestVault) {
 	t.Helper()
-	localCfg, err := obsidian.LoadLocalConfig(vault.path)
+	localCfg, err := repoconfig.LoadLocalConfig(vault.path)
 	require.NoError(t, err)
 	store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
@@ -1604,11 +1645,11 @@ func markAgentTestIndexCurrent(t *testing.T, vault agentTestVault) {
 }
 
 func setupAgentTestVault(t *testing.T, files map[string]string) agentTestVault {
-	t.Helper()
-	resetAgentTestGlobals()
-	resetFlags(rootCmd)
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
 
-	rootDir := t.TempDir()
+	t.Helper()
+	rootDir := paths.ResolveSymlinks(t.TempDir()).String()
 	vaultDir := filepath.Join(rootDir, "testvault")
 	require.NoError(t, os.MkdirAll(vaultDir, 0o755))
 	for rel, body := range files {
@@ -1631,123 +1672,13 @@ func setupAgentTestVault(t *testing.T, files map[string]string) agentTestVault {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(configFile, configBody, 0o644))
 
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return configFile, nil }
+	env.ObsidianConfigFile = configFile
+	env.WorkingDir = vaultDir
 	t.Cleanup(func() {
-		obsidian.ObsidianConfigFile = origConfig
 		waitForVaultFileRelease(t, vaultDir)
-		resetAgentTestGlobals()
-		resetFlags(rootCmd)
-		rootCmd.SetArgs([]string{})
 	})
 
-	return agentTestVault{name: "testvault", path: vaultDir}
-}
-
-func runRootCLI(t *testing.T, ctx context.Context, args []string) (stdout string, stderr string, runErr error) {
-	return runRootCLIWithRootSilence(t, ctx, args, true)
-}
-
-func runRootCLIWithRootSilence(t *testing.T, ctx context.Context, args []string, rootSilence bool) (stdout string, stderr string, runErr error) {
-	t.Helper()
-	resetFlags(rootCmd)
-	clearArrayFlags(rootCmd)
-
-	origOut := rootCmd.OutOrStdout()
-	origErr := rootCmd.ErrOrStderr()
-	origStdout := os.Stdout
-	origStderr := os.Stderr
-	origSilenceUsage := rootCmd.SilenceUsage
-	origSilenceErrors := rootCmd.SilenceErrors
-
-	outR, outW, err := os.Pipe()
-	require.NoError(t, err)
-	errR, errW, err := os.Pipe()
-	require.NoError(t, err)
-
-	var (
-		outBytes []byte
-		errBytes []byte
-		readWG   sync.WaitGroup
-		readErrs = make(chan error, 2)
-	)
-	readPipe := func(dst *[]byte, src *os.File) {
-		defer readWG.Done()
-		data, readErr := io.ReadAll(src)
-		if readErr != nil {
-			readErrs <- readErr
-			return
-		}
-		*dst = data
-	}
-	readWG.Add(2)
-	go readPipe(&outBytes, outR)
-	go readPipe(&errBytes, errR)
-
-	os.Stdout = outW
-	os.Stderr = errW
-	rootCmd.SetOut(outW)
-	rootCmd.SetErr(errW)
-	rootCmd.SilenceUsage = rootSilence
-	rootCmd.SilenceErrors = rootSilence
-	rootCmd.SetArgs(args)
-	if ctx != nil {
-		runErr = rootCmd.ExecuteContext(ctx)
-	} else {
-		runErr = rootCmd.Execute()
-	}
-	rootCmd.SetArgs([]string{})
-
-	require.NoError(t, outW.Close())
-	require.NoError(t, errW.Close())
-	readWG.Wait()
-	close(readErrs)
-	for readErr := range readErrs {
-		require.NoError(t, readErr)
-	}
-	require.NoError(t, outR.Close())
-	require.NoError(t, errR.Close())
-
-	rootCmd.SetOut(origOut)
-	rootCmd.SetErr(origErr)
-	rootCmd.SilenceUsage = origSilenceUsage
-	rootCmd.SilenceErrors = origSilenceErrors
-	os.Stdout = origStdout
-	os.Stderr = origStderr
-
-	return strings.TrimSpace(string(outBytes)), strings.TrimSpace(string(errBytes)), runErr
-}
-
-func clearArrayFlags(cmd *cobra.Command) {
-	clearArrayFlagSet(cmd.Flags())
-	clearArrayFlagSet(cmd.PersistentFlags())
-	for _, child := range cmd.Commands() {
-		clearArrayFlags(child)
-	}
-}
-
-func clearArrayFlagSet(fs *pflag.FlagSet) {
-	if fs == nil {
-		return
-	}
-	fs.VisitAll(func(f *pflag.Flag) {
-		switch f.Value.Type() {
-		case "stringSlice", "stringArray":
-			if slice, ok := f.Value.(pflag.SliceValue); ok {
-				_ = slice.Replace(nil)
-			}
-			f.Changed = false
-		}
-	})
-}
-
-func resetAgentTestGlobals() {
-	vaultName = ""
-	suppressTags = nil
-	noSuppress = false
-	debug = false
-	skipAnchors = false
-	skipEmbeds = false
+	return agentTestVault{env: env, name: "testvault", path: vaultDir}
 }
 
 func waitForVaultFileRelease(t *testing.T, vaultDir string) {

@@ -2,15 +2,13 @@ package validate
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"sort"
-	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+
+	"strings"
 )
 
 // BuildRepairPlan converts validation findings into immutable, source-backed
@@ -26,7 +24,11 @@ func buildRepairPlan(
 	checks []CheckResult,
 	previewer OntologyOperationPreviewer,
 ) (*RepairPlan, error) {
-	checks, err := attachStableRepairIssueKeys(checks)
+	checks, err := prepareIdentifierRepairChecks(ctx, runCtx, checks)
+	if err != nil {
+		return nil, err
+	}
+	checks, err = attachStableRepairIssueKeys(checks)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +77,7 @@ func buildRepairPlan(
 }
 
 func foldIdentifierAliasMirrorActions(check *CheckResult) {
-	if check == nil || check.identifierRepair == nil || check.identifierRepair.Assembly == nil {
+	if check == nil || check.identifierRepair == nil {
 		return
 	}
 	payload := *check.identifierRepair
@@ -83,7 +85,7 @@ func foldIdentifierAliasMirrorActions(check *CheckResult) {
 	extraIssueKeysByCollisionAction := make(map[string][]string)
 	redundantActions := make(map[string]struct{})
 	for _, action := range check.Fixes {
-		memberships := identifierAliasAppendMemberships(payload.Assembly, action)
+		memberships := identifierAliasAppendMemberships(payload, action)
 		if len(memberships) == 0 {
 			continue
 		}
@@ -114,8 +116,8 @@ func foldIdentifierAliasMirrorActions(check *CheckResult) {
 	check.identifierRepair = &payload
 }
 
-func identifierAliasAppendMemberships(assembly *identifierreconcile.RepairAssembly, action FixAction) []string {
-	if assembly == nil || action.Kind != FixKindAppendAlias || action.IssueCode != "identifier_not_in_aliases" {
+func identifierAliasAppendMemberships(payload identifierRepairPayload, action FixAction) []string {
+	if action.Kind != FixKindAppendAlias || action.IssueCode != "identifier_not_in_aliases" {
 		return nil
 	}
 	var memberships []string
@@ -123,9 +125,16 @@ func identifierAliasAppendMemberships(assembly *identifierreconcile.RepairAssemb
 		if edit.Kind != FixKindAppendAlias || strings.TrimSpace(edit.NotePath) == "" || strings.TrimSpace(edit.Value) == "" {
 			continue
 		}
+		if payload.preparation != nil {
+			memberships = append(memberships, payload.preparation.aliasAppendMemberships(edit)...)
+		}
+		assembly := payload.Assembly
+		if assembly == nil {
+			continue
+		}
 		for _, component := range assembly.Components {
 			for _, intent := range component.Rewrites {
-				if intent.Rewrite.Mode != reference.IdentifierRewritePreferredRekey ||
+				if intent.Rewrite.Mode != identifierrewrite.IdentifierRewritePreferredRekey ||
 					intent.Rewrite.OldRef.NotePath != edit.NotePath ||
 					identifierreconcile.IdentifierComparisonKey(intent.Rewrite.OldIdentifier) != identifierreconcile.IdentifierComparisonKey(edit.Value) {
 					continue
@@ -196,7 +205,7 @@ func buildRepairPlanFromActions(
 		}
 	}
 	var operations []RepairOperation
-	var schema *ontology.Schema
+	var schema *ontoschema.Schema
 	var err error
 	var plainEdits []plainRepairEdit
 	var structuredEdits []structuredRepairEdit
@@ -223,7 +232,7 @@ func buildRepairPlanFromActions(
 	}
 	operations = append(operations, plainOperations...)
 	if len(structuredEdits) > 0 {
-		schema, err = ontology.LoadSchema(runCtx.VaultPath)
+		schema, err = ontoschema.LoadSchema(runCtx.VaultPath)
 		if err != nil {
 			return nil, err
 		}
@@ -308,161 +317,6 @@ func planExistingIdentifierBlockIDMigration(
 	), remaining, true, nil
 }
 
-func attachStableRepairIssueKeys(checks []CheckResult) ([]CheckResult, error) {
-	checks = append([]CheckResult(nil), checks...)
-	for checkIndex := range checks {
-		check := &checks[checkIndex]
-		check.Issues = append([]Issue(nil), check.Issues...)
-		evidenceIssues := append([]Issue(nil), check.fullIssues...)
-		if len(evidenceIssues) == 0 {
-			evidenceIssues = append(evidenceIssues, check.Issues...)
-		}
-		issuesByCode := map[string][]Issue{}
-		var allKeys []string
-		for issueIndex := range evidenceIssues {
-			issue := &evidenceIssues[issueIndex]
-			key, err := StableIssueKey(check.Name, *issue)
-			if err != nil {
-				return nil, err
-			}
-			issue.Key = key
-			issuesByCode[issue.Code] = append(issuesByCode[issue.Code], *issue)
-			allKeys = append(allKeys, key)
-		}
-		check.fullIssues = evidenceIssues
-		for issueIndex := range check.Issues {
-			if issueIndex < len(evidenceIssues) {
-				check.Issues[issueIndex].Key = evidenceIssues[issueIndex].Key
-			}
-		}
-		check.allIssueKeys = sortedUnique(allKeys)
-		check.Fixes = append([]FixAction(nil), check.Fixes...)
-		for actionIndex := range check.Fixes {
-			action := &check.Fixes[actionIndex]
-			if len(action.IssueKeys) != 0 {
-				continue
-			}
-			action.IssueKeys = matchingRepairIssueKeys(*action, issuesByCode[action.IssueCode])
-			if len(action.IssueKeys) == 0 && len(allKeys) == 1 {
-				action.IssueKeys = append(action.IssueKeys, allKeys[0])
-			}
-			if len(action.IssueKeys) == 0 {
-				action.IssueKeys = []string{fallbackActionIssueKey(*action)}
-			}
-		}
-	}
-	return checks, nil
-}
-
-func matchingRepairIssueKeys(action FixAction, issues []Issue) []string {
-	var keys []string
-	for _, issue := range issues {
-		if actionMatchesRepairIssue(action, issue) {
-			keys = append(keys, issue.Key)
-		}
-	}
-	if len(keys) == 0 && len(issues) == 1 {
-		keys = append(keys, issues[0].Key)
-	}
-	return sortedUnique(keys)
-}
-
-func actionMatchesRepairIssue(action FixAction, issue Issue) bool {
-	actionPaths := append([]string(nil), action.AffectedPaths...)
-	var targets, properties, blockIDs []string
-	for _, edit := range action.Edits {
-		actionPaths = append(actionPaths, edit.NotePath, edit.SourcePath)
-		targets = append(targets, edit.OldTarget, edit.NewTarget, edit.Value)
-		targets = append(targets, edit.Values...)
-		properties = append(properties, edit.Property)
-		blockIDs = append(blockIDs, edit.BlockID)
-		targets = append(targets, edit.BlockID)
-	}
-	actionPaths = nonEmptyUnique(actionPaths)
-	issuePaths := nonEmptyUnique([]string{issue.Path, issue.Source})
-	if len(actionPaths) > 0 && len(issuePaths) > 0 && !stringSetsIntersect(actionPaths, issuePaths) {
-		return false
-	}
-	targets = nonEmptyUnique(targets)
-	if issue.Target != "" && len(targets) > 0 && !containsString(targets, issue.Target) {
-		return false
-	}
-	properties = nonEmptyUnique(properties)
-	fieldNamedByActionID := issue.Field != "" && strings.HasSuffix(action.ID, ":"+issue.Field)
-	if issue.Field != "" && len(properties) > 0 &&
-		!containsStringFold(properties, issue.Field) && !fieldNamedByActionID {
-		return false
-	}
-	blockIDs = nonEmptyUnique(blockIDs)
-	if issueBlockID := structuredIssueString(issue, "blockId"); issueBlockID != "" &&
-		len(blockIDs) > 0 && !containsString(blockIDs, issueBlockID) {
-		return false
-	}
-	return len(actionPaths) > 0 || len(targets) > 0 || len(properties) > 0 || len(blockIDs) > 0
-}
-
-func structuredIssueString(issue Issue, field string) string {
-	if len(issue.Data) == 0 {
-		return ""
-	}
-	var data map[string]json.RawMessage
-	if err := json.Unmarshal(issue.Data, &data); err != nil {
-		return ""
-	}
-	var value string
-	if err := json.Unmarshal(data[field], &value); err != nil {
-		return ""
-	}
-	return strings.TrimSpace(value)
-}
-
-func nonEmptyUnique(values []string) []string {
-	var result []string
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			result = append(result, value)
-		}
-	}
-	return sortedUnique(result)
-}
-
-func stringSetsIntersect(left, right []string) bool {
-	for _, value := range left {
-		if containsString(right, value) {
-			return true
-		}
-	}
-	return false
-}
-
-func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
-}
-
-func containsStringFold(values []string, target string) bool {
-	for _, value := range values {
-		if strings.EqualFold(value, target) {
-			return true
-		}
-	}
-	return false
-}
-
-func fallbackActionIssueKey(action FixAction) string {
-	payload, _ := json.Marshal(struct {
-		Check string    `json:"check"`
-		Code  string    `json:"code"`
-		Kind  string    `json:"kind"`
-		Edits []FixEdit `json:"edits"`
-	}{Check: action.Check, Code: action.IssueCode, Kind: action.Kind, Edits: action.Edits})
-	return "issue:action:v1:" + strings.TrimPrefix(SourceHash(payload), "sha256:")
-}
-
 func splitRepairEdits(edits []FixEdit) ([]FixEdit, []FixEdit) {
 	var plain, structured []FixEdit
 	for _, edit := range edits {
@@ -475,172 +329,4 @@ func splitRepairEdits(edits []FixEdit) ([]FixEdit, []FixEdit) {
 		}
 	}
 	return plain, structured
-}
-
-type plainRepairEdit struct {
-	action FixAction
-	edit   FixEdit
-}
-
-func planPlainRepairGroups(runCtx RunContext, edits []plainRepairEdit) ([]RepairOperation, error) {
-	byPathAction := map[string]map[string][]plainRepairEdit{}
-	for _, item := range edits {
-		path := strings.TrimSpace(item.edit.NotePath)
-		if path == "" {
-			path = strings.TrimSpace(item.edit.SourcePath)
-		}
-		if path == "" {
-			return nil, fmt.Errorf("repair action %s edit %s has no source path", item.action.ID, item.edit.Kind)
-		}
-		if byPathAction[path] == nil {
-			byPathAction[path] = map[string][]plainRepairEdit{}
-		}
-		byPathAction[path][item.action.ID] = append(byPathAction[path][item.action.ID], item)
-	}
-	paths := make([]string, 0, len(byPathAction))
-	for path := range byPathAction {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
-	var operations []RepairOperation
-	for _, path := range paths {
-		abs, err := repairAbsPath(runCtx, path)
-		if err != nil {
-			return nil, err
-		}
-		before, err := os.ReadFile(abs)
-		if err != nil {
-			return nil, err
-		}
-		actionIDs := make([]string, 0, len(byPathAction[path]))
-		for actionID := range byPathAction[path] {
-			actionIDs = append(actionIDs, actionID)
-		}
-		sort.Strings(actionIDs)
-		for _, actionID := range actionIDs {
-			items := byPathAction[path][actionID]
-			after := string(before)
-			for _, item := range items {
-				if item.edit.Kind == FixKindRewriteLinkGroup {
-					if rewritten, _, ok := applyBlockFragmentRewrite(
-						runCtx, path, after, item.edit.OldTarget, item.edit.NewTarget,
-					); ok {
-						after = rewritten
-					} else {
-						after, err = ApplyFixEditInMemory(after, item.edit)
-					}
-				} else {
-					after, err = ApplyFixEditInMemory(after, item.edit)
-				}
-				if err != nil {
-					return nil, fmt.Errorf("plan repair action %s: %w", item.action.ID, err)
-				}
-			}
-			if after == string(before) {
-				continue
-			}
-			action := items[0].action
-			operation := wholeFileRepairOperation(
-				repairOperationID(actionID, path, "write"), action, path, before, []byte(after),
-			)
-			operation.Expected = []ExpectedText{minimalRepairExpectedText(before, []byte(after))}
-			operation.IssueKeys = append([]string(nil), action.IssueKeys...)
-			operation.LifecycleClaims = lifecycleClaimsForPlainEdits(before, items)
-			operation.Lifecycle = ClassifyLifecycleEdit(LifecycleEdit{
-				Before: before, After: []byte(after), Claims: operation.LifecycleClaims,
-			})
-			operations = append(operations, operation)
-		}
-	}
-	return operations, nil
-}
-
-func lifecycleClaimsForPlainEdits(before []byte, items []plainRepairEdit) []LifecycleClaim {
-	var claims []LifecycleClaim
-	for _, item := range items {
-		edit := item.edit
-		switch edit.Kind {
-		case FixKindRewriteLinkTarget:
-			if edit.StartByte < 0 || edit.EndByte < edit.StartByte || edit.EndByte > len(before) {
-				continue
-			}
-			claims = append(claims, LifecycleClaim{
-				Kind: LifecycleEditBrokenLink, StartByte: edit.StartByte, EndByte: edit.EndByte,
-				ExpectedText: string(before[edit.StartByte:edit.EndByte]), Replacement: edit.Value,
-			})
-		case FixKindRewriteLinkGroup:
-			claims = append(claims, brokenLinkGroupLifecycleClaims(before, edit.OldTarget, edit.NewTarget)...)
-		case FixKindSetFrontmatter:
-			if !strings.EqualFold(strings.TrimSpace(edit.Property), "status") ||
-				!strings.EqualFold(strings.TrimSpace(edit.Value), "archived") {
-				continue
-			}
-			start, end, ok := frontmatterScalarRange(before, "status")
-			if ok {
-				claims = append(claims, LifecycleClaim{
-					Kind: LifecycleEditArchiveStatus, StartByte: start, EndByte: end,
-					ExpectedText: string(before[start:end]), Replacement: edit.Value,
-				})
-			}
-		}
-	}
-	return claims
-}
-
-func brokenLinkGroupLifecycleClaims(before []byte, oldTarget, newTarget string) []LifecycleClaim {
-	if oldTarget == "" || newTarget == "" {
-		return nil
-	}
-	var claims []LifecycleClaim
-	for cursor := 0; cursor < len(before); {
-		offset := strings.Index(string(before[cursor:]), oldTarget)
-		if offset < 0 {
-			break
-		}
-		start := cursor + offset
-		claim := LifecycleClaim{
-			Kind: LifecycleEditBrokenLink, StartByte: start, EndByte: start + len(oldTarget),
-			ExpectedText: oldTarget, Replacement: newTarget,
-		}
-		if validateBrokenLinkClaim(before, claim) == nil {
-			claims = append(claims, claim)
-		}
-		cursor = claim.EndByte
-	}
-	return claims
-}
-
-func minimalRepairExpectedText(before, after []byte) ExpectedText {
-	start := 0
-	for start < len(before) && start < len(after) && before[start] == after[start] {
-		start++
-	}
-	beforeEnd, afterEnd := len(before), len(after)
-	for beforeEnd > start && afterEnd > start && before[beforeEnd-1] == after[afterEnd-1] {
-		beforeEnd--
-		afterEnd--
-	}
-	return ExpectedText{
-		StartByte: start, EndByte: beforeEnd,
-		Text: string(before[start:beforeEnd]), Replacement: string(after[start:afterEnd]),
-	}
-}
-
-func wholeFileRepairOperation(
-	id string,
-	action FixAction,
-	path string,
-	before, after []byte,
-) RepairOperation {
-	return RepairOperation{
-		ID: id, ActionID: action.ID, IssueKey: action.IssueKeys[0], Kind: RepairOperationWrite,
-		Path: path, SourceHash: SourceHash(before), Content: append([]byte(nil), after...),
-		Expected:  []ExpectedText{{StartByte: 0, EndByte: len(before), Text: string(before), Replacement: string(after)}},
-		Lifecycle: ClassifyLifecycleEdit(LifecycleEdit{Before: before, After: after}),
-	}
-}
-
-func repairOperationID(actionID, path, kind string) string {
-	digest := strings.TrimPrefix(SourceHash([]byte(actionID+"\x00"+path+"\x00"+kind)), "sha256:")
-	return "operation:v1:" + digest
 }

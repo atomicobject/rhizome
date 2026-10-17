@@ -2,6 +2,7 @@ package noderead
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 	"time"
@@ -11,7 +12,7 @@ import (
 
 // BuildReadOverlayIndex projects touched preview documents once into an
 // immutable read index that can be reused across request scopes.
-func BuildReadOverlayIndex(ctx context.Context, schema *ontology.Schema, overlay *ReadOverlay) (*ReadOverlayIndex, error) {
+func BuildReadOverlayIndex(ctx context.Context, schema *ontoschema.Schema, overlay *ReadOverlay) (*ReadOverlayIndex, error) {
 	if schema == nil || overlay == nil || overlay.Empty() {
 		return nil, nil
 	}
@@ -47,7 +48,7 @@ func BuildReadOverlayIndex(ctx context.Context, schema *ontology.Schema, overlay
 // only the requested touched paths. It is the edit-session v1 incremental path
 // for simple property/link changes; callers fall back to BuildReadOverlayIndex
 // when they cannot prove the changed paths.
-func BuildReadOverlayIndexReplacingPaths(ctx context.Context, schema *ontology.Schema, overlay *ReadOverlay, previous *ReadOverlayIndex, replacePaths []string) (*ReadOverlayIndex, error) {
+func BuildReadOverlayIndexReplacingPaths(ctx context.Context, schema *ontoschema.Schema, overlay *ReadOverlay, previous *ReadOverlayIndex, replacePaths []string) (*ReadOverlayIndex, error) {
 	if previous == nil || len(replacePaths) == 0 {
 		return BuildReadOverlayIndex(ctx, schema, overlay)
 	}
@@ -64,11 +65,17 @@ func BuildReadOverlayIndexReplacingPaths(ctx context.Context, schema *ontology.S
 	index.collectOverlayPaths(overlay)
 	index.BuildTouchedPathCount = len(index.TouchedPaths)
 	for path, snapshot := range previous.SnapshotsByPath {
+		if _, touched := index.TouchedPaths[path]; !touched {
+			continue
+		}
 		if _, ok := replace[path]; !ok {
 			index.SnapshotsByPath[path] = snapshot
 		}
 	}
 	for key, record := range previous.RecordsByRef {
+		if _, touched := index.TouchedPaths[record.Ref.NotePath]; !touched {
+			continue
+		}
 		if _, ok := replace[record.Ref.NotePath]; ok {
 			continue
 		}
@@ -80,6 +87,9 @@ func BuildReadOverlayIndexReplacingPaths(ctx context.Context, schema *ontology.S
 	}
 	for typeName, items := range previous.ItemsByType {
 		for _, item := range items {
+			if _, touched := index.TouchedPaths[item.NotePath]; !touched {
+				continue
+			}
 			if _, ok := replace[item.NotePath]; ok {
 				continue
 			}
@@ -87,6 +97,9 @@ func BuildReadOverlayIndexReplacingPaths(ctx context.Context, schema *ontology.S
 		}
 	}
 	for path, keys := range previous.ItemKeysByTouchedPath {
+		if _, touched := index.TouchedPaths[path]; !touched {
+			continue
+		}
 		if _, ok := replace[path]; !ok {
 			index.ItemKeysByTouchedPath[path] = cloneStringSet(keys)
 		}
@@ -151,7 +164,7 @@ func (index *ReadOverlayIndex) collectOverlayPaths(overlay *ReadOverlay) {
 	}
 }
 
-func (index *ReadOverlayIndex) addOverlayPath(ctx context.Context, schema *ontology.Schema, overlay *ReadOverlay, path string) error {
+func (index *ReadOverlayIndex) addOverlayPath(ctx context.Context, schema *ontoschema.Schema, overlay *ReadOverlay, path string) error {
 	_ = ctx
 	if !overlay.IsMarkdownSource() {
 		return nil
@@ -203,12 +216,12 @@ func overlayContentForIndex(overlay *ReadOverlay, path string) (string, int64, b
 	return "", 0, false
 }
 
-func (index *ReadOverlayIndex) addProjection(schema *ontology.Schema, projection *ontology.NodeProjection, updatedAt int64) {
+func (index *ReadOverlayIndex) addProjection(schema *ontoschema.Schema, projection *ontology.NodeProjection, updatedAt int64) {
 	if projection == nil {
 		return
 	}
 	record := nodeRecordFromOverlayProjection(schema, projection, updatedAt)
-	key := nodeRefIdentityKey(record.Ref)
+	key := RefIdentityKey(record.Ref)
 	if key == "" {
 		return
 	}
@@ -237,7 +250,7 @@ func (index *ReadOverlayIndex) addProjection(schema *ontology.Schema, projection
 	}
 }
 
-func (index *ReadOverlayIndex) addItemForTypes(schema *ontology.Schema, record NodeRecord) {
+func (index *ReadOverlayIndex) addItemForTypes(schema *ontoschema.Schema, record NodeRecord) {
 	item := ontology.NodeListItem{
 		Ref:          record.Ref,
 		Title:        record.Title,
@@ -265,7 +278,7 @@ func (index *ReadOverlayIndex) addItemForTypes(schema *ontology.Schema, record N
 	}
 }
 
-func nodeRecordFromOverlayProjection(schema *ontology.Schema, projection *ontology.NodeProjection, updatedAt int64) NodeRecord {
+func nodeRecordFromOverlayProjection(schema *ontoschema.Schema, projection *ontology.NodeProjection, updatedAt int64) NodeRecord {
 	title := projection.Ref.String()
 	if workspace := ontology.BuildNodeWorkspaceFromProjectionWithSchema(schema, projection); workspace != nil {
 		title = workspace.Node.Title
@@ -279,8 +292,9 @@ func nodeRecordFromOverlayProjection(schema *ontology.Schema, projection *ontolo
 		Path:            projection.Ref.NotePath,
 		Title:           title,
 		Content:         content,
-		Frontmatter:     frontmatterWithTemporalText(projection.Snapshot.Frontmatter),
+		Frontmatter:     frontmatterWithTemporalText(projection.Snapshot.Frontmatter, projection.Type),
 		InlineProps:     projectionInlineProps(projection),
+		Tags:            snapshotTags(projection.Snapshot),
 		FieldValues:     nil,
 		projectedFields: captureProjectedFieldValues(projection),
 		TypeName:        projection.ResolvedType,

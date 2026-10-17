@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,7 +16,7 @@ func TestExecutorDoesNotJoinCancelledQueuedJob(t *testing.T) {
 			release := make(chan struct{})
 			defer close(release)
 			started := make(chan struct{})
-			_, _, err := executor.Submit(context.Background(), Request{Kind: KindBootCatchUp, Run: func(context.Context, Reporter) error {
+			_, _, err := executor.Submit(context.Background(), Request{Kind: KindBootCatchUp, Run: func(context.Context, *indexlock.Lease, Reporter) error {
 				close(started)
 				<-release
 				return nil
@@ -27,7 +28,7 @@ func TestExecutorDoesNotJoinCancelledQueuedJob(t *testing.T) {
 				t.Fatal("blocking job did not start")
 			}
 
-			cancelled, _, err := executor.Submit(context.Background(), Request{Kind: kind, Coalesce: true, Run: func(context.Context, Reporter) error {
+			cancelled, _, err := executor.Submit(context.Background(), Request{Kind: kind, Coalesce: true, Run: func(context.Context, *indexlock.Lease, Reporter) error {
 				t.Error("cancelled queued job must not run")
 				return nil
 			}})
@@ -41,7 +42,7 @@ func TestExecutorDoesNotJoinCancelledQueuedJob(t *testing.T) {
 			require.ErrorIs(t, cancelled.Err(), context.Canceled)
 
 			ran := make(chan struct{})
-			replacement, joined, err := executor.Submit(context.Background(), Request{Kind: kind, Coalesce: true, Run: func(context.Context, Reporter) error {
+			replacement, joined, err := executor.Submit(context.Background(), Request{Kind: kind, Coalesce: true, Run: func(context.Context, *indexlock.Lease, Reporter) error {
 				close(ran)
 				return nil
 			}})

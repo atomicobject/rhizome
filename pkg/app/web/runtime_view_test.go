@@ -2,17 +2,21 @@ package web
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
+	"os"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 type runtimeViewNoteReader struct {
@@ -259,7 +263,8 @@ func TestPublicQueryRecipeHydratesOneDurableFactSnapshot(t *testing.T) {
 		Name:       "Exact note snapshot",
 		Problem:    "Read one note through a saved query recipe.",
 		InputSpec: queryrecipe.InputSpec{
-			Mode: queryrecipe.InputModeRequiredAnchor,
+			Mode:         queryrecipe.InputModeRequiredAnchor,
+			PrimaryInput: "path",
 			Inputs: []queryrecipe.Input{{
 				Name:     "path",
 				Required: true,
@@ -273,7 +278,7 @@ func TestPublicQueryRecipeHydratesOneDurableFactSnapshot(t *testing.T) {
 		AdaptationGuidance: queryrecipe.AdaptationGuidance{Summary: "Use the selected note."},
 	}
 
-	run, issues, err := srv.executePublicQueryRecipe(context.Background(), recipe, map[string]string{"path": notePath})
+	run, issues, err := srv.executePublicQueryRecipe(context.Background(), []queryrecipe.Recipe{recipe}, nil, recipe.ID, map[string]string{"path": notePath})
 	require.NoError(t, err)
 	require.Empty(t, issues)
 	require.NoError(t, mutationErr)
@@ -285,15 +290,18 @@ func TestPublicQueryRecipeHydratesOneDurableFactSnapshot(t *testing.T) {
 }
 
 func TestInitRuntimeWithLiveViewDoesNotOpenFallbackStores(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	view := &webRuntimeView{}
 	provided := &Runtime{Live: view}
-	runtime, status, err := initRuntime(context.Background(), Config{
-		Vault:        &obsidian.Vault{Name: "test"},
+	runtime, status, err := initRuntime(vaultconfig.WithEnv(context.Background(), env), Config{
+		Vault:        &repoconfig.Vault{Env: env, Name: "test"},
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Name: "test", Path: root},
 		Runtime:      provided,
-		NoteMetadata: testNoteMetadataIndexer(t),
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
 	})
 	require.NoError(t, err)
 	require.Same(t, provided, runtime)
@@ -311,7 +319,9 @@ func TestOntologyDefaultsAdoptLateRuntimeNoteReader(t *testing.T) {
 		noteReader: startup,
 	}
 
-	before := srv.ontologyQueryDeps(nil, nil).NoteReader
+	beforeDeps, err := srv.ontologyQueryDeps(nil, nil)
+	require.NoError(t, err)
+	before := beforeDeps.NoteReader
 	content, err := before.GetContents(srv.cfg.VaultDef, "note.md")
 	require.NoError(t, err)
 	require.Equal(t, "startup", content)
@@ -319,22 +329,20 @@ func TestOntologyDefaultsAdoptLateRuntimeNoteReader(t *testing.T) {
 	late := &runtimeViewNoteReader{content: "late", paths: []string{"late.md", "added.md"}}
 	view.snapshot.NoteReader = late
 	view.snapshot.IntelStore = &semdb.Store{}
-	srv.ontologyDefs = &ontologyDefinitions{schema: &ontology.Schema{}}
-	after := srv.ontologyQueryDeps(nil, nil).NoteReader
+	srv.ontologyDefs = &ontologyDefinitions{schema: &ontoschema.Schema{}}
+	afterDeps, err := srv.ontologyQueryDeps(nil, nil)
+	require.NoError(t, err)
+	after := afterDeps.NoteReader
 	content, err = after.GetContents(srv.cfg.VaultDef, "note.md")
 	require.NoError(t, err)
 	require.Equal(t, "late", content)
 	paths, err := after.GetNotesList(srv.cfg.VaultDef)
 	require.NoError(t, err)
 	require.Equal(t, []string{"late.md", "added.md"}, paths)
-	service, _, err := srv.ontologyContext()
-	require.NoError(t, err)
-	serviceContent, err := service.NoteReader.GetContents(srv.cfg.VaultDef, "note.md")
-	require.NoError(t, err)
-	require.Equal(t, "late", serviceContent)
-
 	explicit := &runtimeViewNoteReader{content: "explicit"}
-	content, err = srv.ontologyQueryDeps(nil, explicit).NoteReader.GetContents(srv.cfg.VaultDef, "note.md")
+	explicitDeps, err := srv.ontologyQueryDeps(nil, explicit)
+	require.NoError(t, err)
+	content, err = explicitDeps.NoteReader.GetContents(srv.cfg.VaultDef, "note.md")
 	require.NoError(t, err)
 	require.Equal(t, "explicit", content)
 }
@@ -351,8 +359,9 @@ func TestOntologyQueryDepsKeepTheServiceStoreAcrossLivePublication(t *testing.T)
 		cfg:     Config{VaultDef: obsidian.VaultDefinition{Path: t.TempDir()}},
 		runtime: &Runtime{Live: view},
 	}
-	service := ontology.NewService(srv.cfg.VaultDef, &obsidian.Note{}, requestStore, &ontology.Schema{})
-	deps := srv.ontologyQueryDeps(service, nil)
+	service := ontology.NewService(requestStore, &ontoschema.Schema{})
+	deps, err := srv.ontologyQueryDeps(service, nil)
+	require.NoError(t, err)
 	require.Same(t, requestStore, deps.Store)
 
 	require.NoError(t, liveStore.Close())

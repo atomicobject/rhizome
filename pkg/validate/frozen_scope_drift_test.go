@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/assert"
@@ -65,7 +66,7 @@ func runFrozenScopeDriftFixture(t *testing.T, files map[string]string) (CheckRes
 	_, err := testNoteMetadata(t).EnsureIndexed(context.Background(), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
 	runCtx := RunContext{
@@ -137,7 +138,7 @@ func TestRunFrozenScopeDrift_NoEffortsIsSkippedSummary(t *testing.T) {
 func TestRunFrozenScopeDrift_NilRuntimeSkips(t *testing.T) {
 	runCtx := RunContext{MaxIssues: 100}
 	result := RunFrozenScopeDriftWithRuntime(context.Background(), runCtx, nil)
-	require.True(t, result.Skipped)
+	require.NotEmpty(t, result.NotApplicable)
 	require.Contains(t, result.Summary, "no ontology schema")
 }
 

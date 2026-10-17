@@ -2,4 +2,11 @@
 
 package sqliteutil
 
-func cloneFile(string, string) error { return errCloneUnsupported }
+import (
+	"errors"
+	"fmt"
+)
+
+func cloneFile(string, string) error {
+	return fmt.Errorf("copy-on-write clone: %w", errors.ErrUnsupported)
+}

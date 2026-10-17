@@ -852,12 +852,12 @@ def main() -> int:
     parser.add_argument("--directory-target", default="docs/specs", help="directory used by targeted and rich scenarios")
     parser.add_argument(
         "--file-context-code-target",
-        default="pkg/app/cli/file_context.go",
+        default="pkg/app/operations/file_context.go",
         help="exact code file used by file-context scenarios",
     )
     parser.add_argument(
         "--file-context-directory-target",
-        default="pkg/app/cli",
+        default="pkg/app/operations",
         help="directory used by file-context scenarios",
     )
     parser.add_argument(

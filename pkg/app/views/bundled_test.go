@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 	"testing/fstest"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/stretchr/testify/require"
 )
@@ -30,15 +30,15 @@ func bundledGroupViews() fstest.MapFS {
 // deliverySchema has a Delivery group with two roots (Spec, Effort) where an
 // effort links its spec, and a Library group with one interface root whose two
 // implementors never link to each other.
-func deliverySchema() *ontology.Schema {
-	return &ontology.Schema{
-		Types: map[string]*ontology.NoteType{
-			"Spec":   {Name: "Spec", Role: ontology.TypeRoleNote, DisplayGroup: "Delivery"},
-			"Effort": {Name: "Effort", Role: ontology.TypeRoleNote, DisplayGroup: "Delivery", Fields: []*ontology.Field{{Name: "spec", Kind: ontology.FieldKindLink, TypeName: "Spec"}}},
-			"Book":   {Name: "Book", Role: ontology.TypeRoleNote, Implements: []string{"Item"}, Fields: []*ontology.Field{{Name: "sequel", Kind: ontology.FieldKindLink, TypeName: "Book"}}},
-			"Paper":  {Name: "Paper", Role: ontology.TypeRoleNote, Implements: []string{"Item"}},
+func deliverySchema() *ontoschema.Schema {
+	return &ontoschema.Schema{
+		Types: map[string]*ontoschema.NoteType{
+			"Spec":   {Name: "Spec", Role: ontoschema.TypeRoleNote, DisplayGroup: "Delivery"},
+			"Effort": {Name: "Effort", Role: ontoschema.TypeRoleNote, DisplayGroup: "Delivery", Fields: []*ontoschema.Field{{Name: "spec", Kind: ontoschema.FieldKindLink, TypeName: "Spec"}}},
+			"Book":   {Name: "Book", Role: ontoschema.TypeRoleNote, Implements: []string{"Item"}, Fields: []*ontoschema.Field{{Name: "sequel", Kind: ontoschema.FieldKindLink, TypeName: "Book"}}},
+			"Paper":  {Name: "Paper", Role: ontoschema.TypeRoleNote, Implements: []string{"Item"}},
 		},
-		Interfaces: map[string]*ontology.InterfaceType{"Item": {Name: "Item", DisplayGroup: "Library"}},
+		Interfaces: map[string]*ontoschema.InterfaceType{"Item": {Name: "Item", DisplayGroup: "Library"}},
 	}
 }
 
@@ -143,8 +143,8 @@ func TestTraceIsOfferedOnlyForLinkedGroups(t *testing.T) {
 
 func TestTraceResolvesInterfaceRootsThroughImplementors(t *testing.T) {
 	schema := deliverySchema()
-	schema.Types["Review"] = &ontology.NoteType{Name: "Review", Role: ontology.TypeRoleNote, DisplayGroup: "Library",
-		Fields: []*ontology.Field{{Name: "subject", Kind: ontology.FieldKindLink, TypeName: "Item"}}}
+	schema.Types["Review"] = &ontoschema.NoteType{Name: "Review", Role: ontoschema.TypeRoleNote, DisplayGroup: "Library",
+		Fields: []*ontoschema.Field{{Name: "subject", Kind: ontoschema.FieldKindLink, TypeName: "Item"}}}
 	catalog, err := New(ServiceOptions{Schema: schema, Bundled: bundledGroupViews()}).Catalog(context.Background())
 	require.NoError(t, err)
 	require.Contains(t, choiceViewIDs(findTarget(t, catalog, viewconfig.MountKindGroup, "Library")), TraceViewID,
@@ -153,10 +153,10 @@ func TestTraceResolvesInterfaceRootsThroughImplementors(t *testing.T) {
 
 func TestTraceIgnoresLinksWithinOneRootAndToBroadInterfaces(t *testing.T) {
 	schema := deliverySchema()
-	schema.Types["Paper"].Fields = []*ontology.Field{{Name: "cites", Kind: ontology.FieldKindLink, TypeName: "Item", List: true}}
-	schema.Interfaces["Note"] = &ontology.InterfaceType{Name: "Note"}
+	schema.Types["Paper"].Fields = []*ontoschema.Field{{Name: "cites", Kind: ontoschema.FieldKindLink, TypeName: "Item", List: true}}
+	schema.Interfaces["Note"] = &ontoschema.InterfaceType{Name: "Note"}
 	schema.Types["Spec"].Implements = []string{"Note"}
-	schema.Types["Effort"].Fields = []*ontology.Field{{Name: "about", Kind: ontology.FieldKindLink, TypeName: "Note"}}
+	schema.Types["Effort"].Fields = []*ontoschema.Field{{Name: "about", Kind: ontoschema.FieldKindLink, TypeName: "Note"}}
 	catalog, err := New(ServiceOptions{Schema: schema, Bundled: bundledGroupViews()}).Catalog(context.Background())
 	require.NoError(t, err)
 	require.NotContains(t, choiceViewIDs(findTarget(t, catalog, viewconfig.MountKindGroup, "Library")), TraceViewID,
@@ -169,15 +169,15 @@ func TestTraceIgnoresLinksWithinOneRootAndToBroadInterfaces(t *testing.T) {
 // claims each concrete node type for the first member in the API's member
 // order (rail labels, not names). Applicability must claim the same way.
 func TestTraceClaimsTypesInRailOrder(t *testing.T) {
-	schema := &ontology.Schema{
-		Types: map[string]*ontology.NoteType{
+	schema := &ontoschema.Schema{
+		Types: map[string]*ontoschema.NoteType{
 			// Shared implements both roots; the Beta root's label sorts first, so
 			// Beta claims it, and a Solo link to Shared crosses roots.
-			"Shared": {Name: "Shared", Role: ontology.TypeRoleNote, Implements: []string{"Alpha", "Beta"}},
-			"Solo":   {Name: "Solo", Role: ontology.TypeRoleNote, Implements: []string{"Alpha"}, Fields: []*ontology.Field{{Name: "shared", Kind: ontology.FieldKindLink, TypeName: "Shared"}}},
-			"Other":  {Name: "Other", Role: ontology.TypeRoleNote, Implements: []string{"Beta"}},
+			"Shared": {Name: "Shared", Role: ontoschema.TypeRoleNote, Implements: []string{"Alpha", "Beta"}},
+			"Solo":   {Name: "Solo", Role: ontoschema.TypeRoleNote, Implements: []string{"Alpha"}, Fields: []*ontoschema.Field{{Name: "shared", Kind: ontoschema.FieldKindLink, TypeName: "Shared"}}},
+			"Other":  {Name: "Other", Role: ontoschema.TypeRoleNote, Implements: []string{"Beta"}},
 		},
-		Interfaces: map[string]*ontology.InterfaceType{
+		Interfaces: map[string]*ontoschema.InterfaceType{
 			"Alpha": {Name: "Alpha", PluralLabel: "Zeta things", DisplayGroup: "Pair"},
 			"Beta":  {Name: "Beta", PluralLabel: "Alpha things", DisplayGroup: "Pair"},
 		},
@@ -189,9 +189,9 @@ func TestTraceClaimsTypesInRailOrder(t *testing.T) {
 
 func TestTraceCountsOnlyNodeImplementors(t *testing.T) {
 	schema := deliverySchema()
-	schema.Types["Shelf"] = &ontology.NoteType{Name: "Shelf", Role: ontology.TypeRoleNote, DisplayGroup: "Library"}
-	schema.Types["Blurb"] = &ontology.NoteType{Name: "Blurb", Role: ontology.TypeRoleSection, Implements: []string{"Item"},
-		Fields: []*ontology.Field{{Name: "shelf", Kind: ontology.FieldKindLink, TypeName: "Shelf"}}}
+	schema.Types["Shelf"] = &ontoschema.NoteType{Name: "Shelf", Role: ontoschema.TypeRoleNote, DisplayGroup: "Library"}
+	schema.Types["Blurb"] = &ontoschema.NoteType{Name: "Blurb", Role: ontoschema.TypeRoleSection, Implements: []string{"Item"},
+		Fields: []*ontoschema.Field{{Name: "shelf", Kind: ontoschema.FieldKindLink, TypeName: "Shelf"}}}
 	catalog, err := New(ServiceOptions{Schema: schema, Bundled: bundledGroupViews()}).Catalog(context.Background())
 	require.NoError(t, err)
 	require.NotContains(t, choiceViewIDs(findTarget(t, catalog, viewconfig.MountKindGroup, "Library")), TraceViewID,

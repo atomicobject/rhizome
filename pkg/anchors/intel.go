@@ -1,7 +1,5 @@
 package codeanchor
 
-import "github.com/atomicobject/rhizome/pkg/ontology/readmodel"
-
 // IntelAnchor represents an addressable code entity persisted in the intel tables.
 type IntelAnchor struct {
 	AnchorID   string
@@ -40,15 +38,17 @@ type IntelAnchorMeta struct {
 
 // IntelDocSection represents a section of a markdown note with a stable-ish ID.
 type IntelDocSection struct {
-	SectionID   string
-	Path        string
-	Title       string
-	Level       int64
-	StartByte   int64
-	EndByte     int64
-	Content     string
-	Fingerprint string
-	UpdatedAt   int64 // unix seconds
+	// SourceNodeID is the canonical authored section identity; empty is the note root.
+	SourceNodeID string
+	SectionID    string
+	Path         string
+	Title        string
+	Level        int64
+	StartByte    int64
+	EndByte      int64
+	Content      string
+	Fingerprint  string
+	UpdatedAt    int64 // unix seconds
 }
 
 // IntelDocSectionMeta is a lightweight view of IntelDocSection for fast sync planning.
@@ -62,34 +62,6 @@ type IntelDocSectionMeta struct {
 	Fingerprint string
 	UpdatedAt   int64 // unix seconds
 }
-
-// IntelOntologyNode aliases the storage-neutral ontology read-model row.
-type IntelOntologyNode = readmodel.NodeRow
-
-// IntelOntologyNodeFieldValue aliases the storage-neutral ontology field row.
-type IntelOntologyNodeFieldValue = readmodel.FieldValueRow
-
-// IntelOntologyNodeLinkDependency aliases the storage-neutral link dependency row.
-type IntelOntologyNodeLinkDependency = readmodel.LinkDependencyRow
-
-// IntelOntologyNodeReadModel aliases the storage-neutral ontology read-model write set.
-type IntelOntologyNodeReadModel = readmodel.NodeReadModel
-
-type OntologyFieldOperator = readmodel.FieldOperator
-
-const (
-	OntologyFieldOpEq     = readmodel.FieldOpEq
-	OntologyFieldOpIn     = readmodel.FieldOpIn
-	OntologyFieldOpExists = readmodel.FieldOpExists
-	OntologyFieldOpGT     = readmodel.FieldOpGT
-	OntologyFieldOpGTE    = readmodel.FieldOpGTE
-	OntologyFieldOpLT     = readmodel.FieldOpLT
-	OntologyFieldOpLTE    = readmodel.FieldOpLTE
-)
-
-type OntologyFieldPredicate = readmodel.FieldPredicate
-type OntologyFieldSort = readmodel.FieldSort
-type OntologyNodeQueryPlan = readmodel.NodeQueryPlan
 
 // IntelOntologyNodeEmbeddingState tracks ontology-only embedding dependencies.
 // It is keyed by chunk_id from intel_chunks and intentionally sidecars the vector

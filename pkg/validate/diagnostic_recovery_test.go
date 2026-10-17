@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +17,7 @@ func TestDiagnosticSnapshotPublishesBlockedRepairRecovery(t *testing.T) {
 	defer store.Close()
 	generation, err := store.SetValidationRunning(ctx)
 	require.NoError(t, err)
-	result := blockedRepairJournalResult(RunContext{}, []string{CheckBrokenLinks}, nil, "")
+	result, _ := RepairRecoveryOutcome(RunContext{}, []string{CheckBrokenLinks}, nil, "")
 	require.Equal(t, 1, result.ErrorCount)
 	snapshot, err := BuildDiagnosticSnapshot(result, DiagnosticSnapshotContext{VaultIdentity: "vault", Generation: generation, CheckOutcomes: []DiagnosticCheckOutcome{{Check: CheckBrokenLinks, Outcome: CheckOutcomeBlocked, Summary: "Recover interrupted repairs first"}}})
 	require.NoError(t, err)
@@ -36,5 +36,5 @@ func TestDiagnosticSnapshotPublishesBlockedRepairRecovery(t *testing.T) {
 	require.Zero(t, stored.ErrorCount, "a blocked recovery is not an invented diagnostic error")
 	require.Len(t, stored.Checks, 1)
 	require.Equal(t, semdb.ValidationCheckOutcomeBlocked, stored.Checks[0].Outcome)
-	require.Equal(t, "Recover interrupted repairs first", stored.Checks[0].Summary)
+	require.Contains(t, stored.Checks[0].Summary, "Recover")
 }

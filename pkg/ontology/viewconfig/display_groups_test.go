@@ -2,22 +2,22 @@ package viewconfig
 
 import (
 	"encoding/json"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDisplayGroupsFollowNavigationRoots(t *testing.T) {
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{
-		"Effort":   {Name: "Effort", Role: ontology.TypeRoleNote, DisplayGroup: "ChildOnly", Implements: []string{"Delivery"}},
-		"Spec":     {Name: "Spec", Role: ontology.TypeRoleNote, Implements: []string{"Delivery"}},
-		"Embedded": {Name: "Embedded", Role: ontology.TypeRoleEmbeddedNode, DisplayGroup: "EmbeddedOnly"},
-		"Material": {Name: "Material", Role: ontology.TypeRoleNote, DisplayParent: "Delivery", DisplayGroup: "AnotherChild"},
-		"Plain":    {Name: "Plain", Role: ontology.TypeRoleNote},
-	}, Interfaces: map[string]*ontology.InterfaceType{"Delivery": {Name: "Delivery", DisplayGroup: "Delivery"}}}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{
+		"Effort":   {Name: "Effort", Role: ontoschema.TypeRoleNote, DisplayGroup: "ChildOnly", Implements: []string{"Delivery"}},
+		"Spec":     {Name: "Spec", Role: ontoschema.TypeRoleNote, Implements: []string{"Delivery"}},
+		"Embedded": {Name: "Embedded", Role: ontoschema.TypeRoleEmbeddedNode, DisplayGroup: "EmbeddedOnly"},
+		"Material": {Name: "Material", Role: ontoschema.TypeRoleNote, DisplayParent: "Delivery", DisplayGroup: "AnotherChild"},
+		"Plain":    {Name: "Plain", Role: ontoschema.TypeRoleNote},
+	}, Interfaces: map[string]*ontoschema.InterfaceType{"Delivery": {Name: "Delivery", DisplayGroup: "Delivery"}}}
 	require.Equal(t, map[string]struct{}{"Delivery": {}, "Other": {}}, DisplayGroups(schema))
 }
 
@@ -34,23 +34,23 @@ func TestGroupMountsValidateEffectiveGroupsAndGenericTarget(t *testing.T) {
 }
 
 func TestDisplayGroupsRespectExplicitParentAndIgnoreInvisibleInterfaces(t *testing.T) {
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{
-		"Root":  {Role: ontology.TypeRoleNote, DisplayGroup: "RootGroup"},
-		"Child": {Role: ontology.TypeRoleNote, DisplayParent: "Root", DisplayGroup: "ChildGroup", Implements: []string{"Collection"}},
-		"Peer":  {Role: ontology.TypeRoleNote, Implements: []string{"Collection"}},
-	}, Interfaces: map[string]*ontology.InterfaceType{
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{
+		"Root":  {Role: ontoschema.TypeRoleNote, DisplayGroup: "RootGroup"},
+		"Child": {Role: ontoschema.TypeRoleNote, DisplayParent: "Root", DisplayGroup: "ChildGroup", Implements: []string{"Collection"}},
+		"Peer":  {Role: ontoschema.TypeRoleNote, Implements: []string{"Collection"}},
+	}, Interfaces: map[string]*ontoschema.InterfaceType{
 		"Collection": {DisplayGroup: "CollectionGroup"},
 		"Invisible":  {},
 	}}
 	require.Equal(t, map[string]struct{}{"RootGroup": {}, "CollectionGroup": {}}, DisplayGroups(schema))
 	require.Empty(t, DisplayGroups(nil))
-	require.Empty(t, DisplayGroups(&ontology.Schema{}))
+	require.Empty(t, DisplayGroups(&ontoschema.Schema{}))
 }
 
 func TestDisplayGroupsResolveCyclesDeterministically(t *testing.T) {
 	// A hand-built schema can bypass ontology's cycle checks. Navigation still
 	// keeps a root and never follows an unbounded parent cycle.
-	schema := &ontology.Schema{Interfaces: map[string]*ontology.InterfaceType{
+	schema := &ontoschema.Schema{Interfaces: map[string]*ontoschema.InterfaceType{
 		"A": {Label: "Same", DisplayGroup: "AGroup", DisplayParent: "B"},
 		"B": {Label: "Same", DisplayGroup: "BGroup", DisplayParent: "A"},
 	}}
@@ -79,12 +79,12 @@ func TestDisplayGroupsMatchSharedRailFixture(t *testing.T) {
 		}
 	}
 	require.NoError(t, json.Unmarshal(data, &fixture))
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{}, Interfaces: map[string]*ontology.InterfaceType{}}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{}, Interfaces: map[string]*ontoschema.InterfaceType{}}
 	for _, it := range fixture.Types {
-		schema.Types[it.Name] = &ontology.NoteType{Name: it.Name, Role: ontology.TypeRole(it.Role), Label: it.Label, PluralLabel: it.PluralLabel, DisplayGroup: it.DisplayGroup, DisplayParent: it.DisplayParent, Implements: it.Implements}
+		schema.Types[it.Name] = &ontoschema.NoteType{Name: it.Name, Role: ontoschema.TypeRole(it.Role), Label: it.Label, PluralLabel: it.PluralLabel, DisplayGroup: it.DisplayGroup, DisplayParent: it.DisplayParent, Implements: it.Implements}
 	}
 	for _, it := range fixture.Interfaces {
-		schema.Interfaces[it.Name] = &ontology.InterfaceType{Name: it.Name, Label: it.Label, PluralLabel: it.PluralLabel, DisplayGroup: it.DisplayGroup, DisplayParent: it.DisplayParent}
+		schema.Interfaces[it.Name] = &ontoschema.InterfaceType{Name: it.Name, Label: it.Label, PluralLabel: it.PluralLabel, DisplayGroup: it.DisplayGroup, DisplayParent: it.DisplayParent}
 	}
 	types, interfaces := NavigationMembers(schema)
 	require.Equal(t, fixture.Expected.SummaryTypes, types)

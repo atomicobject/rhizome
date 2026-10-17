@@ -3,12 +3,14 @@ package credentials
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,9 +30,9 @@ func (r *fakeOnePasswordReader) Read(_ context.Context, account, reference strin
 
 func TestImportRejectsMappingsBeforeReadingOnePassword(t *testing.T) {
 	reader := &fakeOnePasswordReader{}
-	_, err := Import(context.Background(), reader, "example.1password.com", []string{"UNSUPPORTED_KEY=op://Private/item/credential"}, func(bool) (obsidian.CliConfig, error) {
-		return obsidian.CliConfig{}, nil
-	}, func(obsidian.CliConfig) error { return nil })
+	_, err := Import(context.Background(), reader, "example.1password.com", []string{"UNSUPPORTED_KEY=op://Private/item/credential"}, func(bool) (repoconfig.CliConfig, error) {
+		return repoconfig.CliConfig{}, nil
+	}, func(repoconfig.CliConfig) error { return nil })
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported credential key")
 	require.Empty(t, reader.calls)
@@ -38,9 +40,9 @@ func TestImportRejectsMappingsBeforeReadingOnePassword(t *testing.T) {
 
 func TestImportRejectsInvalidReferencesBeforeReadingOnePassword(t *testing.T) {
 	reader := &fakeOnePasswordReader{}
-	_, err := Import(context.Background(), reader, "example.1password.com", []string{"VOYAGE_API_KEY=not-a-reference"}, func(bool) (obsidian.CliConfig, error) {
-		return obsidian.CliConfig{}, nil
-	}, func(obsidian.CliConfig) error { return nil })
+	_, err := Import(context.Background(), reader, "example.1password.com", []string{"VOYAGE_API_KEY=not-a-reference"}, func(bool) (repoconfig.CliConfig, error) {
+		return repoconfig.CliConfig{}, nil
+	}, func(repoconfig.CliConfig) error { return nil })
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid 1Password reference")
 	require.Empty(t, reader.calls)
@@ -52,9 +54,9 @@ func TestImportAllowsQuotedOnePasswordReferencesWithSpaces(t *testing.T) {
 	}}
 	count, err := Import(context.Background(), reader, "example.1password.com", []string{
 		"VOYAGE_API_KEY=op://Private/ssh key/private key?ssh-format=openssh",
-	}, func(bool) (obsidian.CliConfig, error) {
-		return obsidian.CliConfig{}, nil
-	}, func(obsidian.CliConfig) error { return nil })
+	}, func(bool) (repoconfig.CliConfig, error) {
+		return repoconfig.CliConfig{}, nil
+	}, func(repoconfig.CliConfig) error { return nil })
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
 	require.Equal(t, []string{"example.1password.com:op://Private/ssh key/private key?ssh-format=openssh"}, reader.calls)
@@ -70,10 +72,10 @@ func TestImportReadsAllCredentialsBeforeSaving(t *testing.T) {
 	_, err := Import(context.Background(), reader, "example.1password.com", []string{
 		"VOYAGE_API_KEY=op://Private/voyage/credential",
 		"TYPESAFE_API_KEY=op://Private/typesafe/credential",
-	}, func(bool) (obsidian.CliConfig, error) {
+	}, func(bool) (repoconfig.CliConfig, error) {
 		loaded = true
-		return obsidian.CliConfig{}, nil
-	}, func(obsidian.CliConfig) error {
+		return repoconfig.CliConfig{}, nil
+	}, func(repoconfig.CliConfig) error {
 		saved = true
 		return nil
 	})
@@ -84,12 +86,13 @@ func TestImportReadsAllCredentialsBeforeSaving(t *testing.T) {
 }
 
 func TestImportPersistsMappingsPreservesConfigAndClearsSkips(t *testing.T) {
-	original := obsidian.CliConfigPath
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yml")
-	obsidian.CliConfigPath = func() (string, string, error) { return dir, path, nil }
-	t.Cleanup(func() { obsidian.CliConfigPath = original })
-	require.NoError(t, obsidian.SaveCliConfig(obsidian.CliConfig{
+	env.CLIConfigFile = path
+	require.NoError(t, repoconfig.SaveCliConfig(env, repoconfig.CliConfig{
 		DefaultVaultName: "existing",
 		Env:              map[string]string{"OPENAI_API_KEY": "synthetic-openai"},
 		CredentialSkips:  map[string]bool{"VOYAGE_API_KEY": true, "CEREBRAS_API_KEY": true},
@@ -99,14 +102,14 @@ func TestImportPersistsMappingsPreservesConfigAndClearsSkips(t *testing.T) {
 		"op://Private/voyage/credential":   "synthetic-voyage",
 		"op://Private/typesafe/credential": "synthetic-typesafe",
 	}}
-	count, err := Import(context.Background(), reader, "example.1password.com", []string{
+	count, err := Import(vaultconfig.WithEnv(context.Background(), env), reader, "example.1password.com", []string{
 		"VOYAGE_API_KEY=op://Private/voyage/credential",
 		"TYPESAFE_API_KEY=op://Private/typesafe/credential",
-	}, obsidian.LoadCliConfig, obsidian.SaveCliConfig)
+	}, func(missing bool) (repoconfig.CliConfig, error) { return repoconfig.LoadCliConfig(env, missing) }, func(cfg repoconfig.CliConfig) error { return repoconfig.SaveCliConfig(env, cfg) })
 	require.NoError(t, err)
 	require.Equal(t, 2, count)
 
-	cfg, err := obsidian.LoadCliConfig(false)
+	cfg, err := repoconfig.LoadCliConfig(env, false)
 	require.NoError(t, err)
 	require.Equal(t, "existing", cfg.DefaultVaultName)
 	require.Equal(t, "synthetic-openai", cfg.Env["OPENAI_API_KEY"])

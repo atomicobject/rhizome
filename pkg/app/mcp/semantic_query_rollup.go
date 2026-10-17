@@ -1,12 +1,14 @@
 package mcp
 
 import (
-	"path/filepath"
-	"strings"
-
+	"encoding/json"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/queryframe"
+	"path/filepath"
+	"strings"
 )
 
 func normalizeSemanticTypes(types []string) []string {
@@ -35,11 +37,25 @@ func normalizeSemanticTypes(types []string) []string {
 }
 
 func matchFromRanked(r search.RankedResult) SemanticMatchPayload {
+	var refJSON, locator, nodeKind, nodeType string
+	if r.NodeRef != nil {
+		if encoded, err := json.Marshal(r.NodeRef); err == nil {
+			refJSON = string(encoded)
+		}
+		locator = ontology.NodeSourceLocator(*r.NodeRef)
+		nodeKind = string(r.NodeRef.Kind)
+		nodeType = r.NodeRef.TypeName
+		if ontoschema.IsFallbackNoteTypeName(nodeType) {
+			nodeType = "untyped note"
+		} else if ontoschema.IsFallbackSectionTypeName(nodeType) {
+			nodeType = "untyped note section"
+		}
+	}
 	switch r.Type {
 	case "note", "doc_section":
 		notePath := strings.TrimSpace(firstNonEmpty(r.NoteID, r.Path))
 		notePath = string(paths.NormalizeNotePath(notePath))
-		title := firstNonEmpty(r.Title, titleFromPath(notePath))
+		title := firstNonEmpty(r.Title, paths.NoteTitle(notePath))
 		chunkIndex := -1
 		if r.Type == "doc_section" {
 			chunkIndex = r.ChunkIndex
@@ -56,10 +72,10 @@ func matchFromRanked(r search.RankedResult) SemanticMatchPayload {
 			Specificity:   queryframe.SpecificityScore(r.Evidence),
 			NodeRef:       r.NodeRef,
 			NodeID:        r.NodeID,
-			NodeRefJSON:   r.NodeRefJSON,
-			SourceLocator: r.SourceLocator,
-			NodeKind:      r.NodeKind,
-			NodeType:      r.NodeType,
+			NodeRefJSON:   refJSON,
+			SourceLocator: locator,
+			NodeKind:      nodeKind,
+			NodeType:      nodeType,
 			ParentNodeID:  r.ParentNodeID,
 		}
 	case "code", "anchor", "file":
@@ -80,7 +96,7 @@ func matchFromRanked(r search.RankedResult) SemanticMatchPayload {
 			Breadcrumb:    r.Breadcrumb,
 			Heading:       r.Heading,
 			AnchorID:      r.AnchorID,
-			SourceLocator: r.SourceLocator,
+			SourceLocator: locator,
 			NodeRef:       r.NodeRef,
 		}
 	default:

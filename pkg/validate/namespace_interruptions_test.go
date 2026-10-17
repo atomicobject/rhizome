@@ -56,6 +56,7 @@ func TestNamespaceEveryRequiredPublicationInterruptionRestoresBatch(t *testing.T
 	for _, crash := range []bool{false, true} {
 		for boundary := 0; boundary < 6; boundary++ {
 			t.Run(fmt.Sprintf("crash=%t/entry=%d", crash, boundary), func(t *testing.T) {
+				t.Parallel()
 				root, plan, originals, staging := namespaceBatchFixture(t)
 				probe := &repairPostApplyProbe{t: t, result: PostApplyRefreshResult{Paths: []string{"old.md", "new.md", "second.md", "other/new-second.md", "ref.md"}}}
 				failure := errors.New("required publication failure")
@@ -87,6 +88,7 @@ func TestNamespaceEveryRequiredPublicationInterruptionRestoresBatch(t *testing.T
 func TestNamespaceEveryReverseRollbackInterruptionResumesSafely(t *testing.T) {
 	for boundary := 0; boundary < 6; boundary++ {
 		t.Run(fmt.Sprintf("entry=%d", boundary), func(t *testing.T) {
+			t.Parallel()
 			root, plan, originals, staging := namespaceBatchFixture(t)
 			probe := &repairPostApplyProbe{t: t, result: PostApplyRefreshResult{Paths: []string{"old.md", "new.md", "second.md", "other/new-second.md", "ref.md"}}}
 			result, err := applyNamespaceMutation(context.Background(), namespaceTestRunContext(root), namespaceFixturePlanner(plan), probe, nil, &repairExecutionHooks{

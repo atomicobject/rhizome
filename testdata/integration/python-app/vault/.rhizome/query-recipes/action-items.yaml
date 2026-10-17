@@ -46,7 +46,7 @@ id: fixture-my-action-items
 name: Fixture my action items
 problem: Query open action items assigned to one Person without traversing a containing conversation.
 inputSpec:
-  mode: named
+  mode: none
   inputs:
     - name: assignee
       required: true

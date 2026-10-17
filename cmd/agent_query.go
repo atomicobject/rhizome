@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newAgentFilesCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentFilesCmd() *cobra.Command {
 	var continuationToken, includeContent, intent string
 	var inputs, suppress []string
 	var limit, maxDepth, budgetChars int
@@ -17,7 +17,7 @@ func newAgentFilesCmd() *cobra.Command {
 		Short: "List files and optionally include content as JSON",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetString(payload, "continuationToken", continuationToken)
 			maybeSetStrings(payload, "inputs", inputs)
 			maybeSetStrings(payload, "suppressTags", suppress)
@@ -27,12 +27,12 @@ func newAgentFilesCmd() *cobra.Command {
 			maybeSetInt(payload, "maxDepth", maxDepth)
 			maybeSetInt(payload, "budgetChars", budgetChars)
 			maybeSetBool(cmd, payload, "dedupe", dedupe)
-			maybeSetBool(cmd, payload, "skipAnchors", skipAnchors)
-			maybeSetBool(cmd, payload, "skipEmbeds", skipEmbeds)
+			maybeSetBool(cmd, payload, "skipAnchors", commandOptions.skipAnchors)
+			maybeSetBool(cmd, payload, "skipEmbeds", commandOptions.skipEmbeds)
 			maybeSetBool(cmd, payload, "includeFrontmatter", includeFrontmatter)
 			maybeSetBool(cmd, payload, "includeBacklinks", includeBacklinks)
 			maybeSetBool(cmd, payload, "absolutePaths", absolutePaths)
-			return runAgentJSONTool(cmd, budgetChars, "files", payload)
+			return commandOptions.runAgentJSONTool(cmd, budgetChars, "files", payload)
 		},
 	}
 	addContinuationFlag(cmd, &continuationToken)
@@ -43,8 +43,8 @@ func newAgentFilesCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of files")
 	cmd.Flags().IntVar(&maxDepth, "max-depth", 0, "wikilink traversal depth")
 	cmd.Flags().BoolVar(&dedupe, "dedupe", true, "skip content already sent in this session")
-	cmd.Flags().BoolVar(&skipAnchors, "skip-anchors", false, "skip wikilinks with anchors")
-	cmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks")
+	cmd.Flags().BoolVar(&commandOptions.skipAnchors, "skip-anchors", false, "skip wikilinks with anchors")
+	cmd.Flags().BoolVar(&commandOptions.skipEmbeds, "skip-embeds", false, "skip embedded wikilinks")
 	cmd.Flags().BoolVar(&includeFrontmatter, "include-frontmatter", false, "include frontmatter")
 	cmd.Flags().BoolVar(&includeBacklinks, "include-backlinks", false, "include backlinks")
 	cmd.Flags().BoolVar(&absolutePaths, "absolute-paths", false, "include absolute paths")
@@ -52,23 +52,23 @@ func newAgentFilesCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentListTagsCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentListTagsCmd() *cobra.Command {
 	var match []string
 	cmd := &cobra.Command{
 		Use:   "list-tags",
 		Short: "List tags as JSON",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetStrings(payload, "match", match)
-			return runAgentJSONTool(cmd, 0, "list_tags", payload)
+			return commandOptions.runAgentJSONTool(cmd, 0, "list_tags", payload)
 		},
 	}
 	cmd.Flags().StringArrayVar(&match, "match", nil, "match filters")
 	return cmd
 }
 
-func newAgentListPropertiesCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentListPropertiesCmd() *cobra.Command {
 	var source string
 	var match, only []string
 	var valueLimit, maxValues int
@@ -78,7 +78,7 @@ func newAgentListPropertiesCmd() *cobra.Command {
 		Short: "List properties as JSON",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetString(payload, "source", source)
 			maybeSetStrings(payload, "match", match)
 			maybeSetStrings(payload, "only", only)
@@ -87,7 +87,7 @@ func newAgentListPropertiesCmd() *cobra.Command {
 			maybeSetBool(cmd, payload, "excludeTags", excludeTags)
 			maybeSetBool(cmd, payload, "verbose", verbose)
 			maybeSetBool(cmd, payload, "valueCounts", valueCounts)
-			return runAgentJSONTool(cmd, 0, "list_properties", payload)
+			return commandOptions.runAgentJSONTool(cmd, 0, "list_properties", payload)
 		},
 	}
 	cmd.Flags().StringVar(&source, "source", "", "property source: all, frontmatter, inline")
@@ -101,17 +101,17 @@ func newAgentListPropertiesCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentCommunityListCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCommunityListCmd() *cobra.Command {
 	var maxCommunities, maxTopNotes int
 	cmd := &cobra.Command{
 		Use:   "community-list",
 		Short: "List communities as JSON",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetInt(payload, "maxCommunities", maxCommunities)
 			maybeSetInt(payload, "maxTopNotes", maxTopNotes)
-			return runAgentJSONTool(cmd, 0, "community_list", payload)
+			return commandOptions.runAgentJSONTool(cmd, 0, "community_list", payload)
 		},
 	}
 	cmd.Flags().IntVar(&maxCommunities, "max-communities", 0, "max communities")
@@ -119,7 +119,7 @@ func newAgentCommunityListCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentReportCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentReportCmd() *cobra.Command {
 	var op string
 	var paths []string
 	var limit, minLines int
@@ -138,7 +138,7 @@ func newAgentReportCmd() *cobra.Command {
 			maybeSetInt(payload, "limit", limit)
 			maybeSetInt(payload, "minLines", minLines)
 			maybeSetBool(cmd, payload, "includeTests", includeTests)
-			return runAgentJSONTool(cmd, 0, "report", payload)
+			return commandOptions.runAgentJSONTool(cmd, 0, "report", payload)
 		},
 	}
 	cmd.Flags().StringVar(&op, "op", "", "report op")
@@ -149,7 +149,7 @@ func newAgentReportCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentVaultHealthCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentVaultHealthCmd() *cobra.Command {
 	var include []string
 	var staleDays, limit int
 	var includeImages bool
@@ -158,21 +158,21 @@ func newAgentVaultHealthCmd() *cobra.Command {
 		Short: "Run vault health checks as JSON",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetStrings(payload, "include", include)
 			maybeSetInt(payload, "staleDays", staleDays)
 			maybeSetInt(payload, "limit", limit)
-			maybeSetBool(cmd, payload, "skipAnchors", skipAnchors)
-			maybeSetBool(cmd, payload, "skipEmbeds", skipEmbeds)
+			maybeSetBool(cmd, payload, "skipAnchors", commandOptions.skipAnchors)
+			maybeSetBool(cmd, payload, "skipEmbeds", commandOptions.skipEmbeds)
 			maybeSetBool(cmd, payload, "includeImages", includeImages)
-			return runAgentJSONTool(cmd, 0, "vault_health", payload)
+			return commandOptions.runAgentJSONTool(cmd, 0, "vault_health", payload)
 		},
 	}
 	cmd.Flags().StringArrayVar(&include, "include", nil, "metrics to include")
 	cmd.Flags().IntVar(&staleDays, "stale-days", 0, "days before a note is stale")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max items per category")
-	cmd.Flags().BoolVar(&skipAnchors, "skip-anchors", false, "skip wikilinks with anchors")
-	cmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks")
+	cmd.Flags().BoolVar(&commandOptions.skipAnchors, "skip-anchors", false, "skip wikilinks with anchors")
+	cmd.Flags().BoolVar(&commandOptions.skipEmbeds, "skip-embeds", false, "skip embedded wikilinks")
 	cmd.Flags().BoolVar(&includeImages, "include-images", false, "include image links")
 	return cmd
 }

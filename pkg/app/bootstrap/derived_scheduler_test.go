@@ -2,27 +2,32 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	anchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
+	codeembsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex"
-	codeembsqlite "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+
+	anchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/indexingworkload"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 func TestDerivedResultRejectsDirectSaveBeforeWatcherMarksNewSource(t *testing.T) {
@@ -39,18 +44,18 @@ func TestDerivedResultRejectsDirectSaveBeforeWatcherMarksNewSource(t *testing.T)
 	case <-time.After(5 * time.Second):
 		t.Fatal("provider did not block")
 	}
-	schema, err := ontology.LoadSchema(rt.VaultPath)
+	schema, err := ontoschema.LoadSchema(rt.VaultPath)
 	require.NoError(t, err)
 	projection, err := ontology.ProjectNote(t.Context(), w.vaultDef, &obsidian.Note{}, schema, path)
 	require.NoError(t, err)
-	set, err := semantic.BuildOntologyNodeChunks(schema, projection, w.nodeSyncer.ProviderInfo, 0)
+	set, err := embedindex.BuildOntologyNodeChunks(schema, projection, w.nodeSyncer.ProviderInfo, 0)
 	require.NoError(t, err)
 	require.NotEmpty(t, set.States)
 	staleHash := set.States[0].ChunkTextHash
 	require.NoError(t, os.WriteFile(filepath.Join(rt.VaultPath, path), []byte(indexingworkload.Note(0, 16, "Saved B")), 0o600))
 	// Direct save publication happens under the writer lease, without a watcher
 	// dirty mark. It must independently invalidate the prepared source witness.
-	save, _, err := w.lane.Submit(t.Context(), lane.Request{Kind: lane.KindValidationRefresh, Run: func(ctx context.Context, _ lane.Reporter) error {
+	save, _, err := w.lane.Submit(t.Context(), lane.Request{Kind: lane.KindValidationRefresh, Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) error {
 		baseline, err := w.noteMetadataIndexer.CapturePublishedBaseline(ctx, w.vaultDef, w.intelStore)
 		if err != nil {
 			return err
@@ -87,8 +92,12 @@ func TestDerivedResultRejectsDirectSaveBeforeWatcherMarksNewSource(t *testing.T)
 				return err
 			}
 		}
-		_, err = ontology.SyncPublishedPaths(ctx, w.noteMetadataIndexer, w.vaultDef, &obsidian.Note{}, w.intelStore, nil, []string{path}, nil)
-		return err
+		queue := w.structuralWriter(ctx)
+		_, err = ontology.SyncPublishedPaths(ctx, w.noteMetadataIndexer, w.vaultDef, &obsidian.Note{}, w.intelStore, queue, []string{path}, nil)
+		if err != nil {
+			return errors.Join(err, queue.Close())
+		}
+		return errors.Join(queue.FlushAndWait(ctx), queue.Close())
 	}})
 	require.NoError(t, err)
 	watcherJobTerminal(t, save)
@@ -118,11 +127,11 @@ func TestDerivedPriorityCancelsProviderWithoutHoldingWriterLease(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("provider did not block")
 	}
-	release, acquired, err := indexlock.TryAcquire(obsidian.IndexLockPath(rt.VaultPath))
+	release, acquired, err := indexlock.TryAcquire(repoconfig.IndexLockPath(rt.VaultPath))
 	require.NoError(t, err)
 	require.True(t, acquired, "physical provider work must leave the writer lease available")
 	require.NoError(t, release())
-	priority, err := indexlock.RequestPriority(obsidian.IndexLockPath(rt.VaultPath))
+	priority, err := indexlock.RequestPriority(repoconfig.IndexLockPath(rt.VaultPath))
 	require.NoError(t, err)
 	defer priority.Close()
 	require.Eventually(t, func() bool { return provider.canceled.Load() > 0 }, time.Second, 5*time.Millisecond)
@@ -193,16 +202,17 @@ func TestDerivedGlobalCodeRecoveryPrunesLastRetiredSource(t *testing.T) {
 	defer c.Close()
 	defer store.Close()
 	provider := embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Model: "test", Dimensions: 8})
-	index, err := codeembsqlite.Open(filepath.Join(root, "code.db"), 8)
+	index, err := codeembsqlite.OpenCode(context.Background(), codeembsqlite.File(filepath.Join(root, "code.db")), codeembsqlite.Options{Access: codeembsqlite.WriteIndex, Dimensions: 8})
 	require.NoError(t, err)
 	defer index.Close()
 	id := codeindex.AnchorID("retired-anchor")
 	require.NoError(t, index.UpsertItemMeta(t.Context(), codeindex.Item{AnchorID: id, Path: "deleted.go", Lang: "go", Kind: "module", Fingerprint: "retired"}))
 	require.NoError(t, index.UpsertItemEmbedding(t.Context(), id, "old", embeddings.Embedding{1, 0, 0, 0, 0, 0, 0, 0}))
-	w.codeSyncer = &semantic.Syncer{Index: index, Provider: provider, Intel: store, Root: root}
+	w.codeSyncer = &embedindex.Syncer{Index: index, Provider: provider, Intel: store, Root: root}
 	w.codeSemanticStore = true
 	tickets, err := store.MarkDerivedDirty(t.Context(), []codeanchor.DerivedScope{{Kind: codeanchor.DerivedCode, Path: "deleted.go"}})
 	require.NoError(t, err)
+	require.Len(t, tickets, 1)
 	// Crash recovery replaces the path ticket with a global obligation after
 	// structural rows have already been retired, leaving an empty live keep set.
 	tickets, err = store.MarkDerivedDirty(t.Context(), []codeanchor.DerivedScope{{Kind: codeanchor.DerivedCode}})
@@ -237,7 +247,7 @@ func TestDerivedRestartRetriesActiveDebtWithoutFilesystemEvents(t *testing.T) {
 	provider.fail.Store(false)
 	next := &unifiedSemanticWatcher{runCtx: t.Context(), lane: w.lane, vaultPath: w.vaultPath,
 		vaultDef: w.vaultDef, noteMetadataIndexer: w.noteMetadataIndexer, intelStore: reopened,
-		nodeSyncer: &semantic.OntologyNodeSyncer{Store: reopened, Provider: provider, ProviderInfo: w.nodeSyncer.ProviderInfo}}
+		nodeSyncer: &embedindex.OntologyNodeSyncer{Store: reopened, Provider: provider, ProviderInfo: w.nodeSyncer.ProviderInfo}}
 	d := newDerivedScheduler(next)
 	defer d.close()
 	require.Eventually(t, func() bool {
@@ -252,7 +262,7 @@ func TestDerivedRestartRetriesActiveDebtWithoutFilesystemEvents(t *testing.T) {
 func TestDerivedSharedNodePriorityYieldsAndRuntimeShutdownDrainsPhysicalProvider(t *testing.T) {
 	rt, w, provider := liveWorkloadWatcher(t)
 	w.derived.close()
-	node := semantic.NewSharedEmbeddingNode(rt.ctx, provider, 1, nil, semantic.EmbedPackerOptions{MaxTexts: 1})
+	node := embedindex.NewSharedEmbeddingNode(rt.ctx, provider, 1, nil, embedindex.EmbedPackerOptions{MaxTexts: 1})
 	rt.addCloser(node.Close)
 	w.nodeSyncer.EmbeddingNode = node
 	w.derived = newDerivedScheduler(w)
@@ -268,12 +278,12 @@ func TestDerivedSharedNodePriorityYieldsAndRuntimeShutdownDrainsPhysicalProvider
 	case <-time.After(5 * time.Second):
 		t.Fatal("shared physical provider did not start")
 	}
-	priority, err := indexlock.RequestPriority(obsidian.IndexLockPath(rt.VaultPath))
+	priority, err := indexlock.RequestPriority(repoconfig.IndexLockPath(rt.VaultPath))
 	require.NoError(t, err)
 	defer priority.Close()
 	require.Eventually(t, func() bool { w.derived.mu.Lock(); defer w.derived.mu.Unlock(); return w.derived.running == "" }, time.Second, 5*time.Millisecond)
 	require.Zero(t, provider.canceled.Load(), "canceling one submitter preserves shared physical request ownership")
-	release, acquired, err := indexlock.TryAcquire(obsidian.IndexLockPath(rt.VaultPath))
+	release, acquired, err := indexlock.TryAcquire(repoconfig.IndexLockPath(rt.VaultPath))
 	require.NoError(t, err)
 	require.True(t, acquired, "shared provider dispatch must leave writer lease available")
 	require.NoError(t, release())

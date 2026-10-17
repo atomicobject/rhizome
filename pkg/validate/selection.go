@@ -2,6 +2,7 @@ package validate
 
 import (
 	"fmt"
+	validationcatalog "github.com/atomicobject/rhizome/pkg/validate/catalog"
 	"strings"
 )
 
@@ -61,7 +62,7 @@ func ResolveSelection(raw []string, config SuiteConfig) (Selection, error) {
 	}
 
 	rawSelector := selectors[0]
-	normalized := normalizeCheckName(rawSelector)
+	normalized := validationcatalog.Normalize(rawSelector)
 	switch CheckSuite(normalized) {
 	case SuiteDefault:
 		if err := ValidateSuiteConfig(config); err != nil {

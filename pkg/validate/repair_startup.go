@@ -3,6 +3,8 @@ package validate
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"path/filepath"
 	"strings"
 
@@ -39,7 +41,7 @@ func stabilizePendingRepairJournals(runCtx RunContext, ctx context.Context) erro
 	}
 	runCtx.VaultPath = vaultPaths.Root()
 	lockPath := filepath.Join(vaultPaths.Root(), ".rhizome", "index.lock")
-	var lease *IndexLockLease
+	var lease *indexlock.Lease
 	var release func() error
 	if ctx == nil {
 		lease, release, err = acquireRepairIndexLockLease(lockPath)
@@ -50,13 +52,14 @@ func stabilizePendingRepairJournals(runCtx RunContext, ctx context.Context) erro
 		return err
 	}
 	defer func() { _ = release() }()
-	if err := lease.RequireHeld(); err != nil {
+	if err := lease.Validate(runCtx.VaultPath); err != nil {
 		return err
 	}
-	journals, err := discoverRepairJournals(runCtx)
-	if err != nil {
-		return err
+	runCtx.sourceLease = lease
+
+	writer, _, err := sourcetxn.Open(runCtx.VaultPath, lease, sourcetxn.WriterOptions{Role: sourcetxn.RuntimeRecoveryOwner, RepairPolicy: validateSourceJournalChecks})
+	if writer != nil {
+		writer.Close()
 	}
-	_, err = stabilizeRepairJournals(runCtx, journals)
 	return err
 }

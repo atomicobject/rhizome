@@ -2,43 +2,27 @@ package query
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"strings"
+
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type loaders struct {
-	selectorInventory selectorInventory
-
-	deps       Deps
-	vaultPaths paths.VaultPaths
-	scope      *noderead.Scope
-
-	snapshotOnce sync.Once
-	snapshotBy   map[string]*noteRecord
-	snapshotList []*noteRecord
-	snapshotErr  error
-
-	recordMu     sync.Mutex
+	deps         Deps
+	vaultPaths   paths.VaultPaths
+	scope        *noderead.Scope
 	recordByPath map[string]*noteRecord
 	recordKnown  map[string]bool
-
-	typeMu     sync.Mutex
-	typeByPath map[string]semdb.OntologyNoteTypeRow
+	typeByPath   map[string]semdb.OntologyNoteTypeRow
 }
 
-func newLoaders(deps Deps, schema *ontology.Schema) (*loaders, error) {
+func newLoaders(deps Deps, schema *ontoschema.Schema) (*loaders, error) {
 	vaultPaths, err := paths.NewVaultPaths(deps.VaultDef.BasePath())
 	if err != nil {
 		return nil, err
@@ -47,96 +31,19 @@ func newLoaders(deps Deps, schema *ontology.Schema) (*loaders, error) {
 		deps:       deps,
 		vaultPaths: vaultPaths,
 		// One Scope per Execute call keeps relation/type/hydration caches shared
-		// across resolver goroutines without leaking request-shaped data into the
+		// across field selections without leaking request-shaped data into the
 		// process. This is the performance boundary for GraphQL execution.
 		scope: func() *noderead.Scope {
 			service := noderead.NewService(deps.VaultDef, deps.NoteReader, deps.Store, schema).WithNoteFormats(deps.NoteFormats)
 			service.ExactNoteMetadataRows = deps.ExactNoteMetadataRows
 			service.ExactNotePropertyValues = deps.ExactNotePropertyValues
 			service.ExactNoteTags = deps.ExactNoteTags
-			return service.NewScope(context.Background(), noderead.ScopeOptions{ReadOverlay: deps.ReadOverlay})
+			return service.NewScope(noderead.ScopeOptions{ReadOverlay: deps.ReadOverlay})
 		}(),
 		recordByPath: make(map[string]*noteRecord),
 		recordKnown:  make(map[string]bool),
 		typeByPath:   make(map[string]semdb.OntologyNoteTypeRow),
 	}, nil
-}
-
-func (l *loaders) snapshot(ctx context.Context) (map[string]*noteRecord, []*noteRecord, error) {
-	l.snapshotOnce.Do(func() {
-		if l.deps.Store == nil {
-			l.snapshotBy = map[string]*noteRecord{}
-			l.snapshotList = []*noteRecord{}
-			return
-		}
-		metadataRows, err := l.deps.Store.CurrentNoteMetadataRows(ctx)
-		if err != nil {
-			l.snapshotErr = err
-			return
-		}
-		markdownPaths := make(map[string]struct{}, len(metadataRows))
-		for _, row := range metadataRows {
-			if row.FormatID == string(noteformat.FormatID("markdown")) && row.Projection.Status == semdb.NoteProjectionStatusCurrent {
-				markdownPaths[row.Path] = struct{}{}
-			}
-		}
-		if provider, ok := l.deps.NoteReader.(obsidian.NoteEntriesProvider); ok {
-			entries, err := provider.NoteEntriesSnapshot(ctx)
-			if err == nil {
-				l.snapshotBy = make(map[string]*noteRecord, len(entries))
-				l.snapshotList = make([]*noteRecord, 0, len(entries))
-				for _, entry := range entries {
-					if _, markdown := markdownPaths[entry.Path]; !markdown {
-						continue
-					}
-					record := noteRecordFromEntry(entry)
-					l.snapshotBy[record.Path] = record
-					l.snapshotList = append(l.snapshotList, record)
-				}
-				sort.Slice(l.snapshotList, func(i, j int) bool {
-					return l.snapshotList[i].Path < l.snapshotList[j].Path
-				})
-				return
-			}
-			l.snapshotErr = err
-			return
-		}
-
-		pathsList, err := l.deps.NoteReader.GetNotesList(l.deps.VaultDef)
-		if err != nil {
-			l.snapshotErr = err
-			return
-		}
-		sort.Strings(pathsList)
-		l.snapshotBy = make(map[string]*noteRecord, len(pathsList))
-		l.snapshotList = make([]*noteRecord, 0, len(pathsList))
-		for _, notePath := range pathsList {
-			if _, markdown := markdownPaths[notePath]; !markdown {
-				continue
-			}
-			content, err := l.deps.NoteReader.GetContents(l.deps.VaultDef, notePath)
-			if err != nil {
-				continue
-			}
-			snapshot, err := ontology.BuildDocumentSnapshot(notePath, content, time.Time{})
-			if err != nil {
-				continue
-			}
-			fm := snapshot.Frontmatter
-			record := &noteRecord{
-				Path:        notePath,
-				Title:       noteTitle(notePath, fm),
-				Content:     content,
-				Frontmatter: cloneMap(fm),
-				InlineProps: ontology.SectionInlineProperties(content),
-				Tags:        extractTags(fm),
-				TypeName:    stringValue(fm[ontology.TypeFieldName()]),
-			}
-			l.snapshotBy[notePath] = record
-			l.snapshotList = append(l.snapshotList, record)
-		}
-	})
-	return l.snapshotBy, l.snapshotList, l.snapshotErr
 }
 
 func (l *loaders) noteByPath(ctx context.Context, notePath string) (*noteRecord, error) {
@@ -160,14 +67,12 @@ func (l *loaders) recordsForPaths(ctx context.Context, pathsList []string) ([]*n
 	if len(pathsList) == 0 {
 		return []*noteRecord{}, nil
 	}
-	l.recordMu.Lock()
 	missing := make([]string, 0, len(pathsList))
 	for _, notePath := range pathsList {
 		if !l.recordKnown[notePath] {
 			missing = append(missing, notePath)
 		}
 	}
-	l.recordMu.Unlock()
 
 	if len(missing) > 0 {
 		scopeRecords, err := l.scope.Hydrate(ctx, noteRefsForPaths(missing), noderead.HydrateOptions{Profile: noderead.HydrateSummary})
@@ -181,18 +86,13 @@ func (l *loaders) recordsForPaths(ctx context.Context, pathsList []string) ([]*n
 				loadedByPath[record.Path] = record
 			}
 		}
-		l.recordMu.Lock()
 		for _, notePath := range missing {
 			l.recordKnown[notePath] = true
 			if record := loadedByPath[notePath]; record != nil {
 				l.recordByPath[notePath] = record
 			}
 		}
-		l.recordMu.Unlock()
 	}
-
-	l.recordMu.Lock()
-	defer l.recordMu.Unlock()
 	out := make([]*noteRecord, 0, len(pathsList))
 	for _, notePath := range pathsList {
 		if record := l.recordByPath[notePath]; record != nil {
@@ -212,7 +112,6 @@ func (l *loaders) hydrateContentForPath(ctx context.Context, notePath string) (*
 		return nil, err
 	}
 	record := noteRecordsFromNodeRecords(scopeRecords)[0]
-	l.recordMu.Lock()
 	if existing := l.recordByPath[notePath]; existing != nil {
 		existing.Content = record.Content
 		existing.InlineProps = cloneInlineProps(record.InlineProps)
@@ -227,7 +126,6 @@ func (l *loaders) hydrateContentForPath(ctx context.Context, notePath string) (*
 		l.recordByPath[notePath] = record
 	}
 	l.recordKnown[notePath] = true
-	l.recordMu.Unlock()
 	return record, nil
 }
 
@@ -235,9 +133,7 @@ func (l *loaders) rememberNodeViews(views []noderead.NodeView) {
 	if len(views) == 0 {
 		return
 	}
-	records := noteRecordsFromNodeRecords(nodeRecordsFromViews(views))
-	l.recordMu.Lock()
-	defer l.recordMu.Unlock()
+	records := noteRecordsFromNodeRecords(views)
 	for _, record := range records {
 		if record == nil || record.Path == "" {
 			continue
@@ -272,8 +168,6 @@ func (l *loaders) refreshRecords(records []*noteRecord) []*noteRecord {
 	if len(records) == 0 {
 		return records
 	}
-	l.recordMu.Lock()
-	defer l.recordMu.Unlock()
 	out := make([]*noteRecord, 0, len(records))
 	for _, record := range records {
 		if record == nil || record.Path == "" {
@@ -298,8 +192,6 @@ func (l *loaders) ontologyTypesByPaths(ctx context.Context, pathsList []string) 
 	if len(pathsList) == 0 {
 		return map[string]semdb.OntologyNoteTypeRow{}, nil
 	}
-
-	l.typeMu.Lock()
 	missing := make([]string, 0, len(pathsList))
 	out := make(map[string]semdb.OntologyNoteTypeRow, len(pathsList))
 	for _, notePath := range pathsList {
@@ -309,19 +201,16 @@ func (l *loaders) ontologyTypesByPaths(ctx context.Context, pathsList []string) 
 		}
 		missing = append(missing, notePath)
 	}
-	l.typeMu.Unlock()
 
 	if len(missing) > 0 {
 		rows, err := l.scope.TypesByPaths(ctx, missing)
 		if err != nil {
 			return nil, err
 		}
-		l.typeMu.Lock()
 		for notePath, row := range rows {
 			l.typeByPath[notePath] = row
 			out[notePath] = row
 		}
-		l.typeMu.Unlock()
 	}
 	return out, nil
 }
@@ -331,29 +220,31 @@ func (l *loaders) assessmentsByPaths(ctx context.Context, pathsList []string) (m
 }
 
 func (l *loaders) structuralEdges(ctx context.Context, sources []string, relation string) (map[string][]semdb.OntologyEdgeRow, error) {
-	result, err := l.scope.Traverse(ctx, noderead.TraverseRequest{
-		Sources:    noteRefsForPaths(sources),
-		Relation:   relation,
-		Structural: true,
+	result, err := l.scope.Edges(ctx, noderead.NeighborhoodRequest{
+		Sources: noteRefsForPaths(sources), Direction: noderead.TraversalDirectionOutbound,
+		RelationNames: optionalSingle(relation), IncludeStructural: true,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return result.EdgesBySource, nil
+	return edgeRowsBySource(result), err
 }
 
 func (l *loaders) ambientEdges(ctx context.Context, sources []string, relation string, provenance map[string]struct{}, dstType string, limitPerSource int) (map[string][]semdb.OntologyEdgeRow, error) {
-	result, err := l.scope.Traverse(ctx, noderead.TraverseRequest{
-		Sources:        noteRefsForPaths(sources),
-		Relation:       relation,
-		Provenance:     provenance,
-		DstType:        dstType,
-		LimitPerSource: limitPerSource,
+	result, err := l.scope.Edges(ctx, noderead.NeighborhoodRequest{
+		Sources: noteRefsForPaths(sources), Direction: noderead.TraversalDirectionOutbound,
+		RelationNames: optionalSingle(relation), IncludeAmbient: true, Provenance: provenance,
+		TargetTypes: optionalSingle(dstType), FirstPerSource: limitPerSource,
 	})
-	if err != nil {
-		return nil, err
+	return edgeRowsBySource(result), err
+}
+
+func edgeRowsBySource(result noderead.NeighborhoodResult) map[string][]semdb.OntologyEdgeRow {
+	rows := make(map[string][]semdb.OntologyEdgeRow, len(result.Sources))
+	for _, source := range result.Sources {
+		rows[source.Source.NotePath] = nil
+		for _, edge := range source.Edges {
+			rows[source.Source.NotePath] = append(rows[source.Source.NotePath], edge.Edge)
+		}
 	}
-	return result.EdgesBySource, nil
+	return rows
 }
 
 func noteRefsForPaths(pathsList []string) []ontology.NodeRef {
@@ -384,35 +275,6 @@ func noteRecordsFromNodeRecords(records []noderead.NodeRecord) []*noteRecord {
 		})
 	}
 	return out
-}
-
-func nodeRecordsFromViews(views []noderead.NodeView) []noderead.NodeRecord {
-	out := make([]noderead.NodeRecord, 0, len(views))
-	for _, view := range views {
-		out = append(out, view.Record)
-	}
-	return out
-}
-
-func noteRecordFromEntry(entry obsidian.NoteEntry) *noteRecord {
-	fm := cloneMap(entry.Frontmatter)
-	return &noteRecord{
-		Path:        entry.Path,
-		Title:       noteTitle(entry.Path, fm),
-		Content:     entry.Content,
-		Frontmatter: fm,
-		InlineProps: ontology.SectionInlineProperties(entry.Content),
-		Tags:        cloneStrings(entry.Tags),
-		TypeName:    stringValue(fm[ontology.TypeFieldName()]),
-	}
-}
-
-func noteTitle(notePath string, fm map[string]any) string {
-	if title := stringValue(fm["title"]); title != "" {
-		return title
-	}
-	base := filepath.Base(notePath)
-	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
 func cloneMap(in map[string]any) map[string]any {
@@ -446,38 +308,6 @@ func cloneInlineProps(in map[string][]string) map[string][]string {
 	return out
 }
 
-func flattenValueStrings(v any) []string {
-	switch val := v.(type) {
-	case nil:
-		return nil
-	case []string:
-		return normalizeStrings(val)
-	case []any:
-		out := make([]string, 0, len(val))
-		for _, item := range val {
-			out = append(out, flattenValueStrings(item)...)
-		}
-		return normalizeStrings(out)
-	case string:
-		return normalizeStrings([]string{val})
-	case bool:
-		return []string{strconv.FormatBool(val)}
-	case int:
-		return []string{strconv.Itoa(val)}
-	case int64:
-		return []string{strconv.FormatInt(val, 10)}
-	case float64:
-		return []string{strconv.FormatFloat(val, 'f', -1, 64)}
-	case time.Time:
-		if val.Hour() == 0 && val.Minute() == 0 && val.Second() == 0 {
-			return []string{val.Format("2006-01-02")}
-		}
-		return []string{val.Format(time.RFC3339)}
-	default:
-		return []string{strings.TrimSpace(fmt.Sprint(val))}
-	}
-}
-
 func normalizeStrings(values []string) []string {
 	out := make([]string, 0, len(values))
 	for _, value := range values {
@@ -493,24 +323,4 @@ func normalizeStrings(values []string) []string {
 func stringValue(v any) string {
 	s, _ := v.(string)
 	return strings.TrimSpace(s)
-}
-
-// extractTags keeps persisted root tag values. Provider projection owns inline
-// hashtag syntax; neutral GraphQL loading never reparses it.
-func extractTags(fm map[string]any) []string {
-	seen := make(map[string]struct{})
-	out := make([]string, 0)
-	for _, value := range flattenValueStrings(fm["tags"]) {
-		value = strings.TrimPrefix(value, "#")
-		value = strings.ToLower(strings.TrimSpace(value))
-		if value == "" {
-			continue
-		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
-	}
-	return out
 }

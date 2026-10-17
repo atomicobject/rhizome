@@ -6,14 +6,17 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 const (
@@ -39,9 +42,9 @@ type unifiedSemanticWatcher struct {
 	watchHub            *watchhub.Hub
 	noteSvc             *codeanchor.Service
 	intelStore          *semdb.Store
-	noteSyncer          *semantic.NoteSyncer
-	nodeSyncer          *semantic.OntologyNodeSyncer
-	codeSyncer          *semantic.Syncer
+	noteSyncer          *embedindex.NoteSyncer
+	nodeSyncer          *embedindex.OntologyNodeSyncer
+	codeSyncer          *embedindex.Syncer
 	lane                lane.Lane
 	health              *liveHealthTracker
 	debug               bool
@@ -66,7 +69,8 @@ type unifiedSemanticWatcher struct {
 	validationTimer    *time.Timer
 	validationDeadline time.Time
 
-	onNoteSelectionChanged func(cache.SelectionPolicy)
+	onConfigurationChanged func(obsidian.VaultDefinition, repoconfig.Resolved, cache.SelectionPolicy) error
+	configuration          *repoconfig.Resolved
 	onProcessedPath        func(rel string)
 	publishEvent           func(kind string, data any)
 	// Test-only failure seam: production leaves this nil. It runs after an
@@ -93,9 +97,9 @@ type WatcherDeps struct {
 	WatchHub            *watchhub.Hub
 	NoteSvc             *codeanchor.Service
 	IntelStore          *semdb.Store
-	NoteSyncer          *semantic.NoteSyncer
-	NodeSyncer          *semantic.OntologyNodeSyncer
-	CodeSyncer          *semantic.Syncer
+	NoteSyncer          *embedindex.NoteSyncer
+	NodeSyncer          *embedindex.OntologyNodeSyncer
+	CodeSyncer          *embedindex.Syncer
 	// SemanticStore flags mean the semantic domain is configured enabled. A nil
 	// syncer retains recovery debt even if opening the destination store failed.
 	NoteSemanticStore bool
@@ -106,9 +110,9 @@ type WatcherDeps struct {
 	Health       *liveHealthTracker
 	Options      *UnifiedSemanticWatcherOptions
 	PublishEvent func(kind string, data any)
-	// OnNoteSelectionChanged publishes the same immutable selection policy to
-	// read-side consumers after a live include/exclude/config reload.
-	OnNoteSelectionChanged func(cache.SelectionPolicy)
+	// OnConfigurationChanged publishes one validated ownership/configuration replacement.
+	OnConfigurationChanged func(obsidian.VaultDefinition, repoconfig.Resolved, cache.SelectionPolicy) error
+	Configuration          *repoconfig.Resolved
 }
 
 // UnifiedSemanticWatcherOptions controls watcher loop timing.
@@ -160,7 +164,8 @@ func StartUnifiedSemanticWatcher(ctx context.Context, vaultPath string, deps Wat
 		publishEvent:           deps.PublishEvent,
 		ownershipWake:          make(chan struct{}, 1),
 		watcherDone:            make(chan struct{}),
-		onNoteSelectionChanged: deps.OnNoteSelectionChanged,
+		onConfigurationChanged: deps.OnConfigurationChanged,
+		configuration:          deps.Configuration,
 	}
 	w.noteSemanticStore = deps.NoteSemanticStore
 	w.codeSemanticStore = deps.CodeSemanticStore

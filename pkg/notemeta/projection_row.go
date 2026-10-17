@@ -1,9 +1,9 @@
 package notemeta
 
 import (
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // selectedProviderDescriptorForRow confirms that persisted source identity

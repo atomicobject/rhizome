@@ -11,6 +11,7 @@ import (
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,8 +19,8 @@ func TestRunCodeAnchorsWithStore_PreservesReadOnlyValidationBehavior(t *testing.
 	t.Parallel()
 
 	vaultPath := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(vaultPath, obsidian.LocalConfig{
-		Code: obsidian.LocalCodeConfig{Enabled: true},
+	require.NoError(t, repoconfig.SaveLocalConfig(vaultPath, repoconfig.LocalConfig{
+		Code: repoconfig.LocalCodeConfig{Enabled: true},
 	}))
 	store, err := sqlitefixture.Open(filepath.Join(vaultPath, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
@@ -68,8 +69,8 @@ func TestRunCodeAnchorsWithStore_PreservesReadOnlyValidationBehavior(t *testing.
 
 func TestRunCodeAnchorsWithStoreBuildsExecutableUniqueSuffixConfirmation(t *testing.T) {
 	vaultPath := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(vaultPath, obsidian.LocalConfig{
-		Code: obsidian.LocalCodeConfig{Enabled: true},
+	require.NoError(t, repoconfig.SaveLocalConfig(vaultPath, repoconfig.LocalConfig{
+		Code: repoconfig.LocalCodeConfig{Enabled: true},
 	}))
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultPath, "docs"), 0o755))
 	content := `---
@@ -129,8 +130,8 @@ code-anchors:
 
 func TestRunCodeAnchorsWithStoreBindsTwoSuffixRepairsToTheirExactIssues(t *testing.T) {
 	vaultPath := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(vaultPath, obsidian.LocalConfig{
-		Code: obsidian.LocalCodeConfig{Enabled: true},
+	require.NoError(t, repoconfig.SaveLocalConfig(vaultPath, repoconfig.LocalConfig{
+		Code: repoconfig.LocalCodeConfig{Enabled: true},
 	}))
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultPath, "docs"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "docs", "code.md"), []byte(`---
@@ -179,8 +180,8 @@ code-anchors:
 
 func TestRunCodeAnchorsWithStoreKeepsEachDefiningNoteAsExactRepairOwner(t *testing.T) {
 	vaultPath := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(vaultPath, obsidian.LocalConfig{
-		Code: obsidian.LocalCodeConfig{Enabled: true},
+	require.NoError(t, repoconfig.SaveLocalConfig(vaultPath, repoconfig.LocalConfig{
+		Code: repoconfig.LocalCodeConfig{Enabled: true},
 	}))
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultPath, "docs"), 0o755))
 	content := []byte("---\ncode-anchors:\n  go:\n    - symbol: short.Missing\n---\n# Code\n")
@@ -218,8 +219,8 @@ func TestRunCodeAnchorsWithStoreKeepsEachDefiningNoteAsExactRepairOwner(t *testi
 
 func TestRunCodeAnchorsWithStoreReportsSourceOwnershipStoreErrorsAsCheckErrors(t *testing.T) {
 	vaultPath := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(vaultPath, obsidian.LocalConfig{
-		Code: obsidian.LocalCodeConfig{Enabled: true},
+	require.NoError(t, repoconfig.SaveLocalConfig(vaultPath, repoconfig.LocalConfig{
+		Code: repoconfig.LocalCodeConfig{Enabled: true},
 	}))
 	store, err := sqlitefixture.Open(filepath.Join(vaultPath, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)

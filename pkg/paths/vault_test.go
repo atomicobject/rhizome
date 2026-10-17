@@ -37,25 +37,32 @@ func TestVaultPathsRelStrict(t *testing.T) {
 	}
 }
 
-func TestVaultPathsRequireCurrentWorkingDirectoryAtRoot(t *testing.T) {
+func TestVaultPathsRequireWorkingDirectoryAtRoot(t *testing.T) {
 	root := t.TempDir()
 	v, err := NewVaultPaths(root)
 	if err != nil {
 		t.Fatalf("NewVaultPaths error: %v", err)
 	}
 
-	t.Chdir(root)
-	if err := v.RequireCurrentWorkingDirectoryAtRoot(); err != nil {
-		t.Fatalf("RequireCurrentWorkingDirectoryAtRoot at root: %v", err)
+	if err := v.RequireWorkingDirectoryAtRoot(root); err != nil {
+		t.Fatalf("RequireWorkingDirectoryAtRoot at root: %v", err)
 	}
 
 	subdir := filepath.Join(root, "nested")
 	if err := os.Mkdir(subdir, 0o755); err != nil {
 		t.Fatalf("Mkdir: %v", err)
 	}
-	t.Chdir(subdir)
-	if err := v.RequireCurrentWorkingDirectoryAtRoot(); !errors.Is(err, ErrWorkingDirectoryNotVaultRoot) {
-		t.Fatalf("RequireCurrentWorkingDirectoryAtRoot below root error = %v, want %v", err, ErrWorkingDirectoryNotVaultRoot)
+	for _, cwd := range []string{subdir, t.TempDir(), "", "."} {
+		if err := v.RequireWorkingDirectoryAtRoot(cwd); !errors.Is(err, ErrWorkingDirectoryNotVaultRoot) {
+			t.Fatalf("RequireWorkingDirectoryAtRoot(%q) error = %v, want %v", cwd, err, ErrWorkingDirectoryNotVaultRoot)
+		}
+	}
+	alias := filepath.Join(t.TempDir(), "alias")
+	if err := os.Symlink(root, alias); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	if err := v.RequireWorkingDirectoryAtRoot(alias); err != nil {
+		t.Fatalf("RequireWorkingDirectoryAtRoot at symlink root: %v", err)
 	}
 }
 
@@ -76,22 +83,6 @@ func TestCleanRelPathRejectsAbsoluteAndTraversalPaths(t *testing.T) {
 	got, err = CleanRelPath("foo/bar")
 	if err != nil || got != "foo/bar" {
 		t.Fatalf("CleanRelPath(foo/bar) = %q, %v", got, err)
-	}
-}
-
-func TestVaultPathsRelNoteStrict(t *testing.T) {
-	root := t.TempDir()
-	v, err := NewVaultPaths(root)
-	if err != nil {
-		t.Fatalf("NewVaultPaths error: %v", err)
-	}
-
-	rel, err := v.RelNoteStrict("notes/a")
-	if err != nil {
-		t.Fatalf("RelNoteStrict error: %v", err)
-	}
-	if rel != "notes/a.md" {
-		t.Fatalf("RelNoteStrict = %q, want %q", rel, "notes/a.md")
 	}
 }
 

@@ -1,23 +1,25 @@
 package agentchat
 
 import (
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/harness"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
 	"github.com/stretchr/testify/require"
 )
 
 func TestSettingsPersistInUserConfig(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	configRoot := filepath.Join(t.TempDir(), "config")
 	configFile := filepath.Join(configRoot, "config.yml")
-	original := obsidian.CliConfigPath
-	obsidian.CliConfigPath = func() (string, string, error) { return configRoot, configFile, nil }
-	t.Cleanup(func() { obsidian.CliConfigPath = original })
+	env.CLIConfigFile = configFile
 
-	saved, err := SaveSettings(Settings{
+	saved, err := SaveSettings(env, Settings{
 		Harness: harness.KindClaude,
 		Harnesses: map[harness.Kind]HarnessSettings{
 			harness.KindCodex:  {Model: " gpt-5.6 ", Effort: " high ", PermissionMode: harness.PermissionFullAccess},
@@ -31,7 +33,7 @@ func TestSettingsPersistInUserConfig(t *testing.T) {
 	require.Equal(t, harness.PermissionApprovalRequired, saved.Harnesses[harness.KindClaude].PermissionMode)
 	require.NotContains(t, saved.Harnesses, harness.Kind("unknown"))
 
-	loaded, err := LoadSettings()
+	loaded, err := LoadSettings(env)
 	require.NoError(t, err)
 	require.Equal(t, saved, loaded)
 	data, err := os.ReadFile(configFile)
@@ -42,13 +44,14 @@ func TestSettingsPersistInUserConfig(t *testing.T) {
 }
 
 func TestLoadSettingsDefaultsAndInvalidHarness(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	configRoot := filepath.Join(t.TempDir(), "config")
 	configFile := filepath.Join(configRoot, "config.yml")
-	original := obsidian.CliConfigPath
-	obsidian.CliConfigPath = func() (string, string, error) { return configRoot, configFile, nil }
-	t.Cleanup(func() { obsidian.CliConfigPath = original })
+	env.CLIConfigFile = configFile
 
-	settings, err := LoadSettings()
+	settings, err := LoadSettings(env)
 	require.NoError(t, err)
 	require.Empty(t, settings.Harness)
 	require.Equal(t, harness.PermissionApprovalRequired, settings.Harnesses[harness.KindCodex].PermissionMode)
@@ -56,21 +59,22 @@ func TestLoadSettingsDefaultsAndInvalidHarness(t *testing.T) {
 
 	require.NoError(t, os.MkdirAll(configRoot, 0o700))
 	require.NoError(t, os.WriteFile(configFile, []byte("agent:\n  harness: invalid\n"), 0o600))
-	settings, err = LoadSettings()
+	settings, err = LoadSettings(env)
 	require.NoError(t, err)
 	require.Empty(t, settings.Harness)
 }
 
 func TestLoadSettingsIgnoresRemovedAgentKeys(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	configRoot := filepath.Join(t.TempDir(), "config")
 	configFile := filepath.Join(configRoot, "config.yml")
-	original := obsidian.CliConfigPath
-	obsidian.CliConfigPath = func() (string, string, error) { return configRoot, configFile, nil }
-	t.Cleanup(func() { obsidian.CliConfigPath = original })
+	env.CLIConfigFile = configFile
 	require.NoError(t, os.MkdirAll(configRoot, 0o700))
 	require.NoError(t, os.WriteFile(configFile, []byte("agent:\n  enginePreference: openai\n  selectedModel: old-model\n"), 0o600))
 
-	settings, err := LoadSettings()
+	settings, err := LoadSettings(env)
 	require.NoError(t, err)
 	require.Equal(t, DefaultSettings(), settings)
 }

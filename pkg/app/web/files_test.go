@@ -2,19 +2,19 @@ package web
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"testing"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	vaultignore "github.com/atomicobject/rhizome/pkg/vault/ignore"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
 	"github.com/stretchr/testify/require"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 func TestFileReadEndpointsConfineResolvedPathsToVault(t *testing.T) {
@@ -28,10 +28,10 @@ func TestFileReadEndpointsConfineResolvedPathsToVault(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(outer, "outside.md"), []byte("# Outside secret\n"), 0o644))
 
 	vaultDef := obsidian.VaultDefinition{Root: root}
-	catalog, err := NewFileCatalog(vaultDef, nil, testNoteMetadataIndexer(t))
+	catalog, err := NewFileCatalog(vaultDef, nil, testkit.NoteMetadataIndexer(t))
 	require.NoError(t, err)
 	srv := &Server{
-		cfg:     Config{VaultPath: root, VaultDef: vaultDef, NoteMetadata: testNoteMetadataIndexer(t)},
+		cfg:     Config{VaultPath: root, VaultDef: vaultDef, NoteMetadata: testkit.NoteMetadataIndexer(t)},
 		runtime: &Runtime{Ignore: vaultignore.NewMatcher([]string{"ignored/"})},
 		catalog: catalog,
 	}
@@ -138,7 +138,7 @@ func TestListTreeFiltersSymlinkEntriesByResolvedTarget(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(outer, "outside.md"), []byte("# Outside\n"), 0o644))
 
 	vaultDef := obsidian.VaultDefinition{Root: root}
-	catalog, err := NewFileCatalog(vaultDef, nil, testNoteMetadataIndexer(t))
+	catalog, err := NewFileCatalog(vaultDef, nil, testkit.NoteMetadataIndexer(t))
 	require.NoError(t, err)
 	srv := &Server{
 		cfg:     Config{VaultPath: root, VaultDef: vaultDef},
@@ -269,7 +269,7 @@ func TestReadFileViewRejectsConfiguredDescriptorOnlyHTML(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, filepath.FromSlash(rel)), []byte("---\ntitle: markdown-looking input\n---\n[[target]]\n"), 0o644))
 
 	vaultDef := obsidian.VaultDefinition{Root: root, Includes: []string{"notes/*.html"}}
-	catalog, err := NewFileCatalog(vaultDef, nil, descriptorOnlyHTMLNoteMetadataIndexer(t))
+	catalog, err := NewFileCatalog(vaultDef, nil, testkit.DescriptorOnlyHTMLNoteMetadataIndexer(t))
 	require.NoError(t, err)
 	srv := &Server{
 		cfg:     Config{VaultPath: root, VaultDef: vaultDef},
@@ -401,7 +401,7 @@ func TestNotePathCacheStaysHotUntilInvalidated(t *testing.T) {
 		cfg: Config{
 			VaultPath:    root,
 			VaultDef:     obsidian.VaultDefinition{Name: "test", Path: root},
-			NoteMetadata: testNoteMetadataIndexer(t),
+			NoteMetadata: testkit.NoteMetadataIndexer(t),
 		},
 	}
 
@@ -459,7 +459,7 @@ func TestNotePathCacheBuildsFromIndexedMetadata(t *testing.T) {
 		cfg: Config{
 			VaultPath:    root,
 			VaultDef:     obsidian.VaultDefinition{Name: "test", Path: root},
-			NoteMetadata: testNoteMetadataIndexer(t),
+			NoteMetadata: testkit.NoteMetadataIndexer(t),
 		},
 		runtime: &Runtime{IntelStore: store},
 	}
@@ -468,7 +468,7 @@ func TestNotePathCacheBuildsFromIndexedMetadata(t *testing.T) {
 	resolved, ok := cache.ResolveNote("SPEC-0001")
 	require.True(t, ok)
 	require.Equal(t, "docs/spec.md", resolved)
-	require.Equal(t, []string{"docs/spec.md"}, cache.Aliases["SPEC-0001"])
+	require.Equal(t, []string{"docs/spec.md"}, cache.Aliases["spec-0001"])
 	resolved, ok = cache.ResolveNote("spec")
 	require.True(t, ok)
 	require.Equal(t, "docs/spec.md", resolved)
@@ -478,25 +478,29 @@ func TestNotePathCacheUpdatesIncrementallyFromWatchEvents(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "notes"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "first.md"), []byte(`---
-aliases: [FIRST]
+aliases: [FIRST-ALIAS]
 ---
 # First
 `), 0o644))
 
 	vaultDef := obsidian.VaultDefinition{Name: "test", Path: root}
-	catalog, err := NewFileCatalog(vaultDef, nil, testNoteMetadataIndexer(t))
+	catalog, err := NewFileCatalog(vaultDef, nil, testkit.NoteMetadataIndexer(t))
 	require.NoError(t, err)
 	srv := &Server{
 		cfg: Config{
 			VaultPath:    root,
 			VaultDef:     vaultDef,
-			NoteMetadata: testNoteMetadataIndexer(t),
+			NoteMetadata: testkit.NoteMetadataIndexer(t),
 		},
 		catalog: catalog,
 	}
 
 	cache := srv.notePathCache(t.Context())
-	resolved, ok := cache.ResolveNote("first")
+	srv.updateNotePathCacheForWatchEvents(t.Context(), []watchhub.WatchEvent{{
+		RelPath: "notes/first.md",
+		Op:      watchhub.OpWrite,
+	}})
+	resolved, ok := cache.ResolveNote("FIRST-ALIAS")
 	require.True(t, ok)
 	require.Equal(t, "notes/first.md", resolved)
 
@@ -515,7 +519,7 @@ aliases: [SECOND]
 	resolved, ok = updated.ResolveNote("SECOND")
 	require.True(t, ok)
 	require.Equal(t, "notes/second.md", resolved)
-	require.Equal(t, []string{"notes/second.md"}, updated.Aliases["SECOND"])
+	require.Equal(t, []string{"notes/second.md"}, updated.Aliases["second"])
 
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "first.md"), []byte(`---
 aliases: [FIRST-UPDATED]
@@ -526,12 +530,12 @@ aliases: [FIRST-UPDATED]
 		RelPath: "notes/first.md",
 		Op:      watchhub.OpWrite,
 	}})
-	_, ok = updated.ResolveNote("FIRST")
+	_, ok = updated.ResolveNote("FIRST-ALIAS")
 	require.False(t, ok)
 	resolved, ok = updated.ResolveNote("FIRST-UPDATED")
 	require.True(t, ok)
 	require.Equal(t, "notes/first.md", resolved)
-	require.Equal(t, []string{"notes/first.md"}, updated.Aliases["FIRST-UPDATED"])
+	require.Equal(t, []string{"notes/first.md"}, updated.Aliases["first-updated"])
 
 	srv.updateNotePathCacheForWatchEvents(t.Context(), []watchhub.WatchEvent{{
 		RelPath: "notes/second.md",

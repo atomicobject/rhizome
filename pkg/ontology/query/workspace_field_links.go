@@ -115,11 +115,10 @@ func (e *executor) workspaceFieldLinks(ctx context.Context, fromPath string, own
 		return out
 	}
 	result, err := scope.Resolve(ctx, noderead.ResolveRequest{
-		OmitLocators: true,
-		IndexOnly:    true,
-		Targets:      targets,
-		FromPath:     fromPath,
-		Hydrate:      noderead.HydrateOptions{Profile: noderead.HydrateSummary},
+		IndexOnly: true,
+		Targets:   targets,
+		FromPath:  fromPath,
+		Hydrate:   noderead.HydrateOptions{Profile: noderead.HydrateSummary},
 	})
 	if err != nil {
 		e.addError(path, err.Error())

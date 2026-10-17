@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/validate"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // ValidationRunRequest is the surface-independent input for one read-only
@@ -18,6 +19,7 @@ type ValidationRunRequest struct {
 	Surface      validate.ExecutionSurface
 	Features     validate.VaultFeatureFacts
 	Probes       validate.PrerequisiteProbes
+	selection    *validate.Selection
 }
 
 // ValidationSuiteRunner executes one ordered set of applicable checks.
@@ -27,9 +29,15 @@ type ValidationSuiteRunner func(context.Context, []string) (validate.Result, err
 // RunValidation composes selection, resolves applicability/prerequisites once
 // per domain, runs completed checks, and builds the shared structured result.
 func RunValidation(ctx context.Context, request ValidationRunRequest, run ValidationSuiteRunner) (ValidationResult, error) {
-	selection, err := validate.ResolveSelection(request.Selectors, request.Config)
-	if err != nil {
-		return ValidationResult{}, err
+	selection := validate.Selection{}
+	var err error
+	if request.selection != nil {
+		selection = *request.selection
+	} else {
+		selection, err = validate.ResolveSelection(request.Selectors, request.Config)
+		if err != nil {
+			return ValidationResult{}, err
+		}
 	}
 
 	if request.Surface == "" {
@@ -61,15 +69,12 @@ func RunValidation(ctx context.Context, request ValidationRunRequest, run Valida
 			return ValidationResult{}, err
 		}
 	}
-	outcomes, suite, err = promoteSoftSkippedChecks(outcomes, suite)
+	outcomes, suite, err = resolveDomainAbsence(outcomes, suite)
 	if err != nil {
 		return ValidationResult{}, err
 	}
 	if len(suite.RepairJournals) > 0 {
-		outcomes, suite, err = blockedRepairJournalComposition(request, outcomes, suite)
-		if err != nil {
-			return ValidationResult{}, err
-		}
+		outcomes, suite = blockedRepairJournalComposition(request, outcomes, suite)
 		return BuildValidationResult(selection, outcomes, suite)
 	}
 	if request.ApplyCommand != "" {
@@ -79,12 +84,12 @@ func RunValidation(ctx context.Context, request ValidationRunRequest, run Valida
 	return BuildValidationResult(selection, outcomes, suite)
 }
 
-// promoteSoftSkippedChecks converts domain-level absence discovered only after
+// resolveDomainAbsence converts domain-level absence discovered only after
 // prepared execution into the product contract's explicit not-applicable
 // outcome. Prerequisite and feature checks should resolve before execution;
-// this narrow bridge is for facts that require the prepared schema/runtime
+// this result is for facts that require the prepared schema/runtime
 // itself (for example, an ontology with no @identifier fields).
-func promoteSoftSkippedChecks(
+func resolveDomainAbsence(
 	outcomes []validate.CheckApplicabilityResult,
 	suite validate.Result,
 ) ([]validate.CheckApplicabilityResult, validate.Result, error) {
@@ -99,40 +104,30 @@ func promoteSoftSkippedChecks(
 
 	filtered := make([]validate.CheckResult, 0, len(suite.Checks))
 	for _, check := range suite.Checks {
-		if !check.Skipped {
+		if check.NotApplicable == "" {
 			filtered = append(filtered, check)
 			continue
 		}
 		canonical, ok := validate.CanonicalCheck(check.Name)
 		if !ok {
-			return nil, validate.Result{}, fmt.Errorf("soft-skipped result names unknown check %q", check.Name)
+			return nil, validate.Result{}, fmt.Errorf("not-applicable result names unknown check %q", check.Name)
 		}
 		index, exists := outcomeIndex[canonical]
 		if !exists || outcomes[index].Outcome != validate.CheckOutcomeCompleted {
-			return nil, validate.Result{}, fmt.Errorf("soft-skipped check %q has no completed applicability outcome", check.Name)
+			return nil, validate.Result{}, fmt.Errorf("not-applicable check %q has no completed applicability outcome", check.Name)
 		}
 		if check.IssueCount != 0 || strings.TrimSpace(check.Error) != "" || len(check.Issues) != 0 || len(check.Fixes) != 0 {
-			return nil, validate.Result{}, fmt.Errorf("soft-skipped check %q also returned findings, errors, or repairs", check.Name)
+			return nil, validate.Result{}, fmt.Errorf("not-applicable check %q also returned findings, errors, or repairs", check.Name)
 		}
 		outcomes[index].Outcome = validate.CheckOutcomeNotApplicable
-		outcomes[index].Summary = strings.TrimSpace(check.Summary)
+		outcomes[index].Summary = strings.TrimSpace(check.NotApplicable)
 		if outcomes[index].Summary == "" {
 			outcomes[index].Summary = "check is not applicable to this vault"
 		}
 	}
 
-	issues := 0
-	errors := 0
-	for _, check := range filtered {
-		issues += check.IssueCount
-		if strings.TrimSpace(check.Error) != "" {
-			errors++
-		}
-	}
 	suite.Checks = filtered
-	suite.IssueCount = issues
-	suite.ErrorCount = errors
-	suite.OK = issues == 0 && errors == 0 && len(suite.RepairJournals) == 0
+	suite.SummarizeChecks()
 	return outcomes, suite, nil
 }
 
@@ -140,45 +135,17 @@ func blockedRepairJournalComposition(
 	request ValidationRunRequest,
 	outcomes []validate.CheckApplicabilityResult,
 	suite validate.Result,
-) ([]validate.CheckApplicabilityResult, validate.Result, error) {
-	recoveryCommand := request.ApplyCommand
-	if recoveryCommand == "" {
-		recoveryCommand = suite.ApplyCommand
+) ([]validate.CheckApplicabilityResult, validate.Result) {
+	checks := make([]string, 0, len(outcomes))
+	for _, outcome := range outcomes {
+		checks = append(checks, outcome.Check)
 	}
-	if suite.NextActions == nil {
-		return nil, validate.Result{}, fmt.Errorf("pending repair journal result omitted recovery guidance")
+	command := request.ApplyCommand
+	if command == "" {
+		command = suite.ApplyCommand
 	}
-	next := *suite.NextActions
-	next.Actions = append([]validate.NextAction(nil), suite.NextActions.Actions...)
-	recoveryIndex := -1
-	for index, action := range next.Actions {
-		if action.Category != "repair_recovery" {
-			continue
-		}
-		recoveryIndex = index
-		if recoveryCommand == "" {
-			recoveryCommand = action.Command
-		}
-		break
-	}
-	if recoveryIndex < 0 || recoveryCommand == "" {
-		return nil, validate.Result{}, fmt.Errorf("pending repair journal result omitted its recovery command")
-	}
-	next.Actions[recoveryIndex].Command = recoveryCommand
-	suite.ApplyCommand = recoveryCommand
-	suite.NextActions = &next
-
-	blocked := append([]validate.CheckApplicabilityResult(nil), outcomes...)
-	for index := range blocked {
-		blocked[index].Outcome = validate.CheckOutcomeBlocked
-		blocked[index].Summary = "pending repair journal must be recovered before validation can inspect or refresh projections"
-		blocked[index].PreparationCommand = recoveryCommand
-		blocked[index].Evidence = []validate.ApplicabilityEvidence{{
-			Code:    "pending_repair_journal",
-			Message: "Interrupted repair evidence is present; recover it before running validation.",
-		}}
-	}
-	return blocked, suite, nil
+	blockedSuite, blocked := validate.RepairRecoveryOutcome(validate.RunContext{VaultDef: obsidian.VaultDefinition{Name: suite.VaultName}}, checks, suite.RepairJournals, command)
+	return blocked, blockedSuite
 }
 
 func descriptorMap() map[string]validate.CheckDescriptor {

@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +32,7 @@ type validationProductOptions struct {
 
 // newValidateProductCmdWithRunner builds the human validation surface around
 // an injected production runner without owning command registration.
-func newValidateProductCmdWithRunner(runner validationProductRunner) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newValidateProductCmdWithRunner(runner validationProductRunner) *cobra.Command {
 	runOptions := validationProductOptions{}
 	cmd := &cobra.Command{
 		Use:           "validate [selector]",
@@ -47,13 +47,13 @@ func newValidateProductCmdWithRunner(runner validationProductRunner) *cobra.Comm
 	}
 	addValidationProductRunFlags(cmd, &runOptions, true)
 	cmd.AddCommand(newValidationProductListCmd(false))
-	cmd.AddCommand(newValidationProductFixCmd(runner, false))
+	cmd.AddCommand(commandOptions.newValidationProductFixCmd(runner, false))
 	return cmd
 }
 
 // newAgentValidateProductCmdWithRunner builds the JSON-only agent mirror. It
 // never carries a confirmation callback; apply is always non-interactive.
-func newAgentValidateProductCmdWithRunner(runner validationProductRunner) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentValidateProductCmdWithRunner(runner validationProductRunner) *cobra.Command {
 	runOptions := validationProductOptions{}
 	cmd := &cobra.Command{
 		Use:           "validate [selector]",
@@ -62,14 +62,14 @@ func newAgentValidateProductCmdWithRunner(runner validationProductRunner) *cobra
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			runOptions.vaultName = vaultName
+			runOptions.vaultName = commandOptions.vaultName
 			request := runOptions.request(args, validate.SurfaceAgent, false, true)
 			return executeValidationProduct(cmd, runner, request, validationProductRenderJSON)
 		},
 	}
 	addValidationProductRunFlags(cmd, &runOptions, false)
 	cmd.AddCommand(newValidationProductListCmd(true))
-	cmd.AddCommand(newValidationProductFixCmd(runner, true))
+	cmd.AddCommand(commandOptions.newValidationProductFixCmd(runner, true))
 	return cmd
 }
 
@@ -162,7 +162,7 @@ func newValidationProductListCmd(agent bool) *cobra.Command {
 	}
 }
 
-func newValidationProductFixCmd(runner validationProductRunner, agent bool) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newValidationProductFixCmd(runner validationProductRunner, agent bool) *cobra.Command {
 	options := validationProductOptions{}
 	surface := validate.SurfaceLocal
 	renderer := validationProductRenderHuman
@@ -178,7 +178,7 @@ func newValidationProductFixCmd(runner validationProductRunner, agent bool) *cob
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if agent {
-				options.vaultName = vaultName
+				options.vaultName = commandOptions.vaultName
 			}
 			selection, err := actions.ResolveValidationApplySelection(options.apply, options.selectActions, options.fromPlan)
 			if err != nil {

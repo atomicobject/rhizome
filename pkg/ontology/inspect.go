@@ -2,6 +2,8 @@ package ontology
 
 import (
 	"context"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	"github.com/atomicobject/rhizome/pkg/vault/identity"
 	"sort"
 	"strings"
 )
@@ -16,11 +18,11 @@ type InspectRelation struct {
 }
 
 type InspectNote struct {
-	Path               string            `json:"path"`
-	ResolvedType       string            `json:"resolvedType,omitempty"`
-	Assessment         *NoteAssessment   `json:"assessment,omitempty"`
-	TypeDoc            *TypeDoc          `json:"typeDoc,omitempty"`
-	PersistedRelations []InspectRelation `json:"persistedRelations,omitempty"`
+	Path               string             `json:"path"`
+	ResolvedType       string             `json:"resolvedType,omitempty"`
+	Assessment         *NoteAssessment    `json:"assessment,omitempty"`
+	TypeDoc            *schemadoc.TypeDoc `json:"typeDoc,omitempty"`
+	PersistedRelations []InspectRelation  `json:"persistedRelations,omitempty"`
 }
 
 type InspectResult struct {
@@ -53,7 +55,7 @@ func (s *Service) Inspect(ctx context.Context, notePath string) (InspectNote, er
 		}
 	}
 	if out.ResolvedType != "" {
-		doc, err := s.TypeDoc(out.ResolvedType)
+		doc, err := schemadoc.Type(s.Schema, out.ResolvedType, identity.CurrentUserType)
 		if err != nil {
 			return out, err
 		}

@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"gopkg.in/yaml.v3"
 )
 
@@ -43,7 +43,7 @@ type generatedFiles struct {
 }
 
 func generatedFilesPath(projectRoot string) string {
-	return filepath.Join(projectRoot, obsidian.RhizomeDirName, generatedFilesName)
+	return filepath.Join(projectRoot, repoconfig.RhizomeDirName, generatedFilesName)
 }
 
 // loadGeneratedFiles reads the record. A missing, unreadable, or conflicted
@@ -93,7 +93,7 @@ func (g *generatedFiles) save(projectRoot string) error {
 	var body bytes.Buffer
 	body.WriteString(generatedFilesHeader)
 	enc := yaml.NewEncoder(&body)
-	enc.SetIndent(obsidian.LocalConfigYAMLIndent)
+	enc.SetIndent(repoconfig.LocalConfigYAMLIndent)
 	if err := enc.Encode(g); err != nil {
 		return err
 	}
@@ -221,7 +221,7 @@ func removeLegacySkillFiles(skillDir string) error {
 const legacyRejectionsName = "template-rejections.yml"
 
 func removeLegacyRejections(projectRoot string) error {
-	path := filepath.Join(projectRoot, obsidian.RhizomeDirName, legacyRejectionsName)
+	path := filepath.Join(projectRoot, repoconfig.RhizomeDirName, legacyRejectionsName)
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}

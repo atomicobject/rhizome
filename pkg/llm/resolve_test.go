@@ -1,25 +1,21 @@
 package llm
 
 import (
+	"os"
 	"testing"
 
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
 
-func mockNoGlobalHome(t *testing.T) {
+func mockNoGlobalHome(t *testing.T) vaultconfig.Env {
 	t.Helper()
-	original := vaultconfig.UserHomeDirectory
-	home := t.TempDir()
-	vaultconfig.UserHomeDirectory = func() (string, error) { return home, nil }
-	t.Cleanup(func() {
-		vaultconfig.UserHomeDirectory = original
-	})
+	return vaultconfig.Env{HomeDir: t.TempDir(), LookupEnv: os.LookupEnv}
 }
 
 func TestResolveProfile_Defaults(t *testing.T) {
-	mockNoGlobalHome(t)
+	env := mockNoGlobalHome(t)
 	t.Setenv("OPENAI_API_KEY", "test-key")
-	resolved, err := ResolveProfile("instant", nil, nil, "")
+	resolved, err := ResolveProfile(env, "instant", nil, nil, "")
 	if err != nil {
 		t.Fatalf("expected defaults to resolve: %v", err)
 	}
@@ -35,9 +31,9 @@ func TestResolveProfile_Defaults(t *testing.T) {
 }
 
 func TestResolveProfile_FastAlias(t *testing.T) {
-	mockNoGlobalHome(t)
+	env := mockNoGlobalHome(t)
 	t.Setenv("OPENAI_API_KEY", "test-key")
-	resolved, err := ResolveProfile("fast", nil, nil, "")
+	resolved, err := ResolveProfile(env, "fast", nil, nil, "")
 	if err != nil {
 		t.Fatalf("expected fast to resolve: %v", err)
 	}
@@ -47,7 +43,7 @@ func TestResolveProfile_FastAlias(t *testing.T) {
 }
 
 func TestResolveProfile_LocalOverridesGlobal(t *testing.T) {
-	mockNoGlobalHome(t)
+	env := mockNoGlobalHome(t)
 	t.Setenv("OPENAI_API_KEY", "test-key")
 	global := &Config{Profiles: map[string]Profile{
 		"instant": {Model: "gpt-5.1"},
@@ -55,7 +51,7 @@ func TestResolveProfile_LocalOverridesGlobal(t *testing.T) {
 	local := &Config{Profiles: map[string]Profile{
 		"instant": {Model: "gpt-4.1"},
 	}}
-	resolved, err := ResolveProfile("instant", local, global, "")
+	resolved, err := ResolveProfile(env, "instant", local, global, "")
 	if err != nil {
 		t.Fatalf("expected merge to resolve: %v", err)
 	}
@@ -98,9 +94,9 @@ func TestParseModelSpec_InvalidEffort(t *testing.T) {
 }
 
 func TestResolveProfile_ModelOverrideInference(t *testing.T) {
-	mockNoGlobalHome(t)
+	env := mockNoGlobalHome(t)
 	t.Setenv("GEMINI_API_KEY", "test-key")
-	resolved, err := ResolveProfile("instant", nil, nil, "gemini/gemini-1.5:low")
+	resolved, err := ResolveProfile(env, "instant", nil, nil, "gemini/gemini-1.5:low")
 	if err != nil {
 		t.Fatalf("expected override to resolve: %v", err)
 	}
@@ -113,13 +109,13 @@ func TestResolveProfile_ModelOverrideInference(t *testing.T) {
 }
 
 func TestResolveProfile_MissingAPIKey(t *testing.T) {
-	mockNoGlobalHome(t)
+	env := mockNoGlobalHome(t)
 	t.Setenv("OPENAI_API_KEY", "")
 	t.Setenv("ANTHROPIC_API_KEY", "")
 	t.Setenv("GEMINI_API_KEY", "")
 	t.Setenv("CEREBRAS_API_KEY", "")
 	t.Setenv("ATOMIC_RHIZOME_KEY", "") // Disable team keys
-	_, err := ResolveProfile("instant", nil, nil, "")
+	_, err := ResolveProfile(env, "instant", nil, nil, "")
 	if err == nil {
 		t.Fatalf("expected missing api key error")
 	}

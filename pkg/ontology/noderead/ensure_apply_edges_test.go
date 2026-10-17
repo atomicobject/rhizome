@@ -2,15 +2,18 @@ package noderead
 
 import (
 	"context"
+	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 // EnsureLinkTargetApply is the one write-capable Scope seam. Once it makes an
@@ -43,17 +46,18 @@ type UserStory implements Section @node(locator: EMBEDDED) {
 		EnsureLinkTarget: ontology.EnsureLinkTargetApply,
 		Hydrate:          HydrateOptions{Profile: HydrateSummary},
 	}
-	traversal := TraverseRequest{
-		Sources:    []ontology.NodeRef{{NotePath: "specs/product.md", Kind: ontology.NodeKindNote}},
-		Structural: true,
-		Relation:   "related",
+	traversal := NeighborhoodRequest{
+		Sources:           []ontology.NodeRef{{NotePath: "specs/product.md", Kind: ontology.NodeKindNote}},
+		IncludeStructural: true,
+		Direction:         TraversalDirectionInbound,
+		RelationNames:     []string{"related"},
 	}
 
-	scope := enableTestLinkApply(t, NewService(vault, &obsidian.Note{}, store, schema)).NewScope(ctx, ScopeOptions{})
-	warm, err := scope.Traverse(ctx, traversal)
+	scope := enableTestLinkApply(t, NewService(vault, &obsidian.Note{}, store, schema)).NewScope(ScopeOptions{})
+	warm, err := scope.Edges(ctx, traversal)
 	require.NoError(t, err)
-	require.Len(t, warm.EdgesBySource["specs/product.md"], 1)
-	provisionalSourceID := warm.EdgesBySource["specs/product.md"][0].SrcNodeID
+	require.Len(t, warm.Edges, 1)
+	provisionalSourceID := warm.Edges[0].Edge.SrcNodeID
 
 	fixed, err := scope.Resolve(ctx, request)
 	require.NoError(t, err)
@@ -78,11 +82,11 @@ type UserStory implements Section @node(locator: EMBEDDED) {
 	require.Equal(t, afterFirstApply, afterSecondApply, "apply is source-idempotent once linkable")
 
 	assertEnsureApplyEdgeConvergence(t, ctx, store, scope, traversal, fixed.Resolved[0].Ref, fixed.Resolved[0].Locator.SourceLocator, blockID)
-	freshScope := NewService(vault, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{})
+	freshScope := NewService(vault, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
 	assertEnsureApplyEdgeConvergence(t, ctx, store, freshScope, traversal, fixed.Resolved[0].Ref, fixed.Resolved[0].Locator.SourceLocator, blockID)
 }
 
-func assertEnsureApplyEdgeConvergence(t *testing.T, ctx context.Context, store *semdb.Store, scope *Scope, traversal TraverseRequest, ref ontology.NodeRef, sourceLocator, blockID string) {
+func assertEnsureApplyEdgeConvergence(t *testing.T, ctx context.Context, store *semdb.Store, scope *Scope, traversal NeighborhoodRequest, ref ontology.NodeRef, sourceLocator, blockID string) {
 	t.Helper()
 	nodes, err := store.OntologyNodesBySourceLocators(ctx, []string{sourceLocator})
 	require.NoError(t, err)
@@ -92,10 +96,10 @@ func assertEnsureApplyEdgeConvergence(t *testing.T, ctx context.Context, store *
 	require.Equal(t, "UserStory", catalogNode.TypeName)
 	require.Equal(t, blockID, catalogNode.BlockID)
 
-	edges, err := scope.Traverse(ctx, traversal)
+	edges, err := scope.Edges(ctx, traversal)
 	require.NoError(t, err)
-	require.Len(t, edges.EdgesBySource["specs/product.md"], 1)
-	edge := edges.EdgesBySource["specs/product.md"][0]
+	require.Len(t, edges.Edges, 1)
+	edge := edges.Edges[0].Edge
 	// Edge endpoints use the projection NodeID/source-locator representation;
 	// catalog rows use OntologyNodeID(ref). Keep the two contracts distinct.
 	require.Equal(t, ref.NodeID, edge.SrcNodeID)
@@ -107,11 +111,19 @@ func assertEnsureApplyEdgeConvergence(t *testing.T, ctx context.Context, store *
 
 func enableTestLinkApply(t *testing.T, service *Service) *Service {
 	t.Helper()
-	indexer := testNoteMetadataIndexer(t)
+	indexer := testkit.NoteMetadataIndexer(t)
 	service.ApplyLinkTargets = func(ctx context.Context, request ontology.LinkTargetRequest) (ontology.LinkTargetResult, error) {
 		// The app coordinator has its own lock/queue tests. This test adapter
 		// exercises Scope behavior against the canonical ontology sync contract.
-		result, err := (&ontology.NodeLinkService{VaultDef: service.VaultDef, NoteReader: service.NoteReader, Schema: service.Schema}).LinkTargets(ctx, request)
+		lease, acquired, err := indexlock.TryAcquireLease(service.VaultDef.BasePath(), indexlock.AcquireOptions{Role: "test/noderead-apply"})
+		if err != nil {
+			return ontology.LinkTargetResult{}, err
+		}
+		if !acquired {
+			return ontology.LinkTargetResult{}, fmt.Errorf("fixture vault writer is already active")
+		}
+		defer func() { require.NoError(t, lease.Release()) }()
+		result, err := (&ontology.NodeLinkService{VaultDef: service.VaultDef, NoteReader: service.NoteReader, Schema: service.Schema, WriteLease: lease}).LinkTargets(ctx, request)
 		if err != nil {
 			return result, err
 		}
@@ -123,7 +135,7 @@ func enableTestLinkApply(t *testing.T, service *Service) *Service {
 		if err := indexer.SyncPaths(ctx, service.VaultDef, service.NoteReader, store, changed, nil); err != nil {
 			return result, err
 		}
-		_, err = ontology.SyncPublishedPaths(ctx, indexer, service.VaultDef, service.NoteReader, store, nil, changed, nil)
+		_, err = ontologytest.SyncHeld(ctx, lease, indexer, service.VaultDef, service.NoteReader, store, changed, nil)
 		return result, err
 	}
 	return service

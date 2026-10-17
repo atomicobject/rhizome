@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,7 +38,7 @@ func syncForTest(t *testing.T, root string, templates []string, ui ownershipUI) 
 
 // skillTemplateMatchesOnDisk reports whether every file of the named skill on
 // disk equals what init renders.
-func skillTemplateMatchesOnDisk(skillRoot string, templates []skillTemplate, name string) (bool, error) {
+func skillTemplateMatchesOnDisk(skillRoot string, templates []skilloverlay.Skill, name string) (bool, error) {
 	rendered, err := renderSkillTemplates(templates)
 	if err != nil {
 		return false, err

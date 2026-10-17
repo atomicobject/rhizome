@@ -3,12 +3,11 @@ package identifierreconcile
 import (
 	"encoding/hex"
 	"fmt"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
 )
 
-func validateFieldDiscoveryMembership(discovery *identifierFieldDiscoverySnapshot, rewrites []reference.IdentifierRewrite) error {
+func validateFieldDiscoveryMembership(discovery *identifierFieldDiscoverySnapshot, rewrites []identifierrewrite.IdentifierRewrite) error {
 	canonical, err := canonicalRepairRewriteSet(rewrites)
 	if err != nil {
 		return err
@@ -44,7 +43,7 @@ func validateFieldDiscoveryMembership(discovery *identifierFieldDiscoverySnapsho
 	return nil
 }
 
-func fieldDiagnosticMatchesRewrites(diagnostic reference.IdentifierRewriteDiagnostic, rewrites []reference.IdentifierRewrite) bool {
+func fieldDiagnosticMatchesRewrites(diagnostic identifierrewrite.IdentifierRewriteDiagnostic, rewrites []identifierrewrite.IdentifierRewrite) bool {
 	for _, rewrite := range rewrites {
 		if !diagnostic.OwnerRef.IsZero() && (sameRepairRef(diagnostic.OwnerRef, rewrite.OldRef) || sameRepairRef(diagnostic.OwnerRef, rewrite.NewRef)) {
 			return true
@@ -61,7 +60,7 @@ func fieldDiagnosticMatchesRewrites(diagnostic reference.IdentifierRewriteDiagno
 	return false
 }
 
-func linkDiagnosticMatchesRewrites(diagnostic reference.LinkRewriteDiagnostic, rewrites []reference.IdentifierRewrite) bool {
+func linkDiagnosticMatchesRewrites(diagnostic identifierrewrite.LinkRewriteDiagnostic, rewrites []identifierrewrite.IdentifierRewrite) bool {
 	for _, rewrite := range rewrites {
 		for _, candidate := range diagnostic.Candidates {
 			if sameRepairRef(candidate, rewrite.OldRef) || sameRepairRef(candidate, rewrite.NewRef) {

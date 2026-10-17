@@ -66,6 +66,15 @@ jobs:
       - name: Vet
         run: go vet -tags fts5 ./...
 
+      - name: Check Go file sizes
+        run: python3 scripts/quality/file_size.py
+
+      - name: Analyze Go correctness and unused code
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.12.2
+          args: --config .golangci-gate.yml
+
   unit-tests:
     name: Unit Tests (${{ matrix.os }}, ${{ matrix.shard }})
     needs: [changes]
@@ -128,6 +137,34 @@ jobs:
           path: ${{ runner.temp }}/go-build
           key: go-build-${{ runner.os }}-${{ github.sha }}
 
+  runtime-evidence:
+    name: Runtime Code Evidence
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build CLI runtime fixture
+        run: NO_WEB=1 make build
+
+      - name: Exercise compiled host routing through one vault runtime
+        env:
+          RZM_CODE_MODE_RUNTIME_FIXTURE: ${{ github.workspace }}/bin/linux/rzm
+        run: go test -tags fts5 -count=1 ./cmd -run '^TestNodeScriptCallsRunInOneVaultRuntime$'
+
   installer-tests:
     name: Installer Tests
     runs-on: ubuntu-latest
@@ -153,6 +190,9 @@ jobs:
         with:
           go-version: "1.24.2"
           cache: true
+
+      - name: Check repository content contracts
+        run: go test -tags "fts5 repo_content" -count=1 ./tests
 
       - name: Validate Rhizome content
         run: go run -tags fts5 . ci --format github

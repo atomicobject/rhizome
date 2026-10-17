@@ -1,6 +1,7 @@
 package sqliteutil
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -31,7 +32,7 @@ func TestQuickIntegrityCheck_ReturnsOKForValidDB(t *testing.T) {
 	_, err = db.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY)")
 	require.NoError(t, err)
 
-	err = QuickIntegrityCheck(db)
+	err = QuickIntegrityCheck(t.Context(), db)
 	assert.NoError(t, err)
 }
 
@@ -61,7 +62,7 @@ func TestQuickIntegrityCheck_ReturnsCorruptionForCorruptDB(t *testing.T) {
 	require.NoError(t, err)
 	defer db2.Close()
 
-	err = QuickIntegrityCheck(db2)
+	err = QuickIntegrityCheck(t.Context(), db2)
 	require.Error(t, err)
 	assert.True(t, IsCorruptError(err), "expected corruption, got %v", err)
 }
@@ -86,7 +87,9 @@ func TestQuickIntegrityCheck_ExclusiveLockReturnsBusy(t *testing.T) {
 	defer db2.Close()
 
 	start := time.Now()
-	err = QuickIntegrityCheck(db2)
+	waits := 0
+	err = quickIntegrityCheck(t.Context(), db2, func(context.Context, time.Duration) error { waits++; return nil })
+	require.Equal(t, 2, waits)
 	elapsed := time.Since(start)
 
 	assert.Less(t, elapsed, 10*time.Second, "no-wait contention should finish promptly")
@@ -104,6 +107,25 @@ func TestIsCorruptError_IntegrityCheckFailed(t *testing.T) {
 	// Wrapped error should also be detected via errors.As
 	wrapped := fmt.Errorf("open failed: %w", err)
 	assert.True(t, IsCorruptError(wrapped), "wrapped IntegrityCheckFailed should be detected")
+}
+
+func TestQuickIntegrityCheckDoesNotRetryClosedDatabase(t *testing.T) {
+	db, err := sql.Open("sqlite3", DSN(filepath.Join(t.TempDir(), "closed.db")))
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+	waits := 0
+	err = quickIntegrityCheck(t.Context(), db, func(context.Context, time.Duration) error { waits++; return nil })
+	require.Error(t, err)
+	require.Zero(t, waits)
+}
+
+func TestQuickIntegrityCheckHonorsCancellation(t *testing.T) {
+	db, err := OpenDSN(DSN(filepath.Join(t.TempDir(), "cancelled.db")), Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	require.ErrorIs(t, QuickIntegrityCheck(ctx, db), context.Canceled)
 }
 
 func TestIsCorruptError_SQLiteErrorCodes(t *testing.T) {

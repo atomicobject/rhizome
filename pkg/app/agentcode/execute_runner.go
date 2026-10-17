@@ -1,6 +1,8 @@
 package agentcode
 
 const executeRunner = `import { format } from "node:util";
+import { PassThrough, Writable } from "node:stream";
+import { EventEmitter } from "node:events";
 
 const diagnostics = [];
 let diagnosticBytes = 0;
@@ -36,16 +38,36 @@ let unhandledError;
 process.on("unhandledRejection", error => { unhandledError ??= errorRecord(error, "unhandled_rejection"); });
 async function emit(value) {
   let output;
-  try { output = JSON.stringify({ ...value, diagnostics }) + "\n"; }
-  catch { output = '{"ok":false,"result":null,"error":{"code":"execution_result_encoding_failed","message":"could not encode execution result"}}\n'; }
+  try { output = JSON.stringify({ executionResult: { ...value, diagnostics } }) + "\n"; }
+  catch { output = '{"executionResult":{"ok":false,"result":null,"error":{"code":"execution_result_encoding_failed","message":"could not encode execution result"}}}\n'; }
   await new Promise((resolve, reject) => originalWrite(output, error => error ? reject(error) : resolve()));
   process.exit(0);
 }
 let client, sdk, envelope;
 try {
-  const input = [];
-  for await (const chunk of process.stdin) input.push(chunk);
-  const config = JSON.parse(Buffer.concat(input).toString("utf8"));
+  const responses = new PassThrough();
+  const connection = new EventEmitter();
+  connection.stdout = responses;
+  connection.stderr = new PassThrough();
+  connection.stdin = new Writable({ write: (chunk, encoding, done) => originalWrite(chunk, encoding, done) });
+  connection.kill = () => { process.stdin.destroy(); connection.emit("close", null, "cancelled"); };
+  process.stdin.once("end", () => { responses.end(); connection.emit("close", 0, null); });
+  process.stdin.once("error", error => connection.emit("error", error));
+  const config = await new Promise((resolve, reject) => {
+    let initial = Buffer.alloc(0);
+    const readConfig = chunk => {
+      initial = Buffer.concat([initial, chunk]);
+      const end = initial.indexOf(10);
+      if (end < 0) return;
+      process.stdin.removeListener("data", readConfig);
+      process.stdin.on("data", data => responses.write(data));
+      try { resolve(JSON.parse(initial.subarray(0, end).toString("utf8"))); }
+      catch (error) { reject(error); }
+      if (end + 1 < initial.length) responses.write(initial.subarray(end + 1));
+    };
+    process.stdin.on("data", readConfig);
+    process.stdin.once("end", () => reject(new Error("execution input ended before configuration")));
+  });
   const moduleURL = "data:text/javascript;base64," + Buffer.from(config.module, "utf8").toString("base64");
   sdk = await import(moduleURL);
   const pendingCalls = new Set(), unobservedFailures = new Map();
@@ -60,7 +82,7 @@ try {
         lateCallError ??= errorRecord(error, "execution_finished");
         return Promise.reject(error);
       }
-      const activeClient = client ??= sdk.createClient({ executablePath: config.executablePath, vaultPath: config.vaultPath, sessionId: config.sessionId, readWrite: config.readWrite });
+      const activeClient = client ??= sdk.createManagedClient({ sessionId: config.sessionId }, connection);
       const promise = activeClient[method](...args);
       const record = { order: nextCallOrder++, observed: false };
       const observe = () => { record.observed = true; unobservedFailures.delete(record.order); };

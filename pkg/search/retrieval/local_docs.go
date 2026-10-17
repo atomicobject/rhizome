@@ -12,6 +12,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 type LocalDocsRetriever struct {
@@ -34,7 +35,7 @@ func (r *LocalDocsRetriever) Retrieve(ctx context.Context, spec search.QuerySpec
 	}
 	maxEmpty := r.MaxEmptyLevels
 	if maxEmpty <= 0 {
-		maxEmpty = obsidian.FileContextConfigDefaults.MaxEmptyLevels
+		maxEmpty = repoconfig.FileContextConfigDefaults.MaxEmptyLevels
 	}
 	submoduleDepth := r.SubmoduleDepth
 	if submoduleDepth <= 0 {
@@ -66,6 +67,12 @@ func (r *LocalDocsRetriever) Retrieve(ctx context.Context, spec search.QuerySpec
 			score = 0.45
 		}
 		out = append(out, search.Candidate{
+			SourceRef: search.SourceRef{
+				Path:       match.Path,
+				Title:      filepath.Base(match.Path),
+				ChunkIndex: -1,
+				NoteID:     match.Path,
+			},
 			Handle: h,
 			Owner:  h,
 			Evidence: []search.Evidence{{
@@ -78,10 +85,6 @@ func (r *LocalDocsRetriever) Retrieve(ctx context.Context, spec search.QuerySpec
 				},
 			}},
 			Type:       "note",
-			Path:       match.Path,
-			Title:      filepath.Base(match.Path),
-			ChunkIndex: -1,
-			NoteID:     match.Path,
 			DocClass:   search.DocClassModule,
 			PrimaryDoc: strings.EqualFold(match.Pattern, patterns[0]),
 		})

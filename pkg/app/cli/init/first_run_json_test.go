@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,7 +13,8 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/stretchr/testify/require"
 )
@@ -34,9 +36,12 @@ func planRule(scope Scope, pattern string) (ScopeRule, bool) {
 }
 
 func TestPlanReportsTheRecommendedSetupWithoutWriting(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := machineRunRepo(t)
 
-	plan, err := Plan(RunOptions{Dir: root})
+	plan, err := Plan(RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)
 
 	require.Equal(t, SetupSchema, plan.Schema)
@@ -68,9 +73,12 @@ func TestPlanReportsTheRecommendedSetupWithoutWriting(t *testing.T) {
 }
 
 func TestPlanFollowsTheChoicesItIsGiven(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := machineRunRepo(t)
 
-	plan, err := Plan(RunOptions{Dir: root, Workflow: "none", Addons: templateActionItems, Agents: "claude", Search: "off", Skip: []string{"cmd"}, KeepIndexed: []string{"testdata"}})
+	plan, err := Plan(RunOptions{Env: env, Dir: root, Workflow: "none", Addons: templateActionItems, Agents: "claude", Search: "off", Skip: []string{"cmd"}, KeepIndexed: []string{"testdata"}})
 	require.NoError(t, err)
 
 	require.Equal(t, "none", plan.Workflow)
@@ -86,9 +94,12 @@ func TestPlanFollowsTheChoicesItIsGiven(t *testing.T) {
 }
 
 func TestApplyWritesTheChoicesAndReportsThem(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := machineRunRepo(t)
 
-	result, err := Apply(RunOptions{Dir: root, Workflow: "agentic-engineering", Addons: "none", Search: "off", Skip: []string{"cmd"}})
+	result, err := Apply(RunOptions{Env: env, Dir: root, Workflow: "agentic-engineering", Addons: "none", Search: "off", Skip: []string{"cmd"}})
 	require.NoError(t, err)
 
 	canonical, err := filepath.EvalSymlinks(root)
@@ -101,24 +112,27 @@ func TestApplyWritesTheChoicesAndReportsThem(t *testing.T) {
 	require.NotContains(t, result.Created, ".rhizome/ontology/action-items.graphql")
 	require.Equal(t, []string{".rhizome/config.yml", ".rhizome/workflows.yml", ".rhizome/ignore"}, result.Created[:3])
 
-	workflow, _, err := obsidian.LoadLocalWorkflowConfig(root)
+	workflow, _, err := repoconfig.LoadLocalWorkflowConfig(root)
 	require.NoError(t, err)
 	require.Equal(t, []string{templateActionItems}, workflow.Addons.Disabled)
 	require.Contains(t, readIgnoreFile(t, root), "# "+reasonManual+"\n/cmd/\n")
 
 	// A terminal run afterward has nothing left to change.
-	require.NoError(t, Run(RunOptions{Dir: root, Check: true, Stdout: io.Discard, Stderr: io.Discard}))
+	require.NoError(t, Run(RunOptions{Env: env, Dir: root, Check: true, Stdout: io.Discard, Stderr: io.Discard}))
 }
 
 func TestApplySavesAKeyFromOptionsWithoutReportingIt(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := machineRunRepo(t)
 
-	result, err := Apply(RunOptions{Dir: root, SearchKey: "pa-from-a-pipe"})
+	result, err := Apply(RunOptions{Env: env, Dir: root, SearchKey: "pa-from-a-pipe"})
 	require.NoError(t, err)
 
 	require.Equal(t, "Voyage API Key", result.SavedKey)
-	require.Equal(t, "pa-from-a-pipe", readCliConfigForTest(t).Env["VOYAGE_API_KEY"])
-	cfg, err := obsidian.LoadLocalConfig(root)
+	require.Equal(t, "pa-from-a-pipe", readCliConfigForTest(t, env).Env["VOYAGE_API_KEY"])
+	cfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.True(t, cfg.NoteEmbeddings.Enabled)
 	doc, err := json.Marshal(result)
@@ -127,6 +141,9 @@ func TestApplySavesAKeyFromOptionsWithoutReportingIt(t *testing.T) {
 }
 
 func TestAPipedKeyIsSavedAfterDetectionRunsGit(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := machineRunRepo(t)
 	original := trackedFiles
 	var seen []string
@@ -136,15 +153,18 @@ func TestAPipedKeyIsSavedAfterDetectionRunsGit(t *testing.T) {
 	}
 	t.Cleanup(func() { trackedFiles = original })
 
-	_, err := Apply(RunOptions{Dir: root, SearchKey: "pa-not-for-children"})
+	_, err := Apply(RunOptions{Env: env, Dir: root, SearchKey: "pa-not-for-children"})
 	require.NoError(t, err)
 	require.NotEmpty(t, seen)
 	require.NotContains(t, seen, "pa-not-for-children")
 }
 
 func TestSharedAgentsWriteOnlyTheSharedGuidance(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := machineRunRepo(t)
-	plan, err := Plan(RunOptions{Dir: root, Agents: "shared"})
+	plan, err := Plan(RunOptions{Env: env, Dir: root, Agents: "shared"})
 	require.NoError(t, err)
 	for _, agent := range plan.Agents {
 		require.False(t, agent.Enabled, agent.ID)
@@ -152,7 +172,7 @@ func TestSharedAgentsWriteOnlyTheSharedGuidance(t *testing.T) {
 	require.Contains(t, plan.Writes.Files, "AGENTS.md")
 	require.NotContains(t, plan.Writes.Files, "CLAUDE.md")
 
-	_, err = Apply(RunOptions{Dir: root, Agents: "shared"})
+	_, err = Apply(RunOptions{Env: env, Dir: root, Agents: "shared"})
 	require.NoError(t, err)
 	require.FileExists(t, filepath.Join(root, "AGENTS.md"))
 	require.DirExists(t, filepath.Join(root, ".agents", "skills"))
@@ -160,25 +180,31 @@ func TestSharedAgentsWriteOnlyTheSharedGuidance(t *testing.T) {
 }
 
 func TestASearchKeyFromOptionsRecognizesTheTeamKey(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := machineRunRepo(t)
 	const unlock = "synthetic-team-unlock"
-	r, s, chosen, err := startMachineRun(RunOptions{Dir: root, SearchKey: unlock})
+	r, s, chosen, err := startMachineRun(RunOptions{Env: env, Dir: root, SearchKey: unlock})
 	require.NoError(t, err)
-	r.session = credentials.NewSession(credentials.WithTeamKeyBundle(func() bool { return true }, func(value string) bool { return value == unlock }))
+	r.session = credentials.NewSession(env, credentials.WithTeamKeyBundle(func() bool { return true }, func(value string) bool { return value == unlock }))
 
 	_, _, outcome, err := r.prepareFirstRun(s, chosen)
 	require.NoError(t, err)
 	require.Equal(t, "Atomic Object Rhizome key", outcome.savedKey)
-	require.Equal(t, unlock, readCliConfigForTest(t).Env[credentials.AtomicRhizomeKey])
+	require.Equal(t, unlock, readCliConfigForTest(t, env).Env[credentials.AtomicRhizomeKey])
 }
 
 func TestApplyReportsAFailedPinnedInstallWithTheWrittenSetup(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := machineRunRepo(t)
 	original := installPinnedBinary
 	installPinnedBinary = func(context.Context, appupdate.EnsureOptions) error { return errors.New("release not found") }
 	t.Cleanup(func() { installPinnedBinary = original })
 
-	result, err := Apply(RunOptions{Dir: root})
+	result, err := Apply(RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)
 
 	require.Contains(t, result.Pin.Error, "release not found")
@@ -187,19 +213,25 @@ func TestApplyReportsAFailedPinnedInstallWithTheWrittenSetup(t *testing.T) {
 }
 
 func TestMachineRunsAndFirstRunOptionsNeedAFolderThatIsNotSetUp(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := machineRunRepo(t)
-	_, err := Apply(RunOptions{Dir: root})
+	_, err := Apply(RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)
 
-	_, err = Plan(RunOptions{Dir: root})
+	_, err = Plan(RunOptions{Env: env, Dir: root})
 	require.ErrorIs(t, err, ErrNotFirstRun)
-	_, err = Apply(RunOptions{Dir: root})
+	_, err = Apply(RunOptions{Env: env, Dir: root})
 	require.ErrorIs(t, err, ErrNotFirstRun)
-	err = Run(RunOptions{Dir: root, Skip: []string{"cmd"}, Stdout: io.Discard, Stderr: io.Discard})
+	err = Run(RunOptions{Env: env, Dir: root, Skip: []string{"cmd"}, Stdout: io.Discard, Stderr: io.Discard})
 	require.ErrorIs(t, err, ErrNotFirstRun)
 }
 
 func TestFirstRunOptionsFailBeforeWriting(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	for name, opts := range map[string]RunOptions{
 		"unknown add-on":        {Addons: "core", SearchKey: "pa-never-saved"},
 		"missing skip path":     {Skip: []string{"nope"}},
@@ -213,7 +245,7 @@ func TestFirstRunOptionsFailBeforeWriting(t *testing.T) {
 			_, err := Apply(opts)
 			require.Error(t, err)
 			require.NoDirExists(t, filepath.Join(root, ".rhizome"))
-			require.Empty(t, readCliConfigForTest(t).Env["VOYAGE_API_KEY"], "no key is saved before options are checked")
+			require.Empty(t, readCliConfigForTest(t, env).Env["VOYAGE_API_KEY"], "no key is saved before options are checked")
 		})
 	}
 }

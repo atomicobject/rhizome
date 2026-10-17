@@ -6,241 +6,233 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/app/codeintel"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/spf13/cobra"
 )
 
-var (
-	codeRelatednessJSON             bool
-	codeRelatednessMaxRelated       int
-	codeRelatednessClusterThreshold int
-	codeRelatednessIncludeTests     bool
-	codeRelatednessCriticalLimit    int
-	codeRelatednessHotFilesLimit    int
-	codeRelatednessCriticalVerbose  bool
-)
-
-var codeRelatednessCmd = &cobra.Command{
-	Use:   "relatedness [roots...]",
-	Short: "Report code relatedness and refactor hotspots under one or more roots",
-	Args:  cobra.MinimumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		vaultPath, codeCfg, err := loadVaultAndCodeConfig(cmd)
-		if err != nil {
-			return err
-		}
-
-		var roots []string
-		for _, a := range args {
-			if strings.TrimSpace(a) == "" {
-				continue
-			}
-			absRoot, err := resolveCodeRoot(vaultPath, a)
+func (commandOptions *codeInvocationOptions) makeCodeRelatednessCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "relatedness [roots...]",
+		Short: "Report code relatedness and refactor hotspots under one or more roots",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			vaultPath, codeCfg, err := commandOptions.loadVaultAndCodeConfig(cmd)
 			if err != nil {
 				return err
 			}
-			if absRoot == "" {
-				continue
-			}
-			roots = append(roots, absRoot)
-		}
-		if len(roots) == 0 {
-			return fmt.Errorf("at least one root is required")
-		}
 
-		var intel actions.CodeRelatednessIntel
-		store, cleanup, warning, err := codeintel.OpenOptionalIntelStore(vaultPath, codeCfg)
-		if err != nil {
-			return err
-		}
-		if cleanup != nil {
-			defer cleanup()
-		}
-		if store != nil {
-			intel = store
-		}
-		if strings.TrimSpace(warning) != "" {
-			warning = strings.Replace(warning, "without intel.", "without call/anchor intel.", 1)
-			fmt.Fprintln(cmd.ErrOrStderr(), warning)
-		}
-
-		vaultDef, err := vaultDefOrDefaultContext(cmd.Context())
-		if err != nil {
-			return err
-		}
-		report, err := actions.CodeRelatedness(cmd.Context(), intel, actions.CodeRelatednessOptions{
-			VaultPath:        vaultPath,
-			Roots:            roots,
-			Excludes:         vaultDef.Excludes,
-			MaxRelated:       codeRelatednessMaxRelated,
-			ClusterThreshold: codeRelatednessClusterThreshold,
-			IncludeTests:     codeRelatednessIncludeTests,
-			CriticalLimit:    codeRelatednessCriticalLimit,
-			HotFilesLimit:    codeRelatednessHotFilesLimit,
-		})
-		if err != nil {
-			return err
-		}
-
-		if codeRelatednessJSON {
-			enc := json.NewEncoder(cmd.OutOrStdout())
-			enc.SetIndent("", "  ")
-			return enc.Encode(report)
-		}
-
-		fmt.Fprintf(cmd.OutOrStdout(), "Code relatedness (roots: %s)\n", strings.Join(args, ", "))
-		if report.Module != "" {
-			fmt.Fprintf(cmd.OutOrStdout(), "Module: %s\n", report.Module)
-		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Packages: %d\n", len(report.Packages))
-		if len(report.Clusters) > 0 {
-			fmt.Fprintln(cmd.OutOrStdout())
-			fmt.Fprintf(cmd.OutOrStdout(), "Clusters (score >= %d):\n", codeRelatednessClusterThreshold)
-			for i, c := range report.Clusters {
-				fmt.Fprintf(cmd.OutOrStdout(), "%2d. %s\n", i+1, strings.Join(shortenPkgs(report.Module, c.Packages), ", "))
-			}
-		}
-
-		if len(report.CouplingEdges) > 0 {
-			fmt.Fprintln(cmd.OutOrStdout())
-			fmt.Fprintln(cmd.OutOrStdout(), "Strongest coupling edges (directed; cross-package calls):")
-			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "Calls\tImpFiles\tImports\tBothWays\tFrom\tTo")
-			for _, e := range report.CouplingEdges {
-				fmt.Fprintf(w, "%d\t%d\t%t\t%t\t%s\t%s\n",
-					e.CallsTo, e.ImportFiles, e.Imports, e.BothWays, displayPkg(shortenPkg(report.Module, e.FromPkg)), displayPkg(shortenPkg(report.Module, e.ToPkg)),
-				)
-			}
-			_ = w.Flush()
-
-			// Edge explanations: what symbols/files drive the coupling.
-			fmt.Fprintln(cmd.OutOrStdout())
-			maxExplain := 10
-			if len(report.CouplingEdges) < maxExplain {
-				maxExplain = len(report.CouplingEdges)
-			}
-			for i := 0; i < maxExplain; i++ {
-				e := report.CouplingEdges[i]
-				if len(e.TopCallees) == 0 && len(e.TopCallerFiles) == 0 {
+			var roots []string
+			for _, a := range args {
+				if strings.TrimSpace(a) == "" {
 					continue
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s → %s (calls=%d)\n",
-					shortenPkg(report.Module, e.FromPkg),
-					shortenPkg(report.Module, e.ToPkg),
-					e.CallsTo,
-				)
-				if len(e.TopCallees) > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "- callees: %s\n", formatCouplingCallees(report.Module, e.TopCallees))
+				absRoot, err := resolveCodeRoot(vaultPath, a)
+				if err != nil {
+					return err
 				}
-				if len(e.TopImportFiles) > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "- imports: %s\n", formatCouplingCallerFiles(e.TopImportFiles))
-				}
-				if len(e.TopCallerFiles) > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "- callers: %s\n", formatCouplingCallerFiles(e.TopCallerFiles))
-				}
-			}
-		}
-
-		if len(report.GodCandidates) > 0 {
-			fmt.Fprintln(cmd.OutOrStdout())
-			fmt.Fprintln(cmd.OutOrStdout(), "God candidates (highest combined hotspot score):")
-			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "Score\tImpIn\tImpOut\tCallIn\tCallOut\tAnchors\tNotes\tFiles\tPackage\tDir")
-			for _, g := range report.GodCandidates {
-				fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n",
-					g.CombinedGodScore, g.ImportFanIn, g.ImportFanOut, g.CallFanIn, g.CallFanOut, g.AnchorLabels, g.LinkedNotes, g.Files,
-					displayPkg(g.Package), g.Dir,
-				)
-			}
-			_ = w.Flush()
-
-			// Print top related packages for each god candidate (if present).
-			pkgByImport := make(map[string]actions.CodeRelatednessPackage, len(report.Packages))
-			for _, p := range report.Packages {
-				pkgByImport[p.ImportPath] = p
-			}
-			fmt.Fprintln(cmd.OutOrStdout())
-			for _, g := range report.GodCandidates {
-				p, ok := pkgByImport[g.Package]
-				if !ok || len(p.TopRelated) == 0 {
+				if absRoot == "" {
 					continue
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s top related:\n", displayPkg(p.ImportPath))
-				for _, e := range p.TopRelated {
-					fmt.Fprintf(cmd.OutOrStdout(), "- %s (score=%d, imports=%d, calls=%d, callsTo=%d, shared_anchors=%d)\n",
-						displayPkg(e.To), e.Score, e.ImportsBothWays, e.CallsBothWays, e.CallsTo, e.SharedAnchorLabels,
+				roots = append(roots, absRoot)
+			}
+			if len(roots) == 0 {
+				return fmt.Errorf("at least one root is required")
+			}
+
+			var intel actions.CodeRelatednessIntel
+			store, cleanup, warning, err := codeintel.OpenOptionalIntelStore(vaultPath, codeCfg)
+			if err != nil {
+				return err
+			}
+			if cleanup != nil {
+				defer cleanup()
+			}
+			if store != nil {
+				intel = store
+			}
+			if strings.TrimSpace(warning) != "" {
+				warning = strings.Replace(warning, "without intel.", "without call/anchor intel.", 1)
+				fmt.Fprintln(cmd.ErrOrStderr(), warning)
+			}
+
+			vaultDef, err := commandOptions.vaultDefOrDefaultContext(cmd.Context())
+			if err != nil {
+				return err
+			}
+			report, err := actions.CodeRelatedness(cmd.Context(), intel, actions.CodeRelatednessOptions{
+				VaultPath:        vaultPath,
+				Roots:            roots,
+				Excludes:         vaultDef.Excludes,
+				MaxRelated:       commandOptions.codeRelatednessMaxRelated,
+				ClusterThreshold: commandOptions.codeRelatednessClusterThreshold,
+				IncludeTests:     commandOptions.codeRelatednessIncludeTests,
+				CriticalLimit:    commandOptions.codeRelatednessCriticalLimit,
+				HotFilesLimit:    commandOptions.codeRelatednessHotFilesLimit,
+			})
+			if err != nil {
+				return err
+			}
+
+			if commandOptions.codeRelatednessJSON {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(report)
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Code relatedness (roots: %s)\n", strings.Join(args, ", "))
+			if report.Module != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Module: %s\n", report.Module)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Packages: %d\n", len(report.Packages))
+			if len(report.Clusters) > 0 {
+				fmt.Fprintln(cmd.OutOrStdout())
+				fmt.Fprintf(cmd.OutOrStdout(), "Clusters (score >= %d):\n", commandOptions.codeRelatednessClusterThreshold)
+				for i, c := range report.Clusters {
+					fmt.Fprintf(cmd.OutOrStdout(), "%2d. %s\n", i+1, strings.Join(shortenPkgs(report.Module, c.Packages), ", "))
+				}
+			}
+
+			if len(report.CouplingEdges) > 0 {
+				fmt.Fprintln(cmd.OutOrStdout())
+				fmt.Fprintln(cmd.OutOrStdout(), "Strongest coupling edges (directed; cross-package calls):")
+				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+				fmt.Fprintln(w, "Calls\tImpFiles\tImports\tBothWays\tFrom\tTo")
+				for _, e := range report.CouplingEdges {
+					fmt.Fprintf(w, "%d\t%d\t%t\t%t\t%s\t%s\n",
+						e.CallsTo, e.ImportFiles, e.Imports, e.BothWays, displayPkg(shortenPkg(report.Module, e.FromPkg)), displayPkg(shortenPkg(report.Module, e.ToPkg)),
 					)
 				}
-				if len(p.HotFiles) > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s hot files (cross-package call fan-out):\n", displayPkg(p.ImportPath))
-					for _, f := range p.HotFiles {
-						pkgsStr := ""
-						if len(f.CalleePkgs) > 0 {
-							pkgsStr = fmt.Sprintf(" pkgs=%s", strings.Join(shortenPkgs(report.Module, f.CalleePkgs), ","))
-						}
-						fmt.Fprintf(cmd.OutOrStdout(), "- %s (deps=%d, calls=%d)%s\n", f.File, f.DistinctCallees, f.CallsOutOfPkg, pkgsStr)
+				_ = w.Flush()
+
+				// Edge explanations: what symbols/files drive the coupling.
+				fmt.Fprintln(cmd.OutOrStdout())
+				maxExplain := 10
+				if len(report.CouplingEdges) < maxExplain {
+					maxExplain = len(report.CouplingEdges)
+				}
+				for i := 0; i < maxExplain; i++ {
+					e := report.CouplingEdges[i]
+					if len(e.TopCallees) == 0 && len(e.TopCallerFiles) == 0 {
+						continue
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "%s → %s (calls=%d)\n",
+						shortenPkg(report.Module, e.FromPkg),
+						shortenPkg(report.Module, e.ToPkg),
+						e.CallsTo,
+					)
+					if len(e.TopCallees) > 0 {
+						fmt.Fprintf(cmd.OutOrStdout(), "- callees: %s\n", formatCouplingCallees(report.Module, e.TopCallees))
+					}
+					if len(e.TopImportFiles) > 0 {
+						fmt.Fprintf(cmd.OutOrStdout(), "- imports: %s\n", formatCouplingCallerFiles(e.TopImportFiles))
+					}
+					if len(e.TopCallerFiles) > 0 {
+						fmt.Fprintf(cmd.OutOrStdout(), "- callers: %s\n", formatCouplingCallerFiles(e.TopCallerFiles))
 					}
 				}
+			}
+
+			if len(report.GodCandidates) > 0 {
 				fmt.Fprintln(cmd.OutOrStdout())
-			}
-		}
+				fmt.Fprintln(cmd.OutOrStdout(), "God candidates (highest combined hotspot score):")
+				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+				fmt.Fprintln(w, "Score\tImpIn\tImpOut\tCallIn\tCallOut\tAnchors\tNotes\tFiles\tPackage\tDir")
+				for _, g := range report.GodCandidates {
+					fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n",
+						g.CombinedGodScore, g.ImportFanIn, g.ImportFanOut, g.CallFanIn, g.CallFanOut, g.AnchorLabels, g.LinkedNotes, g.Files,
+						displayPkg(g.Package), g.Dir,
+					)
+				}
+				_ = w.Flush()
 
-		if len(report.CriticalSymbols) > 0 {
-			fmt.Fprintln(cmd.OutOrStdout())
-			fmt.Fprintf(cmd.OutOrStdout(), "Critical symbols (out-of-package calls; top %d):\n", min(len(report.CriticalSymbols), codeRelatednessCriticalLimit))
-			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "Calls\tCallerPkgs\tTopCaller%\tMentions\tLinks\tAnchors\tNotes\tFQN\tPath")
-			for _, s := range report.CriticalSymbols {
-				topPct := int(s.TopCallerShare * 100)
-				fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n",
-					s.Calls, s.CallerPackages, topPct, s.DocMentions, s.DocLinks, s.MatchingAnchors, s.MatchingNotes,
-					s.FQN, relToVault(vaultPath, s.DocPath),
-				)
-			}
-			_ = w.Flush()
-
-			fmt.Fprintln(cmd.OutOrStdout())
-			for _, s := range report.CriticalSymbols {
-				if len(s.TopCallerPackages) == 0 && len(s.AnchorLabels) == 0 && len(s.NotePaths) == 0 {
-					continue
+				// Print top related packages for each god candidate (if present).
+				pkgByImport := make(map[string]actions.CodeRelatednessPackage, len(report.Packages))
+				for _, p := range report.Packages {
+					pkgByImport[p.ImportPath] = p
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", s.FQN)
-				if len(s.TopCallerPackages) > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "- callers: %s\n", formatCallerPkgs(report.Module, s.TopCallerPackages))
-				}
-				if len(s.TopCallerFiles) > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "- files: %s\n", formatCallerFiles(s.TopCallerFiles))
-				}
-				if len(s.AnchorLabels) > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "- anchors: %s\n", strings.Join(s.AnchorLabels, ", "))
-				}
-				if codeRelatednessCriticalVerbose && len(s.NotePaths) > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "- notes: %s\n", strings.Join(s.NotePaths, ", "))
+				fmt.Fprintln(cmd.OutOrStdout())
+				for _, g := range report.GodCandidates {
+					p, ok := pkgByImport[g.Package]
+					if !ok || len(p.TopRelated) == 0 {
+						continue
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "%s top related:\n", displayPkg(p.ImportPath))
+					for _, e := range p.TopRelated {
+						fmt.Fprintf(cmd.OutOrStdout(), "- %s (score=%d, imports=%d, calls=%d, callsTo=%d, shared_anchors=%d)\n",
+							displayPkg(e.To), e.Score, e.ImportsBothWays, e.CallsBothWays, e.CallsTo, e.SharedAnchorLabels,
+						)
+					}
+					if len(p.HotFiles) > 0 {
+						fmt.Fprintf(cmd.OutOrStdout(), "%s hot files (cross-package call fan-out):\n", displayPkg(p.ImportPath))
+						for _, f := range p.HotFiles {
+							pkgsStr := ""
+							if len(f.CalleePkgs) > 0 {
+								pkgsStr = fmt.Sprintf(" pkgs=%s", strings.Join(shortenPkgs(report.Module, f.CalleePkgs), ","))
+							}
+							fmt.Fprintf(cmd.OutOrStdout(), "- %s (deps=%d, calls=%d)%s\n", f.File, f.DistinctCallees, f.CallsOutOfPkg, pkgsStr)
+						}
+					}
+					fmt.Fprintln(cmd.OutOrStdout())
 				}
 			}
-		}
 
-		if len(report.Packages) == 0 {
-			fmt.Fprintln(cmd.OutOrStdout(), "(No indexed code files found under the provided roots.)")
+			if len(report.CriticalSymbols) > 0 {
+				fmt.Fprintln(cmd.OutOrStdout())
+				fmt.Fprintf(cmd.OutOrStdout(), "Critical symbols (out-of-package calls; top %d):\n", min(len(report.CriticalSymbols), commandOptions.codeRelatednessCriticalLimit))
+				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+				fmt.Fprintln(w, "Calls\tCallerPkgs\tTopCaller%\tMentions\tLinks\tAnchors\tNotes\tFQN\tPath")
+				for _, s := range report.CriticalSymbols {
+					topPct := int(s.TopCallerShare * 100)
+					fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n",
+						s.Calls, s.CallerPackages, topPct, s.DocMentions, s.DocLinks, s.MatchingAnchors, s.MatchingNotes,
+						s.FQN, relToVault(vaultPath, s.DocPath),
+					)
+				}
+				_ = w.Flush()
+
+				fmt.Fprintln(cmd.OutOrStdout())
+				for _, s := range report.CriticalSymbols {
+					if len(s.TopCallerPackages) == 0 && len(s.AnchorLabels) == 0 && len(s.NotePaths) == 0 {
+						continue
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\n", s.FQN)
+					if len(s.TopCallerPackages) > 0 {
+						fmt.Fprintf(cmd.OutOrStdout(), "- callers: %s\n", formatCallerPkgs(report.Module, s.TopCallerPackages))
+					}
+					if len(s.TopCallerFiles) > 0 {
+						fmt.Fprintf(cmd.OutOrStdout(), "- files: %s\n", formatCallerFiles(s.TopCallerFiles))
+					}
+					if len(s.AnchorLabels) > 0 {
+						fmt.Fprintf(cmd.OutOrStdout(), "- anchors: %s\n", strings.Join(s.AnchorLabels, ", "))
+					}
+					if commandOptions.codeRelatednessCriticalVerbose && len(s.NotePaths) > 0 {
+						fmt.Fprintf(cmd.OutOrStdout(), "- notes: %s\n", strings.Join(s.NotePaths, ", "))
+					}
+				}
+			}
+
+			if len(report.Packages) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "(No indexed code files found under the provided roots.)")
+				return nil
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), "Notes:")
+			fmt.Fprintln(cmd.OutOrStdout(), "- `ImpIn/ImpOut` are internal import fan-in/out across discovered packages (from Go imports when available).")
+			fmt.Fprintln(cmd.OutOrStdout(), "- `CallIn/CallOut`, `Anchors`, graph signals, and `Notes` require a built code index (`rzm index`).")
 			return nil
-		}
-
-		fmt.Fprintln(cmd.OutOrStdout(), "Notes:")
-		fmt.Fprintln(cmd.OutOrStdout(), "- `ImpIn/ImpOut` are internal import fan-in/out across discovered packages (from Go imports when available).")
-		fmt.Fprintln(cmd.OutOrStdout(), "- `CallIn/CallOut`, `Anchors`, graph signals, and `Notes` require a built code index (`rzm index`).")
-		return nil
-	},
+		},
+	}
 }
 
-func init() {
-	codeRelatednessCmd.Flags().BoolVar(&codeRelatednessJSON, "json", false, "Output results as JSON")
-	codeRelatednessCmd.Flags().IntVar(&codeRelatednessMaxRelated, "max-related", 8, "Max related packages to show per package")
-	codeRelatednessCmd.Flags().IntVar(&codeRelatednessClusterThreshold, "cluster-threshold", 3, "Minimum relatedness score to connect packages into clusters")
-	codeRelatednessCmd.Flags().BoolVar(&codeRelatednessIncludeTests, "include-tests", false, "Include _test.go files when discovering packages")
-	codeRelatednessCmd.Flags().IntVar(&codeRelatednessCriticalLimit, "critical-limit", 20, "Max critical out-of-package symbols to include")
-	codeRelatednessCmd.Flags().IntVar(&codeRelatednessHotFilesLimit, "hot-files-limit", 5, "Max hot files per package to include")
-	codeRelatednessCmd.Flags().BoolVar(&codeRelatednessCriticalVerbose, "critical-verbose", false, "Include anchor label + note-path details for critical symbols")
+func (commandOptions *codeInvocationOptions) registerCodeRelatednessCommands(codeRelatednessCmd, codeCmd *cobra.Command) {
+	codeRelatednessCmd.Flags().BoolVar(&commandOptions.codeRelatednessJSON, "json", false, "Output results as JSON")
+	codeRelatednessCmd.Flags().IntVar(&commandOptions.codeRelatednessMaxRelated, "max-related", 8, "Max related packages to show per package")
+	codeRelatednessCmd.Flags().IntVar(&commandOptions.codeRelatednessClusterThreshold, "cluster-threshold", 3, "Minimum relatedness score to connect packages into clusters")
+	codeRelatednessCmd.Flags().BoolVar(&commandOptions.codeRelatednessIncludeTests, "include-tests", false, "Include _test.go files when discovering packages")
+	codeRelatednessCmd.Flags().IntVar(&commandOptions.codeRelatednessCriticalLimit, "critical-limit", 20, "Max critical out-of-package symbols to include")
+	codeRelatednessCmd.Flags().IntVar(&commandOptions.codeRelatednessHotFilesLimit, "hot-files-limit", 5, "Max hot files per package to include")
+	codeRelatednessCmd.Flags().BoolVar(&commandOptions.codeRelatednessCriticalVerbose, "critical-verbose", false, "Include anchor label + note-path details for critical symbols")
 
 	codeCmd.AddCommand(codeRelatednessCmd)
 }

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -103,7 +105,7 @@ func TestStageOntologyEditSessionMapsChangedPreviewIdentityToOriginalRef(t *test
 		"- Follow [[plan]] while validating.\n",
 		"- Follow [[plan]] while validating.\n  verification:: initial\n", 1))
 	require.NoError(t, os.WriteFile(notePath, noteData, 0o644))
-	_, err = ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err = ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 
 	srv := newFixtureServer(t, fixture, nil)

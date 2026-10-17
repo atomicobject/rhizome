@@ -2,83 +2,83 @@ package cmd
 
 import (
 	"fmt"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"sort"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/app/cli"
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 )
 
-var (
-	graphSkipAnchors bool
-	graphSkipEmbeds  bool
-)
+func (commandOptions *graphInvocationOptions) makeGraphStatsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "degrees",
+		Aliases: []string{"stats"},
+		Short:   "Show wikilink in/out degree counts for all notes",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			selectedVault := commandOptions.vaultName
+			if selectedVault == "" {
+				vault := &repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config}
+				defaultName, err := vault.DefaultName()
+				if err != nil {
+					return err
+				}
+				selectedVault = defaultName
+			}
 
-var graphStatsCmd = &cobra.Command{
-	Use:     "degrees",
-	Aliases: []string{"stats"},
-	Short:   "Show wikilink in/out degree counts for all notes",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		selectedVault := vaultName
-		if selectedVault == "" {
-			vault := &obsidian.Vault{}
-			defaultName, err := vault.DefaultName()
+			vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: selectedVault}
+			note := obsidian.Note{}
+			noteMetadata, err := newNoteMetadataIndexer()
 			if err != nil {
 				return err
 			}
-			selectedVault = defaultName
-		}
 
-		vault := obsidian.Vault{Name: selectedVault}
-		note := obsidian.Note{}
-		noteMetadata, err := newNoteMetadataIndexer()
-		if err != nil {
-			return err
-		}
-
-		analysis, err := actions.GraphAnalysis(&vault, &note, actions.GraphAnalysisParams{
-			UseConfig:    true,
-			NoteMetadata: noteMetadata,
-			Options: obsidian.GraphAnalysisOptions{
-				WikilinkOptions: obsidian.WikilinkOptions{
-					SkipAnchors: graphSkipAnchors,
-					SkipEmbeds:  graphSkipEmbeds,
+			analysis, err := actions.GraphAnalysis(&vault, &note, actions.GraphAnalysisParams{
+				UseConfig:    true,
+				NoteMetadata: noteMetadata,
+				Options: vaultgraph.GraphAnalysisOptions{
+					WikilinkOptions: markdownsyntax.WikilinkOptions{
+						SkipAnchors: commandOptions.graphSkipAnchors,
+						SkipEmbeds:  commandOptions.graphSkipEmbeds,
+					},
+					MinDegree:         commandOptions.graphMinDegree,
+					MutualOnly:        commandOptions.graphMutualOnly,
+					RecencyCascade:    commandOptions.graphRecencyCascade,
+					RecencyCascadeSet: true,
 				},
-				MinDegree:         graphMinDegree,
-				MutualOnly:        graphMutualOnly,
-				RecencyCascade:    graphRecencyCascade,
-				RecencyCascadeSet: true,
-			},
-			ExcludePatterns: graphExcludePatterns,
-			IncludePatterns: graphIncludePatterns,
-		})
-		if err != nil {
-			return err
-		}
+				ExcludePatterns: commandOptions.graphExcludePatterns,
+				IncludePatterns: commandOptions.graphIncludePatterns,
+			})
+			if err != nil {
+				return err
+			}
 
-		vaultPath, err := vault.Path()
-		if err != nil {
-			return err
-		}
+			vaultPath, err := vault.Path()
+			if err != nil {
+				return err
+			}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "Graph for vault %q (%s)\n", selectedVault, vaultPath)
-		fmt.Fprintf(cmd.OutOrStdout(), "Nodes: %d  Edges: %d  Orphans: %d  Communities: %d\n\n", analysis.Stats.NodeCount, analysis.Stats.EdgeCount, len(analysis.Orphans), len(analysis.Communities))
+			fmt.Fprintf(cmd.OutOrStdout(), "Graph for vault %q (%s)\n", selectedVault, vaultPath)
+			fmt.Fprintf(cmd.OutOrStdout(), "Nodes: %d  Edges: %d  Orphans: %d  Communities: %d\n\n", analysis.Stats.NodeCount, analysis.Stats.EdgeCount, len(analysis.Orphans), len(analysis.Communities))
 
-		printTopNodes(cmd, analysis, graphLimit, graphShowAll)
+			printTopNodes(cmd, analysis, commandOptions.graphLimit, commandOptions.graphShowAll)
 
-		return nil
-	},
+			return nil
+		},
+	}
 }
 
-func init() {
-	graphStatsCmd.Flags().BoolVar(&graphSkipAnchors, "skip-anchors", false, "skip wikilinks that contain anchors (e.g. [[Note#Section]])")
-	graphStatsCmd.Flags().BoolVar(&graphSkipEmbeds, "skip-embeds", false, "skip embedded wikilinks (e.g. ![[Embedded Note]])")
+func (commandOptions *graphInvocationOptions) registerGraphStatsCommands(graphStatsCmd, graphCmd *cobra.Command) {
+	graphStatsCmd.Flags().BoolVar(&commandOptions.graphSkipAnchors, "skip-anchors", false, "skip wikilinks that contain anchors (e.g. [[Note#Section]])")
+	graphStatsCmd.Flags().BoolVar(&commandOptions.graphSkipEmbeds, "skip-embeds", false, "skip embedded wikilinks (e.g. ![[Embedded Note]])")
 
 	graphCmd.AddCommand(graphStatsCmd)
 }
 
-func printTopNodes(cmd *cobra.Command, analysis *obsidian.GraphAnalysis, limit int, showAll bool) {
+func printTopNodes(cmd *cobra.Command, analysis *vaultgraph.GraphAnalysis, limit int, showAll bool) {
 	if analysis == nil || len(analysis.Nodes) == 0 {
 		return
 	}

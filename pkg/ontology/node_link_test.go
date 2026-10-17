@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"testing"
 
@@ -26,7 +27,7 @@ summary: Test
 status:: TODO
 ^story-a
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	result, err := (&NodeLinkService{
@@ -73,7 +74,7 @@ title: Sync
 - [ ] Needs block #action-item
 - [x] Already durable #action-item ^ai-2
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "meetings/sync.md")
 	require.NoError(t, err)
@@ -128,7 +129,7 @@ summary: Other
 
 # Spec
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	result, err := (&NodeLinkService{
@@ -169,7 +170,7 @@ status:: TODO
 status:: TODO
 ^story-b
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
@@ -227,7 +228,7 @@ summary: Test
 id:: SPEC-0023.US1
 status:: TODO
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	storyRef := firstStoryRef(t, root, schema)
 
@@ -280,7 +281,7 @@ summary: Test
 id:: SPEC-0023.US1
 status:: TODO
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	storyRef := firstStoryRef(t, root, schema)
 
@@ -360,7 +361,7 @@ id:: ^SPEC-0042-US1
 ##### Alpha first criterion
 ##### Alpha second criterion
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	snapshot, err := LoadDocumentSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "specs/001-test/spec.md")
@@ -440,7 +441,7 @@ id:: ^SPEC-0042-US1
 - Alpha first criterion
 - Alpha second criterion
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	vaultDef := obsidian.VaultDefinition{Path: root}
 	note, err := ProjectNote(context.Background(), vaultDef, &obsidian.Note{}, schema, "specs/001-test/spec.md")
@@ -558,7 +559,7 @@ id:: ^SPEC-0042-US1
 
 ##### Alpha second criterion
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	snapshot, err := LoadDocumentSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "specs/001-test/spec.md")
@@ -622,7 +623,7 @@ summary: Test
 id:: SPEC-0023.US1
 status:: TODO
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	storyRef := firstStoryRef(t, root, schema)
 
@@ -680,7 +681,7 @@ status:: TODO
 ### Missing
 status:: TODO
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	storyRef := firstStoryRef(t, root, schema)
 	containerRef := NodeRef{
@@ -715,6 +716,9 @@ status:: TODO
 	require.Equal(t, NodeLocatorRequiresFix, missingLocator.Status)
 	require.True(t, missingLocator.LinkTarget.RequiresFix)
 	require.Len(t, missingLocator.FixActions, 1)
+	require.Len(t, missingLocator.Diagnostics, 1)
+	require.Equal(t, "missing_embedded_block_id", missingLocator.Diagnostics[0].Code)
+	require.Equal(t, missingLocator.LinkTarget.Ref, missingLocator.Diagnostics[0].Ref)
 
 	sectionLocator := locators[containerRef.String()]
 	require.Equal(t, NodeLocatorUnsupported, sectionLocator.Status)
@@ -741,7 +745,7 @@ status:: TODO
 
 - Works
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	storyRef := firstStoryRef(t, root, schema)
 
@@ -783,7 +787,7 @@ status:: TODO
 status:: TODO
 ^dup
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := LoadDocumentSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "specs/001-test/spec.md")
 	require.NoError(t, err)
@@ -794,7 +798,7 @@ status:: TODO
 	requireBlockIDIssueCode(t, issues, "duplicate_block_id")
 }
 
-func firstStoryRef(t *testing.T, root string, schema *Schema) NodeRef {
+func firstStoryRef(t *testing.T, root string, schema *ontoschema.Schema) NodeRef {
 	t.Helper()
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
 	require.NoError(t, err)
@@ -841,7 +845,7 @@ Some prose.
 ### Promoted by schema
 status:: TODO
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := LoadDocumentSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "specs/001-test/spec.md")
 	require.NoError(t, err)
@@ -902,7 +906,7 @@ id:: SPEC-1.US1
 status:: TODO
 ^story-a
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := LoadDocumentSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "specs/001-test/spec.md")
 	require.NoError(t, err)

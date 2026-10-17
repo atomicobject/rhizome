@@ -30,7 +30,7 @@ func (h *jobHandle) admitDiagnostics(ctx context.Context, trigger string) {
 		}
 	}
 	h.diagnosticCtx = diagnostics.WithOperation(diagnostics.Propagate(ctx, context.Background()), op)
-	h.collector = indexingperf.NewBounded()
+	h.collector = indexingperf.New()
 	h.diagnosticCtx = indexingperf.WithCollector(h.diagnosticCtx, h.collector)
 	h.finishTotal = indexingperf.StartSpan(indexingperf.WithPhase(h.diagnosticCtx, "total"), "total")
 	h.diagnosticEvent(slog.LevelInfo, "job.admitted", slog.String("trigger", trigger))

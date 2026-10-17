@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	vaulthealth "github.com/atomicobject/rhizome/pkg/vault/health"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,8 +15,8 @@ func runBrokenLinksIn(t *testing.T, files map[string]string) (string, RunContext
 	t.Helper()
 	root := t.TempDir()
 	require.NoError(t, writeFixtureFiles(root, files))
-	runCtx := brokenLinkRunContext(root)
-	result := RunBrokenLinks(runCtx, Options{})
+	runCtx := brokenLinkRunContext(t, root)
+	result := RunBrokenLinksContext(context.Background(), runCtx, ScanOptions{})
 	require.Empty(t, result.Error)
 	return root, runCtx, result
 }
@@ -138,8 +138,8 @@ func TestRunBrokenLinksQuotesReviewCommandTarget(t *testing.T) {
 // candidate equal to the authored target cannot come from a real scan of an
 // unresolved link. Both states are therefore driven at the builder directly.
 func TestBuildBrokenLinkFixesFromGroupsKeepsUnexecutableGroupsAsAgentReview(t *testing.T) {
-	missing := obsidian.BrokenLink{Source: "source.md", Target: "missing", Reason: obsidian.BrokenLinkReasonNoteMissing}
-	self := obsidian.BrokenLink{Source: "docs/ref.md", Target: "Architecture Overview", Reason: obsidian.BrokenLinkReasonNoteMissing}
+	missing := vaulthealth.BrokenLink{Source: "source.md", Target: "missing", Reason: vaulthealth.BrokenLinkReasonNoteMissing}
+	self := vaulthealth.BrokenLink{Source: "docs/ref.md", Target: "Architecture Overview", Reason: vaulthealth.BrokenLinkReasonNoteMissing}
 	tests := []struct {
 		name         string
 		group        brokenLinkGroup
@@ -149,14 +149,14 @@ func TestBuildBrokenLinkFixesFromGroupsKeepsUnexecutableGroupsAsAgentReview(t *t
 	}{
 		{
 			name:         "candidate evidence unavailable",
-			group:        brokenLinkGroup{key: groupKeyFor(missing), links: []obsidian.BrokenLink{missing}, sources: []string{"source.md"}},
+			group:        brokenLinkGroup{key: groupKeyFor(missing), links: []vaulthealth.BrokenLink{missing}, sources: []string{"source.md"}},
 			candidateErr: errors.New("catalog unreadable"),
 			summary:      []string{"Candidate evidence is unavailable", "catalog unreadable", "rzm agent semantic-query --query missing"},
 		},
 		{
 			name: "pathless self retarget",
 			group: brokenLinkGroup{
-				key: groupKeyFor(self), links: []obsidian.BrokenLink{self}, sources: []string{"docs/ref.md"},
+				key: groupKeyFor(self), links: []vaulthealth.BrokenLink{self}, sources: []string{"docs/ref.md"},
 				strong: []string{"docs/Architecture Overview.md"},
 			},
 			allNotes: []string{"docs/Architecture Overview.md"},
@@ -175,7 +175,7 @@ func TestBuildBrokenLinkFixesFromGroupsKeepsUnexecutableGroupsAsAgentReview(t *t
 				require.Contains(t, fixes[0].Summary, want)
 			}
 
-			execution, err := ApplyFixPlan(context.Background(), brokenLinkRunContext(t.TempDir()), &FixPlan{Actions: fixes}, Options{Fix: true, NonInteractive: true})
+			execution, err := ApplyFixPlan(context.Background(), brokenLinkRunContext(t, t.TempDir()), &FixPlan{Actions: fixes}, ApplyOptions{Fix: true, NonInteractive: true})
 			require.NoError(t, err)
 			require.Equal(t, []string{fixes[0].ID}, execution.Skipped)
 			require.Empty(t, execution.Applied)

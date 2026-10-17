@@ -1,11 +1,11 @@
 package init
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,12 +59,12 @@ func TestStarterOntologySchemasExposeViewGroupingMetadata(t *testing.T) {
 			require.NoError(t, os.MkdirAll(dir, 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(dir, filepath.Base(tc.path)), body, 0o644))
 
-			schema, err := ontology.LoadSchema(root)
+			schema, err := ontoschema.LoadSchema(root)
 			require.NoError(t, err)
 			enumType := schema.EnumTypes[tc.enumName]
 			require.NotNil(t, enumType)
 
-			byValue := map[string]*ontology.EnumValue{}
+			byValue := map[string]*ontoschema.EnumValue{}
 			for _, value := range enumType.Values {
 				byValue[value.Name] = value
 			}

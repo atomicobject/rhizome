@@ -7,13 +7,13 @@ description: Use when adding or modifying CLI commands under cmd/ or orchestrati
 
 ## Goal
 
-Change the CLI layer (`cmd/`, `pkg/app/cli/`, init templates) without violating its layering, parity, or template-management contracts.
+Change the CLI layer (`cmd/`, `pkg/app/operations/`, CLI workflows and init templates) without violating its layering, parity, or template-management contracts.
 
 Read `docs/reference/subsystems/cli.md` first; its constraints are normative for this skill.
 
 ## Load-bearing rules
 
-1. `cmd/` stays thin: flag parsing, option-struct assembly, output writing. Business logic lives in `pkg/app/cli/` (or `pkg/vault/*`, `pkg/app/indexing`, `pkg/app/codeintel`) with tests beside it. One file per Cobra command, named after the verb.
+1. `cmd/` stays thin: flag parsing, option-struct assembly, output writing. Shared application work lives in `pkg/app/operations/` (or `pkg/vault/*`, `pkg/app/indexing`, `pkg/app/codeintel`) with tests beside it. One file per Cobra command, named after the verb.
 2. Resolve user-supplied paths through `pkg/paths` (`AbsFromInputWithVaultPaths`, `ResolveNoteInputWithVaultPaths`, `ResolveCodeInputWithVaultPaths`). No ad hoc `filepath.Abs/Rel`; no legacy `obsidian.NormalizePath` in new code.
 3. CLI <-> MCP parity: an agent-relevant flag or capability must land in the shared handler and authoritative `ToolDescriptor`, plus the `cmd/agent*.go` front and curated lists when applicable; document it in `pkg/app/mcp/CONTEXT.md`. Keep MCP options minimal; prefer defaults over knobs. Update `README.md` for user-facing changes.
 4. `rzm agent *` commands are non-interactive JSON (`writeAgentPayload`/`writeAgentError`, `silentExitError`); human twins may prompt. Share the underlying runner (e.g. `productionValidationRunner` in `cmd/validation_product_runner.go`) between both fronts.
@@ -24,8 +24,8 @@ Read `docs/reference/subsystems/cli.md` first; its constraints are normative for
 
 ## Pre-handoff checklist
 
-- [ ] Business logic in `pkg/app/cli/` (or deeper), not `cmd/`; new logic has table-driven tests using testify and fixtures/temp dirs
-- [ ] `go test ./cmd/... ./pkg/app/cli/...` passes
+- [ ] Shared application work in `pkg/app/operations/` (or deeper), not `cmd/`; new logic has table-driven tests using testify and fixtures/temp dirs
+- [ ] `go test ./cmd/... ./pkg/app/operations/... ./pkg/app/cli/...` passes
 - [ ] `go run . --help` (and the changed command with `--vault <test-vault>`) behaves as expected
 - [ ] README + MCP surfaces (handler, `ToolDescriptor`, `cmd/agent_surface.go`, `pkg/app/mcp/CONTEXT.md`) updated for user-facing/agent-relevant changes
 - [ ] Init template edits made in source directories; no generated copies touched

@@ -50,7 +50,7 @@ func withIndexTimings(ctx context.Context, out io.Writer, enabled bool, options 
 	}
 	collector := indexingperf.FromContext(ctx)
 	if collector == nil {
-		collector = indexingperf.NewBounded()
+		collector = indexingperf.New()
 	}
 	ctx = indexingperf.WithCollector(ctx, collector)
 	totalCtx := indexingperf.WithPhase(ctx, "total")

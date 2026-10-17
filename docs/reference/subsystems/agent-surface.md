@@ -1,12 +1,11 @@
 ---
 summary: "Design constraints and review checklist for the agent surface: rzm agent * command family, agentapi in-process bridge, contextpack budgeting, answer packets, presentation packing."
 reference-kind: guide
-last-verified: 2026-10-04
+last-verified: 2026-10-17
 code-paths:
-  - pkg/app/agent
+  - pkg/app/agentchat
   - pkg/app/agentapi
   - pkg/app/agentcode
-  - pkg/app/agentstart
   - pkg/app/contextpack
   - pkg/app/answer
   - pkg/app/presentation
@@ -14,7 +13,7 @@ tags: [subsystem/agent-surface]
 code-anchors:
   go:
     - label: subsystem.agent-surface.guidance.0
-      ref: glob:pkg/app/agent/**/*.go
+      ref: glob:pkg/app/agentchat/**/*.go
     - label: subsystem.agent-surface.guidance.1
       ref: glob:pkg/app/contextpack/**/*.go
     - label: subsystem.agent-surface.guidance.2
@@ -25,8 +24,6 @@ code-anchors:
       ref: glob:cmd/agent*.go
     - label: subsystem.agent-surface.guidance.5
       ref: glob:pkg/app/agentcode/**/*.go
-    - label: subsystem.agent-surface.guidance.6
-      ref: glob:pkg/app/agentstart/**/*.go
 ---
 
 # Agent surface guidance
@@ -37,8 +34,8 @@ The agent surface is everything an AI agent consumes from Rhizome: the `rzm agen
 
 - `cmd/agent.go` + `cmd/agent_*.go`: thin Cobra fronts; build an args map, call `runAgentJSONTool` / `agentapi.CallJSON`, emit JSON via `writeAgentPayload`/`writeAgentError`, fail with `silentExitError{code: 1}`. `rzm agent start` is the one-call bootstrap for a session plus request-scoped repository guidance; `rzm agent surface` is the detailed command/flag contract and should be called only when an agent needs exact usage. `external-references` is the dedicated bounded pathless-target read and never widens ambient search or graph surfaces.
 - `pkg/app/agentapi/`: in-process adapter over the MCP tool handlers (`CallJSON`, `SemanticQueryUnified`). Same JSON contract as MCP without a stdio server; argument normalization + text extraction only.
-- `pkg/app/agentstart/`: shared start/session orchestration; Cobra and code mode supply runtime dependencies and consume the same response.
-- `pkg/app/agent/`: LLM-facing retrieval planner types and parsing for local chat flows (`PlanToolCalls`, `ToolSpec`/`ToolCall`). Stops at planning; no vault state, runtime state, or packing.
+- `pkg/app/agentcode/start.go`: shared start/session orchestration; Cobra and code mode supply runtime dependencies and consume the same response.
+- `pkg/app/agentchat/planner*.go`: LLM-facing retrieval planner types and parsing for local chat flows (`PlanToolCalls`, `ToolSpec`/`ToolCall`). Stops at planning; no vault state, runtime state, or packing.
 - `pkg/app/contextpack/`: deterministic budget-aware packing of pre-rendered `Piece`s (`Pack`, `PackWithIntent`, `TrimToBudget`); optional LLM compression in `compress/`.
 - `pkg/app/answer/`: turns ranked search results into answer packets (`Build`, `RenderText`): mustRead, supporting evidence, coverage, confidence, next queries.
 - `pkg/app/presentation/`: implements `Packer` for `pkg/search.Service`; renders ranked results into budgeted text via contextpack.
@@ -51,7 +48,7 @@ The agent surface is everything an AI agent consumes from Rhizome: the `rzm agen
 
 - **Startup teaches selective code discovery.** Every successful start includes the compact live code-operation catalog and describe/execute examples alongside session context. It reuses catalog metadata without schemas, vault readiness probes, or broader runtime initialization. Preserve existing startup fields. The base skill teaches when code mode helps, its reference teaches execution, and live describe owns exact operation contracts. See [[startup-code-discovery|SPEC-0095]].
 
-- **Direct code execution owns lifetime.** `agent code execute` accepts a JavaScript function body, provides the catalog's camel-cased methods on `rzm`, and returns a selected JSON value. `pkg/app/agentcode` owns Node, the in-memory generated client, and server cleanup for that execution. Agents do not generate artifacts or maintain a process across unrelated task steps. Session IDs retain their existing cross-execution role. `--input` or `--input-file` passes one validated JSON value the script reads as `input` (`null` when absent), so saved skill scripts take arguments without environment variables. Bound scripts, results, diagnostics, and duration; preserve operation failures and mutation uncertainty. Track pending calls and still-unobserved failures without retaining discarded completed successes or observed outcomes. Drain accepted calls before cleanup, clear failure evidence on late observation, and report the first still-unobserved failure in invocation order. This is execution with caller permissions, not a JavaScript sandbox. See [[managed-agent-code-execution|SPEC-0094]].
+- **Direct code execution owns lifetime.** `agent code execute` accepts a JavaScript function body, provides the catalog's camel-cased methods on `rzm`, and returns a selected JSON value. `pkg/app/agentcode` owns Node, the in-memory generated client, and server cleanup for that execution. Managed operations use the invoking Go process through the existing bounded protocol, preserving its supplied configuration paths and environment lookup function. Only JavaScript runs in the Node child; standalone generated clients still own their server process. Agents do not generate artifacts or maintain a process across unrelated task steps. Session IDs retain their existing cross-execution role. `--input` or `--input-file` passes one validated JSON value the script reads as `input` (`null` when absent), so saved skill scripts take arguments without environment variables. Bound scripts, results, diagnostics, and duration; preserve operation failures and mutation uncertainty. Track pending calls and still-unobserved failures without retaining discarded completed successes or observed outcomes. Drain accepted calls before cleanup, clear failure evidence on late observation, and report the first still-unobserved failure in invocation order. This is execution with caller permissions, not a JavaScript sandbox. See [[managed-agent-code-execution|SPEC-0094]].
 
 - **Selective discovery shares the live contracts.** `agent surface --command` and code-mode `surface.command` select reflected command syntax, including inherited flags and nested commands. Unselected output remains complete. `code describe --operation` accepts a catalog name or its exact JavaScript method; `--schema input|output|both` selects complete schemas while retaining shared invocation/outcome guidance. A filtered view reports `schemaSelection` and retains the full selected-contract hash, so discovery projection cannot change generated-client negotiation. Ontology selectors and compact search are additive inputs on existing operations; generated declarations reflect the same catalog and shared response types. Local code-mode workflow branching belongs in application services below Cobra.
 
@@ -84,9 +81,9 @@ The agent surface is everything an AI agent consumes from Rhizome: the `rzm agen
 
 - **Output shape changes are breaking.** When you change a response struct, packed-text layout, warning code, or exit behavior: grep docs and RHIZOME.md templates for the old shape; update the directly embedded `docs/rhizome-md-templates/*` sources whenever agent workflow guidance changes.
 - **Keep CLI and MCP aligned.** New flags/options on `rzm agent *` that matter to agents: mirror them in the shared `pkg/app/mcp/tool_*.go` handler's request parsing and update the tool descriptions in `pkg/app/mcp/CONTEXT.md` and `README.md`. New tools add one catalog descriptor with the correct memberships, factory, CLI display order/category, plus the CLI front when applicable. `rzm agent surface` derives catalog-backed command membership and metadata directly from those descriptors; only the self-describing `surface` command and top-level `note move` exception remain explicit.
-- **Respect layer boundaries.** Planning/dispatch in `pkg/app/agent`; handler adaptation in `pkg/app/agentapi`; retrieval/runtime in `pkg/app/mcp`; packing in `contextpack`; rendering in `presentation`; packet assembly in `answer`. Don't let packing logic leak into commands or retrieval leak into answer.
+- **Respect layer boundaries.** Planning/dispatch in `pkg/app/agentchat`; handler adaptation in `pkg/app/agentapi`; retrieval/runtime in `pkg/app/mcp`; packing in `contextpack`; rendering in `presentation`; packet assembly in `answer`. Don't let packing logic leak into commands or retrieval leak into answer.
 - **Budget changes touch documented surfaces.** Changing `DefaultBudgetChars`, `agentCLIBudgetFloor`, or budget precedence requires updating `pkg/app/contextpack/CONTEXT.md` and the budget-surfaces note it links.
-- **Tests beside the change** (table-driven, testify): `pkg/app/agent/*_test.go`, `pkg/app/agentapi/agentapi_test.go`, `pkg/app/contextpack/pack_test.go`, `pkg/app/answer/answer_test.go`, `pkg/app/presentation/ontology_context_test.go`, `cmd/agent_test.go`. Add a regression test for any contract fix.
+- **Tests beside the change** (table-driven, testify): `pkg/app/agentchat/*_test.go`, `pkg/app/agentapi/agentapi_test.go`, `pkg/app/contextpack/pack_test.go`, `pkg/app/answer/answer_test.go`, `pkg/app/presentation/ontology_context_test.go`, `cmd/agent_test.go`. Add a regression test for any contract fix.
 - **No interactivity.** `rzm agent *` is machine-facing: JSON out, `silentExitError` on failure, never an editor or prompt.
 - Validation result changes must preserve machine-valid JSON, public kebab-case check labels, explicit `completed|not_applicable|blocked` outcomes, the original selector/vault/scope in exact apply guidance, and exit 0/1/2. Source-bound repair follow-ups remain non-failing JSON evidence and GitHub warnings; they never become actions or alter counts. Migrate directly embedded templates whenever selector grammar or follow-up commands change.
 
@@ -108,7 +105,7 @@ The agent surface is everything an AI agent consumes from Rhizome: the `rzm agen
 - `cmd/agent_start.go`, `cmd/agent_surface.go` (bootstrap + descriptor-projected command surface)
 - `cmd/agent_context.go` (file-context/vault-context/semantic-query/code-* fronts), `cmd/agent_query.go` (files/list-*), `cmd/validation_product.go` + `cmd/validation_product_runner.go` (shared validation front)
 - `pkg/app/agentapi/catalog.go` (`ToolDescriptor`, surface/mutation metadata, handler factories), `pkg/app/agentapi/agentapi.go` (`CallJSON`, `SemanticQueryUnified`, type re-exports)
-- `pkg/app/agent/planner.go`, `pkg/app/agent/tool_types.go`, `pkg/app/agent/tool_parse.go`
+- `pkg/app/agentchat/planner.go`, `pkg/app/agentchat/planner_types.go`, `pkg/app/agentchat/planner_parse.go`
 - `pkg/app/contextpack/pack.go` (`Piece`, `Pack`, `DefaultBudgetChars`), `pkg/app/contextpack/compress/`
 - `pkg/app/answer/answer.go`, `pkg/app/answer/adapt/`
 - `pkg/app/presentation/packer.go` (`DefaultPacker`), `pkg/app/presentation/ontology_context.go`

@@ -18,13 +18,15 @@ func TestApplyRepairSessionReturnsPreparedPostcheckResult(t *testing.T) {
 		"source.md": "bad extension: [[target.md]]\n",
 	}))
 	runCtx := linkHygieneRunContext(t, root)
-	planned, _, err := RunSuiteOnce(context.Background(), Options{
+	planned, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
+	planned, err = PrepareRepair(t.Context(), planned, runCtx)
+	require.NoError(t, err)
 	require.Positive(t, planned.IssueCount)
 
-	postcheck, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, Options{
+	postcheck, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.NoError(t, err)
@@ -49,15 +51,17 @@ func TestApplyRepairSessionPostchecksOnlyCompletedAndRepairRequiredChecks(t *tes
 		"source.md": "bad extension: [[target.md]]\n",
 	}))
 	runCtx := linkHygieneRunContext(t, root)
-	planned, _, err := RunSuiteOnce(context.Background(), Options{
+	planned, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
+	require.NoError(t, err)
+	planned, err = PrepareRepair(t.Context(), planned, runCtx)
 	require.NoError(t, err)
 	// Product selection also includes this blocked prerequisite, but no
 	// CheckResult exists because it never executed.
 	planned.SelectedChecks = append(planned.SelectedChecks, CheckCodeAnchors)
 
-	postcheck, _, err := ApplyRepairSession(context.Background(), planned, runCtx, Options{
+	postcheck, _, err := ApplyRepairSession(context.Background(), planned, runCtx, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.NoError(t, err)
@@ -73,13 +77,15 @@ func TestApplyRepairSessionRejectsMissingOrchestrationBeforeMutation(t *testing.
 		"source.md": "bad extension: [[target.md]]\n",
 	}))
 	runCtx := linkHygieneRunContext(t, root)
-	planned, _, err := RunSuiteOnce(context.Background(), Options{
+	planned, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
+	planned, err = PrepareRepair(t.Context(), planned, runCtx)
+	require.NoError(t, err)
 	before := mustReadFile(t, filepath.Join(root, "source.md"))
 
-	postcheck, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, Options{
+	postcheck, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, ApplyOptions{
 		Fix: true, NonInteractive: true,
 	})
 	require.ErrorContains(t, err, "post-apply refresher")
@@ -96,14 +102,16 @@ func TestApplyRepairSessionRejectsDisagreeingRootsBeforeMutation(t *testing.T) {
 		"source.md": "bad extension: [[target.md]]\n",
 	}))
 	runCtx := linkHygieneRunContext(t, root)
-	planned, _, err := RunSuiteOnce(context.Background(), Options{
+	planned, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
+	require.NoError(t, err)
+	planned, err = PrepareRepair(t.Context(), planned, runCtx)
 	require.NoError(t, err)
 	before := mustReadFile(t, filepath.Join(root, "source.md"))
 	runCtx.VaultPath = t.TempDir()
 
-	_, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, Options{
+	_, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.ErrorContains(t, err, "roots disagree")
@@ -118,24 +126,26 @@ func TestApplyRepairSessionRecoversPendingJournalAndReturnsPostcheck(t *testing.
 		"source.md": "bad extension: [[target.md]]\n",
 	}))
 	runCtx := linkHygieneRunContext(t, root)
-	planned, _, err := RunSuiteOnce(context.Background(), Options{
+	planned, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
+	planned, err = PrepareRepair(t.Context(), planned, runCtx)
+	require.NoError(t, err)
 	retain := errors.New("retain committed repair")
-	_, err = ApplyFixPlan(context.Background(), runCtx, planned.FixPlan, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, planned.FixPlan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, refreshErr: retain},
 	})
 	require.ErrorIs(t, err, retain)
 
-	blocked, _, err := RunSuiteOnce(context.Background(), Options{
+	blocked, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, blocked.RepairJournals)
 
-	postcheck, execution, err := ApplyRepairSession(context.Background(), blocked, runCtx, Options{
+	postcheck, execution, err := ApplyRepairSession(context.Background(), blocked, runCtx, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.NoError(t, err)
@@ -152,13 +162,15 @@ func TestApplyRepairSessionReturnsReviewedResultAndExecutionWhenRefreshFails(t *
 		"source.md": "bad extension: [[target.md]]\n",
 	}))
 	runCtx := linkHygieneRunContext(t, root)
-	planned, _, err := RunSuiteOnce(context.Background(), Options{
+	planned, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
+	planned, err = PrepareRepair(t.Context(), planned, runCtx)
+	require.NoError(t, err)
 	refreshErr := errors.New("refresh unavailable")
 
-	result, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, Options{
+	result, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, refreshErr: refreshErr},
 	})
@@ -179,7 +191,7 @@ func TestApplyRepairSessionRoutesMixedIdentifierPlanWithPrivatePayload(t *testin
 		"notes/review.md":  "Review SPEC-0001 in prose before publishing.\n",
 	})
 	ctx := context.Background()
-	scanned, _, err := RunSuiteOnce(ctx, Options{Checks: []string{CheckLinkHygiene}, RunContext: &fixture.runCtx})
+	scanned, _, err := preparedSuite(t, ctx, ScanOptions{Checks: []string{CheckLinkHygiene}, RunContext: &fixture.runCtx})
 	require.NoError(t, err)
 	require.Len(t, scanned.Checks, 1)
 	linkHygiene := scanned.Checks[0]
@@ -219,7 +231,7 @@ func TestApplyRepairSessionRoutesMixedIdentifierPlanWithPrivatePayload(t *testin
 		FixPlan:        reviewed,
 	}
 
-	postcheck, execution, err := ApplyRepairSession(ctx, planned, fixture.runCtx, Options{
+	postcheck, execution, err := ApplyRepairSession(ctx, planned, fixture.runCtx, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
@@ -250,7 +262,7 @@ func TestApplyRepairSessionIdentifierPostcheckPreservesEveryCompletedCheck(t *te
 		FixPlan: identifierPlan,
 	}
 
-	postcheck, execution, err := ApplyRepairSession(context.Background(), planned, fixture.runCtx, Options{
+	postcheck, execution, err := ApplyRepairSession(context.Background(), planned, fixture.runCtx, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 	})
@@ -273,13 +285,15 @@ func TestApplyRepairSessionCleanRerunIsIdempotent(t *testing.T) {
 		"source.md": "clean link: [[target]]\n",
 	}))
 	runCtx := linkHygieneRunContext(t, root)
-	planned, _, err := RunSuiteOnce(context.Background(), Options{
+	planned, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
+	planned, err = PrepareRepair(t.Context(), planned, runCtx)
+	require.NoError(t, err)
 	before := mustReadFile(t, filepath.Join(root, "source.md"))
 
-	postcheck, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, Options{
+	postcheck, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.NoError(t, err)

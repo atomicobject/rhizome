@@ -4,7 +4,7 @@ summary: "Persisted unified-graph ranking signals: per-doc HITS authority/hub + 
 reference-kind: analysis
 derived-from:
   - docs/reference-notes/Indexing pipeline - Graph signals (doc scores + anchor PageRank).md
-last-verified: 2026-05-29
+last-verified: 2026-10-17
 status: active
 ---
 
@@ -14,8 +14,8 @@ Persisted, graph-derived ranking signals over the **unified doc graph** (notes +
 
 ## What it computes
 
-- **Doc scores** — `ComputeDocScores` (`pkg/search/graphdb/doc_scores.go`): HITS hub/authority over **doc-domain edges only** (`calls` excluded), plus `weightedLabelPropagation` communities over the **full undirected** adjacency (calls included), 20 iters. Embedded/section endpoints roll up to their owner note (`graphScoreDocNode`). Persisted to `graph_doc_scores`.
-- **Anchor PageRank** — `ComputeAnchorPageRank` (`pkg/search/graphdb/anchor_pagerank.go`): `graphalg.PageRank` (damping 0.85, 30 iters) over caller→callee anchor edges from `intel_edges(kind='calls')`. Persisted to `graph_anchor_scores`.
+- **Doc scores** — `ComputeDocScores` (`pkg/graph/index/doc_scores.go`): HITS hub/authority over **doc-domain edges only** (`calls` excluded), plus `weightedLabelPropagation` communities over the **full undirected** adjacency (calls included), 20 iters. Embedded/section endpoints roll up to their owner note (`graphScoreDocNode`). Persisted to `graph_doc_scores`.
+- **Anchor PageRank** — `ComputeAnchorPageRank` (`pkg/graph/index/anchor_pagerank.go`): `algorithms.PageRank` (damping 0.85, 30 iters) over caller→callee anchor edges from `intel_edges(kind='calls')`. Persisted to `graph_anchor_scores`.
 
 ## Produced
 

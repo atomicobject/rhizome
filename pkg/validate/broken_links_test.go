@@ -1,9 +1,11 @@
 package validate
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
+	vaulthealth "github.com/atomicobject/rhizome/pkg/vault/health"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +40,7 @@ func TestRunBrokenLinks_IssueCodesAndPayloads(t *testing.T) {
 				assert.Equal(t, "Authored Fragment", data.Fragment)
 				assert.Contains(t, issues[0].Message, "Missing note")
 				assert.Contains(t, issues[0].Message, "[[missing#Authored Fragment]]")
-				assert.Equal(t, string(obsidian.BrokenLinkReasonNoteMissing), data.Reason)
+				assert.Equal(t, string(vaulthealth.BrokenLinkReasonNoteMissing), data.Reason)
 			},
 		},
 		{
@@ -57,8 +59,8 @@ func TestRunBrokenLinks_IssueCodesAndPayloads(t *testing.T) {
 					assert.Empty(t, data.Candidates)
 					assert.Equal(t, data.Target+"#"+data.Fragment, issue.Target)
 				}
-				assert.Equal(t, string(obsidian.BrokenLinkReasonHeadingMissing), reasons["Missing Heading"])
-				assert.Equal(t, string(obsidian.BrokenLinkReasonBlockMissing), reasons["^missing-block"])
+				assert.Equal(t, string(vaulthealth.BrokenLinkReasonHeadingMissing), reasons["Missing Heading"])
+				assert.Equal(t, string(vaulthealth.BrokenLinkReasonBlockMissing), reasons["^missing-block"])
 				assert.Contains(t, issues[0].Message, "Missing heading fragment")
 				assert.Contains(t, issues[0].Message, "[[target#Missing Heading]]")
 				assert.Contains(t, issues[1].Message, "Missing block fragment")
@@ -106,13 +108,13 @@ func runBrokenLinksFixture(t *testing.T, files map[string]string, maxIssues int)
 	root := t.TempDir()
 	require.NoError(t, writeFixtureFiles(root, files))
 	def := obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth}
-	return RunBrokenLinks(RunContext{
-		VaultDef:   def,
-		VaultPath:  root,
-		VaultMgr:   &fixedVaultMgr{def: def},
-		NoteReader: &obsidian.Note{},
-		MaxIssues:  maxIssues,
-	}, Options{})
+	return RunBrokenLinksContext(context.Background(), RunContext{
+		VaultDef:     def,
+		VaultPath:    root,
+		NoteReader:   &obsidian.Note{},
+		NoteMetadata: testNoteMetadata(t),
+		MaxIssues:    maxIssues,
+	}, ScanOptions{})
 }
 
 func decodeBrokenLinkData(t *testing.T, issue Issue) BrokenLinkData {

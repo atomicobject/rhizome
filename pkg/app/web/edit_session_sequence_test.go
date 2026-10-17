@@ -11,7 +11,8 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,7 +67,7 @@ func TestOntologyEditSessions_RepeatedEditsToOneNoteStageAndSave(t *testing.T) {
 					final[op.Field] = op.Values[0]
 				}
 			}
-			frontmatter, err := obsidian.ExtractFrontmatter(string(saved))
+			frontmatter, err := markdownsyntax.ExtractFrontmatter(string(saved))
 			require.NoError(t, err)
 			for field, value := range final {
 				require.Equalf(t, value, frontmatter[field], "field %s in saved note:\n%s", field, saved)

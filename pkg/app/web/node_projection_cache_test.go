@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"sync"
@@ -54,7 +55,7 @@ func (r *gatedNoteReader) GetContents(vaultDef obsidian.VaultDefinition, noteNam
 type projectionCacheFixture struct {
 	root     string
 	path     string
-	schema   *ontology.Schema
+	schema   *ontoschema.Schema
 	vaultDef obsidian.VaultDefinition
 	ref      ontology.NodeRef
 }
@@ -76,7 +77,7 @@ type Spec @node(paths: ["specs/*/spec.md"]) {
 		ref:      ontology.NodeRef{NotePath: projectionCacheTestNote, Kind: ontology.NodeKindNote},
 	}
 	fixture.write(t, "First", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	fixture.schema = schema
 	return fixture

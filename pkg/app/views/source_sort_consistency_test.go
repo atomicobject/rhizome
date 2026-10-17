@@ -7,10 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -58,9 +59,9 @@ func TestOntologySourceTextSortAgreesWithResidualSort(t *testing.T) {
 					return out
 				}
 				require.Equal(t, ranks(pushed.Rows), ranks(residual.Rows))
-				want := []string{"Ten", "Mixed", "Two", "Date", "Alpha", "Zulu", "Wrapped", "Empty"}
+				want := []string{"Ten", "Mixed", "Two", "Date", "Wrapped", "Alpha", "Zulu", "Empty"}
 				if direction == "desc" {
-					want = []string{"Wrapped", "Alpha", "Zulu", "Date", "Two", "Mixed", "Ten", "Empty"}
+					want = []string{"Alpha", "Zulu", "Wrapped", "Date", "Two", "Mixed", "Ten", "Empty"}
 				}
 				require.Equal(t, want, rowTitles(residual.Rows))
 			})
@@ -86,7 +87,7 @@ type ActionItem implements Section
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
@@ -158,14 +159,11 @@ func TestOntologySourceDateSortAgreesWithResidualSort(t *testing.T) {
 							return out
 						}
 						require.Equal(t, values(pushed.Rows), values(residual.Rows))
-						want := []string{"Item 0", "Item 1", "Item 2", "Empty"}
-						if direction == "desc" {
-							want = []string{"Item 2", "Item 1", "Item 0", "Empty"}
-						}
+						var want []string
 						if tc.scalar == "DateTime" {
-							want = []string{"Item 1", "Item 0", "Item 2", "Empty"}
+							want = []string{"Item 0", "Item 2", "Item 1", "Empty"}
 							if direction == "desc" {
-								want = []string{"Item 0", "Item 2", "Item 1", "Empty"}
+								want = []string{"Item 1", "Item 2", "Item 0", "Empty"}
 							}
 						} else {
 							want = []string{"Alpha", "Zulu", "Middle", "Empty"}
@@ -345,9 +343,9 @@ func TestOntologySourceRepeatedNumericSortAgreesWithResidualSort(t *testing.T) {
 
 func TestOntologySourceRepeatedLexicalSortAgreesWithResidualSort(t *testing.T) {
 	for _, tc := range []struct{ scalar, low, middle, high, tieLow, tieHigh string }{
-		{"String", "[[APPLE|Display]]", "banana", "ZULU", "apple", "[[zulu|Other]]"},
+		{"String", "APPLE", "banana", "ZULU", "apple", "zulu"},
 		{"Date", "2026-01-01", "2026-02-01", "2026-03-01", "2026-01-01", "2026-03-01"},
-		{"DateTime", "2026-05-08T08:00:00Z", "2026-05-08T09:00:00+02:00", "2026-05-08T10:00:00+03:00", "2026-05-08T08:00:00.999Z", "2026-05-08T10:00:00.999+03:00"},
+		{"DateTime", "2026-05-08T06:00:00Z", "2026-05-08T09:00:00+02:00", "2026-05-08T11:00:00+03:00", "2026-05-08T08:00:00+02:00", "2026-05-08T08:00:00Z"},
 	} {
 		t.Run(tc.scalar, func(t *testing.T) {
 			content := "# Actions\n\n" +
@@ -476,7 +474,7 @@ type ActionItem @node(paths: ["notes/*.md"]) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)

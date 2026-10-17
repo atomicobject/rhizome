@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +30,7 @@ const raw = "[[docs/Old.md]] @docs/Old [doc](docs/Old.md)"
 // [cost $1 ${1} $$](%s#heading$1) [cost $1 ${1} $$](%s#heading$1)
 // [[docs/Other.md]] [other](docs/Other.md) @Other ![image](docs/Old.md)
 const raw = "[[docs/Old.md]] @docs/Old [doc](docs/Old.md)"
-`, newPath, newPathNoExt, newBase, newPath, newPath, obsidian.EncodeMarkdownPath(newPath), obsidian.EncodeMarkdownPath(newPathNoExt))
+`, newPath, newPathNoExt, newBase, newPath, newPath, markdownsyntax.EncodeMarkdownPath(newPath), markdownsyntax.EncodeMarkdownPath(newPathNoExt))
 
 			vaultDir := t.TempDir()
 			file := filepath.Join(vaultDir, "refs.go")

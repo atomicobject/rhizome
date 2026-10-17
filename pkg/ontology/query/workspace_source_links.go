@@ -2,15 +2,15 @@ package query
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/vektah/gqlparser/v2/ast"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/vektah/gqlparser/v2/ast"
 )
 
 const maxWorkspaceSourceLinks = 100
@@ -172,7 +172,7 @@ func matchingWorkspaceSourceLinkKeys[V any](values map[string]V) []string {
 	return keys
 }
 
-func firstWorkspaceSourceLinkFieldValue(values []codeanchor.IntelOntologyNodeFieldValue) string {
+func firstWorkspaceSourceLinkFieldValue(values []readmodel.FieldValueRow) string {
 	for _, value := range values {
 		if text := strings.TrimSpace(value.ValueText); text != "" {
 			return text
@@ -190,21 +190,21 @@ func firstWorkspaceSourceLinkValue(values []string) string {
 	return ""
 }
 
-func workspaceSourceLinkResolverInput(cache *obsidian.NotePathCache, fromPath string, link obsidian.StructuredLink, markdownLinks bool) (string, bool) {
+func workspaceSourceLinkResolverInput(cache *obsidian.NotePathCache, fromPath string, link markdownsyntax.StructuredLink, markdownLinks bool) (string, bool) {
 	target := strings.TrimSpace(link.Target)
 	if target == "" {
 		return "", false
 	}
 	// Markdown anchors use the shared resolver's canonical source path; inserting
 	// that filename into an authored URL would reinterpret literal escapes.
-	if link.Kind == obsidian.StructuredLinkWikilink && strings.TrimSpace(link.Path) == "" && strings.TrimSpace(link.Fragment) != "" {
+	if link.Kind == markdownsyntax.StructuredLinkWikilink && strings.TrimSpace(link.Path) == "" && strings.TrimSpace(link.Fragment) != "" {
 		if cache == nil || strings.TrimSpace(fromPath) == "" {
 			return "", false
 		}
 		target = strings.TrimSpace(fromPath) + "#" + strings.TrimSpace(link.Fragment)
 	}
 	switch link.Kind {
-	case obsidian.StructuredLinkWikilink:
+	case markdownsyntax.StructuredLinkWikilink:
 		if cache == nil {
 			return "", false
 		}
@@ -212,7 +212,7 @@ func workspaceSourceLinkResolverInput(cache *obsidian.NotePathCache, fromPath st
 			return "", false
 		}
 		return "[[" + target + "]]", true
-	case obsidian.StructuredLinkMarkdown:
+	case markdownsyntax.StructuredLinkMarkdown:
 		if !markdownLinks {
 			return "", false
 		}
@@ -228,13 +228,12 @@ func workspaceSourceLinkResolverInput(cache *obsidian.NotePathCache, fromPath st
 	}
 }
 
-func workspaceSourceLinkKind(kind obsidian.StructuredLinkKind) string {
-	if kind == obsidian.StructuredLinkMarkdown {
+func workspaceSourceLinkKind(kind markdownsyntax.StructuredLinkKind) string {
+	if kind == markdownsyntax.StructuredLinkMarkdown {
 		return "mdlink"
 	}
 	return "wikilink"
 }
-
 func workspaceSourceLinkAnchor(fragment string) string {
 	return strings.TrimSpace(fragment)
 }
@@ -270,7 +269,6 @@ func workspaceSourceLinkTargetKind(path string) string {
 	// catalog-owned NodeRef. Markdown filename suffixes are not note evidence.
 	return "file"
 }
-
 func (e *executor) resolveWorkspaceSourceLink(item workspaceSourceLink, set ast.SelectionSet, path []string) map[string]any {
 	out := make(map[string]any)
 	e.eachSelectionField(set, func(field *ast.Field) {

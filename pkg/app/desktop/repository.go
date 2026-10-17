@@ -12,7 +12,7 @@ import (
 
 	rzmpaths "github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 type Worktree struct {
@@ -172,10 +172,10 @@ func (s *Service) repository(repo Repository, worktrees []gitWorktree, primary s
 
 // databasePath reports the worktree's unified database path and whether it exists.
 func databasePath(worktree string) (string, bool) {
-	dir, cfg, err := obsidian.FindLocalConfig(worktree)
-	path := obsidian.UnifiedIndexPath(worktree, "")
+	dir, cfg, err := repoconfig.FindLocalConfig(worktree)
+	path := repoconfig.UnifiedIndexPath(worktree, "")
 	if err == nil {
-		path = obsidian.UnifiedIndexPath(dir, cfg.IndexPath)
+		path = repoconfig.UnifiedIndexPath(dir, cfg.IndexPath)
 	}
 	stat, err := os.Stat(path)
 	return path, err == nil && stat.Mode().IsRegular()

@@ -2,12 +2,11 @@ package identifierreconcile
 
 import (
 	"context"
-	"testing"
-
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestProductionAssemblyAcceptsConstructorSealedSynthesizedDescendants(t *testing.T) {
@@ -32,12 +31,12 @@ aliases: [SPEC-0001]
 	})
 	oldRoot := ontology.NodeRef{NotePath: "specs/SPEC-0001.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
 	newRoot := ontology.NodeRef{NotePath: "specs/SPEC-0002.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
-	rootRewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRoot, NewRef: newRoot,
+	rootRewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRoot, NewRef: newRoot,
 		OldIdentifier: "SPEC-0001", NewIdentifier: "SPEC-0002", PreferredField: "id", AliasesField: "aliases",
 	}
-	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{
-		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []reference.IdentifierRewrite{rootRewrite},
+	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
+		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []identifierrewrite.IdentifierRewrite{rootRewrite},
 	})
 	require.NoError(t, err)
 	fieldSnapshot, err := fields.validatedSnapshotFor(fields.rewrites)
@@ -48,7 +47,7 @@ aliases: [SPEC-0001]
 		if rewrite.DerivedFrom.IsZero() {
 			continue
 		}
-		if rewrite.PreferredField == reference.StructuredFieldBlockLocator {
+		if rewrite.PreferredField == identifierrewrite.StructuredFieldBlockLocator {
 			continue
 		}
 		for _, edit := range fieldSnapshot.Edits {
@@ -79,7 +78,7 @@ aliases: [SPEC-0001]
 	assembly, err := AssembleRekeyRepairIntents(RekeyRepairAssemblyInput{
 		Plan: plan,
 		Collisions: []CollisionRepairInput{{
-			CollisionKey: plan.Collisions[0].Key, Rewrites: []reference.IdentifierRewrite{rootRewrite},
+			CollisionKey: plan.Collisions[0].Key, Rewrites: []identifierrewrite.IdentifierRewrite{rootRewrite},
 			Moves: []GovernedMoveResult{{Request: moveRequest, Plan: movePlan}},
 		}},
 		FieldDiscovery: fields, LinkDiscovery: links,

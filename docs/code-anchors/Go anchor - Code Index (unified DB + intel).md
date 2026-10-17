@@ -8,9 +8,9 @@ code-anchors:
     - label: codeanchor-sqlite-store
       symbol: github.com/atomicobject/rhizome/pkg/anchors/sqlite.Store
     - label: embeddings-sqlite-store
-      symbol: github.com/atomicobject/rhizome/pkg/search/embeddings/sqlite.Store
+      symbol: github.com/atomicobject/rhizome/pkg/embeddings/sqlite.NoteStore
     - label: embeddings-indexer
-      symbol: github.com/atomicobject/rhizome/pkg/search/embeddings.NewIndexer
+      symbol: github.com/atomicobject/rhizome/pkg/embeddings.NewIndexer
 ---
 
 # Go anchor - Code Index (unified DB + intel)

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/assert"
@@ -60,7 +60,7 @@ See [story](../specs/one.md#^spec-0023-us1).
 		NoteMetadata: testNoteMetadata(t),
 		MaxIssues:    100,
 	}
-	result := RunOntology(context.Background(), runCtx)
+	result := preparedCheck(t, context.Background(), runCtx, ScanOptions{}, CheckOntology)
 	require.Empty(t, result.Error)
 	var fix *FixAction
 	for i := range result.Fixes {
@@ -126,7 +126,7 @@ summary: One
 		NoteMetadata: testNoteMetadata(t),
 		MaxIssues:    100,
 	}
-	result := RunOntology(context.Background(), runCtx)
+	result := preparedCheck(t, context.Background(), runCtx, ScanOptions{}, CheckOntology)
 	require.Empty(t, result.Error)
 	for _, issue := range result.Issues {
 		require.NotEqual(t, "identifier_block_id_migration", issue.Code)
@@ -182,7 +182,7 @@ See [[access-administration#^SPEC-0016-US1]].
 		NoteMetadata: testNoteMetadata(t),
 		MaxIssues:    100,
 	}
-	result := RunOntology(context.Background(), runCtx)
+	result := preparedCheck(t, context.Background(), runCtx, ScanOptions{}, CheckOntology)
 	require.Empty(t, result.Error)
 	for _, issue := range result.Issues {
 		require.NotEqual(t, "identifier_block_id_migration", issue.Code)

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"gopkg.in/yaml.v3"
 )
 
@@ -114,7 +115,7 @@ func RenameFrontmatterProperties(content string, from []string, to string, merge
 // editFrontmatter loads, mutates, and writes frontmatter. If ensureFrontmatter is true, a missing frontmatter
 // block will be created when the mutator reports a change.
 func editFrontmatter(content string, ensureFrontmatter bool, mutator func(map[string]interface{}) (bool, error)) (string, bool, error) {
-	fm, err := ExtractFrontmatter(content)
+	fm, err := markdownsyntax.ExtractFrontmatter(content)
 	if err != nil {
 		return content, false, err
 	}

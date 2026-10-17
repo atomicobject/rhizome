@@ -14,14 +14,20 @@ import (
 
 // EvaluateTool evaluates supplied state with Jev. It needs neither an index nor
 // a note runtime; only explicitly supplied content is sent to TypeSafe.
-func EvaluateTool(_ Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return evaluateTool(newEvaluationClient)
+func EvaluateTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	handler := evaluateTool(newEvaluationClient)
+	return func(ctx context.Context, call mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		if config.Vault != nil {
+			ctx = vaultconfig.WithEnv(ctx, config.Vault.Env)
+		}
+		return handler(ctx, call)
+	}
 }
 
-func newEvaluationClient() (*typesafe.Client, error) {
-	key := vaultconfig.ResolveValue("TYPESAFE_API_KEY")
+func newEvaluationClient(ctx context.Context) (*typesafe.Client, error) {
+	key := vaultconfig.ResolveValue(vaultconfig.FromContext(ctx), "TYPESAFE_API_KEY")
 	if key == "" {
-		key = teamkeys.TypeSafeKey()
+		key = teamkeys.TypeSafeKey(vaultconfig.FromContext(ctx))
 	}
 	if key == "" {
 		return nil, fmt.Errorf("TypeSafe credential unavailable: configure TYPESAFE_API_KEY or unlock the Atomic key bundle with ATOMIC_RHIZOME_KEY")
@@ -29,7 +35,7 @@ func newEvaluationClient() (*typesafe.Client, error) {
 	return typesafe.NewClient(key)
 }
 
-func evaluateTool(newClient func() (*typesafe.Client, error)) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func evaluateTool(newClient func(context.Context) (*typesafe.Client, error)) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, call mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		data, err := json.Marshal(call.GetArguments())
 		if err != nil {
@@ -39,7 +45,7 @@ func evaluateTool(newClient func() (*typesafe.Client, error)) func(context.Conte
 		if err := json.Unmarshal(data, &request); err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		client, err := newClient()
+		client, err := newClient(ctx)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}

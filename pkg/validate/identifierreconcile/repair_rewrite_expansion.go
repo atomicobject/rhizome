@@ -2,14 +2,13 @@ package identifierreconcile
 
 import (
 	"fmt"
-
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 )
 
-func expandCollisionInputsWithDiscoveredRewrites(inputs []CollisionRepairInput, discovered []reference.IdentifierRewrite) ([]CollisionRepairInput, error) {
+func expandCollisionInputsWithDiscoveredRewrites(inputs []CollisionRepairInput, discovered []identifierrewrite.IdentifierRewrite) ([]CollisionRepairInput, error) {
 	out := make([]CollisionRepairInput, len(inputs))
 	rootCollisionByRef := make(map[string]int)
-	rootByIdentity := make(map[string]reference.IdentifierRewrite)
+	rootByIdentity := make(map[string]identifierrewrite.IdentifierRewrite)
 	for index, input := range inputs {
 		out[index] = input
 		roots, err := canonicalRepairRewriteSet(input.Rewrites)
@@ -26,7 +25,7 @@ func expandCollisionInputsWithDiscoveredRewrites(inputs []CollisionRepairInput, 
 				return nil, fmt.Errorf("root rewrite is duplicated across collision inputs")
 			}
 			rootByIdentity[identity] = root
-			if root.Mode == reference.IdentifierRewritePreferredRekey {
+			if root.Mode == identifierrewrite.IdentifierRewritePreferredRekey {
 				refKey := repairRefKey(root.OldRef)
 				if _, duplicate := rootCollisionByRef[refKey]; duplicate {
 					return nil, fmt.Errorf("preferred root rewrite is duplicated across collision inputs")
@@ -36,7 +35,7 @@ func expandCollisionInputsWithDiscoveredRewrites(inputs []CollisionRepairInput, 
 		}
 	}
 
-	discoveredByRef := make(map[string]reference.IdentifierRewrite, len(discovered))
+	discoveredByRef := make(map[string]identifierrewrite.IdentifierRewrite, len(discovered))
 	seenRoots := make(map[string]struct{}, len(rootByIdentity))
 	for _, rewrite := range discovered {
 		discoveredByRef[repairRefKey(rewrite.OldRef)] = rewrite

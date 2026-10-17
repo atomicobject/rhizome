@@ -2,6 +2,7 @@ package init
 
 import (
 	"fmt"
+	"github.com/bmatcuk/doublestar/v4"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -9,12 +10,11 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/notediscovery"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/bmatcuk/doublestar/v4"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // Include existing workspace starters because a resumed install may write no assets.
-func ensureInstalledTemplateIncludes(projectRoot string, cfg *obsidian.LocalConfig, writtenPaths []string) ([]string, bool, error) {
+func ensureInstalledTemplateIncludes(projectRoot string, cfg *repoconfig.LocalConfig, writtenPaths []string) ([]string, bool, error) {
 	const templates = "docs/efforts/templates"
 	vaultPaths, err := paths.NewVaultPaths(projectRoot)
 	if err != nil {
@@ -76,7 +76,7 @@ func ensureInstalledTemplateIncludes(projectRoot string, cfg *obsidian.LocalConf
 //
 // Paths under hidden top-level directories (e.g. .rhizome, .agents, .claude)
 // are skipped — those are agent-skill / config artifacts, not vault notes.
-func ensureIncludesCoverTemplatePaths(cfg *obsidian.LocalConfig, writtenPaths []string) ([]string, bool) {
+func ensureIncludesCoverTemplatePaths(cfg *repoconfig.LocalConfig, writtenPaths []string) ([]string, bool) {
 	if cfg == nil || len(writtenPaths) == 0 {
 		return nil, false
 	}

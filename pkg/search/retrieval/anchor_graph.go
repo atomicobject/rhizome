@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // AnchorGraphRetriever expands anchor seeds via call graph and inheritance edges (code -> code).
@@ -83,6 +83,14 @@ func (r *AnchorGraphRetriever) Retrieve(ctx context.Context, spec search.QuerySp
 		seen[key] = struct{}{}
 		h := knowledge.AnchorHandle(meta.id)
 		out = append(out, search.Candidate{
+			SourceRef: search.SourceRef{
+				Path:       meta.path,
+				Symbol:     meta.symbol,
+				FQN:        meta.fqn,
+				Kind:       meta.kind,
+				ChunkIndex: -1,
+				AnchorID:   meta.id,
+			},
 			Handle: h,
 			Owner:  h,
 			Evidence: []search.Evidence{{
@@ -91,13 +99,7 @@ func (r *AnchorGraphRetriever) Retrieve(ctx context.Context, spec search.QuerySp
 				Source:   "anchor_graph",
 				Details:  map[string]string{"reason": reason},
 			}},
-			Type:       "anchor",
-			Path:       meta.path,
-			Symbol:     meta.symbol,
-			FQN:        meta.fqn,
-			Kind:       meta.kind,
-			ChunkIndex: -1,
-			AnchorID:   meta.id,
+			Type: "anchor",
 		})
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"strings"
 	"testing"
 
@@ -96,8 +97,10 @@ func TestExecute_ReadOverlayTypedSelection(t *testing.T) {
 						}
 					})
 				}
-				require.Contains(t, env.execSchema.SDL, "rank: Int"+suffix)
-				require.Contains(t, env.execSchema.SDL, "ready: Boolean"+suffix)
+				for _, owner := range []string{"Task", "TaskItem"} {
+					requireSchemaField(t, env.execSchema, owner, "rank", "Int"+suffix)
+					requireSchemaField(t, env.execSchema, owner, "ready", "Boolean"+suffix)
+				}
 			})
 		}
 	}

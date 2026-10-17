@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -176,7 +176,7 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 			return mcp.NewToolResultError(fmt.Sprintf("vault_context failed: %s", err)), nil
 		}
 		if requestScope == actions.VaultContextRequestScopeIndexedBootstrap {
-			statusMetric := map[actions.IndexedContextState]string{
+			statusMetric := map[actions.IndexedContextState]indexingperf.MetricName{
 				actions.IndexedContextAvailable:    indexingperf.AgentStartOpIndexedStatusAvailable,
 				actions.IndexedContextStale:        indexingperf.AgentStartOpIndexedStatusStale,
 				actions.IndexedContextIncompatible: indexingperf.AgentStartOpIndexedStatusIncompatible,

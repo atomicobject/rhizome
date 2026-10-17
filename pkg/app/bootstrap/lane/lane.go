@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 )
 
 // Kind orders and labels jobs. Explicit jobs preempt every background kind.
@@ -46,7 +48,7 @@ type Request struct {
 	// Run performs the job. ctx is cancelled on preemption, external priority,
 	// explicit cancel, or runtime shutdown; Run must stop promptly and leave the
 	// index consistent (the writer lane's own barriers still apply).
-	Run func(ctx context.Context, progress Reporter) error
+	Run func(ctx context.Context, lease *indexlock.Lease, progress Reporter) error
 	// Summary runs after the job drains and its total span closes, before Done.
 	Summary func(context.Context) json.RawMessage
 	// Coalesce joins an already queued or running job of the same Kind instead

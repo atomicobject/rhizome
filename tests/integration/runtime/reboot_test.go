@@ -47,7 +47,6 @@ func TestRuntimeRecoversLocksFromPreviousBoot(t *testing.T) {
 			owner.PID = 4194303
 			require.False(t, indexlock.PIDExists(owner.PID))
 			owner.Started = "2000-01-01T00:00:00Z"
-			owner.ProcessLifetime = true
 			data, err := json.Marshal(owner)
 			require.NoError(t, err)
 			for _, name := range []string{"runtime.lock", "runtime-spawn.lock", "index.lock"} {

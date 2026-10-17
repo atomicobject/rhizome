@@ -2,18 +2,23 @@ package mcp
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRenameHeadingToolCancelsWhileWaitingForWriter(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	lockPath := filepath.Join(root, ".rhizome", "index.lock")
 	release, acquired, err := indexlock.TryAcquire(lockPath)
@@ -25,7 +30,7 @@ func TestRenameHeadingToolCancelsWhileWaitingForWriter(t *testing.T) {
 	defer cancel()
 	done := make(chan *mcp.CallToolResult, 1)
 	go func() {
-		result, _ := RenameHeadingTool(Config{Vault: &obsidian.Vault{Name: root}, ReadWrite: true})(ctx, mcp.CallToolRequest{
+		result, _ := RenameHeadingTool(Config{Vault: &repoconfig.Vault{Env: env, Name: root}, ReadWrite: true})(ctx, mcp.CallToolRequest{
 			Params: mcp.CallToolParams{Arguments: map[string]any{
 				"path": "note.md", "oldHeading": "Old", "newHeading": "New", "apply": true,
 			}},

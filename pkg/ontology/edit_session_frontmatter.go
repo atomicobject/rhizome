@@ -2,25 +2,26 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-func validateEditFieldValues(field *Field, values []string, schema *Schema) error {
+func validateEditFieldValues(field *ontoschema.Field, values []string, schema *ontoschema.Schema) error {
 	if field == nil {
 		return nil
 	}
 	if !field.List && len(values) > 1 {
 		return unsupportedEditValueError(field, "a single value is required")
 	}
-	if field.SourceKind == FieldSourceCheckbox {
+	if field.SourceKind == ontoschema.FieldSourceCheckbox {
 		// Checkbox fields accept the user-facing aliases handled by
 		// parseCheckboxEditValue (for example "done" and "open").
 		return nil
 	}
-	if field.Kind != FieldKindScalar && field.Kind != FieldKindEnum {
+	if field.Kind != ontoschema.FieldKindScalar && field.Kind != ontoschema.FieldKindEnum {
 		return nil
 	}
 	for _, value := range values {
@@ -31,7 +32,7 @@ func validateEditFieldValues(field *Field, values []string, schema *Schema) erro
 	return nil
 }
 
-func unsupportedEditValueError(field *Field, reason string) error {
+func unsupportedEditValueError(field *ontoschema.Field, reason string) error {
 	return &editValueError{field: field.Name, reason: reason}
 }
 
@@ -44,7 +45,7 @@ func (e *editValueError) Error() string {
 	return "unsupported target: field " + e.field + ": " + e.reason
 }
 
-func patchFrontmatterFieldSource(content string, field *Field, values []string, asLinks bool) (string, bool, error) {
+func patchFrontmatterFieldSource(content string, field *ontoschema.Field, values []string, asLinks bool) (string, bool, error) {
 	if field == nil {
 		return content, false, nil
 	}
@@ -57,7 +58,7 @@ func patchFrontmatterFieldSource(content string, field *Field, values []string, 
 	if !ok {
 		return content, false, fmt.Errorf("unsupported target: tab-indented frontmatter")
 	}
-	keys := FieldSourceNames(field)
+	keys := ontoschema.FieldSourceNames(field)
 	if len(keys) == 0 {
 		keys = []string{field.Name}
 	}
@@ -157,9 +158,12 @@ func frontmatterContainsCanonicalField(content string, keys []string) (bool, err
 	return false, nil
 }
 
-func unsetFrontmatterField(content string, field *Field) (string, error) {
+func unsetFrontmatterField(content string, field *ontoschema.Field) (string, error) {
 	if field == nil {
 		return content, nil
+	}
+	if err := validateFrontmatterLocation(content); err != nil {
+		return content, err
 	}
 	fmRange := frontmatterRange(content)
 	if !fmRange.Valid(len(content)) || fmRange.Len() == 0 {
@@ -170,7 +174,7 @@ func unsetFrontmatterField(content string, field *Field) (string, error) {
 	if !ok {
 		return content, fmt.Errorf("unsupported target: tab-indented frontmatter")
 	}
-	keys := FieldSourceNames(field)
+	keys := ontoschema.FieldSourceNames(field)
 	if len(keys) == 0 {
 		keys = []string{field.Name}
 	}

@@ -45,7 +45,7 @@ type watcherOptions struct {
 // NoteSourceFactory constructs the canonical raw-note snapshot consumed by
 // anchor ingestion. The producer lives outside this package to avoid an import
 // cycle with notemeta.
-type NoteSourceFactory func(path string, content []byte, mtime int64) NoteSource
+type NoteSourceFactory func(path string, content []byte, mtime int64) (NoteSource, error)
 
 type WatcherOption func(*watcherOptions)
 
@@ -781,7 +781,7 @@ func (w *Watcher) noteSource(path string, content []byte) (NoteSource, error) {
 	if info, err := os.Stat(path); err == nil && !info.ModTime().IsZero() {
 		mtime = info.ModTime().Unix()
 	}
-	return w.noteSourceFactory(ref.Rel.String(), content, mtime), nil
+	return w.noteSourceFactory(ref.Rel.String(), content, mtime)
 }
 
 func (w *Watcher) handleRemove(ctx context.Context, path string) {

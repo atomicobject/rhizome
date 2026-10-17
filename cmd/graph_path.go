@@ -4,34 +4,35 @@ import (
 	"fmt"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/graph/algorithms"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
-	"github.com/atomicobject/rhizome/pkg/search/graphalg"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 )
 
-var graphPathMaxHops int
-
-var graphPathCmd = &cobra.Command{
-	Use:   "path <from> <to>",
-	Short: "Find the shortest path between two notes or code files",
-	Args:  cobra.ExactArgs(2),
-	RunE:  runGraphPath,
+func (commandOptions *graphInvocationOptions) makeGraphPathCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "path <from> <to>",
+		Short: "Find the shortest path between two notes or code files",
+		Args:  cobra.ExactArgs(2),
+		RunE:  commandOptions.runGraphPath,
+	}
 }
 
-func init() {
-	graphPathCmd.Flags().IntVar(&graphPathMaxHops, "max-hops", 8, "maximum path length")
+func (commandOptions *graphInvocationOptions) registerGraphPathCommands(graphPathCmd, graphCmd *cobra.Command) {
+	graphPathCmd.Flags().IntVar(&commandOptions.graphPathMaxHops, "max-hops", 8, "maximum path length")
 	graphCmd.AddCommand(graphPathCmd)
 }
 
-func runGraphPath(cmd *cobra.Command, args []string) error {
+func (commandOptions *graphInvocationOptions) runGraphPath(cmd *cobra.Command, args []string) error {
 	fromInput := args[0]
 	toInput := args[1]
 
-	selectedVault := vaultName
+	selectedVault := commandOptions.vaultName
 	if selectedVault == "" {
-		vault := &obsidian.Vault{}
+		vault := &repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config}
 		defaultName, err := vault.DefaultName()
 		if err != nil {
 			return err
@@ -39,7 +40,7 @@ func runGraphPath(cmd *cobra.Command, args []string) error {
 		selectedVault = defaultName
 	}
 
-	vault := obsidian.Vault{Name: selectedVault}
+	vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: selectedVault}
 	vaultPath, err := vault.Path()
 	if err != nil {
 		return err
@@ -62,7 +63,7 @@ func runGraphPath(cmd *cobra.Command, args []string) error {
 	}
 
 	facts, err := noderead.NewService(vaultDef, &obsidian.Note{}, store, nil).
-		NewScope(cmd.Context(), noderead.ScopeOptions{}).
+		NewScope(noderead.ScopeOptions{}).
 		GraphFacts(cmd.Context(), noderead.GraphFactsRequest{
 			NodeLimit:       1_000_000,
 			EdgeLimit:       1_000_000,
@@ -77,12 +78,12 @@ func runGraphPath(cmd *cobra.Command, args []string) error {
 	minEdges, allPaths, canonicalPath := graphFactsPathInputs(facts)
 
 	// Resolve fuzzy inputs.
-	fromPath, err := graphalg.ResolvePathFuzzy(allPaths, fromInput)
+	fromPath, err := algorithms.ResolvePathFuzzy(allPaths, fromInput)
 	if err != nil {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n", err)
 		return nil
 	}
-	toPath, err := graphalg.ResolvePathFuzzy(allPaths, toInput)
+	toPath, err := algorithms.ResolvePathFuzzy(allPaths, toInput)
 	if err != nil {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n", err)
 		return nil
@@ -91,10 +92,10 @@ func runGraphPath(cmd *cobra.Command, args []string) error {
 	fromPath = canonicalGraphPath(canonicalPath, fromPath)
 	toPath = canonicalGraphPath(canonicalPath, toPath)
 
-	result, err := graphalg.ShortestPath(minEdges, fromPath, toPath, graphPathMaxHops)
+	result, err := algorithms.ShortestPath(minEdges, fromPath, toPath, commandOptions.graphPathMaxHops)
 	if err != nil {
 		// No path found — friendly output.
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "No path found between %q and %q within %d hops.\n", fromInput, toInput, graphPathMaxHops)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "No path found between %q and %q within %d hops.\n", fromInput, toInput, commandOptions.graphPathMaxHops)
 		return nil
 	}
 
@@ -102,7 +103,7 @@ func runGraphPath(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func graphFactsPathInputs(facts noderead.GraphFactsResult) ([]graphalg.GraphDocEdgeMinimal, []string, map[string]string) {
+func graphFactsPathInputs(facts noderead.GraphFactsResult) ([]algorithms.GraphDocEdgeMinimal, []string, map[string]string) {
 	pathSet := make(map[string]struct{}, len(facts.Nodes)*2+len(facts.Edges)*2)
 	canonical := make(map[string]string, len(facts.Nodes)*4)
 	for _, node := range facts.Nodes {
@@ -113,7 +114,7 @@ func graphFactsPathInputs(facts noderead.GraphFactsResult) ([]graphalg.GraphDocE
 		addGraphFactAlias(pathSet, canonical, node.Path, node.ID)
 		addGraphFactAlias(pathSet, canonical, node.SourceLocator, node.ID)
 	}
-	minEdges := make([]graphalg.GraphDocEdgeMinimal, 0, len(facts.Edges))
+	minEdges := make([]algorithms.GraphDocEdgeMinimal, 0, len(facts.Edges))
 	for _, edge := range facts.Edges {
 		src := edge.Source
 		dst := edge.Target
@@ -122,7 +123,7 @@ func graphFactsPathInputs(facts noderead.GraphFactsResult) ([]graphalg.GraphDocE
 		}
 		addGraphFactEndpoint(pathSet, canonical, src)
 		addGraphFactEndpoint(pathSet, canonical, dst)
-		minEdges = append(minEdges, graphalg.GraphDocEdgeMinimal{
+		minEdges = append(minEdges, algorithms.GraphDocEdgeMinimal{
 			SrcPath:         src,
 			DstPath:         dst,
 			Kind:            graphFactEdgeKind(edge),
@@ -177,7 +178,7 @@ func graphFactConfidenceLabel(edge noderead.GraphFactEdge) string {
 	return semdb.EdgeConfidenceExtracted
 }
 
-func printGraphPath(cmd *cobra.Command, result *graphalg.PathResult) {
+func printGraphPath(cmd *cobra.Command, result *algorithms.PathResult) {
 	w := cmd.OutOrStdout()
 	if result.Hops == 0 {
 		fmt.Fprintf(w, "Same node: %s\n", result.From)
@@ -200,7 +201,7 @@ func hopWord(n int) string {
 	return "hops"
 }
 
-func formatEdgeLabel(hop graphalg.PathHop) string {
+func formatEdgeLabel(hop algorithms.PathHop) string {
 	var parts []string
 	parts = append(parts, hop.EdgeKind)
 	if hop.Confidence != "" {

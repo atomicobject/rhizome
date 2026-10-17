@@ -2,6 +2,7 @@ package noderead
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"sort"
 	"strings"
@@ -97,17 +98,17 @@ type ShapeFolder struct {
 
 // OntologyShape computes scope-independent counts from one committed snapshot.
 // This aggregate has no edit-session overlay or source hydration.
-func OntologyShape(ctx context.Context, store readmodel.ShapeStore, schema *ontology.Schema, parts ShapeParts) (ShapeResponse, error) {
-	profiles := map[string]ontology.TypeProfile{}
+func OntologyShape(ctx context.Context, store readmodel.ShapeStore, schema *ontoschema.Schema, parts ShapeParts) (ShapeResponse, error) {
+	profiles := map[string]ontoschema.TypeProfile{}
 	fields := []string{}
 	if parts.Members && schema != nil {
 		for name, t := range schema.Types {
 			if shapeNoteType(t) {
-				profiles[name], _ = ontology.DeriveTypeProfile(schema, name, identity.CurrentUserType)
+				profiles[name], _ = ontoschema.DeriveTypeProfile(schema, name, identity.CurrentUserType)
 			}
 		}
 		for name := range schema.Interfaces {
-			profiles[name], _ = ontology.DeriveTypeProfile(schema, name, identity.CurrentUserType)
+			profiles[name], _ = ontoschema.DeriveTypeProfile(schema, name, identity.CurrentUserType)
 		}
 		for _, p := range profiles {
 			fields = append(fields, p.GapFields...)
@@ -146,8 +147,8 @@ func OntologyShape(ctx context.Context, store readmodel.ShapeStore, schema *onto
 	return result, ctx.Err()
 }
 
-func shapeNoteType(t *ontology.NoteType) bool {
-	return t != nil && (t.Role == ontology.TypeRoleNote || t.Role == "")
+func shapeNoteType(t *ontoschema.NoteType) bool {
+	return t != nil && (t.Role == ontoschema.TypeRoleNote || t.Role == "")
 }
 
 type shapeRecordPair struct {
@@ -155,7 +156,7 @@ type shapeRecordPair struct {
 	fields map[[2]string]bool
 }
 
-func shapeFromSnapshot(schema *ontology.Schema, profiles map[string]ontology.TypeProfile, snapshot readmodel.ShapeSnapshot, parts ShapeParts) ShapeResponse {
+func shapeFromSnapshot(schema *ontoschema.Schema, profiles map[string]ontoschema.TypeProfile, snapshot readmodel.ShapeSnapshot, parts ShapeParts) ShapeResponse {
 	out := ShapeResponse{Rebuilding: snapshot.Rebuilding}
 	notes := map[string]readmodel.ShapeNote{}
 	byType := map[string][]readmodel.ShapeNote{}
@@ -343,7 +344,7 @@ func shapeFromSnapshot(schema *ontology.Schema, profiles map[string]ontology.Typ
 	return out
 }
 
-func shapeMember(name string, records []readmodel.ShapeNote, profile ontology.TypeProfile, values map[string]map[string][]string) ShapeMember {
+func shapeMember(name string, records []readmodel.ShapeNote, profile ontoschema.TypeProfile, values map[string]map[string][]string) ShapeMember {
 	m := ShapeMember{Name: name, Kind: "type", Count: len(records), Gaps: []ShapeGap{}, TargetSets: []ShapeTargetSet{}}
 	lifecycle := map[string]int{}
 	for _, n := range records {
@@ -394,7 +395,7 @@ func shapeFolder(path string) string {
 	}
 	return ""
 }
-func shapeFieldName(schema *ontology.Schema, source, name string) string {
+func shapeFieldName(schema *ontoschema.Schema, source, name string) string {
 	for _, f := range schema.Types[source].Fields {
 		if f != nil && strings.EqualFold(f.Name, name) {
 			return f.Name
@@ -402,12 +403,12 @@ func shapeFieldName(schema *ontology.Schema, source, name string) string {
 	}
 	return name
 }
-func shapeRelation(schema *ontology.Schema, source, name, target string) bool {
+func shapeRelation(schema *ontoschema.Schema, source, name, target string) bool {
 	if schema == nil || source == UntypedShapeMember || target == UntypedShapeMember {
 		return false
 	}
 	for _, f := range schema.Types[source].Fields {
-		if f == nil || !strings.EqualFold(f.Name, name) || f.Kind != ontology.FieldKindLink || f.TypeName == "Note" {
+		if f == nil || !strings.EqualFold(f.Name, name) || f.Kind != ontoschema.FieldKindLink || f.TypeName == "Note" {
 			continue
 		}
 		return f.TypeName == target || slices.Contains(schema.Types[target].Implements, f.TypeName)

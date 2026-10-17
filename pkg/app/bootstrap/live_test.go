@@ -8,13 +8,13 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 )
 
-func TestOpenIntelStoreForServePropagatesSkippedIntegrityPolicy(t *testing.T) {
+func TestOpenIntelStoreForServeDefersIntegrityToMaintenance(t *testing.T) {
 	vaultPath := t.TempDir()
 	indexPath := filepath.Join(vaultPath, ".rhizome", "db.sqlite")
 	store, err := semdb.Open(indexPath)
@@ -23,9 +23,8 @@ func TestOpenIntelStoreForServePropagatesSkippedIntegrityPolicy(t *testing.T) {
 
 	collector := indexingperf.New()
 	rt := &LiveRuntime{
-		ctx:                     indexingperf.WithCollector(context.Background(), collector),
-		VaultPath:               vaultPath,
-		skipIntelIntegrityCheck: true,
+		ctx:       indexingperf.WithCollector(context.Background(), collector),
+		VaultPath: vaultPath,
 	}
 	store, cleanup, err := rt.openIntelStoreForServe(codeanchor.Config{IndexPath: indexPath})
 	requireNoError(t, err)
@@ -440,7 +439,7 @@ func TestIndexedReadOnlyRuntimeOptionsSelectOnlyExistingCodeIndex(t *testing.T) 
 	if !opts.SkipCacheWarmup || !opts.DisableWatchHub || !opts.DisableLeaderWork {
 		t.Fatalf("indexed one-shot runtime must disable global background work: %#v", opts)
 	}
-	if !opts.SkipIntelIntegrityCheck || !opts.ReadOnlyCodeIndex || opts.DisableSessionStore {
+	if !opts.ReadOnlyCodeIndex || opts.DisableSessionStore {
 		t.Fatalf("indexed one-shot runtime must use the validated read-only open: %#v", opts)
 	}
 	if !opts.Requirements.Includes(RuntimeCapabilityCodeIndex) {

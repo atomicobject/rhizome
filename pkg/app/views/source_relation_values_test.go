@@ -2,12 +2,12 @@ package views
 
 import (
 	"encoding/json"
-	"testing"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestRelationValuesForRecordPreservesOrderAndResolvedIdentity(t *testing.T) {
@@ -16,18 +16,18 @@ func TestRelationValuesForRecordPreservesOrderAndResolvedIdentity(t *testing.T) 
 	require.NoError(t, err)
 	record := noderead.NodeRecord{
 		TypeName: "ActionItem",
-		FieldValues: map[string][]codeanchor.IntelOntologyNodeFieldValue{
+		FieldValues: map[string][]readmodel.FieldValueRow{
 			"assignedto": {
 				{ValueText: "[[people/alice|Aliased Alice]]", TargetRefJSON: string(aliceJSON), ListOrdinal: 0},
 				{ValueText: "[[people/missing|Missing person]]", ListOrdinal: 1},
 			},
 		},
 	}
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{
 		"ActionItem": {
 			Name: "ActionItem",
-			Fields: []*ontology.Field{
-				{Name: "assignedTo", Kind: ontology.FieldKindLink, TypeName: "Person", List: true},
+			Fields: []*ontoschema.Field{
+				{Name: "assignedTo", Kind: ontoschema.FieldKindLink, TypeName: "Person", List: true},
 			},
 		},
 	}}
@@ -70,11 +70,11 @@ func TestRawRelationFieldValuesReadsOverlaySources(t *testing.T) {
 		InlineProps: map[string][]string{"owner": {"[[people/carol]]"}},
 	}
 
-	require.Equal(t, []string{"[[people/alice]]", "[[people/bob]]"}, rawRelationFieldValues(record, &ontology.Field{
-		Name: "reviewers", Kind: ontology.FieldKindLink, Source: "reviewers", SourceKind: ontology.FieldSourceFrontmatter,
+	require.Equal(t, []string{"[[people/alice]]", "[[people/bob]]"}, rawRelationFieldValues(record, &ontoschema.Field{
+		Name: "reviewers", Kind: ontoschema.FieldKindLink, Source: "reviewers", SourceKind: ontoschema.FieldSourceFrontmatter,
 	}))
-	require.Equal(t, []string{"[[people/carol]]"}, rawRelationFieldValues(record, &ontology.Field{
-		Name: "owner", Kind: ontology.FieldKindLink, Source: "owner", SourceKind: ontology.FieldSourceInline,
+	require.Equal(t, []string{"[[people/carol]]"}, rawRelationFieldValues(record, &ontoschema.Field{
+		Name: "owner", Kind: ontoschema.FieldKindLink, Source: "owner", SourceKind: ontoschema.FieldSourceInline,
 	}))
 }
 

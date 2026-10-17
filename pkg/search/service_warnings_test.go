@@ -48,11 +48,9 @@ func TestSearch_BroadIntentSoftFailsCompositeRetriever(t *testing.T) {
 				Label: "refs",
 				Retrievers: []search.Retriever{
 					errRetriever{name: "bad_refs", err: errors.New("store unavailable")},
-					okRetriever{name: "good_refs", result: []search.Candidate{{
-						Handle: knowledge.NoteHandle("notes/a.md"),
-						Owner:  knowledge.NoteHandle("notes/a.md"),
-						Type:   "note",
-						Path:   "notes/a.md",
+					okRetriever{name: "good_refs", result: []search.Candidate{{SourceRef: search.SourceRef{Path: "notes/a.md"}, Handle: knowledge.NoteHandle("notes/a.md"),
+						Owner: knowledge.NoteHandle("notes/a.md"),
+						Type:  "note",
 						Evidence: []search.Evidence{
 							{Type: "doc_link", RawScore: 1.0},
 						},

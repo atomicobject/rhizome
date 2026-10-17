@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -51,7 +53,7 @@ func VaultHealthTool(config Config) func(context.Context, mcp.CallToolRequest) (
 			SessionStore:          config.GetIntelStore(),
 			NoteMetadata:          config.NoteMetadata,
 			MetadataStoreFallback: metadataStoreFallbackPolicy(config),
-			WikilinkOptions: obsidian.WikilinkOptions{
+			WikilinkOptions: markdownsyntax.WikilinkOptions{
 				SkipAnchors: skipAnchors,
 				SkipEmbeds:  skipEmbeds,
 			},
@@ -83,7 +85,7 @@ func VaultHealthTool(config Config) func(context.Context, mcp.CallToolRequest) (
 				noteCache := obsidian.BuildNotePathCacheWithAliases(allNotes, aliasesByPath)
 
 				// Get graph stats to find orphans
-				stats, _ := obsidian.ComputeGraphStats(config.VaultDef, note, obsidian.DefaultWikilinkOptions)
+				stats, _ := vaultgraph.ComputeGraphStats(config.VaultDef, note, markdownsyntax.DefaultWikilinkOptions)
 				if stats != nil {
 					for _, orphan := range stats.Orphans() {
 						normalized := markdownGraphNotePath(orphan)
@@ -154,5 +156,5 @@ func VaultHealthTool(config Config) func(context.Context, mcp.CallToolRequest) (
 // graph boundary. Vault health receives orphans from obsidian.ComputeGraphStats,
 // which only scans Markdown links; descriptor-only formats are not graph input.
 func markdownGraphNotePath(path string) string {
-	return string(paths.NormalizeNote(path))
+	return string(paths.EnsureNoteExtension(path, ".md"))
 }

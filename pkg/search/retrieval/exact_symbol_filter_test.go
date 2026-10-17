@@ -9,12 +9,11 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
-	"github.com/atomicobject/rhizome/pkg/search/relevance"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -151,7 +150,7 @@ func TestServicePreservesExactSymbolsThroughCodeRollup(t *testing.T) {
 					Filters: search.Filters{ExactSymbols: filter.symbols}, Limits: search.Limits{Total: len(filter.wantIDs)},
 					Seeds: []knowledge.Handle{knowledge.AnchorHandle("run")},
 				}
-				svc := &search.Service{Retrievers: lane.retrievers, Ranker: &relevance.WeightedRanker{}}
+				svc := &search.Service{Retrievers: lane.retrievers, Ranker: &search.WeightedRanker{}}
 				unrolled, err := svc.Search(ctx, spec)
 				require.NoError(t, err)
 				if lane.name == "seed+lexical" {
@@ -187,7 +186,7 @@ func TestServicePreservesExactSymbolsThroughCodeRollup(t *testing.T) {
 	}
 
 	t.Run("unfiltered module", func(t *testing.T) {
-		svc := &search.Service{Retrievers: []search.Retriever{vector}, Ranker: &relevance.WeightedRanker{}, Rollupper: rollupper}
+		svc := &search.Service{Retrievers: []search.Retriever{vector}, Ranker: &search.WeightedRanker{}, Rollupper: rollupper}
 		response, err := svc.Search(ctx, search.QuerySpec{Text: "selection", Limits: search.Limits{Total: 2}})
 		require.NoError(t, err)
 		require.Len(t, response.Results, 1)

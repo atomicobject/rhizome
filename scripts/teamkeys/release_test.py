@@ -21,7 +21,7 @@ PRIVATE = lambda: "PRIVATE"
 
 class ReleaseCredentialsTest(unittest.TestCase):
     def environment(self, internal=True):
-        env = {name: os.environ[name] for name in ("PATH", "HOME", "USERPROFILE", "SystemRoot", "TMPDIR", "TEMP", "TMP") if name in os.environ}
+        env = {name: os.environ[name] for name in ("PATH", "HOME", "USERPROFILE", "SystemRoot", "TMPDIR", "TEMP", "TMP", "GOCACHE", "GOMODCACHE", "GOTMPDIR") if name in os.environ}
         env.update(ATOMIC_RHIZOME_KEY=base64.b64encode(bytes(32)).decode(), VOYAGE_API_KEY="synthetic-voyage", TYPESAFE_API_KEY="synthetic-typesafe", GITHUB_TOKEN="synthetic-github")
         if internal:
             env["RZM_INTERNAL_S3_BUCKET"] = "example-bucket"
@@ -73,7 +73,21 @@ class ReleaseCredentialsTest(unittest.TestCase):
         env = self.environment()
         with tempfile.TemporaryDirectory() as directory:
             probe = Path(directory) / "main.go"
-            probe.write_text('package main\nimport ("os"; "github.com/atomicobject/rhizome/pkg/teamkeys")\nfunc main() { if os.Getenv("VOYAGE_API_KEY") != "" || os.Getenv("ATOMIC_RHIZOME_KEY") != "" { os.Exit(2) }; os.Setenv("ATOMIC_RHIZOME_KEY", ' + json.dumps(env["ATOMIC_RHIZOME_KEY"]) + '); if teamkeys.VoyageKey() != "synthetic-voyage" || teamkeys.TypeSafeKey() != "synthetic-typesafe" { os.Exit(3) } }')
+            probe.write_text('''package main
+import (
+    "os"
+    "github.com/atomicobject/rhizome/pkg/teamkeys"
+    vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+)
+func main() {
+    if os.Getenv("VOYAGE_API_KEY") != "" || os.Getenv("ATOMIC_RHIZOME_KEY") != "" { os.Exit(2) }
+    env := vaultconfig.Env{LookupEnv: func(key string) (string, bool) {
+        if key == "ATOMIC_RHIZOME_KEY" { return ''' + json.dumps(env["ATOMIC_RHIZOME_KEY"]) + ''', true }
+        return "", false
+    }}
+    if teamkeys.VoyageKey(env) != "synthetic-voyage" || teamkeys.TypeSafeKey(env) != "synthetic-typesafe" { os.Exit(3) }
+}
+''')
             self.assertEqual(0, release.run_release(["go", "run", "-mod=vendor", str(probe)], env, visibility=PRIVATE))
             binary = Path(directory) / ("probe.exe" if sys.platform == "win32" else "probe")
             build = ["go", "build", "-mod=vendor", "-ldflags=-s -w", "-o", str(binary), str(probe)]

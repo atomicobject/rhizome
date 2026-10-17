@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -73,7 +74,7 @@ First.
 
 Second.
 `)
-	matches := FindMatchingSections(nodes, SectionLevelH2, "Requirements")
+	matches := FindMatchingSections(nodes, ontoschema.SectionLevelH2, "Requirements")
 	require.Len(t, matches, 2)
 	require.Contains(t, matches[0].Content, "First.")
 	require.Contains(t, matches[1].Content, "Second.")
@@ -124,7 +125,7 @@ Nested.
 	require.Len(t, nodes[0].Children, 1)
 	require.Equal(t, "Detail", nodes[0].Children[0].Title)
 
-	matches := FindMatchingSections(nodes, SectionLevelH2, "Requirements")
+	matches := FindMatchingSections(nodes, ontoschema.SectionLevelH2, "Requirements")
 	require.Len(t, matches, 1)
 	require.Equal(t, "Requirements", matches[0].Title)
 }

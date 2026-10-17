@@ -8,7 +8,7 @@ import (
 
 func TestFinalizeRepairPlanRequiresAuthorizedOperationIssueMembership(t *testing.T) {
 	actions := []FixAction{
-		{ID: "action-a", Check: CheckAliases, Safety: FixSafetySafe, IssueKeys: []string{"issue-a"}},
+		{ID: "action-a", Check: CheckIdentifiers, Safety: FixSafetySafe, IssueKeys: []string{"issue-a"}},
 		{ID: "action-b", Check: CheckOntology, Safety: FixSafetySafe, IssueKeys: []string{"issue-b"}},
 	}
 	base := RepairOperation{

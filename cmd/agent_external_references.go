@@ -2,7 +2,7 @@ package cmd
 
 import "github.com/spf13/cobra"
 
-func newAgentExternalReferencesCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentExternalReferencesCmd() *cobra.Command {
 	var handle, ecosystem, module, symbolPrefix string
 	var limit int
 	cmd := &cobra.Command{
@@ -10,13 +10,13 @@ func newAgentExternalReferencesCmd() *cobra.Command {
 		Short: "Return bounded local uses of an external code target as JSON",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetString(payload, "handle", handle)
 			maybeSetString(payload, "ecosystem", ecosystem)
 			maybeSetString(payload, "module", module)
 			maybeSetString(payload, "symbolPrefix", symbolPrefix)
 			maybeSetInt(payload, "limit", limit)
-			return runAgentJSONTool(cmd, 0, "external_references", payload)
+			return commandOptions.runAgentJSONTool(cmd, 0, "external_references", payload)
 		},
 	}
 	cmd.Flags().StringVar(&handle, "handle", "", "exact canonical external target handle")

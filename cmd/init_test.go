@@ -1,5 +1,7 @@
 package cmd
 
+import "github.com/atomicobject/rhizome/internal/testkit"
+
 import (
 	"os"
 	"path/filepath"
@@ -13,6 +15,9 @@ import (
 )
 
 func TestInitCommand_AdvertisesWorkflowChoices(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	initCmd, _, _ := rootCmd.Find([]string{"init"})
+
 	flag := initCmd.Flags().Lookup("workflow")
 	require.NotNil(t, flag)
 	require.Contains(t, flag.Usage, "agentic-engineering, domain, or none")
@@ -20,6 +25,7 @@ func TestInitCommand_AdvertisesWorkflowChoices(t *testing.T) {
 }
 
 func TestInitCommand_ExplainsRemovedFlags(t *testing.T) {
+
 	t.Setenv(repoSkipDelegateEnv, "1")
 	for flag, want := range map[string]string{
 		"--yes":            "--yes was removed",
@@ -28,6 +34,7 @@ func TestInitCommand_ExplainsRemovedFlags(t *testing.T) {
 		"--reject-all":     "remembers what you keep",
 		"--eject-template": "use --eject",
 	} {
+		rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
 		rootCmd.SetArgs([]string{"init", "--path", t.TempDir(), flag})
 		err := rootCmd.Execute()
 		rootCmd.SetArgs([]string{})
@@ -36,9 +43,13 @@ func TestInitCommand_ExplainsRemovedFlags(t *testing.T) {
 }
 
 func TestInitCommand_CheckExitsOneAndWritesNothing(t *testing.T) {
+	commandOptions := newInitOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	t.Setenv(repoSkipDelegateEnv, "1")
 	dir := t.TempDir()
-	defer func() { initCheck, initPath = false, "" }()
+	defer func() { commandOptions.initCheck, commandOptions.initPath = false, "" }()
 
 	rootCmd.SetArgs([]string{"init", "--path", dir, "--check"})
 	err := rootCmd.Execute()
@@ -51,6 +62,10 @@ func TestInitCommand_CheckExitsOneAndWritesNothing(t *testing.T) {
 }
 
 func TestInitCommand_WritesConfig(t *testing.T) {
+	commandOptions := newInitOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	t.Setenv(repoSkipDelegateEnv, "1")
 	dir := t.TempDir()
 	docsDir := filepath.Join(dir, "docs")
@@ -59,8 +74,8 @@ func TestInitCommand_WritesConfig(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n"), 0o644))
 	seedCurrentPinnedBinary(t, dir)
 
-	origPath := initPath
-	defer func() { initPath = origPath }()
+	origPath := commandOptions.initPath
+	defer func() { commandOptions.initPath = origPath }()
 
 	rootCmd.SetArgs([]string{"init", "--path", dir})
 	err := rootCmd.Execute()
@@ -107,12 +122,16 @@ func TestInitCommand_WritesConfig(t *testing.T) {
 }
 
 func TestInitCommand_WritesExternalBinaryManager(t *testing.T) {
+	commandOptions := newInitOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	t.Setenv(repoSkipDelegateEnv, "1")
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "README.md"), []byte("# repo\n"), 0o644))
 
-	origPath, origBinaryManager := initPath, initBinaryManager
-	t.Cleanup(func() { initPath, initBinaryManager = origPath, origBinaryManager })
+	origPath, origBinaryManager := commandOptions.initPath, commandOptions.initBinaryManager
+	t.Cleanup(func() { commandOptions.initPath, commandOptions.initBinaryManager = origPath, origBinaryManager })
 
 	rootCmd.SetArgs([]string{"init", "--path", dir, "--binary-manager", "external"})
 	err := rootCmd.Execute()
@@ -139,6 +158,10 @@ func seedCurrentPinnedBinary(t *testing.T, dir string) {
 }
 
 func TestInitCommand_RerunKeepsConfigAndUpdatesGeneratedFiles(t *testing.T) {
+	commandOptions := newInitOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	t.Setenv(repoSkipDelegateEnv, "1")
 	dir := t.TempDir()
 	docsDir := filepath.Join(dir, "docs")
@@ -164,8 +187,8 @@ agents:
 	require.NoError(t, os.WriteFile(configPath, []byte(existingConfig), 0o644))
 
 	seedCurrentPinnedBinary(t, dir)
-	origPath := initPath
-	defer func() { initPath = origPath }()
+	origPath := commandOptions.initPath
+	defer func() { commandOptions.initPath = origPath }()
 
 	rootCmd.SetArgs([]string{"init", "--path", dir})
 	err := rootCmd.Execute()

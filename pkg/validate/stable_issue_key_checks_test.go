@@ -25,7 +25,7 @@ func TestMarkdownProviderChecksRejectNonCanonicalSourcePath(t *testing.T) {
 		{
 			name: "fragile external",
 			run: func(runCtx RunContext) CheckResult {
-				return RunFragileExternal(context.Background(), runCtx, Options{})
+				return RunFragileExternal(context.Background(), runCtx, ScanOptions{})
 			},
 			invalid: map[string]string{"../source.md": "[[target#Missing Heading]]\n", "target.md": "# Target\n\n## Current Heading\n"},
 			valid:   map[string]string{"source.md": "[[target#Missing Heading]]\n", "target.md": "# Target\n\n## Current Heading\n"},
@@ -46,74 +46,42 @@ func TestMarkdownProviderChecksRejectNonCanonicalSourcePath(t *testing.T) {
 			invalid: map[string]string{"../source.md": "---\ncode-anchors: [\n---\n"},
 			valid:   map[string]string{"source.md": "---\ncode-anchors: [\n---\n"},
 		},
+		{
+			name: "link hygiene", run: RunLinkHygiene,
+			invalid: map[string]string{"../source.md": "[[target.md]]\n", "target.md": "# Target\n"},
+			valid:   map[string]string{"source.md": "[[target.md]]\n", "target.md": "# Target\n"},
+		},
+		{
+			name: "broken links", run: func(run RunContext) CheckResult {
+				return RunBrokenLinksContext(context.Background(), run, ScanOptions{})
+			},
+			invalid: map[string]string{"../source.md": "[[missing]]\n"}, valid: map[string]string{"source.md": "[[missing]]\n"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.run(stableIssueKeyRunContext(t, tt.invalid, true))
+			result := tt.run(stableIssueKeyRunContext(t, tt.invalid))
 			require.False(t, result.OK)
 			require.Contains(t, result.Error, "canonical note path")
 			require.Empty(t, result.Issues)
 			require.Empty(t, result.Fixes)
 
-			control := tt.run(stableIssueKeyRunContext(t, tt.valid, true))
+			control := tt.run(stableIssueKeyRunContext(t, tt.valid))
 			require.Empty(t, control.Error)
 			require.Positive(t, control.IssueCount)
 		})
 	}
 }
 
-// Broken-links and link-hygiene enumerate the supplied reader directly, so a
-// non-canonical path reaches StableIssueKey, which must fail the whole check.
-func TestChecksFailClosedWhenStableIssueKeyCannotNormalizePath(t *testing.T) {
-	tests := []struct {
-		name    string
-		run     func(RunContext) CheckResult
-		invalid map[string]string
-		valid   map[string]string
-	}{
-		{
-			name:    "link hygiene",
-			run:     RunLinkHygiene,
-			invalid: map[string]string{"../source.md": "[[target.md]]\n", "target.md": "# Target\n"},
-			valid:   map[string]string{"source.md": "[[target.md]]\n", "target.md": "# Target\n"},
-		},
-		{
-			name: "broken links",
-			run: func(runCtx RunContext) CheckResult {
-				return RunBrokenLinks(runCtx, Options{})
-			},
-			invalid: map[string]string{"../source.md": "[[missing]]\n"},
-			valid:   map[string]string{"source.md": "[[missing]]\n"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.run(stableIssueKeyRunContext(t, tt.invalid, false))
-			require.False(t, result.OK)
-			require.Contains(t, result.Error, "identify")
-			require.Empty(t, result.Issues)
-			require.Empty(t, result.Fixes)
-
-			control := tt.run(stableIssueKeyRunContext(t, tt.valid, false))
-			require.Empty(t, control.Error)
-			require.Positive(t, control.IssueCount)
-			require.NotEmpty(t, control.Fixes)
-		})
-	}
-}
-
-func stableIssueKeyRunContext(t *testing.T, notes map[string]string, withMetadata bool) RunContext {
+func stableIssueKeyRunContext(t *testing.T, notes map[string]string) RunContext {
 	t.Helper()
 	root := t.TempDir()
 	runCtx := RunContext{
 		VaultDef:  obsidian.VaultDefinition{Path: root, Links: obsidian.LinkTypeBoth},
 		VaultPath: root, NoteReader: stableIssueKeyErrorNoteReader{notes: notes}, MaxIssues: 20,
 	}
-	if withMetadata {
-		runCtx.NoteMetadata = testNoteMetadata(t)
-	}
+	runCtx.NoteMetadata = testNoteMetadata(t)
 	return runCtx
 }
 

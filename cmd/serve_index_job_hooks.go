@@ -12,13 +12,14 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 )
 
 // registerIndexJobHooks wires explicit index jobs onto the runtime's indexing
 // lane (SPEC-0104 US2). The job runs the same unified core as `rzm index`,
 // streams its progress and log lines to subscribers, and finishes with the
 // timing summary in the terminal event.
-func registerIndexJobHooks(hooks *appserve.ControlHooks, rt *bootstrap.LiveRuntime) {
+func (commandOptions *vaultCommandOptions) registerIndexJobHooks(hooks *appserve.ControlHooks, rt *bootstrap.LiveRuntime) {
 	hooks.SubmitIndex = func(ctx context.Context) (lane.Handle, bool, error) {
 		indexLane := rt.Lane()
 		if indexLane == nil {
@@ -27,8 +28,8 @@ func registerIndexJobHooks(hooks *appserve.ControlHooks, rt *bootstrap.LiveRunti
 		return indexLane.Submit(ctx, lane.Request{
 			Kind:     lane.KindExplicitIndex,
 			Coalesce: true,
-			Run: func(jobCtx context.Context, progress lane.Reporter) error {
-				return runExplicitIndexJob(jobCtx, progress, rt)
+			Run: func(jobCtx context.Context, lease *indexlock.Lease, progress lane.Reporter) error {
+				return commandOptions.runExplicitIndexJob(jobCtx, lease, progress, rt)
 			},
 			Summary: indexJobSummary,
 		})
@@ -42,19 +43,19 @@ func registerIndexJobHooks(hooks *appserve.ControlHooks, rt *bootstrap.LiveRunti
 	}
 }
 
-func runExplicitIndexJob(ctx context.Context, progress lane.Reporter, rt *bootstrap.LiveRuntime) error {
+func (commandOptions *vaultCommandOptions) runExplicitIndexJob(ctx context.Context, lease *indexlock.Lease, progress lane.Reporter, rt *bootstrap.LiveRuntime) error {
 	collector := indexingperf.FromContext(ctx)
 	if collector == nil {
-		collector = indexingperf.NewBounded()
+		collector = indexingperf.New()
 		ctx = indexingperf.WithCollector(ctx, collector)
 	}
 
-	err := indexing.RunUnifiedCore(ctx, indexing.UnifiedOptions{
+	err := indexing.RunUnifiedCore(ctx, lease, indexing.UnifiedOptions{
 		VaultPath:    rt.VaultPath,
 		VaultDef:     rt.VaultDef,
 		NoteMetadata: rt.NoteMetadataIndexer(),
 		ProgressBar:  &laneProgressBar{progress: progress},
-		Verbose:      debug,
+		Verbose:      commandOptions.debug,
 		TxLockMode:   sqliteutil.TxLockImmediate,
 	})
 	return err

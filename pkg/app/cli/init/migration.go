@@ -1,9 +1,7 @@
 package init
 
 import (
-	"crypto/sha256"
 	_ "embed"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,8 +9,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/fileio"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"gopkg.in/yaml.v3"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 const legacyProcessDocsRoot = "docs/specs/process"
@@ -72,7 +72,7 @@ func loadLegacyProcessFingerprintCatalog() (legacyProcessFingerprintCatalog, err
 	return catalog, nil
 }
 
-func hasLegacyAgenticEngineeringState(cfg obsidian.LocalConfig) bool {
+func hasLegacyAgenticEngineeringState(cfg repoconfig.LocalConfig) bool {
 	for _, ids := range [][]string{
 		cfg.WorkflowTemplates,
 		cfg.WorkflowTemplateAddons.Enabled,
@@ -97,7 +97,7 @@ func hasLegacyAgenticEngineeringState(cfg obsidian.LocalConfig) bool {
 // normalizeLegacyAgenticEngineeringState performs only in-memory state work.
 // Its caller owns filesystem actions and commits workflows.yml after those
 // actions complete, so a failure remains safely replayable from legacy state.
-func normalizeLegacyAgenticEngineeringState(cfg *obsidian.LocalConfig) (bool, error) {
+func normalizeLegacyAgenticEngineeringState(cfg *repoconfig.LocalConfig) (bool, error) {
 	if cfg == nil {
 		return false, nil
 	}
@@ -172,19 +172,6 @@ const (
 	legacyProcessDocModified        legacyProcessDocClassification = "modified"
 	legacyProcessDocUncataloged     legacyProcessDocClassification = "uncataloged"
 )
-
-type legacyProcessDocRecord struct {
-	Path           string                         `yaml:"path"`
-	Classification legacyProcessDocClassification `yaml:"classification"`
-	Fingerprint    string                         `yaml:"fingerprint"`
-	OriginalStatus string                         `yaml:"originalStatus,omitempty"`
-	FollowUp       string                         `yaml:"followUp"`
-}
-
-type legacyProcessMigrationManifest struct {
-	Version int                      `yaml:"version"`
-	Records []legacyProcessDocRecord `yaml:"records"`
-}
 
 func classifyLegacyProcessDoc(rel string, content []byte, catalog legacyProcessFingerprintCatalog) legacyProcessDocRecord {
 	record := legacyProcessDocRecord{Path: filepath.ToSlash(rel), Fingerprint: fingerprintStarterAsset(content)}
@@ -275,7 +262,7 @@ func retireLegacyProcessDocsWithCatalog(projectRoot string, catalog legacyProces
 			}
 			record.OriginalStatus = originalStatus
 			if changed {
-				if err := obsidian.WriteFileAtomicPreservingMode(path, updated, 0o644); err != nil {
+				if err := fileio.WriteFileAtomicPreservingMode(path, updated, 0o644); err != nil {
 					return nil, fmt.Errorf("retain legacy process doc %s: %w", rel, err)
 				}
 			}
@@ -298,141 +285,6 @@ func retireLegacyProcessDocsWithCatalog(projectRoot string, catalog legacyProces
 		return nil, err
 	}
 	return records, nil
-}
-
-func sortedLegacyProcessDocRecords(recordsByPath map[string]legacyProcessDocRecord) []legacyProcessDocRecord {
-	records := make([]legacyProcessDocRecord, 0, len(recordsByPath))
-	for _, record := range recordsByPath {
-		records = append(records, record)
-	}
-	sort.Slice(records, func(i, j int) bool { return records[i].Path < records[j].Path })
-	return records
-}
-
-// referencedLegacyProcessDocs returns legacy process documents targeted by
-// authored links outside the legacy process directory. Such links are adoption
-// evidence: deleting the target would break the repository's graph even when
-// the target bytes still match a shipped template.
-func referencedLegacyProcessDocs(projectRoot string, catalog legacyProcessFingerprintCatalog) (map[string]bool, error) {
-	var notes []string
-	err := filepath.WalkDir(projectRoot, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() {
-			switch entry.Name() {
-			case ".git", ".rhizome", "node_modules", "vendor":
-				if path != projectRoot {
-					return filepath.SkipDir
-				}
-			}
-			return nil
-		}
-		if !strings.EqualFold(filepath.Ext(entry.Name()), ".md") {
-			return nil
-		}
-		rel, err := filepath.Rel(projectRoot, path)
-		if err != nil {
-			return err
-		}
-		notes = append(notes, filepath.ToSlash(rel))
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("scan legacy process references: %w", err)
-	}
-
-	cache := obsidian.BuildNotePathCache(notes)
-	legacyPrefix := legacyProcessDocsRoot + "/"
-	legacyContent := make(map[string][]byte)
-	linksBySource := make(map[string][]string)
-	for _, source := range notes {
-		content, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(source)))
-		if err != nil {
-			return nil, fmt.Errorf("read link source %s: %w", source, err)
-		}
-		if strings.HasPrefix(source, legacyPrefix) {
-			legacyContent[source] = content
-		}
-		for _, link := range obsidian.ScanStructuredLinks(string(content)) {
-			var target string
-			var ok bool
-			switch link.Kind {
-			case obsidian.StructuredLinkWikilink:
-				if strings.HasPrefix(link.Path, "./") || strings.HasPrefix(link.Path, "../") {
-					target, ok = cache.ResolveMdLink(link.Target, source)
-				} else {
-					target, ok = cache.ResolveNote(link.Target)
-				}
-			case obsidian.StructuredLinkMarkdown:
-				target, ok = cache.ResolveMdLink(link.Target, source)
-			}
-			if ok {
-				target = canonicalCachedNotePath(cache, target)
-			}
-			if ok && strings.HasPrefix(target, legacyPrefix) {
-				linksBySource[source] = append(linksBySource[source], target)
-			}
-		}
-		for _, definition := range obsidian.ExtractMarkdownReferenceDefinitions(string(content)) {
-			target, ok := cache.ResolveMdLink(definition, source)
-			if ok {
-				target = canonicalCachedNotePath(cache, target)
-			}
-			if ok && strings.HasPrefix(target, legacyPrefix) {
-				linksBySource[source] = append(linksBySource[source], target)
-			}
-		}
-	}
-
-	// Seed reachability with every external reference and every legacy document
-	// that will be retained for local reconciliation. Following legacy-to-legacy
-	// edges transitively prevents a retained document from gaining broken links
-	// when its exact shipped dependencies would otherwise be deleted.
-	referenced := make(map[string]bool)
-	queued := make(map[string]bool)
-	queue := make([]string, 0)
-	enqueue := func(path string) {
-		if queued[path] {
-			return
-		}
-		queued[path] = true
-		queue = append(queue, path)
-	}
-	for source, targets := range linksBySource {
-		if strings.HasPrefix(source, legacyPrefix) {
-			continue
-		}
-		for _, target := range targets {
-			referenced[target] = true
-			enqueue(target)
-		}
-	}
-	for path, content := range legacyContent {
-		record := classifyLegacyProcessDoc(path, content, catalog)
-		if record.Classification != legacyProcessDocExact || strings.Contains(string(content), legacyProcessRetirementSentinel) {
-			enqueue(path)
-		}
-	}
-	for len(queue) > 0 {
-		source := queue[0]
-		queue = queue[1:]
-		for _, target := range linksBySource[source] {
-			referenced[target] = true
-			enqueue(target)
-		}
-	}
-	return referenced, nil
-}
-
-func canonicalCachedNotePath(cache *obsidian.NotePathCache, target string) string {
-	target = filepath.ToSlash(target)
-	if _, exists := cache.NotePaths[target]; !exists && !strings.HasSuffix(strings.ToLower(target), ".md") {
-		if _, exists := cache.NotePaths[target+".md"]; exists {
-			target += ".md"
-		}
-	}
-	return target
 }
 
 func hasLegacyProcessMigrationPending(projectRoot string) bool {
@@ -490,7 +342,7 @@ func prepareRetainedLegacyProcessDoc(content []byte) ([]byte, string, bool, erro
 }
 
 func archiveActiveLegacyProcessSpec(content []byte) ([]byte, string, bool, error) {
-	frontmatter, err := obsidian.ExtractFrontmatter(string(content))
+	frontmatter, err := markdownsyntax.ExtractFrontmatter(string(content))
 	if err != nil || frontmatter == nil || !frontmatterStringEquals(frontmatter, "type", "ProcessSpec") {
 		return content, "", false, err
 	}
@@ -567,72 +419,4 @@ func insertLegacyProcessNoticeAt(text string, at int, notice string) string {
 		separator = "\n"
 	}
 	return text[:at] + separator + notice + text[at:]
-}
-
-func writeLegacyProcessMigrationManifest(projectRoot string, records []legacyProcessDocRecord) error {
-	dir := legacyProcessMigrationDir(projectRoot)
-	if err := ensureDirExists(dir); err != nil {
-		return err
-	}
-	manifest, err := yaml.Marshal(legacyProcessMigrationManifest{Version: 1, Records: records})
-	if err != nil {
-		return err
-	}
-	if err := obsidian.WriteFileAtomicPreservingMode(legacyProcessMigrationManifestPath(projectRoot), manifest, 0o644); err != nil {
-		return err
-	}
-	var b strings.Builder
-	b.WriteString("# Agentic Engineering migration\n\n")
-	b.WriteString("This manifest records legacy `docs/specs/process/` evidence retained for team reconciliation. Delete it after the team has completed the listed follow-up.\n\n")
-	b.WriteString("| Path | Classification | SHA-256 | Original active status | Follow-up |\n| --- | --- | --- | --- | --- |\n")
-	for _, record := range records {
-		fmt.Fprintf(&b, "| `%s` | %s | `%s` | %s | %s |\n", record.Path, record.Classification, record.Fingerprint, firstNonEmpty(record.OriginalStatus, "-"), record.FollowUp)
-	}
-	return obsidian.WriteFileAtomicPreservingMode(filepath.Join(dir, "README.md"), []byte(b.String()), 0o644)
-}
-
-func legacyProcessMigrationDir(projectRoot string) string {
-	return filepath.Join(projectRoot, ".rhizome", "migrations", templateAgenticEngineering)
-}
-
-func legacyProcessMigrationManifestPath(projectRoot string) string {
-	return filepath.Join(legacyProcessMigrationDir(projectRoot), legacyProcessMigrationManifestName)
-}
-
-func legacyProcessMigrationRecords(projectRoot string) (map[string]legacyProcessDocRecord, error) {
-	data, err := os.ReadFile(legacyProcessMigrationManifestPath(projectRoot))
-	if os.IsNotExist(err) {
-		return map[string]legacyProcessDocRecord{}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var manifest legacyProcessMigrationManifest
-	if err := yaml.Unmarshal(data, &manifest); err != nil {
-		return nil, fmt.Errorf("decode legacy process migration manifest: %w", err)
-	}
-	records := make(map[string]legacyProcessDocRecord, len(manifest.Records))
-	for _, record := range manifest.Records {
-		records[record.Path] = record
-	}
-	return records, nil
-}
-
-func clearLegacyProcessMigrationManifest(projectRoot string) error {
-	for _, path := range []string{
-		legacyProcessMigrationManifestPath(projectRoot),
-		filepath.Join(legacyProcessMigrationDir(projectRoot), "README.md"),
-	} {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	}
-	return nil
-}
-
-// fingerprintStarterAsset is the raw sha256 used by the legacy process-doc
-// fingerprint catalog.
-func fingerprintStarterAsset(content []byte) string {
-	sum := sha256.Sum256(content)
-	return hex.EncodeToString(sum[:])
 }

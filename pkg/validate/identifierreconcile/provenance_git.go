@@ -3,14 +3,13 @@ package identifierreconcile
 import (
 	"bytes"
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 const (
@@ -75,7 +74,7 @@ func gitCommandEnvironment(base, overrides []string) []string {
 // claims. It never fetches and never consults filesystem timestamps.
 type GitProvenanceResolver struct {
 	runner            gitCommandRunner
-	schema            *ontology.Schema
+	schema            *ontoschema.Schema
 	maxCommitsPerPath int
 	maxBlobBytes      int
 	maxBatchBytes     int
@@ -84,7 +83,7 @@ type GitProvenanceResolver struct {
 // ResolveGitProvenanceWithSchema resolves both note-level and embedded claims,
 // including schema-declared source aliases. A schema is required for embedded
 // claims because their field ownership is structural rather than file-global.
-func ResolveGitProvenanceWithSchema(ctx context.Context, vaultRoot string, schema *ontology.Schema, claims []Claim) (GitProvenanceResult, error) {
+func ResolveGitProvenanceWithSchema(ctx context.Context, vaultRoot string, schema *ontoschema.Schema, claims []Claim) (GitProvenanceResult, error) {
 	resolver := GitProvenanceResolver{
 		runner:            execGitCommandRunner{},
 		schema:            schema,
@@ -149,7 +148,7 @@ func (r GitProvenanceResolver) Resolve(ctx context.Context, vaultRoot string, cl
 		return fallbackAll("shallow git history"), nil
 	}
 	if r.schema == nil {
-		schema, schemaErr := ontology.LoadSchema(vaultRoot)
+		schema, schemaErr := ontoschema.LoadSchema(vaultRoot)
 		if schemaErr != nil {
 			return fallbackAll("ontology schema unavailable for provenance"), nil
 		}

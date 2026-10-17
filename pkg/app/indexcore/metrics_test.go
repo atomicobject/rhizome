@@ -12,13 +12,13 @@ import (
 )
 
 func TestSharedCoreMetricsDescribeFailedPublicationAndStructuralRecovery(t *testing.T) {
-	collector := indexingperf.NewBounded()
+	collector := indexingperf.New()
 	ctx := indexingperf.WithCollector(context.Background(), collector)
 	f := newFixtureWithContext(t, ctx)
 	discovery, err := indexcore.Discover(ctx, f.request, f.store)
 	require.NoError(t, err)
 	failure := errors.New("synthetic publication interruption")
-	_, err = indexcore.Publish(ctx, f.request, discovery, f.service, f.store, f.writer, indexcore.PublishOptions{AfterPreparedOwnershipCommit: func(context.Context) error { return failure }})
+	_, err = indexcore.Publish(ctx, f.lease, f.request, discovery, f.service, f.store, f.writer, indexcore.PublishOptions{AfterPreparedOwnershipCommit: func(context.Context) error { return failure }})
 	require.ErrorIs(t, err, failure)
 	scoped := f.request
 	scoped.Paths = []paths.RelPath{"notes/source.md"}
@@ -26,9 +26,8 @@ func TestSharedCoreMetricsDescribeFailedPublicationAndStructuralRecovery(t *test
 	require.NoError(t, err)
 	require.True(t, discovery.Recovery)
 	require.True(t, discovery.FullDiscovery)
-	result, err := indexcore.Publish(ctx, scoped, discovery, f.service, f.store, f.writer, indexcore.PublishOptions{})
+	_, err = indexcore.Publish(ctx, f.lease, scoped, discovery, f.service, f.store, f.writer, indexcore.PublishOptions{})
 	require.NoError(t, err)
-	require.NoError(t, f.writer.AcknowledgeOwnershipReconciliation(ctx, result.StructuralGeneration))
 	require.NoError(t, f.writer.Close())
 	snapshot := collector.Snapshot()
 	counts := map[string]int64{}

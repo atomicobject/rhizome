@@ -149,7 +149,7 @@ func snapshotDiagnosticCount(snapshot indexingperf.Snapshot, name string) int64 
 
 func TestSearchRecorderCollectsFallbackWithoutTimingFlag(t *testing.T) {
 	ctx, root, recorder, parent := diagnosticSearchContext(t)
-	candidate := Candidate{Handle: knowledge.NoteHandle("Notes/PRIVATE_RESULT.md"), Owner: knowledge.NoteHandle("Notes/PRIVATE_RESULT.md"), Type: "note", Path: "Notes/PRIVATE_RESULT.md", Title: "PRIVATE_TITLE", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 1}}}
+	candidate := Candidate{SourceRef: SourceRef{Path: "Notes/PRIVATE_RESULT.md", Title: "PRIVATE_TITLE"}, Handle: knowledge.NoteHandle("Notes/PRIVATE_RESULT.md"), Owner: knowledge.NoteHandle("Notes/PRIVATE_RESULT.md"), Type: "note", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 1}}}
 	ranker := &observingDiagnosticRanker{err: context.DeadlineExceeded}
 	svc := Service{Retrievers: []Retriever{staticRetriever{name: "lexical", results: []Candidate{candidate}}}, Ranker: ranker}
 	response, err := svc.Search(ctx, QuerySpec{Text: "PRIVATE_QUERY", Seeds: []knowledge.Handle{knowledge.NoteHandle("Notes/PRIVATE_SEED.md")}})
@@ -188,7 +188,7 @@ func TestSearchRecorderReusesContextCollectorAndLateTimingBridge(t *testing.T) {
 			ctx, root, _, _ := diagnosticSearchContext(t)
 			timings := &Timings{}
 			ctx = WithTimings(ctx, timings)
-			collector := indexingperf.NewBounded()
+			collector := indexingperf.New()
 			if existingCollector {
 				ctx = indexingperf.WithCollector(ctx, collector)
 				indexingperf.AddCount(ctx, "parent.metric", 7)

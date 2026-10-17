@@ -181,10 +181,6 @@ func SeedPathProximity(path string, seedPaths []string) int {
 	return best
 }
 
-func IsLocalToExplicitSeeds(path string, spec QuerySpec) bool {
-	return SeedPathProximity(path, spec.ExplicitSeedPaths) > 0
-}
-
 func sharedLeadingSegments(a, b string) int {
 	a = NormalizeLocalityPath(a)
 	b = NormalizeLocalityPath(b)

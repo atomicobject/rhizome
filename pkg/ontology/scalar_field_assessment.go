@@ -1,9 +1,11 @@
 package ontology
 
+import ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+
 import "fmt"
 
 // AssessScalarFieldValues applies the indexed field rules to already-extracted current values.
-func AssessScalarFieldValues(notePath, typeName string, field *Field, schema *Schema, values []string, present bool) FieldAssessment {
+func AssessScalarFieldValues(notePath, typeName string, field *ontoschema.Field, schema *ontoschema.Schema, values []string, present bool) FieldAssessment {
 	fieldAssessment := baseFieldAssessment(field)
 	fieldAssessment.Present = present
 	fieldAssessment.Values = append([]string(nil), values...)

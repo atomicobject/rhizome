@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,12 +17,13 @@ import (
 )
 
 func intentRegistry(t *testing.T) (*Registry, string) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 	home := t.TempDir()
-	old := vaultconfig.UserHomeDirectory
-	vaultconfig.UserHomeDirectory = func() (string, error) { return home, nil }
-	t.Cleanup(func() { vaultconfig.UserHomeDirectory = old })
-	registry, err := NewRegistry()
+	env.HomeDir = home
+	registry, err := NewRegistry(env)
 	require.NoError(t, err)
 	return registry, t.TempDir()
 }
@@ -50,7 +52,7 @@ func TestIntentReadersWaitForReplacementGate(t *testing.T) {
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			release, acquired, err := indexlock.TryAcquireWithOptions(registry.intentGatePath(vault), indexlock.AcquireOptions{ProcessLifetime: true})
+			release, acquired, err := indexlock.TryAcquireWithOptions(registry.intentGatePath(vault), indexlock.AcquireOptions{})
 			require.NoError(t, err)
 			require.True(t, acquired)
 			t.Cleanup(func() { _ = release() })
@@ -70,7 +72,7 @@ func TestListIntentsPreservesEarlierResultsWhenAnIntentGateTimesOut(t *testing.T
 	for _, vault := range vaults {
 		requireSpawnIntent(t, registry, vault, "startup")
 	}
-	release, acquired, err := indexlock.TryAcquireWithOptions(registry.intentGatePath(vaults[1]), indexlock.AcquireOptions{ProcessLifetime: true})
+	release, acquired, err := indexlock.TryAcquireWithOptions(registry.intentGatePath(vaults[1]), indexlock.AcquireOptions{})
 	require.NoError(t, err)
 	require.True(t, acquired)
 	t.Cleanup(func() { _ = release() })
@@ -123,7 +125,7 @@ func TestCancelIntentCannotCancelAReplacementToken(t *testing.T) {
 func TestSpawnIntentCannotReplaceAnElectedAttachedOwner(t *testing.T) {
 	registry, vault := intentRegistry(t)
 	ctx := context.Background()
-	release, acquired, err := indexlock.TryAcquireWithOptions(LockPath(vault), indexlock.AcquireOptions{ProcessLifetime: true})
+	release, acquired, err := indexlock.TryAcquireWithOptions(LockPath(vault), indexlock.AcquireOptions{})
 	require.NoError(t, err)
 	require.True(t, acquired)
 	defer func() { _ = release() }()
@@ -174,13 +176,16 @@ func TestSpawnIntentResolvesVaultSymlinkAlias(t *testing.T) {
 }
 
 func TestWaitProbeReadyKeepsWaitingWhenAnAttachedServeTakesOverTheIntent(t *testing.T) {
-	registry, vault := intentRegistry(t)
-	ctx := context.Background()
+	env := testkit.Env(t)
+	registry, err := NewRegistry(env)
+	require.NoError(t, err)
+	vault := t.TempDir()
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	requireSpawnIntent(t, registry, vault, "detached")
 	manifest := InstanceManifest{InstanceID: InstanceID(vault), VaultPath: vault, PID: os.Getpid(), RunID: "attached"}
 	require.NoError(t, registry.ElectIntent(ctx, vault, "attached", false, manifest))
 
-	err := waitProbeReady(ctx, vault, time.Now().Add(3*ensurePoll))
+	err = waitProbeReady(ctx, vault, time.Now().Add(3*ensurePoll))
 	require.ErrorIs(t, err, ErrNoRuntime)
 	require.NotErrorIs(t, err, ErrStartCancelled)
 

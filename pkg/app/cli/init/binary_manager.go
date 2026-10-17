@@ -2,9 +2,8 @@ package init
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 func normalizeBinaryManagerOption(opts RunOptions) (string, error) {
@@ -12,8 +11,8 @@ func normalizeBinaryManagerOption(opts RunOptions) (string, error) {
 	if manager == "" {
 		return "", nil
 	}
-	if manager != obsidian.BinaryManagerExternal {
-		return "", fmt.Errorf("--binary-manager supports only %q", obsidian.BinaryManagerExternal)
+	if manager != repoconfig.BinaryManagerExternal {
+		return "", fmt.Errorf("--binary-manager supports only %q", repoconfig.BinaryManagerExternal)
 	}
 	return manager, nil
 }
@@ -25,7 +24,7 @@ func hasBinaryManagerOption(opts RunOptions) bool {
 // applyBinaryManagerOption hands the Rhizome binary to an external manager
 // when --binary-manager asks for it. The change list shows the switch, so the
 // rerun confirmation covers it.
-func applyBinaryManagerOption(cfg *obsidian.LocalConfig, opts RunOptions) (bool, error) {
+func applyBinaryManagerOption(cfg *repoconfig.LocalConfig, opts RunOptions) (bool, error) {
 	if cfg == nil || !hasBinaryManagerOption(opts) {
 		return false, nil
 	}

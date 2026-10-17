@@ -4,7 +4,7 @@ summary: "How source-owned code and ontology primary chunks plus compatibility n
 reference-kind: analysis
 derived-from:
   - docs/reference-notes/Embeddings - indexing pipeline.md
-last-verified: 2026-04-29
+last-verified: 2026-10-17
 status: active
 ---
 
@@ -26,7 +26,7 @@ Code embedding synthesis enriches one source-owned anchor/module primary chunk w
 - oversized ontology body chunks split on markdown paragraph/code-fence boundaries before falling back to byte overlap
 - ontology-node re-embedding is gated by sidecar state: chunk text hash, source content hash, node structure fingerprint, provider/model, and a relevant schema signature
 - ontology-node embedding batches share the normal note-embedding provider concurrency and global gate; schema invalidation should broaden projection only as needed while preserving hash-stable embedding skips
-- shared semantic runtime lanes are the only indexing-time provider path for compatible code, note, ontology primary-chunk, and intent exemplar work; compatible lanes may be promoted for burst throughput, but temporary intent-only/provider-only lanes are forbidden
+- shared semantic runtime lanes are the only indexing-time provider path for compatible code, note, and ontology primary-chunk work; compatible lanes may be promoted for burst throughput, and application factories own provider lifetimes
 - note last-sync markers are written only after streamed ontology primary-chunk writes have drained successfully, so an interrupted final flush does not make the next run skip unfinished semantic work
 - ontology nodes use only source-owned `node_body` chunks; no parallel generated chunk family competes with authored content
 - primary-chunk convergence is checked by comparing planned owners and source/context/format/provider fingerprints with persisted chunks and embeddings; semantic rebuild is the broad repair path
@@ -40,9 +40,9 @@ For large edits or broad churn, one deliberate `rzm index` resync is usually saf
 
 ## Where the lanes live
 
-- `pkg/app/semanticruntime` owns provider setup, compatible lane construction, packer ceilings, gates, and shared-node execution policy.
+- `pkg/embedindex` owns compatible lane construction, packer ceilings, gates, and shared-node execution policy. Application factories construct providers and retain provider-cache ownership until lanes drain.
 - `pkg/app/indexing.RunUnifiedCore` decides which semantic domains run for batch indexing.
-- `pkg/search/semantic.OntologyNodeSyncer` renders source-owned ontology primary chunks, embeds changed text through the supplied shared node when available, and writes chunks/embeddings through the writer surface.
+- `pkg/embedindex.OntologyNodeSyncer` renders source-owned ontology primary chunks, embeds changed text through the supplied shared node when available, and writes chunks/embeddings through the writer surface.
 - [[primary-semantic-chunks-and-noderef-search]] defines primary chunk identity/context, bounded enrichment, and invalidation.
 - `pkg/app/indexing.write_queue` keeps semantic writeback batched before SQLite instead of submitting one durable write per provider task.
-- `pkg/search/embeddings/indexer.go` remains the raw-note compatibility path when ontology projection is unavailable.
+- `pkg/embeddings/indexer.go` remains the raw-note compatibility path when ontology projection is unavailable.

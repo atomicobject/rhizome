@@ -3,12 +3,12 @@ package validate
 import (
 	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
 )
 
@@ -22,10 +22,10 @@ type companionDocUse struct {
 // stay silent until an agent needs the companion context.
 func RunCompanionDocs(runCtx RunContext) CheckResult {
 	result := CheckResult{Name: CheckCompanionDocs, OK: true}
-	schema, err := ontology.LoadSchema(runCtx.VaultPath)
-	if errors.Is(err, ontology.ErrNoOntologyFiles) {
-		result.Skipped = true
-		result.Summary = "no ontology schema"
+	schema, err := ontoschema.LoadSchema(runCtx.VaultPath)
+	if errors.Is(err, ontoschema.ErrNoOntologyFiles) {
+		result.NotApplicable = "no ontology schema"
+		result.Summary = result.NotApplicable
 		return result
 	}
 	if err != nil {
@@ -36,8 +36,8 @@ func RunCompanionDocs(runCtx RunContext) CheckResult {
 
 	uses := collectCompanionDocUses(schema)
 	if len(uses) == 0 {
-		result.Skipped = true
-		result.Summary = "no companion docs declared"
+		result.NotApplicable = "no companion docs declared"
+		result.Summary = result.NotApplicable
 		return result
 	}
 
@@ -114,7 +114,7 @@ func RunCompanionDocs(runCtx RunContext) CheckResult {
 	return result
 }
 
-func collectCompanionDocUses(schema *ontology.Schema) []companionDocUse {
+func collectCompanionDocUses(schema *ontoschema.Schema) []companionDocUse {
 	if schema == nil {
 		return nil
 	}
@@ -136,7 +136,7 @@ func collectCompanionDocUses(schema *ontology.Schema) []companionDocUse {
 	return out
 }
 
-func appendCompanionDocUses(out []companionDocUse, owner string, docs []ontology.CompanionDocRef) []companionDocUse {
+func appendCompanionDocUses(out []companionDocUse, owner string, docs []ontoschema.CompanionDocRef) []companionDocUse {
 	for _, doc := range docs {
 		path := strings.TrimSpace(doc.Path)
 		if path == "" {
@@ -148,7 +148,7 @@ func appendCompanionDocUses(out []companionDocUse, owner string, docs []ontology
 	return out
 }
 
-func sortedNoteTypeNames(types map[string]*ontology.NoteType) []string {
+func sortedNoteTypeNames(types map[string]*ontoschema.NoteType) []string {
 	names := make([]string, 0, len(types))
 	for name := range types {
 		names = append(names, name)
@@ -157,7 +157,7 @@ func sortedNoteTypeNames(types map[string]*ontology.NoteType) []string {
 	return names
 }
 
-func sortedInterfaceNames(types map[string]*ontology.InterfaceType) []string {
+func sortedInterfaceNames(types map[string]*ontoschema.InterfaceType) []string {
 	names := make([]string, 0, len(types))
 	for name := range types {
 		names = append(names, name)

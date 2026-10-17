@@ -1,0 +1,146 @@
+package query
+
+import (
+	"context"
+	"fmt"
+	"sync/atomic"
+	"testing"
+
+	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
+)
+
+type probeStore struct {
+	*codeanchorsqlite.Store
+	typeCalls, metaCalls, allMetaCalls, pathsByType atomic.Int64
+}
+
+func (s *probeStore) OntologyTypesByPaths(ctx context.Context, p []string) (map[string]codeanchorsqlite.OntologyNoteTypeRow, error) {
+	s.typeCalls.Add(1)
+	return s.Store.OntologyTypesByPaths(ctx, p)
+}
+func (s *probeStore) CurrentNoteMetadataRowsByPaths(ctx context.Context, p []string) (map[string]codeanchorsqlite.NoteMetadataRow, error) {
+	s.metaCalls.Add(1)
+	return s.Store.CurrentNoteMetadataRowsByPaths(ctx, p)
+}
+func (s *probeStore) CurrentNoteMetadataRows(ctx context.Context) ([]codeanchorsqlite.NoteMetadataRow, error) {
+	s.allMetaCalls.Add(1)
+	return s.Store.CurrentNoteMetadataRows(ctx)
+}
+func (s *probeStore) OntologyPathsByType(ctx context.Context, t string, l int) ([]string, error) {
+	s.pathsByType.Add(1)
+	return s.Store.OntologyPathsByType(ctx, t, l)
+}
+
+type probeReader struct {
+	obsidian.Note
+	contents atomic.Int64
+}
+
+func (r *probeReader) GetContents(v obsidian.VaultDefinition, n string) (string, error) {
+	r.contents.Add(1)
+	return r.Note.GetContents(v, n)
+}
+
+func probeRun(t *testing.T, env *queryTestEnv, store *probeStore, reader *probeReader, q string) Result {
+	t.Helper()
+	prepared, errs := Prepare(env.execSchema, q)
+	require.Empty(t, errs)
+	deps := env.deps(nil)
+	deps.Store = store
+	deps.ExactNoteMetadataRows = nil
+	if reader != nil {
+		deps.NoteReader = reader
+	}
+	return Execute(context.Background(), deps, env.schema, prepared)
+}
+
+func TestProbeReview(t *testing.T) {
+	notes := map[string]string{
+		"notes/tasks/t1.md": "---\ntype: Task\nname: T1\nsummary: \"Ship | Docs\"\ndue: \"2026-01-01T10:00:00+02:00\"\n---\n",
+		"notes/tasks/t2.md": "---\ntype: Task\nname: T2\nsummary: \"Ship | Tests\"\ndue: \"2026-01-01T09:00:00Z\"\n---\n",
+		"notes/tasks/t3.md": "---\ntype: Task\nname: T3\nsummary: \"[[Plain]]\"\ndue: 2026-01-01T00:00:00Z\n---\n",
+	}
+	for i := 0; i < 40; i++ {
+		notes[fmt.Sprintf("notes/tasks/bulk-%02d.md", i)] = fmt.Sprintf("---\ntype: Task\nname: Bulk %02d\nsummary: bulk\n---\n", i)
+	}
+	for i := 0; i < 30; i++ {
+		notes[fmt.Sprintf("docs/specs/spec-%02d.md", i)] = fmt.Sprintf("---\ntype: TechnicalSpec\nid: SPEC-%04d\n---\n\n# S\n\n## User Stories\n\n### US1 - x\n\n- id:: ^SPEC-%04d-US1\n", i, i)
+	}
+	env := newCustomQueryTestEnv(t, `
+type Task @node(paths: ["notes/tasks/*.md"]) {
+  name: String!
+  summary: String
+  due: DateTime
+}
+type UserStory implements Section @node(locator: EMBEDDED) {
+  id: ID! @field @identifier(preferred: true, derivedSuffix: "US")
+}
+type UserStoriesSection implements Section {
+  stories: [UserStory!] @contains(level: H3)
+}
+type TechnicalSpec @node(matches: ["type:TechnicalSpec"]) {
+  id: ID! @field @identifier(preferred: true)
+  userStories: UserStoriesSection @contains(level: H2, heading: "User Stories")
+}
+`, notes)
+
+	// 1. N+1 on a plain typed root.
+	s := &probeStore{Store: env.store}
+	r := probeRun(t, env, s, nil, `{ task(first: 40) { path name } }`)
+	require.Empty(t, r.Errors)
+	t.Logf("N+1: rows=%d typeCalls=%d metaByPathCalls=%d", len(r.Data["task"].([]any)), s.typeCalls.Load(), s.metaCalls.Load())
+
+	// 2. Pipe normalization: pushed vs residual (path selector forces residual filters).
+	for _, q := range []string{
+		`{ task(filters: [{field: "summary", op: eq, value: "Ship | Docs"}]) { path } }`,
+		`{ task(path: "notes/tasks/t1.md", filters: [{field: "summary", op: eq, value: "Ship | Docs"}]) { path } }`,
+		`{ task(path: "notes/tasks/t2.md", filters: [{field: "summary", op: eq, value: "Ship | Docs"}]) { path } }`,
+		`{ task(filters: [{field: "summary", op: eq, value: "[[Plain]]"}]) { path } }`,
+		`{ task(path: "notes/tasks/t3.md", filters: [{field: "summary", op: eq, value: "[[Plain]]"}]) { path } }`,
+		`{ task(filters: [{field: "due", op: gt, value: "2026-01-01T08:30:00Z"}]) { path due } }`,
+		`{ task(path: "notes/tasks/t1.md", filters: [{field: "due", op: gt, value: "2026-01-01T08:30:00Z"}]) { path due } }`,
+		`{ task(filters: [{field: "due", op: gt, value: "2025-12-31T00:00:00Z"}]) { path due } }`,
+		`{ task(path: "notes/tasks/t3.md", filters: [{field: "due", op: gt, value: "2025-12-31T00:00:00Z"}]) { path due } }`,
+		`{ task(path: "notes/tasks/t3.md") { path due } }`,
+		`{ task(filters: [{field: "summary", op: contains, value: "docs"}]) { path } }`,
+		`{ task(filters: [{field: "summary", op: neq, value: "Ship | Tests"}, {field: "name", op: eq, value: "T1"}]) { path } }`,
+		`{ task(filters: [{field: "summary", op: eq, value: "ship"}]) { path } }`,
+	} {
+		res := probeRun(t, env, &probeStore{Store: env.store}, nil, q)
+		t.Logf("Q %s\n   => data=%v errs=%v", q, res.Data, res.Errors)
+	}
+
+	// 3. Unknown identifier: vault-wide scan.
+	s3 := &probeStore{Store: env.store}
+	rd := &probeReader{}
+	res := probeRun(t, env, s3, rd, `{ node(ref: "SPEC-9999") { __typename } }`)
+	t.Logf("missing-id: data=%v errs=%v typeCalls=%d metaByPath=%d allMeta=%d pathsByType=%d fileReads=%d", res.Data, res.Errors, s3.typeCalls.Load(), s3.metaCalls.Load(), s3.allMetaCalls.Load(), s3.pathsByType.Load(), rd.contents.Load())
+}
+
+func TestProbeT3(t *testing.T) {
+	env := newCustomQueryTestEnv(t, `
+type Task @node(paths: ["notes/tasks/*.md"]) {
+  name: String!
+  due: DateTime
+}
+`, map[string]string{"notes/tasks/t3.md": "---\ntype: Task\nname: T3\ndue: 2026-01-01T00:00:00Z\n---\n"})
+	rows, err := env.store.OntologyNodeFieldValuesByNodeIDs(context.Background(), nil, nil)
+	t.Logf("rows err=%v n=%d", err, len(rows))
+	nodes, _ := env.store.OntologyNodesByTypePlan(context.Background(), codeanchorProbePlan())
+	for _, n := range nodes {
+		vals, _ := env.store.OntologyNodeFieldValuesByNodeIDs(context.Background(), []string{n.NodeID}, nil)
+		for _, v := range vals {
+			t.Logf("stored %s text=%q norm=%q kind=%q dt=%v", v.FieldName, v.ValueText, v.ValueNorm, v.ValueKind, v.ValueDateTime)
+		}
+	}
+	l, _ := newLoaders(env.deps(nil), env.schema)
+	rec, _ := l.noteByPath(context.Background(), "notes/tasks/t3.md")
+	t.Logf("residual frontmatter due=%#v values=%q", rec.Frontmatter["due"], rec.fieldValues(env.schema.Types["Task"].ByName["due"]))
+}
+
+func codeanchorProbePlan() codeanchor.OntologyNodeQueryPlan {
+	return codeanchor.OntologyNodeQueryPlan{TypeNames: []string{"Task"}, Limit: 10}
+}

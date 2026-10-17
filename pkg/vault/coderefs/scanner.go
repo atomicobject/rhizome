@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
@@ -63,10 +64,10 @@ func ScanFile(path string, content []byte, noteCache *obsidian.NotePathCache) ([
 	for _, block := range blocks {
 		// The caller has selected comments, so explicit links inside code examples
 		// are included. Markdown destinations exclude title and angle wrappers.
-		links := obsidian.ScanCommentLinks(block.Text)
+		links := markdownsyntax.ScanCommentLinks(block.Text)
 		linkSpans := mergedStructuredLinkSpans(links)
 		// Keep the established wiki, Markdown, mention grouping in each block.
-		for _, linkKind := range []obsidian.StructuredLinkKind{obsidian.StructuredLinkWikilink, obsidian.StructuredLinkMarkdown} {
+		for _, linkKind := range []markdownsyntax.StructuredLinkKind{markdownsyntax.StructuredLinkWikilink, markdownsyntax.StructuredLinkMarkdown} {
 			for _, link := range links {
 				if link.Kind != linkKind {
 					continue
@@ -74,7 +75,7 @@ func ScanFile(path string, content []byte, noteCache *obsidian.NotePathCache) ([
 				var resolved obsidian.ResolvedNoteTarget
 				var ok bool
 				kind := RefKindWikilink
-				if link.Kind == obsidian.StructuredLinkMarkdown {
+				if link.Kind == markdownsyntax.StructuredLinkMarkdown {
 					kind = RefKindMdLink
 					resolved, ok = noteCache.ResolveMdLinkTarget(link.Target, "")
 				} else {
@@ -125,8 +126,8 @@ func ScanFile(path string, content []byte, noteCache *obsidian.NotePathCache) ([
 
 // Parsed links own their labels and destinations; embedded @ text is not a mention.
 // Links arrive in start order but can nest, so merge their raw spans before lookup.
-func mergedStructuredLinkSpans(links []obsidian.StructuredLink) []obsidian.StructuredLinkSpan {
-	var spans []obsidian.StructuredLinkSpan
+func mergedStructuredLinkSpans(links []markdownsyntax.StructuredLink) []markdownsyntax.Span {
+	var spans []markdownsyntax.Span
 	for _, link := range links {
 		span := link.RawSpan
 		if len(spans) > 0 && span.Start <= spans[len(spans)-1].End {
@@ -138,7 +139,7 @@ func mergedStructuredLinkSpans(links []obsidian.StructuredLink) []obsidian.Struc
 	return spans
 }
 
-func overlapsStructuredLink(spans []obsidian.StructuredLinkSpan, start, end int) bool {
+func overlapsStructuredLink(spans []markdownsyntax.Span, start, end int) bool {
 	i := sort.Search(len(spans), func(i int) bool { return spans[i].End > start })
 	return i < len(spans) && spans[i].Start < end
 }

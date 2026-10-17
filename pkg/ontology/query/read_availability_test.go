@@ -2,11 +2,12 @@ package query
 
 import (
 	"context"
-	"testing"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestNodeByRefRemainsAvailableDuringUnrelatedOwnershipReconciliation(t *testing.T) {
@@ -47,7 +48,7 @@ func TestNodeByRefRemainsAvailableDuringUnrelatedOwnershipReconciliation(t *test
 	require.Empty(t, retired.Errors)
 	require.Nil(t, retired.Data["node"], "a durably retired requested path must not reuse its prior projection")
 
-	_, err = testNoteMetadataIndexer(t).EnsureIndexed(ctx, obsidian.VaultDefinition{Path: env.root}, &obsidian.Note{}, env.store)
+	_, err = testkit.NoteMetadataIndexer(t).EnsureIndexed(ctx, obsidian.VaultDefinition{Path: env.root}, &obsidian.Note{}, env.store)
 	require.NoError(t, err)
 	after := Execute(ctx, env.deps(nil), env.schema, prepared)
 	require.Empty(t, after.Errors)

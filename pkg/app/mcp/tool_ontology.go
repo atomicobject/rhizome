@@ -4,15 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/queryengine"
+	"github.com/atomicobject/rhizome/pkg/app/queryengine/runtimeproviders"
 	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/indexstore"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -23,7 +27,7 @@ func OntologyQuerySchemaTool(config Config) func(context.Context, mcp.CallToolRe
 		if _, present := request.GetArguments()["type"]; present && !typeOK {
 			return mcp.NewToolResultError("ontology_query_schema: type must be a string"), nil
 		}
-		schema, err := ontology.LoadSchema(config.VaultPath)
+		schema, err := ontoschema.LoadSchema(config.VaultPath)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("ontology_query_schema: %v", err)), nil
 		}
@@ -67,6 +71,7 @@ func OntologyQueryTool(config Config) func(context.Context, mcp.CallToolRequest)
 // ontology-bound. The tool name was promoted out of `ontology_query_recipe`
 // alongside the CLI rename described in [[saved-query-recipes#^spec-0052-us5-ac6]].
 func QueryRecipeTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	registry := queryrecipe.NewRegistry(queryrecipe.DefaultSourceRoots(config.VaultPath))
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := request.GetArguments()
 		op, _ := args["op"].(string)
@@ -74,7 +79,10 @@ func QueryRecipeTool(config Config) func(context.Context, mcp.CallToolRequest) (
 		if op == "" {
 			return mcp.NewToolResultError("op is required"), nil
 		}
-		recipes, issues := loadQueryRecipes(config, stringArgMCP(args, "path"))
+		recipes, issues := registry.Catalog()
+		if path := strings.TrimSpace(stringArgMCP(args, "path")); path != "" {
+			recipes, issues = queryrecipe.LoadPath(path)
+		}
 		sort.SliceStable(recipes, func(i, j int) bool { return recipes[i].ID < recipes[j].ID })
 		switch op {
 		case "list":
@@ -88,41 +96,29 @@ func QueryRecipeTool(config Config) func(context.Context, mcp.CallToolRequest) (
 			issues = append(issues, result.Issues...)
 			return respondJSON(map[string]any{"ok": len(issues) == 0, "issueCount": len(issues), "recipes": result.Recipes, "issues": issues}, "marshal query recipe validation")
 		case "run":
-			if len(issues) > 0 {
-				return respondJSON(map[string]any{"ok": false, "issueCount": len(issues), "recipes": recipes, "issues": issues}, "marshal query recipe validation")
-			}
-			recipe, err := selectQueryRecipeMCP(recipes, stringArgMCP(args, "id"))
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
 			inputs, err := inputStringMapArg(args, "inputs")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			inputs, err = queryrecipe.MergeAnchorInput(recipe, inputs, stringArrayArgMCP(args, "anchor"))
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			execSchema, err := loadOntologyQueryExecutableSchema(config.VaultPath)
+			schema, err := ontoschema.LoadSchema(config.VaultPath)
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("query_recipe: %v", err)), nil
 			}
-			compiled, recipeIssues := queryrecipe.Compile(recipe, execSchema, inputs)
-			if len(recipeIssues) > 0 {
-				return respondJSON(map[string]any{"ok": false, "issueCount": len(recipeIssues), "recipes": []queryrecipe.Recipe{recipe}, "issues": recipeIssues}, "marshal query recipe validation")
-			}
-			result, err := runOntologyQuery(ctx, config, compiled.Query, compiled.Variables)
+			execSchema, err := ontologyquery.BuildExecutableSchema(schema)
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("query_recipe: %v", err)), nil
 			}
-			return respondJSON(queryrecipe.RunResult{
-				Recipe:         recipe,
-				Inputs:         inputs,
-				Variables:      compiled.Variables,
-				Query:          compiled.Query,
-				OutputContract: recipe.OutputContract,
-				Result:         result,
-			}, "marshal query recipe run")
+			run, issues, err := queryrecipe.Run(ctx, recipes, issues, stringArgMCP(args, "id"), inputs, stringArrayArgMCP(args, "anchor"), execSchema,
+				func(ctx context.Context, prepared *ontologyquery.PreparedQuery) (ontologyquery.Result, error) {
+					return runPreparedOntologyQuery(ctx, config, schema, execSchema, prepared)
+				})
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("query_recipe: %v", err)), nil
+			}
+			if len(issues) > 0 {
+				return respondJSON(map[string]any{"ok": false, "issueCount": len(issues), "recipes": []queryrecipe.Recipe{run.Recipe}, "issues": issues}, "marshal query recipe validation")
+			}
+			return respondJSON(run, "marshal query recipe run")
 		default:
 			return mcp.NewToolResultError("op must be one of list, validate, run"), nil
 		}
@@ -130,7 +126,7 @@ func QueryRecipeTool(config Config) func(context.Context, mcp.CallToolRequest) (
 }
 
 func runOntologyQuery(ctx context.Context, config Config, rawQuery string, variables map[string]any) (ontologyquery.Result, error) {
-	schema, err := ontology.LoadSchema(config.VaultPath)
+	schema, err := ontoschema.LoadSchema(config.VaultPath)
 	if err != nil {
 		return ontologyquery.Result{}, err
 	}
@@ -143,13 +139,39 @@ func runOntologyQuery(ctx context.Context, config Config, rawQuery string, varia
 		data, _ := json.Marshal(map[string]any{"errors": errs})
 		return ontologyquery.Result{}, fmt.Errorf("%s", string(data))
 	}
+	return runPreparedOntologyQuery(ctx, config, schema, execSchema, prepared)
+}
+
+func runPreparedOntologyQuery(ctx context.Context, config Config, schema *ontoschema.Schema, execSchema *ontologyquery.ExecutableSchema, prepared *ontologyquery.PreparedQuery) (ontologyquery.Result, error) {
+
+	if prepared.Introspection {
+		engine, err := queryengine.New(schema, execSchema, ontologyquery.Deps{})
+		if err != nil {
+			return ontologyquery.Result{}, err
+		}
+		return engine.Run(ctx, prepared)
+	}
+	if provider, ok := config.Runtime.(interface{ Configuration() repoconfig.Resolved }); ok {
+		resolved := provider.Configuration()
+		config.RepositoryConfig = &resolved
+	}
+	if config.RepositoryConfig == nil {
+		resolved, err := repoconfig.Load(config.VaultPath)
+		if err != nil {
+			return ontologyquery.Result{}, err
+		}
+		config.RepositoryConfig = &resolved
+	} else if err := config.RepositoryConfig.ValidateFor(config.VaultPath); err != nil {
+		return ontologyquery.Result{}, err
+	}
+
 	if err := config.NoteMetadata.Validate(); err != nil {
 		return ontologyquery.Result{}, fmt.Errorf("ontology query requires note metadata runtime: %w", err)
 	}
 	store := config.GetIntelStore()
 	cleanup := func() {}
 	if store == nil {
-		opened, openedCleanup, err := obsidian.OpenIntelStoreBestEffort(config.VaultPath, true)
+		opened, openedCleanup, err := indexstore.Open(config.VaultPath, indexstore.Options{Access: indexstore.ReadOnly, Config: &config.RepositoryConfig.Code, RequireEnabled: true})
 		if err != nil {
 			return ontologyquery.Result{}, err
 		}
@@ -163,69 +185,50 @@ func runOntologyQuery(ctx context.Context, config Config, rawQuery string, varia
 		return ontologyquery.Result{}, fmt.Errorf("ontology query requires an indexed vault; run `rzm index`")
 	}
 	noteReader := resolveNoteReader(config)
-	rt, err := ontology.EnsureFreshRuntimeWithStore(ctx, config.NoteMetadata, config.VaultDef, noteReader, store)
+	rt, err := ontology.PublishedRuntimeWithStore(ctx, config.NoteMetadata, config.VaultDef, store)
+
 	if err != nil {
 		return ontologyquery.Result{}, err
+	}
+	if !rt.Ready {
+		if owner, ok := config.Runtime.(interface{ RequestOntologyRefresh() bool }); ok {
+			owner.RequestOntologyRefresh()
+		}
+		return ontologyquery.Result{}, fmt.Errorf("ontology index is not ready; run `rzm index`")
 	}
 	deps := ontologyquery.Deps{
 		VaultDef:   config.VaultDef,
 		NoteReader: noteReader,
 		Store:      store,
-		Service:    ontology.NewService(config.VaultDef, noteReader, store, rt.Schema),
 	}
 	if formats, err := config.NoteMetadata.FormatRuntime(); err == nil {
 		deps.NoteFormats = formats
 	}
-	if prepared.UsesSemantic {
-		noteEmbOn, _, noteProvider, _ := config.NoteEmbeddings()
-		if !noteEmbOn || noteProvider == nil {
-			return ontologyquery.Result{}, fmt.Errorf("semantic ontology query requires embeddings; run `rzm index`")
-		}
-		deps.SemanticSearcher = &semantic.Searcher{NoteProvider: noteProvider, IntelStore: store}
+	_, _, noteProvider, _ := config.NoteEmbeddings()
+	_, _, codeProvider := config.CodeEmbeddingsState()
+	deps, err = queryengine.Dependencies(deps, unifiedsearch.Options{Config: config.RepositoryConfig, VaultPath: config.VaultPath, VaultDef: config.VaultDef, IntelStore: store, NoteProvider: noteProvider, CodeProvider: codeProvider})
+	if err != nil {
+		return ontologyquery.Result{}, err
 	}
-	if prepared.UsesSearch {
-		_, _, noteProvider, _ := config.NoteEmbeddings()
-		_, _, codeProvider := config.CodeEmbeddingsState()
-		deps.NoteSearcher = unifiedsearch.NoteSearcher{Runtime: unifiedsearch.Options{
-			VaultPath:    config.VaultPath,
-			VaultDef:     config.VaultDef,
-			IntelStore:   store,
-			NoteProvider: noteProvider,
-			CodeProvider: codeProvider,
-		}}
+	_, anchors := config.CodeAnchorState()
+	providers := runtimeproviders.New(schema, execSchema, deps, anchors)
+	deps.OntologyRuntime, deps.CodeRuntime = providers, providers
+	if rt.Schema.Hash != schema.Hash {
+		return ontologyquery.Result{}, fmt.Errorf("ontology schema changed during query preparation")
 	}
-	return ontologyquery.ExecutePrepared(ctx, deps, rt.Schema, execSchema, prepared), nil
+	engine, err := queryengine.New(schema, execSchema, deps)
+	if err != nil {
+		return ontologyquery.Result{}, err
+	}
+	return engine.Run(ctx, prepared)
 }
 
 func loadOntologyQueryExecutableSchema(vaultPath string) (*ontologyquery.ExecutableSchema, error) {
-	schema, err := ontology.LoadSchema(vaultPath)
+	schema, err := ontoschema.LoadSchema(vaultPath)
 	if err != nil {
 		return nil, err
 	}
 	return ontologyquery.BuildExecutableSchema(schema)
-}
-
-func loadQueryRecipes(config Config, path string) ([]queryrecipe.Recipe, []queryrecipe.Issue) {
-	if strings.TrimSpace(path) != "" {
-		return queryrecipe.LoadPath(path)
-	}
-	return queryrecipe.LoadDefaultSources(config.VaultPath)
-}
-
-func selectQueryRecipeMCP(recipes []queryrecipe.Recipe, id string) (queryrecipe.Recipe, error) {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		if len(recipes) == 1 {
-			return recipes[0], nil
-		}
-		return queryrecipe.Recipe{}, fmt.Errorf("id is required when %d recipes are available", len(recipes))
-	}
-	for _, recipe := range recipes {
-		if recipe.ID == id {
-			return recipe, nil
-		}
-	}
-	return queryrecipe.Recipe{}, fmt.Errorf("recipe %q not found", id)
 }
 
 func objectArg(args map[string]interface{}, key string) (map[string]any, error) {

@@ -25,7 +25,7 @@ status: Planned
 
 Base content.
 `)
-	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).WithNoteFormats(markdownRuntime(t)).NewScope(ctx, ScopeOptions{
+	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).WithNoteFormats(markdownRuntime(t)).NewScope(ScopeOptions{
 		ReadOverlay: &ReadOverlay{SourceFormat: "markdown", UpdatedContentByPath: map[string]string{
 			"specs/product.md": `---
 status: Done
@@ -71,12 +71,12 @@ type UserStory implements Section @node(locator: EMBEDDED) {
 ^story-a
 status:: Planned
 `)
-	committed := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{})
+	committed := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
 	instances, err := committed.TypeInstances(ctx, TypeInstancesRequest{TypeName: "UserStory"})
 	require.NoError(t, err)
 	require.Len(t, instances.Items, 1)
 
-	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{
+	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{
 		ReadOverlay: &ReadOverlay{SourceFormat: "markdown", UpdatedContentByPath: map[string]string{
 			"specs/product.md": `# Product
 

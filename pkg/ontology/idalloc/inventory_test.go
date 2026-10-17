@@ -3,10 +3,9 @@ package idalloc
 import (
 	"context"
 	"errors"
-	"testing"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestAllocateNodeInventoryReadErrors(t *testing.T) {
@@ -29,7 +28,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 		store *fakeStore
 	}{
 		{"nodes", &fakeStore{nodesErr: readErr}},
-		{"fields", &fakeStore{nodesByType: map[string][]codeanchor.IntelOntologyNode{"Story": {{NodeID: "node-one", SourceLocator: "specs/one.md#^ITEM-0002"}}}, fieldsErr: readErr}},
+		{"fields", &fakeStore{nodesByType: map[string][]readmodel.NodeRow{"Story": {{NodeID: "node-one", SourceLocator: "specs/one.md#^ITEM-0002"}}}, fieldsErr: readErr}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := Allocate(context.Background(), schema, tc.store, "Spec")

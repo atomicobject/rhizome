@@ -2,31 +2,25 @@ package bootstrap
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	"github.com/atomicobject/rhizome/pkg/app/codeintel"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
+
+	anchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/cache"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	anchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
-	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
-	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
-	"github.com/atomicobject/rhizome/pkg/vault/cache"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
-
-func testNoteMetadataIndexer(t *testing.T) notemeta.Indexer {
-	t.Helper()
-	formats, err := builtin.NewRuntime()
-	require.NoError(t, err)
-	indexer, err := notemeta.NewIndexer(formats)
-	require.NoError(t, err)
-	return indexer
-}
 
 func testNoteRuntime(t *testing.T) noteformat.Runtime {
 	t.Helper()
@@ -50,7 +44,7 @@ type publishedEvent struct {
 
 func recordingWatcher(t *testing.T, published chan publishedEvent) *unifiedSemanticWatcher {
 	return &unifiedSemanticWatcher{
-		noteMetadataIndexer: testNoteMetadataIndexer(t),
+		noteMetadataIndexer: testkit.NoteMetadataIndexer(t),
 		publishEvent: func(kind string, data any) {
 			published <- publishedEvent{Kind: kind, Data: data}
 		},
@@ -123,7 +117,7 @@ old
 	require.NoError(t, err)
 	defer func() { _ = store.Close() }()
 
-	noteSvc, _ := NewCodeAnchorService(CodeAnchorServiceConfig{
+	noteSvc, _ := codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
 		VaultPath:   root,
 		Store:       store,
 		WriteAccess: true,
@@ -134,7 +128,7 @@ old
 	provider := &recordingEmbeddingProvider{}
 	provider.fail.Store(true)
 	published := make(chan publishedEvent, 16)
-	indexLane := lane.New(lane.Options{LockPath: obsidian.IndexLockPath(root), PriorityPoll: 20 * time.Millisecond})
+	indexLane := lane.New(lane.Options{LockPath: repoconfig.IndexLockPath(root), PriorityPoll: 20 * time.Millisecond})
 	t.Cleanup(indexLane.Close)
 	w := &unifiedSemanticWatcher{
 		runCtx:              ctx,
@@ -144,9 +138,9 @@ old
 		cacheService:        cacheSvc,
 		noteSvc:             noteSvc,
 		noteRuntime:         testNoteRuntime(t),
-		noteMetadataIndexer: testNoteMetadataIndexer(t),
+		noteMetadataIndexer: testkit.NoteMetadataIndexer(t),
 		intelStore:          store,
-		nodeSyncer:          &semantic.OntologyNodeSyncer{Store: store, Provider: provider},
+		nodeSyncer:          &embedindex.OntologyNodeSyncer{Store: store, Provider: provider},
 		health:              newLiveHealthTracker(root),
 		publishEvent: func(kind string, data any) {
 			published <- publishedEvent{Kind: kind, Data: data}
@@ -248,17 +242,6 @@ func TestLiveHealthTrackerEpochCompleteAndFailedStatus(t *testing.T) {
 
 	_, err := os.Stat(filepath.Join(root, ".rhizome", "live-epochs.jsonl"))
 	require.ErrorIs(t, err, os.ErrNotExist, "health remains in memory; durable aggregate evidence belongs to diagnostics")
-}
-
-func receiveProcessedPath(t *testing.T, processed <-chan string) string {
-	t.Helper()
-	select {
-	case rel := <-processed:
-		return rel
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for processed path")
-		return ""
-	}
 }
 
 func writeWatcherConfig(t *testing.T, root, links string) {

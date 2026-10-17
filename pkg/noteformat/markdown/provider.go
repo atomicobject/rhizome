@@ -4,10 +4,10 @@ package markdown
 
 import (
 	"fmt"
-	"path"
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
@@ -29,7 +29,7 @@ func (Provider) Descriptor() noteformat.Descriptor {
 		ID:                "markdown",
 		Extensions:        []string{".md"},
 		ProviderVersion:   "markdown-provider-v1",
-		ProjectionVersion: "markdown-projection-v3",
+		ProjectionVersion: "markdown-projection-v4",
 		OwnershipPolicy:   noteformat.OwnershipDefault,
 		Capabilities: noteformat.MustCapabilities(
 			noteformat.CapabilitySourceReading,
@@ -66,7 +66,7 @@ func (p Provider) Project(source noteformat.AuthoredSource) (noteformat.Projecti
 
 func projectFacts(notePath, content string) (noteformat.ProjectionFacts, []noteformat.Diagnostic) {
 	facts := noteformat.ProjectionFacts{}
-	frontmatter, frontmatterErr := obsidian.ExtractFrontmatter(content)
+	frontmatter, frontmatterErr := markdownsyntax.ExtractFrontmatter(content)
 	diagnostics := make([]noteformat.Diagnostic, 0, 1)
 	if frontmatterErr != nil {
 		diagnostics = append(diagnostics, noteformat.Diagnostic{
@@ -76,7 +76,7 @@ func projectFacts(notePath, content string) (noteformat.ProjectionFacts, []notef
 		frontmatter = nil
 	}
 
-	facts.Title = titleFact(notePath, content, frontmatter)
+	facts.Title = &noteformat.TitleFact{Value: markdownsyntax.TitleValue(notePath, content, frontmatter)}
 	facts.RootMetadata, diagnostics = appendRootMetadata(frontmatterWithTemporalProvenance(content, frontmatter), diagnostics)
 	facts.Aliases = aliasFacts(frontmatter)
 	facts.Tags = tagFacts(content, frontmatter)
@@ -85,19 +85,6 @@ func projectFacts(notePath, content string) (noteformat.ProjectionFacts, []notef
 	facts.FragmentTargets = fragmentTargetFacts(content)
 	facts.SearchRegions = searchRegions(content)
 	return facts, diagnostics
-}
-
-func titleFact(notePath, content string, frontmatter map[string]any) *noteformat.TitleFact {
-	for _, key := range []string{"title", "name"} {
-		if value, ok := frontmatter[key].(string); ok && strings.TrimSpace(value) != "" {
-			return &noteformat.TitleFact{Value: strings.TrimSpace(value)}
-		}
-	}
-	if title := obsidian.SingleMarkdownH1Title(content); title != "" {
-		return &noteformat.TitleFact{Value: title}
-	}
-	base := path.Base(notePath)
-	return &noteformat.TitleFact{Value: strings.TrimSuffix(base, path.Ext(base))}
 }
 
 func appendRootMetadata(frontmatter map[string]any, diagnostics []noteformat.Diagnostic) ([]noteformat.RootMetadataFact, []noteformat.Diagnostic) {
@@ -131,40 +118,16 @@ func aliasFacts(frontmatter map[string]any) []noteformat.AliasFact {
 }
 
 func tagFacts(content string, frontmatter map[string]any) []noteformat.TagFact {
-	values := make([]string, 0)
-	if raw, ok := frontmatter["tags"]; ok {
-		switch tags := raw.(type) {
-		case []string:
-			values = append(values, tags...)
-		case []any:
-			for _, tag := range tags {
-				if text, ok := tag.(string); ok {
-					values = append(values, text)
-				}
-			}
-		}
-	}
-	for _, tag := range obsidian.ExtractHashtags(content) {
-		values = append(values, strings.TrimPrefix(tag, "#"))
-	}
-	seen := make(map[string]struct{}, len(values))
+	values := markdownsyntax.TagValues(content, frontmatter)
 	facts := make([]noteformat.TagFact, 0, len(values))
 	for _, value := range values {
-		value = strings.TrimPrefix(strings.TrimSpace(value), "#")
-		if value == "" {
-			continue
-		}
-		if _, duplicate := seen[value]; duplicate {
-			continue
-		}
-		seen[value] = struct{}{}
 		facts = append(facts, noteformat.TagFact{Value: value})
 	}
 	return facts
 }
 
 func inlinePropertyFacts(content string) []noteformat.InlinePropertyFact {
-	properties := obsidian.ExtractInlinePropertyOccurrences(content)
+	properties := markdownsyntax.ExtractInlinePropertyOccurrences(content)
 	facts := make([]noteformat.InlinePropertyFact, 0, len(properties))
 	for _, property := range properties {
 		facts = append(facts, noteformat.InlinePropertyFact{Key: property.Key, Value: property.Value})
@@ -173,14 +136,14 @@ func inlinePropertyFacts(content string) []noteformat.InlinePropertyFact {
 }
 
 func linkFacts(content string) []noteformat.UnresolvedAuthoredLinkFact {
-	snapshot := obsidian.ScanStructuredLinkSnapshot(content)
+	snapshot := markdownsyntax.ScanStructuredLinkSnapshot(content)
 	if snapshot.Validate() != nil {
 		return nil
 	}
 	facts := make([]noteformat.UnresolvedAuthoredLinkFact, 0, len(snapshot.Links))
 	for _, link := range snapshot.Links {
 		resolution := noteformat.LinkResolutionRelativePath
-		if link.Kind == obsidian.StructuredLinkWikilink {
+		if link.Kind == markdownsyntax.StructuredLinkWikilink {
 			resolution = noteformat.LinkResolutionNoteReference
 		}
 		facts = append(facts, noteformat.UnresolvedAuthoredLinkFact{
@@ -216,11 +179,11 @@ func searchRegions(content string) []noteformat.SearchRegionFact {
 	}}
 }
 
-func linkSubtype(link obsidian.StructuredLink) string {
+func linkSubtype(link markdownsyntax.StructuredLink) string {
 	if link.Embed {
 		return "embed"
 	}
-	if link.Kind == obsidian.StructuredLinkWikilink {
+	if link.Kind == markdownsyntax.StructuredLinkWikilink {
 		switch {
 		case link.Display != "":
 			return "alias"
@@ -239,7 +202,7 @@ func linkSubtype(link obsidian.StructuredLink) string {
 }
 
 func fragmentTargetFacts(content string) []noteformat.FragmentTargetFact {
-	targets := obsidian.EnumerateMarkdownTargets(content)
+	targets := markdownsyntax.EnumerateMarkdownTargets(content)
 	facts := make([]noteformat.FragmentTargetFact, 0, len(targets))
 	for _, target := range targets {
 		facts = append(facts, noteformat.FragmentTargetFact{
@@ -259,13 +222,13 @@ func exactRange(start, end int) noteformat.OptionalSourceRange {
 	return noteformat.OptionalSourceRange{Present: true, Range: noteformat.SourceRange{StartByte: start, EndByte: end}}
 }
 
-func optionalRange(span obsidian.StructuredLinkSpan) noteformat.OptionalSourceRange {
+func optionalRange(span markdownsyntax.Span) noteformat.OptionalSourceRange {
 	if !span.Valid() {
 		return noteformat.OptionalSourceRange{}
 	}
 	return exactRange(span.Start, span.End)
 }
 
-func sourceRange(span obsidian.StructuredLinkSpan) noteformat.SourceRange {
+func sourceRange(span markdownsyntax.Span) noteformat.SourceRange {
 	return noteformat.SourceRange{StartByte: span.Start, EndByte: span.End}
 }

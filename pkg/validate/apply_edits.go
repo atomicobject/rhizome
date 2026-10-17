@@ -1,49 +1,52 @@
 package validate
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
-func applyBlockFragmentRewrite(runCtx RunContext, sourceNote, content, oldTarget, newTarget string) (string, int, bool) {
+func applyBlockFragmentRewrite(runCtx RunContext, sourceNote, content, oldTarget, newTarget string) (string, int, bool, error) {
 	oldPath, oldFragment := splitFragment(oldTarget)
 	newPath, newFragment := splitFragment(newTarget)
-	if oldPath == "" || newPath == "" || oldFragment == "" || newFragment == "" {
-		return content, 0, false
+	if oldPath == "" || oldPath != newPath || !strings.HasPrefix(oldFragment, "^") || !strings.HasPrefix(newFragment, "^") {
+		return content, 0, false, nil
 	}
-	if oldPath != newPath || !strings.HasPrefix(oldFragment, "^") || !strings.HasPrefix(newFragment, "^") {
-		return content, 0, false
-	}
-	allNotes, err := runCtx.NoteReader.GetNotesList(runCtx.VaultDef)
+	inventory, err := validationLinksFor(context.Background(), runCtx)
 	if err != nil {
-		return content, 0, false
+		return content, 0, true, err
 	}
-	contents := map[string]string{sourceNote: content}
-	getContent := func(notePath string) string {
-		if cached, ok := contents[notePath]; ok {
-			return cached
-		}
-		body, err := runCtx.NoteReader.GetContents(runCtx.VaultDef, notePath)
-		if err != nil {
-			contents[notePath] = ""
-			return ""
-		}
-		contents[notePath] = body
-		return body
+	source, err := runCtx.NoteMetadata.ProjectNoteSource(sourceNote, content, 0)
+	if err != nil {
+		return content, 0, true, err
 	}
-	cache := obsidian.BuildNotePathCacheWithAliases(allNotes, aliasMapFromNotes(allNotes, getContent))
-	updated, count := rewriteResolvedBlockFragments(content, cache, sourceNote, oldPath, oldFragment, newFragment)
-	return updated, count, true
+	var spans []noteformat.SourceRange
+	for _, fact := range source.Projection.Facts.Links {
+		if fact.Fragment != oldFragment || !validationBlockFragmentAuthored(source, fact) || validationLinkExternal(source, fact) || !validationLinkSyntaxEnabled(runCtx.VaultDef, fact) {
+			continue
+		}
+		if target, exists := inventory.resolve(source, fact); exists && target == oldPath {
+			spans = append(spans, fact.FragmentRange.Range)
+		}
+	}
+	for index := len(spans) - 1; index >= 0; index-- {
+		span := spans[index]
+		content = content[:span.StartByte] + newFragment + content[span.EndByte:]
+	}
+	return content, len(spans), true, nil
 }
 
 // ApplyAliasAppendInMemory returns content with value appended to the aliases
 // frontmatter list (sorted, deduped). Returns input unchanged when already present.
 func ApplyAliasAppendInMemory(content, value string) (string, error) {
-	fm, err := obsidian.ExtractFrontmatter(content)
+	fm, err := markdownsyntax.ExtractFrontmatter(content)
 	if err != nil {
 		return "", err
 	}
@@ -53,25 +56,13 @@ func ApplyAliasAppendInMemory(content, value string) (string, error) {
 	}
 	aliases = append(aliases, value)
 	sort.Strings(aliases)
-	updated, changed, err := obsidian.SetFrontmatterProperty(content, "aliases", aliases, true)
-	if err != nil || !changed {
-		return content, err
-	}
-	return updated, nil
+	return ontology.PatchRootFrontmatter(content, "aliases", "", aliases)
 }
 
 // ApplySetFrontmatterInMemory returns content with the given property set to
 // the scalar value or values slice. Returns input unchanged when nothing changed.
 func ApplySetFrontmatterInMemory(content, property, value string, values []string) (string, error) {
-	var v any = value
-	if values != nil {
-		v = append([]string(nil), values...)
-	}
-	updated, changed, err := obsidian.SetFrontmatterProperty(content, property, v, true)
-	if err != nil || !changed {
-		return content, err
-	}
-	return updated, nil
+	return ontology.PatchRootFrontmatter(content, property, value, values)
 }
 
 // ApplyRewriteLinkInMemory returns content with oldTarget wikilinks rewritten

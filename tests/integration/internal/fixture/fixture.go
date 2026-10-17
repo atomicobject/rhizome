@@ -5,6 +5,9 @@ package fixture
 
 import (
 	"context"
+	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,12 +15,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/coderefs"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -54,7 +57,7 @@ func NewWorkspace(t *testing.T) *Workspace {
 		vaultRootResolved = vaultRoot
 	}
 
-	vault := &obsidian.Vault{Name: projectRoot}
+	vault := &repoconfig.Vault{Env: vaultconfig.SystemEnv(), Name: projectRoot}
 	vaultDef, err := vault.Definition()
 	require.NoError(t, err)
 	require.Equal(t, filepath.Clean(projectRootResolved), filepath.Clean(vaultDef.BasePath()))
@@ -248,6 +251,14 @@ func copyFile(src, dst string, perm os.FileMode) error {
 }
 
 func ingestNotes(ctx context.Context, svc *codeanchor.Service, notesDir string) error {
+	formats, err := builtin.NewRuntime()
+	if err != nil {
+		return err
+	}
+	metadata, err := notemeta.NewIndexer(formats)
+	if err != nil {
+		return err
+	}
 	return filepath.WalkDir(notesDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -266,7 +277,11 @@ func ingestNotes(ctx context.Context, svc *codeanchor.Service, notesDir string) 
 		if err != nil {
 			return err
 		}
-		_, err = svc.IngestNoteSource(ctx, notemeta.NewContentOnlyNoteSourceSnapshot(filepath.ToSlash(rel), string(content), 0))
+		source, err := metadata.ProjectNoteSource(filepath.ToSlash(rel), string(content), 0)
+		if err != nil {
+			return err
+		}
+		_, err = svc.IngestNoteSource(ctx, source)
 		return err
 	})
 }

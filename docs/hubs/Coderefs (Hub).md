@@ -61,8 +61,8 @@ flowchart LR
 
 - `pkg/app/codeintel/doclinker.go` — `DocLinker.LinksForCode` re-scans and emits `code → note` `doc_links` edges (alias-aware when a store is supplied, so `[[coderef-contract|SPEC-0016]]` in a comment resolves); wired into indexing via `pkg/app/indexing/commands.go`. See [[Indexing pipeline (Hub)]] and [[Code Intel (Hub)]].
 - `pkg/vault/cache/service.go` — cache service scans code files into the `Index` and exposes `CodeRefsByNote()` / `CodeRefsByFile()` via `CodeRefProvider`. See [[Cache (Hub)]].
-- `pkg/app/cli/rename.go`, `pkg/app/cli/move.go` — invoke rewrite on `rzm note rename` / `rzm note move` when `CodeRefConfig` is set.
-- `pkg/app/cli/file_context.go`, `pkg/app/cli/context_text.go`, `pkg/app/cli/graph.go` — coderefs feed file-context linked notes and a graph authority boost. See [[Code Index (Hub)]].
+- `pkg/app/operations/rename.go`, `pkg/app/operations/move.go` — invoke rewrite on `rzm note rename` / `rzm note move` when `CodeRefConfig` is set.
+- `pkg/app/operations/file_context.go`, `pkg/app/operations/context_text.go`, `pkg/app/operations/graph.go` — coderefs feed file-context linked notes and a graph authority boost. See [[Code Index (Hub)]].
 
 ### Invariants / rules of thumb
 

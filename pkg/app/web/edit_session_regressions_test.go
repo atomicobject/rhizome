@@ -12,9 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,9 +40,9 @@ status:: TODO
 ^story-b
 `
 	require.NoError(t, os.WriteFile(specPath, []byte(specContent), 0o644))
-	_, err := ontology.EnsureFreshRuntimeWithStore(
+	_, err := ontologytest.Publish(
 		context.Background(),
-		testNoteMetadataIndexer(t),
+		testkit.NoteMetadataIndexer(t),
 		fixture.vaultDef,
 		&obsidian.Note{},
 		fixture.intelStore,
@@ -236,7 +239,7 @@ func TestOntologyEditSessions_UnchangedRetryPersistsReceiptAfterCanceledWait(t *
 	require.NoError(t, err)
 	require.Len(t, created.Ops, 1, "the unchanged commit must contain a staged operation")
 	req := OntologyEditSessionCommitRequest{RequestID: "unchanged-retry", ExpectedRevision: created.Revision}
-	lockPath := obsidian.IndexLockPath(fixture.root)
+	lockPath := repoconfig.IndexLockPath(fixture.root)
 	releaseWriter, acquired, err := indexlock.TryAcquire(lockPath)
 	require.NoError(t, err)
 	require.True(t, acquired)
@@ -429,9 +432,9 @@ func TestPublicOntologyEditSessionPreservesExplicitFieldValueKinds(t *testing.T)
 		"summary: Demo plan summary\nspec: specs/100-demo/spec.md",
 		"summary: Demo plan summary\nempty-string: Original\nunset-string: Remove me\ntags: [old-tag]\naliases: [old-alias]\nenabled: true\ncount: 7\nspec: specs/100-demo/spec.md", 1))
 	require.NoError(t, os.WriteFile(planPath, planData, 0o644))
-	_, err = ontology.EnsureFreshRuntimeWithStore(
+	_, err = ontologytest.Publish(
 		context.Background(),
-		testNoteMetadataIndexer(t),
+		testkit.NoteMetadataIndexer(t),
 		fixture.vaultDef,
 		&obsidian.Note{},
 		fixture.intelStore,

@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ ignored:
 	require.Len(t, items, 4)
 
 	first := items[0]
-	require.Equal(t, EmbeddedSourceShapeCheckboxItem, first.Shape)
+	require.Equal(t, ontoschema.EmbeddedSourceShapeCheckboxItem, first.Shape)
 	require.Equal(t, "notes/meeting.md#item-", first.ID[:len("notes/meeting.md#item-")])
 	require.Equal(t, "notes/meeting.md", first.NotePath)
 	require.NotNil(t, first.Checkbox)
@@ -56,12 +57,12 @@ ignored:
 	require.True(t, first.ContentRange.Valid(len(content)))
 
 	nested := items[1]
-	require.Equal(t, EmbeddedSourceShapeListItem, nested.Shape)
+	require.Equal(t, ontoschema.EmbeddedSourceShapeListItem, nested.Shape)
 	require.Equal(t, first.ID, nested.ParentID)
 	require.Contains(t, nested.Content, "nested child detail")
 
 	done := items[2]
-	require.Equal(t, EmbeddedSourceShapeCheckboxItem, done.Shape)
+	require.Equal(t, ontoschema.EmbeddedSourceShapeCheckboxItem, done.Shape)
 	require.Equal(t, "Already done", done.Title)
 	require.NotNil(t, done.Checkbox)
 	require.True(t, done.Checkbox.Checked)
@@ -69,7 +70,7 @@ ignored:
 	require.Equal(t, "notes/meeting.md#^done-1", done.ID)
 
 	plain := items[3]
-	require.Equal(t, EmbeddedSourceShapeListItem, plain.Shape)
+	require.Equal(t, ontoschema.EmbeddedSourceShapeListItem, plain.Shape)
 	require.Nil(t, plain.Checkbox)
 	require.Contains(t, plain.Content, "Plain follow-up")
 }
@@ -89,9 +90,9 @@ func TestBuildDocumentSnapshot_PreservesMarkdownSourceSpans(t *testing.T) {
 	require.NotEmpty(t, snapshot.Sections)
 	require.Len(t, snapshot.SourceSpans, 2)
 
-	require.Equal(t, EmbeddedSourceShapeSection, snapshot.SourceSpans[0].Shape)
+	require.Equal(t, ontoschema.EmbeddedSourceShapeSection, snapshot.SourceSpans[0].Shape)
 	require.Equal(t, "Action Items", snapshot.SourceSpans[0].Title)
-	require.Equal(t, EmbeddedSourceShapeCheckboxItem, snapshot.SourceSpans[1].Shape)
+	require.Equal(t, ontoschema.EmbeddedSourceShapeCheckboxItem, snapshot.SourceSpans[1].Shape)
 	require.Equal(t, "Update docs", snapshot.SourceSpans[1].Title)
 	require.Equal(t, snapshot.SourceSpans[1], snapshot.SourceSpansByID[snapshot.SourceSpans[1].ID])
 }
@@ -142,7 +143,7 @@ func TestBuildDocumentSnapshot_LinksTopLevelListSiblingsToContainingSection(t *t
 
 	var acceptance *MarkdownSourceSpan
 	for _, span := range snapshot.SourceSpans {
-		if span.Shape == EmbeddedSourceShapeSection && span.Title == "Acceptance Criteria" {
+		if span.Shape == ontoschema.EmbeddedSourceShapeSection && span.Title == "Acceptance Criteria" {
 			acceptance = span
 			break
 		}

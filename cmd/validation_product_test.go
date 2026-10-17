@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -28,8 +28,10 @@ func (s *validationProductRunnerSpy) Run(_ context.Context, request validationPr
 }
 
 func TestValidateProductCommandPropagatesSelectorAndReadOnlyFlags(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	spy := &validationProductRunnerSpy{result: cleanValidationProductResult("all")}
-	cmd := newValidateProductCmdWithRunner(spy)
+	cmd := commandOptions.newValidateProductCmdWithRunner(spy)
 	stdout, stderr := executeValidationProductCommand(t, cmd,
 		"all", "--vault", "docs", "--max-issues", "31", "--skip-anchors", "--skip-embeds",
 		"--include-images", "--scope-note", "a.md", "--scope-target", "b.md", "--scope-ref", "node:1",
@@ -56,8 +58,10 @@ func TestValidateProductCommandPropagatesSelectorAndReadOnlyFlags(t *testing.T) 
 }
 
 func TestAgentValidateProductCarriesExactAgentApplyCommand(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	spy := &validationProductRunnerSpy{result: cleanValidationProductResult("broken-links")}
-	cmd := newAgentValidateProductCmdWithRunner(spy)
+	cmd := commandOptions.newAgentValidateProductCmdWithRunner(spy)
 	_, stderr := executeValidationProductCommand(t, cmd,
 		"broken-links", "--scope-note", "Notes/A B.md", "--skip-anchors",
 	)
@@ -68,15 +72,17 @@ func TestAgentValidateProductCarriesExactAgentApplyCommand(t *testing.T) {
 }
 
 func TestAgentValidateProductCarriesInheritedVaultIntoRequestAndApplyCommand(t *testing.T) {
-	originalVault := vaultName
-	vaultName = ""
-	t.Cleanup(func() { vaultName = originalVault })
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	originalVault := commandOptions.vaultName
+	commandOptions.vaultName = ""
+	t.Cleanup(func() { commandOptions.vaultName = originalVault })
 
 	spy := &validationProductRunnerSpy{result: cleanValidationProductResult("broken-links")}
 	root := &cobra.Command{Use: "rzm", SilenceUsage: true, SilenceErrors: true}
 	agent := &cobra.Command{Use: "agent", SilenceUsage: true, SilenceErrors: true}
-	agent.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault")
-	agent.AddCommand(newAgentValidateProductCmdWithRunner(spy))
+	agent.PersistentFlags().StringVarP(&commandOptions.vaultName, "vault", "v", "", "vault")
+	agent.AddCommand(commandOptions.newAgentValidateProductCmdWithRunner(spy))
 	root.AddCommand(agent)
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
@@ -89,8 +95,10 @@ func TestAgentValidateProductCarriesInheritedVaultIntoRequestAndApplyCommand(t *
 }
 
 func TestValidateProductCommandAcceptsAtMostOneSelector(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	spy := &validationProductRunnerSpy{}
-	cmd := newValidateProductCmdWithRunner(spy)
+	cmd := commandOptions.newValidateProductCmdWithRunner(spy)
 	cmd.SetArgs([]string{"default", "ontology"})
 	err := cmd.Execute()
 
@@ -99,8 +107,10 @@ func TestValidateProductCommandAcceptsAtMostOneSelector(t *testing.T) {
 }
 
 func TestValidateProductListNeverCallsRunner(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	spy := &validationProductRunnerSpy{err: errors.New("runner must not be called")}
-	cmd := newValidateProductCmdWithRunner(spy)
+	cmd := commandOptions.newValidateProductCmdWithRunner(spy)
 	stdout, stderr := executeValidationProductCommand(t, cmd, "list")
 
 	require.Empty(t, stderr)
@@ -110,8 +120,10 @@ func TestValidateProductListNeverCallsRunner(t *testing.T) {
 }
 
 func TestValidateProductFixPropagatesPlanAndApplyOptions(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	spy := &validationProductRunnerSpy{result: cleanValidationProductResult("identifiers")}
-	cmd := newValidateProductCmdWithRunner(spy)
+	cmd := commandOptions.newValidateProductCmdWithRunner(spy)
 	_, stderr := executeValidationProductCommand(t, cmd,
 		"fix", "identifiers", "--apply", "--allow-historical", "--max-issues", "12",
 	)
@@ -126,13 +138,15 @@ func TestValidateProductFixPropagatesPlanAndApplyOptions(t *testing.T) {
 }
 
 func TestValidateProductFixCarriesReviewedApplySelection(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	planFile := filepath.Join(t.TempDir(), "approved.txt")
 	require.NoError(t, os.WriteFile(planFile, []byte("# reviewed\n\nrepair:b\n  issue:v1:c  \n"), 0o644))
 	for _, agent := range []bool{false, true} {
 		spy := &validationProductRunnerSpy{result: cleanValidationProductResult("broken-links")}
-		cmd := newValidateProductCmdWithRunner(spy)
+		cmd := commandOptions.newValidateProductCmdWithRunner(spy)
 		if agent {
-			cmd = newAgentValidateProductCmdWithRunner(spy)
+			cmd = commandOptions.newAgentValidateProductCmdWithRunner(spy)
 		}
 		_, stderr := executeValidationProductCommand(t, cmd,
 			"fix", "broken-links", "--apply", "--action", "repair:a", "--action", "issue:v1:x", "--from-plan", planFile,
@@ -146,6 +160,8 @@ func TestValidateProductFixCarriesReviewedApplySelection(t *testing.T) {
 }
 
 func TestValidateProductFixSelectionFlagsRequireApplyAndValidFile(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	dir := t.TempDir()
 	emptyPlan := filepath.Join(dir, "empty.txt")
 	require.NoError(t, os.WriteFile(emptyPlan, []byte("# nothing approved\n"), 0o644))
@@ -165,7 +181,7 @@ func TestValidateProductFixSelectionFlagsRequireApplyAndValidFile(t *testing.T) 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			spy := &validationProductRunnerSpy{result: cleanValidationProductResult("default")}
-			cmd := newValidateProductCmdWithRunner(spy)
+			cmd := commandOptions.newValidateProductCmdWithRunner(spy)
 			cmd.SetOut(&bytes.Buffer{})
 			stderr := &bytes.Buffer{}
 			cmd.SetErr(stderr)
@@ -182,8 +198,10 @@ func TestValidateProductFixSelectionFlagsRequireApplyAndValidFile(t *testing.T) 
 }
 
 func TestValidateProductHumanApplyCarriesReusableConfirmation(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	spy := &validationProductRunnerSpy{result: cleanValidationProductResult("identifiers")}
-	cmd := newValidateProductCmdWithRunner(spy)
+	cmd := commandOptions.newValidateProductCmdWithRunner(spy)
 	stdout := &bytes.Buffer{}
 	cmd.SetIn(strings.NewReader("yes\ny\n"))
 	cmd.SetOut(stdout)
@@ -206,8 +224,10 @@ func TestValidateProductHumanApplyCarriesReusableConfirmation(t *testing.T) {
 }
 
 func TestValidateProductPlanDoesNotCarryConfirmation(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	spy := &validationProductRunnerSpy{result: cleanValidationProductResult("identifiers")}
-	cmd := newValidateProductCmdWithRunner(spy)
+	cmd := commandOptions.newValidateProductCmdWithRunner(spy)
 	_, stderr := executeValidationProductCommand(t, cmd, "fix", "identifiers")
 
 	require.Empty(t, stderr)
@@ -217,6 +237,8 @@ func TestValidateProductPlanDoesNotCarryConfirmation(t *testing.T) {
 }
 
 func TestValidationProductCommandsReturnFrozenExitCodes(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	tests := []struct {
 		name   string
 		result actions.ValidationResult
@@ -229,7 +251,7 @@ func TestValidationProductCommandsReturnFrozenExitCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := newValidateProductCmdWithRunner(&validationProductRunnerSpy{result: tt.result})
+			cmd := commandOptions.newValidateProductCmdWithRunner(&validationProductRunnerSpy{result: tt.result})
 			cmd.SetOut(&bytes.Buffer{})
 			cmd.SetErr(&bytes.Buffer{})
 			cmd.SetArgs(nil)
@@ -246,7 +268,9 @@ func TestValidationProductCommandsReturnFrozenExitCodes(t *testing.T) {
 }
 
 func TestValidationProductExecutionErrorsRenderAndExitTwo(t *testing.T) {
-	cmd := newValidateProductCmdWithRunner(&validationProductRunnerSpy{err: errors.New("bad validation config")})
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	cmd := commandOptions.newValidateProductCmdWithRunner(&validationProductRunnerSpy{err: errors.New("bad validation config")})
 	cmd.SetOut(&bytes.Buffer{})
 	stderr := &bytes.Buffer{}
 	cmd.SetErr(stderr)
@@ -260,7 +284,9 @@ func TestValidationProductExecutionErrorsRenderAndExitTwo(t *testing.T) {
 }
 
 func TestAgentValidationProductErrorsUseStableJSONEnvelopeOnStderr(t *testing.T) {
-	cmd := newAgentValidateProductCmdWithRunner(&validationProductRunnerSpy{err: errors.New("bad validation config")})
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	cmd := commandOptions.newAgentValidateProductCmdWithRunner(&validationProductRunnerSpy{err: errors.New("bad validation config")})
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	cmd.SetOut(stdout)
@@ -276,8 +302,10 @@ func TestAgentValidationProductErrorsUseStableJSONEnvelopeOnStderr(t *testing.T)
 }
 
 func TestAgentValidateProductMirrorsMenuAsJSONWithoutPromptState(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	spy := &validationProductRunnerSpy{result: cleanValidationProductResult("audit")}
-	cmd := newAgentValidateProductCmdWithRunner(spy)
+	cmd := commandOptions.newAgentValidateProductCmdWithRunner(spy)
 	stdout, stderr := executeValidationProductCommand(t, cmd, "fix", "audit", "--apply", "--allow-historical")
 
 	require.Empty(t, stderr)
@@ -297,8 +325,10 @@ func TestAgentValidateProductMirrorsMenuAsJSONWithoutPromptState(t *testing.T) {
 }
 
 func TestAgentValidateProductListIsJSONAndNeverCallsRunner(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	spy := &validationProductRunnerSpy{err: errors.New("runner must not be called")}
-	cmd := newAgentValidateProductCmdWithRunner(spy)
+	cmd := commandOptions.newAgentValidateProductCmdWithRunner(spy)
 	stdout, stderr := executeValidationProductCommand(t, cmd, "list")
 
 	require.Empty(t, stderr)
@@ -402,9 +432,7 @@ func cleanValidationProductResult(selector string) actions.ValidationResult {
 		Result:          validate.Result{OK: true},
 		Selector:        selector,
 		EffectiveChecks: []string{"broken-links"},
-		Outcomes: []actions.ValidationCheckOutcome{{
-			Check: "broken-links", Outcome: validate.CheckOutcomeCompleted,
-		}},
+		Outcomes:        []actions.ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "broken-links", Outcome: validate.CheckOutcomeCompleted}}},
 	}
 }
 
@@ -419,9 +447,7 @@ func findingsValidationProductResult() actions.ValidationResult {
 		},
 		Selector:        "default",
 		EffectiveChecks: []string{"broken-links"},
-		Outcomes: []actions.ValidationCheckOutcome{{
-			Check: "broken-links", Outcome: validate.CheckOutcomeCompleted,
-		}},
+		Outcomes:        []actions.ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "broken-links", Outcome: validate.CheckOutcomeCompleted}}},
 	}
 }
 
@@ -430,9 +456,8 @@ func blockedValidationProductResult() actions.ValidationResult {
 		Result:          validate.Result{OK: false},
 		Selector:        "code-anchors",
 		EffectiveChecks: []string{"code-anchors"},
-		Outcomes: []actions.ValidationCheckOutcome{{
-			Check: "code-anchors", Outcome: validate.CheckOutcomeBlocked,
-			PreparationCommand: "rzm index",
+		Outcomes: []actions.ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "code-anchors", Outcome: validate.CheckOutcomeBlocked,
+			PreparationCommand: "rzm index"},
 		}},
 	}
 }

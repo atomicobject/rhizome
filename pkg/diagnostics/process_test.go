@@ -167,13 +167,13 @@ func TestCrashedWriterReservationsBecomePrunable(t *testing.T) {
 	old := now.Add(-8 * 24 * time.Hour)
 	require.NoError(t, os.Chtimes(held, old, old))
 	r := openTestRecorder(t, root, Options{MaxBytes: processMaxBytes, MaxSegmentBytes: 4096, Now: func() time.Time { return now }})
-	r.Event(nil, slog.LevelInfo, "test", "admission", "")
+	r.Event(t.Context(), slog.LevelInfo, "test", "admission", "")
 	_, err = os.Stat(held)
 	require.NoError(t, err, "live segment is protected even when old")
 	require.NoError(t, command.Process.Kill())
 	require.Error(t, command.Wait())
 	now = now.Add(24 * time.Hour)
-	r.Event(nil, slog.LevelInfo, "test", "after.crash", "")
+	r.Event(t.Context(), slog.LevelInfo, "test", "after.crash", "")
 	require.NoFileExists(t, held, "OS lock release allows pruning the crashed writer")
 }
 

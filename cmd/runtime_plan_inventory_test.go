@@ -1,5 +1,9 @@
 package cmd
 
+import "os"
+
+import "github.com/atomicobject/rhizome/internal/testkit"
+
 import (
 	"sort"
 	"testing"
@@ -11,6 +15,9 @@ import (
 )
 
 func TestRuntimePlanInventoryCoversExecutableAgentCommands(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	agentCmd, _, _ := rootCmd.Find([]string{"agent"})
+
 	registry := oneshotruntime.DefaultRegistry()
 	actual := executableCommandPaths(agentCmd)
 	missing := make([]string, 0)
@@ -52,9 +59,11 @@ func TestRuntimePlanInventoryCoversAgentCatalogParents(t *testing.T) {
 }
 
 func TestRuntimePlanInventoryRootFrontsResolveToCommands(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	registry := oneshotruntime.DefaultRegistry()
 	actual := map[string]struct{}{}
-	for _, command := range allCommands(rootCmd) {
+	for _, command := range allCommands(rootCmd.Command) {
 		actual[runtimePlanCommandPath(command)] = struct{}{}
 	}
 	missing := make([]string, 0)

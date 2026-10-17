@@ -6,11 +6,13 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAmbiguousLinkGitProvenanceChoosesOnlyClaimantAncestralAtLinkIntroduction(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -51,6 +53,7 @@ func TestAmbiguousLinkGitProvenanceChoosesOnlyClaimantAncestralAtLinkIntroductio
 }
 
 func TestAmbiguousLinkGitProvenanceLeavesMultipleAncestralClaimantsBlocking(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -71,6 +74,7 @@ func TestAmbiguousLinkGitProvenanceLeavesMultipleAncestralClaimantsBlocking(t *t
 }
 
 func TestAmbiguousLinkGitProvenanceUsesSourceBranchAncestryNotAuthorDates(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -99,6 +103,7 @@ func TestAmbiguousLinkGitProvenanceUsesSourceBranchAncestryNotAuthorDates(t *tes
 }
 
 func TestAmbiguousLinkGitProvenanceBatchesSharedSourceHistory(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	claims := []Claim{
@@ -139,6 +144,7 @@ func TestAmbiguousLinkGitProvenanceBatchesSharedSourceHistory(t *testing.T) {
 }
 
 func TestAmbiguousLinkGitProvenanceIsolatesDirtySourceFallback(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -164,6 +170,7 @@ func TestAmbiguousLinkGitProvenanceIsolatesDirtySourceFallback(t *testing.T) {
 }
 
 func TestAmbiguousLinkGitProvenanceFallsBackWhenAncestryWalkHitsBound(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -186,7 +193,7 @@ func TestAmbiguousLinkGitProvenanceFallsBackWhenAncestryWalkHitsBound(t *testing
 
 func ambiguousLinkRequest(t *testing.T, notePath, content string, linkIndex int, candidates []Claim) AmbiguousLinkProvenanceRequest {
 	t.Helper()
-	scan := obsidian.ScanStructuredLinkSnapshot(content)
+	scan := markdownsyntax.ScanStructuredLinkSnapshot(content)
 	snapshot, err := scan.ValidatedSnapshot()
 	require.NoError(t, err)
 	require.Greater(t, len(snapshot.Links), linkIndex)
@@ -204,6 +211,7 @@ func mustAmbiguousLinkRequestKey(t *testing.T, request AmbiguousLinkProvenanceRe
 }
 
 func TestAmbiguousLinkDecisionRejectsUnsortedOrIncompleteEvidence(t *testing.T) {
+	t.Parallel()
 	refA := ontology.NodeRef{NotePath: "a.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
 	refB := ontology.NodeRef{NotePath: "b.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
 	valid := func() ambiguousLinkDecisionPayload {

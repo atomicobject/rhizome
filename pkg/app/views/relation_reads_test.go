@@ -3,13 +3,16 @@ package views
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
@@ -43,12 +46,12 @@ type countingStore struct {
 	fieldValues atomic.Int64
 }
 
-func (s *countingStore) OntologyNodesBySourceLocators(ctx context.Context, locators []string) (map[string]codeanchor.IntelOntologyNode, error) {
+func (s *countingStore) OntologyNodesBySourceLocators(ctx context.Context, locators []string) (map[string]readmodel.NodeRow, error) {
 	s.locators.Add(1)
 	return s.Store.OntologyNodesBySourceLocators(ctx, locators)
 }
 
-func (s *countingStore) OntologyNodeFieldValuesByNodeIDs(ctx context.Context, nodeIDs, fields []string) ([]codeanchor.IntelOntologyNodeFieldValue, error) {
+func (s *countingStore) OntologyNodeFieldValuesByNodeIDs(ctx context.Context, nodeIDs, fields []string) ([]readmodel.FieldValueRow, error) {
 	s.fieldValues.Add(1)
 	return s.Store.OntologyNodeFieldValuesByNodeIDs(ctx, nodeIDs, fields)
 }
@@ -66,7 +69,7 @@ func (r *countingReader) GetNotesList(vault obsidian.VaultDefinition) ([]string,
 
 // relationReadsFixture indexes ideas with three link fields each, the
 // opportunities and people they link to, and unrelated filler notes.
-func relationReadsFixture(tb testing.TB, ideas, filler int) (string, obsidian.VaultDefinition, *semdb.Store, *ontology.Schema) {
+func relationReadsFixture(tb testing.TB, ideas, filler int) (string, obsidian.VaultDefinition, *semdb.Store, *ontoschema.Schema) {
 	tb.Helper()
 	ctx := context.Background()
 	root := tb.TempDir()
@@ -89,12 +92,12 @@ func relationReadsFixture(tb testing.TB, ideas, filler int) (string, obsidian.Va
 	require.NoError(tb, err)
 	tb.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Name: "relation-reads", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(tb), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(tb), vaultDef, &obsidian.Note{}, store)
 	require.NoError(tb, err)
 	return root, vaultDef, store, runtime.Schema
 }
 
-func relationReadsService(tb testing.TB, root string, vaultDef obsidian.VaultDefinition, store *countingStore, reader *countingReader, schema *ontology.Schema, overlay *ontologyquery.ReadOverlay) *Service {
+func relationReadsService(tb testing.TB, root string, vaultDef obsidian.VaultDefinition, store *countingStore, reader *countingReader, schema *ontoschema.Schema, overlay *ontologyquery.ReadOverlay) *Service {
 	tb.Helper()
 	execSchema, err := ontologyquery.BuildExecutableSchema(schema)
 	require.NoError(tb, err)

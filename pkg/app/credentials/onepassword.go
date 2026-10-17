@@ -3,11 +3,11 @@ package credentials
 import (
 	"context"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"os/exec"
 	"strings"
 	"unicode"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // OnePasswordReader reads a credential from a stable 1Password item reference.
@@ -49,7 +49,11 @@ func (c OnePasswordCLI) Read(ctx context.Context, account, reference string) (st
 // ImportFromOnePassword resolves mappings from 1Password and writes them into
 // the user-level Rhizome config after every read succeeds.
 func ImportFromOnePassword(ctx context.Context, account string, mappings []string) (int, error) {
-	return Import(ctx, OnePasswordCLI{}, account, mappings, obsidian.LoadCliConfig, obsidian.SaveCliConfig)
+	return Import(ctx, OnePasswordCLI{}, account, mappings, func(allowMissing bool) (repoconfig.CliConfig, error) {
+		return repoconfig.LoadCliConfig(vaultconfig.FromContext(ctx), allowMissing)
+	}, func(cfg repoconfig.CliConfig) error {
+		return repoconfig.SaveCliConfig(vaultconfig.FromContext(ctx), cfg)
+	})
 }
 
 // Import validates mappings before reading 1Password, then persists their
@@ -60,8 +64,8 @@ func Import(
 	reader OnePasswordReader,
 	account string,
 	mappings []string,
-	load func(bool) (obsidian.CliConfig, error),
-	save func(obsidian.CliConfig) error,
+	load func(bool) (repoconfig.CliConfig, error),
+	save func(repoconfig.CliConfig) error,
 ) (int, error) {
 	account = strings.TrimSpace(account)
 	if account == "" {

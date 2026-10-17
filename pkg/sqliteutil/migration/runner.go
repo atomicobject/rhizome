@@ -112,15 +112,6 @@ const (
 	migrationValidationTable = "rzm_migration_validation"
 )
 
-func EnsureAll(ctx context.Context, db *sql.DB, plans []DomainPlan, opts EnsureOptions) error {
-	for _, plan := range plans {
-		if err := EnsureDomain(ctx, db, plan, opts); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func EnsureDomain(ctx context.Context, db *sql.DB, plan DomainPlan, opts EnsureOptions) error {
 	if db == nil {
 		return errors.New("migration db is required")
@@ -381,15 +372,6 @@ func runStep(ctx context.Context, db *sql.DB, domain Domain, from int, step Step
 			return fmt.Errorf("migrate %q %s: %w", domain, name, stepErr)
 		}
 		return fmt.Errorf("migrate %q %s failed", domain, name)
-	}
-
-	if _, err := tx.ExecContext(
-		ctx,
-		`UPDATE `+migrationStateTable+` SET dirty = 1, updated_at = ? WHERE domain = ?`,
-		started,
-		string(domain),
-	); err != nil {
-		return rollbackWithFailureLog(err)
 	}
 
 	res, err := tx.ExecContext(

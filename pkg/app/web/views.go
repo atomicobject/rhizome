@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"io"
 	"net/http"
 	"path"
@@ -215,7 +216,7 @@ func (s *Server) configuredViewsService(ctx context.Context, overlay *ontologyqu
 	if err != nil {
 		return nil, err
 	}
-	var schema *ontology.Schema
+	var schema *ontoschema.Schema
 	var execSchema *ontologyquery.ExecutableSchema
 	if defs != nil {
 		schema = defs.schema
@@ -228,18 +229,23 @@ func (s *Server) configuredViewsService(ctx context.Context, overlay *ontologyqu
 	store := s.runtime.Intel()
 	var ontologyService *ontology.Service
 	if store != nil && schema != nil {
-		ontologyService = ontology.NewService(s.cfg.VaultDef, noteReader, store, schema)
+		ontologyService = ontology.NewService(store, schema)
+	}
+	deps, err := s.ontologyQueryDeps(ontologyService, noteReader)
+	if err != nil {
+		return nil, err
 	}
 	return appviews.New(appviews.ServiceOptions{
-		VaultPath:   s.cfg.VaultPath,
-		VaultDef:    s.cfg.VaultDef,
-		NoteReader:  noteReader,
-		Store:       store,
-		Schema:      schema,
-		ExecSchema:  execSchema,
-		QueryDeps:   s.ontologyQueryDeps(ontologyService, noteReader),
-		ReadOverlay: overlay,
-		Bundled:     BundledViews(s.assets),
+		QueryRecipes: s.queryRecipes,
+		VaultPath:    s.cfg.VaultPath,
+		VaultDef:     s.cfg.VaultDef,
+		NoteReader:   noteReader,
+		Store:        store,
+		Schema:       schema,
+		ExecSchema:   execSchema,
+		QueryDeps:    deps,
+		ReadOverlay:  overlay,
+		Bundled:      BundledViews(s.assets),
 	}), nil
 }
 

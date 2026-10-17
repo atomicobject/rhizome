@@ -17,7 +17,8 @@ import (
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,10 +39,10 @@ func testService(t *testing.T) *Service {
 	}
 	return s
 }
-func config(t *testing.T, cfg obsidian.LocalRhizomeConfig) string {
+func config(t *testing.T, cfg repoconfig.LocalRhizomeConfig) string {
 	t.Helper()
 	folder := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(folder, obsidian.LocalConfig{Rhizome: cfg}))
+	require.NoError(t, repoconfig.SaveLocalConfig(folder, repoconfig.LocalConfig{Rhizome: cfg}))
 	canonical, err := repositorytrust.CanonicalCheckout(folder)
 	require.NoError(t, err)
 	return canonical
@@ -69,7 +70,7 @@ func TestInspectIsInertAndTrustPrecedesAllExecution(t *testing.T) {
 	for _, authority := range []string{"development", "managed", "external", "global"} {
 		t.Run(authority, func(t *testing.T) {
 			s := testService(t)
-			cfg := obsidian.LocalRhizomeConfig{}
+			cfg := repoconfig.LocalRhizomeConfig{}
 			switch authority {
 			case "development":
 				cfg.DevBinaryDir = "dev"
@@ -108,7 +109,7 @@ func TestInspectIsInertAndTrustPrecedesAllExecution(t *testing.T) {
 
 func TestFolderIdentityAndCanonicalTrust(t *testing.T) {
 	s := testService(t)
-	folder := config(t, obsidian.LocalRhizomeConfig{Version: "v1.2.3"})
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v1.2.3"})
 	nested := filepath.Join(folder, "nested")
 	require.NoError(t, os.Mkdir(nested, 0o755))
 	root, err := s.Inspect(folder)
@@ -133,7 +134,7 @@ func TestOpenPassesExactSelectedBinaryAndBuildToRuntime(t *testing.T) {
 	for _, authority := range []string{"development", "managed", "external", "global"} {
 		t.Run(authority, func(t *testing.T) {
 			s := testService(t)
-			cfg := obsidian.LocalRhizomeConfig{}
+			cfg := repoconfig.LocalRhizomeConfig{}
 			switch authority {
 			case "development":
 				cfg.DevBinaryDir = "dev"
@@ -195,7 +196,7 @@ func TestOpenPassesExactSelectedBinaryAndBuildToRuntime(t *testing.T) {
 
 func TestOpenRejectsUnsupportedBuildBeforeSpawn(t *testing.T) {
 	s := testService(t)
-	folder := config(t, obsidian.LocalRhizomeConfig{})
+	folder := config(t, repoconfig.LocalRhizomeConfig{})
 	target := script(t, filepath.Join(t.TempDir(), "rzm"), "echo 'rzm version v0.1.0'")
 	_, err := s.Open(context.Background(), Request{Folder: folder, GlobalExecutable: target})
 	code(t, err, "runtime_error")
@@ -204,7 +205,7 @@ func TestOpenRejectsUnsupportedBuildBeforeSpawn(t *testing.T) {
 
 func TestExternalAttachesVerifiedRuntimeWithoutExecutable(t *testing.T) {
 	s := testService(t)
-	folder := config(t, obsidian.LocalRhizomeConfig{BinaryManager: "external"})
+	folder := config(t, repoconfig.LocalRhizomeConfig{BinaryManager: "external"})
 	health := appruntime.Health{VaultPath: folder, PID: 321, RunID: "fixture-run", Mode: appruntime.ModeAttached, Version: "v1.2.3"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, appruntime.HealthPath, r.URL.Path)
@@ -224,7 +225,7 @@ func TestExternalAttachesVerifiedRuntimeWithoutExecutable(t *testing.T) {
 
 func TestOpenRejectsRemoteAndForeignManifestsBeforeProbe(t *testing.T) {
 	s := testService(t)
-	folder := config(t, obsidian.LocalRhizomeConfig{BinaryManager: "external"})
+	folder := config(t, repoconfig.LocalRhizomeConfig{BinaryManager: "external"})
 	for _, m := range []appruntime.InstanceManifest{{VaultPath: folder, HTTPURL: "http://example.invalid:1234"}, {VaultPath: t.TempDir(), HTTPURL: "http://127.0.0.1:1234"}} {
 		require.NoError(t, appruntime.WriteManifest(folder, m))
 		_, err := s.Open(context.Background(), Request{Folder: folder})
@@ -258,7 +259,7 @@ func TestProtocolRejectsMalformedAndOversizedRequests(t *testing.T) {
 
 func TestRuntimeFailureAndCancellationRemainErrors(t *testing.T) {
 	s := testService(t)
-	folder := config(t, obsidian.LocalRhizomeConfig{})
+	folder := config(t, repoconfig.LocalRhizomeConfig{})
 	target := workingScript(t, filepath.Join(t.TempDir(), "rzm"))
 	s.ensure = func(ctx context.Context, _ appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
 		return appruntime.EnsureResult{}, context.Canceled
@@ -304,8 +305,8 @@ func TestGlobalInstallUsesOnlyOwnedTargetAndReportsPartialCompletion(t *testing.
 		cwd, err := os.Getwd()
 		require.NoError(t, err)
 		require.NotEqual(t, opts.WorkDir, cwd)
-		_, _, err = obsidian.FindLocalConfigForDelegation(opts.WorkDir)
-		require.ErrorIs(t, err, obsidian.ErrNoLocalConfig)
+		_, _, err = repoconfig.FindLocalConfigForDelegation(opts.WorkDir)
+		require.ErrorIs(t, err, repoconfig.ErrNoLocalConfig)
 		workingScript(t, opts.ExecutablePath)
 		return appupdate.Result{Targets: []appupdate.TargetResult{{Path: opts.ExecutablePath, Version: "v1.2.3", BinaryUpdated: true}}}, errors.New("synthetic later failure")
 	}

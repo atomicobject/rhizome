@@ -88,7 +88,7 @@ type RepairReviewApplyRequest struct {
 	PlanFingerprint      string
 	SelectionFingerprint string
 	Confirmations        []RepairReviewConfirmation
-	Options              Options
+	Options              ApplyOptions
 }
 
 // RepairReviewConfirmation is the exact user acknowledgement required before

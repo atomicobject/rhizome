@@ -82,7 +82,7 @@ func (t *Timings) Add(ev TimingEvent) {
 		collector.RecordSpanWindow("search."+ev.Name, ev.Started, ev.Started.Add(ev.Duration), err)
 		ctx := indexingperf.WithPhase(indexingperf.WithCollector(context.Background(), collector), "search")
 		status := safeTimingStatus(ev.Status)
-		indexingperf.AddCount(ctx, "search.stage."+ev.Name+".outcome."+status, 1)
+		indexingperf.AddCount(ctx, indexingperf.SearchStageOutcome.Select(ev.Name, status), 1)
 	}
 }
 
@@ -152,4 +152,31 @@ func withMetricsTimings(ctx context.Context) context.Context {
 		return WithTimings(ctx, &Timings{metricsOnly: true})
 	}
 	return ctx
+}
+
+// RecordTiming appends a stage to the request's shared display and collector.
+func RecordTiming(ctx context.Context, event TimingEvent) {
+	if timings := TimingsFromContext(ctx); timings != nil {
+		timings.Add(event)
+	}
+}
+
+func TimingStatus(err error) string {
+	if err == nil {
+		return "ok"
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "timeout"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "canceled"
+	}
+	return "error"
+}
+
+func TimingError(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }

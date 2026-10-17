@@ -14,6 +14,8 @@ import (
 )
 
 func TestViewEjectCopiesBundledFolderThatThenResolves(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	bundled := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(bundled, "group", "parts"), 0o755))
 	for name, body := range map[string]string{
@@ -30,7 +32,7 @@ func TestViewEjectCopiesBundledFolderThatThenResolves(t *testing.T) {
 	ctx := contextWithCommandEnv(context.Background(), commandEnv{Getwd: func() (string, error) { return vaultRoot, nil }})
 
 	run := func(args ...string) (string, error) {
-		cmd := newViewCmd(false)
+		cmd := commandOptions.newViewCmd(false)
 		var out bytes.Buffer
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)

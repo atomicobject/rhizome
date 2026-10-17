@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -15,6 +16,8 @@ func BenchmarkSemanticQueryToolDeterministic(b *testing.B) {
 	store := newIntelStore(b)
 	addDocSection(b, store, provider, "Alpha.md", "Alpha", "kickoff project transaction invariants", "section1", "chunk1")
 	tool := SemanticQueryTool(Config{
+		NoteMetadata: testkit.NoteMetadataIndexer(b),
+
 		VaultPath: vaultPath, VaultDef: obsidian.VaultDefinition{Path: vaultPath},
 		EmbedProvider: provider, EmbeddingsOn: true, IntelStore: store, SessionStore: store,
 	})

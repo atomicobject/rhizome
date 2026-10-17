@@ -2,11 +2,11 @@ package identifierreconcile
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"strings"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,7 +32,7 @@ func TestGitProvenanceIsolatesBlobLimitsToAffectedCollision(t *testing.T) {
 	repo.write(t, "c.md", "---\nid: SPEC-0002\n---\n")
 	repo.write(t, "d.md", "---\nid: SPEC-0002\n---\n")
 	repo.commit(t, "2026-07-15T09:00:00Z", "add collision fixtures")
-	schema, err := ontology.LoadSchema(repo.dir)
+	schema, err := ontoschema.LoadSchema(repo.dir)
 	require.NoError(t, err)
 	resolver := GitProvenanceResolver{runner: execGitCommandRunner{}, schema: schema, maxBlobBytes: 128, maxBatchBytes: 512}
 

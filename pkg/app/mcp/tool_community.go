@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -17,20 +19,21 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 
 		note := withProjectedNoteFacts(ctx, config, resolveNoteReader(config))
 		analysis, err := actions.DocGraphAnalysis(ctx, config.Vault, note, actions.DocGraphAnalysisParams{
+			NoteMetadata:          config.NoteMetadata,
 			UseConfig:             true,
 			IncludeTags:           true,
 			ExcludePatterns:       nil,
 			IncludePatterns:       nil,
 			IntelStore:            config.GetIntelStore(),
 			MetadataStoreFallback: metadataStoreFallbackPolicy(config),
-			WikilinkOptions:       obsidian.DefaultWikilinkOptions,
+			WikilinkOptions:       markdownsyntax.DefaultWikilinkOptions,
 		})
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("error computing communities: %s", err)), nil
 		}
 
 		reverseNeighbors := buildReverseNeighbors(analysis.Nodes)
-		communityLookup := obsidian.CommunityMembershipLookup(analysis.Communities)
+		communityLookup := vaultgraph.CommunityMembershipLookup(analysis.Communities)
 		bridgeCounts := crossCommunityEdgeCounts(analysis.Nodes, reverseNeighbors, communityLookup)
 
 		maxCommunities := 20

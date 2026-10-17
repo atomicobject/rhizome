@@ -84,34 +84,30 @@ func (c *Collector) windowPhaseStats() map[string]windowPhaseStats {
 		}
 		entry := phases[m.Phase]
 		switch m.Name {
-		case "provider.latency":
+		case ProviderLatency:
 			entry.active = true
 			entry.provider += delta
-		case "provider.request.voyage.backoff":
+		case ProviderRequestVoyageBackoff:
 			// Backoff is active provider work, but it is not a completed provider
 			// latency sample and must not inflate provider throughput timing.
 			entry.active = true
-		case "codeembed.prepare":
+		case CodeembedPrepare:
 			entry.active = true
 			entry.prep += delta
-		case "queue.wait":
+		case QueueWait:
 			entry.active = true
 			entry.queue += delta
-		case "db.wait", "db.hold":
+		case DbWait, DbHold:
 			entry.active = true
 			entry.db += delta
-		case "embed.gate_wait":
+		case EmbedGateWait:
 			entry.active = true
 			entry.gate += delta
-		case "fs.walk":
+		case FsWalk:
 			entry.active = true
 			entry.queue += delta
 		default:
-			if strings.HasPrefix(m.Name, "calledge.") {
-				entry.active = true
-			} else {
-				continue
-			}
+			entry.active = true
 		}
 		phases[m.Phase] = entry
 	}
@@ -123,40 +119,31 @@ func (c *Collector) windowPhaseStats() map[string]windowPhaseStats {
 		}
 		entry := phases[m.Phase]
 		switch m.Name {
-		case "fs.read":
+		case FsRead:
 			entry.active = true
 			entry.files += delta
-		case "fs.discovered":
+		case FsDiscovered:
 			entry.active = true
 			entry.discovered += delta
-		case "fs.completed":
+		case FsCompleted:
 			entry.active = true
 			entry.completed += delta
-		case "semantic.chunks":
+		case SemanticChunks:
 			entry.active = true
 			entry.chunks += delta
-		case "provider.calls":
+		case ProviderCalls:
 			entry.active = true
 			entry.calls += delta
-		case "provider.texts":
+		case ProviderTexts:
 			entry.active = true
 			entry.texts += delta
 		default:
-			if m.Name == "provider.request.voyage" || strings.HasPrefix(m.Name, "provider.request.voyage.") ||
-				strings.HasPrefix(m.Name, "calledge.") ||
-				strings.HasPrefix(m.Name, "semantic.suppressed_anchors.") ||
-				strings.HasPrefix(m.Name, "semantic.code_chunks_pruned.") ||
-				strings.HasPrefix(m.Name, "semantic.code_plan.") ||
-				strings.HasPrefix(m.Name, "semantic.code_chunks.") {
-				entry.active = true
-			} else {
-				continue
-			}
+			entry.active = true
 		}
 		phases[m.Phase] = entry
 	}
 	for m, value := range c.gauges {
-		if (m.Name != "provider.inflight" && m.Name != "intent.writeback.pending_rows") || value <= 0 {
+		if value == 0 && c.gaugeStats[m].Count == c.lastGaugeStats[m].Count {
 			continue
 		}
 		entry := phases[m.Phase]
@@ -164,6 +151,13 @@ func (c *Collector) windowPhaseStats() map[string]windowPhaseStats {
 		phases[m.Phase] = entry
 	}
 
+	for metric, sample := range c.samples {
+		if sample.Count > c.lastSampleCounts[metric] {
+			entry := phases[metric.Phase]
+			entry.active = true
+			phases[metric.Phase] = entry
+		}
+	}
 	delete(phases, "")
 	for phase, entry := range phases {
 		if !entry.active {

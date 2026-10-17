@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	initdiff "github.com/atomicobject/rhizome/pkg/app/cli/init/diff"
+	textdiff "github.com/atomicobject/rhizome/pkg/textdiff"
 )
 
 // RepairPreviewFile is a read-only projection of one selected repair path.
@@ -264,7 +264,7 @@ func previewRepairOperations(runCtx RunContext, operations []RepairOperation) ([
 		} else if !originalExists && state.finalExists {
 			before = nil
 		}
-		diff, _, err := initdiff.GenerateUnifiedDiff(string(before), string(after), state.rel)
+		diff, _, err := textdiff.GenerateUnifiedDiff(string(before), string(after), state.rel)
 		if err != nil {
 			return nil, fmt.Errorf("preview repair path %s: %w", state.rel, err)
 		}

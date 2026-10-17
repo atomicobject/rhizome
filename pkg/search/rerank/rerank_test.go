@@ -3,9 +3,11 @@ package rerank
 import (
 	"context"
 	"encoding/json"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -121,11 +123,11 @@ func TestCachedRerankerSkipsProviderOnHit(t *testing.T) {
 
 func TestNewFromEnvDisabledWithoutProvider(t *testing.T) {
 	t.Setenv("RHIZOME_RERANK_PROVIDER", "")
-	if _, _, ok := NewFromEnv(); ok {
+	if _, _, ok := NewFromEnv(vaultconfig.Env{HomeDir: t.TempDir(), LookupEnv: os.LookupEnv}); ok {
 		t.Error("expected reranking to be disabled when no provider is configured")
 	}
 	t.Setenv("RHIZOME_RERANK_PROVIDER", "cohere")
-	if _, _, ok := NewFromEnv(); ok {
+	if _, _, ok := NewFromEnv(vaultconfig.Env{HomeDir: t.TempDir(), LookupEnv: os.LookupEnv}); ok {
 		t.Error("expected an unsupported provider to disable reranking")
 	}
 }

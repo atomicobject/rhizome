@@ -2,11 +2,10 @@ package runtime
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"os"
 	"strings"
 	"time"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // AutostartEnv disables auto-start for one invocation when set to 0/false/no.
@@ -15,7 +14,7 @@ const AutostartEnv = "RZM_RUNTIME_AUTOSTART"
 // AutostartEnabled resolves whether clients may spawn a headless runtime:
 // the environment override wins, then `runtime.autostart` in the local
 // config, then true.
-func AutostartEnabled(cfg *obsidian.LocalConfig) bool {
+func AutostartEnabled(cfg *repoconfig.LocalConfig) bool {
 	if value, ok := os.LookupEnv(AutostartEnv); ok {
 		switch strings.ToLower(strings.TrimSpace(value)) {
 		case "0", "false", "no", "off":
@@ -31,7 +30,7 @@ func AutostartEnabled(cfg *obsidian.LocalConfig) bool {
 }
 
 // IdleTimeout resolves the headless idle exit duration from local config.
-func IdleTimeout(cfg *obsidian.LocalConfig) (time.Duration, error) {
+func IdleTimeout(cfg *repoconfig.LocalConfig) (time.Duration, error) {
 	if cfg == nil || cfg.Runtime == nil || strings.TrimSpace(cfg.Runtime.IdleTimeout) == "" {
 		return DefaultIdleTimeout, nil
 	}

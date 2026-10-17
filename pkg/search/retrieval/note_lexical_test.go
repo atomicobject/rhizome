@@ -113,3 +113,23 @@ func TestNoteLexicalRetrieverDoesNotCorrectOneWordOfMultiwordQuery(t *testing.T)
 	require.NoError(t, err)
 	require.Empty(t, results)
 }
+
+func TestNoteLexicalRetrieverRejectsStopwordSubstringsAndMatchesWholeConcepts(t *testing.T) {
+	r := &NoteLexicalRetriever{PathSource: NotePathSourceFunc(func(context.Context) ([]string, error) {
+		return []string{"docs/Show Theme.md", "docs/Search Operations.md", "docs/Research.md"}, nil
+	})}
+	results, err := r.Retrieve(context.Background(), search.QuerySpec{Text: "how does the search work", Limits: search.Limits{Total: 10}})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Equal(t, "docs/Search Operations.md", results[0].Path)
+}
+
+func TestNoteLexicalRetrieverSharesQuotedCamelAndPluralConcepts(t *testing.T) {
+	r := &NoteLexicalRetriever{PathSource: NotePathSourceFunc(func(context.Context) ([]string, error) {
+		return []string{"docs/Search Services.md", "docs/Other.md"}, nil
+	})}
+	results, err := r.Retrieve(context.Background(), search.QuerySpec{Text: `"SearchService" documentation`, Limits: search.Limits{Total: 10}})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Equal(t, "docs/Search Services.md", results[0].Path)
+}

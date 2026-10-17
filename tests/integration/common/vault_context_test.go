@@ -5,21 +5,28 @@ package integration
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
 )
 
 func TestVaultContext_ReportsCommunities(t *testing.T) {
-	ctx := context.Background()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	ws := fixture.NewWorkspace(t)
 	ws.IndexCodeAnchors(t, ctx)
 
-	vault := &obsidian.Vault{Name: ws.ProjectRoot}
+	vault := &repoconfig.Vault{Env: env, Name: ws.ProjectRoot}
 	cfg := agentapi.Config{
 		Vault:        vault,
 		VaultPath:    ws.VaultDef.BasePath(),

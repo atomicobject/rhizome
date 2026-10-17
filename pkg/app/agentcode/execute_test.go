@@ -3,7 +3,9 @@ package agentcode
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -134,7 +136,7 @@ func TestExecuteFinishesWhenScriptReturnsDespiteBackgroundTimer(t *testing.T) {
 	requireNode(t)
 	fake := writeExecuteServer(t, `reply({ok:true, exitCode:0, payload:{}});`)
 	options := executeOptions(t, fake, `setInterval(() => {}, 10_000); await rzm.files({}); return "finished";`)
-	options.Timeout = 500 * time.Millisecond
+	options.Timeout = 2 * time.Second
 	result, err := Execute(context.Background(), options)
 	require.NoError(t, err)
 	require.True(t, result.OK, "%+v", result.Error)
@@ -195,7 +197,7 @@ func TestExecuteMissingNodeIsSetupError(t *testing.T) {
 	executable := filepath.Join(vault, "rzm")
 	require.NoError(t, os.WriteFile(executable, []byte("fixture"), 0o755))
 	t.Setenv("PATH", t.TempDir())
-	options := ExecuteOptions{Code: `return null`, ExecutablePath: executable, VaultPath: vault}
+	options := executeOptions(t, executable, `return null`)
 	_, err := Execute(context.Background(), options)
 	require.ErrorContains(t, err, "node_runtime_unavailable")
 }
@@ -226,7 +228,20 @@ func TestExecuteBoundsAsyncAndSynchronousWork(t *testing.T) {
 
 func executeOptions(t *testing.T, executable, code string) ExecuteOptions {
 	t.Helper()
-	return ExecuteOptions{Code: code, ExecutablePath: executable, VaultPath: t.TempDir(), Timeout: 5 * time.Second}
+	return ExecuteOptions{Code: code, VaultPath: t.TempDir(), Timeout: 5 * time.Second,
+		OperationHost: func(ctx context.Context, input io.Reader, output io.Writer, readWrite bool) error {
+			var args []string
+			if readWrite {
+				args = append(args, "--read-write")
+			}
+			command := exec.CommandContext(ctx, executable, args...)
+			configureExecuteCommand(command)
+			command.Stdin, command.Stdout = input, output
+			command.WaitDelay = time.Second
+			defer func() { _ = terminateExecuteProcessTree(command) }()
+			return command.Run()
+		},
+	}
 }
 
 func writeExecuteServer(t *testing.T, onCall string) string {

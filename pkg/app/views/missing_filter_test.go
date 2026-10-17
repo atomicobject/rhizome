@@ -2,6 +2,7 @@ package views
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
@@ -51,11 +52,11 @@ func TestExecuteMissingFilterMatchesRowsWithoutAValue(t *testing.T) {
 }
 
 func TestOntologyFieldCapabilitiesCarryPolicyReasonAndMissing(t *testing.T) {
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Spec": {
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Spec": {
 		Name: "Spec",
-		Fields: []*ontology.Field{{
-			Name: "owner", Kind: ontology.FieldKindLink, TypeName: "Person", SourceKind: ontology.FieldSourceFrontmatter,
-			Policy: &ontology.PolicyHint{Reason: "Assigned at kickoff"},
+		Fields: []*ontoschema.Field{{
+			Name: "owner", Kind: ontoschema.FieldKindLink, TypeName: "Person", SourceKind: ontoschema.FieldSourceFrontmatter,
+			Policy: &ontoschema.PolicyHint{Reason: "Assigned at kickoff"},
 		}},
 	}}}
 	resolver := defaultSourceResolver{opts: ServiceOptions{Schema: schema}}

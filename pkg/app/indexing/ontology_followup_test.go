@@ -1,6 +1,7 @@
 package indexing
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
@@ -15,7 +16,7 @@ func TestOntologyFollowupNeededSkipsCleanNoOp(t *testing.T) {
 }
 
 func TestOntologyFollowupEmbeddingRequestUsesUpdatedProjection(t *testing.T) {
-	schema := &ontology.Schema{}
+	schema := &ontoschema.Schema{}
 	result := &ontology.SyncResult{Schema: schema, Rebuilt: true}
 
 	request, ok := ontologyFollowupEmbeddingRequest(result, []string{"notes/changed.md"}, []string{"notes/deleted.md"})

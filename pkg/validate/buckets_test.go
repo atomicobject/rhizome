@@ -54,7 +54,7 @@ type Spec @node(paths: ["docs/*.md"]) {
 		NoteMetadata: testNoteMetadata(t),
 	}
 
-	result := RunCheck(context.Background(), runCtx, Options{MaxIssues: 1}, CheckOntology)
+	result := preparedCheck(t, context.Background(), runCtx, ScanOptions{MaxIssues: 1}, CheckOntology)
 
 	require.Empty(t, result.Error)
 	require.Equal(t, 2, result.IssueCount)

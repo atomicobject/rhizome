@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/spf13/cobra"
 )
 
-func newAgentNoteRenameHeadingCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentNoteRenameHeadingCmd() *cobra.Command {
 	var apply bool
 	var upgrade string
 	var fallback string
@@ -21,7 +21,7 @@ func newAgentNoteRenameHeadingCmd() *cobra.Command {
 				writeAgentError(fmt.Errorf(`{"code":"apply_requires_read_write","message":"agent note-rename-heading is read-only; use write-capable MCP or rzm note rename-heading --apply"}`))
 				return silentExitError{code: 1}
 			}
-			result, err := executeRenameHeading(cmd.Context(), actions.RenameHeadingParams{
+			result, err := commandOptions.executeRenameHeading(cmd.Context(), actions.RenameHeadingParams{
 				Path:             args[0],
 				OldHeading:       args[1],
 				NewHeading:       args[2],

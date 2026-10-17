@@ -1,73 +1,11 @@
 package obsidian
 
 import (
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"path/filepath"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/paths"
 )
-
-// MdLinkType represents the type of standard markdown link.
-type MdLinkType string
-
-const (
-	MdLinkTypeBasic   MdLinkType = "basic"
-	MdLinkTypeHeading MdLinkType = "heading"
-	MdLinkTypeEmbed   MdLinkType = "embed"
-)
-
-// MdLink represents a parsed standard markdown link.
-type MdLink struct {
-	Target   string     // The link target (path, possibly with anchor)
-	Text     string     // The link text or alt text for images
-	LinkType MdLinkType // Type of link (basic, heading, embed)
-}
-
-// MdLinkOptions defines options for extracting markdown links.
-type MdLinkOptions struct {
-	SkipAnchors bool // Skip links containing anchors (# symbol)
-	SkipEmbeds  bool // Skip embedded links (images: ![alt](path))
-}
-
-// DefaultMdLinkOptions provides standard options for markdown link extraction.
-var DefaultMdLinkOptions = MdLinkOptions{
-	SkipAnchors: false,
-	SkipEmbeds:  false,
-}
-
-// ExtractMdLinks extracts standard markdown links from content.
-// This handles [text](path) and ![alt](path) syntax.
-func ExtractMdLinks(content string, options MdLinkOptions) []string {
-	details := scanMdLinks(content, options)
-	var links []string
-	for _, d := range details {
-		links = append(links, d.Target)
-	}
-	return links
-}
-
-// ScanMdLinks parses markdown links and image embeds from content.
-func scanMdLinks(content string, options MdLinkOptions) []MdLink {
-	spans := scanStructuredMarkdownLinks(content, options, markdownProtectedSpans(content))
-	links := make([]MdLink, 0, len(spans))
-	for _, detail := range spans {
-		target := detail.Target
-		if detail.markdownBody != "" {
-			target = detail.markdownBody
-		}
-		link := MdLink{Target: filepath.ToSlash(target), Text: detail.Display}
-		switch {
-		case detail.Embed:
-			link.LinkType = MdLinkTypeEmbed
-		case detail.FragmentSpan.Valid():
-			link.LinkType = MdLinkTypeHeading
-		default:
-			link.LinkType = MdLinkTypeBasic
-		}
-		links = append(links, link)
-	}
-	return links
-}
 
 // ResolveMdLink resolves a markdown link target to an actual note path.
 // It handles relative paths and anchors.
@@ -81,11 +19,34 @@ func (c *NotePathCache) ResolveMdLink(link string, fromNote string) (string, boo
 
 // ResolveMdLinkTarget returns the resolved note path plus any trailing fragment.
 func (c *NotePathCache) ResolveMdLinkTarget(link string, fromNote string) (ResolvedNoteTarget, bool) {
-	target, fragment := SplitMarkdownTarget(link)
+	candidates := c.ResolveMdLinkCandidates(link, fromNote)
+	if len(candidates) != 1 {
+		return ResolvedNoteTarget{}, false
+	}
+	return candidates[0], true
+}
+
+// ResolveMdLinkCandidates returns canonical Markdown targets, preserving ambiguity
+// and rejecting invalid authored paths before any basename or alias fallback.
+func (c *NotePathCache) ResolveMdLinkCandidates(link string, fromNote string) []ResolvedNoteTarget {
+	target, fragment := markdownsyntax.SplitMarkdownTarget(link)
 
 	// If empty after removing anchor, it's a same-file anchor link
 	if target == "" {
-		return ResolvedNoteTarget{Path: fromNote, Fragment: fragment}, true
+		return []ResolvedNoteTarget{{Path: fromNote, Fragment: fragment}}
+	}
+	target = strings.TrimSpace(target)
+	// Classify the decoded authored spelling before cleaning can erase a URI
+	// authority or drive segment. Colon paths have only cached exact authority.
+	if len(target)-len(strings.TrimLeft(target, "/\\")) > 1 {
+		return nil
+	}
+	authoredPath := strings.TrimPrefix(target, "/")
+	firstSeparator := strings.IndexAny(authoredPath, ":/\\")
+	exactOnly := firstSeparator >= 0 && authoredPath[firstSeparator] == ':'
+	authoredTarget := paths.Normalize(authoredPath).String()
+	if exactOnly && authoredTarget != authoredPath {
+		return nil
 	}
 
 	// Handle relative paths
@@ -97,74 +58,41 @@ func (c *NotePathCache) ResolveMdLinkTarget(link string, fromNote string) (Resol
 	}
 
 	// Normalize the path
-	target = string(paths.Normalize(target))
+	target = paths.Normalize(strings.TrimSpace(strings.TrimPrefix(target, "/"))).String()
+
+	if _, err := paths.CleanRelPath(target); err != nil {
+		firstSeparator := strings.IndexAny(target, ":/\\")
+		if firstSeparator < 0 || target[firstSeparator] != ':' {
+			return nil
+		}
+		exactOnly = true
+	}
 
 	// An authored Markdown path is stronger evidence than a basename. Keep
 	// root-relative targets such as README.md resolvable even when many nested
 	// notes share that basename.
 	if canonical, ok := c.ResolveExplicitPath(target); ok {
-		return ResolvedNoteTarget{Path: canonical, Fragment: fragment}, true
+		return []ResolvedNoteTarget{{Path: canonical, Fragment: fragment}}
+	}
+	if exactOnly {
+		if c == nil {
+			return nil
+		}
+		if candidates := c.explicitPathCandidates[paths.LinkKey(target)]; len(candidates) > 0 {
+			return c.targets(exactPathCandidates(candidates, target, true), fragment)
+		}
+		// Cached authored colon paths permit exact extensionless lookup, never basename or alias fallback.
+		var exact []string
+		for _, candidate := range c.pathCandidates[paths.LinkKey(target)] {
+			if paths.LinkKey(strings.TrimSuffix(candidate, filepath.Ext(candidate))) == paths.LinkKey(target) {
+				exact = append(exact, candidate)
+			}
+		}
+		return c.targets(exactPathCandidates(exact, target, false), fragment)
 	}
 	candidates := c.resolveNotePathCandidates(target, fragment)
-	if len(candidates) != 1 {
-		return ResolvedNoteTarget{}, false
+	if len(candidates) == 0 && target != authoredTarget {
+		candidates = c.resolveNotePathCandidates(authoredTarget, fragment)
 	}
-	return candidates[0], true
-}
-
-// ExtractAllLinks extracts both wikilinks and markdown links from content.
-// Returns a unified list of link targets.
-func ExtractAllLinks(content string, wikiOpts WikilinkOptions, mdOpts MdLinkOptions) []string {
-	seen := make(map[string]bool)
-	var links []string
-
-	// Extract wikilinks
-	for _, link := range ExtractWikilinks(content, wikiOpts) {
-		if !seen[link] {
-			seen[link] = true
-			links = append(links, link)
-		}
-	}
-
-	// Extract markdown links
-	for _, link := range ExtractMdLinks(content, mdOpts) {
-		if !seen[link] {
-			seen[link] = true
-			links = append(links, link)
-		}
-	}
-
-	return links
-}
-
-// LinkDetail represents a unified link from any source (wikilink or markdown).
-type LinkDetail struct {
-	Target   string
-	LinkType string // "wikilink" or "mdlink"
-	Subtype  string // "basic", "alias", "heading", "block", "embed"
-}
-
-// ScanAllLinks extracts both wikilinks and markdown links with type information.
-func ScanAllLinks(content string, wikiOpts WikilinkOptions, mdOpts MdLinkOptions) []LinkDetail {
-	var details []LinkDetail
-
-	// Scan wikilinks
-	for _, wl := range scanWikilinks(content, wikiOpts) {
-		details = append(details, LinkDetail{
-			Target:   wl.Target,
-			LinkType: "wikilink",
-			Subtype:  string(wl.LinkType),
-		})
-	}
-
-	// Scan markdown links
-	for _, ml := range scanMdLinks(content, mdOpts) {
-		details = append(details, LinkDetail{
-			Target:   ml.Target,
-			LinkType: "mdlink",
-			Subtype:  string(ml.LinkType),
-		})
-	}
-
-	return details
+	return candidates
 }

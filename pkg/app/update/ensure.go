@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 const (
@@ -26,7 +26,7 @@ type EnsureOptions struct {
 	// CfgDir is the repo root containing .rhizome/config.yml.
 	CfgDir string
 	// Config is the parsed repo config carrying the rhizome.version pin.
-	Config *obsidian.LocalConfig
+	Config *repoconfig.LocalConfig
 	// ManifestURL optionally overrides the latest GitHub Release API URL. When
 	// empty, RZM_UPDATE_MANIFEST_URL and the public repository apply, matching
 	// `rzm update`.
@@ -41,7 +41,8 @@ type EnsureOptions struct {
 	// LockTimeout bounds how long to wait on a held install lock.
 	LockTimeout time.Duration
 	// LockPoll is the sleep between lock acquisition attempts.
-	LockPoll time.Duration
+	LockPoll  time.Duration
+	lockClock installLockClock
 }
 
 // EnsurePinnedBinary installs the exact repo-pinned Rhizome version to the
@@ -131,7 +132,11 @@ func pinnedBinaryCurrent(target, pin string) bool {
 // waited, in which case no lock is held and no install is needed.
 func acquireInstallLock(ctx context.Context, opts EnsureOptions, target, pin string) (release func() error, satisfied bool, err error) {
 	lockPath := filepath.Join(opts.CfgDir, ".rhizome", installLockName)
-	deadline := time.Now().Add(opts.LockTimeout)
+	clock := opts.lockClock
+	if clock == nil {
+		clock = wallInstallLockClock{}
+	}
+	deadline := clock.Now().Add(opts.LockTimeout)
 	waited := false
 	for {
 		release, acquired, err := indexlock.TryAcquire(lockPath)
@@ -144,17 +149,15 @@ func acquireInstallLock(ctx context.Context, opts EnsureOptions, target, pin str
 		if pinnedBinaryCurrent(target, pin) {
 			return nil, true, nil
 		}
-		if time.Now().After(deadline) {
+		if clock.Now().After(deadline) {
 			return nil, false, fmt.Errorf("another rzm process holds %s; wait for it to finish or run `rzm update --pinned`", lockPath)
 		}
 		if !waited {
 			waited = true
 			fmt.Fprintf(opts.Progress, "rzm: waiting for another rzm process to finish installing Rhizome %s…\n", pin)
 		}
-		select {
-		case <-ctx.Done():
-			return nil, false, ctx.Err()
-		case <-time.After(opts.LockPoll):
+		if err := clock.Wait(ctx, opts.LockPoll); err != nil {
+			return nil, false, err
 		}
 	}
 }

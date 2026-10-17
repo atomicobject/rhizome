@@ -20,8 +20,8 @@ func TestWithIndexTimingsPrintsSummary(t *testing.T) {
 
 	phaseCtx := indexingperf.WithPhase(ctx, "embed_notes")
 	done := indexingperf.StartSpan(phaseCtx, "embed_notes")
-	indexingperf.ObserveLatency(phaseCtx, "provider.latency", 15*time.Millisecond)
-	indexingperf.AddCount(phaseCtx, "semantic.chunks", 4)
+	indexingperf.ObserveLatency(phaseCtx, indexingperf.ProviderLatency, 15*time.Millisecond)
+	indexingperf.AddCount(phaseCtx, indexingperf.SemanticChunks, 4)
 	done(nil)
 
 	finish(nil)
@@ -41,7 +41,7 @@ func TestWithIndexTimingsPersistsSilentFailedAndSuccessfulAttempts(t *testing.T)
 	recorder, err := diagnostics.Open(root, diagnostics.Options{Stderr: &warnings})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, recorder.Close()) })
-	collector := indexingperf.NewBounded()
+	collector := indexingperf.New()
 	base := indexingperf.WithCollector(diagnostics.WithRecorder(context.Background(), recorder), collector)
 	var out bytes.Buffer
 	ctx, finish := withIndexTimings(base, &out, false, indexDiagnosticOptions{Trigger: "rebuild", Rebuild: true})
@@ -90,15 +90,15 @@ func TestWithIndexTimingsIncludesOntologyPhasesAndCounters(t *testing.T) {
 
 	computeCtx := indexingperf.WithPhase(ctx, "compute_ontology")
 	doneCompute := indexingperf.StartSpan(computeCtx, "compute_ontology")
-	indexingperf.AddCount(computeCtx, "ontology.notes_considered", 3)
-	indexingperf.AddCount(computeCtx, "ontology.notes_skipped", 1)
-	indexingperf.AddCount(computeCtx, "ontology.notes_assessed", 2)
-	indexingperf.AddCount(computeCtx, "ontology.relations", 4)
+	indexingperf.AddCount(computeCtx, indexingperf.OntologyNotesConsidered, 3)
+	indexingperf.AddCount(computeCtx, indexingperf.OntologyNotesSkipped, 1)
+	indexingperf.AddCount(computeCtx, indexingperf.OntologyNotesAssessed, 2)
+	indexingperf.AddCount(computeCtx, indexingperf.OntologyRelations, 4)
 	doneCompute(nil)
 
 	writeCtx := indexingperf.WithPhase(ctx, "write_ontology")
 	doneWrite := indexingperf.StartSpan(writeCtx, "write_ontology")
-	indexingperf.AddCount(writeCtx, "ontology.delta_rows", 7)
+	indexingperf.AddCount(writeCtx, indexingperf.OntologyDeltaRows, 7)
 	indexingperf.ObserveDBWrite(indexingperf.WithOp(writeCtx, "intel.apply_ontology_delta"), "intel-store", 0, 2*time.Millisecond)
 	doneWrite(nil)
 

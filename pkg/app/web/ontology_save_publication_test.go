@@ -35,7 +35,7 @@ func TestOntologySavePublishesFreshReadDomainsOnce(t *testing.T) {
 		require.Equal(t, GlobalEventNodeChanged, event.Kind)
 		data := event.Data.(NodeChangedEventData)
 		require.Equal(t, []string{"specs/100-demo/plan.md"}, data.Paths)
-		require.ElementsMatch(t, []string{"metadata", "links", "markdown_targets", "ontology"}, data.Domains)
+		require.ElementsMatch(t, []string{"metadata", "ontology"}, data.Domains)
 	default:
 		t.Fatal("save did not publish freshness before returning")
 	}

@@ -3,9 +3,10 @@ package indexing
 import (
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,10 +54,10 @@ func TestPersistCodeEmbeddingsConfig_PreservesExplicitDisable(t *testing.T) {
 
 	vault := t.TempDir()
 
-	initial := obsidian.LocalConfig{
+	initial := repoconfig.LocalConfig{
 		CodeEmbeddings: &embeddings.Config{Enabled: false, Provider: "code", Model: "code-model"},
 	}
-	if err := obsidian.SaveLocalConfig(vault, initial); err != nil {
+	if err := repoconfig.SaveLocalConfig(vault, initial); err != nil {
 		t.Fatalf("seed config: %v", err)
 	}
 
@@ -69,7 +70,7 @@ func TestPersistCodeEmbeddingsConfig_PreservesExplicitDisable(t *testing.T) {
 		t.Fatalf("persist: %v", err)
 	}
 
-	reloaded, err := obsidian.LoadLocalConfig(vault)
+	reloaded, err := repoconfig.LoadLocalConfig(vault)
 	if err != nil {
 		t.Fatalf("reload: %v", err)
 	}

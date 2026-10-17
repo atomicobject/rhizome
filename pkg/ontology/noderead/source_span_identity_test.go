@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -26,7 +28,7 @@ type AcceptanceCriterion implements Section @node(locator: EMBEDDED) {
 func TestScopeHydrateRelocatesUnanchoredItemByContentIdentity(t *testing.T) {
 	ctx := context.Background()
 	vaultDef, store, schema := buildFixture(t, sourceSpanIdentitySchema, "# Product\n\n## Acceptance Criteria\n\n- First item\n- Target item\n")
-	initial := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{})
+	initial := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
 	items, err := initial.TypeInstances(ctx, TypeInstancesRequest{TypeName: "AcceptanceCriterion"})
 	require.NoError(t, err)
 	require.Len(t, items.Items, 2)
@@ -35,12 +37,12 @@ func TestScopeHydrateRelocatesUnanchoredItemByContentIdentity(t *testing.T) {
 	require.NotEmpty(t, targetRef.Structural)
 
 	writeFixtureNote(t, vaultDef.Path, "specs/product.md", "# Product\n\n## Acceptance Criteria\n\n- First item\n- Other! item\n- Target item\n")
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
-	for _, profile := range []HydrateProfile{HydrateContent, HydrateIdentity, HydrateSummary} {
+	for _, profile := range []HydrateProfile{HydrateContent, HydrateSummary} {
 		t.Run(string(profile), func(t *testing.T) {
-			scope := NewService(vaultDef, &obsidian.Note{}, store, runtime.Schema).NewScope(ctx, ScopeOptions{})
+			scope := NewService(vaultDef, &obsidian.Note{}, store, runtime.Schema).NewScope(ScopeOptions{})
 			records, err := scope.Hydrate(ctx, []ontology.NodeRef{targetRef}, HydrateOptions{Profile: profile})
 			require.NoError(t, err)
 			require.Len(t, records, 1)
@@ -53,13 +55,13 @@ func TestScopeHydrateRelocatesUnanchoredItemByContentIdentity(t *testing.T) {
 func TestScopeHydrateUsesCatalogForCurrentPositionalIdentity(t *testing.T) {
 	ctx := context.Background()
 	vaultDef, store, schema := buildFixture(t, sourceSpanIdentitySchema, "# Product\n\n## Acceptance Criteria\n\n- Target item\n")
-	listingScope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{})
+	listingScope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
 	items, err := listingScope.TypeInstances(ctx, TypeInstancesRequest{TypeName: "AcceptanceCriterion"})
 	require.NoError(t, err)
 	require.Len(t, items.Items, 1)
 
-	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{})
-	records, err := scope.Hydrate(ctx, []ontology.NodeRef{items.Items[0].Ref}, HydrateOptions{Profile: HydrateIdentity})
+	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
+	records, err := scope.Hydrate(ctx, []ontology.NodeRef{items.Items[0].Ref}, HydrateOptions{Profile: HydrateSummary})
 	require.NoError(t, err)
 	require.Len(t, records, 1)
 	require.Equal(t, 1, scope.Diagnostics().CatalogHits)
@@ -69,20 +71,20 @@ func TestScopeHydrateUsesCatalogForCurrentPositionalIdentity(t *testing.T) {
 func TestScopeHydrateRejectsDuplicateUnanchoredContentIdentity(t *testing.T) {
 	ctx := context.Background()
 	vaultDef, store, schema := buildFixture(t, sourceSpanIdentitySchema, "# Product\n\n## Acceptance Criteria\n\n- First item\n- Target item\n")
-	initial := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{})
+	initial := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
 	items, err := initial.TypeInstances(ctx, TypeInstancesRequest{TypeName: "AcceptanceCriterion"})
 	require.NoError(t, err)
 	targetRef := items.Items[1].Ref
 
 	writeFixtureNote(t, vaultDef.Path, "specs/product.md", "# Product\n\n## Acceptance Criteria\n\n- First item\n- Target item\n- Target item\n")
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
-	scope := NewService(vaultDef, &obsidian.Note{}, store, runtime.Schema).NewScope(ctx, ScopeOptions{})
+	scope := NewService(vaultDef, &obsidian.Note{}, store, runtime.Schema).NewScope(ScopeOptions{})
 	listed, listErr := scope.TypeInstances(ctx, TypeInstancesRequest{TypeName: "AcceptanceCriterion"})
 	require.NoError(t, listErr)
 	require.Len(t, listed.Items, 3)
-	_, err = scope.Hydrate(ctx, []ontology.NodeRef{targetRef}, HydrateOptions{Profile: HydrateIdentity})
+	_, err = scope.Hydrate(ctx, []ontology.NodeRef{targetRef}, HydrateOptions{Profile: HydrateSummary})
 	require.ErrorIs(t, err, ontology.ErrAmbiguousSourceSpanIdentity)
 }
 
@@ -96,7 +98,7 @@ func TestScopeReadOverlayTypeInstancesListsDuplicateUnanchoredContent(t *testing
 		},
 		TouchedPaths: []string{"specs/product.md"},
 	}
-	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{
+	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{
 		ReadOverlay: overlay,
 	})
 
@@ -110,19 +112,19 @@ func TestScopeReadOverlayTypeInstancesListsDuplicateUnanchoredContent(t *testing
 func TestScopeHydratePreservesUnanchoredIdentityAfterBlockIDInsertion(t *testing.T) {
 	ctx := context.Background()
 	vaultDef, store, schema := buildFixture(t, sourceSpanIdentitySchema, "# Product\n\n## Acceptance Criteria\n\n- Target item\n")
-	initial := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{})
+	initial := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
 	items, err := initial.TypeInstances(ctx, TypeInstancesRequest{TypeName: "AcceptanceCriterion"})
 	require.NoError(t, err)
 	require.Len(t, items.Items, 1)
 	targetRef := items.Items[0].Ref
 
 	writeFixtureNote(t, vaultDef.Path, "specs/product.md", "# Product\n\n## Acceptance Criteria\n\n- Target item ^target-item\n")
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
-	for _, profile := range []HydrateProfile{HydrateContent, HydrateIdentity, HydrateSummary} {
+	for _, profile := range []HydrateProfile{HydrateContent, HydrateSummary} {
 		t.Run(string(profile), func(t *testing.T) {
-			scope := NewService(vaultDef, &obsidian.Note{}, store, runtime.Schema).NewScope(ctx, ScopeOptions{})
+			scope := NewService(vaultDef, &obsidian.Note{}, store, runtime.Schema).NewScope(ScopeOptions{})
 			records, err := scope.Hydrate(ctx, []ontology.NodeRef{targetRef}, HydrateOptions{Profile: profile})
 			require.NoError(t, err)
 			require.Len(t, records, 1)

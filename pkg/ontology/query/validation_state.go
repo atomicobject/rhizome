@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
@@ -160,7 +161,7 @@ func (e *executor) resolveValidationCheckSelectionSet(ctx context.Context, gener
 						Generation: generation, Limit: issuesFirst,
 						Filter: semdb.ValidationDiagnosticFilter{
 							Check: check.Name, ScopeKind: validationPageScopeKind(scope), ScopeKey: scope.Key,
-							InterfaceImplementors: ontology.InterfaceImplementors(e.schema),
+							InterfaceImplementors: ontoschema.InterfaceImplementors(e.schema),
 						},
 					})
 					if err != nil {

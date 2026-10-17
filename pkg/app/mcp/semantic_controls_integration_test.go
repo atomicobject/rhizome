@@ -3,16 +3,17 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
@@ -34,6 +35,8 @@ func TestSemanticQueryControlsPersistAcrossContinuationAndCompactEveryRepresenta
 	addCurrentNoteOwnership(t, store, "Notes/Run.md")
 
 	tool := SemanticQueryTool(Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:         vaultPath,
 		VaultDef:          obsidian.VaultDefinition{Path: vaultPath},
 		IntelStore:        store,
@@ -78,9 +81,11 @@ func TestSemanticQueryControlsPersistAcrossContinuationAndCompactEveryRepresenta
 		require.NotContains(t, item.Path, "Notes/Run.md")
 	}
 	direct, err := SemanticQueryUnifiedWithOptions(context.Background(), Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath: vaultPath, VaultDef: obsidian.VaultDefinition{Path: vaultPath}, IntelStore: store,
 		EmbeddingsOn: true, EmbedProvider: provider, CodeEmbeddingsOn: true, CodeEmbedProvider: provider,
-	}, SemanticQueryOptions{Profile: searchapplication.ProfileAgent, Query: "pkg.Service.Run", Scope: "code", Limit: 20, BudgetChars: DefaultBudgetChars(), RequireExactSymbol: true, ExcludeTests: true})
+	}, SemanticQueryOptions{Profile: searchapplication.ProfileAgent, Query: "pkg.Service.Run", Scope: "code", Limit: 20, BudgetChars: repoconfig.DefaultBudgetChars, RequireExactSymbol: true, ExcludeTests: true})
 	require.NoError(t, err)
 	require.Equal(t, semanticMatchPaths(direct.Matches), semanticMatchPaths(detailed.Matches))
 
@@ -123,6 +128,8 @@ func TestSemanticQueryNoteTypeExcludesPromotedCodeResults(t *testing.T) {
 	}}))
 
 	response, err := SemanticQueryUnifiedWithOptions(context.Background(), Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:         vaultPath,
 		VaultDef:          obsidian.VaultDefinition{Path: vaultPath},
 		IntelStore:        store,
@@ -154,6 +161,8 @@ func TestSemanticQueryNoteTypeExcludesExplicitSeedsWithAnotherOwningType(t *test
 	}}))
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:     vaultPath,
 		VaultDef:      obsidian.VaultDefinition{Path: vaultPath},
 		IntelStore:    store,
@@ -218,7 +227,9 @@ func TestCompactSessionHandlerDedupesPrefixAndAllowsLargerBody(t *testing.T) {
 	store := newIntelStore(t)
 	addAnchor(t, store, provider, "pkg/service.go", "Run", "pkg.Service.Run", "anchor-run", "chunk-run")
 	require.NoError(t, store.ReplaceIntelCodeFile(context.Background(), "pkg/service.go", []codeanchor.IntelAnchor{{AnchorID: "anchor-run", Lang: codeanchor.LangGo, Kind: "function", Path: "pkg/service.go", Symbol: "Run", FQN: "pkg.Service.Run", Signature: "func Run()", StartLine: 3, EndLine: 94, Fingerprint: "fp-code"}}, nil, nil))
-	cfg := Config{VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}, IntelStore: store, SessionStore: store, EmbeddingsOn: true, EmbedProvider: provider, CodeEmbeddingsOn: true, CodeEmbedProvider: provider}
+	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+		VaultPath:    root, VaultDef: obsidian.VaultDefinition{Path: root}, IntelStore: store, SessionStore: store, EmbeddingsOn: true, EmbedProvider: provider, CodeEmbeddingsOn: true, CodeEmbedProvider: provider}
 	call := func(budget int) semanticQueryResponse {
 		cfg.BudgetCharsOverride = budget
 		return callSemanticQuery(t, SemanticQueryTool(cfg), map[string]any{"queries": []any{map[string]any{"text": "pkg.Service.Run", "mode": "go_to_def"}}, "scope": "code", "compact": true, "sessionId": "handler-prefix"})

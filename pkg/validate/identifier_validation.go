@@ -3,11 +3,13 @@ package validate
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/diag"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type identifierAliasMirrorMissing struct {
@@ -32,7 +34,7 @@ func runAliasesWithRuntime(ctx context.Context, runCtx RunContext, runtime *onto
 			if f == nil || !f.IsIdentifier {
 				continue
 			}
-			if f.SourceKind != ontology.FieldSourceFrontmatter {
+			if f.SourceKind != ontoschema.FieldSourceFrontmatter {
 				continue
 			}
 			source := strings.ToLower(strings.TrimSpace(f.Source))
@@ -42,7 +44,7 @@ func runAliasesWithRuntime(ctx context.Context, runCtx RunContext, runtime *onto
 			identifierFieldsByType[typeName] = append(identifierFieldsByType[typeName], identifierField{
 				FieldName:      f.Name,
 				Source:         source,
-				AuthoredSource: strings.TrimSpace(firstNonEmpty(f.Source, f.Name)),
+				AuthoredSource: strings.TrimSpace(firstNonEmptyString(f.Source, f.Name)),
 				Preferred:      f.IsPreferredIdentifier,
 				Required:       f.Required,
 			})
@@ -50,8 +52,8 @@ func runAliasesWithRuntime(ctx context.Context, runCtx RunContext, runtime *onto
 		}
 	}
 	if len(identifierFieldsByType) == 0 {
-		result.Skipped = true
-		result.Summary = "no @identifier fields"
+		result.NotApplicable = "no @identifier fields"
+		result.Summary = result.NotApplicable
 		return result
 	}
 
@@ -158,7 +160,7 @@ func runAliasesWithRuntime(ctx context.Context, runCtx RunContext, runtime *onto
 	reservedIdentifiers := make(map[string]struct{})
 	for _, values := range identifierValuesByNote {
 		for _, value := range values {
-			reservedIdentifiers[ontology.NormalizeIdentifierSemanticValue(value)] = struct{}{}
+			reservedIdentifiers[ontoschema.NormalizeIdentifierSemanticValue(value)] = struct{}{}
 		}
 	}
 
@@ -221,13 +223,13 @@ func runAliasesWithRuntime(ctx context.Context, runCtx RunContext, runtime *onto
 			issue.Key = issueKey
 			issues = append(issues, issue)
 			if len(aliasList) == 1 {
-				identifierKey := ontology.NormalizeIdentifierSemanticValue(aliasList[0])
+				identifierKey := ontoschema.NormalizeIdentifierSemanticValue(aliasList[0])
 				if _, reserved := reservedIdentifiers[identifierKey]; reserved {
 					continue
 				}
 				result.Fixes = append(result.Fixes, FixAction{
 					ID:            "identifier-from-alias:" + notePath + ":" + field.FieldName,
-					Check:         CheckAliases,
+					Check:         CheckIdentifiers,
 					IssueCode:     "missing_required_field",
 					Kind:          FixKindSetFrontmatter,
 					Safety:        FixSafetySafe,
@@ -248,13 +250,13 @@ func runAliasesWithRuntime(ctx context.Context, runCtx RunContext, runtime *onto
 			}
 			candidate := IdentifierCandidateFromPath(notePath)
 			if field.Required && candidate != "" && len(aliasList) == 0 {
-				identifierKey := ontology.NormalizeIdentifierSemanticValue(candidate)
+				identifierKey := ontoschema.NormalizeIdentifierSemanticValue(candidate)
 				if _, reserved := reservedIdentifiers[identifierKey]; reserved {
 					continue
 				}
 				result.Fixes = append(result.Fixes, FixAction{
 					ID:            "identifier-from-path:" + notePath + ":" + field.FieldName,
-					Check:         CheckAliases,
+					Check:         CheckIdentifiers,
 					IssueCode:     "missing_required_field",
 					Kind:          FixKindSetFrontmatter,
 					Safety:        FixSafetyConfirm,
@@ -294,7 +296,7 @@ func identifierAliasMirrorOutput(m identifierAliasMirrorMissing) (Issue, FixActi
 		Target:  m.Value,
 		Source:  m.Source,
 		Message: fmt.Sprintf("%s note %q declares %s=%q but aliases: list does not contain %q", m.Type, m.Path, m.FieldName, m.Value, m.Value),
-		Variant: newIssueVariant(ontology.TypeFieldVariant(m.Type, m.FieldName)),
+		Variant: diag.NewVariant(ontology.TypeFieldVariant(m.Type, m.FieldName)),
 	}
 	issueKey, err := StableIssueKey(CheckIdentifiers, issue)
 	if err != nil {
@@ -303,7 +305,7 @@ func identifierAliasMirrorOutput(m identifierAliasMirrorMissing) (Issue, FixActi
 	issue.Key = issueKey
 	return issue, FixAction{
 		ID:            "alias-mirror:" + m.Path + ":" + m.FieldName + ":" + m.Value,
-		Check:         CheckAliases,
+		Check:         CheckIdentifiers,
 		IssueCode:     "identifier_not_in_aliases",
 		Kind:          FixKindAppendAlias,
 		Safety:        FixSafetySafe,
@@ -327,13 +329,4 @@ func assessmentHasIssue(issues []ontology.ValidationIssue, code string) bool {
 		}
 	}
 	return false
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
 }

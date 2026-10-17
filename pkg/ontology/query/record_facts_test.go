@@ -3,14 +3,15 @@ package query
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -131,7 +132,7 @@ type A @node(paths: ["a/*.md"]) { name: String }
 			root := t.TempDir()
 			writeQueryTestConfig(t, root)
 			writeQueryTestSchema(t, root, tc.schema)
-			schema, err := ontology.LoadSchema(root)
+			schema, err := ontoschema.LoadSchema(root)
 			require.NoError(t, err)
 			execSchema, err := BuildExecutableSchema(schema)
 			require.NoError(t, err)

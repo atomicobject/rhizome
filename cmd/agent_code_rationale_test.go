@@ -3,12 +3,14 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"path/filepath"
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,21 +25,21 @@ func TestAgentCodeRationaleCommandReturnsJSON(t *testing.T) {
 	require.NoError(t, err)
 	defer store.Close()
 
-	require.NoError(t, store.ReplaceRationaleForPath(context.Background(), "pkg/a.go", []codeanchor.Rationale{
+	require.NoError(t, store.ReplaceRationaleForPath(vaultconfig.WithEnv(context.Background(), vault.env), "pkg/a.go", []codeanchor.Rationale{
 		{ID: "todo-a", Path: "pkg/a.go", Kind: codeanchor.RationaleTodo, Content: "TODO: keep this", StartLine: 2, EndLine: 2, Fingerprint: "fp-a"},
 	}))
-	require.NoError(t, store.ReplaceRationaleForPath(context.Background(), "pkg/b.go", []codeanchor.Rationale{
+	require.NoError(t, store.ReplaceRationaleForPath(vaultconfig.WithEnv(context.Background(), vault.env), "pkg/b.go", []codeanchor.Rationale{
 		{ID: "note-b", Path: "pkg/b.go", Kind: codeanchor.RationaleNote, Content: "NOTE: ignore this", StartLine: 3, EndLine: 3, Fingerprint: "fp-b"},
 	}))
-	require.NoError(t, store.ReplaceRationaleForPath(context.Background(), "other/c.go", []codeanchor.Rationale{
+	require.NoError(t, store.ReplaceRationaleForPath(vaultconfig.WithEnv(context.Background(), vault.env), "other/c.go", []codeanchor.Rationale{
 		{ID: "todo-c", Path: "other/c.go", Kind: codeanchor.RationaleTodo, Content: "TODO: other dir", StartLine: 4, EndLine: 4, Fingerprint: "fp-c"},
 	}))
-	localCfg, err := obsidian.LoadLocalConfig(vault.path)
+	localCfg, err := repoconfig.LoadLocalConfig(vault.path)
 	require.NoError(t, err)
-	require.NoError(t, store.SetIndexerVersion(context.Background(), codeanchor.IndexerVersion))
-	require.NoError(t, store.SetScopeConfigHash(context.Background(), localCfg.ScopeConfigHash()))
+	require.NoError(t, store.SetIndexerVersion(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.IndexerVersion))
+	require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), localCfg.ScopeConfigHash()))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "code-rationale", "--vault", vault.name, "--path", "pkg", "--kind", "todo"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "code-rationale", "--vault", vault.name, "--path", "pkg", "--kind", "todo"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -51,15 +53,17 @@ func TestAgentCodeRationaleCommandReturnsJSON(t *testing.T) {
 }
 
 func TestAgentCodeRationaleCommandPreservesStaleIndexRemediation(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{"pkg/a.go": "package main\n"})
 	store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	require.NoError(t, store.SetIndexerVersion(context.Background(), codeanchor.IndexerVersion))
-	require.NoError(t, store.SetScopeConfigHash(context.Background(), "stale-scope"))
+	require.NoError(t, store.SetIndexerVersion(vaultconfig.WithEnv(context.Background(), vault.env), codeanchor.IndexerVersion))
+	require.NoError(t, store.SetScopeConfigHash(vaultconfig.WithEnv(context.Background(), vault.env), "stale-scope"))
 	require.NoError(t, store.Close())
 
-	vaultName = vault.name
-	_, stderr, err := runRootCLI(t, nil, []string{"agent", "code-rationale", "--vault", vault.name})
+	commandOptions.vaultName = vault.name
+	_, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "code-rationale", "--vault", vault.name})
 	require.Error(t, err)
 	var envelope map[string]string
 	require.NoError(t, json.Unmarshal([]byte(stderr), &envelope))

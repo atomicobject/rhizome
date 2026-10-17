@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 )
 
@@ -16,9 +18,9 @@ func newBootstrapCommand(name string, run func(context.Context, bootstrap.CodexP
 		Short: "Launch " + name + " CLI with managed Rhizome guidance and vault-aware context",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			selectedVault := vaultName
+			selectedVault := params.VaultName
 			if selectedVault == "" {
-				v := &obsidian.Vault{}
+				v := &repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config}
 				name, err := v.DefaultName()
 				if err != nil {
 					return err
@@ -32,6 +34,9 @@ func newBootstrapCommand(name string, run func(context.Context, bootstrap.CodexP
 			invocation := params
 			invocation.Task = task
 			invocation.VaultName = selectedVault
+			invocation.OnboardInstructions = func() (string, error) {
+				return initactions.LoadAgentHelperTemplate("skills/markdown/rhizome/references/onboarding.md")
+			}
 			return run(cmd.Context(), invocation)
 		},
 	}
@@ -44,6 +49,6 @@ func newBootstrapCommand(name string, run func(context.Context, bootstrap.CodexP
 	flags.BoolVar(&params.Debug, "debug", false, "print tool calls and response sizes without launching "+name)
 	flags.BoolVar(&params.DebugAll, "debug-all", false, "print tool calls plus full responses without launching "+name)
 	flags.IntVar(&params.BudgetChars, "budget-chars", 0, "max output size in characters (default from config)")
-	flags.StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
+	flags.StringVarP(&params.VaultName, "vault", "v", "", "vault name (not required if default is set)")
 	return cmd
 }

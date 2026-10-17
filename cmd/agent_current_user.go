@@ -3,13 +3,12 @@ package cmd
 import (
 	"context"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
-	"github.com/atomicobject/rhizome/pkg/ontology/query"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/vault/identity"
 	"github.com/spf13/cobra"
 )
 
-func newAgentCurrentUserCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCurrentUserCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "current-user",
 		Short: "Show, set, or validate the ignored per-vault current Person",
@@ -17,13 +16,13 @@ func newAgentCurrentUserCmd() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(newAgentCurrentUserShowCmd())
-	cmd.AddCommand(newAgentCurrentUserSetCmd())
-	cmd.AddCommand(newAgentCurrentUserValidateCmd())
+	cmd.AddCommand(commandOptions.newAgentCurrentUserShowCmd())
+	cmd.AddCommand(commandOptions.newAgentCurrentUserSetCmd())
+	cmd.AddCommand(commandOptions.newAgentCurrentUserValidateCmd())
 	return cmd
 }
 
-func newAgentCurrentUserShowCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCurrentUserShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show",
 		Short: "Show configured current-user identity",
@@ -32,7 +31,7 @@ func newAgentCurrentUserShowCmd() *cobra.Command {
 				writeAgentError(err)
 				return silentExitError{code: 1}
 			}
-			result, err := showCurrentUser(cmd.Context())
+			result, err := commandOptions.showCurrentUser(cmd.Context())
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}
@@ -42,7 +41,7 @@ func newAgentCurrentUserShowCmd() *cobra.Command {
 	}
 }
 
-func newAgentCurrentUserSetCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCurrentUserSetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "set <person-title-or-ref>",
 		Short: "Set current-user identity to a Person title or ref",
@@ -52,7 +51,7 @@ func newAgentCurrentUserSetCmd() *cobra.Command {
 				writeAgentError(err)
 				return silentExitError{code: 1}
 			}
-			result, err := setCurrentUser(cmd.Context(), args[0])
+			result, err := commandOptions.setCurrentUser(cmd.Context(), args[0])
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}
@@ -62,32 +61,32 @@ func newAgentCurrentUserSetCmd() *cobra.Command {
 	}
 }
 
-func currentUserService() actions.CurrentUserService {
-	return actions.CurrentUserService{Lookup: currentUserLookup}
+func (commandOptions *vaultCommandOptions) currentUserService() actions.CurrentUserService {
+	return actions.CurrentUserService{Lookup: commandOptions.currentUserLookup}
 }
 
-func showCurrentUser(ctx context.Context) (identity.Resolution, error) {
-	vaultDef, err := vaultDefOrDefaultContext(ctx)
+func (commandOptions *vaultCommandOptions) showCurrentUser(ctx context.Context) (identity.Resolution, error) {
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return identity.Resolution{}, err
 	}
-	return currentUserService().Show(vaultDef.BasePath())
+	return commandOptions.currentUserService().Show(vaultDef.BasePath())
 }
 
-func setCurrentUser(ctx context.Context, ref string) (identity.Resolution, error) {
-	vaultDef, err := vaultDefOrDefaultContext(ctx)
+func (commandOptions *vaultCommandOptions) setCurrentUser(ctx context.Context, ref string) (identity.Resolution, error) {
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return identity.Resolution{}, err
 	}
-	return currentUserService().Set(vaultDef.BasePath(), ref)
+	return commandOptions.currentUserService().Set(vaultDef.BasePath(), ref)
 }
 
-func newAgentCurrentUserValidateCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCurrentUserValidateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "validate",
 		Short: "Validate current-user identity resolves to Person",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			result, err := validateCurrentUser(cmd.Context())
+			result, err := commandOptions.validateCurrentUser(cmd.Context())
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}
@@ -97,21 +96,25 @@ func newAgentCurrentUserValidateCmd() *cobra.Command {
 	}
 }
 
-func validateCurrentUser(ctx context.Context) (identity.Resolution, error) {
-	vaultDef, err := vaultDefOrDefaultContext(ctx)
+func (commandOptions *vaultCommandOptions) validateCurrentUser(ctx context.Context) (identity.Resolution, error) {
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return identity.Resolution{}, err
 	}
-	return currentUserService().Validate(ctx, vaultDef.BasePath())
+	return commandOptions.currentUserService().Validate(ctx, vaultDef.BasePath())
 }
 
-func currentUserLookup(ctx context.Context, ref string) (actions.CurrentUserLookup, error) {
-	runtime, prepared, cleanup, err := prepareOntologyQuery(ctx, actions.CurrentUserLookupQuery, map[string]any{"ref": ref})
+func (commandOptions *vaultCommandOptions) currentUserLookup(ctx context.Context, ref string) (actions.CurrentUserLookup, error) {
+	runtime, prepared, cleanup, err := commandOptions.prepareOntologyQuery(ctx, actions.CurrentUserLookupQuery, map[string]any{"ref": ref})
 	if cleanup != nil {
 		defer cleanup()
 	}
 	if err != nil {
 		return actions.CurrentUserLookup{}, err
 	}
-	return actions.CurrentUserLookupFromQueryResult(query.ExecutePrepared(ctx, runtime.deps(), runtime.schema, runtime.execSchema, prepared))
+	result, err := runtime.run(ctx, prepared)
+	if err != nil {
+		return actions.CurrentUserLookup{}, err
+	}
+	return actions.CurrentUserLookupFromQueryResult(result)
 }

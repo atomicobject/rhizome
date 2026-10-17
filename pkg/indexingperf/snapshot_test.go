@@ -18,11 +18,11 @@ func TestSnapshotDoesNotConsumeWindowsOrExposeMutableState(t *testing.T) {
 	c.startedAt, control.startedAt = at, at
 	for _, collector := range []*Collector{c, control} {
 		ctx := WithPhase(WithCollector(context.Background(), collector), "embed_notes")
-		AddCount(ctx, "provider.calls", 2)
-		SetGauge(ctx, "provider.inflight", 1)
-		ObserveLatency(ctx, "provider.latency", time.Second)
-		ObserveSample(ctx, "provider.batch_texts", 3)
-		ObserveInterval(ctx, "provider.latency", at, time.Second)
+		AddCount(ctx, ProviderCalls, 2)
+		SetGauge(ctx, ProviderInflight, 1)
+		ObserveLatency(ctx, ProviderLatency, time.Second)
+		ObserveSample(ctx, ProviderBatchTexts, 3)
+		ObserveInterval(ctx, ProviderLatency, at, time.Second)
 		collector.RecordSpanWindow("embed_notes", at, at.Add(time.Second), nil)
 		ObserveDBWrite(WithOp(ctx, "flush"), "notes", time.Millisecond, 2*time.Millisecond)
 	}
@@ -41,7 +41,7 @@ func TestSnapshotDoesNotConsumeWindowsOrExposeMutableState(t *testing.T) {
 }
 
 func TestBoundedSnapshotRetainsExactTotalsAndMarksPartialDetail(t *testing.T) {
-	c := NewBounded(Limits{Series: 20, SamplesPerMetric: 3, IntervalsPerMetric: 2, LabelBytes: 30})
+	c := New(Limits{Series: 20, SamplesPerMetric: 3, IntervalsPerMetric: 2, LabelBytes: 30})
 	ctx := WithPhase(WithCollector(context.Background(), c), "work")
 	at := time.Unix(100, 0)
 	for i := 1; i <= 100; i++ {
@@ -75,21 +75,21 @@ func TestBoundedSnapshotRetainsExactTotalsAndMarksPartialDetail(t *testing.T) {
 }
 
 func TestBoundedCollectorCapsAllSeriesAndLabelStorage(t *testing.T) {
-	c := NewBounded(Limits{Series: 4, SamplesPerMetric: 2, IntervalsPerMetric: 2, LabelBytes: 20})
+	c := New(Limits{Series: 4, SamplesPerMetric: 2, IntervalsPerMetric: 2, LabelBytes: 20})
 	ctx := WithCollector(context.Background(), c)
 	AddCount(ctx, "admitted", 1)
 	for i := 0; i < 1000; i++ {
 		label := fmt.Sprintf("series%d", i)
-		AddCount(ctx, label, 1)
-		SetGauge(ctx, label, 1)
-		ObserveSample(ctx, label, 1)
-		ObserveLatency(ctx, label, time.Second)
-		ObserveInterval(ctx, label, time.Now(), time.Second)
+		AddCount(ctx, MetricName(label), 1)
+		SetGauge(ctx, MetricName(label), 1)
+		ObserveSample(ctx, MetricName(label), 1)
+		ObserveLatency(ctx, MetricName(label), time.Second)
+		ObserveInterval(ctx, MetricName(label), time.Now(), time.Second)
 		c.RecordSpan(label, time.Second, nil)
 		ObserveDBWrite(WithOp(ctx, label), "store", time.Second, time.Second)
 		ObserveProviderFingerprint(ctx, fmt.Sprintf("%064x", i))
 	}
-	AddCount(ctx, strings.Repeat("x", 21), 1)
+	AddCount(ctx, MetricName(strings.Repeat("x", 21)), 1)
 	AddCount(ctx, "admitted", 1)
 	snapshot := c.Snapshot()
 	require.Len(t, c.series, 4)
@@ -99,7 +99,7 @@ func TestBoundedCollectorCapsAllSeriesAndLabelStorage(t *testing.T) {
 }
 
 func TestSnapshotConcurrentObservationsRemainOperationScoped(t *testing.T) {
-	c, other := NewBounded(), NewBounded()
+	c, other := New(), New()
 	ctx := WithCollector(context.Background(), c)
 	var wg sync.WaitGroup
 	for worker := 0; worker < 8; worker++ {

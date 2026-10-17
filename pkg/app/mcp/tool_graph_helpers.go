@@ -3,16 +3,18 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"sort"
 	"strings"
 	"time"
 
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/vault/frontmatter"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
-func buildReverseNeighbors(nodes map[string]obsidian.GraphNode) map[string][]string {
+func buildReverseNeighbors(nodes map[string]vaultgraph.GraphNode) map[string][]string {
 	reverse := make(map[string][]string, len(nodes))
 	for path := range nodes {
 		reverse[path] = nil
@@ -28,7 +30,7 @@ func buildReverseNeighbors(nodes map[string]obsidian.GraphNode) map[string][]str
 	return reverse
 }
 
-func crossCommunityEdgeCounts(nodes map[string]obsidian.GraphNode, reverse map[string][]string, membership map[string]*obsidian.CommunitySummary) map[string]int {
+func crossCommunityEdgeCounts(nodes map[string]vaultgraph.GraphNode, reverse map[string][]string, membership map[string]*vaultgraph.CommunitySummary) map[string]int {
 	counts := make(map[string]int, len(nodes))
 
 	for src, node := range nodes {
@@ -80,7 +82,7 @@ func bridgePayloads(paths []string, counts map[string]int) []BridgePayload {
 	return out
 }
 
-func componentSummariesFromWeak(components [][]string, nodes map[string]obsidian.GraphNode, total int) []ComponentSummary {
+func componentSummariesFromWeak(components [][]string, nodes map[string]vaultgraph.GraphNode, total int) []ComponentSummary {
 	if len(components) == 0 {
 		return nil
 	}
@@ -114,7 +116,7 @@ func fractionOfVault(size int, total int) float64 {
 	return float64(size) / float64(total)
 }
 
-func authorityScoresToPayload(scores []obsidian.AuthorityScore, limit int, config Config, noteMgr obsidian.NoteReader) []AuthorityScorePayload {
+func authorityScoresToPayload(scores []vaultgraph.AuthorityScore, limit int, config Config, noteMgr obsidian.NoteReader) []AuthorityScorePayload {
 	if len(scores) == 0 {
 		return nil
 	}
@@ -137,7 +139,7 @@ func authorityScoresToPayload(scores []obsidian.AuthorityScore, limit int, confi
 		}
 		// Default behavior: surface lightweight title + blessed frontmatter
 		// so agents can decide whether to fetch the full note.
-		payload.Title = titleFromPath(s.Path)
+		payload.Title = paths.NoteTitle(s.Path)
 		if snapshot, ok := projected[s.Path]; ok {
 			if title := strings.TrimSpace(snapshot.Title); title != "" {
 				payload.Title = title
@@ -149,7 +151,7 @@ func authorityScoresToPayload(scores []obsidian.AuthorityScore, limit int, confi
 	return out
 }
 
-func authoritySourceSnapshots(scores []obsidian.AuthorityScore, config Config, noteMgr obsidian.NoteReader) map[string]notemeta.NoteSourceSnapshot {
+func authoritySourceSnapshots(scores []vaultgraph.AuthorityScore, config Config, noteMgr obsidian.NoteReader) map[string]notemeta.NoteSourceSnapshot {
 	store := config.GetIntelStore()
 	if store == nil || noteMgr == nil || config.NoteMetadata.Validate() != nil {
 		return nil
@@ -171,7 +173,7 @@ func authoritySourceSnapshots(scores []obsidian.AuthorityScore, config Config, n
 	return out
 }
 
-func authorityBucketsToPayload(buckets []obsidian.AuthorityBucket) []AuthorityBucketPayload {
+func authorityBucketsToPayload(buckets []vaultgraph.AuthorityBucket) []AuthorityBucketPayload {
 	if len(buckets) == 0 {
 		return nil
 	}
@@ -187,7 +189,7 @@ func authorityBucketsToPayload(buckets []obsidian.AuthorityBucket) []AuthorityBu
 	return out
 }
 
-func authorityStatsToPayload(stats *obsidian.AuthorityStats) *AuthorityStatsPayload {
+func authorityStatsToPayload(stats *vaultgraph.AuthorityStats) *AuthorityStatsPayload {
 	if stats == nil {
 		return nil
 	}
@@ -202,7 +204,7 @@ func authorityStatsToPayload(stats *obsidian.AuthorityStats) *AuthorityStatsPayl
 	}
 }
 
-func recencyToPayload(r *obsidian.GraphRecency) *GraphRecencyPayload {
+func recencyToPayload(r *vaultgraph.GraphRecency) *GraphRecencyPayload {
 	if r == nil {
 		return nil
 	}

@@ -3,12 +3,13 @@ package web
 import (
 	"context"
 	"errors"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"net/http"
 	"sort"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 )
 
@@ -51,7 +52,7 @@ func (s *Server) handleDisplayGroups(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	var schema *ontology.Schema
+	var schema *ontoschema.Schema
 	if defs != nil {
 		schema = defs.schema
 	}
@@ -130,7 +131,7 @@ func (s *Server) validationScopeIssueCounts(ctx context.Context, scopes []semdb.
 // the membership rule group mounts and the Notes rail share. Ungrouped roots
 // form the rail's "Other" group, which the catalog targets like any group and
 // which absorbs an authored group of that name; like the rail, it sorts last.
-func displayGroups(schema *ontology.Schema, summary OntologySummaryResponse) []DisplayGroup {
+func displayGroups(schema *ontoschema.Schema, summary OntologySummaryResponse) []DisplayGroup {
 	members := map[string]DisplayGroupMember{}
 	for _, item := range summary.Types {
 		members[item.Name] = displayGroupMember(item.Name, "type", item.Label, item.PluralLabel, item.Description, item.Count, nil)

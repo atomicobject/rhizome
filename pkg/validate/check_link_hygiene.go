@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -8,6 +9,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -15,6 +19,7 @@ type linkHygieneIndex struct {
 	notes         []string
 	byKey         map[string][]string
 	aliasesByNote map[string][]string
+	cache         *obsidian.NotePathCache
 	// files resolves wikilinks with Obsidian's rules, so a real note or
 	// attachment always wins over an alias and only `.md` is ever implied.
 	files func() *obsidian.VaultFileIndex
@@ -35,13 +40,11 @@ type linkHygieneEdit struct {
 	issueKey  string
 }
 
-type scannedMdLink struct {
-	target          string
-	text            string
-	start           int
-	end             int
-	line            int
-	insideCodeBlock bool
+type hygieneMarkdownLink struct {
+	target      string
+	raw         string
+	targetStart int
+	targetEnd   int
 }
 
 var pseudoLinkPatterns = []*regexp.Regexp{
@@ -53,30 +56,47 @@ var pseudoLinkPatterns = []*regexp.Regexp{
 // wikilinks or source-relative Markdown note links.
 func RunLinkHygiene(runCtx RunContext) CheckResult {
 	result := CheckResult{Name: CheckLinkHygiene, OK: true}
-	allNotes, err := runCtx.NoteReader.GetNotesList(runCtx.VaultDef)
+	inventory, err := validationLinksFor(context.Background(), runCtx)
 	if err != nil {
 		result.OK = false
 		result.Error = err.Error()
 		return result
 	}
-	idx := buildLinkHygieneIndex(runCtx, allNotes)
+	idx := buildLinkHygieneIndex(inventory)
 	issues := make([]Issue, 0)
 	editsByPath := map[string][]linkHygieneEdit{}
 
-	for _, notePath := range allNotes {
-		content, err := runCtx.NoteReader.GetContents(runCtx.VaultDef, notePath)
-		if err != nil {
+	for _, notePath := range inventory.paths {
+		source := inventory.sources[notePath]
+		if source.Format != noteformat.FormatID("markdown") {
 			continue
 		}
-		for _, link := range obsidian.ScanWikilinks(content, obsidian.DefaultWikilinkOptions) {
-			if link.InsideCodeBlock {
+		content := source.Content
+		for _, fact := range source.Projection.Facts.Links {
+			raw := content[fact.RawRange.StartByte:fact.RawRange.EndByte]
+			line := 1 + strings.Count(content[:fact.RawRange.StartByte], "\n")
+			var replacement, code, reason string
+			var ok bool
+			linkType := "wikilink"
+			switch fact.Syntax {
+			case noteformat.AuthoredLinkSyntax(markdownsyntax.StructuredLinkWikilink):
+				replacement, code, reason, ok = idx.wikilinkReplacement(notePath, raw, fact.Target)
+			case noteformat.AuthoredLinkSyntax(markdownsyntax.StructuredLinkMarkdown):
+				if fact.Embed || !isMarkdownNoteLink(fact.Target) {
+					continue
+				}
+				linkType = "mdlink"
+				replacement, code, reason, ok = idx.markdownReplacement(notePath, hygieneMarkdownLink{
+					target: fact.Target,
+					raw:    raw, targetStart: fact.TargetRange.StartByte - fact.RawRange.StartByte, targetEnd: fact.TargetRange.EndByte - fact.RawRange.StartByte,
+				})
+			default:
 				continue
 			}
-			replacement, code, reason, ok := idx.wikilinkReplacement(notePath, link.Raw, link.Target)
 			if code == "" {
 				continue
 			}
-			issue := linkHygieneIssue(notePath, link.Line, code, "wikilink", link.Target, replacement, reason)
+			issue := linkHygieneIssue(notePath, line, code, linkType, fact.Target, replacement, reason)
 			issues = append(issues, issue)
 			if ok {
 				issueKey, err := StableIssueKey(CheckLinkHygiene, issue)
@@ -85,39 +105,7 @@ func RunLinkHygiene(runCtx RunContext) CheckResult {
 					result.Error = fmt.Sprintf("identify link-hygiene issue: %v", err)
 					return result
 				}
-				editsByPath[notePath] = append(editsByPath[notePath], linkHygieneEdit{
-					issueCode: code,
-					start:     link.Start,
-					end:       link.End,
-					value:     replacement,
-					issueKey:  issueKey,
-				})
-			}
-		}
-		for _, link := range scanMarkdownLinksForHygiene(content) {
-			if link.insideCodeBlock || obsidianLinkIsExternal(link.target) || !isMarkdownNoteLink(link.target) {
-				continue
-			}
-			replacement, code, reason, ok := idx.markdownReplacement(notePath, link)
-			if code == "" {
-				continue
-			}
-			issue := linkHygieneIssue(notePath, link.line, code, "mdlink", link.target, replacement, reason)
-			issues = append(issues, issue)
-			if ok {
-				issueKey, err := StableIssueKey(CheckLinkHygiene, issue)
-				if err != nil {
-					result.OK = false
-					result.Error = fmt.Sprintf("identify link-hygiene issue: %v", err)
-					return result
-				}
-				editsByPath[notePath] = append(editsByPath[notePath], linkHygieneEdit{
-					issueCode: code,
-					start:     link.start,
-					end:       link.end,
-					value:     replacement,
-					issueKey:  issueKey,
-				})
+				editsByPath[notePath] = append(editsByPath[notePath], linkHygieneEdit{issueCode: code, start: fact.RawRange.StartByte, end: fact.RawRange.EndByte, value: replacement, issueKey: issueKey})
 			}
 		}
 		for _, pseudo := range scanPseudoLinks(content) {
@@ -137,22 +125,15 @@ func RunLinkHygiene(runCtx RunContext) CheckResult {
 	return result
 }
 
-func buildLinkHygieneIndex(runCtx RunContext, allNotes []string) linkHygieneIndex {
+func buildLinkHygieneIndex(inventory *validationSourceLinks) linkHygieneIndex {
 	idx := linkHygieneIndex{
-		notes: append([]string(nil), allNotes...), byKey: map[string][]string{}, aliasesByNote: map[string][]string{},
-		files: obsidian.LazyVaultFileIndex(runCtx.VaultDef, allNotes),
+		notes: inventory.paths, byKey: map[string][]string{}, aliasesByNote: map[string][]string{},
+		files: inventory.files, cache: inventory.cache,
 	}
-	sort.Strings(idx.notes)
 	for _, notePath := range idx.notes {
 		idx.add(notePath, filepath.ToSlash(notePath))
 		idx.add(notePath, path.Base(filepath.ToSlash(notePath)))
-		if content, err := runCtx.NoteReader.GetContents(runCtx.VaultDef, notePath); err == nil {
-			if fm, err := obsidian.ExtractFrontmatter(content); err == nil {
-				for _, alias := range obsidian.AliasListFromFrontmatter(fm) {
-					idx.aliasesByNote[notePath] = append(idx.aliasesByNote[notePath], alias)
-				}
-			}
-		}
+		idx.aliasesByNote[notePath] = append([]string(nil), inventory.sources[notePath].Aliases...)
 		sort.Strings(idx.aliasesByNote[notePath])
 	}
 	return idx
@@ -285,7 +266,7 @@ func (i linkHygieneIndex) preferredWikilinkTarget(notePath string) string {
 	return base
 }
 
-func (i linkHygieneIndex) markdownReplacement(sourceNote string, link scannedMdLink) (string, string, string, bool) {
+func (i linkHygieneIndex) markdownReplacement(sourceNote string, link hygieneMarkdownLink) (string, string, string, bool) {
 	if isFilesystemAbsoluteLink(link.target) {
 		return "", "markdown_internal_link_absolute_path", "Markdown note link is absolute instead of source-relative", false
 	}
@@ -316,7 +297,7 @@ func (i linkHygieneIndex) markdownReplacement(sourceNote string, link scannedMdL
 	if !ok || recheck != resolved {
 		return "", "markdown_internal_link_not_relative", "relative Markdown replacement cannot be proven equivalent", false
 	}
-	return "[" + link.text + "](" + want + ")", "markdown_internal_link_not_relative", "Markdown note link should be source-relative", true
+	return link.raw[:link.targetStart] + want + link.raw[link.targetEnd:], "markdown_internal_link_not_relative", "Markdown note link should be source-relative", true
 }
 
 type resolvedHygieneTarget struct {
@@ -339,35 +320,11 @@ func (i linkHygieneIndex) resolveMarkdown(sourceNote, target string) (resolvedHy
 	if base == "" {
 		return resolvedHygieneTarget{notePath: sourceNote, fragment: strings.TrimPrefix(fragment, "#")}, true
 	}
-	joined := base
-	if strings.HasPrefix(base, "/") {
-		joined = strings.TrimPrefix(base, "/")
-	} else {
-		dir := path.Dir(filepath.ToSlash(sourceNote))
-		if dir != "." {
-			joined = path.Clean(path.Join(dir, base))
-		}
-	}
-	joined = obsidian.RemoveMdSuffix(joined)
-	if notePath, ok := i.exactPath(joined); ok {
-		return resolvedHygieneTarget{notePath: notePath, fragment: strings.TrimPrefix(fragment, "#")}, true
-	}
-	candidates := i.byKey[normalizeLinkHygieneKey(joined)]
-	if len(candidates) != 1 {
+	notePath, ok := notemeta.ResolveProjectedLink(i.cache, sourceNote, nil, noteformat.UnresolvedAuthoredLinkFact{Resolution: noteformat.LinkResolutionRelativePath, ResolverInput: target, Path: base, Fragment: strings.TrimPrefix(fragment, "#")})
+	if !ok {
 		return resolvedHygieneTarget{}, false
 	}
-	return resolvedHygieneTarget{notePath: candidates[0], fragment: strings.TrimPrefix(fragment, "#")}, true
-}
-
-func (i linkHygieneIndex) exactPath(targetNoExt string) (string, bool) {
-	normalized := normalizeLinkHygieneKey(targetNoExt)
-	for _, notePath := range i.notes {
-		noteNoExt := normalizeLinkHygieneKey(filepath.ToSlash(notePath))
-		if noteNoExt == normalized {
-			return notePath, true
-		}
-	}
-	return "", false
+	return resolvedHygieneTarget{notePath: notePath, fragment: strings.TrimPrefix(fragment, "#")}, true
 }
 
 func linkHygieneIssue(notePath string, line int, code, linkType, target, replacement, reason string) Issue {
@@ -435,47 +392,6 @@ func buildLinkHygieneFixes(byPath map[string][]linkHygieneEdit) []FixAction {
 	return actions
 }
 
-func scanMarkdownLinksForHygiene(content string) []scannedMdLink {
-	var links []scannedMdLink
-	inCode := obsidian.MarkdownCodeMask(content)
-	for i := 0; i < len(content); {
-		idx := strings.Index(content[i:], "[")
-		if idx == -1 {
-			break
-		}
-		idx += i
-		if idx > 0 && content[idx-1] == '!' || idx+1 < len(content) && content[idx+1] == '[' {
-			i = idx + 1
-			continue
-		}
-		closeText := strings.Index(content[idx+1:], "]")
-		if closeText == -1 {
-			break
-		}
-		closeText += idx + 1
-		if closeText+1 >= len(content) || content[closeText+1] != '(' {
-			i = closeText + 1
-			continue
-		}
-		closeTarget := strings.Index(content[closeText+2:], ")")
-		if closeTarget == -1 {
-			break
-		}
-		closeTarget += closeText + 2
-		target := content[closeText+2 : closeTarget]
-		links = append(links, scannedMdLink{
-			target:          filepath.ToSlash(strings.TrimSpace(target)),
-			text:            content[idx+1 : closeText],
-			start:           idx,
-			end:             closeTarget + 1,
-			line:            1 + strings.Count(content[:idx], "\n"),
-			insideCodeBlock: inCode(idx),
-		})
-		i = closeTarget + 1
-	}
-	return links
-}
-
 type pseudoLink struct {
 	target string
 	line   int
@@ -483,7 +399,7 @@ type pseudoLink struct {
 
 func scanPseudoLinks(content string) []pseudoLink {
 	var out []pseudoLink
-	inCode := obsidian.MarkdownCodeMask(content)
+	inCode := markdownsyntax.CodeMask(content)
 	for _, pattern := range pseudoLinkPatterns {
 		for _, loc := range pattern.FindAllStringIndex(content, -1) {
 			if inCode(loc[0]) {
@@ -514,13 +430,13 @@ func splitLinkHygieneFragment(target string) (string, string) {
 func relativeMarkdownTarget(sourceNote, targetNote string) string {
 	dir := path.Dir(filepath.ToSlash(sourceNote))
 	if dir == "." {
-		return filepath.ToSlash(targetNote)
+		return markdownsyntax.EncodeMarkdownPath(filepath.ToSlash(targetNote))
 	}
 	rel, err := filepath.Rel(filepath.FromSlash(dir), filepath.FromSlash(targetNote))
 	if err != nil {
-		return filepath.ToSlash(targetNote)
+		return markdownsyntax.EncodeMarkdownPath(filepath.ToSlash(targetNote))
 	}
-	return filepath.ToSlash(rel)
+	return markdownsyntax.EncodeMarkdownPath(filepath.ToSlash(rel))
 }
 
 func markdownEscapesVault(sourceNote, target string) bool {
@@ -554,14 +470,4 @@ func isFilesystemAbsoluteLink(target string) bool {
 		return true
 	}
 	return strings.HasPrefix(target, "/Users/") || strings.HasPrefix(target, "/home/") || strings.HasPrefix(target, "/var/") || strings.HasPrefix(target, "/tmp/")
-}
-
-func obsidianLinkIsExternal(target string) bool {
-	lower := strings.ToLower(strings.TrimSpace(target))
-	return strings.HasPrefix(lower, "http://") ||
-		strings.HasPrefix(lower, "https://") ||
-		strings.HasPrefix(lower, "mailto:") ||
-		strings.HasPrefix(lower, "tel:") ||
-		strings.HasPrefix(lower, "ftp://") ||
-		strings.HasPrefix(lower, "file://")
 }

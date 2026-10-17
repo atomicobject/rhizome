@@ -1,33 +1,28 @@
 package cmd
 
+import "github.com/spf13/cobra"
+
 import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"slices"
 	"strings"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
-	"github.com/atomicobject/rhizome/pkg/app/indexing"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
-type validationProjectionRun func(context.Context, validationrun.ValidationRunRequest, indexing.ValidationProjectionRequest, validate.Options) (validationrun.ValidationResult, error)
-type validationRepairRun func(context.Context, validate.Result, validate.RunContext, validate.Options) (validate.Result, *validate.FixExecution, error)
+type validationProjectionRun func(context.Context, validationrun.ValidationRunRequest, validationproduct.ValidationProjectionRequest, validate.ScanOptions) (validationrun.ValidationResult, error)
+type validationRepairRun func(context.Context, validate.Result, validate.RunContext, validate.ApplyOptions) (validate.Result, *validate.FixExecution, error)
 
 type productionValidationRunner struct {
 	resolveVault    func(context.Context, string) (obsidian.VaultDefinition, error)
-	loadConfig      func(string) (*obsidian.LocalConfig, error)
-	pathExists      func(string) (bool, error)
 	newNoteMetadata func() (notemeta.Indexer, error)
 	runProjection   validationProjectionRun
 	runRepair       validationRepairRun
@@ -36,8 +31,6 @@ type productionValidationRunner struct {
 func newProductionValidationRunner() *productionValidationRunner {
 	return &productionValidationRunner{
 		resolveVault:    validationVaultDefinition,
-		loadConfig:      loadValidationLocalConfig,
-		pathExists:      validationPathExists,
 		newNoteMetadata: newNoteMetadataIndexer,
 		runProjection:   validationproduct.RunWithProjection,
 		runRepair:       validate.ApplyRepairSession,
@@ -45,7 +38,7 @@ func newProductionValidationRunner() *productionValidationRunner {
 }
 
 func (runner *productionValidationRunner) Run(ctx context.Context, request validationProductRequest) (actions.ValidationResult, error) {
-	if runner == nil || runner.resolveVault == nil || runner.loadConfig == nil || runner.pathExists == nil || runner.newNoteMetadata == nil || runner.runProjection == nil {
+	if runner == nil || runner.resolveVault == nil || runner.newNoteMetadata == nil || runner.runProjection == nil {
 		return actions.ValidationResult{}, fmt.Errorf("validation production runner is not configured")
 	}
 	vaultDef, err := runner.resolveVault(ctx, request.VaultName)
@@ -56,42 +49,22 @@ func (runner *productionValidationRunner) Run(ctx context.Context, request valid
 	if err != nil {
 		return actions.ValidationResult{}, err
 	}
-	local, err := runner.loadConfig(vaultPath)
-	if err != nil {
-		return actions.ValidationResult{}, fmt.Errorf("load validation config: %w", err)
-	}
-	config := actions.ValidationSuiteConfigFromLocal(local.Validation)
-	selection, err := validate.ResolveSelection(request.Selectors, config)
-	if err != nil {
-		return actions.ValidationResult{}, err
-	}
-	features, err := validationVaultFeatureFacts(vaultPath, local, runner.pathExists, slices.Contains(selection.Checks, validate.CheckQueryRecipes))
-	if err != nil {
-		return actions.ValidationResult{}, err
-	}
 	noteMetadata, err := runner.newNoteMetadata()
 	if err != nil {
 		return actions.ValidationResult{}, err
 	}
 
-	noteReader := &obsidian.Note{}
-	runContext := &validate.RunContext{
-		VaultDef:     vaultDef,
-		VaultPath:    vaultPath,
-		VaultMgr:     &fixedVaultDefinition{def: vaultDef},
-		NoteReader:   noteReader,
-		NoteMetadata: noteMetadata,
-		MaxIssues:    normalizedValidationMaxIssues(request.MaxIssues),
+	prepared, err := validationrun.Prepare(vaultDef, noteMetadata, request.Selectors, normalizedValidationMaxIssues(request.MaxIssues))
+	if err != nil {
+		return actions.ValidationResult{}, err
 	}
+	runContext := &prepared.RunContext
+	noteReader := runContext.NoteReader
 	options := validationOptionsFromProductRequest(request, runContext)
-	runRequest := validationrun.ValidationRunRequest{
-		Selectors:    append([]string(nil), request.Selectors...),
-		ApplyCommand: request.ApplyCommand,
-		Config:       config,
-		Surface:      request.Surface,
-		Features:     features,
-	}
-	projectionRequest := indexing.ValidationProjectionRequest{
+	runRequest := prepared.Request
+	runRequest.ApplyCommand = request.ApplyCommand
+	runRequest.Surface = request.Surface
+	projectionRequest := validationproduct.ValidationProjectionRequest{
 		VaultPath:    vaultPath,
 		VaultDef:     vaultDef,
 		NoteMetadata: noteMetadata,
@@ -102,29 +75,33 @@ func (runner *productionValidationRunner) Run(ctx context.Context, request valid
 	if err != nil {
 		return actions.ValidationResult{}, err
 	}
-	if !request.Repair || !request.Apply {
+	if !request.Repair {
+		return planned, nil
+	}
+	planned.Result, err = validate.PrepareRepair(ctx, planned.Result, *runContext)
+	if err != nil {
+		return actions.ValidationResult{}, err
+	}
+	if !request.Apply {
 		return planned, nil
 	}
 	if runner.runRepair == nil {
 		return actions.ValidationResult{}, fmt.Errorf("validation repair runner is not configured")
 	}
 
-	options.Fix = true
-	options.NonInteractive = request.NonInteractive
-	options.Confirm = request.Confirm
-	options.ApplySelection = append([]string(nil), request.ApplySelection...)
-	options.AllowHistorical = request.AllowHistorical
-	options.ReplanCommand = strings.Replace(request.ApplyCommand, " --apply", "", 1)
-	options.PostApplyRefresher = indexing.ValidationProjectionPostApplyRefresher{
-		VaultPath:    vaultPath,
-		VaultDef:     vaultDef,
-		NoteMetadata: noteMetadata,
-		NoteReader:   noteReader,
+	applyOptions := validate.ApplyOptions{
+		ScanOptions: options, Fix: true, NonInteractive: request.NonInteractive,
+		Confirm: request.Confirm, ApplySelection: append([]string(nil), request.ApplySelection...),
+		AllowHistorical: request.AllowHistorical,
+		ReplanCommand:   actions.BuildValidationProductReplanCommand(request),
+		PostApplyRefresher: validationproduct.ValidationProjectionPostApplyRefresher{
+			VaultPath: vaultPath, VaultDef: vaultDef, NoteMetadata: noteMetadata, NoteReader: noteReader,
+		},
 	}
-	if err := validateProductionRepairRoots(vaultPath, runContext, options.PostApplyRefresher); err != nil {
+	if err := validateProductionRepairRoots(vaultPath, runContext, applyOptions.PostApplyRefresher); err != nil {
 		return actions.ValidationResult{}, err
 	}
-	postcheck, execution, applyErr := runner.runRepair(ctx, planned.Result, *runContext, options)
+	postcheck, execution, applyErr := runner.runRepair(ctx, planned.Result, *runContext, applyOptions)
 	final, rebuildErr := validationrun.RebuildAfterRepair(planned, postcheck, execution)
 	if rebuildErr != nil {
 		return actions.ValidationResult{}, errors.Join(applyErr, rebuildErr)
@@ -136,8 +113,8 @@ func (runner *productionValidationRunner) Run(ctx context.Context, request valid
 	return final, nil
 }
 
-func validationOptionsFromProductRequest(request validationProductRequest, runContext *validate.RunContext) validate.Options {
-	return validate.Options{
+func validationOptionsFromProductRequest(request validationProductRequest, runContext *validate.RunContext) validate.ScanOptions {
+	return validate.ScanOptions{
 		SkipAnchors:   request.SkipAnchors,
 		SkipEmbeds:    request.SkipEmbeds,
 		IncludeImages: request.IncludeImages,
@@ -157,11 +134,11 @@ func normalizedValidationMaxIssues(value int) int {
 	return value
 }
 
-func validationProjectionTarget(surface validate.ExecutionSurface) indexing.ValidationProjectionTarget {
+func validationProjectionTarget(surface validate.ExecutionSurface) validationproduct.ValidationProjectionTarget {
 	if surface == validate.SurfaceCI {
-		return indexing.ValidationProjectionScratch
+		return validationproduct.ValidationProjectionScratch
 	}
-	return indexing.ValidationProjectionLive
+	return validationproduct.ValidationProjectionLive
 }
 
 func validationVaultDefinition(ctx context.Context, name string) (obsidian.VaultDefinition, error) {
@@ -174,7 +151,7 @@ func validationVaultDefinition(ctx context.Context, name string) (obsidian.Vault
 		switch {
 		case defErr == nil:
 			return def, nil
-		case defErr != nil && !errors.Is(defErr, obsidian.ErrNoLocalConfig):
+		case defErr != nil && !errors.Is(defErr, repoconfig.ErrNoLocalConfig):
 			return obsidian.VaultDefinition{}, defErr
 		}
 	}
@@ -204,68 +181,11 @@ func canonicalValidationVault(def obsidian.VaultDefinition) (obsidian.VaultDefin
 	return def, root, nil
 }
 
-func loadValidationLocalConfig(vaultPath string) (*obsidian.LocalConfig, error) {
-	local, err := obsidian.LoadLocalConfig(vaultPath)
-	if errors.Is(err, obsidian.ErrNoLocalConfig) {
-		return &obsidian.LocalConfig{}, nil
-	}
-	return local, err
-}
-
-func validationVaultFeatureFacts(vaultPath string, local *obsidian.LocalConfig, exists func(string) (bool, error), includeQueryRecipes bool) (validate.VaultFeatureFacts, error) {
-	if local == nil {
-		local = &obsidian.LocalConfig{}
-	}
-	ontologyConfigured, err := exists(filepath.Join(vaultPath, ".rhizome", "ontology"))
-	if err != nil {
-		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect ontology configuration: %w", err)
-	}
-	queryRecipesConfigured := includeQueryRecipes && queryrecipe.HasDefaultSources(vaultPath)
-	viewsConfigured, err := exists(filepath.Join(vaultPath, ".rhizome", "views"))
-	if err != nil {
-		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect view configuration: %w", err)
-	}
-	effortsPresent, err := exists(filepath.Join(vaultPath, "docs", "efforts"))
-	if err != nil {
-		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect effort configuration: %w", err)
-	}
-	codeConfigured := validationCodeConfigured(local.Code)
-	facts := validate.VaultFeatureFacts{
-		OntologyConfigured:        ontologyConfigured,
-		CodeConfigured:            codeConfigured,
-		CodeAnchorRootsConfigured: obsidian.CodeAnchorRootsConfigured(local.Code),
-		QueryRecipesConfigured:    queryRecipesConfigured,
-		ViewsConfigured:           viewsConfigured,
-		EffortsPresent:            effortsPresent,
-	}
-	if codeConfigured {
-		facts.RequiredCodeIndexerVersion = codeanchor.IndexerVersion
-		facts.RequiredCodeScopeHash = local.ScopeConfigHash()
-	}
-	return facts, nil
-}
-
-func validationCodeConfigured(code obsidian.LocalCodeConfig) bool {
-	return code.Enabled || len(code.Scan) > 0 || code.Python != nil || code.Go != nil ||
-		code.TypeScript != nil || code.JavaScript != nil || code.CSharp != nil || code.PHP != nil
-}
-
-func validationPathExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return false, nil
-	}
-	return false, err
-}
-
 func validateProductionRepairRoots(vaultPath string, runContext *validate.RunContext, refresher validate.PostApplyRefresher) error {
 	if runContext == nil || !sameCanonicalValidationRoot(runContext.VaultPath, vaultPath) || !sameCanonicalValidationRoot(runContext.VaultDef.BasePath(), vaultPath) {
 		return fmt.Errorf("validation repair context does not match canonical vault root %q", vaultPath)
 	}
-	concrete, ok := refresher.(indexing.ValidationProjectionPostApplyRefresher)
+	concrete, ok := refresher.(validationproduct.ValidationProjectionPostApplyRefresher)
 	if !ok || !sameCanonicalValidationRoot(concrete.VaultPath, vaultPath) || !sameCanonicalValidationRoot(concrete.VaultDef.BasePath(), vaultPath) {
 		return fmt.Errorf("validation post-apply refresher does not match canonical vault root %q", vaultPath)
 	}
@@ -278,8 +198,8 @@ func sameCanonicalValidationRoot(left, right string) bool {
 	return leftErr == nil && rightErr == nil && leftPaths.Root() != "" && paths.CaseEqual(leftPaths.Root(), rightPaths.Root())
 }
 
-func init() {
+func (commandOptions *vaultCommandOptions) registerValidationProductRunnerCommands(rootCmd *cobra.Command) {
 	runner := newProductionValidationRunner()
-	rootCmd.AddCommand(newValidateProductCmdWithRunner(runner))
+	rootCmd.AddCommand(commandOptions.newValidateProductCmdWithRunner(runner))
 	rootCmd.AddCommand(newCIProductCmdWithRunner(runner))
 }

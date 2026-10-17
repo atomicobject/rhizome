@@ -27,9 +27,9 @@ func diagnosticCount(c *indexingperf.Collector, name string) int64 {
 }
 
 func TestSearchMetricsRecordActualFailureWithoutPersistingErrorText(t *testing.T) {
-	c := indexingperf.NewBounded()
+	c := indexingperf.New()
 	ctx := indexingperf.WithCollector(context.Background(), c)
-	svc := Service{Retrievers: []Retriever{staticRetriever{name: "lexical"}}, Ranker: diagnosticRanker{err: errors.New("private failure body")}}
+	svc := Service{Retrievers: []Retriever{staticRetriever{name: "note_lexical"}}, Ranker: diagnosticRanker{err: errors.New("private failure body")}}
 	_, err := svc.Search(ctx, QuerySpec{Text: "private query"})
 	require.EqualError(t, err, "private failure body")
 	require.Equal(t, int64(1), diagnosticCount(c, "search.outcome.error"))
@@ -48,25 +48,25 @@ func TestSearchMetricsRecordActualFailureWithoutPersistingErrorText(t *testing.T
 }
 
 func TestSearchMetricsObserveRankFallbackAndRetainResults(t *testing.T) {
-	c := indexingperf.NewBounded()
+	c := indexingperf.New()
 	ctx := indexingperf.WithCollector(context.Background(), c)
-	candidate := Candidate{Handle: knowledge.NoteHandle("Notes/alpha.md"), Owner: knowledge.NoteHandle("Notes/alpha.md"), Type: "note", Path: "Notes/alpha.md", Title: "Alpha", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 1}}}
-	svc := Service{Retrievers: []Retriever{staticRetriever{name: "lexical", results: []Candidate{candidate}}}, Ranker: diagnosticRanker{err: context.DeadlineExceeded}}
+	candidate := Candidate{SourceRef: SourceRef{Path: "Notes/alpha.md", Title: "Alpha"}, Handle: knowledge.NoteHandle("Notes/alpha.md"), Owner: knowledge.NoteHandle("Notes/alpha.md"), Type: "note", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 1}}}
+	svc := Service{Retrievers: []Retriever{staticRetriever{name: "note_lexical", results: []Candidate{candidate}}}, Ranker: diagnosticRanker{err: context.DeadlineExceeded}}
 	response, err := svc.Search(ctx, QuerySpec{Text: "alpha"})
 	require.NoError(t, err)
 	require.Len(t, response.Results, 1)
 	require.Equal(t, candidate.Path, response.Results[0].Path)
 	require.Equal(t, int64(1), diagnosticCount(c, indexingperf.DiagnosticFallbackPrefix+"rank.timeout"))
-	require.Equal(t, int64(1), diagnosticCount(c, "search.retriever.lexical.outcome.ran"))
-	require.Equal(t, int64(1), diagnosticCount(c, "search.retriever.lexical.results"))
+	require.Equal(t, int64(1), diagnosticCount(c, "search.retriever.note_lexical.outcome.ran"))
+	require.Equal(t, int64(1), diagnosticCount(c, "search.retriever.note_lexical.results"))
 	require.Equal(t, int64(1), diagnosticCount(c, "search.results"))
 }
 
 func TestSearchMetricsAreSeparateFromTimingEventText(t *testing.T) {
-	c := indexingperf.NewBounded()
+	c := indexingperf.New()
 	timings := &Timings{}
 	ctx := WithTimings(indexingperf.WithCollector(context.Background(), c), timings)
-	svc := Service{Retrievers: []Retriever{staticRetriever{name: "lexical"}}, Ranker: stubRanker{}}
+	svc := Service{Retrievers: []Retriever{staticRetriever{name: "note_lexical"}}, Ranker: stubRanker{}}
 	_, err := svc.Search(ctx, QuerySpec{Text: "alpha"})
 	require.NoError(t, err)
 	before := c.Snapshot()

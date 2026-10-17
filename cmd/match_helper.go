@@ -1,14 +1,16 @@
 package cmd
 
+import actions "github.com/atomicobject/rhizome/pkg/app/operations"
+
 import (
 	"fmt"
 
-	"github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // resolveMatches converts find/tag/path patterns into a note list. Returns nil if no patterns provided.
-func resolveMatches(vault *obsidian.Vault, note obsidian.NoteReader, patterns []string) ([]string, error) {
+func resolveMatches(vault *repoconfig.Vault, note obsidian.NoteReader, patterns []string) ([]string, error) {
 	if len(patterns) == 0 {
 		return nil, nil
 	}

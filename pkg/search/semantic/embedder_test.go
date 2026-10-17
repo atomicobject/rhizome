@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/stretchr/testify/require"
 )
 

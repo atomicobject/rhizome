@@ -3,17 +3,17 @@ package validate
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestIdentifierRepairMapperCarriesStableDestinationVacancyPrecondition(t *testing.T) {
@@ -114,7 +114,7 @@ func TestDestinationVacancyFailureIsTransactionLocal(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, fingerprint, revalidated.Fingerprint)
 
-			execution, applyErr := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+			execution, applyErr := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 				Fix: true, NonInteractive: true, ReplanCommand: "rzm validate fix aliases",
 			})
 			if test.wantBlocked {
@@ -193,7 +193,7 @@ func TestIdentifierRepairAdapterAppliesIndependentCollisionWhenReviewedMoveDesti
 			require.Equal(t, plan.Fingerprint, heldPlan.Fingerprint, "runtime directory inventory must not alter held plan authority")
 			require.NoError(t, release())
 
-			execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+			execution, err := ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 				Fix: true, NonInteractive: true, ReplanCommand: "rzm validate fix aliases",
 				PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 			})
@@ -259,7 +259,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 	writeIdentifierAdapterFile(t, root, notePaths[2], "---\nid: SPEC-0002\naliases: [SPEC-0002]\n---\n# B Keeper\n")
 	writeIdentifierAdapterFile(t, root, notePaths[3], "---\nid: SPEC-0002\naliases: [SPEC-0002]\n---\n# B Loser\n")
 
-	format := &ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategySequential, Prefix: "SPEC", Separator: "-", Pad: 4}
+	format := &ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategySequential, Prefix: "SPEC", Separator: "-", Pad: 4}
 	pool, err := identifierreconcile.NewPoolKey(format)
 	require.NoError(t, err)
 	claim := func(notePath, identifier string) identifierreconcile.Claim {
@@ -276,7 +276,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 	require.NoError(t, err)
 	require.Len(t, identifierPlan.Collisions, 2)
 
-	var rewrites []reference.IdentifierRewrite
+	var rewrites []identifierrewrite.IdentifierRewrite
 	var collisionInputs []identifierreconcile.CollisionRepairInput
 	var bindings []IdentifierRepairActionBinding
 	var components []twoCollisionIdentifierComponent
@@ -293,8 +293,8 @@ type Spec @node(paths: ["specs/*.md"]) {
 		require.NoError(t, moveErr)
 		require.Nil(t, conflict)
 		require.True(t, movePlan.Renamed, "loser=%s old=%s new=%s", loser.Claim.Node.NotePath, loser.Claim.Value, loser.Replacement)
-		rewrite := reference.IdentifierRewrite{
-			Mode:          reference.IdentifierRewritePreferredRekey,
+		rewrite := identifierrewrite.IdentifierRewrite{
+			Mode:          identifierrewrite.IdentifierRewritePreferredRekey,
 			OldRef:        ontology.NodeRef{NotePath: movePlan.SourcePath, TypeName: "Spec", Kind: ontology.NodeKindNote},
 			NewRef:        ontology.NodeRef{NotePath: movePlan.DestinationPath, TypeName: "Spec", Kind: ontology.NodeKindNote},
 			OldIdentifier: loser.Claim.Value, NewIdentifier: loser.Replacement,
@@ -303,13 +303,13 @@ type Spec @node(paths: ["specs/*.md"]) {
 		rewrites = append(rewrites, rewrite)
 		collisionInputs = append(collisionInputs, identifierreconcile.CollisionRepairInput{
 			CollisionKey: collision.Key,
-			Rewrites:     []reference.IdentifierRewrite{rewrite},
+			Rewrites:     []identifierrewrite.IdentifierRewrite{rewrite},
 			Moves:        []identifierreconcile.GovernedMoveResult{{Request: moveRequest, Plan: movePlan}},
 		})
 		actionID := fmt.Sprintf("action:duplicate-identifier-%d", index+1)
 		issueKey := fmt.Sprintf("issue:duplicate-identifier-%d", index+1)
 		bindings = append(bindings, IdentifierRepairActionBinding{MembershipKey: collision.Key, Action: FixAction{
-			ID: actionID, Check: CheckAliases, Kind: "resolve_duplicate_identifier",
+			ID: actionID, Check: CheckIdentifiers, Kind: "resolve_duplicate_identifier",
 			Safety: FixSafetySafe, Title: "Resolve duplicate identifier", IssueKeys: []string{issueKey},
 		}})
 		components = append(components, twoCollisionIdentifierComponent{
@@ -318,7 +318,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 		})
 	}
 	vaultDef := obsidian.VaultDefinition{Path: root}
-	fields, err := identifierreconcile.DiscoverIdentifierFields(context.Background(), identifierreconcile.IdentifierFieldDiscoveryRequest{
+	fields, err := identifierreconcile.DiscoverIdentifierFields(context.Background(), identifierreconcile.IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
 		VaultDef: vaultDef, RootRewrites: rewrites,
 	})
 	require.NoError(t, err)
@@ -330,7 +330,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 	require.NoError(t, err)
 	runCtx := RunContext{
 		VaultDef: vaultDef, VaultPath: root,
-		VaultMgr: identifierRepairVaultManager{def: vaultDef}, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t),
+		NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t),
 	}
 	return twoCollisionIdentifierRepairFixture{
 		root: root, runCtx: runCtx, assembly: assembly, bindings: bindings, components: components,

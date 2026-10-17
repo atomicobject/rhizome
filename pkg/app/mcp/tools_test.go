@@ -4,20 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/cli"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -146,6 +151,9 @@ func (inventory staticToolInventory) MutatingToolNames(bool) []string {
 }
 
 func TestListPropertiesTool(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	tempDir := t.TempDir()
 	vaultPath := filepath.Join(tempDir, "vault")
 	if err := os.MkdirAll(vaultPath, 0o755); err != nil {
@@ -170,19 +178,17 @@ count: 2
 		t.Fatalf("failed to write obsidian config: %v", err)
 	}
 
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = obsidianConfig
 
 	cfg := Config{
-		Vault:     &obsidian.Vault{Name: "vault"},
+		Vault:     &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath: vaultPath,
 		VaultDef:  obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		Debug:     false,
 	}
 	store := newIntelStore(t)
 	cfg.NoteMetadata = configuredMCPNoteMetadata(t)
-	_, err := cfg.NoteMetadata.EnsureIndexed(context.Background(), cfg.VaultDef, &obsidian.Note{}, store)
+	_, err := cfg.NoteMetadata.EnsureIndexed(vaultconfig.WithEnv(context.Background(), env), cfg.VaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	cfg.IntelStore = store
 
@@ -196,7 +202,7 @@ count: 2
 		},
 	}
 
-	resp, err := tool(context.Background(), req)
+	resp, err := tool(vaultconfig.WithEnv(context.Background(), env), req)
 	assert.NoError(t, err)
 	if !assert.Len(t, resp.Content, 1) {
 		return
@@ -224,7 +230,10 @@ count: 2
 }
 
 func TestCommunityListToolUsesProvidedIntelStore(t *testing.T) {
-	ctx := context.Background()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	tempDir := t.TempDir()
 	vaultPath := filepath.Join(tempDir, "vault")
 	require.NoError(t, os.MkdirAll(vaultPath, 0o755))
@@ -240,13 +249,11 @@ func TestCommunityListToolUsesProvidedIntelStore(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(obsidianConfig, cfgBody, 0o644))
 
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = obsidianConfig
 
 	store := newIntelStore(t)
 	cfg := Config{
-		Vault:      &obsidian.Vault{Name: "vault"},
+		Vault:      &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath:  vaultPath,
 		VaultDef:   obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		IntelStore: store,
@@ -309,6 +316,9 @@ func TestReportToolAcceptsCodeSimilarity(t *testing.T) {
 }
 
 func TestListPropertiesToolWithOnlyRaisesValueLimit(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	tempDir := t.TempDir()
 	vaultPath := filepath.Join(tempDir, "vault")
 	if err := os.MkdirAll(vaultPath, 0o755); err != nil {
@@ -336,19 +346,17 @@ func TestListPropertiesToolWithOnlyRaisesValueLimit(t *testing.T) {
 		t.Fatalf("failed to write obsidian config: %v", err)
 	}
 
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = obsidianConfig
 
 	cfg := Config{
-		Vault:     &obsidian.Vault{Name: "vault"},
+		Vault:     &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath: vaultPath,
 		VaultDef:  obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		Debug:     false,
 	}
 	store := newIntelStore(t)
 	cfg.NoteMetadata = configuredMCPNoteMetadata(t)
-	_, err := cfg.NoteMetadata.EnsureIndexed(context.Background(), cfg.VaultDef, &obsidian.Note{}, store)
+	_, err := cfg.NoteMetadata.EnsureIndexed(vaultconfig.WithEnv(context.Background(), env), cfg.VaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	cfg.IntelStore = store
 
@@ -362,7 +370,7 @@ func TestListPropertiesToolWithOnlyRaisesValueLimit(t *testing.T) {
 		},
 	}
 
-	resp, err := tool(context.Background(), req)
+	resp, err := tool(vaultconfig.WithEnv(context.Background(), env), req)
 	assert.NoError(t, err)
 	if !assert.Len(t, resp.Content, 1) {
 		return
@@ -387,6 +395,9 @@ func TestListPropertiesToolWithOnlyRaisesValueLimit(t *testing.T) {
 }
 
 func TestFileContextTool(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0o755))
 	vaultPath := filepath.Join(root, "vault")
@@ -402,12 +413,10 @@ func TestFileContextTool(t *testing.T) {
 		},
 	})
 	require.NoError(t, os.WriteFile(configFile, configBody, 0o644))
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return configFile, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = configFile
 
 	cfg := Config{
-		Vault:          &obsidian.Vault{Name: "vault"},
+		Vault:          &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath:      vaultPath,
 		VaultDef:       obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		Debug:          false,
@@ -416,7 +425,7 @@ func TestFileContextTool(t *testing.T) {
 		NoteMetadata:   configuredMCPNoteMetadata(t),
 	}
 	store := newIntelStore(t)
-	_, err := cfg.NoteMetadata.EnsureIndexed(context.Background(), cfg.VaultDef, &obsidian.Note{}, store)
+	_, err := cfg.NoteMetadata.EnsureIndexed(vaultconfig.WithEnv(context.Background(), env), cfg.VaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	cfg.IntelStore = store
 
@@ -430,7 +439,7 @@ func TestFileContextTool(t *testing.T) {
 		},
 	}
 
-	resp, err := tool(context.Background(), req)
+	resp, err := tool(vaultconfig.WithEnv(context.Background(), env), req)
 	require.NoError(t, err)
 	require.Len(t, resp.Content, 1)
 	text, ok := resp.Content[0].(mcp.TextContent)
@@ -449,7 +458,7 @@ func TestFileContextTool(t *testing.T) {
 			},
 		},
 	}
-	respPartial, err := tool(context.Background(), reqPartial)
+	respPartial, err := tool(vaultconfig.WithEnv(context.Background(), env), reqPartial)
 	require.NoError(t, err)
 	require.Len(t, respPartial.Content, 1)
 	textPartial, ok := respPartial.Content[0].(mcp.TextContent)
@@ -468,7 +477,7 @@ func TestFileContextTool(t *testing.T) {
 			},
 		},
 	}
-	respApply, err := tool(context.Background(), reqApply)
+	respApply, err := tool(vaultconfig.WithEnv(context.Background(), env), reqApply)
 	require.NoError(t, err)
 	require.False(t, respApply.IsError)
 }
@@ -495,6 +504,9 @@ func TestFileContextToolRefusesEnsureApplyWhenReadOnly(t *testing.T) {
 }
 
 func TestFileContextToolReturnsIndexedEnrichmentOnlyForIndexedReadOnlyPath(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "config.yml"), []byte("notes: {}\n"), 0o644))
@@ -511,14 +523,14 @@ func TestFileContextToolReturnsIndexedEnrichmentOnlyForIndexedReadOnlyPath(t *te
 		},
 	}
 	base := Config{
-		Vault:        &obsidian.Vault{Name: root},
+		Vault:        &repoconfig.Vault{Env: env, Name: root},
 		VaultPath:    root,
 		VaultDef:     obsidian.VaultDefinition{Name: "vault", Path: root},
 		IntelStore:   store,
 		NoteMetadata: configuredMCPNoteMetadata(t),
 	}
 
-	liveResponse, err := FileContextTool(base)(context.Background(), request)
+	liveResponse, err := FileContextTool(base)(vaultconfig.WithEnv(context.Background(), env), request)
 	require.NoError(t, err)
 	require.False(t, liveResponse.IsError, "%#v", liveResponse.Content)
 	var livePayload ContextTextResponse
@@ -533,7 +545,7 @@ func TestFileContextToolReturnsIndexedEnrichmentOnlyForIndexedReadOnlyPath(t *te
 	indexed := base
 	indexed.IndexedReadOnlyFileContext = true
 	indexed.IndexedContextUnavailable = &missing
-	indexedResponse, err := FileContextTool(indexed)(context.Background(), request)
+	indexedResponse, err := FileContextTool(indexed)(vaultconfig.WithEnv(context.Background(), env), request)
 	require.NoError(t, err)
 	require.False(t, indexedResponse.IsError, "%#v", indexedResponse.Content)
 	var indexedPayload ContextTextResponse
@@ -547,6 +559,9 @@ func TestFileContextToolReturnsIndexedEnrichmentOnlyForIndexedReadOnlyPath(t *te
 }
 
 func TestFileContextToolIndexedReadOnlyUsesDedicatedSessionStore(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "config.yml"), []byte("notes: {}\n"), 0o644))
@@ -556,7 +571,7 @@ func TestFileContextToolIndexedReadOnlyUsesDedicatedSessionStore(t *testing.T) {
 	sessionStore, err := sqlitefixture.Open(indexPath)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sessionStore.Close() })
-	intelStore, err := semdb.OpenReadOnlyExisting(indexPath, context.Background(), sqliteutil.Options{})
+	intelStore, err := semdb.OpenReadOnlyExisting(indexPath, vaultconfig.WithEnv(context.Background(), env), sqliteutil.Options{})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = intelStore.Close() })
 
@@ -566,7 +581,7 @@ func TestFileContextToolIndexedReadOnlyUsesDedicatedSessionStore(t *testing.T) {
 		Remediation: "rzm index",
 	}
 	tool := FileContextTool(Config{
-		Vault:                      &obsidian.Vault{Name: root},
+		Vault:                      &repoconfig.Vault{Env: env, Name: root},
 		VaultPath:                  root,
 		VaultDef:                   obsidian.VaultDefinition{Name: "vault", Path: root},
 		IntelStore:                 intelStore,
@@ -583,23 +598,26 @@ func TestFileContextToolIndexedReadOnlyUsesDedicatedSessionStore(t *testing.T) {
 		},
 	}}
 
-	first, err := tool(context.Background(), request)
+	first, err := tool(vaultconfig.WithEnv(context.Background(), env), request)
 	require.NoError(t, err)
 	require.False(t, first.IsError, "%#v", first.Content)
 	var firstPayload ContextTextResponse
 	require.NoError(t, json.Unmarshal([]byte(first.Content[0].(mcp.TextContent).Text), &firstPayload))
 	require.Zero(t, firstPayload.DedupeHits)
 
-	second, err := tool(context.Background(), request)
+	second, err := tool(vaultconfig.WithEnv(context.Background(), env), request)
 	require.NoError(t, err)
 	require.False(t, second.IsError, "%#v", second.Content)
 	var secondPayload ContextTextResponse
 	require.NoError(t, json.Unmarshal([]byte(second.Content[0].(mcp.TextContent).Text), &secondPayload))
 	require.Positive(t, secondPayload.DedupeHits)
-	require.Error(t, intelStore.EnsureSession(context.Background(), "must-remain-read-only"))
+	require.Error(t, intelStore.EnsureSession(vaultconfig.WithEnv(context.Background(), env), "must-remain-read-only"))
 }
 
 func TestFileContextTool_ExcludesDocs(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0o755))
 	vaultPath := filepath.Join(root, "vault")
@@ -620,12 +638,10 @@ func TestFileContextTool_ExcludesDocs(t *testing.T) {
 		},
 	})
 	require.NoError(t, os.WriteFile(configFile, configBody, 0o644))
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return configFile, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = configFile
 
 	cfg := Config{
-		Vault:          &obsidian.Vault{Name: "vault"},
+		Vault:          &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath:      vaultPath,
 		VaultDef:       obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		Debug:          false,
@@ -636,7 +652,7 @@ func TestFileContextTool_ExcludesDocs(t *testing.T) {
 
 	tool := FileContextTool(cfg)
 	// Positive control: without exclusions the ancestor doc is part of context.
-	defaultResp, err := tool(context.Background(), mcp.CallToolRequest{Params: mcp.CallToolParams{
+	defaultResp, err := tool(vaultconfig.WithEnv(context.Background(), env), mcp.CallToolRequest{Params: mcp.CallToolParams{
 		Name: "file_context", Arguments: map[string]interface{}{"files": []interface{}{"src/main.go"}},
 	}})
 	require.NoError(t, err)
@@ -654,7 +670,7 @@ func TestFileContextTool_ExcludesDocs(t *testing.T) {
 		},
 	}
 
-	resp, err := tool(context.Background(), req)
+	resp, err := tool(vaultconfig.WithEnv(context.Background(), env), req)
 	require.NoError(t, err)
 	require.Len(t, resp.Content, 1)
 	text, ok := resp.Content[0].(mcp.TextContent)
@@ -664,6 +680,9 @@ func TestFileContextTool_ExcludesDocs(t *testing.T) {
 }
 
 func TestVaultContextTool(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0o755))
 	vaultPath := filepath.Join(root, "vault")
@@ -685,12 +704,10 @@ Content`), 0o644))
 		},
 	})
 	require.NoError(t, os.WriteFile(configFile, configBody, 0o644))
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return configFile, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = configFile
 
 	cfg := Config{
-		Vault:          &obsidian.Vault{Name: "vault"},
+		Vault:          &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath:      vaultPath,
 		VaultDef:       obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		Debug:          false,
@@ -699,7 +716,7 @@ Content`), 0o644))
 		NoteMetadata:   configuredMCPNoteMetadata(t),
 	}
 	store := newIntelStore(t)
-	_, err := cfg.NoteMetadata.EnsureIndexed(context.Background(), cfg.VaultDef, &obsidian.Note{}, store)
+	_, err := cfg.NoteMetadata.EnsureIndexed(vaultconfig.WithEnv(context.Background(), env), cfg.VaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	cfg.IntelStore = store
 
@@ -714,7 +731,7 @@ Content`), 0o644))
 		},
 	}
 
-	resp, err := tool(context.Background(), req)
+	resp, err := tool(vaultconfig.WithEnv(context.Background(), env), req)
 	require.NoError(t, err)
 	require.Len(t, resp.Content, 1)
 
@@ -843,7 +860,7 @@ func TestFindConnections_NoteInputUsesOntologyNodeEmbeddings(t *testing.T) {
 	prov := embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Dimensions: 8})
 	store := newIntelStore(t)
 	ctx := context.Background()
-	node := codeanchor.IntelOntologyNode{
+	node := readmodel.NodeRow{
 		NodeID:      "node:a",
 		NotePath:    "Notes/A.md",
 		NodeRefJSON: `{"notePath":"Notes/A.md","nodeId":"a","typeName":"ReferenceDoc"}`,
@@ -851,7 +868,7 @@ func TestFindConnections_NoteInputUsesOntologyNodeEmbeddings(t *testing.T) {
 		TypeName:    "ReferenceDoc",
 		Title:       "A",
 	}
-	require.NoError(t, store.ReplaceOntologyNodes(ctx, []string{node.NotePath}, []codeanchor.IntelOntologyNode{node}))
+	require.NoError(t, store.ReplaceOntologyNodes(ctx, []string{node.NotePath}, []readmodel.NodeRow{node}))
 	require.NoError(t, store.ReplaceIntelChunks(ctx, []string{node.NodeID}, []codeanchor.IntelChunk{{
 		ChunkID:     "node-a-chunk",
 		OwnerID:     node.NodeID,
@@ -980,6 +997,8 @@ func TestSemanticQuery_DiversifiesWithinNote(t *testing.T) {
 	addDocSection(t, store, prov, "Notes/B.md", "B", "alpha", "section-b", "chunk-b")
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:     vaultPath,
 		VaultDef:      obsidian.VaultDefinition{Path: vaultPath},
 		IntelStore:    store,
@@ -1032,7 +1051,9 @@ func TestSemanticQuery_DiversifiesWithinNote(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(vaultPath, filepath.FromSlash(notePath)), []byte(body+"\n"), 0o644))
 		addDocSection(t, store, prov, notePath, filepath.Base(notePath), body, "section-"+notePath, "chunk-"+notePath)
 	}
-	cfg = Config{VaultPath: vaultPath, VaultDef: obsidian.VaultDefinition{Path: vaultPath}, IntelStore: store, EmbeddingsOn: true, EmbedProvider: prov}
+	cfg = Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+		VaultPath:    vaultPath, VaultDef: obsidian.VaultDefinition{Path: vaultPath}, IntelStore: store, EmbeddingsOn: true, EmbedProvider: prov}
 	res, err = SemanticQueryTool(cfg)(context.Background(), mcp.CallToolRequest{Params: mcp.CallToolParams{
 		Name: "semantic_query", Arguments: map[string]any{"queries": []any{"search index"}, "limit": 5},
 	}})
@@ -1072,6 +1093,8 @@ func TestSemanticQuery_SupportsQueriesAndPathsAndContinuation(t *testing.T) {
 	addCurrentNoteOwnership(t, store, "Notes/A.md", "Notes/B.md", "Notes/C.md")
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:     vaultPath,
 		VaultDef:      obsidian.VaultDefinition{Path: vaultPath},
 		IntelStore:    store,
@@ -1223,6 +1246,8 @@ func TestSemanticQuery_ContinuationTokenPreservesRawDirectorySeeds(t *testing.T)
 	addCurrentNoteOwnership(t, store, "pkg/search/CONTEXT.md", "pkg/search/Guide.md")
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:     vaultPath,
 		VaultDef:      obsidian.VaultDefinition{Path: vaultPath},
 		IntelStore:    store,
@@ -1266,6 +1291,8 @@ func TestSemanticQuery_NoLimitPacksUntilBudget(t *testing.T) {
 	addDocSection(t, store, prov, "Notes/C.md", "C", "alpha", "section-c", "chunk-c")
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:     vaultPath,
 		VaultDef:      obsidian.VaultDefinition{Path: vaultPath},
 		IntelStore:    store,

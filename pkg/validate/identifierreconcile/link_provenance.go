@@ -8,20 +8,20 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // AmbiguousLinkProvenanceRequest identifies one current structured bare-ID
 // link and every canonical claimant returned by bounded resolution.
 type AmbiguousLinkProvenanceRequest struct {
-	NotePath     string                               `json:"notePath"`
-	SourceHash   string                               `json:"sourceHash"`
-	Content      string                               `json:"-"`
-	LinkSnapshot *obsidian.StructuredLinkScanSnapshot `json:"-"`
-	LinkIndex    int                                  `json:"linkIndex"`
-	RawTarget    string                               `json:"rawTarget"`
-	Candidates   []Claim                              `json:"candidates"`
+	NotePath     string                                     `json:"notePath"`
+	SourceHash   string                                     `json:"sourceHash"`
+	Content      string                                     `json:"-"`
+	LinkSnapshot *markdownsyntax.StructuredLinkScanSnapshot `json:"-"`
+	LinkIndex    int                                        `json:"linkIndex"`
+	RawTarget    string                                     `json:"rawTarget"`
+	Candidates   []Claim                                    `json:"candidates"`
 }
 
 // LinkCandidateAncestry is complete bounded evidence for one candidate at the
@@ -148,7 +148,7 @@ func normalizeAmbiguousLinkRequest(raw AmbiguousLinkProvenanceRequest) (normaliz
 		return normalizedAmbiguousLinkRequest{}, fmt.Errorf("ambiguous link source binding is invalid")
 	}
 	snapshot, err := raw.LinkSnapshot.ValidatedSnapshot()
-	if err != nil || snapshot.SourceFingerprint != raw.SourceHash || snapshot.SourceFingerprint != obsidian.StructuredLinkSourceFingerprint(raw.Content) || raw.LinkIndex < 0 || raw.LinkIndex >= len(snapshot.Links) {
+	if err != nil || snapshot.SourceFingerprint != raw.SourceHash || snapshot.SourceFingerprint != markdownsyntax.StructuredLinkSourceFingerprint(raw.Content) || raw.LinkIndex < 0 || raw.LinkIndex >= len(snapshot.Links) {
 		return normalizedAmbiguousLinkRequest{}, fmt.Errorf("ambiguous link index is outside sealed source scan")
 	}
 	link := snapshot.Links[raw.LinkIndex]

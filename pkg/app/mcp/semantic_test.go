@@ -11,8 +11,8 @@ import (
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
 	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +26,8 @@ func TestSemanticQueryMatchesWithDeterministicProvider(t *testing.T) {
 	addDocSection(t, intelStore, prov, "Alpha.md", "Alpha", "kickoff project", "section1", "chunk1")
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:     vaultDir,
 		VaultDef:      obsidian.VaultDefinition{Path: vaultDir},
 		EmbedProvider: prov,
@@ -102,6 +104,8 @@ func TestSemanticQueryContinuationPagesAreDisjointAndRequireTheSameRequest(t *te
 	require.NoError(t, intelStore.ReplaceIntelCodeFile(ctx, callerOne.Path, []codeanchor.IntelAnchor{callerOne}, []codeanchor.IntelEdge{{SrcID: callerOne.AnchorID, DstID: anchor.AnchorID, Kind: "calls"}}, nil))
 	require.NoError(t, intelStore.ReplaceIntelCodeFile(ctx, callerTwo.Path, []codeanchor.IntelAnchor{callerTwo}, []codeanchor.IntelEdge{{SrcID: callerTwo.AnchorID, DstID: anchor.AnchorID, Kind: "calls"}}, nil))
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath: vaultDir, VaultDef: obsidian.VaultDefinition{Path: vaultDir}, IntelStore: intelStore,
 		EmbedProvider: prov, CodeEmbedProvider: prov, EmbeddingsOn: true, CodeEmbeddingsOn: true,
 	}
@@ -148,6 +152,8 @@ func TestSemanticQueryTimingsAreOptInAndMachineReadable(t *testing.T) {
 	intelStore := newIntelStore(t)
 	addDocSection(t, intelStore, prov, "Alpha.md", "Alpha", "kickoff project", "section1", "chunk1")
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath: vaultDir, VaultDef: obsidian.VaultDefinition{Path: vaultDir},
 		EmbedProvider: prov, EmbeddingsOn: true, IntelStore: intelStore, SessionStore: intelStore,
 	}
@@ -194,7 +200,9 @@ func TestSemanticQueryTimingsAreOptInAndMachineReadable(t *testing.T) {
 }
 
 func TestSemanticQueryIndexedReadOnlyMissingStoreReturnsStructuredRemediationBeforeProviderError(t *testing.T) {
-	tool := SemanticQueryTool(Config{VaultPath: t.TempDir(), IndexedReadOnlySemanticQuery: true})
+	tool := SemanticQueryTool(Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+		VaultPath:    t.TempDir(), IndexedReadOnlySemanticQuery: true})
 	res, err := tool(context.Background(), mcp.CallToolRequest{Params: mcp.CallToolParams{
 		Name: "semantic_query", Arguments: map[string]any{"queries": []string{"indexing pipeline"}},
 	}})
@@ -212,6 +220,8 @@ func TestSemanticQueryIndexedReadOnlyMissingStoreReturnsStructuredRemediationBef
 func TestSemanticQueryDisabledSkips(t *testing.T) {
 	vaultPath := t.TempDir()
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:  vaultPath,
 		VaultDef:   obsidian.VaultDefinition{Path: vaultPath},
 		IntelStore: newIntelStore(t),
@@ -236,6 +246,8 @@ func TestSemanticQueryIncludesCodeMatches(t *testing.T) {
 	addAnchor(t, intelStore, prov, "code/helper.go", "DoThingHelper", "DoThingHelper", "anchor2", "chunk2")
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:         vaultPath,
 		VaultDef:          obsidian.VaultDefinition{Path: vaultPath},
 		EmbedProvider:     prov,
@@ -291,6 +303,8 @@ func TestSemanticQueryTypeFilterNotes(t *testing.T) {
 	addAnchor(t, intelStore, prov, "pkg/search/service.go", "Service", "Service", "anchor1", "chunk2")
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:         vaultPath,
 		VaultDef:          obsidian.VaultDefinition{Path: vaultPath},
 		EmbedProvider:     prov,
@@ -336,6 +350,8 @@ func TestSemanticQueryPinnedSeedHonorsTypeFilter(t *testing.T) {
 	require.NoError(t, intelStore.UpsertFileMeta(context.Background(), codeanchor.FileMeta{Path: "pkg/search/service.go", Lang: codeanchor.LangGo, Hash: "service"}))
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:         vaultPath,
 		VaultDef:          obsidian.VaultDefinition{Path: vaultPath},
 		EmbedProvider:     prov,
@@ -378,6 +394,8 @@ func TestSemanticQueryModeMetadata(t *testing.T) {
 	addDocSection(t, intelStore, prov, "Notes/Planner.md", "Planner", "docs for pkg/search/service.go", "section1", "chunk1")
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:     vaultDir,
 		VaultDef:      obsidian.VaultDefinition{Path: vaultDir},
 		EmbedProvider: prov,
@@ -586,7 +604,11 @@ func TestSemanticQueryRepairsSubsystemOverviewWithoutPaths(t *testing.T) {
 	addDocSection(t, intelStore, prov, "pkg/search/CONTEXT.md", "Search Context", "search subsystem context", "section1", "chunk1")
 	addAnchor(t, intelStore, prov, "pkg/search/service.go", "Service", "Service", "anchor1", "chunk2")
 
+	require.NoError(t, intelStore.UpsertFileMeta(context.Background(), codeanchor.FileMeta{Path: "pkg/search/service.go", Lang: codeanchor.LangGo, Hash: "service"}))
+
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:         vaultDir,
 		VaultDef:          obsidian.VaultDefinition{Path: vaultDir},
 		EmbedProvider:     prov,
@@ -634,6 +656,8 @@ func TestSemanticQueryDowngradesSubsystemOverviewWithoutResolvablePaths(t *testi
 	addDocSection(t, intelStore, prov, "README.md", "README", "repo overview", "section1", "chunk1")
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:     vaultDir,
 		VaultDef:      obsidian.VaultDefinition{Path: vaultDir},
 		EmbedProvider: prov,
@@ -688,6 +712,8 @@ func TestSemanticQueryBlocksPrecisionFallbackWhenSymbolIsAmbiguous(t *testing.T)
 	addAnchor(t, intelStore, prov, "pkg/cache/service.go", "Service", "pkg.cache.Service", "anchor2", "chunk2")
 
 	cfg := Config{
+		NoteMetadata: configuredMCPNoteMetadata(t),
+
 		VaultPath:         vaultDir,
 		VaultDef:          obsidian.VaultDefinition{Path: vaultDir},
 		EmbedProvider:     prov,

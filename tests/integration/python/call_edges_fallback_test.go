@@ -11,10 +11,10 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	searchplanner "github.com/atomicobject/rhizome/pkg/search/planner"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
 )
@@ -72,7 +72,7 @@ def broken(task):
 		plan, err := planner.Plan(ctx, spec)
 		require.NoError(t, err)
 
-		svc := &search.Service{Retrievers: plan.Retrievers, Ranker: plan.Ranker}
+		svc := &plan
 		resp, err := svc.Search(ctx, spec)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp.Results)

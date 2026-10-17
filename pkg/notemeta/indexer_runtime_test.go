@@ -8,14 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIndexerFormatRuntimeValidatesLikeIndexerOperations(t *testing.T) {
-	var indexer Indexer
-
-	_, err := indexer.FormatRuntime()
-	require.Error(t, err)
-	require.EqualError(t, err, "note format runtime is required")
-}
-
 func TestIndexerFormatRuntimeReturnsConfiguredImmutableRuntime(t *testing.T) {
 	configured, err := builtin.NewRuntime()
 	require.NoError(t, err)

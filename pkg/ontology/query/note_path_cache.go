@@ -4,9 +4,9 @@ import (
 	"context"
 	"sort"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -30,9 +30,6 @@ func currentNotePaths(ctx context.Context, deps Deps) ([]string, error) {
 				eligible[row.Path] = struct{}{}
 			}
 			continue
-		}
-		if format == noteformat.FormatID("markdown") {
-			eligible[row.Path] = struct{}{}
 		}
 	}
 

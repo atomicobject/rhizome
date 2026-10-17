@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -15,21 +18,22 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/agentchat"
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/harness/harnesstest"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
 	"github.com/stretchr/testify/require"
 )
 
 func TestAgentSettingsEndpointUsesHarnessStatuses(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := filepath.Join(t.TempDir(), "config")
 	file := filepath.Join(root, "config.yml")
-	original := obsidian.CliConfigPath
-	obsidian.CliConfigPath = func() (string, string, error) { return root, file, nil }
-	t.Cleanup(func() { obsidian.CliConfigPath = original })
+	env.CLIConfigFile = file
 
 	fake := &harnesstest.Harness{StatusResult: harness.Status{
 		Installed: true, LoggedIn: true, Version: "codex-test", Models: []harness.ModelOption{{ID: "gpt-test", DisplayName: "gpt-test", Efforts: []string{"high"}}},
 	}}
-	service, err := agentchat.NewService(context.Background(), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	service, err := agentchat.NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, service.Close()) })
 	server := &Server{agentService: service}
@@ -74,12 +78,13 @@ func TestWriteAgentErrorUsesConflictStatus(t *testing.T) {
 }
 
 func TestAgentMessageEndpointReturnsAcceptedAndTurnSurvivesRequest(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := filepath.Join(t.TempDir(), "config")
 	file := filepath.Join(root, "config.yml")
-	original := obsidian.CliConfigPath
-	obsidian.CliConfigPath = func() (string, string, error) { return root, file, nil }
-	t.Cleanup(func() { obsidian.CliConfigPath = original })
-	_, err := agentchat.SaveSettings(agentchat.Settings{Harness: harness.KindCodex})
+	env.CLIConfigFile = file
+	_, err := agentchat.SaveSettings(env, agentchat.Settings{Harness: harness.KindCodex})
 	require.NoError(t, err)
 
 	fakeSession := harnesstest.NewSession()
@@ -88,14 +93,14 @@ func TestAgentMessageEndpointReturnsAcceptedAndTurnSurvivesRequest(t *testing.T)
 		StatusResult: harness.Status{Installed: true, LoggedIn: true},
 		Session:      fakeSession,
 	}
-	service, err := agentchat.NewService(context.Background(), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	service, err := agentchat.NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, service.Close()) })
-	created, err := service.CreateSession(context.Background(), "Async endpoint")
+	created, err := service.CreateSession(vaultconfig.WithEnv(context.Background(), env), "Async endpoint")
 	require.NoError(t, err)
 	server := &Server{agentService: service}
 
-	requestCtx, cancel := context.WithCancel(context.Background())
+	requestCtx, cancel := context.WithCancel(vaultconfig.WithEnv(context.Background(), env))
 	request := httptest.NewRequest(http.MethodPost, "/api/agent/sessions/"+created.Session.ID+"/messages", bytes.NewBufferString(`{"content":"ping"}`)).WithContext(requestCtx)
 	response := httptest.NewRecorder()
 	server.handleAgentSessionByID(response, request)
@@ -110,7 +115,7 @@ func TestAgentMessageEndpointReturnsAcceptedAndTurnSurvivesRequest(t *testing.T)
 	fakeSession.Emit(harness.Event{Kind: harness.EventAssistantTextDelta, TurnID: "turn-1", Text: "pong"})
 	fakeSession.Emit(harness.Event{Kind: harness.EventTurnCompleted, TurnID: "turn-1"})
 	require.Eventually(t, func() bool {
-		persisted, getErr := service.GetSession(context.Background(), created.Session.ID)
+		persisted, getErr := service.GetSession(vaultconfig.WithEnv(context.Background(), env), created.Session.ID)
 		return getErr == nil && !persisted.Session.TurnRunning && len(persisted.Messages) == 2
 	}, time.Second, 10*time.Millisecond)
 }
@@ -173,12 +178,13 @@ func TestAgentSessionReadDeleteAndSSEMissingReturnNotFound(t *testing.T) {
 }
 
 func TestAgentEventsHonorsLastEventIDAndWritesSSEIDs(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := filepath.Join(t.TempDir(), "config")
 	file := filepath.Join(root, "config.yml")
-	original := obsidian.CliConfigPath
-	obsidian.CliConfigPath = func() (string, string, error) { return root, file, nil }
-	t.Cleanup(func() { obsidian.CliConfigPath = original })
-	_, err := agentchat.SaveSettings(agentchat.Settings{Harness: harness.KindCodex})
+	env.CLIConfigFile = file
+	_, err := agentchat.SaveSettings(env, agentchat.Settings{Harness: harness.KindCodex})
 	require.NoError(t, err)
 
 	fakeSession := harnesstest.NewSession()
@@ -187,12 +193,12 @@ func TestAgentEventsHonorsLastEventIDAndWritesSSEIDs(t *testing.T) {
 		StatusResult: harness.Status{Installed: true, LoggedIn: true},
 		Session:      fakeSession,
 	}
-	service, err := agentchat.NewService(context.Background(), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: driver})
+	service, err := agentchat.NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: driver})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, service.Close()) })
-	created, err := service.CreateSession(context.Background(), "SSE cursor")
+	created, err := service.CreateSession(vaultconfig.WithEnv(context.Background(), env), "SSE cursor")
 	require.NoError(t, err)
-	_, err = service.SendMessage(context.Background(), created.Session.ID, "ping")
+	_, err = service.SendMessage(vaultconfig.WithEnv(context.Background(), env), created.Session.ID, "ping")
 	require.NoError(t, err)
 	fakeSession.Emit(harness.Event{Kind: harness.EventTurnStarted, TurnID: "turn-1"})
 	fakeSession.Emit(harness.Event{Kind: harness.EventAssistantTextDelta, TurnID: "turn-1", Text: "pong"})
@@ -200,11 +206,11 @@ func TestAgentEventsHonorsLastEventIDAndWritesSSEIDs(t *testing.T) {
 
 	var persisted []agentchat.Event
 	require.Eventually(t, func() bool {
-		persisted, err = service.EventsAfter(context.Background(), created.Session.ID, 0)
+		persisted, err = service.EventsAfter(vaultconfig.WithEnv(context.Background(), env), created.Session.ID, 0)
 		return err == nil && len(persisted) == 3
 	}, time.Second, 10*time.Millisecond)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	ctx, cancel := context.WithTimeout(vaultconfig.WithEnv(context.Background(), env), 20*time.Millisecond)
 	defer cancel()
 	request := httptest.NewRequest(http.MethodGet, "/api/agent/sessions/"+created.Session.ID+"/events?after=0", nil).WithContext(ctx)
 	request.Header.Set("Last-Event-ID", strconv.FormatInt(persisted[1].ID, 10))

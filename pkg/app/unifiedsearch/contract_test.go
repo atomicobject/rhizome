@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/stretchr/testify/require"
 )
@@ -59,7 +58,7 @@ func TestContinuationRejectsLegacyVersion(t *testing.T) {
 }
 
 func TestRequestIdentityUsesMembershipControlsOnly(t *testing.T) {
-	base := EffectiveRequest{Queries: []QueryInput{{Text: "definition", Mode: "go_to_def"}, {Text: "tests", Mode: "tests_for_code"}}, Intent: search.IntentSearch, Profile: ProfileAgent, Filters: search.Filters{Inputs: []actions.ListInput{{Type: actions.InputTypeFind, Value: "query"}}, Types: []string{"code", "note"}, PathPrefixes: []string{"pkg/b", "pkg/a"}, NoteTypes: []string{"Spec", "Decision"}}, Policy: EffectivePolicy{Profile: ProfileAgent, VisibleLimit: 20, CandidateWindow: 240, MaxPerOwner: 3, BudgetChars: 24_000}}
+	base := EffectiveRequest{Queries: []QueryInput{{Text: "definition", Mode: "go_to_def"}, {Text: "tests", Mode: "tests_for_code"}}, Intent: search.IntentSearch, Profile: ProfileAgent, Filters: search.Filters{Types: []string{"code", "note"}, PathPrefixes: []string{"pkg/b", "pkg/a"}, NoteTypes: []string{"Spec", "Decision"}}, Policy: EffectivePolicy{Profile: ProfileAgent, VisibleLimit: 20, CandidateWindow: 240, MaxPerOwner: 3, BudgetChars: 24_000}}
 	first, err := RequestIdentity(base, "vault")
 	require.NoError(t, err)
 	presentationChanged := base
@@ -68,7 +67,6 @@ func TestRequestIdentityUsesMembershipControlsOnly(t *testing.T) {
 	presentationChanged.Filters.Types = []string{"note", "code", "code"}
 	presentationChanged.Filters.PathPrefixes = []string{"pkg/a", "pkg/b"}
 	presentationChanged.Filters.NoteTypes = []string{"decision", "spec"}
-	presentationChanged.Filters.Inputs = []actions.ListInput{{Type: actions.InputTypeFind, Value: " query "}, {Type: actions.InputTypeFind, Value: "query"}}
 	second, err := RequestIdentity(presentationChanged, "vault")
 	require.NoError(t, err)
 	require.Equal(t, first, second)

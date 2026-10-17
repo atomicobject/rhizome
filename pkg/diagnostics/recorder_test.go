@@ -51,8 +51,8 @@ func TestPersistedLevelDoesNotHideConsoleWarnings(t *testing.T) {
 	root := t.TempDir()
 	var stderr bytes.Buffer
 	r := openTestRecorder(t, root, Options{Level: slog.LevelError, Stderr: &stderr})
-	r.Event(nil, slog.LevelWarn, "indexing", "warning", "visible warning")
-	r.Event(nil, slog.LevelError, "indexing", "error", "visible error")
+	r.Event(t.Context(), slog.LevelWarn, "indexing", "warning", "visible warning")
+	r.Event(t.Context(), slog.LevelError, "indexing", "error", "visible error")
 	require.Contains(t, stderr.String(), "visible warning")
 	require.Contains(t, stderr.String(), "visible error")
 	result, err := ReadEvents(root, Filter{})

@@ -15,6 +15,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // runIndexExplain resolves input against the vault root, evaluates it with the
@@ -58,7 +59,8 @@ func renderCodeExplain(w io.Writer, vaultRoot, relPath string) {
 	if !ok {
 		return
 	}
-	cfg, err := obsidian.LoadCodeConfig(vaultRoot)
+	resolvedConfig1, configErr1 := repoconfig.Load(vaultRoot)
+	cfg, err := resolvedConfig1.Code, configErr1
 	if err != nil {
 		return
 	}

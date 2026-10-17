@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 )
 
@@ -31,7 +32,7 @@ func (op addSectionFieldOp) apply(state *documentState) error {
 	}
 	for _, fieldName := range parts[:len(parts)-1] {
 		field := parent.Type.ByName[fieldName]
-		if field == nil || field.Kind != FieldKindSection {
+		if field == nil || field.Kind != ontoschema.FieldKindSection {
 			return fmt.Errorf("%w: section field %s not found on %s", errMissingField, fieldName, parent.Ref.String())
 		}
 		binding := parent.Fields[fieldName]
@@ -46,7 +47,7 @@ func (op addSectionFieldOp) apply(state *documentState) error {
 
 	targetName := parts[len(parts)-1]
 	target := parent.Type.ByName[targetName]
-	if target == nil || target.Kind != FieldKindSection {
+	if target == nil || target.Kind != ontoschema.FieldKindSection {
 		return fmt.Errorf("%w: section field %s not found on %s", errMissingField, targetName, parent.Ref.String())
 	}
 	if binding, ok := parent.Fields[targetName]; ok && len(binding.SectionNodes) > 0 {
@@ -93,7 +94,7 @@ func orderedSectionInsertOffset(snapshot *DocumentSnapshot, parent *NodeProjecti
 	}
 	insertAt := -1
 	for _, field := range parent.Type.Fields[targetIndex+1:] {
-		if field == nil || field.Kind != FieldKindSection {
+		if field == nil || field.Kind != ontoschema.FieldKindSection {
 			continue
 		}
 		for _, ref := range parent.Fields[field.Name].SectionNodes {
@@ -113,20 +114,21 @@ func orderedSectionInsertOffset(snapshot *DocumentSnapshot, parent *NodeProjecti
 
 func sectionHeadingSnippet(content string, insertAt int, heading string) string {
 	before, after := content[:insertAt], content[insertAt:]
+	eol := documentEOL(content)
 	var b strings.Builder
 	if before != "" {
 		switch {
-		case strings.HasSuffix(before, "\n\n"):
-		case strings.HasSuffix(before, "\n"):
-			b.WriteByte('\n')
+		case strings.HasSuffix(before, eol+eol):
+		case strings.HasSuffix(before, eol):
+			b.WriteString(eol)
 		default:
-			b.WriteString("\n\n")
+			b.WriteString(eol + eol)
 		}
 	}
 	b.WriteString(heading)
-	b.WriteByte('\n')
-	if after != "" && !strings.HasPrefix(after, "\n") {
-		b.WriteByte('\n')
+	b.WriteString(eol)
+	if after != "" && !strings.HasPrefix(after, eol) {
+		b.WriteString(eol)
 	}
 	return b.String()
 }

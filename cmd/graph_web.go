@@ -1,5 +1,7 @@
 package cmd
 
+import ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+
 // Graph CLI command equivalent to web UI /api/graph/* endpoints.
 // Used for testing and debugging graph performance from the command line.
 
@@ -7,33 +9,27 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 )
 
-var (
-	graphWebPath   string
-	graphWebModule string
-	graphWebDepth  int
-	graphWebJSON   bool
-)
-
-var graphWebCmd = &cobra.Command{
-	Use:   "web [global|local|expand]",
-	Short: "Query the doc+code graph (equivalent to web UI endpoints)",
-	Long: `Query the unified doc+code graph, mirroring the web UI endpoints.
+func (commandOptions *graphInvocationOptions) makeGraphWebCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "web [global|local|expand]",
+		Short: "Query the doc+code graph (equivalent to web UI endpoints)",
+		Long: `Query the unified doc+code graph, mirroring the web UI endpoints.
 
 Modes:
   global  - Full vault graph (all nodes and edges)
@@ -46,144 +42,147 @@ Examples:
   rzm graph web local --path docs/foo.md  # Graph around a file
   rzm graph web expand --module pkg/app   # Expand a directory
 `,
-	Args: cobra.MaximumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 
-		mode := "global"
-		if len(args) > 0 {
-			mode = args[0]
-		}
+			mode := "global"
+			if len(args) > 0 {
+				mode = args[0]
+			}
 
-		// Resolve vault
-		selectedVault := vaultName
-		if selectedVault == "" {
-			v := &obsidian.Vault{}
-			name, err := v.DefaultName()
+			// Resolve vault
+			selectedVault := commandOptions.vaultName
+			if selectedVault == "" {
+				v := &repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config}
+				name, err := v.DefaultName()
+				if err != nil {
+					return err
+				}
+				selectedVault = name
+			}
+			vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: selectedVault}
+			vaultPath, err := vault.Path()
 			if err != nil {
 				return err
 			}
-			selectedVault = name
-		}
-		vault := obsidian.Vault{Name: selectedVault}
-		vaultPath, err := vault.Path()
-		if err != nil {
-			return err
-		}
+			resolvedConfig1,
 
-		// Load code config
-		codeCfg, err := obsidian.LoadCodeConfig(vaultPath)
-		if err != nil {
-			codeCfg = codeanchor.DefaultConfig(vaultPath)
-		}
-		codeCfg.IndexPath = obsidian.UnifiedIndexPath(vaultPath, codeCfg.IndexPath)
-
-		// Open intel store
-		tStore := time.Now()
-		store, cleanup, err := requireIntelStore(vaultPath, codeCfg)
-		if err != nil {
-			return err
-		}
-		storeOpenTime := time.Since(tStore)
-		defer cleanup()
-
-		// Load vault definition and ignore matcher
-		vaultDef, err := vault.Definition()
-		if err != nil {
-			return err
-		}
-		ignoreMatcher := ignore.LoadUnifiedMatcher(vaultPath, vaultDef.Excludes)
-		schema, _ := ontology.LoadSchema(vaultPath)
-
-		// Create a minimal graph builder
-		gb := &graphBuilder{
-			store:         store,
-			vaultDef:      vaultDef,
-			schema:        schema,
-			ignoreMatcher: ignoreMatcher,
-		}
-
-		start := time.Now()
-		var resp web.GraphResponse
-		var buildErr error
-
-		switch mode {
-		case "global":
-			resp, buildErr = gb.buildGlobalGraph(ctx, graphLimit, graphWebDepth)
-		case "local":
-			if graphWebPath == "" {
-				return fmt.Errorf("--path is required for local mode")
+				// Load code config
+				configErr1 := repoconfig.Load(vaultPath)
+			codeCfg, err := resolvedConfig1.Code, configErr1
+			if err != nil {
+				codeCfg = codeanchor.DefaultConfig(vaultPath)
 			}
-			resp, buildErr = gb.buildLocalGraph(ctx, graphWebPath, graphLimit, graphWebDepth)
-		case "expand":
-			if graphWebModule == "" {
-				return fmt.Errorf("--module is required for expand mode")
+			codeCfg.IndexPath = repoconfig.UnifiedIndexPath(vaultPath, codeCfg.IndexPath)
+
+			// Open intel store
+			tStore := time.Now()
+			store, cleanup, err := requireIntelStore(vaultPath, codeCfg, indexstore.ReadOnly)
+			if err != nil {
+				return err
 			}
-			resp, buildErr = gb.buildModuleGraph(ctx, graphWebModule, graphLimit)
-		default:
-			return fmt.Errorf("unknown mode: %s (use global, local, or expand)", mode)
-		}
+			storeOpenTime := time.Since(tStore)
+			defer cleanup()
 
-		elapsed := time.Since(start)
-
-		if buildErr != nil {
-			return buildErr
-		}
-
-		if graphWebJSON {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			return enc.Encode(resp)
-		}
-
-		// Summary output
-		fmt.Fprintf(cmd.OutOrStdout(), "Mode: %s\n", mode)
-		fmt.Fprintf(cmd.OutOrStdout(), "Nodes: %d\n", len(resp.Nodes))
-		fmt.Fprintf(cmd.OutOrStdout(), "Edges: %d\n", len(resp.Edges))
-		fmt.Fprintf(cmd.OutOrStdout(), "Truncated: %v\n", resp.Truncated)
-		if resp.CenterID != "" {
-			fmt.Fprintf(cmd.OutOrStdout(), "Center: %s\n", resp.CenterID)
-		}
-
-		// Edge breakdown by kind
-		kindCounts := map[string]int{}
-		for _, e := range resp.Edges {
-			kindCounts[e.Kind]++
-		}
-		if len(kindCounts) > 0 {
-			fmt.Fprintf(cmd.OutOrStdout(), "\nEdge kinds:\n")
-			for kind, count := range kindCounts {
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s: %d\n", kind, count)
+			// Load vault definition and ignore matcher
+			vaultDef, err := vault.Definition()
+			if err != nil {
+				return err
 			}
-		}
+			ignoreMatcher := ignore.LoadUnifiedMatcher(vaultPath, vaultDef.Excludes)
+			schema, _ := ontoschema.LoadSchema(vaultPath)
 
-		// Node breakdown by kind
-		nodeKindCounts := map[string]int{}
-		for _, n := range resp.Nodes {
-			nodeKindCounts[n.Kind]++
-		}
-		if len(nodeKindCounts) > 0 {
-			fmt.Fprintf(cmd.OutOrStdout(), "\nNode kinds:\n")
-			for kind, count := range nodeKindCounts {
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s: %d\n", kind, count)
+			// Create a minimal graph builder
+			gb := &graphBuilder{
+				store:         store,
+				vaultDef:      vaultDef,
+				schema:        schema,
+				ignoreMatcher: ignoreMatcher,
 			}
-		}
 
-		if graphTimings {
-			fmt.Fprintf(cmd.OutOrStdout(), "\nTiming: %s\n", elapsed)
-			fmt.Fprintf(cmd.OutOrStdout(), "  store open:     %6s\n", storeOpenTime.Round(time.Millisecond))
-		}
+			start := time.Now()
+			var resp web.GraphResponse
+			var buildErr error
 
-		return nil
-	},
+			switch mode {
+			case "global":
+				resp, buildErr = gb.buildGlobalGraph(ctx, commandOptions.graphLimit, commandOptions.graphWebDepth)
+			case "local":
+				if commandOptions.graphWebPath == "" {
+					return fmt.Errorf("--path is required for local mode")
+				}
+				resp, buildErr = gb.buildLocalGraph(ctx, commandOptions.graphWebPath, commandOptions.graphLimit, commandOptions.graphWebDepth)
+			case "expand":
+				if commandOptions.graphWebModule == "" {
+					return fmt.Errorf("--module is required for expand mode")
+				}
+				resp, buildErr = gb.buildModuleGraph(ctx, commandOptions.graphWebModule, commandOptions.graphLimit)
+			default:
+				return fmt.Errorf("unknown mode: %s (use global, local, or expand)", mode)
+			}
+
+			elapsed := time.Since(start)
+
+			if buildErr != nil {
+				return buildErr
+			}
+
+			if commandOptions.graphWebJSON {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
+			}
+
+			// Summary output
+			fmt.Fprintf(cmd.OutOrStdout(), "Mode: %s\n", mode)
+			fmt.Fprintf(cmd.OutOrStdout(), "Nodes: %d\n", len(resp.Nodes))
+			fmt.Fprintf(cmd.OutOrStdout(), "Edges: %d\n", len(resp.Edges))
+			fmt.Fprintf(cmd.OutOrStdout(), "Truncated: %v\n", resp.Truncated)
+			if resp.CenterID != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Center: %s\n", resp.CenterID)
+			}
+
+			// Edge breakdown by kind
+			kindCounts := map[string]int{}
+			for _, e := range resp.Edges {
+				kindCounts[e.Kind]++
+			}
+			if len(kindCounts) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "\nEdge kinds:\n")
+				for kind, count := range kindCounts {
+					fmt.Fprintf(cmd.OutOrStdout(), "  %s: %d\n", kind, count)
+				}
+			}
+
+			// Node breakdown by kind
+			nodeKindCounts := map[string]int{}
+			for _, n := range resp.Nodes {
+				nodeKindCounts[n.Kind]++
+			}
+			if len(nodeKindCounts) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "\nNode kinds:\n")
+				for kind, count := range nodeKindCounts {
+					fmt.Fprintf(cmd.OutOrStdout(), "  %s: %d\n", kind, count)
+				}
+			}
+
+			if commandOptions.graphTimings {
+				fmt.Fprintf(cmd.OutOrStdout(), "\nTiming: %s\n", elapsed)
+				fmt.Fprintf(cmd.OutOrStdout(), "  store open:     %6s\n", storeOpenTime.Round(time.Millisecond))
+			}
+
+			return nil
+		},
+	}
 }
 
-func init() {
+func (commandOptions *graphInvocationOptions) registerGraphWebCommands(graphCmd, graphWebCmd *cobra.Command) {
 	graphCmd.AddCommand(graphWebCmd)
-	graphWebCmd.Flags().StringVar(&graphWebPath, "path", "", "file path for local graph mode")
-	graphWebCmd.Flags().StringVar(&graphWebModule, "module", "", "module/directory path for expand mode")
-	graphWebCmd.Flags().IntVar(&graphWebDepth, "depth", 2, "module depth for grouping (default 2)")
-	graphWebCmd.Flags().BoolVar(&graphWebJSON, "json", false, "output full graph as JSON")
+	graphWebCmd.Flags().StringVar(&commandOptions.graphWebPath, "path", "", "file path for local graph mode")
+	graphWebCmd.Flags().StringVar(&commandOptions.graphWebModule, "module", "", "module/directory path for expand mode")
+	graphWebCmd.Flags().IntVar(&commandOptions.graphWebDepth, "depth", 2, "module depth for grouping (default 2)")
+	graphWebCmd.Flags().BoolVar(&commandOptions.graphWebJSON, "json", false, "output full graph as JSON")
 }
 
 // graphBuilder is a minimal implementation of the web.Server graph methods
@@ -191,7 +190,7 @@ func init() {
 type graphBuilder struct {
 	store         *semdb.Store
 	vaultDef      obsidian.VaultDefinition
-	schema        *ontology.Schema
+	schema        *ontoschema.Schema
 	ignoreMatcher *ignore.Matcher
 }
 
@@ -270,7 +269,7 @@ func (gb *graphBuilder) buildModuleGraph(ctx context.Context, module string, lim
 }
 
 func (gb *graphBuilder) buildNodeReadGraph(ctx context.Context, req noderead.GraphRequest, depth int, centerID string) (web.GraphResponse, error) {
-	graph, err := noderead.NewService(gb.vaultDef, &obsidian.Note{}, gb.store, gb.schema).NewScope(ctx, noderead.ScopeOptions{}).Graph(ctx, req)
+	graph, err := noderead.NewService(gb.vaultDef, &obsidian.Note{}, gb.store, gb.schema).NewScope(noderead.ScopeOptions{}).Graph(ctx, req)
 	if err != nil {
 		return web.GraphResponse{}, err
 	}
@@ -295,7 +294,7 @@ func (gb *graphBuilder) buildNodeReadGraph(ctx context.Context, req noderead.Gra
 			NotePath:      node.NotePath,
 			NodeID:        node.NodeID,
 			NodeRef:       nodeRef,
-			Label:         firstGraphCLIString(node.Label, graphWebTitleFromPath(path)),
+			Label:         firstGraphCLIString(node.Label, paths.NoteTitle(path)),
 			Kind:          kind,
 			Lang:          nodeLang(kind),
 			Module:        moduleKey(firstGraphCLIString(node.NotePath, path), depth),
@@ -346,14 +345,6 @@ func nodeLang(kind string) string {
 		return "markdown"
 	}
 	return ""
-}
-
-func graphWebTitleFromPath(p string) string {
-	base := filepath.Base(p)
-	if extension := filepath.Ext(base); extension != "" {
-		base = strings.TrimSuffix(base, extension)
-	}
-	return base
 }
 
 func moduleKey(p string, depth int) string {

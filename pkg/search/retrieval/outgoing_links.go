@@ -2,10 +2,11 @@ package retrieval
 
 import (
 	"context"
+	pathsyntax "github.com/atomicobject/rhizome/pkg/paths"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // OutgoingLinkRetriever expands seed notes from persisted current provider
@@ -74,6 +75,12 @@ func (r *OutgoingLinkRetriever) Retrieve(ctx context.Context, spec search.QueryS
 			seen[key] = struct{}{}
 			h := knowledge.NoteHandle(dst)
 			out = append(out, search.Candidate{
+				SourceRef: search.SourceRef{
+					NoteID:     dst,
+					Path:       dst,
+					Title:      pathsyntax.NoteTitle(dst),
+					ChunkIndex: -1,
+				},
 				Handle: h,
 				Owner:  h,
 				Evidence: []search.Evidence{{
@@ -84,11 +91,7 @@ func (r *OutgoingLinkRetriever) Retrieve(ctx context.Context, spec search.QueryS
 						"seed": seedPath,
 					},
 				}},
-				Type:       "note",
-				NoteID:     dst,
-				Path:       dst,
-				Title:      titleFromPath(dst),
-				ChunkIndex: -1,
+				Type: "note",
 			})
 			if len(out) >= limit {
 				return out, nil

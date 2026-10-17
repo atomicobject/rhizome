@@ -12,9 +12,9 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -48,7 +48,7 @@ func queryCoherenceRuntime(t *testing.T) Options {
 		require.NoError(t, store.ReplaceIntelChunks(context.Background(), []string{anchorID}, []codeanchor.IntelChunk{{ChunkID: chunkID, OwnerID: anchorID, OwnerType: "anchor", Ord: 0, Granularity: "symbol", ContentHash: fmt.Sprintf("hash-%d", i)}}))
 		require.NoError(t, store.UpsertEmbeddings(context.Background(), map[string]embeddings.Embedding{chunkID: vectors[i]}))
 	}
-	return Options{UseVector: true, UseIntel: true, VaultPath: vault, VaultDef: obsidian.VaultDefinition{Path: vault}, IntelStore: store,
+	return Options{NoteFormats: testNoteFormats(t), UseVector: true, UseIntel: true, VaultPath: vault, VaultDef: obsidian.VaultDefinition{Path: vault}, IntelStore: store,
 		CodeProviderConfig: embeddings.ProviderConfig{Provider: "test", Dimensions: 8}}
 }
 

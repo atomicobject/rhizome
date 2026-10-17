@@ -6,24 +6,25 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
-	appmcpserve "github.com/atomicobject/rhizome/pkg/app/cli/mcpserve"
 	"github.com/atomicobject/rhizome/pkg/app/mcpserve"
 	"github.com/atomicobject/rhizome/pkg/app/oneshotruntime"
 	"github.com/spf13/cobra"
 )
 
-var mcpCmd = newMCPCommand()
+func (commandOptions *vaultCommandOptions) makeMcpCmd() *cobra.Command {
+	return commandOptions.newMCPCommand()
+}
 
-func newMCPCommand() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newMCPCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve Rhizome tools over MCP",
 	}
-	command.AddCommand(newMCPServeCommand())
+	command.AddCommand(commandOptions.newMCPServeCommand())
 	return command
 }
 
-func newMCPServeCommand() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newMCPServeCommand() *cobra.Command {
 	var allowlist []string
 	var readWrite bool
 	command := &cobra.Command{
@@ -34,23 +35,25 @@ func newMCPServeCommand() *cobra.Command {
 			if err := mcpserve.ValidateAllowlist(allowlist); err != nil {
 				return err
 			}
-			// Fire-and-forget: MCP reads the shared index in-process and only
-			// wants the vault to have a runtime keeping it fresh.
-			startVaultRuntimeInBackground(command.Context(), vaultDefOrDefaultContext)
-			dispatch, err := appmcpserve.NewInvoker(command.Context(), readWrite, appmcpserve.Dependencies{
-				VaultDefinition: vaultDefOrDefaultContext,
+			cwd, err := commandEnvFromContext(command.Context()).Getwd()
+			if err != nil {
+				return err
+			}
+			dispatch, err := mcpserve.NewInvoker(command.Context(), readWrite, mcpserve.Dependencies{
+				WorkingDirectory: cwd,
+				VaultDefinition:  commandOptions.vaultDefOrDefaultContext,
 				RuntimeFree: func() (agentapi.Config, error) {
-					return buildRuntimeFreeAgentConfig(0)
+					return commandOptions.buildRuntimeFreeAgentConfig(command.Context(), 0)
 				},
 				Prepare: func(ctx context.Context, name string, operationID oneshotruntime.OperationID, input map[string]any) (agentapi.Config, func(), error) {
-					cfg, runtime, err := prepareAgentJSONTool(ctx, 0, name, operationID, input)
+					cfg, runtime, err := commandOptions.prepareAgentJSONTool(ctx, 0, name, operationID, input)
 					if err != nil || runtime == nil {
 						return cfg, nil, err
 					}
 					return cfg, func() { _ = runtime.Close() }, nil
 				},
 				PrepareBound: func(ctx context.Context, name string, operationID oneshotruntime.OperationID, _ map[string]any) (agentapi.Config, func(), error) {
-					cfg, runtime, err := buildAgentConfigWithOperationRequirements(ctx, 0, name, operationID, bootstrap.RequireRuntimeCapabilities())
+					cfg, runtime, err := commandOptions.buildAgentConfigWithOperationRequirements(ctx, 0, name, operationID, bootstrap.RequireRuntimeCapabilities())
 					if err != nil || runtime == nil {
 						return cfg, nil, err
 					}
@@ -60,6 +63,8 @@ func newMCPServeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// The connection is admitted before starting its background runtime.
+			startVaultRuntimeInBackground(command.Context(), commandOptions.vaultDefOrDefaultContext)
 			observedDispatch := func(ctx context.Context, name string, input map[string]any) (payload []byte, callErr error) {
 				ctx, finish := observeAgentRequest(ctx, name, "mcp_stdio")
 				defer func() {
@@ -76,7 +81,7 @@ func newMCPServeCommand() *cobra.Command {
 	}
 	command.Flags().StringSliceVar(&allowlist, "tools", nil, "comma-separated catalog tool names to expose (required)")
 	command.Flags().BoolVar(&readWrite, "read-write", false, "allow supported explicit write/apply operations for this connection")
-	command.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (uses default if unset)")
+	command.Flags().StringVarP(&commandOptions.vaultName, "vault", "v", "", "vault name (uses default if unset)")
 	_ = command.MarkFlagRequired("tools")
 	return command
 }

@@ -2,10 +2,8 @@ package retrieval
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/search"
@@ -57,13 +55,13 @@ func (r *AutoExpandRetriever) Retrieve(ctx context.Context, spec search.QuerySpe
 
 	started := time.Now()
 	baseCandidates, err := runRetrievers(ctx, r.Base, spec, r.ApproxWeights)
-	addTiming(ctx, search.TimingEvent{
+	search.RecordTiming(ctx, search.TimingEvent{
 		Name:     "auto_expand.base",
 		Kind:     "retriever",
 		Started:  started,
 		Duration: time.Since(started),
-		Status:   timingStatus(err),
-		Err:      timingErr(err),
+		Status:   search.TimingStatus(err),
+		Err:      search.TimingError(err),
 	})
 	if err != nil {
 		return nil, err
@@ -97,83 +95,39 @@ func (r *AutoExpandRetriever) Retrieve(ctx context.Context, spec search.QuerySpe
 }
 
 type expansionStage struct {
-	key        string
-	timingName string
-	errPrefix  string
-	retriever  search.Retriever
+	key       string
+	retriever search.Retriever
+}
+
+func (s expansionStage) Name() string { return s.key }
+
+func (s expansionStage) Retrieve(ctx context.Context, spec search.QuerySpec) ([]search.Candidate, error) {
+	items, err := s.retriever.Retrieve(ctx, spec)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		items[i].Evidence = append(items[i].Evidence, search.Evidence{
+			Type: "auto_seed", Source: "auto_expand", Details: map[string]string{"stage": s.key},
+		})
+	}
+	return items, nil
 }
 
 func (r *AutoExpandRetriever) expandInParallel(ctx context.Context, spec search.QuerySpec) ([]search.Candidate, error) {
 	stages := []expansionStage{
-		{key: "graph", timingName: "auto_expand.graph", errPrefix: "graph expansion", retriever: r.Graph},
-		{key: "refs", timingName: "auto_expand.refs", errPrefix: "refs expansion", retriever: r.Refs},
-		{key: "ontology", timingName: "auto_expand.ontology", errPrefix: "ontology expansion", retriever: r.Ontology},
-		{key: "diffusion", timingName: "auto_expand.diffusion", errPrefix: "diffusion expansion", retriever: r.Diffusion},
+		{key: "graph", retriever: r.Graph},
+		{key: "refs", retriever: r.Refs},
+		{key: "ontology", retriever: r.Ontology},
+		{key: "diffusion", retriever: r.Diffusion},
 	}
-
-	results := make([][]search.Candidate, len(stages))
-	errs := make([]error, len(stages))
-	var wg sync.WaitGroup
-
-	for idx, stage := range stages {
-		if stage.retriever == nil {
-			continue
-		}
-		stageCtx, cancelStage := search.RetrieverStageContext(ctx, spec, stage.timingName, idx, len(stages))
-		wg.Add(1)
-		go func(idx int, stage expansionStage) {
-			defer wg.Done()
-			defer cancelStage()
-			started := time.Now()
-			items, err := stage.retriever.Retrieve(stageCtx, spec)
-			search.RecordRetrieverLane(ctx, stage.timingName, len(items), err)
-			addTiming(ctx, search.TimingEvent{
-				Name:     stage.timingName,
-				Kind:     "retriever",
-				Started:  started,
-				Duration: time.Since(started),
-				Status:   timingStatus(err),
-				Err:      timingErr(err),
-			})
-			if err != nil {
-				if search.IsBroadIntent(spec.Intent) {
-					// Expansion stages are recall helpers for broad modes. Report
-					// degradation but keep base hits usable.
-					search.AddRuntimeWarning(ctx, search.Warning{
-						Code:    "retriever_degraded",
-						Kind:    "retrieval_error",
-						Source:  stage.timingName,
-						Message: fmt.Sprintf("%s degraded: %v", stage.errPrefix, err),
-					})
-					return
-				}
-				errs[idx] = fmt.Errorf("%s: %w", stage.errPrefix, err)
-				return
-			}
-			for i := range items {
-				items[i].Evidence = append(items[i].Evidence, search.Evidence{
-					Type:     "auto_seed",
-					RawScore: 0.0,
-					Source:   "auto_expand",
-					Details:  map[string]string{"stage": stage.key},
-				})
-			}
-			results[idx] = items
-		}(idx, stage)
-	}
-	wg.Wait()
-
-	for _, err := range errs {
-		if err != nil {
-			return nil, err
+	retrievers := make([]search.Retriever, 0, len(stages))
+	for _, stage := range stages {
+		if stage.retriever != nil {
+			retrievers = append(retrievers, stage)
 		}
 	}
-
-	var out []search.Candidate
-	for _, items := range results {
-		out = append(out, items...)
-	}
-	return out, nil
+	return search.RunLanes(ctx, spec, retrievers, "auto_expand")
 }
 
 func runRetrievers(ctx context.Context, retrievers []search.Retriever, spec search.QuerySpec, weightOverrides ...map[search.EvidenceChannel]float64) ([]search.Candidate, error) {
@@ -186,11 +140,11 @@ func runRetrievers(ctx context.Context, retrievers []search.Retriever, spec sear
 		weights = weightOverrides[0]
 	}
 	if len(weights) == 0 {
-		weights = search.ApproxChannelWeightsForIntent(spec.Intent)
+		weights = search.DefaultChannelWeights()
 	}
 	sort.Slice(out, func(i, j int) bool {
-		left := search.NormalizedCandidateBaseScore(out[i], weights)
-		right := search.NormalizedCandidateBaseScore(out[j], weights)
+		left := search.CandidateScore(out[i], weights)
+		right := search.CandidateScore(out[j], weights)
 		if left != right {
 			return left > right
 		}
@@ -213,7 +167,7 @@ func deriveSeeds(cands []search.Candidate, maxTotal, maxPerKind int, weights map
 		maxPerKind = 4
 	}
 	if len(weights) == 0 {
-		weights = search.DefaultApproxChannelWeights()
+		weights = search.DefaultChannelWeights()
 	}
 
 	type scoredSeed struct {
@@ -293,5 +247,5 @@ func bestSeedForCandidate(c search.Candidate) knowledge.Handle {
 }
 
 func bestEvidenceScore(evidence []search.Evidence, weights map[search.EvidenceChannel]float64) float64 {
-	return search.NormalizedCandidateBaseScore(search.Candidate{Evidence: evidence}, weights)
+	return search.CandidateScore(search.Candidate{Evidence: evidence}, weights)
 }

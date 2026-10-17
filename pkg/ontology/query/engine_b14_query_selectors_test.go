@@ -3,13 +3,14 @@ package query
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
@@ -141,7 +142,7 @@ var b14SelectorCases = []b14SelectorCase{
 
 type b14SelectorFixture struct {
 	root       string
-	schema     *ontology.Schema
+	schema     *ontoschema.Schema
 	execSchema *ExecutableSchema
 	store      *semdb.Store
 	noteCount  int
@@ -189,7 +190,7 @@ type Project implements SummaryDoc @node(paths: ["notes/projects/*.md"]) {
 		noteTypes = append(noteTypes, semdb.OntologyNoteTypeRow{NotePath: path, TypeName: typeName, SchemaHash: "b14-schema", UpdatedAt: 1})
 	}
 
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +236,6 @@ func (f *b14SelectorFixture) deps(store Store) Deps {
 		VaultDef:   obsidian.VaultDefinition{Path: f.root},
 		NoteReader: &obsidian.Note{},
 		Store:      store,
-		Service:    ontology.NewService(obsidian.VaultDefinition{Path: f.root}, &obsidian.Note{}, f.store, f.schema),
 	}
 }
 

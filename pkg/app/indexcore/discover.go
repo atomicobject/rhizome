@@ -8,11 +8,11 @@ import (
 	"sort"
 
 	anchors "github.com/atomicobject/rhizome/pkg/anchors"
-	sqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/codeintel"
 	"github.com/atomicobject/rhizome/pkg/app/noteownership"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	sqlite "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // Discover captures pre-transition metadata and current ownership under the
@@ -90,15 +90,15 @@ func Discover(ctx context.Context, request Request, store *sqlite.Store) (result
 	}
 	d.Recovery = pending || unready
 	if pending {
-		indexingperf.AddCount(ctx, "ownership.pending_reconciliation", 1)
+		indexingperf.AddCount(ctx, indexingperf.OwnershipPendingReconciliation, 1)
 		event(ctx, "reconciliation.pending", "unfinished_structural_work", slog.Int64("generation", generation))
 	}
 	if unready {
-		indexingperf.AddCount(ctx, "derived.recovery.inactive", 1)
+		indexingperf.AddCount(ctx, indexingperf.DerivedRecoveryInactive, 1)
 	}
 	for kind, recovery := range map[string]bool{"graph": d.GraphRecovery, "code": d.CodeRecovery, "notes": d.NotesRecovery, "ontology": d.OntologyRecovery} {
 		if recovery {
-			indexingperf.AddCount(ctx, "derived.recovery."+kind, 1)
+			indexingperf.AddCount(ctx, indexingperf.DerivedRecovery.Select(kind), 1)
 		}
 	}
 	d.FullDiscovery = d.FullDiscovery || d.Recovery || request.ForceMetadata
@@ -114,11 +114,11 @@ func Discover(ctx context.Context, request Request, store *sqlite.Store) (result
 	if err != nil {
 		return d, err
 	}
-	indexingperf.AddCount(ctx, "ownership.candidates", int64(len(d.Snapshot.Candidates())))
+	indexingperf.AddCount(ctx, indexingperf.OwnershipCandidates, int64(len(d.Snapshot.Candidates())))
 	if d.FullDiscovery {
-		indexingperf.AddCount(ctx, "ownership.discovery.complete", 1)
+		indexingperf.AddCount(ctx, indexingperf.OwnershipDiscoveryComplete, 1)
 	} else {
-		indexingperf.AddCount(ctx, "ownership.discovery.scoped", 1)
+		indexingperf.AddCount(ctx, indexingperf.OwnershipDiscoveryScoped, 1)
 	}
 	for _, c := range d.Snapshot.OwnershipChangeCandidates() {
 		d.affected[c.Path.String()] = struct{}{}

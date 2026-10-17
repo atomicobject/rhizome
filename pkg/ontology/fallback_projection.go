@@ -1,14 +1,10 @@
 package ontology
 
-import "strings"
-
-// FallbackNoteTypeName is the reserved internal ontology type used to give
-// genuinely untyped note roots the same semantic surface as typed notes.
-const FallbackNoteTypeName = "_FallbackNote"
-
-// FallbackSectionTypeName is the reserved internal ontology type used to give
-// authored sections inside untyped notes stable node identity.
-const FallbackSectionTypeName = "_FallbackSection"
+import (
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"strings"
+)
 
 // AsFallbackNoteProjection converts an unresolved, unassessed note-root
 // projection into the internal fallback note projection.
@@ -27,12 +23,12 @@ func AsFallbackNoteProjection(projection *NodeProjection) (*NodeProjection, bool
 		return nil, false
 	}
 	clone := *projection
-	clone.ResolvedType = FallbackNoteTypeName
+	clone.ResolvedType = ontoschema.FallbackNoteTypeName
 	clone.Type = nil
 	clone.PropertyCase = ""
 	clone.Fields = map[string]FieldBinding{}
 	clone.Collections = map[string]CollectionBinding{}
-	clone.Ref.TypeName = FallbackNoteTypeName
+	clone.Ref.TypeName = ontoschema.FallbackNoteTypeName
 	clone.Ref.Kind = NodeKindNote
 	if strings.TrimSpace(clone.Ref.NotePath) == "" {
 		if clone.Snapshot != nil {
@@ -73,7 +69,7 @@ func AsFallbackSectionProjection(projection *NodeProjection) (*NodeProjection, b
 		parentID = sectionParentID(projection.Snapshot.Sections, section.ID)
 	}
 	clone := *projection
-	clone.ResolvedType = FallbackSectionTypeName
+	clone.ResolvedType = ontoschema.FallbackSectionTypeName
 	clone.Type = nil
 	clone.PropertyCase = ""
 	clone.Fields = map[string]FieldBinding{}
@@ -107,47 +103,13 @@ func sectionParentID(sections []*SectionNode, childID string) string {
 // IsFallbackNoteProjection reports whether a projection is the internal
 // fallback semantic projection for an untyped note.
 func IsFallbackNoteProjection(projection *NodeProjection) bool {
-	return projection != nil && IsFallbackNoteTypeName(projection.ResolvedType)
+	return projection != nil && ontoschema.IsFallbackNoteTypeName(projection.ResolvedType)
 }
 
 // IsFallbackSectionProjection reports whether a projection is the internal
 // fallback semantic projection for an authored section in an untyped note.
 func IsFallbackSectionProjection(projection *NodeProjection) bool {
-	return projection != nil && IsFallbackSectionTypeName(projection.ResolvedType)
-}
-
-// IsFallbackNoteTypeName reports whether typeName is the internal fallback
-// note type.
-func IsFallbackNoteTypeName(typeName string) bool {
-	return strings.TrimSpace(typeName) == FallbackNoteTypeName
-}
-
-// IsFallbackSectionTypeName reports whether typeName is the internal fallback
-// section type.
-func IsFallbackSectionTypeName(typeName string) bool {
-	return strings.TrimSpace(typeName) == FallbackSectionTypeName
-}
-
-// IsFallbackTypeName reports whether typeName is one of Rhizome's internal
-// fallback semantic types.
-func IsFallbackTypeName(typeName string) bool {
-	return IsFallbackNoteTypeName(typeName) || IsFallbackSectionTypeName(typeName)
-}
-
-type TypeVisibility string
-
-const (
-	TypeVisibilityPublic   TypeVisibility = "public"
-	TypeVisibilityInternal TypeVisibility = "internal"
-)
-
-// OntologyTypeVisibility classifies type names at public read boundaries.
-// Fallback notes are first-class internal evidence, not authored schema types.
-func OntologyTypeVisibility(typeName string) TypeVisibility {
-	if IsFallbackTypeName(typeName) {
-		return TypeVisibilityInternal
-	}
-	return TypeVisibilityPublic
+	return projection != nil && ontoschema.IsFallbackSectionTypeName(projection.ResolvedType)
 }
 
 // FallbackSectionProjections returns internal section projections for an
@@ -168,7 +130,7 @@ func FallbackSectionProjections(root *NodeProjection) []*NodeProjection {
 			out = append(out, &NodeProjection{
 				Snapshot:     root.Snapshot,
 				Ref:          ref,
-				ResolvedType: FallbackSectionTypeName,
+				ResolvedType: ontoschema.FallbackSectionTypeName,
 				Fields:       map[string]FieldBinding{},
 				Collections:  map[string]CollectionBinding{},
 			})
@@ -187,7 +149,7 @@ func fallbackSectionNodeRef(notePath string, section *SectionNode, parentID stri
 		NotePath:   notePath,
 		Fragment:   sectionFragment(section),
 		NodeID:     section.ID,
-		TypeName:   FallbackSectionTypeName,
+		TypeName:   ontoschema.FallbackSectionTypeName,
 		Kind:       NodeKindSection,
 		StartByte:  section.StartByte,
 		EndByte:    section.EndByte,
@@ -206,7 +168,7 @@ func fallbackSectionFingerprint(section *SectionNode, parentID string) string {
 	return strings.Join([]string{
 		strings.TrimSpace(parentID),
 		string(section.Level),
-		slugifyHeading(section.Title),
+		markdownsyntax.HeadingSlug(section.Title),
 		strings.TrimSpace(section.ID),
 	}, "|")
 }
@@ -257,7 +219,7 @@ func isFallbackRootH1(rootSections []*SectionNode, section *SectionNode) bool {
 	return len(rootSections) == 1 &&
 		section != nil &&
 		rootSections[0] == section &&
-		section.Level == SectionLevelH1
+		section.Level == ontoschema.SectionLevelH1
 }
 
 // FallbackSectionBodyParts returns body chunks for one section fallback node.
@@ -354,7 +316,7 @@ func splitFallbackBody(body string, maxBytes int) []string {
 	var out []string
 	var current []string
 	currentLen := 0
-	inFence := false
+	fence := ""
 	flush := func() {
 		if len(current) == 0 {
 			return
@@ -370,8 +332,8 @@ func splitFallbackBody(body string, maxBytes int) []string {
 		}
 		for _, line := range strings.Split(paragraph, "\n") {
 			trim := strings.TrimSpace(line)
-			if strings.HasPrefix(trim, "```") || strings.HasPrefix(trim, "~~~") {
-				inFence = !inFence
+			if next, toggled := markdownsyntax.FenceDelimiter(trim, fence); toggled {
+				fence = next
 			}
 		}
 		if len(paragraph) > maxBytes {
@@ -383,7 +345,7 @@ func splitFallbackBody(body string, maxBytes int) []string {
 		if len(current) > 0 {
 			nextLen += 2
 		}
-		if !inFence && nextLen > maxBytes {
+		if fence == "" && nextLen > maxBytes {
 			flush()
 		}
 		current = append(current, paragraph)
@@ -397,7 +359,7 @@ func fallbackMarkdownParagraphs(body string) []string {
 	lines := strings.Split(body, "\n")
 	var paragraphs []string
 	var current []string
-	inFence := false
+	fence := ""
 	flush := func() {
 		if len(current) == 0 {
 			return
@@ -407,14 +369,13 @@ func fallbackMarkdownParagraphs(body string) []string {
 	}
 	for _, line := range lines {
 		trim := strings.TrimSpace(line)
-		fence := strings.HasPrefix(trim, "```") || strings.HasPrefix(trim, "~~~")
-		if trim == "" && !inFence {
+		if trim == "" && fence == "" {
 			flush()
 			continue
 		}
 		current = append(current, line)
-		if fence {
-			inFence = !inFence
+		if next, toggled := markdownsyntax.FenceDelimiter(trim, fence); toggled {
+			fence = next
 		}
 	}
 	flush()

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type sessionTracker struct {

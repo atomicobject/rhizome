@@ -1,14 +1,15 @@
 package views
 
 import (
-	"cmp"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/pushdown"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"math"
-	"strconv"
 	"strings"
 	"time"
-
-	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 )
 
 func applySearchAndFilters(rows []TableRow, search string, filters []viewconfig.FilterSpec, capabilities []FieldCapability) ([]TableRow, error) {
@@ -94,6 +95,20 @@ func rowMatchesFilter(row TableRow, filter viewconfig.FilterSpec, capabilities m
 	op := strings.ToLower(strings.TrimSpace(filter.Op))
 	value, exists := fieldValue(row, field)
 	linkLike := filterFieldUsesPathMatching(field, capabilities[field])
+	if cap := capabilities[field]; len(cap.IndexedFilterOps) > 0 && !linkLike {
+		predicate := readmodel.FieldPredicate{FieldName: field, Op: readmodel.FieldOperator(op)}
+		wants := []string{filter.Value}
+		if op == "in" {
+			wants = filter.Values
+		}
+		for _, want := range wants {
+			predicate.Values = append(predicate.Values, ontology.FieldValueRow(indexedScalarField(cap.ValueKind), want))
+		}
+		switch op {
+		case "eq", "neq", "in", "contains", "exists", "missing", "gt", "gte", "lt", "lte":
+			return pushdown.Match(predicate, indexedScalarRows(value, false, cap.ValueKind)), nil
+		}
+	}
 	switch op {
 	case "exists":
 		return exists, nil
@@ -152,9 +167,6 @@ func rowLinksToCanonical(row TableRow, field string, cap FieldCapability, want s
 }
 
 func filterValueEquals(actual any, want string, cap FieldCapability, linkLike bool) bool {
-	if len(cap.IndexedFilterOps) > 0 && !linkLike && !fieldUsesBoolMatching(cap) {
-		return indexedScalarEquals(actual, want, cap)
-	}
 	if fieldUsesBoolMatching(cap) {
 		wantBool, ok := boolValue(want)
 		if !ok {
@@ -190,63 +202,6 @@ func filterValueEquals(actual any, want string, cap FieldCapability, linkLike bo
 		}
 	}
 	return false
-}
-
-// Indexed equality chooses a typed column when the predicate parses, otherwise
-// it falls back to value_norm, just like the shared SQL predicate builder.
-func indexedScalarEquals(actual any, want string, cap FieldCapability) bool {
-	if values, ok := listValues(actual); ok {
-		for _, value := range values {
-			if indexedScalarEquals(value, want, cap) {
-				return true
-			}
-		}
-		return false
-	}
-	comparison, valid := compareIndexedScalarValues(actual, want, cap.ValueKind)
-	return valid && comparison == 0
-}
-
-// Predicate coercion determines the SQL column for both equality and ranges.
-// Unparseable numeric and DateTime predicates use normalized text; Date uses
-// its text column whenever the predicate has the date-shaped length.
-func compareIndexedScalarValues(actual any, want, kind string) (int, bool) {
-	if actual == nil {
-		return 0, false
-	}
-	switch kind {
-	case "int", "real":
-		if kind == "real" {
-			if value, err := strconv.ParseFloat(strings.TrimSpace(want), 64); err == nil && math.IsNaN(value) {
-				return 0, false
-			}
-		}
-		if right := indexedNumericValue(want, kind, false); right != nil {
-			left := indexedNumericValue(actual, kind, false)
-			if left == nil {
-				return 0, false
-			}
-			if kind == "int" {
-				return cmp.Compare(left.(int64), right.(int64)), true
-			}
-			return cmp.Compare(left.(float64), right.(float64)), true
-		}
-	case "date":
-		if len(strings.TrimSpace(want)) == len("2006-01-02") {
-			left, valid := indexedLexicalValue(actual, "date", false)
-			return strings.Compare(left, strings.TrimSpace(want)), valid
-		}
-	case "datetime":
-		if right, valid := indexedLexicalValue(want, "datetime", false); valid {
-			left, valid := indexedLexicalValue(actual, "datetime", false)
-			return strings.Compare(left, right), valid
-		}
-		// The index canonicalizes valid DateTime values in value_norm too.
-		if canonical, valid := indexedLexicalValue(actual, "datetime", false); valid {
-			actual = canonical
-		}
-	}
-	return strings.Compare(indexedSortText(actual), strings.ToLower(strings.TrimSpace(want))), true
 }
 
 func filterFieldUsesPathMatching(field string, cap FieldCapability) bool {
@@ -307,7 +262,7 @@ func linkComparableValues(value any) []string {
 			return nil
 		}
 		out := []string{raw}
-		if title := titleFromPath(raw); title != "" && title != raw {
+		if title := paths.NoteTitle(strings.TrimSpace(raw)); title != "" && title != raw {
 			out = append(out, title)
 		}
 		return out
@@ -334,18 +289,6 @@ func normalizedLinkFilterValue(value string) string {
 		value = value[:idx]
 	}
 	return strings.TrimSpace(value)
-}
-
-func titleFromPath(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	value = strings.TrimSuffix(value, ".md")
-	if idx := strings.LastIndexAny(value, `/\`); idx >= 0 {
-		value = value[idx+1:]
-	}
-	return value
 }
 
 func compareFilter(actual any, want string, op string, cap FieldCapability) bool {
@@ -376,12 +319,6 @@ func compareFilter(actual any, want string, op string, cap FieldCapability) bool
 }
 
 func compareFilterValues(actual any, want string, cap FieldCapability) (int, bool) {
-	if len(cap.IndexedFilterOps) > 0 {
-		switch cap.ValueKind {
-		case "int", "real", "date", "datetime":
-			return compareIndexedScalarValues(actual, want, cap.ValueKind)
-		}
-	}
 	switch normalizedValueKind(cap.ValueKind) {
 	case "number", "real":
 		left, ok := numberValue(actual)
@@ -420,7 +357,6 @@ func normalizedValueKind(kind string) string {
 		return strings.ToLower(strings.TrimSpace(kind))
 	}
 }
-
 func fieldUsesBoolMatching(cap FieldCapability) bool {
 	return normalizedValueKind(cap.ValueKind) == "bool"
 }

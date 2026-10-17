@@ -10,18 +10,21 @@ package presentation
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/contextpack"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
+
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeindex "github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	codeindex "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 type Packer interface {
@@ -39,7 +42,9 @@ type DefaultPacker struct {
 
 	VaultDef       obsidian.VaultDefinition
 	NoteReader     obsidian.NoteReader
-	OntologySchema *ontology.Schema
+	OntologySchema *ontoschema.Schema
+	NoteStore      noderead.ReadStore
+	NoteFormats    noteformat.Runtime
 }
 
 type IntelReader interface {
@@ -78,7 +83,7 @@ func (p *DefaultPacker) Pack(ctx context.Context, spec search.QuerySpec, results
 
 	budget := spec.Budget.Chars
 	if budget <= 0 {
-		budget = contextpack.DefaultBudgetChars
+		budget = repoconfig.DefaultBudgetChars
 	}
 
 	headerText := fmt.Sprintf("Query: %s\nResults: %d", strings.TrimSpace(spec.Text), len(results))
@@ -93,11 +98,14 @@ func (p *DefaultPacker) Pack(ctx context.Context, spec search.QuerySpec, results
 	chunkCache := make(map[string][]embeddings.ChunkInput)
 	var ontologyScope *noderead.Scope
 	if p != nil && p.OntologySchema != nil && p.NoteReader != nil {
-		var store noderead.Store
-		if s, ok := p.Intel.(noderead.Store); ok {
-			store = s
+		if p.NoteStore == nil {
+			return search.PackedContext{}, fmt.Errorf("ontology context packing requires a note read store")
 		}
-		ontologyScope = noderead.NewService(p.VaultDef, p.NoteReader, store, p.OntologySchema).NewScope(ctx, noderead.ScopeOptions{})
+		if len(p.NoteFormats.Registry().IDs()) == 0 {
+			return search.PackedContext{}, fmt.Errorf("ontology context packing requires a note format runtime")
+		}
+		ontologyScope = noderead.NewService(p.VaultDef, p.NoteReader, p.NoteStore, p.OntologySchema).
+			WithNoteFormats(p.NoteFormats).NewScope(noderead.ScopeOptions{})
 	}
 	perResultBudget := budget
 	if len(results) > 0 {
@@ -146,7 +154,7 @@ func renderResultPiece(ctx context.Context, p *DefaultPacker, ontologyScope *nod
 		title := firstNonEmpty(r.Title, r.NoteID, r.Path, r.Handle.String())
 		matchLabel := reverseBreadcrumb(firstNonEmpty(r.Breadcrumb, r.Heading))
 		notePath := r.NoteID
-		if notePath == "" && r.NodeRef == nil && r.NodeRefJSON == "" && r.NodeID == "" {
+		if notePath == "" && r.NodeRef == nil && r.NodeID == "" {
 			notePath = r.Path
 		}
 		snippet := noteChunkText(ctx, p.VaultPath, notePath, r.ChunkIndex, chunkCache)

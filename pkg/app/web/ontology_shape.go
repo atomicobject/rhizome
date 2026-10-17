@@ -3,11 +3,12 @@ package web
 import (
 	"context"
 	"errors"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"net/http"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 )
 
@@ -46,7 +47,7 @@ func (s *Server) handleOntologyShape(w http.ResponseWriter, r *http.Request) {
 		writePublicError(w, http.StatusServiceUnavailable, PublicErrorIndexInitializing, errIndexInitializing)
 		return
 	}
-	var schema *ontology.Schema
+	var schema *ontoschema.Schema
 	if defs != nil {
 		schema = defs.schema
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"sync"
 	"testing"
 	"time"
@@ -44,10 +45,10 @@ func (f *sessionQueueHarness) startCount() int {
 }
 
 func TestServiceEvictsClosedHarnessSessionAndStartsFresh(t *testing.T) {
-	setTestSettings(t, Settings{Harness: harness.KindCodex})
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex})
 	first, second := newFakeSession(), newFakeSession()
 	driver := &sessionQueueHarness{sessions: []*fakeSession{first, second}}
-	service, err := NewService(context.Background(), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: driver})
+	service, err := NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: driver})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, service.Close()) })
 	created, err := service.CreateSession(context.Background(), "Recover")
@@ -91,9 +92,9 @@ func (*blockingStartHarness) Generate(context.Context, harness.GenerateRequest) 
 }
 
 func TestServiceStartupDoesNotHoldMutexAndCloseCancelsIt(t *testing.T) {
-	setTestSettings(t, Settings{Harness: harness.KindCodex})
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex})
 	driver := &blockingStartHarness{started: make(chan struct{})}
-	service, err := NewService(context.Background(), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: driver})
+	service, err := NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: driver})
 	require.NoError(t, err)
 	created, err := service.CreateSession(context.Background(), "Blocked startup")
 	require.NoError(t, err)

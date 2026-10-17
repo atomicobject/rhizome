@@ -3,23 +3,27 @@ package indexing
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/app/noteownership"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
+	"github.com/atomicobject/rhizome/pkg/notemeta"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sync/atomic"
 	"testing"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/noteownership"
-	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
-	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRunUnifiedCore_UnreadableMarkdownClearsDerivedEvidenceAndRecovers(t *testing.T) {
+	t.Parallel()
+
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows does not enforce POSIX unreadable file permissions")
 	}
@@ -27,51 +31,55 @@ func TestRunUnifiedCore_UnreadableMarkdownClearsDerivedEvidenceAndRecovers(t *te
 	root := t.TempDir()
 	writeUnifiedFatalFixture(t, root)
 	definition := unifiedFatalDefinition(root)
-	indexer := testNoteMetadataIndexer(t)
+	indexer := testkit.NoteMetadataIndexer(t)
 
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 	assertUnifiedFatalFixtureDerivedEvidence(t, ctx, root, true)
 	sourcePath := filepath.Join(root, "notes", "Source.md")
 	require.NoError(t, os.Chmod(sourcePath, 0o000))
 	t.Cleanup(func() { _ = os.Chmod(sourcePath, 0o600) })
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 	assertUnifiedFatalFixtureDerivedEvidence(t, ctx, root, false)
 	assertUnifiedFatalProjection(t, ctx, root, noteownership.UnreadableSourceDiagnosticCode)
 	require.NoError(t, os.Chmod(sourcePath, 0o600))
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 	assertUnifiedFatalFixtureDerivedEvidence(t, ctx, root, true)
 	require.Equal(t, semdb.NoteProjectionStatusCurrent, unifiedFatalMetadataRows(t, ctx, root)["notes/Source.md"].Projection.Status)
 }
 
 func TestRunUnifiedCore_ProjectorFatalSkipsMarkdownIngestAndRecovers(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root := t.TempDir()
 	writeUnifiedFatalFixture(t, root)
 	definition := unifiedFatalDefinition(root)
-	goodIndexer := testNoteMetadataIndexer(t)
+	goodIndexer := testkit.NoteMetadataIndexer(t)
 	projector := &unifiedFatalProjector{}
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: goodIndexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: goodIndexer}))
 	assertUnifiedFatalFixtureDerivedEvidence(t, ctx, root, true)
 	projector.fatal.Store(true)
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: unifiedFatalIndexer(t, projector)}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: unifiedFatalIndexer(t, projector)}))
 	assertUnifiedFatalFixtureDerivedEvidence(t, ctx, root, false)
 	assertUnifiedFatalProjection(t, ctx, root, "projector_fatal")
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: goodIndexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: goodIndexer}))
 	assertUnifiedFatalFixtureDerivedEvidence(t, ctx, root, true)
 }
 
 func TestRunUnifiedCore_PreparedFatalCommitSurvivesFailureAndRecovers(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root := t.TempDir()
 	writeUnifiedFatalFixture(t, root)
 	definition := unifiedFatalDefinition(root)
-	goodIndexer := testNoteMetadataIndexer(t)
+	goodIndexer := testkit.NoteMetadataIndexer(t)
 	projector := &unifiedFatalProjector{}
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: goodIndexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: goodIndexer}))
 
 	projector.fatal.Store(true)
 	commitFailure := errors.New("stop after prepared fatal ownership commit")
-	err := RunUnifiedCore(ctx, UnifiedOptions{
+	err := runUnifiedCoreForTest(t, ctx, UnifiedOptions{
 		VaultPath: root, VaultDef: definition, NoteMetadata: unifiedFatalIndexer(t, projector),
 		afterPreparedOwnershipCommit: func(context.Context) error {
 			return commitFailure
@@ -84,13 +92,13 @@ func TestRunUnifiedCore_PreparedFatalCommitSurvivesFailureAndRecovers(t *testing
 
 	// A quiet repeat is a source-envelope no-op, but pending recovery still
 	// forces destination work and acknowledges the committed generation.
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: unifiedFatalIndexer(t, projector)}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: unifiedFatalIndexer(t, projector)}))
 	assertUnifiedFatalProjection(t, ctx, root, "projector_fatal")
 	assertUnifiedOwnershipPending(t, ctx, root, false)
 
 	projector.fatal.Store(false)
 	currentFailure := errors.New("stop after prepared current ownership commit")
-	err = RunUnifiedCore(ctx, UnifiedOptions{
+	err = runUnifiedCoreForTest(t, ctx, UnifiedOptions{
 		VaultPath: root, VaultDef: definition, NoteMetadata: goodIndexer,
 		afterPreparedOwnershipCommit: func(context.Context) error {
 			return currentFailure
@@ -101,7 +109,7 @@ func TestRunUnifiedCore_PreparedFatalCommitSurvivesFailureAndRecovers(t *testing
 	assertUnifiedFatalFixtureDerivedEvidence(t, ctx, root, false)
 	assertUnifiedOwnershipPending(t, ctx, root, true)
 
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: goodIndexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: goodIndexer}))
 	assertUnifiedFatalFixtureDerivedEvidence(t, ctx, root, true)
 	require.Equal(t, semdb.NoteProjectionStatusCurrent, unifiedFatalMetadataRows(t, ctx, root)["notes/Source.md"].Projection.Status)
 }
@@ -115,7 +123,7 @@ func writeUnifiedFatalFixture(t *testing.T, root string) {
 	sourcePath := filepath.Join(root, "notes", "Source.md")
 	require.NoError(t, os.MkdirAll(filepath.Dir(sourcePath), 0o755))
 	require.NoError(t, os.WriteFile(sourcePath, []byte(source), 0o600))
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{Includes: []string{"notes/**/*.md"}}, NoteEmbeddings: &embeddings.Config{Enabled: false}, CodeEmbeddings: &embeddings.Config{Enabled: false}}))
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{Includes: []string{"notes/**/*.md"}}, NoteEmbeddings: &embeddings.Config{Enabled: false}, CodeEmbeddings: &embeddings.Config{Enabled: false}}))
 }
 
 func unifiedFatalDefinition(root string) obsidian.VaultDefinition {
@@ -124,7 +132,7 @@ func unifiedFatalDefinition(root string) obsidian.VaultDefinition {
 
 func assertUnifiedFatalFixtureDerivedEvidence(t *testing.T, ctx context.Context, root string, present bool) {
 	t.Helper()
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	properties, err := store.CurrentNotePropertyValues(ctx, []string{"notes/Source.md"}, []string{"status"}, semdb.NotePropertySourceFrontmatter)
@@ -177,7 +185,7 @@ func assertUnifiedProjectionStatus(t *testing.T, ctx context.Context, root strin
 
 func unifiedFatalDurableRow(t *testing.T, ctx context.Context, root string) semdb.NoteMetadataRow {
 	t.Helper()
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	rows, err := store.DurableNoteMetadataRowsByPaths(ctx, []string{"notes/Source.md"})
@@ -189,7 +197,7 @@ func unifiedFatalDurableRow(t *testing.T, ctx context.Context, root string) semd
 
 func assertUnifiedOwnershipPending(t *testing.T, ctx context.Context, root string, want bool) {
 	t.Helper()
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	_, pending, err := store.PendingOwnershipReconciliation(ctx)
@@ -199,7 +207,7 @@ func assertUnifiedOwnershipPending(t *testing.T, ctx context.Context, root strin
 
 func unifiedFatalMetadataRows(t *testing.T, ctx context.Context, root string) map[string]semdb.NoteMetadataRow {
 	t.Helper()
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	rows, err := store.CurrentNoteMetadataRows(ctx)

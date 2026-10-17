@@ -4,17 +4,21 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
-	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/diag"
 )
 
 func New(opts ServiceOptions) *Service {
+	if opts.QueryRecipes == nil {
+		opts.QueryRecipes = queryrecipe.NewRegistry(queryrecipe.DefaultSourceRoots(opts.VaultPath))
+	}
 	if opts.NoteReader == nil {
 		opts.NoteReader = &obsidian.Note{}
 	}
@@ -54,7 +58,6 @@ func (s *Service) catalog(ctx context.Context, includeHidden bool) (Catalog, err
 	validation := viewconfig.Validate(defs, opts)
 	generated := generatedDefaults(s.opts.Schema)
 	bundled, bundledIssues := s.bundledDefinitions(validation.Views, opts)
-
 	all := append([]viewconfig.ViewDefinition(nil), validation.Views...)
 	all = append(all, bundled...)
 	all = append(all, generated...)
@@ -64,7 +67,6 @@ func (s *Service) catalog(ctx context.Context, includeHidden bool) (Catalog, err
 		}
 		return all[i].ID < all[j].ID
 	})
-
 	issues := append(loadIssues, validation.Issues...)
 	issues = append(issues, bundledIssues...)
 	entries := catalogEntries(all, issues, includeHidden)
@@ -81,7 +83,6 @@ func (s *Service) View(ctx context.Context, id string) (CatalogEntry, error) {
 	entry.Defaults.Variant = s.generatedDefaultVariant(ctx, entry)
 	return entry, nil
 }
-
 func (s *Service) entry(ctx context.Context, id string) (CatalogEntry, error) {
 	catalog, err := s.catalog(ctx, true)
 	if err != nil {
@@ -95,7 +96,6 @@ func (s *Service) entry(ctx context.Context, id string) (CatalogEntry, error) {
 	}
 	return CatalogEntry{}, fmt.Errorf("%w: %s", ErrViewNotFound, id)
 }
-
 func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (ExecuteResponse, error) {
 	entry, err := s.entry(ctx, id)
 	if err != nil {
@@ -121,7 +121,6 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 	}
 	state := normalizeState(def, req)
 	warnings := executionWarnings(def, req)
-
 	source, err := s.opts.SourceResolver.ResolveSource(ctx, def, executeRequestFromState(state, req))
 	if err != nil {
 		return ExecuteResponse{}, err
@@ -141,7 +140,7 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 	if err != nil {
 		return ExecuteResponse{}, err
 	}
-	var profile *ontology.TypeProfile
+	var profile *ontoschema.TypeProfile
 	if derived, ok := sourceProfile(s.opts.Schema, def); ok {
 		profile = &derived
 	}
@@ -196,7 +195,7 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 		}
 	}
 	if relationErr != nil {
-		warnings = append(warnings, Warning{Code: "view_relation_hydration_failed", Message: relationErr.Error()})
+		warnings = append(warnings, diag.Warning{Code: "view_relation_hydration_failed", Message: relationErr.Error()})
 	}
 	groups := groupsForPage(allGroups, pageInfo.Offset, pageInfo.Returned)
 	columns := tableColumns(def, capabilities)
@@ -206,7 +205,7 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 		card = resolveCardLayout(def, variant, capabilities)
 	}
 	if variant == "kanban" {
-		var boardWarning *Warning
+		var boardWarning *diag.Warning
 		board, boardWarning = resolveBoardLayout(def, group, capabilities, filtered, allGroups, pageInfo)
 		if boardWarning != nil {
 			warnings = append(warnings, *boardWarning)
@@ -220,14 +219,13 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 				board.LaneField = capability.Key
 				laneRows, err := hydrateLinkRanks(ctx, scope, s.opts.Schema, pageRows, capabilities, []string{capability.Key})
 				if err != nil {
-					warnings = append(warnings, Warning{Code: "view_relation_hydration_failed", Message: err.Error()})
+					warnings = append(warnings, diag.Warning{Code: "view_relation_hydration_failed", Message: err.Error()})
 				}
 				board.Lanes = boardLanes(board, capability, laneRows)
 			}
 		}
 	}
 	plan.Warnings = appendPlanWarnings(plan.Warnings, warnings)
-
 	sourceFP := source.SourceFingerprint
 	if sourceFP == "" {
 		sourceFP = fingerprintSource(def, rows)
@@ -245,30 +243,8 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 	if capabilities == nil {
 		capabilities = []FieldCapability{}
 	}
-	return ExecuteResponse{
-		View:                  entry,
-		Variant:               variant,
-		State:                 state,
-		Capabilities:          capabilities,
-		Columns:               columns,
-		Rows:                  pageRows,
-		Groups:                groups,
-		Card:                  card,
-		Board:                 board,
-		PageInfo:              pageInfo,
-		Profile:               profile,
-		Stats:                 stats,
-		Warnings:              warnings,
-		ConstraintPlan:        source.ConstraintPlan,
-		PushedConstraints:     source.PushedConstraints,
-		ResidualConstraints:   source.ResidualConstraints,
-		Plan:                  plan,
-		DefinitionFingerprint: defFP,
-		SourceFingerprint:     sourceFP,
-		ExecutionFingerprint:  execFP,
-	}, nil
+	return ExecuteResponse{View: entry, Variant: variant, State: state, Capabilities: capabilities, Columns: columns, Rows: pageRows, Groups: groups, Card: card, Board: board, PageInfo: pageInfo, Profile: profile, Stats: stats, Warnings: warnings, ConstraintPlan: source.ConstraintPlan, PushedConstraints: source.PushedConstraints, ResidualConstraints: source.ResidualConstraints, Plan: plan, DefinitionFingerprint: defFP, SourceFingerprint: sourceFP, ExecutionFingerprint: execFP}, nil
 }
-
 func (s *Service) FieldCandidates(ctx context.Context, id string, req FieldCandidatesRequest) (FieldCandidatesResponse, error) {
 	entry, err := s.entry(ctx, id)
 	if err != nil {
@@ -299,19 +275,13 @@ func (s *Service) FieldCandidates(ctx context.Context, id string, req FieldCandi
 	req.Limit = limit
 	return resolver.FieldCandidates(ctx, entry.Definition, req)
 }
-
-func executionWarnings(def viewconfig.ViewDefinition, req ExecuteRequest) []Warning {
+func executionWarnings(def viewconfig.ViewDefinition, req ExecuteRequest) []diag.Warning {
 	preset := strings.TrimSpace(req.FilterPreset)
 	if preset == "" || req.Filters != nil || filterPresetExists(def, preset) {
 		return nil
 	}
-	return []Warning{{
-		Code:    "unknown_filter_preset",
-		Message: fmt.Sprintf("filter preset %q was not found", preset),
-		Path:    "filterPreset",
-	}}
+	return []diag.Warning{{Code: "unknown_filter_preset", Message: fmt.Sprintf("filter preset %q was not found", preset), Path: "filterPreset"}}
 }
-
 func filterPresetExists(def viewconfig.ViewDefinition, id string) bool {
 	for _, preset := range def.FilterPresets {
 		if strings.TrimSpace(preset.ID) == id {
@@ -320,24 +290,9 @@ func filterPresetExists(def viewconfig.ViewDefinition, id string) bool {
 	}
 	return false
 }
-
 func executeRequestFromState(state ExecutionState, req ExecuteRequest) ExecuteRequest {
-	return ExecuteRequest{
-		Variant:      state.Variant,
-		FilterPreset: state.FilterPreset,
-		Search:       state.Search,
-		Filters:      append([]viewconfig.FilterSpec(nil), state.Filters...),
-		Sort:         append([]viewconfig.SortSpec(nil), state.Sort...),
-		Group:        state.Group,
-		Page:         state.Page,
-		Source:       req.Source,
-		PageSet:      true,
-		Inputs:       cloneStringMap(state.Inputs),
-		ColumnField:  state.ColumnField,
-		LaneField:    state.LaneField,
-	}
+	return ExecuteRequest{Variant: state.Variant, FilterPreset: state.FilterPreset, Search: state.Search, Filters: append([]viewconfig.FilterSpec(nil), state.Filters...), Sort: append([]viewconfig.SortSpec(nil), state.Sort...), Group: state.Group, Page: state.Page, Source: req.Source, PageSet: true, Inputs: cloneStringMap(state.Inputs), ColumnField: state.ColumnField, LaneField: state.LaneField}
 }
-
 func cloneStringMap(in map[string]string) map[string]string {
 	if len(in) == 0 {
 		return nil
@@ -380,18 +335,16 @@ func (s *Service) bundledDefinitions(repository []viewconfig.ViewDefinition, opt
 	}
 	return out, kept
 }
-
 func (s *Service) loadDefinitions() ([]viewconfig.ViewDefinition, []viewconfig.Issue) {
 	if s.opts.Views != nil {
 		return append([]viewconfig.ViewDefinition(nil), s.opts.Views...), append([]viewconfig.Issue(nil), s.opts.LoadIssues...)
 	}
 	return viewconfig.LoadDefaultSource(s.opts.VaultPath)
 }
-
 func (s *Service) validateOptions() viewconfig.ValidateOptions {
 	opts := viewconfig.SchemaValidateOptions(s.opts.Schema)
 	if s.opts.VaultPath != "" {
-		recipes, _ := queryrecipe.LoadDefaultSources(s.opts.VaultPath)
+		recipes, _ := s.opts.QueryRecipes.Catalog()
 		opts.QueryRecipeIDs = map[string]struct{}{}
 		opts.QueryRecipeRowPaths = map[string]string{}
 		for _, recipe := range recipes {
@@ -412,7 +365,6 @@ func (e CatalogEntry) BlockingIssue() *viewconfig.Issue {
 	}
 	return nil
 }
-
 func hasBlockingIssues(issues []viewconfig.Issue) bool {
 	for _, issue := range issues {
 		if issue.Code == "" {

@@ -2,14 +2,13 @@ package viewconfig
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 // SchemaValidateOptions is the schema-derived part of view validation that
 // `rzm validate views`, the views catalog, and Save view share.
-func SchemaValidateOptions(schema *ontology.Schema) ValidateOptions {
+func SchemaValidateOptions(schema *ontoschema.Schema) ValidateOptions {
 	opts := ValidateOptions{}
 	if schema == nil {
 		return opts
@@ -45,10 +44,10 @@ func SchemaValidateOptions(schema *ontology.Schema) ValidateOptions {
 
 // dateFieldSelectors lists the selectors that name a single Date or DateTime
 // field: its schema name and its raw frontmatter or inline key.
-func dateFieldSelectors(fields []*ontology.Field) map[string]struct{} {
+func dateFieldSelectors(fields []*ontoschema.Field) map[string]struct{} {
 	out := map[string]struct{}{}
 	for _, field := range fields {
-		if field == nil || field.Kind != ontology.FieldKindScalar || field.List || (field.TypeName != "Date" && field.TypeName != "DateTime") {
+		if field == nil || field.Kind != ontoschema.FieldKindScalar || field.List || (field.TypeName != "Date" && field.TypeName != "DateTime") {
 			continue
 		}
 		out[field.Name] = struct{}{}
@@ -57,9 +56,9 @@ func dateFieldSelectors(fields []*ontology.Field) map[string]struct{} {
 			source = field.Name
 		}
 		switch field.SourceKind {
-		case ontology.FieldSourceFrontmatter:
+		case ontoschema.FieldSourceFrontmatter:
 			out["frontmatter."+source] = struct{}{}
-		case ontology.FieldSourceInline:
+		case ontoschema.FieldSourceInline:
 			out["inline."+source] = struct{}{}
 		}
 	}

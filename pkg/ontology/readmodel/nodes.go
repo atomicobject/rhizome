@@ -17,6 +17,7 @@ type NodeRow struct {
 	StartByte             int64
 	EndByte               int64
 	StructuralFingerprint string
+	RelocationFingerprint string
 	SchemaHash            string
 	UpdatedAt             int64
 }

@@ -128,11 +128,12 @@ func TestResolveQuerySpecTargets_InfersModuleDirectoryBeforeDowngrade(t *testing
 }
 
 func TestResolveQuerySpecTargets_ResolvesExactSymbolMatch(t *testing.T) {
-	spec, warnings := ResolveQuerySpecTargets(context.Background(), "", &stubTargetResolverStore{
+	store := &stubTargetResolverStore{
 		bySymbol: map[string][]codeanchor.IntelAnchor{
 			"Service": {{AnchorID: "a1", Path: "pkg/search/service.go", Symbol: "Service", FQN: "pkg.search.Service", Kind: "type"}},
 		},
-	}, QuerySpec{Text: "go to def Service", Intent: IntentGoToDef})
+	}
+	spec, warnings := ResolveQuerySpecTargets(context.Background(), "", store, QuerySpec{Text: "go to def Service", Intent: IntentGoToDef})
 
 	if spec.TargetStatus != TargetStatusInferredSymbol {
 		t.Fatalf("expected inferred symbol status, got %q", spec.TargetStatus)
@@ -146,6 +147,23 @@ func TestResolveQuerySpecTargets_ResolvesExactSymbolMatch(t *testing.T) {
 	if len(warnings) != 0 {
 		t.Fatalf("expected no warnings, got %#v", warnings)
 	}
+	if store.notePathCalls != 0 || store.filePathCalls != 0 {
+		t.Fatalf("exact named symbol must not read the repository path catalog: notes=%d files=%d", store.notePathCalls, store.filePathCalls)
+	}
+
+	if spec.PathKinds["pkg/search/service.go"] != PathKindCode {
+		t.Fatalf("resolved anchor must retain typed code file ownership: %#v", spec.PathKinds)
+	}
+	foundFileSeed := false
+	for _, seed := range spec.Seeds {
+		if seed.String() == "file:pkg/search/service.go" {
+			foundFileSeed = true
+		}
+	}
+	if !foundFileSeed {
+		t.Fatal("resolved code target lost its explicit file seed")
+	}
+
 }
 
 func TestResolveQuerySpecTargets_PrefersSpecificSymbolOverLanguageQualifier(t *testing.T) {

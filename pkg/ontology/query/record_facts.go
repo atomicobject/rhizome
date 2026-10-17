@@ -3,13 +3,14 @@ package query
 import (
 	"cmp"
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"maps"
 	"slices"
 	"strings"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // Record facts are runtime fields on note-backed and embedded object types:
@@ -54,14 +55,14 @@ func isRecordFactField(name string) bool {
 // recordFactFree reports whether a note or embedded type leaves name free for
 // the runtime record fact: neither the type, an authored Note interface, nor a
 // derived relation count claims it.
-func recordFactFree(schema *ontology.Schema, noteType *ontology.NoteType, name string) bool {
-	if noteType == nil || (noteType.Role != ontology.TypeRoleNote && noteType.Role != ontology.TypeRoleEmbeddedNode) {
+func recordFactFree(schema *ontoschema.Schema, noteType *ontoschema.NoteType, name string) bool {
+	if noteType == nil || (noteType.Role != ontoschema.TypeRoleNote && noteType.Role != ontoschema.TypeRoleEmbeddedNode) {
 		return false
 	}
 	if fieldsClaim(noteType.ByName, name) {
 		return false
 	}
-	if noteType.Role == ontology.TypeRoleNote && schema.NoteInterfaceAuthored {
+	if noteType.Role == ontoschema.TypeRoleNote && schema.NoteInterfaceAuthored {
 		if iface := schema.Interfaces["Note"]; iface != nil && fieldsClaim(iface.ByName, name) {
 			return false
 		}
@@ -69,13 +70,13 @@ func recordFactFree(schema *ontology.Schema, noteType *ontology.NoteType, name s
 	return true
 }
 
-func fieldsClaim(byName map[string]*ontology.Field, name string) bool {
+func fieldsClaim(byName map[string]*ontoschema.Field, name string) bool {
 	if byName[name] != nil {
 		return true
 	}
 	// writeRelationCountFields derives <list>Count for neighbor and reverse lists.
 	if base, ok := strings.CutSuffix(name, "Count"); ok {
-		if field := byName[base]; field != nil && field.List && (field.Kind == ontology.FieldKindNeighbor || field.Kind == ontology.FieldKindReverse) {
+		if field := byName[base]; field != nil && field.List && (field.Kind == ontoschema.FieldKindNeighbor || field.Kind == ontoschema.FieldKindReverse) {
 			return true
 		}
 	}
@@ -86,7 +87,7 @@ func fieldsClaim(byName map[string]*ontology.Field, name string) bool {
 // interface and every interface extending it leave the name free and every
 // concrete implementor carries it, so each generated implementation stays
 // valid. An interface without implementors is vacuously free.
-func interfaceRecordFactFree(schema *ontology.Schema, ifaceName string, implementors []*ontology.NoteType, name string) bool {
+func interfaceRecordFactFree(schema *ontoschema.Schema, ifaceName string, implementors []*ontoschema.NoteType, name string) bool {
 	for _, iface := range schema.Interfaces {
 		if iface != nil && (iface.Name == ifaceName || interfaceExtends(schema, iface, ifaceName)) && fieldsClaim(iface.ByName, name) {
 			return false
@@ -100,7 +101,7 @@ func interfaceRecordFactFree(schema *ontology.Schema, ifaceName string, implemen
 	return true
 }
 
-func interfaceExtends(schema *ontology.Schema, iface *ontology.InterfaceType, target string) bool {
+func interfaceExtends(schema *ontoschema.Schema, iface *ontoschema.InterfaceType, target string) bool {
 	for _, parent := range iface.Implements {
 		if parent == target {
 			return true

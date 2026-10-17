@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"io"
 	"net/http"
 	"os"
@@ -15,8 +16,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // Options controls a binary update run.
@@ -72,7 +71,7 @@ type runDependencies struct {
 	prepare     func(context.Context, *http.Client, string, Manifest, string) (preparedArtifact, error)
 	replace     func(string, string) error
 	writeMarker func(string, string) error
-	saveConfig  func(string, obsidian.LocalConfig) error
+	saveConfig  func(string, repoconfig.LocalConfig) error
 }
 
 func defaultRunDependencies() runDependencies {
@@ -80,7 +79,7 @@ func defaultRunDependencies() runDependencies {
 		prepare:     prepareVersionArtifact,
 		replace:     replaceFile,
 		writeMarker: WriteVersionMarker,
-		saveConfig:  obsidian.SaveLocalConfig,
+		saveConfig:  repoconfig.SaveLocalConfig,
 	}
 }
 
@@ -241,14 +240,14 @@ func targetError(target UpdateTarget, stage string, err error) error {
 }
 
 func repoPinMatches(cfgDir, version string) bool {
-	foundDir, cfg, err := obsidian.FindLocalConfigForDelegation(cfgDir)
+	foundDir, cfg, err := repoconfig.FindLocalConfigForDelegation(cfgDir)
 	if err != nil || foundDir != cfgDir || cfg == nil {
 		return false
 	}
 	return NormalizeVersion(cfg.Rhizome.Version) == NormalizeVersion(version)
 }
 
-func findRepoConfig(workDir string) (string, *obsidian.LocalConfig, error) {
+func findRepoConfig(workDir string) (string, *repoconfig.LocalConfig, error) {
 	if strings.TrimSpace(workDir) == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -256,9 +255,9 @@ func findRepoConfig(workDir string) (string, *obsidian.LocalConfig, error) {
 		}
 		workDir = cwd
 	}
-	cfgDir, cfg, err := obsidian.FindLocalConfig(workDir)
+	cfgDir, cfg, err := repoconfig.FindLocalConfig(workDir)
 	if err != nil {
-		if errors.Is(err, obsidian.ErrNoLocalConfig) {
+		if errors.Is(err, repoconfig.ErrNoLocalConfig) {
 			return "", nil, nil
 		}
 		return "", nil, err
@@ -269,7 +268,7 @@ func findRepoConfig(workDir string) (string, *obsidian.LocalConfig, error) {
 // targetPath resolves the install destination. repoTarget reports whether the
 // destination is a repo-local binary (which carries a version marker) rather
 // than the global executable.
-func targetPath(executablePath, cfgDir string, cfg *obsidian.LocalConfig) (target string, repoTarget bool, err error) {
+func targetPath(executablePath, cfgDir string, cfg *repoconfig.LocalConfig) (target string, repoTarget bool, err error) {
 	invocation, err := ResolveInvocation(executablePath, cfgDir, cfg)
 	if err != nil {
 		return "", false, err

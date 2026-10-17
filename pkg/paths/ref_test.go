@@ -16,7 +16,7 @@ func TestResolveNoteRefWithVaultPaths(t *testing.T) {
 		t.Fatalf("NewVaultPaths: %v", err)
 	}
 
-	ref, err := ResolveNoteRefWithVaultPaths(vaultPaths, "notes/a")
+	ref, err := ResolveNotePathRefWithVaultPaths(vaultPaths, EnsureNoteExtension("notes/a", ".md").String())
 	if err != nil {
 		t.Fatalf("ResolveNoteRefWithVaultPaths: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestResolveRefOutsideVault(t *testing.T) {
 		t.Fatalf("NewVaultPaths: %v", err)
 	}
 
-	_, err = ResolveNoteRefWithVaultPaths(vaultPaths, filepath.Join(other, "outside.md"))
+	_, err = ResolveNotePathRefWithVaultPaths(vaultPaths, filepath.Join(other, "outside.md"))
 	if err != ErrOutsideVault {
 		t.Fatalf("expected ErrOutsideVault, got %v", err)
 	}

@@ -1,21 +1,24 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/query"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
 	"github.com/stretchr/testify/require"
 )
 
 func TestOntologyQuerySchemaCommandPrintsExecutableSDL(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "query-schema", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "query-schema", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "interface NoteNode")
@@ -32,7 +35,7 @@ func TestOntologyQuerySchemaCommandPrintsExecutableSDL(t *testing.T) {
 func TestOntologyQueryCommandExecutesGraphQL(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"ontology", "query", "--vault", vault.name,
 		"--query", `{ project(path: "notes/projects/roadmap-refresh.md") { name decisions { title } } }`,
 	})
@@ -54,7 +57,7 @@ func TestOntologyQueryCommandExecutesGraphQLWithVariables(t *testing.T) {
 	varsPath := filepath.Join(vault.path, "vars.json")
 	require.NoError(t, os.WriteFile(varsPath, []byte(`{"path":"notes/projects/roadmap-refresh.md"}`), 0o644))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"ontology", "query", "--vault", vault.name,
 		"--query", `query Project($path: String!) { project(path: $path) { name } }`,
 		"--variables-file", varsPath,
@@ -89,7 +92,7 @@ aliases:
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "ontology-query", "--vault", vault.name,
 		"--query", `{
   ontology {
@@ -141,7 +144,7 @@ type Effort @node(paths: ["efforts/*.md"]) {
 `,
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "ontology-query", "--vault", vault.name,
 		"--query", `{
   ontology {
@@ -180,7 +183,7 @@ func TestQueryRecipeValidateCommand(t *testing.T) {
 	recipePath := filepath.Join(vault.path, "recipes.md")
 	require.NoError(t, os.WriteFile(recipePath, []byte(projectRecipeMarkdown()), 0o644))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"query-recipe", "validate", "--vault", vault.name,
 		"--path", recipePath, "--json",
 	})
@@ -209,7 +212,7 @@ func TestAgentQueryRecipeListIsCompact(t *testing.T) {
 	recipePath := filepath.Join(vault.path, "recipes.md")
 	require.NoError(t, os.WriteFile(recipePath, []byte(projectRecipeMarkdown()), 0o644))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "query-recipe", "list", "--vault", vault.name,
 		"--path", recipePath,
 	})
@@ -242,7 +245,7 @@ func TestAgentQueryRecipeListIsCompact(t *testing.T) {
 func TestAgentValidateAcceptsQueryRecipesCheck(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "validate", "query-recipes", "--vault", vault.name,
 	})
 	require.NoError(t, err)
@@ -255,7 +258,7 @@ func TestAgentQueryRecipeRunCommand(t *testing.T) {
 	recipePath := filepath.Join(vault.path, "recipes.md")
 	require.NoError(t, os.WriteFile(recipePath, []byte(projectRecipeMarkdown()), 0o644))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "query-recipe", "run", "--vault", vault.name,
 		"--path", recipePath,
 		"--id", "project-by-path",
@@ -299,7 +302,7 @@ func TestAgentQueryRecipeUsesDefaultRegistryAndInputsJSON(t *testing.T) {
 	require.NoError(t, os.MkdirAll(recipeDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(recipeDir, "project.md"), []byte(projectRecipeMarkdown()), 0o644))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "query-recipe", "run", "--vault", vault.name,
 		"--id", "project-by-path",
 		"--inputs-json", `{"path":"notes/projects/roadmap-refresh.md"}`,
@@ -323,7 +326,7 @@ func TestAgentQueryRecipeRunReportsMissingAnchor(t *testing.T) {
 	recipePath := filepath.Join(vault.path, "recipes.md")
 	require.NoError(t, os.WriteFile(recipePath, []byte(projectRecipeMarkdown()), 0o644))
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "query-recipe", "run", "--vault", vault.name,
 		"--path", recipePath,
 		"--id", "project-by-path",
@@ -337,7 +340,7 @@ func TestAgentQueryRecipeRunReportsMissingAnchor(t *testing.T) {
 func TestAgentOntologyQuerySchemaCommandOutputsJSON(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "ontology-query-schema", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "ontology-query-schema", "--vault", vault.name})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -352,7 +355,7 @@ func TestAgentOntologyQuerySchemaCommandOutputsJSON(t *testing.T) {
 func TestOntologyReferenceCommandRendersMarkdown(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "reference", "--vault", vault.name, "--type", "Project"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "reference", "--vault", vault.name, "--type", "Project"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "# Ontology Reference")
@@ -364,7 +367,7 @@ func TestOntologyReferenceCommandRendersMarkdown(t *testing.T) {
 func TestOntologyReferenceCommandRendersBuiltInSectionContract(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "reference", "--vault", vault.name, "--type", "Section"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "reference", "--vault", vault.name, "--type", "Section"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "## Section")
@@ -376,7 +379,7 @@ func TestOntologyReferenceCommandRendersBuiltInSectionContract(t *testing.T) {
 func TestOntologyReferenceCommandRendersDecisionSectionBindings(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "reference", "--vault", vault.name, "--type", "Decision"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "reference", "--vault", vault.name, "--type", "Decision"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "## Decision")
@@ -389,7 +392,7 @@ func TestOntologyReferenceCommandRendersDecisionSectionBindings(t *testing.T) {
 func TestAgentOntologyQueryCommandOutputsJSON(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "ontology-query", "--vault", vault.name,
 		"--query", `{ project(find: "roadmap") { name linked(type: "Decision") { title } } }`,
 	})
@@ -407,7 +410,7 @@ func TestAgentOntologyQueryCommandOutputsJSON(t *testing.T) {
 func TestAgentOntologyQueryCommandAcceptsJSONVariables(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "ontology-query", "--vault", vault.name,
 		"--json", `{"query":"query Project($path: String!) { project(path: $path) { name } }","variables":{"path":"notes/projects/roadmap-refresh.md"}}`,
 	})
@@ -425,7 +428,7 @@ func TestAgentOntologyQueryCommandAcceptsJSONVariables(t *testing.T) {
 func TestAgentOntologyReferenceCommandOutputsJSON(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "ontology-reference", "--vault", vault.name, "--type", "Project"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "ontology-reference", "--vault", vault.name, "--type", "Project"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -439,7 +442,7 @@ func TestAgentOntologyReferenceCommandOutputsJSON(t *testing.T) {
 func TestOntologyAuthoringGuideCommandRendersRequestedTypeAndSupportingTypes(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "authoring-guide", "--vault", vault.name, "Project"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "authoring-guide", "--vault", vault.name, "Project"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "# Ontology Authoring Guide")
@@ -457,7 +460,7 @@ func TestOntologyAuthoringGuideCommandRendersRequestedTypeAndSupportingTypes(t *
 func TestAgentOntologyAuthoringGuideCommandOutputsMarkdown(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "ontology-authoring-guide", "--vault", vault.name, "--type", "Person"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "ontology-authoring-guide", "--vault", vault.name, "--type", "Person"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "# Ontology Authoring Guide")
@@ -468,7 +471,7 @@ func TestAgentOntologyAuthoringGuideCommandOutputsMarkdown(t *testing.T) {
 func TestAgentOntologyAuthoringGuideSuggestsNextIdentifierForFormattedType(t *testing.T) {
 	vault := setupAgentTestVault(t, nextIDFixtureFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "ontology-authoring-guide", "--vault", vault.name, "--type", "Spec"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "ontology-authoring-guide", "--vault", vault.name, "--type", "Spec"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "next available id: `SPEC-0008`")
@@ -478,7 +481,7 @@ func TestAgentOntologyAuthoringGuideSuggestsNextIdentifierForFormattedType(t *te
 func TestOntologyAuthoringGuideCommandRendersDecisionStatusGuidance(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "authoring-guide", "--vault", vault.name, "Decision"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "authoring-guide", "--vault", vault.name, "Decision"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "## Decision")
@@ -494,7 +497,7 @@ func TestOntologyAuthoringGuideCommandRendersDecisionStatusGuidance(t *testing.T
 func TestOntologyAuthoringGuideCommandRendersSectionStructureGuidance(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "authoring-guide", "--vault", vault.name, "Spec"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "authoring-guide", "--vault", vault.name, "Spec"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 	require.Contains(t, stdout, "## Spec")
@@ -508,7 +511,7 @@ func TestOntologyAuthoringGuideCommandRendersSectionStructureGuidance(t *testing
 func TestOntologyInspectCommandSupportsFinderInputs(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "inspect", "--vault", vault.name, "find:roadmap"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "inspect", "--vault", vault.name, "find:roadmap"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -527,7 +530,7 @@ func TestOntologyInspectCommandSupportsAbsolutePaths(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 	abs := filepath.Join(vault.path, "notes/projects/roadmap-refresh.md")
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "inspect", "--vault", vault.name, abs})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "inspect", "--vault", vault.name, abs})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -547,7 +550,7 @@ func TestOntologyInspectCommandUsesLocalVaultWhenCWDHasRhizomeConfig(t *testing.
 		_ = os.Chdir(origWD)
 	})
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "inspect", `find:"roadmap"`})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "inspect", `find:"roadmap"`})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -559,6 +562,9 @@ func TestOntologyInspectCommandUsesLocalVaultWhenCWDHasRhizomeConfig(t *testing.
 }
 
 func TestOntologyInspectCommandUsesLocalVaultWhenVaultNameMatchesRepo(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 	origWD, err := os.Getwd()
 	require.NoError(t, err)
@@ -567,14 +573,9 @@ func TestOntologyInspectCommandUsesLocalVaultWhenVaultNameMatchesRepo(t *testing
 		_ = os.Chdir(origWD)
 	})
 
-	origConfig := obsidian.ObsidianConfigFile
 	missingConfig := filepath.Join(t.TempDir(), "missing-obsidian.json")
-	obsidian.ObsidianConfigFile = func() (string, error) { return missingConfig, nil }
-	t.Cleanup(func() {
-		obsidian.ObsidianConfigFile = origConfig
-	})
-
-	stdout, stderr, err := runRootCLI(t, nil, []string{"ontology", "inspect", "--vault", filepath.Base(vault.path), `find:"roadmap"`})
+	env.ObsidianConfigFile = missingConfig
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"ontology", "inspect", "--vault", filepath.Base(vault.path), `find:"roadmap"`})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -588,7 +589,7 @@ func TestOntologyInspectCommandUsesLocalVaultWhenVaultNameMatchesRepo(t *testing
 func TestAgentOntologyInspectCommandOutputsJSON(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "ontology-inspect", "--vault", vault.name, "--input", "find:roadmap"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "ontology-inspect", "--vault", vault.name, "--input", "find:roadmap"})
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -602,7 +603,7 @@ func TestAgentOntologyInspectCommandOutputsJSON(t *testing.T) {
 func TestAgentOntologyQueryReportsSemanticUnavailableAsJSON(t *testing.T) {
 	vault := setupAgentTestVault(t, ontologyCommandFiles())
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "ontology-query", "--vault", vault.name,
 		"--query", `{ project(semantic: "roadmap") { path } }`,
 	})

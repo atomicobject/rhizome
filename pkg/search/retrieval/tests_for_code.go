@@ -11,10 +11,10 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/atomicobject/rhizome/pkg/search/queryframe"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // TestsForCodeRetriever finds test files related to code seeds using path heuristics.
@@ -106,9 +106,19 @@ func (r *TestsForCodeRetriever) Retrieve(ctx context.Context, spec search.QueryS
 		}
 		seen[h.String()] = len(out)
 		out = append(out, search.Candidate{
-			Handle: h, Owner: h, Evidence: []search.Evidence{evidence},
-			Type: "anchor", Path: path, Title: caller.Symbol, Symbol: caller.Symbol, FQN: caller.FQN,
-			Kind: caller.Kind, ChunkIndex: -1, AnchorID: caller.AnchorID,
+			SourceRef: search.SourceRef{
+				Path:       path,
+				Title:      caller.Symbol,
+				Symbol:     caller.Symbol,
+				FQN:        caller.FQN,
+				Kind:       caller.Kind,
+				ChunkIndex: -1,
+				AnchorID:   caller.AnchorID,
+			},
+			Handle:   h,
+			Owner:    h,
+			Evidence: []search.Evidence{evidence},
+			Type:     "anchor",
 		})
 	}
 	if len(anchorSeeds) == 0 && r.Store != nil {
@@ -173,6 +183,10 @@ func (r *TestsForCodeRetriever) Retrieve(ctx context.Context, spec search.QueryS
 			rawScore = 0.35
 		}
 		out = append(out, search.Candidate{
+			SourceRef: search.SourceRef{
+				Path:  path,
+				Title: path,
+			},
 			Handle: h,
 			Owner:  h,
 			Evidence: []search.Evidence{{
@@ -183,9 +197,7 @@ func (r *TestsForCodeRetriever) Retrieve(ctx context.Context, spec search.QueryS
 					"seed": seed,
 				},
 			}},
-			Type:  "code",
-			Path:  path,
-			Title: path,
+			Type: "code",
 		})
 	}
 

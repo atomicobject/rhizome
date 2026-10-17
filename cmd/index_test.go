@@ -10,21 +10,22 @@ import (
 	"strings"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	embsqlite "github.com/atomicobject/rhizome/pkg/search/embeddings/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
 
 func acquireRebuildTestLock(t *testing.T, vault string) string {
 	t.Helper()
-	lockPath := obsidian.IndexLockPath(vault)
+	lockPath := repoconfig.IndexLockPath(vault)
 	release, acquired, err := indexlock.TryAcquire(lockPath)
 	require.NoError(t, err)
 	require.True(t, acquired)
@@ -33,22 +34,24 @@ func acquireRebuildTestLock(t *testing.T, vault string) string {
 }
 
 func TestRunResolvedIndexCommand_ComposesNoteMetadataBeforeSideEffects(t *testing.T) {
+	commandOptions := newIndexOptionsForTest(t)
+
 	vault := t.TempDir()
-	dbPath := obsidian.UnifiedIndexPath(vault, "")
+	dbPath := repoconfig.UnifiedIndexPath(vault, "")
 	require.NoError(t, os.MkdirAll(filepath.Dir(dbPath), 0o755))
 	require.NoError(t, os.WriteFile(dbPath, []byte("preserve me"), 0o644))
 
-	previousRebuild := indexRebuild
-	previousStatus := indexStatus
-	previousExplainPath := indexExplainPath
+	previousRebuild := commandOptions.indexRebuild
+	previousStatus := commandOptions.indexStatus
+	previousExplainPath := commandOptions.indexExplainPath
 	t.Cleanup(func() {
-		indexRebuild = previousRebuild
-		indexStatus = previousStatus
-		indexExplainPath = previousExplainPath
+		commandOptions.indexRebuild = previousRebuild
+		commandOptions.indexStatus = previousStatus
+		commandOptions.indexExplainPath = previousExplainPath
 	})
-	indexRebuild = true
-	indexStatus = false
-	indexExplainPath = ""
+	commandOptions.indexRebuild = true
+	commandOptions.indexStatus = false
+	commandOptions.indexExplainPath = ""
 
 	wantErr := errors.New("note metadata composition failed")
 	composed := false
@@ -59,9 +62,9 @@ func TestRunResolvedIndexCommand_ComposesNoteMetadataBeforeSideEffects(t *testin
 	cmd.SetContext(diagnostics.WithRecorder(context.Background(), recorder))
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
-	err := runResolvedIndexCommand(cmd, obsidian.VaultDefinition{Path: vault}, func() (notemeta.Indexer, error) {
+	err := commandOptions.runResolvedIndexCommand(cmd, obsidian.VaultDefinition{Path: vault}, func() (notemeta.Indexer, error) {
 		composed = true
-		_, lockErr := os.Stat(obsidian.IndexLockPath(vault))
+		_, lockErr := os.Stat(repoconfig.IndexLockPath(vault))
 		require.ErrorIs(t, lockErr, os.ErrNotExist, "note metadata must be composed before acquiring the index lock")
 		contents, readErr := os.ReadFile(dbPath)
 		require.NoError(t, readErr)
@@ -90,19 +93,19 @@ func TestPrepareIndexRebuild_ReplacesCorruptIndex(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(dbPath), 0o755))
 	require.NoError(t, os.WriteFile(dbPath, []byte("not a sqlite db"), 0o644))
 
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		IndexPath: dbPath,
 		NoteEmbeddings: &embeddings.Config{
 			Enabled:  true,
 			Provider: "openai",
 			Model:    "text",
 		},
-		Code: obsidian.LocalCodeConfig{
+		Code: repoconfig.LocalCodeConfig{
 			Enabled: true,
-			Go:      &obsidian.LocalCodeLangConfig{Roots: []string{"."}},
+			Go:      &repoconfig.LocalCodeLangConfig{Roots: []string{"."}},
 		},
 	}
-	require.NoError(t, obsidian.SaveLocalConfig(vault, cfg))
+	require.NoError(t, repoconfig.SaveLocalConfig(vault, cfg))
 	lockPath := acquireRebuildTestLock(t, vault)
 
 	require.NoError(t, indexing.PrepareFreshRebuild(vault, lockPath))
@@ -117,26 +120,26 @@ func TestPrepareIndexRebuild_FullRebuildClobbersUnifiedDB(t *testing.T) {
 	vault := t.TempDir()
 	dbPath := filepath.Join(vault, ".rhizome", "db.sqlite")
 
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		IndexPath: dbPath,
 		NoteEmbeddings: &embeddings.Config{
 			Enabled:  true,
 			Provider: "openai",
 			Model:    "text",
 		},
-		Code: obsidian.LocalCodeConfig{
+		Code: repoconfig.LocalCodeConfig{
 			Enabled: true,
-			Go:      &obsidian.LocalCodeLangConfig{Roots: []string{"."}},
+			Go:      &repoconfig.LocalCodeLangConfig{Roots: []string{"."}},
 		},
 	}
-	require.NoError(t, obsidian.SaveLocalConfig(vault, cfg))
+	require.NoError(t, repoconfig.SaveLocalConfig(vault, cfg))
 	lockPath := acquireRebuildTestLock(t, vault)
 
 	codeStore, err := semdb.Open(dbPath)
 	require.NoError(t, err)
 	require.NoError(t, codeStore.Close())
 
-	embStore, err := embsqlite.Open(dbPath, 3)
+	embStore, err := embsqlite.OpenNotes(context.Background(), embsqlite.File(dbPath), embsqlite.Options{Access: embsqlite.WriteIndex, Dimensions: 3})
 	require.NoError(t, err)
 	require.NoError(t, embStore.Close())
 
@@ -148,6 +151,7 @@ func TestPrepareIndexRebuild_FullRebuildClobbersUnifiedDB(t *testing.T) {
 }
 
 func TestIndexHelpOmitsEmbeddingOverrideFlags(t *testing.T) {
+
 	stdout, stderr, err := runCLI(t, []string{"index", "--help"}, "")
 	require.NoError(t, err)
 	require.Empty(t, strings.TrimSpace(stderr))
@@ -160,12 +164,13 @@ func TestIndexHelpOmitsEmbeddingOverrideFlags(t *testing.T) {
 }
 
 func TestIndexRejectsRetiredModeFlagsBeforeIndexing(t *testing.T) {
+
 	for _, flag := range []string{"--code", "--semantic"} {
 		t.Run(flag, func(t *testing.T) {
 			vault := t.TempDir()
 			_, _, err := runCLI(t, []string{"index", flag, "--vault", vault}, "")
 			require.ErrorContains(t, err, "unknown flag: "+flag)
-			_, statErr := os.Stat(obsidian.UnifiedIndexPath(vault, ""))
+			_, statErr := os.Stat(repoconfig.UnifiedIndexPath(vault, ""))
 			require.ErrorIs(t, statErr, os.ErrNotExist)
 		})
 	}

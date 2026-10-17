@@ -1,5 +1,9 @@
 package cmd
 
+import "os"
+
+import "github.com/atomicobject/rhizome/internal/testkit"
+
 import (
 	"bytes"
 	"context"
@@ -11,6 +15,9 @@ import (
 )
 
 func TestUpdateCommandPrintsCompletedTargetsBeforeReturningError(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	updateCmd, _, _ := rootCmd.Find([]string{"update"})
+
 	wantErr := errors.New("write repo version marker")
 	originalRunUpdate := runUpdate
 	runUpdate = func(context.Context, appupdate.Options) (appupdate.Result, error) {

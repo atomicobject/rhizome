@@ -12,7 +12,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 type GlobalInfo struct {
@@ -105,8 +105,8 @@ func (s *Service) neutralDir() (string, func(), error) {
 		return "", nil, resolveErr
 	}
 	dir = canonical
-	_, _, err = obsidian.FindLocalConfigForDelegation(dir)
-	if !errors.Is(err, obsidian.ErrNoLocalConfig) {
+	_, _, err = repoconfig.FindLocalConfigForDelegation(dir)
+	if !errors.Is(err, repoconfig.ErrNoLocalConfig) {
 		cleanup()
 		return "", nil, problem("invalid_request", "Desktop application data must be outside every configured Rhizome folder.")
 	}

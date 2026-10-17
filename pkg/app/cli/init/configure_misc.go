@@ -2,9 +2,8 @@ package init
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // agentFlagModes turns --agents into one mode per surface. The named
@@ -38,8 +37,8 @@ func agentFlagModes(agents string) (map[string]string, error) {
 	return modes, nil
 }
 
-func applyAgentOverrides(detected AgentHarnesses, prefs *obsidian.AgentPreferences, opts RunOptions) (AgentHarnesses, *obsidian.AgentPreferences, error) {
-	outPrefs := &obsidian.AgentPreferences{}
+func applyAgentOverrides(detected AgentHarnesses, prefs *repoconfig.AgentPreferences, opts RunOptions) (AgentHarnesses, *repoconfig.AgentPreferences, error) {
+	outPrefs := &repoconfig.AgentPreferences{}
 	if prefs != nil {
 		*outPrefs = *prefs
 	}

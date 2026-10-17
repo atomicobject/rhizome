@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +24,9 @@ func TestApplyFixPlanRenamePublicationOrderRecoversEveryMutation(t *testing.T) {
 			}
 			for _, failAt := range stops {
 				t.Run(fmt.Sprintf("%s/%s/%d", rename.From, failure, failAt), func(t *testing.T) {
+					t.Parallel()
 					runCtx, plan := renameOrderingFixture(t, rename)
-					opts := Options{Fix: true, NonInteractive: true}
+					opts := ApplyOptions{Fix: true, NonInteractive: true}
 					injected := errors.New("publication failed after mutation")
 					if failure == "interruption" {
 						injected = errSimulatedRepairInterruption
@@ -67,7 +69,7 @@ func TestApplyFixPlanRenameReceiptRecoversAfterDestinationPublication(t *testing
 		t.Run(rename.From, func(t *testing.T) {
 			runCtx, plan := renameOrderingFixture(t, rename)
 			receipt := filepath.Join(runCtx.VaultPath, ".rhizome", "edit-receipts", "rename.json")
-			_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+			_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 				Fix: true, NonInteractive: true,
 				CompletionArtifact: &RepairCompletionArtifact{Path: receipt, Content: []byte("receipt\n")},
 				repairHooks: &repairExecutionHooks{AfterMutation: func(_ int, path string) error {
@@ -91,7 +93,7 @@ func TestApplyFixPlanRenameRecoveryResumesInterruptedReverseRollback(t *testing.
 		for stopAfter := 1; stopAfter <= 2; stopAfter++ {
 			t.Run(fmt.Sprintf("%s/%d", rename.From, stopAfter), func(t *testing.T) {
 				runCtx, plan := renameOrderingFixture(t, rename)
-				_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+				_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 					Fix: true, NonInteractive: true,
 					repairHooks: &repairExecutionHooks{AfterMutation: func(index int, _ string) error {
 						if index == 2 {
@@ -103,7 +105,7 @@ func TestApplyFixPlanRenameRecoveryResumesInterruptedReverseRollback(t *testing.
 				require.ErrorIs(t, err, errSimulatedRepairInterruption)
 				require.NoFileExists(t, filepath.Join(runCtx.VaultPath, rename.From))
 				visited := 0
-				_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+				_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 					Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 					repairHooks: &repairExecutionHooks{BeforeRollbackMutation: func(_ int, _ string) error {
 						if visited == stopAfter {
@@ -137,7 +139,7 @@ func TestApplyFixPlanLegacyRenameRecoveryPreservesManifestAndResumesRollback(t *
 				manifestBefore := mustReadFile(t, manifestPath)
 				if stopAfter > 0 {
 					visited := 0
-					_, err := ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+					_, err := ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 						Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 						repairHooks: &repairExecutionHooks{BeforeRollbackMutation: func(_ int, _ string) error {
 							if visited == stopAfter {
@@ -163,13 +165,17 @@ func TestApplyFixPlanLegacyRenameRecoveryPreservesManifestAndResumesRollback(t *
 			destination := filepath.Join(runCtx.VaultPath, rename.To)
 			require.NoError(t, os.WriteFile(source, []byte("source before\n"), 0o640))
 			for range 2 {
-				err := StabilizePendingRepairJournals(runCtx)
-				require.ErrorContains(t, err, "reappeared as a distinct file")
+				require.NoError(t, StabilizePendingRepairJournals(runCtx))
+				require.Error(t, sourcetxn.CheckAdmission(runCtx.VaultPath, []string{rename.From, rename.To}))
 			}
 			require.Equal(t, []byte("source before\n"), mustReadFile(t, source))
 			require.Equal(t, []byte("source after\n"), mustReadFile(t, destination))
 			require.Equal(t, []byte("link after\n"), mustReadFile(t, filepath.Join(runCtx.VaultPath, "m-link.md")))
 			require.Equal(t, manifestBefore, mustReadFile(t, manifestPath))
+			evidence, err := DetectPendingRepairJournals(runCtx)
+			require.NoError(t, err)
+			require.Len(t, evidence, 1)
+			require.Equal(t, "quarantined", evidence[0].State)
 		})
 	}
 }
@@ -205,8 +211,7 @@ func loadLegacyRenameOrderingFixture(t *testing.T, rename PathRename) (RunContex
 	}
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	require.NoError(t, err)
-	dir, err := repairJournalDir(runCtx, manifest.TransactionID)
-	require.NoError(t, err)
+	dir := repairFixtureJournalDir(runCtx.VaultPath, manifest.TransactionID)
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	manifestPath := filepath.Join(dir, "manifest.json")
 	require.NoError(t, os.WriteFile(manifestPath, manifestBytes, 0o600))
@@ -251,7 +256,7 @@ func finishRenameOrderingRecovery(t *testing.T, runCtx RunContext, rename PathRe
 	require.Len(t, evidence, 1)
 	require.Equal(t, repairJournalPrepared, evidence[0].State)
 	probe := &repairPostApplyProbe{t: t}
-	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: probe,
 	})
 	require.NoError(t, err)

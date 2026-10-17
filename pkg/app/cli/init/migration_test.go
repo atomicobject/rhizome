@@ -2,6 +2,7 @@ package init
 
 import (
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"io"
 	"os"
 	"path/filepath"
@@ -9,17 +10,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizeLegacyAgenticEngineeringStateMigratesCoupledState(t *testing.T) {
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		WorkflowTemplates: []string{legacyTemplateSpecDriven},
-		WorkflowTemplateAddons: obsidian.WorkflowTemplateAddons{
+		WorkflowTemplateAddons: repoconfig.WorkflowTemplateAddons{
 			Enabled: []string{legacyTemplateSpecDriven},
 		},
-		WorkflowTemplateManagement: obsidian.WorkflowTemplateManagement{
+		WorkflowTemplateManagement: repoconfig.WorkflowTemplateManagement{
 			Ejected: []string{legacyTemplateSpecDriven},
 			SourceFingerprints: map[string]string{
 				"spec-driven:docs:docs/specs/README.md":          "survives",
@@ -44,8 +47,8 @@ func TestNormalizeLegacyAgenticEngineeringStateMigratesCoupledState(t *testing.T
 }
 
 func TestHasLegacyAgenticEngineeringStateIncludesDisabledAddons(t *testing.T) {
-	cfg := obsidian.LocalConfig{
-		WorkflowTemplateAddons: obsidian.WorkflowTemplateAddons{
+	cfg := repoconfig.LocalConfig{
+		WorkflowTemplateAddons: repoconfig.WorkflowTemplateAddons{
 			Disabled: []string{legacyTemplateSpecDriven},
 		},
 	}
@@ -65,12 +68,12 @@ workflowTemplateAddons:
 `), 0o600))
 
 	attempts := 0
-	saveWorkflow := func(root string, workflow obsidian.LocalWorkflowConfig) error {
+	saveWorkflow := func(root string, workflow repoconfig.LocalWorkflowConfig) error {
 		attempts++
 		if attempts == 1 {
 			return errors.New("injected workflows write failure")
 		}
-		return obsidian.SaveLocalWorkflowConfig(root, workflow)
+		return repoconfig.SaveLocalWorkflowConfig(root, workflow)
 	}
 
 	_, migrated, err := migrateLegacyWorkflowConfigWithSave(root, saveWorkflow)
@@ -84,7 +87,7 @@ workflowTemplateAddons:
 	_, migrated, err = migrateLegacyWorkflowConfigWithSave(root, saveWorkflow)
 	require.NoError(t, err)
 	require.True(t, migrated)
-	workflow, exists, err := obsidian.LoadLocalWorkflowConfig(root)
+	workflow, exists, err := repoconfig.LoadLocalWorkflowConfig(root)
 	require.NoError(t, err)
 	require.True(t, exists)
 	require.Empty(t, workflow.Templates)
@@ -102,9 +105,12 @@ workflowTemplateAddons:
 }
 
 func TestRunReplaysLegacyProcessMigrationForComplexDomain(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{}))
-	require.NoError(t, obsidian.SaveLocalWorkflowConfig(root, obsidian.LocalWorkflowConfig{
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{}))
+	require.NoError(t, repoconfig.SaveLocalWorkflowConfig(root, repoconfig.LocalWorkflowConfig{
 		Templates: []string{templateComplexDomain},
 	}))
 
@@ -125,7 +131,7 @@ func TestRunReplaysLegacyProcessMigrationForComplexDomain(t *testing.T) {
 	t.Cleanup(func() { legacyProcessFingerprintCatalogLoader = originalLoader })
 
 	run := func() {
-		require.NoError(t, Run(RunOptions{
+		require.NoError(t, Run(RunOptions{Env: env,
 			Dir:         root,
 			RefreshDocs: true,
 			Agents:      "none",
@@ -134,7 +140,7 @@ func TestRunReplaysLegacyProcessMigrationForComplexDomain(t *testing.T) {
 		}))
 	}
 	run()
-	cfg, err := obsidian.LoadLocalConfig(root)
+	cfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.Equal(t, []string{templateComplexDomain}, cfg.WorkflowTemplates)
 	require.FileExists(t, legacyProcessMigrationManifestPath(root))
@@ -144,7 +150,7 @@ func TestRunReplaysLegacyProcessMigrationForComplexDomain(t *testing.T) {
 	require.NoFileExists(t, filepath.Join(legacyRoot, "README.md"))
 	retained, err := os.ReadFile(filepath.Join(legacyRoot, "agent-workflow.md"))
 	require.NoError(t, err)
-	frontmatter, err := obsidian.ExtractFrontmatter(string(retained))
+	frontmatter, err := markdownsyntax.ExtractFrontmatter(string(retained))
 	require.NoError(t, err)
 	require.Equal(t, "archived", frontmatter["spec-status"])
 }
@@ -171,20 +177,23 @@ func TestHasLegacyProcessMigrationPendingRecognizesPriorHumanManifest(t *testing
 }
 
 func TestRunMigratesCurrentWorkflowLegacyDisabledAddon(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{}))
-	require.NoError(t, obsidian.SaveLocalWorkflowConfig(root, obsidian.LocalWorkflowConfig{
-		Addons: obsidian.WorkflowTemplateAddons{Disabled: []string{legacyTemplateSpecDriven}},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{}))
+	require.NoError(t, repoconfig.SaveLocalWorkflowConfig(root, repoconfig.LocalWorkflowConfig{
+		Addons: repoconfig.WorkflowTemplateAddons{Disabled: []string{legacyTemplateSpecDriven}},
 	}))
 
-	require.NoError(t, Run(RunOptions{
+	require.NoError(t, Run(RunOptions{Env: env,
 		Dir:    root,
 		Agents: "none",
 		Stdout: io.Discard,
 		Stderr: io.Discard,
 	}))
 
-	workflow, exists, err := obsidian.LoadLocalWorkflowConfig(root)
+	workflow, exists, err := repoconfig.LoadLocalWorkflowConfig(root)
 	require.NoError(t, err)
 	require.True(t, exists)
 	require.Equal(t, []string{templateAgenticEngineering}, workflow.Addons.Disabled)
@@ -216,6 +225,9 @@ func TestPreservedTemplateBlockIDsKeepsFrozenLegacyFence(t *testing.T) {
 }
 
 func TestRunMigratesManagedLegacyFenceButPreservesEjectedFence(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	legacyBlock := managedTemplateBlockStartPrefix + legacyTemplateSpecDriven + managedTemplateBlockSuffix + "\nlocal frozen guidance\n" + managedTemplateBlockEndPrefix + legacyTemplateSpecDriven + managedTemplateBlockSuffix
 	for _, tc := range []struct {
 		name     string
@@ -228,14 +240,14 @@ func TestRunMigratesManagedLegacyFenceButPreservesEjectedFence(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
 			require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
-			require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{}))
-			workflow := obsidian.LocalWorkflowConfig{Templates: []string{legacyTemplateSpecDriven}}
+			require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{}))
+			workflow := repoconfig.LocalWorkflowConfig{Templates: []string{legacyTemplateSpecDriven}}
 			if tc.ejected {
 				workflow.Management.Ejected = []string{legacyTemplateSpecDriven}
 			}
-			require.NoError(t, obsidian.SaveLocalWorkflowConfig(root, workflow))
+			require.NoError(t, repoconfig.SaveLocalWorkflowConfig(root, workflow))
 			require.NoError(t, os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("# Repository Guidelines\n\n"+legacyBlock+"\n"), 0o644))
-			require.NoError(t, Run(RunOptions{
+			require.NoError(t, Run(RunOptions{Env: env,
 				Dir:    root,
 				Agents: "codex",
 				Stdout: io.Discard,

@@ -29,7 +29,7 @@ func TestEvaluateBatchCancellationPreservesPartialItems(t *testing.T) {
 	}))
 	defer server.Close()
 
-	handler := evaluateBatchTool(func() (*typesafe.Client, error) {
+	handler := evaluateBatchTool(func(context.Context) (*typesafe.Client, error) {
 		return typesafe.NewClient("fixture", typesafe.WithBaseURL(server.URL))
 	})
 	result, err := handler(ctx, evaluationCall(t, `{"concurrency":1,"budgetMs":30000,"items":[{"id":"a","state":"first","questions":{"ok":{"type":"noul","instructions":"Supported?"}}},{"id":"b","state":"second","questions":{"ok":{"type":"noul","instructions":"Supported?"}}},{"id":"c","state":"third","questions":{"ok":{"type":"noul","instructions":"Supported?"}}}]}`))
@@ -76,7 +76,7 @@ func TestEvaluateBatchDeadlineSelection(t *testing.T) {
 			}
 			var deadline time.Time
 			var hasDeadline bool
-			handler := evaluateBatchTool(func() (*typesafe.Client, error) {
+			handler := evaluateBatchTool(func(context.Context) (*typesafe.Client, error) {
 				return typesafe.NewClient("fixture", typesafe.WithHTTPClient(&http.Client{Transport: evaluationTransport(func(r *http.Request) (*http.Response, error) {
 					deadline, hasDeadline = r.Context().Deadline()
 					cancel()
@@ -101,7 +101,7 @@ func TestEvaluateBatchDeadlineSelection(t *testing.T) {
 }
 
 func TestEvaluateBatchRejectsInvalidBudgetBeforeCreatingClient(t *testing.T) {
-	handler := evaluateBatchTool(func() (*typesafe.Client, error) {
+	handler := evaluateBatchTool(func(context.Context) (*typesafe.Client, error) {
 		t.Fatal("invalid budget must not create a client")
 		return nil, nil
 	})
@@ -119,7 +119,7 @@ func TestEvaluateBatchBudgetExpiresWithoutCompletedItems(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	var deadline, requestedAt time.Time
-	handler := evaluateBatchTool(func() (*typesafe.Client, error) {
+	handler := evaluateBatchTool(func(context.Context) (*typesafe.Client, error) {
 		return typesafe.NewClient("fixture", typesafe.WithHTTPClient(&http.Client{Transport: evaluationTransport(func(r *http.Request) (*http.Response, error) {
 			requestedAt = time.Now()
 			deadline, _ = r.Context().Deadline()

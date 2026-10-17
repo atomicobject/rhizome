@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -53,7 +54,7 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 		require.True(t, data.Materializable)
 		require.Equal(t, 2, data.MemberCount)
 		require.NotEmpty(t, data.PlanFingerprint)
-		require.Equal(t, &IssueVariant{Key: data.TargetPool, Label: "EFF- (SEQUENTIAL → DATETIME)"}, issue.Variant)
+		require.Equal(t, &diag.Variant{Key: data.TargetPool, Label: "EFF- (SEQUENTIAL → DATETIME)"}, issue.Variant)
 	}
 }
 
@@ -71,7 +72,7 @@ type AlternateEffortNote @node(paths: ["docs/efforts/**/*.md"], propertyCase: AS
 		"docs/efforts/2026-08-06-12-20-first.md": "---\ntype: EffortNote\nid: EFF-0001\naliases: [EFF-0001]\n---\n",
 		"docs/efforts/legacy/plan.md":            "# Freeform plan\n",
 	})
-	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20}
+	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t)}
 
 	result := RunIdentifiersWithRuntime(context.Background(), runCtx, runtime)
 
@@ -98,7 +99,7 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 		"docs/efforts/2026-08-06-12-20-second.md": "---\nid: EFF-2026-08-06-12-20-2\naliases: [EFF-2026-08-06-12-20-2]\n---\n",
 		"docs/efforts/2026-08-06-12-20-first.md":  "---\nid: EFF-2026-08-06-12-20\naliases: [EFF-2026-08-06-12-20]\n---\n",
 	})
-	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20}
+	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t)}
 
 	result := RunIdentifiersWithRuntime(context.Background(), runCtx, runtime)
 	require.Empty(t, result.Error)
@@ -129,7 +130,7 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 		"docs/efforts/2026-08-06-12-20-first.md": "---\nid: EFF-0001\naliases: [EFF-0001]\n---\n",
 		"docs/efforts/2026-08-06-12-21-other.md": "---\nid: EFF-0002\naliases: [EFF-0002, EFF-2026-08-06-12-20]\n---\n",
 	})
-	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20}
+	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t)}
 
 	result := RunIdentifiersWithRuntime(context.Background(), runCtx, runtime)
 	require.Empty(t, result.Error)
@@ -238,10 +239,13 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 			result := RunIdentifiersWithRuntime(context.Background(), runCtx, runtime)
 			require.Empty(t, result.Error)
 			require.NotNil(t, result.identifierRepair, result.Notes)
+			prepared, err := prepareIdentifierRepairChecks(t.Context(), runCtx, []CheckResult{result})
+			require.NoError(t, err)
+			result = prepared[0]
 			plan, err := BuildRepairPlan(context.Background(), runCtx, []CheckResult{result})
 			require.NoError(t, err)
 			require.NotNil(t, plan)
-			execution, err := ApplyIdentifierRepairPlan(context.Background(), runCtx, plan, result.identifierRepair.Assembly, result.identifierRepair.Bindings, Options{
+			execution, err := ApplyIdentifierRepairPlan(context.Background(), runCtx, plan, result.identifierRepair.Assembly, result.identifierRepair.Bindings, ApplyOptions{
 				Fix: true, Confirm: func(string) (bool, error) { return true, nil },
 				PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: runCtx},
 			})
@@ -264,7 +268,7 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 				require.NoError(t, err)
 				require.Equal(t, expected, string(contents))
 			}
-			refreshed, cleanup, err := ontology.EnsureFreshRuntime(context.Background(), testNoteMetadata(t), runCtx.VaultDef, runCtx.NoteReader)
+			refreshed, cleanup, err := ontologytest.Open(context.Background(), testNoteMetadata(t), runCtx.VaultDef, runCtx.NoteReader)
 			if cleanup != nil {
 				defer cleanup()
 			}
@@ -316,7 +320,7 @@ type AlternateEffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DE
 		t.Run(test.name, func(t *testing.T) {
 			root, runtime := identifierCheckRuntime(t, test.schema, test.files)
 			result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-				VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+				VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 			}, runtime)
 			require.Empty(t, result.Error)
 			require.Nil(t, result.identifierRepair)
@@ -340,7 +344,7 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 		"docs/efforts/2026-08-06-12-21-second.md": "---\nid: EFF-0002\naliases: [EFF-0002]\n---\n",
 		"docs/efforts/2026-08-06-12-22-third.md":  "---\nid: EFF-0003\naliases: [EFF-0003]\n---\n",
 	})
-	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 1}
+	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 1, NoteMetadata: testNoteMetadata(t)}
 	result := RunIdentifiersWithRuntime(context.Background(), runCtx, runtime)
 	require.Equal(t, 3, result.IssueCount)
 	require.Len(t, result.Issues, 3, "the check preserves complete evidence until centralized finalization")
@@ -376,10 +380,13 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 	}
 	result := RunIdentifiersWithRuntime(context.Background(), runCtx, runtime)
 	require.NotNil(t, result.identifierRepair, result.Notes)
+	prepared, err := prepareIdentifierRepairChecks(t.Context(), runCtx, []CheckResult{result})
+	require.NoError(t, err)
+	result = prepared[0]
 	plan, err := BuildRepairPlan(context.Background(), runCtx, []CheckResult{result})
 	require.NoError(t, err)
 
-	skipped, err := ApplyIdentifierRepairPlan(context.Background(), runCtx, plan, result.identifierRepair.Assembly, result.identifierRepair.Bindings, Options{
+	skipped, err := ApplyIdentifierRepairPlan(context.Background(), runCtx, plan, result.identifierRepair.Assembly, result.identifierRepair.Bindings, ApplyOptions{
 		Fix: true, Confirm: func(string) (bool, error) { return true, nil },
 		PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: runCtx},
 	})
@@ -390,7 +397,7 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 	require.NoError(t, err)
 	require.Contains(t, string(contents), "id: EFF-0001")
 
-	execution, err := ApplyIdentifierRepairPlan(context.Background(), runCtx, plan, result.identifierRepair.Assembly, result.identifierRepair.Bindings, Options{
+	execution, err := ApplyIdentifierRepairPlan(context.Background(), runCtx, plan, result.identifierRepair.Assembly, result.identifierRepair.Bindings, ApplyOptions{
 		Fix: true, AllowHistorical: true, Confirm: func(string) (bool, error) { return true, nil },
 		PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: runCtx},
 	})

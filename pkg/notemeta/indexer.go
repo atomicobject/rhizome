@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sort"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // ErrProjectionNotCurrent reports that persisted source identity exists but
@@ -90,14 +90,7 @@ func (i Indexer) UsableNoteMetadataRowsByPaths(ctx context.Context, store Store,
 	}
 	pathsList := dedupeStrings(rawPaths)
 	sort.Strings(pathsList)
-	provider, ok := store.(durableMetadataRowsProvider)
-	var rows map[string]MetadataRow
-	var err error
-	if !ok {
-		rows, err = store.CurrentNoteMetadataRowsByPaths(ctx, pathsList)
-	} else {
-		rows, err = provider.DurableNoteMetadataRowsByPaths(ctx, pathsList)
-	}
+	rows, err := store.DurableNoteMetadataRowsByPaths(ctx, pathsList)
 	if err != nil {
 		return nil, err
 	}
@@ -117,11 +110,7 @@ func (i Indexer) UsableNoteFactsByPaths(ctx context.Context, store Store, rawPat
 	if store == nil {
 		return semdb.DurableNoteFacts{MetadataRows: map[string]MetadataRow{}}, nil
 	}
-	provider, ok := store.(durableNoteFactsProvider)
-	if !ok {
-		return semdb.DurableNoteFacts{}, fmt.Errorf("atomic durable note facts are unavailable")
-	}
-	facts, err := provider.DurableNoteFactsByPaths(ctx, dedupeStrings(rawPaths))
+	facts, err := store.DurableNoteFactsByPaths(ctx, dedupeStrings(rawPaths))
 	if err != nil {
 		return semdb.DurableNoteFacts{}, err
 	}

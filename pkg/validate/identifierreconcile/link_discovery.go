@@ -5,9 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"sort"
-
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
 )
 
 // IdentifierLinkDiscovery is an opaque, source-bound inventory of structured
@@ -19,26 +18,26 @@ type IdentifierLinkDiscovery struct {
 	sourcePreconditions []SourcePrecondition
 	schemaHash          string
 	rewriteFingerprint  string
-	plans               []reference.StructuredLinkRewritePlan
-	reviewPlans         []reference.IdentifierReviewCandidatePlan
+	plans               []identifierrewrite.StructuredLinkRewritePlan
+	reviewPlans         []identifierrewrite.IdentifierReviewCandidatePlan
 	provenanceDecisions []AmbiguousLinkProvenanceDecision
 	sealed              string
 }
 
 type identifierLinkDiscoverySnapshot struct {
-	SourceFingerprint   string                                    `json:"sourceFingerprint"`
-	SourcePreconditions []SourcePrecondition                      `json:"sourcePreconditions"`
-	SchemaHash          string                                    `json:"schemaHash"`
-	RewriteFingerprint  string                                    `json:"rewriteFingerprint"`
-	Plans               []reference.StructuredLinkRewritePlan     `json:"plans"`
-	ReviewPlans         []reference.IdentifierReviewCandidatePlan `json:"reviewPlans"`
-	ProvenanceDecisions []AmbiguousLinkProvenanceDecision         `json:"provenanceDecisions,omitempty"`
+	SourceFingerprint   string                                            `json:"sourceFingerprint"`
+	SourcePreconditions []SourcePrecondition                              `json:"sourcePreconditions"`
+	SchemaHash          string                                            `json:"schemaHash"`
+	RewriteFingerprint  string                                            `json:"rewriteFingerprint"`
+	Plans               []identifierrewrite.StructuredLinkRewritePlan     `json:"plans"`
+	ReviewPlans         []identifierrewrite.IdentifierReviewCandidatePlan `json:"reviewPlans"`
+	ProvenanceDecisions []AmbiguousLinkProvenanceDecision                 `json:"provenanceDecisions,omitempty"`
 }
 
 // validatedSnapshotFor returns a detached canonical snapshot only when this
 // discovery still binds the complete source inventory, rewrite union, and
 // sealed per-note plans with which it was created.
-func (d *IdentifierLinkDiscovery) validatedSnapshotFor(rewrites []reference.IdentifierRewrite) (*identifierLinkDiscoverySnapshot, error) {
+func (d *IdentifierLinkDiscovery) validatedSnapshotFor(rewrites []identifierrewrite.IdentifierRewrite) (*identifierLinkDiscoverySnapshot, error) {
 	if d == nil || d.sealed == "" {
 		return nil, fmt.Errorf("complete identifier link discovery is required")
 	}
@@ -59,8 +58,8 @@ func (d *IdentifierLinkDiscovery) validatedSnapshotFor(rewrites []reference.Iden
 		SourcePreconditions: append([]SourcePrecondition(nil), d.sourcePreconditions...),
 		SchemaHash:          d.schemaHash,
 		RewriteFingerprint:  d.rewriteFingerprint,
-		Plans:               make([]reference.StructuredLinkRewritePlan, 0, len(d.plans)),
-		ReviewPlans:         make([]reference.IdentifierReviewCandidatePlan, 0, len(d.reviewPlans)),
+		Plans:               make([]identifierrewrite.StructuredLinkRewritePlan, 0, len(d.plans)),
+		ReviewPlans:         make([]identifierrewrite.IdentifierReviewCandidatePlan, 0, len(d.reviewPlans)),
 		ProvenanceDecisions: make([]AmbiguousLinkProvenanceDecision, 0, len(d.provenanceDecisions)),
 	}
 	if d.plans == nil {
@@ -152,7 +151,7 @@ func (d *IdentifierLinkDiscovery) validatedSnapshotFor(rewrites []reference.Iden
 	return snapshot, nil
 }
 
-func appendValidatedReviewPlans(snapshot *identifierLinkDiscoverySnapshot, rawPlans []reference.IdentifierReviewCandidatePlan, rewrites []reference.IdentifierRewrite, sources map[string]string) error {
+func appendValidatedReviewPlans(snapshot *identifierLinkDiscoverySnapshot, rawPlans []identifierrewrite.IdentifierReviewCandidatePlan, rewrites []identifierrewrite.IdentifierRewrite, sources map[string]string) error {
 	previousPath := ""
 	for _, raw := range rawPlans {
 		plan, err := raw.ValidatedSnapshot()
@@ -188,7 +187,7 @@ func appendValidatedReviewPlans(snapshot *identifierLinkDiscoverySnapshot, rawPl
 			if diagnostic.Range != candidate.Range || diagnostic.Value != candidate.Value {
 				return fmt.Errorf("identifier review candidate diagnostic does not match source evidence")
 			}
-			if diagnostic.Kind != reference.IdentifierRewriteDiagnosticReviewOnly || !fieldDiagnosticMatchesRewrites(diagnostic, rewrites) {
+			if diagnostic.Kind != identifierrewrite.IdentifierRewriteDiagnosticReviewOnly || !fieldDiagnosticMatchesRewrites(diagnostic, rewrites) {
 				return fmt.Errorf("identifier review diagnostic does not match rewrite union")
 			}
 		}
@@ -197,7 +196,7 @@ func appendValidatedReviewPlans(snapshot *identifierLinkDiscoverySnapshot, rawPl
 	return nil
 }
 
-func sameCanonicalRewriteUnion(left, right []reference.IdentifierRewrite) bool {
+func sameCanonicalRewriteUnion(left, right []identifierrewrite.IdentifierRewrite) bool {
 	canonicalLeft, err := canonicalRepairRewriteSet(left)
 	if err != nil || len(canonicalLeft) != len(right) {
 		return false
@@ -210,7 +209,7 @@ func sameCanonicalRewriteUnion(left, right []reference.IdentifierRewrite) bool {
 	return true
 }
 
-func sameCanonicalRewriteSubset(subset, union []reference.IdentifierRewrite) bool {
+func sameCanonicalRewriteSubset(subset, union []identifierrewrite.IdentifierRewrite) bool {
 	canonicalSubset, err := canonicalRepairRewriteSet(subset)
 	if err != nil || len(canonicalSubset) == 0 {
 		return false

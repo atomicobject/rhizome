@@ -93,20 +93,6 @@ func (t *liveHealthTracker) phase(id int64, phase string) {
 	})
 }
 
-func (t *liveHealthTracker) degrade(id int64, reason string) {
-	if reason == "" {
-		return
-	}
-	t.update(id, func(epoch *LiveEpoch) {
-		if !stringSliceContains(epoch.DegradedReasons, reason) {
-			epoch.DegradedReasons = append(epoch.DegradedReasons, reason)
-		}
-		if epoch.Status == "started" {
-			epoch.Status = "degraded"
-		}
-	})
-}
-
 func (t *liveHealthTracker) fail(id int64, phase string, err error) {
 	if err == nil {
 		return
@@ -193,13 +179,4 @@ func cloneLiveEpoch(in *LiveEpoch) *LiveEpoch {
 		out.CompletedAt = &completed
 	}
 	return &out
-}
-
-func stringSliceContains(values []string, needle string) bool {
-	for _, value := range values {
-		if value == needle {
-			return true
-		}
-	}
-	return false
 }

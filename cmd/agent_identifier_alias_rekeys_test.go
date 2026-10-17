@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +38,7 @@ func TestAgentIdentifierRekeyRetiresAliasesFromEveryField(t *testing.T) {
 					files["specs/a-keeper.md"] = "---\nid: ITEM-0001\naliases: [ITEM-0001]\n---\n# Keeper\n"
 				}
 				vault := setupAgentTestVault(t, files)
-				stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
+				stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
 				require.Error(t, err)
 				require.Empty(t, stderr)
 				var planned validationrun.ValidationResult
@@ -46,7 +47,7 @@ func TestAgentIdentifierRekeyRetiresAliasesFromEveryField(t *testing.T) {
 				require.NotNil(t, planned.FixPlan, stdout)
 				require.Len(t, planned.FixPlan.Actions, 1, stdout)
 				action := planned.FixPlan.Actions[0]
-				stdout, stderr, err = runRootCLI(t, nil, []string{"agent", "validate", "fix", "identifiers", "--apply", "--action", action.ID, "--vault", vault.name})
+				stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "identifiers", "--apply", "--action", action.ID, "--vault", vault.name})
 				require.NoError(t, err, stdout)
 				require.Empty(t, stderr)
 				var applied validationrun.ValidationResult
@@ -61,7 +62,7 @@ func TestAgentIdentifierRekeyRetiresAliasesFromEveryField(t *testing.T) {
 				require.Contains(t, string(body), "KEEP-B")
 				store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 				require.NoError(t, err)
-				nodes, err := store.OntologyNodesByType(context.Background(), "Spec")
+				nodes, err := store.OntologyNodesByType(vaultconfig.WithEnv(context.Background(), vault.env), "Spec")
 				require.NoError(t, err)
 				var nodeID string
 				for _, node := range nodes {
@@ -70,7 +71,7 @@ func TestAgentIdentifierRekeyRetiresAliasesFromEveryField(t *testing.T) {
 					}
 				}
 				require.NotEmpty(t, nodeID)
-				rows, err := store.OntologyNodeFieldValuesByNodeIDs(context.Background(), []string{nodeID}, []string{"id", "alias", "aliases"})
+				rows, err := store.OntologyNodeFieldValuesByNodeIDs(vaultconfig.WithEnv(context.Background(), vault.env), []string{nodeID}, []string{"id", "alias", "aliases"})
 				require.NoError(t, err)
 				require.NoError(t, store.Close())
 				byField := map[string][]string{}
@@ -89,7 +90,7 @@ func TestAgentIdentifierRekeyRetiresAliasesFromEveryField(t *testing.T) {
 					}
 					require.ElementsMatch(t, want, byField[field], "mirror is appended only to its established field")
 				}
-				stdout, stderr, err = runRootCLI(t, nil, []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
+				stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
 				require.NoError(t, err, stdout)
 				require.Empty(t, stderr)
 				var repeat validationrun.ValidationResult

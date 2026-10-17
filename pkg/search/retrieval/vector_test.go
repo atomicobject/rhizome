@@ -2,16 +2,17 @@ package retrieval
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"path/filepath"
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,7 +60,7 @@ func TestVectorRetrieverPreservesOntologyNodeRefFromPrimaryChunk(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 
-	node := codeanchor.IntelOntologyNode{
+	node := readmodel.NodeRow{
 		NodeID:        "node:story",
 		NotePath:      "docs/spec.md",
 		NodeRefJSON:   `{"notePath":"docs/spec.md","fragment":"^story","nodeId":"story","typeName":"UserStory","kind":"EMBEDDED","structuralFingerprint":"structure-1"}`,
@@ -69,10 +70,10 @@ func TestVectorRetrieverPreservesOntologyNodeRefFromPrimaryChunk(t *testing.T) {
 		SourceLocator: "docs/spec.md#^story",
 		UpdatedAt:     1,
 	}
-	require.NoError(t, store.ReplaceOntologyNodes(ctx, []string{node.NotePath}, []codeanchor.IntelOntologyNode{node}))
+	require.NoError(t, store.ReplaceOntologyNodes(ctx, []string{node.NotePath}, []readmodel.NodeRow{node}))
 	require.NoError(t, store.ReplaceIntelChunks(ctx, []string{node.NodeID}, []codeanchor.IntelChunk{{
-		ChunkID: "node-body", OwnerID: node.NodeID, OwnerType: semantic.OntologyNodeOwnerType, Ord: 0,
-		Granularity: semantic.GranularityOntologyNodeBody, Breadcrumb: "docs/spec.md > Faster checkout", Heading: node.Title, ContentHash: "body-hash", UpdatedAt: 1,
+		ChunkID: "node-body", OwnerID: node.NodeID, OwnerType: embeddings.OntologyNodeOwnerType, Ord: 0,
+		Granularity: embeddings.GranularityOntologyNodeBody, Breadcrumb: "docs/spec.md > Faster checkout", Heading: node.Title, ContentHash: "body-hash", UpdatedAt: 1,
 	}}))
 	require.NoError(t, store.UpsertEmbeddings(ctx, map[string]embeddings.Embedding{
 		"node-body": embedForRetrievalTest(t, provider, "faster checkout user story"),
@@ -83,23 +84,23 @@ func TestVectorRetrieverPreservesOntologyNodeRefFromPrimaryChunk(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, candidates)
 	require.Equal(t, node.NodeID, candidates[0].NodeID)
-	require.Equal(t, semantic.GranularityOntologyNodeBody, candidates[0].Granularity)
+	require.Equal(t, embeddings.GranularityOntologyNodeBody, candidates[0].Granularity)
 	require.NotNil(t, candidates[0].NodeRef)
 	require.Equal(t, node.NotePath, candidates[0].NodeRef.NotePath)
 	require.Equal(t, "story", candidates[0].NodeRef.NodeID)
 	require.Equal(t, ontology.NodeKindEmbedded, candidates[0].NodeRef.Kind)
 	requireEvidenceType(t, candidates[0].Evidence, "note_vector_similarity")
 
-	section := codeanchor.IntelOntologyNode{
+	section := readmodel.NodeRow{
 		NodeID: "node:fallback-section", NotePath: "notes/research.md",
 		NodeRefJSON: `{"notePath":"notes/research.md","fragment":"findings-18","nodeId":"fallback-section","typeName":"_FallbackSection","kind":"SECTION","structuralFingerprint":"structure-1"}`,
 		NodeKind:    "SECTION", TypeName: "_FallbackSection", ParentNodeID: "node:fallback-note",
 		Title: "Findings", SourceLocator: "notes/research.md#findings-18", UpdatedAt: 1,
 	}
-	require.NoError(t, store.ReplaceOntologyNodes(ctx, []string{section.NotePath}, []codeanchor.IntelOntologyNode{section}))
+	require.NoError(t, store.ReplaceOntologyNodes(ctx, []string{section.NotePath}, []readmodel.NodeRow{section}))
 	require.NoError(t, store.ReplaceIntelChunks(ctx, []string{section.NodeID}, []codeanchor.IntelChunk{{
-		ChunkID: "section-body", OwnerID: section.NodeID, OwnerType: semantic.OntologyNodeOwnerType, Ord: 0,
-		Granularity: semantic.GranularityOntologyNodeBody, Heading: section.Title, ContentHash: "section-hash", UpdatedAt: 1,
+		ChunkID: "section-body", OwnerID: section.NodeID, OwnerType: embeddings.OntologyNodeOwnerType, Ord: 0,
+		Granularity: embeddings.GranularityOntologyNodeBody, Heading: section.Title, ContentHash: "section-hash", UpdatedAt: 1,
 	}}))
 	require.NoError(t, store.UpsertEmbeddings(ctx, map[string]embeddings.Embedding{
 		"section-body": embedForRetrievalTest(t, provider, "research findings eighteen"),
@@ -115,9 +116,9 @@ func TestVectorRetrieverPreservesOntologyNodeRefFromPrimaryChunk(t *testing.T) {
 	}
 	require.NotNil(t, found)
 	require.Equal(t, knowledge.KindNodeChunk, found.Handle.Kind)
-	require.Equal(t, section.SourceLocator, found.SourceLocator)
+	require.Equal(t, section.SourceLocator, ontology.NodeSourceLocator(*found.NodeRef))
 	require.Equal(t, section.ParentNodeID, found.ParentNodeID)
-	require.Equal(t, section.NodeKind, found.NodeKind)
+	require.Equal(t, section.NodeKind, string(found.NodeRef.Kind))
 	require.NotNil(t, found.NodeRef)
 	require.Equal(t, ontology.NodeRef{NotePath: section.NotePath, Fragment: "findings-18", NodeID: "fallback-section", TypeName: "_FallbackSection", Kind: ontology.NodeKindSection, Structural: "structure-1"}, *found.NodeRef)
 	requireEvidenceType(t, found.Evidence, "note_vector_similarity")

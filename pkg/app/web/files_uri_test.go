@@ -1,12 +1,12 @@
 package web
 
 import (
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestReadFileViewResolvesHTMLURIsWithProviderSemantics(t *testing.T) {
@@ -21,7 +21,7 @@ func TestReadFileViewResolvesHTMLURIsWithProviderSemantics(t *testing.T) {
 		Root:     root,
 		Includes: []string{"**/*.html", "**/*.md"},
 	}
-	indexer := testNoteMetadataIndexer(t)
+	indexer := testkit.NoteMetadataIndexer(t)
 	catalog, err := NewFileCatalog(vaultDef, nil, indexer)
 	require.NoError(t, err)
 	srv := &Server{

@@ -1,12 +1,12 @@
 package identifierreconcile
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"math"
 	"math/rand"
 	"strconv"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,12 +41,12 @@ func TestBuildInventoryDetectsEveryCollisionKindWithinPool(t *testing.T) {
 		collisions[0].Claimants[0].Node.NotePath,
 		collisions[0].Claimants[1].Node.NotePath,
 	})
-	require.Equal(t, []ontology.IdentifierReservation{
+	require.Equal(t, []ontoschema.IdentifierReservation{
 		reservation(t, "SPEC-0001", "a.md"), reservation(t, "SPEC-0001", "z.md"),
 		reservation(t, "SPEC-0002", "b.md"), reservation(t, "SPEC-0002", "c.md"),
 		reservation(t, "SPEC-0003", "d.md"), reservation(t, "SPEC-0003", "e.md"),
 	}, inventory.ReservationInventory(specPool).Reservations, "the same-node alias mirror reserves once")
-	require.Equal(t, []ontology.IdentifierReservation{reservation(t, "SPEC-0001", "effort.md")}, inventory.ReservationInventory(effortPool).Reservations)
+	require.Equal(t, []ontoschema.IdentifierReservation{reservation(t, "SPEC-0001", "effort.md")}, inventory.ReservationInventory(effortPool).Reservations)
 }
 
 func TestInventoryCollisionClaimsExcludeUnrelatedAndSameNodeAliasClaims(t *testing.T) {
@@ -96,7 +96,7 @@ func TestBuildInventoryNormalizesIdentifierBackedLocatorCaret(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, inventory.Collisions(), 1)
 	require.Equal(t, "spec-0001", inventory.Collisions()[0].Value)
-	require.Equal(t, []ontology.IdentifierReservation{
+	require.Equal(t, []ontoschema.IdentifierReservation{
 		reservation(t, "SPEC-0001", "a.md"), reservation(t, "SPEC-0001", "b.md"),
 	}, inventory.ReservationInventory(pool).Reservations, "the locator caret is not part of the reserved identifier")
 }
@@ -120,7 +120,7 @@ func TestBuildInventoryCaseFoldsSemanticIdentityButPreservesAuthoredValues(t *te
 		inventory.Collisions()[0].Claimants[1].Value,
 	})
 	require.Equal(t, CollisionPreferredAlias, inventory.Collisions()[1].Kind)
-	require.Equal(t, []ontology.IdentifierReservation{
+	require.Equal(t, []ontoschema.IdentifierReservation{
 		reservation(t, "SPEC-0005", "a.md"), reservation(t, "spec-0005", "b.md"),
 		reservation(t, "SPEC-0006", "d.md"), reservation(t, "SpEc-0006", "c.md"),
 		reservation(t, "spec-0009", "reserved.md"),
@@ -183,17 +183,17 @@ func TestBuildPlanRejectsExhaustedSequentialPool(t *testing.T) {
 func TestNewPoolKeyAcceptsDateTimeAndRejectsStrategySpecificPad(t *testing.T) {
 	t.Parallel()
 
-	pool, err := NewPoolKey(&ontology.IdentifierFormat{
-		Strategy:  ontology.IdentifierStrategyDateTime,
+	pool, err := NewPoolKey(&ontoschema.IdentifierFormat{
+		Strategy:  ontoschema.IdentifierStrategyDateTime,
 		Prefix:    "EFF",
 		Separator: "-",
 	})
 	require.NoError(t, err)
-	require.Equal(t, ontology.IdentifierStrategyDateTime, pool.Strategy)
+	require.Equal(t, ontoschema.IdentifierStrategyDateTime, pool.Strategy)
 	require.Zero(t, pool.Pad)
 
-	_, err = NewPoolKey(&ontology.IdentifierFormat{
-		Strategy:  ontology.IdentifierStrategyDateTime,
+	_, err = NewPoolKey(&ontoschema.IdentifierFormat{
+		Strategy:  ontoschema.IdentifierStrategyDateTime,
 		Prefix:    "EFF",
 		Separator: "-",
 		Pad:       4,
@@ -212,7 +212,7 @@ func TestInventoryFreezesCanonicalReservationSnapshotsAcrossInputOrder(t *testin
 		claim(t, pool, "legacy", ClaimAlias, "legacy.md"),
 	}
 
-	var want ontology.IdentifierReservationInventory
+	var want ontoschema.IdentifierReservationInventory
 	for seed := int64(0); seed < 20; seed++ {
 		shuffled := append([]Claim(nil), base...)
 		rand.New(rand.NewSource(seed)).Shuffle(len(shuffled), func(i, j int) {
@@ -245,8 +245,8 @@ func TestInventoryFreezesCanonicalReservationSnapshotsAcrossInputOrder(t *testin
 
 func mustPool(t *testing.T, prefix string) PoolKey {
 	t.Helper()
-	pool, err := NewPoolKey(&ontology.IdentifierFormat{
-		Strategy:  ontology.IdentifierStrategySequential,
+	pool, err := NewPoolKey(&ontoschema.IdentifierFormat{
+		Strategy:  ontoschema.IdentifierStrategySequential,
 		Prefix:    prefix,
 		Separator: "-",
 		Pad:       4,
@@ -257,8 +257,8 @@ func mustPool(t *testing.T, prefix string) PoolKey {
 
 func mustDateTimePool(t *testing.T, prefix string) PoolKey {
 	t.Helper()
-	pool, err := NewPoolKey(&ontology.IdentifierFormat{
-		Strategy:  ontology.IdentifierStrategyDateTime,
+	pool, err := NewPoolKey(&ontoschema.IdentifierFormat{
+		Strategy:  ontoschema.IdentifierStrategyDateTime,
 		Prefix:    prefix,
 		Separator: "-",
 	})
@@ -266,11 +266,11 @@ func mustDateTimePool(t *testing.T, prefix string) PoolKey {
 	return pool
 }
 
-func reservation(t *testing.T, value, notePath string) ontology.IdentifierReservation {
+func reservation(t *testing.T, value, notePath string) ontoschema.IdentifierReservation {
 	t.Helper()
 	key, err := NewCanonicalNodeKey(notePath, "", "Spec", "id")
 	require.NoError(t, err)
-	return ontology.IdentifierReservation{Value: value, Owner: key.String()}
+	return ontoschema.IdentifierReservation{Value: value, Owner: key.String()}
 }
 
 func claim(t *testing.T, pool PoolKey, value string, kind ClaimKind, notePath string) Claim {

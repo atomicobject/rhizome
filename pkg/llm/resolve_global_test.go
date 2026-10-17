@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,10 +10,11 @@ import (
 )
 
 func TestAPIKeyForProvider_FallsBackToGlobalConfig(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	home := t.TempDir()
-	origHome := vaultconfig.UserHomeDirectory
-	vaultconfig.UserHomeDirectory = func() (string, error) { return home, nil }
-	t.Cleanup(func() { vaultconfig.UserHomeDirectory = origHome })
+	env.HomeDir = home
 
 	cfgDir := filepath.Join(home, ".config", vaultconfig.RhizomeConfigDirectory)
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -24,7 +26,7 @@ func TestAPIKeyForProvider_FallsBackToGlobalConfig(t *testing.T) {
 
 	t.Setenv("ANTHROPIC_API_KEY", "")
 
-	if got := APIKeyForProvider("anthropic"); got != "from-global-config" {
+	if got := APIKeyForProvider(env, "anthropic"); got != "from-global-config" {
 		t.Fatalf("APIKeyForProvider() = %q, want %q", got, "from-global-config")
 	}
 }

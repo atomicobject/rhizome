@@ -17,8 +17,8 @@ func (s *Scope) Projections(ctx context.Context, refs []ontology.NodeRef) ([]*on
 	defer s.mu.Unlock()
 	paths := make([]string, 0, len(refs))
 	for _, ref := range refs {
-		ref = normalizeNodeRef(ref)
-		if !ref.IsZero() && !s.projectionKnown[projectionCacheKey(ref)] {
+		ref = NormalizeRef(ref)
+		if !ref.IsZero() && !s.projectionKnown[RefIdentityKey(ref)] {
 			paths = append(paths, ref.NotePath)
 		}
 	}

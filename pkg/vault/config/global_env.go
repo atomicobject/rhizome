@@ -16,8 +16,8 @@ type GlobalConfig struct {
 
 // LoadGlobalConfig reads ~/.config/rhizome/config.yml and returns the subset of
 // fields relevant to lower-level packages.
-func LoadGlobalConfig(allowMissing bool) (GlobalConfig, error) {
-	_, cliConfigFile, err := CliPath()
+func LoadGlobalConfig(env Env, allowMissing bool) (GlobalConfig, error) {
+	_, cliConfigFile, err := env.CliPath()
 	if err != nil {
 		return GlobalConfig{}, err
 	}
@@ -42,18 +42,18 @@ func LoadGlobalConfig(allowMissing bool) (GlobalConfig, error) {
 // Precedence:
 //  1. Process environment (including project .env values already loaded there)
 //  2. Global Rhizome config env block (~/.config/rhizome/config.yml)
-func ResolveValue(keys ...string) string {
+func ResolveValue(env Env, keys ...string) string {
 	// Keep this helper deliberately narrow. Project-local .rhizome/config.yml is
 	// parsed by obsidian/local config code; lower-level packages only need a
 	// generic "env-like value" lookup that cannot recursively depend on vault
 	// discovery.
 	for _, key := range keys {
-		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+		if value := strings.TrimSpace(lookupValue(env, key)); value != "" {
 			return value
 		}
 	}
 
-	cfg, err := LoadGlobalConfig(true)
+	cfg, err := LoadGlobalConfig(env, true)
 	if err != nil {
 		return ""
 	}
@@ -64,3 +64,5 @@ func ResolveValue(keys ...string) string {
 	}
 	return ""
 }
+
+func lookupValue(env Env, key string) string { value, _ := env.Lookup(key); return value }

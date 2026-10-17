@@ -88,7 +88,7 @@ func BuildRootDocumentSnapshot(source notemeta.NoteSourceSnapshot) (*RootDocumen
 	snapshot.SearchRegions = append([]noteformat.SearchRegionFact(nil), snapshot.Projection.Facts.SearchRegions...)
 	snapshot.Diagnostics = append([]noteformat.Diagnostic(nil), snapshot.Projection.Diagnostics...)
 	if snapshot.Title == "" {
-		snapshot.Title = titleFromNotePath(path.String())
+		snapshot.Title = paths.NoteTitle(path.String())
 	}
 	return snapshot, nil
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newViewEjectCmd(agent bool, opts *viewOptions) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newViewEjectCmd(agent bool, opts *viewOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "eject <id>",
 		Short: "Copy a bundled view's folder into .rhizome/views to customize it",
@@ -14,7 +14,7 @@ func newViewEjectCmd(agent bool, opts *viewOptions) *cobra.Command {
 			"The copy then replaces the bundled views it shares ids with. Existing files are never overwritten.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			service, cleanup, err := buildViewServiceForCommand(cmd, opts)
+			service, cleanup, err := commandOptions.buildViewServiceForCommand(cmd, opts)
 			if cleanup != nil {
 				defer cleanup()
 			}

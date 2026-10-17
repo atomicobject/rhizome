@@ -4,15 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestProductionDiscoveryDerivesCompleteDescendantUnionAndRewritesFieldsAndLinks(t *testing.T) {
@@ -40,18 +39,18 @@ id:: ^SPEC-0001-US1
 	})
 	oldRoot := ontology.NodeRef{NotePath: "specs/SPEC-0001.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
 	newRoot := ontology.NodeRef{NotePath: "specs/SPEC-0002.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
-	rootRewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRoot, NewRef: newRoot,
+	rootRewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRoot, NewRef: newRoot,
 		OldIdentifier: "SPEC-0001", NewIdentifier: "SPEC-0002", PreferredField: "id", AliasesField: "aliases",
 	}
-	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{
-		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []reference.IdentifierRewrite{rootRewrite},
+	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
+		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []identifierrewrite.IdentifierRewrite{rootRewrite},
 	})
 	require.NoError(t, err)
 	fieldSnapshot, err := fields.validatedSnapshotFor(fields.rewrites)
 	require.NoError(t, err)
 	require.Len(t, fieldSnapshot.Rewrites, 3, "complete discovery must derive the full embedded identity chain")
-	var story, criterion reference.IdentifierRewrite
+	var story, criterion identifierrewrite.IdentifierRewrite
 	for _, rewrite := range fieldSnapshot.Rewrites {
 		switch rewrite.OldIdentifier {
 		case "SPEC-0001-US1":
@@ -71,9 +70,9 @@ id:: ^SPEC-0001-US1
 	require.Equal(t, "SPEC-0002-US1-AC1", criterion.NewIdentifier)
 	require.True(t, sameRepairRef(criterion.DerivedFrom, story.OldRef))
 	require.True(t, hasFieldReplacement(fieldSnapshot.Edits, "specs/SPEC-0001.md", "id", "^SPEC-0001-US1", "^SPEC-0002-US1"))
-	require.True(t, hasFieldReplacement(fieldSnapshot.Edits, "specs/SPEC-0001.md", reference.StructuredFieldBlockLocator, "^SPEC-0001-US1-AC1", "^SPEC-0002-US1-AC1"))
+	require.True(t, hasFieldReplacement(fieldSnapshot.Edits, "specs/SPEC-0001.md", identifierrewrite.StructuredFieldBlockLocator, "^SPEC-0001-US1-AC1", "^SPEC-0002-US1-AC1"))
 	require.True(t, hasFieldReplacement(fieldSnapshot.Edits, "specs/SPEC-0001.md", "related", "#^SPEC-0001-US1", "#^SPEC-0002-US1"))
-	var related *reference.StructuredFieldOccurrence
+	var related *identifierrewrite.StructuredFieldOccurrence
 	for index := range fieldSnapshot.Occurrences {
 		if fieldSnapshot.Occurrences[index].FieldName == "related" {
 			related = &fieldSnapshot.Occurrences[index]
@@ -81,7 +80,7 @@ id:: ^SPEC-0001-US1
 		}
 	}
 	require.NotNil(t, related)
-	require.Equal(t, reference.StructuredFieldIdentifierBackedLocator, related.Kind)
+	require.Equal(t, identifierrewrite.StructuredFieldIdentifierBackedLocator, related.Kind)
 	require.Len(t, related.Candidates, 1, "the universal Note field must still resolve the exact embedded child")
 	require.Equal(t, "specs/SPEC-0001.md", related.Candidates[0].NotePath)
 	require.Equal(t, "^SPEC-0001-US1", related.Candidates[0].Fragment)
@@ -116,7 +115,7 @@ id:: ^SPEC-0001-US1
 	assembly, err := AssembleRekeyRepairIntents(RekeyRepairAssemblyInput{
 		Plan: plan,
 		Collisions: []CollisionRepairInput{{
-			CollisionKey: plan.Collisions[0].Key, Rewrites: []reference.IdentifierRewrite{rootRewrite},
+			CollisionKey: plan.Collisions[0].Key, Rewrites: []identifierrewrite.IdentifierRewrite{rootRewrite},
 			Moves: []GovernedMoveResult{{Request: moveRequest, Plan: movePlan}},
 		}},
 		FieldDiscovery: fields, LinkDiscovery: links,
@@ -138,14 +137,14 @@ id:: ^SPEC-0001-US1
 	headingFragmentRewritten := false
 	for _, intent := range component.LinkEdits {
 		edit := intent.Edit
-		headingFragmentRewritten = headingFragmentRewritten || edit.Component == reference.LinkComponentFragment && edit.Expected == "SPEC-0001" && edit.Replacement == "SPEC-0002"
+		headingFragmentRewritten = headingFragmentRewritten || edit.Component == identifierrewrite.LinkComponentFragment && edit.Expected == "SPEC-0001" && edit.Replacement == "SPEC-0002"
 	}
 	require.True(t, headingFragmentRewritten, "the heading-fragment link must be rewritten")
 	require.Equal(t, []RepairPostcheck{PostcheckIdentifiers, PostcheckOntology, PostcheckBrokenLinks, PostcheckFragileExternal}, postcheckValues(component.Postchecks),
 		"a rewritten heading fragment requires the fragile-link postcheck")
 	reviewDiagnostics := 0
 	for _, diagnostic := range component.Diagnostics {
-		if diagnostic.Kind == string(reference.IdentifierRewriteDiagnosticReviewOnly) {
+		if diagnostic.Kind == string(identifierrewrite.IdentifierRewriteDiagnosticReviewOnly) {
 			require.Equal(t, []string{plan.Collisions[0].Key}, diagnostic.MembershipKeys)
 			require.False(t, diagnostic.Blocking)
 			if diagnostic.Field != nil && diagnostic.Field.OwnerRef.NotePath == "notes/inbound.md" {
@@ -154,14 +153,14 @@ id:: ^SPEC-0001-US1
 		}
 	}
 	require.Equal(t, 2, reviewDiagnostics)
-	require.NoError(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}))
+	require.NoError(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, testNoteMetadata(t)))
 	inboundPath := filepath.Join(root, "notes", "inbound.md")
 	require.NoError(t, os.WriteFile(inboundPath, []byte(strings.Replace(inboundContent, "US1]]", "US2]]", 1)), 0o644))
-	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}), "source inventory")
+	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, testNoteMetadata(t)), "source inventory")
 	require.NoError(t, os.WriteFile(inboundPath, []byte(inboundContent), 0o644))
 	zeroPath := filepath.Join(root, "notes", "zero.md")
 	require.NoError(t, os.WriteFile(zeroPath, []byte("no identifiers\n"), 0o644))
-	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}), "source inventory")
+	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, testNoteMetadata(t)), "source inventory")
 }
 
 func TestProductionDiscoveryIgnoresFreeformBlockLocatorsDuringIdentifierRekey(t *testing.T) {
@@ -187,19 +186,19 @@ id:: ^SPEC-0001-US1
 	})
 	oldRoot := ontology.NodeRef{NotePath: "specs/SPEC-0001.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
 	newRoot := ontology.NodeRef{NotePath: "specs/SPEC-0002.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
-	rootRewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRoot, NewRef: newRoot,
+	rootRewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRoot, NewRef: newRoot,
 		OldIdentifier: "SPEC-0001", NewIdentifier: "SPEC-0002", PreferredField: "id", AliasesField: "aliases",
 	}
 
-	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{
-		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []reference.IdentifierRewrite{rootRewrite},
+	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
+		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []identifierrewrite.IdentifierRewrite{rootRewrite},
 	})
 	require.NoError(t, err)
 	fieldSnapshot, err := fields.validatedSnapshotFor(fields.rewrites)
 	require.NoError(t, err)
 	require.Len(t, fieldSnapshot.Rewrites, 3, "freeform block locators must not become derived identifier rewrites")
-	require.True(t, hasFieldReplacement(fieldSnapshot.Edits, "specs/SPEC-0001.md", reference.StructuredFieldBlockLocator, "^SPEC-0001-US1-AC1", "^SPEC-0002-US1-AC1"))
+	require.True(t, hasFieldReplacement(fieldSnapshot.Edits, "specs/SPEC-0001.md", identifierrewrite.StructuredFieldBlockLocator, "^SPEC-0001-US1-AC1", "^SPEC-0002-US1-AC1"))
 }
 
 func TestProductionDiscoveryAndRevalidationUseAuthoritativeDisk(t *testing.T) {
@@ -207,19 +206,19 @@ func TestProductionDiscoveryAndRevalidationUseAuthoritativeDisk(t *testing.T) {
 		"specs/loser.md": "---\nid: SPEC-0001\naliases: [SPEC-0001]\n---\n",
 	})
 	ref := ontology.NodeRef{NotePath: "specs/loser.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewritePreferredRekey, OldRef: ref, NewRef: ref,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: ref, NewRef: ref,
 		OldIdentifier: "SPEC-0001", NewIdentifier: "SPEC-0002", PreferredField: "id", AliasesField: "aliases",
 	}
-	discovery, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{
-		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []reference.IdentifierRewrite{rewrite},
+	discovery, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
+		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 	})
 	require.NoError(t, err)
 	require.Len(t, discovery.sourcePreconditions, 1, "an empty lagging cache must not hide the live note")
 
 	assembly := &RepairAssembly{PlanFingerprint: "plan", SchemaHash: discovery.schemaHash, SourcePreconditions: append([]SourcePrecondition(nil), discovery.sourcePreconditions...)}
 	require.NoError(t, assembly.seal())
-	require.NoError(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}))
+	require.NoError(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, testNoteMetadata(t)))
 }
 
 func TestProductionDiscoveryDerivesCaseFoldedDescendantIdentifier(t *testing.T) {
@@ -240,13 +239,13 @@ id:: ^spec-0001-us1
 	})
 	oldRoot := ontology.NodeRef{NotePath: "specs/SPEC-0001.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
 	newRoot := ontology.NodeRef{NotePath: "specs/SPEC-0002.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
-	rootRewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRoot, NewRef: newRoot,
+	rootRewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRoot, NewRef: newRoot,
 		OldIdentifier: "SPEC-0001", NewIdentifier: "SPEC-0002", PreferredField: "id", AliasesField: "aliases",
 	}
 
-	discovery, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{
-		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []reference.IdentifierRewrite{rootRewrite},
+	discovery, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
+		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []identifierrewrite.IdentifierRewrite{rootRewrite},
 	})
 	require.NoError(t, err)
 	snapshot, err := discovery.validatedSnapshotFor(discovery.rewrites)
@@ -305,7 +304,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 	}
 }
 
-func hasFieldReplacement(edits []reference.StructuredFieldEdit, notePath, field, expected, replacement string) bool {
+func hasFieldReplacement(edits []identifierrewrite.StructuredFieldEdit, notePath, field, expected, replacement string) bool {
 	for _, edit := range edits {
 		if edit.OwnerRef.NotePath == notePath && edit.FieldName == field && edit.Expected == expected && edit.Replacement == replacement {
 			return true
@@ -314,16 +313,16 @@ func hasFieldReplacement(edits []reference.StructuredFieldEdit, notePath, field,
 	return false
 }
 
-func hasFieldRemoval(edits []reference.StructuredFieldEdit, field, expected string) bool {
+func hasFieldRemoval(edits []identifierrewrite.StructuredFieldEdit, field, expected string) bool {
 	for _, edit := range edits {
-		if edit.FieldName == field && edit.Operation == reference.StructuredFieldEditRemove && edit.Expected == expected {
+		if edit.FieldName == field && edit.Operation == identifierrewrite.StructuredFieldEditRemove && edit.Expected == expected {
 			return true
 		}
 	}
 	return false
 }
 
-func hasLinkReplacement(edits []reference.StructuredLinkEdit, expected, replacement string) bool {
+func hasLinkReplacement(edits []identifierrewrite.StructuredLinkEdit, expected, replacement string) bool {
 	for _, edit := range edits {
 		if edit.Expected == expected && edit.Replacement == replacement {
 			return true
@@ -332,7 +331,7 @@ func hasLinkReplacement(edits []reference.StructuredLinkEdit, expected, replacem
 	return false
 }
 
-func identifierReviewPlanByPath(t *testing.T, plans []reference.IdentifierReviewCandidatePlan, notePath string) reference.IdentifierReviewCandidatePlan {
+func identifierReviewPlanByPath(t *testing.T, plans []identifierrewrite.IdentifierReviewCandidatePlan, notePath string) identifierrewrite.IdentifierReviewCandidatePlan {
 	t.Helper()
 	for _, plan := range plans {
 		if plan.NotePath == notePath {
@@ -340,5 +339,5 @@ func identifierReviewPlanByPath(t *testing.T, plans []reference.IdentifierReview
 		}
 	}
 	t.Fatalf("missing identifier review plan for %s", notePath)
-	return reference.IdentifierReviewCandidatePlan{}
+	return identifierrewrite.IdentifierReviewCandidatePlan{}
 }

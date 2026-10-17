@@ -2,12 +2,11 @@ package identifierreconcile
 
 import (
 	"context"
-	"testing"
-
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestDiscoverIdentifierFieldsReportsUnsafeCustomAliasFieldsDeterministically(t *testing.T) {
@@ -15,13 +14,13 @@ func TestDiscoverIdentifierFieldsReportsUnsafeCustomAliasFieldsDeterministically
 		"specs/loser.md": "---\nid: SPEC-0001\nalias_b: 'ALIAS-B'\nalias_a: 'ALIAS-A'\n---\n",
 	})
 	owner := ontology.NodeRef{NotePath: "specs/loser.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
-	rewrites := []reference.IdentifierRewrite{
+	rewrites := []identifierrewrite.IdentifierRewrite{
 		{
-			Mode: reference.IdentifierRewriteAliasRemoval, OldRef: owner, NewRef: owner,
+			Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: owner, NewRef: owner,
 			OldIdentifier: "ALIAS-A", NewIdentifier: "SPEC-0001", PreferredField: "id", AliasesField: "alias_a",
 		},
 		{
-			Mode: reference.IdentifierRewriteAliasRemoval, OldRef: owner, NewRef: owner,
+			Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: owner, NewRef: owner,
 			OldIdentifier: "ALIAS-B", NewIdentifier: "SPEC-0001", PreferredField: "id", AliasesField: "alias_b",
 		},
 	}
@@ -32,9 +31,9 @@ func TestDiscoverIdentifierFieldsReportsUnsafeCustomAliasFieldsDeterministically
 	for i := range 32 {
 		order := rewrites
 		if i%2 == 1 {
-			order = []reference.IdentifierRewrite{rewrites[1], rewrites[0]}
+			order = []identifierrewrite.IdentifierRewrite{rewrites[1], rewrites[0]}
 		}
-		_, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{
+		_, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
 			VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: order,
 		})
 		require.EqualError(t, err, want)

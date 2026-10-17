@@ -5,10 +5,9 @@
       "id": "subsystem-agent-surface",
       "rule": "Code under these paths is governed by docs/reference/subsystems/agent-surface.md. Design constraints and review checklist for the agent surface: rzm agent * command family, agentapi in-process bridge, contextpack budgeting, answer packets, presentation packing. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
       "scope": [
-        "pkg/app/agent/**",
+        "pkg/app/agentchat/**",
         "pkg/app/agentapi/**",
         "pkg/app/agentcode/**",
-        "pkg/app/agentstart/**",
         "pkg/app/contextpack/**",
         "pkg/app/answer/**",
         "pkg/app/presentation/**"
@@ -18,10 +17,12 @@
     },
     {
       "id": "subsystem-cli",
-      "rule": "Code under these paths is governed by docs/reference/subsystems/cli.md. Design constraints, parity duties, and review checklist for the CLI layer: thin Cobra commands in cmd/, orchestration in pkg/app/cli (incl. init templates). Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/cli.md. Design constraints, parity duties, and review checklist for the CLI layer: thin Cobra commands in cmd/, shared capabilities in pkg/app/operations and CLI workflows in pkg/app/cli. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
       "scope": [
         "cmd/**",
+        "pkg/app/operations/**",
         "pkg/app/cli/**",
+        "pkg/skilloverlay/**",
         "pkg/app/repoexec/**",
         "pkg/app/desktop/**"
       ],
@@ -67,7 +68,10 @@
         "pkg/app/indexing/**",
         "pkg/app/indexcore/**",
         "pkg/app/indexwriter/**",
-        "pkg/app/indexingpipe/**",
+        "pkg/embedindex/**",
+        "pkg/graph/index/**",
+        "pkg/app/codeintel/candidate_workers.go",
+        "pkg/app/codeintel/candidate_types.go",
         "pkg/vault/indexlock/**",
         "pkg/indexingperf/**",
         "pkg/vault/watchhub/**"
@@ -81,6 +85,8 @@
       "scope": [
         "pkg/app/mcp/**",
         "pkg/app/agentapi/**",
+        "pkg/app/agentservices/**",
+        "pkg/app/mcpserve/**",
         "pkg/app/runtimeview/**"
       ],
       "severity": "medium",
@@ -109,7 +115,8 @@
       "id": "subsystem-ontology",
       "rule": "Code under these paths is governed by docs/reference/subsystems/ontology.md. Design constraints, invariants, and review checklist for the ontology core: schema compile, projection, node catalog, sync, policy, sections, and identifier allocation under pkg/ontology. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
       "scope": [
-        "pkg/ontology/**"
+        "pkg/ontology/**",
+        "pkg/ontology/schema/**"
       ],
       "severity": "medium",
       "enabled": true
@@ -119,10 +126,8 @@
       "rule": "Code under these paths is governed by docs/reference/subsystems/search.md. Design constraints and review checklist for the unified search pipeline (retrieval → ranking → packing) and chunk-based semantic search. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
       "scope": [
         "pkg/search/**",
-        "pkg/app/searchengine/**",
-        "pkg/app/unifiedsearch/**",
-        "pkg/app/semanticops/**",
-        "pkg/app/semanticruntime/**"
+        "pkg/embeddings/**",
+        "pkg/app/unifiedsearch/**"
       ],
       "severity": "medium",
       "enabled": true
@@ -132,7 +137,9 @@
       "rule": "Code under these paths is governed by docs/reference/subsystems/stores.md. Operational constraints for the SQLite store layer: shared single-writer mutex, retrying write transactions, DSN/pragma policy, domain-versioned migrations, FTS5 build tag, and store contracts. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
       "scope": [
         "pkg/sqliteutil/**",
-        "pkg/anchors/sqlite/**",
+        "pkg/indexstore/**",
+        "pkg/embeddings/sqlite/**",
+        "pkg/store/**",
         "pkg/app/userstate/**"
       ],
       "severity": "medium",
@@ -157,6 +164,10 @@
         "pkg/noteformat/**",
         "pkg/vault/notediscovery/**",
         "pkg/vault/obsidian/**",
+        "pkg/markdownsyntax/**",
+        "pkg/vault/repoconfig/**",
+        "pkg/graph/**",
+        "pkg/vault/health/**",
         "pkg/paths/**",
         "pkg/vault/config/**",
         "pkg/vault/frontmatter/**",
@@ -171,8 +182,26 @@
       "scope": [
         "pkg/app/runtime/**",
         "pkg/app/bootstrap/**",
-        "pkg/app/cli/serve/**",
-        "pkg/app/runtimestop/**"
+        "pkg/app/cli/serve/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-views",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/views.md. Configured native views: schema-derived rows, shared query execution, deterministic presentation, and explicit saved configuration. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/app/views/**",
+        "pkg/ontology/viewconfig/**"
+      ],
+      "severity": "medium",
+      "enabled": true
+    },
+    {
+      "id": "subsystem-web",
+      "rule": "Code under these paths is governed by docs/reference/subsystems/web.md. Browser and public HTTP adapters: provider-aware readiness, shared node reads and edit sessions, and bounded runtime ownership. Treat that note's Design constraints and \"Review checklist — problems to catch\" as the review contract for this change, and flag any violation.",
+      "scope": [
+        "pkg/app/web/**"
       ],
       "severity": "medium",
       "enabled": true

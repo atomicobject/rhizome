@@ -3,12 +3,15 @@ package mcp
 import (
 	"time"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	// FileEntry is the structured payload returned by the files tool
+	vaulthealth "github.com/atomicobject/rhizome/pkg/vault/health"
 )
 
-// FileEntry is the structured payload returned by the files tool
 type FileEntry struct {
 	Path                 string                 `json:"path"`
 	AbsolutePath         string                 `json:"absolutePath,omitempty"`
@@ -57,25 +60,6 @@ type BridgePayload struct {
 	CrossCommunityEdges int    `json:"crossCommunityEdges,omitempty"`
 }
 
-// GraphNodePayload captures node-level metrics for MCP clients.
-type GraphNodePayload struct {
-	Path        string   `json:"path"`
-	Title       string   `json:"title"`
-	Inbound     int      `json:"inbound"`
-	Outbound    int      `json:"outbound"`
-	Hub         float64  `json:"hub"`       // HITS hub score: measures how well this note curates/aggregates links
-	Authority   float64  `json:"authority"` // HITS authority score: measures how often this note is referenced
-	Community   string   `json:"community,omitempty"`
-	SCC         string   `json:"scc"`
-	Neighbors   []string `json:"neighbors,omitempty"`
-	LinksOut    []string `json:"linksOut,omitempty"`
-	LinksIn     []string `json:"linksIn,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
-	WeakComp    string   `json:"weakComponent,omitempty"`
-	IsBridge    bool     `json:"isBridge,omitempty"`
-	BridgeEdges int      `json:"bridgeEdges,omitempty"`
-}
-
 // AuthorityScorePayload carries a note and its hub/authority scores.
 type AuthorityScorePayload struct {
 	Path        string                 `json:"path"`
@@ -119,7 +103,7 @@ type GraphCommunityPayload struct {
 	Size             int                      `json:"size"`
 	FractionOfVault  float64                  `json:"fractionOfVault,omitempty"`
 	Nodes            []string                 `json:"nodes,omitempty"`
-	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
+	TopTags          []vaultgraph.TagCount    `json:"topTags,omitempty"`
 	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
 	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
 	AuthorityStats   *AuthorityStatsPayload   `json:"authorityStats,omitempty"`
@@ -132,11 +116,11 @@ type GraphCommunityPayload struct {
 
 // CommunityListResponse summarizes communities.
 type CommunityListResponse struct {
-	Communities []GraphCommunityPayload    `json:"communities"`
-	Stats       obsidian.GraphStatsSummary `json:"stats"`
-	OrphanCount int                        `json:"orphanCount,omitempty"`
-	Orphans     []string                   `json:"orphans,omitempty"`
-	Components  []ComponentSummary         `json:"components,omitempty"`
+	Communities []GraphCommunityPayload      `json:"communities"`
+	Stats       vaultgraph.GraphStatsSummary `json:"stats"`
+	OrphanCount int                          `json:"orphanCount,omitempty"`
+	Orphans     []string                     `json:"orphans,omitempty"`
+	Components  []ComponentSummary           `json:"components,omitempty"`
 }
 
 // ComponentSummary captures weak component sizes for global structure awareness.
@@ -144,11 +128,6 @@ type ComponentSummary struct {
 	ID              string  `json:"id"`
 	Size            int     `json:"size"`
 	FractionOfVault float64 `json:"fractionOfVault,omitempty"`
-}
-
-// OrphansResponse describes orphaned note paths.
-type OrphansResponse struct {
-	Orphans []string `json:"orphans"`
 }
 
 // NeighborRef captures a neighbor path with its community for richer context.
@@ -177,7 +156,7 @@ type NoteCommunityContext struct {
 	FractionOfVault  float64                  `json:"fractionOfVault,omitempty"`
 	Density          float64                  `json:"density,omitempty"`
 	Anchor           string                   `json:"anchor,omitempty"`
-	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
+	TopTags          []vaultgraph.TagCount    `json:"topTags,omitempty"`
 	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
 	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
 	AuthorityStats   *AuthorityStatsPayload   `json:"authorityStats,omitempty"`
@@ -192,18 +171,6 @@ type NoteNeighbors struct {
 	LinksIn        []NeighborRef `json:"linksIn,omitempty"`
 	SameCommunity  []string      `json:"sameCommunity,omitempty"`
 	CrossCommunity []NeighborRef `json:"crossCommunity,omitempty"`
-}
-
-// RelatedNotePayload captures semantic neighbors for note/vault context.
-type RelatedNotePayload struct {
-	Path       string  `json:"path"`
-	Title      string  `json:"title,omitempty"`
-	Score      float64 `json:"score,omitempty"`
-	GraphScore float64 `json:"graphScore,omitempty"`
-	FinalScore float64 `json:"finalScore,omitempty"`
-	Breadcrumb string  `json:"breadcrumb,omitempty"`
-	Heading    string  `json:"heading,omitempty"`
-	ChunkIndex int     `json:"chunkIndex,omitempty"`
 }
 
 // SemanticMatchPayload captures note or code matches for semantic_query.
@@ -336,20 +303,6 @@ type NoteContextResponse struct {
 	BacklinksTruncated    bool                      `json:"backlinksTruncated,omitempty"`
 	BacklinksLimit        int                       `json:"backlinksLimit,omitempty"`
 	Similarity            *float64                  `json:"similarity,omitempty"`
-}
-
-// VaultContextResponse summarizes the vault for agents.
-type VaultContextResponse struct {
-	Stats            obsidian.GraphStatsSummary `json:"stats"`
-	OrphanCount      int                        `json:"orphanCount"`
-	TopOrphans       []string                   `json:"topOrphans,omitempty"`
-	Components       []ComponentSummary         `json:"components,omitempty"`
-	Communities      []CommunityOverview        `json:"communities"`
-	KeyNotes         []string                   `json:"keyNotes,omitempty"`
-	MOCs             []KeyNoteMatch             `json:"mocs,omitempty"`
-	KeyPatterns      []string                   `json:"keyPatterns,omitempty"`
-	NoteContexts     []NoteContextResponse      `json:"noteContexts,omitempty"`
-	CodeAnchorStatus *CodeAnchorStatus          `json:"codeAnchorStatus,omitempty"`
 }
 
 // CodeAnchorStatus reports the state of the codeanchor subsystem.
@@ -583,15 +536,6 @@ type RationaleAttentionRowPayload struct {
 	Reasons   []string `json:"reasons"`
 }
 
-// CodeSimilarityReportPayload is the code_similarity report payload.
-type CodeSimilarityReportPayload = actions.CodeSimilarityReport
-
-// CodeSimilarityRowPayload is a ranked similar/overlapping code pair.
-type CodeSimilarityRowPayload = actions.CodeSimilarityRow
-
-// CodeSimilarityAnchorPayload identifies a source or matched code anchor.
-type CodeSimilarityAnchorPayload = actions.CodeSimilarityAnchor
-
 // CommunityOverview is a lightweight community summary for vault_context.
 type CommunityOverview struct {
 	ID               string                   `json:"id"`
@@ -599,7 +543,7 @@ type CommunityOverview struct {
 	FractionOfVault  float64                  `json:"fractionOfVault,omitempty"`
 	Anchor           string                   `json:"anchor,omitempty"`
 	Density          float64                  `json:"density,omitempty"`
-	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
+	TopTags          []vaultgraph.TagCount    `json:"topTags,omitempty"`
 	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
 	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
 	AuthorityStats   *AuthorityStatsPayload   `json:"authorityStats,omitempty"`
@@ -615,15 +559,15 @@ type KeyNoteMatch struct {
 
 // VaultHealthResponse wraps the vault health report for JSON response.
 type VaultHealthResponse struct {
-	Vault                 string                               `json:"vault"`
-	VaultPath             string                               `json:"vaultPath"`
-	AnalyzedAt            time.Time                            `json:"analyzedAt"`
-	Stats                 obsidian.HealthStats                 `json:"stats"`
-	BrokenLinks           []obsidian.BrokenLink                `json:"brokenLinks,omitempty"`
-	StaleNotes            []obsidian.StaleNote                 `json:"staleNotes,omitempty"`
-	DeadEnds              []obsidian.DeadEndNote               `json:"deadEnds,omitempty"`
-	SuggestedMerges       []obsidian.MergeSuggestion           `json:"suggestedMerges,omitempty"`
-	SurprisingConnections []obsidian.SurprisingConnectionEntry `json:"surprisingConnections,omitempty"` // Enabled via include:["surprises"]
-	NotesWithCodeRef      int                                  `json:"notesWithCodeRef,omitempty"`      // Notes referenced from source code
-	TrulyOrphanCount      int                                  `json:"trulyOrphanCount,omitempty"`      // Notes with no backlinks AND no code refs
+	Vault                 string                                  `json:"vault"`
+	VaultPath             string                                  `json:"vaultPath"`
+	AnalyzedAt            time.Time                               `json:"analyzedAt"`
+	Stats                 vaulthealth.HealthStats                 `json:"stats"`
+	BrokenLinks           []vaulthealth.BrokenLink                `json:"brokenLinks,omitempty"`
+	StaleNotes            []vaulthealth.StaleNote                 `json:"staleNotes,omitempty"`
+	DeadEnds              []vaulthealth.DeadEndNote               `json:"deadEnds,omitempty"`
+	SuggestedMerges       []vaulthealth.MergeSuggestion           `json:"suggestedMerges,omitempty"`
+	SurprisingConnections []vaulthealth.SurprisingConnectionEntry `json:"surprisingConnections,omitempty"` // Enabled via include:["surprises"]
+	NotesWithCodeRef      int                                     `json:"notesWithCodeRef,omitempty"`      // Notes referenced from source code
+	TrulyOrphanCount      int                                     `json:"trulyOrphanCount,omitempty"`      // Notes with no backlinks AND no code refs
 }

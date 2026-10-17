@@ -1,19 +1,13 @@
 package ontology
 
-import "strings"
+import ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 
-// IsSectionSummary identifies the singular authored section used for compact
-// presentation. Its GraphQL field remains a Section, including its full content.
-func IsSectionSummary(field *Field) bool {
-	return field != nil && field.Kind == FieldKindSection && !field.List &&
-		field.Display.Role == FieldDisplayRoleSummary &&
-		(field.EmbeddedSourceShape == "" || field.EmbeddedSourceShape == EmbeddedSourceShapeSection)
-}
+import "strings"
 
 // SectionSummaryValues projects display text without changing the section
 // binding's canonical refs or source spans. Both indexed and staged reads use it.
-func SectionSummaryValues(projection *NodeProjection, field *Field) []string {
-	if projection == nil || projection.Snapshot == nil || !IsSectionSummary(field) {
+func SectionSummaryValues(projection *NodeProjection, field *ontoschema.Field) []string {
+	if projection == nil || projection.Snapshot == nil || !ontoschema.IsSectionSummary(field) {
 		return nil
 	}
 	binding := projection.Fields[field.Name]

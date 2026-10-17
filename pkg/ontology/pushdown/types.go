@@ -15,7 +15,8 @@
 package pushdown
 
 import (
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/diag"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 )
 
 // FilterInput is the planner's input shape. Both viewconfig.FilterSpec and
@@ -31,15 +32,6 @@ type FilterInput struct {
 type SortInput struct {
 	Field     string
 	Direction string
-}
-
-// Warning is a structured diagnostic emitted during planning. The shape is
-// intentionally generic so view-side and GraphQL-side callers can map it to
-// their respective warning types.
-type Warning struct {
-	Code    string
-	Message string
-	Path    string
 }
 
 // FieldKeySource records how a requested key was resolved against the schema.
@@ -65,13 +57,18 @@ func (k FieldKey) IsBuiltin() bool { return k.Source == FieldKeyBuiltin }
 
 // PredicateResult bundles a predicate with the field key that produced it.
 type PredicateResult struct {
-	Predicate codeanchor.OntologyFieldPredicate
+	Predicate readmodel.FieldPredicate
 	Key       FieldKey
-	Warnings  []Warning
+	Warnings  []diag.Warning
 }
 
-// SortPartition is the result of planning a sort spec list with prefix-match.
-type SortPartition struct {
-	Pushed   []SortInput
-	Residual []SortInput
+// Plan keeps executable constraints together with every constraint that still
+// needs evaluation. A failed build can never silently remove a filter.
+type Plan struct {
+	Pushed        readmodel.NodeQueryPlan
+	PushedFilters []FilterInput
+	PushedSort    []SortInput
+	Residual      []FilterInput
+	Sort          []SortInput
+	Warnings      []diag.Warning
 }

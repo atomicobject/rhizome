@@ -3,10 +3,9 @@ package validate
 import (
 	"bytes"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // LifecycleDecision is the plan-time classification for one repair operation.
@@ -65,7 +64,7 @@ type LifecyclePolicyResult struct {
 // are evidence, not authority: they must reconstruct the entire output and each
 // claimed exception is independently validated.
 func ClassifyLifecycleEdit(edit LifecycleEdit) LifecyclePolicyResult {
-	frontmatter, err := obsidian.ExtractFrontmatter(string(edit.Before))
+	frontmatter, err := markdownsyntax.ExtractFrontmatter(string(edit.Before))
 	if err != nil {
 		return protectedLifecycleResult(len(edit.Before), "historical source frontmatter is invalid")
 	}
@@ -191,19 +190,11 @@ func validateArchiveStatusClaim(status string, before []byte, claim LifecycleCla
 }
 
 func frontmatterScalarRange(content []byte, key string) (int, int, bool) {
-	if !bytes.HasPrefix(content, []byte("---")) {
+	start, frontmatterEnd, _, ok := markdownsyntax.FrontmatterSpan(string(content))
+	if !ok {
 		return 0, 0, false
 	}
-	openEnd := bytes.IndexByte(content, '\n')
-	if openEnd < 0 {
-		return 0, 0, false
-	}
-	closeOffset := bytes.Index(content[openEnd+1:], []byte("\n---"))
-	if closeOffset < 0 {
-		return 0, 0, false
-	}
-	frontmatterEnd := openEnd + 1 + closeOffset
-	cursor := openEnd + 1
+	cursor := start
 	for cursor < frontmatterEnd {
 		lineEnd := bytes.IndexByte(content[cursor:frontmatterEnd], '\n')
 		if lineEnd < 0 {
@@ -259,8 +250,8 @@ func validateHistoryAppendClaim(before []byte, claim LifecycleClaim) error {
 func lifecycleHistorySectionEnd(content []byte, section string) (int, bool) {
 	target := []byte("## " + section)
 	found := false
-	for _, heading := range obsidian.EnumerateMarkdownTargets(string(content)) {
-		if heading.Kind != obsidian.MarkdownTargetHeading || heading.Level != 2 {
+	for _, heading := range markdownsyntax.EnumerateMarkdownTargets(string(content)) {
+		if heading.Kind != markdownsyntax.MarkdownTargetHeading || heading.Level != 2 {
 			continue
 		}
 		if found {

@@ -1,0 +1,120 @@
+package ontology
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
+)
+
+const probeSchema = `
+type FrozenStoryScopeSection implements Section {
+}
+
+type EffortNote @node(paths: ["efforts/*.md"]) {
+  summary: String!
+  storiesInScopeFrozen: FrozenStoryScopeSection @contains(level: H2, heading: "Stories In Scope (Frozen)", required: true)
+}
+
+type UserStory implements Section @node(locator: EMBEDDED) {
+  id: ID! @field @identifier(preferred: true, derivedSuffix: "US")
+  status: String! @field
+}
+
+type StoriesSection implements Section {
+  stories: [UserStory!] @contains(level: H3, min: 2)
+}
+
+type ProcessSpec @node(paths: ["specs/*.md"]) {
+  summary: String!
+  stories: StoriesSection @contains(level: H2, heading: "Stories")
+}
+`
+
+const probeSpec = "---\ntype: ProcessSpec\nsummary: Graph spec\n---\n\n# Graph spec\n\n## Stories\n\n### Graph story\nid:: SPEC-0001.US1\n^graph-story\n"
+const probeEffort = "---\ntype: EffortNote\nsummary: Graph effort\n---\n\n# Graph effort\n\n## Stories In Scope (Frozen)\n\n- SPEC-0001.US1 — Graph story\n"
+
+func TestReviewProbeFullVsSyncRebuild(t *testing.T) {
+	root := t.TempDir()
+	writeOntologyTestConfig(t, root)
+	writeOntologySchema(t, root, probeSchema)
+	writeOntologyNote(t, root, "specs/graph.md", probeSpec)
+	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	ctx := context.Background()
+	vaultDef := obsidian.VaultDefinition{Path: root}
+	note := &obsidian.Note{}
+	_, err = testNoteMetadataIndexer(t).EnsureIndexed(ctx, vaultDef, note, store)
+	require.NoError(t, err)
+	ens, err := EnsureIndexed(ctx, testNoteMetadataIndexer(t), vaultDef, note, store)
+	require.NoError(t, err)
+	t.Logf("EnsureIndexed issues: %d", len(ens.Issues))
+	for _, i := range ens.Issues {
+		t.Logf("  ensure %s %s %s", i.Code, i.FieldName, i.NodeRef)
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, "specs/graph.md"), []byte(probeSpec+"\nMore.\n"), 0o644))
+	require.NoError(t, testNoteMetadataIndexer(t).SyncPaths(ctx, vaultDef, note, store, []string{"specs/graph.md"}, nil))
+	res, err := SyncPaths(ctx, testNoteMetadataIndexer(t), vaultDef, note, store, nil, []string{"specs/graph.md"}, nil)
+	require.NoError(t, err)
+	t.Logf("SyncPaths rebuilt=%v issues: %d", res.Rebuilt, len(res.Issues))
+	for _, i := range res.Issues {
+		t.Logf("  sync %s %s %s", i.Code, i.FieldName, i.NodeRef)
+	}
+	assertOntologyBuildMatchesStore(t, ctx, vaultDef, note, store)
+}
+
+func TestReviewProbeFrozenStoryIncremental(t *testing.T) {
+	root := t.TempDir()
+	writeOntologyTestConfig(t, root)
+	writeOntologySchema(t, root, probeSchema)
+	writeOntologyNote(t, root, "specs/graph.md", "---\ntype: ProcessSpec\nsummary: Graph spec\n---\n\n# Graph spec\n\n## Stories\n")
+	writeOntologyNote(t, root, "efforts/graph.md", probeEffort)
+	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	ctx := context.Background()
+	vaultDef := obsidian.VaultDefinition{Path: root}
+	note := &obsidian.Note{}
+	both := []string{"specs/graph.md", "efforts/graph.md"}
+	require.NoError(t, testNoteMetadataIndexer(t).SyncPaths(ctx, vaultDef, note, store, both, nil))
+	_, err = SyncPaths(ctx, testNoteMetadataIndexer(t), vaultDef, note, store, nil, both, nil)
+	require.NoError(t, err)
+	edges, err := store.OntologyEdgesForPaths(ctx, []string{"efforts/graph.md"}, true, "frozenStories", 0)
+	require.NoError(t, err)
+	t.Logf("frozen edges after joint sync: %d", len(edges))
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, "specs/graph.md"), []byte(probeSpec), 0o644))
+	only := []string{"specs/graph.md"}
+	require.NoError(t, testNoteMetadataIndexer(t).SyncPaths(ctx, vaultDef, note, store, only, nil))
+	_, err = SyncPaths(ctx, testNoteMetadataIndexer(t), vaultDef, note, store, nil, only, nil)
+	require.NoError(t, err)
+	edges, err = store.OntologyEdgesForPaths(ctx, []string{"efforts/graph.md"}, true, "frozenStories", 0)
+	require.NoError(t, err)
+	t.Logf("frozen edges after spec-only sync: %d", len(edges))
+	assertOntologyBuildMatchesStore(t, ctx, vaultDef, note, store)
+}
+
+func TestReviewProbeSyncFullRebuildFresh(t *testing.T) {
+	root := t.TempDir()
+	writeOntologyTestConfig(t, root)
+	writeOntologySchema(t, root, probeSchema)
+	writeOntologyNote(t, root, "specs/graph.md", probeSpec)
+	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	ctx := context.Background()
+	vaultDef := obsidian.VaultDefinition{Path: root}
+	note := &obsidian.Note{}
+	require.NoError(t, testNoteMetadataIndexer(t).SyncPaths(ctx, vaultDef, note, store, []string{"specs/graph.md"}, nil))
+	res, err := SyncPaths(ctx, testNoteMetadataIndexer(t), vaultDef, note, store, nil, nil, nil)
+	require.NoError(t, err)
+	t.Logf("fresh SyncPaths rebuilt=%v issues=%d", res.Rebuilt, len(res.Issues))
+	for _, i := range res.Issues {
+		t.Logf("  %s %s %s", i.Code, i.FieldName, i.NodeRef)
+	}
+}

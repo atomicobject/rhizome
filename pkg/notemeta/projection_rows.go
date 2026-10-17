@@ -2,11 +2,13 @@ package notemeta
 
 import (
 	"bytes"
+	"encoding/json"
 	"sort"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -69,7 +71,7 @@ func projectionPropertyRows(entry projectedNoteEntry) []semdb.NotePropertyValueR
 		for ordinal, alias := range aliases {
 			rows = append(rows, semdb.NotePropertyValueRow{
 				NotePath: entry.Source.Path().String(), PropertyName: "aliases", Source: semdb.NotePropertySourceFrontmatter,
-				ValueText: alias, ValueNorm: normalizePropertyValue(alias), ValueKind: semdb.NotePropertyValueString,
+				ValueText: alias, ValueNorm: paths.LinkKey(alias), ValueKind: semdb.NotePropertyValueString,
 				IsList: len(aliases) > 1, ListOrdinal: ordinal,
 			})
 		}
@@ -202,7 +204,7 @@ func projectionLinkRows(vaultDef obsidian.VaultDefinition, cache *obsidian.NoteP
 		if !resolutionSupported(vaultDef, link.Resolution) {
 			continue
 		}
-		target, ok := resolveProjectionLink(cache, entry.Source.Path().String(), entry.Projection.Facts.DocumentBase, link)
+		target, ok := ResolveProjectedLink(cache, entry.Source.Path().String(), entry.Projection.Facts.DocumentBase, link)
 		if !ok || target == entry.Source.Path().String() {
 			continue
 		}
@@ -254,10 +256,6 @@ func resolutionSupported(vaultDef obsidian.VaultDefinition, resolution noteforma
 	}
 }
 
-func resolveProjectionLink(cache *obsidian.NotePathCache, fromPath string, base *noteformat.DocumentBaseFact, link noteformat.UnresolvedAuthoredLinkFact) (string, bool) {
-	return ResolveProjectedLink(cache, fromPath, base, link)
-}
-
 func projectionEdgeKinds(link noteformat.UnresolvedAuthoredLinkFact) []string {
 	var coarse string
 	switch link.Resolution {
@@ -279,4 +277,14 @@ func projectionEdgeKinds(link noteformat.UnresolvedAuthoredLinkFact) []string {
 		return []string{coarse}
 	}
 	return []string{coarse, detail}
+}
+
+func projectionPayloadRow(entry projectedNoteEntry) (semdb.NoteProjectionPayloadRow, error) {
+	payload := struct {
+		Frontmatter map[string]any
+		InlineProps map[string][]string
+		Tags        []string
+	}{entry.Entry.Frontmatter, entry.Entry.InlineProps, entry.Entry.Tags}
+	data, err := json.Marshal(payload)
+	return semdb.NoteProjectionPayloadRow{NotePath: entry.Source.Path().String(), JSON: string(data)}, err
 }

@@ -1,6 +1,7 @@
 package noderead
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 
@@ -9,8 +10,8 @@ import (
 
 // RelationSelectionForField compiles an authored neighbor field into the
 // relation read used by list and count consumers.
-func RelationSelectionForField(schema *ontology.Schema, field *ontology.Field) (RelationSelection, bool) {
-	if field == nil || (field.Kind != ontology.FieldKindNeighbor && field.Kind != ontology.FieldKindReverse) || !field.List {
+func RelationSelectionForField(schema *ontoschema.Schema, field *ontoschema.Field) (RelationSelection, bool) {
+	if field == nil || (field.Kind != ontoschema.FieldKindNeighbor && field.Kind != ontoschema.FieldKindReverse) || !field.List {
 		return RelationSelection{}, false
 	}
 	targetTypes, targetInterfaces := TargetFiltersForType(schema, field.TypeName)
@@ -20,13 +21,13 @@ func RelationSelectionForField(schema *ontology.Schema, field *ontology.Field) (
 		TargetInterfaces: targetInterfaces,
 		NeighborScope:    field.Scope,
 	}
-	if field.Kind == ontology.FieldKindReverse {
+	if field.Kind == ontoschema.FieldKindReverse {
 		selection.RelationNames = []string{field.ReverseField}
 		selection.Direction = TraversalDirectionInbound
 		selection.IncludeStructural = true
 		return selection, true
 	}
-	if field.Scope == ontology.NeighborScopeSubtree {
+	if field.Scope == ontoschema.NeighborScopeSubtree {
 		selection.RelationNames = []string{field.Name}
 		selection.Direction = traversalDirectionForNeighbor(field.Direction)
 		selection.IncludeStructural = true
@@ -38,22 +39,22 @@ func RelationSelectionForField(schema *ontology.Schema, field *ontology.Field) (
 	return selection, true
 }
 
-func traversalDirectionForNeighbor(direction ontology.NeighborDirection) TraversalDirection {
+func traversalDirectionForNeighbor(direction ontoschema.NeighborDirection) TraversalDirection {
 	switch direction {
-	case ontology.NeighborDirectionInbound:
+	case ontoschema.NeighborDirectionInbound:
 		return TraversalDirectionInbound
-	case ontology.NeighborDirectionBoth:
+	case ontoschema.NeighborDirectionBoth:
 		return TraversalDirectionBoth
 	default:
 		return TraversalDirectionOutbound
 	}
 }
 
-func neighborDirectionProvenance(direction ontology.NeighborDirection) map[string]struct{} {
+func neighborDirectionProvenance(direction ontoschema.NeighborDirection) map[string]struct{} {
 	switch direction {
-	case ontology.NeighborDirectionOutbound:
+	case ontoschema.NeighborDirectionOutbound:
 		return map[string]struct{}{"body_link": {}}
-	case ontology.NeighborDirectionInbound:
+	case ontoschema.NeighborDirectionInbound:
 		return map[string]struct{}{"backlink": {}}
 	default:
 		return map[string]struct{}{"body_link": {}, "backlink": {}}
@@ -62,7 +63,7 @@ func neighborDirectionProvenance(direction ontology.NeighborDirection) map[strin
 
 // RelationCountSelectionsForField partitions sources by concrete source type
 // while preserving one compiled relation shape per type.
-func RelationCountSelectionsForField(schema *ontology.Schema, sources []ontology.NodeRef, fieldName string) []RelationSelection {
+func RelationCountSelectionsForField(schema *ontoschema.Schema, sources []ontology.NodeRef, fieldName string) []RelationSelection {
 	if schema == nil || strings.TrimSpace(fieldName) == "" {
 		return nil
 	}

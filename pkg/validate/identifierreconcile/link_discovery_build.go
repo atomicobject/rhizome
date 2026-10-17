@@ -3,12 +3,11 @@ package identifierreconcile
 import (
 	"context"
 	"fmt"
-	"sort"
-
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"sort"
 )
 
 // IdentifierLinkDiscoveryRequest supplies live sources and the matching
@@ -19,20 +18,20 @@ type IdentifierLinkDiscoveryRequest struct {
 }
 
 type identifierLinkDiscoveryDependencies struct {
-	scan func(string) obsidian.StructuredLinkScanSnapshot
+	scan func(string) markdownsyntax.StructuredLinkScanSnapshot
 }
 
 type identifierLinkSourceWork struct {
 	source      notemeta.NoteSourceSnapshot
-	scan        obsidian.StructuredLinkScanSnapshot
-	resolutions []reference.StructuredLinkResolution
+	scan        markdownsyntax.StructuredLinkScanSnapshot
+	resolutions []identifierrewrite.StructuredLinkResolution
 }
 
 // DiscoverIdentifierLinks derives complete automatic-link and review-only
 // plans from every current Markdown note. Empty scans remain represented by a
 // sealed per-note plan, so completeness never depends on rescanning content.
 func DiscoverIdentifierLinks(ctx context.Context, req IdentifierLinkDiscoveryRequest) (*IdentifierLinkDiscovery, error) {
-	return discoverIdentifierLinks(ctx, req, identifierLinkDiscoveryDependencies{scan: obsidian.ScanStructuredLinkSnapshot})
+	return discoverIdentifierLinks(ctx, req, identifierLinkDiscoveryDependencies{scan: markdownsyntax.ScanStructuredLinkSnapshot})
 }
 
 func discoverIdentifierLinks(ctx context.Context, req IdentifierLinkDiscoveryRequest, deps identifierLinkDiscoveryDependencies) (*IdentifierLinkDiscovery, error) {
@@ -83,11 +82,11 @@ func discoverIdentifierLinks(ctx context.Context, req IdentifierLinkDiscoveryReq
 	}
 
 	handledRanges := handledFieldRangesByNote(fieldSnapshot.Occurrences)
-	plans := make([]reference.StructuredLinkRewritePlan, 0, len(work))
-	reviewPlans := make([]reference.IdentifierReviewCandidatePlan, 0, len(work))
+	plans := make([]identifierrewrite.StructuredLinkRewritePlan, 0, len(work))
+	reviewPlans := make([]identifierrewrite.IdentifierReviewCandidatePlan, 0, len(work))
 	for index := range work {
 		notePath := work[index].source.Path.String()
-		plan := reference.PlanStructuredLinkRewrites(reference.StructuredLinkRewriteInput{
+		plan := identifierrewrite.PlanStructuredLinkRewrites(identifierrewrite.StructuredLinkRewriteInput{
 			NotePath: notePath, Content: work[index].source.Content, LinkSnapshot: &work[index].scan,
 			Rewrites: canonicalRewrites, Resolutions: work[index].resolutions,
 		})
@@ -95,7 +94,7 @@ func discoverIdentifierLinks(ctx context.Context, req IdentifierLinkDiscoveryReq
 			return nil, fmt.Errorf("seal structured link plan for %s: %w", notePath, err)
 		}
 		plans = append(plans, plan)
-		review := reference.PlanIdentifierReviewCandidates(reference.IdentifierReviewCandidateInput{
+		review := identifierrewrite.PlanIdentifierReviewCandidates(identifierrewrite.IdentifierReviewCandidateInput{
 			NotePath: notePath, Content: work[index].source.Content, LinkSnapshot: &work[index].scan,
 			Rewrites: canonicalRewrites, HandledFieldRanges: handledRanges[notePath],
 		})
@@ -119,7 +118,7 @@ func sameSourcePreconditions(left, right []SourcePrecondition) bool {
 	return true
 }
 
-func handledFieldRangesByNote(occurrences []reference.StructuredFieldOccurrence) map[string][]ontology.ByteRange {
+func handledFieldRangesByNote(occurrences []identifierrewrite.StructuredFieldOccurrence) map[string][]ontology.ByteRange {
 	out := make(map[string][]ontology.ByteRange)
 	for _, occurrence := range occurrences {
 		if occurrence.Range.Len() == 0 {
@@ -138,11 +137,11 @@ func handledFieldRangesByNote(occurrences []reference.StructuredFieldOccurrence)
 	return out
 }
 
-func sealIdentifierLinkDiscovery(sources []SourcePrecondition, schemaHash, rewriteFingerprint string, plans []reference.StructuredLinkRewritePlan, reviewPlans []reference.IdentifierReviewCandidatePlan, provenanceDecisions []AmbiguousLinkProvenanceDecision) (*IdentifierLinkDiscovery, error) {
+func sealIdentifierLinkDiscovery(sources []SourcePrecondition, schemaHash, rewriteFingerprint string, plans []identifierrewrite.StructuredLinkRewritePlan, reviewPlans []identifierrewrite.IdentifierReviewCandidatePlan, provenanceDecisions []AmbiguousLinkProvenanceDecision) (*IdentifierLinkDiscovery, error) {
 	snapshot := identifierLinkDiscoverySnapshot{
 		SourceFingerprint: sourcePreconditionFingerprint(sources), SourcePreconditions: append([]SourcePrecondition(nil), sources...),
 		SchemaHash: schemaHash, RewriteFingerprint: rewriteFingerprint,
-		Plans: append([]reference.StructuredLinkRewritePlan(nil), plans...), ReviewPlans: append([]reference.IdentifierReviewCandidatePlan(nil), reviewPlans...),
+		Plans: append([]identifierrewrite.StructuredLinkRewritePlan(nil), plans...), ReviewPlans: append([]identifierrewrite.IdentifierReviewCandidatePlan(nil), reviewPlans...),
 		ProvenanceDecisions: append([]AmbiguousLinkProvenanceDecision(nil), provenanceDecisions...),
 	}
 	sort.Slice(snapshot.Plans, func(i, j int) bool { return snapshot.Plans[i].NotePath < snapshot.Plans[j].NotePath })

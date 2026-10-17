@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"io"
 	"net/http"
 	"strings"
@@ -176,7 +177,7 @@ func stagedPlanForConflictedPaths(ctx context.Context, editor *ontology.EditSess
 	return out, nil
 }
 
-func buildReadOverlayIndexForSessionRevision(ctx context.Context, schema *ontology.Schema, overlay *ontologyquery.ReadOverlay, previous *ontologyEditSessionReadOverlayCache, ops []OntologyEditOp, key ontologyEditSessionReadOverlayCacheKey) (*noderead.ReadOverlayIndex, error) {
+func buildReadOverlayIndexForSessionRevision(ctx context.Context, schema *ontoschema.Schema, overlay *ontologyquery.ReadOverlay, previous *ontologyEditSessionReadOverlayCache, ops []OntologyEditOp, key ontologyEditSessionReadOverlayCacheKey) (*noderead.ReadOverlayIndex, error) {
 	if previous == nil || previous.Overlay == nil || previous.Overlay.Index == nil {
 		return noderead.BuildReadOverlayIndex(ctx, schema, overlay)
 	}

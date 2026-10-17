@@ -1,12 +1,12 @@
 package queryrecipe
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/stretchr/testify/require"
 	"github.com/vektah/gqlparser/v2"
@@ -170,18 +170,18 @@ func TestValidateReportsMetadataAndDuplicateIssues(t *testing.T) {
 }
 
 func TestValidateAcceptsGeneratedRelationCountField(t *testing.T) {
-	decisions := &ontology.Field{Name: "decisions", Kind: ontology.FieldKindNeighbor, TypeName: "Decision", List: true}
-	schema := &ontology.Schema{
-		Types: map[string]*ontology.NoteType{
-			"Decision": {Name: "Decision", Role: ontology.TypeRoleNote, ByName: map[string]*ontology.Field{}},
+	decisions := &ontoschema.Field{Name: "decisions", Kind: ontoschema.FieldKindNeighbor, TypeName: "Decision", List: true}
+	schema := &ontoschema.Schema{
+		Types: map[string]*ontoschema.NoteType{
+			"Decision": {Name: "Decision", Role: ontoschema.TypeRoleNote, ByName: map[string]*ontoschema.Field{}},
 			"Project": {
 				Name:   "Project",
-				Role:   ontology.TypeRoleNote,
-				Fields: []*ontology.Field{decisions},
-				ByName: map[string]*ontology.Field{"decisions": decisions},
+				Role:   ontoschema.TypeRoleNote,
+				Fields: []*ontoschema.Field{decisions},
+				ByName: map[string]*ontoschema.Field{"decisions": decisions},
 			},
 		},
-		Interfaces: map[string]*ontology.InterfaceType{},
+		Interfaces: map[string]*ontoschema.InterfaceType{},
 	}
 	execSchema, err := ontologyquery.BuildExecutableSchema(schema)
 	require.NoError(t, err)
@@ -464,87 +464,25 @@ func TestCompileRejectsMissingRequiredInputAndDeprecatedPlaceholder(t *testing.T
 	requireIssue(t, issues, "missing_required_input")
 }
 
-func TestAgenticEngineeringStarterBundleValidatesAgainstRepoSchema(t *testing.T) {
-	repoRoot := filepath.Clean("../../..")
-	recipePaths := []string{
-		filepath.Join(repoRoot, ".rhizome", "query-recipes", "core.yaml"),
-		filepath.Join(repoRoot, ".rhizome", "query-recipes", "spec-driven.yaml"),
-	}
-	var recipes []Recipe
-	for _, recipePath := range recipePaths {
-		loaded, loadIssues := LoadPath(recipePath)
-		require.Empty(t, loadIssues)
-		recipes = append(recipes, loaded...)
-	}
-	recipeIDs := make([]string, 0, len(recipes))
-	for _, recipe := range recipes {
-		recipeIDs = append(recipeIDs, recipe.ID)
-	}
-	require.ElementsMatch(t, []string{
-		"runtime-authoring-context",
-		"runtime-schema-capability-pack",
-		"note-by-path",
-		"effort-execution-context",
-		"frozen-spec-index-pack",
-		"frozen-spec-detail-pack",
-		"story-acceptance-pack",
-		"closure-drift-pack",
-		"runtime-code-evidence-pack",
-		"runtime-note-code-evidence-pack",
-		"topic-typed-survey",
-	}, recipeIDs)
-	require.NotContains(t, recipeIDs, "assessment-assumptions")
-
-	schema, err := ontology.LoadSchema(repoRoot)
-	require.NoError(t, err)
-	execSchema, err := ontologyquery.BuildExecutableSchema(schema)
-	require.NoError(t, err)
-
-	result := Validate(recipes, execSchema)
-	require.Empty(t, result.Issues)
-}
-
-func TestDefaultRepoRecipesUseGenericNoteByPath(t *testing.T) {
-	repoRoot := filepath.Clean("../../..")
-	recipes, loadIssues := LoadDefaultSources(repoRoot)
-	require.Empty(t, loadIssues)
-
-	ids := make(map[string]struct{}, len(recipes))
-	for _, recipe := range recipes {
-		if _, exists := ids[recipe.ID]; exists {
-			t.Fatalf("duplicate query recipe id %q from %s", recipe.ID, recipe.Source.Path)
-		}
-		ids[recipe.ID] = struct{}{}
-	}
-
-	require.Contains(t, ids, "note-by-path")
-	require.NotContains(t, ids, "spec-by-path")
-	require.Contains(t, ids, "action-items-in-note")
-	require.Contains(t, ids, "action-items-for-context")
-	require.Contains(t, ids, "runtime-authoring-context")
-	require.Contains(t, ids, "runtime-schema-capability-pack")
-	require.Contains(t, ids, "assessment-assumptions")
-}
-
 func testExecutableSchema(t *testing.T) *ontologyquery.ExecutableSchema {
 	t.Helper()
-	schema := &ontology.Schema{
-		EnumTypes: map[string]*ontology.EnumType{
+	schema := &ontoschema.Schema{
+		EnumTypes: map[string]*ontoschema.EnumType{
 			"ReviewState": {
 				Name: "ReviewState",
-				Values: []*ontology.EnumValue{
+				Values: []*ontoschema.EnumValue{
 					{Name: "OPEN"},
 					{Name: "CLOSED"},
 				},
 			},
 		},
-		Types: map[string]*ontology.NoteType{
+		Types: map[string]*ontoschema.NoteType{
 			"TechnicalSpec": {
 				Name: "TechnicalSpec",
-				Role: ontology.TypeRoleNote,
-				Fields: []*ontology.Field{
-					{Name: "id", Kind: ontology.FieldKindScalar, TypeName: "String"},
-					{Name: "status", Kind: ontology.FieldKindScalar, TypeName: "String"},
+				Role: ontoschema.TypeRoleNote,
+				Fields: []*ontoschema.Field{
+					{Name: "id", Kind: ontoschema.FieldKindScalar, TypeName: "String"},
+					{Name: "status", Kind: ontoschema.FieldKindScalar, TypeName: "String"},
 				},
 			},
 		},

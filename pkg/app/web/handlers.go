@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
+	"github.com/atomicobject/rhizome/pkg/app/agentservices"
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
 	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
 	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
 )
@@ -353,24 +355,29 @@ func validationStatusInfoFromEnvelope(env ValidationEnvelope) ValidationStatusIn
 }
 
 func (s *Server) semanticConfig() agentapi.Config {
-	noteIndex, noteProvider := s.runtime.NoteEmbeddings()
-	codeIndex, codeProvider := s.runtime.CodeEmbeddings()
-	return agentapi.Config{
-		Vault:             s.cfg.Vault,
-		VaultPath:         s.cfg.VaultPath,
-		VaultDef:          s.cfg.VaultDef,
-		NoteMetadata:      s.noteMetadata,
-		Cache:             s.cfg.Cache,
-		Embeddings:        noteIndex,
-		EmbedProvider:     noteProvider,
-		EmbeddingsOn:      noteIndex != nil && noteProvider != nil,
-		CodeEmbeddings:    codeIndex,
-		CodeEmbedProvider: codeProvider,
-		CodeEmbeddingsOn:  codeIndex != nil && codeProvider != nil,
-		IntelStore:        s.runtime.Intel(),
-		SessionStore:      s.runtime.Intel(),
-		Runtime:           s.runtime.CapabilityView(),
+	view := s.runtime.CapabilityView()
+	var snapshot runtimeview.Snapshot
+	if view != nil {
+		snapshot = view.Snapshot()
+	} else {
+		resolved := s.runtime.Configuration()
+		noteIndex, noteProvider := s.runtime.NoteEmbeddings()
+		codeIndex, codeProvider := s.runtime.CodeEmbeddings()
+		store := s.runtime.Intel()
+		snapshot = runtimeview.Snapshot{
+			VaultDefinition: s.cfg.VaultDef,
+			Configuration:   &resolved,
+			NoteIndex:       noteIndex,
+			NoteProvider:    noteProvider,
+			CodeIndex:       codeIndex,
+			CodeProvider:    codeProvider,
+			IntelStore:      store,
+			SessionStore:    store,
+		}
 	}
+	return agentservices.Compose(snapshot, agentservices.Options{
+		Vault: s.cfg.Vault, NoteMetadata: s.noteMetadata, Cache: s.cfg.Cache, Runtime: view,
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {

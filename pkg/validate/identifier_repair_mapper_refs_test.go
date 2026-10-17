@@ -1,12 +1,11 @@
 package validate
 
 import (
-	"testing"
-
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
 	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestIdentifierAliasPhaseUsesExactCompletedOwnerTransition(t *testing.T) {
@@ -16,7 +15,7 @@ func TestIdentifierAliasPhaseUsesExactCompletedOwnerTransition(t *testing.T) {
 	next := old
 	next.NotePath = "specs/ITEM-0002-plan.md"
 	next.Fragment = "^ITEM-0002-US1"
-	preferred := reference.StructuredFieldEdit{OwnerRef: owner, FieldName: "id", Kind: reference.StructuredFieldPreferredIdentifier, Operation: reference.StructuredFieldEditReplace, TargetOldRef: old, TargetNewRef: next}
+	preferred := identifierrewrite.StructuredFieldEdit{OwnerRef: owner, FieldName: "id", Kind: identifierrewrite.StructuredFieldPreferredIdentifier, Operation: identifierrewrite.StructuredFieldEditReplace, TargetOldRef: old, TargetNewRef: next}
 	primary := []OntologyEdit{{Ref: owner, Field: "id", Kind: OntologyEditSetScalar, Value: "ITEM-0002-US1"}}
 	sibling := old
 	sibling.Fragment = "^ITEM-0001-US10"
@@ -26,7 +25,7 @@ func TestIdentifierAliasPhaseUsesExactCompletedOwnerTransition(t *testing.T) {
 	aliases := []OntologyEdit{{Ref: owner, Field: "aliases"}, {Ref: sibling, Field: "aliases"}, {Ref: inbound, Field: "aliases"}, {Ref: otherType, Field: "aliases"}}
 	fields := map[string]identifierreconcile.FieldRepairIntent{
 		"preferred": {Edit: preferred},
-		"inbound":   {Edit: reference.StructuredFieldEdit{OwnerRef: inbound, FieldName: "related", Kind: reference.StructuredFieldTypedIdentifierReference, Operation: reference.StructuredFieldEditReplace, TargetOldRef: old, TargetNewRef: next}},
+		"inbound":   {Edit: identifierrewrite.StructuredFieldEdit{OwnerRef: inbound, FieldName: "related", Kind: identifierrewrite.StructuredFieldTypedIdentifierReference, Operation: identifierrewrite.StructuredFieldEditReplace, TargetOldRef: old, TargetNewRef: next}},
 	}
 	mapped, err := remapIdentifierAliasOwners(aliases, primary, fields)
 	require.NoError(t, err)
@@ -41,31 +40,35 @@ func TestIdentifierAliasPhaseUsesExactCompletedOwnerTransition(t *testing.T) {
 
 	for _, tc := range []struct {
 		name  string
-		edit  reference.StructuredFieldEdit
+		edit  identifierrewrite.StructuredFieldEdit
 		extra bool
 		want  string
 	}{
-		{"mismatched old owner", func() reference.StructuredFieldEdit { e := preferred; e.TargetOldRef = sibling; return e }(), false, "does not match its sealed owner"},
-		{"changed type", func() reference.StructuredFieldEdit { e := preferred; e.TargetNewRef.TypeName = "Other"; return e }(), false, "does not match its sealed owner"},
-		{"changed kind", func() reference.StructuredFieldEdit {
+		{"mismatched old owner", func() identifierrewrite.StructuredFieldEdit { e := preferred; e.TargetOldRef = sibling; return e }(), false, "does not match its sealed owner"},
+		{"changed type", func() identifierrewrite.StructuredFieldEdit {
+			e := preferred
+			e.TargetNewRef.TypeName = "Other"
+			return e
+		}(), false, "does not match its sealed owner"},
+		{"changed kind", func() identifierrewrite.StructuredFieldEdit {
 			e := preferred
 			e.TargetNewRef.Kind = ontology.NodeKindNote
 			return e
 		}(), false, "does not match its sealed owner"},
-		{"missing destination", func() reference.StructuredFieldEdit { e := preferred; e.TargetNewRef.NotePath = ""; return e }(), false, "does not match its sealed owner"},
-		{"conflicting owner transition", func() reference.StructuredFieldEdit {
+		{"missing destination", func() identifierrewrite.StructuredFieldEdit { e := preferred; e.TargetNewRef.NotePath = ""; return e }(), false, "does not match its sealed owner"},
+		{"conflicting owner transition", func() identifierrewrite.StructuredFieldEdit {
 			e := preferred
 			e.FieldName = "otherId"
 			e.TargetNewRef.Fragment = "^DIFFERENT"
 			return e
 		}(), true, "conflicting identifier phase transitions"},
-		{"conflicting future filename", func() reference.StructuredFieldEdit {
+		{"conflicting future filename", func() identifierrewrite.StructuredFieldEdit {
 			e := preferred
 			e.FieldName = "otherId"
 			e.TargetNewRef.NotePath = "specs/elsewhere.md"
 			return e
 		}(), true, "conflicting identifier phase transitions"},
-		{"nonunique new owner", func() reference.StructuredFieldEdit {
+		{"nonunique new owner", func() identifierrewrite.StructuredFieldEdit {
 			e := preferred
 			e.OwnerRef = sibling
 			e.TargetOldRef = sibling

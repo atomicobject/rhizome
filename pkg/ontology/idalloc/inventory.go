@@ -3,21 +3,21 @@ package idalloc
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"sort"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type collectedIdentifierInventory struct {
 	ownersScanned int
 	siblings      []siblingType
-	reservations  []ontology.IdentifierReservation
+	reservations  []ontoschema.IdentifierReservation
 }
 
-func collectIdentifierInventory(ctx context.Context, schema *ontology.Schema, store Store, typeName string, field *ontology.Field) (collectedIdentifierInventory, error) {
+func collectIdentifierInventory(ctx context.Context, schema *ontoschema.Schema, store Store, typeName string, field *ontoschema.Field) (collectedIdentifierInventory, error) {
 	// Gather every type that allocates from the same number-line. SPEC-0006
 	// shares one `SPEC-XXXX` sequence across ProcessSpec, ProductSpec,
 	// TechnicalSpec, ExperienceSpec, and OperationsSpec, so the allocator
@@ -31,7 +31,7 @@ func collectIdentifierInventory(ctx context.Context, schema *ontology.Schema, st
 	nodeIDs := make([]string, 0)
 	nodeFields := make(map[string]struct{})
 	for _, sib := range siblings {
-		if sib.role != ontology.TypeRoleNote {
+		if sib.role != ontoschema.TypeRoleNote {
 			nodes, err := store.OntologyNodesByType(ctx, sib.typeName)
 			if err != nil {
 				return collectedIdentifierInventory{}, fmt.Errorf("list identifier nodes for %s: %w", sib.typeName, err)
@@ -44,7 +44,7 @@ func collectIdentifierInventory(ctx context.Context, schema *ontology.Schema, st
 				nodeIDs = append(nodeIDs, node.NodeID)
 			}
 			nodeFields[sib.field] = struct{}{}
-			if field.IdentifierFormat.Strategy == ontology.IdentifierStrategyDateTime {
+			if field.IdentifierFormat.Strategy == ontoschema.IdentifierStrategyDateTime {
 				for _, name := range sib.aliases {
 					nodeFields[name] = struct{}{}
 				}
@@ -70,7 +70,7 @@ func collectIdentifierInventory(ctx context.Context, schema *ontology.Schema, st
 	// Node-scoped rows below use declared field names rather than raw sources.
 	sourceSet := make(map[string]struct{})
 	for _, sib := range siblings {
-		if sib.role == ontology.TypeRoleNote {
+		if sib.role == ontoschema.TypeRoleNote {
 			sourceSet[sib.source] = struct{}{}
 		}
 	}
@@ -90,19 +90,19 @@ func collectIdentifierInventory(ctx context.Context, schema *ontology.Schema, st
 		}
 	}
 
-	reservations := make([]ontology.IdentifierReservation, 0, len(rows))
+	reservations := make([]ontoschema.IdentifierReservation, 0, len(rows))
 	seenReservations := make(map[string]struct{}, len(rows))
 	addReservation := func(ownerKey, owner, raw string) {
 		value := strings.TrimSpace(raw)
 		if value == "" {
 			return
 		}
-		key := ownerKey + "\x00" + ontology.NormalizeIdentifierSemanticValue(value)
+		key := ownerKey + "\x00" + ontoschema.NormalizeIdentifierSemanticValue(value)
 		if _, seen := seenReservations[key]; seen {
 			return
 		}
 		seenReservations[key] = struct{}{}
-		reservations = append(reservations, ontology.IdentifierReservation{Value: value, Owner: owner})
+		reservations = append(reservations, ontoschema.IdentifierReservation{Value: value, Owner: owner})
 	}
 	for _, row := range rows {
 		// Only consider the row's value when the matched property is the
@@ -113,7 +113,7 @@ func collectIdentifierInventory(ctx context.Context, schema *ontology.Schema, st
 		}
 		addReservation("note:"+row.NotePath, row.NotePath, row.ValueText)
 	}
-	if len(allPaths) > 0 && field.IdentifierFormat.Strategy == ontology.IdentifierStrategyDateTime {
+	if len(allPaths) > 0 && field.IdentifierFormat.Strategy == ontoschema.IdentifierStrategyDateTime {
 		strategy, strategyErr := field.IdentifierFormat.StrategyContract()
 		if strategyErr != nil {
 			return collectedIdentifierInventory{}, fmt.Errorf("load identifier strategy for aliases: %w", strategyErr)
@@ -156,7 +156,7 @@ func collectIdentifierInventory(ctx context.Context, schema *ontology.Schema, st
 				continue
 			}
 			if !strings.EqualFold(row.FieldName, owner.field) {
-				if field.IdentifierFormat.Strategy != ontology.IdentifierStrategyDateTime || !slices.ContainsFunc(owner.aliases, func(name string) bool { return strings.EqualFold(row.FieldName, name) }) {
+				if field.IdentifierFormat.Strategy != ontoschema.IdentifierStrategyDateTime || !slices.ContainsFunc(owner.aliases, func(name string) bool { return strings.EqualFold(row.FieldName, name) }) {
 					continue
 				}
 				if _, ok := strategy.Parse(strings.TrimSpace(row.ValueText)); !ok {
@@ -180,7 +180,7 @@ type siblingType struct {
 	source   string
 	field    string
 	aliases  []string
-	role     ontology.TypeRole
+	role     ontoschema.TypeRole
 }
 
 // siblingTypesSharingFormat returns every typed note family in the schema
@@ -188,14 +188,14 @@ type siblingType struct {
 // compilation has already rejected incompatible strategies and formats inside
 // one namespace, so pool discovery must not repeat strategy-specific rules.
 // The requested type is always included so the caller can iterate uniformly.
-func siblingTypesSharingFormat(schema *ontology.Schema, requested string, format *ontology.IdentifierFormat) []siblingType {
+func siblingTypesSharingFormat(schema *ontoschema.Schema, requested string, format *ontoschema.IdentifierFormat) []siblingType {
 	namespace := strings.ToLower(format.Prefix + format.Separator)
 	out := make([]siblingType, 0, 4)
 	for name, nt := range schema.Types {
 		if nt == nil {
 			continue
 		}
-		f := preferredIdentifierField(nt)
+		f := nt.PreferredIdentifierField()
 		if f == nil || f.IdentifierFormat == nil || f.IsDerivableIdentifier || strings.TrimSpace(f.DerivedSuffix) != "" {
 			continue
 		}
@@ -225,16 +225,4 @@ func siblingTypesSharingFormat(schema *ontology.Schema, requested string, format
 		return out[i].typeName < out[j].typeName
 	})
 	return out
-}
-
-func preferredIdentifierField(nt *ontology.NoteType) *ontology.Field {
-	if nt == nil {
-		return nil
-	}
-	for _, f := range nt.Fields {
-		if f != nil && f.IsPreferredIdentifier {
-			return f
-		}
-	}
-	return nil
 }

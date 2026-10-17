@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -68,7 +69,7 @@ aliases:
 ##### Beta only criterion
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := LoadDocumentSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "specs/001-test/spec.md")
 	require.NoError(t, err)
@@ -126,7 +127,7 @@ id:: ^SPEC-0042-US3-AC5
 ##### Alpha third criterion
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := LoadDocumentSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "specs/001-test/spec.md")
 	require.NoError(t, err)
@@ -181,7 +182,7 @@ title: Sync
 - [ ] Ordinary checkbox
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := LoadDocumentSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "meetings/sync.md")
 	require.NoError(t, err)
@@ -232,7 +233,7 @@ title: Sync
   - [ ] Nested follow-up #action-item
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	snapshot, err := LoadDocumentSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "meetings/sync.md")
 	require.NoError(t, err)
@@ -248,7 +249,7 @@ title: Sync
 	require.Equal(t, []string{"false"}, item.Fields["done"].Values)
 }
 
-func mustFindEmbeddedNodeByTitle(t *testing.T, snapshot *DocumentSnapshot, schema *Schema, title string) NodeRef {
+func mustFindEmbeddedNodeByTitle(t *testing.T, snapshot *DocumentSnapshot, schema *ontoschema.Schema, title string) NodeRef {
 	t.Helper()
 	resolver, err := newProjectionResolver(snapshot, schema)
 	require.NoError(t, err)

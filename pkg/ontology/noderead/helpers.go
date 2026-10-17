@@ -1,17 +1,14 @@
 package noderead
 
 import (
-	"fmt"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 // NormalizeRef trims author-facing locator fields and infers embedded kind
@@ -25,65 +22,22 @@ func NormalizeRef(ref ontology.NodeRef) ontology.NodeRef {
 	return ref
 }
 
-func normalizeNodeRef(ref ontology.NodeRef) ontology.NodeRef {
-	return NormalizeRef(ref)
-}
-
-// projectionCacheKey keeps node identity richer than NodeRef.String(), which is
-// a link locator and intentionally omits NodeID, kind, and structural fallback.
-func projectionCacheKey(ref ontology.NodeRef) string {
-	ref = normalizeNodeRef(ref)
+// RefIdentityKey preserves the node kind, catalog identity, and structural selector.
+func RefIdentityKey(ref ontology.NodeRef) string {
+	ref = NormalizeRef(ref)
 	kind := ref.Kind
 	if kind == "" && ref.Fragment == "" && ref.NodeID == "" && ref.Structural == "" {
 		kind = ontology.NodeKindNote
 	}
-	return strings.Join([]string{
-		ref.NotePath,
-		ref.Fragment,
-		strings.TrimSpace(ref.NodeID),
-		string(kind),
-		strings.TrimSpace(ref.Structural),
-	}, "|")
-}
-
-// RefIdentityKey returns the cache identity for a NodeRef.
-//
-// IMPORTANT: NodeRef.String is a locator, not a complete identity; it can omit
-// kind, node ID, or structural fallback data that distinguishes projections.
-func RefIdentityKey(ref ontology.NodeRef) string {
-	return projectionCacheKey(ref)
-}
-
-func nodeRefIdentityKey(ref ontology.NodeRef) string {
-	return RefIdentityKey(ref)
+	return strings.Join([]string{ref.NotePath, ref.Fragment, strings.TrimSpace(ref.NodeID), string(kind), strings.TrimSpace(ref.Structural)}, "|")
 }
 
 func nodeRefResultKey(ref ontology.NodeRef) string {
-	ref = normalizeNodeRef(ref)
+	ref = NormalizeRef(ref)
 	if ref.NodeID != "" || ref.Structural != "" {
-		return nodeRefIdentityKey(ref)
+		return RefIdentityKey(ref)
 	}
 	return ref.String()
-}
-
-func canonicalNodeRefFromLocator(ref ontology.NodeRef, locator *ontology.NodeLocator) ontology.NodeRef {
-	ref = normalizeNodeRef(ref)
-	if locator == nil {
-		return ref
-	}
-	if locator.Ref.NotePath != "" {
-		ref = normalizeNodeRef(locator.Ref)
-	}
-	if locator.LinkTarget != nil {
-		targetRef := normalizeNodeRef(locator.LinkTarget.Ref)
-		if targetRef.NotePath != "" {
-			ref = targetRef
-		}
-		if locator.LinkTarget.BlockID != "" && ref.Fragment == "" && locator.LinkTarget.Exists {
-			ref.Fragment = "^" + strings.TrimPrefix(strings.TrimSpace(locator.LinkTarget.BlockID), "^")
-		}
-	}
-	return ref
 }
 
 func provenanceCacheKey(provenance map[string]struct{}) string {
@@ -99,44 +53,6 @@ func provenanceCacheKey(provenance map[string]struct{}) string {
 	}
 	sort.Strings(values)
 	return strings.Join(values, "\x00")
-}
-
-func hasEdgeGroupsForSources(grouped map[string][]semdb.OntologyEdgeRow, sources []string) bool {
-	if grouped == nil {
-		return false
-	}
-	for _, source := range sources {
-		if _, ok := grouped[source]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
-func cloneTraverseResultForSources(result TraverseResult, sources []string) TraverseResult {
-	out := TraverseResult{EdgesBySource: make(map[string][]semdb.OntologyEdgeRow, len(sources))}
-	for _, source := range sources {
-		out.EdgesBySource[source] = cloneEdgeRows(result.EdgesBySource[source])
-	}
-	return out
-}
-
-func limitTraverseResult(result TraverseResult, limitPerSource int) {
-	if limitPerSource <= 0 {
-		return
-	}
-	for source, rows := range result.EdgesBySource {
-		result.EdgesBySource[source] = dedupeEdges(rows, limitPerSource)
-	}
-}
-
-func cloneEdgeRows(rows []semdb.OntologyEdgeRow) []semdb.OntologyEdgeRow {
-	if len(rows) == 0 {
-		return nil
-	}
-	out := make([]semdb.OntologyEdgeRow, len(rows))
-	copy(out, rows)
-	return out
 }
 
 func cloneTypeListResult(result ontology.TypeListResult) ontology.TypeListResult {
@@ -156,34 +72,63 @@ func cloneNodeRecord(record NodeRecord) NodeRecord {
 	record.InlineProps = cloneInlineProps(record.InlineProps)
 	record.FieldValues = cloneRecordFieldValues(record.FieldValues)
 	record.Tags = cloneStrings(record.Tags)
+	record.resolvedFrom = append([]ontology.NodeRef(nil), record.resolvedFrom...)
+	fields := make(map[string]projectedFieldValues, len(record.projectedFields))
+	for name, field := range record.projectedFields {
+		field.values = cloneStrings(field.values)
+		fields[name] = field
+	}
+	record.projectedFields = fields
 	record.Capabilities = append([]noteformat.Capability(nil), record.Capabilities...)
 	if record.LinkTarget != nil {
 		target := *record.LinkTarget
 		record.LinkTarget = &target
 	}
 	if record.NodeLocator != nil {
-		locator := *record.NodeLocator
-		if locator.LinkTarget != nil {
-			target := *locator.LinkTarget
-			locator.LinkTarget = &target
-		}
+		locator := cloneNodeLocator(*record.NodeLocator)
 		record.NodeLocator = &locator
 	}
 	return record
 }
 
-func cloneRecordFieldValues(in map[string][]codeanchor.IntelOntologyNodeFieldValue) map[string][]codeanchor.IntelOntologyNodeFieldValue {
+func cloneNodeLocator(locator ontology.NodeLocator) ontology.NodeLocator {
+	locator.Diagnostics = append([]ontology.NodeLinkDiagnostic(nil), locator.Diagnostics...)
+	locator.FixActions = append([]ontology.NodeLinkFixAction(nil), locator.FixActions...)
+	if locator.LinkTarget != nil {
+		target := *locator.LinkTarget
+		locator.LinkTarget = &target
+	}
+	return locator
+}
+
+func cloneRecordFieldValues(in map[string][]readmodel.FieldValueRow) map[string][]readmodel.FieldValueRow {
 	if in == nil {
 		return nil
 	}
 	if len(in) == 0 {
-		return map[string][]codeanchor.IntelOntologyNodeFieldValue{}
+		return map[string][]readmodel.FieldValueRow{}
 	}
-	out := make(map[string][]codeanchor.IntelOntologyNodeFieldValue, len(in))
+	out := make(map[string][]readmodel.FieldValueRow, len(in))
 	for key, values := range in {
-		out[key] = append([]codeanchor.IntelOntologyNodeFieldValue(nil), values...)
+		out[key] = append([]readmodel.FieldValueRow(nil), values...)
+		for i := range out[key] {
+			row := &out[key][i]
+			row.ValueBool = clonePointer(row.ValueBool)
+			row.ValueInt = clonePointer(row.ValueInt)
+			row.ValueReal = clonePointer(row.ValueReal)
+			row.ValueDate = clonePointer(row.ValueDate)
+			row.ValueDateTime = clonePointer(row.ValueDateTime)
+		}
 	}
 	return out
+}
+
+func clonePointer[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
 }
 
 func cloneInlineProps(in map[string][]string) map[string][]string {
@@ -193,22 +138,6 @@ func cloneInlineProps(in map[string][]string) map[string][]string {
 	out := make(map[string][]string, len(in))
 	for key, values := range in {
 		out[key] = cloneStrings(values)
-	}
-	return out
-}
-
-func dedupeEdges(rows []semdb.OntologyEdgeRow, limit int) []semdb.OntologyEdgeRow {
-	seen := make(map[string]struct{}, len(rows))
-	out := make([]semdb.OntologyEdgeRow, 0, len(rows))
-	for _, row := range rows {
-		if _, ok := seen[row.DstPath]; ok {
-			continue
-		}
-		seen[row.DstPath] = struct{}{}
-		out = append(out, row)
-		if limit > 0 && len(out) >= limit {
-			break
-		}
 	}
 	return out
 }
@@ -243,9 +172,26 @@ func cloneMap(in map[string]any) map[string]any {
 	}
 	out := make(map[string]any, len(in))
 	for k, v := range in {
-		out[k] = v
+		out[k] = cloneValue(v)
 	}
 	return out
+}
+
+func cloneValue(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		return cloneMap(v)
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			out[i] = cloneValue(item)
+		}
+		return out
+	case []string:
+		return append([]string(nil), v...)
+	default:
+		return value
+	}
 }
 
 func cloneStrings(in []string) []string {
@@ -282,57 +228,4 @@ func firstNonEmptyString(values ...string) string {
 		}
 	}
 	return ""
-}
-
-// extractTags keeps only persisted frontmatter tag facts. Inline hashtag
-// extraction belongs to the selected note-format projector, not noderead.
-func extractTags(fm map[string]any) []string {
-	seen := make(map[string]struct{})
-	out := make([]string, 0)
-	for _, value := range flattenValueStrings(fm["tags"]) {
-		value = strings.TrimPrefix(value, "#")
-		value = strings.ToLower(strings.TrimSpace(value))
-		if value == "" {
-			continue
-		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
-	}
-	sort.Strings(out)
-	return out
-}
-
-func flattenValueStrings(v any) []string {
-	switch val := v.(type) {
-	case nil:
-		return nil
-	case []string:
-		return normalizeStrings(val)
-	case []any:
-		out := make([]string, 0, len(val))
-		for _, item := range val {
-			out = append(out, flattenValueStrings(item)...)
-		}
-		return normalizeStrings(out)
-	case string:
-		return normalizeStrings([]string{val})
-	case bool:
-		return []string{strconv.FormatBool(val)}
-	case int:
-		return []string{strconv.Itoa(val)}
-	case int64:
-		return []string{strconv.FormatInt(val, 10)}
-	case float64:
-		return []string{strconv.FormatFloat(val, 'f', -1, 64)}
-	case time.Time:
-		if val.Hour() == 0 && val.Minute() == 0 && val.Second() == 0 {
-			return []string{val.Format("2006-01-02")}
-		}
-		return []string{val.Format(time.RFC3339)}
-	default:
-		return []string{strings.TrimSpace(fmt.Sprint(v))}
-	}
 }

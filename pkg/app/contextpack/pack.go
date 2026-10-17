@@ -25,11 +25,6 @@ import (
 	"strings"
 )
 
-// DefaultBudgetChars is the package fallback for LLM context packing.
-// Config, explicit caller budgets, and command-specific floors may override it.
-// Docs: [[Contextpack - Budget surfaces]] and [[search-answer-workflow#^spec-0034-us4-ac2]].
-const DefaultBudgetChars = 70000
-
 // Piece is a pre-rendered, budget-aware unit of output.
 // Higher Priority pieces are included first; within a priority, higher Score wins.
 type Piece struct {

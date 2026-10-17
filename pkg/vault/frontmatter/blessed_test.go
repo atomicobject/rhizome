@@ -21,3 +21,9 @@ func TestFilterBlessed_CaseInsensitiveKeysAndLowercaseOutput(t *testing.T) {
 		"description": "World",
 	}, out)
 }
+
+func TestFilterBlessedPrefersCanonicalKeySpelling(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		assert.Equal(t, map[string]any{"summary": "canonical"}, FilterBlessed(map[string]any{"Summary": "other", "SUMMARY": "third", "summary": "canonical"}))
+	}
+}

@@ -3,12 +3,14 @@ package mcp_test
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	mcpapi "github.com/atomicobject/rhizome/pkg/app/mcp"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -36,12 +38,12 @@ type UserStory implements Section @node(locator: EMBEDDED) { related: ProductSpe
 	require.NoError(t, err)
 	config := mcpapi.Config{VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}, ReadWrite: true, NoteMetadata: metadata}
 	calls := 0
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	config.ApplyLinkTargets = func(ctx context.Context, schemaHash string, request ontology.LinkTargetRequest) (ontology.LinkTargetResult, error) {
 		calls++
 		require.Equal(t, schema.Hash, schemaHash, "apply must run against the loaded schema")
-		return indexing.ApplyNodeLinkTargets(ctx, indexing.NodeLinkApplyRequest{VaultDef: config.VaultDef, NoteMetadata: metadata, NoteReader: &obsidian.Note{}, SchemaHash: schemaHash, LinkTarget: request})
+		return validationproduct.ApplyNodeLinkTargets(ctx, validationproduct.NodeLinkApplyRequest{VaultDef: config.VaultDef, NoteMetadata: metadata, NoteReader: &obsidian.Note{}, SchemaHash: schemaHash, LinkTarget: request})
 	}
 	response, err := mcpapi.NodeLinkTool(config)(ctx, mcp.CallToolRequest{Params: mcp.CallToolParams{Name: "node_link", Arguments: map[string]any{"targets": []any{"specs/product.md#Story A"}, "ensure": "apply"}}})
 	require.NoError(t, err)
@@ -52,7 +54,7 @@ type UserStory implements Section @node(locator: EMBEDDED) { related: ProductSpe
 	}
 	require.NoError(t, json.Unmarshal([]byte(response.Content[0].(mcp.TextContent).Text), &payload))
 	require.Equal(t, "apply", payload.Ensure)
-	store, cleanup, err := ontology.OpenStoreForWrite(root)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadOnly, Context: ctx})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	edges, err := store.OntologyEdgesForPath(ctx, "specs/product.md", false, "related", 0)

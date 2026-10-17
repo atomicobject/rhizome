@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // ImplementersRetriever returns only implementers backed by a current exact
@@ -71,9 +71,18 @@ func (r *ImplementersRetriever) Retrieve(ctx context.Context, spec search.QueryS
 			}
 			seen[handle.String()] = struct{}{}
 			out = append(out, search.Candidate{
-				Handle: handle, Owner: handle, Type: "anchor", Path: anchor.Path,
-				Title: anchor.Symbol, Symbol: anchor.Symbol, FQN: anchor.FQN,
-				Kind: anchor.Kind, AnchorID: anchor.AnchorID, ChunkIndex: -1,
+				SourceRef: search.SourceRef{
+					Path:       anchor.Path,
+					Title:      anchor.Symbol,
+					Symbol:     anchor.Symbol,
+					FQN:        anchor.FQN,
+					Kind:       anchor.Kind,
+					AnchorID:   anchor.AnchorID,
+					ChunkIndex: -1,
+				},
+				Handle: handle,
+				Owner:  handle,
+				Type:   "anchor",
 				Evidence: []search.Evidence{{
 					Type: "implements_edge", Source: "implementers", RawScore: 1,
 					Details: map[string]string{"target": targetID},

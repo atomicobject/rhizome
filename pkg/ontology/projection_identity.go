@@ -4,6 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
 	"sort"
 	"strings"
 )
@@ -42,7 +45,7 @@ func (r *projectionResolver) unanchoredSourceSpanFingerprint(span *MarkdownSourc
 	if span == nil {
 		return ""
 	}
-	if span.Shape == EmbeddedSourceShapeSection {
+	if span.Shape == ontoschema.EmbeddedSourceShapeSection {
 		if section := r.snapshot.SectionsByID[span.ID]; section != nil {
 			return r.stableSectionFingerprint(section)
 		}
@@ -69,7 +72,7 @@ func (r *projectionResolver) sourceSpansForStructural(structural string) []*Mark
 	if r.sourceSpansByStructural == nil {
 		r.sourceSpansByStructural = make(map[string][]*MarkdownSourceSpan, len(r.snapshot.SourceSpans))
 		for _, span := range r.snapshot.SourceSpans {
-			if span == nil || span.Shape == EmbeddedSourceShapeSection {
+			if span == nil || span.Shape == ontoschema.EmbeddedSourceShapeSection {
 				continue
 			}
 			fingerprints := []string{hashText(r.stableSourceSpanFingerprint(span))}
@@ -104,7 +107,7 @@ func (r *projectionResolver) sourceSpanIdentityText(span *MarkdownSourceSpan) st
 			start = span.ContentRange.Start + lineEnd + 1
 		}
 		if start < sourceRange.End {
-			detailParts = append(detailParts, substringBytes(r.snapshot.Content, start, sourceRange.End))
+			detailParts = append(detailParts, sectionparse.SubstringBytes(r.snapshot.Content, start, sourceRange.End))
 		}
 	}
 	detail := strings.TrimSpace(strings.Join(detailParts, "\n"))
@@ -184,7 +187,7 @@ func (r *projectionResolver) stableSectionHeadingFingerprint(node *SectionNode) 
 		"%s|%s|%s|%d",
 		parentPath,
 		node.Level,
-		slugifyHeading(node.Title),
+		markdownsyntax.HeadingSlug(node.Title),
 		r.siblingTitleOrdinal(node),
 	)
 }
@@ -230,7 +233,7 @@ func sectionFragments(node *SectionNode) []string {
 	if strings.TrimSpace(node.BlockID) != "" {
 		out = append(out, "^"+strings.TrimPrefix(strings.TrimSpace(node.BlockID), "^"))
 	}
-	legacy := fmt.Sprintf("%s-%d", slugifyHeading(node.Title), node.StartByte)
+	legacy := fmt.Sprintf("%s-%d", markdownsyntax.HeadingSlug(node.Title), node.StartByte)
 	if legacy != "-" && legacy != "" {
 		out = append(out, legacy)
 	}

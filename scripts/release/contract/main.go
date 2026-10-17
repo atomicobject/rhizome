@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 type request struct {
@@ -34,7 +36,7 @@ func evaluate(input request) (any, error) {
 	case "note-discovery":
 		return discoverSnapshotNote(input.Content)
 	case "workspace-id":
-		format := ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"}
+		format := ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"}
 		contract, err := format.StrategyContract()
 		if err != nil {
 			return nil, err
@@ -65,7 +67,7 @@ func evaluate(input request) (any, error) {
 			path, content = target.Path, target.Content
 			schemaFiles = target.SchemaFiles
 		}
-		var schema *ontology.Schema
+		var schema *ontoschema.Schema
 		if schemaFiles != nil {
 			var err error
 			schema, err = loadTargetSchema(schemaFiles)
@@ -117,7 +119,7 @@ func evaluate(input request) (any, error) {
 				return nil, err
 			}
 			if input.Kind == "spec-like" {
-				return ontology.TypeMatchesOrImplements(schema, resolved.ResolvedType, "SpecLike"), nil
+				return ontoschema.TypeMatchesOrImplements(schema, resolved.ResolvedType, "SpecLike"), nil
 			}
 			return resolved.ResolvedType, nil
 		}
@@ -128,7 +130,7 @@ func evaluate(input request) (any, error) {
 }
 
 func effortSectionBody(nodes []*ontology.SectionNode, heading string) string {
-	matches := ontology.FindMatchingSections(nodes, ontology.SectionLevelH2, heading)
+	matches := ontology.FindMatchingSections(nodes, ontoschema.SectionLevelH2, heading)
 	if len(matches) == 0 {
 		return ""
 	}
@@ -195,8 +197,8 @@ func discoverSnapshotNote(content string) (bool, error) {
 			return false, err
 		}
 	}
-	definition, err := obsidian.LoadDefinitionFromPath(root)
-	if errors.Is(err, obsidian.ErrNoLocalConfig) {
+	definition, err := repoconfig.LoadDefinitionFromPath(root)
+	if errors.Is(err, repoconfig.ErrNoLocalConfig) {
 		// Historical repositories without local config retain Markdown discovery.
 		definition = obsidian.VaultDefinition{Path: root}
 	} else if err != nil {
@@ -211,16 +213,16 @@ func discoverSnapshotNote(content string) (bool, error) {
 
 // Omitted files retain the standalone parser API; an explicit snapshot never
 // falls back to the working tree, including when its ontology is empty.
-func loadTargetSchema(files map[string]string) (*ontology.Schema, error) {
+func loadTargetSchema(files map[string]string) (*ontoschema.Schema, error) {
 	if files == nil {
-		return ontology.LoadSchema(".")
+		return ontoschema.LoadSchema(".")
 	}
 	root, err := os.MkdirTemp("", "rhizome-release-schema-")
 	if err != nil {
 		return nil, err
 	}
 	defer os.RemoveAll(root)
-	dir := ontology.OntologyDir(root)
+	dir := ontoschema.OntologyDir(root)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
@@ -232,5 +234,5 @@ func loadTargetSchema(files map[string]string) (*ontology.Schema, error) {
 			return nil, err
 		}
 	}
-	return ontology.LoadSchema(root)
+	return ontoschema.LoadSchema(root)
 }

@@ -6,22 +6,22 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 )
 
-func callAgentCodeQueryRecipe(ctx context.Context, input map[string]any) agentcode.CallOutcome {
-	service := actions.CodeModeQueryRecipeService{Recipes: newQueryRecipeService()}
+func (commandOptions *vaultCommandOptions) callAgentCodeQueryRecipe(ctx context.Context, input map[string]any) agentcode.CallOutcome {
+	service := actions.CodeModeQueryRecipeService{Recipes: commandOptions.newQueryRecipeService(ctx)}
 	return codeModeWorkflowOutcome(service.Call(ctx, input))
 }
 
-type commandCodeModeViewFactory struct{}
+type commandCodeModeViewFactory struct{ *vaultCommandOptions }
 
-func (commandCodeModeViewFactory) Open(ctx context.Context, path string) (actions.CodeModeViewRuntime, func(), error) {
-	return buildViewService(ctx, path)
+func (commandOptions commandCodeModeViewFactory) Open(ctx context.Context, path string) (actions.CodeModeViewRuntime, func(), error) {
+	return commandOptions.buildViewService(ctx, path)
 }
 
-func callAgentCodeView(ctx context.Context, input map[string]any, readWrite bool) agentcode.CallOutcome {
-	service := actions.CodeModeViewService{Factory: commandCodeModeViewFactory{}, ReadWrite: readWrite}
+func (commandOptions *vaultCommandOptions) callAgentCodeView(ctx context.Context, input map[string]any, readWrite bool) agentcode.CallOutcome {
+	service := actions.CodeModeViewService{Factory: commandCodeModeViewFactory{vaultCommandOptions: commandOptions}, ReadWrite: readWrite}
 	return codeModeWorkflowOutcome(service.Call(ctx, input))
 }
 

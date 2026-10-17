@@ -3,10 +3,11 @@ package query
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	validationcatalog "github.com/atomicobject/rhizome/pkg/validate/catalog"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -61,7 +62,7 @@ func (e *executor) resolveValidationSelectionSet(ctx context.Context, field *ast
 		store, _ := e.deps.Store.(validationResultStore)
 		summaries, err := store.GetValidationScopeSummaries(ctx, semdb.ValidationScopeSummaryRequest{
 			Generation: state.PublishedGeneration, Scopes: []semdb.ValidationScope{scope},
-			Filter: semdb.ValidationDiagnosticFilter{Check: selectedCheck, InterfaceImplementors: ontology.InterfaceImplementors(e.schema)},
+			Filter: semdb.ValidationDiagnosticFilter{Check: selectedCheck, InterfaceImplementors: ontoschema.InterfaceImplementors(e.schema)},
 		})
 		if err != nil {
 			e.addErrorWithExtensions(path, err.Error(), map[string]any{"code": "validation_scope_unavailable"})
@@ -177,7 +178,7 @@ func (e *executor) validationCheckScopeCount(ctx context.Context, generation int
 	}
 	page, err := store.GetValidationDiagnosticsPage(ctx, semdb.ValidationDiagnosticPageRequest{
 		Generation: generation, Limit: 1,
-		Filter: semdb.ValidationDiagnosticFilter{Check: check, ScopeKind: scope.Kind, ScopeKey: scope.Key, InterfaceImplementors: ontology.InterfaceImplementors(e.schema)},
+		Filter: semdb.ValidationDiagnosticFilter{Check: check, ScopeKind: scope.Kind, ScopeKey: scope.Key, InterfaceImplementors: ontoschema.InterfaceImplementors(e.schema)},
 	})
 	if err != nil {
 		e.addErrorWithExtensions(path, err.Error(), map[string]any{"code": "validation_diagnostics_unavailable"})

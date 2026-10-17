@@ -17,6 +17,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/validate"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -24,6 +25,8 @@ const (
 	readinessPollInterval        = 250 * time.Millisecond
 	noteReadinessMaxPollInterval = 2 * time.Second
 )
+
+type IndexJobRunner func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error
 
 type modelCountFunc func(context.Context) (int64, error)
 type liveModelCountFunc func(context.Context, *bootstrap.LiveRuntime) (int64, error)
@@ -35,7 +38,7 @@ type validationRefresher interface {
 // ReadinessCoordinator owns the serve startup gates across live-runtime,
 // background-index, and web-server publication.
 type ReadinessCoordinator struct {
-	runIndex           bootstrap.BackgroundIndexer
+	runIndex           IndexJobRunner
 	usableNoteCount    liveModelCountFunc
 	completeModelCount liveModelCountFunc
 
@@ -56,6 +59,7 @@ type ReadinessCoordinator struct {
 	validationAdmission       context.Context
 	cancelValidationAdmission context.CancelFunc
 	validationWorkerOnce      sync.Once
+	newValidationTimer        func(time.Duration) validationRefreshTimer
 	repairReviews             *validate.RepairReviewStore
 	repairPaths               *validate.RepairPathCoordinator
 }
@@ -63,7 +67,7 @@ type ReadinessCoordinator struct {
 // NewReadinessCoordinator creates the readiness lifecycle used by one serve
 // invocation. runIndex performs the actual indexing work after warm-state
 // probes have completed.
-func NewReadinessCoordinator(runIndex bootstrap.BackgroundIndexer) *ReadinessCoordinator {
+func NewReadinessCoordinator(runIndex IndexJobRunner) *ReadinessCoordinator {
 	return &ReadinessCoordinator{
 		runIndex:           runIndex,
 		usableNoteCount:    runtimeUsableNoteCount,
@@ -72,6 +76,7 @@ func NewReadinessCoordinator(runIndex bootstrap.BackgroundIndexer) *ReadinessCoo
 		indexAttemptDone:   make(chan struct{}),
 		repairPaths:        validate.NewRepairPathCoordinator(),
 		validationRequests: make(chan context.Context, 1),
+		newValidationTimer: newWallValidationTimer,
 	}
 }
 
@@ -134,15 +139,20 @@ func (c *ReadinessCoordinator) BackgroundIndexer(ctx context.Context, noteMetada
 func (c *ReadinessCoordinator) runIndexOnLane(ctx context.Context, live *bootstrap.LiveRuntime, noteMetadata notemeta.Indexer, vaultPath string, vaultDef obsidian.VaultDefinition, debug bool) error {
 	indexLane := live.Lane()
 	if indexLane == nil {
-		return c.runIndex(ctx, noteMetadata, vaultPath, vaultDef, debug)
+		lease, err := indexing.TryAcquireIndexLock(ctx, vaultPath, indexing.LockWaitOptions{Role: lane.KindBootCatchUp.LockRole()})
+		if err != nil {
+			return err
+		}
+		defer lease.Release()
+		return c.runIndex(ctx, lease, noteMetadata, vaultPath, vaultDef, debug)
 	}
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		handle, _, submitErr := indexLane.Submit(ctx, lane.Request{
 			Kind:     lane.KindBootCatchUp,
 			Coalesce: true,
-			Run: func(jobCtx context.Context, _ lane.Reporter) error {
-				return c.runIndex(jobCtx, noteMetadata, vaultPath, vaultDef, debug)
+			Run: func(jobCtx context.Context, lease *indexlock.Lease, _ lane.Reporter) error {
+				return c.runIndex(jobCtx, lease, noteMetadata, vaultPath, vaultDef, debug)
 			},
 		})
 		if submitErr != nil {
@@ -342,89 +352,6 @@ func (c *ReadinessCoordinator) Bridge(ctx context.Context) {
 	}
 }
 
-func markUsableNoteModel(ctx context.Context, runtime *web.Runtime, count modelCountFunc) bool {
-	if runtime == nil || count == nil {
-		return false
-	}
-	countValue, err := count(ctx)
-	if err != nil || countValue == 0 {
-		return false
-	}
-	runtime.MarkNoteReadReady()
-	return true
-}
-
-// waitForUsableNoteModel opens the note-read gate as soon as durable exact-note
-// rows exist, backing off so a cold vault does not repeat a full scan every
-// quarter second.
-func waitForUsableNoteModel(ctx context.Context, runtime *web.Runtime, interval time.Duration, count modelCountFunc) bool {
-	if runtime == nil || count == nil {
-		return false
-	}
-	if interval <= 0 {
-		interval = readinessPollInterval
-	}
-	if interval > noteReadinessMaxPollInterval {
-		interval = noteReadinessMaxPollInterval
-	}
-	pollInterval := interval
-	for {
-		if runtime.NoteReadReady() {
-			return true
-		}
-		countValue, err := count(ctx)
-		if err == nil && countValue > 0 {
-			runtime.MarkNoteReadReady()
-			return true
-		}
-		select {
-		case <-ctx.Done():
-			return false
-		case <-time.After(pollInterval):
-		}
-		pollInterval = nextNoteReadinessPollInterval(pollInterval)
-	}
-}
-
-func nextNoteReadinessPollInterval(current time.Duration) time.Duration {
-	if current >= noteReadinessMaxPollInterval {
-		return current
-	}
-	next := current * 2
-	if next > noteReadinessMaxPollInterval || next < current {
-		return noteReadinessMaxPollInterval
-	}
-	return next
-}
-
-// waitForUsableIndexModel opens the index gate once a complete ontology model
-// is readable, whoever produced it.
-func waitForUsableIndexModel(ctx context.Context, runtime *web.Runtime, interval time.Duration, count modelCountFunc) bool {
-	if runtime == nil || count == nil {
-		return false
-	}
-	if interval <= 0 {
-		interval = readinessPollInterval
-	}
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		if runtime.IndexReady() {
-			return true
-		}
-		n, err := count(ctx)
-		if err == nil && n > 0 {
-			runtime.MarkIndexReady()
-			return true
-		}
-		select {
-		case <-ctx.Done():
-			return false
-		case <-ticker.C:
-		}
-	}
-}
-
 // refreshValidation installs the production authority lazily, after the live
 // intel store is available, then refreshes one generation for every startup or
 // watcher invalidation trigger.
@@ -454,7 +381,7 @@ func (c *ReadinessCoordinator) refreshValidation(ctx context.Context, live *boot
 				Run: func(ctx context.Context) (validationproduct.AuthoritativeRun, error) {
 					return validationproduct.RunLiveOnLane(ctx, live.NoteMetadataIndexer(), live.VaultDef, 500, live.Lane())
 				},
-				ApplyOptions: validate.Options{PostApplyRefresher: indexing.ValidationProjectionPostApplyRefresher{
+				ApplyOptions: validate.ApplyOptions{PostApplyRefresher: validationproduct.ValidationProjectionPostApplyRefresher{
 					VaultPath: live.VaultPath, VaultDef: live.VaultDef,
 					NoteMetadata: live.NoteMetadataIndexer(), NoteReader: &obsidian.Note{},
 				}},

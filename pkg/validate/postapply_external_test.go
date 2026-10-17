@@ -2,11 +2,12 @@ package validate_test
 
 import (
 	"context"
-	"reflect"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
+
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/validate"
-	"github.com/stretchr/testify/assert"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +15,7 @@ type externalPostApplyRefresher struct{}
 
 func (externalPostApplyRefresher) Refresh(
 	context.Context,
-	*validate.IndexLockLease,
+	*indexlock.Lease,
 	[]string,
 	[]validate.PathRename,
 	[]string,
@@ -24,12 +25,7 @@ func (externalPostApplyRefresher) Refresh(
 
 var _ validate.PostApplyRefresher = externalPostApplyRefresher{}
 
-func TestIndexLockLeaseIsBorrowOnlyOutsideValidate(t *testing.T) {
-	var lease validate.IndexLockLease
-	require.Error(t, lease.RequireHeld())
-	leaseType := reflect.TypeOf(&lease)
-	_, exposesRelease := leaseType.MethodByName("Release")
-	_, exposesLockPath := leaseType.MethodByName("LockPath")
-	assert.False(t, exposesRelease)
-	assert.False(t, exposesLockPath)
+func TestIndexLockLeaseRejectsForgedAuthority(t *testing.T) {
+	var lease indexlock.Lease
+	require.Error(t, lease.Validate(t.TempDir()))
 }

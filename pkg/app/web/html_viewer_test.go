@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -352,17 +354,18 @@ func TestBrowserMutationOriginGuardRejectsBeforeHandlerMutation(t *testing.T) {
 }
 
 func TestApplicationHostGuardProtectsActualReadAndAgentSettingsRoutes(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	configRoot := t.TempDir()
 	configFile := filepath.Join(configRoot, "config.yml")
-	originalConfigPath := obsidian.CliConfigPath
-	obsidian.CliConfigPath = func() (string, string, error) { return configRoot, configFile, nil }
-	t.Cleanup(func() { obsidian.CliConfigPath = originalConfigPath })
-	_, err := agentchat.SaveSettings(agentchat.Settings{Harness: harness.KindClaude})
+	env.CLIConfigFile = configFile
+	_, err := agentchat.SaveSettings(env, agentchat.Settings{Harness: harness.KindClaude})
 	if err != nil {
 		t.Fatal(err)
 	}
 	fake := &harnesstest.Harness{StatusResult: harness.Status{Installed: true, LoggedIn: true}}
-	service, err := agentchat.NewService(context.Background(), t.TempDir(), map[harness.Kind]harness.Harness{
+	service, err := agentchat.NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{
 		harness.KindCodex: fake, harness.KindClaude: fake,
 	})
 	if err != nil {
@@ -397,7 +400,7 @@ func TestApplicationHostGuardProtectsActualReadAndAgentSettingsRoutes(t *testing
 	if mutationResponse.Code != http.StatusForbidden {
 		t.Fatalf("hostile settings status = %d", mutationResponse.Code)
 	}
-	settings, err := agentchat.LoadSettings()
+	settings, err := agentchat.LoadSettings(env)
 	if err != nil {
 		t.Fatal(err)
 	}

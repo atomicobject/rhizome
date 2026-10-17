@@ -4,6 +4,7 @@ package diagnostics
 import (
 	"errors"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -13,10 +14,11 @@ import (
 
 	evidence "github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 type Options struct {
+	Env                                                                             vaultconfig.Env
 	Vault, Mode, OperationID, TraceID, Since, Until, Kind, Status, Level, Subsystem string
 	Last                                                                            bool
 	Limit                                                                           int
@@ -37,8 +39,11 @@ type Result struct {
 }
 
 func Read(opts Options) (Result, error) {
+	if opts.Env.IsZero() {
+		opts.Env = vaultconfig.SystemEnv()
+	}
 	out := Result{SchemaVersion: evidence.SchemaVersion, Mode: opts.Mode}
-	root, err := ResolveRoot(opts.Vault)
+	root, err := ResolveRoot(opts.Env, opts.Vault)
 	if err != nil {
 		return out, err
 	}
@@ -117,10 +122,10 @@ func Read(opts Options) (Result, error) {
 
 // ResolveRoot deliberately avoids loading repository configuration or an index.
 // Existing directories take precedence over registered vault names.
-func ResolveRoot(input string) (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
+func ResolveRoot(env vaultconfig.Env, input string) (string, error) {
+	cwd := env.WorkingDir
+	if cwd == "" {
+		return "", errors.New("working directory unavailable")
 	}
 	base, err := paths.NewVaultPaths(cwd)
 	if err != nil {
@@ -134,7 +139,7 @@ func ResolveRoot(input string) (string, error) {
 		if strings.ContainsAny(input, "/\\") || strings.HasPrefix(input, ".") {
 			return "", fmt.Errorf("vault directory %q does not exist", input)
 		}
-		vault := &obsidian.Vault{Name: input}
+		vault := &repoconfig.Vault{Env: env, Name: input}
 		root, err = vault.Path()
 		if err != nil {
 			return "", fmt.Errorf("resolve vault: %w; use --vault /absolute/vault/path to bypass configuration", err)

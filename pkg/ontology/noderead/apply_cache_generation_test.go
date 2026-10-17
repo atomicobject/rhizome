@@ -2,12 +2,13 @@ package noderead
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sync"
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -21,10 +22,10 @@ func TestScopeApplyInvalidationDoesNotRepublishInFlightNotePathCache(t *testing.
 		started: make(chan struct{}),
 		release: make(chan struct{}),
 	}
-	scope := NewService(vault, reader, store, schema).NewScope(ctx, ScopeOptions{})
+	scope := NewService(vault, reader, store, schema).NewScope(ScopeOptions{})
 
 	built := make(chan *obsidian.NotePathCache, 1)
-	go func() { built <- scope.notePathCache(ctx) }()
+	go func() { cache, _ := scope.notePathCache(ctx); built <- cache }()
 	waitApplyCacheBarrier(t, reader.started)
 
 	// Apply invalidation can occur while a path-cache build has released the
@@ -34,7 +35,8 @@ func TestScopeApplyInvalidationDoesNotRepublishInFlightNotePathCache(t *testing.
 	stale := <-built
 	require.NotNil(t, stale)
 
-	fresh := scope.notePathCache(ctx)
+	fresh, err := scope.notePathCache(ctx)
+	require.NoError(t, err)
 	path, ok := fresh.ResolveNote("new")
 	require.True(t, ok, "the next read must rebuild instead of reusing the stale in-flight cache")
 	require.Equal(t, "specs/new.md", path)
@@ -108,7 +110,7 @@ func (r *applyCacheBlockingNoteReader) GetNotesList(obsidian.VaultDefinition) ([
 	return []string{"specs/product.md", "specs/new.md"}, nil
 }
 
-type applyCacheBlockingGraphStore struct {
+type applyCacheBlockingReadStore struct {
 	*semdb.Store
 	started chan struct{}
 	release chan struct{}
@@ -117,7 +119,7 @@ type applyCacheBlockingGraphStore struct {
 	edgeCalls int
 }
 
-func (s *applyCacheBlockingGraphStore) GraphOntologyEdges(ctx context.Context, query readmodel.GraphEdgeQuery) ([]readmodel.GraphTypedEdgeRow, error) {
+func (s *applyCacheBlockingReadStore) GraphOntologyEdges(ctx context.Context, query readmodel.GraphEdgeQuery) ([]readmodel.GraphTypedEdgeRow, error) {
 	rows, err := s.Store.GraphOntologyEdges(ctx, query)
 	if err != nil {
 		return nil, err
@@ -133,7 +135,7 @@ func (s *applyCacheBlockingGraphStore) GraphOntologyEdges(ctx context.Context, q
 	return rows, nil
 }
 
-func (s *applyCacheBlockingGraphStore) calls() int {
+func (s *applyCacheBlockingReadStore) calls() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.edgeCalls
@@ -149,20 +151,20 @@ type graphFactsCall struct {
 	err    error
 }
 
-func applyCacheGraphScope(t *testing.T) (context.Context, *Scope, *applyCacheBlockingGraphStore) {
+func applyCacheGraphScope(t *testing.T) (context.Context, *Scope, *applyCacheBlockingReadStore) {
 	t.Helper()
 	ctx := context.Background()
 	vault, realStore, schema := applyCacheFixture(t)
-	store := &applyCacheBlockingGraphStore{
+	store := &applyCacheBlockingReadStore{
 		Store:   realStore,
 		started: make(chan struct{}),
 		release: make(chan struct{}),
 	}
 	service := NewService(vault, &obsidian.Note{}, store, schema)
-	return ctx, service.NewScope(ctx, ScopeOptions{}), store
+	return ctx, service.NewScope(ScopeOptions{}), store
 }
 
-func applyCacheFixture(t *testing.T) (obsidian.VaultDefinition, *semdb.Store, *ontology.Schema) {
+func applyCacheFixture(t *testing.T) (obsidian.VaultDefinition, *semdb.Store, *ontoschema.Schema) {
 	t.Helper()
 	return buildFixture(t, "type ProductSpec @node(paths: [\"specs/product.md\"]) {\n  stories: StoriesSection @contains(level: H2, heading: \"Stories\")\n}\n\ntype StoriesSection implements Section { stories: [UserStory!] @contains(level: H3) }\n\ntype UserStory implements Section @node(locator: EMBEDDED) { related: ProductSpec @link }\n", "# Product\n\n## Stories\n\n### Story A\nrelated:: [[specs/product]]\n")
 }

@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -52,41 +52,41 @@ func TestScopeWalkPreservesStableWalkShape(t *testing.T) {
 		SchemaState: semdb.OntologySchemaState{SchemaHash: "abc", NotesHash: "def", LoadedAt: 1, Ready: true},
 	}))
 
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{
 		"Person":  {Name: "Person"},
 		"Team":    {Name: "Team"},
 		"Project": {Name: "Project"},
 	}}
 	vaultDef := obsidian.VaultDefinition{Path: root}
 	noteReader := &obsidian.Note{}
-	scope := NewService(vaultDef, noteReader, store, schema).NewScope(ctx, ScopeOptions{})
+	scope := NewService(vaultDef, noteReader, store, schema).NewScope(ScopeOptions{})
 
-	result, err := scope.Walk(ctx, noteReader, vaultDef, "people/Alice.md", ontology.WalkOptions{
+	result, err := scope.Walk(ctx, "people/Alice.md", WalkOptions{
 		MaxDepth:       1,
 		IncludeAmbient: true,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "Person", result.SeedType)
-	require.Equal(t, []ontology.WalkNode{
+	require.Equal(t, []WalkNode{
 		{Path: "people/Alice.md", TypeName: "Person", Title: "Alice"},
 		{Path: "projects/Rhizome.md", TypeName: "Project", Title: "Rhizome"},
 		{Path: "teams/Eng.md", TypeName: "Team", Title: "Eng"},
 	}, result.Nodes)
-	require.Equal(t, []ontology.WalkEdge{
+	require.Equal(t, []WalkEdge{
 		{RelationName: "mentions", Source: "people/Alice.md", Destination: "projects/Rhizome.md", Provenance: "body_link", Structural: false},
 		{RelationName: "team", Source: "people/Alice.md", Destination: "teams/Eng.md", Provenance: "field", Structural: true},
 		{RelationName: "members", Source: "teams/Eng.md", Destination: "people/Alice.md", Provenance: "inverse", Structural: true},
 	}, result.Edges)
 
-	filtered, err := scope.Walk(ctx, noteReader, vaultDef, "people/Alice.md", ontology.WalkOptions{
+	filtered, err := scope.Walk(ctx, "people/Alice.md", WalkOptions{
 		MaxDepth:       1,
 		RelationFilter: "team",
 		IncludeAmbient: true,
 	})
 	require.NoError(t, err)
-	require.Equal(t, []ontology.WalkEdge{{RelationName: "team", Source: "people/Alice.md", Destination: "teams/Eng.md", Provenance: "field", Structural: true}}, filtered.Edges)
+	require.Equal(t, []WalkEdge{{RelationName: "team", Source: "people/Alice.md", Destination: "teams/Eng.md", Provenance: "field", Structural: true}}, filtered.Edges)
 
-	structural, err := scope.Walk(ctx, noteReader, vaultDef, "people/Alice.md", ontology.WalkOptions{MaxDepth: 1})
+	structural, err := scope.Walk(ctx, "people/Alice.md", WalkOptions{MaxDepth: 1})
 	require.NoError(t, err)
 	require.Len(t, structural.Edges, 2)
 	for _, edge := range structural.Edges {
@@ -128,13 +128,13 @@ func TestScopeWalkDoesNotTruncateHighDegreeNeighborhood(t *testing.T) {
 		SchemaState: semdb.OntologySchemaState{SchemaHash: "abc", NotesHash: "def", LoadedAt: 1, Ready: true},
 	}))
 
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{
 		"Project":  {Name: "Project"},
 		"Decision": {Name: "Decision"},
 	}}
 	vaultDef := obsidian.VaultDefinition{Path: root}
-	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ctx, ScopeOptions{})
-	result, err := scope.Walk(ctx, &obsidian.Note{}, vaultDef, "notes/seed.md", ontology.WalkOptions{MaxDepth: 1, IncludeAmbient: true})
+	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
+	result, err := scope.Walk(ctx, "notes/seed.md", WalkOptions{MaxDepth: 1, IncludeAmbient: true})
 	require.NoError(t, err)
 	require.Len(t, result.Nodes, 141)
 	require.Len(t, result.Edges, 140)
@@ -162,13 +162,13 @@ func TestScopeWalkHonorsDepthLimitAndDefault(t *testing.T) {
 	}))
 
 	vaultDef := obsidian.VaultDefinition{Path: root}
-	scope := NewService(vaultDef, &obsidian.Note{}, store, &ontology.Schema{}).NewScope(ctx, ScopeOptions{})
-	depthOne, err := scope.Walk(ctx, &obsidian.Note{}, vaultDef, "notes/seed.md", ontology.WalkOptions{MaxDepth: 1})
+	scope := NewService(vaultDef, &obsidian.Note{}, store, &ontoschema.Schema{}).NewScope(ScopeOptions{})
+	depthOne, err := scope.Walk(ctx, "notes/seed.md", WalkOptions{MaxDepth: 1})
 	require.NoError(t, err)
 	require.Len(t, depthOne.Nodes, 2)
 	require.Len(t, depthOne.Edges, 1)
 
-	defaultDepth, err := scope.Walk(ctx, &obsidian.Note{}, vaultDef, "notes/seed.md", ontology.WalkOptions{})
+	defaultDepth, err := scope.Walk(ctx, "notes/seed.md", WalkOptions{})
 	require.NoError(t, err)
 	require.Len(t, defaultDepth.Nodes, 3)
 	require.Len(t, defaultDepth.Edges, 2)
@@ -178,15 +178,15 @@ func TestScopeWalkHonorsCancellationAndMissingSeed(t *testing.T) {
 	root := t.TempDir()
 	store := openWalkStore(t, root)
 	vaultDef := obsidian.VaultDefinition{Path: root}
-	scope := NewService(vaultDef, &obsidian.Note{}, store, &ontology.Schema{}).NewScope(context.Background(), ScopeOptions{})
+	scope := NewService(vaultDef, &obsidian.Note{}, store, &ontoschema.Schema{}).NewScope(ScopeOptions{})
 
-	missing, err := scope.Walk(context.Background(), &obsidian.Note{}, vaultDef, "missing.md", ontology.WalkOptions{})
+	missing, err := scope.Walk(context.Background(), "missing.md", WalkOptions{})
 	require.NoError(t, err)
-	require.Equal(t, &ontology.WalkResult{}, missing)
+	require.Equal(t, &WalkResult{}, missing)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = scope.Walk(ctx, &obsidian.Note{}, vaultDef, "missing.md", ontology.WalkOptions{})
+	_, err = scope.Walk(ctx, "missing.md", WalkOptions{})
 	require.ErrorIs(t, err, context.Canceled)
 }
 

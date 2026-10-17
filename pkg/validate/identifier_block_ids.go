@@ -3,13 +3,12 @@ package validate
 import (
 	"context"
 	"fmt"
-	"regexp"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 type identifierBlockIDMigration struct {
@@ -44,7 +43,6 @@ func RunIdentifierBlockIDMigration(ctx context.Context, runCtx RunContext, runti
 		}
 		return ""
 	}
-	cache := obsidian.BuildNotePathCacheWithAliases(allNotes, markdownSourceAliases(sources))
 
 	migrations := make([]identifierBlockIDMigration, 0)
 	for _, notePath := range allNotes {
@@ -123,7 +121,7 @@ func RunIdentifierBlockIDMigration(ctx context.Context, runCtx RunContext, runti
 
 	issues := make([]Issue, 0, len(migrations))
 	fixes := make([]FixAction, 0, len(migrations))
-	var referenceSourcesLoaded bool
+	var referenceInventory *validationSourceLinks
 	for _, m := range migrations {
 		if ctx.Err() != nil {
 			return nil, nil, ctx.Err()
@@ -137,28 +135,22 @@ func RunIdentifierBlockIDMigration(ctx context.Context, runCtx RunContext, runti
 		})
 		edits := []FixEdit{}
 		if m.oldID != "" && m.oldID != m.newID {
-			// A scoped postcheck only captured the notes it wrote. A block-id
-			// replacement still needs every source that may link to the old id.
-			if len(runCtx.postcheckPaths) > 0 && !referenceSourcesLoaded {
+			if referenceInventory == nil {
 				fullCtx := runCtx
-				fullCtx.postcheckPaths = nil
-				fullCtx.sourceSnapshot = nil
-				if reader, ok := fullCtx.NoteReader.(*validationSnapshotNoteReader); ok {
-					fullCtx.NoteReader = reader.base
+				if len(runCtx.postcheckPaths) > 0 {
+					fullCtx.postcheckPaths = nil
+					fullCtx.sourceSnapshot = nil
+					if reader, ok := fullCtx.NoteReader.(*validationSnapshotNoteReader); ok {
+						fullCtx.NoteReader = reader.base
+					}
 				}
-				fullSources, err := markdownValidationSources(ctx, fullCtx)
+				var err error
+				referenceInventory, err = validationLinksFor(ctx, fullCtx)
 				if err != nil {
 					return nil, nil, fmt.Errorf("load identifier block-id references: %w", err)
 				}
-				allNotes = make([]string, 0, len(fullSources))
-				for _, source := range fullSources {
-					allNotes = append(allNotes, source.Path.String())
-				}
-				contentByPath = markdownSourceContentByPath(fullSources)
-				cache = obsidian.BuildNotePathCacheWithAliases(allNotes, markdownSourceAliases(fullSources))
-				referenceSourcesLoaded = true
 			}
-			edits = append(edits, rewriteBlockIDReferenceEdits(ctx, allNotes, getContent, cache, m.notePath, m.oldID, m.newID)...)
+			edits = append(edits, blockIDReferenceEdits(referenceInventory, m.notePath, m.oldID, m.newID)...)
 			if ctx.Err() != nil {
 				return nil, nil, ctx.Err()
 			}
@@ -236,14 +228,12 @@ func identifierFieldName(projection *ontology.NodeProjection) string {
 // projection's preferred identifier (or any identifier as a fallback). Callers
 // that need the per-field metadata (`IsDerivableIdentifier`, `DerivedSuffix`)
 // should consult this helper rather than re-walking `projection.Type.Fields`.
-func preferredIdentifierFieldFor(projection *ontology.NodeProjection) *ontology.Field {
+func preferredIdentifierFieldFor(projection *ontology.NodeProjection) *ontoschema.Field {
 	if projection == nil || projection.Type == nil {
 		return nil
 	}
-	for _, field := range projection.Type.Fields {
-		if field != nil && field.IsPreferredIdentifier {
-			return field
-		}
+	if field := projection.Type.PreferredIdentifierField(); field != nil {
+		return field
 	}
 	for _, field := range projection.Type.Fields {
 		if field != nil && field.IsIdentifier {
@@ -253,7 +243,7 @@ func preferredIdentifierFieldFor(projection *ontology.NodeProjection) *ontology.
 	return nil
 }
 
-func identifierFieldNameOf(field *ontology.Field) string {
+func identifierFieldNameOf(field *ontoschema.Field) string {
 	if field == nil {
 		return ""
 	}
@@ -310,103 +300,17 @@ func unorderedListItemContentStart(trimmed string) (int, bool) {
 	}
 }
 
-func rewriteBlockIDReferenceEdits(ctx context.Context, allNotes []string, getContent func(string) string, cache *obsidian.NotePathCache, targetNote, oldID, newID string) []FixEdit {
-	if cache == nil || strings.TrimSpace(oldID) == "" || strings.TrimSpace(newID) == "" {
-		return nil
-	}
-	oldFragment := "^" + strings.TrimPrefix(strings.TrimSpace(oldID), "^")
-	newFragment := "^" + strings.TrimPrefix(strings.TrimSpace(newID), "^")
-	edits := make([]FixEdit, 0)
-	for _, sourceNote := range allNotes {
-		if ctx.Err() != nil {
-			return nil
-		}
-		content := getContent(sourceNote)
-		if content == "" {
+func blockIDReferenceEdits(inventory *validationSourceLinks, targetNote, oldID, newID string) []FixEdit {
+	oldFragment := "^" + strings.TrimPrefix(oldID, "^")
+	newFragment := "^" + strings.TrimPrefix(newID, "^")
+	var edits []FixEdit
+	seen := map[string]bool{}
+	for _, link := range inventory.links {
+		if !link.Exists || link.Target != targetNote || link.Fact.Fragment != oldFragment || seen[link.Source] || !validationBlockFragmentAuthored(inventory.sources[link.Source], link.Fact) {
 			continue
 		}
-		seen := false
-		for _, link := range obsidian.ScanWikilinks(content, obsidian.DefaultWikilinkOptions) {
-			rawTarget, fragment := splitFragment(link.Target)
-			if fragment != oldFragment {
-				continue
-			}
-			resolved, ok := cache.ResolveNote(rawTarget)
-			if !ok || resolved != targetNote {
-				continue
-			}
-			seen = true
-			break
-		}
-		if !seen {
-			for _, target := range obsidian.ExtractMdLinks(content, obsidian.DefaultMdLinkOptions) {
-				resolved, ok := cache.ResolveMdLinkTarget(target, sourceNote)
-				if !ok || resolved.Path != targetNote || resolved.Fragment != oldFragment {
-					continue
-				}
-				seen = true
-				break
-			}
-		}
-		if !seen {
-			continue
-		}
-		edits = append(edits, FixEdit{
-			Kind:      FixKindRewriteLinkGroup,
-			NotePath:  sourceNote,
-			OldTarget: targetNote + "#" + oldFragment,
-			NewTarget: targetNote + "#" + newFragment,
-		})
+		seen[link.Source] = true
+		edits = append(edits, FixEdit{Kind: FixKindRewriteLinkGroup, NotePath: link.Source, OldTarget: targetNote + "#" + oldFragment, NewTarget: targetNote + "#" + newFragment})
 	}
 	return edits
-}
-
-func rewriteResolvedBlockFragments(content string, cache *obsidian.NotePathCache, sourceNote, targetNote, oldFragment, newFragment string) (string, int) {
-	if cache == nil || strings.TrimSpace(targetNote) == "" || strings.TrimSpace(oldFragment) == "" || strings.TrimSpace(newFragment) == "" {
-		return content, 0
-	}
-	count := 0
-	wikiPattern := regexp.MustCompile(`(!)?\[\[(.+?)\]\]`)
-	updated := wikiPattern.ReplaceAllStringFunc(content, func(match string) string {
-		m := wikiPattern.FindStringSubmatch(match)
-		if len(m) < 3 {
-			return match
-		}
-		inner := m[2]
-		targetPart := inner
-		aliasPart := ""
-		if pipeIdx := strings.Index(inner, "|"); pipeIdx != -1 {
-			targetPart = inner[:pipeIdx]
-			aliasPart = inner[pipeIdx+1:]
-		}
-		base, fragment := splitFragment(targetPart)
-		if fragment != oldFragment {
-			return match
-		}
-		resolved, ok := cache.ResolveNote(base)
-		if !ok || resolved != targetNote {
-			return match
-		}
-		replacement := base + "#" + newFragment
-		if aliasPart != "" {
-			replacement += "|" + aliasPart
-		}
-		count++
-		return m[1] + "[[" + replacement + "]]"
-	})
-	mdPattern := regexp.MustCompile(`(!?\[[^\]]*\]\()([^)]+)(\))`)
-	updated = mdPattern.ReplaceAllStringFunc(updated, func(match string) string {
-		m := mdPattern.FindStringSubmatch(match)
-		if len(m) < 4 {
-			return match
-		}
-		resolved, ok := cache.ResolveMdLinkTarget(m[2], sourceNote)
-		if !ok || resolved.Path != targetNote || resolved.Fragment != oldFragment {
-			return match
-		}
-		base, _ := splitFragment(m[2])
-		count++
-		return m[1] + base + "#" + newFragment + m[3]
-	})
-	return updated, count
 }

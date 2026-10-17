@@ -7,67 +7,44 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"sync"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
-var (
-	noPager bool
+type invocationPager struct {
+	disabled bool
+	input    io.WriteCloser
+	process  *exec.Cmd
+}
 
-	pagerMu     sync.Mutex
-	pagerActive bool
-	pagerIn     io.WriteCloser
-	pagerCmd    *exec.Cmd
-)
-
-func maybeStartPager(cmd *cobra.Command) error {
-	if !shouldUsePager(cmd) {
+func (pager *invocationPager) maybeStart(cmd *cobra.Command) error {
+	if !shouldUsePager(cmd, pager.disabled) || pager.input != nil {
 		return nil
 	}
-
-	pagerMu.Lock()
-	defer pagerMu.Unlock()
-	if pagerActive {
-		return nil
-	}
-
-	p, in, err := startPager()
+	process, input, err := startPager()
 	if err != nil {
-		return nil // best-effort; fall back to normal stdout
-	}
-	pagerCmd = p
-	pagerIn = in
-	pagerActive = true
-
-	cmd.SetOut(pagerIn)
+		return nil
+	} // best-effort; fall back to normal stdout
+	pager.process, pager.input = process, input
+	cmd.SetOut(input)
 	return nil
 }
 
-func closePager() error {
-	pagerMu.Lock()
-	active := pagerActive
-	in := pagerIn
-	p := pagerCmd
-	pagerActive = false
-	pagerIn = nil
-	pagerCmd = nil
-	pagerMu.Unlock()
-
-	if !active {
+func (pager *invocationPager) close() error {
+	if pager.input == nil {
 		return nil
 	}
-
-	_ = in.Close()
-	if p != nil {
-		return p.Wait()
+	_ = pager.input.Close()
+	pager.input = nil
+	if pager.process != nil {
+		return pager.process.Wait()
 	}
 	return nil
 }
 
-func shouldUsePager(cmd *cobra.Command) bool {
-	if noPager {
+func shouldUsePager(cmd *cobra.Command, disabled bool) bool {
+	if disabled {
 		return false
 	}
 	if _, ok := os.LookupEnv("NO_PAGER"); ok {

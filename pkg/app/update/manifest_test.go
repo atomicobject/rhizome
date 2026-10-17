@@ -108,8 +108,8 @@ func TestFetchVersionManifestRejectsMismatchedTag(t *testing.T) {
 }
 
 func TestFetchManifestUsesClientTimeout(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		time.Sleep(100 * time.Millisecond)
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
 	}))
 	t.Cleanup(server.Close)
 	client := &http.Client{Timeout: 10 * time.Millisecond}

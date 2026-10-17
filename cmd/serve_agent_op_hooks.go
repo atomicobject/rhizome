@@ -12,15 +12,16 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
+	"github.com/atomicobject/rhizome/pkg/app/agentservices"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	appserve "github.com/atomicobject/rhizome/pkg/app/cli/serve"
 	"github.com/atomicobject/rhizome/pkg/app/oneshotruntime"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // agentOpConfigGenerationKey returns the runtime's configuration generation to
@@ -33,6 +34,7 @@ const agentOpConfigGenerationKey = "rzmConfigGeneration"
 // configuration. It owns no runtime state of its own: every call reads the
 // current snapshot so a replaced index or reopened store is observed.
 type agentOpHost struct {
+	*vaultCommandOptions
 	rt         *bootstrap.LiveRuntime
 	configPath string
 
@@ -45,12 +47,12 @@ type agentOpHost struct {
 
 // registerAgentOpHooks wires catalog operation execution for code-mode hosts
 // onto the runtime's live configuration (SPEC-0104 US4).
-func registerAgentOpHooks(hooks *appserve.ControlHooks, rt *bootstrap.LiveRuntime) {
+func (commandOptions *vaultCommandOptions) registerAgentOpHooks(hooks *appserve.ControlHooks, rt *bootstrap.LiveRuntime) {
 	if hooks == nil || rt == nil {
 		return
 	}
-	host := &agentOpHost{
-		rt: rt, configPath: filepath.Join(rt.VaultPath, obsidian.RhizomeDirName, "config.yml"),
+	host := &agentOpHost{vaultCommandOptions: commandOptions,
+		rt: rt, configPath: filepath.Join(rt.VaultPath, repoconfig.RhizomeDirName, "config.yml"),
 		reads: &actions.CodeModeRuntimeReads{Runtime: liveCodeModeReads{rt: rt}},
 	}
 	hooks.AgentOp = host.call
@@ -125,7 +127,7 @@ func (h *agentOpHost) execute(ctx context.Context, name string, req appruntime.A
 // awaited with the request context so a cold capability cannot pin the handler.
 func (h *agentOpHost) agentConfig(ctx context.Context, name string, budget int, input map[string]any) (agentapi.Config, error) {
 	operationID := agentOperationIDForToolName(name)
-	plan, err := agentOpRequestPlan(ctx, operationID, input)
+	plan, err := h.agentOpRequestPlan(ctx, operationID, input)
 	if err != nil {
 		return agentapi.Config{}, err
 	}
@@ -134,32 +136,23 @@ func (h *agentOpHost) agentConfig(ctx context.Context, name string, budget int, 
 		return agentapi.Config{}, err
 	}
 	rt := h.rt
+	cacheService := h.cacheForPlan(ctx, plan)
 	snapshot := rt.Snapshot()
-	return agentapi.Config{
-		Vault:               rt.Vault,
-		VaultPath:           rt.VaultPath,
-		VaultDef:            rt.VaultDef,
-		BudgetCharsOverride: effectiveAgentBudgetChars(rt.VaultPath, budget),
-		Debug:               debug,
-		SuppressedTags:      buildSuppressTags(),
-		Cache:               h.cacheForPlan(ctx, plan),
-		NoteMetadata:        rt.NoteMetadataIndexer(),
-		Embeddings:          snapshot.NoteIndex,
-		EmbedProvider:       snapshot.NoteProvider,
-		EmbeddingsOn:        snapshot.NoteIndex != nil && snapshot.NoteProvider != nil,
-		CodeEmbeddings:      snapshot.CodeIndex,
-		CodeEmbedProvider:   snapshot.CodeProvider,
-		CodeEmbeddingsOn:    snapshot.CodeIndex != nil && snapshot.CodeProvider != nil,
-		IntelStore:          snapshot.IntelStore,
-		SessionStore:        rt.SessionDedupeStore(),
-		Runtime:             rt,
+	return agentservices.Compose(snapshot, agentservices.Options{
+		Vault:          rt.Vault,
+		BudgetChars:    effectiveAgentBudget(snapshot.Configuration.BudgetChars, budget),
+		Debug:          h.debug,
+		SuppressedTags: h.buildSuppressTags(),
+		Cache:          cacheService,
+		NoteMetadata:   rt.NoteMetadataIndexer(),
+		Runtime:        rt,
 		// These keep runtime-executed results identical to the in-process
 		// fallback for the same operation; they are not a latency policy.
 		IndexedContextUnavailable:    indexedUnavailable,
 		IndexedReadOnlyFileContext:   name == "file_context",
 		IndexedReadOnlySemanticQuery: name == "semantic_query",
 		IntelStorePolicy:             agentOperationIntelStorePolicyForPlan(operationID, plan),
-	}, nil
+	}), nil
 }
 
 // cacheForPlan mirrors the one-shot host's note-state policy. Only a
@@ -173,7 +166,7 @@ func (h *agentOpHost) cacheForPlan(ctx context.Context, plan *oneshotruntime.Pla
 	if cacheSvc == nil || plan == nil || plan.NoteState != oneshotruntime.NoteStateCacheSnapshot {
 		return nil
 	}
-	if err := resyncCache(ctx, cacheSvc); err != nil && debug {
+	if err := resyncCache(ctx, cacheSvc); err != nil && h.debug {
 		log.Printf("agent op: cache resync: %v", err)
 	}
 	return cacheSvc
@@ -202,8 +195,8 @@ func resyncCache(ctx context.Context, cacheSvc *cache.Service) error {
 // agentOpRequestPlan mirrors prepareAgentJSONTool's planning: input is
 // normalized first, because command input — not the operation name — decides
 // which capabilities a response needs. A nil plan means full requirements.
-func agentOpRequestPlan(ctx context.Context, operationID oneshotruntime.OperationID, input map[string]any) (*oneshotruntime.Plan, error) {
-	if err := normalizeAgentRequestPlanArgs(ctx, operationID, input); err != nil {
+func (commandOptions *vaultCommandOptions) agentOpRequestPlan(ctx context.Context, operationID oneshotruntime.OperationID, input map[string]any) (*oneshotruntime.Plan, error) {
+	if err := commandOptions.normalizeAgentRequestPlanArgs(ctx, operationID, input); err != nil {
 		return nil, err
 	}
 	declaration, declared := oneshotruntime.DefaultRegistry().Declaration(operationID)
@@ -247,7 +240,7 @@ func (h *agentOpHost) awaitPlanReadiness(ctx context.Context, name string, plan 
 		err := rt.WaitForSemantic(phaseCtx)
 		done(err)
 		// Semantic providers are optional retrieval lanes; preserve lexical degradation.
-		if err != nil && debug {
+		if err != nil && h.debug {
 			log.Printf("runtime agent operation %s: semantic provider unavailable: %v", name, err)
 		}
 	}
@@ -267,7 +260,7 @@ func (h *agentOpHost) awaitPlanReadiness(ctx context.Context, name string, plan 
 			// scope followed by a delegated index must not leave runtime-hosted
 			// reads reporting a stale index until the runtime restarts.
 			expectedScopeHash := ""
-			if cfg, loadErr := obsidian.LoadLocalConfig(rt.VaultPath); loadErr == nil && cfg != nil {
+			if cfg, loadErr := repoconfig.LoadLocalConfig(rt.VaultPath); loadErr == nil && cfg != nil {
 				expectedScopeHash = cfg.ScopeConfigHash()
 			} else if rt.LocalCfg != nil {
 				expectedScopeHash = rt.LocalCfg.ScopeConfigHash()

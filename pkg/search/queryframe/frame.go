@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/atomicobject/rhizome/pkg/search"
 )
@@ -52,8 +50,6 @@ type Score struct {
 	ContentMatched   []string
 	ContentAvailable bool
 }
-
-var splitRe = regexp.MustCompile(`[\pL\pN]+`)
 
 func Extract(query string) Frame {
 	query = strings.TrimSpace(query)
@@ -411,158 +407,6 @@ func SupportSpecificityScore(evidence []search.Evidence) float64 {
 	return best
 }
 
-func tokenize(text string) []string {
-	parts := splitRe.FindAllString(text, -1)
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		for _, tok := range splitIdentifier(part) {
-			if len(tok) >= 2 {
-				out = append(out, tok)
-			}
-		}
-	}
-	return out
-}
-
-func splitIdentifier(text string) []string {
-	if text == "" {
-		return nil
-	}
-	var out []string
-	var b strings.Builder
-	var prevLower bool
-	for _, r := range text {
-		isUpper := unicode.IsUpper(r)
-		if isUpper && prevLower && b.Len() > 0 {
-			out = append(out, strings.ToLower(b.String()))
-			b.Reset()
-		}
-		b.WriteRune(r)
-		prevLower = unicode.IsLower(r)
-	}
-	if b.Len() > 0 {
-		out = append(out, strings.ToLower(b.String()))
-	}
-	return out
-}
-
-func appendTokenVariants(tokens []string, tok string) []string {
-	switch {
-	case strings.HasSuffix(tok, "ies") && len(tok) > 3:
-		tokens = append(tokens, strings.TrimSuffix(tok, "ies")+"y")
-	case strings.HasSuffix(tok, "s") && len(tok) > 3:
-		tokens = append(tokens, strings.TrimSuffix(tok, "s"))
-	}
-	switch tok {
-	case "embedded", "embedding", "embeddings", "embedder", "embedders":
-		tokens = append(tokens, "embed", "embedded", "embedding", "embeddings")
-	case "embed":
-		tokens = append(tokens, "embedded", "embedding", "embeddings")
-	case "notes", "note":
-		tokens = append(tokens, "note", "notes")
-	case "indexed", "indexing", "indexes":
-		tokens = append(tokens, "index", "indexed", "indexing")
-	}
-	return tokens
-}
-
-func supportTermGroups(raw []string) [][]string {
-	groups := make([][]string, 0, len(raw))
-	for _, token := range raw {
-		if isQuestionWord(token) || isStopWord(token) {
-			continue
-		}
-		group := orderedSet(appendTokenVariants([]string{token}, token))
-		sort.Strings(group)
-		if len(group) == 0 {
-			continue
-		}
-		mergeAt := -1
-		for index := 0; index < len(groups); index++ {
-			if !termGroupsOverlap(groups[index], group) {
-				continue
-			}
-			if mergeAt < 0 {
-				mergeAt = index
-				groups[index] = orderedSet(append(groups[index], group...))
-				sort.Strings(groups[index])
-				continue
-			}
-			groups[mergeAt] = orderedSet(append(groups[mergeAt], groups[index]...))
-			sort.Strings(groups[mergeAt])
-			groups = append(groups[:index], groups[index+1:]...)
-			index--
-		}
-		if mergeAt < 0 {
-			groups = append(groups, group)
-		}
-	}
-	return groups
-}
-
-func termGroupsOverlap(left, right []string) bool {
-	for _, l := range left {
-		for _, r := range right {
-			if l == r {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func orderedSet(tokens []string) []string {
-	seen := map[string]struct{}{}
-	out := make([]string, 0, len(tokens))
-	for _, tok := range tokens {
-		tok = strings.TrimSpace(strings.ToLower(tok))
-		if tok == "" {
-			continue
-		}
-		if _, ok := seen[tok]; ok {
-			continue
-		}
-		seen[tok] = struct{}{}
-		out = append(out, tok)
-	}
-	return out
-}
-
-func containsAny(tokens []string, values ...string) bool {
-	set := map[string]struct{}{}
-	for _, tok := range tokens {
-		set[tok] = struct{}{}
-	}
-	for _, value := range values {
-		if _, ok := set[value]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-func mentionsTests(tokens []string) bool {
-	return containsAny(tokens, "test", "tests", "coverage", "regression")
-}
-
-func isQuestionWord(tok string) bool {
-	switch tok {
-	case "how", "what", "where", "why", "when", "who", "which":
-		return true
-	default:
-		return false
-	}
-}
-
-func isStopWord(tok string) bool {
-	switch tok {
-	case "are", "is", "the", "this", "that", "does", "do", "for", "with", "and", "or", "to", "of", "in", "on", "a", "an":
-		return true
-	default:
-		return false
-	}
-}
-
 func hasCodeFormMatch(matched map[string]struct{}) bool {
 	for term := range matched {
 		if strings.Contains(term, "_") || strings.Contains(term, ".") || strings.Contains(term, "noteembed") || strings.Contains(term, "noteemb") {
@@ -609,33 +453,12 @@ func trustworthyEvidenceSnippet(evidence []search.Evidence) string {
 func sourceOwnedSnippetEvidence(evidence search.Evidence) bool {
 	switch strings.TrimSpace(evidence.Type) {
 	case "intel_fts_match", "intel_doc_match":
-		return strings.TrimSpace(evidence.Source) == "pkg/anchors/sqlite"
+		return strings.TrimSpace(evidence.Source) == "pkg/store"
 	case "rationale_fts_match":
 		return strings.TrimSpace(evidence.Source) == "rationale_fts"
 	default:
 		return false
 	}
-}
-
-// ConceptCoverage returns the share of the query's concepts whose term or a
-// variant appears as a word in text.
-func (f Frame) ConceptCoverage(text string) float64 {
-	if len(f.SupportTermGroups) == 0 {
-		return 0
-	}
-	words := map[string]struct{}{}
-	for _, tok := range tokenize(text) {
-		for _, variant := range appendTokenVariants([]string{tok}, tok) {
-			words[variant] = struct{}{}
-		}
-	}
-	matched := 0
-	for _, group := range f.SupportTermGroups {
-		if termGroupMatches(words, group) {
-			matched++
-		}
-	}
-	return float64(matched) / float64(len(f.SupportTermGroups))
 }
 
 // linkTextAliases joins the labels that several linking notes agree on. They

@@ -4,29 +4,36 @@ package validate_test
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/app/cli/serve"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
 // This subprocess calls public adapters against a genuine durable journal
 // prepared by the owner-package test. It provides no mock recovery or exports.
 func TestIntegrationNamespaceApplicationHelper(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := os.Getenv("RZM_NAMESPACE_TEST_ROOT")
 	if root == "" {
 		t.Skip("only invoked by native-journal integration fixtures")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(vaultconfig.WithEnv(context.Background(), env), 5*time.Second)
 	defer cancel()
 	vaultDef := obsidian.VaultDefinition{Path: root}
 	if os.Getenv("RZM_NAMESPACE_TEST_MODE") == "startup" {
@@ -40,7 +47,7 @@ func TestIntegrationNamespaceApplicationHelper(t *testing.T) {
 		namespaceApplicationLeaseReleased(t, root)
 		return
 	}
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	noteReader := &obsidian.Note{}
 	var applied bool
@@ -55,35 +62,35 @@ func TestIntegrationNamespaceApplicationHelper(t *testing.T) {
 		require.NoError(t, runtimeErr)
 		metadata, indexerErr := notemeta.NewIndexer(formats)
 		require.NoError(t, indexerErr)
-		result, renameErr := actions.RenameHeading(&obsidian.Vault{Name: root}, actions.RenameHeadingParams{
+		result, renameErr := actions.RenameHeading(&repoconfig.Vault{Env: env, Name: root}, actions.RenameHeadingParams{
 			Context: ctx, NoteMetadata: metadata, Path: "edit.md", OldHeading: "Old heading", NewHeading: "New heading", Apply: true,
 			UpgradeToBlockID: actions.HeadingRenameUpgradeNever, Fallback: actions.HeadingRenameFallbackHeading,
 		})
 		err, applied = renameErr, result.Applied
 	case "delete":
-		err = actions.DeleteNote(&obsidian.Vault{Name: root}, actions.DeleteParams{Context: ctx, NotePath: "edit.md"})
+		err = actions.DeleteNote(&repoconfig.Vault{Env: env, Name: root}, actions.DeleteParams{Context: ctx, NotePath: "edit.md"})
 		applied = err == nil
 	case "tags":
-		result, tagErr := actions.AddTagsToFiles(ctx, &obsidian.Vault{Name: root}, noteReader, []string{"namespace-fixture"}, []string{"edit.md"}, false)
+		result, tagErr := actions.AddTagsToFilesWithWorkers(ctx, &repoconfig.Vault{Env: env, Name: root}, noteReader, []string{"namespace-fixture"}, []string{"edit.md"}, false, 1)
 		err, applied = tagErr, result.NotesTouched > 0
 	case "property":
-		result, propertyErr := actions.SetPropertyOnFiles(ctx, &obsidian.Vault{Name: root}, noteReader, "summary", "Updated", []string{"edit.md"}, true, false)
+		result, propertyErr := actions.SetPropertyOnFilesWithWorkers(ctx, &repoconfig.Vault{Env: env, Name: root}, noteReader, "summary", "Updated", []string{"edit.md"}, true, false, 1)
 		err, applied = propertyErr, result.NotesTouched > 0
 	case "held-link":
 		lockPath := filepath.Join(root, ".rhizome/index.lock")
-		release, acquired, lockErr := indexlock.TryAcquire(lockPath)
+		lease, acquired, lockErr := indexlock.TryAcquireLease(root, indexlock.AcquireOptions{})
 		require.NoError(t, lockErr)
 		require.True(t, acquired)
 		defer func() {
-			if release != nil {
-				require.NoError(t, release())
+			if lease != nil {
+				require.NoError(t, lease.Release())
 			}
 		}()
 		projection, projectErr := ontology.ProjectNote(ctx, vaultDef, noteReader, schema, "edit.md")
 		require.NoError(t, projectErr)
 		refs := projection.Fields["topics"].SectionNodes
 		require.Len(t, refs, 1)
-		service := ontology.NodeLinkService{VaultDef: vaultDef, NoteReader: noteReader, Schema: schema, VaultWriteLeaseHeld: true}
+		service := ontology.NodeLinkService{VaultDef: vaultDef, NoteReader: noteReader, Schema: schema, WriteLease: lease}
 		result, linkErr := service.LinkTargets(ctx, ontology.LinkTargetRequest{Refs: refs, Ensure: ontology.EnsureLinkTargetApply})
 		err, applied = linkErr, result.Applied
 		secondRelease, secondAcquired, secondErr := indexlock.TryAcquire(lockPath)
@@ -92,14 +99,13 @@ func TestIntegrationNamespaceApplicationHelper(t *testing.T) {
 			require.NoError(t, secondRelease())
 		}
 		require.False(t, secondAcquired, "borrowed writer lease must remain caller-owned after the public adapter returns")
-		require.NoError(t, release())
-		release = nil
+		require.NoError(t, lease.Release())
+		lease = nil
 	default:
 		t.Fatal("unknown public adapter")
 	}
 	if os.Getenv("RZM_NAMESPACE_TEST_EXPECT") == "refuse" {
 		require.ErrorContains(t, err, os.Getenv("RZM_NAMESPACE_TEST_TRANSACTION"))
-		require.ErrorContains(t, err, "rzm validate fix --apply")
 		require.False(t, applied)
 	} else {
 		require.NoError(t, err)

@@ -10,22 +10,17 @@ import (
 	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
-)
-
-var (
-	indexScopeJSON    bool
-	indexScopeSkip    []string
-	indexScopeRemove  []string
-	indexScopeInclude []string
 )
 
 var errScopeNotConfigured = errors.New("this folder is not set up for Rhizome; run rzm init first")
 
-var indexScopeCmd = &cobra.Command{
-	Use:   "scope",
-	Short: "Show and change what gets indexed",
-	Long: `Show the rules that decide which paths Rhizome indexes, layer by layer in
+func (commandOptions *indexInvocationOptions) makeIndexScopeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "scope",
+		Short: "Show and change what gets indexed",
+		Long: `Show the rules that decide which paths Rhizome indexes, layer by layer in
 evaluation order: the built-in list while .rhizome/ignore has no rules, the
 .gitignore files Rhizome reads, .rhizome/ignore, and notes excludes in
 .rhizome/config.yml. Hidden files and folders are never indexed, and the last
@@ -40,56 +35,57 @@ Examples:
   rzm index scope
   rzm index scope --skip web/src/api/generated
   rzm index scope --remove-rule /testdata/ --json`,
-	Args:          cobra.NoArgs,
-	SilenceUsage:  true,
-	SilenceErrors: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		edits := initactions.ScopeEdits{Skip: indexScopeSkip, RemoveRules: indexScopeRemove, IncludeIgnored: indexScopeInclude}
-		def, err := indexScopeVault(cmd)
-		var scope initactions.Scope
-		if err == nil {
-			scope, err = initactions.ChangeScope(def.BasePath(), def.Excludes, edits)
-		}
-		out := cmd.OutOrStdout()
-		if !indexScopeJSON {
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			edits := initactions.ScopeEdits{Skip: commandOptions.indexScopeSkip, RemoveRules: commandOptions.indexScopeRemove, IncludeIgnored: commandOptions.indexScopeInclude}
+			def, err := commandOptions.indexScopeVault(cmd)
+			var scope initactions.Scope
+			if err == nil {
+				scope, err = initactions.ChangeScope(def.BasePath(), def.Excludes, edits)
+			}
+			out := cmd.OutOrStdout()
+			if !commandOptions.indexScopeJSON {
+				if err != nil {
+					return err
+				}
+				writeScope(out, def.BasePath(), scope)
+				return nil
+			}
 			if err != nil {
-				return err
+				failure := initJSONFailure{Schema: initactions.SetupSchema}
+				failure.Error.Code, failure.Error.Message = "scope_failed", err.Error()
+				if errors.Is(err, errScopeNotConfigured) {
+					failure.Error.Code = "not_configured"
+				}
+				if encodeErr := json.NewEncoder(out).Encode(failure); encodeErr != nil {
+					return encodeErr
+				}
+				return silentExitError{code: 1}
 			}
-			writeScope(out, def.BasePath(), scope)
-			return nil
-		}
-		if err != nil {
-			failure := initJSONFailure{Schema: initactions.SetupSchema}
-			failure.Error.Code, failure.Error.Message = "scope_failed", err.Error()
-			if errors.Is(err, errScopeNotConfigured) {
-				failure.Error.Code = "not_configured"
-			}
-			if encodeErr := json.NewEncoder(out).Encode(failure); encodeErr != nil {
-				return encodeErr
-			}
-			return silentExitError{code: 1}
-		}
-		return json.NewEncoder(out).Encode(struct {
-			Schema int    `json:"schema"`
-			Root   string `json:"root"`
-			initactions.Scope
-		}{initactions.SetupSchema, def.BasePath(), scope})
-	},
+			return json.NewEncoder(out).Encode(struct {
+				Schema int    `json:"schema"`
+				Root   string `json:"root"`
+				initactions.Scope
+			}{initactions.SetupSchema, def.BasePath(), scope})
+		},
+	}
 }
 
 // indexScopeVault is the configured folder containing the working
 // directory, or the vault --vault names. Unlike other commands, it never
 // falls back to the default vault, so an unconfigured folder is an error.
-func indexScopeVault(cmd *cobra.Command) (obsidian.VaultDefinition, error) {
-	if vaultName != "" {
-		return vaultDefOrDefaultContext(cmd.Context())
+func (commandOptions *vaultCommandOptions) indexScopeVault(cmd *cobra.Command) (obsidian.VaultDefinition, error) {
+	if commandOptions.vaultName != "" {
+		return commandOptions.vaultDefOrDefaultContext(cmd.Context())
 	}
 	cwd, err := commandEnvFromContext(cmd.Context()).Getwd()
 	if err != nil {
 		return obsidian.VaultDefinition{}, err
 	}
 	def, err := localVaultDefFromCWD(cwd)
-	if errors.Is(err, obsidian.ErrNoLocalConfig) {
+	if errors.Is(err, repoconfig.ErrNoLocalConfig) {
 		return def, errScopeNotConfigured
 	}
 	return def, err
@@ -126,10 +122,10 @@ func writeScope(out io.Writer, root string, scope initactions.Scope) {
 	}
 }
 
-func init() {
-	indexScopeCmd.Flags().BoolVar(&indexScopeJSON, "json", false, "write one JSON document")
-	indexScopeCmd.Flags().StringArrayVar(&indexScopeSkip, "skip", nil, "leave a folder or file out of the index (repeatable)")
-	indexScopeCmd.Flags().StringArrayVar(&indexScopeRemove, "remove-rule", nil, "remove a rule from .rhizome/ignore by its exact text (repeatable)")
-	indexScopeCmd.Flags().StringArrayVar(&indexScopeInclude, "include-ignored", nil, "index a folder .gitignore excludes (repeatable)")
+func (commandOptions *indexInvocationOptions) registerIndexScopeCommands(indexScopeCmd, indexCmd *cobra.Command) {
+	indexScopeCmd.Flags().BoolVar(&commandOptions.indexScopeJSON, "json", false, "write one JSON document")
+	indexScopeCmd.Flags().StringArrayVar(&commandOptions.indexScopeSkip, "skip", nil, "leave a folder or file out of the index (repeatable)")
+	indexScopeCmd.Flags().StringArrayVar(&commandOptions.indexScopeRemove, "remove-rule", nil, "remove a rule from .rhizome/ignore by its exact text (repeatable)")
+	indexScopeCmd.Flags().StringArrayVar(&commandOptions.indexScopeInclude, "include-ignored", nil, "index a folder .gitignore excludes (repeatable)")
 	indexCmd.AddCommand(indexScopeCmd)
 }

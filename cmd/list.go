@@ -6,19 +6,11 @@ import (
 	"os"
 	"sync"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
-)
-
-var (
-	maxDepth         int
-	skipAnchors      bool
-	skipEmbeds       bool
-	absolutePaths    bool
-	debug            bool
-	includeBacklinks bool
 )
 
 // isTerminal returns true if stdout is a terminal
@@ -30,11 +22,12 @@ func isTerminal() bool {
 	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }
 
-var listCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"l"},
-	Short:   "List files in vault with various filtering options, such as tag:a-tag or find:a-filename-pattern",
-	Long: `List files in your Obsidian vault with various filtering options:
+func (commandOptions *vaultCommandOptions) makeListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "list",
+		Aliases: []string{"l"},
+		Short:   "List files in vault with various filtering options, such as tag:a-tag or find:a-filename-pattern",
+		Long: `List files in your Obsidian vault with various filtering options:
 
 Examples:
   rhizome list Notes                          # the Notes folder
@@ -44,38 +37,38 @@ Examples:
   rhizome list tag:"career-pathing" -d 2      # Notes tagged with "career-pathing", notes they link to, and the notes those link to
   rhizome list find:project -d 1 --skip-anchors # Notes whose names match pattern plus directly linked notes, excluding anchors
   rhizome list find:notes -d 1 --skip-embeds    # Notes whose names match pattern plus directly linked notes, excluding embedded links`,
-	Args: cobra.ArbitraryArgs,
-	RunE: runList,
+		Args: cobra.ArbitraryArgs,
+		RunE: commandOptions.runList,
+	}
 }
 
-func init() {
-	listCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	listCmd.Flags().IntVarP(&maxDepth, "depth", "d", 0, "maximum depth for following wikilinks (0 means don't follow)")
-	listCmd.Flags().BoolVar(&skipAnchors, "skip-anchors", false, "skip wikilinks that contain anchors (e.g. [[Note#Section]])")
-	listCmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks (e.g. ![[Embedded Note]])")
-	listCmd.Flags().BoolVarP(&absolutePaths, "absolute", "a", false, "print absolute paths")
-	listCmd.Flags().BoolVar(&debug, "debug", false, "enable debug output")
-	listCmd.Flags().BoolVar(&includeBacklinks, "backlinks", false, "include first-degree backlinks for each matched file")
+func (commandOptions *vaultCommandOptions) registerListCommands(listCmd, rootCmd *cobra.Command) {
+	listCmd.Flags().StringVarP(&commandOptions.vaultName, "vault", "v", "", "vault name")
+	listCmd.Flags().IntVarP(&commandOptions.maxDepth, "depth", "d", 0, "maximum depth for following wikilinks (0 means don't follow)")
+	listCmd.Flags().BoolVar(&commandOptions.skipAnchors, "skip-anchors", false, "skip wikilinks that contain anchors (e.g. [[Note#Section]])")
+	listCmd.Flags().BoolVar(&commandOptions.skipEmbeds, "skip-embeds", false, "skip embedded wikilinks (e.g. ![[Embedded Note]])")
+	listCmd.Flags().BoolVarP(&commandOptions.absolutePaths, "absolute", "a", false, "print absolute paths")
+	listCmd.Flags().BoolVar(&commandOptions.debug, "debug", false, "enable debug output")
+	listCmd.Flags().BoolVar(&commandOptions.includeBacklinks, "backlinks", false, "include first-degree backlinks for each matched file")
 	rootCmd.AddCommand(listCmd)
 }
 
-func runList(cmd *cobra.Command, args []string) error {
-	actions.Debug = debug
+func (commandOptions *vaultCommandOptions) runList(cmd *cobra.Command, args []string) error {
 
 	// If no vault name is provided, get the default vault name
-	if vaultName == "" {
-		vault := &obsidian.Vault{}
+	if commandOptions.vaultName == "" {
+		vault := &repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config}
 		defaultName, err := vault.DefaultName()
 		if err != nil {
 			return err
 		}
-		vaultName = defaultName
-		if debug {
-			log.Printf("Using default vault name: %s", vaultName)
+		commandOptions.vaultName = defaultName
+		if commandOptions.debug {
+			log.Printf("Using default vault name: %s", commandOptions.vaultName)
 		}
 	}
 
-	vault := obsidian.Vault{Name: vaultName}
+	vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: commandOptions.vaultName}
 	vaultDef, err := vault.Definition()
 	if err != nil {
 		return err
@@ -85,7 +78,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if debug {
+	if commandOptions.debug {
 		log.Printf("Number of input args: %d", len(args))
 	}
 
@@ -104,7 +97,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		})
 	}
 
-	if debug {
+	if commandOptions.debug {
 		log.Printf("Number of parsed inputs: %d", len(inputs))
 	}
 
@@ -117,23 +110,26 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if debug {
+	if commandOptions.debug {
 		log.Printf("Vault path: %s", vaultPath)
 	}
 
 	params := actions.ListParams{
 		Inputs:        inputs,
-		MaxDepth:      maxDepth,
-		SkipAnchors:   skipAnchors,
-		SkipEmbeds:    skipEmbeds,
-		AbsolutePaths: absolutePaths,
+		MaxDepth:      commandOptions.maxDepth,
+		SkipAnchors:   commandOptions.skipAnchors,
+		SkipEmbeds:    commandOptions.skipEmbeds,
+		AbsolutePaths: commandOptions.absolutePaths,
 		Expression:    expr,
+	}
+	if commandOptions.debug {
+		params.DebugOutput = cmd.ErrOrStderr()
 	}
 
 	var backlinks map[string][]obsidian.Backlink
 	var primaryMatches []string
 
-	if includeBacklinks {
+	if commandOptions.includeBacklinks {
 		params.IncludeBacklinks = true
 		params.Backlinks = &backlinks
 		params.PrimaryMatches = &primaryMatches
@@ -154,7 +150,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		}
 		seen[p] = true
 		path := p
-		if absolutePaths {
+		if commandOptions.absolutePaths {
 			if absPath, err := vaultPaths.Abs(paths.RelPath(p)); err == nil && absPath.String() != "" {
 				path = absPath.String()
 			}
@@ -166,7 +162,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if includeBacklinks {
+	if commandOptions.includeBacklinks {
 		primaries := primaryMatches
 		if len(primaries) == 0 {
 			primaries = matches

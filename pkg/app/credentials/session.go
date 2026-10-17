@@ -2,12 +2,13 @@ package credentials
 
 import (
 	"bufio"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
-	"os"
+
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/teamkeys"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // Session owns per-run credential state. Create one Session per CLI run and
@@ -20,10 +21,11 @@ import (
 // Keys and skips are persisted to the global CLI config immediately when
 // entered, never staged for an end-of-run save.
 type Session struct {
+	env    vaultconfig.Env
 	reader *bufio.Reader
 	out    io.Writer
 
-	teamCoverage func() bool
+	teamCoverage func(string) bool
 	teamBundled  func() bool
 	teamUnlocks  func(string) bool
 	provided     map[string]string
@@ -44,7 +46,7 @@ func WithPrompts(reader *bufio.Reader, out io.Writer) Option {
 
 // WithTeamCoverage overrides the team-key coverage check (defaults to: the
 // Atomic Object key resolves and decrypts the embedded team keys).
-func WithTeamCoverage(covered func() bool) Option {
+func WithTeamCoverage(covered func(string) bool) Option {
 	return func(s *Session) {
 		s.teamCoverage = covered
 	}
@@ -60,8 +62,8 @@ func WithTeamKeyBundle(bundled func() bool, unlocks func(string) bool) Option {
 }
 
 // NewSession creates a Session with default team-key coverage.
-func NewSession(opts ...Option) *Session {
-	s := &Session{
+func NewSession(env vaultconfig.Env, opts ...Option) *Session {
+	s := &Session{env: env,
 		teamBundled: teamkeys.Bundled,
 		teamUnlocks: teamkeys.Unlocks,
 		provided:    map[string]string{},
@@ -82,13 +84,13 @@ func (s *Session) CanPrompt() bool {
 // precedence: process env, then keys provided this run, then the persisted
 // CLI config env block.
 func (s *Session) Resolve(key string) string {
-	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+	if value := strings.TrimSpace(sessionEnvValue(s.env, key)); value != "" {
 		return value
 	}
 	if value := strings.TrimSpace(s.provided[key]); value != "" {
 		return value
 	}
-	cfg, err := obsidian.LoadCliConfig(true)
+	cfg, err := repoconfig.LoadCliConfig(s.env, true)
 	if err != nil {
 		return ""
 	}
@@ -112,7 +114,7 @@ func (s *Session) Skipped(key string) bool {
 	if s.skipped[key] {
 		return true
 	}
-	cfg, err := obsidian.LoadCliConfig(true)
+	cfg, err := repoconfig.LoadCliConfig(s.env, true)
 	if err != nil {
 		return false
 	}
@@ -120,14 +122,14 @@ func (s *Session) Skipped(key string) bool {
 }
 
 // Provide persists the key to the global CLI config immediately, clears any
-// skip for it, and exports it to the process env so every resolver in this
-// run (and future commands) sees it. Empty values are ignored.
+// skip for it, and keeps the value in this session. Consumers sharing the
+// invocation Env can also resolve the persisted value. Empty values are ignored.
 func (s *Session) Provide(key, value string) error {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return nil
 	}
-	cfg, err := obsidian.LoadCliConfig(true)
+	cfg, err := repoconfig.LoadCliConfig(s.env, true)
 	if err != nil {
 		return err
 	}
@@ -136,23 +138,18 @@ func (s *Session) Provide(key, value string) error {
 	}
 	cfg.Env[key] = value
 	delete(cfg.CredentialSkips, key)
-	if err := obsidian.SaveCliConfig(cfg); err != nil {
+	if err := repoconfig.SaveCliConfig(s.env, cfg); err != nil {
 		return err
 	}
 	s.provided[key] = value
 	delete(s.skipped, key)
-	if err := os.Setenv(key, value); err != nil {
-		return err
-	}
-	if key == AtomicRhizomeKey {
-		teamkeys.ResetCache()
-	}
+
 	return nil
 }
 
 // Skip records and persists a "skip for now" decision for key.
 func (s *Session) Skip(key string) error {
-	cfg, err := obsidian.LoadCliConfig(true)
+	cfg, err := repoconfig.LoadCliConfig(s.env, true)
 	if err != nil {
 		return err
 	}
@@ -160,7 +157,7 @@ func (s *Session) Skip(key string) error {
 		cfg.CredentialSkips = map[string]bool{}
 	}
 	cfg.CredentialSkips[key] = true
-	if err := obsidian.SaveCliConfig(cfg); err != nil {
+	if err := repoconfig.SaveCliConfig(s.env, cfg); err != nil {
 		return err
 	}
 	s.skipped[key] = true
@@ -169,10 +166,15 @@ func (s *Session) Skip(key string) error {
 
 func (s *Session) teamCovered() bool {
 	if s.teamCoverage != nil {
-		return s.teamCoverage()
+		return s.teamCoverage(s.Resolve(AtomicRhizomeKey))
 	}
 	if s.Resolve(AtomicRhizomeKey) == "" {
 		return false
 	}
-	return teamkeys.Available()
+	return teamkeys.Available(s.env)
+}
+
+func sessionEnvValue(env vaultconfig.Env, key string) string {
+	value, _ := env.Lookup(key)
+	return value
 }

@@ -3,10 +3,12 @@ package cmd
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"strings"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/spf13/cobra"
@@ -32,41 +34,46 @@ type queryRecipeOptions struct {
 	summary    bool
 }
 
-func newQueryRecipeService() actions.QueryRecipeService {
+func (commandOptions *vaultCommandOptions) newQueryRecipeService(ctx context.Context) actions.QueryRecipeService {
+	var execSchema *ontologyquery.ExecutableSchema
+	var sourceSchema *ontoschema.Schema
 	return actions.QueryRecipeService{
-		Load: loadQueryRecipesForCommand,
+		Load: func(path string) ([]queryrecipe.Recipe, []queryrecipe.Issue, error) {
+			return commandOptions.loadQueryRecipesForCommand(ctx, path)
+		},
 		Schema: func() (*ontologyquery.ExecutableSchema, error) {
-			_, schema, err := loadQueryRecipeSchema()
+			source, schema, err := commandOptions.loadOntologyExecutableSchemaForRecipe(ctx)
+			sourceSchema, execSchema = source, schema
 			return schema, err
 		},
-		Execute: func(ctx context.Context, query string, variables map[string]any) (ontologyquery.Result, error) {
-			runtime, prepared, cleanup, err := prepareOntologyQuery(ctx, query, variables)
+		Execute: func(ctx context.Context, prepared *ontologyquery.PreparedQuery) (ontologyquery.Result, error) {
+			runtime, cleanup, err := commandOptions.openOntologyQueryRuntime(ctx, sourceSchema, execSchema, prepared)
 			if cleanup != nil {
 				defer cleanup()
 			}
 			if err != nil {
 				return ontologyquery.Result{}, err
 			}
-			return ontologyquery.ExecutePrepared(ctx, runtime.deps(), runtime.schema, runtime.execSchema, prepared), nil
+			return runtime.run(ctx, prepared)
 		},
 	}
 }
 
-func newQueryRecipeCmd(agent bool) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newQueryRecipeCmd(agent bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "query-recipe",
 		Short: "List, validate, show, and run saved query recipes",
 	}
-	cmd.AddCommand(newQueryRecipeListCmd(agent, &queryRecipeOptions{}))
-	cmd.AddCommand(newQueryRecipeValidateCmd(agent, &queryRecipeOptions{}))
-	cmd.AddCommand(newQueryRecipeRunCmd(agent, &queryRecipeOptions{}))
+	cmd.AddCommand(commandOptions.newQueryRecipeListCmd(agent, &queryRecipeOptions{}))
+	cmd.AddCommand(commandOptions.newQueryRecipeValidateCmd(agent, &queryRecipeOptions{}))
+	cmd.AddCommand(commandOptions.newQueryRecipeRunCmd(agent, &queryRecipeOptions{}))
 	if !agent {
-		cmd.AddCommand(newQueryRecipeShowCmd(&queryRecipeOptions{}))
+		cmd.AddCommand(commandOptions.newQueryRecipeShowCmd(&queryRecipeOptions{}))
 	}
 	return cmd
 }
 
-func newQueryRecipeListCmd(agent bool, opts *queryRecipeOptions) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newQueryRecipeListCmd(agent bool, opts *queryRecipeOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List saved query recipes",
@@ -77,13 +84,13 @@ func newQueryRecipeListCmd(agent bool, opts *queryRecipeOptions) *cobra.Command 
 				}
 			}
 			if useRecipeJSON(agent, opts.jsonOutput) {
-				response, err := newQueryRecipeService().List(opts.path)
+				response, err := commandOptions.newQueryRecipeService(cmd.Context()).List(opts.path)
 				if err != nil {
 					return writeQueryRecipeCommandError(agent, err)
 				}
 				return writeJSON(cmd.OutOrStdout(), response)
 			}
-			recipes, issues, err := newQueryRecipeService().Catalog(opts.path)
+			recipes, issues, err := commandOptions.newQueryRecipeService(cmd.Context()).Catalog(opts.path)
 			if err != nil {
 				return writeQueryRecipeCommandError(agent, err)
 			}
@@ -95,7 +102,7 @@ func newQueryRecipeListCmd(agent bool, opts *queryRecipeOptions) *cobra.Command 
 	return cmd
 }
 
-func newQueryRecipeValidateCmd(agent bool, opts *queryRecipeOptions) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newQueryRecipeValidateCmd(agent bool, opts *queryRecipeOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate saved query recipes against the live ontology query schema",
@@ -105,7 +112,7 @@ func newQueryRecipeValidateCmd(agent bool, opts *queryRecipeOptions) *cobra.Comm
 					return writeQueryRecipeCommandError(true, err)
 				}
 			}
-			response, err := newQueryRecipeService().Validate(opts.path)
+			response, err := commandOptions.newQueryRecipeService(cmd.Context()).Validate(opts.path)
 			if err != nil {
 				return writeQueryRecipeCommandError(agent, err)
 			}
@@ -129,13 +136,13 @@ func newQueryRecipeValidateCmd(agent bool, opts *queryRecipeOptions) *cobra.Comm
 	return cmd
 }
 
-func newQueryRecipeShowCmd(opts *queryRecipeOptions) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newQueryRecipeShowCmd(opts *queryRecipeOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show a saved query recipe with a synthesized invocation example",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			selection, err := newQueryRecipeService().Find(opts.path, args[0])
+			selection, err := commandOptions.newQueryRecipeService(cmd.Context()).Find(opts.path, args[0])
 			if err != nil {
 				return err
 			}
@@ -155,7 +162,7 @@ func newQueryRecipeShowCmd(opts *queryRecipeOptions) *cobra.Command {
 	return cmd
 }
 
-func newQueryRecipeRunCmd(agent bool, opts *queryRecipeOptions) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newQueryRecipeRunCmd(agent bool, opts *queryRecipeOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run a saved query recipe",
@@ -168,7 +175,7 @@ func newQueryRecipeRunCmd(agent bool, opts *queryRecipeOptions) *cobra.Command {
 			if cmd.Flags().Changed("anchor") {
 				anchors = opts.anchors
 			}
-			response, validation, err := newQueryRecipeService().Run(cmd.Context(), opts.path, opts.id, inputs, anchors)
+			response, validation, err := commandOptions.newQueryRecipeService(cmd.Context()).Run(cmd.Context(), opts.path, opts.id, inputs, anchors)
 			if err != nil {
 				return writeQueryRecipeCommandError(agent, err)
 			}
@@ -222,9 +229,9 @@ func useRecipeJSON(agent, jsonFlag bool) bool {
 	return agent || jsonFlag
 }
 
-func loadQueryRecipesForCommand(path string) ([]queryrecipe.Recipe, []queryrecipe.Issue, error) {
+func (commandOptions *vaultCommandOptions) loadQueryRecipesForCommand(ctx context.Context, path string) ([]queryrecipe.Recipe, []queryrecipe.Issue, error) {
 	if strings.TrimSpace(path) == "" {
-		vaultDef, err := vaultDefOrDefault()
+		vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -235,8 +242,8 @@ func loadQueryRecipesForCommand(path string) ([]queryrecipe.Recipe, []queryrecip
 	return recipes, issues, nil
 }
 
-func loadQueryRecipeSchema() (any, *ontologyquery.ExecutableSchema, error) {
-	vaultDef, err := vaultDefOrDefault()
+func (commandOptions *vaultCommandOptions) loadOntologyExecutableSchemaForRecipe(ctx context.Context) (*ontoschema.Schema, *ontologyquery.ExecutableSchema, error) {
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -292,12 +299,12 @@ func writeQueryRecipeCommandError(agent bool, err error) error {
 	return err
 }
 
-func init() {
-	cmd := newQueryRecipeCmd(false)
+func (commandOptions *vaultCommandOptions) registerQueryRecipeCommands(rootCmd *cobra.Command) {
+	cmd := commandOptions.newQueryRecipeCmd(false)
 	// WHY: vault selection is needed by every subcommand (list/validate/run/show);
 	// register it as a persistent flag so the root variant matches the
 	// ergonomics callers had under `rzm ontology query-recipe`. The agent
 	// variant inherits `--vault` from `agentCmd.PersistentFlags()`.
-	cmd.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault name (uses default if unset)")
+	cmd.PersistentFlags().StringVarP(&commandOptions.vaultName, "vault", "v", "", "vault name (uses default if unset)")
 	rootCmd.AddCommand(cmd)
 }

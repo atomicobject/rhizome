@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,12 +29,14 @@ const (
 type ExecuteOptions struct {
 	Code string
 	// Input is an optional JSON value the script reads as input; null when absent.
-	Input          json.RawMessage
-	ExecutablePath string
-	VaultPath      string
-	SessionID      string
-	ReadWrite      bool
-	Timeout        time.Duration
+	Input     json.RawMessage
+	VaultPath string
+	SessionID string
+	ReadWrite bool
+	Timeout   time.Duration
+	// OperationHost serves the existing code-mode protocol with invocation-owned
+	// configuration. It must finish all operations when its context is cancelled.
+	OperationHost func(context.Context, io.Reader, io.Writer, bool) error
 }
 
 type ExecuteError struct {
@@ -50,14 +53,11 @@ type ExecuteResult struct {
 }
 
 type executeInput struct {
-	Code           string          `json:"code"`
-	Input          json.RawMessage `json:"input,omitempty"`
-	ExecutablePath string          `json:"executablePath"`
-	VaultPath      string          `json:"vaultPath"`
-	SessionID      string          `json:"sessionId,omitempty"`
-	ReadWrite      bool            `json:"readWrite"`
-	Module         string          `json:"module"`
-	Operations     []string        `json:"operations"`
+	Code       string          `json:"code"`
+	Input      json.RawMessage `json:"input,omitempty"`
+	SessionID  string          `json:"sessionId,omitempty"`
+	Module     string          `json:"module"`
+	Operations []string        `json:"operations"`
 }
 
 type executeEnvelope struct {
@@ -68,7 +68,7 @@ type executeEnvelope struct {
 }
 
 // Execute evaluates a script against every cataloged code-mode operation. It
-// owns the generated client and its child process for the duration of the call.
+// owns the generated stream client, operation host and JavaScript child process.
 func Execute(ctx context.Context, options ExecuteOptions) (ExecuteResult, error) {
 	timeout, nodePath, err := validateExecuteOptions(options)
 	if err != nil {
@@ -80,10 +80,12 @@ func Execute(ctx context.Context, options ExecuteOptions) (ExecuteResult, error)
 	if err != nil {
 		return ExecuteResult{}, fmt.Errorf("describe managed operations: %w", err)
 	}
-	module := generateModule(description)
+	// The stream constructor is internal to managed execution; standalone
+	// generated artifacts expose only their process-owned createClient.
+	module := generateModule(description) + "\nexport { createManagedClient };\n"
 	input, err := json.Marshal(executeInput{
-		Code: options.Code, Input: options.Input, ExecutablePath: options.ExecutablePath, VaultPath: options.VaultPath,
-		SessionID: options.SessionID, ReadWrite: options.ReadWrite, Module: module, Operations: description.Selected,
+		Code: options.Code, Input: options.Input, SessionID: options.SessionID,
+		Module: module, Operations: description.Selected,
 	})
 	if err != nil {
 		return ExecuteResult{}, fmt.Errorf("encode execution input: %w", err)
@@ -94,15 +96,21 @@ func Execute(ctx context.Context, options ExecuteOptions) (ExecuteResult, error)
 	command := exec.Command(nodePath, "--input-type=module", "--eval", executeRunner)
 	configureExecuteCommand(command)
 	command.Dir = options.VaultPath
-	command.Stdin = bytes.NewReader(input)
+	nodeInput, err := command.StdinPipe()
+	if err != nil {
+		return ExecuteResult{}, fmt.Errorf("open JavaScript input: %w", err)
+	}
+	transport := newExecuteTransport(executionCtx, nodeInput)
+	defer transport.close()
 	command.WaitDelay = time.Second
-	var stdout, stderr cappedBuffer
-	stdout.limit, stderr.limit = maxExecuteOutputBytes, maxExecuteDiagnostics
-	command.Stdout, command.Stderr = &stdout, &stderr
+	var stderr cappedBuffer
+	stderr.limit = maxExecuteDiagnostics
+	command.Stdout, command.Stderr = transport, &stderr
 	if err := command.Start(); err != nil {
 		return ExecuteResult{}, fmt.Errorf("node_runtime_unavailable: start Node.js runtime %q: %w", nodePath, err)
 	}
 	defer func() { _ = terminateExecuteProcessTree(command) }()
+	transport.start(options, input)
 	wait := make(chan error, 1)
 	go func() { wait <- command.Wait() }()
 	var waitErr error
@@ -110,13 +118,23 @@ func Execute(ctx context.Context, options ExecuteOptions) (ExecuteResult, error)
 	case waitErr = <-wait:
 	case <-executionCtx.Done():
 		_ = terminateExecuteProcessTree(command)
+		transport.close()
 		<-wait
 		return interruptedExecution(executionCtx.Err(), stderr.diagnostics(), true), nil
+	case <-transport.failed:
+		_ = terminateExecuteProcessTree(command)
+		transport.close()
+		<-wait
+		return failedExecution("execution_transport_failed", transport.failure().Error(), stderr.diagnostics()), nil
 	}
-	if stdout.overflow {
-		return failedExecution("execution_output_limit_exceeded", "execution output exceeded its limit", stderr.diagnostics()), nil
+	if len(transport.frame) != 0 {
+		transport.fail(errors.New("Node.js ended with an incomplete execution frame"))
 	}
-	result, parseErr := parseExecuteResult(stdout.Bytes())
+	transport.close()
+	if err := transport.failure(); err != nil {
+		return failedExecution("execution_transport_failed", err.Error(), stderr.diagnostics()), nil
+	}
+	result, parseErr := parseExecuteResult(transport.result)
 	if parseErr != nil {
 		if waitErr != nil {
 			return failedExecution("node_execution_failed", "Node.js execution failed", stderr.diagnostics()), nil
@@ -140,11 +158,11 @@ func validateExecuteOptions(options ExecuteOptions) (time.Duration, string, erro
 	if err := ValidateExecuteInput(options.Input); err != nil {
 		return 0, "", err
 	}
-	if !filepath.IsAbs(options.ExecutablePath) || !filepath.IsAbs(options.VaultPath) {
-		return 0, "", errors.New("executablePath and vaultPath must be absolute")
+	if options.OperationHost == nil {
+		return 0, "", errors.New("managed execution requires an operation host")
 	}
-	if info, err := os.Stat(options.ExecutablePath); err != nil || info.IsDir() {
-		return 0, "", fmt.Errorf("executablePath is not an executable file: %q", options.ExecutablePath)
+	if !filepath.IsAbs(options.VaultPath) {
+		return 0, "", errors.New("vaultPath must be absolute")
 	}
 	if info, err := os.Stat(options.VaultPath); err != nil || !info.IsDir() {
 		return 0, "", fmt.Errorf("vaultPath is not a directory: %q", options.VaultPath)

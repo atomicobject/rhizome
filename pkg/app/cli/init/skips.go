@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 const (
@@ -82,7 +82,7 @@ var trackedFiles = func(projectRoot string) map[string]bool {
 // never proposed.
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US10-AC1]]
-func detectSkips(projectRoot string, notes obsidian.LocalVaultConfig, files []string, keep map[string]bool) []skip {
+func detectSkips(projectRoot string, notes repoconfig.LocalVaultConfig, files []string, keep map[string]bool) []skip {
 	tracked := trackedFiles(projectRoot)
 	includes := notes.Includes
 	if len(includes) == 0 {

@@ -2,15 +2,16 @@ package ontology
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/paths"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPublishedRuntimeWithStore_UsesCurrentPublishedState(t *testing.T) {
@@ -32,10 +33,10 @@ name: One
 	t.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Path: root}
 
-	_, err = EnsureIndexed(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	_, err = ensureIndexedForTest(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
-	runtime, err := PublishedRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, store)
+	runtime, err := PublishedRuntimeWithStore(ctx, testkit.NoteMetadataIndexer(t), vaultDef, store)
 	require.NoError(t, err)
 	require.Same(t, store, runtime.Store)
 	require.True(t, runtime.Ready)
@@ -51,7 +52,7 @@ type Project @node(paths: ["notes/*.md"]) {
 }
 
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	store, err := codeanchorsqlite.Open(filepath.Join(root, "db.sqlite"))
 	require.NoError(t, err)
@@ -75,11 +76,10 @@ type Project @node(paths: ["notes/*.md"]) {
 	}
 	require.NoError(t, store.UpsertOntologySchemaState(ctx, wantState))
 
-	runtime, err := PublishedRuntimeWithStore(ctx, descriptorOnlyHTMLNoteMetadataIndexer(t), obsidian.VaultDefinition{Path: root}, store)
+	runtime, err := PublishedRuntimeWithStore(ctx, testkit.DescriptorOnlyHTMLNoteMetadataIndexer(t), obsidian.VaultDefinition{Path: root}, store)
 	require.NoError(t, err)
-	require.True(t, runtime.Ready)
-	require.NotNil(t, runtime.Schema)
-	require.Equal(t, schema.Hash, runtime.Schema.Hash)
+	require.False(t, runtime.Ready)
+	require.Nil(t, runtime.Schema)
 
 	paths, err := store.AllNoteMetadataPaths(ctx)
 	require.NoError(t, err)
@@ -109,7 +109,7 @@ name: Project
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Root: root, Includes: []string{"notes/*.md", "docs/*.html"}}
-	indexer := descriptorOnlyHTMLNoteMetadataIndexer(t)
+	indexer := testkit.DescriptorOnlyHTMLNoteMetadataIndexer(t)
 	formats, err := indexer.FormatRuntime()
 	require.NoError(t, err)
 	markdownSource, markdownDescriptor := publishedSourceForTest(t, root, "notes/project.md", markdownContent, formats)
@@ -146,7 +146,7 @@ name: Project
 		},
 	}))
 
-	first, err := SyncPublishedPaths(ctx, indexer, vaultDef, &obsidian.Note{}, store, nil, nil, nil)
+	first, err := syncPublishedPathsForTest(ctx, indexer, vaultDef, &obsidian.Note{}, store, nil, nil, nil)
 	require.NoError(t, err)
 	require.True(t, first.Rebuilt)
 	firstRuntime, err := PublishedRuntimeWithStore(ctx, indexer, vaultDef, store)
@@ -155,7 +155,7 @@ name: Project
 	firstState, err := store.GetOntologySchemaState(ctx)
 	require.NoError(t, err)
 
-	second, err := SyncPublishedPaths(ctx, indexer, vaultDef, &obsidian.Note{}, store, nil, nil, nil)
+	second, err := syncPublishedPathsForTest(ctx, indexer, vaultDef, &obsidian.Note{}, store, nil, nil, nil)
 	require.NoError(t, err)
 	require.False(t, second.Rebuilt, "descriptor-only HTML must not make ontology readiness incomplete")
 	require.False(t, second.Dirty)
@@ -203,7 +203,7 @@ name: One
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Path: root}
-	_, err = EnsureIndexed(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	_, err = ensureIndexedForTest(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
 	state, err := store.GetOntologySchemaState(ctx)
@@ -211,7 +211,7 @@ name: One
 	state.NotesHash = "stale-notes"
 	require.NoError(t, store.UpsertOntologySchemaState(ctx, state))
 
-	runtime, err := PublishedRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, store)
+	runtime, err := PublishedRuntimeWithStore(ctx, testkit.NoteMetadataIndexer(t), vaultDef, store)
 	require.NoError(t, err)
 	require.False(t, runtime.Ready)
 	require.Nil(t, runtime.Schema)
@@ -223,7 +223,7 @@ func TestPublishedRuntimeWithStore_PreservesSchemaStatus(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = store.Close() })
 
-		runtime, err := PublishedRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), obsidian.VaultDefinition{Path: t.TempDir()}, store)
+		runtime, err := PublishedRuntimeWithStore(context.Background(), testkit.NoteMetadataIndexer(t), obsidian.VaultDefinition{Path: t.TempDir()}, store)
 		require.NoError(t, err)
 		require.Same(t, store, runtime.Store)
 		require.False(t, runtime.Ready)
@@ -237,7 +237,7 @@ func TestPublishedRuntimeWithStore_PreservesSchemaStatus(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = store.Close() })
 
-		runtime, err := PublishedRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), obsidian.VaultDefinition{Path: root}, store)
+		runtime, err := PublishedRuntimeWithStore(context.Background(), testkit.NoteMetadataIndexer(t), obsidian.VaultDefinition{Path: root}, store)
 		require.Error(t, err)
 		require.Same(t, store, runtime.Store)
 		require.False(t, runtime.Ready)

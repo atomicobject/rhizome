@@ -7,9 +7,6 @@ import "github.com/atomicobject/rhizome/pkg/paths"
 // CSharpIndexer is a stub when cgo/tree-sitter is unavailable.
 type CSharpIndexer struct{}
 
-// NewCSharpIndexer returns nil when C# indexing is unavailable (cgo disabled).
-func NewCSharpIndexer() *CSharpIndexer { return nil }
-
 // NewCSharpIndexerWithRoot returns nil when cgo is disabled.
 func NewCSharpIndexerWithRoot(_ string) *CSharpIndexer { return nil }
 

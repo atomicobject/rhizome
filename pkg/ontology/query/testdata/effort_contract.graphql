@@ -1,0 +1,223 @@
+# Synthetic schema fixture for mixed-format effort query behavior.
+
+enum SpecStatus {
+  proposed
+  active
+  superseded
+  archived
+}
+
+enum EffortStatus {
+  planned
+  active
+  complete
+  archived
+}
+
+enum UserStoryStatus {
+  draft
+  ready
+  satisfied
+}
+
+enum ReferenceKind {
+  guide
+  analysis
+  architecture
+}
+
+type NarrativeSection implements Section {
+}
+
+type FrozenSpecSetSection implements Section {
+  frozenSpecs: [SpecLike!] @neighbors(direction: OUTBOUND, type: "SpecLike", scope: SUBTREE)
+}
+
+type FrozenStoryScopeSection implements Section {
+}
+
+type AcceptanceCriteriaSection implements Section {
+  criteria: [AcceptanceCriterion!] @contains(shape: LIST_ITEM, min: 1)
+}
+
+type AcceptanceCriterion implements Section @node(locator: EMBEDDED) {
+  summary: String! @field(sourceKind: ITEM_SUMMARY)
+  detail: String @field(sourceKind: ITEM_DETAIL)
+  verification: String @field
+  efforts: [Effort!] @neighbors(direction: INBOUND, type: "Effort", scope: SUBTREE)
+}
+
+type RequirementsSection implements Section {
+  references: [ReferenceDoc!] @neighbors(direction: OUTBOUND, type: "ReferenceDoc", scope: SUBTREE)
+}
+
+interface SpecLike {
+  summary: String!
+  id: String!
+  specStatus: SpecStatus! @field(source: "spec-status")
+  successor: SpecLike @link
+  lastUpdated: Date @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+}
+
+type FeatureArea @node(paths: ["docs/feature-areas/**/*.md","pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/feature-areas/**/*.md"]) {
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "FA")
+  summary: String!
+  owner: String @field
+  parent: FeatureArea @link(includeBodyLinks: false, includeBacklinks: false)
+  specs: [SpecLike!] @neighbors(direction: INBOUND, type: "SpecLike")
+}
+
+type ProcessSpec implements SpecLike @node(matches: ["type:ProcessSpec"]) {
+  summary: String!
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "SPEC")
+  specStatus: SpecStatus! @field(source: "spec-status")
+  successor: SpecLike @link
+  lastUpdated: Date @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  summarySection: NarrativeSection @contains(level: H2, heading: "Summary", required: true, display: INLINE)
+  goals: NarrativeSection @contains(level: H2, heading: "Goals", required: true)
+  nonGoals: NarrativeSection @contains(level: H2, heading: "Non-Goals", required: true)
+  requirements: RequirementsSection @contains(level: H2, heading: "Requirements", required: true)
+  openQuestions: NarrativeSection @contains(level: H2, heading: "Open Questions")
+}
+
+type ProductSpec implements SpecLike @node(matches: ["type:ProductSpec"]) {
+  summary: String!
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "SPEC")
+  specStatus: SpecStatus! @field(source: "spec-status")
+  successor: SpecLike @link
+  lastUpdated: Date @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  summarySection: NarrativeSection @contains(level: H2, heading: "Summary", required: true, display: INLINE)
+  goals: NarrativeSection @contains(level: H2, heading: "Goals", required: true)
+  nonGoals: NarrativeSection @contains(level: H2, heading: "Non-Goals", required: true)
+  userStories: UserStoriesSection @contains(level: H2, heading: "User Stories", required: true)
+  requirements: RequirementsSection @contains(level: H2, heading: "Requirements", required: true)
+  openQuestions: NarrativeSection @contains(level: H2, heading: "Open Questions")
+}
+
+type TechnicalSpec implements SpecLike @node(matches: ["type:TechnicalSpec"]) {
+  summary: String!
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "SPEC")
+  specStatus: SpecStatus! @field(source: "spec-status")
+  successor: SpecLike @link
+  lastUpdated: Date @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  summarySection: NarrativeSection @contains(level: H2, heading: "Summary", required: true, display: INLINE)
+  goals: NarrativeSection @contains(level: H2, heading: "Goals", required: true)
+  nonGoals: NarrativeSection @contains(level: H2, heading: "Non-Goals", required: true)
+  userStories: UserStoriesSection @contains(level: H2, heading: "User Stories")
+  requirements: RequirementsSection @contains(level: H2, heading: "Requirements", required: true)
+  openQuestions: NarrativeSection @contains(level: H2, heading: "Open Questions")
+}
+
+type ExperienceSpec implements SpecLike @node(matches: ["type:ExperienceSpec"]) {
+  summary: String!
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "SPEC")
+  specStatus: SpecStatus! @field(source: "spec-status")
+  successor: SpecLike @link
+  lastUpdated: Date @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  summarySection: NarrativeSection @contains(level: H2, heading: "Summary", required: true, display: INLINE)
+  goals: NarrativeSection @contains(level: H2, heading: "Goals", required: true)
+  nonGoals: NarrativeSection @contains(level: H2, heading: "Non-Goals", required: true)
+  userStories: UserStoriesSection @contains(level: H2, heading: "User Stories", required: true)
+  requirements: RequirementsSection @contains(level: H2, heading: "Requirements", required: true)
+  openQuestions: NarrativeSection @contains(level: H2, heading: "Open Questions")
+}
+
+type OperationsSpec implements SpecLike @node(matches: ["type:OperationsSpec"]) {
+  summary: String!
+  id: String! @field(source: "id") @identifier(preferred: true, prefix: "SPEC")
+  specStatus: SpecStatus! @field(source: "spec-status")
+  successor: SpecLike @link
+  lastUpdated: Date @field(source: "last-updated")
+  featureAreas: [FeatureArea!] @link(source: "feature-areas")
+  summarySection: NarrativeSection @contains(level: H2, heading: "Summary", required: true, display: INLINE)
+  goals: NarrativeSection @contains(level: H2, heading: "Goals", required: true)
+  nonGoals: NarrativeSection @contains(level: H2, heading: "Non-Goals", required: true)
+  userStories: UserStoriesSection @contains(level: H2, heading: "User Stories", required: true)
+  requirements: RequirementsSection @contains(level: H2, heading: "Requirements", required: true)
+  openQuestions: NarrativeSection @contains(level: H2, heading: "Open Questions")
+}
+
+type UserStoriesSection implements Section {
+  stories: [UserStory!] @contains(level: H3, min: 1)
+}
+
+type UserStory implements Section @node(locator: EMBEDDED) @title(pattern: "^US[0-9]+ - .+", notPattern: "(?i)^As an?\\b") {
+  id: ID! @field @identifier(preferred: true, derivedSuffix: "US", populate: ON_CREATE)
+  summary: String! @field
+  status: UserStoryStatus! @field
+  increment: Int @field
+  efforts: [Effort!] @neighbors(direction: INBOUND, type: "Effort", scope: SUBTREE)
+  references: [ReferenceDoc!] @neighbors(direction: OUTBOUND, type: "ReferenceDoc", scope: SUBTREE)
+  acceptanceCriteria: AcceptanceCriteriaSection @contains(level: H4, heading: "Acceptance Criteria", required: true, display: INLINE)
+}
+
+interface Effort {
+  id: String! @field(source: "id")
+  name: String!
+  createdAt: DateTime! @field(source: "created-at")
+  planApprovedBy: String @field(source: "plan-approved-by")
+  status: EffortStatus!
+  summary: String!
+  governingSpecs: [SpecLike!] @link(source: "governing-specs", includeBodyLinks: false, includeBacklinks: false)
+}
+
+type EffortMaterial @node(paths: ["docs/efforts/*/plan.html","docs/efforts/*/work-log.md","docs/efforts/*/materials/*.md","docs/efforts/*/materials/*.html","pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/plan.html","pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/work-log.md","pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/materials/*.md","pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/materials/*.html"]) {
+  title: String
+  specSetFrozen: NarrativeSection @contains(level: H2, heading: "Spec Set (Frozen)")
+  storiesInScopeFrozen: NarrativeSection @contains(level: H2, heading: "Stories In Scope (Frozen)")
+  planApproval: NarrativeSection @contains(level: H2, heading: "Plan Approval")
+  originalIntendedDelivery: NarrativeSection @contains(level: H2, heading: "Original Intended Delivery")
+  actualDelivered: NarrativeSection @contains(level: H2, heading: "Actual Delivered")
+  deviations: NarrativeSection @contains(level: H2, heading: "Deviations")
+  closureChecklist: NarrativeSection @contains(level: H2, heading: "Closure Checklist")
+  statusSection: NarrativeSection @contains(level: H2, heading: "Status")
+  executionNotes: NarrativeSection @contains(level: H2, heading: "Execution Notes")
+}
+
+type EffortWorkspace implements Effort @node(paths: ["docs/efforts/*/*-effort.html","pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/*-effort.html"]) {
+  id: String! @field(source: "id") @identifier(strategy: DATETIME, preferred: true, prefix: "EFF")
+  name: String!
+  createdAt: DateTime! @field(source: "created-at")
+  planApprovedBy: String @field(source: "plan-approved-by")
+  status: EffortStatus!
+  summary: String!
+  implementationPlan: EffortMaterial! @link(source: "implementation-plan", includeBodyLinks: false, includeBacklinks: false)
+  workLog: EffortMaterial! @link(source: "work-log", includeBodyLinks: false, includeBacklinks: false)
+  materials: [EffortMaterial!] @link(includeBodyLinks: false, includeBacklinks: false)
+  governingSpecs: [SpecLike!]! @link(source: "governing-specs", includeBodyLinks: false, includeBacklinks: false)
+}
+
+type EffortNote implements Effort @node(paths: ["docs/efforts/**/*.md","pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/**/*.md"]) {
+  id: String! @field(source: "id") @identifier(strategy: DATETIME, preferred: true, prefix: "EFF")
+  name: String!
+  createdAt: DateTime! @field(source: "created-at")
+  planApprovedBy: String @field(source: "plan-approved-by")
+  status: EffortStatus!
+  summary: String!
+  governingSpecs: [SpecLike!] @link(source: "governing-specs", includeBodyLinks: false, includeBacklinks: false)
+  scope: NarrativeSection @contains(level: H2, heading: "Scope", required: true)
+  specSetFrozen: FrozenSpecSetSection @contains(level: H2, heading: "Spec Set (Frozen)", required: true)
+  storiesInScopeFrozen: FrozenStoryScopeSection @contains(level: H2, heading: "Stories In Scope (Frozen)", required: true)
+  specCoverageChecklist: NarrativeSection @contains(level: H2, heading: "Spec Coverage Checklist", required: true)
+  plan: NarrativeSection @contains(level: H2, heading: "Plan", required: true)
+  originalIntendedDelivery: NarrativeSection @contains(level: H2, heading: "Original Intended Delivery", required: true)
+  actualDelivered: NarrativeSection @contains(level: H2, heading: "Actual Delivered", required: true)
+  executionNotes: NarrativeSection @contains(level: H2, heading: "Execution Notes", required: true)
+  deviations: NarrativeSection @contains(level: H2, heading: "Deviations", required: true)
+  closureChecklist: NarrativeSection @contains(level: H2, heading: "Closure Checklist", required: true)
+  compoundingFollowUps: NarrativeSection @contains(level: H2, heading: "Compounding Follow-ups", required: true)
+  statusSection: NarrativeSection @contains(level: H2, heading: "Status", required: true)
+}
+
+type ReferenceDoc @node(paths: ["docs/reference/**/*.md","pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/reference/**/*.md"]) {
+  summary: String!
+  referenceKind: ReferenceKind! @field(source: "reference-kind")
+  derivedFrom: [String!] @field(source: "derived-from")
+  lastVerified: Date @field(source: "last-verified")
+  status: String
+}

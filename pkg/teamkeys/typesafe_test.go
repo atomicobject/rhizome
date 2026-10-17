@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"encoding/base64"
 	"encoding/json"
+
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -35,18 +36,7 @@ func TestTypeSafeBundleDecryption(t *testing.T) {
 }
 
 func TestTypeSafeKeyUnavailableWithoutUnlock(t *testing.T) {
-	mockNoGlobalHome(t)
+	env := mockNoGlobalHome(t)
 	t.Setenv("ATOMIC_RHIZOME_KEY", "")
-	ResetCache()
-	t.Cleanup(ResetCache)
-	require.Empty(t, TypeSafeKey())
-}
-
-func TestTypeSafeKeyAccessor(t *testing.T) {
-	ResetCache()
-	t.Cleanup(ResetCache)
-	// The encrypted-format test above exercises decryption using synthetic keys.
-	// Seed the cache here to keep accessor coverage independent of real credentials.
-	decryptOnce.Do(func() { decrypted = &keys{TypeSafe: "synthetic-typesafe-key"} })
-	require.Equal(t, "synthetic-typesafe-key", TypeSafeKey())
+	require.Empty(t, TypeSafeKey(env))
 }

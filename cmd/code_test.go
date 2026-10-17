@@ -4,69 +4,23 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"os"
 	"path/filepath"
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/stretchr/testify/require"
 )
 
-func TestCodeIndexAnchorsCmd_RefreshesAnchors(t *testing.T) {
-	vaultDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(vaultDir, ".rhizome"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, ".rhizome", "config.yml"), []byte("code:\n  enabled: true\n"), 0o644))
-
-	notePath := filepath.Join(vaultDir, "Billing.md")
-	require.NoError(t, os.WriteFile(notePath, []byte(`---
-title: "Billing"
-anchors:
-  - define:
-      label: "BillingDomain"
-      kind: "annotation"
-      lang: "py"
-      annotation:
-        symbol:
-          pkg: ""
-          name: "decorator"
----
-`), 0o644))
-
-	out := &bytes.Buffer{}
-	errOut := &bytes.Buffer{}
-	origOut := rootCmd.OutOrStdout()
-	origErr := rootCmd.ErrOrStderr()
-	origVault := vaultName
-	rootCmd.SetOut(out)
-	rootCmd.SetErr(errOut)
-	t.Cleanup(func() {
-		rootCmd.SetOut(origOut)
-		rootCmd.SetErr(origErr)
-		vaultName = origVault
-		rootCmd.SetArgs([]string{})
-	})
-
-	rootCmd.SetArgs([]string{"code", "index-anchors", "--vault", vaultDir})
-	err := rootCmd.Execute()
-	require.NoError(t, err)
-	require.Contains(t, errOut.String(), "Code anchors refreshed")
-
-	codeCfg, err := obsidian.LoadCodeConfig(vaultDir)
-	require.NoError(t, err)
-	store, cleanup, err := obsidian.OpenIntelStoreForWriteFromConfig(vaultDir, codeCfg)
-	require.NoError(t, err)
-	defer cleanup()
-
-	anchors, err := store.Anchors(context.Background())
-	require.NoError(t, err)
-	require.Len(t, anchors, 1)
-	require.Equal(t, "BillingDomain", anchors[0].Label)
-}
-
 func TestCodeExplain_NoteJSON(t *testing.T) {
+	commandOptions := newCodeOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".rhizome", "config.yml"), []byte("notes: {}\n"), 0o644))
@@ -91,13 +45,13 @@ code-anchors:
 	t.Cleanup(func() {
 		rootCmd.SetOut(origOut)
 		rootCmd.SetErr(origErr)
-		codeExplainJSON = false
-		codeAnchorsListJSON = false
-		codeAnchorsListLimit = 0
-		codeAnchorsMatchJSON = false
-		codeAnchorsMatchKind = ""
-		codeAnchorsMatchValue = ""
-		codeAnchorsMatchLimit = 0
+		commandOptions.codeExplainJSON = false
+		commandOptions.codeAnchorsListJSON = false
+		commandOptions.codeAnchorsListLimit = 0
+		commandOptions.codeAnchorsMatchJSON = false
+		commandOptions.codeAnchorsMatchKind = ""
+		commandOptions.codeAnchorsMatchValue = ""
+		commandOptions.codeAnchorsMatchLimit = 0
 	})
 
 	rootCmd.SetArgs([]string{"code", "anchors", "explain", notePath, "--vault", dir, "--json"})
@@ -122,6 +76,10 @@ code-anchors:
 }
 
 func TestCodeExplainReportsConfiguredHTMLAsUnsupportedNoteFormat(t *testing.T) {
+	commandOptions := newCodeOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	vaultDir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultDir, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, ".rhizome", "config.yml"), []byte("notes:\n  includes: [\"notes/*.html\"]\n"), 0o644))
@@ -132,11 +90,11 @@ func TestCodeExplainReportsConfiguredHTMLAsUnsupportedNoteFormat(t *testing.T) {
 	out := &bytes.Buffer{}
 	origOut := rootCmd.OutOrStdout()
 	rootCmd.SetOut(out)
-	origVault := vaultName
+	origVault := commandOptions.vaultName
 	t.Cleanup(func() {
 		rootCmd.SetOut(origOut)
-		vaultName = origVault
-		codeExplainJSON = false
+		commandOptions.vaultName = origVault
+		commandOptions.codeExplainJSON = false
 	})
 
 	rootCmd.SetArgs([]string{"code", "anchors", "explain", notePath, "--vault", vaultDir, "--json"})
@@ -158,6 +116,10 @@ func TestCodeExplainReportsConfiguredHTMLAsUnsupportedNoteFormat(t *testing.T) {
 }
 
 func TestCodeExplainRejectsUnownedPath(t *testing.T) {
+	commandOptions := newCodeOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	vaultDir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultDir, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, ".rhizome", "config.yml"), []byte("notes: {}\n"), 0o644))
@@ -169,12 +131,12 @@ func TestCodeExplainRejectsUnownedPath(t *testing.T) {
 	origErr := rootCmd.ErrOrStderr()
 	rootCmd.SetOut(&bytes.Buffer{})
 	rootCmd.SetErr(&bytes.Buffer{})
-	origVault := vaultName
+	origVault := commandOptions.vaultName
 	t.Cleanup(func() {
 		rootCmd.SetOut(origOut)
 		rootCmd.SetErr(origErr)
-		vaultName = origVault
-		codeExplainJSON = false
+		commandOptions.vaultName = origVault
+		commandOptions.codeExplainJSON = false
 	})
 	rootCmd.SetArgs([]string{"code", "anchors", "explain", unknownPath, "--vault", vaultDir, "--json"})
 	err := rootCmd.Execute()
@@ -183,6 +145,10 @@ func TestCodeExplainRejectsUnownedPath(t *testing.T) {
 }
 
 func TestCodeExplain_FileJSON(t *testing.T) {
+	commandOptions := newCodeOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	vaultDir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultDir, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, ".rhizome", "config.yml"), []byte("code:\n  enabled: true\n"), 0o644))
@@ -217,7 +183,7 @@ class InvoiceService: pass
 	require.NoError(t, err)
 	svc := codeanchor.NewServiceWithOptions(
 		store,
-		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexer()},
+		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexerWithRoots([]string{"src", "lib"})},
 		codeanchor.WithoutWarmCache(),
 		codeanchor.WithBasePath(vaultDir),
 		codeanchor.WithWriteAccess(),
@@ -237,20 +203,20 @@ class InvoiceService: pass
 	errOut := &bytes.Buffer{}
 	origOut := rootCmd.OutOrStdout()
 	origErr := rootCmd.ErrOrStderr()
-	origVault := vaultName
+	origVault := commandOptions.vaultName
 	rootCmd.SetOut(out)
 	rootCmd.SetErr(errOut)
 	t.Cleanup(func() {
 		rootCmd.SetOut(origOut)
 		rootCmd.SetErr(origErr)
-		vaultName = origVault
-		codeExplainJSON = false
-		codeAnchorsListJSON = false
-		codeAnchorsListLimit = 0
-		codeAnchorsMatchJSON = false
-		codeAnchorsMatchKind = ""
-		codeAnchorsMatchValue = ""
-		codeAnchorsMatchLimit = 0
+		commandOptions.vaultName = origVault
+		commandOptions.codeExplainJSON = false
+		commandOptions.codeAnchorsListJSON = false
+		commandOptions.codeAnchorsListLimit = 0
+		commandOptions.codeAnchorsMatchJSON = false
+		commandOptions.codeAnchorsMatchKind = ""
+		commandOptions.codeAnchorsMatchValue = ""
+		commandOptions.codeAnchorsMatchLimit = 0
 	})
 
 	rootCmd.SetArgs([]string{"code", "anchors", "explain", codePath, "--vault", vaultDir, "--json"})
@@ -275,6 +241,10 @@ class InvoiceService: pass
 }
 
 func TestCodeAnchorsList_JSON(t *testing.T) {
+	commandOptions := newCodeOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	vaultDir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultDir, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, ".rhizome", "config.yml"), []byte("code:\n  enabled: true\n"), 0o644))
@@ -301,7 +271,7 @@ anchors:
 	require.NoError(t, err)
 	svc := codeanchor.NewServiceWithOptions(
 		store,
-		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexer()},
+		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexerWithRoots([]string{"src", "lib"})},
 		codeanchor.WithoutWarmCache(),
 		codeanchor.WithBasePath(vaultDir),
 	)
@@ -316,20 +286,20 @@ anchors:
 	errOut := &bytes.Buffer{}
 	origOut := rootCmd.OutOrStdout()
 	origErr := rootCmd.ErrOrStderr()
-	origVault := vaultName
+	origVault := commandOptions.vaultName
 	rootCmd.SetOut(out)
 	rootCmd.SetErr(errOut)
 	t.Cleanup(func() {
 		rootCmd.SetOut(origOut)
 		rootCmd.SetErr(origErr)
-		vaultName = origVault
-		codeExplainJSON = false
-		codeAnchorsListJSON = false
-		codeAnchorsListLimit = 0
-		codeAnchorsMatchJSON = false
-		codeAnchorsMatchKind = ""
-		codeAnchorsMatchValue = ""
-		codeAnchorsMatchLimit = 0
+		commandOptions.vaultName = origVault
+		commandOptions.codeExplainJSON = false
+		commandOptions.codeAnchorsListJSON = false
+		commandOptions.codeAnchorsListLimit = 0
+		commandOptions.codeAnchorsMatchJSON = false
+		commandOptions.codeAnchorsMatchKind = ""
+		commandOptions.codeAnchorsMatchValue = ""
+		commandOptions.codeAnchorsMatchLimit = 0
 	})
 
 	rootCmd.SetArgs([]string{"code", "anchors", "list", "--vault", vaultDir, "--json"})
@@ -352,6 +322,10 @@ anchors:
 }
 
 func TestCodeAnchorsMatch_DecoratorJSON(t *testing.T) {
+	commandOptions := newCodeOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	vaultDir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultDir, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, ".rhizome", "config.yml"), []byte("code:\n  enabled: true\n"), 0o644))
@@ -376,7 +350,7 @@ anchors:
 	require.NoError(t, err)
 	svc := codeanchor.NewServiceWithOptions(
 		store,
-		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexer()},
+		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexerWithRoots([]string{"src", "lib"})},
 		codeanchor.WithoutWarmCache(),
 		codeanchor.WithBasePath(vaultDir),
 	)
@@ -391,20 +365,20 @@ anchors:
 	errOut := &bytes.Buffer{}
 	origOut := rootCmd.OutOrStdout()
 	origErr := rootCmd.ErrOrStderr()
-	origVault := vaultName
+	origVault := commandOptions.vaultName
 	rootCmd.SetOut(out)
 	rootCmd.SetErr(errOut)
 	t.Cleanup(func() {
 		rootCmd.SetOut(origOut)
 		rootCmd.SetErr(origErr)
-		vaultName = origVault
-		codeExplainJSON = false
-		codeAnchorsListJSON = false
-		codeAnchorsListLimit = 0
-		codeAnchorsMatchJSON = false
-		codeAnchorsMatchKind = ""
-		codeAnchorsMatchValue = ""
-		codeAnchorsMatchLimit = 0
+		commandOptions.vaultName = origVault
+		commandOptions.codeExplainJSON = false
+		commandOptions.codeAnchorsListJSON = false
+		commandOptions.codeAnchorsListLimit = 0
+		commandOptions.codeAnchorsMatchJSON = false
+		commandOptions.codeAnchorsMatchKind = ""
+		commandOptions.codeAnchorsMatchValue = ""
+		commandOptions.codeAnchorsMatchLimit = 0
 	})
 
 	rootCmd.SetArgs([]string{
@@ -431,6 +405,10 @@ anchors:
 }
 
 func TestCodeAnchorsMatch_ByLabelShowsInstances(t *testing.T) {
+	commandOptions := newCodeOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	vaultDir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultDir, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, ".rhizome", "config.yml"), []byte("code:\n  enabled: true\n"), 0o644))
@@ -463,7 +441,7 @@ class InvoiceService: pass
 	require.NoError(t, err)
 	svc := codeanchor.NewServiceWithOptions(
 		store,
-		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexer()},
+		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexerWithRoots([]string{"src", "lib"})},
 		codeanchor.WithoutWarmCache(),
 		codeanchor.WithBasePath(vaultDir),
 		codeanchor.WithWriteAccess(),
@@ -483,20 +461,20 @@ class InvoiceService: pass
 	errOut := &bytes.Buffer{}
 	origOut := rootCmd.OutOrStdout()
 	origErr := rootCmd.ErrOrStderr()
-	origVault := vaultName
+	origVault := commandOptions.vaultName
 	rootCmd.SetOut(out)
 	rootCmd.SetErr(errOut)
 	t.Cleanup(func() {
 		rootCmd.SetOut(origOut)
 		rootCmd.SetErr(origErr)
-		vaultName = origVault
-		codeExplainJSON = false
-		codeAnchorsListJSON = false
-		codeAnchorsListLimit = 0
-		codeAnchorsMatchJSON = false
-		codeAnchorsMatchKind = ""
-		codeAnchorsMatchValue = ""
-		codeAnchorsMatchLimit = 0
+		commandOptions.vaultName = origVault
+		commandOptions.codeExplainJSON = false
+		commandOptions.codeAnchorsListJSON = false
+		commandOptions.codeAnchorsListLimit = 0
+		commandOptions.codeAnchorsMatchJSON = false
+		commandOptions.codeAnchorsMatchKind = ""
+		commandOptions.codeAnchorsMatchValue = ""
+		commandOptions.codeAnchorsMatchLimit = 0
 	})
 
 	rootCmd.SetArgs([]string{"code", "anchors", "match", "BillingDomain", "--vault", vaultDir, "--json"})
@@ -519,6 +497,10 @@ class InvoiceService: pass
 }
 
 func TestCodeAnchorsMatch_KindDirMatchesDirAnchors(t *testing.T) {
+	commandOptions := newCodeOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	vaultDir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultDir, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, ".rhizome", "config.yml"), []byte("code:\n  enabled: true\n"), 0o644))
@@ -546,7 +528,7 @@ code-anchors:
 	require.NoError(t, err)
 	svc := codeanchor.NewServiceWithOptions(
 		store,
-		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexer()},
+		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexerWithRoots([]string{"src", "lib"})},
 		codeanchor.WithoutWarmCache(),
 		codeanchor.WithBasePath(vaultDir),
 	)
@@ -559,20 +541,20 @@ code-anchors:
 	errOut := &bytes.Buffer{}
 	origOut := rootCmd.OutOrStdout()
 	origErr := rootCmd.ErrOrStderr()
-	origVault := vaultName
+	origVault := commandOptions.vaultName
 	rootCmd.SetOut(out)
 	rootCmd.SetErr(errOut)
 	t.Cleanup(func() {
 		rootCmd.SetOut(origOut)
 		rootCmd.SetErr(origErr)
-		vaultName = origVault
-		codeExplainJSON = false
-		codeAnchorsListJSON = false
-		codeAnchorsListLimit = 0
-		codeAnchorsMatchJSON = false
-		codeAnchorsMatchKind = ""
-		codeAnchorsMatchValue = ""
-		codeAnchorsMatchLimit = 0
+		commandOptions.vaultName = origVault
+		commandOptions.codeExplainJSON = false
+		commandOptions.codeAnchorsListJSON = false
+		commandOptions.codeAnchorsListLimit = 0
+		commandOptions.codeAnchorsMatchJSON = false
+		commandOptions.codeAnchorsMatchKind = ""
+		commandOptions.codeAnchorsMatchValue = ""
+		commandOptions.codeAnchorsMatchLimit = 0
 	})
 
 	rootCmd.SetArgs([]string{
@@ -601,9 +583,9 @@ code-anchors:
 func testNoteSourceSnapshot(t *testing.T, root, path, content string) notemeta.NoteSourceSnapshot {
 	t.Helper()
 	if root == "" {
-		return notemeta.NewContentOnlyNoteSourceSnapshot(path, content, 0)
+		return testkit.NoteSource(t, path, content, 0)
 	}
 	rel, err := filepath.Rel(root, path)
 	require.NoError(t, err)
-	return notemeta.NewContentOnlyNoteSourceSnapshot(filepath.ToSlash(rel), content, 0)
+	return testkit.NoteSource(t, filepath.ToSlash(rel), content, 0)
 }

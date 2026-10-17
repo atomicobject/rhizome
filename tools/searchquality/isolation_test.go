@@ -1,6 +1,7 @@
 package main
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/qualityeval"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/atomicobject/rhizome/tools/searchquality/internal/qualityeval"
 )
 
 func TestCopyIsolatedPopulationExcludesForeignCorporaAndKeepsInternalSymlinkContent(t *testing.T) {
@@ -65,13 +66,13 @@ func TestTypedFixtureCarriesCanonicalGoModuleIdentityIntoIsolation(t *testing.T)
 	stagedSchema, err := os.ReadFile(filepath.Join(staged, ".rhizome", "ontology", "schema.graphql"))
 	require.NoError(t, err)
 	require.Equal(t, string(authored), string(stagedSchema))
-	schema, err := ontology.LoadSchema(staged)
+	schema, err := ontoschema.LoadSchema(staged)
 	require.NoError(t, err)
 	for _, name := range []string{"Person", "Project", "Meeting", "ActionItem"} {
 		require.Contains(t, schema.Types, name)
 	}
 	actionItem := schema.Types["ActionItem"]
-	require.Equal(t, ontology.EmbeddedSourceShape("CHECKBOX_ITEM"), actionItem.SourceShape)
+	require.Equal(t, ontoschema.EmbeddedSourceShape("CHECKBOX_ITEM"), actionItem.SourceShape)
 	require.Equal(t, "#action-item", actionItem.SourceMarker)
 	require.Equal(t, []string{"meetings/*.md"}, actionItem.SourcePaths)
 	require.Contains(t, actionItem.ByName, "assignee")
@@ -197,9 +198,11 @@ func TestConfigureIsolatedEmbeddingsAppliesExplicitLiveProviderToNotesAndCode(t 
 	override := embeddings.Config{Enabled: true, Provider: "voyage", Model: "voyage-4-lite", Endpoint: "https://api.voyageai.com/v1/embeddings", Dimensions: 1024}
 
 	require.NoError(t, configureIsolatedEmbeddings(vault, false, &override))
-	note, err := obsidian.LoadEmbeddingsConfig(vault)
+	resolvedConfig1, configErr1 := repoconfig.Load(vault)
+	note, err := resolvedConfig1.NoteEmbeddings, configErr1
 	require.NoError(t, err)
-	code, explicit, err := obsidian.LoadCodeEmbeddingsConfig(vault)
+	resolvedConfig2, configErr2 := repoconfig.Load(vault)
+	code, explicit, err := resolvedConfig2.CodeEmbeddings, resolvedConfig2.CodeEmbeddingsExplicit, configErr2
 	require.NoError(t, err)
 	require.True(t, explicit)
 	for _, got := range []embeddings.Config{note, code} {

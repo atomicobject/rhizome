@@ -7,8 +7,10 @@ import (
 	"sort"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -43,33 +45,33 @@ Beta links [[alpha]].
 	_, err = testIndexer(t).EnsureIndexed(context.Background(), vaultDef, note, store)
 	require.NoError(t, err)
 
-	options := obsidian.GraphAnalysisOptions{
-		WikilinkOptions:   obsidian.DefaultWikilinkOptions,
+	options := vaultgraph.GraphAnalysisOptions{
+		WikilinkOptions:   markdownsyntax.DefaultWikilinkOptions,
 		IncludeTags:       true,
 		RecencyCascade:    false,
 		RecencyCascadeSet: true,
 	}
-	filesystem, err := obsidian.BuildGraphSnapshot(vaultDef, note, options)
+	filesystem, err := vaultgraph.BuildGraphSnapshot(vaultDef, note, options)
 	require.NoError(t, err)
 	persisted, err := testIndexer(t).LoadPersistedGraphSnapshot(context.Background(), vaultDef, note, store)
 	require.NoError(t, err)
 	require.NotNil(t, persisted)
 
 	require.Equal(t, graphShape(filesystem), graphShape(persisted))
-	require.Equal(t, obsidian.ComputeGraphStatsFromSnapshot(filesystem), obsidian.ComputeGraphStatsFromSnapshot(persisted))
+	require.Equal(t, vaultgraph.ComputeGraphStatsFromSnapshot(filesystem), vaultgraph.ComputeGraphStatsFromSnapshot(persisted))
 	require.Equal(t,
 		map[string][]obsidian.Backlink{
-			"notes/alpha.md":  {{Referrer: "notes/beta.md", LinkType: obsidian.BacklinkTypeBasic}},
-			"notes/beta.md":   {{Referrer: "notes/alpha.md", LinkType: obsidian.BacklinkTypeBasic}},
+			"notes/alpha.md":  {{Referrer: "notes/beta.md", LinkType: markdownsyntax.BacklinkTypeBasic}},
+			"notes/beta.md":   {{Referrer: "notes/alpha.md", LinkType: markdownsyntax.BacklinkTypeBasic}},
 			"notes/orphan.md": {},
 		},
-		obsidian.CollectBacklinksFromGraph(persisted, []string{"notes/alpha.md", "notes/beta.md", "notes/orphan.md"}, nil),
+		vaultgraph.CollectBacklinksFromGraph(persisted, []string{"notes/alpha.md", "notes/beta.md", "notes/orphan.md"}, nil),
 	)
 
-	filesystemAnalysis := obsidian.ComputeGraphAnalysisFromSnapshot(filesystem, options)
-	persistedAnalysis := obsidian.ComputeGraphAnalysisFromSnapshot(persisted, options)
-	filesystemAnalysis.Timings = obsidian.GraphTimings{}
-	persistedAnalysis.Timings = obsidian.GraphTimings{}
+	filesystemAnalysis := vaultgraph.ComputeGraphAnalysisFromSnapshot(filesystem, options)
+	persistedAnalysis := vaultgraph.ComputeGraphAnalysisFromSnapshot(persisted, options)
+	filesystemAnalysis.Timings = vaultgraph.GraphTimings{}
+	persistedAnalysis.Timings = vaultgraph.GraphTimings{}
 	filesystemAnalysis.EffectiveTimes = nil
 	persistedAnalysis.EffectiveTimes = nil
 	for i := range filesystemAnalysis.Communities {
@@ -135,10 +137,10 @@ type graphSnapshotShape struct {
 	Paths []string
 	Tags  map[string][]string
 	Sizes map[string]int64
-	Edges []obsidian.GraphSnapshotEdge
+	Edges []vaultgraph.GraphSnapshotEdge
 }
 
-func graphShape(snapshot *obsidian.GraphSnapshot) graphSnapshotShape {
+func graphShape(snapshot *vaultgraph.GraphSnapshot) graphSnapshotShape {
 	shape := graphSnapshotShape{Tags: make(map[string][]string), Sizes: make(map[string]int64), Edges: snapshot.Edges}
 	for path, node := range snapshot.Nodes {
 		shape.Paths = append(shape.Paths, path)

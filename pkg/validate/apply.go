@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 )
 
 // ApplyFixPlan applies fixes from a plan, respecting safety levels.
-func ApplyFixPlan(ctx context.Context, runCtx RunContext, plan *FixPlan, opts Options) (exec *FixExecution, resultErr error) {
+func ApplyFixPlan(ctx context.Context, runCtx RunContext, plan *FixPlan, opts ApplyOptions) (exec *FixExecution, resultErr error) {
 	exec = &FixExecution{
 		Requested:      opts.Fix,
 		NonInteractive: opts.NonInteractive,
@@ -69,22 +70,29 @@ func ApplyFixPlan(ctx context.Context, runCtx RunContext, plan *FixPlan, opts Op
 	defer func() {
 		resultErr = errors.Join(resultErr, release())
 	}()
-	if err := lease.RequireHeld(); err != nil {
+	if err := lease.Validate(runCtx.VaultPath); err != nil {
 		return exec, err
 	}
+	runCtx.sourceLease = lease
+
 	if opts.PostApplyRefresher == nil {
-		pending, err := discoverRepairJournals(runCtx)
+		pending, err := sourcetxn.InspectPending(runCtx.VaultPath)
 		if err != nil {
 			return exec, err
 		}
 		for _, journal := range pending {
-			if journal.manifest.Namespace != nil && journal.state != repairJournalCleanupPending {
+			if journal.Manifest.Namespace != nil && journal.State != repairJournalCleanupPending {
 				return exec, fmt.Errorf("native recovery requires a post-apply refresher before mutation")
 			}
 		}
 	}
 
-	recovery, recoveryErr := recoverRepairJournals(runCtx, opts.repairHooks)
+	writer, recovered, recoveryErr := sourcetxn.Open(runCtx.VaultPath, lease, sourcetxn.WriterOptions{Role: sourcetxn.RepairOwner, RepairPolicy: validateSourceJournalChecks, Hooks: opts.repairHooks})
+	if writer != nil {
+		defer writer.Close()
+	}
+	runCtx.sourceWriter = writer
+	recovery := repairRecovery(recovered)
 	if len(recovery.native)+len(recovery.nativeCleanup) > 0 {
 		if opts.PostApplyRefresher == nil && len(recovery.native) > 0 {
 			return exec, errors.Join(recoveryErr, fmt.Errorf("native recovery requires a post-apply refresher"))
@@ -344,7 +352,7 @@ func ApplyFixPlan(ctx context.Context, runCtx RunContext, plan *FixPlan, opts Op
 			continue
 		}
 		prepared, err := prepareRepairTransaction(
-			runCtx, plan.Fingerprint, transaction, operations, opts.AllowHistorical, opts.repairHooks, completionArtifact,
+			runCtx, plan.Fingerprint, transaction, operations, opts.AllowHistorical, completionArtifact,
 		)
 		if err != nil {
 			var vacancyErr repairDestinationVacancyError
@@ -392,7 +400,8 @@ func ApplyFixPlan(ctx context.Context, runCtx RunContext, plan *FixPlan, opts Op
 		// preparation. Its staged state is now owned by that transaction's
 		// journal and must never be attached to another transaction.
 		completionArtifact = nil
-		if err := commitPreparedRepairTransaction(runCtx, prepared, opts.repairHooks); err != nil {
+		publication, publishErr := writer.Publish(prepared)
+		if err := publishErr; err != nil {
 			if errors.Is(err, errSimulatedRepairInterruption) {
 				record.Status = "interrupted"
 				record.Reason = err.Error()
@@ -404,11 +413,9 @@ func ApplyFixPlan(ctx context.Context, runCtx RunContext, plan *FixPlan, opts Op
 				break
 			}
 			var rollbackErr error
-			if prepared.installed > 0 {
-				_, rollbackErr = rollbackRepairJournal(runCtx, prepared.manifest)
-				if rollbackErr == nil {
-					rollbackErr = cleanupRepairJournal(runCtx, prepared.dir, prepared.manifest, opts.repairHooks)
-				}
+			var unresolved *sourcetxn.RecoveryRequiredError
+			if errors.As(err, &unresolved) {
+				rollbackErr = unresolved.RecoveryErr
 			}
 			record.Status = "failed"
 			record.Reason = errors.Join(err, rollbackErr).Error()
@@ -422,12 +429,9 @@ func ApplyFixPlan(ctx context.Context, runCtx RunContext, plan *FixPlan, opts Op
 			}
 			continue
 		}
-		journalsToCleanup = append(journalsToCleanup, recoveredRepairJournal{
-			dir: prepared.dir, manifest: prepared.manifest, state: repairJournalCommitted,
-		})
-		verifyJournals = append(verifyJournals, recoveredRepairJournal{
-			dir: prepared.dir, manifest: prepared.manifest, state: repairJournalCommitted,
-		})
+		journal := repairJournal(publication)
+		journalsToCleanup = append(journalsToCleanup, journal)
+		verifyJournals = append(verifyJournals, journal)
 		txChanged, txRenamed, txDeleted := repairOperationDelta(operations)
 		changed = append(changed, txChanged...)
 		renamed = append(renamed, txRenamed...)
@@ -454,7 +458,7 @@ func ApplyFixPlan(ctx context.Context, runCtx RunContext, plan *FixPlan, opts Op
 		)
 	}
 	if (deltaCount > 0 || recoveryCount > 0 || cleanupRecoveryCount > 0) && opts.PostApplyRefresher != nil {
-		if err := lease.requireHeldForPath(filepath.Join(runCtx.VaultPath, ".rhizome", "index.lock")); err != nil {
+		if err := lease.Validate(runCtx.VaultPath); err != nil {
 			return normalizeFixExecution(exec), errors.Join(applyErr, err)
 		}
 		refresh, err := refreshPostApply(ctx, opts.PostApplyRefresher, lease, refreshScope)
@@ -468,7 +472,7 @@ func ApplyFixPlan(ctx context.Context, runCtx RunContext, plan *FixPlan, opts Op
 		preparedRuntime = refresh.Runtime
 	}
 	for _, journal := range verifyJournals {
-		if err := verifyCommittedRepairJournal(runCtx, journal.manifest); err != nil {
+		if err := writer.Verify(journal.completion); err != nil {
 			return normalizeFixExecution(exec), errors.Join(applyErr, err, closePostApplyRefresh(exec.Refresh))
 		}
 	}
@@ -487,42 +491,9 @@ func ApplyFixPlan(ctx context.Context, runCtx RunContext, plan *FixPlan, opts Op
 		}
 	}
 	for _, journal := range journalsToCleanup {
-		if err := cleanupRepairJournal(runCtx, journal.dir, journal.manifest, opts.repairHooks); err != nil {
+		if err := writer.Complete(journal.completion); err != nil {
 			applyErr = errors.Join(applyErr, err)
 		}
 	}
 	return normalizeFixExecution(exec), applyErr
-}
-
-func recordLeaseHeldReplanFailure(exec *FixExecution, plan *FixPlan, selected map[string]bool, reason string) {
-	operationsByID := make(map[string]RepairOperation, len(plan.Operations))
-	for _, operation := range plan.Operations {
-		operationsByID[operation.ID] = operation
-	}
-	for _, transaction := range plan.Transactions {
-		operations := operationsForTransaction(transaction, operationsByID)
-		actionIDs := actionIDsForOperations(operations)
-		record := RepairTransactionExecution{
-			TransactionID: transaction.ID,
-			OperationIDs:  append([]string(nil), transaction.OperationIDs...),
-			AffectedPaths: append([]string(nil), transaction.AffectedPaths...),
-			Reason:        reason,
-		}
-		if allActionsSelected(actionIDs, selected) {
-			record.Status = "not_attempted"
-			exec.Failed = append(exec.Failed, actionIDs...)
-		} else {
-			record.Status = "skipped"
-			exec.Skipped = append(exec.Skipped, actionIDs...)
-		}
-		exec.RemainingIssueKeys = append(exec.RemainingIssueKeys, issueKeysForOperations(operations)...)
-		exec.Transactions = append(exec.Transactions, record)
-	}
-}
-
-func closePostApplyRefresh(refresh *PostApplyRefreshResult) error {
-	if refresh == nil {
-		return nil
-	}
-	return refresh.Close()
 }

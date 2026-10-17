@@ -49,8 +49,8 @@ func TestAddWatchRoots_RecursiveDirectories(t *testing.T) {
 }
 
 func TestWatchHub_EmitsEventForNestedFile(t *testing.T) {
-	if runtime.GOOS == "darwin" && raceEnabled() {
-		t.Skip("fsnotify-backed nested file events are not reliable on darwin under -race")
+	if os.Getenv("RZM_SKIP_FILESYSTEM_WATCH_TESTS") == "1" {
+		t.Skip("filesystem watcher tests explicitly disabled")
 	}
 
 	root := t.TempDir()
@@ -60,8 +60,7 @@ func TestWatchHub_EmitsEventForNestedFile(t *testing.T) {
 	}
 
 	hub, err := NewHub(root, Options{
-		Debounce:      10 * time.Millisecond,
-		ForceFSNotify: true,
+		Debounce: 10 * time.Millisecond,
 	})
 	if err != nil {
 		t.Fatalf("NewHub: %v", err)
@@ -98,17 +97,6 @@ func TestWatchHub_EmitsEventForNestedFile(t *testing.T) {
 	})
 	defer unsub()
 
-	if runtime.GOOS == "darwin" && backend != nil && !backend.IsRecursive() {
-		probe := filepath.Join(nested, ".watchhub-probe.md")
-		if err := os.WriteFile(probe, []byte("#probe"), 0o644); err != nil {
-			t.Fatalf("write probe: %v", err)
-		}
-		probeRel := filepath.ToSlash(filepath.Join("a", "b", ".watchhub-probe.md"))
-		if !waitForRelPathOK(eventsCh, staleCh, probeRel, 1500*time.Millisecond) {
-			t.Skip("fsnotify backend did not emit probe event on darwin; watcher unavailable in this environment")
-		}
-	}
-
 	target := filepath.Join(nested, "note.md")
 	if err := os.WriteFile(target, []byte("#nested"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
@@ -141,11 +129,6 @@ func waitForRelPath(t *testing.T, eventsCh <-chan WatchEvent, staleCh <-chan Sta
 		return
 	}
 	t.Fatal(msg)
-}
-
-func waitForRelPathOK(eventsCh <-chan WatchEvent, staleCh <-chan StaleEvent, expected string, timeout time.Duration) bool {
-	ok, _ := waitForRelPathResult(eventsCh, staleCh, expected, timeout)
-	return ok
 }
 
 func waitForRelPathResult(eventsCh <-chan WatchEvent, staleCh <-chan StaleEvent, expected string, timeout time.Duration) (bool, string) {

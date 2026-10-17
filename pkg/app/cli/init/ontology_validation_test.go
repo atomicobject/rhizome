@@ -2,14 +2,15 @@ package init
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAgenticEngineeringOntologyUsesCanonicalTemplateAndCompanionPaths(t *testing.T) {
@@ -198,9 +199,9 @@ confidence: source_backed
 			installStarterOntologySchemas(t, root, tt.templates...)
 			tt.writeNotes(t, root)
 
-			schema, err := ontology.LoadSchema(root)
+			schema, err := ontoschema.LoadSchema(root)
 			require.NoError(t, err)
-			sources, err := testNoteMetadataIndexer(t).BuildNoteSourceSnapshots(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{})
+			sources, err := testkit.NoteMetadataIndexer(t).BuildNoteSourceSnapshots(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{})
 			require.NoError(t, err)
 			result, err := ontology.BuildIndexFromNoteSources(context.Background(), obsidian.VaultDefinition{Path: root}, sources, schema, "notes-hash")
 			require.NoError(t, err)
@@ -236,14 +237,15 @@ func writeTemplateNote(t *testing.T, root, rel, body string) {
 	require.NoError(t, os.WriteFile(full, []byte(body), 0o644))
 }
 
-func requireStarterNode(t *testing.T, nodes []codeanchor.IntelOntologyNode, typeName, title string) {
+func requireStarterNode(t *testing.T, nodes []readmodel.NodeRow, typeName, title string) readmodel.NodeRow {
 	t.Helper()
 	for _, node := range nodes {
 		if node.TypeName == typeName && node.Title == title {
-			return
+			return node
 		}
 	}
 	require.Failf(t, "missing ontology node", "type=%s title=%s", typeName, title)
+	return readmodel.NodeRow{}
 }
 
 func starterIssuesForPath(issues []ontology.ValidationIssue, notePath string, code string) []ontology.ValidationIssue {

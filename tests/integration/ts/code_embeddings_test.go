@@ -9,15 +9,18 @@ import (
 	"strings"
 	"testing"
 
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeembsql "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	codeembsql "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search/retrieval"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 func TestTS_CodeEmbeddings(t *testing.T) {
@@ -26,8 +29,8 @@ func TestTS_CodeEmbeddings(t *testing.T) {
 	ctx := context.Background()
 	ws := fixture.NewWorkspace(t)
 	ws.IndexCodeAnchors(t, ctx)
-
-	codeEmbCfg, _, err := obsidian.LoadCodeEmbeddingsConfig(ws.VaultRoot)
+	resolvedConfig1, configErr1 := repoconfig.Load(ws.VaultRoot)
+	codeEmbCfg, _, err := resolvedConfig1.CodeEmbeddings, resolvedConfig1.CodeEmbeddingsExplicit, configErr1
 	require.NoError(t, err)
 	require.True(t, codeEmbCfg.Enabled, "fixture should enable codeEmbeddings")
 	require.Equal(t, "test", codeEmbCfg.Provider, "fixture should use deterministic embeddings provider")
@@ -40,18 +43,18 @@ func TestTS_CodeEmbeddings(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = intelStore.Close() })
 
-	embStore, err := codeembsql.Open(codeEmbCfg.IndexPath, provider.Dimensions())
+	embStore, err := codeembsql.OpenCode(context.Background(), codeembsql.File(codeEmbCfg.IndexPath), codeembsql.Options{Access: codeembsql.WriteIndex, Dimensions: provider.Dimensions()})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = embStore.Close() })
 
-	syncer := semantic.Syncer{
+	syncer := embedindex.Syncer{
 		Index:        embStore,
 		Provider:     provider,
 		ProviderInfo: providerCfg,
 		Intel:        intelStore,
 		Root:         ws.VaultRoot,
-		Budget:       semantic.DefaultChunkBudget(),
-		Policy:       semantic.DefaultSynthesisPolicy(semantic.PolicyOptions{Budget: semantic.DefaultChunkBudget()}),
+		Budget:       embedindex.DefaultChunkBudget(),
+		Policy:       embedindex.DefaultSynthesisPolicy(embedindex.PolicyOptions{Budget: embedindex.DefaultChunkBudget()}),
 	}
 	syncer.ChunkWriter = intelStore
 	syncer.EmbeddingWriter = intelStore

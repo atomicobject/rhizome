@@ -2,14 +2,15 @@ package semantic
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 func TestAggregateIntelChunkMatchesIncludesOntologyNodes(t *testing.T) {
@@ -18,7 +19,7 @@ func TestAggregateIntelChunkMatchesIncludesOntologyNodes(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = intelStore.Close() })
 
-	node := codeanchor.IntelOntologyNode{
+	node := readmodel.NodeRow{
 		NodeID:      "node:typed",
 		NotePath:    "docs/typed.md",
 		NodeRefJSON: `{"notePath":"docs/typed.md","nodeId":"typed","typeName":"ReferenceDoc"}`,
@@ -26,13 +27,13 @@ func TestAggregateIntelChunkMatchesIncludesOntologyNodes(t *testing.T) {
 		TypeName:    "ReferenceDoc",
 		Title:       "Typed",
 	}
-	require.NoError(t, intelStore.ReplaceOntologyNodes(ctx, []string{node.NotePath}, []codeanchor.IntelOntologyNode{node}))
+	require.NoError(t, intelStore.ReplaceOntologyNodes(ctx, []string{node.NotePath}, []readmodel.NodeRow{node}))
 	require.NoError(t, intelStore.ReplaceIntelChunks(ctx, []string{node.NodeID}, []codeanchor.IntelChunk{{
 		ChunkID:     "node-chunk",
 		OwnerID:     node.NodeID,
 		OwnerType:   "ontology_node",
 		Ord:         1,
-		Granularity: GranularityOntologyNodeBody,
+		Granularity: embeddings.GranularityOntologyNodeBody,
 		Breadcrumb:  "Typed > Body",
 		Heading:     "Typed",
 		ContentHash: "hash",

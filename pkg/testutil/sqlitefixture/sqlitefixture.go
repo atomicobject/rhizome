@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 var migratedStoreSnapshot struct {

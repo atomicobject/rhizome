@@ -17,16 +17,13 @@ func (s *stubAnchorStore) AnchorScoresByIDs(ctx context.Context, anchorIDs []str
 	return s.scores, s.err
 }
 
-func TestGraphAnchorScoreRanker_InsertsEvidence(t *testing.T) {
-	base := &WeightedRanker{}
+func TestGraphAnchorAdjuster_InsertsEvidence(t *testing.T) {
 	store := &stubAnchorStore{scores: map[string]float64{"a1": 0.9}}
 
-	r := GraphAnchorScoreRanker{Base: base, Store: store}
-	cands := []search.Candidate{{
-		AnchorID: "a1",
-	}}
+	r := GraphAnchorAdjuster{Store: store}
+	cands := []search.Candidate{{SourceRef: search.SourceRef{AnchorID: "a1"}}}
 
-	res, err := r.Rank(context.Background(), search.QuerySpec{}, cands)
+	res, err := rankGraphEvidence(context.Background(), search.QuerySpec{}, cands, &r)
 	require.NoError(t, err)
 	require.Len(t, res, 1)
 	found := false
@@ -37,4 +34,12 @@ func TestGraphAnchorScoreRanker_InsertsEvidence(t *testing.T) {
 		}
 	}
 	require.True(t, found, "expected pagerank evidence")
+}
+
+func rankGraphEvidence(ctx context.Context, spec search.QuerySpec, candidates []search.Candidate, adjuster search.CandidateAdjuster) ([]search.RankedResult, error) {
+	enriched, err := adjuster.Adjust(ctx, spec, candidates)
+	if err != nil {
+		return nil, err
+	}
+	return (&search.WeightedRanker{}).Rank(ctx, spec, enriched)
 }

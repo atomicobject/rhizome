@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sort"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -84,20 +84,20 @@ func sourceSnapshotsFromProjectedEntries(ctx context.Context, vaultDef obsidian.
 // the live filesystem, never a caller-supplied cache adapter. Each enumerated
 // note is read once and Links remain empty so the consumer performs exactly one
 // sealed structured-link scan over the captured content.
-func BuildNoteSourceFacts(ctx context.Context, vaultDef obsidian.VaultDefinition) ([]NoteSourceSnapshot, error) {
-	return buildNoteSourceFactsWithReader(ctx, vaultDef, &obsidian.Note{})
+func (i Indexer) BuildNoteSourceFacts(ctx context.Context, vaultDef obsidian.VaultDefinition) ([]NoteSourceSnapshot, error) {
+	return i.buildNoteSourceFactsWithReader(ctx, vaultDef, &obsidian.Note{})
 }
 
 // buildNoteSourceFactsWithReader is an internal instrumentation seam. Hiding
 // optional cache-provider methods preserves the production one-read algorithm.
-func buildNoteSourceFactsWithReader(ctx context.Context, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader) ([]NoteSourceSnapshot, error) {
+func (i Indexer) buildNoteSourceFactsWithReader(ctx context.Context, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader) ([]NoteSourceSnapshot, error) {
 	if noteMgr == nil {
 		return nil, fmt.Errorf("note reader is required")
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	entries, err := loadEntries(ctx, vaultDef, directNoteReader{NoteReader: noteMgr})
+	entries, err := i.loadProjectedEntries(ctx, vaultDef, directNoteReader{NoteReader: noteMgr})
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,9 @@ func buildNoteSourceFactsWithReader(ctx context.Context, vaultDef obsidian.Vault
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		out = append(out, sourceFactsSnapshotFromEntry(entry))
+		snapshot := sourceFactsSnapshotFromProjectedEntry(entry)
+		snapshot.Links = nil
+		out = append(out, snapshot)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out, nil

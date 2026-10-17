@@ -3,12 +3,13 @@ package validate
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/validate/namespaceadmission"
+	"github.com/atomicobject/rhizome/pkg/sourcetxn/admission"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +35,7 @@ func namespaceTrackedFixture(t *testing.T) (string, NamespaceMutationPlan, []byt
 }
 
 func namespaceFixturePlanner(plan NamespaceMutationPlan) namespaceTestPlanner {
-	return func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) { return plan, nil }
+	return func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) { return plan, nil }
 }
 
 func TestNamespaceGitPublicationPreservesStagedVersusDirtyContent(t *testing.T) {
@@ -111,7 +112,7 @@ func TestNamespaceDurableDecisionSurvivesForeignLockReleaseFailure(t *testing.T)
 			}
 			probe := &repairPostApplyProbe{t: t, result: PostApplyRefreshResult{Paths: []string{"old.md", "new.md"}}}
 			calls := 0
-			callback := func(context.Context, *IndexLockLease) { calls++ }
+			callback := func(context.Context, *indexlock.Lease) { calls++ }
 			result, err := applyNamespaceMutation(context.Background(), namespaceTestRunContext(root), namespaceFixturePlanner(plan), probe, callback, hooks)
 			require.Error(t, err)
 			expected := NamespaceCommitted

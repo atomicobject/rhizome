@@ -15,7 +15,6 @@ type IntentProfile struct {
 	EnableRefs   *bool
 
 	MaxPerOwner *int
-	UseFTSBody  *bool
 }
 
 // resolveIntentProfile returns a profile for the given intent if one is defined.
@@ -40,9 +39,6 @@ func applyIntentProfile(opts Options, profile IntentProfile) Options {
 	}
 	if profile.MaxPerOwner != nil {
 		opts.MaxPerOwner = *profile.MaxPerOwner
-	}
-	if profile.UseFTSBody != nil {
-		opts.UseFTSBody = *profile.UseFTSBody
 	}
 	return opts
 }

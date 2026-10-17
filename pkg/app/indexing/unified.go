@@ -1,5 +1,7 @@
 package indexing
 
+import ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+
 // Docs:
 // - [Indexing pipeline (Hub)](docs/hubs/Indexing pipeline (Hub).md)
 // - [[indexing-workflow]]
@@ -12,29 +14,28 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"strings"
+
 	"sync"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/atomicobject/rhizome/pkg/app/codeintel"
 	"github.com/atomicobject/rhizome/pkg/app/indexcore"
-	"github.com/atomicobject/rhizome/pkg/app/indexingpipe"
 	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
+	"github.com/atomicobject/rhizome/pkg/app/validationrun"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	codeindex "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
-	"github.com/atomicobject/rhizome/pkg/validate"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	// ProgressSink is the minimal user-visible output surface used by indexing
+	// phases that only need to print status lines.
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
-// ProgressSink is the minimal user-visible output surface used by indexing
-// phases that only need to print status lines.
 type ProgressSink interface {
 	Println(string)
 }
@@ -48,6 +49,7 @@ type ProgressBar interface {
 
 // UnifiedOptions configures the full one-pass indexing pipeline.
 type UnifiedOptions struct {
+	Config       *repoconfig.Resolved
 	VaultPath    string
 	VaultDef     obsidian.VaultDefinition
 	NoteMetadata notemeta.Indexer
@@ -69,240 +71,16 @@ type UnifiedOptions struct {
 	afterPreparedOwnershipCommit func(context.Context) error
 }
 
-type unifiedBatchFinalizer struct {
-	writeQueue             *indexwriter.Writer
-	asyncSemanticSubmitter *codeintel.AsyncCodeSemanticSubmitter
-	postCodeSubmitter      *asyncCodeBatchSubmitter
-	postWriteDispatcher    *postWriteDispatcher
-	streaming              *unifiedStreamingCoordinator
-	semanticCancel         context.CancelFunc
-	semanticResources      *unifiedSemanticResources
-	waitFinalOntology      func() error
-
-	closeAsyncOnce     sync.Once
-	closeAsyncErr      error
-	closeDispatchOnce  sync.Once
-	closeDispatchErr   error
-	closePostOnce      sync.Once
-	closePostErr       error
-	closeStreamingOnce sync.Once
-	closeStreamingErr  error
-	waitIntentOnce     sync.Once
-	waitIntentErr      error
-	waitOntologyOnce   sync.Once
-	waitOntologyErr    error
-	detachWriterOnce   sync.Once
-	closeWriterOnce    sync.Once
-	closeWriterErr     error
-	cancelSemanticOnce sync.Once
-	closeSemanticOnce  sync.Once
-	writerClosed       bool
-}
-
-func nonCanceledQueueContext(ctx context.Context) context.Context {
-	if ctx == nil {
-		return context.Background()
-	}
-	return context.WithoutCancel(ctx)
-}
-
-func (f *unifiedBatchFinalizer) CloseAsyncSemanticSubmitter() error {
-	if f == nil {
-		return nil
-	}
-	f.closeAsyncOnce.Do(func() {
-		if f.asyncSemanticSubmitter != nil {
-			f.closeAsyncErr = f.asyncSemanticSubmitter.Close()
-		}
-	})
-	return f.closeAsyncErr
-}
-
-func (f *unifiedBatchFinalizer) FlushQueue(ctx context.Context) error {
-	if f == nil || f.writeQueue == nil || f.writerClosed {
-		return nil
-	}
-	return f.writeQueue.FlushAndWait(nonCanceledQueueContext(ctx))
-}
-
-func (f *unifiedBatchFinalizer) ClosePostCodeSubmitter() error {
-	if f == nil {
-		return nil
-	}
-	f.closePostOnce.Do(func() {
-		if f.postCodeSubmitter != nil {
-			f.closePostErr = f.postCodeSubmitter.Close()
-		}
-	})
-	return f.closePostErr
-}
-
-func (f *unifiedBatchFinalizer) ClosePostWriteDispatcher() error {
-	if f == nil {
-		return nil
-	}
-	f.closeDispatchOnce.Do(func() {
-		if f.postWriteDispatcher != nil {
-			f.closeDispatchErr = f.postWriteDispatcher.Close()
-		}
-	})
-	return f.closeDispatchErr
-}
-
-func (f *unifiedBatchFinalizer) CloseStreaming() error {
-	if f == nil {
-		return nil
-	}
-	f.closeStreamingOnce.Do(func() {
-		if f.streaming != nil {
-			f.closeStreamingErr = f.streaming.CloseAndWait()
-		}
-	})
-	return f.closeStreamingErr
-}
-
-// DrainStreamingWrites finishes producers and makes their queued body writes
-// durable before a later catalog replacement can delete their chunk parents.
-func (f *unifiedBatchFinalizer) DrainStreamingWrites(ctx context.Context) (err error) {
-	done := indexingperf.StartSpan(ctx, "streaming_durability_barrier")
-	defer func() { done(err) }()
-	if err := f.CloseStreaming(); err != nil {
-		return err
-	}
-	if ctx == nil {
-		return f.FlushQueue(ctx)
-	}
-	return errors.Join(f.FlushQueue(ctx), ctx.Err())
-}
-
-func (f *unifiedBatchFinalizer) WaitIntent() error {
-	if f == nil {
-		return nil
-	}
-	f.waitIntentOnce.Do(func() {
-		if f.semanticResources != nil {
-			f.waitIntentErr = f.semanticResources.waitIntent()
-		}
-	})
-	return f.waitIntentErr
-}
-
-func (f *unifiedBatchFinalizer) WaitFinalOntology() error {
-	if f == nil {
-		return nil
-	}
-	f.waitOntologyOnce.Do(func() {
-		if f.waitFinalOntology != nil {
-			f.waitOntologyErr = f.waitFinalOntology()
-		}
-	})
-	return f.waitOntologyErr
-}
-
-func (f *unifiedBatchFinalizer) DetachWriterCallbacks() {
-	if f == nil {
-		return
-	}
-	f.detachWriterOnce.Do(func() {
-		if f.writeQueue != nil {
-			f.writeQueue.SetAfterCodeIndexBatch(nil)
-			f.writeQueue.SetAfterNoteIndexBatch(nil)
-		}
-	})
-}
-
-func (f *unifiedBatchFinalizer) CloseWriter() error {
-	if f == nil {
-		return nil
-	}
-	f.closeWriterOnce.Do(func() {
-		f.DetachWriterCallbacks()
-		if f.writeQueue != nil {
-			f.closeWriterErr = f.writeQueue.Close()
-		}
-		f.writerClosed = true
-	})
-	return f.closeWriterErr
-}
-
-func (f *unifiedBatchFinalizer) CancelSemanticContext() {
-	if f == nil {
-		return
-	}
-	f.cancelSemanticOnce.Do(func() {
-		if f.semanticCancel != nil {
-			f.semanticCancel()
-		}
-	})
-}
-
-func (f *unifiedBatchFinalizer) CloseSemanticResources() {
-	if f == nil {
-		return
-	}
-	f.closeSemanticOnce.Do(func() {
-		if f.semanticResources != nil {
-			f.semanticResources.close()
-		}
-	})
-}
-
-func (f *unifiedBatchFinalizer) Shutdown(ctx context.Context) error {
-	if f == nil {
-		return nil
-	}
-	var err error
-	capture := func(next error) {
-		if next != nil {
-			err = errors.Join(err, next)
-		}
-	}
-
-	capture(f.CloseAsyncSemanticSubmitter())
-	capture(f.FlushQueue(ctx))
-	capture(f.ClosePostWriteDispatcher())
-	capture(f.ClosePostCodeSubmitter())
-	capture(f.CloseStreaming())
-	capture(f.WaitIntent())
-	capture(f.WaitFinalOntology())
-	capture(f.FlushQueue(ctx))
-	f.DetachWriterCallbacks()
-	capture(f.CloseWriter())
-	f.CancelSemanticContext()
-	f.CloseSemanticResources()
-	return err
-}
-
 type noopProgress struct{}
 
 func (noopProgress) Println(string)  {}
 func (noopProgress) Update(int, int) {}
-
-type progressSinkFunc func(string)
-
-func (f progressSinkFunc) Println(line string) { f(line) }
 
 func withProgressBar(p ProgressBar) ProgressBar {
 	if p == nil {
 		return noopProgress{}
 	}
 	return p
-}
-
-func withProgressSink(p ProgressSink) ProgressSink {
-	if p == nil {
-		return noopProgress{}
-	}
-	return p
-}
-
-func ontologyNodeEmbeddingsRequireRebuild(results ...*ontology.SyncResult) bool {
-	for _, result := range results {
-		if result != nil && result.Rebuilt {
-			return true
-		}
-	}
-	return false
 }
 
 func ontologyFollowupNeeded(result *ontology.SyncResult, changedPaths, deletedPaths []string) bool {
@@ -322,11 +100,17 @@ func ontologyFollowupNeeded(result *ontology.SyncResult, changedPaths, deletedPa
 // - [[indexing-pipeline-architecture#^spec-0012-us1]]
 // WHY: CLI batch indexing and live refresh need the same staged barriers, writer
 // lane, semantic runtime policy, and maintenance behavior; keep orchestration here.
-func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
+func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOptions) (err error) {
 	done := indexingperf.StartSpan(ctx, "unified_core")
 	defer func() { done(err) }()
+	if err := lease.Validate(opts.VaultPath); err != nil {
+		return fmt.Errorf("unified indexing lease: %w", err)
+	}
 	if err := opts.NoteMetadata.Validate(); err != nil {
 		return fmt.Errorf("note metadata indexer: %w", err)
+	}
+	if err := lease.Validate(opts.VaultDef.BasePath()); err != nil {
+		return fmt.Errorf("unified vault definition lease: %w", err)
 	}
 	rawProgress := withProgressBar(opts.ProgressBar)
 	progress := newIntegratedProgress(rawProgress, opts.Verbose)
@@ -335,38 +119,26 @@ func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
 		txLockMode = sqliteutil.TxLockImmediate
 	}
 
-	var codeCfg codeanchor.Config
-	var embCfg embeddings.Config
-	if err := runPhase(ctx, "open_config", func(ctx context.Context) error {
-		var err error
-		codeCfg, err = obsidian.LoadCodeConfig(opts.VaultPath)
-		if err != nil {
-			return err
+	var resolved repoconfig.Resolved
+	if err := runPhase(ctx, "open_config", func(context.Context) error {
+		if opts.Config != nil {
+			resolved = *opts.Config
+			return resolved.ValidateFor(opts.VaultPath)
 		}
-		embCfg, err = obsidian.LoadEmbeddingsConfig(opts.VaultPath)
+		var err error
+		resolved, err = repoconfig.Load(opts.VaultPath)
 		return err
 	}); err != nil {
 		return err
 	}
-	embCfg.IndexPath = obsidian.UnifiedIndexPath(opts.VaultPath, embCfg.IndexPath)
-	// Force embeddings to share the unified DB with code intel.
-	embCfg.IndexPath = codeCfg.IndexPath
-
-	codeEmbCfg, codeEmbExplicit, err := obsidian.EffectiveCodeEmbeddingsConfig(opts.VaultPath, embCfg)
-	if err != nil {
-		return err
-	}
-	// Force code embeddings to share the unified DB with code intel.
-	codeEmbCfg.IndexPath = codeCfg.IndexPath
+	codeCfg, embCfg := resolved.Code, resolved.NoteEmbeddings
+	codeEmbCfg, codeEmbExplicit := resolved.CodeEmbeddingsFor(embCfg)
 	var intelStore *semdb.Store
 	var cleanup func()
 	if err := runPhase(ctx, "open_stores", func(ctx context.Context) error {
 		var err error
-		intelStore, cleanup, err = obsidian.OpenIntelStoreWithRecoveryWithOptions(
-			opts.VaultPath,
-			codeCfg,
-			obsidian.IndexLockPath(opts.VaultPath),
-			obsidian.IntelStoreOpenOptions{TxLockMode: txLockMode},
+		intelStore, cleanup, err = indexstore.Open(
+			opts.VaultPath, indexstore.Options{Access: indexstore.ReadWrite, Config: &codeCfg, Create: true, Repair: true, Context: ctx, TxLockMode: txLockMode},
 		)
 		return err
 	}); err != nil {
@@ -379,7 +151,7 @@ func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
 	// Full indexing discovers and classifies the complete current ownership set
 	// before lane work. Do not use the legacy scope-change invalidation here: it
 	// clears durable note source identity, including descriptor-only formats.
-	localCfg, _ := obsidian.LoadLocalConfig(opts.VaultPath)
+	localCfg := resolved.Local
 	var currentScopeHash string
 	if localCfg != nil {
 		currentScopeHash = localCfg.ScopeConfigHash()
@@ -396,7 +168,7 @@ func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
 	}
 
 	tailIdx := codeanchor.NewPathTailIndex(5)
-	service, _ := bootstrap.NewCodeAnchorService(bootstrap.CodeAnchorServiceConfig{
+	service, _ := codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
 		VaultPath:       opts.VaultPath,
 		CodeCfg:         codeCfg,
 		Store:           intelStore,
@@ -405,158 +177,39 @@ func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
 		IncludeIndexers: true,
 		WriteAccess:     true,
 	})
-	var (
-		codeItemEmbBatch    func(context.Context, []codeindex.ItemEmbeddingUpsert) error
-		codeChunkBatch      func(context.Context, []codeindex.ItemChunksUpsert) error
-		codeChunkWriter     func(context.Context, codeindex.AnchorID, []codeindex.ChunkInput, []string, []embeddings.Embedding) error
-		noteMetaBatch       func(context.Context, []embeddings.NoteFileInfo) error
-		noteChunkSyncBatch  func(context.Context, []embeddings.NoteChunkSync) error
-		noteChunkSyncWriter func(context.Context, embeddings.NoteChunkSync) error
-		intelChunkWriter    = intelStore.ReplaceIntelChunks
-		intelEmbWriter      = intelStore.UpsertEmbeddings
-	)
-	writeQueue := indexwriter.New(ctx, indexcore.BindWriterHandlers(indexwriter.Handlers{
-		MarkDerivedDirty:       intelStore.MarkDerivedDirty,
-		ActivateDerivedWork:    intelStore.ActivateDerivedWork,
-		ApplyCodeIndexBatch:    service.ApplyCodeIndexBatch,
-		ApplyNoteIndexBatch:    service.ApplyNoteIndexBatch,
-		ApplyNoteMetadataDelta: intelStore.ApplyNoteMetadataDelta,
-		ApplyNoteMetaBatch: func(ctx context.Context, infos []embeddings.NoteFileInfo) error {
-			if noteMetaBatch == nil {
-				return fmt.Errorf("note meta queue not initialized")
-			}
-			return noteMetaBatch(ctx, infos)
-		},
-		ApplyCodeItemEmbeddingBatch: func(ctx context.Context, items []codeindex.ItemEmbeddingUpsert) error {
-			if codeItemEmbBatch == nil {
-				return fmt.Errorf("code item embedding queue not initialized")
-			}
-			if err := codeItemEmbBatch(ctx, items); err != nil {
-				return fmt.Errorf("apply code item embedding batch items=%d: %w", len(items), err)
-			}
-			return nil
-		},
-		ApplyCodeItemChunkBatch: func(ctx context.Context, items []codeindex.ItemChunksUpsert) error {
-			if codeChunkBatch == nil {
-				return fmt.Errorf("code chunk batch queue not initialized")
-			}
-			if err := codeChunkBatch(ctx, items); err != nil {
-				return fmt.Errorf("apply code chunk batch items=%d rows=%d: %w", len(items), indexwriter.CountCodeChunkRows(items), err)
-			}
-			return nil
-		},
-		ApplyCodeItemChunks: func(ctx context.Context, anchorID codeindex.AnchorID, chunks []codeindex.ChunkInput, texts []string, vecs []embeddings.Embedding) error {
-			if codeChunkWriter == nil {
-				return fmt.Errorf("code chunk queue not initialized")
-			}
-			return codeChunkWriter(ctx, anchorID, chunks, texts, vecs)
-		},
-		ApplyNoteChunkSyncBatch: func(ctx context.Context, items []embeddings.NoteChunkSync) error {
-			if noteChunkSyncBatch == nil {
-				return fmt.Errorf("note chunk sync batch queue not initialized")
-			}
-			return noteChunkSyncBatch(ctx, items)
-		},
-		ApplyNoteChunkSync: func(ctx context.Context, item embeddings.NoteChunkSync) error {
-			if noteChunkSyncWriter == nil {
-				return fmt.Errorf("note chunk sync queue not initialized")
-			}
-			return noteChunkSyncWriter(ctx, item)
-		},
-		ApplyIntelChunks:         intelChunkWriter,
-		ApplyIntelChunksByFamily: intelStore.ReplaceIntelChunksByFamily,
-		ApplyIntelEmbeddings: func(ctx context.Context, rows map[string]embeddings.Embedding) error {
-			if err := intelEmbWriter(ctx, rows); err != nil {
-				return fmt.Errorf("apply intel embeddings rows=%d: %w", len(rows), err)
-			}
-			return nil
-		},
-		ApplyIntentEmbeddingSnapshot: intelStore.ReplaceIntentEmbeddingSnapshot,
-		ApplyOntologyNodeReadModel:   intelStore.ReplaceOntologyNodeReadModel,
-		ApplyOntologyNodeStates:      intelStore.UpsertOntologyNodeEmbeddingStates,
-		ApplyOntologyDelta:           intelStore.ApplyOntologyDelta,
-		ApplyValidationState: func(ctx context.Context, write indexwriter.ValidationStateWrite) error {
-			generation, err := intelStore.SetValidationRunning(ctx)
-			if err != nil {
-				return err
-			}
-			if strings.TrimSpace(write.ErrorMessage) != "" {
-				_, err = intelStore.SetValidationError(ctx, generation, write.ErrorMessage, write.DurationMs)
-				return err
-			}
-			write.Snapshot.Generation = generation
-			published, err := intelStore.PublishValidationSnapshot(ctx, write.Snapshot)
-			if err == nil && !published {
-				return fmt.Errorf("validation generation %d was superseded before queued publication", generation)
-			}
-			return err
-		},
-	}, service, intelStore))
-	ctx = codeintel.WithWriteQueue(ctx, writeQueue)
-	finalizer := &unifiedBatchFinalizer{writeQueue: writeQueue}
+	semanticResources, err := prepareUnifiedSemanticResources(ctx, unifiedSemanticSetupOptions{
+		VaultPath:  opts.VaultPath,
+		APIKey:     opts.APIKey,
+		TxLockMode: txLockMode,
+	}, progress, sharedWriteMu, intelStore, codeCfg, embCfg, codeEmbCfg)
+	if err != nil {
+		return err
+	}
+	writeQueue := indexwriter.New(ctx, indexcore.BindWriterHandlers(semanticResources.writerHandlers(intelStore), service, intelStore))
+	semanticResources.bindWriter(writeQueue)
+	finalizer := &unifiedBatchFinalizer{writeQueue: writeQueue, semanticResources: semanticResources}
 	defer func() {
 		_ = finalizer.Shutdown(ctx)
 	}()
-	if reset := ensureReverseIndexReadiness(ctx, intelStore, func(format string, args ...any) {
+	if reset := reverseIndexNeedsRebuild(ctx, intelStore, func(format string, args ...any) {
 		progress.Println(fmt.Sprintf("[index] Warning: "+format, args...))
 	}); reset {
+		if err := writeQueue.SubmitReverseIndexReset(ctx); err != nil {
+			return err
+		}
 		progress.Println("[index] Reverse index marked stale; def-delta rebuilds will fall back until full scan completes.")
 		ctx = codeanchor.WithForceReindex(ctx)
 	}
 
-	semanticResources, err := prepareUnifiedSemanticResources(ctx, unifiedPostIndexOptions{
-		VaultPath:        opts.VaultPath,
-		APIKey:           opts.APIKey,
-		TxLockMode:       txLockMode,
-		Vacuum:           opts.Vacuum,
-		CurrentScopeHash: currentScopeHash,
-		CodeEmbExplicit:  codeEmbExplicit,
-	}, progress, sharedWriteMu, intelStore, writeQueue, &codeItemEmbBatch, &codeChunkBatch, &codeChunkWriter, &noteMetaBatch, &noteChunkSyncBatch, &noteChunkSyncWriter, codeCfg, embCfg, codeEmbCfg)
-	if err != nil {
-		return err
-	}
-	finalizer.semanticResources = semanticResources
 	semanticCtx, semanticCancel := context.WithCancel(ctx)
 	finalizer.semanticCancel = semanticCancel
-	var fallbackReason string
-	if ready, ok, err := intelStore.ReverseIndexBackfillComplete(ctx); err == nil {
-		if !ok || !ready {
-			fallbackReason = "reverse_index_backfill_incomplete"
-		}
-	} else {
-		fallbackReason = "reverse_index_backfill_unknown"
-	}
-	streaming := newUnifiedStreamingCoordinator(
-		semanticCtx,
-		semanticCancel,
-		progress,
-		service,
-		semanticResources.codeSyncer,
-		semanticResources.noteSyncer,
-		semanticResources.codeStore,
-		fallbackReason,
-	)
-	streaming.rebuildCallEdges = nil
-	streaming.rebuildGoPackages = nil
-	streaming.rebuildScopeIDs = nil
-	streaming.recomputeScopes = nil
+	streaming := newUnifiedStreamingCoordinator(semanticCtx, semanticCancel,
+		semanticResources.codeSyncer, semanticResources.noteSyncer)
 	finalizer.streaming = streaming
-	if notePaths, err := service.NotePaths(ctx); err == nil && len(notePaths) > 0 {
-		if anchorsByPath, err := service.AnchorsByNotePaths(ctx, notePaths); err == nil {
-			streaming.initialScopeAnchors = anchorsByPath
-		}
-	}
-	streaming.reverseIndexReady = func(stageCtx context.Context) (bool, error) {
-		ready, ok, err := intelStore.ReverseIndexBackfillComplete(stageCtx)
-		if err != nil {
-			return false, err
-		}
-		return ok && ready, nil
-	}
-	var ontologyBodySchema *ontology.Schema
+	var ontologyBodySchema *ontoschema.Schema
 	if semanticResources.noteSyncer != nil {
-		schema, err := ontology.LoadSchema(opts.VaultPath)
-		if err != nil && !errors.Is(err, ontology.ErrNoOntologyFiles) {
+		schema, err := ontoschema.LoadSchema(opts.VaultPath)
+		if err != nil && !errors.Is(err, ontoschema.ErrNoOntologyFiles) {
 			return err
 		}
 		if err == nil && schema != nil {
@@ -566,27 +219,25 @@ func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
 			}
 		}
 	}
-	postCodeSubmitter := newAsyncCodeBatchSubmitter(semanticCtx, streaming.SubmitCodeBatch, streaming.fail)
-	postWriteDispatcher := newPostWriteDispatcher(semanticCtx, postCodeSubmitter, streaming, streaming.fail)
-	asyncSemanticSubmitter := codeintel.NewAsyncCodeSemanticSubmitter(semanticCtx, streaming, streaming.fail)
-	finalizer.postCodeSubmitter = postCodeSubmitter
-	finalizer.postWriteDispatcher = postWriteDispatcher
-	finalizer.asyncSemanticSubmitter = asyncSemanticSubmitter
-	if writeQueue != nil {
-		writeQueue.SetAfterCodeIndexBatch(postWriteDispatcher.EnqueueCodeBatch)
-		writeQueue.SetAfterNoteIndexBatch(postWriteDispatcher.EnqueueNoteIndexBatch)
+	var asyncSemanticSubmitter *codeintel.AsyncCodeSemanticSubmitter
+	if semanticResources.codeSyncer != nil {
+		asyncSemanticSubmitter = codeintel.NewAsyncCodeSemanticSubmitter(semanticCtx, streaming, streaming.fail)
 	}
-	ctx = codeintel.WithCodeSemanticBatchSubmitter(ctx, asyncSemanticSubmitter)
+	finalizer.asyncSemanticSubmitter = asyncSemanticSubmitter
+	// Structural finalization uses the same committed source snapshots as the
+	// writer, without an asynchronous post-persistence hand-off.
+	writeQueue.SetAfterCodeIndexBatch(func(_ context.Context, batch []codeanchor.CodeIndexWork) error {
+		service.NoteRuntimeCodeIndexWorks(batch)
+		return nil
+	})
+	if asyncSemanticSubmitter != nil {
+		ctx = codeintel.WithCodeSemanticBatchSubmitter(ctx, asyncSemanticSubmitter)
+	}
 
-	streaming.finalDrain = newFinalDrainProgress(progress)
 	progress.SetSegment(0, mainPhaseEnd)
-	structuralResult, err := indexcore.Publish(ctx, structuralRequest, ownershipDiscovery, service, intelStore, writeQueue, indexcore.PublishOptions{
-		BeforeIngest: func(codeFiles, noteFiles int) *indexingpipe.ProgressCallbacks {
-			if semanticResources.noteSyncer != nil || semanticResources.codeSyncer != nil {
-				semanticResources.startIntentSync(semanticCtx, queuedIntentStore{Store: intelStore, queue: writeQueue})
-			}
+	structuralResult, err := indexcore.Publish(ctx, lease, structuralRequest, ownershipDiscovery, service, intelStore, writeQueue, indexcore.PublishOptions{
+		BeforeIngest: func(codeFiles, noteFiles int) *codeintel.ProgressCallbacks {
 			fileProgress := newFixedTotalFileProgress(progress, codeFiles+noteFiles)
-			streaming.workProgress = fileProgress
 			streaming.Start()
 			progress.SetStage("Indexing code and notes")
 			return fileProgress.callbacks()
@@ -595,18 +246,11 @@ func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
 	if err != nil {
 		return err
 	}
-	if structuralResult.Reconciliation.Required() {
-		if err := writeQueue.AcknowledgeOwnershipReconciliation(ctx, structuralResult.StructuralGeneration); err != nil {
-			return fmt.Errorf("acknowledge structural ownership: %w", err)
-		}
-	}
+
 	total, noteResult, initialOntologyResult := structuralResult.Code, structuralResult.Notes, structuralResult.Ontology
 	progress.Println(fmt.Sprintf("[index] Indexed %d code files (%d unchanged)", total.Indexed, total.Unchanged))
 	progress.Println(fmt.Sprintf("[index] Ingested %d notes (%d unchanged)", noteResult.Count, noteResult.Unchanged))
 	printNoteBuildWarnings(progress, noteResult.BuildErrors)
-	if err := streaming.SubmitDeletedCodePaths(ctx, structuralResult.CodeRetirements); err != nil {
-		return err
-	}
 	if initialOntologyResult != nil && initialOntologyResult.Schema != nil {
 		ontologyBodySchema = initialOntologyResult.Schema
 	}
@@ -648,12 +292,6 @@ func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
 	// earlier changed-path batches can coalesce with code streaming work. This
 	// keeps scoped updates cheap while still cleaning stale chunks before sync
 	// marks are persisted.
-	if err := finalizer.ClosePostWriteDispatcher(); err != nil {
-		return err
-	}
-	if err := finalizer.ClosePostCodeSubmitter(); err != nil {
-		return err
-	}
 	if err := finalizer.DrainStreamingWrites(ctx); err != nil {
 		return err
 	}
@@ -721,11 +359,7 @@ func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
 		return err
 	}
 	progress.AdvanceTo("Finalizing stream", finalDrainEnd)
-	progress.SetStage("Syncing intent exemplars")
-	if err := finalizer.WaitIntent(); err != nil {
-		return err
-	}
-	progress.AdvanceTo("Syncing intent exemplars", metadataSyncEnd)
+	progress.AdvanceTo("Finalizing metadata", metadataSyncEnd)
 	if err := finalizer.WaitFinalOntology(); err != nil {
 		return err
 	}
@@ -767,8 +401,6 @@ func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
 	if err := runUnifiedPostIndex(ctx, unifiedPostIndexOptions{
 		ForceGraph:            ownershipDiscovery.Recovery || ownershipDiscovery.GraphRecovery || (initialOntologyResult != nil && (initialOntologyResult.Dirty || initialOntologyResult.Rebuilt)),
 		VaultPath:             opts.VaultPath,
-		APIKey:                opts.APIKey,
-		TxLockMode:            txLockMode,
 		Vacuum:                opts.Vacuum,
 		CurrentScopeHash:      currentScopeHash,
 		CodeEmbExplicit:       codeEmbExplicit,
@@ -806,73 +438,21 @@ func RunUnifiedCore(ctx context.Context, opts UnifiedOptions) (err error) {
 	}
 	progress.SetStage("Validating index")
 	validationSpan := indexingperf.StartSpan(ctx, "validation_snapshot")
-	validationSnapshot, validationDurationMs, validationErr := validate.IndexValidationSnapshot(ctx, opts.NoteMetadata, opts.VaultDef, runtime, runtimeErr, 500)
+	validationSnapshot, validationDurationMs, validationErr := validationrun.IndexValidationSnapshot(ctx, opts.NoteMetadata, opts.VaultDef, runtime, runtimeErr, 500)
 	validationSpan(validationErr)
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if validationErr != nil {
-		log.Printf("validation index: %v", validationErr)
+		progress.Println(fmt.Sprintf("[index] Validation: %v", validationErr))
 	}
-	writeValidation := func(stageCtx context.Context) error {
-		return writeQueue.SubmitValidationSnapshot(stageCtx, validationSnapshot, validationErrorMessage(validationErr), validationDurationMs)
+	if err := writeQueue.SubmitValidationSnapshot(ctx, validationSnapshot, validationErrorMessage(validationErr), validationDurationMs); err != nil {
+		return fmt.Errorf("publish validation state: %w", err)
 	}
-	if err := writeValidation(ctx); err != nil {
-		log.Printf("validation state queue: %v", err)
-	} else if err := finalizer.FlushQueue(ctx); err != nil {
-		log.Printf("validation state flush: %v", err)
+	if err := finalizer.FlushQueue(ctx); err != nil {
+		return fmt.Errorf("flush validation state: %w", err)
 	}
 
 	progress.Finish("Index complete")
 	return nil
-}
-
-// reconcilePendingNoteSemanticKeepSet provides the crash-recovery barrier for
-// raw note embeddings. Ownership can have removed a source before a process
-// stopped, leaving no rediscoverable deleted path for the streaming lane. A
-// blocking full note sync prunes every embedding outside the current keep set
-// before exact derived obligations are acknowledged.
-func reconcilePendingNoteSemanticKeepSet(
-	ctx context.Context,
-	resources *unifiedSemanticResources,
-	flush func(context.Context) error,
-) error {
-	if resources == nil || resources.noteStore == nil {
-		return nil
-	}
-	if resources.noteSyncer == nil {
-		return fmt.Errorf("note semantic store is available but note syncer is unavailable")
-	}
-	if flush == nil {
-		return fmt.Errorf("note semantic keep-set flush is required")
-	}
-	if err := syncRawNoteEmbeddings(ctx, resources.noteSyncer, 0); err != nil {
-		return err
-	}
-	return flush(ctx)
-}
-
-func printNoteBuildWarnings(progress ProgressSink, buildErrors []codeintel.NoteIngestBuildError) {
-	if progress == nil || len(buildErrors) == 0 {
-		return
-	}
-	const maxShown = 5
-	limit := len(buildErrors)
-	if limit > maxShown {
-		limit = maxShown
-	}
-	for i := 0; i < limit; i++ {
-		warning := buildErrors[i]
-		progress.Println(fmt.Sprintf("[index] Warning: skipped note indexing for %s: %s", warning.Path, warning.Error))
-	}
-	if len(buildErrors) > limit {
-		progress.Println(fmt.Sprintf("[index] Warning: skipped note indexing for %d additional notes", len(buildErrors)-limit))
-	}
-}
-
-func validationErrorMessage(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
 }

@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ func sourceSpanIdentityResolver(content string) (*projectionResolver, []*Markdow
 	}
 	return &projectionResolver{
 		snapshot:        snapshot,
-		schema:          &Schema{},
+		schema:          &ontoschema.Schema{},
 		sectionTypeByID: map[string]string{},
 		parentIDByID:    sourceSpanParents(snapshot.SourceSpans),
 	}, snapshot.SourceSpans

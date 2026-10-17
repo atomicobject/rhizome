@@ -5,24 +5,29 @@ import (
 	"errors"
 	"os"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
-// Sources outside the legacy snapshot contribute provider-authored links.
-func (e *executor) addProviderInboundSectionNeighbors(ctx context.Context, cache *obsidian.NotePathCache, scannedSources map[string]*noteRecord, add func(string, string)) error {
+// Incoming sources contribute provider-authored links through the shared scope.
+func (e *executor) addProviderInboundSectionNeighbors(ctx context.Context, cache *obsidian.NotePathCache, scannedSources map[string]*noteRecord, candidates map[string]struct{}, add func(string, string)) error {
 	if e == nil || e.deps.Store == nil || cache == nil || add == nil {
 		return nil
 	}
-	rows, err := e.deps.Store.CurrentNoteMetadataRows(ctx)
+	rows, err := e.loaders.scope.MetadataInventory(ctx)
 	if err != nil {
 		return err
 	}
 	refs := make([]ontology.NodeRef, 0, len(rows))
 	for _, row := range rows {
+		if candidates != nil {
+			if _, ok := candidates[row.Path]; !ok {
+				continue
+			}
+		}
 		if _, available := cache.NotePaths[row.Path]; !available {
 			continue
 		}

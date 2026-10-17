@@ -3,19 +3,22 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,12 +31,15 @@ func (suppliedFilesReader) GetContents(obsidian.VaultDefinition, string) (string
 }
 
 func TestFilesToolUsesSuppliedNoteReader(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "decision.md"), []byte("disk body"), 0o644))
 	require.NoError(t, os.Mkdir(filepath.Join(root, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "config.yml"), []byte("notes: {}\n"), 0o644))
-	cfg := Config{Vault: &obsidian.Vault{Name: root}, VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}, NoteReader: &suppliedFilesReader{}}
-	result, err := FilesTool(cfg)(context.Background(), mcp.CallToolRequest{Params: mcp.CallToolParams{
+	cfg := Config{Vault: &repoconfig.Vault{Env: env, Name: root}, VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}, NoteReader: &suppliedFilesReader{}}
+	result, err := FilesTool(cfg)(vaultconfig.WithEnv(context.Background(), env), mcp.CallToolRequest{Params: mcp.CallToolParams{
 		Name: "files", Arguments: map[string]any{"inputs": []any{"decision.md"}, "includeContent": true},
 	}})
 	require.NoError(t, err)
@@ -46,7 +52,10 @@ func TestFilesToolUsesSuppliedNoteReader(t *testing.T) {
 }
 
 func TestFilesToolReturnsProjectedMetadataForMarkdownNotes(t *testing.T) {
-	ctx := context.Background()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	tempDir := t.TempDir()
 	root := filepath.Join(tempDir, "vault")
 	require.NoError(t, os.MkdirAll(root, 0o755))
@@ -61,9 +70,7 @@ func TestFilesToolReturnsProjectedMetadataForMarkdownNotes(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(obsidianConfig, configBody, 0o644))
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = obsidianConfig
 
 	store, err := sqlitefixture.Open(filepath.Join(t.TempDir(), "index.sqlite"))
 	require.NoError(t, err)
@@ -74,7 +81,7 @@ func TestFilesToolReturnsProjectedMetadataForMarkdownNotes(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := Config{
-		Vault:        &obsidian.Vault{Name: "vault"},
+		Vault:        &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath:    root,
 		VaultDef:     vaultDef,
 		IntelStore:   store,
@@ -101,7 +108,10 @@ func TestFilesToolReturnsProjectedMetadataForMarkdownNotes(t *testing.T) {
 }
 
 func TestFilesToolContentOmittedReasonAndDedupe(t *testing.T) {
-	ctx := context.Background()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	tempDir := t.TempDir()
 	vaultPath := filepath.Join(tempDir, "vault")
 	require.NoError(t, os.MkdirAll(vaultPath, 0o755))
@@ -117,9 +127,7 @@ func TestFilesToolContentOmittedReasonAndDedupe(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(obsidianConfig, cfgBody, 0o644))
 
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = obsidianConfig
 
 	storePath := filepath.Join(tempDir, "index.sqlite")
 	store, err := sqlitefixture.Open(storePath)
@@ -127,7 +135,7 @@ func TestFilesToolContentOmittedReasonAndDedupe(t *testing.T) {
 	defer store.Close()
 
 	cfg := Config{
-		Vault:        &obsidian.Vault{Name: "vault"},
+		Vault:        &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath:    vaultPath,
 		VaultDef:     obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		IntelStore:   store,
@@ -197,7 +205,10 @@ func TestFilesToolContentOmittedReasonAndDedupe(t *testing.T) {
 }
 
 func TestFilesToolBudgetPacksPages(t *testing.T) {
-	ctx := context.Background()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	tempDir := t.TempDir()
 	vaultPath := filepath.Join(tempDir, "vault")
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultPath, "src"), 0o755))
@@ -216,9 +227,7 @@ func TestFilesToolBudgetPacksPages(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(obsidianConfig, cfgBody, 0o644))
 
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = obsidianConfig
 
 	storePath := filepath.Join(tempDir, "index.sqlite")
 	store, err := sqlitefixture.Open(storePath)
@@ -237,7 +246,7 @@ func TestFilesToolBudgetPacksPages(t *testing.T) {
 	}))
 
 	cfg := Config{
-		Vault:      &obsidian.Vault{Name: "vault"},
+		Vault:      &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath:  vaultPath,
 		VaultDef:   obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		IntelStore: store,
@@ -287,7 +296,10 @@ func TestFilesToolBudgetPacksPages(t *testing.T) {
 }
 
 func TestFilesToolContinuationTokenPagesResults(t *testing.T) {
-	ctx := context.Background()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	tempDir := t.TempDir()
 	vaultPath := filepath.Join(tempDir, "vault")
 	require.NoError(t, os.MkdirAll(vaultPath, 0o755))
@@ -305,12 +317,10 @@ func TestFilesToolContinuationTokenPagesResults(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(obsidianConfig, cfgBody, 0o644))
 
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = obsidianConfig
 
 	cfg := Config{
-		Vault:     &obsidian.Vault{Name: "vault"},
+		Vault:     &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath: vaultPath,
 		VaultDef:  obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 	}
@@ -364,7 +374,10 @@ func TestFilesToolContinuationTokenPagesResults(t *testing.T) {
 }
 
 func TestFilesToolUnifiedExpansion(t *testing.T) {
-	ctx := context.Background()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	tempDir := t.TempDir()
 	vaultPath := filepath.Join(tempDir, "vault")
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultPath, "src"), 0o755))
@@ -381,9 +394,7 @@ func TestFilesToolUnifiedExpansion(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(obsidianConfig, cfgBody, 0o644))
 
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = obsidianConfig
 
 	storePath := filepath.Join(tempDir, "index.sqlite")
 	store, err := sqlitefixture.Open(storePath)
@@ -405,7 +416,7 @@ func TestFilesToolUnifiedExpansion(t *testing.T) {
 	}))
 
 	cfg := Config{
-		Vault:      &obsidian.Vault{Name: "vault"},
+		Vault:      &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath:  vaultPath,
 		VaultDef:   obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		IntelStore: store,
@@ -445,7 +456,10 @@ func TestFilesToolUnifiedExpansion(t *testing.T) {
 }
 
 func TestFilesToolGraphExpansionUsesTypedRelations(t *testing.T) {
-	ctx := context.Background()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	tempDir := t.TempDir()
 	vaultPath := filepath.Join(tempDir, "vault")
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultPath, "docs"), 0o755))
@@ -466,9 +480,7 @@ func TestFilesToolGraphExpansionUsesTypedRelations(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(obsidianConfig, cfgBody, 0o644))
 
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
-	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+	env.ObsidianConfigFile = obsidianConfig
 
 	storePath := filepath.Join(tempDir, "index.sqlite")
 	store, err := sqlitefixture.Open(storePath)
@@ -487,7 +499,7 @@ func TestFilesToolGraphExpansionUsesTypedRelations(t *testing.T) {
 	}}))
 
 	cfg := Config{
-		Vault:        &obsidian.Vault{Name: "vault"},
+		Vault:        &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath:    vaultPath,
 		VaultDef:     obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		IntelStore:   store,
@@ -592,8 +604,11 @@ func fileEntryPaths(entries []FileEntry) []string {
 // newCodeFilesConfig builds a vault containing the given code files, each
 // registered in a real SQLite file-summary index.
 func newCodeFilesConfig(t *testing.T, files map[string]string) Config {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
-	ctx := context.Background()
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	tempDir := t.TempDir()
 	vaultPath := filepath.Join(tempDir, "vault")
 	require.NoError(t, os.MkdirAll(vaultPath, 0o755))
@@ -603,9 +618,7 @@ func newCodeFilesConfig(t *testing.T, files map[string]string) Config {
 	cfgBody, err := json.Marshal(map[string]any{"vaults": map[string]any{"vault": map[string]string{"path": vaultPath}}})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(obsidianConfig, cfgBody, 0o644))
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
-	t.Cleanup(func() { obsidian.ObsidianConfigFile = origConfig })
+	env.ObsidianConfigFile = obsidianConfig
 
 	store := newIntelStore(t)
 	for rel, body := range files {
@@ -615,7 +628,7 @@ func newCodeFilesConfig(t *testing.T, files map[string]string) Config {
 		require.NoError(t, store.ReplaceFileSummary(ctx, codeanchor.FileSummary{FilePath: rel, Lang: codeanchor.LangGo, Hash: "hash-" + rel}))
 	}
 	return Config{
-		Vault:        &obsidian.Vault{Name: "vault"},
+		Vault:        &repoconfig.Vault{Env: env, Name: "vault"},
 		VaultPath:    vaultPath,
 		VaultDef:     obsidian.VaultDefinition{Name: "vault", Path: vaultPath},
 		IntelStore:   store,

@@ -2,48 +2,27 @@ package views
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
-
+	"github.com/atomicobject/rhizome/pkg/app/queryengine"
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"strings"
 )
 
 func (r defaultSourceResolver) resolveQueryRecipeSourceWithScope(ctx context.Context, scope *noderead.Scope, view viewconfig.ViewDefinition, req ExecuteRequest) (SourceResult, error) {
 	if r.opts.ExecSchema == nil {
-		return SourceResult{Warnings: []Warning{{Code: "view_source_unavailable", Message: "ontology query schema is unavailable"}}}, nil
+		return SourceResult{Warnings: []diag.Warning{{Code: "view_source_unavailable", Message: "ontology query schema is unavailable"}}}, nil
 	}
-	recipes, issues := queryrecipe.LoadDefaultSources(r.opts.VaultPath)
-	var matches []queryrecipe.Recipe
-	for _, candidate := range recipes {
-		if candidate.ID == view.SourceSpec.QueryRecipe {
-			matches = append(matches, candidate)
-		}
+	registry := r.opts.QueryRecipes
+	if registry == nil {
+		registry = queryrecipe.NewRegistry(queryrecipe.DefaultSourceRoots(r.opts.VaultPath))
 	}
-	targetLoadIssues, _ := partitionQueryRecipeIssues(issues, view.SourceSpec.QueryRecipe)
-	var warnings []Warning
-	if len(matches) == 0 {
-		warnings = append(warnings, queryRecipeWarnings(targetLoadIssues)...)
-		warnings = append(warnings, Warning{Code: "unknown_query_recipe", Message: fmt.Sprintf("query recipe %q not found", view.SourceSpec.QueryRecipe)})
-		return SourceResult{Warnings: warnings}, nil
-	}
-	validation := queryrecipe.Validate(recipes, r.opts.ExecSchema)
-	targetValidation, _ := partitionQueryRecipeIssues(validation.Issues, view.SourceSpec.QueryRecipe)
-	if len(matches) > 1 {
-		targetValidation = append(targetValidation, queryrecipe.Issue{
-			Code:    "duplicate_recipe_id",
-			Recipe:  view.SourceSpec.QueryRecipe,
-			Message: fmt.Sprintf("query recipe %q is declared %d times", view.SourceSpec.QueryRecipe, len(matches)),
-		})
-	}
-	if len(targetValidation) > 0 {
-		warnings = append(warnings, queryRecipeWarnings(targetValidation)...)
-		return SourceResult{Warnings: warnings}, nil
-	}
-	recipe := matches[0]
+	recipes, issues := registry.Catalog()
 	inputs := map[string]string{}
 	for key, value := range view.SourceSpec.Inputs {
 		inputs[key] = value
@@ -51,39 +30,33 @@ func (r defaultSourceResolver) resolveQueryRecipeSourceWithScope(ctx context.Con
 	for key, value := range req.Inputs {
 		inputs[key] = value
 	}
-	compiled, compileIssues := queryrecipe.Compile(recipe, r.opts.ExecSchema, inputs)
-	if len(compileIssues) > 0 {
-		warnings = append(warnings, queryRecipeWarnings(compileIssues)...)
-		return SourceResult{Warnings: warnings}, nil
+	run, issues, err := queryrecipe.Run(ctx, recipes, issues, view.SourceSpec.QueryRecipe, inputs, nil, r.opts.ExecSchema, func(ctx context.Context, prepared *ontologyquery.PreparedQuery) (ontologyquery.Result, error) {
+		engine, err := queryengine.New(r.opts.Schema, r.opts.ExecSchema, r.opts.QueryDeps)
+		if err != nil {
+			return ontologyquery.Result{}, err
+		}
+		return engine.Run(ctx, prepared)
+	})
+	if errors.Is(err, queryrecipe.ErrNotFound) {
+		return SourceResult{Warnings: []diag.Warning{{Code: "unknown_query_recipe", Message: err.Error()}}}, nil
 	}
-	result := ontologyquery.ExecutePrepared(ctx, r.opts.QueryDeps, r.opts.Schema, r.opts.ExecSchema, compiled.Prepared)
+	if err != nil {
+		return SourceResult{}, fmt.Errorf("%w: query recipe %q failed: %s", ErrInvalidRequest, view.SourceSpec.QueryRecipe, err)
+	}
+	if len(issues) > 0 {
+		return SourceResult{Warnings: queryRecipeWarnings(issues)}, nil
+	}
+	result := run.Result
+	var warnings []diag.Warning
 	if len(result.Errors) > 0 {
 		return SourceResult{}, fmt.Errorf("%w: query recipe %q failed: %s", ErrInvalidRequest, view.SourceSpec.QueryRecipe, queryErrorSummary(result.Errors))
 	}
-	items, rowWarnings := extractQueryRecipeRowsWithRecipePath(result, view.SourceSpec.ResultPath, recipe.OutputContract.RowPath)
+	items, rowWarnings := extractQueryRecipeRowsWithRecipePath(result, view.SourceSpec.ResultPath, run.OutputContract.RowPath)
 	warnings = append(warnings, rowWarnings...)
 	items, hydrateWarnings := r.hydrateRowsWithScope(ctx, scope, items)
 	warnings = append(warnings, hydrateWarnings...)
-	return SourceResult{
-		Rows:         items,
-		Capabilities: r.ontologyEditCapabilitiesForTypes(ctx, scope, rowResolvedTypeNames(items)),
-		Warnings:     warnings,
-	}, nil
+	return SourceResult{Rows: items, Capabilities: r.ontologyEditCapabilitiesForTypes(ctx, scope, rowResolvedTypeNames(items)), Warnings: warnings}, nil
 }
-
-func partitionQueryRecipeIssues(issues []queryrecipe.Issue, target string) ([]queryrecipe.Issue, []queryrecipe.Issue) {
-	var targetIssues []queryrecipe.Issue
-	var unrelated []queryrecipe.Issue
-	for _, issue := range issues {
-		if issue.Recipe == target {
-			targetIssues = append(targetIssues, issue)
-			continue
-		}
-		unrelated = append(unrelated, issue)
-	}
-	return targetIssues, unrelated
-}
-
 func queryErrorSummary(errors []ontologyquery.Error) string {
 	parts := make([]string, 0, len(errors))
 	for _, err := range errors {
@@ -98,38 +71,27 @@ func queryErrorSummary(errors []ontologyquery.Error) string {
 	}
 	return strings.Join(parts, "; ")
 }
-
-func queryRecipeWarnings(issues []queryrecipe.Issue) []Warning {
-	out := make([]Warning, 0, len(issues))
+func queryRecipeWarnings(issues []queryrecipe.Issue) []diag.Warning {
+	out := make([]diag.Warning, 0, len(issues))
 	for _, issue := range issues {
-		out = append(out, Warning{Code: issue.Code, Message: issue.Message, Path: issue.Path})
+		out = append(out, diag.Warning{Code: issue.Code, Message: issue.Message, Path: issue.Path})
 	}
 	return out
 }
-
-func extractQueryRecipeRowsWithRecipePath(result ontologyquery.Result, sourcePath, recipeRowPath string) ([]TableRow, []Warning) {
+func extractQueryRecipeRowsWithRecipePath(result ontologyquery.Result, sourcePath, recipeRowPath string) ([]TableRow, []diag.Warning) {
 	path := strings.TrimSpace(sourcePath)
 	if path == "" {
 		path = strings.TrimSpace(recipeRowPath)
 	}
 	if path == "" {
-		return nil, []Warning{{
-			Code:    "view_result_path_required",
-			Message: "query_recipe views must set source.resultPath or recipe outputContract.rowPath to the array of node-like rows",
-		}}
+		return nil, []diag.Warning{{Code: "view_result_path_required", Message: "query_recipe views must set source.resultPath or recipe outputContract.rowPath to the array of node-like rows"}}
 	}
 	values, found, isArray := extractResultArrayStrict(result.Data, path)
 	if !found {
-		return nil, []Warning{{
-			Code:    "view_result_path_not_found",
-			Message: resultPathNotFoundMessage(path),
-		}}
+		return nil, []diag.Warning{{Code: "view_result_path_not_found", Message: resultPathNotFoundMessage(path)}}
 	}
 	if !isArray {
-		return nil, []Warning{{
-			Code:    "view_result_path_not_array",
-			Message: fmt.Sprintf("query recipe result path %q did not resolve to an array", normalizeResultPath(path)),
-		}}
+		return nil, []diag.Warning{{Code: "view_result_path_not_array", Message: fmt.Sprintf("query recipe result path %q did not resolve to an array", normalizeResultPath(path))}}
 	}
 	var rows []TableRow
 	unresolved := 0
@@ -146,16 +108,12 @@ func extractQueryRecipeRowsWithRecipePath(result ontologyquery.Result, sourcePat
 		}
 		rows = append(rows, row)
 	}
-	var warnings []Warning
+	var warnings []diag.Warning
 	if unresolved > 0 {
-		warnings = append(warnings, Warning{
-			Code:    "view_source_items_unresolved",
-			Message: fmt.Sprintf("query recipe skipped %d row item(s) without object identity", unresolved),
-		})
+		warnings = append(warnings, diag.Warning{Code: "view_source_items_unresolved", Message: fmt.Sprintf("query recipe skipped %d row item(s) without object identity", unresolved)})
 	}
 	return rows, warnings
 }
-
 func rowResolvedTypeNames(rows []TableRow) []string {
 	seen := map[string]struct{}{}
 	var out []string
@@ -172,17 +130,14 @@ func rowResolvedTypeNames(rows []TableRow) []string {
 	}
 	return out
 }
-
 func resultPathNotFoundMessage(path string) string {
 	return fmt.Sprintf("query recipe result path %q was not found in query result", normalizeResultPath(path))
 }
-
 func normalizeResultPath(path string) string {
 	path = strings.TrimPrefix(strings.TrimSpace(path), "result.data.")
 	path = strings.TrimPrefix(path, "data.")
 	return path
 }
-
 func extractResultArrayStrict(data map[string]any, path string) ([]any, bool, bool) {
 	path = normalizeResultPath(path)
 	if path == "" {
@@ -204,7 +159,6 @@ func extractResultArrayStrict(data map[string]any, path string) ([]any, bool, bo
 	}
 	return nil, true, false
 }
-
 func rowFromMap(obj map[string]any) (TableRow, bool) {
 	path := firstString(obj["path"], obj["notePath"])
 	ref, hasRef := nodeRefFromMapValue(obj["ref"])
@@ -228,37 +182,19 @@ func rowFromMap(obj map[string]any) (TableRow, bool) {
 	if ref.TypeName != "" {
 		resolvedType = firstNonEmpty(resolvedType, ref.TypeName)
 	}
-	return TableRow{
-		Ref:          ref,
-		Path:         path,
-		Title:        title,
-		ResolvedType: resolvedType,
-		Fields:       obj,
-	}, true
+	return TableRow{Ref: ref, Path: path, Title: title, ResolvedType: resolvedType, Fields: obj}, true
 }
-
 func nodeRefFromMapValue(value any) (ontology.NodeRef, bool) {
 	obj, ok := value.(map[string]any)
 	if !ok {
 		return ontology.NodeRef{}, false
 	}
-	ref := ontology.NodeRef{
-		NotePath:   firstString(obj["notePath"], obj["path"]),
-		Fragment:   firstString(obj["fragment"]),
-		NodeID:     firstString(obj["nodeId"], obj["nodeID"], obj["node_id"]),
-		TypeName:   firstString(obj["typeName"], obj["type"]),
-		Kind:       ontology.NodeKind(firstString(obj["kind"])),
-		StartByte:  intValue(obj["startByte"]),
-		EndByte:    intValue(obj["endByte"]),
-		ParentID:   firstString(obj["parentId"], obj["parentID"], obj["parent_id"]),
-		Structural: firstString(obj["structuralFingerprint"], obj["structural"]),
-	}
+	ref := ontology.NodeRef{NotePath: firstString(obj["notePath"], obj["path"]), Fragment: firstString(obj["fragment"]), NodeID: firstString(obj["nodeId"], obj["nodeID"], obj["node_id"]), TypeName: firstString(obj["typeName"], obj["type"]), Kind: ontology.NodeKind(firstString(obj["kind"])), StartByte: intValue(obj["startByte"]), EndByte: intValue(obj["endByte"]), ParentID: firstString(obj["parentId"], obj["parentID"], obj["parent_id"]), Structural: firstString(obj["structuralFingerprint"], obj["structural"])}
 	if ref.NotePath == "" {
 		return ontology.NodeRef{}, false
 	}
 	return ref, true
 }
-
 func firstString(values ...any) string {
 	for _, value := range values {
 		if str, ok := value.(string); ok && strings.TrimSpace(str) != "" {
@@ -267,7 +203,6 @@ func firstString(values ...any) string {
 	}
 	return ""
 }
-
 func intValue(value any) int {
 	switch typed := value.(type) {
 	case int:

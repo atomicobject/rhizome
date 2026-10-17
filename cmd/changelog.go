@@ -7,15 +7,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var changelogCmd = &cobra.Command{
-	Use:   "changelog",
-	Short: "Show the changelog",
-	Long:  `Display the changelog showing recent changes and release history.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Fprint(cmd.OutOrStdout(), changelog.Content)
-	},
+func (commandOptions *vaultCommandOptions) makeChangelogCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "changelog",
+		Short: "Show the changelog",
+		Long:  `Display the changelog showing recent changes and release history.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Fprint(cmd.OutOrStdout(), changelog.Content)
+		},
+	}
 }
 
-func init() {
+func (commandOptions *vaultCommandOptions) registerChangelogCommands(rootCmd, changelogCmd *cobra.Command) {
 	rootCmd.AddCommand(changelogCmd)
 }

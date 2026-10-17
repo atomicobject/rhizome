@@ -2,7 +2,6 @@ package ontology
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
 )
@@ -27,64 +26,29 @@ func CanonicalEditRef(ref NodeRef) (NodeRef, error) {
 }
 
 func canonicalizeEditOp(op editOp) (editOp, error) {
-	canonicalRef := func(ref NodeRef) (NodeRef, error) { return CanonicalEditRef(ref) }
-	switch typed := op.(type) {
-	case setFieldOp:
-		ref, err := canonicalRef(typed.Ref)
-		typed.Ref = ref
-		return typed, err
-	case setRawFrontmatterListOp:
-		ref, err := canonicalRef(typed.Ref)
-		typed.Ref = ref
-		return typed, err
-	case addEmbeddedNodeOp:
-		ref, err := canonicalRef(typed.ParentRef)
-		typed.ParentRef = ref
-		return typed, err
-	case addSectionFieldOp:
-		ref, err := canonicalRef(typed.Ref)
-		typed.Ref = ref
-		return typed, err
-	case deleteNodeOp:
-		ref, err := canonicalRef(typed.Ref)
-		typed.Ref = ref
-		return typed, err
-	case reorderCollectionOp:
-		ref, err := canonicalRef(typed.ParentRef)
-		typed.ParentRef = ref
-		return typed, err
-	case setNarrativeOp:
-		ref, err := canonicalRef(typed.Ref)
-		typed.Ref = ref
-		return typed, err
-	case insertNarrativeOp:
-		ref, err := canonicalRef(typed.Ref)
-		typed.Ref = ref
-		return typed, err
-	case ensureBlockIDOp:
-		ref, err := canonicalRef(typed.Ref)
-		typed.Ref = ref
-		return typed, err
-	case setBlockIDOp:
-		ref, err := canonicalRef(typed.Ref)
-		typed.Ref = ref
-		return typed, err
-	case removeBlockIDOp:
-		ref, err := canonicalRef(typed.Ref)
-		typed.Ref = ref
-		return typed, err
-	case rewriteFileOp:
-		path, err := CanonicalEditPath(typed.NotePathValue)
-		typed.NotePathValue = path.String()
-		return typed, err
-	case transformFileOp:
-		path, err := CanonicalEditPath(typed.NotePathValue)
-		typed.NotePathValue = path.String()
-		return typed, err
-	default:
-		if strings.TrimSpace(op.notePath()) == "" {
-			return nil, fmt.Errorf("edit operation note path is required")
-		}
-		return nil, fmt.Errorf("canonical edit identity is not implemented for %T", op)
+	ref, _ := op.conflictTarget()
+	canonical, err := CanonicalEditRef(ref)
+	if err != nil {
+		return nil, err
 	}
+	return op.withCanonicalRef(canonical), nil
+}
+
+func (op setFieldOp) withCanonicalRef(ref NodeRef) editOp          { op.Ref = ref; return op }
+func (op addEmbeddedNodeOp) withCanonicalRef(ref NodeRef) editOp   { op.ParentRef = ref; return op }
+func (op addSectionFieldOp) withCanonicalRef(ref NodeRef) editOp   { op.Ref = ref; return op }
+func (op deleteNodeOp) withCanonicalRef(ref NodeRef) editOp        { op.Ref = ref; return op }
+func (op reorderCollectionOp) withCanonicalRef(ref NodeRef) editOp { op.ParentRef = ref; return op }
+func (op setNarrativeOp) withCanonicalRef(ref NodeRef) editOp      { op.Ref = ref; return op }
+func (op insertNarrativeOp) withCanonicalRef(ref NodeRef) editOp   { op.Ref = ref; return op }
+func (op ensureBlockIDOp) withCanonicalRef(ref NodeRef) editOp     { op.Ref = ref; return op }
+func (op setBlockIDOp) withCanonicalRef(ref NodeRef) editOp        { op.Ref = ref; return op }
+func (op removeBlockIDOp) withCanonicalRef(ref NodeRef) editOp     { op.Ref = ref; return op }
+func (op rewriteFileOp) withCanonicalRef(ref NodeRef) editOp {
+	op.NotePathValue = ref.NotePath
+	return op
+}
+func (op transformFileOp) withCanonicalRef(ref NodeRef) editOp {
+	op.NotePathValue = ref.NotePath
+	return op
 }

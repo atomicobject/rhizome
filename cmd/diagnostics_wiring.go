@@ -92,7 +92,8 @@ func (d *commandDiagnostics) start(command *cobra.Command) {
 			return
 		}
 	}
-	def, err := vaultDefOrDefaultContext(command.Context())
+	selectedVault, _ := command.Flags().GetString("vault")
+	def, err := (&vaultCommandOptions{vaultName: selectedVault}).vaultDefOrDefaultContext(command.Context())
 	if err != nil {
 		return
 	}
@@ -101,7 +102,7 @@ func (d *commandDiagnostics) start(command *cobra.Command) {
 		fmt.Fprintf(command.ErrOrStderr(), "WARN [diagnostics] configuration unavailable (%s); using bounded defaults\n", logging.ClassifyError(err))
 	}
 	options.Role = "cli"
-	if command.Parent() == rootCmd && (command.Name() == "serve" || command.Name() == "start") {
+	if command.Parent() == command.Root() && (command.Name() == "serve" || command.Name() == "start") {
 		options.Role = "runtime"
 	}
 	options.Version = version.Version
@@ -147,7 +148,7 @@ func (d *commandDiagnostics) finish(command *cobra.Command, err error) {
 	}
 	var coded interface{ ExitCode() int }
 	alreadyRunning := errors.Is(err, appserve.ErrAlreadyRunning)
-	if command.Parent() == rootCmd && command.Name() == "serve" && errors.As(err, &coded) && coded.ExitCode() == appruntime.ExitCodeAlreadyRunning {
+	if command.Parent() == command.Root() && command.Name() == "serve" && errors.As(err, &coded) && coded.ExitCode() == appruntime.ExitCodeAlreadyRunning {
 		alreadyRunning = true
 	}
 	if alreadyRunning {

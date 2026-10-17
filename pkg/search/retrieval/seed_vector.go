@@ -2,19 +2,21 @@ package retrieval
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // SeedVectorRetriever runs vector similarity using seed entities (notes/files/anchors) instead of free-text queries.
@@ -142,7 +144,7 @@ func (r *SeedVectorRetriever) retrieveNoteSeeds(ctx context.Context, seeds []kno
 	for _, q := range queries {
 		seedEmbeds = append(seedEmbeds, q.Embedding)
 	}
-	nodesByID := make(map[string]codeanchor.IntelOntologyNode)
+	nodesByID := make(map[string]readmodel.NodeRow)
 	loadNodes := func(matches []semdb.ScoredChunk) error {
 		nodeIDs := make([]string, 0)
 		seen := make(map[string]struct{})
@@ -207,7 +209,7 @@ func (r *SeedVectorRetriever) retrieveNoteSeeds(ctx context.Context, seeds []kno
 			}
 			title, okTitle := titleByPath[notePath]
 			if !okTitle {
-				title = noteTitleFromPath(notePath)
+				title = paths.NoteTitle(strings.TrimSpace(notePath))
 				titleByPath[notePath] = title
 			}
 			if hasNode && strings.TrimSpace(node.Title) != "" {
@@ -223,26 +225,28 @@ func (r *SeedVectorRetriever) retrieveNoteSeeds(ctx context.Context, seeds []kno
 				best[key] = entry
 			}
 			entry.cand = search.Candidate{
-				Handle:      handle,
-				Owner:       owner,
-				Type:        "note",
-				Path:        notePath,
-				Title:       title,
-				NoteID:      notePath,
-				ChunkIndex:  chunkIndex,
-				Breadcrumb:  m.Breadcrumb,
-				Heading:     m.Heading,
-				Granularity: m.Granularity,
+				SourceRef: search.SourceRef{
+					Path:        notePath,
+					Title:       title,
+					NoteID:      notePath,
+					ChunkIndex:  chunkIndex,
+					Breadcrumb:  m.Breadcrumb,
+					Heading:     m.Heading,
+					Granularity: m.Granularity,
+				},
+				Handle: handle,
+				Owner:  owner,
+				Type:   "note",
 			}
 			if m.OwnerType == "ontology_node" {
 				entry.cand.NodeID = m.OwnerID
 				entry.cand.Kind = "ontology_node"
 				if hasNode {
-					entry.cand.NodeRefJSON = node.NodeRefJSON
-					entry.cand.SourceLocator = node.SourceLocator
-					entry.cand.NodeKind = node.NodeKind
-					entry.cand.NodeType = node.TypeName
 					entry.cand.ParentNodeID = node.ParentNodeID
+					var ref ontology.NodeRef
+					if err := json.Unmarshal([]byte(node.NodeRefJSON), &ref); err == nil && !ref.IsZero() {
+						entry.cand.NodeRef = &ref
+					}
 				}
 			}
 			entry.scores = addScore(entry.scores, m.Score, 5)
@@ -290,229 +294,11 @@ func (r *SeedVectorRetriever) retrieveNoteSeeds(ctx context.Context, seeds []kno
 	return results, nil
 }
 
-func hasCompleteOntologyNodeIdentity(node codeanchor.IntelOntologyNode) bool {
+func hasCompleteOntologyNodeIdentity(node readmodel.NodeRow) bool {
 	return strings.TrimSpace(node.NodeID) != "" &&
 		strings.TrimSpace(node.NotePath) != "" &&
 		strings.TrimSpace(node.NodeRefJSON) != "" &&
 		strings.TrimSpace(node.SourceLocator) != ""
-}
-
-func (r *SeedVectorRetriever) retrieveCodeSeeds(ctx context.Context, seeds []knowledge.Handle, perChunkLimit, maxChunks int, queryFilters search.Filters) ([]search.Candidate, error) {
-	store := r.Semantic.IntelStore
-	if store == nil {
-		return nil, nil
-	}
-
-	var anchorSeeds []string
-	var fileSeeds []string
-	anchorCache := make(map[string]codeanchor.IntelAnchor)
-
-	for _, seed := range seeds {
-		switch seed.Kind {
-		case knowledge.KindAnchor:
-			id := strings.TrimSpace(seed.ID)
-			if id != "" {
-				anchorSeeds = append(anchorSeeds, id)
-			}
-		case knowledge.KindFile:
-			if hasFragment(seed, "dirseed") {
-				continue
-			}
-			p := normalizeCodePath(filepath.ToSlash(strings.TrimSpace(seed.ID)))
-			if p != "" {
-				fileSeeds = append(fileSeeds, p)
-			}
-		}
-	}
-
-	for _, seed := range fileSeeds {
-		if ctx.Err() != nil {
-			break
-		}
-		anchors, err := store.IntelAnchorsByPath(ctx, seed)
-		if err != nil {
-			return nil, err
-		}
-		for _, anchor := range anchors {
-			if strings.TrimSpace(anchor.AnchorID) == "" {
-				continue
-			}
-			anchorSeeds = append(anchorSeeds, anchor.AnchorID)
-			anchorCache[anchor.AnchorID] = anchor
-		}
-	}
-
-	if len(anchorSeeds) == 0 {
-		return nil, nil
-	}
-
-	uniqueSeeds := make([]string, 0, len(anchorSeeds))
-	seenSeed := make(map[string]struct{}, len(anchorSeeds))
-	for _, id := range anchorSeeds {
-		id = strings.TrimSpace(id)
-		if id == "" {
-			continue
-		}
-		if _, ok := seenSeed[id]; ok {
-			continue
-		}
-		seenSeed[id] = struct{}{}
-		uniqueSeeds = append(uniqueSeeds, id)
-	}
-
-	maxSeedAnchors := 12
-	if maxChunks > 0 {
-		maxSeedAnchors = min(maxSeedAnchors, max(1, maxChunks/2))
-	}
-	if len(uniqueSeeds) > maxSeedAnchors {
-		uniqueSeeds = uniqueSeeds[:maxSeedAnchors]
-	}
-
-	chunks, err := store.IntelChunksByOwners(ctx, uniqueSeeds)
-	if err != nil {
-		return nil, err
-	}
-	if len(chunks) == 0 {
-		return nil, nil
-	}
-
-	primary := make(map[string]codeanchor.IntelChunk)
-	for _, c := range chunks {
-		if strings.TrimSpace(c.OwnerID) == "" {
-			continue
-		}
-		cur, ok := primary[c.OwnerID]
-		if !ok || c.Ord < cur.Ord {
-			primary[c.OwnerID] = c
-		}
-	}
-
-	chunkIDs := make([]string, 0, len(primary))
-	for _, c := range primary {
-		chunkIDs = append(chunkIDs, c.ChunkID)
-	}
-	embeddingsByChunk, err := store.EmbeddingsByChunkIDs(ctx, chunkIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	perItemLimit := perChunkLimit
-	if perItemLimit < 25 {
-		perItemLimit = 25
-	}
-	if perItemLimit > 250 {
-		perItemLimit = 250
-	}
-
-	type agg struct {
-		cand   search.Candidate
-		scores []float64
-	}
-	best := make(map[string]*agg)
-
-	fetchAnchors := func(ids []string) error {
-		if len(ids) == 0 {
-			return nil
-		}
-		fetched, err := store.IntelAnchorsByIDs(ctx, ids)
-		if err != nil {
-			return err
-		}
-		for id, anchor := range fetched {
-			anchorCache[id] = anchor
-		}
-		return nil
-	}
-
-	applyMatches := func(matches []semdb.ScoredChunk) error {
-		var missing []string
-		for _, m := range matches {
-			if _, ok := anchorCache[m.OwnerID]; !ok {
-				missing = append(missing, m.OwnerID)
-			}
-		}
-		if err := fetchAnchors(missing); err != nil {
-			return err
-		}
-		for _, m := range matches {
-			anchor := anchorCache[m.OwnerID]
-			handle := knowledge.AnchorHandle(m.OwnerID)
-			entry, ok := best[m.OwnerID]
-			if !ok {
-				entry = &agg{}
-				best[m.OwnerID] = entry
-			}
-			path := m.Path
-			if anchor.Path != "" {
-				path = anchor.Path
-			}
-			entry.cand = search.Candidate{
-				Handle:     handle,
-				Owner:      handle,
-				Type:       "code",
-				Path:       path,
-				Title:      anchor.Symbol,
-				Symbol:     anchor.Symbol,
-				FQN:        anchor.FQN,
-				Kind:       anchor.Kind,
-				ChunkIndex: -1,
-				AnchorID:   m.OwnerID,
-			}
-			entry.scores = addScore(entry.scores, m.Score, 5)
-		}
-		return nil
-	}
-
-	filters := semdb.EmbeddingSearchFilters{
-		OwnerTypes:   []string{"anchor"},
-		PathPrefixes: queryFilters.PathPrefixes,
-		NoteTypes:    queryFilters.NoteTypes,
-		ExactSymbols: queryFilters.ExactSymbols,
-		TestsOnly:    queryFilters.TestsOnly,
-		ExcludeTests: queryFilters.ExcludeTests,
-	}
-	var seedEmbeds []embeddings.Embedding
-	for _, seed := range uniqueSeeds {
-		if ctx.Err() != nil {
-			break
-		}
-		chunk, ok := primary[seed]
-		if !ok {
-			continue
-		}
-		emb := embeddingsByChunk[chunk.ChunkID]
-		if len(emb) == 0 {
-			continue
-		}
-		seedEmbeds = append(seedEmbeds, emb)
-
-		matches, _, err := store.SearchEmbeddings(ctx, emb, perItemLimit, filters)
-		if err != nil {
-			return nil, err
-		}
-		if err := applyMatches(matches); err != nil {
-			return nil, err
-		}
-	}
-
-	if centroid := averageEmbeddings(seedEmbeds); centroid != nil && ctx.Err() == nil {
-		matches, _, err := store.SearchEmbeddings(ctx, centroid, perItemLimit, filters)
-		if err == nil {
-			if err := applyMatches(matches); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	results := make([]search.Candidate, 0, len(best))
-	for _, a := range best {
-		score := average(a.scores)
-		cand := a.cand
-		cand.Evidence = []search.Evidence{literalEvidence("code_vector_similarity", score)}
-		results = append(results, cand)
-	}
-	results = sortCandidates(results, perChunkLimit)
-	return results, nil
 }
 
 func hasFragment(h knowledge.Handle, frag string) bool {
@@ -530,11 +316,6 @@ func hasFragment(h knowledge.Handle, frag string) bool {
 
 func normalizeCodePath(p string) string {
 	return string(paths.NormalizeCode(filepath.ToSlash(strings.TrimSpace(p))))
-}
-
-func noteTitleFromPath(p string) string {
-	base := filepath.Base(strings.TrimSpace(p))
-	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
 func literalEvidence(typ string, score float64) search.Evidence {

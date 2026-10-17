@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,12 +12,18 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
+	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCodeModeConfigSnapshotDetectsPublishedChange(t *testing.T) {
+
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	for _, exists := range []bool{false, true} {
 		t.Run(map[bool]string{false: "missing config", true: "existing config"}[exists], func(t *testing.T) {
 			vault := setupAgentTestVault(t, nil)
@@ -24,12 +32,8 @@ func TestCodeModeConfigSnapshotDetectsPublishedChange(t *testing.T) {
 			root := paths.ResolveSymlinks(vault.path).String()
 			// Keep named-vault resolution isolated, including the missing-config case.
 			preferences := t.TempDir()
-			originalPreferences := obsidian.CliConfigPath
-			obsidian.CliConfigPath = func() (string, string, error) {
-				return preferences, filepath.Join(preferences, "config.yml"), nil
-			}
-			t.Cleanup(func() { obsidian.CliConfigPath = originalPreferences })
-			require.NoError(t, obsidian.SaveCliConfig(obsidian.CliConfig{Vaults: map[string]obsidian.VaultDefinition{
+			env.HomeDir = preferences
+			require.NoError(t, repoconfig.SaveCliConfig(env, repoconfig.CliConfig{Vaults: map[string]obsidian.VaultDefinition{
 				vault.name: {Name: vault.name, Root: root, Includes: []string{"**/*.md"}},
 			}}))
 			path := filepath.Join(vault.path, ".rhizome", "config.yml")
@@ -45,6 +49,8 @@ func TestCodeModeConfigSnapshotDetectsPublishedChange(t *testing.T) {
 			require.NoError(t, err)
 			input, requests := io.Pipe()
 			responses, output := io.Pipe()
+			env.WorkingDir = vault.path
+			rootCmd := newRootCommand(commandEnv{Config: env})
 			command, _, err := rootCmd.Find([]string{"agent", "code", "serve"})
 			require.NoError(t, err)
 			command.SetIn(input)
@@ -56,7 +62,6 @@ func TestCodeModeConfigSnapshotDetectsPublishedChange(t *testing.T) {
 				_ = requests.Close()
 				_ = responses.Close()
 				_ = output.Close()
-				resetCommandContexts(rootCmd)
 			})
 			type reply struct {
 				ID     int                   `json:"id"`
@@ -86,7 +91,7 @@ func TestCodeModeConfigSnapshotDetectsPublishedChange(t *testing.T) {
 					}
 					// Publish only after the first public response from this connection.
 					// The typed definition stays the same; its raw config snapshot changes.
-					if err := obsidian.WriteFileAtomicPreservingMode(path, []byte("# published\n{}\n"), 0o644); err != nil {
+					if err := fileio.WriteFileAtomicPreservingMode(path, []byte("# published\n{}\n"), 0o644); err != nil {
 						return err
 					}
 					if err := exchange(3, "call", call, &second); err != nil {
@@ -96,10 +101,10 @@ func TestCodeModeConfigSnapshotDetectsPublishedChange(t *testing.T) {
 				}()
 			}()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			ctx, cancel := context.WithTimeout(vaultconfig.WithEnv(context.Background(), env), 15*time.Second)
 			defer cancel()
 			command.SetContext(ctx)
-			_, stderr, err := runRootCLI(t, ctx, []string{"agent", "code", "serve", "--vault", vault.name})
+			_, stderr, err := runCommandInvocation(t, rootCmd, ctx, []string{"agent", "code", "serve", "--vault", vault.name}, true)
 			_ = output.Close()
 			require.NoError(t, err, stderr)
 			require.NoError(t, <-finished)

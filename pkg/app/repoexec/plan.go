@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // Plan is an inert selection of the executable authority for a checkout.
@@ -14,7 +14,7 @@ type Plan struct {
 	Authority             string
 	Target                string
 	ConfigDir             string
-	Config                *obsidian.LocalConfig
+	Config                *repoconfig.LocalConfig
 	PinnedVersion         string
 	SourceRoot            string
 	PreferDevelopment     bool
@@ -26,8 +26,8 @@ type Plan struct {
 // global executable, or a non-executable placeholder when only inspecting.
 func Select(cwd, fallback string) (Plan, error) {
 	p := Plan{Authority: "global", Target: fallback}
-	cfgDir, cfg, err := obsidian.FindLocalConfigForDelegation(cwd)
-	if err != nil && !errors.Is(err, obsidian.ErrNoLocalConfig) {
+	cfgDir, cfg, err := repoconfig.FindLocalConfigForDelegation(cwd)
+	if err != nil && !errors.Is(err, repoconfig.ErrNoLocalConfig) {
 		return p, err
 	}
 	if err == nil {

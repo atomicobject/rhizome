@@ -3,18 +3,19 @@ package validate
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/validate/namespaceadmission"
+	"github.com/atomicobject/rhizome/pkg/sourcetxn/admission"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
 
-type namespaceTestPlanner func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error)
+type namespaceTestPlanner func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error)
 
-func (p namespaceTestPlanner) PlanNamespaceMutation(ctx context.Context, lease *IndexLockLease) (NamespaceMutationPlan, error) {
+func (p namespaceTestPlanner) PlanNamespaceMutation(ctx context.Context, lease *indexlock.Lease) (NamespaceMutationPlan, error) {
 	return p(ctx, lease)
 }
 
@@ -39,8 +40,8 @@ func TestNamespaceSessionPublishesRequiredWritesUnderBorrowedLease(t *testing.T)
 	require.NoError(t, os.WriteFile(filepath.Join(root, "old.md"), []byte("before\n"), 0o640))
 	plan := namespaceTestPlan(t, root)
 	probe := &repairPostApplyProbe{t: t, result: PostApplyRefreshResult{Paths: []string{"old.md", "new.md"}}}
-	result, err := ApplyNamespaceMutation(context.Background(), namespaceTestRunContext(root), namespaceTestPlanner(func(_ context.Context, lease *IndexLockLease) (NamespaceMutationPlan, error) {
-		require.NoError(t, lease.RequireHeldForVault(root))
+	result, err := ApplyNamespaceMutation(context.Background(), namespaceTestRunContext(root), namespaceTestPlanner(func(_ context.Context, lease *indexlock.Lease) (NamespaceMutationPlan, error) {
+		require.NoError(t, lease.Validate(root))
 		return plan, nil
 	}), probe, nil)
 	require.NoError(t, err)
@@ -51,7 +52,7 @@ func TestNamespaceSessionPublishesRequiredWritesUnderBorrowedLease(t *testing.T)
 	require.NoFileExists(t, filepath.Join(root, "old.md"))
 	require.Equal(t, []PathRename{{From: "old.md", To: "new.md"}}, probe.renamed)
 	require.Equal(t, []string{"new.md"}, probe.changed)
-	require.Error(t, probe.lease.RequireHeld())
+	require.Error(t, probe.lease.Validate(root))
 	require.NoError(t, namespaceadmission.Check(root))
 	journals, err := DetectPendingRepairJournals(namespaceTestRunContext(root))
 	require.NoError(t, err)
@@ -61,7 +62,7 @@ func TestNamespaceSessionPublishesRequiredWritesUnderBorrowedLease(t *testing.T)
 func TestNamespaceSessionMissingRefresherFailsBeforePlannerOrPublication(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "old.md"), []byte("before\n"), 0o600))
-	result, err := ApplyNamespaceMutation(context.Background(), namespaceTestRunContext(root), namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) {
+	result, err := ApplyNamespaceMutation(context.Background(), namespaceTestRunContext(root), namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) {
 		t.Fatal("planner must not run without refresh capability")
 		return NamespaceMutationPlan{}, nil
 	}), nil, nil)
@@ -83,7 +84,7 @@ func TestNamespaceSessionPreparesNestedDestinationAndRestoresFiles(t *testing.T)
 			if fail {
 				hooks = &repairExecutionHooks{AfterMutation: func(int, string) error { return errors.New("nested write failed") }}
 			}
-			result, err := applyNamespaceMutation(context.Background(), namespaceTestRunContext(root), namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) { return plan, nil }), probe, nil, hooks)
+			result, err := applyNamespaceMutation(context.Background(), namespaceTestRunContext(root), namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) { return plan, nil }), probe, nil, hooks)
 			if fail {
 				require.ErrorContains(t, err, "nested write failed")
 				require.Equal(t, NamespaceRestored, result.Current.Decision)
@@ -110,14 +111,14 @@ func TestNamespaceSessionRollbackAndInterruptedRecovery(t *testing.T) {
 				failure = errSimulatedRepairInterruption
 			}
 			probe := &repairPostApplyProbe{t: t, result: PostApplyRefreshResult{Paths: []string{"old.md", "new.md"}}}
-			planner := namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) { return plan, nil })
+			planner := namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) { return plan, nil })
 			result, err := applyNamespaceMutation(context.Background(), namespaceTestRunContext(root), planner, probe, nil, &repairExecutionHooks{AfterMutation: func(int, string) error { return failure }})
 			require.ErrorIs(t, err, failure)
 			if crash {
 				require.Equal(t, NamespaceUnresolved, result.Current.Decision)
 				require.Empty(t, result.Current.ReceiptPath)
 				require.Error(t, namespaceadmission.Check(root))
-				result, err = ApplyNamespaceMutation(context.Background(), namespaceTestRunContext(root), namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) {
+				result, err = ApplyNamespaceMutation(context.Background(), namespaceTestRunContext(root), namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) {
 					t.Fatal("older recovery must not plan the new request")
 					return NamespaceMutationPlan{}, nil
 				}), probe, nil)

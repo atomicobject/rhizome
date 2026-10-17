@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"sync"
 	"time"
@@ -38,7 +39,7 @@ func newNodeProjectionCache(max int) *nodeProjectionCache {
 	return &nodeProjectionCache{max: max, entries: map[string]*cachedNodeProjectionNote{}}
 }
 
-func (c *nodeProjectionCache) Projection(ctx context.Context, vaultDef obsidian.VaultDefinition, noteReader obsidian.NoteReader, schema *ontology.Schema, ref ontology.NodeRef) (*ontology.NodeProjection, error) {
+func (c *nodeProjectionCache) Projection(ctx context.Context, vaultDef obsidian.VaultDefinition, noteReader obsidian.NoteReader, schema *ontoschema.Schema, ref ontology.NodeRef) (*ontology.NodeProjection, error) {
 	if c == nil {
 		return ontology.ProjectNode(ctx, vaultDef, noteReader, schema, ref)
 	}
@@ -91,7 +92,7 @@ func (c *nodeProjectionCache) Projection(ctx context.Context, vaultDef obsidian.
 	return projection, nil
 }
 
-func (c *nodeProjectionCache) StartWarmNote(ctx context.Context, vaultDef obsidian.VaultDefinition, noteReader obsidian.NoteReader, schema *ontology.Schema, notePath string) {
+func (c *nodeProjectionCache) StartWarmNote(ctx context.Context, vaultDef obsidian.VaultDefinition, noteReader obsidian.NoteReader, schema *ontoschema.Schema, notePath string) {
 	if c == nil {
 		return
 	}
@@ -284,7 +285,7 @@ func nodeProjectionRefKey(ref ontology.NodeRef) string {
 	}, "|")
 }
 
-func ontologySchemaHash(schema *ontology.Schema) string {
+func ontologySchemaHash(schema *ontoschema.Schema) string {
 	if schema == nil {
 		return ""
 	}

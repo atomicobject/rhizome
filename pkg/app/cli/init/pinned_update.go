@@ -10,7 +10,7 @@ import (
 	"runtime"
 
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // installPinnedBinary is the self-healing install seam. It is a var so tests
@@ -22,7 +22,7 @@ var installPinnedBinary = appupdate.EnsurePinnedBinary
 // delegation bootstrap uses (pkg/app/update.EnsurePinnedBinary). It skips
 // silently when the marker already matches the pin, and only prints a notice
 // when an install will actually happen.
-func ensurePinnedBinary(root string, cfg obsidian.LocalConfig, opts RunOptions) error {
+func ensurePinnedBinary(root string, cfg repoconfig.LocalConfig, opts RunOptions) error {
 	externallyManaged, err := cfg.Rhizome.UsesExternalBinaryManager()
 	if err != nil {
 		return err

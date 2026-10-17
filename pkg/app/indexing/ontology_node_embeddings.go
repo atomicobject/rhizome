@@ -2,18 +2,21 @@ package indexing
 
 import (
 	"context"
+	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 type ontologyNodeEmbeddingSyncRequest struct {
-	schema       *ontology.Schema
+	schema       *ontoschema.Schema
 	changedPaths []string
 	deletedPaths []string
 	rebuilt      bool
@@ -38,12 +41,12 @@ func syncOntologyNodeEmbeddings(
 	intelStore *semdb.Store,
 	provider embeddings.Provider,
 	providerCfg embeddings.ProviderConfig,
-	schema *ontology.Schema,
+	schema *ontoschema.Schema,
 	batchSize int,
 	maxConcurrent int,
 	embedGate chan struct{},
-	embeddingNode *semantic.SharedEmbeddingNode,
-	writeQueue indexwriter.SemanticWriteQueue,
+	embeddingNode *embedindex.SharedEmbeddingNode,
+	writeQueue ontologyBodyWriteQueue,
 	changedPaths []string,
 	deletedPaths []string,
 	rebuilt bool,
@@ -63,11 +66,11 @@ func syncOntologyNodeEmbeddings(
 		// Markdown ProjectNote.
 		paths = projectablePaths
 	}
-	store := semantic.OntologyNodeStore(intelStore)
-	if writeQueue != nil {
-		store = ontologyBodyQueuedStore{readStore: intelStore, queue: writeQueue}
+	if writeQueue == nil {
+		return fmt.Errorf("ontology body writer is required")
 	}
-	nodeSyncer := semantic.OntologyNodeSyncer{
+	store := ontologyBodyQueuedStore{readStore: intelStore, queue: writeQueue}
+	nodeSyncer := embedindex.OntologyNodeSyncer{
 		Store:         store,
 		Provider:      provider,
 		ProviderInfo:  providerCfg,

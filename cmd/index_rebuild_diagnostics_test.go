@@ -14,8 +14,9 @@ import (
 )
 
 func TestRebuildPublishesReportBeforeRuntimeRestart(t *testing.T) {
-	resetIndexFlags(t)
-	indexRebuild = true
+	commandOptions := newIndexOptionsForTest(t)
+
+	commandOptions.indexRebuild = true
 	vault := newRuntimeTestVault(t)
 	startFakeRuntimeServer(t, vault, nil)
 	t.Setenv(appruntime.AutostartEnv, "0")
@@ -24,7 +25,7 @@ func TestRebuildPublishesReportBeforeRuntimeRestart(t *testing.T) {
 	defer recorder.Close()
 	command := newIndexTestCommand(t, &bytes.Buffer{})
 	command.SetContext(diagnostics.WithRecorder(command.Context(), recorder))
-	err = runResolvedIndexCommand(command, obsidian.VaultDefinition{Path: vault}, func() (notemeta.Indexer, error) {
+	err = commandOptions.runResolvedIndexCommand(command, obsidian.VaultDefinition{Path: vault}, func() (notemeta.Indexer, error) {
 		return notemeta.Indexer{}, fmt.Errorf("stop before indexing")
 	})
 	require.ErrorContains(t, err, "stop before indexing")

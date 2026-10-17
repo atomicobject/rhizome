@@ -2,17 +2,19 @@ package indexing
 
 import (
 	"context"
-	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestRunUnifiedCoreValidationCancellationWithoutDebtFails(t *testing.T) {
+	t.Parallel()
+
 	root, definition := touchParityVault(t)
-	options := UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: testNoteMetadataIndexer(t), SkipConfigPersistence: true}
-	require.NoError(t, RunUnifiedCore(context.Background(), options))
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	options := UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: testkit.NoteMetadataIndexer(t), SkipConfigPersistence: true}
+	require.NoError(t, runUnifiedCoreForTest(t, context.Background(), options))
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -35,7 +37,7 @@ func TestRunUnifiedCoreValidationCancellationWithoutDebtFails(t *testing.T) {
 			}
 		},
 	}
-	err = RunUnifiedCore(ctx, options)
+	err = runUnifiedCoreForTest(t, ctx, options)
 	require.True(t, entered)
 	require.ErrorIs(t, err, context.Canceled)
 	require.False(t, finished, "canceled validation must not publish successful completion")

@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -344,9 +344,9 @@ func TestGraphPPRRetriever_EmitsEmbeddedNodeCandidatesFromGraphFacts(t *testing.
 	require.Equal(t, knowledge.KindNodeChunk, cands[0].Handle.Kind)
 	require.Equal(t, "story-a", cands[0].NodeID)
 	require.Equal(t, "docs/spec.md", cands[0].Path)
-	require.Equal(t, "UserStory", cands[0].NodeType)
-	require.Contains(t, cands[0].NodeRefJSON, `"notePath":"docs/spec.md"`)
-	require.Contains(t, cands[0].NodeRefJSON, `"kind":"EMBEDDED"`)
+	require.Equal(t, "UserStory", cands[0].NodeRef.TypeName)
+	require.Equal(t, "docs/spec.md", cands[0].NodeRef.NotePath)
+	require.Equal(t, ontology.NodeKindEmbedded, cands[0].NodeRef.Kind)
 }
 
 func TestGraphPPRRetriever_NodeChunkSeedCarriesOwnerNoteRef(t *testing.T) {

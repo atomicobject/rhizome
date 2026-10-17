@@ -1,11 +1,11 @@
 package views
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"sort"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 )
 
@@ -25,7 +25,7 @@ type staleRule struct {
 func newStaleRule(lifecycle FieldCapability, now time.Time) staleRule {
 	active := map[string]bool{}
 	for _, value := range lifecycle.EnumValues {
-		if value.Stage == ontology.StageActive {
+		if value.Stage == ontoschema.StageActive {
 			active[value.Value] = true
 		}
 	}
@@ -42,7 +42,7 @@ func (r staleRule) matches(row TableRow) bool {
 
 // executionStats summarizes every row that matched a type or interface view's
 // search and filters, before paging (SPEC-0112 "Execution statistics").
-func executionStats(schema *ontology.Schema, def viewconfig.ViewDefinition, profile ontology.TypeProfile, rows []TableRow, capabilities []FieldCapability, counted []string, now time.Time) *ExecutionStats {
+func executionStats(schema *ontoschema.Schema, def viewconfig.ViewDefinition, profile ontoschema.TypeProfile, rows []TableRow, capabilities []FieldCapability, counted []string, now time.Time) *ExecutionStats {
 	stats := &ExecutionStats{Total: len(rows)}
 	lifecycle, hasLifecycle := resolveCapability(capabilities, profile.LifecycleField)
 	stale := newStaleRule(lifecycle, now)
@@ -110,7 +110,7 @@ func countsByFrequency(counts map[string]int) []StatsValueCount {
 // KEY field: generated columns first, in column order, then other KEY fields.
 // Reverse count fields are reported only when the request projected them
 // (counted lists the projected ones), so an unread count never reads as empty.
-func fieldFillCounts(schema *ontology.Schema, def viewconfig.ViewDefinition, profile ontology.TypeProfile, rows []TableRow, capabilities []FieldCapability, counted []string) []StatsFieldFill {
+func fieldFillCounts(schema *ontoschema.Schema, def viewconfig.ViewDefinition, profile ontoschema.TypeProfile, rows []TableRow, capabilities []FieldCapability, counted []string) []StatsFieldFill {
 	fields := subjectFields(schema, sourceSubject(def))
 	var names []string
 	seen := map[string]bool{}
@@ -125,7 +125,7 @@ func fieldFillCounts(schema *ontology.Schema, def viewconfig.ViewDefinition, pro
 		add(column.Field)
 	}
 	for _, field := range fields {
-		if field != nil && field.Display.EffectiveImportance() == ontology.FieldImportanceKey {
+		if field != nil && field.Display.EffectiveImportance() == ontoschema.FieldImportanceKey {
 			add(field.Name)
 		}
 	}

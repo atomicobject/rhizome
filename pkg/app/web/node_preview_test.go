@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"testing"
 	"time"
@@ -18,31 +19,31 @@ func TestBuildNodePreview(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		build func() (noderead.NodeRecord, *ontology.NoteType, map[string]NodePreviewValue)
+		build func() (noderead.NodeRecord, *ontoschema.NoteType, map[string]NodePreviewValue)
 		check func(*testing.T, NodePreview)
 	}{
 		{
 			name: "typed note applies display rules and scalar formatting",
-			build: func() (noderead.NodeRecord, *ontology.NoteType, map[string]NodePreviewValue) {
-				fields := []*ontology.Field{
-					{Name: "summary", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "summary"},
-					{Name: "abstract", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "abstract", Display: ontology.FieldDisplay{Role: ontology.FieldDisplayRoleSummary}},
-					{Name: "legacyId", Kind: ontology.FieldKindScalar, TypeName: "ID", Source: "legacy-id", IsIdentifier: true},
-					{Name: "id", Kind: ontology.FieldKindScalar, TypeName: "ID", Source: "id", IsIdentifier: true, IsPreferredIdentifier: true},
-					{Name: "owner", Kind: ontology.FieldKindLink, TypeName: "Person", Source: "owner"},
-					{Name: "reviewers", Kind: ontology.FieldKindLink, TypeName: "Person", Source: "reviewers", List: true},
-					{Name: "status", Kind: ontology.FieldKindEnum, TypeName: "Status", Source: "status", Display: ontology.FieldDisplay{Importance: ontology.FieldImportanceKey}},
-					{Name: "aliases", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "aliases", List: true},
-					{Name: "date", Kind: ontology.FieldKindScalar, TypeName: "Date", Source: "date"},
-					{Name: "at", Kind: ontology.FieldKindScalar, TypeName: "DateTime", Source: "at"},
-					{Name: "active", Kind: ontology.FieldKindScalar, TypeName: "Boolean", Source: "active"},
-					{Name: "count", Kind: ontology.FieldKindScalar, TypeName: "Int", Source: "count"},
-					{Name: "ratio", Kind: ontology.FieldKindScalar, TypeName: "Float", Source: "ratio"},
-					{Name: "title", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "title"},
-					{Name: "detail", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "detail", Display: ontology.FieldDisplay{Importance: ontology.FieldImportanceDetail}},
-					{Name: "hidden", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "hidden", Display: ontology.FieldDisplay{HideHover: true}},
-					{Name: "sections", Kind: ontology.FieldKindSection, TypeName: "Section"},
-					{Name: "neighbors", Kind: ontology.FieldKindNeighbor, TypeName: "Note"},
+			build: func() (noderead.NodeRecord, *ontoschema.NoteType, map[string]NodePreviewValue) {
+				fields := []*ontoschema.Field{
+					{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "summary"},
+					{Name: "abstract", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "abstract", Display: ontoschema.FieldDisplay{Role: ontoschema.FieldDisplayRoleSummary}},
+					{Name: "legacyId", Kind: ontoschema.FieldKindScalar, TypeName: "ID", Source: "legacy-id", IsIdentifier: true},
+					{Name: "id", Kind: ontoschema.FieldKindScalar, TypeName: "ID", Source: "id", IsIdentifier: true, IsPreferredIdentifier: true},
+					{Name: "owner", Kind: ontoschema.FieldKindLink, TypeName: "Person", Source: "owner"},
+					{Name: "reviewers", Kind: ontoschema.FieldKindLink, TypeName: "Person", Source: "reviewers", List: true},
+					{Name: "status", Kind: ontoschema.FieldKindEnum, TypeName: "Status", Source: "status", Display: ontoschema.FieldDisplay{Importance: ontoschema.FieldImportanceKey}},
+					{Name: "aliases", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "aliases", List: true},
+					{Name: "date", Kind: ontoschema.FieldKindScalar, TypeName: "Date", Source: "date"},
+					{Name: "at", Kind: ontoschema.FieldKindScalar, TypeName: "DateTime", Source: "at"},
+					{Name: "active", Kind: ontoschema.FieldKindScalar, TypeName: "Boolean", Source: "active"},
+					{Name: "count", Kind: ontoschema.FieldKindScalar, TypeName: "Int", Source: "count"},
+					{Name: "ratio", Kind: ontoschema.FieldKindScalar, TypeName: "Float", Source: "ratio"},
+					{Name: "title", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "title"},
+					{Name: "detail", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "detail", Display: ontoschema.FieldDisplay{Importance: ontoschema.FieldImportanceDetail}},
+					{Name: "hidden", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "hidden", Display: ontoschema.FieldDisplay{HideHover: true}},
+					{Name: "sections", Kind: ontoschema.FieldKindSection, TypeName: "Section"},
+					{Name: "neighbors", Kind: ontoschema.FieldKindNeighbor, TypeName: "Note"},
 				}
 				record := noderead.NodeRecord{
 					Ref: ontology.NodeRef{NotePath: "notes/example.md", Kind: ontology.NodeKindNote}, Path: "notes/example.md",
@@ -56,7 +57,7 @@ func TestBuildNodePreview(t *testing.T) {
 				links := map[string]NodePreviewValue{
 					"[[people/Ada.md]]": {Text: "Ada Lovelace", Target: "people/Ada.md"},
 				}
-				return record, &ontology.NoteType{Name: "ExampleNote", Label: "Example note", Fields: fields}, links
+				return record, &ontoschema.NoteType{Name: "ExampleNote", Label: "Example note", Fields: fields}, links
 			},
 			check: func(t *testing.T, preview NodePreview) {
 				require.Equal(t, "Explicit summary", preview.Summary)
@@ -74,7 +75,7 @@ func TestBuildNodePreview(t *testing.T) {
 		},
 		{
 			name: "untyped note sorts frontmatter and uses summary convention",
-			build: func() (noderead.NodeRecord, *ontology.NoteType, map[string]NodePreviewValue) {
+			build: func() (noderead.NodeRecord, *ontoschema.NoteType, map[string]NodePreviewValue) {
 				return noderead.NodeRecord{
 					Ref: ontology.NodeRef{NotePath: "notes/plain.md", Kind: ontology.NodeKindNote}, Path: "notes/plain.md", Title: "Plain",
 					Frontmatter: map[string]any{"zeta": false, "summary": "Plain summary", "alpha": 3},
@@ -90,21 +91,21 @@ func TestBuildNodePreview(t *testing.T) {
 		},
 		{
 			name: "caps summary values and fields",
-			build: func() (noderead.NodeRecord, *ontology.NoteType, map[string]NodePreviewValue) {
-				fields := []*ontology.Field{{Name: "summary", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "summary"}}
+			build: func() (noderead.NodeRecord, *ontoschema.NoteType, map[string]NodePreviewValue) {
+				fields := []*ontoschema.Field{{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "summary"}}
 				frontmatter := map[string]any{"summary": strings.Repeat("界", 601)}
 				values := make([]any, 15)
 				for i := range values {
 					values[i] = fmt.Sprintf("v%d", i)
 				}
-				fields = append(fields, &ontology.Field{Name: "many", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "many", List: true})
+				fields = append(fields, &ontoschema.Field{Name: "many", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "many", List: true})
 				frontmatter["many"] = values
 				for i := 0; i < 30; i++ {
 					name := fmt.Sprintf("field%02d", i)
-					fields = append(fields, &ontology.Field{Name: name, Kind: ontology.FieldKindScalar, TypeName: "String", Source: name})
+					fields = append(fields, &ontoschema.Field{Name: name, Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: name})
 					frontmatter[name] = name
 				}
-				return noderead.NodeRecord{Ref: ontology.NodeRef{NotePath: "caps.md", Kind: ontology.NodeKindNote}, Path: "caps.md", Frontmatter: frontmatter}, &ontology.NoteType{Name: "Cap", Fields: fields}, nil
+				return noderead.NodeRecord{Ref: ontology.NodeRef{NotePath: "caps.md", Kind: ontology.NodeKindNote}, Path: "caps.md", Frontmatter: frontmatter}, &ontoschema.NoteType{Name: "Cap", Fields: fields}, nil
 			},
 			check: func(t *testing.T, preview NodePreview) {
 				require.Equal(t, 600, len([]rune(preview.Summary)))
@@ -116,8 +117,8 @@ func TestBuildNodePreview(t *testing.T) {
 		},
 		{
 			name: "type label humanizes the type name when no display label is authored",
-			build: func() (noderead.NodeRecord, *ontology.NoteType, map[string]NodePreviewValue) {
-				return noderead.NodeRecord{Title: "Story"}, &ontology.NoteType{Name: "UserStory", Label: "UserStory"}, nil
+			build: func() (noderead.NodeRecord, *ontoschema.NoteType, map[string]NodePreviewValue) {
+				return noderead.NodeRecord{Title: "Story"}, &ontoschema.NoteType{Name: "UserStory", Label: "UserStory"}, nil
 			},
 			check: func(t *testing.T, preview NodePreview) {
 				require.Equal(t, "User story", preview.TypeLabel)
@@ -125,8 +126,8 @@ func TestBuildNodePreview(t *testing.T) {
 		},
 		{
 			name: "type label keeps an authored label that equals the type name",
-			build: func() (noderead.NodeRecord, *ontology.NoteType, map[string]NodePreviewValue) {
-				return noderead.NodeRecord{Title: "Story"}, &ontology.NoteType{Name: "UserStory", Label: "UserStory", LabelAuthored: true}, nil
+			build: func() (noderead.NodeRecord, *ontoschema.NoteType, map[string]NodePreviewValue) {
+				return noderead.NodeRecord{Title: "Story"}, &ontoschema.NoteType{Name: "UserStory", Label: "UserStory", LabelAuthored: true}, nil
 			},
 			check: func(t *testing.T, preview NodePreview) {
 				require.Equal(t, "UserStory", preview.TypeLabel)
@@ -134,9 +135,9 @@ func TestBuildNodePreview(t *testing.T) {
 		},
 		{
 			name: "summary honors hover opt-out",
-			build: func() (noderead.NodeRecord, *ontology.NoteType, map[string]NodePreviewValue) {
-				fields := []*ontology.Field{{Name: "summary", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "summary", Display: ontology.FieldDisplay{HideHover: true}}}
-				return noderead.NodeRecord{Title: "Private", Frontmatter: map[string]any{"summary": "Not for previews"}}, &ontology.NoteType{Name: "Doc", Fields: fields}, nil
+			build: func() (noderead.NodeRecord, *ontoschema.NoteType, map[string]NodePreviewValue) {
+				fields := []*ontoschema.Field{{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "summary", Display: ontoschema.FieldDisplay{HideHover: true}}}
+				return noderead.NodeRecord{Title: "Private", Frontmatter: map[string]any{"summary": "Not for previews"}}, &ontoschema.NoteType{Name: "Doc", Fields: fields}, nil
 			},
 			check: func(t *testing.T, preview NodePreview) {
 				require.Empty(t, preview.Summary)
@@ -145,12 +146,12 @@ func TestBuildNodePreview(t *testing.T) {
 		},
 		{
 			name: "fields read declared source aliases and case variations",
-			build: func() (noderead.NodeRecord, *ontology.NoteType, map[string]NodePreviewValue) {
-				fields := []*ontology.Field{
-					{Name: "summary", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "summary"},
-					{Name: "owner", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "owner", SourceAliases: []string{"owned-by"}},
+			build: func() (noderead.NodeRecord, *ontoschema.NoteType, map[string]NodePreviewValue) {
+				fields := []*ontoschema.Field{
+					{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "summary"},
+					{Name: "owner", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "owner", SourceAliases: []string{"owned-by"}},
 				}
-				return noderead.NodeRecord{Title: "Aliased", Frontmatter: map[string]any{"Summary": "Case variant", "owned-by": "Ada"}}, &ontology.NoteType{Name: "Doc", Fields: fields}, nil
+				return noderead.NodeRecord{Title: "Aliased", Frontmatter: map[string]any{"Summary": "Case variant", "owned-by": "Ada"}}, &ontoschema.NoteType{Name: "Doc", Fields: fields}, nil
 			},
 			check: func(t *testing.T, preview NodePreview) {
 				require.Equal(t, "Case variant", preview.Summary)
@@ -186,8 +187,8 @@ func previewValueTexts(field NodePreviewField) []string {
 }
 
 func TestSectionSummaryPreviewUsesIndexedOrStagedText(t *testing.T) {
-	field := &ontology.Field{Name: "abstract", Kind: ontology.FieldKindSection, TypeName: "Section", Display: ontology.FieldDisplay{Role: ontology.FieldDisplayRoleSummary}}
-	noteType := &ontology.NoteType{Name: "Entry", Fields: []*ontology.Field{field}}
+	field := &ontoschema.Field{Name: "abstract", Kind: ontoschema.FieldKindSection, TypeName: "Section", Display: ontoschema.FieldDisplay{Role: ontoschema.FieldDisplayRoleSummary}}
+	noteType := &ontoschema.NoteType{Name: "Entry", Fields: []*ontoschema.Field{field}}
 	record := noderead.NodeRecord{Title: "Entry", InlineProps: map[string][]string{"abstract": {"A concise summary."}}}
 	preview := buildNodePreview(record, noteType, nil, true)
 	require.Equal(t, "A concise summary.", preview.Summary)

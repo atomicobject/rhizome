@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 )
@@ -10,7 +11,7 @@ import (
 // for one parsed document. The note root is first; section, embedded, list, and
 // checkbox nodes then follow authored byte order. Identity dedupe uses the full
 // NodeRef rather than its author-facing String representation.
-func ProjectDocumentNodesFromSnapshot(snapshot *DocumentSnapshot, schema *Schema) ([]*NodeProjection, error) {
+func ProjectDocumentNodesFromSnapshot(snapshot *DocumentSnapshot, schema *ontoschema.Schema) ([]*NodeProjection, error) {
 	if snapshot == nil {
 		return nil, fmt.Errorf("document snapshot is required")
 	}
@@ -29,7 +30,7 @@ func ProjectDocumentNodesFromSnapshot(snapshot *DocumentSnapshot, schema *Schema
 // preferred identifier fails that type's grammar. This narrow recovery path is
 // intended for whole-pool identifier strategy migration; ordinary resolution
 // remains gated by the declared identifier strategy.
-func ProjectDocumentNodesFromSnapshotAsSelectorType(snapshot *DocumentSnapshot, schema *Schema, typeName string) ([]*NodeProjection, error) {
+func ProjectDocumentNodesFromSnapshotAsSelectorType(snapshot *DocumentSnapshot, schema *ontoschema.Schema, typeName string) ([]*NodeProjection, error) {
 	if snapshot == nil {
 		return nil, fmt.Errorf("document snapshot is required")
 	}
@@ -45,7 +46,7 @@ func ProjectDocumentNodesFromSnapshotAsSelectorType(snapshot *DocumentSnapshot, 
 		return nil, fmt.Errorf("document %s does not have exactly one unresolved selector candidate %q", snapshot.NotePath, typeName)
 	}
 	noteType := schema.Types[typeName]
-	if noteType == nil || noteType.Role != TypeRoleNote {
+	if noteType == nil || noteType.Role != ontoschema.TypeRoleNote {
 		return nil, fmt.Errorf("selector candidate %q is not a note type", typeName)
 	}
 	resolver.noteType = noteType
@@ -58,7 +59,7 @@ func ProjectDocumentNodesFromSnapshotAsSelectorType(snapshot *DocumentSnapshot, 
 // embedded ref after recovering the document's sole unresolved selector type.
 // It preserves ordinary identifier-gated resolution and is only appropriate
 // for a reviewed repair that is changing the identifier grammar itself.
-func ProjectNodeFromSnapshotWithSelectorRecovery(snapshot *DocumentSnapshot, schema *Schema, ref NodeRef) (*NodeProjection, error) {
+func ProjectNodeFromSnapshotWithSelectorRecovery(snapshot *DocumentSnapshot, schema *ontoschema.Schema, ref NodeRef) (*NodeProjection, error) {
 	if snapshot == nil {
 		return nil, fmt.Errorf("document snapshot is required")
 	}
@@ -74,7 +75,7 @@ func ProjectNodeFromSnapshotWithSelectorRecovery(snapshot *DocumentSnapshot, sch
 	}
 	typeName := resolver.assessment.SelectorCandidateTypes[0]
 	noteType := schema.Types[typeName]
-	if noteType == nil || noteType.Role != TypeRoleNote {
+	if noteType == nil || noteType.Role != ontoschema.TypeRoleNote {
 		return nil, fmt.Errorf("selector candidate %q is not a note type", typeName)
 	}
 	resolver.noteType = noteType
@@ -90,7 +91,7 @@ func ProjectNodeFromSnapshotWithSelectorRecovery(snapshot *DocumentSnapshot, sch
 	return projection, nil
 }
 
-func projectDocumentNodesWithResolver(snapshot *DocumentSnapshot, schema *Schema, resolver *projectionResolver) ([]*NodeProjection, error) {
+func projectDocumentNodesWithResolver(snapshot *DocumentSnapshot, schema *ontoschema.Schema, resolver *projectionResolver) ([]*NodeProjection, error) {
 
 	root := resolver.projectNote().Ref
 	candidates := make([]NodeRef, 0, 1+len(snapshot.Sections)+len(snapshot.SourceSpans))
@@ -122,7 +123,7 @@ func projectDocumentNodesWithResolver(snapshot *DocumentSnapshot, schema *Schema
 		appendRef(ref)
 	}
 	for _, span := range snapshot.SourceSpans {
-		if span == nil || span.Shape == EmbeddedSourceShapeSection {
+		if span == nil || span.Shape == ontoschema.EmbeddedSourceShapeSection {
 			continue
 		}
 		appendRef(resolver.sourceSpanNodeRef(span))
