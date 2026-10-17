@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -14,6 +15,7 @@ func TestPreparedChecksProduceCompleteEvidenceBeforeTruncation(t *testing.T) {
 	companionSchema := func(target string) string {
 		return fmt.Sprintf(`type Project @node(paths: ["projects/*.md"]) @companionDocs(paths: [%q], purpose: "workflow") { name: String }`, target)
 	}
+	statFailureTarget := strings.Repeat("g", 256) + ".md"
 	for _, test := range []struct {
 		name, check string
 		files       map[string]string
@@ -36,7 +38,11 @@ func TestPreparedChecksProduceCompleteEvidenceBeforeTruncation(t *testing.T) {
 		{name: "companion absolute escape", check: CheckCompanionDocs, files: map[string]string{".rhizome/ontology/schema.graphql": companionSchema(filepath.Join(t.TempDir(), "outside.md"))}, wantCodes: []string{"companion_doc_outside_vault"}},
 		{name: "companion missing", check: CheckCompanionDocs, files: map[string]string{".rhizome/ontology/schema.graphql": companionSchema("missing.md")}, wantCodes: []string{"companion_doc_missing"}},
 		{name: "companion directory", check: CheckCompanionDocs, files: map[string]string{".rhizome/ontology/schema.graphql": companionSchema("guide")}, prepare: func(t *testing.T, root string) { require.NoError(t, os.Mkdir(filepath.Join(root, "guide"), 0o755)) }, wantCodes: []string{"companion_doc_directory"}},
-		{name: "companion stat failure", check: CheckCompanionDocs, files: map[string]string{".rhizome/ontology/schema.graphql": companionSchema("guide/child.md"), "guide": "not a directory"}, wantCodes: []string{"companion_doc_stat_failed"}},
+		{name: "companion stat failure", check: CheckCompanionDocs, files: map[string]string{".rhizome/ontology/schema.graphql": companionSchema(statFailureTarget)}, prepare: func(t *testing.T, root string) {
+			_, err := os.Stat(filepath.Join(root, statFailureTarget))
+			require.Error(t, err, "the oversized component must fail Stat without creating a file")
+			require.NotErrorIs(t, err, os.ErrNotExist, "the fixture must reach the stat-failure diagnostic, not missing-path handling")
+		}, wantCodes: []string{"companion_doc_stat_failed"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

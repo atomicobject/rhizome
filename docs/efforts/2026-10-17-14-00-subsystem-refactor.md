@@ -65,9 +65,13 @@ All 222 original findings have source-supported dispositions: 212 implemented an
 
 - 2026-10-17: PR #21 opened at `c935e47a` after all local gates passed. CI exposed a default linter configuration schema error before the action reached the intended gate configuration. Moved the existing errcheck test exclusion to the v2 `linters.exclusions.rules` key; both configurations validate under golangci-lint 2.12.2 and the actual analysis gate reports zero issues. The Greptile CLI refused the full 16.8 MB diff at its 3 MB payload limit; a hosted review was requested while an honest complete-coverage CLI alternative is investigated. No 5/5 acceptance is claimed.
 
+- 2026-10-17: Cross-platform CI exposed stale test assumptions about portable link identity, canonical Windows path spelling, and a companion-path OS error. Fixture corrections preserve fresh/incremental equality, ambiguity, exact vault identity, diagnostic keys/counts and truncation. Four byte-sensitive golden/corpus files are pinned to LF; a disposable autocrlf checkout reproduces and then removes the exact Windows hash discrepancy without changing data or expected hashes. Local full metadata/Obsidian race suites and focused command/validation races pass; `make check-fast CHECK_JOBS=2` passes. The Windows branch-ancestry failure remains unresolved and has failure-only provenance diagnostics for the next CI run; no unsupported fixture or production change is claimed.
+
 ## Deviations
 
 No scope reduction is authorized. Evidence-backed corrections to an audit recommendation are recorded here and in the implementation record.
+
+- The user approved keeping PR #21 and using a hosted full-PR Greptile review after CLI 3.6.1 refused the full diff at its 3 MB payload limit. The separate Apex CLI review of `c935e47a..2222276b` returned 5/5 with zero findings; it covers only the lint follow-up and does not establish full-PR acceptance. The complete change remains in review scope.
 
 - Opus verified that the existing schema deliberately gives plain frozen story identifiers no graph semantics. The implementation removes the hardcoded inference and uses the existing authored wikilink relation contract; a new schema directive would contradict that contract.
 - Schema extraction keeps `viewconfig` in its current package and changes its dependency to the immutable schema module. Moving only its path would add migration work without improving the boundary. Provider tag handling receives its own parity regression before the extraction removes the old source-text fallback.

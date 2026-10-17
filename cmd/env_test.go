@@ -47,7 +47,7 @@ func TestCommandEnvironmentUsesInvocationWorkingDirectory(t *testing.T) {
 			require.Equal(t, root, cwd)
 			def, err := commandVault(ctx, ".").Definition()
 			require.NoError(t, err)
-			require.Equal(t, paths.ResolveSymlinks(root).String(), def.BasePath())
+			require.Equal(t, filepath.FromSlash(paths.ResolveSymlinks(root).String()), def.BasePath())
 		})
 	}
 }

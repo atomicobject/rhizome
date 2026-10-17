@@ -10,6 +10,7 @@ import (
 
 	"github.com/atomicobject/rhizome/internal/testkit"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -63,7 +64,7 @@ func TestInvocationWorkingDirectoryAdmitsMCPAtItsOwnVaultRoot(t *testing.T) {
 	app.SetIn(strings.NewReader(input))
 	_, _, err := runCommandInvocation(t, app, context.Background(), []string{"mcp", "serve", "--vault", second.path, "--tools", "check_paths"}, true)
 	require.ErrorContains(t, err, "MCP serve must run from its configured vault root")
-	require.ErrorContains(t, err, second.path)
+	require.ErrorContains(t, err, paths.ResolveSymlinks(second.path).String())
 }
 
 func TestInvocationWorkingDirectorySelectsTrustTargetBeforeStoreAccess(t *testing.T) {
@@ -75,7 +76,8 @@ func TestInvocationWorkingDirectorySelectsTrustTargetBeforeStoreAccess(t *testin
 		app := newRootCommand(commandEnv{Config: env})
 		command := []string{"trust", "untrust"}[i]
 		_, _, err := runCommandInvocation(t, app, context.Background(), []string{command}, true)
-		require.ErrorContains(t, err, configPath)
+		resolvedConfigPath := filepath.Join(paths.ResolveSymlinks(env.WorkingDir).String(), ".rhizome", "config.yml")
+		require.ErrorContains(t, err, resolvedConfigPath)
 		require.ErrorContains(t, err, `unsupported rhizome.binaryManager "unsupported-fixture"`)
 	}
 }

@@ -181,6 +181,8 @@ These are scoped owner-reported checkpoints, not final-revision gate results. Co
 
 ## Preservation incidents and evidence limits
 
+Windows CI exposed Git checkout conversion in the byte-sensitive metrics goldens and frozen quality corpora. `.gitattributes` now pins only those four files to LF. A disposable checkout with `core.autocrlf=true` reproduced the failing corpus-v1 hash (`a0da27eb…`) without the rules and restored the exact historical hash (`bdf04b6e…`) with them. The fixture bodies and expected hashes are unchanged. Other cross-platform fixture corrections retain portable link identity, unique invocation paths and the intended stat-error branch; the Windows Git ancestry assertion remains unchanged while failure diagnostics are collected.
+
 The [preservation audit appendix](preservation-audit.md) records the exact repair inventory, quoted-line candidate dispositions and unavailable-baseline list.
 
 The initial DTO import-pruning helper accidentally removed 31 literal-return statements across nine functions in six files. The statements were restored, imports corrected, and the helper retired. A replacement edits only parsed import-spec spans using actual package names and object resolution. Current [field predicate selection](../../../pkg/store/ontology_field_predicates.go), [scalar kind selection](../../../pkg/ontology/pushdown/scalars.go), [allocator errors](../../../pkg/ontology/idalloc/allocator.go), workspace source-link classification, ambient relation naming, and web path/fragment classification retain the restored semantics or their later deliberate replacements.

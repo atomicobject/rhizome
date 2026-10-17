@@ -98,7 +98,20 @@ func TestAmbiguousLinkGitProvenanceUsesSourceBranchAncestryNotAuthorDates(t *tes
 	result, err := AmbiguousLinkGitResolver{}.Resolve(context.Background(), repo.dir, []AmbiguousLinkProvenanceRequest{request})
 	require.NoError(t, err)
 	decision := result.Decisions[mustAmbiguousLinkRequestKey(t, request)]
-	require.NotNil(t, decision, "%+v", result.Unresolved)
+	if decision == nil {
+		candidates, candidateErr := (GitProvenanceResolver{}).Resolve(context.Background(), repo.dir, []Claim{a, b})
+		t.Logf("Git version: %s; candidate resolution error: %v", repo.git(t, nil, "--version"), candidateErr)
+		for _, candidate := range []Claim{a, b} {
+			t.Logf("candidate %s: %+v", candidate.Node.NotePath, candidates.Evidence[candidate.ID()])
+			stdout, stderr, historyErr := (execGitCommandRunner{}).Run(t.Context(), repo.dir, nil, []string{"GIT_NO_LAZY_FETCH=1", "LC_ALL=C"},
+				"--literal-pathspecs", "-c", "core.quotepath=false", "-c", "diff.renames=true", "-c", "diff.renameLimit=10000",
+				"log", "--follow", "--find-renames=50%", "--topo-order", "--format=%H author=%at committer=%ct parents=%P", "--name-status", "-n", "8", "--", candidate.Node.NotePath,
+			)
+			t.Logf("candidate %s history (error: %v):\n%s\nstderr: %s", candidate.Node.NotePath, historyErr, stdout, stderr)
+		}
+		t.Logf("branch graph:\n%s", repo.git(t, nil, "log", "--all", "--graph", "--format=%H author=%at committer=%ct parents=%P %s", "-n", "8"))
+		t.Fatalf("expected a branch-local claimant decision: %+v", result.Unresolved)
+	}
 	require.Equal(t, nodeRefForCanonicalKey(a.Node), decision.Winner)
 }
 

@@ -2,8 +2,6 @@ package obsidian
 
 import (
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/paths"
 )
 
 func TestResolveNoteCandidatesMissingExplicitNonMarkdownPath(t *testing.T) {
@@ -69,7 +67,7 @@ func TestResolveNoteTargetPreservesDottedMarkdownPath(t *testing.T) {
 	}
 }
 
-func TestExplicitNotePathUsesPlatformCaseIdentity(t *testing.T) {
+func TestExplicitNotePathUsesPortableLinkIdentity(t *testing.T) {
 	const authored = "reports/plan.html"
 	const link = "Reports/Plan.HTML"
 	cache := BuildNotePathCache([]string{authored, "reports/plan.html.md"})
@@ -80,11 +78,11 @@ func TestExplicitNotePathUsesPlatformCaseIdentity(t *testing.T) {
 			t.Fatalf("case-aware target = %#v, %v; want resolved %v with authored path", target, ok, want)
 		}
 	}
-	check(paths.CaseEqual(authored, link))
+	check(true)
 	cache.Remove(authored)
 	check(false)
 	cache.AddOrUpdate(authored, nil)
-	check(paths.CaseEqual(authored, link))
+	check(true)
 }
 
 func TestResolveNoteTargetPreservesExplicitMarkdownWithHTMLCollision(t *testing.T) {

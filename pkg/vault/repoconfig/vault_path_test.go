@@ -46,8 +46,8 @@ func TestVaultPathIsolatedEnvironments(t *testing.T) {
 			t.Parallel()
 			env := testkit.Env(t)
 			env.ObsidianConfigFile = filepath.Join(env.HomeDir, "obsidian.json")
-			want := filepath.Join(env.HomeDir, "same-name")
-			require.NoError(t, os.WriteFile(env.ObsidianConfigFile, []byte(`{"vaults":{"v":{"path":"`+filepath.ToSlash(want)+`"}}}`), 0600))
+			want := filepath.ToSlash(filepath.Join(env.HomeDir, "same-name"))
+			require.NoError(t, os.WriteFile(env.ObsidianConfigFile, []byte(`{"vaults":{"v":{"path":"`+want+`"}}}`), 0600))
 			vault := repoconfig.Vault{Env: env, Name: "same-name"}
 			actual, err := vault.Path()
 			require.NoError(t, err)

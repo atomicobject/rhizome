@@ -304,13 +304,10 @@ func TestSyncPaths_URIExtensionlessAmbiguityMatchesFreshSnapshot(t *testing.T) {
 	expected := []semdb.GraphDocEdgeRow{{
 		SrcPath: "b.html", DstPath: "report.html", Kind: semdb.NoteLinkKind("uri", "anchor"),
 		Confidence: semdb.EdgeConfidenceExtracted, ConfidenceScore: 1,
+	}, {
+		SrcPath: "c.html", DstPath: "report.html", Kind: semdb.NoteLinkKind("uri", "anchor"),
+		Confidence: semdb.EdgeConfidenceExtracted, ConfidenceScore: 1,
 	}}
-	if obsidian.IsCaseInsensitiveFS() {
-		expected = append(expected, semdb.GraphDocEdgeRow{
-			SrcPath: "c.html", DstPath: "report.html", Kind: semdb.NoteLinkKind("uri", "anchor"),
-			Confidence: semdb.EdgeConfidenceExtracted, ConfidenceScore: 1,
-		})
-	}
 	require.ElementsMatch(t, expected, got)
 }
 

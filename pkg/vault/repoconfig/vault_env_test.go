@@ -5,6 +5,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
+	"path/filepath"
 	"testing"
 )
 
@@ -20,7 +21,7 @@ func TestRelativeVaultSelectionUsesInvocationDirectory(t *testing.T) {
 			definition, err := vault.Definition()
 			require.NoError(t, err)
 			want := paths.ResolveSymlinks(root).String()
-			require.Equal(t, want, definition.BasePath())
+			require.Equal(t, filepath.FromSlash(want), definition.BasePath())
 			require.NoError(t, vault.SetDefaultName("."))
 			preferences, err := repoconfig.LoadCliConfig(env, false)
 			require.NoError(t, err)
