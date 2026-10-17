@@ -36,13 +36,13 @@ Frozen at plan approval on 2026-10-17:
 
 ## Spec Coverage Checklist
 
-- [ ] [[desktop-distribution-and-updates#^SPEC-0122-US1|SPEC-0122.US1]]: release builds the app from the tag, publishes stable-named assets, `latest.json`, and checksums; fails before publication.
-- [ ] [[desktop-distribution-and-updates#^SPEC-0122-US2|SPEC-0122.US2]]: updater checks, "Update ready" control, menu item, signature rejection, failure tolerance; off in Rhizome Dev.
-- [ ] [[desktop-distribution-and-updates#^SPEC-0122-US3|SPEC-0122.US3]]: bundled `rzm`, `/usr/local/bin/rzm` link lifecycle, login-shell resolution report, `rzm update` hand-off to the app.
-- [ ] [[desktop-distribution-and-updates#^SPEC-0122-US4|SPEC-0122.US4]]: version ordering, offer states, advance through `update --set-version`, reopen, dismissal.
-- [ ] [[desktop-distribution-and-updates#^SPEC-0122-US5|SPEC-0122.US5]]: README human and agent install sections.
-- [ ] Documentation and spec amendments; deviation on EFF-2026-10-03-18-59.
-- [ ] Release-dependent criteria (real assets, a real update from one release to the next) recorded as follow-up action items for the first and second public releases.
+- [x] [[desktop-distribution-and-updates#^SPEC-0122-US1|SPEC-0122.US1]]: release builds the app from the tag, publishes stable-named assets, `latest.json`, and checksums; fails before publication.
+- [x] [[desktop-distribution-and-updates#^SPEC-0122-US2|SPEC-0122.US2]]: updater checks, "Update ready" control, menu item, signature rejection, failure tolerance; off in Rhizome Dev.
+- [x] [[desktop-distribution-and-updates#^SPEC-0122-US3|SPEC-0122.US3]]: bundled `rzm`, `/usr/local/bin/rzm` link lifecycle, login-shell resolution report, `rzm update` hand-off to the app.
+- [x] [[desktop-distribution-and-updates#^SPEC-0122-US4|SPEC-0122.US4]]: version ordering, offer states, advance through `update --set-version`, reopen, dismissal.
+- [x] [[desktop-distribution-and-updates#^SPEC-0122-US5|SPEC-0122.US5]]: README human and agent install sections.
+- [x] Documentation and spec amendments; deviation on EFF-2026-10-03-18-59.
+- [x] Release-dependent criteria (real assets, a real update from one release to the next) recorded as follow-up action items for the first and second public releases.
 
 ## Plan
 
@@ -111,7 +111,14 @@ A Mac user downloads one DMG from the latest GitHub release, or has an agent do 
 
 ## Actual Delivered
 
-Not started.
+On branch `feat/desktop-distribution`, verified at 943b595e:
+
+- **Release.** A GoReleaser post-build hook on the darwin/arm64 `rzm` build (`scripts/release/build_desktop.py`) bundles that exact binary into the app, builds the app and DMG with the release version, ad-hoc signs and verifies them, and stages `Rhizome-macos-arm64.dmg`, the updater archive and signature, and `latest.json` for `release.extra_files` and `checksums.txt`. Snapshot builds run it, so toolchain failures stop a release before any repository change. A public apply and publication refuse to run without the updater key or with the placeholder public key. Internal releases, the Actions fallback, and `make release` without `RZM_RELEASE_DESKTOP=1` publish the CLI only. DMG bundling sets `CI=true` so it needs no Finder Automation permission.
+- **App.** The app's only sidecar is `rzm`, run as `rzm desktop-bridge`, and it is the global executable unless Settings selects another. Tauri's updater checks the GitHub feed at launch and daily in release builds only (not Rhizome Dev or `0.0.0` builds), keeps a verified download ready, and installs on Restart to Update, Rhizome > Check for Updates…, or `--install-update`. Settings shows the bundled Rhizome, update status, and the `/usr/local/bin/rzm` link with what the login shell runs first, and installs, repairs, or removes the link (unprivileged first, otherwise one administrator prompt that re-checks the inspected link). A moved or dangling link is offered for repair at launch. A worktree whose pin differs from the app shows a toolbar offer: Update Pin advances through `rzm update --set-version` and reopens the worktree; Not Now is remembered per repository and app version. Library version 3 drops the old managed-install selection once.
+- **CLI.** `rzm update` resolves symlinks and, when it runs from Rhizome's app bundle, hands its global target to the app (`--install-update`), waits for the new version, and reports it; repository targets, prompts, and partial-result exits are unchanged. It never writes inside a bundle or over the link.
+- **Docs.** README human and agent install sections; getting-started, desktop README, RELEASING (desktop step, key creation and custody), CHANGELOG; SPEC-0113 and SPEC-0033 amended; EFF-2026-10-03-18-59, EFF-2026-10-06-08-07, and EFF-2026-10-07-17-15 closed.
+
+Not yet delivered: the release updater public key (Drew), which replaces the placeholder before merge.
 
 ## Execution Notes
 
@@ -143,19 +150,34 @@ Not started.
 
 ## Closure Checklist
 
-- [ ] Quality gates: `make check`, `make desktop-check`, `make desktop-build`.
-- [ ] Native verification and Drew's click-through checklist.
-- [ ] Alignment check against SPEC-0122.
-- [ ] Spec amendments, frozen-scope-drift acknowledgements, documentation, and CHANGELOG.
+- [x] Quality gates: `make check`, `make desktop-check`, `make desktop-build` pass; release Python suite passes except `effort_evidence_test`, which fails identically on `main`.
+- [x] Native verification (see Execution Notes); the administrator prompt, deletion, and visual checks are carried forward as action items below.
+- [x] Alignment check against SPEC-0122: every criterion has test or native evidence, or is carried forward as an action item because it needs a published release or an administrator prompt.
+- [x] Spec amendments, frozen-scope-drift acknowledgements (only the pre-existing SPEC-0111 finding on EFF-2026-10-03-18-33 remains, also on `main`), documentation, and CHANGELOG.
+- [x] Independent review (Claude Fable 5.1); accepted findings fixed, one declined with reason.
 - [ ] Release updater public key committed in place of the placeholder (Drew), before merge.
-- [ ] Action items for the first and second public release checks.
-- [ ] Earlier desktop efforts closed (Batch 4b).
+- [x] Action items for the first and second public release checks.
+- [x] Earlier desktop efforts closed (Batch 4b).
+- [ ] Pull request opened and linked.
+
+Action items:
+
+- [ ] Before merging, create the release updater key per docs/RELEASING.md "Updater signing key" and commit its public key in place of the placeholder #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] Click through a packaged release-config build: Install Command-Line Tool with the administrator prompt, confirm a new login shell runs `/usr/local/bin/rzm`, move the app to the Trash and confirm `rzm` no longer runs it, and look over Restart to Update, the pin offer, and Settings #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] On the first public release, check the published assets and `checksums.txt`, install the DMG from a browser using Open Anyway, and have a fresh agent session install from the README alone; note whether folder-access prompts return after an update #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] On the second public release, confirm an installed app updates itself from the first #action-item
+  assignee:: [[Drew Colthorp]]
 - [ ] Compounding triage.
 
 ## Compounding Follow-ups
 
-None yet.
+- `rzm` run from inside the main checkout delegates to that checkout's dev build, which twice made a native check measure the wrong binary. Native verification scripts should run from a neutral directory with `RZM_SKIP_REPO_DELEGATE=1`; worth a line in the desktop verification gate.
+- A worktree's `bin/darwin/rzm` silently goes stale after merging Go changes; validation and native checks then run old code. A `make` target that rebuilds it after merges would remove the trap.
+- `effort_evidence_test` fails on `main` (`KeyError: 'governing_specs_yaml'`); a one-line fixture fix, not owned here.
 
 ## Status
 
-Active. Batch 0 passed; Batches 1 and 3 are delegated, and Batch 2 is in progress.
+Active. Everything in scope is delivered and verified on the branch. The release updater public key (Drew) must replace the placeholder before merge; then this effort closes in the same pull request.
