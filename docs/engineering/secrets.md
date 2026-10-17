@@ -20,7 +20,7 @@ The shared item and provider administration belong to the team, outside the repo
 
 ## Development and release tooling
 
-`scripts/with-secrets` remains optional tooling for development and release work. Its Environment-based workflow requires a CLI supporting `op run --environment`, an explicit `RZM_OP_ENVIRONMENT_ID`, and `OP_ACCOUNT`. This is separate from ordinary setup-time import and is not required for Rhizome users.
+`scripts/with-secrets` remains optional tooling for development and release work. Its Environment-based workflow requires 1Password CLI 2.41.0 or newer on PATH (or `RZM_OP_BIN`), an explicit `RZM_OP_ENVIRONMENT_ID`, and `OP_ACCOUNT`. Keep release credentials (GitHub publishing tokens and the desktop updater key) in a separate Environment named by `RZM_OP_RELEASE_ENVIRONMENT_ID`, so development runs, including coding agents, never unlock them; without it, `release` falls back to `RZM_OP_ENVIRONMENT_ID`. Since 2.41.0, repeated runs from agents and scripts share one desktop app authorization instead of prompting each time. This is separate from ordinary setup-time import and is not required for Rhizome users.
 
 The wrapper filters inherited credentials. Development commands receive only the required provider keys. Release work also uses dedicated GitHub and Homebrew tokens; `RZM_RELEASE_GITHUB_TOKEN` becomes `GITHUB_TOKEN` only in the publishing subprocess. Build subprocesses must not receive provider, 1Password, or AWS credentials. AWS access is used only by the internal mirror publish step.
 

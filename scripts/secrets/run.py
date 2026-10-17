@@ -41,6 +41,20 @@ def scoped_environment(source: dict[str, str], profile: str) -> dict[str, str]:
     return result
 
 
+def environment_id(profile: str, environ: dict[str, str]) -> str:
+    """Release credentials may live in their own Environment, so routine
+    development runs never unlock publishing tokens or the updater key."""
+    if profile == "release" and environ.get("RZM_OP_RELEASE_ENVIRONMENT_ID", "").strip():
+        return environ["RZM_OP_RELEASE_ENVIRONMENT_ID"].strip()
+    return environ.get("RZM_OP_ENVIRONMENT_ID", "").strip()
+
+
+def op_executable(environ: dict[str, str]) -> str | None:
+    """1Password CLI 2.41.0 supports Environments and shares one desktop app
+    authorization across repeated runs, so the PATH copy is preferred."""
+    return environ.get("RZM_OP_BIN") or shutil.which("op")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--loaded", action="store_true", help=argparse.SUPPRESS)
@@ -59,11 +73,11 @@ def main() -> int:
         if missing:
             parser.error("1Password Environment is missing: " + ", ".join(missing))
         os.execvpe(command[0], command, env)
-    environment_id = os.environ.get("RZM_OP_ENVIRONMENT_ID", "").strip()
-    if not re.fullmatch(r"[a-z0-9]{26}", environment_id):
-        parser.error("set RZM_OP_ENVIRONMENT_ID to the 26-character 1Password Environment ID")
-    beta = Path.home() / ".local/bin/op-beta"
-    executable = os.environ.get("RZM_OP_BIN") or (str(beta) if beta.is_file() else shutil.which("op"))
+    selected = environment_id(args.profile, dict(os.environ))
+    if not re.fullmatch(r"[a-z0-9]{26}", selected):
+        variable = "RZM_OP_RELEASE_ENVIRONMENT_ID or RZM_OP_ENVIRONMENT_ID" if args.profile == "release" else "RZM_OP_ENVIRONMENT_ID"
+        parser.error(f"set {variable} to the 26-character 1Password Environment ID")
+    executable = op_executable(dict(os.environ))
     if not executable:
         parser.error("install 1Password CLI with Environment support; see docs/engineering/secrets.md")
     account = os.environ.get("OP_ACCOUNT", "").strip()
@@ -75,8 +89,8 @@ def main() -> int:
     env["OP_ACCOUNT"] = account
     help_result = subprocess.run([executable, "run", "--help"], capture_output=True, text=True, env=env)
     if help_result.returncode or "--environment " not in help_result.stdout:
-        parser.error("this op version lacks Environment support; install the beta CLI and set RZM_OP_BIN")
-    os.execvpe(executable, [executable, "run", "--environment", environment_id, "--", sys.executable, str(Path(__file__).resolve()), "--loaded", args.profile, *command], env)
+        parser.error("this op version lacks Environment support; update 1Password CLI to 2.41.0 or newer")
+    os.execvpe(executable, [executable, "run", "--environment", selected, "--", sys.executable, str(Path(__file__).resolve()), "--loaded", args.profile, *command], env)
     return 0
 
 

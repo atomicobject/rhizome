@@ -1,5 +1,7 @@
 import unittest
-from run import scoped_environment, sensitive_name
+from unittest import mock
+
+from run import environment_id, op_executable, scoped_environment, sensitive_name
 from check import forbidden_path
 
 
@@ -12,6 +14,18 @@ class SecretScopeTest(unittest.TestCase):
     def test_release_scopes_github_token_to_publish_adapter(self):
         env = scoped_environment({"GITHUB_TOKEN": "synthetic-publish", "GH_TOKEN": "synthetic-gh", "ATOMIC_RHIZOME_KEY": "synthetic-unlock", "OP_SERVICE_ACCOUNT_TOKEN": "synthetic-op", "AWS_ACCESS_KEY_ID": "synthetic-aws-id", "AWS_SECRET_ACCESS_KEY": "synthetic-aws-secret", "AWS_SESSION_TOKEN": "synthetic-aws-session", "BREW_GITHUB_TOKEN": "synthetic-brew", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-signing", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-signing-password"}, "release")
         self.assertEqual({"RZM_RELEASE_GITHUB_TOKEN": "synthetic-publish", "BREW_GITHUB_TOKEN": "synthetic-brew", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-signing", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-signing-password", "ATOMIC_RHIZOME_KEY": "synthetic-unlock", "AWS_ACCESS_KEY_ID": "synthetic-aws-id", "AWS_SECRET_ACCESS_KEY": "synthetic-aws-secret", "AWS_SESSION_TOKEN": "synthetic-aws-session"}, env)
+
+    def test_release_may_use_its_own_environment(self):
+        development, release = "a" * 26, "b" * 26
+        both = {"RZM_OP_ENVIRONMENT_ID": development, "RZM_OP_RELEASE_ENVIRONMENT_ID": release}
+        self.assertEqual(release, environment_id("release", both))
+        self.assertEqual(development, environment_id("development", both))
+        self.assertEqual(development, environment_id("release", {"RZM_OP_ENVIRONMENT_ID": development}))
+
+    def test_op_on_path_is_used_unless_overridden(self):
+        with mock.patch("run.shutil.which", return_value="/opt/homebrew/bin/op"):
+            self.assertEqual("/opt/homebrew/bin/op", op_executable({}))
+            self.assertEqual("/custom/op", op_executable({"RZM_OP_BIN": "/custom/op"}))
 
     def test_local_env_files_cannot_be_committed(self):
         for path in (".env", "nested/.env", ".env.local", "nested/.env.production"):

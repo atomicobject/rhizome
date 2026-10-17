@@ -41,7 +41,7 @@ The launcher maps the Environment's `GITHUB_TOKEN` to `RZM_RELEASE_GITHUB_TOKEN`
 only the GoReleaser publish subprocess receives it as `GITHUB_TOKEN`. The Homebrew
 token remains `BREW_GITHUB_TOKEN`. Do not store token values in `.env`.
 
-Release processes discard provider, 1Password, and AWS credentials; only publishing subprocesses receive the required GitHub tokens, only GoReleaser and its desktop build hook receive the updater signing key, and only the team-key bundler receives team keys. Set `RZM_OP_ENVIRONMENT_ID` and `OP_ACCOUNT` explicitly when using the optional Environment wrapper. See [credential policy](engineering/secrets.md).
+Release processes discard provider, 1Password, and AWS credentials; only publishing subprocesses receive the required GitHub tokens, only GoReleaser and its desktop build hook receive the updater signing key, and only the team-key bundler receives team keys. Set `OP_ACCOUNT`, and `RZM_OP_RELEASE_ENVIRONMENT_ID` to the release Environment (falling back to `RZM_OP_ENVIRONMENT_ID`), when using the optional Environment wrapper. See [credential policy](engineering/secrets.md).
 
 Overrides:
 
