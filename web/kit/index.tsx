@@ -14,18 +14,15 @@ import { createRoot } from "react-dom/client";
 import { executePublicView, queryPublicGraphQLOperation } from "../src/api/client";
 import type { JsonObject } from "../src/api/parse";
 import type { PublicGraphQLError } from "../src/api/publicGraphQLTypes";
-import type {
-  NodeRef,
-  OntologyEditOp,
-  ViewExecuteRequest,
-  ViewExecuteResponse,
-} from "../src/api/types";
+import type { OntologyEditOp, ViewExecuteRequest, ViewExecuteResponse } from "../src/api/types";
 import { remapCommittedEditOps } from "../src/components/editing/editSessionState";
 import {
   workspaceViewHref,
   nodeHref,
+  parseViewContext,
   type OpenNodeOptions,
-  type ViewContext,
+  type ViewContextInput,
+  type ViewNodeRef,
 } from "../src/views/context";
 import { startView, type ViewConfig, type ViewModule } from "./startView";
 import { getViewInvocation } from "./viewContext";
@@ -313,7 +310,7 @@ export function useViewRows(
 }
 
 /** Open a canonical note or embedded node, optionally in a named presentation. */
-export function openNode(ref: NodeRef, options: OpenNodeOptions = {}) {
+export function openNode(ref: ViewNodeRef, options: OpenNodeOptions = {}) {
   if (embedded) {
     window.parent.postMessage({ type: OPEN_NODE_MESSAGE, ref, ...options }, window.location.origin);
 
@@ -325,14 +322,21 @@ export function openNode(ref: NodeRef, options: OpenNodeOptions = {}) {
 }
 
 /** Open another registered view with an explicit subject. */
-export function openView(id: string, context: ViewContext = { kind: "standalone" }) {
+export function openView(id: string, context: ViewContextInput = { kind: "standalone" }) {
+  const parsedContext = parseViewContext(context);
+
+  if (!parsedContext) throw new Error("Invalid view context");
+
   if (embedded) {
-    window.parent.postMessage({ type: OPEN_VIEW_MESSAGE, id, context }, window.location.origin);
+    window.parent.postMessage(
+      { type: OPEN_VIEW_MESSAGE, id, context: parsedContext },
+      window.location.origin,
+    );
 
     return;
   }
 
-  window.location.assign(workspaceViewHref(id, context));
+  window.location.assign(workspaceViewHref(id, parsedContext));
 }
 
 const postToHost = (message: ViewMessage) =>

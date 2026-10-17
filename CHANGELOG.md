@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Custom views can open GraphQL node refs with null optional fields, including node view contexts. Rejected hosted view messages now warn with their type and validation failure in the browser console.
 - `rzm` commands work from any subdirectory of a repository, such as a vault's `Notes/` folder. Vault selection now looks for `.rhizome/config.yml` in each parent up to the Git root instead of only the current directory, which failed with a misleading "Could not parse rhizome config file" error when no default vault was set. Outside a Git work tree only the current directory is checked.
 - Search finds a note by the words other notes use when they link to it. A note that several notes link to as `[[Project Kestrel|catalog migration]]` now comes up for "catalog migration" even though its own title and text never say it, and a label two or more notes agree on counts like the note's title. The index stores each link's label and line, so the first run after updating reindexes note links. Continuation tokens from earlier searches report stale and must be refreshed.
 - Search ranks notes whose titles contain every word of a short query above notes that match one word. A note found by both its title and its embedding now scores as one result instead of two weaker ones, and a single query word repeated across a note's path, title, and headings no longer counts as a full match. Continuation tokens from earlier searches report stale and must be refreshed.
