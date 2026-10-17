@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Custom views can open GraphQL node refs with null optional fields, including node view contexts. Rejected hosted view messages now warn with their type and validation failure in the browser console.
 - Open search indexes without changing their schema, metadata, or paid embedding caches. Explicit indexing owns upgrades and repairs, and database integrity checks run as requested maintenance.
 - Keep live and full ontology projections consistent across note formats, unresolved links, identifier changes, and direct database writes. Typed reads require a published readiness proof and preserve cancellation as a retryable error.
 - Use the same scalar filters and ordering in typed queries, staged previews, and configured views, including literal strings, Unicode paths, and fractional UTC timestamps. Batch typed-record hydration and bound missing-identifier and section-neighbor lookups.

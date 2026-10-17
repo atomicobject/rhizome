@@ -110,8 +110,9 @@ func TestBootstrapCachedProvidersCloseAfterIndexFailure(t *testing.T) {
 
 func TestCodexSemanticToolsCleanupClosesCachedProviders(t *testing.T) {
 	root, indexConfig := cachedProviderVault(t)
-	prepareCachedProviderIndex(t, indexConfig)
 	before := providerDatabaseOwners()
+	prepareCachedProviderIndex(t, indexConfig)
+	require.Eventually(t, func() bool { return providerDatabaseOwners() == before }, 3*time.Second, 10*time.Millisecond)
 	for range 3 {
 		cfg := &agentapi.Config{}
 		cleanup, warnings := initSemanticTools(t.Context(), root, cfg)
