@@ -47,9 +47,17 @@ impl Updates {
     }
 }
 
-/// Development builds carry the `.dev` identifier and never update.
-pub fn enabled(identifier: &str) -> bool {
-    !identifier.ends_with(".dev")
+/// Rhizome Dev (the `.dev` identifier) and local builds (version 0.0.0) never
+/// update; only a release build replaces itself.
+pub fn enabled(identifier: &str, version: &str) -> bool {
+    !identifier.ends_with(".dev") && version != "0.0.0"
+}
+
+pub fn enabled_for(app: &AppHandle) -> bool {
+    enabled(
+        &app.config().identifier,
+        &app.package_info().version.to_string(),
+    )
 }
 
 fn set(app: &AppHandle, status: Status) {
@@ -60,7 +68,7 @@ fn set(app: &AppHandle, status: Status) {
 
 /// Starts the launch check and the daily schedule.
 pub fn start(app: &AppHandle) {
-    if !enabled(&app.config().identifier) {
+    if !enabled_for(app) {
         set(app, Status::Disabled);
         return;
     }
@@ -76,7 +84,7 @@ pub fn start(app: &AppHandle) {
 /// Checks the feed and downloads a newer verified release, keeping it ready
 /// for a restart. A failure leaves the app as it is.
 pub async fn check(app: &AppHandle) -> Status {
-    if !enabled(&app.config().identifier) {
+    if !enabled_for(app) {
         return Status::Disabled;
     }
     let updates = app.state::<Updates>();
@@ -184,7 +192,7 @@ pub fn check_from_menu(app: &AppHandle) {
             Status::Current { version } => format!("Rhizome {version} is up to date."),
             Status::Failed { message } => format!("Rhizome could not check for updates: {message}"),
             Status::Disabled => {
-                "Rhizome Dev is updated from source with make desktop-install-dev.".into()
+                "This development build does not update itself. Rhizome Dev is updated with make desktop-install-dev.".into()
             }
             Status::Idle | Status::Checking | Status::Downloading { .. } => return,
         };
@@ -200,9 +208,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dev_builds_never_update() {
-        assert!(enabled("com.atomicobject.rhizome"));
-        assert!(!enabled("com.atomicobject.rhizome.dev"));
+    fn only_release_builds_update() {
+        assert!(enabled("com.atomicobject.rhizome", "0.51.0"));
+        assert!(!enabled("com.atomicobject.rhizome.dev", "0.51.0"));
+        assert!(!enabled("com.atomicobject.rhizome", "0.0.0"));
     }
 
     #[test]

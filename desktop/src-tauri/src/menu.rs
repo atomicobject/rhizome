@@ -176,7 +176,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         app,
         "check-updates",
         "Check for Updates…",
-        crate::updater::enabled(&app.config().identifier),
+        crate::updater::enabled_for(app),
         None::<&str>,
     )?;
     let new_window = MenuItem::with_id(app, "new-window", "New Window", true, Some("CmdOrCtrl+N"))?;

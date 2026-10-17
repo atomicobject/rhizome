@@ -56,13 +56,9 @@ func cliLinkBundle() (*appbundle.Info, error) {
 	return appbundle.Resolve(path)
 }
 
-func rhizomeBundle(identifier string) bool {
-	return identifier == "com.atomicobject.rhizome" || identifier == "com.atomicobject.rhizome.dev"
-}
-
 func cliLinkInspect(bundle *appbundle.Info) (CLILinkInfo, error) {
 	info := CLILinkInfo{LinkPath: filepath.Join(cliLinkDirectory, "rzm"), State: "unsupported"}
-	if bundle == nil || bundle.Dev || !rhizomeBundle(bundle.Identifier) {
+	if bundle == nil || bundle.Dev || !bundle.Rhizome() {
 		return info, nil
 	}
 	stat, err := os.Lstat(info.LinkPath)
@@ -103,7 +99,7 @@ func cliLinkInspect(bundle *appbundle.Info) (CLILinkInfo, error) {
 	if err != nil {
 		return info, nil
 	}
-	if targetBundle == nil || !rhizomeBundle(targetBundle.Identifier) {
+	if targetBundle == nil || !targetBundle.Rhizome() {
 		return info, nil
 	}
 	info.State = "other-bundle"
@@ -182,7 +178,13 @@ func cliLinkCommand(info CLILinkInfo, target string, remove bool) string {
 	if remove {
 		return "[ -L " + link + " ] && [ \"$(readlink " + link + ")\" = " + cliLinkQuote(info.rawTarget) + " ] && unlink " + link
 	}
-	return "mkdir -p " + cliLinkQuote(filepath.Dir(info.LinkPath)) + " && ([ ! -e " + link + " ] || [ -L " + link + " ]) && ln -sfn " + cliLinkQuote(target) + " " + link
+	// Under administrator privileges, replace only what inspection saw: nothing,
+	// or the same link into a Rhizome bundle.
+	unchanged := "[ ! -e " + link + " ] && [ ! -L " + link + " ]"
+	if info.State != "absent" {
+		unchanged = "[ -L " + link + " ] && [ \"$(readlink " + link + ")\" = " + cliLinkQuote(info.rawTarget) + " ]"
+	}
+	return "mkdir -p " + cliLinkQuote(filepath.Dir(info.LinkPath)) + " && " + unchanged + " && ln -sfn " + cliLinkQuote(target) + " " + link
 }
 
 func cliLinkUnlinkOwned(bundle *appbundle.Info, info CLILinkInfo) error {

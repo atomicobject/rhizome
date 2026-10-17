@@ -66,6 +66,8 @@ func releaseFixture(t *testing.T, badChecksum bool) (*httptest.Server, *atomic.I
 
 func TestPinAdvanceUsesReleaseAndChangesOnlyPin(t *testing.T) {
 	s := testService(t)
+	// The app offers the version this bridge was built as.
+	s.available = func() string { return version.Version }
 	server, requests := releaseFixture(t, false)
 	folder := config(t, obsidian.LocalRhizomeConfig{Version: "v1.0.0"})
 	priorVersion := version.Version
@@ -114,6 +116,7 @@ func TestPinAdvanceUsesReleaseAndChangesOnlyPin(t *testing.T) {
 
 func TestPinAdvanceChecksumFailureNamesStageAndPreservesPinAndBinary(t *testing.T) {
 	s := testService(t)
+	s.available = func() string { return "v1.2.3" }
 	server, _ := releaseFixture(t, true)
 	folder := config(t, obsidian.LocalRhizomeConfig{Version: "v1.0.0"})
 	target := filepath.Join(folder, ".rhizome", "bin", repoexec.PlatformDir(), repoexec.ExecutableName())

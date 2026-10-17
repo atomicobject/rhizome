@@ -25,6 +25,11 @@ type Info struct {
 	Dev            bool
 }
 
+// Rhizome reports whether the bundle is Rhizome Desktop or Rhizome Dev.
+func (i Info) Rhizome() bool {
+	return i.Identifier == "com.atomicobject.rhizome" || i.Identifier == "com.atomicobject.rhizome.dev"
+}
+
 // Root returns the lexical *.app root for a path below its Contents directory.
 // It does not require the path to exist, so callers can identify dangling links.
 func Root(path string) string {

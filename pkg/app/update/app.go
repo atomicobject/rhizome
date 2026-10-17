@@ -60,6 +60,9 @@ func updateApp(ctx context.Context, opts Options, bundle appbundle.Info) (Target
 	if bundle.Dev {
 		return failed("app", fmt.Errorf("the Dev app is updated with make desktop-install-dev"))
 	}
+	if !bundle.Rhizome() {
+		return failed("app", fmt.Errorf("%s is not Rhizome Desktop (%s)", bundle.Root, bundle.Identifier))
+	}
 	deps := defaultAppUpdateDependencies()
 	if opts.appDeps != nil {
 		deps = *opts.appDeps

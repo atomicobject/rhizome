@@ -130,7 +130,11 @@ func TestCLILinkPrivilegedCommands(t *testing.T) {
 	for _, state := range []string{"absent", "installed", "other-bundle", "dangling"} {
 		t.Run(state, func(t *testing.T) {
 			info := CLILinkInfo{LinkPath: "/usr/local/bin/rzm", State: state, Target: "/Applications/Old.app/Contents/MacOS/rzm", rawTarget: "/Applications/Old.app/Contents/MacOS/rzm"}
-			expected := "mkdir -p '/usr/local/bin' && ([ ! -e '/usr/local/bin/rzm' ] || [ -L '/usr/local/bin/rzm' ]) && ln -sfn '/Applications/Rhizome.app/Contents/MacOS/rzm' '/usr/local/bin/rzm'"
+			unchanged := "[ -L '/usr/local/bin/rzm' ] && [ \"$(readlink '/usr/local/bin/rzm')\" = '/Applications/Old.app/Contents/MacOS/rzm' ]"
+			if state == "absent" {
+				unchanged = "[ ! -e '/usr/local/bin/rzm' ] && [ ! -L '/usr/local/bin/rzm' ]"
+			}
+			expected := "mkdir -p '/usr/local/bin' && " + unchanged + " && ln -sfn '/Applications/Rhizome.app/Contents/MacOS/rzm' '/usr/local/bin/rzm'"
 			require.Equal(t, expected, cliLinkCommand(info, "/Applications/Rhizome.app/Contents/MacOS/rzm", false))
 			require.Equal(t, []string{"-e", "on run argv", "-e", "do shell script item 1 of argv with administrator privileges", "-e", "end run", expected}, cliLinkAdminArgs(expected))
 			require.Equal(t, "[ -L '/usr/local/bin/rzm' ] && [ \"$(readlink '/usr/local/bin/rzm')\" = '/Applications/Old.app/Contents/MacOS/rzm' ] && unlink '/usr/local/bin/rzm'", cliLinkCommand(info, "", true))
@@ -155,7 +159,9 @@ func TestCLILinkPermissionFallbackAndCancellation(t *testing.T) {
 				calls := 0
 				cliLinkPrivileged = func(ctx context.Context, text string) error {
 					calls++
-					want := "mkdir -p " + cliLinkQuote(cliLinkDirectory) + " && ([ ! -e " + cliLinkQuote(link) + " ] || [ -L " + cliLinkQuote(link) + " ]) && ln -sfn " + cliLinkQuote(target) + " " + cliLinkQuote(link)
+					// The unprivileged attempt already removed an owned link, so the
+					// administrator command expects nothing at the link path.
+					want := "mkdir -p " + cliLinkQuote(cliLinkDirectory) + " && [ ! -e " + cliLinkQuote(link) + " ] && [ ! -L " + cliLinkQuote(link) + " ] && ln -sfn " + cliLinkQuote(target) + " " + cliLinkQuote(link)
 					require.Equal(t, want, text)
 					switch outcome {
 					case "cancelled":

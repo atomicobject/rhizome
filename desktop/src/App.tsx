@@ -192,6 +192,10 @@ export function App() {
       void request("update-status", {})
         .then(setUpdate)
         .catch(() => {});
+      // A moved or deleted app leaves the command-line link pointing elsewhere.
+      void request("cli-link-status", {})
+        .then(setLink)
+        .catch(() => {});
       return load(session);
     });
     // The shell attaches once; later messages use the current handler.
@@ -747,6 +751,15 @@ export function App() {
         <div className="toolbar-end" data-tauri-drag-region>
           {(busy || notice) && <span className="busy">{busy || notice}</span>}
           {shown && <PageTools state={shown} searchRef={searchField} onCommand={pageCommand} />}
+          {(link?.state === "other-bundle" || link?.state === "dangling") && !settings && (
+            <button
+              className="toolbar-pill"
+              title={`${link.linkPath} points to ${link.target ?? "a Rhizome app that no longer exists"}.`}
+              onClick={openSettings}
+            >
+              Repair rzm Command
+            </button>
+          )}
           {update?.state === "ready" && (
             <button
               className="toolbar-pill ready"

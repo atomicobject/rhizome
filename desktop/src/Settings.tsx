@@ -29,7 +29,7 @@ function updateText(status: UpdateStatus | null): string {
     case "failed":
       return `Could not check for updates: ${status.message}`;
     case "disabled":
-      return "Rhizome Dev is updated from source with make desktop-install-dev.";
+      return "This development build does not update itself. Rhizome Dev is updated with make desktop-install-dev.";
     default:
       return "Rhizome checks for updates at launch and once a day.";
   }

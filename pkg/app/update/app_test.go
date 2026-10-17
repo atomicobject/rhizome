@@ -20,9 +20,12 @@ import (
 func TestRunAppUpdateThroughSymlink(t *testing.T) {
 	for _, latest := range []bool{false, true} {
 		for _, pinned := range []bool{false, true} {
-			for _, scenario := range []string{"current", "newer", "timeout", "open failure", "dev", "feed failure"} {
+			for _, scenario := range []string{"current", "newer", "timeout", "open failure", "dev", "feed failure", "foreign app"} {
 				t.Run(fmt.Sprintf("latest=%t/pinned=%t/%s", latest, pinned, scenario), func(t *testing.T) {
 					bundle, link := appUpdateFixture(t, scenario == "dev")
+					if scenario == "foreign app" {
+						require.NoError(t, os.WriteFile(filepath.Join(bundle.Root, "Contents", "Info.plist"), []byte(`<plist><dict><key>CFBundleIdentifier</key><string>com.example.other</string><key>CFBundleShortVersionString</key><string>1.0.0</string></dict></plist>`), 0o644))
+					}
 					repo, _, repoTarget := updateExecutionFixture(t, "v1.0.0")
 					if !pinned {
 						repo = t.TempDir()
@@ -98,6 +101,11 @@ func TestRunAppUpdateThroughSymlink(t *testing.T) {
 					}
 					if scenario == "dev" {
 						require.ErrorContains(t, err, "make desktop-install-dev")
+						require.Zero(t, launchCalls)
+						require.NotContains(t, requests, "app.invalid")
+					}
+					if scenario == "foreign app" {
+						require.ErrorContains(t, err, "is not Rhizome Desktop")
 						require.Zero(t, launchCalls)
 						require.NotContains(t, requests, "app.invalid")
 					}

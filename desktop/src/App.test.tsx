@@ -88,6 +88,8 @@ function start(
     if (operation === "discover") return discovery;
     if (operation === "open") return { generation: ++generation, library };
     if (operation === "update-status") return { state: "idle" };
+    if (operation === "cli-link-status")
+      return { linkPath: "/usr/local/bin/rzm", state: "absent", shell: { isApp: false } };
     if (["session", "layout", "menu", "trust", "deselect"].includes(operation)) return null;
     throw new Error(`Unexpected operation: ${operation}`);
   });
@@ -471,6 +473,27 @@ describe("desktop shell", () => {
 
     report({ step: "starting" });
     expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull();
+  });
+
+  it("offers to repair a command-line link left by a moved app", async () => {
+    start(undefined, (operation) =>
+      operation === "cli-link-status"
+        ? {
+            linkPath: "/usr/local/bin/rzm",
+            state: "dangling",
+            target: "/Applications/Old/Rhizome.app/Contents/MacOS/rzm",
+            shell: { isApp: false },
+          }
+        : operation === "global-status"
+          ? {
+              path: "/Applications/Rhizome.app/Contents/MacOS/rzm",
+              version: "0.51.0",
+              bundled: true,
+            }
+          : undefined,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Repair rzm Command" }));
+    expect(await screen.findByRole("button", { name: "Repair Command-Line Tool" })).toBeVisible();
   });
 
   it("offers a ready update in the toolbar and installs it on request", async () => {

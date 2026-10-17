@@ -128,7 +128,7 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 
 - The app MUST use `tauri-plugin-updater` with the endpoint `https://github.com/atomicobject/rhizome/releases/latest/download/latest.json` and the release public key embedded at build time.
 - The app MUST check at launch and then every 24 hours, download in the background, and install only on the user's restart action. It MUST NOT interrupt or restart on its own.
-- Rhizome Dev builds MUST NOT check for updates.
+- Rhizome Dev and local development builds (version `0.0.0`) MUST NOT check for updates.
 
 ### Bundled rzm and the command-line link
 

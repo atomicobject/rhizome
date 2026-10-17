@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"encoding/json"
+	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	"os"
 	"path/filepath"
 	"testing"
@@ -144,5 +145,23 @@ func TestRepositoryResponseIncludesPerWorktreePinOffers(t *testing.T) {
 			continue
 		}
 		require.JSONEq(t, expectedJSON[path], string(worktree["pinOffer"]), path)
+	}
+}
+
+func TestPinAdvanceRefusesAStaleOfferThatWouldDowngrade(t *testing.T) {
+	for _, pinned := range []string{"v2.0.0", "v1.2.0"} {
+		t.Run(pinned, func(t *testing.T) {
+			s := testService(t)
+			s.available = func() string { return "v1.2.0" }
+			s.install = func(context.Context, appupdate.Options) (appupdate.Result, error) {
+				t.Fatal("pin-advance must not run the updater for a pin that is not older")
+				return appupdate.Result{}, nil
+			}
+			folder := config(t, obsidian.LocalRhizomeConfig{Version: pinned})
+			_, err := s.Trust(folder)
+			require.NoError(t, err)
+			_, err = s.PinAdvance(context.Background(), folder)
+			code(t, err, "pin_unsupported")
+		})
 	}
 }

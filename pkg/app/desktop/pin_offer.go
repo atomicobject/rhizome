@@ -29,7 +29,8 @@ func (s *Service) pinOffer(plan repoexec.Plan) *PinOffer {
 	if s.available != nil {
 		available = s.available()
 	} else {
-		available = s.availableVersion()
+		s.availableOnce.Do(func() { s.availableCached = s.availableVersion() })
+		available = s.availableCached
 	}
 	order, comparable := appupdate.CompareVersions(plan.PinnedVersion, available)
 	if !comparable || order == 0 {
@@ -76,6 +77,11 @@ func (s *Service) PinAdvance(ctx context.Context, path string) (PinAdvanceResult
 	}
 	if !info.Trusted {
 		return result, problem("trust_required", "Confirm trust for this folder before advancing its Rhizome pin.")
+	}
+	// The offer may be stale, for example after a pull moved the pin past the
+	// app; advancing then would be a downgrade.
+	if info.PinOffer == nil || info.PinOffer.State != "advance" {
+		return result, problem("pin_unsupported", "This repository's pin is not older than the app's Rhizome.")
 	}
 	executable, err := desktopExecutable()
 	if err != nil {
