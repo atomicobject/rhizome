@@ -33,6 +33,7 @@ type Options struct {
 	Stdout         io.Writer
 	HTTPClient     *http.Client
 	deps           *runDependencies
+	appDeps        *appUpdateDependencies
 }
 
 // TargetResult reports which durable steps completed for one logical target.
@@ -85,8 +86,9 @@ func defaultRunDependencies() runDependencies {
 }
 
 // Run updates the selected Rhizome installations according to an explicit,
-// ordered plan. All required artifacts are prepared before the first mutation.
-func Run(ctx context.Context, opts Options) (Result, error) {
+// ordered plan. File-replacement artifacts are prepared before those targets
+// mutate; an app-owned global update runs independently of the repository plan.
+func Run(ctx context.Context, opts Options) (result Result, runErr error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -124,8 +126,17 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		return Result{}, fmt.Errorf("--set-version requires rhizome.version in .rhizome/config.yml")
 	}
 
+	if invocation.Bundle != nil && (mode == UpdateModeDefault || mode == UpdateModeLatest) {
+		global, globalErr := updateApp(ctx, opts, *invocation.Bundle)
+		defer func() {
+			result.Targets = append([]TargetResult{global}, result.Targets...)
+			runErr = errors.Join(globalErr, runErr)
+		}()
+	}
 	var latest Manifest
-	if mode == UpdateModeDefault || mode == UpdateModeLatest {
+	if invocation.Bundle != nil && !invocation.RepoPinned {
+		latest.Version = NormalizeVersion(invocation.Bundle.Version)
+	} else if mode == UpdateModeDefault || mode == UpdateModeLatest {
 		latest, err = FetchManifest(opts.HTTPClient, opts.ManifestURL)
 		if err != nil {
 			return Result{}, stageErr(StageManifest, err)
@@ -173,7 +184,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		prepared[target.Version] = artifact
 	}
 
-	result := Result{Targets: make([]TargetResult, 0, len(plan.Targets))}
+	result = Result{Targets: make([]TargetResult, 0, len(plan.Targets))}
 	for _, target := range plan.Targets {
 		outcome := TargetResult{Role: target.Role, Path: target.LogicalPath, Version: target.Version}
 		if err := deps.replace(prepared[target.Version].path, target.LogicalPath); err != nil {

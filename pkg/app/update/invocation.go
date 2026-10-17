@@ -1,24 +1,30 @@
 package update
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/appbundle"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
+
+var appCommandLineLinkPath = "/usr/local/bin/rzm"
 
 // Invocation identifies the executable handling an update and the repository
 // target selected by the pin, if any. Paths remain logical install
 // destinations; filesystem identity is used only to classify RepoScoped.
 type Invocation struct {
-	ExecutablePath string
-	RepoTargetPath string
-	RepoPinned     bool
-	RepoScoped     bool
-	RepoPinVersion string
+	ExecutablePath     string
+	RepoTargetPath     string
+	RepoTargetAppOwned bool
+	RepoPinned         bool
+	RepoScoped         bool
+	RepoPinVersion     string
+	Bundle             *appbundle.Info
 }
 
 // ResolveInvocation derives executable and repository target identity from the
@@ -37,14 +43,21 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *obsidian.LocalConfig)
 		return Invocation{}, err
 	}
 	invocation := Invocation{ExecutablePath: filepath.Clean(executableAbs)}
-	if cfg == nil {
-		return invocation, nil
+	if cfg != nil {
+		externallyManaged, err := cfg.Rhizome.UsesExternalBinaryManager()
+		if err != nil {
+			return Invocation{}, err
+		}
+		if externallyManaged {
+			return invocation, nil
+		}
 	}
-	externallyManaged, err := cfg.Rhizome.UsesExternalBinaryManager()
+	bundle, err := appbundle.Resolve(executableAbs)
 	if err != nil {
-		return Invocation{}, err
+		return Invocation{}, fmt.Errorf("resolve executable bundle: %w", err)
 	}
-	if externallyManaged {
+	invocation.Bundle = bundle
+	if cfg == nil {
 		return invocation, nil
 	}
 
@@ -61,6 +74,21 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *obsidian.LocalConfig)
 	}
 	target := invocationRepoTarget(filepath.Clean(cfgDirAbs), cfg)
 
+	resolvedDir, err := resolveUpdateDirectory(filepath.Dir(target))
+	if err != nil {
+		return Invocation{}, fmt.Errorf("resolve repository target directory: %w", err)
+	}
+	entry := filepath.Join(resolvedDir, filepath.Base(target))
+	invocation.RepoTargetAppOwned = appbundle.Root(entry) != ""
+	if bundle != nil {
+		for _, appEntry := range []string{invocation.ExecutablePath, appCommandLineLinkPath} {
+			entryDir, err := resolveUpdateDirectory(filepath.Dir(appEntry))
+			if err != nil {
+				return Invocation{}, fmt.Errorf("resolve app command directory: %w", err)
+			}
+			invocation.RepoTargetAppOwned = invocation.RepoTargetAppOwned || sameInvocationPath(entry, filepath.Join(entryDir, filepath.Base(appEntry)))
+		}
+	}
 	invocation.RepoTargetPath = target
 	invocation.RepoPinned = true
 	invocation.RepoPinVersion = pin
@@ -106,4 +134,21 @@ func sameInvocationPath(a, b string) bool {
 		return strings.EqualFold(filepath.Clean(a), filepath.Clean(b))
 	}
 	return filepath.Clean(a) == filepath.Clean(b)
+}
+
+// Resolve only the destination directory: rename replaces a final symlink,
+// whereas a symlink in its parent directories redirects the write itself.
+func resolveUpdateDirectory(dir string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err == nil {
+		return resolved, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) || filepath.Dir(dir) == dir {
+		return "", err
+	}
+	parent, err := resolveUpdateDirectory(filepath.Dir(dir))
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(parent, filepath.Base(dir)), nil
 }

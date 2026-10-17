@@ -25,10 +25,12 @@ type FolderInfo struct {
 	Authority     string `json:"authority"`
 	PinnedVersion string `json:"pinnedVersion"`
 	// Executable is the development build a developer override selects.
-	Executable string `json:"executable,omitempty"`
+	Executable string    `json:"executable,omitempty"`
+	PinOffer   *PinOffer `json:"pinOffer,omitempty"`
 }
 
 type Service struct {
+	available    func() string
 	stateDir     string
 	home         string
 	trust        repositorytrust.Store
@@ -92,6 +94,7 @@ func (s *Service) inspect(path string) (FolderInfo, repoexec.Plan, error) {
 		}
 		info.TrustRequired = !info.Trusted
 	}
+	info.PinOffer = s.pinOffer(plan)
 	return info, plan, nil
 }
 

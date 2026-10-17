@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -26,6 +25,7 @@ func testService(t *testing.T) *Service {
 	s, err := New(filepath.Join(t.TempDir(), "desktop"))
 	require.NoError(t, err)
 	s.home = t.TempDir()
+	s.available = func() string { return "" }
 	s.trust = repositorytrust.Store{Dir: filepath.Join(t.TempDir(), "trust")}
 	s.ensure = func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
 		t.Fatal("unexpected runtime start")
@@ -33,7 +33,7 @@ func testService(t *testing.T) *Service {
 	}
 	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error { t.Fatal("unexpected download"); return nil }
 	s.install = func(context.Context, appupdate.Options) (appupdate.Result, error) {
-		t.Fatal("unexpected global installation")
+		t.Fatal("unexpected pin update")
 		return appupdate.Result{}, nil
 	}
 	return s
@@ -273,45 +273,11 @@ func TestRuntimeFailureAndCancellationRemainErrors(t *testing.T) {
 	code(t, err, "runtime_error")
 }
 
-func TestGlobalStatusUsesNeutralCwdAndProtectsExternalInstallations(t *testing.T) {
+func TestGlobalStatusUsesNeutralCwd(t *testing.T) {
 	s := testService(t)
-	target := script(t, s.managedPath(), `[ ! -f .rhizome/config.yml ] || exit 4
+	target := script(t, filepath.Join(t.TempDir(), "rzm"), `[ ! -f .rhizome/config.yml ] || exit 4
 echo 'rzm version v1.2.3'`)
 	status, err := s.GlobalStatus(context.Background(), target)
 	require.NoError(t, err)
-	require.True(t, status.CanUpdate)
-	require.True(t, status.Installed)
-	external := workingScript(t, filepath.Join(t.TempDir(), "rzm"))
-	status, err = s.GlobalStatus(context.Background(), external)
-	require.NoError(t, err)
-	require.False(t, status.CanUpdate)
-	s.home = t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Dir(s.managedPath()), 0o755))
-	require.NoError(t, os.Symlink(external, s.managedPath()))
-	status, err = s.GlobalStatus(context.Background(), "")
-	require.NoError(t, err)
-	require.False(t, status.CanUpdate)
-	_, err = s.InstallGlobal(context.Background())
-	code(t, err, "install_error")
-}
-
-func TestGlobalInstallUsesOnlyOwnedTargetAndReportsPartialCompletion(t *testing.T) {
-	s := testService(t)
-	s.install = func(_ context.Context, opts appupdate.Options) (appupdate.Result, error) {
-		require.Equal(t, s.managedPath(), opts.ExecutablePath)
-		require.True(t, opts.Latest)
-		require.True(t, opts.Yes)
-		cwd, err := os.Getwd()
-		require.NoError(t, err)
-		require.NotEqual(t, opts.WorkDir, cwd)
-		_, _, err = obsidian.FindLocalConfigForDelegation(opts.WorkDir)
-		require.ErrorIs(t, err, obsidian.ErrNoLocalConfig)
-		workingScript(t, opts.ExecutablePath)
-		return appupdate.Result{Targets: []appupdate.TargetResult{{Path: opts.ExecutablePath, Version: "v1.2.3", BinaryUpdated: true}}}, errors.New("synthetic later failure")
-	}
-	result, err := s.InstallGlobal(context.Background())
-	code(t, err, "install_error")
-	require.True(t, result.Installed)
-	require.Equal(t, "v1.2.3", result.Version)
-	require.Contains(t, err.Error(), "later installation step failed")
+	require.Equal(t, GlobalInfo{Path: target, Version: "v1.2.3"}, status)
 }
