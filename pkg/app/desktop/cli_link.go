@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -185,8 +184,9 @@ func cliLinkCommand(info CLILinkInfo, target string, remove bool) string {
 	if info.State != "absent" {
 		unchanged = "[ -L " + link + " ] && [ \"$(readlink " + link + ")\" = " + cliLinkQuote(info.rawTarget) + " ]"
 	}
-	// Shell text for macOS: POSIX separators on every build platform.
-	return "mkdir -p " + cliLinkQuote(path.Dir(info.LinkPath)) + " && " + unchanged + " && ln -sfn " + cliLinkQuote(target) + " " + link
+	// The link always lives in cliLinkDirectory; deriving it from the path
+	// would depend on the build platform's separator.
+	return "mkdir -p " + cliLinkQuote(cliLinkDirectory) + " && " + unchanged + " && ln -sfn " + cliLinkQuote(target) + " " + link
 }
 
 func cliLinkUnlinkOwned(bundle *appbundle.Info, info CLILinkInfo) error {
