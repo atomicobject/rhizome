@@ -172,6 +172,13 @@ fn command(app: &AppHandle, name: &str) {
 
 pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
+    let updates = MenuItem::with_id(
+        app,
+        "check-updates",
+        "Check for Updates…",
+        crate::updater::enabled(&app.config().identifier),
+        None::<&str>,
+    )?;
     let new_window = MenuItem::with_id(app, "new-window", "New Window", true, Some("CmdOrCtrl+N"))?;
     let close_tab = MenuItem::with_id(app, "close-tab", "Close Tab", true, Some("CmdOrCtrl+W"))?;
     let close_window = MenuItem::with_id(
@@ -215,6 +222,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         true,
         &[
             &PredefinedMenuItem::about(app, None, None)?,
+            &updates,
             &PredefinedMenuItem::separator(app)?,
             &settings,
             &PredefinedMenuItem::separator(app)?,
@@ -304,6 +312,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
                 let _ = create(app, session);
             }
             "add-repository" | "toggle-sidebar" | "settings" => command(app, id),
+            "check-updates" => crate::updater::check_from_menu(app),
             "search" => {
                 if let Some(window) = focused_window(app) {
                     focus_search(&window);

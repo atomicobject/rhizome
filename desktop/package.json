@@ -1,6 +1,6 @@
 {
   "name": "rhizome-desktop",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:native": "cargo test --manifest-path src-tauri/Cargo.toml",
     "tauri": "tauri",
-    "bridge": "node scripts/build-bridge.mjs",
+    "rzm": "node scripts/build-rzm.mjs",
     "check": "npm run typecheck && npm run lint && npm test",
     "lint": "oxlint src && oxfmt --check src scripts *.json *.ts src-tauri/*.json src-tauri/capabilities/*.json",
     "format": "oxfmt src scripts *.json *.ts src-tauri/*.json src-tauri/capabilities/*.json"

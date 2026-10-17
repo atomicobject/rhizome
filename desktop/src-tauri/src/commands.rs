@@ -7,6 +7,7 @@ use crate::{
     security,
     setup::{ScopeEdits, Secret, SetupChoices},
     state::{valid_id, Discovery, Library},
+    updater,
     windows::{self, Sessions},
 };
 use serde::Deserialize;
@@ -15,7 +16,6 @@ use std::path::Path;
 use tauri::{ipc::Channel, AppHandle, LogicalPosition, LogicalSize, Manager, Rect, State, Webview};
 use tauri_plugin_opener::OpenerExt;
 mod state;
-use state::finish_global_operation;
 pub use state::Desktop;
 
 /// Saves the library and sends it to every window's shell, so a change made in
@@ -83,8 +83,20 @@ pub enum Action {
         executable: Option<String>,
     },
     GlobalStatus,
-    GlobalInstall,
-    GlobalUpdate,
+    UpdateStatus,
+    CheckForUpdates,
+    InstallUpdate,
+    CliLinkStatus,
+    CliLinkInstall,
+    CliLinkRemove,
+    PinAdvance {
+        id: String,
+        worktree: String,
+    },
+    DismissPinOffer {
+        id: String,
+        version: String,
+    },
     Trust {
         id: String,
         worktree: String,
@@ -275,30 +287,59 @@ pub async fn desktop_request(
             library.global_executable = executable;
             save(&app, &state, &library)
         }
-        Action::GlobalStatus | Action::GlobalInstall | Action::GlobalUpdate => {
-            let operation = match action {
-                Action::GlobalStatus => "global-status",
-                Action::GlobalInstall => "global-install",
-                _ => "global-update",
-            };
-            let _installing = state.global.lock().await;
+        Action::GlobalStatus => {
             let global = state.library().await?.1.global_executable;
-            let result = bridge::call(
+            bridge::call(
                 &state.directory,
                 Request {
-                    operation,
+                    operation: "global-status",
                     global_executable: global.as_deref(),
                     ..Request::default()
                 },
                 bridge::TIMEOUT,
             )
-            .await;
+            .await
+        }
+        Action::UpdateStatus => Ok(json!(app.state::<updater::Updates>().status())),
+        Action::CheckForUpdates => Ok(json!(updater::check(&app).await)),
+        Action::InstallUpdate => {
+            updater::install(&app)?;
+            Ok(Value::Null)
+        }
+        Action::CliLinkStatus | Action::CliLinkInstall | Action::CliLinkRemove => {
+            let operation = match action {
+                Action::CliLinkStatus => "cli-link-status",
+                Action::CliLinkInstall => "cli-link-install",
+                _ => "cli-link-remove",
+            };
+            // Installing waits on the administrator prompt, so it gets the long timeout.
+            let _linking = state.global.lock().await;
+            bridge::call(
+                &state.directory,
+                Request {
+                    operation,
+                    ..Request::default()
+                },
+                bridge::TIMEOUT,
+            )
+            .await
+        }
+        Action::PinAdvance { id, worktree } => {
+            worktree_action(
+                &state,
+                &id,
+                &worktree,
+                Request {
+                    operation: "pin-advance",
+                    ..Request::default()
+                },
+            )
+            .await
+        }
+        Action::DismissPinOffer { id, version } => {
             let (_lock, mut library) = state.library().await?;
-            let result = finish_global_operation(operation, result, &mut library, &state)?;
-            if operation != "global-status" {
-                announce(&app, &state.snapshot(&library));
-            }
-            Ok(result)
+            library.repository_mut(&id)?.pin_offer_dismissed = Some(version);
+            save(&app, &state, &library)
         }
         Action::Trust { id, worktree } => {
             worktree_action(

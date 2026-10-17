@@ -1,4 +1,4 @@
-use super::{absolute_executable, discovery};
+use super::discovery;
 use crate::{
     bridge::{self, Failure, Request},
     state::{migrate, Library, Stored},
@@ -14,7 +14,7 @@ use std::{
 };
 use tokio::sync::{Mutex, MutexGuard};
 
-/// Serializes library file updates, global installation, and each worktree's
+/// Serializes library file updates, command-line link changes, and each worktree's
 /// open, trust, and setup work. Different worktrees never wait on each other.
 pub struct Desktop {
     pub directory: PathBuf,
@@ -104,22 +104,4 @@ impl Desktop {
         )
         .await
     }
-}
-pub(super) fn finish_global_operation(
-    operation: &str,
-    result: Result<Value, Failure>,
-    library: &mut Library,
-    desktop: &Desktop,
-) -> Result<Value, Failure> {
-    let result = result?;
-    if operation != "global-status" {
-        let executable = result["path"]
-            .as_str()
-            .ok_or("Rhizome returned no installed executable path.".to_string())?
-            .to_string();
-        absolute_executable(&Some(executable.clone()))?;
-        library.global_executable = Some(executable);
-        desktop.store(library)?;
-    }
-    Ok(result)
 }
