@@ -63,6 +63,8 @@ All 222 original findings have source-supported dispositions: 212 implemented an
 
 - 2026-10-17: Final production build passed. After fixture-only integration corrections, `make check-full CHECK_JOBS=2 GO_TEST_PACKAGES=2 GO_TEST_PARALLEL=2` exited zero with repository-local Go caches, race-enabled unit and integration tests, static/content/credential checks, benchmark contracts and all 1,511 web tests. Opus r11 approved frontmatter composition; Astra r11/r13 approved Markdown admission and descriptor ownership. `CI=1 make web-e2e` then passed all 96 browser tests in 1.5 minutes. PR/CI/Greptile acceptance remains pending.
 
+- 2026-10-17: PR #21 opened at `c935e47a` after all local gates passed. CI exposed a default linter configuration schema error before the action reached the intended gate configuration. Moved the existing errcheck test exclusion to the v2 `linters.exclusions.rules` key; both configurations validate under golangci-lint 2.12.2 and the actual analysis gate reports zero issues. The Greptile CLI refused the full 16.8 MB diff at its 3 MB payload limit; a hosted review was requested while an honest complete-coverage CLI alternative is investigated. No 5/5 acceptance is claimed.
+
 ## Deviations
 
 No scope reduction is authorized. Evidence-backed corrections to an audit recommendation are recorded here and in the implementation record.
