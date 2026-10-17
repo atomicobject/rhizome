@@ -125,6 +125,9 @@ def build_environment(environ: Mapping[str, str], rzm: Path, home: Path) -> dict
             raise DesktopBuildError("cargo not found; install Rust with rustup to build the desktop app")
         env["PATH"] = os.pathsep.join(filter(None, (str(cargo_bin), path)))
     env["RZM_DESKTOP_PREBUILT_RZM"] = str(rzm)
+    # Tauri skips the Finder AppleScript that lays out the DMG window when CI is
+    # set; without Automation permission that script fails the build (-1743).
+    env["CI"] = "true"
     return env
 
 

@@ -121,6 +121,7 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(self.root / "desktop", kwargs["cwd"])
         env = kwargs["env"]
         self.assertEqual(str(self.rzm.resolve()), env["RZM_DESKTOP_PREBUILT_RZM"])
+        self.assertEqual("true", env["CI"])
         self.assertEqual("synthetic-key", env["TAURI_SIGNING_PRIVATE_KEY"])
         self.assertEqual("synthetic-password", env["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"])
         self.assertNotIn("GITHUB_TOKEN", env)
