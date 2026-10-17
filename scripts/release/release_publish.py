@@ -10,7 +10,7 @@ import subprocess
 import sys
 from typing import Callable, Mapping, Sequence
 
-from run_clean import scoped_environment
+from run_clean import DESKTOP_SIGNING, scoped_environment
 
 
 PUBLISH_TOKEN_ENV = "RZM_RELEASE_GITHUB_TOKEN"
@@ -47,7 +47,10 @@ def publish_github_release(
     publish_source = dict(source)
     publish_source["GITHUB_TOKEN"] = require_publish_token(source)
     publish_env = scoped_environment(publish_source, "publish")
-    publish_env.update({key: source[key] for key in TEAM_KEY_INPUTS if key in source})
+    publish_env.update({key: source[key] for key in (*TEAM_KEY_INPUTS, *DESKTOP_SIGNING) if key in source})
+    if not source.get("RZM_INTERNAL_S3_BUCKET", "").strip():
+        # A public release must ship the desktop app; the build hook fails without it.
+        publish_env["RZM_RELEASE_DESKTOP"] = "1"
     bundler = Path(__file__).resolve().parents[1] / "teamkeys/release.py"
     wrapper = Path(__file__).with_name("run_clean.py")
     command = (

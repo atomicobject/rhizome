@@ -21,14 +21,22 @@ You'll need a coding agent such as Codex or Claude Code, plus Node.js on its PAT
 
 ### 1. Install Rhizome
 
-On macOS with Homebrew:
+On a Mac with Apple silicon, install Rhizome Desktop. It includes `rzm` and keeps both up to date.
+
+1. Download [Rhizome-macos-arm64.dmg](https://github.com/atomicobject/rhizome/releases/latest/download/Rhizome-macos-arm64.dmg), open it, and drag Rhizome to Applications.
+2. Open Rhizome. The app is not notarized yet, so the first time macOS may say it cannot verify it. Open System Settings > Privacy & Security, choose Open Anyway, and confirm.
+3. In Rhizome > Settings, choose Install Command-Line Tool. macOS asks for your password once. `rzm` then works in terminals and coding agents until you delete the app.
+
+Or ask your coding agent to [install it for you](#install-with-a-coding-agent).
+
+For the command-line tool only, use Homebrew:
 
 ```bash
 brew tap atomicobject/homebrew-tap
 brew install rhizome
 ```
 
-For Linux, Windows, or a project-local launcher, follow the [installation guide](docs/reference/guides/getting-started.md#install).
+For Linux, Windows, Intel Macs, or a project-local launcher, follow the [installation guide](docs/reference/guides/getting-started.md#install).
 
 ### 2. Initialize your project
 
@@ -72,9 +80,43 @@ rzm start
 
 Rhizome opens a local browser workspace where you can read notes and specs, follow efforts and stories, and use the starter's views. Keep the terminal running while you use it.
 
-[Rhizome Desktop](desktop/README.md) provides a Tauri app with a saved folder list, automatic runtime startup, and global installation controls. It opens each folder's configured Rhizome UI in its own window. The desktop app is currently built from source on macOS.
+[Rhizome Desktop](desktop/README.md) keeps your repositories in a sidebar, starts each worktree's Rhizome on its own, and sets up new folders with the version it carries. When a repository pins an older Rhizome, it offers to update the pin; the change is a one-line edit to `.rhizome/config.yml` that you commit.
 
 When the default views stop answering your team's questions, you can adapt them or ask an agent to build a custom view over your project data. Meeting notes, action items, requirements, and other information can become part of the same workspace. Display groups open Briefing, Trace, or Sections views; `rzm view eject <id>` (for example `rzm view eject group.briefing`) copies one into `.rhizome/views/` so your team can modify it. [Adapting the workspace](docs/reference/guides/adapting-rhizome.md#adapt-the-workspace)
+
+## Install with a coding agent
+
+These steps are written for a coding agent on macOS with Apple silicon. Tell your agent: "Install Rhizome Desktop by following the 'Install with a coding agent' section of https://github.com/atomicobject/rhizome."
+
+Agent instructions:
+
+1. Stop and tell the user if `uname -m` is not `arm64`; follow the [installation guide](docs/reference/guides/getting-started.md#install) instead. If `/Applications/Rhizome.app` already exists, skip to step 3: the app updates itself.
+2. Download the app, check it against the release checksums, and copy it into Applications. Files fetched with `curl` carry no quarantine flag, so macOS opens the app without a Gatekeeper prompt.
+
+   ```bash
+   set -euo pipefail
+   base=https://github.com/atomicobject/rhizome/releases/latest/download
+   tmp=$(mktemp -d)
+   curl -fsSL -o "$tmp/Rhizome-macos-arm64.dmg" "$base/Rhizome-macos-arm64.dmg"
+   curl -fsSL -o "$tmp/checksums.txt" "$base/checksums.txt"
+   (cd "$tmp" && grep ' Rhizome-macos-arm64.dmg$' checksums.txt | shasum -a 256 -c -)
+   mkdir "$tmp/mnt"
+   hdiutil attach -nobrowse -readonly -mountpoint "$tmp/mnt" "$tmp/Rhizome-macos-arm64.dmg"
+   ditto "$tmp/mnt/Rhizome.app" /Applications/Rhizome.app
+   hdiutil detach "$tmp/mnt"
+   open -a /Applications/Rhizome.app
+   ```
+
+3. Ask the user to open Rhizome > Settings and choose Install Command-Line Tool, and to enter their password when macOS asks. Wait for them to confirm. This is the only step that needs them.
+4. Verify in a new login shell. The path should be `/usr/local/bin/rzm` and the version should match the app's:
+
+   ```bash
+   zsh -lc 'command -v rzm && rzm --version'
+   defaults read /Applications/Rhizome.app/Contents/Info.plist CFBundleShortVersionString
+   ```
+
+   If another path comes first, Settings names it; tell the user, for example to run `brew uninstall rhizome` for a Homebrew copy.
+5. Report the installed version. To set up a repository next, run `rzm init` from its root, or add the folder in Rhizome.
 
 ## Go deeper
 

@@ -11,6 +11,8 @@ import { mountView } from "./index";
 import {
   EDIT_SESSION_MESSAGE,
   OPEN_SEARCH_MESSAGE,
+  OPEN_NODE_MESSAGE,
+  OPEN_VIEW_MESSAGE,
   OPEN_COLLECTION_MESSAGE,
   OPEN_ISSUES_MESSAGE,
   VAULT_EVENT_MESSAGE,
@@ -36,6 +38,45 @@ const saved: OntologyEditSessionResponse = {
 afterEach(() => {
   Object.defineProperty(window, "parent", parentDescriptor);
   vi.restoreAllMocks();
+});
+
+it("navigates using nullable GraphQL refs and canonicalizes node view contexts", async () => {
+  const frame = document.createElement("iframe");
+  document.body.append(frame);
+  onTestFinished(() => frame.remove());
+  const parent = frame.contentWindow!;
+  Object.defineProperty(window, "parent", { configurable: true, value: parent });
+  vi.resetModules();
+  const { openNode, openView } = await import("./index");
+  const posted = vi.spyOn(parent, "postMessage");
+
+  const ref = {
+    notePath: "a.md",
+    kind: "NOTE",
+    fragment: null,
+    nodeId: null,
+    typeName: "Story",
+    structuralFingerprint: null,
+  };
+
+  openNode(ref, { beside: true });
+  expect(posted).toHaveBeenLastCalledWith(
+    { type: OPEN_NODE_MESSAGE, ref, beside: true },
+    window.location.origin,
+  );
+  openView("detail", { kind: "node", type: "Story", ref });
+  expect(posted).toHaveBeenLastCalledWith(
+    {
+      type: OPEN_VIEW_MESSAGE,
+      id: "detail",
+      context: {
+        kind: "node",
+        type: "Story",
+        ref: { notePath: "a.md", kind: "NOTE", typeName: "Story" },
+      },
+    },
+    window.location.origin,
+  );
 });
 
 it("keeps optimistic data after Save, passes cancellation, and adopts canonical data once", async () => {

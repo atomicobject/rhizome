@@ -1,0 +1,186 @@
+---
+type: EffortNote
+id: EFF-2026-10-17-13-07
+aliases: [EFF-2026-10-17-13-07]
+name: Desktop distribution and updates
+created-at: 2026-10-17T17:08:37Z
+status: complete
+summary: "Ship Rhizome Desktop with every public release: the app carries the release's rzm, updates itself through Tauri's updater, links rzm onto the PATH while installed, offers to advance older repository pins, and installs from README instructions an agent can follow."
+governing-specs:
+  - "[[desktop-distribution-and-updates]]"
+---
+
+# Desktop distribution and updates
+
+## Scope
+
+Deliver [[desktop-distribution-and-updates|SPEC-0122]] in one pull request, with the spec amendments it names for [[rhizome-desktop|SPEC-0113]] and [[version-pinned-install-and-update|SPEC-0033]]. Running `make cut-release` is not part of this effort; the first public release that carries the app is Drew's action. The effort closes when its pull request merges, and the criteria only a published release can meet become follow-up action items (decision 9). The same pull request closes the three earlier desktop efforts whose pull requests merged without closure: [[2026-10-03-18-59-rhizome-desktop|EFF-2026-10-03-18-59]], [[2026-10-06-08-07-desktop-repository-setup|EFF-2026-10-06-08-07]], and [[2026-10-07-17-15-desktop-unified-toolbar|EFF-2026-10-07-17-15]].
+
+Excluded: SPEC-0122's non-goals, including Developer ID signing, notarization, Intel builds, a Homebrew cask, and desktop artifacts in internal releases.
+
+## Spec Set (Frozen)
+
+Frozen at plan approval on 2026-10-17:
+
+- [[desktop-distribution-and-updates|SPEC-0122]], all requirements in the 2026-10-17 revision.
+
+[[rhizome-desktop|SPEC-0113]] and [[version-pinned-install-and-update|SPEC-0033]] receive the amendments SPEC-0122's documentation requirements name. Both are frozen by the active [[2026-10-03-18-59-rhizome-desktop|EFF-2026-10-03-18-59]], which receives a frozen-scope-drift deviation.
+
+## Stories In Scope (Frozen)
+
+- [[desktop-distribution-and-updates#^SPEC-0122-US1|SPEC-0122.US1]] Every release ships the desktop app
+- [[desktop-distribution-and-updates#^SPEC-0122-US2|SPEC-0122.US2]] The installed app updates itself
+- [[desktop-distribution-and-updates#^SPEC-0122-US3|SPEC-0122.US3]] rzm is on the PATH while the app is installed
+- [[desktop-distribution-and-updates#^SPEC-0122-US4|SPEC-0122.US4]] The app offers to advance an older repository pin
+- [[desktop-distribution-and-updates#^SPEC-0122-US5|SPEC-0122.US5]] An agent installs the app from the README
+
+## Spec Coverage Checklist
+
+- [x] [[desktop-distribution-and-updates#^SPEC-0122-US1|SPEC-0122.US1]]: release builds the app from the tag, publishes stable-named assets, `latest.json`, and checksums; fails before publication.
+- [x] [[desktop-distribution-and-updates#^SPEC-0122-US2|SPEC-0122.US2]]: updater checks, "Update ready" control, menu item, signature rejection, failure tolerance; off in Rhizome Dev.
+- [x] [[desktop-distribution-and-updates#^SPEC-0122-US3|SPEC-0122.US3]]: bundled `rzm`, `/usr/local/bin/rzm` link lifecycle, login-shell resolution report, `rzm update` hand-off to the app.
+- [x] [[desktop-distribution-and-updates#^SPEC-0122-US4|SPEC-0122.US4]]: version ordering, offer states, advance through `update --set-version`, reopen, dismissal.
+- [x] [[desktop-distribution-and-updates#^SPEC-0122-US5|SPEC-0122.US5]]: README human and agent install sections.
+- [x] Documentation and spec amendments; deviation on EFF-2026-10-03-18-59.
+- [x] Release-dependent criteria (real assets, a real update from one release to the next) recorded as follow-up action items for the first and second public releases.
+
+## Plan
+
+### Current gap
+
+- **No bundled `rzm`.** The app ships one sidecar, `rhizome-desktop-bridge` (27 MB; `desktop/bridge/main.go`, 26 lines over `pkg/app/desktop`). `bridge.rs` spawns it per request. `globalExecutable` (`pkg/app/desktop/global.go`) searches `~/.local/bin`, `PATH`, `/opt/homebrew/bin`, and `/usr/local/bin`, so a fresh machine has no executable and setup cannot run. `InstallGlobal` writes `~/.local/bin/rzm` with no PATH registration.
+- **No version.** `0.1.0` is hard-coded in `tauri.conf.json`, `Cargo.toml`, and `package.json`. There is no updater plugin, signing configuration, or release step. The CI desktop job builds an unsigned `.app` and discards it.
+- **Release.** `release_cli.py` checkpoints `built → applied → canonical_branches_published → github_published → (s3_published) → published`. GoReleaser builds and publishes in one step and uploads `.tmp/goreleaser-extra/*` through `release.extra_files`. No public tag exists yet; `version.go` says `v0.50.5`.
+- **Pins.** Setup already pins the running executable's version (`pkg/app/cli/init/rerun.go:94`). `rzm update --set-version` already rewrites a pin and installs the binary atomically. Go has no ordered version comparison. `pkg/app/update` would replace whatever `os.Executable()` resolves to, including a file inside an app bundle.
+
+### Decisions
+
+Settled with Drew on 2026-10-17 (recorded in SPEC-0122): ad-hoc signing for now, Tauri's updater, a `/usr/local/bin` symbolic link, Apple Silicon only. Routine choices fixed here so the batches share one contract:
+
+1. **One Go executable.** The bridge becomes a hidden `rzm desktop-bridge` subcommand with the same flags and JSON protocol, and `desktop/bridge` is deleted. The bundle's only sidecar is `rzm`, so the bridge and the bundled CLI always share a version. The subcommand runs on the invoking binary (no repository delegation, no diagnostics wiring), like `desktop`.
+2. **Bundled executable is the global executable.** When the bridge runs from inside an `.app` bundle and no user override is set, `globalExecutable` returns its own `os.Executable()`. The `~/.local/bin` install and update operations and their Settings controls are removed.
+3. **Command-line link in Go.** `pkg/app/desktop/cli_link.go` classifies `/usr/local/bin/rzm` as absent, this app's link, another Rhizome bundle's link (moved app or other copy), a dangling Rhizome link, or foreign. It tries `os.Symlink` unprivileged first and prompts only on a permission error. The prompt runs `osascript -e 'on run argv' -e 'do shell script item 1 of argv with administrator privileges' -e 'end run' <shell text>`, so no path is interpolated into AppleScript. The shell text single-quotes fixed paths and re-checks `[ ! -e P ] || [ -L P ]` before `ln -sfn`, closing the gap between the unprivileged check and the privileged write. Link operations refuse when the bridge's own bundle is a Dev build. A test seam overrides the link directory and the privileged runner. It reports the login shell's resolution by running the user's `$SHELL -lc 'command -v rzm'` with a timeout. New bridge operations: `cli-link-status`, `cli-link-install`, `cli-link-remove`.
+4. **Pin offer in Go.** `inspect` gains `pinOffer: {state: none|advance|app-older, pinned, available}`, computed by a small `vMAJOR.MINOR.PATCH[-pre]` comparator in `pkg/app/update` (no new dependency). A new `pin-advance` operation requires the worktree to be trusted and calls `appupdate.Run` in process with `SetVersion: version.Version, Yes: true`, as `InstallGlobal` already does. The fixture test asserts `git status` shows only `.rhizome/config.yml`; `SaveLocalConfig` also rewrites `.rhizome/workflows.yml`, so any spurious diff there is fixed in this batch. Dismissal lives in the desktop library entry as `pinOfferDismissed: <version>`, an optional field that needs no migration.
+5. **`rzm update` hands the global target to the app.** `pkg/app/update` resolves the invocation path with `filepath.EvalSymlinks` and checks for `*.app/Contents/`, so `/usr/local/bin/rzm` counts. Without that, `replaceFile` would rename a real binary over the link on machines where `/usr/local/bin` is writable. In a bundle, the plan never contains a file-replacement global target; for that bundle, `BuildUpdatePlan` treats the invocation as repository-scoped. Instead, `Run` gains an app-owned global step:
+   1. Fetch `latest.json`, the same endpoint the app's updater uses.
+   2. When the bundle is current, report "up to date".
+   3. Otherwise run `open -a <bundle> --args --install-update`.
+   4. Poll the bundle's `Info.plist` `CFBundleShortVersionString` (default timeout 5 minutes) and report the new version, or a partial result with the download URL.
+
+   The repository target runs as today, prompt included. A Dev bundle prints the `make desktop-install-dev` guidance. The `open` runner and the clock are test seams. On the app side, `main.rs` and the single-instance handler accept `--install-update` as a fixed flag and route it to the updater's install-and-relaunch path, which the shell's "Update ready" control also uses. `desktop-bridge` is added to `isRepositoryTrustControlInvocation` (`pkg/app/repoexec/trust.go`) and the diagnostics skip list (`cmd/diagnostics_wiring.go:61`).
+6. **Version.** The three version fields become `0.0.0`, meaning a development build. Release builds pass the version through `tauri build --config`. Settings shows the bundled `rzm --version`.
+7. **Updater configuration.** `tauri.conf.json` carries the updater endpoint and public key. `createUpdaterArtifacts` lives only in a new `tauri.release.conf.json`, so CI and `make desktop-build` need no key. Rust schedules checks (launch, then every 24 hours), downloads in the background, and emits `update` events to the shell. The shell shows the control and calls `install-update`, which installs and relaunches through `tauri-plugin-process`. Neither the updater nor the CLI link is registered when the bundle identifier ends in `.dev`. Updater permissions go to the shell webview only.
+8. **Release placement: a GoReleaser post-build hook, no new checkpoint.** The `rzm-darwin` build in `.goreleaser.yml` gains a post hook, `scripts/release/build_desktop.py "{{ .Path }}" "{{ .Version }}"`. The hook runs only for the arm64 build of a public release. Its steps:
+   1. Run the existing `teamkeys --check-artifact` check.
+   2. Copy that exact binary into `src-tauri/binaries/rzm-aarch64-apple-darwin`.
+   3. Run `tauri build --bundles app,dmg` with the release config and version.
+   4. Run `codesign --verify --deep --strict`.
+   5. Clear and rewrite its own stable-named outputs in `.tmp/goreleaser-extra/`.
+   6. Write `latest.json` pointing at the tag's download URL.
+
+   `release.extra_files` and `checksum.extra_files` pick up those outputs. The existing snapshot `built` phase runs the same hook before any repository change, which is the early failure US1 requires; it signs updater artifacts only when the key is present. The publish step sets `RZM_RELEASE_DESKTOP=1`, and with it set the hook fails, rather than skipping, when the key is missing, so a normal release cannot go out without the app. The GitHub Actions fallback does not set it and publishes CLI assets only, per SPEC-0122's non-goal. `run_clean.py` passes `TAURI_SIGNING_PRIVATE_KEY` and its password through, the same exposure class as `GITHUB_TOKEN` today.
+9. **Closure timing.** The effort closes in its own pull request. The criteria only a published release can meet are verified locally against release-config builds. Their real-release checks become action items: assets, checksums, the Gatekeeper step, and the agent install on the first public release; the in-app update on the second. Drew chose this over keeping the effort open (2026-10-17).
+
+### Prerequisite owned by Drew
+
+Before merge: generate the updater key pair (`npx tauri signer generate`), store the private key and password in the release 1Password Environment, keep an offline backup, and share only the public key, which is committed to `tauri.conf.json`. I will provide a short guided script for this. Development and tests use a throwaway key generated in a temporary directory.
+
+### Batches
+
+| Batch | Outcome | Work | Exit evidence |
+| --- | --- | --- | --- |
+| 0. Feasibility spike | Know whether an ad-hoc-signed Tauri app in `/Applications` can replace itself through the updater on this macOS. | Throwaway: two ad-hoc builds (`0.0.1`, `0.0.2`) with a temporary key, a `latest.json` served from a local HTTP server, an endpoint override; install `0.0.1` to `/Applications` with `ditto` and trigger the update. Nothing is committed. | Updated bundle version and a clean relaunch, or the exact failure. A failure stops the effort for Drew's decision on Developer ID signing (SPEC-0122 Open Questions). |
+| 1. Go: bridge, bundled executable, link, pins, refusal | `rzm` serves the desktop protocol, treats its own bundle as the global executable, manages the link, computes and applies pin offers, and refuses to overwrite itself inside an app. | `cmd/desktop_bridge.go`; delete `desktop/bridge`; delegation and diagnostics exemptions. `pkg/app/desktop`: `global.go` (decision 2), `cli_link.go`, `protocol.go` ops, `service.go` `pinOffer`, `pin-advance`, library field. `pkg/app/update`: comparator and app-bundle refusal. Update `pkg/app/desktop/CONTEXT.md` and `pkg/app/update/AGENTS.md`. Load `cli-subsystem` first. | Go tests: comparator table; offer states (older, equal, newer, unparsable, external, `devBinaryDir`, source checkout); link classification and planned privileged command for every state, through the seam, including Dev refusal; hand-off through a symlink fixture into a fake bundle for default and `--latest`, inside and outside a pinned fixture (current, newer, timeout, `open` failure, Dev bundle), with the repository half and its prompt unchanged; `desktop-bridge` exempt from delegation; `pin-advance` against a local release fixture server. `make check`. |
+| 2. Desktop app | The app runs the bundled `rzm`, updates itself, and shows the link and pin controls. | `bridge.rs` spawns `rzm desktop-bridge`. `build-bridge.mjs` becomes `build-rzm.mjs`, building `rzm` with the web UI. `externalBin`, version fields, `tauri.release.conf.json`, `tauri-plugin-updater`, `tauri-plugin-process`, capabilities. Rust `updater.rs` (schedule, events, install and relaunch; off for Dev); `--install-update` argument at launch and through single-instance; "Check for Updates…" menu item. Shell: update control in the sidebar footer; Settings command-line tool section replacing global install; pin-offer chip with popover next to the worktree selector; reopen after advancing. `desktop/README.md`. Load `impeccable` for the two new controls. | `cargo test` for update-state transitions, the Dev guard, and `--install-update` parsing (ignored when no verified update exists). Vitest for the update control, Settings link states, and the pin chip (advance, not now, app older, failure stage). `make desktop-check`, `make desktop-build`. Shell browser pass with screenshots at 760 and 1280 widths. |
+| 3. Release pipeline | `make release-dry` builds the app; `cut-release` publishes it with the CLI from the same binary. | `scripts/release/build_desktop.py` hook (decision 8), `latest.json` writer, `.goreleaser.yml` post hook plus extra and checksum files, `RZM_RELEASE_DESKTOP` in the publish command, `run_clean.py` pass-through, `scripts/with-secrets` mapping. `docs/RELEASING.md`: desktop step, credentials, key custody and backup. | Python tests: hook no-ops for amd64 and internal releases; fails without the key when `RZM_RELEASE_DESKTOP=1`; `latest.json` shape; output clearing; pass-through limited to the publishing subprocess. A local `make release-dry` producing the DMG, updater archive, and `latest.json`. |
+| 4. Docs and spec amendments | Users and agents can install from the README; dependent specs match. | README: human install (DMG, Gatekeeper step through System Settings > Privacy & Security > Open Anyway, command-line tool) and "Install with a coding agent" (curl, checksum, `hdiutil`, `ditto`, `open`, verification, the one user step; `curl`, `hdiutil`, and `ditto` set no quarantine, so the agent path needs no Gatekeeper step), keeping Homebrew and the installer as CLI routes. `getting-started.md`. SPEC-0113 Non-Goals and Global installation; SPEC-0033 app hand-off for the global target; `last-updated` bumps; deviation on EFF-2026-10-03-18-59; `rzm agent validate frozen-scope-drift`. `CHANGELOG.md` Unreleased entry. | Validation (ontology, identifiers, broken links, frozen-scope drift) with the drift findings acknowledged. A fresh agent session, given only the README, walks the install against a local build served over HTTP, or the gap is recorded for the first release. |
+| 4b. Earlier desktop efforts | EFF-2026-10-03-18-59, EFF-2026-10-06-08-07, and EFF-2026-10-07-17-15 are closed with their delivered truth. | Closure pass for each through `agentic-engineering finish`: actual delivery from their merged pull requests, deviations (including this effort's SPEC-0113 and SPEC-0033 amendments on EFF-2026-10-03-18-59), and closure checklists. Anything still owed, such as Drew's SPEC-0118 click-through, becomes an action item rather than holding the effort open. | Each effort `complete` with evidence; validation passes. |
+| 5. Integration, native verification, review, PR | The packaged app works end to end on this machine, and the change is reviewed. | `make check`, `make desktop-check`, `make desktop-build`. Native run of a release-config build (throwaway key, version `0.0.1`) with `RHIZOME_DESKTOP_DATA_DIR` set to a temporary directory: setup pins the bundled version; the pin offer advances a fixture repository pinned older. Updater: a second build (`0.0.2`) served from a local `latest.json` through an endpoint override in a test build updates the first, once from the app control and once through `rzm update` via the bundled executable, inside and outside a pinned fixture. The link install and its Gatekeeper behavior need an admin prompt, so they are left to Drew's click-through, with a written checklist. Independent review (Claude Fable), accepted fixes, pull request with `link_pull_request`. | Gate output, native evidence or recorded gaps, review outcome, PR link, and Drew's click-through checklist. |
+
+Batch 0 runs first and gates everything. After it, Batches 1, 3, and the README part of 4 can run in parallel once decision 1's subcommand name and decision 3's operation names are fixed (they are, above). Batch 2 needs Batch 1's protocol. Batch 5 needs everything. Delegation: Batch 1 and Batch 3 go to separate implementers in their own worktrees through T3 `delegate_task`; I integrate, own Batch 2's UI with `impeccable`, and run Batch 5.
+
+Escalation: Drew decides Developer ID signing if Batch 0 fails, any change to what a release publishes beyond SPEC-0122's assets, any new privileged operation beyond the link, and the closure timing in decision 9. Asset names, UI placement within the stated surfaces, and test layering are routine.
+
+## Plan Approval
+
+Drew approved the plan in chat on 2026-10-17 (2026-10-17T17:28:17Z): "approved", in reply to the request to approve the plan, together with these answers: close the effort at merge (decision 9 revised), land before the first public release, generate the updater key after the bulk of the work (still before merge), and close the three earlier desktop efforts in this pull request (Batch 4b). The current-user configuration is absent, so `plan-approved-by` is omitted rather than inferred.
+
+## Original Intended Delivery
+
+A Mac user downloads one DMG from the latest GitHub release, or has an agent do it, and gets an app that updates itself. One click and one password prompt put `rzm` on every login shell's PATH; deleting the app takes that `rzm` away. Folders set up in the app pin the app's Rhizome, and repositories with an older pin show a quiet offer to advance it. Every public release builds and publishes the app with the CLI from the same tag.
+
+## Actual Delivered
+
+On branch `feat/desktop-distribution`, verified at 943b595e:
+
+- **Release.** A GoReleaser post-build hook on the darwin/arm64 `rzm` build (`scripts/release/build_desktop.py`) bundles that exact binary into the app, builds the app and DMG with the release version, ad-hoc signs and verifies them, and stages `Rhizome-macos-arm64.dmg`, the updater archive and signature, and `latest.json` for `release.extra_files` and `checksums.txt`. Snapshot builds run it, so toolchain failures stop a release before any repository change. A public apply and publication refuse to run without the updater key or with the placeholder public key. Internal releases, the Actions fallback, and `make release` without `RZM_RELEASE_DESKTOP=1` publish the CLI only. DMG bundling sets `CI=true` so it needs no Finder Automation permission.
+- **App.** The app's only sidecar is `rzm`, run as `rzm desktop-bridge`, and it is the global executable unless Settings selects another. Tauri's updater checks the GitHub feed at launch and daily in release builds only (not Rhizome Dev or `0.0.0` builds), keeps a verified download ready, and installs on Restart to Update, Rhizome > Check for Updates…, or `--install-update`. Settings shows the bundled Rhizome, update status, and the `/usr/local/bin/rzm` link with what the login shell runs first, and installs, repairs, or removes the link (unprivileged first, otherwise one administrator prompt that re-checks the inspected link). A moved or dangling link is offered for repair at launch. A worktree whose pin differs from the app shows a toolbar offer: Update Pin advances through `rzm update --set-version` and reopens the worktree; Not Now is remembered per repository and app version. Library version 3 drops the old managed-install selection once.
+- **CLI.** `rzm update` resolves symlinks and, when it runs from Rhizome's app bundle, hands its global target to the app (`--install-update`), waits for the new version, and reports it; repository targets, prompts, and partial-result exits are unchanged. It never writes inside a bundle or over the link.
+- **Docs.** README human and agent install sections; getting-started, desktop README, RELEASING (desktop step, key creation and custody), CHANGELOG; SPEC-0113 and SPEC-0033 amended; EFF-2026-10-03-18-59, EFF-2026-10-06-08-07, and EFF-2026-10-07-17-15 closed.
+
+The release updater public key replaced the placeholder in 21bc645d. Release credentials moved to their own 1Password Environment; `with-secrets` uses the current CLI, reads `RZM_OP_RELEASE_ENVIRONMENT_ID` for releases, and can copy the development API keys into the login keychain (`sync-keychain`) so development runs need no approval. Carried by PR #19.
+
+## Execution Notes
+
+- 2026-10-17T17:08:37Z [decision] Drew chose unsigned (ad-hoc) distribution for now, Tauri's updater, a `/usr/local/bin` symbolic link, and Apple Silicon only, in reply to the four-question decision prompt.
+- 2026-10-17T17:08:37Z [validation] Independent plan review (Claude Fable) approved with fixes, all taken: symlink resolution before the app-bundle check, repository half of `rzm update` kept inside pinned repositories, argument-passing privileged command with a re-check, Dev refusal in the bridge, Homebrew precedence copy, `workflows.yml` diff check, the real public key committed before merge, and a GoReleaser post-build hook instead of a new checkpoint. It named ad-hoc self-update in `/Applications` as the one feasibility risk, now Batch 0.
+- 2026-10-17T17:08:37Z [decision] Drew asked that `rzm update` work gracefully, globally and per repository, rather than refuse inside the app. The global target is handed to the app through `--install-update`, and the repository target is unchanged. Spec and plan revised before approval.
+- 2026-10-17T17:33:00Z [validation] Batch 0 passed on macOS 27.2 (Apple Silicon). A throwaway Tauri 2.12.1 app with `tauri-plugin-updater` 2.14.0, ad-hoc signed through `bundle.macOS.signingIdentity: "-"` (`flags=adhoc,runtime`, no Team ID), was installed to `/Applications` with `ditto`. It fetched a local `latest.json`, verified and installed 0.0.2, and relaunched as 0.0.2. No permission prompt appeared, and `codesign --verify --deep --strict` passed on the updated bundle. The spike app was removed afterward. Not covered, and left for Drew's click-through: a first install carrying the browser quarantine attribute, and an `/Applications` copy owned by another administrator.
+- 2026-10-17T17:33:00Z [learning] `tauri::generate_context!` with plugin configuration requires `serde_json` as a direct dependency of the app crate.
+- 2026-10-17T17:08:37Z [learning] SPEC-0121 is claimed by uncommitted session-memory work in worktree `t3-1405af06`; this spec took SPEC-0122 to avoid a collision the allocator cannot see.
+- 2026-10-17T18:15:00Z [handoff] Batch 1 (GPT-6.1-Sol, `feat/desktop-distribution-go`: 89d2a99a, 51039f45) and Batch 3 (Opus 5.5, `feat/desktop-distribution-release`: 655e859a, 65f58a60) were delegated in their own worktrees and merged. Batch 4b (Opus 5.5, 6f97a6d1) closed EFF-2026-10-03-18-59, EFF-2026-10-06-08-07, and EFF-2026-10-07-17-15, turning their owed click-throughs into three action items assigned to Drew.
+- 2026-10-17T18:15:00Z [surprise] The desktop library lives in Rust (`state.rs`), not Go, so pin-offer dismissal moved to the Rust library and Batch 1 was steered off its Go dismissal operation. `discover` copies fields from `Inspect`, so `pinOffer` had to be copied into each worktree too.
+- 2026-10-17T18:15:00Z [surprise] The removed managed install had saved `~/.local/bin/rzm` as the library's global executable, which would have kept every existing user off the bundled `rzm`. Library version 3 clears that one value once.
+- 2026-10-17T18:15:00Z [validation] `make desktop-build` bundles `rzm` beside the app executable. The bundled `rzm desktop-bridge` reports itself as the bundled global executable and classifies `/usr/local/bin/rzm` as absent. On Drew's machine the login shell resolves `~/.local/bin/rzm` first, so Settings will name it after the link is installed.
+- 2026-10-17T18:15:00Z [validation] `pin-advance` through the real bridge against a local GitHub-shaped release fixture: the offer read v0.50.4 to v0.50.5, trust was required first, the advance installed the repository binary and marker, `git status` showed only `.rhizome/config.yml`, and the offer disappeared.
+- 2026-10-17T18:15:00Z [surprise] Integration found four defects, each fixed with a test: `pin-advance` read `path` instead of `folder`; it ignored `RZM_UPDATE_MANIFEST_URL`, unlike opening a pinned worktree; the offered version lacked the `v` that pins carry, because release builds report their version without one; and DMG bundling failed with "Not authorized to send Apple events to Finder (-1743)" because Tauri's Finder layout script needs Automation permission. The release script now sets `CI=true`, which skips that script and still produces a DMG with the app and an Applications link.
+- 2026-10-17T18:15:00Z [learning] GoReleaser's `{{.Version}}` has no `v`, so released `rzm` reports `0.50.5` and setup writes pins without it. This predates the effort; the comparator accepts both forms.
+- 2026-10-17T18:40:00Z [validation] Native hand-off: `rzm update` run through a symlink to an installed ad-hoc app (Rhizome Verify 0.0.1 in `/Applications`, local feed) handed off with `--install-update`; the app verified and installed 0.0.2 and relaunched, `rzm` reported the new version, the symlink was untouched, and the bundle signature verified. A second run reported "up to date", and inside a pinned fixture the repository half updated independently. The verification app, its data, and the fixtures were removed.
+- 2026-10-17T18:40:00Z [validation] A GoReleaser snapshot (`--single-target --id rzm-darwin`, throwaway key) staged `Rhizome-macos-arm64.dmg`, the updater archive and signature, and `latest.json`; app version, bundled `rzm --version`, and release version agreed; `codesign --verify --deep --strict` passed. The README agent commands, run against those artifacts from a local server, verified the checksum, mounted, copied an app with no quarantine attribute, and detached.
+- 2026-10-17T18:40:00Z [surprise] A restart keeps `--install-update`, and launch skipped the daily schedule when it was present; launch now always starts the schedule.
+- 2026-10-17T18:40:00Z [validation] Gates: `make check` and `make desktop-check` pass. The release Python suite has one error, `effort_evidence_test` (`KeyError: 'governing_specs_yaml'`), which fails identically on `main`.
+- 2026-10-17T19:10:00Z [validation] Independent review (Claude Fable 5.1, high) confirmed the privileged command construction, web-content isolation, secret handling, hand-off, updater concurrency, library migration, and GoReleaser templating. Fixed with tests: `pin-advance` refuses a stale offer that would downgrade; version `0.0.0` builds never run the production updater; the app offers to repair a moved or dangling link at launch; the privileged install re-checks the exact link it inspected; `rzm update` hands off only to Rhizome's own bundle identifiers; the offered version is computed once per request. Declined: removing the `/usr/local/bin/rzm` comparison in `invocation.go`, which alone protects a repository `binaryPath` pointing at that link when `rzm` runs from the bundle path directly.
+- 2026-10-17T21:03:22Z [validation] Drew generated the release updater key and stored it, with its password, in the Release Environment. Its public key (key ID `59D39950B95024C7`) is committed, and a probe signed through `with-secrets release` carries the same key ID. `sync-keychain` stored both development API keys after one approval, and a development run then needed no prompt.
+- 2026-10-17T21:59:19Z [validation] Greptile CLI review loop on PR #19 reached 5/5 with no comments at 4a38ed5b after five fix rounds: pin-advance installs exactly the offered version; finishing an advance does not pull the user off another selection; update checks refresh the feed, replace a postponed download with a newer one, and keep a verified download installable when a check fails; the relaunch after an install ignores its carried-over `--install-update`; a standalone `rzm` cannot replace `/usr/local/bin/rzm` when it links into the app; Settings drops update-status responses older than an update message; version 1 libraries also forget the managed `rzm`; local desktop builds bundle `rzm` from `make build` so its web UI is present; the release hook runs the public-artifact check on the app executable. CI fixes: the privileged link command takes its directory from `cliLinkDirectory` (Windows paths), and identifier provenance ignores Git 2.56 `--follow` records for other paths, which had broken `main`'s Windows runner too.
+## Deviations
+
+- 2026-10-17: CI on PR #19 found that GitHub's Windows runner moved to Git 2.56, whose `log --follow` broke identifier provenance on `main` as well. The fix (skip history records that do not touch the tracked path) is outside SPEC-0122 and ships here because Drew asked for CI failures to be fixed; it has its own CHANGELOG entry.
+- 2026-10-17: credential handling grew during review with Drew. Release credentials (GitHub tokens, updater key) moved to a separate 1Password Environment selected by `RZM_OP_RELEASE_ENVIRONMENT_ID`; `with-secrets` stopped preferring an old `op-beta` and gained `sync-keychain`, which copies only the development API keys into the login keychain. Authority: Drew's requests in chat.
+- 2026-10-17 (frozen-scope-drift acknowledged for SPEC-0122): the updater key requirement said the key reaches only the desktop build subprocess. Decision 8's post-build hook runs inside GoReleaser, so the key reaches the GoReleaser processes too, the same exposure class as `GITHUB_TOKEN`, and the hook strips every other credential before the Tauri build. SPEC-0122 now says so. Authority: the approved decision 8.
+- 2026-10-17: beyond decision 8, Batch 3 also refuses a public `apply` without the updater key (so a release cannot push branches and then fail at publication), refuses to build the app on an Intel host, and clears stale desktop assets when the arm64 build skips the app. These tighten the approved behavior without changing what a release publishes.
+- 2026-10-17 (frozen-scope-drift acknowledged for SPEC-0122): Drew deferred creating the updater key until the bulk of the work was done, so `tauri.conf.json` carries an explicit placeholder and the release hook refuses to publish with it, replacing the requirement that no placeholder exists. Replacing it remains a merge prerequisite.
+- 2026-10-17: `pin-advance` takes the worktree in `folder`, like the other worktree operations, rather than the `path` field Batch 1 first used.
+
+## Closure Checklist
+
+- [x] Quality gates: `make check`, `make desktop-check`, `make desktop-build` pass; release Python suite passes except `effort_evidence_test`, which fails identically on `main`.
+- [x] Native verification (see Execution Notes); the administrator prompt, deletion, and visual checks are carried forward as action items below.
+- [x] Alignment check against SPEC-0122: every criterion has test or native evidence, or is carried forward as an action item because it needs a published release or an administrator prompt.
+- [x] Spec amendments, frozen-scope-drift acknowledgements (only the pre-existing SPEC-0111 finding on EFF-2026-10-03-18-33 remains, also on `main`), documentation, and CHANGELOG.
+- [x] Independent review (Claude Fable 5.1); accepted findings fixed, one declined with reason.
+- [x] Release updater public key committed in place of the placeholder (21bc645d); the Release Environment's private key signs with the same key ID, `59D39950B95024C7`.
+- [x] Action items for the first and second public release checks.
+- [x] Earlier desktop efforts closed (Batch 4b).
+- [x] Pull request opened and linked: [#19](https://github.com/atomicobject/rhizome/pull/19) (draft until the updater key lands).
+
+Action items:
+
+- [x] Before merging, create the release updater key per docs/RELEASING.md "Updater signing key" and commit its public key in place of the placeholder #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] Click through a packaged release-config build: Install Command-Line Tool with the administrator prompt, confirm a new login shell runs `/usr/local/bin/rzm`, move the app to the Trash and confirm `rzm` no longer runs it, and look over Restart to Update, the pin offer, and Settings #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] On the first public release, check the published assets and `checksums.txt`, install the DMG from a browser using Open Anyway, and have a fresh agent session install from the README alone; note whether folder-access prompts return after an update #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] On the second public release, confirm an installed app updates itself from the first #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] Compounding triage.
+
+## Compounding Follow-ups
+
+- `rzm` run from inside the main checkout delegates to that checkout's dev build, which twice made a native check measure the wrong binary. Native verification scripts should run from a neutral directory with `RZM_SKIP_REPO_DELEGATE=1`; worth a line in the desktop verification gate.
+- A worktree's `bin/darwin/rzm` silently goes stale after merging Go changes; validation and native checks then run old code. A `make` target that rebuilds it after merges would remove the trap.
+- `effort_evidence_test` fails on `main` (`KeyError: 'governing_specs_yaml'`); a one-line fixture fix, not owned here.
+
+## Status
+
+Complete. Delivered in PR #19. The click-through and the first and second public release checks are open action items assigned to Drew.

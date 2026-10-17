@@ -28,6 +28,7 @@ from release_actions import RELEASE_FILE_PATHS, apply_release_files
 from release_command import run_cli
 from release_git import ReleaseGit, ReleaseGitError
 from release_preconditions import ReleasePreconditionError, validate_stored_apply_boundary, verify_base_tag
+from build_desktop import SIGNING_KEY
 from release_publish import PUBLISH_TOKEN_ENV, publish_command
 from release_store import ReleaseStore, ReleaseStoreError, StoredReleaseRun
 from release_theme import merge_curated_themes
@@ -331,6 +332,10 @@ class Orchestrator:
             raise OrchestrationError("candidate build must succeed before apply")
         if not self.environ.get(PUBLISH_TOKEN_ENV, "").strip():
             raise OrchestrationError(f"set {PUBLISH_TOKEN_ENV} before applying a release")
+        if not self._internal_release() and not self.environ.get(SIGNING_KEY, "").strip():
+            raise OrchestrationError(
+                f"set {SIGNING_KEY} before applying a public release; publishing builds the desktop app"
+            )
         if run.evidence.github_status != "available" and not accept_degraded_evidence:
             accepted = interactive and self.input_fn(
                 "GitHub evidence is degraded. Apply anyway? [y/N]: "

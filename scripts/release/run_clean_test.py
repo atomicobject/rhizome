@@ -3,7 +3,7 @@
 import unittest
 from unittest.mock import patch
 
-from run_clean import scoped_environment
+from run_clean import run, scoped_environment
 
 
 class CleanReleaseEnvironmentTest(unittest.TestCase):
@@ -43,6 +43,19 @@ class CleanReleaseEnvironmentTest(unittest.TestCase):
             },
             scoped_environment(self.source, "publish"),
         )
+
+    def test_desktop_signing_key_reaches_only_goreleaser(self) -> None:
+        self.source["TAURI_SIGNING_PRIVATE_KEY"] = "synthetic-signing-key"
+        self.source["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"] = "synthetic-signing-password"
+        for mode in ("build", "publish"):
+            for command, expected in ((["goreleaser", "release"], True), (["go", "build"], False)):
+                with self.subTest(mode=mode, command=command[0]):
+                    with patch("run_clean.subprocess.run") as runner:
+                        runner.return_value.returncode = 0
+                        run(mode, command, self.source)
+                    env = runner.call_args.kwargs["env"]
+                    self.assertEqual(expected, env.get("TAURI_SIGNING_PRIVATE_KEY") == "synthetic-signing-key")
+                    self.assertEqual(expected, "TAURI_SIGNING_PRIVATE_KEY_PASSWORD" in env)
 
     def test_direct_wrapper_rejects_public_overlay_and_preserves_internal_overlay(self):
         self.source["GOFLAGS"] = "-overlay=/synthetic/overlay.json"

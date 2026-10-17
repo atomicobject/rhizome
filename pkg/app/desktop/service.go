@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"sync"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
@@ -25,16 +26,21 @@ type FolderInfo struct {
 	Authority     string `json:"authority"`
 	PinnedVersion string `json:"pinnedVersion"`
 	// Executable is the development build a developer override selects.
-	Executable string `json:"executable,omitempty"`
+	Executable string    `json:"executable,omitempty"`
+	PinOffer   *PinOffer `json:"pinOffer,omitempty"`
 }
 
 type Service struct {
-	stateDir     string
-	home         string
-	trust        repositorytrust.Store
-	ensure       func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error)
-	install      func(context.Context, appupdate.Options) (appupdate.Result, error)
-	ensurePinned func(context.Context, appupdate.EnsureOptions) error
+	available func() string
+	// availableOnce runs availableVersion at most once per bridge request.
+	availableOnce   sync.Once
+	availableCached string
+	stateDir        string
+	home            string
+	trust           repositorytrust.Store
+	ensure          func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error)
+	install         func(context.Context, appupdate.Options) (appupdate.Result, error)
+	ensurePinned    func(context.Context, appupdate.EnsureOptions) error
 }
 
 func New(stateDir string) (*Service, error) {
@@ -92,6 +98,7 @@ func (s *Service) inspect(path string) (FolderInfo, repoexec.Plan, error) {
 		}
 		info.TrustRequired = !info.Trusted
 	}
+	info.PinOffer = s.pinOffer(plan)
 	return info, plan, nil
 }
 

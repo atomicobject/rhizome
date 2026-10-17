@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/app/appbundle"
 )
 
 // UpdateMode identifies the caller's requested update policy.
@@ -68,6 +70,9 @@ func BuildUpdatePlan(invocation Invocation, opts UpdatePlanOptions) (UpdatePlan,
 
 	plan := UpdatePlan{Targets: []UpdateTarget{}}
 	addGlobal := func(version string) error {
+		if invocation.Bundle != nil {
+			return nil
+		}
 		return appendUpdateTarget(&plan, UpdateTarget{
 			Role:        UpdateTargetGlobal,
 			LogicalPath: globalPath,
@@ -75,6 +80,9 @@ func BuildUpdatePlan(invocation Invocation, opts UpdatePlanOptions) (UpdatePlan,
 		})
 	}
 	addRepo := func(version string, writePin bool) error {
+		if invocation.RepoTargetAppOwned || appbundle.Root(repoPath) != "" || (invocation.Bundle != nil && sameInvocationPath(repoPath, globalPath)) {
+			return fmt.Errorf("repository target %s is owned by the app and cannot be replaced", repoPath)
+		}
 		return appendUpdateTarget(&plan, UpdateTarget{
 			Role:        UpdateTargetRepo,
 			LogicalPath: repoPath,

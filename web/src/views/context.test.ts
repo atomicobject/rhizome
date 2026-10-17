@@ -4,11 +4,80 @@ import {
   customViewHref,
   isViewContext,
   nodeHref,
+  parseViewContext,
+  parseViewNodeRef,
   workspaceViewHref,
   type ViewContext,
 } from "./context";
 
 describe("view context URLs", () => {
+  it("accepts GraphQL nulls for navigation and direct node view launches", () => {
+    const ref = {
+      notePath: "notes/a %.md",
+      kind: "NOTE",
+      fragment: null,
+      nodeId: null,
+      typeName: null,
+      structuralFingerprint: null,
+      parentId: null,
+      startByte: null,
+      endByte: null,
+    };
+
+    const context = { kind: "node" as const, type: "Story", ref };
+    const canonical = { notePath: ref.notePath, kind: "NOTE" };
+    expect(parseViewNodeRef(ref)).toEqual(canonical);
+    expect(nodeHref(ref)).toBe("/notes?note=notes%2Fa+%25.md&kind=NOTE");
+    expect(workspaceViewHref("detail", context)).toBe(`${nodeHref(ref)}&presentation=detail`);
+    const url = new URL(customViewHref("detail", context), "https://example.test");
+    expect(JSON.parse(url.searchParams.get("context") ?? "")).toEqual({
+      ...context,
+      ref: canonical,
+    });
+    expect(parseViewContext(context)).toEqual({ ...context, ref: canonical });
+    expect(isViewContext(context)).toBe(false);
+    const optional = { ...ref, fragment: undefined, nodeId: undefined };
+    expect(parseViewNodeRef(optional)).toEqual(canonical);
+    expect(customViewHref("detail", { ...context, ref: optional })).toBe(url.pathname + url.search);
+  });
+
+  it("preserves embedded identity and rejects invalid required and optional ref fields", () => {
+    const ref = {
+      notePath: "a.md",
+      kind: "EMBEDDED",
+      fragment: "^task",
+      nodeId: "task",
+      structuralFingerprint: "fingerprint",
+      startByte: 0,
+      endByte: 10,
+    };
+
+    expect(parseViewNodeRef(ref)).toEqual(ref);
+    expect(nodeHref(ref)).toBe(
+      "/notes?note=a.md&kind=EMBEDDED&nodeId=task&structural=fingerprint#%5Etask",
+    );
+
+    for (const invalid of [
+      null,
+      [],
+      { ...ref, notePath: null },
+      { ...ref, notePath: " " },
+      { ...ref, kind: null },
+      { ...ref, kind: " " },
+      ...["fragment", "nodeId", "typeName", "parentId", "structuralFingerprint"].map((key) => ({
+        ...ref,
+        [key]: 7,
+      })),
+      { ...ref, startByte: "0" },
+      { ...ref, endByte: Infinity },
+    ]) {
+      expect(parseViewNodeRef(invalid)).toBeNull();
+      expect(parseViewContext({ kind: "node", type: "Story", ref: invalid })).toBeNull();
+    }
+
+    expect(parseViewContext({ kind: "node", type: "Story", ref, extra: null })).toBeNull();
+  });
+
   it("round trips concrete subjects and preserves canonical embedded identity", () => {
     const context: ViewContext = {
       kind: "node",

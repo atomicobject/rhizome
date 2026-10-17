@@ -22,6 +22,10 @@ Obsidian is optional. Project documents are ordinary files that you can read in 
 
 ## Install
 
+### Rhizome Desktop on a Mac with Apple silicon
+
+Download [Rhizome-macos-arm64.dmg](https://github.com/atomicobject/rhizome/releases/latest/download/Rhizome-macos-arm64.dmg), drag Rhizome to Applications, and open it. The app is not notarized yet: if macOS says it cannot verify it, choose Open Anyway in System Settings > Privacy & Security. Then choose Install Command-Line Tool in Rhizome > Settings. That links `/usr/local/bin/rzm` to the app's own `rzm`, so terminals and coding agents find it, and it stops working when you delete the app. The app updates itself, and `rzm update` asks the app to install a newer release. A coding agent can do all of this except the password prompt by following the [agent install steps](../../../README.md#install-with-a-coding-agent).
+
 ### macOS with Homebrew
 
 ```bash
@@ -185,7 +189,7 @@ The import stores plaintext values in your user-global config with restricted pe
 
 ## Updates and other installation choices
 
-For a Rhizome-managed installation, run `rzm update` and review its proposed version changes, then rerun `rzm init`. A rerun shows the current setup and a list of changes, then asks `Apply? [Y/n/s for settings]`. Rhizome files that nobody edited update without further questions; init asks only about files someone edited. Commit shared changes for teammates. Normal init reruns preserve team-owned engineering documents; see [update ownership](adapting-rhizome.md#keep-updates-under-control).
+For a Rhizome-managed installation, run `rzm update` and review its proposed version changes, then rerun `rzm init`. When `rzm` is Rhizome Desktop's, `rzm update` has the app install the newer release and still updates the repository's pin and binary as usual; the app also offers to advance an older pin from its toolbar. A rerun shows the current setup and a list of changes, then asks `Apply? [Y/n/s for settings]`. Rhizome files that nobody edited update without further questions; init asks only about files someone edited. Commit shared changes for teammates. Normal init reruns preserve team-owned engineering documents; see [update ownership](adapting-rhizome.md#keep-updates-under-control).
 
 If you manage tools with mise or another external manager, use `rzm init --binary-manager external`. That manager then owns installation and upgrades instead of Rhizome's version pin. Read the [version-pinning design](../../specs/technical/version-pinned-install-and-update.md) for the detailed ownership rules.
 
