@@ -252,7 +252,7 @@ itself succeeds with `unsupported` outside a release bundle.
 
 ### Pin advance
 
-Request: `{"protocol":1,"operation":"pin-advance","path":"/repo"}`.
+Request: `{"protocol":1,"operation":"pin-advance","folder":"/repo"}`, like the other worktree operations.
 
 Result: `{"pinnedVersion":"v1.3.0"}`. The result names the persisted pin after
 success. The existing trust must already be granted; the operation never

@@ -17,7 +17,6 @@ const MaxRequestBytes = 1 << 20
 type Request struct {
 	Protocol         int           `json:"protocol"`
 	Operation        string        `json:"operation"`
-	Path             string        `json:"path,omitempty"`
 	Folder           string        `json:"folder,omitempty"`
 	Executable       string        `json:"executable,omitempty"`
 	GlobalExecutable string        `json:"globalExecutable,omitempty"`
@@ -118,7 +117,7 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 		case "cli-link-remove":
 			response.Result, err = s.CLILinkRemove(ctx)
 		case "pin-advance":
-			response.Result, err = s.PinAdvance(ctx, req.Path)
+			response.Result, err = s.PinAdvance(ctx, req.Folder)
 		default:
 			err = problem("invalid_request", "Unknown desktop bridge operation.")
 		}
