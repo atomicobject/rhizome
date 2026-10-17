@@ -42,9 +42,10 @@ fn main() {
             windows::restore(app.handle(), session)?;
             let args = std::env::args().collect::<Vec<_>>();
             terminal::handle(app.handle(), &args);
-            if !updater::handle(app.handle(), &args) {
-                updater::start(app.handle());
-            }
+            // A restart after installing keeps `--install-update`; that request
+            // then finds the app current, and the schedule still starts.
+            updater::handle(app.handle(), &args);
+            updater::start(app.handle());
             presence::start(app.handle().clone());
             Ok(())
         })
