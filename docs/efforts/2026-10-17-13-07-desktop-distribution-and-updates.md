@@ -124,7 +124,9 @@ Not started.
 
 ## Deviations
 
-None.
+- 2026-10-17 (frozen-scope-drift acknowledged for SPEC-0122): the updater key requirement said the key reaches only the desktop build subprocess. Decision 8's post-build hook runs inside GoReleaser, so the key reaches the GoReleaser processes too, the same exposure class as `GITHUB_TOKEN`, and the hook strips every other credential before the Tauri build. SPEC-0122 now says so. Authority: the approved decision 8.
+- 2026-10-17: beyond decision 8, Batch 3 also refuses a public `apply` without the updater key (so a release cannot push branches and then fail at publication), refuses to build the app on an Intel host, and clears stale desktop assets when the arm64 build skips the app. These tighten the approved behavior without changing what a release publishes.
+- 2026-10-17: `pin-advance` takes the worktree in `folder`, like the other worktree operations, rather than the `path` field Batch 1 first used.
 
 ## Closure Checklist
 

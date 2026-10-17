@@ -119,7 +119,7 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 - When Developer ID and notarization credentials are later added to the release Environment, the same build MUST sign with the hardened runtime, notarize, and staple without other pipeline changes.
 - Asset names MUST be stable across versions so `https://github.com/atomicobject/rhizome/releases/latest/download/<asset>` always resolves to the newest stable release.
 - `latest.json` MUST follow Tauri's static updater format with a `darwin-aarch64` entry whose URL points at the same release's updater archive.
-- The updater signing key, and later the Apple credentials, MUST come from the release 1Password Environment through `scripts/with-secrets release` and MUST reach only the desktop build subprocess. They MUST NOT appear in Git, logs, or artifacts, per [credential policy](../../engineering/secrets.md).
+- The updater signing key, and later the Apple credentials, MUST come from the release 1Password Environment through `scripts/with-secrets release` and MUST reach only the GoReleaser processes that build a release and the desktop build they run, which receives no other credentials. They MUST NOT appear in Git, logs, or artifacts, per [credential policy](../../engineering/secrets.md).
 - Every executable in the bundle MUST pass the public-artifact content checks the CLI binaries pass (`scripts/teamkeys/release.py --check-artifact`).
 - The committed updater public key MUST be the release key; there is no placeholder key.
 - Losing the updater private key strands installed apps. Its custody and backup MUST be documented in `docs/RELEASING.md`.
