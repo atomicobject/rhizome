@@ -7,6 +7,8 @@ import {
   type Discovery,
   type Failure,
   type GlobalInfo,
+  type LinkInfo,
+  type UpdateStatus,
   type Library,
   type MenuEntry,
   type Message,
@@ -46,6 +48,8 @@ export function App() {
   /** The worktree whose What gets indexed page covers the content area. */
   const [scopeView, setScopeView] = useState<{ repository: string; worktree: string } | null>(null);
   const [global, setGlobal] = useState<GlobalInfo | null>(null);
+  const [link, setLink] = useState<LinkInfo | null>(null);
+  const [update, setUpdate] = useState<UpdateStatus | null>(null);
   const [busy, setBusy] = useState("");
   const [alert, setAlert] = useState<Failure | null>(null);
   const [open, setOpen] = useState<OpenState | null>(null);
@@ -184,6 +188,10 @@ export function App() {
     void attach((message) => handler.current(message)).then((session) => {
       setCollapsed(session.sidebarCollapsed);
       setRestored(true);
+      // An update can become ready before this window attaches.
+      void request("update-status", {})
+        .then(setUpdate)
+        .catch(() => {});
       return load(session);
     });
     // The shell attaches once; later messages use the current handler.
@@ -269,10 +277,81 @@ export function App() {
     });
   }
 
+  async function loadInstallation() {
+    const [info, linked, status] = await Promise.all([
+      request("global-status", {}),
+      request("cli-link-status", {}),
+      request("update-status", {}),
+    ]);
+    setGlobal(info);
+    setLink(linked);
+    setUpdate(status);
+  }
+
   function openSettings() {
     setScopeView(null);
     setSettings(true);
-    void perform("Checking Rhizome…", async () => setGlobal(await request("global-status", {})));
+    void perform("Checking Rhizome…", loadInstallation);
+  }
+
+  function installUpdate() {
+    void perform("Restarting to update…", async () => {
+      await request("install-update", {});
+    });
+  }
+
+  /** Offers to move the worktree's pin to the app's Rhizome; see SPEC-0122 US4. */
+  function pinMenu(anchor: HTMLElement) {
+    const offer = worktree?.pinOffer;
+    if (!selected || !worktree || !offer) return;
+    const repository = selected;
+    const path = worktree.path;
+    const dismiss = {
+      label: "Not Now",
+      run: () =>
+        void perform("Saving…", async () => {
+          applyLibrary(
+            await request("dismiss-pin-offer", { id: repository.id, version: offer.available }),
+          );
+        }),
+    };
+    if (offer.state === "app-older") {
+      popup(
+        [
+          { label: `This repository pins Rhizome ${offer.pinned}`, disabled: true },
+          {
+            label: "Check for App Updates",
+            run: () =>
+              void perform("Checking for updates…", async () =>
+                setUpdate(await request("check-for-updates", {})),
+              ),
+          },
+          dismiss,
+        ],
+        anchor,
+      );
+      return;
+    }
+    popup(
+      [
+        {
+          label: `Update Pin to ${offer.available}`,
+          run: () =>
+            void perform(`Updating pin to ${offer.available}…`, async () => {
+              await request("pin-advance", { id: repository.id, worktree: path });
+              await discover(repository);
+              setNotice(
+                `Pinned Rhizome ${offer.available}. Commit .rhizome/config.yml to share it.`,
+              );
+              await openWorktree(repository.id, path);
+            }),
+        },
+        dismiss,
+        { separator: true },
+        { label: `Changes .rhizome/config.yml from ${offer.pinned}`, disabled: true },
+      ],
+      anchor,
+    );
   }
 
   function worktreeMenu(anchor: HTMLElement) {
@@ -434,6 +513,8 @@ export function App() {
         setRuntimes(message.runtimes);
       } else if (message.type === "page") {
         setPage(message.state);
+      } else if (message.type === "update") {
+        setUpdate(message.status);
       } else if (message.type === "menu") {
         const run = menus.current[message.id];
         menus.current = {};
@@ -455,6 +536,8 @@ export function App() {
       return (
         <Settings
           info={global}
+          link={link}
+          update={update}
           selected={library?.globalExecutable}
           busy={!!busy}
           developmentBuilds={repositories.flatMap((repository) =>
@@ -471,23 +554,22 @@ export function App() {
             ),
           )}
           onClose={() => setSettings(false)}
-          onRefresh={() =>
-            void perform("Checking Rhizome…", async () =>
-              setGlobal(await request("global-status", {})),
+          onRefresh={() => void perform("Checking Rhizome…", loadInstallation)}
+          onLink={(action) =>
+            void perform(
+              action === "install" ? "Installing the command-line tool…" : "Removing…",
+              async () =>
+                setLink(
+                  await request(action === "install" ? "cli-link-install" : "cli-link-remove", {}),
+                ),
             )
           }
-          onInstall={() =>
-            void perform("Installing Rhizome…", async () => {
-              setGlobal(await request("global-install", {}));
-              setLibrary(await request("list", {}));
-            })
+          onCheckUpdates={() =>
+            void perform("Checking for updates…", async () =>
+              setUpdate(await request("check-for-updates", {})),
+            )
           }
-          onUpdate={() =>
-            void perform("Updating Rhizome…", async () => {
-              setGlobal(await request("global-update", {}));
-              setLibrary(await request("list", {}));
-            })
-          }
+          onInstallUpdate={installUpdate}
           onSelect={(executable) =>
             void perform("Saving executable…", async () => {
               setLibrary(await request("set-global-executable", { executable }));
@@ -640,6 +722,22 @@ export function App() {
               <span aria-hidden="true">▾</span>
             </button>
           )}
+          {worktree?.pinOffer && selected?.pinOfferDismissed !== worktree.pinOffer.available && (
+            <button
+              className="toolbar-pill"
+              aria-haspopup="menu"
+              title={
+                worktree.pinOffer.state === "advance"
+                  ? `This worktree pins Rhizome ${worktree.pinOffer.pinned}; the app has ${worktree.pinOffer.available}.`
+                  : `This worktree pins Rhizome ${worktree.pinOffer.pinned}, newer than the app's ${worktree.pinOffer.available}.`
+              }
+              onClick={(e) => pinMenu(e.currentTarget)}
+            >
+              {worktree.pinOffer.state === "advance"
+                ? `Rhizome ${worktree.pinOffer.available} available`
+                : `Needs Rhizome ${worktree.pinOffer.pinned}`}
+            </button>
+          )}
         </div>
         {shown ? (
           <PageSections state={shown} onCommand={pageCommand} />
@@ -649,6 +747,16 @@ export function App() {
         <div className="toolbar-end" data-tauri-drag-region>
           {(busy || notice) && <span className="busy">{busy || notice}</span>}
           {shown && <PageTools state={shown} searchRef={searchField} onCommand={pageCommand} />}
+          {update?.state === "ready" && (
+            <button
+              className="toolbar-pill ready"
+              title={`Rhizome ${update.version} is downloaded. Open repositories reopen after the restart.`}
+              disabled={!!busy}
+              onClick={installUpdate}
+            >
+              Restart to Update
+            </button>
+          )}
           <button
             className="icon-button"
             aria-label="Settings"

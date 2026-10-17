@@ -9,9 +9,11 @@ export interface Repository {
   executables?: Record<string, string>;
   acknowledged: string[];
   lastOpened?: number;
+  /** The app version whose pin offer was dismissed; a newer app offers again. */
+  pinOfferDismissed?: string;
 }
 export interface Library {
-  version: 2;
+  version: 3;
   repositories: Repository[];
   globalExecutable?: string;
   /** Counts library saves since the app launched; a higher revision is newer. */
@@ -29,7 +31,15 @@ export interface Worktree {
   authority?: "managed" | "development" | "global" | "external";
   /** The local build a developer override selects. */
   executable?: string;
+  /** Present when a managed pin differs from the app's Rhizome. */
+  pinOffer?: PinOffer;
   error?: string;
+}
+export interface PinOffer {
+  /** `advance`: the pin is older than the app; `app-older`: the app is older. */
+  state: "advance" | "app-older";
+  pinned: string;
+  available: string;
 }
 export interface Discovery {
   id: string;
@@ -45,11 +55,28 @@ export interface Discovery {
 }
 export interface GlobalInfo {
   path: string;
-  managedPath: string;
   version: string;
-  installed: boolean;
-  canUpdate: boolean;
+  /** True when the global executable is the one inside this app. */
+  bundled: boolean;
 }
+export type LinkState =
+  | "absent"
+  | "installed"
+  | "other-bundle"
+  | "dangling"
+  | "foreign"
+  | "unsupported";
+export interface LinkInfo {
+  linkPath: string;
+  state: LinkState;
+  target?: string;
+  /** What the user's login shell runs for `rzm`. */
+  shell: { path?: string; version?: string; isApp: boolean; error?: string };
+}
+export type UpdateStatus =
+  | { state: "disabled" | "idle" | "checking" }
+  | { state: "current" | "downloading" | "ready"; version: string }
+  | { state: "failed"; message: string };
 export interface Failure {
   code: string;
   message: string;
@@ -104,6 +131,7 @@ export type Message =
   /** A brief confirmation, such as after Copy Page URL. */
   | { type: "notice"; message: string }
   | { type: "menu"; id: string }
+  | { type: "update"; status: UpdateStatus }
   | { type: "command"; command: "add-repository" | "toggle-sidebar" | "settings" | "focus-search" }
   /** The workspace page's reported state, or null when no page has reported. */
   | { type: "page"; state: PageState | null };
@@ -220,8 +248,14 @@ type Results = {
   "set-executable": Library;
   "set-global-executable": Library;
   "global-status": GlobalInfo;
-  "global-install": GlobalInfo;
-  "global-update": GlobalInfo;
+  "update-status": UpdateStatus;
+  "check-for-updates": UpdateStatus;
+  "install-update": null;
+  "cli-link-status": LinkInfo;
+  "cli-link-install": LinkInfo;
+  "cli-link-remove": LinkInfo;
+  "pin-advance": unknown;
+  "dismiss-pin-offer": Library;
   trust: unknown;
   "setup-report": SetupPlan;
   initialize: { result: SetupResult; folder: unknown };
@@ -249,8 +283,14 @@ type Args = {
   "set-executable": { id: string; worktree: string; executable: string | null };
   "set-global-executable": { executable: string | null };
   "global-status": Record<string, never>;
-  "global-install": Record<string, never>;
-  "global-update": Record<string, never>;
+  "update-status": Record<string, never>;
+  "check-for-updates": Record<string, never>;
+  "install-update": Record<string, never>;
+  "cli-link-status": Record<string, never>;
+  "cli-link-install": Record<string, never>;
+  "cli-link-remove": Record<string, never>;
+  "pin-advance": { id: string; worktree: string };
+  "dismiss-pin-offer": { id: string; version: string };
   trust: { id: string; worktree: string };
   /** Without choices, the report uses Rhizome's recommendations. */
   "setup-report": { id: string; worktree: string; choices?: SetupChoices };

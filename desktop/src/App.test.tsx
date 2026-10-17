@@ -33,7 +33,7 @@ const repository: Repository = {
   name: "project",
   acknowledged: [main, feature],
 };
-const library: Library = { version: 2, repositories: [repository], revision: 1 };
+const library: Library = { version: 3, repositories: [repository], revision: 1 };
 const worktree = (path: string, branch: string): Worktree => ({
   path,
   branch,
@@ -67,7 +67,7 @@ const otherDiscovery: Discovery = {
   primary: "/work/other",
   worktrees: [worktree("/work/other", "main")],
 };
-const both: Library = { version: 2, repositories: [repository, other], revision: 2 };
+const both: Library = { version: 3, repositories: [repository, other], revision: 2 };
 
 type Result = Awaited<ReturnType<typeof request>>;
 let emit: (message: Message) => void;
@@ -87,6 +87,7 @@ function start(
     if (operation === "list") return library;
     if (operation === "discover") return discovery;
     if (operation === "open") return { generation: ++generation, library };
+    if (operation === "update-status") return { state: "idle" };
     if (["session", "layout", "menu", "trust", "deselect"].includes(operation)) return null;
     throw new Error(`Unexpected operation: ${operation}`);
   });
@@ -237,7 +238,7 @@ describe("desktop shell", () => {
 
   it("adds a repository from the empty state without running it", async () => {
     start({ sidebarCollapsed: false }, (operation) => {
-      if (operation === "list") return { version: 2, repositories: [], revision: 0 };
+      if (operation === "list") return { version: 3, repositories: [], revision: 0 };
       if (operation === "add") return { library, id: repository.id };
     });
     pick.mockResolvedValue(feature);
@@ -472,6 +473,71 @@ describe("desktop shell", () => {
     expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull();
   });
 
+  it("offers a ready update in the toolbar and installs it on request", async () => {
+    start(undefined, (operation) => (operation === "install-update" ? null : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    expect(screen.queryByRole("button", { name: "Restart to Update" })).toBeNull();
+    act(() => emit({ type: "update", status: { state: "ready", version: "0.51.0" } }));
+    fireEvent.click(screen.getByRole("button", { name: "Restart to Update" }));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("install-update", {}));
+  });
+
+  const offered: Discovery = {
+    ...discovery,
+    worktrees: discovery.worktrees.map((w) =>
+      w.path === main
+        ? { ...w, pinOffer: { state: "advance", pinned: "v0.50.5", available: "v0.51.0" } }
+        : w,
+    ),
+  };
+  async function pinMenu() {
+    fireEvent.click(await screen.findByRole("button", { name: "Rhizome v0.51.0 available" }));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
+    const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
+    return (menu as { items: MenuEntry[] }).items;
+  }
+
+  it("offers to advance an older pin, then reopens the worktree on it", async () => {
+    start(undefined, (operation) =>
+      operation === "discover" ? offered : operation === "pin-advance" ? null : undefined,
+    );
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    const items = await pinMenu();
+    expect(items.map((item) => item.label)).toContain("Changes .rhizome/config.yml from v0.50.5");
+    const advance = items.find((item) => item.label === "Update Pin to v0.51.0")!;
+    act(() => emit({ type: "menu", id: advance.id! }));
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("pin-advance", { id: repository.id, worktree: main }),
+    );
+    await waitFor(() => expect(opened()).toHaveLength(2));
+  });
+
+  it("hides a pin offer after Not Now for the app's version", async () => {
+    const dismissed: Library = {
+      ...library,
+      repositories: [{ ...repository, pinOfferDismissed: "v0.51.0" }],
+      revision: 2,
+    };
+    start(undefined, (operation) =>
+      operation === "discover"
+        ? offered
+        : operation === "dismiss-pin-offer"
+          ? dismissed
+          : undefined,
+    );
+    const later = (await pinMenu()).find((item) => item.label === "Not Now")!;
+    act(() => emit({ type: "menu", id: later.id! }));
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("dismiss-pin-offer", {
+        id: repository.id,
+        version: "v0.51.0",
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Rhizome v0.51.0 available" })).toBeNull(),
+    );
+  });
+
   it("confirms a copied page URL briefly in the toolbar", async () => {
     start();
     await waitFor(() => expect(opened()).toHaveLength(1));
@@ -625,7 +691,7 @@ describe("desktop shell", () => {
     saved = both;
     act(() => emit({ type: "library", library: saved }));
     expect(screen.getByRole("tab", { name: /other/ })).toBeVisible();
-    saved = { version: 2, repositories: [other], revision: 3 };
+    saved = { version: 3, repositories: [other], revision: 3 };
     act(() => emit({ type: "library", library: saved }));
     await waitFor(() =>
       expect(opened().at(-1)).toEqual({ id: other.id, worktree: "/work/other", skipSeed: false }),
