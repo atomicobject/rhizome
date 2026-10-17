@@ -4,7 +4,7 @@ id: EFF-2026-10-17-14-00
 aliases: [EFF-2026-10-17-14-00]
 name: Critical subsystem refactor
 created-at: 2026-10-17T17:58:43Z
-status: active
+status: complete
 summary: Implement all nine subsystem audit lanes, verify shared contracts, and deliver an independently reviewed pull request with passing CI.
 governing-specs: ["[[docs/specs/technical/subsystem-refactor]]"]
 ---
@@ -50,7 +50,7 @@ Implement all audit findings that survive code verification, improve the tests a
 
 ## Actual Delivered
 
-All 222 original findings have source-supported dispositions: 212 implemented and 10 resolved with rationale. The implementation record links the delivered contracts and regressions. Shared source transactions, provider-aware publication, typed reads, read-only index access, command environments, search and indexing ownership, and test/gate cleanup are delivered. Final integrated verification and PR acceptance remain in progress.
+All 222 original findings have source-supported dispositions: 212 implemented and 10 resolved with rationale. The implementation record links the delivered contracts and regressions. Shared source transactions, provider-aware publication, typed reads, read-only index access, command environments, search and indexing ownership, and test/gate cleanup are delivered. The fresh local build and full gate passed, Opus r13 and Astra r16 approved the final CI corrections, and all 21 CI checks passed on delivered source revision `ec83c811c9c53616495216af6268966afff346ad` in [PR #21](https://github.com/atomicobject/rhizome/pull/21). The PR remains open; merge and release are outside this delivery.
 
 ## Execution Notes
 
@@ -70,6 +70,8 @@ All 222 original findings have source-supported dispositions: 212 implemented an
 - 2026-10-17: Linux diagnostics lost evidence after a two-second guard wait near the retained-artifact cap. Profiling identified serialized metadata scans. Cache prototypes risked stale pruning or quota undercount; parallel variants did not justify their added complexity. The selected one-line production correction raises the retry budget to four seconds and adds a mixed event/report regression while retaining every original persistence assertion. Forty candidate repetitions retained 480 starts and 480 reports, and the full diagnostics race suite passed. Opus r13 approved with the longer per-attempt wait, recorder serialization and sustained-stall shutdown costs documented. No scan speedup is claimed. Fresh integrated gates and native CI remain pending.
 
 - 2026-10-17: After both CI corrections and final Opus/Astra acceptance, fresh `make build` and `make check-full CHECK_JOBS=2 GO_TEST_PACKAGES=2 GO_TEST_PARALLEL=2` exited zero. The gate included all Go races, 1,511 web tests, both integration stages, static/content/credential checks and benchmark contracts. Diagnostics passed in 25.119 s and identifier reconciliation in 25.004 s. The ten changed Go files retained their frozen gate hashes. Existing 96-test browser E2E evidence remains applicable because these corrections change no web behavior. Native Linux/Windows CI on the next PR #21 revision remains required. Fresh default documentation validation returned zero issues and errors; frozen-scope validation reports only the unchanged unrelated EFF-2026-10-03-18-33 drift.
+
+- 2026-10-17T23:11:51Z: Verified all 21 checks passed on `ec83c811c9c53616495216af6268966afff346ad` in [CI run 39077275008](https://github.com/atomicobject/rhizome/actions/runs/39077275008), including Linux/Windows unit and integration suites, compiled-runtime evidence, browser E2E, builds and macOS desktop checks. All 222 findings have dispositions, required independent reviews are accepted, and the user-approved Greptile waiver is recorded. Reconciled the finding inventory and delivery records and closed the effort in PR #21. This final documentation update changes no delivered source and will receive its normal PR CI checks.
 
 ## Deviations
 
@@ -92,8 +94,8 @@ All source-delivery work remains in scope. Evidence-backed corrections to an aud
 - [x] Required local quality gates and live behavior checks pass on the final corrections.
 - [x] Opus High and Astra High integrated reviews are addressed on the final corrections.
 - [x] Specs and subsystem documentation match delivered behavior.
-- [ ] Pull request is linked and CI passes on its current commit.
-- [ ] Delivery and compounding records are reconciled.
+- [x] PR #21 is linked and all 21 checks pass on delivered source revision `ec83c811`.
+- [x] Delivery and compounding records are reconciled.
 
 ## Compounding Follow-ups
 
@@ -101,4 +103,4 @@ The file-size and Go analysis gates enforce the new limits. Provider architectur
 
 ## Status
 
-Active. Diagnostics contention and Git-history ambiguity are corrected, with Opus r13 and Astra r16 approval. The fresh build and complete repository gate passed on the corrections. All 96 browser E2E tests passed before these non-web corrections. Current-revision CI acceptance remains pending, so this effort is not closed.
+Complete. Delivered in [PR #21](https://github.com/atomicobject/rhizome/pull/21) with all 222 findings dispositioned, accepted Opus/Astra reviews, passing local gates and all 21 CI checks green on source revision `ec83c811c9c53616495216af6268966afff346ad`. Greptile was skipped at the user's request. The PR remains open for human review; no merge or release is included.
