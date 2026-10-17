@@ -39,7 +39,9 @@ func (s *Service) pinOffer(plan repoexec.Plan) *PinOffer {
 	if order > 0 {
 		state = "app-older"
 	}
-	return &PinOffer{State: state, Pinned: plan.PinnedVersion, Available: available}
+	// Pins and release tags carry a leading v; release builds report their
+	// version without one.
+	return &PinOffer{State: state, Pinned: plan.PinnedVersion, Available: appupdate.NormalizeVersion(available)}
 }
 
 func (s *Service) availableVersion() string {

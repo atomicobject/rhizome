@@ -14,11 +14,12 @@ import (
 
 func TestInspectPinOffers(t *testing.T) {
 	for _, tt := range []struct {
-		name, pinned, available, state string
-		rhizome                        obsidian.LocalRhizomeConfig
-		source                         bool
+		name, pinned, available, state, offered string
+		rhizome                                 obsidian.LocalRhizomeConfig
+		source                                  bool
 	}{
 		{name: "older pin", pinned: "v1.0.0", available: "v1.2.0", state: "advance"},
+		{name: "release build without v", pinned: "v1.0.0", available: "1.2.0", state: "advance", offered: "v1.2.0"},
 		{name: "equal", pinned: "v1.2.0", available: "v1.2.0"},
 		{name: "newer pin", pinned: "v2.0.0", available: "v1.2.0", state: "app-older"},
 		{name: "prerelease pin", pinned: "v1.2.0-rc.1", available: "v1.2.0", state: "advance"},
@@ -46,7 +47,11 @@ func TestInspectPinOffers(t *testing.T) {
 				require.Nil(t, info.PinOffer)
 				require.NotContains(t, string(encoded), "pinOffer")
 			} else {
-				require.Equal(t, &PinOffer{State: tt.state, Pinned: tt.pinned, Available: tt.available}, info.PinOffer)
+				offered := tt.offered
+				if offered == "" {
+					offered = tt.available
+				}
+				require.Equal(t, &PinOffer{State: tt.state, Pinned: tt.pinned, Available: offered}, info.PinOffer)
 			}
 		})
 	}
