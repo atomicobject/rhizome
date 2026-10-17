@@ -36,24 +36,8 @@ const view: ViewCatalogEntry = {
   },
 };
 
-type MalformedMessage = {
-  type: string;
-  path?: number;
-  requestId?: string;
-  ops?: string;
-  name?: string | number;
-  scope?: { kind: string; key?: string };
-  folder?: string | number;
-  query?: number;
-  id?: string;
-  context?: { kind: string; group?: string };
-};
-
-function post(
-  source: MessageEventSource | null,
-  origin: string,
-  data: ViewMessage | MalformedMessage,
-) {
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Tests intentionally send malformed postMessage payloads.
+function post(source: MessageEventSource | null, origin: string, data: unknown) {
   window.dispatchEvent(new MessageEvent("message", { source, origin, data }));
 }
 
@@ -129,6 +113,87 @@ describe("CustomViewFrame", () => {
     expect(screen.getByTitle("Action Board")).not.toBe(frame);
     post(source, window.location.origin, message);
     expect(onOpenNode).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens GraphQL refs and node view contexts with null optional fields", () => {
+    const onOpenNode = vi.fn();
+    const onOpenView = vi.fn();
+    render(
+      <CustomViewFrame
+        view={view}
+        session={null}
+        onOpenNote={vi.fn()}
+        onStageOps={vi.fn()}
+        onOpenNode={onOpenNode}
+        onOpenView={onOpenView}
+      />,
+    );
+    const frame = screen.getByTitle<HTMLIFrameElement>("Action Board").contentWindow;
+
+    const ref = {
+      notePath: "Inbox/IP opportunity.md",
+      kind: "NOTE",
+      typeName: "IPOpportunity",
+      fragment: null,
+      nodeId: null,
+      structuralFingerprint: null,
+      parentId: null,
+      startByte: null,
+      endByte: null,
+    };
+
+    post(frame, window.location.origin, { type: OPEN_NODE_MESSAGE, ref, beside: true });
+    expect(onOpenNode).toHaveBeenCalledExactlyOnceWith(
+      { notePath: ref.notePath, kind: "NOTE", typeName: "IPOpportunity" },
+      { view: undefined, beside: true },
+    );
+    post(frame, window.location.origin, {
+      type: OPEN_VIEW_MESSAGE,
+      id: "opportunity-detail",
+      context: { kind: "node", type: "IPOpportunity", ref },
+    });
+    expect(onOpenView).toHaveBeenCalledExactlyOnceWith("opportunity-detail", {
+      kind: "node",
+      type: "IPOpportunity",
+      ref: { notePath: ref.notePath, kind: "NOTE", typeName: "IPOpportunity" },
+    });
+    expect(ref.fragment).toBeNull();
+  });
+
+  it("warns with the rejected message type and reason only for its own frame", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const onOpenNode = vi.fn();
+    render(
+      <CustomViewFrame
+        view={view}
+        session={null}
+        onOpenNote={vi.fn()}
+        onStageOps={vi.fn()}
+        onOpenNode={onOpenNode}
+      />,
+    );
+    const frame = screen.getByTitle<HTMLIFrameElement>("Action Board").contentWindow;
+
+    const message = {
+      type: OPEN_NODE_MESSAGE,
+      ref: { notePath: "a.md", kind: "NOTE", fragment: 7 },
+    };
+
+    post(window, window.location.origin, message);
+    post(frame, "https://elsewhere.test", message);
+    expect(warn).not.toHaveBeenCalled();
+    post(frame, window.location.origin, message);
+    expect(warn).toHaveBeenLastCalledWith(
+      expect.stringContaining(OPEN_NODE_MESSAGE),
+      expect.stringContaining("ref"),
+    );
+    post(frame, window.location.origin, { type: OPEN_VIEW_MESSAGE, id: "detail", context: {} });
+    expect(warn).toHaveBeenLastCalledWith(
+      expect.stringContaining(OPEN_VIEW_MESSAGE),
+      expect.stringContaining("context"),
+    );
+    expect(onOpenNode).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("does not deliver an old stage result into a newly mounted context", async () => {

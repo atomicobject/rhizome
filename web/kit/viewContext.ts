@@ -7,6 +7,8 @@ export { customViewHref, nodeHref, workspaceViewHref } from "../src/views/contex
 export type {
   OpenNodeOptions,
   ViewContext,
+  ViewContextInput,
+  ViewNodeRef,
   ViewInvocation,
   ViewModuleProps,
 } from "../src/views/context";

@@ -29,8 +29,8 @@ import type { OpenMode } from "./useNoteTabs";
 
 import {
   customViewHref,
-  isViewContext,
-  isViewNodeRef,
+  parseViewContext,
+  parseViewNodeRef,
   type OpenNodeOptions,
   type ViewContext,
 } from "../views/context";
@@ -74,26 +74,43 @@ function issueScope(value: unknown): IssueScope | null {
   return { kind: value.kind, key: value.key };
 }
 
+function rejectViewRequest(type: unknown, reason: string): null {
+  console.warn(
+    `[Rhizome custom view] Rejected ${typeof type === "string" ? type : "<missing or invalid type>"}`,
+    reason,
+  );
+
+  return null;
+}
+
 function viewRequest(data: unknown): ViewRequest | null {
-  if (typeof data !== "object" || data === null || !("type" in data)) return null;
+  if (typeof data !== "object" || data === null || !("type" in data))
+    return rejectViewRequest(undefined, "Expected a message object with a type");
+
+  const reject = (reason: string) => rejectViewRequest(data.type, reason);
 
   if (data.type === EDIT_SESSION_HELLO_MESSAGE) return { kind: "hello" };
 
   if (data.type === OPEN_NOTE_MESSAGE) {
-    if (!("path" in data) || typeof data.path !== "string" || data.path === "") return null;
+    if (!("path" in data) || typeof data.path !== "string" || data.path === "")
+      return reject("Invalid path: expected a nonempty string");
     const beside = "beside" in data && data.beside === true;
 
     return { kind: "open-note", path: data.path, mode: beside ? "beside" : "activate" };
   }
 
   if (data.type === OPEN_NODE_MESSAGE) {
-    if (!("ref" in data) || !isViewNodeRef(data.ref)) return null;
+    const ref = parseViewNodeRef("ref" in data ? data.ref : undefined);
 
-    if ("view" in data && typeof data.view !== "string") return null;
+    if (!ref)
+      return reject("Invalid ref: expected nonblank notePath/kind and valid optional fields");
+
+    if ("view" in data && typeof data.view !== "string")
+      return reject("Invalid view: expected a string");
 
     return {
       kind: "open-node",
-      ref: data.ref,
+      ref,
       options: {
         view: "view" in data && typeof data.view === "string" ? data.view : undefined,
         beside: "beside" in data && data.beside === true,
@@ -102,20 +119,27 @@ function viewRequest(data: unknown): ViewRequest | null {
   }
 
   if (data.type === OPEN_VIEW_MESSAGE) {
-    if (!("id" in data) || typeof data.id !== "string" || !data.id) return null;
+    if (!("id" in data) || typeof data.id !== "string" || !data.id)
+      return reject("Invalid id: expected a nonempty string");
 
-    if (!("context" in data) || !isViewContext(data.context)) return null;
+    const context = parseViewContext("context" in data ? data.context : undefined);
 
-    return { kind: "open-view", id: data.id, context: data.context };
+    if (!context)
+      return reject("Invalid context: expected a concrete view subject with a valid ref for nodes");
+
+    return { kind: "open-view", id: data.id, context };
   }
 
   if (data.type === STAGE_OPS_MESSAGE) {
-    if (!("requestId" in data) || typeof data.requestId !== "string") return null;
+    if (!("requestId" in data) || typeof data.requestId !== "string")
+      return reject("Invalid requestId: expected a string");
 
     // The server validates each op; the host only checks the envelope.
-    if (!("ops" in data) || !Array.isArray(data.ops) || data.ops.length === 0) return null;
+    if (!("ops" in data) || !Array.isArray(data.ops) || data.ops.length === 0)
+      return reject("Invalid ops: expected a nonempty array");
 
-    if (!data.ops.every((op) => typeof op === "object" && op !== null)) return null;
+    if (!data.ops.every((op) => typeof op === "object" && op !== null))
+      return reject("Invalid ops: expected objects");
 
     return { kind: "stage", requestId: data.requestId, ops: data.ops };
   }
@@ -124,29 +148,33 @@ function viewRequest(data: unknown): ViewRequest | null {
     if (!("scope" in data) || data.scope === undefined) return { kind: "open-issues" };
     const scope = issueScope(data.scope);
 
-    return scope ? { kind: "open-issues", scope } : null;
+    return scope
+      ? { kind: "open-issues", scope }
+      : reject("Invalid scope: expected type/interface/note and a nonblank key");
   }
 
   if (data.type === OPEN_COLLECTION_MESSAGE) {
-    if (!("name" in data) || typeof data.name !== "string" || !data.name.trim()) return null;
+    if (!("name" in data) || typeof data.name !== "string" || !data.name.trim())
+      return reject("Invalid name: expected a nonblank collection name");
 
-    if (isPseudoType(data.name)) return null;
+    if (isPseudoType(data.name)) return reject("Invalid name: reserved collection name");
 
     return { kind: "open-collection", name: data.name };
   }
 
   if (data.type === OPEN_SEARCH_MESSAGE) {
-    if (!("folder" in data) || typeof data.folder !== "string" || !data.folder.trim()) return null;
+    if (!("folder" in data) || typeof data.folder !== "string" || !data.folder.trim())
+      return reject("Invalid folder: expected a nonblank string");
 
     if (!("query" in data) || data.query === undefined)
       return { kind: "open-search", search: { folder: data.folder } };
 
-    if (typeof data.query !== "string") return null;
+    if (typeof data.query !== "string") return reject("Invalid query: expected a string");
 
     return { kind: "open-search", search: { folder: data.folder, query: data.query } };
   }
 
-  return null;
+  return reject("Unsupported message type");
 }
 /* oxlint-enable anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters */
 

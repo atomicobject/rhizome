@@ -4,7 +4,7 @@ id: SPEC-0110
 aliases: [SPEC-0110, Unified view contract]
 summary: "One registration, invocation context, configuration, lifecycle, and service contract for built-in and custom views mounted on type collections, display groups, and individual nodes."
 spec-status: active
-last-updated: 2026-10-06
+last-updated: 2026-10-17
 ---
 
 # Unified view contract
@@ -99,6 +99,8 @@ mount:
 - Clicking a group label MUST open its group workspace; the caret remains the expansion control. Groups without an authored page MUST provide a usable built-in navigation fallback; [[group-views-and-view-platform|SPEC-0111]]'s bundled views now provide it.
 - Custom node presentations MUST appear beside the existing format-appropriate structured/source presentations and preserve breadcrumbs, context panels, and the workspace edit session.
 - Navigation helpers MUST support selecting a named view when opening a canonical node, including opening beside. A dashboard-to-collection-to-node flow MUST preserve subject identity.
+- Navigation MUST accept GraphQL refs whose optional identity fields are null, normalize those fields to absent before passing refs into the workspace, and preserve non-null embedded identity. This applies to open-node requests and node contexts in open-view requests and direct launches. Required fields and non-null optional values MUST retain their existing validation.
+- Rejected messages from the active same-origin custom frame MUST emit a console warning naming the message type and failed validation rule. Origin and source checks MUST precede parsing and diagnostics.
 - Direct launch URLs MUST encode the same context and configuration as embedded invocation. Existing standalone custom links MUST remain valid.
 - Routing MUST distinguish a view selected inside a node workspace from a standalone view tab. Changing presentation MUST neither commit nor discard pending edits.
 - Embedded custom reads and writes MUST use the host's edit session. Standalone and explicitly immediate edit modes MUST retain their existing semantics. Frame messaging MUST retain origin and source checks.
