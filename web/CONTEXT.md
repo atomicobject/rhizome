@@ -44,6 +44,7 @@ React/Vite browser for Notes, Ontology, Explorer, Agent, and GraphQL. Server sta
 ## Markdown editing contract
 
 - The narrative editor is a Markdown source editor. It must preserve all authored text and unknown syntax unless the user changes that text.
+- Mermaid fences render through the shared Pele adapter in `src/components/markdown/mermaid.ts`, in both reading and editing views. Colors inherit Rhizome tokens through `--pele-*` variables in `markdown-editor.css`; the adapter supplies the matching label fonts and size for measurement. Links and images stay disabled. Pele owns layout and supports SVG text labels rather than arbitrary HTML labels. Diagram source remains unchanged.
 - Atomic provides source-aware decoration and editing help for common Markdown, code fences, tasks, links, and WYSIWYG GFM tables. Editing a table cell may normalize the authored table source.
 - Rhizome resolves wikilinks, aliases, local headings, block references, and normal Markdown links through vault metadata and note search. Ambiguous targets stay unresolved.
 - Frontmatter, tags, inline properties, callouts, embeds, HTML, math, and unknown extensions are source-preserved. They are not all rich interactive widgets in the editor. Rendered note view remains the authoritative rich presentation.
