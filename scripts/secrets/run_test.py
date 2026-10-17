@@ -10,8 +10,8 @@ class SecretScopeTest(unittest.TestCase):
         self.assertEqual({"PATH": "/bin", "VOYAGE_API_KEY": "synthetic", "TYPESAFE_API_KEY": "synthetic"}, scoped_environment(source, "development"))
 
     def test_release_scopes_github_token_to_publish_adapter(self):
-        env = scoped_environment({"GITHUB_TOKEN": "synthetic-publish", "GH_TOKEN": "synthetic-gh", "ATOMIC_RHIZOME_KEY": "synthetic-unlock", "OP_SERVICE_ACCOUNT_TOKEN": "synthetic-op", "AWS_ACCESS_KEY_ID": "synthetic-aws-id", "AWS_SECRET_ACCESS_KEY": "synthetic-aws-secret", "AWS_SESSION_TOKEN": "synthetic-aws-session", "BREW_GITHUB_TOKEN": "synthetic-brew"}, "release")
-        self.assertEqual({"RZM_RELEASE_GITHUB_TOKEN": "synthetic-publish", "BREW_GITHUB_TOKEN": "synthetic-brew", "ATOMIC_RHIZOME_KEY": "synthetic-unlock", "AWS_ACCESS_KEY_ID": "synthetic-aws-id", "AWS_SECRET_ACCESS_KEY": "synthetic-aws-secret", "AWS_SESSION_TOKEN": "synthetic-aws-session"}, env)
+        env = scoped_environment({"GITHUB_TOKEN": "synthetic-publish", "GH_TOKEN": "synthetic-gh", "ATOMIC_RHIZOME_KEY": "synthetic-unlock", "OP_SERVICE_ACCOUNT_TOKEN": "synthetic-op", "AWS_ACCESS_KEY_ID": "synthetic-aws-id", "AWS_SECRET_ACCESS_KEY": "synthetic-aws-secret", "AWS_SESSION_TOKEN": "synthetic-aws-session", "BREW_GITHUB_TOKEN": "synthetic-brew", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-signing", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-signing-password"}, "release")
+        self.assertEqual({"RZM_RELEASE_GITHUB_TOKEN": "synthetic-publish", "BREW_GITHUB_TOKEN": "synthetic-brew", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-signing", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-signing-password", "ATOMIC_RHIZOME_KEY": "synthetic-unlock", "AWS_ACCESS_KEY_ID": "synthetic-aws-id", "AWS_SECRET_ACCESS_KEY": "synthetic-aws-secret", "AWS_SESSION_TOKEN": "synthetic-aws-session"}, env)
 
     def test_local_env_files_cannot_be_committed(self):
         for path in (".env", "nested/.env", ".env.local", "nested/.env.production"):

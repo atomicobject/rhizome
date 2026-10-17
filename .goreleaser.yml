@@ -13,6 +13,9 @@ builds:
     hooks:
       post:
         - python3 scripts/teamkeys/release.py --check-artifact "{{ .Path }}"
+        # Builds the desktop app around the arm64 binary; a no-op otherwise.
+        - cmd: python3 scripts/release/build_desktop.py "{{ .Path }}" "{{ .Version }}" "{{ .Arch }}" "{{ .IsSnapshot }}"
+          output: true
     goos:
       - darwin
     goarch:
@@ -93,6 +96,14 @@ release:
   extra_files:
     - glob: .tmp/goreleaser-extra/install-rzm.sh
     - glob: .tmp/goreleaser-extra/install-rzm.sh.sha256
+    # With RZM_RELEASE_DESKTOP=1 (a public cut-release) these are literal paths,
+    # so a missing desktop asset fails the release. Otherwise the inserted "*"
+    # makes them globs, which GoReleaser skips when nothing matches: internal
+    # releases, the Actions fallback, and snapshots without the updater key.
+    - glob: '.tmp/goreleaser-extra/Rhizome-macos-arm64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.dmg'
+    - glob: '.tmp/goreleaser-extra/Rhizome-macos-arm64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.app.tar.gz'
+    - glob: '.tmp/goreleaser-extra/Rhizome-macos-arm64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.app.tar.gz.sig'
+    - glob: '.tmp/goreleaser-extra/latest{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.json'
 
 archives:
   - formats: [tar.gz]
@@ -116,3 +127,8 @@ brews:
 
 checksum:
   name_template: "checksums.txt"
+  extra_files:
+    - glob: '.tmp/goreleaser-extra/Rhizome-macos-arm64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.dmg'
+    - glob: '.tmp/goreleaser-extra/Rhizome-macos-arm64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.app.tar.gz'
+    - glob: '.tmp/goreleaser-extra/Rhizome-macos-arm64{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.app.tar.gz.sig'
+    - glob: '.tmp/goreleaser-extra/latest{{ if ne (index .Env "RZM_RELEASE_DESKTOP") "1" }}*{{ end }}.json'
