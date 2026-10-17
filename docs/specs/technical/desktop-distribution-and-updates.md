@@ -121,7 +121,7 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 - `latest.json` MUST follow Tauri's static updater format with a `darwin-aarch64` entry whose URL points at the same release's updater archive.
 - The updater signing key, and later the Apple credentials, MUST come from the release 1Password Environment through `scripts/with-secrets release` and MUST reach only the GoReleaser processes that build a release and the desktop build they run, which receives no other credentials. They MUST NOT appear in Git, logs, or artifacts, per [credential policy](../../engineering/secrets.md).
 - Every executable in the bundle MUST pass the public-artifact content checks the CLI binaries pass (`scripts/teamkeys/release.py --check-artifact`).
-- The committed updater public key MUST be the release key; there is no placeholder key.
+- A public release MUST refuse to publish the app until the committed updater public key is the release key rather than the placeholder.
 - Losing the updater private key strands installed apps. Its custody and backup MUST be documented in `docs/RELEASING.md`.
 
 ### Updater

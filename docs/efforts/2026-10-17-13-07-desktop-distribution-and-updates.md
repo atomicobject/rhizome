@@ -133,6 +133,7 @@ Not started.
 
 - 2026-10-17 (frozen-scope-drift acknowledged for SPEC-0122): the updater key requirement said the key reaches only the desktop build subprocess. Decision 8's post-build hook runs inside GoReleaser, so the key reaches the GoReleaser processes too, the same exposure class as `GITHUB_TOKEN`, and the hook strips every other credential before the Tauri build. SPEC-0122 now says so. Authority: the approved decision 8.
 - 2026-10-17: beyond decision 8, Batch 3 also refuses a public `apply` without the updater key (so a release cannot push branches and then fail at publication), refuses to build the app on an Intel host, and clears stale desktop assets when the arm64 build skips the app. These tighten the approved behavior without changing what a release publishes.
+- 2026-10-17 (frozen-scope-drift acknowledged for SPEC-0122): Drew deferred creating the updater key until the bulk of the work was done, so `tauri.conf.json` carries an explicit placeholder and the release hook refuses to publish with it, replacing the requirement that no placeholder exists. Replacing it remains a merge prerequisite.
 - 2026-10-17: `pin-advance` takes the worktree in `folder`, like the other worktree operations, rather than the `path` field Batch 1 first used.
 
 ## Closure Checklist
@@ -141,6 +142,7 @@ Not started.
 - [ ] Native verification and Drew's click-through checklist.
 - [ ] Alignment check against SPEC-0122.
 - [ ] Spec amendments, frozen-scope-drift acknowledgements, documentation, and CHANGELOG.
+- [ ] Release updater public key committed in place of the placeholder (Drew), before merge.
 - [ ] Action items for the first and second public release checks.
 - [ ] Earlier desktop efforts closed (Batch 4b).
 - [ ] Compounding triage.
