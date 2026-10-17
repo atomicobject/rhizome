@@ -10,18 +10,17 @@ import (
 
 // DefaultName returns the vault name/path to use. Resolution order:
 //  1. v.Name if already set
-//  2. Local config in current directory (auto-discovery)
+//  2. Local config in the current directory, or an ancestor up to its git root
 //  3. Default from CLI preferences
 func (v *Vault) DefaultName() (string, error) {
 	if v.Name != "" {
 		return v.Name, nil
 	}
 
-	// Try auto-discovery from current directory only.
 	if cwd, err := os.Getwd(); err == nil {
-		if HasLocalConfig(cwd) {
-			v.Name = cwd
-			return cwd, nil
+		if dir := localConfigDir(cwd); dir != "" {
+			v.Name = dir
+			return dir, nil
 		}
 	}
 
@@ -36,6 +35,24 @@ func (v *Vault) DefaultName() (string, error) {
 
 	v.Name = cliConfig.DefaultVaultName
 	return cliConfig.DefaultVaultName, nil
+}
+
+// localConfigDir returns the nearest directory from start up to its git root
+// that has a local config. Outside a git work tree only start is checked, so
+// an unrelated parent folder's config is never adopted.
+func localConfigDir(start string) string {
+	if HasLocalConfig(start) {
+		return start
+	}
+	dir := paths.ResolveSymlinks(start).String()
+	gitRoot := findNearestGitRoot(dir)
+	for gitRoot != "" && dir != gitRoot {
+		dir = paths.ResolveSymlinks(filepath.Dir(filepath.FromSlash(dir))).String()
+		if HasLocalConfig(dir) {
+			return dir
+		}
+	}
+	return ""
 }
 
 // SetDefaultName sets the default vault. Accepts either:
