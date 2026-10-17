@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-from run import environment_id, op_executable, scoped_environment, sensitive_name
+from run import environment_id, keychain_store_script, keychain_values, op_executable, scoped_environment, sensitive_name
 from check import forbidden_path
 
 
@@ -26,6 +26,30 @@ class SecretScopeTest(unittest.TestCase):
         with mock.patch("run.shutil.which", return_value="/opt/homebrew/bin/op"):
             self.assertEqual("/opt/homebrew/bin/op", op_executable({}))
             self.assertEqual("/custom/op", op_executable({"RZM_OP_BIN": "/custom/op"}))
+
+    def test_keychain_supplies_development_keys_only_when_all_are_stored(self):
+        stored = {"VOYAGE_API_KEY": "synthetic-voyage", "TYPESAFE_API_KEY": "synthetic-typesafe"}
+
+        def security(argv, **_):
+            account = argv[argv.index("-a") + 1]
+            value = stored.get(account, "")
+            return mock.Mock(returncode=0 if value else 44, stdout=value + "\n")
+
+        self.assertEqual(stored, keychain_values(security))
+        del stored["TYPESAFE_API_KEY"]
+        self.assertIsNone(keychain_values(security))
+
+    def test_keychain_import_keeps_values_off_the_command_line_and_rejects_quoting(self):
+        script = keychain_store_script({"VOYAGE_API_KEY": "synthetic-voyage", "TYPESAFE_API_KEY": "synthetic_typesafe"})
+        self.assertEqual(
+            'add-generic-password -U -s rhizome-development -a TYPESAFE_API_KEY -w "synthetic_typesafe"\n'
+            'add-generic-password -U -s rhizome-development -a VOYAGE_API_KEY -w "synthetic-voyage"\n',
+            script,
+        )
+        for value in ('quote"d', "back\\slash", "two words", "line\nbreak"):
+            with self.assertRaises(ValueError) as caught:
+                keychain_store_script({"VOYAGE_API_KEY": value})
+            self.assertNotIn(value, str(caught.exception))
 
     def test_local_env_files_cannot_be_committed(self):
         for path in (".env", "nested/.env", ".env.local", "nested/.env.production"):
