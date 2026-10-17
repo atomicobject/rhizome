@@ -1,6 +1,6 @@
 # Releasing Rhizome
 
-`make cut-release` remains the guided release entrypoint. It creates a bounded evidence snapshot and reviewed plan before any repository mutation, builds a release candidate, applies the version changes, publishes the canonical Git branches atomically, then publishes GitHub Release assets and the Homebrew formula.
+`make cut-release` remains the guided release entrypoint. It creates a bounded evidence snapshot and reviewed plan before any repository mutation, builds a release candidate, applies the version changes, publishes the canonical Git branches atomically, then publishes GitHub Release assets, including the macOS desktop app, and the Homebrew formula.
 
 ## Prerequisites
 
@@ -10,6 +10,8 @@
 - Codex CLI authentication (`codex login status`).
 - GitHub CLI authentication plus `RZM_RELEASE_GITHUB_TOKEN` for GoReleaser publication.
 - `BREW_GITHUB_TOKEN` for publishing the Homebrew tap.
+- An Apple Silicon Mac with the Xcode command line tools, Node.js, and a Rust toolchain from rustup (`cargo` on `PATH` or in `~/.cargo/bin`). The desktop npm dependencies are installed with `make desktop-deps` when `desktop/node_modules` is missing.
+- `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for public releases, from the release 1Password Environment. See [Desktop app](#desktop-app).
 
 GitHub CLI enrichment is optional during planning. If it is missing or unavailable, local Git evidence is retained and the plan is marked degraded. Applying a degraded plan requires explicit confirmation or `--accept-degraded-evidence`.
 
@@ -39,7 +41,7 @@ The launcher maps the Environment's `GITHUB_TOKEN` to `RZM_RELEASE_GITHUB_TOKEN`
 only the GoReleaser publish subprocess receives it as `GITHUB_TOKEN`. The Homebrew
 token remains `BREW_GITHUB_TOKEN`. Do not store token values in `.env`.
 
-Release processes discard provider, 1Password, and AWS credentials; only publishing subprocesses receive the required GitHub tokens, and only the team-key bundler receives team keys. Set `RZM_OP_ENVIRONMENT_ID` and `OP_ACCOUNT` explicitly when using the optional Environment wrapper. See [credential policy](engineering/secrets.md).
+Release processes discard provider, 1Password, and AWS credentials; only publishing subprocesses receive the required GitHub tokens, only GoReleaser and its desktop build hook receive the updater signing key, and only the team-key bundler receives team keys. Set `RZM_OP_ENVIRONMENT_ID` and `OP_ACCOUNT` explicitly when using the optional Environment wrapper. See [credential policy](engineering/secrets.md).
 
 Overrides:
 
@@ -73,7 +75,7 @@ make cut-release
 The order is fixed:
 
 1. Fresh canonical-source preflight, plan, preview, and version selection.
-2. Candidate build.
+2. Candidate build, which builds the desktop app too.
 3. Three-file apply, release commit, and local version tag.
 4. Atomic, non-force publication of `origin/main` and `origin/release`.
 5. Local GoReleaser publication and exact verification of the GitHub-created remote tag.
@@ -81,6 +83,28 @@ The order is fixed:
 7. Completion.
 
 The apply phase owns only `CHANGELOG.md`, `pkg/vault/version/version.go`, and `pkg/vault/changelog/CHANGELOG.md`.
+
+## Desktop app
+
+Every public release publishes the macOS desktop app built from the same tag ([SPEC-0122](specs/technical/desktop-distribution-and-updates.md)). GoReleaser's `rzm-darwin` build runs `scripts/release/build_desktop.py` as a post-build hook. For the `darwin/arm64` binary it builds the Tauri app in `desktop/` with `desktop/src-tauri/tauri.release.conf.json` and the release version, bundling that exact `rzm`. It then checks the ad-hoc signature with `codesign --verify --deep --strict` and stages these assets in `.tmp/goreleaser-extra/`:
+
+- `Rhizome-macos-arm64.dmg`, the installer;
+- `Rhizome-macos-arm64.app.tar.gz` and its `.sig`, the signed updater archive;
+- `latest.json`, the update feed the installed app reads from `releases/latest/download/latest.json`, pointing at this release's archive.
+
+GoReleaser uploads all four and lists them in `checksums.txt`.
+
+The candidate build, a GoReleaser snapshot, runs the same hook, so a broken desktop toolchain stops the release before any repository change. Without the signing key the snapshot still builds the app and DMG but skips the updater archive and `latest.json`. Publication sets `RZM_RELEASE_DESKTOP=1`. In that mode the hook fails when the key is missing, and GoReleaser fails when any of the four assets is absent, so a public release cannot go out without the app. Apply also refuses to start a public release without the key.
+
+These publish the CLI only: internal releases (`RZM_INTERNAL_S3_BUCKET` set), the GitHub Actions recovery workflow, and `make release` unless `RZM_RELEASE_DESKTOP=1` is set. In those cases the hook clears any staged desktop assets left by an earlier build, and the desktop asset entries in `.goreleaser.yml` become globs that match nothing.
+
+If the desktop build fails during publication, GoReleaser stops in its build phase, before it creates a GitHub release. Fix the cause, such as a missing Rust toolchain or key, and rerun the printed resume command. Resume continues from the recorded checkpoint and runs GoReleaser again.
+
+### Updater signing key
+
+The installed app accepts an update only when its signature verifies against the public key committed in `desktop/src-tauri/tauri.conf.json`. The private key and its password live only in the release 1Password Environment as `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; `./scripts/with-secrets release` loads them and `run_clean.py` passes them only to GoReleaser. Never commit them, print them, or copy them into release notes or logs.
+
+Losing the private key strands every installed app: it can never verify another update, and each user must download a new DMG by hand. Keep an offline backup of the key file and password, stored apart from the 1Password Environment. To rotate the key, publish one release signed with the old key that embeds the new public key, then switch the Environment to the new key. A leaked key lets anyone sign an update the app accepts; rotate immediately.
 
 ## Canonical branch topology
 
@@ -142,7 +166,9 @@ The local orchestrator is the sole publisher during a normal release. Do not pus
 
 The GitHub Actions release workflow is a manual, guarded recovery surface. Dispatch it only for an existing validated version tag when local resume cannot complete publication. Its read-only probe validates the tag and canonical topology first, and an existing GitHub release makes the write-capable GoReleaser job a no-op. API errors, invalid tags, and conflicting refs fail closed; any existing release, including a draft or partially populated release, is left untouched for maintainer inspection.
 
-`make release` remains the lower-level GoReleaser command for an already-tagged `HEAD`; use `make cut-release` for normal releases.
+`make release` remains the lower-level GoReleaser command for an already-tagged `HEAD`; use `make cut-release` for normal releases. It publishes the CLI only unless `RZM_RELEASE_DESKTOP=1` and the signing key are set.
+
+The GitHub Actions workflow never builds the desktop app: it does not set `RZM_RELEASE_DESKTOP` and has no signing key, so a release it recovers carries the CLI assets only.
 
 ## Public migration
 
