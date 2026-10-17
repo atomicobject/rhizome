@@ -48,6 +48,10 @@ pub struct Repository {
     pub acknowledged: BTreeSet<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_opened: Option<u64>,
+    /// The app version whose offer to advance this repository's pin was
+    /// dismissed; a newer app offers again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pin_offer_dismissed: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -62,7 +66,7 @@ pub struct Library {
 impl Default for Library {
     fn default() -> Self {
         Self {
-            version: 2,
+            version: 3,
             repositories: vec![],
             global_executable: None,
         }
@@ -150,12 +154,21 @@ impl Registry {
     }
 }
 
+/// Where earlier app versions installed their managed `rzm`.
+pub fn managed_executable() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| Path::new(&home).join(".local/bin/rzm"))
+}
+
 impl Library {
     /// Reads `library.json`, falling back to a version 1 `folders.json` that the
     /// caller migrates. The legacy file is never modified.
     pub fn load(directory: &Path) -> Result<Stored, String> {
         if let Some(library) = read::<Self>(&directory.join(LIBRARY), "Saved repositories")? {
-            return library.validate().map(Stored::Current);
+            let managed = managed_executable();
+            return library
+                .validate()
+                .map(|library| library.upgrade(managed.as_deref()))
+                .map(Stored::Current);
         }
         Ok(Stored::Legacy(
             read::<Registry>(&directory.join(LEGACY), "Saved folders")?
@@ -168,8 +181,26 @@ impl Library {
         ))
     }
 
+    /// Version 2 apps installed `~/.local/bin/rzm` and saved it as the global
+    /// executable. Version 3 bundles its own, so that saved choice is cleared
+    /// once; a choice saved by version 3 is kept.
+    fn upgrade(mut self, managed: Option<&Path>) -> Self {
+        if self.version == 2 {
+            self.forget_managed_executable(managed);
+            self.version = 3;
+        }
+        self
+    }
+
+    /// Clears a global executable saved by the removed managed install.
+    pub fn forget_managed_executable(&mut self, managed: Option<&Path>) {
+        if managed.is_some_and(|m| self.global_executable.as_deref().map(Path::new) == Some(m)) {
+            self.global_executable = None;
+        }
+    }
+
     fn validate(self) -> Result<Self, String> {
-        if self.version != 2 {
+        if !matches!(self.version, 2 | 3) {
             return Err(
                 "Saved repositories use an unsupported format. Your file has been preserved."
                     .into(),
@@ -590,10 +621,52 @@ mod tests {
     }
 
     #[test]
+    fn version_2_drops_only_the_managed_global_executable() {
+        let managed = Path::new("/Users/u/.local/bin/rzm");
+        let library = |version, global: &str| Library {
+            version,
+            global_executable: Some(global.into()),
+            ..Library::default()
+        };
+        let upgraded = library(2, "/Users/u/.local/bin/rzm").upgrade(Some(managed));
+        assert_eq!((upgraded.version, upgraded.global_executable), (3, None));
+        let kept = library(2, "/opt/homebrew/bin/rzm").upgrade(Some(managed));
+        assert_eq!(
+            kept.global_executable.as_deref(),
+            Some("/opt/homebrew/bin/rzm")
+        );
+        let chosen = library(3, "/Users/u/.local/bin/rzm").upgrade(Some(managed));
+        assert_eq!(
+            chosen.global_executable.as_deref(),
+            Some("/Users/u/.local/bin/rzm")
+        );
+    }
+
+    #[test]
+    fn migrated_version_1_libraries_also_forget_the_managed_executable() {
+        let managed = Path::new("/Users/u/.local/bin/rzm");
+        let mut library = Library {
+            global_executable: Some("/Users/u/.local/bin/rzm".into()),
+            ..Library::default()
+        };
+        library.forget_managed_executable(Some(managed));
+        assert_eq!(library.global_executable, None);
+        let mut chosen = Library {
+            global_executable: Some("/opt/homebrew/bin/rzm".into()),
+            ..Library::default()
+        };
+        chosen.forget_managed_executable(Some(managed));
+        assert_eq!(
+            chosen.global_executable.as_deref(),
+            Some("/opt/homebrew/bin/rzm")
+        );
+    }
+
+    #[test]
     fn corruption_and_unknown_versions_are_not_overwritten() {
         for (name, contents) in [
             (LIBRARY, "broken"),
-            (LIBRARY, "{\"version\":3,\"repositories\":[]}"),
+            (LIBRARY, "{\"version\":4,\"repositories\":[]}"),
             (LEGACY, "broken"),
             (LEGACY, "{\"version\":2,\"folders\":[]}"),
         ] {

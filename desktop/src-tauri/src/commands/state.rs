@@ -1,7 +1,7 @@
-use super::{absolute_executable, discovery};
+use super::discovery;
 use crate::{
     bridge::{self, Failure, Request},
-    state::{migrate, Library, Stored},
+    state::{managed_executable, migrate, Library, Stored},
 };
 use serde_json::{json, Value};
 use std::{
@@ -14,7 +14,7 @@ use std::{
 };
 use tokio::sync::{Mutex, MutexGuard};
 
-/// Serializes library file updates, global installation, and each worktree's
+/// Serializes library file updates, command-line link changes, and each worktree's
 /// open, trust, and setup work. Different worktrees never wait on each other.
 pub struct Desktop {
     pub directory: PathBuf,
@@ -54,10 +54,14 @@ impl Desktop {
         let guard = self.library.lock().await;
         let library = match Library::load(&self.directory)? {
             Stored::Current(library) => library,
-            Stored::Legacy(legacy) if legacy.folders.is_empty() => Library {
-                global_executable: legacy.global_executable,
-                ..Library::default()
-            },
+            Stored::Legacy(legacy) if legacy.folders.is_empty() => {
+                let mut library = Library {
+                    global_executable: legacy.global_executable,
+                    ..Library::default()
+                };
+                library.forget_managed_executable(managed_executable().as_deref());
+                library
+            }
             Stored::Legacy(legacy) => {
                 let mut found = vec![];
                 for folder in &legacy.folders {
@@ -67,7 +71,8 @@ impl Desktop {
                         Err(_) => None,
                     });
                 }
-                let library = migrate(legacy, &found);
+                let mut library = migrate(legacy, &found);
+                library.forget_managed_executable(managed_executable().as_deref());
                 self.store(&library)?;
                 library
             }
@@ -104,22 +109,4 @@ impl Desktop {
         )
         .await
     }
-}
-pub(super) fn finish_global_operation(
-    operation: &str,
-    result: Result<Value, Failure>,
-    library: &mut Library,
-    desktop: &Desktop,
-) -> Result<Value, Failure> {
-    let result = result?;
-    if operation != "global-status" {
-        let executable = result["path"]
-            .as_str()
-            .ok_or("Rhizome returned no installed executable path.".to_string())?
-            .to_string();
-        absolute_executable(&Some(executable.clone()))?;
-        library.global_executable = Some(executable);
-        desktop.store(library)?;
-    }
-    Ok(result)
 }

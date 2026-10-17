@@ -368,7 +368,7 @@ desktop-build:
 
 desktop-check:
 	cd desktop && npm run check
-	cd desktop && npm run bridge
+	cd desktop && npm run rzm
 	cd desktop/src-tauri && cargo fmt --check
 	cd desktop/src-tauri && cargo test --locked
 	cd desktop/src-tauri && cargo clippy --locked --all-targets -- -D warnings

@@ -1,57 +1,4 @@
 use super::*;
-use crate::state::Stored;
-
-fn saved_global(directory: &Path) -> Option<String> {
-    match Library::load(directory).unwrap() {
-        Stored::Current(library) => library.global_executable,
-        Stored::Legacy(_) => None,
-    }
-}
-
-#[test]
-fn completed_install_and_update_select_the_reported_executable() {
-    let directory = tempfile::tempdir().unwrap();
-    let executable = directory.path().join("rzm");
-    std::fs::write(&executable, b"fixture").unwrap();
-    let desktop = Desktop::new(directory.path().into());
-    for operation in ["global-install", "global-update"] {
-        let mut library = Library {
-            global_executable: Some("/previous/rzm".into()),
-            ..Library::default()
-        };
-        library.save(directory.path()).unwrap();
-        let info = json!({"path": executable, "installed": true});
-        let returned =
-            finish_global_operation(operation, Ok(info.clone()), &mut library, &desktop).unwrap();
-        assert_eq!(returned, info);
-        assert_eq!(
-            saved_global(directory.path()).as_deref(),
-            executable.to_str()
-        );
-    }
-}
-
-#[test]
-fn failed_install_leaves_existing_selection_on_disk() {
-    let directory = tempfile::tempdir().unwrap();
-    let mut library = Library {
-        global_executable: Some("/previous/rzm".into()),
-        ..Library::default()
-    };
-    library.save(directory.path()).unwrap();
-    let desktop = Desktop::new(directory.path().into());
-    let failure = Failure {
-        code: "install_error".into(),
-        message: "Installation was interrupted.".into(),
-    };
-    assert!(
-        finish_global_operation("global-install", Err(failure), &mut library, &desktop).is_err()
-    );
-    assert_eq!(
-        saved_global(directory.path()).as_deref(),
-        Some("/previous/rzm")
-    );
-}
 
 #[test]
 fn every_library_save_advances_the_revision_shells_receive() {
@@ -65,16 +12,6 @@ fn every_library_save_advances_the_revision_shells_receive() {
     assert_eq!(saved["revision"], 2);
     assert_eq!(saved["globalExecutable"], "/bin/rzm");
     assert_eq!(desktop.snapshot(&library), saved);
-    let executable = directory.path().join("rzm");
-    std::fs::write(&executable, b"fixture").unwrap();
-    finish_global_operation(
-        "global-install",
-        Ok(json!({"path": executable})),
-        &mut library,
-        &desktop,
-    )
-    .unwrap();
-    assert_eq!(desktop.snapshot(&library)["revision"], 3);
 }
 #[test]
 fn setup_and_scope_actions_decode_the_shell_contract() {

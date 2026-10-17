@@ -431,6 +431,17 @@ func SaveLocalConfig(dir string, cfg LocalConfig) error {
 	if err := saveYAMLDocumentPreservingUnknown(rhizomeConfigPath(dir), cfg, cfg.sourceYAML, reflect.TypeOf(LocalConfig{})); err != nil {
 		return err
 	}
+	if cfg.workflowSourceYAML != nil {
+		var original LocalWorkflowConfig
+		if err := cfg.workflowSourceYAML.Decode(&original); err != nil {
+			return err
+		}
+		candidate := workflow
+		candidate.sourceYAML = nil
+		if reflect.DeepEqual(original, candidate) {
+			return nil
+		}
+	}
 	return SaveLocalWorkflowConfig(dir, workflow)
 }
 

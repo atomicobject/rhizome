@@ -60,6 +60,13 @@ func parseGitHistory(output []byte, currentPath string) ([]gitHistoryEvent, erro
 		}
 		statusText := string(tokens[0])
 		status := statusText[0]
+		// Git 2.56's --follow also reports how the tracked file arose on other
+		// lines of history under other names (for example an identical claimant
+		// merged from another branch). Those records are not this path's chain;
+		// skipping them reproduces the single chain earlier Git versions report.
+		if !historyRecordTouchesPath(status, tokens, activePath) {
+			continue
+		}
 		eventPath := activePath
 		stopAfterEvent := false
 		switch status {
@@ -88,6 +95,16 @@ func parseGitHistory(output []byte, currentPath string) ([]gitHistoryEvent, erro
 		}
 	}
 	return events, nil
+}
+
+func historyRecordTouchesPath(status byte, tokens [][]byte, activePath string) bool {
+	switch status {
+	case 'A', 'M':
+		return len(tokens) >= 2 && string(tokens[len(tokens)-1]) == activePath
+	case 'R', 'C':
+		return len(tokens) >= 3 && string(tokens[2]) == activePath
+	}
+	return true
 }
 
 func parseGitBlobBatch(output []byte, requests []gitBlobRequest, maxBlobBytes int) ([][]byte, error) {

@@ -10,18 +10,20 @@ mod security;
 mod setup;
 mod state;
 mod terminal;
+mod updater;
 mod windows;
 use tauri::Manager;
 
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
-            if !terminal::handle(app, &args) {
+            if !terminal::handle(app, &args) && !updater::handle(app, &args, false) {
                 windows::reopen(app);
             }
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::desktop_request,
             commands::desktop_attach
@@ -35,9 +37,14 @@ fn main() {
             app.manage(pane::Panes::default());
             app.manage(presence::Presence::default());
             app.manage(terminal::Focus::default());
+            app.manage(updater::Updates::default());
             menu::install_menu(app.handle())?;
             windows::restore(app.handle(), session)?;
-            terminal::handle(app.handle(), &std::env::args().collect::<Vec<_>>());
+            let args = std::env::args().collect::<Vec<_>>();
+            terminal::handle(app.handle(), &args);
+            let restarted = updater::take_restart_marker();
+            updater::handle(app.handle(), &args, restarted);
+            updater::start(app.handle());
             presence::start(app.handle().clone());
             Ok(())
         })

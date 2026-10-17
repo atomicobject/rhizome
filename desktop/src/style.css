@@ -183,6 +183,36 @@ body,
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Quiet toolbar notices that open a choice: a pin offer, a ready update. */
+.toolbar-pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-color: #dcd9d2;
+  background: #fbfaf7;
+  color: #4a4642;
+  font-size: 11px;
+}
+.toolbar-pill.ready {
+  border-color: #9fe3df;
+  background: #d8f7f5;
+  color: #0b6a66;
+  font-weight: 600;
+}
+.toolbar-pill.ready::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #11b5ae;
+}
+.toolbar-pill.ready:hover:enabled {
+  border-color: #11b5ae;
+  background: #c4f1ee;
+}
 .path-hint {
   color: #706c68;
   font-size: 11px;
@@ -509,12 +539,6 @@ button.text-button:hover:enabled {
   padding: 3px 7px;
   border-radius: 4px;
 }
-.install-actions {
-  margin: 18px 0 28px;
-}
-.install-actions .hint {
-  margin-top: 9px;
-}
 .setting-group {
   margin-top: 28px;
   padding-top: 23px;
@@ -526,15 +550,10 @@ button.text-button:hover:enabled {
 .setting-group .hint {
   margin-top: 8px;
 }
-.settings-footer {
-  border-top: 1px solid #e4e2dd;
-  padding-top: 18px;
-  margin-top: 30px;
-  font-size: 11px;
-  color: #706c68;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+/* The link path and shell report sit under the status line they explain. */
+.setting-group > p.path,
+.setting-group > p.hint {
+  margin: -8px 0 16px;
 }
 .confirmation-path {
   align-self: stretch;

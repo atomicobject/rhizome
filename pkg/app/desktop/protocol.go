@@ -110,8 +110,14 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 			response.Result, err = s.Initialize(ctx, req)
 		case "global-status":
 			response.Result, err = s.GlobalStatus(ctx, req.GlobalExecutable)
-		case "global-install", "global-update":
-			response.Result, err = s.InstallGlobal(ctx)
+		case "cli-link-status":
+			response.Result, err = s.CLILinkStatus(ctx)
+		case "cli-link-install":
+			response.Result, err = s.CLILinkInstall(ctx)
+		case "cli-link-remove":
+			response.Result, err = s.CLILinkRemove(ctx)
+		case "pin-advance":
+			response.Result, err = s.PinAdvance(ctx, req.Folder)
 		default:
 			err = problem("invalid_request", "Unknown desktop bridge operation.")
 		}
