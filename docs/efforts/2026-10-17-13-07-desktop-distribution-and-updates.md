@@ -158,7 +158,7 @@ Not yet delivered: the release updater public key (Drew), which replaces the pla
 - [ ] Release updater public key committed in place of the placeholder (Drew), before merge.
 - [x] Action items for the first and second public release checks.
 - [x] Earlier desktop efforts closed (Batch 4b).
-- [ ] Pull request opened and linked.
+- [x] Pull request opened and linked: [#19](https://github.com/atomicobject/rhizome/pull/19) (draft until the updater key lands).
 
 Action items:
 
