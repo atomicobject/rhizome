@@ -36,7 +36,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "REPLACE_WITH_RELEASE_UPDATER_PUBLIC_KEY",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU5RDM5OTUwQjk1MDI0QzcKUldUSEpGQzVVSm5UV1ZJaTllSHZoOEZSalJpbWhvbkVJeVBaQWpFZWtiMnY0TjJXeGZGY3JnWlEK",
       "endpoints": ["https://github.com/atomicobject/rhizome/releases/latest/download/latest.json"]
     }
   }
