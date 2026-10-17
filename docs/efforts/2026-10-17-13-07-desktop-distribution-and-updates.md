@@ -118,6 +118,8 @@ Not started.
 - 2026-10-17T17:08:37Z [decision] Drew chose unsigned (ad-hoc) distribution for now, Tauri's updater, a `/usr/local/bin` symbolic link, and Apple Silicon only, in reply to the four-question decision prompt.
 - 2026-10-17T17:08:37Z [validation] Independent plan review (Claude Fable) approved with fixes, all taken: symlink resolution before the app-bundle check, repository half of `rzm update` kept inside pinned repositories, argument-passing privileged command with a re-check, Dev refusal in the bridge, Homebrew precedence copy, `workflows.yml` diff check, the real public key committed before merge, and a GoReleaser post-build hook instead of a new checkpoint. It named ad-hoc self-update in `/Applications` as the one feasibility risk, now Batch 0.
 - 2026-10-17T17:08:37Z [decision] Drew asked that `rzm update` work gracefully, globally and per repository, rather than refuse inside the app. The global target is handed to the app through `--install-update`, and the repository target is unchanged. Spec and plan revised before approval.
+- 2026-10-17T17:33:00Z [validation] Batch 0 passed on macOS 27.2 (Apple Silicon). A throwaway Tauri 2.12.1 app with `tauri-plugin-updater` 2.14.0, ad-hoc signed through `bundle.macOS.signingIdentity: "-"` (`flags=adhoc,runtime`, no Team ID), was installed to `/Applications` with `ditto`. It fetched a local `latest.json`, verified and installed 0.0.2, and relaunched as 0.0.2. No permission prompt appeared, and `codesign --verify --deep --strict` passed on the updated bundle. The spike app was removed afterward. Not covered, and left for Drew's click-through: a first install carrying the browser quarantine attribute, and an `/Applications` copy owned by another administrator.
+- 2026-10-17T17:33:00Z [learning] `tauri::generate_context!` with plugin configuration requires `serde_json` as a direct dependency of the app crate.
 - 2026-10-17T17:08:37Z [learning] SPEC-0121 is claimed by uncommitted session-memory work in worktree `t3-1405af06`; this spec took SPEC-0122 to avoid a collision the allocator cannot see.
 
 ## Deviations
@@ -140,4 +142,4 @@ None yet.
 
 ## Status
 
-Active. Batch 0, the ad-hoc self-update feasibility test, is running first.
+Active. Batch 0 passed; Batches 1 and 3 are delegated, and Batch 2 is in progress.
