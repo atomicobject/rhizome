@@ -80,14 +80,21 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *obsidian.LocalConfig)
 	}
 	entry := filepath.Join(resolvedDir, filepath.Base(target))
 	invocation.RepoTargetAppOwned = appbundle.Root(entry) != ""
+	var appEntries []string
 	if bundle != nil {
-		for _, appEntry := range []string{invocation.ExecutablePath, appCommandLineLinkPath} {
-			entryDir, err := resolveUpdateDirectory(filepath.Dir(appEntry))
-			if err != nil {
-				return Invocation{}, fmt.Errorf("resolve app command directory: %w", err)
-			}
-			invocation.RepoTargetAppOwned = invocation.RepoTargetAppOwned || sameInvocationPath(entry, filepath.Join(entryDir, filepath.Base(appEntry)))
+		appEntries = append(appEntries, invocation.ExecutablePath)
+	}
+	// The command-line link belongs to the app whenever it resolves into a
+	// Rhizome bundle, whichever rzm runs the update; a plain rzm there does not.
+	if linked, err := appbundle.Resolve(appCommandLineLinkPath); err == nil && linked != nil && linked.Rhizome() {
+		appEntries = append(appEntries, appCommandLineLinkPath)
+	}
+	for _, appEntry := range appEntries {
+		entryDir, err := resolveUpdateDirectory(filepath.Dir(appEntry))
+		if err != nil {
+			return Invocation{}, fmt.Errorf("resolve app command directory: %w", err)
 		}
+		invocation.RepoTargetAppOwned = invocation.RepoTargetAppOwned || sameInvocationPath(entry, filepath.Join(entryDir, filepath.Base(appEntry)))
 	}
 	invocation.RepoTargetPath = target
 	invocation.RepoPinned = true

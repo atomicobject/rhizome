@@ -62,6 +62,8 @@ export function App() {
   const selecting = useRef(0);
   const seen = useRef(0);
   const menus = useRef<Record<string, () => void>>({});
+  /** Counts update messages, so a slower status request cannot undo a newer one. */
+  const updateMessages = useRef(0);
   const remembered = useRef<Record<string, string>>({});
   const handler = useRef<(message: Message) => void>(() => {});
   const region = useRef<HTMLDivElement>(null);
@@ -189,9 +191,7 @@ export function App() {
       setCollapsed(session.sidebarCollapsed);
       setRestored(true);
       // An update can become ready before this window attaches.
-      void request("update-status", {})
-        .then(setUpdate)
-        .catch(() => {});
+      void refreshUpdateStatus().catch(() => {});
       // A moved or deleted app leaves the command-line link pointing elsewhere.
       void request("cli-link-status", {})
         .then(setLink)
@@ -281,15 +281,20 @@ export function App() {
     });
   }
 
+  async function refreshUpdateStatus() {
+    const seen = updateMessages.current;
+    const status = await request("update-status", {});
+    if (seen === updateMessages.current) setUpdate(status);
+  }
+
   async function loadInstallation() {
-    const [info, linked, status] = await Promise.all([
+    const [info, linked] = await Promise.all([
       request("global-status", {}),
       request("cli-link-status", {}),
-      request("update-status", {}),
+      refreshUpdateStatus(),
     ]);
     setGlobal(info);
     setLink(linked);
-    setUpdate(status);
   }
 
   function openSettings() {
@@ -519,6 +524,7 @@ export function App() {
       } else if (message.type === "page") {
         setPage(message.state);
       } else if (message.type === "update") {
+        updateMessages.current += 1;
         setUpdate(message.status);
       } else if (message.type === "menu") {
         const run = menus.current[message.id];

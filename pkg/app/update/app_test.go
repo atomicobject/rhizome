@@ -263,19 +263,20 @@ func assertAppLinkIntact(t *testing.T, link, executable string) {
 
 func TestRunRefusesAppOwnedRepositoryTargets(t *testing.T) {
 	for _, mode := range []UpdateMode{UpdateModePinned, UpdateModeSetVersion, UpdateModeLatest, UpdateModeDefault} {
-		for _, targetKind := range []string{"bundled executable", "invocation link", "invocation parent alias", "parent link", "parent link missing directory", "separate repo link", "direct bundle standard link", "direct bundle separate repo link"} {
+		for _, targetKind := range []string{"bundled executable", "invocation link", "invocation parent alias", "parent link", "parent link missing directory", "separate repo link", "direct bundle standard link", "direct bundle separate repo link", "standalone standard link"} {
 			t.Run(string(mode)+"/"+targetKind, func(t *testing.T) {
 				bundle, link := appUpdateFixture(t, false)
 				safeRepoLink := strings.HasSuffix(targetKind, "separate repo link")
 				directBundle := strings.HasPrefix(targetKind, "direct bundle")
-				if directBundle {
+				standalone := targetKind == "standalone standard link"
+				if directBundle || standalone {
 					original := appCommandLineLinkPath
 					appCommandLineLinkPath = link
 					t.Cleanup(func() { appCommandLineLinkPath = original })
 				}
 				repo := t.TempDir()
 				target := bundle.ExecutablePath
-				if targetKind == "invocation link" || targetKind == "direct bundle standard link" {
+				if targetKind == "invocation link" || targetKind == "direct bundle standard link" || standalone {
 					target = link
 				}
 
@@ -316,6 +317,11 @@ func TestRunRefusesAppOwnedRepositoryTargets(t *testing.T) {
 				opts := Options{ExecutablePath: link, WorkDir: repo, Yes: true, ManifestURL: "https://cli.invalid/latest", HTTPClient: client, deps: &deps, appDeps: &appDeps}
 				if directBundle {
 					opts.ExecutablePath = bundle.ExecutablePath
+				}
+				if standalone {
+					// A Homebrew or installer rzm outside any app bundle.
+					opts.ExecutablePath = filepath.Join(t.TempDir(), "rzm")
+					require.NoError(t, os.WriteFile(opts.ExecutablePath, []byte("standalone"), 0o755))
 				}
 				switch mode {
 				case UpdateModePinned:

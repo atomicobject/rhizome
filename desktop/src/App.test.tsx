@@ -496,6 +496,31 @@ describe("desktop shell", () => {
     expect(await screen.findByRole("button", { name: "Repair Command-Line Tool" })).toBeVisible();
   });
 
+  it("keeps a ready update when an older status response arrives later", async () => {
+    let statusCalls = 0;
+    let answer: (status: Result) => void = () => {};
+    start(undefined, (operation) => {
+      if (operation === "update-status") {
+        statusCalls += 1;
+        if (statusCalls === 1) return { state: "idle" } as Result;
+        return new Promise<Result>((resolve) => (answer = resolve));
+      }
+      if (operation === "global-status")
+        return {
+          path: "/Applications/Rhizome.app/Contents/MacOS/rzm",
+          version: "0.51.0",
+          bundled: true,
+        } as Result;
+      return undefined;
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await waitFor(() => expect(statusCalls).toBe(2));
+    act(() => emit({ type: "update", status: { state: "ready", version: "0.52.0" } }));
+    await act(async () => answer({ state: "checking" } as Result));
+    expect(screen.getAllByRole("button", { name: "Restart to Update" }).length).toBeGreaterThan(0);
+  });
+
   it("offers a ready update in the toolbar and installs it on request", async () => {
     start(undefined, (operation) => (operation === "install-update" ? null : undefined));
     await waitFor(() => expect(opened()).toHaveLength(1));
