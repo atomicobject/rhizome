@@ -1,4 +1,4 @@
-import { isNodeRef, isString, type JsonObject } from "../api/parse";
+import { isPlainObject, isNodeRef, isString, type JsonObject } from "../api/parse";
 import type { NodeRef } from "../api/types";
 import { encodeURLFragment } from "../lib/noteDeepLink";
 import { formatTypeName } from "../lib/typeNames";
@@ -10,6 +10,15 @@ export type ViewContext =
   | { kind: "node"; type: string; ref: NodeRef }
   | { kind: "workspace" }
   | { kind: "standalone" };
+
+/** View queries may return null for optional GraphQL ref fields. */
+export type ViewNodeRef = {
+  [K in keyof NodeRef]: undefined extends NodeRef[K] ? NodeRef[K] | null : NodeRef[K];
+};
+
+export type ViewContextInput =
+  | Exclude<ViewContext, { kind: "node" }>
+  | { kind: "node"; type: string; ref: ViewNodeRef };
 
 export type ViewModuleProps = {
   view: { id: string; name: string };
@@ -28,6 +37,43 @@ export type OpenNodeOptions = { view?: string; beside?: boolean };
 export function isViewNodeRef(value: unknown): value is NodeRef {
   return isNodeRef(value) && !!value.notePath.trim() && !!value.kind.trim();
 }
+
+/* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-known-value-widening -- View wire parsers validate external data before returning canonical types. */
+/** Normalize only known optional ref fields, then apply the canonical guard. */
+export function parseViewNodeRef(value: unknown): NodeRef | null {
+  if (!isPlainObject(value)) return null;
+  const ref = { ...value };
+
+  for (const key of [
+    "fragment",
+    "nodeId",
+    "typeName",
+    "parentId",
+    "structuralFingerprint",
+    "startByte",
+    "endByte",
+  ]) {
+    if (ref[key] === null || ref[key] === undefined) delete ref[key];
+  }
+
+  return isViewNodeRef(ref) ? ref : null;
+}
+
+export function parseViewContext(value: unknown): ViewContext | null {
+  if (!isPlainObject(value)) return null;
+  let context = value;
+
+  if (value.kind === "node") {
+    const ref = parseViewNodeRef(value.ref);
+
+    if (!ref) return null;
+    context = { ...value, ref };
+  }
+
+  return isViewContext(context) ? context : null;
+}
+
+/* oxlint-enable anti-slop/no-unknown-parameters, anti-slop/no-known-value-widening */
 
 export function isViewContext(value: unknown): value is ViewContext {
   if (typeof value !== "object" || value === null || !("kind" in value)) return false;
@@ -74,21 +120,25 @@ export function isViewContext(value: unknown): value is ViewContext {
 
 export function customViewHref(
   id: string,
-  context: ViewContext = { kind: "standalone" },
+  context: ViewContextInput = { kind: "standalone" },
   options: { hosted?: boolean } = {},
 ) {
   const path = `/views/${encodeURIComponent(id)}`;
 
   const params = new URLSearchParams();
 
-  if (context.kind !== "standalone") params.set("context", JSON.stringify(context));
+  const parsedContext = parseViewContext(context);
+
+  if (!parsedContext) throw new Error("Invalid view context");
+
+  if (parsedContext.kind !== "standalone") params.set("context", JSON.stringify(parsedContext));
 
   if (options.hosted) params.set("hosted", "1");
 
   return params.size ? `${path}?${params}` : path;
 }
 
-export function nodeHref(ref: NodeRef, options: OpenNodeOptions = {}) {
+export function nodeHref(ref: ViewNodeRef, options: OpenNodeOptions = {}) {
   const params = new URLSearchParams({ note: ref.notePath, kind: ref.kind });
 
   if (ref.nodeId) params.set("nodeId", ref.nodeId);
@@ -101,7 +151,7 @@ export function nodeHref(ref: NodeRef, options: OpenNodeOptions = {}) {
 }
 
 /** Workspace navigation for built-in choices and registered native or custom views. */
-export function workspaceViewHref(id: string, context: ViewContext = { kind: "standalone" }) {
+export function workspaceViewHref(id: string, context: ViewContextInput = { kind: "standalone" }) {
   if (context.kind === "node") return nodeHref(context.ref, { view: id });
 
   if (context.kind === "standalone") return `/notes?${new URLSearchParams({ view: id })}`;

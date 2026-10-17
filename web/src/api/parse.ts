@@ -46,12 +46,18 @@ export function isJsonValue(v: unknown): v is JsonValue {
   return isJsonObject(v);
 }
 
-/** Plain object whose values are all JSON; rejects arrays, class instances, and `null`. */
-export function isJsonObject(v: unknown): v is JsonObject {
+/** Plain object before its field values have been decoded. */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Boundary decoders must inspect raw fields before validating their values.
+export function isPlainObject(v: unknown): v is Record<string, unknown> {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
   const proto = Object.getPrototypeOf(v);
 
-  if (proto !== Object.prototype && proto !== null) return false;
+  return proto === Object.prototype || proto === null;
+}
+
+/** Plain object whose values are all JSON; rejects arrays, class instances, and `null`. */
+export function isJsonObject(v: unknown): v is JsonObject {
+  if (!isPlainObject(v)) return false;
 
   return Object.values(v).every(isJsonValue);
 }
