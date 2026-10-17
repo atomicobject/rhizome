@@ -4,7 +4,7 @@ id: EFF-2026-10-17-13-07
 aliases: [EFF-2026-10-17-13-07]
 name: Desktop distribution and updates
 created-at: 2026-10-17T17:08:37Z
-status: active
+status: complete
 summary: "Ship Rhizome Desktop with every public release: the app carries the release's rzm, updates itself through Tauri's updater, links rzm onto the PATH while installed, offers to advance older repository pins, and installs from README instructions an agent can follow."
 governing-specs:
   - "[[desktop-distribution-and-updates]]"
@@ -118,7 +118,7 @@ On branch `feat/desktop-distribution`, verified at 943b595e:
 - **CLI.** `rzm update` resolves symlinks and, when it runs from Rhizome's app bundle, hands its global target to the app (`--install-update`), waits for the new version, and reports it; repository targets, prompts, and partial-result exits are unchanged. It never writes inside a bundle or over the link.
 - **Docs.** README human and agent install sections; getting-started, desktop README, RELEASING (desktop step, key creation and custody), CHANGELOG; SPEC-0113 and SPEC-0033 amended; EFF-2026-10-03-18-59, EFF-2026-10-06-08-07, and EFF-2026-10-07-17-15 closed.
 
-Not yet delivered: the release updater public key (Drew), which replaces the placeholder before merge.
+The release updater public key replaced the placeholder in 21bc645d. Release credentials moved to their own 1Password Environment; `with-secrets` uses the current CLI, reads `RZM_OP_RELEASE_ENVIRONMENT_ID` for releases, and can copy the development API keys into the login keychain (`sync-keychain`) so development runs need no approval. Carried by PR #19.
 
 ## Execution Notes
 
@@ -140,9 +140,10 @@ Not yet delivered: the release updater public key (Drew), which replaces the pla
 - 2026-10-17T18:40:00Z [surprise] A restart keeps `--install-update`, and launch skipped the daily schedule when it was present; launch now always starts the schedule.
 - 2026-10-17T18:40:00Z [validation] Gates: `make check` and `make desktop-check` pass. The release Python suite has one error, `effort_evidence_test` (`KeyError: 'governing_specs_yaml'`), which fails identically on `main`.
 - 2026-10-17T19:10:00Z [validation] Independent review (Claude Fable 5.1, high) confirmed the privileged command construction, web-content isolation, secret handling, hand-off, updater concurrency, library migration, and GoReleaser templating. Fixed with tests: `pin-advance` refuses a stale offer that would downgrade; version `0.0.0` builds never run the production updater; the app offers to repair a moved or dangling link at launch; the privileged install re-checks the exact link it inspected; `rzm update` hands off only to Rhizome's own bundle identifiers; the offered version is computed once per request. Declined: removing the `/usr/local/bin/rzm` comparison in `invocation.go`, which alone protects a repository `binaryPath` pointing at that link when `rzm` runs from the bundle path directly.
-
+- 2026-10-17T21:03:22Z [validation] Drew generated the release updater key and stored it, with its password, in the Release Environment. Its public key (key ID `59D39950B95024C7`) is committed, and a probe signed through `with-secrets release` carries the same key ID. `sync-keychain` stored both development API keys after one approval, and a development run then needed no prompt.
 ## Deviations
 
+- 2026-10-17: credential handling grew during review with Drew. Release credentials (GitHub tokens, updater key) moved to a separate 1Password Environment selected by `RZM_OP_RELEASE_ENVIRONMENT_ID`; `with-secrets` stopped preferring an old `op-beta` and gained `sync-keychain`, which copies only the development API keys into the login keychain. Authority: Drew's requests in chat.
 - 2026-10-17 (frozen-scope-drift acknowledged for SPEC-0122): the updater key requirement said the key reaches only the desktop build subprocess. Decision 8's post-build hook runs inside GoReleaser, so the key reaches the GoReleaser processes too, the same exposure class as `GITHUB_TOKEN`, and the hook strips every other credential before the Tauri build. SPEC-0122 now says so. Authority: the approved decision 8.
 - 2026-10-17: beyond decision 8, Batch 3 also refuses a public `apply` without the updater key (so a release cannot push branches and then fail at publication), refuses to build the app on an Intel host, and clears stale desktop assets when the arm64 build skips the app. These tighten the approved behavior without changing what a release publishes.
 - 2026-10-17 (frozen-scope-drift acknowledged for SPEC-0122): Drew deferred creating the updater key until the bulk of the work was done, so `tauri.conf.json` carries an explicit placeholder and the release hook refuses to publish with it, replacing the requirement that no placeholder exists. Replacing it remains a merge prerequisite.
@@ -155,14 +156,14 @@ Not yet delivered: the release updater public key (Drew), which replaces the pla
 - [x] Alignment check against SPEC-0122: every criterion has test or native evidence, or is carried forward as an action item because it needs a published release or an administrator prompt.
 - [x] Spec amendments, frozen-scope-drift acknowledgements (only the pre-existing SPEC-0111 finding on EFF-2026-10-03-18-33 remains, also on `main`), documentation, and CHANGELOG.
 - [x] Independent review (Claude Fable 5.1); accepted findings fixed, one declined with reason.
-- [ ] Release updater public key committed in place of the placeholder (Drew), before merge.
+- [x] Release updater public key committed in place of the placeholder (21bc645d); the Release Environment's private key signs with the same key ID, `59D39950B95024C7`.
 - [x] Action items for the first and second public release checks.
 - [x] Earlier desktop efforts closed (Batch 4b).
 - [x] Pull request opened and linked: [#19](https://github.com/atomicobject/rhizome/pull/19) (draft until the updater key lands).
 
 Action items:
 
-- [ ] Before merging, create the release updater key per docs/RELEASING.md "Updater signing key" and commit its public key in place of the placeholder #action-item
+- [x] Before merging, create the release updater key per docs/RELEASING.md "Updater signing key" and commit its public key in place of the placeholder #action-item
   assignee:: [[Drew Colthorp]]
 - [ ] Click through a packaged release-config build: Install Command-Line Tool with the administrator prompt, confirm a new login shell runs `/usr/local/bin/rzm`, move the app to the Trash and confirm `rzm` no longer runs it, and look over Restart to Update, the pin offer, and Settings #action-item
   assignee:: [[Drew Colthorp]]
@@ -180,4 +181,4 @@ Action items:
 
 ## Status
 
-Active. Everything in scope is delivered and verified on the branch. The release updater public key (Drew) must replace the placeholder before merge; then this effort closes in the same pull request.
+Complete. Delivered in PR #19. The click-through and the first and second public release checks are open action items assigned to Drew.
