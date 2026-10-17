@@ -96,8 +96,15 @@ pub async fn check(app: &AppHandle) -> Status {
     set(app, Status::Checking);
     let status = match download(app).await {
         Ok(status) => status,
-        Err(error) => Status::Failed {
-            message: error.to_string(),
+        // A verified download stays installable when refreshing the feed or
+        // fetching a newer release fails.
+        Err(error) => match updates.ready.lock().unwrap().as_ref() {
+            Some((ready, _)) => Status::Ready {
+                version: ready.version.clone(),
+            },
+            None => Status::Failed {
+                message: error.to_string(),
+            },
         },
     };
     set(app, status.clone());

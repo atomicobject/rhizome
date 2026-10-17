@@ -12,7 +12,7 @@ npm ci
 npm run tauri -- dev
 ```
 
-The Tauri development hook builds `rzm` from the checkout into the app's sidecar slot and starts Vite. The app's companion is that `rzm`, run as `rzm desktop-bridge`. `npm run dev` starts only the shell frontend; native operations require Tauri.
+The Tauri development and build hooks run `make build` (the workspace web UI, then `rzm`; `NO_WEB=1` skips the web build) and copy `rzm` into the app's sidecar slot; development then starts Vite. The app's companion is that `rzm`, run as `rzm desktop-bridge`. `npm run dev` starts only the shell frontend; native operations require Tauri.
 
 ```sh
 npm run check

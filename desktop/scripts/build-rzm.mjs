@@ -1,6 +1,7 @@
 // Puts the rzm the app bundles at its Tauri sidecar path. The release build
 // passes the exact binary GoReleaser archives in RZM_DESKTOP_PREBUILT_RZM;
-// otherwise this builds rzm from the checkout.
+// otherwise `make build` builds rzm with the workspace web UI it embeds
+// (NO_WEB=1 skips the web build, as for make build).
 import { execFileSync } from "node:child_process";
 import { chmodSync, copyFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -20,9 +21,14 @@ if (prebuilt) {
   chmodSync(output, 0o755);
   console.log(`Bundled ${prebuilt} for ${target}`);
 } else {
-  execFileSync("go", ["build", "-mod=vendor", "-tags", "fts5", "-o", output, "."], {
+  // The Makefile reads $(PWD), which cwd alone does not update.
+  execFileSync("make", ["build"], {
     cwd: root,
     stdio: "inherit",
+    env: { ...process.env, PWD: root },
   });
+  const goos = execFileSync("go", ["env", "GOOS"], { encoding: "utf8" }).trim();
+  copyFileSync(resolve(root, `bin/${goos}/rzm${suffix}`), output);
+  chmodSync(output, 0o755);
   console.log(`Built rzm for ${target}`);
 }
