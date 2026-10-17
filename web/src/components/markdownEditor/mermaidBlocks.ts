@@ -3,33 +3,7 @@ import { type EditorState, type Extension, type Range, StateField } from "@codem
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import { renderMermaid } from "../markdown/mermaid";
 
-const svgCache = new Map<string, Promise<string>>();
-
-// ponytail: Keep the SVG cache at a 64-entry ceiling.
-const SVG_CACHE_MAX_ENTRIES = 64;
-
 let renderId = 0;
-
-function cachedSvg(source: string) {
-  let result = svgCache.get(source);
-
-  if (!result) {
-    renderId += 1;
-    result = renderMermaid(source, `mermaid-editor-${renderId}`).catch((error: Error) => {
-      if (svgCache.get(source) === result) svgCache.delete(source);
-      throw error;
-    });
-    svgCache.set(source, result);
-
-    if (svgCache.size > SVG_CACHE_MAX_ENTRIES) {
-      const oldest = svgCache.keys().next().value;
-
-      if (oldest !== undefined) svgCache.delete(oldest);
-    }
-  }
-
-  return result;
-}
 
 class MermaidWidget extends WidgetType {
   constructor(
@@ -50,7 +24,8 @@ class MermaidWidget extends WidgetType {
     container.tabIndex = 0;
     container.setAttribute("aria-label", "Mermaid diagram, press Enter to edit source");
     container.textContent = "Rendering diagram…";
-    void cachedSvg(this.source).then(
+    renderId += 1;
+    void renderMermaid(this.source, `mermaid-editor-${renderId}`).then(
       (svg) => {
         container.classList.remove("mermaid-block--loading", "mermaid-block--error");
         container.innerHTML = svg;

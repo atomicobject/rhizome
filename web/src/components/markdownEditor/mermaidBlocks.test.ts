@@ -58,7 +58,7 @@ describe("mermaidBlocks", () => {
     view.dispatch({ selection: { anchor: 0 } });
     expect(parent.querySelectorAll(".mermaid-block--editor")).toHaveLength(1);
     expect(view.state.doc.toString()).toBe(source);
-    expect(renderMermaid).toHaveBeenCalledTimes(1);
+    expect(renderMermaid).toHaveBeenCalledTimes(2);
   });
 
   it("leaves an unclosed Mermaid fence and following paragraphs visible", () => {
@@ -117,41 +117,23 @@ describe("mermaidBlocks", () => {
     expect(view.state.selection.main.anchor).toBe(source.indexOf("graph TD"));
   });
 
-  it("evicts the oldest SVG after 64 cached diagrams", () => {
+  it("gives repeated diagram widgets distinct rendering IDs", () => {
     const parent = document.createElement("div");
     document.body.appendChild(parent);
-
-    const diagrams = Array.from({ length: 65 }, (_, index) =>
-      ["Before", "", "```mermaid", `graph TD; A${index}-->B${index}`, "```"].join("\n"),
-    );
-
-    for (const diagram of diagrams) {
-      view = new EditorView({
-        parent,
-        state: EditorState.create({
-          doc: diagram,
-          selection: { anchor: 0 },
-          extensions: [markdown(), mermaidBlocks()],
-        }),
-      });
-      finishParsing(view);
-      view.destroy();
-      view = null;
-      parent.replaceChildren();
-    }
-
-    expect(renderMermaid).toHaveBeenCalledTimes(65);
-
     view = new EditorView({
       parent,
       state: EditorState.create({
-        doc: diagrams[0],
+        doc: `${source}\n\n${source}`,
         selection: { anchor: 0 },
         extensions: [markdown(), mermaidBlocks()],
       }),
     });
     finishParsing(view);
 
-    expect(renderMermaid).toHaveBeenCalledTimes(66);
+    expect(parent.querySelectorAll(".mermaid-block--editor")).toHaveLength(2);
+    const calls = vi.mocked(renderMermaid).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[0][0]).toBe(calls[1][0]);
+    expect(calls[0][1]).not.toBe(calls[1][1]);
   });
 });
