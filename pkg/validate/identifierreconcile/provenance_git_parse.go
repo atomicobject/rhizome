@@ -33,10 +33,14 @@ type gitBlobRequest struct {
 	spec       string
 }
 
-func parseGitHistory(output []byte, currentPath string) ([]gitHistoryEvent, error) {
+func parseGitHistory(output []byte, currentPath string, maxRecords int) ([]gitHistoryEvent, error) {
 	chunks := bytes.Split(output, []byte{0x1e})
+	if len(chunks)-1 > maxRecords {
+		return nil, fmt.Errorf("git history limit reached")
+	}
 	events := make([]gitHistoryEvent, 0, len(chunks)-1)
 	activePath := currentPath
+	birthSeen := false
 	for _, chunk := range chunks[1:] {
 		fields := bytes.SplitN(chunk, []byte{0}, 4)
 		if len(fields) != 4 {
@@ -54,6 +58,11 @@ func parseGitHistory(output []byte, currentPath string) ([]gitHistoryEvent, erro
 		if len(parents) > 1 {
 			return nil, fmt.Errorf("git introduction history ambiguous at merge")
 		}
+		for _, parent := range parents {
+			if !validFullOID(parent) {
+				return nil, fmt.Errorf("git history parent OID malformed")
+			}
+		}
 		tokens := nonEmptyNULTokens(bytes.TrimLeft(fields[3], "\x00\r\n"))
 		if len(tokens) < 2 {
 			return nil, fmt.Errorf("git history path record malformed")
@@ -61,11 +70,13 @@ func parseGitHistory(output []byte, currentPath string) ([]gitHistoryEvent, erro
 		statusText := string(tokens[0])
 		status := statusText[0]
 		eventPath := activePath
-		stopAfterEvent := false
 		switch status {
 		case 'A', 'M':
-			if len(tokens) != 2 || string(tokens[1]) != activePath {
-				return nil, fmt.Errorf("git history path chain incomplete")
+			if len(statusText) != 1 || len(tokens) != 2 {
+				return nil, fmt.Errorf("git history path record malformed")
+			}
+			if string(tokens[1]) != activePath {
+				continue
 			}
 		case 'R':
 			if len(tokens) != 3 || string(tokens[2]) != activePath {
@@ -78,14 +89,14 @@ func parseGitHistory(output []byte, currentPath string) ([]gitHistoryEvent, erro
 				return nil, fmt.Errorf("git copy history ambiguous")
 			}
 			status = 'A'
-			stopAfterEvent = true
 		default:
 			return nil, fmt.Errorf("git history status %q unsupported", statusText)
 		}
-		events = append(events, gitHistoryEvent{oid: oid, author: author, parents: parents, path: eventPath, status: status})
-		if stopAfterEvent {
-			break
+		if birthSeen {
+			return nil, fmt.Errorf("git introduction history has multiple path lineages")
 		}
+		birthSeen = status == 'A'
+		events = append(events, gitHistoryEvent{oid: oid, author: author, parents: parents, path: eventPath, status: status})
 	}
 	return events, nil
 }

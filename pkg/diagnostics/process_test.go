@@ -2,6 +2,7 @@ package diagnostics
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -48,19 +49,20 @@ func TestDiagnosticsOneShotProcess(t *testing.T) {
 func TestConcurrentOneShotProcessesRetainStartsAndReports(t *testing.T) {
 	for _, retained := range []int{0, 2300, 4000} {
 		t.Run(strconv.Itoa(retained), func(t *testing.T) {
-			runConcurrentOneShotProcesses(t, retained, false)
+			runConcurrentOneShotProcesses(t, retained, 0, false)
 		})
 	}
 }
 
 func TestConcurrentReportProcessesRetainCompletedEvidence(t *testing.T) {
-	runConcurrentOneShotProcesses(t, 2300, true)
+	runConcurrentOneShotProcesses(t, 2300, 0, true)
 }
 
-func runConcurrentOneShotProcesses(t *testing.T, retained int, reportOnly bool) {
+func runConcurrentOneShotProcesses(t *testing.T, retained, retainedReports int, reportOnly bool) {
 	t.Helper()
 	root := t.TempDir()
 	seedRetainedSegments(t, root, retained)
+	seedRetainedReports(t, root, retainedReports)
 	executable, err := os.Executable()
 	require.NoError(t, err)
 	const count = 12
@@ -97,8 +99,16 @@ func runConcurrentOneShotProcesses(t *testing.T, retained int, reportOnly bool) 
 			t.Errorf("writer %d lost evidence: %s", i, outputs[i].String())
 		}
 	}
-	t.Logf("%d processes, %d retained segments: %s", count, retained, time.Since(started))
-	reports, err := ReadReports(root, Filter{})
+	if retainedReports == 0 {
+		t.Logf("%d processes, %d retained segments: %s", count, retained, time.Since(started))
+	} else {
+		t.Logf("%d processes, %d retained segments + %d reports: %s", count, retained, retainedReports, time.Since(started))
+	}
+	filter := Filter{}
+	if retainedReports > 0 {
+		filter.Kind = "search"
+	}
+	reports, err := ReadReports(root, filter)
 	require.NoError(t, err)
 	require.Len(t, reports.Reports, count)
 	// Existing history exceeds the reader's normal limit. Read only the
@@ -262,5 +272,26 @@ func TestConcurrentProcessesRespectTotalQuotaAndLeaveReadableReports(t *testing.
 	for _, event := range events.Events {
 		require.NotEmpty(t, event.ProcessID)
 		require.Positive(t, event.PID)
+	}
+}
+
+func TestConcurrentOneShotProcessesRetainStartsAndReportsMixedHistory(t *testing.T) {
+	runConcurrentOneShotProcesses(t, 2000, 2000, false)
+}
+
+func seedRetainedReports(tb testing.TB, root string, count int) {
+	tb.Helper()
+	finished := time.Now().UTC().Add(-time.Hour)
+	for i := 0; i < count; i++ {
+		operation := fmt.Sprintf("synthetic-%06d", i)
+		data, err := json.Marshal(Report{SchemaVersion: SchemaVersion, OperationID: operation, Kind: "synthetic", Status: "success", StartedAt: finished.Add(-time.Second), FinishedAt: finished})
+		if err != nil {
+			tb.Fatal(err)
+		}
+		stamp := finished.Format("20060102T150405") + fmt.Sprintf("%09dZ", finished.Nanosecond())
+		path := filepath.Join(root, ".rhizome", "diagnostics", "reports", stamp+"-"+operation+".json")
+		if err := os.WriteFile(path, data, 0600); err != nil {
+			tb.Fatal(err)
+		}
 	}
 }

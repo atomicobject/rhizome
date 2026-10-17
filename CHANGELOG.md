@@ -7,6 +7,8 @@
 - Use the same scalar filters and ordering in typed queries, staged previews, and configured views, including literal strings, Unicode paths, and fractional UTC timestamps. Batch typed-record hydration and bound missing-identifier and section-neighbor lookups.
 - Run saved query recipes consistently across CLI, code mode, MCP, HTTP, and views. Duplicate selected IDs are rejected, unrelated broken recipes do not block valid targets, and ontology and code runtime providers are shared across surfaces.
 - Prepare source-backed repair plans only when a preview or apply is requested. Ordinary validation retains findings and action summaries without constructing replacement payloads, and repair preparation rejects source or schema changes since the scan. Compatible field initializations share one frontmatter block per note; duplicate or contradictory source edits remain conflicts.
+- Require a proven Git ancestry chain before using historical identifier evidence or automatically resolving ambiguous links.
+- Allow up to four seconds to persist diagnostic evidence when concurrent commands contend over dense retained history.
 - Preserve queued indexing obligations through cancellation and shutdown, share batching and publication between live and full indexing, and report observed metrics through one bounded metric catalog.
 - Use `rzm index` to refresh code alongside notes. The separate `rzm code index` and `rzm code index-anchors` commands have been removed.
 - Isolate command flags and configuration per invocation, including managed JavaScript operation calls. Relative `agent code execute --input-file` paths use the invocation directory.

@@ -214,7 +214,7 @@ func (r GitProvenanceResolver) Resolve(ctx context.Context, vaultRoot string, cl
 			markClaimsIncomplete(result.Evidence, claimsByRepoPath[repoPath], "git rename detection limit reached")
 			continue
 		}
-		events, parseErr := parseGitHistory(logOut, repoPath)
+		events, parseErr := parseGitHistory(logOut, repoPath, r.maxCommitsPerPath)
 		if parseErr != nil || len(events) == 0 {
 			reason := "git history incomplete"
 			if parseErr != nil {
@@ -223,8 +223,11 @@ func (r GitProvenanceResolver) Resolve(ctx context.Context, vaultRoot string, cl
 			markClaimsIncomplete(result.Evidence, claimsByRepoPath[repoPath], reason)
 			continue
 		}
-		if len(events) > r.maxCommitsPerPath {
-			markClaimsIncomplete(result.Evidence, claimsByRepoPath[repoPath], "git history limit reached")
+		if err := validateGitHistoryLineage(ctx, repoRoot, events, r.maxCommitsPerPath, run); err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return result, ctxErr
+			}
+			markClaimsIncomplete(result.Evidence, claimsByRepoPath[repoPath], err.Error())
 			continue
 		}
 		histories[repoPath] = events

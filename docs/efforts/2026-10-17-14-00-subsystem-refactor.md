@@ -5,7 +5,7 @@ aliases: [EFF-2026-10-17-14-00]
 name: Critical subsystem refactor
 created-at: 2026-10-17T17:58:43Z
 status: active
-summary: Implement all nine subsystem audit lanes, verify shared contracts, and open a Greptile 5/5 pull request.
+summary: Implement all nine subsystem audit lanes, verify shared contracts, and deliver an independently reviewed pull request with passing CI.
 governing-specs: ["[[docs/specs/technical/subsystem-refactor]]"]
 ---
 
@@ -34,7 +34,7 @@ Every audit finding is tracked in the [[docs/reviews/2026-10-17-subsystem-review
 3. Delete replaced implementations and consolidate Markdown syntax, scalar values, ontology builds, predicates, source transactions, validation orchestration, indexing controls, and search ranking.
 4. Measure and remove per-row reads, whole-vault request work, duplicate resolution/configuration, and excessive open costs. Migrate consumers and improve shared test fixtures.
 5. Simplify package ownership and upward dependencies after behavior is guarded. Update all callers and subsystem documentation without compatibility shims.
-6. Run applicable full gates and live interface checks. Obtain independent integrated reviews, reconcile the effort, open the PR, and force Greptile CLI review rounds until 5/5 with no actionable unresolved findings.
+6. Run applicable full gates and live interface checks. Obtain independent integrated reviews, reconcile the effort, and deliver the PR with passing current-revision CI. The user subsequently removed the Greptile review requirement, as recorded below.
 
 Each batch ends with focused observable evidence. The final gate sequence is `make build`, `make check-full`, then `make web-e2e`, without concurrent full builds or gates. Generated template changes also require real init and init check. Markdown and frozen scope validation run before closure.
 
@@ -66,12 +66,17 @@ All 222 original findings have source-supported dispositions: 212 implemented an
 - 2026-10-17: PR #21 opened at `c935e47a` after all local gates passed. CI exposed a default linter configuration schema error before the action reached the intended gate configuration. Moved the existing errcheck test exclusion to the v2 `linters.exclusions.rules` key; both configurations validate under golangci-lint 2.12.2 and the actual analysis gate reports zero issues. The Greptile CLI refused the full 16.8 MB diff at its 3 MB payload limit; a hosted review was requested while an honest complete-coverage CLI alternative is investigated. No 5/5 acceptance is claimed.
 
 - 2026-10-17: Cross-platform CI exposed stale test assumptions about portable link identity, canonical Windows path spelling, and a companion-path OS error. Fixture corrections preserve fresh/incremental equality, ambiguity, exact vault identity, diagnostic keys/counts and truncation. Four byte-sensitive golden/corpus files are pinned to LF; a disposable autocrlf checkout reproduces and then removes the exact Windows hash discrepancy without changing data or expected hashes. Local full metadata/Obsidian race suites and focused command/validation races pass; `make check-fast CHECK_JOBS=2` passes. The Windows branch-ancestry failure remains unresolved and has failure-only provenance diagnostics for the next CI run; no unsupported fixture or production change is claimed.
+- 2026-10-17: Windows diagnostics proved that Git interleaves unrelated path additions. Astra r14/r15 then reproduced unsafe certification from independent births and sibling modifications of one path. The correction validates the full raw-bounded stream and proves each adjacent owned event's ancestry before certification. Direct parents add no query; a gap adds one bounded graph query per path. The bound covers total ancestry, so a short gap in an older repository can discard Git evidence. Identifier keepers retain canonical-key fallback with a reason; ambiguous links remain unresolved. Focused race tests passed in 17.844 s; Astra r16 approved after rerunning the original probes and checking 1,024 graph shapes. Native Windows CI remains pending.
+- 2026-10-17: Linux diagnostics lost evidence after a two-second guard wait near the retained-artifact cap. Profiling identified serialized metadata scans. Cache prototypes risked stale pruning or quota undercount; parallel variants did not justify their added complexity. The selected one-line production correction raises the retry budget to four seconds and adds a mixed event/report regression while retaining every original persistence assertion. Forty candidate repetitions retained 480 starts and 480 reports, and the full diagnostics race suite passed. Opus r13 approved with the longer per-attempt wait, recorder serialization and sustained-stall shutdown costs documented. No scan speedup is claimed. Fresh integrated gates and native CI remain pending.
+
+- 2026-10-17: After both CI corrections and final Opus/Astra acceptance, fresh `make build` and `make check-full CHECK_JOBS=2 GO_TEST_PACKAGES=2 GO_TEST_PARALLEL=2` exited zero. The gate included all Go races, 1,511 web tests, both integration stages, static/content/credential checks and benchmark contracts. Diagnostics passed in 25.119 s and identifier reconciliation in 25.004 s. The ten changed Go files retained their frozen gate hashes. Existing 96-test browser E2E evidence remains applicable because these corrections change no web behavior. Native Linux/Windows CI on the next PR #21 revision remains required. Fresh default documentation validation returned zero issues and errors; frozen-scope validation reports only the unchanged unrelated EFF-2026-10-03-18-33 drift.
 
 ## Deviations
 
-No scope reduction is authorized. Evidence-backed corrections to an audit recommendation are recorded here and in the implementation record.
+All source-delivery work remains in scope. Evidence-backed corrections to an audit recommendation and changes to review requirements are recorded here and in the implementation record.
 
 - The user approved keeping PR #21 and using a hosted full-PR Greptile review after CLI 3.6.1 refused the full diff at its 3 MB payload limit. The separate Apex CLI review of `c935e47a..2222276b` returned 5/5 with zero findings; it covers only the lint follow-up and does not establish full-PR acceptance. The complete change remains in review scope.
+- The user subsequently instructed us to skip Greptile. Full-PR Greptile review and its 5/5 target are no longer acceptance requirements. Independent Opus/Astra review and current-revision CI remain required; no full-PR Greptile score is claimed.
 
 - Opus verified that the existing schema deliberately gives plain frozen story identifiers no graph semantics. The implementation removes the hardcoded inference and uses the existing authored wikilink relation contract; a new schema directive would contradict that contract.
 - Schema extraction keeps `viewconfig` in its current package and changes its dependency to the immutable schema module. Moving only its path would add migration work without improving the boundary. Provider tag handling receives its own parity regression before the extraction removes the old source-text fallback.
@@ -84,10 +89,10 @@ No scope reduction is authorized. Evidence-backed corrections to an audit recomm
 ## Closure Checklist
 
 - [x] All audit findings have a verified disposition.
-- [x] Required local quality gates and live behavior checks pass.
-- [x] Opus High and Astra High integrated reviews are addressed.
+- [x] Required local quality gates and live behavior checks pass on the final corrections.
+- [x] Opus High and Astra High integrated reviews are addressed on the final corrections.
 - [x] Specs and subsystem documentation match delivered behavior.
-- [ ] Pull request is linked and Greptile CLI reaches 5/5 on its current commit.
+- [ ] Pull request is linked and CI passes on its current commit.
 - [ ] Delivery and compounding records are reconciled.
 
 ## Compounding Follow-ups
@@ -96,4 +101,4 @@ The file-size and Go analysis gates enforce the new limits. Provider architectur
 
 ## Status
 
-Active. Source delivery and critical independent acceptance are reconciled. The final build, complete repository gate and all 96 browser E2E tests pass; PR, CI and Greptile CLI acceptance remain pending.
+Active. Diagnostics contention and Git-history ambiguity are corrected, with Opus r13 and Astra r16 approval. The fresh build and complete repository gate passed on the corrections. All 96 browser E2E tests passed before these non-web corrections. Current-revision CI acceptance remains pending, so this effort is not closed.
