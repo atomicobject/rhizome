@@ -89,13 +89,6 @@ pub async fn check(app: &AppHandle) -> Status {
     }
     let updates = app.state::<Updates>();
     let _running = updates.running.lock().await;
-    if let Some((update, _)) = updates.ready.lock().unwrap().as_ref() {
-        let status = Status::Ready {
-            version: update.version.clone(),
-        };
-        set(app, status.clone());
-        return status;
-    }
     set(app, Status::Checking);
     let status = match download(app).await {
         Ok(status) => status,
@@ -107,13 +100,26 @@ pub async fn check(app: &AppHandle) -> Status {
     status
 }
 
+/// Reads the feed every time, so a postponed download is replaced when a newer
+/// release appears and dropped when the feed no longer offers it.
 async fn download(app: &AppHandle) -> tauri_plugin_updater::Result<Status> {
     let Some(update) = app.updater()?.check().await? else {
+        app.state::<Updates>().ready.lock().unwrap().take();
         return Ok(Status::Current {
             version: app.package_info().version.to_string(),
         });
     };
     let version = update.version.clone();
+    let cached = app
+        .state::<Updates>()
+        .ready
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|(ready, _)| ready.version.clone());
+    if cached.as_deref() == Some(version.as_str()) {
+        return Ok(Status::Ready { version });
+    }
     set(
         app,
         Status::Downloading {

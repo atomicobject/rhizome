@@ -535,6 +535,39 @@ describe("desktop shell", () => {
     await waitFor(() => expect(opened()).toHaveLength(2));
   });
 
+  it("does not pull the user back after a pin advance finishes elsewhere", async () => {
+    let finish: () => void = () => {};
+    start(undefined, (operation) =>
+      operation === "discover"
+        ? offered
+        : operation === "pin-advance"
+          ? new Promise<Result>((resolve) => (finish = () => resolve(null as Result)))
+          : undefined,
+    );
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    const advance = (await pinMenu()).find((item) => item.label === "Update Pin to v0.51.0")!;
+    act(() => emit({ type: "menu", id: advance.id! }));
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("pin-advance", { id: repository.id, worktree: main }),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Worktree" }));
+    });
+    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
+    const [, menu] = call.mock.calls.filter(([operation]) => operation === "menu").pop()!;
+    const other = (menu as { items: MenuEntry[] }).items.find((item) =>
+      item.label?.startsWith("feature"),
+    )!;
+    act(() => emit({ type: "menu", id: other.id! }));
+    await waitFor(() => expect(opened().at(-1)).toMatchObject({ worktree: feature }));
+    const count = opened().length;
+    await act(async () => finish());
+    await waitFor(() =>
+      expect(call.mock.calls.filter(([op]) => op === "discover").length).toBeGreaterThan(1),
+    );
+    expect(opened()).toHaveLength(count);
+  });
+
   it("hides a pin offer after Not Now for the app's version", async () => {
     const dismissed: Library = {
       ...library,

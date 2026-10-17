@@ -347,7 +347,8 @@ export function App() {
               setNotice(
                 `Pinned Rhizome ${offer.available}. Commit .rhizome/config.yml to share it.`,
               );
-              await openWorktree(repository.id, path);
+              // Reopen on the new pin only if the user is still on this worktree.
+              if (target.current.worktree === path) await openWorktree(repository.id, path);
             }),
         },
         dismiss,

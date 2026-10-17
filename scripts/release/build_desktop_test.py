@@ -142,6 +142,10 @@ class BuildTest(unittest.TestCase):
         codesign = self.runner.commands()[1]
         self.assertEqual(["codesign", "--verify", "--deep", "--strict"], codesign[:4])
         self.assertTrue(codesign[4].endswith("bundle/macos/Rhizome.app"))
+        content_check = self.runner.commands()[2]
+        self.assertEqual("--check-artifact", content_check[2])
+        self.assertTrue(content_check[1].endswith("scripts/teamkeys/release.py"))
+        self.assertTrue(content_check[3].endswith("Rhizome.app/Contents/MacOS/rhizome-desktop"))
 
     def test_missing_dependencies_are_installed_first(self) -> None:
         (self.root / "desktop/node_modules").rmdir()

@@ -181,6 +181,13 @@ def build(
         ["codesign", "--verify", "--deep", "--strict", str(bundle_dir / "macos/Rhizome.app")],
         env=env, check=True,
     )
+    # GoReleaser already checked the bundled rzm; the app's own executable,
+    # which embeds the shell frontend, gets the same public-artifact check.
+    runner(
+        [sys.executable, str(root / "scripts/teamkeys/release.py"), "--check-artifact",
+         str(bundle_dir / "macos/Rhizome.app/Contents/MacOS/rhizome-desktop")],
+        env=env, check=True,
+    )
     output_dir = root / OUTPUT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
     staged = []

@@ -87,7 +87,7 @@ func (s *Service) PinAdvance(ctx context.Context, path string) (PinAdvanceResult
 	if err != nil {
 		return result, problem("pin_advance_failed", fmt.Sprintf("Pin advance executable stage failed: %v", err))
 	}
-	_, updateErr := s.install(ctx, appupdate.Options{ExecutablePath: executable, WorkDir: info.Path, SetVersion: version.Version, Yes: true, ManifestURL: os.Getenv("RZM_UPDATE_MANIFEST_URL")})
+	_, updateErr := s.install(ctx, appupdate.Options{ExecutablePath: executable, WorkDir: info.Path, SetVersion: info.PinOffer.Available, Yes: true, ManifestURL: os.Getenv("RZM_UPDATE_MANIFEST_URL")})
 	if updateErr != nil {
 		return result, problem("pin_advance_failed", fmt.Sprintf("Pin advance failed: %v", updateErr))
 	}

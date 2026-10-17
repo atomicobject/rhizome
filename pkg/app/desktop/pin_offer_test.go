@@ -165,3 +165,21 @@ func TestPinAdvanceRefusesAStaleOfferThatWouldDowngrade(t *testing.T) {
 		})
 	}
 }
+
+func TestPinAdvanceInstallsTheOfferedVersion(t *testing.T) {
+	s := testService(t)
+	// Outside a bundle the offer comes from the global executable, which may
+	// differ from the version this bridge was built as.
+	s.available = func() string { return "v1.2.0" }
+	installed := ""
+	s.install = func(_ context.Context, opts appupdate.Options) (appupdate.Result, error) {
+		installed = opts.SetVersion
+		return appupdate.Result{}, nil
+	}
+	folder := config(t, obsidian.LocalRhizomeConfig{Version: "v1.0.0"})
+	_, err := s.Trust(folder)
+	require.NoError(t, err)
+	_, err = s.PinAdvance(context.Background(), folder)
+	require.NoError(t, err)
+	require.Equal(t, "v1.2.0", installed)
+}
