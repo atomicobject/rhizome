@@ -64,6 +64,9 @@ class BuildTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         (self.root / "desktop/node_modules").mkdir(parents=True)
+        self.config = self.root / "desktop/src-tauri/tauri.conf.json"
+        self.config.parent.mkdir(parents=True)
+        self.config.write_text('{"plugins": {"updater": {"pubkey": "c3ludGhldGljLXB1YmxpYy1rZXk="}}}')
         self.rzm = self.root / "dist/rzm-darwin_darwin_arm64/rzm"
         self.rzm.parent.mkdir(parents=True)
         self.rzm.write_text("binary")
@@ -86,6 +89,16 @@ class BuildTest(unittest.TestCase):
         with self.assertRaisesRegex(DesktopBuildError, "TAURI_SIGNING_PRIVATE_KEY"):
             self.build({"RZM_RELEASE_DESKTOP": "1"})
         self.assertEqual([], self.runner.calls)
+
+    def test_desktop_release_refuses_the_placeholder_public_key(self) -> None:
+        self.config.write_text(
+            '{"plugins": {"updater": {"pubkey": "%s"}}}' % build_desktop.PUBKEY_PLACEHOLDER
+        )
+        with self.assertRaisesRegex(DesktopBuildError, "release updater public key"):
+            self.build({"RZM_RELEASE_DESKTOP": "1", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key"})
+        self.assertEqual([], self.runner.calls)
+        self.config.write_text('{"plugins": {"updater": {"pubkey": "%s"}}}' % build_desktop.PUBKEY_PLACEHOLDER)
+        self.build({})  # A snapshot may build with the placeholder.
 
     def test_snapshot_without_key_builds_without_updater_artifacts(self) -> None:
         staged = self.build({})

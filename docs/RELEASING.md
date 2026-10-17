@@ -104,6 +104,13 @@ If the desktop build fails during publication, GoReleaser stops in its build pha
 
 The installed app accepts an update only when its signature verifies against the public key committed in `desktop/src-tauri/tauri.conf.json`. The private key and its password live only in the release 1Password Environment as `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; `./scripts/with-secrets release` loads them and `run_clean.py` passes them only to GoReleaser. Never commit them, print them, or copy them into release notes or logs.
 
+Until the first public release, `tauri.conf.json` holds the placeholder `REPLACE_WITH_RELEASE_UPDATER_PUBLIC_KEY`, and the desktop hook refuses to publish with it. To create the release key once:
+
+1. From `desktop/`, run `npx tauri signer generate -w <offline path>/rhizome-updater.key` and choose a password when it asks. Do not paste the key or password into a terminal command, chat, or log.
+2. Add the key file's contents as `TAURI_SIGNING_PRIVATE_KEY` and the password as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in the release 1Password Environment.
+3. Replace the placeholder with the contents of `rhizome-updater.key.pub` (the public key, safe to commit) and commit it.
+4. Move the key file to the offline backup described below.
+
 Losing the private key strands every installed app: it can never verify another update, and each user must download a new DMG by hand. Keep an offline backup of the key file and password, stored apart from the 1Password Environment. To rotate the key, publish one release signed with the old key that embeds the new public key, then switch the Environment to the new key. A leaked key lets anyone sign an update the app accepts; rotate immediately.
 
 ## Canonical branch topology

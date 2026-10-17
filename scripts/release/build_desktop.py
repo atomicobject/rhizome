@@ -64,6 +64,21 @@ def signs_updater(environ: Mapping[str, str]) -> bool:
     return False
 
 
+PUBKEY_PLACEHOLDER = "REPLACE_WITH_RELEASE_UPDATER_PUBLIC_KEY"
+
+
+def require_release_pubkey(root: Path) -> None:
+    """Installed apps verify updates against the committed key, so a release
+    must not ship until the placeholder is replaced by the release key."""
+    config = json.loads((root / "desktop/src-tauri/tauri.conf.json").read_text())
+    pubkey = config.get("plugins", {}).get("updater", {}).get("pubkey", "")
+    if not pubkey.strip() or pubkey == PUBKEY_PLACEHOLDER:
+        raise DesktopBuildError(
+            "desktop/src-tauri/tauri.conf.json has no release updater public key; "
+            "see Updater signing key in docs/RELEASING.md"
+        )
+
+
 def tauri_command(version: str, *, updater: bool) -> list[str]:
     command = [
         "npm", "run", "tauri", "--", "build", "--bundles", "app,dmg",
@@ -144,6 +159,8 @@ def build(
 ) -> list[Path]:
     """Build, verify, and stage the app; return the staged release assets."""
     updater = signs_updater(environ)
+    if environ.get("RZM_RELEASE_DESKTOP") == "1":
+        require_release_pubkey(root)
     host = machine or platform.machine()
     if host != "arm64":
         raise DesktopBuildError(f"the desktop app builds only on Apple Silicon, not {host}")
