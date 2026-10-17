@@ -12,6 +12,10 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 
 const INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 const INSTALL_ARGUMENT: &str = "--install-update";
+/// Set just before relaunching after an install. The relaunched process
+/// inherits it along with the original arguments, so a carried-over
+/// `--install-update` is not mistaken for a new request.
+const RESTARTED: &str = "RHIZOME_UPDATE_RESTARTED";
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "state", rename_all = "kebab-case")]
@@ -150,17 +154,25 @@ pub fn install(app: &AppHandle) -> Result<(), String> {
         return Err(message);
     }
     windows::quit(app);
+    std::env::set_var(RESTARTED, "1");
     app.restart();
 }
 
-fn requested(args: &[String]) -> bool {
-    args.iter().any(|arg| arg == INSTALL_ARGUMENT)
+fn requested(args: &[String], restarted: bool) -> bool {
+    !restarted && args.iter().any(|arg| arg == INSTALL_ARGUMENT)
+}
+
+/// Reads and clears the restart marker; call once at launch.
+pub fn take_restart_marker() -> bool {
+    let restarted = std::env::var_os(RESTARTED).is_some();
+    std::env::remove_var(RESTARTED);
+    restarted
 }
 
 /// Handles `--install-update` from `rzm update`: an explicit request to update
 /// now. Without a newer verified release it does nothing.
-pub fn handle(app: &AppHandle, args: &[String]) -> bool {
-    if !requested(args) {
+pub fn handle(app: &AppHandle, args: &[String], restarted: bool) -> bool {
+    if !requested(args, restarted) {
         return false;
     }
     let app = app.clone();
@@ -223,9 +235,14 @@ mod tests {
     #[test]
     fn only_the_exact_argument_requests_an_install() {
         let args = |list: &[&str]| list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
-        assert!(requested(&args(&["Rhizome", "--install-update"])));
-        assert!(!requested(&args(&["Rhizome", "--open", "/work"])));
-        assert!(!requested(&args(&["Rhizome", "--install-update=now"])));
+        assert!(requested(&args(&["Rhizome", "--install-update"]), false));
+        assert!(!requested(&args(&["Rhizome", "--open", "/work"]), false));
+        assert!(!requested(
+            &args(&["Rhizome", "--install-update=now"]),
+            false
+        ));
+        // The relaunch after an install keeps the argument but is not a request.
+        assert!(!requested(&args(&["Rhizome", "--install-update"]), true));
     }
 
     #[test]

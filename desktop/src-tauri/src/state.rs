@@ -154,13 +154,17 @@ impl Registry {
     }
 }
 
+/// Where earlier app versions installed their managed `rzm`.
+pub fn managed_executable() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| Path::new(&home).join(".local/bin/rzm"))
+}
+
 impl Library {
     /// Reads `library.json`, falling back to a version 1 `folders.json` that the
     /// caller migrates. The legacy file is never modified.
     pub fn load(directory: &Path) -> Result<Stored, String> {
         if let Some(library) = read::<Self>(&directory.join(LIBRARY), "Saved repositories")? {
-            let managed =
-                std::env::var_os("HOME").map(|home| Path::new(&home).join(".local/bin/rzm"));
+            let managed = managed_executable();
             return library
                 .validate()
                 .map(|library| library.upgrade(managed.as_deref()))
@@ -182,13 +186,17 @@ impl Library {
     /// once; a choice saved by version 3 is kept.
     fn upgrade(mut self, managed: Option<&Path>) -> Self {
         if self.version == 2 {
-            if managed.is_some_and(|m| self.global_executable.as_deref().map(Path::new) == Some(m))
-            {
-                self.global_executable = None;
-            }
+            self.forget_managed_executable(managed);
             self.version = 3;
         }
         self
+    }
+
+    /// Clears a global executable saved by the removed managed install.
+    pub fn forget_managed_executable(&mut self, managed: Option<&Path>) {
+        if managed.is_some_and(|m| self.global_executable.as_deref().map(Path::new) == Some(m)) {
+            self.global_executable = None;
+        }
     }
 
     fn validate(self) -> Result<Self, String> {
@@ -631,6 +639,26 @@ mod tests {
         assert_eq!(
             chosen.global_executable.as_deref(),
             Some("/Users/u/.local/bin/rzm")
+        );
+    }
+
+    #[test]
+    fn migrated_version_1_libraries_also_forget_the_managed_executable() {
+        let managed = Path::new("/Users/u/.local/bin/rzm");
+        let mut library = Library {
+            global_executable: Some("/Users/u/.local/bin/rzm".into()),
+            ..Library::default()
+        };
+        library.forget_managed_executable(Some(managed));
+        assert_eq!(library.global_executable, None);
+        let mut chosen = Library {
+            global_executable: Some("/opt/homebrew/bin/rzm".into()),
+            ..Library::default()
+        };
+        chosen.forget_managed_executable(Some(managed));
+        assert_eq!(
+            chosen.global_executable.as_deref(),
+            Some("/opt/homebrew/bin/rzm")
         );
     }
 

@@ -17,7 +17,7 @@ use tauri::Manager;
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
-            if !terminal::handle(app, &args) && !updater::handle(app, &args) {
+            if !terminal::handle(app, &args) && !updater::handle(app, &args, false) {
                 windows::reopen(app);
             }
         }))
@@ -42,9 +42,8 @@ fn main() {
             windows::restore(app.handle(), session)?;
             let args = std::env::args().collect::<Vec<_>>();
             terminal::handle(app.handle(), &args);
-            // A restart after installing keeps `--install-update`; that request
-            // then finds the app current, and the schedule still starts.
-            updater::handle(app.handle(), &args);
+            let restarted = updater::take_restart_marker();
+            updater::handle(app.handle(), &args, restarted);
             updater::start(app.handle());
             presence::start(app.handle().clone());
             Ok(())

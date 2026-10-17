@@ -1,7 +1,7 @@
 use super::discovery;
 use crate::{
     bridge::{self, Failure, Request},
-    state::{migrate, Library, Stored},
+    state::{managed_executable, migrate, Library, Stored},
 };
 use serde_json::{json, Value};
 use std::{
@@ -54,10 +54,14 @@ impl Desktop {
         let guard = self.library.lock().await;
         let library = match Library::load(&self.directory)? {
             Stored::Current(library) => library,
-            Stored::Legacy(legacy) if legacy.folders.is_empty() => Library {
-                global_executable: legacy.global_executable,
-                ..Library::default()
-            },
+            Stored::Legacy(legacy) if legacy.folders.is_empty() => {
+                let mut library = Library {
+                    global_executable: legacy.global_executable,
+                    ..Library::default()
+                };
+                library.forget_managed_executable(managed_executable().as_deref());
+                library
+            }
             Stored::Legacy(legacy) => {
                 let mut found = vec![];
                 for folder in &legacy.folders {
@@ -67,7 +71,8 @@ impl Desktop {
                         Err(_) => None,
                     });
                 }
-                let library = migrate(legacy, &found);
+                let mut library = migrate(legacy, &found);
+                library.forget_managed_executable(managed_executable().as_deref());
                 self.store(&library)?;
                 library
             }
