@@ -4,7 +4,7 @@ id: EFF-2026-10-07-17-15
 aliases: [EFF-2026-10-07-17-15]
 name: Desktop unified toolbar
 created-at: 2026-10-07T21:15:16Z
-status: active
+status: complete
 summary: "Move the web UI's section tabs, project search, issue badge, and shortcuts into Rhizome Desktop's native toolbar and hide the web header inside the app, using a title-based state report and fixed page events."
 governing-specs:
   - "[[desktop-unified-toolbar]]"
@@ -74,6 +74,8 @@ A Rhizome Desktop window that shows a workspace page has one top bar. The native
 
 In Rhizome Desktop, a window showing a workspace page has one top bar. The native toolbar draws the section tabs (centered in the window), project search, the Notes issue badge, and the keyboard shortcuts button, and they act on and follow the page. The web UI hides its header only when the app marks the content view; in a browser it is unchanged. The page reports its state through a checked `rhizome-desktop:` document title, and the app sends commands as fixed `rhizome:desktop` events, so the content view gains no native permissions. ⌘K focuses the toolbar's search, or an older runtime's own search when its page has not reported. An older runtime keeps its own header and the toolbar adds nothing. Native AppKit controls are a follow-up Drew chose to take separately.
 
+This merged as PR #13 (https://github.com/atomicobject/rhizome/pull/13), squash commit `48bc1678` on `main`, 2026-10-08, including the GPT-6.1-Sol review fixes in `1206bf57`. Keystroke checks in the packaged app (⌘K, typed search) and the back-forward-cache case rest on unit tests; the click-through is an action item for Drew Colthorp.
+
 ## Execution Notes
 
 - 2026-10-07T21:15:16Z: Effort opened after Drew chose the shell-owned bar, dropped the typed and type counts, and asked for an effort. Recon: the web header lives in `AppShell.tsx`; the only existing app-to-page message is `rhizome:close-tab`; Tauri 2.12 exposes `on_document_title_changed` on child webviews.
@@ -85,22 +87,29 @@ In Rhizome Desktop, a window showing a workspace page has one top bar. The nativ
 - 2026-10-07: Independent review (Claude Fable advisor): "ship after small fixes", no correctness or security defect. Applied: a pane-level Rust test for `loading`, `titled`, and `on_runtime`; `.busy` truncates instead of crowding the search field; web tests for the report following history and for `?` opening the dialog without a page button. The reviewer's back-forward-cache concern (a restored page may not emit a title change) stays a click-through item.
 - 2026-10-07: Drew asked to center the section tabs. The toolbar is now a three-column grid (`minmax(min-content, 1fr) auto minmax(min-content, 1fr)`), with the traffic-light inset moved into the start group so the middle column is centered in the window (measured exact at 1280 and 1440). The worktree selector uses fixed width caps per breakpoint, since a percentage did not limit the width the grid reserved for its name; at 760 the tabs shift right of center and every control fits. Drew also asked whether the toolbar can use native controls; he chose to land this toolbar first, with native AppKit controls as a follow-up.
 - 2026-10-08: Pull request #13 opened. At Drew's request, GPT-6.1-Sol (xhigh, personal connector) ran a code review and requested changes, reproducing each finding. Fixed in `1206bf57`: (1) ⌘K swallowed by the menu item when an older runtime shows its own header; the pane now records whether the current document reported (`Pane::reported`), and ⌘K focuses the content view and hands the page its own ⌘K otherwise. (2) A notice or a four-digit issue count pushed Settings off screen at 760; the end column may now shrink (`minmax(0, 1fr)`), the notice shrinks first, and the selector, tabs, and search tighten below 960. Measured: Settings ends at 752 with a notice and 1234 issues at 760. (3) A search draft survived a section change; it now resets with the section. Evidence: `cargo test` (57) and clippy, `npm run check` in `desktop/` (40 tests).
+- 2026-10-17T17:47:00Z [validation]: Merge evidence. `gh pr view 13` reports PR #13 merged on 2026-10-08 as `48bc1678` ("feat(desktop): one top bar, with the workspace header in the native toolbar (SPEC-0119) (#13)"), which is on `origin/main`. Its last commits are the review fixes above and the delivery record in this note. Greptile never reviewed it.
+- 2026-10-17T17:47:00Z [decision]: Closed in EFF-2026-10-17-13-07's pull request at Drew Colthorp's request, because PR #13 merged without closure. Keystroke and back-forward-cache checks in the packaged app became an action item assigned to Drew Colthorp. The native AppKit toolbar stays a separate future effort.
 
 ## Deviations
 
-None.
+- 2026-10-07, Batch 4: native verification captured the packaged app's window and posted mouse clicks, but could not deliver keystrokes because the app would not stay frontmost. ⌘K, typed search, and the reviewer's back-forward-cache concern rest on unit tests and moved to a follow-up action item.
+- 2026-10-08: Greptile did not respond on this repository, so the review evidence is the Claude Fable advisor and GPT-6.1-Sol reviews only.
+- 2026-10-17: the effort was not closed when PR #13 merged; it closes in the next related pull request under the release policy.
 
 ## Closure Checklist
 
-- [ ] Required quality gates pass.
-- [ ] Alignment and actual outcomes are verified.
-- [ ] Specs and documentation are reconciled.
-- [ ] Follow-ups are triaged.
+- [x] Required quality gates pass: `make check`, `make desktop-check`, and `make desktop-build` before review fixes, then `cargo test` (57), clippy, and `npm run check` in `desktop/` (40 tests) after them (Execution Notes).
+- [x] Alignment and actual outcomes are verified: click-level native run of the packaged app; keystroke checks carried forward as an action item (Deviations).
+- [x] Specs and documentation are reconciled: SPEC-0119 landed in PR #13 and matches what was delivered; `web/CONTEXT.md` and `desktop/README.md` updated in PR #13.
+- [x] Follow-ups are triaged: the click-through action item and the native AppKit toolbar effort below.
+- [x] Merged as PR #13 (`48bc1678`).
 
 ## Compounding Follow-ups
 
-None yet.
+- [ ] In the packaged Rhizome Desktop app, check ⌘K and typed search from the toolbar against a current runtime and an older one, and that a page restored by Back or Forward still updates the toolbar (EFF-2026-10-07-17-15 left these to unit tests) #action-item
+  assignee:: [[Drew Colthorp]]
+- Native AppKit toolbar controls (Drew's choice on 2026-10-07): a separate effort that revises SPEC-0113's toolbar and reuses the page-state relay in `desktop/src-tauri/src/page.rs`.
 
 ## Status
 
-Active. Batches 1 to 3 implemented; Batch 4 gates, native verification, and independent review in progress.
+Complete. All four batches merged as PR #13 (`48bc1678`) on 2026-10-08. The packaged-app keystroke click-through is an action item for Drew Colthorp.
