@@ -81,6 +81,11 @@ export interface Failure {
   code: string;
   message: string;
 }
+/** A failure about a worktree may name it, so the banner can act on it. */
+export interface Alert extends Failure {
+  repository?: string;
+  worktree?: string;
+}
 export interface WindowSession {
   sidebarCollapsed: boolean;
   repository?: string;
@@ -127,7 +132,7 @@ export type Message =
   | { type: "library"; library: Library }
   /** A worktree opened from the terminal, chosen in this window. */
   | { type: "select"; library: Library; repository: string; worktree: string }
-  | ({ type: "alert" } & Failure)
+  | ({ type: "alert" } & Alert)
   /** A brief confirmation, such as after Copy Page URL. */
   | { type: "notice"; message: string }
   | { type: "menu"; id: string }

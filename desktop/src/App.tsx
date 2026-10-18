@@ -5,6 +5,7 @@ import {
   pickPath,
   request,
   type Discovery,
+  type Alert,
   type Failure,
   type GlobalInfo,
   type LinkInfo,
@@ -51,7 +52,7 @@ export function App() {
   const [link, setLink] = useState<LinkInfo | null>(null);
   const [update, setUpdate] = useState<UpdateStatus | null>(null);
   const [busy, setBusy] = useState("");
-  const [alert, setAlert] = useState<Failure | null>(null);
+  const [alert, setAlert] = useState<Alert | null>(null);
   const [open, setOpen] = useState<OpenState | null>(null);
   const [notice, setNotice] = useState("");
   /** The state the workspace page last reported for the toolbar. */
@@ -517,7 +518,12 @@ export function App() {
       } else if (message.type === "notice") {
         setNotice(message.message);
       } else if (message.type === "alert") {
-        setAlert({ code: message.code, message: message.message });
+        setAlert({
+          code: message.code,
+          message: message.message,
+          repository: message.repository,
+          worktree: message.worktree,
+        });
       } else if (message.type === "presence") {
         setFound((current) => ({ ...current, ...message.repositories }));
         setRuntimes(message.runtimes);
@@ -823,6 +829,20 @@ export function App() {
         {alert && (
           <div className="alert" role="alert">
             <span>{alert.message}</span>
+            {alert.code === "trust_required" && alert.repository && alert.worktree && (
+              <button
+                className="text-button"
+                onClick={() => {
+                  const target = { id: alert.repository!, worktree: alert.worktree! };
+                  setAlert(null);
+                  void request("trust", target)
+                    .then(() => request("restart", target))
+                    .catch((cause) => setAlert(failure(cause)));
+                }}
+              >
+                Trust and restart
+              </button>
+            )}
             <button className="icon-button" aria-label="Dismiss" onClick={() => setAlert(null)}>
               ×
             </button>

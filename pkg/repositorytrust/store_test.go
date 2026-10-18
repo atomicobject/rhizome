@@ -2,6 +2,7 @@ package repositorytrust
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -70,4 +71,58 @@ func TestDefaultStoreIgnoresHomeChangesAfterProcessStart(t *testing.T) {
 	store, err := DefaultStore()
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(processUserHome, ".config", "rhizome", storeDirectoryName), store.Dir)
+}
+
+func TestLinkedWorktreesInheritMainCheckoutTrust(t *testing.T) {
+	store := Store{Dir: filepath.Join(t.TempDir(), "trust")}
+	base := t.TempDir()
+	main := filepath.Join(base, "main")
+	worktree := filepath.Join(base, "worktree")
+	for _, args := range [][]string{
+		{"init", "-q", main},
+		{"-C", main, "-c", "user.name=Rhizome Tests", "-c", "user.email=tests@rhizome.invalid", "commit", "-q", "--allow-empty", "-m", "start"},
+		{"-C", main, "worktree", "add", "-q", worktree},
+	} {
+		output, err := exec.Command("git", args...).CombinedOutput()
+		require.NoError(t, err, "%s", output)
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(main, "vault"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(worktree, "vault"), 0o755))
+	// A copied folder whose .git file claims the worktree's Git directory, but
+	// which the repository does not link back to.
+	forged := filepath.Join(base, "forged")
+	require.NoError(t, os.MkdirAll(forged, 0o755))
+	dotGit, err := os.ReadFile(filepath.Join(worktree, ".git"))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(forged, ".git"), dotGit, 0o644))
+	// A folder that brings its own Git metadata, back-linked to itself and
+	// claiming the trusted repository as its common directory.
+	planted := filepath.Join(base, "planted")
+	metadata := filepath.Join(planted, "metadata")
+	require.NoError(t, os.MkdirAll(metadata, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(planted, ".git"), []byte("gitdir: "+metadata+"\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(metadata, "gitdir"), []byte(filepath.Join(planted, ".git")+"\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(metadata, "commondir"), []byte(filepath.Join(main, ".git")+"\n"), 0o644))
+
+	trusted := func(checkout string) bool {
+		ok, err := store.Trusted(checkout)
+		require.NoError(t, err)
+		return ok
+	}
+	require.False(t, trusted(worktree))
+
+	_, err = store.Trust(main)
+	require.NoError(t, err)
+	require.True(t, trusted(worktree))
+	require.False(t, trusted(filepath.Join(worktree, "vault")), "a subfolder maps to the same subfolder")
+	require.False(t, trusted(forged))
+	require.False(t, trusted(planted))
+
+	_, err = store.Trust(filepath.Join(main, "vault"))
+	require.NoError(t, err)
+	require.True(t, trusted(filepath.Join(worktree, "vault")))
+
+	_, _, err = store.Untrust(main)
+	require.NoError(t, err)
+	require.False(t, trusted(worktree))
 }
