@@ -6,10 +6,11 @@ import (
 	"context"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
 )
 
@@ -23,10 +24,12 @@ type CapabilityState struct {
 // Snapshot is an immutable per-call view of currently available capabilities
 // and dependencies.
 type Snapshot struct {
-	Search   CapabilityState
-	Semantic CapabilityState
-	Code     CapabilityState
-	Leader   bool
+	VaultDefinition obsidian.VaultDefinition
+	Configuration   *repoconfig.Resolved
+	Search          CapabilityState
+	Semantic        CapabilityState
+	Code            CapabilityState
+	Leader          bool
 
 	WatchHub          *watchhub.Hub
 	NoteReader        obsidian.NoteReader

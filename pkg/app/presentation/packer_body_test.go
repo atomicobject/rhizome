@@ -20,8 +20,8 @@ func TestPackHydratesPathOnlyNoteOnceAcrossMultipleResults(t *testing.T) {
 	collector := indexingperf.NewSemanticQueryCollector()
 	ctx := indexingperf.WithCollector(context.Background(), collector)
 	packed, err := (&DefaultPacker{VaultPath: root}).Pack(ctx, search.QuerySpec{Text: "guide", Budget: search.Budget{Chars: 2_000}}, []search.RankedResult{
-		{Candidate: search.Candidate{Type: "note", Path: path, ChunkIndex: 0}, FinalScore: 1},
-		{Candidate: search.Candidate{Type: "note", Path: path, ChunkIndex: 1}, FinalScore: 0.9},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: path, ChunkIndex: 0}, Type: "note"}, FinalScore: 1},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: path, ChunkIndex: 1}, Type: "note"}, FinalScore: 0.9},
 	})
 	require.NoError(t, err)
 	require.Contains(t, packed.Text, "first body")
@@ -42,8 +42,8 @@ func TestPackRejectsPathOnlyNoteOutsideVault(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(parent, "secret.md"), []byte("secret body marker"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "allowed.md"), []byte("allowed body marker"), 0o644))
 	packed, err := (&DefaultPacker{VaultPath: root}).Pack(context.Background(), search.QuerySpec{Text: "guide", Budget: search.Budget{Chars: 2_000}}, []search.RankedResult{
-		{Candidate: search.Candidate{Type: "note", Path: "../secret.md", ChunkIndex: 0}, FinalScore: 1},
-		{Candidate: search.Candidate{Type: "note", Path: "allowed.md", ChunkIndex: 0}, FinalScore: 0.9},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "../secret.md", ChunkIndex: 0}, Type: "note"}, FinalScore: 1},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "allowed.md", ChunkIndex: 0}, Type: "note"}, FinalScore: 0.9},
 	})
 	require.NoError(t, err)
 	require.NotContains(t, packed.Text, "secret body marker")
@@ -64,7 +64,7 @@ func TestPackPreservesCancellationDuringLastBodyRead(t *testing.T) {
 	defer cancel()
 	packer := &DefaultPacker{UseFTSBody: true, CodeIndex: cancelingChunkReader{cancel: cancel}}
 	packed, err := packer.Pack(ctx, search.QuerySpec{Text: "example"}, []search.RankedResult{
-		{Candidate: search.Candidate{Type: "code", AnchorID: "example", ChunkIndex: 0}},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: "example", ChunkIndex: 0}, Type: "code"}},
 	})
 	require.ErrorIs(t, err, context.Canceled)
 	require.Empty(t, packed.Text)

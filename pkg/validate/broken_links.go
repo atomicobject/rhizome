@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"os"
 	"path"
 	"path/filepath"
@@ -11,13 +12,16 @@ import (
 	"strings"
 	"sync"
 
+	vaulthealth "github.com/atomicobject/rhizome/pkg/vault/health"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"gopkg.in/yaml.v3"
+
+	// Broken-link issue codes are public validation contracts. Keep note,
+	// heading, and block failures distinct so remediation never confuses an
+	// existing note with a missing target.
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
-// Broken-link issue codes are public validation contracts. Keep note,
-// heading, and block failures distinct so remediation never confuses an
-// existing note with a missing target.
 const (
 	IssueCodeBrokenNoteLink    = "broken_note_link"
 	IssueCodeBrokenHeadingLink = "broken_heading_link"
@@ -28,16 +32,11 @@ const (
 // existed: a deliberate Obsidian placeholder rather than a link that broke.
 const IssueCodePlaceholderNoteLink = "placeholder_note_link"
 
-// RunBrokenLinks checks for broken wikilinks in vault notes.
-func RunBrokenLinks(runCtx RunContext, opts Options) CheckResult {
-	return RunBrokenLinksContext(context.Background(), runCtx, opts)
-}
-
 // unresolvedLinkScan is one broken-link scan split by git evidence into links
 // that broke (the default gate) and placeholders that never had a target.
 type unresolvedLinkScan struct {
-	broke        []obsidian.BrokenLink
-	placeholders []obsidian.BrokenLink
+	broke        []vaulthealth.BrokenLink
+	placeholders []vaulthealth.BrokenLink
 	notes        []string
 	allNotes     []string
 	notesErr     error
@@ -54,7 +53,7 @@ type sharedUnresolvedLinkScan struct {
 	err  error
 }
 
-func unresolvedLinksFor(ctx context.Context, runCtx RunContext, opts Options) (unresolvedLinkScan, error) {
+func unresolvedLinksFor(ctx context.Context, runCtx RunContext, opts ScanOptions) (unresolvedLinkScan, error) {
 	shared := runCtx.unresolvedLinks
 	if shared == nil {
 		return scanUnresolvedLinks(ctx, runCtx, opts)
@@ -76,15 +75,10 @@ func isStarterDir(dir, name string) bool {
 	return yaml.Unmarshal(content, &meta) == nil && strings.TrimSpace(meta.ID) == name
 }
 
-func scanUnresolvedLinks(ctx context.Context, runCtx RunContext, opts Options) (unresolvedLinkScan, error) {
+func scanUnresolvedLinks(ctx context.Context, runCtx RunContext, opts ScanOptions) (unresolvedLinkScan, error) {
 	var scan unresolvedLinkScan
-	broken, err := obsidian.FindBrokenLinksContext(ctx, runCtx.VaultDef, runCtx.NoteReader, obsidian.BrokenLinksOptions{
-		WikilinkOptions: obsidian.WikilinkOptions{
-			SkipAnchors: opts.SkipAnchors,
-			SkipEmbeds:  opts.SkipEmbeds,
-		},
-		IncludeImages: opts.IncludeImages,
-	})
+	broken, err := sourceBrokenLinks(ctx, runCtx, opts)
+
 	scan.scanErr = err
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return scan, ctxErr
@@ -94,7 +88,7 @@ func scanUnresolvedLinks(ctx context.Context, runCtx RunContext, opts Options) (
 	// this vault. Like the init registry, recognize a starter by a
 	// template.yaml whose id matches its directory name.
 	starterBlocks := map[string]bool{}
-	broken = slices.DeleteFunc(broken, func(link obsidian.BrokenLink) bool {
+	broken = slices.DeleteFunc(broken, func(link vaulthealth.BrokenLink) bool {
 		source := path.Clean(filepath.ToSlash(link.Source))
 		if path.Base(source) != "AGENTS.md" || path.Base(path.Dir(source)) != "agents" {
 			return false
@@ -114,7 +108,7 @@ func scanUnresolvedLinks(ctx context.Context, runCtx RunContext, opts Options) (
 	var history linkHistory
 	needsHistory := false
 	for _, link := range broken {
-		if normalizeBrokenLinkReason(link.Reason) == obsidian.BrokenLinkReasonNoteMissing {
+		if normalizeBrokenLinkReason(link.Reason) == vaulthealth.BrokenLinkReasonNoteMissing {
 			needsHistory = true
 			break
 		}
@@ -123,22 +117,22 @@ func scanUnresolvedLinks(ctx context.Context, runCtx RunContext, opts Options) (
 		history = loadLinkHistory(ctx, runCtx.VaultDef.BasePath())
 	}
 	for _, link := range broken {
-		missingNote := normalizeBrokenLinkReason(link.Reason) == obsidian.BrokenLinkReasonNoteMissing
-		if missingNote && policy != obsidian.PlaceholderLinksStrict && history.available && !history.broke(link.Target) {
+		missingNote := normalizeBrokenLinkReason(link.Reason) == vaulthealth.BrokenLinkReasonNoteMissing
+		if missingNote && policy != repoconfig.PlaceholderLinksStrict && history.available && !history.broke(link.Target) {
 			scan.placeholders = append(scan.placeholders, link)
 			continue
 		}
 		scan.broke = append(scan.broke, link)
 	}
 	switch {
-	case !needsHistory || policy == obsidian.PlaceholderLinksStrict:
+	case !needsHistory || policy == repoconfig.PlaceholderLinksStrict:
 	case !history.available:
 		scan.notes = append(scan.notes, fmt.Sprintf("Git history is unavailable (%s), so every unresolved link counts as broken; placeholders cannot be told apart from links that broke.", history.unavailable))
 	case len(scan.placeholders) > 0:
 		scan.notes = append(scan.notes, fmt.Sprintf("%d placeholder link(s) name notes that never existed in git history and are not counted; list them with `rzm validate placeholder-links`.", len(scan.placeholders)))
 	}
 
-	scan.allNotes, scan.notesErr = getNotesListContext(ctx, runCtx.VaultDef, runCtx.NoteReader)
+	scan.allNotes, scan.notesErr = obsidian.NotesListContext(ctx, runCtx.VaultDef, runCtx.NoteReader)
 	matcher := newBrokenLinkMatcherIndex(scan.allNotes)
 	if runCtx.brokenLinkCandidates != nil {
 		matcher = *runCtx.brokenLinkCandidates
@@ -167,24 +161,24 @@ func placeholderPolicy(runCtx RunContext) (string, error) {
 	if vaultPath == "" {
 		vaultPath = runCtx.VaultPath
 	}
-	local, err := obsidian.LoadLocalConfig(vaultPath)
-	if errors.Is(err, obsidian.ErrNoLocalConfig) || vaultPath == "" {
-		return obsidian.PlaceholderLinksHistory, nil
+	local, err := repoconfig.LoadLocalConfig(vaultPath)
+	if errors.Is(err, repoconfig.ErrNoLocalConfig) || vaultPath == "" {
+		return repoconfig.PlaceholderLinksHistory, nil
 	}
 	if err != nil {
 		return "", fmt.Errorf("load broken-links config: %w", err)
 	}
 	switch policy := strings.TrimSpace(local.Validation.BrokenLinks.Placeholders); policy {
-	case "", obsidian.PlaceholderLinksHistory:
-		return obsidian.PlaceholderLinksHistory, nil
-	case obsidian.PlaceholderLinksStrict:
+	case "", repoconfig.PlaceholderLinksHistory:
+		return repoconfig.PlaceholderLinksHistory, nil
+	case repoconfig.PlaceholderLinksStrict:
 		return policy, nil
 	default:
-		return "", fmt.Errorf("validation.brokenLinks.placeholders must be %q or %q, got %q", obsidian.PlaceholderLinksHistory, obsidian.PlaceholderLinksStrict, policy)
+		return "", fmt.Errorf("validation.brokenLinks.placeholders must be %q or %q, got %q", repoconfig.PlaceholderLinksHistory, repoconfig.PlaceholderLinksStrict, policy)
 	}
 }
 
-func groupKeyFor(link obsidian.BrokenLink) brokenLinkGroupKey {
+func groupKeyFor(link vaulthealth.BrokenLink) brokenLinkGroupKey {
 	return brokenLinkGroupKey{
 		target: link.Target, reason: normalizeBrokenLinkReason(link.Reason),
 		fragment: link.Fragment, markdown: link.Markdown,
@@ -194,7 +188,7 @@ func groupKeyFor(link obsidian.BrokenLink) brokenLinkGroupKey {
 // RunBrokenLinksContext propagates cancellation through the health scan and
 // retains partial broken-link findings when individual note reads fail. Only
 // links that broke are issues; placeholders are counted in a note.
-func RunBrokenLinksContext(ctx context.Context, runCtx RunContext, opts Options) CheckResult {
+func RunBrokenLinksContext(ctx context.Context, runCtx RunContext, opts ScanOptions) CheckResult {
 	result := CheckResult{Name: CheckBrokenLinks, OK: true}
 	scan, err := unresolvedLinksFor(ctx, runCtx, opts)
 	if err != nil {
@@ -241,7 +235,7 @@ func RunBrokenLinksContext(ctx context.Context, runCtx RunContext, opts Options)
 // RunPlaceholderLinks lists unresolved links whose target never existed in
 // git history: deliberate placeholders that the broken-links gate does not
 // count. It is a maintenance pass in the audit suite.
-func RunPlaceholderLinks(ctx context.Context, runCtx RunContext, opts Options) CheckResult {
+func RunPlaceholderLinks(ctx context.Context, runCtx RunContext, opts ScanOptions) CheckResult {
 	result := CheckResult{Name: CheckPlaceholderLinks, OK: true}
 	scan, err := unresolvedLinksFor(ctx, runCtx, opts)
 	if err != nil {
@@ -274,27 +268,10 @@ func RunPlaceholderLinks(ctx context.Context, runCtx RunContext, opts Options) C
 	return result
 }
 
-func getNotesListContext(ctx context.Context, vaultDef obsidian.VaultDefinition, noteReader obsidian.NoteReader) ([]string, error) {
-	if reader, ok := noteReader.(obsidian.ContextNoteListReader); ok {
-		return reader.GetNotesListContext(ctx, vaultDef)
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	notes, err := noteReader.GetNotesList(vaultDef)
-	if err != nil {
-		return nil, err
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	return notes, nil
-}
-
-func brokenLinkValidationIssue(link obsidian.BrokenLink, group brokenLinkGroup) Issue {
+func brokenLinkValidationIssue(link vaulthealth.BrokenLink, group brokenLinkGroup) Issue {
 	var candidates []string
 	var confidence string
-	if normalizeBrokenLinkReason(link.Reason) == obsidian.BrokenLinkReasonNoteMissing {
+	if normalizeBrokenLinkReason(link.Reason) == vaulthealth.BrokenLinkReasonNoteMissing {
 		candidates, confidence = group.candidates()
 	}
 	linkType := string(link.LinkType)
@@ -305,7 +282,7 @@ func brokenLinkValidationIssue(link obsidian.BrokenLink, group brokenLinkGroup) 
 	// fragment), the note and fragment for a missing heading or block.
 	authoredTarget := authoredBrokenLinkTarget(link.Target, link.Fragment)
 	missing := authoredTarget
-	if normalizeBrokenLinkReason(link.Reason) == obsidian.BrokenLinkReasonNoteMissing {
+	if normalizeBrokenLinkReason(link.Reason) == vaulthealth.BrokenLinkReasonNoteMissing {
 		missing = link.Target
 	}
 	return Issue{
@@ -315,7 +292,7 @@ func brokenLinkValidationIssue(link obsidian.BrokenLink, group brokenLinkGroup) 
 		Target:  authoredTarget,
 		Message: brokenLinkIssueMessage(link),
 		Line:    link.Line,
-		Variant: newIssueVariant(missing, missing),
+		Variant: diag.NewVariant(missing, missing),
 		Data: mustMarshal(BrokenLinkData{
 			Target: link.Target, LinkType: linkType, Alias: link.Alias,
 			Fragment: link.Fragment, Reason: string(link.Reason), Candidates: candidates,
@@ -324,32 +301,32 @@ func brokenLinkValidationIssue(link obsidian.BrokenLink, group brokenLinkGroup) 
 	}
 }
 
-func brokenLinkIssueMessage(link obsidian.BrokenLink) string {
+func brokenLinkIssueMessage(link vaulthealth.BrokenLink) string {
 	authoredTarget := authoredBrokenLinkTarget(link.Target, link.Fragment)
 	switch normalizeBrokenLinkReason(link.Reason) {
-	case obsidian.BrokenLinkReasonHeadingMissing:
+	case vaulthealth.BrokenLinkReasonHeadingMissing:
 		return fmt.Sprintf("Missing heading fragment %q in [[%s]]; restore that heading or retarget the authored link.", link.Fragment, authoredTarget)
-	case obsidian.BrokenLinkReasonBlockMissing:
+	case vaulthealth.BrokenLinkReasonBlockMissing:
 		return fmt.Sprintf("Missing block fragment %q in [[%s]]; restore that block ID or retarget the authored link.", link.Fragment, authoredTarget)
 	default:
 		return fmt.Sprintf("Missing note target [[%s]]; create the note or retarget the authored link without dropping its fragment.", authoredTarget)
 	}
 }
 
-func brokenLinkIssueCode(reason obsidian.BrokenLinkReason) string {
+func brokenLinkIssueCode(reason vaulthealth.BrokenLinkReason) string {
 	switch normalizeBrokenLinkReason(reason) {
-	case obsidian.BrokenLinkReasonHeadingMissing:
+	case vaulthealth.BrokenLinkReasonHeadingMissing:
 		return IssueCodeBrokenHeadingLink
-	case obsidian.BrokenLinkReasonBlockMissing:
+	case vaulthealth.BrokenLinkReasonBlockMissing:
 		return IssueCodeBrokenBlockLink
 	default:
 		return IssueCodeBrokenNoteLink
 	}
 }
 
-func normalizeBrokenLinkReason(reason obsidian.BrokenLinkReason) obsidian.BrokenLinkReason {
+func normalizeBrokenLinkReason(reason vaulthealth.BrokenLinkReason) vaulthealth.BrokenLinkReason {
 	if reason == "" {
-		return obsidian.BrokenLinkReasonNoteMissing
+		return vaulthealth.BrokenLinkReasonNoteMissing
 	}
 	return reason
 }

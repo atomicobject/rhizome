@@ -3,21 +3,23 @@ package identifierreconcile
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // RevalidateCompleteSnapshot proves that the current schema and complete
 // Markdown source inventory still match the sealed repair assembly. The EFF-0047
-// adapter calls this while holding its opaque IndexLockLease, immediately before
+// adapter calls this while holding its opaque indexlock.Lease, immediately before
 // mapping physical operations; it does not create or acquire a competing lease.
 func (a *RepairAssembly) RevalidateCompleteSnapshot(
 	ctx context.Context,
 	vaultDef obsidian.VaultDefinition,
+	noteMetadata notemeta.Indexer,
 ) error {
 	snapshot, err := a.ValidatedSnapshot()
 	if err != nil {
@@ -27,7 +29,7 @@ func (a *RepairAssembly) RevalidateCompleteSnapshot(
 	if basePath == "" {
 		return fmt.Errorf("identifier repair revalidation requires vault root")
 	}
-	schema, err := ontology.LoadSchema(basePath)
+	schema, err := ontoschema.LoadSchema(basePath)
 	if err != nil {
 		return fmt.Errorf("reload identifier repair ontology schema: %w", err)
 	}
@@ -37,7 +39,7 @@ func (a *RepairAssembly) RevalidateCompleteSnapshot(
 	if schema.Hash != snapshot.SchemaHash {
 		return fmt.Errorf("identifier repair schema changed after planning")
 	}
-	sources, err := notemeta.BuildNoteSourceFacts(ctx, vaultDef)
+	sources, err := noteMetadata.BuildNoteSourceFacts(ctx, vaultDef)
 	if err != nil {
 		return fmt.Errorf("rebuild identifier repair source inventory: %w", err)
 	}

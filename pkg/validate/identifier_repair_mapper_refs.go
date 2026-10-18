@@ -2,11 +2,10 @@ package validate
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
 	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"strings"
 )
 
 // remapIdentifierAliasOwners carries sealed owner transitions across a
@@ -21,7 +20,7 @@ func remapIdentifierAliasOwners(aliases, primary []OntologyEdit, fields map[stri
 	ownersByNewRef := make(map[string]string)
 	for _, intent := range fields {
 		edit := intent.Edit
-		if edit.Kind != reference.StructuredFieldPreferredIdentifier || edit.Operation != reference.StructuredFieldEditReplace {
+		if edit.Kind != identifierrewrite.StructuredFieldPreferredIdentifier || edit.Operation != identifierrewrite.StructuredFieldEditReplace {
 			continue
 		}
 		oldKey := identifierPhaseOwnerKey(edit.OwnerRef)

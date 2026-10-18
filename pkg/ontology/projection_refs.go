@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strconv"
 	"strings"
 )
@@ -30,7 +31,7 @@ func (r *projectionResolver) resolveSectionRef(ref NodeRef) (*SectionNode, NodeR
 	if node != nil {
 		return node, r.sectionNodeRef(node), nil
 	}
-	return nil, NodeRef{}, fmt.Errorf("section %s not found in %s", ref.Fragment, ref.NotePath)
+	return nil, NodeRef{}, fmt.Errorf("%w: section %s not found in %s", errMissingNode, ref.Fragment, ref.NotePath)
 }
 
 func (r *projectionResolver) resolveSourceSpanRef(ref NodeRef) (*MarkdownSourceSpan, NodeRef, bool, error) {
@@ -67,7 +68,7 @@ func (r *projectionResolver) resolveSourceSpanRef(ref NodeRef) (*MarkdownSourceS
 	}
 	if start, ok := sourceSpanStartFromFragment(fragment); ok {
 		for _, span := range r.snapshot.SourceSpans {
-			if span == nil || span.Shape == EmbeddedSourceShapeSection {
+			if span == nil || span.Shape == ontoschema.EmbeddedSourceShapeSection {
 				continue
 			}
 			if span.Range.Start == start {
@@ -76,7 +77,7 @@ func (r *projectionResolver) resolveSourceSpanRef(ref NodeRef) (*MarkdownSourceS
 		}
 	}
 	for _, span := range r.snapshot.SourceSpans {
-		if span == nil || span.Shape == EmbeddedSourceShapeSection {
+		if span == nil || span.Shape == ontoschema.EmbeddedSourceShapeSection {
 			continue
 		}
 		if sourceSpanFragment(span) == fragment {
@@ -197,7 +198,7 @@ func (r *projectionResolver) resolveSectionByFragment(fragment string) (*Section
 func (r *projectionResolver) sectionNodeRef(node *SectionNode) NodeRef {
 	typeName := r.sectionTypeByID[node.ID]
 	kind := NodeKindSection
-	if noteType := r.schema.Types[typeName]; noteType != nil && noteType.Role == TypeRoleEmbeddedNode {
+	if noteType := r.schema.Types[typeName]; noteType != nil && noteType.Role == ontoschema.TypeRoleEmbeddedNode {
 		kind = NodeKindEmbedded
 	}
 	return NodeRef{
@@ -216,7 +217,7 @@ func (r *projectionResolver) sectionNodeRef(node *SectionNode) NodeRef {
 func (r *projectionResolver) sourceSpanNodeRef(span *MarkdownSourceSpan) NodeRef {
 	typeName := r.sectionTypeByID[span.ID]
 	kind := NodeKindSection
-	if noteType := r.schema.Types[typeName]; noteType != nil && noteType.Role == TypeRoleEmbeddedNode {
+	if noteType := r.schema.Types[typeName]; noteType != nil && noteType.Role == ontoschema.TypeRoleEmbeddedNode {
 		kind = NodeKindEmbedded
 	}
 	return NodeRef{

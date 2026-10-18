@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/bmatcuk/doublestar/v4"
 )
 
@@ -75,7 +75,7 @@ func (r *CodeAnchorRefsRetriever) Retrieve(ctx context.Context, spec search.Quer
 
 	merged := make(map[string]search.Candidate)
 	relPathForAbs := func(abs string) string {
-		rel, err := vaultPaths.Rel(abs)
+		rel, err := vaultPaths.RelStrict(abs)
 		if err != nil || rel == "" {
 			return ""
 		}
@@ -161,6 +161,15 @@ func (r *CodeAnchorRefsRetriever) Retrieve(ctx context.Context, spec search.Quer
 					key := h.String()
 
 					c := search.Candidate{
+						SourceRef: search.SourceRef{
+							Path:       intel.Path,
+							Title:      intel.Symbol,
+							Symbol:     intel.Symbol,
+							FQN:        intel.FQN,
+							Kind:       intel.Kind,
+							AnchorID:   id,
+							ChunkIndex: -1,
+						},
 						Handle: h,
 						Owner:  h,
 						Evidence: []search.Evidence{{
@@ -173,14 +182,7 @@ func (r *CodeAnchorRefsRetriever) Retrieve(ctx context.Context, spec search.Quer
 								"snippet": "via code anchor: " + a.Label,
 							},
 						}},
-						Type:       "anchor",
-						Path:       intel.Path,
-						Title:      intel.Symbol,
-						Symbol:     intel.Symbol,
-						FQN:        intel.FQN,
-						Kind:       intel.Kind,
-						AnchorID:   id,
-						ChunkIndex: -1,
+						Type: "anchor",
 					}
 
 					if existing, ok := merged[key]; ok {
@@ -211,6 +213,14 @@ func (r *CodeAnchorRefsRetriever) Retrieve(ctx context.Context, spec search.Quer
 						h := knowledge.AnchorHandle(id)
 						key := h.String()
 						c := search.Candidate{
+							SourceRef: search.SourceRef{
+								Path:       rel,
+								Title:      filepath.Base(absFile),
+								Symbol:     filepath.Base(absFile),
+								Kind:       "module",
+								AnchorID:   id,
+								ChunkIndex: -1,
+							},
 							Handle: h,
 							Owner:  h,
 							Evidence: []search.Evidence{{
@@ -223,13 +233,7 @@ func (r *CodeAnchorRefsRetriever) Retrieve(ctx context.Context, spec search.Quer
 									"snippet": "via code anchor: " + a.Label,
 								},
 							}},
-							Type:       "anchor",
-							Path:       rel,
-							Title:      filepath.Base(absFile),
-							Symbol:     filepath.Base(absFile),
-							Kind:       "module",
-							AnchorID:   id,
-							ChunkIndex: -1,
+							Type: "anchor",
 						}
 						if existing, ok := merged[key]; ok {
 							merged[key] = search.MergeCandidate(existing, c)
@@ -276,6 +280,14 @@ func (r *CodeAnchorRefsRetriever) Retrieve(ctx context.Context, spec search.Quer
 						h := knowledge.AnchorHandle(id)
 						key := h.String()
 						c := search.Candidate{
+							SourceRef: search.SourceRef{
+								Path:       relPath,
+								Title:      filepath.Base(absFile),
+								Symbol:     filepath.Base(absFile),
+								Kind:       "module",
+								AnchorID:   id,
+								ChunkIndex: -1,
+							},
 							Handle: h,
 							Owner:  h,
 							Evidence: []search.Evidence{{
@@ -288,13 +300,7 @@ func (r *CodeAnchorRefsRetriever) Retrieve(ctx context.Context, spec search.Quer
 									"snippet": "via code anchor: " + a.Label,
 								},
 							}},
-							Type:       "anchor",
-							Path:       relPath,
-							Title:      filepath.Base(absFile),
-							Symbol:     filepath.Base(absFile),
-							Kind:       "module",
-							AnchorID:   id,
-							ChunkIndex: -1,
+							Type: "anchor",
 						}
 						if existing, ok := merged[key]; ok {
 							merged[key] = search.MergeCandidate(existing, c)
@@ -320,7 +326,7 @@ func (r *CodeAnchorRefsRetriever) moduleAnchorForAbsFile(ctx context.Context, va
 	if r.Store == nil || strings.TrimSpace(absFile) == "" || vaultPaths.Root() == "" {
 		return "", false
 	}
-	rel, err := vaultPaths.RelCode(absFile)
+	rel, err := vaultPaths.RelCodeStrict(absFile)
 	if err != nil || rel == "" {
 		return "", false
 	}

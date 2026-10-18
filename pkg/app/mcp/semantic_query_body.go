@@ -9,10 +9,10 @@ import (
 	"unicode/utf8"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/contextpack"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 func materializeSemanticBodies(ctx context.Context, cfg Config, intel *semdb.Store, groups []semanticQueryGroup, selected map[int]semanticSelection, optionsByIndex map[int][]semanticContentOption, anchors map[string]codeanchor.IntelAnchor, offset int) map[int]semanticBody {

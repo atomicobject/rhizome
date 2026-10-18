@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -70,7 +71,7 @@ type Consumer @node(paths: ["notes/*.md"]) {
 				files["specs/0-keeper.md"] = "---\nid: ITEM-0001\naliases: [ITEM-0001]\n---\n# Keeper\n"
 			}
 			vault := setupAgentTestVault(t, files)
-			stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
 			unchanged, readErr := os.ReadFile(filepath.Join(vault.path, filepath.FromSlash(oldPath)))
 			require.NoError(t, readErr)
 			require.Equal(t, original, string(unchanged), "planning must leave original authored source intact")
@@ -85,7 +86,7 @@ type Consumer @node(paths: ["notes/*.md"]) {
 			require.NotNil(t, planned.FixPlan, stdout)
 			require.Len(t, planned.FixPlan.Actions, 1, stdout)
 			action := planned.FixPlan.Actions[0]
-			stdout, stderr, err = runRootCLI(t, nil, []string{"agent", "validate", "fix", "identifiers", "--apply", "--action", action.ID, "--vault", vault.name})
+			stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "identifiers", "--apply", "--action", action.ID, "--vault", vault.name})
 			require.NoError(t, err, stdout)
 			require.Empty(t, stderr)
 			var applied validationrun.ValidationResult
@@ -109,12 +110,12 @@ type Consumer @node(paths: ["notes/*.md"]) {
 			store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 			require.NoError(t, err)
 			defer store.Close()
-			nodes, err := store.OntologyNodesByType(context.Background(), "Story")
+			nodes, err := store.OntologyNodesByType(vaultconfig.WithEnv(context.Background(), vault.env), "Story")
 			require.NoError(t, err)
 			require.Len(t, nodes, 2)
 			for _, node := range nodes {
 				require.Equal(t, newPath, node.NotePath)
-				rows, err := store.OntologyNodeFieldValuesByNodeIDs(context.Background(), []string{node.NodeID}, []string{"id", "alias", "aliases"})
+				rows, err := store.OntologyNodeFieldValuesByNodeIDs(vaultconfig.WithEnv(context.Background(), vault.env), []string{node.NodeID}, []string{"id", "alias", "aliases"})
 				require.NoError(t, err)
 				byField := map[string][]string{}
 				for _, row := range rows {
@@ -138,7 +139,7 @@ type Consumer @node(paths: ["notes/*.md"]) {
 				}
 			}
 			require.NoError(t, store.Close())
-			stdout, stderr, err = runRootCLI(t, nil, []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
+			stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
 			require.NoError(t, err, stdout)
 			require.Empty(t, stderr)
 			var repeat validationrun.ValidationResult

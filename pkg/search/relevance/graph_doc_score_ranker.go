@@ -1,18 +1,17 @@
 // graph_doc_score_ranker.go decorates a base Ranker with graph-derived evidence
 // (HITS authority/hub, community membership). The decorator pattern allows stacking
-// multiple graph-aware rankers (e.g., GraphAnchorScoreRanker + GraphDocScoreRanker).
+// multiple graph-aware rankers (e.g., GraphAnchorScoreRanker + GraphDocAdjuster).
 //
 // Docs: [Search (Hub)](docs/hubs/Search (Hub).md), [Graph (Hub)](docs/hubs/Graph (Hub).md)
 package relevance
 
 import (
 	"context"
-	"errors"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type graphDocScoreStore interface {
@@ -20,19 +19,15 @@ type graphDocScoreStore interface {
 	GraphDocEdgesWithConfidenceForPaths(ctx context.Context, paths []string) ([]semdb.GraphDocEdge, error)
 }
 
-// GraphDocScoreRanker decorates candidates with graph-derived evidence (HITS + communities)
+// GraphDocAdjuster decorates candidates with graph-derived evidence (HITS + communities)
 // before delegating to the underlying ranker.
-type GraphDocScoreRanker struct {
-	Base  search.Ranker
+type GraphDocAdjuster struct {
 	Store graphDocScoreStore
 }
 
-func (r *GraphDocScoreRanker) Rank(ctx context.Context, spec search.QuerySpec, candidates []search.Candidate) ([]search.RankedResult, error) {
-	if r.Base == nil {
-		return nil, errors.New("missing base ranker")
-	}
+func (r *GraphDocAdjuster) Adjust(ctx context.Context, spec search.QuerySpec, candidates []search.Candidate) ([]search.Candidate, error) {
 	if r.Store == nil || len(candidates) == 0 {
-		return r.Base.Rank(ctx, spec, candidates)
+		return candidates, nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -40,7 +35,7 @@ func (r *GraphDocScoreRanker) Rank(ctx context.Context, spec search.QuerySpec, c
 
 	paths, seedPaths := collectCandidateAndSeedPaths(spec, candidates)
 	if len(paths) == 0 {
-		return r.Base.Rank(ctx, spec, candidates)
+		return candidates, nil
 	}
 
 	scores, err := r.Store.GraphDocScoresByPaths(ctx, paths)
@@ -159,21 +154,7 @@ func (r *GraphDocScoreRanker) Rank(ctx context.Context, spec search.QuerySpec, c
 		augmented = append(augmented, c)
 	}
 
-	return r.Base.Rank(ctx, spec, augmented)
-}
-
-func (r *GraphDocScoreRanker) ApproxChannelWeights(spec search.QuerySpec) map[search.EvidenceChannel]float64 {
-	if provider, ok := r.Base.(search.ApproxScoreProvider); ok {
-		return provider.ApproxChannelWeights(spec)
-	}
-	return search.ApproxChannelWeightsForIntent(spec.Intent)
-}
-
-func (r *GraphDocScoreRanker) ApproxMaxPerOwner(spec search.QuerySpec) int {
-	if provider, ok := r.Base.(search.ApproxScoreProvider); ok {
-		return provider.ApproxMaxPerOwner(spec)
-	}
-	return 1
+	return augmented, nil
 }
 
 func collectCandidateAndSeedPaths(spec search.QuerySpec, candidates []search.Candidate) (paths []string, seedPaths []string) {

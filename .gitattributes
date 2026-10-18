@@ -1,0 +1,5 @@
+# These fixtures are compared as exact bytes on every platform.
+pkg/indexingperf/testdata/window.golden text eol=lf
+pkg/indexingperf/testdata/summary.golden text eol=lf
+tools/searchquality/internal/qualityeval/testdata/corpus-v1.json text eol=lf
+tools/searchquality/internal/qualityeval/testdata/corpus-v2.json text eol=lf

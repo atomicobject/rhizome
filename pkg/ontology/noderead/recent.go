@@ -4,9 +4,9 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
 )
 
 // RecentNotes returns a bounded committed note inventory before hydration.
@@ -22,10 +22,7 @@ func (s *Scope) RecentNotes(ctx context.Context, limit int) (ontology.TypeListRe
 	if s.hasOverlay() {
 		return result, fmt.Errorf("recent notes require a committed read scope")
 	}
-	store, ok := s.service.Store.(readmodel.RecentStore)
-	if !ok {
-		return result, fmt.Errorf("recent notes require an indexed recent-note reader")
-	}
+	store := s.service.Store
 	recent, err := store.RecentOntologyNotes(ctx, limit, ontology.OntologyMaterializationVersion)
 	if err != nil {
 		return result, err
@@ -41,7 +38,7 @@ func (s *Scope) RecentNotes(ctx context.Context, limit int) (ontology.TypeListRe
 			n.HasIssues, n.Ambiguous = flags.HasIssues, flags.TypeAmbiguous
 		}
 		typ := n.Type
-		if n.Ambiguous || ontology.OntologyTypeVisibility(typ) == ontology.TypeVisibilityInternal {
+		if n.Ambiguous || ontoschema.OntologyTypeVisibility(typ) == ontoschema.TypeVisibilityInternal {
 			typ = ""
 		}
 		result.Items = append(result.Items, ontology.NodeListItem{Ref: ontology.NodeRef{NotePath: n.Path, Kind: ontology.NodeKindNote}, NotePath: n.Path, Title: cmp.Or(n.Title, n.Path), ResolvedType: typ, HasIssues: n.HasIssues, UpdatedAt: n.Changed})
@@ -52,6 +49,6 @@ func (s *Scope) RecentNotes(ctx context.Context, limit int) (ontology.TypeListRe
 	return result, nil
 }
 
-func allNotesTypeDoc() *ontology.TypeDoc {
-	return &ontology.TypeDoc{Name: ontology.TypeScopeAll, Label: "All notes", Description: "Every indexed note, regardless of resolved ontology type."}
+func allNotesTypeDoc() *schemadoc.TypeDoc {
+	return &schemadoc.TypeDoc{Name: ontology.TypeScopeAll, Label: "All notes", Description: "Every indexed note, regardless of resolved ontology type."}
 }

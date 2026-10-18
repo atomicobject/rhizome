@@ -6,10 +6,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // PrepareFreshRebuild clobbers the current SQLite index database so the next
@@ -63,22 +62,16 @@ func removeSQLiteIndex(path string) error {
 }
 
 func fullRebuildPaths(vaultPath string) ([]string, error) {
-	embCfg, err := obsidian.LoadEmbeddingsConfig(vaultPath)
+	resolved, err := repoconfig.Load(vaultPath)
 	if err != nil {
 		return nil, err
 	}
-	codeCfg, codeErr := obsidian.LoadCodeConfig(vaultPath)
-	if codeErr != nil {
-		codeCfg = codeanchor.DefaultConfig(vaultPath)
-	}
-	codeEmbCfg, _, err := obsidian.EffectiveCodeEmbeddingsConfig(vaultPath, embCfg)
-	if err != nil {
-		return nil, err
-	}
+	embCfg, codeCfg := resolved.NoteEmbeddings, resolved.Code
+	codeEmbCfg, _ := resolved.CodeEmbeddingsFor(embCfg)
 
-	embCfg.IndexPath = obsidian.UnifiedIndexPath(vaultPath, embCfg.IndexPath)
-	codeCfg.IndexPath = obsidian.UnifiedIndexPath(vaultPath, codeCfg.IndexPath)
-	codeEmbCfg.IndexPath = obsidian.UnifiedIndexPath(vaultPath, codeEmbCfg.IndexPath)
+	embCfg.IndexPath = repoconfig.UnifiedIndexPath(vaultPath, embCfg.IndexPath)
+	codeCfg.IndexPath = repoconfig.UnifiedIndexPath(vaultPath, codeCfg.IndexPath)
+	codeEmbCfg.IndexPath = repoconfig.UnifiedIndexPath(vaultPath, codeEmbCfg.IndexPath)
 
 	unique := map[string]struct{}{}
 	add := func(path string) {

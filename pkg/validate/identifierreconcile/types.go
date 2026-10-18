@@ -5,10 +5,10 @@ package identifierreconcile
 import (
 	"encoding/json"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
 )
 
@@ -51,20 +51,20 @@ func (k CanonicalNodeKey) String() string {
 // PoolKey is the normalized schema allocation pool. Strategy is part of pool
 // identity so future allocators cannot accidentally share a number line.
 type PoolKey struct {
-	Strategy  ontology.IdentifierStrategy `json:"strategy"`
-	Prefix    string                      `json:"prefix"`
-	Separator string                      `json:"separator"`
-	Pad       int                         `json:"pad"`
+	Strategy  ontoschema.IdentifierStrategy `json:"strategy"`
+	Prefix    string                        `json:"prefix"`
+	Separator string                        `json:"separator"`
+	Pad       int                           `json:"pad"`
 }
 
 // NewPoolKey derives a comparable pool key from the public ontology metadata.
-func NewPoolKey(format *ontology.IdentifierFormat) (PoolKey, error) {
+func NewPoolKey(format *ontoschema.IdentifierFormat) (PoolKey, error) {
 	if format == nil {
 		return PoolKey{}, fmt.Errorf("identifier format is required")
 	}
 	strategy := format.Strategy
 	if strategy == "" {
-		strategy = ontology.IdentifierStrategySequential
+		strategy = ontoschema.IdentifierStrategySequential
 	}
 	pool := PoolKey{
 		Strategy:  strategy,
@@ -79,11 +79,11 @@ func NewPoolKey(format *ontology.IdentifierFormat) (PoolKey, error) {
 		return PoolKey{}, fmt.Errorf("identifier pool requires prefix and separator")
 	}
 	switch pool.Strategy {
-	case ontology.IdentifierStrategySequential:
+	case ontoschema.IdentifierStrategySequential:
 		if pool.Pad < 1 {
 			return PoolKey{}, fmt.Errorf("SEQUENTIAL identifier pool requires positive pad")
 		}
-	case ontology.IdentifierStrategyDateTime:
+	case ontoschema.IdentifierStrategyDateTime:
 		if pool.Pad != 0 {
 			return PoolKey{}, fmt.Errorf("DATETIME identifier pool requires zero pad")
 		}
@@ -97,8 +97,8 @@ func (p PoolKey) String() string {
 	return string(encoded)
 }
 
-func (p PoolKey) format() *ontology.IdentifierFormat {
-	return &ontology.IdentifierFormat{Strategy: p.Strategy, Prefix: p.Prefix, Separator: p.Separator, Pad: p.Pad}
+func (p PoolKey) format() *ontoschema.IdentifierFormat {
+	return &ontoschema.IdentifierFormat{Strategy: p.Strategy, Prefix: p.Prefix, Separator: p.Separator, Pad: p.Pad}
 }
 
 // ClaimKind distinguishes authored preferred values from aliases.

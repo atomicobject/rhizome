@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/app/queryengine"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/validate"
@@ -85,7 +86,7 @@ func (s *Server) handlePublicQueryRecipes(w http.ResponseWriter, r *http.Request
 	}
 	clean := path.Clean(r.URL.Path)
 	if clean == "/api/v1/query-recipes" {
-		recipes, issues := queryrecipe.LoadDefaultSources(s.cfg.VaultPath)
+		recipes, issues := s.queryRecipeCatalog()
 		writeJSON(w, http.StatusOK, PublicQueryRecipeListResponse{Recipes: recipes, Issues: issues})
 		return
 	}
@@ -98,9 +99,14 @@ func (s *Server) handlePublicQueryRecipes(w http.ResponseWriter, r *http.Request
 		writePublicError(w, http.StatusMethodNotAllowed, PublicErrorMethodNotAllowed, errors.New("method not allowed"))
 		return
 	}
-	recipe, found, _ := s.publicQueryRecipeByID(recipeID)
-	if !found {
+	recipes, loadIssues := s.queryRecipeCatalog()
+	recipe, issues, err := queryrecipe.Select(recipes, loadIssues, recipeID)
+	if err != nil {
 		writePublicError(w, http.StatusNotFound, PublicErrorNotFound, fmt.Errorf("query recipe %q not found", recipeID))
+		return
+	}
+	if len(issues) > 0 {
+		writePublicErrorDetails(w, http.StatusBadRequest, PublicErrorRecipeCompileFailed, errors.New("query recipe failed to load"), map[string]any{"issues": issues})
 		return
 	}
 	writeJSON(w, http.StatusOK, recipe)
@@ -133,20 +139,16 @@ func (s *Server) handlePublicQueryRecipeExecute(w http.ResponseWriter, r *http.R
 			return
 		}
 	}
-	recipe, found, loadIssues := s.publicQueryRecipeByID(recipeID)
-	if !found {
-		writePublicError(w, http.StatusNotFound, PublicErrorNotFound, fmt.Errorf("query recipe %q not found", recipeID))
-		return
-	}
-	if len(loadIssues) > 0 {
-		writePublicErrorDetails(w, http.StatusBadRequest, PublicErrorRecipeCompileFailed, errors.New("query recipe failed to load"), map[string]any{"issues": loadIssues})
-		return
-	}
-	result, issues, err := s.executePublicQueryRecipe(r.Context(), recipe, req.Inputs)
+	recipes, loadIssues := s.queryRecipeCatalog()
+	result, issues, err := s.executePublicQueryRecipe(r.Context(), recipes, loadIssues, recipeID, req.Inputs)
 	if err != nil {
 		if errors.Is(err, errIndexInitializing) {
 			w.Header().Set("Retry-After", "5")
 			writePublicError(w, http.StatusServiceUnavailable, PublicErrorIndexInitializing, errIndexInitializing)
+			return
+		}
+		if errors.Is(err, queryrecipe.ErrNotFound) {
+			writePublicError(w, http.StatusNotFound, PublicErrorNotFound, err)
 			return
 		}
 		writePublicError(w, http.StatusServiceUnavailable, PublicErrorSchemaUnavailable, err)
@@ -326,7 +328,7 @@ func (s *Server) handleOpenAPIYAML(w http.ResponseWriter, r *http.Request) {
 func (s *Server) publicCapabilities(ctx context.Context) (PublicCapabilitiesResponse, error) {
 	status := s.status(ctx)
 	querySchema, queryErr := s.querySchema()
-	recipes, recipeIssues := queryrecipe.LoadDefaultSources(s.cfg.VaultPath)
+	recipes, recipeIssues := s.queryRecipeCatalog()
 	viewCatalog, viewErr := s.publicViewsCatalog(ctx)
 	noteIndex, noteProvider := s.runtime.NoteEmbeddings()
 	codeIndex, codeProvider := s.runtime.CodeEmbeddings()
@@ -555,18 +557,16 @@ func publicProviderState(available bool) PublicProviderState {
 	return PublicProviderState{Available: false, State: "unavailable"}
 }
 
-func (s *Server) publicQueryRecipeByID(id string) (queryrecipe.Recipe, bool, []queryrecipe.Issue) {
-	id = strings.TrimSpace(id)
-	recipes, issues := queryrecipe.LoadDefaultSources(s.cfg.VaultPath)
-	for _, recipe := range recipes {
-		if recipe.ID == id {
-			return recipe, true, issues
+func (s *Server) queryRecipeCatalog() ([]queryrecipe.Recipe, []queryrecipe.Issue) {
+	s.queryRecipesOnce.Do(func() {
+		if s.queryRecipes == nil {
+			s.queryRecipes = queryrecipe.NewRegistry(queryrecipe.DefaultSourceRoots(s.cfg.VaultPath))
 		}
-	}
-	return queryrecipe.Recipe{}, false, issues
+	})
+	return s.queryRecipes.Catalog()
 }
 
-func (s *Server) executePublicQueryRecipe(ctx context.Context, recipe queryrecipe.Recipe, inputs map[string]string) (queryrecipe.RunResult, []queryrecipe.Issue, error) {
+func (s *Server) executePublicQueryRecipe(ctx context.Context, recipes []queryrecipe.Recipe, loadIssues []queryrecipe.Issue, id string, inputs map[string]string) (queryrecipe.RunResult, []queryrecipe.Issue, error) {
 	defs, err := s.ontologyDefinitions()
 	if err != nil {
 		return queryrecipe.RunResult{}, nil, err
@@ -574,23 +574,22 @@ func (s *Server) executePublicQueryRecipe(ctx context.Context, recipe queryrecip
 	if defs == nil || defs.exec == nil {
 		return queryrecipe.RunResult{}, nil, errors.New("ontology query schema is unavailable")
 	}
-	compiled, issues := queryrecipe.Compile(recipe, defs.exec, inputs)
-	if len(issues) > 0 {
-		return queryrecipe.RunResult{}, issues, nil
-	}
-	deps, err := s.ontologyQueryDepsForPrepared(ctx, defs, compiled.Prepared)
-	if err != nil {
-		return queryrecipe.RunResult{}, nil, err
-	}
-	result := ontologyquery.ExecutePrepared(ctx, deps, defs.schema, defs.exec, compiled.Prepared)
-	return queryrecipe.RunResult{
-		Recipe:         recipe,
-		Inputs:         inputs,
-		Variables:      compiled.Variables,
-		Query:          compiled.Query,
-		OutputContract: recipe.OutputContract,
-		Result:         result,
-	}, nil, nil
+	return queryrecipe.Run(ctx, recipes, loadIssues, id, inputs, nil, defs.exec,
+		func(ctx context.Context, prepared *ontologyquery.PreparedQuery) (ontologyquery.Result, error) {
+			var deps ontologyquery.Deps
+			if !prepared.Introspection {
+				var err error
+				deps, err = s.ontologyQueryDepsForPrepared(ctx, defs, prepared)
+				if err != nil {
+					return ontologyquery.Result{}, err
+				}
+			}
+			engine, err := queryengine.New(defs.schema, defs.exec, deps)
+			if err != nil {
+				return ontologyquery.Result{}, err
+			}
+			return engine.Run(ctx, prepared)
+		})
 }
 
 func parsePublicQueryRecipePath(urlPath string) (recipeID string, action string, err error) {

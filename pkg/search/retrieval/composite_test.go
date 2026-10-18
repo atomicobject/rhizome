@@ -12,8 +12,8 @@ import (
 
 func TestNestedRetrieversKeepMetadataPrecedenceAcrossCompletionOrder(t *testing.T) {
 	handle := knowledge.NoteHandle("notes/guide.md")
-	primary := search.Candidate{Handle: handle, Owner: handle, Type: "note", Path: "notes/guide.md", Title: "Authored title", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}
-	fallback := search.Candidate{Handle: handle, Owner: handle, Type: "note", Path: "notes/guide.md", Title: "Filename title", NoteID: "guide", Evidence: []search.Evidence{{Type: "note_vector_similarity", RawScore: 0.8}}}
+	primary := search.Candidate{SourceRef: search.SourceRef{Path: "notes/guide.md", Title: "Authored title"}, Handle: handle, Owner: handle, Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}
+	fallback := search.Candidate{SourceRef: search.SourceRef{Path: "notes/guide.md", Title: "Filename title", NoteID: "guide"}, Handle: handle, Owner: handle, Type: "note", Evidence: []search.Evidence{{Type: "note_vector_similarity", RawScore: 0.8}}}
 	for _, slow := range []string{"primary", "fallback"} {
 		t.Run(slow+" finishes last", func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

@@ -14,13 +14,16 @@ import (
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 func TestDerivedDiagnosticsRetainComputationAndPublicationOutcomes(t *testing.T) {
@@ -39,7 +42,7 @@ func TestDerivedDiagnosticsRetainComputationAndPublicationOutcomes(t *testing.T)
 	full := diagnostics.NewOperation("index", "index")
 	require.NoError(t, recorder.PublishReport(diagnostics.WithOperation(w.runCtx, full), diagnostics.Report{Status: "success"}))
 	provider := &controlledWorkloadProvider{inner: embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Dimensions: 8})}
-	w.nodeSyncer = &semantic.OntologyNodeSyncer{Store: store, Provider: provider, ProviderInfo: embeddings.ProviderConfig{Provider: "test", Dimensions: 8}}
+	w.nodeSyncer = &embedindex.OntologyNodeSyncer{Store: store, Provider: provider, ProviderInfo: embeddings.ProviderConfig{Provider: "test", Dimensions: 8}}
 	w.noteSemanticStore = true
 	cacheService.MarkDirty("notes/PRIVATE_SOURCE.md", cache.DirtyModified)
 	handle := w.processOwnershipBatch()
@@ -136,7 +139,7 @@ func TestPhysicalEmbeddingDiagnosticsRetainRealSharedHTTPRetriesAfterDrain(t *te
 	t.Cleanup(server.Close)
 	provider, err := embeddings.NewOpenAIProvider(embeddings.ProviderConfig{APIKey: "synthetic-private-key", Model: "PRIVATE_MODEL", Endpoint: server.URL, Dimensions: 2})
 	require.NoError(t, err)
-	node := semantic.NewSharedEmbeddingNode(physicalCtx, provider, 1, nil, semantic.EmbedPackerOptions{MaxTexts: 2})
+	node := embedindex.NewSharedEmbeddingNode(physicalCtx, provider, 1, nil, embedindex.EmbedPackerOptions{MaxTexts: 2})
 	rt := &LiveRuntime{ctx: ctx}
 	rt.addCloser(func() { node.Close(); finishPhysical() })
 	t.Cleanup(func() { require.NoError(t, rt.Close()) })
@@ -201,7 +204,7 @@ func TestDerivedDiagnosticsRetainExternalPriorityCancellationCause(t *testing.T)
 	t.Cleanup(func() { require.NoError(t, recorder.Close()) })
 	ctx := diagnostics.WithRecorder(t.Context(), recorder)
 	ctx, finish := observeDerivedWork(ctx, codeanchor.DerivedWork{DerivedScope: codeanchor.DerivedScope{Kind: codeanchor.DerivedNotes}})
-	priority, err := indexlock.RequestPriority(obsidian.IndexLockPath(root))
+	priority, err := indexlock.RequestPriority(repoconfig.IndexLockPath(root))
 	require.NoError(t, err)
 	t.Cleanup(priority.Close)
 	d := &derivedScheduler{watcher: w, ctx: ctx}

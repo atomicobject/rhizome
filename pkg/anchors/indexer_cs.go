@@ -40,11 +40,6 @@ type csMethodSignature struct {
 	returnType SymbolRef
 }
 
-// NewCSharpIndexer constructs a C# indexer without a repo root (uses path-based fallbacks).
-func NewCSharpIndexer() *CSharpIndexer {
-	return NewCSharpIndexerWithRoot("")
-}
-
 // NewCSharpIndexerWithRoot constructs a C# indexer rooted at repoRoot.
 // repoRoot is normalized for deterministic package fallbacks.
 func NewCSharpIndexerWithRoot(repoRoot string) *CSharpIndexer {

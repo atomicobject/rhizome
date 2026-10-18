@@ -67,11 +67,6 @@ var pythonProtocolBases = map[string]bool{
 	"typing_extensions.Protocol": true,
 }
 
-// NewPythonIndexer constructs a Python indexer with default source roots.
-func NewPythonIndexer() *PythonIndexer {
-	return NewPythonIndexerWithRoots([]string{"src", "lib"})
-}
-
 // NewPythonIndexerWithRoots allows configuring source roots (e.g., ["src", "packages"]).
 func NewPythonIndexerWithRoots(roots []string) *PythonIndexer {
 	return NewPythonIndexerWithRootsAndLimits(roots, TreeSitterLimits{})
@@ -1537,6 +1532,3 @@ func parseDecoratorArgsNode(dec *sitter.Node, content []byte) map[string]string 
 	}
 	return args
 }
-
-// PythonIndexerAvailable reports whether Python indexing is supported in this build.
-func PythonIndexerAvailable() bool { return true }

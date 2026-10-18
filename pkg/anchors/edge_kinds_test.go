@@ -78,30 +78,6 @@ func TestIsCodeRefEdge(t *testing.T) {
 	}
 }
 
-func TestEdgePriority(t *testing.T) {
-	tests := []struct {
-		kind     string
-		expected int
-	}{
-		{"wikilink", 1},
-		{"coderef", 2},
-		{"mentions", 3},
-		{"calls", 4},
-		{"type_ref", 5},
-		{"member_ref", 6},
-		{"imports", 7},
-		{"tests", 8},
-		{"unknown", 999},
-		{"WIKILINK", 1}, // case insensitive
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.kind, func(t *testing.T) {
-			assert.Equal(t, tt.expected, EdgePriority(tt.kind))
-		})
-	}
-}
-
 func TestIsDocDomainEdge(t *testing.T) {
 	tests := []struct {
 		kind     string

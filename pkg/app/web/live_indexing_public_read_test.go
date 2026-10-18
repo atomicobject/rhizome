@@ -17,8 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -99,7 +100,7 @@ type Detail implements Section @node(locator: EMBEDDED) { summary: String @field
 	const secondPath = "specs/100-demo/second.md"
 	write(firstPath, "before", "first old", "first-old")
 	write(secondPath, "before", "second old", "second-old")
-	_, err = ontology.EnsureFreshRuntimeWithStore(t.Context(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err = ontologytest.Publish(t.Context(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	require.NoError(t, fixture.intelStore.Close())
 

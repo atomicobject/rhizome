@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strconv"
 	"strings"
 )
@@ -12,7 +13,7 @@ import (
 // lowest positive integer not already in use by an authored same-type
 // sibling. Authored siblings keep their numbers; derived ids fill the gaps
 // in document order.
-func (r *projectionResolver) deriveIdentifierValue(node *SectionNode, field *Field) (string, bool) {
+func (r *projectionResolver) deriveIdentifierValue(node *SectionNode, field *ontoschema.Field) (string, bool) {
 	if node == nil || field == nil || !field.IsDerivableIdentifier || field.DerivedSuffix == "" {
 		return "", false
 	}
@@ -40,7 +41,7 @@ func (r *projectionResolver) deriveIdentifierValue(node *SectionNode, field *Fie
 	return deriveSiblingIdentifier(node.ID, prefix, infos)
 }
 
-func (r *projectionResolver) deriveSourceSpanIdentifierValue(span *MarkdownSourceSpan, field *Field) (string, bool) {
+func (r *projectionResolver) deriveSourceSpanIdentifierValue(span *MarkdownSourceSpan, field *ontoschema.Field) (string, bool) {
 	if span == nil || field == nil || !field.IsDerivableIdentifier || field.DerivedSuffix == "" {
 		return "", false
 	}
@@ -96,9 +97,9 @@ func deriveSiblingIdentifier(nodeID, prefix string, infos []derivedIdentifierSib
 // preferred-identifier value if no embedded ancestor exists.
 func (r *projectionResolver) ancestorSemanticID(nodeID string) string {
 	for parentID := strings.TrimSpace(r.parentIDByID[nodeID]); parentID != ""; parentID = strings.TrimSpace(r.parentIDByID[parentID]) {
-		if parentSpan := r.snapshot.SourceSpansByID[parentID]; parentSpan != nil && parentSpan.Shape != EmbeddedSourceShapeSection {
+		if parentSpan := r.snapshot.SourceSpansByID[parentID]; parentSpan != nil && parentSpan.Shape != ontoschema.EmbeddedSourceShapeSection {
 			parentType := r.schema.Types[r.sectionTypeByID[parentID]]
-			if parentType == nil || parentType.Role != TypeRoleEmbeddedNode {
+			if parentType == nil || parentType.Role != ontoschema.TypeRoleEmbeddedNode {
 				continue
 			}
 			if id := r.semanticIDForSourceSpan(parentSpan, parentType); id != "" {
@@ -111,11 +112,11 @@ func (r *projectionResolver) ancestorSemanticID(nodeID string) string {
 			continue
 		}
 		parentType := r.schema.Types[r.sectionTypeByID[parentID]]
-		if parentType == nil || parentType.Role != TypeRoleEmbeddedNode {
+		if parentType == nil || parentType.Role != ontoschema.TypeRoleEmbeddedNode {
 			continue
 		}
 		parentProjection := r.projectSection(parentNode, r.sectionNodeRef(parentNode))
-		if field := preferredIdentifierField(parentType); field != nil {
+		if field := parentType.PreferredIdentifierField(); field != nil {
 			for _, value := range parentProjection.Fields[field.Name].Values {
 				if id := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(value), "^")); id != "" {
 					return id
@@ -135,8 +136,8 @@ func (r *projectionResolver) ancestorSemanticID(nodeID string) string {
 	return ""
 }
 
-func (r *projectionResolver) semanticIDForSourceSpan(span *MarkdownSourceSpan, nodeType *NoteType) string {
-	field := preferredIdentifierField(nodeType)
+func (r *projectionResolver) semanticIDForSourceSpan(span *MarkdownSourceSpan, nodeType *ontoschema.NoteType) string {
+	field := nodeType.PreferredIdentifierField()
 	if field == nil {
 		return ""
 	}
@@ -152,7 +153,7 @@ func (r *projectionResolver) semanticIDForSourceSpan(span *MarkdownSourceSpan, n
 	return ""
 }
 
-func (r *projectionResolver) authoredIdentifierValueForSourceSpan(span *MarkdownSourceSpan, field *Field) string {
+func (r *projectionResolver) authoredIdentifierValueForSourceSpan(span *MarkdownSourceSpan, field *ontoschema.Field) string {
 	if r == nil || r.snapshot == nil || span == nil || field == nil {
 		return ""
 	}
@@ -173,11 +174,11 @@ func (r *projectionResolver) authoredIdentifierValueForSourceSpan(span *Markdown
 // authoredIdentifierValueForNode returns the trimmed authored value of the
 // preferred-identifier inline field on the given section node, or "" if no
 // `id::` line is authored.
-func authoredIdentifierValueForNode(snapshot *DocumentSnapshot, node *SectionNode, field *Field) string {
+func authoredIdentifierValueForNode(snapshot *DocumentSnapshot, node *SectionNode, field *ontoschema.Field) string {
 	if snapshot == nil || node == nil || field == nil {
 		return ""
 	}
-	binding := sectionValueBinding(snapshot, node, field, PropertyCaseKebab)
+	binding := sectionValueBinding(snapshot, node, field, ontoschema.PropertyCaseKebab)
 	for _, v := range binding.Values {
 		v = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(v), "^"))
 		if v != "" {
@@ -187,13 +188,13 @@ func authoredIdentifierValueForNode(snapshot *DocumentSnapshot, node *SectionNod
 	return authoredIdentifierValueFromRawNodeContent(node, field)
 }
 
-func authoredIdentifierValueFromRawNodeContent(node *SectionNode, field *Field) string {
+func authoredIdentifierValueFromRawNodeContent(node *SectionNode, field *ontoschema.Field) string {
 	if node == nil || field == nil {
 		return ""
 	}
 	for _, line := range strings.Split(node.Content, "\n") {
 		trimmed := strings.TrimSpace(line)
-		for _, name := range FieldSourceNames(field) {
+		for _, name := range ontoschema.FieldSourceNames(field) {
 			prefix := name + "::"
 			if !strings.EqualFold(trimmed[:min(len(trimmed), len(prefix))], prefix) {
 				continue

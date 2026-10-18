@@ -1,6 +1,7 @@
 package validate
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"regexp"
 	"strings"
 
@@ -124,20 +125,20 @@ func rewritePackedInlinePropertyBlock(content string, lineStart int, blockID str
 }
 
 func inlineIdentifierFieldNames(runCtx RunContext) map[string]bool {
-	fields := inlineFieldNamesMatching(runCtx, func(field *ontology.Field) bool {
+	fields := inlineFieldNamesMatching(runCtx, func(field *ontoschema.Field) bool {
 		return field.IsIdentifier
 	})
 	return fields
 }
 
 func inlineFieldNames(runCtx RunContext) map[string]bool {
-	return inlineFieldNamesMatching(runCtx, func(field *ontology.Field) bool {
+	return inlineFieldNamesMatching(runCtx, func(field *ontoschema.Field) bool {
 		return true
 	})
 }
 
-func inlineFieldNamesMatching(runCtx RunContext, include func(*ontology.Field) bool) map[string]bool {
-	schema, err := ontology.LoadSchema(runCtx.VaultPath)
+func inlineFieldNamesMatching(runCtx RunContext, include func(*ontoschema.Field) bool) map[string]bool {
+	schema, err := ontoschema.LoadSchema(runCtx.VaultPath)
 	if err != nil || schema == nil {
 		return nil
 	}
@@ -147,7 +148,7 @@ func inlineFieldNamesMatching(runCtx RunContext, include func(*ontology.Field) b
 			continue
 		}
 		for _, field := range noteType.Fields {
-			if field == nil || field.SourceKind != ontology.FieldSourceInline || !include(field) {
+			if field == nil || field.SourceKind != ontoschema.FieldSourceInline || !include(field) {
 				continue
 			}
 			out[strings.ToLower(strings.TrimSpace(field.Name))] = true

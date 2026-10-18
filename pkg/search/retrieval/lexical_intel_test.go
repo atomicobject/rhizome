@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -92,14 +92,15 @@ func TestIntelLexicalRetriever_DocSectionsUseNoteOwner(t *testing.T) {
 	content := "# Search Ranking\n\nranking budget fairness"
 	require.NoError(t, store.ReplaceIntelDocSections(ctx, notePath,
 		[]codeanchor.IntelDocSection{{
-			SectionID:   sectionID,
-			Path:        notePath,
-			Title:       "Search Ranking",
-			Level:       1,
-			StartByte:   0,
-			EndByte:     int64(len(content)),
-			Content:     content,
-			Fingerprint: "fp",
+			SectionID:    sectionID,
+			SourceNodeID: notePath + "#search-ranking-0",
+			Path:         notePath,
+			Title:        "Search Ranking",
+			Level:        1,
+			StartByte:    0,
+			EndByte:      int64(len(content)),
+			Content:      content,
+			Fingerprint:  "fp",
 		}},
 		nil,
 		[]codeanchor.IntelFTSRow{{
@@ -121,8 +122,8 @@ func TestIntelLexicalRetriever_DocSectionsUseNoteOwner(t *testing.T) {
 	require.Equal(t, knowledge.NoteHandle(notePath), cand.Owner)
 	require.Equal(t, knowledge.FileHandle(notePath).String()+"#doc#"+sectionID, cand.Handle.String())
 	require.Equal(t, notePath+"#search-ranking-0", cand.NodeID)
-	require.Equal(t, notePath+"#search-ranking-0", cand.SourceLocator)
-	require.Equal(t, "SECTION", cand.NodeKind)
+	require.Equal(t, notePath+"#search-ranking-0", cand.NodeRef.String())
+	require.Equal(t, "SECTION", string(cand.NodeRef.Kind))
 	require.NotNil(t, cand.NodeRef)
 	require.Equal(t, ontology.NodeKindSection, cand.NodeRef.Kind)
 	require.Equal(t, notePath+"#search-ranking-0", cand.NodeRef.NodeID)
@@ -144,24 +145,26 @@ func TestIntelLexicalRetriever_DuplicateHeadingsResolveDistinctCanonicalSections
 	require.Greater(t, secondStart, firstStart)
 	sections := []codeanchor.IntelDocSection{
 		{
-			SectionID:   "intel-first",
-			Path:        notePath,
-			Title:       "Decision",
-			Level:       2,
-			StartByte:   int64(firstStart),
-			EndByte:     int64(secondStart),
-			Content:     content[firstStart:secondStart],
-			Fingerprint: "first",
+			SectionID:    "intel-first",
+			SourceNodeID: notePath + "#decision-" + strconv.Itoa(firstStart),
+			Path:         notePath,
+			Title:        "Decision",
+			Level:        2,
+			StartByte:    int64(firstStart),
+			EndByte:      int64(secondStart),
+			Content:      content[firstStart:secondStart],
+			Fingerprint:  "first",
 		},
 		{
-			SectionID:   "intel-second",
-			Path:        notePath,
-			Title:       "Decision",
-			Level:       2,
-			StartByte:   int64(secondStart),
-			EndByte:     int64(len(content)),
-			Content:     content[secondStart:],
-			Fingerprint: "second",
+			SectionID:    "intel-second",
+			SourceNodeID: notePath + "#decision-" + strconv.Itoa(secondStart),
+			Path:         notePath,
+			Title:        "Decision",
+			Level:        2,
+			StartByte:    int64(secondStart),
+			EndByte:      int64(len(content)),
+			Content:      content[secondStart:],
+			Fingerprint:  "second",
 		},
 	}
 	ftsRows := []codeanchor.IntelFTSRow{
@@ -185,13 +188,13 @@ func TestIntelLexicalRetriever_DuplicateHeadingsResolveDistinctCanonicalSections
 
 	first := byHandle[knowledge.FileHandle(notePath).String()+"#doc#intel-first"]
 	require.Equal(t, notePath+"#decision-"+strconv.Itoa(firstStart), first.NodeID)
-	require.Equal(t, first.NodeID, first.SourceLocator)
+	require.Equal(t, first.NodeID, first.NodeRef.String())
 	require.NotNil(t, first.NodeRef)
 	require.Equal(t, "decision-"+strconv.Itoa(firstStart), first.NodeRef.Fragment)
 
 	second := byHandle[knowledge.FileHandle(notePath).String()+"#doc#intel-second"]
 	require.Equal(t, notePath+"#decision-"+strconv.Itoa(secondStart), second.NodeID)
-	require.Equal(t, second.NodeID, second.SourceLocator)
+	require.Equal(t, second.NodeID, second.NodeRef.String())
 	require.NotNil(t, second.NodeRef)
 	require.Equal(t, "decision-"+strconv.Itoa(secondStart), second.NodeRef.Fragment)
 	require.NotEqual(t, first.NodeID, second.NodeID)
@@ -231,8 +234,8 @@ func TestIntelLexicalRetriever_HeadinglessDocSectionResolvesToNoteRoot(t *testin
 	cand := cands[0]
 	require.Equal(t, "doc_section", cand.Type)
 	require.Empty(t, cand.NodeID)
-	require.Equal(t, notePath, cand.SourceLocator)
-	require.Equal(t, string(ontology.NodeKindNote), cand.NodeKind)
+	require.Equal(t, notePath, cand.NodeRef.String())
+	require.Equal(t, string(ontology.NodeKindNote), string(cand.NodeRef.Kind))
 	require.NotNil(t, cand.NodeRef)
 	require.Equal(t, ontology.NodeKindNote, cand.NodeRef.Kind)
 	require.Empty(t, cand.NodeRef.Fragment)
@@ -249,14 +252,15 @@ func TestIntelLexicalRetriever_AuthoredBlockIDPreservesCanonicalSectionIdentity(
 	sectionStart := strings.Index(fullContent, "## Decision")
 	sectionContent := fullContent[sectionStart:]
 	section := codeanchor.IntelDocSection{
-		SectionID:   "intel-anchored",
-		Path:        notePath,
-		Title:       "Decision",
-		Level:       2,
-		StartByte:   int64(sectionStart),
-		EndByte:     int64(len(fullContent)),
-		Content:     sectionContent,
-		Fingerprint: "anchored",
+		SectionID:    "intel-anchored",
+		SourceNodeID: notePath + "#^decision",
+		Path:         notePath,
+		Title:        "Decision",
+		Level:        2,
+		StartByte:    int64(sectionStart),
+		EndByte:      int64(len(fullContent)),
+		Content:      sectionContent,
+		Fingerprint:  "anchored",
 	}
 	require.NoError(t, store.ReplaceIntelDocSections(ctx, notePath, []codeanchor.IntelDocSection{section}, nil, []codeanchor.IntelFTSRow{{
 		ItemType: "doc_section",
@@ -273,7 +277,7 @@ func TestIntelLexicalRetriever_AuthoredBlockIDPreservesCanonicalSectionIdentity(
 
 	cand := cands[0]
 	require.Equal(t, notePath+"#^decision", cand.NodeID)
-	require.Equal(t, notePath+"#^decision", cand.SourceLocator)
+	require.Equal(t, notePath+"#^decision", cand.NodeRef.String())
 	require.Equal(t, "^decision", cand.NodeRef.Fragment)
 	require.Equal(t, notePath+"#^decision", cand.NodeRef.NodeID)
 }

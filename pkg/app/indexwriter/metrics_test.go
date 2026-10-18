@@ -14,17 +14,17 @@ import (
 func TestWriterMetricsDistinguishAttemptedBatchesFromCommittedRows(t *testing.T) {
 	for _, failed := range []bool{false, true} {
 		t.Run(map[bool]string{false: "committed", true: "failed"}[failed], func(t *testing.T) {
-			collector := indexingperf.NewBounded()
+			collector := indexingperf.New()
 			ctx := indexingperf.WithCollector(context.Background(), collector)
 			var applied int
 			wantErr := errors.New("synthetic handler failure")
-			q := NewWithConfig(ctx, Handlers{ApplyNoteIndexBatch: func(_ context.Context, batch []anchors.NoteIndexWork) error {
+			q := newWithConfig(ctx, Handlers{ApplyNoteIndexBatch: func(_ context.Context, batch []anchors.NoteIndexWork) error {
 				applied += len(batch)
 				if failed {
 					return wantErr
 				}
 				return nil
-			}}, Config{DefaultPolicy: FlushPolicy{Rows: 1000, Bytes: 1 << 20, Idle: time.Hour}, PollInterval: time.Hour})
+			}}, config{DefaultPolicy: flushPolicy{Rows: 1000, Bytes: 1 << 20, Idle: time.Hour}, PollInterval: time.Hour})
 			t.Cleanup(func() { _ = q.StopAndWait() })
 			require.NoError(t, q.SubmitNoteIndexWork(ctx, anchors.NoteIndexWork{Path: "a.md"}))
 			require.NoError(t, q.SubmitNoteIndexWork(ctx, anchors.NoteIndexWork{Path: "b.md"}))

@@ -13,25 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	initPath           string
-	initWorkflow       string
-	initAgents         string
-	initSearch         string
-	initRefreshDocs    bool
-	initIncludeIgnored []string
-	initBinaryManager  string
-	initEject          string
-	initRestore        string
-	initCheck          bool
-	initAccept         bool
-	initJSON           bool
-	initAddons         string
-	initSkip           []string
-	initKeepIndexed    []string
-	initSearchKeyStdin bool
-)
-
 // removedInitFlags maps flags init no longer accepts to what replaces them.
 var removedInitFlags = map[string]string{
 	"yes":                         "rzm init no longer needs --yes: without a terminal it uses the recommendations and keeps edited files",
@@ -52,10 +33,11 @@ var removedInitFlags = map[string]string{
 	"skill-overlay-manifest":      "this debugging flag was removed",
 }
 
-var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Set up or update Rhizome in this repository",
-	Long: `Set up Rhizome in this repository, or update it on later runs.
+func (commandOptions *initInvocationOptions) makeInitCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "init",
+		Short: "Set up or update Rhizome in this repository",
+		Long: `Set up Rhizome in this repository, or update it on later runs.
 
 The first run shows what Rhizome found (docs, code, agents, search), asks which
 workflow to install and for a semantic search key if none is available, and
@@ -76,53 +58,54 @@ it, what setup wrote. Scripts and the desktop app use it with --workflow,
 --addons, --agents, --search, --skip, --keep-indexed, --include-ignored, and
 --search-key-stdin, which reads a key from a pipe so it never appears in
 arguments.`,
-	SilenceUsage:  true,
-	SilenceErrors: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		opts := initactions.RunOptions{
-			Dir:               initPath,
-			Interactive:       stdinIsTerminal(cmd),
-			Workflow:          initWorkflow,
-			Agents:            initAgents,
-			Search:            initSearch,
-			RefreshDocs:       initRefreshDocs,
-			IncludeIgnored:    initIncludeIgnored,
-			BinaryManager:     initBinaryManager,
-			Eject:             initEject,
-			Restore:           initRestore,
-			Check:             initCheck,
-			AcceptSuggestions: initAccept,
-			IndexNow: func(projectRoot string) error {
-				def, err := localVaultDefFromCWD(projectRoot)
-				if err != nil {
-					return err
-				}
-				return runResolvedIndexCommand(cmd, def, newNoteMetadataIndexer)
-			},
-			Addons:      initAddons,
-			Skip:        initSkip,
-			KeepIndexed: initKeepIndexed,
-			Stdin:       cmd.InOrStdin(),
-			Stdout:      cmd.OutOrStdout(),
-			Stderr:      cmd.ErrOrStderr(),
-		}
-		var keyErr error
-		if initSearchKeyStdin {
-			opts.Interactive = false
-			opts.SearchKey, keyErr = readSearchKey(cmd)
-		}
-		if initJSON {
-			return runInitJSON(cmd.OutOrStdout(), opts, keyErr)
-		}
-		if keyErr != nil {
-			return keyErr
-		}
-		err := initactions.Run(opts)
-		if errors.Is(err, initactions.ErrChangesPending) {
-			return silentExitError{code: 1}
-		}
-		return err
-	},
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := initactions.RunOptions{
+				Dir:               commandOptions.initPath,
+				Interactive:       stdinIsTerminal(cmd),
+				Workflow:          commandOptions.initWorkflow,
+				Agents:            commandOptions.initAgents,
+				Search:            commandOptions.initSearch,
+				RefreshDocs:       commandOptions.initRefreshDocs,
+				IncludeIgnored:    commandOptions.initIncludeIgnored,
+				BinaryManager:     commandOptions.initBinaryManager,
+				Eject:             commandOptions.initEject,
+				Restore:           commandOptions.initRestore,
+				Check:             commandOptions.initCheck,
+				AcceptSuggestions: commandOptions.initAccept,
+				IndexNow: func(projectRoot string) error {
+					def, err := localVaultDefFromCWD(projectRoot)
+					if err != nil {
+						return err
+					}
+					return commandOptions.runResolvedIndexCommand(cmd, def, newNoteMetadataIndexer)
+				},
+				Addons:      commandOptions.initAddons,
+				Skip:        commandOptions.initSkip,
+				KeepIndexed: commandOptions.initKeepIndexed,
+				Stdin:       cmd.InOrStdin(),
+				Stdout:      cmd.OutOrStdout(),
+				Stderr:      cmd.ErrOrStderr(),
+			}
+			var keyErr error
+			if commandOptions.initSearchKeyStdin {
+				opts.Interactive = false
+				opts.SearchKey, keyErr = readSearchKey(cmd)
+			}
+			if commandOptions.initJSON {
+				return runInitJSON(cmd.OutOrStdout(), opts, keyErr)
+			}
+			if keyErr != nil {
+				return keyErr
+			}
+			err := initactions.Run(opts)
+			if errors.Is(err, initactions.ErrChangesPending) {
+				return silentExitError{code: 1}
+			}
+			return err
+		},
+	}
 }
 
 func stdinIsTerminal(cmd *cobra.Command) bool {
@@ -202,23 +185,23 @@ func initFlagError(cmd *cobra.Command, err error) error {
 	return err
 }
 
-func init() {
-	initCmd.Flags().BoolVar(&initAccept, "accept-suggestions", false, "also apply the suggestions a rerun lists, such as removing folder limits (for agents and scripts after the person agrees)")
-	initCmd.Flags().BoolVar(&initCheck, "check", false, "show what init would change without writing; exit 1 when something would change")
-	initCmd.Flags().StringVar(&initPath, "path", "", "project directory to set up (default: current directory or Git root)")
-	initCmd.Flags().StringVar(&initWorkflow, "workflow", "", "workflow to install: agentic-engineering, domain, or none")
-	initCmd.Flags().StringVar(&initAgents, "agents", "", "agents to set up: claude, codex, cursor (comma-separated), shared for AGENTS.md and shared skills only, or none")
-	initCmd.Flags().StringVar(&initSearch, "search", "", "semantic search provider: voyage (default), openai, ollama, or off")
-	initCmd.Flags().BoolVar(&initRefreshDocs, "refresh-docs", false, "offer Rhizome's latest versions of the starter docs your team owns")
-	initCmd.Flags().StringArrayVar(&initIncludeIgnored, "include-ignored", nil, "index a folder Git ignores (repeatable)")
-	initCmd.Flags().StringVar(&initBinaryManager, "binary-manager", "", "let an external tool such as mise own the Rhizome binary: external")
-	initCmd.Flags().StringVar(&initEject, "eject", "", "keep a workflow's files for your team to own and stop updating them (comma-separated)")
-	initCmd.Flags().StringVar(&initRestore, "restore", "", "resume updates for an ejected workflow")
-	initCmd.Flags().BoolVar(&initJSON, "json", false, "write one JSON document instead of text; first-run setup only (with --check: the plan and every choice)")
-	initCmd.Flags().StringVar(&initAddons, "addons", "", "add-on starters to install with the workflow, such as action-items (comma-separated), or none; first run only")
-	initCmd.Flags().StringArrayVar(&initSkip, "skip", nil, "leave a folder or file out of the index (repeatable; first run only)")
-	initCmd.Flags().StringArrayVar(&initKeepIndexed, "keep-indexed", nil, "keep indexing a path init suggests skipping (repeatable; first run only)")
-	initCmd.Flags().BoolVar(&initSearchKeyStdin, "search-key-stdin", false, "read the semantic search key from a pipe and save it, so it never appears in arguments (first run only)")
+func (commandOptions *initInvocationOptions) registerInitCommands(initCmd, rootCmd *cobra.Command) {
+	initCmd.Flags().BoolVar(&commandOptions.initAccept, "accept-suggestions", false, "also apply the suggestions a rerun lists, such as removing folder limits (for agents and scripts after the person agrees)")
+	initCmd.Flags().BoolVar(&commandOptions.initCheck, "check", false, "show what init would change without writing; exit 1 when something would change")
+	initCmd.Flags().StringVar(&commandOptions.initPath, "path", "", "project directory to set up (default: current directory or Git root)")
+	initCmd.Flags().StringVar(&commandOptions.initWorkflow, "workflow", "", "workflow to install: agentic-engineering, domain, or none")
+	initCmd.Flags().StringVar(&commandOptions.initAgents, "agents", "", "agents to set up: claude, codex, cursor (comma-separated), shared for AGENTS.md and shared skills only, or none")
+	initCmd.Flags().StringVar(&commandOptions.initSearch, "search", "", "semantic search provider: voyage (default), openai, ollama, or off")
+	initCmd.Flags().BoolVar(&commandOptions.initRefreshDocs, "refresh-docs", false, "offer Rhizome's latest versions of the starter docs your team owns")
+	initCmd.Flags().StringArrayVar(&commandOptions.initIncludeIgnored, "include-ignored", nil, "index a folder Git ignores (repeatable)")
+	initCmd.Flags().StringVar(&commandOptions.initBinaryManager, "binary-manager", "", "let an external tool such as mise own the Rhizome binary: external")
+	initCmd.Flags().StringVar(&commandOptions.initEject, "eject", "", "keep a workflow's files for your team to own and stop updating them (comma-separated)")
+	initCmd.Flags().StringVar(&commandOptions.initRestore, "restore", "", "resume updates for an ejected workflow")
+	initCmd.Flags().BoolVar(&commandOptions.initJSON, "json", false, "write one JSON document instead of text; first-run setup only (with --check: the plan and every choice)")
+	initCmd.Flags().StringVar(&commandOptions.initAddons, "addons", "", "add-on starters to install with the workflow, such as action-items (comma-separated), or none; first run only")
+	initCmd.Flags().StringArrayVar(&commandOptions.initSkip, "skip", nil, "leave a folder or file out of the index (repeatable; first run only)")
+	initCmd.Flags().StringArrayVar(&commandOptions.initKeepIndexed, "keep-indexed", nil, "keep indexing a path init suggests skipping (repeatable; first run only)")
+	initCmd.Flags().BoolVar(&commandOptions.initSearchKeyStdin, "search-key-stdin", false, "read the semantic search key from a pipe and save it, so it never appears in arguments (first run only)")
 	initCmd.SetFlagErrorFunc(initFlagError)
 
 	rootCmd.AddCommand(initCmd)

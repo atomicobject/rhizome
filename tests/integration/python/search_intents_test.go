@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	searchplanner "github.com/atomicobject/rhizome/pkg/search/planner"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
 )
@@ -61,7 +61,7 @@ func TestSearchIntents_P3(t *testing.T) {
 		plan, err := planner.Plan(ctx, spec)
 		require.NoError(t, err)
 
-		svc := &search.Service{Retrievers: plan.Retrievers, Ranker: plan.Ranker}
+		svc := &plan
 		resp, err := svc.Search(ctx, spec)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp.Results)
@@ -77,7 +77,7 @@ func TestSearchIntents_P3(t *testing.T) {
 		plan, err := planner.Plan(ctx, spec)
 		require.NoError(t, err)
 
-		svc := &search.Service{Retrievers: plan.Retrievers, Ranker: plan.Ranker}
+		svc := &plan
 		resp, err := svc.Search(ctx, spec)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp.Results)
@@ -103,7 +103,7 @@ func TestSearchIntents_P3(t *testing.T) {
 		plan, err := planner.Plan(ctx, spec)
 		require.NoError(t, err)
 
-		svc := &search.Service{Retrievers: plan.Retrievers, Ranker: plan.Ranker}
+		svc := &plan
 		resp, err := svc.Search(ctx, spec)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp.Results)
@@ -131,7 +131,7 @@ func TestSearchIntents_P3(t *testing.T) {
 		plan, err := planner.Plan(ctx, spec)
 		require.NoError(t, err)
 
-		svc := &search.Service{Retrievers: plan.Retrievers, Ranker: plan.Ranker}
+		svc := &plan
 		resp, err := svc.Search(ctx, spec)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp.Results)
@@ -157,7 +157,7 @@ func TestSearchIntents_P3(t *testing.T) {
 		plan, err := planner.Plan(ctx, spec)
 		require.NoError(t, err)
 
-		svc := &search.Service{Retrievers: plan.Retrievers, Ranker: plan.Ranker}
+		svc := &plan
 		resp, err := svc.Search(ctx, spec)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp.Results)

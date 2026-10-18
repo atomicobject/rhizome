@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // FrozenScopeDriftData is the payload attached to a frozen_scope_drift issue.
@@ -60,23 +60,6 @@ var frozenScopeDriftEffortForms = []frozenScopeDriftEffortForm{
 // variants. Matched case-insensitively.
 const frozenScopeDriftAckMarker = "frozen-scope-drift acknowledged"
 
-// RunFrozenScopeDrift implements the public entrypoint. Defers to the runtime-
-// aware variant when a runtime is available. RunSuiteOnce wires the runtime
-// reuse, so this path is only hit from RunCheck or external callers.
-func RunFrozenScopeDrift(ctx context.Context, runCtx RunContext) CheckResult {
-	if err := runCtx.NoteMetadata.Validate(); err != nil {
-		return CheckResult{Name: CheckFrozenScopeDrift, Error: fmt.Sprintf("note metadata indexer: %v", err)}
-	}
-	rt, cleanup, err := ontology.EnsureFreshRuntime(ctx, runCtx.NoteMetadata, runCtx.VaultDef, runCtx.NoteReader)
-	if err != nil {
-		return CheckResult{Name: CheckFrozenScopeDrift, Skipped: true, Summary: "ontology runtime unavailable: " + err.Error()}
-	}
-	if cleanup != nil {
-		defer cleanup()
-	}
-	return RunFrozenScopeDriftWithRuntime(ctx, runCtx, rt)
-}
-
 // RunFrozenScopeDriftWithRuntime emits issues for every (effort, spec) pair
 // where the spec's `last-updated` is after the effort's `created-at` AND the
 // effort is still live. Closed efforts are skipped. Off-pattern timestamps
@@ -84,13 +67,13 @@ func RunFrozenScopeDrift(ctx context.Context, runCtx RunContext) CheckResult {
 func RunFrozenScopeDriftWithRuntime(ctx context.Context, runCtx RunContext, runtime *ontology.Runtime) CheckResult {
 	result := CheckResult{Name: CheckFrozenScopeDrift, OK: true}
 	if runtime == nil || runtime.Schema == nil {
-		result.Skipped = true
-		result.Summary = "no ontology schema"
+		result.NotApplicable = "no ontology schema"
+		result.Summary = result.NotApplicable
 		return result
 	}
 	if runtime.Store == nil {
-		result.Skipped = true
-		result.Summary = "no intel store"
+		result.NotApplicable = "no intel store"
+		result.Summary = result.NotApplicable
 		return result
 	}
 	formByEffort := make(map[string]frozenScopeDriftEffortForm)
@@ -111,8 +94,8 @@ func RunFrozenScopeDriftWithRuntime(ctx context.Context, runCtx RunContext, runt
 		}
 	}
 	if len(knownTypes) == 0 {
-		result.Skipped = true
-		result.Summary = "no EffortNote or EffortWorkspace type in ontology"
+		result.NotApplicable = "no EffortNote or EffortWorkspace type in ontology"
+		result.Summary = result.NotApplicable
 		return result
 	}
 	effortPaths := make([]string, 0, len(formByEffort))

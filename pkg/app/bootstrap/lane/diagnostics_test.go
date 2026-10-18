@@ -13,6 +13,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,7 +25,7 @@ func TestDiagnosticLaneSkippedWorkPreservesErrorWithoutFailureNoise(t *testing.T
 	defer restore()
 	original := errors.New("PRIVATE_OBSOLETE_INPUT")
 	jobErr := errors.Join(original, ErrSkipped)
-	handle, _, err := executor.Submit(ctx, Request{Kind: KindEmbedCycle, Run: func(context.Context, Reporter) error { return jobErr }})
+	handle, _, err := executor.Submit(ctx, Request{Kind: KindEmbedCycle, Run: func(context.Context, *indexlock.Lease, Reporter) error { return jobErr }})
 	require.NoError(t, err)
 	<-handle.Done()
 	require.ErrorIs(t, handle.Err(), original)
@@ -112,7 +113,7 @@ func diagnosticReports(t *testing.T, root string) []diagnostics.Report {
 func TestDiagnosticLaneCloseWaitsForRemovedQueuedReport(t *testing.T) {
 	executor, ctx, root := diagnosticLane(t, nil)
 	started := make(chan struct{})
-	running, _, err := executor.Submit(ctx, Request{Kind: KindExplicitIndex, Run: func(ctx context.Context, _ Reporter) error {
+	running, _, err := executor.Submit(ctx, Request{Kind: KindExplicitIndex, Run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
 		close(started)
 		<-ctx.Done()
 		return ctx.Err()
@@ -192,7 +193,7 @@ func TestDiagnosticLaneCoalescesOneCollectorAndReport(t *testing.T) {
 		encoded, err := json.Marshal(collector.RenderSummary())
 		assert.NoError(t, err)
 		return encoded
-	}, Run: func(jobCtx context.Context, _ Reporter) error {
+	}, Run: func(jobCtx context.Context, _ *indexlock.Lease, _ Reporter) error {
 		jobOperation = diagnostics.OperationFromContext(jobCtx)
 		assert.NotNil(t, indexingperf.FromContext(jobCtx))
 		assert.NotNil(t, diagnostics.FromContext(jobCtx))
@@ -235,7 +236,7 @@ func TestDiagnosticLaneCoalescesOneCollectorAndReport(t *testing.T) {
 
 func TestDiagnosticLaneQueuedCancelAndShutdown(t *testing.T) {
 	executor, ctx, root := diagnosticLane(t, func(opts *Options) { opts.checkPriority = func() bool { return true } })
-	first, _, err := executor.Submit(ctx, Request{Kind: KindWatcherBatch, Run: func(context.Context, Reporter) error { t.Error("held job ran"); return nil }})
+	first, _, err := executor.Submit(ctx, Request{Kind: KindWatcherBatch, Run: func(context.Context, *indexlock.Lease, Reporter) error { t.Error("held job ran"); return nil }})
 	require.NoError(t, err)
 	first.Cancel()
 	select {
@@ -325,7 +326,7 @@ func TestDiagnosticLanePreemptReportWaitsForDrain(t *testing.T) {
 			close(drained)
 		}
 	}()
-	background, _, err := executor.Submit(ctx, Request{Kind: KindWatcherBatch, Run: func(ctx context.Context, _ Reporter) error {
+	background, _, err := executor.Submit(ctx, Request{Kind: KindWatcherBatch, Run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
 		close(started)
 		<-ctx.Done()
 		close(canceled)
@@ -351,7 +352,7 @@ func TestDiagnosticLanePreemptReportWaitsForDrain(t *testing.T) {
 func TestDiagnosticLanePreflightFailureThenSuccess(t *testing.T) {
 	executor, ctx, root := diagnosticLane(t, nil)
 	executor.SetPreflight(func(Kind) error { return errors.New("provider response body must never persist") })
-	failed, _, err := executor.Submit(ctx, Request{Kind: KindExplicitIndex, Run: func(context.Context, Reporter) error { t.Error("failed preflight ran"); return nil }})
+	failed, _, err := executor.Submit(ctx, Request{Kind: KindExplicitIndex, Run: func(context.Context, *indexlock.Lease, Reporter) error { t.Error("failed preflight ran"); return nil }})
 	require.NoError(t, err)
 	<-failed.Done()
 	executor.SetPreflight(nil)

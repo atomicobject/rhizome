@@ -1,10 +1,9 @@
 package viewconfig
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 type displayNode struct {
@@ -14,15 +13,15 @@ type displayNode struct {
 
 // IsNodeType reports whether a type is listed in Notes navigation and can be
 // a node mount target: only note and embedded-node roles qualify.
-func IsNodeType(nt *ontology.NoteType) bool {
-	return nt != nil && (nt.Role == ontology.TypeRoleNote || nt.Role == ontology.TypeRoleEmbeddedNode)
+func IsNodeType(nt *ontoschema.NoteType) bool {
+	return nt != nil && (nt.Role == ontoschema.TypeRoleNote || nt.Role == ontoschema.TypeRoleEmbeddedNode)
 }
 
 // NavigationMembers returns the sorted node types and the visible interfaces,
 // each with its sorted node implementors, that the ontology summary lists.
 // The summary endpoint and DisplayGroups share it so group mounts and the web
 // rail (web/src/components/noteRailGroups.ts) see the same members.
-func NavigationMembers(schema *ontology.Schema) (types []string, interfaces map[string][]string) {
+func NavigationMembers(schema *ontoschema.Schema) (types []string, interfaces map[string][]string) {
 	interfaces = map[string][]string{}
 	if schema == nil {
 		return nil, interfaces
@@ -62,7 +61,7 @@ func NavigationMembers(schema *ontology.Schema) (types []string, interfaces map[
 
 // DisplayGroups returns the groups with roots in the Notes navigation. It uses
 // the summary's visible interfaces and parent precedence, not ontology membership.
-func DisplayGroups(schema *ontology.Schema) map[string]struct{} {
+func DisplayGroups(schema *ontoschema.Schema) map[string]struct{} {
 	groups := map[string]struct{}{}
 	for group := range DisplayTree(schema).Roots {
 		groups[group] = struct{}{}
@@ -123,13 +122,13 @@ func (t NavigationTree) Listed() map[string]bool {
 
 // DisplayTree mirrors buildRailGroups in web/src/components/noteRailGroups.ts.
 // testdata/display-groups/rail-groups.json pins both to the same answer.
-func DisplayTree(schema *ontology.Schema) NavigationTree {
+func DisplayTree(schema *ontoschema.Schema) NavigationTree {
 	tree := NavigationTree{Parents: map[string]string{}, Roots: map[string][]string{}}
 	typeNames, visibleInterfaces := NavigationMembers(schema)
 	nodes := map[string]displayNode{}
 	for _, name := range typeNames {
 		nt := schema.Types[name]
-		nodes[name] = displayNode{strings.TrimSpace(nt.DisplayGroup), strings.TrimSpace(nt.DisplayParent), displayLabel(name, nt.Label, nt.PluralLabel), nt.Role == ontology.TypeRoleEmbeddedNode}
+		nodes[name] = displayNode{strings.TrimSpace(nt.DisplayGroup), strings.TrimSpace(nt.DisplayParent), displayLabel(name, nt.Label, nt.PluralLabel), nt.Role == ontoschema.TypeRoleEmbeddedNode}
 	}
 	interfaces := make([]string, 0, len(visibleInterfaces))
 	for name := range visibleInterfaces {

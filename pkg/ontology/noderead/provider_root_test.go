@@ -3,12 +3,13 @@ package noderead
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -36,8 +37,8 @@ func TestProviderRootProjectionDisclosesFormatAndAvoidsMarkdownStructure(t *test
 	store := &boundedHydrationStore{rows: map[string]semdb.NoteMetadataRow{
 		"prototype.html": {Path: "prototype.html", Title: "Prototype", FormatID: "html", Mtime: 1, Projection: semdb.NoteProjectionState{Status: semdb.NoteProjectionStatusCurrent}},
 	}}
-	service := NewService(obsidian.VaultDefinition{}, providerRootReader{content: content}, store, &ontology.Schema{Types: map[string]*ontology.NoteType{}}).WithNoteFormats(formats)
-	scope := service.NewScope(context.Background(), ScopeOptions{})
+	service := NewService(obsidian.VaultDefinition{}, providerRootReader{content: content}, store, &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{}}).WithNoteFormats(formats)
+	scope := service.NewScope(ScopeOptions{})
 
 	records, err := scope.Hydrate(context.Background(), []ontology.NodeRef{{NotePath: "prototype.html", Kind: ontology.NodeKindNote}}, HydrateOptions{Profile: HydrateSummary})
 	require.NoError(t, err)
@@ -94,7 +95,7 @@ func TestProviderRootProjectionsBatchHostReadsAndReuseSources(t *testing.T) {
 		refs = append(refs, ontology.NodeRef{NotePath: path, Kind: ontology.NodeKindNote})
 	}
 	reader := &boundedHydrationReader{}
-	scope := NewService(obsidian.VaultDefinition{}, reader, store, &ontology.Schema{Types: map[string]*ontology.NoteType{}}).WithNoteFormats(formats).NewScope(context.Background(), ScopeOptions{})
+	scope := NewService(obsidian.VaultDefinition{}, reader, store, &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{}}).WithNoteFormats(formats).NewScope(ScopeOptions{})
 	refs = append(refs, refs[0], ontology.NodeRef{NotePath: "missing.html", Kind: ontology.NodeKindNote}, ontology.NodeRef{})
 	for range 2 {
 		projections, err := scope.Projections(context.Background(), refs)
@@ -109,7 +110,7 @@ func TestProviderRootProjectionsBatchHostReadsAndReuseSources(t *testing.T) {
 		require.Nil(t, projections[22])
 		require.Equal(t, 1, store.metadataCalls)
 		require.Equal(t, 1, store.typeCalls)
-		require.Equal(t, 1, store.assessmentCalls)
+		require.Zero(t, store.assessmentCalls)
 		require.Equal(t, 21, store.metadataPaths)
 		require.Equal(t, 20, reader.contents)
 		projection, err := scope.Projection(context.Background(), refs[0])

@@ -2,6 +2,7 @@ package validate
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/shellquote"
 	"sort"
 	"strings"
 )
@@ -230,30 +231,13 @@ func buildSafeAutoFixCommand(vaultName string, selectedChecks []string) string {
 		registration, _ := lookupCheck(canonical)
 		var b strings.Builder
 		b.WriteString("rzm agent validate fix ")
-		b.WriteString(shellQuoteCommandArg(registration.CLIName))
+		b.WriteString(shellquote.Quote(registration.CLIName))
 		b.WriteString(" --apply")
 		if vaultName != "" {
 			b.WriteString(" --vault ")
-			b.WriteString(shellQuoteCommandArg(vaultName))
+			b.WriteString(shellquote.Quote(vaultName))
 		}
 		commands = append(commands, b.String())
 	}
 	return strings.Join(commands, " && ")
-}
-
-func shellQuoteCommandArg(arg string) string {
-	if arg == "" {
-		return "''"
-	}
-	safe := true
-	for _, r := range arg {
-		if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.' || r == '/' || r == ':') {
-			safe = false
-			break
-		}
-	}
-	if safe {
-		return arg
-	}
-	return "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
 }

@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"

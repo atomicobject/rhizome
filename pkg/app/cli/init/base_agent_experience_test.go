@@ -1,6 +1,7 @@
 package init
 
 import (
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 	"sort"
 	"strings"
 	"testing"
@@ -98,7 +99,7 @@ func baseContractIdentifierChar(char byte) bool {
 		(char >= '0' && char <= '9')
 }
 
-func requireBaseSkillTemplatesEqual(t *testing.T, expected, actual []skillTemplate) {
+func requireBaseSkillTemplatesEqual(t *testing.T, expected, actual []skilloverlay.Skill) {
 	t.Helper()
 	for _, want := range expected {
 		got := requireSkillTemplate(t, actual, want.Name)
@@ -106,7 +107,7 @@ func requireBaseSkillTemplatesEqual(t *testing.T, expected, actual []skillTempla
 	}
 }
 
-func requireSkillTemplateSetsEqual(t *testing.T, expected, actual []skillTemplate) {
+func requireSkillTemplateSetsEqual(t *testing.T, expected, actual []skilloverlay.Skill) {
 	t.Helper()
 	require.Len(t, actual, len(expected), "no-starter composition should contain exactly the base skill set")
 

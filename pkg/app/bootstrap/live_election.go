@@ -8,7 +8,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // Election: exactly one runtime per vault root owns .rhizome/runtime.lock
@@ -81,7 +81,7 @@ func (rt *LiveRuntime) electRuntimeOwner() bool {
 // it heartbeating for the runtime's lifetime.
 func (rt *LiveRuntime) tryHoldRuntimeLock() (bool, error) {
 	lockPath := appruntime.LockPath(rt.VaultPath)
-	release, acquired, err := indexlock.TryAcquireWithOptions(lockPath, indexlock.AcquireOptions{Role: "runtime/election", ProcessLifetime: true})
+	release, acquired, err := indexlock.TryAcquireWithOptions(lockPath, indexlock.AcquireOptions{Role: "runtime/election"})
 	if err != nil || !acquired {
 		return false, err
 	}
@@ -127,7 +127,7 @@ func (rt *LiveRuntime) becomeLeader() {
 		// explicit index jobs as soon as the listener is up, before leader
 		// indexing work starts.
 		if rt.Lane() == nil {
-			indexLane := lane.New(lane.Options{LockPath: obsidian.IndexLockPath(rt.VaultPath), Debug: rt.debug})
+			indexLane := lane.New(lane.Options{LockPath: repoconfig.IndexLockPath(rt.VaultPath), Debug: rt.debug})
 			rt.SetLane(indexLane)
 			rt.addCloser(indexLane.Close)
 		}

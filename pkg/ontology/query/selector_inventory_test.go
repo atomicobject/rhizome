@@ -3,9 +3,10 @@ package query
 import (
 	"context"
 	"errors"
+
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -93,21 +94,15 @@ func TestSelectorInventoryDoesNotRememberReadFailure(t *testing.T) {
 	require.Equal(t, 2, store.inventoryReads)
 }
 
-func TestSelectorInventoryHonorsCancellationAfterSuccessfulRead(t *testing.T) {
+func TestSelectorInventoryHonorsExecutionCancellation(t *testing.T) {
 	env := selectorInventoryEnv(t)
-	store := &selectorInventoryStore{Store: env.store}
-	deps := env.deps(nil)
-	deps.Store = store
-	loaders, err := newLoaders(deps, env.schema)
-	require.NoError(t, err)
-	rows, err := loaders.selectorMetadataRows(context.Background())
-	require.NoError(t, err)
-	require.NotEmpty(t, rows)
+	prepared, errs := Prepare(env.execSchema, `{ project(find: "notes") { path } }`)
+	require.Empty(t, errs)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = loaders.selectorMetadataRows(ctx)
-	require.ErrorIs(t, err, context.Canceled)
-	require.Equal(t, 1, store.inventoryReads)
+	result := Execute(ctx, env.deps(nil), env.schema, prepared)
+	require.NotEmpty(t, result.Errors)
+	require.Contains(t, result.Errors[0].Message, context.Canceled.Error())
 }
 
 type selectorTypeErrorStore struct{ *semdb.Store }
@@ -130,38 +125,4 @@ func TestSelectorInventoryPreservesTypeErrorsBeyondFirstPage(t *testing.T) {
 	result := Execute(context.Background(), deps, env.schema, prepared)
 	require.Len(t, result.Errors, 1)
 	require.Contains(t, result.Errors[0].Message, "later candidate type failure")
-}
-
-type changingSelectorStore struct {
-	*semdb.Store
-	calls int
-}
-
-func (s *changingSelectorStore) CurrentNoteMetadataRows(ctx context.Context) ([]semdb.NoteMetadataRow, error) {
-	s.calls++
-	rows, err := s.Store.CurrentNoteMetadataRows(ctx)
-	if s.calls > 1 {
-		return nil, err
-	}
-	return rows, err
-}
-
-func TestSelectorInventoryKeepsOneSuccessfulSnapshotWithinExecution(t *testing.T) {
-	env := selectorInventoryEnv(t)
-	prepared, errs := Prepare(env.execSchema, `{
-  first: project(find: "notes", first: 1) { path }
-  second: project(find: "notes", first: 1) { path }
- }`)
-	require.Empty(t, errs)
-	deps := env.deps(nil)
-	store := &changingSelectorStore{Store: env.store}
-	deps.Store = store
-	result := Execute(context.Background(), deps, env.schema, prepared)
-	require.Empty(t, result.Errors)
-	require.NotEmpty(t, result.Data["first"])
-	require.Equal(t, result.Data["first"], result.Data["second"])
-	result = Execute(context.Background(), deps, env.schema, prepared)
-	require.Empty(t, result.Errors)
-	require.Empty(t, result.Data["first"])
-	require.Empty(t, result.Data["second"])
 }

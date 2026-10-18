@@ -25,17 +25,3 @@ func (r *SpecificityRanker) Rank(ctx context.Context, spec search.QuerySpec, can
 	}
 	return r.Base.Rank(ctx, spec, enriched)
 }
-
-func (r *SpecificityRanker) ApproxChannelWeights(spec search.QuerySpec) map[search.EvidenceChannel]float64 {
-	if provider, ok := r.Base.(search.ApproxScoreProvider); ok {
-		return provider.ApproxChannelWeights(spec)
-	}
-	return search.ApproxChannelWeightsForIntent(spec.Intent)
-}
-
-func (r *SpecificityRanker) ApproxMaxPerOwner(spec search.QuerySpec) int {
-	if provider, ok := r.Base.(search.ApproxScoreProvider); ok {
-		return provider.ApproxMaxPerOwner(spec)
-	}
-	return 1
-}

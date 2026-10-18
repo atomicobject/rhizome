@@ -1,10 +1,13 @@
 package cmd
 
+import vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,9 +21,10 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -145,26 +149,13 @@ func newIndexTestCommand(t *testing.T, out *bytes.Buffer) *cobra.Command {
 	return cmd
 }
 
-// resetIndexFlags isolates one test from the package-level index flags.
-func resetIndexFlags(t *testing.T) {
-	t.Helper()
-	previous := [6]bool{indexRebuild, indexStatus, indexTimings, indexInProcess, indexVacuum, debug}
-	previousExplain := indexExplainPath
-	t.Cleanup(func() {
-		indexRebuild, indexStatus, indexTimings = previous[0], previous[1], previous[2]
-		indexInProcess, indexVacuum, debug = previous[3], previous[4], previous[5]
-		indexExplainPath = previousExplain
-	})
-	indexRebuild, indexStatus, indexTimings, indexInProcess, indexVacuum = false, false, false, false, false
-	indexExplainPath = ""
-}
-
 func doneEvent(outcome, message string) lane.Event {
 	return lane.Event{Type: lane.EventDone, JobID: "job-1", Outcome: outcome, Error: message, OK: outcome == lane.OutcomeOK}
 }
 
 func TestRunIndexThroughRuntimeRendersProgressAndSucceeds(t *testing.T) {
-	resetIndexFlags(t)
+	commandOptions := newIndexOptionsForTest(t)
+
 	vault := newRuntimeTestVault(t)
 	startFakeRuntimeServer(t, vault, []lane.Event{
 		{Type: lane.EventProgress, Label: "Indexing notes", Done: 2, Total: 4},
@@ -173,39 +164,42 @@ func TestRunIndexThroughRuntimeRendersProgressAndSucceeds(t *testing.T) {
 	})
 
 	out := &bytes.Buffer{}
-	handled, _, err := runIndexThroughRuntime(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault})
+	handled, _, err := commandOptions.runIndexThroughRuntime(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault})
 	require.True(t, handled)
 	require.NoError(t, err)
 	require.Contains(t, out.String(), "indexed 4 notes")
-	require.NoFileExists(t, obsidian.IndexLockPath(vault), "a delegated index takes no index lock")
+	require.NoFileExists(t, repoconfig.IndexLockPath(vault), "a delegated index takes no index lock")
 }
 
 func TestRunIndexThroughRuntimeReportsAFailedJob(t *testing.T) {
-	resetIndexFlags(t)
+	commandOptions := newIndexOptionsForTest(t)
+
 	vault := newRuntimeTestVault(t)
 	startFakeRuntimeServer(t, vault, []lane.Event{doneEvent(lane.OutcomeFailed, "code index blew up")})
 
 	out := &bytes.Buffer{}
-	handled, _, err := runIndexThroughRuntime(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault})
+	handled, _, err := commandOptions.runIndexThroughRuntime(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault})
 	require.True(t, handled)
 	require.ErrorContains(t, err, "code index blew up")
 }
 
 func TestRunIndexThroughRuntimeAnnouncesAJoinedJob(t *testing.T) {
-	resetIndexFlags(t)
+	commandOptions := newIndexOptionsForTest(t)
+
 	vault := newRuntimeTestVault(t)
 	fake := startFakeRuntimeServer(t, vault, []lane.Event{doneEvent(lane.OutcomeOK, "")})
 	fake.joined = true
 
 	out := &bytes.Buffer{}
-	handled, _, err := runIndexThroughRuntime(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault})
+	handled, _, err := commandOptions.runIndexThroughRuntime(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault})
 	require.True(t, handled)
 	require.NoError(t, err)
 	require.Contains(t, out.String(), "joining index already running (job job-1)")
 }
 
 func TestRunIndexThroughRuntimeCancelsTheJobOnInterrupt(t *testing.T) {
-	resetIndexFlags(t)
+	commandOptions := newIndexOptionsForTest(t)
+
 	vault := newRuntimeTestVault(t)
 	fake := startFakeRuntimeServer(t, vault, []lane.Event{
 		{Type: lane.EventProgress, Label: "Indexing", Done: 1, Total: 10},
@@ -222,7 +216,7 @@ func TestRunIndexThroughRuntimeCancelsTheJobOnInterrupt(t *testing.T) {
 		cancel()
 	}()
 
-	handled, _, err := runIndexThroughRuntime(cmd, obsidian.VaultDefinition{Path: vault})
+	handled, _, err := commandOptions.runIndexThroughRuntime(cmd, obsidian.VaultDefinition{Path: vault})
 	require.True(t, handled)
 	var exit silentExitError
 	require.ErrorAs(t, err, &exit)
@@ -231,12 +225,13 @@ func TestRunIndexThroughRuntimeCancelsTheJobOnInterrupt(t *testing.T) {
 }
 
 func TestRunIndexThroughRuntimeFallsBackWhenAutostartIsDisabled(t *testing.T) {
-	resetIndexFlags(t)
+	commandOptions := newIndexOptionsForTest(t)
+
 	vault := newRuntimeTestVault(t)
 	t.Setenv(appruntime.AutostartEnv, "0")
 
 	out := &bytes.Buffer{}
-	handled, _, err := runIndexThroughRuntime(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault})
+	handled, _, err := commandOptions.runIndexThroughRuntime(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault})
 	require.False(t, handled)
 	require.NoError(t, err)
 	require.Contains(t, out.String(), "Indexing in this process:")
@@ -244,25 +239,29 @@ func TestRunIndexThroughRuntimeFallsBackWhenAutostartIsDisabled(t *testing.T) {
 }
 
 func TestRunIndexThroughRuntimeAttachesEvenWhenAutostartIsDisabled(t *testing.T) {
-	resetIndexFlags(t)
+	commandOptions := newIndexOptionsForTest(t)
+
 	vault := newRuntimeTestVault(t)
 	startFakeRuntimeServer(t, vault, []lane.Event{doneEvent(lane.OutcomeOK, "")})
 	t.Setenv(appruntime.AutostartEnv, "0")
 
 	out := &bytes.Buffer{}
-	handled, _, err := runIndexThroughRuntime(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault})
+	handled, _, err := commandOptions.runIndexThroughRuntime(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault})
 	require.True(t, handled, "auto-start off forbids starting a runtime, not using one")
 	require.NoError(t, err)
 }
 
 func TestVacuumFlagSkipsTheRuntime(t *testing.T) {
-	resetIndexFlags(t)
-	indexVacuum = true
+	commandOptions := newIndexOptionsForTest(t)
+
+	commandOptions.indexVacuum = true
 	vault := newRuntimeTestVault(t)
 	fake := startFakeRuntimeServer(t, vault, []lane.Event{doneEvent(lane.OutcomeOK, "")})
 
 	out := &bytes.Buffer{}
-	err := runResolvedIndexCommand(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault}, func() (notemeta.Indexer, error) {
+	command := newIndexTestCommand(t, out)
+	command.SetContext(vaultconfig.WithEnv(context.Background(), testkit.Env(t)))
+	err := commandOptions.runResolvedIndexCommand(command, obsidian.VaultDefinition{Path: vault}, func() (notemeta.Indexer, error) {
 		return notemeta.Indexer{}, fmt.Errorf("stop before indexing")
 	})
 	require.ErrorContains(t, err, "stop before indexing")
@@ -271,14 +270,15 @@ func TestVacuumFlagSkipsTheRuntime(t *testing.T) {
 }
 
 func TestIndexInProcessFlagSkipsTheRuntime(t *testing.T) {
-	resetIndexFlags(t)
-	indexInProcess = true
+	commandOptions := newIndexOptionsForTest(t)
+
+	commandOptions.indexInProcess = true
 	vault := newRuntimeTestVault(t)
 	fake := startFakeRuntimeServer(t, vault, []lane.Event{doneEvent(lane.OutcomeOK, "")})
 
 	out := &bytes.Buffer{}
 	cmd := newIndexTestCommand(t, out)
-	err := runResolvedIndexCommand(cmd, obsidian.VaultDefinition{Path: vault}, func() (notemeta.Indexer, error) {
+	err := commandOptions.runResolvedIndexCommand(cmd, obsidian.VaultDefinition{Path: vault}, func() (notemeta.Indexer, error) {
 		return notemeta.Indexer{}, fmt.Errorf("stop before indexing")
 	})
 	require.ErrorContains(t, err, "stop before indexing")
@@ -303,7 +303,7 @@ func TestRebuildStopsAHeadlessRuntimeFirst(t *testing.T) {
 	_, acquired, err := indexlock.TryAcquire(appruntime.SpawnLockPath(vault))
 	require.NoError(t, err)
 	require.False(t, acquired, "the spawn lease is held across the replacement")
-	_, acquired, err = indexlock.TryAcquireWithOptions(appruntime.LockPath(vault), indexlock.AcquireOptions{ProcessLifetime: true})
+	_, acquired, err = indexlock.TryAcquireWithOptions(appruntime.LockPath(vault), indexlock.AcquireOptions{})
 	require.NoError(t, err)
 	require.False(t, acquired, "direct serve must lose election until the replacement is finished")
 	release()
@@ -311,7 +311,7 @@ func TestRebuildStopsAHeadlessRuntimeFirst(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, acquired)
 	require.NoError(t, leaseRelease())
-	electionRelease, acquired, err := indexlock.TryAcquireWithOptions(appruntime.LockPath(vault), indexlock.AcquireOptions{ProcessLifetime: true})
+	electionRelease, acquired, err := indexlock.TryAcquireWithOptions(appruntime.LockPath(vault), indexlock.AcquireOptions{})
 	require.NoError(t, err)
 	require.True(t, acquired)
 	require.NoError(t, electionRelease())
@@ -344,7 +344,7 @@ func TestRebuildWithNoRuntimeNeedsNoRestart(t *testing.T) {
 
 func TestRebuildWaitsForUnpublishedRuntimeElectionOwner(t *testing.T) {
 	vault := newRuntimeTestVault(t)
-	ownerRelease, acquired, err := indexlock.TryAcquireWithOptions(appruntime.LockPath(vault), indexlock.AcquireOptions{ProcessLifetime: true})
+	ownerRelease, acquired, err := indexlock.TryAcquireWithOptions(appruntime.LockPath(vault), indexlock.AcquireOptions{})
 	require.NoError(t, err)
 	require.True(t, acquired)
 	defer ownerRelease()
@@ -392,12 +392,13 @@ func TestSummaryTextAcceptsBothShapes(t *testing.T) {
 }
 
 func TestNewWorktreeIndexPrefersTheRuntime(t *testing.T) {
-	resetIndexFlags(t)
+	commandOptions := newIndexOptionsForTest(t)
+
 	vault := newRuntimeTestVault(t)
 	fake := startFakeRuntimeServer(t, vault, []lane.Event{doneEvent(lane.OutcomeOK, "")})
 
 	out := &bytes.Buffer{}
-	err := runNewWorktreeIndexThroughRuntime(newIndexTestCommand(t, out), vault, obsidian.VaultDefinition{Path: vault})
+	err := commandOptions.runNewWorktreeIndexThroughRuntime(newIndexTestCommand(t, out), vault, obsidian.VaultDefinition{Path: vault})
 	require.NoError(t, err)
 	require.EqualValues(t, 1, fake.submits.Load())
 	require.NotContains(t, out.String(), "Indexing in this process")
@@ -419,7 +420,7 @@ func TestPrintIndexStatusNamesTheRuntimeAndLock(t *testing.T) {
 
 func TestPrintIndexStatusWithoutARuntime(t *testing.T) {
 	vault := newRuntimeTestVault(t)
-	lockPath := obsidian.IndexLockPath(vault)
+	lockPath := repoconfig.IndexLockPath(vault)
 	require.NoError(t, os.WriteFile(lockPath, []byte(`{"pid":4242,"host":"box","role":"cli/index","started":"2026-09-17T10:00:00Z"}`), 0o644))
 
 	out := &bytes.Buffer{}
@@ -450,27 +451,27 @@ func TestHoldSpawnLeaseWaitsForACompetingSpawner(t *testing.T) {
 }
 
 func TestIndexReplacementRestartsAfterFallbackReturns(t *testing.T) {
-	resetIndexFlags(t)
+	commandOptions := newIndexOptionsForTest(t)
+
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
 	t.Setenv(appruntime.AutostartEnv, "1")
 	vault := newRuntimeTestVault(t)
 	fake := startFakeRuntimeServer(t, vault, []lane.Event{doneEvent(lane.OutcomeFailed, lane.ErrDatabaseReplaced.Error())})
 	fake.stopAfterStream = true
 	// Fail registry setup to observe a restart attempt without launching a child.
-	previousHome := vaultconfig.UserHomeDirectory
-	t.Cleanup(func() { vaultconfig.UserHomeDirectory = previousHome })
-	var fallbackEntered, restartedEarly, restartAttempted bool
-	vaultconfig.UserHomeDirectory = func() (string, error) {
-		restartAttempted = true
-		restartedEarly = restartedEarly || !fallbackEntered
-		return "", fmt.Errorf("test prevents spawning")
-	}
+	var fallbackEntered bool
+	env.HomeDir = ""
 	out := &bytes.Buffer{}
-	err := runResolvedIndexCommand(newIndexTestCommand(t, out), obsidian.VaultDefinition{Path: vault}, func() (notemeta.Indexer, error) {
+	command := newIndexTestCommand(t, out)
+	command.SetContext(vaultconfig.WithEnv(context.Background(), env))
+	err := commandOptions.runResolvedIndexCommand(command, obsidian.VaultDefinition{Path: vault}, func() (notemeta.Indexer, error) {
 		fallbackEntered = true
+		fmt.Fprintln(out, "fallback entered")
 		return notemeta.Indexer{}, fmt.Errorf("fallback failed before indexing")
 	})
 	require.ErrorContains(t, err, "fallback failed before indexing")
 	require.True(t, fallbackEntered)
-	require.True(t, restartAttempted, "a stopped runtime is restarted even if fallback fails")
-	require.False(t, restartedEarly, "the replacement runtime must not open the database before fallback finishes")
+	require.Contains(t, out.String(), "Could not restart the vault runtime:")
+	require.Less(t, strings.Index(out.String(), "fallback entered"), strings.Index(out.String(), "Could not restart the vault runtime:"))
 }

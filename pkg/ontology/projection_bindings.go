@@ -1,15 +1,16 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strconv"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 )
 
 // noteFieldSource returns the frontmatter source key for a note field, falling
 // back to the field name when no @field(source:) is set.
-func noteFieldSource(field *Field) string {
+func noteFieldSource(field *ontoschema.Field) string {
 	if field == nil {
 		return ""
 	}
@@ -19,16 +20,16 @@ func noteFieldSource(field *Field) string {
 	return field.Name
 }
 
-func (r *projectionResolver) noteSectionBinding(field *Field) FieldBinding {
-	if field.EmbeddedSourceShape != "" && field.EmbeddedSourceShape != EmbeddedSourceShapeSection {
+func (r *projectionResolver) noteSectionBinding(field *ontoschema.Field) FieldBinding {
+	if field.EmbeddedSourceShape != "" && field.EmbeddedSourceShape != ontoschema.EmbeddedSourceShapeSection {
 		return sourceSpanNodesBinding(r, field, matchSourceSpansForField(r.snapshot.SourceSpans, field))
 	}
 	matches := matchSectionsForAssessment(r.snapshot.Sections, field)
 	return sectionNodesBinding(r, field, matches)
 }
 
-func (r *projectionResolver) sectionFieldBinding(parent *SectionNode, field *Field) FieldBinding {
-	if field.EmbeddedSourceShape != "" && field.EmbeddedSourceShape != EmbeddedSourceShapeSection {
+func (r *projectionResolver) sectionFieldBinding(parent *SectionNode, field *ontoschema.Field) FieldBinding {
+	if field.EmbeddedSourceShape != "" && field.EmbeddedSourceShape != ontoschema.EmbeddedSourceShapeSection {
 		parentSpan := r.snapshot.SourceSpansByID[parent.ID]
 		return sourceSpanNodesBinding(r, field, matchSourceSpansForField(sourceSpanChildren(parentSpan), field))
 	}
@@ -36,25 +37,25 @@ func (r *projectionResolver) sectionFieldBinding(parent *SectionNode, field *Fie
 	return sectionNodesBinding(r, field, matches)
 }
 
-func (r *projectionResolver) sourceSpanChildBinding(parent *MarkdownSourceSpan, field *Field) FieldBinding {
-	if field.EmbeddedSourceShape != "" && field.EmbeddedSourceShape != EmbeddedSourceShapeSection {
+func (r *projectionResolver) sourceSpanChildBinding(parent *MarkdownSourceSpan, field *ontoschema.Field) FieldBinding {
+	if field.EmbeddedSourceShape != "" && field.EmbeddedSourceShape != ontoschema.EmbeddedSourceShapeSection {
 		return sourceSpanNodesBinding(r, field, matchSourceSpansForField(sourceSpanChildren(parent), field))
 	}
 	return FieldBinding{
 		FieldName:  field.Name,
 		Kind:       BindingKindSectionList,
-		SourceKind: FieldSourceInline,
+		SourceKind: ontoschema.FieldSourceInline,
 	}
 }
 
-func noteFieldBinding(snapshot *DocumentSnapshot, doc *noteDoc, field *Field) FieldBinding {
+func noteFieldBinding(snapshot *DocumentSnapshot, doc *noteDoc, field *ontoschema.Field) FieldBinding {
 	binding := FieldBinding{
 		FieldName:  field.Name,
 		SourceKind: field.SourceKind,
 		Values:     nil,
 	}
 	switch field.SourceKind {
-	case FieldSourceInline:
+	case ontoschema.FieldSourceInline:
 		spans := scanInlineFields(snapshot.Content, []ByteRange{{Start: snapshot.FrontmatterRange.End, End: len(snapshot.Content)}})
 		values, matched := inlineFieldValues(spans, field)
 		binding.Kind = BindingKindInlineField
@@ -84,26 +85,26 @@ func ProjectRawFrontmatterFieldBinding(snapshot *DocumentSnapshot, fieldName str
 	if snapshot == nil || fieldName == "" {
 		return FieldBinding{}
 	}
-	field := &Field{
-		Name: fieldName, Source: fieldName, SourceKind: FieldSourceFrontmatter,
-		Kind: FieldKindScalar, TypeName: "String", List: true,
+	field := &ontoschema.Field{
+		Name: fieldName, Source: fieldName, SourceKind: ontoschema.FieldSourceFrontmatter,
+		Kind: ontoschema.FieldKindScalar, TypeName: "String", List: true,
 	}
 	doc := &noteDoc{Path: snapshot.NotePath, Content: snapshot.Content, Frontmatter: cloneAnyMap(snapshot.Frontmatter)}
 	return noteFieldBinding(snapshot, doc, field)
 }
 
-func sectionValueBinding(snapshot *DocumentSnapshot, node *SectionNode, field *Field, propertyCase PropertyCase) FieldBinding {
+func sectionValueBinding(snapshot *DocumentSnapshot, node *SectionNode, field *ontoschema.Field, propertyCase ontoschema.PropertyCase) FieldBinding {
 	spans := scanSectionInlineFields(snapshot.Content, sectionOwnRanges(snapshot.Content, node))
 	return inlinePropertyBinding(snapshot, field, propertyCase, spans)
 }
 
-func sourceSpanValueBinding(snapshot *DocumentSnapshot, span *MarkdownSourceSpan, field *Field, propertyCase PropertyCase) FieldBinding {
+func sourceSpanValueBinding(snapshot *DocumentSnapshot, span *MarkdownSourceSpan, field *ontoschema.Field, propertyCase ontoschema.PropertyCase) FieldBinding {
 	binding := FieldBinding{
 		FieldName:  field.Name,
 		SourceKind: field.SourceKind,
 	}
 	switch field.SourceKind {
-	case FieldSourceCheckbox:
+	case ontoschema.FieldSourceCheckbox:
 		binding.Kind = BindingKindCheckboxField
 		if span != nil && span.Checkbox != nil {
 			binding.Present = true
@@ -113,7 +114,7 @@ func sourceSpanValueBinding(snapshot *DocumentSnapshot, span *MarkdownSourceSpan
 			binding.Range = span.Checkbox.TokenRange
 		}
 		return binding
-	case FieldSourceItemTitle, FieldSourceItemSummary, FieldSourceItemDetail:
+	case ontoschema.FieldSourceItemTitle, ontoschema.FieldSourceItemSummary, ontoschema.FieldSourceItemDetail:
 		binding.Kind = BindingKindInlineField
 		value, ok := sourceSpanItemFieldValue(snapshot.Content, span, field.SourceKind)
 		if ok {
@@ -132,13 +133,13 @@ func sourceSpanValueBinding(snapshot *DocumentSnapshot, span *MarkdownSourceSpan
 	return inlinePropertyBinding(snapshot, field, propertyCase, spans)
 }
 
-func inlinePropertyBinding(snapshot *DocumentSnapshot, field *Field, propertyCase PropertyCase, spans []InlineFieldSpan) FieldBinding {
+func inlinePropertyBinding(snapshot *DocumentSnapshot, field *ontoschema.Field, propertyCase ontoschema.PropertyCase, spans []InlineFieldSpan) FieldBinding {
 	binding := FieldBinding{
 		FieldName:  field.Name,
 		SourceKind: field.SourceKind,
 		Kind:       BindingKindInlineField,
 	}
-	propertyName := DefaultPropertyName(field.Name, propertyCase)
+	propertyName := ontoschema.DefaultPropertyName(field.Name, propertyCase)
 	for _, span := range spans {
 		if !strings.EqualFold(span.PropertyKey, propertyName) {
 			continue
@@ -153,15 +154,15 @@ func inlinePropertyBinding(snapshot *DocumentSnapshot, field *Field, propertyCas
 	return binding
 }
 
-func sourceSpanItemFieldValue(content string, span *MarkdownSourceSpan, sourceKind FieldSource) (string, bool) {
+func sourceSpanItemFieldValue(content string, span *MarkdownSourceSpan, sourceKind ontoschema.FieldSource) (string, bool) {
 	title, summary, detail := sourceSpanItemParts(content, span)
 	var value string
 	switch sourceKind {
-	case FieldSourceItemTitle:
+	case ontoschema.FieldSourceItemTitle:
 		value = title
-	case FieldSourceItemSummary:
+	case ontoschema.FieldSourceItemSummary:
 		value = summary
-	case FieldSourceItemDetail:
+	case ontoschema.FieldSourceItemDetail:
 		value = detail
 	default:
 		return "", false
@@ -170,11 +171,11 @@ func sourceSpanItemFieldValue(content string, span *MarkdownSourceSpan, sourceKi
 	return value, value != ""
 }
 
-func sectionNodesBinding(r *projectionResolver, field *Field, matches []*SectionNode) FieldBinding {
+func sectionNodesBinding(r *projectionResolver, field *ontoschema.Field, matches []*SectionNode) FieldBinding {
 	binding := FieldBinding{
 		FieldName:    field.Name,
 		Kind:         BindingKindSectionField,
-		SourceKind:   FieldSourceInline,
+		SourceKind:   ontoschema.FieldSourceInline,
 		Present:      len(matches) > 0,
 		SectionNodes: make([]NodeRef, 0, len(matches)),
 	}
@@ -196,11 +197,11 @@ func sectionNodesBinding(r *projectionResolver, field *Field, matches []*Section
 	return binding
 }
 
-func sourceSpanNodesBinding(r *projectionResolver, field *Field, matches []*MarkdownSourceSpan) FieldBinding {
+func sourceSpanNodesBinding(r *projectionResolver, field *ontoschema.Field, matches []*MarkdownSourceSpan) FieldBinding {
 	binding := FieldBinding{
 		FieldName:    field.Name,
 		Kind:         BindingKindSectionField,
-		SourceKind:   FieldSourceInline,
+		SourceKind:   ontoschema.FieldSourceInline,
 		Present:      len(matches) > 0,
 		SectionNodes: make([]NodeRef, 0, len(matches)),
 	}
@@ -239,11 +240,11 @@ func collectionFromFieldBinding(fieldName string, binding FieldBinding) Collecti
 	}
 }
 
-func inlineFieldValues(spans []InlineFieldSpan, field *Field) ([]string, []InlineFieldSpan) {
+func inlineFieldValues(spans []InlineFieldSpan, field *ontoschema.Field) ([]string, []InlineFieldSpan) {
 	values := make([]string, 0)
 	matched := make([]InlineFieldSpan, 0)
 	for _, span := range spans {
-		for _, name := range FieldSourceNames(field) {
+		for _, name := range ontoschema.FieldSourceNames(field) {
 			if strings.EqualFold(span.PropertyKey, name) {
 				values = append(values, span.Value)
 				matched = append(matched, span)
@@ -254,7 +255,7 @@ func inlineFieldValues(spans []InlineFieldSpan, field *Field) ([]string, []Inlin
 	return values, matched
 }
 
-func normalizeFieldValues(field *Field, values []string) []string {
+func normalizeFieldValues(field *ontoschema.Field, values []string) []string {
 	out := make([]string, 0, len(values))
 	for _, value := range values {
 		out = append(out, normalizeFieldValue(field, value))
@@ -262,7 +263,7 @@ func normalizeFieldValues(field *Field, values []string) []string {
 	return out
 }
 
-func normalizeFieldValue(field *Field, value string) string {
+func normalizeFieldValue(field *ontoschema.Field, value string) string {
 	value = strings.TrimSpace(value)
 	if !isIdentifierLikeField(field) || !strings.HasPrefix(value, "^") {
 		return value
@@ -274,7 +275,7 @@ func normalizeFieldValue(field *Field, value string) string {
 	return blockID
 }
 
-func isIdentifierLikeField(field *Field) bool {
+func isIdentifierLikeField(field *ontoschema.Field) bool {
 	if field == nil {
 		return false
 	}
@@ -290,11 +291,15 @@ func inlineValueRanges(spans []InlineFieldSpan) []ByteRange {
 }
 
 func frontmatterRange(content string) ByteRange {
-	match := obsidian.FrontmatterRegex().FindStringIndex(content)
-	if len(match) != 2 {
+	_, _, end, ok := markdownsyntax.FrontmatterSpan(content)
+	if !ok {
 		return ByteRange{}
 	}
-	return ByteRange{Start: match[0], End: match[1]}
+	start := 0
+	if strings.HasPrefix(content, "\xef\xbb\xbf") {
+		start = 3
+	}
+	return ByteRange{Start: start, End: end}
 }
 
 func sectionOwnRanges(content string, node *SectionNode) []ByteRange {

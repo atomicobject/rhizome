@@ -2,116 +2,123 @@ package cmd
 
 import (
 	"fmt"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/app/cli"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 )
 
-var graphCommunityIncludeNeighbors bool
-var graphCommunityIncludeTags bool
+func (commandOptions *graphInvocationOptions) makeGraphCommunityCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "community <id>",
+		Short: "Show details for a specific community",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			communityArg := args[0]
 
-var graphCommunityCmd = &cobra.Command{
-	Use:   "community <id>",
-	Short: "Show details for a specific community",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		communityArg := args[0]
+			selectedVault := commandOptions.vaultName
+			if selectedVault == "" {
+				v := &repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config}
+				name, err := v.DefaultName()
+				if err != nil {
+					return err
+				}
+				selectedVault = name
+			}
 
-		selectedVault := vaultName
-		if selectedVault == "" {
-			v := &obsidian.Vault{}
-			name, err := v.DefaultName()
+			vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: selectedVault}
+			vaultDef, err := vault.Definition()
 			if err != nil {
 				return err
 			}
-			selectedVault = name
-		}
-
-		vault := obsidian.Vault{Name: selectedVault}
-		vaultDef, err := vault.Definition()
-		if err != nil {
-			return err
-		}
-		note, err := newProjectedNoteReader(cmd.Context(), vaultDef)
-		if err != nil {
-			return err
-		}
-		vaultPath, err := vault.Path()
-		if err != nil {
-			return err
-		}
-		intelStore, cleanup, err := openOptionalIntelStoreForAnalysis(vaultPath)
-		if err != nil {
-			return err
-		}
-		if cleanup != nil {
-			defer cleanup()
-		}
-
-		analysis, err := actions.DocGraphAnalysis(cmd.Context(), &vault, note, actions.DocGraphAnalysisParams{
-			UseConfig:       true,
-			IncludeTags:     graphCommunityIncludeTags,
-			ExcludePatterns: graphExcludePatterns,
-			IncludePatterns: graphIncludePatterns,
-			IntelStore:      intelStore,
-			WikilinkOptions: obsidian.DefaultWikilinkOptions,
-		})
-		if err != nil {
-			return err
-		}
-
-		var target *obsidian.CommunitySummary
-		for i := range analysis.Communities {
-			if analysis.Communities[i].ID == communityArg {
-				target = &analysis.Communities[i]
-				break
+			note, err := newProjectedNoteReader(cmd.Context(), vaultDef)
+			if err != nil {
+				return err
 			}
-		}
+			vaultPath, err := vault.Path()
+			if err != nil {
+				return err
+			}
+			intelStore, cleanup, err := openOptionalIntelStoreForAnalysis(vaultPath)
+			if err != nil {
+				return err
+			}
+			if cleanup != nil {
+				defer cleanup()
+			}
 
-		if target == nil {
-			normalized := communityArg
-			if filepath.IsAbs(communityArg) {
-				vaultPaths, _ := paths.NewVaultPaths(vaultPath)
-				if rel, err := vaultPaths.RelNotePathStrict(communityArg); err == nil && rel.String() != "" {
-					normalized = rel.String()
+			noteMetadata, err := newNoteMetadataIndexer()
+			if err != nil {
+				return err
+			}
+			analysis, err := actions.DocGraphAnalysis(cmd.Context(), &vault, note, actions.DocGraphAnalysisParams{
+				NoteMetadata:    noteMetadata,
+				UseConfig:       true,
+				IncludeTags:     commandOptions.graphCommunityIncludeTags,
+				ExcludePatterns: commandOptions.graphExcludePatterns,
+				IncludePatterns: commandOptions.graphIncludePatterns,
+				IntelStore:      intelStore,
+				WikilinkOptions: markdownsyntax.DefaultWikilinkOptions,
+			})
+			if err != nil {
+				return err
+			}
+
+			var target *vaultgraph.CommunitySummary
+			for i := range analysis.Communities {
+				if analysis.Communities[i].ID == communityArg {
+					target = &analysis.Communities[i]
+					break
 				}
 			}
-			notePath := normalizeDocInput(vaultPath, normalized, true)
-			codePath := normalizeDocInput(vaultPath, normalized, false)
-			var resolved string
-			if _, ok := analysis.Nodes[notePath]; ok {
-				resolved = notePath
-			} else if _, ok := analysis.Nodes[codePath]; ok {
-				resolved = codePath
-			}
-			if resolved == "" {
-				return fmt.Errorf("community %s not found and file %s not in graph (use vault-relative paths, ensure it exists, and check include/exclude filters)", communityArg, communityArg)
-			}
 
-			lookup := obsidian.CommunityMembershipLookup(analysis.Communities)
-			target = lookup[resolved]
 			if target == nil {
-				return fmt.Errorf("file %s is not assigned to a community under current filters", communityArg)
-			}
-		}
+				normalized := communityArg
+				if filepath.IsAbs(communityArg) {
+					vaultPaths, _ := paths.NewVaultPaths(vaultPath)
+					if rel, err := vaultPaths.RelNotePathStrict(communityArg); err == nil && rel.String() != "" {
+						normalized = rel.String()
+					}
+				}
+				notePath := normalizeDocInput(vaultPath, normalized, true)
+				codePath := normalizeDocInput(vaultPath, normalized, false)
+				var resolved string
+				if _, ok := analysis.Nodes[notePath]; ok {
+					resolved = notePath
+				} else if _, ok := analysis.Nodes[codePath]; ok {
+					resolved = codePath
+				}
+				if resolved == "" {
+					return fmt.Errorf("community %s not found and file %s not in graph (use vault-relative paths, ensure it exists, and check include/exclude filters)", communityArg, communityArg)
+				}
 
-		printCommunityDetail(cmd, target, analysis, selectedVault)
-		if graphTimings {
-			printTimings(cmd, analysis.Timings.ToMillis())
-		}
-		return nil
-	},
+				lookup := vaultgraph.CommunityMembershipLookup(analysis.Communities)
+				target = lookup[resolved]
+				if target == nil {
+					return fmt.Errorf("file %s is not assigned to a community under current filters", communityArg)
+				}
+			}
+
+			commandOptions.printCommunityDetail(cmd, target, analysis, selectedVault)
+			if commandOptions.graphTimings {
+				printTimings(cmd, analysis.Timings.ToMillis())
+			}
+			return nil
+		},
+	}
 }
 
-func printCommunityDetail(cmd *cobra.Command, target *obsidian.CommunitySummary, analysis *obsidian.GraphAnalysis, selectedVault string) {
-	edgeCount := obsidian.CommunityInternalEdges(target, analysis.Nodes)
+func (commandOptions *graphInvocationOptions) printCommunityDetail(cmd *cobra.Command, target *vaultgraph.CommunitySummary, analysis *vaultgraph.GraphAnalysis, selectedVault string) {
+	edgeCount := vaultgraph.CommunityInternalEdges(target, analysis.Nodes)
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Community %s (size %d) in vault %q\n", colorCommunity(target.ID), len(target.Nodes), selectedVault)
+	fmt.Fprintf(cmd.OutOrStdout(), "Community %s (size %d) in vault %q\n", commandOptions.colorCommunity(target.ID), len(target.Nodes), selectedVault)
 	if target.Anchor != "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "  anchor: %s\n", target.Anchor)
 	}
@@ -130,8 +137,8 @@ func printCommunityDetail(cmd *cobra.Command, target *obsidian.CommunitySummary,
 		fmt.Fprintf(cmd.OutOrStdout(), "  bridges: %s\n", strings.Join(target.Bridges, ", "))
 	}
 
-	limit := graphLimit
-	if graphShowAll || limit <= 0 || limit > len(target.Nodes) {
+	limit := commandOptions.graphLimit
+	if commandOptions.graphShowAll || limit <= 0 || limit > len(target.Nodes) {
 		limit = len(target.Nodes)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "\nMembers (sorted by authority):\n")
@@ -139,7 +146,7 @@ func printCommunityDetail(cmd *cobra.Command, target *obsidian.CommunitySummary,
 	for i := 0; i < limit; i++ {
 		m := members[i]
 		tagStr := ""
-		if len(m.tags) > 0 && graphCommunityIncludeTags {
+		if len(m.tags) > 0 && commandOptions.graphCommunityIncludeTags {
 			tagStr = fmt.Sprintf(" tags:%s", strings.Join(m.tags, ","))
 		}
 		kind := m.kind
@@ -147,16 +154,16 @@ func printCommunityDetail(cmd *cobra.Command, target *obsidian.CommunitySummary,
 			kind = "file"
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s [%s] auth=%.4f hub=%.4f in=%d out=%d%s\n", i+1, m.path, kind, m.authority, m.hub, m.in, m.out, tagStr)
-		if graphCommunityIncludeNeighbors {
+		if commandOptions.graphCommunityIncludeNeighbors {
 			fmt.Fprintf(cmd.OutOrStdout(), "      neighbors: %s\n", strings.Join(m.neighbors, ", "))
 		}
 	}
-	if !graphShowAll && len(members) > limit {
+	if !commandOptions.graphShowAll && len(members) > limit {
 		fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(members)-limit)
 	}
 }
 
-func rankCommunityMembers(members []string, analysis *obsidian.GraphAnalysis) []struct {
+func rankCommunityMembers(members []string, analysis *vaultgraph.GraphAnalysis) []struct {
 	path      string
 	kind      string
 	hub       float64
@@ -207,9 +214,9 @@ func rankCommunityMembers(members []string, analysis *obsidian.GraphAnalysis) []
 	return ranked
 }
 
-func init() {
-	graphCommunityCmd.Flags().BoolVar(&graphCommunityIncludeNeighbors, "neighbors", false, "show neighbor lists for members")
-	graphCommunityCmd.Flags().BoolVar(&graphCommunityIncludeTags, "tags", false, "show tags for members")
+func (commandOptions *graphInvocationOptions) registerGraphCommunityCommands(graphCommunityCmd, graphCmd *cobra.Command) {
+	graphCommunityCmd.Flags().BoolVar(&commandOptions.graphCommunityIncludeNeighbors, "neighbors", false, "show neighbor lists for members")
+	graphCommunityCmd.Flags().BoolVar(&commandOptions.graphCommunityIncludeTags, "tags", false, "show tags for members")
 
 	graphCmd.AddCommand(graphCommunityCmd)
 }

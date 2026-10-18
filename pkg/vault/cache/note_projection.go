@@ -4,9 +4,10 @@ import (
 	"strings"
 	"time"
 
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // canProjectNotePath checks executable provider support before cache reads a
@@ -92,19 +93,19 @@ func markdownCompatibilityEntry(path paths.NotePath, content []byte, modTime tim
 		Size:    int64(len(content)),
 		Content: string(content),
 	}
-	if contentTime, ok := obsidian.ResolveContentTime(entry.Path, entry.Content); ok {
+	if contentTime, ok := vaultgraph.ResolveContentTime(entry.Path, entry.Content); ok {
 		entry.ContentTime = contentTime
 	} else {
 		entry.ContentTime = modTime
 	}
-	frontmatter, _ := obsidian.ExtractFrontmatter(entry.Content)
+	frontmatter, _ := markdownsyntax.ExtractFrontmatter(entry.Content)
 	if frontmatter != nil {
 		entry.Frontmatter = frontmatter
 		if tags, ok := frontmatter["tags"].([]string); ok {
 			entry.Tags = append(entry.Tags, normalizeTags(tags)...)
 		}
 	}
-	entry.Tags = append(entry.Tags, normalizeTags(stripHashtagPrefix(obsidian.ExtractHashtags(entry.Content)))...)
-	entry.InlineProps = obsidian.ExtractInlineProperties(entry.Content)
+	entry.Tags = append(entry.Tags, normalizeTags(stripHashtagPrefix(markdownsyntax.ExtractHashtags(entry.Content)))...)
+	entry.InlineProps = markdownsyntax.ExtractInlineProperties(entry.Content)
 	return entry
 }

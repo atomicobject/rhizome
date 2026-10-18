@@ -83,9 +83,9 @@ linters:
         - name: unused-parameter
           disabled: true
 
-issues:
-  exclude-rules:
-    # Exclude errcheck in test files for common patterns
-    - path: _test\.go
-      linters:
-        - errcheck
+  exclusions:
+    rules:
+      # Exclude errcheck in test files for common patterns.
+      - path: _test\.go
+        linters:
+          - errcheck

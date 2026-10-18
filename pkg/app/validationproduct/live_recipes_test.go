@@ -10,6 +10,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,8 +36,8 @@ func TestRunLiveRecipeDiscoveryMatchesSupportedSources(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := writeProjectionVault(t)
-			require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{Validation: obsidian.LocalValidationConfig{
-				Default: obsidian.LocalValidationSuiteConfig{Add: []string{"query-recipes"}},
+			require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{Validation: repoconfig.LocalValidationConfig{
+				Default: repoconfig.LocalValidationSuiteConfig{Add: []string{"query-recipes"}},
 			}}))
 			for path, content := range tc.files {
 				full := filepath.Join(root, filepath.FromSlash(path))
@@ -89,8 +90,8 @@ func TestRunLiveReportsDanglingRecipeRoots(t *testing.T) {
 	for index := range queryrecipe.DefaultSourceRoots("") {
 		t.Run(queryrecipe.DefaultSourceRoots("")[index], func(t *testing.T) {
 			root := writeProjectionVault(t)
-			require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{Validation: obsidian.LocalValidationConfig{
-				Default: obsidian.LocalValidationSuiteConfig{Add: []string{"query-recipes"}},
+			require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{Validation: repoconfig.LocalValidationConfig{
+				Default: repoconfig.LocalValidationSuiteConfig{Add: []string{"query-recipes"}},
 			}}))
 			path := queryrecipe.DefaultSourceRoots(root)[index]
 			require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))

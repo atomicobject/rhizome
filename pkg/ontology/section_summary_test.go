@@ -2,13 +2,15 @@ package ontology
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	"github.com/atomicobject/rhizome/pkg/vault/identity"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSectionSummaryRetainsStructuralBindingAndIndexesCompactBody(t *testing.T) {
@@ -17,11 +19,11 @@ func TestSectionSummaryRetainsStructuralBindingAndIndexesCompactBody(t *testing.
 	writeOntologySchema(t, root, `type Entry @node(paths: ["notes/*.md"]) {
   abstract: Section @contains(level: H2, heading: "Summary") @display(role: SUMMARY, importance: KEY)
  }`)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	field := schema.Types["Entry"].ByName["abstract"]
-	require.Equal(t, field, SummaryField(schema.Types["Entry"].Fields))
-	docs, err := SchemaDocs(schema, "Entry")
+	require.Equal(t, field, ontoschema.SummaryField(schema.Types["Entry"].Fields))
+	docs, err := schemadoc.SchemaDocs(schema, "Entry", identity.CurrentUserType)
 	require.NoError(t, err)
 	require.Equal(t, "abstract", docs[0].SummaryField)
 	for _, tc := range []struct {
@@ -62,7 +64,7 @@ func TestSectionSummaryEditsThroughNarrativeWorkspace(t *testing.T) {
  }`)
 	content := "---\ntags: [keep]\n---\n# Entry\n\n## Summary\n\nOriginal prose.\n\n## Evidence\n\nPreserved evidence.\n"
 	writeOntologyNote(t, root, "notes/entry.md", content)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	vault := obsidian.VaultDefinition{Path: root}
 	note, err := ProjectNode(context.Background(), vault, &obsidian.Note{}, schema, NodeRef{NotePath: "notes/entry.md", Kind: NodeKindNote})

@@ -3,7 +3,7 @@ package validationrun
 import (
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/stretchr/testify/require"
 )
@@ -19,10 +19,10 @@ func TestBuildDiagnosticSnapshotPreservesApplicabilityAndExecutionOutcomes(t *te
 			},
 		},
 		Outcomes: []ValidationCheckOutcome{
-			{Check: "broken-links", Outcome: validate.CheckOutcomeCompleted},
-			{Check: "views", Outcome: validate.CheckOutcomeCompleted},
-			{Check: "code-anchors", Outcome: validate.CheckOutcomeBlocked, Summary: "index required"},
-			{Check: "ontology", Outcome: validate.CheckOutcomeNotApplicable, Summary: "schema absent"},
+			{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "broken-links", Outcome: validate.CheckOutcomeCompleted}},
+			{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "views", Outcome: validate.CheckOutcomeCompleted}},
+			{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "code-anchors", Outcome: validate.CheckOutcomeBlocked, Summary: "index required"}},
+			{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "ontology", Outcome: validate.CheckOutcomeNotApplicable, Summary: "schema absent"}},
 		},
 	}
 

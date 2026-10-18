@@ -107,14 +107,6 @@ func NotePathMatchesSelection(cfg VaultDefinition, relPath string) bool {
 	return ignore.IsSystemContextPath(relPath) || NotePathMatchesIncludes(cfg, relPath)
 }
 
-func noteDiscoveryPatterns(cfg VaultDefinition) []string {
-	includes := append([]string(nil), cfg.Includes...)
-	if len(includes) == 0 {
-		includes = []string{"**/*.md"}
-	}
-	return append(includes, ignore.SystemContextFilename, "**/"+ignore.SystemContextFilename)
-}
-
 // discoverByWalk walks root once, pruning hidden and ignored directories, and
 // admits note files the vault definition selects. Collection includes are
 // matched per file, so ignored subtrees such as node_modules are never read.

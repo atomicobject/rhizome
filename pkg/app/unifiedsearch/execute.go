@@ -9,12 +9,13 @@ import (
 	"strings"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/answer"
 	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	searchplanner "github.com/atomicobject/rhizome/pkg/search/planner"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type ApplicationOptions struct {
@@ -50,12 +51,23 @@ func Execute(ctx context.Context, opts ApplicationOptions) (ApplicationResult, e
 	if len(queries) == 0 {
 		queries = NormalizeQueryInputs(opts.Runtime.Query, opts.Runtime.Queries, opts.Runtime.IntentInput)
 	}
-	if intent == "" {
-		intent = search.Intent(uniformQueryMode(queries))
-	}
+	seedTokens := MergeSeedTokens(opts.Runtime.Seeds, opts.Runtime.Files)
 	intentSource := "explicit"
 	var intentScore float64
 	var routingWarnings []search.Warning
+	if intent != "" && searchplanner.ValidateIntent(string(intent)) != nil {
+		decision := InferDefaultIntent(string(intent), seedTokens)
+		intent, intentSource, intentScore, routingWarnings = decision.Intent, decision.Source, decision.Score, decision.Warnings
+	}
+	queries = append([]QueryInput(nil), queries...)
+	for i := range queries {
+		if queries[i].Mode != "" && searchplanner.ValidateIntent(queries[i].Mode) != nil {
+			queries[i].Mode = string(InferDefaultIntent(queries[i].Mode, seedTokens).Intent)
+		}
+	}
+	if intent == "" {
+		intent = search.Intent(uniformQueryMode(queries))
+	}
 	if intent == "" && !everyQueryHasExplicitMode(queries) {
 		// One default-intent heuristic for every caller; MCP and CLI must not
 		// route the same text differently.

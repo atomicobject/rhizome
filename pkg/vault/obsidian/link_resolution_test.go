@@ -1,4 +1,4 @@
-package obsidian
+package obsidian_test
 
 import (
 	"os"
@@ -6,6 +6,9 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	vaulthealth "github.com/atomicobject/rhizome/pkg/vault/health"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +21,7 @@ func writeVaultFiles(t *testing.T, root string, files map[string]string) {
 	}
 }
 
-func brokenTargets(links []BrokenLink) []string {
+func brokenTargets(links []vaulthealth.BrokenLink) []string {
 	out := make([]string, 0, len(links))
 	for _, link := range links {
 		target := link.Target
@@ -61,7 +64,7 @@ func TestFindBrokenLinksUsesObsidianResolution(t *testing.T) {
 			"[archived](../_Archive/Notes/Old.md) [gone](Gone.md) [web](x-devonthink-item://ABC)\n",
 	})
 
-	broken, err := FindBrokenLinks(VaultDefinition{Name: "obsidian", Path: root}, &Note{}, DefaultBrokenLinksOptions)
+	broken, err := vaulthealth.FindBrokenLinks(obsidian.VaultDefinition{Name: "obsidian", Path: root}, &obsidian.Note{}, vaulthealth.DefaultBrokenLinksOptions)
 	require.NoError(t, err)
 	require.Equal(t, []string{
 		"2025-Q3#Nowhere",
@@ -78,7 +81,7 @@ func TestFindBrokenLinksUsesObsidianResolution(t *testing.T) {
 }
 
 func TestVaultFileIndexResolveMatchesObsidian(t *testing.T) {
-	index := NewVaultFileIndex([]string{
+	index := obsidian.NewVaultFileIndex([]string{
 		"Notes/Fetch AI.md",
 		"Log/fetch.ai call.md",
 		"_Attachments/Public Ladders.xlsx",
@@ -115,7 +118,7 @@ func TestIndentedCodeKeepsNestedListLinks(t *testing.T) {
 	content := "- item\n\t- [[Nested]]\n    - [[Spaced]]\n\nParagraph\n    [[Lazy]]\n\n    [[Code]]\n" +
 		"- another list\n# Heading ends the list\n    [[CodeAfterHeading]]\n"
 	var targets []string
-	for _, link := range ScanWikilinks(content, DefaultWikilinkOptions) {
+	for _, link := range markdownsyntax.ScanWikilinks(content, markdownsyntax.DefaultWikilinkOptions) {
 		if !link.InsideCodeBlock {
 			targets = append(targets, link.Target)
 		}
@@ -134,7 +137,7 @@ func TestFindBrokenLinksAcceptsMarkdownAnchorStyles(t *testing.T) {
 			"## Setup\n\n## Setup\n",
 	})
 
-	broken, err := FindBrokenLinks(VaultDefinition{Name: "anchors", Path: root}, &Note{}, DefaultBrokenLinksOptions)
+	broken, err := vaulthealth.FindBrokenLinks(obsidian.VaultDefinition{Name: "anchors", Path: root}, &obsidian.Note{}, vaulthealth.DefaultBrokenLinksOptions)
 	require.NoError(t, err)
 	require.Equal(t, []string{"#key-observations", "#no-such-heading", "#setup-2"}, brokenTargets(broken),
 		"wikilinks keep Obsidian's heading rules; Markdown links also accept slugs and anchors")
@@ -143,7 +146,7 @@ func TestFindBrokenLinksAcceptsMarkdownAnchorStyles(t *testing.T) {
 // A retarget rewrites prose links only, never links shown as code.
 func TestRewriteLinksPreservingDisplaySkipsCode(t *testing.T) {
 	content := "See [[Old]].\n\nIntro:\n\n    [[Old]] in an indented sample\n\n`[[Old]]` inline\n"
-	updated, count := RewriteLinksPreservingDisplay(content, "Old", "New", true)
+	updated, count := obsidian.RewriteLinksPreservingDisplay(content, "Old", "New", true)
 	require.Equal(t, 1, count)
 	require.Equal(t, "See [[New|Old]].\n\nIntro:\n\n    [[Old]] in an indented sample\n\n`[[Old]]` inline\n", updated)
 }

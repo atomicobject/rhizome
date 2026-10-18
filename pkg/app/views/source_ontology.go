@@ -4,17 +4,19 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"path/filepath"
-	"sort"
-	"strings"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/ontology/pushdown"
-	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"path/filepath"
+	"reflect"
+	"sort"
+	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/diag"
 )
 
 const (
@@ -28,26 +30,23 @@ type defaultSourceResolver struct {
 }
 
 func (r defaultSourceResolver) ResolveSource(ctx context.Context, view viewconfig.ViewDefinition, req ExecuteRequest) (SourceResult, error) {
-	if catalogStore, ok := r.opts.Store.(noderead.CatalogStore); ok {
+	if catalogStore, ok := r.opts.Store.(noderead.ReadStore); ok {
 		r.linkTargetResolver = pushdown.NewCatalogLinkResolver(r.opts.Schema, catalogStore)
 	}
 	req, bindingWarnings := r.bindRuntimeFilterValues(ctx, req)
 	scope := nodereadScopeForResolver(ctx, r)
+	if len(bindingWarnings) > 0 {
+		return SourceResult{ConstraintPlan: true, Rows: []TableRow{}, Warnings: bindingWarnings, Capabilities: r.ontologyEditCapabilities(ctx, scope, view), relationScope: scope}, nil
+	}
 	result, err := r.resolveSource(ctx, scope, view, req)
 	result.relationScope = scope
 	result.Warnings = append(bindingWarnings, result.Warnings...)
 	if !result.ConstraintPlan {
 		result.ConstraintPlan = true
-		result.ResidualConstraints = SourceConstraints{
-			Search:  req.Search,
-			Filters: append([]viewconfig.FilterSpec(nil), req.Filters...),
-			Sort:    append([]viewconfig.SortSpec(nil), req.Sort...),
-			Page:    req.Page,
-		}
+		result.ResidualConstraints = SourceConstraints{Search: req.Search, Filters: append([]viewconfig.FilterSpec(nil), req.Filters...), Sort: append([]viewconfig.SortSpec(nil), req.Sort...), Page: req.Page}
 	}
 	return result, err
 }
-
 func (r defaultSourceResolver) resolveSource(ctx context.Context, scope *noderead.Scope, view viewconfig.ViewDefinition, req ExecuteRequest) (SourceResult, error) {
 	switch view.SourceSpec.Kind {
 	case viewconfig.SourceKindOntologyType, viewconfig.SourceKindOntologyInterface:
@@ -58,14 +57,13 @@ func (r defaultSourceResolver) resolveSource(ctx context.Context, scope *noderea
 		return SourceResult{}, fmt.Errorf("%w: unsupported source kind %q", ErrInvalidRequest, view.SourceSpec.Kind)
 	}
 }
-
-func (r defaultSourceResolver) bindRuntimeFilterValues(ctx context.Context, req ExecuteRequest) (ExecuteRequest, []Warning) {
+func (r defaultSourceResolver) bindRuntimeFilterValues(ctx context.Context, req ExecuteRequest) (ExecuteRequest, []diag.Warning) {
 	if len(req.Filters) == 0 {
 		return req, nil
 	}
 	out := req
 	out.Filters = append([]viewconfig.FilterSpec(nil), req.Filters...)
-	var warnings []Warning
+	var warnings []diag.Warning
 	for i := range out.Filters {
 		valueFrom := strings.TrimSpace(out.Filters[i].ValueFrom)
 		if valueFrom == "" {
@@ -74,33 +72,32 @@ func (r defaultSourceResolver) bindRuntimeFilterValues(ctx context.Context, req 
 		switch valueFrom {
 		case "ontology.currentUser.resolvedRef":
 			if r.opts.QueryDeps.OntologyRuntime == nil {
-				out.Filters[i].Value = "__rhizome_current_user_unavailable__"
-				warnings = append(warnings, Warning{Code: "current_user_unavailable", Message: "current-user runtime provider is unavailable"})
+				out.Filters[i].Value = ""
+				warnings = append(warnings, diag.Warning{Code: "current_user_unavailable", Message: "current-user runtime provider is unavailable"})
 				continue
 			}
 			currentUser, err := r.opts.QueryDeps.OntologyRuntime.CurrentUser(ctx)
 			if err != nil {
-				out.Filters[i].Value = "__rhizome_current_user_error__"
-				warnings = append(warnings, Warning{Code: "current_user_unavailable", Message: err.Error()})
+				out.Filters[i].Value = ""
+				warnings = append(warnings, diag.Warning{Code: "current_user_unavailable", Message: err.Error()})
 				continue
 			}
 			if !currentUser.Configured || !currentUser.Found || currentUser.TypeName != "Person" || strings.TrimSpace(currentUser.ResolvedRef) == "" {
-				out.Filters[i].Value = "__rhizome_current_user_missing__"
-				warnings = append(warnings, Warning{Code: "current_user_missing", Message: "current user is not configured or does not resolve to Person"})
+				out.Filters[i].Value = ""
+				warnings = append(warnings, diag.Warning{Code: "current_user_missing", Message: "current user is not configured or does not resolve to Person"})
 				continue
 			}
 			out.Filters[i].Value = currentUser.ResolvedRef
 		default:
-			out.Filters[i].Value = "__rhizome_unknown_runtime_binding__"
-			warnings = append(warnings, Warning{Code: "unknown_filter_value_binding", Message: fmt.Sprintf("unknown filter value binding %q", valueFrom)})
+			out.Filters[i].Value = ""
+			warnings = append(warnings, diag.Warning{Code: "unknown_filter_value_binding", Message: fmt.Sprintf("unknown filter value binding %q", valueFrom)})
 		}
 	}
 	return out, warnings
 }
-
 func (r defaultSourceResolver) resolveOntologySource(ctx context.Context, scope *noderead.Scope, view viewconfig.ViewDefinition, req ExecuteRequest) (SourceResult, error) {
 	if r.opts.Store == nil {
-		return SourceResult{Warnings: []Warning{{Code: "view_source_unavailable", Message: "ontology index is unavailable"}}}, nil
+		return SourceResult{Warnings: []diag.Warning{{Code: "view_source_unavailable", Message: "ontology index is unavailable"}}}, nil
 	}
 	typeName := view.SourceSpec.Type
 	if view.SourceSpec.Kind == viewconfig.SourceKindOntologyInterface {
@@ -127,45 +124,25 @@ func (r defaultSourceResolver) resolveOntologySource(ctx context.Context, scope 
 	}
 	rows, warnings := r.hydrateRowsWithScope(ctx, scope, rows)
 	if len(result.Items) >= limit {
-		warnings = append(warnings, Warning{
-			Code:    "view_source_may_be_truncated",
-			Message: fmt.Sprintf("source returned the configured cap of %d rows before table operations", limit),
-		})
+		warnings = append(warnings, diag.Warning{Code: "view_source_may_be_truncated", Message: fmt.Sprintf("source returned the configured cap of %d rows before table operations", limit)})
 	}
 	capabilities := r.ontologyEditCapabilities(ctx, scope, view)
 	rows, err = r.projectReferencedRelationCounts(ctx, scope, view, req, rows, capabilities)
 	if err != nil {
 		return SourceResult{}, err
 	}
-	return SourceResult{
-		Rows:         rows,
-		Capabilities: capabilities,
-		Warnings:     warnings,
-		Plan: ConstraintPlanSummary{
-			CandidateLimit:     limit,
-			CandidateCount:     len(rows),
-			CapPolicy:          capPolicy,
-			SourceCompleteness: sourceCompletenessForCount(len(result.Items), limit),
-		},
-	}, nil
+	return SourceResult{Rows: rows, Capabilities: capabilities, Warnings: warnings, Plan: ConstraintPlanSummary{CandidateLimit: limit, CandidateCount: len(rows), CapPolicy: capPolicy, SourceCompleteness: sourceCompletenessForCount(len(result.Items), limit)}}, nil
 }
-
 func (r defaultSourceResolver) resolveOntologyInterfaceSource(ctx context.Context, scope *noderead.Scope, view viewconfig.ViewDefinition, req ExecuteRequest) (SourceResult, error) {
 	typeNames := r.sourceTypeNames(view)
 	capPolicy := sourceCapPolicy(view, req)
 	limit := capPolicy.Limit
 	typePlans := make(map[string]SourceResult, len(typeNames))
-	plan := SourceResult{
-		ConstraintPlan: true,
-		ResidualConstraints: SourceConstraints{
-			Search: req.Search,
-			Page:   req.Page,
-		},
-	}
-	plan.Warnings = append(plan.Warnings, r.interfacePartialFieldWarnings(typeNames, req)...)
+	plan := SourceResult{ConstraintPlan: true, ResidualConstraints: SourceConstraints{Search: req.Search, Page: req.Page}}
+	plan.Warnings = append(plan.Warnings, r.interfacePartialFieldWarnings(ctx, typeNames, req)...)
 	for _, typeName := range typeNames {
 		noteType := r.opts.Schema.Types[typeName]
-		typePlan := r.planIndexedEmbeddedViewConstraints(noteType, req)
+		typePlan := r.planIndexedEmbeddedViewConstraints(ctx, noteType, req)
 		typePlans[typeName] = typePlan
 		plan.PushedConstraints.Filters = mergeFilterSpecs(plan.PushedConstraints.Filters, typePlan.PushedConstraints.Filters)
 		plan.PushedConstraints.Sort = mergeSortSpecs(plan.PushedConstraints.Sort, typePlan.PushedConstraints.Sort)
@@ -174,15 +151,10 @@ func (r defaultSourceResolver) resolveOntologyInterfaceSource(ctx context.Contex
 			plan.ResidualConstraints.Sort = append([]viewconfig.SortSpec(nil), req.Sort...)
 		}
 	}
-	if r.canUseCollapsedInterfaceSource(typeNames, plan) {
+	if r.canUseCollapsedInterfaceSource(typeNames, plan) && equivalentInterfacePlans(typeNames, typePlans) {
 		predicates, sortSpec, predicateWarnings := r.interfaceTypeInstancesPushdown(ctx, typeNames, typePlans)
 		plan.Warnings = append(plan.Warnings, predicateWarnings...)
-		result, err := scope.TypeInstances(ctx, noderead.TypeInstancesRequest{
-			TypeName:   view.SourceSpec.Interface,
-			Limit:      limit,
-			Predicates: predicates,
-			Sort:       sortSpec,
-		})
+		result, err := scope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: view.SourceSpec.Interface, Limit: limit, Predicates: predicates, Sort: sortSpec})
 		if err != nil {
 			return SourceResult{}, err
 		}
@@ -195,15 +167,9 @@ func (r defaultSourceResolver) resolveOntologyInterfaceSource(ctx context.Contex
 		if len(result.Items) >= limit {
 			if hasResidualConstraints(plan.ResidualConstraints) {
 				plan.Warnings = append(plan.Warnings, capBoundWarnings(plan.ResidualConstraints, limit)...)
-				plan.Warnings = append(plan.Warnings, Warning{
-					Code:    "view_source_residual_constraints_after_cap",
-					Message: fmt.Sprintf("ontology interface source returned the configured cap of %d rows while residual filters or sort remain", limit),
-				})
+				plan.Warnings = append(plan.Warnings, diag.Warning{Code: "view_source_residual_constraints_after_cap", Message: fmt.Sprintf("ontology interface source returned the configured cap of %d rows while residual filters or sort remain", limit)})
 			} else {
-				plan.Warnings = append(plan.Warnings, Warning{
-					Code:    "view_source_may_be_truncated",
-					Message: fmt.Sprintf("source returned the configured cap of %d rows before table operations", limit),
-				})
+				plan.Warnings = append(plan.Warnings, diag.Warning{Code: "view_source_may_be_truncated", Message: fmt.Sprintf("source returned the configured cap of %d rows before table operations", limit)})
 			}
 		}
 		plan.Capabilities = r.ontologyEditCapabilities(ctx, scope, view)
@@ -225,12 +191,7 @@ func (r defaultSourceResolver) resolveOntologyInterfaceSource(ctx context.Contex
 		typePlan := typePlans[typeName]
 		predicates, sortSpec, predicateWarnings := r.typeInstancesPushdown(ctx, noteType, typePlan)
 		plan.Warnings = append(plan.Warnings, predicateWarnings...)
-		result, err := scope.TypeInstances(ctx, noderead.TypeInstancesRequest{
-			TypeName:   typeName,
-			Limit:      limit,
-			Predicates: predicates,
-			Sort:       sortSpec,
-		})
+		result, err := scope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: typeName, Limit: limit, Predicates: predicates, Sort: sortSpec})
 		if err != nil {
 			return SourceResult{}, err
 		}
@@ -244,10 +205,7 @@ func (r defaultSourceResolver) resolveOntologyInterfaceSource(ctx context.Contex
 		}
 		if len(result.Items) >= limit && hasResidualConstraints(typePlan.ResidualConstraints) {
 			plan.Warnings = append(plan.Warnings, capBoundWarnings(typePlan.ResidualConstraints, limit)...)
-			plan.Warnings = append(plan.Warnings, Warning{
-				Code:    "view_source_residual_constraints_after_cap",
-				Message: fmt.Sprintf("ontology interface implementor %s returned the configured cap of %d rows while residual filters or sort remain", typeName, limit),
-			})
+			plan.Warnings = append(plan.Warnings, diag.Warning{Code: "view_source_residual_constraints_after_cap", Message: fmt.Sprintf("ontology interface implementor %s returned the configured cap of %d rows while residual filters or sort remain", typeName, limit)})
 		}
 	}
 	rows, warnings := r.hydrateRowsWithScope(ctx, scope, rows)
@@ -259,15 +217,9 @@ func (r defaultSourceResolver) resolveOntologyInterfaceSource(ctx context.Contex
 	if len(rows) >= limit {
 		if hasResidualConstraints(plan.ResidualConstraints) {
 			plan.Warnings = append(plan.Warnings, capBoundWarnings(plan.ResidualConstraints, limit)...)
-			plan.Warnings = append(plan.Warnings, Warning{
-				Code:    "view_source_residual_constraints_after_cap",
-				Message: fmt.Sprintf("ontology interface source returned the configured cap of %d rows while residual filters or sort remain", limit),
-			})
+			plan.Warnings = append(plan.Warnings, diag.Warning{Code: "view_source_residual_constraints_after_cap", Message: fmt.Sprintf("ontology interface source returned the configured cap of %d rows while residual filters or sort remain", limit)})
 		} else {
-			plan.Warnings = append(plan.Warnings, Warning{
-				Code:    "view_source_may_be_truncated",
-				Message: fmt.Sprintf("source returned the configured cap of %d rows before table operations", limit),
-			})
+			plan.Warnings = append(plan.Warnings, diag.Warning{Code: "view_source_may_be_truncated", Message: fmt.Sprintf("source returned the configured cap of %d rows before table operations", limit)})
 		}
 		rows = rows[:limit]
 	}
@@ -283,39 +235,36 @@ func (r defaultSourceResolver) resolveOntologyInterfaceSource(ctx context.Contex
 	plan.Plan.SourceCompleteness = sourceCompletenessForCountAndWarnings(len(rows), limit, plan.Warnings)
 	return plan, nil
 }
-
+func equivalentInterfacePlans(typeNames []string, plans map[string]SourceResult) bool {
+	if len(typeNames) < 2 {
+		return true
+	}
+	first := plans[typeNames[0]]
+	for _, name := range typeNames[1:] {
+		plan := plans[name]
+		if !reflect.DeepEqual(first.indexedPredicates, plan.indexedPredicates) || !reflect.DeepEqual(first.indexedSort, plan.indexedSort) {
+			return false
+		}
+	}
+	return true
+}
 func (r defaultSourceResolver) canUseCollapsedInterfaceSource(typeNames []string, plan SourceResult) bool {
 	return len(typeNames) > 0 && len(plan.ResidualConstraints.Filters) == 0 && len(plan.ResidualConstraints.Sort) == 0
 }
-
 func (r defaultSourceResolver) resolveIndexedEmbeddedOntologySource(ctx context.Context, scope *noderead.Scope, view viewconfig.ViewDefinition, req ExecuteRequest, typeName string) (SourceResult, bool, error) {
 	if view.SourceSpec.Kind != viewconfig.SourceKindOntologyType || r.opts.Schema == nil || r.opts.QueryDeps.Store == nil {
 		return SourceResult{}, false, nil
 	}
 	noteType := r.opts.Schema.Types[typeName]
-	if noteType == nil || (noteType.Role != ontology.TypeRoleEmbeddedNode && noteType.Role != ontology.TypeRoleNote) {
+	if noteType == nil || (noteType.Role != ontoschema.TypeRoleEmbeddedNode && noteType.Role != ontoschema.TypeRoleNote) {
 		return SourceResult{}, false, nil
 	}
 	capPolicy := sourceCapPolicy(view, req)
 	limit := capPolicy.Limit
-	plan := r.planIndexedEmbeddedViewConstraints(noteType, req)
+	plan := r.planIndexedEmbeddedViewConstraints(ctx, noteType, req)
 	predicates, sortSpec, predicateWarnings := r.typeInstancesPushdown(ctx, noteType, plan)
 	plan.Warnings = append(plan.Warnings, predicateWarnings...)
-	// Diagnostic probe: surface plan warnings (residual_constraints,
-	// index_unavailable, link_filter_*) at the same time the rows are
-	// produced. Cheap because the queryPlan root is cached and the probe runs
-	// against the same indexed plan inputs.
-	if r.opts.ExecSchema != nil {
-		filterVariables := r.viewFilterVariablesForType(noteType, plan.PushedConstraints.Filters)
-		sortVariables := r.viewSortVariablesForType(noteType, plan.PushedConstraints.Sort)
-		plan.Warnings = append(plan.Warnings, r.indexedPlanWarnings(ctx, typeName, limit, filterVariables, sortVariables)...)
-	}
-	result, err := scope.TypeInstances(ctx, noderead.TypeInstancesRequest{
-		TypeName:   typeName,
-		Limit:      limit,
-		Predicates: predicates,
-		Sort:       sortSpec,
-	})
+	result, err := scope.TypeInstances(ctx, noderead.TypeInstancesRequest{TypeName: typeName, Limit: limit, Predicates: predicates, Sort: sortSpec})
 	if err != nil {
 		return SourceResult{}, true, fmt.Errorf("%w: indexed ontology source query failed: %s", ErrInvalidRequest, err.Error())
 	}
@@ -324,15 +273,12 @@ func (r defaultSourceResolver) resolveIndexedEmbeddedOntologySource(ctx context.
 		rows = append(rows, rowFromNodeListItem(item))
 	}
 	rows, hydrateWarnings := r.hydrateRowsWithScope(ctx, scope, rows)
-	warnings := append([]Warning(nil), hydrateWarnings...)
+	warnings := append([]diag.Warning(nil), hydrateWarnings...)
 	if len(rows) >= limit {
 		if hasResidualConstraints(plan.ResidualConstraints) {
 			warnings = append(warnings, capBoundWarnings(plan.ResidualConstraints, limit)...)
 		}
-		warnings = append(warnings, Warning{
-			Code:    "view_source_may_be_truncated",
-			Message: fmt.Sprintf("source returned the configured cap of %d rows before residual table operations", limit),
-		})
+		warnings = append(warnings, diag.Warning{Code: "view_source_may_be_truncated", Message: fmt.Sprintf("source returned the configured cap of %d rows before residual table operations", limit)})
 	}
 	// WHY: a scope is required for editCandidatesForType to enumerate link
 	// targets. Without it, relation field capabilities ship with no
@@ -357,99 +303,75 @@ func (r defaultSourceResolver) resolveIndexedEmbeddedOntologySource(ctx context.
 // view's NoteType. Views resolve frontmatter./inline. prefixed and
 // case-insensitive keys and use the same indexed link target resolver for
 // both predicate construction and execution-time diagnostics.
-func (r defaultSourceResolver) viewPlannerFor(noteType *ontology.NoteType) pushdown.Planner {
-	return pushdown.Planner{
-		Schema:       r.opts.Schema,
-		Resolver:     pushdown.ViewResolver{NoteType: noteType},
-		LinkResolver: viewLinkResolver{schema: r.opts.Schema, store: r.opts.Store, resolver: r.linkTargetResolver},
-	}
+func (r defaultSourceResolver) viewPlannerFor(noteType *ontoschema.NoteType) pushdown.Planner {
+	return pushdown.Planner{Schema: r.opts.Schema, Resolver: pushdown.ViewResolver{NoteType: noteType}, LinkResolver: viewLinkResolver{schema: r.opts.Schema, store: r.opts.Store, resolver: r.linkTargetResolver}}
 }
 
 type viewLinkResolver struct {
-	schema   *ontology.Schema
-	store    noderead.Store
+	schema   *ontoschema.Schema
+	store    noderead.ReadStore
 	resolver *pushdown.CatalogLinkResolver
 }
 
-func (r viewLinkResolver) ResolveLinkTarget(ctx context.Context, field *ontology.Field, raw string) (string, pushdown.Warning) {
+func (r viewLinkResolver) ResolveLinkTarget(ctx context.Context, field *ontoschema.Field, raw string) (string, diag.Warning) {
 	resolver := r.resolver
 	if resolver == nil {
-		catalogStore, ok := r.store.(noderead.CatalogStore)
+		catalogStore, ok := r.store.(noderead.ReadStore)
 		if !ok {
-			return "", pushdown.Warning{Code: "link_filter_resolution_failed", Message: "link filter target resolver is unavailable"}
+			return "", diag.Warning{Code: "link_filter_resolution_failed", Message: "link filter target resolver is unavailable"}
 		}
 		resolver = pushdown.NewCatalogLinkResolver(r.schema, catalogStore)
 	}
 	return resolver.ResolveLinkTarget(ctx, field, raw)
 }
-
 func filterToPushdownInput(filter viewconfig.FilterSpec) pushdown.FilterInput {
-	return pushdown.FilterInput{
-		Field:  filter.Field,
-		Op:     filter.Op,
-		Value:  filter.Value,
-		Values: filter.Values,
-	}
+	return pushdown.FilterInput{Field: filter.Field, Op: filter.Op, Value: filter.Value, Values: filter.Values}
 }
-
 func sortToPushdownInput(sortItem viewconfig.SortSpec) pushdown.SortInput {
-	return pushdown.SortInput{
-		Field:     sortItem.Field,
-		Direction: sortItem.Direction,
-	}
+	return pushdown.SortInput{Field: sortItem.Field, Direction: sortItem.Direction}
 }
-
-func (r defaultSourceResolver) planIndexedEmbeddedViewConstraints(noteType *ontology.NoteType, req ExecuteRequest) SourceResult {
-	result := SourceResult{
-		ConstraintPlan: true,
-		PushedConstraints: SourceConstraints{
-			Filters: make([]viewconfig.FilterSpec, 0, len(req.Filters)),
-		},
-		ResidualConstraints: SourceConstraints{
-			Search: req.Search,
-			Page:   req.Page,
-		},
-	}
+func (r defaultSourceResolver) planIndexedEmbeddedViewConstraints(ctx context.Context, noteType *ontoschema.NoteType, req ExecuteRequest) SourceResult {
 	planner := r.viewPlannerFor(noteType)
-	for _, filter := range req.Filters {
-		if r.viewFilterCanPush(noteType, filter) {
-			result.PushedConstraints.Filters = append(result.PushedConstraints.Filters, filter)
-		} else {
-			result.ResidualConstraints.Filters = append(result.ResidualConstraints.Filters, filter)
-		}
+	filters := make([]pushdown.FilterInput, len(req.Filters))
+	for i, filter := range req.Filters {
+		filters[i] = filterToPushdownInput(filter)
 	}
-	sortInputs := make([]pushdown.SortInput, len(req.Sort))
-	for i, sortItem := range req.Sort {
-		sortInputs[i] = sortToPushdownInput(sortItem)
+	sorts := make([]pushdown.SortInput, len(req.Sort))
+	for i, spec := range req.Sort {
+		sorts[i] = sortToPushdownInput(spec)
 	}
-	partition := planner.PlanSort(sortInputs)
-	pushedSort := make([]viewconfig.SortSpec, 0, len(partition.Pushed))
-	for _, item := range partition.Pushed {
-		pushedSort = append(pushedSort, viewconfig.SortSpec{Field: item.Field, Direction: item.Direction})
+	compiled := planner.Plan(ctx, filters, sorts)
+	result := SourceResult{ConstraintPlan: true, ResidualConstraints: SourceConstraints{Search: req.Search, Page: req.Page}, indexedSort: compiled.Pushed.Sort}
+	for i, input := range compiled.PushedFilters {
+		filter := viewconfig.FilterSpec{Field: input.Field, Op: input.Op, Value: input.Value, Values: input.Values}
+		result.PushedConstraints.Filters = append(result.PushedConstraints.Filters, filter)
+		key, _, _ := planner.Resolver.Resolve(input.Field)
+		result.indexedPredicates = append(result.indexedPredicates, viewPathPredicateWithMarkdownCompatibility(filter, pushdown.PredicateResult{Predicate: compiled.Pushed.Predicates[i], Key: key}))
 	}
-	result.PushedConstraints.Sort = pushedSort
-	if len(partition.Residual) > 0 {
-		// IMPORTANT: table execution applies residual sort globally. If the indexed
-		// source pushed a prefix of the requested sort, applying only the suffix would
-		// make that suffix the primary order. Reapply the full requested sort over
-		// the bounded candidate set so the pushed prefix remains semantically primary.
-		result.ResidualConstraints.Sort = append([]viewconfig.SortSpec(nil), req.Sort...)
+	for _, input := range compiled.Residual {
+		result.ResidualConstraints.Filters = append(result.ResidualConstraints.Filters, viewconfig.FilterSpec{Field: input.Field, Op: input.Op, Value: input.Value, Values: input.Values})
 	}
+	for _, input := range compiled.PushedSort {
+		result.PushedConstraints.Sort = append(result.PushedConstraints.Sort, viewconfig.SortSpec{Field: input.Field, Direction: input.Direction})
+	}
+	for _, input := range compiled.Sort {
+		result.ResidualConstraints.Sort = append(result.ResidualConstraints.Sort, viewconfig.SortSpec{Field: input.Field, Direction: input.Direction})
+	}
+	result.indexedWarnings = append(result.indexedWarnings, compiled.Warnings...)
 	return result
 }
-
-func (r defaultSourceResolver) viewFilterCanPush(noteType *ontology.NoteType, filter viewconfig.FilterSpec) bool {
+func (r defaultSourceResolver) viewFilterCanPush(ctx context.Context, noteType *ontoschema.NoteType, filter viewconfig.FilterSpec) bool {
 	if noteType == nil {
 		return false
 	}
-	return r.viewPlannerFor(noteType).CanPushFilter(filterToPushdownInput(filter))
+	_, ok := r.viewPlannerFor(noteType).BuildPredicate(ctx, filterToPushdownInput(filter))
+	return ok
 }
-
-func (r defaultSourceResolver) interfacePartialFieldWarnings(typeNames []string, req ExecuteRequest) []Warning {
+func (r defaultSourceResolver) interfacePartialFieldWarnings(ctx context.Context, typeNames []string, req ExecuteRequest) []diag.Warning {
 	if len(typeNames) == 0 {
 		return nil
 	}
-	var warnings []Warning
+	var warnings []diag.Warning
 	for _, filter := range req.Filters {
 		field := strings.TrimSpace(filter.Field)
 		if field == "" || pushdown.IsBuiltinFieldKey(field) {
@@ -457,16 +379,12 @@ func (r defaultSourceResolver) interfacePartialFieldWarnings(typeNames []string,
 		}
 		pushable := 0
 		for _, typeName := range typeNames {
-			if r.viewFilterCanPush(r.opts.Schema.Types[typeName], filter) {
+			if r.viewFilterCanPush(ctx, r.opts.Schema.Types[typeName], filter) {
 				pushable++
 			}
 		}
 		if pushable > 0 && pushable < len(typeNames) {
-			warnings = append(warnings, Warning{
-				Code:    "interface_partial_field_residual",
-				Message: fmt.Sprintf("interface field %q is indexed for %d of %d implementors; residual filtering will run after source enumeration for the remaining implementors", field, pushable, len(typeNames)),
-				Path:    field,
-			})
+			warnings = append(warnings, diag.Warning{Code: "interface_partial_field_residual", Message: fmt.Sprintf("interface field %q is indexed for %d of %d implementors; residual filtering will run after source enumeration for the remaining implementors", field, pushable, len(typeNames)), Path: field})
 		}
 	}
 	for _, sortItem := range req.Sort {
@@ -481,115 +399,20 @@ func (r defaultSourceResolver) interfacePartialFieldWarnings(typeNames []string,
 			}
 		}
 		if pushable > 0 && pushable < len(typeNames) {
-			warnings = append(warnings, Warning{
-				Code:    "interface_partial_field_residual",
-				Message: fmt.Sprintf("interface sort field %q is indexed for %d of %d implementors; residual sorting will run after source enumeration for the remaining implementors", field, pushable, len(typeNames)),
-				Path:    field,
-			})
+			warnings = append(warnings, diag.Warning{Code: "interface_partial_field_residual", Message: fmt.Sprintf("interface sort field %q is indexed for %d of %d implementors; residual sorting will run after source enumeration for the remaining implementors", field, pushable, len(typeNames)), Path: field})
 		}
 	}
 	return warnings
 }
-
-func (r defaultSourceResolver) viewSortKeyCanPush(noteType *ontology.NoteType, sortItem viewconfig.SortSpec) bool {
+func (r defaultSourceResolver) viewSortKeyCanPush(noteType *ontoschema.NoteType, sortItem viewconfig.SortSpec) bool {
 	if noteType == nil {
 		return pushdown.IsBuiltinFieldKey(sortItem.Field)
 	}
-	return r.viewPlannerFor(noteType).CanPushSort(sortToPushdownInput(sortItem))
+	_, ok := r.viewPlannerFor(noteType).BuildSort(sortToPushdownInput(sortItem))
+	return ok
 }
-
-func (r defaultSourceResolver) viewFilterVariablesForType(noteType *ontology.NoteType, filters []viewconfig.FilterSpec) []any {
-	planner := r.viewPlannerFor(noteType)
-	out := make([]any, 0, len(filters))
-	for _, filter := range filters {
-		item := map[string]any{
-			"field": planner.CanonicalKey(filter.Field),
-			"op":    filter.Op,
-		}
-		if len(filter.Values) > 0 {
-			item["values"] = append([]string(nil), filter.Values...)
-		} else {
-			item["value"] = filter.Value
-		}
-		out = append(out, item)
-	}
-	return out
-}
-
-func (r defaultSourceResolver) viewSortVariablesForType(noteType *ontology.NoteType, sortSpec []viewconfig.SortSpec) []any {
-	planner := r.viewPlannerFor(noteType)
-	out := make([]any, 0, len(sortSpec))
-	for _, sortItem := range sortSpec {
-		out = append(out, map[string]any{
-			"field":     planner.CanonicalKey(sortItem.Field),
-			"direction": sortItem.Direction,
-		})
-	}
-	return out
-}
-
-func (r defaultSourceResolver) indexedPlanWarnings(ctx context.Context, typeName string, first int, filters []any, sortSpec []any) []Warning {
-	if r.opts.Schema == nil || r.opts.ExecSchema == nil {
-		return nil
-	}
-	query := `query ViewOntologySourcePlan($type: String!, $first: Int!, $filters: [FieldFilterInput!], $sort: [SortInput!]) {
-  ontology {
-    queryPlan(type: $type, first: $first, filters: $filters, sort: $sort) {
-      warnings { code message path }
-    }
-  }
-}`
-	prepared, errs := ontologyquery.PrepareWithVariables(r.opts.ExecSchema, query, map[string]any{
-		"type":    typeName,
-		"first":   first,
-		"filters": filters,
-		"sort":    sortSpec,
-	})
-	if len(errs) > 0 {
-		return []Warning{{Code: "view_source_plan_unavailable", Message: queryErrorSummary(errs)}}
-	}
-	result := ontologyquery.ExecutePrepared(ctx, r.opts.QueryDeps, r.opts.Schema, r.opts.ExecSchema, prepared)
-	if len(result.Errors) > 0 {
-		return []Warning{{Code: "view_source_plan_unavailable", Message: queryErrorSummary(result.Errors)}}
-	}
-	ontologyRoot, _ := result.Data["ontology"].(map[string]any)
-	queryPlan, _ := ontologyRoot["queryPlan"].(map[string]any)
-	rawWarnings, _ := queryPlan["warnings"].([]any)
-	out := make([]Warning, 0, len(rawWarnings))
-	for _, raw := range rawWarnings {
-		item, ok := raw.(map[string]any)
-		if !ok {
-			continue
-		}
-		out = append(out, Warning{
-			Code:    firstString(item["code"]),
-			Message: firstString(item["message"]),
-			Path:    firstString(item["path"]),
-		})
-	}
-	return out
-}
-
-func (r defaultSourceResolver) typeInstancesPushdown(ctx context.Context, noteType *ontology.NoteType, plan SourceResult) ([]codeanchor.OntologyFieldPredicate, []codeanchor.OntologyFieldSort, []Warning) {
-	planner := r.viewPlannerFor(noteType)
-	predicates := make([]codeanchor.OntologyFieldPredicate, 0, len(plan.PushedConstraints.Filters))
-	var warnings []Warning
-	for _, filter := range plan.PushedConstraints.Filters {
-		result, ok := planner.BuildPredicate(ctx, filterToPushdownInput(filter))
-		for _, warning := range result.Warnings {
-			warnings = append(warnings, Warning{Code: warning.Code, Message: warning.Message, Path: warning.Path})
-		}
-		if ok {
-			predicates = append(predicates, viewPathPredicateWithMarkdownCompatibility(filter, result))
-		}
-	}
-	sortSpec := make([]codeanchor.OntologyFieldSort, 0, len(plan.PushedConstraints.Sort))
-	for _, item := range plan.PushedConstraints.Sort {
-		if sortItem, ok := planner.BuildSort(sortToPushdownInput(item)); ok {
-			sortSpec = append(sortSpec, sortItem)
-		}
-	}
-	return predicates, sortSpec, warnings
+func (r defaultSourceResolver) typeInstancesPushdown(ctx context.Context, noteType *ontoschema.NoteType, plan SourceResult) ([]readmodel.FieldPredicate, []readmodel.FieldSort, []diag.Warning) {
+	return plan.indexedPredicates, plan.indexedSort, plan.indexedWarnings
 }
 
 // viewPathPredicateWithMarkdownCompatibility preserves the legacy view-input
@@ -598,14 +421,13 @@ func (r defaultSourceResolver) typeInstancesPushdown(ctx context.Context, noteTy
 // Views currently query Markdown-derived ontology roots, so this explicit
 // compatibility boundary may also match the historical .md form. Explicit
 // extensions always remain unchanged.
-func viewPathPredicateWithMarkdownCompatibility(filter viewconfig.FilterSpec, result pushdown.PredicateResult) codeanchor.OntologyFieldPredicate {
+func viewPathPredicateWithMarkdownCompatibility(filter viewconfig.FilterSpec, result pushdown.PredicateResult) readmodel.FieldPredicate {
 	predicate := result.Predicate
-	if !result.Key.IsBuiltin() || predicate.Op == codeanchor.OntologyFieldOpExists {
+	if !result.Key.IsBuiltin() || predicate.Op == readmodel.FieldOpExists {
 		return predicate
 	}
-
 	values := filter.Values
-	if predicate.Op != codeanchor.OntologyFieldOpIn {
+	if predicate.Op != readmodel.FieldOpIn {
 		values = []string{filter.Value}
 	}
 	for _, value := range values {
@@ -613,45 +435,24 @@ func viewPathPredicateWithMarkdownCompatibility(filter viewconfig.FilterSpec, re
 		if value == "" || filepath.Ext(value) != "" {
 			continue
 		}
-		markdownPath := paths.NormalizeNote(value).String()
-		predicate.Values = append(predicate.Values, codeanchor.IntelOntologyNodeFieldValue{
-			ValueText: markdownPath,
-			ValueNorm: markdownPath,
-		})
+		markdownPath := paths.EnsureNoteExtension(value, ".md").String()
+		predicate.Values = append(predicate.Values, readmodel.FieldValueRow{ValueText: markdownPath, ValueNorm: markdownPath})
 	}
 	if len(predicate.Values) > 1 {
-		predicate.Op = codeanchor.OntologyFieldOpIn
+		predicate.Op = readmodel.FieldOpIn
 	}
 	return predicate
 }
-
-func (r defaultSourceResolver) interfaceTypeInstancesPushdown(ctx context.Context, typeNames []string, typePlans map[string]SourceResult) ([]codeanchor.OntologyFieldPredicate, []codeanchor.OntologyFieldSort, []Warning) {
-	for _, typeName := range typeNames {
-		noteType := r.opts.Schema.Types[typeName]
-		typePlan := typePlans[typeName]
-		return r.typeInstancesPushdown(ctx, noteType, typePlan)
+func (r defaultSourceResolver) interfaceTypeInstancesPushdown(ctx context.Context, typeNames []string, typePlans map[string]SourceResult) ([]readmodel.FieldPredicate, []readmodel.FieldSort, []diag.Warning) {
+	if len(typeNames) == 0 {
+		return nil, nil, nil
 	}
-	return nil, nil, nil
+	plan := typePlans[typeNames[0]]
+	return plan.indexedPredicates, plan.indexedSort, plan.indexedWarnings
 }
-
 func rowFromNodeListItem(item ontology.NodeListItem) TableRow {
-	return TableRow{
-		Ref:          item.Ref,
-		Path:         item.NotePath,
-		Title:        item.Title,
-		ResolvedType: item.ResolvedType,
-		UpdatedAt:    item.UpdatedAt,
-		HasIssues:    item.HasIssues,
-		Fields: map[string]any{
-			"title":        item.Title,
-			"path":         item.NotePath,
-			"resolvedType": item.ResolvedType,
-			"updatedAt":    item.UpdatedAt,
-			"hasIssues":    item.HasIssues,
-		},
-	}
+	return TableRow{Ref: item.Ref, Path: item.NotePath, Title: item.Title, ResolvedType: item.ResolvedType, UpdatedAt: item.UpdatedAt, HasIssues: item.HasIssues, Fields: map[string]any{"title": item.Title, "path": item.NotePath, "resolvedType": item.ResolvedType, "updatedAt": item.UpdatedAt, "hasIssues": item.HasIssues}}
 }
-
 func (r defaultSourceResolver) enrichRowFromRecord(row TableRow, record noderead.NodeRecord) TableRow {
 	row.Ref = record.Ref
 	row.Path = firstNonEmpty(record.Path, row.Path)
@@ -674,30 +475,29 @@ func (r defaultSourceResolver) enrichRowFromRecord(row TableRow, record noderead
 	}
 	return row
 }
-
-func addSemanticFields(fields map[string]any, noteType *ontology.NoteType, record noderead.NodeRecord) {
+func addSemanticFields(fields map[string]any, noteType *ontoschema.NoteType, record noderead.NodeRecord) {
 	for _, field := range noteType.Fields {
 		if field == nil || field.Name == "" {
 			continue
 		}
-		if ontology.IsSectionSummary(field) {
+		if ontoschema.IsSectionSummary(field) {
 			if values, ok := lookupInlineProp(record.InlineProps, field.Name); ok && len(values) > 0 {
 				fields[field.Name] = strings.Join(values, " ")
 			}
 			continue
 		}
 		switch field.SourceKind {
-		case ontology.FieldSourceFrontmatter:
+		case ontoschema.FieldSourceFrontmatter:
 			source := firstNonEmpty(field.Source, field.Name)
 			if value, ok := record.Frontmatter[source]; ok {
 				fields[field.Name] = value
 			}
-		case ontology.FieldSourceInline:
+		case ontoschema.FieldSourceInline:
 			source := firstNonEmpty(field.Source, field.Name)
 			if values, ok := lookupInlineProp(record.InlineProps, source); ok {
 				fields[field.Name] = append([]string(nil), values...)
 			}
-		case ontology.FieldSourceCheckbox:
+		case ontoschema.FieldSourceCheckbox:
 			if values, ok := lookupInlineProp(record.InlineProps, field.Name); ok && len(values) > 0 {
 				fields[field.Name] = values[0]
 			}
@@ -723,12 +523,10 @@ func lookupInlineProp(props map[string][]string, key string) ([]string, bool) {
 	}
 	return nil, false
 }
-
 func nodereadScopeForResolver(ctx context.Context, r defaultSourceResolver) *noderead.Scope {
-	return noderead.NewService(r.opts.VaultDef, r.opts.NoteReader, r.opts.Store, r.opts.Schema).NewScope(ctx, noderead.ScopeOptions{ReadOverlay: r.opts.ReadOverlay})
+	return noderead.NewService(r.opts.VaultDef, r.opts.NoteReader, r.opts.Store, r.opts.Schema).NewScope(noderead.ScopeOptions{ReadOverlay: r.opts.ReadOverlay})
 }
-
-func (r defaultSourceResolver) hydrateRowsWithScope(ctx context.Context, scope *noderead.Scope, rows []TableRow) ([]TableRow, []Warning) {
+func (r defaultSourceResolver) hydrateRowsWithScope(ctx context.Context, scope *noderead.Scope, rows []TableRow) ([]TableRow, []diag.Warning) {
 	if r.opts.Store == nil || len(rows) == 0 {
 		return rows, nil
 	}
@@ -749,7 +547,7 @@ func (r defaultSourceResolver) hydrateRowsWithScope(ctx context.Context, scope *
 	// like action-items that span many notes.
 	records, err := scope.Hydrate(ctx, refs, noderead.HydrateOptions{Profile: noderead.HydrateSummary})
 	if err != nil {
-		return rows, []Warning{{Code: "view_source_hydration_failed", Message: err.Error()}}
+		return rows, []diag.Warning{{Code: "view_source_hydration_failed", Message: err.Error()}}
 	}
 	recordByKey := map[string]noderead.NodeRecord{}
 	relationValuesByKey := map[string]map[string][]TableRelationValue{}
@@ -760,9 +558,9 @@ func (r defaultSourceResolver) hydrateRowsWithScope(ctx context.Context, scope *
 		}
 	}
 	overlayRelationValues, relationErr := resolveRawRelationValues(ctx, scope, r.opts.Schema, records)
-	warnings := make([]Warning, 0, 1)
+	warnings := make([]diag.Warning, 0, 1)
 	if relationErr != nil {
-		warnings = append(warnings, Warning{Code: "view_relation_resolution_failed", Message: relationErr.Error()})
+		warnings = append(warnings, diag.Warning{Code: "view_relation_resolution_failed", Message: relationErr.Error()})
 	}
 	for key, values := range overlayRelationValues {
 		relationValuesByKey[key] = values
@@ -781,7 +579,7 @@ func (r defaultSourceResolver) hydrateRowsWithScope(ctx context.Context, scope *
 // ontologyEditCapabilities assigns roles from the view source's profile, so
 // an interface view reads the interface's lifecycle and summary fields.
 func (r defaultSourceResolver) ontologyEditCapabilities(ctx context.Context, scope *noderead.Scope, view viewconfig.ViewDefinition) []FieldCapability {
-	var profile *ontology.TypeProfile
+	var profile *ontoschema.TypeProfile
 	if derived, ok := sourceProfile(r.opts.Schema, view); ok {
 		profile = &derived
 	}
@@ -792,8 +590,7 @@ func (r defaultSourceResolver) ontologyEditCapabilities(ctx context.Context, sco
 func (r defaultSourceResolver) ontologyEditCapabilitiesForTypes(ctx context.Context, scope *noderead.Scope, typeNames []string) []FieldCapability {
 	return r.capabilitiesForTypes(ctx, scope, typeNames, nil)
 }
-
-func (r defaultSourceResolver) capabilitiesForTypes(ctx context.Context, scope *noderead.Scope, typeNames []string, sourceProfile *ontology.TypeProfile) []FieldCapability {
+func (r defaultSourceResolver) capabilitiesForTypes(ctx context.Context, scope *noderead.Scope, typeNames []string, sourceProfile *ontoschema.TypeProfile) []FieldCapability {
 	if r.opts.Schema == nil {
 		return nil
 	}
@@ -847,42 +644,12 @@ func (r defaultSourceResolver) capabilitiesForTypes(ctx context.Context, scope *
 	}
 	return out
 }
-
-func titleEditCapabilityForType(noteType *ontology.NoteType) FieldCapability {
+func titleEditCapabilityForType(noteType *ontoschema.NoteType) FieldCapability {
 	if noteType == nil {
 		return FieldCapability{}
 	}
-	return FieldCapability{
-		Key:              "title",
-		Label:            "Title",
-		ValueKind:        "string",
-		CanonicalField:   "title",
-		SourceKeys:       []string{"title"},
-		SourceKind:       "builtin",
-		SemanticRole:     "title",
-		Importance:       ontology.FieldImportanceNormal,
-		Sortable:         true,
-		ResidualSortable: true,
-		Groupable:        false,
-		FilterOps:        []string{"eq", "neq", "contains", "in", "exists"},
-		ResidualFilterOps: []string{
-			"eq", "neq", "contains", "in", "exists",
-		},
-		Source: "builtin",
-		Filter: &FilterCapability{Ops: []string{
-			"eq", "neq", "contains", "in", "exists",
-		}},
-		Edit: &EditCapability{
-			Kind:      "text",
-			Operation: "setField",
-			Field:     "title",
-			InputMode: "doubleClick",
-			ValueKind: "string",
-		},
-		cardinalityKnown: true,
-	}
+	return FieldCapability{Key: "title", Label: "Title", ValueKind: "string", CanonicalField: "title", SourceKeys: []string{"title"}, SourceKind: "builtin", SemanticRole: "title", Importance: ontoschema.FieldImportanceNormal, Sortable: true, ResidualSortable: true, Groupable: false, FilterOps: []string{"eq", "neq", "contains", "in", "exists"}, ResidualFilterOps: []string{"eq", "neq", "contains", "in", "exists"}, Source: "builtin", Filter: &FilterCapability{Ops: []string{"eq", "neq", "contains", "in", "exists"}}, Edit: &EditCapability{Kind: "text", Operation: "setField", Field: "title", InputMode: "doubleClick", ValueKind: "string"}, cardinalityKnown: true}
 }
-
 func mergeOntologyEditCapability(existing FieldCapability, next FieldCapability) FieldCapability {
 	if existing.Key == "" {
 		return next
@@ -912,16 +679,14 @@ func mergeOntologyEditCapability(existing FieldCapability, next FieldCapability)
 	}
 	return merged
 }
-
-func mergeFieldImportance(left, right ontology.FieldDisplayImportance) ontology.FieldDisplayImportance {
+func mergeFieldImportance(left, right ontoschema.FieldDisplayImportance) ontoschema.FieldDisplayImportance {
 	left = effectiveFieldImportance(left)
 	right = effectiveFieldImportance(right)
 	if left == right {
 		return left
 	}
-	return ontology.FieldImportanceNormal
+	return ontoschema.FieldImportanceNormal
 }
-
 func editCapabilitiesCompatible(a *EditCapability, b *EditCapability) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
@@ -937,7 +702,6 @@ func editCapabilitiesCompatible(a *EditCapability, b *EditCapability) bool {
 	}
 	return sameStringSet(editCandidateValues(a.Candidates), editCandidateValues(b.Candidates))
 }
-
 func mergeStringValues(a []string, b []string) []string {
 	seen := map[string]struct{}{}
 	out := make([]string, 0, len(a)+len(b))
@@ -953,7 +717,6 @@ func mergeStringValues(a []string, b []string) []string {
 	}
 	return out
 }
-
 func mergeAnyValues(a []any, b []any) []any {
 	seen := map[string]struct{}{}
 	out := make([]any, 0, len(a)+len(b))
@@ -970,7 +733,6 @@ func mergeAnyValues(a []any, b []any) []any {
 	}
 	return out
 }
-
 func sameStringSet(a []string, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -987,7 +749,6 @@ func sameStringSet(a []string, b []string) bool {
 	}
 	return true
 }
-
 func editCandidateValues(candidates []EditCandidate) []string {
 	out := make([]string, 0, len(candidates))
 	for _, candidate := range candidates {
@@ -995,7 +756,6 @@ func editCandidateValues(candidates []EditCandidate) []string {
 	}
 	return out
 }
-
 func (r defaultSourceResolver) sourceTypeNames(view viewconfig.ViewDefinition) []string {
 	if r.opts.Schema == nil {
 		return nil
@@ -1023,13 +783,12 @@ func (r defaultSourceResolver) sourceTypeNames(view viewconfig.ViewDefinition) [
 	}
 	return nil
 }
-
-func (r defaultSourceResolver) capabilitiesForField(ctx context.Context, scope *noderead.Scope, field *ontology.Field) []FieldCapability {
-	if ontology.IsSectionSummary(field) {
+func (r defaultSourceResolver) capabilitiesForField(ctx context.Context, scope *noderead.Scope, field *ontoschema.Field) []FieldCapability {
+	if ontoschema.IsSectionSummary(field) {
 		return []FieldCapability{{Key: field.Name, Label: labelForField(field.Name), CanonicalField: field.Name, ValueKind: "string", SemanticRole: "summary", Importance: field.Display.EffectiveImportance(), cardinalityKnown: true}}
 	}
 	edit := r.editCapabilityForField(ctx, scope, field)
-	plan, ok := ontology.FieldQueryCapabilityForField(r.opts.Schema, field)
+	plan, ok := ontoschema.FieldQueryCapabilityForField(r.opts.Schema, field)
 	if !ok {
 		return nil
 	}
@@ -1045,30 +804,7 @@ func (r defaultSourceResolver) capabilitiesForField(ctx context.Context, scope *
 	}
 	for _, key := range keys {
 		sourceKind := fieldCapabilitySource(key)
-		cap := FieldCapability{
-			Key:               key,
-			Label:             labelForField(key),
-			ValueKind:         plan.ValueKind,
-			CanonicalField:    field.Name,
-			SourceKeys:        append([]string(nil), keys...),
-			SourceKind:        sourceKind,
-			SemanticRole:      schemaFieldRole(nil, field),
-			Required:          field.Required,
-			Importance:        field.Display.EffectiveImportance(),
-			Sortable:          plan.Sortable,
-			IndexedSortable:   plan.Sortable,
-			ResidualSortable:  plan.Sortable,
-			Groupable:         plan.Groupable,
-			FilterOps:         append([]string(nil), filterOps...),
-			IndexedFilterOps:  append([]string(nil), plan.IndexedFilterOps...),
-			ResidualFilterOps: append([]string(nil), residualOps...),
-			Source:            sourceKind,
-			Filter:            &FilterCapability{Ops: append([]string(nil), filterOps...)},
-			Edit:              edit,
-			PolicyReason:      policyReason,
-			List:              field.List,
-			cardinalityKnown:  true,
-		}
+		cap := FieldCapability{Key: key, Label: labelForField(key), ValueKind: plan.ValueKind, CanonicalField: field.Name, SourceKeys: append([]string(nil), keys...), SourceKind: sourceKind, SemanticRole: schemaFieldRole(nil, field), Required: field.Required, Importance: field.Display.EffectiveImportance(), Sortable: plan.Sortable, IndexedSortable: plan.Sortable, ResidualSortable: plan.Sortable, Groupable: plan.Groupable, FilterOps: append([]string(nil), filterOps...), IndexedFilterOps: append([]string(nil), plan.IndexedFilterOps...), ResidualFilterOps: append([]string(nil), residualOps...), Source: sourceKind, Filter: &FilterCapability{Ops: append([]string(nil), filterOps...)}, Edit: edit, PolicyReason: policyReason, List: field.List, cardinalityKnown: true}
 		if len(enumValues) > 0 {
 			cap.EnumName = field.TypeName
 			cap.EnumValues = append([]FieldEnumValue(nil), enumValues...)
@@ -1079,7 +815,6 @@ func (r defaultSourceResolver) capabilitiesForField(ctx context.Context, scope *
 	}
 	return out
 }
-
 func enumValuesAsOptions(values []FieldEnumValue) []any {
 	out := make([]any, 0, len(values))
 	for _, value := range values {
@@ -1087,8 +822,7 @@ func enumValuesAsOptions(values []FieldEnumValue) []any {
 	}
 	return out
 }
-
-func enumValuesForCapability(schema *ontology.Schema, typeName string) []FieldEnumValue {
+func enumValuesForCapability(schema *ontoschema.Schema, typeName string) []FieldEnumValue {
 	if schema == nil || schema.EnumTypes == nil {
 		return nil
 	}
@@ -1104,14 +838,7 @@ func enumValuesForCapability(schema *ontology.Schema, typeName string) []FieldEn
 		if value == nil || value.Name == "" {
 			continue
 		}
-		item := FieldEnumValue{
-			Value:              value.Name,
-			Label:              firstNonEmpty(value.View.Label, value.Name),
-			Description:        value.Description,
-			Rank:               value.View.Order,
-			Tone:               tones[index],
-			CollapsedByDefault: index < len(collapsed) && collapsed[index],
-		}
+		item := FieldEnumValue{Value: value.Name, Label: firstNonEmpty(value.View.Label, value.Name), Description: value.Description, Rank: value.View.Order, Tone: tones[index], CollapsedByDefault: index < len(collapsed) && collapsed[index]}
 		if index < len(stages) {
 			item.Stage = stages[index].Stage
 			item.StageDeclared = stages[index].Declared
@@ -1120,53 +847,20 @@ func enumValuesForCapability(schema *ontology.Schema, typeName string) []FieldEn
 	}
 	return out
 }
-
-func (r defaultSourceResolver) editCapabilityForField(ctx context.Context, scope *noderead.Scope, field *ontology.Field) *EditCapability {
+func (r defaultSourceResolver) editCapabilityForField(ctx context.Context, scope *noderead.Scope, field *ontoschema.Field) *EditCapability {
 	switch {
-	case field.Kind == ontology.FieldKindEnum:
-		return &EditCapability{
-			Kind:      "enum",
-			Operation: "setField",
-			Field:     field.Name,
-			List:      field.List,
-			InputMode: "direct",
-			ValueKind: "enum",
-			Options:   enumOptions(r.opts.Schema, field.TypeName),
-		}
-	case field.SourceKind == ontology.FieldSourceCheckbox:
-		return &EditCapability{
-			Kind:      "boolean",
-			Operation: "setField",
-			Field:     field.Name,
-			InputMode: "direct",
-			ValueKind: "bool",
-			Options:   []string{"false", "true"},
-		}
+	case field.Kind == ontoschema.FieldKindEnum:
+		return &EditCapability{Kind: "enum", Operation: "setField", Field: field.Name, List: field.List, InputMode: "direct", ValueKind: "enum", Options: enumOptions(r.opts.Schema, field.TypeName)}
+	case field.SourceKind == ontoschema.FieldSourceCheckbox:
+		return &EditCapability{Kind: "boolean", Operation: "setField", Field: field.Name, InputMode: "direct", ValueKind: "bool", Options: []string{"false", "true"}}
 	case safeAuthoredScalarEditField(field):
-		return &EditCapability{
-			Kind:      scalarEditKind(field.TypeName),
-			Operation: "setField",
-			Field:     field.Name,
-			List:      field.List,
-			InputMode: "doubleClick",
-			ValueKind: scalarEditValueKind(field.TypeName),
-		}
-	case field.Kind == ontology.FieldKindLink && field.TypeName != "" && field.TypeName != "Note":
-		return &EditCapability{
-			Kind:       "node",
-			Operation:  "setLinkField",
-			Field:      field.Name,
-			List:       field.List,
-			InputMode:  "direct",
-			ValueKind:  "relation",
-			TargetType: field.TypeName,
-			Candidates: r.editCandidatesForType(ctx, scope, field.TypeName),
-		}
+		return &EditCapability{Kind: scalarEditKind(field.TypeName), Operation: "setField", Field: field.Name, List: field.List, InputMode: "doubleClick", ValueKind: scalarEditValueKind(field.TypeName)}
+	case field.Kind == ontoschema.FieldKindLink && field.TypeName != "" && field.TypeName != "Note":
+		return &EditCapability{Kind: "node", Operation: "setLinkField", Field: field.Name, List: field.List, InputMode: "direct", ValueKind: "relation", TargetType: field.TypeName, Candidates: r.editCandidatesForType(ctx, scope, field.TypeName)}
 	default:
 		return nil
 	}
 }
-
 func scalarEditKind(typeName string) string {
 	switch scalarEditValueKind(typeName) {
 	case "date":
@@ -1179,7 +873,6 @@ func scalarEditKind(typeName string) string {
 		return "text"
 	}
 }
-
 func scalarEditValueKind(typeName string) string {
 	switch strings.ToLower(strings.TrimSpace(typeName)) {
 	case "date":
@@ -1198,12 +891,11 @@ func scalarEditValueKind(typeName string) string {
 		return "string"
 	}
 }
-
-func safeAuthoredScalarEditField(field *ontology.Field) bool {
-	if field == nil || field.Kind != ontology.FieldKindScalar || field.List {
+func safeAuthoredScalarEditField(field *ontoschema.Field) bool {
+	if field == nil || field.Kind != ontoschema.FieldKindScalar || field.List {
 		return false
 	}
-	if field.SourceKind != ontology.FieldSourceFrontmatter && field.SourceKind != ontology.FieldSourceInline {
+	if field.SourceKind != ontoschema.FieldSourceFrontmatter && field.SourceKind != ontoschema.FieldSourceInline {
 		return false
 	}
 	if field.IsIdentifier || field.IsPreferredIdentifier || field.IsDerivableIdentifier {
@@ -1219,19 +911,17 @@ func safeAuthoredScalarEditField(field *ontology.Field) bool {
 		return false
 	}
 }
-
-func semanticCapabilityKeys(field *ontology.Field) []string {
+func semanticCapabilityKeys(field *ontoschema.Field) []string {
 	keys := []string{field.Name}
 	source := firstNonEmpty(field.Source, field.Name)
 	switch field.SourceKind {
-	case ontology.FieldSourceFrontmatter:
+	case ontoschema.FieldSourceFrontmatter:
 		keys = append(keys, "frontmatter."+source)
-	case ontology.FieldSourceInline:
+	case ontoschema.FieldSourceInline:
 		keys = append(keys, "inline."+source)
 	}
 	return keys
 }
-
 func mergeFilterSpecs(existing []viewconfig.FilterSpec, next []viewconfig.FilterSpec) []viewconfig.FilterSpec {
 	seen := make(map[string]struct{}, len(existing)+len(next))
 	out := make([]viewconfig.FilterSpec, 0, len(existing)+len(next))
@@ -1245,7 +935,6 @@ func mergeFilterSpecs(existing []viewconfig.FilterSpec, next []viewconfig.Filter
 	}
 	return out
 }
-
 func mergeSortSpecs(existing []viewconfig.SortSpec, next []viewconfig.SortSpec) []viewconfig.SortSpec {
 	seen := make(map[string]struct{}, len(existing)+len(next))
 	out := make([]viewconfig.SortSpec, 0, len(existing)+len(next))
@@ -1259,44 +948,26 @@ func mergeSortSpecs(existing []viewconfig.SortSpec, next []viewconfig.SortSpec) 
 	}
 	return out
 }
-
 func hasResidualConstraints(constraints SourceConstraints) bool {
 	return strings.TrimSpace(constraints.Search) != "" || len(constraints.Filters) > 0 || len(constraints.Sort) > 0
 }
-
-func capBoundWarnings(constraints SourceConstraints, limit int) []Warning {
+func capBoundWarnings(constraints SourceConstraints, limit int) []diag.Warning {
 	if !hasResidualConstraints(constraints) {
 		return nil
 	}
-	warnings := []Warning{{
-		Code:    "view_residual_constraints_cap_bound",
-		Message: fmt.Sprintf("residual table operations ran over a capped candidate set of %d rows", limit),
-	}}
+	warnings := []diag.Warning{{Code: "view_residual_constraints_cap_bound", Message: fmt.Sprintf("residual table operations ran over a capped candidate set of %d rows", limit)}}
 	if strings.TrimSpace(constraints.Search) != "" {
-		warnings = append(warnings, Warning{
-			Code:    "view_search_cap_bound",
-			Message: fmt.Sprintf("search ran over a capped candidate set of %d rows", limit),
-			Path:    "search",
-		})
+		warnings = append(warnings, diag.Warning{Code: "view_search_cap_bound", Message: fmt.Sprintf("search ran over a capped candidate set of %d rows", limit), Path: "search"})
 	}
 	if len(constraints.Filters) > 0 {
-		warnings = append(warnings, Warning{
-			Code:    "view_filter_cap_bound",
-			Message: fmt.Sprintf("residual filters ran over a capped candidate set of %d rows", limit),
-			Path:    "filters",
-		})
+		warnings = append(warnings, diag.Warning{Code: "view_filter_cap_bound", Message: fmt.Sprintf("residual filters ran over a capped candidate set of %d rows", limit), Path: "filters"})
 	}
 	if len(constraints.Sort) > 0 {
-		warnings = append(warnings, Warning{
-			Code:    "view_sort_cap_bound",
-			Message: fmt.Sprintf("residual sort ran over a capped candidate set of %d rows", limit),
-			Path:    "sort",
-		})
+		warnings = append(warnings, diag.Warning{Code: "view_sort_cap_bound", Message: fmt.Sprintf("residual sort ran over a capped candidate set of %d rows", limit), Path: "sort"})
 	}
 	return warnings
 }
-
-func enumOptions(schema *ontology.Schema, typeName string) []string {
+func enumOptions(schema *ontoschema.Schema, typeName string) []string {
 	if schema == nil || schema.EnumTypes == nil {
 		return nil
 	}
@@ -1312,7 +983,6 @@ func enumOptions(schema *ontology.Schema, typeName string) []string {
 	}
 	return out
 }
-
 func (r defaultSourceResolver) editCandidatesForType(ctx context.Context, scope *noderead.Scope, typeName string) []EditCandidate {
 	if scope == nil || strings.TrimSpace(typeName) == "" {
 		return nil
@@ -1340,16 +1010,10 @@ func (r defaultSourceResolver) editCandidatesForType(ctx context.Context, scope 
 			continue
 		}
 		label := editCandidateLabel(recordsByPath[item.Ref.NotePath], noteType, item.Title, item.NotePath)
-		out = append(out, EditCandidate{
-			Ref:   item.Ref,
-			Value: editCandidateAuthoringValue(label, item.NotePath),
-			Label: label,
-			Path:  item.NotePath,
-		})
+		out = append(out, EditCandidate{Ref: item.Ref, Value: editCandidateAuthoringValue(label, item.NotePath), Label: label, Path: item.NotePath})
 	}
 	return out
 }
-
 func (r defaultSourceResolver) FieldCandidates(ctx context.Context, view viewconfig.ViewDefinition, req FieldCandidatesRequest) (FieldCandidatesResponse, error) {
 	fieldName := strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(req.Field), "frontmatter."), "inline.")
 	if fieldName == "" {
@@ -1362,7 +1026,7 @@ func (r defaultSourceResolver) FieldCandidates(ctx context.Context, view viewcon
 			continue
 		}
 		field := noteType.ByName[fieldName]
-		if field == nil || field.Kind != ontology.FieldKindLink || field.List || field.TypeName == "" || field.TypeName == "Note" {
+		if field == nil || field.Kind != ontoschema.FieldKindLink || field.List || field.TypeName == "" || field.TypeName == "Note" {
 			continue
 		}
 		if targetType == "" {
@@ -1382,9 +1046,7 @@ func (r defaultSourceResolver) FieldCandidates(ctx context.Context, view viewcon
 	if query != "" {
 		filtered := candidates[:0]
 		for _, candidate := range candidates {
-			if strings.Contains(strings.ToLower(candidate.Label), query) ||
-				strings.Contains(strings.ToLower(candidate.Value), query) ||
-				strings.Contains(strings.ToLower(candidate.Path), query) {
+			if strings.Contains(strings.ToLower(candidate.Label), query) || strings.Contains(strings.ToLower(candidate.Value), query) || strings.Contains(strings.ToLower(candidate.Path), query) {
 				filtered = append(filtered, candidate)
 			}
 		}
@@ -1398,15 +1060,9 @@ func (r defaultSourceResolver) FieldCandidates(ctx context.Context, view viewcon
 	if hasMore {
 		candidates = candidates[:limit]
 	}
-	return FieldCandidatesResponse{
-		Field:      req.Field,
-		TargetType: targetType,
-		Candidates: candidates,
-		HasMore:    hasMore,
-	}, nil
+	return FieldCandidatesResponse{Field: req.Field, TargetType: targetType, Candidates: candidates, HasMore: hasMore}, nil
 }
-
-func editCandidateLabel(record noderead.NodeRecord, noteType *ontology.NoteType, fallbackTitle, notePath string) string {
+func editCandidateLabel(record noderead.NodeRecord, noteType *ontoschema.NoteType, fallbackTitle, notePath string) string {
 	for _, preferred := range []string{"displayName", "display-name", "name", "title"} {
 		if value := frontmatterStringForField(record.Frontmatter, noteType, preferred); value != "" {
 			return value
@@ -1414,23 +1070,21 @@ func editCandidateLabel(record noderead.NodeRecord, noteType *ontology.NoteType,
 	}
 	return firstNonEmpty(record.Title, fallbackTitle, notePath)
 }
-
-func frontmatterStringForField(frontmatter map[string]any, noteType *ontology.NoteType, fieldName string) string {
+func frontmatterStringForField(frontmatter map[string]any, noteType *ontoschema.NoteType, fieldName string) string {
 	if len(frontmatter) == 0 || noteType == nil {
 		return ""
 	}
 	field := noteType.ByName[fieldName]
-	if field == nil || field.SourceKind != ontology.FieldSourceFrontmatter {
+	if field == nil || field.SourceKind != ontoschema.FieldSourceFrontmatter {
 		return ""
 	}
-	for _, source := range ontology.FieldSourceNames(field) {
+	for _, source := range ontoschema.FieldSourceNames(field) {
 		if value := strings.TrimSpace(fmt.Sprint(frontmatter[source])); value != "" && value != "<nil>" {
 			return value
 		}
 	}
 	return ""
 }
-
 func editCandidateAuthoringValue(label, notePath string) string {
 	target := strings.TrimSuffix(strings.TrimSpace(notePath), ".md")
 	label = strings.TrimSpace(label)
@@ -1442,14 +1096,12 @@ func editCandidateAuthoringValue(label, notePath string) string {
 	}
 	return "[[" + target + "|" + label + "]]"
 }
-
 func fieldCapabilitySource(key string) string {
 	if idx := strings.Index(key, "."); idx > 0 {
 		return key[:idx]
 	}
 	return "schema"
 }
-
 func sourceCapPolicy(view viewconfig.ViewDefinition, req ExecuteRequest) SourceCapPolicy {
 	limit := defaultSourceCap
 	source := "default"
@@ -1470,15 +1122,13 @@ func sourceCapPolicy(view viewconfig.ViewDefinition, req ExecuteRequest) SourceC
 	}
 	return SourceCapPolicy{Limit: limit, Source: source}
 }
-
 func sourceCompletenessForCount(count, limit int) SourceCompleteness {
 	if limit > 0 && count >= limit {
 		return SourceBounded
 	}
 	return SourceComplete
 }
-
-func sourceCompletenessForCountAndWarnings(count, limit int, warnings []Warning) SourceCompleteness {
+func sourceCompletenessForCountAndWarnings(count, limit int, warnings []diag.Warning) SourceCompleteness {
 	for _, warning := range warnings {
 		if warningIndicatesBoundedSource(warning) {
 			return SourceBounded
@@ -1486,7 +1136,6 @@ func sourceCompletenessForCountAndWarnings(count, limit int, warnings []Warning)
 	}
 	return sourceCompletenessForCount(count, limit)
 }
-
 func cloneMap(in map[string]any) map[string]any {
 	if len(in) == 0 {
 		return map[string]any{}
@@ -1497,7 +1146,6 @@ func cloneMap(in map[string]any) map[string]any {
 	}
 	return out
 }
-
 func cloneInline(in map[string][]string) map[string]any {
 	out := make(map[string]any, len(in))
 	for key, values := range in {

@@ -6,9 +6,9 @@ import (
 	"unicode"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // SymbolProbeRetriever adds cheap exact-symbol recall to broad text searches.
@@ -50,6 +50,16 @@ func (r *SymbolProbeRetriever) Retrieve(ctx context.Context, spec search.QuerySp
 		}
 		seen[key] = struct{}{}
 		out = append(out, search.Candidate{
+			SourceRef: search.SourceRef{
+				Path:        anchor.Path,
+				Title:       anchor.Symbol,
+				Symbol:      anchor.Symbol,
+				FQN:         anchor.FQN,
+				Kind:        anchor.Kind,
+				Granularity: "symbol",
+				ChunkIndex:  -1,
+				AnchorID:    anchor.AnchorID,
+			},
 			Handle: h,
 			Owner:  h,
 			Evidence: []search.Evidence{
@@ -70,15 +80,7 @@ func (r *SymbolProbeRetriever) Retrieve(ctx context.Context, spec search.QuerySp
 					},
 				},
 			},
-			Type:        "code",
-			Path:        anchor.Path,
-			Title:       anchor.Symbol,
-			Symbol:      anchor.Symbol,
-			FQN:         anchor.FQN,
-			Kind:        anchor.Kind,
-			Granularity: "symbol",
-			ChunkIndex:  -1,
-			AnchorID:    anchor.AnchorID,
+			Type: "code",
 		})
 	}
 

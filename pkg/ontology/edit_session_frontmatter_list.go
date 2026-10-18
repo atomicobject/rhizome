@@ -2,12 +2,13 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-func appendFrontmatterFieldSource(content string, fmRange ByteRange, rootIndent string, field *Field, values []string, asLinks bool) string {
+func appendFrontmatterFieldSource(content string, fmRange ByteRange, rootIndent string, field *ontoschema.Field, values []string, asLinks bool) string {
 	key := field.Source
 	if strings.TrimSpace(key) == "" {
 		key = field.Name
@@ -17,17 +18,16 @@ func appendFrontmatterFieldSource(content string, fmRange ByteRange, rootIndent 
 	if len(lines) == 0 {
 		return content
 	}
-	// The frontmatter range also swallows blank lines after the closing
-	// delimiter, so find the delimiter itself.
+	// Locate the closing delimiter without consuming surrounding body whitespace.
 	closingIndex := len(lines) - 1
-	for closingIndex > 0 && strings.TrimSpace(lines[closingIndex].text) != "---" {
+	for closingIndex > 0 && strings.TrimSpace(lines[closingIndex].text) != "---" && strings.TrimSpace(lines[closingIndex].text) != "..." {
 		closingIndex--
 	}
 	closing := lines[closingIndex].start
 	return content[:closing] + rootIndent + key + ": " + value + frontmatterLineEnding(content, fmRange) + content[closing:]
 }
 
-func patchFrontmatterBlockList(content string, lines []frontmatterSourceLine, keyLine frontmatterKeyLine, field *Field, values []string, asLinks bool) (string, error) {
+func patchFrontmatterBlockList(content string, lines []frontmatterSourceLine, keyLine frontmatterKeyLine, field *ontoschema.Field, values []string, asLinks bool) (string, error) {
 	lineIndex := frontmatterLineIndex(lines, keyLine.line.start)
 	if lineIndex < 0 {
 		return content, fmt.Errorf("unsupported target: invalid frontmatter list span for %s", field.Name)
@@ -109,7 +109,7 @@ func frontmatterListItem(value string) bool {
 	return len(value) == 1 || value[1] == ' ' || value[1] == '\t'
 }
 
-func renderFrontmatterBlockItems(indent string, field *Field, values []string, asLinks bool, lineEnding string) string {
+func renderFrontmatterBlockItems(indent string, field *ontoschema.Field, values []string, asLinks bool, lineEnding string) string {
 	var b strings.Builder
 	for _, value := range values {
 		b.WriteString(indent)

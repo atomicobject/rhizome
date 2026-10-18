@@ -9,27 +9,28 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // PrintStatus renders index configuration plus the live coordination state a
 // user needs when indexing is contended: the vault runtime and the index lock.
 func PrintStatus(ctx context.Context, vaultPath string) (string, error) {
-	embCfg, embErr := obsidian.LoadEmbeddingsConfig(vaultPath)
-	codeCfg, codeErr := obsidian.LoadCodeConfig(vaultPath)
-	if embErr != nil && codeErr != nil {
-		return "", fmt.Errorf("load configs: semantic=%v code=%v", embErr, codeErr)
+	resolved, err := repoconfig.Load(vaultPath)
+	if err != nil {
+		return "", fmt.Errorf("load configuration: %w", err)
 	}
+	embCfg, codeCfg := resolved.NoteEmbeddings, resolved.Code
 
 	var b strings.Builder
-	if embErr == nil {
+	{
 		fmt.Fprintf(&b, "Semantic index:\n")
 		fmt.Fprintf(&b, "  Enabled: %v\n", embCfg.Enabled)
 		fmt.Fprintf(&b, "  Path:    %s\n", embCfg.IndexPath)
 		fmt.Fprintf(&b, "  Provider:%s model:%s\n", embCfg.Provider, embCfg.Model)
 	}
-	if codeErr == nil {
+	{
 		fmt.Fprintf(&b, "Code index:\n")
 		fmt.Fprintf(&b, "  Enabled:   %v\n", codeCfg.Enabled)
 		fmt.Fprintf(&b, "  Path:      %s\n", codeCfg.IndexPath)
@@ -50,17 +51,17 @@ func CleanupSessions(ctx context.Context, vaultPath string, verbose bool, out io
 	if out == nil {
 		out = os.Stderr
 	}
-
-	embCfg, err := obsidian.LoadEmbeddingsConfig(vaultPath)
+	resolvedConfig3, configErr3 := repoconfig.Load(vaultPath)
+	embCfg, err := resolvedConfig3.NoteEmbeddings, configErr3
 	if err != nil {
 		if verbose {
 			fmt.Fprintf(out, "Warning: session cleanup skipped: %v\n", err)
 		}
 		return
 	}
-	embCfg.IndexPath = obsidian.UnifiedIndexPath(vaultPath, embCfg.IndexPath)
+	embCfg.IndexPath = repoconfig.UnifiedIndexPath(vaultPath, embCfg.IndexPath)
 	indexCfg := codeanchor.Config{IndexPath: embCfg.IndexPath, Enabled: true}
-	store, cleanup, err := obsidian.OpenIntelStoreForWriteFromConfig(vaultPath, indexCfg)
+	store, cleanup, err := indexstore.Open(vaultPath, indexstore.Options{Access: indexstore.ReadWrite, Config: &indexCfg, Create: true})
 	if err != nil {
 		if verbose {
 			fmt.Fprintf(out, "Warning: session cleanup skipped: %v\n", err)

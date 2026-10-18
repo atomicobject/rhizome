@@ -1,9 +1,9 @@
 package noderead
 
 import (
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // withProjectionSource discloses the provider format and executable source

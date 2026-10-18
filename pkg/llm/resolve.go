@@ -23,7 +23,7 @@ type ModelSpec struct {
 }
 
 // ResolveProfile merges defaults, global, and local config and applies an optional model override.
-func ResolveProfile(profileName string, local *Config, global *Config, modelOverride string) (ResolvedProfile, error) {
+func ResolveProfile(env vaultconfig.Env, profileName string, local *Config, global *Config, modelOverride string) (ResolvedProfile, error) {
 	normalized := normalizeProfileName(profileName)
 	defaults := DefaultProfiles()
 	base, ok := defaults[normalized]
@@ -70,8 +70,8 @@ func ResolveProfile(profileName string, local *Config, global *Config, modelOver
 		return ResolvedProfile{}, fmt.Errorf("unsupported provider: %s", provider)
 	}
 
-	apiKey := APIKeyForProvider(provider)
-	if provider != "mock" && apiKey == "" {
+	apiKey := APIKeyForProvider(env, provider)
+	if apiKey == "" {
 		return ResolvedProfile{}, fmt.Errorf("missing API key for provider %s", provider)
 	}
 
@@ -166,7 +166,7 @@ func isReasoningEffort(value string) bool {
 
 func isKnownProvider(provider string) bool {
 	switch provider {
-	case "openai", "anthropic", "gemini", "cerebras", "mock":
+	case "openai", "anthropic", "gemini", "cerebras":
 		return true
 	default:
 		return false
@@ -174,16 +174,16 @@ func isKnownProvider(provider string) bool {
 }
 
 // APIKeyForProvider returns the API key for a provider from the environment or team keys.
-func APIKeyForProvider(provider string) string {
+func APIKeyForProvider(env vaultconfig.Env, provider string) string {
 	switch provider {
 	case "openai":
-		return vaultconfig.ResolveValue("OPENAI_API_KEY")
+		return vaultconfig.ResolveValue(env, "OPENAI_API_KEY")
 	case "anthropic":
-		return vaultconfig.ResolveValue("ANTHROPIC_API_KEY")
+		return vaultconfig.ResolveValue(env, "ANTHROPIC_API_KEY")
 	case "gemini":
-		return vaultconfig.ResolveValue("GEMINI_API_KEY")
+		return vaultconfig.ResolveValue(env, "GEMINI_API_KEY")
 	case "cerebras":
-		return vaultconfig.ResolveValue("CEREBRAS_API_KEY")
+		return vaultconfig.ResolveValue(env, "CEREBRAS_API_KEY")
 	default:
 		return ""
 	}

@@ -13,11 +13,11 @@ func TestMergeRankedResultsUsesSharedFacetAggregation(t *testing.T) {
 	shared := knowledge.FileHandle("pkg/search/semantic/embedder.go")
 	merged := AggregateFacets([]search.Response{
 		{Query: search.QuerySpec{Text: "embedding", Intent: search.IntentSearch}, Results: []search.RankedResult{
-			{Candidate: search.Candidate{Handle: knowledge.FileHandle("pkg/other.go"), Type: "code", Path: "pkg/other.go"}, FinalScore: 0.91},
-			{Candidate: search.Candidate{Handle: shared, Type: "code", Path: "pkg/search/semantic/embedder.go"}, FinalScore: 0.89},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "pkg/other.go"}, Handle: knowledge.FileHandle("pkg/other.go"), Type: "code"}, FinalScore: 0.91},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "pkg/search/semantic/embedder.go"}, Handle: shared, Type: "code"}, FinalScore: 0.89},
 		}},
 		{Query: search.QuerySpec{Text: "memo", Intent: search.IntentSearch}, Results: []search.RankedResult{
-			{Candidate: search.Candidate{Handle: shared, Type: "code", Path: "pkg/search/semantic/embedder.go", Symbol: "QueryEmbeddings"}, FinalScore: 0.88},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "pkg/search/semantic/embedder.go", Symbol: "QueryEmbeddings"}, Handle: shared, Type: "code"}, FinalScore: 0.88},
 		}},
 	}, 10)
 
@@ -33,9 +33,9 @@ func TestMergeRankedResultsPreservesEvidenceAndBestEngineScore(t *testing.T) {
 	merged := AggregateFacets([]search.Response{
 		{Results: []search.RankedResult{{
 			Candidate: search.Candidate{
-				Handle: shared,
-				Type:   "code",
-				Path:   "pkg/search/service.go",
+				SourceRef: search.SourceRef{Path: "pkg/search/service.go"},
+				Handle:    shared,
+				Type:      "code",
 				Evidence: []search.Evidence{
 					{Type: "intel_fts_match", RawScore: 0.8, Source: "first"},
 				},
@@ -44,9 +44,9 @@ func TestMergeRankedResultsPreservesEvidenceAndBestEngineScore(t *testing.T) {
 		}}},
 		{Results: []search.RankedResult{{
 			Candidate: search.Candidate{
-				Handle: shared,
-				Type:   "code",
-				Path:   "pkg/search/service.go",
+				SourceRef: search.SourceRef{Path: "pkg/search/service.go"},
+				Handle:    shared,
+				Type:      "code",
 				Evidence: []search.Evidence{
 					{Type: "code_vector_similarity", RawScore: 0.9, Source: "second"},
 				},
@@ -65,20 +65,24 @@ func TestMergeRankedResultsMergesNodeBodyAndSectionHitsByPath(t *testing.T) {
 	merged := AggregateFacets([]search.Response{
 		{Results: []search.RankedResult{{
 			Candidate: search.Candidate{
-				Handle:      knowledge.NodeChunkHandle("spec-node", "docs/spec.md", "node_body", 0),
-				Type:        "note",
-				Path:        "docs/spec.md",
-				Granularity: "node_body",
-				NodeRef:     &ontology.NodeRef{NotePath: "docs/spec.md", TypeName: "TechnicalSpec", Kind: ontology.NodeKindNote},
+				SourceRef: search.SourceRef{
+					Path:        "docs/spec.md",
+					Granularity: "node_body",
+					NodeRef:     &ontology.NodeRef{NotePath: "docs/spec.md", TypeName: "TechnicalSpec", Kind: ontology.NodeKindNote},
+				},
+				Handle: knowledge.NodeChunkHandle("spec-node", "docs/spec.md", "node_body", 0),
+				Type:   "note",
 			},
 			FinalScore: 0.7,
 		}}},
 		{Results: []search.RankedResult{{
 			Candidate: search.Candidate{
+				SourceRef: search.SourceRef{
+					Path:  "docs/spec.md",
+					Title: "Spec",
+				},
 				Handle: knowledge.NoteChunkHandle("docs/spec.md", 0),
 				Type:   "note",
-				Path:   "docs/spec.md",
-				Title:  "Spec",
 			},
 			FinalScore: 0.9,
 		}}},

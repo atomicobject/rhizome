@@ -2,13 +2,17 @@ package web
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBuildWorkspaceGraph_EmitsCanonicalNodesEdgesAndViews(t *testing.T) {
@@ -29,11 +33,11 @@ func TestBuildWorkspaceGraph_EmitsCanonicalNodesEdgesAndViews(t *testing.T) {
 			Title:        "Demo spec",
 			ResolvedType: "Spec",
 			Markdown:     "# Demo spec",
-			TypeDoc: &ontology.TypeDoc{
+			TypeDoc: &schemadoc.TypeDoc{
 				Name: "Spec",
-				Fields: []ontology.FieldDoc{
-					{Name: "summary", TypeName: "String", Kind: ontology.FieldKindScalar},
-					{Name: "specStatus", TypeName: "SpecStatus", Kind: ontology.FieldKindEnum, EnumValues: []string{"proposed", "active", "superseded", "archived"}},
+				Fields: []schemadoc.FieldDoc{
+					{Name: "summary", TypeName: "String", Kind: ontoschema.FieldKindScalar},
+					{Name: "specStatus", TypeName: "SpecStatus", Kind: ontoschema.FieldKindEnum, EnumValues: []string{"proposed", "active", "superseded", "archived"}},
 				},
 			},
 			Rendered: &RenderedFileResponse{
@@ -44,13 +48,13 @@ func TestBuildWorkspaceGraph_EmitsCanonicalNodesEdgesAndViews(t *testing.T) {
 					{
 						ID:      "specs/demo/spec.md#Summary",
 						Title:   "Summary",
-						Level:   ontology.SectionLevelH2,
+						Level:   ontoschema.SectionLevelH2,
 						Content: "Body",
 						Children: []RenderedSection{
 							{
 								ID:       "specs/demo/spec.md#^validation",
 								Title:    "Validation story",
-								Level:    ontology.SectionLevelH4,
+								Level:    ontoschema.SectionLevelH4,
 								Content:  "Story body",
 								BlockID:  "^validation",
 								Locator:  "EMBEDDED",
@@ -75,7 +79,7 @@ func TestBuildWorkspaceGraph_EmitsCanonicalNodesEdgesAndViews(t *testing.T) {
 							Locator:   "SECTION",
 							Title:     "Summary",
 							NotePath:  "specs/demo/spec.md",
-							Level:     ontology.SectionLevelH2,
+							Level:     ontoschema.SectionLevelH2,
 							Content:   "Body",
 							FieldName: "summary",
 							FieldPath: "summary",
@@ -87,7 +91,7 @@ func TestBuildWorkspaceGraph_EmitsCanonicalNodesEdgesAndViews(t *testing.T) {
 									Title:     "Validation story",
 									TypeName:  "Story",
 									NotePath:  "specs/demo/spec.md",
-									Level:     ontology.SectionLevelH4,
+									Level:     ontoschema.SectionLevelH4,
 									Content:   "Story body",
 									FieldName: "stories",
 									FieldPath: "stories",
@@ -102,14 +106,14 @@ func TestBuildWorkspaceGraph_EmitsCanonicalNodesEdgesAndViews(t *testing.T) {
 			{
 				Name:    "summary",
 				Present: true,
-				Range:   ontology.NodeRange{Start: 1, End: 10},
+				Range:   ontology.ByteRange{Start: 1, End: 10},
 				Values:  []string{"Body"},
 				Status:  ontology.NodeStatus{},
 			},
 			{
 				Name:    "specStatus",
 				Present: true,
-				Range:   ontology.NodeRange{Start: 21, End: 30},
+				Range:   ontology.ByteRange{Start: 21, End: 30},
 				Values:  []string{"proposed"},
 				Status:  ontology.NodeStatus{},
 			},
@@ -117,7 +121,7 @@ func TestBuildWorkspaceGraph_EmitsCanonicalNodesEdgesAndViews(t *testing.T) {
 		Collections: []ontology.NodeCollectionState{
 			{
 				Name:   "stories",
-				Range:  ontology.NodeRange{Start: 11, End: 20},
+				Range:  ontology.ByteRange{Start: 11, End: 20},
 				Status: ontology.NodeStatus{},
 				Items: []ontology.NodeCollectionItemState{
 					{
@@ -176,7 +180,7 @@ func TestBuildWorkspaceGraph_EmitsCanonicalNodesEdgesAndViews(t *testing.T) {
 	require.Contains(t, nodeByID, summaryID)
 	require.Contains(t, nodeByID, embeddedID)
 	require.Equal(t, "FILE", nodeByID[focusedID].Data.Locator)
-	require.Equal(t, ontology.SectionLevelH4, nodeByID[embeddedID].Data.Level)
+	require.Equal(t, ontoschema.SectionLevelH4, nodeByID[embeddedID].Data.Level)
 
 	fieldNodeID := workspaceSyntheticNodeID("field", focusedID, "summary")
 	statusFieldNodeID := workspaceSyntheticNodeID("field", focusedID, "specStatus")
@@ -222,6 +226,9 @@ func TestBuildWorkspaceGraph_EmitsCanonicalNodesEdgesAndViews(t *testing.T) {
 }
 
 func TestBuildWorkspaceGraph_AttachesBodyToInlineChildDescendants(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "specs"), 0o755))
@@ -251,9 +258,9 @@ Story body.
 
 - must pass
 `), 0o644))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
-	snapshot, err := ontology.LoadDocumentSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "specs/demo.md")
+	snapshot, err := ontology.LoadDocumentSnapshot(vaultconfig.WithEnv(context.Background(), env), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, "specs/demo.md")
 	require.NoError(t, err)
 	noteProjection, err := ontology.ProjectNodeFromSnapshot(snapshot, schema, ontology.NodeRef{
 		NotePath: "specs/demo.md",
@@ -263,7 +270,7 @@ Story body.
 	storyRef := noteProjection.Fields["story"].SectionNodes[0]
 	srv := newFixtureServer(t, fixtureVault{
 		root:     root,
-		vault:    &obsidian.Vault{Name: "test"},
+		vault:    &repoconfig.Vault{Env: env, Name: "test"},
 		vaultDef: obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth},
 	}, nil)
 
@@ -279,7 +286,7 @@ Story body.
 	require.NotEmpty(t, focused.Body)
 	var inlineChildRef *ontology.NodeRef
 	for _, block := range focused.Body {
-		if block.Kind == ontology.NodeBodyBlockKindChildSection && block.SectionDisplay == ontology.SectionDisplayInline {
+		if block.Kind == ontology.NodeBodyBlockKindChildSection && block.SectionDisplay == ontoschema.SectionDisplayInline {
 			inlineChildRef = block.ChildRef
 			break
 		}
@@ -430,12 +437,12 @@ func TestBuildWorkspaceGraph_CollectionItemsConvergeWithRenderedOutlineTitles(t 
 					{
 						ID:    containerID,
 						Title: "User Stories",
-						Level: ontology.SectionLevelH2,
+						Level: ontoschema.SectionLevelH2,
 						Children: []RenderedSection{
 							{
 								ID:      storyID,
 								Title:   "As a user exploring a note",
-								Level:   ontology.SectionLevelH3,
+								Level:   ontoschema.SectionLevelH3,
 								BlockID: "story-a",
 							},
 						},
@@ -447,11 +454,11 @@ func TestBuildWorkspaceGraph_CollectionItemsConvergeWithRenderedOutlineTitles(t 
 			{
 				Name:  "stories",
 				Kind:  ontology.BindingKindSectionList,
-				Range: ontology.NodeRange{Start: 100, End: 500},
+				Range: ontology.ByteRange{Start: 100, End: 500},
 				Items: []ontology.NodeCollectionItemState{
 					{
 						Ref:   itemRef,
-						Range: ontology.NodeRange{Start: 200, End: 300},
+						Range: ontology.ByteRange{Start: 200, End: 300},
 					},
 				},
 			},

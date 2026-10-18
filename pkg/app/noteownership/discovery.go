@@ -172,7 +172,7 @@ func Discover(ctx context.Context, input DiscoveryInput) (Snapshot, error) {
 	candidates := make(map[string]Candidate)
 	walkStarted := time.Now()
 	err = filepath.WalkDir(vaultPaths.Root(), discoveryWalk(ctx, selector, candidates))
-	indexingperf.ObserveLatency(ctx, "fs.walk", time.Since(walkStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.FsWalk, time.Since(walkStarted))
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -235,7 +235,7 @@ func DiscoverScoped(ctx context.Context, input DiscoveryInput, requested []paths
 		}
 		statStarted := time.Now()
 		info, err := os.Stat(abs.String())
-		indexingperf.ObserveLatency(ctx, "fs.stat", time.Since(statStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.FsStat, time.Since(statStarted))
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -255,7 +255,7 @@ func DiscoverScoped(ctx context.Context, input DiscoveryInput, requested []paths
 			return Snapshot{}, err
 		}
 	}
-	indexingperf.ObserveLatency(ctx, "fs.walk", time.Since(walkStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.FsWalk, time.Since(walkStarted))
 	for path, owner := range previous {
 		if !inDiscoveryScope(path, scopes) {
 			continue
@@ -346,7 +346,7 @@ func discoverFile(ctx context.Context, selector Selector, abs string, entry fs.D
 	}
 	statStarted := time.Now()
 	info, err := entry.Info()
-	indexingperf.ObserveLatency(ctx, "fs.stat", time.Since(statStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.FsStat, time.Since(statStarted))
 	if err != nil || !info.Mode().IsRegular() {
 		return err
 	}

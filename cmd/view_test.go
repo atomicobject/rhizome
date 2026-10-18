@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,6 +15,8 @@ import (
 )
 
 func TestViewListJSON(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	ctx := viewCommandTestContext(t)
 	path := writeViewCommandConfig(t, minimalViewCommandYAML("specs"))
 	for _, tc := range []struct {
@@ -24,7 +28,7 @@ func TestViewListJSON(t *testing.T) {
 		{"agent json default", true, []string{"list", "--path", path}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := newViewCmd(tc.agent)
+			cmd := commandOptions.newViewCmd(tc.agent)
 			var out bytes.Buffer
 			cmd.SetOut(&out)
 			cmd.SetArgs(tc.args)
@@ -37,9 +41,11 @@ func TestViewListJSON(t *testing.T) {
 }
 
 func TestViewShowJSON(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	ctx := viewCommandTestContext(t)
 	path := writeViewCommandConfig(t, minimalViewCommandYAML("specs"))
-	cmd := newViewCmd(false)
+	cmd := commandOptions.newViewCmd(false)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetArgs([]string{"show", "specs", "--path", path, "--json"})
@@ -54,6 +60,8 @@ func TestViewShowJSON(t *testing.T) {
 }
 
 func TestViewShowHumanListsAvailableVariants(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	ctx := viewCommandTestContext(t)
 	path := writeViewCommandConfig(t, `apiVersion: rhizome.view.v1
 id: delivery
@@ -71,7 +79,7 @@ variants:
   kanban:
     columnField: status
 `)
-	cmd := newViewCmd(false)
+	cmd := commandOptions.newViewCmd(false)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetArgs([]string{"show", "delivery", "--path", path})
@@ -81,6 +89,8 @@ variants:
 }
 
 func TestViewValidateReturnsNonZeroForIssues(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	ctx := viewCommandTestContext(t)
 	path := writeViewCommandConfig(t, `apiVersion: rhizome.view.v1
 id: bad
@@ -91,7 +101,7 @@ source:
 mount:
   kind: standalone
 `)
-	cmd := newViewCmd(false)
+	cmd := commandOptions.newViewCmd(false)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetArgs([]string{"validate", "--path", path, "--json"})
@@ -103,9 +113,11 @@ mount:
 }
 
 func TestViewValidateReportsExplicitPathLoadIssues(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	ctx := viewCommandTestContext(t)
 	path := writeViewCommandConfig(t, "apiVersion: [")
-	cmd := newViewCmd(false)
+	cmd := commandOptions.newViewCmd(false)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetArgs([]string{"validate", "--path", path, "--json"})
@@ -116,6 +128,8 @@ func TestViewValidateReportsExplicitPathLoadIssues(t *testing.T) {
 }
 
 func TestViewRunJSON(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vaultRoot := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultRoot, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vaultRoot, ".rhizome", "config.yml"), []byte("notes: {}\n"), 0o644))
@@ -135,7 +149,7 @@ func TestViewRunJSON(t *testing.T) {
 		{"explicit zero offset", []string{"--offset", "0"}, 0, 11},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := newViewCmd(false)
+			cmd := commandOptions.newViewCmd(false)
 			var out bytes.Buffer
 			cmd.SetOut(&out)
 			cmd.SetArgs(append([]string{"run", "--id", "specs", "--path", path}, tc.flags...))
@@ -153,7 +167,9 @@ func TestViewRunJSON(t *testing.T) {
 }
 
 func TestAgentSurfaceIncludesViewCommand(t *testing.T) {
-	surface := buildAgentSurface()
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	surface := commandOptions.buildAgentSurface(vaultconfig.WithEnv(context.Background(), testkit.Env(t)))
 	for _, command := range surface.Commands {
 		if command.Name == "view" {
 			require.Empty(t, command.ToolName)
@@ -208,6 +224,8 @@ func requireViewCommandID(t *testing.T, views []appviews.CatalogEntry, id string
 }
 
 func TestViewRunResolvesHTMLSectionBacklinks(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		".rhizome/config.yml": "notes:\n  includes: [\"**/*.md\", \"**/*.html\"]\n",
 		".rhizome/ontology/schema.graphql": `
@@ -250,14 +268,14 @@ variants:
 `,
 	})
 	t.Chdir(vault.path)
-	_, stderr, err := runRootCLI(t, nil, []string{"index"})
+	_, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"index"})
 	require.NoError(t, err, stderr)
-	vaultName = ""
-	ctx := contextWithCommandEnv(context.Background(), commandEnv{
+	commandOptions.vaultName = ""
+	ctx := contextWithCommandEnv(vaultconfig.WithEnv(context.Background(), vault.env), commandEnv{
 		Getwd: func() (string, error) { return vault.path, nil },
 	})
 	for _, agent := range []bool{false, true} {
-		command := newViewCmd(agent)
+		command := commandOptions.newViewCmd(agent)
 		var out bytes.Buffer
 		command.SetOut(&out)
 		command.SetArgs([]string{"run", "--id", "story-efforts"})

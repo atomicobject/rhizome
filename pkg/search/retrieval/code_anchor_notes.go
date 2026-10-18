@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // CodeAnchorNotesRetriever expands code file seeds to notes by evaluating code anchors
@@ -84,7 +84,7 @@ func (r *CodeAnchorNotesRetriever) Retrieve(ctx context.Context, spec search.Que
 		if filepath.IsAbs(seedPath) {
 			absSeed = seedPath
 		} else {
-			rel, err := vaultPaths.RelCode(seedPath)
+			rel, err := vaultPaths.RelCodeStrict(seedPath)
 			if err != nil || rel == "" {
 				continue
 			}
@@ -162,6 +162,12 @@ func (r *CodeAnchorNotesRetriever) Retrieve(ctx context.Context, spec search.Que
 			details["anchor"] = h.anchor
 		}
 		out = append(out, search.Candidate{
+			SourceRef: search.SourceRef{
+				NoteID:     noteID,
+				Path:       noteID,
+				Title:      firstNonEmptyString(h.title, nodeTitle(noteID)),
+				ChunkIndex: -1,
+			},
 			Handle: nh,
 			Owner:  nh,
 			Evidence: []search.Evidence{{
@@ -170,11 +176,7 @@ func (r *CodeAnchorNotesRetriever) Retrieve(ctx context.Context, spec search.Que
 				Source:   "code_anchor_notes",
 				Details:  details,
 			}},
-			Type:       "note",
-			NoteID:     noteID,
-			Path:       noteID,
-			Title:      firstNonEmptyString(h.title, nodeTitle(noteID)),
-			ChunkIndex: -1,
+			Type: "note",
 		})
 	}
 	return out, nil

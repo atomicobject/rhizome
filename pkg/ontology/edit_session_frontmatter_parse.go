@@ -15,7 +15,7 @@ type frontmatterKeyLine struct {
 }
 
 func parseFrontmatterKeyLine(line frontmatterSourceLine, rootIndent string) (frontmatterKeyLine, bool) {
-	if line.text == "" || strings.TrimSpace(line.text) == "---" || !strings.HasPrefix(line.text, rootIndent) {
+	if line.text == "" || (strings.TrimSpace(line.text) == "---" || strings.TrimSpace(line.text) == "...") || !strings.HasPrefix(line.text, rootIndent) {
 		return frontmatterKeyLine{}, false
 	}
 	indent := line.text[:len(line.text)-len(strings.TrimLeft(line.text, " \t"))]
@@ -52,7 +52,7 @@ func frontmatterRootIndent(lines []frontmatterSourceLine) (string, bool) {
 	minimum := -1
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line.text)
-		if trimmed == "" || trimmed == "---" || strings.HasPrefix(trimmed, "#") {
+		if trimmed == "" || (trimmed == "---" || trimmed == "...") || strings.HasPrefix(trimmed, "#") {
 			continue
 		}
 		indent := line.text[:len(line.text)-len(strings.TrimLeft(line.text, " \t"))]

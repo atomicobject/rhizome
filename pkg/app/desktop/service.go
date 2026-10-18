@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
 	"sync"
 
@@ -14,6 +13,7 @@ import (
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
 
 type FolderInfo struct {
@@ -36,26 +36,22 @@ type Service struct {
 	availableOnce   sync.Once
 	availableCached string
 	stateDir        string
-	home            string
+	env             vaultconfig.Env
 	trust           repositorytrust.Store
 	ensure          func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error)
 	install         func(context.Context, appupdate.Options) (appupdate.Result, error)
 	ensurePinned    func(context.Context, appupdate.EnsureOptions) error
 }
 
-func New(stateDir string) (*Service, error) {
+func New(stateDir string, env vaultconfig.Env) (*Service, error) {
 	if !filepath.IsAbs(stateDir) {
 		return nil, problem("invalid_request", "The desktop state directory must be absolute.")
-	}
-	account, err := user.Current()
-	if err != nil {
-		return nil, err
 	}
 	store, err := repositorytrust.DefaultStore()
 	if err != nil {
 		return nil, err
 	}
-	return &Service{stateDir: stateDir, home: account.HomeDir, trust: store, ensure: appruntime.Ensure, install: appupdate.Run, ensurePinned: appupdate.EnsurePinnedBinary}, nil
+	return &Service{stateDir: stateDir, env: env, trust: store, ensure: appruntime.Ensure, install: appupdate.Run, ensurePinned: appupdate.EnsurePinnedBinary}, nil
 }
 
 func (s *Service) inspect(path string) (FolderInfo, repoexec.Plan, error) {

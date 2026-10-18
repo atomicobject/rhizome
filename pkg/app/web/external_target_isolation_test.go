@@ -3,20 +3,25 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestExplorerAndDefaultGraphExcludeExternalTargets(t *testing.T) {
-	ctx := context.Background()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "src"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
@@ -38,9 +43,9 @@ func TestExplorerAndDefaultGraphExcludeExternalTargets(t *testing.T) {
 
 	vaultDef := obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth}
 	srv, err := NewServer(ctx, Config{
-		Vault: &obsidian.Vault{Name: "test"}, VaultPath: root, VaultDef: vaultDef,
+		Vault: &repoconfig.Vault{Env: env, Name: "test"}, VaultPath: root, VaultDef: vaultDef,
 		Runtime:      &Runtime{IntelStore: store},
-		NoteMetadata: testNoteMetadataIndexer(t),
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
 	}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, srv.Close()) })

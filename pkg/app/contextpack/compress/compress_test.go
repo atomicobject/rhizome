@@ -2,6 +2,8 @@ package compress
 
 import (
 	"context"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -20,7 +22,7 @@ func TestLLMCompressorConfig(t *testing.T) {
 			Model:    "test-model",
 		}
 
-		_, err := NewLLMCompressor(cfg)
+		_, err := NewLLMCompressor(vaultconfig.Env{HomeDir: t.TempDir(), LookupEnv: os.LookupEnv}, cfg)
 		if err == nil {
 			t.Fatal("expected error for missing API key")
 		}
@@ -72,7 +74,7 @@ func TestLocalCompressionConfigRequests(t *testing.T) {
 			}
 			enabled := true
 			tc.config.Enabled = &enabled
-			compressor := NewFromLocalConfig(tc.config, false)
+			compressor := NewFromLocalConfig(vaultconfig.Env{HomeDir: t.TempDir(), LookupEnv: os.LookupEnv}, tc.config, false)
 			require.NotNil(t, compressor)
 			require.Equal(t, tc.maxInputChars, compressor.MaxInputChars())
 			provider := &stubProvider{}
@@ -111,7 +113,7 @@ func TestLocalCompressionConfigRequests(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			enabled := true
-			compressor := NewFromLocalConfig(&LocalCompressionConfig{Enabled: &enabled}, false)
+			compressor := NewFromLocalConfig(vaultconfig.Env{HomeDir: t.TempDir(), LookupEnv: os.LookupEnv}, &LocalCompressionConfig{Enabled: &enabled}, false)
 			require.NotNil(t, compressor)
 			provider := &stubProvider{}
 			compressor.provider = provider
@@ -214,6 +216,6 @@ func TestCompressionRequiresExplicitEnablement(t *testing.T) {
 	t.Setenv("CEREBRAS_API_KEY", "synthetic-cerebras")
 	disabled := false
 	for _, cfg := range []*LocalCompressionConfig{nil, {}, {Provider: "cerebras"}, {Enabled: &disabled}} {
-		require.Nil(t, NewFromLocalConfig(cfg, false))
+		require.Nil(t, NewFromLocalConfig(vaultconfig.Env{HomeDir: t.TempDir(), LookupEnv: os.LookupEnv}, cfg, false))
 	}
 }

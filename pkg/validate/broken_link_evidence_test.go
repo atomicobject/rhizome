@@ -9,13 +9,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
 
-func brokenLinkRunContext(root string) RunContext {
+func brokenLinkRunContext(t *testing.T, root string) RunContext {
 	def := obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth}
-	return RunContext{VaultDef: def, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 100}
+	return RunContext{VaultDef: def, VaultPath: root, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t), MaxIssues: 100}
 }
 
 func fixByTarget(t *testing.T, fixes []FixAction, target string) FixAction {
@@ -47,7 +48,7 @@ func TestBrokenLinkRetargetsRequireStrongEvidence(t *testing.T) {
 		"Notes/Rocks.md":                              "[[Team-Patterns#^2ECDBD93]]\n[[Team-Patterns]]\n",
 	}))
 
-	result := RunBrokenLinks(brokenLinkRunContext(root), Options{})
+	result := RunBrokenLinksContext(context.Background(), brokenLinkRunContext(t, root), ScanOptions{})
 
 	require.Empty(t, result.Error)
 	for _, target := range []string{"Bee Fly", "Mike Cohn", "2025-01-08", "Sync with Dre, 2024-07-17", "2023-01-10 Ryan Boxeth Interview Prep.canvas"} {
@@ -68,7 +69,7 @@ func TestBrokenLinkRetargetsRequireStrongEvidence(t *testing.T) {
 	retarget := fixByTarget(t, result.Fixes, "Team-Patterns")
 	require.Equal(t, FixSafetyConfirm, retarget.Safety)
 	require.Equal(t, candidateConfidenceHigh, retarget.Confidence)
-	applyCheckFixThroughPlan(t, brokenLinkRunContext(root), result, retarget)
+	applyCheckFixThroughPlan(t, brokenLinkRunContext(t, root), result, retarget)
 	updated, err := os.ReadFile(filepath.Join(root, "Notes/Rocks.md"))
 	require.NoError(t, err)
 	require.Equal(t, "[[Team-Patterns#^2ECDBD93]]\n[[Team Patterns|Team-Patterns]]\n", string(updated),
@@ -109,13 +110,15 @@ func TestBrokenLinksSeparatesPlaceholdersUsingGitHistory(t *testing.T) {
 	require.NoError(t, writeFixtureFiles(root, map[string]string{"Later.md": "[[Hiring Plan Draft]]\n"}))
 	gitCommitAll(t, root, "link written after the rename")
 
-	runCtx := brokenLinkRunContext(root)
-	missingRuntime := RunBrokenLinks(runCtx, Options{})
+	runCtx := brokenLinkRunContext(t, root)
+	missingRuntimeContext := runCtx
+	missingRuntimeContext.NoteMetadata = notemeta.Indexer{}
+	missingRuntime := RunBrokenLinksContext(context.Background(), missingRuntimeContext, ScanOptions{})
 	require.False(t, missingRuntime.OK)
-	require.Contains(t, missingRuntime.Error, "historical rename evidence requires RunContext.NoteMetadata")
+	require.Contains(t, missingRuntime.Error, "note metadata")
 	require.Empty(t, missingRuntime.Fixes)
 	runCtx.NoteMetadata = testNoteMetadata(t)
-	broken := RunBrokenLinks(runCtx, Options{})
+	broken := RunBrokenLinksContext(context.Background(), runCtx, ScanOptions{})
 	require.Empty(t, broken.Error)
 	require.Equal(t, []string{"Café — ✅", "Deleted", "Hiring Plan Draft", "Old Name"}, sortedIssueTargets(broken.Issues),
 		"a deleted non-ASCII name broke; git must not escape it")
@@ -129,7 +132,7 @@ func TestBrokenLinksSeparatesPlaceholdersUsingGitHistory(t *testing.T) {
 	require.Equal(t, []string{"Hiring Plan Draft Final.md"}, later.CandidatePaths, "the rename destination is listed once")
 	require.Equal(t, candidateConfidenceLow, later.Confidence)
 
-	placeholders := RunPlaceholderLinks(context.Background(), runCtx, Options{})
+	placeholders := RunPlaceholderLinks(context.Background(), runCtx, ScanOptions{})
 	require.Empty(t, placeholders.Error)
 	require.Equal(t, 1, placeholders.IssueCount)
 	require.Equal(t, IssueCodePlaceholderNoteLink, placeholders.Issues[0].Code)
@@ -138,17 +141,17 @@ func TestBrokenLinksSeparatesPlaceholdersUsingGitHistory(t *testing.T) {
 	require.NoError(t, writeFixtureFiles(root, map[string]string{
 		".rhizome/config.yml": "validation:\n  brokenLinks:\n    placeholders: strict\n",
 	}))
-	strict := RunBrokenLinks(runCtx, Options{})
+	strict := RunBrokenLinksContext(context.Background(), runCtx, ScanOptions{})
 	require.Equal(t, []string{"Café — ✅", "Deleted", "Hiring Plan Draft", "Never Existed", "Old Name"}, sortedIssueTargets(strict.Issues))
 	require.Empty(t, strict.Notes)
-	require.Zero(t, RunPlaceholderLinks(context.Background(), runCtx, Options{}).IssueCount)
+	require.Zero(t, RunPlaceholderLinks(context.Background(), runCtx, ScanOptions{}).IssueCount)
 }
 
 func TestBrokenLinksWithoutGitHistoryCountEveryUnresolvedLink(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, writeFixtureFiles(root, map[string]string{"Source.md": "[[Never Existed]]\n"}))
 
-	result := RunBrokenLinks(brokenLinkRunContext(root), Options{})
+	result := RunBrokenLinksContext(context.Background(), brokenLinkRunContext(t, root), ScanOptions{})
 
 	require.Equal(t, 1, result.IssueCount)
 	require.Len(t, result.Notes, 1)
@@ -177,9 +180,9 @@ func TestBrokenLinkRenameRetargetKeepsPathWhenBasenameIsAmbiguous(t *testing.T) 
 	require.NoError(t, os.Rename(filepath.Join(root, "Old Name.md"), filepath.Join(root, "docs/New Name.md")))
 	gitCommitAll(t, root, "rename")
 
-	runCtx := brokenLinkRunContext(root)
+	runCtx := brokenLinkRunContext(t, root)
 	runCtx.NoteMetadata = testNoteMetadata(t)
-	result := RunBrokenLinks(runCtx, Options{})
+	result := RunBrokenLinksContext(context.Background(), runCtx, ScanOptions{})
 	require.Empty(t, result.Error)
 	rename := fixByTarget(t, result.Fixes, "Old Name")
 	require.Equal(t, FixSafetyConfirm, rename.Safety)
@@ -211,7 +214,7 @@ func TestBrokenLinksExemptStarterAgentBlocks(t *testing.T) {
 		"site/agents/AGENTS.md":  "[[Lookalike Target]]\n",
 	}))
 
-	result := RunBrokenLinks(brokenLinkRunContext(root), Options{})
+	result := RunBrokenLinksContext(context.Background(), brokenLinkRunContext(t, root), ScanOptions{})
 
 	require.Equal(t, []string{"Lookalike Target", "Ordinary Target"}, sortedIssueTargets(result.Issues))
 }

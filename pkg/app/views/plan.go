@@ -1,23 +1,17 @@
 package views
 
 import (
-	"strings"
-
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"strings"
 )
 
 func executionConstraints(source SourceResult, state ExecutionState) SourceConstraints {
 	if source.ConstraintPlan {
 		return source.ResidualConstraints
 	}
-	return SourceConstraints{
-		Search:  state.Search,
-		Filters: append([]viewconfig.FilterSpec(nil), state.Filters...),
-		Sort:    append([]viewconfig.SortSpec(nil), state.Sort...),
-		Page:    state.Page,
-	}
+	return SourceConstraints{Search: state.Search, Filters: append([]viewconfig.FilterSpec(nil), state.Filters...), Sort: append([]viewconfig.SortSpec(nil), state.Sort...), Page: state.Page}
 }
-
 func executionPlanSummary(source SourceResult, constraints SourceConstraints, candidateCount int) ConstraintPlanSummary {
 	plan := source.Plan
 	if emptySourceConstraints(plan.Pushed) {
@@ -48,19 +42,12 @@ func executionPlanSummary(source SourceResult, constraints SourceConstraints, ca
 	}
 	return plan
 }
-
 func emptySourceConstraints(constraints SourceConstraints) bool {
-	return strings.TrimSpace(constraints.Search) == "" &&
-		len(constraints.Filters) == 0 &&
-		len(constraints.Sort) == 0 &&
-		constraints.Page.Offset == 0 &&
-		constraints.Page.First == 0
+	return strings.TrimSpace(constraints.Search) == "" && len(constraints.Filters) == 0 && len(constraints.Sort) == 0 && constraints.Page.Offset == 0 && constraints.Page.First == 0
 }
-
 func emptySourceCapPolicy(policy SourceCapPolicy) bool {
 	return policy.Limit == 0 && strings.TrimSpace(policy.Source) == ""
 }
-
 func sourceCompleteness(source SourceResult, plan ConstraintPlanSummary) SourceCompleteness {
 	for _, warning := range source.Warnings {
 		if warningIndicatesBoundedSource(warning) {
@@ -80,21 +67,14 @@ func sourceCompleteness(source SourceResult, plan ConstraintPlanSummary) SourceC
 	}
 	return SourceUnknown
 }
-
-func warningIndicatesBoundedSource(warning Warning) bool {
+func warningIndicatesBoundedSource(warning diag.Warning) bool {
 	switch warning.Code {
-	case "view_source_may_be_truncated",
-		"view_source_residual_constraints_after_cap",
-		"view_residual_constraints_cap_bound",
-		"view_filter_cap_bound",
-		"view_search_cap_bound",
-		"view_sort_cap_bound":
+	case "view_source_may_be_truncated", "view_source_residual_constraints_after_cap", "view_residual_constraints_cap_bound", "view_filter_cap_bound", "view_search_cap_bound", "view_sort_cap_bound":
 		return true
 	default:
 		return false
 	}
 }
-
 func constraintReliability(plan ConstraintPlanSummary) ConstraintReliability {
 	if plan.SourceCompleteness == SourceUnknown {
 		return ConstraintsNotPlanned
@@ -104,43 +84,26 @@ func constraintReliability(plan ConstraintPlanSummary) ConstraintReliability {
 	}
 	return ConstraintsExact
 }
-
-func executionCapBoundWarnings(plan ConstraintPlanSummary) []Warning {
+func executionCapBoundWarnings(plan ConstraintPlanSummary) []diag.Warning {
 	if plan.Reliability != ConstraintsCapBound {
 		return nil
 	}
-	var warnings []Warning
+	var warnings []diag.Warning
 	if len(plan.Residual.Filters) > 0 || len(plan.Residual.Sort) > 0 {
-		warnings = append(warnings, Warning{
-			Code:    "view_residual_constraints_cap_bound",
-			Message: "residual table operations ran over a capped source row set and may be incomplete",
-		})
+		warnings = append(warnings, diag.Warning{Code: "view_residual_constraints_cap_bound", Message: "residual table operations ran over a capped source row set and may be incomplete"})
 	}
 	if strings.TrimSpace(plan.Residual.Search) != "" {
-		warnings = append(warnings, Warning{
-			Code:    "view_search_cap_bound",
-			Message: "residual search ran over a capped source row set and may miss matches",
-			Path:    "search",
-		})
+		warnings = append(warnings, diag.Warning{Code: "view_search_cap_bound", Message: "residual search ran over a capped source row set and may miss matches", Path: "search"})
 	}
 	if len(plan.Residual.Filters) > 0 {
-		warnings = append(warnings, Warning{
-			Code:    "view_filter_cap_bound",
-			Message: "residual filters ran over a capped source row set and may miss matches",
-			Path:    "filters",
-		})
+		warnings = append(warnings, diag.Warning{Code: "view_filter_cap_bound", Message: "residual filters ran over a capped source row set and may miss matches", Path: "filters"})
 	}
 	if len(plan.Residual.Sort) > 0 {
-		warnings = append(warnings, Warning{
-			Code:    "view_sort_cap_bound",
-			Message: "residual sort ran over a capped source row set and may not reflect global order",
-			Path:    "sort",
-		})
+		warnings = append(warnings, diag.Warning{Code: "view_sort_cap_bound", Message: "residual sort ran over a capped source row set and may not reflect global order", Path: "sort"})
 	}
 	return warnings
 }
-
-func appendPlanWarnings(existing []Warning, warnings []Warning) []Warning {
+func appendPlanWarnings(existing []diag.Warning, warnings []diag.Warning) []diag.Warning {
 	if len(warnings) == 0 {
 		return existing
 	}
@@ -148,7 +111,7 @@ func appendPlanWarnings(existing []Warning, warnings []Warning) []Warning {
 	for _, warning := range existing {
 		seen[warningKey(warning)] = struct{}{}
 	}
-	out := append([]Warning(nil), existing...)
+	out := append([]diag.Warning(nil), existing...)
 	for _, warning := range warnings {
 		key := warningKey(warning)
 		if _, ok := seen[key]; ok {
@@ -159,7 +122,6 @@ func appendPlanWarnings(existing []Warning, warnings []Warning) []Warning {
 	}
 	return out
 }
-
-func warningKey(warning Warning) string {
+func warningKey(warning diag.Warning) string {
 	return warning.Code + "\x00" + warning.Path + "\x00" + warning.Message
 }

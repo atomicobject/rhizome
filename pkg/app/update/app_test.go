@@ -13,7 +13,8 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/appbundle"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,7 +31,7 @@ func TestRunAppUpdateThroughSymlink(t *testing.T) {
 					if !pinned {
 						repo = t.TempDir()
 					}
-					appDeps := defaultAppUpdateDependencies()
+					appDeps := defaultAppUpdateDependencies(vaultconfig.Env{})
 					appDeps.feedURL = "https://app.invalid/latest.json"
 					appDeps.timeout = 2 * time.Second
 					launchCalls, waitCalls := 0, 0
@@ -75,7 +76,7 @@ func TestRunAppUpdateThroughSymlink(t *testing.T) {
 						marker = true
 						return nil
 					}
-					deps.saveConfig = func(_ string, cfg obsidian.LocalConfig) error {
+					deps.saveConfig = func(_ string, cfg repoconfig.LocalConfig) error {
 						require.Equal(t, "v3.0.0", cfg.Rhizome.Version)
 						pin = true
 						return nil
@@ -140,7 +141,7 @@ func TestRunAppUpdateThroughSymlink(t *testing.T) {
 func TestRunBundledDefaultRetainsPinPrompt(t *testing.T) {
 	bundle, link := appUpdateFixture(t, false)
 	repo, _, _ := updateExecutionFixture(t, "v1.0.0")
-	appDeps := defaultAppUpdateDependencies()
+	appDeps := defaultAppUpdateDependencies(vaultconfig.Env{})
 	appDeps.feedURL = "https://app.invalid/latest.json"
 	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		if req.URL.Host == "app.invalid" {
@@ -205,7 +206,7 @@ func TestBuildUpdatePlanNeverReplacesBundledGlobal(t *testing.T) {
 func TestAppOutcomeSurvivesRepoManifestFailure(t *testing.T) {
 	bundle, link := appUpdateFixture(t, false)
 	repo, _, _ := updateExecutionFixture(t, "v1.0.0")
-	appDeps := defaultAppUpdateDependencies()
+	appDeps := defaultAppUpdateDependencies(vaultconfig.Env{})
 	appDeps.feedURL = "https://app.invalid/latest.json"
 	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		if req.URL.Host == "app.invalid" {
@@ -220,8 +221,12 @@ func TestAppOutcomeSurvivesRepoManifestFailure(t *testing.T) {
 }
 
 func TestAppUpdateFeedEnvironmentOverride(t *testing.T) {
-	t.Setenv("RZM_DESKTOP_UPDATE_FEED", "https://app.invalid/custom.json")
-	require.Equal(t, "https://app.invalid/custom.json", defaultAppUpdateDependencies().feedURL)
+	t.Setenv("RZM_DESKTOP_UPDATE_FEED", "https://host.invalid/feed.json")
+	env := vaultconfig.Env{LookupEnv: func(key string) (string, bool) {
+		return "https://app.invalid/custom.json", key == "RZM_DESKTOP_UPDATE_FEED"
+	}}
+	require.Equal(t, "https://app.invalid/custom.json", defaultAppUpdateDependencies(env).feedURL)
+	require.Equal(t, desktopUpdateFeed, defaultAppUpdateDependencies(vaultconfig.Env{}).feedURL)
 }
 
 func appUpdateFixture(t *testing.T, dev bool) (appbundle.Info, string) {
@@ -297,7 +302,7 @@ func TestRunRefusesAppOwnedRepositoryTargets(t *testing.T) {
 					target = filepath.Join(repo, "repo-rzm")
 					require.NoError(t, os.Symlink(bundle.ExecutablePath, target))
 				}
-				require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.0.0", BinaryPath: target}}))
+				require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.0.0", BinaryPath: target}}))
 				artifact := filepath.Join(t.TempDir(), "replacement-rzm")
 				require.NoError(t, os.WriteFile(artifact, []byte("repo replacement"), 0o755))
 				deps := defaultRunDependencies()
@@ -305,7 +310,7 @@ func TestRunRefusesAppOwnedRepositoryTargets(t *testing.T) {
 					require.True(t, safeRepoLink, "unsafe target must fail before artifact preparation")
 					return preparedArtifact{path: artifact}, nil
 				}
-				appDeps := defaultAppUpdateDependencies()
+				appDeps := defaultAppUpdateDependencies(vaultconfig.Env{})
 				appDeps.feedURL = "https://app.invalid/latest.json"
 				appDeps.launch = func(context.Context, string, ...string) error { t.Fatal("current app must not launch"); return nil }
 				client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -349,7 +354,7 @@ func TestRunRefusesAppOwnedRepositoryTargets(t *testing.T) {
 					} else {
 						require.FileExists(t, target)
 					}
-					cfg, err := obsidian.LoadLocalConfig(repo)
+					cfg, err := repoconfig.LoadLocalConfig(repo)
 					require.NoError(t, err)
 					require.Equal(t, "v1.0.0", cfg.Rhizome.Version)
 				}

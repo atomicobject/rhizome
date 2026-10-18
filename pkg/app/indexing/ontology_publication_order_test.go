@@ -3,6 +3,8 @@ package indexing
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"sync"
@@ -10,14 +12,16 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 // TestQueuedOntologyPublicationDrainsInitialBodyWriteBeforeCatalogRefresh
@@ -41,7 +45,7 @@ type Decision @node(paths: ["notes/*.md"]) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Name: "publication-order", Path: root, Links: obsidian.LinkTypeBoth}
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	projection, err := ontology.ProjectNote(ctx, vaultDef, &obsidian.Note{}, schema, "notes/decision.md")
 	require.NoError(t, err)
@@ -59,7 +63,7 @@ type Decision @node(paths: ["notes/*.md"]) {
 	require.NoError(t, q.SubmitOntologyNodeReadModel(ctx, catalog))
 	require.NoError(t, q.FlushAndWait(ctx))
 
-	set, err := semantic.BuildOntologyNodeChunks(schema, projection, embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8}, 1)
+	set, err := embedindex.BuildOntologyNodeChunks(schema, projection, embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8}, 1)
 	require.NoError(t, err)
 	require.NotEmpty(t, set.Chunks)
 	ownerIDs := ontologyPublicationOwnerIDs(set.Nodes)
@@ -73,7 +77,7 @@ type Decision @node(paths: ["notes/*.md"]) {
 	var releaseOnce sync.Once
 	releaseProvider := func() { releaseOnce.Do(func() { close(provider.release) }) }
 
-	syncer := semantic.OntologyNodeSyncer{
+	syncer := embedindex.OntologyNodeSyncer{
 		Store:        ontologyBodyQueuedStore{readStore: store, queue: q},
 		Provider:     provider,
 		ProviderInfo: embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8},
@@ -123,7 +127,7 @@ type Decision @node(paths: ["notes/*.md"]) {
 
 	// This models the final catalog refresh removing the now-stale projection.
 	// Once the body stream is drained, cascading that completed state is safe.
-	require.NoError(t, q.SubmitOntologyNodeReadModel(ctx, codeanchor.IntelOntologyNodeReadModel{NotePaths: catalog.NotePaths}))
+	require.NoError(t, q.SubmitOntologyNodeReadModel(ctx, readmodel.NodeReadModel{NotePaths: catalog.NotePaths}))
 	require.NoError(t, q.FlushAndWait(ctx))
 	chunks, err := store.IntelChunksByOwners(ctx, ownerIDs)
 	require.NoError(t, err)
@@ -139,7 +143,7 @@ type Decision @node(paths: ["notes/*.md"]) {
 	finalProvider := &publicationOrderCountingProvider{
 		inner: embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8}),
 	}
-	finalSyncer := semantic.OntologyNodeSyncer{
+	finalSyncer := embedindex.OntologyNodeSyncer{
 		Store:        ontologyBodyQueuedStore{readStore: store, queue: q},
 		Provider:     finalProvider,
 		ProviderInfo: embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8},
@@ -154,7 +158,7 @@ type Decision @node(paths: ["notes/*.md"]) {
 	require.NoError(t, err)
 	require.Len(t, states, len(chunkIDs))
 	require.Equal(t, 1, finalProvider.CallCount(), "the final body refresh must embed the reinstalled current chunk")
-	results, _, err := store.SearchEmbeddings(ctx, embeddings.Embedding{1, 0, 0, 0, 0, 0, 0, 0}, len(chunkIDs), semdb.EmbeddingSearchFilters{OwnerTypes: []string{semantic.OntologyNodeOwnerType}})
+	results, _, err := store.SearchEmbeddings(ctx, embeddings.Embedding{1, 0, 0, 0, 0, 0, 0, 0}, len(chunkIDs), semdb.EmbeddingSearchFilters{OwnerTypes: []string{embeddings.OntologyNodeOwnerType}})
 	require.NoError(t, err)
 	require.Len(t, results, len(chunkIDs), "every current ontology chunk must have an embedding")
 }
@@ -197,70 +201,41 @@ func TestDrainStreamingWritesPropagatesCancellation(t *testing.T) {
 		require.ErrorIs(t, finalizer.DrainStreamingWrites(ctx), context.Canceled)
 	})
 
-	t.Run("during queued body flush", func(t *testing.T) {
+	t.Run("queued writes are abandoned after cancellation", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
-		bodyStarted := make(chan struct{}, 1)
-		bodyRelease := make(chan struct{})
-		writeStarted := make(chan struct{}, 1)
-		writeRelease := make(chan struct{})
-		var releaseBodyOnce sync.Once
-		var releaseWriteOnce sync.Once
-		releaseBody := func() { releaseBodyOnce.Do(func() { close(bodyRelease) }) }
-		releaseWrite := func() { releaseWriteOnce.Do(func() { close(writeRelease) }) }
-		streaming := &unifiedStreamingCoordinator{
-			ctx:    ctx,
-			noteCh: make(chan noteStreamingBatch, 1),
-			syncNoteBodyPaths: func(context.Context, []string, []string, bool) error {
-				bodyStarted <- struct{}{}
-				<-bodyRelease
-				return nil
-			},
-		}
-		streaming.Start()
-		cfg := indexwriter.DefaultConfig()
-		cfg.DefaultPolicy.Idle = time.Hour
-		cfg.PollInterval = time.Hour
-		q := indexwriter.NewWithConfig(ctx, indexwriter.Handlers{
-			ApplyNoteIndexBatch: func(context.Context, []codeanchor.NoteIndexWork) error {
-				writeStarted <- struct{}{}
-				<-writeRelease
-				return nil
-			},
-		}, cfg)
-		t.Cleanup(func() {
-			releaseBody()
-			releaseWrite()
-			cancel()
-			_ = q.StopAndWait()
-		})
-		finalizer := &unifiedBatchFinalizer{writeQueue: q, streaming: streaming}
-		require.NoError(t, streaming.SubmitNotePaths(ctx, []string{"notes/decision.md"}))
+		started := make(chan struct{})
+		release := make(chan struct{})
+		var releaseOnce sync.Once
+		unblock := func() { releaseOnce.Do(func() { close(release) }) }
+		var written []string
+		q := indexwriter.New(ctx, indexwriter.Handlers{ApplyNoteIndexBatch: func(_ context.Context, batch []codeanchor.NoteIndexWork) error {
+			if len(written) == 0 {
+				close(started)
+				<-release
+			}
+			for _, work := range batch {
+				written = append(written, work.Path)
+			}
+			return nil
+		}})
+		t.Cleanup(func() { cancel(); unblock(); _ = q.StopAndWait() })
+		require.NoError(t, q.SubmitNoteIndexWork(ctx, codeanchor.NoteIndexWork{Path: "started.md"}))
 		select {
-		case <-bodyStarted:
+		case <-started:
 		case <-time.After(time.Second):
-			t.Fatal("body worker did not start")
+			t.Fatal("first write did not start")
 		}
-		require.NoError(t, q.SubmitNoteIndexWork(ctx, codeanchor.NoteIndexWork{Path: "notes/decision.md"}))
-		drained := make(chan error, 1)
-		go func() { drained <- finalizer.DrainStreamingWrites(ctx) }()
-		releaseBody()
-		select {
-		case <-writeStarted:
-		case <-time.After(time.Second):
-			t.Fatal("queued body write did not start")
-		}
+		require.NoError(t, q.SubmitNoteIndexWork(ctx, codeanchor.NoteIndexWork{Path: "undrained.md"}))
 		cancel()
-		releaseWrite()
-		select {
-		case err := <-drained:
-			require.ErrorIs(t, err, context.Canceled)
-		case <-time.After(time.Second):
-			t.Fatal("stream drain did not return after cancellation")
-		}
+		unblock()
+		finalizer := &unifiedBatchFinalizer{writeQueue: q}
+		require.ErrorIs(t, finalizer.DrainStreamingWrites(ctx), context.Canceled)
+		require.ErrorIs(t, q.StopAndWait(), context.Canceled)
+		require.Equal(t, []string{"started.md"}, written, "cancellation must not execute accepted but undrained writes")
 	})
 }
 
-func ontologyPublicationOwnerIDs(nodes []codeanchor.IntelOntologyNode) []string {
+func ontologyPublicationOwnerIDs(nodes []readmodel.NodeRow) []string {
 	ownerIDs := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		ownerIDs = append(ownerIDs, node.NodeID)

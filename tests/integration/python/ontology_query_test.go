@@ -5,20 +5,21 @@ package integration
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"testing"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 func TestPythonFixture_OntologyQuery(t *testing.T) {
@@ -42,11 +43,7 @@ func TestPythonFixture_OntologyQuery(t *testing.T) {
 `)
 	require.Empty(t, errs)
 
-	queryResult := ontologyquery.Execute(ctx, ontologyquery.Deps{
-		VaultDef:   obsidian.VaultDefinition{Path: ws.CodeRoot},
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-	}, schema, prepared)
+	queryResult := ontologyquery.Execute(ctx, ontologyQueryFixtureDeps(t, ws.CodeRoot, store), schema, prepared)
 	require.Empty(t, queryResult.Errors)
 
 	rows := queryResult.Data["project"].([]any)
@@ -85,11 +82,7 @@ func TestPythonFixture_OntologyQuery_AuthoredNoteFieldsOnNoteNode(t *testing.T) 
 `)
 	require.Empty(t, errs)
 
-	queryResult := ontologyquery.Execute(ctx, ontologyquery.Deps{
-		VaultDef:   obsidian.VaultDefinition{Path: ws.CodeRoot},
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-	}, schema, prepared)
+	queryResult := ontologyquery.Execute(ctx, ontologyQueryFixtureDeps(t, ws.CodeRoot, store), schema, prepared)
 	require.Empty(t, queryResult.Errors)
 
 	general := queryResult.Data["note"].(map[string]any)
@@ -131,11 +124,7 @@ func TestPythonFixture_OntologyQuery_Sections(t *testing.T) {
 `)
 	require.Empty(t, errs)
 
-	queryResult := ontologyquery.Execute(ctx, ontologyquery.Deps{
-		VaultDef:   obsidian.VaultDefinition{Path: ws.CodeRoot},
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-	}, schema, prepared)
+	queryResult := ontologyquery.Execute(ctx, ontologyQueryFixtureDeps(t, ws.CodeRoot, store), schema, prepared)
 	require.Empty(t, queryResult.Errors)
 
 	rows := queryResult.Data["spec"].([]any)
@@ -180,11 +169,7 @@ func TestPythonFixture_OntologyQuery_ItemBackedActionItems(t *testing.T) {
 `)
 	require.Empty(t, errs)
 
-	queryResult := ontologyquery.Execute(ctx, ontologyquery.Deps{
-		VaultDef:   obsidian.VaultDefinition{Path: ws.CodeRoot},
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-	}, schema, prepared)
+	queryResult := ontologyquery.Execute(ctx, ontologyQueryFixtureDeps(t, ws.CodeRoot, store), schema, prepared)
 	require.Empty(t, queryResult.Errors)
 
 	rows := queryResult.Data["conversation"].([]any)
@@ -250,11 +235,7 @@ func TestPythonFixture_OntologyQuery_DirectActionItemsFilterSortAndSourceContext
 `)
 	require.Empty(t, errs)
 
-	queryResult := ontologyquery.Execute(ctx, ontologyquery.Deps{
-		VaultDef:   obsidian.VaultDefinition{Path: ws.CodeRoot},
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-	}, schema, prepared)
+	queryResult := ontologyquery.Execute(ctx, ontologyQueryFixtureDeps(t, ws.CodeRoot, store), schema, prepared)
 	require.Empty(t, queryResult.Errors)
 
 	rows := queryResult.Data["actionItem"].([]any)
@@ -277,11 +258,7 @@ func TestPythonFixture_OntologyQuery_DirectActionItemsFilterSortAndSourceContext
 }
 `)
 	require.Empty(t, sourceErrs)
-	sourceResult := ontologyquery.Execute(ctx, ontologyquery.Deps{
-		VaultDef:   obsidian.VaultDefinition{Path: ws.CodeRoot},
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-	}, schema, sourcePrepared)
+	sourceResult := ontologyquery.Execute(ctx, ontologyQueryFixtureDeps(t, ws.CodeRoot, store), schema, sourcePrepared)
 	require.Empty(t, sourceResult.Errors)
 	sourceRows := sourceResult.Data["actionItem"].([]any)
 	require.Len(t, sourceRows, 1)
@@ -299,6 +276,9 @@ func TestPythonFixture_ActionItemsConfiguredViewDefaultsAndMinePreset(t *testing
 	defs, issues := viewconfig.LoadDefaultSource(ws.CodeRoot)
 	require.Empty(t, issues)
 
+	queryDeps := ontologyQueryFixtureDeps(t, ws.CodeRoot, store)
+	queryDeps.OntologyRuntime = fixtureCurrentUser{ref: "notes/people/alice"}
+
 	service := appviews.New(appviews.ServiceOptions{
 		VaultPath:  ws.CodeRoot,
 		VaultDef:   obsidian.VaultDefinition{Path: ws.CodeRoot},
@@ -306,13 +286,8 @@ func TestPythonFixture_ActionItemsConfiguredViewDefaultsAndMinePreset(t *testing
 		Store:      store,
 		Schema:     schema,
 		ExecSchema: execSchema,
-		QueryDeps: ontologyquery.Deps{
-			VaultDef:        obsidian.VaultDefinition{Path: ws.CodeRoot},
-			NoteReader:      &obsidian.Note{},
-			Store:           store,
-			OntologyRuntime: fixtureCurrentUser{ref: "notes/people/alice"},
-		},
-		Views: defs,
+		QueryDeps:  queryDeps,
+		Views:      defs,
 	})
 
 	allOpen, err := service.Execute(ctx, "action-items", appviews.ExecuteRequest{})
@@ -331,8 +306,12 @@ func TestPythonFixture_ActionItemsConfiguredViewDefaultsAndMinePreset(t *testing
 	require.Empty(t, mine.Warnings)
 	require.ElementsMatch(t, []viewconfig.FilterSpec{
 		{Field: "done", Op: "eq", Value: "false"},
-		{Field: "assignee", Op: "eq", ValueFrom: "ontology.currentUser.resolvedRef", Value: "notes/people/alice"},
-	}, mine.PushedConstraints.Filters)
+		{Field: "assignee", Op: "eq", ValueFrom: "ontology.currentUser.resolvedRef"},
+	}, mine.State.Filters, "execution state retains the authored current-user binding")
+	require.ElementsMatch(t, []viewconfig.FilterSpec{
+		{Field: "done", Op: "eq", Value: "false"},
+		{Field: "assignee", Op: "eq", Value: "notes/people/alice"},
+	}, mine.PushedConstraints.Filters, "pushed constraints report the bound literal predicate")
 	require.Equal(t, []viewconfig.SortSpec{{Field: "due", Direction: "asc"}, {Field: "notePath", Direction: "asc"}}, mine.PushedConstraints.Sort)
 	require.Len(t, mine.Rows, 2)
 	require.Equal(t, "Review search rollout notes", mine.Rows[0].Title)
@@ -351,9 +330,9 @@ func TestPythonFixture_OntologyBuild_ReportsInvalidActionItemDue(t *testing.T) {
   due:: tomorrow
 `), 0o644))
 
-	schema, err := ontology.LoadSchema(ws.CodeRoot)
+	schema, err := ontoschema.LoadSchema(ws.CodeRoot)
 	require.NoError(t, err)
-	result, err := buildFixtureOntologyFromSources(ctx, testNoteMetadataIndexer(t), ws.CodeRoot, schema)
+	result, err := buildFixtureOntologyFromSources(ctx, testkit.NoteMetadataIndexer(t), ws.CodeRoot, schema)
 	require.NoError(t, err)
 
 	var found bool
@@ -381,10 +360,10 @@ name: Search Rewrite
 Keep ontology-backed query results stable while the search pipeline changes.
 `), 0o644))
 
-	schema, err := ontology.LoadSchema(ws.CodeRoot)
+	schema, err := ontoschema.LoadSchema(ws.CodeRoot)
 	require.NoError(t, err)
 
-	result, err := buildFixtureOntologyFromSources(ctx, testNoteMetadataIndexer(t), ws.CodeRoot, schema)
+	result, err := buildFixtureOntologyFromSources(ctx, testkit.NoteMetadataIndexer(t), ws.CodeRoot, schema)
 	require.NoError(t, err)
 	require.NotEmpty(t, result.ValidationIssues)
 
@@ -398,44 +377,31 @@ Keep ontology-backed query results stable while the search pipeline changes.
 	require.True(t, found, "expected nested section validation issue for requirements.details, got %#v", result.ValidationIssues)
 }
 
-func indexedOntologyFixture(t *testing.T, ctx context.Context, ws *fixture.Workspace) (*ontology.Schema, *codeanchorsqlite.Store) {
+func ontologyQueryFixtureDeps(t *testing.T, root string, store *codeanchorsqlite.Store) ontologyquery.Deps {
 	t.Helper()
-
-	schema, err := ontology.LoadSchema(ws.CodeRoot)
+	formats, err := testkit.NoteMetadataIndexer(t).FormatRuntime()
 	require.NoError(t, err)
+	return ontologyquery.Deps{
+		VaultDef: obsidian.VaultDefinition{Path: root}, NoteReader: &obsidian.Note{},
+		Store: store, NoteFormats: formats,
+	}
+}
 
-	noteMetadata := testNoteMetadataIndexer(t)
-	result, err := buildFixtureOntologyFromSources(ctx, noteMetadata, ws.CodeRoot, schema)
-	require.NoError(t, err)
-	require.Empty(t, result.ValidationIssues)
-
+func indexedOntologyFixture(t *testing.T, ctx context.Context, ws *fixture.Workspace) (*ontoschema.Schema, *codeanchorsqlite.Store) {
+	t.Helper()
 	dbPath := filepath.Join(ws.CodeRoot, ".rhizome", "db.sqlite")
 	require.NoError(t, os.MkdirAll(filepath.Dir(dbPath), 0o755))
 	store, err := codeanchorsqlite.Open(dbPath)
 	require.NoError(t, err)
-	_, err = noteMetadata.EnsureIndexed(ctx, obsidian.VaultDefinition{Path: ws.CodeRoot}, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), obsidian.VaultDefinition{Path: ws.CodeRoot}, &obsidian.Note{}, store)
 	require.NoError(t, err)
-	require.NoError(t, store.ReplaceOntologySnapshot(ctx, codeanchorsqlite.OntologySnapshot{
-		Assessments: result.AssessmentRows,
-		NoteTypes:   result.NoteTypes,
-		Edges:       result.Edges,
-		SchemaState: codeanchorsqlite.OntologySchemaState{
-			SchemaHash: schema.Hash,
-			NotesHash:  result.NotesHash,
-			LoadedAt:   1,
-			Ready:      true,
-		},
-	}))
-	require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, codeanchor.IntelOntologyNodeReadModel{
-		NotePaths:        result.NodePaths,
-		Nodes:            result.Nodes,
-		FieldValues:      result.NodeFieldValues,
-		LinkDependencies: result.NodeLinkDeps,
-	}))
-	return schema, store
+	require.NotNil(t, runtime)
+	require.NotNil(t, runtime.Schema)
+	require.Empty(t, runtime.Issues)
+	return runtime.Schema, store
 }
 
-func buildFixtureOntologyFromSources(ctx context.Context, noteMetadata notemeta.Indexer, root string, schema *ontology.Schema) (*ontology.BuildResult, error) {
+func buildFixtureOntologyFromSources(ctx context.Context, noteMetadata notemeta.Indexer, root string, schema *ontoschema.Schema) (*ontology.BuildResult, error) {
 	vaultDef := obsidian.VaultDefinition{Path: root}
 	sources, err := noteMetadata.BuildNoteSourceSnapshots(ctx, vaultDef, &obsidian.Note{})
 	if err != nil {

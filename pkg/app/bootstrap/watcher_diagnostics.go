@@ -43,5 +43,7 @@ func watchPhase(ctx context.Context, name string) (context.Context, func(error))
 
 func watchDuration(ctx context.Context, name string) func() {
 	started := time.Now()
-	return func() { indexingperf.ObserveLatency(ctx, name, time.Since(started)) }
+	return func() {
+		indexingperf.ObserveLatency(ctx, indexingperf.WatcherDuration.Select(name), time.Since(started))
+	}
 }

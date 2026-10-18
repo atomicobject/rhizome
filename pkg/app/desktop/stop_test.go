@@ -10,13 +10,14 @@ import (
 	"testing"
 
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStopReportsAFolderWithoutARuntimeAsStopped(t *testing.T) {
 	s := testService(t)
-	folder := config(t, obsidian.LocalRhizomeConfig{})
+	folder := config(t, repoconfig.LocalRhizomeConfig{})
 	result, err := s.Stop(context.Background(), Request{Folder: folder})
 	require.NoError(t, err)
 	require.True(t, result.Stopped)
@@ -24,7 +25,7 @@ func TestStopReportsAFolderWithoutARuntimeAsStopped(t *testing.T) {
 
 func TestStopNeverShutsDownARuntimeAnotherFoldersManifestNames(t *testing.T) {
 	s := testService(t)
-	folder := config(t, obsidian.LocalRhizomeConfig{})
+	folder := config(t, repoconfig.LocalRhizomeConfig{})
 	other := t.TempDir()
 	var posts atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

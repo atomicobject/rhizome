@@ -3,66 +3,54 @@ package ontology
 import (
 	"context"
 	"errors"
+	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"os"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	"github.com/atomicobject/rhizome/pkg/sqliteutil"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 type Runtime struct {
-	Schema *Schema
+	Schema *ontoschema.Schema
 	Store  *semdb.Store
 	Issues []ValidationIssue
 	Ready  bool
 }
 
-// PublishedRuntimeWithStore returns a runtime only when the caller's already
-// published note metadata and ontology projection form one current, complete
-// read model. It is deliberately read-only: indexing coordinators call it
-// after their writer barrier and it never discovers notes, loads note sources,
-// projects, or repairs persisted state.
+// PublishedRuntimeWithStore reads the singleton proof published by complete sync.
+// It never discovers sources, materializes rows, or repairs a stale index.
 func PublishedRuntimeWithStore(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition, store *semdb.Store) (*Runtime, error) {
-	if store == nil {
-		return &Runtime{}, nil
-	}
 	runtime := &Runtime{Store: store}
-	if vaultDef.BasePath() == "" {
+	if store == nil || vaultDef.BasePath() == "" {
 		return runtime, nil
 	}
-
-	state, err := store.GetOntologySchemaState(ctx)
+	formats, err := noteMetadata.FormatRuntime()
 	if err != nil {
 		return runtime, err
 	}
+	publication, err := store.GetOntologyReadiness(ctx, OntologyProviderHash(formats))
+	if err != nil {
+		return runtime, err
+	}
+	state := publication.SchemaState
 	runtime.Issues = ValidationIssuesFromJSON(state.ErrorJSON)
 	if err := validateOntologyMaterializationVersion(state.MaterializationVersion); err != nil {
 		return runtime, err
 	}
-
-	schema, err := LoadSchema(vaultDef.BasePath())
-	if err != nil {
-		if errors.Is(err, ErrNoOntologyFiles) {
-			return runtime, nil
-		}
-		return runtime, err
-	}
-	noteState, err := store.GetNoteMetadataState(ctx)
-	if err != nil {
-		return runtime, err
-	}
-	if !noteState.Ready || noteState.LoadedAt == 0 ||
-		!state.Ready || state.LoadedAt == 0 ||
-		state.SchemaHash != schema.Hash ||
-		state.NotesHash != noteState.NotesHash ||
-		state.LoadedAt != noteState.LoadedAt ||
-		state.MaterializationVersion != OntologyMaterializationVersion {
+	schema, err := ontoschema.LoadSchema(vaultDef.BasePath())
+	if errors.Is(err, ontoschema.ErrNoOntologyFiles) {
 		return runtime, nil
 	}
-	materialized, err := ontologyStateMaterialized(ctx, noteMetadata, store, schema, state.ErrorJSON)
 	if err != nil {
 		return runtime, err
 	}
-	if !materialized {
+	if !publication.Ready || state.SchemaHash != schema.Hash ||
+		state.MaterializationVersion != OntologyMaterializationVersion ||
+		state.LoadedAt != publication.MetadataState.LoadedAt {
 		return runtime, nil
 	}
 	runtime.Schema = schema
@@ -70,87 +58,33 @@ func PublishedRuntimeWithStore(ctx context.Context, noteMetadata notemeta.Indexe
 	return runtime, nil
 }
 
-func OpenStoreForWrite(vaultPath string) (*semdb.Store, func(), error) {
-	cfg, err := obsidian.LoadCodeConfig(vaultPath)
+// OpenPublishedRuntime opens an existing index without schema or data writes.
+func OpenPublishedRuntime(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition) (*Runtime, func(), error) {
+	root := vaultDef.BasePath()
+	if root == "" {
+		return &Runtime{}, nil, nil
+	}
+	if _, err := ontoschema.LoadSchema(root); errors.Is(err, ontoschema.ErrNoOntologyFiles) {
+		return &Runtime{}, nil, nil
+	} else if err != nil {
+		return &Runtime{}, nil, err
+	}
+	resolvedConfig1, configErr1 := repoconfig.Load(root)
+	cfg, err := resolvedConfig1.Code, configErr1
 	if err != nil {
 		return nil, nil, err
 	}
-	return obsidian.OpenIntelStoreForWriteFromConfig(vaultPath, cfg)
-}
-
-func EnsureRuntime(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader) (*Runtime, func(), error) {
-	if vaultDef.BasePath() == "" {
-		return &Runtime{}, nil, nil
+	store, err := semdb.OpenReadOnlyExisting(repoconfig.UnifiedIndexPath(root, cfg.IndexPath), ctx, sqliteutil.Options{})
+	if errors.Is(err, os.ErrNotExist) {
+		return &Runtime{}, nil, fmt.Errorf("ontology index is not ready; run `rzm index`")
 	}
-	if _, err := LoadSchema(vaultDef.BasePath()); errors.Is(err, ErrNoOntologyFiles) {
-		return &Runtime{}, nil, nil
-	}
-	if err := noteMetadata.Validate(); err != nil {
-		return nil, nil, err
-	}
-
-	store, cleanup, err := OpenStoreForWrite(vaultDef.BasePath())
 	if err != nil {
 		return nil, nil, err
 	}
-	rt, ensureErr := EnsureRuntimeWithStore(ctx, noteMetadata, vaultDef, noteMgr, store)
-	return rt, cleanup, ensureErr
-}
-
-func EnsureFreshRuntime(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader) (*Runtime, func(), error) {
-	if vaultDef.BasePath() == "" {
-		return &Runtime{}, nil, nil
+	cleanup := func() { _ = store.Close() }
+	runtime, err := PublishedRuntimeWithStore(ctx, noteMetadata, vaultDef, store)
+	if err == nil && !runtime.Ready {
+		err = fmt.Errorf("ontology index is not ready; run `rzm index`")
 	}
-	if _, err := LoadSchema(vaultDef.BasePath()); errors.Is(err, ErrNoOntologyFiles) {
-		return &Runtime{}, nil, nil
-	}
-	if err := noteMetadata.Validate(); err != nil {
-		return nil, nil, err
-	}
-
-	store, cleanup, err := OpenStoreForWrite(vaultDef.BasePath())
-	if err != nil {
-		return nil, nil, err
-	}
-	rt, ensureErr := EnsureFreshRuntimeWithStore(ctx, noteMetadata, vaultDef, noteMgr, store)
-	return rt, cleanup, ensureErr
-}
-
-func EnsureRuntimeWithStore(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader, store *semdb.Store) (*Runtime, error) {
-	if store == nil {
-		return &Runtime{}, nil
-	}
-	if err := noteMetadata.Validate(); err != nil {
-		return nil, err
-	}
-	result, err := EnsureIndexed(ctx, noteMetadata, vaultDef, noteMgr, store)
-	if err != nil {
-		state, stateErr := store.GetOntologySchemaState(ctx)
-		if stateErr == nil {
-			return &Runtime{
-				Store:  store,
-				Issues: ValidationIssuesFromJSON(state.ErrorJSON),
-			}, err
-		}
-		return &Runtime{Store: store}, err
-	}
-	return &Runtime{
-		Schema: result.Schema,
-		Store:  store,
-		Issues: result.Issues,
-		Ready:  result.Schema != nil,
-	}, nil
-}
-
-func EnsureFreshRuntimeWithStore(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader, store *semdb.Store) (*Runtime, error) {
-	if store == nil {
-		return &Runtime{}, nil
-	}
-	if err := noteMetadata.Validate(); err != nil {
-		return nil, err
-	}
-	if _, err := noteMetadata.EnsureIndexed(ctx, vaultDef, noteMgr, store); err != nil {
-		return &Runtime{Store: store}, err
-	}
-	return EnsureRuntimeWithStore(ctx, noteMetadata, vaultDef, noteMgr, store)
+	return runtime, cleanup, err
 }

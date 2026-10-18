@@ -6,7 +6,6 @@ import (
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/codefile"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 func classifyInternalChange(rel string) internalChangeEffect {
@@ -34,17 +33,6 @@ func isYAMLPath(rel string) bool {
 	return ext == ".yaml" || ext == ".yml"
 }
 
-func loadWatcherVaultDefinition(vaultPath string, current obsidian.VaultDefinition) (obsidian.VaultDefinition, error) {
-	loaded, err := obsidian.LoadDefinitionFromPath(vaultPath)
-	if err != nil {
-		return current, err
-	}
-	if loaded.Name == "" {
-		loaded.Name = current.Name
-	}
-	return loaded, nil
-}
-
 // detectCodeLang determines the code language from a file path extension.
 func detectCodeLang(path string) codeanchor.Lang {
 	ext := strings.ToLower(filepath.Ext(path))
@@ -63,20 +51,4 @@ func detectCodeLang(path string) codeanchor.Lang {
 	default:
 		return ""
 	}
-}
-
-// ResolveRoots converts relative paths to absolute paths based on the vault path.
-func ResolveRoots(vaultPath string, roots []string) []string {
-	var result []string
-	for _, root := range roots {
-		if root == "" {
-			continue
-		}
-		absRoot := root
-		if !filepath.IsAbs(root) {
-			absRoot = filepath.Join(vaultPath, root)
-		}
-		result = append(result, absRoot)
-	}
-	return result
 }

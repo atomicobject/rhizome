@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 

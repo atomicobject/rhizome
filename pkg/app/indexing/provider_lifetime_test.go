@@ -9,7 +9,7 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +38,7 @@ func TestUnifiedSemanticResourcesCloseCachedProviders(t *testing.T) {
 			}
 			before := semanticDatabaseOwners()
 			for range 3 {
-				resources, err := prepareUnifiedSemanticResources(t.Context(), unifiedPostIndexOptions{VaultPath: root, APIKey: "synthetic-only"}, noopProgress{}, &sync.Mutex{}, nil, nil, nil, nil, nil, nil, nil, nil, codeanchor.Config{}, noteCfg, codeCfg)
+				resources, err := prepareUnifiedSemanticResources(t.Context(), unifiedSemanticSetupOptions{VaultPath: root, APIKey: "synthetic-only"}, noopProgress{}, &sync.Mutex{}, nil, codeanchor.Config{}, noteCfg, codeCfg)
 				if failure != "" {
 					require.Error(t, err)
 					require.Nil(t, resources)

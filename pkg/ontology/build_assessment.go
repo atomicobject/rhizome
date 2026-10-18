@@ -2,15 +2,16 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"sort"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
-func resolveNoteAssessment(doc *noteDoc, schema *Schema) *NoteAssessment {
+func resolveNoteAssessment(doc *noteDoc, schema *ontoschema.Schema) *NoteAssessment {
 	if doc == nil || schema == nil {
 		return nil
 	}
@@ -66,7 +67,7 @@ func resolveNoteAssessment(doc *noteDoc, schema *Schema) *NoteAssessment {
 		case 0:
 			// unresolved
 		default:
-			if winner := mostSpecificCandidate(doc, candidates, schema); winner != "" {
+			if winner := ontoschema.MostSpecificCandidate(selectorSubjectForDoc(doc), candidates, schema); winner != "" {
 				assessment.ResolvedType = winner
 			} else {
 				issue := ValidationIssue{
@@ -87,13 +88,14 @@ func resolveNoteAssessment(doc *noteDoc, schema *Schema) *NoteAssessment {
 // identifier gate is applied. Resolution continues to use CandidateTypes; the
 // broader evidence lets migration tooling distinguish a schema-strategy
 // mismatch from a note that never matched the type's selectors.
-func matchSelectorCandidateTypes(doc *noteDoc, schema *Schema) []string {
+func matchSelectorCandidateTypes(doc *noteDoc, schema *ontoschema.Schema) []string {
 	if doc == nil || schema == nil {
 		return nil
 	}
 	out := make([]string, 0, len(schema.Types))
+	subject := selectorSubjectForDoc(doc)
 	for name, noteType := range schema.Types {
-		if noteType == nil || noteType.Role == TypeRoleEmbeddedNode || !schema.MatchDoc(name, doc) {
+		if noteType == nil || noteType.Role == ontoschema.TypeRoleEmbeddedNode || !schema.MatchDoc(name, subject) {
 			continue
 		}
 		out = append(out, name)
@@ -102,17 +104,18 @@ func matchSelectorCandidateTypes(doc *noteDoc, schema *Schema) []string {
 	return out
 }
 
-func matchCandidateTypes(doc *noteDoc, schema *Schema) []string {
+func matchCandidateTypes(doc *noteDoc, schema *ontoschema.Schema) []string {
 	if doc == nil || schema == nil {
 		return nil
 	}
 	declaredType := strings.TrimSpace(doc.TypeName)
 	out := make([]string, 0, len(schema.Types))
+	subject := selectorSubjectForDoc(doc)
 	for name, noteType := range schema.Types {
-		if noteType != nil && noteType.Role == TypeRoleEmbeddedNode {
+		if noteType != nil && noteType.Role == ontoschema.TypeRoleEmbeddedNode {
 			continue
 		}
-		if !schema.MatchDoc(name, doc) {
+		if !schema.MatchDoc(name, subject) {
 			continue
 		}
 		if declaredType == "" && !candidateIdentifierGateSatisfied(doc, noteType, schema) {
@@ -124,7 +127,7 @@ func matchCandidateTypes(doc *noteDoc, schema *Schema) []string {
 	return out
 }
 
-func candidateIdentifierGateSatisfied(doc *noteDoc, noteType *NoteType, schema *Schema) bool {
+func candidateIdentifierGateSatisfied(doc *noteDoc, noteType *ontoschema.NoteType, schema *ontoschema.Schema) bool {
 	requiredIdentifiers := requiredIdentifierFields(noteType, schema)
 	if len(requiredIdentifiers) == 0 {
 		return true
@@ -137,7 +140,7 @@ func candidateIdentifierGateSatisfied(doc *noteDoc, noteType *NoteType, schema *
 	return false
 }
 
-func identifierFieldGateSatisfied(doc *noteDoc, field *Field) bool {
+func identifierFieldGateSatisfied(doc *noteDoc, field *ontoschema.Field) bool {
 	if !fieldPresent(doc, field) {
 		return false
 	}
@@ -157,11 +160,11 @@ func identifierFieldGateSatisfied(doc *noteDoc, field *Field) bool {
 	return false
 }
 
-func requiredIdentifierFields(noteType *NoteType, schema *Schema) []*Field {
+func requiredIdentifierFields(noteType *ontoschema.NoteType, schema *ontoschema.Schema) []*ontoschema.Field {
 	if noteType == nil {
 		return nil
 	}
-	out := make([]*Field, 0, 1)
+	out := make([]*ontoschema.Field, 0, 1)
 	seenInterfaces := make(map[string]struct{})
 	for _, field := range noteType.Fields {
 		if field == nil || !field.Required || !field.IsIdentifier {
@@ -175,7 +178,7 @@ func requiredIdentifierFields(noteType *NoteType, schema *Schema) []*Field {
 	return out
 }
 
-func requiredIdentifierFieldsFromInterface(schema *Schema, ifaceName string, seen map[string]struct{}) []*Field {
+func requiredIdentifierFieldsFromInterface(schema *ontoschema.Schema, ifaceName string, seen map[string]struct{}) []*ontoschema.Field {
 	if schema == nil {
 		return nil
 	}
@@ -191,7 +194,7 @@ func requiredIdentifierFieldsFromInterface(schema *Schema, ifaceName string, see
 	if iface == nil {
 		return nil
 	}
-	out := make([]*Field, 0, 1)
+	out := make([]*ontoschema.Field, 0, 1)
 	for _, field := range iface.Fields {
 		if field == nil || !field.Required || !field.IsIdentifier {
 			continue
@@ -217,12 +220,12 @@ func appendIssuesToAssessments(assessmentByPath map[string]*NoteAssessment, issu
 	}
 }
 
-func assessScalarField(doc *noteDoc, noteType *NoteType, field *Field, schema *Schema) (FieldAssessment, []ValidationIssue) {
+func assessScalarField(doc *noteDoc, noteType *ontoschema.NoteType, field *ontoschema.Field, schema *ontoschema.Schema) (FieldAssessment, []ValidationIssue) {
 	assessment := AssessScalarFieldValues(doc.Path, noteType.Name, field, schema, extractFieldValues(doc, field), fieldPresent(doc, field))
 	return assessment, assessment.Issues
 }
 
-func assessSectionField(doc *noteDoc, noteType *NoteType, field *Field, schema *Schema) (FieldAssessment, []ValidationIssue) {
+func assessSectionField(doc *noteDoc, noteType *ontoschema.NoteType, field *ontoschema.Field, schema *ontoschema.Schema) (FieldAssessment, []ValidationIssue) {
 	var nodes []*SectionNode
 	if doc != nil && doc.Snapshot != nil {
 		nodes = doc.Snapshot.Sections
@@ -230,7 +233,7 @@ func assessSectionField(doc *noteDoc, noteType *NoteType, field *Field, schema *
 	return assessSectionFieldInNodes(doc.Path, noteType.Name, noteType.PropertyCase, field, nodes, schema, field.Name)
 }
 
-func assessSectionFieldInNodes(notePath string, typeName string, propertyCase PropertyCase, field *Field, nodes []*SectionNode, schema *Schema, fieldPath string) (FieldAssessment, []ValidationIssue) {
+func assessSectionFieldInNodes(notePath string, typeName string, propertyCase ontoschema.PropertyCase, field *ontoschema.Field, nodes []*SectionNode, schema *ontoschema.Schema, fieldPath string) (FieldAssessment, []ValidationIssue) {
 	fieldAssessment := baseFieldAssessment(field)
 	matches := matchSectionsForAssessment(nodes, field)
 	fieldAssessment.Present = len(matches) > 0
@@ -296,7 +299,7 @@ func assessSectionFieldInNodes(notePath string, typeName string, propertyCase Pr
 // (recursive walk); list-typed fields without a heading match every direct
 // child of the current scope at the requested level, preserving document
 // order.
-func matchSectionsForAssessment(nodes []*SectionNode, field *Field) []*SectionNode {
+func matchSectionsForAssessment(nodes []*SectionNode, field *ontoschema.Field) []*SectionNode {
 	if field == nil {
 		return nil
 	}
@@ -319,12 +322,12 @@ func matchSectionsForAssessment(nodes []*SectionNode, field *Field) []*SectionNo
 	return out
 }
 
-func assessNestedSectionIssues(notePath string, enclosingTypeName string, propertyCase PropertyCase, sectionTypeName string, matches []*SectionNode, schema *Schema, parentPath string) []ValidationIssue {
+func assessNestedSectionIssues(notePath string, enclosingTypeName string, propertyCase ontoschema.PropertyCase, sectionTypeName string, matches []*SectionNode, schema *ontoschema.Schema, parentPath string) []ValidationIssue {
 	if schema == nil || len(matches) == 0 {
 		return nil
 	}
 	sectionType := schema.Types[sectionTypeName]
-	if sectionType == nil || (sectionType.Role != TypeRoleSection && sectionType.Role != TypeRoleEmbeddedNode) {
+	if sectionType == nil || (sectionType.Role != ontoschema.TypeRoleSection && sectionType.Role != ontoschema.TypeRoleEmbeddedNode) {
 		return nil
 	}
 	issues := make([]ValidationIssue, 0)
@@ -338,13 +341,13 @@ func assessNestedSectionIssues(notePath string, enclosingTypeName string, proper
 			}
 			fieldPath := parentPath + "." + field.Name
 			switch field.Kind {
-			case FieldKindSection:
+			case ontoschema.FieldKindSection:
 				_, fieldIssues := assessSectionFieldInNodes(notePath, enclosingTypeName, propertyCase, field, match.Children, schema, fieldPath)
 				issues = append(issues, fieldIssues...)
-			case FieldKindScalar, FieldKindEnum:
+			case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum:
 				_, fieldIssues := assessSectionScalarField(notePath, enclosingTypeName, propertyCase, field, match, schema, fieldPath)
 				issues = append(issues, fieldIssues...)
-			case FieldKindLink:
+			case ontoschema.FieldKindLink:
 				_, fieldIssues := assessSectionLinkField(notePath, enclosingTypeName, propertyCase, field, match, fieldPath)
 				issues = append(issues, fieldIssues...)
 			}
@@ -357,12 +360,12 @@ func assessNestedSectionIssues(notePath string, enclosingTypeName string, proper
 // section type declares via `@field`. The inline key is derived from the
 // enclosing note type's propertyCase so the same section type can be reused
 // under note types with different casing conventions.
-func assessSectionScalarField(notePath string, enclosingTypeName string, propertyCase PropertyCase, field *Field, node *SectionNode, schema *Schema, fieldPath string) (FieldAssessment, []ValidationIssue) {
+func assessSectionScalarField(notePath string, enclosingTypeName string, propertyCase ontoschema.PropertyCase, field *ontoschema.Field, node *SectionNode, schema *ontoschema.Schema, fieldPath string) (FieldAssessment, []ValidationIssue) {
 	fieldAssessment := baseFieldAssessment(field)
 	if node == nil {
 		return fieldAssessment, nil
 	}
-	propertyName := defaultPropertyName(field.Name, propertyCase)
+	propertyName := ontoschema.DefaultPropertyName(field.Name, propertyCase)
 	inline := SectionInlineProperties(SectionOwnContent(node))
 	values := normalizeFieldValues(field, normalizeStringValues(caseInsensitiveInlineValues(inline, propertyName)))
 	fieldAssessment.Present = caseInsensitiveInlineHasKey(inline, propertyName)
@@ -417,12 +420,12 @@ func assessSectionScalarField(notePath string, enclosingTypeName string, propert
 	return fieldAssessment, issues
 }
 
-func assessSectionLinkField(notePath string, enclosingTypeName string, propertyCase PropertyCase, field *Field, node *SectionNode, fieldPath string) (FieldAssessment, []ValidationIssue) {
+func assessSectionLinkField(notePath string, enclosingTypeName string, propertyCase ontoschema.PropertyCase, field *ontoschema.Field, node *SectionNode, fieldPath string) (FieldAssessment, []ValidationIssue) {
 	fieldAssessment := baseFieldAssessment(field)
 	if node == nil {
 		return fieldAssessment, nil
 	}
-	propertyName := defaultPropertyName(field.Name, propertyCase)
+	propertyName := ontoschema.DefaultPropertyName(field.Name, propertyCase)
 	inline := SectionInlineProperties(SectionOwnContent(node))
 	values := normalizeStringValues(caseInsensitiveInlineValues(inline, propertyName))
 	fieldAssessment.Present = caseInsensitiveInlineHasKey(inline, propertyName)
@@ -457,7 +460,7 @@ func assessSectionLinkField(notePath string, enclosingTypeName string, propertyC
 	return fieldAssessment, nil
 }
 
-func assessLinkField(doc *noteDoc, field *Field, cache *obsidian.NotePathCache, resolveType func(string) string, schema *Schema, updatedAt int64) (FieldAssessment, RelationAssessment, []semdb.OntologyEdgeRow, []ValidationIssue) {
+func assessLinkField(doc *noteDoc, field *ontoschema.Field, cache *obsidian.NotePathCache, resolveType func(string) string, schema *ontoschema.Schema, updatedAt int64) (FieldAssessment, RelationAssessment, []semdb.OntologyEdgeRow, []ValidationIssue) {
 	values := extractFieldValues(doc, field)
 	fieldAssessment := baseFieldAssessment(field)
 	fieldAssessment.Present = fieldPresent(doc, field)
@@ -496,7 +499,7 @@ func assessLinkField(doc *noteDoc, field *Field, cache *obsidian.NotePathCache, 
 
 	out := make([]semdb.OntologyEdgeRow, 0, len(values))
 	for _, raw := range values {
-		targetInput := unwrapLinkValue(raw)
+		targetInput := UnwrapLinkValue(raw)
 		targetPath, ok := cache.ResolveNote(targetInput)
 		if !ok {
 			issue := withTypeFieldVariant(ValidationIssue{
@@ -512,7 +515,7 @@ func assessLinkField(doc *noteDoc, field *Field, cache *obsidian.NotePathCache, 
 			continue
 		}
 		dstType := resolveType(targetPath)
-		if !typeMatchesOrImplements(schema, dstType, field.TypeName) {
+		if !ontoschema.TypeMatchesOrImplements(schema, dstType, field.TypeName) {
 			issue := withTargetTypeVariant(ValidationIssue{
 				Code:      "wrong_target_type",
 				NotePath:  doc.Path,
@@ -548,40 +551,6 @@ func assessLinkField(doc *noteDoc, field *Field, cache *obsidian.NotePathCache, 
 	return fieldAssessment, relationAssessment, out, issues
 }
 
-func populateRelationAssessments(assessmentByPath map[string]*NoteAssessment, relationByPath map[string]map[string]*RelationAssessment, edges []semdb.OntologyEdgeRow) {
-	for _, edge := range edges {
-		byName := relationByPath[edge.SrcPath]
-		if len(byName) == 0 {
-			continue
-		}
-		relation := byName[edge.RelationName]
-		if relation == nil {
-			continue
-		}
-		if relationHasTarget(relation.Targets, edge) {
-			continue
-		}
-		relation.Present = true
-		relation.Targets = append(relation.Targets, RelationTarget{
-			Path:       edge.DstPath,
-			TypeName:   edge.DstType,
-			Provenance: edge.Provenance,
-			Structural: edge.Structural,
-		})
-	}
-	for notePath, byName := range relationByPath {
-		assessment := assessmentByPath[notePath]
-		if assessment == nil {
-			continue
-		}
-		for idx, relation := range assessment.Relations {
-			if updated := byName[relation.Name]; updated != nil {
-				assessment.Relations[idx] = *updated
-			}
-		}
-	}
-}
-
 func relationHasTarget(targets []RelationTarget, edge semdb.OntologyEdgeRow) bool {
 	for _, target := range targets {
 		if target.Path == edge.DstPath && target.Provenance == edge.Provenance && target.Structural == edge.Structural {
@@ -591,7 +560,7 @@ func relationHasTarget(targets []RelationTarget, edge semdb.OntologyEdgeRow) boo
 	return false
 }
 
-func baseFieldAssessment(field *Field) FieldAssessment {
+func baseFieldAssessment(field *ontoschema.Field) FieldAssessment {
 	return FieldAssessment{
 		Name:                field.Name,
 		Description:         field.Description,
@@ -608,13 +577,13 @@ func baseFieldAssessment(field *Field) FieldAssessment {
 	}
 }
 
-func emptyFieldAssessment(field *Field) FieldAssessment {
+func emptyFieldAssessment(field *ontoschema.Field) FieldAssessment {
 	fieldAssessment := baseFieldAssessment(field)
 	fieldAssessment.Present = false
 	return fieldAssessment
 }
 
-func baseRelationAssessment(field *Field) RelationAssessment {
+func baseRelationAssessment(field *ontoschema.Field) RelationAssessment {
 	return RelationAssessment{
 		Name:          field.Name,
 		Description:   field.Description,
@@ -630,7 +599,7 @@ func baseRelationAssessment(field *Field) RelationAssessment {
 	}
 }
 
-func emptyRelationAssessment(field *Field) RelationAssessment {
+func emptyRelationAssessment(field *ontoschema.Field) RelationAssessment {
 	return baseRelationAssessment(field)
 }
 
@@ -643,7 +612,7 @@ func containsString(values []string, target string) bool {
 	return false
 }
 
-func hasSectionHeadingAtOtherLevel(nodes []*SectionNode, heading string, expected SectionLevel) bool {
+func hasSectionHeadingAtOtherLevel(nodes []*SectionNode, heading string, expected ontoschema.SectionLevel) bool {
 	heading = strings.TrimSpace(heading)
 	if heading == "" {
 		return false
@@ -666,6 +635,6 @@ func hasSectionHeadingAtOtherLevel(nodes []*SectionNode, heading string, expecte
 	return walk(nodes)
 }
 
-func fieldAllowsMissingAuthoredValue(field *Field) bool {
-	return field != nil && field.IsPreferredIdentifier && field.IsDerivableIdentifier && field.IdentifierPopulate != IdentifierPopulateOnCreate
+func fieldAllowsMissingAuthoredValue(field *ontoschema.Field) bool {
+	return field != nil && field.IsPreferredIdentifier && field.IsDerivableIdentifier && field.IdentifierPopulate != ontoschema.IdentifierPopulateOnCreate
 }

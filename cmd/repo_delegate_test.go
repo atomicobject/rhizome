@@ -9,7 +9,8 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,8 +19,8 @@ func TestRepoDelegationRequiresTrustBeforeAnyPinnedBinaryProbe(t *testing.T) {
 		t.Skip("shell-script probe fixture is Unix-only")
 	}
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	sentinel := filepath.Join(t.TempDir(), "repo-binary-ran")
 	target := filepath.Join(repo, ".rhizome", "bin", repoPlatformDir(), repoExecutableName())
@@ -62,8 +63,8 @@ func TestRepoDelegationRequiresTrustBeforeAnyPinnedBinaryProbe(t *testing.T) {
 
 func TestRepoDelegationTrustPromptGrantsOnceBeforeHandoff(t *testing.T) {
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	target := writeRepoBinary(t, repo)
 	writeVersionMarkerFile(t, target, "v1.2.3")
@@ -92,8 +93,8 @@ func TestRepoDelegationTrustPromptGrantsOnceBeforeHandoff(t *testing.T) {
 
 func TestRepoDelegationTrustControlAndDirectExecutionBypassTrust(t *testing.T) {
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	target := writeRepoBinary(t, repo)
 	writeVersionMarkerFile(t, target, "v1.2.3")
@@ -113,8 +114,8 @@ func TestRepoDelegateDecisionFor_DelegatesNormalCommandToRepoBinary(t *testing.T
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{
 			Version: "v1.2.3",
 		},
 	}))
@@ -137,8 +138,8 @@ func TestRepoDelegateDecisionFor_UsesSharedPinnedBinaryPath(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
 	require.NoError(t, os.WriteFile(target, []byte("#!/bin/sh\n"), 0o755))
 	writeVersionMarkerFile(t, target, "v1.2.3")
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3", BinaryPath: "tools/rzm-custom"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3", BinaryPath: "tools/rzm-custom"},
 	}))
 
 	decision := repoDelegateDecisionFor([]string{"search", "hello"}, repo, filepath.Join(t.TempDir(), "rzm"))
@@ -152,8 +153,8 @@ func TestRepoDelegateDecisionFor_BinaryPathWithoutPinDoesNotCreateRepoTarget(t *
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{BinaryPath: "tools/rzm-custom"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{BinaryPath: "tools/rzm-custom"},
 	}))
 
 	decision := repoDelegateDecisionFor([]string{"search", "hello"}, repo, filepath.Join(t.TempDir(), "rzm"))
@@ -167,8 +168,8 @@ func TestRepoDelegateDecisionFor_ExternalOwnershipAlwaysUsesCurrentExecutable(t 
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{BinaryManager: obsidian.BinaryManagerExternal},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{BinaryManager: repoconfig.BinaryManagerExternal},
 	}))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
 	dev := filepath.Join(repo, "bin", runtime.GOOS, repoExecutableName())
@@ -267,8 +268,8 @@ func TestRepoDelegateDecisionFor_PrefersRhizomeDevBuild(t *testing.T) {
 
 	repo := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	pinned := filepath.Join(repo, ".rhizome", "bin", repoPlatformDir(), repoExecutableName())
 	require.NoError(t, os.MkdirAll(filepath.Dir(pinned), 0o755))
@@ -309,8 +310,8 @@ func TestRepoDelegateDecisionFor_ConfiguredDevBinaryDirDoesNotNeedVersionPin(t *
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{DevBinaryDir: "bin"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{DevBinaryDir: "bin"},
 	}))
 	dev := filepath.Join(repo, "bin", runtime.GOOS, repoExecutableName())
 	require.NoError(t, os.MkdirAll(filepath.Dir(dev), 0o755))
@@ -328,8 +329,8 @@ func TestRepoDelegateDecisionFor_ConfiguredDevBinaryDirMissingFails(t *testing.T
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{DevBinaryDir: "bin"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{DevBinaryDir: "bin"},
 	}))
 
 	decision := repoDelegateDecisionFor([]string{"search", "hello"}, repo, filepath.Join(t.TempDir(), "rzm"))
@@ -344,8 +345,8 @@ func TestRepoDelegateDecisionFor_ConfiguredDevBinaryDirSkipsWhenAlreadyTarget(t 
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{DevBinaryDir: "bin"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{DevBinaryDir: "bin"},
 	}))
 	dev := filepath.Join(repo, "bin", runtime.GOOS, repoExecutableName())
 	require.NoError(t, os.MkdirAll(filepath.Dir(dev), 0o755))
@@ -363,8 +364,8 @@ func TestRepoDelegateDecisionFor_DelegatesNewWorktreeInRhizomeSourceToDevBuild(t
 
 	repo := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	dev := filepath.Join(repo, "bin", runtime.GOOS, repoExecutableName())
 	require.NoError(t, os.MkdirAll(filepath.Dir(dev), 0o755))
@@ -383,8 +384,8 @@ func TestRepoDelegateDecisionFor_SkipsNewWorktreeInRhizomeSourceWithoutDevBuild(
 
 	repo := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 
 	decision := repoDelegateDecisionFor([]string{"new-worktree", "/source/repo"}, repo, filepath.Join(t.TempDir(), "rzm"))
@@ -398,8 +399,8 @@ func TestRepoDelegateDecisionFor_BootstrapsNewWorktreeInPinnedRepo(t *testing.T)
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{
 			Version: "v1.2.3",
 		},
 	}))
@@ -418,8 +419,8 @@ func TestRepoDelegateDecisionFor_SkipsDelegationForGoRunSourceInvocation(t *test
 
 	repo := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	dev := filepath.Join(repo, "bin", runtime.GOOS, repoExecutableName())
 	require.NoError(t, os.MkdirAll(filepath.Dir(dev), 0o755))
@@ -492,8 +493,8 @@ func TestRepoDelegateDecisionFor_UsesPinnedWhenRhizomeDevBuildMissing(t *testing
 
 	repo := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "go.mod"), []byte("module github.com/atomicobject/rhizome\n"), 0o644))
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	pinned := writeRepoBinary(t, repo)
 	writeVersionMarkerFile(t, pinned, "v1.2.3")
@@ -510,8 +511,8 @@ func TestRepoDelegateDecisionFor_SkipsWhenAlreadyRepoBinary(t *testing.T) {
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{
 			Version: "v1.2.3",
 		},
 	}))
@@ -529,8 +530,8 @@ func TestRepoDelegateDecisionFor_OnlyUpdateStaysOnGlobalControlPlane(t *testing.
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{
 			Version: "v1.2.3",
 		},
 	}))
@@ -572,8 +573,8 @@ func TestRepoDelegateDecisionFor_ExplicitExternalMigrationStaysOnCurrentExecutab
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	target := writeRepoBinary(t, repo)
 	writeVersionMarkerFile(t, target, "v1.2.3")
@@ -595,8 +596,8 @@ func TestExecute_ExplicitExternalMigrationBypassesPinnedChild(t *testing.T) {
 		t.Skip("shell-script fixture is Unix-only")
 	}
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	sentinel := filepath.Join(repo, "pinned-child-ran")
 	target := writeRepoBinary(t, repo)
@@ -614,9 +615,9 @@ func TestExecute_ExplicitExternalMigrationBypassesPinnedChild(t *testing.T) {
 	require.NoError(t, err, string(output))
 	require.NoFileExists(t, sentinel, "migration delegated to the old pinned child")
 
-	cfg, err := obsidian.LoadLocalConfig(repo)
+	cfg, err := repoconfig.LoadLocalConfig(repo)
 	require.NoError(t, err)
-	require.Equal(t, obsidian.BinaryManagerExternal, cfg.Rhizome.BinaryManager)
+	require.Equal(t, repoconfig.BinaryManagerExternal, cfg.Rhizome.BinaryManager)
 	require.Empty(t, cfg.Rhizome.Version)
 }
 
@@ -666,8 +667,8 @@ func TestRepoDelegateDecisionFor_InitRunsPinnedChild(t *testing.T) {
 		t.Skip("shell-script fixture is Unix-only")
 	}
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	sentinel := filepath.Join(t.TempDir(), "pinned-init-ran")
 	target := filepath.Join(repo, ".rhizome", "bin", repoPlatformDir(), repoExecutableName())
@@ -694,8 +695,8 @@ func TestRepoDelegateDecisionFor_BootstrapsWhenRepoBinaryMissing(t *testing.T) {
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{
 			Version: "v1.2.3",
 		},
 	}))
@@ -736,8 +737,8 @@ func TestRepoDelegateDecisionFor_VersionMarkerDecisions(t *testing.T) {
 			t.Parallel()
 
 			repo := t.TempDir()
-			require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-				Rhizome: obsidian.LocalRhizomeConfig{Version: tc.pin},
+			require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+				Rhizome: repoconfig.LocalRhizomeConfig{Version: tc.pin},
 			}))
 			target := writeRepoBinary(t, repo)
 			writeVersionMarkerFile(t, target, tc.marker)
@@ -809,8 +810,8 @@ exit 3
 			t.Parallel()
 
 			repo := t.TempDir()
-			require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-				Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+			require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+				Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 			}))
 			target := filepath.Join(repo, ".rhizome", "bin", repoPlatformDir(), repoExecutableName())
 			require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
@@ -846,8 +847,8 @@ func TestRepoDelegateDecisionFor_SkipsWithoutRepoVersion(t *testing.T) {
 	t.Parallel()
 
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{},
 	}))
 
 	decision := repoDelegateDecisionFor([]string{"search", "hello"}, repo, filepath.Join(t.TempDir(), "rzm"))

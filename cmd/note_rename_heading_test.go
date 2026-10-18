@@ -3,16 +3,24 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"testing"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+
 	"github.com/stretchr/testify/require"
 )
 
 func TestRenameHeadingCommandReportsActualPublication(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	renameHeadingCmd, _, _ := rootCmd.Find([]string{"note", "rename-heading"})
+
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	for _, changed := range []bool{false, true} {
 		t.Run(map[bool]string{false: "unchanged", true: "applied"}[changed], func(t *testing.T) {
 			vault := setupAgentTestVault(t, map[string]string{
@@ -21,15 +29,12 @@ func TestRenameHeadingCommandReportsActualPublication(t *testing.T) {
 			})
 			t.Chdir(vault.path)
 			preferences := t.TempDir()
-			originalPreferences := obsidian.CliConfigPath
-			obsidian.CliConfigPath = func() (string, string, error) {
-				return preferences, filepath.Join(preferences, "config.yml"), nil
-			}
+			env.HomeDir = preferences
+			env.WorkingDir = vault.path
+			env.ObsidianConfigFile = vault.env.ObsidianConfigFile
 			t.Cleanup(func() {
-				obsidian.CliConfigPath = originalPreferences
 				renameHeadingCmd.SetOut(nil)
 				renameHeadingCmd.SetErr(nil)
-				resetCommandContexts(rootCmd)
 			})
 			next := "Old Heading"
 			want := "Heading unchanged in target.md; rewrites: 1; upgraded: 0; skipped: 0"
@@ -37,7 +42,7 @@ func TestRenameHeadingCommandReportsActualPublication(t *testing.T) {
 				next = "New Heading"
 				want = "Renamed heading in target.md; rewrites: 1; upgraded: 0; skipped: 0"
 			}
-			stdout, stderr, err := runRootCLI(t, context.Background(), []string{"note", "rename-heading", "target.md", "Old Heading", next, "--apply", "--upgrade-to-block-id", "never", "--fallback", "heading"})
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), env), []string{"note", "rename-heading", "target.md", "Old Heading", next, "--apply", "--upgrade-to-block-id", "never", "--fallback", "heading"})
 			require.NoError(t, err, stderr)
 			require.Empty(t, stderr)
 			require.Equal(t, want, stdout)

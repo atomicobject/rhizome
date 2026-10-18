@@ -2,16 +2,17 @@ package retrieval
 
 import (
 	"context"
-	"path/filepath"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"sort"
 	"strconv"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -28,8 +29,6 @@ type OntologyRetriever struct {
 }
 
 func (r *OntologyRetriever) Name() string { return "ontology" }
-
-func (r *OntologyRetriever) CostClass() search.RetrieverCostClass { return search.RetrieverCostIOBound }
 
 func (r *OntologyRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([]search.Candidate, error) {
 	if r.Store == nil || len(spec.Seeds) == 0 {
@@ -65,7 +64,7 @@ func (r *OntologyRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		// Standalone retriever tests may not pass a scope. Planner-created
 		// retrievers should share one request-scoped Scope with other ontology
 		// graph consumers for this search run.
-		scope = noderead.NewService(obsidian.VaultDefinition{}, &obsidian.Note{}, r.Store, nil).NewScope(ctx, noderead.ScopeOptions{})
+		scope = noderead.NewService(obsidian.VaultDefinition{}, &obsidian.Note{}, r.Store, nil).NewScope(noderead.ScopeOptions{})
 	}
 	basePolicy := relationPolicyForIntent(spec.Intent, r.IncludeAmbient)
 	policyByPath, err := r.loadPolicyOverrides(ctx, seedPaths, spec.Intent)
@@ -184,6 +183,12 @@ func buildOntologyCandidate(seedPath, viaPath, neighbor string, row semdb.Ontolo
 
 	h := knowledge.NoteHandle(neighbor)
 	return search.Candidate{
+		SourceRef: search.SourceRef{
+			NoteID:     neighbor,
+			Path:       neighbor,
+			Title:      paths.NoteTitle(neighbor),
+			ChunkIndex: -1,
+		},
 		Handle: h,
 		Owner:  h,
 		Evidence: []search.Evidence{{
@@ -198,17 +203,8 @@ func buildOntologyCandidate(seedPath, viaPath, neighbor string, row semdb.Ontolo
 				"depth":      strconv.Itoa(depth),
 			},
 		}},
-		Type:       "note",
-		NoteID:     neighbor,
-		Path:       neighbor,
-		Title:      ontologyTitleFromPath(neighbor),
-		ChunkIndex: -1,
+		Type: "note",
 	}
-}
-
-func ontologyTitleFromPath(path string) string {
-	base := filepath.Base(path)
-	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
 type relationPolicy struct {
@@ -240,7 +236,7 @@ func relationPolicyForIntent(intent search.Intent, includeAmbient bool) relation
 	return policy
 }
 
-func (r *OntologyRetriever) loadPolicyOverrides(ctx context.Context, seedPaths []string, intent search.Intent) (map[string]ontology.TraversalOverride, error) {
+func (r *OntologyRetriever) loadPolicyOverrides(ctx context.Context, seedPaths []string, intent search.Intent) (map[string]ontoschema.TraversalOverride, error) {
 	if len(seedPaths) == 0 {
 		return nil, nil
 	}
@@ -251,9 +247,9 @@ func (r *OntologyRetriever) loadPolicyOverrides(ctx context.Context, seedPaths [
 	if len(rows) == 0 {
 		return nil, nil
 	}
-	out := make(map[string]ontology.TraversalOverride, len(rows))
+	out := make(map[string]ontoschema.TraversalOverride, len(rows))
 	for path, row := range rows {
-		policy, err := ontology.UnmarshalTypePolicy(row.PolicyJSON)
+		policy, err := ontoschema.UnmarshalTypePolicy(row.PolicyJSON)
 		if err != nil {
 			continue
 		}
@@ -266,7 +262,7 @@ func (r *OntologyRetriever) loadPolicyOverrides(ctx context.Context, seedPaths [
 	return out, nil
 }
 
-func applyPolicyOverride(base relationPolicy, override ontology.TraversalOverride) relationPolicy {
+func applyPolicyOverride(base relationPolicy, override ontoschema.TraversalOverride) relationPolicy {
 	out := base
 	if override.IncludeAmbient != nil {
 		out.includeAmbient = *override.IncludeAmbient

@@ -14,6 +14,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/notediscovery"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 type liveNoteSelectionState struct {
@@ -36,49 +37,29 @@ func (rt *LiveRuntime) currentOwnershipVaultDefinition() obsidian.VaultDefinitio
 	return obsidian.VaultDefinition{}
 }
 
-func (rt *LiveRuntime) reloadOwnershipSelectionLocked() error {
-	updated, err := loadWatcherVaultDefinition(rt.VaultPath, rt.currentOwnershipVaultDefinition())
-	if err != nil {
+// publishOwnershipConfiguration changes the selection and its public snapshot
+// only after proving that existing resources remain valid for the new settings.
+func (rt *LiveRuntime) publishOwnershipConfiguration(definition obsidian.VaultDefinition, resolved repoconfig.Resolved, policy cache.SelectionPolicy) error {
+	rt.ownershipConfigMu.Lock()
+	defer rt.ownershipConfigMu.Unlock()
+	if err := resolved.ValidateFor(rt.VaultPath); err != nil {
 		return err
 	}
-	codeCfg, err := obsidian.LoadCodeConfig(rt.VaultPath)
-	if err != nil {
-		if current := rt.codeCfg.Load(); current != nil {
-			codeCfg = *current
-		} else {
-			codeCfg = codeanchor.DefaultConfig(rt.VaultPath)
-		}
-	}
-	codeCfg.IndexPath = obsidian.UnifiedIndexPath(rt.VaultPath, codeCfg.IndexPath)
-	policy, err := liveCacheSelectionPolicy(updated, rt.noteFormats, codeCfg)
-	if err != nil {
+	if err := validateLiveResourceConfiguration(rt.Configuration(), resolved); err != nil {
 		return err
 	}
 	if hub := rt.hub.Load(); hub != nil {
-		hub.ReplaceUserExcludes(updated.Excludes)
+		hub.ReplaceUserExcludes(definition.Excludes)
 	}
-	if cacheService := rt.cache.Load(); cacheService != nil {
-		cacheService.ReplaceSelectionPolicy(policy)
+	if service := rt.cache.Load(); service != nil {
+		service.ReplaceSelectionPolicy(policy)
 	}
+	rt.resolvedConfig.Store(&resolved)
+	codeCfg := resolved.Code
 	rt.codeCfg.Store(&codeCfg)
-	rt.ownershipVaultDef.Store(&updated)
+	rt.ownershipVaultDef.Store(&definition)
 	rt.setNoteSelectionPolicy(policy)
 	return nil
-}
-
-func (rt *LiveRuntime) leaderOwnershipConfiguration() (obsidian.VaultDefinition, codeanchor.Config, error) {
-	if rt == nil {
-		return obsidian.VaultDefinition{}, codeanchor.Config{}, nil
-	}
-	rt.ownershipConfigMu.Lock()
-	defer rt.ownershipConfigMu.Unlock()
-	err := rt.reloadOwnershipSelectionLocked()
-	vaultDef := rt.currentOwnershipVaultDefinition()
-	codeCfg := codeanchor.DefaultConfig(rt.VaultPath)
-	if current := rt.codeCfg.Load(); current != nil {
-		codeCfg = *current
-	}
-	return vaultDef, codeCfg, err
 }
 
 func (rt *LiveRuntime) publishPhase3OwnershipConfiguration() (codeanchor.Config, error) {
@@ -88,7 +69,7 @@ func (rt *LiveRuntime) publishPhase3OwnershipConfiguration() (codeanchor.Config,
 	rt.ownershipConfigMu.Lock()
 	defer rt.ownershipConfigMu.Unlock()
 
-	codeCfg := loadLiveCodeConfig(rt.VaultPath)
+	codeCfg := rt.Configuration().Code
 	if cacheService := rt.cache.Load(); cacheService != nil {
 		policy, policyErr := liveCacheSelectionPolicy(rt.currentOwnershipVaultDefinition(), rt.noteFormats, codeCfg)
 		if policyErr != nil {
@@ -142,7 +123,7 @@ func (rt *LiveRuntime) noteSelectionPolicy() (cache.SelectionPolicy, error) {
 	}
 	codeCfg := rt.codeCfg.Load()
 	if codeCfg == nil {
-		loaded := loadLiveCodeConfig(rt.VaultPath)
+		loaded := rt.Configuration().Code
 		codeCfg = &loaded
 	}
 	policy, err := liveCacheSelectionPolicy(rt.currentOwnershipVaultDefinition(), rt.noteFormats, *codeCfg)
@@ -211,45 +192,46 @@ func liveCodeRoots(vaultPath string, codeCfg codeanchor.Config) []paths.AbsPath 
 	return roots
 }
 
-// loadLiveCodeConfig normalizes the default used during initial composition.
-// Follower reloads separately retain their last valid config on load failure.
-func loadLiveCodeConfig(vaultPath string) codeanchor.Config {
-	codeCfg, err := obsidian.LoadCodeConfig(vaultPath)
-	if err != nil {
-		codeCfg = codeanchor.DefaultConfig(vaultPath)
-	}
-	codeCfg.IndexPath = obsidian.UnifiedIndexPath(vaultPath, codeCfg.IndexPath)
-	return codeCfg
-}
-
 func (w *unifiedSemanticWatcher) reloadOwnershipSelection() error {
-	updated, err := loadWatcherVaultDefinition(w.vaultPath, w.vaultDef)
+	resolved, err := repoconfig.Load(w.vaultPath)
 	if err != nil {
-		return fmt.Errorf("reload vault definition: %w", err)
+		return fmt.Errorf("reload configuration: %w", err)
 	}
-	codeCfg, err := obsidian.LoadCodeConfig(w.vaultPath)
-	if err != nil {
-		// Ignore-file changes still replace the selector when code configuration
-		// is absent. Keep the last known code rules rather than rejecting the
-		// new note scope because no code section was configured.
-		codeCfg = w.codeCfg
-		if codeCfg.IndexPath == "" {
-			codeCfg = codeanchor.DefaultConfig(w.vaultPath)
-		}
-	}
-	codeCfg.IndexPath = obsidian.UnifiedIndexPath(w.vaultPath, codeCfg.IndexPath)
+	updated := definitionForConfiguration(w.vaultPath, w.vaultDef, resolved)
+	codeCfg := resolved.Code
 	policy, err := liveCacheSelectionPolicy(updated, w.noteRuntime, codeCfg)
 	if err != nil {
 		return fmt.Errorf("compile cache ownership selection: %w", err)
 	}
-	if w.watchHub != nil {
-		w.watchHub.ReplaceUserExcludes(updated.Excludes)
+	if w.configuration != nil {
+		if err := validateLiveResourceConfiguration(*w.configuration, resolved); err != nil {
+			return err
+		}
 	}
-	w.cacheService.ReplaceSelectionPolicy(policy)
+	if w.onConfigurationChanged != nil {
+		if err := w.onConfigurationChanged(updated, resolved, policy); err != nil {
+			return err
+		}
+	} else {
+		if w.watchHub != nil {
+			w.watchHub.ReplaceUserExcludes(updated.Excludes)
+		}
+		w.cacheService.ReplaceSelectionPolicy(policy)
+	}
 	w.vaultDef = updated
 	w.codeCfg = codeCfg
-	if w.onNoteSelectionChanged != nil {
-		w.onNoteSelectionChanged(policy)
-	}
+	w.configuration = &resolved
+
 	return nil
+}
+
+func definitionForConfiguration(vaultPath string, current obsidian.VaultDefinition, resolved repoconfig.Resolved) obsidian.VaultDefinition {
+	if resolved.Local == nil {
+		return current
+	}
+	updated := repoconfig.LocalConfigToDefinition(vaultPath, resolved.Local)
+	if updated.Name == "" {
+		updated.Name = current.Name
+	}
+	return updated
 }

@@ -12,12 +12,7 @@ import (
 	"strings"
 
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-)
-
-const (
-	repoDelegatedEnv    = "RZM_REPO_DELEGATED"
-	repoSkipDelegateEnv = "RZM_SKIP_REPO_DELEGATE"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 const (
@@ -37,7 +32,7 @@ type Decision struct {
 	Err           error
 
 	ConfigDir string
-	Config    *obsidian.LocalConfig
+	Config    *repoconfig.LocalConfig
 }
 
 func DecisionFor(args []string, cwd, exe string) Decision {
@@ -49,7 +44,7 @@ func DecisionFor(args []string, cwd, exe string) Decision {
 	hasConfig := cfg != nil
 	warning := ""
 	if hasConfig {
-		loaded, validationErr := obsidian.LoadLocalConfig(cfgDir)
+		loaded, validationErr := repoconfig.LoadLocalConfig(cfgDir)
 		if validationErr != nil {
 			warning = fmt.Sprintf("global Rhizome could not validate repo config while selecting the repo binary: %v; the selected binary will validate the config", validationErr)
 		} else if len(loaded.Warnings) > 0 {
@@ -222,7 +217,7 @@ func rhizomeDevBinaryAt(root string) (string, bool, error) {
 	return target, true, nil
 }
 
-func configuredDevBinaryTarget(cfgDir string, cfg *obsidian.LocalConfig) (string, bool) {
+func configuredDevBinaryTarget(cfgDir string, cfg *repoconfig.LocalConfig) (string, bool) {
 	if cfg == nil {
 		return "", false
 	}
@@ -346,10 +341,10 @@ func isExplicitExternalBinaryManagerMigration(args []string) bool {
 	}
 	for i, arg := range args {
 		if arg == "--binary-manager" && i+1 < len(args) {
-			return strings.TrimSpace(args[i+1]) == obsidian.BinaryManagerExternal
+			return strings.TrimSpace(args[i+1]) == repoconfig.BinaryManagerExternal
 		}
 		if value, ok := strings.CutPrefix(arg, "--binary-manager="); ok {
-			return strings.TrimSpace(value) == obsidian.BinaryManagerExternal
+			return strings.TrimSpace(value) == repoconfig.BinaryManagerExternal
 		}
 	}
 	return false

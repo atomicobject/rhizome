@@ -106,7 +106,7 @@ func TestPythonFixture_QueryRecipeRunsItemBackedActionItems(t *testing.T) {
 func TestPythonFixture_QueryRecipeRunsMyActionItems(t *testing.T) {
 	ws := fixture.NewWorkspace(t)
 	stdout, stderr, err := runOntologyCLI(t, ws.CodeRoot, "agent", "query-recipe", "run", "--id", "fixture-my-action-items", "--input", "assignee=notes/people/alice")
-	require.NoError(t, err, stderr)
+	require.NoError(t, err, "stdout:\n%s\nstderr:\n%s", stdout, stderr)
 	require.Empty(t, stderr)
 
 	var payload struct {

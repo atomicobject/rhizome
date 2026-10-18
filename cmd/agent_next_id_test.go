@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -71,8 +73,8 @@ func TestAgentNextIDReturnsMaxPlusOne(t *testing.T) {
 			if tc.count != "" {
 				args = append(args, "--count", tc.count)
 			}
-			stdout, stderr, err := runRootCLI(t, nil, args)
-			require.NoError(t, err)
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
+			require.NoError(t, err, stderr)
 			require.Empty(t, stderr)
 			var resp struct {
 				Type            string   `json:"type"`
@@ -156,7 +158,7 @@ func TestAgentNextIDReportsTypedErrorForUnknownType(t *testing.T) {
 			for _, path := range tc.paths {
 				args = append(args, "--path", path)
 			}
-			stdout, stderr, err := runRootCLI(t, nil, args)
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 			require.Error(t, err)
 			require.Empty(t, stdout)
 			var payload struct {
@@ -208,7 +210,7 @@ aliases:
 		"efforts/2026-08-05-14-32-first.md",
 	}
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "next-id", "--vault", vault.name, "--type", "Effort",
 		"--path", paths[0], "--path", paths[1],
 	})

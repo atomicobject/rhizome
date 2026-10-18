@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"io"
 	"net/http"
+	"os"
 	"testing"
 )
 
@@ -150,8 +152,11 @@ func TestInferProvider_Cerebras(t *testing.T) {
 }
 
 func TestResolveProfile_Cerebras(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Setenv("CEREBRAS_API_KEY", "test-cerebras-key")
-	resolved, err := ResolveProfile("instant", nil, nil, "cerebras/llama3.1-8b")
+	resolved, err := ResolveProfile(env, "instant", nil, nil, "cerebras/llama3.1-8b")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

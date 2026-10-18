@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"github.com/atomicobject/rhizome/pkg/app/desktop"
 	"github.com/stretchr/testify/require"
 )
@@ -19,15 +20,18 @@ func TestDesktopBridgeCommandServesOneJSONResponse(t *testing.T) {
 		{"invalid request", t.TempDir(), `{"protocol":1,"operation":"global-install"}`, "invalid_request"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			command := newDesktopBridgeCmd()
+			app := newRootCommand(commandEnv{Config: testkit.Env(t)})
+			command, _, err := app.Find([]string{"desktop-bridge"})
+			require.NoError(t, err)
+			require.Equal(t, "desktop-bridge", command.Name())
 			require.True(t, command.Hidden)
 			require.True(t, isInertCommand(command))
-			command.SetArgs([]string{"--state-dir", test.stateDir})
-			command.SetIn(strings.NewReader(test.request))
+			app.SetArgs([]string{"desktop-bridge", "--state-dir", test.stateDir})
+			app.SetIn(strings.NewReader(test.request))
 			var output, stderr bytes.Buffer
-			command.SetOut(&output)
-			command.SetErr(&stderr)
-			err := command.Execute()
+			app.SetOut(&output)
+			app.SetErr(&stderr)
+			err = app.ExecuteContext(t.Context())
 			if test.code == "" {
 				require.NoError(t, err)
 			} else {

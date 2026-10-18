@@ -68,7 +68,7 @@ func TestRunValidationCarriesExactApplyCommandIntoNextActions(t *testing.T) {
 	require.Equal(t, "rzm validate fix broken-links --apply --vault docs --scope-note 'A B.md'", result.NextActions.SafeAutoFixCommand)
 }
 
-func TestRunValidationPromotesDomainSoftSkipToNotApplicableOutcome(t *testing.T) {
+func TestRunValidationUsesPreparedDomainAbsence(t *testing.T) {
 	t.Parallel()
 
 	result, err := RunValidation(context.Background(), ValidationRunRequest{
@@ -80,10 +80,10 @@ func TestRunValidationPromotesDomainSoftSkipToNotApplicableOutcome(t *testing.T)
 		return validate.Result{
 			OK: true,
 			Checks: []validate.CheckResult{{
-				Name:    validate.CheckIdentifiers,
-				OK:      true,
-				Skipped: true,
-				Summary: "no @identifier fields",
+				Name:          validate.CheckIdentifiers,
+				OK:            true,
+				NotApplicable: "no @identifier fields",
+				Summary:       "no @identifier fields",
 			}},
 		}, nil
 	})
@@ -97,7 +97,7 @@ func TestRunValidationPromotesDomainSoftSkipToNotApplicableOutcome(t *testing.T)
 	require.Equal(t, ValidationExitClean, result.ExitCode())
 }
 
-func TestRunValidationRejectsSoftSkipThatAlsoCarriesFindings(t *testing.T) {
+func TestRunValidationRejectsDomainAbsenceThatAlsoCarriesFindings(t *testing.T) {
 	t.Parallel()
 
 	_, err := RunValidation(context.Background(), ValidationRunRequest{
@@ -107,13 +107,13 @@ func TestRunValidationRejectsSoftSkipThatAlsoCarriesFindings(t *testing.T) {
 		Probes:    validate.PrerequisiteProbes{Projection: &validationProjectionProbe{available: true}},
 	}, func(context.Context, []string) (validate.Result, error) {
 		return validate.Result{Checks: []validate.CheckResult{{
-			Name:       validate.CheckIdentifiers,
-			Skipped:    true,
-			IssueCount: 1,
+			Name:          validate.CheckIdentifiers,
+			NotApplicable: "domain absent",
+			IssueCount:    1,
 		}}}, nil
 	})
 
-	require.ErrorContains(t, err, `soft-skipped check "identifiers" also returned findings`)
+	require.ErrorContains(t, err, `not-applicable check "identifiers" also returned findings`)
 }
 
 func TestRunValidationPreservesSuiteApplyCommandWhenRequestOmitsIt(t *testing.T) {

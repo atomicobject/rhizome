@@ -11,35 +11,36 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/userstate"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 )
 
-var newWorktreeRunIndex = runNewWorktreeIndexThroughRuntime
-
-var newWorktreeCmd = &cobra.Command{
-	Use:   "new-worktree <source-worktree-path>",
-	Short: "Prepare a new worktree with the Rhizome index and personal settings",
-	Long: `Prepare the current worktree by copying the unified Rhizome database from
+func (commandOptions *indexInvocationOptions) makeNewWorktreeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "new-worktree <source-worktree-path>",
+		Short: "Prepare a new worktree with the Rhizome index and personal settings",
+		Long: `Prepare the current worktree by copying the unified Rhizome database from
 another worktree, then running indexing in the current worktree to bring it up
 to date. Personal view settings are copied when the source has them and the
 current worktree has no user state yet. Later preference changes are independent.`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		sourcePath := args[0]
-		targetDef, err := vaultDefOrDefaultContext(cmd.Context())
-		if err != nil {
-			return err
-		}
-		source, err := resolveNewWorktreeSource(sourcePath)
-		if err != nil {
-			return err
-		}
-		target, err := resolveNewWorktreeTarget(targetDef)
-		if err != nil {
-			return err
-		}
-		return runNewWorktree(cmd, source, target)
-	},
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			sourcePath := args[0]
+			targetDef, err := commandOptions.vaultDefOrDefaultContext(cmd.Context())
+			if err != nil {
+				return err
+			}
+			source, err := resolveNewWorktreeSource(sourcePath)
+			if err != nil {
+				return err
+			}
+			target, err := resolveNewWorktreeTarget(targetDef)
+			if err != nil {
+				return err
+			}
+			return commandOptions.runNewWorktree(cmd, source, target)
+		},
+	}
 }
 
 type newWorktreeIndexSource struct {
@@ -54,32 +55,32 @@ type newWorktreeIndexTarget struct {
 }
 
 func resolveNewWorktreeSource(path string) (newWorktreeIndexSource, error) {
-	cfgDir, cfg, err := obsidian.FindLocalConfig(path)
+	cfgDir, cfg, err := repoconfig.FindLocalConfig(path)
 	if err != nil {
 		return newWorktreeIndexSource{}, fmt.Errorf("resolve source worktree: %w", err)
 	}
-	def := obsidian.LocalConfigToDefinition(cfgDir, cfg)
+	def := repoconfig.LocalConfigToDefinition(cfgDir, cfg)
 	root := def.BasePath()
 	return newWorktreeIndexSource{
 		Root:   root,
-		DBPath: obsidian.UnifiedIndexPath(root, cfg.IndexPath),
+		DBPath: repoconfig.UnifiedIndexPath(root, cfg.IndexPath),
 	}, nil
 }
 
 func resolveNewWorktreeTarget(def obsidian.VaultDefinition) (newWorktreeIndexTarget, error) {
 	root := def.BasePath()
-	cfg, err := obsidian.LoadLocalConfig(root)
+	cfg, err := repoconfig.LoadLocalConfig(root)
 	if err != nil {
 		return newWorktreeIndexTarget{}, fmt.Errorf("resolve target worktree: %w", err)
 	}
 	return newWorktreeIndexTarget{
 		Def:    def,
 		Root:   root,
-		DBPath: obsidian.UnifiedIndexPath(root, cfg.IndexPath),
+		DBPath: repoconfig.UnifiedIndexPath(root, cfg.IndexPath),
 	}, nil
 }
 
-func runNewWorktree(cmd *cobra.Command, source newWorktreeIndexSource, target newWorktreeIndexTarget) error {
+func (commandOptions *indexInvocationOptions) runNewWorktree(cmd *cobra.Command, source newWorktreeIndexSource, target newWorktreeIndexTarget) error {
 	if sameCleanPath(source.DBPath, target.DBPath) {
 		return fmt.Errorf("source and target resolve to the same Rhizome database: %s", source.DBPath)
 	}
@@ -100,8 +101,7 @@ func runNewWorktree(cmd *cobra.Command, source newWorktreeIndexSource, target ne
 	var cloned bool
 	copyErr := func() error {
 		defer releaseSpawnLease()
-		lockPath := obsidian.IndexLockPath(target.Root)
-		releaseIndexLock, err := indexing.TryAcquireIndexLock(cmd.Context(), lockPath, true, debug, cmd.ErrOrStderr())
+		releaseIndexLock, err := indexing.TryAcquireIndexLock(cmd.Context(), target.Root, indexing.LockWaitOptions{RequestPriority: true, Debug: commandOptions.debug, Out: cmd.ErrOrStderr()})
 		if err != nil {
 			return err
 		}
@@ -113,7 +113,7 @@ func runNewWorktree(cmd *cobra.Command, source newWorktreeIndexSource, target ne
 				fmt.Fprintln(cmd.ErrOrStderr(), "Copied personal view settings from source worktree.")
 			}
 		}
-		return errors.Join(err, releaseIndexLock())
+		return errors.Join(err, releaseIndexLock.Release())
 	}()
 	if copyErr != nil {
 		return copyErr
@@ -123,7 +123,7 @@ func runNewWorktree(cmd *cobra.Command, source newWorktreeIndexSource, target ne
 		verb = "Cloned"
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "%s Rhizome index from %s\n", verb, source.DBPath)
-	if err := newWorktreeRunIndex(cmd, target.Root, target.Def); err != nil {
+	if err := commandOptions.newWorktreeRunIndex(cmd, target.Root, target.Def); err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.ErrOrStderr(), "Rhizome index is up to date.")
@@ -168,28 +168,31 @@ func sqliteDatabaseFiles(dbPath string) []string {
 // runNewWorktreeIndexThroughRuntime brings the copied database up to date the
 // same way `rzm index` does: in the vault runtime when one can be used, in this
 // process otherwise.
-func runNewWorktreeIndexThroughRuntime(cmd *cobra.Command, vaultPath string, vaultDef obsidian.VaultDefinition) error {
-	handled, restart, err := runIndexThroughRuntime(cmd, vaultDef)
+func (commandOptions *indexInvocationOptions) runNewWorktreeIndexThroughRuntime(cmd *cobra.Command, vaultPath string, vaultDef obsidian.VaultDefinition) error {
+	handled, restart, err := commandOptions.runIndexThroughRuntime(cmd, vaultDef)
 	if handled {
 		return err
 	}
 	if restart {
 		defer restartRuntimeAfterRebuild(cmd.Context(), vaultDef, cmd.ErrOrStderr())
 	}
-	return runNewWorktreeIndex(cmd, vaultPath, vaultDef)
+	return commandOptions.runNewWorktreeIndex(cmd, vaultPath, vaultDef)
 }
 
-func runNewWorktreeIndex(cmd *cobra.Command, vaultPath string, vaultDef obsidian.VaultDefinition) error {
-	if err := obsidian.ValidateEmbeddingsProvider(vaultPath); err != nil {
+func (commandOptions *indexInvocationOptions) runNewWorktreeIndex(cmd *cobra.Command, vaultPath string, vaultDef obsidian.VaultDefinition) error {
+	resolved, err := repoconfig.Load(vaultPath)
+	if err != nil {
 		return err
 	}
-	lockPath := obsidian.IndexLockPath(vaultPath)
-	release, err := indexing.TryAcquireIndexLock(cmd.Context(), lockPath, true, debug, cmd.ErrOrStderr())
+	if err := resolved.ValidateEmbeddingsProvider(); err != nil {
+		return err
+	}
+	lease, err := indexing.TryAcquireIndexLock(cmd.Context(), vaultPath, indexing.LockWaitOptions{RequestPriority: true, Debug: commandOptions.debug, Out: cmd.ErrOrStderr()})
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if releaseErr := release(); releaseErr != nil && debug {
+		if releaseErr := lease.Release(); releaseErr != nil && commandOptions.debug {
 			fmt.Fprintf(os.Stderr, "Warning: failed to release index lock: %v\n", releaseErr)
 		}
 	}()
@@ -200,13 +203,13 @@ func runNewWorktreeIndex(cmd *cobra.Command, vaultPath string, vaultDef obsidian
 	if err != nil {
 		return err
 	}
-	if err := runIndexCommandWithRebuildGuidance(cmd, noteMetadata, vaultPath, vaultDef, bar); err != nil {
+	if err := commandOptions.runIndexCommandWithRebuildGuidance(cmd, lease, noteMetadata, vaultPath, vaultDef, bar, &resolved); err != nil {
 		return err
 	}
-	cleanupMCPSessions(cmd.Context(), vaultPath, debug)
+	cleanupMCPSessions(cmd.Context(), vaultPath, commandOptions.debug)
 	return nil
 }
 
-func init() {
+func (commandOptions *indexInvocationOptions) registerNewWorktreeCommands(rootCmd, newWorktreeCmd *cobra.Command) {
 	rootCmd.AddCommand(newWorktreeCmd)
 }

@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +24,7 @@ func TestComplexDomainRecipesExecutePopulatedTraceabilityFixture(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
 
 	vaultDef := obsidian.VaultDefinition{Name: "complex-domain-recipes", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	require.True(t, runtime.Ready)
 	for _, path := range []string{
@@ -59,7 +60,6 @@ func TestComplexDomainRecipesExecutePopulatedTraceabilityFixture(t *testing.T) {
 		VaultDef:   vaultDef,
 		NoteReader: &obsidian.Note{},
 		Store:      store,
-		Service:    ontology.NewService(vaultDef, &obsidian.Note{}, store, runtime.Schema),
 	}
 	run := func(id string, inputs map[string]string) map[string]any {
 		t.Helper()
@@ -198,10 +198,13 @@ func TestComplexDomainRecipesExecutePopulatedTraceabilityFixture(t *testing.T) {
 }
 
 func installComplexDomainRecipeFixture(t *testing.T) string {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "README.md"), []byte("# Recipe fixture\n"), 0o644))
-	require.NoError(t, Run(RunOptions{Dir: root, Workflow: templateComplexDomain, Stdout: io.Discard, Stderr: io.Discard}))
+	require.NoError(t, Run(RunOptions{Env: env, Dir: root, Workflow: templateComplexDomain, Stdout: io.Discard, Stderr: io.Discard}))
 
 	files := map[string]string{
 		"docs/reference/requirements/sources/shipping-policy.md": `---

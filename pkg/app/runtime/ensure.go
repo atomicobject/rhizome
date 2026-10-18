@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"log/slog"
 	"os"
 	"sync"
@@ -191,7 +192,7 @@ func trySpawn(ctx context.Context, opts EnsureOptions, logf func(string, ...any)
 		}
 	}
 	logf("starting vault runtime…")
-	registry, err := NewRegistry()
+	registry, err := NewRegistry(vaultconfig.FromContext(ctx))
 	if err != nil {
 		return false, fmt.Errorf("register pending runtime: %w", err)
 	}
@@ -240,7 +241,7 @@ func trySpawn(ctx context.Context, opts EnsureOptions, logf func(string, ...any)
 func waitProbeReady(ctx context.Context, vaultPath string, deadline time.Time) error {
 	gateCtx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
-	registry, err := NewRegistry()
+	registry, err := NewRegistry(vaultconfig.FromContext(ctx))
 	if err != nil {
 		return err
 	}

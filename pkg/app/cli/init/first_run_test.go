@@ -4,14 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,8 +22,6 @@ import (
 // provider keys or global config.
 func firstRunRepo(t *testing.T) string {
 	t.Helper()
-	mockNoGlobalConfig(t)
-	mockCliConfig(t)
 	for _, key := range []string{"VOYAGE_API_KEY", "RHIZOME_VOYAGE_API_KEY", "OPENAI_API_KEY", "RHIZOME_OPENAI_API_KEY", "ATOMIC_RHIZOME_KEY"} {
 		t.Setenv(key, "")
 	}
@@ -34,10 +35,10 @@ func firstRunRepo(t *testing.T) string {
 	return root
 }
 
-func runFirstRunForTest(t *testing.T, root, input string) string {
+func runFirstRunForTest(t *testing.T, env vaultconfig.Env, root, input string) string {
 	t.Helper()
 	var out bytes.Buffer
-	require.NoError(t, Run(RunOptions{Dir: root, Interactive: true, Stdin: bytes.NewBufferString(input), Stdout: &out, Stderr: &out}))
+	require.NoError(t, Run(RunOptions{Env: env, Dir: root, Interactive: true, Stdin: bytes.NewBufferString(input), Stdout: &out, Stderr: &out}))
 	return out.String()
 }
 
@@ -45,7 +46,7 @@ func TestFirstRunShowsFindingsAsksTheWorkflowAndWrites(t *testing.T) {
 	root := firstRunRepo(t)
 
 	// workflow default, set up search later, confirm.
-	out := runFirstRunForTest(t, root, "\n\n\n")
+	out := runFirstRunForTest(t, initTestEnv(t), root, "\n\n\n")
 
 	require.Contains(t, out, "Set up Rhizome in "+filepath.Base(root))
 	require.Contains(t, out, "all Markdown (3 notes in docs/)")
@@ -58,7 +59,7 @@ func TestFirstRunShowsFindingsAsksTheWorkflowAndWrites(t *testing.T) {
 	require.Contains(t, out, "✓ .rhizome/config.yml")
 	require.Contains(t, out, "rzm index  build the search index")
 	require.NotContains(t, out, "(new file)")
-	cfg, err := obsidian.LoadLocalConfig(root)
+	cfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.Equal(t, []string{templateAgenticEngineering}, cfg.WorkflowTemplates)
 	require.Nil(t, cfg.NoteEmbeddings)
@@ -68,8 +69,8 @@ func TestFirstRunShowsFindingsAsksTheWorkflowAndWrites(t *testing.T) {
 func TestFirstRunWorkflowChoices(t *testing.T) {
 	for choice, want := range map[string][]string{"2": {templateComplexDomain}, "3": nil} {
 		root := firstRunRepo(t)
-		runFirstRunForTest(t, root, choice+"\n\n\n")
-		cfg, err := obsidian.LoadLocalConfig(root)
+		runFirstRunForTest(t, initTestEnv(t), root, choice+"\n\n\n")
+		cfg, err := repoconfig.LoadLocalConfig(root)
 		require.NoError(t, err)
 		require.Equal(t, want, cfg.WorkflowTemplates, choice)
 	}
@@ -79,10 +80,10 @@ func TestFirstRunUsesAnAvailableKeyWithoutAsking(t *testing.T) {
 	root := firstRunRepo(t)
 	t.Setenv("VOYAGE_API_KEY", "pa-test")
 
-	out := runFirstRunForTest(t, root, "\n\n")
+	out := runFirstRunForTest(t, initTestEnv(t), root, "\n\n")
 
 	require.NotContains(t, out, "Paste your")
-	cfg, err := obsidian.LoadLocalConfig(root)
+	cfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.NotNil(t, cfg.NoteEmbeddings)
 	require.True(t, cfg.NoteEmbeddings.Enabled)
@@ -91,13 +92,16 @@ func TestFirstRunUsesAnAvailableKeyWithoutAsking(t *testing.T) {
 }
 
 func TestFirstRunSavesAPastedKeyAndTurnsSearchOn(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := firstRunRepo(t)
 
-	out := runFirstRunForTest(t, root, "\npa-pasted\n\n")
+	out := runFirstRunForTest(t, env, root, "\npa-pasted\n\n")
 
 	require.Contains(t, out, "Voyage API Key saved to ~/.config/rhizome/config.yml")
-	require.Equal(t, "pa-pasted", readCliConfigForTest(t).Env["VOYAGE_API_KEY"])
-	cfg, err := obsidian.LoadLocalConfig(root)
+	require.Equal(t, "pa-pasted", readCliConfigForTest(t, env).Env["VOYAGE_API_KEY"])
+	cfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.True(t, cfg.NoteEmbeddings.Enabled)
 }
@@ -105,10 +109,10 @@ func TestFirstRunSavesAPastedKeyAndTurnsSearchOn(t *testing.T) {
 func TestFirstRunCanTurnSearchOffOnPurpose(t *testing.T) {
 	root := firstRunRepo(t)
 
-	out := runFirstRunForTest(t, root, "\nother\n3\n\n")
+	out := runFirstRunForTest(t, initTestEnv(t), root, "\nother\n3\n\n")
 
 	require.Contains(t, out, "Ollama, runs locally and free (not installed)")
-	cfg, err := obsidian.LoadLocalConfig(root)
+	cfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.NotNil(t, cfg.NoteEmbeddings, "off on purpose is recorded")
 	require.False(t, cfg.NoteEmbeddings.Enabled)
@@ -117,7 +121,7 @@ func TestFirstRunCanTurnSearchOffOnPurpose(t *testing.T) {
 func TestFirstRunCancelledAfterPastingAKeySaysTheKeyStays(t *testing.T) {
 	root := firstRunRepo(t)
 
-	out := runFirstRunForTest(t, root, "\npa-pasted\nn\n")
+	out := runFirstRunForTest(t, initTestEnv(t), root, "\npa-pasted\nn\n")
 
 	require.Contains(t, out, "Setup cancelled; nothing was written to this repository. The Voyage API Key you pasted stays saved")
 	require.NoDirExists(t, filepath.Join(root, ".rhizome"))
@@ -125,7 +129,7 @@ func TestFirstRunCancelledAfterPastingAKeySaysTheKeyStays(t *testing.T) {
 
 func TestSearchChoiceKeepsSettingsForTheSameProvider(t *testing.T) {
 	custom := &embeddings.Config{Provider: searchOllama, Endpoint: "http://gpu:11434", Model: "custom"}
-	cfg := obsidian.LocalConfig{NoteEmbeddings: custom}
+	cfg := repoconfig.LocalConfig{NoteEmbeddings: custom}
 
 	applySearchChoice(&cfg, searchOllama, true)
 	require.Equal(t, &embeddings.Config{Enabled: true, Provider: searchOllama, Endpoint: "http://gpu:11434", Model: "custom"}, cfg.NoteEmbeddings)
@@ -139,7 +143,7 @@ func TestFirstRunAsksAgainAfterATypo(t *testing.T) {
 	root := firstRunRepo(t)
 
 	// workflow, skip the key, then a typo at the confirmation before n.
-	out := runFirstRunForTest(t, root, "\n\nk\nn\n")
+	out := runFirstRunForTest(t, initTestEnv(t), root, "\n\nk\nn\n")
 
 	require.Contains(t, out, "Please answer y, n, or e.")
 	require.Contains(t, out, "Setup cancelled")
@@ -157,7 +161,7 @@ func TestUnknownFilesQuestionTreatsATypoAsNoAnswer(t *testing.T) {
 func TestFirstRunCanBeCancelled(t *testing.T) {
 	root := firstRunRepo(t)
 
-	out := runFirstRunForTest(t, root, "\n\nn\n")
+	out := runFirstRunForTest(t, initTestEnv(t), root, "\n\nn\n")
 
 	require.Contains(t, out, "Setup cancelled; nothing was written.")
 	require.NoDirExists(t, filepath.Join(root, ".rhizome"))
@@ -167,7 +171,7 @@ func TestFirstRunCanBeCancelled(t *testing.T) {
 func TestFirstRunEditOpensSettingsAndReturnsToTheConfirmation(t *testing.T) {
 	root := firstRunRepo(t)
 
-	out := runFirstRunForTest(t, root, "\n\ne\n\n\n")
+	out := runFirstRunForTest(t, initTestEnv(t), root, "\n\ne\n\n\n")
 
 	require.Contains(t, out, "Settings")
 	require.Equal(t, 2, bytes.Count([]byte(out), []byte("Set up Rhizome? [Y/n/e to edit]")))
@@ -185,10 +189,10 @@ func TestFirstRunStoresInstalledAgentsAsOn(t *testing.T) {
 	}
 	t.Cleanup(func() { installedAgentCommand = original })
 
-	out := runFirstRunForTest(t, root, "\n\n\n")
+	out := runFirstRunForTest(t, initTestEnv(t), root, "\n\n\n")
 
 	require.Contains(t, out, "Agents    Claude Code")
-	cfg, err := obsidian.LoadLocalConfig(root)
+	cfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.Equal(t, agentModeOn, cfg.Agents.Claude)
 	require.FileExists(t, filepath.Join(root, "CLAUDE.md"))
@@ -196,29 +200,31 @@ func TestFirstRunStoresInstalledAgentsAsOn(t *testing.T) {
 }
 
 func TestFirstRunAgentsNoneWritesNoAgentFiles(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := firstRunRepo(t)
 
-	require.NoError(t, Run(RunOptions{Dir: root, Agents: "none", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}))
+	require.NoError(t, Run(RunOptions{Env: env, Dir: root, Agents: "none", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}))
 
 	require.NoFileExists(t, filepath.Join(root, "AGENTS.md"))
 	require.NoDirExists(t, filepath.Join(root, ".agents"))
-	cfg, err := obsidian.LoadLocalConfig(root)
+	cfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.Equal(t, agentModeOff, cfg.Agents.AgentsMd)
 }
 
 func TestSearchKeyPromptLeadsWithTheTeamKeyOnlyInBundledBuilds(t *testing.T) {
-	mockCliConfig(t)
-	mockNoGlobalConfig(t)
+	env := initTestEnv(t)
 	t.Setenv("VOYAGE_API_KEY", "")
 	t.Setenv("ATOMIC_RHIZOME_KEY", "")
 	const unlock = "synthetic-team-unlock"
 	for _, bundled := range []bool{false, true} {
 		var out bytes.Buffer
 		reader := bufio.NewReader(bytes.NewBufferString(unlock + "\n"))
-		session := credentials.NewSession(
+		session := credentials.NewSession(env,
 			credentials.WithTeamKeyBundle(func() bool { return bundled }, func(value string) bool { return value == unlock }),
-			credentials.WithTeamCoverage(func() bool { return os.Getenv("ATOMIC_RHIZOME_KEY") == unlock }),
+			credentials.WithTeamCoverage(func(key string) bool { return key == unlock }),
 			credentials.WithPrompts(reader, &out),
 		)
 
@@ -229,7 +235,7 @@ func TestSearchKeyPromptLeadsWithTheTeamKeyOnlyInBundledBuilds(t *testing.T) {
 		if bundled {
 			require.Contains(t, out.String(), "This Rhizome build includes Atomic Object team keys.")
 			require.Equal(t, "Atomic Object Rhizome key", saved)
-			require.Equal(t, unlock, readCliConfigForTest(t).Env["ATOMIC_RHIZOME_KEY"])
+			require.Equal(t, unlock, readCliConfigForTest(t, env).Env["ATOMIC_RHIZOME_KEY"])
 		} else {
 			require.NotContains(t, out.String(), "Atomic Object")
 			require.Equal(t, "Voyage API Key", saved)
@@ -240,6 +246,9 @@ func TestSearchKeyPromptLeadsWithTheTeamKeyOnlyInBundledBuilds(t *testing.T) {
 }
 
 func TestInitOffersToBuildTheIndexInATerminal(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	for _, tc := range []struct {
 		name, answer string
 		build        bool
@@ -248,7 +257,7 @@ func TestInitOffersToBuildTheIndexInATerminal(t *testing.T) {
 			root := firstRunRepo(t)
 			builds := 0
 			var out bytes.Buffer
-			err := Run(RunOptions{Dir: root, Interactive: true, Stdin: bytes.NewBufferString("\n\n\n" + tc.answer + "\n"), Stdout: &out, Stderr: &out,
+			err := Run(RunOptions{Env: env, Dir: root, Interactive: true, Stdin: bytes.NewBufferString("\n\n\n" + tc.answer + "\n"), Stdout: &out, Stderr: &out,
 				IndexNow: func(string) error { builds++; return nil }})
 
 			require.NoError(t, err)
@@ -265,9 +274,12 @@ func TestInitOffersToBuildTheIndexInATerminal(t *testing.T) {
 }
 
 func TestInitDoesNotOfferTheIndexWithoutATerminal(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := firstRunRepo(t)
 	var out bytes.Buffer
-	require.NoError(t, Run(RunOptions{Dir: root, Stdout: &out, Stderr: &out, IndexNow: func(string) error {
+	require.NoError(t, Run(RunOptions{Env: env, Dir: root, Stdout: &out, Stderr: &out, IndexNow: func(string) error {
 		t.Fatal("a run without a terminal must not index")
 		return nil
 	}}))
@@ -275,9 +287,12 @@ func TestInitDoesNotOfferTheIndexWithoutATerminal(t *testing.T) {
 }
 
 func TestInitReportsAFailedIndexAndKeepsTheSetup(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := firstRunRepo(t)
 	var out bytes.Buffer
-	err := Run(RunOptions{Dir: root, Interactive: true, Stdin: bytes.NewBufferString("\n\n\n\n"), Stdout: &out, Stderr: &out,
+	err := Run(RunOptions{Env: env, Dir: root, Interactive: true, Stdin: bytes.NewBufferString("\n\n\n\n"), Stdout: &out, Stderr: &out,
 		IndexNow: func(string) error { return errors.New("provider unavailable") }})
 
 	require.ErrorContains(t, err, "setup is saved, but indexing stopped: provider unavailable")
@@ -286,6 +301,9 @@ func TestInitReportsAFailedIndexAndKeepsTheSetup(t *testing.T) {
 }
 
 func TestFirstRunCountsAnIncludedIgnoredFolderAfterShowingFindings(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0o755))
 	writeFixtureFile(t, root, ".gitignore", "app/\n")
@@ -294,7 +312,7 @@ func TestFirstRunCountsAnIncludedIgnoredFolderAfterShowingFindings(t *testing.T)
 	writeFixtureFile(t, root, "app/docs/design.md", "# Design\n")
 
 	// Include app/, then accept the defaults.
-	out, err := runInit(t, RunOptions{Dir: root, Interactive: true, Stdin: bytes.NewBufferString("y\n\n\n\n")})
+	out, err := runInit(t, RunOptions{Env: env, Dir: root, Interactive: true, Stdin: bytes.NewBufferString("y\n\n\n\n")})
 
 	require.NoError(t, err)
 	findings := strings.Index(out, "Docs ")

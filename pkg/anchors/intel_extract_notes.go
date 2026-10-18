@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
 )
 
@@ -36,18 +37,19 @@ func extractMarkdownIntelDocSections(intelPath string, content string) ([]IntelD
 		if s.endLine < s.startLine {
 			s.endLine = s.startLine
 		}
-		slug := slugifyHeading(s.title)
+		slug := markdownsyntax.HeadingSlug(s.title)
 		sectionID := intelDocSectionID(intelPath, slug, s.startByte)
 		body := substringBytes(content, s.startByte, s.endByte)
 		outSections = append(outSections, IntelDocSection{
-			SectionID:   sectionID,
-			Path:        intelPath,
-			Title:       s.title,
-			Level:       int64(s.level),
-			StartByte:   int64(s.startByte),
-			EndByte:     int64(s.endByte),
-			Content:     body,
-			Fingerprint: sha256Hex(body),
+			SectionID:    sectionID,
+			SourceNodeID: s.nodeID,
+			Path:         intelPath,
+			Title:        s.title,
+			Level:        int64(s.level),
+			StartByte:    int64(s.startByte),
+			EndByte:      int64(s.endByte),
+			Content:      body,
+			Fingerprint:  sha256Hex(body),
 			// UpdatedAt set by store if zero
 		})
 		ftsRows = append(ftsRows, IntelFTSRow{
@@ -63,6 +65,7 @@ func extractMarkdownIntelDocSections(intelPath string, content string) ([]IntelD
 }
 
 type sec struct {
+	nodeID    string
 	title     string
 	level     int
 	startLine int
@@ -81,6 +84,7 @@ func flattenParsedSections(content string, nodes []*sectionparse.Node) []sec {
 			}
 			out = append(out, sec{
 				title:     node.Title,
+				nodeID:    node.ID,
 				level:     node.Level,
 				startLine: lineNumberAtByte(content, node.StartByte),
 				endLine:   lineNumberAtByte(content, node.EndByte),

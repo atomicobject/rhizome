@@ -3,7 +3,6 @@ package search
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"testing"
 	"time"
 
@@ -11,9 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type stubRetriever struct {
-	name string
-	cost RetrieverCostClass
+type stubRetriever struct{ name string }
+
+func (s stubRetriever) Name() string { return s.name }
+func (s stubRetriever) Retrieve(context.Context, QuerySpec) ([]Candidate, error) {
+	return nil, nil
 }
 
 type staticRetriever struct {
@@ -25,12 +26,6 @@ func (s staticRetriever) Name() string { return s.name }
 func (s staticRetriever) Retrieve(_ context.Context, _ QuerySpec) ([]Candidate, error) {
 	return append([]Candidate(nil), s.results...), nil
 }
-
-func (s stubRetriever) Name() string { return s.name }
-func (s stubRetriever) Retrieve(_ context.Context, _ QuerySpec) ([]Candidate, error) {
-	return nil, nil
-}
-func (s stubRetriever) CostClass() RetrieverCostClass { return s.cost }
 
 type timedRetriever struct {
 	name   string
@@ -108,8 +103,8 @@ func (tieredRanker) Rank(_ context.Context, _ QuerySpec, candidates []Candidate)
 
 func TestSearchPreservesRankerEligibilityOrder(t *testing.T) {
 	retriever := staticRetriever{name: "lexical", results: []Candidate{
-		{Handle: knowledge.NoteHandle("exact.md"), Owner: knowledge.NoteHandle("exact.md"), Path: "exact.md", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 1}}},
-		{Handle: knowledge.NoteHandle("broad.md"), Owner: knowledge.NoteHandle("broad.md"), Path: "broad.md"},
+		{SourceRef: SourceRef{Path: "exact.md"}, Handle: knowledge.NoteHandle("exact.md"), Owner: knowledge.NoteHandle("exact.md"), Evidence: []Evidence{{Type: "note_title_exact", RawScore: 1}}},
+		{SourceRef: SourceRef{Path: "broad.md"}, Handle: knowledge.NoteHandle("broad.md"), Owner: knowledge.NoteHandle("broad.md")},
 	}}
 	response, err := (&Service{Retrievers: []Retriever{retriever}, Ranker: tieredRanker{}}).Search(context.Background(), QuerySpec{Text: "exact"})
 	require.NoError(t, err)
@@ -118,17 +113,17 @@ func TestSearchPreservesRankerEligibilityOrder(t *testing.T) {
 
 func TestSearchAppliesTestEligibilityBeforeRanking(t *testing.T) {
 	eligibility := []Candidate{
-		{Handle: knowledge.AnchorHandle("prod"), Type: "code", Path: "pkg/search/service.go"},
-		{Handle: knowledge.AnchorHandle("test"), Type: "code", Path: "pkg/search/service_test.go"},
-		{Handle: knowledge.NoteHandle("docs/search.md"), Type: "note", Path: "docs/search.md"},
+		{SourceRef: SourceRef{Path: "pkg/search/service.go"}, Handle: knowledge.AnchorHandle("prod"), Type: "code"},
+		{SourceRef: SourceRef{Path: "pkg/search/service_test.go"}, Handle: knowledge.AnchorHandle("test"), Type: "code"},
+		{SourceRef: SourceRef{Path: "docs/search.md"}, Handle: knowledge.NoteHandle("docs/search.md"), Type: "note"},
 	}
 	// The strongest inputs fail the exact-symbol filter; a top-one ranker would
 	// pick one of them if filtering were skipped or ran after ranking.
 	symbols := []Candidate{
-		{Handle: knowledge.AnchorHandle("run"), Type: "anchor", Path: "pkg/service.go", Symbol: "Run", FQN: "pkg.Service.Run", Evidence: []Evidence{{Type: "intel_fts_match", RawScore: 0.1}}},
-		{Handle: knowledge.AnchorHandle("runner"), Type: "anchor", Path: "pkg/runner.go", Symbol: "Runner", FQN: "pkg.Service.Runner", Evidence: []Evidence{{Type: "intel_fts_match", RawScore: 0.9}}},
-		{Handle: knowledge.AnchorHandle("other"), Type: "anchor", Path: "pkg/other.go", Symbol: "Other", FQN: "pkg.Other", Evidence: []Evidence{{Type: "intel_fts_match", RawScore: 0.8}}},
-		{Handle: knowledge.NoteHandle("Notes/Run.md"), Type: "note", Path: "Notes/Run.md", Title: "Run", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 1}}},
+		{SourceRef: SourceRef{Path: "pkg/service.go", Symbol: "Run", FQN: "pkg.Service.Run"}, Handle: knowledge.AnchorHandle("run"), Type: "anchor", Evidence: []Evidence{{Type: "intel_fts_match", RawScore: 0.1}}},
+		{SourceRef: SourceRef{Path: "pkg/runner.go", Symbol: "Runner", FQN: "pkg.Service.Runner"}, Handle: knowledge.AnchorHandle("runner"), Type: "anchor", Evidence: []Evidence{{Type: "intel_fts_match", RawScore: 0.9}}},
+		{SourceRef: SourceRef{Path: "pkg/other.go", Symbol: "Other", FQN: "pkg.Other"}, Handle: knowledge.AnchorHandle("other"), Type: "anchor", Evidence: []Evidence{{Type: "intel_fts_match", RawScore: 0.8}}},
+		{SourceRef: SourceRef{Path: "Notes/Run.md", Title: "Run"}, Handle: knowledge.NoteHandle("Notes/Run.md"), Type: "note", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 1}}},
 	}
 	tests := []struct {
 		name       string
@@ -171,27 +166,6 @@ func (rawEvidenceRanker) Rank(_ context.Context, _ QuerySpec, candidates []Candi
 	return out, nil
 }
 
-type approxRanker struct {
-	weights     map[EvidenceChannel]float64
-	maxPerOwner int
-}
-
-func (a approxRanker) Rank(_ context.Context, _ QuerySpec, candidates []Candidate) ([]RankedResult, error) {
-	out := make([]RankedResult, 0, len(candidates))
-	for _, c := range candidates {
-		out = append(out, RankedResult{Candidate: c, FinalScore: NormalizedCandidateBaseScore(c, a.weights)})
-	}
-	return out, nil
-}
-
-func (a approxRanker) ApproxChannelWeights(_ QuerySpec) map[EvidenceChannel]float64 {
-	return a.weights
-}
-
-func (a approxRanker) ApproxMaxPerOwner(_ QuerySpec) int {
-	return a.maxPerOwner
-}
-
 type failingRetriever struct {
 	name string
 	err  error
@@ -213,52 +187,13 @@ func (d deadlinePacker) Pack(ctx context.Context, spec QuerySpec, _ []RankedResu
 	return PackedContext{}, ctx.Err()
 }
 
-func TestCalcRetrieverConcurrency_CPUHeavyUsesGOMAX(t *testing.T) {
-	prev := runtime.GOMAXPROCS(0)
-	defer runtime.GOMAXPROCS(prev)
-	runtime.GOMAXPROCS(4)
-
-	// Five retrievers saturate GOMAXPROCS=4, so the CPU-heavy cap is observable.
-	retrievers := []Retriever{
-		stubRetriever{name: "cpu1", cost: RetrieverCostCPUHeavy},
-		stubRetriever{name: "io1", cost: RetrieverCostIOBound},
-		stubRetriever{name: "io2", cost: RetrieverCostIOBound},
-		stubRetriever{name: "io3", cost: RetrieverCostIOBound},
-		stubRetriever{name: "io4", cost: RetrieverCostIOBound},
-	}
-
-	got := calcRetrieverConcurrency(retrievers)
-	if want := 4; got != want {
-		t.Fatalf("expected concurrency %d, got %d", want, got)
-	}
-}
-
-func TestCalcRetrieverConcurrency_IOBoundAllowsHigher(t *testing.T) {
-	prev := runtime.GOMAXPROCS(0)
-	defer runtime.GOMAXPROCS(prev)
-	runtime.GOMAXPROCS(2)
-
-	retrievers := []Retriever{
-		stubRetriever{name: "io1", cost: RetrieverCostIOBound},
-		stubRetriever{name: "io2", cost: RetrieverCostIOBound},
-		stubRetriever{name: "io3", cost: RetrieverCostIOBound},
-		stubRetriever{name: "io4", cost: RetrieverCostIOBound},
-		stubRetriever{name: "io5", cost: RetrieverCostIOBound},
-	}
-
-	got := calcRetrieverConcurrency(retrievers)
-	if want := 5; got != want {
-		t.Fatalf("expected concurrency %d, got %d", want, got)
-	}
-}
-
 func TestSearch_CodeFilterRemovesStrongNoteCandidatesBeforeRanking(t *testing.T) {
 	svc := Service{
 		Retrievers: []Retriever{timedRetriever{
 			name: "mixed",
 			result: []Candidate{
-				{Handle: knowledge.NoteHandle("notes/strong.md"), Owner: knowledge.NoteHandle("notes/strong.md"), Type: "note", Path: "notes/strong.md", Evidence: []Evidence{{Type: "note_title_match", RawScore: 100}}},
-				{Handle: knowledge.AnchorHandle("code-hit"), Owner: knowledge.AnchorHandle("code-hit"), Type: "anchor", Path: "pkg/search.go", Evidence: []Evidence{{Type: "intel_fts_match", RawScore: 1}}},
+				{SourceRef: SourceRef{Path: "notes/strong.md"}, Handle: knowledge.NoteHandle("notes/strong.md"), Owner: knowledge.NoteHandle("notes/strong.md"), Type: "note", Evidence: []Evidence{{Type: "note_title_match", RawScore: 100}}},
+				{SourceRef: SourceRef{Path: "pkg/search.go"}, Handle: knowledge.AnchorHandle("code-hit"), Owner: knowledge.AnchorHandle("code-hit"), Type: "anchor", Evidence: []Evidence{{Type: "intel_fts_match", RawScore: 1}}},
 			},
 		}},
 		Ranker: rawEvidenceRanker{},
@@ -282,15 +217,13 @@ func TestSearch_Deadline_ReturnsPartialResults(t *testing.T) {
 
 	svc := Service{
 		Retrievers: []Retriever{
-			timedRetriever{name: "intel_lexical", result: []Candidate{{
-				Handle: knowledge.NoteHandle("Notes/Fast.md"),
-				Owner:  knowledge.NoteHandle("Notes/Fast.md"),
-				Type:   "note", Title: "fast", NoteID: "Notes/Fast.md", Path: "Notes/Fast.md",
+			timedRetriever{name: "intel_lexical", result: []Candidate{{SourceRef: SourceRef{Title: "fast", NoteID: "Notes/Fast.md", Path: "Notes/Fast.md"}, Handle: knowledge.NoteHandle("Notes/Fast.md"),
+				Owner: knowledge.NoteHandle("Notes/Fast.md"),
+				Type:  "note",
 			}}},
-			timedRetriever{name: "vector", delay: 250 * time.Millisecond, result: []Candidate{{
-				Handle: knowledge.NoteHandle("Notes/Slow.md"),
-				Owner:  knowledge.NoteHandle("Notes/Slow.md"),
-				Type:   "note", Title: "slow", NoteID: "Notes/Slow.md", Path: "Notes/Slow.md",
+			timedRetriever{name: "vector", delay: 250 * time.Millisecond, result: []Candidate{{SourceRef: SourceRef{Title: "slow", NoteID: "Notes/Slow.md", Path: "Notes/Slow.md"}, Handle: knowledge.NoteHandle("Notes/Slow.md"),
+				Owner: knowledge.NoteHandle("Notes/Slow.md"),
+				Type:  "note",
 			}}},
 		},
 		Ranker: stubRanker{},
@@ -327,15 +260,13 @@ func TestSearch_Deadline_BudgetsSlowRetrieverAndContinuesBroadSearch(t *testing.
 
 	svc := Service{
 		Retrievers: []Retriever{
-			timedRetriever{name: "vector", delay: time.Second, result: []Candidate{{
-				Handle: knowledge.NoteHandle("Notes/Slow.md"),
-				Owner:  knowledge.NoteHandle("Notes/Slow.md"),
-				Type:   "note", Title: "slow", NoteID: "Notes/Slow.md", Path: "Notes/Slow.md",
+			timedRetriever{name: "vector", delay: time.Second, result: []Candidate{{SourceRef: SourceRef{Title: "slow", NoteID: "Notes/Slow.md", Path: "Notes/Slow.md"}, Handle: knowledge.NoteHandle("Notes/Slow.md"),
+				Owner: knowledge.NoteHandle("Notes/Slow.md"),
+				Type:  "note",
 			}}},
-			timedRetriever{name: "graph", result: []Candidate{{
-				Handle: knowledge.NoteHandle("Notes/Graph.md"),
-				Owner:  knowledge.NoteHandle("Notes/Graph.md"),
-				Type:   "note", Title: "graph", NoteID: "Notes/Graph.md", Path: "Notes/Graph.md",
+			timedRetriever{name: "graph", result: []Candidate{{SourceRef: SourceRef{Title: "graph", NoteID: "Notes/Graph.md", Path: "Notes/Graph.md"}, Handle: knowledge.NoteHandle("Notes/Graph.md"),
+				Owner: knowledge.NoteHandle("Notes/Graph.md"),
+				Type:  "note",
 			}}},
 		},
 		Ranker: stubRanker{},
@@ -351,69 +282,29 @@ func TestSearch_Deadline_BudgetsSlowRetrieverAndContinuesBroadSearch(t *testing.
 	require.Equal(t, "retriever_degraded", resp.Warnings[0].Code)
 }
 
-func TestMergeRetrieverItemsAnnotatesOneRankPerHandle(t *testing.T) {
-	handle := knowledge.NoteHandle("Notes/A.md")
-	items := []Candidate{
-		{
-			Handle: handle,
-			Owner:  handle,
-			Type:   "note",
-			Path:   "Notes/A.md",
-			Evidence: []Evidence{
-				{Type: "note_vector_similarity", RawScore: 0.9},
-			},
-		},
-		{
-			Handle: handle,
-			Owner:  handle,
-			Type:   "note",
-			Path:   "Notes/A.md",
-			Evidence: []Evidence{
-				{Type: "intel_fts_match", RawScore: 0.8},
-			},
-		},
-	}
-
-	merged := mergeRetrieverItems("vector", items)
-	require.Len(t, merged, 1)
-
-	rankEvidence := 0
-	for _, ev := range merged[handle.String()].Evidence {
-		if ev.Type == "retriever_rank:vector" {
-			rankEvidence++
-			require.Equal(t, "0", ev.Details["rank"])
-		}
-	}
-	require.Equal(t, 1, rankEvidence)
-}
-
 func TestSearch_MergesSupportOnlyEvidenceOntoPrimaryCandidate(t *testing.T) {
 	handle := knowledge.AnchorHandle("anchor-search")
 	svc := Service{
 		Retrievers: []Retriever{
-			timedRetriever{name: "intel_lexical", result: []Candidate{{
-				Handle: handle,
-				Owner:  handle,
-				Type:   "anchor",
-				Path:   "pkg/search/service.go",
+			timedRetriever{name: "intel_lexical", result: []Candidate{{SourceRef: SourceRef{Path: "pkg/search/service.go"}, Handle: handle,
+				Owner: handle,
+				Type:  "anchor",
 				Evidence: []Evidence{{
 					Type:     "intel_fts_match",
 					RawScore: 0.6,
 				}},
 			}}},
-			timedRetriever{name: "rationale_fts", result: []Candidate{{
-				Handle:      handle,
+			timedRetriever{name: "rationale_fts", result: []Candidate{{SourceRef: SourceRef{Path: "pkg/search/service.go"}, Handle: handle,
 				Owner:       handle,
 				SupportOnly: true,
 				Type:        "anchor",
-				Path:        "pkg/search/service.go",
 				Evidence: []Evidence{{
 					Type:     "rationale_fts_match",
 					RawScore: 0.7,
 				}},
 			}}},
 		},
-		Ranker: approxRanker{weights: map[EvidenceChannel]float64{EvidenceChannelLexical: 1}, maxPerOwner: 3},
+		Ranker: &WeightedRanker{Weights: Weights{Lexical: 1}, MaxPerOwner: 3},
 	}
 
 	resp, err := svc.Search(context.Background(), QuerySpec{Text: "why search", Intent: IntentSearch, Limits: Limits{Total: 5}})
@@ -427,19 +318,17 @@ func TestSearch_DropsSupportOnlyCandidatesWithoutPrimaryEvidence(t *testing.T) {
 	handle := knowledge.AnchorHandle("anchor-rationale-only")
 	svc := Service{
 		Retrievers: []Retriever{
-			timedRetriever{name: "rationale_fts", result: []Candidate{{
-				Handle:      handle,
+			timedRetriever{name: "rationale_fts", result: []Candidate{{SourceRef: SourceRef{Path: "pkg/search/service.go"}, Handle: handle,
 				Owner:       handle,
 				SupportOnly: true,
 				Type:        "anchor",
-				Path:        "pkg/search/service.go",
 				Evidence: []Evidence{{
 					Type:     "rationale_fts_match",
 					RawScore: 0.9,
 				}},
 			}}},
 		},
-		Ranker: approxRanker{weights: map[EvidenceChannel]float64{EvidenceChannelLexical: 1}, maxPerOwner: 3},
+		Ranker: &WeightedRanker{Weights: Weights{Lexical: 1}, MaxPerOwner: 3},
 	}
 
 	resp, err := svc.Search(context.Background(), QuerySpec{Text: "why search", Intent: IntentSearch, Limits: Limits{Total: 5}})
@@ -453,9 +342,9 @@ func TestPruneCandidatesKeepsSymbolProbeHits(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		key := fmt.Sprintf("note:%02d", i)
 		candidates[key] = Candidate{
-			Handle: knowledge.NoteHandle(key),
-			Type:   "note",
-			Path:   key + ".md",
+			SourceRef: SourceRef{Path: key + ".md"},
+			Handle:    knowledge.NoteHandle(key),
+			Type:      "note",
 			Evidence: []Evidence{{
 				Type:     "note_vector_similarity",
 				RawScore: 1,
@@ -463,11 +352,13 @@ func TestPruneCandidatesKeepsSymbolProbeHits(t *testing.T) {
 		}
 	}
 	candidates["code:symbol"] = Candidate{
-		Handle:   knowledge.AnchorHandle("symbol"),
-		Type:     "code",
-		Path:     "pkg/search/embeddings/sqlite/store.go",
-		Symbol:   "SearchChunksByVector",
-		AnchorID: "symbol",
+		SourceRef: SourceRef{
+			Path:     "pkg/embeddings/sqlite/note_schema.go",
+			Symbol:   "SearchChunksByVector",
+			AnchorID: "symbol",
+		},
+		Handle: knowledge.AnchorHandle("symbol"),
+		Type:   "code",
 		Evidence: []Evidence{{
 			Type:     "symbol_match",
 			RawScore: 0.9,
@@ -482,11 +373,11 @@ func TestPruneCandidatesKeepsNotesNamedByAgreedLinkLabels(t *testing.T) {
 	candidates := map[string]Candidate{}
 	for i := 0; i < 20; i++ {
 		key := fmt.Sprintf("note:%02d", i)
-		candidates[key] = Candidate{Handle: knowledge.NoteHandle(key), Type: "note", Path: key + ".md", Evidence: []Evidence{{Type: "note_vector_similarity", RawScore: 1}}}
+		candidates[key] = Candidate{SourceRef: SourceRef{Path: key + ".md"}, Handle: knowledge.NoteHandle(key), Type: "note", Evidence: []Evidence{{Type: "note_vector_similarity", RawScore: 1}}}
 	}
 	named := Evidence{Type: "link_text_match", RawScore: 0.9, Details: map[string]string{LinkTextAliasDetail: "catalog migration"}}
-	candidates["note:named"] = Candidate{Handle: knowledge.NoteHandle("named"), Type: "note", Path: "named.md", Evidence: []Evidence{named}}
-	candidates["note:labeled"] = Candidate{Handle: knowledge.NoteHandle("labeled"), Type: "note", Path: "labeled.md", Evidence: []Evidence{{Type: "link_text_match", RawScore: 0.9}}}
+	candidates["note:named"] = Candidate{SourceRef: SourceRef{Path: "named.md"}, Handle: knowledge.NoteHandle("named"), Type: "note", Evidence: []Evidence{named}}
+	candidates["note:labeled"] = Candidate{SourceRef: SourceRef{Path: "labeled.md"}, Handle: knowledge.NoteHandle("labeled"), Type: "note", Evidence: []Evidence{{Type: "link_text_match", RawScore: 0.9}}}
 
 	pruned := pruneCandidates(candidates, 5, map[EvidenceChannel]float64{EvidenceChannelSemantic: 1, EvidenceChannelLexical: 0.6})
 	require.Contains(t, pruned, "note:named")
@@ -494,9 +385,9 @@ func TestPruneCandidatesKeepsNotesNamedByAgreedLinkLabels(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		key := fmt.Sprintf("note:named%02d", i)
-		candidates[key] = Candidate{Handle: knowledge.NoteHandle(key), Type: "note", Path: key + ".md", Evidence: []Evidence{named}}
+		candidates[key] = Candidate{SourceRef: SourceRef{Path: key + ".md"}, Handle: knowledge.NoteHandle(key), Type: "note", Evidence: []Evidence{named}}
 	}
-	candidates["note:exact"] = Candidate{Handle: knowledge.NoteHandle("exact"), Type: "note", Path: "exact.md", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 0.1}}}
+	candidates["note:exact"] = Candidate{SourceRef: SourceRef{Path: "exact.md"}, Handle: knowledge.NoteHandle("exact"), Type: "note", Evidence: []Evidence{{Type: "note_title_exact", RawScore: 0.1}}}
 	pruned = pruneCandidates(candidates, 5, map[EvidenceChannel]float64{EvidenceChannelSemantic: 1, EvidenceChannelLexical: 0.6})
 	require.Contains(t, pruned, "note:exact", "agreed labels never crowd out an exact title")
 }
@@ -517,7 +408,7 @@ func (expiredPacker) Pack(context.Context, QuerySpec, []RankedResult) (PackedCon
 
 func TestPackRankedResults_DeadlineFallbackKeepsSelectedSourcesWithinBudget(t *testing.T) {
 	note := func(path string) RankedResult {
-		return RankedResult{Candidate: Candidate{Handle: knowledge.NoteHandle(path), Type: "note", Title: path, Path: path}, FinalScore: 1}
+		return RankedResult{Candidate: Candidate{SourceRef: SourceRef{Title: path, Path: path}, Handle: knowledge.NoteHandle(path), Type: "note"}, FinalScore: 1}
 	}
 	results := []RankedResult{note("Notes/A.md"), note("Notes/B.md"), note("Notes/C.md")}
 	const header = "Search timed out; returning a minimal pack.\n\n"
@@ -543,21 +434,21 @@ func TestSearch_TieBreaksDeterministically(t *testing.T) {
 	svc := Service{
 		Retrievers: []Retriever{
 			timedRetriever{name: "intel_lexical", result: []Candidate{
-				{
-					Handle: knowledge.NoteHandle("Notes/B.md"),
-					Owner:  knowledge.NoteHandle("Notes/B.md"),
-					Type:   "note",
+				{SourceRef: SourceRef{
 					Title:  "B",
 					NoteID: "Notes/B.md",
 					Path:   "Notes/B.md",
+				}, Handle: knowledge.NoteHandle("Notes/B.md"),
+					Owner: knowledge.NoteHandle("Notes/B.md"),
+					Type:  "note",
 				},
-				{
-					Handle: knowledge.NoteHandle("Notes/A.md"),
-					Owner:  knowledge.NoteHandle("Notes/A.md"),
-					Type:   "note",
+				{SourceRef: SourceRef{
 					Title:  "A",
 					NoteID: "Notes/A.md",
 					Path:   "Notes/A.md",
+				}, Handle: knowledge.NoteHandle("Notes/A.md"),
+					Owner: knowledge.NoteHandle("Notes/A.md"),
+					Type:  "note",
 				},
 			}},
 		},
@@ -575,10 +466,9 @@ func TestSearch_BroadIntentSoftFailsTopLevelRetriever(t *testing.T) {
 	svc := Service{
 		Retrievers: []Retriever{
 			failingRetriever{name: "vector", err: context.DeadlineExceeded},
-			timedRetriever{name: "intel_lexical", result: []Candidate{{
-				Handle: knowledge.NoteHandle("Notes/Fast.md"),
-				Owner:  knowledge.NoteHandle("Notes/Fast.md"),
-				Type:   "note", Title: "fast", NoteID: "Notes/Fast.md", Path: "Notes/Fast.md",
+			timedRetriever{name: "intel_lexical", result: []Candidate{{SourceRef: SourceRef{Title: "fast", NoteID: "Notes/Fast.md", Path: "Notes/Fast.md"}, Handle: knowledge.NoteHandle("Notes/Fast.md"),
+				Owner: knowledge.NoteHandle("Notes/Fast.md"),
+				Type:  "note",
 				Evidence: []Evidence{
 					{Type: "intel_fts_match", RawScore: 0.8},
 				},
@@ -599,17 +489,12 @@ func TestSearch_BroadIntentSoftFailsTopLevelRetriever(t *testing.T) {
 func TestSearch_PrecisionIntentFailsOnStageTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
 	defer cancel()
-	stageBudget := RetrieverStageBudget(ctx, QuerySpec{Intent: IntentGoToDef}, "definition", 0, 2)
-	require.Greater(t, stageBudget, time.Duration(0))
-	require.Less(t, stageBudget, 350*time.Millisecond)
-
 	svc := Service{
 		Retrievers: []Retriever{
 			timedRetriever{name: "definition", delay: 350 * time.Millisecond},
-			timedRetriever{name: "intel_lexical", result: []Candidate{{
-				Handle: knowledge.NoteHandle("Notes/Fast.md"),
-				Owner:  knowledge.NoteHandle("Notes/Fast.md"),
-				Type:   "note", Title: "fast", NoteID: "Notes/Fast.md", Path: "Notes/Fast.md",
+			timedRetriever{name: "intel_lexical", result: []Candidate{{SourceRef: SourceRef{Title: "fast", NoteID: "Notes/Fast.md", Path: "Notes/Fast.md"}, Handle: knowledge.NoteHandle("Notes/Fast.md"),
+				Owner: knowledge.NoteHandle("Notes/Fast.md"),
+				Type:  "note",
 			}}},
 		},
 		Ranker: stubRanker{},
@@ -623,10 +508,9 @@ func TestSearch_PrecisionIntentFailsOnStageTimeout(t *testing.T) {
 func TestSearch_LanesSplitVectorEvidenceByType(t *testing.T) {
 	svc := Service{
 		Retrievers: []Retriever{
-			timedRetriever{name: "vector", result: []Candidate{{
-				Handle: knowledge.NoteHandle("Notes/Fast.md"),
-				Owner:  knowledge.NoteHandle("Notes/Fast.md"),
-				Type:   "note", Title: "fast", NoteID: "Notes/Fast.md", Path: "Notes/Fast.md",
+			timedRetriever{name: "vector", result: []Candidate{{SourceRef: SourceRef{Title: "fast", NoteID: "Notes/Fast.md", Path: "Notes/Fast.md"}, Handle: knowledge.NoteHandle("Notes/Fast.md"),
+				Owner: knowledge.NoteHandle("Notes/Fast.md"),
+				Type:  "note",
 				Evidence: []Evidence{
 					{Type: "note_vector_similarity", RawScore: 0.9},
 				},
@@ -644,7 +528,7 @@ func TestSearch_LanesSplitVectorEvidenceByType(t *testing.T) {
 	require.Equal(t, "vector ran but returned no code evidence", codeLane.Reason)
 }
 
-type expiredRanker struct{ approxRanker }
+type expiredRanker struct{}
 
 func (expiredRanker) Rank(context.Context, QuerySpec, []Candidate) ([]RankedResult, error) {
 	return nil, context.DeadlineExceeded
@@ -655,11 +539,11 @@ func TestSearch_RankFallbackUsesRankerMaxPerOwner(t *testing.T) {
 	// are coalesced before ranking, so the cap is exercised with sections.
 	candidate := func(path, owner string, score float64) Candidate {
 		return Candidate{
-			Handle:   knowledge.NoteHandle(path),
-			Owner:    knowledge.NoteHandle(owner),
-			Type:     "doc_section",
-			Path:     path,
-			Evidence: []Evidence{{Type: "intel_fts_match", RawScore: score}},
+			SourceRef: SourceRef{Path: path},
+			Handle:    knowledge.NoteHandle(path),
+			Owner:     knowledge.NoteHandle(owner),
+			Type:      "doc_section",
+			Evidence:  []Evidence{{Type: "intel_fts_match", RawScore: score}},
 		}
 	}
 	svc := Service{
@@ -669,7 +553,8 @@ func TestSearch_RankFallbackUsesRankerMaxPerOwner(t *testing.T) {
 			candidate("notes/a3.md", "owner-a", 0.7),
 			candidate("notes/b.md", "owner-b", 0.6),
 		}}},
-		Ranker: expiredRanker{approxRanker{weights: map[EvidenceChannel]float64{EvidenceChannelLexical: 1}, maxPerOwner: 2}},
+		Ranker: expiredRanker{},
+		Scorer: &WeightedRanker{Weights: Weights{Lexical: 1}, MaxPerOwner: 2},
 	}
 
 	resp, err := svc.Search(context.Background(), QuerySpec{Text: "q", Intent: IntentOverview, Limits: Limits{Total: 4}})

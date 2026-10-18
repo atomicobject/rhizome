@@ -49,7 +49,7 @@ func (r *Registry) withIntentGate(ctx context.Context, vaultPath string, fn func
 func (r *Registry) withIntentGateForID(ctx context.Context, instanceID string, fn func() error) error {
 	for {
 		release, acquired, err := indexlock.TryAcquireWithOptions(r.intentGatePathForID(instanceID), indexlock.AcquireOptions{
-			Role: "runtime/intent", ProcessLifetime: true,
+			Role: "runtime/intent",
 		})
 		if err != nil {
 			return err

@@ -9,9 +9,6 @@ import (
 // Window detail has its own budget so a full cumulative prefix cannot suppress
 // new observations. Callers hold mu; rendering clears only this window state.
 func (c *Collector) recordWindowLatencyLocked(metric Metric, value time.Duration) {
-	if c.windowLatencies == nil {
-		return
-	}
 	stat := c.windowLatencies[metric]
 	stat.Count++
 	if value > stat.Max {
@@ -26,9 +23,6 @@ func (c *Collector) recordWindowLatencyLocked(metric Metric, value time.Duration
 }
 
 func (c *Collector) recordWindowSampleLocked(metric Metric, value int64) {
-	if c.windowSamples == nil {
-		return
-	}
 	stat := c.windowSamples[metric]
 	stat.Count++
 	if value > stat.Max {
@@ -66,9 +60,6 @@ func (c *Collector) renderCumulativeCoverageLocked() string {
 }
 
 func (c *Collector) phaseCoveragePartsLocked(phase string) []string {
-	if c.series == nil {
-		return nil
-	}
 	var samplesPartial, intervalsPartial bool
 	for metric, stat := range c.latencies {
 		if metric.Phase == phase && stat.Count > int64(len(stat.Samples)) {

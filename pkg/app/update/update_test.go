@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,8 +44,8 @@ func TestRunPinnedRepoUpdateInstallsPinnedBinary(t *testing.T) {
 
 	repo := filepath.Join(tmp, "repo")
 	require.NoError(t, os.MkdirAll(repo, 0o755))
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{
 			Version: "v0.38.0",
 		},
 	}))
@@ -73,8 +73,8 @@ func TestRunPinnedRepoUpdateInstallsPinnedBinary(t *testing.T) {
 
 func TestRunRefusesEveryUpdateModeWhenBinaryIsExternallyManaged(t *testing.T) {
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{BinaryManager: obsidian.BinaryManagerExternal},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{BinaryManager: repoconfig.BinaryManagerExternal},
 	}))
 
 	requests := 0
@@ -105,8 +105,8 @@ func TestRunRefusesEveryUpdateModeWhenBinaryIsExternallyManaged(t *testing.T) {
 
 func TestRunValidatesUpdateModeBeforeExternalOwnership(t *testing.T) {
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{BinaryManager: obsidian.BinaryManagerExternal},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{BinaryManager: repoconfig.BinaryManagerExternal},
 	}))
 
 	_, err := Run(context.Background(), Options{WorkDir: repo, Pinned: true, Latest: true})
@@ -152,8 +152,4 @@ func sha256File(t *testing.T, path string) string {
 	require.NoError(t, err)
 	sum := sha256.Sum256(body)
 	return hex.EncodeToString(sum[:])
-}
-
-func serverURL(r *http.Request, path string) string {
-	return "http://" + r.Host + path
 }

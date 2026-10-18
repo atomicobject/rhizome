@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,7 +37,7 @@ func TestPreparedRecoveryRestoresPersistedRepairMembershipWithoutCurrentPlan(t *
 	})
 	require.Len(t, plan.Transactions, 1)
 
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterJournalPublished: func(string) error {
 			return errSimulatedRepairInterruption
@@ -44,15 +45,14 @@ func TestPreparedRecoveryRestoresPersistedRepairMembershipWithoutCurrentPlan(t *
 	})
 	require.ErrorIs(t, err, errSimulatedRepairInterruption)
 
-	dir, err := repairJournalDir(runCtx, plan.Transactions[0].ID)
-	require.NoError(t, err)
+	dir := repairFixtureJournalDir(runCtx.VaultPath, plan.Transactions[0].ID)
 	manifest, err := readRepairJournalManifest(dir)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"operation:a", "operation:z"}, manifest.OperationIDs)
 	assert.Equal(t, []string{"action:a", "action:z"}, manifest.ActionIDs)
 	assert.Equal(t, []string{"issue:a", "issue:z"}, manifest.IssueKeys)
 
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestCommittedRecoveryRestoresOriginalMembershipAlongsideDifferentPlan(t *te
 		)},
 	}})
 	retainJournal := errors.New("retain committed journal")
-	_, err := ApplyFixPlan(context.Background(), runCtx, &originalPlan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &originalPlan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, refreshErr: retainJournal},
 	})
@@ -101,7 +101,7 @@ func TestCommittedRecoveryRestoresOriginalMembershipAlongsideDifferentPlan(t *te
 	newPlan, err = FinalizeRepairPlan(newPlan)
 	require.NoError(t, err)
 
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &newPlan, Options{
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &newPlan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.ErrorContains(t, err, "replan")
@@ -130,15 +130,14 @@ func TestLegacyJournalV1WithoutRepairMembershipRemainsRecoverable(t *testing.T) 
 		)},
 	}})
 
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterJournalPublished: func(string) error {
 			return errSimulatedRepairInterruption
 		}},
 	})
 	require.ErrorIs(t, err, errSimulatedRepairInterruption)
-	dir, err := repairJournalDir(runCtx, plan.Transactions[0].ID)
-	require.NoError(t, err)
+	dir := repairFixtureJournalDir(runCtx.VaultPath, plan.Transactions[0].ID)
 	manifest, err := readRepairJournalManifest(dir)
 	require.NoError(t, err)
 	manifest.OperationIDs = nil
@@ -146,7 +145,7 @@ func TestLegacyJournalV1WithoutRepairMembershipRemainsRecoverable(t *testing.T) 
 	manifest.IssueKeys = nil
 	require.NoError(t, writeRepairJournalManifest(dir, manifest))
 
-	execution, err := ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+	execution, err := ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.NoError(t, err)
@@ -212,7 +211,7 @@ func TestCleanupRecoveryDiscardsInvalidBestEffortMembership(t *testing.T) {
 			})
 			require.Len(t, plan.Transactions, 1)
 
-			_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+			_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 				Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 				repairHooks: &repairExecutionHooks{AfterCleanupBoundary: func(boundary, _ string) error {
 					if boundary == cleanupAfterDetach {
@@ -223,8 +222,7 @@ func TestCleanupRecoveryDiscardsInvalidBestEffortMembership(t *testing.T) {
 			})
 			require.ErrorIs(t, err, errSimulatedRepairInterruption)
 
-			rootDir, err := repairJournalRoot(runCtx)
-			require.NoError(t, err)
+			rootDir := repairFixtureJournalRoot(runCtx.VaultPath)
 			entries, err := os.ReadDir(rootDir)
 			require.NoError(t, err)
 			require.Len(t, entries, 1)
@@ -234,9 +232,9 @@ func TestCleanupRecoveryDiscardsInvalidBestEffortMembership(t *testing.T) {
 			tt.mutate(&manifest)
 			require.NoError(t, writeRepairJournalManifest(tombstone, manifest))
 
-			execution, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+			execution, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 				Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
-				postApplyCheck: func(context.Context, *IndexLockLease, *ontology.Runtime, repairPostApplyScope) error {
+				postApplyCheck: func(context.Context, *indexlock.Lease, *ontology.Runtime, repairPostApplyScope) error {
 					return nil
 				},
 			})

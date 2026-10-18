@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // summaryField is one row of the setup summary.
@@ -42,7 +42,7 @@ func (r *initRun) summaryValue(s setup, label string) string {
 
 // codeStatus names the code languages Rhizome indexes and any folder
 // limits.
-func codeStatus(code obsidian.LocalCodeConfig, layout DetectedLayout) string {
+func codeStatus(code repoconfig.LocalCodeConfig, layout DetectedLayout) string {
 	if !code.IndexesCode() {
 		return "off"
 	}
@@ -57,7 +57,7 @@ func codeStatus(code obsidian.LocalCodeConfig, layout DetectedLayout) string {
 }
 
 // searchStatus describes semantic search in plain words.
-func searchStatus(cfg obsidian.LocalConfig, session *credentials.Session) string {
+func searchStatus(cfg repoconfig.LocalConfig, session *credentials.Session) string {
 	if cfg.NoteEmbeddings == nil {
 		if searchReady(searchVoyage, session, nil) || searchReady(searchOpenAI, session, nil) {
 			return "off (a key is available)"
@@ -87,7 +87,7 @@ func workflowLabel(workflows, ejected []string) string {
 	if len(ejected) > 0 {
 		var managed []string
 		if registry, err := loadStarterTemplateMetadataRegistry(); err == nil {
-			if set, err := resolveTemplateSet(workflows, obsidian.WorkflowTemplateAddons{}, registry); err == nil {
+			if set, err := resolveTemplateSet(workflows, repoconfig.WorkflowTemplateAddons{}, registry); err == nil {
 				managed = set.Effective
 			}
 		}
@@ -197,8 +197,8 @@ func (r *initRun) printRerunResult(plan rerunPlan, report syncReport) {
 		fmt.Fprintf(out, "  %s %s\n", styleOK(out, "✓"), line)
 	}
 	printKeptAndWarnings(out, report)
-	warnEmbeddingsReadiness(plan.res.cfg, out)
-	warnCompressionReadiness(plan.res.cfg, out)
+	warnEmbeddingsReadiness(r.opts.Env, plan.res.cfg, out)
+	warnCompressionReadiness(r.opts.Env, plan.res.cfg, out)
 }
 
 // keptYourVersion reports files a person kept, once per skill across agent

@@ -6,9 +6,9 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/coderefs"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
@@ -73,7 +73,11 @@ func NewDocLinkerFromNotePaths(notePaths []paths.NotePath, store *semdb.Store) (
 		canonicalPaths = append(canonicalPaths, canonical.String())
 	}
 
-	aliasesByPath := aliasesForPaths(notemeta.LoadAliasMap(context.Background(), store), allowedPaths)
+	aliases, err := notemeta.LoadAliasMap(context.Background(), store)
+	if err != nil {
+		return nil, fmt.Errorf("load note aliases: %w", err)
+	}
+	aliasesByPath := aliasesForPaths(aliases, allowedPaths)
 	return &DocLinker{cache: obsidian.BuildNotePathCacheWithAliases(canonicalPaths, aliasesByPath)}, nil
 }
 

@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // projectedNoteEntry keeps provider-owned source facts intact until the
@@ -45,14 +46,7 @@ func projectionEntryFrom(source noteformat.AuthoredSource, projection noteformat
 	}
 
 	copy := projection.Copy()
-	entry := noteEntry{
-		Path:       source.Path().String(),
-		Content:    string(source.Bytes()),
-		Source:     source,
-		Projection: copy,
-		Mtime:      source.Mtime(),
-		Size:       source.Size(),
-	}
+	entry := noteEntry{}
 	if copy.Status == noteformat.ProjectionStatusFatal {
 		// Fatal source identity must retain the same fallback title used by the
 		// ownership transition. This keeps repeated identical fatal projections
@@ -66,14 +60,12 @@ func projectionEntryFrom(source noteformat.AuthoredSource, projection noteformat
 	entry.Frontmatter = legacyFrontmatterFromFacts(facts.RootMetadata)
 	entry.InlineProps = inlinePropertiesFromFacts(facts.InlineProperties)
 	entry.Tags = tagValuesFromFacts(facts.Tags)
-	entry.Aliases = aliasValuesFromFacts(facts.Aliases)
-	entry.Links = append([]noteformat.UnresolvedAuthoredLinkFact(nil), facts.Links...)
-	entry.FragmentTargets = append([]noteformat.FragmentTargetFact(nil), facts.FragmentTargets...)
-	if len(entry.Aliases) > 0 {
+	aliases := aliasValuesFromFacts(facts.Aliases)
+	if len(aliases) > 0 {
 		// Candidate matching historically reads aliases from the compatibility
 		// frontmatter map. Alias facts remain separately available for the new
 		// source-range-aware path.
-		entry.Frontmatter["aliases"] = append([]string(nil), entry.Aliases...)
+		entry.Frontmatter["aliases"] = append([]string(nil), aliases...)
 	}
 
 	return projectedNoteEntry{
@@ -236,12 +228,16 @@ func metadataValueRows(notePath, propertyName string, source semdb.NotePropertyS
 
 func metadataValueRow(notePath, propertyName string, source semdb.NotePropertySource, value noteformat.MetadataValue, isList bool, ordinal int) semdb.NotePropertyValueRow {
 	text, kind := metadataValueTextAndKind(value)
+	valueNorm := NormalizePropertyValue(text)
+	if propertyName == "aliases" {
+		valueNorm = paths.LinkKey(strings.TrimSpace(text))
+	}
 	return semdb.NotePropertyValueRow{
 		NotePath:     notePath,
 		PropertyName: propertyName,
 		Source:       source,
 		ValueText:    text,
-		ValueNorm:    normalizePropertyValue(text),
+		ValueNorm:    valueNorm,
 		ValueKind:    kind,
 		IsList:       isList,
 		ListOrdinal:  ordinal,

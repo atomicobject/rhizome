@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -62,20 +62,14 @@ func (i Indexer) CapturePublishedBaseline(ctx context.Context, vaultDef obsidian
 	// when it clears the edited target. Stable topology permits restoring these
 	// facts without projecting or reading unchanged authored sources.
 	var edges []semdb.GraphDocEdgeRow
-	if graph, ok := store.(interface {
-		GraphDocEdgesWithConfidenceForPaths(context.Context, []string) ([]semdb.GraphDocEdge, error)
-	}); ok {
-		incident, err := graph.GraphDocEdgesWithConfidenceForPaths(ctx, paths)
-		if err != nil {
-			return PublishedBaseline{}, err
+	incident, err := store.GraphDocEdgesWithConfidenceForPaths(ctx, paths)
+	if err != nil {
+		return PublishedBaseline{}, err
+	}
+	for _, edge := range incident {
+		if edge.Kind == semdb.GraphDocEdgeKindWikilink || edge.Kind == semdb.GraphDocEdgeKindMarkdownLink || strings.HasPrefix(edge.Kind, "note_link:") {
+			edges = append(edges, semdb.GraphDocEdgeRow{SrcPath: edge.SrcPath, DstPath: edge.DstPath, Kind: edge.Kind, Confidence: edge.Confidence, ConfidenceScore: edge.ConfidenceScore, LinkText: edge.LinkText})
 		}
-		for _, edge := range incident {
-			if edge.Kind == semdb.GraphDocEdgeKindWikilink || edge.Kind == semdb.GraphDocEdgeKindMarkdownLink || strings.HasPrefix(edge.Kind, "note_link:") {
-				edges = append(edges, semdb.GraphDocEdgeRow{SrcPath: edge.SrcPath, DstPath: edge.DstPath, Kind: edge.Kind, Confidence: edge.Confidence, ConfidenceScore: edge.ConfidenceScore, LinkText: edge.LinkText})
-			}
-		}
-	} else {
-		eligible = false
 	}
 	return PublishedBaseline{state: state, paths: paths, rows: rows, aliases: aliases, edges: edges, eligible: eligible}, nil
 }

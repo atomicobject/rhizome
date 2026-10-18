@@ -2,12 +2,14 @@ package noderead
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 	"unicode"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -15,7 +17,10 @@ func (s *Scope) subtreeInboundRelations(ctx context.Context, selection RelationS
 	if s == nil || s.service == nil || s.service.NoteReader == nil {
 		return committed, nil
 	}
-	cache := s.notePathCache(ctx)
+	cache, err := s.notePathCache(ctx)
+	if err != nil {
+		return NeighborhoodResult{}, err
+	}
 	if cache == nil {
 		return committed, nil
 	}
@@ -36,7 +41,7 @@ func (s *Scope) subtreeInboundRelations(ctx context.Context, selection RelationS
 	referrerPaths := make([]string, 0)
 	for _, entry := range entries {
 		matched := false
-		for _, scanned := range ontology.ScanMarkdownBodyLinks(entry.Content, obsidian.DefaultWikilinkOptions, obsidian.DefaultMdLinkOptions) {
+		for _, scanned := range ontology.ScanMarkdownBodyLinks(entry.Content, markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions) {
 			targetPath, targetKey, ok := relationSectionTarget(cache, entry.Path, scanned.Detail)
 			if !ok {
 				continue
@@ -150,7 +155,7 @@ func sectionTargetKeys(ref ontology.NodeRef) []string {
 	return out
 }
 
-func relationSectionTarget(cache *obsidian.NotePathCache, fromPath string, target obsidian.LinkDetail) (string, string, bool) {
+func relationSectionTarget(cache *obsidian.NotePathCache, fromPath string, target markdownsyntax.LinkDetail) (string, string, bool) {
 	var resolved obsidian.ResolvedNoteTarget
 	var ok bool
 	if target.LinkType == "mdlink" {
@@ -212,7 +217,10 @@ func (s *Scope) overlaySubtreeOutboundRelations(ctx context.Context, selection R
 			edges = append(edges, edge)
 		}
 	}
-	cache := s.notePathCache(ctx)
+	cache, err := s.notePathCache(ctx)
+	if err != nil {
+		return NeighborhoodResult{}, err
+	}
 	if cache == nil {
 		return groupNeighborhoodEdges(selection.Sources, edges, 0, 0), nil
 	}
@@ -227,7 +235,7 @@ func (s *Scope) overlaySubtreeOutboundRelations(ctx context.Context, selection R
 		}
 		paths := make([]string, 0)
 		seenPaths := map[string]struct{}{}
-		for _, scanned := range ontology.ScanMarkdownBodyLinks(ontology.SectionBody(section), obsidian.DefaultWikilinkOptions, obsidian.DefaultMdLinkOptions) {
+		for _, scanned := range ontology.ScanMarkdownBodyLinks(ontology.SectionBody(section), markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions) {
 			var targetPath string
 			var ok bool
 			if scanned.Detail.LinkType == "mdlink" {
@@ -270,7 +278,7 @@ func (s *Scope) overlaySubtreeOutboundRelations(ctx context.Context, selection R
 	return groupNeighborhoodEdges(selection.Sources, edges, 0, 0), nil
 }
 
-func relationTargetTypeAllowed(schema *ontology.Schema, actual string, concrete, interfaces []string) bool {
+func relationTargetTypeAllowed(schema *ontoschema.Schema, actual string, concrete, interfaces []string) bool {
 	if len(concrete) > 0 {
 		allowed := false
 		for _, candidate := range concrete {
@@ -284,7 +292,7 @@ func relationTargetTypeAllowed(schema *ontology.Schema, actual string, concrete,
 		}
 	}
 	for _, iface := range interfaces {
-		if ontology.TypeMatchesOrImplements(schema, actual, iface) {
+		if ontoschema.TypeMatchesOrImplements(schema, actual, iface) {
 			return true
 		}
 	}

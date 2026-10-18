@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/typesafe"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +29,7 @@ func TestEvaluateToolMixedQuestions(t *testing.T) {
 		fmt.Fprint(w, `{"model":"jev-test","answers":{"action":{"type":"choice","choice":"update","probabilities":{"keep":0.2,"update":0.8},"confidence":0.6},"priority":{"type":"score","score":0.8,"probabilities":{"0":0.2,"1":0.8},"legend":{"0":"low","1":"high"},"confidence":0.6},"stale":{"type":"noul","noul":0.9}},"usage":{"input_tokens":100,"output_tokens":20}}`)
 	}))
 	defer server.Close()
-	handler := evaluateTool(func() (*typesafe.Client, error) {
+	handler := evaluateTool(func(context.Context) (*typesafe.Client, error) {
 		return typesafe.NewClient("fixture-key", typesafe.WithBaseURL(server.URL))
 	})
 	result, err := handler(context.Background(), evaluationCall(t, `{"state":{"text":"stale spec"},"sessionId":"fixture-session","budgetChars":1,"questions":{"action":{"type":"choice","criteria":{"keep":"accurate","update":"outdated"}},"priority":{"type":"score","criteria":["low","high"]},"stale":{"type":"noul","instructions":"Is it stale?"}}}`))
@@ -49,7 +50,10 @@ func TestEvaluateToolMixedQuestions(t *testing.T) {
 }
 
 func TestEvaluateToolRejectsInvalidInputBeforeResolvingCredentials(t *testing.T) {
-	handler := evaluateTool(func() (*typesafe.Client, error) { t.Fatal("invalid request must not create a client"); return nil, nil })
+	handler := evaluateTool(func(context.Context) (*typesafe.Client, error) {
+		t.Fatal("invalid request must not create a client")
+		return nil, nil
+	})
 	for _, input := range []string{
 		`{"state":"test","questions":{"bad":{"type":"unknown"}}}`,
 		`{"state":null,"questions":{"ok":{"type":"noul"}}}`,
@@ -69,7 +73,7 @@ func TestEvaluateToolPreservesProviderFailureWithoutResponseBody(t *testing.T) {
 		fmt.Fprint(w, "private upstream response")
 	}))
 	defer server.Close()
-	handler := evaluateTool(func() (*typesafe.Client, error) {
+	handler := evaluateTool(func(context.Context) (*typesafe.Client, error) {
 		return typesafe.NewClient("fixture-key", typesafe.WithBaseURL(server.URL), typesafe.WithMaxRetries(0))
 	})
 	result, err := handler(context.Background(), evaluationCall(t, `{"state":"test","questions":{"ok":{"type":"noul"}}}`))
@@ -99,4 +103,26 @@ func evaluationCall(t *testing.T, input string) mcp.CallToolRequest {
 	var args map[string]any
 	require.NoError(t, json.Unmarshal([]byte(input), &args))
 	return mcp.CallToolRequest{Params: mcp.CallToolParams{Name: "evaluate", Arguments: args}}
+}
+
+func TestEvaluationClientUsesInvocationCredential(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"first", "second"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			env := vaultconfig.Env{HomeDir: t.TempDir(), LookupEnv: func(key string) (string, bool) {
+				if key == "TYPESAFE_API_KEY" {
+					return "synthetic-" + name, true
+				}
+				return "", false
+			}}
+			client, err := newEvaluationClient(vaultconfig.WithEnv(context.Background(), env))
+			require.NoError(t, err)
+			require.NotNil(t, client)
+			missing := vaultconfig.Env{HomeDir: t.TempDir()}
+			client, err = newEvaluationClient(vaultconfig.WithEnv(context.Background(), missing))
+			require.ErrorContains(t, err, "TypeSafe credential unavailable")
+			require.Nil(t, client)
+		})
+	}
 }

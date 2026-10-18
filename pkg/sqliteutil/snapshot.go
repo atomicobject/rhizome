@@ -31,8 +31,6 @@ func SnapshotInto(ctx context.Context, sourcePath, targetPath string) error {
 // lock before the caller falls back to SnapshotInto.
 const cloneLockTimeoutMs = 2000
 
-var errCloneUnsupported = fmt.Errorf("copy-on-write clone: %w", errors.ErrUnsupported)
-
 // CloneInto copies the database at sourcePath to targetPath with copy-on-write
 // filesystem clones of the database and its WAL. It holds the source's write
 // lock while cloning, which freezes the WAL: no frame is appended and no

@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, fixture pattern, and review checklist for the code intelligence subsystem: code anchors (note→code), coderefs (code→note), and code pattern globs."
 reference-kind: guide
-last-verified: 2026-10-04
+last-verified: 2026-10-17
 code-paths:
   - pkg/anchors
   - pkg/app/codeintel
@@ -31,7 +31,12 @@ Three directional layers, plus orchestration:
 - **`pkg/vault/codepatterns`** — default code-file globs shared by coderef scan/rewrite. Deliberately broader than anchor indexing: web/template/style files carry coderefs but never structural anchors. Slices are copy-on-return; don't mutate process-global defaults.
 - **`pkg/app/codeintel`** — indexing primitives extracted from `cmd/` (`ResolveRoot`, `IngestNotesWithMatcher`, `IndexRoot`, `ValidateNotes`). All persisted paths are vault-root-relative via `pkg/paths` strict conversion. Explicit code ingest checks content hashes before projection; note ingest retains its source/ownership and mtime/content-hash guards.
 
+
+The unified database implementation lives in `pkg/store` and belongs to the [stores](stores.md) subsystem. This subsystem owns code ingestion, code-anchor contracts, and matching; ontology node/field/query-plan DTOs live in `pkg/ontology/readmodel`. Store domain methods retain one pool, one shared writer mutex, and atomic publication across their table families.
+
 ## Design constraints
+
+- **Source spans belong to anchors.** `codeanchor.ExtractSpan` reads an anchor's byte span or line fallback. Both embedding synthesis and CLI rendering use this shared helper; rendering does not depend on embedding indexing.
 
 - **Web graph freshness is a persisted revision.** `GraphWebFingerprint` reads the migrated graph-domain incarnation and revision in bounded time. Transactional triggers cover graph structure, endpoint labels/types, and scores, including entering/leaving graph-visible rows in mixed-purpose tables. External-target evidence remains outside the domain. Update triggers are column-scoped where a table mixes graph and indexing metadata: the `notes` trigger fires only for `path`/`title` (Intel v63), so mtime/hash/indexer bookkeeping writes leave the revision alone. Keep the trigger inventory aligned with actual graph reads (see the stores note for the migration rule), and preserve cross-handle invalidation and rollback behavior.
 
@@ -55,9 +60,10 @@ Three directional layers, plus orchestration:
 - **Rationale FTS schema is initialization-owned.** Store initialization and migration/reset assembly establish the rationale FTS table, rowid map and index; schema validation checks the exact FTS5 definition, rowid-map columns and required index. A changed validation fingerprint forces older proofs through revalidation; writable opens retain existing derived-domain recovery, while read-only opens refuse unavailable current proofs. Search, replacement and deletion perform no permanent schema DDL. Missing schema after open remains an SQL error, not an operation-time repair. Atomic batch rollback preserves canonical rationale rows, FTS content and rowid mappings together.
 - **JS/TS module metadata invalidation**: watcher events for JSON module metadata invalidate cached package/config and derived barrel-resolution state; the next TypeScript/JavaScript source index or explicit rebuild refreshes that state. Failed barrel lookups are not cached because a missing re-export target has no filesystem stamp that can make the negative entry self-invalidating. Metadata invalidation does not by itself reindex previously indexed callers or repair their persisted edges.
 - **Canonical note input only**: production note ingestion receives `notemeta.NoteSourceSnapshot` through the narrow `NoteSource` port. Paths are vault-relative and hash/mtime come from the snapshot; do not recreate raw path/content adapters inside anchors.
-- **Legacy discovery errors preserve indexed note inventory.** Encountered directory-walk failures propagate through `IngestNotesForVault` before stale cleanup. Code-index and code-anchor commands fail without success wording and can retry once permissions are restored. Legacy individual-file read/build tolerance and deliberate collection/ignore exclusions remain intact; this does not change durable schema or indexer versions.
+- **Read-only authored-anchor fallback is explicit.** `codeintel.ReadAuthoredMarkdownAnchors` owns source reads, configured ownership admission, and Markdown anchor parsing when indexed code evidence is absent. It derives the source path from one vault/path pair and rejects resolved targets outside that vault. Shared query runtime providers consume its unresolved targets and diagnostics without choosing a note provider or calling a Markdown parser.
+- **Structural intake has one owner.** `rzm index` and live publication use ownership-selected candidates, an explicit shared writer, and the configured metadata indexer. Candidate ingest has no independent walk or direct-store fallback. `rzm code index` and `rzm code index-anchors` are retired; use `rzm index` with the repository code and embedding configuration. Read and build failures retain reconciliation debt instead of performing stale cleanup.
 - **Persisted coderefs have a bounded read seam.** Startup-context consumers use exact-file or directory-boundary-scoped `doc_links` queries with hard limits. Coderef discovery and publication remain indexing-owned; read consumers never rescan or repair. `IndexerVersion` v1.15.0 refreshes unchanged code sources for corrected canonical URL paths and comment examples; `rzm index --rebuild` regenerates derived links explicitly.
-- **Existing vector tables are read-first for query consumers.** A read-only `pkg/anchors/sqlite` store probes the exact dimension-specific vec table and caches readiness without executing DDL. Only write-capable indexing/migration ownership may create a missing table; a query-only consumer returns `rzm index` remediation instead of attempting repair.
+- **Existing vector tables are read-first for query consumers.** A read-only `pkg/store` store probes the exact dimension-specific vec table and caches readiness without executing DDL. Only write-capable indexing/migration ownership may create a missing table; a query-only consumer returns `rzm index` remediation instead of attempting repair.
 - **Embedding search is exact prefiltered vec0 KNN.** `SearchEmbeddings` authorizes eligible chunk row IDs through current embedding metadata matching the query dimension, applies existing owner/path/type filters before selection, pushes those IDs into vec0 with `chunk_id IN (...)`, and runs `embedding MATCH ? AND k = ?`. Retained vectors cannot make unembedded replacement chunks or old dimensions searchable; scalar fallback requires the same metadata eligibility. Equal-distance boundaries probe adaptively up to vec0's 4,096-row cap and results use score-desc/chunk-ID-asc order. Do not replace this with fixed global overfetch plus post-filtering; keep the scalar reference parity matrix when adding filters.
 - **Changed chunk hashes retire current-vector evidence.** Chunk replacement removes embedding metadata and ontology sidecars before overwriting a changed hash, inside the same transaction. This prevents synthesized context changes from falsely treating old vectors as current after a provider failure. Equal hashes preserve evidence; retained vectors and hash-addressed caches remain reusable. Existing stranded metadata cannot reveal its original content hash and requires explicit `rzm index --rebuild` recovery.
 - **Indexed note-prefix lookup is bounded.** Semantic directory seed callers use `NotePathsByPathPrefix` with normalized exact/boundary matching, deterministic path order, and an explicit hard limit; never substitute an unbounded graph-path enumeration for this request path.
@@ -103,8 +109,9 @@ Three directional layers, plus orchestration:
 - `pkg/anchors/batch.go` — transactional batch persistence
 - `pkg/vault/coderefs/scanner.go`, `rewrite.go`, `config.go` — scan/rewrite + comment routing
 - `pkg/vault/codepatterns/codepatterns.go` — default globs
-- `pkg/app/codeintel/ingest.go`, `batching.go`, `store.go` — ingest orchestration
-- `cmd/code.go`, `cmd/code_anchors.go` — `rzm code index/symbols/anchors explain`
+- `pkg/app/codeintel/service.go` owns service/indexer construction and code-root conversion; runtime bootstrap, commands, and batch indexing consume it.
+- `pkg/app/codeintel/ingest.go`, `batching.go`, `store.go` own ingest orchestration.
+- `cmd/code.go`, `cmd/code_anchors.go` — `rzm code symbols` and `rzm code anchors explain`
 
 ## Related docs
 
@@ -114,3 +121,5 @@ Three directional layers, plus orchestration:
 - [[docs/specs/technical/external-code-reference-targets|SPEC-0081]] / EFF-2026-07-18-14-33 — external-target behavior contract and approved delivery slice
 - [[code-anchors-matching-scopes]] / [[code-anchors-frontmatter-syntax]]
 - [[Vision + Operating Model (code anchors)]]
+
+- **Canonical note-source factories fail closed.** Watcher factories return `(NoteSource, error)` from the configured provider-aware Indexer. Projection errors and non-current projections stop anchor ingestion; ownership metadata retains raw failed-source identity separately. NoteIndexerVersion v1.1.0 refreshes anchors parsed with the prior substring-based frontmatter boundary.

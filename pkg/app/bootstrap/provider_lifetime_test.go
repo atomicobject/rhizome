@@ -8,12 +8,13 @@ import (
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	codeemb "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex/sqlite"
-	embsqlite "github.com/atomicobject/rhizome/pkg/search/embeddings/sqlite"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeemb "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
+
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,8 +31,28 @@ func cachedProviderVault(t *testing.T) (string, embeddings.Config) {
 	t.Setenv("RHIZOME_OPENAI_API_KEY", "synthetic-only")
 	cfg := embeddings.Config{Enabled: true, Provider: "openai", Model: "synthetic", Dimensions: 4, Endpoint: "http://127.0.0.1:1", IndexPath: filepath.Join(root, ".rhizome", "db.sqlite")}
 	require.NoError(t, os.Mkdir(filepath.Join(root, ".rhizome"), 0o755))
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{NoteEmbeddings: &cfg, CodeEmbeddings: &cfg}))
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{NoteEmbeddings: &cfg, CodeEmbeddings: &cfg}))
 	return root, cfg
+}
+
+func prepareCachedProviderIndex(t *testing.T, cfg embeddings.Config) {
+	t.Helper()
+	// Prepare current note and code metadata so query-only startup can
+	// validate the existing index without requesting remote embeddings.
+	info := cfg.ProviderCfg("synthetic-only")
+	seed := embeddings.NewDeterministicProvider(info)
+	embeddingMetadata1 := embeddings.MetadataForProvider(seed, info)
+	notes, err := codeemb.OpenNotes(t.Context(), codeemb.File(cfg.IndexPath), codeemb.Options{Access: codeemb.WriteIndex, Dimensions: seed.Dimensions(), Metadata: &embeddingMetadata1})
+	require.NoError(t, err)
+	require.NoError(t, notes.Close())
+	meta := embeddings.MetadataForProvider(seed, info)
+	meta.FingerprintVersion = 2
+	code, err := codeemb.OpenCode(t.Context(), codeemb.File(cfg.IndexPath), codeemb.Options{Access: codeemb.WriteIndex, Dimensions: seed.Dimensions(), Metadata: &meta})
+	require.NoError(t, err)
+	require.NoError(t, code.Close())
+	intel, err := semdb.Open(cfg.IndexPath)
+	require.NoError(t, err)
+	require.NoError(t, intel.Close())
 }
 
 func TestLiveRuntimeClosesCachedProviders(t *testing.T) {
@@ -43,21 +64,7 @@ func TestLiveRuntimeClosesCachedProviders(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			root, cfg := cachedProviderVault(t)
 			before := providerDatabaseOwners()
-			// Prepare current note and code metadata so query-only startup can
-			// validate the existing index without requesting remote embeddings.
-			info := cfg.ProviderCfg("synthetic-only")
-			seed := embeddings.NewDeterministicProvider(info)
-			notes, err := embsqlite.OpenWithMetadata(t.Context(), cfg.IndexPath, seed, embeddings.MetadataForProvider(seed, info))
-			require.NoError(t, err)
-			require.NoError(t, notes.Close())
-			meta := embeddings.MetadataForProvider(seed, info)
-			meta.FingerprintVersion = 2
-			code, err := codeemb.OpenWithMetadata(t.Context(), cfg.IndexPath, seed, meta)
-			require.NoError(t, err)
-			require.NoError(t, code.Close())
-			intel, err := semdb.Open(cfg.IndexPath)
-			require.NoError(t, err)
-			require.NoError(t, intel.Close())
+			prepareCachedProviderIndex(t, cfg)
 			require.Eventually(t, func() bool { return providerDatabaseOwners() == before }, 3*time.Second, 10*time.Millisecond)
 			for range 3 {
 				rt, err := NewLiveRuntime(t.Context(), LiveOptions{VaultName: root, DisableLeaderWork: true, DisableWatchHub: true, SkipCacheWarmup: true, DisableSessionStore: true, QueryProvidersOnly: queryOnly, ReadOnlyCodeIndex: queryOnly, Requirements: RequireRuntimeCapabilities(RuntimeCapabilitySemantic, RuntimeCapabilityCodeIndex, RuntimeCapabilityCodeEmbeddings)})
@@ -102,8 +109,10 @@ func TestBootstrapCachedProvidersCloseAfterIndexFailure(t *testing.T) {
 }
 
 func TestCodexSemanticToolsCleanupClosesCachedProviders(t *testing.T) {
-	root, _ := cachedProviderVault(t)
+	root, indexConfig := cachedProviderVault(t)
 	before := providerDatabaseOwners()
+	prepareCachedProviderIndex(t, indexConfig)
+	require.Eventually(t, func() bool { return providerDatabaseOwners() == before }, 3*time.Second, 10*time.Millisecond)
 	for range 3 {
 		cfg := &agentapi.Config{}
 		cleanup, warnings := initSemanticTools(t.Context(), root, cfg)
@@ -114,4 +123,20 @@ func TestCodexSemanticToolsCleanupClosesCachedProviders(t *testing.T) {
 		cleanup()
 		require.Eventually(t, func() bool { return providerDatabaseOwners() == before }, 3*time.Second, 10*time.Millisecond)
 	}
+}
+
+func TestCodexSemanticToolsDoesNotCreateMissingIndexes(t *testing.T) {
+	root, indexConfig := cachedProviderVault(t)
+	cfg := &agentapi.Config{}
+	cleanup, warnings := initSemanticTools(t.Context(), root, cfg)
+	require.NotNil(t, cleanup)
+	defer cleanup()
+	require.Len(t, warnings, 2)
+	for _, warning := range warnings {
+		require.Contains(t, warning, "run `rzm index`")
+	}
+	require.Nil(t, cfg.Embeddings)
+	require.Nil(t, cfg.CodeEmbeddings)
+	_, err := os.Stat(indexConfig.IndexPath)
+	require.True(t, os.IsNotExist(err))
 }

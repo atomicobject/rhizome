@@ -3,14 +3,15 @@ package indexwriter
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeindex "github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	codeindex "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 func (q *Writer) beginSubmitAttempt() uint64 {
@@ -62,23 +63,23 @@ func (q *Writer) barrierSettled(barrier uint64) bool {
 	return q.settledThrough >= barrier
 }
 
-func (q *Writer) CodeWritebackBatchConfig() semantic.CodeWritebackBatchConfig {
+func (q *Writer) CodeWritebackBatchConfig() embeddings.CodeWritebackBatchConfig {
 	if q == nil {
-		return semantic.CodeWritebackBatchConfig{}
+		return embeddings.CodeWritebackBatchConfig{}
 	}
-	return semantic.CodeWritebackBatchConfig{
+	return embeddings.CodeWritebackBatchConfig{
 		QueueCapacity: cap(q.otherCmdCh),
-		ItemEmbed: semantic.WritebackFlushPolicy{
+		ItemEmbed: embeddings.WritebackFlushPolicy{
 			Rows:  q.cfg.ItemEmbed.Rows,
 			Bytes: q.cfg.ItemEmbed.Bytes,
 			Idle:  q.cfg.ItemEmbed.Idle,
 		},
-		CodeChunks: semantic.WritebackFlushPolicy{
+		CodeChunks: embeddings.WritebackFlushPolicy{
 			Rows:  q.cfg.DefaultPolicy.Rows,
 			Bytes: q.cfg.DefaultPolicy.Bytes,
 			Idle:  q.cfg.DefaultPolicy.Idle,
 		},
-		IntelEmbed: semantic.WritebackFlushPolicy{
+		IntelEmbed: embeddings.WritebackFlushPolicy{
 			Rows:  q.cfg.IntelEmbed.Rows,
 			Bytes: q.cfg.IntelEmbed.Bytes,
 			Idle:  q.cfg.IntelEmbed.Idle,
@@ -90,20 +91,17 @@ func observeNoteMetaQueueMetrics(ctx context.Context, batch *queueBatch[embeddin
 	if batch == nil {
 		return
 	}
-	indexingperf.SetGauge(ctx, "noteplan.writeback.meta.queue_depth", int64(batch.rows))
+	indexingperf.SetGauge(ctx, indexingperf.NoteplanWritebackMetaQueueDepth, int64(batch.rows))
 }
 
 func observeNoteChunkSyncQueueMetrics(ctx context.Context, batch *queueBatch[embeddings.NoteChunkSync]) {
 	if batch == nil {
 		return
 	}
-	indexingperf.SetGauge(ctx, "noteembed.writeback.chunk.queue_depth", int64(batch.rows))
+	indexingperf.SetGauge(ctx, indexingperf.NoteembedWritebackChunkQueueDepth, int64(batch.rows))
 }
 
 func (q *Writer) SubmitCodeIndexWork(ctx context.Context, work codeanchor.CodeIndexWork) error {
-	if q == nil {
-		return nil
-	}
 	if err := q.Err(); err != nil {
 		return err
 	}
@@ -118,12 +116,6 @@ func (q *Writer) SetAfterCodeIndexBatch(fn func(context.Context, []codeanchor.Co
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.afterCodeIndexBatch = fn
-}
-
-func (q *Writer) SetAfterNoteIndexBatch(fn func(context.Context, []codeanchor.NoteIndexWork) error) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	q.afterNoteIndexBatch = fn
 }
 
 func (q *Writer) SubmitNoteIndexWork(ctx context.Context, work codeanchor.NoteIndexWork) error {
@@ -156,10 +148,6 @@ func (q *Writer) SubmitCodeItemChunkBatch(ctx context.Context, items []codeindex
 	return q.submit(ctx, codeChunkBatchWrite{items: append([]codeindex.ItemChunksUpsert(nil), items...)}, estimateCodeChunkBatch(items))
 }
 
-func (q *Writer) SubmitNoteChunks(ctx context.Context, noteID embeddings.NoteID, chunks []embeddings.ChunkInput, vecs []embeddings.Embedding) error {
-	return q.submit(ctx, noteChunkWrite{noteID: noteID, chunks: chunks, vecs: vecs}, estimateNoteChunkWrite(chunks, vecs))
-}
-
 func (q *Writer) SubmitNoteChunkSync(ctx context.Context, item embeddings.NoteChunkSync) error {
 	return q.submit(ctx, noteChunkSyncWrite{item: cloneNoteChunkSync(item)}, estimateNoteChunkSyncWrite(item))
 }
@@ -178,21 +166,21 @@ func (q *Writer) SubmitIntelEmbeddings(ctx context.Context, rows map[string]embe
 	return q.submit(ctx, intelEmbeddingWrite{rows: rows}, estimateIntelEmbeddings(rows))
 }
 
-func (q *Writer) SubmitOntologyNodeReadModel(ctx context.Context, model codeanchor.IntelOntologyNodeReadModel) error {
-	indexingperf.AddCount(ctx, "ontology.field_rows_planned", int64(len(model.FieldValues)))
+func (q *Writer) SubmitOntologyNodeReadModel(ctx context.Context, model readmodel.NodeReadModel) error {
+	indexingperf.AddCount(ctx, indexingperf.OntologyFieldRowsPlanned, int64(len(model.FieldValues)))
 	return q.submit(ctx, ontologyNodeWrite{
-		model: codeanchor.IntelOntologyNodeReadModel{
+		model: readmodel.NodeReadModel{
 			FullReplace:      model.FullReplace,
 			NotePaths:        append([]string(nil), model.NotePaths...),
-			Nodes:            append([]codeanchor.IntelOntologyNode(nil), model.Nodes...),
-			FieldValues:      append([]codeanchor.IntelOntologyNodeFieldValue(nil), model.FieldValues...),
-			LinkDependencies: append([]codeanchor.IntelOntologyNodeLinkDependency(nil), model.LinkDependencies...),
+			Nodes:            append([]readmodel.NodeRow(nil), model.Nodes...),
+			FieldValues:      append([]readmodel.FieldValueRow(nil), model.FieldValues...),
+			LinkDependencies: append([]readmodel.LinkDependencyRow(nil), model.LinkDependencies...),
 		},
 	}, len(model.NotePaths)*48+len(model.Nodes)*256+len(model.FieldValues)*192)
 }
 
-func (q *Writer) SubmitOntologyNodes(ctx context.Context, notePaths []string, nodes []codeanchor.IntelOntologyNode) error {
-	return q.SubmitOntologyNodeReadModel(ctx, codeanchor.IntelOntologyNodeReadModel{NotePaths: notePaths, Nodes: nodes})
+func (q *Writer) SubmitOntologyNodes(ctx context.Context, notePaths []string, nodes []readmodel.NodeRow) error {
+	return q.SubmitOntologyNodeReadModel(ctx, readmodel.NodeReadModel{NotePaths: notePaths, Nodes: nodes})
 }
 
 func (q *Writer) SubmitOntologyNodeEmbeddingStates(ctx context.Context, states []codeanchor.IntelOntologyNodeEmbeddingState) error {
@@ -201,7 +189,7 @@ func (q *Writer) SubmitOntologyNodeEmbeddingStates(ctx context.Context, states [
 
 func (q *Writer) SubmitOntologyDelta(ctx context.Context, delta semdb.OntologyDelta) error {
 	for _, model := range delta.ReadModels {
-		indexingperf.AddCount(ctx, "ontology.field_rows_planned", int64(len(model.FieldValues)))
+		indexingperf.AddCount(ctx, indexingperf.OntologyFieldRowsPlanned, int64(len(model.FieldValues)))
 	}
 	return q.submit(ctx, ontologyDeltaWrite{delta: delta}, estimateOntologyDelta(delta))
 }
@@ -209,7 +197,7 @@ func (q *Writer) SubmitOntologyDelta(ctx context.Context, delta semdb.OntologyDe
 func (q *Writer) SubmitNoteMetadataDelta(ctx context.Context, delta semdb.NoteMetadataDelta) error {
 	started := time.Now()
 	err := q.submit(ctx, noteMetadataDeltaWrite{delta: delta}, estimateNoteMetadataDelta(delta))
-	indexingperf.ObserveLatency(ctx, "validation.writeback.metadata.submit_wait", time.Since(started))
+	indexingperf.ObserveLatency(ctx, indexingperf.ValidationWritebackMetadataSubmitWait, time.Since(started))
 	return err
 }
 
@@ -226,9 +214,6 @@ func (q *Writer) SubmitValidationSnapshot(ctx context.Context, snapshot semdb.Va
 // This is intentionally a synchronous control operation rather than a normal
 // batch: callers need its committed result to schedule affected work.
 func (q *Writer) SubmitOwnershipTransitions(ctx context.Context, transitions []semdb.OwnershipTransition) (result semdb.OwnershipTransitionResult, err error) {
-	if q == nil {
-		return semdb.OwnershipTransitionResult{}, nil
-	}
 	done := indexingperf.StartSpan(ctx, "ownership_transition_barrier")
 	defer func() { done(err) }()
 	if err := ctx.Err(); err != nil {
@@ -237,130 +222,78 @@ func (q *Writer) SubmitOwnershipTransitions(ctx context.Context, transitions []s
 	if err := q.Err(); err != nil {
 		return semdb.OwnershipTransitionResult{}, err
 	}
-	ack := make(chan ownershipTransitionAck, 1)
-	cmd := queueOwnershipTransitions{
-		barrier:     q.currentSubmitBarrier(),
-		transitions: CloneOwnershipTransitions(transitions),
-		ack:         ack,
-	}
-	if err := q.sendControl(ctx, cmd); err != nil {
-		return semdb.OwnershipTransitionResult{}, err
-	}
-	select {
-	case <-ctx.Done():
-		return semdb.OwnershipTransitionResult{}, ctx.Err()
-	case <-q.doneCh:
-		if err := q.Err(); err != nil {
-			return semdb.OwnershipTransitionResult{}, err
+	cloned := CloneOwnershipTransitions(transitions)
+	return submitControl(ctx, q, func(q *Writer) (semdb.OwnershipTransitionResult, error) {
+		if q.handlers.ApplyOwnershipTransitions == nil {
+			return semdb.OwnershipTransitionResult{}, errors.New("ownership transition queue not initialized")
 		}
-		return semdb.OwnershipTransitionResult{}, errors.New("index write queue stopped before ownership transition completed")
-	case outcome := <-ack:
-		return outcome.result, outcome.err
-	}
+		return q.handlers.ApplyOwnershipTransitions(ctxWithPhaseOp(q.ctx, indexQueueDefaultPhaseLabel, "intel.apply_ownership_transition"), cloned)
+	}, false)
 }
 
 // AcknowledgeOwnershipReconciliation records successful convergence for
 // exactly one durable ownership generation. A false store acknowledgement is
 // treated as an error so a stale run cannot silently claim convergence.
 func (q *Writer) AcknowledgeOwnershipReconciliation(ctx context.Context, generation int64) error {
-	if q == nil {
-		return nil
-	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if err := q.Err(); err != nil {
 		return err
 	}
-	ack := make(chan error, 1)
-	if err := q.sendControl(ctx, queueAcknowledgeOwnershipReconciliation{
-		barrier: q.currentSubmitBarrier(), generation: generation, ack: ack,
-	}); err != nil {
-		return err
-	}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-q.doneCh:
-		if err := q.Err(); err != nil {
+	return submitErrorControl(ctx, q, func(q *Writer) error {
+		if q.handlers.AcknowledgeOwnershipReconciliation == nil {
+			return errors.New("ownership reconciliation queue not initialized")
+		}
+		acknowledged, err := q.handlers.AcknowledgeOwnershipReconciliation(ctxWithPhaseOp(q.ctx, indexQueueDefaultPhaseLabel, "intel.acknowledge_ownership_reconciliation"), generation)
+		if err != nil {
 			return err
 		}
-		return errors.New("index write queue stopped before ownership reconciliation acknowledgement completed")
-	case err := <-ack:
-		return err
-	}
+		if !acknowledged {
+			return fmt.Errorf("ownership reconciliation generation %d was not acknowledged", generation)
+		}
+		recordReconciliationAcknowledged(q.ctx, generation)
+		return nil
+	})
 }
 
 func (q *Writer) FlushAndWait(ctx context.Context) (err error) {
-	if q == nil {
-		return nil
-	}
 	done := indexingperf.StartSpan(ctx, "writer_flush_barrier")
 	defer func() { done(err) }()
-	indexingperf.AddCount(ctx, "writer.flush_barriers", 1)
-	ack := make(chan error, 1)
-	if err := q.sendControl(ctx, queueFlush{barrier: q.currentSubmitBarrier(), ack: ack}); err != nil {
-		return err
-	}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-q.doneCh:
-		if err := q.Err(); err != nil {
-			return err
-		}
-		return errors.New("index write queue stopped before flush completed")
-	case err := <-ack:
-		return err
-	}
+	indexingperf.AddCount(ctx, indexingperf.WriterFlushBarriers, 1)
+	return submitErrorControl(ctx, q, func(*Writer) error { return nil })
 }
 
-func (q *Writer) Close() (err error) {
-	if q == nil {
-		return nil
-	}
+func (q *Writer) Close() error {
+	q.closeOnce.Do(func() { q.closeErr = q.closeAndWait() })
+	return q.closeErr
+}
+
+func (q *Writer) closeAndWait() (err error) {
 	done := indexingperf.StartSpan(q.ctx, "writer_close_barrier")
 	defer func() { done(err) }()
-	indexingperf.AddCount(q.ctx, "writer.close_barriers", 1)
-	ack := make(chan error, 1)
-	if err := q.sendControl(q.ctx, queueClose{barrier: q.currentSubmitBarrier(), ack: ack}); err != nil {
-		<-q.doneCh
-		return errors.Join(err, q.Err())
-	}
+	indexingperf.AddCount(q.ctx, indexingperf.WriterCloseBarriers, 1)
+	_, err = submitControl(q.ctx, q, func(*Writer) (struct{}, error) { return struct{}{}, nil }, true)
 	<-q.doneCh
-	select {
-	case err := <-ack:
-		return err
-	default:
-		return q.Err()
-	}
+	return errors.Join(err, q.Err())
 }
 
 // StopAndWait cancels pending work and waits for any in-flight handler to
 // return. Failure cleanup uses this path so the store cannot close while the
 // writer still owns it.
 func (q *Writer) StopAndWait() error {
-	if q == nil {
-		return nil
-	}
 	q.cancel()
 	<-q.doneCh
 	return q.Err()
 }
 
 func (q *Writer) Err() error {
-	if q == nil {
-		return nil
-	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	return q.err
 }
 
 func (q *Writer) submit(ctx context.Context, cmd any, bytes int) error {
-	if q == nil {
-		return nil
-	}
 	if err := q.Err(); err != nil {
 		return err
 	}
@@ -368,6 +301,12 @@ func (q *Writer) submit(ctx context.Context, cmd any, bytes int) error {
 }
 
 func (q *Writer) sendControl(ctx context.Context, cmd any) error {
+	if err := q.ctx.Err(); err != nil {
+		if failed := q.Err(); failed != nil {
+			return failed
+		}
+		return errors.New("index write queue stopped")
+	}
 	started := time.Now()
 	select {
 	case <-ctx.Done():
@@ -378,12 +317,18 @@ func (q *Writer) sendControl(ctx context.Context, cmd any) error {
 		}
 		return q.ctx.Err()
 	case q.ctrlCh <- cmd:
-		indexingperf.ObserveLatency(ctx, "queue.wait", time.Since(started))
+		indexingperf.ObserveLatency(ctx, indexingperf.QueueWait, time.Since(started))
 		return nil
 	}
 }
 
 func (q *Writer) sendPayload(ctx context.Context, cmd queuedPayload, codeLane bool) error {
+	if err := q.ctx.Err(); err != nil {
+		if failed := q.Err(); failed != nil {
+			return failed
+		}
+		return errors.New("index write queue stopped")
+	}
 	seq := q.beginSubmitAttempt()
 	defer q.settleSubmitAttempt(seq)
 	started := time.Now()
@@ -403,12 +348,12 @@ func (q *Writer) sendPayload(ctx context.Context, cmd queuedPayload, codeLane bo
 		return q.ctx.Err()
 	case target <- cmd:
 		waitDur := time.Since(started)
-		indexingperf.ObserveLatency(ctx, "queue.wait", waitDur)
+		indexingperf.ObserveLatency(ctx, indexingperf.QueueWait, waitDur)
 		indexingperf.ObserveLatency(ctx, waitMetric, waitDur)
 		q.snapshotQueueDepths(ctx)
-		indexingperf.AddCount(ctx, "node.write.in", 1)
+		indexingperf.AddCount(ctx, indexingperf.NodeWriteIn, 1)
 		if cmd.bytes > 0 {
-			indexingperf.AddBytes(ctx, "queue.bytes", int64(cmd.bytes))
+			indexingperf.AddBytes(ctx, indexingperf.QueueBytesBytes, int64(cmd.bytes))
 		}
 		return nil
 	}

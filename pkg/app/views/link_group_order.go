@@ -2,6 +2,7 @@ package views
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"math"
 	"strings"
 
@@ -12,7 +13,7 @@ import (
 // hydrateLinkRanks sets the RANK field value of every link target in the
 // given link fields on rows, so link groups and relation lanes list targets as
 // their type ranks them.
-func hydrateLinkRanks(ctx context.Context, scope *noderead.Scope, schema *ontology.Schema, rows []TableRow, capabilities []FieldCapability, fields []string) ([]TableRow, error) {
+func hydrateLinkRanks(ctx context.Context, scope *noderead.Scope, schema *ontoschema.Schema, rows []TableRow, capabilities []FieldCapability, fields []string) ([]TableRow, error) {
 	keys := linkFieldKeys(capabilities, fields)
 	if len(keys) == 0 || scope == nil || schema == nil {
 		return rows, nil
@@ -73,17 +74,17 @@ func withRelationRanks(values []TableRelationValue, ranks map[string]float64) []
 
 // recordRank reads a record's RANK field value, when its type declares one
 // and the record holds a number there.
-func recordRank(schema *ontology.Schema, record noderead.NodeRecord) (float64, bool) {
+func recordRank(schema *ontoschema.Schema, record noderead.NodeRecord) (float64, bool) {
 	noteType := schema.Types[record.TypeName]
 	if noteType == nil {
 		return 0, false
 	}
-	field := ontology.RankField(noteType.Fields)
+	field := ontoschema.RankField(noteType.Fields)
 	if field == nil {
 		return 0, false
 	}
 	// The first authored source decides, as in indexed field extraction.
-	for _, source := range append(ontology.FieldSourceNames(field), field.Name) {
+	for _, source := range append(ontoschema.FieldSourceNames(field), field.Name) {
 		value, ok := rankSourceValue(record, field.SourceKind, source)
 		if !ok {
 			continue
@@ -96,8 +97,8 @@ func recordRank(schema *ontology.Schema, record noderead.NodeRecord) (float64, b
 
 // rankSourceValue reads one source of a RANK field from the place its
 // source kind names.
-func rankSourceValue(record noderead.NodeRecord, kind ontology.FieldSource, source string) (any, bool) {
-	if kind == ontology.FieldSourceInline {
+func rankSourceValue(record noderead.NodeRecord, kind ontoschema.FieldSource, source string) (any, bool) {
+	if kind == ontoschema.FieldSourceInline {
 		values, ok := lookupInlineProp(record.InlineProps, source)
 		if !ok || len(values) == 0 {
 			return nil, false

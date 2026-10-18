@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -11,7 +14,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/harness"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -95,10 +98,10 @@ func (f *fakeSession) Stop() error {
 }
 
 func TestServicePersistsHarnessTimelineAndResumes(t *testing.T) {
-	setTestSettings(t, Settings{Harness: harness.KindCodex, Harnesses: map[harness.Kind]HarnessSettings{
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex, Harnesses: map[harness.Kind]HarnessSettings{
 		harness.KindCodex: {Model: "gpt-test", Effort: "high", PermissionMode: harness.PermissionApprovalRequired},
 	}})
-	ctx := context.Background()
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	vaultPath := t.TempDir()
 	firstHarness := newFakeHarness()
 	service, err := NewService(ctx, vaultPath, map[harness.Kind]harness.Harness{harness.KindCodex: firstHarness})
@@ -166,8 +169,8 @@ func TestServicePersistsHarnessTimelineAndResumes(t *testing.T) {
 }
 
 func TestServiceFailedResumeStoresReplacementIDAcrossRestarts(t *testing.T) {
-	setTestSettings(t, Settings{Harness: harness.KindCodex})
-	ctx := context.Background()
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex})
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	vaultPath := t.TempDir()
 
 	firstHarness := newFakeHarness()
@@ -207,16 +210,16 @@ func TestServiceFailedResumeStoresReplacementIDAcrossRestarts(t *testing.T) {
 }
 
 func TestServiceCachesHarnessStatusAndCapturesErrors(t *testing.T) {
-	setTestSettings(t, Settings{})
+	env := setTestSettings(t, Settings{})
 	fake := newFakeHarness()
 	fake.statusError = errors.New("probe failed")
-	service, err := NewService(context.Background(), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	service, err := NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, service.Close()) })
 
-	first, err := service.Settings(context.Background())
+	first, err := service.Settings(vaultconfig.WithEnv(context.Background(), env))
 	require.NoError(t, err)
-	second, err := service.Settings(context.Background())
+	second, err := service.Settings(vaultconfig.WithEnv(context.Background(), env))
 	require.NoError(t, err)
 	require.Equal(t, int32(1), fake.statusCalls.Load())
 	require.Equal(t, "probe failed", first.Harnesses[0].Status.LastError)
@@ -224,19 +227,19 @@ func TestServiceCachesHarnessStatusAndCapturesErrors(t *testing.T) {
 }
 
 func TestServicePersistsPhaseErrorWithLoginHint(t *testing.T) {
-	setTestSettings(t, Settings{Harness: harness.KindCodex})
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex})
 	fake := newFakeHarness()
 	fake.status.LoginHint = "codex login"
 	fake.startError = harness.Phase(harness.ErrInitialize, harness.ErrNotLoggedIn)
-	service, err := NewService(context.Background(), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	service, err := NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, service.Close()) })
-	created, err := service.CreateSession(context.Background(), "Login")
+	created, err := service.CreateSession(vaultconfig.WithEnv(context.Background(), env), "Login")
 	require.NoError(t, err)
 
-	_, err = service.SendMessage(context.Background(), created.Session.ID, "hello")
+	_, err = service.SendMessage(vaultconfig.WithEnv(context.Background(), env), created.Session.ID, "hello")
 	require.ErrorIs(t, err, harness.ErrNotLoggedIn)
-	events, err := service.EventsAfter(context.Background(), created.Session.ID, 0)
+	events, err := service.EventsAfter(vaultconfig.WithEnv(context.Background(), env), created.Session.ID, 0)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 	require.Equal(t, string(harness.EventError), events[0].Type)
@@ -245,16 +248,16 @@ func TestServicePersistsPhaseErrorWithLoginHint(t *testing.T) {
 }
 
 func TestServiceSendMessageReturnsWhileTurnContinuesAfterRequestCancellation(t *testing.T) {
-	setTestSettings(t, Settings{Harness: harness.KindCodex})
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex})
 	fake := newFakeHarness()
 	fake.session.SessionID = "thread-async"
-	service, err := NewService(context.Background(), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	service, err := NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, service.Close()) })
-	created, err := service.CreateSession(context.Background(), "Async")
+	created, err := service.CreateSession(vaultconfig.WithEnv(context.Background(), env), "Async")
 	require.NoError(t, err)
 
-	requestCtx, cancelRequest := context.WithCancel(context.Background())
+	requestCtx, cancelRequest := context.WithCancel(vaultconfig.WithEnv(context.Background(), env))
 	response, err := service.SendMessage(requestCtx, created.Session.ID, "ping")
 	require.NoError(t, err)
 	require.True(t, response.Session.TurnRunning)
@@ -262,14 +265,14 @@ func TestServiceSendMessageReturnsWhileTurnContinuesAfterRequestCancellation(t *
 	cancelRequest()
 	require.Equal(t, "ping", <-fake.session.turns)
 
-	_, err = service.SendMessage(context.Background(), created.Session.ID, "second")
+	_, err = service.SendMessage(vaultconfig.WithEnv(context.Background(), env), created.Session.ID, "second")
 	require.ErrorIs(t, err, ErrConflict)
 	fake.session.events <- harness.Event{Kind: harness.EventTurnStarted, TurnID: "turn-async"}
 	fake.session.events <- harness.Event{Kind: harness.EventAssistantTextDelta, TurnID: "turn-async", Text: "pong"}
 	fake.session.events <- harness.Event{Kind: harness.EventTurnCompleted, TurnID: "turn-async"}
 	fake.session.turnResults <- nil
 	require.Eventually(t, func() bool {
-		persisted, getErr := service.GetSession(context.Background(), created.Session.ID)
+		persisted, getErr := service.GetSession(vaultconfig.WithEnv(context.Background(), env), created.Session.ID)
 		return getErr == nil && !persisted.Session.TurnRunning && len(persisted.Messages) == 2 && persisted.Messages[1].Content == "pong"
 	}, time.Second, 10*time.Millisecond)
 }
@@ -393,16 +396,16 @@ type runningSession struct {
 
 func newRunningService(t *testing.T) (*Service, runningSession, *fakeHarness) {
 	t.Helper()
-	setTestSettings(t, Settings{Harness: harness.KindCodex})
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex})
 	fake := newFakeHarness()
-	service, err := NewService(context.Background(), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	service, err := NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, service.Close()) })
-	created, err := service.CreateSession(context.Background(), "Running")
+	created, err := service.CreateSession(vaultconfig.WithEnv(context.Background(), env), "Running")
 	require.NoError(t, err)
 	session := runningSession{Session: created.Session, sendResult: make(chan error, 1)}
 	go func() {
-		_, sendErr := service.SendMessage(context.Background(), session.ID, "work")
+		_, sendErr := service.SendMessage(vaultconfig.WithEnv(context.Background(), env), session.ID, "work")
 		session.sendResult <- sendErr
 	}()
 	<-fake.session.turns
@@ -434,15 +437,17 @@ func eventTypes(events []Event) []string {
 	return result
 }
 
-func setTestSettings(t *testing.T, settings Settings) {
+func setTestSettings(t *testing.T, settings Settings) vaultconfig.Env {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "config")
 	file := filepath.Join(root, "config.yml")
-	original := obsidian.CliConfigPath
-	obsidian.CliConfigPath = func() (string, string, error) { return root, file, nil }
-	t.Cleanup(func() { obsidian.CliConfigPath = original })
-	_, err := SaveSettings(settings)
+	env.CLIConfigFile = file
+	_, err := SaveSettings(env, settings)
 	require.NoError(t, err)
+	return env
 }
 
 // A vendor-side cancellation must clear the pending approval so a late

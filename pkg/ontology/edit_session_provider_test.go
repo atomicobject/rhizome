@@ -3,6 +3,7 @@ package ontology
 import (
 	"context"
 	"encoding/json"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"strings"
@@ -241,7 +242,7 @@ func TestProviderAwareEditSessionDistinguishesEmptyAndUnsetMarkdownRootLists(t *
 	assert.Contains(t, plan.Files[0].UpdatedContentPreview, "\n\nKeep\n")
 }
 
-func providerEditFixture(t *testing.T) (string, *Schema, noteformat.Runtime) {
+func providerEditFixture(t *testing.T) (string, *ontoschema.Schema, noteformat.Runtime) {
 	t.Helper()
 	root := t.TempDir()
 	writeOntologyTestConfig(t, root)
@@ -253,7 +254,7 @@ type Project @node(paths: ["notes/*.html", "notes/*.md"]) {
   owner: Person @link
 }
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	registry, err := noteformat.NewRegistry(markdown.New(), html.New())
 	require.NoError(t, err)

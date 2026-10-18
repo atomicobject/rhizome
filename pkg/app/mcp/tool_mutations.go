@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 

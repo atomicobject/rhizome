@@ -3,12 +3,14 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"reflect"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
@@ -41,7 +43,7 @@ func editBaseDocumentsFromOps(ops []OntologyEditOp) ([]ontology.EditBaseDocument
 	return out, nil
 }
 
-func validateBoundedSourceEdit(previous, next string, schemas ...*ontology.Schema) error {
+func validateBoundedSourceEdit(previous, next string, schemas ...*ontoschema.Schema) error {
 	identityKeys := protectedIdentifierKeys(schemas...)
 	previousProtected, err := protectedSourceSignature(previous, identityKeys)
 	if err != nil {
@@ -72,8 +74,13 @@ func protectedSourceSignature(source string, identityKeys map[string]struct{}) (
 		return sourceGraphSignature{}, err
 	}
 	signature := sourceGraphSignature{}
-	for _, match := range standaloneBlockIDPattern.FindAllStringSubmatch(source, -1) {
-		signature.BlockIDs = append(signature.BlockIDs, "source\x00"+match[1])
+	protected := markdownsyntax.CodeMask(source)
+	_, _, bodyStart, _ := markdownsyntax.FrontmatterSpan(source)
+	for _, match := range standaloneBlockIDPattern.FindAllStringSubmatchIndex(source, -1) {
+		if match[2] < bodyStart || protected(match[2]) {
+			continue
+		}
+		signature.BlockIDs = append(signature.BlockIDs, "source\x00"+source[match[2]:match[3]])
 	}
 	var walk func([]*ontology.SectionNode)
 	walk = func(sections []*ontology.SectionNode) {
@@ -98,29 +105,22 @@ func protectedSourceSignature(source string, identityKeys map[string]struct{}) (
 		}
 	}
 	walkSourceSpans(snapshot.SourceSpans, "item")
-	lines := strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n")
-	inFence := false
-	inFrontmatter := len(lines) > 0 && strings.TrimSpace(lines[0]) == "---"
-	for index, line := range lines {
+	lines := strings.SplitAfter(source, "\n")
+	offset, previousStart := 0, 0
+	previous := ""
+	for _, raw := range lines {
+		start := offset
+		offset += len(raw)
+		line := strings.TrimSuffix(strings.TrimSuffix(raw, "\n"), "\r")
 		trimmed := strings.TrimSpace(line)
-		if inFrontmatter {
-			if index > 0 && trimmed == "---" {
-				inFrontmatter = false
+		if start >= bodyStart && previousStart >= bodyStart && !protected(start) && !protected(previousStart) && strings.TrimSpace(previous) != "" {
+			if allMarkdownHeadingUnderline(trimmed, '=') {
+				signature.Sections = append(signature.Sections, "setext-1\x00"+strings.TrimSpace(previous))
+			} else if allMarkdownHeadingUnderline(trimmed, '-') {
+				signature.Sections = append(signature.Sections, "setext-2\x00"+strings.TrimSpace(previous))
 			}
-			continue
 		}
-		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
-			inFence = !inFence
-			continue
-		}
-		if inFence || index == 0 || strings.TrimSpace(lines[index-1]) == "" {
-			continue
-		}
-		if allMarkdownHeadingUnderline(trimmed, '=') {
-			signature.Sections = append(signature.Sections, "setext-1\x00"+strings.TrimSpace(lines[index-1]))
-		} else if allMarkdownHeadingUnderline(trimmed, '-') {
-			signature.Sections = append(signature.Sections, "setext-2\x00"+strings.TrimSpace(lines[index-1]))
-		}
+		previous, previousStart = line, start
 	}
 	for _, link := range scanStructuredMarkdownLinksCompat(source) {
 		signature.Links = append(signature.Links, fmt.Sprintf("%s\x00%t\x00%s\x00%s\x00%s", link.Kind, link.Embed, link.Target, link.Path, link.Fragment))
@@ -172,7 +172,7 @@ func appendProtectedInlineIdentities(out *[]string, owner, content string, ident
 	}
 }
 
-func protectedIdentifierKeys(schemas ...*ontology.Schema) map[string]struct{} {
+func protectedIdentifierKeys(schemas ...*ontoschema.Schema) map[string]struct{} {
 	keys := map[string]struct{}{
 		"type": {}, "id": {}, "identifier": {}, "aliases": {}, "alias": {}, "slug": {},
 	}

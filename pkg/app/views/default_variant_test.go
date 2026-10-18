@@ -3,9 +3,9 @@ package views
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/stretchr/testify/require"
 )
@@ -63,7 +63,7 @@ func TestBoardDefaultNeedsAWorkflowShape(t *testing.T) {
 }
 
 func TestBoardFitsOpenWorkCountsOnlyOpenAndActiveValues(t *testing.T) {
-	stages := map[string]ontology.LifecycleStage{"Planned": ontology.StageOpen, "Doing": ontology.StageActive, "Done": ontology.StageDone}
+	stages := map[string]ontoschema.LifecycleStage{"Planned": ontoschema.StageOpen, "Doing": ontoschema.StageActive, "Done": ontoschema.StageDone}
 	require.True(t, boardFitsOpenWork(stages, map[string]int{"planned": 1, "doing": 59, "done": 500}))
 	require.False(t, boardFitsOpenWork(stages, map[string]int{"planned": 2, "doing": 59}))
 	require.False(t, boardFitsOpenWork(stages, map[string]int{"doing": 3, "done": 3}))

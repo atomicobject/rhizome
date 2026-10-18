@@ -1,13 +1,12 @@
 package identifierreconcile
 
 import (
-	"sort"
-	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+	"sort"
+	"testing"
 )
 
 func TestAssembleRekeyRepairIntentsComposesCollisionAndMigration(t *testing.T) {
@@ -15,16 +14,16 @@ func TestAssembleRekeyRepairIntentsComposesCollisionAndMigration(t *testing.T) {
 	collision := collisionPlan.Collisions[0]
 	loser := collision.Losers[0]
 	collisionRef := repairRef(loser.Claim.Node.NotePath, "", "Spec")
-	collisionRewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewriteAliasRemoval, OldRef: collisionRef, NewRef: collisionRef,
+	collisionRewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: collisionRef, NewRef: collisionRef,
 		OldIdentifier: loser.Claim.Value, NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases",
 	}
 
 	migrationPlan := migrationPlanForAssembly(t, "EFF", "docs/2026-08-06-12-20-effort.md", "^effort", "EFF-0001")
 	migrationRewrite := migrationRootRewrite(migrationPlan.Rewrites[0])
 	input := rekeyAssemblyInputForTest(t, collisionPlan,
-		[]CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{collisionRewrite}}},
-		[]MigrationRepairInput{{Plan: migrationPlan, Rewrites: []reference.IdentifierRewrite{migrationRewrite}}},
+		[]CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{collisionRewrite}}},
+		[]MigrationRepairInput{{Plan: migrationPlan, Rewrites: []identifierrewrite.IdentifierRewrite{migrationRewrite}}},
 		requiredAliasFieldPlan(collisionRewrite), requiredPreferredFieldPlan(migrationRewrite),
 	)
 
@@ -67,8 +66,8 @@ func TestAssembleRekeyRepairIntentsComposesTwoMigrationsAndRequiresNoteMove(t *t
 	require.NoError(t, err)
 	require.Nil(t, conflict)
 	input := rekeyAssemblyInputForTest(t, nil, nil, []MigrationRepairInput{
-		{Plan: second, Rewrites: []reference.IdentifierRewrite{secondRewrite}},
-		{Plan: first, Rewrites: []reference.IdentifierRewrite{firstRewrite}, Moves: []GovernedMoveResult{{
+		{Plan: second, Rewrites: []identifierrewrite.IdentifierRewrite{secondRewrite}},
+		{Plan: first, Rewrites: []identifierrewrite.IdentifierRewrite{firstRewrite}, Moves: []GovernedMoveResult{{
 			Request: obsidian.GovernedMoveRequest{SourcePath: firstRewrite.OldRef.NotePath, OldID: firstRewrite.OldIdentifier, NewID: firstRewrite.NewIdentifier},
 			Plan:    movePlan,
 		}}},
@@ -96,12 +95,12 @@ func TestAssembleRekeyRepairIntentsRejectsMigrationPlanAndRootTampering(t *testi
 	plan := migrationPlanForAssembly(t, "EFF", "docs/2026-08-06-12-20-effort.md", "^effort", "EFF-0001")
 	rewrite := migrationRootRewrite(plan.Rewrites[0])
 	input := rekeyAssemblyInputForTest(t, nil, nil,
-		[]MigrationRepairInput{{Plan: plan, Rewrites: []reference.IdentifierRewrite{rewrite}}},
+		[]MigrationRepairInput{{Plan: plan, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite}}},
 		requiredPreferredFieldPlan(rewrite),
 	)
 
 	tamperedRoot := input
-	tamperedRoot.Migrations[0].Rewrites = append([]reference.IdentifierRewrite(nil), input.Migrations[0].Rewrites...)
+	tamperedRoot.Migrations[0].Rewrites = append([]identifierrewrite.IdentifierRewrite(nil), input.Migrations[0].Rewrites...)
 	tamperedRoot.Migrations[0].Rewrites[0].NewIdentifier = "EFF-2026-08-06-12-21"
 	_, err := AssembleRekeyRepairIntents(tamperedRoot)
 	require.ErrorContains(t, err, "does not match sealed mapping")
@@ -116,25 +115,25 @@ func migrationPlanForAssembly(t *testing.T, prefix, notePath, fragment, oldIdent
 	node, err := NewCanonicalNodeKey(notePath, fragment, "EffortNote", "id")
 	require.NoError(t, err)
 	plan, err := BuildMigrationPlan(MigrationInput{
-		TargetFormat: ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: prefix, Separator: "-"},
+		TargetFormat: ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: prefix, Separator: "-"},
 		Members:      []MigrationMember{{Node: node, PreferredValue: oldIdentifier, ProspectivePath: notePath}},
 	})
 	require.NoError(t, err)
 	return plan
 }
 
-func migrationRootRewrite(planned MigrationRewrite) reference.IdentifierRewrite {
+func migrationRootRewrite(planned MigrationRewrite) identifierrewrite.IdentifierRewrite {
 	oldRef := repairRef(planned.Node.NotePath, planned.Node.Fragment, planned.Node.TypeName)
-	return reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: oldRef,
+	return identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: oldRef,
 		OldIdentifier: planned.OldIdentifier, NewIdentifier: planned.NewIdentifier,
 		PreferredField: planned.Node.IdentifierField, AliasesField: "aliases",
 	}
 }
 
-func rekeyAssemblyInputForTest(t *testing.T, plan *Plan, collisions []CollisionRepairInput, migrations []MigrationRepairInput, fieldPlans ...reference.IdentifierFieldRewritePlan) RekeyRepairAssemblyInput {
+func rekeyAssemblyInputForTest(t *testing.T, plan *Plan, collisions []CollisionRepairInput, migrations []MigrationRepairInput, fieldPlans ...identifierrewrite.IdentifierFieldRewritePlan) RekeyRepairAssemblyInput {
 	t.Helper()
-	var rewrites []reference.IdentifierRewrite
+	var rewrites []identifierrewrite.IdentifierRewrite
 	for _, collision := range collisions {
 		rewrites = append(rewrites, collision.Rewrites...)
 	}

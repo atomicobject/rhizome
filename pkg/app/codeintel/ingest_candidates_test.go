@@ -9,11 +9,10 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/indexingpipe"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,11 +35,11 @@ code-anchors:
 	store := openCandidateTestStore(t, root)
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
 
-	result, err := IngestMarkdownCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{{
+	result, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{{
 		AbsPath: includedPath,
 		RelPath: "Decision.MD",
 		ModTime: 1,
-		Kind:    indexingpipe.FileKindNote,
+		Kind:    FileKindNote,
 	}}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, result.Count)
@@ -61,20 +60,20 @@ func TestIngestMarkdownCandidates_ForceReadProcessesUnchangedContent(t *testing.
 
 	store := openCandidateTestStore(t, root)
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
-	candidate := indexingpipe.FileCandidate{AbsPath: path, RelPath: "note.md", ModTime: 1, Kind: indexingpipe.FileKindNote}
+	candidate := FileCandidate{AbsPath: path, RelPath: "note.md", ModTime: 1, Kind: FileKindNote}
 
-	first, err := IngestMarkdownCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{candidate}, nil)
+	first, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{candidate}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, first.Count)
 
-	unchanged, err := IngestMarkdownCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{candidate}, nil)
+	unchanged, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{candidate}, nil)
 	require.NoError(t, err)
 	require.Zero(t, unchanged.Count)
 	require.Equal(t, 1, unchanged.Unchanged)
 
 	forced := candidate
 	forced.ForceRead = true
-	forcedResult, err := IngestMarkdownCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{forced}, nil)
+	forcedResult, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{forced}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, forcedResult.Count)
 	require.Zero(t, forcedResult.Unchanged)
@@ -96,16 +95,16 @@ func TestIngestMarkdownCandidatesWithSources_UsesSealedSourceAndLeavesOthersOnPi
 
 	store := openCandidateTestStore(t, root)
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
-	candidates := []indexingpipe.FileCandidate{
-		{AbsPath: preloadedPath, RelPath: "preloaded.md", ModTime: 17, Kind: indexingpipe.FileKindNote},
-		{AbsPath: diskPath, RelPath: "disk.md", ModTime: 19, Kind: indexingpipe.FileKindNote},
+	candidates := []FileCandidate{
+		{AbsPath: preloadedPath, RelPath: "preloaded.md", ModTime: 17, Kind: FileKindNote},
+		{AbsPath: diskPath, RelPath: "disk.md", ModTime: 19, Kind: FileKindNote},
 	}
 	var discovered, completed atomic.Int64
-	result, err := IngestMarkdownCandidatesWithSources(context.Background(), svc, root, candidates, map[paths.NotePath]noteformat.AuthoredSource{
+	result, err := IngestMarkdownCandidatesWithSources(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, candidates, map[paths.NotePath]noteformat.AuthoredSource{
 		"preloaded.md": source,
-	}, &indexingpipe.ProgressCallbacks{
-		OnDiscovered: func(indexingpipe.FileCandidate) { discovered.Add(1) },
-		OnCompleted:  func(indexingpipe.FileCandidate) { completed.Add(1) },
+	}, &ProgressCallbacks{
+		OnDiscovered: func(FileCandidate) { discovered.Add(1) },
+		OnCompleted:  func(FileCandidate) { completed.Add(1) },
 	})
 	require.NoError(t, err)
 	require.Equal(t, 2, result.Count)
@@ -129,11 +128,11 @@ func TestIngestMarkdownCandidatesWithSources_RejectsInvalidSourceBatchBeforeMuta
 
 	store := openCandidateTestStore(t, root)
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
-	_, err = IngestMarkdownCandidatesWithSources(context.Background(), svc, root, []indexingpipe.FileCandidate{{
+	_, err = IngestMarkdownCandidatesWithSources(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{{
 		AbsPath: path,
 		RelPath: "note.md",
 		ModTime: 1,
-		Kind:    indexingpipe.FileKindNote,
+		Kind:    FileKindNote,
 	}}, map[paths.NotePath]noteformat.AuthoredSource{"note.md": staleSource}, nil)
 	require.Error(t, err)
 	notePaths, listErr := store.NotePaths(context.Background())
@@ -158,11 +157,11 @@ code-anchors:
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
 	require.NoError(t, store.UpsertNote(context.Background(), codeanchor.Note{Path: "bad.md", Title: "Existing"}))
 
-	result, err := IngestMarkdownCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{{
+	result, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{{
 		AbsPath: path,
 		RelPath: "bad.md",
 		ModTime: 1,
-		Kind:    indexingpipe.FileKindNote,
+		Kind:    FileKindNote,
 	}}, nil)
 	require.NoError(t, err)
 	require.Zero(t, result.Count)
@@ -183,11 +182,11 @@ func TestIngestMarkdownCandidates_MissingCandidateFailsWithoutMutation(t *testin
 	store := openCandidateTestStore(t, root)
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
 
-	result, err := IngestMarkdownCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{{
+	result, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{{
 		AbsPath: missingPath,
 		RelPath: "missing.md",
 		ModTime: 1,
-		Kind:    indexingpipe.FileKindNote,
+		Kind:    FileKindNote,
 	}}, nil)
 	require.Error(t, err)
 	var readErr *MarkdownCandidateReadError
@@ -208,22 +207,22 @@ func TestIngestMarkdownCandidates_RejectsWholeInvalidBatchBeforeMutation(t *test
 	require.NoError(t, os.WriteFile(includedPath, []byte("# Decision\n"), 0o644))
 	require.NoError(t, os.WriteFile(outsidePath, []byte("# Outside\n"), 0o644))
 
-	valid := indexingpipe.FileCandidate{AbsPath: includedPath, RelPath: "Decision.MD", ModTime: 1, Kind: indexingpipe.FileKindNote}
+	valid := FileCandidate{AbsPath: includedPath, RelPath: "Decision.MD", ModTime: 1, Kind: FileKindNote}
 	tests := []struct {
 		name    string
-		invalid indexingpipe.FileCandidate
+		invalid FileCandidate
 	}{
-		{name: "wrong kind", invalid: indexingpipe.FileCandidate{AbsPath: outsidePath, RelPath: "Outside.MD", Kind: indexingpipe.FileKindCode}},
-		{name: "absolute relative path", invalid: indexingpipe.FileCandidate{AbsPath: outsidePath, RelPath: outsidePath, Kind: indexingpipe.FileKindNote}},
-		{name: "parent relative path", invalid: indexingpipe.FileCandidate{AbsPath: outsidePath, RelPath: "../Outside.MD", Kind: indexingpipe.FileKindNote}},
-		{name: "mismatched paths", invalid: indexingpipe.FileCandidate{AbsPath: outsidePath, RelPath: "Decision.MD", Kind: indexingpipe.FileKindNote}},
+		{name: "wrong kind", invalid: FileCandidate{AbsPath: outsidePath, RelPath: "Outside.MD", Kind: FileKindCode}},
+		{name: "absolute relative path", invalid: FileCandidate{AbsPath: outsidePath, RelPath: outsidePath, Kind: FileKindNote}},
+		{name: "parent relative path", invalid: FileCandidate{AbsPath: outsidePath, RelPath: "../Outside.MD", Kind: FileKindNote}},
+		{name: "mismatched paths", invalid: FileCandidate{AbsPath: outsidePath, RelPath: "Decision.MD", Kind: FileKindNote}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := openCandidateTestStore(t, t.TempDir())
 			svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
 
-			_, err := IngestMarkdownCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{valid, tt.invalid}, nil)
+			_, err := IngestMarkdownCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), newCandidateTestIndexer(t), root, []FileCandidate{valid, tt.invalid}, nil)
 			require.Error(t, err)
 			notePaths, listErr := store.NotePaths(context.Background())
 			require.NoError(t, listErr)
@@ -249,15 +248,15 @@ func TestIndexCandidates_UsesSuppliedLangWithoutDiscoveryOrExtensionChecks(t *te
 		codeanchor.WithBasePath(root),
 		codeanchor.WithoutWarmCache(),
 	)
-	candidates := []indexingpipe.FileCandidate{{
+	candidates := []FileCandidate{{
 		AbsPath: includedPath,
 		RelPath: "src/main.not-code",
 		ModTime: 1,
-		Kind:    indexingpipe.FileKindCode,
+		Kind:    FileKindCode,
 		Lang:    codeanchor.LangGo,
 	}}
 
-	result, err := IndexCandidates(context.Background(), svc, root, candidates, nil)
+	result, err := IndexCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), root, candidates, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, result.Indexed)
 	require.Equal(t, []string{"src/main.not-code"}, result.SeenPaths)
@@ -268,7 +267,7 @@ func TestIndexCandidates_UsesSuppliedLangWithoutDiscoveryOrExtensionChecks(t *te
 	require.Contains(t, mtimes, "src/main.not-code")
 	require.NotContains(t, mtimes, "src/outside.go")
 
-	second, err := IndexCandidates(context.Background(), svc, root, candidates, nil)
+	second, err := IndexCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), root, candidates, nil)
 	require.NoError(t, err)
 	require.Zero(t, second.Indexed)
 	require.Equal(t, 1, second.Unchanged)
@@ -289,20 +288,20 @@ func TestIndexCandidates_ForceReadProcessesUnchangedCode(t *testing.T) {
 		codeanchor.WithBasePath(root),
 		codeanchor.WithoutWarmCache(),
 	)
-	candidate := indexingpipe.FileCandidate{AbsPath: path, RelPath: "src/main.go", ModTime: 1, Kind: indexingpipe.FileKindCode, Lang: codeanchor.LangGo}
+	candidate := FileCandidate{AbsPath: path, RelPath: "src/main.go", ModTime: 1, Kind: FileKindCode, Lang: codeanchor.LangGo}
 
-	first, err := IndexCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{candidate}, nil)
+	first, err := IndexCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), root, []FileCandidate{candidate}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, first.Indexed)
 
-	unchanged, err := IndexCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{candidate}, nil)
+	unchanged, err := IndexCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), root, []FileCandidate{candidate}, nil)
 	require.NoError(t, err)
 	require.Zero(t, unchanged.Indexed)
 	require.Equal(t, 1, unchanged.Unchanged)
 
 	forced := candidate
 	forced.ForceRead = true
-	forcedResult, err := IndexCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{forced}, nil)
+	forcedResult, err := IndexCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), root, []FileCandidate{forced}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, forcedResult.Indexed)
 	require.Zero(t, forcedResult.Unchanged)
@@ -321,11 +320,11 @@ func TestIndexCandidates_MissingCandidateFailsWithoutMutation(t *testing.T) {
 		codeanchor.WithoutWarmCache(),
 	)
 
-	result, err := IndexCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{{
+	result, err := IndexCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), root, []FileCandidate{{
 		AbsPath: missingPath,
 		RelPath: "src/missing.go",
 		ModTime: 1,
-		Kind:    indexingpipe.FileKindCode,
+		Kind:    FileKindCode,
 		Lang:    codeanchor.LangGo,
 	}}, nil)
 	require.Error(t, err)
@@ -354,11 +353,11 @@ func TestIndexCandidates_BuildFailureFailsWithoutMutation(t *testing.T) {
 		codeanchor.WithoutWarmCache(),
 	)
 
-	result, err := IndexCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{{
+	result, err := IndexCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), root, []FileCandidate{{
 		AbsPath: path,
 		RelPath: "src/main.go",
 		ModTime: 1,
-		Kind:    indexingpipe.FileKindCode,
+		Kind:    FileKindCode,
 		Lang:    codeanchor.LangGo,
 	}}, nil)
 	require.Error(t, err)
@@ -366,31 +365,6 @@ func TestIndexCandidates_BuildFailureFailsWithoutMutation(t *testing.T) {
 	require.True(t, errors.As(err, &buildErr))
 	require.Equal(t, "src/main.go", buildErr.Path)
 	require.ErrorContains(t, buildErr, "parse failed")
-	require.Zero(t, result.Indexed)
-
-	mtimes, listErr := store.IntelCodeMtimes(context.Background())
-	require.NoError(t, listErr)
-	require.Empty(t, mtimes)
-}
-
-func TestIndexRoot_BuildFailureRemainsTolerant(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	codeRoot := filepath.Join(root, "src")
-	path := filepath.Join(codeRoot, "main.go")
-	require.NoError(t, os.MkdirAll(codeRoot, 0o755))
-	require.NoError(t, os.WriteFile(path, []byte("package src\n"), 0o644))
-	store := openCandidateTestStore(t, root)
-	svc := codeanchor.NewServiceWithOptions(
-		store,
-		[]codeanchor.LanguageIndexer{failingLanguageIndexer{lang: codeanchor.LangGo, err: errors.New("parse failed")}},
-		codeanchor.WithBasePath(root),
-		codeanchor.WithoutWarmCache(),
-	)
-
-	result, err := IndexRoot(context.Background(), svc, root, codeRoot, nil, nil)
-	require.NoError(t, err)
 	require.Zero(t, result.Indexed)
 
 	mtimes, listErr := store.IntelCodeMtimes(context.Background())
@@ -419,15 +393,15 @@ func TestIndexCandidates_RejectsWholeInvalidBatchBeforeMutation(t *testing.T) {
 	require.NoError(t, os.WriteFile(includedPath, []byte("package src\nfunc Main() {}\n"), 0o644))
 	require.NoError(t, os.WriteFile(outsidePath, []byte("package src\nfunc Outside() {}\n"), 0o644))
 
-	valid := indexingpipe.FileCandidate{AbsPath: includedPath, RelPath: "src/main.not-code", ModTime: 1, Kind: indexingpipe.FileKindCode, Lang: codeanchor.LangGo}
+	valid := FileCandidate{AbsPath: includedPath, RelPath: "src/main.not-code", ModTime: 1, Kind: FileKindCode, Lang: codeanchor.LangGo}
 	tests := []struct {
 		name    string
-		invalid indexingpipe.FileCandidate
+		invalid FileCandidate
 	}{
-		{name: "wrong kind", invalid: indexingpipe.FileCandidate{AbsPath: outsidePath, RelPath: "src/outside.not-code", Kind: indexingpipe.FileKindNote, Lang: codeanchor.LangGo}},
-		{name: "absolute relative path", invalid: indexingpipe.FileCandidate{AbsPath: outsidePath, RelPath: outsidePath, Kind: indexingpipe.FileKindCode, Lang: codeanchor.LangGo}},
-		{name: "parent relative path", invalid: indexingpipe.FileCandidate{AbsPath: outsidePath, RelPath: "../src/outside.not-code", Kind: indexingpipe.FileKindCode, Lang: codeanchor.LangGo}},
-		{name: "mismatched paths", invalid: indexingpipe.FileCandidate{AbsPath: outsidePath, RelPath: "src/main.not-code", Kind: indexingpipe.FileKindCode, Lang: codeanchor.LangGo}},
+		{name: "wrong kind", invalid: FileCandidate{AbsPath: outsidePath, RelPath: "src/outside.not-code", Kind: FileKindNote, Lang: codeanchor.LangGo}},
+		{name: "absolute relative path", invalid: FileCandidate{AbsPath: outsidePath, RelPath: outsidePath, Kind: FileKindCode, Lang: codeanchor.LangGo}},
+		{name: "parent relative path", invalid: FileCandidate{AbsPath: outsidePath, RelPath: "../src/outside.not-code", Kind: FileKindCode, Lang: codeanchor.LangGo}},
+		{name: "mismatched paths", invalid: FileCandidate{AbsPath: outsidePath, RelPath: "src/main.not-code", Kind: FileKindCode, Lang: codeanchor.LangGo}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -439,7 +413,7 @@ func TestIndexCandidates_RejectsWholeInvalidBatchBeforeMutation(t *testing.T) {
 				codeanchor.WithoutWarmCache(),
 			)
 
-			_, err := IndexCandidates(context.Background(), svc, root, []indexingpipe.FileCandidate{valid, tt.invalid}, nil)
+			_, err := IndexCandidates(context.Background(), svc, newCandidateTestWriter(t, svc), root, []FileCandidate{valid, tt.invalid}, nil)
 			require.Error(t, err)
 			mtimes, listErr := store.IntelCodeMtimes(context.Background())
 			require.NoError(t, listErr)

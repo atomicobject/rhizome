@@ -3,13 +3,15 @@ package noderead
 import (
 	"context"
 	"database/sql"
-	"path/filepath"
-	"testing"
-
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+	"path/filepath"
+	"testing"
 )
 
 func TestScopeInventoryReadsUseMaterializedFlags(t *testing.T) {
@@ -26,7 +28,7 @@ type: ProductSpec
 # Product
 `)
 	counting := &countingStore{Store: store}
-	scope := NewService(vaultDef, &obsidian.Note{}, counting, schema).NewScope(ctx, ScopeOptions{})
+	scope := NewService(vaultDef, &obsidian.Note{}, counting, schema).NewScope(ScopeOptions{})
 
 	all, err := scope.TypeInstances(ctx, TypeInstancesRequest{TypeName: ontology.TypeScopeAll})
 	require.NoError(t, err)
@@ -91,9 +93,9 @@ type: ProductSpec
 # Product
 `)
 	writeFixtureNote(t, vaultDef.Path, "shared/ambiguous.md", "---\nname: Ambiguous\n---\n")
-	_, err := ontology.EnsureIndexed(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	_, err := ontologytest.Sync(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store, nil, nil)
 	require.NoError(t, err)
-	schema, err := ontology.LoadSchema(vaultDef.Path)
+	schema, err := ontoschema.LoadSchema(vaultDef.Path)
 	require.NoError(t, err)
 
 	paths := []string{"specs/product.md", "shared/ambiguous.md"}
@@ -115,7 +117,7 @@ type: ProductSpec
 	require.NoError(t, err)
 
 	counting := &countingStore{Store: store}
-	scope := NewService(vaultDef, &obsidian.Note{}, counting, schema).NewScope(ctx, ScopeOptions{})
+	scope := NewService(vaultDef, &obsidian.Note{}, counting, schema).NewScope(ScopeOptions{})
 	flags, err := scope.AssessmentFlags(ctx)
 	require.NoError(t, err)
 	require.True(t, flags["specs/product.md"].HasIssues, "stale flags must be derived from assessment_json")
@@ -131,12 +133,12 @@ type: ProductSpec
 	require.Equal(t, 1, counting.ontologyAssessmentsByPaths)
 
 	// The materialization bump rebuilds the rows; the column path takes over.
-	result, err := ontology.EnsureIndexed(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	result, err := ontologytest.Sync(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store, nil, nil)
 	require.NoError(t, err)
 	require.True(t, result.Dirty)
 
 	counting = &countingStore{Store: store}
-	scope = NewService(vaultDef, &obsidian.Note{}, counting, schema).NewScope(ctx, ScopeOptions{})
+	scope = NewService(vaultDef, &obsidian.Note{}, counting, schema).NewScope(ScopeOptions{})
 	flags, err = scope.AssessmentFlags(ctx)
 	require.NoError(t, err)
 	require.True(t, flags["specs/product.md"].HasIssues)

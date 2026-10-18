@@ -8,8 +8,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 type publishedNoteReader struct {
@@ -49,7 +50,7 @@ func (w *unifiedSemanticWatcher) publishedNoteReader(ctx context.Context, paths 
 	return reader, nil
 }
 
-func (w *unifiedSemanticWatcher) publishedCodeLoader(ctx context.Context, paths []string) (semantic.FileLoader, error) {
+func (w *unifiedSemanticWatcher) publishedCodeLoader(ctx context.Context, paths []string) (embedindex.FileLoader, error) {
 	sources := make(map[string][]byte, len(paths))
 	for _, path := range paths {
 		hash, _, _, present, err := w.intelStore.FileHash(ctx, path)

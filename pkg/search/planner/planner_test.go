@@ -2,18 +2,19 @@ package planner
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/atomicobject/rhizome/pkg/search/retrieval"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -68,12 +69,11 @@ func TestPlannerScoresExactRelationshipProofWhenRefExpansionIsDisabled(t *testin
 	spec := search.QuerySpec{Text: "implementers of OperationStore", Intent: search.IntentImplementers, Limits: search.Limits{Total: 10}}
 	plan, err := (&Planner{Deps: Deps{IntelStore: store}, Options: Options{EnableIntel: true, EnableRefs: false}}).Plan(ctx, spec)
 	require.NoError(t, err)
-	result, err := plan.Ranker.Rank(ctx, spec, []search.Candidate{{
-		Handle: knowledge.AnchorHandle("memory-store"),
-		Owner:  knowledge.AnchorHandle("memory-store"),
-		Type:   "anchor",
-		Path:   "dispatch/store.go",
-		FQN:    "dispatch.MemoryOperationStore",
+	result, err := plan.Ranker.Rank(ctx, spec, []search.Candidate{{SourceRef: search.SourceRef{Path: "dispatch/store.go",
+		FQN: "dispatch.MemoryOperationStore"}, Handle: knowledge.AnchorHandle("memory-store"),
+		Owner: knowledge.AnchorHandle("memory-store"),
+		Type:  "anchor",
+
 		Evidence: []search.Evidence{{
 			Type: "implements_edge", Source: "implementers", RawScore: 1,
 		}},
@@ -275,7 +275,7 @@ team: teams/Eng.md
 			Ready:     true,
 		},
 	}))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	runtime, err := builtin.NewRuntime()
 	require.NoError(t, err)
@@ -299,10 +299,11 @@ team: teams/Eng.md
 
 	p := Planner{
 		Deps: Deps{
-			IntelStore: store,
-			VaultPath:  root,
-			VaultDef:   obsidian.VaultDefinition{Path: root},
-			NoteReader: &obsidian.Note{},
+			IntelStore:  store,
+			NoteFormats: publishPlannerOntology(t, store),
+			VaultPath:   root,
+			VaultDef:    obsidian.VaultDefinition{Path: root},
+			NoteReader:  &obsidian.Note{},
 		},
 		Options: Options{
 			EnableGraph: true,

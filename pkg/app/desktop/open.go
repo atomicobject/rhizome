@@ -14,6 +14,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
 
 type OpenResult struct {
@@ -78,7 +79,7 @@ func (s *Service) prepare(ctx context.Context, info FolderInfo, plan repoexec.Pl
 	target := plan.Target
 	switch plan.Authority {
 	case "managed":
-		if err := s.ensurePinned(ctx, appupdate.EnsureOptions{CfgDir: plan.ConfigDir, Config: plan.Config}); err != nil {
+		if err := s.ensurePinned(vaultconfig.WithEnv(ctx, s.env), appupdate.EnsureOptions{CfgDir: plan.ConfigDir, Config: plan.Config}); err != nil {
 			return "", problem("install_error", fmt.Sprintf("Could not prepare pinned Rhizome %s: %v", plan.PinnedVersion, err))
 		}
 	case "external":

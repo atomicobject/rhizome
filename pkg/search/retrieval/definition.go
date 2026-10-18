@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // DefinitionRetriever resolves symbol/file inputs to definition anchors.
@@ -83,6 +83,15 @@ func (r *DefinitionRetriever) Retrieve(ctx context.Context, spec search.QuerySpe
 		}
 		seen[key] = struct{}{}
 		out = append(out, search.Candidate{
+			SourceRef: search.SourceRef{
+				Path:       a.Path,
+				Title:      a.Symbol,
+				Symbol:     a.Symbol,
+				FQN:        a.FQN,
+				Kind:       a.Kind,
+				ChunkIndex: -1,
+				AnchorID:   a.AnchorID,
+			},
 			Handle: h,
 			Owner:  h,
 			Evidence: []search.Evidence{{
@@ -93,14 +102,7 @@ func (r *DefinitionRetriever) Retrieve(ctx context.Context, spec search.QuerySpe
 					"seed": seed,
 				},
 			}},
-			Type:       "anchor",
-			Path:       a.Path,
-			Title:      a.Symbol,
-			Symbol:     a.Symbol,
-			FQN:        a.FQN,
-			Kind:       a.Kind,
-			ChunkIndex: -1,
-			AnchorID:   a.AnchorID,
+			Type: "anchor",
 		})
 	}
 

@@ -10,7 +10,7 @@ import (
 
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // writeRuntimeStatus reports the vault runtime a client would attach to, or
@@ -66,7 +66,7 @@ func laneSummary(state appruntime.LaneState) string {
 // writeIndexLockStatus reports who holds .rhizome/index.lock. The file's
 // modification time is the holder's heartbeat.
 func writeIndexLockStatus(b *strings.Builder, vaultPath string) {
-	path := obsidian.IndexLockPath(vaultPath)
+	path := repoconfig.IndexLockPath(vaultPath)
 	fmt.Fprintf(b, "Index lock:\n")
 	data, err := os.ReadFile(path)
 	if err != nil {

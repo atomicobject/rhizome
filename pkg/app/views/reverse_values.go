@@ -2,6 +2,7 @@ package views
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"sort"
 	"strings"
@@ -18,7 +19,7 @@ const reverseValuesPerRow = 8
 // briefs and board cards can name them. Counts stay on the count fields.
 // One relation read per field, limited to eight edges per row, hydrates
 // their summaries.
-func hydrateReverseRelationValues(ctx context.Context, scope *noderead.Scope, schema *ontology.Schema, fields []string, rows []TableRow) ([]TableRow, error) {
+func hydrateReverseRelationValues(ctx context.Context, scope *noderead.Scope, schema *ontoschema.Schema, fields []string, rows []TableRow) ([]TableRow, error) {
 	if scope == nil || schema == nil || len(fields) == 0 || len(rows) == 0 {
 		return rows, nil
 	}
@@ -42,7 +43,7 @@ func hydrateReverseRelationValues(ctx context.Context, scope *noderead.Scope, sc
 		}
 		titles := make(map[string]string, len(result.Nodes))
 		for _, node := range result.Nodes {
-			titles[noderead.RefIdentityKey(node.Ref)] = node.Record.Title
+			titles[noderead.RefIdentityKey(node.Ref)] = node.Title
 		}
 		bySource := map[string][]TableRelationValue{}
 		seen := map[string]bool{}
@@ -94,7 +95,7 @@ func rowSourceRef(row TableRow) ontology.NodeRef {
 }
 
 // projectedReverseFields are the profile's reverse fields a request projects.
-func projectedReverseFields(profile *ontology.TypeProfile, projected []string) []string {
+func projectedReverseFields(profile *ontoschema.TypeProfile, projected []string) []string {
 	if profile == nil {
 		return nil
 	}

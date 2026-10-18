@@ -1,11 +1,12 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 	"unicode"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 )
 
 func scanInlineFields(content string, ranges []ByteRange) []InlineFieldSpan {
@@ -36,7 +37,7 @@ func scanSectionInlineFields(content string, ranges []ByteRange) []InlineFieldSp
 // bullets such as `- status:: ready`, which are scoped to section-backed
 // embedded nodes.
 func SectionInlineProperties(content string) map[string][]string {
-	props := obsidian.ExtractInlineProperties(content)
+	props := markdownsyntax.ExtractInlineProperties(content)
 	for _, span := range scanBulletMetadataInlineFields(content, []ByteRange{{Start: 0, End: len(content)}}) {
 		props[span.PropertyKey] = append(props[span.PropertyKey], span.Value)
 	}
@@ -49,17 +50,12 @@ func scanInlineFieldsInSegment(segment string, baseOffset int) []InlineFieldSpan
 		return nil
 	}
 	out := make([]InlineFieldSpan, 0)
-	inCodeFence := false
+	protected := markdownsyntax.CodeMask(segment)
 	offset := baseOffset
 	for _, rawLine := range lines {
 		line := rawLine
 		trimmed := strings.TrimSpace(strings.TrimRight(line, "\n"))
-		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
-			inCodeFence = !inCodeFence
-			offset += len(line)
-			continue
-		}
-		if inCodeFence || trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, "|") {
+		if protected(offset-baseOffset) || trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, "|") {
 			offset += len(line)
 			continue
 		}
@@ -94,7 +90,7 @@ func scanInlineFieldsInSegment(segment string, baseOffset int) []InlineFieldSpan
 				ValueRange:     ByteRange{Start: valueStart, End: valueEnd},
 				WholeRange:     ByteRange{Start: keyStart, End: valueEnd},
 				PropertyKey:    field.key,
-				AuthoringStyle: FieldAuthoringStyleInlineProperty,
+				AuthoringStyle: ontoschema.FieldAuthoringStyleInlineProperty,
 			})
 		}
 		offset += len(line)
@@ -109,18 +105,13 @@ func scanBulletMetadataInlineFields(content string, ranges []ByteRange) []Inline
 func scanBulletMetadataInlineFieldsInSegment(segment string, baseOffset int) []InlineFieldSpan {
 	lines := strings.SplitAfter(segment, "\n")
 	out := make([]InlineFieldSpan, 0)
-	inCodeFence := false
+	protected := markdownsyntax.CodeMask(segment)
 	offset := baseOffset
 	for _, rawLine := range lines {
 		line := rawLine
 		trimmedLine := strings.TrimRight(line, "\n")
 		trimmed := strings.TrimSpace(trimmedLine)
-		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
-			inCodeFence = !inCodeFence
-			offset += len(line)
-			continue
-		}
-		if inCodeFence || trimmed == "" {
+		if protected(offset-baseOffset) || trimmed == "" {
 			offset += len(line)
 			continue
 		}
@@ -155,7 +146,7 @@ func scanBulletMetadataInlineFieldsInSegment(segment string, baseOffset int) []I
 			ValueRange:     ByteRange{Start: valueStart, End: valueEnd},
 			WholeRange:     ByteRange{Start: offset, End: valueEnd},
 			PropertyKey:    field.key,
-			AuthoringStyle: FieldAuthoringStyleListMetadata,
+			AuthoringStyle: ontoschema.FieldAuthoringStyleListMetadata,
 		})
 		offset += len(line)
 	}
@@ -238,7 +229,7 @@ func scanInlineFieldsInListSegment(segment string, baseOffset int) []InlineField
 				ValueRange:     ByteRange{Start: valueStart, End: valueEnd},
 				WholeRange:     ByteRange{Start: keyStart, End: valueEnd},
 				PropertyKey:    field.key,
-				AuthoringStyle: FieldAuthoringStyleInlineProperty,
+				AuthoringStyle: ontoschema.FieldAuthoringStyleInlineProperty,
 			})
 		}
 		offset += len(line)

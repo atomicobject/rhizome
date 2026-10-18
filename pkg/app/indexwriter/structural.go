@@ -18,37 +18,28 @@ type StructuralFinalize struct {
 	Complete           bool
 	RecomputeScopes    bool
 }
-type queueStructuralFinalize struct {
-	barrier uint64
-	work    StructuralFinalize
-	ack     chan error
-}
 
 func (q *Writer) SubmitStructuralFinalize(ctx context.Context, work StructuralFinalize) error {
-	ack := make(chan error, 1)
 	work.ChangedCodePaths = append([]string(nil), work.ChangedCodePaths...)
 	work.ChangedCallerPaths = append([]string(nil), work.ChangedCallerPaths...)
 	work.AffectedAnchorIDs = append([]int64(nil), work.AffectedAnchorIDs...)
 	cloned := anchors.DefDeltaAccumulator{}
 	cloned.Add(work.DefDeltas)
 	work.DefDeltas = cloned.Finalize()
-	if err := q.sendControl(ctx, queueStructuralFinalize{barrier: q.currentSubmitBarrier(), work: work, ack: ack}); err != nil {
-		return err
-	}
-	select {
-	case err := <-ack:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-q.doneCh:
-		select {
-		case err := <-ack:
-			return err
-		default:
+	return submitErrorControl(ctx, q, func(q *Writer) error {
+		if q.handlers.ApplyStructuralFinalize == nil {
+			return fmt.Errorf("structural finalization queue not initialized")
 		}
-		if err := q.Err(); err != nil {
-			return err
+		return q.handlers.ApplyStructuralFinalize(q.ctx, work)
+	})
+}
+
+// SubmitReverseIndexReset invalidates stale versions before source ingestion.
+func (q *Writer) SubmitReverseIndexReset(ctx context.Context) error {
+	return submitErrorControl(ctx, q, func(q *Writer) error {
+		if q.handlers.ResetReverseIndex == nil {
+			return fmt.Errorf("reverse index reset queue not initialized")
 		}
-		return fmt.Errorf("structural finalization queue stopped")
-	}
+		return q.handlers.ResetReverseIndex(q.ctx)
+	})
 }

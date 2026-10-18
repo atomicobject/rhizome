@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"sort"
 	"strings"
 	"time"
@@ -28,7 +29,7 @@ func BuildIdentifierRepairPlan(
 	assembly *identifierreconcile.RepairAssembly,
 	bindings []IdentifierRepairActionBinding,
 ) (*RepairPlan, error) {
-	if err := assembly.RevalidateCompleteSnapshot(ctx, runCtx.VaultDef); err != nil {
+	if err := assembly.RevalidateCompleteSnapshot(ctx, runCtx.VaultDef, runCtx.NoteMetadata); err != nil {
 		return nil, err
 	}
 	return buildIdentifierRepairPlan(ctx, authoritativeIdentifierRunContext(runCtx), assembly, bindings)
@@ -43,7 +44,7 @@ func ApplyIdentifierRepairPlan(
 	reviewed *RepairPlan,
 	assembly *identifierreconcile.RepairAssembly,
 	bindings []IdentifierRepairActionBinding,
-	opts Options,
+	opts ApplyOptions,
 ) (*FixExecution, error) {
 	if reviewed == nil {
 		return nil, fmt.Errorf("reviewed identifier repair plan is required")
@@ -87,12 +88,12 @@ func ApplyIdentifierRepairPlan(
 	}
 	var postApplyResult *Result
 	var postValidationDuration time.Duration
-	opts.postApplyCheck = func(ctx context.Context, lease *IndexLockLease, runtime *ontology.Runtime, scope repairPostApplyScope) error {
+	opts.postApplyCheck = func(ctx context.Context, lease *indexlock.Lease, runtime *ontology.Runtime, scope repairPostApplyScope) error {
 		started := time.Now()
 		defer func() {
 			postValidationDuration += nonZeroDuration(time.Since(started))
 		}()
-		if err := lease.RequireHeldForVault(runCtx.VaultPath); err != nil {
+		if err := lease.Validate(runCtx.VaultPath); err != nil {
 			return err
 		}
 		checks := append(append([]string(nil), baseChecks...), scope.Checks...)
@@ -107,13 +108,8 @@ func ApplyIdentifierRepairPlan(
 		if registryNeedsOntologyRuntime(resolvedChecks) && runtime == nil {
 			return fmt.Errorf("identifier repair refresher did not provide prepared ontology runtime")
 		}
-		postcheckOpts := opts
+		postcheckOpts := opts.ScanOptions
 		postcheckOpts.Checks = checks
-		postcheckOpts.Fix = false
-		postcheckOpts.Confirm = nil
-		postcheckOpts.PostApplyRefresher = nil
-		postcheckOpts.leaseHeldRepairPlanner = nil
-		postcheckOpts.postApplyCheck = nil
 		postcheckOpts.postApplyJournalValidation = true
 		postcheckOpts.RunContext = &runCtx
 		result, _, err := RunSuiteOncePrepared(ctx, postcheckOpts, runtime, nil)
@@ -130,7 +126,7 @@ func ApplyIdentifierRepairPlan(
 		}
 		return nil
 	}
-	opts.leaseHeldRepairPlanner = func(ctx context.Context, lease *IndexLockLease) (*FixPlan, error) {
+	opts.leaseHeldRepairPlanner = func(ctx context.Context, lease *indexlock.Lease) (*FixPlan, error) {
 		identifierPlan, err := buildIdentifierRepairPlanUnderLease(ctx, runCtx, lease, assembly, bindings)
 		if err != nil {
 			return nil, err
@@ -253,24 +249,24 @@ func repairPostcheckErrors(result Result) string {
 func buildIdentifierRepairPlanUnderLease(
 	ctx context.Context,
 	runCtx RunContext,
-	lease *IndexLockLease,
+	lease *indexlock.Lease,
 	assembly *identifierreconcile.RepairAssembly,
 	bindings []IdentifierRepairActionBinding,
 ) (*RepairPlan, error) {
 	if lease == nil {
 		return nil, fmt.Errorf("identifier repair requires held index lease")
 	}
-	if err := lease.RequireHeldForVault(runCtx.VaultPath); err != nil {
+	if err := lease.Validate(runCtx.VaultPath); err != nil {
 		return nil, err
 	}
 	vaultRoot := strings.TrimSpace(runCtx.VaultDef.BasePath())
 	if vaultRoot == "" {
 		return nil, fmt.Errorf("identifier repair requires vault definition root")
 	}
-	if err := lease.RequireHeldForVault(vaultRoot); err != nil {
+	if err := lease.Validate(vaultRoot); err != nil {
 		return nil, fmt.Errorf("identifier repair run context roots disagree: %w", err)
 	}
-	if err := assembly.RevalidateCompleteSnapshot(ctx, runCtx.VaultDef); err != nil {
+	if err := assembly.RevalidateCompleteSnapshot(ctx, runCtx.VaultDef, runCtx.NoteMetadata); err != nil {
 		return nil, err
 	}
 	return buildIdentifierRepairPlan(ctx, authoritativeIdentifierRunContext(runCtx), assembly, bindings)

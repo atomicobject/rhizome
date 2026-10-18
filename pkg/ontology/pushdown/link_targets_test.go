@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"testing"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 type linkTargetCatalogFixture struct {
-	rows          []codeanchor.IntelOntologyNode
+	rows          []readmodel.NodeRow
 	planCalls     int
 	pathCalls     int
 	aliasPaths    []string
@@ -21,7 +21,7 @@ type linkTargetCatalogFixture struct {
 	aliasErr      error
 }
 
-func (s *linkTargetCatalogFixture) OntologyNodesByTypePlan(_ context.Context, plan codeanchor.OntologyNodeQueryPlan) ([]codeanchor.IntelOntologyNode, error) {
+func (s *linkTargetCatalogFixture) OntologyNodesByTypePlan(_ context.Context, plan readmodel.NodeQueryPlan) ([]readmodel.NodeRow, error) {
 	s.planCalls++
 	if plan.Limit < len(s.rows) {
 		return s.rows[:plan.Limit], nil
@@ -29,14 +29,14 @@ func (s *linkTargetCatalogFixture) OntologyNodesByTypePlan(_ context.Context, pl
 	return s.rows, nil
 }
 
-func (s *linkTargetCatalogFixture) OntologyNodeFieldValuesByNodeIDs(_ context.Context, _ []string, _ []string) ([]codeanchor.IntelOntologyNodeFieldValue, error) {
+func (s *linkTargetCatalogFixture) OntologyNodeFieldValuesByNodeIDs(_ context.Context, _ []string, _ []string) ([]readmodel.FieldValueRow, error) {
 	s.fieldReadCall++
 	return nil, nil
 }
 
-func (s *linkTargetCatalogFixture) OntologyNodesByPaths(_ context.Context, paths []string) ([]codeanchor.IntelOntologyNode, error) {
+func (s *linkTargetCatalogFixture) OntologyNodesByPaths(_ context.Context, paths []string) ([]readmodel.NodeRow, error) {
 	s.pathCalls++
-	var out []codeanchor.IntelOntologyNode
+	var out []readmodel.NodeRow
 	for _, row := range s.rows {
 		for _, path := range paths {
 			if row.NotePath == path {
@@ -53,10 +53,10 @@ func (s *linkTargetCatalogFixture) CurrentNotePropertyValues(_ context.Context, 
 }
 
 func TestCatalogLinkResolver_DoesNotClaimUniquenessWhenAliasReadFails(t *testing.T) {
-	field := &ontology.Field{Name: "opportunities", TypeName: "Opportunity"}
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Opportunity": {Name: "Opportunity"}}}
+	field := &ontoschema.Field{Name: "opportunities", TypeName: "Opportunity"}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Opportunity": {Name: "Opportunity"}}}
 	store := &linkTargetCatalogFixture{
-		rows:     []codeanchor.IntelOntologyNode{{NodeID: "opportunity-1", NodeKind: string(ontology.NodeKindNote), NotePath: "notes/one.md", TypeName: "Opportunity", Title: "One"}},
+		rows:     []readmodel.NodeRow{{NodeID: "opportunity-1", NodeKind: string(ontology.NodeKindNote), NotePath: "notes/one.md", TypeName: "Opportunity", Title: "One"}},
 		aliasErr: errors.New("alias index unavailable"),
 	}
 	got, warning := NewCatalogLinkResolver(schema, store).ResolveLinkTarget(context.Background(), field, "One")
@@ -66,9 +66,9 @@ func TestCatalogLinkResolver_DoesNotClaimUniquenessWhenAliasReadFails(t *testing
 }
 
 func TestCatalogLinkResolver_CanonicalPathUsesNoteIdentityForAnyProvider(t *testing.T) {
-	field := &ontology.Field{Name: "opportunities", TypeName: "Opportunity"}
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Opportunity": {Name: "Opportunity"}}}
-	store := &linkTargetCatalogFixture{rows: []codeanchor.IntelOntologyNode{{
+	field := &ontoschema.Field{Name: "opportunities", TypeName: "Opportunity"}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Opportunity": {Name: "Opportunity"}}}
+	store := &linkTargetCatalogFixture{rows: []readmodel.NodeRow{{
 		NodeID: "opportunity-1", NodeKind: string(ontology.NodeKindNote),
 		NotePath: "data/opportunity.json", TypeName: "Opportunity",
 	}}}
@@ -84,11 +84,11 @@ func TestCatalogLinkResolver_CanonicalPathUsesNoteIdentityForAnyProvider(t *test
 }
 
 func TestCatalogLinkResolver_BoundedAndReusedAcrossFilterValues(t *testing.T) {
-	field := &ontology.Field{Name: "opportunities", TypeName: "Opportunity"}
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Opportunity": {Name: "Opportunity"}}}
-	rows := make([]codeanchor.IntelOntologyNode, 1002)
+	field := &ontoschema.Field{Name: "opportunities", TypeName: "Opportunity"}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Opportunity": {Name: "Opportunity"}}}
+	rows := make([]readmodel.NodeRow, 1002)
 	for i := range rows {
-		rows[i] = codeanchor.IntelOntologyNode{
+		rows[i] = readmodel.NodeRow{
 			NodeID: fmt.Sprintf("opportunity-%04d", i), NotePath: fmt.Sprintf("notes/opportunity-%04d.md", i),
 			NodeKind: string(ontology.NodeKindNote), TypeName: "Opportunity", Title: fmt.Sprintf("Opportunity %04d", i),
 		}
@@ -111,11 +111,11 @@ func TestCatalogLinkResolver_BoundedAndReusedAcrossFilterValues(t *testing.T) {
 }
 
 func TestCatalogLinkResolver_ReportsIncompleteAboveCandidateBound(t *testing.T) {
-	field := &ontology.Field{Name: "opportunities", TypeName: "Opportunity"}
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Opportunity": {Name: "Opportunity"}}}
-	rows := make([]codeanchor.IntelOntologyNode, LinkTargetCandidateLimit+1)
+	field := &ontoschema.Field{Name: "opportunities", TypeName: "Opportunity"}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Opportunity": {Name: "Opportunity"}}}
+	rows := make([]readmodel.NodeRow, LinkTargetCandidateLimit+1)
 	for i := range rows {
-		rows[i] = codeanchor.IntelOntologyNode{NodeID: fmt.Sprintf("opportunity-%04d", i), NotePath: fmt.Sprintf("notes/opportunity-%04d.md", i), NodeKind: string(ontology.NodeKindNote), TypeName: "Opportunity"}
+		rows[i] = readmodel.NodeRow{NodeID: fmt.Sprintf("opportunity-%04d", i), NotePath: fmt.Sprintf("notes/opportunity-%04d.md", i), NodeKind: string(ontology.NodeKindNote), TypeName: "Opportunity"}
 	}
 	store := &linkTargetCatalogFixture{rows: rows}
 	resolver := NewCatalogLinkResolver(schema, store)

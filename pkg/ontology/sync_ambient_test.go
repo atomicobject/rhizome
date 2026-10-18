@@ -1,17 +1,18 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBuildAmbientEdgesForSync_PreservesDirectionAndSuppressesStructuralTargets(t *testing.T) {
-	schema := &Schema{Hash: "schema", Types: map[string]*NoteType{
-		"Project": {Fields: []*Field{
-			{Name: "outgoing", Kind: FieldKindNeighbor, TypeName: "Person", Direction: NeighborDirectionOutbound},
-			{Name: "incoming", Kind: FieldKindNeighbor, TypeName: "Person", Direction: NeighborDirectionInbound},
+	schema := &ontoschema.Schema{Hash: "schema", Types: map[string]*ontoschema.NoteType{
+		"Project": {Fields: []*ontoschema.Field{
+			{Name: "outgoing", Kind: ontoschema.FieldKindNeighbor, TypeName: "Person", Direction: ontoschema.NeighborDirectionOutbound},
+			{Name: "incoming", Kind: ontoschema.FieldKindNeighbor, TypeName: "Person", Direction: ontoschema.NeighborDirectionInbound},
 		}},
 		"Person": {},
 	}}

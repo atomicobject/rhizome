@@ -1,34 +1,18 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"sort"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
-func buildNodeScopedStructuralEdges(doc *noteDoc, schema *Schema, cache *obsidian.NotePathCache, resolveType func(string) string, updatedAt int64) ([]semdb.OntologyEdgeRow, error) {
-	if doc == nil || doc.Snapshot == nil || schema == nil || cache == nil || strings.TrimSpace(doc.Path) == "" || strings.TrimSpace(doc.Content) == "" {
+func buildNodeScopedEdges(resolver *projectionResolver, root *NodeProjection, schema *ontoschema.Schema, cache *obsidian.NotePathCache, resolveType func(string) string, updatedAt int64) ([]semdb.OntologyEdgeRow, error) {
+	if resolver == nil || root == nil || cache == nil {
 		return nil, nil
-	}
-	snapshot, err := documentSnapshotForDoc(doc)
-	if err != nil {
-		return nil, err
-	}
-	return buildNodeScopedStructuralEdgesFromSnapshot(snapshot, schema, cache, resolveType, updatedAt)
-}
-
-func buildNodeScopedStructuralEdgesFromSnapshot(snapshot *DocumentSnapshot, schema *Schema, cache *obsidian.NotePathCache, resolveType func(string) string, updatedAt int64) ([]semdb.OntologyEdgeRow, error) {
-	if snapshot == nil || schema == nil || cache == nil {
-		return nil, nil
-	}
-	resolver, err := newProjectionResolver(snapshot, schema)
-	if err != nil {
-		return nil, err
-	}
-	root, err := resolver.project(NodeRef{NotePath: snapshot.NotePath, Kind: NodeKindNote})
-	if err != nil || root == nil {
-		return nil, err
 	}
 	out := make([]semdb.OntologyEdgeRow, 0)
 	seen := make(map[string]struct{})
@@ -80,7 +64,7 @@ func buildNodeScopedStructuralEdgesFromSnapshot(snapshot *DocumentSnapshot, sche
 	return out, nil
 }
 
-func nodeScopedNeighborEdges(schema *Schema, cache *obsidian.NotePathCache, projection *NodeProjection, resolveType func(string) string, updatedAt int64) []semdb.OntologyEdgeRow {
+func nodeScopedNeighborEdges(schema *ontoschema.Schema, cache *obsidian.NotePathCache, projection *NodeProjection, resolveType func(string) string, updatedAt int64) []semdb.OntologyEdgeRow {
 	if projection == nil || projection.Type == nil || projection.Snapshot == nil || strings.TrimSpace(projection.Ref.NodeID) == "" {
 		return nil
 	}
@@ -91,13 +75,13 @@ func nodeScopedNeighborEdges(schema *Schema, cache *obsidian.NotePathCache, proj
 	out := make([]semdb.OntologyEdgeRow, 0)
 	seen := make(map[string]struct{})
 	for _, field := range projection.Type.Fields {
-		if field == nil || field.Kind != FieldKindNeighbor || field.Scope != NeighborScopeSubtree {
+		if field == nil || field.Kind != ontoschema.FieldKindNeighbor || field.Scope != ontoschema.NeighborScopeSubtree {
 			continue
 		}
-		if field.Direction == NeighborDirectionInbound {
+		if field.Direction == ontoschema.NeighborDirectionInbound {
 			continue
 		}
-		for _, scanned := range ScanMarkdownBodyLinks(SectionBody(section), obsidian.DefaultWikilinkOptions, obsidian.DefaultMdLinkOptions) {
+		for _, scanned := range ScanMarkdownBodyLinks(SectionBody(section), markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions) {
 			target := scanned.Detail
 			var (
 				targetPath string
@@ -116,7 +100,7 @@ func nodeScopedNeighborEdges(schema *Schema, cache *obsidian.NotePathCache, proj
 			if resolveType != nil {
 				dstType = resolveType(targetPath)
 			}
-			if !typeMatchesOrImplements(schema, dstType, field.TypeName) {
+			if !ontoschema.TypeMatchesOrImplements(schema, dstType, field.TypeName) {
 				continue
 			}
 			key := projection.Ref.NodeID + "\x00" + field.Name + "\x00" + targetPath
@@ -140,18 +124,18 @@ func nodeScopedNeighborEdges(schema *Schema, cache *obsidian.NotePathCache, proj
 	return out
 }
 
-func nodeScopedLinkEdges(schema *Schema, cache *obsidian.NotePathCache, projection *NodeProjection, resolveType func(string) string, updatedAt int64) []semdb.OntologyEdgeRow {
+func nodeScopedLinkEdges(schema *ontoschema.Schema, cache *obsidian.NotePathCache, projection *NodeProjection, resolveType func(string) string, updatedAt int64) []semdb.OntologyEdgeRow {
 	if projection == nil || projection.Type == nil || strings.TrimSpace(projection.Ref.NodeID) == "" {
 		return nil
 	}
 	out := make([]semdb.OntologyEdgeRow, 0)
 	for _, field := range projection.Type.Fields {
-		if field == nil || field.Kind != FieldKindLink {
+		if field == nil || field.Kind != ontoschema.FieldKindLink {
 			continue
 		}
 		binding := projection.Fields[field.Name]
 		for _, raw := range binding.Values {
-			targetPath, ok := cache.ResolveNote(unwrapLinkValue(raw))
+			targetPath, ok := cache.ResolveNote(UnwrapLinkValue(raw))
 			if !ok {
 				continue
 			}
@@ -159,7 +143,7 @@ func nodeScopedLinkEdges(schema *Schema, cache *obsidian.NotePathCache, projecti
 			if resolveType != nil {
 				dstType = resolveType(targetPath)
 			}
-			if !typeMatchesOrImplements(schema, dstType, field.TypeName) {
+			if !ontoschema.TypeMatchesOrImplements(schema, dstType, field.TypeName) {
 				continue
 			}
 			out = append(out, semdb.OntologyEdgeRow{
@@ -175,5 +159,40 @@ func nodeScopedLinkEdges(schema *Schema, cache *obsidian.NotePathCache, projecti
 			})
 		}
 	}
+	return out
+}
+func dedupeEdges(edges []semdb.OntologyEdgeRow) []semdb.OntologyEdgeRow {
+	seen := make(map[string]semdb.OntologyEdgeRow, len(edges))
+	for _, edge := range edges {
+		key := edge.SrcPath + "\x00" + edge.SrcNodeID + "\x00" + edge.RelationName + "\x00" + edge.DstPath + "\x00" + edge.DstNodeID + "\x00" + edge.Provenance
+		if existing, ok := seen[key]; ok {
+			if existing.Structural {
+				continue
+			}
+		}
+		seen[key] = edge
+	}
+	out := make([]semdb.OntologyEdgeRow, 0, len(seen))
+	for _, edge := range seen {
+		out = append(out, edge)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a := out[i]
+		b := out[j]
+		switch {
+		case a.SrcPath != b.SrcPath:
+			return a.SrcPath < b.SrcPath
+		case a.SrcNodeID != b.SrcNodeID:
+			return a.SrcNodeID < b.SrcNodeID
+		case a.RelationName != b.RelationName:
+			return a.RelationName < b.RelationName
+		case a.DstPath != b.DstPath:
+			return a.DstPath < b.DstPath
+		case a.DstNodeID != b.DstNodeID:
+			return a.DstNodeID < b.DstNodeID
+		default:
+			return a.Provenance < b.Provenance
+		}
+	})
 	return out
 }

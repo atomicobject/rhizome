@@ -5,21 +5,27 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/app/contextpack"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	protocol "github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )
 
 func contextPublicationFixture(t *testing.T) (Config, *semdb.Store, string) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "café世界🙂")
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
@@ -28,7 +34,7 @@ func contextPublicationFixture(t *testing.T) (Config, *semdb.Store, string) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "CONTEXT.md"), []byte(doc), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0o644))
 	store := newIntelStore(t)
-	return Config{Vault: &obsidian.Vault{Name: root}, VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}, IntelStore: store, SessionStore: store, NoteMetadata: configuredMCPNoteMetadata(t)}, store, doc
+	return Config{Vault: &repoconfig.Vault{Env: env, Name: root}, VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}, IntelStore: store, SessionStore: store, NoteMetadata: configuredMCPNoteMetadata(t)}, store, doc
 }
 
 type contextPublicationCompressor struct {
@@ -188,6 +194,8 @@ type Detail @node(paths: ["notes/details.md"]) {
 			doc := "# Details\n\n" + strings.Repeat("nested note evidence ", 40) + "\nUNIQUE_NOTE_FINAL_EVIDENCE\n"
 			require.NoError(t, os.WriteFile(filepath.Join(root, "notes/details.md"), []byte(doc), 0o644))
 			require.NoError(t, os.WriteFile(filepath.Join(root, "notes/host.md"), []byte("---\ndetails: notes/details.md\n---\n\n# Host\n"), 0o644))
+			_, err := ontologytest.Publish(context.Background(), cfg.NoteMetadata, cfg.VaultDef, &obsidian.Note{}, store)
+			require.NoError(t, err)
 			call := func(session string) ContextTextResponse {
 				response, err := FileContextTool(cfg)(context.Background(), protocol.CallToolRequest{Params: protocol.CallToolParams{
 					Name: "file_context", Arguments: map[string]any{"files": []any{"notes/host.md"}, "profile": "vault", "sessionId": session},

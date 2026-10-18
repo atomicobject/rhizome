@@ -7,10 +7,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )

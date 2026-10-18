@@ -2,14 +2,13 @@ package identifierreconcile
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDiscoverIdentifierLinksIndexesConstructorSealedUndeclaredAliasField(t *testing.T) {
@@ -18,12 +17,12 @@ func TestDiscoverIdentifierLinksIndexesConstructorSealedUndeclaredAliasField(t *
 		"notes/inbound.md": "[[OLD-CUSTOM|OLD-CUSTOM]]\n",
 	})
 	loser := ontology.NodeRef{NotePath: "specs/loser.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
 		OldIdentifier: "OLD-CUSTOM", NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "legacy_ids",
 	}
-	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{
-		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []reference.IdentifierRewrite{rewrite},
+	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
+		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 	})
 	require.NoError(t, err)
 	fieldSnapshot, err := fields.validatedSnapshotFor(fields.rewrites)
@@ -46,12 +45,12 @@ func TestDiscoverIdentifierLinksPreservesAmbiguousUndeclaredAliasClaimants(t *te
 		"notes/inbound.md": "[[SHARED-CUSTOM]]\n",
 	})
 	loser := ontology.NodeRef{NotePath: "specs/loser.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
 		OldIdentifier: "SHARED-CUSTOM", NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "legacy_ids",
 	}
-	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{
-		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []reference.IdentifierRewrite{rewrite},
+	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
+		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 	})
 	require.NoError(t, err)
 	links, err := DiscoverIdentifierLinks(context.Background(), IdentifierLinkDiscoveryRequest{FieldDiscovery: fields})
@@ -61,7 +60,7 @@ func TestDiscoverIdentifierLinksPreservesAmbiguousUndeclaredAliasClaimants(t *te
 	inbound := structuredLinkPlanByPath(t, snapshot.Plans, "notes/inbound.md")
 	require.Empty(t, inbound.Edits)
 	require.Len(t, inbound.Diagnostics, 1)
-	require.Equal(t, reference.LinkRewriteDiagnosticAmbiguousTarget, inbound.Diagnostics[0].Kind)
+	require.Equal(t, identifierrewrite.LinkRewriteDiagnosticAmbiguousTarget, inbound.Diagnostics[0].Kind)
 	require.Len(t, inbound.Diagnostics[0].Candidates, 2)
 }
 

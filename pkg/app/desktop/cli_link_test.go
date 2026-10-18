@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/appbundle"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -236,7 +237,7 @@ func TestCLILinkLoginShellResolution(t *testing.T) {
 			if scenario == "other" {
 				path = cliLinkTestBundle(t, filepath.Dir(cliLinkDirectory), "Other.app", "com.atomicobject.rhizome")
 			}
-			t.Setenv("SHELL", "/bin/fixture-shell")
+			env := vaultconfig.Env{LookupEnv: func(key string) (string, bool) { return "/bin/fixture-shell", key == "SHELL" }}
 			calls := 0
 			cliLinkRunCommand = func(ctx context.Context, name string, args ...string) (string, error) {
 				deadline, ok := ctx.Deadline()
@@ -261,7 +262,7 @@ func TestCLILinkLoginShellResolution(t *testing.T) {
 				}
 				return "rzm version v1.2.3\n", nil
 			}
-			info, err := (&Service{}).CLILinkStatus(context.Background())
+			info, err := (&Service{env: env}).CLILinkStatus(context.Background())
 			require.NoError(t, err)
 			switch scenario {
 			case "app":
@@ -280,14 +281,13 @@ func TestCLILinkLoginShellResolution(t *testing.T) {
 
 func TestCLILinkShellFallback(t *testing.T) {
 	target, _ := cliLinkFixture(t)
-	t.Setenv("SHELL", "")
 	cliLinkRunCommand = func(_ context.Context, name string, args ...string) (string, error) {
 		require.Equal(t, "/bin/zsh", name)
 		return "", errors.New("no rzm")
 	}
 	bundle, err := appbundle.Resolve(target)
 	require.NoError(t, err)
-	require.Equal(t, "no rzm", cliLinkShell(context.Background(), bundle).Error)
+	require.Equal(t, "no rzm", (&Service{}).cliLinkShell(context.Background(), bundle).Error)
 }
 
 func TestCLILinkRechecksBeforeUnlink(t *testing.T) {

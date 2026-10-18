@@ -2,12 +2,15 @@ package init
 
 import (
 	"bytes"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,7 +55,7 @@ func TestDetectSkipsProposesOnlyTrackedBulkyIndexableContent(t *testing.T) {
 	layout, err := DetectLayout(root)
 	require.NoError(t, err)
 
-	skips := detectSkips(root, obsidian.LocalVaultConfig{}, layout.Code.Files, nil)
+	skips := detectSkips(root, repoconfig.LocalVaultConfig{}, layout.Code.Files, nil)
 
 	require.Equal(t, []skip{
 		{path: "pkg/testdata/", reason: reasonFixtures, files: 1},
@@ -64,14 +67,17 @@ func TestDetectSkipsProposesOnlyTrackedBulkyIndexableContent(t *testing.T) {
 	}, skips)
 	require.Equal(t, "pkg/testdata/ (1 file), third_party/ (2 files), 2 generated files, docs/export.md (large file, 2 MB), and web/app.min.js (minified or bundled)", skipSummary(skips))
 
-	kept := detectSkips(root, obsidian.LocalVaultConfig{}, layout.Code.Files, map[string]bool{"third_party": true, "docs/export.md": true})
+	kept := detectSkips(root, repoconfig.LocalVaultConfig{}, layout.Code.Files, map[string]bool{"third_party": true, "docs/export.md": true})
 	require.Len(t, kept, 4, "paths marked keep indexed are not proposed")
 }
 
 func TestFirstRunWritesSuggestedSkipsThatExplainNames(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := bulkyRepo(t)
 
-	out, err := runInit(t, RunOptions{Dir: root})
+	out, err := runInit(t, RunOptions{Env: env, Dir: root})
 
 	require.NoError(t, err)
 	require.Contains(t, out, "third_party/ (2 files)")
@@ -84,37 +90,43 @@ func TestFirstRunWritesSuggestedSkipsThatExplainNames(t *testing.T) {
 	require.Equal(t, ".rhizome/ignore", decision.Rule.Source)
 	require.Equal(t, "/third_party/", decision.Rule.Pattern)
 
-	out, err = runInit(t, RunOptions{Dir: root})
+	out, err = runInit(t, RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)
 	require.Contains(t, out, "Everything is up to date.", "written skips are not proposed again")
 }
 
 func TestRerunProposesNewSkipsAndCheckCountsThem(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := bulkyRepo(t)
-	_, err := runInit(t, RunOptions{Dir: root})
+	_, err := runInit(t, RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)
 	writeFixtureFile(t, root, "web/vendor.bundle.js", "var b=2;\n")
 	cmd := exec.Command("git", "add", "web/vendor.bundle.js")
 	cmd.Dir = root
 	require.NoError(t, cmd.Run())
 
-	out, err := runInit(t, RunOptions{Dir: root, Check: true})
+	out, err := runInit(t, RunOptions{Env: env, Dir: root, Check: true})
 	require.ErrorIs(t, err, ErrChangesPending)
 	require.Contains(t, out, "- Skip web/vendor.bundle.js (minified or bundled)")
 
-	_, err = runInit(t, RunOptions{Dir: root})
+	_, err = runInit(t, RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)
 	require.Contains(t, readIgnoreFile(t, root), "/web/vendor.bundle.js\n")
 }
 
 func TestSettingsStopSkippingIsRemembered(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := bulkyRepo(t)
-	_, err := runInit(t, RunOptions{Dir: root})
+	_, err := runInit(t, RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)
 
 	// s opens settings, 1 what gets indexed, 5 stop skipping; Enter leaves
 	// settings and Enter applies.
-	out, err := runInit(t, RunOptions{Dir: root, Interactive: true, Stdin: bytes.NewBufferString("s\n1\n2\nweb/app.min.js\n\n\n")})
+	out, err := runInit(t, RunOptions{Env: env, Dir: root, Interactive: true, Stdin: bytes.NewBufferString("s\n1\n2\nweb/app.min.js\n\n\n")})
 
 	require.NoError(t, err)
 	require.Contains(t, out, "+ Index web/app.min.js again")
@@ -123,15 +135,18 @@ func TestSettingsStopSkippingIsRemembered(t *testing.T) {
 	require.NotContains(t, ignoreFile, "# "+reasonBundled+"\n", "the reason line goes with its entry")
 	require.Contains(t, ignoreFile, keepIndexedPrefix+"web/app.min.js\n")
 
-	out, err = runInit(t, RunOptions{Dir: root})
+	out, err = runInit(t, RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)
 	require.Contains(t, out, "Everything is up to date.")
 }
 
 func TestSettingsSkipAPathWritesIt(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := rerunRepo(t)
 
-	out, err := runInit(t, RunOptions{Dir: root, Interactive: true, Stdin: bytes.NewBufferString("s\n1\n1\n./cmd\n\n\n")})
+	out, err := runInit(t, RunOptions{Env: env, Dir: root, Interactive: true, Stdin: bytes.NewBufferString("s\n1\n1\n./cmd\n\n\n")})
 
 	require.NoError(t, err)
 	require.Contains(t, out, "- Skip cmd/ ("+reasonManual+")")

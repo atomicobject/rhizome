@@ -8,10 +8,9 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
 )
 
 func printUnifiedResult(w io.Writer, useColor bool, termWidth int, vaultPath string, idx int, res search.RankedResult, noteChunks []search.RankedResult, anchor *codeanchor.IntelAnchor, moduleExports []string, chunkCache map[string][]embeddings.ChunkInput) {
@@ -258,7 +257,7 @@ func printUnifiedAnchorCode(w io.Writer, useColor bool, vaultPath string, a code
 	if err != nil {
 		return false
 	}
-	code := strings.TrimSpace(semantic.ExtractSpan(data, a))
+	code := strings.TrimSpace(codeanchor.ExtractSpan(data, a))
 	if code == "" {
 		return false
 	}

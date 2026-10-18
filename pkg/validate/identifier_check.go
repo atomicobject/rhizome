@@ -3,20 +3,19 @@ package validate
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"sort"
 	"strings"
 	"time"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 type identifierRepairPayload struct {
-	Assembly *identifierreconcile.RepairAssembly
-	Bindings []IdentifierRepairActionBinding
+	Assembly    *identifierreconcile.RepairAssembly
+	Bindings    []IdentifierRepairActionBinding
+	preparation *identifierRepairPreparation
 }
 
 type manualIdentifierCollision struct {
@@ -28,53 +27,20 @@ type manualIdentifierCollision struct {
 const issueCodeIdentifierDateTimeFormatMismatch = "identifier_datetime_format_mismatch"
 const issueCodeIdentifierSequentialFormatMismatch = "identifier_sequential_format_mismatch"
 
-// RunIdentifiers refreshes one runtime for non-product callers. Prepared
-// product execution enters through RunIdentifiersWithRuntime instead.
-func RunIdentifiers(ctx context.Context, runCtx RunContext) CheckResult {
-	result := CheckResult{Name: CheckIdentifiers, OK: true}
-	if err := runCtx.NoteMetadata.Validate(); err != nil {
-		result.OK = false
-		result.Error = fmt.Sprintf("note metadata indexer: %v", err)
-		return result
-	}
-	runtime, cleanup, err := ontology.EnsureFreshRuntime(ctx, runCtx.NoteMetadata, runCtx.VaultDef, runCtx.NoteReader)
-	if cleanup != nil {
-		defer cleanup()
-	}
-	if err != nil && (runtime == nil || runtime.Schema == nil) {
-		result.OK = false
-		result.Error = err.Error()
-		return result
-	}
-	return RunIdentifiersWithRuntime(ctx, runCtx, runtime)
-}
-
-// RunIdentifiersWithStore refreshes an existing caller-owned store.
-func RunIdentifiersWithStore(ctx context.Context, runCtx RunContext, store *semdb.Store) CheckResult {
-	if err := runCtx.NoteMetadata.Validate(); err != nil {
-		return CheckResult{Name: CheckIdentifiers, Error: fmt.Sprintf("note metadata indexer: %v", err)}
-	}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, runCtx.NoteMetadata, runCtx.VaultDef, runCtx.NoteReader, store)
-	if err != nil && (runtime == nil || runtime.Schema == nil) {
-		return CheckResult{Name: CheckIdentifiers, Error: err.Error()}
-	}
-	return RunIdentifiersWithRuntime(ctx, runCtx, runtime)
-}
-
 // RunIdentifiersWithRuntime validates the complete prepared ontology node
 // catalog. It never reacquires a runtime or opens a replacement store.
 func RunIdentifiersWithRuntime(ctx context.Context, runCtx RunContext, runtime *ontology.Runtime) CheckResult {
 	if runtime == nil || runtime.Schema == nil {
-		return CheckResult{Name: CheckIdentifiers, Skipped: true, OK: true, Summary: "no ontology schema"}
+		return CheckResult{Name: CheckIdentifiers, OK: true, NotApplicable: "no ontology schema", Summary: "no ontology schema"}
 	}
 	if runtime.Store == nil {
-		return CheckResult{Name: CheckIdentifiers, Skipped: true, OK: true, Summary: "no intel store"}
+		return CheckResult{Name: CheckIdentifiers, Error: "prepared intel store is unavailable"}
 	}
 
 	// Preserve the identifier/alias mirror and missing-required-field behavior,
 	// then replace its legacy note-only collision pass with the pool inventory.
 	result := runAliasesWithRuntime(ctx, runCtx, runtime, CheckResult{Name: CheckIdentifiers, OK: true})
-	if result.Error != "" || result.Skipped {
+	if result.Error != "" || result.NotApplicable != "" {
 		return result
 	}
 	inventoryStarted := time.Now()
@@ -168,14 +134,9 @@ func RunIdentifiersWithRuntime(ctx context.Context, runCtx RunContext, runtime *
 	sortIdentifierCheckOutput(&result)
 
 	if identifierRepairRequired(reconciliationPlan, migrationAssessments) {
-		payload, referenceDuration, transactionDuration, payloadErr := buildIdentifierRepairPayload(ctx, runCtx, reconciliationPlan, migrationAssessments, runtimeInventory, bindings)
-		result.identifierReconciliation.Diagnostics.Timings.ReferenceDiscovery = referenceDuration
-		result.identifierReconciliation.Diagnostics.Timings.TransactionConstruction = transactionDuration
-		if payloadErr != nil {
-			result.Notes = append(result.Notes, "identifier repair planning unavailable: "+payloadErr.Error())
-		} else {
-			result.identifierRepair = payload
-		}
+		result.identifierRepair = &identifierRepairPayload{Bindings: bindings, preparation: &identifierRepairPreparation{
+			plan: reconciliationPlan, migrations: migrationAssessments, inventory: runtimeInventory,
+		}}
 	}
 
 	result.IssueCount = len(result.Issues)
@@ -380,7 +341,7 @@ func identifierRepairRequired(plan *identifierreconcile.Plan, migrations []ident
 }
 
 func buildIdentifierRepairPayload(ctx context.Context, runCtx RunContext, plan *identifierreconcile.Plan, migrations []identifierMigrationAssessment, inventory identifierRuntimeInventory, bindings []IdentifierRepairActionBinding) (*identifierRepairPayload, time.Duration, time.Duration, error) {
-	var roots []reference.IdentifierRewrite
+	var roots []identifierrewrite.IdentifierRewrite
 	var collisionInputs []identifierreconcile.CollisionRepairInput
 	if plan != nil {
 		for _, collision := range plan.Collisions {
@@ -390,13 +351,13 @@ func buildIdentifierRepairPayload(ctx context.Context, runCtx RunContext, plan *
 				oldRef := ontology.NodeRef{NotePath: loser.Claim.Node.NotePath, Fragment: loser.Claim.Node.Fragment, TypeName: loser.Claim.Node.TypeName, Kind: ontology.NodeKind(node.row.NodeKind)}
 				newRef := oldRef
 				newIdentifier := loser.Replacement
-				mode := reference.IdentifierRewritePreferredRekey
+				mode := identifierrewrite.IdentifierRewritePreferredRekey
 				if loser.Claim.Kind == identifierreconcile.ClaimAlias {
-					mode = reference.IdentifierRewriteAliasRemoval
+					mode = identifierrewrite.IdentifierRewriteAliasRemoval
 					newIdentifier = inventory.preferredByNode[loser.Claim.Node.String()]
 				}
-				aliasField, additionalAliasesFields := identifierRewriteAliasFields(node, loser.Claim.Value, mode == reference.IdentifierRewriteAliasRemoval)
-				rewrite := reference.IdentifierRewrite{Mode: mode, OldRef: oldRef, NewRef: newRef, OldIdentifier: loser.Claim.Value, NewIdentifier: newIdentifier, PreferredField: loser.Claim.Node.IdentifierField, AliasesField: aliasField, AdditionalAliasesFields: additionalAliasesFields}
+				aliasField, additionalAliasesFields := identifierRewriteAliasFields(node, loser.Claim.Value, mode == identifierrewrite.IdentifierRewriteAliasRemoval)
+				rewrite := identifierrewrite.IdentifierRewrite{Mode: mode, OldRef: oldRef, NewRef: newRef, OldIdentifier: loser.Claim.Value, NewIdentifier: newIdentifier, PreferredField: loser.Claim.Node.IdentifierField, AliasesField: aliasField, AdditionalAliasesFields: additionalAliasesFields}
 				if loser.Claim.Kind == identifierreconcile.ClaimPreferred {
 					request := obsidian.GovernedMoveRequest{SourcePath: oldRef.NotePath, OldID: loser.Claim.Value, NewID: newIdentifier, SiblingPaths: inventory.notePaths}
 					move, conflict, err := obsidian.PlanGovernedIdentifierMove(request)
@@ -427,8 +388,8 @@ func buildIdentifierRepairPayload(ctx context.Context, runCtx RunContext, plan *
 			oldRef := ontology.NodeRef{NotePath: planned.Node.NotePath, Fragment: planned.Node.Fragment, TypeName: planned.Node.TypeName, Kind: ontology.NodeKind(node.row.NodeKind)}
 			newRef := oldRef
 			aliasField, additionalAliasesFields := identifierRewriteAliasFields(node, planned.OldIdentifier, false)
-			rewrite := reference.IdentifierRewrite{
-				Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef,
+			rewrite := identifierrewrite.IdentifierRewrite{
+				Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef,
 				OldIdentifier: planned.OldIdentifier, NewIdentifier: planned.NewIdentifier,
 				PreferredField: planned.Node.IdentifierField, AliasesField: aliasField, AdditionalAliasesFields: additionalAliasesFields,
 			}
@@ -448,7 +409,7 @@ func buildIdentifierRepairPayload(ctx context.Context, runCtx RunContext, plan *
 		migrationInputs = append(migrationInputs, input)
 	}
 	referenceStarted := time.Now()
-	fields, err := identifierreconcile.DiscoverIdentifierFields(ctx, identifierreconcile.IdentifierFieldDiscoveryRequest{VaultDef: runCtx.VaultDef, RootRewrites: roots})
+	fields, err := identifierreconcile.DiscoverIdentifierFields(ctx, identifierreconcile.IdentifierFieldDiscoveryRequest{NoteMetadata: runCtx.NoteMetadata, VaultDef: runCtx.VaultDef, RootRewrites: roots})
 	if err != nil {
 		return nil, nonZeroDuration(time.Since(referenceStarted)), 0, err
 	}

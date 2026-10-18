@@ -10,7 +10,7 @@ func recordSearchFallback(ctx context.Context, stage string, err error) {
 	if operation, _ := ctx.Value(searchOperationKey{}).(*searchOperation); operation != nil {
 		operation.partial.Store(true)
 	}
-	indexingperf.AddCount(ctx, indexingperf.DiagnosticFallbackPrefix+stage+"."+statusFromErr(err), 1)
+	indexingperf.AddCount(ctx, indexingperf.SearchFallback.Select(stage, TimingStatus(err)), 1)
 }
 
 func searchResultStatus(ctx context.Context, err error) string {
@@ -20,5 +20,5 @@ func searchResultStatus(ctx context.Context, err error) string {
 			return "partial"
 		}
 	}
-	return statusFromErr(err)
+	return TimingStatus(err)
 }

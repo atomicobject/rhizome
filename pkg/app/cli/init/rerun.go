@@ -15,7 +15,8 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"gopkg.in/yaml.v3"
 )
@@ -40,7 +41,7 @@ type initRun struct {
 // it. Code that changes a setup replaces slices and pointers instead of
 // mutating them, so a shallow copy is a safe snapshot.
 type setup struct {
-	cfg       obsidian.LocalConfig
+	cfg       repoconfig.LocalConfig
 	workflows []string // chosen workflow starters
 	// includeIgnored lists folders Git ignores that Rhizome should index.
 	includeIgnored []string
@@ -53,14 +54,14 @@ type setup struct {
 // resolved is a setup made concrete: the final config, the starters it
 // installs, the agent folders, and the classified generated files.
 type resolved struct {
-	cfg       obsidian.LocalConfig
+	cfg       repoconfig.LocalConfig
 	effective []string
 	harnesses AgentHarnesses
 	files     *preparedFiles
 }
 
 // harnessesFor applies agent preferences to what detection found.
-func (r *initRun) harnessesFor(cfg obsidian.LocalConfig) AgentHarnesses {
+func (r *initRun) harnessesFor(cfg repoconfig.LocalConfig) AgentHarnesses {
 	harnesses, _, err := applyAgentOverrides(r.layout.AgentHarnesses, cfg.Agents, RunOptions{})
 	if err != nil {
 		return r.layout.AgentHarnesses
@@ -159,7 +160,7 @@ func (r *initRun) apply(s setup, res resolved) (syncReport, error) {
 
 // configChanges lists the config sections that differ from the existing
 // config, plus workflow sections that still live in a legacy location.
-func (r *initRun) configChanges(cfg obsidian.LocalConfig) changeSet {
+func (r *initRun) configChanges(cfg repoconfig.LocalConfig) changeSet {
 	before := r.layout.ExistingLocal
 	changes := changeSet{}
 	for section, pair := range map[string][2]any{
@@ -185,7 +186,7 @@ func (r *initRun) configChanges(cfg obsidian.LocalConfig) changeSet {
 	return changes
 }
 
-func emptyAgentsAsNil(prefs *obsidian.AgentPreferences) *obsidian.AgentPreferences {
+func emptyAgentsAsNil(prefs *repoconfig.AgentPreferences) *repoconfig.AgentPreferences {
 	if prefs == nil || prefs.Empty() {
 		return nil
 	}

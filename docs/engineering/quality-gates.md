@@ -6,7 +6,7 @@ Consulted when running verification and when deciding what is safe to run withou
 
 | Gate | When | Command |
 | --- | --- | --- |
-| Fast checks | every changed Go or TypeScript file, in the edit loop | `make check-fast` (gofmt, `go vet`, Greptile config, web lint and typechecks; seconds when warm) |
+| Fast checks | every changed Go or TypeScript file, in the edit loop | `make check-fast` (gofmt, Go unused/SA analysis, file-size ratchet, `go vet`, repository content, Greptile config, web lint and typechecks) |
 | Focused tests | changed package or bug fix | `go test ./pkg/<path>/...` or `go test ./cmd/...` |
 | Pre-commit verification | before committing Go or TypeScript changes | `make check` (`check-fast` plus Go unit tests without the race detector and web unit tests; about a minute) |
 | Full verification | CI runs it on every pull request and is the merge gate. Run it locally before a release, before effort closure without a pull request, or when a change touches concurrency, the vault runtime, or indexing | `make check-full` (adds race-enabled unit tests, integration tests, and benchmark contracts) |
@@ -17,6 +17,7 @@ Consulted when running verification and when deciding what is safe to run withou
 | Desktop verification | changes to `desktop/` or the desktop bridge | `make desktop-deps`, then `make desktop-check` and `make desktop-build` on macOS; exercise the packaged app with a real fixture folder |
 | CI test jobs | pull requests and `main` | Linux runs unit and integration tests with `-race`; Windows runs them without it, since the race detector is OS-agnostic and the Windows job exists for path and file-locking behavior. Go jobs are skipped when a pull request only touches `web/` |
 | CI content check | pull requests | `rzm ci` runs the default validation suite read-only and is not a substitute for `make check` |
+| Repository content contracts | changes to shipped guidance, recipes, or repository schemas | `make test-content` runs the explicitly tagged content suite; package unit tests use synthetic fixtures |
 
 ## Safe to run without asking
 

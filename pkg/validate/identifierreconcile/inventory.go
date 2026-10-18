@@ -2,10 +2,9 @@ package identifierreconcile
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 type poolValueKey struct {
@@ -23,7 +22,7 @@ type poolReservationKey struct {
 // one planning run.
 type Inventory struct {
 	claims       []Claim
-	reservations map[PoolKey][]ontology.IdentifierReservation
+	reservations map[PoolKey][]ontoschema.IdentifierReservation
 	collisions   []Collision
 }
 
@@ -69,8 +68,8 @@ func BuildInventory(input []Claim) (*Inventory, error) {
 	return &Inventory{claims: claims, reservations: reservations, collisions: collisions}, nil
 }
 
-func buildReservationInventories(claims []Claim) map[PoolKey][]ontology.IdentifierReservation {
-	reservations := make(map[PoolKey][]ontology.IdentifierReservation)
+func buildReservationInventories(claims []Claim) map[PoolKey][]ontoschema.IdentifierReservation {
+	reservations := make(map[PoolKey][]ontoschema.IdentifierReservation)
 	seen := make(map[poolReservationKey]struct{}, len(claims))
 	for _, claim := range claims {
 		owner := claim.Node.String()
@@ -79,7 +78,7 @@ func buildReservationInventories(claims []Claim) map[PoolKey][]ontology.Identifi
 			continue
 		}
 		seen[key] = struct{}{}
-		reservations[claim.Pool] = append(reservations[claim.Pool], ontology.IdentifierReservation{
+		reservations[claim.Pool] = append(reservations[claim.Pool], ontoschema.IdentifierReservation{
 			Value: claim.Value,
 			Owner: owner,
 		})
@@ -109,7 +108,7 @@ func NormalizeIdentifierValue(value string) string {
 // IdentifierComparisonKey matches noderead's case-folded semantic identity
 // while Claim.Value retains the authored spelling needed for exact edits.
 func IdentifierComparisonKey(value string) string {
-	return ontology.NormalizeIdentifierSemanticValue(value)
+	return ontoschema.NormalizeIdentifierSemanticValue(value)
 }
 
 func normalizeClaim(raw Claim) (Claim, error) {
@@ -162,12 +161,12 @@ func (i *Inventory) CollisionClaims() []Claim {
 
 // ReservationInventory returns a defensive copy of the canonical frozen
 // preferred and alias reservations for one strategy pool.
-func (i *Inventory) ReservationInventory(pool PoolKey) ontology.IdentifierReservationInventory {
+func (i *Inventory) ReservationInventory(pool PoolKey) ontoschema.IdentifierReservationInventory {
 	if i == nil {
-		return ontology.IdentifierReservationInventory{}
+		return ontoschema.IdentifierReservationInventory{}
 	}
-	return ontology.IdentifierReservationInventory{
-		Reservations: append([]ontology.IdentifierReservation(nil), i.reservations[pool]...),
+	return ontoschema.IdentifierReservationInventory{
+		Reservations: append([]ontoschema.IdentifierReservation(nil), i.reservations[pool]...),
 	}
 }
 

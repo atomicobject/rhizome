@@ -9,13 +9,14 @@ package init
 import (
 	"errors"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"os/exec"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // errSetupCancelled ends a first run that the person declined; nothing is
@@ -73,7 +74,7 @@ func searchReady(provider string, session *credentials.Session, current *embeddi
 		if current != nil && strings.EqualFold(strings.TrimSpace(current.Provider), searchOllama) {
 			probe = current
 		}
-		ok, _ := embeddingsProviderReady(probe)
+		ok, _ := embeddingsProviderReady(vaultconfig.Env{}, probe)
 		return ok
 	default:
 		return false
@@ -87,7 +88,7 @@ func searchReady(provider string, session *credentials.Session, current *embeddi
 // offer it once a key is available.
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US1-AC7]]
-func applySearchChoice(cfg *obsidian.LocalConfig, provider string, ready bool) {
+func applySearchChoice(cfg *repoconfig.LocalConfig, provider string, ready bool) {
 	// Keeping the provider keeps its model and endpoint settings.
 	if current := cfg.NoteEmbeddings; current != nil && provider != searchOff && (ready || !current.Enabled) &&
 		strings.EqualFold(strings.TrimSpace(current.Provider), provider) {
@@ -113,9 +114,9 @@ func applySearchChoice(cfg *obsidian.LocalConfig, provider string, ready bool) {
 // stores them as on so later runs do not depend on this machine.
 //
 // Docs: [[agent-surface-integration-modes#^SPEC-0045-US1]]
-func addInstalledAgents(cfg *obsidian.LocalConfig, layout *DetectedLayout) {
+func addInstalledAgents(cfg *repoconfig.LocalConfig, layout *DetectedLayout) {
 	if cfg.Agents == nil {
-		cfg.Agents = &obsidian.AgentPreferences{}
+		cfg.Agents = &repoconfig.AgentPreferences{}
 	}
 	for _, tool := range []struct {
 		command string
@@ -149,7 +150,7 @@ type firstRunOutcome struct {
 func (r *initRun) runFirstRun(s *setup, workflowChosen bool) (firstRunOutcome, error) {
 	var outcome firstRunOutcome
 	out := r.opts.Stdout
-	rec := obsidian.LocalConfig{Rhizome: s.cfg.Rhizome}
+	rec := repoconfig.LocalConfig{Rhizome: s.cfg.Rhizome}
 	applyFirstRunDefaults(&rec, r.layout)
 	enableAgentGuidance(&rec, &r.layout)
 	if strings.TrimSpace(r.opts.Agents) == "" {
@@ -250,7 +251,7 @@ func searchHint(provider string, ready bool) string {
 	return "Set " + need.Key + ", then run rzm init, to turn on semantic search."
 }
 
-func searchProviderOf(cfg obsidian.LocalConfig) string {
+func searchProviderOf(cfg repoconfig.LocalConfig) string {
 	if cfg.NoteEmbeddings == nil {
 		return searchVoyage
 	}
@@ -276,17 +277,17 @@ func noticeSearchNotReady(out io.Writer, provider string, ready bool) {
 }
 
 // applyFirstRunDefaults indexes all Markdown and all supported code.
-func applyFirstRunDefaults(cfg *obsidian.LocalConfig, layout DetectedLayout) {
+func applyFirstRunDefaults(cfg *repoconfig.LocalConfig, layout DetectedLayout) {
 	// Notes cover all Markdown and code covers every supported language, so
 	// content added later is indexed; .rhizome/ignore is how things stay out.
-	cfg.Notes = obsidian.LocalVaultConfig{Links: layout.SuggestedVault.Links}
+	cfg.Notes = repoconfig.LocalVaultConfig{Links: layout.SuggestedVault.Links}
 	enableAutomaticCodeScope(cfg)
 }
 
 // enableAgentGuidance turns on AGENTS.md and .agents/skills, and clears
 // harnesses someone turned off, so detection decides them again.
-func enableAgentGuidance(cfg *obsidian.LocalConfig, layout *DetectedLayout) {
-	prefs := obsidian.AgentPreferences{}
+func enableAgentGuidance(cfg *repoconfig.LocalConfig, layout *DetectedLayout) {
+	prefs := repoconfig.AgentPreferences{}
 	if cfg.Agents != nil {
 		prefs = *cfg.Agents
 	}

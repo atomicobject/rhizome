@@ -8,14 +8,15 @@ import (
 	"testing"
 
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRepositoryDotEnvCannotDisableUpdateTrust(t *testing.T) {
 	repo := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{
-		Rhizome: obsidian.LocalRhizomeConfig{Version: "v1.2.3"},
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{
+		Rhizome: repoconfig.LocalRhizomeConfig{Version: "v1.2.3"},
 	}))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte(
 		"RZM_SKIP_REPO_DELEGATE=1\nRZM_REPO_DELEGATED=1\n"), 0o600))

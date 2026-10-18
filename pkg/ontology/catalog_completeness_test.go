@@ -2,13 +2,13 @@ package ontology
 
 import (
 	"context"
-	"path/filepath"
-	"testing"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+	"path/filepath"
+	"testing"
 )
 
 func TestCatalogCompletenessAcceptsIntentionalAbsence(t *testing.T) {
@@ -29,7 +29,7 @@ type Second @node(matches: ["tag:overlap"]) { name: String }
 			store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, store.Close()) })
-			indexer := testNoteMetadataIndexer(t)
+			indexer := testkit.NoteMetadataIndexer(t)
 			vault := obsidian.VaultDefinition{Path: root}
 			_, err = indexer.EnsureIndexed(ctx, vault, &obsidian.Note{}, store)
 			require.NoError(t, err)
@@ -38,11 +38,11 @@ type Second @node(matches: ["tag:overlap"]) { name: String }
 					require.NoError(t, indexer.SyncPaths(ctx, vault, &obsidian.Note{}, store, paths, nil))
 				}
 				if mode == "full" {
-					result, err := EnsureIndexed(ctx, indexer, vault, &obsidian.Note{}, store)
+					result, err := ensureIndexedForTest(ctx, indexer, vault, &obsidian.Note{}, store)
 					require.NoError(t, err)
 					return result.Dirty
 				}
-				result, err := SyncPublishedPaths(ctx, indexer, vault, &obsidian.Note{}, store, nil, paths, nil)
+				result, err := syncPublishedPathsForTest(ctx, indexer, vault, &obsidian.Note{}, store, nil, paths, nil)
 				require.NoError(t, err)
 				return result.Dirty
 			}
@@ -81,7 +81,7 @@ type Second @node(matches: ["tag:overlap"]) { name: String }
 			assertCounts()
 
 			// A normal source losing its required catalog rows must still be repaired.
-			require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, codeanchor.IntelOntologyNodeReadModel{NotePaths: []string{"projects/normal.md"}}))
+			require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, readmodel.NodeReadModel{NotePaths: []string{"projects/normal.md"}}))
 			runtime, err = PublishedRuntimeWithStore(ctx, indexer, vault, store)
 			require.NoError(t, err)
 			require.False(t, runtime.Ready)
@@ -99,7 +99,7 @@ type Second @node(matches: ["tag:overlap"]) { name: String }
 				if content[0] == 'P' {
 					require.Greater(t, len(nodes), 1)
 					// Partial loss must also fail when the note still has a root.
-					require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, codeanchor.IntelOntologyNodeReadModel{
+					require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, readmodel.NodeReadModel{
 						NotePaths: []string{"notes/ambiguous.md"}, Nodes: nodes[:1],
 					}))
 					writeOntologyNote(t, root, "notes/blank.md", "  ")
@@ -115,7 +115,7 @@ type Second @node(matches: ["tag:overlap"]) { name: String }
 					fields, err := store.OntologyNodeFieldValuesByNodeIDs(ctx, ids, nil)
 					require.NoError(t, err)
 					repaired[0].StructuralFingerprint = "substituted"
-					require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, codeanchor.IntelOntologyNodeReadModel{
+					require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, readmodel.NodeReadModel{
 						NotePaths: []string{"notes/ambiguous.md"}, Nodes: repaired, FieldValues: fields,
 					}))
 					runtime, err := PublishedRuntimeWithStore(ctx, indexer, vault, store)

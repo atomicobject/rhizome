@@ -30,7 +30,7 @@ func TestRepairReviewCapacityPreservesTerminalRetryUntilExpiry(t *testing.T) {
 			require.NoError(t, err)
 			apply := RepairReviewApplyRequest{Generation: 4, PlanFingerprint: review.PlanFingerprint, SelectionFingerprint: review.SelectionFingerprint}
 			if !fail {
-				apply.Options = Options{PostApplyRefresher: &repairPostApplyProbe{t: t}}
+				apply.Options = ApplyOptions{PostApplyRefresher: &repairPostApplyProbe{t: t}}
 			}
 			result, execution, applyErr := store.Apply(context.Background(), review.ID, apply)
 			if fail {

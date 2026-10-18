@@ -3,7 +3,7 @@ package desktop
 import (
 	"context"
 
-	"github.com/atomicobject/rhizome/pkg/app/runtimestop"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 )
 
 type StopResult struct {
@@ -22,7 +22,7 @@ func (s *Service) Stop(ctx context.Context, req Request) (StopResult, error) {
 	if err := checkRecordedRuntimeIdentity(ctx, info.Path); err != nil {
 		return StopResult{}, err
 	}
-	if err := runtimestop.StopVault(ctx, info.Path, 0); err != nil {
+	if err := appruntime.StopVault(ctx, info.Path, 0); err != nil {
 		return StopResult{}, problem("runtime_error", "Rhizome did not stop: "+err.Error())
 	}
 	return StopResult{Stopped: true}, nil

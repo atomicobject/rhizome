@@ -20,7 +20,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/stretchr/testify/require"
 )
@@ -69,7 +69,7 @@ func TestPinAdvanceUsesReleaseAndChangesOnlyPin(t *testing.T) {
 	// The app offers the version this bridge was built as.
 	s.available = func() string { return version.Version }
 	server, requests := releaseFixture(t, false)
-	folder := config(t, obsidian.LocalRhizomeConfig{Version: "v1.0.0"})
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v1.0.0"})
 	priorVersion := version.Version
 	version.Version = "v1.2.3"
 	t.Cleanup(func() { version.Version = priorVersion })
@@ -118,7 +118,7 @@ func TestPinAdvanceChecksumFailureNamesStageAndPreservesPinAndBinary(t *testing.
 	s := testService(t)
 	s.available = func() string { return "v1.2.3" }
 	server, _ := releaseFixture(t, true)
-	folder := config(t, obsidian.LocalRhizomeConfig{Version: "v1.0.0"})
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v1.0.0"})
 	target := filepath.Join(folder, ".rhizome", "bin", repoexec.PlatformDir(), repoexec.ExecutableName())
 	workingScript(t, target)
 	before, err := os.ReadFile(target)
@@ -134,7 +134,7 @@ func TestPinAdvanceChecksumFailureNamesStageAndPreservesPinAndBinary(t *testing.
 	_, err = s.PinAdvance(context.Background(), folder)
 	code(t, err, "pin_advance_failed")
 	require.Contains(t, err.Error(), "checksum")
-	_, cfg, err := obsidian.FindLocalConfigForDelegation(folder)
+	_, cfg, err := repoconfig.FindLocalConfigForDelegation(folder)
 	require.NoError(t, err)
 	require.Equal(t, "v1.0.0", cfg.Rhizome.Version)
 	after, err := os.ReadFile(target)
@@ -145,7 +145,7 @@ func TestPinAdvanceChecksumFailureNamesStageAndPreservesPinAndBinary(t *testing.
 func TestManagedBootstrapRequiresTrustBeforeReleaseDownload(t *testing.T) {
 	s := testService(t)
 	server, requests := releaseFixture(t, false)
-	folder := config(t, obsidian.LocalRhizomeConfig{Version: "v1.2.3"})
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v1.2.3"})
 	s.ensurePinned = func(ctx context.Context, opts appupdate.EnsureOptions) error {
 		opts.ManifestURL = server.URL + "/releases/latest"
 		opts.HTTPClient = server.Client()
@@ -163,7 +163,7 @@ func TestManagedBootstrapRequiresTrustBeforeReleaseDownload(t *testing.T) {
 	_, err = s.Open(context.Background(), Request{Folder: folder})
 	require.NoError(t, err)
 	require.Positive(t, requests.Load())
-	_, loaded, err := obsidian.FindLocalConfigForDelegation(folder)
+	_, loaded, err := repoconfig.FindLocalConfigForDelegation(folder)
 	require.NoError(t, err)
 	require.Equal(t, "v1.2.3", loaded.Rhizome.Version)
 }

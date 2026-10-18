@@ -53,7 +53,7 @@ var semanticQueryPhaseDescriptors = [...]string{
 
 type semanticQueryOperationDescriptor struct {
 	label           string
-	source          string
+	source          MetricName
 	alwaysAvailable bool
 }
 
@@ -68,7 +68,7 @@ var semanticQueryOperationDescriptors = [...]semanticQueryOperationDescriptor{
 	{SemanticQueryOpSchemaStatements, AgentStartOpSchemaStatements, false},
 	{SemanticQueryOpIntegrityChecks, AgentStartOpIntegrityChecks, false},
 	{SemanticQueryOpIndexWrites, AgentStartOpIndexWrites, false},
-	{SemanticQueryOpProviderCalls, "provider.calls", false},
+	{SemanticQueryOpProviderCalls, ProviderCalls, false},
 	{SemanticQueryOpVectorKNNQueries, SemanticQueryOpVectorKNNQueries, true},
 	{SemanticQueryOpVectorTieRetries, SemanticQueryOpVectorTieRetries, true},
 	{SemanticQueryOpVectorScalarFallbacks, SemanticQueryOpVectorScalarFallbacks, true},
@@ -94,7 +94,7 @@ type SemanticQueryOperationDiagnostic struct {
 
 func NewSemanticQueryCollector() *Collector {
 	collector := New()
-	allowedMetrics := map[string]bool{}
+	allowedMetrics := map[MetricName]bool{}
 	for _, descriptor := range semanticQueryOperationDescriptors {
 		allowedMetrics[descriptor.source] = true
 	}

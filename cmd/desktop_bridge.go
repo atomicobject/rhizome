@@ -18,7 +18,7 @@ func newDesktopBridgeCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			service, err := desktop.New(stateDir)
+			service, err := desktop.New(stateDir, commandEnvFromContext(cmd.Context()).Config)
 			if err != nil {
 				if writeErr := json.NewEncoder(cmd.OutOrStdout()).Encode(desktop.Response{Protocol: desktop.Protocol, Error: &desktop.Problem{Code: "invalid_request", Message: err.Error()}}); writeErr != nil {
 					return writeErr
@@ -35,8 +35,4 @@ func newDesktopBridgeCmd() *cobra.Command {
 	}
 	command.Flags().StringVar(&stateDir, "state-dir", "", "absolute desktop application data directory")
 	return command
-}
-
-func init() {
-	rootCmd.AddCommand(newDesktopBridgeCmd())
 }

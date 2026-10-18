@@ -2,11 +2,11 @@ package views
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/stretchr/testify/require"
 )
@@ -30,12 +30,12 @@ variants:
 
 	service := New(ServiceOptions{
 		VaultPath: root,
-		Schema: &ontology.Schema{
-			Types: map[string]*ontology.NoteType{
+		Schema: &ontoschema.Schema{
+			Types: map[string]*ontoschema.NoteType{
 				"ProductSpec": {Name: "ProductSpec"},
 				"EffortNote":  {Name: "EffortNote"},
 			},
-			Interfaces: map[string]*ontology.InterfaceType{},
+			Interfaces: map[string]*ontoschema.InterfaceType{},
 		},
 	})
 
@@ -48,20 +48,20 @@ variants:
 
 func TestCatalogGeneratedTypeDefaultsComeFromTheProfile(t *testing.T) {
 	service := New(ServiceOptions{
-		Schema: &ontology.Schema{
-			EnumTypes: map[string]*ontology.EnumType{"SpecStatus": stagedEnum("SpecStatus",
+		Schema: &ontoschema.Schema{
+			EnumTypes: map[string]*ontoschema.EnumType{"SpecStatus": stagedEnum("SpecStatus",
 				[2]string{"proposed", "open"}, [2]string{"live", "done"}, [2]string{"archived", "dropped"})},
-			Types: map[string]*ontology.NoteType{
+			Types: map[string]*ontoschema.NoteType{
 				"ProductSpec": {
 					Name: "ProductSpec",
-					Fields: []*ontology.Field{
-						{Name: "summary", Source: "summary", SourceKind: ontology.FieldSourceFrontmatter, Kind: ontology.FieldKindScalar, TypeName: "String"},
-						{Name: "id", Source: "id", SourceKind: ontology.FieldSourceFrontmatter, Kind: ontology.FieldKindScalar, TypeName: "String", IsPreferredIdentifier: true},
-						keyField(&ontology.Field{Name: "specStatus", Source: "spec-status", SourceKind: ontology.FieldSourceFrontmatter, Kind: ontology.FieldKindEnum, TypeName: "SpecStatus"}),
+					Fields: []*ontoschema.Field{
+						{Name: "summary", Source: "summary", SourceKind: ontoschema.FieldSourceFrontmatter, Kind: ontoschema.FieldKindScalar, TypeName: "String"},
+						{Name: "id", Source: "id", SourceKind: ontoschema.FieldSourceFrontmatter, Kind: ontoschema.FieldKindScalar, TypeName: "String", IsPreferredIdentifier: true},
+						keyField(&ontoschema.Field{Name: "specStatus", Source: "spec-status", SourceKind: ontoschema.FieldSourceFrontmatter, Kind: ontoschema.FieldKindEnum, TypeName: "SpecStatus"}),
 					},
 				},
 			},
-			Interfaces: map[string]*ontology.InterfaceType{},
+			Interfaces: map[string]*ontoschema.InterfaceType{},
 		},
 	})
 
@@ -82,18 +82,18 @@ func TestCatalogGeneratedTypeDefaultsComeFromTheProfile(t *testing.T) {
 }
 
 func TestCatalogGeneratedInterfaceDefaultsUseDeclaredFields(t *testing.T) {
-	service := New(ServiceOptions{Schema: &ontology.Schema{
-		EnumTypes: map[string]*ontology.EnumType{"EffortStatus": stagedEnum("EffortStatus",
+	service := New(ServiceOptions{Schema: &ontoschema.Schema{
+		EnumTypes: map[string]*ontoschema.EnumType{"EffortStatus": stagedEnum("EffortStatus",
 			[2]string{"planned", "open"}, [2]string{"active", "active"}, [2]string{"complete", "done"})},
-		Types: map[string]*ontology.NoteType{},
-		Interfaces: map[string]*ontology.InterfaceType{
+		Types: map[string]*ontoschema.NoteType{},
+		Interfaces: map[string]*ontoschema.InterfaceType{
 			"Effort": {
 				Name: "Effort",
-				Fields: []*ontology.Field{
-					{Name: "id", Kind: ontology.FieldKindScalar, TypeName: "String", IsIdentifier: true},
-					{Name: "name", Kind: ontology.FieldKindScalar, TypeName: "String"},
-					keyField(&ontology.Field{Name: "status", Kind: ontology.FieldKindEnum, TypeName: "EffortStatus"}),
-					{Name: "summary", Kind: ontology.FieldKindScalar, TypeName: "String"},
+				Fields: []*ontoschema.Field{
+					{Name: "id", Kind: ontoschema.FieldKindScalar, TypeName: "String", IsIdentifier: true},
+					{Name: "name", Kind: ontoschema.FieldKindScalar, TypeName: "String"},
+					keyField(&ontoschema.Field{Name: "status", Kind: ontoschema.FieldKindEnum, TypeName: "EffortStatus"}),
+					{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String"},
 				},
 			},
 		},
@@ -136,17 +136,17 @@ variants:
 `)
 	service := New(ServiceOptions{
 		VaultPath: root,
-		Schema: &ontology.Schema{
-			Types: map[string]*ontology.NoteType{
+		Schema: &ontoschema.Schema{
+			Types: map[string]*ontoschema.NoteType{
 				"ActionItem": {
 					Name: "ActionItem",
-					Fields: []*ontology.Field{
-						{Name: "done", SourceKind: ontology.FieldSourceCheckbox, Kind: ontology.FieldKindScalar, TypeName: "Boolean", Display: ontology.FieldDisplay{Importance: ontology.FieldImportanceDetail}},
-						{Name: "owner", SourceKind: ontology.FieldSourceFrontmatter, Kind: ontology.FieldKindLink, TypeName: "Person", Display: ontology.FieldDisplay{Importance: ontology.FieldImportanceKey}},
+					Fields: []*ontoschema.Field{
+						{Name: "done", SourceKind: ontoschema.FieldSourceCheckbox, Kind: ontoschema.FieldKindScalar, TypeName: "Boolean", Display: ontoschema.FieldDisplay{Importance: ontoschema.FieldImportanceDetail}},
+						{Name: "owner", SourceKind: ontoschema.FieldSourceFrontmatter, Kind: ontoschema.FieldKindLink, TypeName: "Person", Display: ontoschema.FieldDisplay{Importance: ontoschema.FieldImportanceKey}},
 					},
 				},
 			},
-			Interfaces: map[string]*ontology.InterfaceType{},
+			Interfaces: map[string]*ontoschema.InterfaceType{},
 		},
 	})
 
@@ -175,8 +175,8 @@ func TestExecutePreservesAuthoredTableColumnOrderAcrossImportance(t *testing.T) 
 					"notes":   "Details",
 				})},
 				Capabilities: []FieldCapability{
-					{Key: "owner", Label: "Owner", Importance: ontology.FieldImportanceKey},
-					{Key: "notes", Label: "Notes", Importance: ontology.FieldImportanceDetail},
+					{Key: "owner", Label: "Owner", Importance: ontoschema.FieldImportanceKey},
+					{Key: "notes", Label: "Notes", Importance: ontoschema.FieldImportanceDetail},
 				},
 			}, nil
 		}),
@@ -283,9 +283,9 @@ variants:
 
 			service := New(ServiceOptions{
 				VaultPath: root,
-				Schema: &ontology.Schema{
-					Types:      map[string]*ontology.NoteType{"ProductSpec": {Name: "ProductSpec"}},
-					Interfaces: map[string]*ontology.InterfaceType{},
+				Schema: &ontoschema.Schema{
+					Types:      map[string]*ontoschema.NoteType{"ProductSpec": {Name: "ProductSpec"}},
+					Interfaces: map[string]*ontoschema.InterfaceType{},
 				},
 			})
 			catalog, err := service.Catalog(context.Background())
@@ -326,9 +326,9 @@ variants:
 
 	service := New(ServiceOptions{
 		VaultPath: root,
-		Schema: &ontology.Schema{
-			Types:      map[string]*ontology.NoteType{"ProductSpec": {Name: "ProductSpec"}},
-			Interfaces: map[string]*ontology.InterfaceType{},
+		Schema: &ontoschema.Schema{
+			Types:      map[string]*ontoschema.NoteType{"ProductSpec": {Name: "ProductSpec"}},
+			Interfaces: map[string]*ontoschema.InterfaceType{},
 		},
 	})
 

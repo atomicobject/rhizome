@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/stretchr/testify/require"
 )
 
@@ -148,7 +148,7 @@ func TestRetireLegacyProcessDocsKeepsUnprovenContentAndWritesOneNotice(t *testin
 	first, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.Contains(t, string(first), legacyProcessRetirementSentinel)
-	frontmatter, err := obsidian.ExtractFrontmatter(string(first))
+	frontmatter, err := markdownsyntax.ExtractFrontmatter(string(first))
 	require.NoError(t, err)
 	require.Equal(t, "archived", frontmatter["spec-status"])
 	if runtime.GOOS != "windows" {

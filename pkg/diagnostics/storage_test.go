@@ -19,12 +19,12 @@ func TestCLISegmentReservationsPreserveRetainedHistory(t *testing.T) {
 	require.NoError(t, os.WriteFile(history, bytes.Repeat([]byte("x"), 2<<20), 0o600))
 	for i := 0; i < 2; i++ {
 		runtime := openTestRecorder(t, root, Options{Role: "runtime"})
-		runtime.Event(nil, slog.LevelInfo, "runtime", "runtime.started", "")
+		runtime.Event(t.Context(), slog.LevelInfo, "runtime", "runtime.started", "")
 	}
 	for i := 0; i < 14; i++ {
 		var stderr bytes.Buffer
 		cli := openTestRecorder(t, root, Options{Role: "cli", Stderr: &stderr})
-		cli.Event(nil, slog.LevelInfo, "command", "command.started", "")
+		cli.Event(t.Context(), slog.LevelInfo, "command", "command.started", "")
 		require.Empty(t, stderr.String())
 		require.NotNil(t, cli.file)
 		require.True(t, strings.HasSuffix(cli.file.Name(), "-65536.jsonl"))
@@ -43,7 +43,7 @@ func TestCLISegmentReservationsPreserveRetainedHistory(t *testing.T) {
 func TestClosedSegmentsFinalizeAndRetainTheirBytes(t *testing.T) {
 	root := t.TempDir()
 	recorder := openTestRecorder(t, root, Options{Role: "cli"})
-	recorder.Event(nil, slog.LevelInfo, "command", "command.started", "")
+	recorder.Event(t.Context(), slog.LevelInfo, "command", "command.started", "")
 	active := recorder.file.Name()
 	require.NoError(t, recorder.Close())
 	require.NoFileExists(t, active)
@@ -68,7 +68,7 @@ func TestLegacyUnlockedReservationNamesRemainPrunable(t *testing.T) {
 	require.NoError(t, os.WriteFile(legacy, []byte("synthetic history\n"), 0o600))
 	old := time.Now().Add(-8 * 24 * time.Hour)
 	require.NoError(t, os.Chtimes(legacy, old, old))
-	recorder.Event(nil, slog.LevelInfo, "command", "command.started", "")
+	recorder.Event(t.Context(), slog.LevelInfo, "command", "command.started", "")
 	require.NoFileExists(t, legacy)
 }
 

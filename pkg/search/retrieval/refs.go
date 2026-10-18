@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // DocLinksRetriever expands seeds via persisted doc_links (coderefs + curated doc links).
@@ -88,6 +88,10 @@ func (r *DocLinksRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 				}
 				seen[key] = struct{}{}
 				out = append(out, search.Candidate{
+					SourceRef: search.SourceRef{
+						Path:  srcPath,
+						Title: srcPath,
+					},
 					Handle: h,
 					Owner:  h,
 					Evidence: []search.Evidence{{
@@ -99,9 +103,7 @@ func (r *DocLinksRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 							"snippet": l.Snippet,
 						},
 					}},
-					Type:  "file",
-					Path:  srcPath,
-					Title: srcPath,
+					Type: "file",
 				})
 			}
 		}
@@ -127,6 +129,12 @@ func (r *DocLinksRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 				}
 				seen[key] = struct{}{}
 				out = append(out, search.Candidate{
+					SourceRef: search.SourceRef{
+						NoteID:     notePath,
+						Path:       notePath,
+						Title:      nodeTitle(notePath),
+						ChunkIndex: -1,
+					},
 					Handle: h,
 					Owner:  h,
 					Evidence: []search.Evidence{{
@@ -138,11 +146,7 @@ func (r *DocLinksRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 							"snippet": l.Snippet,
 						},
 					}},
-					Type:       "note",
-					NoteID:     notePath,
-					Path:       notePath,
-					Title:      nodeTitle(notePath),
-					ChunkIndex: -1,
+					Type: "note",
 				})
 			}
 		}
@@ -191,6 +195,12 @@ func (r *DocLinksRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 			}
 			seen[key] = struct{}{}
 			out = append(out, search.Candidate{
+				SourceRef: search.SourceRef{
+					NoteID:     notePath,
+					Path:       notePath,
+					Title:      nodeTitle(notePath),
+					ChunkIndex: -1,
+				},
 				Handle: h,
 				Owner:  h,
 				Evidence: []search.Evidence{{
@@ -202,11 +212,7 @@ func (r *DocLinksRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 						"snippet": l.Snippet,
 					},
 				}},
-				Type:       "note",
-				NoteID:     notePath,
-				Path:       notePath,
-				Title:      nodeTitle(notePath),
-				ChunkIndex: -1,
+				Type: "note",
 			})
 		}
 	}

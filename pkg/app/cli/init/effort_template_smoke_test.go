@@ -3,6 +3,8 @@ package init
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"html"
 	"io"
 	"os"
@@ -11,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -20,8 +21,11 @@ import (
 )
 
 func TestRun_CopiedEffortFormsAndHistoricalNoteRemainQueryable(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
-	opts := RunOptions{Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}
+	opts := RunOptions{Env: env, Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}
 	require.NoError(t, Run(opts))
 	const folder = "docs/efforts/smoke"
 	const workspacePath = folder + "/2026-09-13-10-00-effort.html"
@@ -105,7 +109,7 @@ func TestRun_CopiedEffortFormsAndHistoricalNoteRemainQueryable(t *testing.T) {
 
 	_, schema, execSchema, store := indexAgenticEngineeringRecipeVault(t, root)
 	vaultDef := obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}
-	deps := ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Service: ontology.NewService(vaultDef, &obsidian.Note{}, store, schema)}
+	deps := ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}
 	deps.NoteFormats, err = builtin.NewRuntime()
 	require.NoError(t, err)
 	prepared, errors := ontologyquery.Prepare(execSchema, `{
@@ -114,7 +118,7 @@ func TestRun_CopiedEffortFormsAndHistoricalNoteRemainQueryable(t *testing.T) {
   historical: note(path: "`+historicalPath+`") { ... on EffortNote { id name plan { content } } }
  }`)
 	require.Empty(t, errors)
-	result := ontologyquery.Execute(context.Background(), deps, schema, prepared)
+	result := ontologyquery.Execute(vaultconfig.WithEnv(context.Background(), env), deps, schema, prepared)
 	require.Empty(t, result.Errors)
 	current := result.Data["current"].(map[string]any)
 	require.Equal(t, "EffortNote", current["resolvedType"])
@@ -144,7 +148,7 @@ func TestRun_CopiedEffortFormsAndHistoricalNoteRemainQueryable(t *testing.T) {
 		for _, path := range []string{newNotePath, workspacePath} {
 			compiled, issues := queryrecipe.Compile(recipe, execSchema, map[string]string{"path": path})
 			require.Empty(t, issues)
-			result := ontologyquery.Execute(context.Background(), deps, schema, compiled.Prepared)
+			result := ontologyquery.Execute(vaultconfig.WithEnv(context.Background(), env), deps, schema, compiled.Prepared)
 			require.Empty(t, result.Errors)
 			effort := result.Data["note"].(map[string]any)
 			require.Equal(t, path, effort["path"])
@@ -165,8 +169,11 @@ func TestRun_CopiedEffortFormsAndHistoricalNoteRemainQueryable(t *testing.T) {
 }
 
 func TestRun_DogfoodPilotUsesSharedEffortContract(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
-	require.NoError(t, Run(RunOptions{Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}))
+	require.NoError(t, Run(RunOptions{Env: env, Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}))
 	const folder = "docs/efforts/2026-09-13-09-55-html-effort-pilot"
 	const entry = folder + "/2026-09-13-09-55-effort.html"
 	for _, path := range []string{entry, folder + "/plan.html", folder + "/work-log.md"} {
@@ -176,7 +183,7 @@ func TestRun_DogfoodPilotUsesSharedEffortContract(t *testing.T) {
 	}
 	_, schema, execSchema, store := indexAgenticEngineeringRecipeVault(t, root)
 	vaultDef := obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}
-	deps := ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Service: ontology.NewService(vaultDef, &obsidian.Note{}, store, schema)}
+	deps := ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}
 	var err error
 	deps.NoteFormats, err = builtin.NewRuntime()
 	require.NoError(t, err)
@@ -184,7 +191,7 @@ func TestRun_DogfoodPilotUsesSharedEffortContract(t *testing.T) {
   notes(type: "Effort") { nodes { ... on NoteNode { path } ... on EffortWorkspace { id implementationPlan { path } workLog { path executionNotes { content } planApproval { content } actualDelivered { content } deviations { content } } } } }
  }`)
 	require.Empty(t, errors)
-	result := ontologyquery.Execute(context.Background(), deps, schema, prepared)
+	result := ontologyquery.Execute(vaultconfig.WithEnv(context.Background(), env), deps, schema, prepared)
 	require.Empty(t, result.Errors)
 	notes := result.Data["notes"].(map[string]any)["nodes"].([]any)
 	require.Len(t, notes, 1)

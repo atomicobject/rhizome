@@ -11,6 +11,7 @@ import (
 	vaultpaths "github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/notediscovery"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -81,7 +82,7 @@ func TestEnsureIncludesCoverTemplatePaths(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := &obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{Includes: append([]string(nil), tc.startGlobs...)}}
+			cfg := &repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{Includes: append([]string(nil), tc.startGlobs...)}}
 			added, changed := ensureIncludesCoverTemplatePaths(cfg, tc.paths)
 			if changed != tc.wantChanged {
 				t.Fatalf("changed=%v, want %v (added=%v)", changed, tc.wantChanged, added)
@@ -117,10 +118,10 @@ func TestEffortHTMLIncludes(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			excludes := []string{"docs/efforts/private/**", "docs/generated/**"}
-			cfg := &obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{Includes: tc.includes, Excludes: append([]string(nil), excludes...)}}
+			cfg := &repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{Includes: tc.includes, Excludes: append([]string(nil), excludes...)}}
 			paths := []string{"docs/efforts/example/index.md", "docs/efforts/example/plan.html", "docs/efforts/example/sub/progress.html"}
 			starterPaths := []string{"docs/efforts/example/index.md", "docs/efforts/templates/workspace/overview.html.template", "docs/efforts/templates/workspace/plan.html.template"}
-			starterCfg := &obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{Includes: append([]string(nil), tc.includes...)}}
+			starterCfg := &repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{Includes: append([]string(nil), tc.includes...)}}
 			ensureIncludesCoverTemplatePaths(starterCfg, starterPaths)
 			if !reflect.DeepEqual(starterCfg.Notes.Includes, tc.want) {
 				t.Fatalf("starter includes=%v, want %v", starterCfg.Notes.Includes, tc.want)
@@ -161,7 +162,7 @@ func TestEffortHTMLIncludes(t *testing.T) {
 }
 
 func TestUnrelatedHTMLDoesNotAddIncludes(t *testing.T) {
-	cfg := &obsidian.LocalConfig{}
+	cfg := &repoconfig.LocalConfig{}
 	paths := []string{"docs/other/plan.html", "docs/efforts-other/plan.html", ".agents/skills/plan.html", ".rhizome/plan.html"}
 	paths = append(paths, "docs/other/plan.html.template", "docs/efforts/templates/workspace/effort.css.template")
 	if added, changed := ensureIncludesCoverTemplatePaths(cfg, paths); changed || len(added) != 0 {
@@ -174,7 +175,7 @@ func TestUnrelatedHTMLDoesNotAddIncludes(t *testing.T) {
 
 func TestReconcileEffortHTMLIncludesAddsOnce(t *testing.T) {
 	root := t.TempDir()
-	cfg := obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{
+	cfg := repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{
 		Includes: []string{"docs/**/*.md"}, Excludes: []string{"docs/efforts/private/**"},
 	}}
 	paths := []string{"docs/efforts/example/plan.html"}
@@ -195,7 +196,7 @@ func TestReconcileExistingWorkspaceTemplates(t *testing.T) {
 				require.NoError(t, os.MkdirAll(workspace, 0o755))
 				require.NoError(t, os.WriteFile(filepath.Join(workspace, asset), []byte("installed asset"), 0o644))
 			}
-			cfg := obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{Includes: []string{"**/*.md"}}}
+			cfg := repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{Includes: []string{"**/*.md"}}}
 			_, changed, err := ensureInstalledTemplateIncludes(root, &cfg, nil)
 			require.NoError(t, err)
 			wantHTML := asset == "overview.html.template" || asset == "plan.html.template"
@@ -226,7 +227,7 @@ func TestReconcilePartialMarkdownAndHTMLTemplates(t *testing.T) {
 					require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 					require.NoError(t, os.WriteFile(path, []byte("installed asset"), 0o644))
 				}
-				cfg := obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{Includes: tc.includes, Excludes: []string{"docs/efforts/private/**"}}}
+				cfg := repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{Includes: tc.includes, Excludes: []string{"docs/efforts/private/**"}}}
 				_, _, err := ensureInstalledTemplateIncludes(root, &cfg, nil)
 				require.NoError(t, err)
 				require.ElementsMatch(t, tc.want, cfg.Notes.Includes)
@@ -245,7 +246,7 @@ func TestInstalledTemplateIncludesRelativeRoot(t *testing.T) {
 	workspace := filepath.Join("project", "docs/efforts/templates/workspace")
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(workspace, "overview.html.template"), []byte("installed asset"), 0o644))
-	cfg := obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{Includes: []string{"**/*.md"}}}
+	cfg := repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{Includes: []string{"**/*.md"}}}
 	added, changed, err := ensureInstalledTemplateIncludes("project", &cfg, nil)
 	require.NoError(t, err)
 	require.True(t, changed)
@@ -279,7 +280,7 @@ func TestInstalledTemplateIncludesSymlinkContainment(t *testing.T) {
 						require.NoError(t, os.Symlink(root, alias))
 						root = alias
 					}
-					cfg := obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{Includes: []string{"**/*.md"}}}
+					cfg := repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{Includes: []string{"**/*.md"}}}
 					_, changed, err := ensureInstalledTemplateIncludes(root, &cfg, nil)
 					if outside {
 						require.ErrorIs(t, err, vaultpaths.ErrOutsideVault)
@@ -310,7 +311,7 @@ func TestInstalledTemplateIncludesDiscoverGeneratedHTML(t *testing.T) {
 				require.NoError(t, os.Symlink(root, alias))
 				root = alias
 			}
-			cfg := obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{Includes: []string{"**/*.md"}}}
+			cfg := repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{Includes: []string{"**/*.md"}}}
 			_, changed, err := ensureInstalledTemplateIncludes(root, &cfg, nil)
 			require.NoError(t, err)
 			require.True(t, changed)

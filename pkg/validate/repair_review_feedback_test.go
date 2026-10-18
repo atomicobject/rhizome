@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"errors"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +26,7 @@ func TestRunSuiteOnceFailsClosedWhenRepairJournalIsPending(t *testing.T) {
 		},
 	}})
 	runCtx := repairRunContext(t, root)
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterJournalPublished: func(string) error {
 			return errSimulatedRepairInterruption
@@ -33,7 +34,7 @@ func TestRunSuiteOnceFailsClosedWhenRepairJournalIsPending(t *testing.T) {
 	})
 	require.ErrorIs(t, err, errSimulatedRepairInterruption)
 
-	result, _, err := RunSuiteOnce(context.Background(), Options{
+	result, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
@@ -68,13 +69,13 @@ func TestRecoveryPostcheckUnionsOriginatingChecksAcrossSelectors(t *testing.T) {
 	require.NoError(t, err)
 	runCtx := linkHygieneRunContext(t, root)
 	refreshErr := errors.New("retain committed journal for cross-selector recovery")
-	_, err = ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, refreshErr: refreshErr},
 	})
 	require.ErrorIs(t, err, refreshErr)
 
-	blocked, scanCtx, err := RunSuiteOnce(context.Background(), Options{
+	blocked, scanCtx, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckQueryRecipes}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
@@ -85,7 +86,7 @@ func TestRecoveryPostcheckUnionsOriginatingChecksAcrossSelectors(t *testing.T) {
 	assert.Contains(t, blocked.NextActions.Actions[0].Command, "rzm agent validate fix query-recipes --apply")
 	assert.Contains(t, blocked.NextActions.Actions[0].Command, " && ")
 
-	result, _, err := ApplyRepairSession(context.Background(), blocked, scanCtx, Options{
+	result, _, err := ApplyRepairSession(context.Background(), blocked, scanCtx, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.NoError(t, err)
@@ -114,7 +115,7 @@ func TestRecoveryPostcheckRetainsOntologyJournalOnCheckErrorAcrossSelectors(t *t
 	require.NoError(t, err)
 	runCtx := repairRunContext(t, root)
 	retain := errors.New("retain committed ontology journal")
-	_, err = ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, refreshErr: retain},
 	})
@@ -124,20 +125,20 @@ func TestRecoveryPostcheckRetainsOntologyJournalOnCheckErrorAcrossSelectors(t *t
 	require.NoError(t, err)
 	require.NoError(t, store.Close())
 	prepared := NewPostApplyRefreshResult(&ontology.Runtime{
-		Schema: &ontology.Schema{Types: map[string]*ontology.NoteType{
-			"Spec": {Name: "Spec", Role: ontology.TypeRoleNote},
+		Schema: &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{
+			"Spec": {Name: "Spec", Role: ontoschema.TypeRoleNote},
 		}},
 		Store: store,
 	}, repairNoopCloseOwner{})
 
-	blocked, scanCtx, err := RunSuiteOnce(context.Background(), Options{
+	blocked, scanCtx, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckQueryRecipes}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
 	require.Len(t, blocked.RepairJournals, 1)
 	assert.Empty(t, blocked.Checks, "the selected check must stay blocked by the ontology journal")
 
-	result, _, err := ApplyRepairSession(context.Background(), blocked, scanCtx, Options{
+	result, _, err := ApplyRepairSession(context.Background(), blocked, scanCtx, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, result: prepared},
 	})
@@ -267,11 +268,13 @@ func TestPostcheckRemainingIssueKeysPreserveProductionEvidenceBeyondMaxIssues(t 
 	}))
 	runCtx := linkHygieneRunContext(t, root)
 	runCtx.MaxIssues = 1
-	planned, scanCtx, err := RunSuiteOnce(context.Background(), Options{
+	planned, scanCtx, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckLinkHygiene}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
-	result, _, err := ApplyRepairSession(context.Background(), planned, scanCtx, Options{
+	planned, err = PrepareRepair(t.Context(), planned, scanCtx)
+	require.NoError(t, err)
+	result, _, err := ApplyRepairSession(context.Background(), planned, scanCtx, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: &repairPostApplyProbe{t: t},
 	})
 	require.NoError(t, err)
@@ -294,10 +297,9 @@ func TestRepairPlanActionIssueKeysUseProductionEvidenceBeyondMaxIssues(t *testin
 	}))
 	def := obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth}
 	runCtx := RunContext{
-		VaultDef: def, VaultPath: root, VaultMgr: &fixedVaultMgr{def: def},
-		NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t), MaxIssues: 1,
+		VaultDef: def, VaultPath: root, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t), MaxIssues: 1,
 	}
-	result, _, err := RunSuiteOnce(context.Background(), Options{
+	result, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckBrokenLinks}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
@@ -419,7 +421,7 @@ func TestAttachStableRepairIssueKeysScopesSamePathIdentifierActionsByTarget(t *t
 
 func TestAttachStableRepairIssueKeysScopesAuthoredPropertiesByLogicalField(t *testing.T) {
 	checks := []CheckResult{{
-		Name: CheckAliases,
+		Name: CheckIdentifiers,
 		Issues: []Issue{
 			{Code: "missing_required_field", Path: "note.md", Field: "identifier"},
 			{Code: "missing_required_field", Path: "note.md", Field: "category"},
@@ -451,7 +453,7 @@ func TestApplyFixPlanReportsEveryUnbackedActionWithoutCountingAppliedAction(t *t
 	finalized, err := FinalizeRepairPlan(plan)
 	require.NoError(t, err)
 
-	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &finalized, Options{
+	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &finalized, ApplyOptions{
 		Fix: true, NonInteractive: true,
 	})
 	require.NoError(t, err)
@@ -479,7 +481,7 @@ func TestApplyFixPlanRejectsSafetyMutationWithPreservedCustomActionID(t *testing
 	require.NoError(t, err)
 	plan.Actions[0].Safety = FixSafetySafe
 
-	_, err = ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+	_, err = ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 	})
 	require.ErrorContains(t, err, "fingerprint changed")
@@ -501,7 +503,7 @@ func TestApplyFixPlanRejectsPayloadMutationWithPreservedCustomActionID(t *testin
 	require.NoError(t, err)
 	plan.Actions[0].Edits[0].OldTarget = "mutated"
 
-	_, err = ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+	_, err = ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 	})
 	require.ErrorContains(t, err, "fingerprint changed")
@@ -518,7 +520,7 @@ func TestApplyFixPlanRejectsActionOnlySafetyMutationWithPreservedCustomActionID(
 	require.NoError(t, err)
 	plan.Actions[0].Safety = FixSafetySafe
 
-	_, err = ApplyFixPlan(context.Background(), repairRunContext(t, t.TempDir()), &plan, Options{
+	_, err = ApplyFixPlan(context.Background(), repairRunContext(t, t.TempDir()), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 	})
 	require.ErrorContains(t, err, "fingerprint changed")

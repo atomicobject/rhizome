@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"testing"
 
@@ -53,7 +54,7 @@ status:: DONE
 ^story-b
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	// Start from the UserStoriesSection so we exercise the SECTION branch of
@@ -133,7 +134,7 @@ status:: DONE
 - must pass
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	note, err := ProjectNote(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema, "specs/001-test/spec.md")
@@ -164,8 +165,8 @@ status:: DONE
 		field  string
 		source string
 	}{
-		{NodeBodyBlockKindInlineField, "id", "id:: S-A"},
-		{NodeBodyBlockKindInlineField, "status", "status:: DONE"},
+		{NodeBodyBlockKindInlineField, "id", "id:: S-A\n"},
+		{NodeBodyBlockKindInlineField, "status", "status:: DONE\n"},
 		{NodeBodyBlockKindInlineField, "locator", "^story-a"},
 		{NodeBodyBlockKindChildSection, "acceptanceCriteria", ""},
 	} {
@@ -179,7 +180,7 @@ status:: DONE
 			require.Equal(t, expected.source, story.Snapshot.Content[r.Start:r.End])
 		}
 	}
-	require.Equal(t, SectionDisplayInline, emitted[3].SectionDisplay)
+	require.Equal(t, ontoschema.SectionDisplayInline, emitted[3].SectionDisplay)
 	require.NotNil(t, emitted[3].ChildRef)
 }
 
@@ -207,7 +208,7 @@ Preface paragraph that should stay visible.
 Body.
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	note, err := ProjectNote(
@@ -268,7 +269,7 @@ status:: child-only
 Later sibling section.
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	note, err := ProjectNote(

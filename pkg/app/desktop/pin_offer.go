@@ -3,11 +3,11 @@ package desktop
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/atomicobject/rhizome/pkg/app/appbundle"
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 )
 
@@ -87,7 +87,8 @@ func (s *Service) PinAdvance(ctx context.Context, path string) (PinAdvanceResult
 	if err != nil {
 		return result, problem("pin_advance_failed", fmt.Sprintf("Pin advance executable stage failed: %v", err))
 	}
-	_, updateErr := s.install(ctx, appupdate.Options{ExecutablePath: executable, WorkDir: info.Path, SetVersion: info.PinOffer.Available, Yes: true, ManifestURL: os.Getenv("RZM_UPDATE_MANIFEST_URL")})
+	manifestURL, _ := s.env.Lookup("RZM_UPDATE_MANIFEST_URL")
+	_, updateErr := s.install(vaultconfig.WithEnv(ctx, s.env), appupdate.Options{ExecutablePath: executable, WorkDir: info.Path, SetVersion: info.PinOffer.Available, Yes: true, ManifestURL: manifestURL})
 	if updateErr != nil {
 		return result, problem("pin_advance_failed", fmt.Sprintf("Pin advance failed: %v", updateErr))
 	}

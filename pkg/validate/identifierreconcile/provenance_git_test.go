@@ -2,17 +2,18 @@ package identifierreconcile
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGitProvenanceUsesIntroductionAuthorDateForKeeperEvidence(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -40,6 +41,7 @@ func TestGitProvenanceUsesIntroductionAuthorDateForKeeperEvidence(t *testing.T) 
 }
 
 func TestGitProvenanceRejectsFutureProviderClaimBeforeReadingHistoricalBlob(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	claimant := claim(t, pool, "SPEC-0001", ClaimPreferred, "future.html")
@@ -55,6 +57,7 @@ func TestGitProvenanceRejectsFutureProviderClaimBeforeReadingHistoricalBlob(t *t
 }
 
 func TestGitProvenanceFormattingAndBodyEditsDoNotResetIntroduction(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	claimant := claim(t, pool, "SPEC-0001", ClaimPreferred, "spec.md")
@@ -70,6 +73,7 @@ func TestGitProvenanceFormattingAndBodyEditsDoNotResetIntroduction(t *testing.T)
 }
 
 func TestGitProvenanceUsesFullOIDThenCanonicalKeyForRealHistoryTies(t *testing.T) {
+	t.Parallel()
 	t.Run("equal timestamp uses full OID", func(t *testing.T) {
 		repo := newGitFixture(t)
 		pool := mustPool(t, "SPEC")
@@ -122,6 +126,7 @@ func TestGitProvenanceUsesFullOIDThenCanonicalKeyForRealHistoryTies(t *testing.T
 }
 
 func TestGitProvenanceUsesSchemaSourcesAndEmbeddedIdentifierClaims(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	repo.writeIdentifierSchema(t)
 	pool := mustPool(t, "SPEC")
@@ -136,7 +141,7 @@ func TestGitProvenanceUsesSchemaSourcesAndEmbeddedIdentifierClaims(t *testing.T)
 	repo.write(t, "spec.md", "---\nidentifier: \"SPEC-0001\"\n---\n# Spec\n\n## Stories\n\n### First\n\n- id::   ^SPEC-0001-US1\n\nBody.\n")
 	repo.commit(t, "2026-07-15T10:00:00Z", "reformat identifiers")
 
-	schema, err := ontology.LoadSchema(repo.dir)
+	schema, err := ontoschema.LoadSchema(repo.dir)
 	require.NoError(t, err)
 	result, err := ResolveGitProvenanceWithSchema(context.Background(), repo.dir, schema, []Claim{noteClaim, embeddedClaim})
 	require.NoError(t, err)
@@ -147,6 +152,7 @@ func TestGitProvenanceUsesSchemaSourcesAndEmbeddedIdentifierClaims(t *testing.T)
 }
 
 func TestGitProvenanceStartsAtHistoricalNoteTypeTransition(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	repo.writeTypeTransitionSchema(t)
 	pool := mustPool(t, "SPEC")
@@ -163,6 +169,7 @@ func TestGitProvenanceStartsAtHistoricalNoteTypeTransition(t *testing.T) {
 }
 
 func TestGitProvenanceUsesHistoricalPathForTypeAcrossRename(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	repo.writePathTransitionSchema(t)
 	pool := mustPool(t, "SPEC")
@@ -180,6 +187,7 @@ func TestGitProvenanceUsesHistoricalPathForTypeAcrossRename(t *testing.T) {
 }
 
 func TestGitProvenanceFallsBackForDirtySemanticClaim(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	repo.write(t, "spec.md", "---\nid: SPEC-0001\naliases: [SPEC-0001]\n---\n")
@@ -194,6 +202,7 @@ func TestGitProvenanceFallsBackForDirtySemanticClaim(t *testing.T) {
 }
 
 func TestGitProvenanceTracesRealAliasMembershipAndReintroduction(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	alias := claim(t, pool, "LEGACY-1", ClaimAlias, "spec.md")
@@ -211,6 +220,7 @@ func TestGitProvenanceTracesRealAliasMembershipAndReintroduction(t *testing.T) {
 }
 
 func TestGitProvenanceFallsBackWhenIntermediateHistoryIsMalformed(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	claimant := claim(t, pool, "SPEC-0001", ClaimPreferred, "spec.md")
@@ -228,6 +238,7 @@ func TestGitProvenanceFallsBackWhenIntermediateHistoryIsMalformed(t *testing.T) 
 }
 
 func TestGitProvenanceFallsBackForCaseAmbiguousAliasField(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	alias := claim(t, pool, "LEGACY-1", ClaimAlias, "spec.md")
@@ -245,6 +256,7 @@ func TestGitProvenanceFallsBackForCaseAmbiguousAliasField(t *testing.T) {
 }
 
 func TestGitProvenanceFollowsGitMove(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	repo.write(t, "old.md", "---\nid: SPEC-0001\n---\n# Original\n")
@@ -260,6 +272,7 @@ func TestGitProvenanceFollowsGitMove(t *testing.T) {
 }
 
 func TestGitProvenanceFallsBackForUntrackedShallowAndNoRepository(t *testing.T) {
+	t.Parallel()
 	pool := mustPool(t, "SPEC")
 	t.Run("untracked", func(t *testing.T) {
 		repo := newGitFixture(t)
@@ -302,6 +315,7 @@ func TestGitProvenanceFallsBackForUntrackedShallowAndNoRepository(t *testing.T) 
 }
 
 func TestGitProvenanceBatchesSamePathAndIgnoresFilesystemMtime(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	preferred := claim(t, pool, "SPEC-0001", ClaimPreferred, "spec.md")
@@ -324,6 +338,7 @@ func TestGitProvenanceBatchesSamePathAndIgnoresFilesystemMtime(t *testing.T) {
 }
 
 func TestGitProvenanceNeverInvokesFetch(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	claimant := claim(t, pool, "SPEC-0001", ClaimPreferred, "spec.md")

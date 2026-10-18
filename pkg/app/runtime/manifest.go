@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/fileio"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // Mode says who owns the runtime process's lifetime.
@@ -37,7 +37,7 @@ const (
 )
 
 func rhizomeFile(vaultPath, name string) string {
-	return filepath.Join(vaultPath, obsidian.RhizomeDirName, name)
+	return filepath.Join(vaultPath, repoconfig.RhizomeDirName, name)
 }
 
 // ManifestPath is the discovery file a live runtime publishes for its vault.

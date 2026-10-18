@@ -11,13 +11,16 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+
 	"github.com/atomicobject/rhizome/pkg/testutil/indexingworkload"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 // controlledWorkloadProvider changes provider availability without changing any
@@ -70,7 +73,7 @@ func liveWorkloadWatcher(t *testing.T) (*LiveRuntime, *unifiedSemanticWatcher, *
 	t.Cleanup(func() { require.NoError(t, rt.Close()) })
 	require.NoError(t, rt.WaitForSearch(ctx))
 	require.NoError(t, rt.WaitForCodeIndex(ctx))
-	indexLane := lane.New(lane.Options{LockPath: obsidian.IndexLockPath(root)})
+	indexLane := lane.New(lane.Options{LockPath: repoconfig.IndexLockPath(root)})
 	provider := &controlledWorkloadProvider{
 		inner:   embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Model: "test", Dimensions: 8}),
 		entered: make(chan struct{}, 1), release: make(chan struct{}),
@@ -81,7 +84,7 @@ func liveWorkloadWatcher(t *testing.T) (*LiveRuntime, *unifiedSemanticWatcher, *
 		VaultDef: rt.VaultDef, NoteRuntime: rt.noteFormats,
 		CodeConfig: *rt.codeCfg.Load(), NoteMetadataIndexer: rt.noteMetadataIndexer,
 		CacheService: rt.Cache(), NoteSvc: rt.CodeAnchorService(), IntelStore: rt.IntelStore(),
-		NodeSyncer: &semantic.OntologyNodeSyncer{Store: rt.IntelStore(), Provider: provider,
+		NodeSyncer: &embedindex.OntologyNodeSyncer{Store: rt.IntelStore(), Provider: provider,
 			ProviderInfo: embeddings.ProviderConfig{Provider: "test", Model: "test", Dimensions: 8}},
 		Lane: indexLane, Health: rt.liveHealth,
 		Options: &UnifiedSemanticWatcherOptions{Tick: make(chan time.Time)},

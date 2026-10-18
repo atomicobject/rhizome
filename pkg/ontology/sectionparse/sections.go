@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 )
 
 // Node is a source-span section parsed from markdown headings.
@@ -40,18 +42,12 @@ func Parse(notePath, content string) []*Node {
 
 	raw := make([]rawSection, 0)
 	active := make([]int, 0)
-	inCode := false
+	protected := markdownsyntax.CodeMask(content)
+	_, _, bodyStart, _ := markdownsyntax.FrontmatterSpan(content)
 	for i, line := range lines {
 		trim := strings.TrimSpace(line)
-		if strings.HasPrefix(trim, "```") || strings.HasPrefix(trim, "~~~") {
-			inCode = !inCode
-			continue
-		}
-		if inCode {
-			continue
-		}
-		leadingSpaces := countLeadingSpaces(line)
-		if leadingSpaces > 3 {
+		leadingSpaces := CountLeadingSpaces(line)
+		if lineOffsets[i] < bodyStart || leadingSpaces > 3 || protected(lineOffsets[i]+leadingSpaces) {
 			continue
 		}
 		left := strings.TrimLeft(line, " ")
@@ -62,7 +58,7 @@ func Parse(notePath, content string) []*Node {
 				identifierLine = content
 				listItem = true
 			}
-			if candidate, malformed, ok := proseBlockIDCandidate(trim); ok && !listItem {
+			if candidate, malformed, ok := ProseBlockIDCandidate(trim); ok && !listItem {
 				current := active[len(active)-1]
 				if malformed {
 					if raw[current].malformedBlockID == "" {
@@ -74,9 +70,9 @@ func Parse(notePath, content string) []*Node {
 					raw[current].blockID = candidate
 				}
 			}
-			if candidate, ok := inlineIdentifierBlockID(identifierLine); ok {
+			if candidate, ok := InlineIdentifierBlockID(identifierLine); ok {
 				current := active[len(active)-1]
-				if !validBlockID(candidate) {
+				if !markdownsyntax.ValidBlockID(candidate) {
 					if raw[current].malformedBlockID == "" {
 						raw[current].malformedBlockID = candidate
 					}
@@ -99,7 +95,7 @@ func Parse(notePath, content string) []*Node {
 			continue
 		}
 		headingBlockID := ""
-		if candidate, _, ok := proseBlockIDCandidate(title); ok {
+		if candidate, _, ok := ProseBlockIDCandidate(title); ok {
 			headingBlockID = candidate
 		}
 		startByte := lineOffsets[i]
@@ -139,7 +135,7 @@ func Parse(notePath, content string) []*Node {
 	stack := make([]*Node, 0)
 	for _, item := range raw {
 		node := &Node{
-			ID:               fmt.Sprintf("%s#%s-%d", notePath, slugifyHeading(item.title), item.startByte),
+			ID:               fmt.Sprintf("%s#%s-%d", notePath, markdownsyntax.HeadingSlug(item.title), item.startByte),
 			NotePath:         notePath,
 			Title:            item.title,
 			Level:            item.level,
@@ -147,7 +143,7 @@ func Parse(notePath, content string) []*Node {
 			MalformedBlockID: item.malformedBlockID,
 			StartByte:        item.startByte,
 			EndByte:          item.endByte,
-			Content:          substringBytes(content, item.startByte, item.endByte),
+			Content:          SubstringBytes(content, item.startByte, item.endByte),
 		}
 		if item.blockID != "" {
 			node.ID = fmt.Sprintf("%s#^%s", notePath, item.blockID)
@@ -193,7 +189,7 @@ func UnwrapSingleH1Root(nodes []*Node) []*Node {
 	return only.Children
 }
 
-func countLeadingSpaces(s string) int {
+func CountLeadingSpaces(s string) int {
 	count := 0
 	for _, r := range s {
 		if r != ' ' {
@@ -222,7 +218,7 @@ func normalizeATXHeadingText(raw string) string {
 	return strings.TrimSpace(title)
 }
 
-func proseBlockIDCandidate(trimmed string) (string, bool, bool) {
+func ProseBlockIDCandidate(trimmed string) (string, bool, bool) {
 	clean := stripInlineCodeSpans(trimmed)
 	trim := strings.TrimSpace(clean)
 	if strings.HasPrefix(trim, "^") {
@@ -230,7 +226,7 @@ func proseBlockIDCandidate(trimmed string) (string, bool, bool) {
 		if rest == "" {
 			return "", false, false
 		}
-		if validBlockID(rest) {
+		if markdownsyntax.ValidBlockID(rest) {
 			return rest, false, true
 		}
 		return rest, true, true
@@ -243,7 +239,7 @@ func proseBlockIDCandidate(trimmed string) (string, bool, bool) {
 			continue
 		}
 		token := firstBlockIDToken(clean[i+1:])
-		if token == "" || !validBlockID(token) {
+		if token == "" || !markdownsyntax.ValidBlockID(token) {
 			continue
 		}
 		return token, false, true
@@ -251,7 +247,7 @@ func proseBlockIDCandidate(trimmed string) (string, bool, bool) {
 	return "", false, false
 }
 
-func inlineIdentifierBlockID(line string) (string, bool) {
+func InlineIdentifierBlockID(line string) (string, bool) {
 	line = stripInlineCodeSpans(line)
 	idx := strings.Index(line, "::")
 	if idx <= 0 {
@@ -269,33 +265,7 @@ func inlineIdentifierBlockID(line string) (string, bool) {
 	return candidate, true
 }
 
-func validBlockID(id string) bool {
-	for _, r := range id {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' || r == '_' {
-			continue
-		}
-		return false
-	}
-	return id != ""
-}
-
-func stripInlineCodeSpans(line string) string {
-	var b strings.Builder
-	inCode := false
-	for _, r := range line {
-		if r == '`' {
-			inCode = !inCode
-			b.WriteRune(' ')
-			continue
-		}
-		if inCode {
-			b.WriteRune(' ')
-			continue
-		}
-		b.WriteRune(r)
-	}
-	return b.String()
-}
+func stripInlineCodeSpans(line string) string { return markdownsyntax.MaskProtected(line) }
 
 func firstBlockIDToken(s string) string {
 	s = strings.TrimLeft(s, " \t")
@@ -317,25 +287,7 @@ func isBlockIDBoundary(r rune) bool {
 	return unicode.IsSpace(r) || r == '(' || r == '[' || r == '{'
 }
 
-func slugifyHeading(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	var b strings.Builder
-	lastDash := false
-	for _, r := range s {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			b.WriteRune(r)
-			lastDash = false
-			continue
-		}
-		if !lastDash {
-			b.WriteByte('-')
-			lastDash = true
-		}
-	}
-	return strings.Trim(b.String(), "-")
-}
-
-func substringBytes(s string, start, end int) string {
+func SubstringBytes(s string, start, end int) string {
 	if start < 0 {
 		start = 0
 	}

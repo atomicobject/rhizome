@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sort"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -301,12 +301,7 @@ func publishedDescriptorRows(ctx context.Context, store Store, formats noteforma
 	if len(descriptorPaths) == 0 {
 		return nil, nil
 	}
-	provider, ok := store.(durableMetadataRowsProvider)
-	if !ok {
-		return nil, fmt.Errorf("note metadata store does not expose durable source rows")
-	}
-	sort.Strings(descriptorPaths)
-	rowsByPath, err := provider.DurableNoteMetadataRowsByPaths(ctx, descriptorPaths)
+	rowsByPath, err := store.DurableNoteMetadataRowsByPaths(ctx, descriptorPaths)
 	if err != nil {
 		return nil, err
 	}

@@ -3,77 +3,39 @@ package views
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	"github.com/atomicobject/rhizome/pkg/ontology/pushdown"
+	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
-	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
-	"github.com/atomicobject/rhizome/pkg/ontology/pushdown"
-	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
-	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
+	"github.com/atomicobject/rhizome/pkg/diag"
 )
 
 func TestRowFromNodeListItemPreservesCanonicalIdentity(t *testing.T) {
-	ref := ontology.NodeRef{
-		NotePath:   "docs/specs/product/browser.md",
-		Fragment:   "^SPEC-0014-US8",
-		NodeID:     "story-8",
-		Kind:       ontology.NodeKindEmbedded,
-		Structural: "abc123",
-	}
-
-	row := rowFromNodeListItem(ontology.NodeListItem{
-		Ref:          ref,
-		Title:        "Configured views",
-		ResolvedType: "UserStory",
-		NotePath:     "docs/specs/product/browser.md",
-		UpdatedAt:    42,
-		HasIssues:    true,
-	})
-
+	ref := ontology.NodeRef{NotePath: "docs/specs/product/browser.md", Fragment: "^SPEC-0014-US8", NodeID: "story-8", Kind: ontology.NodeKindEmbedded, Structural: "abc123"}
+	row := rowFromNodeListItem(ontology.NodeListItem{Ref: ref, Title: "Configured views", ResolvedType: "UserStory", NotePath: "docs/specs/product/browser.md", UpdatedAt: 42, HasIssues: true})
 	require.Equal(t, ref, row.Ref)
 	require.Equal(t, "Configured views", row.Title)
 	require.Equal(t, "UserStory", row.ResolvedType)
 	require.True(t, row.HasIssues)
 	require.Equal(t, int64(42), row.UpdatedAt)
 }
-
 func TestEnrichRowFromRecordAddsFrontmatterInlineAndTags(t *testing.T) {
-	row := rowFromNodeListItem(ontology.NodeListItem{
-		Ref:      ontology.NodeRef{NotePath: "docs/a.md", Kind: ontology.NodeKindNote},
-		NotePath: "docs/a.md",
-		Title:    "A",
-	})
-
-	resolver := defaultSourceResolver{opts: ServiceOptions{Schema: &ontology.Schema{
-		Types: map[string]*ontology.NoteType{
-			"ProductSpec": {
-				Name: "ProductSpec",
-				Fields: []*ontology.Field{
-					{Name: "specStatus", Source: "status", SourceKind: ontology.FieldSourceFrontmatter},
-					{Name: "owner", Source: "owner", SourceKind: ontology.FieldSourceInline},
-				},
-			},
-		},
-	}}}
-	row = resolver.enrichRowFromRecord(row, noderead.NodeRecord{
-		Ref:         ontology.NodeRef{NotePath: "docs/a.md", Kind: ontology.NodeKindNote},
-		Path:        "docs/a.md",
-		Title:       "A better title",
-		TypeName:    "ProductSpec",
-		Tags:        []string{"planning"},
-		Frontmatter: map[string]any{"status": "ready"},
-		InlineProps: map[string][]string{"owner": []string{"team"}},
-	})
-
+	row := rowFromNodeListItem(ontology.NodeListItem{Ref: ontology.NodeRef{NotePath: "docs/a.md", Kind: ontology.NodeKindNote}, NotePath: "docs/a.md", Title: "A"})
+	resolver := defaultSourceResolver{opts: ServiceOptions{Schema: &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"ProductSpec": {Name: "ProductSpec", Fields: []*ontoschema.Field{{Name: "specStatus", Source: "status", SourceKind: ontoschema.FieldSourceFrontmatter}, {Name: "owner", Source: "owner", SourceKind: ontoschema.FieldSourceInline}}}}}}}
+	row = resolver.enrichRowFromRecord(row, noderead.NodeRecord{Ref: ontology.NodeRef{NotePath: "docs/a.md", Kind: ontology.NodeKindNote}, Path: "docs/a.md", Title: "A better title", TypeName: "ProductSpec", Tags: []string{"planning"}, Frontmatter: map[string]any{"status": "ready"}, InlineProps: map[string][]string{"owner": []string{"team"}}})
 	require.Equal(t, "A better title", row.Title)
 	require.Equal(t, "ProductSpec", row.ResolvedType)
 	require.Equal(t, []string{"planning"}, row.Tags)
@@ -82,22 +44,14 @@ func TestEnrichRowFromRecordAddsFrontmatterInlineAndTags(t *testing.T) {
 	require.Equal(t, "ready", row.Fields["specStatus"])
 	require.Equal(t, []string{"team"}, row.Fields["owner"])
 }
-
 func TestOntologySourceCapIsIndependentOfDisplayPage(t *testing.T) {
 	for _, first := range []int{10, 100} {
 		require.Equal(t, SourceCapPolicy{Limit: 5000, Source: "default"}, sourceCapPolicy(viewconfig.ViewDefinition{}, ExecuteRequest{Page: PageRequest{First: first}}))
 	}
-	require.Equal(t, SourceCapPolicy{Limit: 250, Source: "view.defaults.sourceCap"}, sourceCapPolicy(viewconfig.ViewDefinition{
-		Defaults: viewconfig.DefaultsSpec{SourceCap: 250},
-	}, ExecuteRequest{}))
-	require.Equal(t, SourceCapPolicy{Limit: 1000, Source: "request.source.maxRows"}, sourceCapPolicy(viewconfig.ViewDefinition{
-		Defaults: viewconfig.DefaultsSpec{SourceCap: 250},
-	}, ExecuteRequest{Source: SourceRequest{MaxRows: 1000}}))
-	require.Equal(t, SourceCapPolicy{Limit: 50000, Source: "request.source.maxRows"}, sourceCapPolicy(viewconfig.ViewDefinition{}, ExecuteRequest{
-		Source: SourceRequest{MaxRows: 50001},
-	}))
+	require.Equal(t, SourceCapPolicy{Limit: 250, Source: "view.defaults.sourceCap"}, sourceCapPolicy(viewconfig.ViewDefinition{Defaults: viewconfig.DefaultsSpec{SourceCap: 250}}, ExecuteRequest{}))
+	require.Equal(t, SourceCapPolicy{Limit: 1000, Source: "request.source.maxRows"}, sourceCapPolicy(viewconfig.ViewDefinition{Defaults: viewconfig.DefaultsSpec{SourceCap: 250}}, ExecuteRequest{Source: SourceRequest{MaxRows: 1000}}))
+	require.Equal(t, SourceCapPolicy{Limit: 50000, Source: "request.source.maxRows"}, sourceCapPolicy(viewconfig.ViewDefinition{}, ExecuteRequest{Source: SourceRequest{MaxRows: 50001}}))
 }
-
 func TestOntologySourceProjectsReferencedRelationCountsBeforeFilterAndSort(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
@@ -121,28 +75,16 @@ type Spec @node(paths: ["specs/*.md"]) {
 	writeSourceFixture(t, root, "specs/four.md", "---\narea: '[[alpha]]'\n---\n# Four\n\nSee [[beta]] in prose.\n")
 	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	spy := &relationCountViewSpyStore{Store: store}
-	definition := viewconfig.ViewDefinition{
-		APIVersion: viewconfig.APIVersion,
-		ID:         "areas",
-		Name:       "Areas",
-		SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "FeatureArea"},
-		Mount:      viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone},
-		Variants:   viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "title"}, {Field: "specs"}, {Field: "exactSpecs"}}}},
-	}
-	service := New(ServiceOptions{
-		VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: spy, Schema: runtime.Schema,
-		Views: []viewconfig.ViewDefinition{definition},
-	})
-
-	response, err := service.Execute(ctx, "areas", ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "specs", Op: "gte", Value: "1"}},
-		Sort:    []viewconfig.SortSpec{{Field: "specs", Direction: "desc"}},
-	})
+	definition := viewconfig.ViewDefinition{APIVersion: viewconfig.APIVersion, ID: "areas", Name: "Areas", SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "FeatureArea"}, Mount: viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone}, Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "title"}, {Field: "specs"}, {Field: "exactSpecs"}}}}}
+	service := New(ServiceOptions{VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: spy, Schema: runtime.Schema, Views: []viewconfig.ViewDefinition{definition}})
+	response, err := service.Execute(ctx, "areas", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "specs", Op: "gte", Value: "1"}}, Sort: []viewconfig.SortSpec{{Field: "specs", Direction: "desc"}}})
 	require.NoError(t, err)
 	require.Equal(t, []string{"areas/beta.md", "areas/alpha.md"}, rowPaths(response.Rows))
 	require.Equal(t, 3, response.Rows[0].Fields["specs"])
@@ -157,13 +99,9 @@ type Spec @node(paths: ["specs/*.md"]) {
 	require.False(t, capability.Groupable)
 	require.Nil(t, capability.Edit)
 	require.Equal(t, 1, spy.edgeCalls)
-
 	spy.edgeCalls = 0
 	definition.Variants.Table.Columns = []viewconfig.ViewColumn{{Field: "title"}}
-	service = New(ServiceOptions{
-		VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: spy, Schema: runtime.Schema,
-		Views: []viewconfig.ViewDefinition{definition},
-	})
+	service = New(ServiceOptions{VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: spy, Schema: runtime.Schema, Views: []viewconfig.ViewDefinition{definition}})
 	_, err = service.Execute(ctx, "areas", ExecuteRequest{})
 	require.NoError(t, err)
 	require.Zero(t, spy.edgeCalls)
@@ -174,9 +112,11 @@ type relationCountViewSpyStore struct {
 	edgeCalls int
 }
 
-func (s *relationCountViewSpyStore) OntologyAmbientEdgesBySources(ctx context.Context, paths []string, relation string, limit int) ([]semdb.OntologyEdgeRow, error) {
-	s.edgeCalls++
-	return s.Store.OntologyAmbientEdgesBySources(ctx, paths, relation, limit)
+func (s *relationCountViewSpyStore) OntologyNeighborhood(ctx context.Context, query readmodel.NeighborhoodQuery) ([]semdb.OntologyEdgeRow, error) {
+	if query.IncludeAmbient {
+		s.edgeCalls++
+	}
+	return s.Store.OntologyNeighborhood(ctx, query)
 }
 
 func TestOntologySourceExposesEditableEnumCheckboxAndRelationCapabilities(t *testing.T) {
@@ -223,48 +163,21 @@ name: Bob
 `)
 	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
-
-	service := New(ServiceOptions{
-		VaultPath:  root,
-		VaultDef:   vaultDef,
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-		Schema:     runtime.Schema,
-		ExecSchema: execSchema,
-		QueryDeps: ontologyquery.Deps{
-			VaultDef:   vaultDef,
-			NoteReader: &obsidian.Note{},
-			Store:      store,
-		},
-		Views: []viewconfig.ViewDefinition{{
-			APIVersion: viewconfig.APIVersion,
-			ID:         "actions",
-			Name:       "Actions",
-			SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "ActionItem"},
-			Mount:      viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone},
-			Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{
-				{Field: "status"},
-				{Field: "done"},
-				{Field: "label"},
-				{Field: "due"},
-				{Field: "assignedTo"},
-			}}},
-		}},
-	})
-
+	service := New(ServiceOptions{VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Schema: runtime.Schema, ExecSchema: execSchema, QueryDeps: ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}, Views: []viewconfig.ViewDefinition{{APIVersion: viewconfig.APIVersion, ID: "actions", Name: "Actions", SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "ActionItem"}, Mount: viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone}, Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "status"}, {Field: "done"}, {Field: "label"}, {Field: "due"}, {Field: "assignedTo"}}}}}}})
 	resp, err := service.Execute(ctx, "actions", ExecuteRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.Rows, 1)
 	require.Equal(t, "false", resp.Rows[0].Fields["done"])
 	require.Equal(t, []string{"open"}, resp.Rows[0].Fields["status"])
 	require.Equal(t, []string{"people/alice"}, resp.Rows[0].Fields["assignedTo"])
-
 	status := capabilityByKey(resp.Capabilities, "status")
 	require.NotNil(t, status.Edit)
 	require.Equal(t, "enum", status.Edit.Kind)
@@ -272,57 +185,38 @@ name: Bob
 	require.False(t, status.Edit.List)
 	require.Equal(t, []string{"open", "blocked", "done"}, status.Edit.Options)
 	require.Equal(t, []any{"open"}, status.Values)
-
 	done := capabilityByKey(resp.Capabilities, "done")
 	require.NotNil(t, done.Edit)
 	require.Equal(t, "boolean", done.Edit.Kind)
 	require.Equal(t, "setField", done.Edit.Operation)
-
 	assignedTo := capabilityByKey(resp.Capabilities, "assignedTo")
 	require.NotNil(t, assignedTo.Edit)
 	require.Equal(t, "node", assignedTo.Edit.Kind)
 	require.Equal(t, "setLinkField", assignedTo.Edit.Operation)
 	require.Equal(t, "Person", assignedTo.Edit.TargetType)
 	require.Equal(t, []string{"[[people/alice]]", "[[people/bob]]"}, candidateValues(assignedTo.Edit.Candidates))
-
 	label := capabilityByKey(resp.Capabilities, "label")
 	require.Contains(t, label.FilterOps, "contains")
 	require.Contains(t, label.FilterOps, "neq")
 	require.NotNil(t, label.Edit)
 	require.Equal(t, "text", label.Edit.Kind)
 	require.Equal(t, "setField", label.Edit.Operation)
-
 	due := capabilityByKey(resp.Capabilities, "due")
 	require.NotNil(t, due.Edit)
 	require.Equal(t, "date", due.Edit.Kind)
 	require.Equal(t, "setField", due.Edit.Operation)
 }
-
 func TestOntologySourceScalarEditCapabilityPolicy(t *testing.T) {
 	resolver := defaultSourceResolver{}
-	editable := resolver.editCapabilityForField(context.Background(), nil, &ontology.Field{
-		Name:       "summary",
-		Kind:       ontology.FieldKindScalar,
-		TypeName:   "String",
-		SourceKind: ontology.FieldSourceInline,
-	})
+	editable := resolver.editCapabilityForField(context.Background(), nil, &ontoschema.Field{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceInline})
 	require.NotNil(t, editable)
 	require.Equal(t, "text", editable.Kind)
 	require.Equal(t, "setField", editable.Operation)
-
-	unsafeFields := []*ontology.Field{
-		{Name: "title", Kind: ontology.FieldKindScalar, TypeName: "String"},
-		{Name: "id", Kind: ontology.FieldKindScalar, TypeName: "String", SourceKind: ontology.FieldSourceFrontmatter, IsIdentifier: true},
-		{Name: "derivedId", Kind: ontology.FieldKindScalar, TypeName: "String", SourceKind: ontology.FieldSourceInline, IsDerivableIdentifier: true},
-		{Name: "tags", Kind: ontology.FieldKindScalar, TypeName: "String", SourceKind: ontology.FieldSourceFrontmatter, List: true},
-		{Name: "ok", Kind: ontology.FieldKindScalar, TypeName: "Boolean", SourceKind: ontology.FieldSourceFrontmatter},
-		{Name: "frozen", Kind: ontology.FieldKindScalar, TypeName: "String", SourceKind: ontology.FieldSourceFrontmatter, Policy: &ontology.PolicyHint{RequiresUserConfirmation: true}},
-	}
+	unsafeFields := []*ontoschema.Field{{Name: "title", Kind: ontoschema.FieldKindScalar, TypeName: "String"}, {Name: "id", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter, IsIdentifier: true}, {Name: "derivedId", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceInline, IsDerivableIdentifier: true}, {Name: "tags", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter, List: true}, {Name: "ok", Kind: ontoschema.FieldKindScalar, TypeName: "Boolean", SourceKind: ontoschema.FieldSourceFrontmatter}, {Name: "frozen", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter, Policy: &ontoschema.PolicyHint{RequiresUserConfirmation: true}}}
 	for _, field := range unsafeFields {
 		require.Nil(t, resolver.editCapabilityForField(context.Background(), nil, field), field.Name)
 	}
 }
-
 func TestOntologySourcePushesIndexedEmbeddedFiltersAndSort(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
@@ -361,50 +255,16 @@ name: Bob
 `)
 	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
-
-	service := New(ServiceOptions{
-		VaultPath:  root,
-		VaultDef:   vaultDef,
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-		Schema:     runtime.Schema,
-		ExecSchema: execSchema,
-		QueryDeps: ontologyquery.Deps{
-			VaultDef:   vaultDef,
-			NoteReader: &obsidian.Note{},
-			Store:      store,
-		},
-		Views: []viewconfig.ViewDefinition{{
-			APIVersion: viewconfig.APIVersion,
-			ID:         "actions",
-			Name:       "Actions",
-			SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "ActionItem"},
-			Mount:      viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone},
-			Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{
-				{Field: "title"},
-				{Field: "due"},
-			}}},
-		}},
-	})
-
-	resp, err := service.Execute(ctx, "actions", ExecuteRequest{
-		Search: "task",
-		Filters: []viewconfig.FilterSpec{
-			{Field: "assignee", Op: "eq", Value: "people/alice"},
-			{Field: "title", Op: "contains", Value: "Later"},
-		},
-		Sort: []viewconfig.SortSpec{
-			{Field: "due", Direction: "asc"},
-			{Field: "notePath", Direction: "asc"},
-		},
-		Page: PageRequest{First: 25},
-	})
+	service := New(ServiceOptions{VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Schema: runtime.Schema, ExecSchema: execSchema, QueryDeps: ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}, Views: []viewconfig.ViewDefinition{{APIVersion: viewconfig.APIVersion, ID: "actions", Name: "Actions", SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "ActionItem"}, Mount: viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone}, Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "title"}, {Field: "due"}}}}}}})
+	resp, err := service.Execute(ctx, "actions", ExecuteRequest{Search: "task", Filters: []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "people/alice"}, {Field: "title", Op: "contains", Value: "Later"}}, Sort: []viewconfig.SortSpec{{Field: "due", Direction: "asc"}, {Field: "notePath", Direction: "asc"}}, Page: PageRequest{First: 25}})
 	require.NoError(t, err)
 	require.True(t, resp.ConstraintPlan)
 	require.Equal(t, []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "people/alice"}}, resp.PushedConstraints.Filters)
@@ -413,14 +273,9 @@ name: Bob
 	require.Equal(t, []viewconfig.FilterSpec{{Field: "title", Op: "contains", Value: "Later"}}, resp.ResidualConstraints.Filters)
 	require.Equal(t, PageRequest{First: 25}, resp.ResidualConstraints.Page)
 	require.Empty(t, resp.Rows)
-
-	resp, err = service.Execute(ctx, "actions", ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "people/alice"}},
-		Sort:    []viewconfig.SortSpec{{Field: "due", Direction: "asc"}, {Field: "notePath", Direction: "asc"}},
-	})
+	resp, err = service.Execute(ctx, "actions", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "people/alice"}}, Sort: []viewconfig.SortSpec{{Field: "due", Direction: "asc"}, {Field: "notePath", Direction: "asc"}}})
 	require.NoError(t, err)
 	require.Equal(t, []string{"Earlier", "Later"}, rowTitles(resp.Rows))
-
 	// Regression: indexed-embedded view rows must carry their schema fields
 	// (done/assignee/due) so the renderer can show the configured columns.
 	// Previously the view's hydrate lookup keyed on Structural; the GraphQL
@@ -438,7 +293,6 @@ name: Bob
 	require.NotNil(t, first.RelationValues["assignee"][0].Ref)
 	require.Equal(t, "people/alice.md", first.RelationValues["assignee"][0].Ref.NotePath)
 	require.NotEmpty(t, first.RelationValues["assignee"][0].Title)
-
 	// Regression: the indexed-embedded path used to pass a nil scope to
 	// ontologyEditCapabilities, so editCandidatesForType returned no
 	// candidates and the UI fell back to a read-only cell instead of a
@@ -448,7 +302,6 @@ name: Bob
 	require.Equal(t, "node", assignee.Edit.Kind)
 	require.NotEmpty(t, assignee.Edit.Candidates, "relation edit must include link target candidates so the renderer shows a picker")
 }
-
 func TestOntologySourceLinkFilterResolvesUniqueAndRejectsAmbiguousAlias(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
@@ -487,49 +340,21 @@ aliases:
 `)
 	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
-	service := New(ServiceOptions{
-		VaultPath:  root,
-		VaultDef:   vaultDef,
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-		Schema:     runtime.Schema,
-		ExecSchema: execSchema,
-		QueryDeps: ontologyquery.Deps{
-			VaultDef:   vaultDef,
-			NoteReader: &obsidian.Note{},
-			Store:      store,
-		},
-		Views: []viewconfig.ViewDefinition{{
-			APIVersion: viewconfig.APIVersion,
-			ID:         "actions",
-			Name:       "Actions",
-			SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "ActionItem"},
-			Mount:      viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone},
-			Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{
-				{Field: "title"},
-				{Field: "assignee"},
-			}}},
-		}},
-	})
-
-	resp, err := service.Execute(ctx, "actions", ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "Alice Primary"}},
-	})
+	service := New(ServiceOptions{VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Schema: runtime.Schema, ExecSchema: execSchema, QueryDeps: ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}, Views: []viewconfig.ViewDefinition{{APIVersion: viewconfig.APIVersion, ID: "actions", Name: "Actions", SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "ActionItem"}, Mount: viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone}, Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "title"}, {Field: "assignee"}}}}}}})
+	resp, err := service.Execute(ctx, "actions", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "Alice Primary"}}})
 	require.NoError(t, err)
 	require.Equal(t, []string{"Follow up"}, rowTitles(resp.Rows))
-
-	_, err = service.Execute(ctx, "actions", ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "Shared Alias"}},
-	})
+	_, err = service.Execute(ctx, "actions", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "Shared Alias"}}})
 	require.ErrorContains(t, err, `link filter input "Shared Alias" resolved to multiple Person targets`)
 }
-
 func TestOntologySourceFiltersAndSortsIndexedRowsBeforePagination(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
@@ -576,43 +401,16 @@ name: Bob
 	writeSourceFixture(t, root, "notes/actions.md", body.String())
 	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
-
-	service := New(ServiceOptions{
-		VaultPath:  root,
-		VaultDef:   vaultDef,
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-		Schema:     runtime.Schema,
-		ExecSchema: execSchema,
-		QueryDeps: ontologyquery.Deps{
-			VaultDef:   vaultDef,
-			NoteReader: &obsidian.Note{},
-			Store:      store,
-		},
-		Views: []viewconfig.ViewDefinition{{
-			APIVersion: viewconfig.APIVersion,
-			ID:         "actions",
-			Name:       "Actions",
-			SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "ActionItem"},
-			Mount:      viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone},
-			Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{
-				{Field: "title"},
-				{Field: "due"},
-			}}},
-		}},
-	})
-
-	resp, err := service.Execute(ctx, "actions", ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "people/alice"}},
-		Sort:    []viewconfig.SortSpec{{Field: "due", Direction: "asc"}, {Field: "notePath", Direction: "asc"}},
-		Page:    PageRequest{First: 3},
-	})
+	service := New(ServiceOptions{VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Schema: runtime.Schema, ExecSchema: execSchema, QueryDeps: ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}, Views: []viewconfig.ViewDefinition{{APIVersion: viewconfig.APIVersion, ID: "actions", Name: "Actions", SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "ActionItem"}, Mount: viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone}, Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "title"}, {Field: "due"}}}}}}})
+	resp, err := service.Execute(ctx, "actions", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "people/alice"}}, Sort: []viewconfig.SortSpec{{Field: "due", Direction: "asc"}, {Field: "notePath", Direction: "asc"}}, Page: PageRequest{First: 3}})
 	require.NoError(t, err)
 	require.True(t, resp.ConstraintPlan)
 	require.Equal(t, []viewconfig.FilterSpec{{Field: "assignee", Op: "eq", Value: "people/alice"}}, resp.PushedConstraints.Filters)
@@ -620,7 +418,6 @@ name: Bob
 	require.Len(t, resp.Rows, 3)
 	require.Equal(t, []string{"Task 1000", "Task 0800", "Task 0600"}, rowTitles(resp.Rows))
 }
-
 func TestOntologySourcePushesNotePathFilterBeforeSourceCap(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
@@ -643,55 +440,27 @@ type ActionItem implements Section
 `)
 	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
-
-	service := New(ServiceOptions{
-		VaultPath:  root,
-		VaultDef:   vaultDef,
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-		Schema:     runtime.Schema,
-		ExecSchema: execSchema,
-		QueryDeps: ontologyquery.Deps{
-			VaultDef:   vaultDef,
-			NoteReader: &obsidian.Note{},
-			Store:      store,
-		},
-		Views: []viewconfig.ViewDefinition{{
-			APIVersion: viewconfig.APIVersion,
-			ID:         "actions",
-			Name:       "Actions",
-			SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "ActionItem"},
-			Mount:      viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone},
-			Variants:   viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "title"}}}},
-		}},
-	})
-
-	resp, err := service.Execute(ctx, "actions", ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "notePath", Op: "eq", Value: "notes/z-target.md"}},
-		Page:    PageRequest{First: 10},
-	})
+	service := New(ServiceOptions{VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Schema: runtime.Schema, ExecSchema: execSchema, QueryDeps: ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}, Views: []viewconfig.ViewDefinition{{APIVersion: viewconfig.APIVersion, ID: "actions", Name: "Actions", SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "ActionItem"}, Mount: viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone}, Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "title"}}}}}}})
+	resp, err := service.Execute(ctx, "actions", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "notePath", Op: "eq", Value: "notes/z-target.md"}}, Page: PageRequest{First: 10}})
 	require.NoError(t, err)
 	require.Equal(t, []viewconfig.FilterSpec{{Field: "notePath", Op: "eq", Value: "notes/z-target.md"}}, resp.PushedConstraints.Filters)
 	require.Empty(t, resp.ResidualConstraints.Filters)
 	require.Equal(t, []string{"Target task"}, rowTitles(resp.Rows))
-
-	resp, err = service.Execute(ctx, "actions", ExecuteRequest{
-		Search: "Target",
-		Page:   PageRequest{First: 10},
-	})
+	resp, err = service.Execute(ctx, "actions", ExecuteRequest{Search: "Target", Page: PageRequest{First: 10}})
 	require.NoError(t, err)
 	require.Empty(t, resp.Rows)
 	requireWarningCode(t, resp.Warnings, "view_source_may_be_truncated")
 	requireWarningCode(t, resp.Warnings, "view_residual_constraints_cap_bound")
 	requireWarningCode(t, resp.Warnings, "view_search_cap_bound")
 }
-
 func TestOntologySourcePushesNoteRootFiltersAndSort(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
@@ -730,42 +499,16 @@ last-updated: 2026-05-03
 `)
 	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
-
-	service := New(ServiceOptions{
-		VaultPath:  root,
-		VaultDef:   vaultDef,
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-		Schema:     runtime.Schema,
-		ExecSchema: execSchema,
-		QueryDeps: ontologyquery.Deps{
-			VaultDef:   vaultDef,
-			NoteReader: &obsidian.Note{},
-			Store:      store,
-		},
-		Views: []viewconfig.ViewDefinition{{
-			APIVersion: viewconfig.APIVersion,
-			ID:         "specs",
-			Name:       "Specs",
-			SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "Spec"},
-			Mount:      viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone},
-			Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{
-				{Field: "status"},
-				{Field: "lastUpdated"},
-			}}},
-		}},
-	})
-
-	resp, err := service.Execute(ctx, "specs", ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "status", Op: "eq", Value: "active"}},
-		Sort:    []viewconfig.SortSpec{{Field: "lastUpdated", Direction: "desc"}},
-	})
+	service := New(ServiceOptions{VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Schema: runtime.Schema, ExecSchema: execSchema, QueryDeps: ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}, Views: []viewconfig.ViewDefinition{{APIVersion: viewconfig.APIVersion, ID: "specs", Name: "Specs", SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: "Spec"}, Mount: viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone}, Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "status"}, {Field: "lastUpdated"}}}}}}})
+	resp, err := service.Execute(ctx, "specs", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "status", Op: "eq", Value: "active"}}, Sort: []viewconfig.SortSpec{{Field: "lastUpdated", Direction: "desc"}}})
 	require.NoError(t, err)
 	require.True(t, resp.ConstraintPlan)
 	require.Equal(t, []viewconfig.FilterSpec{{Field: "status", Op: "eq", Value: "active"}}, resp.PushedConstraints.Filters)
@@ -773,61 +516,30 @@ last-updated: 2026-05-03
 	require.Empty(t, resp.ResidualConstraints.Filters)
 	require.Empty(t, resp.ResidualConstraints.Sort)
 	require.Equal(t, []string{"docs/specs/beta.md", "docs/specs/alpha.md"}, rowPaths(resp.Rows))
-
-	resp, err = service.Execute(ctx, "specs", ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "notePath", Op: "eq", Value: "docs/specs/beta"}},
-	})
+	resp, err = service.Execute(ctx, "specs", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "notePath", Op: "eq", Value: "docs/specs/beta"}}})
 	require.NoError(t, err)
 	require.Equal(t, []viewconfig.FilterSpec{{Field: "notePath", Op: "eq", Value: "docs/specs/beta"}}, resp.PushedConstraints.Filters)
 	require.Equal(t, []string{"docs/specs/beta.md"}, rowPaths(resp.Rows))
-
-	resp, err = service.Execute(ctx, "specs", ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "notePath", Op: "eq", Value: "docs/specs/alpha"}},
-	})
+	resp, err = service.Execute(ctx, "specs", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "notePath", Op: "eq", Value: "docs/specs/alpha"}}})
 	require.NoError(t, err)
 	require.Equal(t, []string{"docs/specs/alpha.md"}, rowPaths(resp.Rows))
 }
-
 func TestViewPathPredicateKeepsMarkdownCompatibilitySeparateFromAuthoredPaths(t *testing.T) {
-	builtinResult := pushdown.PredicateResult{
-		Key: pushdown.FieldKey{Source: pushdown.FieldKeyBuiltin},
-		Predicate: codeanchor.OntologyFieldPredicate{
-			FieldName: "notePath",
-			Op:        codeanchor.OntologyFieldOpEq,
-			Values:    []codeanchor.IntelOntologyNodeFieldValue{{ValueText: "docs/specs/beta", ValueNorm: "docs/specs/beta"}},
-		},
-	}
-
-	extensionless := viewPathPredicateWithMarkdownCompatibility(
-		viewconfig.FilterSpec{Field: "notePath", Op: "eq", Value: "docs/specs/beta"},
-		builtinResult,
-	)
-	require.Equal(t, codeanchor.OntologyFieldOpIn, extensionless.Op)
+	builtinResult := pushdown.PredicateResult{Key: pushdown.FieldKey{Source: pushdown.FieldKeyBuiltin}, Predicate: readmodel.FieldPredicate{FieldName: "notePath", Op: readmodel.FieldOpEq, Values: []readmodel.FieldValueRow{{ValueText: "docs/specs/beta", ValueNorm: "docs/specs/beta"}}}}
+	extensionless := viewPathPredicateWithMarkdownCompatibility(viewconfig.FilterSpec{Field: "notePath", Op: "eq", Value: "docs/specs/beta"}, builtinResult)
+	require.Equal(t, readmodel.FieldOpIn, extensionless.Op)
 	require.Equal(t, []string{"docs/specs/beta", "docs/specs/beta.md"}, predicateValueTexts(extensionless))
-
-	explicitHTML := viewPathPredicateWithMarkdownCompatibility(
-		viewconfig.FilterSpec{Field: "notePath", Op: "eq", Value: "docs/specs/beta.html"},
-		pushdown.PredicateResult{
-			Key: pushdown.FieldKey{Source: pushdown.FieldKeyBuiltin},
-			Predicate: codeanchor.OntologyFieldPredicate{
-				FieldName: "notePath",
-				Op:        codeanchor.OntologyFieldOpEq,
-				Values:    []codeanchor.IntelOntologyNodeFieldValue{{ValueText: "docs/specs/beta.html", ValueNorm: "docs/specs/beta.html"}},
-			},
-		},
-	)
-	require.Equal(t, codeanchor.OntologyFieldOpEq, explicitHTML.Op)
+	explicitHTML := viewPathPredicateWithMarkdownCompatibility(viewconfig.FilterSpec{Field: "notePath", Op: "eq", Value: "docs/specs/beta.html"}, pushdown.PredicateResult{Key: pushdown.FieldKey{Source: pushdown.FieldKeyBuiltin}, Predicate: readmodel.FieldPredicate{FieldName: "notePath", Op: readmodel.FieldOpEq, Values: []readmodel.FieldValueRow{{ValueText: "docs/specs/beta.html", ValueNorm: "docs/specs/beta.html"}}}})
+	require.Equal(t, readmodel.FieldOpEq, explicitHTML.Op)
 	require.Equal(t, []string{"docs/specs/beta.html"}, predicateValueTexts(explicitHTML))
 }
-
-func predicateValueTexts(predicate codeanchor.OntologyFieldPredicate) []string {
+func predicateValueTexts(predicate readmodel.FieldPredicate) []string {
 	values := make([]string, 0, len(predicate.Values))
 	for _, value := range predicate.Values {
 		values = append(values, value.ValueText)
 	}
 	return values
 }
-
 func TestOntologyInterfacePushesImplementorFiltersAndGlobalSort(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
@@ -870,39 +582,16 @@ due: 2026-05-08
 `)
 	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
-
-	service := New(ServiceOptions{
-		VaultPath:  root,
-		VaultDef:   vaultDef,
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-		Schema:     runtime.Schema,
-		ExecSchema: execSchema,
-		QueryDeps: ontologyquery.Deps{
-			VaultDef:   vaultDef,
-			NoteReader: &obsidian.Note{},
-			Store:      store,
-		},
-		Views: []viewconfig.ViewDefinition{{
-			APIVersion: viewconfig.APIVersion,
-			ID:         "work",
-			Name:       "Work",
-			SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyInterface, Interface: "WorkItem"},
-			Mount:      viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone},
-			Variants:   viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "status"}, {Field: "due"}}}},
-		}},
-	})
-
-	resp, err := service.Execute(ctx, "work", ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "frontmatter.status", Op: "eq", Value: "active"}},
-		Sort:    []viewconfig.SortSpec{{Field: "frontmatter.due", Direction: "asc"}},
-	})
+	service := New(ServiceOptions{VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Schema: runtime.Schema, ExecSchema: execSchema, QueryDeps: ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}, Views: []viewconfig.ViewDefinition{{APIVersion: viewconfig.APIVersion, ID: "work", Name: "Work", SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyInterface, Interface: "WorkItem"}, Mount: viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone}, Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "status"}, {Field: "due"}}}}}}})
+	resp, err := service.Execute(ctx, "work", ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "frontmatter.status", Op: "eq", Value: "active"}}, Sort: []viewconfig.SortSpec{{Field: "frontmatter.due", Direction: "asc"}}})
 	require.NoError(t, err)
 	require.True(t, resp.ConstraintPlan)
 	require.Equal(t, []viewconfig.FilterSpec{{Field: "frontmatter.status", Op: "eq", Value: "active"}}, resp.PushedConstraints.Filters)
@@ -913,7 +602,6 @@ due: 2026-05-08
 	require.NotEmpty(t, capabilityByKey(resp.Capabilities, "status").FilterOps)
 	require.NotEmpty(t, capabilityByKey(resp.Capabilities, "frontmatter.status").FilterOps)
 }
-
 func TestOntologyInterfaceSourceUsesHumanNoteTitle(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
@@ -934,35 +622,15 @@ name: Knowledge-base migration phase 1
 `)
 	store, err := semdb.Open(filepath.Join(root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	vaultDef := obsidian.VaultDefinition{Name: "view-fixture", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
-
-	service := New(ServiceOptions{
-		VaultPath:  root,
-		VaultDef:   vaultDef,
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-		Schema:     runtime.Schema,
-		ExecSchema: execSchema,
-		QueryDeps: ontologyquery.Deps{
-			VaultDef:   vaultDef,
-			NoteReader: &obsidian.Note{},
-			Store:      store,
-		},
-		Views: []viewconfig.ViewDefinition{{
-			APIVersion: viewconfig.APIVersion,
-			ID:         "efforts",
-			Name:       "Efforts",
-			SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyInterface, Interface: "Effort"},
-			Mount:      viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone},
-			Variants:   viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "title"}}}},
-		}},
-	})
-
+	service := New(ServiceOptions{VaultPath: root, VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Schema: runtime.Schema, ExecSchema: execSchema, QueryDeps: ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}, Views: []viewconfig.ViewDefinition{{APIVersion: viewconfig.APIVersion, ID: "efforts", Name: "Efforts", SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyInterface, Interface: "Effort"}, Mount: viewconfig.MountSpec{Kind: viewconfig.MountKindStandalone}, Variants: viewconfig.VariantSet{Table: &viewconfig.TableVariant{Columns: []viewconfig.ViewColumn{{Field: "title"}}}}}}})
 	resp, err := service.Execute(ctx, "efforts", ExecuteRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.Rows, 1)
@@ -970,91 +638,20 @@ name: Knowledge-base migration phase 1
 	require.Equal(t, "Knowledge-base migration phase 1", resp.Rows[0].Fields["title"])
 	require.Equal(t, "docs/efforts/2026-04-12-12-00-kb-migration-phase-1.md", resp.Rows[0].Path)
 }
-
 func TestOntologyInterfaceEditCapabilitiesDropIncompatibleEditors(t *testing.T) {
-	schema := &ontology.Schema{
-		EnumTypes: map[string]*ontology.EnumType{
-			"WorkStatus": {
-				Name: "WorkStatus",
-				Values: []*ontology.EnumValue{
-					{Name: "open"},
-					{Name: "done"},
-				},
-			},
-			"ReviewStatus": {
-				Name: "ReviewStatus",
-				Values: []*ontology.EnumValue{
-					{Name: "queued"},
-					{Name: "approved"},
-				},
-			},
-		},
-		Interfaces: map[string]*ontology.InterfaceType{
-			"Trackable": {Name: "Trackable"},
-		},
-		Types: map[string]*ontology.NoteType{
-			"ActionItem": {
-				Name:       "ActionItem",
-				Implements: []string{"Trackable"},
-				Fields: []*ontology.Field{
-					{Name: "status", Kind: ontology.FieldKindEnum, TypeName: "WorkStatus", SourceKind: ontology.FieldSourceInline},
-				},
-			},
-			"ReviewItem": {
-				Name:       "ReviewItem",
-				Implements: []string{"Trackable"},
-				Fields: []*ontology.Field{
-					{Name: "status", Kind: ontology.FieldKindEnum, TypeName: "ReviewStatus", SourceKind: ontology.FieldSourceInline},
-				},
-			},
-		},
-	}
+	schema := &ontoschema.Schema{EnumTypes: map[string]*ontoschema.EnumType{"WorkStatus": {Name: "WorkStatus", Values: []*ontoschema.EnumValue{{Name: "open"}, {Name: "done"}}}, "ReviewStatus": {Name: "ReviewStatus", Values: []*ontoschema.EnumValue{{Name: "queued"}, {Name: "approved"}}}}, Interfaces: map[string]*ontoschema.InterfaceType{"Trackable": {Name: "Trackable"}}, Types: map[string]*ontoschema.NoteType{"ActionItem": {Name: "ActionItem", Implements: []string{"Trackable"}, Fields: []*ontoschema.Field{{Name: "status", Kind: ontoschema.FieldKindEnum, TypeName: "WorkStatus", SourceKind: ontoschema.FieldSourceInline}}}, "ReviewItem": {Name: "ReviewItem", Implements: []string{"Trackable"}, Fields: []*ontoschema.Field{{Name: "status", Kind: ontoschema.FieldKindEnum, TypeName: "ReviewStatus", SourceKind: ontoschema.FieldSourceInline}}}}}
 	resolver := defaultSourceResolver{opts: ServiceOptions{Schema: schema}}
-
-	caps := resolver.ontologyEditCapabilities(context.Background(), nil, viewconfig.ViewDefinition{
-		SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyInterface, Interface: "Trackable"},
-	})
-
+	caps := resolver.ontologyEditCapabilities(context.Background(), nil, viewconfig.ViewDefinition{SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyInterface, Interface: "Trackable"}})
 	status := capabilityByKey(caps, "status")
 	require.Nil(t, status.Edit)
 	require.ElementsMatch(t, []string{"eq", "in", "exists", "missing"}, status.FilterOps)
 	require.ElementsMatch(t, []string{"eq", "in", "exists"}, status.IndexedFilterOps)
 }
-
 func TestOntologyTitleCapabilityIsEditable(t *testing.T) {
-	schema := &ontology.Schema{
-		Types: map[string]*ontology.NoteType{
-			"Spec": {
-				Name: "Spec",
-				Role: ontology.TypeRoleNote,
-				Fields: []*ontology.Field{
-					{Name: "summary", Kind: ontology.FieldKindScalar, TypeName: "String", SourceKind: ontology.FieldSourceFrontmatter},
-				},
-			},
-			"Story": {
-				Name: "Story",
-				Role: ontology.TypeRoleSection,
-				Fields: []*ontology.Field{
-					{Name: "status", Kind: ontology.FieldKindScalar, TypeName: "String", SourceKind: ontology.FieldSourceInline},
-				},
-			},
-			"ActionItem": {
-				Name:        "ActionItem",
-				Role:        ontology.TypeRoleEmbeddedNode,
-				SourceShape: ontology.EmbeddedSourceShapeCheckboxItem,
-				Fields: []*ontology.Field{
-					{Name: "done", Kind: ontology.FieldKindScalar, TypeName: "Boolean", SourceKind: ontology.FieldSourceCheckbox},
-				},
-			},
-		},
-	}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Spec": {Name: "Spec", Role: ontoschema.TypeRoleNote, Fields: []*ontoschema.Field{{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter}}}, "Story": {Name: "Story", Role: ontoschema.TypeRoleSection, Fields: []*ontoschema.Field{{Name: "status", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceInline}}}, "ActionItem": {Name: "ActionItem", Role: ontoschema.TypeRoleEmbeddedNode, SourceShape: ontoschema.EmbeddedSourceShapeCheckboxItem, Fields: []*ontoschema.Field{{Name: "done", Kind: ontoschema.FieldKindScalar, TypeName: "Boolean", SourceKind: ontoschema.FieldSourceCheckbox}}}}}
 	resolver := defaultSourceResolver{opts: ServiceOptions{Schema: schema}}
-
 	for _, typeName := range []string{"Spec", "Story", "ActionItem"} {
-		caps := resolver.ontologyEditCapabilities(context.Background(), nil, viewconfig.ViewDefinition{
-			SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: typeName},
-		})
-
+		caps := resolver.ontologyEditCapabilities(context.Background(), nil, viewconfig.ViewDefinition{SourceSpec: viewconfig.SourceSpec{Kind: viewconfig.SourceKindOntologyType, Type: typeName}})
 		title := capabilityByKey(caps, "title")
 		require.NotNil(t, title.Edit, typeName)
 		require.Equal(t, "text", title.Edit.Kind, typeName)
@@ -1063,156 +660,61 @@ func TestOntologyTitleCapabilityIsEditable(t *testing.T) {
 		require.Equal(t, "doubleClick", title.Edit.InputMode, typeName)
 	}
 }
-
 func TestEnumValuesForCapabilityPropagatesViewMetadata(t *testing.T) {
 	collapsed := true
-	schema := &ontology.Schema{
-		EnumTypes: map[string]*ontology.EnumType{
-			"WorkStatus": {
-				Name: "WorkStatus",
-				Values: []*ontology.EnumValue{
-					{Name: "ready", View: ontology.EnumValueView{Label: "Ready", Order: 10, Tone: "info"}},
-					{Name: "done", View: ontology.EnumValueView{Label: "Finished", Order: 20, Collapsed: &collapsed}},
-				},
-			},
-		},
-	}
-
+	schema := &ontoschema.Schema{EnumTypes: map[string]*ontoschema.EnumType{"WorkStatus": {Name: "WorkStatus", Values: []*ontoschema.EnumValue{{Name: "ready", View: ontoschema.EnumValueView{Label: "Ready", Order: 10, Tone: "info"}}, {Name: "done", View: ontoschema.EnumValueView{Label: "Finished", Order: 20, Collapsed: &collapsed}}}}}}
 	values := enumValuesForCapability(schema, "WorkStatus")
-
-	require.Equal(t, []FieldEnumValue{
-		{Value: "ready", Label: "Ready", Rank: 10, Tone: "info", Stage: ontology.StageOpen},
-		{Value: "done", Label: "Finished", Rank: 20, Tone: "muted", CollapsedByDefault: true, Stage: ontology.StageDropped},
-	}, values, "stages are inferred from authored tone and collapse")
+	require.Equal(t, []FieldEnumValue{{Value: "ready", Label: "Ready", Rank: 10, Tone: "info", Stage: ontoschema.StageOpen}, {Value: "done", Label: "Finished", Rank: 20, Tone: "muted", CollapsedByDefault: true, Stage: ontoschema.StageDropped}}, values, "stages are inferred from authored tone and collapse")
 }
-
 func TestEnumValuesForCapabilityInfersToneByRank(t *testing.T) {
-	schema := &ontology.Schema{EnumTypes: map[string]*ontology.EnumType{
-		"State": {
-			Name: "State",
-			Values: []*ontology.EnumValue{
-				{Name: "later", View: ontology.EnumValueView{Order: 20}},
-				{Name: "first", View: ontology.EnumValueView{Order: 10}},
-				{Name: "also_first", View: ontology.EnumValueView{Order: 10}},
-			},
-		},
-	}}
-
+	schema := &ontoschema.Schema{EnumTypes: map[string]*ontoschema.EnumType{"State": {Name: "State", Values: []*ontoschema.EnumValue{{Name: "later", View: ontoschema.EnumValueView{Order: 20}}, {Name: "first", View: ontoschema.EnumValueView{Order: 10}}, {Name: "also_first", View: ontoschema.EnumValueView{Order: 10}}}}}}
 	values := enumValuesForCapability(schema, "State")
 	require.Equal(t, "progress", values[0].Tone)
 	require.Equal(t, "neutral", values[1].Tone)
 	require.Equal(t, "progress", values[2].Tone)
 }
-
 func TestOntologyInterfaceWarnsWhenFieldIsOnlyPartiallyPushable(t *testing.T) {
-	schema := &ontology.Schema{
-		Interfaces: map[string]*ontology.InterfaceType{
-			"Trackable": {Name: "Trackable"},
-		},
-		Types: map[string]*ontology.NoteType{
-			"ActionItem": {
-				Name:       "ActionItem",
-				Implements: []string{"Trackable"},
-				Fields: []*ontology.Field{
-					{Name: "status", Kind: ontology.FieldKindScalar, TypeName: "String", SourceKind: ontology.FieldSourceFrontmatter},
-					{Name: "due", Kind: ontology.FieldKindScalar, TypeName: "Date", SourceKind: ontology.FieldSourceFrontmatter},
-				},
-				ByName: map[string]*ontology.Field{},
-			},
-			"ReviewItem": {
-				Name:       "ReviewItem",
-				Implements: []string{"Trackable"},
-				Fields: []*ontology.Field{
-					{Name: "due", Kind: ontology.FieldKindScalar, TypeName: "Date", SourceKind: ontology.FieldSourceFrontmatter},
-				},
-				ByName: map[string]*ontology.Field{},
-			},
-		},
-	}
+	schema := &ontoschema.Schema{Interfaces: map[string]*ontoschema.InterfaceType{"Trackable": {Name: "Trackable"}}, Types: map[string]*ontoschema.NoteType{"ActionItem": {Name: "ActionItem", Implements: []string{"Trackable"}, Fields: []*ontoschema.Field{{Name: "status", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter}, {Name: "due", Kind: ontoschema.FieldKindScalar, TypeName: "Date", SourceKind: ontoschema.FieldSourceFrontmatter}}, ByName: map[string]*ontoschema.Field{}}, "ReviewItem": {Name: "ReviewItem", Implements: []string{"Trackable"}, Fields: []*ontoschema.Field{{Name: "due", Kind: ontoschema.FieldKindScalar, TypeName: "Date", SourceKind: ontoschema.FieldSourceFrontmatter}}, ByName: map[string]*ontoschema.Field{}}}}
 	for _, noteType := range schema.Types {
 		for _, field := range noteType.Fields {
 			noteType.ByName[field.Name] = field
 		}
 	}
 	resolver := defaultSourceResolver{opts: ServiceOptions{Schema: schema}}
-
-	warnings := resolver.interfacePartialFieldWarnings([]string{"ActionItem", "ReviewItem"}, ExecuteRequest{
-		Filters: []viewconfig.FilterSpec{{Field: "status", Op: "eq", Value: "active"}},
-		Sort:    []viewconfig.SortSpec{{Field: "due", Direction: "asc"}, {Field: "status", Direction: "asc"}},
-	})
-
+	warnings := resolver.interfacePartialFieldWarnings(t.Context(), []string{"ActionItem", "ReviewItem"}, ExecuteRequest{Filters: []viewconfig.FilterSpec{{Field: "status", Op: "eq", Value: "active"}}, Sort: []viewconfig.SortSpec{{Field: "due", Direction: "asc"}, {Field: "status", Direction: "asc"}}})
 	require.Len(t, warnings, 2)
 	require.Equal(t, "interface_partial_field_residual", warnings[0].Code)
 	require.Equal(t, "status", warnings[0].Path)
 	require.Equal(t, "interface_partial_field_residual", warnings[1].Code)
 	require.Equal(t, "status", warnings[1].Path)
 }
-
 func TestExecutionPlanPreservesBoundedWarningBelowLimit(t *testing.T) {
-	source := SourceResult{
-		ConstraintPlan: true,
-		ResidualConstraints: SourceConstraints{
-			Search: "target",
-		},
-		Warnings: []Warning{{
-			Code: "view_source_residual_constraints_after_cap",
-		}},
-		Plan: ConstraintPlanSummary{
-			CandidateLimit:     10,
-			CandidateCount:     1,
-			SourceCompleteness: SourceComplete,
-		},
-	}
-
+	source := SourceResult{ConstraintPlan: true, ResidualConstraints: SourceConstraints{Search: "target"}, Warnings: []diag.Warning{{Code: "view_source_residual_constraints_after_cap"}}, Plan: ConstraintPlanSummary{CandidateLimit: 10, CandidateCount: 1, SourceCompleteness: SourceComplete}}
 	plan := executionPlanSummary(source, source.ResidualConstraints, 1)
 	require.Equal(t, SourceBounded, plan.SourceCompleteness)
 	require.Equal(t, ConstraintsCapBound, plan.Reliability)
 }
-
 func TestOntologyFieldCapabilitiesExposeIndexedAndResidualOps(t *testing.T) {
-	schema := &ontology.Schema{
-		Types: map[string]*ontology.NoteType{
-			"ActionItem": {
-				Name: "ActionItem",
-				Fields: []*ontology.Field{
-					{Name: "summary", Kind: ontology.FieldKindScalar, TypeName: "String", SourceKind: ontology.FieldSourceInline, Required: true, Display: ontology.FieldDisplay{Importance: ontology.FieldImportanceKey}},
-					{Name: "assignee", Kind: ontology.FieldKindLink, TypeName: "Person", SourceKind: ontology.FieldSourceInline},
-				},
-			},
-		},
-	}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"ActionItem": {Name: "ActionItem", Fields: []*ontoschema.Field{{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceInline, Required: true, Display: ontoschema.FieldDisplay{Importance: ontoschema.FieldImportanceKey}}, {Name: "assignee", Kind: ontoschema.FieldKindLink, TypeName: "Person", SourceKind: ontoschema.FieldSourceInline}}}}}
 	resolver := defaultSourceResolver{opts: ServiceOptions{Schema: schema}}
-
 	summary := resolver.capabilitiesForField(context.Background(), nil, schema.Types["ActionItem"].Fields[0])[0]
 	require.True(t, summary.Required)
-	require.Equal(t, ontology.FieldImportanceKey, summary.Importance)
+	require.Equal(t, ontoschema.FieldImportanceKey, summary.Importance)
 	require.ElementsMatch(t, []string{"eq", "in", "exists", "neq", "contains", "missing"}, summary.FilterOps)
 	require.ElementsMatch(t, []string{"eq", "in", "exists"}, summary.IndexedFilterOps)
 	require.ElementsMatch(t, []string{"neq", "contains", "missing"}, summary.ResidualFilterOps)
-
 	assignee := resolver.capabilitiesForField(context.Background(), nil, schema.Types["ActionItem"].Fields[1])[0]
-	require.Equal(t, ontology.FieldImportanceNormal, assignee.Importance)
+	require.Equal(t, ontoschema.FieldImportanceNormal, assignee.Importance)
 	require.ElementsMatch(t, []string{"eq", "in", "exists", "missing"}, assignee.FilterOps)
 	require.ElementsMatch(t, []string{"eq", "in", "exists"}, assignee.IndexedFilterOps)
 	require.Equal(t, []string{"missing"}, assignee.ResidualFilterOps)
 }
-
 func writeSourceFixture(t testing.TB, root, rel, body string) {
 	t.Helper()
 	full := filepath.Join(root, rel)
 	require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
 	require.NoError(t, os.WriteFile(full, []byte(body), 0o644))
 }
-
-func testNoteMetadataIndexer(t testing.TB) notemeta.Indexer {
-	t.Helper()
-	runtime, err := builtin.NewRuntime()
-	require.NoError(t, err)
-	indexer, err := notemeta.NewIndexer(runtime)
-	require.NoError(t, err)
-	return indexer
-}
-
 func rowPaths(rows []TableRow) []string {
 	out := make([]string, 0, len(rows))
 	for _, row := range rows {
@@ -1220,7 +722,6 @@ func rowPaths(rows []TableRow) []string {
 	}
 	return out
 }
-
 func capabilityByKey(caps []FieldCapability, key string) FieldCapability {
 	for _, cap := range caps {
 		if cap.Key == key {
@@ -1229,7 +730,6 @@ func capabilityByKey(caps []FieldCapability, key string) FieldCapability {
 	}
 	return FieldCapability{}
 }
-
 func candidateValues(candidates []EditCandidate) []string {
 	out := make([]string, 0, len(candidates))
 	for _, candidate := range candidates {
@@ -1237,8 +737,7 @@ func candidateValues(candidates []EditCandidate) []string {
 	}
 	return out
 }
-
-func requireWarningCode(t *testing.T, warnings []Warning, code string) {
+func requireWarningCode(t *testing.T, warnings []diag.Warning, code string) {
 	t.Helper()
 	for _, warning := range warnings {
 		if warning.Code == code {

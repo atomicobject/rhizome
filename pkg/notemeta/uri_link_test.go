@@ -125,7 +125,7 @@ func TestResolveProjectedURILinkExplicitPathUsesPlatformCasing(t *testing.T) {
 		URI:        &noteformat.URIReferenceFact{Path: "../specs/feature.md", Encoding: noteformat.URIEncodingPercent},
 	}
 	target, ok := ResolveProjectedLink(cache, "efforts/workspace.html", nil, link)
-	require.Equal(t, obsidian.IsCaseInsensitiveFS(), ok)
+	require.True(t, ok)
 	if ok {
 		require.Equal(t, "Specs/Feature.MD", target, "return the stored path with authored casing")
 	} else {
@@ -135,10 +135,18 @@ func TestResolveProjectedURILinkExplicitPathUsesPlatformCasing(t *testing.T) {
 
 	cache = obsidian.BuildNotePathCache([]string{"Specs/Feature.MD", "specs/feature.md"})
 	target, ok = ResolveProjectedLink(cache, "efforts/workspace.html", nil, link)
-	if obsidian.IsCaseInsensitiveFS() {
-		require.False(t, ok, "equivalent stored paths must remain ambiguous")
-	} else {
-		require.True(t, ok)
-		require.Equal(t, "specs/feature.md", target)
-	}
+	require.True(t, ok)
+	require.Equal(t, "specs/feature.md", target, "exact authored spelling wins within folded claimants")
+}
+
+func TestRelativeProviderLinkCannotEscapeVaultThroughBasenameFallback(t *testing.T) {
+	cache := obsidian.BuildNotePathCache([]string{"outside.md", "notes/source.md"})
+	link := noteformat.UnresolvedAuthoredLinkFact{Resolution: noteformat.LinkResolutionRelativePath, Path: "../../outside.md", ResolverInput: "../../outside.md"}
+	_, ok := ResolveProjectedLink(cache, "notes/source.md", nil, link)
+	require.False(t, ok)
+	link.Path = "../outside.md"
+	link.ResolverInput = link.Path
+	target, ok := ResolveProjectedLink(cache, "notes/source.md", nil, link)
+	require.True(t, ok)
+	require.Equal(t, "outside.md", target)
 }

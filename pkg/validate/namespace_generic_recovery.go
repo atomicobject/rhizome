@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 )
 
 // A native entrypoint may settle existing generic repair work, but must retain
 // generic validation's exact prepared-runtime postcheck and strict witnesses.
-func convergeNamespaceGenericBarrier(ctx context.Context, runCtx RunContext, lease *IndexLockLease, refresher PostApplyRefresher, recovery repairJournalRecovery, hooks *repairExecutionHooks) error {
+func convergeNamespaceGenericBarrier(ctx context.Context, runCtx RunContext, lease *indexlock.Lease, refresher PostApplyRefresher, recovery repairJournalRecovery, hooks *repairExecutionHooks) error {
 	journals := append(append(append([]recoveredRepairJournal(nil), recovery.committed...), recovery.rolledBack...), recovery.noMutation...)
 	if len(journals)+len(recovery.partial)+len(recovery.cleanupPending) == 0 {
 		return nil
@@ -37,7 +38,7 @@ func convergeNamespaceGenericBarrier(ctx context.Context, runCtx RunContext, lea
 		return errors.Join(err, refresh.Close())
 	}
 	var checked *Result
-	postcheck := repairSessionPostcheck(runCtx, Options{Checks: sortedUnique(scope.Checks)}, &checked, false)
+	postcheck := repairSessionPostcheck(runCtx, ApplyOptions{ScanOptions: ScanOptions{Checks: sortedUnique(scope.Checks)}}, &checked, false)
 	if err := postcheck(ctx, lease, refresh.Runtime, repairPostApplyScope{Checks: sortedUnique(scope.Checks), AffectedPaths: sortedUnique(affected)}); err != nil {
 		return errors.Join(err, refresh.Close())
 	}
@@ -49,11 +50,11 @@ func convergeNamespaceGenericBarrier(ctx context.Context, runCtx RunContext, lea
 	}
 	for _, journal := range journals {
 		if journal.state == repairJournalCommitted {
-			if err := verifyCommittedRepairJournal(runCtx, journal.manifest); err != nil {
+			if err := runCtx.sourceWriter.Verify(journal.completion); err != nil {
 				return err
 			}
 		}
-		if err := cleanupRepairJournal(runCtx, journal.dir, journal.manifest, hooks); err != nil {
+		if err := runCtx.sourceWriter.Complete(journal.completion); err != nil {
 			return err
 		}
 	}

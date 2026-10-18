@@ -13,7 +13,8 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -144,7 +145,7 @@ func TestSetupChecksBeforeExecution(t *testing.T) {
 	t.Run("configured", func(t *testing.T) {
 		s := testService(t)
 		req, args := setupFixture(t, "exit 9")
-		require.NoError(t, obsidian.SaveLocalConfig(req.Folder, obsidian.LocalConfig{}))
+		require.NoError(t, repoconfig.SaveLocalConfig(req.Folder, repoconfig.LocalConfig{}))
 		_, err := s.SetupReport(context.Background(), req)
 		code(t, err, "invalid_request")
 		req.Setup = &SetupChoices{}
@@ -191,7 +192,7 @@ func TestScopeUsesSelectedExecutableAndEdits(t *testing.T) {
 		t.Run(operation, func(t *testing.T) {
 			s := testService(t)
 			req, args := setupFixture(t, `echo '`+doc+`'`)
-			require.NoError(t, obsidian.SaveLocalConfig(req.Folder, obsidian.LocalConfig{Rhizome: obsidian.LocalRhizomeConfig{BinaryManager: "external"}}))
+			require.NoError(t, repoconfig.SaveLocalConfig(req.Folder, repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{BinaryManager: "external"}}))
 			req.Operation, req.Executable = operation, req.GlobalExecutable
 			req.GlobalExecutable = "/must-not-select-global"
 			req.Edits = &ScopeEdits{Skip: []string{"build", "dist"}, RemoveRules: []string{"/data/"}, IncludeIgnored: []string{"nested"}}
@@ -214,7 +215,7 @@ func TestScopeChecksAndErrorMapping(t *testing.T) {
 	_, err := s.Scope(context.Background(), req)
 	code(t, err, "not_configured")
 	require.NoFileExists(t, args)
-	require.NoError(t, obsidian.SaveLocalConfig(req.Folder, obsidian.LocalConfig{Rhizome: obsidian.LocalRhizomeConfig{DevBinaryDir: "dev"}}))
+	require.NoError(t, repoconfig.SaveLocalConfig(req.Folder, repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{DevBinaryDir: "dev"}}))
 	dev := filepath.Join(req.Folder, "dev", runtime.GOOS, repoexec.ExecutableName())
 	body, err := os.ReadFile(req.GlobalExecutable)
 	require.NoError(t, err)

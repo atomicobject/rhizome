@@ -2,18 +2,21 @@ package web
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/cache"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/cache"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestApplyWorkspaceAssessmentStatus(t *testing.T) {
@@ -52,6 +55,9 @@ func TestApplyWorkspaceAssessmentStatus(t *testing.T) {
 }
 
 func TestNewServerUsesCacheBackedNoteReaderWhenAvailable(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ontology", "schema.graphql"), []byte(`type Doc @node(paths: ["*.md"]) { title: String @field }`), 0o644))
@@ -63,12 +69,12 @@ func TestNewServerUsesCacheBackedNoteReaderWhenAvailable(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 
 	srv, err := NewServer(t.Context(), Config{
-		Vault:        &obsidian.Vault{Name: "test"},
+		Vault:        &repoconfig.Vault{Env: env, Name: "test"},
 		VaultDef:     obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth},
 		VaultPath:    root,
 		Cache:        cacheSvc,
 		Runtime:      &Runtime{IntelStore: store},
-		NoteMetadata: testNoteMetadataIndexer(t),
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
 	}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -78,14 +84,17 @@ func TestNewServerUsesCacheBackedNoteReaderWhenAvailable(t *testing.T) {
 	service, _, err := srv.ontologyContext()
 	require.NoError(t, err)
 	require.NotNil(t, service)
-	content, err := service.NoteReader.GetContents(srv.cfg.VaultDef, "note.md")
+	deps, err := srv.ontologyQueryDeps(service, nil)
+	require.NoError(t, err)
+	content, err := deps.NoteReader.GetContents(srv.cfg.VaultDef, "note.md")
 	require.NoError(t, err)
 	require.Contains(t, content, "# Old")
 
 	require.NoError(t, os.WriteFile(filepath.Join(root, "note.md"), []byte("---\naliases: [new-alias]\n---\n# New\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "added.md"), []byte("# Added\n"), 0o644))
 	cacheSvc.MarkStale()
-	deps := srv.ontologyQueryDeps(service, nil)
+	deps, err = srv.ontologyQueryDeps(service, nil)
+	require.NoError(t, err)
 	// The recrawl runs in the background; reads keep serving the last index.
 	require.Eventually(t, func() bool {
 		content, err = deps.NoteReader.GetContents(srv.cfg.VaultDef, "note.md")
@@ -98,7 +107,7 @@ func TestNewServerUsesCacheBackedNoteReaderWhenAvailable(t *testing.T) {
 	provider := deps.NoteReader.(interface {
 		NoteEntriesSnapshot(context.Context) ([]obsidian.NoteEntry, error)
 	})
-	entries, err := provider.NoteEntriesSnapshot(context.Background())
+	entries, err := provider.NoteEntriesSnapshot(vaultconfig.WithEnv(context.Background(), env))
 	require.NoError(t, err)
 	require.Len(t, entries, 2)
 	for _, entry := range entries {
@@ -110,7 +119,7 @@ func TestNewServerUsesCacheBackedNoteReaderWhenAvailable(t *testing.T) {
 	require.NoError(t, os.Rename(filepath.Join(root, "added.md"), filepath.Join(t.TempDir(), "added.md")))
 	cacheSvc.MarkStale()
 	require.Eventually(t, func() bool {
-		paths, err = service.NoteReader.GetNotesList(srv.cfg.VaultDef)
+		paths, err = deps.NoteReader.GetNotesList(srv.cfg.VaultDef)
 		require.NoError(t, err)
 		return len(paths) == 1
 	}, 5*time.Second, 5*time.Millisecond)
@@ -134,12 +143,14 @@ func TestOntologyQueryDepsPreservesExplicitReaderAndRawFallback(t *testing.T) {
 	srv := &Server{cfg: Config{VaultDef: obsidian.VaultDefinition{Path: root}}, runtime: &Runtime{}}
 	explicit := fixedWebNoteReader{content: "# Explicit\n"}
 
-	deps := srv.ontologyQueryDeps(nil, explicit)
+	deps, err := srv.ontologyQueryDeps(nil, explicit)
+	require.NoError(t, err)
 	content, err := deps.NoteReader.GetContents(srv.cfg.VaultDef, "note.md")
 	require.NoError(t, err)
 	require.Equal(t, "# Explicit\n", content)
 
-	deps = srv.ontologyQueryDeps(nil, nil)
+	deps, err = srv.ontologyQueryDeps(nil, nil)
+	require.NoError(t, err)
 	content, err = deps.NoteReader.GetContents(srv.cfg.VaultDef, "note.md")
 	require.NoError(t, err)
 	require.Equal(t, "# Disk\n", content)
@@ -177,7 +188,7 @@ status:: ready
 ^story-a
 `), 0o644))
 
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	reader := &projectionCountingNoteReader{root: root}
 	cache := newNodeProjectionCache(8)
@@ -205,7 +216,7 @@ func TestFastNodeWorkspaceLocatorBuildsEmbeddedBlockLink(t *testing.T) {
 	srv := &Server{
 		cfg: Config{
 			VaultDef:     obsidian.VaultDefinition{Name: "test", Path: t.TempDir(), Links: obsidian.LinkTypeBoth},
-			NoteMetadata: testNoteMetadataIndexer(t),
+			NoteMetadata: testkit.NoteMetadataIndexer(t),
 		},
 	}
 	srv.noteCache = obsidian.BuildNotePathCache([]string{"specs/demo/spec.md"})
@@ -338,6 +349,9 @@ func TestOntologyNodeRefFromOpInfersEmbeddedKind(t *testing.T) {
 }
 
 func TestNodeWorkspace_PrefersNoteHeadingForIdentityTitle(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ontology", "schema.graphql"), []byte(`
@@ -359,7 +373,7 @@ Body.
 
 	fixture := fixtureVault{
 		root:     root,
-		vault:    &obsidian.Vault{Name: "test"},
+		vault:    &repoconfig.Vault{Env: env, Name: "test"},
 		vaultDef: obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth},
 	}
 	srv := newFixtureServer(t, fixture, nil)
@@ -374,6 +388,9 @@ Body.
 }
 
 func TestNodeWorkspace_MultipleH1sUseFilenameForIdentityTitle(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ontology", "schema.graphql"), []byte(`
@@ -399,7 +416,7 @@ Second decision.
 
 	fixture := fixtureVault{
 		root:     root,
-		vault:    &obsidian.Vault{Name: "test"},
+		vault:    &repoconfig.Vault{Env: env, Name: "test"},
 		vaultDef: obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth},
 	}
 	srv := newFixtureServer(t, fixture, nil)
@@ -414,6 +431,9 @@ Second decision.
 }
 
 func TestNodeWorkspace_UndeclaredSectionsCarryEditableBodyAndNesting(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ontology", "schema.graphql"), []byte(`
@@ -441,7 +461,7 @@ Beta body.
 
 	fixture := fixtureVault{
 		root:     root,
-		vault:    &obsidian.Vault{Name: "test"},
+		vault:    &repoconfig.Vault{Env: env, Name: "test"},
 		vaultDef: obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth},
 	}
 	srv := newFixtureServer(t, fixture, nil)

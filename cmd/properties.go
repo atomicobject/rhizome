@@ -3,26 +3,15 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"os"
 	"runtime"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
-)
-
-var (
-	propertiesMutationJSON bool
-	propertiesMutationMD   bool
-	propertiesDryRun       bool
-	propertiesWorkers      int
-	propertiesInputs       []string
-	propertiesValue        string
-	propertiesOverwrite    bool
-	propertiesRenameTarget string
-	propertiesMerge        bool = true
 )
 
 func outputPropertiesJSON(summaries []actions.PropertySummary) error {
@@ -86,21 +75,21 @@ func propertyDetails(p actions.PropertySummary) string {
 	return fmt.Sprintf("%d distinct", p.DistinctValueCount)
 }
 
-func runPropertiesSet(cmd *cobra.Command, args []string) error {
-	if len(propertiesInputs) == 0 {
+func (commandOptions *noteInvocationOptions) runPropertiesSet(cmd *cobra.Command, args []string) error {
+	if len(commandOptions.propertiesInputs) == 0 {
 		return fmt.Errorf("--inputs is required (e.g., tag:project, find:meeting, paths)")
 	}
-	if strings.TrimSpace(propertiesValue) == "" {
+	if strings.TrimSpace(commandOptions.propertiesValue) == "" {
 		return fmt.Errorf("--value is required")
 	}
-	if err := ensureVaultName(); err != nil {
+	if err := commandOptions.ensureVaultName(cmd.Context()); err != nil {
 		return err
 	}
 
-	vault := obsidian.Vault{Name: vaultName}
+	vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: commandOptions.vaultName}
 	note := obsidian.Note{}
 
-	inputs, expr, err := actions.ParseInputsWithExpression(propertiesInputs)
+	inputs, expr, err := actions.ParseInputsWithExpression(commandOptions.propertiesInputs)
 	if err != nil {
 		return fmt.Errorf("error parsing input criteria: %w", err)
 	}
@@ -122,29 +111,29 @@ func runPropertiesSet(cmd *cobra.Command, args []string) error {
 	}
 
 	var parsed interface{}
-	if err := yaml.Unmarshal([]byte(propertiesValue), &parsed); err != nil {
-		parsed = propertiesValue
+	if err := yaml.Unmarshal([]byte(commandOptions.propertiesValue), &parsed); err != nil {
+		parsed = commandOptions.propertiesValue
 	}
 
-	summary, err := actions.SetPropertyOnFilesWithWorkers(cmd.Context(), &vault, &note, args[0], parsed, matchingFiles, propertiesOverwrite, propertiesDryRun, propertiesWorkers)
+	summary, err := actions.SetPropertyOnFilesWithWorkers(cmd.Context(), &vault, &note, args[0], parsed, matchingFiles, commandOptions.propertiesOverwrite, commandOptions.propertiesDryRun, commandOptions.propertiesWorkers)
 	if err != nil {
 		return fmt.Errorf("failed to set property: %w", err)
 	}
 
-	return outputPropertyMutationSummary(summary, "set", propertiesDryRun, propertiesMutationJSON, propertiesMutationMD)
+	return outputPropertyMutationSummary(summary, "set", commandOptions.propertiesDryRun, commandOptions.propertiesMutationJSON, commandOptions.propertiesMutationMD)
 }
 
-func runPropertiesDelete(cmd *cobra.Command, args []string) error {
-	if err := ensureVaultName(); err != nil {
+func (commandOptions *noteInvocationOptions) runPropertiesDelete(cmd *cobra.Command, args []string) error {
+	if err := commandOptions.ensureVaultName(cmd.Context()); err != nil {
 		return err
 	}
 
-	vault := obsidian.Vault{Name: vaultName}
+	vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: commandOptions.vaultName}
 	note := obsidian.Note{}
 
 	var files []string
-	if len(propertiesInputs) > 0 {
-		inputs, expr, err := actions.ParseInputsWithExpression(propertiesInputs)
+	if len(commandOptions.propertiesInputs) > 0 {
+		inputs, expr, err := actions.ParseInputsWithExpression(commandOptions.propertiesInputs)
 		if err != nil {
 			return fmt.Errorf("error parsing input criteria: %w", err)
 		}
@@ -165,28 +154,28 @@ func runPropertiesDelete(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	summary, err := actions.DeletePropertiesWithWorkers(cmd.Context(), &vault, &note, args, files, propertiesDryRun, propertiesWorkers)
+	summary, err := actions.DeletePropertiesWithWorkers(cmd.Context(), &vault, &note, args, files, commandOptions.propertiesDryRun, commandOptions.propertiesWorkers)
 	if err != nil {
 		return fmt.Errorf("failed to delete properties: %w", err)
 	}
 
-	return outputPropertyMutationSummary(summary, "delete", propertiesDryRun, propertiesMutationJSON, propertiesMutationMD)
+	return outputPropertyMutationSummary(summary, "delete", commandOptions.propertiesDryRun, commandOptions.propertiesMutationJSON, commandOptions.propertiesMutationMD)
 }
 
-func runPropertiesRename(cmd *cobra.Command, args []string) error {
-	if strings.TrimSpace(propertiesRenameTarget) == "" {
+func (commandOptions *noteInvocationOptions) runPropertiesRename(cmd *cobra.Command, args []string) error {
+	if strings.TrimSpace(commandOptions.propertiesRenameTarget) == "" {
 		return fmt.Errorf("--to destination property is required")
 	}
-	if err := ensureVaultName(); err != nil {
+	if err := commandOptions.ensureVaultName(cmd.Context()); err != nil {
 		return err
 	}
 
-	vault := obsidian.Vault{Name: vaultName}
+	vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: commandOptions.vaultName}
 	note := obsidian.Note{}
 
 	var files []string
-	if len(propertiesInputs) > 0 {
-		inputs, expr, err := actions.ParseInputsWithExpression(propertiesInputs)
+	if len(commandOptions.propertiesInputs) > 0 {
+		inputs, expr, err := actions.ParseInputsWithExpression(commandOptions.propertiesInputs)
 		if err != nil {
 			return fmt.Errorf("error parsing input criteria: %w", err)
 		}
@@ -207,12 +196,12 @@ func runPropertiesRename(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	summary, err := actions.RenamePropertiesWithWorkers(cmd.Context(), &vault, &note, args, propertiesRenameTarget, propertiesMerge, files, propertiesDryRun, propertiesWorkers)
+	summary, err := actions.RenamePropertiesWithWorkers(cmd.Context(), &vault, &note, args, commandOptions.propertiesRenameTarget, commandOptions.propertiesMerge, files, commandOptions.propertiesDryRun, commandOptions.propertiesWorkers)
 	if err != nil {
 		return fmt.Errorf("failed to rename properties: %w", err)
 	}
 
-	return outputPropertyMutationSummary(summary, "rename", propertiesDryRun, propertiesMutationJSON, propertiesMutationMD)
+	return outputPropertyMutationSummary(summary, "rename", commandOptions.propertiesDryRun, commandOptions.propertiesMutationJSON, commandOptions.propertiesMutationMD)
 }
 
 func outputPropertyMutationSummary(summary actions.PropertyMutationSummary, operation string, dryRun bool, jsonOutput bool, markdownOutput bool) error {
@@ -285,7 +274,7 @@ func outputPropertyMutationSummaryMarkdown(summary actions.PropertyMutationSumma
 	return nil
 }
 
-func runListProperties(cmd *cobra.Command, _ []string) error {
+func (commandOptions *vaultCommandOptions) runListProperties(cmd *cobra.Command, _ []string) error {
 	jsonOutput, _ := cmd.Flags().GetBool("json")
 	markdownOutput, _ := cmd.Flags().GetBool("markdown")
 	excludeTags, _ := cmd.Flags().GetBool("exclude-tags")
@@ -309,16 +298,16 @@ func runListProperties(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("invalid --source value %q: must be all, frontmatter, or inline", sourceFlag)
 	}
 
-	if vaultName == "" {
-		vault := &obsidian.Vault{}
+	if commandOptions.vaultName == "" {
+		vault := &repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config}
 		defaultName, err := vault.DefaultName()
 		if err != nil {
 			return fmt.Errorf("failed to get default vault name: %w", err)
 		}
-		vaultName = defaultName
+		commandOptions.vaultName = defaultName
 	}
 
-	vault := obsidian.Vault{Name: vaultName}
+	vault := repoconfig.Vault{Env: commandEnvFromContext(cmd.Context()).Config, Name: commandOptions.vaultName}
 	vaultDef, err := vault.Definition()
 	if err != nil {
 		return err
@@ -380,7 +369,7 @@ func runListProperties(cmd *cobra.Command, _ []string) error {
 	return outputPropertiesTable(summaries)
 }
 
-func newPropertiesCommand() *cobra.Command {
+func (commandOptions *noteInvocationOptions) newPropertiesCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "properties",
 		Short: "Inspect or edit frontmatter properties across the vault",
@@ -390,12 +379,12 @@ Tags are included by default; use --exclude-tags to skip them.`,
 		RunE: func(cmd *cobra.Command, args []string) error { return cmd.Help() },
 	}
 
-	cmd.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+	cmd.PersistentFlags().StringVarP(&commandOptions.vaultName, "vault", "v", "", "vault name")
 
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List frontmatter/inline properties across the vault",
-		RunE:  runListProperties,
+		RunE:  commandOptions.runListProperties,
 	}
 	listCmd.Flags().Bool("json", false, "Output properties as JSON")
 	listCmd.Flags().Bool("markdown", false, "Output properties as markdown table")
@@ -412,41 +401,41 @@ Tags are included by default; use --exclude-tags to skip them.`,
 		Use:   "set <property> --value <yaml> --inputs <criteria...>",
 		Short: "Set a frontmatter property on matching notes",
 		Args:  cobra.ExactArgs(1),
-		RunE:  runPropertiesSet,
+		RunE:  commandOptions.runPropertiesSet,
 	}
-	setCmd.Flags().StringSliceVar(&propertiesInputs, "inputs", nil, "Input criteria (find:, tag:, or paths) to scope property setting")
-	setCmd.Flags().StringVar(&propertiesValue, "value", "", "Property value to set (YAML accepted)")
-	setCmd.Flags().BoolVar(&propertiesOverwrite, "overwrite", false, "Overwrite existing values")
-	setCmd.Flags().BoolVar(&propertiesDryRun, "dry-run", false, "Preview changes without writing files")
-	setCmd.Flags().IntVar(&propertiesWorkers, "workers", runtime.NumCPU(), "Number of workers to use")
-	setCmd.Flags().BoolVar(&propertiesMutationJSON, "json", false, "Output mutation summary as JSON")
-	setCmd.Flags().BoolVar(&propertiesMutationMD, "markdown", false, "Output mutation summary as markdown")
+	setCmd.Flags().StringSliceVar(&commandOptions.propertiesInputs, "inputs", nil, "Input criteria (find:, tag:, or paths) to scope property setting")
+	setCmd.Flags().StringVar(&commandOptions.propertiesValue, "value", "", "Property value to set (YAML accepted)")
+	setCmd.Flags().BoolVar(&commandOptions.propertiesOverwrite, "overwrite", false, "Overwrite existing values")
+	setCmd.Flags().BoolVar(&commandOptions.propertiesDryRun, "dry-run", false, "Preview changes without writing files")
+	setCmd.Flags().IntVar(&commandOptions.propertiesWorkers, "workers", runtime.NumCPU(), "Number of workers to use")
+	setCmd.Flags().BoolVar(&commandOptions.propertiesMutationJSON, "json", false, "Output mutation summary as JSON")
+	setCmd.Flags().BoolVar(&commandOptions.propertiesMutationMD, "markdown", false, "Output mutation summary as markdown")
 
 	deleteCmd := &cobra.Command{
 		Use:   "delete <property> [<property>...]",
 		Short: "Delete frontmatter properties across the vault (or scoped inputs)",
 		Args:  cobra.MinimumNArgs(1),
-		RunE:  runPropertiesDelete,
+		RunE:  commandOptions.runPropertiesDelete,
 	}
-	deleteCmd.Flags().StringSliceVar(&propertiesInputs, "inputs", nil, "Optional input criteria (find:, tag:, or paths) to scope deletion")
-	deleteCmd.Flags().BoolVar(&propertiesDryRun, "dry-run", false, "Preview changes without writing files")
-	deleteCmd.Flags().IntVar(&propertiesWorkers, "workers", runtime.NumCPU(), "Number of workers to use")
-	deleteCmd.Flags().BoolVar(&propertiesMutationJSON, "json", false, "Output mutation summary as JSON")
-	deleteCmd.Flags().BoolVar(&propertiesMutationMD, "markdown", false, "Output mutation summary as markdown")
+	deleteCmd.Flags().StringSliceVar(&commandOptions.propertiesInputs, "inputs", nil, "Optional input criteria (find:, tag:, or paths) to scope deletion")
+	deleteCmd.Flags().BoolVar(&commandOptions.propertiesDryRun, "dry-run", false, "Preview changes without writing files")
+	deleteCmd.Flags().IntVar(&commandOptions.propertiesWorkers, "workers", runtime.NumCPU(), "Number of workers to use")
+	deleteCmd.Flags().BoolVar(&commandOptions.propertiesMutationJSON, "json", false, "Output mutation summary as JSON")
+	deleteCmd.Flags().BoolVar(&commandOptions.propertiesMutationMD, "markdown", false, "Output mutation summary as markdown")
 
 	renameCmd := &cobra.Command{
 		Use:   "rename <from> [<from>...] --to <to>",
 		Short: "Rename (and optionally merge) frontmatter properties",
 		Args:  cobra.MinimumNArgs(1),
-		RunE:  runPropertiesRename,
+		RunE:  commandOptions.runPropertiesRename,
 	}
-	renameCmd.Flags().StringSliceVar(&propertiesInputs, "inputs", nil, "Optional input criteria (find:, tag:, or paths) to scope rename")
-	renameCmd.Flags().StringVar(&propertiesRenameTarget, "to", "", "Destination property name")
-	renameCmd.Flags().BoolVar(&propertiesMerge, "merge", true, "Merge values into destination when it already exists")
-	renameCmd.Flags().BoolVar(&propertiesDryRun, "dry-run", false, "Preview changes without writing files")
-	renameCmd.Flags().IntVar(&propertiesWorkers, "workers", runtime.NumCPU(), "Number of workers to use")
-	renameCmd.Flags().BoolVar(&propertiesMutationJSON, "json", false, "Output mutation summary as JSON")
-	renameCmd.Flags().BoolVar(&propertiesMutationMD, "markdown", false, "Output mutation summary as markdown")
+	renameCmd.Flags().StringSliceVar(&commandOptions.propertiesInputs, "inputs", nil, "Optional input criteria (find:, tag:, or paths) to scope rename")
+	renameCmd.Flags().StringVar(&commandOptions.propertiesRenameTarget, "to", "", "Destination property name")
+	renameCmd.Flags().BoolVar(&commandOptions.propertiesMerge, "merge", true, "Merge values into destination when it already exists")
+	renameCmd.Flags().BoolVar(&commandOptions.propertiesDryRun, "dry-run", false, "Preview changes without writing files")
+	renameCmd.Flags().IntVar(&commandOptions.propertiesWorkers, "workers", runtime.NumCPU(), "Number of workers to use")
+	renameCmd.Flags().BoolVar(&commandOptions.propertiesMutationJSON, "json", false, "Output mutation summary as JSON")
+	renameCmd.Flags().BoolVar(&commandOptions.propertiesMutationMD, "markdown", false, "Output mutation summary as markdown")
 
 	cmd.AddCommand(listCmd)
 	cmd.AddCommand(setCmd)
@@ -455,6 +444,6 @@ Tags are included by default; use --exclude-tags to skip them.`,
 	return cmd
 }
 
-func init() {
-	noteCmd.AddCommand(newPropertiesCommand())
+func (commandOptions *noteInvocationOptions) registerPropertiesCommands(noteCmd *cobra.Command) {
+	noteCmd.AddCommand(commandOptions.newPropertiesCommand())
 }

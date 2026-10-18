@@ -15,7 +15,8 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,11 +45,11 @@ func newPinnedReleaseServer(t *testing.T, pin, archivePath, sha string) *pinnedR
 	return ps
 }
 
-func newEnsureRepo(t *testing.T, pin string) (string, *obsidian.LocalConfig) {
+func newEnsureRepo(t *testing.T, pin string) (string, *repoconfig.LocalConfig) {
 	t.Helper()
 	repo := t.TempDir()
-	cfg := obsidian.LocalConfig{Rhizome: obsidian.LocalRhizomeConfig{Version: pin}}
-	require.NoError(t, obsidian.SaveLocalConfig(repo, cfg))
+	cfg := repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{Version: pin}}
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, cfg))
 	return repo, &cfg
 }
 
@@ -95,7 +96,7 @@ func TestEnsurePinnedBinaryInstallsBinaryAndMarker(t *testing.T) {
 	require.Equal(t, "v0.38.0\n", string(marker))
 
 	// The pin must never be rewritten by bootstrap.
-	_, loaded, err := obsidian.FindLocalConfig(repo)
+	_, loaded, err := repoconfig.FindLocalConfig(repo)
 	require.NoError(t, err)
 	require.Equal(t, "v0.38.0", loaded.Rhizome.Version)
 
@@ -181,15 +182,15 @@ func TestEnsurePinnedBinaryWaitsForLockAndSkipsWhenOtherProcessInstalled(t *test
 	require.NoError(t, err)
 	require.True(t, acquired)
 
+	t.Cleanup(func() { require.NoError(t, release()) })
 	target := ensureTargetPath(repo)
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-		_ = os.MkdirAll(filepath.Dir(target), 0o755)
-		_ = os.WriteFile(target, []byte("#!/bin/sh\n"), 0o755)
-		_ = os.WriteFile(filepath.Join(filepath.Dir(target), VersionMarkerName), []byte("v0.38.0\n"), 0o644)
-		_ = release()
-	}()
-
+	clock := &controlledInstallClock{now: time.Unix(1, 0)}
+	clock.onWait = func(context.Context, time.Duration) error {
+		require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
+		require.NoError(t, os.WriteFile(target, []byte("#!/bin/sh\n"), 0o755))
+		require.NoError(t, WriteVersionMarker(target, "v0.38.0"))
+		return nil
+	}
 	// Unreachable manifest URL proves no install was attempted by this caller.
 	err = EnsurePinnedBinary(context.Background(), EnsureOptions{
 		CfgDir:      repo,
@@ -197,8 +198,10 @@ func TestEnsurePinnedBinaryWaitsForLockAndSkipsWhenOtherProcessInstalled(t *test
 		ManifestURL: "http://127.0.0.1:1/latest.json",
 		LockTimeout: 10 * time.Second,
 		LockPoll:    25 * time.Millisecond,
+		lockClock:   clock,
 	})
 	require.NoError(t, err)
+	require.Equal(t, []time.Duration{25 * time.Millisecond}, clock.waits)
 }
 
 func TestEnsurePinnedBinaryFailsWhenLockStaysHeld(t *testing.T) {
@@ -209,20 +212,23 @@ func TestEnsurePinnedBinaryFailsWhenLockStaysHeld(t *testing.T) {
 	require.True(t, acquired)
 	defer func() { _ = release() }()
 
+	clock := &controlledInstallClock{now: time.Unix(1, 0)}
 	err = EnsurePinnedBinary(context.Background(), EnsureOptions{
 		CfgDir:      repo,
 		Config:      cfg,
 		ManifestURL: "http://127.0.0.1:1/latest.json",
-		LockTimeout: 150 * time.Millisecond,
-		LockPoll:    20 * time.Millisecond,
+		LockTimeout: 50 * time.Millisecond,
+		LockPoll:    25 * time.Millisecond,
+		lockClock:   clock,
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "rzm update --pinned")
+	require.Equal(t, []time.Duration{25 * time.Millisecond, 25 * time.Millisecond, 25 * time.Millisecond}, clock.waits)
 }
 
 func TestEnsurePinnedBinaryRequiresPin(t *testing.T) {
 	repo, _ := newEnsureRepo(t, "")
-	cfg := &obsidian.LocalConfig{}
+	cfg := &repoconfig.LocalConfig{}
 
 	err := EnsurePinnedBinary(context.Background(), EnsureOptions{CfgDir: repo, Config: cfg})
 	require.Error(t, err)

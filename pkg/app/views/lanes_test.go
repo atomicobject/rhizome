@@ -2,10 +2,10 @@ package views
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/stretchr/testify/require"
 )
@@ -210,7 +210,7 @@ func TestBoardAndCardRelationValuesCarryTheLinkedRecordsStatus(t *testing.T) {
 	require.NoError(t, err)
 	project := rowByTitle(board, "A").RelationValues["project"]
 	require.Len(t, project, 1)
-	require.Equal(t, &TableRelationStatus{Value: "live", Label: "live", Tone: "success", Stage: ontology.StageDone}, project[0].Status, "forward link to a project")
+	require.Equal(t, &TableRelationStatus{Value: "live", Label: "live", Tone: "success", Stage: ontoschema.StageDone}, project[0].Status, "forward link to a project")
 
 	cards, err := service.Execute(context.Background(), viewconfig.GeneratedTypeID("Project"), ExecuteRequest{Variant: "kanban"})
 	require.NoError(t, err)

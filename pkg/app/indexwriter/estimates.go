@@ -5,11 +5,10 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeindex "github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	codeindex "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 func ctxWithPhaseOp(ctx context.Context, phase, op string) context.Context {
@@ -28,43 +27,6 @@ func normalizeQueuePhase(phase string) string {
 		return indexQueueDefaultPhaseLabel
 	}
 	return phase
-}
-
-func ensureQueueBatch[T any](batches map[string]*queueBatch[T], phase string) *queueBatch[T] {
-	if batch, ok := batches[phase]; ok {
-		return batch
-	}
-	batch := &queueBatch[T]{phase: phase}
-	batches[phase] = batch
-	return batch
-}
-
-func ensureIntelChunkBatch(batches map[string]*intelChunkBatch, phase string, family string) *intelChunkBatch {
-	key := phase + "\x00" + family
-	if batch, ok := batches[key]; ok {
-		return batch
-	}
-	batch := &intelChunkBatch{phase: phase, family: family}
-	batches[key] = batch
-	return batch
-}
-
-func ensureIntelEmbeddingBatch(batches map[string]*intelEmbeddingBatch, phase string) *intelEmbeddingBatch {
-	if batch, ok := batches[phase]; ok {
-		return batch
-	}
-	batch := &intelEmbeddingBatch{phase: phase}
-	batches[phase] = batch
-	return batch
-}
-
-func ensureOntologyDeltaBatch(batches map[string]*ontologyDeltaBatch, phase string) *ontologyDeltaBatch {
-	if batch, ok := batches[phase]; ok {
-		return batch
-	}
-	batch := &ontologyDeltaBatch{phase: phase}
-	batches[phase] = batch
-	return batch
 }
 
 func estimateCodeIndexWork(work codeanchor.CodeIndexWork) int {
@@ -215,27 +177,3 @@ func estimateNoteMetadataDelta(delta semdb.NoteMetadataDelta) int {
 	n += len(delta.WikilinkEdges) * 96
 	return n
 }
-
-type SemanticWriteQueue interface {
-	SubmitNoteMeta(context.Context, embeddings.NoteFileInfo) error
-	SubmitCodeItemEmbedding(context.Context, codeindex.ItemEmbeddingUpsert) error
-	SubmitCodeItemEmbeddingBatch(context.Context, []codeindex.ItemEmbeddingUpsert) error
-	SubmitCodeItemChunks(context.Context, codeindex.AnchorID, []codeindex.ChunkInput, []string, []embeddings.Embedding) error
-	SubmitCodeItemChunkBatch(context.Context, []codeindex.ItemChunksUpsert) error
-	SubmitNoteChunkSync(context.Context, embeddings.NoteChunkSync) error
-	SubmitNoteChunks(context.Context, embeddings.NoteID, []embeddings.ChunkInput, []embeddings.Embedding) error
-	SubmitIntelChunks(context.Context, []string, []codeanchor.IntelChunk) error
-	SubmitIntelChunksByFamily(context.Context, []string, string, []codeanchor.IntelChunk) error
-	SubmitIntelEmbeddings(context.Context, map[string]embeddings.Embedding) error
-	SubmitOntologyNodes(context.Context, []string, []codeanchor.IntelOntologyNode) error
-	SubmitOntologyNodeReadModel(context.Context, codeanchor.IntelOntologyNodeReadModel) error
-	SubmitOntologyNodeEmbeddingStates(context.Context, []codeanchor.IntelOntologyNodeEmbeddingState) error
-	SubmitOntologyDelta(context.Context, semdb.OntologyDelta) error
-	SubmitNoteMetadataDelta(context.Context, semdb.NoteMetadataDelta) error
-	FlushAndWait(context.Context) error
-}
-
-var (
-	_ semantic.SyncWriteQueue     = (*Writer)(nil)
-	_ semantic.NoteMetaWriteQueue = (*Writer)(nil)
-)

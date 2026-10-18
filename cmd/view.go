@@ -4,16 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"io"
 	"sort"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/oneshotruntime"
+	"github.com/atomicobject/rhizome/pkg/app/queryengine"
+	"github.com/atomicobject/rhizome/pkg/app/queryengine/runtimeproviders"
+	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
@@ -46,25 +50,25 @@ type viewValidateResponse struct {
 	Issues     []viewconfig.Issue `json:"issues,omitempty"`
 }
 
-func newViewCmd(agent bool) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newViewCmd(agent bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "view",
 		Short: "List, validate, show, run, and eject configured views",
 	}
-	cmd.AddCommand(newViewListCmd(agent, &viewOptions{}))
-	cmd.AddCommand(newViewShowCmd(agent, &viewOptions{}))
-	cmd.AddCommand(newViewValidateCmd(agent, &viewOptions{}))
-	cmd.AddCommand(newViewRunCmd(agent, &viewOptions{}))
-	cmd.AddCommand(newViewEjectCmd(agent, &viewOptions{}))
+	cmd.AddCommand(commandOptions.newViewListCmd(agent, &viewOptions{}))
+	cmd.AddCommand(commandOptions.newViewShowCmd(agent, &viewOptions{}))
+	cmd.AddCommand(commandOptions.newViewValidateCmd(agent, &viewOptions{}))
+	cmd.AddCommand(commandOptions.newViewRunCmd(agent, &viewOptions{}))
+	cmd.AddCommand(commandOptions.newViewEjectCmd(agent, &viewOptions{}))
 	return cmd
 }
 
-func newViewListCmd(agent bool, opts *viewOptions) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newViewListCmd(agent bool, opts *viewOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List configured views",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			service, cleanup, err := buildViewServiceForCommand(cmd, opts)
+			service, cleanup, err := commandOptions.buildViewServiceForCommand(cmd, opts)
 			if cleanup != nil {
 				defer cleanup()
 			}
@@ -86,13 +90,13 @@ func newViewListCmd(agent bool, opts *viewOptions) *cobra.Command {
 	return cmd
 }
 
-func newViewShowCmd(agent bool, opts *viewOptions) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newViewShowCmd(agent bool, opts *viewOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show a configured view",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			service, cleanup, err := buildViewServiceForCommand(cmd, opts)
+			service, cleanup, err := commandOptions.buildViewServiceForCommand(cmd, opts)
 			if cleanup != nil {
 				defer cleanup()
 			}
@@ -115,12 +119,12 @@ func newViewShowCmd(agent bool, opts *viewOptions) *cobra.Command {
 	return cmd
 }
 
-func newViewValidateCmd(agent bool, opts *viewOptions) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newViewValidateCmd(agent bool, opts *viewOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate configured views",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			service, cleanup, err := buildViewServiceForCommand(cmd, opts)
+			service, cleanup, err := commandOptions.buildViewServiceForCommand(cmd, opts)
 			if cleanup != nil {
 				defer cleanup()
 			}
@@ -150,12 +154,12 @@ func newViewValidateCmd(agent bool, opts *viewOptions) *cobra.Command {
 	return cmd
 }
 
-func newViewRunCmd(agent bool, opts *viewOptions) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newViewRunCmd(agent bool, opts *viewOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Execute a configured view",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			service, cleanup, err := buildViewServiceForCommand(cmd, opts)
+			service, cleanup, err := commandOptions.buildViewServiceForCommand(cmd, opts)
 			if cleanup != nil {
 				defer cleanup()
 			}
@@ -207,14 +211,14 @@ func useViewJSON(agent, jsonFlag bool) bool {
 	return agent || jsonFlag
 }
 
-func buildViewServiceForCommand(cmd *cobra.Command, opts *viewOptions) (*appviews.Service, func(), error) {
-	return buildViewService(cmd.Context(), opts.path)
+func (commandOptions *vaultCommandOptions) buildViewServiceForCommand(cmd *cobra.Command, opts *viewOptions) (*appviews.Service, func(), error) {
+	return commandOptions.buildViewService(cmd.Context(), opts.path)
 }
 
 // buildViewService is shared by Cobra and the persistent code-mode adapter.
 // It resolves the current vault and projection for every request so a
 // long-lived process does not retain stale configuration or note state.
-func buildViewService(ctx context.Context, path string) (*appviews.Service, func(), error) {
+func (commandOptions *vaultCommandOptions) buildViewService(ctx context.Context, path string) (*appviews.Service, func(), error) {
 	var defs []viewconfig.ViewDefinition
 	var loadIssues []viewconfig.Issue
 	if strings.TrimSpace(path) != "" {
@@ -224,7 +228,7 @@ func buildViewService(ctx context.Context, path string) (*appviews.Service, func
 		}
 	}
 
-	vaultDef, err := vaultDefOrDefaultContext(ctx)
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil && strings.TrimSpace(path) == "" {
 		return nil, nil, err
 	}
@@ -243,20 +247,27 @@ func buildViewService(ctx context.Context, path string) (*appviews.Service, func
 	if err != nil {
 		return nil, cleanup, err
 	}
-	return newViewService(vaultDef, store, schema, execSchema, formats, defs, loadIssues), cleanup, nil
+	service, err := newViewService(vaultDef, store, schema, execSchema, formats, defs, loadIssues)
+	return service, cleanup, err
 }
 
 // newViewService assembles a view service over an already-open store. The
 // vault runtime reuses it with its own store and cached schema.
-func newViewService(vaultDef obsidian.VaultDefinition, store *semdb.Store, schema *ontology.Schema, execSchema *ontologyquery.ExecutableSchema, formats noteformat.Runtime, defs []viewconfig.ViewDefinition, loadIssues []viewconfig.Issue) *appviews.Service {
+func newViewService(vaultDef obsidian.VaultDefinition, store *semdb.Store, schema *ontoschema.Schema, execSchema *ontologyquery.ExecutableSchema, formats noteformat.Runtime, defs []viewconfig.ViewDefinition, loadIssues []viewconfig.Issue) (*appviews.Service, error) {
 	vaultPath := vaultDef.BasePath()
-	var viewStore noderead.Store
-	var queryStore ontologyquery.Store
+	var viewStore noderead.ReadStore
+	var base ontologyquery.Deps
 	if store != nil {
-		viewStore = store
-		queryStore = store
+		viewStore, base.Store = store, store
 	}
 	noteReader := &obsidian.Note{}
+	base.VaultDef, base.NoteReader, base.NoteFormats = vaultDef, noteReader, formats
+	deps, err := queryengine.Dependencies(base, unifiedsearch.Options{VaultPath: vaultPath, VaultDef: vaultDef, IntelStore: store})
+	if err != nil {
+		return nil, err
+	}
+	providers := runtimeproviders.New(schema, execSchema, deps, nil)
+	deps.OntologyRuntime, deps.CodeRuntime = providers, providers
 	return appviews.New(appviews.ServiceOptions{
 		VaultPath:  vaultPath,
 		VaultDef:   vaultDef,
@@ -264,20 +275,14 @@ func newViewService(vaultDef obsidian.VaultDefinition, store *semdb.Store, schem
 		Store:      viewStore,
 		Schema:     schema,
 		ExecSchema: execSchema,
-		QueryDeps: ontologyquery.Deps{
-			NoteFormats: formats,
-			VaultDef:    vaultDef,
-			NoteReader:  noteReader,
-			Store:       queryStore,
-			Service:     ontology.NewService(vaultDef, noteReader, store, schema),
-		},
+		QueryDeps:  deps,
 		Views:      defs,
 		LoadIssues: loadIssues,
 		Bundled:    web.BundledViews(web.Assets()),
-	})
+	}), nil
 }
 
-func loadViewSchemas(vaultPath string) (*ontology.Schema, *ontologyquery.ExecutableSchema) {
+func loadViewSchemas(vaultPath string) (*ontoschema.Schema, *ontologyquery.ExecutableSchema) {
 	if strings.TrimSpace(vaultPath) == "" {
 		return nil, nil
 	}
@@ -383,8 +388,8 @@ func writeViewCommandError(agent bool, err error) error {
 	return err
 }
 
-func init() {
-	cmd := newViewCmd(false)
-	cmd.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault name (uses default if unset)")
+func (commandOptions *vaultCommandOptions) registerViewCommands(rootCmd *cobra.Command) {
+	cmd := commandOptions.newViewCmd(false)
+	cmd.PersistentFlags().StringVarP(&commandOptions.vaultName, "vault", "v", "", "vault name (uses default if unset)")
 	rootCmd.AddCommand(cmd)
 }

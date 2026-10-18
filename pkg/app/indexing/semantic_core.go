@@ -3,19 +3,17 @@ package indexing
 import (
 	"context"
 
-	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
-func syncRawNoteEmbeddings(ctx context.Context, syncer *semantic.NoteSyncer, changedPathCount int) error {
+func syncRawNoteEmbeddings(ctx context.Context, syncer *embedindex.NoteSyncer) error {
 	if syncer == nil {
 		return nil
 	}
-	var plan semantic.NotePlan
+	var plan embedindex.NotePlan
 	if err := runPhase(ctx, "plan_note_embeddings", func(phaseCtx context.Context) error {
 		var planErr error
 		plan, planErr = syncer.Plan(phaseCtx)
-		indexingperf.AddCount(phaseCtx, "note_raw.compat_paths", int64(changedPathCount))
 		return planErr
 	}); err != nil {
 		return err

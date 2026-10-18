@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/vault/coderefs"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"

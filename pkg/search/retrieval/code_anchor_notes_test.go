@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,7 +57,7 @@ code-anchors:
 # Foo
 `
 	require.NoError(t, os.WriteFile(noteAbs, []byte(note), 0o644))
-	_, err = svc.IngestNoteSource(ctx, notemeta.NewContentOnlyNoteSourceSnapshot(noteRel, note, 0))
+	_, err = svc.IngestNoteSource(ctx, testkit.NoteSource(t, noteRel, note, 0))
 	require.NoError(t, err)
 	require.NoError(t, svc.RecomputeAnchorScopes(ctx))
 

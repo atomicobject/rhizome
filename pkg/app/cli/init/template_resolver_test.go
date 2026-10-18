@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestResolveTemplateSetExpandsRequiresAndDefaultAddons(t *testing.T) {
 		templateAgenticEngineering: {ID: templateAgenticEngineering, Requires: []string{templateCore}, ActivatesByDefault: []string{templateActionItems}},
 	}
 
-	resolved, err := resolveTemplateSet([]string{templateAgenticEngineering}, obsidian.WorkflowTemplateAddons{}, registry)
+	resolved, err := resolveTemplateSet([]string{templateAgenticEngineering}, repoconfig.WorkflowTemplateAddons{}, registry)
 	require.NoError(t, err)
 	require.Equal(t, []string{templateCore, templateAgenticEngineering, templateActionItems}, resolved.Effective)
 	require.Equal(t, []string{templateAgenticEngineering}, resolved.Explicit)
@@ -33,7 +33,7 @@ func TestResolveTemplateSetComplexDomainImpliesSpecDriven(t *testing.T) {
 		templateComplexDomain:      {ID: templateComplexDomain, Requires: []string{templateAgenticEngineering}},
 	}
 
-	resolved, err := resolveTemplateSet([]string{templateComplexDomain}, obsidian.WorkflowTemplateAddons{}, registry)
+	resolved, err := resolveTemplateSet([]string{templateComplexDomain}, repoconfig.WorkflowTemplateAddons{}, registry)
 	require.NoError(t, err)
 	require.Equal(t, []string{templateCore, templateAgenticEngineering, templateComplexDomain, templateActionItems}, resolved.Effective)
 	require.Equal(t, templateCauseExplicit, resolved.Causes[templateComplexDomain])
@@ -47,7 +47,7 @@ func TestResolveTemplateSetExplicitSpecDrivenAndComplexDomainDedupes(t *testing.
 		templateComplexDomain:      {ID: templateComplexDomain, Requires: []string{templateAgenticEngineering}},
 	}
 
-	resolved, err := resolveTemplateSet([]string{templateAgenticEngineering, templateComplexDomain}, obsidian.WorkflowTemplateAddons{}, registry)
+	resolved, err := resolveTemplateSet([]string{templateAgenticEngineering, templateComplexDomain}, repoconfig.WorkflowTemplateAddons{}, registry)
 	require.NoError(t, err)
 	require.Equal(t, []string{templateAgenticEngineering, templateComplexDomain}, resolved.Explicit)
 	require.Equal(t, []string{templateCore, templateAgenticEngineering, templateComplexDomain}, resolved.Effective)
@@ -62,7 +62,7 @@ func TestResolveTemplateSetAllowsDefaultAddonOptOut(t *testing.T) {
 		templateProjectKB:   {ID: templateProjectKB, Requires: []string{templateCore}, ActivatesByDefault: []string{templateActionItems}},
 	}
 
-	resolved, err := resolveTemplateSet([]string{templateProjectKB}, obsidian.WorkflowTemplateAddons{Disabled: []string{templateActionItems}}, registry)
+	resolved, err := resolveTemplateSet([]string{templateProjectKB}, repoconfig.WorkflowTemplateAddons{Disabled: []string{templateActionItems}}, registry)
 	require.NoError(t, err)
 	require.Equal(t, []string{templateCore, templateProjectKB}, resolved.Effective)
 	require.NotContains(t, resolved.Causes, templateActionItems)
@@ -74,7 +74,7 @@ func TestResolveTemplateSetRejectsDisabledRequiredDependency(t *testing.T) {
 		templateAgenticEngineering: {ID: templateAgenticEngineering, Requires: []string{templateCore}},
 	}
 
-	_, err := resolveTemplateSet([]string{templateAgenticEngineering}, obsidian.WorkflowTemplateAddons{Disabled: []string{templateCore}}, registry)
+	_, err := resolveTemplateSet([]string{templateAgenticEngineering}, repoconfig.WorkflowTemplateAddons{Disabled: []string{templateCore}}, registry)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "required dependency")
 }
@@ -85,7 +85,7 @@ func TestResolveTemplateSetRejectsEnabledAndDisabledAddon(t *testing.T) {
 		templateActionItems: {ID: templateActionItems, Requires: []string{templateCore}},
 	}
 
-	_, err := resolveTemplateSet(nil, obsidian.WorkflowTemplateAddons{
+	_, err := resolveTemplateSet(nil, repoconfig.WorkflowTemplateAddons{
 		Enabled:  []string{templateActionItems},
 		Disabled: []string{templateActionItems},
 	}, registry)
@@ -99,25 +99,25 @@ func TestResolveTemplateSetRejectsCycles(t *testing.T) {
 		"b": {ID: "b", Requires: []string{"a"}},
 	}
 
-	_, err := resolveTemplateSet([]string{"a"}, obsidian.WorkflowTemplateAddons{}, registry)
+	_, err := resolveTemplateSet([]string{"a"}, repoconfig.WorkflowTemplateAddons{}, registry)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cycle")
 }
 
 func TestResolveTemplateSetRejectsUnknownTemplates(t *testing.T) {
-	_, err := resolveTemplateSet([]string{"missing"}, obsidian.WorkflowTemplateAddons{}, map[string]starterTemplateMetadata{})
+	_, err := resolveTemplateSet([]string{"missing"}, repoconfig.WorkflowTemplateAddons{}, map[string]starterTemplateMetadata{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown template")
 }
 
 func TestResolveManagedTemplateSetSkipsEjectedAdoptedStarter(t *testing.T) {
 	registry := starterManagementTestRegistry()
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		WorkflowTemplates: []string{templateAgenticEngineering},
-		WorkflowTemplateAddons: obsidian.WorkflowTemplateAddons{
+		WorkflowTemplateAddons: repoconfig.WorkflowTemplateAddons{
 			Enabled: []string{templateActionItems},
 		},
-		WorkflowTemplateManagement: obsidian.WorkflowTemplateManagement{
+		WorkflowTemplateManagement: repoconfig.WorkflowTemplateManagement{
 			Ejected: []string{templateAgenticEngineering, templateActionItems},
 		},
 	}
@@ -130,9 +130,9 @@ func TestResolveManagedTemplateSetSkipsEjectedAdoptedStarter(t *testing.T) {
 
 func TestResolveManagedTemplateSetRejectsEjectedRequiredDependency(t *testing.T) {
 	registry := starterManagementTestRegistry()
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		WorkflowTemplates: []string{templateAgenticEngineering},
-		WorkflowTemplateManagement: obsidian.WorkflowTemplateManagement{
+		WorkflowTemplateManagement: repoconfig.WorkflowTemplateManagement{
 			Ejected: []string{templateCore},
 		},
 	}
@@ -144,9 +144,9 @@ func TestResolveManagedTemplateSetRejectsEjectedRequiredDependency(t *testing.T)
 
 func TestPlanStarterEjectionEjectsDefaultAddonWithoutEjectingExplicitDependency(t *testing.T) {
 	registry := starterManagementTestRegistry()
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		WorkflowTemplates: []string{templateCore, templateAgenticEngineering},
-		WorkflowTemplateAddons: obsidian.WorkflowTemplateAddons{
+		WorkflowTemplateAddons: repoconfig.WorkflowTemplateAddons{
 			Enabled: []string{templateActionItems},
 		},
 	}
@@ -161,7 +161,7 @@ func TestPlanStarterEjectionEjectsDefaultAddonWithoutEjectingExplicitDependency(
 
 func TestPlanStarterEjectionBlocksWhenRequiredByManagedStarter(t *testing.T) {
 	registry := starterManagementTestRegistry()
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		WorkflowTemplates: []string{templateComplexDomain},
 	}
 
@@ -174,7 +174,7 @@ func TestPlanStarterEjectionBlocksWhenRequiredByManagedStarter(t *testing.T) {
 
 func TestPlanStarterEjectionCascadeEjectsDependents(t *testing.T) {
 	registry := starterManagementTestRegistry()
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		WorkflowTemplates: []string{templateComplexDomain},
 	}
 
@@ -188,7 +188,7 @@ func TestPlanStarterEjectionCascadeEjectsDependents(t *testing.T) {
 
 func TestPlanStarterEjectionBlocksCoreWhileSpecDrivenManaged(t *testing.T) {
 	registry := starterManagementTestRegistry()
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		WorkflowTemplates: []string{templateAgenticEngineering},
 	}
 
@@ -199,7 +199,7 @@ func TestPlanStarterEjectionBlocksCoreWhileSpecDrivenManaged(t *testing.T) {
 }
 
 func TestApplyStarterEjectionPlanPersistsOnlyManagementState(t *testing.T) {
-	cfg := obsidian.LocalConfig{
+	cfg := repoconfig.LocalConfig{
 		WorkflowTemplates: []string{templateAgenticEngineering},
 	}
 	changed := applyStarterEjectionPlan(&cfg, StarterEjectionPlan{

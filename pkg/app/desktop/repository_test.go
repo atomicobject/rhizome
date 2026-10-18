@@ -9,7 +9,8 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +35,7 @@ func fixtureRepository(t *testing.T) (main, feature string) {
 	main = filepath.Join(base, "project")
 	require.NoError(t, os.Mkdir(main, 0o755))
 	git(t, main, "init")
-	require.NoError(t, obsidian.SaveLocalConfig(main, obsidian.LocalConfig{}))
+	require.NoError(t, repoconfig.SaveLocalConfig(main, repoconfig.LocalConfig{}))
 	git(t, main, "add", ".")
 	git(t, main, "commit", "-m", "fixture")
 	feature = filepath.Join(base, "project-feature")
@@ -110,7 +111,7 @@ func TestRepositoryReportsDatabasesAndPlainFolders(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{main}, paths(repo))
 
-	folder := config(t, obsidian.LocalRhizomeConfig{})
+	folder := config(t, repoconfig.LocalRhizomeConfig{})
 	plain, err := s.Repository(folder, "")
 	require.NoError(t, err)
 	require.False(t, plain.Git)
@@ -127,7 +128,7 @@ func TestRepositoryReportsDatabasesAndPlainFolders(t *testing.T) {
 func TestRepositoryDiscoveryRunsNoExecutable(t *testing.T) {
 	s := testService(t)
 	main, _ := fixtureRepository(t)
-	require.NoError(t, obsidian.SaveLocalConfig(main, obsidian.LocalConfig{Rhizome: obsidian.LocalRhizomeConfig{DevBinaryDir: "dev"}}))
+	require.NoError(t, repoconfig.SaveLocalConfig(main, repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{DevBinaryDir: "dev"}}))
 	sentinel := filepath.Join(main, "executed")
 	script(t, filepath.Join(main, "dev", runtime.GOOS, repoexec.ExecutableName()), "touch '"+sentinel+"'")
 	repo, err := s.Repository(main, "")
@@ -210,7 +211,7 @@ func TestSeparateGitDirKeepsItsMainCheckout(t *testing.T) {
 	base := gitBase(t)
 	store, work, linked := filepath.Join(base, "store.git"), filepath.Join(base, "work"), filepath.Join(base, "work-linked")
 	git(t, base, "init", "--separate-git-dir", store, work)
-	require.NoError(t, obsidian.SaveLocalConfig(work, obsidian.LocalConfig{}))
+	require.NoError(t, repoconfig.SaveLocalConfig(work, repoconfig.LocalConfig{}))
 	git(t, work, "add", ".")
 	git(t, work, "commit", "-m", "fixture")
 	git(t, work, "worktree", "add", "-b", "linked", linked)
@@ -268,7 +269,7 @@ func TestVaultBelowTheGitRootIsARepositoryOfItsSubfolder(t *testing.T) {
 	git(t, main, "init")
 	for _, vault := range []string{"docs", "notes"} {
 		require.NoError(t, os.Mkdir(filepath.Join(main, vault), 0o755))
-		require.NoError(t, obsidian.SaveLocalConfig(filepath.Join(main, vault), obsidian.LocalConfig{}))
+		require.NoError(t, repoconfig.SaveLocalConfig(filepath.Join(main, vault), repoconfig.LocalConfig{}))
 	}
 	git(t, main, "add", ".")
 	git(t, main, "commit", "-m", "fixture")
@@ -314,7 +315,7 @@ func TestSubfolderRepositoryRootLeadsBackToItsIdentity(t *testing.T) {
 	git(t, main, "worktree", "add", "-b", "feature", feature)
 	git(t, main, "worktree", "add", "-b", "bare", bare)
 	require.NoError(t, os.RemoveAll(filepath.Join(bare, "docs")))
-	require.NoError(t, obsidian.SaveLocalConfig(filepath.Join(feature, "docs"), obsidian.LocalConfig{}))
+	require.NoError(t, repoconfig.SaveLocalConfig(filepath.Join(feature, "docs"), repoconfig.LocalConfig{}))
 
 	docs, err := s.Repository(filepath.Join(feature, "docs"), "")
 	require.NoError(t, err)

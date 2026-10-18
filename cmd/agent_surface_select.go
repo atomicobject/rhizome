@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 )
@@ -12,8 +13,8 @@ type agentSelectedSurfaceResponse struct {
 	Selected agentSurfaceCommand `json:"selected"`
 }
 
-func selectAgentSurface(selector string) (any, error) {
-	full := buildAgentSurface()
+func (commandOptions *vaultCommandOptions) selectAgentSurface(ctx context.Context, selector string) (any, error) {
+	full := commandOptions.buildAgentSurface(ctx)
 	selector = strings.Join(strings.Fields(selector), " ")
 	if selector == "" {
 		return full, nil

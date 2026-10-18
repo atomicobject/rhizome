@@ -1,22 +1,23 @@
 package runtime
 
 import (
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRegistryWriteListAndRemove(t *testing.T) {
-	home := t.TempDir()
-	origHome := vaultconfig.UserHomeDirectory
-	vaultconfig.UserHomeDirectory = func() (string, error) { return home, nil }
-	defer func() { vaultconfig.UserHomeDirectory = origHome }()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
 
-	registry, err := NewRegistry()
+	home := t.TempDir()
+	env.HomeDir = home
+
+	registry, err := NewRegistry(env)
 	require.NoError(t, err)
 
 	manifest := InstanceManifest{
@@ -46,12 +47,13 @@ func TestRegistryWriteListAndRemove(t *testing.T) {
 }
 
 func TestRegistryWriteReplacesExistingManifestWithoutTempLeak(t *testing.T) {
-	home := t.TempDir()
-	origHome := vaultconfig.UserHomeDirectory
-	vaultconfig.UserHomeDirectory = func() (string, error) { return home, nil }
-	defer func() { vaultconfig.UserHomeDirectory = origHome }()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
 
-	registry, err := NewRegistry()
+	home := t.TempDir()
+	env.HomeDir = home
+
+	registry, err := NewRegistry(env)
 	require.NoError(t, err)
 
 	manifest := InstanceManifest{
@@ -77,12 +79,13 @@ func TestRegistryWriteReplacesExistingManifestWithoutTempLeak(t *testing.T) {
 }
 
 func TestRegistryRemoveCleansManifestTemps(t *testing.T) {
-	home := t.TempDir()
-	origHome := vaultconfig.UserHomeDirectory
-	vaultconfig.UserHomeDirectory = func() (string, error) { return home, nil }
-	defer func() { vaultconfig.UserHomeDirectory = origHome }()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
 
-	registry, err := NewRegistry()
+	home := t.TempDir()
+	env.HomeDir = home
+
+	registry, err := NewRegistry(env)
 	require.NoError(t, err)
 
 	target := registry.Path("vault-a")
@@ -100,12 +103,13 @@ func TestRegistryRemoveCleansManifestTemps(t *testing.T) {
 }
 
 func TestRegistryPruneStaleRemovesDeadProcessManifest(t *testing.T) {
-	home := t.TempDir()
-	origHome := vaultconfig.UserHomeDirectory
-	vaultconfig.UserHomeDirectory = func() (string, error) { return home, nil }
-	defer func() { vaultconfig.UserHomeDirectory = origHome }()
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
 
-	registry, err := NewRegistry()
+	home := t.TempDir()
+	env.HomeDir = home
+
+	registry, err := NewRegistry(env)
 	require.NoError(t, err)
 
 	manifest := InstanceManifest{

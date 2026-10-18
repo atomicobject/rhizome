@@ -54,7 +54,7 @@ func TestSelectRepairActionsWithApplySelection(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			selected, err := selectRepairActions(actions, Options{ApplySelection: tt.selection, Confirm: failConfirm})
+			selected, err := selectRepairActions(actions, ApplyOptions{ApplySelection: tt.selection, Confirm: failConfirm})
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
@@ -72,7 +72,7 @@ func TestApplyFixPlanAppliesExactlySelectedConfirmationAction(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "safe.md"), safeBefore, 0o644))
 	plan := selectionTestPlan(t, confirmBefore, safeBefore)
 
-	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true, ApplySelection: []string{"issue:confirm"},
 	})
 
@@ -90,7 +90,7 @@ func TestApplyFixPlanRejectsUnknownSelectionBeforeMutation(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "safe.md"), safeBefore, 0o644))
 	plan := selectionTestPlan(t, confirmBefore, safeBefore)
 
-	_, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true, ApplySelection: []string{"action:confirm", "action:gone"},
 	})
 
@@ -102,7 +102,7 @@ func TestApplyFixPlanRejectsUnknownSelectionBeforeMutation(t *testing.T) {
 
 func TestApplyRepairSessionRejectsSelectionWithoutReviewedWork(t *testing.T) {
 	root := t.TempDir()
-	_, _, err := ApplyRepairSession(context.Background(), Result{}, repairRunContext(t, root), Options{
+	_, _, err := ApplyRepairSession(context.Background(), Result{}, repairRunContext(t, root), ApplyOptions{
 		Fix: true, NonInteractive: true, ApplySelection: []string{"action:any"},
 	})
 	require.ErrorContains(t, err, "not found in the current plan: action:any")

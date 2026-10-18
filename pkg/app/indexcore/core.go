@@ -5,16 +5,16 @@ package indexcore
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 
 	anchors "github.com/atomicobject/rhizome/pkg/anchors"
-	sqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/codeintel"
-	"github.com/atomicobject/rhizome/pkg/app/indexingpipe"
 	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
 	"github.com/atomicobject/rhizome/pkg/app/noteownership"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	sqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/notediscovery"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
@@ -34,17 +34,18 @@ type Writer interface {
 	SubmitOwnershipTransitions(context.Context, []sqlite.OwnershipTransition) (sqlite.OwnershipTransitionResult, error)
 	SubmitNoteMetadataDelta(context.Context, sqlite.NoteMetadataDelta) error
 	SubmitOntologyDelta(context.Context, sqlite.OntologyDelta) error
-	SubmitOntologyNodeReadModel(context.Context, anchors.IntelOntologyNodeReadModel) error
+	SubmitOntologyNodeReadModel(context.Context, readmodel.NodeReadModel) error
 	SubmitStructuralFinalize(context.Context, indexwriter.StructuralFinalize) error
 	SubmitDerivedDirty(context.Context, []anchors.DerivedScope) ([]anchors.DerivedWork, error)
 	SubmitActivateDerived(context.Context, []anchors.DerivedWork) error
+	AcknowledgeOwnershipReconciliation(context.Context, int64) error
 	FlushAndWait(context.Context) error
 }
 
 type PublishOptions struct {
 	// BeforeIngest lets a batch adapter attach bounded progress/streaming work
 	// once the sealed destination set is known.
-	BeforeIngest                 func(codeFiles, noteFiles int) *indexingpipe.ProgressCallbacks
+	BeforeIngest                 func(codeFiles, noteFiles int) *codeintel.ProgressCallbacks
 	AfterPreparedOwnershipCommit func(context.Context) error
 }
 
@@ -74,7 +75,7 @@ type Result struct {
 	Ontology        *ontology.SyncResult
 	FullDiscovery   bool
 	// StructuralGeneration is the exact committed ownership generation. The
-	// adapter may acknowledge it only after its own durable obligations exist.
+	// shared publisher acknowledges it after structural durability and activation.
 	StructuralGeneration int64
 	DerivedWork          []anchors.DerivedWork
 }

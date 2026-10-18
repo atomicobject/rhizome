@@ -128,7 +128,7 @@ func rollbackRepairDelta(manifest repairJournalManifest) ([]string, []PathRename
 	return sortedUnique(changed), sortedUniqueRenames(renamed), sortedUnique(deleted)
 }
 
-func selectRepairActions(actions []FixAction, opts Options) (map[string]bool, error) {
+func selectRepairActions(actions []FixAction, opts ApplyOptions) (map[string]bool, error) {
 	if len(opts.ApplySelection) > 0 {
 		return selectReviewedRepairActions(actions, opts.ApplySelection)
 	}
@@ -227,7 +227,7 @@ func allActionsSelected(actionIDs []string, selected map[string]bool) bool {
 	return true
 }
 
-func repairReplanCommand(opts Options) string {
+func repairReplanCommand(opts ApplyOptions) string {
 	if command := strings.TrimSpace(opts.ReplanCommand); command != "" {
 		return command
 	}

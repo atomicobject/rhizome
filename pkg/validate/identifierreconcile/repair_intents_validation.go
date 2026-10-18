@@ -2,19 +2,19 @@ package identifierreconcile
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/paths"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"path"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
-func canonicalizeRepairRewrite(rewrite *reference.IdentifierRewrite) error {
+func canonicalizeRepairRewrite(rewrite *identifierrewrite.IdentifierRewrite) error {
 	for _, item := range []struct {
 		name string
 		ref  *ontology.NodeRef
@@ -61,7 +61,7 @@ func canonicalRepairPath(value string) (string, error) {
 	return rel.String(), nil
 }
 
-func validateRepairRefTransition(rewrite reference.IdentifierRewrite) error {
+func validateRepairRefTransition(rewrite identifierrewrite.IdentifierRewrite) error {
 	if rewrite.OldRef.TypeName != rewrite.NewRef.TypeName || rewrite.OldRef.Kind != rewrite.NewRef.Kind {
 		return fmt.Errorf("rewrite must preserve canonical ref type and kind")
 	}
@@ -74,7 +74,7 @@ func validateRepairRefTransition(rewrite reference.IdentifierRewrite) error {
 	return nil
 }
 
-func rewriteMatchesNode(rewrite reference.IdentifierRewrite, node CanonicalNodeKey) bool {
+func rewriteMatchesNode(rewrite identifierrewrite.IdentifierRewrite, node CanonicalNodeKey) bool {
 	notePath, err := canonicalRepairPath(rewrite.OldRef.NotePath)
 	return err == nil && notePath == node.NotePath &&
 		strings.TrimPrefix(strings.TrimSpace(rewrite.OldRef.Fragment), "#") == node.Fragment &&
@@ -82,7 +82,7 @@ func rewriteMatchesNode(rewrite reference.IdentifierRewrite, node CanonicalNodeK
 		strings.TrimSpace(rewrite.PreferredField) == node.IdentifierField
 }
 
-func validDerivedRepair(parent, child reference.IdentifierRewrite) bool {
+func validDerivedRepair(parent, child identifierrewrite.IdentifierRewrite) bool {
 	oldSuffix, ok := derivedSuffix(child.OldIdentifier, parent.OldIdentifier)
 	if !ok {
 		return false
@@ -92,8 +92,8 @@ func validDerivedRepair(parent, child reference.IdentifierRewrite) bool {
 }
 
 func derivedSuffix(child, parent string) (string, bool) {
-	child = ontology.NormalizeIdentifierSemanticValue(child)
-	parent = ontology.NormalizeIdentifierSemanticValue(parent)
+	child = ontoschema.NormalizeIdentifierSemanticValue(child)
+	parent = ontoschema.NormalizeIdentifierSemanticValue(parent)
 	if !strings.HasPrefix(child, parent) || len(child) == len(parent) {
 		return "", false
 	}
@@ -114,11 +114,11 @@ func repairRefKey(ref ontology.NodeRef) string {
 	return strings.Join([]string{notePath, strings.TrimPrefix(strings.TrimSpace(ref.Fragment), "#"), strings.TrimSpace(ref.TypeName), string(ref.Kind)}, "\x00")
 }
 
-func repairRewriteKey(rewrite reference.IdentifierRewrite) string {
+func repairRewriteKey(rewrite identifierrewrite.IdentifierRewrite) string {
 	return strings.Join([]string{repairRefKey(rewrite.OldRef), string(rewrite.Mode), IdentifierComparisonKey(rewrite.OldIdentifier), repairRefKey(rewrite.NewRef), rewrite.NewIdentifier, rewrite.AliasesField, strings.Join(rewrite.AdditionalAliasesFields, "\x01")}, "\x00")
 }
 
-func validDerivedRefTransition(parent, child reference.IdentifierRewrite) bool {
+func validDerivedRefTransition(parent, child identifierrewrite.IdentifierRewrite) bool {
 	if child.OldRef.TypeName != child.NewRef.TypeName || child.OldRef.Kind != child.NewRef.Kind {
 		return false
 	}
@@ -129,7 +129,7 @@ func validDerivedRefTransition(parent, child reference.IdentifierRewrite) bool {
 		validRefComponentTransition(child.OldRef.NodeID, child.NewRef.NodeID, child)
 }
 
-func validRefComponentTransition(oldValue, newValue string, rewrite reference.IdentifierRewrite) bool {
+func validRefComponentTransition(oldValue, newValue string, rewrite identifierrewrite.IdentifierRewrite) bool {
 	oldValue = strings.TrimSpace(oldValue)
 	newValue = strings.TrimSpace(newValue)
 	if oldValue == newValue {
@@ -141,14 +141,14 @@ func validRefComponentTransition(oldValue, newValue string, rewrite reference.Id
 	return semanticRepairTransition(oldValue, newValue, rewrite)
 }
 
-func fieldEditRewrite(edit reference.StructuredFieldEdit, rewrites []reference.IdentifierRewrite) (reference.IdentifierRewrite, bool) {
+func fieldEditRewrite(edit identifierrewrite.StructuredFieldEdit, rewrites []identifierrewrite.IdentifierRewrite) (identifierrewrite.IdentifierRewrite, bool) {
 	for _, rewrite := range rewrites {
 		if !repairRefsValid(edit.TargetOldRef, edit.TargetNewRef) || !sameRepairRef(edit.TargetOldRef, rewrite.OldRef) || !sameRepairRef(edit.TargetNewRef, rewrite.NewRef) {
 			continue
 		}
-		if edit.Kind == reference.StructuredFieldAliasIdentifier {
-			if edit.Operation == reference.StructuredFieldEditRemove && rewrite.HasAliasField(edit.FieldName) && IdentifierComparisonKey(edit.Expected) == IdentifierComparisonKey(rewrite.OldIdentifier) ||
-				edit.Operation == reference.StructuredFieldEditAppend && edit.FieldName == rewrite.AliasesField && IdentifierComparisonKey(edit.Replacement) == IdentifierComparisonKey(rewrite.NewIdentifier) {
+		if edit.Kind == identifierrewrite.StructuredFieldAliasIdentifier {
+			if edit.Operation == identifierrewrite.StructuredFieldEditRemove && rewrite.HasAliasField(edit.FieldName) && IdentifierComparisonKey(edit.Expected) == IdentifierComparisonKey(rewrite.OldIdentifier) ||
+				edit.Operation == identifierrewrite.StructuredFieldEditAppend && edit.FieldName == rewrite.AliasesField && IdentifierComparisonKey(edit.Replacement) == IdentifierComparisonKey(rewrite.NewIdentifier) {
 				return rewrite, true
 			}
 			continue
@@ -157,21 +157,21 @@ func fieldEditRewrite(edit reference.StructuredFieldEdit, rewrites []reference.I
 			return rewrite, true
 		}
 	}
-	return reference.IdentifierRewrite{}, false
+	return identifierrewrite.IdentifierRewrite{}, false
 }
 
-func linkEditRewrite(edit reference.StructuredLinkEdit, rewrites []reference.IdentifierRewrite) (reference.IdentifierRewrite, bool) {
+func linkEditRewrite(edit identifierrewrite.StructuredLinkEdit, rewrites []identifierrewrite.IdentifierRewrite) (identifierrewrite.IdentifierRewrite, bool) {
 	for _, rewrite := range rewrites {
 		if repairRefsValid(edit.TargetOldRef, edit.TargetNewRef) && sameRepairRef(edit.TargetOldRef, rewrite.OldRef) && sameRepairRef(edit.TargetNewRef, rewrite.NewRef) &&
 			(semanticRepairTransition(edit.Expected, edit.Replacement, rewrite) || linkPathRepairTransition(edit, rewrite)) {
 			return rewrite, true
 		}
 	}
-	return reference.IdentifierRewrite{}, false
+	return identifierrewrite.IdentifierRewrite{}, false
 }
 
-func linkPathRepairTransition(edit reference.StructuredLinkEdit, rewrite reference.IdentifierRewrite) bool {
-	if edit.Component != reference.LinkComponentPath || sameRepairRef(rewrite.OldRef, rewrite.NewRef) {
+func linkPathRepairTransition(edit identifierrewrite.StructuredLinkEdit, rewrite identifierrewrite.IdentifierRewrite) bool {
+	if edit.Component != identifierrewrite.LinkComponentPath || sameRepairRef(rewrite.OldRef, rewrite.NewRef) {
 		return false
 	}
 	authoredBase := path.Base(strings.ReplaceAll(edit.Expected, "\\", "/"))
@@ -197,7 +197,7 @@ func stripRepairMarkdownExtension(value string) (string, bool) {
 	return value, false
 }
 
-func semanticRepairTransition(expected, replacement string, rewrite reference.IdentifierRewrite) bool {
+func semanticRepairTransition(expected, replacement string, rewrite identifierrewrite.IdentifierRewrite) bool {
 	if expected == replacement || strings.TrimSpace(expected) == "" || strings.TrimSpace(replacement) == "" {
 		return false
 	}
@@ -213,8 +213,8 @@ func semanticRepairTransition(expected, replacement string, rewrite reference.Id
 	if changed && want == replacement {
 		return true
 	}
-	oldDisplay := reference.DottedIdentifierDisplay(rewrite.OldIdentifier)
-	newDisplay := reference.DottedIdentifierDisplay(rewrite.NewIdentifier)
+	oldDisplay := identifierrewrite.DottedIdentifierDisplay(rewrite.OldIdentifier)
+	newDisplay := identifierrewrite.DottedIdentifierDisplay(rewrite.NewIdentifier)
 	want, changed = replaceBoundedRepairIdentifier(expected, oldDisplay, newDisplay)
 	return changed && want == replacement
 }
@@ -298,7 +298,7 @@ func normalizedRepairLocator(value string) string {
 	return strings.ReplaceAll(strings.TrimSpace(value), "\\", "/")
 }
 
-func validateRequiredFieldObligations(component CollisionRepairIntent, rewrites []reference.IdentifierRewrite, roots map[int]struct{}, synthesized []synthesizedDerivedField) error {
+func validateRequiredFieldObligations(component CollisionRepairIntent, rewrites []identifierrewrite.IdentifierRewrite, roots map[int]struct{}, synthesized []synthesizedDerivedField) error {
 	rootIndices := make([]int, 0, len(roots))
 	for index := range roots {
 		rootIndices = append(rootIndices, index)
@@ -309,8 +309,8 @@ func validateRequiredFieldObligations(component CollisionRepairIntent, rewrites 
 			return fmt.Errorf("root rewrite index is outside the rewrite union")
 		}
 		rewrite := rewrites[index]
-		if rewrite.Mode == reference.IdentifierRewriteAliasRemoval {
-			if !hasAliasObligation(component.AliasEdits, rewrite, reference.StructuredFieldEditRemove) {
+		if rewrite.Mode == identifierrewrite.IdentifierRewriteAliasRemoval {
+			if !hasAliasObligation(component.AliasEdits, rewrite, identifierrewrite.StructuredFieldEditRemove) {
 				return fmt.Errorf("alias removal root is missing its required alias edit")
 			}
 			continue
@@ -322,7 +322,7 @@ func validateRequiredFieldObligations(component CollisionRepairIntent, rewrites 
 		// precisely the legacy validation state reconciliation must repair. The
 		// sealed discovery contributes a removal whenever the old alias exists,
 		// while every rekey must still append the replacement mirror.
-		if !hasAliasObligation(component.AliasEdits, rewrite, reference.StructuredFieldEditAppend) {
+		if !hasAliasObligation(component.AliasEdits, rewrite, identifierrewrite.StructuredFieldEditAppend) {
 			return fmt.Errorf("preferred rekey is missing its required replacement alias edit")
 		}
 	}
@@ -347,7 +347,7 @@ func validateRequiredFieldObligations(component CollisionRepairIntent, rewrites 
 	return nil
 }
 
-func hasSynthesizedDerivedObligation(fields []synthesizedDerivedField, rewrite reference.IdentifierRewrite) bool {
+func hasSynthesizedDerivedObligation(fields []synthesizedDerivedField, rewrite identifierrewrite.IdentifierRewrite) bool {
 	for _, field := range fields {
 		if sameRepairRef(field.OwnerRef, rewrite.OldRef) && field.FieldName == rewrite.PreferredField &&
 			IdentifierComparisonKey(field.Value) == IdentifierComparisonKey(rewrite.OldIdentifier) {
@@ -357,8 +357,8 @@ func hasSynthesizedDerivedObligation(fields []synthesizedDerivedField, rewrite r
 	return false
 }
 
-func requiredDerivedFieldEdit(edit reference.StructuredFieldEdit, rewrite reference.IdentifierRewrite) bool {
-	if edit.Operation != reference.StructuredFieldEditReplace ||
+func requiredDerivedFieldEdit(edit identifierrewrite.StructuredFieldEdit, rewrite identifierrewrite.IdentifierRewrite) bool {
+	if edit.Operation != identifierrewrite.StructuredFieldEditReplace ||
 		!sameRepairRef(edit.OwnerRef, rewrite.OldRef) ||
 		!sameRepairRef(edit.TargetOldRef, rewrite.OldRef) ||
 		!sameRepairRef(edit.TargetNewRef, rewrite.NewRef) ||
@@ -366,33 +366,33 @@ func requiredDerivedFieldEdit(edit reference.StructuredFieldEdit, rewrite refere
 		return false
 	}
 	switch edit.Kind {
-	case reference.StructuredFieldPreferredIdentifier, reference.StructuredFieldIdentifierBackedLocator:
+	case identifierrewrite.StructuredFieldPreferredIdentifier, identifierrewrite.StructuredFieldIdentifierBackedLocator:
 		return edit.FieldName == rewrite.PreferredField
 	default:
 		return false
 	}
 }
 
-func hasPreferredIdentifierObligation(edits []FieldRepairIntent, rewrite reference.IdentifierRewrite) bool {
+func hasPreferredIdentifierObligation(edits []FieldRepairIntent, rewrite identifierrewrite.IdentifierRewrite) bool {
 	for _, intent := range edits {
 		edit := intent.Edit
-		if edit.Kind == reference.StructuredFieldPreferredIdentifier && edit.FieldName == rewrite.PreferredField && edit.Operation == reference.StructuredFieldEditReplace && sameRepairRef(edit.OwnerRef, rewrite.OldRef) && semanticRepairTransition(edit.Expected, edit.Replacement, rewrite) {
+		if edit.Kind == identifierrewrite.StructuredFieldPreferredIdentifier && edit.FieldName == rewrite.PreferredField && edit.Operation == identifierrewrite.StructuredFieldEditReplace && sameRepairRef(edit.OwnerRef, rewrite.OldRef) && semanticRepairTransition(edit.Expected, edit.Replacement, rewrite) {
 			return true
 		}
 	}
 	return false
 }
 
-func hasAliasObligation(edits []FieldRepairIntent, rewrite reference.IdentifierRewrite, operation reference.StructuredFieldEditOperation) bool {
+func hasAliasObligation(edits []FieldRepairIntent, rewrite identifierrewrite.IdentifierRewrite, operation identifierrewrite.StructuredFieldEditOperation) bool {
 	for _, intent := range edits {
 		edit := intent.Edit
 		if edit.Operation != operation || edit.FieldName != rewrite.AliasesField || !sameRepairRef(edit.OwnerRef, rewrite.OldRef) {
 			continue
 		}
-		if operation == reference.StructuredFieldEditRemove && IdentifierComparisonKey(edit.Expected) == IdentifierComparisonKey(rewrite.OldIdentifier) {
+		if operation == identifierrewrite.StructuredFieldEditRemove && IdentifierComparisonKey(edit.Expected) == IdentifierComparisonKey(rewrite.OldIdentifier) {
 			return true
 		}
-		if operation == reference.StructuredFieldEditAppend && IdentifierComparisonKey(edit.Replacement) == IdentifierComparisonKey(rewrite.NewIdentifier) {
+		if operation == identifierrewrite.StructuredFieldEditAppend && IdentifierComparisonKey(edit.Replacement) == IdentifierComparisonKey(rewrite.NewIdentifier) {
 			return true
 		}
 	}

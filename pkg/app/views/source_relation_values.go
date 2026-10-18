@@ -2,13 +2,13 @@ package views
 
 import (
 	"context"
-	"sort"
-	"strings"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"sort"
+	"strings"
 )
 
 // hydrateRelationValueTitles titles the untitled link values of rows.
@@ -107,7 +107,7 @@ func applyRelationTargetTitles(rows []TableRow, targets []noderead.NodeRecord) [
 	return out
 }
 
-func relationValuesForRecord(schema *ontology.Schema, record noderead.NodeRecord) map[string][]TableRelationValue {
+func relationValuesForRecord(schema *ontoschema.Schema, record noderead.NodeRecord) map[string][]TableRelationValue {
 	if schema == nil {
 		return nil
 	}
@@ -117,7 +117,7 @@ func relationValuesForRecord(schema *ontology.Schema, record noderead.NodeRecord
 	}
 	result := map[string][]TableRelationValue{}
 	for _, field := range noteType.Fields {
-		if field == nil || field.Kind != ontology.FieldKindLink {
+		if field == nil || field.Kind != ontoschema.FieldKindLink {
 			continue
 		}
 		rows := indexedRelationFieldRows(record.FieldValues, field.Name)
@@ -153,7 +153,7 @@ type pendingRelationValue struct {
 // field name and text, take its target in one batched read; staged, unindexed,
 // or changed values resolve, sharing one Resolve unless their meaning depends
 // on the note that authors them.
-func resolveRawRelationValues(ctx context.Context, scope *noderead.Scope, schema *ontology.Schema, records []noderead.NodeRecord) (map[string]map[string][]TableRelationValue, error) {
+func resolveRawRelationValues(ctx context.Context, scope *noderead.Scope, schema *ontoschema.Schema, records []noderead.NodeRecord) (map[string]map[string][]TableRelationValue, error) {
 	result := map[string]map[string][]TableRelationValue{}
 	var pending []pendingRelationValue
 	var raw []noderead.NodeRecord
@@ -167,7 +167,7 @@ func resolveRawRelationValues(ctx context.Context, scope *noderead.Scope, schema
 		}
 		recordKey := noderead.RefIdentityKey(record.Ref)
 		for _, field := range noteType.Fields {
-			if field == nil || field.Kind != ontology.FieldKindLink {
+			if field == nil || field.Kind != ontoschema.FieldKindLink {
 				continue
 			}
 			rawValues := rawRelationFieldValues(record, field)
@@ -221,11 +221,10 @@ func resolveRawRelationValues(ctx context.Context, scope *noderead.Scope, schema
 			targets = append(targets, noderead.NodeTarget{Input: value.value})
 		}
 		resolved, err := scope.Resolve(ctx, noderead.ResolveRequest{
-			OmitLocators: true,
-			IndexOnly:    true,
-			Targets:      targets,
-			FromPath:     fromPath,
-			Hydrate:      noderead.HydrateOptions{Profile: noderead.HydrateIdentity},
+			IndexOnly: true,
+			Targets:   targets,
+			FromPath:  fromPath,
+			Hydrate:   noderead.HydrateOptions{Profile: noderead.HydrateSummary},
 		})
 		if err != nil {
 			return result, err
@@ -266,15 +265,15 @@ func existingRelationRefsByInput(resolved []noderead.ResolvedNode) map[string]on
 	return byInput
 }
 
-func rawRelationFieldValues(record noderead.NodeRecord, field *ontology.Field) []string {
-	sources := ontology.FieldSourceNames(field)
+func rawRelationFieldValues(record noderead.NodeRecord, field *ontoschema.Field) []string {
+	sources := ontoschema.FieldSourceNames(field)
 	if len(sources) == 0 {
 		// Embedded-node link fields have no authored source; their inline key
 		// is the field name, which is also how projections key the binding.
 		sources = []string{field.Name}
 	}
 	for _, source := range sources {
-		if field.SourceKind == ontology.FieldSourceInline {
+		if field.SourceKind == ontoschema.FieldSourceInline {
 			if values, ok := lookupInlineProp(record.InlineProps, source); ok {
 				return nonEmptyRelationValues(values)
 			}
@@ -312,7 +311,7 @@ func nonEmptyRelationValues(values any) []string {
 	return out
 }
 
-func indexedRelationFieldRows(fields map[string][]codeanchor.IntelOntologyNodeFieldValue, fieldName string) []codeanchor.IntelOntologyNodeFieldValue {
+func indexedRelationFieldRows(fields map[string][]readmodel.FieldValueRow, fieldName string) []readmodel.FieldValueRow {
 	for name, rows := range fields {
 		if strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(fieldName)) {
 			return rows
@@ -417,10 +416,9 @@ func canonicalRelationGroupValues(ctx context.Context, scope *noderead.Scope, gr
 		return group, nil
 	}
 	resolved, err := scope.Resolve(ctx, noderead.ResolveRequest{
-		OmitLocators: true,
-		IndexOnly:    true,
-		Targets:      targets,
-		Hydrate:      noderead.HydrateOptions{Profile: noderead.HydrateIdentity},
+		IndexOnly: true,
+		Targets:   targets,
+		Hydrate:   noderead.HydrateOptions{Profile: noderead.HydrateSummary},
 	})
 	if err != nil {
 		return group, err

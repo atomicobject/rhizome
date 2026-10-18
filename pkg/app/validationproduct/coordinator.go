@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
@@ -29,7 +29,7 @@ type RefreshCoordinatorOptions struct {
 	RepairStore  *validate.RepairReviewStore
 	Run          RefreshRun
 	MaxIssues    int
-	ApplyOptions validate.Options
+	ApplyOptions validate.ApplyOptions
 }
 
 type validationAuthority struct {
@@ -46,7 +46,7 @@ type RefreshCoordinator struct {
 	vaultDef     obsidian.VaultDefinition
 	repairStore  *validate.RepairReviewStore
 	run          RefreshRun
-	applyOptions validate.Options
+	applyOptions validate.ApplyOptions
 
 	startMu sync.Mutex
 	cancel  context.CancelFunc
@@ -221,6 +221,21 @@ func (c *RefreshCoordinator) CreateRepairReview(ctx context.Context, generation 
 		Result: authority.run.Result.Result, RunContext: authority.run.RunContext,
 	}
 	c.authorityMu.RUnlock()
+	if request.Result.FixPlan == nil {
+		return validate.RepairReview{}, &validate.RepairReviewError{Code: validate.RepairReviewErrorAuthorityUnavailable, Message: "validation result has no repair plan"}
+	}
+	if strings.TrimSpace(planFingerprint) != request.Result.FixPlan.Fingerprint {
+		return validate.RepairReview{}, &validate.RepairReviewError{Code: validate.RepairReviewErrorPlanFingerprintMismatch, Message: "repair action summary does not match published validation authority"}
+	}
+	prepared, err := validate.PrepareRepair(ctx, request.Result, request.RunContext)
+	if err != nil {
+		return validate.RepairReview{}, &validate.RepairReviewError{Code: validate.RepairReviewErrorRevalidationRequired, Message: err.Error()}
+	}
+	if prepared.FixPlan == nil {
+		return validate.RepairReview{}, &validate.RepairReviewError{Code: validate.RepairReviewErrorActionUnavailable, Message: "validation result has no repair actions"}
+	}
+	request.Result = prepared
+	request.PlanFingerprint = prepared.FixPlan.Fingerprint
 	return c.repairStore.Create(ctx, request)
 }
 

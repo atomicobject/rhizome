@@ -37,7 +37,7 @@ Writable code-index startup retries typed SQLite busy/locked opening failures fo
 | `rzm index` with a runtime | `cmd/index.go`, `pkg/app/runtime` | Ensures a runtime, `POST /api/v1/runtime/index`, streams `/events`, maps the job outcome to the exit code. Ctrl-C requests cancellation and waits a bounded interval for completion; an unresponsive worker produces an explicit unconfirmed-completion message. |
 | `rzm index --in-process` or no runtime | `cmd/index.go`, `pkg/app/indexing/lock.go` | `TryAcquireIndexLock(..., requestPriority=true)`: creates the priority request, waits without a deadline while printing the holder's role, PID, age, and last heartbeat once per second; Ctrl-C exits cleanly. |
 | `rzm index --rebuild` | `cmd/index.go`, `pkg/app/indexing/rebuild_fresh.go` | Stops a headless runtime, holds both spawn and runtime election leases while rebuilding in-process under `index.lock`, then releases ownership before restarting the runtime. Refuses against an attached runtime and whenever a live manifest exists. |
-| Direct note, heading, tag, and property mutations | `pkg/app/cli/write_lock.go` | Wait cancellably for `index.lock` before reading content to edit; retain it across the whole batch. Preview paths remain read-only. |
+| Direct note, heading, tag, and property mutations | `pkg/app/operations/write_lock.go` | Wait cancellably for `index.lock` before reading content to edit; retain it across the whole batch. Preview paths remain read-only. |
 | Validation repairs, note edits, `rzm new-worktree` | `pkg/validate/postapply.go`, `pkg/ontology/edit_write_lock.go`, `cmd/new_worktree.go` | Acquire `index.lock` as one-shot writers with their own role; the lane yields to them through the priority protocol. |
 
 `rzm new-worktree` reads the source as one SQLite snapshot (`VACUUM INTO`) and takes no source-side lock.
@@ -99,12 +99,12 @@ Heartbeats and release verify the full ownership token. Metadata creation, stale
 | --- | --- | --- |
 | Concurrent start, serve, and index clients | One elected runtime; competing clients attach or report the owner. | `tests/integration/runtime/runtime_test.go`, `pkg/app/runtime/ensure_test.go` |
 | Ctrl-C, immediate restart, and startup behind a writer | Cancellation drains owned work; recovery waits without stealing the writer lock. | `tests/integration/runtime/startup_interrupt_test.go`, `startup_contention_test.go` |
-| Stop or stop-all during startup or shutdown | Cancel the observed start and drain it; a missing HTTP manifest does not mean the owner has exited, and a successor retains its own token. | `pkg/app/runtimestop/stop_test.go`, `startup_contention_test.go` |
+| Stop or stop-all during startup or shutdown | Cancel the observed start and drain it; a missing HTTP manifest does not mean the owner has exited, and a successor retains its own token. | `pkg/app/runtime/stop_command_test.go`, `startup_contention_test.go` |
 | Save while indexing, with a changed source or a retry | Background work yields; source preconditions are checked after waiting; saved edits retain retry receipts. | Ontology edit and validation repair tests; browser save journeys. |
 | Filesystem change or manual validation refresh | Changed inputs invalidate validation; queued refreshes eventually publish and retain truthful progress. | Readiness/lane tests, validation API tests, Problems browser journeys. |
 | Runtime crash, reboot, and paused writer | Dead owners recover, including proven earlier local boots; live owners remain exclusive regardless of heartbeat age. | `pkg/vault/indexlock/hardening_test.go`, `reboot_test.go`, runtime crash and reboot integration tests. |
 | Rebuild or copy into a worktree with active writers | Database replacement excludes runtime openers and one-shot writers. | `cmd/index_runtime_test.go`, `cmd/new_worktree_test.go` |
-| Direct note mutations beside an active writer | Wait before reading source; cancellation while waiting makes no changes. | `pkg/app/cli` mutation lock tests. |
+| Direct note mutations beside an active writer | Wait before reading source; cancellation while waiting makes no changes. | `pkg/app/operations` mutation lock tests. |
 | Code-mode connection while a runtime starts | Initialization and local operations stay responsive; forwarded work waits with cancellation. | `cmd/agent_code_runtime_test.go` |
 | Interrupted delegated index with an unresponsive worker | Request cancellation and bound the wait for completion; report when completion is unconfirmed. | `cmd/index_runtime_cancel_test.go` |
 | Unix pinned launcher under a process supervisor | The delegated command retains the supervised PID and handles termination directly. | `cmd/repo_delegate_exec_unix_test.go` |

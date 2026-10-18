@@ -5,15 +5,16 @@ package codeanchor_test
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	sqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,7 +30,7 @@ func TestIntegration_PythonNoteAndCode(t *testing.T) {
 
 	svc := codeanchor.NewServiceWithOptions(
 		store,
-		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexer()},
+		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexerWithRoots([]string{"src", "lib"})},
 		codeanchor.WithBasePath(dir),
 		codeanchor.WithWriteAccess(),
 	)
@@ -75,7 +76,7 @@ anchors:
 	require.NoError(t, err)
 	require.Contains(t, fc.Anchors, "BillingDomain")
 	require.Len(t, fc.Notes, 1)
-	expectedNotePath := string(paths.NormalizeNote("notes/billing.md"))
+	expectedNotePath := string(paths.EnsureNoteExtension("notes/billing.md", ".md"))
 	require.Equal(t, expectedNotePath, fc.Notes[0].Path)
 }
 
@@ -88,7 +89,7 @@ func TestIntegration_DirectoryAnchorMatchesFilesAndDirs(t *testing.T) {
 
 	svc := codeanchor.NewServiceWithOptions(
 		store,
-		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexer()},
+		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexerWithRoots([]string{"src", "lib"})},
 		codeanchor.WithBasePath(dir),
 	)
 
@@ -116,7 +117,7 @@ code-anchors:
 	require.NoError(t, err)
 	require.Contains(t, fc.Anchors, "src/todoapp/services")
 	require.Len(t, fc.Notes, 1)
-	expectedNotePath := string(paths.NormalizeNote("notes/services.md"))
+	expectedNotePath := string(paths.EnsureNoteExtension("notes/services.md", ".md"))
 	require.Equal(t, expectedNotePath, fc.Notes[0].Path)
 
 	// It should also match when querying the directory itself.
@@ -136,7 +137,7 @@ func TestIntegration_GlobAnchorMatchesNonIndexedFile(t *testing.T) {
 
 	svc := codeanchor.NewServiceWithOptions(
 		store,
-		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexer()},
+		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexerWithRoots([]string{"src", "lib"})},
 		codeanchor.WithBasePath(dir),
 	)
 
@@ -176,7 +177,7 @@ func TestIntegration_PythonImportEdges(t *testing.T) {
 
 	svc := codeanchor.NewServiceWithOptions(
 		store,
-		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexer()},
+		[]codeanchor.LanguageIndexer{codeanchor.NewPythonIndexerWithRoots([]string{"src", "lib"})},
 		codeanchor.WithBasePath(dir),
 	)
 
@@ -1021,5 +1022,5 @@ func integrationNoteSource(t *testing.T, root, path, content string) notemeta.No
 	t.Helper()
 	rel, err := filepath.Rel(root, path)
 	require.NoError(t, err)
-	return notemeta.NewContentOnlyNoteSourceSnapshot(filepath.ToSlash(rel), content, 0)
+	return testkit.NoteSource(t, filepath.ToSlash(rel), content, 0)
 }

@@ -2,14 +2,15 @@ package identifierreconcile
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDiscoverIdentifierLinksSealsEverySourceAndRewritesAliasOnlyInbound(t *testing.T) {
@@ -24,20 +25,20 @@ func TestDiscoverIdentifierLinksSealsEverySourceAndRewritesAliasOnlyInbound(t *t
 		"notes/zero.md":    zeroContent,
 	})
 	loser := ontology.NodeRef{NotePath: "specs/loser.md", Kind: ontology.NodeKindNote, TypeName: "Spec"}
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
 		OldIdentifier: "OLD-ALIAS", NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases",
 	}
 	fieldDiscovery := discoverIdentifierLinkFields(t, root, schema, rewrite)
 	counts := make(map[string]int)
 	discovery, err := discoverIdentifierLinks(context.Background(), IdentifierLinkDiscoveryRequest{
 		FieldDiscovery: fieldDiscovery,
-	}, identifierLinkDiscoveryDependencies{scan: func(content string) obsidian.StructuredLinkScanSnapshot {
+	}, identifierLinkDiscoveryDependencies{scan: func(content string) markdownsyntax.StructuredLinkScanSnapshot {
 		counts[content]++
-		return obsidian.ScanStructuredLinkSnapshot(content)
+		return markdownsyntax.ScanStructuredLinkSnapshot(content)
 	}})
 	require.NoError(t, err)
-	snapshot, err := discovery.validatedSnapshotFor([]reference.IdentifierRewrite{rewrite})
+	snapshot, err := discovery.validatedSnapshotFor([]identifierrewrite.IdentifierRewrite{rewrite})
 	require.NoError(t, err)
 	require.Equal(t, schema.Hash, snapshot.SchemaHash)
 	require.Equal(t, []string{"notes/inbound.md", "notes/zero.md", "specs/loser.md"}, linkSourcePaths(snapshot.SourcePreconditions))
@@ -55,7 +56,7 @@ func TestDiscoverIdentifierLinksSealsEverySourceAndRewritesAliasOnlyInbound(t *t
 	require.Empty(t, zero.Diagnostics)
 
 	discovery.plans = discovery.plans[:len(discovery.plans)-1]
-	_, err = discovery.validatedSnapshotFor([]reference.IdentifierRewrite{rewrite})
+	_, err = discovery.validatedSnapshotFor([]identifierrewrite.IdentifierRewrite{rewrite})
 	require.ErrorContains(t, err, "changed after sealing")
 }
 
@@ -66,8 +67,8 @@ func TestDiscoverIdentifierLinksPreservesAmbiguityWithoutUniqueGitProof(t *testi
 		"notes/inbound.md": "[[SHARED]]\n",
 	})
 	loser := ontology.NodeRef{NotePath: "specs/loser.md", Kind: ontology.NodeKindNote, TypeName: "Spec"}
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
 		OldIdentifier: "SHARED", NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases",
 	}
 	fieldDiscovery := discoverIdentifierLinkFields(t, root, schema, rewrite)
@@ -75,12 +76,12 @@ func TestDiscoverIdentifierLinksPreservesAmbiguityWithoutUniqueGitProof(t *testi
 		FieldDiscovery: fieldDiscovery,
 	})
 	require.NoError(t, err)
-	snapshot, err := discovery.validatedSnapshotFor([]reference.IdentifierRewrite{rewrite})
+	snapshot, err := discovery.validatedSnapshotFor([]identifierrewrite.IdentifierRewrite{rewrite})
 	require.NoError(t, err)
 	inbound := structuredLinkPlanByPath(t, snapshot.Plans, "notes/inbound.md")
 	require.Empty(t, inbound.Edits)
 	require.Len(t, inbound.Diagnostics, 1)
-	require.Equal(t, reference.LinkRewriteDiagnosticAmbiguousTarget, inbound.Diagnostics[0].Kind)
+	require.Equal(t, identifierrewrite.LinkRewriteDiagnosticAmbiguousTarget, inbound.Diagnostics[0].Kind)
 	require.Len(t, inbound.Diagnostics[0].Candidates, 2)
 }
 
@@ -91,8 +92,8 @@ func TestDiscoverIdentifierLinksDoesNotUseFragmentExistenceToEraseBaseAmbiguity(
 		"notes/inbound.md": "[[SHARED#Only Loser]]\n",
 	})
 	loser := ontology.NodeRef{NotePath: "specs/loser.md", Kind: ontology.NodeKindNote, TypeName: "Spec"}
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
 		OldIdentifier: "SHARED", NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases",
 	}
 	fieldDiscovery := discoverIdentifierLinkFields(t, root, schema, rewrite)
@@ -103,7 +104,7 @@ func TestDiscoverIdentifierLinksDoesNotUseFragmentExistenceToEraseBaseAmbiguity(
 	inbound := structuredLinkPlanByPath(t, snapshot.Plans, "notes/inbound.md")
 	require.Empty(t, inbound.Edits)
 	require.Len(t, inbound.Diagnostics, 1)
-	require.Equal(t, reference.LinkRewriteDiagnosticAmbiguousTarget, inbound.Diagnostics[0].Kind)
+	require.Equal(t, identifierrewrite.LinkRewriteDiagnosticAmbiguousTarget, inbound.Diagnostics[0].Kind)
 	require.Len(t, inbound.Diagnostics[0].Candidates, 2)
 }
 
@@ -113,8 +114,8 @@ func TestDiscoverIdentifierLinksConsumesTheSealedFieldSourceSnapshotWithoutRerea
 		"notes/inbound.md": "[[OLD-ALIAS]]\n",
 	})
 	loser := ontology.NodeRef{NotePath: "specs/loser.md", Kind: ontology.NodeKindNote, TypeName: "Spec"}
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: loser, NewRef: loser,
 		OldIdentifier: "OLD-ALIAS", NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases",
 	}
 	fieldDiscovery := discoverIdentifierLinkFields(t, root, schema, rewrite)
@@ -139,10 +140,10 @@ func TestDiscoverIdentifierLinksConsumesTheSealedFieldSourceSnapshotWithoutRerea
 	// Drift is caught by current-source revalidation, not by rereading.
 	assembly := &RepairAssembly{PlanFingerprint: "plan", SchemaHash: snapshot.SchemaHash, SourcePreconditions: snapshot.SourcePreconditions}
 	require.NoError(t, assembly.seal())
-	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}), "source inventory changed")
+	require.ErrorContains(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: root}, testNoteMetadata(t)), "source inventory changed")
 }
 
-func identifierLinkDiscoveryFixture(t *testing.T, notes map[string]string) (string, *ontology.Schema) {
+func identifierLinkDiscoveryFixture(t *testing.T, notes map[string]string) (string, *ontoschema.Schema) {
 	t.Helper()
 	root := t.TempDir()
 	schemaPath := filepath.Join(root, ".rhizome", "ontology", "schema.graphql")
@@ -158,21 +159,21 @@ type Spec @node(paths: ["specs/*.md"]) {
 		require.NoError(t, os.MkdirAll(filepath.Dir(absolute), 0o755))
 		require.NoError(t, os.WriteFile(absolute, []byte(content), 0o644))
 	}
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	return root, schema
 }
 
-func discoverIdentifierLinkFields(t *testing.T, root string, schema *ontology.Schema, rewrite reference.IdentifierRewrite) *IdentifierFieldDiscovery {
+func discoverIdentifierLinkFields(t *testing.T, root string, schema *ontoschema.Schema, rewrite identifierrewrite.IdentifierRewrite) *IdentifierFieldDiscovery {
 	t.Helper()
-	discovery, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{
-		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []reference.IdentifierRewrite{rewrite},
+	discovery, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
+		VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 	})
 	require.NoError(t, err)
 	return discovery
 }
 
-func structuredLinkPlanByPath(t *testing.T, plans []reference.StructuredLinkRewritePlan, notePath string) reference.StructuredLinkRewritePlan {
+func structuredLinkPlanByPath(t *testing.T, plans []identifierrewrite.StructuredLinkRewritePlan, notePath string) identifierrewrite.StructuredLinkRewritePlan {
 	t.Helper()
 	for _, plan := range plans {
 		if plan.NotePath == notePath {
@@ -180,5 +181,5 @@ func structuredLinkPlanByPath(t *testing.T, plans []reference.StructuredLinkRewr
 		}
 	}
 	t.Fatalf("missing structured link plan for %s", notePath)
-	return reference.StructuredLinkRewritePlan{}
+	return identifierrewrite.StructuredLinkRewritePlan{}
 }

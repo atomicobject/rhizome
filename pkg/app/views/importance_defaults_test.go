@@ -1,21 +1,21 @@
 package views
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGeneratedDefaultsAreNamedForTheTypeLabel(t *testing.T) {
-	schema := &ontology.Schema{
-		Types: map[string]*ontology.NoteType{
+	schema := &ontoschema.Schema{
+		Types: map[string]*ontoschema.NoteType{
 			"IPInitiative": {Name: "IPInitiative", Label: "IPInitiative"},
 			"Effort":       {Name: "Effort", Label: "Effort", PluralLabel: "Efforts"},
 			"Meeting":      {Name: "Meeting", Label: "Team meeting", LabelAuthored: true},
 		},
-		Interfaces: map[string]*ontology.InterfaceType{
+		Interfaces: map[string]*ontoschema.InterfaceType{
 			"WorkItem":  {Name: "WorkItem"},
 			"Traceable": {Name: "Traceable", Label: "Traceable note", PluralLabel: "Traceable notes"},
 		},
@@ -34,16 +34,16 @@ func TestGeneratedDefaultsAreNamedForTheTypeLabel(t *testing.T) {
 }
 
 func TestGeneratedDefaultsDoNotUseDetailSummaryAsCardPreview(t *testing.T) {
-	noteType := &ontology.NoteType{
+	noteType := &ontoschema.NoteType{
 		Name: "ProductSpec",
-		Fields: []*ontology.Field{
-			{Name: "summary", Kind: ontology.FieldKindScalar, TypeName: "String", Display: ontology.FieldDisplay{Importance: ontology.FieldImportanceDetail}},
-			{Name: "priority", Kind: ontology.FieldKindEnum, TypeName: "Priority", Display: ontology.FieldDisplay{Importance: ontology.FieldImportanceKey}},
+		Fields: []*ontoschema.Field{
+			{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", Display: ontoschema.FieldDisplay{Importance: ontoschema.FieldImportanceDetail}},
+			{Name: "priority", Kind: ontoschema.FieldKindEnum, TypeName: "Priority", Display: ontoschema.FieldDisplay{Importance: ontoschema.FieldImportanceKey}},
 		},
 	}
-	schema := &ontology.Schema{
-		Types:     map[string]*ontology.NoteType{"ProductSpec": noteType},
-		EnumTypes: map[string]*ontology.EnumType{"Priority": {Name: "Priority", Values: []*ontology.EnumValue{{Name: "high"}, {Name: "low"}}}},
+	schema := &ontoschema.Schema{
+		Types:     map[string]*ontoschema.NoteType{"ProductSpec": noteType},
+		EnumTypes: map[string]*ontoschema.EnumType{"Priority": {Name: "Priority", Values: []*ontoschema.EnumValue{{Name: "high"}, {Name: "low"}}}},
 	}
 	profile, ok := subjectProfile(schema, "ProductSpec")
 	require.True(t, ok)
@@ -61,12 +61,12 @@ func TestGeneratedDefaultsDoNotUseDetailSummaryAsCardPreview(t *testing.T) {
 
 func TestImplicitViewFieldsUseImportanceWhileAuthoredListsStayExact(t *testing.T) {
 	capabilities := []FieldCapability{
-		{Key: "title", CanonicalField: "title", SemanticRole: "title", Importance: ontology.FieldImportanceNormal},
-		{Key: "id", CanonicalField: "id", SemanticRole: "identifier", Importance: ontology.FieldImportanceDetail, schemaOrder: 2, schemaOrderKnown: true},
-		{Key: "summary", CanonicalField: "summary", Importance: ontology.FieldImportanceDetail, schemaOrder: 0, schemaOrderKnown: true},
-		{Key: "priority", CanonicalField: "priority", Importance: ontology.FieldImportanceKey, schemaOrder: 3, schemaOrderKnown: true},
-		{Key: "owner", CanonicalField: "owner", Importance: ontology.FieldImportanceKey, schemaOrder: 1, schemaOrderKnown: true},
-		{Key: "status", CanonicalField: "status", Importance: ontology.FieldImportanceNormal, schemaOrder: 4, schemaOrderKnown: true},
+		{Key: "title", CanonicalField: "title", SemanticRole: "title", Importance: ontoschema.FieldImportanceNormal},
+		{Key: "id", CanonicalField: "id", SemanticRole: "identifier", Importance: ontoschema.FieldImportanceDetail, schemaOrder: 2, schemaOrderKnown: true},
+		{Key: "summary", CanonicalField: "summary", Importance: ontoschema.FieldImportanceDetail, schemaOrder: 0, schemaOrderKnown: true},
+		{Key: "priority", CanonicalField: "priority", Importance: ontoschema.FieldImportanceKey, schemaOrder: 3, schemaOrderKnown: true},
+		{Key: "owner", CanonicalField: "owner", Importance: ontoschema.FieldImportanceKey, schemaOrder: 1, schemaOrderKnown: true},
+		{Key: "status", CanonicalField: "status", Importance: ontoschema.FieldImportanceNormal, schemaOrder: 4, schemaOrderKnown: true},
 	}
 	implicit := viewconfig.ViewDefinition{Variants: viewconfig.VariantSet{Card: &viewconfig.CardSpec{}}}
 
@@ -103,9 +103,9 @@ func TestImplicitViewFieldsUseImportanceWhileAuthoredListsStayExact(t *testing.T
 
 func TestImplicitNormalOnlyViewFieldsKeepLegacyDefaults(t *testing.T) {
 	capabilities := []FieldCapability{
-		{Key: "title", CanonicalField: "title", SemanticRole: "title", Importance: ontology.FieldImportanceNormal},
-		{Key: "id", CanonicalField: "id", SemanticRole: "identifier", Importance: ontology.FieldImportanceNormal},
-		{Key: "summary", CanonicalField: "summary", Importance: ontology.FieldImportanceNormal},
+		{Key: "title", CanonicalField: "title", SemanticRole: "title", Importance: ontoschema.FieldImportanceNormal},
+		{Key: "id", CanonicalField: "id", SemanticRole: "identifier", Importance: ontoschema.FieldImportanceNormal},
+		{Key: "summary", CanonicalField: "summary", Importance: ontoschema.FieldImportanceNormal},
 	}
 	def := viewconfig.ViewDefinition{Variants: viewconfig.VariantSet{Card: &viewconfig.CardSpec{}}}
 

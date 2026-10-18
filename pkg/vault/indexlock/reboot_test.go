@@ -38,20 +38,15 @@ func previousBootLock(t *testing.T) LockData {
 }
 
 func TestTryAcquireRecoversPreviousBoot(t *testing.T) {
-	for _, processLifetime := range []bool{false, true} {
-		t.Run(strconv.FormatBool(processLifetime), func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "runtime.lock")
-			owner := previousBootLock(t)
-			owner.ProcessLifetime = processLifetime
-			data, err := json.Marshal(owner)
-			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(path, data, 0o644))
-			release, acquired, err := TryAcquireWithOptions(path, AcquireOptions{ProcessLifetime: processLifetime})
-			require.NoError(t, err)
-			require.True(t, acquired)
-			require.NoError(t, release())
-		})
-	}
+	path := filepath.Join(t.TempDir(), "runtime.lock")
+	owner := previousBootLock(t)
+	data, err := json.Marshal(owner)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, data, 0o644))
+	release, acquired, err := TryAcquire(path)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	require.NoError(t, release())
 }
 
 func TestTryAcquirePreservesUncertainPreviousBoot(t *testing.T) {

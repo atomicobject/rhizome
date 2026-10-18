@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/assert"
@@ -26,21 +27,30 @@ func TestRunIdentifiersWithRuntimeSkipsWithoutPrerequisites(t *testing.T) {
 	noStoreRuntime := &ontology.Runtime{Schema: storeRuntime.Schema}
 
 	tests := []struct {
-		name    string
-		runtime *ontology.Runtime
-		summary string
+		name        string
+		runtime     *ontology.Runtime
+		summary     string
+		unavailable bool
 	}{
 		{name: "nil runtime", runtime: nil, summary: "no ontology schema"},
 		{name: "missing schema", runtime: &ontology.Runtime{Store: storeRuntime.Store}, summary: "no ontology schema"},
-		{name: "missing store", runtime: noStoreRuntime, summary: "no intel store"},
+		{name: "missing store", runtime: noStoreRuntime, summary: "prepared intel store", unavailable: true},
 		{name: "no identifier fields", runtime: noIdentifierRuntime, summary: "no @identifier fields"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := RunIdentifiersWithRuntime(context.Background(), RunContext{MaxIssues: 100}, tt.runtime)
 			assert.Equal(t, CheckIdentifiers, result.Name)
+			if tt.unavailable {
+				assert.False(t, result.OK)
+				assert.Empty(t, result.NotApplicable)
+				assert.Contains(t, result.Error, tt.summary)
+				assert.Zero(t, result.IssueCount)
+				assert.Empty(t, result.Fixes)
+				return
+			}
 			assert.True(t, result.OK)
-			assert.True(t, result.Skipped)
+			assert.NotEmpty(t, result.NotApplicable)
 			assert.Equal(t, tt.summary, result.Summary)
 			assert.Empty(t, result.Error)
 			assert.Zero(t, result.IssueCount)
@@ -55,7 +65,7 @@ func TestRunIdentifiersWithRuntimeReportsMissingAliasMirror(t *testing.T) {
 			"specs/one.md": "---\ntype: Spec\nspecId: SPEC-001\naliases: [SPEC-001]\n---\n# One\n",
 		})
 		assert.True(t, result.OK)
-		assert.False(t, result.Skipped)
+		assert.Empty(t, result.NotApplicable)
 		assert.Zero(t, result.IssueCount)
 		assert.Empty(t, result.Issues)
 		assert.Empty(t, result.Fixes)
@@ -74,13 +84,13 @@ func TestRunIdentifiersWithRuntimeReportsMissingAliasMirror(t *testing.T) {
 		assert.Equal(t, "specId", issue.Field)
 		assert.Equal(t, "SPEC-001", issue.Target)
 		assert.Equal(t, "specid", issue.Source)
-		assert.Equal(t, &IssueVariant{Key: "Spec.specId", Label: "Spec · specId"}, issue.Variant)
+		assert.Equal(t, &diag.Variant{Key: "Spec.specId", Label: "Spec · specId"}, issue.Variant)
 		require.NotEmpty(t, issue.Key)
 
 		require.Len(t, result.Fixes, 1)
 		fix := result.Fixes[0]
 		assert.Equal(t, "alias-mirror:specs/one.md:specId:SPEC-001", fix.ID)
-		assert.Equal(t, CheckAliases, fix.Check)
+		assert.Equal(t, CheckIdentifiers, fix.Check)
 		assert.Equal(t, "identifier_not_in_aliases", fix.IssueCode)
 		assert.Equal(t, FixKindAppendAlias, fix.Kind)
 		assert.Equal(t, FixSafetySafe, fix.Safety)
@@ -164,7 +174,7 @@ func TestRunIdentifiersWithRuntimeDoesNotGenerateSemanticallyReservedIdentifier(
 				})
 
 				require.True(t, result.OK)
-				require.False(t, result.Skipped)
+				require.Empty(t, result.NotApplicable)
 				require.Empty(t, result.Error)
 				missing := identifierIssuesWithCode(result, "missing_required_field")
 				require.Len(t, missing, 1)

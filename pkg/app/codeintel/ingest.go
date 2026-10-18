@@ -2,7 +2,6 @@ package codeintel
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,14 +14,12 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/app/indexingpipe"
 	"github.com/atomicobject/rhizome/pkg/codefile"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // NoteIngestResult reports note ingest progress/counters.
@@ -44,46 +41,31 @@ type NoteIngestBuildError struct {
 }
 
 // markdownCandidateRun supplies already-selected Markdown candidates to the
-// shared Markdown processing core. Discovery callers use ProcessFiles;
-// ownership-aware callers use ProcessCandidates. Keeping selection outside the
-// core makes the ownership boundary explicit while preserving one
-// read/build/write path.
+// shared Markdown processing core. Ownership selection remains outside this
+// bounded read/build/write path.
 type markdownCandidateRun func(
 	context.Context,
-	func(indexingpipe.FileCandidate) bool,
-	func(indexingpipe.FileCandidate),
-	func(indexingpipe.FilePayload) error,
+	func(FileCandidate) bool,
+	func(FileCandidate),
+	func(FilePayload) error,
 ) error
 
 // markdownIngestPolicy keeps legacy discovery cleanup separate from explicit
 // ownership-routed candidate intake. Candidate callers report parse failures
 // but never retire durable ownership or derived state themselves.
-type markdownIngestPolicy struct {
-	cleanupStale      bool
-	deleteBuildErrors bool
-}
-
-type markdownSourceLookup func(indexingpipe.FileCandidate) (notemeta.NoteSourceSnapshot, bool)
-
 // codeCandidateRun supplies already-selected code candidates to the shared
 // code processing core. Classification remains an orchestration concern.
 type codeCandidateRun func(
 	context.Context,
 	*IndexResult,
-	func(indexingpipe.FileCandidate) bool,
-	func(indexingpipe.FileCandidate),
-	func(indexingpipe.FilePayload) error,
+	func(FileCandidate) bool,
+	func(FileCandidate),
+	func(FilePayload) error,
 ) error
 
 // codeIngestPolicy separates legacy root-walk tolerance from strict,
 // ownership-routed candidate intake. A strict run returns filesystem and work
 // build failures so reconciliation cannot acknowledge incomplete code state.
-type codeIngestPolicy struct {
-	failCandidateErrors bool
-}
-
-// CodeCandidateReadError reports a filesystem read failure from explicit
-// ownership-routed code intake.
 type CodeCandidateReadError struct {
 	Path string
 	Err  error
@@ -165,14 +147,14 @@ func newCodeIndexResultReducer() *codeIndexResultReducer {
 	}
 }
 
-func validateCodeCandidates(basePath string, candidates []indexingpipe.FileCandidate) error {
+func validateCodeCandidates(basePath string, candidates []FileCandidate) error {
 	vaultPaths, err := paths.NewVaultPaths(basePath)
 	if err != nil || vaultPaths.Root() == "" {
 		return fmt.Errorf("code candidate vault root is required")
 	}
 	for _, candidate := range candidates {
-		if candidate.Kind != indexingpipe.FileKindCode {
-			return fmt.Errorf("code candidate %q has kind %q, want %q", candidate.RelPath, candidate.Kind, indexingpipe.FileKindCode)
+		if candidate.Kind != FileKindCode {
+			return fmt.Errorf("code candidate %q has kind %q, want %q", candidate.RelPath, candidate.Kind, FileKindCode)
 		}
 		if !filepath.IsAbs(candidate.AbsPath) {
 			return fmt.Errorf("code candidate %q has non-absolute path %q", candidate.RelPath, candidate.AbsPath)
@@ -197,22 +179,22 @@ func (r *codeIndexResultReducer) Apply(ctx context.Context, fragment codeIndexRe
 	if fragment.indexedPath != "" {
 		partStarted := time.Now()
 		r.indexedPaths = append(r.indexedPaths, fragment.indexedPath)
-		indexingperf.ObserveLatency(ctx, "codeindex.result_reduce_indexed", time.Since(partStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexResultReduceIndexed, time.Since(partStarted))
 	}
 	if fragment.changedCallerPath != "" {
 		partStarted := time.Now()
 		r.changedCallers[fragment.changedCallerPath] = struct{}{}
-		indexingperf.ObserveLatency(ctx, "codeindex.result_reduce_changed_callers", time.Since(partStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexResultReduceChangedCallers, time.Since(partStarted))
 	}
 	if fragment.defDeltas.HasChanges() {
 		partStarted := time.Now()
 		r.defDeltas.Add(fragment.defDeltas)
-		indexingperf.ObserveLatency(ctx, "codeindex.result_reduce_defdeltas", time.Since(partStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexResultReduceDefdeltas, time.Since(partStarted))
 	}
 	if fragment.unsupportedLang != "" {
 		r.unsupported[fragment.unsupportedLang]++
 	}
-	indexingperf.ObserveLatency(ctx, "codeindex.result_reduce", time.Since(started))
+	indexingperf.ObserveLatency(ctx, indexingperf.CodeindexResultReduce, time.Since(started))
 }
 
 func (r *codeIndexResultReducer) Finalize(ctx context.Context) codeIndexReducedResult {
@@ -236,7 +218,7 @@ func (r *codeIndexResultReducer) Finalize(ctx context.Context) codeIndexReducedR
 		}
 		sort.Strings(out.changedCallerPaths)
 	}
-	indexingperf.ObserveLatency(ctx, "codeindex.result_finalize", time.Since(started))
+	indexingperf.ObserveLatency(ctx, indexingperf.CodeindexResultFinalize, time.Since(started))
 	return out
 }
 
@@ -265,144 +247,26 @@ func ResolveRoot(vaultPath, root string) (string, error) {
 	return abs.String(), nil
 }
 
-// IngestNotes is a direct Markdown discovery adapter for legacy code-anchor
-// commands. Ownership-routed callers use IngestMarkdownCandidates.
-func IngestNotes(ctx context.Context, service *codeanchor.Service, root string) (NoteIngestResult, error) {
-	matcher := obsidian.LoadVaultIgnoreMatcher(root, nil)
-	return IngestNotesWithMatcher(ctx, service, root, matcher, nil)
-}
-
-// IngestNotesForVault is a Markdown syntax compatibility adapter for code
-// anchors. Ownership-routed callers must use IngestMarkdownCandidates instead.
-// Collection vaults only ingest Markdown notes matched by Includes, then apply
-// ignore/exclude rules.
-func IngestNotesForVault(ctx context.Context, service *codeanchor.Service, vaultDef obsidian.VaultDefinition, matcher *ignore.Matcher, progress *indexingpipe.ProgressCallbacks) (NoteIngestResult, error) {
-	root := strings.TrimSpace(vaultDef.BasePath())
-	return ingestNotes(ctx, service, root, matcher, progress, func(relPath string) bool {
-		return obsidian.NotePathMatchesSelection(vaultDef, relPath)
-	})
-}
-
-// IngestNotesWithMatcher is the direct Markdown discovery adapter. Full and
-// live ownership paths must pass selected candidates to IngestMarkdownCandidates.
-func IngestNotesWithMatcher(ctx context.Context, service *codeanchor.Service, root string, matcher *ignore.Matcher, progress *indexingpipe.ProgressCallbacks) (NoteIngestResult, error) {
-	return ingestNotes(ctx, service, root, matcher, progress, nil)
-}
-
-func ingestNotes(ctx context.Context, service *codeanchor.Service, root string, matcher *ignore.Matcher, progress *indexingpipe.ProgressCallbacks, includePath func(string) bool) (NoteIngestResult, error) {
-	info, err := os.Stat(root)
-	if err != nil || !info.IsDir() {
-		return NoteIngestResult{}, nil
-	}
-	if matcher == nil {
-		matcher = obsidian.LoadVaultIgnoreMatcher(root, nil)
-	}
-	hardMatcher := obsidian.LoadVaultHardIgnoreMatcher(root)
-
-	vaultPaths, _ := paths.NewVaultPaths(root)
-	defaultIgnored := make(map[string]struct{})
-	for _, name := range ignore.DefaultIgnoreDirnames() {
-		if strings.TrimSpace(name) == "" {
-			continue
-		}
-		defaultIgnored[name] = struct{}{}
-	}
-
-	canonicalize := func(path string) string {
-		if resolved := paths.ResolveSymlinks(path); resolved != "" {
-			return resolved.String()
-		}
-		return filepath.Clean(path)
-	}
-
-	seen := make(map[string]struct{})
-	return ingestMarkdownCandidateRun(ctx, service, func(ctx context.Context, shouldRead func(indexingpipe.FileCandidate) bool, onSkip func(indexingpipe.FileCandidate), process func(indexingpipe.FilePayload) error) error {
-		return indexingpipe.ProcessFiles(ctx, indexingpipe.ProcessOptions{
-			Root:               root,
-			Matcher:            matcher,
-			AlternativeMatcher: hardMatcher,
-			WorkerCount:        ClampIndexWorkers(runtime.GOMAXPROCS(0)),
-			Progress:           progress,
-		}, func(path string, d os.DirEntry, modTime int64) (indexingpipe.FileCandidate, bool, error) {
-			if strings.ToLower(filepath.Ext(path)) != ".md" {
-				return indexingpipe.FileCandidate{}, false, nil
-			}
-			name := d.Name()
-			if _, ok := defaultIgnored[name]; ok {
-				return indexingpipe.FileCandidate{}, false, nil
-			}
-			rel := ""
-			if relPath, err := vaultPaths.RelNotePathStrict(path); err == nil {
-				rel = string(paths.NormalizeNotePath(relPath.String()))
-			}
-			if includePath != nil {
-				// Collection vaults must apply Includes before ignore/exclude cleanup;
-				// otherwise notes outside the active collection can leak into anchor and
-				// semantic state, then survive as stale index rows.
-				if rel == "" || !includePath(rel) {
-					return indexingpipe.FileCandidate{}, false, nil
-				}
-			}
-			visibilityMatcher := matcher
-			if ignore.IsSystemContextPath(rel) {
-				visibilityMatcher = hardMatcher
-			}
-			if visibilityMatcher != nil && visibilityMatcher.IsIgnored(rel, false) {
-				return indexingpipe.FileCandidate{}, false, nil
-			}
-			seen[canonicalize(path)] = struct{}{}
-			if rel != "" {
-				seen[rel] = struct{}{}
-			}
-			return indexingpipe.FileCandidate{AbsPath: path, RelPath: rel, ModTime: modTime, Kind: indexingpipe.FileKindNote}, true, nil
-		}, shouldRead, onSkip, process)
-	}, markdownIngestPolicy{cleanupStale: true, deleteBuildErrors: true}, seen, nil)
-}
-
-func ingestMarkdownCandidateRun(ctx context.Context, service *codeanchor.Service, run markdownCandidateRun, policy markdownIngestPolicy, seen map[string]struct{}, sourceForCandidate markdownSourceLookup) (NoteIngestResult, error) {
+func ingestMarkdownCandidateRun(ctx context.Context, service *codeanchor.Service, writeQueue WriteQueue, noteMetadata notemeta.Indexer, run markdownCandidateRun) (NoteIngestResult, error) {
 	ctx = codeanchor.WithBatchIndexing(ctx)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	storedNoteMeta, _ := service.NoteIndexMeta(ctx)
-	storedNotePaths := make(map[string]struct{})
-	if stored, listErr := service.NotePaths(ctx); listErr == nil {
-		for _, p := range stored {
-			storedNotePaths[string(paths.NormalizeNotePath(p))] = struct{}{}
-		}
+	storedNoteMeta, err := service.NoteIndexMeta(ctx)
+	if err != nil {
+		return NoteIngestResult{}, fmt.Errorf("load note index metadata: %w", err)
 	}
-	var storedNotePathsMu sync.Mutex
-
 	var count atomic.Int64
 	var skipped atomic.Int64
-	var deleted atomic.Int64
 	var hasAnchors atomic.Bool
 	var changedPathsMu sync.Mutex
 	var changedPaths []string
-	var touchedNoteMtimesMu sync.Mutex
-	touchedNoteMtimes := make(map[string]int64)
-	var deletedPathsMu sync.Mutex
-	var deletedPaths []string
 	var buildErrorsMu sync.Mutex
 	var buildErrors []NoteIngestBuildError
-	workerCount := ClampIndexWorkers(runtime.GOMAXPROCS(0))
-
-	writeCh := make(chan codeanchor.NoteIndexWork, workerCount*2)
-	errCh := make(chan error, 1)
-	writeQueue := writeQueueFromContext(ctx)
-
-	var writeWG sync.WaitGroup
 	if writeQueue == nil {
-		writeWG.Add(1)
-		go func() {
-			defer writeWG.Done()
-			RunAdaptiveBatchWriter(ctx, cancel, writeCh, errCh, func(batch []codeanchor.NoteIndexWork) error {
-				return service.ApplyNoteIndexBatch(ctx, batch)
-			})
-		}()
+		return NoteIngestResult{}, fmt.Errorf("note index writer is required")
 	}
-
-	err := run(ctx, func(candidate indexingpipe.FileCandidate) bool {
+	err = run(ctx, func(candidate FileCandidate) bool {
 		if candidate.ForceRead {
 			return true
 		}
@@ -411,38 +275,27 @@ func ingestMarkdownCandidateRun(ctx context.Context, service *codeanchor.Service
 		}
 		meta, ok := storedNoteMeta[candidate.RelPath]
 		return !(ok && meta.IndexerVersion == codeanchor.NoteIndexerVersion && candidate.ModTime > 0 && meta.Mtime >= candidate.ModTime)
-	}, func(indexingpipe.FileCandidate) {
+	}, func(FileCandidate) {
 		skipped.Add(1)
-	}, func(payload indexingpipe.FilePayload) error {
+	}, func(payload FilePayload) error {
 		meta, hasMeta := codeanchor.NoteIndexMeta{}, false
 		if payload.Candidate.RelPath != "" && storedNoteMeta != nil {
 			meta, hasMeta = storedNoteMeta[payload.Candidate.RelPath]
 		}
 		contentHash := HashContentBytes(payload.Content)
 		if !payload.Candidate.ForceRead && hasMeta && meta.IndexerVersion == codeanchor.NoteIndexerVersion && meta.ContentHash == contentHash {
-			// Content-identical notes still refresh mtimes in metadata so future
-			// mtime guards do not keep re-reading them.
+			// The owning metadata publication refreshes unchanged source mtimes.
 			skipped.Add(1)
-			if payload.Candidate.RelPath != "" && payload.Candidate.ModTime > 0 && meta.Mtime != payload.Candidate.ModTime {
-				touchedNoteMtimesMu.Lock()
-				if existing, ok := touchedNoteMtimes[payload.Candidate.RelPath]; !ok || existing < payload.Candidate.ModTime {
-					touchedNoteMtimes[payload.Candidate.RelPath] = payload.Candidate.ModTime
-				}
-				touchedNoteMtimesMu.Unlock()
-			}
+
 			return nil
 		}
 		processStarted := time.Now()
 		sourcePath := payload.Candidate.RelPath
-		if sourcePath == "" {
-			sourcePath = payload.Candidate.AbsPath
+		source, err := noteMetadata.ProjectNoteSource(sourcePath, string(payload.Content), payload.Candidate.ModTime)
+		if err != nil {
+			return err
 		}
-		source := notemeta.NewContentOnlyNoteSourceSnapshot(sourcePath, string(payload.Content), payload.Candidate.ModTime)
-		if sourceForCandidate != nil {
-			if preloaded, ok := sourceForCandidate(payload.Candidate); ok {
-				source = preloaded
-			}
-		}
+
 		if source.Format != noteformat.FormatID("markdown") {
 			return fmt.Errorf("Markdown candidate %q has source format %q", payload.Candidate.RelPath, source.Format)
 		}
@@ -451,7 +304,7 @@ func ingestMarkdownCandidateRun(ctx context.Context, service *codeanchor.Service
 			buildCtx = codeanchor.WithForceReindex(buildCtx)
 		}
 		work, err := service.BuildNoteIndexWorkFromSource(buildCtx, source)
-		indexingperf.ObserveLatency(ctx, "process.note", time.Since(processStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.ProcessNote, time.Since(processStarted))
 		if err != nil {
 			buildErrorsMu.Lock()
 			buildErrors = append(buildErrors, NoteIngestBuildError{
@@ -459,25 +312,8 @@ func ingestMarkdownCandidateRun(ctx context.Context, service *codeanchor.Service
 				Error: err.Error(),
 			})
 			buildErrorsMu.Unlock()
-			indexingperf.AddCount(ctx, "noteindex.build_error", 1)
-			if policy.deleteBuildErrors && payload.Candidate.RelPath != "" {
-				if delErr := service.DeleteNote(ctx, payload.Candidate.RelPath); delErr != nil {
-					return delErr
-				}
-				normalizedRel := string(paths.NormalizeNotePath(payload.Candidate.RelPath))
-				storedNotePathsMu.Lock()
-				_, wasStored := storedNotePaths[normalizedRel]
-				if wasStored {
-					delete(storedNotePaths, normalizedRel)
-				}
-				storedNotePathsMu.Unlock()
-				if wasStored {
-					deleted.Add(1)
-					deletedPathsMu.Lock()
-					deletedPaths = append(deletedPaths, normalizedRel)
-					deletedPathsMu.Unlock()
-				}
-			}
+			indexingperf.AddCount(ctx, indexingperf.NoteindexBuildError, 1)
+
 			return nil
 		}
 		if work != nil {
@@ -496,70 +332,24 @@ func ingestMarkdownCandidateRun(ctx context.Context, service *codeanchor.Service
 		if len(work.Note.DefinedAnchors) > 0 {
 			hasAnchors.Store(true)
 		}
-		if writeQueue != nil {
-			if err := writeQueue.SubmitNoteIndexWork(ctx, *work); err != nil {
-				return err
-			}
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case writeCh <- *work:
-			return nil
-		}
+		return writeQueue.SubmitNoteIndexWork(ctx, *work)
 	})
-	if writeQueue == nil {
-		close(writeCh)
-		writeWG.Wait()
-	} else if err := writeQueue.FlushAndWait(ctx); err != nil {
-		return NoteIngestResult{}, err
+	if flushErr := writeQueue.FlushAndWait(ctx); flushErr != nil {
+		return NoteIngestResult{}, flushErr
 	}
 
 	makeResult := func() NoteIngestResult {
 		return NoteIngestResult{
 			Count:        int(count.Load()),
 			Unchanged:    int(skipped.Load()),
-			Deleted:      int(deleted.Load()),
 			HasAnchors:   hasAnchors.Load(),
 			ChangedPaths: changedPaths,
-			DeletedPaths: deletedPaths,
 			BuildErrors:  buildErrors,
 		}
 	}
 
-	select {
-	case writeErr := <-errCh:
-		if writeErr != nil {
-			return makeResult(), writeErr
-		}
-	default:
-	}
 	if err != nil {
 		return makeResult(), err
-	}
-	if len(touchedNoteMtimes) > 0 {
-		if touchErr := service.TouchNotePaths(ctx, touchedNoteMtimes); touchErr != nil {
-			return makeResult(), touchErr
-		}
-	}
-
-	if policy.cleanupStale {
-		stored, listErr := service.NotePaths(ctx)
-		if listErr == nil && len(stored) > 0 {
-			for _, p := range stored {
-				if _, ok := seen[p]; ok {
-					continue
-				}
-				if delErr := service.DeleteNote(ctx, p); delErr != nil {
-					return makeResult(), delErr
-				}
-				deleted.Add(1)
-				deletedPathsMu.Lock()
-				deletedPaths = append(deletedPaths, string(paths.NormalizeNotePath(p)))
-				deletedPathsMu.Unlock()
-			}
-		}
 	}
 
 	return makeResult(), nil
@@ -624,50 +414,15 @@ func validateMarkdownCodeAnchorSyntax(path, content string) error {
 	return err
 }
 
-func IndexRoot(ctx context.Context, service *codeanchor.Service, basePath, root string, matcher *ignore.Matcher, progress *indexingpipe.ProgressCallbacks) (IndexResult, error) {
-	vaultPaths, _ := paths.NewVaultPaths(basePath)
-	info, err := os.Stat(root)
-	if err != nil || !info.IsDir() {
-		return IndexResult{Skipped: make(map[codeanchor.Lang]int), Unsupported: make(map[codeanchor.Lang]int)}, nil
-	}
-	return indexCandidateRun(ctx, service, basePath, codeIngestPolicy{}, func(ctx context.Context, res *IndexResult, shouldRead func(indexingpipe.FileCandidate) bool, onSkip func(indexingpipe.FileCandidate), process func(indexingpipe.FilePayload) error) error {
-		return indexingpipe.ProcessFiles(ctx, indexingpipe.ProcessOptions{
-			Root:        root,
-			Matcher:     matcher,
-			WorkerCount: ClampIndexWorkers(runtime.GOMAXPROCS(0)),
-			Progress:    progress,
-		}, func(path string, _ os.DirEntry, modTime int64) (indexingpipe.FileCandidate, bool, error) {
-			lang := DetectCodeLang(path)
-			if lang == "" {
-				return indexingpipe.FileCandidate{}, false, nil
-			}
-			if !service.HasIndexer(lang) {
-				res.Skipped[lang]++
-				return indexingpipe.FileCandidate{}, false, nil
-			}
-			relPath := ""
-			if rel, err := vaultPaths.RelCodeStrict(path); err == nil {
-				relPath = string(paths.NormalizeCode(rel.String()))
-			}
-			if relPath != "" {
-				res.SeenPaths = append(res.SeenPaths, relPath)
-			} else {
-				res.SeenPaths = append(res.SeenPaths, filepath.ToSlash(path))
-			}
-			return indexingpipe.FileCandidate{AbsPath: path, RelPath: relPath, ModTime: modTime, Kind: indexingpipe.FileKindCode, Lang: lang}, true, nil
-		}, shouldRead, onSkip, process)
-	})
-}
-
 // IndexCandidates indexes only the supplied, preclassified code candidates.
 // It deliberately performs no walk, extension detection, or stale-path
 // cleanup; ownership orchestration owns those decisions. Lang is passed to the
 // code indexer exactly as supplied by the candidate.
-func IndexCandidates(ctx context.Context, service *codeanchor.Service, basePath string, candidates []indexingpipe.FileCandidate, progress *indexingpipe.ProgressCallbacks) (IndexResult, error) {
+func IndexCandidates(ctx context.Context, service *codeanchor.Service, writeQueue WriteQueue, basePath string, candidates []FileCandidate, progress *ProgressCallbacks) (IndexResult, error) {
 	if err := validateCodeCandidates(basePath, candidates); err != nil {
 		return IndexResult{}, err
 	}
-	return indexCandidateRun(ctx, service, basePath, codeIngestPolicy{failCandidateErrors: true}, func(ctx context.Context, res *IndexResult, shouldRead func(indexingpipe.FileCandidate) bool, onSkip func(indexingpipe.FileCandidate), process func(indexingpipe.FilePayload) error) error {
+	return indexCandidateRun(ctx, service, writeQueue, basePath, func(ctx context.Context, res *IndexResult, shouldRead func(FileCandidate) bool, onSkip func(FileCandidate), process func(FilePayload) error) error {
 		for _, candidate := range candidates {
 			if candidate.RelPath != "" {
 				res.SeenPaths = append(res.SeenPaths, candidate.RelPath)
@@ -675,17 +430,20 @@ func IndexCandidates(ctx context.Context, service *codeanchor.Service, basePath 
 				res.SeenPaths = append(res.SeenPaths, filepath.ToSlash(candidate.AbsPath))
 			}
 		}
-		return indexingpipe.ProcessCandidates(ctx, candidates, indexingpipe.CandidateProcessOptions{
+		return ProcessCandidates(ctx, candidates, CandidateProcessOptions{
 			WorkerCount: ClampIndexWorkers(runtime.GOMAXPROCS(0)),
 			Progress:    progress,
-			OnReadError: func(_ context.Context, candidate indexingpipe.FileCandidate, err error) error {
+			OnReadError: func(_ context.Context, candidate FileCandidate, err error) error {
 				return &CodeCandidateReadError{Path: candidate.RelPath, Err: err}
 			},
 		}, shouldRead, onSkip, process)
 	})
 }
 
-func indexCandidateRun(ctx context.Context, service *codeanchor.Service, basePath string, policy codeIngestPolicy, run codeCandidateRun) (IndexResult, error) {
+func indexCandidateRun(ctx context.Context, service *codeanchor.Service, writeQueue WriteQueue, basePath string, run codeCandidateRun) (IndexResult, error) {
+	if writeQueue == nil {
+		return IndexResult{}, fmt.Errorf("code index writer is required")
+	}
 	ctx = codeanchor.WithBatchIndexing(ctx)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -738,7 +496,6 @@ func indexCandidateRun(ctx context.Context, service *codeanchor.Service, basePat
 	}()
 
 	workerCount := ClampIndexWorkers(runtime.GOMAXPROCS(0))
-	writeCh := make(chan codeanchor.CodeIndexWork, workerCount*2)
 	var semanticCh chan codeanchor.CodeIndexWork
 	errCh := make(chan error, 1)
 	resultCh := make(chan codeIndexResultFragment, workerCount*2)
@@ -747,23 +504,12 @@ func indexCandidateRun(ctx context.Context, service *codeanchor.Service, basePat
 		reducer := newCodeIndexResultReducer()
 		for fragment := range resultCh {
 			reducer.Apply(ctx, fragment)
-			indexingperf.SetGauge(ctx, "codeindex.result_queue_depth", int64(len(resultCh)))
+			indexingperf.SetGauge(ctx, indexingperf.CodeindexResultQueueDepth, int64(len(resultCh)))
 		}
 		resultDone <- reducer.Finalize(ctx)
 	}()
-	writeQueue := writeQueueFromContext(ctx)
 	semanticSubmitter := codeSemanticBatchSubmitterFromContext(ctx)
 	semanticWorkSubmitter := codeSemanticWorkSubmitterFromContext(ctx)
-	var writeWG sync.WaitGroup
-	if writeQueue == nil {
-		writeWG.Add(1)
-		go func() {
-			defer writeWG.Done()
-			RunAdaptiveBatchWriter(ctx, cancel, writeCh, errCh, func(batch []codeanchor.CodeIndexWork) error {
-				return service.ApplyCodeIndexBatch(ctx, batch)
-			})
-		}()
-	}
 	var semanticWG sync.WaitGroup
 	if semanticSubmitter != nil && semanticWorkSubmitter == nil {
 		semanticCh = make(chan codeanchor.CodeIndexWork, workerCount*2)
@@ -775,11 +521,11 @@ func indexCandidateRun(ctx context.Context, service *codeanchor.Service, basePat
 			})
 		}()
 	}
-	err := run(ctx, &res, nil, nil, func(payload indexingpipe.FilePayload) error {
+	err := run(ctx, &res, nil, nil, func(payload FilePayload) error {
 		lastPath.Store(payload.Candidate.AbsPath)
 		workerStarted := time.Now()
 		defer func() {
-			indexingperf.ObserveLatency(ctx, "codeindex.worker_total", time.Since(workerStarted))
+			indexingperf.ObserveLatency(ctx, indexingperf.CodeindexWorkerTotal, time.Since(workerStarted))
 		}()
 		buildStarted := time.Now()
 		// BuildCodeIndexWork owns parser/indexer work only; write and semantic
@@ -791,33 +537,10 @@ func indexCandidateRun(ctx context.Context, service *codeanchor.Service, basePat
 		}
 		work, err := service.BuildCodeIndexWork(buildCtx, payload.Candidate.Lang, payload.Candidate.AbsPath, payload.Content)
 		buildDur := time.Since(buildStarted)
-		indexingperf.ObserveLatency(ctx, "process.code", buildDur)
-		indexingperf.ObserveLatency(ctx, "codeindex.worker_build", buildDur)
+		indexingperf.ObserveLatency(ctx, indexingperf.ProcessCode, buildDur)
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexWorkerBuild, buildDur)
 		if err != nil {
-			if policy.failCandidateErrors {
-				return &CodeCandidateBuildError{Path: payload.Candidate.RelPath, Err: err}
-			}
-			if errors.Is(err, codeanchor.ErrUnsupportedLanguage) {
-				resultSubmitStarted := time.Now()
-				fragment := codeIndexResultFragment{unsupportedLang: payload.Candidate.Lang}
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case resultCh <- fragment:
-					indexingperf.ObserveLatency(ctx, "codeindex.result_submit_wait", time.Since(resultSubmitStarted))
-					indexingperf.SetGauge(ctx, "codeindex.result_queue_depth", int64(len(resultCh)))
-				}
-				return nil
-			}
-			if errors.Is(err, context.DeadlineExceeded) {
-				if payload.Candidate.RelPath != "" {
-					fmt.Fprintf(os.Stderr, "[code] Timeout indexing %s\n", payload.Candidate.RelPath)
-				} else {
-					fmt.Fprintf(os.Stderr, "[code] Timeout indexing %s\n", filepath.ToSlash(payload.Candidate.AbsPath))
-				}
-				return nil
-			}
-			return nil
+			return &CodeCandidateBuildError{Path: payload.Candidate.RelPath, Err: err}
 		}
 		postBuildStarted := time.Now()
 		postBuildLocalStarted := postBuildStarted
@@ -830,10 +553,10 @@ func indexCandidateRun(ctx context.Context, service *codeanchor.Service, basePat
 			case <-ctx.Done():
 				return ctx.Err()
 			case resultCh <- fragment:
-				indexingperf.ObserveLatency(ctx, "codeindex.result_submit_wait", time.Since(resultSubmitStarted))
-				indexingperf.SetGauge(ctx, "codeindex.result_queue_depth", int64(len(resultCh)))
+				indexingperf.ObserveLatency(ctx, indexingperf.CodeindexResultSubmitWait, time.Since(resultSubmitStarted))
+				indexingperf.SetGauge(ctx, indexingperf.CodeindexResultQueueDepth, int64(len(resultCh)))
 			}
-			indexingperf.ObserveLatency(ctx, "codeindex.worker_submit_local", time.Since(postBuildLocalStarted))
+			indexingperf.ObserveLatency(ctx, indexingperf.CodeindexWorkerSubmitLocal, time.Since(postBuildLocalStarted))
 			return nil
 		}
 		indexed.Add(1)
@@ -855,10 +578,10 @@ func indexCandidateRun(ctx context.Context, service *codeanchor.Service, basePat
 		case <-ctx.Done():
 			return ctx.Err()
 		case resultCh <- fragment:
-			indexingperf.ObserveLatency(ctx, "codeindex.result_submit_wait", time.Since(resultSubmitStarted))
-			indexingperf.SetGauge(ctx, "codeindex.result_queue_depth", int64(len(resultCh)))
+			indexingperf.ObserveLatency(ctx, indexingperf.CodeindexResultSubmitWait, time.Since(resultSubmitStarted))
+			indexingperf.SetGauge(ctx, indexingperf.CodeindexResultQueueDepth, int64(len(resultCh)))
 		}
-		indexingperf.ObserveLatency(ctx, "codeindex.worker_submit_local", time.Since(postBuildLocalStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexWorkerSubmitLocal, time.Since(postBuildLocalStarted))
 		if semanticSubmitter != nil {
 			semanticSubmitStarted := time.Now()
 			if semanticWorkSubmitter != nil {
@@ -873,49 +596,29 @@ func indexCandidateRun(ctx context.Context, service *codeanchor.Service, basePat
 				}
 			}
 			semanticSubmitDur := time.Since(semanticSubmitStarted)
-			indexingperf.ObserveLatency(ctx, "codeindex.semantic_submit_wait", semanticSubmitDur)
-			indexingperf.ObserveLatency(ctx, "codeindex.worker_submit_semantic", semanticSubmitDur)
-		}
-		if writeQueue != nil {
-			writeSubmitStarted := time.Now()
-			err := writeQueue.SubmitCodeIndexWork(ctx, *work)
-			writeSubmitDur := time.Since(writeSubmitStarted)
-			indexingperf.ObserveLatency(ctx, "codeindex.write_submit_wait", writeSubmitDur)
-			indexingperf.ObserveLatency(ctx, "codeindex.worker_submit_write", writeSubmitDur)
-			indexingperf.ObserveLatency(ctx, "codeindex.worker_submit", time.Since(postBuildStarted))
-			return err
+			indexingperf.ObserveLatency(ctx, indexingperf.CodeindexSemanticSubmitWait, semanticSubmitDur)
+			indexingperf.ObserveLatency(ctx, indexingperf.CodeindexWorkerSubmitSemantic, semanticSubmitDur)
 		}
 		writeSubmitStarted := time.Now()
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case writeCh <- *work:
-			writeSubmitDur := time.Since(writeSubmitStarted)
-			indexingperf.ObserveLatency(ctx, "codeindex.write_submit_wait", writeSubmitDur)
-			indexingperf.ObserveLatency(ctx, "codeindex.worker_submit_write", writeSubmitDur)
-			indexingperf.ObserveLatency(ctx, "codeindex.worker_submit", time.Since(postBuildStarted))
-			return nil
-		}
+		err = writeQueue.SubmitCodeIndexWork(ctx, *work)
+		writeSubmitDur := time.Since(writeSubmitStarted)
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexWriteSubmitWait, writeSubmitDur)
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexWorkerSubmitWrite, writeSubmitDur)
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexWorkerSubmit, time.Since(postBuildStarted))
+		return err
 	})
 	close(resultCh)
-	if writeQueue == nil {
-		writeDrainStarted := time.Now()
-		close(writeCh)
-		writeWG.Wait()
-		indexingperf.ObserveLatency(ctx, "codeindex.write_drain_wait", time.Since(writeDrainStarted))
-	} else {
-		writeFlushStarted := time.Now()
-		flushErr := writeQueue.FlushAndWait(ctx)
-		indexingperf.ObserveLatency(ctx, "codeindex.write_flush_wait", time.Since(writeFlushStarted))
-		if flushErr != nil && err == nil {
-			err = flushErr
-		}
+	writeFlushStarted := time.Now()
+	flushErr := writeQueue.FlushAndWait(ctx)
+	indexingperf.ObserveLatency(ctx, indexingperf.CodeindexWriteFlushWait, time.Since(writeFlushStarted))
+	if flushErr != nil && err == nil {
+		err = flushErr
 	}
 	if semanticCh != nil {
 		semanticDrainStarted := time.Now()
 		close(semanticCh)
 		semanticWG.Wait()
-		indexingperf.ObserveLatency(ctx, "codeindex.semantic_drain_wait", time.Since(semanticDrainStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexSemanticDrainWait, time.Since(semanticDrainStarted))
 	}
 	reduced := <-resultDone
 	select {

@@ -358,7 +358,7 @@ This signal shows up in implementation but it's an upstream failure. Planning ru
 
 **What You're Seeing:** Specs arrive at planning with visible gaps — missing acceptance criteria, TBD sections, unresolved questions in the spec body itself. The pattern repeats cycle over cycle, not as a one-off. Developers ask questions specs should answer and stall waiting on definition-side people for responses. The bottleneck isn't how the team engages with specs; it's that the specs aren't ready to be engaged with.
 
-**What To Do:** Raise it with the team wearing definition hats. The Definition Track has its own failure-mode breakdown — see [signal-starved](definition-track.md#signal-starved) and [signal-reactive](definition-track.md#signal-reactive). Don't push half-formed specs into implementation just to fill the cycle. If definition is underfed, the honest response from the implementation side is to reduce appetite until the pipeline catches up.
+**What To Do:** Raise it with the team wearing definition hats. The Definition Track has its own failure-mode breakdown: [insufficient ready work](definition-track.md#1-engineering-doesnt-have-enough-ready-work-to-fill-their-cycles) and [reactive definition](definition-track.md#3-all-definition-work-is-responding-to-the-current-cycle). Don't push half-formed specs into implementation just to fill the cycle. If definition is underfed, the honest response from the implementation side is to reduce appetite until the pipeline catches up.
 
 ### 8. Delivery volume is outpacing team comprehension (Systemic)
 

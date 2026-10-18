@@ -17,7 +17,7 @@ import (
 )
 
 func TestIndexingWaiterKeepsPriorityDuringGuardContention(t *testing.T) {
-	lockPath := filepath.Join(t.TempDir(), "index.lock")
+	lockPath := filepath.Join(t.TempDir(), ".rhizome", "index.lock")
 	writeHeldLock(t, lockPath, "runtime/embed-cycle")
 	guard, err := os.OpenFile(indexlock.PriorityPath(lockPath)+".guard.lock", os.O_CREATE|os.O_RDWR, 0o600)
 	require.NoError(t, err)
@@ -31,7 +31,7 @@ func TestIndexingWaiterKeepsPriorityDuringGuardContention(t *testing.T) {
 	t.Cleanup(cancel)
 	done := make(chan error, 1)
 	go func() {
-		_, err := TryAcquireIndexLockWithOptions(ctx, lockPath, LockWaitOptions{
+		_, err := TryAcquireIndexLock(ctx, filepath.Dir(filepath.Dir(lockPath)), LockWaitOptions{
 			RequestPriority: true, Out: io.Discard, Poll: time.Millisecond,
 		})
 		done <- err

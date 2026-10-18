@@ -48,14 +48,6 @@ type ExternalTarget struct {
 type ExternalTargetID int64
 type RawTargetID int64
 
-// RawExternalTargetMapping encodes the raw-target N:1 external-target mapping.
-// A store should make RawTargetID unique so one raw target maps to at most one
-// canonical external identity.
-type RawExternalTargetMapping struct {
-	RawTargetID RawTargetID
-	ExternalID  ExternalTargetID
-}
-
 // ExternalTargetRow is the persistence DTO for one canonical catalog entry.
 type ExternalTargetRow struct {
 	ID ExternalTargetID
@@ -239,14 +231,6 @@ type SymbolRefAssociationKey struct {
 	OwnerFQN    string
 	RefKind     RefKind
 	RawTargetID RawTargetID
-}
-
-// ExternalSymbolAssociationEvidence is sparse: only associations with qualifying
-// import/runtime evidence need a row.
-type ExternalSymbolAssociationEvidence struct {
-	Association SymbolRefAssociationKey
-	ExternalID  ExternalTargetID
-	Evidence    ExternalEvidence
 }
 
 // ExternalImportAssociationKey identifies an external import binding or an

@@ -2,25 +2,20 @@ package paths
 
 import (
 	"errors"
+	"path"
 	"strings"
 )
 
 var ErrEmptyNotePath = errors.New("note path is required")
 
-// Normalize converts any path to a clean RelPath.
-// - Converts separators to forward slashes
-// - Removes ./ and ../ prefixes (single level only, like current behavior)
-// - Does NOT resolve symlinks or make absolute
+// Normalize is idempotent lexical path normalization. It preserves absolute
+// roots and parent escapes so a later strict boundary can reject them.
+// Use CleanRelPath for storage keys and filesystem inputs.
 func Normalize(p string) RelPath {
 	if p == "" {
-		return RelPath("")
+		return ""
 	}
-	// Convert all path separators to forward slashes
-	p = strings.ReplaceAll(p, "\\", "/")
-	// Remove single-level ./ and ../ prefixes (matching current obsidian.NormalizePath behavior)
-	p = strings.TrimPrefix(p, "./")
-	p = strings.TrimPrefix(p, "../")
-	return RelPath(p)
+	return RelPath(path.Clean(strings.ReplaceAll(p, "\\", "/")))
 }
 
 // NormalizeNotePath returns a normalized authored note path without inferring
@@ -43,18 +38,20 @@ func CleanNotePath(p string) (NotePath, error) {
 	return NotePath(rel), nil
 }
 
-// NormalizeNote returns a Markdown NotePath and appends .md if missing.
-//
-// Deprecated: canonical format-neutral boundaries must use CleanNotePath;
-// NormalizeNotePath is lexical-only. Keep this helper only at Markdown
-// authoring and legacy-input boundaries.
-func NormalizeNote(p string) NotePath {
+// EnsureNoteExtension applies an explicit note-authoring suffix. It preserves
+// the authored suffix casing when it already matches the requested extension.
+func EnsureNoteExtension(p, extension string) NotePath {
 	normalized := NormalizeNotePath(p)
-	path := string(normalized)
-	if !strings.HasSuffix(strings.ToLower(path), ".md") {
-		path += ".md"
+	if normalized == "" || extension == "" {
+		return normalized
 	}
-	return NotePath(path)
+	if !strings.HasPrefix(extension, ".") {
+		extension = "." + extension
+	}
+	if !strings.EqualFold(path.Ext(normalized.String()), extension) {
+		return NotePath(normalized.String() + extension)
+	}
+	return normalized
 }
 
 // NormalizeCode returns a CodePath (no suffix manipulation).

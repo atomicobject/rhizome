@@ -5,11 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
 )
 
 // IdentifierFieldDiscovery is an opaque, source-bound inventory of every
@@ -17,29 +16,29 @@ import (
 // owns the production constructor over EFF-0046's complete projection.
 type IdentifierFieldDiscovery struct {
 	source              *identifierRepairSource
-	rewrites            []reference.IdentifierRewrite
+	rewrites            []identifierrewrite.IdentifierRewrite
 	synthesizedDerived  []synthesizedDerivedField
 	sourcePreconditions []SourcePrecondition
 	schemaHash          string
 	rewriteFingerprint  string
-	occurrences         []reference.StructuredFieldOccurrence
-	edits               []reference.StructuredFieldEdit
-	diagnostics         []reference.IdentifierRewriteDiagnostic
+	occurrences         []identifierrewrite.StructuredFieldOccurrence
+	edits               []identifierrewrite.StructuredFieldEdit
+	diagnostics         []identifierrewrite.IdentifierRewriteDiagnostic
 	sealed              string
 }
 
 type identifierFieldDiscoverySnapshot struct {
-	Rewrites            []reference.IdentifierRewrite           `json:"rewrites"`
-	SynthesizedDerived  []synthesizedDerivedField               `json:"synthesizedDerived,omitempty"`
-	SourcePreconditions []SourcePrecondition                    `json:"sourcePreconditions"`
-	SchemaHash          string                                  `json:"schemaHash"`
-	RewriteFingerprint  string                                  `json:"rewriteFingerprint"`
-	Occurrences         []reference.StructuredFieldOccurrence   `json:"occurrences"`
-	Edits               []reference.StructuredFieldEdit         `json:"edits"`
-	Diagnostics         []reference.IdentifierRewriteDiagnostic `json:"diagnostics,omitempty"`
+	Rewrites            []identifierrewrite.IdentifierRewrite           `json:"rewrites"`
+	SynthesizedDerived  []synthesizedDerivedField                       `json:"synthesizedDerived,omitempty"`
+	SourcePreconditions []SourcePrecondition                            `json:"sourcePreconditions"`
+	SchemaHash          string                                          `json:"schemaHash"`
+	RewriteFingerprint  string                                          `json:"rewriteFingerprint"`
+	Occurrences         []identifierrewrite.StructuredFieldOccurrence   `json:"occurrences"`
+	Edits               []identifierrewrite.StructuredFieldEdit         `json:"edits"`
+	Diagnostics         []identifierrewrite.IdentifierRewriteDiagnostic `json:"diagnostics,omitempty"`
 }
 
-func (d *IdentifierFieldDiscovery) validatedSnapshotFor(rewrites []reference.IdentifierRewrite) (*identifierFieldDiscoverySnapshot, error) {
+func (d *IdentifierFieldDiscovery) validatedSnapshotFor(rewrites []identifierrewrite.IdentifierRewrite) (*identifierFieldDiscoverySnapshot, error) {
 	if d == nil || d.sealed == "" {
 		return nil, fmt.Errorf("complete identifier field discovery is required")
 	}
@@ -56,7 +55,7 @@ func (d *IdentifierFieldDiscovery) validatedSnapshotFor(rewrites []reference.Ide
 		SynthesizedDerived:  append([]synthesizedDerivedField(nil), d.synthesizedDerived...),
 		SourcePreconditions: append([]SourcePrecondition(nil), d.sourcePreconditions...), SchemaHash: d.schemaHash, RewriteFingerprint: d.rewriteFingerprint,
 		Occurrences: cloneStructuredFieldOccurrences(d.occurrences),
-		Edits:       append([]reference.StructuredFieldEdit(nil), d.edits...), Diagnostics: append([]reference.IdentifierRewriteDiagnostic(nil), d.diagnostics...),
+		Edits:       append([]identifierrewrite.StructuredFieldEdit(nil), d.edits...), Diagnostics: append([]identifierrewrite.IdentifierRewriteDiagnostic(nil), d.diagnostics...),
 	}
 	if !sameCanonicalRewriteUnion(snapshot.Rewrites, canonical) {
 		return nil, fmt.Errorf("identifier field discovery does not match complete rewrite union")
@@ -80,19 +79,19 @@ func (d *IdentifierFieldDiscovery) validatedSnapshotFor(rewrites []reference.Ide
 	return snapshot, nil
 }
 
-func cloneStructuredFieldOccurrences(input []reference.StructuredFieldOccurrence) []reference.StructuredFieldOccurrence {
-	out := append([]reference.StructuredFieldOccurrence(nil), input...)
+func cloneStructuredFieldOccurrences(input []identifierrewrite.StructuredFieldOccurrence) []identifierrewrite.StructuredFieldOccurrence {
+	out := append([]identifierrewrite.StructuredFieldOccurrence(nil), input...)
 	for index := range out {
 		out[index].Candidates = append([]ontology.NodeRef(nil), input[index].Candidates...)
 	}
 	return out
 }
 
-func canonicalRepairRewriteSet(rewrites []reference.IdentifierRewrite) ([]reference.IdentifierRewrite, error) {
+func canonicalRepairRewriteSet(rewrites []identifierrewrite.IdentifierRewrite) ([]identifierrewrite.IdentifierRewrite, error) {
 	out := cloneIdentifierRewrites(rewrites)
 	for index := range out {
 		if out[index].Mode == "" {
-			out[index].Mode = reference.IdentifierRewritePreferredRekey
+			out[index].Mode = identifierrewrite.IdentifierRewritePreferredRekey
 		}
 		if err := canonicalizeRepairRewrite(&out[index]); err != nil {
 			return nil, err
@@ -102,7 +101,7 @@ func canonicalRepairRewriteSet(rewrites []reference.IdentifierRewrite) ([]refere
 	return out, nil
 }
 
-func repairRewriteSetFingerprint(rewrites []reference.IdentifierRewrite) (string, error) {
+func repairRewriteSetFingerprint(rewrites []identifierrewrite.IdentifierRewrite) (string, error) {
 	encoded, err := json.Marshal(rewrites)
 	if err != nil {
 		return "", err
@@ -120,8 +119,8 @@ func identifierFieldDiscoveryFingerprint(snapshot identifierFieldDiscoverySnapsh
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func cloneIdentifierRewrites(input []reference.IdentifierRewrite) []reference.IdentifierRewrite {
-	out := append([]reference.IdentifierRewrite(nil), input...)
+func cloneIdentifierRewrites(input []identifierrewrite.IdentifierRewrite) []identifierrewrite.IdentifierRewrite {
+	out := append([]identifierrewrite.IdentifierRewrite(nil), input...)
 	for index := range out {
 		out[index].AdditionalAliasesFields = append([]string(nil), input[index].AdditionalAliasesFields...)
 	}

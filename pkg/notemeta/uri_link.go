@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -21,10 +22,10 @@ func ResolveProjectedLink(cache *obsidian.NotePathCache, sourcePath string, base
 	case noteformat.LinkResolutionNoteReference:
 		return cache.ResolveNote(link.ResolverInput)
 	case noteformat.LinkResolutionRelativePath:
-		if resolved, ok := cache.ResolveMdLink(link.ResolverInput, sourcePath); ok {
-			return resolved, true
+		if link.Path != "" && linkLookupPath(sourcePath, base, link) == "" {
+			return "", false
 		}
-		return cache.ResolveNote(link.ResolverInput)
+		return cache.ResolveMdLink(link.ResolverInput, sourcePath)
 	case noteformat.LinkResolutionURI:
 		return ResolveURIProjectionLink(cache, sourcePath, base, link)
 	default:
@@ -102,7 +103,8 @@ func uniqueURIPathCandidate(cache *obsidian.NotePathCache, target string) (strin
 			candidates[notePath] = struct{}{}
 		}
 	}
-	aliasTarget := path.Base(target)
+	aliasTarget := paths.LinkKey(path.Base(target))
+	target = paths.LinkKey(target)
 	for alias, notePaths := range cache.Aliases {
 		if alias != target && alias != aliasTarget {
 			continue
@@ -133,7 +135,8 @@ func uriHasExplicitSuffix(cache *obsidian.NotePathCache, target string) bool {
 }
 
 func uriPathCandidateMatches(notePath, target string) bool {
-	notePath = string(path.Clean(strings.ReplaceAll(notePath, "\\", "/")))
+	notePath = paths.LinkKey(path.Clean(strings.ReplaceAll(notePath, "\\", "/")))
+	target = paths.LinkKey(target)
 	if notePath == target {
 		return true
 	}

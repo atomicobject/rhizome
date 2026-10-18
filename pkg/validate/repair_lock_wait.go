@@ -2,6 +2,7 @@ package validate
 
 import (
 	"context"
+	"path/filepath"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
@@ -9,7 +10,7 @@ import (
 
 // Interactive repair writers wait for the current owner and ask background
 // work to yield. Startup stabilization keeps its nonblocking acquisition.
-func waitRepairIndexLockLease(ctx context.Context, lockPath string) (*IndexLockLease, func() error, error) {
+func waitRepairIndexLockLease(ctx context.Context, lockPath string) (*indexlock.Lease, func() error, error) {
 	var priority *indexlock.PriorityRequest
 	defer func() { priority.Close() }()
 	ticker := time.NewTicker(50 * time.Millisecond)
@@ -18,16 +19,16 @@ func waitRepairIndexLockLease(ctx context.Context, lockPath string) (*IndexLockL
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
 		}
-		release, acquired, err := indexlock.TryAcquireWithOptions(lockPath, indexlock.AcquireOptions{Role: "interactive/repair"})
+		lease, acquired, err := indexlock.TryAcquireLease(filepath.Dir(filepath.Dir(lockPath)), indexlock.AcquireOptions{Role: "interactive/repair"})
 		if err != nil {
 			return nil, nil, err
 		}
 		if acquired {
 			if err := ctx.Err(); err != nil {
-				_ = release()
+				_ = lease.Release()
 				return nil, nil, err
 			}
-			return newRepairIndexLockLease(lockPath, release)
+			return repairLeaseHeartbeat(lease)
 		}
 		if !priority.Active() {
 			priority.Close()

@@ -4,35 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"slices"
 )
 
 // Native replay ends historical rollback authority at a terminal decision.
 // Projection convergence always observes today's complete recorded footprint.
-func preflightNativeNamespace(runCtx RunContext, journal recoveredRepairJournal) error {
-	if journal.state != repairJournalPrepared {
-		return nil
-	}
-	if _, err := buildRepairRollbackPlan(runCtx, journal.manifest); err != nil {
-		return err
-	}
-	return preflightNamespaceGitRollback(runCtx, journal.manifest)
-}
-
-func stabilizeNativeNamespace(runCtx RunContext, journal *recoveredRepairJournal, hooks *repairExecutionHooks) error {
-	if journal.state == repairJournalPrepared {
-		prepared := &preparedRepairTransaction{dir: journal.dir, manifest: journal.manifest}
-		err := restoreNamespacePrepared(runCtx, prepared, hooks)
-		journal.manifest = prepared.manifest
-		journal.decisionSynced = prepared.decisionSynced
-		if decision, decisionErr := nativeJournalDecision(journal.dir); decisionErr == nil {
-			journal.state = decision
-		}
-		return err
-	}
-	return settleNamespaceGitRelease(runCtx, journal)
-}
 
 func namespaceJournalOutcome(journal recoveredRepairJournal) NamespaceOutcome {
 	outcome := NamespaceOutcome{
@@ -74,7 +52,7 @@ func namespaceCleanupOutcomes(journals []recoveredRepairJournal) []NamespaceOutc
 	return outcomes
 }
 
-func convergeNativeNamespace(ctx context.Context, runCtx RunContext, lease *IndexLockLease, refresher PostApplyRefresher, journal recoveredRepairJournal, initial bool, hooks *repairExecutionHooks) error {
+func convergeNativeNamespace(ctx context.Context, runCtx RunContext, lease *indexlock.Lease, refresher PostApplyRefresher, journal recoveredRepairJournal, initial bool, hooks *repairExecutionHooks) error {
 	if journal.manifest.Namespace.SettledDecision == "" {
 		return fmt.Errorf("native decision release is unsettled")
 	}
@@ -117,10 +95,10 @@ func convergeNativeNamespace(ctx context.Context, runCtx RunContext, lease *Inde
 	if err := errors.Join(checkErr, refresh.Close()); err != nil {
 		return err
 	}
-	return cleanupRepairJournal(runCtx, journal.dir, journal.manifest, hooks)
+	return runCtx.sourceWriter.Complete(journal.completion)
 }
 
-func convergeRecoveredNamespaces(ctx context.Context, runCtx RunContext, lease *IndexLockLease, refresher PostApplyRefresher, journals []recoveredRepairJournal, hooks *repairExecutionHooks) ([]NamespaceOutcome, error) {
+func convergeRecoveredNamespaces(ctx context.Context, runCtx RunContext, lease *indexlock.Lease, refresher PostApplyRefresher, journals []recoveredRepairJournal, hooks *repairExecutionHooks) ([]NamespaceOutcome, error) {
 	var outcomes []NamespaceOutcome
 	var recoveryErr error
 	for _, journal := range journals {

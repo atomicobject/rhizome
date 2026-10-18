@@ -11,8 +11,8 @@ import (
 func TestCanonicalSourceResultsGroupsNoteChunksAndRetainsExactEvidence(t *testing.T) {
 	h := knowledge.NoteHandle("docs/hubs/Search (Hub).md")
 	results := []search.RankedResult{
-		{Candidate: search.Candidate{Handle: h, Owner: h, Type: "note", Path: "docs/hubs/Search (Hub).md", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}, FinalScore: 1},
-		{Candidate: search.Candidate{Handle: knowledge.Handle{Kind: "note_chunk", ID: "chunk"}, Owner: h, Type: "note", Path: "docs/hubs/Search (Hub).md", Evidence: []search.Evidence{{Type: "intel_doc_match", RawScore: .8}}}, FinalScore: .8},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "docs/hubs/Search (Hub).md"}, Handle: h, Owner: h, Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}, FinalScore: 1},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "docs/hubs/Search (Hub).md"}, Handle: knowledge.Handle{Kind: "note_chunk", ID: "chunk"}, Owner: h, Type: "note", Evidence: []search.Evidence{{Type: "intel_doc_match", RawScore: .8}}}, FinalScore: .8},
 	}
 	got := CanonicalizeSources(results)
 	require.Len(t, got, 1)
@@ -44,8 +44,8 @@ func TestAssessSourcesSeparatesPrecisionPrimaryFromSupporting(t *testing.T) {
 
 func TestResolveExactNavigationTargetPreservesAmbiguity(t *testing.T) {
 	sources := []SourceAssessment{
-		{Result: search.RankedResult{Candidate: search.Candidate{Path: "docs/spec.md", Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact"}}}}},
-		{Result: search.RankedResult{Candidate: search.Candidate{Path: "docs/effort.md", Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact"}}}}},
+		{Result: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "docs/spec.md"}, Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact"}}}}},
+		{Result: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "docs/effort.md"}, Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact"}}}}},
 	}
 	target := ResolveNavigationTarget(TargetResolution{}, sources)
 	require.Equal(t, search.TargetStatusAmbiguous, target.Status)
@@ -60,7 +60,7 @@ func TestAvailabilityFromLanesDistinguishesPartialAndUnavailable(t *testing.T) {
 
 func TestBuildAssessedAnswerRequiresResolvedPrecisionTargetForHighConfidence(t *testing.T) {
 	sources := []SourceAssessment{{
-		Result:      search.RankedResult{Candidate: search.Candidate{Path: "pkg/search/service.go", Type: "code", Evidence: []search.Evidence{{Type: "definition_anchor", RawScore: 1}}}},
+		Result:      search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "pkg/search/service.go"}, Type: "code", Evidence: []search.Evidence{{Type: "definition_anchor", RawScore: 1}}}},
 		Eligibility: EvidencePrimary, Relationship: "definition", Relevance: RelevanceStrong, SupportedRoles: []string{"implementation"},
 	}}
 	unresolved := BuildAssessedAnswer(search.IntentGoToDef, "definition for Search", TargetResolution{}, nil, AvailabilityComplete, sources)

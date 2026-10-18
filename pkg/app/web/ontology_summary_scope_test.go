@@ -8,7 +8,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -25,7 +26,7 @@ summary: Broken spec summary
 No requirements heading here.
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(fixture.root, "loose.md"), []byte("# Loose note\n\nUntyped body.\n"), 0o644))
-	_, err := ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err := ontologytest.Publish(context.Background(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	return newFixtureServer(t, fixture, &Runtime{IntelStore: fixture.intelStore})
 }
@@ -86,7 +87,7 @@ type ProductSpec implements Ordinary @node(paths: ["specs/prod.md"]) {
 }
 `, implementation)
 			require.NoError(t, os.WriteFile(filepath.Join(fixture.root, ".rhizome", "ontology", "schema.graphql"), []byte(schema), 0o644))
-			_, err := ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+			_, err := ontologytest.Publish(context.Background(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 			require.NoError(t, err)
 			srv := newFixtureServer(t, fixture, nil)
 			summary, err := srv.ontologySummary(context.Background())

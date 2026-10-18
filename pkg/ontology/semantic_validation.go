@@ -2,10 +2,11 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 )
 
-func semanticValidationIssues(doc *noteDoc, noteType *NoteType, assessment *NoteAssessment, schema *Schema) []ValidationIssue {
+func semanticValidationIssues(doc *noteDoc, noteType *ontoschema.NoteType, assessment *NoteAssessment, schema *ontoschema.Schema) []ValidationIssue {
 	if doc == nil || noteType == nil || assessment == nil || schema == nil {
 		return nil
 	}
@@ -17,13 +18,14 @@ func semanticValidationIssues(doc *noteDoc, noteType *NoteType, assessment *Note
 	return issues
 }
 
-func validateTitleConstraint(notePath string, noteType *NoteType, nodeRef string, title string, structural string) []ValidationIssue {
+func validateTitleConstraint(notePath string, noteType *ontoschema.NoteType, nodeRef string, title string, structural string) []ValidationIssue {
 	if noteType == nil || noteType.Title == nil {
 		return nil
 	}
 	title = strings.TrimSpace(title)
 	issues := make([]ValidationIssue, 0, 2)
-	if noteType.Title.patternRE != nil && !noteType.Title.patternRE.MatchString(title) {
+	patternMismatch, forbidden := noteType.Title.Violations(title)
+	if patternMismatch {
 		issues = append(issues, withNameVariant(ValidationIssue{
 			Code:       "title_pattern_mismatch",
 			NotePath:   notePath,
@@ -33,7 +35,7 @@ func validateTitleConstraint(notePath string, noteType *NoteType, nodeRef string
 			Message:    fmt.Sprintf("title %q must match %s", title, noteType.Title.Pattern),
 		}, noteType.Name))
 	}
-	if noteType.Title.notPatternRE != nil && noteType.Title.notPatternRE.MatchString(title) {
+	if forbidden {
 		issues = append(issues, withNameVariant(ValidationIssue{
 			Code:       "title_forbidden_pattern",
 			NotePath:   notePath,
@@ -46,7 +48,7 @@ func validateTitleConstraint(notePath string, noteType *NoteType, nodeRef string
 	return issues
 }
 
-func validateAssessmentFieldFormats(doc *noteDoc, noteType *NoteType, assessment *NoteAssessment) []ValidationIssue {
+func validateAssessmentFieldFormats(doc *noteDoc, noteType *ontoschema.NoteType, assessment *NoteAssessment) []ValidationIssue {
 	if doc == nil || noteType == nil || assessment == nil {
 		return nil
 	}
@@ -65,12 +67,13 @@ func validateAssessmentFieldFormats(doc *noteDoc, noteType *NoteType, assessment
 	return issues
 }
 
-func validateFormattedValue(notePath string, typeName string, fieldName string, nodeRef string, structural string, value string, format *FieldFormatConstraint) *ValidationIssue {
+func validateFormattedValue(notePath string, typeName string, fieldName string, nodeRef string, structural string, value string, format *ontoschema.FieldFormatConstraint) *ValidationIssue {
 	if format == nil {
 		return nil
 	}
 	value = strings.TrimSpace(value)
-	if format.patternRE != nil && !format.patternRE.MatchString(value) {
+	patternMismatch, forbidden := format.Violations(value)
+	if patternMismatch {
 		issue := withTypeFieldVariant(ValidationIssue{
 			Code:       "field_format_mismatch",
 			NotePath:   notePath,
@@ -82,7 +85,7 @@ func validateFormattedValue(notePath string, typeName string, fieldName string, 
 		})
 		return &issue
 	}
-	if format.notPatternRE != nil && format.notPatternRE.MatchString(value) {
+	if forbidden {
 		issue := withTypeFieldVariant(ValidationIssue{
 			Code:       "field_forbidden_pattern",
 			NotePath:   notePath,
@@ -97,7 +100,7 @@ func validateFormattedValue(notePath string, typeName string, fieldName string, 
 	return nil
 }
 
-func validateConditionalRequirements(doc *noteDoc, noteType *NoteType, assessment *NoteAssessment) []ValidationIssue {
+func validateConditionalRequirements(doc *noteDoc, noteType *ontoschema.NoteType, assessment *NoteAssessment) []ValidationIssue {
 	if doc == nil || noteType == nil || assessment == nil || len(noteType.RequiresWhen) == 0 {
 		return nil
 	}
@@ -139,11 +142,11 @@ func validateConditionalRequirements(doc *noteDoc, noteType *NoteType, assessmen
 	return issues
 }
 
-func assessmentFieldPresent(assessment *NoteAssessment, field *Field) bool {
+func assessmentFieldPresent(assessment *NoteAssessment, field *ontoschema.Field) bool {
 	if assessment == nil || field == nil {
 		return false
 	}
-	if field.Kind == FieldKindLink || field.Kind == FieldKindNeighbor {
+	if field.Kind == ontoschema.FieldKindLink || field.Kind == ontoschema.FieldKindNeighbor {
 		relation, ok := assessment.Relation(field.Name)
 		return ok && len(relation.Targets) > 0
 	}

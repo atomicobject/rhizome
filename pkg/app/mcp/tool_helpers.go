@@ -4,11 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
@@ -35,11 +34,7 @@ func withProjectedNoteFacts(ctx context.Context, config Config, reader obsidian.
 	if reader == nil || store == nil || config.NoteMetadata.Validate() != nil {
 		return reader
 	}
-	sources, err := config.NoteMetadata.LoadNoteSourceSnapshots(ctx, config.VaultDef, reader, store, nil)
-	if err != nil {
-		return reader
-	}
-	return projectedFactsNoteReader{NoteReader: reader, facts: actions.NewNoteFacts(sources)}
+	return projectedFactsNoteReader{NoteReader: reader, facts: actions.LazyPersistedNoteFacts(ctx, config.NoteMetadata, store)}
 }
 
 const (
@@ -50,11 +45,6 @@ const (
 	contentOmittedDeduped   = "deduped"
 	contentOmittedReadError = "read_error"
 )
-
-func titleFromPath(path string) string {
-	base := filepath.Base(path)
-	return strings.TrimSuffix(base, filepath.Ext(base))
-}
 
 func normalizeDocPath(vaultPaths paths.VaultPaths, path string) string {
 	if vaultPaths.Root() == "" {

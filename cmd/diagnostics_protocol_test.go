@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+
 	"io"
 	"os"
 	"os/exec"
@@ -10,22 +11,19 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
 	"github.com/stretchr/testify/require"
 )
 
 func TestDiagnosticsProtocolProcess(t *testing.T) {
+
 	if os.Getenv("RZM_DIAGNOSTIC_PROTOCOL_CHILD") != "1" {
 		return
 	}
 	var args []string
 	require.NoError(t, json.Unmarshal([]byte(os.Getenv("RZM_DIAGNOSTIC_PROTOCOL_ARGS")), &args))
-	vaultName = os.Getenv("RZM_DIAGNOSTIC_PROTOCOL_VAULT")
-	// Global metadata has a selected vault available, but must never resolve it
+	// The working directory selects a vault, but metadata must never resolve it
 	// merely to create diagnostic artifacts.
-	obsidian.ObsidianConfigFile = func() (string, error) {
-		return filepath.Join(os.Getenv("HOME"), "obsidian.json"), nil
-	}
 	os.Args = append([]string{"rzm"}, args...)
 	os.Exit(Execute())
 }

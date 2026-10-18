@@ -29,7 +29,7 @@ func TestApplyFixPlanPreservesModeDespiteRestrictiveUmask(t *testing.T) {
 
 	oldUmask := syscall.Umask(0o077)
 	t.Cleanup(func() { syscall.Umask(oldUmask) })
-	_, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 	})
 	require.NoError(t, err)

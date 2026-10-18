@@ -3,14 +3,13 @@ package query
 import (
 	"context"
 	"fmt"
-	"slices"
-	"sort"
-	"strings"
-	"time"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/pushdown"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"slices"
+	"strings"
+	"time"
 )
 
 func (e *executor) sectionMatchesRootFilters(section *sectionRecord, raw any) (bool, error) {
@@ -22,7 +21,7 @@ func (e *executor) sectionMatchesRootFilters(section *sectionRecord, raw any) (b
 func (e *executor) noteMatchesRootFilters(note *noteRecord, raw any, linkTargets map[string]map[string][]string) (bool, error) {
 	return matchesRootFilters(raw, "note", e.schema.Types[note.TypeName], func(field string) []string {
 		if noteType := e.schema.Types[note.TypeName]; noteType != nil {
-			if schemaField := noteType.ByName[field]; schemaField != nil && schemaField.Kind == ontology.FieldKindLink {
+			if schemaField := noteType.ByName[field]; schemaField != nil && schemaField.Kind == ontoschema.FieldKindLink {
 				return linkTargets[note.Path][field]
 			}
 		}
@@ -30,14 +29,9 @@ func (e *executor) noteMatchesRootFilters(note *noteRecord, raw any, linkTargets
 	})
 }
 
-func matchesRootFilters(raw any, kind string, noteType *ontology.NoteType, fieldValues func(string) []string) (bool, error) {
-	filters, _ := raw.([]any)
-	for _, item := range filters {
-		filter, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		field := strings.TrimSpace(stringValue(filter["field"]))
+func matchesRootFilters(raw any, kind string, noteType *ontoschema.NoteType, fieldValues func(string) []string) (bool, error) {
+	for _, filter := range rootFilterInputs(raw) {
+		field := strings.TrimSpace(filter.Field)
 		if field == "" {
 			continue
 		}
@@ -49,39 +43,40 @@ func matchesRootFilters(raw any, kind string, noteType *ontology.NoteType, field
 	return true, nil
 }
 
-func rootFilterMatches(values []string, filter map[string]any, kind string, field *ontology.Field) (bool, error) {
-	op := strings.ToLower(strings.TrimSpace(stringValue(filter["op"])))
-	want := strings.TrimSpace(stringValue(filter["value"]))
-	if pushdown.IsBuiltinFieldKey(stringValue(filter["field"])) && (op == "" || op == "eq" || op == "in") {
-		wants := []string{want}
-		if op == "in" {
-			wants = stringListValue(filter["values"])
-		}
-		for _, want := range wants {
-			for _, path := range pushdown.PathPredicateVariants(want) {
-				if slices.Contains(values, path) {
-					return true, nil
-				}
-			}
-		}
-		return false, nil
+func rootFilterMatches(values []string, filter pushdown.FilterInput, kind string, field *ontoschema.Field) (bool, error) {
+	op := strings.ToLower(strings.TrimSpace(filter.Op))
+	if op == "" {
+		op = "eq"
 	}
 	switch op {
-	case "", "eq":
-		return rootFilterAnyValueEquals(values, want, field), nil
-	case "neq":
-		return !rootFilterAnyValueEquals(values, want, field), nil
-	case "exists":
-		return len(values) > 0, nil
-	case "contains":
-		return rootFilterAnyValueContains(values, want), nil
-	case "in":
-		return rootFilterAnyValueIn(values, stringListValue(filter["values"]), field), nil
-	case "gt", "gte", "lt", "lte":
-		return rootFilterAnyValueCompares(values, want, op, field), nil
+	case "eq", "neq", "contains", "in", "exists", "gt", "gte", "lt", "lte":
 	default:
 		return false, fmt.Errorf("unsupported %s root filter operator %q", kind, op)
 	}
+	predicate := readmodel.FieldPredicate{FieldName: filter.Field, Op: readmodel.FieldOperator(op)}
+	wants := []string{filter.Value}
+	if op == "in" {
+		wants = filter.Values
+	}
+	rows := make([]readmodel.FieldValueRow, 0, len(values))
+	pathMembership := pushdown.IsBuiltinFieldKey(predicate.FieldName) && (op == "eq" || op == "in")
+	for _, value := range values {
+		row := ontology.FieldValueRow(field, value)
+		if pathMembership {
+			row.ValueNorm = value
+		}
+		rows = append(rows, row)
+	}
+	for _, want := range wants {
+		if pathMembership {
+			for _, path := range pushdown.PathPredicateVariants(want) {
+				predicate.Values = append(predicate.Values, readmodel.FieldValueRow{ValueNorm: path})
+			}
+		} else {
+			predicate.Values = append(predicate.Values, ontology.FieldValueRow(field, want))
+		}
+	}
+	return pushdown.Match(predicate, rows), nil
 }
 
 func (e *executor) sortEmbeddedRootSections(ctx context.Context, records []*sectionRecord, raw any) {
@@ -96,7 +91,7 @@ func (e *executor) sortEmbeddedRootSections(ctx context.Context, records []*sect
 			return updated(section)
 		}
 		return e.sectionRootSortFieldValues(section, field)
-	}, func(section *sectionRecord, field string) *ontology.Field {
+	}, func(section *sectionRecord, field string) *ontoschema.Field {
 		return rootSchemaField(e.schema.Types[section.TypeName], field)
 	}, e.rootSectionStableKey)
 }
@@ -110,12 +105,12 @@ func (e *executor) sortRootNotes(ctx context.Context, records []*noteRecord, raw
 		values := e.noteRootFieldValues(note, field)
 		schemaField := rootSchemaField(e.schema.Types[note.TypeName], field)
 		return pushdown.PresentSortValues(schemaField, values, note.hasField(schemaField))
-	}, func(note *noteRecord, field string) *ontology.Field {
+	}, func(note *noteRecord, field string) *ontoschema.Field {
 		return rootSchemaField(e.schema.Types[note.TypeName], field)
 	}, rootNoteStableKey)
 }
 
-func rootSchemaField(noteType *ontology.NoteType, name string) *ontology.Field {
+func rootSchemaField(noteType *ontoschema.NoteType, name string) *ontoschema.Field {
 	_, field, _ := (pushdown.SchemaResolver{NoteType: noteType}).Resolve(name)
 	return field
 }
@@ -124,7 +119,7 @@ func rootSchemaField(noteType *ontology.NoteType, name string) *ontology.Field {
 // key, which the store orders by the note's indexed modification time.
 type updatedAtSortResolver struct{ pushdown.Resolver }
 
-func (r updatedAtSortResolver) Resolve(key string) (pushdown.FieldKey, *ontology.Field, bool) {
+func (r updatedAtSortResolver) Resolve(key string) (pushdown.FieldKey, *ontoschema.Field, bool) {
 	if strings.TrimSpace(key) == recordFieldUpdatedAt {
 		return pushdown.FieldKey{Requested: key, Canonical: recordFieldUpdatedAt, Source: pushdown.FieldKeyBuiltin}, nil, true
 	}
@@ -136,10 +131,9 @@ func (r updatedAtSortResolver) Resolve(key string) (pushdown.FieldKey, *ontology
 // like the time. A record without indexed metadata has no value.
 func rootSortUpdatedAt[T any](ctx context.Context, e *executor, raw any, records []T, notePath func(T) string) func(T) []string {
 	none := func(T) []string { return nil }
-	sorts, _ := raw.([]any)
-	named := slices.ContainsFunc(sorts, func(item any) bool {
-		spec, _ := item.(map[string]any)
-		return strings.TrimSpace(stringValue(spec["field"])) == recordFieldUpdatedAt
+	sorts := rootSortInputs(raw)
+	named := slices.ContainsFunc(sorts, func(spec pushdown.SortInput) bool {
+		return strings.TrimSpace(spec.Field) == recordFieldUpdatedAt
 	})
 	if !named {
 		return none
@@ -157,55 +151,34 @@ func rootSortUpdatedAt[T any](ctx context.Context, e *executor, raw any, records
 	}
 }
 
-func sortRootRecords[T any](records []T, raw any, fieldValues func(T, string) []string, schemaField func(T, string) *ontology.Field, stableKey func(T) pushdown.StableKey) {
-	sorts, ok := raw.([]any)
-	if !ok || len(sorts) == 0 {
-		return
-	}
-	type sortKey struct {
-		field string
-		desc  bool
-	}
-	keys := make([]sortKey, 0, len(sorts))
-	for _, item := range sorts {
-		spec, _ := item.(map[string]any)
-		if field := strings.TrimSpace(stringValue(spec["field"])); field != "" {
-			keys = append(keys, sortKey{field, strings.EqualFold(strings.TrimSpace(stringValue(spec["direction"])), "desc")})
+func sortRootRecords[T any](records []T, raw any, fieldValues func(T, string) []string, schemaField func(T, string) *ontoschema.Field, stableKey func(T) pushdown.StableKey) {
+	items := rootSortInputs(raw)
+	sorts := make([]readmodel.FieldSort, 0, len(items))
+	for _, spec := range items {
+		name := strings.TrimSpace(spec.Field)
+		if name == "" {
+			continue
 		}
-	}
-	type sortableRecord struct {
-		record T
-		values []pushdown.Scalar
-		stable pushdown.StableKey
-	}
-	prepared := make([]sortableRecord, len(records))
-	for i, record := range records {
-		values := make([]pushdown.Scalar, len(keys))
-		for j, key := range keys {
-			if pushdown.IsBuiltinFieldKey(key.field) {
-				if paths := fieldValues(record, key.field); len(paths) > 0 {
-					values[j] = pushdown.ScalarFromRow(codeanchor.IntelOntologyNodeFieldValue{ValueNorm: paths[0]}, "string")
-				}
-				continue
-			}
-			field := schemaField(record, key.field)
-			capability, _ := ontology.IndexedFieldCapabilityForField(nil, field)
-			values[j] = pushdown.AggregateSortValues(field, fieldValues(record, key.field), capability.ValueKind, key.desc)
-		}
-		prepared[i] = sortableRecord{record, values, stableKey(record)}
-	}
-	sort.SliceStable(prepared, func(i, j int) bool {
-		for k, key := range keys {
-			left, right := prepared[i].values[k], prepared[j].values[k]
-			if order := left.CompareSort(right, key.desc, true); order != 0 {
-				return order < 0
+		kind := "string"
+		if len(records) > 0 {
+			capability, _ := ontoschema.FieldQueryCapabilityForField(nil, schemaField(records[0], name))
+			if capability.ValueKind != "" {
+				kind = capability.ValueKind
 			}
 		}
-		return prepared[i].stable.Compare(prepared[j].stable) < 0
-	})
-	for i, record := range prepared {
-		records[i] = record.record
+		sorts = append(sorts, readmodel.FieldSort{FieldName: name, ValueKind: kind, Desc: strings.EqualFold(spec.Direction, "desc"), NullsLast: true})
 	}
+	pushdown.SortItems(records, sorts, func(record T, name string) []readmodel.FieldValueRow {
+		values := fieldValues(record, name)
+		rows := make([]readmodel.FieldValueRow, len(values))
+		for i, value := range values {
+			rows[i] = ontology.FieldValueRow(schemaField(record, name), value)
+			if pushdown.IsBuiltinFieldKey(name) {
+				rows[i].ValueNorm = value
+			}
+		}
+		return rows
+	}, stableKey)
 }
 
 func (e *executor) sectionRootSortFieldValues(section *sectionRecord, fieldName string) []string {
@@ -279,46 +252,6 @@ func (e *executor) noteRootFieldValues(note *noteRecord, fieldName string) []str
 		return nil
 	}
 	return note.fieldValues(field)
-}
-
-func rootFilterAnyValueEquals(values []string, want string, field *ontology.Field) bool {
-	return rootFilterAnyValueCompares(values, want, "eq", field)
-}
-
-func rootFilterAnyValueContains(values []string, want string) bool {
-	want = normalizeRootFilterValue(want)
-	for _, value := range values {
-		if strings.Contains(normalizeRootFilterValue(value), want) {
-			return true
-		}
-	}
-	return false
-}
-
-func rootFilterAnyValueIn(values []string, wants []string, field *ontology.Field) bool {
-	for _, want := range wants {
-		if rootFilterAnyValueEquals(values, want, field) {
-			return true
-		}
-	}
-	return false
-}
-
-func rootFilterAnyValueCompares(values []string, want string, op string, field *ontology.Field) bool {
-	operand := pushdown.FieldValueRow(field, want, normalizeRootFilterValue)
-	kind := pushdown.PredicateValueKind(operand)
-	right := pushdown.ScalarFromRow(operand, kind)
-	for _, value := range values {
-		left := pushdown.StoredScalar(field, value, kind)
-		if left.Matches(right, op) {
-			return true
-		}
-	}
-	return false
-}
-
-func normalizeRootFilterValue(value string) string {
-	return pushdown.NormalizeScalarText(value)
 }
 
 func (e *executor) rootSectionStableKey(section *sectionRecord) pushdown.StableKey {

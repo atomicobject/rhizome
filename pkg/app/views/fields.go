@@ -2,11 +2,11 @@ package views
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"reflect"
 	"sort"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 )
 
@@ -74,7 +74,7 @@ func orderedDefaultCapabilities(capabilities []FieldCapability) []FieldCapabilit
 		if capability.CanonicalField != "" && capability.Key != capability.CanonicalField {
 			continue
 		}
-		if effectiveFieldImportance(capability.Importance) == ontology.FieldImportanceDetail &&
+		if effectiveFieldImportance(capability.Importance) == ontoschema.FieldImportanceDetail &&
 			capability.SemanticRole != "identifier" && capability.SemanticRole != "title" && capability.Key != "title" {
 			continue
 		}
@@ -102,7 +102,7 @@ func defaultCapabilityRank(capability FieldCapability) int {
 		return 0
 	case capability.SemanticRole == "identifier":
 		return 1
-	case effectiveFieldImportance(capability.Importance) == ontology.FieldImportanceKey:
+	case effectiveFieldImportance(capability.Importance) == ontoschema.FieldImportanceKey:
 		return 2
 	default:
 		return 3
@@ -111,16 +111,16 @@ func defaultCapabilityRank(capability FieldCapability) int {
 
 func usesImportanceDefaults(capabilities []FieldCapability) bool {
 	for _, capability := range capabilities {
-		if importance := effectiveFieldImportance(capability.Importance); importance != ontology.FieldImportanceNormal {
+		if importance := effectiveFieldImportance(capability.Importance); importance != ontoschema.FieldImportanceNormal {
 			return true
 		}
 	}
 	return false
 }
 
-func effectiveFieldImportance(importance ontology.FieldDisplayImportance) ontology.FieldDisplayImportance {
+func effectiveFieldImportance(importance ontoschema.FieldDisplayImportance) ontoschema.FieldDisplayImportance {
 	if importance == "" {
-		return ontology.FieldImportanceNormal
+		return ontoschema.FieldImportanceNormal
 	}
 	return importance
 }
@@ -288,7 +288,7 @@ func capability(key, source string, completeness SourceCompleteness) FieldCapabi
 		SourceKeys:        []string{key},
 		SourceKind:        source,
 		SemanticRole:      semanticRoleForKey(key),
-		Importance:        ontology.FieldImportanceNormal,
+		Importance:        ontoschema.FieldImportanceNormal,
 		Sortable:          true,
 		ResidualSortable:  true,
 		Groupable:         true,
@@ -507,7 +507,7 @@ func valueString(value any) string {
 func labelForField(field string) string {
 	field = strings.TrimPrefix(field, "frontmatter.")
 	field = strings.TrimPrefix(field, "inline.")
-	return ontology.HumanizeFieldName(field)
+	return ontoschema.HumanizeFieldName(field)
 }
 
 func firstNonEmpty(values ...string) string {

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,7 +40,7 @@ func TestIndexCodeFile_DirtiesOnlyAffectedPackageAndRemovedSignals(t *testing.T)
 			},
 		}))
 	}
-	svc := codeanchor.NewServiceWithOptions(store, []codeanchor.LanguageIndexer{codeanchor.NewPythonIndexer()}, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache(), codeanchor.WithWriteAccess())
+	svc := codeanchor.NewServiceWithOptions(store, []codeanchor.LanguageIndexer{codeanchor.NewPythonIndexerWithRoots([]string{"src", "lib"})}, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache(), codeanchor.WithWriteAccess())
 	aPath := filepath.Join(root, "src", "a.py")
 	bPath := filepath.Join(root, "src", "b.py")
 	require.NoError(t, svc.IndexCodeFile(ctx, codeanchor.LangPy, aPath, []byte("def decorator(fn):\n    return fn\n@decorator\ndef shared():\n    pass\n")))

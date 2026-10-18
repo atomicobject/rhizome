@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,22 +14,22 @@ func TestSuggestFixes_NilInputs(t *testing.T) {
 }
 
 func TestSuggestFixes_InverseMismatch(t *testing.T) {
-	schema := &Schema{
-		Types: map[string]*NoteType{
+	schema := &ontoschema.Schema{
+		Types: map[string]*ontoschema.NoteType{
 			"Spec": {
 				Name: "Spec",
-				Fields: []*Field{{
+				Fields: []*ontoschema.Field{{
 					Name:     "implements",
-					Kind:     FieldKindLink,
+					Kind:     ontoschema.FieldKindLink,
 					TypeName: "Feature",
 					Inverse:  "specs",
 				}},
 			},
 			"Feature": {
 				Name: "Feature",
-				Fields: []*Field{{
+				Fields: []*ontoschema.Field{{
 					Name:     "specs",
-					Kind:     FieldKindLink,
+					Kind:     ontoschema.FieldKindLink,
 					TypeName: "Spec",
 					List:     true,
 					Inverse:  "implements",
@@ -109,7 +110,7 @@ func TestSuggestFixes_InverseMismatch_NoDuplicate(t *testing.T) {
 		"features/login.md": targetAssessment,
 	}
 
-	fixes := SuggestFixes(sourceAssessment, &Schema{}, allAssessments)
+	fixes := SuggestFixes(sourceAssessment, &ontoschema.Schema{}, allAssessments)
 	assert.Empty(t, fixes, "should not suggest fix when link already exists")
 }
 
@@ -125,7 +126,7 @@ func TestSuggestFixes_InverseMismatch_NoTarget(t *testing.T) {
 	}
 	// Target note not in assessments map — do not suggest a destructive
 	// replacement when we cannot see the current inverse field values.
-	fixes := SuggestFixes(assessment, &Schema{}, map[string]*NoteAssessment{
+	fixes := SuggestFixes(assessment, &ontoschema.Schema{}, map[string]*NoteAssessment{
 		"specs/auth.md": assessment,
 	})
 	assert.Empty(t, fixes)
@@ -140,7 +141,7 @@ func TestSuggestFixes_InverseMismatch_MissingFixFields(t *testing.T) {
 			// FixTarget and FixFieldName missing
 		}},
 	}
-	fixes := SuggestFixes(assessment, &Schema{}, nil)
+	fixes := SuggestFixes(assessment, &ontoschema.Schema{}, nil)
 	assert.Empty(t, fixes)
 }
 
@@ -157,7 +158,7 @@ func TestSuggestFixes_DeclaredTypeMismatch_SingleCandidate(t *testing.T) {
 		}},
 	}
 
-	fixes := SuggestFixes(assessment, &Schema{}, nil)
+	fixes := SuggestFixes(assessment, &ontoschema.Schema{}, nil)
 	require.Len(t, fixes, 1)
 	fix := fixes[0]
 	assert.Equal(t, "declared_type_mismatch", fix.IssueCode)
@@ -195,7 +196,7 @@ func TestSuggestFixes_PreservesFallbackFieldInFullIssueIdentity(t *testing.T) {
 		Relations: []RelationAssessment{{Name: "specs"}},
 	}
 
-	fixes := SuggestFixes(source, &Schema{}, map[string]*NoteAssessment{
+	fixes := SuggestFixes(source, &ontoschema.Schema{}, map[string]*NoteAssessment{
 		source.NotePath: source,
 		target.NotePath: target,
 	})
@@ -216,7 +217,7 @@ func TestSuggestFixes_DeclaredTypeMismatch_MultipleCandidates(t *testing.T) {
 		}},
 	}
 
-	fixes := SuggestFixes(assessment, &Schema{}, nil)
+	fixes := SuggestFixes(assessment, &ontoschema.Schema{}, nil)
 	assert.Empty(t, fixes, "should not suggest fix when multiple candidates exist")
 }
 
@@ -231,7 +232,7 @@ func TestSuggestFixes_DeclaredTypeMismatch_NoCandidates(t *testing.T) {
 		}},
 	}
 
-	fixes := SuggestFixes(assessment, &Schema{}, nil)
+	fixes := SuggestFixes(assessment, &ontoschema.Schema{}, nil)
 	assert.Empty(t, fixes, "should not suggest fix when no candidates exist")
 }
 
@@ -245,7 +246,7 @@ func TestSuggestFixes_UnfixableIssue(t *testing.T) {
 		}},
 	}
 
-	fixes := SuggestFixes(assessment, &Schema{}, nil)
+	fixes := SuggestFixes(assessment, &ontoschema.Schema{}, nil)
 	assert.Empty(t, fixes)
 }
 
@@ -269,7 +270,7 @@ func TestSuggestFixes_FieldIssues(t *testing.T) {
 		}},
 	}
 
-	fixes := SuggestFixes(assessment, &Schema{}, nil)
+	fixes := SuggestFixes(assessment, &ontoschema.Schema{}, nil)
 	require.Len(t, fixes, 1)
 	assert.Equal(t, "declared_type_mismatch", fixes[0].IssueCode)
 }

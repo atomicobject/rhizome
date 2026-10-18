@@ -1,5 +1,9 @@
 package cmd
 
+import "os"
+
+import "github.com/atomicobject/rhizome/internal/testkit"
+
 import (
 	"testing"
 
@@ -11,10 +15,12 @@ import (
 // port, and manifest helpers are tested beside their implementation there.
 
 func TestServeCommandExposesRuntimeFlags(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	t.Parallel()
 
 	for _, use := range []string{"serve", "start"} {
-		cmd := newServeCommand(use, "test", use == "start")
+		cmd := commandOptions.newServeCommand(use, "test", use == "start")
 		require.NotNil(t, cmd.Flags().Lookup("headless"), "%s must offer --headless", use)
 		require.Equal(t, "false", cmd.Flags().Lookup("headless").DefValue)
 		require.Nil(t, cmd.Flags().Lookup("leader-follower"), "%s must not keep follower flags", use)
@@ -24,6 +30,9 @@ func TestServeCommandExposesRuntimeFlags(t *testing.T) {
 }
 
 func TestStopCommandExposesAllFlag(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	stopCmd, _, _ := rootCmd.Find([]string{"stop"})
+
 	t.Parallel()
 
 	require.NotNil(t, stopCmd.Flags().Lookup("all"))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"path/filepath"
 	"strings"
 
@@ -38,7 +39,7 @@ func NodeLinkTool(config Config) func(context.Context, mcp.CallToolRequest) (*mc
 		if err := validateNodeLinkRefFormats(refs, config); err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		schema, err := ontology.LoadSchema(config.VaultPath)
+		schema, err := ontoschema.LoadSchema(config.VaultPath)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("node_link: %v", err)), nil
 		}
@@ -211,7 +212,7 @@ func normalizeMarkdownNodeLinkTargetCompat(path string) (string, error) {
 		return "", err
 	}
 	if filepath.Ext(normalized.String()) == "" {
-		normalized = paths.NormalizeNote(normalized.String())
+		normalized = paths.EnsureNoteExtension(normalized.String(), ".md")
 	}
 	return normalized.String(), nil
 }

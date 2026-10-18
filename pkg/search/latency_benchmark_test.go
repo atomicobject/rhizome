@@ -68,9 +68,9 @@ func BenchmarkApproxRankCandidates_Normalized(b *testing.B) {
 	candidates := make([]Candidate, 0, 1000)
 	for i := 0; i < 1000; i++ {
 		candidates = append(candidates, Candidate{
-			Handle: knowledge.NoteHandle(fmt.Sprintf("notes/%04d.md", i)),
-			Owner:  knowledge.NoteHandle(fmt.Sprintf("owner/%03d", i/2)),
-			Path:   fmt.Sprintf("notes/%04d.md", i),
+			SourceRef: SourceRef{Path: fmt.Sprintf("notes/%04d.md", i)},
+			Handle:    knowledge.NoteHandle(fmt.Sprintf("notes/%04d.md", i)),
+			Owner:     knowledge.NoteHandle(fmt.Sprintf("owner/%03d", i/2)),
 			Evidence: []Evidence{
 				{Type: "note_vector_similarity", RawScore: 0.45 + float64(i%7)/20},
 				{Type: "intel_fts_match", RawScore: 0.35 + float64(i%5)/20},
@@ -81,9 +81,28 @@ func BenchmarkApproxRankCandidates_Normalized(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		results := approxRankCandidates(spec, candidates, weights, 2)
+		results, _ := (&WeightedRanker{Weights: Weights{Semantic: weights[EvidenceChannelSemantic], Lexical: weights[EvidenceChannelLexical], Refs: weights[EvidenceChannelRefs]}, MaxPerOwner: 2}).Rank(context.Background(), spec, candidates)
 		if len(results) == 0 {
 			b.Fatal("expected ranked results")
 		}
+	}
+}
+
+var benchmarkMergedCandidate Candidate
+
+func BenchmarkMergeCandidateTwelveEvidence(b *testing.B) {
+	candidate := func(source string) Candidate {
+		c := Candidate{SourceRef: SourceRef{Path: "shared.md"}, Handle: knowledge.NoteHandle("shared.md"), Owner: knowledge.NoteHandle("shared.md")}
+		types := []string{"note_vector_similarity", "note_title_match", "doc_link", "query_specificity"}
+		for i := range 12 {
+			c.Evidence = append(c.Evidence, Evidence{Type: types[i%len(types)], RawScore: float64(i%3+1) / 3, Source: source, Details: map[string]string{"path": fmt.Sprintf("source-%d.md", i), "snippet": "the retained source excerpt", "provenance": source}})
+		}
+		return c
+	}
+	left, right := candidate("left"), candidate("right")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchmarkMergedCandidate = MergeCandidate(left, right)
 	}
 }

@@ -15,10 +15,8 @@ const (
 	EvidenceChannelLexical            EvidenceChannel = "lexical"
 	EvidenceChannelGraph              EvidenceChannel = "graph"
 	EvidenceChannelRefs               EvidenceChannel = "refs"
-	EvidenceChannelFusion             EvidenceChannel = "fusion"
 	EvidenceChannelOntologyStructural EvidenceChannel = "ontology_structural"
 	EvidenceChannelOntologyAmbient    EvidenceChannel = "ontology_ambient"
-	EvidenceChannelRecency            EvidenceChannel = "recency"
 	EvidenceChannelSeedLocality       EvidenceChannel = "seed_locality"
 	EvidenceChannelSpecificity        EvidenceChannel = "specificity"
 )
@@ -62,8 +60,6 @@ var evidenceSpecs = map[string]EvidenceSpec{
 	"symbol_exact":                 {Channel: EvidenceChannelRefs, Normalize: clampUnit, Rankable: true},
 	"symbol_match":                 {Channel: EvidenceChannelRefs, Normalize: clampUnit, Rankable: true},
 	"code_anchor":                  {Channel: EvidenceChannelRefs, Normalize: clampUnit, Rankable: true},
-	"rank_fusion":                  {Channel: EvidenceChannelFusion, Normalize: clampUnit, Rankable: true},
-	"recently_modified":            {Channel: EvidenceChannelRecency, Normalize: clampUnit, Rankable: true},
 	"explicit_seed":                {Channel: EvidenceChannelSeedLocality, Normalize: clampUnit, Rankable: true},
 	"module_doc":                   {Channel: EvidenceChannelSeedLocality, Normalize: clampUnit, Rankable: true},
 	"submodule_doc":                {Channel: EvidenceChannelSeedLocality, Normalize: clampUnit, Rankable: true},
@@ -92,21 +88,6 @@ func MustNormalizeEvidence(ev Evidence) Evidence {
 	return out
 }
 
-func NormalizeEvidenceList(evidence []Evidence) ([]Evidence, error) {
-	if len(evidence) == 0 {
-		return evidence, nil
-	}
-	out := make([]Evidence, len(evidence))
-	for i, ev := range evidence {
-		norm, err := NormalizeEvidence(ev)
-		if err != nil {
-			return nil, err
-		}
-		out[i] = norm
-	}
-	return out, nil
-}
-
 // LinkTextAliasDetail names the link_text_match detail holding a label that
 // several linking notes use for the target and that names every query concept.
 const LinkTextAliasDetail = "alias"
@@ -130,9 +111,6 @@ func rankableEvidence(ev Evidence) bool {
 func evidenceSpecForKey(key string) (EvidenceSpec, bool) {
 	if spec, ok := evidenceSpecs[key]; ok {
 		return spec, true
-	}
-	if strings.HasPrefix(key, "retriever_rank:") {
-		return EvidenceSpec{Channel: EvidenceChannelNone, Normalize: clampZero, Rankable: false}, true
 	}
 	return EvidenceSpec{}, false
 }
@@ -171,197 +149,17 @@ func AggregateEvidenceScoresForRanking(evidence []Evidence) map[EvidenceChannel]
 	return out
 }
 
-func DefaultApproxChannelWeights() map[EvidenceChannel]float64 {
-	return map[EvidenceChannel]float64{
-		EvidenceChannelSemantic:           1.0,
-		EvidenceChannelLexical:            0.8,
-		EvidenceChannelGraph:              0.45,
-		EvidenceChannelRefs:               0.9,
-		EvidenceChannelFusion:             0.75,
-		EvidenceChannelOntologyStructural: 0.7,
-		EvidenceChannelOntologyAmbient:    0.45,
-		EvidenceChannelRecency:            0.1,
-		EvidenceChannelSeedLocality:       0.5,
-		EvidenceChannelSpecificity:        0.9,
-	}
+func DefaultChannelWeights() map[EvidenceChannel]float64 {
+	return (&WeightedRanker{}).ChannelWeights()
 }
 
-func ApproxChannelWeightsForIntent(intent Intent) map[EvidenceChannel]float64 {
-	switch intent {
-	case IntentRelatedToSeed:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           0.4,
-			EvidenceChannelLexical:            0.3,
-			EvidenceChannelGraph:              1.0,
-			EvidenceChannelRefs:               0.9,
-			EvidenceChannelFusion:             0.6,
-			EvidenceChannelOntologyStructural: 0.7,
-			EvidenceChannelOntologyAmbient:    0.4,
-			EvidenceChannelRecency:            0.2,
-			EvidenceChannelSeedLocality:       0.4,
-			EvidenceChannelSpecificity:        0.35,
-		}
-	case IntentDocsForCode:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           0.5,
-			EvidenceChannelLexical:            0.9,
-			EvidenceChannelGraph:              0.15,
-			EvidenceChannelRefs:               1.2,
-			EvidenceChannelFusion:             0.85,
-			EvidenceChannelOntologyStructural: 0.45,
-			EvidenceChannelOntologyAmbient:    0.15,
-			EvidenceChannelRecency:            0.2,
-			EvidenceChannelSeedLocality:       0.55,
-			EvidenceChannelSpecificity:        0.7,
-		}
-	case IntentCodeForDocs:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           0.6,
-			EvidenceChannelLexical:            0.6,
-			EvidenceChannelGraph:              0.2,
-			EvidenceChannelRefs:               1.2,
-			EvidenceChannelFusion:             0.8,
-			EvidenceChannelOntologyStructural: 0.35,
-			EvidenceChannelOntologyAmbient:    0.12,
-			EvidenceChannelRecency:            0.2,
-			EvidenceChannelSeedLocality:       0.45,
-			EvidenceChannelSpecificity:        0.75,
-		}
-	case IntentConsolidation:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           0.4,
-			EvidenceChannelLexical:            0.2,
-			EvidenceChannelGraph:              1.0,
-			EvidenceChannelRefs:               0.4,
-			EvidenceChannelFusion:             0.6,
-			EvidenceChannelOntologyStructural: 0.8,
-			EvidenceChannelOntologyAmbient:    0.45,
-			EvidenceChannelRecency:            0.2,
-			EvidenceChannelSeedLocality:       0.25,
-			EvidenceChannelSpecificity:        0.45,
-		}
-	case IntentOverview:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           1.0,
-			EvidenceChannelLexical:            0.3,
-			EvidenceChannelGraph:              0.5,
-			EvidenceChannelRefs:               0.6,
-			EvidenceChannelFusion:             0.8,
-			EvidenceChannelOntologyStructural: 0.55,
-			EvidenceChannelOntologyAmbient:    0.25,
-			EvidenceChannelRecency:            0.2,
-			EvidenceChannelSeedLocality:       0.35,
-			EvidenceChannelSpecificity:        1.0,
-		}
-	case IntentSubsystemOverview:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           0.8,
-			EvidenceChannelLexical:            0.5,
-			EvidenceChannelGraph:              0.35,
-			EvidenceChannelRefs:               1.0,
-			EvidenceChannelFusion:             0.9,
-			EvidenceChannelOntologyStructural: 0.65,
-			EvidenceChannelOntologyAmbient:    0.25,
-			EvidenceChannelRecency:            0.2,
-			EvidenceChannelSeedLocality:       0.85,
-			EvidenceChannelSpecificity:        0.8,
-		}
-	case IntentGoToDef:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           0.0,
-			EvidenceChannelLexical:            0.6,
-			EvidenceChannelGraph:              0.0,
-			EvidenceChannelRefs:               1.4,
-			EvidenceChannelFusion:             0.0,
-			EvidenceChannelOntologyStructural: 0.1,
-			EvidenceChannelOntologyAmbient:    0.0,
-			EvidenceChannelRecency:            0.1,
-			EvidenceChannelSeedLocality:       0.2,
-			EvidenceChannelSpecificity:        0.1,
-		}
-	case IntentFindUsages, IntentCallers, IntentCallees:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           0.0,
-			EvidenceChannelLexical:            0.5,
-			EvidenceChannelGraph:              0.2,
-			EvidenceChannelRefs:               1.2,
-			EvidenceChannelFusion:             0.0,
-			EvidenceChannelOntologyStructural: 0.15,
-			EvidenceChannelOntologyAmbient:    0.0,
-			EvidenceChannelRecency:            0.1,
-			EvidenceChannelSeedLocality:       0.15,
-			EvidenceChannelSpecificity:        0.15,
-		}
-	case IntentTestsForCode:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           0.0,
-			EvidenceChannelLexical:            1.2,
-			EvidenceChannelGraph:              0.1,
-			EvidenceChannelRefs:               0.6,
-			EvidenceChannelFusion:             0.0,
-			EvidenceChannelOntologyStructural: 0.0,
-			EvidenceChannelOntologyAmbient:    0.0,
-			EvidenceChannelRecency:            0.1,
-			EvidenceChannelSeedLocality:       0.25,
-			EvidenceChannelSpecificity:        0.35,
-		}
-	case IntentExplainSymbol:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           0.7,
-			EvidenceChannelLexical:            0.8,
-			EvidenceChannelGraph:              0.2,
-			EvidenceChannelRefs:               1.0,
-			EvidenceChannelOntologyStructural: 0.25,
-			EvidenceChannelOntologyAmbient:    0.0,
-			EvidenceChannelRecency:            0.2,
-			EvidenceChannelSeedLocality:       0.25,
-			EvidenceChannelSpecificity:        0.8,
-		}
-	case IntentRefactorImpact, IntentSecurityAudit, IntentDataFlow, IntentImplementers, IntentOverrides, IntentImports:
-		return map[EvidenceChannel]float64{
-			EvidenceChannelSemantic:           0.2,
-			EvidenceChannelLexical:            0.3,
-			EvidenceChannelGraph:              1.0,
-			EvidenceChannelRefs:               0.8,
-			EvidenceChannelOntologyStructural: 0.65,
-			EvidenceChannelOntologyAmbient:    0.2,
-			EvidenceChannelRecency:            0.2,
-			EvidenceChannelSeedLocality:       0.2,
-			EvidenceChannelSpecificity:        0.35,
-		}
-	default:
-		return DefaultApproxChannelWeights()
-	}
-}
-
-func NormalizedCandidateBaseScore(c Candidate, weights map[EvidenceChannel]float64) float64 {
-	if len(c.Evidence) == 0 {
-		return 0
-	}
-	channels := AggregateEvidenceScoresForRanking(c.Evidence)
-	score := 0.0
-	for channel, value := range channels {
-		score += weights[channel] * value
-	}
-	return score
-}
-
-func ApproxCandidateScore(c Candidate) float64 {
-	return NormalizedCandidateBaseScore(c, DefaultApproxChannelWeights())
-}
-
-func ApproxScoringConfig(spec QuerySpec, ranker Ranker) (map[EvidenceChannel]float64, int) {
-	weights := ApproxChannelWeightsForIntent(spec.Intent)
-	maxPerOwner := 1
-	if provider, ok := ranker.(ApproxScoreProvider); ok {
-		if approx := provider.ApproxChannelWeights(spec); len(approx) > 0 {
-			weights = approx
-		}
-		if perOwner := provider.ApproxMaxPerOwner(spec); perOwner > 0 {
-			maxPerOwner = perOwner
-		}
-	}
-	return weights, maxPerOwner
+func CandidateScore(c Candidate, weights map[EvidenceChannel]float64) float64 {
+	return ScoreCandidate(c, Weights{
+		Semantic: weights[EvidenceChannelSemantic], Lexical: weights[EvidenceChannelLexical],
+		Graph: weights[EvidenceChannelGraph], Refs: weights[EvidenceChannelRefs],
+		OntologyStructural: weights[EvidenceChannelOntologyStructural], OntologyAmbient: weights[EvidenceChannelOntologyAmbient],
+		SeedLocality: weights[EvidenceChannelSeedLocality], Specificity: weights[EvidenceChannelSpecificity],
+	})
 }
 
 func normalizeEvidenceKey(typ string) string {

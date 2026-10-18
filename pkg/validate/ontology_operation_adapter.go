@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 
@@ -77,7 +78,7 @@ type OntologyOperationPreviewer interface {
 	Preview(
 		context.Context,
 		RunContext,
-		*ontology.Schema,
+		*ontoschema.Schema,
 		OntologyPreviewRequest,
 	) (OntologyPreviewResult, error)
 }
@@ -87,8 +88,7 @@ type ontologyPreviewSession interface {
 	LoadNode(context.Context, ontology.NodeRef) (*ontology.NodeProjection, error)
 	SetScalarField(ontology.NodeRef, string, string) error
 	SetScalarListField(ontology.NodeRef, string, []string) error
-	SetRawFrontmatterList(ontology.NodeRef, string, []string) error
-	SetInlineField(ontology.NodeRef, string, string) error
+	SetRootMetadataList(ontology.NodeRef, string, []string) error
 	SetLinkField(ontology.NodeRef, string, []string) error
 	AddEmbeddedNode(ontology.NodeRef, string, string, string, string) error
 	DeleteNode(ontology.NodeRef) error
@@ -104,13 +104,13 @@ type ontologyPreviewSession interface {
 // OntologyOperationAdapter cannot commit by construction: its dependency
 // exposes PreviewCurrent but omits Commit and CommitWithOptions.
 type OntologyOperationAdapter struct {
-	newSession func(RunContext, *ontology.Schema, bool) ontologyPreviewSession
+	newSession func(RunContext, *ontoschema.Schema, bool) ontologyPreviewSession
 }
 
 // NewOntologyOperationAdapter returns the production preview-only adapter.
 func NewOntologyOperationAdapter() *OntologyOperationAdapter {
 	return &OntologyOperationAdapter{
-		newSession: func(runCtx RunContext, schema *ontology.Schema, allowSelectorRecovery bool) ontologyPreviewSession {
+		newSession: func(runCtx RunContext, schema *ontoschema.Schema, allowSelectorRecovery bool) ontologyPreviewSession {
 			if allowSelectorRecovery {
 				return ontology.NewIdentifierRepairEditSession(runCtx.VaultDef, runCtx.NoteReader, schema)
 			}
@@ -129,7 +129,7 @@ var _ OntologyOperationPreviewer = (*OntologyOperationAdapter)(nil)
 func (a *OntologyOperationAdapter) Preview(
 	ctx context.Context,
 	runCtx RunContext,
-	schema *ontology.Schema,
+	schema *ontoschema.Schema,
 	request OntologyPreviewRequest,
 ) (OntologyPreviewResult, error) {
 	if a == nil || a.newSession == nil {
@@ -257,9 +257,9 @@ func stageOntologyEdit(
 	case OntologyEditSetScalarList:
 		err = session.SetScalarListField(ref, edit.Field, edit.Values)
 	case OntologyEditSetRawFrontmatterList:
-		err = session.SetRawFrontmatterList(ref, edit.Field, edit.Values)
+		err = session.SetRootMetadataList(ref, edit.Field, edit.Values)
 	case OntologyEditSetInline:
-		err = session.SetInlineField(ref, edit.Field, edit.Value)
+		err = session.SetScalarField(ref, edit.Field, edit.Value)
 	case OntologyEditSetLink:
 		err = session.SetLinkField(ref, edit.Field, edit.Values)
 	case OntologyEditAddEmbedded:

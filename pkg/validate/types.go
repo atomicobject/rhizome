@@ -6,41 +6,43 @@ package validate
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	validationcatalog "github.com/atomicobject/rhizome/pkg/validate/catalog"
 	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // Check name constants.
 const (
-	CheckBrokenLinks     = "broken_links"
-	CheckLinkHygiene     = "link_hygiene"
-	CheckOntology        = "ontology"
-	CheckCodeFrontmatter = "code_frontmatter"
-	CheckCodeAnchors     = "code_anchors"
-	CheckIdentifiers     = "identifiers"
-	// CheckAliases keeps source compatibility for legacy Go callers. Public
-	// aliases/identifier selectors canonicalize to CheckIdentifiers.
-	CheckAliases          = CheckIdentifiers
-	CheckQueryRecipes     = "query_recipes"
-	CheckViews            = "views"
-	CheckSkillOverlays    = "skill_overlays"
-	CheckCompanionDocs    = "companion_docs"
-	CheckFrozenScopeDrift = "frozen_scope_drift"
+	CheckBrokenLinks      = validationcatalog.CheckBrokenLinks
+	CheckLinkHygiene      = validationcatalog.CheckLinkHygiene
+	CheckOntology         = validationcatalog.CheckOntology
+	CheckCodeFrontmatter  = validationcatalog.CheckCodeFrontmatter
+	CheckCodeAnchors      = validationcatalog.CheckCodeAnchors
+	CheckIdentifiers      = validationcatalog.CheckIdentifiers
+	CheckQueryRecipes     = validationcatalog.CheckQueryRecipes
+	CheckViews            = validationcatalog.CheckViews
+	CheckSkillOverlays    = validationcatalog.CheckSkillOverlays
+	CheckCompanionDocs    = validationcatalog.CheckCompanionDocs
+	CheckFrozenScopeDrift = validationcatalog.CheckFrozenScopeDrift
 	// CheckFragileExternal is opt-in only and never appears in DefaultChecks.
 	// It audits heading-text external links that should be upgraded or repaired
 	// deliberately when headings drift.
 	// Coderefs: [[heading-rename-safety-and-fragile-external-links#^spec-0054-us1]]
-	CheckFragileExternal = "fragile_external_link"
+	CheckFragileExternal = validationcatalog.CheckFragileExternal
 	// CheckOrphanBlockIDs is opt-in only and never appears in DefaultChecks.
 	// Cleanup of unreferenced anchors must be deliberate per SPEC-0023's
 	// usage-driven block-id lifecycle.
 	// Coderefs: [[linkable-embedded-node-identifiers#^spec-0023-us4]]
-	CheckOrphanBlockIDs = "orphan_block_ids"
+	CheckOrphanBlockIDs = validationcatalog.CheckOrphanBlockIDs
 	// CheckPlaceholderLinks lists unresolved links whose target never existed.
 	// It is audit-only and never appears in DefaultChecks.
-	CheckPlaceholderLinks = "placeholder_links"
+	CheckPlaceholderLinks = validationcatalog.CheckPlaceholderLinks
 )
 
 // DefaultChecks is the ordered list of checks to run when none are specified.
@@ -107,40 +109,24 @@ type Issue struct {
 	// Variant names the finding's case within its code, so one decision
 	// resolves every finding in it. Nil for codes without cases. It is
 	// presentation and grouping evidence only; StableIssueKey excludes it.
-	Variant *IssueVariant `json:"variant,omitempty"`
-}
-
-// IssueVariant is the specific case of a finding within its issue code. Key
-// is stable and comparable within (check, code); Label is display text.
-type IssueVariant struct {
-	Key   string `json:"key"`
-	Label string `json:"label"`
-}
-
-// newIssueVariant returns nil for an empty key, so codes without cases stay
-// variant-free.
-func newIssueVariant(key, label string) *IssueVariant {
-	if key == "" {
-		return nil
-	}
-	return &IssueVariant{Key: key, Label: label}
+	Variant *diag.Variant `json:"variant,omitempty"`
 }
 
 // CheckResult is the outcome of a single validation check.
 type CheckResult struct {
-	Name         string            `json:"name"`
-	OK           bool              `json:"ok"`
-	Skipped      bool              `json:"skipped,omitempty"`
-	IssueCount   int               `json:"issueCount"`
-	Summary      string            `json:"summary,omitempty"`
-	Notes        []string          `json:"notes,omitempty"`
-	Error        string            `json:"error,omitempty"`
-	DurationMs   int64             `json:"durationMs"`
-	Issues       []Issue           `json:"issues,omitempty"`
-	Buckets      []MigrationBucket `json:"migrationBuckets,omitempty"`
-	Fixes        []FixAction       `json:"fixes,omitempty"`
-	allIssueKeys []string
-	fullIssues   []Issue
+	Name          string            `json:"name"`
+	OK            bool              `json:"ok"`
+	NotApplicable string            `json:"-"`
+	IssueCount    int               `json:"issueCount"`
+	Summary       string            `json:"summary,omitempty"`
+	Notes         []string          `json:"notes,omitempty"`
+	Error         string            `json:"error,omitempty"`
+	DurationMs    int64             `json:"durationMs"`
+	Issues        []Issue           `json:"issues,omitempty"`
+	Buckets       []MigrationBucket `json:"migrationBuckets,omitempty"`
+	Fixes         []FixAction       `json:"fixes,omitempty"`
+	allIssueKeys  []string
+	fullIssues    []Issue
 	// identifierReconciliation remains internal until suite aggregation lifts
 	// the additive public report envelope onto Result.
 	identifierReconciliation *identifierreconcile.ReconciliationResult
@@ -280,55 +266,60 @@ type Result struct {
 	FixExecution             *FixExecution                             `json:"fixExecution,omitempty"`
 	RepairJournals           []RepairJournalEvidence                   `json:"repairJournals,omitempty"`
 	IdentifierReconciliation *identifierreconcile.ReconciliationResult `json:"identifierReconciliation,omitempty"`
+	repairPreparation        *repairPreparation
 }
 
-// Options controls which checks to run and how fixes are handled.
-type Options struct {
-	Checks         []string
-	SkipAnchors    bool
-	SkipEmbeds     bool
-	IncludeImages  bool
-	MaxIssues      int
+// ScanOptions controls one read-only validation invocation.
+type ScanOptions struct {
+	Checks        []string
+	SkipAnchors   bool
+	SkipEmbeds    bool
+	IncludeImages bool
+	MaxIssues     int
+	// ApplyCommand retains the caller's exact follow-up command and scope.
+	ApplyCommand string
+	ScopeNote    string
+	ScopeTarget  string
+	ScopeRef     string
+	// RunContext is required; it retains the caller's live reader for repair authority.
+	RunContext                 *RunContext
+	postApplyJournalValidation bool
+	postcheckPaths             []string
+}
+
+// ApplyOptions controls reviewed repairs and the exact prepared postcheck.
+// ScanOptions preserves the original selection and mutation-relevant scan scope.
+type ApplyOptions struct {
+	ScanOptions
 	Fix            bool
 	NonInteractive bool
 	Confirm        func(string) (bool, error)
-	// ApplySelection, when non-empty, replaces safety-tier selection: apply
-	// exactly the reviewed actions whose ID or any stable issue key matches an
-	// entry. Every entry must match, and agent_required actions are rejected.
-	ApplySelection     []string
-	AllowHistorical    bool
-	PostApplyRefresher PostApplyRefresher
-	ReplanCommand      string
-	// ApplyCommand is the caller's exact positional fix command, including the
-	// original selector and vault/scope flags. Internal callers may leave it
-	// empty and receive conservative per-check fallback guidance.
-	ApplyCommand               string
-	CompletionArtifact         *RepairCompletionArtifact
-	repairHooks                *repairExecutionHooks
-	leaseHeldRepairPlanner     func(context.Context, *IndexLockLease) (*FixPlan, error)
-	postApplyCheck             repairPostApplyCheck
-	repairSessionPostcheck     func(Result)
-	postApplyJournalValidation bool
-	ScopeNote                  string
-	ScopeTarget                string
-	ScopeRef                   string
-	// RunContext provides vault primitives. When nil, RunSuiteOnce returns an error.
-	RunContext *RunContext
-	// postcheckPaths limits an edit-session save's held postcheck to the notes
-	// it wrote. Empty means the whole vault.
-	postcheckPaths []string
+	// ApplySelection chooses exactly the reviewed action IDs or issue keys.
+	ApplySelection         []string
+	AllowHistorical        bool
+	PostApplyRefresher     PostApplyRefresher
+	ReplanCommand          string
+	CompletionArtifact     *RepairCompletionArtifact
+	repairHooks            *repairExecutionHooks
+	leaseHeldRepairPlanner func(context.Context, *indexlock.Lease) (*FixPlan, error)
+	postApplyCheck         repairPostApplyCheck
+	repairSessionPostcheck func(Result)
 }
 
 // RunContext provides the vault primitives needed by all checks.
 type RunContext struct {
+	sourceLease  *indexlock.Lease
+	sourceWriter *sourcetxn.Writer
+
 	VaultDef   obsidian.VaultDefinition
 	VaultPath  string
-	VaultMgr   obsidian.VaultManager
 	NoteReader obsidian.NoteReader
 	// NoteMetadata is the explicit provider-aware projection dependency used
 	// by every validation path that refreshes an ontology runtime.
 	NoteMetadata notemeta.Indexer
-	MaxIssues    int
+	// SkillOverlays is supplied by application composition for the bundled-skill check.
+	SkillOverlays func() (skilloverlay.Manifest, error)
+	MaxIssues     int
 	// sourceSnapshot and brokenLinkCandidates are immutable execution-only
 	// caches. The RunContext returned to repair callers keeps the live reader.
 	sourceSnapshot       *validationRunSnapshot
@@ -336,7 +327,7 @@ type RunContext struct {
 	// unresolvedLinks shares one vault scan and one git history read between
 	// broken-links and placeholder-links within a suite run.
 	unresolvedLinks *sharedUnresolvedLinkScan
-	// postcheckPaths is Options.postcheckPaths for the running suite; nil
+	// postcheckPaths is ScanOptions.postcheckPaths for the running suite; nil
 	// means every note is in scope.
 	postcheckPaths map[string]struct{}
 }

@@ -3,10 +3,11 @@ package validate
 import (
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/diag"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
 )
 
@@ -66,16 +67,16 @@ func assessIdentifierMigrations(inventory identifierRuntimeInventory) []identifi
 // identifierMigrationSourceMembers keeps already-migrated members in the
 // complete pool as target reservations. This lets an interrupted migration or
 // branch merge resume without rewriting target-strategy identifiers.
-func identifierMigrationSourceMembers(pool *identifierRuntimePool) ([]identifierreconcile.MigrationMember, []ontology.IdentifierReservation) {
+func identifierMigrationSourceMembers(pool *identifierRuntimePool) ([]identifierreconcile.MigrationMember, []ontoschema.IdentifierReservation) {
 	members := make([]identifierreconcile.MigrationMember, 0, len(pool.members))
-	reservations := append([]ontology.IdentifierReservation(nil), pool.targetReservations...)
+	reservations := append([]ontoschema.IdentifierReservation(nil), pool.targetReservations...)
 	target, err := pool.targetFormat.StrategyContract()
 	if err != nil {
 		return append(members, pool.members...), reservations
 	}
 	for _, member := range pool.members {
 		if _, ok := target.Parse(member.PreferredValue); ok {
-			reservations = append(reservations, ontology.IdentifierReservation{
+			reservations = append(reservations, ontoschema.IdentifierReservation{
 				Value: member.PreferredValue,
 				Owner: member.Node.String(),
 			})
@@ -143,7 +144,7 @@ func plannedIdentifierMigrationOutput(assessment identifierMigrationAssessment) 
 		MemberCount: len(plan.Rewrites), Materializable: true, PlanFingerprint: plan.Fingerprint,
 	}
 	// One reviewed action migrates the whole pool, so the pool is the variant.
-	variant := newIssueVariant(plan.TargetPool.String(), fmt.Sprintf("%s%s (%s → %s)",
+	variant := diag.NewVariant(plan.TargetPool.String(), fmt.Sprintf("%s%s (%s → %s)",
 		plan.TargetPool.Prefix, plan.TargetPool.Separator, plan.SourcePool.Strategy, plan.TargetPool.Strategy))
 	issues := make([]Issue, 0, len(plan.Rewrites))
 	issueKeys := make([]string, 0, len(plan.Rewrites))

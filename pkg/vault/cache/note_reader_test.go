@@ -19,7 +19,7 @@ func (n *fakeNoteReader) GetContents(def obsidian.VaultDefinition, noteName stri
 	key := paths.NormalizeNotePath(noteName).String()
 	content, ok := n.notes[key]
 	if !ok && stdpath.Ext(key) == "" {
-		content, ok = n.notes[paths.NormalizeNote(key).String()]
+		content, ok = n.notes[paths.EnsureNoteExtension(key, ".md").String()]
 	}
 	if !ok {
 		return "", errors.New(obsidian.NoteDoesNotExistError)

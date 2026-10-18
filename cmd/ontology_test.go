@@ -1,5 +1,7 @@
 package cmd
 
+import vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+
 import (
 	"bytes"
 	"context"
@@ -9,12 +11,13 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	"github.com/atomicobject/rhizome/pkg/app/queryengine/runtimeproviders"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -30,59 +33,13 @@ func TestPrintOntologyRuntimeError_AllowsNilRuntime(t *testing.T) {
 	require.ErrorIs(t, printOntologyRuntimeError(cmd, nil, err), err)
 }
 
-func TestOntologyQueryRuntimeCodePathsRejectEscapes(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(root, "pkg"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "pkg", "thing.go"), []byte("package pkg\n"), 0o644))
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
-		live: &bootstrap.LiveRuntime{VaultDef: obsidian.VaultDefinition{Path: root}},
-	}}
-
-	rel, abs, err := provider.runtimeCodePath("pkg/thing.go")
-	require.NoError(t, err)
-	require.Equal(t, "pkg/thing.go", rel)
-	expectedAbs, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "thing.go"))
-	require.NoError(t, err)
-	require.Equal(t, expectedAbs, filepath.FromSlash(abs))
-
-	_, _, err = provider.runtimeCodePath("../outside.go")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "inside the vault")
-}
-
-func TestOntologyQueryRuntimeNotePathsPreserveMixedCaseAuthoredExtensions(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
-		live: &bootstrap.LiveRuntime{VaultDef: obsidian.VaultDefinition{Path: root}},
-	}}
-
-	for _, rel := range []string{"notes/Decision.MD", "notes/Reference.HTML"} {
-		t.Run(rel, func(t *testing.T) {
-			absPath := filepath.Join(root, filepath.FromSlash(rel))
-			require.NoError(t, os.MkdirAll(filepath.Dir(absPath), 0o755))
-			require.NoError(t, os.WriteFile(absPath, []byte("note"), 0o644))
-
-			gotRel, gotAbs, err := provider.runtimeNotePath(rel)
-			require.NoError(t, err)
-			require.Equal(t, rel, gotRel)
-			expectedAbs, err := filepath.EvalSymlinks(absPath)
-			require.NoError(t, err)
-			require.Equal(t, expectedAbs, filepath.FromSlash(gotAbs))
-		})
-	}
-}
-
 func TestOntologyQueryRuntimeDocsForCodeRejectsEscapedPathBeforeRead(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
+	provider := queryProvidersForTest(&ontologyQueryRuntime{
 		live: &bootstrap.LiveRuntime{VaultDef: obsidian.VaultDefinition{Path: root}},
-	}}
+	})
 
 	pack, err := provider.DocsForCode(context.Background(), ontologyquery.CodeRuntimeRequest{Path: "../outside.go"})
 	require.Error(t, err)
@@ -105,7 +62,7 @@ code-anchors:
 		"docs/Decision.md": "---\nsummary: indexed decision\n---\n\n# Decision\n",
 		"docs/Anchored.md": anchorNote,
 	})
-	ctx := context.Background()
+	ctx := vaultconfig.WithEnv(context.Background(), vault.env)
 	store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
 	require.NoError(t, store.ReplaceDocLinksForPath(ctx, "pkg/thing.go", []codeanchor.DocLink{{
@@ -138,10 +95,10 @@ code-anchors:
 	t.Cleanup(func() { require.NoError(t, live.Close()) })
 	require.NoError(t, live.WaitForCodeIndex(ctx))
 
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
+	provider := queryProvidersForTest(&ontologyQueryRuntime{
 		live:       live,
 		noteReader: &obsidian.Note{},
-	}}
+	})
 	pack, err := provider.DocsForCode(ctx, ontologyquery.CodeRuntimeRequest{Path: "pkg/thing.go", First: 10})
 	require.NoError(t, err)
 	require.Contains(t, pack.Notes, ontologyquery.RuntimePath{
@@ -162,9 +119,9 @@ func TestOntologyQueryRuntimeTestsForCodeRejectsEscapedPath(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
+	provider := queryProvidersForTest(&ontologyQueryRuntime{
 		live: &bootstrap.LiveRuntime{VaultDef: obsidian.VaultDefinition{Path: root}},
-	}}
+	})
 
 	pack, err := provider.TestsForCode(context.Background(), ontologyquery.CodeRuntimeRequest{Path: "../outside.go"})
 	require.NoError(t, err)
@@ -192,10 +149,10 @@ code-anchors:
 # Runtime anchors
 `), 0o644))
 
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
+	provider := queryProvidersForTest(&ontologyQueryRuntime{
 		live:              &bootstrap.LiveRuntime{VaultDef: obsidian.VaultDefinition{Path: root}},
 		noteFormatRuntime: &formats,
-	}}
+	})
 
 	pack, err := provider.CodeForNote(context.Background(), ontologyquery.CodeRuntimeRequest{
 		Path:  "docs/code-anchors/runtime.md",
@@ -227,10 +184,10 @@ func TestOntologyQueryRuntimeCodeForNoteWarnsWhenNoAnchorsFound(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(notePath), 0o755))
 	require.NoError(t, os.WriteFile(notePath, []byte("# Plain note\n\nNo code anchors here.\n"), 0o644))
 
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
+	provider := queryProvidersForTest(&ontologyQueryRuntime{
 		live:              &bootstrap.LiveRuntime{VaultDef: obsidian.VaultDefinition{Path: root}},
 		noteFormatRuntime: &formats,
-	}}
+	})
 
 	pack, err := provider.CodeForNote(context.Background(), ontologyquery.CodeRuntimeRequest{
 		Path:  "docs/notes/plain.md",
@@ -259,9 +216,9 @@ code-anchors:
 ---
 `), 0o644))
 
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
+	provider := queryProvidersForTest(&ontologyQueryRuntime{
 		live: &bootstrap.LiveRuntime{VaultDef: obsidian.VaultDefinition{Path: root}},
-	}}
+	})
 	pack, err := provider.CodeForNote(context.Background(), ontologyquery.CodeRuntimeRequest{Path: "notes/runtime.md"})
 	require.NoError(t, err)
 	require.Empty(t, pack.Code)
@@ -285,10 +242,10 @@ code-anchors:
 `), 0o644))
 	invalid := noteformat.Runtime{}
 
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
+	provider := queryProvidersForTest(&ontologyQueryRuntime{
 		live:              &bootstrap.LiveRuntime{VaultDef: obsidian.VaultDefinition{Path: root}},
 		noteFormatRuntime: &invalid,
-	}}
+	})
 	pack, err := provider.CodeForNote(context.Background(), ontologyquery.CodeRuntimeRequest{Path: "notes/runtime.md"})
 	require.NoError(t, err)
 	require.Empty(t, pack.Code)
@@ -312,10 +269,10 @@ code-anchors:
 	formats, err := builtin.NewRuntime()
 	require.NoError(t, err)
 
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
+	provider := queryProvidersForTest(&ontologyQueryRuntime{
 		live:              &bootstrap.LiveRuntime{VaultDef: obsidian.VaultDefinition{Root: root, Includes: []string{"notes/*.html"}}},
 		noteFormatRuntime: &formats,
-	}}
+	})
 	pack, err := provider.CodeForNote(context.Background(), ontologyquery.CodeRuntimeRequest{Path: "notes/runtime.html"})
 	require.NoError(t, err)
 	require.Empty(t, pack.Code)
@@ -343,10 +300,10 @@ code-anchors:
 	formats, err := noteformat.NewRuntime(registry, projector)
 	require.NoError(t, err)
 
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{
+	provider := queryProvidersForTest(&ontologyQueryRuntime{
 		live:              &bootstrap.LiveRuntime{VaultDef: obsidian.VaultDefinition{Root: root, Includes: []string{"notes/*.future"}}},
 		noteFormatRuntime: &formats,
-	}}
+	})
 	pack, err := provider.CodeForNote(context.Background(), ontologyquery.CodeRuntimeRequest{Path: "notes/runtime.future"})
 	require.NoError(t, err)
 	require.Empty(t, pack.Code)
@@ -389,9 +346,31 @@ func futureNoteDescriptor() noteformat.Descriptor {
 func TestOntologyQueryRuntimeAuthoringGuideRequiresType(t *testing.T) {
 	t.Parallel()
 
-	provider := ontologyQueryRuntimeProviders{rt: &ontologyQueryRuntime{}}
+	provider := queryProvidersForTest(&ontologyQueryRuntime{})
 	guide, err := provider.AuthoringGuide(context.Background(), ontologyquery.OntologyAuthoringGuideRequest{Type: ""})
 	require.NoError(t, err)
 	require.False(t, guide.Available)
 	require.Equal(t, "type_required", guide.Warnings[0].Code)
+}
+
+func queryProvidersForTest(rt *ontologyQueryRuntime) *runtimeproviders.Providers {
+	deps := ontologyquery.Deps{NoteReader: rt.noteReader}
+	var anchors *codeanchor.Service
+	if rt.live != nil {
+		deps.VaultDef = rt.live.VaultDef
+		if store := rt.live.IntelStore(); store != nil {
+			deps.Store = store
+		}
+		anchors = rt.live.CodeAnchorService()
+		if formats, err := rt.live.NoteMetadataIndexer().FormatRuntime(); err == nil {
+			deps.NoteFormats = formats
+		}
+	}
+	if rt.runtime != nil && rt.runtime.Store != nil {
+		deps.Store = rt.runtime.Store
+	}
+	if rt.noteFormatRuntime != nil {
+		deps.NoteFormats = *rt.noteFormatRuntime
+	}
+	return runtimeproviders.New(rt.schema, rt.execSchema, deps, anchors)
 }

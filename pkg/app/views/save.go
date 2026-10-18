@@ -5,15 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/fileio"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // ErrSaveConflict means the view changed since the client loaded it.
@@ -312,7 +313,7 @@ func (s *Service) writeViewFile(path string, data, expected []byte) error {
 	if !bytes.Equal(current, expected) {
 		return fmt.Errorf("%w: %s changed while saving", ErrSaveConflict, s.vaultRelative(path))
 	}
-	return obsidian.WriteFileAtomicPreservingMode(path, data, 0o644)
+	return fileio.WriteFileAtomicPreservingMode(path, data, 0o644)
 }
 
 // viewFileLocks serializes the check-and-rename of in-place saves per file.
@@ -363,7 +364,7 @@ func (s *Service) createViewFile(path string, data []byte) error {
 // freeViewSlot picks an id and file name from the subject's name that no
 // loaded view or existing file uses: task, task-2, and so on.
 func (s *Service) freeViewSlot(root, subject string, existing []viewconfig.ViewDefinition) (string, string) {
-	base := strings.ReplaceAll(strings.ToLower(ontology.HumanizeFieldName(subject)), " ", "-")
+	base := strings.ReplaceAll(strings.ToLower(ontoschema.HumanizeFieldName(subject)), " ", "-")
 	base = strings.Trim(strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
 			return r

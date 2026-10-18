@@ -7,19 +7,22 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
 
 	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 func TestPythonFixture_PrimaryOntologyChunksReplaceGeneratedCards(t *testing.T) {
@@ -31,7 +34,7 @@ func TestPythonFixture_PrimaryOntologyChunksReplaceGeneratedCards(t *testing.T) 
 	const notePath = "notes/specs/search-rewrite.md"
 
 	ws := fixture.NewWorkspace(t)
-	schema, err := ontology.LoadSchema(ws.CodeRoot)
+	schema, err := ontoschema.LoadSchema(ws.CodeRoot)
 	require.NoError(t, err)
 	projection, err := ontology.ProjectNote(
 		context.Background(),
@@ -42,7 +45,7 @@ func TestPythonFixture_PrimaryOntologyChunksReplaceGeneratedCards(t *testing.T) 
 	)
 	require.NoError(t, err)
 
-	planned, err := semantic.BuildOntologyNodeChunks(
+	planned, err := embedindex.BuildOntologyNodeChunks(
 		schema,
 		projection,
 		embeddings.ProviderConfig{Provider: "test", Model: "test", Dimensions: 256},
@@ -63,7 +66,7 @@ func TestPythonFixture_PrimaryOntologyChunksReplaceGeneratedCards(t *testing.T) 
 		if chunk.OwnerID != storyNodeID {
 			continue
 		}
-		require.Equal(t, semantic.GranularityOntologyNodeBody, chunk.Granularity)
+		require.Equal(t, embeddings.GranularityOntologyNodeBody, chunk.Granularity)
 		storyChunkID = chunk.ChunkID
 		storyText = planned.Texts[chunk.ChunkID]
 		break
@@ -94,7 +97,7 @@ func TestPythonFixture_PrimaryOntologyChunksReplaceGeneratedCards(t *testing.T) 
 		  AND c.owner_id = ?`, notePath, storyNodeID,
 	).Scan(&indexedChunkID, &indexedGranularity, &indexedRefJSON))
 	require.Equal(t, storyChunkID, indexedChunkID)
-	require.Equal(t, semantic.GranularityOntologyNodeBody, indexedGranularity)
+	require.Equal(t, embeddings.GranularityOntologyNodeBody, indexedGranularity)
 	require.JSONEq(t, storyRefJSON, indexedRefJSON)
 	require.NoError(t, db.QueryRow(`
 		SELECT COUNT(*)

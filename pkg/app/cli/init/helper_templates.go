@@ -8,38 +8,16 @@ import (
 	"path"
 	"sort"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
 )
 
 //go:embed templates templates/**/*
 var agentHelperTemplates embed.FS
 
-func loadAgentHelperTemplate(name string) (string, error) {
-	p := path.Join("templates", name)
-	b, err := fs.ReadFile(agentHelperTemplates, p)
-	if err != nil {
-		return "", fmt.Errorf("read agent helper template %q: %w", name, err)
-	}
-	s := strings.TrimSpace(string(b))
-	if s == "" {
-		return "", fmt.Errorf("agent helper template %q is empty", name)
-	}
-	return s, nil
-}
-
 type agentTemplate struct {
 	Name    string
 	Content string
-}
-
-type skillTemplateFile struct {
-	Path       string
-	Content    []byte
-	IsMarkdown bool
-}
-
-type skillTemplate struct {
-	Name  string
-	Files []skillTemplateFile
 }
 
 type starterTemplateFile struct {
@@ -78,13 +56,13 @@ func loadCommandTemplates() ([]agentTemplate, error) {
 // loadStarterSkillTemplates.
 //
 // Docs: [[init-starter-workflow#^spec-0038-us2-ac3]]
-func loadSkillTemplates() ([]skillTemplate, error) {
+func loadSkillTemplates() ([]skilloverlay.Skill, error) {
 	groupRoot := path.Join("templates", "skills", "markdown")
 	entries, err := fs.ReadDir(agentHelperTemplates, groupRoot)
 	if err != nil {
 		return nil, fmt.Errorf("list skill templates under %q: %w", groupRoot, err)
 	}
-	var out []skillTemplate
+	var out []skilloverlay.Skill
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			return nil, fmt.Errorf("skill template entry %q is not a directory", entry.Name())
@@ -108,7 +86,7 @@ func loadSkillTemplates() ([]skillTemplate, error) {
 // or has no skills directory.
 //
 // Docs: [[init-template-architecture#^spec-0039-us2-ac2]]
-func loadStarterSkillTemplates(template string) ([]skillTemplate, error) {
+func loadStarterSkillTemplates(template string) ([]skilloverlay.Skill, error) {
 	if template == "" {
 		return nil, nil
 	}
@@ -120,7 +98,7 @@ func loadStarterSkillTemplates(template string) ([]skillTemplate, error) {
 		}
 		return nil, fmt.Errorf("list starter skill templates under %q: %w", root, err)
 	}
-	var out []skillTemplate
+	var out []skilloverlay.Skill
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			return nil, fmt.Errorf("starter skill template entry %q is not a directory", entry.Name())
@@ -143,40 +121,40 @@ func loadStarterSkillTemplates(template string) ([]skillTemplate, error) {
 // loadAllSkillTemplates merges core rhizome skills with all selected
 // templates' bundled skills. Name collisions across core/template bundles are
 // explicit errors so templates cannot silently shadow one another.
-func loadAllSkillTemplates(templates []string) ([]skillTemplate, error) {
+func loadAllSkillTemplates(templates []string) ([]skilloverlay.Skill, error) {
 	skills, _, err := loadAllSkillTemplatesWithReport(templates)
 	return skills, err
 }
 
-func loadAllSkillTemplatesWithReport(templates []string) ([]skillTemplate, SkillOverlayManifest, error) {
+func loadAllSkillTemplatesWithReport(templates []string) ([]skilloverlay.Skill, skilloverlay.Manifest, error) {
 	base, err := loadSkillTemplates()
 	if err != nil {
-		return nil, SkillOverlayManifest{}, err
+		return nil, skilloverlay.Manifest{}, err
 	}
 	seen := make(map[string]struct{}, len(base))
 	for _, t := range base {
 		seen[t.Name] = struct{}{}
 	}
-	var overlays []loadedSkillOverlay
+	var overlays []skilloverlay.LoadedOverlay
 	for order, template := range templates {
 		templateSkills, err := loadStarterSkillTemplates(template)
 		if err != nil {
-			return nil, SkillOverlayManifest{}, err
+			return nil, skilloverlay.Manifest{}, err
 		}
 		for _, t := range templateSkills {
 			if _, ok := seen[t.Name]; ok {
-				return nil, SkillOverlayManifest{}, fmt.Errorf("template skill %q collides with an existing bundled skill", t.Name)
+				return nil, skilloverlay.Manifest{}, fmt.Errorf("template skill %q collides with an existing bundled skill", t.Name)
 			}
 			seen[t.Name] = struct{}{}
 			base = append(base, t)
 		}
 		templateOverlays, err := loadStarterSkillOverlayTemplates(template, order)
 		if err != nil {
-			return nil, SkillOverlayManifest{}, err
+			return nil, skilloverlay.Manifest{}, err
 		}
 		overlays = append(overlays, templateOverlays...)
 	}
-	base, report, err := applySkillOverlays(base, overlays, templates...)
+	base, report, err := skilloverlay.Render(base, overlays, templates...)
 	if err != nil {
 		return nil, report.Manifest(), err
 	}
@@ -186,8 +164,8 @@ func loadAllSkillTemplatesWithReport(templates []string) ([]skillTemplate, Skill
 
 // readSkillTemplate walks a single skill directory and returns its files.
 // Shared by loadSkillTemplates and loadStarterSkillTemplates.
-func readSkillTemplate(name, skillRoot string) (skillTemplate, error) {
-	var files []skillTemplateFile
+func readSkillTemplate(name, skillRoot string) (skilloverlay.Skill, error) {
+	var files []skilloverlay.File
 	hasSkill := false
 	if err := fs.WalkDir(agentHelperTemplates, skillRoot, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -214,7 +192,7 @@ func readSkillTemplate(name, skillRoot string) (skillTemplate, error) {
 			if trimmed == "" {
 				return fmt.Errorf("skill template %q file %q is empty", name, rel)
 			}
-			files = append(files, skillTemplateFile{
+			files = append(files, skilloverlay.File{
 				Path:       rel,
 				Content:    []byte(trimmed),
 				IsMarkdown: true,
@@ -227,20 +205,20 @@ func readSkillTemplate(name, skillRoot string) (skillTemplate, error) {
 		if len(content) == 0 {
 			return fmt.Errorf("skill template %q file %q is empty", name, rel)
 		}
-		files = append(files, skillTemplateFile{
+		files = append(files, skilloverlay.File{
 			Path:       rel,
 			Content:    content,
 			IsMarkdown: false,
 		})
 		return nil
 	}); err != nil {
-		return skillTemplate{}, fmt.Errorf("read skill template %q: %w", name, err)
+		return skilloverlay.Skill{}, fmt.Errorf("read skill template %q: %w", name, err)
 	}
 	if !hasSkill {
-		return skillTemplate{}, fmt.Errorf("skill template %q missing SKILL.md", name)
+		return skilloverlay.Skill{}, fmt.Errorf("skill template %q missing SKILL.md", name)
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
-	return skillTemplate{Name: name, Files: files}, nil
+	return skilloverlay.Skill{Name: name, Files: files}, nil
 }
 
 // loadStarterTemplates returns the starter's repo/ tree, which installs into
@@ -416,172 +394,16 @@ func applyPlaceholders(body string, replacements map[string]string) string {
 	return r.Replace(body)
 }
 
-func expandAgentTemplateEmbeds(body string) (string, error) {
-	if !strings.Contains(body, "![[") {
-		return body, nil
-	}
-
-	// We only expand Obsidian-style embeds (e.g., ![[Title]]) that appear in normal
-	// prose. Ignore anything inside fenced code blocks or inline code spans so
-	// templates can mention embed syntax safely.
-	//
-	// This is intentionally a small, purpose-built markdown scanner rather than
-	// a full parser.
-	var b strings.Builder
-
-	inFence := false
-	var fenceChar byte
-	var fenceLen int
-
-	inCodeSpan := false
-	var codeSpanLen int
-
-	for i := 0; i < len(body); {
-		atLineStart := i == 0 || body[i-1] == '\n'
-		if atLineStart && !inCodeSpan {
-			if ok, fc, fl, next := parseMarkdownFenceLine(body, i); ok {
-				// Fence delimiter line; copy as-is and toggle fence state.
-				b.WriteString(body[i:next])
-				if !inFence {
-					inFence = true
-					fenceChar = fc
-					fenceLen = fl
-				} else if fc == fenceChar && fl >= fenceLen {
-					inFence = false
-					fenceChar = 0
-					fenceLen = 0
-				}
-				i = next
-				continue
-			}
-			if inFence {
-				// Inside fenced code block; copy the whole line and keep going.
-				next := nextLineStart(body, i)
-				b.WriteString(body[i:next])
-				i = next
-				continue
-			}
-		}
-
-		// Not in a fenced code block.
-		if body[i] == '`' {
-			runLen := countRun(body, i, '`')
-			b.WriteString(body[i : i+runLen])
-			if inCodeSpan {
-				if runLen == codeSpanLen {
-					inCodeSpan = false
-					codeSpanLen = 0
-				}
-			} else {
-				inCodeSpan = true
-				codeSpanLen = runLen
-			}
-			i += runLen
-			continue
-		}
-
-		if !inCodeSpan && strings.HasPrefix(body[i:], "![[") {
-			raw, consumed, ok := parseObsidianEmbed(body[i:])
-			if !ok {
-				b.WriteByte(body[i])
-				i++
-				continue
-			}
-			target, err := normalizeEmbedTarget(raw)
-			if err != nil {
-				return "", err
-			}
-			content, err := loadRhizomeMdTemplate(target)
-			if err != nil {
-				return "", fmt.Errorf("expand embed %q: %w", raw, err)
-			}
-			b.WriteString(content)
-			i += consumed
-			continue
-		}
-
-		b.WriteByte(body[i])
-		i++
-	}
-	return b.String(), nil
-}
-
-func nextLineStart(s string, start int) int {
-	if start >= len(s) {
-		return len(s)
-	}
-	if idx := strings.IndexByte(s[start:], '\n'); idx >= 0 {
-		return start + idx + 1
-	}
-	return len(s)
-}
-
-// parseMarkdownFenceLine detects CommonMark-style fenced code block delimiters.
-// It assumes start is at the beginning of a line.
-//
-// Returns ok plus the fence char/length, and next which is the index of the
-// start of the next line.
-func parseMarkdownFenceLine(s string, start int) (ok bool, fenceChar byte, fenceLen int, next int) {
-	i := start
-	spaces := 0
-	for i < len(s) && spaces < 3 && s[i] == ' ' {
-		i++
-		spaces++
-	}
-	if i >= len(s) {
-		return false, 0, 0, nextLineStart(s, start)
-	}
-	c := s[i]
-	if c != '`' && c != '~' {
-		return false, 0, 0, nextLineStart(s, start)
-	}
-	run := countRun(s, i, c)
-	if run < 3 {
-		return false, 0, 0, nextLineStart(s, start)
-	}
-	return true, c, run, nextLineStart(s, start)
-}
-
-func countRun(s string, start int, c byte) int {
-	i := start
-	for i < len(s) && s[i] == c {
-		i++
-	}
-	return i - start
-}
-
-// parseObsidianEmbed parses a string starting with "![[", returning the raw
-// target (inside the brackets) and how many bytes were consumed.
-func parseObsidianEmbed(s string) (raw string, consumed int, ok bool) {
-	if !strings.HasPrefix(s, "![[") {
-		return "", 0, false
-	}
-	close := strings.Index(s[3:], "]]")
-	if close < 0 {
-		return "", 0, false
-	}
-	raw = strings.TrimSpace(s[3 : 3+close])
-	return raw, 3 + close + 2, true
-}
-
-func normalizeEmbedTarget(raw string) (string, error) {
-	target := strings.TrimSpace(raw)
-	if target == "" {
-		return "", fmt.Errorf("embed target is empty")
-	}
-	if cut := strings.IndexAny(target, "|#"); cut >= 0 {
-		target = strings.TrimSpace(target[:cut])
-	}
-	if target == "" {
-		return "", fmt.Errorf("embed target %q is empty", raw)
-	}
-	if !strings.HasSuffix(strings.ToLower(target), ".md") {
-		target += ".md"
-	}
-	return target, nil
-}
-
-// LoadAgentHelperTemplate returns the embedded helper template content.
+// LoadAgentHelperTemplate reads nonempty helper content from the embedded bundle.
 func LoadAgentHelperTemplate(name string) (string, error) {
-	return loadAgentHelperTemplate(name)
+	p := path.Join("templates", name)
+	b, err := fs.ReadFile(agentHelperTemplates, p)
+	if err != nil {
+		return "", fmt.Errorf("read agent helper template %q: %w", name, err)
+	}
+	s := strings.TrimSpace(string(b))
+	if s == "" {
+		return "", fmt.Errorf("agent helper template %q is empty", name)
+	}
+	return s, nil
 }

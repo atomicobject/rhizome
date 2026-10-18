@@ -10,6 +10,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -19,13 +20,13 @@ func TestReadinessCoordinatorWaitsForLivePublicationAndOpensGates(t *testing.T) 
 	defer cancel()
 
 	indexStarted := make(chan struct{})
-	coordinator := NewReadinessCoordinator(func(context.Context, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
 		close(indexStarted)
 		return nil
 	})
 	indexDone := make(chan error, 1)
 	go func() {
-		indexDone <- coordinator.BackgroundIndexer(ctx, notemeta.Indexer{}, "", obsidian.VaultDefinition{}, false)
+		indexDone <- coordinator.BackgroundIndexer(ctx, notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false)
 	}()
 
 	requireChannelOpen(t, coordinator.livePublished)
@@ -38,95 +39,81 @@ func TestReadinessCoordinatorWaitsForLivePublicationAndOpensGates(t *testing.T) 
 
 func TestReadinessCoordinatorRefreshesValidationAfterSuccessfulBackgroundIndex(t *testing.T) {
 	ctx := context.Background()
-	coordinator := NewReadinessCoordinator(func(context.Context, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
 		return nil
 	})
 	coordinator.BindLive(ctx, &bootstrap.LiveRuntime{})
 	refresher := &recordingValidationRefresher{}
 	coordinator.validation = refresher
 
-	require.NoError(t, coordinator.BackgroundIndexer(ctx, notemeta.Indexer{}, "", obsidian.VaultDefinition{}, false))
+	require.NoError(t, coordinator.BackgroundIndexer(ctx, notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false))
 	require.Equal(t, int32(1), refresher.calls.Load())
 }
 
 func TestReadinessCoordinatorDoesNotRefreshValidationAfterFailedBackgroundIndex(t *testing.T) {
 	ctx := context.Background()
-	coordinator := NewReadinessCoordinator(func(context.Context, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
 		return errors.New("index failed")
 	})
 	coordinator.BindLive(ctx, &bootstrap.LiveRuntime{})
 	refresher := &recordingValidationRefresher{}
 	coordinator.validation = refresher
 
-	require.Error(t, coordinator.BackgroundIndexer(ctx, notemeta.Indexer{}, "", obsidian.VaultDefinition{}, false))
+	require.Error(t, coordinator.BackgroundIndexer(ctx, notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false))
 	require.Zero(t, refresher.calls.Load())
 }
 
 func TestReadinessCoordinatorCoalescesManualSaveAndWatcherRefresh(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	coordinator := NewReadinessCoordinator(nil)
-	coordinator.indexAttemptDoneOnce.Do(func() { close(coordinator.indexAttemptDone) })
-	coordinator.BindLive(ctx, &bootstrap.LiveRuntime{})
+	coordinator, timers := validationTestCoordinator(t)
 	refresher := &recordingValidationRefresher{}
 	coordinator.validation = refresher
-
 	coordinator.RequestValidationRefresh()
-	coordinator.RequestValidationRefresh()
-
-	require.Eventually(t, func() bool { return refresher.calls.Load() == 1 }, time.Second, 10*time.Millisecond)
-	time.Sleep(2 * validationRefreshDebounce)
+	timer := timers.next(t)
+	coordinator.GlobalEventSink()(web.GlobalEventValidationInvalidated, nil)
+	timer.awaitReset(t)
+	require.Zero(t, refresher.calls.Load())
+	timer.fire(t)
+	require.Eventually(t, func() bool { return !coordinator.ValidationRefreshPending() }, time.Second, time.Millisecond)
 	require.Equal(t, int32(1), refresher.calls.Load())
+	// A later save is a separate refresh, rather than being lost with the burst.
+	coordinator.RequestValidationRefresh()
+	timers.next(t).fire(t)
+	require.Eventually(t, func() bool { return !coordinator.ValidationRefreshPending() }, time.Second, time.Millisecond)
+	require.Equal(t, int32(2), refresher.calls.Load())
 }
 
 func TestReadinessCoordinatorGlobalEventSinkDebouncesValidationInvalidated(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	coordinator := NewReadinessCoordinator(nil)
-	coordinator.indexAttemptDoneOnce.Do(func() { close(coordinator.indexAttemptDone) })
-	coordinator.BindLive(ctx, &bootstrap.LiveRuntime{})
+	coordinator, timers := validationTestCoordinator(t)
 	refresher := &recordingValidationRefresher{}
 	coordinator.validation = refresher
-
 	sink := coordinator.GlobalEventSink()
 	sink(web.GlobalEventValidationInvalidated, nil)
+	timer := timers.next(t)
 	sink(web.GlobalEventValidationInvalidated, nil)
-
-	require.Eventually(t, func() bool { return refresher.calls.Load() == 1 }, time.Second, 10*time.Millisecond)
-	time.Sleep(2 * validationRefreshDebounce)
+	timer.awaitReset(t)
+	require.Zero(t, refresher.calls.Load())
+	timer.fire(t)
+	require.Eventually(t, func() bool { return !coordinator.ValidationRefreshPending() }, time.Second, time.Millisecond)
 	require.Equal(t, int32(1), refresher.calls.Load())
 }
 
 func TestReadinessCoordinatorGlobalEventSinkKeepsValidationStaleAfterFailedReconcile(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	coordinator := NewReadinessCoordinator(nil)
-	coordinator.indexAttemptDoneOnce.Do(func() { close(coordinator.indexAttemptDone) })
-	coordinator.BindLive(ctx, &bootstrap.LiveRuntime{})
+	coordinator, _ := validationTestCoordinator(t)
 	refresher := &recordingValidationRefresher{}
 	coordinator.validation = refresher
-
 	coordinator.GlobalEventSink()(web.GlobalEventValidationInvalidated, map[string]any{
-		"source": "watcher",
-		"reason": web.GlobalEventReasonReconcileFailed,
+		"source": "watcher", "reason": web.GlobalEventReasonReconcileFailed,
 	})
-
-	time.Sleep(3 * validationRefreshDebounce)
+	require.False(t, coordinator.ValidationRefreshPending(), "failed reconciliation must not admit a replacement")
 	require.Zero(t, refresher.calls.Load())
 }
 
 func TestReadinessCoordinatorGlobalEventSinkIgnoresOtherKinds(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	coordinator := NewReadinessCoordinator(nil)
-	coordinator.indexAttemptDoneOnce.Do(func() { close(coordinator.indexAttemptDone) })
-	coordinator.BindLive(ctx, &bootstrap.LiveRuntime{})
+	coordinator, _ := validationTestCoordinator(t)
 	refresher := &recordingValidationRefresher{}
 	coordinator.validation = refresher
-
 	coordinator.GlobalEventSink()(web.GlobalEventIndexChanged, nil)
-
-	time.Sleep(3 * validationRefreshDebounce)
+	require.False(t, coordinator.ValidationRefreshPending(), "unrelated events must not admit validation work")
 	require.Zero(t, refresher.calls.Load())
 }
 
@@ -144,7 +131,7 @@ func TestReadinessCoordinatorObservesExternalModelAfterIndexFailure(t *testing.T
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	coordinator := NewReadinessCoordinator(func(context.Context, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
 		return errors.New("index deferred")
 	})
 	var countCalls atomic.Int32
@@ -156,7 +143,7 @@ func TestReadinessCoordinatorObservesExternalModelAfterIndexFailure(t *testing.T
 	}
 	runtime := coordinator.BindLive(ctx, &bootstrap.LiveRuntime{})
 
-	require.Error(t, coordinator.BackgroundIndexer(ctx, notemeta.Indexer{}, "", obsidian.VaultDefinition{}, false))
+	require.Error(t, coordinator.BackgroundIndexer(ctx, notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false))
 	require.Eventually(t, runtime.IndexReady, time.Second, time.Millisecond)
 	require.GreaterOrEqual(t, countCalls.Load(), int32(3))
 }
@@ -379,7 +366,7 @@ func TestQueuedValidationWaitsForBootIndexAttempt(t *testing.T) {
 	defer cancel()
 	started := make(chan struct{})
 	finish := make(chan struct{})
-	coordinator := NewReadinessCoordinator(func(ctx context.Context, _ notemeta.Indexer, _ string, _ obsidian.VaultDefinition, _ bool) error {
+	coordinator := NewReadinessCoordinator(func(ctx context.Context, _ *indexlock.Lease, _ notemeta.Indexer, _ string, _ obsidian.VaultDefinition, _ bool) error {
 		close(started)
 		select {
 		case <-finish:
@@ -388,17 +375,19 @@ func TestQueuedValidationWaitsForBootIndexAttempt(t *testing.T) {
 			return ctx.Err()
 		}
 	})
+	timers := newControlledValidationTimers(coordinator)
 	refresher := &recordingValidationRefresher{}
 	coordinator.validation = refresher
 	coordinator.BindLive(ctx, &bootstrap.LiveRuntime{})
 	indexed := make(chan error, 1)
 	go func() {
-		indexed <- coordinator.BackgroundIndexer(ctx, notemeta.Indexer{}, "", obsidian.VaultDefinition{}, false)
+		indexed <- coordinator.BackgroundIndexer(ctx, notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false)
 	}()
 	<-started
 	coordinator.RequestValidationRefresh()
-	require.Never(t, func() bool { return refresher.calls.Load() > 0 }, 2*validationRefreshDebounce, time.Millisecond,
-		"validation must not publish partial projection state ahead of boot indexing")
+	timers.next(t).fire(t)
+	require.True(t, coordinator.ValidationRefreshPending(), "expired debounce must retain the refresh while boot indexing is held")
+	require.Zero(t, refresher.calls.Load())
 	close(finish)
 	require.NoError(t, <-indexed)
 	require.Eventually(t, func() bool { return refresher.calls.Load() >= 1 }, time.Second, time.Millisecond)

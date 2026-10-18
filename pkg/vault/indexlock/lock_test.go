@@ -305,12 +305,6 @@ func TestReleaseDoesNotRemoveLockAfterStaleTakeover(t *testing.T) {
 	require.Equal(t, newOwner, got)
 }
 
-func TestPriorityPath(t *testing.T) {
-	require.Equal(t, "/path/to/index.priority", PriorityPath("/path/to/index.lock"))
-	require.Equal(t, "foo.priority", PriorityPath("foo.lock"))
-	require.Equal(t, "nolock.priority", PriorityPath("nolock"))
-}
-
 func TestRequestPriority(t *testing.T) {
 	tmpDir := t.TempDir()
 	lockPath := filepath.Join(tmpDir, "index.lock")

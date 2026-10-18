@@ -13,8 +13,6 @@ func NewProvider(profile ResolvedProfile) (Provider, error) {
 		return NewGeminiProvider(profile.APIKey), nil
 	case "cerebras":
 		return NewCerebrasProvider(profile.APIKey), nil
-	case "mock":
-		return &MockProvider{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", profile.Provider)
 	}

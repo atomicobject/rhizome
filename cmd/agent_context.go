@@ -3,14 +3,14 @@ package cmd
 import (
 	"fmt"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/spf13/cobra"
 )
 
-func newAgentFileContextCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentFileContextCmd() *cobra.Command {
 	var profile, intent, ensureLinkTargets string
 	var files, excludeNotePaths, excludeDocPaths, anchorKinds []string
 	var budgetChars, submoduleDepth int
@@ -19,7 +19,7 @@ func newAgentFileContextCmd() *cobra.Command {
 		Short: "Build file context as JSON",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetString(payload, "profile", profile)
 			maybeSetString(payload, "intent", intent)
 			maybeSetStrings(payload, "files", files)
@@ -39,9 +39,9 @@ func newAgentFileContextCmd() *cobra.Command {
 				payload["ensureLinkTargets"] = string(ensureMode)
 			}
 			maybeSetInt(payload, "submoduleDepth", submoduleDepth)
-			maybeSetBool(cmd, payload, "skipAnchors", skipAnchors)
-			maybeSetBool(cmd, payload, "skipEmbeds", skipEmbeds)
-			return runAgentJSONTool(cmd, budgetChars, "file_context", payload)
+			maybeSetBool(cmd, payload, "skipAnchors", commandOptions.skipAnchors)
+			maybeSetBool(cmd, payload, "skipEmbeds", commandOptions.skipEmbeds)
+			return commandOptions.runAgentJSONTool(cmd, budgetChars, "file_context", payload)
 		},
 	}
 	addBudgetFlag(cmd, &budgetChars)
@@ -53,12 +53,12 @@ func newAgentFileContextCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&excludeDocPaths, "exclude-doc-path", nil, "exclude ancestor doc path")
 	cmd.Flags().StringArrayVar(&anchorKinds, "anchor-kind", nil, "anchor kind filter")
 	cmd.Flags().IntVar(&submoduleDepth, "submodule-depth", 0, "submodule doc depth")
-	cmd.Flags().BoolVar(&skipAnchors, "skip-anchors", false, "skip wikilinks with anchors")
-	cmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks")
+	cmd.Flags().BoolVar(&commandOptions.skipAnchors, "skip-anchors", false, "skip wikilinks with anchors")
+	cmd.Flags().BoolVar(&commandOptions.skipEmbeds, "skip-embeds", false, "skip embedded wikilinks")
 	return cmd
 }
 
-func newAgentVaultContextCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentVaultContextCmd() *cobra.Command {
 	var profile, intent string
 	var contextFiles, files []string
 	var budgetChars, submoduleDepth int
@@ -68,18 +68,18 @@ func newAgentVaultContextCmd() *cobra.Command {
 		Short: "Build vault context as JSON",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetString(payload, "profile", profile)
 			maybeSetString(payload, "intent", intent)
 			maybeSetStrings(payload, "contextFiles", contextFiles)
 			maybeSetStrings(payload, "files", files)
 			maybeSetInt(payload, "submoduleDepth", submoduleDepth)
-			maybeSetBool(cmd, payload, "skipAnchors", skipAnchors)
-			maybeSetBool(cmd, payload, "skipEmbeds", skipEmbeds)
+			maybeSetBool(cmd, payload, "skipAnchors", commandOptions.skipAnchors)
+			maybeSetBool(cmd, payload, "skipEmbeds", commandOptions.skipEmbeds)
 			maybeSetBool(cmd, payload, "includeTags", includeTags)
 			maybeSetBool(cmd, payload, "recencyCascade", recencyCascade)
 			maybeSetBool(cmd, payload, "graphSummary", graphSummary)
-			return runAgentJSONTool(cmd, budgetChars, "vault_context", payload)
+			return commandOptions.runAgentJSONTool(cmd, budgetChars, "vault_context", payload)
 		},
 	}
 	addBudgetFlag(cmd, &budgetChars)
@@ -88,15 +88,15 @@ func newAgentVaultContextCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&contextFiles, "context-file", nil, "context file path")
 	cmd.Flags().StringArrayVar(&files, "file", nil, "file or directory to include targeted context for")
 	cmd.Flags().IntVar(&submoduleDepth, "submodule-depth", 0, "submodule doc depth for directory targets")
-	cmd.Flags().BoolVar(&skipAnchors, "skip-anchors", false, "skip wikilinks with anchors")
-	cmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks")
+	cmd.Flags().BoolVar(&commandOptions.skipAnchors, "skip-anchors", false, "skip wikilinks with anchors")
+	cmd.Flags().BoolVar(&commandOptions.skipEmbeds, "skip-embeds", false, "skip embedded wikilinks")
 	cmd.Flags().BoolVar(&includeTags, "include-tags", true, "include tags in graph context")
 	cmd.Flags().BoolVar(&recencyCascade, "recency-cascade", true, "include recency cascade")
 	cmd.Flags().BoolVar(&graphSummary, "graph-summary", false, "include graph communities/orphans even when ontology is present")
 	return cmd
 }
 
-func newAgentSemanticQueryCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentSemanticQueryCmd() *cobra.Command {
 	var continuationToken, mode, scope, pathPrefix, noteType string
 	var queries, pathSeeds, types []string
 	var budgetChars, limit int
@@ -111,7 +111,7 @@ func newAgentSemanticQueryCmd() *cobra.Command {
 				cmd.SetContext(ctx)
 			}
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetString(payload, "continuationToken", continuationToken)
 			maybeSetString(payload, "mode", mode)
 			maybeSetStrings(payload, "queries", queries)
@@ -127,7 +127,7 @@ func newAgentSemanticQueryCmd() *cobra.Command {
 			maybeSetBool(cmd, payload, "excludeNotes", excludeNotes)
 			maybeSetBool(cmd, payload, "compact", compact)
 			maybeSetBool(cmd, payload, "timings", timings)
-			return runAgentJSONTool(cmd, budgetChars, "semantic_query", payload)
+			return commandOptions.runAgentJSONTool(cmd, budgetChars, "semantic_query", payload)
 		},
 	}
 	addBudgetFlag(cmd, &budgetChars)
@@ -149,7 +149,7 @@ func newAgentSemanticQueryCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentCodeSymbolCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCodeSymbolCmd() *cobra.Command {
 	var symbol, path, language string
 	var contextLines, maxBytes int
 	cmd := &cobra.Command{
@@ -162,7 +162,7 @@ func newAgentCodeSymbolCmd() *cobra.Command {
 			maybeSetString(payload, "language", language)
 			maybeSetInt(payload, "contextLines", contextLines)
 			maybeSetInt(payload, "maxBytes", maxBytes)
-			return runAgentJSONTool(cmd, 0, "code_symbol", payload)
+			return commandOptions.runAgentJSONTool(cmd, 0, "code_symbol", payload)
 		},
 	}
 	cmd.Flags().StringVar(&symbol, "symbol", "", "symbol FQN, suffix, or name")
@@ -174,7 +174,7 @@ func newAgentCodeSymbolCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentCodeReferencesCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCodeReferencesCmd() *cobra.Command {
 	var symbol, path, language string
 	var limit int
 	var includeCallers, includeCallees, includeDefinitions bool
@@ -190,7 +190,7 @@ func newAgentCodeReferencesCmd() *cobra.Command {
 			payload["includeCallers"] = includeCallers
 			payload["includeCallees"] = includeCallees
 			payload["includeDefinitions"] = includeDefinitions
-			return runAgentJSONTool(cmd, 0, "code_references", payload)
+			return commandOptions.runAgentJSONTool(cmd, 0, "code_references", payload)
 		},
 	}
 	cmd.Flags().StringVar(&symbol, "symbol", "", "symbol FQN, suffix, or name")
@@ -204,7 +204,7 @@ func newAgentCodeReferencesCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentCodeSymbolContextCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCodeSymbolContextCmd() *cobra.Command {
 	var symbol, path, language string
 	var includeTests bool
 	var budgetChars int
@@ -218,7 +218,7 @@ func newAgentCodeSymbolContextCmd() *cobra.Command {
 			maybeSetString(payload, "language", language)
 			maybeSetBool(cmd, payload, "includeTests", includeTests)
 			maybeSetInt(payload, "budgetChars", budgetChars)
-			return runAgentJSONTool(cmd, budgetChars, "code_symbol_context", payload)
+			return commandOptions.runAgentJSONTool(cmd, budgetChars, "code_symbol_context", payload)
 		},
 	}
 	addBudgetFlag(cmd, &budgetChars)
@@ -230,7 +230,7 @@ func newAgentCodeSymbolContextCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentFindConnectionsCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentFindConnectionsCmd() *cobra.Command {
 	var notePath, text string
 	var limit, budgetChars int
 	cmd := &cobra.Command{
@@ -238,11 +238,11 @@ func newAgentFindConnectionsCmd() *cobra.Command {
 		Short: "Find connected notes as JSON",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetString(payload, "note", notePath)
 			maybeSetString(payload, "text", text)
 			maybeSetInt(payload, "limit", limit)
-			return runAgentJSONTool(cmd, budgetChars, "find_connections", payload)
+			return commandOptions.runAgentJSONTool(cmd, budgetChars, "find_connections", payload)
 		},
 	}
 	addBudgetFlag(cmd, &budgetChars)
@@ -252,7 +252,7 @@ func newAgentFindConnectionsCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentGraphPathCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentGraphPathCmd() *cobra.Command {
 	var fromPath, toPath string
 	var maxHops int
 	cmd := &cobra.Command{
@@ -260,11 +260,11 @@ func newAgentGraphPathCmd() *cobra.Command {
 		Short: "Find shortest path between two notes or code files as JSON",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			payload := map[string]any{}
-			maybeSetString(payload, "sessionId", agentSessionID)
+			maybeSetString(payload, "sessionId", commandOptions.agentSessionID)
 			maybeSetString(payload, "from", fromPath)
 			maybeSetString(payload, "to", toPath)
 			maybeSetInt(payload, "maxHops", maxHops)
-			return runAgentJSONTool(cmd, 0, "graph_path", payload)
+			return commandOptions.runAgentJSONTool(cmd, 0, "graph_path", payload)
 		},
 	}
 	cmd.Flags().StringVar(&fromPath, "from", "", "source note or code file (name or path)")

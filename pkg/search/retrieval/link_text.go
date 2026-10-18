@@ -2,15 +2,16 @@ package retrieval
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/atomicobject/rhizome/pkg/search/queryframe"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // LinkTextSource reads note links whose label or line contains a term.
@@ -48,6 +49,7 @@ func (r *LinkTextRetriever) Name() string { return "link_text" }
 
 func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([]search.Candidate, error) {
 	frame := queryframe.Extract(spec.Text)
+	matcher := frame.ConceptMatcher()
 	if r.Store == nil || len(frame.SupportTermGroups) == 0 {
 		return nil, nil
 	}
@@ -70,7 +72,7 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 	var terms []string
 	for _, group := range frame.SupportTermGroups {
 		for _, term := range group {
-			// ConceptCoverage reads "categories" as "category"; the substring
+			// Concept matching reads "categories" as "category"; the substring
 			// prefilter needs the shared stem to load it.
 			// ponytail: SQLite LIKE folds ASCII case only, so an uppercase
 			// non-ASCII label misses; store a folded copy if that matters.
@@ -101,10 +103,10 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 			if entry.Label != "" && !slices.Contains(best.labels, entry.Label) {
 				best.labels = append(best.labels, entry.Label)
 			}
-			if score := frame.ConceptCoverage(entry.Label); score > best.score {
+			if score := matcher.Coverage(entry.Label); score > best.score {
 				best.score, best.label = score, entry.Label
 			}
-			if score := linkTextLineWeight * frame.ConceptCoverage(entry.Line); score > best.score {
+			if score := linkTextLineWeight * matcher.Coverage(entry.Line); score > best.score {
 				best.score, best.label = score, ""
 			}
 		}
@@ -140,7 +142,7 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 	}
 	// Only labels that name every query concept compete to be the agreed one.
 	naming := func(l link) []string {
-		return slices.DeleteFunc(slices.Clone(l.labels), func(label string) bool { return frame.ConceptCoverage(label) < 1 })
+		return slices.DeleteFunc(slices.Clone(l.labels), func(label string) bool { return matcher.Coverage(label) < 1 })
 	}
 	targets := make([]scored, 0, len(byTarget))
 	for dst, links := range byTarget {
@@ -195,14 +197,16 @@ func (r *LinkTextRetriever) Retrieve(ctx context.Context, spec search.QuerySpec)
 		}
 		h := knowledge.NoteHandle(t.path)
 		out = append(out, search.Candidate{
-			Handle:     h,
-			Owner:      h,
-			Evidence:   []search.Evidence{{Type: "link_text_match", RawScore: t.score, Source: "link_text", Details: details}},
-			Type:       "note",
-			NoteID:     t.path,
-			Path:       t.path,
-			Title:      titleFromPath(t.path),
-			ChunkIndex: -1,
+			SourceRef: search.SourceRef{
+				NoteID:     t.path,
+				Path:       t.path,
+				Title:      paths.NoteTitle(t.path),
+				ChunkIndex: -1,
+			},
+			Handle:   h,
+			Owner:    h,
+			Evidence: []search.Evidence{{Type: "link_text_match", RawScore: t.score, Source: "link_text", Details: details}},
+			Type:     "note",
 		})
 	}
 	return out, nil

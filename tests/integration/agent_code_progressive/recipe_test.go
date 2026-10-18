@@ -4,6 +4,7 @@ package integration
 
 import (
 	"encoding/json"
+
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,6 +14,7 @@ import (
 )
 
 func TestPersistentRecipeRunSelectsOnlyRecipeWithoutID(t *testing.T) {
+
 	node := nodePathOrSkip(t)
 	fixture := newProgressiveCodeFixture(t)
 	binary := buildProgressiveBinary(t)

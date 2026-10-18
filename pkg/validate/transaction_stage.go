@@ -1,22 +1,19 @@
 package validate
 
 import (
-	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/validate/namespaceadmission"
 )
 
 type repairFileState struct {
 	rel             string
 	abs             string
 	originalRel     string
-	internal        bool
 	omit            bool
 	originalExists  bool
 	originalContent []byte
@@ -26,36 +23,14 @@ type repairFileState struct {
 	finalMode       os.FileMode
 }
 
-type preparedRepairTransaction struct {
-	decisionSynced bool
-	dir            string
-	manifest       repairJournalManifest
-	states         []repairFileState
-	installed      int
-}
-
-type repairExecutionHooks struct {
-	AfterJournalPublished                func(path string) error
-	BeforeInstall                        func(index int, path string) error
-	AfterMutation                        func(index int, path string) error
-	AfterInstall                         func(index int, path string) error
-	AfterCleanupBoundary                 func(boundary, path string) error
-	BeforeRollbackMutation               func(index int, path string) error
-	AfterNamespaceIndexPublication       func() error
-	BeforeNamespaceDecisionDirectorySync func(marker string) error
-}
-
-var errSimulatedRepairInterruption = errors.New("simulated repair process interruption")
-
 func prepareRepairTransaction(
 	runCtx RunContext,
 	planFingerprint string,
 	transaction RepairTransaction,
 	operations []RepairOperation,
 	allowHistorical bool,
-	hooks *repairExecutionHooks,
 	completionArtifacts ...*RepairCompletionArtifact,
-) (*preparedRepairTransaction, error) {
+) (*sourcetxn.Transaction, error) {
 	if err := verifyRepairDestinationVacancies(runCtx, operations); err != nil {
 		return nil, err
 	}
@@ -67,101 +42,13 @@ func prepareRepairTransaction(
 	if len(completionArtifacts) > 0 {
 		completion = completionArtifacts[0]
 	}
-	if completion != nil {
-		completionState, completionErr := prepareRepairCompletionState(runCtx, completion)
-		if completionErr != nil {
-			return nil, completionErr
-		}
-		if completionState != nil {
-			states = append(states, *completionState)
-			sortRepairFileStates(states)
-		}
-	}
+
 	if !allowHistorical {
 		if path, reason, protected := classifyStagedLifecycle(states, operations); protected {
 			return nil, lifecycleProtectedError{path: path, reason: reason}
 		}
 	}
-	return stageRepairFileStates(runCtx, planFingerprint, transaction, operations, states, nil, hooks)
-}
-
-func stageRepairFileStates(
-	runCtx RunContext,
-	planFingerprint string,
-	transaction RepairTransaction,
-	operations []RepairOperation,
-	states []repairFileState,
-	purpose *namespaceJournalPurpose,
-	hooks *repairExecutionHooks,
-) (*preparedRepairTransaction, error) {
-	dir, err := repairJournalDir(runCtx, transaction.ID)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := os.Stat(dir); err == nil {
-		return nil, fmt.Errorf("repair journal already exists for transaction %s", transaction.ID)
-	} else if !os.IsNotExist(err) {
-		return nil, err
-	}
-	shortID := strings.TrimPrefix(SourceHash([]byte(transaction.ID)), "sha256:")[:12]
-	manifest := repairJournalManifest{
-		Version: repairJournalVersion, Namespace: purpose,
-		TransactionID: transaction.ID, PlanFingerprint: planFingerprint,
-		OperationIDs: append([]string(nil), transaction.OperationIDs...),
-		ActionIDs:    actionIDsForOperations(operations),
-		IssueKeys:    issueKeysForOperations(operations),
-		Checks:       append([]string(nil), transaction.Checks...),
-		Entries:      make([]repairJournalEntry, 0, len(states)),
-	}
-	if purpose != nil {
-		manifest.Version = namespaceadmission.NamespaceVersion
-	}
-	manifest.Changed, manifest.Renamed, manifest.Deleted = repairOperationDelta(operations)
-	for i, state := range states {
-		entry := repairJournalEntry{
-			Path: state.rel, OriginalPath: state.originalRel, OriginalExists: state.originalExists,
-			Internal:     state.internal,
-			OriginalMode: repairModeBits(state.originalMode), FinalExists: state.finalExists,
-			FinalMode: repairModeBits(state.finalMode),
-		}
-		if state.originalExists {
-			entry.OriginalHash = SourceHash(state.originalContent)
-			entry.BackupPath = repairArtifactPath(state.abs, shortID, i, "backup")
-		}
-		if state.finalExists {
-			entry.FinalHash = SourceHash(state.finalContent)
-			entry.StagePath = repairArtifactPath(state.abs, shortID, i, "stage")
-		}
-		if state.originalRel != "" && state.originalRel != state.rel {
-			entry.CasePath = repairArtifactPath(state.abs, shortID, i, "case-original")
-		}
-		manifest.Entries = append(manifest.Entries, entry)
-	}
-	if err := writeRepairJournalManifest(dir, manifest); err != nil {
-		return nil, errors.Join(err, cleanupFailedPrepare(runCtx, dir, manifest, hooks))
-	}
-	if hooks != nil && hooks.AfterJournalPublished != nil {
-		if err := hooks.AfterJournalPublished(dir); err != nil {
-			if errors.Is(err, errSimulatedRepairInterruption) {
-				return nil, err
-			}
-			return nil, errors.Join(err, cleanupFailedPrepare(runCtx, dir, manifest, hooks))
-		}
-	}
-	for i, state := range states {
-		entry := manifest.Entries[i]
-		if entry.BackupPath != "" {
-			if err := createOwnedRepairArtifact(dir, &manifest, entry.BackupPath, state.originalContent, state.originalMode); err != nil {
-				return nil, errors.Join(err, cleanupFailedPrepare(runCtx, dir, manifest, hooks))
-			}
-		}
-		if entry.StagePath != "" {
-			if err := createOwnedRepairArtifact(dir, &manifest, entry.StagePath, state.finalContent, state.finalMode); err != nil {
-				return nil, errors.Join(err, cleanupFailedPrepare(runCtx, dir, manifest, hooks))
-			}
-		}
-	}
-	return &preparedRepairTransaction{dir: dir, manifest: manifest, states: states}, nil
+	return stageRepairFileStates(runCtx, planFingerprint, transaction, operations, states, completion)
 }
 
 func verifyRepairDestinationVacancies(runCtx RunContext, operations []RepairOperation) error {
@@ -206,36 +93,6 @@ type repairDestinationVacancyError struct {
 
 func (e repairDestinationVacancyError) Error() string {
 	return fmt.Sprintf("destination vacancy failed at %s: %s; replan validation fixes", e.destination, e.reason)
-}
-
-func cleanupFailedPrepare(
-	runCtx RunContext,
-	dir string,
-	manifest repairJournalManifest,
-	hooks *repairExecutionHooks,
-) error {
-	if manifest.Namespace != nil {
-		if err := verifyNamespaceOriginalFiles(runCtx, manifest); err != nil {
-			return err
-		}
-		decision, err := nativeJournalDecision(dir)
-		if err != nil {
-			return err
-		}
-		if decision == repairJournalPrepared {
-			if err := markNamespaceRestored(dir); err != nil {
-				return err
-			}
-		} else if decision != repairJournalRestored {
-			return fmt.Errorf("native preparation cleanup has a published decision")
-		}
-		journal := recoveredRepairJournal{dir: dir, manifest: manifest, state: repairJournalRestored}
-		if err := settleNamespaceGitRelease(runCtx, &journal); err != nil {
-			return err
-		}
-		manifest = journal.manifest
-	}
-	return cleanupRepairJournal(runCtx, dir, manifest, hooks)
 }
 
 type lifecycleProtectedError struct {

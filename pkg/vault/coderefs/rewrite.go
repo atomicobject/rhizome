@@ -13,8 +13,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/bmatcuk/doublestar/v4"
 )
 
@@ -143,23 +143,23 @@ func compileMapping(m RefMapping) compiledMapping {
 }
 
 // Each mapping collects edits against one immutable comment scan.
-func mappingEdits(content string, links []obsidian.StructuredLink, linkSpans []obsidian.StructuredLinkSpan, cm compiledMapping) []linkEdit {
+func mappingEdits(content string, links []markdownsyntax.StructuredLink, linkSpans []markdownsyntax.Span, cm compiledMapping) []linkEdit {
 	var edits []linkEdit
 	for _, link := range links {
-		if link.Kind == obsidian.StructuredLinkMarkdown && link.Embed {
+		if link.Kind == markdownsyntax.StructuredLinkMarkdown && link.Embed {
 			continue // Image destinations are scanned but are not rename targets.
 		}
 		path := link.Path
-		if link.Kind == obsidian.StructuredLinkMarkdown {
-			path = obsidian.DecodeMarkdownPath(path)
+		if link.Kind == markdownsyntax.StructuredLinkMarkdown {
+			path = markdownsyntax.DecodeMarkdownPath(path)
 		}
 		target, matched := cm.linkDestination(path, link.Kind)
 		if !matched {
 			continue
 		}
 		edit := linkEdit{span: link.PathSpan, text: target}
-		if link.Kind == obsidian.StructuredLinkMarkdown {
-			edit.text = obsidian.EncodeMarkdownPath(target)
+		if link.Kind == markdownsyntax.StructuredLinkMarkdown {
+			edit.text = markdownsyntax.EncodeMarkdownPath(target)
 		} else if !wikiPathRoundTrips(target) {
 			// An unrepresentable wiki embed also becomes a normal link. Turning it
 			// into a Markdown image would exclude it from subsequent renames.
@@ -177,7 +177,7 @@ func mappingEdits(content string, links []obsidian.StructuredLink, linkSpans []o
 		edits = append(edits, mentionEdits(content, linkSpans, cm.MentionBasename, cm.OldBasename, cm.NewBasename, cm.NewPath)...)
 	}
 	if len(cm.aliases) > 0 {
-		seen := make(map[obsidian.StructuredLinkSpan]bool, len(edits))
+		seen := make(map[markdownsyntax.Span]bool, len(edits))
 		for _, edit := range edits {
 			seen[edit.span] = true
 		}
@@ -197,13 +197,13 @@ func mappingEdits(content string, links []obsidian.StructuredLink, linkSpans []o
 	return edits
 }
 
-func (cm compiledMapping) linkDestination(path string, kind obsidian.StructuredLinkKind) (string, bool) {
+func (cm compiledMapping) linkDestination(path string, kind markdownsyntax.StructuredLinkKind) (string, bool) {
 	switch {
 	case path == cm.OldPath:
 		return cm.NewPath, true
 	case path == cm.OldPathNoExt:
 		return cm.NewPathNoExt, true
-	case kind == obsidian.StructuredLinkWikilink && cm.OldBasename != cm.OldPathNoExt && strings.EqualFold(path, cm.OldBasename):
+	case kind == markdownsyntax.StructuredLinkWikilink && cm.OldBasename != cm.OldPathNoExt && strings.EqualFold(path, cm.OldBasename):
 		return cm.NewBasename, true
 	default:
 		for _, alias := range cm.aliases {
@@ -218,23 +218,23 @@ func (cm compiledMapping) linkDestination(path string, kind obsidian.StructuredL
 // Check the parser's actual grammar rather than a filename character allowlist.
 func wikiPathRoundTrips(path string) bool {
 	text := "[[" + path + "]]"
-	links := obsidian.ScanCommentLinks(text)
-	return len(links) == 1 && links[0].Kind == obsidian.StructuredLinkWikilink &&
+	links := markdownsyntax.ScanCommentLinks(text)
+	return len(links) == 1 && links[0].Kind == markdownsyntax.StructuredLinkWikilink &&
 		links[0].RawSpan.Text(text) == text && links[0].Path == path &&
 		!links[0].FragmentSpan.Valid() && !links[0].DisplaySpan.Valid()
 }
 
 func markdownReference(path, label, fragment string, hasFragment bool) string {
 	label = strings.NewReplacer("\\", "\\\\", "[", "\\[", "]", "\\]").Replace(label)
-	target := obsidian.EncodeMarkdownPath(path)
+	target := markdownsyntax.EncodeMarkdownPath(path)
 	if hasFragment {
-		target += "#" + obsidian.EncodeMarkdownPath(fragment)
+		target += "#" + markdownsyntax.EncodeMarkdownPath(fragment)
 	}
 	return "[" + label + "](" + target + ")"
 }
 
 type linkEdit struct {
-	span obsidian.StructuredLinkSpan
+	span markdownsyntax.Span
 	text string
 }
 
@@ -304,12 +304,12 @@ func rewriteRefsInPath(path, content string, compiled []compiledMapping) (string
 
 func rewriteRefsInText(content string, compiled []compiledMapping) (string, int) {
 	totalUpdates := 0
-	var links []obsidian.StructuredLink
-	var linkSpans []obsidian.StructuredLinkSpan
+	var links []markdownsyntax.StructuredLink
+	var linkSpans []markdownsyntax.Span
 	parsed := false
 	for _, cm := range compiled {
 		if !parsed {
-			links = obsidian.ScanCommentLinks(content)
+			links = markdownsyntax.ScanCommentLinks(content)
 			linkSpans = mergedStructuredLinkSpans(links)
 			parsed = true
 		}
@@ -324,7 +324,7 @@ func rewriteRefsInText(content string, compiled []compiledMapping) (string, int)
 	return content, totalUpdates
 }
 
-func mentionEdits(s string, linkSpans []obsidian.StructuredLinkSpan, re *regexp.Regexp, oldSpelling, target, canonicalPath string) []linkEdit {
+func mentionEdits(s string, linkSpans []markdownsyntax.Span, re *regexp.Regexp, oldSpelling, target, canonicalPath string) []linkEdit {
 	// The literal is necessary for a match, except that regexp interprets invalid
 	// UTF-8 source bytes as RuneError while Contains compares their original bytes.
 	if !strings.ContainsRune(oldSpelling, utf8.RuneError) && !strings.Contains(s, oldSpelling) {
@@ -349,7 +349,7 @@ func mentionEdits(s string, linkSpans []obsidian.StructuredLinkSpan, re *regexp.
 		}
 		// Exclude captured boundary bytes so punctuation remains unchanged.
 		edits = append(edits, linkEdit{
-			span: obsidian.StructuredLinkSpan{Start: match[3], End: match[4], Present: true},
+			span: markdownsyntax.Span{Start: match[3], End: match[4], Present: true},
 			text: replacement,
 		})
 	}

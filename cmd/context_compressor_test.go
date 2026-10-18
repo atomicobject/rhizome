@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +11,8 @@ import (
 )
 
 func TestContextCompressorConfigLoading(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	t.Setenv("CEREBRAS_API_KEY", "test-key")
 	for _, tc := range []struct {
 		name          string
@@ -26,7 +30,7 @@ func TestContextCompressorConfigLoading(t *testing.T) {
 				require.NoError(t, os.MkdirAll(filepath.Join(vaultPath, ".rhizome"), 0o755))
 				require.NoError(t, os.WriteFile(filepath.Join(vaultPath, ".rhizome", "config.yml"), []byte(tc.config), 0o644))
 			}
-			compressor := loadContextCompressor(vaultPath)
+			compressor := commandOptions.loadContextCompressor(vaultconfig.WithEnv(context.Background(), vaultconfig.Env{HomeDir: t.TempDir(), LookupEnv: os.LookupEnv}), vaultPath)
 			if tc.maxInputChars == 0 {
 				require.Nil(t, compressor)
 				return

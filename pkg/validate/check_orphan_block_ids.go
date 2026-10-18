@@ -1,5 +1,7 @@
 package validate
 
+import ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+
 // Opt-in orphan-block-id cleanup check.
 //
 // WHY: SPEC-0023's usage-driven block-id lifecycle says block IDs earn their
@@ -13,13 +15,13 @@ package validate
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // fuzzyNearMatchDistance is the Levenshtein threshold used by the orphan check
@@ -58,41 +60,24 @@ type orphanAnchor struct {
 	identifierBacked bool
 }
 
-// blockIDLineRE mirrors the standalone block-id regex in pkg/vault/obsidian.
-// We duplicate them here as a fallback for when the ontology layer cannot
-// resolve a note (no schema, parse error). Keeping them package-local avoids
-// pulling validate into the obsidian package's API surface.
-var (
-	blockIDLineRE = regexp.MustCompile(`(?m)^[\t ]*\^([A-Za-z0-9_-]+)\s*$`)
-)
-
 // RunOrphanBlockIDs implements the opt-in orphan-block-id check.
 func RunOrphanBlockIDs(ctx context.Context, runCtx RunContext) CheckResult {
 	result := CheckResult{Name: CheckOrphanBlockIDs, OK: true}
-	sources, err := markdownValidationSources(ctx, runCtx)
+	inventory, err := validationLinksFor(ctx, runCtx)
 	if err != nil {
 		result.OK = false
 		result.Error = err.Error()
 		return result
 	}
-	allNotes := make([]string, 0, len(sources))
-	for _, source := range sources {
-		allNotes = append(allNotes, source.Path.String())
-	}
-
-	contentByPath := markdownSourceContentByPath(sources)
-	getContent := func(p string) string {
-		if c, ok := contentByPath[p]; ok {
-			return c
-		}
-		return ""
-	}
-
 	// Phase 1: per-note anchor inventory.
 	anchorsByNote := map[string]map[string]orphanAnchor{}
-	schema, schemaErr := ontology.LoadSchema(runCtx.VaultPath)
-	for _, notePath := range allNotes {
-		body := getContent(notePath)
+	schema, schemaErr := ontoschema.LoadSchema(runCtx.VaultPath)
+	for _, notePath := range inventory.paths {
+		source := inventory.sources[notePath]
+		if source.Format != noteformat.FormatID("markdown") {
+			continue
+		}
+		body := source.Content
 		if body == "" {
 			continue
 		}
@@ -102,13 +87,14 @@ func RunOrphanBlockIDs(ctx context.Context, runCtx RunContext) CheckResult {
 				collectAnchorsFromSnapshot(snapshot.Sections, schema, snapshot, notePath, blocks)
 			}
 		}
-		// Belt-and-suspenders fallback so we still register block IDs when
-		// the ontology layer cannot resolve the document.
-		for id := range scanBlockIDs(body) {
-			if _, present := blocks[id]; present {
+		for _, target := range source.FragmentTargets {
+			if target.Kind != noteformat.FragmentTargetBlock || !standaloneBlockIDFact(body, target) {
 				continue
 			}
-			blocks[id] = orphanAnchor{notePath: notePath, blockID: id}
+			id := strings.TrimPrefix(target.Text, "^")
+			if _, present := blocks[id]; !present {
+				blocks[id] = orphanAnchor{notePath: notePath, blockID: id}
+			}
 		}
 		if len(blocks) > 0 {
 			anchorsByNote[notePath] = blocks
@@ -123,56 +109,27 @@ func RunOrphanBlockIDs(ctx context.Context, runCtx RunContext) CheckResult {
 	// Phase 2: collect inbound block-id references from every other note.
 	resolvedRefs := map[string]map[string]struct{}{}
 	brokenRefs := map[string]map[string]struct{}{}
-	cache := obsidian.BuildNotePathCacheWithAliases(allNotes, markdownSourceAliases(sources))
-	for _, sourceNote := range allNotes {
-		body := getContent(sourceNote)
-		if body == "" {
+	for _, link := range inventory.links {
+		if !link.Exists || link.Source == link.Target || !strings.HasPrefix(link.Fact.Fragment, "^") {
 			continue
 		}
-		recordRef := func(resolved, fragment string) {
-			if fragment == "" || !strings.HasPrefix(fragment, "^") {
-				return
-			}
-			if resolved == sourceNote {
-				return // self-reference does not count as external
-			}
-			id := strings.TrimPrefix(fragment, "^")
-			anchorSet, hasAnchors := anchorsByNote[resolved]
-			if hasAnchors {
-				if _, present := anchorSet[id]; present {
-					if resolvedRefs[resolved] == nil {
-						resolvedRefs[resolved] = map[string]struct{}{}
-					}
-					resolvedRefs[resolved][id] = struct{}{}
-					return
-				}
-			}
-			if brokenRefs[resolved] == nil {
-				brokenRefs[resolved] = map[string]struct{}{}
-			}
-			brokenRefs[resolved][id] = struct{}{}
-		}
-		if runCtx.VaultDef.SupportsWikilinks() {
-			for _, link := range obsidian.ScanWikilinks(body, obsidian.DefaultWikilinkOptions) {
-				rawTarget, fragment := splitFragment(link.Target)
-				if rawTarget == "" {
-					continue
-				}
-				resolved, ok := cache.ResolveNote(rawTarget)
-				if !ok {
-					continue
-				}
-				recordRef(resolved, fragment)
+		source := inventory.sources[link.Source]
+		if source.Format == noteformat.FormatID("markdown") {
+			if _, bodyStart, ok := markdownsyntax.Frontmatter(source.Content); ok && link.Fact.RawRange.StartByte < bodyStart {
+				continue
 			}
 		}
-		if runCtx.VaultDef.SupportsMarkdownLinks() {
-			for _, target := range obsidian.ExtractMdLinks(body, obsidian.DefaultMdLinkOptions) {
-				resolved, ok := cache.ResolveMdLinkTarget(target, sourceNote)
-				if !ok {
-					continue
-				}
-				recordRef(resolved.Path, resolved.Fragment)
+		id := strings.TrimPrefix(link.Fact.Fragment, "^")
+		if _, present := anchorsByNote[link.Target][id]; present {
+			if resolvedRefs[link.Target] == nil {
+				resolvedRefs[link.Target] = map[string]struct{}{}
 			}
+			resolvedRefs[link.Target][id] = struct{}{}
+		} else {
+			if brokenRefs[link.Target] == nil {
+				brokenRefs[link.Target] = map[string]struct{}{}
+			}
+			brokenRefs[link.Target][id] = struct{}{}
 		}
 	}
 
@@ -286,7 +243,7 @@ func RunOrphanBlockIDs(ctx context.Context, runCtx RunContext) CheckResult {
 	return result
 }
 
-func collectAnchorsFromSnapshot(nodes []*ontology.SectionNode, schema *ontology.Schema, snapshot *ontology.DocumentSnapshot, notePath string, out map[string]orphanAnchor) {
+func collectAnchorsFromSnapshot(nodes []*ontology.SectionNode, schema *ontoschema.Schema, snapshot *ontology.DocumentSnapshot, notePath string, out map[string]orphanAnchor) {
 	for _, node := range nodes {
 		if node == nil {
 			continue
@@ -352,12 +309,18 @@ func sectionHasInlinePropertyBlockID(node *ontology.SectionNode, blockID string)
 	return false
 }
 
-func scanBlockIDs(content string) map[string]struct{} {
-	out := map[string]struct{}{}
-	for _, m := range blockIDLineRE.FindAllStringSubmatch(content, -1) {
-		out[m[1]] = struct{}{}
+func standaloneBlockIDFact(content string, target noteformat.FragmentTargetFact) bool {
+	if !target.Range.Present {
+		return false
 	}
-	return out
+	start, end := target.Range.Range.StartByte, target.Range.Range.EndByte
+	start = strings.LastIndexByte(content[:start], '\n') + 1
+	if next := strings.IndexByte(content[end:], '\n'); next >= 0 {
+		end += next
+	} else {
+		end = len(content)
+	}
+	return strings.TrimSpace(content[start:end]) == "^"+strings.TrimPrefix(target.Text, "^")
 }
 
 func splitFragment(target string) (string, string) {

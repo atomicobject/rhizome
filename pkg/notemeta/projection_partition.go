@@ -1,7 +1,7 @@
 package notemeta
 
 import (
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // partitionProjectedEntries splits freshly projected entries by what the

@@ -2,13 +2,14 @@ package indexing
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 // Code added after setup, in folders init never saw, indexes on the next run
@@ -16,6 +17,8 @@ import (
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US9-AC1]]
 func TestRunUnifiedCoreIndexesCodeAddedAfterSetupWithoutFolderLimits(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root := t.TempDir()
 	write := func(rel, content string) {
@@ -25,15 +28,15 @@ func TestRunUnifiedCoreIndexesCodeAddedAfterSetupWithoutFolderLimits(t *testing.
 		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 	}
 	write("docs/a.md", "# A\n")
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Code:           obsidian.LocalCodeConfig{Enabled: true},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Code:           repoconfig.LocalCodeConfig{Enabled: true},
 		NoteEmbeddings: &embeddings.Config{Enabled: false},
 		CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
 	run := func() {
 		t.Helper()
-		require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{
-			VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root}, NoteMetadata: testNoteMetadataIndexer(t),
+		require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{
+			VaultPath: root, VaultDef: obsidian.VaultDefinition{Root: root}, NoteMetadata: testkit.NoteMetadataIndexer(t),
 		}))
 	}
 	run()

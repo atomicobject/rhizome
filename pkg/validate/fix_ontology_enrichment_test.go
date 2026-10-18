@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -51,19 +52,21 @@ func TestAttachOntologySuggestionsJoinsOnlyByExactStableIssueKey(t *testing.T) {
 }
 
 // runPreparedOntologySuite indexes the fixture, then runs the ontology check
-// through the product suite path: stable keys, enrichment and repair plan.
+// through the product suite path, then explicitly prepares repair operations.
 func runPreparedOntologySuite(t *testing.T, files map[string]string) (string, *ontology.Runtime, Result) {
 	t.Helper()
 	root := t.TempDir()
 	require.NoError(t, writeFixtureFiles(root, files))
 	store := openTestStore(t, root)
 	vaultDef := obsidian.VaultDefinition{Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	runCtx := &RunContext{VaultDef: vaultDef, VaultPath: root, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t), MaxIssues: 100}
-	result, _, err := RunSuiteOncePrepared(context.Background(), Options{
+	result, _, err := RunSuiteOncePrepared(context.Background(), ScanOptions{
 		Checks: []string{CheckOntology}, RunContext: runCtx,
 	}, runtime, nil)
+	require.NoError(t, err)
+	result, err = PrepareRepair(t.Context(), result, *runCtx)
 	require.NoError(t, err)
 	return root, runtime, result
 }
@@ -238,12 +241,14 @@ name: Alice
 	}))
 	store := openTestStore(t, root)
 	vaultDef := obsidian.VaultDefinition{Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	runCtx := &RunContext{VaultDef: vaultDef, VaultPath: root, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t), MaxIssues: 100}
-	result, _, err := RunSuiteOncePrepared(context.Background(), Options{
+	result, _, err := RunSuiteOncePrepared(context.Background(), ScanOptions{
 		Checks: []string{CheckOntology}, RunContext: runCtx,
 	}, runtime, nil)
+	require.NoError(t, err)
+	result, err = PrepareRepair(t.Context(), result, *runCtx)
 	require.NoError(t, err)
 	require.NotNil(t, result.FixPlan)
 

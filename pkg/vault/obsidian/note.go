@@ -113,11 +113,15 @@ func resolveNoteInput(vaultPaths paths.VaultPaths, cfg VaultDefinition, input st
 		return vaultPaths.AbsNotePath(rel)
 	}
 
-	legacyRel, legacyErr := vaultPaths.RelNoteStrict(input)
+	legacyInput := input
+	if !strings.EqualFold(filepath.Ext(legacyInput), ".md") {
+		legacyInput += ".md"
+	}
+	legacyRel, legacyErr := vaultPaths.RelNotePathStrict(legacyInput)
 	if legacyErr != nil || legacyRel == "" {
 		return "", legacyErr
 	}
-	return vaultPaths.AbsNote(legacyRel)
+	return vaultPaths.AbsNotePath(legacyRel)
 }
 
 // Title returns a best-effort display title for a note path (filename sans extension).

@@ -1,0 +1,19 @@
+package obsidian
+
+import (
+	"testing"
+	"golang.org/x/text/unicode/norm"
+)
+
+func TestProbeCaseAndUnicode(t *testing.T) {
+	c := BuildNotePathCache([]string{"Notes/My Note.md", norm.NFD.String("Café.md")})
+	for _, link := range []string{"My Note", "my note", "Notes/my note", "notes/My Note.md", "Café", norm.NFC.String("Café")} {
+		got, ok := c.ResolveNote(link)
+		t.Logf("ResolveNote(%q nfc=%v) = %q %v", link, norm.NFC.IsNormalString(link), got, ok)
+	}
+	c2 := BuildNotePathCacheWithAliases([]string{"a.md"}, map[string][]string{"a.md": {"Alpha"}})
+	for _, link := range []string{"Alpha", "alpha"} {
+		got, ok := c2.ResolveNote(link)
+		t.Logf("alias ResolveNote(%q) = %q %v", link, got, ok)
+	}
+}

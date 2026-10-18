@@ -23,8 +23,9 @@ import (
 // Integration tests use WatchHub + real fsnotify events.
 // Run with: go test -tags=integration ./pkg/vault/cache/...
 //
-// These tests are slower and may be flaky on CI due to filesystem timing.
-// They're valuable for catching platform-specific watcher behavior.
+// Settling waits intentionally exercise real OS event delivery and directory
+// registration. A fake timer cannot advance fsnotify; these waits stay behind
+// the integration tag, with eventual assertions checking the resulting cache.
 
 var (
 	// Time to wait for fsnotify events to propagate

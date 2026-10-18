@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	rzmpaths "github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // LaunchTarget resolves a user path to an absolute directory inside a Rhizome
@@ -24,9 +24,9 @@ func LaunchTarget(cwd, input string) (string, error) {
 	if !info.IsDir() {
 		abs = filepath.Dir(abs)
 	}
-	if _, _, err := obsidian.FindLocalConfigForDelegation(abs); err == nil {
+	if _, _, err := repoconfig.FindLocalConfigForDelegation(abs); err == nil {
 		return abs, nil
-	} else if !errors.Is(err, obsidian.ErrNoLocalConfig) {
+	} else if !errors.Is(err, repoconfig.ErrNoLocalConfig) {
 		return "", err
 	}
 	if gitWorktreeRoot(abs) == "" {

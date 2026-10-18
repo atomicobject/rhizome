@@ -3,29 +3,29 @@ package identifierreconcile
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"strings"
+	"time"
 )
 
 type identifierRepairSource struct {
 	vaultDef    obsidian.VaultDefinition
-	schema      *ontology.Schema
+	schema      *ontoschema.Schema
 	sources     []notemeta.NoteSourceSnapshot
 	projections []*ontology.NodeProjection
 }
 
-func discoverIdentifierRepairSource(ctx context.Context, vaultDef obsidian.VaultDefinition, roots []reference.IdentifierRewrite) (*identifierRepairSource, []reference.IdentifierRewrite, error) {
+func discoverIdentifierRepairSource(ctx context.Context, noteMetadata notemeta.Indexer, vaultDef obsidian.VaultDefinition, roots []identifierrewrite.IdentifierRewrite) (*identifierRepairSource, []identifierrewrite.IdentifierRewrite, error) {
 	basePath := strings.TrimSpace(vaultDef.BasePath())
 	if basePath == "" {
 		return nil, nil, fmt.Errorf("identifier discovery requires a vault root")
 	}
-	schema, err := ontology.LoadSchema(basePath)
+	schema, err := ontoschema.LoadSchema(basePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load compiled ontology schema: %w", err)
 	}
@@ -41,7 +41,7 @@ func discoverIdentifierRepairSource(ctx context.Context, vaultDef obsidian.Vault
 			return nil, nil, fmt.Errorf("identifier discovery accepts root rewrites only; descendants are derived from source")
 		}
 	}
-	sources, err := notemeta.BuildNoteSourceFacts(ctx, vaultDef)
+	sources, err := noteMetadata.BuildNoteSourceFacts(ctx, vaultDef)
 	if err != nil {
 		return nil, nil, fmt.Errorf("build complete note source inventory: %w", err)
 	}
@@ -86,12 +86,12 @@ func discoverIdentifierRepairSource(ctx context.Context, vaultDef obsidian.Vault
 	return &identifierRepairSource{vaultDef: vaultDef, schema: schema, sources: sources, projections: projections}, rewrites, nil
 }
 
-func deriveCompleteIdentifierRewrites(roots []reference.IdentifierRewrite, projections []*ontology.NodeProjection) ([]reference.IdentifierRewrite, error) {
+func deriveCompleteIdentifierRewrites(roots []identifierrewrite.IdentifierRewrite, projections []*ontology.NodeProjection) ([]identifierrewrite.IdentifierRewrite, error) {
 	rewrites := cloneIdentifierRewrites(roots)
 	aliasFieldsByType := identifierAliasFieldsByType(projections, roots)
-	byRef := make(map[string]reference.IdentifierRewrite, len(rewrites))
+	byRef := make(map[string]identifierrewrite.IdentifierRewrite, len(rewrites))
 	for _, rewrite := range rewrites {
-		if rewrite.Mode == reference.IdentifierRewritePreferredRekey {
+		if rewrite.Mode == identifierrewrite.IdentifierRewritePreferredRekey {
 			byRef[repairRefKey(rewrite.OldRef)] = rewrite
 		}
 	}
@@ -113,7 +113,7 @@ func deriveCompleteIdentifierRewrites(roots []reference.IdentifierRewrite, proje
 			if !ok {
 				oldIdentifier, _, locatorOnly = parserOwnedBlockLocator(projection)
 				if locatorOnly {
-					field = &ontology.Field{Name: reference.StructuredFieldBlockLocator, IsDerivableIdentifier: true, DerivedSuffix: "locator"}
+					field = &ontoschema.Field{Name: identifierrewrite.StructuredFieldBlockLocator, IsDerivableIdentifier: true, DerivedSuffix: "locator"}
 				}
 			}
 			if !ok && !locatorOnly || !field.IsDerivableIdentifier || field.DerivedSuffix == "" {
@@ -144,8 +144,8 @@ func deriveCompleteIdentifierRewrites(roots []reference.IdentifierRewrite, proje
 				return nil, fmt.Errorf("derived identifier %s in %s does not preserve the %s suffix below its rewritten ancestor", oldIdentifier, oldRef.NotePath, field.DerivedSuffix)
 			}
 			newRef := derivedRepairRef(oldRef, parent, oldIdentifier, newIdentifier)
-			rewrite := reference.IdentifierRewrite{
-				Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef,
+			rewrite := identifierrewrite.IdentifierRewrite{
+				Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef,
 				OldIdentifier: oldIdentifier, NewIdentifier: newIdentifier, PreferredField: field.Name,
 				AliasesField: parent.AliasesField, DerivedFrom: parent.OldRef,
 			}
@@ -199,16 +199,16 @@ func parserOwnedBlockLocator(projection *ontology.NodeProjection) (string, ontol
 	return identifier, ontology.ByteRange{Start: start, End: start + len(expected)}, true
 }
 
-func hasPreferredNoteRootRewrite(rewrites []reference.IdentifierRewrite, notePath string) bool {
+func hasPreferredNoteRootRewrite(rewrites []identifierrewrite.IdentifierRewrite, notePath string) bool {
 	for _, rewrite := range rewrites {
-		if rewrite.Mode == reference.IdentifierRewritePreferredRekey && rewrite.DerivedFrom.IsZero() && rewrite.OldRef.NotePath == notePath && rewrite.OldRef.Kind == ontology.NodeKindNote {
+		if rewrite.Mode == identifierrewrite.IdentifierRewritePreferredRekey && rewrite.DerivedFrom.IsZero() && rewrite.OldRef.NotePath == notePath && rewrite.OldRef.Kind == ontology.NodeKindNote {
 			return true
 		}
 	}
 	return false
 }
 
-func projectedPreferredIdentifier(projection *ontology.NodeProjection) (*ontology.Field, ontology.FieldBinding, string, bool) {
+func projectedPreferredIdentifier(projection *ontology.NodeProjection) (*ontoschema.Field, ontology.FieldBinding, string, bool) {
 	if projection == nil || projection.Type == nil {
 		return nil, ontology.FieldBinding{}, "", false
 	}
@@ -225,7 +225,7 @@ func projectedPreferredIdentifier(projection *ontology.NodeProjection) (*ontolog
 	return nil, ontology.FieldBinding{}, "", false
 }
 
-func nearestIdentifierRewrite(projection *ontology.NodeProjection, oldIdentifier string, byNodeID map[string]*ontology.NodeProjection, byRef map[string]reference.IdentifierRewrite, rewrites []reference.IdentifierRewrite) (reference.IdentifierRewrite, bool) {
+func nearestIdentifierRewrite(projection *ontology.NodeProjection, oldIdentifier string, byNodeID map[string]*ontology.NodeProjection, byRef map[string]identifierrewrite.IdentifierRewrite, rewrites []identifierrewrite.IdentifierRewrite) (identifierrewrite.IdentifierRewrite, bool) {
 	visited := make(map[string]struct{})
 	for parentID := strings.TrimSpace(projection.Ref.ParentID); parentID != ""; {
 		if _, cycle := visited[parentID]; cycle {
@@ -241,9 +241,9 @@ func nearestIdentifierRewrite(projection *ontology.NodeProjection, oldIdentifier
 		}
 		parentID = strings.TrimSpace(parentProjection.Ref.ParentID)
 	}
-	var candidates []reference.IdentifierRewrite
+	var candidates []identifierrewrite.IdentifierRewrite
 	for _, rewrite := range rewrites {
-		if rewrite.Mode != reference.IdentifierRewritePreferredRekey || rewrite.OldRef.NotePath != projection.Ref.NotePath {
+		if rewrite.Mode != identifierrewrite.IdentifierRewritePreferredRekey || rewrite.OldRef.NotePath != projection.Ref.NotePath {
 			continue
 		}
 		if _, ok := derivedSuffix(oldIdentifier, rewrite.OldIdentifier); ok {
@@ -251,7 +251,7 @@ func nearestIdentifierRewrite(projection *ontology.NodeProjection, oldIdentifier
 		}
 	}
 	if len(candidates) == 0 {
-		return reference.IdentifierRewrite{}, false
+		return identifierrewrite.IdentifierRewrite{}, false
 	}
 	for i := 1; i < len(candidates); i++ {
 		if len(candidates[i].OldIdentifier) > len(candidates[0].OldIdentifier) {
@@ -277,7 +277,7 @@ func semanticRepairRef(ref ontology.NodeRef) ontology.NodeRef {
 	}
 }
 
-func derivedRepairRef(oldRef ontology.NodeRef, parent reference.IdentifierRewrite, oldIdentifier, newIdentifier string) ontology.NodeRef {
+func derivedRepairRef(oldRef ontology.NodeRef, parent identifierrewrite.IdentifierRewrite, oldIdentifier, newIdentifier string) ontology.NodeRef {
 	newRef := oldRef
 	newRef.NotePath = parent.NewRef.NotePath
 	if replacement, changed := replaceBoundedRepairIdentifier(oldRef.Fragment, oldIdentifier, newIdentifier); changed {

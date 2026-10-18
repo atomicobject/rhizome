@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,7 @@ func runOntologyFixture(t *testing.T, files map[string]string) CheckResult {
 	vaultDef := obsidian.VaultDefinition{Root: root, Path: root, Links: obsidian.LinkTypeBoth, Includes: []string{"**/*.md"}}
 	_, err := testNoteMetadata(t).EnsureIndexed(context.Background(), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	runCtx := RunContext{VaultDef: vaultDef, VaultPath: root, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t), MaxIssues: 100}
 	return runOntologyWithRuntime(context.Background(), runCtx, runtime)

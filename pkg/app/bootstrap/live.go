@@ -16,6 +16,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/app/codeintel"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"log/slog"
 	"os"
@@ -26,53 +28,57 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
-	"github.com/atomicobject/rhizome/pkg/app/semanticruntime"
+
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
 	"github.com/atomicobject/rhizome/pkg/logging"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
-	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	codeemb "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex/sqlite"
-	embsqlite "github.com/atomicobject/rhizome/pkg/search/embeddings/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/coderefs"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
+
+	// LiveRuntime encapsulates shared initialization for long-running server processes.
+	// Long-running servers use this to avoid duplicating boot logic.
+	//
+	// Docs: [CONTEXT.md](pkg/app/bootstrap/CONTEXT.md)
+	//
+	// LiveRuntime uses an async capability-based API:
+	//   - NewLiveRuntime returns immediately after vault resolution (~10ms)
+	//   - Heavy init runs in background across 4 phases (Search → Semantic → Code → Leader)
+	//   - Each phase closes a channel when ready; errors are stored for WaitFor* to return
+	//   - Phases continue to the next even on failure (graceful degradation)
+	//
+	// Capability channels:
+	//   - searchReady: cache + watchhub (Phase 1)
+	//   - semanticReady: note embeddings index + provider (Phase 2)
+	//   - codeReady: code anchor service + intel store (Phase 3)
+	//   - leaderCh: this process won leader election (Phase 1, triggers Phase 4 work)
+	//
+	// Runtime ownership: exactly one process wins .rhizome/runtime.lock and owns
+	// the vault's watcher, schedulers, and background index (SPEC-0104). A loser
+	// exits; there is no follower role.
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
-// LiveRuntime encapsulates shared initialization for long-running server processes.
-// Long-running servers use this to avoid duplicating boot logic.
-//
-// Docs: [CONTEXT.md](pkg/app/bootstrap/CONTEXT.md)
-//
-// LiveRuntime uses an async capability-based API:
-//   - NewLiveRuntime returns immediately after vault resolution (~10ms)
-//   - Heavy init runs in background across 4 phases (Search → Semantic → Code → Leader)
-//   - Each phase closes a channel when ready; errors are stored for WaitFor* to return
-//   - Phases continue to the next even on failure (graceful degradation)
-//
-// Capability channels:
-//   - searchReady: cache + watchhub (Phase 1)
-//   - semanticReady: note embeddings index + provider (Phase 2)
-//   - codeReady: code anchor service + intel store (Phase 3)
-//   - leaderCh: this process won leader election (Phase 1, triggers Phase 4 work)
-//
-// Runtime ownership: exactly one process wins .rhizome/runtime.lock and owns
-// the vault's watcher, schedulers, and background index (SPEC-0104). A loser
-// exits; there is no follower role.
 type LiveRuntime struct {
+	resolvedConfig atomic.Pointer[repoconfig.Resolved]
 	// Immediately available (set in NewLiveRuntime before it returns)
-	Vault     *obsidian.Vault
+	Vault     *repoconfig.Vault
 	VaultPath string
 	VaultDef  obsidian.VaultDefinition
-	LocalCfg  *obsidian.LocalConfig
+	LocalCfg  *repoconfig.LocalConfig
 
 	// noteMetadataIndexer is immutable runtime composition for all raw note
 	// metadata work in this long-lived process. Construct it before any async
@@ -89,18 +95,17 @@ type LiveRuntime struct {
 	ownershipConfigMu sync.Mutex
 
 	// Context and options
-	ctx                     context.Context
-	cancelCtx               context.CancelFunc
-	debug                   bool
-	skipCacheWarmup         bool
-	disableWatchHub         bool
-	disableLeaderWork       bool
-	requirements            RuntimeRequirements
-	skipIntelIntegrityCheck bool
-	readOnlyCodeIndex       bool
-	disableSessionStore     bool
-	sessionOnlyExisting     bool
-	queryProvidersOnly      bool
+	ctx                 context.Context
+	cancelCtx           context.CancelFunc
+	debug               bool
+	skipCacheWarmup     bool
+	disableWatchHub     bool
+	disableLeaderWork   bool
+	requirements        RuntimeRequirements
+	readOnlyCodeIndex   bool
+	disableSessionStore bool
+	sessionOnlyExisting bool
+	queryProvidersOnly  bool
 
 	globalEventSink atomic.Value // stores GlobalEventSink
 
@@ -118,7 +123,7 @@ type LiveRuntime struct {
 	// Components (accessed via getters, nil until ready)
 	cache         atomic.Pointer[cache.Service]
 	hub           atomic.Pointer[watchhub.Hub]
-	noteIndex     atomic.Pointer[embsqlite.Store]
+	noteIndex     atomic.Pointer[embsqlite.NoteStore]
 	noteProvider  atomic.Pointer[embeddings.Provider]
 	codeAnchorSvc atomic.Pointer[codeanchor.Service]
 	intelStore    atomic.Pointer[semdb.Store]
@@ -126,12 +131,12 @@ type LiveRuntime struct {
 	sessionReady  chan struct{}
 
 	// Code embeddings (optional, may be nil)
-	codeEmbStore    atomic.Pointer[codeemb.Store]
+	codeEmbStore    atomic.Pointer[embsqlite.CodeStore]
 	codeEmbProvider atomic.Pointer[embeddings.Provider]
 
 	// Syncers for leader work (created when capabilities are ready)
-	noteSyncer atomic.Pointer[semantic.NoteSyncer]
-	codeSyncer atomic.Pointer[semantic.Syncer]
+	noteSyncer atomic.Pointer[embedindex.NoteSyncer]
+	codeSyncer atomic.Pointer[embedindex.Syncer]
 
 	liveWatcher atomic.Pointer[unifiedSemanticWatcher]
 
@@ -282,20 +287,20 @@ func (r RuntimeRequirements) Includes(capability RuntimeCapability) bool {
 
 // LiveOptions configures LiveRuntime initialization.
 type LiveOptions struct {
-	VaultName               string
-	Debug                   bool
-	BackgroundIndexer       BackgroundIndexer   // optional callback for background indexing on leader start
-	BeforeOwnershipRelease  func()              // owner-only finalization after resources drain, before election release
-	OnElected               func() error        // owner-only startup barrier; see below
-	SkipCacheWarmup         bool                // skip background note-cache warmup for one-shot CLI callers
-	DisableWatchHub         bool                // skip watchhub for one-shot CLI callers
-	DisableLeaderWork       bool                // skip leader election, watchers, and background work
-	Requirements            RuntimeRequirements // requested runtime capabilities (zero value = full runtime)
-	SkipIntelIntegrityCheck bool                // explicit latency policy for agent-start rich opens only
-	ReadOnlyCodeIndex       bool                // query the existing validated index
-	DisableSessionStore     bool                // do not expose a session-dedupe handle or own session cleanup
-	SessionOnlyExisting     bool                // open only the existing session-dedupe writer, without CodeIndex
-	QueryProvidersOnly      bool                // construct query embedders without opening or mutating embedding stores
+	Config                 *repoconfig.Resolved
+	VaultName              string
+	Debug                  bool
+	BackgroundIndexer      BackgroundIndexer   // optional callback for background indexing on leader start
+	BeforeOwnershipRelease func()              // owner-only finalization after resources drain, before election release
+	OnElected              func() error        // owner-only startup barrier; see below
+	SkipCacheWarmup        bool                // skip background note-cache warmup for one-shot CLI callers
+	DisableWatchHub        bool                // skip watchhub for one-shot CLI callers
+	DisableLeaderWork      bool                // skip leader election, watchers, and background work
+	Requirements           RuntimeRequirements // requested runtime capabilities (zero value = full runtime)
+	ReadOnlyCodeIndex      bool                // query the existing validated index
+	DisableSessionStore    bool                // do not expose a session-dedupe handle or own session cleanup
+	SessionOnlyExisting    bool                // open only the existing session-dedupe writer, without CodeIndex
+	QueryProvidersOnly     bool                // construct query embedders without opening or mutating embedding stores
 }
 
 // OnElected runs synchronously after this process wins the vault and before any
@@ -318,7 +323,6 @@ func IndexedReadOnlyRuntimeOptions(opts LiveOptions) LiveOptions {
 	opts.DisableWatchHub = true
 	opts.DisableLeaderWork = true
 	opts.Requirements = RequireRuntimeCapabilities(RuntimeCapabilityCodeIndex)
-	opts.SkipIntelIntegrityCheck = true
 	opts.ReadOnlyCodeIndex = true
 	return opts
 }
@@ -329,53 +333,38 @@ func IndexedReadOnlyRuntimeOptions(opts LiveOptions) LiveOptions {
 //
 // Only returns an error for truly fatal conditions (vault doesn't exist).
 func NewLiveRuntime(ctx context.Context, opts LiveOptions) (*LiveRuntime, error) {
+	ctx = vaultconfig.WithEnv(ctx, vaultconfig.FromContext(ctx))
 	runtimeCtx, cancel := context.WithCancel(ctx)
-	formats, err := builtin.NewRuntime()
-	if err != nil {
-		cancel()
-		return nil, err
-	}
-	noteMetadataIndexer, err := notemeta.NewIndexer(formats)
+	formats, noteMetadataIndexer, err := NewBuiltinNoteRuntime()
 	if err != nil {
 		cancel()
 		return nil, err
 	}
 	rt := &LiveRuntime{
-		ctx:                     runtimeCtx,
-		cancelCtx:               cancel,
-		debug:                   opts.Debug,
-		skipCacheWarmup:         opts.SkipCacheWarmup,
-		disableWatchHub:         opts.DisableWatchHub,
-		disableLeaderWork:       opts.DisableLeaderWork,
-		requirements:            opts.Requirements,
-		skipIntelIntegrityCheck: opts.SkipIntelIntegrityCheck,
-		readOnlyCodeIndex:       opts.ReadOnlyCodeIndex,
-		disableSessionStore:     opts.DisableSessionStore,
-		sessionOnlyExisting:     opts.SessionOnlyExisting,
-		queryProvidersOnly:      opts.QueryProvidersOnly,
-		beforeOwnershipRelease:  opts.BeforeOwnershipRelease,
-		searchReady:             make(chan struct{}),
-		semanticReady:           make(chan struct{}),
-		codeReady:               make(chan struct{}),
-		leaderCh:                make(chan struct{}),
-		noteMetadataIndexer:     noteMetadataIndexer,
-		noteFormats:             formats,
-		sessionReady:            make(chan struct{}),
+		ctx:                    runtimeCtx,
+		cancelCtx:              cancel,
+		debug:                  opts.Debug,
+		skipCacheWarmup:        opts.SkipCacheWarmup,
+		disableWatchHub:        opts.DisableWatchHub,
+		disableLeaderWork:      opts.DisableLeaderWork,
+		requirements:           opts.Requirements,
+		readOnlyCodeIndex:      opts.ReadOnlyCodeIndex,
+		disableSessionStore:    opts.DisableSessionStore,
+		sessionOnlyExisting:    opts.SessionOnlyExisting,
+		queryProvidersOnly:     opts.QueryProvidersOnly,
+		beforeOwnershipRelease: opts.BeforeOwnershipRelease,
+		searchReady:            make(chan struct{}),
+		semanticReady:          make(chan struct{}),
+		codeReady:              make(chan struct{}),
+		leaderCh:               make(chan struct{}),
+		noteMetadataIndexer:    noteMetadataIndexer,
+		noteFormats:            formats,
+		sessionReady:           make(chan struct{}),
 	}
 
-	// Resolve vault (this is fast and required for everything else)
-	if opts.VaultName == "" {
-		vault := &obsidian.Vault{}
-		defaultName, err := vault.DefaultName()
-		if err != nil {
-			cancel()
-			return nil, err
-		}
-		opts.VaultName = defaultName
-	}
-
-	rt.Vault = &obsidian.Vault{Name: opts.VaultName}
-	vaultDef, err := rt.Vault.Definition()
+	// Capture definition and settings before opening any runtime resources.
+	rt.Vault = &repoconfig.Vault{Env: vaultconfig.FromContext(ctx), Name: opts.VaultName}
+	vaultDef, resolved, err := rt.Vault.ResolveConfiguration(opts.Config)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -384,19 +373,8 @@ func NewLiveRuntime(ctx context.Context, opts LiveOptions) (*LiveRuntime, error)
 	rt.ownershipVaultDef.Store(&vaultDef)
 	rt.VaultPath = vaultDef.BasePath()
 	rt.liveHealth = newLiveHealthTracker(rt.VaultPath)
-
-	// Load local config (fast)
-	if _, cfg, err := obsidian.FindLocalConfig(rt.VaultPath); err == nil && cfg != nil {
-		rt.LocalCfg = cfg
-		// The registered vault definition supplies identity and location, while
-		// the repository config owns the current note selection policy. Keep the
-		// public runtime definition aligned with the watcher so web mutations and
-		// other exact refreshes do not fall back to Markdown-only discovery.
-		if configured, loadErr := loadWatcherVaultDefinition(rt.VaultPath, rt.VaultDef); loadErr == nil {
-			rt.VaultDef = configured
-			rt.ownershipVaultDef.Store(&configured)
-		}
-	}
+	rt.resolvedConfig.Store(&resolved)
+	rt.LocalCfg = resolved.Local
 
 	// Elect the vault's runtime owner before returning so `rzm serve` can
 	// decide to exit before binding a listener (SPEC-0104 US1). Runtimes with
@@ -454,7 +432,7 @@ func (rt *LiveRuntime) initSessionStoreOnly() {
 		case <-rt.codeReady:
 		}
 	}
-	codeCfg := loadLiveCodeConfig(rt.VaultPath)
+	codeCfg := rt.Configuration().Code
 	store, err := semdb.OpenSessionStoreExisting(codeCfg.IndexPath, rt.ctx, sessionSQLitePoolOptions())
 	if err != nil || store == nil || rt.isClosed() {
 		if store != nil {
@@ -489,7 +467,7 @@ func (rt *LiveRuntime) initPhase1Search() {
 
 	// Initialize cache service from the immutable ownership selector. Raw watch
 	// events remain available even when this Markdown projection rejects them.
-	cacheCodeCfg := loadLiveCodeConfig(rt.VaultPath)
+	cacheCodeCfg := rt.Configuration().Code
 	rt.codeCfg.Store(&cacheCodeCfg)
 	selectionPolicy, err := liveCacheSelectionPolicy(rt.VaultDef, rt.noteFormats, cacheCodeCfg)
 	if err != nil {
@@ -514,7 +492,7 @@ func (rt *LiveRuntime) initPhase1Search() {
 
 	// Add coderef config if available
 	if rt.requirements.Includes(RuntimeCapabilityCodeRefDiscovery) && rt.LocalCfg != nil {
-		if inc, exc := obsidian.NormalizeCodeRefPatterns(*rt.LocalCfg); len(inc) > 0 {
+		if inc, exc := repoconfig.NormalizeCodeRefPatterns(*rt.LocalCfg); len(inc) > 0 {
 			cacheOpts.CodeRefConfig = coderefs.NewConfig(true, inc, exc)
 		}
 	}
@@ -532,9 +510,9 @@ func (rt *LiveRuntime) initPhase1Search() {
 
 	if !rt.disableWatchHub {
 		// Initialize watchhub
-		watchPolicy := semanticruntime.PolicyFor(semanticruntime.IndexRequest{
-			Source:       semanticruntime.IndexSourceWatcher,
-			LatencyClass: semanticruntime.LatencyAuto,
+		watchPolicy := embedindex.PolicyFor(embedindex.IndexRequest{
+			Source:       embedindex.IndexSourceWatcher,
+			LatencyClass: embedindex.LatencyAuto,
 		})
 		hubOpts := watchhub.Options{
 			UserExcludes: rt.VaultDef.Excludes,
@@ -610,15 +588,15 @@ func (rt *LiveRuntime) initPhase2Semantic() {
 	}
 
 	// Validate embeddings provider is configured
-	if err := obsidian.ValidateEmbeddingsProvider(rt.VaultPath); err != nil {
+	if err := rt.Configuration().ValidateEmbeddingsProvider(); err != nil {
 		err = fmt.Errorf("semantic search unavailable: %w\n\nTo fix: run 'rzm init' in your terminal to configure an embeddings provider", err)
 		rt.semanticErr.Store(&err)
 		close(rt.semanticReady)
 		rt.startWorker(rt.initPhase3Code)
 		return
 	}
-
-	embCfg, err := obsidian.LoadEmbeddingsConfig(rt.VaultPath)
+	embCfg := rt.Configuration().NoteEmbeddings
+	var err error
 	if err != nil || !embCfg.Enabled {
 		if err != nil {
 			rt.semanticErr.Store(&err)
@@ -631,7 +609,7 @@ func (rt *LiveRuntime) initPhase2Semantic() {
 		return
 	}
 
-	provider, providerCfg, err := embeddings.NewProviderForConfig(embCfg, "")
+	provider, providerCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(rt.ctx), embCfg, "")
 	if err != nil {
 		err = embeddings.ProviderUnavailableError(embCfg, err)
 		rt.semanticErr.Store(&err)
@@ -657,9 +635,8 @@ func (rt *LiveRuntime) initPhase2Semantic() {
 
 	storeCtx := indexingperf.WithPhase(ctxReady, indexingperf.AgentStartPhaseStoreWarmOpen)
 	doneStore := indexingperf.StartSpan(storeCtx, indexingperf.AgentStartPhaseStoreWarmOpen)
-	store, err := embsqlite.OpenWithMetadataWithOptions(storeCtx, embCfg.IndexPath, provider, embeddings.MetadataForProvider(provider, providerCfg), embsqlite.OpenOptions{
-		Pool: liveSQLitePoolOptions(),
-	})
+	noteMetadata := embeddings.MetadataForProvider(provider, providerCfg)
+	store, err := embsqlite.OpenNotes(storeCtx, embsqlite.File(embCfg.IndexPath), embsqlite.Options{Pool: liveSQLitePoolOptions(), Access: embsqlite.WriteIndex, Dimensions: provider.Dimensions(), Metadata: &noteMetadata})
 	doneStore(err)
 	if err != nil {
 		var metaErr embeddings.MetadataError
@@ -772,7 +749,7 @@ func (rt *LiveRuntime) initPhase3Code() {
 		provider := rt.queryNoteProvider.Load()
 		meta := rt.queryNoteMeta.Load()
 		if provider != nil && meta != nil {
-			err = embsqlite.ValidateExistingMetadata(rt.ctx, store.DB(), *meta)
+			err = embsqlite.ValidateExisting(rt.ctx, embsqlite.Borrowed(store.DB()), embsqlite.Notes, *meta)
 		}
 		if err != nil {
 			cleanup()
@@ -835,7 +812,7 @@ func (rt *LiveRuntime) initPhase3Code() {
 	if includeIndexers {
 		warmCtx = rt.ctx
 	}
-	svc, _ := NewCodeAnchorService(CodeAnchorServiceConfig{
+	svc, _ := codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
 		VaultPath:        rt.VaultPath,
 		CodeCfg:          codeCfg,
 		Store:            store,
@@ -939,6 +916,10 @@ func (rt *LiveRuntime) Snapshot() runtimeview.Snapshot {
 	if rt == nil {
 		return runtimeview.Snapshot{}
 	}
+	rt.ownershipConfigMu.Lock()
+	vaultDefinition := rt.currentOwnershipVaultDefinition()
+	configuration := rt.Configuration()
+	rt.ownershipConfigMu.Unlock()
 	notePath := ""
 	if cfg := rt.embCfg.Load(); cfg != nil {
 		notePath = cfg.IndexPath
@@ -949,6 +930,8 @@ func (rt *LiveRuntime) Snapshot() runtimeview.Snapshot {
 		noteReader = cache.NewNoteAdapter(cacheService, &obsidian.Note{})
 	}
 	return runtimeview.Snapshot{
+		VaultDefinition:   vaultDefinition,
+		Configuration:     &configuration,
 		Search:            capabilityState(rt.searchReady, rt.searchErr.Load()),
 		Semantic:          capabilityState(rt.semanticReady, rt.semanticErr.Load()),
 		Code:              capabilityState(rt.codeReady, rt.codeErr.Load()),
@@ -1029,7 +1012,7 @@ func (rt *LiveRuntime) Hub() *watchhub.Hub {
 }
 
 // NoteIndex returns the note embeddings index (nil until semantic ready).
-func (rt *LiveRuntime) NoteIndex() *embsqlite.Store {
+func (rt *LiveRuntime) NoteIndex() *embsqlite.NoteStore {
 	return rt.noteIndex.Load()
 }
 
@@ -1133,7 +1116,7 @@ func (rt *LiveRuntime) CodeEmbeddingsConfig() *embeddings.Config {
 }
 
 // CodeEmbeddings returns the code embeddings store and provider (both nil until code ready).
-func (rt *LiveRuntime) CodeEmbeddings() (*codeemb.Store, embeddings.Provider) {
+func (rt *LiveRuntime) CodeEmbeddings() (*embsqlite.CodeStore, embeddings.Provider) {
 	store := rt.codeEmbStore.Load()
 	if p := rt.codeEmbProvider.Load(); p != nil {
 		return store, *p
@@ -1142,12 +1125,12 @@ func (rt *LiveRuntime) CodeEmbeddings() (*codeemb.Store, embeddings.Provider) {
 }
 
 // NoteSyncer returns the note syncer for embeddings (nil until leader work starts).
-func (rt *LiveRuntime) NoteSyncer() *semantic.NoteSyncer {
+func (rt *LiveRuntime) NoteSyncer() *embedindex.NoteSyncer {
 	return rt.noteSyncer.Load()
 }
 
 // CodeSyncer returns the code syncer for embeddings (nil until leader work starts).
-func (rt *LiveRuntime) CodeSyncer() *semantic.Syncer {
+func (rt *LiveRuntime) CodeSyncer() *embedindex.Syncer {
 	return rt.codeSyncer.Load()
 }
 
@@ -1156,10 +1139,8 @@ func (rt *LiveRuntime) startLeaderWork() {
 	noteSvc := rt.codeAnchorSvc.Load()
 	intelStore := rt.intelStore.Load()
 	hub := rt.hub.Load()
-	vaultDef, leaderCodeCfg, ownershipErr := rt.leaderOwnershipConfiguration()
-	if ownershipErr != nil {
-		rt.recordDiagnostic(slog.LevelWarn, "ownership.reload_failed", ownershipErr)
-	}
+	configurationView := rt.Snapshot()
+	vaultDef, leaderCodeCfg := configurationView.VaultDefinition, configurationView.Configuration.Code
 	codeCfg := &leaderCodeCfg
 	unifiedWatcherAvailable := cacheService != nil && noteSvc != nil && intelStore != nil
 
@@ -1174,7 +1155,7 @@ func (rt *LiveRuntime) startLeaderWork() {
 		// the legacy codeanchor subscriber stays off so it cannot also full-rescan,
 		// ingest notes, index code, or recompute scopes for the same events.
 		noteRoots := []string{rt.VaultPath}
-		codeRoots := ResolveRoots(rt.VaultPath, codeCfg.CodeRoots())
+		codeRoots := codeintel.ResolveRoots(rt.VaultPath, codeCfg.CodeRoots())
 		ignoreGlobs := append([]string{}, codeCfg.PythonIgnore...)
 		ignoreGlobs = append(ignoreGlobs, codeCfg.GoIgnore...)
 		ignoreGlobs = append(ignoreGlobs, codeCfg.TSIgnore...)
@@ -1208,8 +1189,8 @@ func (rt *LiveRuntime) startLeaderWork() {
 				noteSvc,
 				noteRoots,
 				codeRoots,
-				func(path string, content []byte, mtime int64) codeanchor.NoteSource {
-					return notemeta.NewContentOnlyNoteSourceSnapshot(path, string(content), mtime)
+				func(path string, content []byte, mtime int64) (codeanchor.NoteSource, error) {
+					return rt.noteMetadataIndexer.ProjectNoteSource(path, string(content), mtime)
 				},
 				codeanchor.WithWatcherExcludeGlobs(ignoreGlobs),
 				codeanchor.WithWatcherIgnoreMatcher(hub.IgnoreMatcher()),
@@ -1337,7 +1318,9 @@ func runSessionCleanupIfDueWith(
 
 // initCodeEmbeddings initializes code embeddings store (optional, failures don't block).
 func (rt *LiveRuntime) initCodeEmbeddings(intelStore *semdb.Store) {
-	codeEmbCfg, exists, err := obsidian.LoadCodeEmbeddingsConfig(rt.VaultPath)
+	resolved := rt.Configuration()
+	codeEmbCfg, exists := resolved.CodeEmbeddings, resolved.CodeEmbeddingsExplicit
+	var err error
 	if err != nil || !exists || !codeEmbCfg.Enabled {
 		return
 	}
@@ -1354,7 +1337,7 @@ func (rt *LiveRuntime) initCodeEmbeddings(intelStore *semdb.Store) {
 		}
 	}
 	if codeProvider == nil {
-		codeProvider, codeProviderCfg, err = embeddings.NewProviderForConfig(codeEmbCfg, "")
+		codeProvider, codeProviderCfg, err = embeddings.NewProviderForConfig(vaultconfig.FromContext(rt.ctx), codeEmbCfg, "")
 		if err != nil {
 			if diagnostics.FromContext(rt.ctx) != nil {
 				rt.recordDiagnostic(slog.LevelInfo, "code_provider.unavailable", err)
@@ -1379,7 +1362,7 @@ func (rt *LiveRuntime) initCodeEmbeddings(intelStore *semdb.Store) {
 	meta := embeddings.MetadataForProvider(codeProvider, codeProviderCfg)
 	meta.FingerprintVersion = 2
 	if rt.queryProvidersOnly {
-		if err := codeemb.ValidateExistingMetadata(rt.ctx, intelStore.DB(), meta); err != nil {
+		if err := embsqlite.ValidateExisting(rt.ctx, embsqlite.Borrowed(intelStore.DB()), embsqlite.Code, meta); err != nil {
 			if diagnostics.FromContext(rt.ctx) != nil {
 				rt.recordDiagnostic(slog.LevelInfo, "code_embeddings.metadata_unavailable", err)
 			}
@@ -1428,21 +1411,9 @@ func (rt *LiveRuntime) openIntelStoreForServe(codeCfg codeanchor.Config) (*semdb
 		}
 		return store, func() { _ = store.Close() }, nil
 	}
-	if embCfg := rt.embCfg.Load(); embCfg != nil && sameSQLitePath(embCfg.IndexPath, codeCfg.IndexPath) {
-		if noteStore := rt.noteIndex.Load(); noteStore != nil && noteStore.DB() != nil {
-			store, err := semdb.OpenWithDBContext(rt.ctx, noteStore.DB())
-			doneStore(err)
-			if err != nil {
-				return nil, nil, err
-			}
-			return store, func() {}, nil
-		}
-	}
-	store, cleanup, err := obsidian.OpenIntelStoreForWriteFromConfigWithOptions(rt.VaultPath, codeCfg, obsidian.IntelStoreOpenOptions{
-		Context:            rt.ctx,
-		Pool:               liveSQLitePoolOptions(),
-		SkipIntegrityCheck: rt.skipIntelIntegrityCheck,
-	})
+	store, cleanup, err := indexstore.Open(rt.VaultPath, indexstore.Options{Access: indexstore.ReadWrite, Config: &codeCfg, Create: true, Context: rt.ctx,
+		Pool: liveSQLitePoolOptions()},
+	)
 	doneStore(err)
 	return store, cleanup, err
 }
@@ -1469,13 +1440,11 @@ func (rt *LiveRuntime) publishWarmIntelStoreForRead(codeCfg codeanchor.Config) {
 	})
 }
 
-func (rt *LiveRuntime) openCodeEmbeddingsStoreForServe(ctx context.Context, indexPath string, provider embeddings.Provider, meta embeddings.IndexMetadata, intelStore *semdb.Store) (*codeemb.Store, error) {
+func (rt *LiveRuntime) openCodeEmbeddingsStoreForServe(ctx context.Context, indexPath string, provider embeddings.Provider, meta embeddings.IndexMetadata, intelStore *semdb.Store) (*embsqlite.CodeStore, error) {
 	if codeCfg := rt.codeCfg.Load(); codeCfg != nil && sameSQLitePath(indexPath, codeCfg.IndexPath) && intelStore != nil && intelStore.DB() != nil {
-		return codeemb.OpenWithMetadataWithDB(ctx, intelStore.DB(), provider, meta)
+		return embsqlite.OpenCode(ctx, embsqlite.Borrowed(intelStore.DB()), embsqlite.Options{Access: embsqlite.WriteIndex, Dimensions: provider.Dimensions(), Metadata: &meta})
 	}
-	return codeemb.OpenWithMetadataWithOptions(ctx, indexPath, provider, meta, codeemb.OpenOptions{
-		Pool: liveSQLitePoolOptions(),
-	})
+	return embsqlite.OpenCode(ctx, embsqlite.File(indexPath), embsqlite.Options{Pool: liveSQLitePoolOptions(), Access: embsqlite.WriteIndex, Dimensions: provider.Dimensions(), Metadata: &meta})
 }
 
 func sameSQLitePath(a, b string) bool {
@@ -1487,28 +1456,28 @@ func sameSQLitePath(a, b string) bool {
 
 // createSyncers creates note and code syncers for leader work.
 func (rt *LiveRuntime) createSyncers(intelStore *semdb.Store) {
-	policy := semanticruntime.PolicyFor(semanticruntime.IndexRequest{
-		Source:       semanticruntime.IndexSourceWatcher,
-		LatencyClass: semanticruntime.LatencyAuto,
+	policy := embedindex.PolicyFor(embedindex.IndexRequest{
+		Source:       embedindex.IndexSourceWatcher,
+		LatencyClass: embedindex.LatencyAuto,
 	})
-	runtime := semanticruntime.New()
+	runtime := embedindex.NewRuntime()
 	// Create code syncer if code embeddings are available
 	codeEmbStore := rt.codeEmbStore.Load()
 	codeProvider := rt.codeEmbProvider.Load()
 	codeEmbCfg := rt.codeEmbCfg.Load()
-	var codeSyncer *semantic.Syncer
+	var codeSyncer *embedindex.Syncer
 	if codeEmbStore != nil && codeProvider != nil && codeEmbCfg != nil && intelStore != nil {
-		codeSyncer = &semantic.Syncer{
+		codeSyncer = &embedindex.Syncer{
 			Index:           codeEmbStore,
 			Provider:        *codeProvider,
-			ProviderInfo:    codeEmbCfg.ProviderCfg(embeddings.ResolveAPIKeyForProvider(codeEmbCfg.Provider)),
+			ProviderInfo:    codeEmbCfg.ProviderCfg(embeddings.ResolveAPIKeyForProvider(vaultconfig.FromContext(rt.ctx), codeEmbCfg.Provider)),
 			Intel:           intelStore,
 			Calls:           intelStore,
 			ChunkWriter:     intelStore,
 			EmbeddingWriter: intelStore,
 			Root:            rt.VaultPath,
-			Budget:          semantic.DefaultChunkBudget(),
-			Policy:          semantic.DefaultSynthesisPolicy(semantic.PolicyOptions{Budget: semantic.DefaultChunkBudget()}),
+			Budget:          embedindex.DefaultChunkBudget(),
+			Policy:          embedindex.DefaultSynthesisPolicy(embedindex.PolicyOptions{Budget: embedindex.DefaultChunkBudget()}),
 			CodeEmbedPacker: policy.CodeEmbedPacker,
 		}
 		if codeEmbCfg.BatchSize > 0 {
@@ -1524,12 +1493,12 @@ func (rt *LiveRuntime) createSyncers(intelStore *semdb.Store) {
 	noteProvider := rt.noteProvider.Load()
 	embCfg := rt.embCfg.Load()
 	noteSvc := rt.codeAnchorSvc.Load()
-	var noteSyncer *semantic.NoteSyncer
+	var noteSyncer *embedindex.NoteSyncer
 	if noteIndex != nil && noteProvider != nil && embCfg != nil && noteSvc != nil && intelStore != nil {
-		noteSyncer = &semantic.NoteSyncer{
+		noteSyncer = &embedindex.NoteSyncer{
 			Index:           noteIndex,
 			Provider:        *noteProvider,
-			ProviderInfo:    embCfg.ProviderCfg(embeddings.ResolveAPIKeyForProvider(embCfg.Provider)),
+			ProviderInfo:    embCfg.ProviderCfg(embeddings.ResolveAPIKeyForProvider(vaultconfig.FromContext(rt.ctx), embCfg.Provider)),
 			Intel:           intelStore,
 			ChunkWriter:     intelStore,
 			EmbeddingWriter: intelStore,
@@ -1538,13 +1507,13 @@ func (rt *LiveRuntime) createSyncers(intelStore *semdb.Store) {
 			MaxConcurrent:   embCfg.MaxConcurrency,
 			MaxSectionBytes: embCfg.MaxSectionBytes,
 			NoteEmbedPacker: policy.NoteEmbedPacker,
-			RawEligibility:  semantic.NewOntologyRawNoteEligibility(intelStore),
+			RawEligibility:  embedindex.NewOntologyRawNoteEligibility(intelStore),
 		}
 	}
 	if codeSyncer != nil && noteSyncer != nil {
 		sharedMax := max(
-			semantic.EffectiveMaxConcurrent(codeSyncer.Provider, codeSyncer.MaxConcurrent),
-			semantic.EffectiveMaxConcurrent(noteSyncer.Provider, noteSyncer.MaxConcurrent),
+			embedindex.EffectiveMaxConcurrent(codeSyncer.Provider, codeSyncer.MaxConcurrent),
+			embedindex.EffectiveMaxConcurrent(noteSyncer.Provider, noteSyncer.MaxConcurrent),
 		)
 		sharedGate := make(chan struct{}, sharedMax)
 		codeSyncer.EmbedGate = sharedGate
@@ -1555,12 +1524,12 @@ func (rt *LiveRuntime) createSyncers(intelStore *semdb.Store) {
 		physicalCtx, finishPhysical = observePhysicalEmbeddings(rt.ctx)
 	}
 	if noteSyncer != nil && noteSyncer.Provider != nil {
-		opts := semantic.EmbedPackerOptions{}
+		opts := embedindex.EmbedPackerOptions{}
 		if noteSyncer.NoteEmbedPacker != nil {
 			opts = *noteSyncer.NoteEmbedPacker
 		}
-		lane, err := runtime.EnsureLane(physicalCtx, semanticruntime.LaneRequest{
-			Kind:          semanticruntime.LaneKindNote,
+		lane, err := runtime.EnsureLane(physicalCtx, embedindex.LaneRequest{
+			Kind:          embedindex.LaneKindNote,
 			Provider:      noteSyncer.Provider,
 			ProviderInfo:  noteSyncer.ProviderInfo,
 			MaxConcurrent: noteSyncer.MaxConcurrent,
@@ -1578,12 +1547,12 @@ func (rt *LiveRuntime) createSyncers(intelStore *semdb.Store) {
 		}
 	}
 	if codeSyncer != nil && codeSyncer.Provider != nil {
-		opts := semantic.EmbedPackerOptions{}
+		opts := embedindex.EmbedPackerOptions{}
 		if codeSyncer.CodeEmbedPacker != nil {
 			opts = *codeSyncer.CodeEmbedPacker
 		}
-		lane, err := runtime.EnsureLane(physicalCtx, semanticruntime.LaneRequest{
-			Kind:          semanticruntime.LaneKindCode,
+		lane, err := runtime.EnsureLane(physicalCtx, embedindex.LaneRequest{
+			Kind:          embedindex.LaneKindCode,
 			Provider:      codeSyncer.Provider,
 			ProviderInfo:  codeSyncer.ProviderInfo,
 			MaxConcurrent: codeSyncer.MaxConcurrent,
@@ -1685,4 +1654,12 @@ func (rt *LiveRuntime) recordDiagnostic(level slog.Level, name string, err error
 		message = name + ": " + logging.ClassifyError(err)
 	}
 	recorder.Event(rt.ctx, level, "runtime", name, message, attrs...)
+}
+
+// Configuration returns the current explicit repository configuration snapshot.
+func (rt *LiveRuntime) Configuration() repoconfig.Resolved {
+	if current := rt.resolvedConfig.Load(); current != nil {
+		return *current
+	}
+	return repoconfig.FromLocal(rt.VaultPath, rt.LocalCfg)
 }

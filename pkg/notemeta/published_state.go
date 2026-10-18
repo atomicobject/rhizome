@@ -1,24 +1,11 @@
 package notemeta
 
 import (
-	"context"
 	"fmt"
 	"sort"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/paths"
 )
-
-// durableMetadataRowsProvider exposes materialized source rows even while an
-// ownership transition has deliberately invalidated global metadata readiness.
-// It is a reconciliation-only read seam, not a replacement for current reads.
-type durableMetadataRowsProvider interface {
-	DurableNoteMetadataRowsByPaths(context.Context, []string) (map[string]MetadataRow, error)
-}
-
-type durableNoteFactsProvider interface {
-	DurableNoteFactsByPaths(context.Context, []string) (semdb.DurableNoteFacts, error)
-}
 
 func canonicalPublishedNotePaths(notePaths []paths.NotePath) ([]string, error) {
 	pathsList := make([]string, 0, len(notePaths))

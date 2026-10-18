@@ -36,7 +36,7 @@ func observeDerivedWork(ctx context.Context, ticket codeanchor.DerivedWork) (con
 		op.TraceID = parent.TraceID
 	}
 	ctx = diagnostics.WithOperation(ctx, op)
-	collector := indexingperf.NewBounded()
+	collector := indexingperf.New()
 	ctx = indexingperf.WithCollector(ctx, collector)
 	ctx, finish := watchPhase(ctx, "derived_work")
 	watcherEvent(ctx, slog.LevelInfo, "derived.started", attrs...)

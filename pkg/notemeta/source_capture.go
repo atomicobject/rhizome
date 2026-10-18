@@ -2,8 +2,6 @@ package notemeta
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"sort"
 	"strings"
@@ -69,13 +67,13 @@ func sortCapturedContents(contents []capturedNoteContent) {
 }
 
 func capturedNotesHash(contents []capturedNoteContent) (string, []string) {
-	var aggregate [sha256.Size]byte
+	var aggregate noteSetDigest
 	selected := make([]string, 0, len(contents))
 	for _, content := range contents {
 		selected = append(selected, content.path)
-		xorDigest(&aggregate, noteStateDigest(content.path, contentHash(content.content)))
+		aggregate.Add(content.path, contentHash(content.content))
 	}
-	return hex.EncodeToString(aggregate[:]), selected
+	return aggregate.String(), selected
 }
 
 func (i Indexer) projectCapturedContents(ctx context.Context, vaultDef obsidian.VaultDefinition, reader obsidian.NoteReader, contents []capturedNoteContent, capturedMtimes bool) ([]projectedNoteEntry, error) {

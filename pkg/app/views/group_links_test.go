@@ -3,15 +3,18 @@ package views
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"net/url"
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -167,7 +170,7 @@ func TestRelationHydrationFailureWarnsOnce(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.Close())
 	vaultDef := obsidian.VaultDefinition{Name: "closed", Path: root}
-	scope := noderead.NewService(vaultDef, &obsidian.Note{}, store, &ontology.Schema{}).NewScope(ctx, noderead.ScopeOptions{})
+	scope := noderead.NewService(vaultDef, &obsidian.Note{}, store, &ontoschema.Schema{}).NewScope(noderead.ScopeOptions{})
 	row := testRow("ideas/a.md", "A", map[string]any{"owner": "[[x]]"})
 	row.RelationValues = map[string][]TableRelationValue{"owner": {{Value: "[[x]]", Ref: &ontology.NodeRef{NotePath: "x.md", Kind: ontology.NodeKindNote}}}}
 	service := New(ServiceOptions{
@@ -233,7 +236,7 @@ type Idea @node(paths: ["ideas/**/*.md"]) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Name: "group-links", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
@@ -338,19 +341,19 @@ func TestRelationLanesRankEveryLink(t *testing.T) {
 
 // An inline RANK field reads its first value.
 func TestRecordRankReadsInlineValue(t *testing.T) {
-	field := &ontology.Field{Name: "rank", Source: "rank", SourceKind: ontology.FieldSourceInline, Display: ontology.FieldDisplay{Role: ontology.FieldDisplayRoleRank}}
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Opportunity": {Fields: []*ontology.Field{field}}}}
+	field := &ontoschema.Field{Name: "rank", Source: "rank", SourceKind: ontoschema.FieldSourceInline, Display: ontoschema.FieldDisplay{Role: ontoschema.FieldDisplayRoleRank}}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Opportunity": {Fields: []*ontoschema.Field{field}}}}
 	rank, ok := recordRank(schema, noderead.NodeRecord{TypeName: "Opportunity", InlineProps: map[string][]string{"rank": {"2"}}})
 	require.True(t, ok)
 	require.Equal(t, 2.0, rank)
 }
 
 func TestRecordRankUsesFirstAuthoredSource(t *testing.T) {
-	rankRole := ontology.FieldDisplay{Role: ontology.FieldDisplayRoleRank}
-	frontmatter := &ontology.Field{Name: "rank", Source: "rank", SourceAliases: []string{"oldRank"}, Display: rankRole}
-	inline := &ontology.Field{Name: "rank", Source: "rank", SourceKind: ontology.FieldSourceInline, Display: rankRole}
+	rankRole := ontoschema.FieldDisplay{Role: ontoschema.FieldDisplayRoleRank}
+	frontmatter := &ontoschema.Field{Name: "rank", Source: "rank", SourceAliases: []string{"oldRank"}, Display: rankRole}
+	inline := &ontoschema.Field{Name: "rank", Source: "rank", SourceKind: ontoschema.FieldSourceInline, Display: rankRole}
 	cases := map[string]struct {
-		field  *ontology.Field
+		field  *ontoschema.Field
 		record noderead.NodeRecord
 	}{
 		"invalid primary hides alias": {frontmatter, noderead.NodeRecord{Frontmatter: map[string]any{"rank": "unknown", "oldrank": 1}}},
@@ -358,7 +361,7 @@ func TestRecordRankUsesFirstAuthoredSource(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Opportunity": {Fields: []*ontology.Field{tc.field}}}}
+			schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Opportunity": {Fields: []*ontoschema.Field{tc.field}}}}
 			tc.record.TypeName = "Opportunity"
 			_, ok := recordRank(schema, tc.record)
 			require.False(t, ok)

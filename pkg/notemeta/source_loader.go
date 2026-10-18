@@ -2,8 +2,6 @@ package notemeta
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"runtime"
 	"sort"
@@ -117,15 +115,15 @@ func sourcePaths(sources []noteformat.AuthoredSource) []string {
 // notesHashFromSources must stay digest-for-digest identical to the note-entry
 // and cache-entry hashes; freshness comparisons span all three.
 func notesHashFromSources(sources []noteformat.AuthoredSource) string {
-	var aggregate [sha256.Size]byte
+	var aggregate noteSetDigest
 	for _, source := range sources {
 		path := strings.TrimSpace(source.Path().String())
 		if path == "" {
 			continue
 		}
-		xorDigest(&aggregate, noteStateDigest(path, source.ContentHash()))
+		aggregate.Add(path, source.ContentHash())
 	}
-	return hex.EncodeToString(aggregate[:])
+	return aggregate.String()
 }
 
 // loadBounded preserves input order while bounding concurrent filesystem and

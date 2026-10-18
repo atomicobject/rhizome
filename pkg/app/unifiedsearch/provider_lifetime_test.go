@@ -16,9 +16,12 @@ import (
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeembsql "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
+
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -87,7 +90,7 @@ func TestRunClosesCachedProvidersAfterSetupFailure(t *testing.T) {
 			}
 			before := databaseOwners()
 			for range 8 {
-				_, err := Run(t.Context(), Options{Query: "synthetic", UseVector: true, VaultPath: root, EmbCfg: cfg, ProviderAPIKey: "synthetic-only"})
+				_, err := Run(t.Context(), Options{NoteFormats: testNoteFormats(t), Query: "synthetic", UseVector: true, VaultPath: root, EmbCfg: cfg, ProviderAPIKey: "synthetic-only"})
 				require.Error(t, err)
 			}
 			runtime.GC()
@@ -116,16 +119,32 @@ func TestRunCleanupClosesSharedCachedProvider(t *testing.T) {
 	t.Setenv("RHIZOME_EMBEDDING_CACHE", filepath.Join(root, "cache.sqlite"))
 	cfg := embeddings.Config{Enabled: true, Provider: "openai", Model: "synthetic", Dimensions: 4, Endpoint: endpoint.URL, IndexPath: filepath.Join(root, ".rhizome", "db.sqlite")}
 	require.NoError(t, os.Mkdir(filepath.Join(root, ".rhizome"), 0o755))
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{NoteEmbeddings: &cfg, CodeEmbeddings: &cfg}))
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{NoteEmbeddings: &cfg, CodeEmbeddings: &cfg}))
+	intel, err := semdb.Open(cfg.IndexPath)
+	require.NoError(t, err)
+	providerCfg := cfg.ProviderCfg("synthetic-only")
+	provider := embeddings.NewDeterministicProvider(providerCfg)
+	meta := embeddings.MetadataForProvider(provider, providerCfg)
+	notes, err := codeembsql.OpenNotes(t.Context(), codeembsql.File(cfg.IndexPath), codeembsql.Options{Access: codeembsql.WriteIndex, Dimensions: provider.Dimensions(), Metadata: &meta})
+	require.NoError(t, err)
+	require.NoError(t, notes.Close())
+	code, err := codeembsql.OpenCode(t.Context(), codeembsql.File(cfg.IndexPath), codeembsql.Options{Access: codeembsql.WriteIndex, Dimensions: provider.Dimensions(), Metadata: &meta})
+	require.NoError(t, err)
+	require.NoError(t, code.Close())
+	require.NoError(t, intel.Close())
+	intel, err = semdb.Open(cfg.IndexPath)
+	require.NoError(t, err)
+	require.NoError(t, intel.Close())
+	requireDatabaseOwners(t, 0)
 	before := databaseOwners()
 	for range 3 {
-		result, err := Run(t.Context(), Options{Query: "synthetic", UseVector: true, VaultPath: root, EmbCfg: cfg, ProviderAPIKey: "synthetic-only"})
+		result, err := Run(t.Context(), Options{NoteFormats: testNoteFormats(t), Query: "synthetic", UseVector: true, VaultPath: root, EmbCfg: cfg, ProviderAPIKey: "synthetic-only"})
 		require.NoError(t, err)
 		require.NotNil(t, result.Cleanup)
 		t.Cleanup(result.Cleanup)
-		// One provider cache, note/code embedding stores, and an Intel reader.
-		// A discarded equivalent provider would add a fifth database owner.
-		requireDatabaseOwners(t, before+4)
+		// One provider cache, code embedding store, and an Intel reader.
+		// A discarded equivalent provider would add a fourth database owner.
+		requireDatabaseOwners(t, before+3)
 		result.Cleanup()
 		result.Cleanup()
 		requireDatabaseOwners(t, before)
@@ -142,7 +161,7 @@ func TestRunCleanupBorrowsInjectedCachedProviders(t *testing.T) {
 	store, err := semdb.Open(filepath.Join(root, "intel.sqlite"))
 	require.NoError(t, err)
 	defer func() { require.NoError(t, store.Close()) }()
-	result, err := Run(context.Background(), Options{Query: "synthetic", UseVector: true, UseIntel: true, VaultPath: root, IntelStore: store, NoteProvider: provider, NoteProviderConfig: cfg, CodeProvider: provider, CodeProviderConfig: cfg})
+	result, err := Run(context.Background(), Options{NoteFormats: testNoteFormats(t), Query: "synthetic", UseVector: true, UseIntel: true, VaultPath: root, IntelStore: store, NoteProvider: provider, NoteProviderConfig: cfg, CodeProvider: provider, CodeProviderConfig: cfg})
 	require.NoError(t, err)
 	result.Cleanup()
 	_, err = provider.EmbedTexts(t.Context(), []string{"still borrowed"})

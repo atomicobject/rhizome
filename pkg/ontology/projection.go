@@ -4,17 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 var ErrAmbiguousSourceSpanIdentity = errors.New("ambiguous source span identity")
 
 type ByteRange struct {
-	Start int
-	End   int
+	Start int `json:"start"`
+	End   int `json:"end"`
 }
 
 // Len returns the byte width of the range.
@@ -93,6 +95,7 @@ type DocumentSnapshot struct {
 	ModTime              time.Time
 	ContentFingerprint   string
 	StructureFingerprint string
+	selectorFacts        *ontoschema.Subject
 }
 
 // InlineFieldSpan captures one Dataview-style inline property and its byte ranges.
@@ -104,14 +107,14 @@ type InlineFieldSpan struct {
 	ValueRange     ByteRange
 	WholeRange     ByteRange
 	PropertyKey    string
-	AuthoringStyle FieldAuthoringStyle
+	AuthoringStyle ontoschema.FieldAuthoringStyle
 }
 
 // FieldBinding describes where an ontology field is authored inside a snapshot.
 type FieldBinding struct {
 	FieldName   string
 	Kind        BindingKind
-	SourceKind  FieldSource
+	SourceKind  ontoschema.FieldSource
 	Present     bool
 	Range       ByteRange
 	ValueRanges []ByteRange
@@ -149,24 +152,25 @@ type NodeProjection struct {
 	Snapshot *DocumentSnapshot
 	// RootSnapshot is present for every provider-backed note root. Structural
 	// projections retain Snapshot; root-only providers deliberately do not.
-	RootSnapshot *RootDocumentSnapshot
-	ResolvedType string
-	Type         *NoteType
-	Assessment   *NoteAssessment
-	PropertyCase PropertyCase
-	Fields       map[string]FieldBinding
-	Collections  map[string]CollectionBinding
+	RootSnapshot          *RootDocumentSnapshot
+	ResolvedType          string
+	Type                  *ontoschema.NoteType
+	Assessment            *NoteAssessment
+	PropertyCase          ontoschema.PropertyCase
+	Fields                map[string]FieldBinding
+	Collections           map[string]CollectionBinding
+	relocationFingerprint string
 }
 
 type projectionResolver struct {
 	snapshot         *DocumentSnapshot
-	schema           *Schema
+	schema           *ontoschema.Schema
 	noteDoc          *noteDoc
 	assessment       *NoteAssessment
-	noteType         *NoteType
+	noteType         *ontoschema.NoteType
 	sectionTypeByID  map[string]string
 	parentIDByID     map[string]string
-	propertyCaseByID map[string]PropertyCase
+	propertyCaseByID map[string]ontoschema.PropertyCase
 	// sourceSpanFingerprintByID keeps recursive parent identity lookup linear.
 	sourceSpanFingerprintByID map[string]string
 	// sourceSpansByStructural makes relocation and ambiguity checks linear per snapshot.
@@ -191,7 +195,7 @@ func LoadDocumentSnapshot(ctx context.Context, vaultDef obsidian.VaultDefinition
 
 // BuildDocumentSnapshot parses already-loaded markdown into a syntax snapshot.
 func BuildDocumentSnapshot(notePath, content string, modTime time.Time) (*DocumentSnapshot, error) {
-	fm, err := obsidian.ExtractFrontmatter(content)
+	fm, err := markdownsyntax.ExtractFrontmatter(content)
 	if err != nil {
 		// Malformed YAML should not make ontology projection unavailable for the
 		// whole document. Treat invalid frontmatter as absent and continue
@@ -232,17 +236,18 @@ func BuildDocumentSnapshot(notePath, content string, modTime time.Time) (*Docume
 		ModTime:              modTime,
 		ContentFingerprint:   hashText(content),
 		StructureFingerprint: hashText(structureFingerprintText(notePath, sections)),
+		selectorFacts:        markdownSelectorFacts(notePath, content, fm),
 	}, nil
 }
 
 // ProjectNote resolves the file-backed note node for the given path.
-func ProjectNote(ctx context.Context, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader, schema *Schema, notePath string) (*NodeProjection, error) {
+func ProjectNote(ctx context.Context, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader, schema *ontoschema.Schema, notePath string) (*NodeProjection, error) {
 	return ProjectNode(ctx, vaultDef, noteMgr, schema, NodeRef{NotePath: notePath, Kind: NodeKindNote})
 }
 
 // ProjectNode resolves a note, section, or embedded-node ref against the current file contents.
 // Docs: [[ontology-browser-workspace#^spec-0014-us2-ac1]] and [[linkable-embedded-node-identifiers#^spec-0023-us1-ac2]] explain why callers should preserve the resolved ref and locator-capable identity.
-func ProjectNode(ctx context.Context, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader, schema *Schema, ref NodeRef) (*NodeProjection, error) {
+func ProjectNode(ctx context.Context, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader, schema *ontoschema.Schema, ref NodeRef) (*NodeProjection, error) {
 	if schema == nil {
 		return nil, fmt.Errorf("ontology schema is required")
 	}
@@ -258,7 +263,7 @@ func ProjectNode(ctx context.Context, vaultDef obsidian.VaultDefinition, noteMgr
 // Prefer this in batch/read paths that already loaded markdown. It avoids a
 // second filesystem read and guarantees parent/child projections share the same
 // content and structural fingerprint.
-func ProjectNodeFromSnapshot(snapshot *DocumentSnapshot, schema *Schema, ref NodeRef) (*NodeProjection, error) {
+func ProjectNodeFromSnapshot(snapshot *DocumentSnapshot, schema *ontoschema.Schema, ref NodeRef) (*NodeProjection, error) {
 	if snapshot == nil {
 		return nil, fmt.Errorf("document snapshot is required")
 	}
@@ -276,7 +281,7 @@ func ProjectNodeFromSnapshot(snapshot *DocumentSnapshot, schema *Schema, ref Nod
 // same snapshot. The caller must prove that provenance. Exact byte ranges and
 // structural identity are both verified; callers must use ProjectNodeFromSnapshot
 // for catalog results, external input, or replayed refs.
-func ProjectBoundNodeFromSnapshot(snapshot *DocumentSnapshot, schema *Schema, ref NodeRef) (*NodeProjection, error) {
+func ProjectBoundNodeFromSnapshot(snapshot *DocumentSnapshot, schema *ontoschema.Schema, ref NodeRef) (*NodeProjection, error) {
 	if snapshot == nil {
 		return nil, fmt.Errorf("document snapshot is required")
 	}
@@ -292,7 +297,7 @@ func ProjectBoundNodeFromSnapshot(snapshot *DocumentSnapshot, schema *Schema, re
 
 // ProjectNodesFromSnapshot resolves multiple refs against one parsed document
 // snapshot and one projection resolver.
-func ProjectNodesFromSnapshot(snapshot *DocumentSnapshot, schema *Schema, refs []NodeRef) ([]*NodeProjection, error) {
+func ProjectNodesFromSnapshot(snapshot *DocumentSnapshot, schema *ontoschema.Schema, refs []NodeRef) ([]*NodeProjection, error) {
 	if snapshot == nil {
 		return nil, fmt.Errorf("document snapshot is required")
 	}
@@ -316,7 +321,7 @@ func ProjectNodesFromSnapshot(snapshot *DocumentSnapshot, schema *Schema, refs [
 
 // GlobalSourceNodeRefsFromSnapshot returns embedded-node refs declared by
 // object-level @source directives, independent of any containing note field.
-func GlobalSourceNodeRefsFromSnapshot(snapshot *DocumentSnapshot, schema *Schema) ([]NodeRef, error) {
+func GlobalSourceNodeRefsFromSnapshot(snapshot *DocumentSnapshot, schema *ontoschema.Schema) ([]NodeRef, error) {
 	if snapshot == nil {
 		return nil, fmt.Errorf("document snapshot is required")
 	}
@@ -333,7 +338,7 @@ func GlobalSourceNodeRefsFromSnapshot(snapshot *DocumentSnapshot, schema *Schema
 func (r *projectionResolver) globalSourceNodeRefs() []NodeRef {
 	out := make([]NodeRef, 0)
 	for _, span := range r.snapshot.SourceSpans {
-		if span == nil || span.Shape == EmbeddedSourceShapeSection {
+		if span == nil || span.Shape == ontoschema.EmbeddedSourceShapeSection {
 			continue
 		}
 		typeName := r.sectionTypeByID[span.ID]
@@ -350,7 +355,7 @@ func (r *projectionResolver) globalSourceNodeRefs() []NodeRef {
 // Wrapper sections are structural containers, not semantic parents: embedded
 // nodes belong to the nearest enclosing embedded node, or the note root when no
 // enclosing embedded node exists.
-func SemanticParentRef(snapshot *DocumentSnapshot, schema *Schema, ref NodeRef) (NodeRef, bool, error) {
+func SemanticParentRef(snapshot *DocumentSnapshot, schema *ontoschema.Schema, ref NodeRef) (NodeRef, bool, error) {
 	if snapshot == nil {
 		return NodeRef{}, false, fmt.Errorf("document snapshot is required")
 	}
@@ -363,7 +368,7 @@ func SemanticParentRef(snapshot *DocumentSnapshot, schema *Schema, ref NodeRef) 
 	}
 	if span, _, ok, resolveErr := resolver.resolveSourceSpanRef(ref); resolveErr != nil {
 		return NodeRef{}, false, resolveErr
-	} else if ok && span.Shape != EmbeddedSourceShapeSection {
+	} else if ok && span.Shape != ontoschema.EmbeddedSourceShapeSection {
 		for parentID := strings.TrimSpace(resolver.parentIDByID[span.ID]); parentID != ""; parentID = strings.TrimSpace(resolver.parentIDByID[parentID]) {
 			parentSpan := snapshot.SourceSpansByID[parentID]
 			if parentSpan == nil {
@@ -371,7 +376,7 @@ func SemanticParentRef(snapshot *DocumentSnapshot, schema *Schema, ref NodeRef) 
 			}
 			parentTypeName := resolver.sectionTypeByID[parentID]
 			parentType := schema.Types[parentTypeName]
-			if parentType != nil && parentType.Role == TypeRoleEmbeddedNode {
+			if parentType != nil && parentType.Role == ontoschema.TypeRoleEmbeddedNode {
 				return resolver.sourceSpanNodeRef(parentSpan), true, nil
 			}
 		}
@@ -398,7 +403,7 @@ func SemanticParentRef(snapshot *DocumentSnapshot, schema *Schema, ref NodeRef) 
 		}
 		parentTypeName := resolver.sectionTypeByID[parentID]
 		parentType := schema.Types[parentTypeName]
-		if parentType != nil && parentType.Role == TypeRoleEmbeddedNode {
+		if parentType != nil && parentType.Role == ontoschema.TypeRoleEmbeddedNode {
 			return resolver.sectionNodeRef(parentNode), true, nil
 		}
 	}
@@ -415,17 +420,15 @@ func SemanticParentRef(snapshot *DocumentSnapshot, schema *Schema, ref NodeRef) 
 	}, true, nil
 }
 
-func newProjectionResolver(snapshot *DocumentSnapshot, schema *Schema) (*projectionResolver, error) {
-	doc := &noteDoc{
-		Path:        snapshot.NotePath,
-		Title:       projectionNoteTitle(snapshot.NotePath, snapshot.Frontmatter, snapshot.Sections),
-		Content:     snapshot.Content,
-		Frontmatter: cloneAnyMap(snapshot.Frontmatter),
-		Inline:      obsidian.ExtractInlineProperties(snapshot.Content),
-		TypeName:    stringValue(snapshot.Frontmatter[TypeFieldName()]),
-	}
-	assessment := resolveNoteAssessment(doc, schema)
-	var noteType *NoteType
+func newProjectionResolver(snapshot *DocumentSnapshot, schema *ontoschema.Schema) (*projectionResolver, error) {
+	doc := noteDocFromSnapshot(snapshot)
+	return newProjectionResolverForDoc(snapshot, schema, doc, resolveNoteAssessment(doc, schema))
+}
+
+func newProjectionResolverForDoc(snapshot *DocumentSnapshot, schema *ontoschema.Schema, doc *noteDoc, assessment *NoteAssessment) (*projectionResolver, error) {
+	resolvedDoc := *doc
+	doc = &resolvedDoc
+	var noteType *ontoschema.NoteType
 	if assessment != nil && assessment.ResolvedType != "" {
 		noteType = schema.Types[assessment.ResolvedType]
 		doc.TypeName = assessment.ResolvedType
@@ -438,7 +441,7 @@ func newProjectionResolver(snapshot *DocumentSnapshot, schema *Schema) (*project
 		noteType:         noteType,
 		sectionTypeByID:  map[string]string{},
 		parentIDByID:     map[string]string{},
-		propertyCaseByID: map[string]PropertyCase{},
+		propertyCaseByID: map[string]ontoschema.PropertyCase{},
 	}
 	if noteType != nil {
 		resolver.indexSectionTypesForNote(noteType)

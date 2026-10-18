@@ -9,13 +9,12 @@
 package init
 
 import (
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // generatedFile is one whole file init wants on disk.
@@ -315,7 +314,7 @@ func (p *preparedFiles) pending() pendingFiles {
 		}
 	}
 	if p.recordStale() {
-		rel := path.Join(obsidian.RhizomeDirName, generatedFilesName)
+		rel := path.Join(repoconfig.RhizomeDirName, generatedFilesName)
 		if _, err := os.Stat(generatedFilesPath(p.root)); err == nil {
 			add(&out.Update, rel)
 		} else {
@@ -419,7 +418,7 @@ func (p *preparedFiles) apply(ui ownershipUI) (syncReport, error) {
 	}
 	sort.Strings(report.Kept)
 	if recordStale {
-		rel := path.Join(obsidian.RhizomeDirName, generatedFilesName)
+		rel := path.Join(repoconfig.RhizomeDirName, generatedFilesName)
 		if _, err := os.Stat(generatedFilesPath(projectRoot)); err == nil {
 			report.Updated = append(report.Updated, rel)
 		} else {

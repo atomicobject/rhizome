@@ -5,13 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/fs"
-
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"io/fs"
+
+	"github.com/atomicobject/rhizome/pkg/diag"
 )
 
 var (
@@ -22,33 +26,29 @@ var (
 )
 
 type ServiceOptions struct {
-	VaultPath   string
-	VaultDef    obsidian.VaultDefinition
-	NoteReader  obsidian.NoteReader
-	Store       noderead.Store
-	Schema      *ontology.Schema
-	ExecSchema  *ontologyquery.ExecutableSchema
-	QueryDeps   ontologyquery.Deps
-	ReadOverlay *ontologyquery.ReadOverlay
-	Views       []viewconfig.ViewDefinition
-	LoadIssues  []viewconfig.Issue
+	QueryRecipes *queryrecipe.Registry
+	VaultPath    string
+	VaultDef     obsidian.VaultDefinition
+	NoteReader   obsidian.NoteReader
+	Store        noderead.ReadStore
+	Schema       *ontoschema.Schema
+	ExecSchema   *ontologyquery.ExecutableSchema
+	QueryDeps    ontologyquery.Deps
+	ReadOverlay  *ontologyquery.ReadOverlay
+	Views        []viewconfig.ViewDefinition
+	LoadIssues   []viewconfig.Issue
 	// Bundled holds the views shipped with this build (web/bundled-views), as a
 	// third catalog source beside repository and generated definitions. Nil
 	// means none, as in a build without the web UI.
 	Bundled        fs.FS
 	SourceResolver SourceResolver
 }
-
-type Service struct {
-	opts ServiceOptions
-}
-
+type Service struct{ opts ServiceOptions }
 type Catalog struct {
 	Targets []ViewTarget       `json:"targets"`
 	Views   []CatalogEntry     `json:"views"`
 	Issues  []viewconfig.Issue `json:"issues,omitempty"`
 }
-
 type CatalogEntry struct {
 	Configuration     map[string]any            `json:"configuration,omitempty"`
 	ID                string                    `json:"id"`
@@ -64,7 +64,6 @@ type CatalogEntry struct {
 	Definition        viewconfig.ViewDefinition `json:"definition"`
 	Issues            []viewconfig.Issue        `json:"issues,omitempty"`
 }
-
 type ExecuteRequest struct {
 	Variant      string                  `json:"variant,omitempty"`
 	FilterPreset string                  `json:"filterPreset,omitempty"`
@@ -105,11 +104,9 @@ type PageRequest struct {
 	Offset int `json:"offset,omitempty"`
 	First  int `json:"first,omitempty"`
 }
-
 type SourceRequest struct {
 	MaxRows int `json:"maxRows,omitempty"`
 }
-
 type EditSessionRequest struct {
 	ID        string          `json:"id,omitempty"`
 	SessionID string          `json:"sessionId,omitempty"`
@@ -125,7 +122,6 @@ func (r *EditSessionRequest) RequestedID() string {
 	}
 	return r.ID
 }
-
 func (r *EditSessionRequest) IsZero() bool {
 	return r == nil || (r.ID == "" && r.SessionID == "" && len(r.Snapshot) == 0)
 }
@@ -136,7 +132,6 @@ type SourceConstraints struct {
 	Sort    []viewconfig.SortSpec   `json:"sort,omitempty"`
 	Page    PageRequest             `json:"page,omitempty"`
 }
-
 type SourceCompleteness string
 
 const (
@@ -157,7 +152,6 @@ type SourceCapPolicy struct {
 	Limit  int    `json:"limit,omitempty"`
 	Source string `json:"source,omitempty"`
 }
-
 type ConstraintPlanSummary struct {
 	Pushed             SourceConstraints     `json:"pushed,omitempty"`
 	Residual           SourceConstraints     `json:"residual,omitempty"`
@@ -166,9 +160,8 @@ type ConstraintPlanSummary struct {
 	SourceCompleteness SourceCompleteness    `json:"sourceCompleteness"`
 	Reliability        ConstraintReliability `json:"reliability"`
 	CapPolicy          SourceCapPolicy       `json:"capPolicy,omitempty"`
-	Warnings           []Warning             `json:"warnings,omitempty"`
+	Warnings           []diag.Warning        `json:"warnings,omitempty"`
 }
-
 type ExecuteResponse struct {
 	View         CatalogEntry      `json:"view"`
 	Variant      string            `json:"variant"`
@@ -181,10 +174,10 @@ type ExecuteResponse struct {
 	Board        *BoardLayout      `json:"board,omitempty"`
 	PageInfo     PageInfo          `json:"pageInfo"`
 	// Profile is the source type's or interface's schema-derived profile.
-	Profile *ontology.TypeProfile `json:"profile,omitempty"`
+	Profile *ontoschema.TypeProfile `json:"profile,omitempty"`
 	// Stats summarizes every matching row before paging.
 	Stats                 *ExecutionStats       `json:"stats,omitempty"`
-	Warnings              []Warning             `json:"warnings,omitempty"`
+	Warnings              []diag.Warning        `json:"warnings,omitempty"`
 	ConstraintPlan        bool                  `json:"constraintPlan,omitempty"`
 	PushedConstraints     SourceConstraints     `json:"pushedConstraints,omitempty"`
 	ResidualConstraints   SourceConstraints     `json:"residualConstraints,omitempty"`
@@ -193,7 +186,6 @@ type ExecuteResponse struct {
 	SourceFingerprint     string                `json:"sourceFingerprint"`
 	ExecutionFingerprint  string                `json:"executionFingerprint"`
 }
-
 type ExecutionState struct {
 	Variant      string                  `json:"variant,omitempty"`
 	FilterPreset string                  `json:"filterPreset,omitempty"`
@@ -209,33 +201,32 @@ type ExecutionState struct {
 	ColumnField string `json:"columnField,omitempty"`
 	LaneField   string `json:"laneField,omitempty"`
 }
-
 type FieldCapability struct {
-	Key               string                          `json:"key"`
-	Label             string                          `json:"label,omitempty"`
-	ValueKind         string                          `json:"valueKind,omitempty"`
-	CanonicalField    string                          `json:"canonicalField,omitempty"`
-	SourceKeys        []string                        `json:"sourceKeys,omitempty"`
-	SourceKind        string                          `json:"sourceKind,omitempty"`
-	SemanticRole      string                          `json:"semanticRole,omitempty"`
-	Required          bool                            `json:"required,omitempty"`
-	Importance        ontology.FieldDisplayImportance `json:"importance"`
-	Sortable          bool                            `json:"sortable"`
-	IndexedSortable   bool                            `json:"indexedSortable,omitempty"`
-	ResidualSortable  bool                            `json:"residualSortable,omitempty"`
-	Groupable         bool                            `json:"groupable"`
-	FilterOps         []string                        `json:"filterOps,omitempty"`
-	IndexedFilterOps  []string                        `json:"indexedFilterOps,omitempty"`
-	ResidualFilterOps []string                        `json:"residualFilterOps,omitempty"`
-	Completeness      SourceCompleteness              `json:"completeness,omitempty"`
-	Source            string                          `json:"source,omitempty"`
-	Values            []any                           `json:"values,omitempty"`
-	Facets            *FacetCapability                `json:"facets,omitempty"`
-	Filter            *FilterCapability               `json:"filter,omitempty"`
-	Group             *GroupCapability                `json:"group,omitempty"`
-	EnumName          string                          `json:"enumName,omitempty"`
-	EnumValues        []FieldEnumValue                `json:"enumValues,omitempty"`
-	Edit              *EditCapability                 `json:"edit,omitempty"`
+	Key               string                            `json:"key"`
+	Label             string                            `json:"label,omitempty"`
+	ValueKind         string                            `json:"valueKind,omitempty"`
+	CanonicalField    string                            `json:"canonicalField,omitempty"`
+	SourceKeys        []string                          `json:"sourceKeys,omitempty"`
+	SourceKind        string                            `json:"sourceKind,omitempty"`
+	SemanticRole      string                            `json:"semanticRole,omitempty"`
+	Required          bool                              `json:"required,omitempty"`
+	Importance        ontoschema.FieldDisplayImportance `json:"importance"`
+	Sortable          bool                              `json:"sortable"`
+	IndexedSortable   bool                              `json:"indexedSortable,omitempty"`
+	ResidualSortable  bool                              `json:"residualSortable,omitempty"`
+	Groupable         bool                              `json:"groupable"`
+	FilterOps         []string                          `json:"filterOps,omitempty"`
+	IndexedFilterOps  []string                          `json:"indexedFilterOps,omitempty"`
+	ResidualFilterOps []string                          `json:"residualFilterOps,omitempty"`
+	Completeness      SourceCompleteness                `json:"completeness,omitempty"`
+	Source            string                            `json:"source,omitempty"`
+	Values            []any                             `json:"values,omitempty"`
+	Facets            *FacetCapability                  `json:"facets,omitempty"`
+	Filter            *FilterCapability                 `json:"filter,omitempty"`
+	Group             *GroupCapability                  `json:"group,omitempty"`
+	EnumName          string                            `json:"enumName,omitempty"`
+	EnumValues        []FieldEnumValue                  `json:"enumValues,omitempty"`
+	Edit              *EditCapability                   `json:"edit,omitempty"`
 	// PolicyReason is the field's @policy reason, shown where an edit is
 	// restricted or a gap facet explains why a field is left empty.
 	PolicyReason     string `json:"policyReason,omitempty"`
@@ -244,35 +235,29 @@ type FieldCapability struct {
 	schemaOrder      int
 	schemaOrderKnown bool
 }
-
 type FieldCandidatesRequest struct {
 	Field string
 	Query string
 	Limit int
 }
-
 type FieldCandidatesResponse struct {
 	Field      string          `json:"field"`
 	TargetType string          `json:"targetType,omitempty"`
 	Candidates []EditCandidate `json:"candidates,omitempty"`
 	HasMore    bool            `json:"hasMore,omitempty"`
 }
-
 type FacetCapability struct {
 	Values []any `json:"values,omitempty"`
 	// Labels maps a link value to its target note's title.
 	Labels map[string]string `json:"labels,omitempty"`
 }
-
 type FilterCapability struct {
 	Ops     []string `json:"ops,omitempty"`
 	Options []any    `json:"options,omitempty"`
 }
-
 type GroupCapability struct {
 	Values []FieldEnumValue `json:"values,omitempty"`
 }
-
 type FieldEnumValue struct {
 	Value              string `json:"value"`
 	Label              string `json:"label,omitempty"`
@@ -282,8 +267,8 @@ type FieldEnumValue struct {
 	CollapsedByDefault bool   `json:"collapsedByDefault,omitempty"`
 	// Stage is the value's lifecycle stage; StageDeclared is false when it
 	// was inferred from authored tone or collapsed metadata.
-	Stage         ontology.LifecycleStage `json:"stage,omitempty"`
-	StageDeclared bool                    `json:"stageDeclared,omitempty"`
+	Stage         ontoschema.LifecycleStage `json:"stage,omitempty"`
+	StageDeclared bool                      `json:"stageDeclared,omitempty"`
 }
 
 // ExecutionStats summarizes every row that matches a view's filters and
@@ -303,12 +288,10 @@ type ExecutionStats struct {
 	// statistics cover only the rows the source returned.
 	Truncated bool `json:"truncated,omitempty"`
 }
-
 type StatsValueCount struct {
 	Value string `json:"value"`
 	Count int    `json:"count"`
 }
-
 type StatsFieldFill struct {
 	Field  string `json:"field"`
 	Filled int    `json:"filled"`
@@ -322,7 +305,6 @@ type StatsDateRange struct {
 	// Months counts rows per calendar month as YYYY-MM, oldest first.
 	Months []StatsValueCount `json:"months,omitempty"`
 }
-
 type EditCapability struct {
 	Kind       string          `json:"kind"`
 	Operation  string          `json:"operation"`
@@ -334,19 +316,16 @@ type EditCapability struct {
 	TargetType string          `json:"targetType,omitempty"`
 	Candidates []EditCandidate `json:"candidates,omitempty"`
 }
-
 type EditCandidate struct {
 	Ref   ontology.NodeRef `json:"ref"`
 	Value string           `json:"value"`
 	Label string           `json:"label"`
 	Path  string           `json:"path,omitempty"`
 }
-
 type TableColumn struct {
 	Field string `json:"field"`
 	Label string `json:"label,omitempty"`
 }
-
 type TableRelationValue struct {
 	Value string            `json:"value"`
 	Ref   *ontology.NodeRef `json:"ref,omitempty"`
@@ -362,12 +341,11 @@ type TableRelationValue struct {
 
 // TableRelationStatus is a linked record's lifecycle value.
 type TableRelationStatus struct {
-	Value string                  `json:"value"`
-	Label string                  `json:"label,omitempty"`
-	Tone  string                  `json:"tone,omitempty"`
-	Stage ontology.LifecycleStage `json:"stage,omitempty"`
+	Value string                    `json:"value"`
+	Label string                    `json:"label,omitempty"`
+	Tone  string                    `json:"tone,omitempty"`
+	Stage ontoschema.LifecycleStage `json:"stage,omitempty"`
 }
-
 type TableRow struct {
 	Ref            ontology.NodeRef                `json:"ref"`
 	Path           string                          `json:"path,omitempty"`
@@ -379,7 +357,6 @@ type TableRow struct {
 	Fields         map[string]any                  `json:"fields,omitempty"`
 	RelationValues map[string][]TableRelationValue `json:"relationValues,omitempty"`
 }
-
 type TableGroup struct {
 	Field              string       `json:"field"`
 	Key                string       `json:"key"`
@@ -394,14 +371,12 @@ type TableGroup struct {
 	CollapsedByDefault bool         `json:"collapsedByDefault,omitempty"`
 	Children           []TableGroup `json:"children,omitempty"`
 }
-
 type CardLayout struct {
 	Eyebrow *TableColumn  `json:"eyebrow,omitempty"`
 	Title   TableColumn   `json:"title"`
 	Preview *TableColumn  `json:"preview,omitempty"`
 	Fields  []TableColumn `json:"fields"`
 }
-
 type BoardLayout struct {
 	ColumnField string        `json:"columnField"`
 	Editable    bool          `json:"editable"`
@@ -423,12 +398,10 @@ type BoardLane struct {
 	Count int             `json:"count"`
 	Cells []BoardLaneCell `json:"cells"`
 }
-
 type BoardLaneCell struct {
 	Value string `json:"value"`
 	Rows  []int  `json:"rows"`
 }
-
 type BoardColumn struct {
 	Key                string `json:"key"`
 	Value              string `json:"value"`
@@ -439,7 +412,6 @@ type BoardColumn struct {
 	RowEnd             int    `json:"rowEnd"`
 	CollapsedByDefault bool   `json:"collapsedByDefault,omitempty"`
 }
-
 type PageInfo struct {
 	Total    int  `json:"total"`
 	Offset   int  `json:"offset"`
@@ -447,25 +419,20 @@ type PageInfo struct {
 	Returned int  `json:"returned"`
 	HasMore  bool `json:"hasMore"`
 }
-
-type Warning struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Path    string `json:"path,omitempty"`
-}
-
 type SourceResult struct {
 	Rows                []TableRow            `json:"rows"`
 	Capabilities        []FieldCapability     `json:"capabilities,omitempty"`
-	Warnings            []Warning             `json:"warnings,omitempty"`
+	Warnings            []diag.Warning        `json:"warnings,omitempty"`
 	SourceFingerprint   string                `json:"sourceFingerprint,omitempty"`
 	ConstraintPlan      bool                  `json:"constraintPlan,omitempty"`
 	PushedConstraints   SourceConstraints     `json:"pushedConstraints,omitempty"`
 	ResidualConstraints SourceConstraints     `json:"residualConstraints,omitempty"`
 	Plan                ConstraintPlanSummary `json:"plan,omitempty"`
+	indexedPredicates   []readmodel.FieldPredicate
+	indexedSort         []readmodel.FieldSort
+	indexedWarnings     []diag.Warning
 	relationScope       *noderead.Scope
 }
-
 type SourceResolver interface {
 	ResolveSource(context.Context, viewconfig.ViewDefinition, ExecuteRequest) (SourceResult, error)
 }

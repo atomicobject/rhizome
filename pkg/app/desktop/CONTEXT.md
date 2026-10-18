@@ -6,6 +6,13 @@ bypassing repository delegation and diagnostics wiring. `Service` owns folder in
 setup reports, initialization, index scope, seeding, opening, command-line
 links, and repository pin advances. `protocol.go` bounds input and returns protocol 1 responses on both success and failure.
 
+- `New` receives the invocation's explicit `config.Env`. Home, PATH, login-shell,
+  and update-manifest lookups use that environment. Pin installation and advance
+  carry it into the in-process updater. Repository trust remains owned by the
+  real operating-system account through `repositorytrust.DefaultStore`; an
+  invocation home never redirects that authority. External process launch tools
+  retain their process-owned environment; arbitrary lookup functions are not
+  serialized into child processes.
 - Inspect reads configuration and existing trust only. It canonicalizes the
   configured checkout, including aliases and subfolders, without probing
   repository executables, installing, granting trust, or writing configuration.
@@ -70,7 +77,7 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   then calls `runtime.Ensure` with its exact executable and build identity.
   Existing manifest and health folder identity must agree; returned origins use
   literal loopback IPs. Control tokens never enter JSON responses.
-- Stop shuts down the folder's runtime with `runtimestop.StopVault`, the code
+- Stop shuts down the folder's runtime with `runtime.StopVault`, the code
   behind `rzm stop`: graceful shutdown, then termination of a headless runtime
   that ignores it; an attached runtime is reported, not killed. Like Open, it
   first requires the manifest and health to name this folder, so a foreign

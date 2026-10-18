@@ -45,8 +45,8 @@ type Registry struct {
 	dir string
 }
 
-func NewRegistry() (*Registry, error) {
-	cliDir, _, err := vaultconfig.CliPath()
+func NewRegistry(env vaultconfig.Env) (*Registry, error) {
+	cliDir, _, err := env.CliPath()
 	if err != nil {
 		return nil, err
 	}

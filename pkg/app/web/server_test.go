@@ -3,26 +3,32 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestInitRuntimeUsesProvidedRuntimeWithoutOwnership(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	provided := &Runtime{}
 
-	rt, status, err := initRuntime(context.Background(), Config{
-		Vault:        &obsidian.Vault{Name: "testvault"},
+	rt, status, err := initRuntime(vaultconfig.WithEnv(context.Background(), env), Config{
+		Vault:        &repoconfig.Vault{Env: env, Name: "testvault"},
 		VaultDef:     obsidian.VaultDefinition{Name: "testvault", Path: t.TempDir()},
 		VaultPath:    t.TempDir(),
 		Runtime:      provided,
-		NoteMetadata: testNoteMetadataIndexer(t),
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
 	})
 	require.NoError(t, err)
 	require.Same(t, provided, rt)
@@ -32,9 +38,12 @@ func TestInitRuntimeUsesProvidedRuntimeWithoutOwnership(t *testing.T) {
 }
 
 func TestNewServerRequiresExplicitNoteMetadataIndexer(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
-	server, err := NewServer(context.Background(), Config{
-		Vault:     &obsidian.Vault{Name: "testvault"},
+	server, err := NewServer(vaultconfig.WithEnv(context.Background(), env), Config{
+		Vault:     &repoconfig.Vault{Env: env, Name: "testvault"},
 		VaultDef:  obsidian.VaultDefinition{Name: "testvault", Path: root},
 		VaultPath: root,
 	}, nil)
@@ -43,15 +52,18 @@ func TestNewServerRequiresExplicitNoteMetadataIndexer(t *testing.T) {
 }
 
 func TestNewServerAllowsRemoteApplicationWithoutHTMLContentOrigin(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	for _, origin := range []string{"http://192.0.2.10:8787", "https://rhizome.example.test"} {
 		t.Run(origin, func(t *testing.T) {
 			root := t.TempDir()
-			server, err := NewServer(context.Background(), Config{
-				Vault:             &obsidian.Vault{Name: "testvault"},
+			server, err := NewServer(vaultconfig.WithEnv(context.Background(), env), Config{
+				Vault:             &repoconfig.Vault{Env: env, Name: "testvault"},
 				VaultDef:          obsidian.VaultDefinition{Name: "testvault", Path: root},
 				VaultPath:         root,
 				Runtime:           &Runtime{},
-				NoteMetadata:      testNoteMetadataIndexer(t),
+				NoteMetadata:      testkit.NoteMetadataIndexer(t),
 				ApplicationOrigin: origin,
 			}, nil)
 			require.NoError(t, err)
@@ -71,7 +83,7 @@ func TestNewServerAllowsRemoteApplicationWithoutHTMLContentOrigin(t *testing.T) 
 }
 
 func TestSemanticConfigCarriesServerNoteMetadataIndexer(t *testing.T) {
-	noteMetadata := testNoteMetadataIndexer(t)
+	noteMetadata := testkit.NoteMetadataIndexer(t)
 	server := &Server{
 		cfg:          Config{NoteMetadata: noteMetadata},
 		noteMetadata: noteMetadata,

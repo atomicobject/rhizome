@@ -31,9 +31,7 @@ func (r *VectorRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) (
 	if r.Semantic == nil {
 		return nil, fmt.Errorf("vector retriever missing semantic backend")
 	}
-	if t := search.TimingsFromContext(ctx); t != nil {
-		ctx = semantic.WithTimingSink(ctx, semanticTimingSink{t: t})
-	}
+
 	limit := spec.Limits.Total
 	if limit <= 0 {
 		limit = 25
@@ -70,7 +68,7 @@ func candidateFromSemanticResult(res semantic.Result) (search.Candidate, error) 
 	if err != nil {
 		return search.Candidate{}, fmt.Errorf("parse handle %q: %w", res.Handle, err)
 	}
-	evType := "semantic_similarity"
+	evType := ""
 	switch res.Type {
 	case "note":
 		evType = "note_vector_similarity"
@@ -78,30 +76,15 @@ func candidateFromSemanticResult(res semantic.Result) (search.Candidate, error) 
 		evType = "code_vector_similarity"
 	case "anchor":
 		evType = "anchor_vector_similarity"
+	default:
+		return search.Candidate{}, fmt.Errorf("unsupported semantic result type %q", res.Type)
 	}
 	evidence := []search.Evidence{{Type: evType, RawScore: res.Score, Source: "pkg/semantic"}}
 	return search.Candidate{
-		Handle:        h,
-		Owner:         h.Owner(),
-		Evidence:      evidence,
-		Type:          res.Type,
-		Path:          res.Path,
-		Title:         res.Title,
-		Symbol:        res.Symbol,
-		FQN:           res.FQN,
-		Kind:          res.Kind,
-		Granularity:   res.Granularity,
-		ChunkIndex:    res.ChunkIndex,
-		Breadcrumb:    res.Breadcrumb,
-		Heading:       res.Heading,
-		AnchorID:      res.AnchorID,
-		NoteID:        res.NoteID,
-		NodeID:        res.NodeID,
-		NodeRefJSON:   res.NodeRefJSON,
-		SourceLocator: res.SourceLocator,
-		NodeKind:      res.NodeKind,
-		NodeType:      res.NodeType,
-		ParentNodeID:  res.ParentNodeID,
-		NodeRef:       res.NodeRef,
+		Handle:    h,
+		Owner:     h.Owner(),
+		Evidence:  evidence,
+		Type:      res.Type,
+		SourceRef: res.SourceRef,
 	}, nil
 }

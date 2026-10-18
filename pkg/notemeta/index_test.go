@@ -12,31 +12,12 @@ import (
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
-
-type fakeMetadataPathProvider struct {
-	rows       map[string]semdb.NoteMetadataRow
-	rowsCalled []string
-}
-
-func (f *fakeMetadataPathProvider) CurrentNoteMetadataRowsByPaths(_ context.Context, paths []string) (map[string]semdb.NoteMetadataRow, error) {
-	f.rowsCalled = append([]string(nil), paths...)
-	if f.rows == nil {
-		return map[string]semdb.NoteMetadataRow{}, nil
-	}
-	out := make(map[string]semdb.NoteMetadataRow, len(paths))
-	for _, path := range paths {
-		if row, ok := f.rows[path]; ok {
-			out[path] = row
-		}
-	}
-	return out, nil
-}
 
 func TestEnsureIndexed_PopulatesMetadataAndWikilinks(t *testing.T) {
 	root := t.TempDir()
@@ -323,13 +304,10 @@ func TestSyncPaths_URIExtensionlessAmbiguityMatchesFreshSnapshot(t *testing.T) {
 	expected := []semdb.GraphDocEdgeRow{{
 		SrcPath: "b.html", DstPath: "report.html", Kind: semdb.NoteLinkKind("uri", "anchor"),
 		Confidence: semdb.EdgeConfidenceExtracted, ConfidenceScore: 1,
+	}, {
+		SrcPath: "c.html", DstPath: "report.html", Kind: semdb.NoteLinkKind("uri", "anchor"),
+		Confidence: semdb.EdgeConfidenceExtracted, ConfidenceScore: 1,
 	}}
-	if obsidian.IsCaseInsensitiveFS() {
-		expected = append(expected, semdb.GraphDocEdgeRow{
-			SrcPath: "c.html", DstPath: "report.html", Kind: semdb.NoteLinkKind("uri", "anchor"),
-			Confidence: semdb.EdgeConfidenceExtracted, ConfidenceScore: 1,
-		})
-	}
 	require.ElementsMatch(t, expected, got)
 }
 
@@ -761,34 +739,6 @@ name: Real Effort Title
 	require.Equal(t, "Real Effort Title", rows["effort.md"].Title)
 }
 
-func TestIncrementalNotesHash_UsesOnlyTouchedRows(t *testing.T) {
-	provider := &fakeMetadataPathProvider{
-		rows: map[string]semdb.NoteMetadataRow{
-			"changed.md": {Path: "changed.md", Mtime: 1, ContentHash: contentHash("old")},
-			"deleted.md": {Path: "deleted.md", Mtime: 2, ContentHash: contentHash("gone")},
-		},
-	}
-	currentNotesHash := notesHashFromRows([]semdb.NoteMetadataRow{
-		{Path: "keep.md", Mtime: 3, ContentHash: contentHash("keep")},
-		{Path: "changed.md", Mtime: 1, ContentHash: contentHash("old")},
-		{Path: "deleted.md", Mtime: 2, ContentHash: contentHash("gone")},
-	})
-	updated, err := incrementalNotesHash(
-		context.Background(),
-		provider,
-		currentNotesHash,
-		[]noteEntry{{Path: "changed.md", Content: "new", Mtime: 4}},
-		[]string{"deleted.md"},
-	)
-	require.NoError(t, err)
-	require.Equal(t, []string{"changed.md", "deleted.md"}, provider.rowsCalled)
-	expectedNotesHash := notesHashFromRows([]semdb.NoteMetadataRow{
-		{Path: "keep.md", Mtime: 3, ContentHash: contentHash("keep")},
-		{Path: "changed.md", Mtime: 4, ContentHash: contentHash("new")},
-	})
-	require.Equal(t, expectedNotesHash, updated)
-}
-
 type fakeNoteReader struct {
 	notes map[string]string
 	list  []string
@@ -887,105 +837,6 @@ func (b *blockingNoteReader) maxObservedActive() int {
 	return b.maxActive
 }
 
-func TestTitleFor_PriorityChain(t *testing.T) {
-	cases := []struct {
-		name    string
-		path    string
-		content string
-		fm      map[string]any
-		want    string
-	}{
-		{
-			name:    "frontmatter title wins",
-			path:    "specs/100-demo/spec.md",
-			content: "# H1 Ignored When FM Title Set\n\nbody",
-			fm:      map[string]any{"title": "Frontmatter Wins"},
-			want:    "Frontmatter Wins",
-		},
-		{
-			name:    "falls back to h1 when no frontmatter title",
-			path:    "specs/100-demo/spec.md",
-			content: "---\ntype: spec\n---\n\n# Feature Specification: Vault Health Analysis\n",
-			fm:      map[string]any{"type": "spec"},
-			want:    "Feature Specification: Vault Health Analysis",
-		},
-		{
-			name: "falls back to filename when note has multiple h1 headings",
-			path: "docs/decisions/Use persistent memory.md",
-			content: `# Decision
-
-First decision.
-
-# Decision
-
-Second decision.
-`,
-			fm:   nil,
-			want: "Use persistent memory",
-		},
-		{
-			name:    "falls back to filename when no h1",
-			path:    "specs/100-demo/spec.md",
-			content: "no heading here\n",
-			fm:      nil,
-			want:    "spec",
-		},
-		{
-			name:    "ignores blank frontmatter title",
-			path:    "notes/example.md",
-			content: "# Real Title\n",
-			fm:      map[string]any{"title": "   "},
-			want:    "Real Title",
-		},
-		{
-			name:    "uses frontmatter name before generic heading",
-			path:    "notes/example.md",
-			content: "# Effort\n",
-			fm:      map[string]any{"name": "Real Effort Title"},
-			want:    "Real Effort Title",
-		},
-		{
-			name:    "frontmatter title wins over name",
-			path:    "notes/example.md",
-			content: "# Effort\n",
-			fm:      map[string]any{"title": "Explicit Title", "name": "Real Effort Title"},
-			want:    "Explicit Title",
-		},
-		{
-			name:    "preserves trailing hash in language name",
-			path:    "notes/csharp.md",
-			content: "# C#\n",
-			fm:      nil,
-			want:    "C#",
-		},
-		{
-			name:    "removes atx closing hash sequence",
-			path:    "notes/feature.md",
-			content: "# Feature Spec ###\n",
-			fm:      nil,
-			want:    "Feature Spec",
-		},
-		{
-			name:    "preserves trailing hash without separating whitespace",
-			path:    "notes/fsharp.md",
-			content: "# F#\n",
-			fm:      nil,
-			want:    "F#",
-		},
-		{name: "setext heading", path: "notes/setext.md", content: "Plain setext title\n==========\n", want: "Plain setext title"},
-		{name: "h2 before h1", path: "notes/heading.md", content: "## subsection\n\n# Real title\n", want: "Real title"},
-		{name: "fenced heading", path: "notes/fenced.md", content: "```\n# Not a title\n```\n# Actual title\n", want: "Actual title"},
-		{name: "wikilink heading", path: "notes/link.md", content: "# [[Cache Hub|Cache Hub Docs]]\n", want: "Cache Hub Docs"},
-		{name: "unterminated frontmatter", path: "notes/unterminated.md", content: "---\ntype: note\n# Buried\n", want: "Buried"},
-	}
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, titleFor(tc.path, tc.content, tc.fm))
-		})
-	}
-}
-
 func legacyMetadataStateHash(vaultDef obsidian.VaultDefinition, notesHash string) string {
 	sum := sha256.New()
 	_, _ = sum.Write([]byte(notesHash))
@@ -1080,23 +931,9 @@ func TestBuildProjectionAliasCache_PreservesCandidateUnionAndEveryAliasClaimant(
 		"notes/a.md": {"SHARED", "A-ONLY"},
 		"notes/c.md": {"SHARED", "C-ONLY"},
 	})
-	require.Equal(t, []string{"notes/a.md", "notes/c.md"}, cache.Aliases["SHARED"])
-	require.Equal(t, []string{"notes/a.md"}, cache.Aliases["A-ONLY"])
-	require.Equal(t, []string{"notes/c.md"}, cache.Aliases["C-ONLY"])
+	require.Equal(t, []string{"notes/a.md", "notes/c.md"}, cache.Aliases["shared"])
+	require.Equal(t, []string{"notes/a.md"}, cache.Aliases["a-only"])
+	require.Equal(t, []string{"notes/c.md"}, cache.Aliases["c-only"])
 	require.Contains(t, cache.NotePaths, "notes/b.md", "existing candidates must remain available")
 	require.Contains(t, cache.NotePaths, "notes/c.md", "alias owners must become candidates")
-}
-
-func TestNoteStateDigestIgnoresMtime(t *testing.T) {
-	entries := []noteEntry{{Path: "note.md", Content: "# Note\n", Mtime: 1}}
-	touched := []noteEntry{{Path: "note.md", Content: "# Note\n", Mtime: 900}}
-	require.Equal(t, notesHashFromNoteEntries(entries), notesHashFromNoteEntries(touched),
-		"filesystem mtime is freshness evidence, not content identity")
-
-	rows := []semdb.NoteMetadataRow{{Path: "note.md", Mtime: 1, ContentHash: contentHash("# Note\n")}}
-	touchedRows := []semdb.NoteMetadataRow{{Path: "note.md", Mtime: 900, ContentHash: contentHash("# Note\n")}}
-	require.Equal(t, notesHashFromRows(rows), notesHashFromRows(touchedRows))
-	require.NotEqual(t, notesHashFromRows(rows), notesHashFromRows([]semdb.NoteMetadataRow{
-		{Path: "note.md", Mtime: 1, ContentHash: contentHash("# Other\n")},
-	}))
 }

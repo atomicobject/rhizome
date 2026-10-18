@@ -22,7 +22,7 @@ func TestValidationResultExitCode(t *testing.T) {
 			name: "clean completed checks",
 			result: ValidationResult{
 				Result:   validate.Result{OK: true},
-				Outcomes: []ValidationCheckOutcome{{Outcome: validate.CheckOutcomeCompleted}},
+				Outcomes: []ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Outcome: validate.CheckOutcomeCompleted}}},
 			},
 			want: ValidationExitClean,
 		},
@@ -30,7 +30,7 @@ func TestValidationResultExitCode(t *testing.T) {
 			name: "not applicable is clean",
 			result: ValidationResult{
 				Result:   validate.Result{OK: true},
-				Outcomes: []ValidationCheckOutcome{{Outcome: validate.CheckOutcomeNotApplicable}},
+				Outcomes: []ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Outcome: validate.CheckOutcomeNotApplicable}}},
 			},
 			want: ValidationExitClean,
 		},
@@ -52,7 +52,7 @@ func TestValidationResultExitCode(t *testing.T) {
 			name: "blocked takes precedence over findings",
 			result: ValidationResult{
 				Result:   validate.Result{IssueCount: 2},
-				Outcomes: []ValidationCheckOutcome{{Outcome: validate.CheckOutcomeBlocked}},
+				Outcomes: []ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Outcome: validate.CheckOutcomeBlocked}}},
 			},
 			want: ValidationExitFailure,
 		},
@@ -91,9 +91,8 @@ func TestRebuildAfterRepairReplacesFindingsWithoutExpandingPublicSelection(t *te
 		},
 		Selector:        "broken-links",
 		EffectiveChecks: []string{"broken-links"},
-		Outcomes: []ValidationCheckOutcome{{
-			Check:   "broken-links",
-			Outcome: validate.CheckOutcomeCompleted,
+		Outcomes: []ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "broken-links",
+			Outcome: validate.CheckOutcomeCompleted},
 		}},
 	}
 	execution := &validate.FixExecution{Applied: []string{"repair:broken-link"}}
@@ -110,7 +109,7 @@ func TestRebuildAfterRepairReplacesFindingsWithoutExpandingPublicSelection(t *te
 	require.NoError(t, err)
 	require.Equal(t, "broken-links", got.Selector)
 	require.Equal(t, []string{"broken-links"}, got.EffectiveChecks)
-	require.Equal(t, []ValidationCheckOutcome{{Check: "broken-links", Outcome: validate.CheckOutcomeCompleted}}, got.Outcomes)
+	require.Equal(t, []ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "broken-links", Outcome: validate.CheckOutcomeCompleted}}}, got.Outcomes)
 	require.Equal(t, []validate.CheckResult{{Name: "broken-links", OK: true}}, got.Checks)
 	require.Zero(t, got.IssueCount)
 	require.Equal(t, execution, got.FixExecution)
@@ -129,9 +128,7 @@ func TestRebuildAfterRepairScopesFreshPlanToOriginalCompletedChecks(t *testing.T
 	planned := ValidationResult{
 		Selector:        "identifiers",
 		EffectiveChecks: []string{"identifiers"},
-		Outcomes: []ValidationCheckOutcome{{
-			Check: "identifiers", Outcome: validate.CheckOutcomeCompleted,
-		}},
+		Outcomes:        []ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "identifiers", Outcome: validate.CheckOutcomeCompleted}}},
 	}
 	postcheck := validate.Result{
 		IssueCount:     3,
@@ -143,7 +140,8 @@ func TestRebuildAfterRepairScopesFreshPlanToOriginalCompletedChecks(t *testing.T
 			{Name: validate.CheckOntology, IssueCount: 1},
 		},
 		FixPlan: &validate.FixPlan{
-			TotalCount: 3, ConfirmationCount: 1, AgentCount: 2,
+			PreparationRequired: true,
+			TotalCount:          3, ConfirmationCount: 1, AgentCount: 2,
 			IssueKeys: []string{identifierKey, brokenLinkKey, ontologyKey},
 			Actions: []validate.FixAction{
 				{ID: "identifier", Check: validate.CheckIdentifiers, IssueCode: identifierIssue.Code, Safety: validate.FixSafetyConfirm, IssueKeys: []string{identifierKey}},
@@ -158,6 +156,7 @@ func TestRebuildAfterRepairScopesFreshPlanToOriginalCompletedChecks(t *testing.T
 	require.Equal(t, []string{"identifiers"}, got.EffectiveChecks)
 	require.Len(t, got.Checks, 1)
 	require.NotNil(t, got.FixPlan)
+	require.True(t, got.FixPlan.PreparationRequired)
 	require.Equal(t, 1, got.FixPlan.TotalCount)
 	require.Equal(t, 1, got.FixPlan.ConfirmationCount)
 	require.Zero(t, got.FixPlan.AgentCount)
@@ -182,9 +181,9 @@ func TestRebuildAfterRepairPreservesBlockedAndNotApplicableOutcomes(t *testing.T
 		Selector:        "all",
 		EffectiveChecks: []string{"broken-links", "code-anchors", "views"},
 		Outcomes: []ValidationCheckOutcome{
-			{Check: "broken-links", Outcome: validate.CheckOutcomeCompleted},
-			{Check: "code-anchors", Outcome: validate.CheckOutcomeBlocked, PreparationCommand: "rzm index"},
-			{Check: "views", Outcome: validate.CheckOutcomeNotApplicable},
+			{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "broken-links", Outcome: validate.CheckOutcomeCompleted}},
+			{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "code-anchors", Outcome: validate.CheckOutcomeBlocked, PreparationCommand: "rzm index"}},
+			{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "views", Outcome: validate.CheckOutcomeNotApplicable}},
 		},
 	}
 	postcheck := validate.Result{
@@ -217,32 +216,29 @@ func TestRebuildAfterRepairReplacesRecoveredJournalBarrierOutcomes(t *testing.T)
 		Selector:        "all",
 		EffectiveChecks: []string{"broken-links", "link-hygiene", "code-anchors"},
 		Outcomes: []ValidationCheckOutcome{
-			{
-				Check:              "broken-links",
+			{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "broken-links",
 				Outcome:            validate.CheckOutcomeBlocked,
 				Summary:            "pending repair journal must be recovered",
 				PreparationCommand: "rzm validate fix all --apply",
 				Evidence: []validate.ApplicabilityEvidence{{
 					Code: "pending_repair_journal",
-				}},
+				}}},
 			},
-			{
-				Check:              "link-hygiene",
+			{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "link-hygiene",
 				Outcome:            validate.CheckOutcomeBlocked,
 				Summary:            "pending repair journal must be recovered",
 				PreparationCommand: "rzm validate fix all --apply",
 				Evidence: []validate.ApplicabilityEvidence{{
 					Code: "pending_repair_journal",
-				}},
+				}}},
 			},
-			{
-				Check:              "code-anchors",
+			{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "code-anchors",
 				Outcome:            validate.CheckOutcomeBlocked,
 				Summary:            "code index is stale",
 				PreparationCommand: "rzm index",
 				Evidence: []validate.ApplicabilityEvidence{{
 					Code: "code_index_stale",
-				}},
+				}}},
 			},
 		},
 	}
@@ -269,9 +265,7 @@ func TestRebuildAfterRepairUsesExecutionRemainingFindingsForExitOne(t *testing.T
 	planned := ValidationResult{
 		Selector:        "broken-links",
 		EffectiveChecks: []string{"broken-links"},
-		Outcomes: []ValidationCheckOutcome{{
-			Check: "broken-links", Outcome: validate.CheckOutcomeCompleted,
-		}},
+		Outcomes:        []ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "broken-links", Outcome: validate.CheckOutcomeCompleted}}},
 	}
 	execution := &validate.FixExecution{
 		RemainingFindings:  1,
@@ -318,9 +312,7 @@ func TestRebuildAfterNonInteractiveConfirmationSkipRetainsFreshStructuredPlan(t 
 		},
 		Selector:        "broken-links",
 		EffectiveChecks: []string{"broken-links"},
-		Outcomes: []ValidationCheckOutcome{{
-			Check: "broken-links", Outcome: validate.CheckOutcomeCompleted,
-		}},
+		Outcomes:        []ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: "broken-links", Outcome: validate.CheckOutcomeCompleted}}},
 	}
 	postcheck := validate.Result{
 		IssueCount:     1,
@@ -673,14 +665,14 @@ func TestBuildValidationResult_RequiresExactCompletedSuiteResults(t *testing.T) 
 			wantErr: `duplicate suite result for check "broken-links"`,
 		},
 		{
-			name:      "legacy skipped result is rejected",
+			name:      "not-applicable result is rejected",
 			selection: validate.Selection{Selector: "views", Checks: []string{validate.CheckViews}},
 			outcomes: []validate.CheckApplicabilityResult{{
 				Check:   validate.CheckViews,
 				Outcome: validate.CheckOutcomeCompleted,
 			}},
-			checks:  []validate.CheckResult{{Name: validate.CheckViews, Skipped: true}},
-			wantErr: `completed check "views" returned a legacy skipped result`,
+			checks:  []validate.CheckResult{{Name: validate.CheckViews, NotApplicable: "domain absent"}},
+			wantErr: `completed check "views" returned a not-applicable result`,
 		},
 		{
 			name: "completed and non-completed checks have exact result cardinality",

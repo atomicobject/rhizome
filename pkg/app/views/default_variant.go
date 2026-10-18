@@ -2,9 +2,8 @@ package views
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 // boardOpenRecordLimit is the most open or active records a generated
@@ -31,7 +30,7 @@ func (s *Service) generatedDefaultVariant(ctx context.Context, entry CatalogEntr
 		return fallback
 	}
 	profile, ok := sourceProfile(s.opts.Schema, def)
-	if !ok || profile.Shape != ontology.ShapeWorkflow {
+	if !ok || profile.Shape != ontoschema.ShapeWorkflow {
 		return fallback
 	}
 	counter, ok := s.opts.Store.(fieldValueCounter)
@@ -49,10 +48,10 @@ func (s *Service) generatedDefaultVariant(ctx context.Context, entry CatalogEntr
 
 // boardFitsOpenWork reports whether open work spans two or more lifecycle
 // values and fits on one board. counts are keyed by lowercased value.
-func boardFitsOpenWork(stages map[string]ontology.LifecycleStage, counts map[string]int) bool {
+func boardFitsOpenWork(stages map[string]ontoschema.LifecycleStage, counts map[string]int) bool {
 	populated, open := 0, 0
 	for value, stage := range stages {
-		if stage != ontology.StageOpen && stage != ontology.StageActive {
+		if stage != ontoschema.StageOpen && stage != ontoschema.StageActive {
 			continue
 		}
 		if count := counts[strings.ToLower(value)]; count > 0 {

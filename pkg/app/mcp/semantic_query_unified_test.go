@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/answer"
 	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
@@ -68,10 +69,15 @@ status:: ready
 		Path:        "specs/one.md",
 		NodeRefJSON: `{"notePath":"specs/one.md","fragment":"^linkable","kind":"EMBEDDED"}`,
 	}}
-	enrichSemanticLinkTargets(context.Background(), Config{
-		VaultPath: root,
-		VaultDef:  obsidian.VaultDefinition{Path: root, Links: obsidian.LinkTypeBoth},
-	}, nil, matches)
+	cfg := Config{
+		VaultPath:    root,
+		VaultDef:     obsidian.VaultDefinition{Path: root, Links: obsidian.LinkTypeBoth},
+		NoteMetadata: configuredMCPNoteMetadata(t),
+	}
+	store := newIntelStore(t)
+	_, err := ontologytest.Publish(context.Background(), cfg.NoteMetadata, cfg.VaultDef, &obsidian.Note{}, store)
+	require.NoError(t, err)
+	enrichSemanticLinkTargets(context.Background(), cfg, store, matches)
 	require.NotNil(t, matches[0].LinkTarget)
 	assert.Equal(t, "[[one#^linkable]]", matches[0].LinkTarget.Wikilink)
 	assert.True(t, matches[0].LinkTarget.Exists)
@@ -86,7 +92,7 @@ func TestAttachSymbolHitsAddsLinesAndBestSymbol(t *testing.T) {
 	page := []semanticQueryGroup{{
 		match: SemanticMatchPayload{Type: "code", Path: "pkg/search/service.go", Title: "service.go", Symbol: "service.go"},
 		hits: []search.RankedResult{{
-			Candidate:  search.Candidate{AnchorID: "a1"},
+			Candidate:  search.Candidate{SourceRef: search.SourceRef{AnchorID: "a1"}},
 			FinalScore: 0.91,
 		}},
 	}}
@@ -147,7 +153,7 @@ func TestAttachModuleOutlinesAddsExportsForModuleHits(t *testing.T) {
 	page := []semanticQueryGroup{{
 		match: SemanticMatchPayload{Type: "code", Path: module.Path, Title: "service.go", Symbol: "service.go"},
 		hits: []search.RankedResult{{
-			Candidate: search.Candidate{AnchorID: module.AnchorID},
+			Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: module.AnchorID}},
 		}},
 	}}
 	attachModuleOutlines(ctx, store, page, map[string]codeanchor.IntelAnchor{module.AnchorID: module})
@@ -184,8 +190,8 @@ func TestBuildSemanticOptions_OffersOutlineForCodeAnchors(t *testing.T) {
 		match: SemanticMatchPayload{Type: "code", Path: filepath.Base(path)},
 		score: 0.9,
 		hits: []search.RankedResult{
-			{Candidate: search.Candidate{AnchorID: "a1"}},
-			{Candidate: search.Candidate{AnchorID: "a2"}},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: "a1"}}},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: "a2"}}},
 		},
 	}
 	anchors := map[string]codeanchor.IntelAnchor{
@@ -229,7 +235,7 @@ func TestRenderSemanticBody_CodeExcerptUsesAnchorSpan(t *testing.T) {
 			Path: "main.go",
 		},
 		hits: []search.RankedResult{
-			{Candidate: search.Candidate{AnchorID: "a1"}},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: "a1"}}},
 		},
 	}
 	body, _, _ := renderSemanticBody(context.Background(), Config{VaultPath: dir}, nil, group, map[string]codeanchor.IntelAnchor{"a1": anchor}, planExcerpt, 2000)
@@ -241,9 +247,9 @@ func TestRenderSemanticBody_CodeOutlineUsesTopAnchors(t *testing.T) {
 	group := semanticQueryGroup{
 		match: SemanticMatchPayload{Type: "code", Path: "main.go"},
 		hits: []search.RankedResult{
-			{Candidate: search.Candidate{AnchorID: "a1"}},
-			{Candidate: search.Candidate{AnchorID: "a2"}},
-			{Candidate: search.Candidate{AnchorID: "a3"}},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: "a1"}}},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: "a2"}}},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: "a3"}}},
 		},
 	}
 	anchors := map[string]codeanchor.IntelAnchor{
@@ -456,9 +462,10 @@ func TestAdjustOptionRatio_PenalizesSimilarity(t *testing.T) {
 // visibility must survive exactly as the page supplied them.
 func TestSemanticGroupsFromPageMapsWireMetadata(t *testing.T) {
 	noteRef := &ontology.NodeRef{NotePath: "docs/spec.md", Kind: ontology.NodeKindNote}
+	storyRef := &ontology.NodeRef{NotePath: "docs/spec.md", Fragment: "^story", NodeID: "story", TypeName: "UserStory", Kind: ontology.NodeKindEmbedded}
 	sectionRef := &ontology.NodeRef{NotePath: "docs/spec.md", Fragment: "Search Ranking", NodeID: "section-search", Kind: ontology.NodeKindSection}
 	vector := []search.Evidence{{Type: "note_vector_similarity", RawScore: 0.72}}
-	storyJSON := `{"notePath":"docs/spec.md","nodeId":"story","typeName":"UserStory","kind":"EMBEDDED"}`
+	storyJSON := `{"notePath":"docs/spec.md","fragment":"^story","nodeId":"story","typeName":"UserStory","kind":"EMBEDDED"}`
 	sectionJSON := `{"notePath":"docs/spec.md","fragment":"Search Ranking","nodeId":"section-search","kind":"SECTION"}`
 
 	tests := []struct {
@@ -471,27 +478,34 @@ func TestSemanticGroupsFromPageMapsWireMetadata(t *testing.T) {
 	}{
 		{
 			name:   "mixed-case note path is preserved",
-			source: search.RankedResult{Candidate: search.Candidate{Handle: knowledge.NoteHandle("Notes/Decision.MD"), Type: "note", Path: "Notes/Decision.MD", NoteID: "Notes/Decision.MD"}, FinalScore: 1},
+			source: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "Notes/Decision.MD", NoteID: "Notes/Decision.MD"}, Handle: knowledge.NoteHandle("Notes/Decision.MD"), Type: "note"}, FinalScore: 1},
 			want:   SemanticMatchPayload{Type: "note", Path: "Notes/Decision.MD", Title: "Decision", ChunkIndex: -1, Score: 1},
 		},
 		{
 			name:    "note node ref and evidence with explain",
-			source:  search.RankedResult{Candidate: search.Candidate{Type: "note", Path: "docs/spec.md", Granularity: "node_body", Evidence: vector, NodeRef: noteRef}, FinalScore: 0.9},
+			source:  search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "docs/spec.md", Granularity: "node_body", NodeRef: noteRef}, Type: "note", Evidence: vector}, FinalScore: 0.9},
 			explain: true,
-			want:    SemanticMatchPayload{Type: "note", Path: "docs/spec.md", Title: "spec", Granularity: "node_body", ChunkIndex: -1, Score: 0.9, NodeRef: noteRef, Evidence: map[string]float64{"vector": 0.72}},
+			want:    SemanticMatchPayload{Type: "note", Path: "docs/spec.md", Title: "spec", Granularity: "node_body", ChunkIndex: -1, Score: 0.9, NodeRef: noteRef, NodeRefJSON: `{"notePath":"docs/spec.md","kind":"NOTE"}`, SourceLocator: "docs/spec.md", NodeKind: "NOTE", Evidence: map[string]float64{"vector": 0.72}},
 			role:    "doc",
 		},
 		{
 			name:   "explain false omits evidence",
-			source: search.RankedResult{Candidate: search.Candidate{Type: "note", Path: "docs/spec.md", Granularity: "node_body", Evidence: vector, NodeRef: noteRef}, FinalScore: 0.9},
-			want:   SemanticMatchPayload{Type: "note", Path: "docs/spec.md", Title: "spec", Granularity: "node_body", ChunkIndex: -1, Score: 0.9, NodeRef: noteRef},
+			source: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "docs/spec.md", Granularity: "node_body", NodeRef: noteRef}, Type: "note", Evidence: vector}, FinalScore: 0.9},
+			want:   SemanticMatchPayload{Type: "note", Path: "docs/spec.md", Title: "spec", Granularity: "node_body", ChunkIndex: -1, Score: 0.9, NodeRef: noteRef, NodeRefJSON: `{"notePath":"docs/spec.md","kind":"NOTE"}`, SourceLocator: "docs/spec.md", NodeKind: "NOTE"},
 		},
 		{
 			name:   "display doc section target overrides the ranked source",
-			source: search.RankedResult{Candidate: search.Candidate{Type: "note", Path: "docs/spec.md", NoteID: "docs/spec.md"}, FinalScore: 0.9},
+			source: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "docs/spec.md", NoteID: "docs/spec.md"}, Type: "note"}, FinalScore: 0.9},
 			display: &search.RankedResult{Candidate: search.Candidate{
-				Type: "doc_section", Path: "docs/spec.md", NoteID: "docs/spec.md", Title: "Search Ranking", ChunkIndex: 3,
-				NodeID: sectionRef.NodeID, NodeRefJSON: sectionJSON, SourceLocator: sectionRef.String(), NodeKind: string(ontology.NodeKindSection), NodeRef: sectionRef,
+				SourceRef: search.SourceRef{
+					Path:       "docs/spec.md",
+					NoteID:     "docs/spec.md",
+					Title:      "Search Ranking",
+					ChunkIndex: 3,
+					NodeID:     sectionRef.NodeID,
+					NodeRef:    sectionRef,
+				},
+				Type: "doc_section",
 			}, FinalScore: 0.9},
 			want: SemanticMatchPayload{
 				Type: "note", Path: "docs/spec.md", Title: "Search Ranking", Heading: "Search Ranking", ChunkIndex: 3, Score: 0.9,
@@ -501,19 +515,25 @@ func TestSemanticGroupsFromPageMapsWireMetadata(t *testing.T) {
 		{
 			name: "embedded ontology node granularity",
 			source: search.RankedResult{Candidate: search.Candidate{
-				Type: "note", Path: "docs/spec.md", NoteID: "docs/spec.md", Title: "Faster checkout", Granularity: "node_body",
-				NodeID: "node:story", NodeRefJSON: storyJSON, NodeKind: "EMBEDDED", NodeType: "UserStory",
+				SourceRef: search.SourceRef{
+					Path:         "docs/spec.md",
+					NoteID:       "docs/spec.md",
+					Title:        "Faster checkout",
+					Granularity:  "node_body",
+					NodeID:       "node:story",
+					ParentNodeID: "catalog:container",
+					NodeRef:      storyRef,
+				},
+				Type: "note",
 			}, FinalScore: 0.9},
 			want: SemanticMatchPayload{
 				Type: "note", Path: "docs/spec.md", Title: "Faster checkout", Heading: "Faster checkout", Granularity: "node_body", ChunkIndex: -1, Score: 0.9,
-				NodeID: "node:story", NodeRefJSON: storyJSON, NodeKind: "EMBEDDED", NodeType: "UserStory",
+				NodeID: "node:story", ParentNodeID: "catalog:container", NodeRef: storyRef, SourceLocator: "docs/spec.md#^story", NodeRefJSON: storyJSON, NodeKind: "EMBEDDED", NodeType: "UserStory",
 			},
 		},
 		{
-			name: "code identity",
-			source: search.RankedResult{Candidate: search.Candidate{
-				Type: "code", Path: "pkg/search/service.go", Symbol: "Service.Search", FQN: "pkg/search.Service.Search", Kind: "method", AnchorID: "a1",
-			}, FinalScore: 0.8},
+			name:   "code identity",
+			source: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "pkg/search/service.go", Symbol: "Service.Search", FQN: "pkg/search.Service.Search", Kind: "method", AnchorID: "a1"}, Type: "code"}, FinalScore: 0.8},
 			want: SemanticMatchPayload{
 				Type: "code", Path: "pkg/search/service.go", Title: "Service.Search", Symbol: "Service.Search", FQN: "pkg/search.Service.Search",
 				Kind: "method", AnchorID: "a1", ChunkIndex: -1, Score: 0.8,
@@ -549,7 +569,7 @@ func TestPreviewFromBodyRendersUsefulPreview(t *testing.T) {
 	hits := func(ids ...string) []search.RankedResult {
 		out := make([]search.RankedResult, 0, len(ids))
 		for _, id := range ids {
-			out = append(out, search.RankedResult{Candidate: search.Candidate{AnchorID: id}})
+			out = append(out, search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: id}}})
 		}
 		return out
 	}
@@ -579,7 +599,7 @@ func TestPreviewFromBodyRendersUsefulPreview(t *testing.T) {
 		{
 			name:  "unselected note uses ranked chunk text",
 			match: SemanticMatchPayload{Type: "note", Path: "Note.md"},
-			group: semanticQueryGroup{hits: []search.RankedResult{{Candidate: search.Candidate{Path: "Note.md", ChunkIndex: 1}}}},
+			group: semanticQueryGroup{hits: []search.RankedResult{{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "Note.md", ChunkIndex: 1}}}}},
 			want:  "This is a focused paragraph about embeddings.",
 		},
 		{
@@ -647,7 +667,7 @@ func TestRenderedSemanticContentKinds(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package mcp\n\nfunc DoThing() {}\n"), 0o644))
 	group := semanticQueryGroup{
 		match: SemanticMatchPayload{Type: "code", Path: "main.go"},
-		hits:  []search.RankedResult{{Candidate: search.Candidate{AnchorID: "pkg"}}, {Candidate: search.Candidate{AnchorID: "fn"}}},
+		hits:  []search.RankedResult{{Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: "pkg"}}}, {Candidate: search.Candidate{SourceRef: search.SourceRef{AnchorID: "fn"}}}},
 	}
 	anchors := map[string]codeanchor.IntelAnchor{
 		"pkg": {AnchorID: "pkg", Path: "main.go", StartLine: 1, EndLine: 1},

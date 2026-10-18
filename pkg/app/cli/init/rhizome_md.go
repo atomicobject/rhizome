@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 const (
@@ -24,7 +25,7 @@ const (
 // - [[init-template-architecture]]
 // renderRhizomeMd renders the core Rhizome guidance block from canonical
 // repo-local config.
-func renderRhizomeMd(localCfg obsidian.LocalConfig) (string, error) {
+func renderRhizomeMd(localCfg repoconfig.LocalConfig) (string, error) {
 	template, err := loadRhizomeMdTemplate("RHIZOME.md")
 	if err != nil {
 		return "", err
@@ -32,7 +33,7 @@ func renderRhizomeMd(localCfg obsidian.LocalConfig) (string, error) {
 	return strings.ReplaceAll(template, "{{REPO_CONFIG}}", renderRepoConfig(localCfg)), nil
 }
 
-func localHasCodeScanning(cfg obsidian.LocalConfig) bool {
+func localHasCodeScanning(cfg repoconfig.LocalConfig) bool {
 	if cfg.Code.Enabled {
 		return true
 	}
@@ -46,8 +47,8 @@ func localHasCodeScanning(cfg obsidian.LocalConfig) bool {
 }
 
 // localHasEnabledAnchors checks if canonical config enables code anchors.
-func localHasEnabledAnchors(cfg obsidian.LocalConfig) bool {
-	return obsidian.CodeAnchorRootsConfigured(cfg.Code)
+func localHasEnabledAnchors(cfg repoconfig.LocalConfig) bool {
+	return repoconfig.CodeAnchorRootsConfigured(cfg.Code)
 }
 
 func renderDocPatternGuidance(patterns []string) []string {
@@ -84,7 +85,7 @@ func renderDocPatternGuidance(patterns []string) []string {
 }
 
 // renderRepoConfig renders the repo config summary from canonical LocalConfig.
-func renderRepoConfig(localCfg obsidian.LocalConfig) string {
+func renderRepoConfig(localCfg repoconfig.LocalConfig) string {
 	var lines []string
 
 	lines = append(lines, fmt.Sprintf("- **Rhizome config**: `%s`", ".rhizome/config.yml"))

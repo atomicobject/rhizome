@@ -10,16 +10,17 @@ package mcp
 import (
 	"context"
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/app/contextpack"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // Compressor is the interface for compressing context when over budget.
@@ -50,9 +51,10 @@ const (
 // LiveRuntime-backed view so callers observe independent capabilities as they
 // arrive without copied mutable state.
 type Config struct {
-	Vault     *obsidian.Vault
-	VaultPath string
-	VaultDef  obsidian.VaultDefinition // vault definition for note operations
+	RepositoryConfig *repoconfig.Resolved
+	Vault            *repoconfig.Vault
+	VaultPath        string
+	VaultDef         obsidian.VaultDefinition // vault definition for note operations
 	// NoteMetadata is the command-scoped provider-aware metadata indexer. It
 	// must be composed by the application before a handler performs a durable
 	// metadata or ontology refresh.
@@ -152,15 +154,13 @@ func (c Config) GetIntelStore() *semdb.Store {
 }
 
 // BudgetChars returns the effective budget for LLM context packing.
-// Uses the config from VaultPath if available, otherwise returns the default.
+// Uses the supplied repository snapshot, otherwise returns the default.
 func (c Config) BudgetChars() int {
 	if c.BudgetCharsOverride > 0 {
 		return c.BudgetCharsOverride
 	}
-	return obsidian.GetBudgetChars(c.VaultPath)
-}
-
-// DefaultBudgetChars returns the global default budget constant.
-func DefaultBudgetChars() int {
-	return contextpack.DefaultBudgetChars
+	if c.RepositoryConfig != nil {
+		return c.RepositoryConfig.BudgetChars
+	}
+	return repoconfig.DefaultBudgetChars
 }

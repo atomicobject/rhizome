@@ -2,6 +2,8 @@ package retrieval
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -28,34 +30,26 @@ func (d delayedRetriever) Retrieve(ctx context.Context, _ search.QuerySpec) ([]s
 	return d.result, nil
 }
 
-func TestRunRetrievers_StageBudgetsSlowBroadLane(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+func TestRunRetrieversGivesVectorLaneTimeAlongsideFiveFastLanes(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	items, err := runRetrievers(ctx, []search.Retriever{
-		delayedRetriever{name: "vector", delay: time.Second},
-		delayedRetriever{name: "intel_lexical", result: []search.Candidate{{
-			Handle: knowledge.NoteHandle("notes/fast.md"),
-			Owner:  knowledge.NoteHandle("notes/fast.md"),
-			Type:   "note",
-			Path:   "notes/fast.md",
-		}}},
-	}, search.QuerySpec{Text: "fast", Intent: search.IntentOverview, Limits: search.Limits{Total: 5}})
-
+	retrievers := []search.Retriever{delayedRetriever{name: "vector", delay: 1200 * time.Millisecond, result: []search.Candidate{{SourceRef: search.SourceRef{Path: "notes/vector.md"}, Handle: knowledge.NoteHandle("notes/vector.md"), Owner: knowledge.NoteHandle("notes/vector.md"), Type: "note"}}}}
+	for _, path := range []string{"one", "two", "three", "four", "five"} {
+		retrievers = append(retrievers, delayedRetriever{name: path, result: []search.Candidate{{SourceRef: search.SourceRef{Path: path}, Handle: knowledge.NoteHandle(path), Owner: knowledge.NoteHandle(path), Type: "note"}}})
+	}
+	items, err := runRetrievers(ctx, retrievers, search.QuerySpec{Text: "query", Intent: search.IntentOverview, Limits: search.Limits{Total: 10}})
 	if err != nil {
-		t.Fatalf("expected slow broad lane to degrade, got %v", err)
+		t.Fatal(err)
 	}
-	if ctx.Err() != nil {
-		t.Fatalf("expected stage budget to return before parent deadline, got %v", ctx.Err())
-	}
-	if len(items) != 1 || items[0].Path != "notes/fast.md" {
-		t.Fatalf("expected fast lane result, got %#v", items)
+	if len(items) != 6 {
+		t.Fatalf("expected all six lanes including the first vector lane, got %#v", items)
 	}
 }
 
 func TestRunRetrieversPreservesScoreOrderAcrossCompletionOrder(t *testing.T) {
-	weak := search.Candidate{Handle: knowledge.FileHandle("weak.go"), Owner: knowledge.FileHandle("weak.go"), Path: "weak.go", Evidence: []search.Evidence{{Type: "intel_fts_match", RawScore: 0.2}}}
-	strong := search.Candidate{Handle: knowledge.FileHandle("strong.go"), Owner: knowledge.FileHandle("strong.go"), Path: "strong.go", Evidence: []search.Evidence{{Type: "intel_fts_match", RawScore: 0.9}}}
+	weak := search.Candidate{SourceRef: search.SourceRef{Path: "weak.go"}, Handle: knowledge.FileHandle("weak.go"), Owner: knowledge.FileHandle("weak.go"), Evidence: []search.Evidence{{Type: "intel_fts_match", RawScore: 0.2}}}
+	strong := search.Candidate{SourceRef: search.SourceRef{Path: "strong.go"}, Handle: knowledge.FileHandle("strong.go"), Owner: knowledge.FileHandle("strong.go"), Evidence: []search.Evidence{{Type: "intel_fts_match", RawScore: 0.9}}}
 	orders := [][]search.Retriever{
 		{delayedRetriever{name: "slow", delay: 5 * time.Millisecond, result: []search.Candidate{weak}}, delayedRetriever{name: "fast", result: []search.Candidate{strong}}},
 		{delayedRetriever{name: "slow", delay: 5 * time.Millisecond, result: []search.Candidate{strong}}, delayedRetriever{name: "fast", result: []search.Candidate{weak}}},
@@ -144,5 +138,41 @@ func TestDeriveSeeds_AllowsStrongLexicalSeedWhenSpecificityMissing(t *testing.T)
 
 	if len(seeds) != 1 {
 		t.Fatalf("expected strong lexical seed, got %#v", seeds)
+	}
+}
+
+func TestDeriveSeedsTieBreakIsDeterministic(t *testing.T) {
+	evidence := []search.Evidence{
+		{Type: "note_vector_similarity", RawScore: 0.62},
+		{Type: "intel_fts_match", RawScore: 0.41},
+		{Type: "doc_link", RawScore: 0.27},
+		{Type: "graph_proximity", RawScore: 0.13},
+		{Type: "query_specificity", RawScore: 0.67},
+		{Type: "ontology_relation_structural", RawScore: 0.37},
+	}
+	var candidates []search.Candidate
+	for i := 39; i >= 0; i-- {
+		handle := knowledge.FileHandle(fmt.Sprintf("pkg/%02d.go", i))
+		candidates = append(candidates, search.Candidate{Handle: handle, Owner: handle, Evidence: evidence})
+	}
+	want := []knowledge.Handle{
+		knowledge.FileHandle("pkg/00.go"), knowledge.FileHandle("pkg/01.go"),
+		knowledge.FileHandle("pkg/02.go"), knowledge.FileHandle("pkg/03.go"),
+		knowledge.FileHandle("pkg/04.go"), knowledge.FileHandle("pkg/05.go"),
+		knowledge.FileHandle("pkg/06.go"), knowledge.FileHandle("pkg/07.go"),
+	}
+	weights := map[search.EvidenceChannel]float64{
+		search.EvidenceChannelSemantic:           0.7,
+		search.EvidenceChannelLexical:            0.3,
+		search.EvidenceChannelRefs:               1.2,
+		search.EvidenceChannelGraph:              0.45,
+		search.EvidenceChannelSpecificity:        0.9,
+		search.EvidenceChannelOntologyStructural: 0.65,
+	}
+	for run := range 50 {
+		got := deriveSeeds(candidates, 8, 8, weights, 0)
+		if !reflect.DeepEqual(want, got) {
+			t.Fatalf("equal-score seeds must use handle order on run %d: want %v, got %v", run, want, got)
+		}
 	}
 }

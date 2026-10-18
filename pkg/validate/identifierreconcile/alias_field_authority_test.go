@@ -2,15 +2,14 @@ package identifierreconcile
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"testing"
-
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 func TestIdentifierAliasFieldAuthorityIsTypeScoped(t *testing.T) {
@@ -67,11 +66,11 @@ type Consumer @node(paths: ["notes/*.md"]) { related: Record @link }
 				require.NoError(t, os.WriteFile(p, []byte(body), 0o644))
 			}
 			owner := ontology.NodeRef{NotePath: "specs/loser.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
-			rewrite := reference.IdentifierRewrite{Mode: reference.IdentifierRewriteAliasRemoval, OldRef: owner, NewRef: owner, OldIdentifier: "OLD", NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases"}
+			rewrite := identifierrewrite.IdentifierRewrite{Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: owner, NewRef: owner, OldIdentifier: "OLD", NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases"}
 			if tc.extra {
 				rewrite.AdditionalAliasesFields = []string{tc.aliasField}
 			}
-			fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []reference.IdentifierRewrite{rewrite}})
+			fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t), VaultDef: obsidian.VaultDefinition{Path: root}, RootRewrites: []identifierrewrite.IdentifierRewrite{rewrite}})
 			require.NoError(t, err)
 			fs, err := fields.validatedSnapshotFor(fields.rewrites)
 			require.NoError(t, err)

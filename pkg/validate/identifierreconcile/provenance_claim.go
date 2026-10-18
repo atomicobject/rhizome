@@ -3,12 +3,13 @@ package identifierreconcile
 import (
 	"bytes"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 type historicalDocument struct {
@@ -25,12 +26,12 @@ type historicalDocument struct {
 func parseHistoricalMarkdownDocument(notePath string, blob []byte) historicalDocument {
 	snapshot, err := ontology.BuildDocumentSnapshot(notePath, string(blob), time.Time{})
 	if err == nil && snapshot != nil && snapshot.Frontmatter == nil && bytes.HasPrefix(blob, []byte("---")) {
-		_, err = obsidian.ExtractFrontmatter(string(blob))
+		_, err = markdownsyntax.ExtractFrontmatter(string(blob))
 	}
 	return historicalDocument{snapshot: snapshot, err: err}
 }
 
-func evidenceForClaim(claim Claim, events []gitHistoryEvent, documents []historicalDocument, schema *ontology.Schema) ProvenanceEvidence {
+func evidenceForClaim(claim Claim, events []gitHistoryEvent, documents []historicalDocument, schema *ontoschema.Schema) ProvenanceEvidence {
 	target := IdentifierComparisonKey(claim.Value)
 	values := make([]string, len(events))
 	for index := range events {
@@ -78,7 +79,7 @@ func incompleteClaimValue(reason string) claimBlobValue {
 	return claimBlobValue{reason: reason}
 }
 
-func identifierValueFromDocument(document historicalDocument, claim Claim, schema *ontology.Schema) claimBlobValue {
+func identifierValueFromDocument(document historicalDocument, claim Claim, schema *ontoschema.Schema) claimBlobValue {
 	if document.absent {
 		return completeClaimValue("", false)
 	}
@@ -190,7 +191,7 @@ func identifierValueFromDocument(document historicalDocument, claim Claim, schem
 	return completeClaimValue("", false)
 }
 
-func findHistoricalEmbeddedClaim(snapshot *ontology.DocumentSnapshot, schema *ontology.Schema, claim Claim) claimBlobValue {
+func findHistoricalEmbeddedClaim(snapshot *ontology.DocumentSnapshot, schema *ontoschema.Schema, claim Claim) claimBlobValue {
 	refByNodeID := make(map[string]ontology.NodeRef, len(snapshot.SectionsByID)+len(snapshot.SourceSpansByID))
 	for nodeID := range snapshot.SectionsByID {
 		refByNodeID[nodeID] = ontology.NodeRef{NotePath: snapshot.NotePath, NodeID: nodeID, Kind: ontology.NodeKindEmbedded}

@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,13 +29,13 @@ type ActionItem implements Section @node(locator: EMBEDDED) @source(shape: CHECK
 
 var embeddedValidationSink []ValidationIssue
 
-func loadEmbeddedValidationSchema(tb testing.TB) *Schema {
+func loadEmbeddedValidationSchema(tb testing.TB) *ontoschema.Schema {
 	tb.Helper()
 	root := tb.TempDir()
 	dir := filepath.Join(root, ".rhizome", "ontology")
 	require.NoError(tb, os.MkdirAll(dir, 0755))
 	require.NoError(tb, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(embeddedValidationSDL), 0644))
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(tb, err)
 	return schema
 }
@@ -59,7 +60,7 @@ func embeddedValidationFixture(count int) string {
 	return content.String()
 }
 
-func buildEmbeddedValidationCase(tb testing.TB, schema *Schema, notePath string, count int) (*DocumentSnapshot, *NodeProjection) {
+func buildEmbeddedValidationCase(tb testing.TB, schema *ontoschema.Schema, notePath string, count int) (*DocumentSnapshot, *NodeProjection) {
 	tb.Helper()
 	snapshot, err := BuildDocumentSnapshot(notePath, embeddedValidationFixture(count), time.Time{})
 	require.NoError(tb, err)
@@ -164,7 +165,7 @@ func TestValidateEmbeddedProjectionFields_SkipsDuplicateRefsWithoutProjecting(t 
 	}
 }
 
-func TestValidateEmbeddedProjectionFields_PartialProjectionErrorSkipsChild(t *testing.T) {
+func TestValidateEmbeddedProjectionFields_ReportsPartialProjectionErrors(t *testing.T) {
 	schema := loadEmbeddedValidationSchema(t)
 	snapshot, root := buildEmbeddedValidationCase(t, schema, "notes/daily/today.md", 9)
 
@@ -176,11 +177,18 @@ func TestValidateEmbeddedProjectionFields_PartialProjectionErrorSkipsChild(t *te
 	root.Collections["actionItems"] = binding
 
 	got := validateEmbeddedProjectionFields(snapshot, schema, root)
-	requireEmbeddedFixtureIssues(t, got, snapshot.NotePath, 9)
+	var validation, failures []ValidationIssue
 	for _, issue := range got {
-		require.NotContains(t, issue.NodeRef, "notes/other.md")
-		require.NotContains(t, issue.NodeRef, "missing-999")
+		if issue.Code == "projection_failed" {
+			failures = append(failures, issue)
+		} else {
+			validation = append(validation, issue)
+		}
 	}
+	requireEmbeddedFixtureIssues(t, validation, snapshot.NotePath, 9)
+	require.Len(t, failures, 2)
+	require.Equal(t, "notes/daily/today.md#missing-999", failures[0].NodeRef)
+	require.Equal(t, "notes/other.md#elsewhere", failures[1].NodeRef)
 }
 
 // TestValidateEmbeddedProjectionFields_ResolverConstructedOnce guards the

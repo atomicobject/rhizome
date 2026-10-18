@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/validate/namespaceadmission"
+	"github.com/atomicobject/rhizome/pkg/sourcetxn/admission"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/stretchr/testify/require"
 )
@@ -22,19 +22,19 @@ func TestNamespacePostCommitBorrowsOriginalLeaseAfterRequiredCompletion(t *testi
 			plan := namespaceTestPlan(t, root)
 			probe := &repairPostApplyProbe{t: t, result: PostApplyRefreshResult{Paths: []string{"old.md", "new.md"}}}
 			ctx := context.Background()
-			var plannedLease, savedLease *IndexLockLease
+			var plannedLease, savedLease *indexlock.Lease
 			var optionalErr error
 			var callbackReceipt NamespaceOutcome
 			calls := 0
-			result, err := ApplyNamespaceMutation(ctx, namespaceTestRunContext(root), namespaceTestPlanner(func(_ context.Context, lease *IndexLockLease) (NamespaceMutationPlan, error) {
+			result, err := ApplyNamespaceMutation(ctx, namespaceTestRunContext(root), namespaceTestPlanner(func(_ context.Context, lease *indexlock.Lease) (NamespaceMutationPlan, error) {
 				plannedLease = lease
 				return plan, nil
-			}), probe, func(callbackCtx context.Context, lease *IndexLockLease) {
+			}), probe, func(callbackCtx context.Context, lease *indexlock.Lease) {
 				calls++
 				require.Equal(t, ctx, callbackCtx)
 				require.Same(t, plannedLease, lease)
 				require.Same(t, probe.lease, lease)
-				require.NoError(t, lease.RequireHeldForVault(root))
+				require.NoError(t, lease.Validate(root))
 				savedLease = lease
 				require.Equal(t, "after\n", string(mustReadFile(t, filepath.Join(root, "new.md"))))
 				require.NoFileExists(t, filepath.Join(root, "old.md"))
@@ -71,7 +71,7 @@ func TestNamespacePostCommitBorrowsOriginalLeaseAfterRequiredCompletion(t *testi
 			} else {
 				require.NoError(t, optionalErr)
 			}
-			require.Error(t, savedLease.RequireHeld())
+			require.Error(t, savedLease.Validate(root))
 			namespacePostCommitLeaseReleased(t, root)
 		})
 	}
@@ -94,11 +94,11 @@ func TestNamespacePostCommitReceivesCancellationAfterRequiredCompletion(t *testi
 	refresh.Paths = []string{"old.md", "new.md"}
 	probe := &repairPostApplyProbe{t: t, result: refresh}
 	called, optionalStarted := false, false
-	result, err := ApplyNamespaceMutation(ctx, namespaceTestRunContext(root), namespaceFixturePlanner(plan), probe, func(callbackCtx context.Context, lease *IndexLockLease) {
+	result, err := ApplyNamespaceMutation(ctx, namespaceTestRunContext(root), namespaceFixturePlanner(plan), probe, func(callbackCtx context.Context, lease *indexlock.Lease) {
 		called = true
 		require.Equal(t, ctx, callbackCtx)
 		require.ErrorIs(t, callbackCtx.Err(), context.Canceled)
-		require.NoError(t, lease.RequireHeldForVault(root))
+		require.NoError(t, lease.Validate(root))
 		if callbackCtx.Err() != nil {
 			return
 		}
@@ -147,8 +147,8 @@ func TestNamespacePostCommitSkipsRequiredFailuresAndRecovery(t *testing.T) {
 				}
 			}
 			calls := 0
-			callback := func(context.Context, *IndexLockLease) { calls++ }
-			_, err := applyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) {
+			callback := func(context.Context, *indexlock.Lease) { calls++ }
+			_, err := applyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) {
 				if stage == "planning" {
 					return NamespaceMutationPlan{}, failure
 				}

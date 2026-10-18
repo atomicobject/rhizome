@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -17,13 +18,19 @@ import (
 // one suite execution. Repair authority retains the caller's live reader; only
 // validation reads use this captured view.
 type validationRunSnapshot struct {
-	sources    []notemeta.NoteSourceSnapshot
-	byPath     map[string]notemeta.NoteSourceSnapshot
-	paths      []string
-	candidates brokenLinkMatcherIndex
+	linksOnce         sync.Once
+	linkInventory     *validationSourceLinks
+	sources           []notemeta.NoteSourceSnapshot
+	byPath            map[string]notemeta.NoteSourceSnapshot
+	paths             []string
+	candidates        brokenLinkMatcherIndex
+	completeInventory bool
 }
 
 func captureValidationRunSnapshot(ctx context.Context, runCtx RunContext) (*validationRunSnapshot, error) {
+	if err := runCtx.NoteMetadata.Validate(); err != nil {
+		return nil, fmt.Errorf("note metadata indexer: %w", err)
+	}
 	reader := runCtx.NoteReader
 	if runCtx.postcheckPaths != nil {
 		reader = scopedPostcheckNoteReader{NoteReader: reader, paths: runCtx.postcheckPaths}
@@ -33,9 +40,10 @@ func captureValidationRunSnapshot(ctx context.Context, runCtx RunContext) (*vali
 		return nil, fmt.Errorf("capture validation source snapshot: %w", err)
 	}
 	snapshot := &validationRunSnapshot{
-		sources: append([]notemeta.NoteSourceSnapshot(nil), sources...),
-		byPath:  make(map[string]notemeta.NoteSourceSnapshot, len(sources)),
-		paths:   make([]string, 0, len(sources)),
+		completeInventory: runCtx.postcheckPaths == nil,
+		sources:           append([]notemeta.NoteSourceSnapshot(nil), sources...),
+		byPath:            make(map[string]notemeta.NoteSourceSnapshot, len(sources)),
+		paths:             make([]string, 0, len(sources)),
 	}
 	for _, source := range sources {
 		path := source.Path.String()
@@ -70,9 +78,7 @@ func (r scopedPostcheckNoteReader) GetNotesList(def obsidian.VaultDefinition) ([
 
 func checksNeedValidationRunSnapshot(checks []string) bool {
 	for _, check := range checks {
-		switch check {
-		case CheckOntology, CheckIdentifiers, CheckBrokenLinks, CheckLinkHygiene,
-			CheckCodeFrontmatter, CheckFrozenScopeDrift, CheckFragileExternal, CheckOrphanBlockIDs:
+		if registration, ok := lookupCheck(check); ok && registration.Needs.Sources {
 			return true
 		}
 	}
@@ -144,7 +150,7 @@ func (r *validationSnapshotNoteReader) source(path string) (notemeta.NoteSourceS
 		}
 	}
 	if filepath.Ext(path) == "" {
-		normalized = paths.NormalizeNote(path)
+		normalized = paths.EnsureNoteExtension(path, ".md")
 		if source, ok := r.snapshot.byPath[normalized.String()]; ok {
 			return source, true
 		}

@@ -3,16 +3,12 @@ package ontology
 import (
 	"context"
 	"encoding/json"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
-
-type NodeRange struct {
-	Start int `json:"start"`
-	End   int `json:"end"`
-}
 
 type NodeDescriptor struct {
 	Ref          NodeRef  `json:"ref"`
@@ -26,26 +22,26 @@ type NodeDescriptor struct {
 type NodeInlineFieldSpan struct {
 	Key         string    `json:"key"`
 	Value       string    `json:"value"`
-	LineRange   NodeRange `json:"lineRange"`
-	KeyRange    NodeRange `json:"keyRange"`
-	ValueRange  NodeRange `json:"valueRange"`
-	WholeRange  NodeRange `json:"wholeRange"`
+	LineRange   ByteRange `json:"lineRange"`
+	KeyRange    ByteRange `json:"keyRange"`
+	ValueRange  ByteRange `json:"valueRange"`
+	WholeRange  ByteRange `json:"wholeRange"`
 	PropertyKey string    `json:"propertyKey,omitempty"`
 }
 
 type NodeFieldState struct {
-	Name         string                `json:"name"`
-	Kind         BindingKind           `json:"kind"`
-	SourceKind   FieldSource           `json:"sourceKind,omitempty"`
-	Present      bool                  `json:"present"`
-	Status       NodeStatus            `json:"status"`
-	Range        NodeRange             `json:"range"`
-	ValueRanges  []NodeRange           `json:"valueRanges,omitempty"`
-	Values       []string              `json:"values,omitempty"`
-	InlineSpans  []NodeInlineFieldSpan `json:"inlineSpans,omitempty"`
-	SectionNodes []NodeRef             `json:"sectionNodes,omitempty"`
-	Capability   NodeFieldCapability   `json:"capability"`
-	Issues       []ValidationIssue     `json:"issues,omitempty"`
+	Name         string                 `json:"name"`
+	Kind         BindingKind            `json:"kind"`
+	SourceKind   ontoschema.FieldSource `json:"sourceKind,omitempty"`
+	Present      bool                   `json:"present"`
+	Status       NodeStatus             `json:"status"`
+	Range        ByteRange              `json:"range"`
+	ValueRanges  []ByteRange            `json:"valueRanges,omitempty"`
+	Values       []string               `json:"values,omitempty"`
+	InlineSpans  []NodeInlineFieldSpan  `json:"inlineSpans,omitempty"`
+	SectionNodes []NodeRef              `json:"sectionNodes,omitempty"`
+	Capability   NodeFieldCapability    `json:"capability"`
+	Issues       []ValidationIssue      `json:"issues,omitempty"`
 }
 
 type NodeSourceRevision struct {
@@ -56,14 +52,14 @@ type NodeSourceRevision struct {
 
 type NodeCollectionItemState struct {
 	Ref   NodeRef   `json:"ref"`
-	Range NodeRange `json:"range"`
+	Range ByteRange `json:"range"`
 }
 
 type NodeCollectionState struct {
 	Name             string                    `json:"name"`
 	Kind             BindingKind               `json:"kind"`
 	Status           NodeStatus                `json:"status"`
-	Range            NodeRange                 `json:"range"`
+	Range            ByteRange                 `json:"range"`
 	Items            []NodeCollectionItemState `json:"items,omitempty"`
 	OrderFingerprint string                    `json:"orderFingerprint,omitempty"`
 }
@@ -129,7 +125,7 @@ type NodeWorkspace struct {
 // BuildNodeWorkspace resolves the focused ref into the canonical browser pane
 // model. Docs: [[ontology-browser-workspace#^spec-0014-us2-ac1]] requires note,
 // section, and embedded-node panes to share this identity/status/capability shape.
-func BuildNodeWorkspace(ctx context.Context, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader, schema *Schema, ref NodeRef) (*NodeWorkspace, error) {
+func BuildNodeWorkspace(ctx context.Context, vaultDef obsidian.VaultDefinition, noteMgr obsidian.NoteReader, schema *ontoschema.Schema, ref NodeRef) (*NodeWorkspace, error) {
 	projection, err := ProjectNode(ctx, vaultDef, noteMgr, schema, ref)
 	if err != nil {
 		return nil, err
@@ -145,7 +141,7 @@ func BuildNodeWorkspaceFromProjection(projection *NodeProjection) *NodeWorkspace
 // schema-aware parent refs that skip structural wrapper sections.
 // Docs: [[ontology-browser-workspace#^spec-0014-us2-ac3]] keeps derived views
 // downstream of this snapshot instead of letting UI payloads invent identities.
-func BuildNodeWorkspaceFromProjectionWithSchema(schema *Schema, projection *NodeProjection) *NodeWorkspace {
+func BuildNodeWorkspaceFromProjectionWithSchema(schema *ontoschema.Schema, projection *NodeProjection) *NodeWorkspace {
 	if projection == nil {
 		return nil
 	}
@@ -162,7 +158,7 @@ func BuildNodeWorkspaceFromProjectionWithSchema(schema *Schema, projection *Node
 	return workspace
 }
 
-func buildNodeDescriptor(schema *Schema, projection *NodeProjection) NodeDescriptor {
+func buildNodeDescriptor(schema *ontoschema.Schema, projection *NodeProjection) NodeDescriptor {
 	ref := projection.Ref
 	desc := NodeDescriptor{
 		Ref:          ref,
@@ -188,7 +184,7 @@ func buildNodeDescriptor(schema *Schema, projection *NodeProjection) NodeDescrip
 	return desc
 }
 
-func buildNodeFieldStates(schema *Schema, projection *NodeProjection) []NodeFieldState {
+func buildNodeFieldStates(schema *ontoschema.Schema, projection *NodeProjection) []NodeFieldState {
 	if projection == nil || len(projection.Fields) == 0 {
 		return nil
 	}
@@ -205,12 +201,12 @@ func buildNodeFieldStates(schema *Schema, projection *NodeProjection) []NodeFiel
 			Kind:        binding.Kind,
 			SourceKind:  binding.SourceKind,
 			Present:     binding.Present,
-			Range:       nodeRange(binding.Range),
-			ValueRanges: make([]NodeRange, 0, len(binding.ValueRanges)),
+			Range:       binding.Range,
+			ValueRanges: make([]ByteRange, 0, len(binding.ValueRanges)),
 			Values:      append([]string(nil), binding.Values...),
 			InlineSpans: make([]NodeInlineFieldSpan, 0, len(binding.InlineSpans)),
 		}
-		var field *Field
+		var field *ontoschema.Field
 		if projection.Type != nil {
 			field = projection.Type.ByName[name]
 		}
@@ -225,16 +221,16 @@ func buildNodeFieldStates(schema *Schema, projection *NodeProjection) []NodeFiel
 			}
 		}
 		for _, r := range binding.ValueRanges {
-			state.ValueRanges = append(state.ValueRanges, nodeRange(r))
+			state.ValueRanges = append(state.ValueRanges, r)
 		}
 		for _, span := range binding.InlineSpans {
 			state.InlineSpans = append(state.InlineSpans, NodeInlineFieldSpan{
 				Key:         span.Key,
 				Value:       span.Value,
-				LineRange:   nodeRange(span.LineRange),
-				KeyRange:    nodeRange(span.KeyRange),
-				ValueRange:  nodeRange(span.ValueRange),
-				WholeRange:  nodeRange(span.WholeRange),
+				LineRange:   span.LineRange,
+				KeyRange:    span.KeyRange,
+				ValueRange:  span.ValueRange,
+				WholeRange:  span.WholeRange,
 				PropertyKey: span.PropertyKey,
 			})
 		}
@@ -280,14 +276,14 @@ func buildNodeCollectionStates(projection *NodeProjection) []NodeCollectionState
 		state := NodeCollectionState{
 			Name:             name,
 			Kind:             binding.Kind,
-			Range:            nodeRange(binding.Range),
+			Range:            binding.Range,
 			OrderFingerprint: binding.OrderFingerprint,
 			Items:            make([]NodeCollectionItemState, 0, len(binding.Items)),
 		}
 		for _, item := range binding.Items {
 			state.Items = append(state.Items, NodeCollectionItemState{
 				Ref:   item.Ref,
-				Range: nodeRange(item.Range),
+				Range: item.Range,
 			})
 		}
 		out = append(out, state)
@@ -381,10 +377,6 @@ func nodeProjectionMarkdown(projection *NodeProjection) string {
 		}
 	}
 	return ""
-}
-
-func nodeRange(r ByteRange) NodeRange {
-	return NodeRange{Start: r.Start, End: r.End}
 }
 
 func firstNonEmptyNodeValue(values ...string) string {

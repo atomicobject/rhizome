@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "transactionId": "legacy-prepared-literal",
+  "phase": "prepared",
+  "entries": [
+    {"notePath": "a.md", "tempPath": "@TEMP_A@", "backupPath": "@BACKUP_A@", "oldFingerprint": "01d09d19c2139a46aebfb577780d123d7396e97201bc7ead210a2ebff8239dee", "newFingerprint": "7aa7a5359173d05b63cfd682e3c38487f3cb4f7f1d60659fe59fab1505977d4c", "mode": 416},
+    {"notePath": "b.md", "tempPath": "@TEMP_B@", "backupPath": "@BACKUP_B@", "oldFingerprint": "4a817ab691a5a179b5becbaa44b5f7046ab58a8d6e2daba2737392c767591d80", "newFingerprint": "ab1a29c10ccb9ceec5a9e4453f1aaf261b81869eaadbf3426e378a99347b08af", "mode": 416}
+  ]
+}

@@ -8,12 +8,11 @@ import (
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	embsqlite "github.com/atomicobject/rhizome/pkg/search/embeddings/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,32 +65,36 @@ func TestWritableCodeRuntimeRecoversOrClosesAfterContention(t *testing.T) {
 			db, err := sqliteutil.OpenDSN(sqliteutil.DSNWithOptions(path, sqliteutil.DSNOptions{BusyTimeoutMs: 1}), sqliteutil.Options{MaxOpenConns: 1})
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, db.Close()) })
-			noteStore, err := embsqlite.OpenWithDB(db, 4)
+			noteStore, err := embsqlite.OpenNotes(context.Background(), embsqlite.Borrowed(db), embsqlite.Options{Access: embsqlite.WriteIndex, Dimensions: 4})
 			require.NoError(t, err)
+
 			// Force Phase 3 to validate and republish the proof behind a real writer.
 			_, err = writer.DB().Exec("DELETE FROM rzm_migration_validation")
 			require.NoError(t, err)
 			locker, err := writer.DB().BeginTx(t.Context(), nil)
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = locker.Rollback() })
-			_, err = locker.Exec("UPDATE schema_version SET version=version")
+			locked, err := locker.Exec("UPDATE rzm_migration_state SET version=version WHERE domain=?", string(migration.DomainIntel))
 			require.NoError(t, err)
+			rows, err := locked.RowsAffected()
+			require.NoError(t, err)
+			require.EqualValues(t, 1, rows, "the current Intel migration authority must hold the writer lock")
 			rt := newCodeOpeningRuntime(t, root)
 			rt.readOnlyCodeIndex = false
 			rt.noteIndex.Store(noteStore)
 			rt.embCfg.Store(&embeddings.Config{IndexPath: path})
 			rt.addCloser(func() { _ = db.Close() })
-			collector := indexingperf.New()
-			rt.ctx = indexingperf.WithCollector(rt.ctx, collector)
 			rt.startWorker(rt.initPhase3Code)
-			// Existing diagnostics identify a completed open, without timing or hooks.
+			// A real opener holds the schema lock while the SQL writer blocks it.
 			require.Eventually(t, func() bool {
-				for _, phase := range collector.AgentStartDiagnostics().Phases {
-					if phase.Label == indexingperf.AgentStartPhaseStoreWarmOpen && phase.Count > 0 {
-						return true
-					}
+				ctx, cancel := context.WithTimeout(t.Context(), 25*time.Millisecond)
+				defer cancel()
+				release, err := sqliteutil.LockSchemaInit(ctx, path)
+				if err == nil {
+					release()
+					return false
 				}
-				return false
+				return err == context.DeadlineExceeded
 			}, 3*time.Second, 10*time.Millisecond)
 			select {
 			case <-rt.codeReady:
@@ -100,7 +103,23 @@ func TestWritableCodeRuntimeRecoversOrClosesAfterContention(t *testing.T) {
 			}
 			require.Nil(t, rt.IntelStore())
 			if closeRuntime {
-				require.NoError(t, rt.Close())
+				closed := make(chan error, 1)
+				go func() { closed <- rt.Close() }()
+				select {
+				case <-rt.ctx.Done():
+				case <-time.After(3 * time.Second):
+					t.Fatal("runtime did not cancel its contended opener")
+				}
+				require.Nil(t, rt.IntelStore())
+				// Native SQLite busy waits finish after the blocker is released;
+				// shutdown must still join the canceled open without publishing it.
+				require.NoError(t, locker.Rollback())
+				select {
+				case err := <-closed:
+					require.NoError(t, err)
+				case <-time.After(3 * time.Second):
+					t.Fatal("runtime did not join its canceled opener")
+				}
 				require.ErrorIs(t, rt.WaitForCodeIndex(t.Context()), context.Canceled)
 				require.Nil(t, rt.IntelStore())
 				require.ErrorContains(t, db.Ping(), "database is closed")

@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/appbundle"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
 
 const desktopUpdateFeed = "https://github.com/atomicobject/rhizome/releases/latest/download/latest.json"
@@ -25,9 +25,10 @@ type appUpdateDependencies struct {
 	timeout time.Duration
 }
 
-func defaultAppUpdateDependencies() appUpdateDependencies {
+func defaultAppUpdateDependencies(env vaultconfig.Env) appUpdateDependencies {
+	feedURL, _ := env.Lookup("RZM_DESKTOP_UPDATE_FEED")
 	return appUpdateDependencies{
-		feedURL: firstNonEmpty(strings.TrimSpace(os.Getenv("RZM_DESKTOP_UPDATE_FEED")), desktopUpdateFeed),
+		feedURL: firstNonEmpty(strings.TrimSpace(feedURL), desktopUpdateFeed),
 		launch: func(ctx context.Context, name string, args ...string) error {
 			out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
 			if err != nil {
@@ -63,7 +64,7 @@ func updateApp(ctx context.Context, opts Options, bundle appbundle.Info) (Target
 	if !bundle.Rhizome() {
 		return failed("app", fmt.Errorf("%s is not Rhizome Desktop (%s)", bundle.Root, bundle.Identifier))
 	}
-	deps := defaultAppUpdateDependencies()
+	deps := defaultAppUpdateDependencies(vaultconfig.FromContext(ctx))
 	if opts.appDeps != nil {
 		deps = *opts.appDeps
 	}

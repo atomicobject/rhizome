@@ -8,7 +8,7 @@ import (
 // NormalizeDocPatterns trims and filters doc patterns, defaulting to FileContextConfigDefaults when empty.
 func NormalizeDocPatterns(patterns []string) []string {
 	if len(patterns) == 0 {
-		return FileContextConfigDefaults.DocPatterns
+		return DefaultDocPatterns()
 	}
 	out := make([]string, 0, len(patterns))
 	for _, pattern := range patterns {
@@ -19,14 +19,9 @@ func NormalizeDocPatterns(patterns []string) []string {
 		out = append(out, pattern)
 	}
 	if len(out) == 0 {
-		return FileContextConfigDefaults.DocPatterns
+		return DefaultDocPatterns()
 	}
 	return out
-}
-
-// MatchDocPattern reports whether path matches any doc pattern.
-func MatchDocPattern(path string, patterns []string) bool {
-	return MatchDocPatternNormalized(path, NormalizeDocPatterns(patterns))
 }
 
 // MatchDocPatternNormalized reports whether path matches any normalized doc pattern.
@@ -62,3 +57,6 @@ func MatchDocPatternNormalized(path string, patterns []string) bool {
 	}
 	return false
 }
+
+// DefaultDocPatterns lists conventional repository context documents.
+func DefaultDocPatterns() []string { return []string{"CONTEXT.md"} }

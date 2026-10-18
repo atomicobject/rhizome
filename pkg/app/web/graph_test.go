@@ -2,13 +2,13 @@ package web
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"testing"
-
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 func TestResolveLocalGraphPathUsesConfiguredOwnershipAndCanonicalPath(t *testing.T) {
@@ -16,7 +16,7 @@ func TestResolveLocalGraphPathUsesConfiguredOwnershipAndCanonicalPath(t *testing
 	rel := "notes/Decision.MD"
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "notes"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, filepath.FromSlash(rel)), []byte("# Decision\n"), 0o644))
-	catalog, err := NewFileCatalog(obsidian.VaultDefinition{Path: root}, nil, testNoteMetadataIndexer(t))
+	catalog, err := NewFileCatalog(obsidian.VaultDefinition{Path: root}, nil, testkit.NoteMetadataIndexer(t))
 	require.NoError(t, err)
 	srv := &Server{catalog: catalog}
 
@@ -36,7 +36,7 @@ func TestConfiguredDescriptorOnlyHTMLIsNotCatalogedOrGraphCode(t *testing.T) {
 	rel := "notes/Decision.HTML"
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "notes"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, filepath.FromSlash(rel)), []byte("<h1>Decision</h1>"), 0o644))
-	catalog, err := NewFileCatalog(obsidian.VaultDefinition{Root: root, Includes: []string{"notes/*.html"}}, nil, descriptorOnlyHTMLNoteMetadataIndexer(t))
+	catalog, err := NewFileCatalog(obsidian.VaultDefinition{Root: root, Includes: []string{"notes/*.html"}}, nil, testkit.DescriptorOnlyHTMLNoteMetadataIndexer(t))
 	require.NoError(t, err)
 	require.Empty(t, catalog.Suggest("Decision", 10))
 

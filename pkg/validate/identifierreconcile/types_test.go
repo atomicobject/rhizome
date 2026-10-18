@@ -1,9 +1,9 @@
 package identifierreconcile
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,19 +33,19 @@ func TestCanonicalNodeKeyRejectsPathsOutsideVault(t *testing.T) {
 func TestPoolKeyUsesStructuredIdentifierFormat(t *testing.T) {
 	t.Parallel()
 
-	pool, err := NewPoolKey(&ontology.IdentifierFormat{
-		Strategy:  ontology.IdentifierStrategySequential,
+	pool, err := NewPoolKey(&ontoschema.IdentifierFormat{
+		Strategy:  ontoschema.IdentifierStrategySequential,
 		Prefix:    " SPEC ",
 		Separator: "-",
 		Pad:       4,
 	})
 	require.NoError(t, err)
-	require.Equal(t, ontology.IdentifierStrategySequential, pool.Strategy)
+	require.Equal(t, ontoschema.IdentifierStrategySequential, pool.Strategy)
 	require.Equal(t, "SPEC", pool.Prefix)
 	require.Equal(t, `["SEQUENTIAL","SPEC","-",4]`, pool.String())
 
-	dotted, err := NewPoolKey(&ontology.IdentifierFormat{
-		Strategy:  ontology.IdentifierStrategySequential,
+	dotted, err := NewPoolKey(&ontoschema.IdentifierFormat{
+		Strategy:  ontoschema.IdentifierStrategySequential,
 		Prefix:    "SPEC",
 		Separator: ".",
 		Pad:       4,

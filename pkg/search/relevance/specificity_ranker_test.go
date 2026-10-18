@@ -10,8 +10,8 @@ import (
 )
 
 func TestSpecificityRankerPrefersSpecificCodeSurface(t *testing.T) {
-	base := &WeightedRanker{
-		Weights: Weights{
+	base := &search.WeightedRanker{
+		Weights: search.Weights{
 			Semantic:    1.0,
 			Specificity: 1.2,
 		},
@@ -24,21 +24,19 @@ func TestSpecificityRankerPrefersSpecificCodeSurface(t *testing.T) {
 		Intent: search.IntentSearch,
 		Limits: search.Limits{Total: 2},
 	}, []search.Candidate{
-		{
-			Handle: knowledge.FileHandle("pkg/generic/store.go"),
-			Owner:  knowledge.FileHandle("pkg/generic/store.go"),
-			Type:   "code",
-			Path:   "pkg/generic/store.go",
+		{SourceRef: search.SourceRef{Path: "pkg/generic/store.go"}, Handle: knowledge.FileHandle("pkg/generic/store.go"),
+			Owner: knowledge.FileHandle("pkg/generic/store.go"),
+			Type:  "code",
 			Evidence: []search.Evidence{
 				{Type: "code_vector_similarity", RawScore: 0.95},
 			},
 		},
-		{
-			Handle: knowledge.FileHandle("pkg/search/semantic/note_syncer.go"),
-			Owner:  knowledge.FileHandle("pkg/search/semantic/note_syncer.go"),
-			Type:   "code",
+		{SourceRef: search.SourceRef{
 			Path:   "pkg/search/semantic/note_syncer.go",
 			Symbol: "PlanNoteEmbeddings",
+		}, Handle: knowledge.FileHandle("pkg/search/semantic/note_syncer.go"),
+			Owner: knowledge.FileHandle("pkg/search/semantic/note_syncer.go"),
+			Type:  "code",
 			Evidence: []search.Evidence{
 				{Type: "code_vector_similarity", RawScore: 0.55},
 			},
@@ -52,20 +50,20 @@ func TestSpecificityRankerPrefersSpecificCodeSurface(t *testing.T) {
 }
 
 func TestSpecificityRankerTagsSemanticEvidenceWithoutChangingRole(t *testing.T) {
-	base := &WeightedRanker{
-		Weights:     Weights{Semantic: 1, Specificity: 1},
+	base := &search.WeightedRanker{
+		Weights:     search.Weights{Semantic: 1, Specificity: 1},
 		MaxPerOwner: 1,
 	}
 	ranker := &SpecificityRanker{Base: base}
 
 	results, err := ranker.Rank(context.Background(), search.QuerySpec{
 		Text: "how are notes embedded?",
-	}, []search.Candidate{{
-		Handle:      knowledge.CodeChunkHandle("a1", "signature_body", 0),
-		Owner:       knowledge.AnchorHandle("a1"),
-		Type:        "code",
+	}, []search.Candidate{{SourceRef: search.SourceRef{
 		Path:        "pkg/search/semantic/note_syncer.go",
 		Granularity: "signature_body",
+	}, Handle: knowledge.CodeChunkHandle("a1", "signature_body", 0),
+		Owner: knowledge.AnchorHandle("a1"),
+		Type:  "code",
 		Evidence: []search.Evidence{
 			{Type: "code_vector_similarity", RawScore: 0.7},
 		},

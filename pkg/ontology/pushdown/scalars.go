@@ -2,12 +2,11 @@ package pushdown
 
 import (
 	"cmp"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"math"
 	"strings"
-	"time"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 type Scalar struct {
@@ -45,7 +44,7 @@ func (left Scalar) Compare(right Scalar) int {
 	}
 }
 
-func PredicateValueKind(row codeanchor.IntelOntologyNodeFieldValue) string {
+func PredicateValueKind(row readmodel.FieldValueRow) string {
 	switch {
 	case row.ValueBool != nil:
 		return "bool"
@@ -61,8 +60,7 @@ func PredicateValueKind(row codeanchor.IntelOntologyNodeFieldValue) string {
 		return "string"
 	}
 }
-
-func ScalarFromRow(row codeanchor.IntelOntologyNodeFieldValue, kind string) Scalar {
+func ScalarFromRow(row readmodel.FieldValueRow, kind string) Scalar {
 	kind = strings.ToLower(strings.TrimSpace(kind))
 	switch kind {
 	case "boolean":
@@ -103,48 +101,23 @@ func ScalarFromRow(row codeanchor.IntelOntologyNodeFieldValue, kind string) Scal
 	return value
 }
 
-// StoredFieldValue keeps the materialized Date validation distinct from operand coercion.
-func StoredFieldValue(field *ontology.Field, raw string) codeanchor.IntelOntologyNodeFieldValue {
-	row := FieldValueRow(field, raw, NormalizeScalarText)
-	if row.ValueDate != nil {
-		if _, err := time.Parse("2006-01-02", *row.ValueDate); err != nil {
-			row.ValueDate = nil
-		}
-	}
-	return row
-}
-
-func StoredScalar(field *ontology.Field, raw, kind string) Scalar {
-	return ScalarFromRow(StoredFieldValue(field, raw), kind)
-}
-
-func AggregateSortValues(field *ontology.Field, values []string, kind string, desc bool) Scalar {
+func AggregateSortValues(field *ontoschema.Field, values []string, kind string, desc bool) Scalar {
 	var best Scalar
 	for _, raw := range values {
-		value := StoredScalar(field, raw, kind)
+		value := ScalarFromRow(ontology.FieldValueRow(field, raw), kind)
 		best = selectSortValue(best, value, desc)
 	}
 	return best
 }
 
-func PresentSortValues(field *ontology.Field, values []string, present bool) []string {
-	if len(values) == 0 && present && field != nil && field.Kind != ontology.FieldKindLink {
+func PresentSortValues(field *ontoschema.Field, values []string, present bool) []string {
+	if len(values) == 0 && present && field != nil && field.Kind != ontoschema.FieldKindLink {
 		return []string{""}
 	}
 	return values
 }
 
-func NormalizeScalarText(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	value = strings.TrimPrefix(value, "[[")
-	value = strings.TrimSuffix(value, "]]")
-	if alias := strings.Index(value, "|"); alias >= 0 {
-		value = strings.TrimSpace(value[:alias])
-	}
-	return value
-}
-
-func AggregateSortRows(rows []codeanchor.IntelOntologyNodeFieldValue, kind string, desc bool) Scalar {
+func AggregateSortRows(rows []readmodel.FieldValueRow, kind string, desc bool) Scalar {
 	var best Scalar
 	for _, row := range rows {
 		best = selectSortValue(best, ScalarFromRow(row, kind), desc)

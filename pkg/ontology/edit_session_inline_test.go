@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,7 +42,7 @@ func TestEditSessionPackedInlineFieldsPreserveUntouchedSource(t *testing.T) {
 			ops:      []operation{{field: "status", value: "done"}, {field: "summary", value: "A longer summary."}},
 		},
 		{
-			name:     "duplicate field beside another field",
+			name:     "duplicate field beside another field preserves adjacent source whitespace",
 			source:   "### Story A\nid:: ^SPEC-001-US1 status:: ready\nsummary:: Keep this text. status:: old\n",
 			expected: "### Story A\nid:: ^SPEC-001-US1 status:: done\nsummary:: Keep this text. \n",
 			ops:      []operation{{field: "status", value: "done"}},
@@ -83,13 +84,13 @@ func TestEditSessionPackedInlineFieldsPreserveUntouchedSource(t *testing.T) {
 			ops:      []operation{{field: "status", value: "done"}, {node: 1, field: "status", value: "done"}, {node: 2, field: "status", value: "done"}},
 		},
 		{
-			name:     "remove same-line duplicates around undeclared property",
+			name:     "remove same-line duplicates preserves undeclared property whitespace",
 			source:   "### Story A\nid:: ^SPEC-001-US1\nstatus:: ready unknown:: Keep this text status:: old\n",
 			expected: "### Story A\nid:: ^SPEC-001-US1\n unknown:: Keep this text \n",
 			ops:      []operation{{field: "status", unset: true}},
 		},
 		{
-			name:     "remove field after narrative",
+			name:     "remove field after narrative preserves prose whitespace",
 			source:   "### Story A\nid:: ^SPEC-001-US1\nKeep this prose. status:: ready\n",
 			expected: "### Story A\nid:: ^SPEC-001-US1\nKeep this prose. \n",
 			ops:      []operation{{field: "status", unset: true}},
@@ -190,7 +191,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 }
 `)
 	writeOntologyNote(t, root, "specs/spec.md", packedInlineNotePrefix+body)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	vault := obsidian.VaultDefinition{Path: root}
 	snapshot, err := LoadDocumentSnapshot(context.Background(), vault, &obsidian.Note{}, "specs/spec.md")

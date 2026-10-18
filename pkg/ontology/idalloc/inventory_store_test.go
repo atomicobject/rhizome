@@ -3,19 +3,21 @@ package idalloc
 import (
 	"context"
 	"fmt"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
 
-func indexedIdentifierPool(t *testing.T, sdl string, files map[string]string) (*ontology.Schema, *semdb.Store) {
+func indexedIdentifierPool(t *testing.T, sdl string, files map[string]string) (*ontoschema.Schema, *semdb.Store) {
 	t.Helper()
 	root := t.TempDir()
 	files[".rhizome/ontology/schema.graphql"] = sdl
@@ -36,9 +38,9 @@ func indexedIdentifierPool(t *testing.T, sdl string, files map[string]string) (*
 	ctx := context.Background()
 	_, err = indexer.EnsureIndexed(ctx, vault, &obsidian.Note{}, store)
 	require.NoError(t, err)
-	_, err = ontology.SyncPaths(ctx, indexer, vault, &obsidian.Note{}, store, nil, nil, nil)
+	_, err = ontologytest.Sync(ctx, indexer, vault, &obsidian.Note{}, store, nil, nil)
 	require.NoError(t, err)
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	return schema, store
 }

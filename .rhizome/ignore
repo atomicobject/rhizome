@@ -39,7 +39,8 @@ notes/changelog_*.md
 .cursor
 pkg/app/cli/init/templates/starters/*/repo
 .gocache
-mocks/vaults/health/
+# Synthetic vaults are exercised under their own configuration by package tests.
+mocks/vaults/
 
 
 # Generated dependency license texts are distribution artifacts.

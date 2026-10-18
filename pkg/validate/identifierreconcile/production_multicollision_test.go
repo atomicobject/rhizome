@@ -2,14 +2,13 @@ package identifierreconcile
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"sort"
 	"strings"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestProductionDiscoveryAndAssemblyPreserveSameNodeTwoCollisionInboundMembership(t *testing.T) {
@@ -59,14 +58,14 @@ type Spec @node(paths: ["specs/*.md"]) {
 	newRef := ontology.NodeRef{NotePath: newPath, TypeName: "Spec", Kind: ontology.NodeKindNote}
 
 	inputs := make([]CollisionRepairInput, 0, len(plan.Collisions))
-	rewrites := make([]reference.IdentifierRewrite, 0, len(plan.Collisions))
+	rewrites := make([]identifierrewrite.IdentifierRewrite, 0, len(plan.Collisions))
 	for _, collision := range plan.Collisions {
 		require.Len(t, collision.Losers, 1)
 		loser := collision.Losers[0]
 		require.Equal(t, targetPath, loser.Claim.Node.NotePath)
 		if loser.Claim.Kind == ClaimPreferred {
-			rewrite := reference.IdentifierRewrite{
-				Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef,
+			rewrite := identifierrewrite.IdentifierRewrite{
+				Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef,
 				OldIdentifier: loser.Claim.Value, NewIdentifier: preferredReplacement, PreferredField: "id", AliasesField: "aliases",
 			}
 			moveRequest := obsidian.GovernedMoveRequest{
@@ -77,21 +76,21 @@ type Spec @node(paths: ["specs/*.md"]) {
 			require.NoError(t, moveErr)
 			require.Nil(t, conflict)
 			inputs = append(inputs, CollisionRepairInput{
-				CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite},
+				CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 				Moves: []GovernedMoveResult{{Request: moveRequest, Plan: movePlan}},
 			})
 			rewrites = append(rewrites, rewrite)
 			continue
 		}
-		rewrite := reference.IdentifierRewrite{
-			Mode: reference.IdentifierRewriteAliasRemoval, OldRef: oldRef, NewRef: oldRef,
+		rewrite := identifierrewrite.IdentifierRewrite{
+			Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: oldRef, NewRef: oldRef,
 			OldIdentifier: loser.Claim.Value, NewIdentifier: preferredReplacement, PreferredField: "id", AliasesField: "aliases",
 		}
-		inputs = append(inputs, CollisionRepairInput{CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite}})
+		inputs = append(inputs, CollisionRepairInput{CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite}})
 		rewrites = append(rewrites, rewrite)
 	}
 
-	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{
+	fields, err := DiscoverIdentifierFields(context.Background(), IdentifierFieldDiscoveryRequest{NoteMetadata: testNoteMetadata(t),
 		VaultDef: obsidian.VaultDefinition{Path: repo.dir}, RootRewrites: rewrites,
 	})
 	require.NoError(t, err)
@@ -101,7 +100,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 		Plan: plan, Collisions: inputs, FieldDiscovery: fields, LinkDiscovery: links,
 	})
 	require.NoError(t, err)
-	require.NoError(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: repo.dir}))
+	require.NoError(t, assembly.RevalidateCompleteSnapshot(context.Background(), obsidian.VaultDefinition{Path: repo.dir}, testNoteMetadata(t)))
 	linkSnapshot, err := links.validatedSnapshotFor(fields.rewrites)
 	require.NoError(t, err)
 	inboundHash := fileSHA256(t, repo.dir, inboundPath)
@@ -160,7 +159,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 		require.Len(t, component.MembershipKeys, 1)
 		var review []RepairDiagnostic
 		for _, diagnostic := range component.Diagnostics {
-			if diagnostic.Kind == string(reference.IdentifierRewriteDiagnosticReviewOnly) {
+			if diagnostic.Kind == string(identifierrewrite.IdentifierRewriteDiagnosticReviewOnly) {
 				review = append(review, diagnostic)
 			}
 		}

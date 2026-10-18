@@ -11,11 +11,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newAgentEvaluateCmd() *cobra.Command {
-	return newAgentJSONStdinCmd("evaluate", "Evaluate supplied state with Jev using typed questions from JSON stdin")
+func (commandOptions *vaultCommandOptions) newAgentEvaluateCmd() *cobra.Command {
+	return commandOptions.newAgentJSONStdinCmd("evaluate", "Evaluate supplied state with Jev using typed questions from JSON stdin")
 }
 
-func newAgentJSONStdinCmd(name, summary string) *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentJSONStdinCmd(name, summary string) *cobra.Command {
 	return &cobra.Command{
 		Use: name, Short: summary, Args: cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
@@ -33,8 +33,8 @@ func newAgentJSONStdinCmd(name, summary string) *cobra.Command {
 			if err := agentapi.ValidateCodeInput(strings.ReplaceAll(name, "-", "_"), input); err != nil {
 				return agentCodeError(err)
 			}
-			maybeSetString(input, "sessionId", agentSessionID)
-			return runAgentJSONTool(command, 0, strings.ReplaceAll(name, "-", "_"), input)
+			maybeSetString(input, "sessionId", commandOptions.agentSessionID)
+			return commandOptions.runAgentJSONTool(command, 0, strings.ReplaceAll(name, "-", "_"), input)
 		},
 	}
 }

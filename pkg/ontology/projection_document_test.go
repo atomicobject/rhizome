@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 	"time"
 
@@ -32,7 +33,7 @@ type WorkNote @node(paths: ["notes/*.md"]) {
   work: WorkSection @contains(level: H2, heading: "Work")
 }
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	content := `# Title
 
@@ -107,7 +108,7 @@ type Spec @node(paths: ["specs/*.md"]) {
   related: [String!] @field
 }
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	content := `---
 id: SPEC-0048
@@ -138,7 +139,7 @@ type Spec @node(paths: ["specs/*.md"]) {
   aliases: [String!] @field
 }
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	content := "---\nquoted: 'SPEC-0048'\nescaped: \"SPEC-\\u0030\\u0030\\u0034\\u0038\"\nfolded: >-\n  SPEC-0048\naliases:\n  - SPEC-0048\n  - 'SPEC-0049'\n---\n"
 	snapshot, err := BuildDocumentSnapshot("specs/unsafe.md", content, time.Time{})
@@ -173,7 +174,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 	content := "## Stories\n\n### First\nid:: ^SPEC-0048-US1\n"
 	snapshot, err := BuildDocumentSnapshot("specs/inline.md", content, time.Time{})
 	require.NoError(t, err)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	ref := mustFindEmbeddedNodeByTitle(t, snapshot, schema, "First")
 	projection, err := ProjectNodeFromSnapshot(snapshot, schema, ref)

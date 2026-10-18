@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBuildMigrationPlanSequentialToDateTime(t *testing.T) {
-	target := ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"}
+	target := ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"}
 	members := []MigrationMember{
 		migrationMember(t, "docs/2026-08-06-12-20-third.md", "^third", "EFF-0010"),
 		migrationMember(t, "docs/2026-08-06-12-20-first.md", "^first", "EFF-0002"),
@@ -22,8 +22,8 @@ func TestBuildMigrationPlanSequentialToDateTime(t *testing.T) {
 
 	plan, err := BuildMigrationPlan(MigrationInput{TargetFormat: target, Members: members})
 	require.NoError(t, err)
-	require.Equal(t, ontology.IdentifierStrategySequential, plan.SourcePool.Strategy)
-	require.Equal(t, ontology.IdentifierStrategyDateTime, plan.TargetPool.Strategy)
+	require.Equal(t, ontoschema.IdentifierStrategySequential, plan.SourcePool.Strategy)
+	require.Equal(t, ontoschema.IdentifierStrategyDateTime, plan.TargetPool.Strategy)
 	require.Equal(t, []string{
 		"EFF-2026-08-06-12-20",
 		"EFF-2026-08-06-12-20-2",
@@ -39,7 +39,7 @@ func TestBuildMigrationPlanSequentialToDateTime(t *testing.T) {
 }
 
 func TestBuildMigrationPlanDateTimeToSequentialUsesDenseChronologicalOrderAndTargetPad(t *testing.T) {
-	target := ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategySequential, Prefix: "EFF", Separator: "-", Pad: 3}
+	target := ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategySequential, Prefix: "EFF", Separator: "-", Pad: 3}
 	members := []MigrationMember{
 		migrationMember(t, "docs/c.md", "^c", "EFF-2026-08-06-12-21"),
 		migrationMember(t, "docs/b.md", "^b", "EFF-2026-08-06-12-20-2"),
@@ -53,9 +53,9 @@ func TestBuildMigrationPlanDateTimeToSequentialUsesDenseChronologicalOrderAndTar
 }
 
 func TestBuildMigrationPlanIsStableAcrossInputOrder(t *testing.T) {
-	formats := []ontology.IdentifierFormat{
-		{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
-		{Strategy: ontology.IdentifierStrategySequential, Prefix: "EFF", Separator: "-", Pad: 4},
+	formats := []ontoschema.IdentifierFormat{
+		{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
+		{Strategy: ontoschema.IdentifierStrategySequential, Prefix: "EFF", Separator: "-", Pad: 4},
 	}
 	memberSets := [][]MigrationMember{
 		{
@@ -84,7 +84,7 @@ func TestBuildMigrationPlanIsStableAcrossInputOrder(t *testing.T) {
 }
 
 func TestBuildMigrationPlanEmptyPoolIsStableAndHasNoRewrites(t *testing.T) {
-	target := ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"}
+	target := ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"}
 	plan, err := BuildMigrationPlan(MigrationInput{TargetFormat: target})
 	require.NoError(t, err)
 	require.Empty(t, plan.Rewrites)
@@ -99,7 +99,7 @@ func TestBuildMigrationPlanHandlesLargeSameMinutePoolDeterministically(t *testin
 		members = append(members, migrationMember(t, path, fmt.Sprintf("^effort-%04d", ordinal), fmt.Sprintf("EFF-%04d", ordinal)))
 	}
 	plan, err := BuildMigrationPlan(MigrationInput{
-		TargetFormat: ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
+		TargetFormat: ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
 		Members:      members,
 	})
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestBuildMigrationPlanHandlesLargeSameMinutePoolDeterministically(t *testin
 	reversed := slices.Clone(members)
 	slices.Reverse(reversed)
 	again, err := BuildMigrationPlan(MigrationInput{
-		TargetFormat: ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
+		TargetFormat: ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
 		Members:      reversed,
 	})
 	require.NoError(t, err)
@@ -135,8 +135,8 @@ func TestBuildMigrationPlanHandlesLargeSameMinutePoolDeterministically(t *testin
 }
 
 func TestBuildMigrationPlanFailsClosed(t *testing.T) {
-	datetimeTarget := ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"}
-	sequentialTarget := ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategySequential, Prefix: "EFF", Separator: "-", Pad: 4}
+	datetimeTarget := ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"}
+	sequentialTarget := ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategySequential, Prefix: "EFF", Separator: "-", Pad: 4}
 	duplicateNode := migrationMember(t, "docs/2026-08-06-12-20-a.md", "^a", "EFF-0001")
 	tests := []struct {
 		name       string
@@ -173,12 +173,12 @@ func TestBuildMigrationPlanFailsClosed(t *testing.T) {
 		}}, wantCode: MigrationErrorNotRequired},
 		{name: "external target reservation", input: MigrationInput{TargetFormat: datetimeTarget, Members: []MigrationMember{
 			migrationMember(t, "docs/2026-08-06-12-20-a.md", "^a", "EFF-0001"),
-		}, TargetReservations: []ontology.IdentifierReservation{{Value: "EFF-2026-08-06-12-20", Owner: "external"}}}, wantCode: MigrationErrorTargetReserved},
+		}, TargetReservations: []ontoschema.IdentifierReservation{{Value: "EFF-2026-08-06-12-20", Owner: "external"}}}, wantCode: MigrationErrorTargetReserved},
 		{name: "external sequential target reservation", input: MigrationInput{TargetFormat: sequentialTarget, Members: []MigrationMember{
 			migrationMember(t, "docs/a.md", "^a", "EFF-2026-08-06-12-20"),
 			migrationMember(t, "docs/b.md", "^b", "EFF-2026-08-06-12-21"),
-		}, TargetReservations: []ontology.IdentifierReservation{{Value: "eff-0002", Owner: "external"}}}, wantCode: MigrationErrorTargetReserved},
-		{name: "nonallocatable target", input: MigrationInput{TargetFormat: ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "", Separator: "-"}}, wantCode: MigrationErrorNonallocatablePool},
+		}, TargetReservations: []ontoschema.IdentifierReservation{{Value: "eff-0002", Owner: "external"}}}, wantCode: MigrationErrorTargetReserved},
+		{name: "nonallocatable target", input: MigrationInput{TargetFormat: ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "", Separator: "-"}}, wantCode: MigrationErrorNonallocatablePool},
 	}
 
 	for _, test := range tests {
@@ -195,14 +195,14 @@ func TestBuildMigrationPlanFailsClosed(t *testing.T) {
 func TestBuildMigrationPlanAllowsNoncollidingRetainedTargetReservations(t *testing.T) {
 	tests := []MigrationInput{
 		{
-			TargetFormat:       ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
+			TargetFormat:       ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
 			Members:            []MigrationMember{migrationMember(t, "docs/2026-08-06-12-20-a.md", "^a", "EFF-0001")},
-			TargetReservations: []ontology.IdentifierReservation{{Value: "EFF-2026-08-06-12-21", Owner: "retained"}},
+			TargetReservations: []ontoschema.IdentifierReservation{{Value: "EFF-2026-08-06-12-21", Owner: "retained"}},
 		},
 		{
-			TargetFormat:       ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategySequential, Prefix: "EFF", Separator: "-", Pad: 4},
+			TargetFormat:       ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategySequential, Prefix: "EFF", Separator: "-", Pad: 4},
 			Members:            []MigrationMember{migrationMember(t, "docs/a.md", "^a", "EFF-2026-08-06-12-20")},
-			TargetReservations: []ontology.IdentifierReservation{{Value: "EFF-0002", Owner: "retained"}},
+			TargetReservations: []ontoschema.IdentifierReservation{{Value: "EFF-0002", Owner: "retained"}},
 		},
 	}
 	for _, input := range tests {
@@ -214,7 +214,7 @@ func TestBuildMigrationPlanAllowsNoncollidingRetainedTargetReservations(t *testi
 
 func TestBuildMigrationPlanFailureEvidenceIsStableAcrossInputOrder(t *testing.T) {
 	input := MigrationInput{
-		TargetFormat: ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
+		TargetFormat: ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
 		Members: []MigrationMember{
 			migrationMember(t, "docs/2026-08-06-12-21-b.md", "^b", "EFF-2026-08-06-12-21"),
 			migrationMember(t, "docs/2026-08-06-12-20-a.md", "^a", "EFF-0001"),
@@ -231,7 +231,7 @@ func TestBuildMigrationPlanFailureEvidenceIsStableAcrossInputOrder(t *testing.T)
 
 func TestMigrationPlanValidatedSnapshotRejectsMutation(t *testing.T) {
 	plan, err := BuildMigrationPlan(MigrationInput{
-		TargetFormat: ontology.IdentifierFormat{Strategy: ontology.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
+		TargetFormat: ontoschema.IdentifierFormat{Strategy: ontoschema.IdentifierStrategyDateTime, Prefix: "EFF", Separator: "-"},
 		Members:      []MigrationMember{migrationMember(t, "docs/2026-08-06-12-20-a.md", "^a", "EFF-0001")},
 	})
 	require.NoError(t, err)

@@ -116,7 +116,7 @@ func (c *Collector) AgentStartDiagnostics() AgentStartDiagnostics {
 	for _, label := range agentStartOperationDescriptors {
 		var total int64
 		for metric, counter := range c.counters {
-			if metric.Name == label {
+			if string(metric.Name) == label {
 				total += counter.Total
 			}
 		}

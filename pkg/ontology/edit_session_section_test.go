@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"testing"
 
@@ -36,7 +37,7 @@ Existing summary.
 Draft.
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.AddSectionField(NodeRef{NotePath: "specs/one.md", Kind: NodeKindNote}, "requirements"))
@@ -92,7 +93,7 @@ Proof.
 Draft.
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	ref := NodeRef{NotePath: "specs/one.md", Kind: NodeKindNote}
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
@@ -137,7 +138,7 @@ type: Spec
 # One
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	ref := NodeRef{NotePath: "specs/one.md", Kind: NodeKindNote}
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)

@@ -8,9 +8,7 @@ import (
 
 func TestResolveValue_PrefersProcessEnvOverGlobalConfig(t *testing.T) {
 	home := t.TempDir()
-	origHome := UserHomeDirectory
-	UserHomeDirectory = func() (string, error) { return home, nil }
-	t.Cleanup(func() { UserHomeDirectory = origHome })
+	env := Env{HomeDir: home, LookupEnv: os.LookupEnv}
 
 	cfgDir := filepath.Join(home, ".config", RhizomeConfigDirectory)
 	requireMkdirAll(t, cfgDir)
@@ -18,16 +16,14 @@ func TestResolveValue_PrefersProcessEnvOverGlobalConfig(t *testing.T) {
 
 	t.Setenv("OPENAI_API_KEY", "from-env")
 
-	if got := ResolveValue("OPENAI_API_KEY"); got != "from-env" {
+	if got := ResolveValue(env, "OPENAI_API_KEY"); got != "from-env" {
 		t.Fatalf("ResolveValue() = %q, want %q", got, "from-env")
 	}
 }
 
 func TestResolveValue_FallsBackToGlobalConfig(t *testing.T) {
 	home := t.TempDir()
-	origHome := UserHomeDirectory
-	UserHomeDirectory = func() (string, error) { return home, nil }
-	t.Cleanup(func() { UserHomeDirectory = origHome })
+	env := Env{HomeDir: home, LookupEnv: os.LookupEnv}
 
 	cfgDir := filepath.Join(home, ".config", RhizomeConfigDirectory)
 	requireMkdirAll(t, cfgDir)
@@ -36,10 +32,10 @@ func TestResolveValue_FallsBackToGlobalConfig(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "")
 	t.Setenv("ATOMIC_RHIZOME_KEY", "")
 
-	if got := ResolveValue("OPENAI_API_KEY"); got != "from-config" {
+	if got := ResolveValue(env, "OPENAI_API_KEY"); got != "from-config" {
 		t.Fatalf("ResolveValue(OPENAI_API_KEY) = %q, want %q", got, "from-config")
 	}
-	if got := ResolveValue("ATOMIC_RHIZOME_KEY"); got != "from-team-config" {
+	if got := ResolveValue(env, "ATOMIC_RHIZOME_KEY"); got != "from-team-config" {
 		t.Fatalf("ResolveValue(ATOMIC_RHIZOME_KEY) = %q, want %q", got, "from-team-config")
 	}
 }

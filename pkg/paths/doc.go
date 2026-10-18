@@ -37,6 +37,12 @@ For any path that will be stored or compared as an index key, prefer the strict
 VaultPaths helpers (RelStrict/RelNotePathStrict/RelCodeStrict). They reject paths
 outside the vault root so SQLite never receives absolute or escaped paths.
 
+# Display titles
+
+NoteTitle accepts either path separator and strips only the final basename
+extension for display. It preserves casing and caller-owned whitespace. It does
+not normalize a note identity, select a format, or admit a path.
+
 # PathRef
 
 PathRef bundles the two canonical forms of a path:

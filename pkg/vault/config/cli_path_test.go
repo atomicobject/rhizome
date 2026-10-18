@@ -1,42 +1,19 @@
 package config_test
 
 import (
-	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/stretchr/testify/require"
 	"path/filepath"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/vault/config"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestConfigCliPath(t *testing.T) {
-	originalUserHomeDirectory := config.UserHomeDirectory
-	defer func() { config.UserHomeDirectory = originalUserHomeDirectory }()
-
-	t.Run("UserConfigDir func returns a directory", func(t *testing.T) {
-		// Arrange
-		config.UserHomeDirectory = func() (string, error) {
-			return filepath.Join("home"), nil
-		}
-		// Act
-		obsConfigDir, obsConfigFile, err := config.CliPath()
-		// Assert
-		assert.Equal(t, nil, err)
-		assert.Equal(t, filepath.Join("home", ".config", "rhizome"), obsConfigDir)
-		assert.Equal(t, filepath.Join("home", ".config", "rhizome", "config.yml"), obsConfigFile)
-	})
-
-	t.Run("UserConfigDir func returns an error", func(t *testing.T) {
-		// Arrange
-		config.UserHomeDirectory = func() (string, error) {
-			return "", errors.New(config.UserConfigDirectoryNotFoundErrorMessage)
-		}
-		// Act
-		obsConfigDir, obsConfigFile, err := config.CliPath()
-		// Assert
-		assert.Equal(t, config.UserConfigDirectoryNotFoundErrorMessage, err.Error())
-		assert.Equal(t, "", obsConfigDir)
-		assert.Equal(t, "", obsConfigFile)
-	})
-
+	t.Parallel()
+	env := config.Env{HomeDir: "home"}
+	dir, file, err := env.CliPath()
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join("home", ".config", "rhizome"), dir)
+	require.Equal(t, filepath.Join(dir, "config.yml"), file)
+	_, _, err = (config.Env{}).CliPath()
+	require.EqualError(t, err, config.UserConfigDirectoryNotFoundErrorMessage)
 }

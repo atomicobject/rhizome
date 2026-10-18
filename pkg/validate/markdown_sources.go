@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 )
@@ -45,12 +46,14 @@ func markdownSourceContentByPath(sources []notemeta.NoteSourceSnapshot) map[stri
 	return content
 }
 
-func markdownSourceAliases(sources []notemeta.NoteSourceSnapshot) map[string][]string {
-	aliases := make(map[string][]string, len(sources))
-	for _, source := range sources {
-		if len(source.Aliases) > 0 {
-			aliases[source.Path.String()] = append([]string(nil), source.Aliases...)
-		}
+// markdownBlockFragmentAuthored is the syntax-authoring boundary for excluding
+// frontmatter examples; other providers retain their exact authored spans.
+func markdownBlockFragmentAuthored(source notemeta.NoteSourceSnapshot, fact noteformat.UnresolvedAuthoredLinkFact) bool {
+	if source.Format != noteformat.FormatID("markdown") {
+		return true
 	}
-	return aliases
+	if _, bodyStart, ok := markdownsyntax.Frontmatter(source.Content); ok && fact.RawRange.StartByte < bodyStart {
+		return false
+	}
+	return true
 }

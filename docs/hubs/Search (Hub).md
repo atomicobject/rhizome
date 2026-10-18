@@ -108,9 +108,9 @@ Targeted fetch modes (`go_to_def`, `find_usages`, `callers`, `callees`, `tests_f
 - [[pkg/search/semantic/CONTEXT|Semantic search internals]]
 - [[Search - Semantic embedding sync invariants]]
 - [[pkg/search/knowledge/CONTEXT|Handle system]]
-- [[pkg/search/graphalg/CONTEXT|Graph algorithms]]
-- [[pkg/search/graphdb/CONTEXT|Graph persistence]]
-- [[pkg/search/embeddings/CONTEXT|Embeddings module]]
+- [[pkg/graph/algorithms/CONTEXT|Graph algorithms]]
+- [[pkg/graph/index/CONTEXT|Graph persistence]]
+- [[pkg/embeddings/CONTEXT|Embeddings module]]
 
 ### Entry points (code)
 
@@ -132,8 +132,8 @@ Targeted fetch modes (`go_to_def`, `find_usages`, `callers`, `callees`, `tests_f
 | CLI command | Implementation | Uses Search Pipeline? |
 |----------|---------------|----------------------|
 | `rzm agent semantic-query` | `cmd/agent_context.go` | **Yes** — full `Planner.Plan()` → `Service.Search()` |
-| `rzm agent file-context` | `pkg/app/cli/context_text.go` | No — uses contextpack + ancestor docs + anchored notes |
-| `rzm agent vault-context` | `pkg/app/cli/context_text.go` | No — uses graph communities + repo docs + code overview |
+| `rzm agent file-context` | `pkg/app/operations/context_text.go` | No — uses contextpack + ancestor docs + anchored notes |
+| `rzm agent vault-context` | `pkg/app/operations/context_text.go` | No — uses graph communities + repo docs + code overview |
 | `rzm agent files` | `cmd/agent_query.go` | No — deterministic file listing + content |
 
 `rzm search` and `semantic-query` are the primary CLI consumers of the search pipeline. They use `QuerySpec` with explicit mode, seed expansion, and auto-expansion for text-only queries; when mode is omitted they default to `search` (seed-only → `related_to_seed`). Keep the user/agent-facing surface answer-oriented; use raw ranked output only for debugging and evaluation.

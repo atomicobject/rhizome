@@ -1,5 +1,7 @@
 package cmd
 
+import vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+
 import (
 	"context"
 	"encoding/json"
@@ -21,8 +23,8 @@ import (
 )
 
 // fixtureBinaryEnv points at a compiled rzm (NO_WEB=1 make build). The fixture
-// is opt-in because it needs that binary plus node; everything it proves about
-// routing is also covered by the httptest tests beside it.
+// runs locally when that binary is supplied and in the dedicated CI runtime
+// evidence job, which builds it and installs Node first.
 const fixtureBinaryEnv = "RZM_CODE_MODE_RUNTIME_FIXTURE"
 
 // TestNodeScriptCallsRunInOneVaultRuntime is SPEC-0104 US4's evidence: a real
@@ -30,27 +32,29 @@ const fixtureBinaryEnv = "RZM_CODE_MODE_RUNTIME_FIXTURE"
 // catalog call is routed to the discovered vault runtime endpoint and executed
 // by its registered agent-operation hook rather than by the host.
 func TestNodeScriptCallsRunInOneVaultRuntime(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	binary := os.Getenv(fixtureBinaryEnv)
 	if binary == "" {
 		t.Skipf("set %s to a compiled rzm to run the runtime code-mode fixture", fixtureBinaryEnv)
 	}
-	if _, err := exec.LookPath("node"); err != nil {
-		t.Skip("node is unavailable")
-	}
+	_, err := exec.LookPath("node")
+	require.NoError(t, err, "the configured runtime fixture requires Node")
+	require.FileExists(t, binary)
 	vault := setupAgentTestVault(t, map[string]string{
 		"note.md":    "# Fixture\n\nExact evidence lives here.\n",
 		"CONTEXT.md": "# Fixture context\n\nThis context governs the fixture vault.\n",
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(vaultconfig.WithEnv(context.Background(), vault.env))
 	defer cancel()
-	rt, err := bootstrap.NewLiveRuntime(ctx, bootstrap.LiveOptions{
+	rt, err := bootstrap.NewLiveRuntime(vaultconfig.WithEnv(ctx, vault.env), bootstrap.LiveOptions{
 		VaultName: vault.name, DisableLeaderWork: true, DisableWatchHub: true, SkipCacheWarmup: true,
 	})
 	require.NoError(t, err)
 	defer rt.Close()
 	hooks := &appserve.ControlHooks{}
-	registerAgentOpHooks(hooks, rt)
+	commandOptions.registerAgentOpHooks(hooks, rt)
 	require.NotNil(t, hooks.AgentOp)
 
 	runtimeProcess := newFixtureRuntime(t, vault.path, hooks)
@@ -82,9 +86,9 @@ func (f *fixtureRuntime) observed() (int, []string) {
 	return len(f.sessions), append([]string(nil), f.sessions...)
 }
 
-// newFixtureRuntime publishes a manifest for a control API backed by the real
-// agent-operation hook, which is what a live `rzm serve` will expose once its
-// lane lands. The stdio host discovers it exactly as it would a real runtime.
+// newFixtureRuntime publishes a fixture control server backed by the actual
+// agent-operation hook. The compiled stdio host discovers it through the
+// production manifest and routes calls to that hook.
 func newFixtureRuntime(t *testing.T, vaultPath string, hooks *appserve.ControlHooks) *fixtureRuntime {
 	t.Helper()
 	observer := &fixtureRuntime{}

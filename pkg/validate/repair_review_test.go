@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"path/filepath"
 	"sync"
@@ -64,7 +65,7 @@ func TestRepairReviewPreservesAuthorityForMultiFilePreviewAndApply(t *testing.T)
 		Generation: 7, PlanFingerprint: review.PlanFingerprint,
 		SelectionFingerprint: review.SelectionFingerprint,
 		Confirmations:        review.RequiredConfirmations,
-		Options:              Options{PostApplyRefresher: &repairPostApplyProbe{t: t}},
+		Options:              ApplyOptions{PostApplyRefresher: &repairPostApplyProbe{t: t}},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, execution)
@@ -174,7 +175,7 @@ func TestRepairReviewRejectsJSONRoundTrippedIdentifierAuthority(t *testing.T) {
 		ActionIDs: []string{"identifier-action"}, Result: roundTripped,
 		RunContext: RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root},
 	})
-	assertRepairReviewError(t, err, RepairReviewErrorAuthorityUnavailable)
+	assertRepairReviewError(t, err, RepairReviewErrorPlanFingerprintMismatch)
 }
 
 func TestRepairReviewPreservesAndAppliesIdentifierTransactionAuthority(t *testing.T) {
@@ -182,7 +183,7 @@ func TestRepairReviewPreservesAndAppliesIdentifierTransactionAuthority(t *testin
 	plan, err := BuildIdentifierRepairPlan(context.Background(), fixture.runCtx, fixture.assembly, fixture.bindings)
 	require.NoError(t, err)
 	planned := Result{
-		SelectedChecks: []string{CheckAliases, CheckBrokenLinks, CheckIdentifiers, CheckOntology},
+		SelectedChecks: []string{CheckIdentifiers, CheckBrokenLinks, CheckIdentifiers, CheckOntology},
 		Checks: []CheckResult{{
 			Name:             CheckIdentifiers,
 			identifierRepair: &identifierRepairPayload{Assembly: fixture.assembly, Bindings: fixture.bindings},
@@ -199,7 +200,7 @@ func TestRepairReviewPreservesAndAppliesIdentifierTransactionAuthority(t *testin
 	require.NotEmpty(t, review.Preview)
 	result, execution, err := store.Apply(context.Background(), review.ID, RepairReviewApplyRequest{
 		Generation: 8, PlanFingerprint: review.PlanFingerprint, SelectionFingerprint: review.SelectionFingerprint,
-		Options: Options{PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx}},
+		Options: ApplyOptions{PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx}},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, execution)
@@ -374,7 +375,7 @@ func TestRepairReviewConcurrentApplyWaitsAndReturnsTerminalResult(t *testing.T) 
 	require.NoError(t, err)
 	request := RepairReviewApplyRequest{
 		Generation: 11, PlanFingerprint: review.PlanFingerprint, SelectionFingerprint: review.SelectionFingerprint,
-		Options: Options{PostApplyRefresher: &repairPostApplyProbe{t: t}},
+		Options: ApplyOptions{PostApplyRefresher: &repairPostApplyProbe{t: t}},
 	}
 	type applyResult struct {
 		result Result
@@ -422,7 +423,7 @@ func TestRepairReservationBlocksOverlappingManualAdmissionUntilApplyCompletes(t 
 	go func() {
 		_, _, err := store.Apply(context.Background(), review.ID, RepairReviewApplyRequest{
 			Generation: 12, PlanFingerprint: review.PlanFingerprint, SelectionFingerprint: review.SelectionFingerprint,
-			Options: Options{PostApplyRefresher: refresher},
+			Options: ApplyOptions{PostApplyRefresher: refresher},
 		})
 		done <- err
 	}()
@@ -482,7 +483,7 @@ type blockingRepairRefresher struct {
 	release chan struct{}
 }
 
-func (p *blockingRepairRefresher) Refresh(ctx context.Context, lease *IndexLockLease, changed []string, renamed []PathRename, deleted []string) (PostApplyRefreshResult, error) {
+func (p *blockingRepairRefresher) Refresh(ctx context.Context, lease *indexlock.Lease, changed []string, renamed []PathRename, deleted []string) (PostApplyRefreshResult, error) {
 	close(p.entered)
 	select {
 	case <-ctx.Done():

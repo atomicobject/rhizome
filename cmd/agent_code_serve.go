@@ -14,22 +14,23 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/spf13/cobra"
 )
 
-func newAgentCodeServeCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCodeServeCmd() *cobra.Command {
 	var readWrite bool
 	command := &cobra.Command{
 		Use: "serve", Short: "Serve selected agent operations in one JSON-RPC stdio process", Args: cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			call, err := newAgentCodeInvoker(command.Context(), readWrite)
+			call, err := commandOptions.newAgentCodeInvoker(command.Context(), readWrite)
 			if err != nil {
 				return agentCodeError(err)
 			}
@@ -45,8 +46,8 @@ func newAgentCodeServeCmd() *cobra.Command {
 
 // The process is persistent; application snapshots remain request-scoped. This
 // avoids stale note/config/index objects and preserves each operation's effects.
-func newAgentCodeInvoker(ctx context.Context, readWrite bool) (func(context.Context, string, map[string]any) (agentcode.CallOutcome, error), error) {
-	def, err := vaultDefOrDefaultContext(ctx)
+func (commandOptions *vaultCommandOptions) newAgentCodeInvoker(ctx context.Context, readWrite bool) (func(context.Context, string, map[string]any) (agentcode.CallOutcome, error), error) {
+	def, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func newAgentCodeInvoker(ctx context.Context, readWrite bool) (func(context.Cont
 	// changed reports a configuration change since connect as the outcome every
 	// later call returns.
 	changed := func(ctx context.Context) (agentcode.CallOutcome, bool) {
-		current, err := vaultDefOrDefaultContext(ctx)
+		current, err := commandOptions.vaultDefOrDefaultContext(ctx)
 		if err != nil {
 			return codeModeFailure(err), true
 		}
@@ -117,7 +118,9 @@ func newAgentCodeInvoker(ctx context.Context, readWrite bool) (func(context.Cont
 		}
 		return outcome, true
 	}
+	connectionEnv := commandEnvFromContext(ctx)
 	return func(ctx context.Context, name string, input map[string]any) (outcome agentcode.CallOutcome, callErr error) {
+		ctx = contextWithCommandEnv(ctx, connectionEnv)
 		ctx, finish := observeAgentRequest(ctx, name, "code_stdio")
 		defer func() {
 			if panicked := recover(); panicked != nil {
@@ -144,16 +147,16 @@ func newAgentCodeInvoker(ctx context.Context, readWrite bool) (func(context.Cont
 		}
 		// Local-only operations never leave this process, so the catalog decides
 		// the execution host before anything is forwarded.
-		if result, handled := callAgentCodeLocal(ctx, name, input, readWrite); handled {
+		if result, handled := commandOptions.callAgentCodeLocal(ctx, name, input, readWrite); handled {
 			return result, nil
 		}
 		if descriptor, ok := agentapi.CodeOperationDescriptor(name); ok && descriptor.CodeAccess == agentapi.CodeIndependent {
-			return callAgentCodeOperation(ctx, name, input, readWrite), nil
+			return commandOptions.callAgentCodeOperation(ctx, name, input, readWrite), nil
 		}
 		if outcome, handled := forwarder.call(ctx, name, input, readWrite); handled {
 			return outcome, nil
 		}
-		return callAgentCodeOperation(ctx, name, input, readWrite), nil
+		return commandOptions.callAgentCodeOperation(ctx, name, input, readWrite), nil
 	}, nil
 }
 
@@ -183,7 +186,7 @@ func newAgentOpForwarder(vaultPath string) *agentOpForwarder {
 		forwarder.reason = err.Error()
 		return forwarder
 	}
-	_, localCfg, _ := obsidian.FindLocalConfig(vaultPath)
+	_, localCfg, _ := repoconfig.FindLocalConfig(vaultPath)
 	forwarder.options = appruntime.EnsureOptions{
 		VaultPath:  vaultPath,
 		Executable: executable,
@@ -368,8 +371,8 @@ func readCodeModeConfig(path string) ([]byte, error) {
 	return data, err
 }
 
-func callAgentCodeOperation(ctx context.Context, name string, input map[string]any, readWrite bool) agentcode.CallOutcome {
-	if result, handled := callAgentCodeLocal(ctx, name, input, readWrite); handled {
+func (commandOptions *vaultCommandOptions) callAgentCodeOperation(ctx context.Context, name string, input map[string]any, readWrite bool) agentcode.CallOutcome {
+	if result, handled := commandOptions.callAgentCodeLocal(ctx, name, input, readWrite); handled {
 		return result
 	}
 	descriptor, ok := agentapi.CodeOperationDescriptor(name)
@@ -390,7 +393,7 @@ func callAgentCodeOperation(ctx context.Context, name string, input map[string]a
 		ctx = indexingperf.WithCollector(ctx, indexingperf.NewSemanticQueryCollector())
 		ctx = search.WithTimings(ctx, &search.Timings{})
 	}
-	cfg, runtime, err := prepareAgentJSONTool(ctx, budget, name, agentOperationIDForToolName(name), input)
+	cfg, runtime, err := commandOptions.prepareAgentJSONTool(ctx, budget, name, agentOperationIDForToolName(name), input)
 	if err != nil {
 		return codeModeFailure(err)
 	}

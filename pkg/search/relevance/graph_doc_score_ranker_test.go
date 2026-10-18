@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,22 +59,21 @@ func hasEvidence(c search.Candidate, typ string) bool {
 	return false
 }
 
-func TestGraphDocScoreRanker_InsertsEvidenceAndRanks(t *testing.T) {
-	base := &WeightedRanker{}
+func TestGraphDocAdjuster_InsertsEvidenceAndRanks(t *testing.T) {
 	store := &stubGraphDocScoreStore{scores: map[string]semdb.GraphDocScore{
 		"a.md":    {DocPath: "a.md", DocType: "note", Authority: 0.8, Hub: 0.3, Community: "c1"},
 		"b.md":    {DocPath: "b.md", DocType: "note", Authority: 0.0, Hub: 0.0, Community: "c2"},
 		"seed.md": {DocPath: "seed.md", DocType: "note", Authority: 0, Hub: 0, Community: "c1"},
 	}}
 
-	r := GraphDocScoreRanker{Base: base, Store: store}
+	r := GraphDocAdjuster{Store: store}
 	spec := search.QuerySpec{Seeds: []knowledge.Handle{knowledge.NoteHandle("seed.md")}}
 	candidates := []search.Candidate{
-		{Handle: knowledge.NoteHandle("a.md"), Owner: knowledge.NoteHandle("a.md"), Path: "a.md"},
-		{Handle: knowledge.NoteHandle("b.md"), Owner: knowledge.NoteHandle("b.md"), Path: "b.md"},
+		{SourceRef: search.SourceRef{Path: "a.md"}, Handle: knowledge.NoteHandle("a.md"), Owner: knowledge.NoteHandle("a.md")},
+		{SourceRef: search.SourceRef{Path: "b.md"}, Handle: knowledge.NoteHandle("b.md"), Owner: knowledge.NoteHandle("b.md")},
 	}
 
-	results, err := r.Rank(context.Background(), spec, candidates)
+	results, err := rankGraphEvidence(context.Background(), spec, candidates, &r)
 	require.NoError(t, err)
 	require.Len(t, results, 2)
 	require.Equal(t, "a.md", results[0].Path, "candidate with graph evidence should rank first")
@@ -84,14 +83,7 @@ func TestGraphDocScoreRanker_InsertsEvidenceAndRanks(t *testing.T) {
 	require.False(t, hasEvidence(results[1].Candidate, "graph_hits_authority"))
 }
 
-func TestGraphDocScoreRanker_RequiresBase(t *testing.T) {
-	r := GraphDocScoreRanker{}
-	_, err := r.Rank(context.Background(), search.QuerySpec{}, nil)
-	require.Error(t, err)
-}
-
-func TestGraphDocScoreRanker_EdgeConfidenceEvidence(t *testing.T) {
-	base := &WeightedRanker{}
+func TestGraphDocAdjuster_EdgeConfidenceEvidence(t *testing.T) {
 	store := &stubGraphDocScoreStore{
 		scores: map[string]semdb.GraphDocScore{
 			"a.md":    {DocPath: "a.md", DocType: "note"},
@@ -106,14 +98,14 @@ func TestGraphDocScoreRanker_EdgeConfidenceEvidence(t *testing.T) {
 		},
 	}
 
-	r := GraphDocScoreRanker{Base: base, Store: store}
+	r := GraphDocAdjuster{Store: store}
 	spec := search.QuerySpec{Seeds: []knowledge.Handle{knowledge.NoteHandle("seed.md")}}
 	candidates := []search.Candidate{
-		{Handle: knowledge.NoteHandle("a.md"), Owner: knowledge.NoteHandle("a.md"), Path: "a.md"},
-		{Handle: knowledge.NoteHandle("b.md"), Owner: knowledge.NoteHandle("b.md"), Path: "b.md"},
+		{SourceRef: search.SourceRef{Path: "a.md"}, Handle: knowledge.NoteHandle("a.md"), Owner: knowledge.NoteHandle("a.md")},
+		{SourceRef: search.SourceRef{Path: "b.md"}, Handle: knowledge.NoteHandle("b.md"), Owner: knowledge.NoteHandle("b.md")},
 	}
 
-	results, err := r.Rank(context.Background(), spec, candidates)
+	results, err := rankGraphEvidence(context.Background(), spec, candidates, &r)
 	require.NoError(t, err)
 	require.Len(t, results, 2)
 
@@ -139,9 +131,8 @@ func TestGraphDocScoreRanker_EdgeConfidenceEvidence(t *testing.T) {
 	require.InDelta(t, 0.7, evB.RawScore, 0.001)
 }
 
-func TestGraphDocScoreRanker_EdgeConfidence_NoSeedEdges(t *testing.T) {
+func TestGraphDocAdjuster_EdgeConfidence_NoSeedEdges(t *testing.T) {
 	// Candidates not connected to seeds should not receive edge confidence evidence.
-	base := &WeightedRanker{}
 	store := &stubGraphDocScoreStore{
 		scores: map[string]semdb.GraphDocScore{
 			"a.md":    {DocPath: "a.md", DocType: "note"},
@@ -153,20 +144,19 @@ func TestGraphDocScoreRanker_EdgeConfidence_NoSeedEdges(t *testing.T) {
 		},
 	}
 
-	r := GraphDocScoreRanker{Base: base, Store: store}
+	r := GraphDocAdjuster{Store: store}
 	spec := search.QuerySpec{Seeds: []knowledge.Handle{knowledge.NoteHandle("seed.md")}}
 	candidates := []search.Candidate{
-		{Handle: knowledge.NoteHandle("a.md"), Owner: knowledge.NoteHandle("a.md"), Path: "a.md"},
+		{SourceRef: search.SourceRef{Path: "a.md"}, Handle: knowledge.NoteHandle("a.md"), Owner: knowledge.NoteHandle("a.md")},
 	}
 
-	results, err := r.Rank(context.Background(), spec, candidates)
+	results, err := rankGraphEvidence(context.Background(), spec, candidates, &r)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	require.False(t, hasEvidence(results[0].Candidate, "graph_edge_confidence"), "no seed edge means no confidence evidence")
 }
 
-func TestGraphDocScoreRanker_NormalizesPathsForGraphEvidence(t *testing.T) {
-	base := &WeightedRanker{}
+func TestGraphDocAdjuster_NormalizesPathsForGraphEvidence(t *testing.T) {
 	store := &stubGraphDocScoreStore{
 		scores: map[string]semdb.GraphDocScore{
 			"notes/a.md": {DocPath: "notes/a.md", DocType: "note", Authority: 0.8},
@@ -177,20 +167,19 @@ func TestGraphDocScoreRanker_NormalizesPathsForGraphEvidence(t *testing.T) {
 		},
 	}
 
-	r := GraphDocScoreRanker{Base: base, Store: store}
-	results, err := r.Rank(context.Background(), search.QuerySpec{
+	r := GraphDocAdjuster{Store: store}
+	results, err := rankGraphEvidence(context.Background(), search.QuerySpec{
 		Seeds: []knowledge.Handle{knowledge.NoteHandle(`seed.md`)},
 	}, []search.Candidate{
-		{Handle: knowledge.NoteHandle("notes/a.md"), Owner: knowledge.NoteHandle("notes/a.md"), Path: `notes\a.md`},
-	})
+		{SourceRef: search.SourceRef{Path: `notes\a.md`}, Handle: knowledge.NoteHandle("notes/a.md"), Owner: knowledge.NoteHandle("notes/a.md")},
+	}, &r)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	require.True(t, hasEvidence(results[0].Candidate, "graph_hits_authority"))
 	require.True(t, hasEvidence(results[0].Candidate, "graph_edge_confidence"))
 }
 
-func TestGraphDocScoreRanker_UsesNodeChunkOwnerAsSeedPath(t *testing.T) {
-	base := &WeightedRanker{}
+func TestGraphDocAdjuster_UsesNodeChunkOwnerAsSeedPath(t *testing.T) {
 	store := &stubGraphDocScoreStore{
 		scores: map[string]semdb.GraphDocScore{
 			"notes/a.md":    {DocPath: "notes/a.md", DocType: "note", Community: "c1"},
@@ -201,12 +190,12 @@ func TestGraphDocScoreRanker_UsesNodeChunkOwnerAsSeedPath(t *testing.T) {
 		},
 	}
 
-	r := GraphDocScoreRanker{Base: base, Store: store}
-	results, err := r.Rank(context.Background(), search.QuerySpec{
+	r := GraphDocAdjuster{Store: store}
+	results, err := rankGraphEvidence(context.Background(), search.QuerySpec{
 		Seeds: []knowledge.Handle{knowledge.NodeChunkHandle("node-1", "notes/seed.md", "body", 0)},
 	}, []search.Candidate{
-		{Handle: knowledge.NoteHandle("notes/a.md"), Owner: knowledge.NoteHandle("notes/a.md"), Path: "notes/a.md"},
-	})
+		{SourceRef: search.SourceRef{Path: "notes/a.md"}, Handle: knowledge.NoteHandle("notes/a.md"), Owner: knowledge.NoteHandle("notes/a.md")},
+	}, &r)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	require.True(t, hasEvidence(results[0].Candidate, "same_community"))

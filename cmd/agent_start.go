@@ -4,14 +4,14 @@ import (
 	"context"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
-	"github.com/atomicobject/rhizome/pkg/app/agentstart"
+	"github.com/atomicobject/rhizome/pkg/app/agentcode"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/spf13/cobra"
 )
 
-type agentStartResponse = agentstart.Response
+type agentStartResponse = agentcode.StartResponse
 
-func newAgentStartCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentStartCmd() *cobra.Command {
 	var profile, intent string
 	var contextFiles, files []string
 	var budgetChars, submoduleDepth int
@@ -25,19 +25,19 @@ func newAgentStartCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Fire-and-forget: this read-only command never waits on the
 			// runtime, it only makes sure the vault has one warming up.
-			startVaultRuntimeInBackground(cmd.Context(), vaultDefOrDefaultContext)
+			startVaultRuntimeInBackground(cmd.Context(), commandOptions.vaultDefOrDefaultContext)
 			if !cmd.Flags().Changed("context-file") {
 				contextFiles = nil
 			}
 			if !cmd.Flags().Changed("file") {
 				files = nil
 			}
-			payload, err := executeAgentStart(cmd.Context(), agentstart.Request{
+			payload, err := commandOptions.executeAgentStart(cmd.Context(), agentcode.StartRequest{
 				Profile: profile, Intent: intent, ContextFiles: contextFiles, Files: files,
 				BudgetChars: budgetChars, SubmoduleDepth: submoduleDepth,
-				SkipAnchors: skipAnchors, SkipEmbeds: skipEmbeds, IncludeTags: includeTags,
+				SkipAnchors: commandOptions.skipAnchors, SkipEmbeds: commandOptions.skipEmbeds, IncludeTags: includeTags,
 				RecencyCascade: recencyCascade, GraphSummary: graphSummary,
-				IncludeOntology: includeOntology, Timings: timings, SessionID: agentSessionID,
+				IncludeOntology: includeOntology, Timings: timings, SessionID: commandOptions.agentSessionID,
 			})
 			if err != nil {
 				writeAgentError(err)
@@ -56,8 +56,8 @@ func newAgentStartCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&contextFiles, "context-file", nil, "context file path")
 	cmd.Flags().StringArrayVar(&files, "file", nil, "file or directory to include targeted context for")
 	cmd.Flags().IntVar(&submoduleDepth, "submodule-depth", 0, "submodule doc depth for directory targets")
-	cmd.Flags().BoolVar(&skipAnchors, "skip-anchors", false, "skip wikilinks with anchors")
-	cmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks")
+	cmd.Flags().BoolVar(&commandOptions.skipAnchors, "skip-anchors", false, "skip wikilinks with anchors")
+	cmd.Flags().BoolVar(&commandOptions.skipEmbeds, "skip-embeds", false, "skip embedded wikilinks")
 	cmd.Flags().BoolVar(&includeTags, "include-tags", true, "include tags in graph context")
 	cmd.Flags().BoolVar(&recencyCascade, "recency-cascade", true, "include recency cascade")
 	cmd.Flags().BoolVar(&graphSummary, "graph-summary", false, "include graph communities/orphans even when ontology is present")
@@ -67,12 +67,12 @@ func newAgentStartCmd() *cobra.Command {
 	return cmd
 }
 
-func executeAgentStart(ctx context.Context, request agentstart.Request) (agentstart.Response, error) {
-	return agentstart.Execute(ctx, agentstart.Dependencies{
-		ResolveVault: vaultDefOrDefaultContext,
+func (commandOptions *vaultCommandOptions) executeAgentStart(ctx context.Context, request agentcode.StartRequest) (agentcode.StartResponse, error) {
+	return agentcode.Start(ctx, agentcode.StartDependencies{
+		ResolveVault: commandOptions.vaultDefOrDefaultContext,
 		Formats:      newNoteFormatRuntime,
 		BuildConfig: func(ctx context.Context, budget int, requirements bootstrap.RuntimeRequirements) (agentapi.Config, func(), error) {
-			cfg, runtime, err := buildAgentConfigWithRequirements(ctx, budget, "start", requirements)
+			cfg, runtime, err := commandOptions.buildAgentConfigWithRequirements(ctx, budget, "start", requirements)
 			if err != nil {
 				return agentapi.Config{}, nil, err
 			}

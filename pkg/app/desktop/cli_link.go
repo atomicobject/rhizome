@@ -109,10 +109,10 @@ func cliLinkInspect(bundle *appbundle.Info) (CLILinkInfo, error) {
 	return info, nil
 }
 
-func cliLinkShell(ctx context.Context, bundle *appbundle.Info) CLILinkShell {
+func (s *Service) cliLinkShell(ctx context.Context, bundle *appbundle.Info) CLILinkShell {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	shell := os.Getenv("SHELL")
+	shell, _ := s.env.Lookup("SHELL")
 	if shell == "" {
 		shell = "/bin/zsh"
 	}
@@ -156,7 +156,7 @@ func (s *Service) CLILinkStatus(ctx context.Context) (CLILinkInfo, error) {
 		return CLILinkInfo{}, problem("link_failed", err.Error())
 	}
 	info, err := cliLinkInspect(bundle)
-	info.Shell = cliLinkShell(ctx, bundle)
+	info.Shell = s.cliLinkShell(ctx, bundle)
 	if err != nil {
 		return info, problem("link_failed", err.Error())
 	}
@@ -215,7 +215,7 @@ func (s *Service) mutateCLILink(ctx context.Context, remove bool) (CLILinkInfo, 
 	if err != nil {
 		return info, problem("link_failed", err.Error())
 	}
-	info.Shell = cliLinkShell(ctx, bundle)
+	info.Shell = s.cliLinkShell(ctx, bundle)
 	if bundle != nil && bundle.Dev {
 		return info, problem("link_dev_bundle", "Rhizome Dev does not own the command-line link.")
 	}

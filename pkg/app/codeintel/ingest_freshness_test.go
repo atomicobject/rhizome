@@ -9,9 +9,8 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/indexingpipe"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,23 +36,23 @@ func TestIndexCandidates_ContentHashIsAuthoritativeAcrossMisleadingMtimes(t *tes
 			countingStore := &countingCodePersistenceStore{Store: store}
 			indexer := &countingLanguageIndexer{delegate: codeanchor.NewGoIndexer()}
 			service := codeanchor.NewServiceWithOptions(countingStore, []codeanchor.LanguageIndexer{indexer}, codeanchor.WithBasePath(root), codeanchor.WithoutWarmCache())
-			candidate := indexingpipe.FileCandidate{AbsPath: path, RelPath: "src/main.go", ModTime: tt.initial.Unix(), Kind: indexingpipe.FileKindCode, Lang: codeanchor.LangGo}
+			candidate := FileCandidate{AbsPath: path, RelPath: "src/main.go", ModTime: tt.initial.Unix(), Kind: FileKindCode, Lang: codeanchor.LangGo}
 
-			first, err := IndexCandidates(context.Background(), service, root, []indexingpipe.FileCandidate{candidate}, nil)
+			first, err := IndexCandidates(context.Background(), service, newCandidateTestWriter(t, service), root, []FileCandidate{candidate}, nil)
 			require.NoError(t, err)
 			require.Equal(t, 1, first.Indexed)
 
 			require.NoError(t, os.WriteFile(path, []byte("package src\nfunc After() {}\n"), 0o644))
 			require.NoError(t, os.Chtimes(path, tt.changed, tt.changed))
 			candidate.ModTime = tt.changed.Unix()
-			changed, err := IndexCandidates(context.Background(), service, root, []indexingpipe.FileCandidate{candidate}, nil)
+			changed, err := IndexCandidates(context.Background(), service, newCandidateTestWriter(t, service), root, []FileCandidate{candidate}, nil)
 			require.NoError(t, err)
 			require.Equal(t, 1, changed.Indexed)
 			require.Zero(t, changed.Unchanged)
 			require.Equal(t, int64(2), indexer.calls.Load())
 			require.Equal(t, int64(2), countingStore.batches.Load())
 
-			unchanged, err := IndexCandidates(context.Background(), service, root, []indexingpipe.FileCandidate{candidate}, nil)
+			unchanged, err := IndexCandidates(context.Background(), service, newCandidateTestWriter(t, service), root, []FileCandidate{candidate}, nil)
 			require.NoError(t, err)
 			require.Zero(t, unchanged.Indexed)
 			require.Equal(t, 1, unchanged.Unchanged)

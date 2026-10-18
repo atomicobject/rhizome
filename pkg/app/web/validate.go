@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/validate"
 )
 
@@ -177,7 +178,7 @@ func (s *Server) validationInterfaceImplementors() map[string][]string {
 	if err != nil || defs == nil {
 		return nil
 	}
-	return ontology.InterfaceImplementors(defs.schema)
+	return ontoschema.InterfaceImplementors(defs.schema)
 }
 
 const (

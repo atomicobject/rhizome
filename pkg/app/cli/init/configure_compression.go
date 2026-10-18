@@ -2,11 +2,12 @@ package init
 
 import (
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/llm"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // Default compression settings
@@ -16,7 +17,7 @@ const (
 )
 
 // warnCompressionReadiness prints a warning if compression is enabled but API key is missing.
-func warnCompressionReadiness(cfg obsidian.LocalConfig, out io.Writer) {
+func warnCompressionReadiness(env vaultconfig.Env, cfg repoconfig.LocalConfig, out io.Writer) {
 	if out == nil {
 		return
 	}
@@ -32,7 +33,7 @@ func warnCompressionReadiness(cfg obsidian.LocalConfig, out io.Writer) {
 		if provider == "" {
 			provider = defaultCompressionProvider
 		}
-		apiKey := llm.APIKeyForProvider(provider)
+		apiKey := llm.APIKeyForProvider(env, provider)
 		if apiKey == "" {
 			envVar := providerEnvVar(provider)
 			fmt.Fprintf(out, "%s: compression enabled but %s is not set.\n", styleWarn(out, "Warning"), envVar)
@@ -56,7 +57,7 @@ func providerEnvVar(provider string) string {
 }
 
 // isEmptyCompressionConfig checks if compression config can be omitted from output.
-func isEmptyCompressionConfig(cfg *obsidian.LocalCompressionConfig) bool {
+func isEmptyCompressionConfig(cfg *repoconfig.LocalCompressionConfig) bool {
 	if cfg == nil {
 		return true
 	}

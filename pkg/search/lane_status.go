@@ -55,8 +55,8 @@ func RecordRetrieverLane(ctx context.Context, name string, resultCount int, err 
 	if name == "" {
 		return
 	}
-	indexingperf.AddCount(ctx, "search.retriever."+name+".outcome."+string(laneStateFromErrAndCount(err, resultCount)), 1)
-	indexingperf.AddCount(ctx, "search.retriever."+name+".results", int64(max(0, resultCount)))
+	indexingperf.AddCount(ctx, indexingperf.SearchRetrieverOutcome.Select(name, string(laneStateFromErrAndCount(err, resultCount))), 1)
+	indexingperf.AddCount(ctx, indexingperf.SearchRetrieverResults.Select(name), int64(max(0, resultCount)))
 	collector, _ := ctx.Value(laneCollectorKey{}).(*laneCollector)
 	if collector == nil {
 		return
@@ -64,7 +64,7 @@ func RecordRetrieverLane(ctx context.Context, name string, resultCount int, err 
 	run := laneRun{
 		name:        name,
 		status:      laneStateFromErrAndCount(err, resultCount),
-		reason:      strings.TrimSpace(errString(err)),
+		reason:      strings.TrimSpace(TimingError(err)),
 		resultCount: max(0, resultCount),
 	}
 	collector.mu.Lock()
@@ -310,6 +310,6 @@ func appendUniqueString(values []string, value string) []string {
 }
 
 // LanesForEvidence reports which retrieval lanes an evidence type belongs to.
-// Ranking-only observations (query specificity, retriever ranks, graph
-// authority) belong to no lane and never corroborate.
+// Ranking-only observations (query specificity and graph authority) belong
+// to no lane and never corroborate.
 func LanesForEvidence(evidenceType string) []string { return lanesForEvidence(evidenceType) }

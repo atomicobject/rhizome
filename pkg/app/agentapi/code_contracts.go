@@ -2,21 +2,20 @@ package agentapi
 
 import (
 	"encoding/json"
-	"reflect"
-	"strings"
-	"time"
-
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	mcpapi "github.com/atomicobject/rhizome/pkg/app/mcp"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
+	"github.com/atomicobject/rhizome/pkg/graph/algorithms"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/idalloc"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/search/graphalg"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
 	"github.com/atomicobject/rhizome/pkg/vault/identity"
+	"reflect"
+	"strings"
+	"time"
 )
 
 // CodeOperationContract is the selectively loaded application contract for a
@@ -169,7 +168,7 @@ func initializeCodeContracts() {
 		}
 		switch name {
 		case "ontology_reference":
-			entry.contract.OutputSchema = raw(object([]string{"types"}, map[string]codeSchema{"types": codeSchema{"type": "array", "items": schemaForType(reflect.TypeOf(ontology.TypeDoc{}), map[reflect.Type]bool{})}, "format": str(), "schemaHash": str(), "expand": schemaForType(reflect.TypeOf([]reference.Expansion{}), map[reflect.Type]bool{})}))
+			entry.contract.OutputSchema = raw(object([]string{"types"}, map[string]codeSchema{"types": codeSchema{"type": "array", "items": schemaForType(reflect.TypeOf(schemadoc.TypeDoc{}), map[reflect.Type]bool{})}, "format": str(), "schemaHash": str(), "expand": schemaForType(reflect.TypeOf([]schemadoc.Expansion{}), map[reflect.Type]bool{})}))
 		case "ontology_inspect":
 			entry.contract.OutputSchema = raw(schemaForType(reflect.TypeOf(ontology.InspectResult{}), map[reflect.Type]bool{}))
 		case "next_id":
@@ -179,7 +178,7 @@ func initializeCodeContracts() {
 		case "note_rename_heading":
 			entry.contract.OutputSchema = raw(schemaForType(reflect.TypeOf(actions.RenameHeadingResult{}), map[reflect.Type]bool{}))
 		case "graph_path":
-			entry.contract.OutputSchema = raw(schemaForType(reflect.TypeOf(graphalg.PathResult{}), map[reflect.Type]bool{}))
+			entry.contract.OutputSchema = raw(schemaForType(reflect.TypeOf(algorithms.PathResult{}), map[reflect.Type]bool{}))
 		case "node_link":
 			entry.contract.OutputSchema = raw(object([]string{"ensure", "locators"}, map[string]codeSchema{
 				"ensure": str(), "locators": codeSchema{"type": "object", "additionalProperties": schemaForType(reflect.TypeOf(ontology.NodeLocator{}), map[reflect.Type]bool{})},

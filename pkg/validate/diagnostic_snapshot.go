@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 const (
@@ -126,7 +126,8 @@ func BuildDiagnosticSnapshot(result Result, build DiagnosticSnapshotContext) (se
 				Source: issue.Source, Target: issue.Target, ActionIDs: sortedUnique(actionIDsByIssue[issue.Key]),
 			}
 			if issue.Variant != nil {
-				diagnostic.Variant = &semdb.ValidationIssueVariant{Key: issue.Variant.Key, Label: issue.Variant.Label}
+				variant := *issue.Variant
+				diagnostic.Variant = &variant
 			}
 			if issue.Location != nil {
 				diagnostic.Location = &semdb.ValidationDiagnosticLocation{
@@ -165,34 +166,6 @@ func BuildDiagnosticSnapshot(result Result, build DiagnosticSnapshotContext) (se
 		AffectedNoteCount: len(notePaths), RepairActionCount: len(actions), RepairPlanFingerprint: fingerprint,
 		Checks: checks, Diagnostics: diagnostics, Actions: actions,
 	}, nil
-}
-
-// ApplyDiagnosticNoteInventory derives note membership from the indexed note
-// inventory. It is used when the inventory owner is available only at the
-// publication boundary rather than during suite execution.
-func ApplyDiagnosticNoteInventory(snapshot *semdb.ValidationSnapshot, notePaths []string) {
-	if snapshot == nil {
-		return
-	}
-	inventory := make(map[string]struct{}, len(notePaths))
-	for _, path := range notePaths {
-		if path = strings.TrimSpace(path); path != "" {
-			inventory[path] = struct{}{}
-		}
-	}
-	affectedNotes := make(map[string]struct{})
-	for index := range snapshot.Diagnostics {
-		diagnostic := &snapshot.Diagnostics[index]
-		diagnostic.AffectedNotePaths = diagnostic.AffectedNotePaths[:0]
-		for _, path := range diagnostic.AffectedPaths {
-			if _, ok := inventory[path]; ok {
-				diagnostic.AffectedNotePaths = append(diagnostic.AffectedNotePaths, path)
-				affectedNotes[path] = struct{}{}
-			}
-		}
-		diagnostic.AffectedNotePaths = sortedUnique(diagnostic.AffectedNotePaths)
-	}
-	snapshot.AffectedNoteCount = len(affectedNotes)
 }
 
 func diagnosticCheckSnapshots(result Result, outcomes []DiagnosticCheckOutcome) ([]semdb.ValidationCheckSnapshot, error) {
@@ -251,8 +224,8 @@ func diagnosticCompletedCheckSnapshot(check CheckResult) semdb.ValidationCheckSn
 	outcome := semdb.ValidationCheckOutcomeCompleted
 	if strings.TrimSpace(check.Error) != "" {
 		outcome = semdb.ValidationCheckOutcomeFailed
-	} else if check.Skipped {
-		outcome = semdb.ValidationCheckOutcomeSkipped
+	} else if check.NotApplicable != "" {
+		outcome = semdb.ValidationCheckOutcomeNotApplicable
 	}
 	return semdb.ValidationCheckSnapshot{
 		Check: diagnosticCanonicalCheck(check.Name), Outcome: outcome, IssueCount: check.IssueCount,

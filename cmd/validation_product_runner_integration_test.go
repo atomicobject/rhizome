@@ -7,21 +7,24 @@ import (
 	"path/filepath"
 	"testing"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestValidateFixLinkHygieneApplyRunsProductionSessionAndReturnsClearedPostcheck(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	root := writeValidationProductIntegrationVault(t, map[string]string{
 		"target.md": "# Target\n",
 		"source.md": "bad extension: [[target.md]]\n",
 	})
 	runner := &capturingValidationProductRunner{delegate: newProductionValidationRunner()}
-	cmd := newValidateProductCmdWithRunner(runner)
+	cmd := commandOptions.newValidateProductCmdWithRunner(runner)
 	cmd.SetContext(validationProductIntegrationContext(root))
 
 	stdout, stderr, err := executeValidationProductIntegrationCommand(cmd, "fix", "link-hygiene", "--apply")
@@ -38,7 +41,7 @@ func TestValidateFixLinkHygieneApplyRunsProductionSessionAndReturnsClearedPostch
 	assert.Zero(t, result.Checks[0].IssueCount)
 	assert.NotEmpty(t, result.FixExecution.Applied)
 	require.NotNil(t, result.FixExecution.Refresh)
-	assert.Equal(t, []string{"links", "markdown_targets", "metadata"}, result.FixExecution.Refresh.Domains)
+	assert.Equal(t, []string{"metadata"}, result.FixExecution.Refresh.Domains)
 	assert.Equal(t, []string{"source.md"}, result.FixExecution.Refresh.Paths)
 	assert.Equal(t, "bad extension: [[target]]\n", string(readValidationProductIntegrationFile(t, root, "source.md")))
 	assertNoValidationProductRepairJournals(t, root)
@@ -47,9 +50,11 @@ func TestValidateFixLinkHygieneApplyRunsProductionSessionAndReturnsClearedPostch
 }
 
 func TestValidationProductReadOnlySurfacesLeaveNotesAndRepairJournalUntouched(t *testing.T) {
-	originalVaultName := vaultName
-	vaultName = ""
-	t.Cleanup(func() { vaultName = originalVaultName })
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	originalVaultName := commandOptions.vaultName
+	commandOptions.vaultName = ""
+	t.Cleanup(func() { commandOptions.vaultName = originalVaultName })
 
 	tests := []struct {
 		name       string
@@ -59,13 +64,13 @@ func TestValidationProductReadOnlySurfacesLeaveNotesAndRepairJournalUntouched(t 
 	}{
 		{
 			name:       "human fix plan",
-			newCommand: newValidateProductCmdWithRunner,
+			newCommand: commandOptions.newValidateProductCmdWithRunner,
 			args:       []string{"fix", "link-hygiene"},
 			wantOutput: "Repair plan:",
 		},
 		{
 			name:       "agent fix plan",
-			newCommand: newAgentValidateProductCmdWithRunner,
+			newCommand: commandOptions.newAgentValidateProductCmdWithRunner,
 			args:       []string{"fix", "link-hygiene"},
 			wantOutput: `"fixPlan":`,
 		},
@@ -104,6 +109,8 @@ func TestValidationProductReadOnlySurfacesLeaveNotesAndRepairJournalUntouched(t 
 }
 
 func TestValidateFixIdentifiersApplyPreservesPrivateRepairAuthority(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	root := writeValidationProductIntegrationVault(t, map[string]string{
 		".rhizome/ontology/schema.graphql": `
 type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
@@ -115,7 +122,7 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 		"specs/b.md": "---\nid: SPEC-0001\naliases: [SPEC-0001]\n---\n# B\n",
 	})
 	runner := &capturingValidationProductRunner{delegate: newProductionValidationRunner()}
-	cmd := newValidateProductCmdWithRunner(runner)
+	cmd := commandOptions.newValidateProductCmdWithRunner(runner)
 	cmd.SetContext(validationProductIntegrationContext(root))
 	cmd.SetIn(bytes.NewBufferString("yes\n"))
 
@@ -157,7 +164,7 @@ func (runner *capturingValidationProductRunner) Run(ctx context.Context, request
 func writeValidationProductIntegrationVault(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{}))
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{}))
 	for path, content := range files {
 		absolute := filepath.Join(root, filepath.FromSlash(path))
 		require.NoError(t, os.MkdirAll(filepath.Dir(absolute), 0o755))

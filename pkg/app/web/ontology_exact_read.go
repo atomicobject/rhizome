@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type exactNoteReadSnapshot struct {

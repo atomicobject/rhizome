@@ -27,6 +27,7 @@ rzm
 .gopath/
 .gomodcache/
 .gotmp/
+.golangci-cache/
 dist/
 .release/
 pkg/app/web/assets/dist/

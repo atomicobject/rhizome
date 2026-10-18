@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,14 +13,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:     "rzm",
-	Short:   "rhizome CLI to open, search, move, create, delete and update notes",
-	Version: version.Version,
+// commandInvocation owns one execution. Construct another invocation to run again.
+type commandInvocation struct {
+	*cobra.Command
+	env      commandEnv
+	pager    invocationPager
+	executed bool
 }
 
-func init() {
-	// Custom help function that shows banner only for root command
+func newRootCommand(env commandEnv) *commandInvocation {
+	app := &commandInvocation{Command: &cobra.Command{
+		Use: "rzm", Short: "rhizome CLI to open, search, move, create, delete and update notes", Version: version.Version,
+	}, env: commandEnvFromContext(contextWithCommandEnv(context.Background(), env))}
+	rootCmd := app.Command
 	defaultHelp := rootCmd.HelpFunc()
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		if cmd == rootCmd {
@@ -27,17 +33,57 @@ func init() {
 		}
 		defaultHelp(cmd, args)
 	})
+	rootCmd.PersistentFlags().BoolVar(&app.pager.disabled, "no-pager", false, "disable paging (when stdout is a TTY)")
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error { return app.pager.maybeStart(cmd) }
+	registerAgentFamily(rootCmd)
+	registerCodeFamily(rootCmd)
+	registerGraphFamily(rootCmd)
+	registerNoteFamily(rootCmd)
+	registerIndexFamily(rootCmd)
+	registerVaultFamily(rootCmd)
+	registerInitFamily(rootCmd)
+	registerListFamily(rootCmd)
+	registerPromptFamily(rootCmd)
+	registerOntologyFamily(rootCmd)
+	registerSearchFamily(rootCmd)
+	registerServeFamily(rootCmd)
+	registerStopFamily(rootCmd)
+	registerUpdateFamily(rootCmd)
+	registerClaudeFamily(rootCmd)
+	registerCodexFamily(rootCmd)
+	registerConfigFamily(rootCmd)
+	registerCredentialsFamily(rootCmd)
+	registerDesktopFamily(rootCmd)
+	registerChangelogFamily(rootCmd)
+	registerHarnessFamily(rootCmd)
+	registerMcpFamily(rootCmd)
+	registerDiagnosticsFamily(rootCmd)
+	registerRepositoryFamily(rootCmd)
+	registerValidationFamily(rootCmd)
+	registerQueryRecipeFamily(rootCmd)
+	registerViewFamily(rootCmd)
+	return app
+}
 
-	rootCmd.PersistentFlags().BoolVar(&noPager, "no-pager", false, "disable paging (when stdout is a TTY)")
-	rootCmd.AddCommand(mcpCmd)
-
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		return maybeStartPager(cmd)
+// Factory Env supplies paths and configuration; execution supplies cancellation.
+func (app *commandInvocation) ExecuteContextC(ctx context.Context) (*cobra.Command, error) {
+	if app.executed {
+		return nil, errors.New("command invocation already executed; construct a fresh command")
 	}
+	app.executed = true
+	defer app.pager.close()
+	return app.Command.ExecuteContextC(contextWithCommandEnv(ctx, app.env))
+}
+func (app *commandInvocation) ExecuteContext(ctx context.Context) error {
+	_, err := app.ExecuteContextC(ctx)
+	return err
+}
+func (app *commandInvocation) Execute() error { return app.ExecuteContext(context.Background()) }
+func (app *commandInvocation) ExecuteC() (*cobra.Command, error) {
+	return app.ExecuteContextC(context.Background())
 }
 
 func Execute() int {
-	defer func() { _ = closePager() }()
 
 	decision := maybeDelegateToRepoBinary(os.Args[1:])
 	if shouldPrintRepoDelegateWarning(os.Args[1:], decision.Warning) {
@@ -59,6 +105,7 @@ func Execute() int {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	ctx = vaultconfig.WithEnv(ctx, vaultconfig.FromContext(ctx))
 	defer cancel()
 	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
@@ -70,6 +117,8 @@ func Execute() int {
 		os.Exit(130)
 	}()
 
+	app := newRootCommand(commandEnvFromContext(ctx))
+	rootCmd := app.Command
 	previousPreRun := rootCmd.PersistentPreRunE
 	diagnosticsScope := &commandDiagnostics{}
 	restoreArguments := observeDiagnosticArguments(rootCmd, diagnosticsScope)
@@ -88,7 +137,7 @@ func Execute() int {
 			panic(panicked)
 		}
 	}()
-	command, err := rootCmd.ExecuteContextC(ctx)
+	command, err := app.ExecuteContextC(ctx)
 	diagnosticsScope.finish(command, err)
 	if err != nil {
 		if coded, ok := err.(interface{ ExitCode() int }); ok {

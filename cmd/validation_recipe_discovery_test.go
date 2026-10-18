@@ -1,13 +1,17 @@
 package cmd
 
+import "github.com/atomicobject/rhizome/internal/testkit"
+
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"strings"
 	"testing"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/stretchr/testify/require"
@@ -16,6 +20,8 @@ import (
 const commandBrokenRecipe = "```query-recipe\napiVersion: rhizome.query-recipe.v1\nid: example\nname: Example\nproblem: Verify recipe discovery.\ninputSpec:\n  mode: none\nquery:\n  graphQL: '{ noSuchRoot { title } }'\noutputContract:\n  empty: None.\nadaptationGuidance:\n  summary: Repair schema drift.\n```\n"
 
 func TestValidationCommandsDiscoverRecipesInDefaultAndAllComposition(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	validRecipe := strings.Replace(commandBrokenRecipe, "noSuchRoot { title }", `notes(find: "example", first: 1) { nodes { title } }`, 1)
 	for _, tc := range []struct {
 		name, issue string
@@ -73,10 +79,10 @@ func TestValidationCommandsDiscoverRecipesInDefaultAndAllComposition(t *testing.
 							command.SetOut(out)
 							command.SetErr(errOut)
 							command.SetArgs(append(args, "--format", "json"))
-							err = command.Execute()
+							err = command.ExecuteContext(vaultconfig.WithEnv(context.Background(), vault.env))
 							stdout, stderr = out.String(), errOut.String()
 						} else {
-							stdout, stderr, err = runRootCLI(t, nil, append(append([]string(nil), surface.command...), args...))
+							stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), append(append([]string(nil), surface.command...), args...))
 						}
 						require.Empty(t, stderr)
 						if tc.issue == "" {

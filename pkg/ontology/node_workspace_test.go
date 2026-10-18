@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,7 +35,7 @@ status:: TODO
 ^story-b
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	storyBRef := NodeRef{
@@ -86,7 +87,7 @@ status:: TODO
 ^story-a
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	workspace, err := BuildNodeWorkspace(
@@ -127,7 +128,7 @@ First decision.
 Second decision.
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	workspace, err := BuildNodeWorkspace(
@@ -148,7 +149,7 @@ func TestBuildNodeWorkspaceFromProjection_H1TitleIsPlainText(t *testing.T) {
 	notePath := "notes/sync.md"
 	writeOntologyNote(t, root, notePath, "# [[Tech Lead Sync]] **2022-05-12**\n\nBody.\n")
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	workspace, err := BuildNodeWorkspace(
 		context.Background(),
@@ -216,7 +217,7 @@ id:: SPEC-1000.US1.AC1
 ^spec-1000-us1-ac1
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	storyWorkspace, err := BuildNodeWorkspace(

@@ -1,5 +1,9 @@
 package cmd
 
+import vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+
+import "github.com/atomicobject/rhizome/internal/testkit"
+
 import (
 	"bytes"
 	"context"
@@ -18,12 +22,12 @@ import (
 )
 
 func TestDiagnosticFailedCommandRestoresLoggerAndOwnTerminalIdentity(t *testing.T) {
+
 	vault := setupAgentTestVault(t, nil)
-	vaultName = vault.name
 	writer, flags := log.Writer(), log.Flags()
 	var stdout, stderr bytes.Buffer
 	command := &cobra.Command{Use: "test-failure", Run: func(*cobra.Command, []string) {}}
-	command.SetContext(context.Background())
+	command.SetContext(vaultconfig.WithEnv(context.Background(), vault.env))
 	command.SetOut(&stdout)
 	command.SetErr(&stderr)
 	scope := &commandDiagnostics{}
@@ -48,10 +52,13 @@ func TestDiagnosticFailedCommandRestoresLoggerAndOwnTerminalIdentity(t *testing.
 }
 
 func TestDiagnosticLegacyPrintErrorReturnsForCleanup(t *testing.T) {
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	printCmd, _, _ := rootCmd.Find([]string{"note", "print"})
+
 	vault := setupAgentTestVault(t, nil)
-	vaultName = vault.name
 	var stderr bytes.Buffer
-	printCmd.SetContext(context.Background())
+	printCmd.SetContext(vaultconfig.WithEnv(context.Background(), vault.env))
 	originalError := printCmd.ErrOrStderr()
 	printCmd.SetErr(&stderr)
 	t.Cleanup(func() { printCmd.SetErr(originalError) })
@@ -68,12 +75,12 @@ func TestDiagnosticLegacyPrintErrorReturnsForCleanup(t *testing.T) {
 }
 
 func TestDiagnosticCommandStorageFailureKeepsWarningsAndOutcome(t *testing.T) {
+
 	vault := setupAgentTestVault(t, nil)
-	vaultName = vault.name
 	require.NoError(t, os.WriteFile(filepath.Join(vault.path, ".rhizome", "diagnostics"), []byte("synthetic obstruction"), 0600))
 	var stderr bytes.Buffer
 	command := &cobra.Command{Use: "test-storage-failure", Run: func(*cobra.Command, []string) {}}
-	command.SetContext(context.Background())
+	command.SetContext(vaultconfig.WithEnv(context.Background(), vault.env))
 	command.SetErr(&stderr)
 	scope := &commandDiagnostics{}
 	scope.start(command)
@@ -87,8 +94,8 @@ func TestDiagnosticCommandStorageFailureKeepsWarningsAndOutcome(t *testing.T) {
 }
 
 func TestDiagnosticAgentMetadataIsInert(t *testing.T) {
+
 	vault := setupAgentTestVault(t, nil)
-	vaultName = vault.name
 	agent := &cobra.Command{Use: "agent"}
 	code := &cobra.Command{Use: "code"}
 	agent.AddCommand(code)
@@ -110,11 +117,11 @@ func TestDiagnosticAgentMetadataIsInert(t *testing.T) {
 }
 
 func TestDiagnosticSilentFailurePersistsAndFinalizesOnce(t *testing.T) {
+
 	vault := setupAgentTestVault(t, nil)
-	vaultName = vault.name
 	var stderr bytes.Buffer
 	command := &cobra.Command{Use: "execute", Run: func(*cobra.Command, []string) {}}
-	command.SetContext(context.Background())
+	command.SetContext(vaultconfig.WithEnv(context.Background(), vault.env))
 	command.SetErr(&stderr)
 	scope := &commandDiagnostics{}
 	scope.start(command)
@@ -135,12 +142,15 @@ func TestDiagnosticSilentFailurePersistsAndFinalizesOnce(t *testing.T) {
 }
 
 func TestDiagnosticServeAlreadyOwnedIsSkipped(t *testing.T) {
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	serveCmd, _, _ := rootCmd.Find([]string{"serve"})
+
 	vault := setupAgentTestVault(t, nil)
-	vaultName = vault.name
 	var stderr bytes.Buffer
 	previousError := serveCmd.ErrOrStderr()
 	serveCmd.SetErr(&stderr)
-	serveCmd.SetContext(context.Background())
+	serveCmd.SetContext(vaultconfig.WithEnv(context.Background(), vault.env))
 	t.Cleanup(func() { serveCmd.SetErr(previousError) })
 	scope := &commandDiagnostics{}
 	scope.start(serveCmd)
@@ -154,10 +164,10 @@ func TestDiagnosticServeAlreadyOwnedIsSkipped(t *testing.T) {
 }
 
 func TestDiagnosticDesktopHandoffDoesNotTouchSelectedVault(t *testing.T) {
+
 	vault := setupAgentTestVault(t, nil)
-	vaultName = vault.name
 	command := &cobra.Command{Use: "desktop", Run: func(*cobra.Command, []string) {}}
-	command.SetContext(context.Background())
+	command.SetContext(vaultconfig.WithEnv(context.Background(), vault.env))
 	before := diagnosticTree(t, vault.path)
 	scope := &commandDiagnostics{}
 	scope.start(command)

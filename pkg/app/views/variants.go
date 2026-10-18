@@ -2,11 +2,12 @@ package views
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"sort"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	"github.com/atomicobject/rhizome/pkg/diag"
 )
 
 const kanbanDefaultPageSize = 500
@@ -30,15 +31,12 @@ func availableVariants(def viewconfig.ViewDefinition) []string {
 	}
 	return out
 }
-
 func executableCardSpec(card *viewconfig.CardSpec) bool {
 	return card != nil && executableViewColumns(card.Fields)
 }
-
 func executableKanbanVariant(kanban *viewconfig.KanbanVariant) bool {
 	return kanban != nil && strings.TrimSpace(kanban.ColumnField) != "" && (kanban.Card == nil || executableCardSpec(kanban.Card))
 }
-
 func executableViewColumns(columns []viewconfig.ViewColumn) bool {
 	for _, column := range columns {
 		if strings.TrimSpace(column.Field) == "" {
@@ -47,7 +45,6 @@ func executableViewColumns(columns []viewconfig.ViewColumn) bool {
 	}
 	return true
 }
-
 func hasVariant(variants []string, want string) bool {
 	for _, variant := range variants {
 		if variant == want {
@@ -56,7 +53,6 @@ func hasVariant(variants []string, want string) bool {
 	}
 	return false
 }
-
 func cardSpecForVariant(def viewconfig.ViewDefinition, variant string) *viewconfig.CardSpec {
 	if variant == "kanban" && def.Variants.Kanban != nil && def.Variants.Kanban.Card != nil {
 		return def.Variants.Kanban.Card
@@ -66,7 +62,6 @@ func cardSpecForVariant(def viewconfig.ViewDefinition, variant string) *viewconf
 	}
 	return &viewconfig.CardSpec{}
 }
-
 func cardSpecForTable(def viewconfig.ViewDefinition) *viewconfig.CardSpec {
 	if def.Variants.Card != nil {
 		return def.Variants.Card
@@ -76,7 +71,6 @@ func cardSpecForTable(def viewconfig.ViewDefinition) *viewconfig.CardSpec {
 	}
 	return &viewconfig.CardSpec{}
 }
-
 func resolveCardLayout(def viewconfig.ViewDefinition, variant string, capabilities []FieldCapability) *CardLayout {
 	spec := cardSpecForVariant(def, variant)
 	title, ok := resolvedCardColumn(spec.Title, "", capabilities)
@@ -103,7 +97,6 @@ func resolveCardLayout(def viewconfig.ViewDefinition, variant string, capabiliti
 	}
 	return layout
 }
-
 func resolvedCardFields(fields []viewconfig.ViewColumn, capabilities []FieldCapability) []TableColumn {
 	out := make([]TableColumn, 0, len(fields))
 	seen := map[string]struct{}{}
@@ -120,7 +113,6 @@ func resolvedCardFields(fields []viewconfig.ViewColumn, capabilities []FieldCapa
 	}
 	return out
 }
-
 func defaultCardFields(def viewconfig.ViewDefinition, layout *CardLayout, capabilities []FieldCapability) []TableColumn {
 	excluded := map[string]struct{}{layout.Title.Field: {}}
 	if layout.Eyebrow != nil {
@@ -170,7 +162,6 @@ func defaultCardFields(def viewconfig.ViewDefinition, layout *CardLayout, capabi
 	}
 	return out
 }
-
 func resolvedCardColumn(field string, label string, capabilities []FieldCapability) (TableColumn, bool) {
 	field = strings.TrimSpace(field)
 	if field == "" {
@@ -182,7 +173,6 @@ func resolvedCardColumn(field string, label string, capabilities []FieldCapabili
 	}
 	return TableColumn{Field: capability.Key, Label: firstNonEmpty(label, capability.Label, labelForField(capability.Key))}, true
 }
-
 func resolveCapability(capabilities []FieldCapability, field string) (FieldCapability, bool) {
 	field = strings.TrimSpace(field)
 	for _, capability := range capabilities {
@@ -202,7 +192,6 @@ func resolveCapability(capabilities []FieldCapability, field string) (FieldCapab
 	}
 	return FieldCapability{}, false
 }
-
 func capabilityField(capabilities []FieldCapability, field string) string {
 	capability, ok := resolveCapability(capabilities, field)
 	if !ok {
@@ -216,12 +205,11 @@ func capabilityField(capabilities []FieldCapability, field string) string {
 func defaultRoleField(capabilities []FieldCapability, role string) string {
 	field := firstCapabilityField(capabilities, role)
 	capability, ok := resolveCapability(capabilities, field)
-	if !ok || effectiveFieldImportance(capability.Importance) == ontology.FieldImportanceDetail {
+	if !ok || effectiveFieldImportance(capability.Importance) == ontoschema.FieldImportanceDetail {
 		return ""
 	}
 	return capability.Key
 }
-
 func firstCapabilityField(capabilities []FieldCapability, role string) string {
 	for _, capability := range capabilities {
 		if capability.SemanticRole == role && capability.Key == capability.CanonicalField {
@@ -235,7 +223,6 @@ func firstCapabilityField(capabilities []FieldCapability, role string) string {
 	}
 	return ""
 }
-
 func firstStatusCapabilityField(capabilities []FieldCapability) string {
 	for _, capability := range capabilities {
 		if capability.Key == capability.CanonicalField && statusLikeCapability(capability) {
@@ -249,14 +236,13 @@ func firstStatusCapabilityField(capabilities []FieldCapability) string {
 	}
 	return ""
 }
-
 func statusLikeCapability(capability FieldCapability) bool {
 	return capability.SemanticRole == "status"
 }
 
 // resolveBoardLayout lays out the kanban columns; group is the executed
 // column grouping, whose values carry the configured column overrides.
-func resolveBoardLayout(def viewconfig.ViewDefinition, group *viewconfig.GroupSpec, capabilities []FieldCapability, rows []TableRow, groups []TableGroup, page PageInfo) (*BoardLayout, *Warning) {
+func resolveBoardLayout(def viewconfig.ViewDefinition, group *viewconfig.GroupSpec, capabilities []FieldCapability, rows []TableRow, groups []TableGroup, page PageInfo) (*BoardLayout, *diag.Warning) {
 	kanban := def.Variants.Kanban
 	if kanban == nil || group == nil {
 		return nil, nil
@@ -264,11 +250,7 @@ func resolveBoardLayout(def viewconfig.ViewDefinition, group *viewconfig.GroupSp
 	field := strings.TrimSpace(group.Field)
 	capability, ok := resolveCapability(capabilities, field)
 	if !ok || boardFieldIsList(capability, rows) {
-		return nil, &Warning{
-			Code:    "view_kanban_column_unsupported",
-			Message: fmt.Sprintf("kanban column field %q must resolve to a single-valued capability", field),
-			Path:    "variants.kanban.columnField",
-		}
+		return nil, &diag.Warning{Code: "view_kanban_column_unsupported", Message: fmt.Sprintf("kanban column field %q must resolve to a single-valued capability", field), Path: "variants.kanban.columnField"}
 	}
 	overrides := groupValueOverrides(group)
 	fullByValue := groupsByValue(groups)
@@ -285,41 +267,19 @@ func resolveBoardLayout(def viewconfig.ViewDefinition, group *viewconfig.GroupSp
 			rowStart, rowEnd = boardPageRange(full, page)
 			rowCursor = rowEnd
 		}
-		columns = append(columns, BoardColumn{
-			Key:                groupKey("", field, bucket.value),
-			Value:              bucket.value,
-			Label:              groupLabel(field, bucket.value, bucket.label, capability, overrides),
-			Tone:               groupTone(bucket.value, capability),
-			Count:              full.TotalCount,
-			RowStart:           rowStart,
-			RowEnd:             rowEnd,
-			CollapsedByDefault: groupCollapsedByDefault(field, bucket.value, capability, overrides),
-		})
+		columns = append(columns, BoardColumn{Key: groupKey("", field, bucket.value), Value: bucket.value, Label: groupLabel(field, bucket.value, bucket.label, capability, overrides), Tone: groupTone(bucket.value, capability), Count: full.TotalCount, RowStart: rowStart, RowEnd: rowEnd, CollapsedByDefault: groupCollapsedByDefault(field, bucket.value, capability, overrides)})
 	}
 	if empty := fullByValue[""]; empty.TotalCount > 0 {
 		rowStart, rowEnd := boardPageRange(empty, page)
-		columns = append(columns, BoardColumn{
-			Key:      groupKey("", field, ""),
-			Value:    "",
-			Label:    "(empty)",
-			Count:    empty.TotalCount,
-			RowStart: rowStart,
-			RowEnd:   rowEnd,
-		})
+		columns = append(columns, BoardColumn{Key: groupKey("", field, ""), Value: "", Label: "(empty)", Count: empty.TotalCount, RowStart: rowStart, RowEnd: rowEnd})
 	}
-	return &BoardLayout{
-		ColumnField: capability.Key,
-		Editable:    boardCapabilityEditable(capability),
-		Columns:     columns,
-	}, nil
+	return &BoardLayout{ColumnField: capability.Key, Editable: boardCapabilityEditable(capability), Columns: columns}, nil
 }
-
 func boardPageRange(group TableGroup, page PageInfo) (int, int) {
 	start := min(max(group.RowStart-page.Offset, 0), page.Returned)
 	end := min(max(group.RowEnd-page.Offset, 0), page.Returned)
 	return start, end
 }
-
 func boardFieldIsList(capability FieldCapability, rows []TableRow) bool {
 	if capability.List || capability.Edit != nil && capability.Edit.List {
 		return true
@@ -338,7 +298,6 @@ func boardFieldIsList(capability FieldCapability, rows []TableRow) bool {
 	}
 	return false
 }
-
 func boardCapabilityEditable(capability FieldCapability) bool {
 	if capability.Edit == nil || capability.Edit.List {
 		return false
@@ -350,7 +309,6 @@ func boardCapabilityEditable(capability FieldCapability) bool {
 		return false
 	}
 }
-
 func boardBuckets(field string, capability FieldCapability, groups []TableGroup, overrides map[string]viewconfig.GroupValueSpec) []rowBucket {
 	domainBound := len(capability.EnumValues) > 0 || normalizedValueKind(capability.ValueKind) == "enum" || normalizedValueKind(capability.ValueKind) == "bool"
 	if !domainBound {
@@ -390,7 +348,6 @@ func boardBuckets(field string, capability FieldCapability, groups []TableGroup,
 	}
 	return out
 }
-
 func groupsByValue(groups []TableGroup) map[string]TableGroup {
 	out := make(map[string]TableGroup, len(groups))
 	for _, group := range groups {
@@ -398,7 +355,6 @@ func groupsByValue(groups []TableGroup) map[string]TableGroup {
 	}
 	return out
 }
-
 func groupTone(value string, capability FieldCapability) string {
 	for _, enumValue := range capability.EnumValues {
 		if enumValue.Value == value {
@@ -424,7 +380,6 @@ func kanbanGroupSpec(def viewconfig.ViewDefinition, field string) *viewconfig.Gr
 	}
 	return &viewconfig.GroupSpec{Field: field, Values: groupValuesForField(def.Defaults.Group, field)}
 }
-
 func groupValuesForField(group *viewconfig.GroupSpec, field string) []viewconfig.GroupValueSpec {
 	if group == nil {
 		return nil

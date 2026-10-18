@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"strconv"
 	"strings"
@@ -127,7 +128,7 @@ func applyProviderRootFieldOps(state *documentState, ops []setFieldOp) (editOp, 
 	}
 	changes := make([]noteformat.RootMetadataChange, 0, len(ops))
 	for _, op := range ops {
-		if !op.RawRootMetadata && !strings.EqualFold(strings.TrimSpace(op.Field), typeFieldName) {
+		if !op.RawRootMetadata && !strings.EqualFold(strings.TrimSpace(op.Field), ontoschema.TypeFieldName()) {
 			if _, err := validateSetFieldOperation(node, op, state.schema, state.allowSelectorRecovery); err != nil {
 				return op, err
 			}
@@ -173,12 +174,12 @@ func providerRootTargetsUnchanged(state *documentState, ops []setFieldOp) error 
 		return err
 	}
 	for _, op := range ops {
-		if !strings.EqualFold(op.Field, typeFieldName) {
-			baseType, baseTypePresent, typeErr := metadataFactForField(state.schema, baseProjection, setFieldOp{Ref: op.Ref, Field: typeFieldName})
+		if !strings.EqualFold(op.Field, ontoschema.TypeFieldName()) {
+			baseType, baseTypePresent, typeErr := metadataFactForField(state.schema, baseProjection, setFieldOp{Ref: op.Ref, Field: ontoschema.TypeFieldName()})
 			if typeErr != nil {
 				return typeErr
 			}
-			currentType, currentTypePresent, typeErr := metadataFactForField(state.schema, currentProjection, setFieldOp{Ref: op.Ref, Field: typeFieldName})
+			currentType, currentTypePresent, typeErr := metadataFactForField(state.schema, currentProjection, setFieldOp{Ref: op.Ref, Field: ontoschema.TypeFieldName()})
 			if typeErr != nil {
 				return typeErr
 			}
@@ -208,7 +209,7 @@ func providerRootTargetsUnchanged(state *documentState, ops []setFieldOp) error 
 	return nil
 }
 
-func providerRootMetadataChange(schema *Schema, node *NodeProjection, projection noteformat.Projection, op setFieldOp) (noteformat.RootMetadataChange, error) {
+func providerRootMetadataChange(schema *ontoschema.Schema, node *NodeProjection, projection noteformat.Projection, op setFieldOp) (noteformat.RootMetadataChange, error) {
 	if op.Ref.Kind != NodeKindNote || strings.TrimSpace(op.Ref.Fragment) != "" || strings.TrimSpace(op.Ref.NodeID) != "" {
 		return noteformat.RootMetadataChange{}, fmt.Errorf("%w: provider metadata edits require a note root", errUnsupportedTarget)
 	}
@@ -230,17 +231,17 @@ func providerRootMetadataChange(schema *Schema, node *NodeProjection, projection
 	return noteformat.RootMetadataChange{Key: key, Value: value}, nil
 }
 
-func providerRootField(schema *Schema, node *NodeProjection, projection noteformat.Projection, op setFieldOp) (*Field, string, error) {
+func providerRootField(schema *ontoschema.Schema, node *NodeProjection, projection noteformat.Projection, op setFieldOp) (*ontoschema.Field, string, error) {
 	if strings.EqualFold(strings.TrimSpace(op.Field), "title") {
 		key, keyErr := metadataAuthoredKey(projection, []string{"title"}, "title")
-		return &Field{Name: "title", Source: "title", SourceKind: FieldSourceFrontmatter, Kind: FieldKindScalar, TypeName: "String"}, key, keyErr
+		return &ontoschema.Field{Name: "title", Source: "title", SourceKind: ontoschema.FieldSourceFrontmatter, Kind: ontoschema.FieldKindScalar, TypeName: "String"}, key, keyErr
 	}
-	if strings.EqualFold(strings.TrimSpace(op.Field), typeFieldName) {
+	if strings.EqualFold(strings.TrimSpace(op.Field), ontoschema.TypeFieldName()) {
 		if len(op.Values) != 1 || schema == nil || schema.Types[strings.TrimSpace(op.Values[0])] == nil {
 			return nil, "", fmt.Errorf("%w: type must name a configured note type", errUnsupportedTarget)
 		}
-		key, keyErr := metadataAuthoredKey(projection, []string{typeFieldName}, typeFieldName)
-		return &Field{Name: typeFieldName, Source: typeFieldName, SourceKind: FieldSourceFrontmatter, Kind: FieldKindScalar, TypeName: "String"}, key, keyErr
+		key, keyErr := metadataAuthoredKey(projection, []string{ontoschema.TypeFieldName()}, ontoschema.TypeFieldName())
+		return &ontoschema.Field{Name: ontoschema.TypeFieldName(), Source: ontoschema.TypeFieldName(), SourceKind: ontoschema.FieldSourceFrontmatter, Kind: ontoschema.FieldKindScalar, TypeName: "String"}, key, keyErr
 	}
 	if op.RawRootMetadata {
 		name := strings.ToLower(strings.TrimSpace(op.Field))
@@ -248,9 +249,9 @@ func providerRootField(schema *Schema, node *NodeProjection, projection noteform
 			return nil, "", fmt.Errorf("%w: raw root metadata field %s is not supported", errUnsupportedTarget, op.Field)
 		}
 		key, keyErr := metadataAuthoredKey(projection, []string{name}, name)
-		return &Field{Name: name, Source: name, SourceKind: FieldSourceFrontmatter, Kind: FieldKindScalar, TypeName: "String", List: true}, key, keyErr
+		return &ontoschema.Field{Name: name, Source: name, SourceKind: ontoschema.FieldSourceFrontmatter, Kind: ontoschema.FieldKindScalar, TypeName: "String", List: true}, key, keyErr
 	}
-	var field *Field
+	var field *ontoschema.Field
 	if node != nil && node.Type != nil {
 		field = node.Type.ByName[op.Field]
 	}
@@ -265,22 +266,22 @@ func providerRootField(schema *Schema, node *NodeProjection, projection noteform
 	if field == nil {
 		return nil, "", fmt.Errorf("%w: field %s is not declared for the note root", errMissingField, op.Field)
 	}
-	if field.SourceKind == FieldSourceInline || (field.Kind != FieldKindScalar && field.Kind != FieldKindEnum && field.Kind != FieldKindLink) {
+	if field.SourceKind == ontoschema.FieldSourceInline || (field.Kind != ontoschema.FieldKindScalar && field.Kind != ontoschema.FieldKindEnum && field.Kind != ontoschema.FieldKindLink) {
 		return nil, "", fmt.Errorf("%w: field %s is not root metadata", errUnsupportedTarget, op.Field)
 	}
-	if op.RequireScalarList && (field.Kind != FieldKindScalar || !field.List) {
+	if op.RequireScalarList && (field.Kind != ontoschema.FieldKindScalar || !field.List) {
 		return nil, "", fmt.Errorf("%w: field %s is not a scalar list", errUnsupportedTarget, op.Field)
 	}
-	if op.IsLinks && field.Kind != FieldKindLink {
+	if op.IsLinks && field.Kind != ontoschema.FieldKindLink {
 		return nil, "", fmt.Errorf("%w: field %s is not a link field", errUnsupportedTarget, op.Field)
 	}
-	names := FieldSourceNames(field)
+	names := ontoschema.FieldSourceNames(field)
 	if len(names) == 0 {
-		var noteType *NoteType
+		var noteType *ontoschema.NoteType
 		if node != nil {
 			noteType = node.Type
 		}
-		names = []string{DefaultPropertyName(field.Name, propertyCaseOrDefault(noteType))}
+		names = []string{ontoschema.DefaultPropertyName(field.Name, propertyCaseOrDefault(noteType))}
 	}
 	key, err := metadataAuthoredKey(projection, names, names[0])
 	if err != nil {
@@ -308,18 +309,18 @@ func metadataAuthoredKey(projection noteformat.Projection, names []string, fallb
 	return fallback, nil
 }
 
-func metadataFactForField(schema *Schema, projection noteformat.Projection, op setFieldOp) (noteformat.RootMetadataFact, bool, error) {
-	names := []string{typeFieldName}
+func metadataFactForField(schema *ontoschema.Schema, projection noteformat.Projection, op setFieldOp) (noteformat.RootMetadataFact, bool, error) {
+	names := []string{ontoschema.TypeFieldName()}
 	if strings.EqualFold(op.Field, "title") {
 		names = []string{"title"}
 	} else if op.RawRootMetadata && (strings.EqualFold(op.Field, "tags") || strings.EqualFold(op.Field, "aliases")) {
 		names = []string{strings.ToLower(strings.TrimSpace(op.Field))}
-	} else if !strings.EqualFold(op.Field, typeFieldName) {
-		var field *Field
+	} else if !strings.EqualFold(op.Field, ontoschema.TypeFieldName()) {
+		var field *ontoschema.Field
 		typeName := strings.TrimSpace(op.Ref.TypeName)
 		if typeName == "" {
 			for _, fact := range projection.Facts.RootMetadata {
-				if strings.EqualFold(strings.TrimSpace(fact.Key), typeFieldName) {
+				if strings.EqualFold(strings.TrimSpace(fact.Key), ontoschema.TypeFieldName()) {
 					if value, ok := fact.Value.Export().(string); ok {
 						typeName = strings.TrimSpace(value)
 					}
@@ -335,9 +336,9 @@ func metadataFactForField(schema *Schema, projection noteformat.Projection, op s
 		if field == nil {
 			return noteformat.RootMetadataFact{}, false, fmt.Errorf("%w: field %s is not declared", errMissingField, op.Field)
 		}
-		names = FieldSourceNames(field)
+		names = ontoschema.FieldSourceNames(field)
 		if len(names) == 0 {
-			names = []string{DefaultPropertyName(field.Name, PropertyCaseKebab)}
+			names = []string{ontoschema.DefaultPropertyName(field.Name, ontoschema.PropertyCaseKebab)}
 		}
 	}
 	var found *noteformat.RootMetadataFact
@@ -388,7 +389,7 @@ func providerRootFieldValueForReplay(state *documentState, op setFieldOp) ([]str
 	}
 }
 
-func providerMetadataValue(schema *Schema, field *Field, op setFieldOp) (any, error) {
+func providerMetadataValue(schema *ontoschema.Schema, field *ontoschema.Field, op setFieldOp) (any, error) {
 	values := append([]string(nil), op.Values...)
 	if field.List {
 		out := make([]any, 0, len(values))
@@ -407,9 +408,9 @@ func providerMetadataValue(schema *Schema, field *Field, op setFieldOp) (any, er
 	return providerScalarMetadataValue(schema, field, values[0])
 }
 
-func providerScalarMetadataValue(schema *Schema, field *Field, raw string) (any, error) {
+func providerScalarMetadataValue(schema *ontoschema.Schema, field *ontoschema.Field, raw string) (any, error) {
 	raw = strings.TrimSpace(raw)
-	if field.Kind == FieldKindLink {
+	if field.Kind == ontoschema.FieldKindLink {
 		return raw, nil
 	}
 	if !validateScalarValue(raw, field, schema) {

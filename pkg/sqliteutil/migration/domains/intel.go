@@ -11,12 +11,6 @@ import (
 // TxStep is a transactional migration function.
 type TxStep func(context.Context, *sql.Tx) error
 
-// IntelPlan builds a migration plan for the intel domain, using the provided
-// per-version step functions.
-func IntelPlan(target int, steps []TxStep, validate func(context.Context, *sql.Tx) error) migration.DomainPlan {
-	return IntelPlanFrom(0, target, steps, validate)
-}
-
 // IntelPlanFrom builds a migration plan whose first forward step follows a
 // consolidated baseline. Baseline construction is owned by the Intel store;
 // only post-baseline changes are represented as migration steps here.

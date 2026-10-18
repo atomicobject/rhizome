@@ -38,9 +38,9 @@ func TestCodeRollupper_ChoosesModuleWhenSpread(t *testing.T) {
 	}
 
 	results := []RankedResult{
-		{Candidate: Candidate{Type: "code", Path: "pkg/foo.go", AnchorID: "a1", Handle: knowledge.CodeChunkHandle("a1", "symbol", 0), Symbol: "BuildSearch", FQN: "example/pkg.BuildSearch"}, FinalScore: 0.90},
-		{Candidate: Candidate{Type: "code", Path: "pkg/foo.go", AnchorID: "a2", Handle: knowledge.CodeChunkHandle("a2", "symbol", 0), Symbol: "RankSearch"}, FinalScore: 0.88},
-		{Candidate: Candidate{Type: "code", Path: "pkg/foo.go", AnchorID: "a3", Handle: knowledge.CodeChunkHandle("a3", "symbol", 0), Symbol: "PackSearch"}, FinalScore: 0.87},
+		{Candidate: Candidate{SourceRef: SourceRef{Path: "pkg/foo.go", AnchorID: "a1", Symbol: "BuildSearch", FQN: "example/pkg.BuildSearch"}, Type: "code", Handle: knowledge.CodeChunkHandle("a1", "symbol", 0)}, FinalScore: 0.90},
+		{Candidate: Candidate{SourceRef: SourceRef{Path: "pkg/foo.go", AnchorID: "a2", Symbol: "RankSearch"}, Type: "code", Handle: knowledge.CodeChunkHandle("a2", "symbol", 0)}, FinalScore: 0.88},
+		{Candidate: Candidate{SourceRef: SourceRef{Path: "pkg/foo.go", AnchorID: "a3", Symbol: "PackSearch"}, Type: "code", Handle: knowledge.CodeChunkHandle("a3", "symbol", 0)}, FinalScore: 0.87},
 	}
 
 	out, err := r.Rollup(context.Background(), QuerySpec{Limits: Limits{Total: 25}}, results)
@@ -63,8 +63,8 @@ func TestCodeRollupper_ChoosesSymbolWhenDominant(t *testing.T) {
 	}
 
 	results := []RankedResult{
-		{Candidate: Candidate{Type: "code", Path: "pkg/foo.go", AnchorID: "a1", Handle: knowledge.CodeChunkHandle("a1", "symbol", 0)}, FinalScore: 0.90},
-		{Candidate: Candidate{Type: "code", Path: "pkg/foo.go", AnchorID: "a2", Handle: knowledge.CodeChunkHandle("a2", "symbol", 0)}, FinalScore: 0.50},
+		{Candidate: Candidate{SourceRef: SourceRef{Path: "pkg/foo.go", AnchorID: "a1"}, Type: "code", Handle: knowledge.CodeChunkHandle("a1", "symbol", 0)}, FinalScore: 0.90},
+		{Candidate: Candidate{SourceRef: SourceRef{Path: "pkg/foo.go", AnchorID: "a2"}, Type: "code", Handle: knowledge.CodeChunkHandle("a2", "symbol", 0)}, FinalScore: 0.50},
 	}
 
 	out, err := r.Rollup(context.Background(), QuerySpec{Limits: Limits{Total: 25}}, results)
@@ -82,7 +82,7 @@ func TestCodeRollupper_KeepsExactSymbolHitInSmallFile(t *testing.T) {
 	for _, evidenceType := range []string{"symbol_exact", "symbol_match", "definition_anchor"} {
 		t.Run(evidenceType, func(t *testing.T) {
 			results := []RankedResult{
-				{Candidate: Candidate{Type: "code", Path: "pkg/foo.go", AnchorID: "a1", Symbol: "Needle", Handle: knowledge.CodeChunkHandle("a1", "symbol", 0), Evidence: []Evidence{{Type: evidenceType, RawScore: 0.9}}}, FinalScore: 0.90},
+				{Candidate: Candidate{SourceRef: SourceRef{Path: "pkg/foo.go", AnchorID: "a1", Symbol: "Needle"}, Type: "code", Handle: knowledge.CodeChunkHandle("a1", "symbol", 0), Evidence: []Evidence{{Type: evidenceType, RawScore: 0.9}}}, FinalScore: 0.90},
 			}
 
 			out, err := r.Rollup(context.Background(), QuerySpec{Limits: Limits{Total: 25}}, results)

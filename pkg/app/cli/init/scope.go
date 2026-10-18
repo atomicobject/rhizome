@@ -15,8 +15,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // Scope lists the rules that decide which paths Rhizome indexes, layer by
@@ -92,7 +92,7 @@ func ChangeScope(root string, excludes []string, edits ScopeEdits) (Scope, error
 		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 			return Scope{}, err
 		}
-		if err := obsidian.WriteFileAtomic(file, []byte(content), 0o644); err != nil {
+		if err := fileio.WriteFileAtomic(file, []byte(content), 0o644); err != nil {
 			return Scope{}, err
 		}
 	}
@@ -199,7 +199,7 @@ func writeIgnore(root string, s setup) error {
 	if err != nil || (exists && planned == current) {
 		return err
 	}
-	return obsidian.WriteFileAtomic(ignoreFilePath(root), []byte(planned), 0o644)
+	return fileio.WriteFileAtomic(ignoreFilePath(root), []byte(planned), 0o644)
 }
 
 // plannedScope reports the rules after a first run writes s.

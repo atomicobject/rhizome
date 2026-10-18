@@ -1,6 +1,7 @@
 package paths
 
 import (
+	"golang.org/x/text/unicode/norm"
 	"runtime"
 	"strings"
 )
@@ -26,3 +27,7 @@ func CaseEqual(a, b string) bool {
 	}
 	return a == b
 }
+
+// LinkKey is the platform-independent identity of an authored link name.
+// Filesystem identity still uses CaseKey; graph resolution folds NFC and case.
+func LinkKey(name string) string { return strings.ToLower(norm.NFC.String(name)) }

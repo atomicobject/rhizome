@@ -2,38 +2,39 @@ package indexing
 
 import (
 	"context"
-	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+
 	"io"
 	"os"
-	"strings"
 	"sync"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
-	"github.com/atomicobject/rhizome/pkg/app/semanticruntime"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	codeindex "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex"
-	codeemb "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/intentstore"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeemb "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
+
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
+type unifiedSemanticSetupOptions struct {
+	VaultPath  string
+	APIKey     string
+	TxLockMode string
+}
+
 type unifiedSemanticResources struct {
-	codeSyncer *semantic.Syncer
-	noteSyncer *semantic.NoteSyncer
-	codeStore  *codeemb.Store
-	noteStore  *sqlite.Store
+	codeSyncer *embedindex.Syncer
+	noteSyncer *embedindex.NoteSyncer
+	codeStore  *codeemb.CodeStore
+	noteStore  *codeemb.NoteStore
 	codeProv   embeddings.Provider
 	noteProv   embeddings.Provider
-	codeNode   *semantic.SharedEmbeddingNode
-	noteNode   *semantic.SharedEmbeddingNode
-	runtime    *semanticruntime.Runtime
-	intentWG   sync.WaitGroup
-	intentMu   sync.Mutex
-	intentErr  error
+	codeNode   *embedindex.SharedEmbeddingNode
+	noteNode   *embedindex.SharedEmbeddingNode
+	runtime    *embedindex.Runtime
 	closeOnce  sync.Once
 }
 
@@ -60,122 +61,43 @@ func (r *unifiedSemanticResources) close() {
 	})
 }
 
-func (r *unifiedSemanticResources) setIntentErr(err error) {
-	if r == nil || err == nil {
-		return
-	}
-	r.intentMu.Lock()
-	defer r.intentMu.Unlock()
-	if r.intentErr == nil {
-		r.intentErr = err
-	}
-}
-
-func (r *unifiedSemanticResources) waitIntent() error {
-	if r == nil {
-		return nil
-	}
-	r.intentWG.Wait()
-	r.intentMu.Lock()
-	defer r.intentMu.Unlock()
-	return r.intentErr
-}
-
-func (r *unifiedSemanticResources) startIntentSync(ctx context.Context, intelStore intentstore.Store) {
-	if r == nil || intelStore == nil {
-		return
-	}
-	if r.runtime == nil {
-		err := fmt.Errorf("semantic runtime unavailable")
-		r.setIntentErr(err)
-		fmt.Fprintf(os.Stderr, "[intent] embedding sync failed: %v\n", err)
-		return
-	}
-	r.intentWG.Add(1)
-	go func() {
-		defer r.intentWG.Done()
-		err := runPhase(ctx, "sync_intent_embeddings", func(phaseCtx context.Context) error {
-			return r.runtime.SyncIntentExemplars(phaseCtx, intelStore)
-		})
-		if err != nil {
-			r.setIntentErr(err)
-			fmt.Fprintf(os.Stderr, "[intent] embedding sync failed: %v\n", err)
-		}
-	}()
-}
-
-// prepareUnifiedSemanticResources opens the note/code embedding stores, wires
-// their write functions into the shared queue, and asks semanticruntime to group
-// compatible provider work onto shared lanes.
+// prepareUnifiedSemanticResources opens stores and provider lanes before writer
+// construction. Producers start only after bindWriter installs the writer.
 func prepareUnifiedSemanticResources(
 	ctx context.Context,
-	opts unifiedPostIndexOptions,
+	opts unifiedSemanticSetupOptions,
 	progress ProgressBar,
 	sharedWriteMu *sync.Mutex,
 	intelStore *semdb.Store,
-	writeQueue *indexwriter.Writer,
-	codeItemEmbBatch *func(context.Context, []codeindex.ItemEmbeddingUpsert) error,
-	codeChunkBatch *func(context.Context, []codeindex.ItemChunksUpsert) error,
-	codeChunkWriter *func(context.Context, codeindex.AnchorID, []codeindex.ChunkInput, []string, []embeddings.Embedding) error,
-	noteMetaBatch *func(context.Context, []embeddings.NoteFileInfo) error,
-	noteChunkSyncBatch *func(context.Context, []embeddings.NoteChunkSync) error,
-	noteChunkSyncWriter *func(context.Context, embeddings.NoteChunkSync) error,
 	codeCfg codeanchor.Config,
 	embCfg embeddings.Config,
 	codeEmbCfg embeddings.Config,
 ) (*unifiedSemanticResources, error) {
-	res := &unifiedSemanticResources{runtime: semanticruntime.New()}
+	res := &unifiedSemanticResources{runtime: embedindex.NewRuntime()}
 	ready := false
 	defer func() {
 		if !ready {
 			res.close()
 		}
 	}()
-	filterProgress := func(prefix string) func(format string, args ...any) {
-		return func(format string, args ...any) {
-			if strings.HasPrefix(format, "Embedding ") ||
-				format == "Sync complete" ||
-				format == "Building chunks" ||
-				strings.HasPrefix(format, "Loading intel ") ||
-				strings.HasPrefix(format, "Loaded note embedding states") ||
-				format == "Preparing index schema" ||
-				format == "No embeddings to update (index is up to date)" ||
-				format == "No changed notes to embed" ||
-				format == "No changed code to embed" {
-				return
-			}
-			progress.Println(fmt.Sprintf(prefix+format, args...))
-		}
-	}
-	batchPolicy := semanticruntime.PolicyFor(semanticruntime.IndexRequest{Source: semanticruntime.IndexSourceFullScan, LatencyClass: semanticruntime.LatencyThroughput})
+	batchPolicy := embedindex.PolicyFor(embedindex.IndexRequest{Source: embedindex.IndexSourceFullScan, LatencyClass: embedindex.LatencyThroughput})
 
 	if codeEmbCfg.Enabled {
 		if err := embeddings.EnsureOllamaForConfig(ctx, codeEmbCfg, os.Stderr); err != nil {
 			return nil, err
 		}
-		codeProvider, codeProviderCfg, err := prepareProvider(codeEmbCfg, opts.APIKey)
+		codeProvider, codeProviderCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(ctx), codeEmbCfg, opts.APIKey)
 		if err != nil {
 			return nil, err
 		}
 		res.codeProv = codeProvider
-		embStore, err := codeemb.OpenWithOptions(codeEmbCfg.IndexPath, codeProvider.Dimensions(), codeemb.OpenOptions{
-			TxLockMode: opts.TxLockMode,
-		})
+		embStore, err := codeemb.OpenCode(context.Background(), codeemb.File(codeEmbCfg.IndexPath), codeemb.Options{TxLockMode: opts.TxLockMode, Access: codeemb.WriteIndex, Dimensions: codeProvider.Dimensions()})
 		if err != nil {
 			return nil, err
 		}
 		res.codeStore = embStore
 		embStore.SetWriteMu(sharedWriteMu)
-		if codeItemEmbBatch != nil {
-			*codeItemEmbBatch = embStore.UpsertItemEmbeddingBatch
-		}
-		if codeChunkBatch != nil {
-			*codeChunkBatch = embStore.UpsertItemChunksBatch
-		}
-		if codeChunkWriter != nil {
-			*codeChunkWriter = embStore.UpsertItemChunks
-		}
-		syncer := &semantic.Syncer{
+		syncer := &embedindex.Syncer{
 			Index:           embStore,
 			Provider:        codeProvider,
 			ProviderInfo:    codeProviderCfg,
@@ -184,11 +106,9 @@ func prepareUnifiedSemanticResources(
 			ChunkWriter:     intelStore,
 			EmbeddingWriter: intelStore,
 			Root:            opts.VaultPath,
-			Budget:          semantic.DefaultChunkBudget(),
-			Policy:          semantic.DefaultSynthesisPolicy(semantic.PolicyOptions{Budget: semantic.DefaultChunkBudget()}),
+			Budget:          embedindex.DefaultChunkBudget(),
+			Policy:          embedindex.DefaultSynthesisPolicy(embedindex.PolicyOptions{Budget: embedindex.DefaultChunkBudget()}),
 			CodeEmbedPacker: batchPolicy.CodeEmbedPacker,
-			WriteQueue:      writeQueue,
-			OnProgress:      filterProgress("[code] "),
 		}
 		if codeEmbCfg.BatchSize > 0 {
 			syncer.BatchSize = codeEmbCfg.BatchSize
@@ -203,29 +123,18 @@ func prepareUnifiedSemanticResources(
 		if err := embeddings.EnsureOllamaForConfig(ctx, embCfg, os.Stderr); err != nil {
 			return nil, err
 		}
-		noteProvider, noteProviderCfg, err := prepareProvider(embCfg, opts.APIKey)
+		noteProvider, noteProviderCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(ctx), embCfg, opts.APIKey)
 		if err != nil {
 			return nil, err
 		}
 		res.noteProv = noteProvider
-		store, err := sqlite.OpenWithOptions(embCfg.IndexPath, noteProvider.Dimensions(), sqlite.OpenOptions{
-			TxLockMode: opts.TxLockMode,
-		})
+		store, err := codeemb.OpenNotes(context.Background(), codeemb.File(embCfg.IndexPath), codeemb.Options{TxLockMode: opts.TxLockMode, Access: codeemb.WriteIndex, Dimensions: noteProvider.Dimensions()})
 		if err != nil {
 			return nil, err
 		}
 		res.noteStore = store
 		store.SetWriteMu(sharedWriteMu)
-		if noteMetaBatch != nil {
-			*noteMetaBatch = store.UpsertNoteMetaBatch
-		}
-		if noteChunkSyncBatch != nil {
-			*noteChunkSyncBatch = store.SyncNoteChunksBatch
-		}
-		if noteChunkSyncWriter != nil {
-			*noteChunkSyncWriter = store.SyncNoteChunks
-		}
-		syncer := &semantic.NoteSyncer{
+		syncer := &embedindex.NoteSyncer{
 			Index:           store,
 			Provider:        noteProvider,
 			ProviderInfo:    noteProviderCfg,
@@ -234,9 +143,7 @@ func prepareUnifiedSemanticResources(
 			EmbeddingWriter: intelStore,
 			NoteReader:      &obsidian.Note{},
 			NoteEmbedPacker: batchPolicy.NoteEmbedPacker,
-			WriteQueue:      writeQueue,
-			OnProgress:      filterProgress("[notes] "),
-			RawEligibility:  semantic.NewOntologyRawNoteEligibility(intelStore),
+			RawEligibility:  embedindex.NewOntologyRawNoteEligibility(intelStore),
 		}
 		if embCfg.MaxSectionBytes > 0 {
 			syncer.MaxSectionBytes = embCfg.MaxSectionBytes
@@ -267,12 +174,12 @@ func prepareUnifiedSemanticResources(
 		res.noteSyncer.EmbedGate = sharedGate
 	}
 	if res.noteSyncer != nil && res.noteProv != nil {
-		opts := semantic.EmbedPackerOptions{}
+		opts := embedindex.EmbedPackerOptions{}
 		if res.noteSyncer.NoteEmbedPacker != nil {
 			opts = *res.noteSyncer.NoteEmbedPacker
 		}
-		lane, err := res.runtime.EnsureLane(ctx, semanticruntime.LaneRequest{
-			Kind:          semanticruntime.LaneKindNote,
+		lane, err := res.runtime.EnsureLane(ctx, embedindex.LaneRequest{
+			Kind:          embedindex.LaneKindNote,
 			Provider:      res.noteProv,
 			ProviderInfo:  res.noteSyncer.ProviderInfo,
 			MaxConcurrent: res.noteSyncer.MaxConcurrent,
@@ -288,12 +195,12 @@ func prepareUnifiedSemanticResources(
 		res.noteSyncer.EmbeddingNode = lane.Node
 	}
 	if res.codeSyncer != nil && res.codeProv != nil {
-		opts := semantic.EmbedPackerOptions{}
+		opts := embedindex.EmbedPackerOptions{}
 		if res.codeSyncer.CodeEmbedPacker != nil {
 			opts = *res.codeSyncer.CodeEmbedPacker
 		}
-		lane, err := res.runtime.EnsureLane(ctx, semanticruntime.LaneRequest{
-			Kind:          semanticruntime.LaneKindCode,
+		lane, err := res.runtime.EnsureLane(ctx, embedindex.LaneRequest{
+			Kind:          embedindex.LaneKindCode,
 			Provider:      res.codeProv,
 			ProviderInfo:  res.codeSyncer.ProviderInfo,
 			MaxConcurrent: res.codeSyncer.MaxConcurrent,

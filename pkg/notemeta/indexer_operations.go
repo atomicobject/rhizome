@@ -2,15 +2,13 @@ package notemeta
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -149,11 +147,42 @@ func (i Indexer) BuildPathDelta(ctx context.Context, vaultDef obsidian.VaultDefi
 		return nil, err
 	}
 	if topologyChanged {
-		return i.buildBootstrapDelta(ctx, vaultDef, noteMgr, store)
+		aliases := overlayProjectionAliasesForDelta(storedAliases, entries, deletedPaths)
+		affectedKeys := topologyLookupKeys(append(projectedPaths(entries), deletedPaths...), storedAliases, aliases)
+		sources, err := store.NoteLinkInputSources(ctx, affectedKeys)
+		if err != nil {
+			return nil, err
+		}
+		included := map[string]bool{}
+		for _, p := range projectedPaths(entries) {
+			included[p] = true
+		}
+		for _, p := range deletedPaths {
+			included[p] = true
+		}
+		var additional []string
+		for _, p := range sources {
+			if !included[p] {
+				additional = append(additional, p)
+			}
+		}
+		dependents, err := i.loadProjectedEntriesForPaths(ctx, vaultDef, noteMgr, additional)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, dependents...)
+		durable, err = store.CurrentNoteMetadataRowsByPaths(ctx, projectedPaths(entries))
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Content-identical entries keep their derived rows and the published
 	// generation; only their persisted freshness evidence is refreshed.
 	changed, touches := partitionProjectedEntries(durable, entries)
+	if topologyChanged {
+		changed = entries
+		touches = nil
+	}
 	if len(changed) == 0 && len(deletedPaths) == 0 {
 		if len(touches) == 0 {
 			return nil, nil
@@ -217,10 +246,16 @@ func (i Indexer) buildSnapshot(vaultDef obsidian.VaultDefinition, entries []proj
 		snapshot.Notes = append(snapshot.Notes, projectionNoteRow(entry, loadedAt))
 		snapshot.ProjectionDiagnostics = append(snapshot.ProjectionDiagnostics, projectionDiagnosticRows(entry)...)
 		if entry.Projection.Status == noteformat.ProjectionStatusCurrent {
+			payload, err := projectionPayloadRow(entry)
+			if err != nil {
+				return semdb.NoteMetadataSnapshot{}, err
+			}
+			snapshot.ProjectionPayloads = append(snapshot.ProjectionPayloads, payload)
 			snapshot.PropertyValues = append(snapshot.PropertyValues, projectionPropertyRows(entry)...)
 			snapshot.Tags = append(snapshot.Tags, projectionTagRows(entry)...)
 			snapshot.FragmentTargets = append(snapshot.FragmentTargets, projectionTargetRows(entry)...)
 			snapshot.SearchRegions = append(snapshot.SearchRegions, projectionSearchRegionRows(entry)...)
+			snapshot.LinkInputs = append(snapshot.LinkInputs, projectionLinkInputRows(vaultDef, entry)...)
 			snapshot.WikilinkEdges = append(snapshot.WikilinkEdges, projectionLinkRows(vaultDef, cache, entry)...)
 		}
 	}
@@ -239,10 +274,16 @@ func (i Indexer) buildDelta(vaultDef obsidian.VaultDefinition, cache *obsidian.N
 		delta.Notes = append(delta.Notes, projectionNoteRow(entry, loadedAt))
 		delta.ProjectionDiagnostics = append(delta.ProjectionDiagnostics, projectionDiagnosticRows(entry)...)
 		if entry.Projection.Status == noteformat.ProjectionStatusCurrent {
+			payload, err := projectionPayloadRow(entry)
+			if err != nil {
+				return nil, err
+			}
+			delta.ProjectionPayloads = append(delta.ProjectionPayloads, payload)
 			delta.PropertyValues = append(delta.PropertyValues, projectionPropertyRows(entry)...)
 			delta.Tags = append(delta.Tags, projectionTagRows(entry)...)
 			delta.FragmentTargets = append(delta.FragmentTargets, projectionTargetRows(entry)...)
 			delta.SearchRegions = append(delta.SearchRegions, projectionSearchRegionRows(entry)...)
+			delta.LinkInputs = append(delta.LinkInputs, projectionLinkInputRows(vaultDef, entry)...)
 			delta.WikilinkEdges = append(delta.WikilinkEdges, projectionLinkRows(vaultDef, cache, entry)...)
 		}
 	}
@@ -322,20 +363,12 @@ func selectedPathsAfterDelta(persistedPaths []string, entries []projectedNoteEnt
 	return out
 }
 
-func entriesFromProjected(entries []projectedNoteEntry) []noteEntry {
-	out := make([]noteEntry, len(entries))
-	for index, entry := range entries {
-		out[index] = entry.Entry
-	}
-	return out
-}
-
 func notesHashFromProjectedEntries(entries []projectedNoteEntry) string {
-	var aggregate [sha256.Size]byte
+	var aggregate noteSetDigest
 	for _, entry := range entries {
-		xorDigest(&aggregate, noteStateDigest(entry.Source.Path().String(), entry.Source.ContentHash()))
+		aggregate.Add(entry.Source.Path().String(), entry.Source.ContentHash())
 	}
-	return hex.EncodeToString(aggregate[:])
+	return aggregate.String()
 }
 
 func sortGraphEdges(rows []semdb.GraphDocEdgeRow) {

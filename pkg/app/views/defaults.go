@@ -1,17 +1,17 @@
 package views
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"sort"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 )
 
 // generatedColumnLimit caps SPEC-0112 generated table columns.
 const generatedColumnLimit = 10
 
-func generatedDefaults(schema *ontology.Schema) []viewconfig.ViewDefinition {
+func generatedDefaults(schema *ontoschema.Schema) []viewconfig.ViewDefinition {
 	if schema == nil {
 		return nil
 	}
@@ -40,8 +40,8 @@ func generatedDefaults(schema *ontology.Schema) []viewconfig.ViewDefinition {
 	return out
 }
 
-func generatedTypeDefault(schema *ontology.Schema, name string, noteType *ontology.NoteType, profile ontology.TypeProfile) viewconfig.ViewDefinition {
-	var fields []*ontology.Field
+func generatedTypeDefault(schema *ontoschema.Schema, name string, noteType *ontoschema.NoteType, profile ontoschema.TypeProfile) viewconfig.ViewDefinition {
+	var fields []*ontoschema.Field
 	label, plural := "", ""
 	if noteType != nil {
 		fields = noteType.Fields
@@ -57,8 +57,8 @@ func generatedTypeDefault(schema *ontology.Schema, name string, noteType *ontolo
 	)
 }
 
-func generatedInterfaceDefault(schema *ontology.Schema, name string, iface *ontology.InterfaceType, profile ontology.TypeProfile) viewconfig.ViewDefinition {
-	var fields []*ontology.Field
+func generatedInterfaceDefault(schema *ontoschema.Schema, name string, iface *ontoschema.InterfaceType, profile ontoschema.TypeProfile) viewconfig.ViewDefinition {
+	var fields []*ontoschema.Field
 	label, plural := "", ""
 	if iface != nil {
 		fields = iface.Fields
@@ -74,14 +74,14 @@ func generatedInterfaceDefault(schema *ontology.Schema, name string, iface *onto
 // generatedViewName titles a generated view the way the schema names its
 // type: the plural label, then an authored label, then the humanized name.
 func generatedViewName(typeName, label, plural string) string {
-	return firstNonEmpty(plural, label, ontology.HumanizeFieldName(typeName))
+	return firstNonEmpty(plural, label, ontoschema.HumanizeFieldName(typeName))
 }
 
 // generatedDefault builds a type's or interface's runtime view from its
 // SPEC-0112 profile alone: sort, grouping, columns, and offered layouts follow
 // the profile's shape and never a field's name. The default variant is Table;
 // the catalog may open a workflow type as a Board from its record counts.
-func generatedDefault(schema *ontology.Schema, name string, fields []*ontology.Field, profile ontology.TypeProfile, source viewconfig.SourceSpec, mount viewconfig.MountSpec, id string) viewconfig.ViewDefinition {
+func generatedDefault(schema *ontoschema.Schema, name string, fields []*ontoschema.Field, profile ontoschema.TypeProfile, source viewconfig.SourceSpec, mount viewconfig.MountSpec, id string) viewconfig.ViewDefinition {
 	identifier := generatedIdentifierField(fields)
 	variants := viewconfig.VariantSet{
 		Table: &viewconfig.TableVariant{Columns: generatedColumns(schema, fields, profile, identifier, source.Kind == viewconfig.SourceKindOntologyInterface)},
@@ -89,7 +89,7 @@ func generatedDefault(schema *ontology.Schema, name string, fields []*ontology.F
 	if profile.SummaryField != "" {
 		variants.Card = &viewconfig.CardSpec{Eyebrow: identifier, Title: "title"}
 		// A DETAIL summary stays available but is never a default preview.
-		if summary := schemaFieldByName(fields, profile.SummaryField); summary == nil || summary.Display.EffectiveImportance() != ontology.FieldImportanceDetail {
+		if summary := schemaFieldByName(fields, profile.SummaryField); summary == nil || summary.Display.EffectiveImportance() != ontoschema.FieldImportanceDetail {
 			variants.Card.Preview = profile.SummaryField
 		}
 	}
@@ -114,28 +114,28 @@ func generatedDefault(schema *ontology.Schema, name string, fields []*ontology.F
 	}
 }
 
-func generatedSort(profile ontology.TypeProfile) []viewconfig.SortSpec {
+func generatedSort(profile ontoschema.TypeProfile) []viewconfig.SortSpec {
 	if profile.RankField != "" {
 		return []viewconfig.SortSpec{{Field: profile.RankField, Direction: "asc"}, {Field: "title", Direction: "asc"}}
 	}
 	switch profile.Shape {
-	case ontology.ShapeDated:
+	case ontoschema.ShapeDated:
 		return []viewconfig.SortSpec{{Field: profile.PrimaryDateField, Direction: "desc"}}
-	case ontology.ShapeWorkflow, ontology.ShapeContract:
+	case ontoschema.ShapeWorkflow, ontoschema.ShapeContract:
 		return []viewconfig.SortSpec{{Field: "updatedAt", Direction: "desc"}}
 	default:
 		return []viewconfig.SortSpec{{Field: "title", Direction: "asc"}}
 	}
 }
 
-func generatedGroup(profile ontology.TypeProfile) *viewconfig.GroupSpec {
+func generatedGroup(profile ontoschema.TypeProfile) *viewconfig.GroupSpec {
 	switch profile.Shape {
-	case ontology.ShapeWorkflow, ontology.ShapeContract:
+	case ontoschema.ShapeWorkflow, ontoschema.ShapeContract:
 		// Execution orders lifecycle groups by stage (lifecycleGroupRanks).
 		return &viewconfig.GroupSpec{Field: profile.LifecycleField}
-	case ontology.ShapeDated:
+	case ontoschema.ShapeDated:
 		return &viewconfig.GroupSpec{Field: profile.PrimaryDateField, Bucket: viewconfig.GroupBucketMonth}
-	case ontology.ShapeCatalog:
+	case ontoschema.ShapeCatalog:
 		return &viewconfig.GroupSpec{Field: profile.CategoryFields[0]}
 	default:
 		return nil
@@ -146,7 +146,7 @@ func generatedGroup(profile ontology.TypeProfile) *viewconfig.GroupSpec {
 // interfaces, lifecycle, KEY ordered and category fields, key text, people,
 // relation, and reverse fields, then a date and Changed, which keep their two
 // slots when the list runs long. DETAIL fields stay available but hidden.
-func generatedColumns(schema *ontology.Schema, fields []*ontology.Field, profile ontology.TypeProfile, identifier string, iface bool) []viewconfig.ViewColumn {
+func generatedColumns(schema *ontoschema.Schema, fields []*ontoschema.Field, profile ontoschema.TypeProfile, identifier string, iface bool) []viewconfig.ViewColumn {
 	seen := map[string]bool{}
 	add := func(columns []viewconfig.ViewColumn, field, label string) []viewconfig.ViewColumn {
 		if field == "" || seen[field] {
@@ -160,7 +160,7 @@ func generatedColumns(schema *ontology.Schema, fields []*ontology.Field, profile
 	}
 	shown := func(name string) bool {
 		field := schemaFieldByName(fields, name)
-		return field != nil && field.Display.EffectiveImportance() != ontology.FieldImportanceDetail
+		return field != nil && field.Display.EffectiveImportance() != ontoschema.FieldImportanceDetail
 	}
 	head := add(nil, "title", "")
 	head = add(head, identifier, "")
@@ -169,7 +169,7 @@ func generatedColumns(schema *ontology.Schema, fields []*ontology.Field, profile
 	}
 	head = add(head, profile.LifecycleField, "")
 	for _, field := range fields {
-		if field != nil && field.Display.EffectiveImportance() == ontology.FieldImportanceKey &&
+		if field != nil && field.Display.EffectiveImportance() == ontoschema.FieldImportanceKey &&
 			(slices.Contains(profile.OrderedFields, field.Name) || slices.Contains(profile.CategoryFields, field.Name)) {
 			head = add(head, field.Name, "")
 		}
@@ -196,7 +196,7 @@ func generatedColumns(schema *ontology.Schema, fields []*ontology.Field, profile
 
 // reverseFieldLabel names a reverse count column by the target type's plural
 // label, else the humanized field name.
-func reverseFieldLabel(schema *ontology.Schema, field *ontology.Field) string {
+func reverseFieldLabel(schema *ontoschema.Schema, field *ontoschema.Field) string {
 	if schema != nil {
 		if target := schema.Types[field.TypeName]; target != nil && target.PluralLabel != "" {
 			return target.PluralLabel
@@ -210,19 +210,19 @@ func reverseFieldLabel(schema *ontology.Schema, field *ontology.Field) string {
 
 // generatedDateField is the profile's primary date, else the first shown
 // single Date or DateTime field.
-func generatedDateField(fields []*ontology.Field, profile ontology.TypeProfile) string {
+func generatedDateField(fields []*ontoschema.Field, profile ontoschema.TypeProfile) string {
 	if profile.PrimaryDateField != "" {
 		return profile.PrimaryDateField
 	}
 	for _, field := range fields {
-		if isDateField(field) && !field.List && field.Display.EffectiveImportance() != ontology.FieldImportanceDetail {
+		if isDateField(field) && !field.List && field.Display.EffectiveImportance() != ontoschema.FieldImportanceDetail {
 			return field.Name
 		}
 	}
 	return ""
 }
 
-func generatedIdentifierField(fields []*ontology.Field) string {
+func generatedIdentifierField(fields []*ontoschema.Field) string {
 	for _, field := range fields {
 		if field != nil && (field.IsIdentifier || field.IsPreferredIdentifier || field.IsDerivableIdentifier) {
 			return field.Name

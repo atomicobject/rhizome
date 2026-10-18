@@ -8,13 +8,15 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	anchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	embsqlite "github.com/atomicobject/rhizome/pkg/search/embeddings/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
+
+	anchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 func TestLiveOwnership_QuietPendingDeletionPrunesDurableDerivedDebt(t *testing.T) {
@@ -34,7 +36,7 @@ func TestLiveOwnership_QuietPendingDeletionPrunesDurableDerivedDebt(t *testing.T
 	currentUpdatedAt := sections[0].UpdatedAt
 
 	provider := embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 2})
-	noteIndex, err := embsqlite.Open(filepath.Join(root, "notes.db"), provider.Dimensions())
+	noteIndex, err := embsqlite.OpenNotes(context.Background(), embsqlite.File(filepath.Join(root, "notes.db")), embsqlite.Options{Access: embsqlite.WriteIndex, Dimensions: provider.Dimensions()})
 	require.NoError(t, err)
 	defer noteIndex.Close()
 	current := embeddings.NoteFileInfo{ID: embeddings.NoteID(currentPath), Path: currentPath, Title: "Current"}
@@ -59,7 +61,7 @@ func TestLiveOwnership_QuietPendingDeletionPrunesDurableDerivedDebt(t *testing.T
 	require.NoError(t, err)
 	require.Positive(t, deletedTransition.ReconciliationGeneration)
 
-	w.noteSyncer = &semantic.NoteSyncer{
+	w.noteSyncer = &embedindex.NoteSyncer{
 		Index:        noteIndex,
 		Provider:     provider,
 		ProviderInfo: embeddings.ProviderConfig{Provider: "test", Model: "deterministic"},

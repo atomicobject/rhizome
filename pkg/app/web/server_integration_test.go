@@ -6,6 +6,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/app/agentapi"
+	"github.com/atomicobject/rhizome/pkg/app/indexing"
+	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
+	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
+	appviews "github.com/atomicobject/rhizome/pkg/app/views"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/validate"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
+	"github.com/stretchr/testify/require"
 	"io"
 	"io/fs"
 	"net/http"
@@ -19,21 +42,6 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/agentapi"
-	"github.com/atomicobject/rhizome/pkg/app/indexing"
-	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
-	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
-	appviews "github.com/atomicobject/rhizome/pkg/app/views"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
-	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
-	"github.com/atomicobject/rhizome/pkg/validate"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
-	"github.com/stretchr/testify/require"
 )
 
 func TestServerFixtureEndpoints(t *testing.T) {
@@ -225,6 +233,8 @@ query:
 outputContract:
   expectedPaths: ["__schema.queryType.name"]
   empty: No schema found.
+adaptationGuidance:
+  summary: Inspect the schema.
 `), 0o644))
 
 	srv := newFixtureServer(t, fixture, nil)
@@ -261,6 +271,8 @@ query:
 outputContract:
   expectedPaths: ["noSuchPublicField"]
   empty: No result.
+adaptationGuidance:
+  summary: Inspect the result.
 `), 0o644))
 
 	srv := newFixtureServer(t, fixture, nil)
@@ -558,6 +570,9 @@ func TestServerProvidedRuntimeUsesExistingIntelDBBeforeLiveIndexArrives(t *testi
 }
 
 func TestOntologyEndpointsWithoutSchema(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Parallel()
 
 	root := t.TempDir()
@@ -565,7 +580,7 @@ func TestOntologyEndpointsWithoutSchema(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "a.md"), []byte("# Untyped note\n"), 0o644))
 	fixture := fixtureVault{
 		root:     root,
-		vault:    &obsidian.Vault{Name: "no-schema"},
+		vault:    &repoconfig.Vault{Env: env, Name: "no-schema"},
 		vaultDef: obsidian.VaultDefinition{Name: "no-schema", Path: root, Links: obsidian.LinkTypeBoth},
 	}
 	srv := newFixtureServer(t, fixture, &Runtime{})
@@ -609,6 +624,9 @@ func TestOntologyEndpointsWithoutSchema(t *testing.T) {
 }
 
 func TestOntologyWorkspaceFallsBackToUntypedIndexedNotesWithoutSchema(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Parallel()
 
 	root := t.TempDir()
@@ -627,14 +645,14 @@ func TestOntologyWorkspaceFallsBackToUntypedIndexedNotesWithoutSchema(t *testing
 		Path:  root,
 		Links: obsidian.LinkTypeBoth,
 	}
-	require.NoError(t, testNoteMetadataIndexer(t).SyncPaths(context.Background(), vaultDef, &obsidian.Note{}, store, []string{
+	require.NoError(t, testkit.NoteMetadataIndexer(t).SyncPaths(vaultconfig.WithEnv(context.Background(), env), vaultDef, &obsidian.Note{}, store, []string{
 		"notes/a.md",
 		"notes/b.md",
 	}, nil))
 
 	fixture := fixtureVault{
 		root:       root,
-		vault:      &obsidian.Vault{Name: "no-schema"},
+		vault:      &repoconfig.Vault{Env: env, Name: "no-schema"},
 		vaultDef:   vaultDef,
 		intelStore: store,
 	}
@@ -707,7 +725,7 @@ title: Task Flow
 
 Task creation validates required fields.
 `), 0o644))
-	_, err := ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err := ontologytest.Publish(context.Background(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	require.NoError(t, fixture.intelStore.ReplaceIntelCodeFile(context.Background(), "specs/100-demo/task-flow.md", nil, nil, nil))
 	srv := newFixtureServer(t, fixture, nil)
@@ -1367,7 +1385,9 @@ fragment TypeRef on __Type {
 	}
 	compiled, compileIssues := queryrecipe.Compile(recipe, defs.exec, map[string]string{"path": "specs/100-demo/plan.md"})
 	require.Empty(t, compileIssues)
-	directRecipeResult := ontologyquery.ExecutePrepared(context.Background(), srv.ontologyQueryDeps(service, nil), defs.schema, defs.exec, compiled.Prepared)
+	deps, err := srv.ontologyQueryDeps(service, nil)
+	require.NoError(t, err)
+	directRecipeResult := ontologyquery.ExecutePrepared(context.Background(), deps, defs.schema, defs.exec, compiled.Prepared)
 
 	var publicRecipeResp ontologyquery.Result
 	postJSON(t, httpSrv.URL+"/api/v1/graphql", map[string]any{
@@ -1586,13 +1606,13 @@ func TestOntologyAtlasEndpointWithSchema(t *testing.T) {
 		}
 	}
 
-	sections := map[string]ontology.TypeDoc{}
+	sections := map[string]schemadoc.TypeDoc{}
 	for _, section := range atlas.Sections {
 		sections[section.Name] = section
 	}
 	storiesSection, ok := sections["StoriesSection"]
 	require.True(t, ok, "expected StoriesSection in atlas sections")
-	require.Equal(t, ontology.TypeRoleSection, storiesSection.Role)
+	require.Equal(t, ontoschema.TypeRoleSection, storiesSection.Role)
 	require.NotEmpty(t, storiesSection.Fields)
 }
 
@@ -1616,7 +1636,7 @@ func TestOntologyAtlasEndpointIncludesEmbeddedTypes(t *testing.T) {
 
 	entry, ok := byName["SpecMetric"]
 	require.True(t, ok, "expected embedded type SpecMetric in atlas")
-	require.Equal(t, ontology.TypeRoleEmbeddedNode, entry.Type.Role)
+	require.Equal(t, ontoschema.TypeRoleEmbeddedNode, entry.Type.Role)
 	require.Equal(t, "EMBEDDED", entry.Type.Locator)
 	require.Equal(t, 1, entry.Count)
 	require.Equal(t, []string{"specs/prod.md#spec-metric-60"}, entry.StartingNotes)
@@ -1962,6 +1982,9 @@ func TestViewFieldCandidatesPostReadsThroughEditSession(t *testing.T) {
 }
 
 func prepareIdentityStatusFixtureVault(t *testing.T) fixtureVault {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 
 	root := t.TempDir()
@@ -2026,18 +2049,21 @@ summary: Alice profile
 		Path:  root,
 		Links: obsidian.LinkTypeBoth,
 	}
-	_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	_, err = ontologytest.Publish(vaultconfig.WithEnv(context.Background(), env), testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
 	return fixtureVault{
 		root:       root,
-		vault:      &obsidian.Vault{Name: "identity-status-fixture"},
+		vault:      &repoconfig.Vault{Env: env, Name: "identity-status-fixture"},
 		vaultDef:   vaultDef,
 		intelStore: store,
 	}
 }
 
 func prepareEmbeddedIdentityStatusFixtureVault(t *testing.T) fixtureVault {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 
 	root := t.TempDir()
@@ -2091,12 +2117,12 @@ story-status:: satisfied
 		Path:  root,
 		Links: obsidian.LinkTypeBoth,
 	}
-	_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	_, err = ontologytest.Publish(vaultconfig.WithEnv(context.Background(), env), testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
 	return fixtureVault{
 		root:       root,
-		vault:      &obsidian.Vault{Name: "embedded-identity-status-fixture"},
+		vault:      &repoconfig.Vault{Env: env, Name: "embedded-identity-status-fixture"},
 		vaultDef:   vaultDef,
 		intelStore: store,
 	}
@@ -2304,7 +2330,7 @@ func TestOntologySummaryDegradesWhenQuerySchemaBuildFails(t *testing.T) {
 	_, err = schemaFile.WriteString("\ntype CodeRuntime @node(paths: [\"notes/code-runtime/*.md\"]) {\n  name: String!\n}\n")
 	require.NoError(t, err)
 	require.NoError(t, schemaFile.Close())
-	_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err = ontologytest.Publish(context.Background(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	const schemaConflict = `ontology type "CodeRuntime" conflicts with built-in runtime GraphQL type`
 
@@ -2944,7 +2970,7 @@ func TestOntologyRenderedNoteRejectsIgnoredPaths(t *testing.T) {
 		Vault:        fixture.vault,
 		VaultDef:     fixture.vaultDef,
 		VaultPath:    fixture.root,
-		NoteMetadata: testNoteMetadataIndexer(t),
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
 	}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -2976,7 +3002,7 @@ func TestServerServesSPAForNotesRoutes(t *testing.T) {
 		Vault:        fixture.vault,
 		VaultDef:     fixture.vaultDef,
 		VaultPath:    fixture.root,
-		NoteMetadata: testNoteMetadataIndexer(t),
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
 	}, fs.FS(assets))
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -3076,7 +3102,7 @@ func TestWorkspaceGroups_UsesOtherEndpointForInboundAmbientRelations(t *testing.
 		cfg: Config{
 			VaultDef:     obsidian.VaultDefinition{Name: "ambient", Path: root, Links: obsidian.LinkTypeBoth},
 			VaultPath:    root,
-			NoteMetadata: testNoteMetadataIndexer(t),
+			NoteMetadata: testkit.NoteMetadataIndexer(t),
 		},
 		runtime: &Runtime{},
 	}
@@ -3157,7 +3183,7 @@ func TestBuildGlobalGraphMode_NotesOnlySkipsModuleCollapse(t *testing.T) {
 		cfg: Config{
 			VaultDef:     obsidian.VaultDefinition{Name: "notes-only", Path: root, Links: obsidian.LinkTypeBoth},
 			VaultPath:    root,
-			NoteMetadata: testNoteMetadataIndexer(t),
+			NoteMetadata: testkit.NoteMetadataIndexer(t),
 		},
 		runtime: runtime,
 	}
@@ -3257,6 +3283,9 @@ func TestServerGlobalGraphCacheInvalidatesOnSecondHandleSameCountSwap(t *testing
 }
 
 func TestServerGraphMergesOntologyNodesEdgesAndUntypedFallback(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Parallel()
 
 	root := t.TempDir()
@@ -3265,7 +3294,7 @@ func TestServerGraphMergesOntologyNodesEdgesAndUntypedFallback(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 
-	ctx := context.Background()
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	require.NoError(t, store.ReplaceIntelDocSections(ctx, "docs/effort.md", []codeanchor.IntelDocSection{{SectionID: "effort", Path: "docs/effort.md", Title: "Effort", Level: 1, Fingerprint: "effort-fp", UpdatedAt: 1}}, nil, nil))
 	require.NoError(t, store.ReplaceIntelDocSections(ctx, "docs/spec.md", []codeanchor.IntelDocSection{{SectionID: "spec", Path: "docs/spec.md", Title: "Spec", Level: 1, Fingerprint: "spec-fp", UpdatedAt: 1}}, nil, nil))
 	require.NoError(t, store.ReplaceIntelDocSections(ctx, "docs/untyped.md", []codeanchor.IntelDocSection{{SectionID: "untyped", Path: "docs/untyped.md", Title: "Untyped", Level: 1, Fingerprint: "untyped-fp", UpdatedAt: 1}}, nil, nil))
@@ -3281,7 +3310,7 @@ func TestServerGraphMergesOntologyNodesEdgesAndUntypedFallback(t *testing.T) {
 			{SrcPath: "docs/effort.md", RelationName: "frozenStories", DstPath: "docs/spec.md", DstNodeID: "story-a", DstType: "UserStory", Provenance: "story_id", Structural: true, UpdatedAt: 2},
 		},
 	}))
-	require.NoError(t, store.ReplaceOntologyNodes(ctx, []string{"docs/effort.md", "docs/spec.md"}, []codeanchor.IntelOntologyNode{
+	require.NoError(t, store.ReplaceOntologyNodes(ctx, []string{"docs/effort.md", "docs/spec.md"}, []readmodel.NodeRow{
 		{NodeID: "effort-note", NotePath: "docs/effort.md", NodeRefJSON: `{"notePath":"docs/effort.md","kind":"NOTE","typeName":"EffortNote"}`, NodeKind: "NOTE", TypeName: "EffortNote", SourceLocator: "docs/effort.md", DisplayLabel: "Effort", UpdatedAt: 2},
 		{NodeID: "spec-note", NotePath: "docs/spec.md", NodeRefJSON: `{"notePath":"docs/spec.md","kind":"NOTE","typeName":"ProcessSpec"}`, NodeKind: "NOTE", TypeName: "ProcessSpec", SourceLocator: "docs/spec.md", DisplayLabel: "Spec", UpdatedAt: 2},
 		{NodeID: "story-a", NotePath: "docs/spec.md", NodeRefJSON: `{"notePath":"docs/spec.md","fragment":"^story-a","nodeId":"story-a","kind":"EMBEDDED","typeName":"UserStory"}`, NodeKind: "EMBEDDED", TypeName: "UserStory", SourceLocator: "docs/spec.md#^story-a", DisplayLabel: "Story A", ParentNodeID: "spec-note", UpdatedAt: 2},
@@ -3313,7 +3342,7 @@ func TestServerGraphMergesOntologyNodesEdgesAndUntypedFallback(t *testing.T) {
 	runtime.SetIntelStore(store)
 	fixture := fixtureVault{
 		root:     root,
-		vault:    &obsidian.Vault{Name: "graph-fixture"},
+		vault:    &repoconfig.Vault{Env: env, Name: "graph-fixture"},
 		vaultDef: obsidian.VaultDefinition{Name: "graph-fixture", Path: root, Links: obsidian.LinkTypeBoth},
 	}
 	srv := newFixtureServer(t, fixture, runtime)
@@ -3339,6 +3368,9 @@ func TestServerGraphMergesOntologyNodesEdgesAndUntypedFallback(t *testing.T) {
 }
 
 func TestServerGlobalGraphDoesNotClipCodeEdgesByDefaultLimit(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Parallel()
 
 	root := t.TempDir()
@@ -3346,7 +3378,7 @@ func TestServerGlobalGraphDoesNotClipCodeEdgesByDefaultLimit(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 
-	ctx := context.Background()
+	ctx := vaultconfig.WithEnv(context.Background(), env)
 	for i := 0; i < 5; i++ {
 		calleeID := fmt.Sprintf("early-callee-%d", i)
 		callerID := fmt.Sprintf("early-caller-%d", i)
@@ -3402,7 +3434,7 @@ func TestServerGlobalGraphDoesNotClipCodeEdgesByDefaultLimit(t *testing.T) {
 	runtime.SetIntelStore(store)
 	fixture := fixtureVault{
 		root:     root,
-		vault:    &obsidian.Vault{Name: "graph-fixture"},
+		vault:    &repoconfig.Vault{Env: env, Name: "graph-fixture"},
 		vaultDef: obsidian.VaultDefinition{Name: "graph-fixture", Path: root, Links: obsidian.LinkTypeBoth},
 	}
 	srv := newFixtureServer(t, fixture, runtime)
@@ -3464,7 +3496,7 @@ func requireGraphUndirectedEdge(t *testing.T, graph GraphResponse, a, b, kind st
 
 type fixtureVault struct {
 	root       string
-	vault      *obsidian.Vault
+	vault      *repoconfig.Vault
 	vaultDef   obsidian.VaultDefinition
 	intelStore *semdb.Store
 }
@@ -3482,20 +3514,33 @@ var webFixtureSnapshot struct {
 }
 
 func prepareWebFixtureVault(t *testing.T) fixtureVault {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 
 	webFixtureSnapshot.once.Do(func() {
 		root := filepath.Join(t.TempDir(), "vault-base")
 		copyTree(t, filepath.Join(repoRoot(t), "testdata", "integration", "python-app", "vault"), root)
-		cfgDir, cfg, err := obsidian.FindLocalConfig(root)
+		cfgDir, cfg, err := repoconfig.FindLocalConfig(root)
 		if err != nil {
 			webFixtureSnapshot.err = err
 			return
 		}
-		vaultDef := obsidian.LocalConfigToDefinition(cfgDir, cfg)
-		if err := indexing.RunUnifiedCore(context.Background(), indexing.UnifiedOptions{
-			VaultPath: root, VaultDef: vaultDef, NoteMetadata: testNoteMetadataIndexer(t),
+		vaultDef := repoconfig.LocalConfigToDefinition(cfgDir, cfg)
+		lease, acquired, err := indexlock.TryAcquireLease(root, indexlock.AcquireOptions{Role: "test/web-fixture"})
+		if err != nil || !acquired {
+			webFixtureSnapshot.err = fmt.Errorf("acquire fixture writer lease: %v", err)
+			return
+		}
+		defer lease.Release()
+		if err := indexing.RunUnifiedCore(vaultconfig.WithEnv(context.Background(), env), lease, indexing.UnifiedOptions{
+			VaultPath: root, VaultDef: vaultDef, NoteMetadata: testkit.NoteMetadataIndexer(t),
 		}); err != nil {
+			webFixtureSnapshot.err = err
+			return
+		}
+		if err := lease.Release(); err != nil {
 			webFixtureSnapshot.err = err
 			return
 		}
@@ -3531,12 +3576,12 @@ func prepareWebFixtureVault(t *testing.T) fixtureVault {
 		require.NoError(t, os.WriteFile(path, file.data, file.mode))
 	}
 
-	cfgDir, cfg, err := obsidian.FindLocalConfig(root)
+	cfgDir, cfg, err := repoconfig.FindLocalConfig(root)
 	require.NoError(t, err)
-	vaultDef := obsidian.LocalConfigToDefinition(cfgDir, cfg)
-	vault := &obsidian.Vault{Name: root}
+	vaultDef := repoconfig.LocalConfigToDefinition(cfgDir, cfg)
+	vault := &repoconfig.Vault{Env: env, Name: root}
 
-	store, cleanup, err := obsidian.OpenIntelStore(root, true)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: true})
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		if cleanup != nil {
@@ -3591,7 +3636,7 @@ func TestPublicGraphQLNodePreservesUnanchoredItemIdentityAcrossSourceEdits(t *te
 			content, err := os.ReadFile(path)
 			require.NoError(t, err)
 			require.NoError(t, os.WriteFile(path, []byte(testCase.rewrite(string(content))), 0o644))
-			_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+			_, err = ontologytest.Publish(context.Background(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 			require.NoError(t, err)
 
 			srv := newFixtureServer(t, fixture, nil)
@@ -3624,7 +3669,7 @@ func TestPublicGraphQLNodeRemainsAvailableWhileTheCompleteIndexGateIsClosed(t *t
 	require.NoError(t, err)
 	planContent = bytes.Replace(planContent, []byte("spec: specs/100-demo/spec.md\n"), []byte("spec: specs/100-demo/spec.md\ntags: [startup]\n"), 1)
 	require.NoError(t, os.WriteFile(planPath, planContent, 0o644))
-	_, err = testNoteMetadataIndexer(t).EnsureIndexed(context.Background(), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err = testkit.NoteMetadataIndexer(t).EnsureIndexed(context.Background(), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	runtime := &Runtime{IntelStore: fixture.intelStore}
 	runtime.EnableIndexGate()
@@ -3767,7 +3812,7 @@ func TestPublicGraphQLNodeRemainsAvailableWhileTheCompleteIndexGateIsClosed(t *t
 		t.Fatal("exact note request returned before its metadata row was published")
 	case <-time.After(20 * time.Millisecond):
 	}
-	_, err = testNoteMetadataIndexer(t).EnsureIndexed(context.Background(), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err = testkit.NoteMetadataIndexer(t).EnsureIndexed(context.Background(), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	select {
 	case <-lateDone:
@@ -3808,7 +3853,7 @@ func TestPublicGraphQLListsIdenticalUnanchoredItems(t *testing.T) {
 	require.NoError(t, err)
 	content = []byte(strings.Replace(string(content), "- Follow [[plan]] while validating.", "- Follow [[plan]] while validating.\n- Follow [[plan]] while validating.", 1))
 	require.NoError(t, os.WriteFile(path, content, 0o644))
-	_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err = ontologytest.Publish(context.Background(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 
 	srv := newFixtureServer(t, fixture, nil)
@@ -3832,6 +3877,9 @@ func TestPublicGraphQLListsIdenticalUnanchoredItems(t *testing.T) {
 }
 
 func prepareOntologyFixtureVault(t *testing.T) fixtureVault {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 
 	root := t.TempDir()
@@ -3972,12 +4020,12 @@ Open the ontology tab and compare notes.
 		Path:  root,
 		Links: obsidian.LinkTypeBoth,
 	}
-	_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	_, err = ontologytest.Publish(vaultconfig.WithEnv(context.Background(), env), testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
 	return fixtureVault{
 		root:       root,
-		vault:      &obsidian.Vault{Name: "ontology-fixture"},
+		vault:      &repoconfig.Vault{Env: env, Name: "ontology-fixture"},
 		vaultDef:   vaultDef,
 		intelStore: store,
 	}
@@ -3989,6 +4037,9 @@ Open the ontology tab and compare notes.
 // surface with real counts/starting refs and interface queries should union
 // both note-root and embedded instances through one list.
 func prepareInterfaceFixtureVault(t *testing.T) fixtureVault {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 
 	root := t.TempDir()
@@ -4051,12 +4102,12 @@ summary:: Embedded metric
 		Path:  root,
 		Links: obsidian.LinkTypeBoth,
 	}
-	_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	_, err = ontologytest.Publish(vaultconfig.WithEnv(context.Background(), env), testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 
 	return fixtureVault{
 		root:       root,
-		vault:      &obsidian.Vault{Name: "interface-fixture"},
+		vault:      &repoconfig.Vault{Env: env, Name: "interface-fixture"},
 		vaultDef:   vaultDef,
 		intelStore: store,
 	}
@@ -4074,7 +4125,7 @@ func newFixtureServer(t *testing.T, fixture fixtureVault, runtime *Runtime) *Ser
 		VaultDef:     fixture.vaultDef,
 		VaultPath:    fixture.root,
 		Runtime:      runtime,
-		NoteMetadata: testNoteMetadataIndexer(t),
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
 	}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -4229,6 +4280,9 @@ func repoRoot(t *testing.T) string {
 }
 
 func TestValidateEndpoint(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Parallel()
 
 	// Build a fixture vault with a broken link to exercise the broken_links check.
@@ -4274,12 +4328,12 @@ summary: Clean doc
 	// Publish one generation through the canonical coordinator path: live
 	// projection refresh, RunLive, then sanitized snapshot publication.
 	require.NoError(t, validationproduct.NewRefreshCoordinator(validationproduct.RefreshCoordinatorOptions{
-		Store: store, VaultDef: vaultDef, NoteMetadata: testNoteMetadataIndexer(t),
-	}).Refresh(context.Background()))
+		Store: store, VaultDef: vaultDef, NoteMetadata: testkit.NoteMetadataIndexer(t),
+	}).Refresh(vaultconfig.WithEnv(context.Background(), env)))
 
 	fixture := fixtureVault{
 		root:       root,
-		vault:      &obsidian.Vault{Name: "validate-fixture"},
+		vault:      &repoconfig.Vault{Env: env, Name: "validate-fixture"},
 		vaultDef:   vaultDef,
 		intelStore: store,
 	}
@@ -4332,7 +4386,7 @@ summary: Clean doc
 	}
 	require.NotContains(t, byName, validate.CheckCodeAnchors)
 
-	page, err := store.GetValidationDiagnosticsPage(context.Background(), semdb.ValidationDiagnosticPageRequest{
+	page, err := store.GetValidationDiagnosticsPage(vaultconfig.WithEnv(context.Background(), env), semdb.ValidationDiagnosticPageRequest{
 		Generation: int64(payload["generation"].(float64)), Limit: 200,
 	})
 	require.NoError(t, err)

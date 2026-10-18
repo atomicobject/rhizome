@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"testing"
 	"time"
@@ -33,7 +34,7 @@ type Record @node(paths: ["*.md"]) {
 	require.NoError(t, err)
 	runCtx.sourceSnapshot = snapshot
 	runCtx.NoteReader = snapshot.reader(runCtx.NoteReader)
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	runtime := &ontology.Runtime{Schema: schema}
 	issues, fixes, err := RunIdentifierBlockIDMigration(context.Background(), runCtx, runtime)
@@ -71,7 +72,7 @@ type Record @node(paths: ["*.md"]) {
 	delete(snapshot.byPath, "ref.md")
 	runCtx.sourceSnapshot = snapshot
 	runCtx.NoteReader = snapshot.reader(runCtx.NoteReader)
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	issues, fixes, err := RunIdentifierBlockIDMigration(context.Background(), runCtx, &ontology.Runtime{Schema: schema})
 	require.NoError(t, err)
@@ -102,7 +103,7 @@ type Record @node(matches: ["tag:record"]) {
  items: [Item!] @contains(level: H2)
 }`,
 	}))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	var content strings.Builder
 	content.WriteString("# Record #record\n")

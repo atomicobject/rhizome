@@ -3,10 +3,12 @@ package validate
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,7 +17,7 @@ type namespaceCountingRefresher struct {
 	calls int
 }
 
-func (p *namespaceCountingRefresher) Refresh(ctx context.Context, lease *IndexLockLease, changed []string, renamed []PathRename, deleted []string) (PostApplyRefreshResult, error) {
+func (p *namespaceCountingRefresher) Refresh(ctx context.Context, lease *indexlock.Lease, changed []string, renamed []PathRename, deleted []string) (PostApplyRefreshResult, error) {
 	p.calls++
 	return p.probe.Refresh(ctx, lease, changed, renamed, deleted)
 }
@@ -40,7 +42,7 @@ func TestNamespaceTombstoneRetainsRecoveredOutcome(t *testing.T) {
 					wantDecision = NamespaceRestored
 					hooks.AfterMutation = func(int, string) error { return errors.New("publication rejected") }
 				}
-				first, err := applyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) { return plan, nil }), probe, nil, hooks)
+				first, err := applyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) { return plan, nil }), probe, nil, hooks)
 				require.ErrorIs(t, err, errSimulatedRepairInterruption)
 				require.Equal(t, wantDecision, first.Current.Decision)
 				require.True(t, first.Current.RecoveryPending)
@@ -52,7 +54,7 @@ func TestNamespaceTombstoneRetainsRecoveredOutcome(t *testing.T) {
 				require.Equal(t, 1, probe.calls)
 				require.NoError(t, os.WriteFile(filepath.Join(root, "old.md"), []byte("later old\n"), 0600))
 				require.NoError(t, os.WriteFile(filepath.Join(root, "new.md"), []byte("later new\n"), 0600))
-				journals, err := discoverRepairJournals(runCtx)
+				journals, err := sourcetxn.InspectPending(root)
 				require.NoError(t, err)
 				if boundary == cleanupAfterDirectoryRemoved {
 					require.Empty(t, journals)
@@ -62,7 +64,7 @@ func TestNamespaceTombstoneRetainsRecoveredOutcome(t *testing.T) {
 				probe.calls = 0
 				planned := false
 				freshPlanErr := errors.New("new request planner entered after complete cleanup")
-				recovered, err := ApplyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) {
+				recovered, err := ApplyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) {
 					planned = true
 					return NamespaceMutationPlan{}, freshPlanErr
 				}), probe, nil)
@@ -110,7 +112,7 @@ func TestNamespaceReplayPreservesLaterContentAndRecreatedSource(t *testing.T) {
 			if restored {
 				hooks = &repairExecutionHooks{AfterMutation: func(int, string) error { return errors.New("publication rejected") }}
 			}
-			first, err := applyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) { return plan, nil }), failProbe, nil, hooks)
+			first, err := applyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) { return plan, nil }), failProbe, nil, hooks)
 			require.ErrorIs(t, err, blocked)
 			want := NamespaceCommitted
 			if restored {
@@ -120,7 +122,7 @@ func TestNamespaceReplayPreservesLaterContentAndRecreatedSource(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(root, "old.md"), []byte("later old\n"), 0600))
 			require.NoError(t, os.WriteFile(filepath.Join(root, "new.md"), []byte("later new\n"), 0600))
 			probe := &repairPostApplyProbe{t: t, result: PostApplyRefreshResult{Paths: []string{"old.md", "new.md"}}}
-			recovered, err := ApplyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *IndexLockLease) (NamespaceMutationPlan, error) {
+			recovered, err := ApplyNamespaceMutation(context.Background(), runCtx, namespaceTestPlanner(func(context.Context, *indexlock.Lease) (NamespaceMutationPlan, error) {
 				t.Fatal("recovery must not call planner")
 				return NamespaceMutationPlan{}, nil
 			}), probe, nil)
@@ -133,7 +135,7 @@ func TestNamespaceReplayPreservesLaterContentAndRecreatedSource(t *testing.T) {
 			require.Empty(t, probe.deleted)
 			require.Equal(t, "later old\n", string(mustReadFile(t, filepath.Join(root, "old.md"))))
 			require.Equal(t, "later new\n", string(mustReadFile(t, filepath.Join(root, "new.md"))))
-			require.Error(t, probe.lease.RequireHeld())
+			require.Error(t, probe.lease.Validate(root))
 		})
 	}
 }

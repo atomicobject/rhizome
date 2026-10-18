@@ -2,11 +2,12 @@ package retrieval
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"path/filepath"
 	"testing"
 
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/stretchr/testify/require"
@@ -183,12 +184,12 @@ func TestOntologyRetriever_TypePolicyOverridesIntentDefault(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = store.Close() }()
 
-	policyJSON := ontology.MarshalTypePolicy(ontology.TypePolicy{
+	policyJSON := ontoschema.MarshalTypePolicy(ontoschema.TypePolicy{
 		TypeName: "Project",
-		Overrides: []ontology.TraversalOverride{{
+		Override: &ontoschema.TraversalOverride{
 			Intents:        []string{"docs_for_code"},
 			IncludeAmbient: ptrBool(true),
-		}},
+		},
 	})
 	require.NotEmpty(t, policyJSON)
 
@@ -231,12 +232,12 @@ func TestOntologyRetriever_MaxDepthTraversesBeyondDirectNeighbors(t *testing.T) 
 	require.NoError(t, err)
 	defer func() { _ = store.Close() }()
 
-	policyJSON := ontology.MarshalTypePolicy(ontology.TypePolicy{
+	policyJSON := ontoschema.MarshalTypePolicy(ontoschema.TypePolicy{
 		TypeName: "Project",
-		Overrides: []ontology.TraversalOverride{{
+		Override: &ontoschema.TraversalOverride{
 			Intents:  []string{"related_to_seed"},
 			MaxDepth: ptrInt(2),
-		}},
+		},
 	})
 	require.NotEmpty(t, policyJSON)
 

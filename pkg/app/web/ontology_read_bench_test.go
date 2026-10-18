@@ -7,11 +7,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -108,11 +109,11 @@ func buildOntologyBenchFixture(tb testing.TB, noteCount int) ontologyBenchFixtur
 	tb.Cleanup(func() { _ = store.Close() })
 
 	vaultDef := obsidian.VaultDefinition{Name: "bench", Path: root, Links: obsidian.LinkTypeBoth}
-	_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), benchNoteMetadataIndexer(tb), vaultDef, &obsidian.Note{}, store)
+	_, err = ontologytest.Publish(context.Background(), benchNoteMetadataIndexer(tb), vaultDef, &obsidian.Note{}, store)
 	require.NoError(tb, err)
 
 	srv, err := NewServer(context.Background(), Config{
-		Vault:        &obsidian.Vault{Name: "bench"},
+		Vault:        &repoconfig.Vault{Name: "bench"},
 		VaultDef:     vaultDef,
 		VaultPath:    root,
 		Runtime:      &Runtime{IntelStore: store},

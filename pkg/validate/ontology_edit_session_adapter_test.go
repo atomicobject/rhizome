@@ -2,6 +2,7 @@ package validate
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
@@ -82,7 +83,7 @@ func TestOntologyEditSessionRepairPlanPreservesModeThroughJournaledWriter(t *tes
 	}}})
 	require.NoError(t, err)
 
-	execution, err := ApplyFixPlan(context.Background(), runCtx, result.FixPlan, Options{Fix: true, NonInteractive: true})
+	execution, err := ApplyFixPlan(context.Background(), runCtx, result.FixPlan, ApplyOptions{Fix: true, NonInteractive: true})
 	require.NoError(t, err)
 	require.NotNil(t, execution)
 	assert.Equal(t, "after\n", string(mustReadFile(t, path)))
@@ -106,7 +107,7 @@ func TestOntologyEditSessionRepairPlanRecoversCommittedJournal(t *testing.T) {
 	require.NoError(t, err)
 	refresher := &failOncePostApplyRefresher{}
 
-	_, err = ApplyFixPlan(context.Background(), runCtx, result.FixPlan, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, result.FixPlan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: refresher,
 	})
 	require.ErrorContains(t, err, "injected post-apply interruption")
@@ -114,7 +115,7 @@ func TestOntologyEditSessionRepairPlanRecoversCommittedJournal(t *testing.T) {
 	assert.Equal(t, "<body>after</body>\n", string(mustReadFile(t, htmlPath)))
 	require.NotEmpty(t, mustPendingRepairJournals(t, runCtx))
 
-	_, err = ApplyFixPlan(context.Background(), runCtx, result.FixPlan, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, result.FixPlan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: refresher,
 	})
 	require.NoError(t, err)
@@ -135,13 +136,13 @@ func TestApplyRepairSessionPostchecksAnEditSessionOnlyWhereItWrote(t *testing.T)
 		UpdatedFingerprint: hashWithoutPrefix([]byte("after\n")), UpdatedContentPreview: "after\n", HasMaterialChange: true,
 	}}})
 	require.NoError(t, err)
-	runtime := &ontology.Runtime{Schema: &ontology.Schema{}, Issues: []ontology.ValidationIssue{
+	runtime := &ontology.Runtime{Schema: &ontoschema.Schema{}, Issues: []ontology.ValidationIssue{
 		{Code: "missing_required_field", NotePath: "edited.md", Message: "edited note issue"},
 		{Code: "missing_required_field", NotePath: "other.md", Message: "unrelated note issue"},
 		{Code: "inverse_mismatch", NotePath: "other.md", FixTarget: "edited.md", Message: "issue fixed in the edited note"},
 	}}
 
-	postcheck, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, Options{
+	postcheck, execution, err := ApplyRepairSession(context.Background(), planned, runCtx, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, result: NewPostApplyRefreshResult(runtime, repairNoopCloseOwner{})},
 	})

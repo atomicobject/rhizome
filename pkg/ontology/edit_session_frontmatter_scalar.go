@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strconv"
 	"strings"
 
@@ -91,19 +92,20 @@ func frontmatterPlainScalarSafe(value string, stringLike bool) bool {
 	return !stringLike || node.Tag == "!!str"
 }
 
-func frontmatterStringLikeField(field *Field, asLinks bool) bool {
+func frontmatterStringLikeField(field *ontoschema.Field, asLinks bool) bool {
 	if asLinks || field == nil {
 		return true
 	}
-	if field.Kind == FieldKindEnum || field.Kind == FieldKindLink {
+	if field.Kind == ontoschema.FieldKindEnum || field.Kind == ontoschema.FieldKindLink {
 		return true
 	}
-	switch strings.ToLower(strings.TrimSpace(field.TypeName)) {
-	case "string", "id", "date", "datetime", "url", "uri", "json":
-		return true
-	default:
+	switch ontoschema.ScalarKindForType(field.TypeName) {
+	case ontoschema.ScalarKindBoolean, ontoschema.ScalarKindInt, ontoschema.ScalarKindReal:
 		return false
+	default:
+		return true
 	}
+
 }
 
 func isFrontmatterBlockScalar(value string) bool {
@@ -111,7 +113,7 @@ func isFrontmatterBlockScalar(value string) bool {
 	return strings.HasPrefix(trimmed, "|") || strings.HasPrefix(trimmed, ">")
 }
 
-func patchFrontmatterBlockScalar(content string, lines []frontmatterSourceLine, keyLine frontmatterKeyLine, field *Field, values []string, asLinks bool) string {
+func patchFrontmatterBlockScalar(content string, lines []frontmatterSourceLine, keyLine frontmatterKeyLine, field *ontoschema.Field, values []string, asLinks bool) string {
 	lineIndex := frontmatterLineIndex(lines, keyLine.line.start)
 	if lineIndex < 0 {
 		return content
@@ -184,14 +186,14 @@ func literalBlockScalarMarker(marker string) string {
 	return "|" + strings.TrimPrefix(marker, ">")
 }
 
-func renderFrontmatterValue(existing string, field *Field, values []string, asLinks bool) string {
+func renderFrontmatterValue(existing string, field *ontoschema.Field, values []string, asLinks bool) string {
 	if field.List {
 		return renderFrontmatterFlowList(field, values, asLinks)
 	}
 	return renderFrontmatterScalar(valuesFirst(values), existing, asLinks, field)
 }
 
-func renderFrontmatterFlowList(field *Field, values []string, asLinks bool) string {
+func renderFrontmatterFlowList(field *ontoschema.Field, values []string, asLinks bool) string {
 	parts := make([]string, 0, len(values))
 	for _, value := range values {
 		parts = append(parts, renderFrontmatterScalar(value, "", asLinks, field))
@@ -206,7 +208,7 @@ func valuesFirst(values []string) string {
 	return values[0]
 }
 
-func renderFrontmatterScalar(value, existing string, asLinks bool, field *Field) string {
+func renderFrontmatterScalar(value, existing string, asLinks bool, field *ontoschema.Field) string {
 	if asLinks {
 		value = strings.TrimSpace(value)
 	}

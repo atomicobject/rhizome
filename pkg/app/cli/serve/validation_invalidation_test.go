@@ -2,11 +2,6 @@ package serve
 
 import (
 	"context"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
-	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -14,7 +9,13 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	"github.com/atomicobject/rhizome/pkg/app/web"
+	"github.com/atomicobject/rhizome/pkg/notemeta"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 )
 
 type pendingFailureRefresher struct{ called chan struct{} }
@@ -78,7 +79,7 @@ func TestValidationRequestsRecoverAfterFailedReconcile(t *testing.T) {
 
 func TestBackgroundValidationAdmissionPrecedesIndexWork(t *testing.T) {
 	indexStarted, finishIndex := make(chan struct{}), make(chan struct{})
-	c := NewReadinessCoordinator(func(context.Context, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	c := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
 		close(indexStarted)
 		<-finishIndex
 		return nil
@@ -89,7 +90,7 @@ func TestBackgroundValidationAdmissionPrecedesIndexWork(t *testing.T) {
 	c.validation = r
 	done := make(chan error, 1)
 	go func() {
-		done <- c.BackgroundIndexer(t.Context(), notemeta.Indexer{}, "", obsidian.VaultDefinition{}, false)
+		done <- c.BackgroundIndexer(t.Context(), notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false)
 	}()
 	<-indexStarted
 	c.GlobalEventSink()(web.GlobalEventValidationInvalidated, map[string]any{"reason": web.GlobalEventReasonReconcileFailed})

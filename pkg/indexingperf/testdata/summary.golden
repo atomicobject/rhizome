@@ -1,0 +1,8 @@
+Index timings:
+- embed_notes                     1.0s   writeback_note_intel_flushes=1 writeback_note_intel_submit_wait_cum=5ms writeback_note_intel_submit_wait_p50=5ms writeback_note_intel_submit_wait_p95=5ms writeback_note_intel_submit_wait_max=5ms batch_texts_p50=3 batch_texts_p95=3 batch_texts_max=3 calls=2 calls/s=2.0 provider_inflight_peak=2 provider_inflight_avg=2.0 provider_cum=40ms provider_latency_p50=40ms provider_latency_p95=40ms provider_latency_max=40ms texts=6 texts/s=6.0 avg_texts/call=3.0 calls_needed_at_provider_cap=2 calls_needed_at_dispatch_floor=3
+- custom_phase                 unspanned   ownership_reconciliation_acknowledged=1
+
+Bottlenecks:
+- embed_notes provider_busy=40ms
+Critical path walls:
+- embed_notes phase_wall=1.0s

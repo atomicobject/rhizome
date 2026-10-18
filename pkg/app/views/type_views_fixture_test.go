@@ -2,11 +2,14 @@ package views
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -96,7 +99,7 @@ func indexTypeViewsFixture(t *testing.T, root string, views ...viewconfig.ViewDe
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Name: "type-views", Path: root, Links: obsidian.LinkTypeBoth}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(runtime.Schema)
 	require.NoError(t, err)
@@ -121,7 +124,7 @@ func TestExecuteReportsProfileRolesAndStagesFromTheSchema(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotNil(t, resp.Profile)
-	require.Equal(t, ontology.ShapeWorkflow, resp.Profile.Shape)
+	require.Equal(t, ontoschema.ShapeWorkflow, resp.Profile.Shape)
 	require.Equal(t, "status", resp.Profile.LifecycleField)
 	roles := map[string]string{}
 	for _, capability := range resp.Capabilities {
@@ -135,13 +138,13 @@ func TestExecuteReportsProfileRolesAndStagesFromTheSchema(t *testing.T) {
 
 	status := capabilityByKey(resp.Capabilities, "status")
 	require.Equal(t, []FieldEnumValue{
-		{Value: "planned", Label: "Planned", Tone: "neutral", Stage: ontology.StageOpen, StageDeclared: true},
-		{Value: "doing", Label: "Doing", Tone: "progress", Stage: ontology.StageActive, StageDeclared: true},
-		{Value: "shipped", Label: "Shipped", Tone: "success", Stage: ontology.StageDone, StageDeclared: true},
-		{Value: "cancelled", Label: "Cancelled", Tone: "muted", Stage: ontology.StageDropped, StageDeclared: true, CollapsedByDefault: true},
+		{Value: "planned", Label: "Planned", Tone: "neutral", Stage: ontoschema.StageOpen, StageDeclared: true},
+		{Value: "doing", Label: "Doing", Tone: "progress", Stage: ontoschema.StageActive, StageDeclared: true},
+		{Value: "shipped", Label: "Shipped", Tone: "success", Stage: ontoschema.StageDone, StageDeclared: true},
+		{Value: "cancelled", Label: "Cancelled", Tone: "muted", Stage: ontoschema.StageDropped, StageDeclared: true, CollapsedByDefault: true},
 	}, status.EnumValues)
 	priority := capabilityByKey(resp.Capabilities, "priority")
-	require.Equal(t, ontology.StageActive, priority.EnumValues[1].Stage)
+	require.Equal(t, ontoschema.StageActive, priority.EnumValues[1].Stage)
 	require.False(t, priority.EnumValues[1].StageDeclared, "inferred from tone")
 
 	// The generated table groups by stage, so Doing leads and Cancelled starts collapsed.

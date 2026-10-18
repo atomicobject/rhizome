@@ -11,7 +11,7 @@ import (
 )
 
 type graphPrecedenceStore struct {
-	Store
+	ReadStore
 	typed []readmodel.GraphTypedEdgeRow
 	docs  []readmodel.GraphDocEdgeRow
 }
@@ -43,7 +43,7 @@ func TestGraphTypedPrecedencePreservesRelationsAndDiagnostics(t *testing.T) {
 			readmodel.GraphDocEdgeRow{SrcPath: "b.md", DstPath: "a.md", SourceKind: "note", TargetKind: "note", Kind: kind})
 	}
 	store.docs = append(store.docs, readmodel.GraphDocEdgeRow{SrcPath: "a.md", DstPath: "c.md", SourceKind: "note", TargetKind: "note", Kind: "wikilink", Weight: 3, ConfidenceScore: 0.75})
-	scope := NewService(obsidian.VaultDefinition{}, nil, store, nil).NewScope(ctx, ScopeOptions{})
+	scope := NewService(obsidian.VaultDefinition{}, nil, store, nil).NewScope(ScopeOptions{})
 	req := GraphRequest{Profile: GraphProfileNotesOnly, Diagnostics: true}
 	graph, err := scope.Graph(ctx, req)
 	require.NoError(t, err)
@@ -86,13 +86,10 @@ func BenchmarkGraphFactsPrecedence(b *testing.B) {
 				service := NewService(obsidian.VaultDefinition{}, nil, store, nil)
 				ctx := context.Background()
 				expectedEdges := 9
-				if mixed {
-					expectedEdges = 10
-				}
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-					result, err := service.NewScope(ctx, ScopeOptions{}).GraphFacts(ctx, GraphFactsRequest{NodeLimit: 10, EdgeLimit: 10})
+					result, err := service.NewScope(ScopeOptions{}).GraphFacts(ctx, GraphFactsRequest{NodeLimit: 10, EdgeLimit: 10})
 					if err != nil || len(result.Nodes) != 10 || len(result.Edges) != expectedEdges {
 						b.Fatalf("nodes=%d edges=%d err=%v", len(result.Nodes), len(result.Edges), err)
 					}

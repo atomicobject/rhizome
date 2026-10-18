@@ -12,7 +12,7 @@ import (
 )
 
 func TestRepairWaiterRecoversExpiredPriority(t *testing.T) {
-	lockPath := filepath.Join(t.TempDir(), "index.lock")
+	lockPath := filepath.Join(t.TempDir(), ".rhizome", "index.lock")
 	release, acquired, err := indexlock.TryAcquire(lockPath)
 	require.NoError(t, err)
 	require.True(t, acquired)

@@ -1,10 +1,11 @@
 package agentchat
 
 import (
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/harness"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 var harnessOrder = []harness.Kind{harness.KindCodex, harness.KindClaude}
@@ -13,8 +14,8 @@ func DefaultSettings() Settings {
 	return normalizeSettings(Settings{})
 }
 
-func LoadSettings() (Settings, error) {
-	cfg, err := obsidian.LoadCliConfig(true)
+func LoadSettings(env vaultconfig.Env) (Settings, error) {
+	cfg, err := repoconfig.LoadCliConfig(env, true)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -34,22 +35,22 @@ func LoadSettings() (Settings, error) {
 	return normalizeSettings(settings), nil
 }
 
-func SaveSettings(settings Settings) (Settings, error) {
+func SaveSettings(env vaultconfig.Env, settings Settings) (Settings, error) {
 	settings = normalizeSettings(settings)
-	cfg, err := obsidian.LoadCliConfig(true)
+	cfg, err := repoconfig.LoadCliConfig(env, true)
 	if err != nil {
 		return Settings{}, err
 	}
-	cfg.Agent = &obsidian.AgentUserConfig{
+	cfg.Agent = &repoconfig.AgentUserConfig{
 		Harness:   string(settings.Harness),
-		Harnesses: make(map[string]obsidian.AgentHarnessConfig, len(settings.Harnesses)),
+		Harnesses: make(map[string]repoconfig.AgentHarnessConfig, len(settings.Harnesses)),
 	}
 	for kind, value := range settings.Harnesses {
-		cfg.Agent.Harnesses[string(kind)] = obsidian.AgentHarnessConfig{
+		cfg.Agent.Harnesses[string(kind)] = repoconfig.AgentHarnessConfig{
 			Model: value.Model, Effort: value.Effort, PermissionMode: string(value.PermissionMode),
 		}
 	}
-	if err := obsidian.SaveCliConfig(cfg); err != nil {
+	if err := repoconfig.SaveCliConfig(env, cfg); err != nil {
 		return Settings{}, err
 	}
 	return settings, nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
@@ -21,7 +22,7 @@ func ApplyRepairSession(
 	ctx context.Context,
 	planned Result,
 	runCtx RunContext,
-	opts Options,
+	opts ApplyOptions,
 ) (Result, *FixExecution, error) {
 	if !opts.Fix {
 		return planned, nil, fmt.Errorf("repair session requires apply authority")
@@ -169,10 +170,10 @@ func ontologyEditSessionPlan(plan *FixPlan) bool {
 	return true
 }
 
-func repairSessionPostcheck(runCtx RunContext, opts Options, captured **Result, scopeToAffectedPaths bool) repairPostApplyCheck {
+func repairSessionPostcheck(runCtx RunContext, opts ApplyOptions, captured **Result, scopeToAffectedPaths bool) repairPostApplyCheck {
 	baseChecks := append([]string(nil), opts.Checks...)
-	return func(ctx context.Context, lease *IndexLockLease, runtime *ontology.Runtime, scope repairPostApplyScope) error {
-		if err := lease.RequireHeldForVault(runCtx.VaultPath); err != nil {
+	return func(ctx context.Context, lease *indexlock.Lease, runtime *ontology.Runtime, scope repairPostApplyScope) error {
+		if err := lease.Validate(runCtx.VaultPath); err != nil {
 			return err
 		}
 		checks := sortedUnique(append(baseChecks, scope.Checks...))
@@ -183,14 +184,8 @@ func repairSessionPostcheck(runCtx RunContext, opts Options, captured **Result, 
 		if registryNeedsOntologyRuntime(resolved) && runtime == nil {
 			return fmt.Errorf("post-apply refresher did not provide its prepared ontology runtime")
 		}
-		postcheckOpts := opts
+		postcheckOpts := opts.ScanOptions
 		postcheckOpts.Checks = checks
-		postcheckOpts.Fix = false
-		postcheckOpts.Confirm = nil
-		postcheckOpts.PostApplyRefresher = nil
-		postcheckOpts.leaseHeldRepairPlanner = nil
-		postcheckOpts.postApplyCheck = nil
-		postcheckOpts.repairSessionPostcheck = nil
 		postcheckOpts.postApplyJournalValidation = true
 		if scopeToAffectedPaths {
 			postcheckOpts.postcheckPaths = scope.AffectedPaths

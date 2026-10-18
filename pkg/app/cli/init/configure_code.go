@@ -5,15 +5,15 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // enableAutomaticCodeScope turns code indexing on without folder limits, so
 // every language in the repository indexes, including code added later.
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US9-AC1]]
-func enableAutomaticCodeScope(cfg *obsidian.LocalConfig) {
-	cfg.Code = obsidian.LocalCodeConfig{
+func enableAutomaticCodeScope(cfg *repoconfig.LocalConfig) {
+	cfg.Code = repoconfig.LocalCodeConfig{
 		Enabled:           true,
 		Scan:              cfg.Code.Scan,
 		Ignore:            cfg.Code.Ignore,
@@ -24,7 +24,7 @@ func enableAutomaticCodeScope(cfg *obsidian.LocalConfig) {
 
 // codeFolderLimits lists the folders config limits code indexing to; none
 // means the whole repository.
-func codeFolderLimits(code obsidian.LocalCodeConfig) []string {
+func codeFolderLimits(code repoconfig.LocalCodeConfig) []string {
 	var out []string
 	for _, block := range code.LanguageBlocks() {
 		if *block != nil {
@@ -40,7 +40,7 @@ func codeFolderLimits(code obsidian.LocalCodeConfig) []string {
 
 // removeCodeFolderLimits drops every language's folders and any language
 // block left empty.
-func removeCodeFolderLimits(code obsidian.LocalCodeConfig) obsidian.LocalCodeConfig {
+func removeCodeFolderLimits(code repoconfig.LocalCodeConfig) repoconfig.LocalCodeConfig {
 	for _, block := range code.LanguageBlocks() {
 		if *block == nil {
 			continue

@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // SetupSchema versions the JSON documents.
@@ -273,7 +273,7 @@ func addonOptions(registry map[string]starterTemplateMetadata, effective []strin
 		meta := registry[id]
 		option := AddonOption{ID: id, Label: firstNonEmpty(meta.Name, id), Description: meta.Description, DefaultFor: []string{}, Enabled: contains(effective, id)}
 		for _, choice := range workflowChoices {
-			set, err := resolveTemplateSet(choice.starters, obsidian.WorkflowTemplateAddons{}, registry)
+			set, err := resolveTemplateSet(choice.starters, repoconfig.WorkflowTemplateAddons{}, registry)
 			if err == nil && set.Causes[id] == templateCauseDefaultAddon {
 				option.DefaultFor = append(option.DefaultFor, choice.id)
 			}
@@ -283,7 +283,7 @@ func addonOptions(registry map[string]starterTemplateMetadata, effective []strin
 	return out
 }
 
-func (r *initRun) agentOptions(cfg obsidian.LocalConfig) []AgentOption {
+func (r *initRun) agentOptions(cfg repoconfig.LocalConfig) []AgentOption {
 	enabled := r.harnessesFor(cfg)
 	agents := []struct {
 		id, label         string
@@ -324,7 +324,7 @@ func (r *initRun) searchOptions(outcome firstRunOutcome) SearchOptions {
 	return options
 }
 
-func pinVersion(cfg obsidian.LocalConfig) string {
+func pinVersion(cfg repoconfig.LocalConfig) string {
 	if external, _ := cfg.Rhizome.UsesExternalBinaryManager(); external {
 		return ""
 	}

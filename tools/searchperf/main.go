@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
-	"github.com/atomicobject/rhizome/pkg/search/perfworkload"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/tools/searchperf/internal/perfworkload"
 )
 
 type report struct {

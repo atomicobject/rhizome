@@ -4,20 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strings"
-
 	"github.com/atomicobject/rhizome/pkg/app/oneshotruntime"
+	"github.com/atomicobject/rhizome/pkg/app/queryengine/runtimeproviders"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/guide"
 	"github.com/atomicobject/rhizome/pkg/ontology/idalloc"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	"github.com/atomicobject/rhizome/pkg/vault/identity"
 	"github.com/spf13/cobra"
+	"os"
+	"strings"
 )
 
-func newAgentOntologyQuerySchemaCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentOntologyQuerySchemaCmd() *cobra.Command {
 	var typeName string
 	cmd := &cobra.Command{
 		Use:   "ontology-query-schema",
@@ -27,7 +27,7 @@ func newAgentOntologyQuerySchemaCmd() *cobra.Command {
 				writeAgentError(err)
 				return silentExitError{code: 1}
 			}
-			vaultDef, err := vaultDefOrDefaultContext(cmd.Context())
+			vaultDef, err := commandOptions.vaultDefOrDefaultContext(cmd.Context())
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}
@@ -52,7 +52,7 @@ func newAgentOntologyQuerySchemaCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentOntologyQueryCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentOntologyQueryCmd() *cobra.Command {
 	var queryText, queryFile, jsonPayload string
 	cmd := &cobra.Command{
 		Use:   "ontology-query",
@@ -64,7 +64,7 @@ func newAgentOntologyQueryCmd() *cobra.Command {
 				writeAgentError(err)
 				return silentExitError{code: 1}
 			}
-			rt, prepared, cleanup, err := prepareOntologyQuery(cmd.Context(), rawQuery, variables)
+			rt, prepared, cleanup, err := commandOptions.prepareOntologyQuery(cmd.Context(), rawQuery, variables)
 			if cleanup != nil {
 				defer cleanup()
 			}
@@ -72,7 +72,11 @@ func newAgentOntologyQueryCmd() *cobra.Command {
 				writeAgentQueryError(err)
 				return silentExitError{code: 1}
 			}
-			result := ontologyquery.ExecutePrepared(cmd.Context(), rt.deps(), rt.schema, rt.execSchema, prepared)
+			result, err := rt.run(cmd.Context(), prepared)
+			if err != nil {
+				writeAgentQueryError(err)
+				return silentExitError{code: 1}
+			}
 			if len(result.Errors) > 0 {
 				writeAgentQueryResult(result)
 				return silentExitError{code: 1}
@@ -115,7 +119,7 @@ func readAgentOntologyQueryInput(queryText, queryFile, jsonPayload string) (stri
 	return payload.Query, payload.Variables, nil
 }
 
-func newAgentOntologyReferenceCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentOntologyReferenceCmd() *cobra.Command {
 	var compact bool
 	var typeName string
 	cmd := &cobra.Command{
@@ -126,7 +130,7 @@ func newAgentOntologyReferenceCmd() *cobra.Command {
 				writeAgentError(err)
 				return silentExitError{code: 1}
 			}
-			vaultDef, err := vaultDefOrDefaultContext(cmd.Context())
+			vaultDef, err := commandOptions.vaultDefOrDefaultContext(cmd.Context())
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}
@@ -142,14 +146,14 @@ func newAgentOntologyReferenceCmd() *cobra.Command {
 				return silentExitError{code: 1}
 			}
 			if compact {
-				payload, err := reference.Compact(schema, typeName)
+				payload, err := schemadoc.CompactReference(schema, typeName, identity.CurrentUserType)
 				if err != nil {
 					writeAgentError(err)
 					return silentExitError{code: 1}
 				}
 				return writeJSON(cmd.OutOrStdout(), payload)
 			}
-			payload, err := reference.RenderJSON(schema, typeName)
+			payload, err := schemadoc.RenderReferenceJSON(schema, typeName, identity.CurrentUserType)
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}
@@ -163,13 +167,13 @@ func newAgentOntologyReferenceCmd() *cobra.Command {
 	return cmd
 }
 
-func newAgentOntologyAuthoringGuideCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentOntologyAuthoringGuideCmd() *cobra.Command {
 	var typeNames string
 	cmd := &cobra.Command{
 		Use:   "ontology-authoring-guide",
 		Short: "Render ontology note-authoring guidance as markdown",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			text, err := renderAgentOntologyAuthoringGuide(cmd.Context(), parseOntologyTypes(typeNames))
+			text, err := commandOptions.renderAgentOntologyAuthoringGuide(cmd.Context(), parseOntologyTypes(typeNames))
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}
@@ -182,8 +186,8 @@ func newAgentOntologyAuthoringGuideCmd() *cobra.Command {
 	return cmd
 }
 
-func renderAgentOntologyAuthoringGuide(ctx context.Context, requested []string) (string, error) {
-	vaultDef, err := vaultDefOrDefaultContext(ctx)
+func (commandOptions *vaultCommandOptions) renderAgentOntologyAuthoringGuide(ctx context.Context, requested []string) (string, error) {
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -191,30 +195,30 @@ func renderAgentOntologyAuthoringGuide(ctx context.Context, requested []string) 
 	if err != nil {
 		return "", err
 	}
-	schema, lookup, cleanup := authoringGuideIDLookup(ctx, schema, requested)
+	schema, lookup, cleanup := commandOptions.authoringGuideIDLookup(ctx, schema, requested)
 	defer cleanup()
-	return guide.RenderMarkdownWithLookups(schema, requested, ontologyCompanionResolver(nil), lookup)
+	return schemadoc.RenderGuideMarkdown(schema, schemadoc.GuideOptions{Types: requested, ResolveCompanion: runtimeproviders.CompanionResolver(nil), LookupID: lookup})
 }
 
 // authoringGuideIDLookup pairs rendering and optional ID suggestions with one
-// refreshed schema. Without eligible types or an available runtime, it retains
+// published schema. Without eligible types or an available runtime, it retains
 // the original schema and omits suggestions.
-func authoringGuideIDLookup(ctx context.Context, schema *ontology.Schema, requested []string) (*ontology.Schema, guide.IDLookup, func()) {
+func (commandOptions *vaultCommandOptions) authoringGuideIDLookup(ctx context.Context, schema *ontoschema.Schema, requested []string) (*ontoschema.Schema, schemadoc.IDLookup, func()) {
 	if !anyRequestedTypeUsesIDFormat(schema, requested) {
 		return schema, nil, func() {}
 	}
-	live, err := buildOntologyQueryLiveRuntime(ctx, oneshotruntime.OntologyQueryPlan(false, false))
+	live, err := commandOptions.buildOntologyQueryLiveRuntime(ctx, oneshotruntime.OntologyQueryPlan(false, false))
 	if err != nil {
 		return schema, nil, func() {}
 	}
 	cleanup := func() { _ = live.Close() }
-	noteReader := &obsidian.Note{}
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(ctx, live.NoteMetadataIndexer(), live.VaultDef, noteReader, live.IntelStore())
+	runtime, err := ontology.PublishedRuntimeWithStore(ctx, live.NoteMetadataIndexer(), live.VaultDef, live.IntelStore())
 	if err != nil || runtime == nil || runtime.Schema == nil || runtime.Store == nil {
+		live.RequestOntologyRefresh()
 		cleanup()
 		return schema, nil, func() {}
 	}
-	lookup := guide.IDLookup(func(typeName string) (string, bool, error) {
+	lookup := schemadoc.IDLookup(func(typeName string) (string, bool, error) {
 		res, err := idalloc.Allocate(ctx, runtime.Schema, runtime.Store, typeName)
 		if err != nil {
 			// Allocate's typed errors (`unsupported_for_type`,
@@ -227,11 +231,11 @@ func authoringGuideIDLookup(ctx context.Context, schema *ontology.Schema, reques
 	return runtime.Schema, lookup, cleanup
 }
 
-func anyRequestedTypeUsesIDFormat(schema *ontology.Schema, requested []string) bool {
+func anyRequestedTypeUsesIDFormat(schema *ontoschema.Schema, requested []string) bool {
 	if schema == nil {
 		return false
 	}
-	check := func(nt *ontology.NoteType) bool {
+	check := func(nt *ontoschema.NoteType) bool {
 		if nt == nil {
 			return false
 		}

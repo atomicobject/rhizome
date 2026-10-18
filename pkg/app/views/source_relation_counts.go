@@ -2,6 +2,7 @@ package views
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"sort"
 	"strings"
@@ -11,8 +12,8 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 )
 
-func relationCountCapability(field *ontology.Field) (FieldCapability, bool) {
-	if field == nil || (field.Kind != ontology.FieldKindNeighbor && field.Kind != ontology.FieldKindReverse) || !field.List {
+func relationCountCapability(field *ontoschema.Field) (FieldCapability, bool) {
+	if field == nil || (field.Kind != ontoschema.FieldKindNeighbor && field.Kind != ontoschema.FieldKindReverse) || !field.List {
 		return FieldCapability{}, false
 	}
 	ops := []string{"eq", "in", "exists", "gt", "gte", "lt", "lte"}
@@ -85,7 +86,7 @@ func (r defaultSourceResolver) projectReferencedRelationCounts(ctx context.Conte
 // projectedCountFields lists the count fields a request reads: those its
 // filters, sort, and layout reference, plus, on board and card layouts, the
 // source profile's reverse fields, which SPEC-0112 cards show as counts.
-func projectedCountFields(schema *ontology.Schema, view viewconfig.ViewDefinition, req ExecuteRequest, capabilities []FieldCapability) []string {
+func projectedCountFields(schema *ontoschema.Schema, view viewconfig.ViewDefinition, req ExecuteRequest, capabilities []FieldCapability) []string {
 	referenced := referencedRelationCountFields(view, req, capabilities)
 	if req.Variant != "kanban" && req.Variant != "card" {
 		return referenced

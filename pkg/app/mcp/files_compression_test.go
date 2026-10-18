@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,11 +14,15 @@ import (
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/contextpack"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )
 
 func filesCompressionFixture(t testing.TB, count int) (Config, mcp.CallToolRequest) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "fixture")
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "src"), 0o755))
@@ -24,9 +30,7 @@ func filesCompressionFixture(t testing.TB, count int) (Config, mcp.CallToolReque
 	data, err := json.Marshal(map[string]any{"vaults": map[string]any{"fixture": map[string]string{"path": root}}})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(registry, data, 0o644))
-	previous := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return registry, nil }
-	t.Cleanup(func() { obsidian.ObsidianConfigFile = previous })
+	env.ObsidianConfigFile = registry
 	store := newIntelStore(t)
 	inputs := make([]any, 0, count)
 	for i := range count {
@@ -34,10 +38,10 @@ func filesCompressionFixture(t testing.TB, count int) (Config, mcp.CallToolReque
 		inputs = append(inputs, path)
 		content := "package fixture\n" + strings.Repeat("// representative source content\n", 128)
 		require.NoError(t, os.WriteFile(filepath.Join(root, path), []byte(content), 0o644))
-		require.NoError(t, store.ReplaceFileSummary(context.Background(), codeanchor.FileSummary{FilePath: path, Lang: codeanchor.LangGo, Hash: "fixture"}))
+		require.NoError(t, store.ReplaceFileSummary(vaultconfig.WithEnv(context.Background(), env), codeanchor.FileSummary{FilePath: path, Lang: codeanchor.LangGo, Hash: "fixture"}))
 	}
 	cfg := Config{
-		Vault:      &obsidian.Vault{Name: "fixture"},
+		Vault:      &repoconfig.Vault{Env: env, Name: "fixture"},
 		VaultPath:  root,
 		VaultDef:   obsidian.VaultDefinition{Name: "fixture", Path: root},
 		IntelStore: store,

@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	anchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	anchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,7 +64,7 @@ func TestLiveOwnershipConfigReloadRefreshesMetadata(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "notes"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "target.md"), []byte(`# Target`), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "source.md"), []byte("---\ntype: Project\nname: Source\n---\nSee [[target]] and [target](target.md).\n"), 0o644))
-	definition, err := obsidian.LoadDefinitionFromPath(root)
+	definition, err := repoconfig.LoadDefinitionFromPath(root)
 	require.NoError(t, err)
 	w, cacheService, store := newLiveOwnershipTestWatcher(t, root, definition)
 	t.Cleanup(func() { require.NoError(t, store.Close()); require.NoError(t, cacheService.Close()) })
@@ -96,7 +97,7 @@ func TestLiveOwnershipPublicationRequiresExplicitIndexerBeforeMetadataMutation(t
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	w := &unifiedSemanticWatcher{runCtx: context.Background(), intelStore: store}
-	err = w.reconcileOwnershipBatch(context.Background(), nil, true, false, 0, time.Now(), 0)
+	err = w.reconcileOwnershipBatch(context.Background(), nil, nil, true, false, 0, time.Now(), 0)
 	require.ErrorContains(t, err, "note format runtime is required")
 	state, err := store.GetNoteMetadataState(context.Background())
 	require.NoError(t, err)
@@ -112,7 +113,7 @@ func TestLiveOwnershipSchemaChangeRefreshesOntology(t *testing.T) {
 	writeWatcherSchema(t, root, `type Project @node(paths: ["notes/*.md"]) { name: String! }`)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "notes"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "project.md"), []byte("---\ntype: Project\nname: Roadmap\n---\n"), 0o644))
-	definition, err := obsidian.LoadDefinitionFromPath(root)
+	definition, err := repoconfig.LoadDefinitionFromPath(root)
 	require.NoError(t, err)
 	w, cacheService, store := newLiveOwnershipTestWatcher(t, root, definition)
 	t.Cleanup(func() { require.NoError(t, store.Close()); require.NoError(t, cacheService.Close()) })

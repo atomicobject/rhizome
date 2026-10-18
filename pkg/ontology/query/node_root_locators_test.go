@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/graph/algorithms"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
-	"github.com/atomicobject/rhizome/pkg/search/graphalg"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -44,7 +44,7 @@ func GraphPathTool(config Config) func(context.Context, mcp.CallToolRequest) (*m
 			}
 		}
 		facts, err := noderead.NewService(vaultDef, &obsidian.Note{}, store, nil).
-			NewScope(ctx, noderead.ScopeOptions{}).
+			NewScope(noderead.ScopeOptions{}).
 			GraphFacts(ctx, noderead.GraphFactsRequest{
 				NodeLimit:       1_000_000,
 				EdgeLimit:       1_000_000,
@@ -58,11 +58,11 @@ func GraphPathTool(config Config) func(context.Context, mcp.CallToolRequest) (*m
 		}
 		minEdges, allPaths, canonicalPath := graphPathInputsFromFacts(facts)
 
-		fromPath, err := graphalg.ResolvePathFuzzy(allPaths, fromInput)
+		fromPath, err := algorithms.ResolvePathFuzzy(allPaths, fromInput)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("graph_path: %s", err)), nil
 		}
-		toPath, err := graphalg.ResolvePathFuzzy(allPaths, toInput)
+		toPath, err := algorithms.ResolvePathFuzzy(allPaths, toInput)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("graph_path: %s", err)), nil
 		}
@@ -70,7 +70,7 @@ func GraphPathTool(config Config) func(context.Context, mcp.CallToolRequest) (*m
 		fromPath = canonicalGraphPathInput(canonicalPath, fromPath)
 		toPath = canonicalGraphPathInput(canonicalPath, toPath)
 
-		result, err := graphalg.ShortestPath(minEdges, fromPath, toPath, maxHops)
+		result, err := algorithms.ShortestPath(minEdges, fromPath, toPath, maxHops)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("graph_path: %s", err)), nil
 		}
@@ -83,7 +83,7 @@ func GraphPathTool(config Config) func(context.Context, mcp.CallToolRequest) (*m
 	}
 }
 
-func graphPathInputsFromFacts(facts noderead.GraphFactsResult) ([]graphalg.GraphDocEdgeMinimal, []string, map[string]string) {
+func graphPathInputsFromFacts(facts noderead.GraphFactsResult) ([]algorithms.GraphDocEdgeMinimal, []string, map[string]string) {
 	pathSet := make(map[string]struct{}, len(facts.Nodes)*2+len(facts.Edges)*2)
 	canonical := make(map[string]string, len(facts.Nodes)*4)
 	for _, node := range facts.Nodes {
@@ -94,7 +94,7 @@ func graphPathInputsFromFacts(facts noderead.GraphFactsResult) ([]graphalg.Graph
 		addGraphPathInputAlias(pathSet, canonical, node.Path, node.ID)
 		addGraphPathInputAlias(pathSet, canonical, node.SourceLocator, node.ID)
 	}
-	minEdges := make([]graphalg.GraphDocEdgeMinimal, 0, len(facts.Edges))
+	minEdges := make([]algorithms.GraphDocEdgeMinimal, 0, len(facts.Edges))
 	for _, edge := range facts.Edges {
 		src := edge.Source
 		dst := edge.Target
@@ -103,7 +103,7 @@ func graphPathInputsFromFacts(facts noderead.GraphFactsResult) ([]graphalg.Graph
 		}
 		addGraphPathInputEndpoint(pathSet, canonical, src)
 		addGraphPathInputEndpoint(pathSet, canonical, dst)
-		minEdges = append(minEdges, graphalg.GraphDocEdgeMinimal{
+		minEdges = append(minEdges, algorithms.GraphDocEdgeMinimal{
 			SrcPath:         src,
 			DstPath:         dst,
 			Kind:            graphPathFactKind(edge),

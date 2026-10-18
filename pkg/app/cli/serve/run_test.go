@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -17,16 +18,17 @@ import (
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
 	"github.com/stretchr/testify/require"
 )
 
 type testVault struct {
+	env  vaultconfig.Env
 	name string
 	path string
 }
@@ -34,8 +36,12 @@ type testVault struct {
 // newTestVault registers a vault the serve runtime can resolve, with an
 // isolated home so the global instance registry never leaks between tests.
 func newTestVault(t *testing.T) testVault {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
-	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
 	vaultDir := filepath.Join(root, "testvault")
 	require.NoError(t, os.MkdirAll(filepath.Join(vaultDir, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, "Alpha.md"), []byte("# Alpha\n"), 0o644))
@@ -49,16 +55,10 @@ func newTestVault(t *testing.T) testVault {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(configFile, body, 0o644))
 
-	origConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return configFile, nil }
-	origHome := vaultconfig.UserHomeDirectory
+	env.ObsidianConfigFile = configFile
 	home := t.TempDir()
-	vaultconfig.UserHomeDirectory = func() (string, error) { return home, nil }
-	t.Cleanup(func() {
-		obsidian.ObsidianConfigFile = origConfig
-		vaultconfig.UserHomeDirectory = origHome
-	})
-	return testVault{name: "testvault", path: vaultDir}
+	env.HomeDir = home
+	return testVault{env: env, name: "testvault", path: vaultDir}
 }
 
 // runResult captures one backgrounded Run invocation.
@@ -97,7 +97,7 @@ func (b *syncBuffer) String() string {
 
 func startRun(t *testing.T, vault testVault, mutate func(*Options)) *runHandle {
 	t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(vaultconfig.WithEnv(context.Background(), vault.env))
 	handle := &runHandle{
 		cancel: cancel,
 		done:   make(chan runResult, 1),
@@ -285,7 +285,7 @@ func TestRunExitsWhenItLosesElectionAndLeavesTheWinnerUntouched(t *testing.T) {
 
 	var stderr bytes.Buffer
 	var listened bool
-	err = Run(context.Background(), Options{
+	err = Run(vaultconfig.WithEnv(context.Background(), vault.env), Options{
 		VaultName: vault.name,
 		Host:      "127.0.0.1",
 		// Headless is the mode a client spawns, and the mode that would
@@ -393,9 +393,9 @@ func TestRunExitsWhenTheVaultRootDisappears(t *testing.T) {
 	// name the replaced database instead. Either reason is the exit under test.
 	stderr := handle.stderr.String()
 	require.True(t, strings.Contains(stderr, "vault root") || strings.Contains(stderr, "was replaced on disk"), stderr)
-	registry, err := appruntime.NewRegistry()
+	registry, err := appruntime.NewRegistry(vault.env)
 	require.NoError(t, err)
-	intents, err := registry.ListIntents(context.Background())
+	intents, err := registry.ListIntents(vaultconfig.WithEnv(context.Background(), vault.env))
 	require.NoError(t, err)
 	require.Empty(t, intents, "removing the vault must not strand its startup intent")
 }
@@ -408,7 +408,7 @@ func TestRunAttachesToALiveRuntimeInsteadOfStartingASecond(t *testing.T) {
 	var stderr bytes.Buffer
 	opened := make(chan string, 1)
 	var listened bool
-	err := Run(context.Background(), Options{
+	err := Run(vaultconfig.WithEnv(context.Background(), vault.env), Options{
 		VaultName:    vault.name,
 		Host:         "127.0.0.1",
 		CommandName:  "start",
@@ -435,7 +435,7 @@ func TestRunReportsAConflictAgainstALiveRuntime(t *testing.T) {
 	live := publishFakeLiveRuntime(t, vault, appruntime.ModeAttached)
 
 	var stderr bytes.Buffer
-	err := Run(context.Background(), Options{
+	err := Run(vaultconfig.WithEnv(context.Background(), vault.env), Options{
 		VaultName:   vault.name,
 		Host:        "127.0.0.1",
 		CommandName: "serve",

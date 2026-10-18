@@ -62,7 +62,7 @@ func TestEnsureRefusesToSpawnWhenAutostartDisabled(t *testing.T) {
 
 func TestEnsureWaitsForElectedOwnerBeforeManifestPublication(t *testing.T) {
 	vault := newTestVault(t)
-	release, acquired, err := indexlock.TryAcquireWithOptions(LockPath(vault), indexlock.AcquireOptions{ProcessLifetime: true})
+	release, acquired, err := indexlock.TryAcquireWithOptions(LockPath(vault), indexlock.AcquireOptions{})
 	require.NoError(t, err)
 	require.True(t, acquired)
 	t.Cleanup(func() { _ = release() })
@@ -94,7 +94,7 @@ func TestEnsureWaitsForElectedOwnerBeforeManifestPublication(t *testing.T) {
 
 func TestEnsureWithAutostartDisabledWaitsForDrainingOwner(t *testing.T) {
 	vault := newTestVault(t)
-	release, acquired, err := indexlock.TryAcquireWithOptions(LockPath(vault), indexlock.AcquireOptions{ProcessLifetime: true})
+	release, acquired, err := indexlock.TryAcquireWithOptions(LockPath(vault), indexlock.AcquireOptions{})
 	require.NoError(t, err)
 	require.True(t, acquired)
 	t.Cleanup(func() { _ = release() })
@@ -114,7 +114,7 @@ func TestEnsureWithAutostartDisabledWaitsForDrainingOwner(t *testing.T) {
 
 func TestEnsureWithoutWaitReturnsWhileOwnerStarts(t *testing.T) {
 	vault := newTestVault(t)
-	release, acquired, err := indexlock.TryAcquireWithOptions(LockPath(vault), indexlock.AcquireOptions{ProcessLifetime: true})
+	release, acquired, err := indexlock.TryAcquireWithOptions(LockPath(vault), indexlock.AcquireOptions{})
 	require.NoError(t, err)
 	require.True(t, acquired)
 	t.Cleanup(func() { _ = release() })

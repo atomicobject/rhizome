@@ -3,13 +3,14 @@ package identifierreconcile
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/notemeta"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"slices"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // IdentifierFieldDiscoveryRequest supplies only the live vault and semantic
@@ -17,7 +18,8 @@ import (
 // deliberately discovered inside DiscoverIdentifierFields.
 type IdentifierFieldDiscoveryRequest struct {
 	VaultDef     obsidian.VaultDefinition
-	RootRewrites []reference.IdentifierRewrite
+	NoteMetadata notemeta.Indexer
+	RootRewrites []identifierrewrite.IdentifierRewrite
 }
 
 // synthesizedDerivedField is constructor-owned evidence that a derived
@@ -32,7 +34,7 @@ type synthesizedDerivedField struct {
 // DiscoverIdentifierFields derives and seals the complete structured-field
 // inventory for one rewrite union from the current Markdown vault.
 func DiscoverIdentifierFields(ctx context.Context, req IdentifierFieldDiscoveryRequest) (*IdentifierFieldDiscovery, error) {
-	source, canonicalRewrites, err := discoverIdentifierRepairSource(ctx, req.VaultDef, req.RootRewrites)
+	source, canonicalRewrites, err := discoverIdentifierRepairSource(ctx, req.NoteMetadata, req.VaultDef, req.RootRewrites)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +59,7 @@ func DiscoverIdentifierFields(ctx context.Context, req IdentifierFieldDiscoveryR
 		return nil, err
 	}
 	synthesizedDerived := discoverSynthesizedDerivedFields(source.projections, canonicalRewrites)
-	plan := reference.PlanIdentifierFieldRewrites(reference.IdentifierFieldRewriteInput{
+	plan := identifierrewrite.PlanIdentifierFieldRewrites(identifierrewrite.IdentifierFieldRewriteInput{
 		Rewrites: canonicalRewrites, Occurrences: occurrences,
 	})
 	planSnapshot, err := plan.ValidatedSnapshot()
@@ -71,8 +73,8 @@ func DiscoverIdentifierFields(ctx context.Context, req IdentifierFieldDiscoveryR
 		SchemaHash:          source.schema.Hash,
 		RewriteFingerprint:  rewriteFingerprint,
 		Occurrences:         cloneStructuredFieldOccurrences(occurrences),
-		Edits:               append([]reference.StructuredFieldEdit(nil), planSnapshot.Edits...),
-		Diagnostics:         append([]reference.IdentifierRewriteDiagnostic(nil), planSnapshot.Diagnostics...),
+		Edits:               append([]identifierrewrite.StructuredFieldEdit(nil), planSnapshot.Edits...),
+		Diagnostics:         append([]identifierrewrite.IdentifierRewriteDiagnostic(nil), planSnapshot.Diagnostics...),
 	}
 	sealed, err := identifierFieldDiscoveryFingerprint(snapshot)
 	if err != nil {
@@ -85,14 +87,14 @@ func DiscoverIdentifierFields(ctx context.Context, req IdentifierFieldDiscoveryR
 		schemaHash:          snapshot.SchemaHash,
 		rewriteFingerprint:  snapshot.RewriteFingerprint,
 		occurrences:         cloneStructuredFieldOccurrences(snapshot.Occurrences),
-		edits:               append([]reference.StructuredFieldEdit(nil), snapshot.Edits...),
-		diagnostics:         append([]reference.IdentifierRewriteDiagnostic(nil), snapshot.Diagnostics...),
+		edits:               append([]identifierrewrite.StructuredFieldEdit(nil), snapshot.Edits...),
+		diagnostics:         append([]identifierrewrite.IdentifierRewriteDiagnostic(nil), snapshot.Diagnostics...),
 		sealed:              sealed,
 	}, nil
 }
 
-func discoverSynthesizedDerivedFields(projections []*ontology.NodeProjection, rewrites []reference.IdentifierRewrite) []synthesizedDerivedField {
-	byRef := make(map[string]reference.IdentifierRewrite, len(rewrites))
+func discoverSynthesizedDerivedFields(projections []*ontology.NodeProjection, rewrites []identifierrewrite.IdentifierRewrite) []synthesizedDerivedField {
+	byRef := make(map[string]identifierrewrite.IdentifierRewrite, len(rewrites))
 	for _, rewrite := range rewrites {
 		if !rewrite.DerivedFrom.IsZero() {
 			byRef[repairRefKey(rewrite.OldRef)] = rewrite
@@ -122,7 +124,7 @@ func discoverSynthesizedDerivedFields(projections []*ontology.NodeProjection, re
 
 type projectedFieldValue struct {
 	owner         ontology.NodeRef
-	field         *ontology.Field
+	field         *ontoschema.Field
 	binding       ontology.FieldBinding
 	value         string
 	range_        ontology.ByteRange
@@ -131,7 +133,7 @@ type projectedFieldValue struct {
 	alias         bool
 }
 
-func discoverStructuredFieldOccurrences(schema *ontology.Schema, projections []*ontology.NodeProjection, rewrites []reference.IdentifierRewrite) ([]reference.StructuredFieldOccurrence, error) {
+func discoverStructuredFieldOccurrences(schema *ontoschema.Schema, projections []*ontology.NodeProjection, rewrites []identifierrewrite.IdentifierRewrite) ([]identifierrewrite.StructuredFieldOccurrence, error) {
 	aliasFieldsByType := identifierAliasFieldsByType(projections, rewrites)
 
 	identifierCandidates := make(map[string][]ontology.NodeRef)
@@ -143,7 +145,7 @@ func discoverStructuredFieldOccurrences(schema *ontology.Schema, projections []*
 		}
 		aliasFields := aliasFieldsByType[projection.Type.Name]
 		indexProjectionLocators(locatorCandidates, projection.Ref)
-		if rewrite, ok := rewriteByRepairRef(rewrites, semanticRepairRef(projection.Ref)); ok && rewrite.PreferredField == reference.StructuredFieldBlockLocator {
+		if rewrite, ok := rewriteByRepairRef(rewrites, semanticRepairRef(projection.Ref)); ok && rewrite.PreferredField == identifierrewrite.StructuredFieldBlockLocator {
 			if occurrence, found := blockLocatorOccurrence(projection, rewrite); found {
 				values = append(values, occurrence)
 			}
@@ -164,10 +166,10 @@ func discoverStructuredFieldOccurrences(schema *ontology.Schema, projections []*
 				entry.value, entry.authoredExact = exactProjectedFieldValue(projection.Snapshot.Content, field, binding, index, entry.value, entry.range_)
 				values = append(values, entry)
 				if field.IsIdentifier {
-					appendFieldCandidate(identifierCandidates, ontology.NormalizeIdentifierSemanticValue(value), projection.Ref)
+					appendFieldCandidate(identifierCandidates, ontoschema.NormalizeIdentifierSemanticValue(value), projection.Ref)
 				}
 				if entry.alias {
-					appendFieldCandidate(identifierCandidates, ontology.NormalizeIdentifierSemanticValue(value), projection.Ref)
+					appendFieldCandidate(identifierCandidates, ontoschema.NormalizeIdentifierSemanticValue(value), projection.Ref)
 				}
 			}
 		}
@@ -180,7 +182,7 @@ func discoverStructuredFieldOccurrences(schema *ontology.Schema, projections []*
 				if !binding.Present {
 					continue
 				}
-				field := &ontology.Field{Name: aliasField, Source: aliasField, SourceKind: ontology.FieldSourceFrontmatter, Kind: ontology.FieldKindScalar, TypeName: "String", List: true}
+				field := &ontoschema.Field{Name: aliasField, Source: aliasField, SourceKind: ontoschema.FieldSourceFrontmatter, Kind: ontoschema.FieldKindScalar, TypeName: "String", List: true}
 				for index, value := range binding.Values {
 					entry := projectedFieldValue{owner: projection.Ref, field: field, binding: binding, value: value, contentLen: len(projection.Snapshot.Content), alias: slices.Contains(aliasFields, field.Name)}
 					if index < len(binding.ValueRanges) {
@@ -188,7 +190,7 @@ func discoverStructuredFieldOccurrences(schema *ontology.Schema, projections []*
 					}
 					entry.value, entry.authoredExact = exactProjectedFieldValue(projection.Snapshot.Content, field, binding, index, entry.value, entry.range_)
 					values = append(values, entry)
-					appendFieldCandidate(identifierCandidates, ontology.NormalizeIdentifierSemanticValue(value), projection.Ref)
+					appendFieldCandidate(identifierCandidates, ontoschema.NormalizeIdentifierSemanticValue(value), projection.Ref)
 				}
 			}
 		}
@@ -196,13 +198,13 @@ func discoverStructuredFieldOccurrences(schema *ontology.Schema, projections []*
 	normalizeFieldCandidateIndex(identifierCandidates)
 	normalizeFieldCandidateIndex(locatorCandidates)
 
-	occurrences := make([]reference.StructuredFieldOccurrence, 0, len(values))
+	occurrences := make([]identifierrewrite.StructuredFieldOccurrence, 0, len(values))
 	for _, value := range values {
 		kind, candidates, include := classifyProjectedFieldValue(schema, value, identifierCandidates, locatorCandidates)
 		if !include {
 			continue
 		}
-		if value.binding.Derived && kind == reference.StructuredFieldPreferredIdentifier {
+		if value.binding.Derived && kind == identifierrewrite.StructuredFieldPreferredIdentifier {
 			continue
 		}
 		if !value.authoredExact || len(value.binding.ValueRanges) != len(value.binding.Values) || !value.range_.Valid(value.contentLen) || value.range_.Len() == 0 {
@@ -211,7 +213,7 @@ func discoverStructuredFieldOccurrences(schema *ontology.Schema, projections []*
 			}
 			continue
 		}
-		occurrences = append(occurrences, reference.StructuredFieldOccurrence{
+		occurrences = append(occurrences, identifierrewrite.StructuredFieldOccurrence{
 			OwnerRef: value.owner, FieldName: value.field.Name, Kind: kind, Value: value.value,
 			Range: value.range_, Candidates: append([]ontology.NodeRef(nil), candidates...),
 		})
@@ -232,27 +234,27 @@ func discoverStructuredFieldOccurrences(schema *ontology.Schema, projections []*
 	return occurrences, nil
 }
 
-func rewriteByRepairRef(rewrites []reference.IdentifierRewrite, ref ontology.NodeRef) (reference.IdentifierRewrite, bool) {
+func rewriteByRepairRef(rewrites []identifierrewrite.IdentifierRewrite, ref ontology.NodeRef) (identifierrewrite.IdentifierRewrite, bool) {
 	for _, rewrite := range rewrites {
 		if sameRepairRef(rewrite.OldRef, ref) {
 			return rewrite, true
 		}
 	}
-	return reference.IdentifierRewrite{}, false
+	return identifierrewrite.IdentifierRewrite{}, false
 }
 
-func blockLocatorOccurrence(projection *ontology.NodeProjection, rewrite reference.IdentifierRewrite) (projectedFieldValue, bool) {
+func blockLocatorOccurrence(projection *ontology.NodeProjection, rewrite identifierrewrite.IdentifierRewrite) (projectedFieldValue, bool) {
 	identifier, rng, ok := parserOwnedBlockLocator(projection)
 	if !ok || IdentifierComparisonKey(identifier) != IdentifierComparisonKey(rewrite.OldIdentifier) {
 		return projectedFieldValue{}, false
 	}
 	expected := "^" + identifier
-	field := &ontology.Field{Name: reference.StructuredFieldBlockLocator, Kind: ontology.FieldKindLink, TypeName: projection.Ref.TypeName}
+	field := &ontoschema.Field{Name: identifierrewrite.StructuredFieldBlockLocator, Kind: ontoschema.FieldKindLink, TypeName: projection.Ref.TypeName}
 	binding := ontology.FieldBinding{Present: true, Values: []string{expected}, ValueRanges: []ontology.ByteRange{rng}, ValueRangesExact: true}
 	return projectedFieldValue{owner: projection.Ref, field: field, binding: binding, value: expected, range_: rng, contentLen: len(projection.Snapshot.Content), authoredExact: true}, true
 }
 
-func exactProjectedFieldValue(content string, field *ontology.Field, binding ontology.FieldBinding, index int, value string, valueRange ontology.ByteRange) (string, bool) {
+func exactProjectedFieldValue(content string, field *ontoschema.Field, binding ontology.FieldBinding, index int, value string, valueRange ontology.ByteRange) (string, bool) {
 	if binding.ValueRangesExact {
 		return value, true
 	}
@@ -260,25 +262,25 @@ func exactProjectedFieldValue(content string, field *ontology.Field, binding ont
 		return value, false
 	}
 	authored := content[valueRange.Start:valueRange.End]
-	if !strings.HasPrefix(strings.TrimSpace(authored), "^") || ontology.NormalizeIdentifierSemanticValue(authored) != ontology.NormalizeIdentifierSemanticValue(value) {
+	if !strings.HasPrefix(strings.TrimSpace(authored), "^") || ontoschema.NormalizeIdentifierSemanticValue(authored) != ontoschema.NormalizeIdentifierSemanticValue(value) {
 		return value, false
 	}
 	return authored, true
 }
 
-func classifyProjectedFieldValue(schema *ontology.Schema, value projectedFieldValue, identifiers, locators map[string][]ontology.NodeRef) (reference.StructuredFieldKind, []ontology.NodeRef, bool) {
+func classifyProjectedFieldValue(schema *ontoschema.Schema, value projectedFieldValue, identifiers, locators map[string][]ontology.NodeRef) (identifierrewrite.StructuredFieldKind, []ontology.NodeRef, bool) {
 	if value.field.IsPreferredIdentifier {
-		return reference.StructuredFieldPreferredIdentifier, nil, true
+		return identifierrewrite.StructuredFieldPreferredIdentifier, nil, true
 	}
 	if value.alias {
-		return reference.StructuredFieldAliasIdentifier, nil, true
+		return identifierrewrite.StructuredFieldAliasIdentifier, nil, true
 	}
-	if value.field.Kind != ontology.FieldKindLink {
+	if value.field.Kind != ontoschema.FieldKindLink {
 		return "", nil, false
 	}
 	raw := strings.TrimSpace(value.value)
 	target := unwrapStructuredFieldTarget(raw)
-	identifierKey := ontology.NormalizeIdentifierSemanticValue(target)
+	identifierKey := ontoschema.NormalizeIdentifierSemanticValue(target)
 	candidates := append([]ontology.NodeRef(nil), identifiers[identifierKey]...)
 	locatorKey := normalizeFieldLocator(target)
 	if strings.HasPrefix(strings.TrimSpace(target), "#") || strings.HasPrefix(strings.TrimSpace(target), "^") {
@@ -289,21 +291,21 @@ func classifyProjectedFieldValue(schema *ontology.Schema, value projectedFieldVa
 	}
 	candidates = filterFieldCandidatesByType(schema, candidates, value.field.TypeName)
 	if raw == target && len(identifiers[identifierKey]) > 0 {
-		return reference.StructuredFieldTypedIdentifierReference, candidates, true
+		return identifierrewrite.StructuredFieldTypedIdentifierReference, candidates, true
 	}
 	for _, candidate := range candidates {
 		if normalizeFieldLocator(target) == normalizeFieldLocator(candidate.String()) && raw == target {
-			return reference.StructuredFieldCanonicalNodeRef, candidates, true
+			return identifierrewrite.StructuredFieldCanonicalNodeRef, candidates, true
 		}
 	}
-	return reference.StructuredFieldIdentifierBackedLocator, candidates, true
+	return identifierrewrite.StructuredFieldIdentifierBackedLocator, candidates, true
 }
 
-func projectedFieldValueTouchesRewrites(value projectedFieldValue, kind reference.StructuredFieldKind, candidates []ontology.NodeRef, rewrites []reference.IdentifierRewrite) bool {
+func projectedFieldValueTouchesRewrites(value projectedFieldValue, kind identifierrewrite.StructuredFieldKind, candidates []ontology.NodeRef, rewrites []identifierrewrite.IdentifierRewrite) bool {
 	for _, rewrite := range rewrites {
 		owned := sameRepairRef(value.owner, rewrite.OldRef)
-		if owned && ((kind == reference.StructuredFieldPreferredIdentifier && value.field.Name == rewrite.PreferredField) ||
-			(kind == reference.StructuredFieldAliasIdentifier && rewrite.HasAliasField(value.field.Name))) {
+		if owned && ((kind == identifierrewrite.StructuredFieldPreferredIdentifier && value.field.Name == rewrite.PreferredField) ||
+			(kind == identifierrewrite.StructuredFieldAliasIdentifier && rewrite.HasAliasField(value.field.Name))) {
 			if IdentifierComparisonKey(value.value) == IdentifierComparisonKey(rewrite.OldIdentifier) || IdentifierComparisonKey(value.value) == IdentifierComparisonKey(rewrite.NewIdentifier) {
 				return true
 			}
@@ -383,10 +385,10 @@ func normalizeFieldLocator(value string) string {
 	return strings.ToLower(strings.TrimSpace(unwrapStructuredFieldTarget(value)))
 }
 
-func filterFieldCandidatesByType(schema *ontology.Schema, candidates []ontology.NodeRef, expected string) []ontology.NodeRef {
+func filterFieldCandidatesByType(schema *ontoschema.Schema, candidates []ontology.NodeRef, expected string) []ontology.NodeRef {
 	out := make([]ontology.NodeRef, 0, len(candidates))
 	for _, candidate := range candidates {
-		if ontology.TypeMatchesOrImplements(schema, candidate.TypeName, expected) {
+		if ontoschema.TypeMatchesOrImplements(schema, candidate.TypeName, expected) {
 			out = append(out, candidate)
 		}
 	}

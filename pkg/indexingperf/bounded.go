@@ -7,7 +7,7 @@ import (
 
 // Limits bounds retained detail, not cumulative measurements for admitted series.
 // SamplesPerMetric applies separately to cumulative and render-window prefixes.
-// Nonpositive options use defaults. New remains unbounded for legacy text reports.
+// Nonpositive options use defaults. New uses these same default bounds.
 type Limits struct {
 	Series             int `json:"series"`
 	SamplesPerMetric   int `json:"samplesPerMetric"`
@@ -23,7 +23,7 @@ type Coverage struct {
 	DroppedIntervals     int64 `json:"droppedIntervals"`
 }
 
-func NewBounded(options ...Limits) *Collector {
+func New(options ...Limits) *Collector {
 	limits := Limits{Series: 1024, SamplesPerMetric: 256, IntervalsPerMetric: 64, LabelBytes: 120}
 	if len(options) > 0 {
 		opt := options[0]
@@ -40,7 +40,7 @@ func NewBounded(options ...Limits) *Collector {
 			limits.LabelBytes = opt.LabelBytes
 		}
 	}
-	c := New()
+	c := newCollector()
 	c.limits, c.series = limits, make(map[string]struct{})
 	c.windowLatencies = make(map[Metric]statLatency)
 	c.windowSamples = make(map[Metric]statSample)
@@ -50,9 +50,6 @@ func NewBounded(options ...Limits) *Collector {
 // admitLocked is called with mu held. Reject long labels instead of truncating them
 // into collisions; metric labels must be curated and must never contain content.
 func (c *Collector) admitLocked(kind string, labels ...string) bool {
-	if c.series == nil {
-		return true
-	}
 	for _, label := range labels {
 		if len(label) > c.limits.LabelBytes {
 			c.coverage.RejectedObservations++
@@ -71,10 +68,12 @@ func (c *Collector) admitLocked(kind string, labels ...string) bool {
 	return true
 }
 
-func (c *Collector) admitMetric(m Metric) bool { return c.admitLocked(string(m.Kind), m.Phase, m.Name) }
+func (c *Collector) admitMetric(m Metric) bool {
+	return c.admitLocked(string(m.Kind), m.Phase, string(m.Name))
+}
 
 func (c *Collector) keepSample(count int) bool {
-	if c.series == nil || count < c.limits.SamplesPerMetric {
+	if count < c.limits.SamplesPerMetric {
 		return true
 	}
 	c.coverage.DroppedSamples++
@@ -82,7 +81,7 @@ func (c *Collector) keepSample(count int) bool {
 }
 
 func (c *Collector) keepInterval(count int) bool {
-	if c.series == nil || count < c.limits.IntervalsPerMetric {
+	if count < c.limits.IntervalsPerMetric {
 		return true
 	}
 	c.coverage.DroppedIntervals++

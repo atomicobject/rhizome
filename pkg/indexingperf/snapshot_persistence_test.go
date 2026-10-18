@@ -15,17 +15,17 @@ import (
 )
 
 func TestLargeBoundedSnapshotPersistsAllAggregates(t *testing.T) {
-	c := indexingperf.NewBounded()
+	c := indexingperf.New()
 	ctx := indexingperf.WithPhase(indexingperf.WithCollector(context.Background(), c), "bulk")
 	at := time.Unix(100, 0)
 	for metric := 0; metric < 160; metric++ {
 		name := fmt.Sprintf("metric.%03d.%s", metric, strings.Repeat("x", 90))
 		for observation := 0; observation < 300; observation++ {
-			indexingperf.AddCount(ctx, name, 1)
-			indexingperf.SetGauge(ctx, name, int64(observation))
-			indexingperf.ObserveLatency(ctx, name, time.Millisecond)
-			indexingperf.ObserveSample(ctx, name, 10)
-			indexingperf.ObserveInterval(ctx, name, at.Add(time.Duration(observation)*time.Millisecond), time.Millisecond)
+			indexingperf.AddCount(ctx, indexingperf.MetricName(name), 1)
+			indexingperf.SetGauge(ctx, indexingperf.MetricName(name), int64(observation))
+			indexingperf.ObserveLatency(ctx, indexingperf.MetricName(name), time.Millisecond)
+			indexingperf.ObserveSample(ctx, indexingperf.MetricName(name), 10)
+			indexingperf.ObserveInterval(ctx, indexingperf.MetricName(name), at.Add(time.Duration(observation)*time.Millisecond), time.Millisecond)
 			c.RecordSpanWindow(name, at, at.Add(time.Millisecond), nil)
 			indexingperf.ObserveDBWrite(indexingperf.WithOp(ctx, name), "store", time.Millisecond, time.Millisecond)
 		}

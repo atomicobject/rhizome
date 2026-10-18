@@ -4,84 +4,36 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/diag"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
+
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	validationcatalog "github.com/atomicobject/rhizome/pkg/validate/catalog"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
-
-func RunSkillOverlays(runCtx RunContext) CheckResult {
-	manifest, err := initactions.ValidateBundledSkillOverlays()
-	if err != nil {
-		return CheckResult{Name: CheckSkillOverlays, Error: err.Error()}
-	}
-	return skillOverlayCheckResult(manifest)
-}
-
-func skillOverlayCheckResult(manifest initactions.SkillOverlayManifest) CheckResult {
-	result := CheckResult{Name: CheckSkillOverlays, OK: true}
-	result.IssueCount = len(manifest.Issues)
-	applied := 0
-	for _, entry := range manifest.Entries {
-		if strings.TrimSpace(entry.OverlayID) != "" {
-			applied++
-		}
-	}
-	result.Summary = fmt.Sprintf("%d overlay fragment(s) checked", applied)
-	if len(manifest.Issues) == 0 {
-		return result
-	}
-	result.OK = false
-	sort.SliceStable(manifest.Issues, func(i, j int) bool {
-		left := manifest.Issues[i]
-		right := manifest.Issues[j]
-		if left.Path != right.Path {
-			return left.Path < right.Path
-		}
-		if left.Code != right.Code {
-			return left.Code < right.Code
-		}
-		if left.Skill != right.Skill {
-			return left.Skill < right.Skill
-		}
-		return left.Message < right.Message
-	})
-	result.Issues = make([]Issue, 0, len(manifest.Issues))
-	for _, issue := range manifest.Issues {
-		result.Issues = append(result.Issues, Issue{
-			Code:    issue.Code,
-			Path:    issue.Path,
-			Field:   issue.Slot,
-			Source:  issue.Overlay,
-			Target:  issue.Skill,
-			Message: issue.Message,
-		})
-	}
-	return result
-}
 
 // RunViews validates repo-tracked configured view definitions.
 func RunViews(ctx context.Context, runCtx RunContext) CheckResult {
 	result := CheckResult{Name: CheckViews, OK: true}
 	views, loadIssues := viewconfig.LoadDefaultSource(runCtx.VaultPath)
 	if len(views) == 0 && len(loadIssues) == 0 {
-		result.Skipped = true
-		result.Summary = "no configured views found"
+		result.NotApplicable = "no configured views found"
+		result.Summary = result.NotApplicable
 		return result
 	}
 	opts := viewconfig.ValidateOptions{}
 	var execSchema *ontologyquery.ExecutableSchema
-	schema, err := ontology.LoadSchema(runCtx.VaultPath)
-	if errors.Is(err, ontology.ErrNoOntologyFiles) {
+	schema, err := ontoschema.LoadSchema(runCtx.VaultPath)
+	if errors.Is(err, ontoschema.ErrNoOntologyFiles) {
 		result.Notes = append(result.Notes, "no ontology schema; skipping source target and GraphQL validation")
 	} else if err != nil {
 		result.OK = false
@@ -117,7 +69,7 @@ func RunViews(ctx context.Context, runCtx RunContext) CheckResult {
 				Target:  issue.View,
 				Message: issue.Message,
 				Line:    issue.Line,
-				Variant: newIssueVariant(issue.Variant, issue.Variant),
+				Variant: diag.NewVariant(issue.Variant, issue.Variant),
 			})
 		}
 	}
@@ -147,16 +99,16 @@ func RunQueryRecipes(ctx context.Context, runCtx RunContext) CheckResult {
 	recipes, loadIssues := loadRecipeValidationSources(runCtx.VaultPath)
 	loadIssues = normalizeQueryRecipeIssues(runCtx.VaultPath, loadIssues)
 	if len(recipes) == 0 && len(loadIssues) == 0 {
-		result.Skipped = true
-		result.Summary = "no query recipes found"
+		result.NotApplicable = "no query recipes found"
+		result.Summary = result.NotApplicable
 		return result
 	}
-	schema, err := ontology.LoadSchema(runCtx.VaultPath)
-	if errors.Is(err, ontology.ErrNoOntologyFiles) {
-		result.Skipped = true
-		result.Summary = "no ontology schema"
+	schema, err := ontoschema.LoadSchema(runCtx.VaultPath)
+	if errors.Is(err, ontoschema.ErrNoOntologyFiles) {
+		result.NotApplicable = "no ontology schema"
+		result.Summary = result.NotApplicable
 		if len(loadIssues) > 0 {
-			result.Skipped = false
+			result.NotApplicable = ""
 			result.OK = false
 			result.IssueCount = len(loadIssues)
 			result.Summary = "query recipe load issues"
@@ -180,8 +132,8 @@ func RunQueryRecipes(ctx context.Context, runCtx RunContext) CheckResult {
 	validation := queryrecipe.Validate(recipes, execSchema)
 	issues := append(loadIssues, normalizeQueryRecipeIssues(runCtx.VaultPath, validation.Issues)...)
 	if len(recipes) == 0 && len(issues) == 0 {
-		result.Skipped = true
-		result.Summary = "no query recipes found"
+		result.NotApplicable = "no query recipes found"
+		result.Summary = result.NotApplicable
 		return result
 	}
 	result.IssueCount = len(issues)
@@ -216,26 +168,11 @@ func queryRecipeValidationIssue(issue queryrecipe.Issue) Issue {
 	}
 }
 
-// RunOntology validates notes against their ontology schema.
-func RunOntology(ctx context.Context, runCtx RunContext) CheckResult {
-	if err := runCtx.NoteMetadata.Validate(); err != nil {
-		return CheckResult{Name: CheckOntology, Error: fmt.Sprintf("note metadata indexer: %v", err)}
-	}
-	runtime, cleanup, err := ontology.EnsureFreshRuntime(ctx, runCtx.NoteMetadata, runCtx.VaultDef, runCtx.NoteReader)
-	if cleanup != nil {
-		defer cleanup()
-	}
-	if err != nil {
-		return CheckResult{Name: CheckOntology, Error: err.Error()}
-	}
-	return runOntologyWithRuntime(ctx, runCtx, runtime)
-}
-
 func runOntologyWithRuntime(ctx context.Context, runCtx RunContext, runtime *ontology.Runtime) CheckResult {
 	result := CheckResult{Name: CheckOntology, OK: true}
 	if runtime == nil || runtime.Schema == nil {
-		result.Skipped = true
-		result.Summary = "no ontology schema"
+		result.NotApplicable = "no ontology schema"
+		result.Summary = result.NotApplicable
 		return result
 	}
 	if runtime.Store != nil {
@@ -279,59 +216,27 @@ func runOntologyWithRuntime(ctx context.Context, runCtx RunContext, runtime *ont
 	return result
 }
 
-// RunCodeAnchors validates code reference anchors.
-func RunCodeAnchors(ctx context.Context, runCtx RunContext) CheckResult {
-	result := CheckResult{Name: CheckCodeAnchors, OK: true}
-	codeCfg, err := obsidian.LoadCodeConfig(runCtx.VaultPath)
-	if err != nil {
-		result.OK = false
-		result.Error = err.Error()
-		return result
-	}
-	if !codeCfg.Enabled {
-		result.Skipped = true
-		result.Summary = "code indexing disabled"
-		return result
-	}
-	codeCfg.IndexPath = obsidian.UnifiedIndexPath(runCtx.VaultPath, codeCfg.IndexPath)
-	store, cleanup, err := obsidian.OpenIntelStoreFromConfig(runCtx.VaultPath, codeCfg, true)
-	if cleanup != nil {
-		defer cleanup()
-	}
-	if err != nil {
-		result.OK = false
-		result.Error = err.Error()
-		return result
-	}
-	if store == nil {
-		result.Skipped = true
-		result.Summary = "code index unavailable"
-		return result
-	}
-	return RunCodeAnchorsWithStore(ctx, runCtx, store)
-}
-
 // RunCodeAnchorsWithStore validates code reference anchors against an already
 // open intel store.
 func RunCodeAnchorsWithStore(ctx context.Context, runCtx RunContext, store *semdb.Store) CheckResult {
 	result := CheckResult{Name: CheckCodeAnchors, OK: true}
 	if store == nil {
-		result.Skipped = true
-		result.Summary = "code index unavailable"
+		result.Error = "prepared code index store is unavailable"
 		return result
 	}
-	codeCfg, err := obsidian.LoadCodeConfig(runCtx.VaultPath)
+	resolvedConfig1, configErr1 := repoconfig.Load(runCtx.VaultPath)
+	codeCfg, err := resolvedConfig1.Code, configErr1
 	if err != nil {
 		result.OK = false
 		result.Error = err.Error()
 		return result
 	}
 	if !codeCfg.Enabled {
-		result.Skipped = true
-		result.Summary = "code indexing disabled"
+		result.NotApplicable = "code indexing disabled"
+		result.Summary = result.NotApplicable
 		return result
 	}
-	codeCfg.IndexPath = obsidian.UnifiedIndexPath(runCtx.VaultPath, codeCfg.IndexPath)
+	codeCfg.IndexPath = repoconfig.UnifiedIndexPath(runCtx.VaultPath, codeCfg.IndexPath)
 	tailIndex := codeanchor.NewPathTailIndex(5)
 	svc := codeanchor.NewServiceWithOptions(
 		store,
@@ -467,11 +372,6 @@ func CanonicalCheck(raw string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func normalizeCheckName(raw string) string {
-	name := strings.ToLower(strings.TrimSpace(raw))
-	return strings.ReplaceAll(name, "-", "_")
 }
 
 func validCheckNames() string {

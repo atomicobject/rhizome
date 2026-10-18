@@ -2,6 +2,7 @@ package validate
 
 import (
 	"context"
+
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,6 +78,7 @@ func issueMessages(result CheckResult, code string) []string {
 }
 
 func TestRunViewsReportsImportsABrowserCannotLoad(t *testing.T) {
+
 	root := t.TempDir()
 	views := root + "/.rhizome/views/poc/"
 	writeValidationTestFile(t, views+"board.yaml", "apiVersion: rhizome.view.v1\nid: poc.board\nname: Board\nsource: {kind: custom, entry: board.tsx}\nmount: {kind: standalone}\n")

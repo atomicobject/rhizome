@@ -3,15 +3,17 @@ package validationproduct
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -58,16 +60,15 @@ func TestRefreshCoordinatorCreatesReviewFromPublishedInMemoryAuthority(t *testin
 		Issues: []validate.Issue{{Key: "issue", Code: "broken", Path: "note.md", Message: "Broken link"}},
 	}}
 	run.Result.EffectiveChecks = []string{validate.CheckLinkHygiene}
-	run.Result.Outcomes = []validationrun.ValidationCheckOutcome{{Check: validate.CheckLinkHygiene, Outcome: validate.CheckOutcomeCompleted}}
+	run.Result.Outcomes = []validationrun.ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: validate.CheckLinkHygiene, Outcome: validate.CheckOutcomeCompleted}}}
 	run.Result.Result.FixPlan = &plan
 	vaultDef := obsidian.VaultDefinition{Name: "test", Path: root}
 	run.RunContext = validate.RunContext{
-		VaultDef: vaultDef, VaultPath: root, VaultMgr: &liveVaultManager{def: vaultDef},
-		NoteReader: &obsidian.Note{}, NoteMetadata: testProjectionNoteMetadata(t), MaxIssues: 20,
+		VaultDef: vaultDef, VaultPath: root, NoteReader: &obsidian.Note{}, NoteMetadata: testProjectionNoteMetadata(t), MaxIssues: 20,
 	}
 	store := openCoordinatorStore(t)
 	opts := optionsForCoordinatorTest(store, root, func(context.Context) (AuthoritativeRun, error) { return run, nil })
-	opts.ApplyOptions = validate.Options{PostApplyRefresher: coordinatorPostApplyRefresher{}}
+	opts.ApplyOptions = validate.ApplyOptions{PostApplyRefresher: coordinatorPostApplyRefresher{}}
 	coordinator := NewRefreshCoordinator(opts)
 
 	require.NoError(t, coordinator.Refresh(context.Background()))
@@ -139,16 +140,15 @@ func TestRefreshCoordinatorReturnsAppliedTerminalOutcomeAfterLaterRefresh(t *tes
 		Issues: []validate.Issue{{Key: "issue", Code: "broken", Path: "note.md", Message: "Broken link"}},
 	}}
 	run.Result.EffectiveChecks = []string{validate.CheckLinkHygiene}
-	run.Result.Outcomes = []validationrun.ValidationCheckOutcome{{Check: validate.CheckLinkHygiene, Outcome: validate.CheckOutcomeCompleted}}
+	run.Result.Outcomes = []validationrun.ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: validate.CheckLinkHygiene, Outcome: validate.CheckOutcomeCompleted}}}
 	run.Result.Result.FixPlan = &plan
 	vaultDef := obsidian.VaultDefinition{Name: "test", Path: root}
 	run.RunContext = validate.RunContext{
-		VaultDef: vaultDef, VaultPath: root, VaultMgr: &liveVaultManager{def: vaultDef},
-		NoteReader: &obsidian.Note{}, NoteMetadata: testProjectionNoteMetadata(t), MaxIssues: 20,
+		VaultDef: vaultDef, VaultPath: root, NoteReader: &obsidian.Note{}, NoteMetadata: testProjectionNoteMetadata(t), MaxIssues: 20,
 	}
 	store := openCoordinatorStore(t)
 	opts := optionsForCoordinatorTest(store, root, func(context.Context) (AuthoritativeRun, error) { return run, nil })
-	opts.ApplyOptions = validate.Options{PostApplyRefresher: coordinatorPostApplyRefresher{}}
+	opts.ApplyOptions = validate.ApplyOptions{PostApplyRefresher: coordinatorPostApplyRefresher{}}
 	coordinator := NewRefreshCoordinator(opts)
 	require.NoError(t, coordinator.Refresh(context.Background()))
 	review, err := coordinator.CreateRepairReview(context.Background(), 1, plan.Fingerprint, []string{"action"})
@@ -167,7 +167,7 @@ func TestRefreshCoordinatorReturnsAppliedTerminalOutcomeAfterLaterRefresh(t *tes
 }
 
 func TestRunLiveRetainsProductionResultAndRunContext(t *testing.T) {
-	root := writeProjectionVault(t)
+	root := paths.ResolveSymlinks(writeProjectionVault(t)).String()
 	vaultDef := obsidian.VaultDefinition{Name: "test", Path: root}
 	noteMetadata := testProjectionNoteMetadata(t)
 
@@ -346,7 +346,7 @@ func cleanAuthoritativeRun() AuthoritativeRun {
 	return AuthoritativeRun{Result: validationrun.ValidationResult{
 		Result:   validate.Result{OK: true, SelectedChecks: []string{validate.CheckOntology}, Checks: []validate.CheckResult{{Name: validate.CheckOntology}}},
 		Selector: "default", EffectiveChecks: []string{validate.CheckOntology},
-		Outcomes: []validationrun.ValidationCheckOutcome{{Check: validate.CheckOntology, Outcome: validate.CheckOutcomeCompleted}},
+		Outcomes: []validationrun.ValidationCheckOutcome{{CheckApplicabilityResult: validate.CheckApplicabilityResult{Check: validate.CheckOntology, Outcome: validate.CheckOutcomeCompleted}}},
 	}}
 }
 
@@ -360,7 +360,7 @@ func openCoordinatorStore(t *testing.T) *semdb.Store {
 
 type coordinatorPostApplyRefresher struct{}
 
-func (coordinatorPostApplyRefresher) Refresh(context.Context, *validate.IndexLockLease, []string, []validate.PathRename, []string) (validate.PostApplyRefreshResult, error) {
+func (coordinatorPostApplyRefresher) Refresh(context.Context, *indexlock.Lease, []string, []validate.PathRename, []string) (validate.PostApplyRefreshResult, error) {
 	return validate.NewPostApplyRefreshResult(&ontology.Runtime{}, coordinatorCloseOwner{}), nil
 }
 

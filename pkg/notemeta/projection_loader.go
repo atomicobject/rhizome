@@ -38,7 +38,9 @@ func (i Indexer) loadProjectedEntriesForPaths(ctx context.Context, vaultDef obsi
 	if err != nil {
 		return nil, err
 	}
-	sort.SliceStable(entries, func(left, right int) bool { return entries[left].Entry.Path < entries[right].Entry.Path })
+	sort.SliceStable(entries, func(left, right int) bool {
+		return entries[left].Source.Path().String() < entries[right].Source.Path().String()
+	})
 	return entries, nil
 }
 
@@ -58,7 +60,9 @@ func (i Indexer) projectCacheEntries(ctx context.Context, entries []cache.Entry)
 	if err != nil {
 		return nil, err
 	}
-	sort.SliceStable(projected, func(left, right int) bool { return projected[left].Entry.Path < projected[right].Entry.Path })
+	sort.SliceStable(projected, func(left, right int) bool {
+		return projected[left].Source.Path().String() < projected[right].Source.Path().String()
+	})
 	return projected, nil
 }
 

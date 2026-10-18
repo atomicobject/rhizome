@@ -2,6 +2,7 @@
 
 Normalizes recursive filesystem events and follower hints into debounced, vault-relative change batches for cache and indexing consumers.
 
+- **Delivery**: one goroutine owns the debounce timer and successive file-batch callbacks. Event admission coalesces paths and wakes that loop without a second per-batch queue; slow callbacks cannot overlap later callbacks.
 - **Shutdown**: `Close` cancels and drains admitted hub work and subscriber callbacks, discards pending debounce events, and closes the backend once. Callbacks may unsubscribe themselves, but must not call `Close` synchronously. `Start` is single-use; starting a closed hub has no effect.
 - **Backend drain**: the fsnotify event pump remains alive until backend close because Windows watch installation shares the native event reader. Cancellation stops installation between filesystem operations; shutdown still waits for an in-flight OS call to return.
 - **Readiness**: directory-installation work is counted before enqueueing and remains counted through queue handoff and installation. A full queue rolls back its admission count and signals overflow.

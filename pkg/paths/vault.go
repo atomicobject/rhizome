@@ -2,7 +2,6 @@ package paths
 
 import (
 	"errors"
-	"os"
 	stdpath "path"
 	"path/filepath"
 	"strings"
@@ -45,33 +44,16 @@ func (v VaultPaths) Root() string {
 	return v.root.String()
 }
 
-// RequireCurrentWorkingDirectoryAtRoot verifies that the process is running
-// from this vault's canonical root. It treats symlink aliases of the root as
-// the same directory.
-func (v VaultPaths) RequireCurrentWorkingDirectoryAtRoot() error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
+// RequireWorkingDirectoryAtRoot accepts symlink aliases of the canonical root.
+func (v VaultPaths) RequireWorkingDirectoryAtRoot(cwd string) error {
+	if !filepath.IsAbs(cwd) {
+		return ErrWorkingDirectoryNotVaultRoot
 	}
 	rel, err := v.RelStrict(cwd)
 	if err != nil || rel != "" {
 		return ErrWorkingDirectoryNotVaultRoot
 	}
 	return nil
-}
-
-// Rel converts an arbitrary path (absolute or relative) into a normalized RelPath.
-func (v VaultPaths) Rel(p string) (RelPath, error) {
-	if p == "" {
-		return RelPath(""), nil
-	}
-	if filepath.IsAbs(p) {
-		// Non-strict conversion preserves legacy behavior for display/search paths:
-		// an absolute path outside the vault becomes a cleaned relative-looking key.
-		// Storage and index keys should use RelStrict instead.
-		return ToRel(ResolveSymlinks(p), v.root.String())
-	}
-	return Normalize(p), nil
 }
 
 // RelStrict converts a path into a normalized RelPath and rejects paths outside the vault root.
@@ -122,16 +104,6 @@ func (v VaultPaths) RelStrict(p string) (RelPath, error) {
 	return RelPath(clean), nil
 }
 
-// RelNotePath converts an arbitrary path to a normalized authored note path
-// relative to the vault root without inferring an extension.
-func (v VaultPaths) RelNotePath(p string) (NotePath, error) {
-	rel, err := v.Rel(p)
-	if err != nil {
-		return NotePath(""), err
-	}
-	return NormalizeNotePath(rel.String()), nil
-}
-
 // RelNotePathStrict converts a path to a normalized authored note path and
 // rejects paths outside the vault root without inferring an extension.
 func (v VaultPaths) RelNotePathStrict(p string) (NotePath, error) {
@@ -140,37 +112,6 @@ func (v VaultPaths) RelNotePathStrict(p string) (NotePath, error) {
 		return NotePath(""), err
 	}
 	return CleanNotePath(rel.String())
-}
-
-// RelNote converts an arbitrary path to a Markdown NotePath relative to the vault root.
-//
-// Deprecated: generic note paths must use RelNotePath.
-func (v VaultPaths) RelNote(p string) (NotePath, error) {
-	rel, err := v.Rel(p)
-	if err != nil {
-		return NotePath(""), err
-	}
-	return NormalizeNote(rel.String()), nil
-}
-
-// RelNoteStrict converts a path to a Markdown NotePath and rejects paths outside the vault root.
-//
-// Deprecated: generic note paths must use RelNotePathStrict.
-func (v VaultPaths) RelNoteStrict(p string) (NotePath, error) {
-	rel, err := v.RelStrict(p)
-	if err != nil {
-		return NotePath(""), err
-	}
-	return NormalizeNote(rel.String()), nil
-}
-
-// RelCode converts an arbitrary path to a normalized CodePath relative to the vault root.
-func (v VaultPaths) RelCode(p string) (CodePath, error) {
-	rel, err := v.Rel(p)
-	if err != nil {
-		return CodePath(""), err
-	}
-	return NormalizeCode(rel.String()), nil
 }
 
 // RelCodeStrict converts a path to a normalized CodePath and rejects paths outside the vault root.
@@ -194,13 +135,6 @@ func (v VaultPaths) AbsNotePath(note NotePath) (AbsPath, error) {
 		return AbsPath(""), err
 	}
 	return v.Abs(RelPath(canonical))
-}
-
-// AbsNote converts a Markdown NotePath into an absolute filesystem path rooted at the vault.
-//
-// Deprecated: generic note paths must use AbsNotePath.
-func (v VaultPaths) AbsNote(note NotePath) (AbsPath, error) {
-	return v.Abs(RelPath(note))
 }
 
 // AbsCode converts a CodePath into an absolute filesystem path rooted at the vault.

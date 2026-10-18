@@ -1,13 +1,14 @@
 package obsidian
 
 import (
-	"context"
 	"errors"
+
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -51,39 +52,6 @@ func (m *MockNoteReader) Title(path string) (string, bool) {
 	return strings.TrimSuffix(base, filepath.Ext(base)), true
 }
 
-type snapshotNoteReader struct {
-	entries []NoteEntry
-}
-
-func (n *snapshotNoteReader) GetContents(VaultDefinition, string) (string, error) {
-	return "", errors.New("unexpected content read")
-}
-
-func (n *snapshotNoteReader) GetNotesList(VaultDefinition) ([]string, error) {
-	out := make([]string, 0, len(n.entries))
-	for _, entry := range n.entries {
-		out = append(out, entry.Path)
-	}
-	return out, nil
-}
-
-func (n *snapshotNoteReader) GetModTime(VaultDefinition, string) (time.Time, error) {
-	return time.Time{}, nil
-}
-
-func (n *snapshotNoteReader) Title(path string) (string, bool) {
-	base := filepath.Base(path)
-	return strings.TrimSuffix(base, filepath.Ext(base)), true
-}
-
-func (n *snapshotNoteReader) NoteEntriesSnapshot(context.Context) ([]NoteEntry, error) {
-	out := make([]NoteEntry, 0, len(n.entries))
-	for _, entry := range n.entries {
-		out = append(out, entry)
-	}
-	return out, nil
-}
-
 func TestExtractWikilinks(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -123,7 +91,7 @@ func TestExtractWikilinks(t *testing.T) {
 		{
 			name:    "wikilinks in code block",
 			content: "```\n[[Project]]\n```\nOutside [[Real Link]]",
-			want:    []string{"Project", "Real Link"}, // Note: Currently extracts from code blocks too
+			want:    []string{"Real Link"},
 		},
 		{
 			name:    "wikilinks with file extension",
@@ -148,7 +116,7 @@ func TestExtractWikilinks(t *testing.T) {
 		{
 			name:    "nested wikilinks don't exist in Obsidian",
 			content: "Link to [[Outer [[Inner]]]]",
-			want:    []string{"Outer [[Inner"}, // This is expected behavior in Obsidian
+			want:    []string{"Inner"}, // This is expected behavior in Obsidian
 		},
 		{
 			name:    "adjacent wikilinks",
@@ -159,7 +127,7 @@ func TestExtractWikilinks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ExtractWikilinks(tt.content, DefaultWikilinkOptions)
+			got := markdownsyntax.ExtractWikilinks(tt.content, markdownsyntax.DefaultWikilinkOptions)
 			assert.ElementsMatch(t, tt.want, got)
 		})
 	}
@@ -249,7 +217,7 @@ func TestBuildNotePathCacheWithAliasesResolvesIdentifierAliases(t *testing.T) {
 	cache := BuildNotePathCacheWithAliases(notes, aliases)
 
 	t.Run("alias metadata is retained", func(t *testing.T) {
-		assert.Equal(t, []string{"docs/specs/product/001-indexed-search.md"}, cache.Aliases["SPEC-001"])
+		assert.Equal(t, []string{"docs/specs/product/001-indexed-search.md"}, cache.Aliases["spec-001"])
 		assert.Equal(t, []string{"docs/specs/product/001-indexed-search.md"}, cache.Aliases["spec-indexed-search"])
 	})
 
@@ -319,7 +287,7 @@ func TestBuildNotePathCacheWithAliases_CollisionRetainsCandidatesAndRefusesAmbig
 	}
 	cache := BuildNotePathCacheWithAliases(notes, aliases)
 
-	assert.Equal(t, []string{"specs/a.md", "specs/b.md"}, cache.Aliases["DUPE"])
+	assert.Equal(t, []string{"specs/a.md", "specs/b.md"}, cache.Aliases["dupe"])
 	_, ok := cache.ResolveNote("DUPE")
 	assert.False(t, ok)
 	_, ok = cache.ResolveNoteTarget("DUPE#Requirements")
@@ -354,7 +322,7 @@ func TestBuildNotePathCacheWithAliases_IgnoresBlankAliases(t *testing.T) {
 	path, ok := cache.ResolveNote("A-1")
 	assert.True(t, ok)
 	assert.Equal(t, "specs/a.md", path)
-	assert.Equal(t, []string{"specs/a.md"}, cache.Aliases["A-1"])
+	assert.Equal(t, []string{"specs/a.md"}, cache.Aliases["a-1"])
 }
 
 func TestNotePathCacheIncrementalUpdates(t *testing.T) {
@@ -375,7 +343,7 @@ func TestNotePathCacheIncrementalUpdates(t *testing.T) {
 	path, ok = cache.ResolveNote("SPEC-B")
 	assert.True(t, ok)
 	assert.Equal(t, "specs/b.md", path)
-	assert.Equal(t, []string{"specs/b.md"}, cache.Aliases["SPEC-B"])
+	assert.Equal(t, []string{"specs/b.md"}, cache.Aliases["spec-b"])
 
 	cache.AddOrUpdate("specs/a.md", []string{"SPEC-A2"})
 	_, ok = cache.ResolveNote("SPEC-A")
@@ -383,7 +351,7 @@ func TestNotePathCacheIncrementalUpdates(t *testing.T) {
 	path, ok = cache.ResolveNote("SPEC-A2")
 	assert.True(t, ok)
 	assert.Equal(t, "specs/a.md", path)
-	assert.Equal(t, []string{"specs/a.md"}, cache.Aliases["SPEC-A2"])
+	assert.Equal(t, []string{"specs/a.md"}, cache.Aliases["spec-a2"])
 
 	cache.Remove("specs/a.md")
 	_, ok = cache.ResolveNote("SPEC-A2")
@@ -397,7 +365,7 @@ func TestNotePathCacheIncrementalAliasCollisionsRetainAndReleaseCandidates(t *te
 	)
 
 	cache.AddOrUpdate("specs/b.md", []string{"DUPE"})
-	assert.Equal(t, []string{"specs/a.md", "specs/b.md"}, cache.Aliases["DUPE"])
+	assert.Equal(t, []string{"specs/a.md", "specs/b.md"}, cache.Aliases["dupe"])
 	assert.Equal(t, []ResolvedNoteTarget{
 		{Path: "specs/a.md"},
 		{Path: "specs/b.md"},
@@ -419,7 +387,7 @@ func TestNotePathCacheIncrementalAliasCollisionsRetainAndReleaseCandidates(t *te
 	path, ok = cache.ResolveNote("DUPE")
 	assert.True(t, ok)
 	assert.Equal(t, "specs/a.md", path)
-	assert.Equal(t, []string{"specs/a.md"}, cache.Aliases["DUPE"])
+	assert.Equal(t, []string{"specs/a.md"}, cache.Aliases["dupe"])
 }
 
 func TestNotePathCacheIncrementalBasenameCollisionsRetainAndReleaseCandidates(t *testing.T) {
@@ -528,7 +496,7 @@ func TestFollowWikilinks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			visited := make(map[string]bool)
 			options := FollowWikilinksOptions{
-				WikilinkOptions: DefaultWikilinkOptions,
+				WikilinkOptions: markdownsyntax.DefaultWikilinkOptions,
 				MaxDepth:        tt.maxDepth,
 			}
 			result, err := FollowWikilinks(vaultDef, mockNote, tt.startFile, visited, cache, options)
@@ -586,7 +554,7 @@ func TestFollowWikilinksWithOptions(t *testing.T) {
 	t.Run("follow with skipAnchors=true", func(t *testing.T) {
 		visited := make(map[string]bool)
 		options := FollowWikilinksOptions{
-			WikilinkOptions: WikilinkOptions{
+			WikilinkOptions: markdownsyntax.WikilinkOptions{
 				SkipAnchors: true,
 				SkipEmbeds:  false,
 			},
@@ -602,7 +570,7 @@ func TestFollowWikilinksWithOptions(t *testing.T) {
 	t.Run("follow with skipAnchors=false", func(t *testing.T) {
 		visited := make(map[string]bool)
 		options := FollowWikilinksOptions{
-			WikilinkOptions: WikilinkOptions{
+			WikilinkOptions: markdownsyntax.WikilinkOptions{
 				SkipAnchors: false,
 				SkipEmbeds:  false,
 			},
@@ -619,7 +587,7 @@ func TestFollowWikilinksWithOptions(t *testing.T) {
 	t.Run("follow with unlimited depth", func(t *testing.T) {
 		visited := make(map[string]bool)
 		options := FollowWikilinksOptions{
-			WikilinkOptions: DefaultWikilinkOptions,
+			WikilinkOptions: markdownsyntax.DefaultWikilinkOptions,
 			MaxDepth:        -1,
 		}
 		result, err := FollowWikilinks(vaultDef, mockNote, "note1.md", visited, cache, options)
@@ -635,185 +603,36 @@ func TestExtractWikilinksOptions(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		options WikilinkOptions
+		options markdownsyntax.WikilinkOptions
 		want    []string
 	}{
 		{
 			name:    "extract all links",
-			options: WikilinkOptions{SkipAnchors: false, SkipEmbeds: false},
+			options: markdownsyntax.WikilinkOptions{SkipAnchors: false, SkipEmbeds: false},
 			want:    []string{"Regular Link", "Anchored Link#section", "Embedded Link"},
 		},
 		{
 			name:    "skip anchors",
-			options: WikilinkOptions{SkipAnchors: true, SkipEmbeds: false},
+			options: markdownsyntax.WikilinkOptions{SkipAnchors: true, SkipEmbeds: false},
 			want:    []string{"Regular Link", "Embedded Link"},
 		},
 		{
 			name:    "skip embeds",
-			options: WikilinkOptions{SkipAnchors: false, SkipEmbeds: true},
+			options: markdownsyntax.WikilinkOptions{SkipAnchors: false, SkipEmbeds: true},
 			want:    []string{"Regular Link", "Anchored Link#section"},
 		},
 		{
 			name:    "skip both anchors and embeds",
-			options: WikilinkOptions{SkipAnchors: true, SkipEmbeds: true},
+			options: markdownsyntax.WikilinkOptions{SkipAnchors: true, SkipEmbeds: true},
 			want:    []string{"Regular Link"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ExtractWikilinks(content, tt.options)
+			got := markdownsyntax.ExtractWikilinks(content, tt.options)
 			assert.ElementsMatch(t, tt.want, got)
 		})
-	}
-}
-
-func TestCollectBacklinksHonorsSkipOptions(t *testing.T) {
-	vaultPath := filepath.Join("..", "..", "..", "mocks", "vaults", "backlinks")
-	vaultDef := VaultDefinition{Name: "backlinks", Path: vaultPath}
-	note := &Note{}
-	targets := []string{"target.md"}
-
-	backlinksSkipNone, err := CollectBacklinks(vaultDef, note, targets, WikilinkOptions{SkipAnchors: false, SkipEmbeds: false}, nil)
-	assert.NoError(t, err)
-	// Expect all variants present
-	if assert.Contains(t, backlinksSkipNone, "target.md") {
-		assert.Len(t, backlinksSkipNone["target.md"], 7)
-	}
-
-	backlinksSkipAnchors, err := CollectBacklinks(vaultDef, note, targets, WikilinkOptions{SkipAnchors: true, SkipEmbeds: false}, nil)
-	assert.NoError(t, err)
-	if assert.Contains(t, backlinksSkipAnchors, "target.md") {
-		for _, bl := range backlinksSkipAnchors["target.md"] {
-			assert.NotEqual(t, BacklinkTypeHeading, bl.LinkType)
-			assert.NotEqual(t, BacklinkTypeBlock, bl.LinkType)
-		}
-	}
-
-	backlinksSkipEmbeds, err := CollectBacklinks(vaultDef, note, targets, WikilinkOptions{SkipAnchors: false, SkipEmbeds: true}, nil)
-	assert.NoError(t, err)
-	if assert.Contains(t, backlinksSkipEmbeds, "target.md") {
-		for _, bl := range backlinksSkipEmbeds["target.md"] {
-			assert.NotEqual(t, BacklinkTypeEmbed, bl.LinkType)
-		}
-	}
-}
-
-func TestDeduplicateResults(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    []string
-		expected []string
-	}{
-		{
-			name:     "no duplicates",
-			input:    []string{"a", "b", "c"},
-			expected: []string{"a", "b", "c"},
-		},
-		{
-			name:     "with duplicates",
-			input:    []string{"a", "b", "a", "c", "b"},
-			expected: []string{"a", "b", "c"},
-		},
-		{
-			name:     "empty list",
-			input:    []string{},
-			expected: []string{},
-		},
-		{
-			name:     "all duplicates",
-			input:    []string{"a", "a", "a"},
-			expected: []string{"a"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := DeduplicateResults(tt.input)
-			assert.ElementsMatch(t, tt.expected, result)
-		})
-	}
-}
-
-func TestNormalizePath(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "already normalized",
-			input:    "folder/note.md",
-			expected: "folder/note.md",
-		},
-		{
-			name:     "Windows path",
-			input:    "folder\\note.md",
-			expected: "folder/note.md",
-		},
-		{
-			name:     "with leading ./",
-			input:    "./folder/note.md",
-			expected: "folder/note.md",
-		},
-		{
-			name:     "with leading ../",
-			input:    "../folder/note.md",
-			expected: "folder/note.md",
-		},
-		{
-			name:     "mixed path separators",
-			input:    "folder\\subfolder/note.md",
-			expected: "folder/subfolder/note.md",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := NormalizePath(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestCollectBacklinks(t *testing.T) {
-	vaultPath := filepath.Join("..", "..", "..", "mocks", "vaults", "backlinks")
-	vaultDef := VaultDefinition{Name: "backlinks", Path: vaultPath}
-	note := &Note{}
-
-	targets := []string{"target.md", "nolinks.md"}
-
-	backlinks, err := CollectBacklinks(vaultDef, note, targets, WikilinkOptions{SkipAnchors: false, SkipEmbeds: false}, nil)
-	assert.NoError(t, err)
-
-	expected := map[string]map[string]BacklinkType{
-		"target.md": {
-			"ref-alias.md":             BacklinkTypeAlias,
-			"ref-basic.md":             BacklinkTypeBasic,
-			"ref-block.md#^blockid":    BacklinkTypeBlock,
-			"ref-duplicate.md":         BacklinkTypeBasic,
-			"ref-duplicate.md#Heading": BacklinkTypeHeading,
-			"ref-embed.md":             BacklinkTypeEmbed,
-			"ref-heading.md#Heading":   BacklinkTypeHeading,
-		},
-		"nolinks.md": {},
-	}
-
-	for target, expectedRefs := range expected {
-		assert.Contains(t, backlinks, target)
-		resultRefs := make(map[string]BacklinkType)
-		for _, backlink := range backlinks[target] {
-			key := NormalizePath(backlink.Referrer)
-			if fragment := strings.TrimSpace(backlink.Fragment); fragment != "" {
-				key += "#" + fragment
-			}
-			resultRefs[key] = backlink.LinkType
-		}
-
-		assert.Equal(t, len(expectedRefs), len(resultRefs))
-		for referrer, linkType := range expectedRefs {
-			assert.Equal(t, linkType, resultRefs[referrer], "target %s referrer %s", target, referrer)
-		}
 	}
 }
 
@@ -832,7 +651,7 @@ func TestFollowWikilinksWithMarkdownLinks(t *testing.T) {
 
 	visited := make(map[string]bool)
 	options := FollowWikilinksOptions{
-		WikilinkOptions: DefaultWikilinkOptions,
+		WikilinkOptions: markdownsyntax.DefaultWikilinkOptions,
 		MaxDepth:        1,
 	}
 
@@ -843,96 +662,6 @@ func TestFollowWikilinksWithMarkdownLinks(t *testing.T) {
 	assert.Contains(t, result, "note1.md")
 	assert.Contains(t, result, "note2.md")
 	assert.Contains(t, result, "note3.md")
-}
-
-func TestCollectBacklinksWithMarkdownLinks(t *testing.T) {
-	mockNote := &MockNoteReader{}
-	vaultDef := VaultDefinition{Name: "test", Path: "/test/vault", Links: LinkTypeBoth}
-
-	mockNote.On("GetNotesList", mock.Anything).Return([]string{"target.md", "ref-wiki.md", "ref-md.md"}, nil)
-	mockNote.On("GetContents", mock.Anything, "target.md").Return("Target content", nil)
-	mockNote.On("GetContents", mock.Anything, "ref-wiki.md").Return("Links via [[target]]", nil)
-	mockNote.On("GetContents", mock.Anything, "ref-md.md").Return("Links via [target](target.md)", nil)
-
-	targets := []string{"target.md"}
-	backlinks, err := CollectBacklinks(vaultDef, mockNote, targets, WikilinkOptions{}, nil)
-
-	assert.NoError(t, err)
-	assert.Contains(t, backlinks, "target.md")
-	assert.Len(t, backlinks["target.md"], 2)
-
-	referrers := make(map[string]bool)
-	for _, bl := range backlinks["target.md"] {
-		referrers[bl.Referrer] = true
-	}
-	assert.True(t, referrers["ref-wiki.md"], "Should find wikilink referrer")
-	assert.True(t, referrers["ref-md.md"], "Should find markdown link referrer")
-}
-
-func TestCollectBacklinksMarkdownOnly(t *testing.T) {
-	mockNote := &MockNoteReader{}
-	// markdown-only vault
-	vaultDef := VaultDefinition{Name: "test", Path: "/test/vault", Links: LinkTypeMarkdown}
-
-	mockNote.On("GetNotesList", mock.Anything).Return([]string{"target.md", "ref-wiki.md", "ref-md.md"}, nil)
-	mockNote.On("GetContents", mock.Anything, "target.md").Return("Target content", nil)
-	mockNote.On("GetContents", mock.Anything, "ref-wiki.md").Return("Links via [[target]]", nil)
-	mockNote.On("GetContents", mock.Anything, "ref-md.md").Return("Links via [target](target.md)", nil)
-
-	targets := []string{"target.md"}
-	backlinks, err := CollectBacklinks(vaultDef, mockNote, targets, WikilinkOptions{}, nil)
-
-	assert.NoError(t, err)
-	assert.Contains(t, backlinks, "target.md")
-	// Should only find markdown link, not wikilink
-	assert.Len(t, backlinks["target.md"], 1)
-	assert.Equal(t, "ref-md.md", backlinks["target.md"][0].Referrer)
-}
-
-func TestCollectBacklinksUsesSnapshotEntriesAndSuppressedTags(t *testing.T) {
-	vaultDef := VaultDefinition{Name: "test", Path: "/test/vault", Links: LinkTypeBoth}
-	note := &snapshotNoteReader{
-		entries: []NoteEntry{
-			{Path: "target.md", Content: "Target"},
-			{Path: "ref-wiki.md", Content: "Links via [[target|alias]]"},
-			{Path: "ref-md.md", Content: "Links via [target](target.md#heading)"},
-			{Path: "ref-hidden.md", Content: "Links via ![](target.md)", Tags: []string{"no-prompt"}},
-		},
-	}
-
-	backlinks, err := CollectBacklinks(vaultDef, note, []string{"target.md"}, WikilinkOptions{}, []string{"no-prompt"})
-	assert.NoError(t, err)
-	assert.Contains(t, backlinks, "target.md")
-	assert.Len(t, backlinks["target.md"], 2)
-
-	typeMap := make(map[string]BacklinkType)
-	for _, backlink := range backlinks["target.md"] {
-		typeMap[backlink.Referrer] = backlink.LinkType
-	}
-	assert.Equal(t, BacklinkTypeAlias, typeMap["ref-wiki.md"])
-	assert.Equal(t, BacklinkTypeHeading, typeMap["ref-md.md"])
-	_, hidden := typeMap["ref-hidden.md"]
-	assert.False(t, hidden)
-}
-
-func TestCollectBacklinksKeepsDistinctFragmentsFromSameReferrer(t *testing.T) {
-	mockNote := &MockNoteReader{}
-	vaultDef := VaultDefinition{Name: "test", Path: "/test/vault", Links: LinkTypeBoth}
-
-	mockNote.On("GetNotesList", mock.Anything).Return([]string{"target.md", "ref.md"}, nil)
-	mockNote.On("GetContents", mock.Anything, "target.md").Return("Target content", nil)
-	mockNote.On("GetContents", mock.Anything, "ref.md").Return("Links [one](target.md#alpha) and [two](target.md#beta)", nil)
-
-	backlinks, err := CollectBacklinks(vaultDef, mockNote, []string{"target.md"}, WikilinkOptions{}, nil)
-	assert.NoError(t, err)
-	assert.Contains(t, backlinks, "target.md")
-	assert.Len(t, backlinks["target.md"], 2)
-
-	fragments := make([]string, 0, len(backlinks["target.md"]))
-	for _, backlink := range backlinks["target.md"] {
-		fragments = append(fragments, backlink.Fragment)
-	}
-	assert.ElementsMatch(t, []string{"alpha", "beta"}, fragments)
 }
 
 func TestVaultDefinitionLinkSupport(t *testing.T) {

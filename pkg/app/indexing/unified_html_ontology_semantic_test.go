@@ -2,21 +2,24 @@ package indexing
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
-// An HTML source can be owned and durable before it has a projector. It must
-// not enter either the full-rebuild or changed-path ontology body embedding
-// path, even when the vault has an enabled embedding configuration.
 func TestSyncOntologyNodeEmbeddings_ExcludesDescriptorOnlyHTML(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0o755))
@@ -32,35 +35,37 @@ type Decision @node(paths: ["notes/*.md"]) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "Reference.html"), []byte("<article>"+htmlBody+"</article>\n"), 0o600))
 
 	definition := obsidian.VaultDefinition{Root: root, Includes: []string{"notes/*.md", "docs/*.html"}}
-	indexer := descriptorOnlyHTMLNoteMetadataIndexer(t)
+	indexer := testkit.DescriptorOnlyHTMLNoteMetadataIndexer(t)
 	// Establish the published source and ontology catalog without requiring an
 	// external embedding service. The subsequent direct semantic sync uses the
 	// enabled configuration and a deterministic provider.
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Notes:          obsidian.LocalVaultConfig{Includes: definition.Includes},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Notes:          repoconfig.LocalVaultConfig{Includes: definition.Includes},
 		NoteEmbeddings: &embeddings.Config{Enabled: false},
 		CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{
 		VaultPath: root, VaultDef: definition, NoteMetadata: indexer,
 	}))
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Notes:          obsidian.LocalVaultConfig{Includes: definition.Includes},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Notes:          repoconfig.LocalVaultConfig{Includes: definition.Includes},
 		NoteEmbeddings: &embeddings.Config{Enabled: true},
 		CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
 
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
-	schema, err := ontology.LoadSchema(root)
+	writer := indexwriter.New(ctx, indexwriter.Handlers{ApplyIntelChunks: store.ReplaceIntelChunks, ApplyIntelEmbeddings: store.UpsertEmbeddings, ApplyOntologyNodeReadModel: store.ReplaceOntologyNodeReadModel, ApplyOntologyNodeStates: store.UpsertOntologyNodeEmbeddingStates})
+	t.Cleanup(func() { require.NoError(t, writer.Close()) })
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	provider := &recordingOntologyEmbeddingProvider{}
 	providerConfig := embeddings.ProviderConfig{Provider: "test", Model: "test", Dimensions: provider.Dimensions()}
 
 	require.NoError(t, syncOntologyNodeEmbeddings(
 		ctx, definition, indexer, store, provider, providerConfig, schema,
-		1, 1, nil, nil, nil, []string{"docs/Reference.html"}, nil, true,
+		1, 1, nil, nil, writer, []string{"docs/Reference.html"}, nil, true,
 	))
 	require.NotEmpty(t, provider.Texts(), "Markdown ontology body should be embedded")
 	for _, text := range provider.Texts() {
@@ -71,7 +76,7 @@ type Decision @node(paths: ["notes/*.md"]) {
 	beforeFollowup := len(provider.Texts())
 	require.NoError(t, syncOntologyNodeEmbeddings(
 		ctx, definition, indexer, store, provider, providerConfig, schema,
-		1, 1, nil, nil, nil, []string{"docs/Reference.html"}, nil, false,
+		1, 1, nil, nil, writer, []string{"docs/Reference.html"}, nil, false,
 	))
 	require.Len(t, provider.Texts(), beforeFollowup, "descriptor-only HTML must not enter follow-up embedding")
 }
@@ -103,6 +108,8 @@ func (p *recordingOntologyEmbeddingProvider) Texts() []string {
 var _ embeddings.Provider = (*recordingOntologyEmbeddingProvider)(nil)
 
 func TestSyncOntologyNodeEmbeddingsUsesHTMLProviderVisibleSource(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0755))
@@ -110,17 +117,19 @@ func TestSyncOntologyNodeEmbeddingsUsesHTMLProviderVisibleSource(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ontology", "schema.graphql"), []byte("type Record @node(paths: [\"docs/*.html\"]) { title: String }\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "record.html"), []byte("<article><h1>Provider title</h1><p>Visible HTML evidence</p></article>"), 0600))
 	definition := obsidian.VaultDefinition{Root: root, Includes: []string{"docs/*.html"}}
-	indexer := testNoteMetadataIndexer(t)
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{Notes: obsidian.LocalVaultConfig{Includes: definition.Includes}, NoteEmbeddings: &embeddings.Config{Enabled: false}, CodeEmbeddings: &embeddings.Config{Enabled: false}}))
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	indexer := testkit.NoteMetadataIndexer(t)
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{Notes: repoconfig.LocalVaultConfig{Includes: definition.Includes}, NoteEmbeddings: &embeddings.Config{Enabled: false}, CodeEmbeddings: &embeddings.Config{Enabled: false}}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
-	schema, err := ontology.LoadSchema(root)
+	writer := indexwriter.New(ctx, indexwriter.Handlers{ApplyIntelChunks: store.ReplaceIntelChunks, ApplyIntelEmbeddings: store.UpsertEmbeddings, ApplyOntologyNodeReadModel: store.ReplaceOntologyNodeReadModel, ApplyOntologyNodeStates: store.UpsertOntologyNodeEmbeddingStates})
+	t.Cleanup(func() { require.NoError(t, writer.Close()) })
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	provider := &recordingOntologyEmbeddingProvider{}
 	providerConfig := embeddings.ProviderConfig{Provider: "test", Model: "test", Dimensions: provider.Dimensions()}
-	require.NoError(t, syncOntologyNodeEmbeddings(ctx, definition, indexer, store, provider, providerConfig, schema, 1, 1, nil, nil, nil, []string{"docs/record.html"}, nil, false))
+	require.NoError(t, syncOntologyNodeEmbeddings(ctx, definition, indexer, store, provider, providerConfig, schema, 1, 1, nil, nil, writer, []string{"docs/record.html"}, nil, false))
 	require.NotEmpty(t, provider.Texts())
 	for _, text := range provider.Texts() {
 		require.Contains(t, text, "Provider title")

@@ -10,9 +10,8 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/codeintel"
-	"github.com/atomicobject/rhizome/pkg/vault/ignore"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
 )
@@ -23,6 +22,11 @@ func TestTSWorkspace_IndexRootPersistsModuleRelationships(t *testing.T) {
 	ctx := context.Background()
 	ws := fixture.NewWorkspace(t)
 	workspaceRoot := ws.CodePath("ts-workspace")
+	lease, acquired, err := indexlock.TryAcquireLease(ws.CodeRoot, indexlock.AcquireOptions{})
+	require.NoError(t, err)
+	require.True(t, acquired)
+	t.Cleanup(func() { require.NoError(t, lease.Release()) })
+
 	dbPath := filepath.Join(ws.CodeRoot, ".rhizome", "ts-workspace.sqlite")
 	store, err := codeanchorsqlite.Open(dbPath)
 	require.NoError(t, err)
@@ -36,8 +40,7 @@ func TestTSWorkspace_IndexRootPersistsModuleRelationships(t *testing.T) {
 		codeanchor.WithoutWarmCache(),
 	)
 
-	result, err := codeintel.IndexRoot(ctx, svc, ws.CodeRoot, workspaceRoot, ignore.NewMatcher(nil), nil)
-	require.NoError(t, err)
+	result := fixture.IndexCodeRoot(t, ctx, lease, svc, ws.CodeRoot, workspaceRoot)
 	require.Empty(t, result.Unsupported)
 
 	wantFormats := []string{
@@ -52,7 +55,7 @@ func TestTSWorkspace_IndexRootPersistsModuleRelationships(t *testing.T) {
 	}
 	sort.Strings(result.SeenPaths)
 	for _, path := range wantFormats {
-		require.Contains(t, result.SeenPaths, path, "IndexRoot must discover %s", filepath.Ext(path))
+		require.Contains(t, result.SeenPaths, path, "code discovery must find %s", filepath.Ext(path))
 	}
 
 	require.NoError(t, svc.RebuildAllCallEdges(ctx))

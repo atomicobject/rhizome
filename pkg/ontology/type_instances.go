@@ -1,5 +1,9 @@
 package ontology
 
+import (
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+)
+
 const (
 	TypeScopeAll    = "__all__"
 	TypeScopeIssues = "__issues__"
@@ -17,7 +21,7 @@ type NodeListItem struct {
 
 // TypeListResult is a lightweight list/count payload for one ontology type scope.
 type TypeListResult struct {
-	TypeDoc    *TypeDoc
+	TypeDoc    *schemadoc.TypeDoc
 	Count      int
 	IssueCount int
 	Items      []NodeListItem

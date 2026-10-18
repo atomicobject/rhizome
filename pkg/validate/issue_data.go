@@ -29,15 +29,6 @@ type QueryRecipeIssueData struct {
 	Diagnostic string `json:"diagnostic"`
 }
 
-// DuplicatePreferredIdentifierData is the structured payload for the
-// duplicate_preferred_identifier issue code. It lists every note that
-// declares the same preferred identifier so the UI can render a widget
-// rather than a flat message string.
-type DuplicatePreferredIdentifierData struct {
-	Identifier string   `json:"identifier"`
-	Owners     []string `json:"owners"`
-}
-
 // IdentifierCollisionClaimant identifies one preferred or alias assertion in
 // a pool-aware identifier collision. Fragment distinguishes embedded nodes
 // from their containing note without degrading canonical identity to a path.

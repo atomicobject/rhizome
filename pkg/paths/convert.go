@@ -59,7 +59,7 @@ func ToRel(abs AbsPath, root string) (RelPath, error) {
 		return RelPath(""), err
 	}
 
-	return Normalize(rel), nil
+	return CleanRelPath(rel)
 }
 
 // ResolveSymlinks resolves symlinks for an absolute path.

@@ -2,9 +2,8 @@ package noderead
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 // hydrateSectionSummaries adds only the declared display summary to metadata
@@ -20,8 +19,8 @@ func (s *Scope) hydrateSectionSummaries(ctx context.Context, records []NodeRecor
 		if noteType == nil {
 			continue
 		}
-		field := ontology.SummaryField(noteType.Fields)
-		if ontology.IsSectionSummary(field) {
+		field := ontoschema.SummaryField(noteType.Fields)
+		if ontoschema.IsSectionSummary(field) {
 			selected = append(selected, record)
 			fields[record.Path] = strings.ToLower(field.Name)
 		}

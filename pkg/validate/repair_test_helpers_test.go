@@ -46,7 +46,7 @@ func mustRepairMode(t *testing.T, path string) os.FileMode {
 	t.Helper()
 	info, err := os.Stat(path)
 	require.NoError(t, err)
-	return info.Mode() & (os.ModePerm | repairSpecialMode)
+	return info.Mode() & (os.ModePerm | os.ModeSetuid | os.ModeSetgid | os.ModeSticky)
 }
 
 // applyCheckFixThroughPlan applies one action from a real check result
@@ -58,7 +58,7 @@ func applyCheckFixThroughPlan(t *testing.T, runCtx RunContext, check CheckResult
 	check.Fixes = []FixAction{action}
 	plan, err := BuildRepairPlan(t.Context(), runCtx, []CheckResult{check})
 	require.NoError(t, err)
-	exec, err := ApplyFixPlan(t.Context(), runCtx, plan, Options{
+	exec, err := ApplyFixPlan(t.Context(), runCtx, plan, ApplyOptions{
 		Fix: true, Confirm: func(string) (bool, error) { return true, nil },
 	})
 	require.NoError(t, err)

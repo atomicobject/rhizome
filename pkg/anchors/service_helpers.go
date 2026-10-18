@@ -111,7 +111,7 @@ func resolveOneGlob(raw string, vaultPaths paths.VaultPaths) ([]string, error) {
 
 	// Treat trailing slashes as a directory intent.
 	dirIntent := strings.HasSuffix(raw, "/") || strings.HasSuffix(raw, string(filepath.Separator))
-	raw = strings.TrimRight(raw, "/"+string(filepath.Separator))
+	raw = strings.TrimRightFunc(raw, func(r rune) bool { return r == '/' || r == filepath.Separator })
 	if raw == "" {
 		return nil, fmt.Errorf("empty glob")
 	}

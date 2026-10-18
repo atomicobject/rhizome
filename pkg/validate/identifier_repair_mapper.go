@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 type identifierFileWork struct {
@@ -35,7 +35,7 @@ func buildIdentifierRepairPlan(ctx context.Context, runCtx RunContext, assembly 
 	if err != nil {
 		return nil, err
 	}
-	schema, err := ontology.LoadSchema(runCtx.VaultDef.BasePath())
+	schema, err := ontoschema.LoadSchema(runCtx.VaultDef.BasePath())
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func collectIdentifierRepairWork(snapshot *identifierreconcile.RepairAssembly) (
 func mapIdentifierFileWork(
 	ctx context.Context,
 	runCtx RunContext,
-	schema *ontology.Schema,
+	schema *ontoschema.Schema,
 	sourceHashes map[string]string,
 	work *identifierFileWork,
 	authority identifierBindingSet,
@@ -175,7 +175,7 @@ func mapIdentifierFileWork(
 	}
 	rawEdits := make([]rawIdentifierEdit, 0, len(work.links)+len(work.fields))
 	for key, intent := range work.fields {
-		if intent.Edit.Kind == reference.StructuredFieldIdentifierBackedLocator && intent.Edit.FieldName == reference.StructuredFieldBlockLocator {
+		if intent.Edit.Kind == identifierrewrite.StructuredFieldIdentifierBackedLocator && intent.Edit.FieldName == identifierrewrite.StructuredFieldBlockLocator {
 			rawEdits = append(rawEdits, rawIdentifierEdit{
 				range_: intent.Edit.Range, expected: intent.Edit.Expected,
 				replacement: intent.Edit.Replacement, kind: "block-locator",
@@ -293,7 +293,7 @@ func mapIdentifierFileWork(
 func partitionIdentifierOntologyEdits(edits []OntologyEdit, fields map[string]identifierreconcile.FieldRepairIntent) ([]OntologyEdit, []OntologyEdit) {
 	aliasFields := make(map[string]struct{})
 	for _, intent := range fields {
-		if intent.Edit.Kind != reference.StructuredFieldAliasIdentifier {
+		if intent.Edit.Kind != identifierrewrite.StructuredFieldAliasIdentifier {
 			continue
 		}
 		aliasFields[identifierOntologyFieldKey(intent.Edit.OwnerRef, intent.Edit.FieldName)] = struct{}{}
@@ -314,7 +314,7 @@ func partitionIdentifierOntologyEdits(edits []OntologyEdit, fields map[string]id
 func previewIdentifierOntologyPhase(
 	ctx context.Context,
 	runCtx RunContext,
-	schema *ontology.Schema,
+	schema *ontoschema.Schema,
 	notePath, operationID string,
 	actionIDs, issueKeys []string,
 	content []byte,
@@ -421,7 +421,7 @@ func readAuthoritativeIdentifierSource(runCtx RunContext, sourceHashes map[strin
 	return []byte(content), nil
 }
 
-func identifierProjectionField(projection *ontology.NodeProjection, name string) *ontology.Field {
+func identifierProjectionField(projection *ontology.NodeProjection, name string) *ontoschema.Field {
 	if projection == nil || projection.Type == nil {
 		return nil
 	}
@@ -436,7 +436,7 @@ func identifierProjectionField(projection *ontology.NodeProjection, name string)
 	return nil
 }
 
-func indexIdentifierFieldValue(field *ontology.Field, values []string, expected string) int {
+func indexIdentifierFieldValue(field *ontoschema.Field, values []string, expected string) int {
 	for index, value := range values {
 		if value == expected {
 			return index
@@ -445,9 +445,9 @@ func indexIdentifierFieldValue(field *ontology.Field, values []string, expected 
 	if field == nil || !field.IsIdentifier {
 		return -1
 	}
-	expected = ontology.NormalizeIdentifierSemanticValue(expected)
+	expected = ontoschema.NormalizeIdentifierSemanticValue(expected)
 	for index, value := range values {
-		if ontology.NormalizeIdentifierSemanticValue(value) == expected {
+		if ontoschema.NormalizeIdentifierSemanticValue(value) == expected {
 			return index
 		}
 	}

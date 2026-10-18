@@ -3,6 +3,11 @@
 package cmd
 
 import (
+	"context"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+)
+
+import (
 	"bytes"
 	"os"
 	"path/filepath"
@@ -14,6 +19,8 @@ import (
 )
 
 func TestNamedValidationDoesNotReadUnselectedRecipeSources(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{
 		".rhizome/config.yml": "notes:\n  includes: ['people/**/*.md']\nvalidation:\n  default:\n    add: [query-recipes]\n",
 		"people/alice.md":     "# Alice\n",
@@ -23,7 +30,7 @@ func TestNamedValidationDoesNotReadUnselectedRecipeSources(t *testing.T) {
 	require.NoError(t, syscall.Mkfifo(path, 0o600))
 	hold, err := os.OpenFile(path, os.O_RDWR, 0o600)
 	require.NoError(t, err)
-	command := newValidateProductCmdWithRunner(newProductionValidationRunner())
+	command := commandOptions.newValidateProductCmdWithRunner(newProductionValidationRunner())
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
 	command.SetOut(stdout)
 	command.SetErr(stderr)
@@ -31,7 +38,7 @@ func TestNamedValidationDoesNotReadUnselectedRecipeSources(t *testing.T) {
 	finished := make(chan struct{})
 	var runErr error
 	go func() {
-		runErr = command.Execute()
+		runErr = command.ExecuteContext(vaultconfig.WithEnv(context.Background(), vault.env))
 		close(finished)
 	}()
 	t.Cleanup(func() {

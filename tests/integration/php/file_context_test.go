@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/coderefs"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	_ "github.com/mattn/go-sqlite3"

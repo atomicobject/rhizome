@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	cli "github.com/atomicobject/rhizome/pkg/app/cli"
+	cli "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
 )

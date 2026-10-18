@@ -10,12 +10,13 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // checkSkillTemplates fails before any write when a skill template for
@@ -87,6 +88,9 @@ func start(opts RunOptions) (*initRun, setup, bool, error) {
 	if opts.Check {
 		opts.Interactive = false
 	}
+	if opts.Env.IsZero() {
+		opts.Env = vaultconfig.SystemEnv()
+	}
 	reader := bufio.NewReader(opts.Stdin)
 
 	// One credential session per init run: every prompt site shares its keys
@@ -96,7 +100,7 @@ func start(opts RunOptions) (*initRun, setup, bool, error) {
 	if opts.Interactive {
 		sessionOpts = append(sessionOpts, credentials.WithPrompts(reader, opts.Stdout))
 	}
-	r := &initRun{opts: opts, reader: reader, session: credentials.NewSession(sessionOpts...)}
+	r := &initRun{opts: opts, reader: reader, session: credentials.NewSession(opts.Env, sessionOpts...)}
 	// Only a person at a terminal decides about edited files; every other run
 	// keeps them and lists them.
 	// Docs: [[init-starter-workflow#^SPEC-0038-US3-AC4]]
@@ -242,12 +246,12 @@ func plannedStarterNotePaths(templates []string) []string {
 
 // clearRetiredWorkflowManagement removes starter family update policies and
 // source fingerprints, which the generated-files record replaces.
-func clearRetiredWorkflowManagement(cfg *obsidian.LocalConfig) bool {
+func clearRetiredWorkflowManagement(cfg *repoconfig.LocalConfig) bool {
 	mgmt := &cfg.WorkflowTemplateManagement
 	if isEmptyWorkflowTemplateUpdatePolicy(mgmt.UpdatePolicy) && len(mgmt.SourceFingerprints) == 0 {
 		return false
 	}
-	mgmt.UpdatePolicy = obsidian.WorkflowTemplateUpdatePolicy{}
+	mgmt.UpdatePolicy = repoconfig.WorkflowTemplateUpdatePolicy{}
 	mgmt.SourceFingerprints = nil
 	return true
 }

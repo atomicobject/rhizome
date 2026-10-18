@@ -1,12 +1,13 @@
 package indexwriter
 
 import (
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	codeindex "github.com/atomicobject/rhizome/pkg/search/embeddings/codeindex"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	codeindex "github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type queuedPayload struct {
@@ -34,7 +35,7 @@ type intelEmbeddingWrite struct {
 }
 
 type ontologyNodeWrite struct {
-	model codeanchor.IntelOntologyNodeReadModel
+	model readmodel.NodeReadModel
 }
 
 type ontologyNodeStateWrite struct {
@@ -55,32 +56,12 @@ type ValidationStateWrite struct {
 	DurationMs   int64
 }
 
-type pendingControl struct {
-	graph                    *queueGraphScores
-	structural               *queueStructuralFinalize
-	derived                  *queueDerived
-	barrier                  uint64
-	close                    bool
-	ack                      chan error
-	transitions              []semdb.OwnershipTransition
-	transitionAck            chan ownershipTransitionAck
-	reconciliationGeneration int64
-	reconciliationAck        chan error
-}
-
 type queueBatch[T any] struct {
 	phase     string
 	items     []T
 	rows      int
 	bytes     int
 	updatedAt time.Time
-}
-
-func (b *queueBatch[T]) add(item T, rows, bytes int, now time.Time) {
-	b.items = append(b.items, item)
-	b.rows += rows
-	b.bytes += bytes
-	b.updatedAt = now
 }
 
 func (b *queueBatch[T]) addAll(items []T, rows, bytes int, now time.Time) {
@@ -91,54 +72,16 @@ func (b *queueBatch[T]) addAll(items []T, rows, bytes int, now time.Time) {
 }
 
 type intelChunkBatch struct {
-	phase     string
-	family    string
-	ownerIDs  []string
-	chunks    []codeanchor.IntelChunk
-	rows      int
-	bytes     int
-	updatedAt time.Time
+	family   string
+	ownerIDs []string
+	chunks   []codeanchor.IntelChunk
+	rows     int
+	bytes    int
 }
 
-func (b *intelChunkBatch) add(ownerIDs []string, chunks []codeanchor.IntelChunk, bytes int, now time.Time) {
+func (b *intelChunkBatch) add(ownerIDs []string, chunks []codeanchor.IntelChunk, bytes int) {
 	b.ownerIDs = append(b.ownerIDs, ownerIDs...)
 	b.chunks = append(b.chunks, chunks...)
 	b.rows += len(chunks)
 	b.bytes += bytes
-	b.updatedAt = now
-}
-
-type intelEmbeddingBatch struct {
-	phase     string
-	rowsMap   map[string]embeddings.Embedding
-	rows      int
-	bytes     int
-	updatedAt time.Time
-}
-
-func (b *intelEmbeddingBatch) add(rows map[string]embeddings.Embedding, bytes int, now time.Time) {
-	if b.rowsMap == nil {
-		b.rowsMap = make(map[string]embeddings.Embedding, len(rows))
-	}
-	for key, row := range rows {
-		b.rowsMap[key] = row
-	}
-	b.rows += len(rows)
-	b.bytes += bytes
-	b.updatedAt = now
-}
-
-type ontologyDeltaBatch struct {
-	phase     string
-	delta     semdb.OntologyDelta
-	rows      int
-	bytes     int
-	updatedAt time.Time
-}
-
-func (b *ontologyDeltaBatch) add(delta semdb.OntologyDelta, bytes int, now time.Time) {
-	semdb.MergeOntologyDelta(&b.delta, delta)
-	b.rows += delta.RowCount()
-	b.bytes += bytes
-	b.updatedAt = now
 }

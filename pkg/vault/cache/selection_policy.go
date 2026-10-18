@@ -3,6 +3,8 @@ package cache
 import (
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/ignore"
+	"path/filepath"
+	"strings"
 )
 
 // NoteAdmissionFunc decides whether a canonical vault-relative path belongs in
@@ -30,7 +32,7 @@ func normalizeSelectionPolicy(policy SelectionPolicy) SelectionPolicy {
 // that use this cache only as a Markdown syntax projection. Live runtime
 // composition must inject an ownership-derived admission function instead.
 func MarkdownCompatibilityAdmission(path paths.NotePath) bool {
-	return paths.NormalizeNote(path.String()) == path
+	return strings.EqualFold(filepath.Ext(path.String()), ".md")
 }
 
 func (s *Service) admitsNotePath(rel string) bool {

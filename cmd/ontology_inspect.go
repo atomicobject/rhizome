@@ -8,21 +8,22 @@ import (
 	"path/filepath"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/spf13/cobra"
 )
 
-func newOntologyInspectCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newOntologyInspectCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "inspect <path-or-finder...>",
 		Short: "Inspect ontology assessment, docs, and relations for matching notes",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			payload, err := buildOntologyInspectPayload(cmd.Context(), args)
+			payload, err := commandOptions.buildOntologyInspectPayload(cmd.Context(), args)
 			if err != nil {
 				return err
 			}
@@ -31,7 +32,7 @@ func newOntologyInspectCmd() *cobra.Command {
 	}
 }
 
-func newAgentOntologyInspectCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentOntologyInspectCmd() *cobra.Command {
 	var inputs []string
 	cmd := &cobra.Command{
 		Use:   "ontology-inspect",
@@ -41,7 +42,7 @@ func newAgentOntologyInspectCmd() *cobra.Command {
 				writeAgentError(fmt.Errorf("at least one --input is required"))
 				return silentExitError{code: 1}
 			}
-			payload, err := buildOntologyInspectPayload(cmd.Context(), inputs)
+			payload, err := commandOptions.buildOntologyInspectPayload(cmd.Context(), inputs)
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}
@@ -53,8 +54,8 @@ func newAgentOntologyInspectCmd() *cobra.Command {
 	return cmd
 }
 
-func buildOntologyInspectPayload(ctx context.Context, rawInputs []string) (*ontology.InspectResult, error) {
-	vaultDef, err := vaultDefOrDefaultContext(ctx)
+func (commandOptions *vaultCommandOptions) buildOntologyInspectPayload(ctx context.Context, rawInputs []string) (*ontology.InspectResult, error) {
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -63,13 +64,15 @@ func buildOntologyInspectPayload(ctx context.Context, rawInputs []string) (*onto
 	if err != nil {
 		return nil, err
 	}
-	runtime, cleanup, ensureErr := ontology.EnsureFreshRuntime(ctx, noteMetadata, vaultDef, noteReader)
-	if cleanup != nil {
-		defer cleanup()
+	projection, err := validationproduct.RefreshValidationProjection(ctx, validationproduct.ValidationProjectionRequest{
+		VaultPath: vaultDef.BasePath(), VaultDef: vaultDef, NoteMetadata: noteMetadata, NoteReader: noteReader,
+		Target: validationproduct.ValidationProjectionLive,
+	})
+	if err != nil {
+		return nil, err
 	}
-	if ensureErr != nil {
-		return nil, ensureErr
-	}
+	defer projection.Close()
+	runtime := projection.Runtime
 	if runtime == nil || runtime.Schema == nil || runtime.Store == nil {
 		return &ontology.InspectResult{OntologyAvailable: false, Notes: []ontology.InspectNote{}}, nil
 	}
@@ -78,7 +81,7 @@ func buildOntologyInspectPayload(ctx context.Context, rawInputs []string) (*onto
 	if err != nil {
 		return nil, err
 	}
-	service := ontology.NewService(vaultDef, noteReader, runtime.Store, runtime.Schema)
+	service := ontology.NewService(runtime.Store, runtime.Schema)
 	return service.InspectPaths(ctx, targets)
 }
 

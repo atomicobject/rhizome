@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -73,7 +74,7 @@ func replaceCodeAnchorTargetInMemory(content, label, oldTarget, newTarget string
 	if strings.TrimSpace(oldTarget) == "" || strings.TrimSpace(newTarget) == "" || oldTarget == newTarget {
 		return content, false, fmt.Errorf("code-anchor replacement requires distinct non-empty targets")
 	}
-	frontmatter, err := obsidian.ExtractFrontmatter(content)
+	frontmatter, err := markdownsyntax.ExtractFrontmatter(content)
 	if err != nil {
 		return content, false, err
 	}

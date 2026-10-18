@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -24,7 +26,7 @@ func TestNodePreviewEndpoint(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(fixture.root, "notes", "chart.html"), []byte(`<!doctype html><html><head><title>Chart page</title></head><body><h1>Chart page</h1><div id="Chart-A">Chart</div><a name="Legacy-A">Legacy</a></body></html>`), 0o644))
 	fixture.vaultDef.Root = fixture.root
 	fixture.vaultDef.Includes = []string{"**/*.md", "**/*.html"}
-	_, err := ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	_, err := ontologytest.Publish(context.Background(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
 	rows, err := fixture.intelStore.AllOntologyNodes(context.Background())
 	require.NoError(t, err)

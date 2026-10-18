@@ -1,6 +1,7 @@
 package ontology
 
 import (
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 	"testing"
 
@@ -9,7 +10,7 @@ import (
 )
 
 func TestPatchFrontmatterFieldSourceEscapesStringValuesWithoutChangingMeaning(t *testing.T) {
-	field := &Field{Name: "summary", Source: "summary", Kind: FieldKindScalar, TypeName: "String"}
+	field := &ontoschema.Field{Name: "summary", Source: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String"}
 	values := []string{
 		"a: b # still part of the value",
 		"true",
@@ -38,7 +39,7 @@ func TestPatchFrontmatterFieldSourceEscapesStringValuesWithoutChangingMeaning(t 
 }
 
 func TestPatchFrontmatterFieldSourceWritesSequencesForNewAndEmptyLists(t *testing.T) {
-	field := &Field{Name: "aliases", Source: "aliases", Kind: FieldKindScalar, TypeName: "String", List: true}
+	field := &ontoschema.Field{Name: "aliases", Source: "aliases", Kind: ontoschema.FieldKindScalar, TypeName: "String", List: true}
 
 	updated, ok, err := patchFrontmatterFieldSource("---\ntitle: Keep\n---\nBody\n", field, []string{"one", "two"}, false)
 	require.NoError(t, err)
@@ -64,7 +65,7 @@ func TestPatchFrontmatterFieldSourceWritesSequencesForNewAndEmptyLists(t *testin
 }
 
 func TestPatchFrontmatterFieldSourceRecognizesQuotedKeys(t *testing.T) {
-	field := &Field{Name: "summary", Source: "summary", Kind: FieldKindScalar, TypeName: "String"}
+	field := &ontoschema.Field{Name: "summary", Source: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String"}
 	for _, key := range []string{`"summary"`, `'summary'`} {
 		t.Run(key, func(t *testing.T) {
 			content := "---\n" + key + ": original\nkeep: untouched\n---\nBody\n"
@@ -80,7 +81,7 @@ func TestPatchFrontmatterFieldSourceRecognizesQuotedKeys(t *testing.T) {
 }
 
 func TestPatchFrontmatterFieldSourcePreservesIndentedTopLevelMapping(t *testing.T) {
-	field := &Field{Name: "summary", Source: "summary", Kind: FieldKindScalar, TypeName: "String"}
+	field := &ontoschema.Field{Name: "summary", Source: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String"}
 	content := "---\n  summary: old\n  keep: untouched\n---\nBody\n"
 
 	updated, ok, err := patchFrontmatterFieldSource(content, field, []string{"updated"}, false)
@@ -92,7 +93,7 @@ func TestPatchFrontmatterFieldSourcePreservesIndentedTopLevelMapping(t *testing.
 }
 
 func TestPatchFrontmatterFieldSourcePreservesMultilineMeaningFromFoldedScalar(t *testing.T) {
-	field := &Field{Name: "summary", Source: "summary", Kind: FieldKindScalar, TypeName: "String"}
+	field := &ontoschema.Field{Name: "summary", Source: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String"}
 	content := "---\nsummary: >-\n  old value\nkeep: untouched\n---\nBody\n"
 
 	updated, ok, err := patchFrontmatterFieldSource(content, field, []string{"first\nsecond"}, false)
@@ -104,7 +105,7 @@ func TestPatchFrontmatterFieldSourcePreservesMultilineMeaningFromFoldedScalar(t 
 
 func TestPatchFrontmatterListFailsClosedForBlockScalarSource(t *testing.T) {
 	content := "---\ntags: |-\n  old\n---\n"
-	field := &Field{Name: "tags", Kind: FieldKindScalar, TypeName: "String", SourceKind: FieldSourceFrontmatter, List: true}
+	field := &ontoschema.Field{Name: "tags", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter, List: true}
 
 	updated, ok, err := patchFrontmatterFieldSource(content, field, []string{"first", "second"}, false)
 
@@ -115,7 +116,7 @@ func TestPatchFrontmatterListFailsClosedForBlockScalarSource(t *testing.T) {
 
 func TestPatchFrontmatterBlockScalarRespectsExplicitIndentIndicator(t *testing.T) {
 	content := "---\nsummary: |2-\n  first\n    indented\n---\n"
-	field := &Field{Name: "summary", Kind: FieldKindScalar, TypeName: "String", SourceKind: FieldSourceFrontmatter}
+	field := &ontoschema.Field{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter}
 
 	updated, ok, err := patchFrontmatterFieldSource(content, field, []string{"new"}, false)
 
@@ -127,7 +128,7 @@ func TestPatchFrontmatterBlockScalarRespectsExplicitIndentIndicator(t *testing.T
 
 func TestPatchFrontmatterBlockScalarPreservesLessIndentedStandaloneComment(t *testing.T) {
 	content := "---\nsummary: |2-\n  first\n # keep standalone\nkeep: untouched\n---\n"
-	field := &Field{Name: "summary", Kind: FieldKindScalar, TypeName: "String", SourceKind: FieldSourceFrontmatter}
+	field := &ontoschema.Field{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter}
 
 	updated, ok, err := patchFrontmatterFieldSource(content, field, []string{"new"}, false)
 
@@ -138,7 +139,7 @@ func TestPatchFrontmatterBlockScalarPreservesLessIndentedStandaloneComment(t *te
 
 func TestUnsetFrontmatterBlockScalarPreservesLessIndentedStandaloneComment(t *testing.T) {
 	content := "---\nsummary: |2-\n  first\n # keep standalone\nkeep: untouched\n---\n"
-	field := &Field{Name: "summary", Kind: FieldKindScalar, TypeName: "String", SourceKind: FieldSourceFrontmatter}
+	field := &ontoschema.Field{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter}
 
 	updated, err := unsetFrontmatterField(content, field)
 
@@ -148,7 +149,7 @@ func TestUnsetFrontmatterBlockScalarPreservesLessIndentedStandaloneComment(t *te
 
 func TestUnsetFrontmatterFlowListPreservesIndentedStandaloneComment(t *testing.T) {
 	content := "---\ntags: [alpha]\n # keep standalone\nactive: false\n---\n"
-	field := &Field{Name: "tags", Kind: FieldKindScalar, TypeName: "String", SourceKind: FieldSourceFrontmatter, List: true}
+	field := &ontoschema.Field{Name: "tags", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter, List: true}
 
 	updated, err := unsetFrontmatterField(content, field)
 
@@ -158,7 +159,7 @@ func TestUnsetFrontmatterFlowListPreservesIndentedStandaloneComment(t *testing.T
 
 func TestUnsetFrontmatterBlockListPreservesLessIndentedStandaloneComment(t *testing.T) {
 	content := "---\ntags:\n  - alpha\n # keep standalone\nactive: false\n---\n"
-	field := &Field{Name: "tags", Kind: FieldKindScalar, TypeName: "String", SourceKind: FieldSourceFrontmatter, List: true}
+	field := &ontoschema.Field{Name: "tags", Kind: ontoschema.FieldKindScalar, TypeName: "String", SourceKind: ontoschema.FieldSourceFrontmatter, List: true}
 
 	updated, err := unsetFrontmatterField(content, field)
 
@@ -167,7 +168,7 @@ func TestUnsetFrontmatterBlockListPreservesLessIndentedStandaloneComment(t *test
 }
 
 func TestPatchFrontmatterFieldSourceRejectsFlowMappingInsteadOfAppendingDuplicate(t *testing.T) {
-	field := &Field{Name: "summary", Source: "summary", Kind: FieldKindScalar, TypeName: "String"}
+	field := &ontoschema.Field{Name: "summary", Source: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String"}
 	content := "---\n{summary: old, keep: untouched}\n---\nBody\n"
 
 	updated, ok, err := patchFrontmatterFieldSource(content, field, []string{"updated"}, false)
@@ -182,7 +183,7 @@ func TestPatchFrontmatterFieldSourceRejectsFlowMappingInsteadOfAppendingDuplicat
 }
 
 func TestPatchFrontmatterFieldSourceReplacesEmptyScalarAndPreservesInlineComment(t *testing.T) {
-	field := &Field{Name: "summary", Source: "summary", Kind: FieldKindScalar, TypeName: "String"}
+	field := &ontoschema.Field{Name: "summary", Source: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String"}
 	content := "---\nsummary: # keep this comment\nkeep: untouched\n---\nBody\n"
 
 	updated, ok, err := patchFrontmatterFieldSource(content, field, []string{"updated"}, false)
@@ -193,7 +194,7 @@ func TestPatchFrontmatterFieldSourceReplacesEmptyScalarAndPreservesInlineComment
 }
 
 func TestPatchFrontmatterFieldSourceFailsClosedForUnsupportedSpan(t *testing.T) {
-	field := &Field{Name: "summary", Source: "summary", Kind: FieldKindScalar, TypeName: "String"}
+	field := &ontoschema.Field{Name: "summary", Source: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String"}
 	content := "---\nsummary:\n  nested: value\nkeep: untouched\n---\nBody\n"
 
 	updated, ok, err := patchFrontmatterFieldSource(content, field, []string{"updated"}, false)

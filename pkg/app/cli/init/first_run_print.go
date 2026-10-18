@@ -2,17 +2,16 @@ package init
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/bmatcuk/doublestar/v4"
 	"io"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/bmatcuk/doublestar/v4"
 )
 
 // printFindings shows what Rhizome found and will set up, in plain words.
-func printFindings(out io.Writer, cfg obsidian.LocalConfig, layout DetectedLayout, harnesses AgentHarnesses, skips []skip, provider string, ready bool, workflow string) {
+func printFindings(out io.Writer, cfg repoconfig.LocalConfig, layout DetectedLayout, harnesses AgentHarnesses, skips []skip, provider string, ready bool, workflow string) {
 	name := filepath.Base(layout.ProjectRoot)
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, styleHeading(out, "Set up Rhizome in "+name))
@@ -35,7 +34,7 @@ func printFinding(out io.Writer, label, value string) {
 	fmt.Fprintf(out, "  %s %s\n", styleLabel(out, fmt.Sprintf("%-9s", label)), value)
 }
 
-func docsFinding(notes obsidian.LocalVaultConfig, layout DetectedLayout) string {
+func docsFinding(notes repoconfig.LocalVaultConfig, layout DetectedLayout) string {
 	includes := notes.Includes
 	if len(includes) == 0 {
 		includes = allMarkdown
@@ -73,7 +72,7 @@ func docsFinding(notes obsidian.LocalVaultConfig, layout DetectedLayout) string 
 }
 
 // noteCount gives the note count and any folder limit in a few words.
-func noteCount(notes obsidian.LocalVaultConfig, layout DetectedLayout) string {
+func noteCount(notes repoconfig.LocalVaultConfig, layout DetectedLayout) string {
 	full := docsFinding(notes, layout)
 	if notesLimited(notes) {
 		return full

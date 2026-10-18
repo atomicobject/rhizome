@@ -18,10 +18,13 @@ import (
 func TestExecuteCancellationReapsProcessDescendants(t *testing.T) {
 	requireNode(t)
 	pidFile := filepath.Join(t.TempDir(), "descendant.pid")
-	fake := writeExecuteServer(t, `
+	fake := writeExecuteServer(t, `reply({ok:true});`)
+	options := executeOptions(t, fake, `
+const {spawn} = await import("node:child_process");
+const {writeFileSync} = await import("node:fs");
 const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {stdio:"ignore"});
-writeFileSync(frame.params.input.pidFile, String(child.pid));`)
-	options := executeOptions(t, fake, `await rzm.files({pidFile:`+string(mustJSON(t, pidFile))+`});`)
+writeFileSync(`+string(mustJSON(t, pidFile))+`, String(child.pid));
+await new Promise(() => {});`)
 	options.Timeout = 30 * time.Second
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

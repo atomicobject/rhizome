@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +16,7 @@ import (
 func TestInspectPinOffers(t *testing.T) {
 	for _, tt := range []struct {
 		name, pinned, available, state, offered string
-		rhizome                                 obsidian.LocalRhizomeConfig
+		rhizome                                 repoconfig.LocalRhizomeConfig
 		source                                  bool
 	}{
 		{name: "older pin", pinned: "v1.0.0", available: "v1.2.0", state: "advance"},
@@ -26,8 +26,8 @@ func TestInspectPinOffers(t *testing.T) {
 		{name: "prerelease pin", pinned: "v1.2.0-rc.1", available: "v1.2.0", state: "advance"},
 		{name: "unparseable pin", pinned: "dev", available: "v1.2.0"},
 		{name: "unparseable app", pinned: "v1.0.0", available: "dev"},
-		{name: "external manager", available: "v1.2.0", rhizome: obsidian.LocalRhizomeConfig{BinaryManager: "external"}},
-		{name: "development override", pinned: "v1.0.0", available: "v1.2.0", rhizome: obsidian.LocalRhizomeConfig{DevBinaryDir: "dev"}},
+		{name: "external manager", available: "v1.2.0", rhizome: repoconfig.LocalRhizomeConfig{BinaryManager: "external"}},
+		{name: "development override", pinned: "v1.0.0", available: "v1.2.0", rhizome: repoconfig.LocalRhizomeConfig{DevBinaryDir: "dev"}},
 		{name: "source checkout", pinned: "v1.0.0", available: "v1.2.0", source: true},
 		{name: "no pin", available: "v1.2.0"},
 	} {
@@ -62,7 +62,7 @@ func TestPinAdvanceRejectsUnmanagedAndSourceCheckouts(t *testing.T) {
 	for _, authority := range []string{"global", "external", "development", "source"} {
 		t.Run(authority, func(t *testing.T) {
 			s := testService(t)
-			cfg := obsidian.LocalRhizomeConfig{}
+			cfg := repoconfig.LocalRhizomeConfig{}
 			switch authority {
 			case "external":
 				cfg.BinaryManager = "external"
@@ -94,7 +94,7 @@ func TestAvailableVersionUsesBridgeBuildWhenBundled(t *testing.T) {
 
 func TestAvailableVersionUsesSelectedGlobalBuildOutsideBundle(t *testing.T) {
 	s := testService(t)
-	workingScript(t, filepath.Join(s.home, ".local", "bin", "rzm"))
+	workingScript(t, filepath.Join(s.env.HomeDir, ".local", "bin", "rzm"))
 	previous := desktopExecutable
 	desktopExecutable = os.Executable
 	t.Cleanup(func() { desktopExecutable = previous })
@@ -108,7 +108,7 @@ func TestRepositoryResponseIncludesPerWorktreePinOffers(t *testing.T) {
 	equal := filepath.Join(filepath.Dir(main), "project-equal")
 	git(t, main, "worktree", "add", "-b", "equal", equal)
 	for path, pin := range map[string]string{main: "v1.0.0", feature: "v3.0.0", equal: "v2.0.0"} {
-		require.NoError(t, obsidian.SaveLocalConfig(path, obsidian.LocalConfig{Rhizome: obsidian.LocalRhizomeConfig{Version: pin}}))
+		require.NoError(t, repoconfig.SaveLocalConfig(path, repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{Version: pin}}))
 	}
 
 	response := s.Handle(context.Background(), Request{Protocol: Protocol, Operation: "repository", Folder: feature})
@@ -157,7 +157,7 @@ func TestPinAdvanceRefusesAStaleOfferThatWouldDowngrade(t *testing.T) {
 				t.Fatal("pin-advance must not run the updater for a pin that is not older")
 				return appupdate.Result{}, nil
 			}
-			folder := config(t, obsidian.LocalRhizomeConfig{Version: pinned})
+			folder := config(t, repoconfig.LocalRhizomeConfig{Version: pinned})
 			_, err := s.Trust(folder)
 			require.NoError(t, err)
 			_, err = s.PinAdvance(context.Background(), folder)
@@ -176,7 +176,7 @@ func TestPinAdvanceInstallsTheOfferedVersion(t *testing.T) {
 		installed = opts.SetVersion
 		return appupdate.Result{}, nil
 	}
-	folder := config(t, obsidian.LocalRhizomeConfig{Version: "v1.0.0"})
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v1.0.0"})
 	_, err := s.Trust(folder)
 	require.NoError(t, err)
 	_, err = s.PinAdvance(context.Background(), folder)

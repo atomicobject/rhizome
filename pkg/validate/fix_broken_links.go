@@ -3,52 +3,22 @@ package validate
 import (
 	"context"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/shellquote"
 	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
 	"strings"
-	"unicode"
 
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	vaulthealth "github.com/atomicobject/rhizome/pkg/vault/health"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
-var genericBrokenLinkTokens = map[string]struct{}{
-	"doc":       {},
-	"docs":      {},
-	"index":     {},
-	"link":      {},
-	"links":     {},
-	"note":      {},
-	"notes":     {},
-	"readme":    {},
-	"wikilink":  {},
-	"wikilinks": {},
-}
-
-type brokenLinkCandidate struct {
-	path  string
-	score int
-}
-
-type brokenLinkMatcherIndex struct {
-	notes []brokenLinkNoteFeatures
-}
-
-type brokenLinkNoteFeatures struct {
-	path             string
-	title            string
-	normalized       string
-	alpha            string
-	tokens           []string
-	meaningfulTokens []string
-}
-
 type brokenLinkGroupKey struct {
 	target   string
-	reason   obsidian.BrokenLinkReason
+	reason   vaulthealth.BrokenLinkReason
 	fragment string
 	markdown bool
 }
@@ -57,7 +27,7 @@ type brokenLinkGroupKey struct {
 // retarget evidence computed once for issues and repair actions alike.
 type brokenLinkGroup struct {
 	key     brokenLinkGroupKey
-	links   []obsidian.BrokenLink
+	links   []vaulthealth.BrokenLink
 	sources []string
 	// strong candidates carry enough evidence to confirm a rewrite: a
 	// normalized title match or a git rename. weak candidates are title
@@ -103,8 +73,8 @@ func attachmentTarget(target string) bool {
 	return ext != "" && !strings.EqualFold(ext, ".md") && attachmentSuffix.MatchString(ext)
 }
 
-func groupBrokenLinks(ctx context.Context, broken []obsidian.BrokenLink, allNotes []string, matcher brokenLinkMatcherIndex, evidence retargetEvidence) ([]brokenLinkGroup, error) {
-	byKey := map[brokenLinkGroupKey][]obsidian.BrokenLink{}
+func groupBrokenLinks(ctx context.Context, broken []vaulthealth.BrokenLink, allNotes []string, matcher brokenLinkMatcherIndex, evidence retargetEvidence) ([]brokenLinkGroup, error) {
+	byKey := map[brokenLinkGroupKey][]vaulthealth.BrokenLink{}
 	for _, link := range broken {
 		key := brokenLinkGroupKey{
 			target:   link.Target,
@@ -176,7 +146,7 @@ func retargetCandidates(ctx context.Context, group brokenLinkGroup, matcher brok
 	if group.key.markdown || attachmentTarget(group.key.target) {
 		return nil, nil, nil
 	}
-	if group.key.reason != obsidian.BrokenLinkReasonNoteMissing {
+	if group.key.reason != vaulthealth.BrokenLinkReasonNoteMissing {
 		// The note exists; its path is evidence for choosing a fragment, never
 		// a retarget.
 		exact, _, err := matcher.findCandidateTiers(ctx, group.key.target)
@@ -229,7 +199,7 @@ func retargetCandidates(ctx context.Context, group brokenLinkGroup, matcher brok
 			return false
 		}
 		content, err := evidence.noteContent(candidate)
-		return err == nil && obsidian.NoteHasFragment(content, group.key.fragment)
+		return err == nil && vaulthealth.NoteHasFragment(content, group.key.fragment)
 	}
 	var strong, weak []string
 	for _, candidate := range exact {
@@ -318,7 +288,7 @@ func authoredBrokenLinkTarget(target, fragment string) string {
 func buildBrokenLinkReviewAction(group brokenLinkGroup, authoredTarget string, issueKeys []string, candidateErr error) FixAction {
 	command := brokenLinkReviewCommand(group.key, authoredTarget)
 	candidates, confidence := group.candidates()
-	if group.key.reason != obsidian.BrokenLinkReasonNoteMissing {
+	if group.key.reason != vaulthealth.BrokenLinkReasonNoteMissing {
 		confidence = ""
 	}
 	reason := brokenLinkReviewReason(group, candidateErr)
@@ -340,9 +310,9 @@ func buildBrokenLinkReviewAction(group brokenLinkGroup, authoredTarget string, i
 
 func brokenLinkReviewReason(group brokenLinkGroup, candidateErr error) string {
 	switch group.key.reason {
-	case obsidian.BrokenLinkReasonHeadingMissing:
+	case vaulthealth.BrokenLinkReasonHeadingMissing:
 		return fmt.Sprintf("Heading fragment %q is missing; choosing replacement content requires an agent.", group.key.fragment)
-	case obsidian.BrokenLinkReasonBlockMissing:
+	case vaulthealth.BrokenLinkReasonBlockMissing:
 		return fmt.Sprintf("Block fragment %q is missing; choosing or creating a stable block ID requires an agent.", group.key.fragment)
 	default:
 		if candidateErr != nil {
@@ -362,10 +332,10 @@ func brokenLinkReviewReason(group brokenLinkGroup, candidateErr error) string {
 }
 
 func brokenLinkReviewCommand(group brokenLinkGroupKey, authoredTarget string) string {
-	if group.reason == obsidian.BrokenLinkReasonHeadingMissing || group.reason == obsidian.BrokenLinkReasonBlockMissing {
-		return "rzm agent node-link --target " + shellQuoteCommandArg(authoredTarget) + " --ensure plan"
+	if group.reason == vaulthealth.BrokenLinkReasonHeadingMissing || group.reason == vaulthealth.BrokenLinkReasonBlockMissing {
+		return "rzm agent node-link --target " + shellquote.Quote(authoredTarget) + " --ensure plan"
 	}
-	return "rzm agent semantic-query --query " + shellQuoteCommandArg(group.target)
+	return "rzm agent semantic-query --query " + shellquote.Quote(group.target)
 }
 
 func minimalBrokenLinkRewriteTarget(candidate string, allNotes []string) string {
@@ -387,176 +357,4 @@ func minimalBrokenLinkRewriteTarget(candidate string, allNotes []string) string 
 	}
 
 	return base
-}
-
-// alphanumOnly strips everything except lowercase letters and digits.
-func alphanumOnly(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
-func normalizedTokens(s string) []string {
-	s = strings.ToLower(obsidian.RemoveMdSuffix(strings.TrimSpace(s)))
-	if s == "" {
-		return nil
-	}
-	return strings.FieldsFunc(s, func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	})
-}
-
-func sharedTokenCount(a, b []string) int {
-	if len(a) == 0 || len(b) == 0 {
-		return 0
-	}
-	seen := make(map[string]struct{}, len(a))
-	for _, token := range a {
-		seen[token] = struct{}{}
-	}
-	count := 0
-	counted := make(map[string]struct{}, len(b))
-	for _, token := range b {
-		if _, ok := counted[token]; ok {
-			continue
-		}
-		if _, ok := seen[token]; ok {
-			count++
-			counted[token] = struct{}{}
-		}
-	}
-	return count
-}
-
-func newBrokenLinkMatcherIndex(allNotes []string) brokenLinkMatcherIndex {
-	notes := make([]brokenLinkNoteFeatures, 0, len(allNotes))
-	for _, notePath := range allNotes {
-		title := strings.TrimSuffix(filepath.Base(notePath), filepath.Ext(notePath))
-		tokens := normalizedTokens(title)
-		notes = append(notes, brokenLinkNoteFeatures{
-			path:             notePath,
-			title:            title,
-			normalized:       obsidian.NormalizeName(title),
-			alpha:            alphanumOnly(obsidian.NormalizeName(title)),
-			tokens:           tokens,
-			meaningfulTokens: filterMeaningfulTokens(tokens),
-		})
-	}
-	return brokenLinkMatcherIndex{notes: notes}
-}
-
-// findCandidateTiers returns exact normalized title matches and, only when
-// there are none, guarded fuzzy matches.
-func (idx brokenLinkMatcherIndex) findCandidateTiers(ctx context.Context, target string) ([]string, []string, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, nil, err
-	}
-	needle := obsidian.NormalizeName(filepath.Base(strings.TrimSpace(target)))
-	if needle == "" {
-		return nil, nil, nil
-	}
-
-	// Exact means the same title up to case, punctuation, and spacing
-	// (`semantic code index spine` and `semantic-code-index-spine`). Short or
-	// non-Latin titles compare normalized text only, since stripping them to
-	// ASCII letters and digits would erase the difference.
-	needleAlpha := alphanumOnly(needle)
-	exact := make([]string, 0, 1)
-	for _, note := range idx.notes {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, err
-		}
-		if note.normalized == needle || len(needleAlpha) >= 4 && len(needleAlpha)*2 >= len(needle) && note.alpha == needleAlpha {
-			exact = append(exact, note.path)
-		}
-	}
-	if len(exact) > 0 {
-		sort.Strings(exact)
-		return exact, nil, nil
-	}
-
-	needleTokens := normalizedTokens(target)
-	needleMeaningful := filterMeaningfulTokens(needleTokens)
-	if len(needleAlpha) < 6 || len(needleMeaningful) < 2 {
-		return nil, nil, nil
-	}
-
-	scored := make([]brokenLinkCandidate, 0, 4)
-	for _, note := range idx.notes {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, err
-		}
-		score, ok := scoreBrokenLinkCandidate(needle, needleAlpha, needleTokens, needleMeaningful, note)
-		if !ok {
-			continue
-		}
-		scored = append(scored, brokenLinkCandidate{path: note.path, score: score})
-	}
-
-	sort.SliceStable(scored, func(i, j int) bool {
-		if scored[i].score != scored[j].score {
-			return scored[i].score > scored[j].score
-		}
-		return scored[i].path < scored[j].path
-	})
-
-	candidates := make([]string, 0, len(scored))
-	for _, candidate := range scored {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, err
-		}
-		candidates = append(candidates, candidate.path)
-	}
-	return nil, candidates, nil
-}
-
-func scoreBrokenLinkCandidate(needle, needleAlpha string, needleTokens, needleMeaningful []string, note brokenLinkNoteFeatures) (int, bool) {
-	sharedMeaningful := sharedTokenCount(needleMeaningful, note.meaningfulTokens)
-	if sharedMeaningful < 2 {
-		return 0, false
-	}
-
-	sharedAll := sharedTokenCount(needleTokens, note.tokens)
-	containsAlpha := strings.Contains(needleAlpha, note.alpha) || strings.Contains(note.alpha, needleAlpha)
-	containsPhrase := strings.Contains(needle, note.normalized) || strings.Contains(note.normalized, needle)
-
-	// Token overlap alone is too permissive; require actual phrase evidence
-	// from normalized/alphanumeric containment before suggesting a retarget.
-	if !containsAlpha && !containsPhrase {
-		return 0, false
-	}
-
-	score := sharedMeaningful * 20
-	score += sharedAll * 5
-	if containsAlpha {
-		score += 30
-	}
-	if containsPhrase {
-		score += 20
-	}
-	if sharedMeaningful == len(needleMeaningful) {
-		score += 25
-	}
-	if len(note.meaningfulTokens) > 0 && sharedMeaningful == len(note.meaningfulTokens) {
-		score += 10
-	}
-	return score, true
-}
-
-func filterMeaningfulTokens(tokens []string) []string {
-	if len(tokens) == 0 {
-		return nil
-	}
-	filtered := make([]string, 0, len(tokens))
-	for _, token := range tokens {
-		if _, ok := genericBrokenLinkTokens[token]; ok {
-			continue
-		}
-		filtered = append(filtered, token)
-	}
-	return filtered
 }

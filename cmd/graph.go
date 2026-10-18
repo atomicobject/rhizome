@@ -3,50 +3,42 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	vaultgraph "github.com/atomicobject/rhizome/pkg/graph"
 	"github.com/spf13/cobra"
 )
 
-var graphCmd = &cobra.Command{
-	Use:   "graph",
-	Short: "Link graph utilities (wikilinks)",
+func (commandOptions *graphInvocationOptions) makeGraphCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "graph",
+		Short: "Link graph utilities (wikilinks)",
+	}
 }
 
-var graphExcludePatterns []string
-var graphIncludePatterns []string
-var graphLimit int
-var graphShowAll bool
-var graphNoColor bool
-var graphMinDegree int
-var graphMutualOnly bool
-var graphRecencyCascade bool
-var graphTimings bool
-
-func init() {
-	graphCmd.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	graphCmd.PersistentFlags().IntVar(&graphLimit, "limit", 100, "max items to show in summaries (authority/hub, communities, clusters)")
-	graphCmd.PersistentFlags().BoolVar(&graphShowAll, "all", false, "show full listings instead of summaries")
-	graphCmd.PersistentFlags().BoolVar(&graphNoColor, "no-color", false, "disable colored graph output")
-	graphCmd.PersistentFlags().StringSliceVar(&graphExcludePatterns, "exclude", nil, "exclude notes matching these patterns (same syntax as list/prompt)")
-	graphCmd.PersistentFlags().StringSliceVar(&graphIncludePatterns, "include", nil, "include only notes matching these patterns (same syntax as list/prompt)")
-	graphCmd.PersistentFlags().IntVar(&graphMinDegree, "min-degree", 2, "drop notes whose in+out degree is below this number before analysis (0 = no filter)")
-	graphCmd.PersistentFlags().BoolVar(&graphMutualOnly, "mutual-only", false, "only consider mutual (bidirectional) links when building the graph")
-	graphCmd.PersistentFlags().BoolVar(&graphRecencyCascade, "recency-cascade", true, "cascade inferred recency beyond 1 hop (disable for legacy single-hop)")
-	graphCmd.PersistentFlags().BoolVar(&graphTimings, "timings", false, "print graph analysis timings (load/build/hits/label/recency/total)")
+func (commandOptions *graphInvocationOptions) registerGraphCommands(graphCmd, rootCmd *cobra.Command) {
+	graphCmd.PersistentFlags().StringVarP(&commandOptions.vaultName, "vault", "v", "", "vault name")
+	graphCmd.PersistentFlags().IntVar(&commandOptions.graphLimit, "limit", 100, "max items to show in summaries (authority/hub, communities, clusters)")
+	graphCmd.PersistentFlags().BoolVar(&commandOptions.graphShowAll, "all", false, "show full listings instead of summaries")
+	graphCmd.PersistentFlags().BoolVar(&commandOptions.graphNoColor, "no-color", false, "disable colored graph output")
+	graphCmd.PersistentFlags().StringSliceVar(&commandOptions.graphExcludePatterns, "exclude", nil, "exclude notes matching these patterns (same syntax as list/prompt)")
+	graphCmd.PersistentFlags().StringSliceVar(&commandOptions.graphIncludePatterns, "include", nil, "include only notes matching these patterns (same syntax as list/prompt)")
+	graphCmd.PersistentFlags().IntVar(&commandOptions.graphMinDegree, "min-degree", 2, "drop notes whose in+out degree is below this number before analysis (0 = no filter)")
+	graphCmd.PersistentFlags().BoolVar(&commandOptions.graphMutualOnly, "mutual-only", false, "only consider mutual (bidirectional) links when building the graph")
+	graphCmd.PersistentFlags().BoolVar(&commandOptions.graphRecencyCascade, "recency-cascade", true, "cascade inferred recency beyond 1 hop (disable for legacy single-hop)")
+	graphCmd.PersistentFlags().BoolVar(&commandOptions.graphTimings, "timings", false, "print graph analysis timings (load/build/hits/label/recency/total)")
 	rootCmd.AddCommand(graphCmd)
 }
 
 func printTimings(cmd *cobra.Command, t interface{}) {
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Timings:\n")
 	switch v := t.(type) {
-	case obsidian.GraphTimingsMillis:
+	case vaultgraph.GraphTimingsMillis:
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  load:    %d ms\n", v.LoadEntries)
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  build:   %d ms\n", v.BuildGraph)
 		fmt.Fprintf(cmd.OutOrStdout(), "  hits:    %d ms\n", v.HITS)
 		fmt.Fprintf(cmd.OutOrStdout(), "  label:   %d ms\n", v.LabelProp)
 		fmt.Fprintf(cmd.OutOrStdout(), "  recency: %d ms\n", v.Recency)
 		fmt.Fprintf(cmd.OutOrStdout(), "  total:   %d ms\n", v.Total)
-	case obsidian.GraphTimings:
+	case vaultgraph.GraphTimings:
 		fmt.Fprintf(cmd.OutOrStdout(), "  load:    %s\n", v.LoadEntries)
 		fmt.Fprintf(cmd.OutOrStdout(), "  build:   %s\n", v.BuildGraph)
 		fmt.Fprintf(cmd.OutOrStdout(), "  hits:    %s\n", v.HITS)

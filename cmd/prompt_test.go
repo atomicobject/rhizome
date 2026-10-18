@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -64,7 +66,7 @@ func TestPromptOutput(t *testing.T) {
 				if absolute {
 					args = append(args, "--absolute")
 				}
-				stdout, stderr, err := runRootCLI(t, nil, args)
+				stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 				require.NoError(t, err)
 
 				want := "<obsidian-vault name=\"testvault\">\n\n"

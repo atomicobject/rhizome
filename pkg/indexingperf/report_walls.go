@@ -131,10 +131,10 @@ func (c *Collector) renderCriticalPathWalls() string {
 	}
 	for _, candidate := range []struct {
 		label string
-		name  string
+		name  MetricName
 	}{
-		{label: "provider_wall", name: "provider.latency"},
-		{label: "writer_busy_wall", name: "node.write.busy"},
+		{label: "provider_wall", name: ProviderLatency},
+		{label: "writer_busy_wall", name: NodeWriteBusy},
 	} {
 		for phase := range c.spans {
 			if dur := c.phaseIntervalUnion(phase, candidate.name); dur > 0 {
@@ -165,7 +165,7 @@ func (c *Collector) renderCriticalPathWalls() string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-func (c *Collector) phaseIntervalUnion(phase, name string) time.Duration {
+func (c *Collector) phaseIntervalUnion(phase string, name MetricName) time.Duration {
 	var windows []timeWindow
 	for m, vals := range c.intervals {
 		if m.Phase == phase && m.Name == name {

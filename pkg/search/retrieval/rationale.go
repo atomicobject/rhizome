@@ -10,10 +10,10 @@ import (
 	"unicode/utf8"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 var defaultRationaleFTSKinds = []string{
@@ -40,10 +40,6 @@ type RationaleFTSRetriever struct {
 }
 
 func (r *RationaleFTSRetriever) Name() string { return "rationale_fts" }
-
-func (r *RationaleFTSRetriever) CostClass() search.RetrieverCostClass {
-	return search.RetrieverCostIOBound
-}
 
 func (r *RationaleFTSRetriever) Retrieve(ctx context.Context, spec search.QuerySpec) ([]search.Candidate, error) {
 	if r.Store == nil || strings.TrimSpace(spec.Text) == "" || !ShouldQueryRationaleEvidence(spec) {
@@ -107,18 +103,20 @@ func (r *RationaleFTSRetriever) Retrieve(ctx context.Context, spec search.QueryS
 				a := matched[0]
 				h := knowledge.AnchorHandle(a.AnchorID)
 				out = append(out, search.Candidate{
+					SourceRef: search.SourceRef{
+						Path:       normalizePath(a.Path),
+						Title:      a.Symbol,
+						Symbol:     a.Symbol,
+						FQN:        a.FQN,
+						Kind:       a.Kind,
+						ChunkIndex: -1,
+						AnchorID:   a.AnchorID,
+					},
 					Handle:      h,
 					Owner:       h,
 					Evidence:    []search.Evidence{ev},
 					SupportOnly: true,
 					Type:        "anchor",
-					Path:        normalizePath(a.Path),
-					Title:       a.Symbol,
-					Symbol:      a.Symbol,
-					FQN:         a.FQN,
-					Kind:        a.Kind,
-					ChunkIndex:  -1,
-					AnchorID:    a.AnchorID,
 				})
 				continue
 			}
@@ -126,15 +124,17 @@ func (r *RationaleFTSRetriever) Retrieve(ctx context.Context, spec search.QueryS
 
 		h := knowledge.FileHandle(row.Path)
 		out = append(out, search.Candidate{
+			SourceRef: search.SourceRef{
+				Path:       row.Path,
+				Title:      row.Path,
+				Kind:       "file",
+				ChunkIndex: -1,
+			},
 			Handle:      h,
 			Owner:       h,
 			Evidence:    []search.Evidence{ev},
 			SupportOnly: true,
 			Type:        "file",
-			Path:        row.Path,
-			Title:       row.Path,
-			Kind:        "file",
-			ChunkIndex:  -1,
 		})
 		if module := moduleAnchorCandidate(row.Path, anchorsByPath[row.Path], ev); module.Handle.String() != "" {
 			out = append(out, module)
@@ -217,18 +217,20 @@ func moduleAnchorCandidate(path string, anchors []codeanchor.IntelAnchor, ev sea
 		if strings.EqualFold(a.Kind, "module") {
 			h := knowledge.AnchorHandle(a.AnchorID)
 			return search.Candidate{
+				SourceRef: search.SourceRef{
+					Path:       a.Path,
+					Title:      a.Symbol,
+					Symbol:     a.Symbol,
+					FQN:        a.FQN,
+					Kind:       a.Kind,
+					ChunkIndex: -1,
+					AnchorID:   a.AnchorID,
+				},
 				Handle:      h,
 				Owner:       h,
 				Evidence:    []search.Evidence{ev},
 				SupportOnly: true,
 				Type:        "anchor",
-				Path:        a.Path,
-				Title:       a.Symbol,
-				Symbol:      a.Symbol,
-				FQN:         a.FQN,
-				Kind:        a.Kind,
-				ChunkIndex:  -1,
-				AnchorID:    a.AnchorID,
 			}
 		}
 	}

@@ -55,7 +55,7 @@ func enumVariableSamples(recipe Recipe, execSchema *ontologyquery.ExecutableSche
 	if execSchema == nil || execSchema.Schema == nil || strings.TrimSpace(recipe.Query.GraphQL) == "" {
 		return out
 	}
-	doc, errs := gqlparser.LoadQuery(execSchema.Schema, recipe.Query.GraphQL)
+	doc, errs := gqlparser.LoadQueryWithRules(execSchema.Schema, recipe.Query.GraphQL, nil)
 	if len(errs) > 0 || len(doc.Operations) != 1 {
 		return out
 	}

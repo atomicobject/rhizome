@@ -3,23 +3,21 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/app/queryengine/runtimeproviders"
+	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	"github.com/atomicobject/rhizome/pkg/vault/identity"
+	"github.com/spf13/cobra"
 	"io"
 	"strings"
-
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
-	"github.com/atomicobject/rhizome/pkg/ontology/guide"
-	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/spf13/cobra"
 )
 
-func newOntologyQuerySchemaCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newOntologyQuerySchemaCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "query-schema",
 		Short: "Print the executable ontology query schema as SDL",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			vaultDef, err := vaultDefOrDefaultContext(cmd.Context())
+			vaultDef, err := commandOptions.vaultDefOrDefaultContext(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -33,7 +31,7 @@ func newOntologyQuerySchemaCmd() *cobra.Command {
 	}
 }
 
-func newOntologyQueryCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newOntologyQueryCmd() *cobra.Command {
 	var queryText string
 	var queryFile string
 	var variablesJSON string
@@ -51,7 +49,7 @@ func newOntologyQueryCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rt, prepared, cleanup, err := prepareOntologyQuery(cmd.Context(), rawQuery, variables)
+			rt, prepared, cleanup, err := commandOptions.prepareOntologyQuery(cmd.Context(), rawQuery, variables)
 			if cleanup != nil {
 				defer cleanup()
 			}
@@ -62,7 +60,13 @@ func newOntologyQueryCmd() *cobra.Command {
 				return silentExitError{code: 1}
 			}
 
-			result := ontologyquery.ExecutePrepared(cmd.Context(), rt.deps(), rt.schema, rt.execSchema, prepared)
+			result, err := rt.run(cmd.Context(), prepared)
+			if err != nil {
+				if writeErr := writeOntologyQueryFailure(cmd.OutOrStdout(), err); writeErr != nil {
+					return writeErr
+				}
+				return silentExitError{code: 1}
+			}
 			if err := writeJSON(cmd.OutOrStdout(), result); err != nil {
 				return err
 			}
@@ -79,13 +83,13 @@ func newOntologyQueryCmd() *cobra.Command {
 	return cmd
 }
 
-func newOntologyReferenceCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newOntologyReferenceCmd() *cobra.Command {
 	var typeName string
 	cmd := &cobra.Command{
 		Use:   "reference",
 		Short: "Render ontology schema reference from the compiled schema",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			vaultDef, err := vaultDefOrDefaultContext(cmd.Context())
+			vaultDef, err := commandOptions.vaultDefOrDefaultContext(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -97,7 +101,7 @@ func newOntologyReferenceCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			text, err := reference.RenderMarkdown(schema, typeName)
+			text, err := schemadoc.RenderReferenceMarkdown(schema, typeName, identity.CurrentUserType)
 			if err != nil {
 				return err
 			}
@@ -109,12 +113,12 @@ func newOntologyReferenceCmd() *cobra.Command {
 	return cmd
 }
 
-func newOntologyAuthoringGuideCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newOntologyAuthoringGuideCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "authoring-guide [type...]",
 		Short: "Render note-authoring guidance from the compiled ontology schema",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			vaultDef, err := vaultDefOrDefaultContext(cmd.Context())
+			vaultDef, err := commandOptions.vaultDefOrDefaultContext(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -126,7 +130,7 @@ func newOntologyAuthoringGuideCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			text, err := guide.RenderMarkdownWithResolver(schema, args, ontologyCompanionResolver(note))
+			text, err := schemadoc.RenderGuideMarkdown(schema, schemadoc.GuideOptions{Types: args, ResolveCompanion: runtimeproviders.CompanionResolver(note)})
 			if err != nil {
 				return err
 			}
@@ -134,41 +138,6 @@ func newOntologyAuthoringGuideCmd() *cobra.Command {
 			return err
 		},
 	}
-}
-
-func ontologyCompanionResolver(note obsidian.NoteReader) guide.CompanionDocResolver {
-	if note == nil {
-		note = &obsidian.Note{}
-	}
-	return func(path string) (guide.CompanionDocMeta, bool) {
-		meta := guide.CompanionDocMeta{}
-		if title, ok := note.Title(path); ok {
-			meta.Title = strings.TrimSpace(title)
-		}
-		fact, ok := actions.NoteFactsFromReader(note).LookupFact(path)
-		if ok {
-			meta.Summary = firstFrontmatterSummary(fact.Frontmatter)
-		}
-		return meta, ok
-	}
-}
-
-func firstFrontmatterSummary(frontmatter map[string]interface{}) string {
-	if len(frontmatter) == 0 {
-		return ""
-	}
-	for _, key := range []string{"summary", "synopsis", "about", "description", "desc", "doc"} {
-		for current, value := range frontmatter {
-			if !strings.EqualFold(current, key) {
-				continue
-			}
-			text := strings.TrimSpace(fmt.Sprint(value))
-			if text != "" {
-				return text
-			}
-		}
-	}
-	return ""
 }
 
 func singleOntologyTypeFilter(types []string) (string, error) {
@@ -232,10 +201,10 @@ func writeOntologyQueryFailure(w io.Writer, err error) error {
 	})
 }
 
-func init() {
-	ontologyCmd.AddCommand(newOntologyQuerySchemaCmd())
-	ontologyCmd.AddCommand(newOntologyQueryCmd())
-	ontologyCmd.AddCommand(newOntologyReferenceCmd())
-	ontologyCmd.AddCommand(newOntologyAuthoringGuideCmd())
-	ontologyCmd.AddCommand(newOntologyInspectCmd())
+func (commandOptions *ontologyInvocationOptions) registerOntologyQueryCommands(ontologyCmd *cobra.Command) {
+	ontologyCmd.AddCommand(commandOptions.newOntologyQuerySchemaCmd())
+	ontologyCmd.AddCommand(commandOptions.newOntologyQueryCmd())
+	ontologyCmd.AddCommand(commandOptions.newOntologyReferenceCmd())
+	ontologyCmd.AddCommand(commandOptions.newOntologyAuthoringGuideCmd())
+	ontologyCmd.AddCommand(commandOptions.newOntologyInspectCmd())
 }

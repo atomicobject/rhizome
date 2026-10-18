@@ -50,12 +50,14 @@ func (r *ExplicitSeedRetriever) Retrieve(ctx context.Context, spec search.QueryS
 			evidence = append(evidence, search.Evidence{Type: "path_exact", RawScore: 1, Source: "explicit_seeds"})
 		}
 		out = append(out, search.Candidate{
+			SourceRef: search.SourceRef{
+				Path:  relPath,
+				Title: filepath.Base(relPath),
+			},
 			Handle:   h,
 			Owner:    h,
 			Evidence: evidence,
 			Type:     "code",
-			Path:     relPath,
-			Title:    filepath.Base(relPath),
 		})
 	}
 	addNote := func(relPath string, score float64) {
@@ -69,17 +71,19 @@ func (r *ExplicitSeedRetriever) Retrieve(ctx context.Context, spec search.QueryS
 		}
 		seen[key] = struct{}{}
 		out = append(out, search.Candidate{
+			SourceRef: search.SourceRef{
+				Path:       relPath,
+				NoteID:     relPath,
+				Title:      filepath.Base(relPath),
+				ChunkIndex: -1,
+			},
 			Handle: h,
 			Owner:  h,
 			Evidence: []search.Evidence{
 				{Type: "explicit_seed", RawScore: score, Source: "explicit_seeds"},
 				{Type: "path_exact", RawScore: 1, Source: "explicit_seeds"},
 			},
-			Type:       "note",
-			Path:       relPath,
-			NoteID:     relPath,
-			Title:      filepath.Base(relPath),
-			ChunkIndex: -1,
+			Type: "note",
 		})
 	}
 

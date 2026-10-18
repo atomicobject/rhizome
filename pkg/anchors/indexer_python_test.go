@@ -24,7 +24,7 @@ class InvoiceService(BaseService):
 def charge():
     pass
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("svc/invoice.py"))
 	require.NoError(t, err)
 
@@ -69,7 +69,7 @@ from pkg import foo as bar
 def process():
     bar()
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("src/app/models.py"))
 	require.NoError(t, err)
 
@@ -92,7 +92,7 @@ Module docs for analytics utilities.
 def run():
     pass
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("svc/analytics.py"))
 	require.NoError(t, err)
 	require.Contains(t, summary.PackageDoc, "Module docs for analytics utilities.")
@@ -105,7 +105,7 @@ func TestPythonIndexer_HeaderCommentFallback(t *testing.T) {
 def run():
     pass
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("svc/headers.py"))
 	require.NoError(t, err)
 	require.Contains(t, summary.PackageDoc, "Header comment line 1")
@@ -146,7 +146,7 @@ class Thing:
     def create(cls):
         return cls()
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("thing.py"))
 	require.NoError(t, err)
 
@@ -168,7 +168,7 @@ def run():
     helper()
     shared()
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("lib/myapp/tasks/run.py"))
 	require.NoError(t, err)
 
@@ -215,7 +215,7 @@ class InvoiceService:
 def run():
     InvoiceService.create()
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("svc/invoice.py"))
 	require.NoError(t, err)
 
@@ -239,7 +239,7 @@ from myapp.store import TaskStore
 def run(store: TaskStore):
     store.persist()
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("svc/tasks.py"))
 	require.NoError(t, err)
 
@@ -258,7 +258,7 @@ class Task:
     count: int = 0
     _private: str = ""
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("models/task.py"))
 	require.NoError(t, err)
 
@@ -298,7 +298,7 @@ class TaskStore(Protocol):
     def persist(self, task: dict) -> None: ...
     def all(self) -> list: ...
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("ports/store.py"))
 	require.NoError(t, err)
 
@@ -328,7 +328,7 @@ class BaseRepository(ABC):
     def save(self, entity) -> None:
         pass
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("repos/base.py"))
 	require.NoError(t, err)
 
@@ -348,7 +348,7 @@ from .tasks import TaskService
 from .sync import SyncManager as SM
 from .utils import helper, validator
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("src/services/__init__.py"))
 	require.NoError(t, err)
 
@@ -378,7 +378,7 @@ from myapp.core import service
 from myapp.utils import helper, logger
 from .local import something
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("lib/myapp/tasks/run.py"))
 	require.NoError(t, err)
 
@@ -405,7 +405,7 @@ from myapp.core import YetAnother
 import os
 import os
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("app/main.py"))
 	require.NoError(t, err)
 
@@ -428,7 +428,7 @@ import os
 def broken(
 from myapp.core import service
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("lib/myapp/tasks/run.py"))
 	require.NoError(t, err)
 
@@ -495,7 +495,7 @@ from .tasks import TaskService
 from ..common import shared
 `)
 
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 
 	// Test __init__.py file (package is "services" with default src/ root stripped)
 	initSummary, err := idx.IndexFile(code, relCodeRef("src/services/__init__.py"))
@@ -629,7 +629,7 @@ class Service:
     def find(self, id: int) -> User:
         pass
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("src/handlers.py"))
 	require.NoError(t, err)
 
@@ -655,7 +655,7 @@ from myapp.models import Result
 def compute() -> Result:
     return Result()
 `)
-	idx := NewPythonIndexer()
+	idx := NewPythonIndexerWithRoots([]string{"src", "lib"})
 	summary, err := idx.IndexFile(code, relCodeRef("src/compute.py"))
 	require.NoError(t, err)
 

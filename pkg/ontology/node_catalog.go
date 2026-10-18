@@ -4,14 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"net/url"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 )
 
 // BuildIntelOntologyNodes projects a typed note into persisted ontology-node
@@ -20,7 +19,7 @@ import (
 // Docs: [[ontology-indexed-read-model-contract]]
 // and [[ontology-indexed-read-model-contract#^spec-0040-noderef-json]] define
 // this catalog as the indexed source of NodeRefJSON/source_locator identity.
-func BuildIntelOntologyNodes(schema *Schema, projection *NodeProjection, now int64) ([]string, []codeanchor.IntelOntologyNode, error) {
+func BuildIntelOntologyNodes(schema *ontoschema.Schema, projection *NodeProjection, now int64) ([]string, []readmodel.NodeRow, error) {
 	readModel, err := BuildIntelOntologyNodeReadModel(schema, projection, now)
 	if err != nil {
 		return nil, nil, err
@@ -37,12 +36,12 @@ type OntologyLinkTarget struct {
 }
 
 type OntologyLinkTargetResolver interface {
-	ResolveOntologyLinkTarget(field *Field, targetInput string) (OntologyLinkTarget, bool)
+	ResolveOntologyLinkTarget(field *ontoschema.Field, targetInput string) (OntologyLinkTarget, bool)
 }
 
-type OntologyLinkTargetResolverFunc func(field *Field, targetInput string) (OntologyLinkTarget, bool)
+type OntologyLinkTargetResolverFunc func(field *ontoschema.Field, targetInput string) (OntologyLinkTarget, bool)
 
-func (fn OntologyLinkTargetResolverFunc) ResolveOntologyLinkTarget(field *Field, targetInput string) (OntologyLinkTarget, bool) {
+func (fn OntologyLinkTargetResolverFunc) ResolveOntologyLinkTarget(field *ontoschema.Field, targetInput string) (OntologyLinkTarget, bool) {
 	if fn == nil {
 		return OntologyLinkTarget{}, false
 	}
@@ -53,16 +52,20 @@ type BuildIntelOntologyNodeReadModelOptions struct {
 	LinkResolver OntologyLinkTargetResolver
 }
 
-func BuildIntelOntologyNodeReadModel(schema *Schema, projection *NodeProjection, now int64) (codeanchor.IntelOntologyNodeReadModel, error) {
+func BuildIntelOntologyNodeReadModel(schema *ontoschema.Schema, projection *NodeProjection, now int64) (readmodel.NodeReadModel, error) {
 	return BuildIntelOntologyNodeReadModelWithOptions(schema, projection, now, BuildIntelOntologyNodeReadModelOptions{})
 }
 
-func BuildIntelOntologyNodeReadModelWithOptions(schema *Schema, projection *NodeProjection, now int64, opts BuildIntelOntologyNodeReadModelOptions) (codeanchor.IntelOntologyNodeReadModel, error) {
+func BuildIntelOntologyNodeReadModelWithOptions(schema *ontoschema.Schema, projection *NodeProjection, now int64, opts BuildIntelOntologyNodeReadModelOptions) (readmodel.NodeReadModel, error) {
+	return buildIntelOntologyNodeReadModel(schema, projection, nil, now, opts)
+}
+
+func buildIntelOntologyNodeReadModel(schema *ontoschema.Schema, projection *NodeProjection, resolver *projectionResolver, now int64, opts BuildIntelOntologyNodeReadModelOptions) (readmodel.NodeReadModel, error) {
 	if now == 0 {
 		now = time.Now().Unix()
 	}
 	if projection == nil || (projection.Snapshot == nil && projection.RootSnapshot == nil) || schema == nil {
-		return codeanchor.IntelOntologyNodeReadModel{}, nil
+		return readmodel.NodeReadModel{}, nil
 	}
 	if projection.Snapshot == nil {
 		rootProjection := projection
@@ -72,27 +75,30 @@ func BuildIntelOntologyNodeReadModelWithOptions(schema *Schema, projection *Node
 			}
 		}
 		if strings.TrimSpace(rootProjection.ResolvedType) == "" {
-			return codeanchor.IntelOntologyNodeReadModel{}, nil
+			return readmodel.NodeReadModel{}, nil
 		}
 		node, err := IntelOntologyNodeForProjection(schema, rootProjection, nil, now)
 		if err != nil {
-			return codeanchor.IntelOntologyNodeReadModel{}, err
+			return readmodel.NodeReadModel{}, err
 		}
 		fields, dependencies := IntelOntologyNodeFieldReadModelForProjection(schema, rootProjection, node, now, opts)
-		return codeanchor.IntelOntologyNodeReadModel{
+		return readmodel.NodeReadModel{
 			NotePaths:        []string{rootProjection.Ref.NotePath},
-			Nodes:            []codeanchor.IntelOntologyNode{node},
+			Nodes:            []readmodel.NodeRow{node},
 			FieldValues:      fields,
 			LinkDependencies: dependencies,
 		}, nil
 	}
-	resolver, err := newProjectionResolver(projection.Snapshot, schema)
-	if err != nil {
-		return codeanchor.IntelOntologyNodeReadModel{}, err
+	if resolver == nil {
+		var err error
+		resolver, err = newProjectionResolver(projection.Snapshot, schema)
+		if err != nil {
+			return readmodel.NodeReadModel{}, err
+		}
 	}
-	var nodes []codeanchor.IntelOntologyNode
-	var fields []codeanchor.IntelOntologyNodeFieldValue
-	var dependencies []codeanchor.IntelOntologyNodeLinkDependency
+	var nodes []readmodel.NodeRow
+	var fields []readmodel.FieldValueRow
+	var dependencies []readmodel.LinkDependencyRow
 	seen := map[string]struct{}{}
 	rootProjection := projection
 	// WHY: untyped notes that match a global @source (e.g. notes containing
@@ -108,12 +114,12 @@ func BuildIntelOntologyNodeReadModelWithOptions(schema *Schema, projection *Node
 	}
 	if strings.TrimSpace(rootProjection.ResolvedType) != "" {
 		if err := collectIntelOntologyNodeReadModel(resolver, rootProjection, nil, now, opts, &nodes, &fields, &dependencies, seen); err != nil {
-			return codeanchor.IntelOntologyNodeReadModel{}, err
+			return readmodel.NodeReadModel{}, err
 		}
 		if IsFallbackNoteProjection(rootProjection) {
 			for _, section := range FallbackSectionProjections(rootProjection) {
 				if err := collectIntelOntologyNodeReadModel(resolver, section, rootProjection, now, opts, &nodes, &fields, &dependencies, seen); err != nil {
-					return codeanchor.IntelOntologyNodeReadModel{}, err
+					return readmodel.NodeReadModel{}, err
 				}
 			}
 		}
@@ -122,17 +128,17 @@ func BuildIntelOntologyNodeReadModelWithOptions(schema *Schema, projection *Node
 	for _, ref := range globalRefs {
 		child, err := resolver.projectCurrent(ref)
 		if err != nil {
-			return codeanchor.IntelOntologyNodeReadModel{}, err
+			return readmodel.NodeReadModel{}, err
 		}
 		if err := collectIntelOntologyNodeReadModel(resolver, child, rootProjection, now, opts, &nodes, &fields, &dependencies, seen); err != nil {
-			return codeanchor.IntelOntologyNodeReadModel{}, err
+			return readmodel.NodeReadModel{}, err
 		}
 	}
 	paths := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		paths = append(paths, node.NotePath)
 	}
-	return codeanchor.IntelOntologyNodeReadModel{
+	return readmodel.NodeReadModel{
 		NotePaths:        uniqueSortedNodeCatalogStrings(paths),
 		Nodes:            nodes,
 		FieldValues:      fields,
@@ -140,7 +146,7 @@ func BuildIntelOntologyNodeReadModelWithOptions(schema *Schema, projection *Node
 	}, nil
 }
 
-func collectIntelOntologyNodeReadModel(resolver *projectionResolver, projection *NodeProjection, parent *NodeProjection, now int64, opts BuildIntelOntologyNodeReadModelOptions, out *[]codeanchor.IntelOntologyNode, fieldOut *[]codeanchor.IntelOntologyNodeFieldValue, dependencyOut *[]codeanchor.IntelOntologyNodeLinkDependency, seen map[string]struct{}) error {
+func collectIntelOntologyNodeReadModel(resolver *projectionResolver, projection *NodeProjection, parent *NodeProjection, now int64, opts BuildIntelOntologyNodeReadModelOptions, out *[]readmodel.NodeRow, fieldOut *[]readmodel.FieldValueRow, dependencyOut *[]readmodel.LinkDependencyRow, seen map[string]struct{}) error {
 	if projection == nil {
 		return nil
 	}
@@ -187,7 +193,7 @@ func semanticChildParent(projection *NodeProjection, parent *NodeProjection) *No
 		return parent
 	}
 	switch projection.Type.Role {
-	case TypeRoleNote, TypeRoleEmbeddedNode:
+	case ontoschema.TypeRoleNote, ontoschema.TypeRoleEmbeddedNode:
 		return projection
 	default:
 		return parent
@@ -195,7 +201,7 @@ func semanticChildParent(projection *NodeProjection, parent *NodeProjection) *No
 }
 
 // IntelOntologyNodeForProjection creates the persisted catalog row for one projection.
-func IntelOntologyNodeForProjection(schema *Schema, projection *NodeProjection, parent *NodeProjection, now int64) (codeanchor.IntelOntologyNode, error) {
+func IntelOntologyNodeForProjection(schema *ontoschema.Schema, projection *NodeProjection, parent *NodeProjection, now int64) (readmodel.NodeRow, error) {
 	if now == 0 {
 		now = time.Now().Unix()
 	}
@@ -208,7 +214,7 @@ func IntelOntologyNodeForProjection(schema *Schema, projection *NodeProjection, 
 	nodeID := OntologyNodeID(ref)
 	nodeRefJSON, err := json.Marshal(ref)
 	if err != nil {
-		return codeanchor.IntelOntologyNode{}, err
+		return readmodel.NodeRow{}, err
 	}
 	parentID := ""
 	parentType := ""
@@ -218,7 +224,7 @@ func IntelOntologyNodeForProjection(schema *Schema, projection *NodeProjection, 
 	}
 	sourceLocator := NodeSourceLocator(ref)
 	displayLabel := nodeCatalogDisplayLabel(projection)
-	return codeanchor.IntelOntologyNode{
+	return readmodel.NodeRow{
 		NodeID:                nodeID,
 		NotePath:              ref.NotePath,
 		NodeRefJSON:           string(nodeRefJSON),
@@ -235,30 +241,31 @@ func IntelOntologyNodeForProjection(schema *Schema, projection *NodeProjection, 
 		StartByte:             int64(ref.StartByte),
 		EndByte:               int64(ref.EndByte),
 		StructuralFingerprint: strings.TrimSpace(ref.Structural),
+		RelocationFingerprint: projection.relocationFingerprint,
 		SchemaHash:            schemaHash(schema),
 		UpdatedAt:             now,
 	}, nil
 }
 
-func IntelOntologyNodeFieldValuesForProjection(schema *Schema, projection *NodeProjection, node codeanchor.IntelOntologyNode, now int64) []codeanchor.IntelOntologyNodeFieldValue {
+func IntelOntologyNodeFieldValuesForProjection(schema *ontoschema.Schema, projection *NodeProjection, node readmodel.NodeRow, now int64) []readmodel.FieldValueRow {
 	rows, _ := IntelOntologyNodeFieldReadModelForProjection(schema, projection, node, now, BuildIntelOntologyNodeReadModelOptions{})
 	return rows
 }
 
-func IntelOntologyNodeFieldReadModelForProjection(schema *Schema, projection *NodeProjection, node codeanchor.IntelOntologyNode, now int64, opts BuildIntelOntologyNodeReadModelOptions) ([]codeanchor.IntelOntologyNodeFieldValue, []codeanchor.IntelOntologyNodeLinkDependency) {
+func IntelOntologyNodeFieldReadModelForProjection(schema *ontoschema.Schema, projection *NodeProjection, node readmodel.NodeRow, now int64, opts BuildIntelOntologyNodeReadModelOptions) ([]readmodel.FieldValueRow, []readmodel.LinkDependencyRow) {
 	if projection == nil || projection.Type == nil || strings.TrimSpace(node.NodeID) == "" {
 		return nil, nil
 	}
-	var out []codeanchor.IntelOntologyNodeFieldValue
-	var dependencies []codeanchor.IntelOntologyNodeLinkDependency
+	var out []readmodel.FieldValueRow
+	var dependencies []readmodel.LinkDependencyRow
 	for _, field := range projection.Type.Fields {
 		if field == nil {
 			continue
 		}
 		switch field.Kind {
-		case FieldKindScalar, FieldKindEnum, FieldKindLink:
-		case FieldKindSection:
-			if !IsSectionSummary(field) {
+		case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum, ontoschema.FieldKindLink:
+		case ontoschema.FieldKindSection:
+			if !ontoschema.IsSectionSummary(field) {
 				continue
 			}
 		default:
@@ -269,7 +276,7 @@ func IntelOntologyNodeFieldReadModelForProjection(schema *Schema, projection *No
 			continue
 		}
 		values := binding.Values
-		if IsSectionSummary(field) {
+		if ontoschema.IsSectionSummary(field) {
 			values = SectionSummaryValues(projection, field)
 		}
 		if len(values) == 0 && binding.Present {
@@ -279,7 +286,7 @@ func IntelOntologyNodeFieldReadModelForProjection(schema *Schema, projection *No
 			// Empty-binding Link fields would emit a row with empty value_norm and
 			// no target identity, which leaves a stale "present but unresolved"
 			// signal in the index. Skip the row instead so reads stay quiet.
-			if field.Kind == FieldKindLink && strings.TrimSpace(value) == "" {
+			if field.Kind == ontoschema.FieldKindLink && strings.TrimSpace(value) == "" {
 				continue
 			}
 			row, dependency := ontologyNodeFieldValueForValueWithOptions(schema, node, field, binding, value, i, now, opts)
@@ -292,33 +299,25 @@ func IntelOntologyNodeFieldReadModelForProjection(schema *Schema, projection *No
 	return out, dependencies
 }
 
-func ontologyNodeFieldValueForValue(schema *Schema, node codeanchor.IntelOntologyNode, field *Field, binding FieldBinding, value string, ordinal int, now int64) codeanchor.IntelOntologyNodeFieldValue {
+func ontologyNodeFieldValueForValue(schema *ontoschema.Schema, node readmodel.NodeRow, field *ontoschema.Field, binding FieldBinding, value string, ordinal int, now int64) readmodel.FieldValueRow {
 	row, _ := ontologyNodeFieldValueForValueWithOptions(schema, node, field, binding, value, ordinal, now, BuildIntelOntologyNodeReadModelOptions{})
 	return row
 }
 
-func ontologyNodeFieldValueForValueWithOptions(schema *Schema, node codeanchor.IntelOntologyNode, field *Field, binding FieldBinding, value string, ordinal int, now int64, opts BuildIntelOntologyNodeReadModelOptions) (codeanchor.IntelOntologyNodeFieldValue, *codeanchor.IntelOntologyNodeLinkDependency) {
-	text := strings.TrimSpace(value)
-	row := codeanchor.IntelOntologyNodeFieldValue{
-		NodeID:      node.NodeID,
-		NotePath:    node.NotePath,
-		TypeName:    node.TypeName,
-		FieldName:   strings.ToLower(strings.TrimSpace(field.Name)),
-		FieldKind:   string(field.Kind),
-		SourceKind:  string(binding.SourceKind),
-		ValueText:   text,
-		ValueNorm:   normalizeOntologyFieldValue(text),
-		ListOrdinal: ordinal,
-		SchemaHash:  schemaHash(schema),
-		UpdatedAt:   now,
-	}
-	if field.Kind == FieldKindEnum {
-		row.ValueKind = "enum"
-		return row, nil
-	}
-	if field.Kind == FieldKindLink {
-		row.ValueKind = "link"
-		targetInput := normalizeOntologyLinkTarget(text)
+func ontologyNodeFieldValueForValueWithOptions(schema *ontoschema.Schema, node readmodel.NodeRow, field *ontoschema.Field, binding FieldBinding, value string, ordinal int, now int64, opts BuildIntelOntologyNodeReadModelOptions) (readmodel.FieldValueRow, *readmodel.LinkDependencyRow) {
+	row := FieldValueRow(field, value)
+	row.NodeID = node.NodeID
+	row.NotePath = node.NotePath
+	row.TypeName = node.TypeName
+	row.FieldName = strings.ToLower(strings.TrimSpace(field.Name))
+	row.FieldKind = string(field.Kind)
+	row.SourceKind = string(binding.SourceKind)
+	row.ListOrdinal = ordinal
+	row.SchemaHash = schemaHash(schema)
+	row.UpdatedAt = now
+	if field.Kind == ontoschema.FieldKindLink {
+		targetInput := row.TargetNotePath
+		row.TargetNotePath = ""
 		if opts.LinkResolver == nil {
 			row.TargetNotePath = targetInput
 			row.TargetSourceLocator = row.TargetNotePath
@@ -329,13 +328,13 @@ func ontologyNodeFieldValueForValueWithOptions(schema *Schema, node codeanchor.I
 			row.TargetRefJSON = strings.TrimSpace(target.RefJSON)
 			row.TargetSourceLocator = strings.TrimSpace(target.SourceLocator)
 		}
-		dependency := &codeanchor.IntelOntologyNodeLinkDependency{
+		dependency := &readmodel.LinkDependencyRow{
 			SourceNotePath:         node.NotePath,
 			NodeID:                 node.NodeID,
 			TypeName:               node.TypeName,
 			FieldName:              row.FieldName,
 			TargetInput:            targetInput,
-			TargetInputNorm:        normalizeOntologyFieldValue(targetInput),
+			TargetInputNorm:        readmodel.LinkDependencyKey(targetInput),
 			ResolvedTargetNotePath: row.TargetNotePath,
 			ResolvedTargetTypeName: row.TargetTypeName,
 			SchemaHash:             schemaHash(schema),
@@ -343,73 +342,11 @@ func ontologyNodeFieldValueForValueWithOptions(schema *Schema, node codeanchor.I
 		}
 		return row, dependency
 	}
-	switch strings.ToLower(strings.TrimSpace(field.TypeName)) {
-	case "boolean", "bool":
-		if b, err := strconv.ParseBool(strings.ToLower(text)); err == nil {
-			row.ValueKind = "bool"
-			row.ValueBool = &b
-		}
-	case "int", "integer":
-		if n, err := strconv.ParseInt(text, 10, 64); err == nil {
-			row.ValueKind = "int"
-			row.ValueInt = &n
-		}
-	case "float", "number":
-		if f, err := strconv.ParseFloat(text, 64); err == nil {
-			row.ValueKind = "real"
-			row.ValueReal = &f
-		}
-	case "date":
-		if isISODate(text) {
-			row.ValueKind = "date"
-			row.ValueDate = &text
-		}
-	case "datetime":
-		if t, err := time.Parse(time.RFC3339, text); err == nil {
-			canonical := t.Format(time.RFC3339)
-			row.ValueKind = "datetime"
-			row.ValueDateTime = &canonical
-			row.ValueNorm = normalizeOntologyFieldValue(canonical)
-		}
-	case "url":
-		if _, err := url.ParseRequestURI(text); err == nil {
-			row.ValueKind = "url"
-		}
-	case "id":
-		row.ValueKind = "id"
-	}
-	if row.ValueKind == "" {
-		row.ValueKind = "string"
-	}
 	return row, nil
 }
 
 func normalizeOntologyFieldValue(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	value = strings.TrimPrefix(value, "[[")
-	value = strings.TrimSuffix(value, "]]")
-	if idx := strings.Index(value, "|"); idx >= 0 {
-		value = strings.TrimSpace(value[:idx])
-	}
-	return value
-}
-
-func normalizeOntologyLinkTarget(value string) string {
-	value = strings.TrimSpace(value)
-	value = strings.TrimPrefix(value, "[[")
-	value = strings.TrimSuffix(value, "]]")
-	if idx := strings.Index(value, "|"); idx >= 0 {
-		value = strings.TrimSpace(value[:idx])
-	}
-	return value
-}
-
-func isISODate(value string) bool {
-	if len(value) != len("2006-01-02") {
-		return false
-	}
-	_, err := time.Parse("2006-01-02", value)
-	return err == nil
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 // OntologyNodeID is the stable owner id used by the ontology node catalog and
@@ -515,7 +452,7 @@ func normalizeCatalogNodeRef(ref NodeRef) NodeRef {
 	return ref
 }
 
-func schemaHash(schema *Schema) string {
+func schemaHash(schema *ontoschema.Schema) string {
 	if schema == nil {
 		return ""
 	}

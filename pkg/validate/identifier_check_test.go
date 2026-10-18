@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -48,6 +49,9 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 	require.Len(t, collision.Losers, 1)
 	require.Equal(t, "EFF-2026-08-05-14-32-2", collision.Losers[0].Replacement)
 
+	prepared, err := prepareIdentifierRepairChecks(t.Context(), runCtx, []CheckResult{result})
+	require.NoError(t, err)
+	result = prepared[0]
 	plan, err := BuildRepairPlan(context.Background(), runCtx, []CheckResult{result})
 	require.NoError(t, err)
 	require.NotNil(t, plan)
@@ -56,7 +60,7 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 	}
 
 	refresher := &identifierRepairRuntimeRefresher{t: t, runCtx: runCtx}
-	execution, err := ApplyIdentifierRepairPlan(context.Background(), runCtx, plan, result.identifierRepair.Assembly, result.identifierRepair.Bindings, Options{
+	execution, err := ApplyIdentifierRepairPlan(context.Background(), runCtx, plan, result.identifierRepair.Assembly, result.identifierRepair.Bindings, ApplyOptions{
 		Fix: true, Confirm: func(string) (bool, error) { return true, nil }, PostApplyRefresher: refresher,
 	})
 	require.NoError(t, err)
@@ -87,7 +91,7 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 `, map[string]string{
 		"docs/efforts/2026-08-05-14-32-invalid.md": "---\ntype: EffortNote\nid: EFF-2026-08-05-14-32-02\naliases: [EFF-2026-08-05-14-32-02]\n---\n# Invalid\n",
 	})
-	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20}
+	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t)}
 
 	result := RunIdentifiersWithRuntime(context.Background(), runCtx, runtime)
 	require.Empty(t, result.Error)
@@ -111,7 +115,7 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 	})
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 	require.Empty(t, result.Error)
 	require.Zero(t, result.IssueCount, "the filename is allocation input, not a continuous identity constraint")
@@ -129,7 +133,7 @@ type EffortNote @node(paths: ["docs/efforts/*.md"], propertyCase: AS_DEFINED) {
 	})
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 	require.Empty(t, result.Error)
 	var historicalAliasIssues int
@@ -153,7 +157,7 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 	})
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 
 	require.Zero(t, result.IssueCount)
@@ -184,7 +188,7 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 	commitIdentifierCheckFixture(t, root)
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 
 	require.Equal(t, 2, result.IssueCount)
@@ -207,7 +211,7 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 	})
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 
 	require.Equal(t, CheckIdentifiers, result.Name)
@@ -233,7 +237,7 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 	// Centralized truncation owns MaxIssues; the check keeps every issue and
 	// the complete repair membership.
 	truncated := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 1,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 1, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 	require.Equal(t, 2, truncated.IssueCount)
 	require.Len(t, truncated.Issues, 2)
@@ -241,9 +245,9 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 	require.Len(t, truncated.Fixes, 1)
 	require.ElementsMatch(t, issueKeys, truncated.Fixes[0].IssueKeys)
 	require.NotNil(t, result.identifierRepair)
-	require.NotNil(t, result.identifierRepair.Assembly)
+	require.Nil(t, result.identifierRepair.Assembly, "read-only checks retain diagnostic intent without source-backed assemblies")
 	repairPlan, err := BuildRepairPlan(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, []CheckResult{result})
 	require.NoError(t, err)
 	require.NotNil(t, repairPlan)
@@ -277,7 +281,7 @@ type Story implements Section @node(locator: EMBEDDED) {
 	})
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 
 	var preferredAlias, embedded bool
@@ -316,7 +320,7 @@ type Story implements Section @node(locator: EMBEDDED) {
 	})
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 
 	var issues []Issue
@@ -351,7 +355,7 @@ type Manual @node(paths: ["manual/*.md"], propertyCase: AS_DEFINED) {
 	})
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 
 	require.Equal(t, 2, result.IssueCount)
@@ -377,7 +381,7 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 		"specs/SPEC-0001-loser.md":  "---\nid: SPEC-0001\naliases: [SPEC-0001]\n---\n",
 		"notes/other.md":            "---\naliases: []\n---\n",
 	})
-	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20}
+	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t)}
 	identifiers := RunIdentifiersWithRuntime(context.Background(), runCtx, runtime)
 	require.NotNil(t, identifiers.identifierRepair)
 	other := CheckResult{
@@ -416,7 +420,7 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 		"specs/000-keeper.md":      "---\nid: SPEC-0001\naliases: [SPEC-0001]\n---\n",
 		"specs/SPEC-0001-loser.md": "---\nid: SPEC-0001\naliases: []\n---\n",
 	})
-	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20}
+	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t)}
 
 	result := RunIdentifiersWithRuntime(context.Background(), runCtx, runtime)
 	plan, err := BuildRepairPlan(context.Background(), runCtx, []CheckResult{result})
@@ -461,7 +465,7 @@ type ManualB @node(paths: ["b/*.md"]) { id: String! @field @identifier(preferred
 	})
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 	require.Zero(t, result.IssueCount)
 }
@@ -479,7 +483,7 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 	})
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 	var collision *FixAction
 	for index := range result.Fixes {
@@ -506,7 +510,7 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 		"specs/SPEC-0003-loser.md": "---\nid: SPEC-0003\naliases: [SPEC-0003]\n---\n",
 		"specs/SPEC-0004-loser.md": "---\ntitle: Existing destination\n---\n",
 	})
-	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20}
+	runCtx := RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t)}
 
 	result := RunIdentifiersWithRuntime(context.Background(), runCtx, runtime)
 
@@ -549,7 +553,7 @@ type Manual @node(paths: ["manual/*.md"], propertyCase: AS_DEFINED) {
 	})
 
 	result := RunIdentifiersWithRuntime(context.Background(), RunContext{
-		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20,
+		VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, MaxIssues: 20, NoteMetadata: testNoteMetadata(t),
 	}, runtime)
 
 	var reviewIDs []string
@@ -574,12 +578,17 @@ type Spec @node(paths: ["specs/*.md"], propertyCase: AS_DEFINED) {
 	})
 	runCtx := &RunContext{VaultDef: obsidian.VaultDefinition{Path: root}, VaultPath: root, NoteReader: &obsidian.Note{}, NoteMetadata: testNoteMetadata(t), MaxIssues: 20}
 
-	result, _, err := RunSuiteOncePrepared(context.Background(), Options{Checks: []string{CheckIdentifiers}, RunContext: runCtx}, runtime, nil)
+	result, _, err := RunSuiteOncePrepared(context.Background(), ScanOptions{Checks: []string{CheckIdentifiers}, RunContext: runCtx}, runtime, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result.IdentifierReconciliation)
 	require.NotNil(t, result.IdentifierReconciliation.Plan)
 	require.NotNil(t, result.FixPlan)
-	require.NotEmpty(t, result.FixPlan.Operations)
+	require.True(t, result.FixPlan.PreparationRequired)
+	require.Empty(t, result.FixPlan.Operations)
+	prepared, err := PrepareRepair(t.Context(), result, *runCtx)
+	require.NoError(t, err)
+	require.NotEmpty(t, prepared.FixPlan.Operations)
+	require.True(t, prepared.FixPlan.RequiresLeaseHeldReplan)
 }
 
 func identifierCheckRuntime(t *testing.T, schema string, files map[string]string) (string, *ontology.Runtime) {
@@ -594,7 +603,7 @@ func identifierCheckRuntime(t *testing.T, schema string, files map[string]string
 	vaultDef := obsidian.VaultDefinition{Path: root, Links: obsidian.LinkTypeBoth}
 	_, err := testNoteMetadata(t).EnsureIndexed(context.Background(), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
-	runtime, err := ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
+	runtime, err := ontologytest.Publish(context.Background(), testNoteMetadata(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	return root, runtime
 }

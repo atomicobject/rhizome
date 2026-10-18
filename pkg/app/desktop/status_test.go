@@ -13,7 +13,8 @@ import (
 	"time"
 
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,13 +44,13 @@ func TestStatusReportsOnlyVerifiedRuntimes(t *testing.T) {
 	healthy := appruntime.Health{VaultPath: main, PID: os.Getpid(), RunID: "main-run", Mode: appruntime.ModeHeadless, Ready: true}
 	fakeRuntime(t, main, appruntime.InstanceManifest{VaultPath: main}, healthy, 0)
 
-	foreign := config(t, obsidian.LocalRhizomeConfig{})
+	foreign := config(t, repoconfig.LocalRhizomeConfig{})
 	fakeRuntime(t, foreign, appruntime.InstanceManifest{VaultPath: t.TempDir()}, appruntime.Health{VaultPath: foreign, PID: os.Getpid(), RunID: "foreign", Mode: appruntime.ModeAttached}, 0)
-	remote := config(t, obsidian.LocalRhizomeConfig{})
+	remote := config(t, repoconfig.LocalRhizomeConfig{})
 	fakeRuntime(t, remote, appruntime.InstanceManifest{VaultPath: remote, HTTPURL: "http://example.invalid:1234"}, appruntime.Health{PID: 1, RunID: "remote"}, 0)
-	impostor := config(t, obsidian.LocalRhizomeConfig{})
+	impostor := config(t, repoconfig.LocalRhizomeConfig{})
 	fakeRuntime(t, impostor, appruntime.InstanceManifest{VaultPath: impostor}, appruntime.Health{VaultPath: t.TempDir(), PID: os.Getpid(), RunID: "impostor", Mode: appruntime.ModeAttached}, 0)
-	busy := config(t, obsidian.LocalRhizomeConfig{})
+	busy := config(t, repoconfig.LocalRhizomeConfig{})
 	fakeRuntime(t, busy, appruntime.InstanceManifest{VaultPath: busy}, appruntime.Health{VaultPath: busy, PID: os.Getpid(), RunID: "busy", Mode: appruntime.ModeHeadless}, 10*time.Second)
 
 	input, err := json.Marshal(Request{Protocol: Protocol, Operation: "status", Folders: []string{foreign, remote, impostor, busy}, Repositories: []RepositoryRef{{Folder: main}, {Folder: filepath.Join(main, "missing")}}})

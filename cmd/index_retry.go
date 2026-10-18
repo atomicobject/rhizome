@@ -3,23 +3,25 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"io"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/spf13/cobra"
 )
 
-func runIndexCommandWithRebuildGuidance(cmd *cobra.Command, noteMetadata notemeta.Indexer, vaultPath string, vaultDef obsidian.VaultDefinition, bar *progressBar) error {
+func (commandOptions *indexInvocationOptions) runIndexCommandWithRebuildGuidance(cmd *cobra.Command, lease *indexlock.Lease, noteMetadata notemeta.Indexer, vaultPath string, vaultDef obsidian.VaultDefinition, bar *progressBar, resolved *repoconfig.Resolved) error {
 	run := func() error {
-		return runUnifiedIndex(cmd, noteMetadata, vaultPath, vaultDef, bar)
+		return commandOptions.runUnifiedIndex(cmd, lease, noteMetadata, vaultPath, vaultDef, bar, resolved)
 	}
 
-	return runIndexWithRebuildGuidance(cmd.ErrOrStderr(), indexRebuild, run)
+	return runIndexWithRebuildGuidance(cmd.ErrOrStderr(), commandOptions.indexRebuild, run)
 }
 
 func runIndexWithRebuildGuidance(out io.Writer, explicitRebuild bool, run func() error) error {

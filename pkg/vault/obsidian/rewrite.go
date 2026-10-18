@@ -1,6 +1,7 @@
 package obsidian
 
 import (
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -42,7 +43,7 @@ type protectedRegion struct {
 // extractProtectedRegions replaces fenced, indented, and inline code with
 // placeholders so link rewriting touches exactly the links the scanners see.
 func extractProtectedRegions(content string) (string, []protectedRegion) {
-	spans := markdownProtectedSpans(content)
+	spans := markdownsyntax.ProtectedSpans(content)
 	if len(spans) == 0 {
 		return content, nil
 	}
@@ -231,7 +232,7 @@ func rewriteLinksInContent(content, oldPath, newPath string, basenameUnique, pre
 		}
 
 		// Check if the path is URL-encoded and decode for matching
-		decodedBase := DecodeMarkdownPath(base)
+		decodedBase := markdownsyntax.DecodeMarkdownPath(base)
 		wasEncoded := decodedBase != base
 
 		ext := filepath.Ext(decodedBase)

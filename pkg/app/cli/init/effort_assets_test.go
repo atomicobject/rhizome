@@ -2,21 +2,27 @@ package init
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRun_EffortAssetsScaffoldIdempotentlyWithoutActiveEfforts(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
-	opts := RunOptions{Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}
+	opts := RunOptions{Env: env, Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}
 	require.NoError(t, Run(opts))
-	cfg, err := obsidian.LoadLocalConfig(root)
+	cfg, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.Contains(t, cfg.Notes.Includes, "docs/efforts/**/*.html")
 	require.True(t, pathMatchesAnyGlob("docs/efforts/historical.md", cfg.Notes.Includes))
@@ -47,7 +53,7 @@ func TestRun_EffortAssetsScaffoldIdempotentlyWithoutActiveEfforts(t *testing.T) 
 		require.Contains(t, string(guidance), contract)
 	}
 	require.NoError(t, Run(opts))
-	refreshed, err := obsidian.LoadLocalConfig(root)
+	refreshed, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.Equal(t, cfg.Notes.Includes, refreshed.Notes.Includes)
 	for _, path := range paths {
@@ -55,11 +61,11 @@ func TestRun_EffortAssetsScaffoldIdempotentlyWithoutActiveEfforts(t *testing.T) 
 		require.NoError(t, err)
 		require.Equal(t, before[path], body, "rerunning init must preserve asset %s", path)
 	}
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
-	sources, err := testNoteMetadataIndexer(t).BuildNoteSourceSnapshots(context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{})
+	sources, err := testkit.NoteMetadataIndexer(t).BuildNoteSourceSnapshots(vaultconfig.WithEnv(context.Background(), env), obsidian.VaultDefinition{Path: root}, &obsidian.Note{})
 	require.NoError(t, err)
-	build, err := ontology.BuildIndexFromNoteSources(context.Background(), obsidian.VaultDefinition{Path: root}, sources, schema, "inert-effort-assets")
+	build, err := ontology.BuildIndexFromNoteSources(vaultconfig.WithEnv(context.Background(), env), obsidian.VaultDefinition{Path: root}, sources, schema, "inert-effort-assets")
 	require.NoError(t, err)
 	for _, node := range build.Nodes {
 		require.NotEqual(t, "EffortNote", node.TypeName, "starter must not create an effort: %s", node.NotePath)
@@ -68,20 +74,23 @@ func TestRun_EffortAssetsScaffoldIdempotentlyWithoutActiveEfforts(t *testing.T) 
 }
 
 func TestRun_ResumedEffortInstallRepairsNoteIncludes(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	for _, includes := range [][]string{{"notes/**/*.md"}, {"docs/**/*"}} {
 		t.Run(includes[0], func(t *testing.T) {
 			root := t.TempDir()
-			opts := RunOptions{Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}
+			opts := RunOptions{Env: env, Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}
 			require.NoError(t, Run(opts))
-			cfg, err := obsidian.LoadLocalConfig(root)
+			cfg, err := repoconfig.LoadLocalConfig(root)
 			require.NoError(t, err)
 			cfg.Notes.Includes = includes
 			cfg.Notes.Excludes = []string{"docs/efforts/private/**"}
-			require.NoError(t, obsidian.SaveLocalConfig(root, *cfg))
+			require.NoError(t, repoconfig.SaveLocalConfig(root, *cfg))
 
 			// Assets already landed before include reconciliation was interrupted.
 			require.NoError(t, Run(opts))
-			repaired, err := obsidian.LoadLocalConfig(root)
+			repaired, err := repoconfig.LoadLocalConfig(root)
 			require.NoError(t, err)
 			want := append([]string(nil), includes...)
 			if includes[0] == "notes/**/*.md" {
@@ -94,7 +103,7 @@ func TestRun_ResumedEffortInstallRepairsNoteIncludes(t *testing.T) {
 			}
 			require.Equal(t, cfg.Notes.Excludes, repaired.Notes.Excludes)
 			require.NoError(t, Run(opts))
-			rerun, err := obsidian.LoadLocalConfig(root)
+			rerun, err := repoconfig.LoadLocalConfig(root)
 			require.NoError(t, err)
 			require.Equal(t, repaired.Notes, rerun.Notes)
 		})
@@ -102,19 +111,22 @@ func TestRun_ResumedEffortInstallRepairsNoteIncludes(t *testing.T) {
 }
 
 func TestRun_WorkspaceRequiresExplicitGoverningSpecs(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	for _, selection := range []string{"", `,"governing-specs":[]`} {
 		t.Run(selection, func(t *testing.T) {
 			root := t.TempDir()
-			require.NoError(t, Run(RunOptions{Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}))
+			require.NoError(t, Run(RunOptions{Env: env, Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}))
 			const path = "docs/efforts/example/2026-09-13-10-00-effort.html"
 			writeTemplateNote(t, root, path, `<html><head><title>Example</title><script id="rhizome-metadata" type="application/json">{"type":"EffortWorkspace","id":"EFF-2026-09-13-10-00","aliases":["EFF-2026-09-13-10-00"],"name":"Example","created-at":"2026-09-13T14:00:00Z","status":"planned","summary":"Example","implementation-plan":"docs/efforts/example/plan.html","work-log":"docs/efforts/example/work-log.md"`+selection+`}</script></head><body></body></html>`)
 			writeTemplateNote(t, root, "docs/efforts/example/plan.html", "<html><head><title>Plan</title></head><body></body></html>")
 			writeTemplateNote(t, root, "docs/efforts/example/work-log.md", "# Work log\n")
-			schema, err := ontology.LoadSchema(root)
+			schema, err := ontoschema.LoadSchema(root)
 			require.NoError(t, err)
-			sources, err := testNoteMetadataIndexer(t).BuildNoteSourceSnapshots(context.Background(), obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}, &obsidian.Note{})
+			sources, err := testkit.NoteMetadataIndexer(t).BuildNoteSourceSnapshots(vaultconfig.WithEnv(context.Background(), env), obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}, &obsidian.Note{})
 			require.NoError(t, err)
-			build, err := ontology.BuildIndexFromNoteSources(context.Background(), obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}, sources, schema, "workspace-spec-selection")
+			build, err := ontology.BuildIndexFromNoteSources(vaultconfig.WithEnv(context.Background(), env), obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}, sources, schema, "workspace-spec-selection")
 			require.NoError(t, err)
 			requireStarterNode(t, build.Nodes, "EffortWorkspace", "Example")
 			issues := starterIssuesForPath(build.ValidationIssues, path, "missing_required_field")

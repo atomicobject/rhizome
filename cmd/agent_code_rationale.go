@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +29,7 @@ type agentCodeRationaleResponse struct {
 	Rationale []agentCodeRationaleEntry `json:"rationale"`
 }
 
-func newAgentCodeRationaleCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCodeRationaleCmd() *cobra.Command {
 	var pathInput string
 	var kinds []string
 	cmd := &cobra.Command{
@@ -41,7 +41,7 @@ func newAgentCodeRationaleCmd() *cobra.Command {
 				writeAgentError(err)
 				return silentExitError{code: 1}
 			}
-			cfg, rt, err := buildAgentConfigForOperation(cmd.Context(), 0, "code_rationale", operationID)
+			cfg, rt, err := commandOptions.buildAgentConfigForOperation(cmd.Context(), 0, "code_rationale", operationID)
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}

@@ -10,9 +10,11 @@ import (
 	"strings"
 )
 
-// RepairPlan is the deterministic, immutable input to repair application.
-// FixPlan remains an alias while existing check builders migrate to operations.
+// RepairPlan carries action guidance or immutable source-backed operations.
+// PreparationRequired summaries must pass PrepareRepair before application.
 type RepairPlan struct {
+	// PreparationRequired marks a read summary that cannot enter apply.
+	PreparationRequired     bool                `json:"preparationRequired,omitempty"`
 	Fingerprint             string              `json:"fingerprint,omitempty"`
 	AuthorityFingerprint    string              `json:"authorityFingerprint,omitempty"`
 	RequiresLeaseHeldReplan bool                `json:"requiresLeaseHeldReplan,omitempty"`
@@ -67,6 +69,9 @@ func BuildFixPlan(checks []CheckResult) (*FixPlan, error) {
 // validates stable identities and source preconditions, derives transaction
 // membership, and computes the authoritative fingerprint.
 func FinalizeRepairPlan(plan RepairPlan) (RepairPlan, error) {
+	if plan.PreparationRequired {
+		return RepairPlan{}, fmt.Errorf("repair action summary requires explicit repair preparation")
+	}
 	plan.Fingerprint = ""
 	plan.AuthorityFingerprint = strings.TrimSpace(plan.AuthorityFingerprint)
 	plan.Transactions = nil
@@ -243,19 +248,51 @@ func RepairPlanFingerprint(plan RepairPlan) (string, error) {
 		}
 		return operations[i].Kind < operations[j].Kind
 	})
+	// Public operation JSON omits source bytes; reviewed authority must bind them.
+	type expectedWitness struct {
+		StartByte       int    `json:"startByte"`
+		EndByte         int    `json:"endByte"`
+		TextHash        string `json:"textHash"`
+		ReplacementHash string `json:"replacementHash"`
+	}
+	type operationWitness struct {
+		Operation              RepairOperation   `json:"operation"`
+		ContentHash            string            `json:"contentHash,omitempty"`
+		Expected               []expectedWitness `json:"expected,omitempty"`
+		DestinationContentHash string            `json:"destinationContentHash,omitempty"`
+	}
+	witnesses := make([]operationWitness, 0, len(operations))
+	for _, operation := range operations {
+		witness := operationWitness{Operation: operation}
+		if operation.Content != nil {
+			witness.ContentHash = SourceHash(operation.Content)
+		}
+		for _, expected := range operation.Expected {
+			witness.Expected = append(witness.Expected, expectedWitness{
+				StartByte: expected.StartByte, EndByte: expected.EndByte,
+				TextHash: SourceHash([]byte(expected.Text)), ReplacementHash: SourceHash([]byte(expected.Replacement)),
+			})
+		}
+		if operation.DestinationState != nil && operation.DestinationState.Content != nil {
+			witness.DestinationContentHash = SourceHash(operation.DestinationState.Content)
+		}
+		witnesses = append(witnesses, witness)
+	}
 	payload := struct {
+		PreparationRequired     bool                `json:"preparationRequired,omitempty"`
 		RequiresLeaseHeldReplan bool                `json:"requiresLeaseHeldReplan,omitempty"`
 		AuthorityFingerprint    string              `json:"authorityFingerprint,omitempty"`
 		IssueKeys               []string            `json:"issueKeys"`
 		Actions                 []fingerprintAction `json:"actions"`
-		Operations              []RepairOperation   `json:"operations"`
+		Operations              []operationWitness  `json:"operations"`
 		FollowUps               []RepairFollowUp    `json:"followUps,omitempty"`
 	}{
+		PreparationRequired:     plan.PreparationRequired,
 		RequiresLeaseHeldReplan: plan.RequiresLeaseHeldReplan,
 		AuthorityFingerprint:    strings.TrimSpace(plan.AuthorityFingerprint),
 		IssueKeys:               issueKeys,
 		Actions:                 actions,
-		Operations:              operations,
+		Operations:              witnesses,
 		FollowUps:               followUps,
 	}
 	encoded, err := json.Marshal(payload)
@@ -263,5 +300,5 @@ func RepairPlanFingerprint(plan RepairPlan) (string, error) {
 		return "", err
 	}
 	sum := sha256.Sum256(encoded)
-	return "plan:v2:" + hex.EncodeToString(sum[:]), nil
+	return "plan:v3:" + hex.EncodeToString(sum[:]), nil
 }

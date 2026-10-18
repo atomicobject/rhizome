@@ -1,0 +1,688 @@
+{
+  "version": "corpus-v3-source-renames-and-policy-rejudgment-2",
+  "derivedFrom": "corpus-v2.json",
+  "historicalCorpusSHA256": {
+    "corpus-v1.json": "bdf04b6e6218608da223a13da6bc1a3b639e4776ee5775eea2b2d329e1155225",
+    "corpus-v2.json": "40315979b2e8ddcb5b0346586552b897cafe71bcf79c29a7607466dae4ed5ac8"
+  },
+  "sourceBaseRevision": "5251923fc1ac06ac6c9702eb3db25ca76da67d2f",
+  "sourceState": "uncommitted refactor; hashes witness the inspected targets, not a released revision",
+  "comparability": "Current v3 retires two unsupported cases and changes source identities. It is a different workload; quality differences against v2 are not a baseline improvement claim. The prior selected-eight-case v2 comparison remains unchanged. CONTROL-11 and CONTROL-12 were independently rejudged after source splitting; earlier v3 scores are also not directly comparable.",
+  "renames": [
+    {
+      "from": "pkg/app/cli/code_mode_read_workflows.go",
+      "to": "pkg/app/operations/code_mode_read_workflows.go",
+      "beforeSymbol": "CodeModeOntologySchemaService",
+      "afterSymbol": "CodeModeOntologySchemaService",
+      "locator": "pkg/app/operations/code_mode_read_workflows.go#L15",
+      "targetSHA256": "f4df424ddce7d7f3927c2403408d690004a7b0be33cfd03589e1c15d7d1c83f2",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/semantic/syncer_paths.go",
+      "to": "pkg/embedindex/syncer_prepared_paths.go",
+      "beforeSymbol": "PreparedCodePaths",
+      "afterSymbol": "PreparedCodePaths",
+      "locator": "pkg/embedindex/syncer_prepared_paths.go#L27",
+      "targetSHA256": "4094639dd518ab10b30517a6f8c945c94992eaf69d9f0a31937fccfc57e842d5",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/app/indexingpipe/files_subtree_test.go",
+      "to": "pkg/app/noteownership/discovery_subtree_test.go",
+      "beforeSymbol": "TestProcessFiles_IncludedSubtreeAgreesWithMatcher",
+      "afterSymbol": "TestDiscoverIncludedSubtreeHonorsNestedGitignore",
+      "locator": "pkg/app/noteownership/discovery_subtree_test.go#L15",
+      "targetSHA256": "69f91dee4cf596cc1d04cdd6d5efac45e1a884cc728c81647f1a7a4dc468296a",
+      "evidence": "Original included-subtree fixture and literal keep/exclude contract migrated to canonical Discover; focused test passes."
+    },
+    {
+      "from": "pkg/search/semantic/note_syncer.go",
+      "to": "pkg/embedindex/note_syncer.go",
+      "beforeSymbol": "NoteSyncer",
+      "afterSymbol": "NoteSyncer",
+      "locator": "pkg/embedindex/note_syncer.go#L58",
+      "targetSHA256": "234f4f0a270bda7ecb1d78c8e9a2262e04bc5aee96e2e9156073d2fc9743af93",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/ontology/policy.go",
+      "to": "pkg/ontology/schema/policy.go",
+      "beforeSymbol": "CompileTypePolicies",
+      "afterSymbol": "CompileTypePolicies",
+      "locator": "pkg/ontology/schema/policy.go#L45",
+      "targetSHA256": "15441da46c9ff35cda9fc7c5e41fdef1e2058330c456e3b03e173a4c13b0137a",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/perfworkload/report.go",
+      "to": "tools/searchperf/internal/perfworkload/report.go",
+      "beforeSymbol": "Aggregate",
+      "afterSymbol": "Aggregate",
+      "locator": "tools/searchperf/internal/perfworkload/report.go#L7",
+      "targetSHA256": "a55a9da38ef512c136174892824e8a03d285130065af829e16b44402f7ac07a7",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/perfworkload/run.go",
+      "to": "tools/searchperf/internal/perfworkload/run.go",
+      "beforeSymbol": "RunOptions",
+      "afterSymbol": "RunOptions",
+      "locator": "tools/searchperf/internal/perfworkload/run.go#L71",
+      "targetSHA256": "dc4085c78f8474f4a4c5fe00f9871af8ec7e01528f0ed04ad43451e95f17c3d4",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/ontology/policy_test.go",
+      "to": "pkg/ontology/schema/policy_test.go",
+      "beforeSymbol": "TestCompileTypePolicies_ExtractsTraversalOverrides",
+      "afterSymbol": "TestCompileTypePolicies_ExtractsTraversalOverrides",
+      "locator": "pkg/ontology/schema/policy_test.go#L9",
+      "targetSHA256": "5605fadc881c38e061055cf46dea3ee3e13103308b07f6eb6337bfc4833a3bf3",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/app/semanticruntime/policy.go",
+      "to": "pkg/embedindex/policy.go",
+      "beforeSymbol": "PolicyFor",
+      "afterSymbol": "PolicyFor",
+      "locator": "pkg/embedindex/policy.go#L55",
+      "targetSHA256": "92d66636de83fa82800b32f1f1b7790c7abb6eb5b5e5a493840e9736904456ab",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/semantic/syncer.go",
+      "to": "pkg/embedindex/syncer.go",
+      "beforeSymbol": "Syncer",
+      "afterSymbol": "Syncer",
+      "locator": "pkg/embedindex/syncer.go#L155",
+      "targetSHA256": "0e9eb877c05d7eb589b1e1d8fa887053356b984c69167023b086fa62eb50dca5",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/ontology/schema.go",
+      "to": "pkg/ontology/schema/schema.go",
+      "beforeSymbol": "LoadSchema",
+      "afterSymbol": "compileSchema",
+      "locator": "pkg/ontology/schema/schema.go#L78",
+      "targetSHA256": "134b81b955ee452b7c6814c6bfc33f5144dfb8e4eb9d2e5bbb3e9b7def0cb0ad",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/semantic/synthesis_policy.go",
+      "to": "pkg/embedindex/synthesis_policy.go",
+      "beforeSymbol": "SynthesisPolicy",
+      "afterSymbol": "SynthesisPolicy",
+      "locator": "pkg/embedindex/synthesis_policy.go#L7",
+      "targetSHA256": "be0da764143a8709c0e13ee669c0fb27bc3cba48d6b6c5f43bacbfe74420f4f6",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/semantic/code_writeback_batcher.go",
+      "to": "pkg/embedindex/code_writeback_batcher.go",
+      "beforeSymbol": "normalizeWritebackFlushPolicy",
+      "afterSymbol": "normalizeWritebackFlushPolicy",
+      "locator": "pkg/embedindex/code_writeback_batcher.go#L114",
+      "targetSHA256": "f137b8de0b7d691eb5c6e37b49e64726eb87da7fbd6151576530d8baabc8bd3d",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/semantic/synthesis_policy_default_test.go",
+      "to": "pkg/embedindex/synthesis_policy_default_test.go",
+      "beforeSymbol": "TestDefaultSynthesisPolicy_FunctionShortNoDocIncludesBody",
+      "afterSymbol": "TestDefaultSynthesisPolicy_FunctionShortNoDocIncludesBody",
+      "locator": "pkg/embedindex/synthesis_policy_default_test.go#L18",
+      "targetSHA256": "bead39c48e5c1f34411ef7c8a018fb9c0929d04c12b1635753c5cb79f9f4c95f",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/graphalg/hits.go",
+      "to": "pkg/graph/algorithms/hits.go",
+      "beforeSymbol": "ComputeHITS",
+      "afterSymbol": "ComputeHITS",
+      "locator": "pkg/graph/algorithms/hits.go#L12",
+      "targetSHA256": "c14196852b40ebdc2920d6f850bb6c691d24b16c7c8c73ca29b84c2f6144876b",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/graphalg/surprise.go",
+      "to": "pkg/graph/algorithms/surprise.go",
+      "beforeSymbol": "FindSurprisingConnections",
+      "afterSymbol": "FindSurprisingConnections",
+      "locator": "pkg/graph/algorithms/surprise.go#L38",
+      "targetSHA256": "c92d7b77206abaee675b9709974be008bc7dac9d512efd81743b1951e96f97f5",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/graphdb/doc_scores.go",
+      "to": "pkg/graph/index/doc_scores.go",
+      "beforeSymbol": "ComputeDocScores",
+      "afterSymbol": "ComputeDocScores",
+      "locator": "pkg/graph/index/doc_scores.go#L30",
+      "targetSHA256": "d25e20fb857fe7f0f8d0adc0134cf42ed896142050048c53128da24feabfd47f",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/search/graphdb/doc_scores_test.go",
+      "to": "pkg/graph/index/doc_scores_test.go",
+      "beforeSymbol": "TestComputeDocScores_BuildsConnectedCommunities",
+      "afterSymbol": "TestComputeDocScores_BuildsConnectedCommunities",
+      "locator": "pkg/graph/index/doc_scores_test.go#L19",
+      "targetSHA256": "d12a67db34efe87d15a7996a314f0218addb8a7e277ff7afcd58f67d194afa15",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/anchors/sqlite/intel_lookup.go",
+      "to": "pkg/store/intel_symbol_lookup.go",
+      "beforeSymbol": "IntelAnchorIDsByGoMethodNameInPkg",
+      "afterSymbol": "IntelAnchorIDsByGoMethodNameInPkg",
+      "locator": "pkg/store/intel_symbol_lookup.go#L39",
+      "targetSHA256": "e1c2b62a3fe1e0fa3e22fa30ba350cea72f5b292b2f9c15ab6c49e8f792a166d",
+      "evidence": "Same source/declaration owner after package relocation or cohesive file split; semantic move functions matched the pre-move AST-token audit where applicable."
+    },
+    {
+      "from": "pkg/ontology/reference_view.go",
+      "to": "pkg/ontology/schemadoc/metadata.go",
+      "beforeSymbol": "clonePolicy",
+      "afterSymbol": "clonePolicy",
+      "locator": "pkg/ontology/schemadoc/metadata.go#L53",
+      "targetSHA256": "60b88546fdce8ce27dc8aebcf8afaa13366202eebcc8fa6e1203eaa763382b37",
+      "evidence": "The grade1 rationale names policy cloning. That exact declaration moved through the cohesive reference-view split into metadata.go; DTOs in types.go do not implement the judged behavior.",
+      "preservationWitness": {
+        "snapshot": "/tmp/rhizome-ontology-structure-before-20261017T1/manifest.json",
+        "moves": "/tmp/ontology-structure-moves.json",
+        "splits": "/tmp/ontology-structure-splits.json",
+        "declarations": "/tmp/ontology-declaration-audit.json",
+        "result": "398 declarations, 3019 literals, 179 comments, and 570 returns audited with zero errors; rendered DTO/format before-after probe byte-identical"
+      }
+    },
+    {
+      "from": "pkg/ontology/guide/render.go",
+      "to": "pkg/ontology/schemadoc/guide_fields.go",
+      "beforeSymbol": "ambientLinkPolicy",
+      "afterSymbol": "ambientLinkPolicy",
+      "locator": "pkg/ontology/schemadoc/guide_fields.go#L252",
+      "targetSHA256": "fc3dba6b946538708caf3c5564bdf857e25d48a122be7c609f0f6c9b704c4af0",
+      "evidence": "The historical locator predates the earlier guide split. The judged ambient-link policy moved render.go to guide/fields.go, then unchanged to schemadoc/guide_fields.go. Policy formatting/cloning companions moved through guide/guidance.go to schemadoc/guide_guidance.go. The orchestration file guide_render.go is not the matching implementation.",
+      "preservationWitness": {
+        "snapshot": "/tmp/rhizome-ontology-structure-before-20261017T1/manifest.json",
+        "moves": "/tmp/ontology-structure-moves.json",
+        "splits": "/tmp/ontology-structure-splits.json",
+        "declarations": "/tmp/ontology-declaration-audit.json",
+        "result": "398 declarations, 3019 literals, 179 comments, and 570 returns audited with zero errors; rendered DTO/format before-after probe byte-identical"
+      }
+    },
+    {
+      "from": "pkg/ontology/reference/render.go",
+      "to": "pkg/ontology/schemadoc/reference_render.go",
+      "beforeSymbol": "formatPolicy",
+      "afterSymbol": "formatPolicy",
+      "locator": "pkg/ontology/schemadoc/reference_render.go#L237",
+      "targetSHA256": "5516b0f681bb334598f241bceab1f967cf2e9892499d662f1e532b351160b4c8",
+      "evidence": "The grade1 rationale names formatting policy hints; formatPolicy is the exact moved declaration in reference_render.go.",
+      "preservationWitness": {
+        "snapshot": "/tmp/rhizome-ontology-structure-before-20261017T1/manifest.json",
+        "moves": "/tmp/ontology-structure-moves.json",
+        "splits": "/tmp/ontology-structure-splits.json",
+        "declarations": "/tmp/ontology-declaration-audit.json",
+        "result": "398 declarations, 3019 literals, 179 comments, and 570 returns audited with zero errors; rendered DTO/format before-after probe byte-identical"
+      }
+    }
+  ],
+  "retiredCases": [
+    {
+      "id": "RHIZOME_REPOSITORY-CONTROL-07",
+      "reason": "The exact named Current definition was inlined into unifiedsearch.IndexGeneration and renamed. Its positive grade for the bare query Current cannot be carried into current source without rejudging. The complete provider-failure, continuation-invalidation, retry, and fresh-oracle regression remains live.",
+      "evidence": "pkg/app/unifiedsearch/index_generation.go#IndexGeneration; pkg/app/unifiedsearch/index_generation_sync_test.go#TestSyncerRetriesChangedSynthesizedContentAfterProviderFailure",
+      "case": {
+        "id": "RHIZOME_REPOSITORY-CONTROL-07",
+        "split": "development",
+        "corpus": "rhizome-repository",
+        "family": "control",
+        "surface": "unifiedsearch",
+        "intent": "search",
+        "queries": [
+          "Current"
+        ],
+        "judgments": {
+          "pkg/app/unifiedsearch/index_generation.go": {
+            "grade": 1,
+            "rationale": "This source concerns current index generation but does not uniquely define the bare target Current.",
+            "locator": "pkg/app/unifiedsearch/index_generation.go#L20"
+          },
+          "pkg/vault/identity/current_user.go": {
+            "grade": 1,
+            "rationale": "The identity source defines CurrentUser state and helpers, which is only a lexical near-match for the exact Current query.",
+            "locator": "pkg/vault/identity/current_user.go#L23"
+          },
+          "scripts/agent-experience-evals/fixture_support.py": {
+            "grade": 0,
+            "rationale": "The helper computes current filesystem hashes and paths for agent-experience fixtures. It does not answer the unqualified Current query.",
+            "locator": "scripts/agent-experience-evals/fixture_support.py#L135"
+          },
+          "scripts/agent-experience-evals/tests/test_fixtures.py": {
+            "grade": 0,
+            "rationale": "This fixture test uses current only as a local timestamp variable and does not address the requested Current symbol.",
+            "locator": "scripts/agent-experience-evals/tests/test_fixtures.py#L38"
+          },
+          "pkg/sqliteutil/migration/runner.go": {
+            "grade": 0,
+            "rationale": "The migration runner uses Current for schema-version state and probes. It does not answer the unqualified Current query.",
+            "locator": "pkg/sqliteutil/migration/runner.go#L53"
+          },
+          "pkg/app/cli/current_user_test.go": {
+            "grade": 1,
+            "rationale": "These tests exercise CurrentUser lookup and service behavior, a lexical near-match rather than the exact Current symbol.",
+            "locator": "pkg/app/cli/current_user_test.go#L13"
+          },
+          "scripts/perf/phase4_parity_test.py": {
+            "grade": 0,
+            "rationale": "The performance tests use a fixture state named current. They do not answer the unqualified Current query.",
+            "locator": "scripts/perf/phase4_parity_test.py#L26"
+          },
+          "pkg/search/indexgeneration/generation.go": {
+            "grade": 3,
+            "rationale": "Defines Current as the committed search index-generation computation, directly matching the requested symbol.",
+            "locator": "pkg/search/indexgeneration/generation.go#L18",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "roleJudgmentMethod": "file_kind_after_source_inspection_2026-09-13"
+          },
+          "pkg/app/cli/current_user.go": {
+            "grade": 1,
+            "rationale": "CurrentUserService implements show, set, and validate for current-user identity. That is only a possible interpretation of the unqualified Current query.",
+            "locator": "pkg/app/cli/current_user.go#L22"
+          },
+          "cmd/agent_current_user.go": {
+            "grade": 1,
+            "rationale": "The CLI source implements current-user show, set, and validate commands. That is only a narrow interpretation of the unqualified Current query.",
+            "locator": "cmd/agent_current_user.go#L12"
+          },
+          "pkg/vault/identity/current_user_test.go": {
+            "grade": 1,
+            "rationale": "These tests prove CurrentUser persistence and resolution helpers, a lexical near-match rather than the exact Current symbol.",
+            "locator": "pkg/vault/identity/current_user_test.go#L11"
+          },
+          "pkg/ontology/query/note_path_cache.go": {
+            "grade": 1,
+            "rationale": "The cache helpers use currentNotePaths and the NoteProjectionStatusCurrent status to build a note-path cache; this is a lexical near-match and defines no Current symbol.",
+            "locator": "pkg/ontology/query/note_path_cache.go#L13",
+            "supportedRoles": [],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/anchors/sqlite/ownership_transition.go": {
+            "grade": 1,
+            "rationale": "The file matches NoteProjectionStatusCurrent states during ownership transitions; that is a lexical near-match rather than a definition of the bare target Current.",
+            "locator": "pkg/anchors/sqlite/ownership_transition.go#L185",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/ontology/fixes.go": {
+            "grade": 0,
+            "rationale": "SuggestFixes builds validation auto-fix suggestions; the file contains no Current symbol or current-state concept.",
+            "locator": "pkg/ontology/fixes.go#L1",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/notemeta/indexer_operations.go": {
+            "grade": 1,
+            "rationale": "MetadataStateCurrent and projectionRowsCurrent report whether persisted note metadata is current; that is a lexical near-match rather than a definition of the bare target Current.",
+            "locator": "pkg/notemeta/indexer_operations.go#L90",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          }
+        },
+        "judgmentMethod": "agent_source_inspection_before_candidate_run",
+        "judgedAt": "2026-09-13",
+        "requiredSources": [],
+        "requiredRoles": [],
+        "control": "ambiguous_target",
+        "uncertainty": "The bare word is not a unique code or note target."
+      }
+    },
+    {
+      "id": "RHIZOME_REPOSITORY-CONTROL-08",
+      "reason": "Intent-store exemplars and the intentstore.Store interface were retired. The case contains a positive grade2 for that deleted Store definition. There is no same-behavior replacement, so all original case content remains historical in v2 and this ledger.",
+      "evidence": "pkg/app/unifiedsearch/mode.go; removed pkg/search/intentstore/store.go",
+      "case": {
+        "id": "RHIZOME_REPOSITORY-CONTROL-08",
+        "split": "development",
+        "corpus": "rhizome-repository",
+        "family": "control",
+        "surface": "unifiedsearch",
+        "intent": "search",
+        "queries": [
+          "Store"
+        ],
+        "judgments": {
+          "pkg/search/embeddings/codeindex/sqlite/store.go": {
+            "grade": 2,
+            "rationale": "This package defines one of several Store types in the repository.",
+            "locator": "pkg/search/embeddings/codeindex/sqlite/store.go#L1",
+            "supportedRoles": [
+              "implementation"
+            ]
+          },
+          "pkg/search/embeddings/sqlite/store.go": {
+            "grade": 2,
+            "rationale": "This package defines another Store type.",
+            "locator": "pkg/search/embeddings/sqlite/store.go#L1",
+            "supportedRoles": [
+              "implementation"
+            ]
+          },
+          "pkg/app/views/types.go": {
+            "grade": 1,
+            "rationale": "Uses a noderead.Store field; does not define the requested Store symbol.",
+            "locator": "pkg/app/views/types.go#L27"
+          },
+          "pkg/search/retrieval/refs.go": {
+            "grade": 1,
+            "rationale": "DocLinksRetriever has a field named Store of type semdb.Store, but the source does not define an unqualified Store symbol.",
+            "locator": "pkg/search/retrieval/refs.go#L17"
+          },
+          "pkg/search/retrieval/ontology.go": {
+            "grade": 1,
+            "rationale": "OntologyRetriever has a Store field used to expand ontology seeds. It neither defines the Store type nor explains a general Store query.",
+            "locator": "pkg/search/retrieval/ontology.go#L18"
+          },
+          "pkg/search/retrieval/definition.go": {
+            "grade": 1,
+            "rationale": "Consumes semdb.Store for definition lookup rather than defining Store.",
+            "locator": "pkg/search/retrieval/definition.go#L18"
+          },
+          "pkg/ontology/runtime.go": {
+            "grade": 1,
+            "rationale": "Runtime contains a Store pointer and readiness state. It does not define Store or answer a broader Store lookup.",
+            "locator": "pkg/ontology/runtime.go#L12"
+          },
+          "pkg/ontology/query/types.go": {
+            "grade": 3,
+            "rationale": "Defines the query executor Store interface, one valid candidate for an ambiguous Store lookup.",
+            "locator": "pkg/ontology/query/types.go#L269",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "roleJudgmentMethod": "file_kind_after_source_inspection_2026-09-13"
+          },
+          "pkg/ontology/service.go": {
+            "grade": 1,
+            "rationale": "Ontology Service has a field named Store backed by semdb.Store, but does not define an unqualified Store symbol.",
+            "locator": "pkg/ontology/service.go#L18"
+          },
+          "pkg/search/retrieval/graph.go": {
+            "grade": 1,
+            "rationale": "GraphRetriever has a semdb.Store field and reads from it, but this source does not define Store.",
+            "locator": "pkg/search/retrieval/graph.go#L29"
+          },
+          "pkg/ontology/noderead/types.go": {
+            "grade": 3,
+            "rationale": "Defines the noderead Store interface; direct symbol match, though the bare name alone does not uniquely select this package.",
+            "locator": "pkg/ontology/noderead/types.go#L19",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "roleJudgmentMethod": "file_kind_after_source_inspection_2026-09-13"
+          },
+          "pkg/ontology/query/selector_inventory_test.go": {
+            "grade": 1,
+            "rationale": "These tests wrap an embedded semdb.Store in selectorInventoryStore to inject read failures; the file uses Store but does not define an unqualified Store symbol.",
+            "locator": "pkg/ontology/query/selector_inventory_test.go#L12",
+            "supportedRoles": [
+              "test"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_2026-09-14"
+          },
+          "pkg/search/intentstore/store.go": {
+            "grade": 2,
+            "rationale": "This file declares type Store interface for the intent store, another of the repository's several unrelated Store definitions, so the bare name cannot select it.",
+            "locator": "pkg/search/intentstore/store.go#L41",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_2026-09-14"
+          },
+          "pkg/validate/identifier_check.go": {
+            "grade": 1,
+            "rationale": "RunIdentifiersWithStore takes a caller-owned *semdb.Store; the file uses a Store but defines no unqualified Store symbol.",
+            "locator": "pkg/validate/identifier_check.go#L53",
+            "supportedRoles": [],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "scripts/release/release_preconditions.py": {
+            "grade": 0,
+            "rationale": "The release precondition script checks git and tag state; it contains no Store symbol at all.",
+            "locator": "scripts/release/release_preconditions.py#L1",
+            "supportedRoles": [],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/search/retrieval/graph_ppr.go": {
+            "grade": 1,
+            "rationale": "The PPR retriever declares a private graphDocEdgeStore interface and a Store field it reads seeds from; it does not define an unqualified Store symbol.",
+            "locator": "pkg/search/retrieval/graph_ppr.go#L21",
+            "supportedRoles": [],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/search/relevance/graph_anchor_score_ranker.go": {
+            "grade": 1,
+            "rationale": "The anchor-score ranker declares a private anchorScoreStore interface and a Store field; it defines no unqualified Store symbol.",
+            "locator": "pkg/search/relevance/graph_anchor_score_ranker.go#L14",
+            "supportedRoles": [],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/anchors/sqlite/store.go": {
+            "grade": 2,
+            "rationale": "This file declares `type Store struct` for the SQLite semantic/intel store, another of the repository's several unrelated Store definitions, so the bare name cannot select it.",
+            "locator": "pkg/anchors/sqlite/store.go#L37",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/validate/checks.go": {
+            "grade": 1,
+            "rationale": "The validation checks consume a *semdb.Store parameter (RunCodeAnchorsWithStore) but do not define any Store type.",
+            "locator": "pkg/validate/checks.go#L310",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/search/relevance/graph_doc_score_ranker.go": {
+            "grade": 1,
+            "rationale": "The ranker declares an unexported graphDocScoreStore interface and a Store field it reads scores from; it does not define an unqualified Store.",
+            "locator": "pkg/search/relevance/graph_doc_score_ranker.go#L27",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/app/agentchat/store.go": {
+            "grade": 2,
+            "rationale": "The agent chat package declares `type Store struct` with OpenStore for its per-vault SQLite database, one of several unrelated Store types a bare query could mean.",
+            "locator": "pkg/app/agentchat/store.go#L18",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/ontology/idalloc/allocator.go": {
+            "grade": 2,
+            "rationale": "idalloc declares `type Store interface` as the minimal semdb subset the allocator needs, one of several unrelated Store definitions in the repository.",
+            "locator": "pkg/ontology/idalloc/allocator.go#L25",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/search/semantic/ontology_node_syncer.go": {
+            "grade": 1,
+            "rationale": "The syncer declares an OntologyNodeStore interface and holds a Store field; it does not define an unqualified Store.",
+            "locator": "pkg/search/semantic/ontology_node_syncer.go#L19",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/validate/identifier_validation.go": {
+            "grade": 1,
+            "rationale": "Identifier validation runs through *semdb.Store and runtime.Store lookups; it does not define a Store type.",
+            "locator": "pkg/validate/identifier_validation.go#L24",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          },
+          "pkg/search/retrieval/implementers.go": {
+            "grade": 1,
+            "rationale": "ImplementersRetriever holds a Store *semdb.Store field it queries for implementer anchors; the file uses a Store but defines no unqualified Store symbol.",
+            "locator": "pkg/search/retrieval/implementers.go#L15",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+          }
+        },
+        "judgmentMethod": "agent_source_inspection_before_candidate_run",
+        "judgedAt": "2026-09-13",
+        "requiredSources": [],
+        "requiredRoles": [],
+        "control": "ambiguous_target",
+        "uncertainty": "Multiple packages define Store."
+      }
+    }
+  ],
+  "rejudgments": {
+    "reviewer": "root; independent source inspection after Astra r6 identified stale evidence; no candidate ranking output inspected",
+    "reason": "A one-to-many source split moved the grade-supporting implementation, so a path-only substitution no longer preserves relevance. Existing grades are not mechanically transferred.",
+    "comparability": "v3 source judgments changed; no quality improvement claim against historical v1/v2 or earlier v3.",
+    "changes": [
+      {
+        "caseId": "RHIZOME_REPOSITORY-CONTROL-11",
+        "source": "pkg/embedindex/syncer.go",
+        "before": {
+          "grade": 2,
+          "rationale": "Declares WritebackFlushPolicy and drives SynthesisPolicy selection, so it is one genuine shared-policy implementation among several unrelated candidates.",
+          "locator": "pkg/embedindex/syncer.go#L155",
+          "supportedRoles": [
+            "implementation"
+          ],
+          "supportedRelationships": [],
+          "supportedFacets": [],
+          "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+        },
+        "after": {
+          "grade": 1,
+          "rationale": "Declares the configurable SynthesisPolicy field and Sync orchestration, but the policy selection and chunk-building implementation live in other files.",
+          "locator": "pkg/embedindex/syncer.go#L173",
+          "supportedRoles": [
+            "implementation"
+          ],
+          "supportedRelationships": [],
+          "supportedFacets": [],
+          "method": "agent_source_inspection_rank_blind_refactor_2026-10-17"
+        },
+        "added": {
+          "pkg/embedindex/syncer_plan.go": {
+            "grade": 2,
+            "rationale": "Plan selects the default synthesis policy when unset and uses that policy while constructing embedding work, a direct shared-policy implementation for this intentionally ambiguous query.",
+            "locator": "pkg/embedindex/syncer_plan.go#L25",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_refactor_2026-10-17"
+          }
+        }
+      },
+      {
+        "caseId": "RHIZOME_REPOSITORY-CONTROL-12",
+        "source": "pkg/embedindex/syncer.go",
+        "before": {
+          "grade": 2,
+          "rationale": "Declares WritebackFlushPolicy and drives SynthesisPolicy selection, one genuine shared-policy implementation among several candidates.",
+          "locator": "pkg/embedindex/syncer.go#L155",
+          "supportedRoles": [
+            "implementation"
+          ],
+          "supportedRelationships": [],
+          "supportedFacets": [],
+          "method": "agent_source_inspection_rank_blind_heldout_2026-09-14"
+        },
+        "after": {
+          "grade": 1,
+          "rationale": "Declares the configurable SynthesisPolicy field and Sync orchestration, but the policy selection and chunk-building implementation live in other files.",
+          "locator": "pkg/embedindex/syncer.go#L173",
+          "supportedRoles": [
+            "implementation"
+          ],
+          "supportedRelationships": [],
+          "supportedFacets": [],
+          "method": "agent_source_inspection_rank_blind_refactor_2026-10-17"
+        },
+        "added": {
+          "pkg/embedindex/syncer_plan.go": {
+            "grade": 2,
+            "rationale": "Plan selects the default synthesis policy when unset and uses that policy while constructing embedding work, a direct shared-policy implementation for this intentionally ambiguous query.",
+            "locator": "pkg/embedindex/syncer_plan.go#L25",
+            "supportedRoles": [
+              "implementation"
+            ],
+            "supportedRelationships": [],
+            "supportedFacets": [],
+            "method": "agent_source_inspection_rank_blind_refactor_2026-10-17"
+          }
+        }
+      }
+    ],
+    "witnesses": {
+      "pkg/embedindex/syncer.go": "cd9053768e0d3e42ab9b7bfc4b24eb054e5e42e38a33a5e7c88d23dc7463fd3b",
+      "pkg/embedindex/syncer_plan.go": "8666f287268c78a6c8cabb7083d080a5d84726d626de3c6511cd239c31526f8a",
+      "pkg/embeddings/writeback_policy.go": "e0fa5366c2c304a4711cb48391492b59c864f7dc00bb2d1b04082065496de022"
+    }
+  }
+}

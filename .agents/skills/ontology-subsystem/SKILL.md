@@ -18,7 +18,7 @@ Read `docs/reference/subsystems/ontology.md` first; its constraints and review c
 1. Schema is the single source of truth: never hardcode type names, field shapes, or id formats the compiled `Schema` already declares; thread new directives through `schema.go` compile + validation and `guide/render.go`.
 2. Markdown is source of truth; SQLite rows and generated cards are read models that must converge — never treat catalog rows as authoritative over file content.
 3. Projection is deterministic and span-preserving: derive everything from `NodeProjection` (fields carry `ByteRange`s); edits patch spans, never re-render whole notes.
-4. All `ontology_nodes`/`ontology_edges`/`ontology_node_field_values` writes go through `SyncPaths` and the `deltaWriteQueue` lane, replacing rows atomically for touched paths — no direct SQLite writes.
+4. All `ontology_nodes`/`ontology_edges`/`ontology_node_field_values` writes go through `SyncPublishedPaths` and the durable `DeltaWriteQueue` lane, replacing rows atomically for touched paths — no direct SQLite writes.
 5. Type checks go through `typeMatchesOrImplements`; selector ambiguity resolves only by strict specificity dominance (`type_specificity.go`) — never pick an arbitrary winner.
 6. Identifier shape lives in `@identifier(prefix/pad/separator)` + `identifier_format.go`; allocation only via `idalloc` (max+1, gaps preserved, sibling types pooled on shared number-lines).
 7. Keep `NodeRef` canonical: never collapse section/embedded refs to plain note paths; keep structural (`@link`) and ambient (`@neighbors`) relations separate; keep `_Fallback*` types out of public type surfaces.

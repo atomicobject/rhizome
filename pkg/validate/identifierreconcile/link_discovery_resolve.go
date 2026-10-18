@@ -2,15 +2,14 @@ package identifierreconcile
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/notemeta"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"path"
 	"slices"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 type identifierLinkResolutionInventory struct {
@@ -21,7 +20,7 @@ type identifierLinkResolutionInventory struct {
 	rewriteRefs map[string]struct{}
 }
 
-func newIdentifierLinkResolutionInventory(sources []notemeta.NoteSourceSnapshot, projections []*ontology.NodeProjection, fieldOccurrences []reference.StructuredFieldOccurrence, rewrites []reference.IdentifierRewrite) (*identifierLinkResolutionInventory, error) {
+func newIdentifierLinkResolutionInventory(sources []notemeta.NoteSourceSnapshot, projections []*ontology.NodeProjection, fieldOccurrences []identifierrewrite.StructuredFieldOccurrence, rewrites []identifierrewrite.IdentifierRewrite) (*identifierLinkResolutionInventory, error) {
 	inventory := &identifierLinkResolutionInventory{
 		paths: make(map[string][]ontology.NodeRef), identities: make(map[string][]ontology.NodeRef),
 		fragments: make(map[string][]ontology.NodeRef), claims: make(map[string]Claim), rewriteRefs: make(map[string]struct{}, len(rewrites)),
@@ -44,7 +43,7 @@ func newIdentifierLinkResolutionInventory(sources []notemeta.NoteSourceSnapshot,
 		if projection == nil || projection.Type == nil {
 			continue
 		}
-		preferred := preferredIdentifierProjectionField(projection)
+		preferred := projection.Type.PreferredIdentifierField()
 		ref := projectedResolutionRef(projection.Ref, projection.ResolvedType)
 		if ref.Kind == ontology.NodeKindNote {
 			inventory.indexPath(ref.NotePath, ref)
@@ -101,7 +100,7 @@ func newIdentifierLinkResolutionInventory(sources []notemeta.NoteSourceSnapshot,
 	// field constructor is the trusted source of their exact authored values;
 	// consume that sealed inventory instead of reparsing caller-provided fields.
 	for _, occurrence := range fieldOccurrences {
-		if occurrence.Kind != reference.StructuredFieldAliasIdentifier {
+		if occurrence.Kind != identifierrewrite.StructuredFieldAliasIdentifier {
 			continue
 		}
 		ref := semanticRepairRef(occurrence.OwnerRef)
@@ -112,18 +111,6 @@ func newIdentifierLinkResolutionInventory(sources []notemeta.NoteSourceSnapshot,
 	}
 	inventory.normalize()
 	return inventory, nil
-}
-
-func preferredIdentifierProjectionField(projection *ontology.NodeProjection) *ontology.Field {
-	if projection == nil || projection.Type == nil {
-		return nil
-	}
-	for _, field := range projection.Type.Fields {
-		if field != nil && field.IsPreferredIdentifier {
-			return field
-		}
-	}
-	return nil
 }
 
 func projectedResolutionRef(ref ontology.NodeRef, resolvedType string) ontology.NodeRef {
@@ -205,21 +192,21 @@ func (inventory *identifierLinkResolutionInventory) normalize() {
 	}
 }
 
-func (inventory *identifierLinkResolutionInventory) resolutionsFor(sourcePath string, links []obsidian.StructuredLink) []reference.StructuredLinkResolution {
-	out := make([]reference.StructuredLinkResolution, 0, len(links))
+func (inventory *identifierLinkResolutionInventory) resolutionsFor(sourcePath string, links []markdownsyntax.StructuredLink) []identifierrewrite.StructuredLinkResolution {
+	out := make([]identifierrewrite.StructuredLinkResolution, 0, len(links))
 	for index, link := range links {
-		out = append(out, reference.StructuredLinkResolution{LinkIndex: index, Candidates: inventory.resolve(sourcePath, link)})
+		out = append(out, identifierrewrite.StructuredLinkResolution{LinkIndex: index, Candidates: inventory.resolve(sourcePath, link)})
 	}
 	return out
 }
 
-func (inventory *identifierLinkResolutionInventory) resolve(sourcePath string, link obsidian.StructuredLink) []ontology.NodeRef {
+func (inventory *identifierLinkResolutionInventory) resolve(sourcePath string, link markdownsyntax.StructuredLink) []ontology.NodeRef {
 	if link.Path == "" {
 		key, _ := canonicalAuthoredPathKey(sourcePath)
 		return inventory.withFragment(inventory.paths[key], link.Fragment)
 	}
 	var candidates []ontology.NodeRef
-	if link.Kind == obsidian.StructuredLinkMarkdown || relativeWikiPath(link) {
+	if link.Kind == markdownsyntax.StructuredLinkMarkdown || relativeWikiPath(link) {
 		candidatePath := strings.ReplaceAll(link.Path, "\\", "/")
 		if strings.HasPrefix(candidatePath, "/") {
 			return nil
@@ -247,8 +234,8 @@ func (inventory *identifierLinkResolutionInventory) resolve(sourcePath string, l
 	return inventory.withFragment(candidates, link.Fragment)
 }
 
-func relativeWikiPath(link obsidian.StructuredLink) bool {
-	if link.Kind != obsidian.StructuredLinkWikilink {
+func relativeWikiPath(link markdownsyntax.StructuredLink) bool {
+	if link.Kind != markdownsyntax.StructuredLinkWikilink {
 		return false
 	}
 	value := strings.ReplaceAll(strings.TrimSpace(link.Path), "\\", "/")

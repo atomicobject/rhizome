@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate/identifierreconcile"
 	"github.com/stretchr/testify/require"
 )
@@ -37,7 +38,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 					"specs/one.md":                     "---\nid: ITEM-0001\naliases: [ITEM-0001]\n---\n# One\n\n## Stories\n\n### First\nid:: ^ITEM-0002\nalias:: ITEM-0007\naliases:: ITEM-0008\n",
 					"specs/keeper.md":                  fmt.Sprintf("---\nid: %s\naliases: [%s]\n---\n# Keeper\n", collision.value, collision.value),
 				})
-				stdout, stderr, runErr := runRootCLI(t, nil, []string{"agent", "validate", "identifiers", "--vault", vault.name})
+				stdout, stderr, runErr := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "identifiers", "--vault", vault.name})
 				require.Empty(t, stderr)
 				var result struct {
 					OK         bool `json:"ok"`
@@ -60,10 +61,10 @@ type Spec @node(paths: ["specs/*.md"]) {
 				require.NotNil(t, result.Reconciliation.Plan, "output=%s", stdout)
 				store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 				require.NoError(t, err)
-				nodes, err := store.OntologyNodesByType(context.Background(), "Story")
+				nodes, err := store.OntologyNodesByType(vaultconfig.WithEnv(context.Background(), vault.env), "Story")
 				require.NoError(t, err)
 				require.Len(t, nodes, 1)
-				fields, err := store.OntologyNodeFieldValuesByNodeIDs(context.Background(), []string{nodes[0].NodeID}, []string{"alias", "aliases"})
+				fields, err := store.OntologyNodeFieldValuesByNodeIDs(vaultconfig.WithEnv(context.Background(), vault.env), []string{nodes[0].NodeID}, []string{"alias", "aliases"})
 				require.NoError(t, err)
 				require.NoError(t, store.Close())
 				authored := map[string]string{}
@@ -103,7 +104,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 				"specs/one.md":                     "---\nid: ITEM-0001\naliases: [ITEM-0001]\n---\n# One\n\n## Stories\n\n### First\nid:: ^ITEM-0002\nalias:: ITEM-0007\naliases:: ITEM-0007\n",
 				"specs/keeper.md":                  "---\nid: ITEM-0007\naliases: [ITEM-0007]\n---\n# Keeper\n",
 			})
-			stdout, stderr, runErr := runRootCLI(t, nil, []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
+			stdout, stderr, runErr := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
 			require.Error(t, runErr)
 			require.Empty(t, stderr)
 			var planned validationrun.ValidationResult
@@ -113,7 +114,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 			require.Len(t, planned.FixPlan.Actions, 1, "output=%s", stdout)
 			action := planned.FixPlan.Actions[0]
 			t.Logf("planned collision=%s action=%s safety=%s operations=%d", planned.IdentifierReconciliation.Plan.Collisions[0].Value, action.ID, action.Safety, len(planned.FixPlan.Operations))
-			stdout, stderr, runErr = runRootCLI(t, nil, []string{"agent", "validate", "fix", "identifiers", "--apply", "--action", action.ID, "--vault", vault.name})
+			stdout, stderr, runErr = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "identifiers", "--apply", "--action", action.ID, "--vault", vault.name})
 			require.Empty(t, stderr)
 			var applied validationrun.ValidationResult
 			require.NoError(t, json.Unmarshal([]byte(stdout), &applied), "output=%s", stdout)
@@ -124,10 +125,10 @@ type Spec @node(paths: ["specs/*.md"]) {
 			require.NoError(t, err)
 			store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 			require.NoError(t, err)
-			nodes, err := store.OntologyNodesByType(context.Background(), "Story")
+			nodes, err := store.OntologyNodesByType(vaultconfig.WithEnv(context.Background(), vault.env), "Story")
 			require.NoError(t, err)
 			require.Len(t, nodes, 1)
-			fields, err := store.OntologyNodeFieldValuesByNodeIDs(context.Background(), []string{nodes[0].NodeID}, []string{"alias", "aliases"})
+			fields, err := store.OntologyNodeFieldValuesByNodeIDs(vaultconfig.WithEnv(context.Background(), vault.env), []string{nodes[0].NodeID}, []string{"alias", "aliases"})
 			require.NoError(t, err)
 			require.NoError(t, store.Close())
 			t.Logf("after public apply: OK=%v issues=%d remaining=%d applied=%v error=%v authored=%q canonical alias rows=%v", applied.OK, applied.IssueCount, applied.FixExecution.RemainingFindings, applied.FixExecution.Applied, runErr, string(body), fields)
@@ -136,7 +137,7 @@ type Spec @node(paths: ["specs/*.md"]) {
 			require.NoError(t, runErr)
 			require.True(t, applied.OK)
 			require.Zero(t, applied.FixExecution.RemainingFindings)
-			stdout, stderr, runErr = runRootCLI(t, nil, []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
+			stdout, stderr, runErr = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
 			require.NoError(t, runErr)
 			require.Empty(t, stderr)
 			var repeat validationrun.ValidationResult
@@ -161,7 +162,7 @@ func TestAgentIdentifierDistinctAliasCollisionsRetainCompleteMembership(t *testi
 		"specs/keeper7.md": "---\nid: ITEM-0007\naliases: [ITEM-0007]\n---\n",
 		"specs/keeper8.md": "---\nid: ITEM-0008\naliases: [ITEM-0008]\n---\n",
 	})
-	stdout, stderr, err := runRootCLI(t, nil, []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "validate", "fix", "identifiers", "--vault", vault.name})
 	require.Error(t, err)
 	require.Empty(t, stderr)
 	var planned validationrun.ValidationResult
@@ -181,7 +182,7 @@ func TestAgentIdentifierDistinctAliasCollisionsRetainCompleteMembership(t *testi
 	require.Len(t, planned.FixPlan.Operations, 1)
 	require.ElementsMatch(t, actions, planned.FixPlan.Operations[0].ActionIDs)
 	require.ElementsMatch(t, issues, planned.FixPlan.Operations[0].IssueKeys)
-	stdout, stderr, err = runRootCLI(t, nil, args)
+	stdout, stderr, err = runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 	require.NoError(t, err, stdout)
 	require.Empty(t, stderr)
 	var applied validationrun.ValidationResult
@@ -193,7 +194,7 @@ func TestAgentIdentifierDistinctAliasCollisionsRetainCompleteMembership(t *testi
 	require.Equal(t, "---\nid: ITEM-0001\nalternate-names: [KEEP-A]\naliases: [ITEM-0001, KEEP-B]\n---\n", string(body))
 	store, err := semdb.Open(filepath.Join(vault.path, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	nodes, err := store.OntologyNodesByType(context.Background(), "Spec")
+	nodes, err := store.OntologyNodesByType(vaultconfig.WithEnv(context.Background(), vault.env), "Spec")
 	require.NoError(t, err)
 	var nodeID string
 	for _, node := range nodes {
@@ -202,7 +203,7 @@ func TestAgentIdentifierDistinctAliasCollisionsRetainCompleteMembership(t *testi
 		}
 	}
 	require.NotEmpty(t, nodeID)
-	rows, err := store.OntologyNodeFieldValuesByNodeIDs(context.Background(), []string{nodeID}, []string{"alias", "aliases"})
+	rows, err := store.OntologyNodeFieldValuesByNodeIDs(vaultconfig.WithEnv(context.Background(), vault.env), []string{nodeID}, []string{"alias", "aliases"})
 	require.NoError(t, err)
 	require.NoError(t, store.Close())
 	var values []string

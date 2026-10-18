@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +16,7 @@ import (
 )
 
 func TestAgentCodeExecuteAcceptsInlineAndStdinPrograms(t *testing.T) {
+
 	if _, err := exec.LookPath("node"); err != nil {
 		t.Skip("Node.js is required for JavaScript execution")
 	}
@@ -22,14 +25,13 @@ func TestAgentCodeExecuteAcceptsInlineAndStdinPrograms(t *testing.T) {
 		t.Run(map[bool]string{true: "stdin", false: "inline"}[stdin], func(t *testing.T) {
 			code := `console.log("diagnostic"); return {answer: await Promise.resolve(42), close: typeof rzm.close};`
 			args := []string{"agent", "code", "execute", "--vault", vault.name}
+			input := ""
 			if stdin {
-				original := rootCmd.InOrStdin()
-				rootCmd.SetIn(strings.NewReader(code))
-				t.Cleanup(func() { rootCmd.SetIn(original) })
+				input = code
 			} else {
 				args = append(args, "--code", code)
 			}
-			stdout, stderr, err := runRootCLI(t, context.Background(), args)
+			stdout, stderr, err := runRootCLIWithInput(t, vaultconfig.WithEnv(context.Background(), vault.env), args, input)
 			require.NoError(t, err, stderr)
 			var result agentcode.ExecuteResult
 			require.NoError(t, json.Unmarshal([]byte(stdout), &result), stdout)
@@ -38,7 +40,7 @@ func TestAgentCodeExecuteAcceptsInlineAndStdinPrograms(t *testing.T) {
 			require.NotEmpty(t, result.Diagnostics)
 		})
 	}
-	stdout, _, err := runRootCLI(t, context.Background(), []string{"agent", "code", "execute", "--vault", vault.name, "--code", `throw new Error("script failed");`})
+	stdout, _, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"agent", "code", "execute", "--vault", vault.name, "--code", `throw new Error("script failed");`})
 	require.Error(t, err)
 	var result agentcode.ExecuteResult
 	require.NoError(t, json.Unmarshal([]byte(stdout), &result))
@@ -47,6 +49,8 @@ func TestAgentCodeExecuteAcceptsInlineAndStdinPrograms(t *testing.T) {
 }
 
 func TestAgentCodeInputIsExplicitAndBounded(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	for _, test := range []struct {
 		name, code, input, wantError string
 		explicit                     bool
@@ -57,7 +61,7 @@ func TestAgentCodeInputIsExplicitAndBounded(t *testing.T) {
 		{name: "inline overrides stdin", explicit: true, code: "return 42", input: "ignored"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			command := newAgentCodeExecuteCmd()
+			command := commandOptions.newAgentCodeExecuteCmd()
 			command.SetIn(strings.NewReader(test.input))
 			if test.explicit {
 				require.NoError(t, command.Flags().Set("code", test.code))
@@ -74,7 +78,9 @@ func TestAgentCodeInputIsExplicitAndBounded(t *testing.T) {
 }
 
 func TestAgentCodeExecutionIsDiscoverable(t *testing.T) {
-	selected, err := selectAgentSurface("code execute")
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	selected, err := commandOptions.selectAgentSurface(vaultconfig.WithEnv(context.Background(), testkit.Env(t)), "code execute")
 	require.NoError(t, err)
 	payload, err := json.Marshal(selected)
 	require.NoError(t, err)
@@ -84,6 +90,8 @@ func TestAgentCodeExecutionIsDiscoverable(t *testing.T) {
 }
 
 func TestAgentCodeScriptInputBoundsJSONBeforeTrimming(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	for _, test := range []struct {
 		name, content string
 		wantError     bool
@@ -97,7 +105,7 @@ func TestAgentCodeScriptInputBoundsJSONBeforeTrimming(t *testing.T) {
 			require.NoError(t, os.WriteFile(path, []byte(test.content), 0600))
 			for _, flag := range []string{"input", "input-file"} {
 				t.Run(flag, func(t *testing.T) {
-					command := newAgentCodeExecuteCmd()
+					command := commandOptions.newAgentCodeExecuteCmd()
 					value := test.content
 					if flag == "input-file" {
 						value = path

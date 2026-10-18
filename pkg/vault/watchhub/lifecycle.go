@@ -40,11 +40,6 @@ func (h *Hub) Close() error {
 		h.lifecycleMu.Unlock()
 
 		h.work.Wait()
-		h.flushTimerMu.Lock()
-		if h.flushTimer != nil {
-			h.flushTimer.Stop()
-		}
-		h.flushTimerMu.Unlock()
 		h.pendingMu.Lock()
 		clear(h.pending)
 		h.pendingMu.Unlock()

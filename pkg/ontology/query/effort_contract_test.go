@@ -4,20 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestEffortContract_MixedFormatsAndExplicitComponents(t *testing.T) {
-	schema, err := os.ReadFile(filepath.Join("..", "..", "..", "pkg", "app", "cli", "init", "templates", "starters", "agentic-engineering", "rhizome", "ontology", "spec-driven.graphql"))
+	schema, err := os.ReadFile(filepath.Join("testdata", "effort_contract.graphql"))
 	require.NoError(t, err)
 	const folder = "docs/efforts/2026-09-13-10-00-example/"
 	const entry = folder + "2026-09-13-10-00-example-effort.html"
@@ -65,14 +65,13 @@ created-at: 2026-09-12T10:00:00Z
 		Assessments: indexed.AssessmentRows, NoteTypes: indexed.NoteTypes, Edges: indexed.Edges,
 		SchemaState: codeanchorsqlite.OntologySchemaState{SchemaHash: env.schema.Hash, NotesHash: indexed.NotesHash, LoadedAt: 1, Ready: true},
 	}))
-	require.NoError(t, env.store.ReplaceOntologyNodeReadModel(context.Background(), codeanchor.IntelOntologyNodeReadModel{
+	require.NoError(t, env.store.ReplaceOntologyNodeReadModel(context.Background(), readmodel.NodeReadModel{
 		NotePaths: indexed.NodePaths, Nodes: indexed.Nodes, FieldValues: indexed.NodeFieldValues,
 	}))
 	deps := env.deps(nil)
 	deps.VaultDef = vault
 	deps.NoteFormats, err = builtin.NewRuntime()
 	require.NoError(t, err)
-	deps.Service = ontology.NewService(vault, &obsidian.Note{}, env.store, env.schema)
 	t.Run("governing specs preserve Markdown extension casing", func(t *testing.T) {
 		prepared, errs := Prepare(env.execSchema, `{ effortWorkspace { governingSpecs { ... on NoteNode { path resolvedType } } } notes(type: "SpecLike") { nodes { path resolvedType } } }`)
 		require.Empty(t, errs)
@@ -92,11 +91,10 @@ created-at: 2026-09-12T10:00:00Z
 		exec := &executor{deps: deps, loaders: loaders}
 		cache, err := exec.notePathCacheForSections(context.Background())
 		require.NoError(t, err)
-		scanned, _, err := loaders.snapshot(context.Background())
-		require.NoError(t, err)
+		scanned := scannedMarkdownSources(t, loaders)
 		links := make(map[string][]string)
 		add := func(key, source string) { links[key] = append(links[key], source) }
-		require.NoError(t, exec.addProviderInboundSectionNeighbors(context.Background(), cache, scanned, add))
+		require.NoError(t, exec.addProviderInboundSectionNeighbors(context.Background(), cache, scanned, nil, add))
 		require.Equal(t, map[string][]string{
 			inboundSectionNeighborKey("docs/story.md", "block:story-one"):     {entry},
 			inboundSectionNeighborKey("docs/story.md", "block:criterion-one"): {entry},
@@ -105,7 +103,7 @@ created-at: 2026-09-12T10:00:00Z
 		// Catalog ownership, rather than format identity, prevents a second scan.
 		scanned[entry] = &noteRecord{Path: entry}
 		clear(links)
-		require.NoError(t, exec.addProviderInboundSectionNeighbors(context.Background(), cache, scanned, add))
+		require.NoError(t, exec.addProviderInboundSectionNeighbors(context.Background(), cache, scanned, nil, add))
 		require.Empty(t, links)
 	})
 	t.Run("missing provider source preserves healthy section links", func(t *testing.T) {
@@ -116,12 +114,11 @@ created-at: 2026-09-12T10:00:00Z
 		exec := &executor{deps: deps, loaders: loaders}
 		cache, err := exec.notePathCacheForSections(context.Background())
 		require.NoError(t, err)
-		scanned, _, err := loaders.snapshot(context.Background())
-		require.NoError(t, err)
+		scanned := scannedMarkdownSources(t, loaders)
 		require.NoError(t, os.Rename(missingPath, movedPath))
 		t.Cleanup(func() { require.NoError(t, os.Rename(movedPath, missingPath)) })
 		links := make(map[string][]string)
-		require.NoError(t, exec.addProviderInboundSectionNeighbors(context.Background(), cache, scanned, func(key, source string) {
+		require.NoError(t, exec.addProviderInboundSectionNeighbors(context.Background(), cache, scanned, nil, func(key, source string) {
 			links[key] = append(links[key], source)
 		}))
 		require.Equal(t, map[string][]string{
@@ -140,13 +137,12 @@ created-at: 2026-09-12T10:00:00Z
 			exec := &executor{deps: testDeps, loaders: loaders}
 			cache, err := exec.notePathCacheForSections(context.Background())
 			require.NoError(t, err)
-			scanned, _, err := loaders.snapshot(context.Background())
-			require.NoError(t, err)
+			scanned := scannedMarkdownSources(t, loaders)
 			reader.failures = map[string]error{folder + "plan.html": failure}
 			if missingFirst {
 				reader.failures[entry] = errors.New(obsidian.NoteDoesNotExistError)
 			}
-			err = exec.addProviderInboundSectionNeighbors(context.Background(), cache, scanned, func(string, string) {})
+			err = exec.addProviderInboundSectionNeighbors(context.Background(), cache, scanned, nil, func(string, string) {})
 			require.ErrorIs(t, err, failure)
 		})
 	}
@@ -188,4 +184,17 @@ func (r *sectionNeighborFailureReader) GetContents(vault obsidian.VaultDefinitio
 		return "", err
 	}
 	return r.Note.GetContents(vault, path)
+}
+
+func scannedMarkdownSources(t *testing.T, loaders *loaders) map[string]*noteRecord {
+	t.Helper()
+	rows, err := loaders.scope.MetadataInventory(context.Background())
+	require.NoError(t, err)
+	scanned := make(map[string]*noteRecord)
+	for _, row := range rows {
+		if row.FormatID == "markdown" {
+			scanned[row.Path] = &noteRecord{Path: row.Path}
+		}
+	}
+	return scanned
 }

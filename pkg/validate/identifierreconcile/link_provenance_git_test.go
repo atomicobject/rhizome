@@ -6,11 +6,13 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAmbiguousLinkGitProvenanceChoosesOnlyClaimantAncestralAtLinkIntroduction(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -51,6 +53,7 @@ func TestAmbiguousLinkGitProvenanceChoosesOnlyClaimantAncestralAtLinkIntroductio
 }
 
 func TestAmbiguousLinkGitProvenanceLeavesMultipleAncestralClaimantsBlocking(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -71,6 +74,7 @@ func TestAmbiguousLinkGitProvenanceLeavesMultipleAncestralClaimantsBlocking(t *t
 }
 
 func TestAmbiguousLinkGitProvenanceUsesSourceBranchAncestryNotAuthorDates(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -94,11 +98,25 @@ func TestAmbiguousLinkGitProvenanceUsesSourceBranchAncestryNotAuthorDates(t *tes
 	result, err := AmbiguousLinkGitResolver{}.Resolve(context.Background(), repo.dir, []AmbiguousLinkProvenanceRequest{request})
 	require.NoError(t, err)
 	decision := result.Decisions[mustAmbiguousLinkRequestKey(t, request)]
-	require.NotNil(t, decision, "%+v", result.Unresolved)
+	if decision == nil {
+		candidates, candidateErr := (GitProvenanceResolver{}).Resolve(context.Background(), repo.dir, []Claim{a, b})
+		t.Logf("Git version: %s; candidate resolution error: %v", repo.git(t, nil, "--version"), candidateErr)
+		for _, candidate := range []Claim{a, b} {
+			t.Logf("candidate %s: %+v", candidate.Node.NotePath, candidates.Evidence[candidate.ID()])
+			stdout, stderr, historyErr := (execGitCommandRunner{}).Run(t.Context(), repo.dir, nil, []string{"GIT_NO_LAZY_FETCH=1", "LC_ALL=C"},
+				"--literal-pathspecs", "-c", "core.quotepath=false", "-c", "diff.renames=true", "-c", "diff.renameLimit=10000",
+				"log", "--follow", "--find-renames=50%", "--topo-order", "--format=%H author=%at committer=%ct parents=%P", "--name-status", "-n", "8", "--", candidate.Node.NotePath,
+			)
+			t.Logf("candidate %s history (error: %v):\n%s\nstderr: %s", candidate.Node.NotePath, historyErr, stdout, stderr)
+		}
+		t.Logf("branch graph:\n%s", repo.git(t, nil, "log", "--all", "--graph", "--format=%H author=%at committer=%ct parents=%P %s", "-n", "8"))
+		t.Fatalf("expected a branch-local claimant decision: %+v", result.Unresolved)
+	}
 	require.Equal(t, nodeRefForCanonicalKey(a.Node), decision.Winner)
 }
 
 func TestAmbiguousLinkGitProvenanceBatchesSharedSourceHistory(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	claims := []Claim{
@@ -139,6 +157,7 @@ func TestAmbiguousLinkGitProvenanceBatchesSharedSourceHistory(t *testing.T) {
 }
 
 func TestAmbiguousLinkGitProvenanceIsolatesDirtySourceFallback(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -164,6 +183,7 @@ func TestAmbiguousLinkGitProvenanceIsolatesDirtySourceFallback(t *testing.T) {
 }
 
 func TestAmbiguousLinkGitProvenanceFallsBackWhenAncestryWalkHitsBound(t *testing.T) {
+	t.Parallel()
 	repo := newGitFixture(t)
 	pool := mustPool(t, "SPEC")
 	a := claim(t, pool, "SPEC-0001", ClaimPreferred, "a.md")
@@ -186,7 +206,7 @@ func TestAmbiguousLinkGitProvenanceFallsBackWhenAncestryWalkHitsBound(t *testing
 
 func ambiguousLinkRequest(t *testing.T, notePath, content string, linkIndex int, candidates []Claim) AmbiguousLinkProvenanceRequest {
 	t.Helper()
-	scan := obsidian.ScanStructuredLinkSnapshot(content)
+	scan := markdownsyntax.ScanStructuredLinkSnapshot(content)
 	snapshot, err := scan.ValidatedSnapshot()
 	require.NoError(t, err)
 	require.Greater(t, len(snapshot.Links), linkIndex)
@@ -204,6 +224,7 @@ func mustAmbiguousLinkRequestKey(t *testing.T, request AmbiguousLinkProvenanceRe
 }
 
 func TestAmbiguousLinkDecisionRejectsUnsortedOrIncompleteEvidence(t *testing.T) {
+	t.Parallel()
 	refA := ontology.NodeRef{NotePath: "a.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
 	refB := ontology.NodeRef{NotePath: "b.md", TypeName: "Spec", Kind: ontology.NodeKindNote}
 	valid := func() ambiguousLinkDecisionPayload {

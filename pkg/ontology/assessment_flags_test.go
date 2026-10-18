@@ -2,13 +2,14 @@ package ontology
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
-
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 const assessmentFlagsSchema = `
@@ -75,7 +76,7 @@ team: teams/Gone.md
 	ctx := context.Background()
 	vaultDef := obsidian.VaultDefinition{Path: root}
 	note := &obsidian.Note{}
-	_, err = EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, note, store)
+	_, err = ensureIndexedForTest(ctx, testkit.NoteMetadataIndexer(t), vaultDef, note, store)
 	require.NoError(t, err)
 
 	allPaths := []string{
@@ -106,8 +107,8 @@ members:
   - people/Dave.md
 ---
 `)
-	require.NoError(t, testNoteMetadataIndexer(t).SyncPaths(ctx, vaultDef, note, store, []string{"teams/Eng.md"}, nil))
-	result, err := SyncPaths(ctx, testNoteMetadataIndexer(t), vaultDef, note, store, nil, []string{"teams/Eng.md"}, nil)
+	require.NoError(t, testkit.NoteMetadataIndexer(t).SyncPaths(ctx, vaultDef, note, store, []string{"teams/Eng.md"}, nil))
+	result, err := syncPathsForTest(ctx, testkit.NoteMetadataIndexer(t), vaultDef, note, store, nil, []string{"teams/Eng.md"}, nil)
 	require.NoError(t, err)
 	require.False(t, result.Rebuilt)
 
@@ -154,7 +155,7 @@ team: teams/Gone.md
 	ctx := context.Background()
 	vaultDef := obsidian.VaultDefinition{Path: root}
 	note := &obsidian.Note{}
-	_, err = EnsureFreshRuntimeWithStore(ctx, testNoteMetadataIndexer(t), vaultDef, note, store)
+	_, err = ensureIndexedForTest(ctx, testkit.NoteMetadataIndexer(t), vaultDef, note, store)
 	require.NoError(t, err)
 
 	stored, err := store.OntologyAssessmentsByPaths(ctx, []string{"people/Missing.md"})
@@ -164,7 +165,7 @@ team: teams/Gone.md
 	stale.HasIssues = false
 	stale.TypeAmbiguous = false
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	noteState, err := store.GetNoteMetadataState(ctx)
 	require.NoError(t, err)
@@ -179,7 +180,7 @@ team: teams/Gone.md
 		},
 	}))
 
-	result, err := EnsureIndexed(ctx, testNoteMetadataIndexer(t), vaultDef, note, store)
+	result, err := ensureIndexedForTest(ctx, testkit.NoteMetadataIndexer(t), vaultDef, note, store)
 	require.NoError(t, err)
 	require.True(t, result.Dirty)
 

@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type PublishedMetadataPreparation struct {
@@ -201,11 +201,7 @@ func publishedDurableFatalRows(ctx context.Context, store Store, formats notefor
 	if len(pathsList) == 0 {
 		return nil, map[string]struct{}{}, nil
 	}
-	provider, ok := store.(durableMetadataRowsProvider)
-	if !ok {
-		return nil, nil, fmt.Errorf("note metadata store does not expose durable source rows")
-	}
-	rowsByPath, err := provider.DurableNoteMetadataRowsByPaths(ctx, pathsList)
+	rowsByPath, err := store.DurableNoteMetadataRowsByPaths(ctx, pathsList)
 	if err != nil {
 		return nil, nil, err
 	}

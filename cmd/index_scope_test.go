@@ -3,9 +3,11 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
-	"strings"
+
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,20 +29,12 @@ func writeCmdFixture(t *testing.T, root, rel, body string) {
 
 // runScopeCLI runs rzm in dir. Cobra keeps a subcommand's first context, so
 // the context is set on the subcommand itself.
+// runScopeCLI binds the selected working directory to a fresh tree.
 func runScopeCLI(t *testing.T, dir string, args ...string) (string, string, error) {
 	t.Helper()
-	ctx := contextWithCommandEnv(context.Background(), commandEnv{Getwd: func() (string, error) { return dir, nil }})
-	indexScopeCmd.SetContext(ctx)
-	return runRootCLI(t, ctx, append([]string{"index", "scope"}, args...))
-}
-
-// resetCLIAfter resets global flags after a test, for tests that run
-// commands without runRootCLI.
-func resetCLIAfter(t *testing.T) {
-	t.Cleanup(func() {
-		resetFlags(rootCmd)
-		clearArrayFlags(rootCmd)
-	})
+	env := testkit.Env(t)
+	env.WorkingDir = dir
+	return runRootCLI(t, vaultconfig.WithEnv(context.Background(), env), append([]string{"index", "scope"}, args...))
 }
 
 func TestIndexScopeCommandEditsAndReportsRules(t *testing.T) {
@@ -50,8 +44,6 @@ func TestIndexScopeCommandEditsAndReportsRules(t *testing.T) {
 	writeCmdFixture(t, root, ".rhizome/ignore", "vendor/\n")
 	writeCmdFixture(t, root, ".gitignore", "dist/\n")
 	writeCmdFixture(t, root, "generated/api.go", "package api\n")
-
-	resetCLIAfter(t)
 	stdout, stderr, err := runScopeCLI(t, root, "--json", "--skip", "generated", "--remove-rule", "vendor/")
 	require.NoError(t, err, stderr)
 
@@ -79,7 +71,6 @@ func TestIndexScopeCommandEditsAndReportsRules(t *testing.T) {
 
 func TestIndexScopeCommandFailuresAreJSON(t *testing.T) {
 	t.Setenv(repoSkipDelegateEnv, "1")
-	resetCLIAfter(t)
 	configured := t.TempDir()
 	writeCmdFixture(t, configured, ".rhizome/config.yml", "notes: {}\n")
 	writeCmdFixture(t, configured, ".rhizome/ignore", "vendor/\n")
@@ -108,11 +99,10 @@ func TestIndexScopeCommandFailuresAreJSON(t *testing.T) {
 
 func TestInitCommandJSONReportsAPlanWithoutWriting(t *testing.T) {
 	t.Setenv(repoSkipDelegateEnv, "1")
-	resetCLIAfter(t)
 	dir := t.TempDir()
 	writeCmdFixture(t, dir, "docs/readme.md", "# Docs\n")
 
-	stdout, stderr, err := runRootCLI(t, context.Background(), []string{"init", "--path", dir, "--check", "--json", "--workflow", "none"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), testkit.Env(t)), []string{"init", "--path", dir, "--check", "--json", "--workflow", "none"})
 	require.NoError(t, err, stderr)
 
 	var plan struct {
@@ -128,8 +118,8 @@ func TestInitCommandJSONReportsAPlanWithoutWriting(t *testing.T) {
 }
 
 func TestInitCommandJSONFailuresAreJSON(t *testing.T) {
+
 	t.Setenv(repoSkipDelegateEnv, "1")
-	resetCLIAfter(t)
 	configured := t.TempDir()
 	writeCmdFixture(t, configured, ".rhizome/config.yml", "notes: {}\n")
 
@@ -141,11 +131,7 @@ func TestInitCommandJSONFailuresAreJSON(t *testing.T) {
 		"no key on a pipe": {[]string{"init", "--path", t.TempDir(), "--json", "--search-key-stdin"}, "  \n", "setup_failed", "no key"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			original := rootCmd.InOrStdin()
-			rootCmd.SetIn(strings.NewReader(run.stdin))
-			t.Cleanup(func() { rootCmd.SetIn(original) })
-
-			stdout, _, err := runRootCLI(t, context.Background(), run.args)
+			stdout, _, err := runRootCLIWithInput(t, vaultconfig.WithEnv(context.Background(), testkit.Env(t)), run.args, run.stdin)
 			var exit silentExitError
 			require.ErrorAs(t, err, &exit)
 			require.Equal(t, 1, exit.ExitCode())

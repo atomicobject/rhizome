@@ -10,10 +10,9 @@
 package credentials
 
 import (
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // AtomicRhizomeKey is the env var holding the Atomic Object team key that
@@ -80,7 +79,7 @@ func IsSupportedKey(key string) bool {
 // CollectNeeds gathers credential needs across every enabled feature: note
 // embeddings, code embeddings, and compression. Duplicate keys are merged
 // with combined purposes.
-func CollectNeeds(cfg *obsidian.LocalConfig) []Need {
+func CollectNeeds(cfg *repoconfig.LocalConfig) []Need {
 	if cfg == nil {
 		return nil
 	}
@@ -112,7 +111,7 @@ func CollectNeeds(cfg *obsidian.LocalConfig) []Need {
 }
 
 // CollectEmbeddingsNeeds gathers needs for enabled note/code embeddings only.
-func CollectEmbeddingsNeeds(cfg *obsidian.LocalConfig) []Need {
+func CollectEmbeddingsNeeds(cfg *repoconfig.LocalConfig) []Need {
 	if cfg == nil {
 		return nil
 	}
@@ -140,7 +139,7 @@ func CollectEmbeddingsNeeds(cfg *obsidian.LocalConfig) []Need {
 
 // CollectCompressionNeeds gathers the need for the active compression
 // provider, if any.
-func CollectCompressionNeeds(cfg *obsidian.LocalConfig) []Need {
+func CollectCompressionNeeds(cfg *repoconfig.LocalConfig) []Need {
 	provider := ActiveCompressionProvider(cfg)
 	need, ok := NeedForProvider(provider, "compression")
 	if !ok {
@@ -151,7 +150,7 @@ func CollectCompressionNeeds(cfg *obsidian.LocalConfig) []Need {
 
 // ActiveCompressionProvider returns the provider compression will use, or ""
 // when compression is disabled or would not auto-enable.
-func ActiveCompressionProvider(cfg *obsidian.LocalConfig) string {
+func ActiveCompressionProvider(cfg *repoconfig.LocalConfig) string {
 	if cfg == nil || cfg.Compression == nil || cfg.Compression.Enabled == nil || !*cfg.Compression.Enabled {
 		return ""
 	}

@@ -60,10 +60,10 @@ func TestRunSuiteOnceSplitsBrokenAndPlaceholderLinks(t *testing.T) {
 	gitCommitAll(t, root, "initial")
 	require.NoError(t, os.Remove(filepath.Join(root, "Doomed.md")))
 	gitCommitAll(t, root, "delete")
-	runCtx := brokenLinkRunContext(root)
+	runCtx := brokenLinkRunContext(t, root)
 	runCtx.NoteMetadata = testNoteMetadata(t)
 
-	result, _, err := RunSuiteOnce(context.Background(), Options{
+	result, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckBrokenLinks, CheckPlaceholderLinks}, RunContext: &runCtx,
 	})
 	require.NoError(t, err)
@@ -83,17 +83,17 @@ func TestRunSuiteOnceSplitsBrokenAndPlaceholderLinks(t *testing.T) {
 func TestSharedUnresolvedLinkScanMemoizesFirstScan(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, writeFixtureFiles(root, map[string]string{"Source.md": "[[First Missing]]\n"}))
-	runCtx := brokenLinkRunContext(root)
+	runCtx := brokenLinkRunContext(t, root)
 	runCtx.unresolvedLinks = &sharedUnresolvedLinkScan{}
 
-	first := RunBrokenLinks(runCtx, Options{})
+	first := RunBrokenLinksContext(context.Background(), runCtx, ScanOptions{})
 	require.NoError(t, os.WriteFile(filepath.Join(root, "Later.md"), []byte("[[Second Missing]]\n"), 0o644))
-	second := RunBrokenLinks(runCtx, Options{})
+	second := RunBrokenLinksContext(context.Background(), runCtx, ScanOptions{})
 
 	require.Equal(t, 1, first.IssueCount)
 	require.Equal(t, first.IssueCount, second.IssueCount)
 	require.False(t, strings.Contains(second.Issues[0].Target, "Second"))
-	require.Equal(t, 2, RunBrokenLinks(brokenLinkRunContext(root), Options{}).IssueCount, "a fresh run rescans")
+	require.Equal(t, 2, RunBrokenLinksContext(context.Background(), brokenLinkRunContext(t, root), ScanOptions{}).IssueCount, "a fresh run rescans")
 }
 
 // A note deleted from the working tree but not yet committed still broke the
@@ -108,7 +108,7 @@ func TestBrokenLinksCountUncommittedDeletions(t *testing.T) {
 	gitCommitAll(t, root, "initial")
 	require.NoError(t, os.Remove(filepath.Join(root, "Doomed.md")))
 
-	result := RunBrokenLinks(brokenLinkRunContext(root), Options{})
+	result := RunBrokenLinksContext(context.Background(), brokenLinkRunContext(t, root), ScanOptions{})
 
 	require.Equal(t, []string{"Doomed"}, sortedIssueTargets(result.Issues))
 }

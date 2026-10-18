@@ -553,11 +553,11 @@ class AgentStartBenchmarkTest(unittest.TestCase):
             self.assertIn("--ontology", invocations[15])
             self.assertEqual(
                 invocations[22],
-                "agent file-context --profile code --file pkg/app/cli/file_context.go",
+                "agent file-context --profile code --file pkg/app/operations/file_context.go",
             )
             self.assertEqual(
                 invocations[29],
-                "agent file-context --profile code --file pkg/app/cli --submodule-depth 1",
+                "agent file-context --profile code --file pkg/app/operations --submodule-depth 1",
             )
             self.assertEqual(
                 invocations[36],
@@ -565,8 +565,8 @@ class AgentStartBenchmarkTest(unittest.TestCase):
             )
             self.assertEqual(
                 invocations[43],
-                "agent file-context --profile code --file pkg/app/cli/file_context.go "
-                "--file pkg/app/cli --file docs/reference/subsystems/agent-surface.md "
+                "agent file-context --profile code --file pkg/app/operations/file_context.go "
+                "--file pkg/app/operations --file docs/reference/subsystems/agent-surface.md "
                 "--submodule-depth 1",
             )
 

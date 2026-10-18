@@ -11,14 +11,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"net/http"
-	"os"
+
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 )
 
 // Document is one candidate text handed to a reranker. ID identifies the result
@@ -178,20 +179,20 @@ var (
 // missing. When RHIZOME_EMBEDDING_CACHE names a file, scores are cached there
 // so repeated evaluation runs are deterministic and cheaper; the cache handle is
 // memoized so per-request construction does not leak database connections.
-func NewFromEnv() (Reranker, ProviderConfig, bool) {
-	provider := strings.ToLower(strings.TrimSpace(os.Getenv("RHIZOME_RERANK_PROVIDER")))
+func NewFromEnv(env vaultconfig.Env) (Reranker, ProviderConfig, bool) {
+	provider := strings.ToLower(strings.TrimSpace(envValue(env, "RHIZOME_RERANK_PROVIDER")))
 	if provider != "voyage" {
 		return nil, ProviderConfig{}, false
 	}
-	apiKey := embeddings.ResolveAPIKeyForProvider("voyage")
+	apiKey := embeddings.ResolveAPIKeyForProvider(env, "voyage")
 	if apiKey == "" {
 		return nil, ProviderConfig{}, false
 	}
-	cfg := ProviderConfig{Provider: provider, Model: strings.TrimSpace(os.Getenv("RHIZOME_RERANK_MODEL"))}
+	cfg := ProviderConfig{Provider: provider, Model: strings.TrimSpace(envValue(env, "RHIZOME_RERANK_MODEL"))}
 	base := &VoyageReranker{APIKey: apiKey, Model: cfg.Model}
 	cfg.Model = base.model()
 
-	path := strings.TrimSpace(os.Getenv("RHIZOME_EMBEDDING_CACHE"))
+	path := strings.TrimSpace(envValue(env, "RHIZOME_EMBEDDING_CACHE"))
 	if path == "" {
 		return base, cfg, true
 	}
@@ -221,3 +222,5 @@ func memoizedCache(inner Reranker, cfg ProviderConfig, path string) (Reranker, b
 	cachedByKey[key] = cached
 	return cached, true
 }
+
+func envValue(env vaultconfig.Env, key string) string { value, _ := env.Lookup(key); return value }

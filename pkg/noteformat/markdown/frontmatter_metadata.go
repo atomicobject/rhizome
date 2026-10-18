@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"gopkg.in/yaml.v3"
 )
@@ -38,14 +39,8 @@ func frontmatterWithTemporalProvenance(content string, frontmatter map[string]an
 // obsidian.ExtractFrontmatter. Parsing and ordinary frontmatter behavior stay
 // owned by that existing primitive; this raw slice is only temporal evidence.
 func rawFrontmatterYAML(content string) (string, bool) {
-	if !strings.HasPrefix(content, "---") {
-		return "", false
-	}
-	end := strings.Index(content[3:], "\n---")
-	if end == -1 {
-		return "", false
-	}
-	return content[3 : 3+end], true
+	raw, _, ok := markdownsyntax.Frontmatter(content)
+	return raw, ok
 }
 
 func yamlRoot(document *yaml.Node) *yaml.Node {

@@ -45,12 +45,30 @@ func (c *Collector) RenderSummary() string {
 		"shared_provider",
 		"sync_ontology_body",
 		"sync_ontology_body_final",
-		"sync_intent_embeddings",
 		"compute_graph",
 		"analyze_optimize_checkpoint",
 		"vacuum",
 		"total",
 	}
+	known := make(map[string]bool, len(phaseOrder))
+	for _, phase := range phaseOrder {
+		known[phase] = true
+	}
+	observed := map[string]bool{}
+	for name := range c.spans {
+		observed[name] = true
+	}
+	for metric := range c.observedMetrics() {
+		observed[metric.Phase] = true
+	}
+	var extra []string
+	for phase := range observed {
+		if !known[phase] {
+			extra = append(extra, phase)
+		}
+	}
+	sort.Strings(extra)
+	phaseOrder = append(phaseOrder, extra...)
 	for _, phase := range phaseOrder {
 		span, hasSpan := c.spans[phase]
 		parts := c.phaseSummaryParts(phase)
@@ -140,15 +158,15 @@ func (c *Collector) renderBottlenecks() string {
 	for phase := range c.spans {
 		for _, candidate := range []struct {
 			label string
-			name  string
+			name  MetricName
 		}{
-			{label: "provider_busy", name: "provider.latency"},
-			{label: "prepare_blocked", name: "node.prepare.blocked"},
-			{label: "embed_starved", name: "node.embed.starved"},
-			{label: "embed_pack_wait", name: "node.embed.pack_wait"},
-			{label: "writer_busy", name: "node.write.busy"},
-			{label: "writer_deferred", name: "node.write.deferred"},
-			{label: "enqueue_blocked", name: "queue.wait"},
+			{label: "provider_busy", name: ProviderLatency},
+			{label: "prepare_blocked", name: NodePrepareBlocked},
+			{label: "embed_starved", name: NodeEmbedStarved},
+			{label: "embed_pack_wait", name: NodeEmbedPackWait},
+			{label: "writer_busy", name: NodeWriteBusy},
+			{label: "writer_deferred", name: NodeWriteDeferred},
+			{label: "enqueue_blocked", name: QueueWait},
 		} {
 			if dur := c.phaseLatencyTotal(phase, candidate.name); dur > 0 {
 				rows = append(rows, bottleneckRow{phase: phase, label: candidate.label, dur: dur})

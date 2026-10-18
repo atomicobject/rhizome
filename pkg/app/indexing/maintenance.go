@@ -6,23 +6,18 @@ import (
 	"os"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/semanticops"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
-
-func prepareProvider(cfg embeddings.Config, apiKey string) (embeddings.Provider, embeddings.ProviderConfig, error) {
-	return semanticops.PrepareProvider(cfg, apiKey)
-}
 
 func persistCodeEmbeddingsConfig(vaultPath string, cfg embeddings.Config, explicit bool) error {
 	if cfg.Enabled {
-		return obsidian.SaveCodeEmbeddingsConfig(vaultPath, cfg)
+		return repoconfig.SaveCodeEmbeddingsConfig(vaultPath, cfg)
 	}
 
 	if explicit {
-		return obsidian.SaveCodeEmbeddingsConfig(vaultPath, cfg)
+		return repoconfig.SaveCodeEmbeddingsConfig(vaultPath, cfg)
 	}
 
 	return nil

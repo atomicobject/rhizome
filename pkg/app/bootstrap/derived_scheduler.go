@@ -4,18 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"log/slog"
 	"sync"
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	graphindex "github.com/atomicobject/rhizome/pkg/graph/index"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/search/graphdb"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+
+	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 var errDerivedSuperseded = fmt.Errorf("derived work superseded: %w", lane.ErrSkipped)
@@ -89,7 +94,7 @@ func (s *derivedScheduler) run() {
 
 func (s *derivedScheduler) withLease(parent context.Context, ticket codeanchor.DerivedWork, ack bool, phase string, run func(context.Context) error) error {
 	w := s.watcher
-	handle, _, err := w.lane.Submit(parent, lane.Request{Kind: lane.KindEmbedCycle, Run: func(ctx context.Context, _ lane.Reporter) (jobErr error) {
+	handle, _, err := w.lane.Submit(parent, lane.Request{Kind: lane.KindEmbedCycle, Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) (jobErr error) {
 		ctx, finish := watchPhase(ctx, phase)
 		defer func() {
 			if panicked := recover(); panicked != nil {
@@ -122,7 +127,7 @@ func (s *derivedScheduler) withLease(parent context.Context, ticket codeanchor.D
 			if err := w.intelStore.AckDerivedWork(ctx, []codeanchor.DerivedWork{ticket}); err != nil {
 				return err
 			}
-			indexingperf.AddCount(parent, "derived.acknowledged", 1)
+			indexingperf.AddCount(parent, indexingperf.DerivedAcknowledged, 1)
 			watcherEvent(ctx, slog.LevelInfo, "derived.acknowledged", derivedAttrs(ticket)...)
 			if w.publishEvent != nil {
 				data := map[string]any{"source": "vault-runtime", "domains": []string{string(ticket.Kind)}}
@@ -164,7 +169,7 @@ func (s *derivedScheduler) computeContext(parent context.Context) (context.Conte
 					cancel(lane.ErrPreempted)
 					return
 				}
-				if indexlock.CheckPriority(obsidian.IndexLockPath(s.watcher.vaultPath)) {
+				if indexlock.CheckPriority(repoconfig.IndexLockPath(s.watcher.vaultPath)) {
 					cancel(errDerivedExternalPriority)
 					return
 				}
@@ -204,7 +209,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			}
 			return s.withLease(ctx, ticket, true, "derived_publication", func(context.Context) error { return nil })
 		}
-		var plan semantic.NotePlan
+		var plan embedindex.NotePlan
 		err := s.withLease(ctx, ticket, false, "derived_prepare", func(ctx context.Context) error {
 			var err error
 			if ticket.Path == "" {
@@ -218,7 +223,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			return err
 		}
 		err = s.compute(ctx, "embed_notes", func(computeCtx context.Context) error {
-			return w.noteSyncer.ComputeDerived(computeCtx, plan, func(_ context.Context, result semantic.NoteDerivedResult) error {
+			return w.noteSyncer.ComputeDerived(computeCtx, plan, func(_ context.Context, result embedindex.NoteDerivedResult) error {
 				return s.withLease(ctx, ticket, false, "derived_publication", func(ctx context.Context) error { return w.noteSyncer.PublishDerived(ctx, result) })
 			})
 		})
@@ -233,7 +238,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			}
 			return s.withLease(ctx, ticket, true, "derived_publication", func(context.Context) error { return nil })
 		}
-		var plan semantic.SyncPlan
+		var plan embedindex.SyncPlan
 		err := s.withLease(ctx, ticket, false, "derived_prepare", func(ctx context.Context) error {
 			var err error
 			paths := []string{ticket.Path}
@@ -264,7 +269,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			return err
 		}
 		err = s.compute(ctx, "embed_code", func(computeCtx context.Context) error {
-			return w.codeSyncer.ComputeDerived(computeCtx, plan, func(_ context.Context, result semantic.CodeDerivedResult) error {
+			return w.codeSyncer.ComputeDerived(computeCtx, plan, func(_ context.Context, result embedindex.CodeDerivedResult) error {
 				return s.withLease(ctx, ticket, false, "derived_publication", func(ctx context.Context) error { return w.codeSyncer.PublishDerived(ctx, result) })
 			})
 		})
@@ -279,10 +284,10 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			}
 			return s.withLease(ctx, ticket, true, "derived_publication", func(context.Context) error { return nil })
 		}
-		var plan semantic.OntologyDerivedPlan
-		var syncer semantic.OntologyNodeSyncer
+		var plan embedindex.OntologyDerivedPlan
+		var syncer embedindex.OntologyNodeSyncer
 		err := s.withLease(ctx, ticket, false, "derived_prepare", func(ctx context.Context) error {
-			schema, err := ontology.LoadSchema(w.vaultPath)
+			schema, err := ontoschema.LoadSchema(w.vaultPath)
 			if err != nil {
 				return err
 			}
@@ -332,7 +337,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		if err != nil {
 			return err
 		}
-		var result semantic.OntologyDerivedResult
+		var result embedindex.OntologyDerivedResult
 		err = s.compute(ctx, "embed_ontology_nodes", func(ctx context.Context) error {
 			var err error
 			result, err = syncer.ComputeDerived(ctx, plan)
@@ -343,16 +348,16 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		}
 		return s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return syncer.PublishDerived(ctx, result) })
 	case codeanchor.DerivedGraph:
-		var scores graphdb.DerivedScores
+		var scores semdb.DerivedGraphScores
 		err := s.compute(ctx, "graph_scores", func(ctx context.Context) error {
 			var err error
-			scores, err = graphdb.ComputeDerivedScores(ctx, w.intelStore, graphdb.DocScoresOptions{WikilinkOptions: obsidian.DefaultWikilinkOptions, VaultRoot: w.vaultPath})
+			scores, err = graphindex.ComputeDerivedScores(ctx, w.intelStore, graphindex.DocScoresOptions{WikilinkOptions: markdownsyntax.DefaultWikilinkOptions, VaultRoot: w.vaultPath})
 			return err
 		})
 		if err != nil {
 			return err
 		}
-		return s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return graphdb.PublishDerivedScores(ctx, w.intelStore, scores) })
+		return s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return graphindex.PublishDerivedScores(ctx, w.intelStore, scores) })
 	}
 	return fmt.Errorf("unknown derived kind %q", ticket.Kind)
 }

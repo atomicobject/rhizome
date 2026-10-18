@@ -36,7 +36,7 @@ func TestApplyFixPlanPublishesCompletionArtifactAndExcludesItFromRefreshDelta(t 
 	}})
 	probe := &repairPostApplyProbe{t: t}
 
-	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+	execution, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: probe,
 		CompletionArtifact: &RepairCompletionArtifact{Path: receiptPath, Content: receipt},
 	})
@@ -65,7 +65,7 @@ func TestApplyFixPlanRollsBackCompletionArtifactWithPreparedRepair(t *testing.T)
 	runCtx := repairRunContext(t, root)
 	injected := errSimulatedRepairInterruption
 
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		CompletionArtifact: &RepairCompletionArtifact{Path: receiptPath, Content: []byte("receipt\n")},
 		repairHooks: &repairExecutionHooks{AfterInstall: func(_ int, path string) error {
@@ -79,8 +79,7 @@ func TestApplyFixPlanRollsBackCompletionArtifactWithPreparedRepair(t *testing.T)
 	assert.Equal(t, before, mustReadFile(t, notePath))
 	assert.Equal(t, []byte("receipt\n"), mustReadFile(t, receiptPath))
 
-	dir, dirErr := repairJournalDir(runCtx, plan.Transactions[0].ID)
-	require.NoError(t, dirErr)
+	dir := repairFixtureJournalDir(runCtx.VaultPath, plan.Transactions[0].ID)
 	manifest, manifestErr := readRepairJournalManifest(dir)
 	require.NoError(t, manifestErr)
 	require.Len(t, manifest.Entries, 2)
@@ -95,7 +94,7 @@ func TestApplyFixPlanRollsBackCompletionArtifactWithPreparedRepair(t *testing.T)
 	assert.Equal(t, []string{"op:completion-rollback"}, manifest.OperationIDs)
 
 	probe := &repairPostApplyProbe{t: t}
-	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: probe,
 	})
 	require.NoError(t, err)
@@ -120,7 +119,7 @@ func TestApplyFixPlanRecoversCommittedCompletionArtifact(t *testing.T) {
 	runCtx := repairRunContext(t, root)
 	refreshErr := errors.New("retain committed completion")
 
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		PostApplyRefresher: &repairPostApplyProbe{t: t, refreshErr: refreshErr},
 		CompletionArtifact: &RepairCompletionArtifact{Path: receiptPath, Content: []byte("receipt\n")},
@@ -130,7 +129,7 @@ func TestApplyFixPlanRecoversCommittedCompletionArtifact(t *testing.T) {
 	assert.Equal(t, []byte("receipt\n"), mustReadFile(t, receiptPath))
 
 	probe := &repairPostApplyProbe{t: t}
-	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, Options{
+	_, err = ApplyFixPlan(context.Background(), runCtx, &FixPlan{}, ApplyOptions{
 		Fix: true, NonInteractive: true, PostApplyRefresher: probe,
 	})
 	require.NoError(t, err)
@@ -179,7 +178,7 @@ func TestApplyFixPlanRejectsCompletionArtifactEscapeOrExistingTarget(t *testing.
 				operations: []RepairOperation{repairWriteOperation("op:completion-target", "action:completion-target", "note.md", before, []byte("after\n"))},
 			}})
 
-			_, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, Options{
+			_, err := ApplyFixPlan(context.Background(), repairRunContext(t, root), &plan, ApplyOptions{
 				Fix: true, NonInteractive: true, CompletionArtifact: test.artifact(root),
 			})
 			require.ErrorContains(t, err, test.wantInErr)
@@ -220,7 +219,7 @@ func TestPublishRepairCompletionArtifactRejectsSymlinkedInternalDirectory(t *tes
 				Path: receiptPath, Content: []byte("receipt\n"),
 			})
 
-			require.ErrorContains(t, err, "escapes vault")
+			require.ErrorContains(t, err, "not a direct directory")
 			assert.NoFileExists(t, filepath.Join(outside, "request.json"))
 			assert.NoFileExists(t, filepath.Join(outside, "edit-receipts", "request.json"))
 			assert.NoFileExists(t, filepath.Join(outside, "index.lock"))

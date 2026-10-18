@@ -22,8 +22,8 @@ def default_execution_contract(name: str) -> ScenarioExecutionContract:
 def scenario_commands(
     binary: str,
     directory_target: str,
-    file_context_code_target: str = "pkg/app/cli/file_context.go",
-    file_context_directory_target: str = "pkg/app/cli",
+    file_context_code_target: str = "pkg/app/operations/file_context.go",
+    file_context_directory_target: str = "pkg/app/operations",
     file_context_note_target: str = "docs/reference/subsystems/agent-surface.md",
 ) -> dict[str, list[str]]:
     start = [binary, "agent", "start"]

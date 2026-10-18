@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/idalloc"
 	"os"
 	"path/filepath"
@@ -233,7 +234,7 @@ func TestScaffoldUpdatePreservesAdoptedIdentifierStrategy(t *testing.T) {
 	require.NotContains(t, contracts, "Effort.id")
 	require.Equal(t, "EFF", contracts["EffortNote.id"].allocation.prefix)
 	require.NotContains(t, string(got), "older shipped content")
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	for _, typeName := range []string{"EffortNote", "EffortWorkspace"} {
 		allocation, err := idalloc.Allocate(context.Background(), schema, historicalEffortIdentifierStore{}, typeName)
@@ -334,10 +335,10 @@ func TestPreserveNewInterfaceSiblingIdentifierContract(t *testing.T) {
 
 type historicalEffortIdentifierStore struct{}
 
-func (historicalEffortIdentifierStore) OntologyNodesByType(context.Context, string) ([]codeanchor.IntelOntologyNode, error) {
+func (historicalEffortIdentifierStore) OntologyNodesByType(context.Context, string) ([]readmodel.NodeRow, error) {
 	return nil, nil
 }
-func (historicalEffortIdentifierStore) OntologyNodeFieldValuesByNodeIDs(context.Context, []string, []string) ([]codeanchor.IntelOntologyNodeFieldValue, error) {
+func (historicalEffortIdentifierStore) OntologyNodeFieldValuesByNodeIDs(context.Context, []string, []string) ([]readmodel.FieldValueRow, error) {
 	return nil, nil
 }
 

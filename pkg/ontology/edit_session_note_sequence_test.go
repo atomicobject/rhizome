@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -44,7 +45,7 @@ func TestEditSession_NewFieldAndRelationOnOneNoteStayInFrontmatter(t *testing.T)
 			writeOntologyNote(t, root, "Notes/USP.md", "---\ntags:\n  - organization\n---\n\nUSP\n")
 			writeOntologyNote(t, root, "Notes/Fetch AI.md", "---\ntags:\n  - organization\n---\n\nFetch AI\n")
 			writeOntologyNote(t, root, "Notes/Nabu.md", "---\ntags:\n  - project\nclient: \"[[USP]]\"\n---\n\nNabu 3 Project\n")
-			schema, err := LoadSchema(root)
+			schema, err := ontoschema.LoadSchema(root)
 			require.NoError(t, err)
 			session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 			ref := NodeRef{NotePath: "Notes/Nabu.md", Kind: NodeKindNote}

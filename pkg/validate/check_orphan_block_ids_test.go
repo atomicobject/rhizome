@@ -232,7 +232,7 @@ type: Other
 	assert.Equal(t, OrphanClassRemovable, classByID["SPEC-0042-US2"], "uncited derivable-identity story line is removable")
 
 	plan := &FixPlan{Actions: result.Fixes}
-	_, err := ApplyFixPlan(context.Background(), runCtx, plan, Options{Fix: true, NonInteractive: true})
+	_, err := ApplyFixPlan(context.Background(), runCtx, plan, ApplyOptions{Fix: true, NonInteractive: true})
 	require.NoError(t, err)
 
 	updated, err := os.ReadFile(filepath.Join(root, "specs/owner.md"))
@@ -296,7 +296,7 @@ id:: SPEC-1.US1
 	result := RunOrphanBlockIDs(context.Background(), runCtx)
 	require.NotEmpty(t, result.Fixes)
 	plan := &FixPlan{Actions: result.Fixes}
-	_, err := ApplyFixPlan(context.Background(), runCtx, plan, Options{Fix: true, NonInteractive: true})
+	_, err := ApplyFixPlan(context.Background(), runCtx, plan, ApplyOptions{Fix: true, NonInteractive: true})
 	require.NoError(t, err)
 
 	updated, err := os.ReadFile(filepath.Join(root, "specs/owner.md"))

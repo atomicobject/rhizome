@@ -1,10 +1,6 @@
-// Package semantic builds and queries the semantic chunk surfaces used by
-// Rhizome search and indexing.
+// Package semantic queries persisted semantic chunks and ontology evidence.
 //
-// The indexing side is hash-first: planners decide which note, ontology node,
-// or code chunks changed before provider calls are made. Provider dispatch is
-// packed through prepared pipelines and shared embedding nodes; durable writes
-// are batched by the app/indexing writer queue when available. Keep those
-// responsibilities separate: planners avoid provider work, embed pipelines keep
-// providers full, and writers preserve SQLite backpressure.
+// It owns query embeddings, request-scoped vector sharing, catalog hydration,
+// type surveys, and fair result interleaving. Index preparation, provider dispatch,
+// content-hash reuse, and writeback producers belong to pkg/embedindex.
 package semantic

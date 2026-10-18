@@ -6,17 +6,21 @@ import (
 	"path/filepath"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/html"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRunUnifiedCore_ProjectableHTMLPublishesWithoutMarkdownStructure(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "notes"), 0o755))
@@ -26,14 +30,14 @@ func TestRunUnifiedCore_ProjectableHTMLPublishesWithoutMarkdownStructure(t *test
 	require.NoError(t, os.WriteFile(htmlPath, []byte(`<!doctype html><html><head><title>Prototype</title></head><body><main id="results">htmlvisiblemarker</main><script>const supplementalLifecycleMarker = true</script></body></html>`), 0o600))
 
 	definition := obsidian.VaultDefinition{Root: root, Includes: []string{"notes/*.md", "reports/*.html"}}
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Notes:          obsidian.LocalVaultConfig{Includes: definition.Includes},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Notes:          repoconfig.LocalVaultConfig{Includes: definition.Includes},
 		NoteEmbeddings: &embeddings.Config{Enabled: false}, CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
 	indexer := projectableHTMLIndexer(t)
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	assertCurrentHTMLProjection(t, ctx, store, "reports/Prototype.html")
@@ -50,7 +54,7 @@ func TestRunUnifiedCore_ProjectableHTMLPublishesWithoutMarkdownStructure(t *test
 	require.Equal(t, "note_region_supplemental", supplemental[0].Type)
 
 	require.NoError(t, os.WriteFile(htmlPath, []byte(`<!doctype html><title>Prototype v2</title><p>htmlreplacementmarker</p>`), 0o600))
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 	rows, err := store.SearchIntelFTS(ctx, "htmlvisiblemarker", 10)
 	require.NoError(t, err)
 	require.Empty(t, rows)
@@ -59,7 +63,7 @@ func TestRunUnifiedCore_ProjectableHTMLPublishesWithoutMarkdownStructure(t *test
 	require.Len(t, rows, 1)
 
 	require.NoError(t, os.WriteFile(htmlPath, []byte{0xff, 0xfe, 0xfd}, 0o600))
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 	metadata, err := store.DurableNoteMetadataRowsByPaths(ctx, []string{"reports/Prototype.html"})
 	require.NoError(t, err)
 	require.Equal(t, semdb.NoteProjectionStatusFatal, metadata["reports/Prototype.html"].Projection.Status)
@@ -68,14 +72,14 @@ func TestRunUnifiedCore_ProjectableHTMLPublishesWithoutMarkdownStructure(t *test
 	require.Empty(t, rows)
 
 	require.NoError(t, os.WriteFile(htmlPath, []byte(`<!doctype html><title>Recovered</title><p>htmlrecoveredmarker</p>`), 0o600))
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 	assertCurrentHTMLProjection(t, ctx, store, "reports/Prototype.html")
 	rows, err = store.SearchIntelFTS(ctx, "htmlrecoveredmarker", 10)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 
 	require.NoError(t, os.Remove(htmlPath))
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 	rows, err = store.SearchIntelFTS(ctx, "htmlrecoveredmarker", 10)
 	require.NoError(t, err)
 	require.Empty(t, rows)

@@ -3,15 +3,16 @@ package web
 import (
 	"context"
 	"encoding/json"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"testing/fstest"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/stretchr/testify/require"
@@ -37,12 +38,12 @@ func TestDisplayGroupsMatchSharedRailFixture(t *testing.T) {
 		}
 	}
 	require.NoError(t, json.Unmarshal(data, &fixture))
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{}, Interfaces: map[string]*ontology.InterfaceType{}}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{}, Interfaces: map[string]*ontoschema.InterfaceType{}}
 	for _, it := range fixture.Types {
-		schema.Types[it.Name] = &ontology.NoteType{Name: it.Name, Role: ontology.TypeRole(it.Role), Label: it.Label, PluralLabel: it.PluralLabel, DisplayGroup: it.DisplayGroup, DisplayParent: it.DisplayParent, Implements: it.Implements}
+		schema.Types[it.Name] = &ontoschema.NoteType{Name: it.Name, Role: ontoschema.TypeRole(it.Role), Label: it.Label, PluralLabel: it.PluralLabel, DisplayGroup: it.DisplayGroup, DisplayParent: it.DisplayParent, Implements: it.Implements}
 	}
 	for _, it := range fixture.Interfaces {
-		schema.Interfaces[it.Name] = &ontology.InterfaceType{Name: it.Name, Label: it.Label, PluralLabel: it.PluralLabel, DisplayGroup: it.DisplayGroup, DisplayParent: it.DisplayParent}
+		schema.Interfaces[it.Name] = &ontoschema.InterfaceType{Name: it.Name, Label: it.Label, PluralLabel: it.PluralLabel, DisplayGroup: it.DisplayGroup, DisplayParent: it.DisplayParent}
 	}
 	// The summary the endpoint reads: navigation members with their counts.
 	typeNames, interfaces := viewconfig.NavigationMembers(schema)
@@ -220,7 +221,7 @@ func TestDisplayGroupMemberIssueCountsMatchPublishedScopes(t *testing.T) {
 		return semdb.ValidationDiagnostic{IssueKey: key, Check: validate.CheckBrokenLinks, Code: "broken_link",
 			PrimaryPath: plan, AffectedPaths: []string{plan}, AffectedNotePaths: []string{plan}}
 	}
-	generation := publishTestDiagnostics(t, srv.runtime.Intel(), link("link-a"), link("link-b"),
+	generation := publishTestDiagnostics(t, fixture.intelStore, link("link-a"), link("link-b"),
 		semdb.ValidationDiagnostic{IssueKey: "cycle", Check: validate.CheckOntology, Code: "parent_cycle", AffectedTypes: []string{"Spec"}})
 
 	got, want := memberIssueCounts(t, srv, generation)
@@ -234,7 +235,7 @@ func TestDisplayGroupInterfaceIssueCountCoversImplementors(t *testing.T) {
 
 	fixture := prepareInterfaceFixtureVault(t)
 	srv := newFixtureServer(t, fixture, nil)
-	generation := publishTestDiagnostics(t, srv.runtime.Intel(), semdb.ValidationDiagnostic{IssueKey: "link", Check: validate.CheckBrokenLinks,
+	generation := publishTestDiagnostics(t, fixture.intelStore, semdb.ValidationDiagnostic{IssueKey: "link", Check: validate.CheckBrokenLinks,
 		Code: "broken_link", PrimaryPath: "specs/proc.md", AffectedPaths: []string{"specs/proc.md"}, AffectedNotePaths: []string{"specs/proc.md"}})
 
 	got, want := memberIssueCounts(t, srv, generation)

@@ -15,6 +15,9 @@ import (
 func TestPreparationMatchesActualGitMoves(t *testing.T) {
 	for _, variant := range []string{"ordinary", "dirty", "staged-dirty", "overwrite", "case-only", "executable", "literal-pathspec", "untracked", "mixed", "split", "v4", "flags", "merge-stages", "resolve-undo", "sparse", "global-config"} {
 		t.Run(variant, func(t *testing.T) {
+			if variant != "global-config" {
+				t.Parallel()
+			}
 			f := newFixture(t)
 			move := namespacegit.Move{Source: "notes/Old.md", Destination: "notes/New.md"}
 			if variant != "ordinary" && variant != "dirty" {

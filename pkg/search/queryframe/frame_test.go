@@ -40,12 +40,12 @@ func TestSupportTermGroupsMergePartiallyOverlappingMorphology(t *testing.T) {
 	frame := Extract("retry retries policy")
 
 	require.Equal(t, [][]string{{"retries", "retry"}, {"policy"}}, frame.SupportTermGroups)
-	retryOnly := EnrichCandidate(frame, search.Candidate{Path: "src/retry.go"})
+	retryOnly := EnrichCandidate(frame, search.Candidate{SourceRef: search.SourceRef{Path: "src/retry.go"}})
 	require.Less(t, SupportSpecificityScore(retryOnly.Evidence), .7, "one retry variant cannot satisfy two obligations")
 
 	embedding := Extract("embedding embedder policy")
 	require.Equal(t, [][]string{{"embed", "embedded", "embedder", "embedding", "embeddings"}, {"policy"}}, embedding.SupportTermGroups)
-	embeddingOnly := EnrichCandidate(embedding, search.Candidate{Path: "src/embedding.go"})
+	embeddingOnly := EnrichCandidate(embedding, search.Candidate{SourceRef: search.SourceRef{Path: "src/embedding.go"}})
 	require.Less(t, SupportSpecificityScore(embeddingOnly.Evidence), .7, "one embedding variant cannot satisfy two obligations")
 }
 
@@ -94,8 +94,10 @@ func TestExtractDetectsTestRequests(t *testing.T) {
 func TestScoreCandidatePrefersSpecificCodeSurface(t *testing.T) {
 	frame := Extract("how are notes embedded?")
 	score := ScoreCandidate(frame, search.Candidate{
-		Path:   "pkg/search/semantic/note_syncer.go",
-		Symbol: "PlanNoteEmbeddings",
+		SourceRef: search.SourceRef{
+			Path:   "pkg/search/semantic/note_syncer.go",
+			Symbol: "PlanNoteEmbeddings",
+		},
 	})
 
 	require.Greater(t, score.Value, 0.5)
@@ -104,7 +106,7 @@ func TestScoreCandidatePrefersSpecificCodeSurface(t *testing.T) {
 }
 
 func TestEnrichCandidateReplacesQuerySpecificityIdempotently(t *testing.T) {
-	candidate := search.Candidate{Path: "pkg/search/service.go", Evidence: []search.Evidence{{Type: "query_specificity", RawScore: 0.1, Source: "retriever"}}}
+	candidate := search.Candidate{SourceRef: search.SourceRef{Path: "pkg/search/service.go"}, Evidence: []search.Evidence{{Type: "query_specificity", RawScore: 0.1, Source: "retriever"}}}
 	first := EnrichCandidate(Extract("search service"), candidate)
 	second := EnrichCandidate(Extract("search service"), first)
 	require.Equal(t, first.Evidence, second.Evidence)
@@ -119,8 +121,8 @@ func TestEnrichCandidateReplacesQuerySpecificityIdempotently(t *testing.T) {
 
 func TestEnrichCandidateRecordsIdentityAndSourceExcerptMatchesSeparately(t *testing.T) {
 	candidate := search.Candidate{
-		Path: "specs/route-assignment.md", Title: "Conflict review",
-		Evidence: []search.Evidence{{Type: "intel_doc_match", RawScore: .9, Source: "pkg/anchors/sqlite", Details: map[string]string{
+		SourceRef: search.SourceRef{Path: "specs/route-assignment.md", Title: "Conflict review"},
+		Evidence: []search.Evidence{{Type: "intel_doc_match", RawScore: .9, Source: "pkg/store", Details: map[string]string{
 			"snippet": "A stale assignment version creates a review item.",
 		}}},
 	}
@@ -136,9 +138,12 @@ func TestEnrichCandidateRecordsIdentityAndSourceExcerptMatchesSeparately(t *test
 }
 
 func TestEnrichCandidateDoesNotTreatPathOnlySnippetAsSourceContent(t *testing.T) {
-	candidate := search.Candidate{Path: "src/SyncClient.php", Evidence: []search.Evidence{{
-		Type: "intel_fts_match", RawScore: .8, Source: "pkg/anchors/sqlite", Details: map[string]string{"snippet": "src/SyncClient.php", "pathOnly": "true"},
-	}}}
+	candidate := search.Candidate{
+		SourceRef: search.SourceRef{Path: "src/SyncClient.php"},
+		Evidence: []search.Evidence{{
+			Type: "intel_fts_match", RawScore: .8, Source: "pkg/store", Details: map[string]string{"snippet": "src/SyncClient.php", "pathOnly": "true"},
+		}},
+	}
 
 	enriched := EnrichCandidate(Extract("where is SyncClient defined"), candidate)
 
@@ -147,10 +152,13 @@ func TestEnrichCandidateDoesNotTreatPathOnlySnippetAsSourceContent(t *testing.T)
 }
 
 func TestEnrichCandidateRequiresExactTermsFromSourceOwnedEvidence(t *testing.T) {
-	candidate := search.Candidate{Path: "src/worker.go", Evidence: []search.Evidence{
-		{Type: "intel_fts_match", RawScore: .8, Source: "pkg/anchors/sqlite", Details: map[string]string{"snippet": "Mayan queue policy"}},
-		{Type: "code_ref", RawScore: 1, Details: map[string]string{"snippet": "Maya is linked from another source"}},
-	}}
+	candidate := search.Candidate{
+		SourceRef: search.SourceRef{Path: "src/worker.go"},
+		Evidence: []search.Evidence{
+			{Type: "intel_fts_match", RawScore: .8, Source: "pkg/store", Details: map[string]string{"snippet": "Mayan queue policy"}},
+			{Type: "code_ref", RawScore: 1, Details: map[string]string{"snippet": "Maya is linked from another source"}},
+		},
+	}
 
 	enriched := EnrichCandidate(Extract("assigned to Maya"), candidate)
 
@@ -161,12 +169,18 @@ func TestEnrichCandidateRequiresExactTermsFromSourceOwnedEvidence(t *testing.T) 
 
 func TestEnrichCandidateSeparatesRankingSnippetFromAnswerSupport(t *testing.T) {
 	query := Extract("retry queue policy")
-	linkOnly := EnrichCandidate(query, search.Candidate{Path: "src/unrelated.go", Evidence: []search.Evidence{{
-		Type: "code_ref", RawScore: 1, Source: "doc_links", Details: map[string]string{"snippet": "retry queue policy"},
-	}}})
-	owned := EnrichCandidate(query, search.Candidate{Path: "src/unrelated.go", Evidence: []search.Evidence{{
-		Type: "intel_fts_match", RawScore: 1, Source: "pkg/anchors/sqlite", Details: map[string]string{"snippet": "retry queue policy"},
-	}}})
+	linkOnly := EnrichCandidate(query, search.Candidate{
+		SourceRef: search.SourceRef{Path: "src/unrelated.go"},
+		Evidence: []search.Evidence{{
+			Type: "code_ref", RawScore: 1, Source: "doc_links", Details: map[string]string{"snippet": "retry queue policy"},
+		}},
+	})
+	owned := EnrichCandidate(query, search.Candidate{
+		SourceRef: search.SourceRef{Path: "src/unrelated.go"},
+		Evidence: []search.Evidence{{
+			Type: "intel_fts_match", RawScore: 1, Source: "pkg/store", Details: map[string]string{"snippet": "retry queue policy"},
+		}},
+	})
 
 	require.Greater(t, SpecificityScore(linkOnly.Evidence), 0.7, "link text may remain useful to retrieval ranking")
 	require.Zero(t, SupportSpecificityScore(linkOnly.Evidence))
@@ -174,23 +188,32 @@ func TestEnrichCandidateSeparatesRankingSnippetFromAnswerSupport(t *testing.T) {
 }
 
 func TestSupportSpecificityRequiresDistinctExactTerms(t *testing.T) {
-	substrings := EnrichCandidate(Extract("cat dog fox"), search.Candidate{Path: "notes/unrelated.md", Evidence: []search.Evidence{{
-		Type: "intel_doc_match", RawScore: 1, Source: "pkg/anchors/sqlite", Details: map[string]string{"snippet": "concatenate dogmatic firefox"},
-	}}})
-	repeated := EnrichCandidate(Extract("retry queue policy"), search.Candidate{Path: "retry.go", Title: "Retry", Symbol: "Retry"})
+	substrings := EnrichCandidate(Extract("cat dog fox"), search.Candidate{
+		SourceRef: search.SourceRef{Path: "notes/unrelated.md"},
+		Evidence: []search.Evidence{{
+			Type: "intel_doc_match", RawScore: 1, Source: "pkg/store", Details: map[string]string{"snippet": "concatenate dogmatic firefox"},
+		}},
+	})
+	repeated := EnrichCandidate(Extract("retry queue policy"), search.Candidate{SourceRef: search.SourceRef{Path: "retry.go", Title: "Retry", Symbol: "Retry"}})
 
 	require.Zero(t, SupportSpecificityScore(substrings.Evidence))
 	require.Less(t, SupportSpecificityScore(repeated.Evidence), 0.7)
 }
 
 func TestSupportSpecificityNormalizesByOriginalMeaningfulGroups(t *testing.T) {
-	shortIdentity := EnrichCandidate(Extract("retry"), search.Candidate{Path: "src/retry.go"})
-	shortContent := EnrichCandidate(Extract("retry"), search.Candidate{Path: "src/worker.go", Evidence: []search.Evidence{{
-		Type: "intel_fts_match", RawScore: 1, Source: "pkg/anchors/sqlite", Details: map[string]string{"snippet": "retry"},
-	}}})
-	longDistractor := EnrichCandidate(Extract("retry queue policy mobile owner escalation"), search.Candidate{Path: "src/worker.go", Evidence: []search.Evidence{{
-		Type: "intel_fts_match", RawScore: 1, Source: "pkg/anchors/sqlite", Details: map[string]string{"snippet": "retry queue policy"},
-	}}})
+	shortIdentity := EnrichCandidate(Extract("retry"), search.Candidate{SourceRef: search.SourceRef{Path: "src/retry.go"}})
+	shortContent := EnrichCandidate(Extract("retry"), search.Candidate{
+		SourceRef: search.SourceRef{Path: "src/worker.go"},
+		Evidence: []search.Evidence{{
+			Type: "intel_fts_match", RawScore: 1, Source: "pkg/store", Details: map[string]string{"snippet": "retry"},
+		}},
+	})
+	longDistractor := EnrichCandidate(Extract("retry queue policy mobile owner escalation"), search.Candidate{
+		SourceRef: search.SourceRef{Path: "src/worker.go"},
+		Evidence: []search.Evidence{{
+			Type: "intel_fts_match", RawScore: 1, Source: "pkg/store", Details: map[string]string{"snippet": "retry queue policy"},
+		}},
+	})
 
 	require.GreaterOrEqual(t, SupportSpecificityScore(shortIdentity.Evidence), .7)
 	require.Less(t, SupportSpecificityScore(shortContent.Evidence), .7, "one generic body term remains useful")
@@ -260,13 +283,13 @@ func TestScoreFieldsKeepsShortQuestionScale(t *testing.T) {
 
 func TestScoreCandidateReadsAgreedLinkLabelsWithTheTitle(t *testing.T) {
 	frame := Extract("catalog migration")
-	plain := search.Candidate{Path: "Projects/Project Kestrel.md", Title: "Project Kestrel"}
+	plain := search.Candidate{SourceRef: search.SourceRef{Path: "Projects/Project Kestrel.md", Title: "Project Kestrel"}}
 	require.Zero(t, ScoreCandidate(frame, plain).RankValue)
 
 	aliased := plain
 	aliased.Evidence = []search.Evidence{{Type: "link_text_match", RawScore: 0.9, Details: map[string]string{search.LinkTextAliasDetail: "catalog migration"}}}
 	got := ScoreCandidate(frame, aliased)
-	require.Equal(t, ScoreCandidate(frame, search.Candidate{Path: plain.Path, Title: "catalog migration"}).RankValue, got.RankValue)
+	require.Equal(t, ScoreCandidate(frame, search.Candidate{SourceRef: search.SourceRef{Path: plain.Path, Title: "catalog migration"}}).RankValue, got.RankValue)
 	require.Zero(t, got.SupportValue, "a label ranks the note but does not prove it answers the query")
 	require.Empty(t, got.IdentityMatched)
 	require.NotEmpty(t, EnrichCandidate(frame, aliased).Evidence[1:], "the ranking boost still reaches query_specificity")

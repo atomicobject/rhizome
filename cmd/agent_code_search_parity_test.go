@@ -1,9 +1,12 @@
 package cmd
 
+import "github.com/atomicobject/rhizome/internal/testkit"
+
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"os/exec"
 	"strings"
@@ -19,6 +22,7 @@ import (
 const agentCodeSearchHelperEnv = "RZM_AGENT_CODE_SEARCH_HELPER"
 
 func TestMain(m *testing.M) {
+
 	if os.Getenv(agentCodeSearchHelperEnv) != "1" {
 		// Commands that ensure a vault runtime would otherwise spawn this test
 		// binary as `serve --headless`, which re-runs the whole suite. Tests
@@ -28,6 +32,7 @@ func TestMain(m *testing.M) {
 		}
 		os.Exit(m.Run())
 	}
+	rootCmd := newRootCommand(commandEnvFromContext(context.Background()))
 	rootCmd.SetIn(os.Stdin)
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
@@ -40,11 +45,13 @@ func TestMain(m *testing.M) {
 }
 
 func TestAgentCodeSemanticQueryMatchesAgentCLIContract(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	indexCmd, _, _ := rootCmd.Find([]string{"index"})
+
 	if _, err := exec.LookPath("node"); err != nil {
 		t.Skip("Node.js is required for JavaScript execution")
 	}
 	t.Cleanup(func() {
-		resetCommandContexts(rootCmd)
 		indexCmd.SetErr(nil)
 	})
 	vault := setupAgentTestVault(t, map[string]string{
@@ -81,10 +88,10 @@ func InvoiceTotal(subtotal, tax int) int { return subtotal + tax }
 	})
 	// Execute launches os.Executable (this test binary); TestMain routes that child to Cobra.
 	t.Setenv(agentCodeSearchHelperEnv, "1")
-	indexOutput, stderr, err := runRootCLI(t, context.Background(), []string{"index", "--vault", vault.name})
+	indexOutput, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"index", "--vault", vault.name})
 	require.NoError(t, err, "stdout=%s stderr=%s", indexOutput, stderr)
 
-	cliJSON, stderr, err := runRootCLI(t, context.Background(), []string{
+	cliJSON, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "semantic-query", "--vault", vault.name,
 		"--query", "calculate total", "--scope", "code", "--limit", "1", "--budget-chars", "24000",
 	})
@@ -97,7 +104,7 @@ func InvoiceTotal(subtotal, tax int) int { return subtotal + tax }
 	require.Equal(t, searchapplication.ProfileAgent, cli.Policy.Profile)
 
 	code := `return await rzm.semanticQuery({queries:["calculate total"], scope:"code", limit:1, budgetChars:24000});`
-	codeJSON, stderr, err := runRootCLI(t, context.Background(), []string{
+	codeJSON, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "code", "execute", "--vault", vault.name, "--code", code,
 	})
 	require.NoError(t, err, "stdout=%s stderr=%s", codeJSON, stderr)
@@ -125,7 +132,7 @@ func InvoiceTotal(subtotal, tax int) int { return subtotal + tax }
 	require.NotEmpty(t, cli.ContinuationToken)
 	require.NotEmpty(t, viaCode.ContinuationToken)
 
-	cliNextJSON, stderr, err := runRootCLI(t, context.Background(), []string{
+	cliNextJSON, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "semantic-query", "--vault", vault.name,
 		"--query", "calculate total", "--scope", "code", "--limit", "1", "--budget-chars", "24000",
 		"--continuation-token", cli.ContinuationToken,
@@ -137,7 +144,7 @@ func InvoiceTotal(subtotal, tax int) int { return subtotal + tax }
 	tokenJSON, err := json.Marshal(viaCode.ContinuationToken)
 	require.NoError(t, err)
 	nextCode := fmt.Sprintf(`return await rzm.semanticQuery({queries:["calculate total"], scope:"code", limit:1, budgetChars:24000, continuationToken:%s});`, tokenJSON)
-	codeNextJSON, stderr, err := runRootCLI(t, context.Background(), []string{
+	codeNextJSON, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "code", "execute", "--vault", vault.name, "--code", nextCode,
 	})
 	require.NoError(t, err, "stdout=%s stderr=%s", codeNextJSON, stderr)

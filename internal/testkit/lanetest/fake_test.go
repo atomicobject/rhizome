@@ -1,0 +1,46 @@
+package lanetest
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
+	"github.com/stretchr/testify/require"
+)
+
+func TestFakeRunsJobAndReplaysEventsToLateSubscribers(t *testing.T) {
+	fake := NewFake()
+	handle, joined, err := fake.Submit(context.Background(), lane.Request{Kind: lane.KindExplicitIndex, Run: func(ctx context.Context, _ *indexlock.Lease, p lane.Reporter) error {
+		p.Segment("notes", 1, 2)
+		p.Log("hello")
+		return errors.New("boom")
+	}})
+	require.NoError(t, err)
+	require.False(t, joined)
+	<-handle.Done()
+	require.EqualError(t, handle.Err(), "boom")
+
+	events, cancel := handle.Subscribe()
+	defer cancel()
+	var types []lane.EventType
+	var last lane.Event
+	for e := range events {
+		types = append(types, e.Type)
+		last = e
+	}
+	require.Equal(t, []lane.EventType{lane.EventProgress, lane.EventLog, lane.EventDone}, types)
+	require.Equal(t, lane.OutcomeFailed, last.Outcome)
+
+	found, ok := fake.Lookup(handle.ID())
+	require.True(t, ok)
+	require.Equal(t, lane.KindExplicitIndex, found.Kind())
+	require.Equal(t, "runtime/explicit-index", lane.KindExplicitIndex.LockRole())
+	require.False(t, lane.KindExplicitIndex.Background())
+	require.True(t, lane.KindEmbedCycle.Background())
+
+	fake.Close()
+	_, _, err = fake.Submit(context.Background(), lane.Request{Kind: lane.KindGraphCycle})
+	require.ErrorIs(t, err, lane.ErrClosed)
+}

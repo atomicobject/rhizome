@@ -5,18 +5,20 @@ package integration
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"testing"
-
-	"github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 func TestOntologyEditSession_ReindexesAndUpdatesGraphQLQuery(t *testing.T) {
@@ -88,7 +90,7 @@ status:: IN_PROGRESS
 		NotePath: "notes/specs/spec.md",
 		Kind:     ontology.NodeKindNote,
 	}, "summary", "Updated summary"))
-	require.NoError(t, session.SetInlineField(ontology.NodeRef{
+	require.NoError(t, session.SetScalarField(ontology.NodeRef{
 		NotePath: "notes/specs/spec.md",
 		Fragment: "^story-a",
 		Kind:     ontology.NodeKindEmbedded,
@@ -106,7 +108,7 @@ status:: IN_PROGRESS
 	require.NoError(t, err)
 	require.Equal(t, []string{"DONE"}, projected.Fields["status"].Values)
 
-	require.NoError(t, syncIntegrationOntology(ctx, testNoteMetadataIndexer(t), root, store))
+	require.NoError(t, syncIntegrationOntology(ctx, testkit.NoteMetadataIndexer(t), root, store))
 	require.Equal(t, "Updated summary", persistedOntologyField(t, ctx, store, "Spec", "notes/specs/spec.md", "", "summary").ValueText)
 	require.Equal(t, "DONE", persistedOntologyField(t, ctx, store, "UserStory", "notes/specs/spec.md", "^story-a", "status").ValueText)
 	require.Equal(t, "IN_PROGRESS", persistedOntologyField(t, ctx, store, "UserStory", "notes/specs/spec.md", "^story-b", "status").ValueText)
@@ -168,7 +170,7 @@ func TestPythonFixture_OntologyEditSession_TogglesItemBackedCheckboxAndReindexes
 	require.NoError(t, err)
 	require.True(t, result.Applied)
 
-	require.NoError(t, syncIntegrationOntology(ctx, testNoteMetadataIndexer(t), ws.CodeRoot, store, "notes/meetings/sync.md"))
+	require.NoError(t, syncIntegrationOntology(ctx, testkit.NoteMetadataIndexer(t), ws.CodeRoot, store, "notes/meetings/sync.md"))
 	firstDone = persistedOntologyField(t, ctx, store, "ActionItem", "notes/meetings/sync.md", firstFragment, "done")
 	require.NotNil(t, firstDone.ValueBool)
 	require.True(t, *firstDone.ValueBool)
@@ -192,10 +194,10 @@ func TestPythonFixture_OntologyEditSession_TogglesItemBackedCheckboxAndReindexes
 	require.Contains(t, text, "- [ ] Ordinary checkbox stays prose")
 }
 
-func integrationOntologyEnv(t *testing.T, ctx context.Context, root string, rels ...string) (*ontology.Schema, *ontologyquery.ExecutableSchema, *codeanchorsqlite.Store) {
+func integrationOntologyEnv(t *testing.T, ctx context.Context, root string, rels ...string) (*ontoschema.Schema, *ontologyquery.ExecutableSchema, *codeanchorsqlite.Store) {
 	t.Helper()
 
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 
 	execSchema, err := ontologyquery.BuildExecutableSchema(schema)
@@ -207,9 +209,7 @@ func integrationOntologyEnv(t *testing.T, ctx context.Context, root string, rels
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 
-	noteMetadata := testNoteMetadataIndexer(t)
-	_, err = noteMetadata.EnsureIndexed(ctx, obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, store)
-	require.NoError(t, err)
+	noteMetadata := testkit.NoteMetadataIndexer(t)
 	require.NoError(t, syncIntegrationOntology(ctx, noteMetadata, root, store, rels...))
 	state, err := store.GetOntologySchemaState(ctx)
 	require.NoError(t, err)
@@ -223,14 +223,11 @@ func syncIntegrationOntology(ctx context.Context, noteMetadata notemeta.Indexer,
 	if len(rels) == 0 {
 		rels = []string{"notes/specs/spec.md"}
 	}
-	if err := noteMetadata.SyncPaths(ctx, obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, store, rels, nil); err != nil {
-		return err
-	}
-	_, err := ontology.SyncPaths(ctx, noteMetadata, obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, store, nil, rels, nil)
+	_, err := ontologytest.Sync(ctx, noteMetadata, obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, store, rels, nil)
 	return err
 }
 
-func persistedOntologyField(t *testing.T, ctx context.Context, store *codeanchorsqlite.Store, typeName, path, fragment, field string) codeanchor.IntelOntologyNodeFieldValue {
+func persistedOntologyField(t *testing.T, ctx context.Context, store *codeanchorsqlite.Store, typeName, path, fragment, field string) readmodel.FieldValueRow {
 	t.Helper()
 	nodes, err := store.OntologyNodesByType(ctx, typeName)
 	require.NoError(t, err)
@@ -247,17 +244,20 @@ func persistedOntologyField(t *testing.T, ctx context.Context, store *codeanchor
 	return fields[0]
 }
 
-func runOntologyQuery(t *testing.T, ctx context.Context, root string, schema *ontology.Schema, execSchema *ontologyquery.ExecutableSchema, store *codeanchorsqlite.Store, raw string) map[string]any {
+func runOntologyQuery(t *testing.T, ctx context.Context, root string, schema *ontoschema.Schema, execSchema *ontologyquery.ExecutableSchema, store *codeanchorsqlite.Store, raw string) map[string]any {
 	t.Helper()
 
 	prepared, errs := ontologyquery.Prepare(execSchema, raw)
 	require.Empty(t, errs)
 
+	formats, err := testkit.NoteMetadataIndexer(t).FormatRuntime()
+	require.NoError(t, err)
+
 	result := ontologyquery.Execute(ctx, ontologyquery.Deps{
-		VaultDef:   obsidian.VaultDefinition{Path: root},
-		NoteReader: &obsidian.Note{},
-		Store:      store,
-		Service:    ontology.NewService(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, store, schema),
+		VaultDef:    obsidian.VaultDefinition{Path: root},
+		NoteReader:  &obsidian.Note{},
+		Store:       store,
+		NoteFormats: formats,
 	}, schema, prepared)
 	require.Empty(t, result.Errors)
 	return result.Data

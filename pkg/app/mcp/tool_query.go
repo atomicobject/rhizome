@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+
+	"github.com/atomicobject/rhizome/pkg/indexstore"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -215,7 +216,9 @@ func CapabilitiesTool(config Config) func(context.Context, mcp.CallToolRequest) 
 			codeIndex = config.Runtime.Snapshot().IntelStore != nil
 		} else if config.GetIntelStore() != nil {
 			codeIndex = true
-		} else if store, cleanup, _ := obsidian.OpenIntelStoreBestEffort(config.VaultPath, true); store != nil {
+		} else if store, cleanup, err := indexstore.Open(config.VaultPath, indexstore.Options{Access: indexstore.ReadOnly, RequireEnabled: true}); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("code index unavailable: %v", err)), nil
+		} else if store != nil {
 			codeIndex = true
 			if cleanup != nil {
 				cleanup()
@@ -303,7 +306,7 @@ func ReportTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.
 		var cleanup func()
 		if store == nil && config.IntelStorePolicy == IntelStoreFallbackAllowed {
 			var err error
-			store, cleanup, err = obsidian.OpenIntelStoreBestEffort(config.VaultPath, true)
+			store, cleanup, err = indexstore.Open(config.VaultPath, indexstore.Options{Access: indexstore.ReadOnly, RequireEnabled: true})
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("report open failed: %s", err)), nil
 			}

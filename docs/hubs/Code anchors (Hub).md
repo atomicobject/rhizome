@@ -76,7 +76,7 @@ flowchart TD
 
 ### Integration points
 
-- `pkg/app/cli/file_context.go` — `rzm agent file-context` surfaces `NotesForFile` results as anchored docs for a file
+- `pkg/app/operations/file_context.go` — `rzm agent file-context` surfaces `NotesForFile` results as anchored docs for a file
 - `pkg/search/retrieval/code_anchor_notes.go` — search retriever that turns anchored notes into evidence ([[Search (Hub)]])
 - `cmd/code.go` — `rzm code anchors explain` / `rzm code symbols` diagnostics for why anchors match
 - `pkg/app/web/files.go` — web file view consumes the same `NotesForFile` read path

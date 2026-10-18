@@ -1,10 +1,9 @@
 package identifierreconcile
 
 import (
-	"sort"
-
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"sort"
 )
 
 func singletonMembership(key string) []string { return []string{key} }
@@ -62,11 +61,11 @@ func unionIdenticalIntentMemberships(components []CollisionRepairIntent) {
 
 func repairDiagnosticPhysicalKey(diagnostic RepairDiagnostic) string {
 	return jsonKey(struct {
-		Kind         string                                 `json:"kind"`
-		Blocking     bool                                   `json:"blocking"`
-		Field        *reference.IdentifierRewriteDiagnostic `json:"field,omitempty"`
-		Link         *reference.LinkRewriteDiagnostic       `json:"link,omitempty"`
-		MoveConflict *obsidian.MoveConflict                 `json:"moveConflict,omitempty"`
+		Kind         string                                         `json:"kind"`
+		Blocking     bool                                           `json:"blocking"`
+		Field        *identifierrewrite.IdentifierRewriteDiagnostic `json:"field,omitempty"`
+		Link         *identifierrewrite.LinkRewriteDiagnostic       `json:"link,omitempty"`
+		MoveConflict *obsidian.MoveConflict                         `json:"moveConflict,omitempty"`
 	}{diagnostic.Kind, diagnostic.Blocking, diagnostic.Field, diagnostic.Link, diagnostic.MoveConflict})
 }
 

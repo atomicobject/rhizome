@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,17 +13,21 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
 	searchapplication "github.com/atomicobject/rhizome/pkg/app/unifiedsearch/application"
 	appweb "github.com/atomicobject/rhizome/pkg/app/web"
-	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
-	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSearchCLIUsesCanonicalApplicationOrdering(t *testing.T) {
+
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	testEmbedding := &embeddings.Config{Enabled: true, Provider: "test", Model: "deterministic", Dimensions: 32}
 	vault := behaviorTestVault(t, behaviorVaultOptions{
 		noteEmbeddings: testEmbedding,
@@ -48,13 +54,16 @@ func InvoiceTotal(subtotal, tax int) int { return subtotal + tax }
 	}, "", vault)
 	require.NoError(t, err)
 
-	cfgDir, cfg, err := obsidian.FindLocalConfig(vault)
+	cfgDir, cfg, err := repoconfig.FindLocalConfig(vault)
 	require.NoError(t, err)
-	vaultDef := obsidian.LocalConfigToDefinition(cfgDir, cfg)
-	embCfg, err := obsidian.LoadEmbeddingsConfig(vault)
+	vaultDef := repoconfig.LocalConfigToDefinition(cfgDir, cfg)
+	resolvedConfig1, configErr1 := repoconfig.Load(vault)
+	embCfg, err := resolvedConfig1.NoteEmbeddings, configErr1
 	require.NoError(t, err)
-	embCfg.IndexPath = obsidian.UnifiedIndexPath(vault, embCfg.IndexPath)
-	result, err := unifiedsearch.Execute(context.Background(), unifiedsearch.ApplicationOptions{
+	embCfg.IndexPath = repoconfig.UnifiedIndexPath(vault, embCfg.IndexPath)
+	formatRuntime, noteMetadata, err := bootstrap.NewBuiltinNoteRuntime()
+	require.NoError(t, err)
+	result, err := unifiedsearch.Execute(vaultconfig.WithEnv(context.Background(), env), unifiedsearch.ApplicationOptions{
 		Profile:      unifiedsearch.ProfileInteractive,
 		VisibleLimit: 3,
 		BudgetChars:  24000,
@@ -72,6 +81,7 @@ func InvoiceTotal(subtotal, tax int) int { return subtotal + tax }
 			VaultPath:   vault,
 			VaultDef:    vaultDef,
 			EmbCfg:      embCfg,
+			NoteFormats: formatRuntime,
 		},
 	})
 	require.NoError(t, err)
@@ -95,12 +105,8 @@ func InvoiceTotal(subtotal, tax int) int { return subtotal + tax }
 	require.Equal(t, 2, result.Request.Policy.MaxPerOwner)
 	require.NotEmpty(t, result.Answer.Confidence.Level)
 
-	formatRuntime, err := builtin.NewRuntime()
-	require.NoError(t, err)
-	noteMetadata, err := notemeta.NewIndexer(formatRuntime)
-	require.NoError(t, err)
-	srv, err := appweb.NewServer(context.Background(), appweb.Config{
-		Vault:        &obsidian.Vault{Name: vault},
+	srv, err := appweb.NewServer(vaultconfig.WithEnv(context.Background(), env), appweb.Config{
+		Vault:        &repoconfig.Vault{Env: env, Name: vault},
 		VaultPath:    vault,
 		VaultDef:     vaultDef,
 		NoteMetadata: noteMetadata,
@@ -171,6 +177,7 @@ func canonicalWebSourceIDs(matches []appweb.SearchMatch) []string {
 }
 
 func TestSearchCLIRawRendersCodeAfterSearchResourcesClose(t *testing.T) {
+
 	vault := behaviorTestVault(t, behaviorVaultOptions{codeEnabled: true})
 	require.NoError(t, os.WriteFile(filepath.Join(vault, "render.go"), []byte(`package render
 

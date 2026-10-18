@@ -2,21 +2,20 @@ package ontology
 
 import (
 	"context"
+	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
-	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
 
 const editRegressionCollectionPath = "specs/001-test/spec.md"
 
-func prepareEditRegressionCollectionFixture(t *testing.T) (string, *Schema, NodeRef) {
+func prepareEditRegressionCollectionFixture(t *testing.T) (string, *ontoschema.Schema, NodeRef) {
 	t.Helper()
 	root := t.TempDir()
 	writeOntologyTestConfig(t, root)
@@ -39,7 +38,7 @@ status:: TODO
 ^story-b
 `)
 
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	note, err := ProjectNote(
 		context.Background(),
@@ -127,7 +126,7 @@ status: draft
 
 # Spec
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetScalarField(NodeRef{NotePath: "notes/spec.md", Kind: NodeKindNote}, "summary", "Updated"))
@@ -153,7 +152,7 @@ type Spec @node(paths: ["notes/*.md"]) {
 }
 `)
 	writeOntologyNote(t, root, "notes/spec.md", "---\ntype: Spec\nid: SPEC-0001\naliases: [SPEC-0001]\n---\n# Spec\n")
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetScalarField(NodeRef{NotePath: "notes/spec.md", Kind: NodeKindNote}, "id", "SPEC-0002"))
@@ -171,7 +170,7 @@ type Spec @node(paths: ["notes/*.md"]) {
 }
 `)
 	writeOntologyNote(t, root, "notes/spec.md", "---\ntype: Spec\ntitle: SPEC-0001\n---\n# Spec\n")
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetScalarField(NodeRef{NotePath: "notes/spec.md", Kind: NodeKindNote}, "title", "SPEC-0002"))
@@ -204,7 +203,7 @@ summary: Original
 	require.NoError(t, os.Chmod(path, 0o644))
 	before, err := os.Stat(path)
 	require.NoError(t, err)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetScalarField(NodeRef{NotePath: "notes/spec.md", Kind: NodeKindNote}, "summary", "Updated"))
@@ -215,45 +214,6 @@ summary: Original
 	info, err := os.Stat(path)
 	require.NoError(t, err)
 	require.Equal(t, before.Mode().Perm(), info.Mode().Perm())
-}
-
-type editSessionRaceNoteReader struct {
-	delegate        obsidian.NoteReader
-	targetPath      string
-	external        string
-	mutateAfterRead int
-
-	mu    sync.Mutex
-	reads int
-}
-
-func (r *editSessionRaceNoteReader) GetContents(vaultDef obsidian.VaultDefinition, notePath string) (string, error) {
-	content, err := r.delegate.GetContents(vaultDef, notePath)
-	if err != nil {
-		return "", err
-	}
-	r.mu.Lock()
-	r.reads++
-	mutate := notePath == r.targetPath && r.reads == r.mutateAfterRead
-	r.mu.Unlock()
-	if mutate {
-		if err := os.WriteFile(filepath.Join(vaultDef.BasePath(), filepath.FromSlash(r.targetPath)), []byte(r.external), 0o644); err != nil {
-			return "", err
-		}
-	}
-	return content, nil
-}
-
-func (r *editSessionRaceNoteReader) GetNotesList(vaultDef obsidian.VaultDefinition) ([]string, error) {
-	return r.delegate.GetNotesList(vaultDef)
-}
-
-func (r *editSessionRaceNoteReader) GetModTime(vaultDef obsidian.VaultDefinition, notePath string) (time.Time, error) {
-	return r.delegate.GetModTime(vaultDef, notePath)
-}
-
-func (r *editSessionRaceNoteReader) Title(path string) (string, bool) {
-	return r.delegate.Title(path)
 }
 
 func TestEditSession_CommitChecksDiskBeforeReplace(t *testing.T) {
@@ -279,16 +239,18 @@ summary: External
 # Spec
 `
 	writeOntologyNote(t, root, "notes/spec.md", original)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
-	reader := &editSessionRaceNoteReader{
-		delegate:        &obsidian.Note{},
-		targetPath:      "notes/spec.md",
-		external:        external,
-		mutateAfterRead: 2,
-	}
-	session := NewEditSession(obsidian.VaultDefinition{Path: root}, reader, schema)
-	require.NoError(t, session.SetScalarField(NodeRef{NotePath: "notes/spec.md", Kind: NodeKindNote}, "summary", "Mine"))
+	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
+	require.NoError(t, session.StageFileTransform("notes/spec.md", func(current string) (string, error) {
+		if current != original {
+			return "", fmt.Errorf("unexpected planning source")
+		}
+		if err := os.WriteFile(filepath.Join(root, "notes/spec.md"), []byte(external), 0644); err != nil {
+			return "", err
+		}
+		return strings.Replace(current, "summary: Original", "summary: Mine", 1), nil
+	}))
 
 	result, err := session.Commit(context.Background())
 	require.NoError(t, err)
@@ -302,21 +264,16 @@ summary: External
 	require.Equal(t, external, string(content))
 }
 
-func TestWriteStatesAtomicallyPreservesExistingBackup(t *testing.T) {
+func TestEditSessionCommitPreservesUnrelatedBackup(t *testing.T) {
 	root := t.TempDir()
 	writeOntologyNote(t, root, "notes/spec.md", "original\n")
 	backupPath := filepath.Join(root, "notes", ".spec.md.rhizome-backup")
 	require.NoError(t, os.WriteFile(backupPath, []byte("unrelated backup\n"), 0o644))
-	vaultPaths, err := paths.NewVaultPaths(root)
+	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, nil)
+	require.NoError(t, session.RewriteFile("notes/spec.md", "updated\n"))
+	result, err := session.Commit(context.Background())
 	require.NoError(t, err)
-
-	err = writeStatesAtomically(map[string]*documentState{
-		"notes/spec.md": {
-			notePath: "notes/spec.md",
-			content:  "updated\n",
-		},
-	}, &vaultPaths, "", nil)
-	require.NoError(t, err)
+	require.Equal(t, CommitOutcomeCommitted, result.Outcome)
 	backup, err := os.ReadFile(backupPath)
 	require.NoError(t, err)
 	require.Equal(t, "unrelated backup\n", string(backup))
@@ -362,7 +319,7 @@ enabled: true
 # Spec
 `
 			writeOntologyNote(t, root, "notes/spec.md", original)
-			schema, err := LoadSchema(root)
+			schema, err := ontoschema.LoadSchema(root)
 			require.NoError(t, err)
 			session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 			require.NoError(t, session.SetScalarField(NodeRef{NotePath: "notes/spec.md", Kind: NodeKindNote}, tc.field, tc.value))
@@ -396,7 +353,7 @@ summary: Original
 
 # Spec
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetScalarField(NodeRef{NotePath: "notes/spec.md", Kind: NodeKindNote}, "summary", "Mine"))
@@ -440,7 +397,7 @@ summary: Original
 
 # Spec
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetFieldValueWithWitness(
@@ -487,7 +444,7 @@ tags: [one, two]
 
 # Spec
 `)
-	schema, err := LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	session := NewEditSession(obsidian.VaultDefinition{Path: root}, &obsidian.Note{}, schema)
 	require.NoError(t, session.SetScalarField(NodeRef{NotePath: "notes/spec.md", Kind: NodeKindNote}, "summary", "Updated summary"))

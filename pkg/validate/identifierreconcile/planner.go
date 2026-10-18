@@ -5,10 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 const planVersion = "identifier-reconciliation/v1"
@@ -20,7 +19,7 @@ func BuildPlan(inventory *Inventory, evidence map[string]ProvenanceEvidence) (*P
 		return nil, fmt.Errorf("identifier inventory is required")
 	}
 	plan := &Plan{Version: planVersion, Collisions: make([]PlannedCollision, 0, len(inventory.collisions))}
-	reservationsByPool := make(map[PoolKey]ontology.IdentifierReservationInventory)
+	reservationsByPool := make(map[PoolKey]ontoschema.IdentifierReservationInventory)
 	for _, collision := range inventory.collisions {
 		keeper, basis, fallback, keeperEvidence := selectKeeper(collision, evidence)
 		claimants := append([]Claim(nil), collision.Claimants...)
@@ -38,7 +37,7 @@ func BuildPlan(inventory *Inventory, evidence map[string]ProvenanceEvidence) (*P
 				}
 				current, ok := strategy.Parse(claimant.Value)
 				if !ok {
-					current = ontology.IdentifierValue{Strategy: strategy.Strategy()}
+					current = ontoschema.IdentifierValue{Strategy: strategy.Strategy()}
 				}
 				reservations, exists := reservationsByPool[collision.Pool]
 				if !exists {
@@ -61,7 +60,7 @@ func BuildPlan(inventory *Inventory, evidence map[string]ProvenanceEvidence) (*P
 					}
 				}
 				loser.Replacement = candidate
-				reservations.Reservations = append(reservations.Reservations, ontology.IdentifierReservation{
+				reservations.Reservations = append(reservations.Reservations, ontoschema.IdentifierReservation{
 					Value: candidate,
 					Owner: "planned:" + claimant.ID(),
 				})

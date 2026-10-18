@@ -20,7 +20,7 @@ import (
 // its events locally. handled false means the caller should index in this
 // process; the reason was already printed. restart asks the outer command to
 // restart the old runtime after in-process indexing and cleanup finish.
-func runIndexThroughRuntime(cmd *cobra.Command, vaultDef obsidian.VaultDefinition) (handled bool, restart bool, err error) {
+func (commandOptions *indexInvocationOptions) runIndexThroughRuntime(cmd *cobra.Command, vaultDef obsidian.VaultDefinition) (handled bool, restart bool, err error) {
 	ctx := cmd.Context()
 	stderr := cmd.ErrOrStderr()
 
@@ -52,7 +52,7 @@ func runIndexThroughRuntime(cmd *cobra.Command, vaultDef obsidian.VaultDefinitio
 	if job.Joined {
 		fmt.Fprintf(stderr, "joining index already running (job %s)\n", job.JobID)
 	}
-	err = renderRuntimeIndexJob(ctx, cmd, client, job.JobID)
+	err = commandOptions.renderRuntimeIndexJob(ctx, cmd, client, job.JobID)
 	switch {
 	case errors.Is(err, errRuntimeDatabaseReplaced):
 		// The runtime is shutting down over a file it no longer owns; index
@@ -94,7 +94,7 @@ func inProcessFallback(out io.Writer, reason error, restart bool) (bool, bool, e
 
 // renderRuntimeIndexJob streams one job's events onto the usual progress bar
 // and maps its outcome onto the CLI exit classes.
-func renderRuntimeIndexJob(ctx context.Context, cmd *cobra.Command, client *appruntime.Client, jobID string) error {
+func (commandOptions *indexInvocationOptions) renderRuntimeIndexJob(ctx context.Context, cmd *cobra.Command, client *appruntime.Client, jobID string) error {
 	stderr := cmd.ErrOrStderr()
 	bar := newCLIProgressBar(stderr)
 	defer bar.Close()
@@ -152,7 +152,7 @@ func renderRuntimeIndexJob(ctx context.Context, cmd *cobra.Command, client *appr
 	if done.Type == lane.EventDone && !done.OK && strings.Contains(done.Error, lane.ErrDatabaseReplaced.Error()) {
 		return errRuntimeDatabaseReplaced
 	}
-	if indexTimings {
+	if commandOptions.indexTimings {
 		if summary := summaryText(done.Summary); summary != "" {
 			fmt.Fprintln(stderr, summary)
 		}
@@ -235,7 +235,7 @@ func stopRuntimeForRebuild(ctx context.Context, vaultPath string, out io.Writer)
 			restart = true
 		}
 		electionRelease, acquired, err := indexlock.TryAcquireWithOptions(appruntime.LockPath(vaultPath), indexlock.AcquireOptions{
-			Role: "cli/database-replacement", ProcessLifetime: true,
+			Role: "cli/database-replacement",
 		})
 		if err != nil {
 			return false, nil, fmt.Errorf("runtime election lock: %w", err)

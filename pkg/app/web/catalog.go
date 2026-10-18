@@ -137,7 +137,7 @@ func (c *FileCatalog) collect() []FileMatch {
 		}
 		out = append(out, FileMatch{
 			Path:  rel,
-			Title: titleFromPath(rel),
+			Title: paths.NoteTitle(rel),
 			Kind:  kind,
 			Lang:  lang,
 		})
@@ -278,12 +278,4 @@ func (s *Server) classifyFile(rel string) (string, string) {
 
 func unsupportedProjectionMessage(path, provider, operation string) string {
 	return fmt.Sprintf("%s is a note owned by format %q, but %s projection is not supported", path, provider, operation)
-}
-
-func titleFromPath(p string) string {
-	base := filepath.Base(p)
-	if extension := filepath.Ext(base); extension != "" {
-		base = strings.TrimSuffix(base, extension)
-	}
-	return base
 }

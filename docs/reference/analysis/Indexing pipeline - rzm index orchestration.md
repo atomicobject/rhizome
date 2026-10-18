@@ -4,7 +4,7 @@ summary: "Current orchestration rules for `rzm index`, including unified core ph
 reference-kind: analysis
 derived-from:
   - docs/reference-notes/Indexing pipeline - rzm index orchestration.md
-last-verified: 2026-09-05
+last-verified: 2026-10-17
 status: active
 ---
 
@@ -18,9 +18,9 @@ status: active
 
 - plain `rzm index` uses the unified pipeline; top-level code/semantic mode flags and their force overrides are retired
 - note embedding work consumes published note metadata and ontology projection state, then drains primary chunk writeback before marking semantic freshness
-- file discovery goes through `pkg/app/indexingpipe.ProcessFiles`, so producer walk-ahead is bounded by worker queue capacity
+- file discovery goes through `pkg/app/codeintel.ProcessCandidates`, so producer walk-ahead is bounded by worker queue capacity
 - high-volume code/note/semantic writes go through the indexing queued writer, which keeps SQLite write serialization observable
-- provider work should use `pkg/app/semanticruntime` compatible lanes; indexing paths should not build one-off provider batchers for code, note, ontology body, or intent exemplar work
+- provider work should use `pkg/embedindex` compatible lanes; indexing paths should not build one-off provider batchers for code, note, or ontology body work
 - ontology-ready vaults use ontology body chunks as the primary note semantic surface; raw authored-section chunks are compatibility-only when ontology is unavailable
 - ontology primary chunks are generated after fresh projection and use source-owned `node_body` granularity
 - ancestor/context or primary-chunk format changes expand affected ontology owners explicitly; schema/format rebuilds may force full sync

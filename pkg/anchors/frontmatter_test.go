@@ -281,3 +281,13 @@ Weekly note content
 		})
 	}
 }
+
+func TestParseNoteDoesNotCloseFrontmatterInsideTitle(t *testing.T) {
+	note, err := ParseNote("example.md", "---\ntitle: Build --- Release\ncode-anchors:\n  go:\n    - glob: pkg/**/*.go\n---\nBody\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if note.Title != "Build --- Release" || len(note.DefinedAnchors) != 1 {
+		t.Fatalf("title=%q anchors=%d", note.Title, len(note.DefinedAnchors))
+	}
+}

@@ -1,10 +1,12 @@
 ---
 summary: "Design constraints, responsiveness/async-init rules, and review checklist for MCP handlers, catalog dispatch, and per-call live capability snapshots."
 reference-kind: guide
-last-verified: 2026-10-04
+last-verified: 2026-10-17
 code-paths:
   - pkg/app/mcp
   - pkg/app/agentapi
+  - pkg/app/agentservices
+  - pkg/app/mcpserve
   - pkg/app/runtimeview
 tags: [subsystem/mcp]
 code-anchors:
@@ -17,14 +19,19 @@ code-anchors:
       ref: glob:cmd/runtime_helpers.go
     - label: subsystem.mcp-server.guidance.3
       ref: glob:pkg/app/runtimeview/**/*.go
+    - label: subsystem.mcp-server.guidance.4
+      ref: glob:pkg/app/mcpserve/**/*.go
+    - label: subsystem.mcp-server.guidance.5
+      ref: glob:pkg/app/agentservices/**/*.go
 ---
 
 # MCP server guidance
 
 ## Scope
 
-- `pkg/app/mcp/`: shared MCP-shaped JSON tool handlers (`FilesTool`, `SemanticQueryTool`, `FileContextTool`, `CodeSymbolTool`, ...). Wraps `pkg/app/cli` actions in structured request/response payloads using `mark3labs/mcp-go` types. `Config` reads runtime dependencies from a fresh `runtimeview.Snapshot` per call.
-- `pkg/app/agentapi/`: thin in-process adapter. `CallJSON` dispatches through the `ToolDescriptor` catalog, normalizing args via JSON round-trip so in-process calls behave like real MCP requests. The agent CLI and MCP stdio server consume tools through this layer; `pkg/app/mcpserve/` owns only the transport adapter.
+- `pkg/app/mcp/`: shared MCP-shaped JSON tool handlers (`FilesTool`, `SemanticQueryTool`, `FileContextTool`, `CodeSymbolTool`, ...). Wraps `pkg/app/operations` actions in structured request/response payloads using `mark3labs/mcp-go` types. `Config` reads runtime dependencies from a fresh `runtimeview.Snapshot` per call.
+- `pkg/app/agentapi/`: thin in-process adapter. `CallJSON` dispatches through the `ToolDescriptor` catalog, normalizing args via JSON round-trip so in-process calls behave like real MCP requests. The agent CLI and MCP stdio server consume tools through this layer; `pkg/app/mcpserve/` owns stdio transport and request-scoped runtime planning, configuration drift detection, and cleanup.
+- `pkg/app/agentservices/`: shared Config composition from one captured vault/configuration snapshot and explicit caller policy. It initializes no runtime, provider, cache, or store.
 - `pkg/app/bootstrap/`: `LiveRuntime` capability-phased async init (Search → Semantic → Code → Leader) and the concrete producer of `runtimeview.View` snapshots.
 
 ## Diagnostics
@@ -34,6 +41,8 @@ Catalog handler construction wraps every shared tool with one execution boundary
 Persistent MCP and code-mode invokers also record request preparation and forwarding outcomes as parent events. The runtime executing the catalog handler owns the tool execution event; forwarding adds no duplicate execution. Frequent request and tool operations use events to avoid creating report files for normal polling. Informational diagnostics remain off protocol stdout and stderr; warnings and errors keep explicit severity and safe cause categories.
 
 ## Design constraints
+
+- **Stdio admission uses the invocation directory.** The command passes its captured working directory to `mcpserve.NewInvoker`; the neutral path helper requires the canonical vault root and accepts symlink aliases. Admission completes before background runtime startup, and never depends on process-wide directory changes.
 
 - **Evaluation has no vault runtime dependency.** The Jev handler validates native question variants before credential resolution, sends explicit state through `pkg/typesafe`, and returns discriminated answers with usage and request IDs. It never initializes retrieval, reads note content implicitly, or exposes upstream error bodies in failures.
 
@@ -83,7 +92,7 @@ Persistent MCP and code-mode invokers also record request preparation and forwar
 - `pkg/app/mcp/config.go` (`Config`, `ToolInventory`, live snapshot accessors)
 - `pkg/app/mcp/CONTEXT.md` (entry points + async invariant), `pkg/app/mcp/tool_semantic.go` (Runtime.Wait usage)
 - `pkg/app/agentapi/catalog.go` (`ToolDescriptor` catalog and handler factories), `pkg/app/agentapi/agentapi.go` (`CallJSON`, catalog dispatch, arg normalization), `pkg/app/agentapi/doc.go`
-- `pkg/app/mcpserve/server.go` (stdio transport), `pkg/app/cli/mcpserve/invoker.go` (request-scoped CLI orchestration), `cmd/mcp.go` (Cobra adapter)
+- `pkg/app/mcpserve/server.go` (stdio transport), `pkg/app/mcpserve/invoker.go` (request-scoped CLI orchestration), `cmd/mcp.go` (Cobra adapter)
 - `pkg/app/runtimeview/view.go` (snapshot/view contract), `cmd/runtime_helpers.go` (`buildAgentConfigForOperation`, `buildAgentConfigForRequestPlan`)
 - `cmd/agent.go`, `cmd/agent_surface.go` (CLI fronts + descriptor-projected surface)
 - `pkg/app/bootstrap/live.go`, `pkg/app/bootstrap/CONTEXT.md` (capability phases, leader/follower)
@@ -103,3 +112,5 @@ Persistent MCP and code-mode invokers also record request preparation and forwar
 Code-mode dispatch admits concurrent calls, with exclusive access for live vault refresh/mutation, shared access for audited existing-index reads, and independent provider/ignore calls. Lock waits honor cancellation. The client defaults to eight concurrent calls, configurable up to 32; the server admits at most 32 active handlers. Callers use `await` to order dependencies. This updates the initial serial behavior described by the persistent code-mode spec. Whole-script execution allows an explicit deadline up to 24 hours; default and per-call limits remain bounded.
 
 Agent metadata discovery (`agent surface` and `agent code surface|describe|generate`) remains free of diagnostic writes; explicit generation writes only its requested task artifacts. Commands returning coded JSON failures persist their terminal ERROR event and report without adding stderr prose. Other warnings retain their explicit console severity.
+
+- **Persisted metadata enrichment is lazy per request.** The shared note-facts wrapper reads provider-current durable facts only for requested note paths and caches each result for that request. Path inventories read metadata rows without decoding every presentation payload. Nested metadata and authored context bodies come from atomically persisted projection payloads and search regions. Enrichment performs no source-file enumeration, reads, stats or provider projection; cold, stale and failed reads omit optional details.

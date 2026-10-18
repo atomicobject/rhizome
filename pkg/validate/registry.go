@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	validationcatalog "github.com/atomicobject/rhizome/pkg/validate/catalog"
@@ -117,22 +116,18 @@ type CheckDescriptor struct {
 	Remediation                RemediationSupport         `json:"remediation"`
 }
 
-type checkRunner func(context.Context, RunContext, Options, *ontology.Runtime, error) CheckResult
+type checkRunner func(context.Context, RunContext, ScanOptions, *ontology.Runtime) CheckResult
 
-// runtimeRequirement declares which shared runtime the suite orchestrator must
-// acquire before invoking a check. It stays internal because callers consume
-// projection-domain metadata, not implementation wiring.
-type runtimeRequirement string
-
-const (
-	runtimeRequirementNone     runtimeRequirement = "none"
-	runtimeRequirementOntology runtimeRequirement = "ontology"
-)
+type checkNeeds struct {
+	Sources   bool
+	Ontology  bool
+	CodeStore bool
+}
 
 type registeredCheck struct {
 	CheckDescriptor
-	RuntimeRequirement runtimeRequirement
-	Run                checkRunner
+	Needs checkNeeds
+	Run   checkRunner
 }
 
 var (
@@ -143,111 +138,94 @@ var (
 )
 
 var checkRegistry = []registeredCheck{
-	ontologyCheckRegistration(CheckDescriptor{
+	checkRegistration(CheckDescriptor{
 		Name: CheckOntology, Description: "ontology schema and typed notes", Category: CheckCategorySchema,
 		Suites: coreSuites, Applicability: ApplicabilityOntology,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation, ProjectionOntology}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked,
 		Remediation: remediationPlan("ontology"),
-	}, runOntologyRegistered),
-	ontologyCheckRegistration(CheckDescriptor{
+	}, checkNeeds{Sources: true, Ontology: true}, runOntologyRegistered),
+	checkRegistration(CheckDescriptor{
 		Name: CheckIdentifiers, Description: "preferred identifier integrity", Category: CheckCategorySchema,
 		Suites: coreSuites, Applicability: ApplicabilityOntology,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation, ProjectionOntology}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked,
 		Remediation: remediationPlan("identifiers"),
-	}, runIdentifiersRegistered),
+	}, checkNeeds{Sources: true, Ontology: true}, runIdentifiersRegistered),
 	checkRegistration(CheckDescriptor{
 		Name: CheckBrokenLinks, Description: "broken internal note, heading, and block targets", Category: CheckCategoryLinks,
 		Suites: coreSuites, Applicability: ApplicabilityAlways,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked,
 		Remediation: remediationPlan("broken-links"),
-	}, func(ctx context.Context, runCtx RunContext, opts Options, _ *ontology.Runtime, _ error) CheckResult {
+	}, checkNeeds{Sources: true}, func(ctx context.Context, runCtx RunContext, opts ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunBrokenLinksContext(ctx, runCtx, opts)
 	}),
 	checkRegistration(CheckDescriptor{
 		Name: CheckLinkHygiene, Description: "internal link hygiene", Category: CheckCategoryLinks,
 		Suites: allSuites, Applicability: ApplicabilityAlways,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked, Remediation: remediationPlan("link-hygiene"),
-	}, func(_ context.Context, runCtx RunContext, _ Options, _ *ontology.Runtime, _ error) CheckResult {
+		Remediation: remediationPlan("link-hygiene"),
+	}, checkNeeds{Sources: true}, func(_ context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunLinkHygiene(runCtx)
 	}),
 	checkRegistration(CheckDescriptor{
 		Name: CheckQueryRecipes, Description: "saved ontology query recipes", Category: CheckCategoryConfig,
 		Suites: allSuites, Applicability: ApplicabilityQueryRecipes,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation, ProjectionOntology}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked, Remediation: remediationPlan("query-recipes"),
-	}, func(ctx context.Context, runCtx RunContext, _ Options, _ *ontology.Runtime, _ error) CheckResult {
+		Remediation: remediationPlan("query-recipes"),
+	}, checkNeeds{Ontology: true}, func(ctx context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunQueryRecipes(ctx, runCtx)
 	}),
 	checkRegistration(CheckDescriptor{
 		Name: CheckViews, Description: "configured views", Category: CheckCategoryConfig,
 		Suites: allSuites, Applicability: ApplicabilityViews,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation, ProjectionOntology}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked, Remediation: RemediationSupport{Kind: RemediationNone},
-	}, func(ctx context.Context, runCtx RunContext, _ Options, _ *ontology.Runtime, _ error) CheckResult {
+		Remediation: RemediationSupport{Kind: RemediationNone},
+	}, checkNeeds{Ontology: true}, func(ctx context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunViews(ctx, runCtx)
 	}),
 	checkRegistration(CheckDescriptor{
 		Name: CheckSkillOverlays, Description: "bundled skill overlays", Category: CheckCategoryConfig,
 		Suites: allSuites, Applicability: ApplicabilityAlways,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked, Remediation: RemediationSupport{Kind: RemediationNone},
-	}, func(_ context.Context, runCtx RunContext, _ Options, _ *ontology.Runtime, _ error) CheckResult {
+		Remediation: RemediationSupport{Kind: RemediationNone},
+	}, checkNeeds{}, func(_ context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunSkillOverlays(runCtx)
 	}),
 	checkRegistration(CheckDescriptor{
 		Name: CheckCodeFrontmatter, Description: "code documentation frontmatter", Category: CheckCategoryCode,
 		Suites: allSuites, Applicability: ApplicabilityCode,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked, Remediation: remediationPlan("code-frontmatter"),
-	}, func(ctx context.Context, runCtx RunContext, _ Options, _ *ontology.Runtime, _ error) CheckResult {
+		Remediation: remediationPlan("code-frontmatter"),
+	}, checkNeeds{Sources: true}, func(ctx context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunCodeFrontmatter(ctx, runCtx)
 	}),
 	checkRegistration(CheckDescriptor{
 		Name: CheckCodeAnchors, Description: "code anchor matches", Category: CheckCategoryCode,
 		Suites: allSuites, Applicability: ApplicabilityCodeAnchors,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation, ProjectionCode}, ExecutionSurfaces: []ExecutionSurface{SurfaceLocal, SurfaceAgent},
-		PrerequisiteMode: PrerequisiteExternal, MissingPrerequisiteOutcome: PrerequisiteBlocked, PreparationCommand: "rzm index", Remediation: remediationPlan("code-anchors"),
-	}, runCodeAnchorsRegistered),
+		Remediation: remediationPlan("code-anchors"),
+	}, checkNeeds{CodeStore: true}, runCodeAnchorsRegistered),
 	checkRegistration(CheckDescriptor{
 		Name: CheckCompanionDocs, Description: "subsystem companion documentation", Category: CheckCategoryCode,
 		Suites: allSuites, Applicability: ApplicabilityCode,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked, Remediation: remediationPlan("companion-docs"),
-	}, func(_ context.Context, runCtx RunContext, _ Options, _ *ontology.Runtime, _ error) CheckResult {
+		Remediation: remediationPlan("companion-docs"),
+	}, checkNeeds{}, func(_ context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunCompanionDocs(runCtx)
 	}),
-	ontologyCheckRegistration(CheckDescriptor{
+	checkRegistration(CheckDescriptor{
 		Name: CheckFrozenScopeDrift, Description: "active effort frozen-scope drift", Category: CheckCategoryLifecycle,
 		Suites: auditSuites, Applicability: ApplicabilityEfforts,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation, ProjectionOntology}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked, Remediation: RemediationSupport{Kind: RemediationNone},
-	}, runFrozenScopeDriftRegistered),
+		Remediation: RemediationSupport{Kind: RemediationNone},
+	}, checkNeeds{Sources: true, Ontology: true}, runFrozenScopeDriftRegistered),
 	checkRegistration(CheckDescriptor{
 		Name: CheckFragileExternal, Description: "fragile external heading links", Category: CheckCategoryLinks,
 		Suites: auditSuites, Applicability: ApplicabilityAlways,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked, Remediation: remediationPlan("fragile-external"),
-	}, func(ctx context.Context, runCtx RunContext, opts Options, _ *ontology.Runtime, _ error) CheckResult {
+		Remediation: remediationPlan("fragile-external"),
+	}, checkNeeds{Sources: true}, func(ctx context.Context, runCtx RunContext, opts ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunFragileExternal(ctx, runCtx, opts)
 	}),
 	checkRegistration(CheckDescriptor{
 		Name: CheckOrphanBlockIDs, Description: "orphaned block identifiers", Category: CheckCategoryLinks,
 		Suites: auditSuites, Applicability: ApplicabilityOntology,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation, ProjectionOntology}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked, Remediation: remediationPlan("orphan-block-ids"),
-	}, func(ctx context.Context, runCtx RunContext, _ Options, _ *ontology.Runtime, _ error) CheckResult {
+		Remediation: remediationPlan("orphan-block-ids"),
+	}, checkNeeds{Sources: true, Ontology: true}, func(ctx context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunOrphanBlockIDs(ctx, runCtx)
 	}),
 	checkRegistration(CheckDescriptor{
 		Name: CheckPlaceholderLinks, Description: "placeholder links to notes that never existed", Category: CheckCategoryLinks,
 		Suites: auditSuites, Applicability: ApplicabilityAlways,
-		ProjectionDomains: []ProjectionDomain{ProjectionValidation}, ExecutionSurfaces: allSurfaces,
-		PrerequisiteMode: PrerequisiteAutoManaged, MissingPrerequisiteOutcome: PrerequisiteBlocked, Remediation: RemediationSupport{Kind: RemediationNone},
-	}, func(ctx context.Context, runCtx RunContext, opts Options, _ *ontology.Runtime, _ error) CheckResult {
+		Remediation: RemediationSupport{Kind: RemediationNone},
+	}, checkNeeds{Sources: true}, func(ctx context.Context, runCtx RunContext, opts ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunPlaceholderLinks(ctx, runCtx, opts)
 	}),
 }
@@ -256,7 +234,7 @@ func remediationPlan(check string) RemediationSupport {
 	return RemediationSupport{Kind: RemediationPlan, Command: "rzm validate fix " + check}
 }
 
-func checkRegistration(descriptor CheckDescriptor, run checkRunner) registeredCheck {
+func checkRegistration(descriptor CheckDescriptor, needs checkNeeds, run checkRunner) registeredCheck {
 	identity, ok := validationcatalog.Lookup(descriptor.Name)
 	if !ok {
 		panic("validation check identity is missing from catalog: " + descriptor.Name)
@@ -264,50 +242,36 @@ func checkRegistration(descriptor CheckDescriptor, run checkRunner) registeredCh
 	descriptor.Name = identity.ID
 	descriptor.CLIName = identity.Name
 	descriptor.Aliases = slices.Clone(identity.Aliases)
-	return registeredCheck{CheckDescriptor: descriptor, RuntimeRequirement: runtimeRequirementNone, Run: run}
+	descriptor.ProjectionDomains = []ProjectionDomain{ProjectionValidation}
+	descriptor.ExecutionSurfaces = allSurfaces
+	descriptor.PrerequisiteMode = PrerequisiteAutoManaged
+	descriptor.MissingPrerequisiteOutcome = PrerequisiteBlocked
+	if needs.Ontology {
+		descriptor.ProjectionDomains = append(descriptor.ProjectionDomains, ProjectionOntology)
+	}
+	if needs.CodeStore {
+		descriptor.ProjectionDomains = append(descriptor.ProjectionDomains, ProjectionCode)
+		descriptor.ExecutionSurfaces = []ExecutionSurface{SurfaceLocal, SurfaceAgent}
+		descriptor.PrerequisiteMode = PrerequisiteExternal
+		descriptor.PreparationCommand = "rzm index"
+	}
+	return registeredCheck{CheckDescriptor: descriptor, Needs: needs, Run: run}
 }
 
-func ontologyCheckRegistration(descriptor CheckDescriptor, run checkRunner) registeredCheck {
-	registration := checkRegistration(descriptor, run)
-	registration.RuntimeRequirement = runtimeRequirementOntology
-	return registration
+func runOntologyRegistered(ctx context.Context, runCtx RunContext, _ ScanOptions, runtime *ontology.Runtime) CheckResult {
+	return runOntologyWithRuntime(ctx, runCtx, runtime)
 }
 
-func runOntologyRegistered(ctx context.Context, runCtx RunContext, _ Options, runtime *ontology.Runtime, runtimeErr error) CheckResult {
-	if runtime != nil {
-		return runOntologyWithRuntime(ctx, runCtx, runtime)
-	}
-	if runtimeErr != nil {
-		return sharedRuntimeError(CheckOntology, runtimeErr)
-	}
-	return RunOntology(ctx, runCtx)
+func runIdentifiersRegistered(ctx context.Context, runCtx RunContext, _ ScanOptions, runtime *ontology.Runtime) CheckResult {
+	return RunIdentifiersWithRuntime(ctx, runCtx, runtime)
 }
 
-func runIdentifiersRegistered(ctx context.Context, runCtx RunContext, _ Options, runtime *ontology.Runtime, runtimeErr error) CheckResult {
-	if runtime != nil {
-		return RunIdentifiersWithRuntime(ctx, runCtx, runtime)
-	}
-	if runtimeErr != nil {
-		return sharedRuntimeError(CheckIdentifiers, runtimeErr)
-	}
-	return RunIdentifiers(ctx, runCtx)
+func runFrozenScopeDriftRegistered(ctx context.Context, runCtx RunContext, _ ScanOptions, runtime *ontology.Runtime) CheckResult {
+	return RunFrozenScopeDriftWithRuntime(ctx, runCtx, runtime)
 }
 
-func runFrozenScopeDriftRegistered(ctx context.Context, runCtx RunContext, _ Options, runtime *ontology.Runtime, runtimeErr error) CheckResult {
-	if runtime != nil {
-		return RunFrozenScopeDriftWithRuntime(ctx, runCtx, runtime)
-	}
-	if runtimeErr != nil {
-		return sharedRuntimeError(CheckFrozenScopeDrift, runtimeErr)
-	}
-	return RunFrozenScopeDrift(ctx, runCtx)
-}
-
-func runCodeAnchorsRegistered(ctx context.Context, runCtx RunContext, _ Options, runtime *ontology.Runtime, _ error) CheckResult {
-	if runtime != nil && runtime.Store != nil {
-		return RunCodeAnchorsWithStore(ctx, runCtx, runtime.Store)
-	}
-	return RunCodeAnchors(ctx, runCtx)
+func runCodeAnchorsRegistered(ctx context.Context, runCtx RunContext, _ ScanOptions, runtime *ontology.Runtime) CheckResult {
+	return RunCodeAnchorsWithStore(ctx, runCtx, runtime.Store)
 }
 
 func sharedRuntimeError(name string, err error) CheckResult {
@@ -326,19 +290,6 @@ func CheckDescriptors() []CheckDescriptor {
 		descriptors = append(descriptors, descriptor)
 	}
 	return descriptors
-}
-
-// CheckHelpText renders the shared CLI check list from the registry.
-func CheckHelpText() string {
-	items := make([]string, 0, len(checkRegistry))
-	for _, registration := range checkRegistry {
-		item := registration.CLIName
-		if !slices.Contains(registration.Suites, SuiteAll) {
-			item += " (audit)"
-		}
-		items = append(items, item)
-	}
-	return "exactly one validation selector: default, all, audit, or one check: " + strings.Join(items, ", ")
 }
 
 func defaultCheckNames() []string {
@@ -367,7 +318,7 @@ func lookupCheck(name string) (registeredCheck, bool) {
 func registryNeedsOntologyRuntime(checks []string) bool {
 	for _, name := range checks {
 		registration, ok := lookupCheck(name)
-		if ok && registration.RuntimeRequirement == runtimeRequirementOntology {
+		if ok && registration.Needs.Ontology {
 			return true
 		}
 	}
@@ -378,48 +329,6 @@ func validateCheckRegistry(registry []registeredCheck) error {
 	names := make(map[string]struct{}, len(registry))
 	aliases := make(map[string]string)
 	for _, registration := range registry {
-		if registration.Name == "" || registration.CLIName == "" || registration.Description == "" || registration.Category == "" ||
-			len(registration.Suites) == 0 || registration.Applicability == "" || len(registration.ProjectionDomains) == 0 ||
-			len(registration.ExecutionSurfaces) == 0 || registration.PrerequisiteMode == "" || registration.MissingPrerequisiteOutcome == "" ||
-			registration.Remediation.Kind == "" || registration.RuntimeRequirement == "" || registration.Run == nil {
-			return fmt.Errorf("incomplete validation check descriptor %q", registration.Name)
-		}
-		if registration.PrerequisiteMode == PrerequisiteExternal && registration.PreparationCommand == "" {
-			return fmt.Errorf("blocked validation check %q must declare a preparation command", registration.Name)
-		}
-		if registration.PrerequisiteMode == PrerequisiteAutoManaged && registration.PreparationCommand != "" {
-			return fmt.Errorf("auto-managed validation check %q must not declare a preparation command", registration.Name)
-		}
-		if !validCategory(registration.Category) {
-			return fmt.Errorf("validation check %q has unknown category %q", registration.Name, registration.Category)
-		}
-		if !validApplicability(registration.Applicability) {
-			return fmt.Errorf("validation check %q has unknown applicability %q", registration.Name, registration.Applicability)
-		}
-		if !validPrerequisiteOutcome(registration.MissingPrerequisiteOutcome) {
-			return fmt.Errorf("validation check %q has unknown missing-prerequisite outcome %q", registration.Name, registration.MissingPrerequisiteOutcome)
-		}
-		if registration.PrerequisiteMode != PrerequisiteAutoManaged && registration.PrerequisiteMode != PrerequisiteExternal {
-			return fmt.Errorf("validation check %q has unknown prerequisite mode %q", registration.Name, registration.PrerequisiteMode)
-		}
-		if registration.Remediation.Kind != RemediationNone && registration.Remediation.Kind != RemediationPlan {
-			return fmt.Errorf("validation check %q has unknown remediation kind %q", registration.Name, registration.Remediation.Kind)
-		}
-		if err := validateDescriptorValues(registration); err != nil {
-			return err
-		}
-		if message := prerequisiteMetadataError(registration.CheckDescriptor); message != "" {
-			return fmt.Errorf("validation check %q %s", registration.Name, message)
-		}
-		if registration.RuntimeRequirement != runtimeRequirementNone && registration.RuntimeRequirement != runtimeRequirementOntology {
-			return fmt.Errorf("validation check %q has unknown runtime requirement %q", registration.Name, registration.RuntimeRequirement)
-		}
-		if registration.RuntimeRequirement == runtimeRequirementOntology && !slices.Contains(registration.ProjectionDomains, ProjectionOntology) {
-			return fmt.Errorf("validation check %q ontology runtime requires ontology projection domain", registration.Name)
-		}
-		if registration.Remediation.Kind == RemediationPlan && registration.Remediation.Command == "" {
-			return fmt.Errorf("validation check %q remediation plan must declare a command", registration.Name)
-		}
 		if slices.Contains(registration.Suites, SuiteDefault) && !slices.Contains(registration.Suites, SuiteAll) {
 			return fmt.Errorf("default validation check %q must belong to all", registration.Name)
 		}
@@ -436,7 +345,7 @@ func validateCheckRegistry(registry []registeredCheck) error {
 		}
 		names[registration.Name] = struct{}{}
 		for _, alias := range append([]string{registration.Name, registration.CLIName}, registration.Aliases...) {
-			normalized := normalizeCheckName(alias)
+			normalized := validationcatalog.Normalize(alias)
 			if normalized == "" {
 				return fmt.Errorf("validation check %q has an empty alias", registration.Name)
 			}
@@ -450,55 +359,6 @@ func validateCheckRegistry(registry []registeredCheck) error {
 		}
 	}
 	return nil
-}
-
-func validateDescriptorValues(registration registeredCheck) error {
-	seenSuites := make(map[CheckSuite]struct{}, len(registration.Suites))
-	for _, suite := range registration.Suites {
-		if suite != SuiteDefault && suite != SuiteAll && suite != SuiteAudit {
-			return fmt.Errorf("validation check %q has unknown suite %q", registration.Name, suite)
-		}
-		if _, duplicate := seenSuites[suite]; duplicate {
-			return fmt.Errorf("validation check %q repeats suite %q", registration.Name, suite)
-		}
-		seenSuites[suite] = struct{}{}
-	}
-	seenDomains := make(map[ProjectionDomain]struct{}, len(registration.ProjectionDomains))
-	for _, domain := range registration.ProjectionDomains {
-		if domain != ProjectionValidation && domain != ProjectionOntology && domain != ProjectionCode {
-			return fmt.Errorf("validation check %q has unknown projection domain %q", registration.Name, domain)
-		}
-		if _, duplicate := seenDomains[domain]; duplicate {
-			return fmt.Errorf("validation check %q repeats projection domain %q", registration.Name, domain)
-		}
-		seenDomains[domain] = struct{}{}
-	}
-	seenSurfaces := make(map[ExecutionSurface]struct{}, len(registration.ExecutionSurfaces))
-	for _, surface := range registration.ExecutionSurfaces {
-		if surface != SurfaceLocal && surface != SurfaceCI && surface != SurfaceAgent {
-			return fmt.Errorf("validation check %q has unknown execution surface %q", registration.Name, surface)
-		}
-		if _, duplicate := seenSurfaces[surface]; duplicate {
-			return fmt.Errorf("validation check %q repeats execution surface %q", registration.Name, surface)
-		}
-		seenSurfaces[surface] = struct{}{}
-	}
-	return nil
-}
-
-func validCategory(category CheckCategory) bool {
-	return category == CheckCategoryLinks || category == CheckCategorySchema || category == CheckCategoryCode ||
-		category == CheckCategoryConfig || category == CheckCategoryLifecycle
-}
-
-func validApplicability(applicability CheckApplicability) bool {
-	return applicability == ApplicabilityAlways || applicability == ApplicabilityOntology || applicability == ApplicabilityCode ||
-		applicability == ApplicabilityCodeAnchors ||
-		applicability == ApplicabilityQueryRecipes || applicability == ApplicabilityViews || applicability == ApplicabilityEfforts
-}
-
-func validPrerequisiteOutcome(outcome MissingPrerequisiteOutcome) bool {
-	return outcome == PrerequisiteNone || outcome == PrerequisiteNotApplicable || outcome == PrerequisiteBlocked
 }
 
 func init() {

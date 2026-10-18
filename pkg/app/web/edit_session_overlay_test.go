@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/markdown"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -70,7 +72,7 @@ func TestReadOverlayForEditSessionRefreshesStagedReads(t *testing.T) {
 				updated := strings.NewReplacer("type Plan\n", "type UpdatedPlan\n", "[Plan!]", "[UpdatedPlan!]", "plan: Plan!", "plan: UpdatedPlan!").Replace(string(schema))
 				require.NotEqual(t, string(schema), updated)
 				require.NoError(t, os.WriteFile(schemaPath, []byte(updated), 0o644))
-				_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+				_, err = ontologytest.Publish(context.Background(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, _ *ontologyquery.ReadOverlay, plan, _ *ontology.NodeProjection, planRecord noderead.NodeRecord, scope *noderead.Scope) {

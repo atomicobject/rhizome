@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,7 +44,7 @@ func TestIdentifierRepairAdapterCleanupRecoveryUsesCanonicalReviewedChecksAndSto
 			firstRefresh := &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx}
 			firstExecution, err := ApplyIdentifierRepairPlan(
 				context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings,
-				Options{
+				ApplyOptions{
 					Fix: true, NonInteractive: true, PostApplyRefresher: firstRefresh,
 					repairHooks: &repairExecutionHooks{AfterCleanupBoundary: func(boundary, _ string) error {
 						if boundary == tt.boundary {
@@ -76,11 +77,12 @@ func TestIdentifierRepairAdapterCleanupRecoveryUsesCanonicalReviewedChecksAndSto
 			secondRefresh := &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx}
 			secondExecution, err := ApplyIdentifierRepairPlan(
 				context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings,
-				Options{
-					Fix: true, NonInteractive: true,
+				ApplyOptions{ScanOptions: ScanOptions{
+
 					// Invalid current selection must not override recovery metadata
 					// or the canonical reviewed transaction check union.
-					Checks:             []string{"not-a-real-check"},
+					Checks: []string{"not-a-real-check"}}, Fix: true, NonInteractive: true,
+
 					ReplanCommand:      "rzm validate fix identifiers",
 					PostApplyRefresher: secondRefresh,
 				},
@@ -121,7 +123,7 @@ func TestIdentifierRepairAdapterCleanupRecoveryUsesCanonicalReviewedChecksAndSto
 			thirdRefresh := &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx}
 			thirdExecution, err := ApplyIdentifierRepairPlan(
 				context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings,
-				Options{Fix: true, NonInteractive: true, PostApplyRefresher: thirdRefresh},
+				ApplyOptions{Fix: true, NonInteractive: true, PostApplyRefresher: thirdRefresh},
 			)
 			require.ErrorContains(t, err, "source inventory changed")
 			require.NotNil(t, thirdExecution)
@@ -163,7 +165,7 @@ func TestIdentifierRepairAdapterCleanupRecoveryPropagatesRefreshAndPostcheckErro
 			plan, err := BuildIdentifierRepairPlan(context.Background(), fixture.runCtx, fixture.assembly, fixture.bindings)
 			require.NoError(t, err)
 			interrupted := errors.New("injected cleanup interruption")
-			_, err = ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, Options{
+			_, err = ApplyIdentifierRepairPlan(context.Background(), fixture.runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 				Fix: true, NonInteractive: true,
 				PostApplyRefresher: &identifierRepairRuntimeRefresher{t: t, runCtx: fixture.runCtx},
 				repairHooks: &repairExecutionHooks{AfterCleanupBoundary: func(boundary, _ string) error {
@@ -178,7 +180,7 @@ func TestIdentifierRepairAdapterCleanupRecoveryPropagatesRefreshAndPostcheckErro
 			inbound := mustReadFile(t, filepath.Join(fixture.root, "notes", "inbound.md"))
 
 			runCtx, refresher := tt.configure(t, fixture)
-			execution, err := ApplyIdentifierRepairPlan(context.Background(), runCtx, plan, fixture.assembly, fixture.bindings, Options{
+			execution, err := ApplyIdentifierRepairPlan(context.Background(), runCtx, plan, fixture.assembly, fixture.bindings, ApplyOptions{
 				Fix: true, NonInteractive: true, PostApplyRefresher: refresher,
 			})
 			require.ErrorContains(t, err, tt.wantErr)
@@ -199,7 +201,7 @@ type identifierFailingRefresher struct{ err error }
 
 func (r identifierFailingRefresher) Refresh(
 	context.Context,
-	*IndexLockLease,
+	*indexlock.Lease,
 	[]string,
 	[]PathRename,
 	[]string,

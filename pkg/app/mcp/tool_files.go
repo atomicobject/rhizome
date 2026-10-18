@@ -4,227 +4,30 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
+
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/app/contextpack"
-	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+
 	"github.com/atomicobject/rhizome/pkg/paths"
+
 	"github.com/atomicobject/rhizome/pkg/vault/frontmatter"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/mark3labs/mcp-go/mcp"
-)
-
-const (
-	filesGraphMaxNodes         = 1500
-	filesGraphMaxEdges         = 5000
-	filesGraphPerNodeEdgeLimit = 200
 )
 
 // filesCompressIntent is the default intent for files tool compression.
 // This should describe the agent's goal, not compression strategies (those are in the shared prompt).
 const filesCompressIntent = "Understand the structure, APIs, and key patterns in these files. " +
 	"Focus on what an agent needs to work with or extend this code."
-
-func filesHasPathInputs(inputs []actions.ListInput) bool {
-	for _, input := range inputs {
-		switch input.Type {
-		case actions.InputTypeFile, actions.InputTypeFind:
-			return true
-		}
-	}
-	return false
-}
-
-func indexedFilePathsForPrefixes(ctx context.Context, store *semdb.Store, prefixes []string) ([]string, error) {
-	if store == nil || len(prefixes) == 0 {
-		return nil, nil
-	}
-	seenPrefix := make(map[string]struct{}, len(prefixes))
-	var uniquePrefixes []string
-	for _, p := range prefixes {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		if _, ok := seenPrefix[p]; ok {
-			continue
-		}
-		seenPrefix[p] = struct{}{}
-		uniquePrefixes = append(uniquePrefixes, p)
-	}
-	if len(uniquePrefixes) == 0 {
-		return nil, nil
-	}
-	seenPath := make(map[string]struct{})
-	var out []string
-	for _, prefix := range uniquePrefixes {
-		paths, err := store.IndexedFilePathsByPrefix(ctx, prefix)
-		if err != nil {
-			return nil, err
-		}
-		for _, path := range paths {
-			if _, ok := seenPath[path]; ok {
-				continue
-			}
-			seenPath[path] = struct{}{}
-			out = append(out, path)
-		}
-	}
-	sort.Strings(out)
-	return out, nil
-}
-
-func expandFilesWithGraph(ctx context.Context, store *semdb.Store, vaultPaths paths.VaultPaths, vaultDef obsidian.VaultDefinition, note obsidian.NoteReader, linkOptions obsidian.WikilinkOptions, seeds []string, maxDepth int, unique map[string]bool, order *[]string, fileTypes map[string]string) error {
-	if store == nil || maxDepth <= 0 || len(seeds) == 0 {
-		return nil
-	}
-
-	seedSet := make(map[string]struct{}, len(seeds))
-	frontier := make([]string, 0, len(seeds))
-	for _, seed := range seeds {
-		seed = normalizeDocPath(vaultPaths, seed)
-		if seed == "" {
-			continue
-		}
-		if _, ok := seedSet[seed]; ok {
-			continue
-		}
-		seedSet[seed] = struct{}{}
-		frontier = append(frontier, seed)
-	}
-	if len(frontier) == 0 {
-		return nil
-	}
-	sort.Strings(frontier)
-
-	edgeCount := 0
-	scope := noderead.NewService(vaultDef, note, store, nil).NewScope(ctx, noderead.ScopeOptions{})
-	for depth := 0; depth < maxDepth; depth++ {
-		if len(frontier) == 0 {
-			break
-		}
-		if len(unique) >= filesGraphMaxNodes || edgeCount >= filesGraphMaxEdges {
-			break
-		}
-
-		frontierSet := make(map[string]struct{}, len(frontier))
-		for _, node := range frontier {
-			frontierSet[node] = struct{}{}
-		}
-
-		next := make([]string, 0, len(frontier)*2)
-
-		edgesLimit := filesGraphPerNodeEdgeLimit * len(frontier)
-		if edgesLimit <= 0 {
-			edgesLimit = 500
-		}
-		if remaining := filesGraphMaxEdges - edgeCount; remaining > 0 && edgesLimit > remaining {
-			edgesLimit = remaining
-		}
-
-		facts, err := scope.GraphFacts(ctx, noderead.GraphFactsRequest{
-			Paths:           frontier,
-			NodeLimit:       filesGraphMaxNodes,
-			EdgeLimit:       edgesLimit,
-			IncludeOntology: true,
-			IncludeDocLinks: true,
-			IncludeCode:     true,
-			IncludeEmbedded: true,
-		})
-		if err != nil {
-			return fmt.Errorf("graph facts for files: %w", err)
-		}
-
-		perNodeCounts := make(map[string]int, len(frontier))
-
-		for _, edge := range facts.Edges {
-			if len(unique) >= filesGraphMaxNodes || edgeCount >= filesGraphMaxEdges {
-				break
-			}
-			src, srcType, srcOK := filesGraphEndpointPath(vaultPaths, edge.SourceKind, edge.SourcePath)
-			dst, dstType, dstOK := filesGraphEndpointPath(vaultPaths, edge.TargetKind, edge.TargetPath)
-			if !srcOK || !dstOK {
-				continue
-			}
-			if src == "" || dst == "" || src == dst {
-				continue
-			}
-
-			if !filesGraphFactIncluded(edge) {
-				continue
-			}
-
-			added := false
-			if _, ok := frontierSet[src]; ok {
-				if perNodeCounts[src] < filesGraphPerNodeEdgeLimit {
-					perNodeCounts[src]++
-					added = true
-				}
-			}
-			if _, ok := frontierSet[dst]; ok {
-				if perNodeCounts[dst] < filesGraphPerNodeEdgeLimit {
-					perNodeCounts[dst]++
-					added = true
-				}
-			}
-			if !added {
-				continue
-			}
-			edgeCount++
-
-			for _, endpoint := range []struct {
-				path     string
-				fileType string
-			}{{path: src, fileType: srcType}, {path: dst, fileType: dstType}} {
-				node := endpoint.path
-				if node == "" {
-					continue
-				}
-				if _, ok := unique[node]; ok {
-					continue
-				}
-				if len(unique) >= filesGraphMaxNodes {
-					break
-				}
-				unique[node] = true
-				*order = append(*order, node)
-				if _, ok := fileTypes[node]; !ok {
-					fileTypes[node] = endpoint.fileType
-				}
-				next = append(next, node)
-			}
-		}
-
-		if len(next) == 0 {
-			break
-		}
-		sort.Strings(next)
-		frontier = next
-	}
-
-	return nil
-}
-
-func filesGraphEndpointPath(vaultPaths paths.VaultPaths, kind noderead.GraphEndpointKind, path string) (string, string, bool) {
-	path = normalizeDocPath(vaultPaths, path)
-	if path == "" {
-		return "", "", false
-	}
-	switch kind {
-	case noderead.GraphEndpointNote, noderead.GraphEndpointEmbedded, noderead.GraphEndpointSection:
-		return path, fileTypeNote, true
-	case noderead.GraphEndpointCode:
-		return path, fileTypeCode, true
-	default:
-		return "", "", false
-	}
-}
 
 func readMCPNoteFileContent(vaultPaths paths.VaultPaths, vaultDef obsidian.VaultDefinition, note obsidian.NoteReader, path string, primaryAuthoringPath bool) (string, error) {
 	if primaryAuthoringPath {
@@ -243,18 +46,6 @@ func readMCPNoteFileContent(vaultPaths paths.VaultPaths, vaultDef obsidian.Vault
 		return "", err
 	}
 	return string(content), nil
-}
-
-func filesGraphFactIncluded(edge noderead.GraphFactEdge) bool {
-	kind := strings.ToLower(strings.TrimSpace(edge.Kind))
-	switch kind {
-	case "wikilink", "mdlink", "mentions", "coderef", "ontology":
-		return true
-	case "embeds":
-		return false
-	default:
-		return strings.HasPrefix(kind, "note_link:")
-	}
 }
 
 // FilesTool implements the files MCP tool (paths + optional content/frontmatter as JSON).
@@ -403,7 +194,10 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 		store := config.GetIntelStore()
 		var cleanup func()
 		if store == nil && config.IntelStorePolicy == IntelStoreFallbackAllowed {
-			store, cleanup, _ = obsidian.OpenIntelStoreBestEffort(config.VaultPath, true)
+			store, cleanup, err = indexstore.Open(config.VaultPath, indexstore.Options{Access: indexstore.ReadOnly, RequireEnabled: true})
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("file index unavailable: %v", err)), nil
+			}
 		}
 		if cleanup != nil {
 			defer cleanup()
@@ -506,7 +300,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 		}
 
 		if useUnifiedGraph {
-			if err := expandFilesWithGraph(ctx, store, vaultPaths, vaultDef, note, obsidian.WikilinkOptions{
+			if err := expandFilesWithGraph(ctx, store, vaultPaths, vaultDef, note, markdownsyntax.WikilinkOptions{
 				SkipAnchors: skipAnchors,
 				SkipEmbeds:  skipEmbeds,
 			}, seedPaths, maxDepth, unique, &order, fileTypes); err != nil {
@@ -540,7 +334,11 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 					notePaths = append(notePaths, path)
 				}
 			}
-			allowedNotes := actions.FilterSuppressedFiles(notePaths, vaultDef, note, suppressedTags)
+			debugOutput := io.Discard
+			if config.Debug {
+				debugOutput = os.Stderr
+			}
+			allowedNotes := actions.FilterSuppressedFiles(notePaths, note, suppressedTags, debugOutput)
 			allowedSet := make(map[string]struct{}, len(allowedNotes))
 			for _, p := range allowedNotes {
 				allowedSet[p] = struct{}{}
@@ -852,7 +650,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 				// Determine budget for compression
 				compressBudget := budgetChars
 				if compressBudget <= 0 {
-					compressBudget = contextpack.DefaultBudgetChars
+					compressBudget = repoconfig.DefaultBudgetChars
 				}
 
 				// Compression is an output-format boundary for include-content=compress:

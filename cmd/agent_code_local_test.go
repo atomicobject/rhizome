@@ -8,6 +8,8 @@ import (
 )
 
 func TestCodeModeLocalDispatcherRejectsMutationOptionsInReadOnlyMode(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	tests := []struct {
 		name  string
 		input map[string]any
@@ -17,7 +19,7 @@ func TestCodeModeLocalDispatcherRejectsMutationOptionsInReadOnlyMode(t *testing.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			outcome, handled := callAgentCodeLocal(context.Background(), map[string]string{
+			outcome, handled := commandOptions.callAgentCodeLocal(context.Background(), map[string]string{
 				"current user set": "current_user", "note move": "note_move",
 			}[tt.name], tt.input, false)
 			require.True(t, handled)

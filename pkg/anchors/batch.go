@@ -120,15 +120,15 @@ func (s *Service) buildCodeIndexWork(ctx context.Context, lang Lang, ref paths.C
 	if !isForceReindex(ctx) {
 		hashCheckStarted := time.Now()
 		if prevHash, prevVersion, prevStatus, ok, _ := s.store.FileHash(ctx, relPath); ok && prevHash == newHash && prevVersion == IndexerVersion && prevStatus.TrustedForIndexing() {
-			indexingperf.ObserveLatency(ctx, "codeindex.hashcheck", time.Since(hashCheckStarted))
+			indexingperf.ObserveLatency(ctx, indexingperf.CodeindexHashcheck, time.Since(hashCheckStarted))
 			return nil, nil
 		}
-		indexingperf.ObserveLatency(ctx, "codeindex.hashcheck", time.Since(hashCheckStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexHashcheck, time.Since(hashCheckStarted))
 	}
 
 	parseStarted := time.Now()
 	summary, err := s.indexFileWithTimeout(ctx, idx, content, ref)
-	indexingperf.ObserveLatency(ctx, "codeindex.parse", time.Since(parseStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CodeindexParse, time.Since(parseStarted))
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (s *Service) buildCodeIndexWork(ctx context.Context, lang Lang, ref paths.C
 		summary.ParseStatus = ParseOK
 	}
 	summary.Hash = newHash
-	indexingperf.ObserveLatency(ctx, "codeindex.normalize", time.Since(normalizeStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CodeindexNormalize, time.Since(normalizeStarted))
 
 	// Parse failures/timeouts may still carry file metadata, but they are not
 	// trusted enough to destructively replace existing symbol/scope rows.
@@ -162,15 +162,15 @@ func (s *Service) buildCodeIndexWork(ctx context.Context, lang Lang, ref paths.C
 
 	rationaleStarted := time.Now()
 	rationale := ExtractRationale(content, intelPath, lang, summary.Symbols)
-	indexingperf.ObserveLatency(ctx, "codeindex.rationale", time.Since(rationaleStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CodeindexRationale, time.Since(rationaleStarted))
 
 	var docLinks []DocLink
 	if s.linker != nil {
 		docLinksStarted := time.Now()
 		docLinks = s.linker.LinksForCode(relPath, content, FileContext{})
-		indexingperf.ObserveLatency(ctx, "codeindex.doclinks", time.Since(docLinksStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexDoclinks, time.Since(docLinksStarted))
 	}
-	indexingperf.ObserveLatency(ctx, "codeindex.intel", time.Since(intelStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CodeindexIntel, time.Since(intelStarted))
 
 	var symbolRefs []SymbolRefRow
 	var importRefs []ImportRefRow
@@ -186,7 +186,7 @@ func (s *Service) buildCodeIndexWork(ctx context.Context, lang Lang, ref paths.C
 		moduleDefs = BuildModuleDefRows(relPath, summary, idx)
 		refFootprint = BuildDurableRefFootprint(relPath, symbolRefs, importRefs)
 		scopeReady = BuildScopeReadyFootprint(relPath, summary)
-		indexingperf.ObserveLatency(ctx, "codeindex.refs", time.Since(refsStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexRefs, time.Since(refsStarted))
 	}
 
 	defDeltas := DefDeltas{}
@@ -207,7 +207,7 @@ func (s *Service) buildCodeIndexWork(ctx context.Context, lang Lang, ref paths.C
 			defDeltas.AddedModules = addedMods
 			defDeltas.RemovedModules = removedMods
 		}
-		indexingperf.ObserveLatency(ctx, "codeindex.defdeltas", time.Since(deltasStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodeindexDefdeltas, time.Since(deltasStarted))
 	}
 
 	return &CodeIndexWork{
@@ -403,7 +403,7 @@ func (s *Service) ApplyCodeIndexBatch(ctx context.Context, works []CodeIndexWork
 	}
 	applyStarted := time.Now()
 	defer func() {
-		indexingperf.ObserveLatency(ctx, "codepersist.apply", time.Since(applyStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodepersistApply, time.Since(applyStarted))
 	}()
 	// Readers can cache old rows during publication, including partial failures.
 	defer func() {
@@ -506,7 +506,7 @@ func (s *Service) ApplyCodeIndexBatch(ctx context.Context, works []CodeIndexWork
 				}
 			}
 		}
-		indexingperf.ObserveLatency(ctx, "codepersist.doclinks", time.Since(docLinksStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodepersistDoclinks, time.Since(docLinksStarted))
 	}
 
 	if hasBatchStore {
@@ -523,7 +523,7 @@ func (s *Service) ApplyCodeIndexBatch(ctx context.Context, works []CodeIndexWork
 		}); err != nil {
 			return err
 		}
-		indexingperf.ObserveLatency(ctx, "codepersist.sqlite_batch", time.Since(sqliteBatchStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodepersistSqliteBatch, time.Since(sqliteBatchStarted))
 		return nil
 	}
 
@@ -539,7 +539,7 @@ func (s *Service) ApplyCodeIndexBatch(ctx context.Context, works []CodeIndexWork
 		if err := refStore.ReplaceIntelModuleDefsForPathsBatch(ctx, moduleDefBatches); err != nil {
 			refErr = errors.Join(refErr, fmt.Errorf("module defs: %w", err))
 		}
-		indexingperf.ObserveLatency(ctx, "codepersist.refs", time.Since(refsStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodepersistRefs, time.Since(refsStarted))
 		if refErr != nil {
 			return fmt.Errorf("reverse-index write failed: %w", refErr)
 		}
@@ -549,7 +549,7 @@ func (s *Service) ApplyCodeIndexBatch(ctx context.Context, works []CodeIndexWork
 		if err := externalStore.ReplaceExternalEvidenceForPathsBatch(ctx, externalEvidenceBatches); err != nil {
 			return err
 		}
-		indexingperf.ObserveLatency(ctx, "codepersist.external_evidence", time.Since(started))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodepersistExternalEvidence, time.Since(started))
 	}
 
 	if len(intelReps) > 0 {
@@ -565,7 +565,7 @@ func (s *Service) ApplyCodeIndexBatch(ctx context.Context, works []CodeIndexWork
 				}
 			}
 		}
-		indexingperf.ObserveLatency(ctx, "codepersist.intel", time.Since(intelStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodepersistIntel, time.Since(intelStarted))
 	}
 
 	// Persist rationale for files that were (re)indexed.
@@ -576,7 +576,7 @@ func (s *Service) ApplyCodeIndexBatch(ctx context.Context, works []CodeIndexWork
 				return err
 			}
 		}
-		indexingperf.ObserveLatency(ctx, "codepersist.rationale", time.Since(rationaleStarted))
+		indexingperf.ObserveLatency(ctx, indexingperf.CodepersistRationale, time.Since(rationaleStarted))
 	}
 
 	// Generic stores cannot roll back partial writes. Publish freshness only
@@ -598,7 +598,7 @@ func (s *Service) ApplyCodeIndexBatch(ctx context.Context, works []CodeIndexWork
 			return err
 		}
 	}
-	indexingperf.ObserveLatency(ctx, "codepersist.summary_meta", time.Since(summaryStarted))
+	indexingperf.ObserveLatency(ctx, indexingperf.CodepersistSummaryMeta, time.Since(summaryStarted))
 
 	return nil
 }

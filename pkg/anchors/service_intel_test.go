@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"log"
 	"os"
 	"path/filepath"
@@ -18,10 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	sqlite "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type countingRefStore struct {
@@ -356,7 +356,7 @@ func TestService_IntelNoteExtraction_StoresSections(t *testing.T) {
 
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(tmp))
 
-	_, err = svc.IngestNoteSource(ctx, notemeta.NewContentOnlyNoteSourceSnapshot("notes/foo.md", "# Foo\nbody\n## Bar\nmore", 456))
+	_, err = svc.IngestNoteSource(ctx, testkit.NoteSource(t, "notes/foo.md", "# Foo\nbody\n## Bar\nmore", 456))
 	require.NoError(t, err)
 
 	sqlDB, err := sql.Open("sqlite3", dbPath)
@@ -384,10 +384,10 @@ func TestService_IntelNoteExtraction_RemovesStaleSectionsOnReingest(t *testing.T
 
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(tmp))
 
-	_, err = svc.IngestNoteSource(ctx, notemeta.NewContentOnlyNoteSourceSnapshot("notes/foo.md", "# Foo\nbody\n## Bar\nmore", 0))
+	_, err = svc.IngestNoteSource(ctx, testkit.NoteSource(t, "notes/foo.md", "# Foo\nbody\n## Bar\nmore", 0))
 	require.NoError(t, err)
 
-	_, err = svc.IngestNoteSource(ctx, notemeta.NewContentOnlyNoteSourceSnapshot("notes/foo.md", "# Foo\nbody", 0))
+	_, err = svc.IngestNoteSource(ctx, testkit.NoteSource(t, "notes/foo.md", "# Foo\nbody", 0))
 	require.NoError(t, err)
 
 	sqlDB, err := sql.Open("sqlite3", dbPath)
@@ -412,7 +412,7 @@ func TestService_DeleteNote_RemovesIntelDocSections(t *testing.T) {
 	svc := codeanchor.NewServiceWithOptions(store, nil, codeanchor.WithBasePath(tmp))
 	path := filepath.Join(tmp, "notes/foo.md")
 
-	_, err = svc.IngestNoteSource(ctx, notemeta.NewContentOnlyNoteSourceSnapshot("notes/foo.md", "# Foo\nbody\n## Bar\nmore", 0))
+	_, err = svc.IngestNoteSource(ctx, testkit.NoteSource(t, "notes/foo.md", "# Foo\nbody\n## Bar\nmore", 0))
 	require.NoError(t, err)
 
 	require.NoError(t, svc.DeleteNote(ctx, path))
@@ -465,7 +465,7 @@ func TestService_IntelNoteExtraction_StoresMentionsEdges(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = svc.IngestNoteSource(ctx, notemeta.NewContentOnlyNoteSourceSnapshot("notes/foo.md", "# Foo\nSee @embeddings.codeindex.types.Item and [Item](pkg/embeddings/codeindex/types.go#Item)", 0))
+	_, err = svc.IngestNoteSource(ctx, testkit.NoteSource(t, "notes/foo.md", "# Foo\nSee @embeddings.codeindex.types.Item and [Item](pkg/embeddings/codeindex/types.go#Item)", 0))
 	require.NoError(t, err)
 
 	var count int

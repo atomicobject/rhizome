@@ -11,9 +11,7 @@ import (
 
 func runPhase(ctx context.Context, name string, fn func(context.Context) error) error {
 	phaseCtx := indexingperf.WithPhase(ctx, name)
-	done := indexingperf.StartSpan(phaseCtx, name)
-	err := fn(phaseCtx)
-	done(err)
+	err := indexingperf.RunPhase(phaseCtx, name, fn)
 	if err != nil {
 		reason := "phase_failed"
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

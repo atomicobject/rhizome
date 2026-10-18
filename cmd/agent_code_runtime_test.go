@@ -1,5 +1,7 @@
 package cmd
 
+import vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+
 import (
 	"context"
 	"encoding/json"
@@ -17,32 +19,34 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCodeModeLocalOperationStartsWhileRuntimeOwnerWaitsForWriter(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, nil)
-	vaultName = vault.name
+	commandOptions.vaultName = vault.name
 	lockPath := filepath.Join(vault.path, ".rhizome", "index.lock")
 	releaseWriter, acquired, err := indexlock.TryAcquire(lockPath)
 	require.NoError(t, err)
 	require.True(t, acquired)
 	t.Cleanup(func() { _ = releaseWriter() })
-	releaseOwner, acquired, err := indexlock.TryAcquireWithOptions(appruntime.LockPath(vault.path), indexlock.AcquireOptions{ProcessLifetime: true})
+	releaseOwner, acquired, err := indexlock.TryAcquireWithOptions(appruntime.LockPath(vault.path), indexlock.AcquireOptions{})
 	require.NoError(t, err)
 	require.True(t, acquired)
 	t.Cleanup(func() { _ = releaseOwner() })
 
-	baseCtx := contextWithCommandEnv(context.Background(), commandEnv{Getwd: func() (string, error) { return vault.path, nil }})
+	baseCtx := contextWithCommandEnv(vaultconfig.WithEnv(context.Background(), vault.env), commandEnv{Getwd: func() (string, error) { return vault.path, nil }})
 	ctx, cancel := context.WithTimeout(baseCtx, 2*time.Second)
 	defer cancel()
 	done := make(chan agentcode.CallOutcome, 1)
 	errors := make(chan error, 1)
 	go func() {
-		call, err := newAgentCodeInvoker(ctx, false)
+		call, err := commandOptions.newAgentCodeInvoker(ctx, false)
 		if err != nil {
 			errors <- err
 			return
@@ -66,12 +70,12 @@ func TestCodeModeLocalOperationStartsWhileRuntimeOwnerWaitsForWriter(t *testing.
 
 func TestForwardedCodeModeCallRetriesAfterCanceledRuntimeWait(t *testing.T) {
 	vault := setupAgentTestVault(t, nil)
-	releaseOwner, acquired, err := indexlock.TryAcquireWithOptions(appruntime.LockPath(vault.path), indexlock.AcquireOptions{ProcessLifetime: true})
+	releaseOwner, acquired, err := indexlock.TryAcquireWithOptions(appruntime.LockPath(vault.path), indexlock.AcquireOptions{})
 	require.NoError(t, err)
 	require.True(t, acquired)
 	t.Cleanup(func() { _ = releaseOwner() })
 	forwarder := newAgentOpForwarder(vault.path)
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(vaultconfig.WithEnv(context.Background(), vault.env), 100*time.Millisecond)
 	defer cancel()
 
 	outcome, handled := forwarder.call(ctx, "files", map[string]any{}, false)
@@ -101,7 +105,7 @@ func TestForwardedCodeModeCallRetriesAfterCanceledRuntimeWait(t *testing.T) {
 	}))
 	t.Cleanup(func() { _ = appruntime.RemoveManifestIfOwner(vault.path, os.Getpid()) })
 
-	outcome, handled = forwarder.call(context.Background(), "files", map[string]any{}, false)
+	outcome, handled = forwarder.call(vaultconfig.WithEnv(context.Background(), vault.env), "files", map[string]any{}, false)
 	require.True(t, handled)
 	require.True(t, outcome.OK, outcome.Stderr)
 	require.Equal(t, int32(1), probes.Load())
@@ -279,7 +283,9 @@ func TestAgentCodeCancellationDoesNotFallBackToThisProcess(t *testing.T) {
 }
 
 func TestRuntimeRefusesLocalOnlyOperations(t *testing.T) {
-	host := &agentOpHost{}
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	host := &agentOpHost{vaultCommandOptions: commandOptions}
 	local := 0
 	for _, descriptor := range agentapi.CodeOperationDescriptors() {
 		if descriptor.CodeLocal == nil || (descriptor.CodeRuntimeRead != nil && descriptor.CodeRuntimeRead(map[string]any{})) {
@@ -295,7 +301,9 @@ func TestRuntimeRefusesLocalOnlyOperations(t *testing.T) {
 }
 
 func TestRuntimeServesOnlyCatalogAdmittedReads(t *testing.T) {
-	host := &agentOpHost{}
+	commandOptions := newRuntimeOptionsForTest(t)
+
+	host := &agentOpHost{vaultCommandOptions: commandOptions}
 	for _, refused := range []struct {
 		name  string
 		input map[string]any
@@ -331,8 +339,10 @@ func attachFakeRuntime(t *testing.T, vaultPath string, ops http.HandlerFunc) {
 }
 
 func TestAgentCodeServesTypedReadsInTheRuntimeUntilTheConnectionWrites(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	vault := setupAgentTestVault(t, map[string]string{"a.md": "# A\n"})
-	vaultName = vault.name
+	commandOptions.vaultName = vault.name
 	var reads atomic.Int32
 	var pending atomic.Bool
 	attachFakeRuntime(t, vault.path, func(w http.ResponseWriter, r *http.Request) {
@@ -344,8 +354,8 @@ func TestAgentCodeServesTypedReadsInTheRuntimeUntilTheConnectionWrites(t *testin
 		}
 		writeOutcome(t, w, agentapi.CallOutcome{OK: true, Payload: json.RawMessage(`{"data":{"host":"runtime"}}`)}, 1)
 	})
-	ctx := contextWithCommandEnv(context.Background(), commandEnv{Getwd: func() (string, error) { return vault.path, nil }})
-	call, err := newAgentCodeInvoker(ctx, true)
+	ctx := contextWithCommandEnv(vaultconfig.WithEnv(context.Background(), vault.env), commandEnv{Getwd: func() (string, error) { return vault.path, nil }})
+	call, err := commandOptions.newAgentCodeInvoker(ctx, true)
 	require.NoError(t, err)
 	query := map[string]any{"query": "{ __typename }"}
 
@@ -370,9 +380,11 @@ func TestAgentCodeServesTypedReadsInTheRuntimeUntilTheConnectionWrites(t *testin
 }
 
 func TestRuntimeEnforcesTheConnectionsWriteAuthority(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	// These refusals run before any runtime capability is consulted, so a
 	// zero-value host proves the order: authority first, work second.
-	host := &agentOpHost{}
+	host := &agentOpHost{vaultCommandOptions: commandOptions}
 	mutating := 0
 	for _, descriptor := range agentapi.CodeOperationDescriptors() {
 		if descriptor.CodeLocal != nil || descriptor.Mutation == agentapi.MutationNever {

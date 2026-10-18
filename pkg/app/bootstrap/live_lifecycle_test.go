@@ -3,6 +3,8 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"sync"
@@ -10,12 +12,13 @@ import (
 	"testing"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,17 +92,19 @@ noteEmbeddings:
 }
 
 func TestNewLiveRuntimeReleasesParentCancellationOnVaultError(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Chdir(t.TempDir())
-	wantErr := errors.New("vault preferences unavailable")
-	previousConfigPath := obsidian.CliConfigPath
-	obsidian.CliConfigPath = func() (string, string, error) { return "", "", wantErr }
-	t.Cleanup(func() { obsidian.CliConfigPath = previousConfigPath })
+	wantErr := vaultconfig.UserConfigDirectoryNotFoundErrorMessage
+	env.HomeDir = ""
+	env.CLIConfigFile = ""
 
 	for _, vaultName := range []string{"", "missing-vault"} {
 		t.Run("vault="+vaultName, func(t *testing.T) {
-			parent := &trackedCancellationContext{Context: context.Background(), done: make(chan struct{})}
+			parent := &trackedCancellationContext{Context: vaultconfig.WithEnv(context.Background(), env), done: make(chan struct{})}
 			rt, err := NewLiveRuntime(parent, LiveOptions{VaultName: vaultName})
-			require.ErrorIs(t, err, wantErr)
+			require.EqualError(t, err, wantErr)
 			require.Nil(t, rt)
 			require.Zero(t, parent.subscriptions.Load(), "failed construction must release its parent cancellation subscription")
 		})

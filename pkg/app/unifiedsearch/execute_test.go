@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +32,7 @@ func (p *recordingPacker) Pack(_ context.Context, _ search.QuerySpec, results []
 }
 
 func TestExecuteRejectsContradictoryTestEligibility(t *testing.T) {
-	_, err := Execute(context.Background(), ApplicationOptions{Runtime: Options{Filters: search.Filters{TestsOnly: true, ExcludeTests: true}}})
+	_, err := Execute(context.Background(), ApplicationOptions{Runtime: Options{NoteFormats: testNoteFormats(t), Filters: search.Filters{TestsOnly: true, ExcludeTests: true}}})
 	require.EqualError(t, err, "tests-only and exclude-tests filters cannot be combined")
 }
 
@@ -63,11 +63,11 @@ func TestExecuteCanonicalizesExplicitQueriesForRetrievalAnswerAndContinuation(t 
 	runRuntime := func(_ context.Context, opts Options) (Result, error) {
 		received = append(received, append([]QueryInput(nil), opts.QueryInputs...))
 		return Result{IndexGeneration: "generation-1", Lanes: []search.LaneStatus{{Lane: "note_lexical", Status: search.LaneStateRan}}, Results: []search.RankedResult{
-			{Candidate: search.Candidate{Handle: knowledge.NoteHandle("policy.md"), Path: "policy.md", Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}, FinalScore: 1},
-			{Candidate: search.Candidate{Handle: knowledge.NoteHandle("context.md"), Path: "context.md", Type: "note", Evidence: []search.Evidence{{Type: "note_lexical", RawScore: .5}}}, FinalScore: .5},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "policy.md"}, Handle: knowledge.NoteHandle("policy.md"), Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}, FinalScore: 1},
+			{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "context.md"}, Handle: knowledge.NoteHandle("context.md"), Type: "note", Evidence: []search.Evidence{{Type: "note_lexical", RawScore: .5}}}, FinalScore: .5},
 		}}, nil
 	}
-	duplicate := Options{IntentInput: string(search.IntentSearch), QueryInputs: []QueryInput{{Text: "policy"}, {Text: " policy ", Mode: string(search.IntentSearch)}}, VaultPath: t.TempDir()}
+	duplicate := Options{NoteFormats: testNoteFormats(t), IntentInput: string(search.IntentSearch), QueryInputs: []QueryInput{{Text: "policy"}, {Text: " policy ", Mode: string(search.IntentSearch)}}, VaultPath: t.TempDir()}
 	first, err := Execute(context.Background(), ApplicationOptions{Profile: ProfileInteractive, VisibleLimit: 1, Runtime: duplicate, runRuntime: runRuntime})
 	require.NoError(t, err)
 	require.Equal(t, []QueryInput{{Text: "policy", Mode: string(search.IntentSearch)}}, first.Request.Queries)
@@ -87,13 +87,15 @@ func TestExecuteDoesNotClaimExhaustiveRelationshipWhenMoreResultsRemain(t *testi
 	results := make([]search.RankedResult, 0, 7)
 	for index := 0; index < 7; index++ {
 		results = append(results, search.RankedResult{Candidate: search.Candidate{
-			Handle: knowledge.AnchorHandle(fmt.Sprintf("caller-%d", index)), Path: fmt.Sprintf("caller-%d.go", index), FQN: fmt.Sprintf("pkg.Caller%d", index), Type: "anchor",
-			Evidence: []search.Evidence{{Type: "call_edge", RawScore: 1}},
+			SourceRef: search.SourceRef{Path: fmt.Sprintf("caller-%d.go", index), FQN: fmt.Sprintf("pkg.Caller%d", index)},
+			Handle:    knowledge.AnchorHandle(fmt.Sprintf("caller-%d", index)),
+			Type:      "anchor",
+			Evidence:  []search.Evidence{{Type: "call_edge", RawScore: 1}},
 		}, FinalScore: 1 - float64(index)/10})
 	}
 	result, err := Execute(context.Background(), ApplicationOptions{
 		Profile: ProfileAgent, VisibleLimit: 6,
-		Runtime: Options{Query: "callers of Target", IntentInput: string(search.IntentCallers), VaultPath: t.TempDir()},
+		Runtime: Options{NoteFormats: testNoteFormats(t), Query: "callers of Target", IntentInput: string(search.IntentCallers), VaultPath: t.TempDir()},
 		runRuntime: func(context.Context, Options) (Result, error) {
 			return Result{
 				IndexGeneration: "generation-1", Results: results,
@@ -124,7 +126,7 @@ func TestExecuteRejectsMalformedContinuationBeforeProviderWork(t *testing.T) {
 	var factoryCalls atomic.Int32
 	_, err := Execute(context.Background(), ApplicationOptions{
 		Profile: ProfileInteractive, Continuation: "not-a-cursor",
-		Runtime: Options{Query: "search", IntentInput: string(search.IntentSearch), UseVector: true, VaultPath: t.TempDir(), EmbCfg: embeddings.Config{Enabled: true, Provider: "test", Dimensions: 8, IndexPath: "missing.sqlite"}},
+		Runtime: Options{NoteFormats: testNoteFormats(t), Query: "search", IntentInput: string(search.IntentSearch), UseVector: true, VaultPath: t.TempDir(), EmbCfg: embeddings.Config{Enabled: true, Provider: "test", Dimensions: 8, IndexPath: "missing.sqlite"}},
 		runRuntime: func(context.Context, Options) (Result, error) {
 			factoryCalls.Add(1)
 			return Result{}, nil
@@ -142,7 +144,7 @@ func TestExecuteCanExplicitlyDisableProfileTimeout(t *testing.T) {
 	}
 	_, err := Execute(context.Background(), ApplicationOptions{
 		Profile: ProfileInteractive, NoDefaultTimeout: true,
-		Runtime: Options{Query: "unbounded"}, runRuntime: runRuntime,
+		Runtime: Options{NoteFormats: testNoteFormats(t), Query: "unbounded"}, runRuntime: runRuntime,
 	})
 	require.NoError(t, err)
 }
@@ -150,15 +152,15 @@ func TestExecuteCanExplicitlyDisableProfileTimeout(t *testing.T) {
 func TestExecutePacksOnlyTheSelectedCanonicalPage(t *testing.T) {
 	packer := &recordingPacker{}
 	results := []search.RankedResult{
-		{Candidate: search.Candidate{Handle: knowledge.NoteHandle("alpha.md"), Path: "alpha.md", Type: "note"}, FinalScore: 3},
-		{Candidate: search.Candidate{Handle: knowledge.NoteHandle("beta.md"), Path: "beta.md", Type: "note"}, FinalScore: 2},
-		{Candidate: search.Candidate{Handle: knowledge.NoteHandle("gamma.md"), Path: "gamma.md", Type: "note"}, FinalScore: 1},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "alpha.md"}, Handle: knowledge.NoteHandle("alpha.md"), Type: "note"}, FinalScore: 3},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "beta.md"}, Handle: knowledge.NoteHandle("beta.md"), Type: "note"}, FinalScore: 2},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "gamma.md"}, Handle: knowledge.NoteHandle("gamma.md"), Type: "note"}, FinalScore: 1},
 	}
 	runRuntime := func(_ context.Context, opts Options) (Result, error) {
 		require.True(t, opts.DeferPack)
 		return Result{Results: results, IndexGeneration: "generation-1", DeferredPacker: packer, PackSpec: search.QuerySpec{Text: "guide", Budget: search.Budget{Chars: 2_000}}}, nil
 	}
-	runtime := Options{Query: "guide", IntentInput: string(search.IntentSearch), VaultPath: t.TempDir(), Pack: true}
+	runtime := Options{NoteFormats: testNoteFormats(t), Query: "guide", IntentInput: string(search.IntentSearch), VaultPath: t.TempDir(), Pack: true}
 	first, err := Execute(context.Background(), ApplicationOptions{Profile: ProfileInteractive, VisibleLimit: 1, Runtime: runtime, runRuntime: runRuntime})
 	require.NoError(t, err)
 	require.Equal(t, "alpha.md", first.PackedText)
@@ -184,9 +186,9 @@ func TestExecuteMaterializesRawDisplayBeforeRuntimeCleanup(t *testing.T) {
 	require.True(t, found)
 	owner := knowledge.NoteHandle("guide.md")
 	results := []search.RankedResult{
-		{Candidate: search.Candidate{Handle: knowledge.AnchorHandle(anchor.AnchorID), Type: "code", Path: anchor.Path, AnchorID: anchor.AnchorID, FQN: anchor.FQN}, FinalScore: 1},
-		{Candidate: search.Candidate{Handle: knowledge.NoteChunkHandle("guide.md", 0), Owner: owner, Type: "note", Path: "guide.md", NoteID: "guide.md", Heading: "First", ChunkIndex: 0}, FinalScore: .9},
-		{Candidate: search.Candidate{Handle: knowledge.NoteChunkHandle("guide.md", 1), Owner: owner, Type: "note", Path: "guide.md", NoteID: "guide.md", Heading: "Second", ChunkIndex: 1}, FinalScore: .8},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: anchor.Path, AnchorID: anchor.AnchorID, FQN: anchor.FQN}, Handle: knowledge.AnchorHandle(anchor.AnchorID), Type: "code"}, FinalScore: 1},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "guide.md", NoteID: "guide.md", Heading: "First", ChunkIndex: 0}, Handle: knowledge.NoteChunkHandle("guide.md", 0), Owner: owner, Type: "note"}, FinalScore: .9},
+		{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "guide.md", NoteID: "guide.md", Heading: "Second", ChunkIndex: 1}, Handle: knowledge.NoteChunkHandle("guide.md", 1), Owner: owner, Type: "note"}, FinalScore: .8},
 	}
 	cleaned := false
 	runRuntime := func(context.Context, Options) (Result, error) {
@@ -198,7 +200,7 @@ func TestExecuteMaterializesRawDisplayBeforeRuntimeCleanup(t *testing.T) {
 
 	result, err := Execute(ctx, ApplicationOptions{
 		Profile: ProfileInteractive, VisibleLimit: 5, MaterializeDisplay: true,
-		Runtime: Options{Query: "sync guide", VaultPath: t.TempDir()}, runRuntime: runRuntime,
+		Runtime: Options{NoteFormats: testNoteFormats(t), Query: "sync guide", VaultPath: t.TempDir()}, runRuntime: runRuntime,
 	})
 	require.NoError(t, err)
 	require.True(t, cleaned)
@@ -228,7 +230,7 @@ func TestExecuteRealRuntimeContinuationKeepsVectorWindowWithChangingProvider(t *
 		require.NoError(t, store.UpsertEmbeddings(context.Background(), map[string]embeddings.Embedding{chunkID: vectors[0]}))
 	}
 	provider := &changingQueryProvider{base: base}
-	runtime := Options{
+	runtime := Options{NoteFormats: testNoteFormats(t),
 		Query: "search", IntentInput: string(search.IntentSearch), UseVector: true, UseIntel: true,
 		VaultPath: vault, VaultDef: obsidian.VaultDefinition{Path: vault}, IntelStore: store,
 		CodeProvider: provider, CodeProviderConfig: embeddings.ProviderConfig{Provider: "test", Dimensions: 8},
@@ -258,7 +260,7 @@ func TestExecuteInfersDefaultIntentWhenModeOmitted(t *testing.T) {
 	var inferred Options
 	result, err := Execute(context.Background(), ApplicationOptions{
 		Profile:    ProfileInteractive,
-		Runtime:    Options{Query: "how does indexing work", VaultPath: t.TempDir()},
+		Runtime:    Options{NoteFormats: testNoteFormats(t), Query: "how does indexing work", VaultPath: t.TempDir()},
 		runRuntime: capture(&inferred),
 	})
 	require.NoError(t, err)
@@ -269,7 +271,7 @@ func TestExecuteInfersDefaultIntentWhenModeOmitted(t *testing.T) {
 	var explicit Options
 	explicitResult, err := Execute(context.Background(), ApplicationOptions{
 		Profile:    ProfileInteractive,
-		Runtime:    Options{Query: "search subsystem", IntentInput: string(search.IntentSearch), VaultPath: t.TempDir()},
+		Runtime:    Options{NoteFormats: testNoteFormats(t), Query: "search subsystem", IntentInput: string(search.IntentSearch), VaultPath: t.TempDir()},
 		runRuntime: capture(&explicit),
 	})
 	require.NoError(t, err)
@@ -281,7 +283,7 @@ func TestExecuteKeepsMixedExplicitFacetModesUninferred(t *testing.T) {
 	var captured Options
 	result, err := Execute(context.Background(), ApplicationOptions{
 		Profile: ProfileInteractive,
-		Runtime: Options{
+		Runtime: Options{NoteFormats: testNoteFormats(t),
 			QueryInputs: []QueryInput{
 				{Text: "how does indexing work", Mode: string(search.IntentSearch)},
 				{Text: "callers of Execute", Mode: string(search.IntentCallers)},
@@ -297,4 +299,17 @@ func TestExecuteKeepsMixedExplicitFacetModesUninferred(t *testing.T) {
 	require.Equal(t, string(search.IntentSearch), captured.IntentInput)
 	require.Equal(t, "explicit", result.Request.IntentSource)
 	require.Zero(t, result.Request.IntentScore)
+}
+
+func TestExecuteFreeFormModesUseSharedIntentHeuristicForEveryFacet(t *testing.T) {
+	seen := false
+	result, err := Execute(t.Context(), ApplicationOptions{Runtime: Options{NoteFormats: testNoteFormats(t), QueryInputs: []QueryInput{{Text: "search implementation", Mode: "overview"}, {Text: "search tests", Mode: "how does this work"}}, IntentInput: "how does this work"}, runRuntime: func(_ context.Context, opts Options) (Result, error) {
+		seen = true
+		require.Equal(t, string(search.IntentOverview), opts.IntentInput)
+		require.Equal(t, []QueryInput{{Text: "search implementation", Mode: string(search.IntentOverview)}, {Text: "search tests", Mode: string(search.IntentOverview)}}, opts.QueryInputs)
+		return Result{Intent: search.IntentOverview}, nil
+	}})
+	require.NoError(t, err)
+	require.True(t, seen)
+	require.Equal(t, "inferred", result.Request.IntentSource)
 }

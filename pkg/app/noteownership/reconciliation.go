@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // SnapshotStore is the injected read port used by application adapters.

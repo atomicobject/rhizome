@@ -7,9 +7,9 @@ import (
 	"sync"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -40,7 +40,7 @@ func TestIndexerStyleNodeReadScopesRunConcurrentlyWithoutSharedMutableCache(t *t
 			wg.Add(1)
 			go func(source string) {
 				defer wg.Done()
-				scope := service.NewScope(ctx, noderead.ScopeOptions{Budget: 4})
+				scope := service.NewScope(noderead.ScopeOptions{})
 				result, err := scope.Expand(ctx, noderead.ExpansionPlan{
 					Sources: []ontology.NodeRef{{NotePath: source, Kind: ontology.NodeKindNote}},
 					Steps: []noderead.ExpansionStep{{

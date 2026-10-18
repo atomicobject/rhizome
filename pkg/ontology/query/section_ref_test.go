@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +44,6 @@ type Spec @node(paths: ["notes/*.md"]) { stories: Stories @contains(level: H2, h
 		require.Empty(t, errs)
 		deps := env.deps(nil)
 		deps.NoteReader = contentFailingQueryNoteReader{inner: &obsidian.Note{}}
-		deps.Service = nil
 		result := Execute(t.Context(), deps, env.schema, prepared)
 		require.Empty(t, result.Errors)
 		rows := result.Data["story"].([]any)
@@ -75,7 +74,6 @@ type Spec @node(paths: ["notes/*.md"]) { stories: Stories @contains(level: H2, h
 				}
 				reader := &boundedQueryReader{NoteReader: &obsidian.Note{}}
 				deps.NoteReader = reader
-				deps.Service = nil
 				prepared, errs := Prepare(env.execSchema, `{ spec(path: "notes/spec.md") { stories { stories { `+selection+` } } } }`)
 				require.Empty(t, errs)
 				result := Execute(t.Context(), deps, env.schema, prepared)

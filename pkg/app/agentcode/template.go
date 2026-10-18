@@ -17,10 +17,10 @@ export class CodeModeError extends Error {
   }
 }
 
-function requireOptions(options) {
+function requireOptions(options, processOwned = true) {
   if (!options || typeof options !== "object") throw new CodeModeError("invalid_options", "client options are required");
-  if (typeof options.executablePath !== "string" || !isAbsolute(options.executablePath)) throw new CodeModeError("invalid_options", "executablePath must be absolute");
-  if (typeof options.vaultPath !== "string" || !isAbsolute(options.vaultPath)) throw new CodeModeError("invalid_options", "vaultPath must be absolute");
+  if (processOwned && (typeof options.executablePath !== "string" || !isAbsolute(options.executablePath))) throw new CodeModeError("invalid_options", "executablePath must be absolute");
+  if (processOwned && (typeof options.vaultPath !== "string" || !isAbsolute(options.vaultPath))) throw new CodeModeError("invalid_options", "vaultPath must be absolute");
   if (options.sessionId !== undefined && (typeof options.sessionId !== "string" || !options.sessionId)) throw new CodeModeError("invalid_options", "sessionId must be a non-empty string");
   if (options.readWrite !== undefined && typeof options.readWrite !== "boolean") throw new CodeModeError("invalid_options", "readWrite must be boolean");
   for (const [name, value, max] of [["concurrency", options.concurrency, 32], ["timeoutMs", options.timeoutMs, 300_000], ["outputLimitBytes", options.outputLimitBytes, 1024 * 1024]]) {
@@ -39,14 +39,25 @@ function fault(frame) {
 
 export function createClient(options) {
   requireOptions(options);
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const outputLimit = options.outputLimitBytes ?? DEFAULT_OUTPUT_LIMIT;
   const command = ["agent", "code", "serve", ...(options.readWrite ? ["--read-write"] : [])];
   const child = spawn(options.executablePath, command, {
     cwd: options.vaultPath, shell: false,
     // The headless server never renders terminal cells, so skip tcell's eager rune-width table.
     env: { ...process.env, RZM_SKIP_REPO_DELEGATE: "1", TCELL_MINIMIZE: "1" }, stdio: ["pipe", "pipe", "pipe"]
   });
+  return connectedClient(options, child);
+}
+
+// Managed execution supplies its invocation-owned host over streams. All call
+// queuing, validation, cancellation and framing are shared with createClient.
+function createManagedClient(options, connection) {
+  requireOptions(options, false);
+  return connectedClient(options, connection);
+}
+
+function connectedClient(options, child) {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const outputLimit = options.outputLimitBytes ?? DEFAULT_OUTPUT_LIMIT;
   let closed = false, childClosed = false, fatalError, closePromise, nextID = 1, stdout = Buffer.alloc(0), stderr = "";
   const pending = new Map();
   const queue = [];

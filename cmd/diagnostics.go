@@ -66,6 +66,7 @@ func newDiagnosticsCmd() *cobra.Command {
 			if len(args) != 0 {
 				opts.OperationID = args[0]
 			}
+			opts.Env = commandEnvFromContext(cmd.Context()).Config
 			result, err := diagnosticcli.Read(opts)
 			if err != nil {
 				result.Error = err.Error()
@@ -111,4 +112,6 @@ func newDiagnosticsCmd() *cobra.Command {
 	return command
 }
 
-func init() { rootCmd.AddCommand(newDiagnosticsCmd()) }
+func (commandOptions *vaultCommandOptions) registerDiagnosticsCommands(rootCmd *cobra.Command) {
+	rootCmd.AddCommand(newDiagnosticsCmd())
+}

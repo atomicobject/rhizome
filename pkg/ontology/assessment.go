@@ -2,28 +2,29 @@ package ontology
 
 import (
 	"encoding/json"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type FieldAssessment struct {
-	Name                string            `json:"name"`
-	Description         string            `json:"description,omitempty"`
-	Kind                FieldKind         `json:"kind"`
-	TypeName            string            `json:"typeName"`
-	Required            bool              `json:"required"`
-	List                bool              `json:"list"`
-	Source              string            `json:"source,omitempty"`
-	SourceAliases       []string          `json:"sourceAliases,omitempty"`
-	SourceKind          FieldSource       `json:"sourceKind,omitempty"`
-	Semantics           SemanticsKind     `json:"semantics,omitempty"`
-	Identifier          bool              `json:"identifier,omitempty"`
-	PreferredIdentifier bool              `json:"preferredIdentifier,omitempty"`
-	Present             bool              `json:"present"`
-	Values              []string          `json:"values,omitempty"`
-	ValidValues         []string          `json:"validValues,omitempty"`
-	Issues              []ValidationIssue `json:"issues,omitempty"`
+	Name                string                   `json:"name"`
+	Description         string                   `json:"description,omitempty"`
+	Kind                ontoschema.FieldKind     `json:"kind"`
+	TypeName            string                   `json:"typeName"`
+	Required            bool                     `json:"required"`
+	List                bool                     `json:"list"`
+	Source              string                   `json:"source,omitempty"`
+	SourceAliases       []string                 `json:"sourceAliases,omitempty"`
+	SourceKind          ontoschema.FieldSource   `json:"sourceKind,omitempty"`
+	Semantics           ontoschema.SemanticsKind `json:"semantics,omitempty"`
+	Identifier          bool                     `json:"identifier,omitempty"`
+	PreferredIdentifier bool                     `json:"preferredIdentifier,omitempty"`
+	Present             bool                     `json:"present"`
+	Values              []string                 `json:"values,omitempty"`
+	ValidValues         []string                 `json:"validValues,omitempty"`
+	Issues              []ValidationIssue        `json:"issues,omitempty"`
 }
 
 type RelationTarget struct {
@@ -34,21 +35,21 @@ type RelationTarget struct {
 }
 
 type RelationAssessment struct {
-	Name          string            `json:"name"`
-	Description   string            `json:"description,omitempty"`
-	Kind          FieldKind         `json:"kind"`
-	TypeName      string            `json:"typeName"`
-	Required      bool              `json:"required"`
-	List          bool              `json:"list"`
-	Source        string            `json:"source,omitempty"`
-	SourceAliases []string          `json:"sourceAliases,omitempty"`
-	SourceKind    FieldSource       `json:"sourceKind,omitempty"`
-	Direction     NeighborDirection `json:"direction,omitempty"`
-	Semantics     SemanticsKind     `json:"semantics,omitempty"`
-	Present       bool              `json:"present"`
-	Values        []string          `json:"values,omitempty"`
-	Targets       []RelationTarget  `json:"targets,omitempty"`
-	Issues        []ValidationIssue `json:"issues,omitempty"`
+	Name          string                       `json:"name"`
+	Description   string                       `json:"description,omitempty"`
+	Kind          ontoschema.FieldKind         `json:"kind"`
+	TypeName      string                       `json:"typeName"`
+	Required      bool                         `json:"required"`
+	List          bool                         `json:"list"`
+	Source        string                       `json:"source,omitempty"`
+	SourceAliases []string                     `json:"sourceAliases,omitempty"`
+	SourceKind    ontoschema.FieldSource       `json:"sourceKind,omitempty"`
+	Direction     ontoschema.NeighborDirection `json:"direction,omitempty"`
+	Semantics     ontoschema.SemanticsKind     `json:"semantics,omitempty"`
+	Present       bool                         `json:"present"`
+	Values        []string                     `json:"values,omitempty"`
+	Targets       []RelationTarget             `json:"targets,omitempty"`
+	Issues        []ValidationIssue            `json:"issues,omitempty"`
 }
 
 type NoteAssessment struct {
@@ -56,6 +57,10 @@ type NoteAssessment struct {
 	// emptiness. Missing count or digest is an incomplete materialization.
 	CatalogNodeCount       *int                 `json:"catalogNodeCount,omitempty"`
 	CatalogNodeDigest      string               `json:"catalogNodeDigest,omitempty"`
+	CatalogFieldCount      *int                 `json:"catalogFieldCount,omitempty"`
+	CatalogFieldDigest     string               `json:"catalogFieldDigest,omitempty"`
+	OutputRowCount         *int                 `json:"outputRowCount,omitempty"`
+	OutputRowDigest        string               `json:"outputRowDigest,omitempty"`
 	SourceContentHash      string               `json:"sourceContentHash,omitempty"`
 	NotePath               string               `json:"notePath"`
 	DeclaredType           string               `json:"declaredType,omitempty"`
@@ -152,4 +157,12 @@ func decodeAssessment(raw string) (*NoteAssessment, error) {
 
 func AssessmentFromJSON(raw string) (*NoteAssessment, error) {
 	return decodeAssessment(raw)
+}
+
+func assessmentRowConsistent(row semdb.OntologyNoteAssessmentRow, assessment *NoteAssessment) bool {
+	if assessment == nil || row.NotePath != assessment.NotePath || row.DeclaredType != assessment.DeclaredType || row.ResolvedType != assessment.ResolvedType {
+		return false
+	}
+	flags := FlagsForAssessment(assessment)
+	return row.HasIssues == flags.HasIssues && row.TypeAmbiguous == flags.TypeAmbiguous
 }

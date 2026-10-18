@@ -2,11 +2,10 @@ package query
 
 import (
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/vektah/gqlparser/v2/ast"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/vektah/gqlparser/v2/ast"
 )
 
 // SchemaDiscovery preserves the full-schema response by default. A selected
@@ -27,7 +26,7 @@ type DiscoveredRoot struct {
 	ExclusiveSelectors []string `json:"exclusiveSelectors,omitempty"`
 }
 
-func DiscoverSchema(schema *ontology.Schema, exec *ExecutableSchema, typeName string) (SchemaDiscovery, error) {
+func DiscoverSchema(schema *ontoschema.Schema, exec *ExecutableSchema, typeName string) (SchemaDiscovery, error) {
 	if schema == nil || exec == nil || exec.Schema == nil {
 		return SchemaDiscovery{}, fmt.Errorf("compiled ontology and executable schemas are required")
 	}
@@ -36,7 +35,7 @@ func DiscoverSchema(schema *ontology.Schema, exec *ExecutableSchema, typeName st
 		return SchemaDiscovery{Schema: exec.SDL}, nil
 	}
 	selected := exec.Schema.Types[typeName]
-	if selected == nil || strings.HasPrefix(typeName, "__") || ontology.OntologyTypeVisibility(typeName) == ontology.TypeVisibilityInternal {
+	if selected == nil || strings.HasPrefix(typeName, "__") || ontoschema.OntologyTypeVisibility(typeName) == ontoschema.TypeVisibilityInternal {
 		return SchemaDiscovery{}, fmt.Errorf("public query type %q not found", typeName)
 	}
 	definitions := map[string]*ast.Definition{typeName: selected}

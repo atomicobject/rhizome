@@ -2,12 +2,14 @@ package retrieval
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	"github.com/atomicobject/rhizome/pkg/search/queryframe"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
@@ -93,13 +95,15 @@ func (r *NoteLexicalRetriever) Retrieve(ctx context.Context, spec search.QuerySp
 		}
 	}
 
-	tokens := tokenizeQuery(q)
+	tokens := queryframe.IdentifierTerms(q)
 	if filtered := filterDocTokens(tokens); len(filtered) > 0 {
 		tokens = filtered
 	}
 	if len(tokens) == 0 {
 		return nil, nil
 	}
+
+	matcher := queryframe.Extract(strings.Join(tokens, " ")).ConceptMatcher()
 
 	type scored struct {
 		path       string
@@ -126,11 +130,11 @@ func (r *NoteLexicalRetriever) Retrieve(ctx context.Context, spec search.QuerySp
 		}
 		title := titles[np]
 		if title == "" {
-			title = titleFromPath(np)
+			title = paths.NoteTitle(np)
 		}
-		combined := strings.ToLower(title + " " + filepath.ToSlash(np))
+		combined := title + " " + filepath.ToSlash(np)
 
-		score := tokenMatchScore(tokens, combined)
+		score := matcher.Coverage(combined)
 		if score == 0 {
 			continue
 		}
@@ -144,9 +148,9 @@ func (r *NoteLexicalRetriever) Retrieve(ctx context.Context, spec search.QuerySp
 			}
 			title := titles[np]
 			if title == "" {
-				title = titleFromPath(np)
+				title = paths.NoteTitle(np)
 			}
-			if corrected, ok := boundedTypoMatch(tokens, tokenizeQuery(title)); ok {
+			if corrected, ok := boundedTypoMatch(tokens, queryframe.IdentifierTerms(title)); ok {
 				scoredNotes = append(scoredNotes, scored{path: np, title: title, score: 0.55, typo: true})
 				search.AddRuntimeWarning(ctx, search.Warning{Code: "typo_fallback", Kind: "query_interpretation", Source: "note_lexical", Message: "Included close title matches for " + corrected + "."})
 			}
@@ -185,14 +189,16 @@ func (r *NoteLexicalRetriever) Retrieve(ctx context.Context, spec search.QuerySp
 			evidence = append(evidence, search.Evidence{Type: "path_exact", RawScore: 1, Source: "note_lexical", Details: map[string]string{"path": s.path}})
 		}
 		out = append(out, search.Candidate{
-			Handle:     h,
-			Owner:      h,
-			Evidence:   evidence,
-			Type:       "note",
-			NoteID:     s.path,
-			Path:       s.path,
-			Title:      s.title,
-			ChunkIndex: -1,
+			SourceRef: search.SourceRef{
+				NoteID:     s.path,
+				Path:       s.path,
+				Title:      s.title,
+				ChunkIndex: -1,
+			},
+			Handle:   h,
+			Owner:    h,
+			Evidence: evidence,
+			Type:     "note",
 		})
 	}
 	return out, nil

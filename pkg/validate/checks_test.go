@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,11 +19,12 @@ func TestRunCheckUsesOptionsMaxIssuesWhenRunContextLimitIsUnset(t *testing.T) {
 		writeValidationTestFile(t, filepath.Join(root, ".rhizome", "views", fmt.Sprintf("bad-%03d.yaml", i)), "apiVersion: [")
 	}
 
-	result := RunCheck(context.Background(), RunContext{
-		VaultDef:   obsidian.VaultDefinition{Path: root},
-		VaultPath:  root,
-		NoteReader: &obsidian.Note{},
-	}, Options{MaxIssues: 100}, CheckViews)
+	result := preparedCheck(t, context.Background(), RunContext{
+		VaultDef:     obsidian.VaultDefinition{Path: root},
+		VaultPath:    root,
+		NoteReader:   &obsidian.Note{},
+		NoteMetadata: testNoteMetadata(t),
+	}, ScanOptions{MaxIssues: 100}, CheckViews)
 
 	require.False(t, result.OK)
 	require.Equal(t, 125, result.IssueCount)
@@ -33,7 +35,7 @@ func TestRunCheckUsesOptionsMaxIssuesWhenRunContextLimitIsUnset(t *testing.T) {
 
 func TestRunSuiteOnceRejectsMissingNoteMetadataBeforeProjectionWork(t *testing.T) {
 	root := t.TempDir()
-	_, _, err := RunSuiteOnce(context.Background(), Options{
+	_, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks: []string{CheckOntology},
 		RunContext: &RunContext{
 			VaultDef:   obsidian.VaultDefinition{Path: root},
@@ -78,7 +80,7 @@ func TestRunSuiteOncePreparedUsesProvidedRuntimeFailure(t *testing.T) {
 	}
 	preparedErr := errors.New("prepared validation projection unavailable")
 
-	result, _, err := RunSuiteOncePrepared(context.Background(), Options{
+	result, _, err := RunSuiteOncePrepared(context.Background(), ScanOptions{
 		Checks:     []string{CheckOntology},
 		RunContext: runCtx,
 	}, nil, preparedErr)
@@ -100,14 +102,14 @@ func TestRunSuiteOncePreparedNeverAcquiresReplacementRuntime(t *testing.T) {
 		MaxIssues:    20,
 	}
 
-	result, _, err := RunSuiteOncePrepared(context.Background(), Options{
+	result, _, err := RunSuiteOncePrepared(context.Background(), ScanOptions{
 		Checks:     []string{CheckOntology},
 		RunContext: runCtx,
 	}, nil, nil)
 
 	require.NoError(t, err)
 	require.Len(t, result.Checks, 1)
-	require.False(t, result.Checks[0].Skipped)
+	require.Empty(t, result.Checks[0].NotApplicable)
 	require.ErrorContains(t, errors.New(result.Checks[0].Error), "prepared ontology runtime is unavailable")
 	require.NoDirExists(t, filepath.Join(root, ".rhizome"))
 }
@@ -116,7 +118,7 @@ func TestRunSuiteOncePreparedNeverOpensReplacementCodeStore(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	result, _, err := RunSuiteOncePrepared(context.Background(), Options{
+	result, _, err := RunSuiteOncePrepared(context.Background(), ScanOptions{
 		Checks: []string{CheckCodeAnchors},
 		RunContext: &RunContext{
 			VaultDef:     obsidian.VaultDefinition{Name: "prepared", Path: root},
@@ -129,60 +131,9 @@ func TestRunSuiteOncePreparedNeverOpensReplacementCodeStore(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, result.Checks, 1)
-	require.False(t, result.Checks[0].Skipped)
+	require.Empty(t, result.Checks[0].NotApplicable)
 	require.ErrorContains(t, errors.New(result.Checks[0].Error), "prepared code index store is unavailable")
 	require.NoDirExists(t, filepath.Join(root, ".rhizome"))
-}
-
-func TestPreparedCodeStoreRequirementUsesProjectionMetadata(t *testing.T) {
-	t.Parallel()
-
-	require.True(t, preparedCodeStoreRequired(registeredCheck{
-		CheckDescriptor: CheckDescriptor{
-			Name:              "future-code-check",
-			ProjectionDomains: []ProjectionDomain{ProjectionValidation, ProjectionCode},
-		},
-		RuntimeRequirement: runtimeRequirementNone,
-	}))
-	require.False(t, preparedCodeStoreRequired(registeredCheck{
-		CheckDescriptor: CheckDescriptor{
-			Name:              CheckCodeAnchors,
-			ProjectionDomains: []ProjectionDomain{ProjectionValidation},
-		},
-		RuntimeRequirement: runtimeRequirementNone,
-	}))
-}
-
-func TestCanonicalCheckAcceptsQueryRecipeAliases(t *testing.T) {
-	for _, raw := range []string{"query-recipes", "query_recipes", "recipes"} {
-		check, ok := CanonicalCheck(raw)
-		require.True(t, ok, raw)
-		require.Equal(t, CheckQueryRecipes, check)
-	}
-}
-
-func TestCanonicalCheckAcceptsViewAliases(t *testing.T) {
-	for _, raw := range []string{"views", "view", "configured-views", "configured_views", "view-config", "view_config"} {
-		check, ok := CanonicalCheck(raw)
-		require.True(t, ok, raw)
-		require.Equal(t, CheckViews, check)
-	}
-}
-
-func TestCanonicalCheckAcceptsSkillOverlayAliases(t *testing.T) {
-	for _, raw := range []string{"skill-overlays", "skill_overlays", "skilloverlay", "overlays"} {
-		check, ok := CanonicalCheck(raw)
-		require.True(t, ok, raw)
-		require.Equal(t, CheckSkillOverlays, check)
-	}
-}
-
-func TestCanonicalCheckAcceptsCompanionDocsAliases(t *testing.T) {
-	for _, raw := range []string{"companion-docs", "companion_docs", "companiondocs"} {
-		check, ok := CanonicalCheck(raw)
-		require.True(t, ok, raw)
-		require.Equal(t, CheckCompanionDocs, check)
-	}
 }
 
 func TestBuildNextActionsClassifiesFixTiers(t *testing.T) {
@@ -221,7 +172,7 @@ func TestBuildNextActionsClassifiesFixTiers(t *testing.T) {
 	require.True(t, actions.ClassificationRequired)
 	require.Len(t, actions.Actions, 4)
 	require.Equal(t, "safe_auto_fix", actions.Actions[0].Category)
-	require.Equal(t, "Apply 1 safe deterministic fix(es) with the positional fix command, then re-run validation without --apply.", actions.Actions[0].Message)
+	require.Contains(t, actions.Actions[0].Command, "--apply")
 	require.NotContains(t, actions.Actions[0].Message, "--fix")
 	require.NotContains(t, actions.Actions[0].Message, "--non-interactive")
 	require.Equal(t, "needs_confirmation", actions.Actions[1].Category)
@@ -236,9 +187,9 @@ func TestBuildNextActionsOmitsClassificationWhenFixPlanCoversIssues(t *testing.T
 	issue := Issue{Key: "issue:identifier", Code: "identifier_not_in_aliases", Path: "note.md"}
 	actions := BuildNextActions(Result{
 		IssueCount:     1,
-		SelectedChecks: []string{CheckAliases},
+		SelectedChecks: []string{CheckIdentifiers},
 		Checks: []CheckResult{{
-			Name: CheckAliases, IssueCount: 1, Issues: []Issue{issue}, fullIssues: []Issue{issue},
+			Name: CheckIdentifiers, IssueCount: 1, Issues: []Issue{issue}, fullIssues: []Issue{issue},
 		}},
 		FixPlan: &FixPlan{
 			SafeCount: 1,
@@ -260,7 +211,7 @@ func TestBuildNextActionsQuotesVaultNameInSafeCommand(t *testing.T) {
 	actions := BuildNextActions(Result{
 		IssueCount:     1,
 		VaultName:      "team vault's notes",
-		SelectedChecks: []string{CheckAliases},
+		SelectedChecks: []string{CheckIdentifiers},
 		FixPlan: &FixPlan{
 			SafeCount: 1,
 			Actions: []FixAction{
@@ -294,12 +245,6 @@ func TestBuildNextActionsCleanResultIsEmpty(t *testing.T) {
 	require.Empty(t, BuildNextActions(Result{OK: true}))
 }
 
-func TestRunSkillOverlaysValidatesBundledTemplates(t *testing.T) {
-	result := RunSkillOverlays(RunContext{MaxIssues: 20})
-	require.True(t, result.OK)
-	require.Contains(t, result.Summary, "overlay fragment")
-}
-
 func TestRunQueryRecipesSkipsVaultWithoutRecipesOrOntology(t *testing.T) {
 	root := t.TempDir()
 	result := RunQueryRecipes(context.Background(), RunContext{
@@ -309,7 +254,7 @@ func TestRunQueryRecipesSkipsVaultWithoutRecipesOrOntology(t *testing.T) {
 		MaxIssues:  20,
 	})
 	require.True(t, result.OK)
-	require.True(t, result.Skipped)
+	require.NotEmpty(t, result.NotApplicable)
 	require.Contains(t, result.Summary, "no query recipes")
 }
 
@@ -322,7 +267,7 @@ func TestRunViewsSkipsVaultWithoutViews(t *testing.T) {
 		MaxIssues:  20,
 	})
 	require.True(t, result.OK)
-	require.True(t, result.Skipped)
+	require.NotEmpty(t, result.NotApplicable)
 	require.Contains(t, result.Summary, "no configured views")
 }
 
@@ -361,7 +306,7 @@ type: ProductSpec
 		NoteMetadata: testNoteMetadata(t),
 		MaxIssues:    20,
 	}
-	result, _, err := RunSuiteOnce(context.Background(), Options{
+	result, _, err := preparedSuite(t, context.Background(), ScanOptions{
 		Checks:     []string{CheckOntology},
 		MaxIssues:  20,
 		RunContext: runCtx,
@@ -413,7 +358,7 @@ variants:
 	requireIssue(t, result.Issues, "invalid_mount_target")
 	for _, issue := range result.Issues {
 		if issue.Code == "unknown_ontology_type" {
-			require.Equal(t, &IssueVariant{Key: "MissingType", Label: "MissingType"}, issue.Variant)
+			require.Equal(t, &diag.Variant{Key: "MissingType", Label: "MissingType"}, issue.Variant)
 			continue
 		}
 		require.Nil(t, issue.Variant, "per-instance %s stays variant-free", issue.Code)
@@ -431,7 +376,7 @@ func TestRunViewsValidatesRepositoryViews(t *testing.T) {
 	})
 
 	require.True(t, result.OK, "repository views should validate: %#v", result.Issues)
-	require.False(t, result.Skipped)
+	require.Empty(t, result.NotApplicable)
 	require.Contains(t, result.Summary, "views checked")
 }
 

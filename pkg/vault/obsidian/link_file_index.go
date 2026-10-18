@@ -1,11 +1,13 @@
 package obsidian
 
 import (
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"io/fs"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // VaultFileIndex resolves wikilink paths with Obsidian's rules
@@ -23,7 +25,7 @@ func NewVaultFileIndex(files []string) *VaultFileIndex {
 	index := &VaultFileIndex{byName: make(map[string][]string, len(files))}
 	for _, file := range files {
 		file = filepath.ToSlash(file)
-		name := strings.ToLower(path.Base(file))
+		name := paths.LinkKey(path.Base(file))
 		index.byName[name] = append(index.byName[name], file)
 	}
 	return index
@@ -81,7 +83,7 @@ func (x *VaultFileIndex) Resolve(linkpath, sourcePath string) (string, bool) {
 	if x == nil || strings.TrimSpace(linkpath) == "" {
 		return "", false
 	}
-	lower := strings.ToLower(filepath.ToSlash(linkpath))
+	lower := paths.LinkKey(filepath.ToSlash(linkpath))
 	candidates := x.byName[path.Base(lower)]
 	if len(candidates) == 0 || !strings.Contains(path.Base(lower), ".") {
 		lower += ".md"
@@ -93,21 +95,21 @@ func (x *VaultFileIndex) Resolve(linkpath, sourcePath string) (string, bool) {
 	if !strings.Contains(lower, "/") && len(candidates) == 1 {
 		return candidates[0], true
 	}
-	sourceDir := strings.ToLower(filepath.ToSlash(path.Dir(filepath.ToSlash(sourcePath))))
+	sourceDir := paths.LinkKey(filepath.ToSlash(path.Dir(filepath.ToSlash(sourcePath))))
 	if sourceDir == "." {
 		sourceDir = ""
 	}
 	if strings.HasPrefix(lower, "./") || strings.HasPrefix(lower, "../") {
 		joined := path.Clean(path.Join(sourceDir, lower))
 		for _, candidate := range candidates {
-			if strings.ToLower(candidate) == joined {
+			if paths.LinkKey(candidate) == joined {
 				return candidate, true
 			}
 		}
 	}
 	exact := strings.TrimPrefix(lower, "/")
 	for _, candidate := range candidates {
-		if strings.ToLower(candidate) == exact {
+		if paths.LinkKey(candidate) == exact {
 			return candidate, true
 		}
 	}
@@ -116,7 +118,7 @@ func (x *VaultFileIndex) Resolve(linkpath, sourcePath string) (string, bool) {
 	}
 	var near, far []string
 	for _, candidate := range candidates {
-		folded := strings.ToLower(candidate)
+		folded := paths.LinkKey(candidate)
 		if !strings.HasSuffix(folded, lower) {
 			continue
 		}
@@ -149,7 +151,7 @@ func (x *VaultFileIndex) Ambiguous(linkpath string) bool {
 	if x == nil {
 		return false
 	}
-	lower := strings.ToLower(filepath.ToSlash(linkpath))
+	lower := paths.LinkKey(filepath.ToSlash(linkpath))
 	if strings.Contains(lower, "/") {
 		return false
 	}
@@ -158,4 +160,26 @@ func (x *VaultFileIndex) Ambiguous(linkpath string) bool {
 		candidates = x.byName[lower+".md"]
 	}
 	return len(candidates) > 1
+}
+
+// LazyVaultFileIndex builds the Obsidian file index on first use. Indexed note
+// paths are included so in-memory readers resolve the same way as disk.
+func LazyVaultFileIndex(vaultDef VaultDefinition, notes []string) func() *VaultFileIndex {
+	return sync.OnceValue(func() *VaultFileIndex {
+		files := append([]string(nil), notes...)
+		if index, err := BuildVaultFileIndex(vaultDef); err == nil {
+			for _, names := range index.byName {
+				files = append(files, names...)
+			}
+		}
+		seen := make(map[string]struct{}, len(files))
+		unique := files[:0]
+		for _, file := range files {
+			if _, dup := seen[file]; !dup {
+				seen[file] = struct{}{}
+				unique = append(unique, file)
+			}
+		}
+		return NewVaultFileIndex(unique)
+	})
 }

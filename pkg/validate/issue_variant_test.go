@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,7 +35,7 @@ type CoachingSession @node(matches: ["classification:meeting"]) {
 		"notes/wrong-owner.md":   "---\ntype: Meeting\nclassification: meeting\nowner: \"[[topics/alpha]]\"\n---\n# MTG wrong owner\n",
 		"notes/standup.md":       "---\ntype: Meeting\nclassification: meeting\nowner: \"[[people/ana]]\"\n---\n# Standup\n",
 	})
-	want := map[string]IssueVariant{
+	want := map[string]diag.Variant{
 		"type_ambiguous":         {Key: "CoachingSession+Meeting", Label: "CoachingSession, Meeting"},
 		"declared_type_mismatch": {Key: "Person->Topic", Label: "Person → Topic"},
 		"unknown_declared_type":  {Key: "Ghost", Label: "Ghost"},
@@ -63,7 +63,7 @@ type CoachingSession @node(matches: ["classification:meeting"]) {
 	require.NoError(t, err)
 	for _, diagnostic := range snapshot.Diagnostics {
 		variant := want[diagnostic.Code]
-		require.Equal(t, &semdb.ValidationIssueVariant{Key: variant.Key, Label: variant.Label}, diagnostic.Variant, diagnostic.Code)
+		require.Equal(t, &diag.Variant{Key: variant.Key, Label: variant.Label}, diagnostic.Variant, diagnostic.Code)
 	}
 }
 
@@ -88,7 +88,7 @@ func TestStableIssueKeyExcludesVariant(t *testing.T) {
 	issue := Issue{Code: "type_ambiguous", Path: "notes/a.md", Message: "ambiguous"}
 	without, err := StableIssueKey(CheckOntology, issue)
 	require.NoError(t, err)
-	for _, variant := range []*IssueVariant{
+	for _, variant := range []*diag.Variant{
 		{Key: "A+B", Label: "A, B"},
 		{Key: "C+D", Label: "C, D"},
 	} {

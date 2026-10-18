@@ -16,13 +16,13 @@ func TestSectionSummaryHydratesFromIndexAndPreview(t *testing.T) {
 	ref := ontology.NodeRef{NotePath: "specs/product.md", Kind: ontology.NodeKindNote}
 	// A nil NoteReader makes any source projection fail: summary hydration must
 	// use the persisted compact field row.
-	scope := NewService(vault, nil, store, schema).NewScope(ctx, ScopeOptions{})
+	scope := NewService(vault, nil, store, schema).NewScope(ScopeOptions{})
 	records, err := scope.Hydrate(ctx, []ontology.NodeRef{ref}, HydrateOptions{Profile: HydrateSummary})
 	require.NoError(t, err)
 	require.Len(t, records, 1)
 	require.Equal(t, []string{"First paragraph. Second paragraph."}, records[0].InlineProps["abstract"])
 	overlay := &ReadOverlay{SourceFormat: "markdown", UpdatedContentByPath: map[string]string{"specs/product.md": "# Product\n\n## Summary\n\nStaged prose.\n"}}
-	scope = NewService(vault, nil, store, schema).NewScope(ctx, ScopeOptions{ReadOverlay: overlay})
+	scope = NewService(vault, nil, store, schema).NewScope(ScopeOptions{ReadOverlay: overlay})
 	records, err = scope.Hydrate(ctx, []ontology.NodeRef{ref}, HydrateOptions{Profile: HydrateSummary})
 	require.NoError(t, err)
 	require.Len(t, records, 1)

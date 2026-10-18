@@ -2,56 +2,58 @@ package cmd
 
 import (
 	"context"
-	"os"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"errors"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 type commandEnv struct {
-	Getwd              func() (string, error)
-	ObsidianConfigFile func() (string, error)
+	Getwd  func() (string, error)
+	Config vaultconfig.Env
 }
-
 type commandEnvContextKey struct{}
-
-func defaultCommandEnv() commandEnv {
-	return commandEnv{
-		Getwd:              os.Getwd,
-		ObsidianConfigFile: obsidian.ObsidianConfigFile,
-	}
-}
 
 func commandEnvFromContext(ctx context.Context) commandEnv {
 	if ctx != nil {
 		if env, ok := ctx.Value(commandEnvContextKey{}).(commandEnv); ok {
-			return env.withDefaults()
+			return env
 		}
 	}
-	return defaultCommandEnv()
+	return commandEnv{Config: vaultconfig.FromContext(ctx)}.withWorkingDirectory()
 }
 
 func contextWithCommandEnv(ctx context.Context, env commandEnv) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return context.WithValue(ctx, commandEnvContextKey{}, env.withDefaults())
+	if env.Config.IsZero() {
+		env.Config = vaultconfig.FromContext(ctx)
+	}
+	if env.Getwd != nil {
+		if cwd, err := env.Getwd(); err == nil {
+			env.Config.WorkingDir = cwd
+		} else {
+			env.Config.WorkingDir = ""
+		}
+	}
+	env = env.withWorkingDirectory()
+	return context.WithValue(vaultconfig.WithEnv(ctx, env.Config), commandEnvContextKey{}, env)
 }
 
-func (env commandEnv) withDefaults() commandEnv {
-	defaults := defaultCommandEnv()
+func (env commandEnv) withWorkingDirectory() commandEnv {
 	if env.Getwd == nil {
-		env.Getwd = defaults.Getwd
-	}
-	if env.ObsidianConfigFile == nil {
-		env.ObsidianConfigFile = defaults.ObsidianConfigFile
+		cwd := env.Config.WorkingDir
+		env.Getwd = func() (string, error) {
+			if cwd == "" {
+				return "", errors.New("working directory unavailable")
+			}
+			return cwd, nil
+		}
 	}
 	return env
 }
 
-func commandVault(ctx context.Context, name string) *obsidian.Vault {
+func commandVault(ctx context.Context, name string) *repoconfig.Vault {
 	env := commandEnvFromContext(ctx)
-	return &obsidian.Vault{
-		Name:               name,
-		ObsidianConfigFile: env.ObsidianConfigFile,
-	}
+	return &repoconfig.Vault{Name: name, Env: env.Config}
 }

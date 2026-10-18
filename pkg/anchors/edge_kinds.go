@@ -65,17 +65,6 @@ func IsCodeRefEdge(kind string) bool {
 	return ok && def.IsCodeRef
 }
 
-// EdgePriority returns the priority for visualization (lower = more important).
-// Unknown edge kinds return 999.
-func EdgePriority(kind string) int {
-	kind = strings.ToLower(strings.TrimSpace(kind))
-	def, ok := EdgeKinds[kind]
-	if !ok {
-		return 999
-	}
-	return def.Priority
-}
-
 // IsDocDomainEdge returns true if the edge involves notes.
 func IsDocDomainEdge(kind string) bool {
 	kind = strings.ToLower(strings.TrimSpace(kind))

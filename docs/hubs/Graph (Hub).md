@@ -7,7 +7,7 @@ tags: [type/hub, subsystem/obsidian]
 
 ### What this hub is for
 
-- **Purpose**: Understand and safely change Rhizome's graph analysis — the pure graph algorithms (`pkg/search/graphalg`) and the persistence/build layer (`pkg/search/graphdb`) that turn indexed wikilinks, mentions, coderefs, and call edges into HITS hub/authority scores, communities, and anchor PageRank, and how those signals reach ranking, retrieval, and `graph` commands.
+- **Purpose**: Understand and safely change Rhizome's graph analysis — the pure graph algorithms (`pkg/graph/algorithms`) and the persistence/build layer (`pkg/graph/index`) that turn indexed wikilinks, mentions, coderefs, and call edges into HITS hub/authority scores, communities, and anchor PageRank, and how those signals reach ranking, retrieval, and `graph` commands.
 - **Scope boundary**: This hub covers the **unified doc graph** persisted in the intel DB (notes + code, scored over `noderead.GraphFacts`). For the separate **Obsidian vault graph** (recency cascade, bridges, weak components computed in-memory from wikilinks) see `pkg/vault/obsidian/graph.go` and [[Graph analysis (wikilinks + communities + authority)]]. The two share the "graph" name but are distinct subsystems.
 
 ### Architecture overview
@@ -40,8 +40,8 @@ Edges and call topology are persisted at index time; `ComputeDocScores` and `Com
 ### Reading order
 
 1. [[Indexing pipeline - Graph signals (doc scores + anchor PageRank)]] — what the persisted signals are and their build/delete contracts.
-2. [[pkg/search/graphalg/CONTEXT|Graph algorithms]] — the stateless algorithm layer (HITS, PageRank, PPR, label prop, surprise, paths).
-3. [[pkg/search/graphdb/CONTEXT|Graph persistence]] — how indexed facts become persisted scores + edges.
+2. [[pkg/graph/algorithms/CONTEXT|Graph algorithms]] — the stateless algorithm layer (HITS, PageRank, PPR, label prop, surprise, paths).
+3. [[pkg/graph/index/CONTEXT|Graph persistence]] — how indexed facts become persisted scores + edges.
 4. [[Graph analysis (wikilinks + communities + authority)]] — the separate Obsidian vault graph (recency, bridges, components).
 5. [[Search (Hub)]] — where graph evidence merges with lexical/vector evidence in ranking.
 
@@ -57,17 +57,17 @@ Edges and call topology are persisted at index time; `ComputeDocScores` and `Com
 
 ### Entry points (code)
 
-- `pkg/search/graphalg/hits.go` — `ComputeHITS` directed hub/authority iteration
-- `pkg/search/graphalg/labelprop.go` — `LabelPropagation` unweighted community labels
-- `pkg/search/graphalg/pagerank.go` — `PageRank` over a directed call graph
-- `pkg/search/graphalg/ppr.go` — `PersonalizedPageRank` random-walk-with-restarts
-- `pkg/search/graphalg/surprise.go` — `FindSurprisingConnections` community/bridge scoring
-- `pkg/search/graphalg/betweenness.go` — `edgeBetweennessFallback` Brandes bridge detection
-- `pkg/search/graphalg/shortest_path.go` — `ShortestPath` + `ResolvePathFuzzy`
-- `pkg/search/graphalg/confidence.go` — confidence → weight/cost/surprise helpers
-- `pkg/search/graphdb/doc_scores.go` — `ComputeDocScores` (HITS + weighted communities) + incremental `UpsertNoteWikilinkEdges`
-- `pkg/search/graphdb/doc_edges.go` — `RebuildWikilinkEdgesForPaths` / `RebuildAllNoteWikilinkEdges` edge maintenance
-- `pkg/search/graphdb/anchor_pagerank.go` — `ComputeAnchorPageRank` over `intel_edges(kind='calls')`
+- `pkg/graph/algorithms/hits.go` — `ComputeHITS` directed hub/authority iteration
+- `pkg/graph/algorithms/labelprop.go` — `LabelPropagation` unweighted community labels
+- `pkg/graph/algorithms/pagerank.go` — `PageRank` over a directed call graph
+- `pkg/graph/algorithms/ppr.go` — `PersonalizedPageRank` random-walk-with-restarts
+- `pkg/graph/algorithms/surprise.go` — `FindSurprisingConnections` community/bridge scoring
+- `pkg/graph/algorithms/betweenness.go` — `edgeBetweennessFallback` Brandes bridge detection
+- `pkg/graph/algorithms/shortest_path.go` — `ShortestPath` + `ResolvePathFuzzy`
+- `pkg/graph/algorithms/confidence.go` — confidence → weight/cost/surprise helpers
+- `pkg/graph/index/doc_scores.go` — `ComputeDocScores` (HITS + weighted communities)
+- `pkg/notemeta/indexer_operations.go`: provider link facts publish through the queued metadata delta; the graph score builder reads the resulting facts.
+- `pkg/graph/index/anchor_pagerank.go` — `ComputeAnchorPageRank` over `intel_edges(kind='calls')`
 - `pkg/search/relevance/graph_doc_score_ranker.go` — `GraphDocScoreRanker` injects `graph_hits_authority`, `graph_hits_hub`, `same_community`, `graph_edge_confidence` evidence
 - `pkg/search/relevance/graph_anchor_score_ranker.go` — `GraphAnchorScoreRanker` injects `graph_anchor_pagerank` evidence
 - `pkg/search/retrieval/graph_ppr.go` — `GraphPPRRetriever` query-time diffusion over induced doc graph
@@ -94,8 +94,8 @@ Edges and call topology are persisted at index time; `ComputeDocScores` and `Com
 
 ### Tests + fixtures
 
-- `pkg/search/graphalg/ppr_test.go` — PPR diffusion behavior
-- `pkg/search/graphalg/shortest_path_test.go` — path selection + fuzzy resolution
-- `pkg/search/graphalg/surprise_test.go` — surprise scoring + betweenness fallback
-- `pkg/search/graphdb/doc_scores_test.go` — doc-score build over intel tables
-- `pkg/search/graphdb/anchor_pagerank_test.go` — anchor PageRank over call edges
+- `pkg/graph/algorithms/ppr_test.go` — PPR diffusion behavior
+- `pkg/graph/algorithms/shortest_path_test.go` — path selection + fuzzy resolution
+- `pkg/graph/algorithms/surprise_test.go` — surprise scoring + betweenness fallback
+- `pkg/graph/index/doc_scores_test.go` — doc-score build over intel tables
+- `pkg/graph/index/anchor_pagerank_test.go` — anchor PageRank over call edges

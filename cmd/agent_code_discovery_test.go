@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
@@ -13,7 +14,7 @@ func TestAgentCodeDescribeSelectedSchemas(t *testing.T) {
 	vault := setupAgentTestVault(t, map[string]string{"note.md": "# Fixture\n"})
 	for _, selection := range []string{"input", "output", "both"} {
 		t.Run(selection, func(t *testing.T) {
-			stdout, _, err := runRootCLI(t, context.Background(), []string{
+			stdout, _, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 				"agent", "code", "describe", "--operation", "queryRecipe", "--schema", selection, "--vault", vault.name,
 			})
 			require.NoError(t, err)
@@ -34,7 +35,7 @@ func TestAgentCodeDescribeSelectedSchemas(t *testing.T) {
 			}
 		})
 	}
-	_, _, err := runRootCLI(t, context.Background(), []string{
+	_, _, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"agent", "code", "describe", "--operation", "files", "--schema", "inputs", "--vault", vault.name,
 	})
 	require.Error(t, err)

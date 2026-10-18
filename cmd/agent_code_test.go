@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +12,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
 	"github.com/atomicobject/rhizome/pkg/app/oneshotruntime"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +23,7 @@ func TestAgentCodeSelectiveCLI(t *testing.T) {
 		{"agent", "code", "describe", "--operation", "files", "--vault", vault.name},
 		{"agent", "code", "surface", "--vault", vault.name},
 	} {
-		stdout, _, err := runRootCLI(t, context.Background(), args)
+		stdout, _, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 		require.NoError(t, err)
 		require.True(t, json.Valid([]byte(stdout)), stdout)
 	}
@@ -30,12 +32,15 @@ func TestAgentCodeSelectiveCLI(t *testing.T) {
 		{"agent", "code", "describe", "--operation", "not_an_operation"},
 		{"agent", "code", "generate", "--operation", "files"},
 	} {
-		_, _, err := runRootCLI(t, context.Background(), args)
+		_, _, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), args)
 		require.Error(t, err)
 	}
 }
 
 func TestCodeModeCoversEveryExecutableAgentTask(t *testing.T) {
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+	agentCmd, _, _ := rootCmd.Find([]string{"agent"})
+
 	covered := map[string]string{}
 	for _, descriptor := range agentapi.CodeOperationDescriptors() {
 		for _, path := range descriptor.CodeCLILeaves {
@@ -68,6 +73,9 @@ func TestCodeModeCoversEveryExecutableAgentTask(t *testing.T) {
 }
 
 func TestCanonicalAgentCodeVaultPathResolvesSymlink(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	vault := setupAgentTestVault(t, map[string]string{"note.md": "# Fixture\n"})
 	// Obsidian-config lookup matches the registered path suffix, so the link name is the vault name.
 	linkRoot := filepath.Join(t.TempDir(), "linked")
@@ -78,12 +86,10 @@ func TestCanonicalAgentCodeVaultPathResolvesSymlink(t *testing.T) {
 	configBody, err := json.Marshal(map[string]any{"vaults": map[string]any{"link-id": map[string]string{"path": linkRoot}}})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(configFile, configBody, 0o644))
-	previousConfig := obsidian.ObsidianConfigFile
-	obsidian.ObsidianConfigFile = func() (string, error) { return configFile, nil }
-	t.Cleanup(func() { obsidian.ObsidianConfigFile = previousConfig })
+	env.ObsidianConfigFile = configFile
 
 	output := filepath.Join(t.TempDir(), "artifacts")
-	stdout, stderr, err := runRootCLI(t, context.Background(), []string{"agent", "code", "generate", "--operation", "files", "--output", output, "--vault", "linked"})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), env), []string{"agent", "code", "generate", "--operation", "files", "--output", output, "--vault", "linked"})
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	var manifest agentcode.Manifest
 	require.NoError(t, json.Unmarshal([]byte(stdout), &manifest))

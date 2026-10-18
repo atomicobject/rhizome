@@ -8,28 +8,28 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/atomicobject/rhizome/pkg/app/indexing"
+	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	"github.com/atomicobject/rhizome/pkg/app/validationrun"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
-type projectionRefresh func(context.Context, indexing.ValidationProjectionRequest) (*indexing.ValidationProjectionResult, error)
+type projectionRefresh func(context.Context, ValidationProjectionRequest) (*ValidationProjectionResult, error)
 
 var errPendingRepairJournal = errors.New("pending repair journal appeared before validation projection mutation")
 
 type projectionAdapter struct {
-	request        indexing.ValidationProjectionRequest
+	request        ValidationProjectionRequest
 	codeConfigured bool
 	refresh        projectionRefresh
 
 	once   sync.Once
-	result *indexing.ValidationProjectionResult
+	result *ValidationProjectionResult
 	err    error
 }
 
-func newProjectionAdapter(request indexing.ValidationProjectionRequest, codeConfigured bool, refresh projectionRefresh) *projectionAdapter {
+func newProjectionAdapter(request ValidationProjectionRequest, codeConfigured bool, refresh projectionRefresh) *projectionAdapter {
 	return &projectionAdapter{request: request, codeConfigured: codeConfigured, refresh: refresh}
 }
 
@@ -40,22 +40,19 @@ func newProjectionAdapter(request indexing.ValidationProjectionRequest, codeConf
 func RunWithProjection(
 	ctx context.Context,
 	request validationrun.ValidationRunRequest,
-	projectionRequest indexing.ValidationProjectionRequest,
-	options validate.Options,
+	projectionRequest ValidationProjectionRequest,
+	options validate.ScanOptions,
 ) (validationrun.ValidationResult, error) {
-	return runWithProjection(ctx, request, projectionRequest, options, indexing.RefreshValidationProjection)
+	return runWithProjection(ctx, request, projectionRequest, options, RefreshValidationProjection)
 }
 
 func runWithProjection(
 	ctx context.Context,
 	request validationrun.ValidationRunRequest,
-	projectionRequest indexing.ValidationProjectionRequest,
-	options validate.Options,
+	projectionRequest ValidationProjectionRequest,
+	options validate.ScanOptions,
 	refresh projectionRefresh,
 ) (validationrun.ValidationResult, error) {
-	if options.Fix {
-		return validationrun.ValidationResult{}, fmt.Errorf("projected validation run is read-only")
-	}
 	request.Surface = normalizedSurface(request.Surface)
 	projectionRequest.Target = normalizedProjectionTarget(request.Surface, projectionRequest.Target)
 	if err := validateProjectionTarget(request.Surface, projectionRequest.Target); err != nil {
@@ -121,7 +118,7 @@ func runWithProjection(
 	return result, errors.Join(runErr, closeErr)
 }
 
-func validateProjectionRunContext(request indexing.ValidationProjectionRequest, runContext validate.RunContext) error {
+func validateProjectionRunContext(request ValidationProjectionRequest, runContext validate.RunContext) error {
 	if err := runContext.NoteMetadata.Validate(); err != nil {
 		return fmt.Errorf("validation RunContext note metadata indexer: %w", err)
 	}
@@ -156,7 +153,7 @@ func validateProjectionRunContext(request indexing.ValidationProjectionRequest, 
 func pendingRepairJournalResult(
 	ctx context.Context,
 	request validationrun.ValidationRunRequest,
-	options validate.Options,
+	options validate.ScanOptions,
 ) (validationrun.ValidationResult, bool, error) {
 	if options.RunContext == nil {
 		return validationrun.ValidationResult{}, false, fmt.Errorf("validation RunContext is required")
@@ -176,44 +173,11 @@ func pendingRepairJournalResult(
 	if err != nil {
 		return validationrun.ValidationResult{}, true, err
 	}
-	options.Checks = append([]string(nil), selection.Checks...)
-	if request.ApplyCommand != "" {
-		options.ApplyCommand = request.ApplyCommand
+	command := request.ApplyCommand
+	if command == "" {
+		command = options.ApplyCommand
 	}
-	suite, _, err := validate.RunSuiteOncePrepared(ctx, options, nil, nil)
-	if err != nil {
-		return validationrun.ValidationResult{}, true, err
-	}
-	if len(suite.RepairJournals) == 0 {
-		return validationrun.ValidationResult{}, true, fmt.Errorf("repair journal state changed while establishing the validation barrier; retry validation")
-	}
-
-	recoveryCommand := ""
-	if suite.NextActions != nil {
-		for _, action := range suite.NextActions.Actions {
-			if action.Category == "repair_recovery" {
-				recoveryCommand = action.Command
-				break
-			}
-		}
-	}
-	if recoveryCommand == "" {
-		return validationrun.ValidationResult{}, true, fmt.Errorf("pending repair journal result omitted its recovery command")
-	}
-
-	applicability := make([]validate.CheckApplicabilityResult, 0, len(selection.Checks))
-	for _, check := range selection.Checks {
-		applicability = append(applicability, validate.CheckApplicabilityResult{
-			Check:              check,
-			Outcome:            validate.CheckOutcomeBlocked,
-			Summary:            "pending repair journal must be recovered before validation can inspect or refresh projections",
-			PreparationCommand: recoveryCommand,
-			Evidence: []validate.ApplicabilityEvidence{{
-				Code:    "pending_repair_journal",
-				Message: "Interrupted repair evidence is present; recover it before running validation.",
-			}},
-		})
-	}
+	suite, applicability := validate.RepairRecoveryOutcome(*options.RunContext, selection.Checks, journals, command)
 	result, err := validationrun.BuildValidationResult(selection, applicability, suite)
 	return result, true, err
 }
@@ -225,27 +189,27 @@ func normalizedSurface(surface validate.ExecutionSurface) validate.ExecutionSurf
 	return surface
 }
 
-func normalizedProjectionTarget(surface validate.ExecutionSurface, target indexing.ValidationProjectionTarget) indexing.ValidationProjectionTarget {
+func normalizedProjectionTarget(surface validate.ExecutionSurface, target ValidationProjectionTarget) ValidationProjectionTarget {
 	if target != "" {
 		return target
 	}
 	if surface == validate.SurfaceCI {
-		return indexing.ValidationProjectionScratch
+		return ValidationProjectionScratch
 	}
-	return indexing.ValidationProjectionLive
+	return ValidationProjectionLive
 }
 
-func validateProjectionTarget(surface validate.ExecutionSurface, target indexing.ValidationProjectionTarget) error {
-	if surface == validate.SurfaceCI && target != indexing.ValidationProjectionScratch {
+func validateProjectionTarget(surface validate.ExecutionSurface, target ValidationProjectionTarget) error {
+	if surface == validate.SurfaceCI && target != ValidationProjectionScratch {
 		return fmt.Errorf("CI validation requires a scratch projection")
 	}
-	if surface != validate.SurfaceCI && target != indexing.ValidationProjectionLive {
+	if surface != validate.SurfaceCI && target != ValidationProjectionLive {
 		return fmt.Errorf("%s validation requires the live projection", surface)
 	}
 	return nil
 }
 
-func projectionRunContext(request indexing.ValidationProjectionRequest, maxIssues int) *validate.RunContext {
+func projectionRunContext(request ValidationProjectionRequest, maxIssues int) *validate.RunContext {
 	vaultDef := request.VaultDef
 	if vaultDef.BasePath() == "" {
 		vaultDef.Path = request.VaultPath
@@ -258,16 +222,16 @@ func projectionRunContext(request indexing.ValidationProjectionRequest, maxIssue
 		maxIssues = 20
 	}
 	return &validate.RunContext{
-		VaultDef:     vaultDef,
-		VaultPath:    vaultDef.BasePath(),
-		VaultMgr:     &projectionVaultManager{def: vaultDef},
-		NoteReader:   reader,
-		NoteMetadata: request.NoteMetadata,
-		MaxIssues:    maxIssues,
+		VaultDef:      vaultDef,
+		VaultPath:     vaultDef.BasePath(),
+		NoteReader:    reader,
+		NoteMetadata:  request.NoteMetadata,
+		SkillOverlays: initactions.ValidateBundledSkillOverlays,
+		MaxIssues:     maxIssues,
 	}
 }
 
-func (a *projectionAdapter) ensure(ctx context.Context) (*indexing.ValidationProjectionResult, error) {
+func (a *projectionAdapter) ensure(ctx context.Context) (*ValidationProjectionResult, error) {
 	a.once.Do(func() {
 		if a.refresh == nil {
 			a.err = fmt.Errorf("validation projection refresher is not configured")
@@ -291,24 +255,22 @@ func (a *projectionAdapter) AutoManagedProjection(ctx context.Context, _ validat
 	switch domain {
 	case validate.ProjectionValidation:
 		snapshot.Available = projectionDomainsFresh(result,
-			indexing.ProjectionDomainMetadata,
-			indexing.ProjectionDomainLinks,
-			indexing.ProjectionDomainMarkdownTargets,
+			ProjectionDomainMetadata,
 		)
 	case validate.ProjectionOntology:
-		snapshot.Available = result.Runtime != nil && projectionDomainsFresh(result, indexing.ProjectionDomainOntology)
+		snapshot.Available = result.Runtime != nil && projectionDomainsFresh(result, ProjectionDomainOntology)
 	default:
 		return snapshot, fmt.Errorf("unsupported auto-managed projection domain %q", domain)
 	}
 	return snapshot, nil
 }
 
-func projectionDomainsFresh(result *indexing.ValidationProjectionResult, domains ...indexing.ProjectionDomain) bool {
+func projectionDomainsFresh(result *ValidationProjectionResult, domains ...ProjectionDomain) bool {
 	if result == nil {
 		return false
 	}
 	for _, domain := range domains {
-		if result.Freshness[domain].State != indexing.ProjectionFresh {
+		if result.Freshness[domain].State != ProjectionFresh {
 			return false
 		}
 	}
@@ -321,32 +283,16 @@ func (a *projectionAdapter) CodeIndexSnapshot(ctx context.Context) (validate.Cod
 	if err != nil {
 		return snapshot, err
 	}
-	if a.request.Target == indexing.ValidationProjectionScratch {
+	if a.request.Target == ValidationProjectionScratch {
 		return snapshot, nil
 	}
 	if result.Runtime == nil || result.Runtime.Store == nil {
 		return snapshot, nil
 	}
-	snapshot.StorePresent = true
-	stored, err := result.Runtime.Store.CodeIndexPrerequisiteSnapshot(ctx)
-	if err != nil {
-		return snapshot, err
-	}
-	snapshot.RowsPresent = stored.CodeRowsPresent
-	snapshot.IndexedFileCount = stored.IndexedFileCount
-	if stored.IndexerVersionPresent {
-		snapshot.IndexerVersion = stored.IndexerVersion
-	}
-	if stored.ScopeConfigHashPresent {
-		snapshot.ScopeHash = stored.ScopeConfigHash
-	}
-	if stored.IndexedAtPresent {
-		snapshot.IndexedAt = stored.IndexedAt
-	}
-	return snapshot, nil
+	return validationrun.ReadCodeIndexSnapshot(ctx, result.Runtime, a.codeConfigured)
 }
 
-func (a *projectionAdapter) runSuite(ctx context.Context, options validate.Options, checks []string) (validate.Result, error) {
+func (a *projectionAdapter) runSuite(ctx context.Context, options validate.ScanOptions, checks []string) (validate.Result, error) {
 	result, err := a.ensure(ctx)
 	if err != nil {
 		return validate.Result{}, err
@@ -361,18 +307,4 @@ func (a *projectionAdapter) Close() error {
 		return nil
 	}
 	return a.result.Close()
-}
-
-type projectionVaultManager struct {
-	def obsidian.VaultDefinition
-}
-
-func (m *projectionVaultManager) DefaultName() (string, error) { return m.def.Name, nil }
-func (m *projectionVaultManager) SetDefaultName(name string) error {
-	m.def.Name = name
-	return nil
-}
-func (m *projectionVaultManager) Path() (string, error) { return m.def.BasePath(), nil }
-func (m *projectionVaultManager) Definition() (obsidian.VaultDefinition, error) {
-	return m.def, nil
 }

@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +29,7 @@ func findTarget(t *testing.T, catalog Catalog, kind viewconfig.MountKind, name s
 }
 
 func TestTargetsResolveExactDefaultsRetainFallbacksAndExcludeInvalidViews(t *testing.T) {
-	schema := &ontology.Schema{Types: map[string]*ontology.NoteType{"Effort": {Name: "Effort", Role: ontology.TypeRoleNote, DisplayGroup: "Delivery"}, "Person": {Name: "Person", Role: ontology.TypeRoleNote, DisplayGroup: "People"}}}
+	schema := &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Effort": {Name: "Effort", Role: ontoschema.TypeRoleNote, DisplayGroup: "Delivery"}, "Person": {Name: "Person", Role: ontoschema.TypeRoleNote, DisplayGroup: "People"}}}
 	generic := customDefinition("groups", viewconfig.MountSpec{Kind: viewconfig.MountKindGroup, Group: "*", Default: true})
 	specific := customDefinition("delivery", viewconfig.MountSpec{Kind: viewconfig.MountKindGroup, Group: "Delivery", Default: true})
 	collection := customDefinition("efforts", viewconfig.MountSpec{Kind: viewconfig.MountKindType, Type: "Effort", Default: true})
@@ -59,7 +59,7 @@ func TestTargetsResolveExactDefaultsRetainFallbacksAndExcludeInvalidViews(t *tes
 
 func TestDuplicateDefaultsWarnAndKeepEveryViewSelectable(t *testing.T) {
 	mount := viewconfig.MountSpec{Kind: viewconfig.MountKindType, Type: "Effort", Default: true}
-	service := New(ServiceOptions{Schema: &ontology.Schema{Types: map[string]*ontology.NoteType{"Effort": {Name: "Effort", Role: ontology.TypeRoleNote}}}, Views: []viewconfig.ViewDefinition{customDefinition("two", mount), customDefinition("one", mount)}})
+	service := New(ServiceOptions{Schema: &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Effort": {Name: "Effort", Role: ontoschema.TypeRoleNote}}}, Views: []viewconfig.ViewDefinition{customDefinition("two", mount), customDefinition("one", mount)}})
 	catalog, err := service.Catalog(context.Background())
 	require.NoError(t, err)
 	require.Len(t, catalog.Issues, 2)
@@ -144,7 +144,7 @@ func TestStandaloneTargetUsesConfiguredVariant(t *testing.T) {
 func TestGeneratedIDCollisionCannotDisableFallback(t *testing.T) {
 	id := viewconfig.GeneratedTypeID("Effort")
 	collision := customDefinition(id, viewconfig.MountSpec{Kind: viewconfig.MountKindType, Type: "Effort", Default: true})
-	service := New(ServiceOptions{Schema: &ontology.Schema{Types: map[string]*ontology.NoteType{"Effort": {Name: "Effort"}}}, Views: []viewconfig.ViewDefinition{collision}})
+	service := New(ServiceOptions{Schema: &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Effort": {Name: "Effort"}}}, Views: []viewconfig.ViewDefinition{collision}})
 	catalog, err := service.Catalog(context.Background())
 	require.NoError(t, err)
 	require.NotEmpty(t, catalog.Issues)
@@ -180,7 +180,7 @@ func TestAuthoredGeneratedFlagCannotBypassInvalidityOrReserveFallbackIDs(t *test
 			def := customDefinition(id, viewconfig.MountSpec{Kind: viewconfig.MountKindType, Type: "Effort", Default: true})
 			def.Generated = true
 			def.SourceSpec.Entry = "../outside.html"
-			service := New(ServiceOptions{Schema: &ontology.Schema{Types: map[string]*ontology.NoteType{"Effort": {Name: "Effort"}}}, Views: []viewconfig.ViewDefinition{def}})
+			service := New(ServiceOptions{Schema: &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Effort": {Name: "Effort"}}}, Views: []viewconfig.ViewDefinition{def}})
 			catalog, err := service.Catalog(context.Background())
 			require.NoError(t, err)
 			target := findTarget(t, catalog, viewconfig.MountKindType, "Effort")
@@ -214,7 +214,7 @@ mount:
 			writeViewConfig(t, root, "missing.yaml", idField+body)
 			writeViewConfig(t, root, "valid.yaml", "id: valid\n"+body)
 			require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "views", "index.html"), []byte("<!doctype html><title>Dashboard</title>"), 0o644))
-			catalog, err := New(ServiceOptions{VaultPath: root, Schema: &ontology.Schema{Types: map[string]*ontology.NoteType{"Effort": {Name: "Effort"}}}}).Catalog(context.Background())
+			catalog, err := New(ServiceOptions{VaultPath: root, Schema: &ontoschema.Schema{Types: map[string]*ontoschema.NoteType{"Effort": {Name: "Effort"}}}}).Catalog(context.Background())
 			require.NoError(t, err)
 			target := findTarget(t, catalog, viewconfig.MountKindType, "Effort")
 			require.Equal(t, viewChoiceID("valid", "custom"), target.DefaultChoiceID)
@@ -235,13 +235,13 @@ mount:
 }
 
 func TestUnconfiguredTargetsOpenGeneratedTableAndNodeTargetsNeedNodeTypes(t *testing.T) {
-	schema := &ontology.Schema{
-		Types: map[string]*ontology.NoteType{
-			"Effort":  {Name: "Effort", Role: ontology.TypeRoleNote, DisplayGroup: "Delivery", Implements: []string{"Work"}},
-			"Spec":    {Name: "Spec", Role: ontology.TypeRoleNote, Implements: []string{"Work"}},
-			"Heading": {Name: "Heading", Role: ontology.TypeRoleSection},
+	schema := &ontoschema.Schema{
+		Types: map[string]*ontoschema.NoteType{
+			"Effort":  {Name: "Effort", Role: ontoschema.TypeRoleNote, DisplayGroup: "Delivery", Implements: []string{"Work"}},
+			"Spec":    {Name: "Spec", Role: ontoschema.TypeRoleNote, Implements: []string{"Work"}},
+			"Heading": {Name: "Heading", Role: ontoschema.TypeRoleSection},
 		},
-		Interfaces: map[string]*ontology.InterfaceType{"Work": {Name: "Work"}},
+		Interfaces: map[string]*ontoschema.InterfaceType{"Work": {Name: "Work"}},
 	}
 	catalog, err := New(ServiceOptions{Schema: schema}).Catalog(context.Background())
 	require.NoError(t, err)
@@ -275,13 +275,13 @@ func replacementCatalog(t *testing.T, defs ...viewconfig.ViewDefinition) (*Servi
 
 // layoutEffortSchema gives Effort a staged lifecycle and a summary, so its
 // generated view offers Table, Cards, and Board (SPEC-0112).
-func layoutEffortSchema() *ontology.Schema {
-	return &ontology.Schema{
-		EnumTypes: map[string]*ontology.EnumType{"EffortStatus": stagedEnum("EffortStatus",
+func layoutEffortSchema() *ontoschema.Schema {
+	return &ontoschema.Schema{
+		EnumTypes: map[string]*ontoschema.EnumType{"EffortStatus": stagedEnum("EffortStatus",
 			[2]string{"planned", "open"}, [2]string{"active", "active"}, [2]string{"complete", "done"})},
-		Types: map[string]*ontology.NoteType{"Effort": {Name: "Effort", Role: ontology.TypeRoleNote, Fields: []*ontology.Field{
-			keyField(&ontology.Field{Name: "status", Kind: ontology.FieldKindEnum, TypeName: "EffortStatus"}),
-			{Name: "summary", Kind: ontology.FieldKindScalar, TypeName: "String"},
+		Types: map[string]*ontoschema.NoteType{"Effort": {Name: "Effort", Role: ontoschema.TypeRoleNote, Fields: []*ontoschema.Field{
+			keyField(&ontoschema.Field{Name: "status", Kind: ontoschema.FieldKindEnum, TypeName: "EffortStatus"}),
+			{Name: "summary", Kind: ontoschema.FieldKindScalar, TypeName: "String"},
 		}}},
 	}
 }

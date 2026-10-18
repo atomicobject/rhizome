@@ -3,13 +3,14 @@ package update
 import (
 	"errors"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/appbundle"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 var appCommandLineLinkPath = "/usr/local/bin/rzm"
@@ -30,7 +31,7 @@ type Invocation struct {
 // ResolveInvocation derives executable and repository target identity from the
 // local pin. Location fields choose where a pinned binary lives; they do not
 // create a repository target without rhizome.version.
-func ResolveInvocation(executablePath, cfgDir string, cfg *obsidian.LocalConfig) (Invocation, error) {
+func ResolveInvocation(executablePath, cfgDir string, cfg *repoconfig.LocalConfig) (Invocation, error) {
 	if strings.TrimSpace(executablePath) == "" {
 		resolved, err := os.Executable()
 		if err != nil {
@@ -103,7 +104,24 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *obsidian.LocalConfig)
 	return invocation, nil
 }
 
-func invocationRepoTarget(cfgDir string, cfg *obsidian.LocalConfig) string {
+func findRepoConfig(env vaultconfig.Env, workDir string) (string, *repoconfig.LocalConfig, error) {
+	if strings.TrimSpace(workDir) == "" {
+		workDir = env.WorkingDir
+	}
+	if !filepath.IsAbs(workDir) {
+		return "", nil, errors.New("update working directory must be absolute")
+	}
+	cfgDir, cfg, err := repoconfig.FindLocalConfig(workDir)
+	if err != nil {
+		if errors.Is(err, repoconfig.ErrNoLocalConfig) {
+			return "", nil, nil
+		}
+		return "", nil, err
+	}
+	return cfgDir, cfg, nil
+}
+
+func invocationRepoTarget(cfgDir string, cfg *repoconfig.LocalConfig) string {
 	if binaryPath := strings.TrimSpace(cfg.Rhizome.BinaryPath); binaryPath != "" {
 		if filepath.IsAbs(binaryPath) {
 			return filepath.Clean(binaryPath)

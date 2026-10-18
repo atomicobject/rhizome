@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"sort"
 	"strings"
@@ -16,7 +17,7 @@ type structuredRepairEdit struct {
 }
 
 func planOntologyRepairGroups(
-	ctx context.Context, runCtx RunContext, schema *ontology.Schema,
+	ctx context.Context, runCtx RunContext, schema *ontoschema.Schema,
 	previewer OntologyOperationPreviewer, edits []structuredRepairEdit,
 ) ([]RepairOperation, []RepairOperation, error) {
 	byPath := map[string][]structuredRepairEdit{}
@@ -106,7 +107,7 @@ func planOntologyRepairGroups(
 }
 
 func plannedUpgradeTarget(
-	ctx context.Context, runCtx RunContext, schema *ontology.Schema,
+	ctx context.Context, runCtx RunContext, schema *ontoschema.Schema,
 	ref ontology.NodeRef, requestedBlockID string,
 ) (string, string, error) {
 	service := ontology.NodeLinkService{VaultDef: runCtx.VaultDef, NoteReader: runCtx.NoteReader, Schema: schema}
@@ -152,6 +153,7 @@ func planUpgradeSourceRewrite(runCtx RunContext, action FixAction, edit FixEdit,
 	}
 	operation := wholeFileRepairOperation(repairOperationID(action.ID, edit.SourcePath, "upgrade-link"), action, edit.SourcePath, before, []byte(after))
 	span := minimalRepairExpectedText(before, []byte(after))
+	operation.Expected = []ExpectedText{span}
 	operation.LifecycleClaims = []LifecycleClaim{{
 		Kind: LifecycleEditBrokenLink, StartByte: span.StartByte, EndByte: span.EndByte,
 		ExpectedText: span.Text, Replacement: span.Replacement,

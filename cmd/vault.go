@@ -2,11 +2,13 @@ package cmd
 
 import "github.com/spf13/cobra"
 
-var vaultCmd = &cobra.Command{
-	Use:   "vault",
-	Short: "Manage vault selection and paths",
+func (commandOptions *vaultInvocationOptions) makeVaultCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "vault",
+		Short: "Manage vault selection and paths",
+	}
 }
 
-func init() {
+func (commandOptions *vaultInvocationOptions) registerVaultCommands(rootCmd, vaultCmd *cobra.Command) {
 	rootCmd.AddCommand(vaultCmd)
 }

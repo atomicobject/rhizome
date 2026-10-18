@@ -4,25 +4,25 @@ import (
 	"sort"
 
 	anchors "github.com/atomicobject/rhizome/pkg/anchors"
-	sqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/indexingpipe"
+	"github.com/atomicobject/rhizome/pkg/app/codeintel"
 	"github.com/atomicobject/rhizome/pkg/app/noteownership"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	sqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/notediscovery"
 )
 
-func ingestCandidates(snapshot noteownership.Snapshot, plan noteownership.TransitionPlan, affected, fatal map[string]struct{}) (code, notes []indexingpipe.FileCandidate, sources map[paths.NotePath]noteformat.AuthoredSource) {
+func ingestCandidates(snapshot noteownership.Snapshot, plan noteownership.TransitionPlan, affected, fatal map[string]struct{}) (code, notes []codeintel.FileCandidate, sources map[paths.NotePath]noteformat.AuthoredSource) {
 	sources = map[paths.NotePath]noteformat.AuthoredSource{}
 	for _, c := range snapshot.Candidates() {
 		if !c.Present {
 			continue
 		}
 		_, force := affected[c.Path.String()]
-		candidate := indexingpipe.FileCandidate{AbsPath: c.AbsPath.String(), RelPath: c.Path.String(), ModTime: c.ModTime, ForceRead: force}
+		candidate := codeintel.FileCandidate{AbsPath: c.AbsPath.String(), RelPath: c.Path.String(), ModTime: c.ModTime, ForceRead: force}
 		if c.Owner == notediscovery.Code {
-			candidate.Kind = indexingpipe.FileKindCode
+			candidate.Kind = codeintel.FileKindCode
 			candidate.Lang = c.Language
 			code = append(code, candidate)
 		}
@@ -31,7 +31,7 @@ func ingestCandidates(snapshot noteownership.Snapshot, plan noteownership.Transi
 				delete(sources, paths.NotePath(c.Path))
 				continue
 			}
-			candidate.Kind = indexingpipe.FileKindNote
+			candidate.Kind = codeintel.FileKindNote
 			if source, ok := plan.Source(paths.NotePath(c.Path)); ok {
 				sources[paths.NotePath(c.Path)] = source
 				candidate.ModTime = source.Mtime()

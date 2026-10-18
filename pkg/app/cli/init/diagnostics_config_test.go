@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,12 +21,12 @@ func TestInitPreservesDiagnosticsConfiguration(t *testing.T) {
 	cfg := layout.ExistingLocal
 	cfg.Rhizome.Version = "v1.2.3"
 	require.NoError(t, writeConfigPatched(root, cfg, changeSet{sectionRhizome: true}))
-	reloaded, err := obsidian.LoadLocalConfig(root)
+	reloaded, err := repoconfig.LoadLocalConfig(root)
 	require.NoError(t, err)
 	require.Equal(t, cfg.Diagnostics, reloaded.Diagnostics)
 	newRoot := t.TempDir()
 	require.NoError(t, writeConfigNew(newRoot, cfg))
-	fresh, err := obsidian.LoadLocalConfig(newRoot)
+	fresh, err := repoconfig.LoadLocalConfig(newRoot)
 	require.NoError(t, err)
 	require.Equal(t, cfg.Diagnostics, fresh.Diagnostics)
 }

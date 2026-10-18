@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/pkg/search"
 )
 
 // QueryEmbedder computes query embeddings across code and note providers.
@@ -47,13 +48,13 @@ func (e *QueryEmbedder) compute(ctx context.Context, text string) (QueryEmbeddin
 	if hasCode && hasNote && e.CodeProvider == e.NoteProvider {
 		started := time.Now()
 		vec, err := embedOnce(ctx, e.CodeProvider, text)
-		addTiming(ctx, TimingEvent{
+		search.RecordTiming(ctx, search.TimingEvent{
 			Name:     "semantic.embed.shared",
 			Kind:     "retriever",
 			Started:  started,
 			Duration: time.Since(started),
-			Status:   timingStatus(err),
-			Err:      timingErr(err),
+			Status:   search.TimingStatus(err),
+			Err:      search.TimingError(err),
 		})
 		if err != nil {
 			return QueryEmbeddings{}, err
@@ -75,13 +76,13 @@ func (e *QueryEmbedder) compute(ctx context.Context, text string) (QueryEmbeddin
 			defer wg.Done()
 			started := time.Now()
 			vec, err := embedOnce(ctx, e.CodeProvider, text)
-			addTiming(ctx, TimingEvent{
+			search.RecordTiming(ctx, search.TimingEvent{
 				Name:     "semantic.embed.code",
 				Kind:     "retriever",
 				Started:  started,
 				Duration: time.Since(started),
-				Status:   timingStatus(err),
-				Err:      timingErr(err),
+				Status:   search.TimingStatus(err),
+				Err:      search.TimingError(err),
 			})
 			if err != nil {
 				cancel(fmt.Errorf("embed code query: %w", err))
@@ -97,13 +98,13 @@ func (e *QueryEmbedder) compute(ctx context.Context, text string) (QueryEmbeddin
 			defer wg.Done()
 			started := time.Now()
 			vec, err := embedOnce(ctx, e.NoteProvider, text)
-			addTiming(ctx, TimingEvent{
+			search.RecordTiming(ctx, search.TimingEvent{
 				Name:     "semantic.embed.note",
 				Kind:     "retriever",
 				Started:  started,
 				Duration: time.Since(started),
-				Status:   timingStatus(err),
-				Err:      timingErr(err),
+				Status:   search.TimingStatus(err),
+				Err:      search.TimingError(err),
 			})
 			if err != nil {
 				cancel(fmt.Errorf("embed note query: %w", err))
@@ -125,7 +126,7 @@ func (e *QueryEmbedder) compute(ctx context.Context, text string) (QueryEmbeddin
 
 // embedOnce embeds a single text and returns the embedding.
 func embedOnce(ctx context.Context, provider embeddings.Provider, text string) (embeddings.Embedding, error) {
-	indexingperf.AddCount(ctx, "provider.calls", 1)
+	indexingperf.AddCount(ctx, indexingperf.ProviderCalls, 1)
 	vecs, err := provider.EmbedTexts(ctx, []string{text})
 	if err != nil {
 		return nil, err

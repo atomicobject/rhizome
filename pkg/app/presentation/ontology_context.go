@@ -2,32 +2,27 @@ package presentation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"path/filepath"
-	"sort"
-	"strings"
-
 	"github.com/atomicobject/rhizome/pkg/app/contextpack"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	"path/filepath"
+	"sort"
+	"strings"
 )
 
 const ontologyNodeContextBudget = 2200
 
 func renderOntologyNodeContext(ctx context.Context, p *DefaultPacker, scope *noderead.Scope, r search.RankedResult, budget int) string {
-	if p == nil || scope == nil || strings.TrimSpace(r.NodeRefJSON) == "" {
+	if p == nil || scope == nil || r.NodeRef == nil || r.NodeRef.IsZero() {
 		return ""
 	}
 	if budget <= 0 || budget > ontologyNodeContextBudget {
 		budget = ontologyNodeContextBudget
 	}
-	var ref ontology.NodeRef
-	if err := json.Unmarshal([]byte(r.NodeRefJSON), &ref); err != nil || ref.IsZero() {
-		return ""
-	}
+	ref := *r.NodeRef
 	projection, err := scope.Projection(ctx, ref)
 	if err != nil || projection == nil || strings.TrimSpace(projection.ResolvedType) == "" {
 		return ""
@@ -80,7 +75,7 @@ func ontologyParentLine(ctx context.Context, scope *noderead.Scope, projection *
 }
 
 func ontologyMatchedNodeBodyMarkdown(projection *ontology.NodeProjection, chunkIndex int) string {
-	parts := semantic.OntologyNodeBodyParts(projection, 0)
+	parts := ontology.NodeBodyParts(projection, 0)
 	if len(parts) == 0 {
 		return ""
 	}
@@ -92,7 +87,7 @@ func ontologyMatchedNodeBodyMarkdown(projection *ontology.NodeProjection, chunkI
 }
 
 func ontologyDisplayType(typeName string) string {
-	if ontology.IsFallbackNoteTypeName(typeName) {
+	if ontoschema.IsFallbackNoteTypeName(typeName) {
 		return "untyped note"
 	}
 	return strings.TrimSpace(typeName)
@@ -125,7 +120,7 @@ func ontologyContextIncludeLines(ctx context.Context, p *DefaultPacker, scope *n
 	return out
 }
 
-func ontologyContextIncludeValues(ctx context.Context, p *DefaultPacker, scope *noderead.Scope, projection *ontology.NodeProjection, field *ontology.Field) []string {
+func ontologyContextIncludeValues(ctx context.Context, p *DefaultPacker, scope *noderead.Scope, projection *ontology.NodeProjection, field *ontoschema.Field) []string {
 	if projection == nil || field == nil {
 		return nil
 	}
@@ -139,13 +134,13 @@ func ontologyContextIncludeValues(ctx context.Context, p *DefaultPacker, scope *
 			values = append(values, ref.String())
 		}
 	}
-	if field.Kind != ontology.FieldKindNeighbor {
+	if field.Kind != ontoschema.FieldKindNeighbor {
 		return values
 	}
 	if scope == nil || strings.TrimSpace(projection.Ref.NotePath) == "" {
 		return values
 	}
-	var schema *ontology.Schema
+	var schema *ontoschema.Schema
 	if p != nil {
 		schema = p.OntologySchema
 	}
@@ -201,7 +196,7 @@ func ontologyScalarFieldLines(projection *ontology.NodeProjection) []string {
 		if field == nil {
 			continue
 		}
-		if field.Kind == ontology.FieldKindSection || field.Kind == ontology.FieldKindNeighbor {
+		if field.Kind == ontoschema.FieldKindSection || field.Kind == ontoschema.FieldKindNeighbor {
 			continue
 		}
 		binding, ok := projection.Fields[field.Name]

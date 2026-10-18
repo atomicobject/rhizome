@@ -7,124 +7,41 @@ import (
 	"sort"
 	"strings"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
-// projectionLinkTopologyChanged determines whether a bounded delta must
-// rederive all links. It intentionally consumes aliases emitted by the
+// projectionLinkTopologyChanged identifies namespace changes that require
+// rederiving dependent sources. It intentionally consumes aliases emitted by the
 // selected provider rather than compatibility frontmatter or authored bytes.
 func projectionLinkTopologyChanged(ctx context.Context, store Store, vaultDef obsidian.VaultDefinition, durable map[string]semdb.NoteMetadataRow, entries []projectedNoteEntry, deletedPaths []string) (bool, map[string][]string, error) {
-	if !vaultDef.SupportsWikilinks() && !vaultDef.SupportsMarkdownLinks() && !projectedEntriesHaveURI(entries) {
-		return false, nil, nil
-	}
-	if len(deletedPaths) > 0 {
-		return true, nil, nil
-	}
-	pathsList := projectedPaths(entries)
-	if len(pathsList) == 0 {
-		return false, nil, nil
-	}
-	if len(durable) != len(pathsList) {
-		return true, nil, nil
-	}
 	storedAliases, err := store.CurrentNoteAliases(ctx)
 	if err != nil {
 		return false, nil, err
 	}
+	if len(deletedPaths) > 0 || len(durable) != len(projectedPaths(entries)) {
+		return true, storedAliases, nil
+	}
 	for _, entry := range entries {
 		notePath := entry.Source.Path().String()
 		if !equalStringSets(projectionAliasValues(entry), storedAliases[notePath]) {
-			return true, nil, nil
+			return true, storedAliases, nil
 		}
 	}
 	return false, storedAliases, nil
 }
 
-// buildIncrementalProjectionLinkCache keeps ordinary link lookup bounded to
-// targets named by the changed projection, while URI links use the complete
-// candidate set needed to preserve ambiguity. It then overlays changed
-// sources and never rescans authored Markdown syntax.
-// aliasesByPath is the snapshot already loaded for topology validation; using
-// it here also keeps provider aliases available when SQL path lookup cannot
-// resolve an alias key on its own.
+// buildIncrementalProjectionLinkCache uses the persisted candidate inventory
+// and provider aliases without reading or projecting unchanged authored notes.
 func buildIncrementalProjectionLinkCache(ctx context.Context, store Store, vaultDef obsidian.VaultDefinition, entries []projectedNoteEntry, deletedPaths []string, aliasesByPath map[string][]string) (*obsidian.NotePathCache, error) {
-	if len(entries) == 0 {
-		return nil, nil
+	paths, err := store.CurrentNoteMetadataPaths(ctx)
+	if err != nil {
+		return nil, err
 	}
-	lookupInputs := make(map[string]struct{})
-	uriEntries := make([]projectedNoteEntry, 0)
-	for _, entry := range entries {
-		for _, link := range entry.Links {
-			if !resolutionSupported(vaultDef, link.Resolution) {
-				continue
-			}
-			if link.Resolution == noteformat.LinkResolutionURI {
-				uriEntries = append(uriEntries, entry)
-				break
-			}
-			if input := linkLookupPath(entry.Source.Path().String(), entry.Projection.Facts.DocumentBase, link); input != "" {
-				lookupInputs[input] = struct{}{}
-			}
-		}
-	}
-	if len(lookupInputs) == 0 && len(uriEntries) == 0 {
-		return nil, nil
-	}
-	resolvedPaths := make([]string, 0)
-	var uriCandidatePaths []string
-	if len(lookupInputs) > 0 {
-		resolved, err := store.ResolveStoredNoteLinks(ctx, sortedKeys(lookupInputs))
-		if err != nil {
-			return nil, err
-		}
-		resolvedPaths = make([]string, 0, len(resolved))
-		for _, notePath := range resolved {
-			if notePath = strings.TrimSpace(notePath); notePath != "" {
-				resolvedPaths = append(resolvedPaths, notePath)
-			}
-		}
-	}
-	if len(uriEntries) > 0 {
-		// URI links use the same provider-neutral resolver as full snapshots and
-		// public reads. Build one complete candidate union so extensionless and
-		// alias targets cannot silently inherit Markdown suffix preference.
-		allPaths, err := store.CurrentNoteMetadataPaths(ctx)
-		if err != nil {
-			return nil, err
-		}
-		uriCandidatePaths = allPaths
-		cache := obsidian.BuildNotePathCacheWithAliases(allPaths, aliasesByPath)
-		for _, entry := range uriEntries {
-			for _, link := range entry.Links {
-				if link.Resolution != noteformat.LinkResolutionURI {
-					continue
-				}
-				if target, ok := ResolveURIProjectionLink(cache, entry.Source.Path().String(), entry.Projection.Facts.DocumentBase, link); ok {
-					resolvedPaths = append(resolvedPaths, target)
-				}
-			}
-		}
-	}
-	if len(resolvedPaths) == 0 && len(uriCandidatePaths) == 0 {
-		if len(aliasesByPath) == 0 {
-			return nil, nil
-		}
-		cache := buildIncrementalPathCache(nil, projectedPaths(entries), deletedPaths)
-		return buildProjectionAliasCache(cache, aliasesByPath), nil
-	}
-	// Keep the complete URI candidate set in the final cache. Resolving URI
-	// links against the complete set above is only half of the contract: the
-	// same cache resolves every changed entry's links below. Rebuilding it
-	// from resolved targets alone would drop an ambiguous claimant such as
-	// report.md when another changed source explicitly links report.html.
-	cachePaths := append(uriCandidatePaths, resolvedPaths...)
-	cache := buildIncrementalPathCache(cachePaths, projectedPaths(entries), deletedPaths)
-	if len(aliasesByPath) > 0 {
-		cache = buildProjectionAliasCache(cache, aliasesByPath)
-	}
-	return cache, nil
+	selected := selectedPathsAfterDelta(paths, entries, deletedPaths)
+	aliases := overlayProjectionAliasesForDelta(aliasesByPath, entries, deletedPaths)
+	return obsidian.BuildNotePathCacheWithAliases(selected, aliases), nil
 }
 
 // linkLookupPath adapts only the closed resolution semantics into the store's
@@ -149,7 +66,7 @@ func linkLookupPath(sourcePath string, base *noteformat.DocumentBaseFact, link n
 			}
 		}
 		targetPath = path.Clean(targetPath)
-		if targetPath == "." || strings.HasPrefix(targetPath, "../") {
+		if targetPath == "." || targetPath == ".." || strings.HasPrefix(targetPath, "../") {
 			return ""
 		}
 		return targetPath
@@ -180,17 +97,6 @@ func linkLookupPath(sourcePath string, base *noteformat.DocumentBaseFact, link n
 	default:
 		return ""
 	}
-}
-
-func projectedEntriesHaveURI(entries []projectedNoteEntry) bool {
-	for _, entry := range entries {
-		for _, link := range entry.Links {
-			if link.Resolution == noteformat.LinkResolutionURI {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // overlayProjectionAliasesForDelta replaces changed claims and removes deleted paths.
@@ -253,5 +159,20 @@ func equalStringSets(left, right []string) bool {
 }
 
 func incrementalProjectedNotesHash(ctx context.Context, store metadataRowsProvider, currentNotesHash string, entries []projectedNoteEntry, deletedPaths []string) (string, error) {
-	return incrementalNotesHash(ctx, store, currentNotesHash, entriesFromProjected(entries), deletedPaths)
+	aggregate, err := decodeNotesHash(currentNotesHash)
+	if err != nil {
+		return "", err
+	}
+	touched := append(projectedPaths(entries), deletedPaths...)
+	rows, err := store.CurrentNoteMetadataRowsByPaths(ctx, dedupeStrings(touched))
+	if err != nil {
+		return "", err
+	}
+	for _, row := range rows {
+		aggregate.Remove(row.Path, row.ContentHash)
+	}
+	for _, entry := range entries {
+		aggregate.Add(entry.Source.Path().String(), entry.Source.ContentHash())
+	}
+	return aggregate.String(), nil
 }

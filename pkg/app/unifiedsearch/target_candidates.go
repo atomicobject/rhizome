@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/search"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // targetCandidateResults materializes an ambiguous precision target's
@@ -41,9 +41,9 @@ func targetCandidateResults(ctx context.Context, store *semdb.Store, filters sea
 		var result search.Candidate
 		if anchors := anchorsByFQN[strings.TrimSpace(candidate.FQN)]; len(anchors) > 0 {
 			anchor := anchors[0]
-			result = search.Candidate{Handle: knowledge.AnchorHandle(anchor.AnchorID), Type: "anchor", Path: anchor.Path, Title: anchor.Symbol, Symbol: anchor.Symbol, FQN: anchor.FQN, Kind: anchor.Kind, ChunkIndex: -1, AnchorID: anchor.AnchorID}
+			result = search.Candidate{SourceRef: search.SourceRef{Path: anchor.Path, Title: anchor.Symbol, Symbol: anchor.Symbol, FQN: anchor.FQN, Kind: anchor.Kind, ChunkIndex: -1, AnchorID: anchor.AnchorID}, Handle: knowledge.AnchorHandle(anchor.AnchorID), Type: "anchor"}
 		} else if path := strings.TrimSpace(candidate.Path); path != "" {
-			result = search.Candidate{Handle: knowledge.FileHandle(path), Type: "code", Path: path, Title: filepath.Base(path), Symbol: candidate.Symbol, FQN: candidate.FQN, Kind: candidate.Kind, ChunkIndex: -1}
+			result = search.Candidate{SourceRef: search.SourceRef{Path: path, Title: filepath.Base(path), Symbol: candidate.Symbol, FQN: candidate.FQN, Kind: candidate.Kind, ChunkIndex: -1}, Handle: knowledge.FileHandle(path), Type: "code"}
 		} else {
 			continue
 		}

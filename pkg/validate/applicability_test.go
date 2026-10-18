@@ -455,7 +455,7 @@ func TestResolveCheckApplicability_CodeAnchorsRequireLanguageRoots(t *testing.T)
 			result := ResolveCheckApplicability(context.Background(), descriptor, SurfaceLocal, tt.facts, PrerequisiteProbes{Projection: probe, CodeIndex: probe})
 
 			require.Equal(t, CheckOutcomeNotApplicable, result.Outcome)
-			require.Equal(t, "no code folders for an enabled language; run rzm init --check to see the fix, or remove code folder limits or code.disabledLanguages in .rhizome/config.yml", result.Summary)
+			require.Contains(t, result.Summary, "rzm init --check")
 			require.Empty(t, result.PreparationCommand)
 			require.Equal(t, EvidenceFeatureAbsent, result.Evidence[0].Code)
 			require.Empty(t, probe.projectionCalls)

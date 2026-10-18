@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/atomicobject/rhizome/pkg/app/appbundle"
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 var desktopExecutable = os.Executable
@@ -36,9 +35,15 @@ func (s *Service) globalExecutable(override string) (string, error) {
 			return bundle.ExecutablePath, nil
 		}
 	}
-	paths := []string{filepath.Join(s.home, ".local", "bin", repoexec.ExecutableName())}
-	if path, err := exec.LookPath(repoexec.ExecutableName()); err == nil && filepath.IsAbs(path) {
-		paths = append(paths, path)
+	var paths []string
+	if s.env.HomeDir != "" {
+		paths = append(paths, filepath.Join(s.env.HomeDir, ".local", "bin", repoexec.ExecutableName()))
+	}
+	searchPath, _ := s.env.Lookup("PATH")
+	for _, dir := range filepath.SplitList(searchPath) {
+		if filepath.IsAbs(dir) {
+			paths = append(paths, filepath.Join(dir, repoexec.ExecutableName()))
+		}
 	}
 	paths = append(paths, filepath.Join("/opt/homebrew/bin", repoexec.ExecutableName()), filepath.Join("/usr/local/bin", repoexec.ExecutableName()))
 	for _, path := range paths {
@@ -91,8 +96,8 @@ func (s *Service) neutralDir() (string, func(), error) {
 		return "", nil, resolveErr
 	}
 	dir = canonical
-	_, _, err = obsidian.FindLocalConfigForDelegation(dir)
-	if !errors.Is(err, obsidian.ErrNoLocalConfig) {
+	_, _, err = repoconfig.FindLocalConfigForDelegation(dir)
+	if !errors.Is(err, repoconfig.ErrNoLocalConfig) {
 		cleanup()
 		return "", nil, problem("invalid_request", "Desktop application data must be outside every configured Rhizome folder.")
 	}

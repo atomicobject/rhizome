@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/app/cli/init/diff"
+	"github.com/atomicobject/rhizome/pkg/textdiff"
 )
 
 // terminalOwnershipUI asks in a terminal.
@@ -89,7 +89,7 @@ func (u *terminalOwnershipUI) decideEdited(c *change, mirrors int) bool {
 }
 
 func (u *terminalOwnershipUI) showDiff(c *change) {
-	_, hunks, err := diff.GenerateUnifiedDiff(string(c.current), string(c.desired), c.rel)
+	_, hunks, err := textdiff.GenerateUnifiedDiff(string(c.current), string(c.desired), c.rel)
 	if err != nil || len(hunks) == 0 {
 		fmt.Fprintln(u.out, "  (no line differences)")
 		return

@@ -8,23 +8,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewIndexerRequiresRuntime(t *testing.T) {
-	_, err := NewIndexer(noteformat.Runtime{})
-	require.Error(t, err)
-}
-
-func TestIndexerValidateRejectsZeroValue(t *testing.T) {
-	var indexer Indexer
-	require.Error(t, indexer.Validate())
-}
-
-func TestNewIndexerAcceptsBuiltInRuntime(t *testing.T) {
-	runtime, err := builtin.NewRuntime()
+func TestIndexerRequiresExplicitRuntime(t *testing.T) {
+	configured, err := builtin.NewRuntime()
 	require.NoError(t, err)
-
-	indexer, err := NewIndexer(runtime)
-	require.NoError(t, err)
-	require.NoError(t, indexer.Validate())
+	for _, tc := range []struct {
+		name    string
+		runtime noteformat.Runtime
+		valid   bool
+	}{{"missing", noteformat.Runtime{}, false}, {"configured", configured, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			indexer, createErr := NewIndexer(tc.runtime)
+			require.Equal(t, tc.valid, createErr == nil)
+			require.Equal(t, tc.valid, indexer.Validate() == nil)
+			_, runtimeErr := indexer.FormatRuntime()
+			require.Equal(t, tc.valid, runtimeErr == nil)
+		})
+	}
 }
 
 func testIndexer(t testing.TB) Indexer {

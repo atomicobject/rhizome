@@ -4,17 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAssessmentIssueDetails_HydratesFixTargets(t *testing.T) {
@@ -91,10 +97,10 @@ func TestAssessmentIssueDetails_HydratesFixTargets(t *testing.T) {
 		SchemaState: semdb.OntologySchemaState{SchemaHash: "schema", NotesHash: "notes", LoadedAt: 1, Ready: true},
 	}))
 
-	schema := &ontology.Schema{}
+	schema := &ontoschema.Schema{}
 	requested := []string{"specs/auth.md", "ambig.md", "clean.md"}
 
-	detailScope := noderead.NewService(obsidian.VaultDefinition{}, &obsidian.Note{}, store, schema).NewScope(ctx, noderead.ScopeOptions{})
+	detailScope := noderead.NewService(obsidian.VaultDefinition{}, &obsidian.Note{}, store, schema).NewScope(noderead.ScopeOptions{})
 	detailAssessments, err := detailScope.AssessmentsByPaths(ctx, requested)
 	require.NoError(t, err)
 	issuesByPath, itemsByPath, detailAmbiguous, detailIssues, err := assessmentIssueDetails(ctx, schema, detailAssessments, detailScope.AssessmentsByPaths)
@@ -149,13 +155,13 @@ func assessmentRow(t *testing.T, assessment ontology.NoteAssessment) semdb.Ontol
 // schema is loaded from a real temp fixture so we exercise the full compile
 // + section-type resolution path without mocking schema internals.
 
-func loadTypedSectionsSchema(t *testing.T, sdl string) *ontology.Schema {
+func loadTypedSectionsSchema(t *testing.T, sdl string) *ontoschema.Schema {
 	t.Helper()
 	root := t.TempDir()
 	dir := filepath.Join(root, ".rhizome", "ontology")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(sdl), 0o644))
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	require.NotNil(t, schema)
 	return schema
@@ -222,8 +228,8 @@ func TestMapRenderedSections_ContentUsesOwnContent(t *testing.T) {
 }
 
 func TestSectionAnchorLookupKey_TreatsCaretFragmentsAsBlocks(t *testing.T) {
-	require.Equal(t, "block:US-001", sectionAnchorLookupKey("#^US-001", obsidian.BacklinkTypeHeading))
-	require.Equal(t, "block:validation", sectionAnchorLookupKey("^validation", obsidian.BacklinkTypeHeading))
+	require.Equal(t, "block:US-001", sectionAnchorLookupKey("#^US-001", markdownsyntax.BacklinkTypeHeading))
+	require.Equal(t, "block:validation", sectionAnchorLookupKey("^validation", markdownsyntax.BacklinkTypeHeading))
 }
 
 func TestAnnotateTypedSections_ListChildrenAnnotated(t *testing.T) {
@@ -317,6 +323,9 @@ func TestAnnotateTypedSections_ListChildrenAnnotatedUnderSingleH1(t *testing.T) 
 }
 
 func TestAnnotateTypedSections_NoResolvedTypeLeavesSectionsUntyped(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ontology", "schema.graphql"), []byte(typedSpecSchema), 0o644))
@@ -329,10 +338,10 @@ func TestAnnotateTypedSections_NoResolvedTypeLeavesSectionsUntyped(t *testing.T)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	vaultDef := obsidian.VaultDefinition{Name: "test", Path: root, Links: obsidian.LinkTypeBoth}
-	_, err = ontology.EnsureFreshRuntimeWithStore(context.Background(), testNoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
+	_, err = ontologytest.Publish(vaultconfig.WithEnv(context.Background(), env), testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	srv := newFixtureServer(t, fixtureVault{
-		root: root, vault: &obsidian.Vault{Name: "test"}, vaultDef: vaultDef, intelStore: store,
+		root: root, vault: &repoconfig.Vault{Env: env, Name: "test"}, vaultDef: vaultDef, intelStore: store,
 	}, &Runtime{IntelStore: store})
 
 	// The same body in a schema-matched note is annotated, so the fixture can
@@ -406,7 +415,7 @@ func TestAnnotateTypedSections_PropagatesInlineSectionDisplay(t *testing.T) {
 	criteria := story.Children[0]
 	require.Equal(t, "acceptanceCriteria", criteria.FieldName)
 	require.Equal(t, "userStories.stories.acceptanceCriteria", criteria.FieldPath)
-	require.Equal(t, ontology.SectionDisplayInline, criteria.SectionDisplay)
+	require.Equal(t, ontoschema.SectionDisplayInline, criteria.SectionDisplay)
 
 	structural := buildStructuralSections(rendered)
 	require.Len(t, structural, 1)
@@ -414,7 +423,7 @@ func TestAnnotateTypedSections_PropagatesInlineSectionDisplay(t *testing.T) {
 	require.Len(t, structural[0].Children[0].Children, 1)
 	require.Equal(
 		t,
-		ontology.SectionDisplayInline,
+		ontoschema.SectionDisplayInline,
 		structural[0].Children[0].Children[0].SectionDisplay,
 	)
 }
@@ -429,7 +438,7 @@ func TestBuildStructuralView_PreservesLoosePrefaceOnFileRoot(t *testing.T) {
 			{
 				ID:      "specs/foo.md#user-stories",
 				Title:   "User Stories",
-				Level:   ontology.SectionLevelH2,
+				Level:   ontoschema.SectionLevelH2,
 				Content: "Body.",
 			},
 		},
@@ -470,33 +479,33 @@ func TestBuildStructuralView_HoistsInlineSummaryContentIntoFileRoot(t *testing.T
 	summary := view.Root.Children[0]
 	require.Equal(t, "Summary", summary.Title)
 	require.Equal(t, "Summary body.", summary.Content)
-	require.Equal(t, ontology.SectionDisplayInline, summary.SectionDisplay)
+	require.Equal(t, ontoschema.SectionDisplayInline, summary.SectionDisplay)
 
 	goals := view.Root.Children[1]
 	require.Equal(t, "Goals", goals.Title)
 	require.Equal(t, "Goal body.", goals.Content)
-	require.Equal(t, ontology.SectionDisplayPane, goals.SectionDisplay)
+	require.Equal(t, ontoschema.SectionDisplayPane, goals.SectionDisplay)
 }
 
 func TestStructuralViews_SectionTabsPreserveFieldOrderAndScope(t *testing.T) {
-	first := RenderedSection{ID: "spec.md#first", Title: "First", Level: ontology.SectionLevelH3}
-	second := RenderedSection{ID: "spec.md#second", Title: "Second", Level: ontology.SectionLevelH3}
+	first := RenderedSection{ID: "spec.md#first", Title: "First", Level: ontoschema.SectionLevelH3}
+	second := RenderedSection{ID: "spec.md#second", Title: "Second", Level: ontoschema.SectionLevelH3}
 	group := RenderedSection{
-		ID: "spec.md#group", Title: "Group", Level: ontology.SectionLevelH2, TypeName: "Group",
+		ID: "spec.md#group", Title: "Group", Level: ontoschema.SectionLevelH2, TypeName: "Group",
 		Children: []RenderedSection{first, second},
 	}
-	doc := &ontology.TypeDoc{Fields: []ontology.FieldDoc{
+	doc := &schemadoc.TypeDoc{Fields: []schemadoc.FieldDoc{
 		{Name: "ignored"},
-		{Name: "chosen", Kind: ontology.FieldKindSection, SectionHeading: " First ", SectionLevel: ontology.SectionLevelH3, Description: "Heading wins"},
-		{Name: "group", Kind: ontology.FieldKindSection, SectionHeading: "Group", SectionLevel: ontology.SectionLevelH2},
-		{Name: "children", Kind: ontology.FieldKindSection, SectionLevel: ontology.SectionLevelH3, List: true, Description: " Stories "},
-		{Name: "missing", Kind: ontology.FieldKindSection, SectionHeading: "Absent", SectionLevel: ontology.SectionLevelH3},
-		{Name: "chosen", Kind: ontology.FieldKindSection, SectionHeading: "Second", SectionLevel: ontology.SectionLevelH3},
+		{Name: "chosen", Kind: ontoschema.FieldKindSection, SectionHeading: " First ", SectionLevel: ontoschema.SectionLevelH3, Description: "Heading wins"},
+		{Name: "group", Kind: ontoschema.FieldKindSection, SectionHeading: "Group", SectionLevel: ontoschema.SectionLevelH2},
+		{Name: "children", Kind: ontoschema.FieldKindSection, SectionLevel: ontoschema.SectionLevelH3, List: true, Description: " Stories "},
+		{Name: "missing", Kind: ontoschema.FieldKindSection, SectionHeading: "Absent", SectionLevel: ontoschema.SectionLevelH3},
+		{Name: "chosen", Kind: ontoschema.FieldKindSection, SectionHeading: "Second", SectionLevel: ontoschema.SectionLevelH3},
 	}}
 	file := RenderedFileResponse{
 		Path: "spec.md", ResolvedType: "Spec",
 		Sections: []RenderedSection{{
-			ID: "spec.md#root", Level: ontology.SectionLevelH1,
+			ID: "spec.md#root", Level: ontoschema.SectionLevelH1,
 			Children: []RenderedSection{group},
 		}},
 	}
@@ -543,15 +552,15 @@ func TestStructuralViews_SectionTabsPreserveFieldOrderAndScope(t *testing.T) {
 func TestStructuralViews_DefaultViewWithoutTabs(t *testing.T) {
 	for _, tc := range []struct {
 		name, typeName, want string
-		typeDoc              *ontology.TypeDoc
+		typeDoc              *schemadoc.TypeDoc
 	}{
 		{"typed without definition", "Spec", "structural", nil},
-		{"typed without section fields", "Spec", "markdown", &ontology.TypeDoc{}},
+		{"typed without section fields", "Spec", "markdown", &schemadoc.TypeDoc{}},
 		{"untyped without definition", "", "markdown", nil},
-		{"untyped without section fields", "", "markdown", &ontology.TypeDoc{}},
+		{"untyped without section fields", "", "markdown", &schemadoc.TypeDoc{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			section := RenderedSection{ID: "spec.md#section", TypeName: tc.typeName, Level: ontology.SectionLevelH2}
+			section := RenderedSection{ID: "spec.md#section", TypeName: tc.typeName, Level: ontoschema.SectionLevelH2}
 			file := RenderedFileResponse{Path: "spec.md", ResolvedType: tc.typeName, Sections: []RenderedSection{section}}
 			for _, view := range []*StructuralViewResponse{
 				buildStructuralView(file, tc.typeDoc),
@@ -609,7 +618,7 @@ func TestResolvedNoteLinks_CachesPerReferrer(t *testing.T) {
 	server := &Server{
 		cfg: Config{
 			VaultDef:     obsidian.VaultDefinition{Name: "test", Path: "/test"},
-			NoteMetadata: testNoteMetadataIndexer(t),
+			NoteMetadata: testkit.NoteMetadataIndexer(t),
 		},
 	}
 	cache := obsidian.BuildNotePathCache([]string{"notes/spec.md", "notes/effort.md", "notes/other.md"})

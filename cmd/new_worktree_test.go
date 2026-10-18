@@ -20,6 +20,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -172,14 +173,18 @@ func TestCopyRhizomeIndexRemovesStaleTargetSidecars(t *testing.T) {
 }
 
 func TestRunNewWorktreeRejectsSameDatabasePath(t *testing.T) {
+	commandOptions := newIndexOptionsForTest(t)
+
 	t.Parallel()
 
 	db := filepath.Join(t.TempDir(), ".rhizome", "db.sqlite")
-	err := runNewWorktree(testCobraCommand(), newWorktreeIndexSource{DBPath: db}, newWorktreeIndexTarget{DBPath: db})
+	err := commandOptions.runNewWorktree(testCobraCommand(), newWorktreeIndexSource{DBPath: db}, newWorktreeIndexTarget{DBPath: db})
 	require.EqualError(t, err, "source and target resolve to the same Rhizome database: "+db)
 }
 
 func TestRunNewWorktreeCopiesThenIndexesTarget(t *testing.T) {
+	commandOptions := newIndexOptionsForTest(t)
+
 	source := t.TempDir()
 	target := t.TempDir()
 	sourceDB := filepath.Join(source, ".rhizome", "db.sqlite")
@@ -193,11 +198,11 @@ func TestRunNewWorktreeCopiesThenIndexesTarget(t *testing.T) {
 	preferences, err := sourceState.Patch(context.Background(), scope, 0, map[string]json.RawMessage{"collapsed": json.RawMessage(`true`)}, nil)
 	require.NoError(t, err)
 
-	origRunIndex := newWorktreeRunIndex
-	defer func() { newWorktreeRunIndex = origRunIndex }()
+	origRunIndex := commandOptions.newWorktreeRunIndex
+	defer func() { commandOptions.newWorktreeRunIndex = origRunIndex }()
 
 	var indexedPath string
-	newWorktreeRunIndex = func(_ *cobra.Command, vaultPath string, _ obsidian.VaultDefinition) error {
+	commandOptions.newWorktreeRunIndex = func(_ *cobra.Command, vaultPath string, _ obsidian.VaultDefinition) error {
 		indexedPath = vaultPath
 		targetState, err := userstate.Open(context.Background(), vaultPath)
 		require.NoError(t, err)
@@ -212,7 +217,7 @@ func TestRunNewWorktreeCopiesThenIndexesTarget(t *testing.T) {
 	var stderr bytes.Buffer
 	cmd.SetErr(&stderr)
 
-	err = runNewWorktree(cmd,
+	err = commandOptions.runNewWorktree(cmd,
 		newWorktreeIndexSource{Root: source, DBPath: sourceDB},
 		newWorktreeIndexTarget{Root: target, DBPath: targetDB},
 	)
@@ -224,6 +229,8 @@ func TestRunNewWorktreeCopiesThenIndexesTarget(t *testing.T) {
 }
 
 func TestRunNewWorktreeWaitsForTargetWriterBeforeReplacingDatabase(t *testing.T) {
+	commandOptions := newIndexOptionsForTest(t)
+
 	source := t.TempDir()
 	target := t.TempDir()
 	sourceDB := filepath.Join(source, ".rhizome", "db.sqlite")
@@ -233,7 +240,7 @@ func TestRunNewWorktreeWaitsForTargetWriterBeforeReplacingDatabase(t *testing.T)
 	require.NoError(t, os.WriteFile(targetDB, []byte("active target"), 0o644))
 	require.NoError(t, os.WriteFile(targetDB+"-wal", []byte("active wal"), 0o644))
 
-	releaseWriter, acquired, err := indexlock.TryAcquire(obsidian.IndexLockPath(target))
+	releaseWriter, acquired, err := indexlock.TryAcquire(repoconfig.IndexLockPath(target))
 	require.NoError(t, err)
 	require.True(t, acquired)
 	defer releaseWriter()
@@ -242,7 +249,7 @@ func TestRunNewWorktreeWaitsForTargetWriterBeforeReplacingDatabase(t *testing.T)
 	defer cancel()
 	cmd := testCobraCommand()
 	cmd.SetContext(ctx)
-	err = runNewWorktree(cmd,
+	err = commandOptions.runNewWorktree(cmd,
 		newWorktreeIndexSource{Root: source, DBPath: sourceDB},
 		newWorktreeIndexTarget{Root: target, DBPath: targetDB},
 	)
@@ -261,7 +268,7 @@ func TestResolveNewWorktreeSourceUsesLocalConfigRoot(t *testing.T) {
 	source := t.TempDir()
 	nested := filepath.Join(source, "docs", "nested")
 	require.NoError(t, os.MkdirAll(nested, 0o755))
-	require.NoError(t, obsidian.SaveLocalConfig(source, obsidian.LocalConfig{
+	require.NoError(t, repoconfig.SaveLocalConfig(source, repoconfig.LocalConfig{
 		IndexPath: filepath.Join("cache", "custom.sqlite"),
 	}))
 

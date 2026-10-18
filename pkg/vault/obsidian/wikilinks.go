@@ -6,14 +6,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	"golang.org/x/text/unicode/norm"
 )
-
-func titleFromPath(path string) string {
-	base := filepath.Base(path)
-	ext := filepath.Ext(base)
-	return strings.TrimSuffix(base, ext)
-}
 
 // NotePathCache maps note names to their full paths for efficient wikilink resolution
 type NotePathCache struct {
@@ -30,25 +26,16 @@ type NotePathCache struct {
 	// Aliases maps frontmatter-declared alias strings to every claimant in
 	// deterministic path order.
 	// Real file path/title matches win over aliases during wikilink resolution.
-	Aliases map[string][]string
+	Aliases    map[string][]string
+	aliasExact map[string][]string
 }
 
 // BacklinkType represents the type of wikilink variant used.
-type BacklinkType string
-
-const (
-	BacklinkTypeBasic   BacklinkType = "basic"
-	BacklinkTypeAlias   BacklinkType = "alias"
-	BacklinkTypeHeading BacklinkType = "heading"
-	BacklinkTypeBlock   BacklinkType = "block"
-	BacklinkTypeEmbed   BacklinkType = "embed"
-)
-
 // Backlink captures a referrer and the link variant used.
 type Backlink struct {
-	Referrer string       `json:"referrer"`
-	LinkType BacklinkType `json:"linkType"`
-	Fragment string       `json:"fragment,omitempty"`
+	Referrer string                      `json:"referrer"`
+	LinkType markdownsyntax.BacklinkType `json:"linkType"`
+	Fragment string                      `json:"fragment,omitempty"`
 }
 
 type ResolvedNoteTarget struct {
@@ -133,9 +120,10 @@ func aliasStringFromFrontmatter(raw any) string {
 // alias strings declared by the note's `aliases:` frontmatter list.
 func BuildNotePathCacheWithAliases(allNotes []string, aliasesByPath map[string][]string) *NotePathCache {
 	cache := &NotePathCache{
-		NotePaths: make(map[string]struct{}, len(allNotes)),
-		Paths:     make(map[string]string),
-		Aliases:   make(map[string][]string),
+		NotePaths:  make(map[string]struct{}, len(allNotes)),
+		Paths:      make(map[string]string),
+		Aliases:    make(map[string][]string),
+		aliasExact: make(map[string][]string),
 	}
 
 	for _, notePath := range allNotes {
@@ -145,11 +133,13 @@ func BuildNotePathCacheWithAliases(allNotes []string, aliasesByPath map[string][
 
 	for notePath, aliases := range aliasesByPath {
 		for _, alias := range aliases {
-			alias = strings.TrimSpace(alias)
+			exact := norm.NFC.String(strings.TrimSpace(alias))
+			alias = paths.LinkKey(exact)
 			if alias == "" {
 				continue
 			}
 			cache.Aliases[alias] = addSortedCandidate(cache.Aliases[alias], notePath)
+			cache.aliasExact[exact] = addSortedCandidate(cache.aliasExact[exact], notePath)
 		}
 	}
 
@@ -172,11 +162,13 @@ func (c *NotePathCache) AddOrUpdate(notePath string, aliases []string) {
 	}
 	c.removeAliasesForPath(notePath)
 	for _, alias := range aliases {
-		alias = strings.TrimSpace(alias)
+		exact := norm.NFC.String(strings.TrimSpace(alias))
+		alias = paths.LinkKey(exact)
 		if alias == "" {
 			continue
 		}
 		c.Aliases[alias] = addSortedCandidate(c.Aliases[alias], notePath)
+		c.aliasExact[exact] = addSortedCandidate(c.aliasExact[exact], notePath)
 	}
 }
 
@@ -204,6 +196,9 @@ func (c *NotePathCache) ensureMutable() {
 	if c.Aliases == nil {
 		c.Aliases = map[string][]string{}
 	}
+	if c.aliasExact == nil {
+		c.aliasExact = map[string][]string{}
+	}
 	if c.NotePaths == nil {
 		c.NotePaths = map[string]struct{}{}
 	}
@@ -213,6 +208,15 @@ func (c *NotePathCache) ensureMutable() {
 }
 
 func (c *NotePathCache) removeAliasesForPath(notePath string) {
+	for alias, candidates := range c.aliasExact {
+		candidates = removeCandidate(candidates, notePath)
+		if len(candidates) == 0 {
+			delete(c.aliasExact, alias)
+		} else {
+			c.aliasExact[alias] = candidates
+		}
+	}
+
 	for alias, candidates := range c.Aliases {
 		candidates = removeCandidate(candidates, notePath)
 		if len(candidates) == 0 {
@@ -239,7 +243,7 @@ func (c *NotePathCache) rebuildPathIndex() {
 }
 
 func (c *NotePathCache) addPathKeys(notePath string) {
-	key := paths.CaseKey(notePath)
+	key := paths.LinkKey(notePath)
 	c.explicitPathCandidates[key] = addSortedCandidate(c.explicitPathCandidates[key], notePath)
 	c.noteExtensions[strings.ToLower(filepath.Ext(notePath))]++
 	baseName := strings.TrimSuffix(notePath, filepath.Ext(notePath))
@@ -249,7 +253,7 @@ func (c *NotePathCache) addPathKeys(notePath string) {
 }
 
 func (c *NotePathCache) removePathKeys(notePath string) {
-	key := paths.CaseKey(notePath)
+	key := paths.LinkKey(notePath)
 	candidates := removeCandidate(c.explicitPathCandidates[key], notePath)
 	if len(candidates) == 0 {
 		delete(c.explicitPathCandidates, key)
@@ -268,14 +272,15 @@ func (c *NotePathCache) removePathKeys(notePath string) {
 	c.removePathCandidate(fileName, notePath)
 }
 
-// ResolveExplicitPath resolves an authored note path using the platform's
-// filesystem casing rules. Case-fold collisions remain ambiguous.
+// ResolveExplicitPath resolves an authored note path using platform-independent NFC and case
+// folding. Case-fold collisions remain ambiguous.
 func (c *NotePathCache) ResolveExplicitPath(notePath string) (string, bool) {
 	if c == nil {
 		return "", false
 	}
 	c.ensureMutable()
-	candidates := c.explicitPathCandidates[paths.CaseKey(filepath.ToSlash(notePath))]
+	candidates := c.explicitPathCandidates[paths.LinkKey(filepath.ToSlash(notePath))]
+	candidates = exactPathCandidates(candidates, filepath.ToSlash(notePath), true)
 	if len(candidates) != 1 {
 		return "", false
 	}
@@ -292,12 +297,14 @@ func (c *NotePathCache) HasNoteExtension(extension string) bool {
 }
 
 func (c *NotePathCache) addPathCandidate(key string, notePath string) {
+	key = paths.LinkKey(key)
 	candidates := addSortedCandidate(c.pathCandidates[key], notePath)
 	c.pathCandidates[key] = candidates
 	c.updateUniquePath(key, candidates)
 }
 
 func (c *NotePathCache) removePathCandidate(key string, notePath string) {
+	key = paths.LinkKey(key)
 	candidates := removeCandidate(c.pathCandidates[key], notePath)
 	if len(candidates) == 0 {
 		delete(c.pathCandidates, key)
@@ -339,20 +346,20 @@ func (c *NotePathCache) Title(path string) (string, bool) {
 	if c == nil {
 		return "", false
 	}
-	normalized := NormalizePath(path)
+	normalized := paths.LinkKey(paths.Normalize(path).String())
 	if resolved, ok := c.ResolveNoteTarget(normalized); ok {
-		return titleFromPath(resolved.Path), true
+		return paths.NoteTitle(resolved.Path), true
 	}
 	var matches []string
 	for key := range c.pathCandidates {
-		if NormalizePath(key) == normalized {
+		if paths.LinkKey(paths.Normalize(key).String()) == normalized {
 			for _, candidate := range c.pathCandidates[key] {
 				matches = addSortedCandidate(matches, candidate)
 			}
 		}
 	}
 	if len(matches) == 1 {
-		return titleFromPath(matches[0]), true
+		return paths.NoteTitle(matches[0]), true
 	}
 	return "", false
 }
@@ -406,7 +413,7 @@ func (c *NotePathCache) resolveNotePathCandidates(link, fragment string) []Resol
 	ext := filepath.Ext(link)
 	markdownLink := strings.EqualFold(ext, ".md")
 	if ext != "" && (!strings.EqualFold(ext, ".md") || strings.Contains(link, "/")) {
-		if candidates := c.explicitPathCandidates[paths.CaseKey(link)]; len(candidates) > 0 {
+		if candidates := c.explicitPathCandidates[paths.LinkKey(link)]; len(candidates) > 0 {
 			return c.targets(candidates, fragment)
 		}
 		// An explicit HTML suffix must not fall back to a Markdown source.
@@ -419,7 +426,8 @@ func (c *NotePathCache) resolveNotePathCandidates(link, fragment string) []Resol
 	baseName := trimMarkdownExtension(link)
 
 	// Try exact match first
-	if candidates := c.pathCandidates[baseName]; len(candidates) > 0 {
+	if candidates := c.pathCandidates[paths.LinkKey(baseName)]; len(candidates) > 0 {
+		candidates = exactPathCandidates(candidates, baseName, false)
 		if !markdownLink {
 			return c.targets(candidates, fragment)
 		}
@@ -437,7 +445,8 @@ func (c *NotePathCache) resolveNotePathCandidates(link, fragment string) []Resol
 	// If link contains path separators, try without them
 	if strings.Contains(baseName, "/") {
 		fileName := filepath.Base(baseName)
-		if candidates := c.pathCandidates[fileName]; len(candidates) > 0 {
+		if candidates := c.pathCandidates[paths.LinkKey(fileName)]; len(candidates) > 0 {
+			candidates = exactPathCandidates(candidates, fileName, false)
 			if !markdownLink {
 				return c.targets(candidates, fragment)
 			}
@@ -447,7 +456,10 @@ func (c *NotePathCache) resolveNotePathCandidates(link, fragment string) []Resol
 		}
 	}
 
-	if candidates := c.Aliases[baseName]; len(candidates) > 0 {
+	if candidates := c.Aliases[paths.LinkKey(baseName)]; len(candidates) > 0 {
+		if exact := c.aliasExact[norm.NFC.String(baseName)]; len(exact) == 1 {
+			candidates = exact
+		}
 		if !markdownLink {
 			return c.targets(candidates, fragment)
 		}
@@ -486,170 +498,15 @@ func (c *NotePathCache) targets(paths []string, fragment string) []ResolvedNoteT
 }
 
 // WikilinkOptions defines options for extracting wikilinks
-type WikilinkOptions struct {
-	SkipAnchors bool // Skip links containing anchors (# symbol)
-	SkipEmbeds  bool // Skip embedded links (![[...]])
-}
-
-// DefaultWikilinkOptions provides standard options for wikilink extraction
-var DefaultWikilinkOptions = WikilinkOptions{
-	SkipAnchors: false,
-	SkipEmbeds:  false,
-}
-
-// ExtractWikilinks extracts wikilinks from markdown content with configurable options
-func ExtractWikilinks(content string, options WikilinkOptions) []string {
-	details := ScanWikilinks(content, options)
-	var links []string
-	for _, d := range details {
-		links = append(links, d.Target)
-	}
-	return links
-}
-
-type WikilinkDetail struct {
-	Target   string
-	LinkType BacklinkType
-	Start    int
-	End      int
-	Line     int
-	Raw      string
-	// InsideCodeBlock reports a link inside fenced, indented, or inline code,
-	// where Obsidian does not create a link.
-	InsideCodeBlock bool
-}
-
-// scanWikilinks is an internal alias for backward compatibility within the package.
-func scanWikilinks(content string, options WikilinkOptions) []WikilinkDetail {
-	return ScanWikilinks(content, options)
-}
-
-// ScanWikilinks parses wikilinks and embeds from markdown content in a single pass.
-// Returns WikilinkDetail structs with target path and link type classification.
-//
-// Link types:
-//   - BacklinkTypeBasic: [[Note]]
-//   - BacklinkTypeAlias: [[Note|Display]]
-//   - BacklinkTypeHeading: [[Note#Heading]]
-//   - BacklinkTypeBlock: [[Note#^blockid]]
-//   - BacklinkTypeEmbed: ![[Note]]
-//
-// Options control whether anchors (#) or embeds (![[) are skipped.
-func ScanWikilinks(content string, options WikilinkOptions) []WikilinkDetail {
-	var details []WikilinkDetail
-	var protected []StructuredLinkSpan
-	protectedComputed := false
-	n := len(content)
-	i := 0
-
-	for i < n {
-		// Fast forward to next '['
-		// We can use strings.IndexByte or just loop.
-		// strings.Index is faster for finding substrings.
-		// We are looking for "[[" or "![["
-		// But "![[" ends with "[[", so just looking for "[[" is enough, then check prefix.
-
-		// Optimization: use strings.Index to find "[["
-		next := strings.Index(content[i:], "[[")
-		if next == -1 {
-			break
-		}
-		idx := i + next // absolute index of "[["
-		if isBackslashEscaped(content, idx) {
-			i = idx + 2
-			continue
-		}
-
-		// Check if it's an embed (![[)
-		isEmbed := false
-		if idx > 0 && content[idx-1] == '!' {
-			if isBackslashEscaped(content, idx-1) {
-				i = idx + 2
-				continue
-			}
-			isEmbed = true
-		}
-
-		// If we are skipping embeds and this is one, we need to skip this bracket set
-		// But we still need to find the closing "]]" to advance correctly?
-		// Actually, if we skip it, we effectively ignore it.
-		// But if we just skip the "![[" and continue scanning, we might find "]]" later?
-		// No, the logic is: find "[[", find matching "]]".
-
-		// Find closing "]]"
-		// We start searching after the "[["
-		closeIdx := indexUnescapedToken(content, idx+2, "]]")
-		if closeIdx == -1 {
-			// No closing bracket, so this is not a valid link.
-			// Advance past "[[" to avoid infinite loop (or just break?)
-			// If no "]]" anywhere later, we can stop.
-			break
-		}
-		// Content inside brackets
-		rawContent := content[idx+2 : closeIdx]
-
-		// Advance loop for next iteration
-		i = closeIdx + 2
-
-		if isEmbed && options.SkipEmbeds {
-			continue
-		}
-
-		// Preserve authored bytes. Backslashes may escape wiki delimiters and are
-		// not filesystem separators at this parsing layer.
-		link := rawContent
-
-		// If skip anchors and it has one
-		if options.SkipAnchors && strings.Contains(link, "#") {
-			continue
-		}
-
-		if !protectedComputed {
-			protected, protectedComputed = markdownProtectedSpans(content), true
-		}
-
-		// Classify and Extract Target
-		detail := WikilinkDetail{
-			LinkType:        BacklinkTypeBasic,
-			Start:           idx,
-			End:             closeIdx + 2,
-			Line:            1 + strings.Count(content[:idx], "\n"),
-			Raw:             content[idx : closeIdx+2],
-			InsideCodeBlock: spanContains(protected, idx),
-		}
-
-		if isEmbed {
-			detail.LinkType = BacklinkTypeEmbed
-		} else if strings.Contains(rawContent, "|") {
-			detail.LinkType = BacklinkTypeAlias
-		} else if strings.Contains(link, "#^") {
-			detail.LinkType = BacklinkTypeBlock
-		} else if strings.Contains(link, "#") {
-			detail.LinkType = BacklinkTypeHeading
-		}
-
-		// Extract target from link (remove alias pipe)
-		// [[Target|Alias]] -> Target
-		if pipeIdx := strings.Index(link, "|"); pipeIdx != -1 {
-			link = link[:pipeIdx]
-		}
-
-		detail.Target = link
-		details = append(details, detail)
-	}
-
-	return details
-}
-
 // FollowWikilinksOptions contains options for following wikilinks
 type FollowWikilinksOptions struct {
-	WikilinkOptions     // Embed the WikilinkOptions struct
-	MaxDepth        int // Maximum depth to follow links
+	markdownsyntax.WikilinkOptions     // Embed the WikilinkOptions struct
+	MaxDepth                       int // Maximum depth to follow links
 }
 
 // DefaultFollowWikilinksOptions provides standard options for following wikilinks
 var DefaultFollowWikilinksOptions = FollowWikilinksOptions{
-	WikilinkOptions: DefaultWikilinkOptions,
+	WikilinkOptions: markdownsyntax.DefaultWikilinkOptions,
 	MaxDepth:        -1, // -1 indicates no limit
 }
 
@@ -657,7 +514,7 @@ var DefaultFollowWikilinksOptions = FollowWikilinksOptions{
 // from individual parameters for easier migration from legacy code
 func CreateWikilinksOptions(maxDepth int, skipAnchors bool, skipEmbeds bool) FollowWikilinksOptions {
 	return FollowWikilinksOptions{
-		WikilinkOptions: WikilinkOptions{
+		WikilinkOptions: markdownsyntax.WikilinkOptions{
 			SkipAnchors: skipAnchors,
 			SkipEmbeds:  skipEmbeds,
 		},
@@ -690,29 +547,24 @@ func FollowWikilinks(vaultDef VaultDefinition, note NoteReader, startFile string
 
 	// Only follow links if maxDepth != 0
 	if options.MaxDepth != 0 {
-		var links []string
-
-		// Extract wikilinks if supported
-		if vaultDef.SupportsWikilinks() {
-			links = append(links, ExtractWikilinks(content, options.WikilinkOptions)...)
+		mdOpts := markdownsyntax.MdLinkOptions{
+			SkipAnchors: options.SkipAnchors,
+			SkipEmbeds:  options.SkipEmbeds,
 		}
-
-		// Extract markdown links if supported
-		if vaultDef.SupportsMarkdownLinks() {
-			mdOpts := MdLinkOptions{
-				SkipAnchors: options.SkipAnchors,
-				SkipEmbeds:  options.SkipEmbeds,
-			}
-			links = append(links, ExtractMdLinks(content, mdOpts)...)
-		}
+		links := markdownsyntax.ScanAllLinks(content, options.WikilinkOptions, mdOpts)
 
 		for _, link := range links {
-			// Try to resolve as wikilink first, then as markdown link
-			resolvedTarget, exists := cache.ResolveNoteTarget(link)
-			if !exists && vaultDef.SupportsMarkdownLinks() {
-				actualPath, mdExists := cache.ResolveMdLink(link, startFile)
-				exists = mdExists
-				resolvedTarget = ResolvedNoteTarget{Path: actualPath}
+			var resolvedTarget ResolvedNoteTarget
+			var exists bool
+			switch link.LinkType {
+			case "wikilink":
+				if vaultDef.SupportsWikilinks() {
+					resolvedTarget, exists = cache.ResolveNoteTarget(link.Target)
+				}
+			case "mdlink":
+				if vaultDef.SupportsMarkdownLinks() {
+					resolvedTarget, exists = cache.ResolveMdLinkTarget(link.Target, startFile)
+				}
 			}
 
 			if exists {
@@ -732,38 +584,20 @@ func FollowWikilinks(vaultDef VaultDefinition, note NoteReader, startFile string
 	return result, nil
 }
 
-// CollectBacklinks finds first-degree backlinks for the provided targets.
-// Each target key is present in the returned map, even if it has no backlinks.
-// Options allow skipping anchors or embeds; suppressedTags removes referrers that contain those tags.
-// This function also scans markdown links if the vault definition supports them.
-func CollectBacklinks(vaultDef VaultDefinition, note NoteReader, targets []string, options WikilinkOptions, suppressedTags []string) (map[string][]Backlink, error) {
-	snapshot, err := BuildGraphSnapshot(vaultDef, note, GraphAnalysisOptions{WikilinkOptions: options})
-	if err != nil {
-		return nil, err
-	}
-	return CollectBacklinksFromGraph(snapshot, targets, suppressedTags), nil
-}
-
-func containsSuppressedTags(tags []string, suppressedTags []string) bool {
-	if len(tags) == 0 || len(suppressedTags) == 0 {
-		return false
-	}
-	tagSet := make(map[string]struct{}, len(tags))
-	for _, tag := range tags {
-		norm := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(tag, "#")))
-		if norm == "" {
-			continue
+func exactPathCandidates(candidates []string, input string, explicit bool) []string {
+	input = norm.NFC.String(input)
+	var exact []string
+	for _, candidate := range candidates {
+		name := norm.NFC.String(candidate)
+		if !explicit {
+			name = strings.TrimSuffix(name, filepath.Ext(name))
 		}
-		tagSet[norm] = struct{}{}
-	}
-	for _, suppressed := range suppressedTags {
-		norm := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(suppressed, "#")))
-		if norm == "" {
-			continue
-		}
-		if _, ok := tagSet[norm]; ok {
-			return true
+		if name == input || !explicit && !strings.Contains(input, "/") && filepath.Base(name) == input {
+			exact = append(exact, candidate)
 		}
 	}
-	return false
+	if len(exact) == 1 {
+		return exact
+	}
+	return candidates
 }

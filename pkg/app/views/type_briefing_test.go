@@ -3,10 +3,10 @@ package views
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 	"testing/fstest"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/stretchr/testify/require"
 )
@@ -99,11 +99,11 @@ func TestEjectedTypeBriefingKeepsItsSlot(t *testing.T) {
 // display metadata. An embedded type nested under a listed type keeps it.
 func TestTypeBriefingOnlyWhereNavigationListsTheCollection(t *testing.T) {
 	schema := deliverySchema()
-	schema.Types["Steps"] = &ontology.NoteType{Name: "Steps", Role: ontology.TypeRoleSection}
-	schema.Types["Step"] = &ontology.NoteType{Name: "Step", Role: ontology.TypeRoleEmbeddedNode}
-	schema.Types["Task"] = &ontology.NoteType{Name: "Task", Role: ontology.TypeRoleEmbeddedNode, DisplayParent: "Effort"}
-	schema.Types["Memo"] = &ontology.NoteType{Name: "Memo", Role: ontology.TypeRoleNote, Implements: []string{"Hidden"}}
-	schema.Interfaces["Hidden"] = &ontology.InterfaceType{Name: "Hidden"}
+	schema.Types["Steps"] = &ontoschema.NoteType{Name: "Steps", Role: ontoschema.TypeRoleSection}
+	schema.Types["Step"] = &ontoschema.NoteType{Name: "Step", Role: ontoschema.TypeRoleEmbeddedNode}
+	schema.Types["Task"] = &ontoschema.NoteType{Name: "Task", Role: ontoschema.TypeRoleEmbeddedNode, DisplayParent: "Effort"}
+	schema.Types["Memo"] = &ontoschema.NoteType{Name: "Memo", Role: ontoschema.TypeRoleNote, Implements: []string{"Hidden"}}
+	schema.Interfaces["Hidden"] = &ontoschema.InterfaceType{Name: "Hidden"}
 	catalog, err := New(ServiceOptions{Schema: schema, Bundled: bundledViews()}).Catalog(context.Background())
 	require.NoError(t, err)
 

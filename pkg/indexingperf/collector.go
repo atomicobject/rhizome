@@ -22,7 +22,7 @@ const (
 
 type Metric struct {
 	Phase string
-	Name  string
+	Name  MetricName
 	Kind  metricKind
 }
 
@@ -102,7 +102,7 @@ type Collector struct {
 	lastDBWrites      map[string]DBWriteMetric
 }
 
-func New() *Collector {
+func newCollector() *Collector {
 	return &Collector{
 		startedAt:         time.Now(),
 		counters:          make(map[Metric]statCounter),
@@ -249,7 +249,7 @@ func (c *Collector) RecordSpanWindow(name string, started, ended time.Time, err 
 	c.mu.Unlock()
 }
 
-func AddCount(ctx context.Context, name string, delta int64) {
+func AddCount(ctx context.Context, name MetricName, delta int64) {
 	if c := FromContext(ctx); c != nil {
 		metric := metricFor(ctx, name, kindCounter)
 		if c.metricAllowed == nil || c.metricAllowed(metric) {
@@ -260,7 +260,7 @@ func AddCount(ctx context.Context, name string, delta int64) {
 
 // MarkCountAvailable records that a counter-bearing operation was observed
 // even when its correct count is zero.
-func MarkCountAvailable(ctx context.Context, name string) {
+func MarkCountAvailable(ctx context.Context, name MetricName) {
 	if c := FromContext(ctx); c != nil {
 		metric := metricFor(ctx, name, kindCounter)
 		if c.metricAllowed == nil || c.metricAllowed(metric) {
@@ -275,11 +275,12 @@ func MarkCountAvailable(ctx context.Context, name string) {
 	}
 }
 
-func AddBytes(ctx context.Context, name string, delta int64) {
-	AddCount(ctx, name+"_bytes", delta)
+// AddBytes takes the complete byte-counter identity, including its _bytes suffix.
+func AddBytes(ctx context.Context, name MetricName, delta int64) {
+	AddCount(ctx, name, delta)
 }
 
-func SetGauge(ctx context.Context, name string, value int64) {
+func SetGauge(ctx context.Context, name MetricName, value int64) {
 	if c := FromContext(ctx); c != nil {
 		metric := metricFor(ctx, name, kindGauge)
 		if c.metricAllowed == nil || c.metricAllowed(metric) {
@@ -288,7 +289,7 @@ func SetGauge(ctx context.Context, name string, value int64) {
 	}
 }
 
-func ObserveLatency(ctx context.Context, name string, d time.Duration) {
+func ObserveLatency(ctx context.Context, name MetricName, d time.Duration) {
 	if c := FromContext(ctx); c != nil {
 		metric := metricFor(ctx, name, kindLatency)
 		if c.metricAllowed == nil || c.metricAllowed(metric) {
@@ -297,7 +298,7 @@ func ObserveLatency(ctx context.Context, name string, d time.Duration) {
 	}
 }
 
-func ObserveSample(ctx context.Context, name string, value int64) {
+func ObserveSample(ctx context.Context, name MetricName, value int64) {
 	if c := FromContext(ctx); c != nil {
 		metric := metricFor(ctx, name, kindSample)
 		if c.metricAllowed == nil || c.metricAllowed(metric) {
@@ -306,7 +307,7 @@ func ObserveSample(ctx context.Context, name string, value int64) {
 	}
 }
 
-func ObserveInterval(ctx context.Context, name string, started time.Time, d time.Duration) {
+func ObserveInterval(ctx context.Context, name MetricName, started time.Time, d time.Duration) {
 	if c := FromContext(ctx); c != nil {
 		metric := metricFor(ctx, name, kindLatency)
 		if c.metricAllowed == nil || c.metricAllowed(metric) {
@@ -348,8 +349,8 @@ func ObserveDBWrite(ctx context.Context, store string, wait, hold time.Duration)
 	cur.Hold += hold
 	c.dbWrites[key] = cur
 	c.mu.Unlock()
-	ObserveLatency(ctx, "db.wait", wait)
-	ObserveLatency(ctx, "db.hold", hold)
+	ObserveLatency(ctx, DbWait, wait)
+	ObserveLatency(ctx, DbHold, hold)
 }
 
 func (c *Collector) addCounter(m Metric, delta int64) {
@@ -460,7 +461,7 @@ func (c *Collector) addSample(m Metric, value int64) {
 	c.mu.Unlock()
 }
 
-func metricFor(ctx context.Context, name string, kind metricKind) Metric {
+func metricFor(ctx context.Context, name MetricName, kind metricKind) Metric {
 	return Metric{
 		Phase: PhaseFromContext(ctx),
 		Name:  name,

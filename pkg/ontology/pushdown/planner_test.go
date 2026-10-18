@@ -2,30 +2,31 @@ package pushdown
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"testing"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/stretchr/testify/require"
 )
 
-func newTestSchema() (*ontology.Schema, *ontology.NoteType) {
-	noteType := &ontology.NoteType{
+func newTestSchema() (*ontoschema.Schema, *ontoschema.NoteType) {
+	noteType := &ontoschema.NoteType{
 		Name: "TechnicalSpec",
-		Fields: []*ontology.Field{
-			{Name: "specStatus", Kind: ontology.FieldKindEnum, TypeName: "SpecStatus", Source: "status", SourceKind: ontology.FieldSourceFrontmatter},
-			{Name: "owner", Kind: ontology.FieldKindScalar, TypeName: "String", Source: "owner", SourceKind: ontology.FieldSourceInline},
-			{Name: "priority", Kind: ontology.FieldKindScalar, TypeName: "Int", Source: "priority", SourceKind: ontology.FieldSourceFrontmatter},
-			{Name: "due", Kind: ontology.FieldKindScalar, TypeName: "Date", Source: "due", SourceKind: ontology.FieldSourceFrontmatter},
-			{Name: "linkedSpec", Kind: ontology.FieldKindLink, TypeName: "TechnicalSpec", Source: "linked", SourceKind: ontology.FieldSourceFrontmatter},
+		Fields: []*ontoschema.Field{
+			{Name: "specStatus", Kind: ontoschema.FieldKindEnum, TypeName: "SpecStatus", Source: "status", SourceKind: ontoschema.FieldSourceFrontmatter},
+			{Name: "owner", Kind: ontoschema.FieldKindScalar, TypeName: "String", Source: "owner", SourceKind: ontoschema.FieldSourceInline},
+			{Name: "priority", Kind: ontoschema.FieldKindScalar, TypeName: "Int", Source: "priority", SourceKind: ontoschema.FieldSourceFrontmatter},
+			{Name: "due", Kind: ontoschema.FieldKindScalar, TypeName: "Date", Source: "due", SourceKind: ontoschema.FieldSourceFrontmatter},
+			{Name: "linkedSpec", Kind: ontoschema.FieldKindLink, TypeName: "TechnicalSpec", Source: "linked", SourceKind: ontoschema.FieldSourceFrontmatter},
 		},
 	}
-	noteType.ByName = map[string]*ontology.Field{}
+	noteType.ByName = map[string]*ontoschema.Field{}
 	for _, field := range noteType.Fields {
 		noteType.ByName[field.Name] = field
 	}
-	schema := &ontology.Schema{
-		Types: map[string]*ontology.NoteType{"TechnicalSpec": noteType},
+	schema := &ontoschema.Schema{
+		Types: map[string]*ontoschema.NoteType{"TechnicalSpec": noteType},
 	}
 	return schema, noteType
 }
@@ -86,7 +87,7 @@ func TestPlannerPredicateRoundTripsTypedValues(t *testing.T) {
 		result, ok := planner.BuildPredicate(context.Background(), FilterInput{Field: "frontmatter.priority", Op: "gte", Value: "3"})
 		require.True(t, ok)
 		require.Equal(t, "priority", result.Predicate.FieldName)
-		require.Equal(t, codeanchor.OntologyFieldOperator("gte"), result.Predicate.Op)
+		require.Equal(t, readmodel.FieldOperator("gte"), result.Predicate.Op)
 		require.Len(t, result.Predicate.Values, 1)
 		require.NotNil(t, result.Predicate.Values[0].ValueInt)
 		require.Equal(t, int64(3), *result.Predicate.Values[0].ValueInt)
@@ -104,7 +105,7 @@ func TestPlannerPredicateRoundTripsTypedValues(t *testing.T) {
 		t.Run("path "+path, func(t *testing.T) {
 			result, ok := planner.BuildPredicate(context.Background(), FilterInput{Field: "path", Op: "eq", Value: path})
 			require.True(t, ok)
-			require.Equal(t, codeanchor.OntologyFieldOpEq, result.Predicate.Op)
+			require.Equal(t, readmodel.FieldOpEq, result.Predicate.Op)
 			require.Len(t, result.Predicate.Values, 1)
 			require.Equal(t, path, result.Predicate.Values[0].ValueText)
 			require.Equal(t, path, result.Predicate.Values[0].ValueNorm)
@@ -121,7 +122,7 @@ func TestPlannerPredicateRoundTripsTypedValues(t *testing.T) {
 	})
 }
 
-func TestPlannerPlanSortIsPrefixMatch(t *testing.T) {
+func TestPlannerPreservesFullResidualSort(t *testing.T) {
 	schema, noteType := newTestSchema()
 	planner := Planner{Schema: schema, Resolver: ViewResolver{NoteType: noteType}}
 
@@ -136,9 +137,13 @@ func TestPlannerPlanSortIsPrefixMatch(t *testing.T) {
 		{"link middle", []SortInput{{"specStatus", "asc"}, {"linkedSpec", "desc"}, {"due", "asc"}}, []SortInput{{"specStatus", "asc"}}, []SortInput{{"linkedSpec", "desc"}, {"due", "asc"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			partition := planner.PlanSort(tc.input)
-			require.Equal(t, tc.pushed, partition.Pushed)
-			require.Equal(t, tc.residual, partition.Residual)
+			plan := planner.Plan(context.Background(), nil, tc.input)
+			require.Equal(t, tc.pushed, append([]SortInput{}, plan.PushedSort...))
+			if len(tc.residual) > 0 {
+				require.Equal(t, tc.input, plan.Sort)
+			} else {
+				require.Empty(t, plan.Sort)
+			}
 		})
 	}
 }
@@ -153,10 +158,10 @@ func TestPlannerBuildSortLinkFieldsRejected(t *testing.T) {
 
 type stubLinkResolver struct {
 	target  string
-	warning Warning
+	warning diag.Warning
 }
 
-func (s stubLinkResolver) ResolveLinkTarget(ctx context.Context, field *ontology.Field, raw string) (string, Warning) {
+func (s stubLinkResolver) ResolveLinkTarget(ctx context.Context, field *ontoschema.Field, raw string) (string, diag.Warning) {
 	return s.target, s.warning
 }
 
@@ -170,4 +175,19 @@ func TestPlannerLinkResolverOverridesTargetPath(t *testing.T) {
 	result, ok := planner.BuildPredicate(context.Background(), FilterInput{Field: "linkedSpec", Op: "eq", Value: "Foo"})
 	require.True(t, ok)
 	require.Equal(t, "specs/canonical.md", result.Predicate.Values[0].TargetNotePath)
+}
+
+func TestPlannerRetainsResidualStringOperators(t *testing.T) {
+	schema, noteType := newTestSchema()
+	planner := Planner{Schema: schema, Resolver: SchemaResolver{NoteType: noteType}}
+	filters := []FilterInput{
+		{Field: "owner", Op: "contains", Value: "Drew"},
+		{Field: "owner", Op: "neq", Value: "Drew"},
+	}
+	plan := planner.Plan(context.Background(), filters, nil)
+	require.Empty(t, plan.Pushed.Predicates)
+	require.Equal(t, filters, plan.Residual)
+	equality, ok := planner.BuildPredicate(context.Background(), FilterInput{Field: "owner", Op: "eq", Value: "Drew"})
+	require.True(t, ok)
+	require.Equal(t, readmodel.FieldOpEq, equality.Predicate.Op)
 }

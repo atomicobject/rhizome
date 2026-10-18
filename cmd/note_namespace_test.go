@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,31 +12,27 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/validate"
-	"github.com/atomicobject/rhizome/pkg/vault/config"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
 	"github.com/stretchr/testify/require"
 )
 
 func setupNamespaceCommandVault(t *testing.T, files map[string]string) agentTestVault {
+
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	t.Helper()
 	vault := setupAgentTestVault(t, files)
 	t.Chdir(vault.path)
 	preferences := t.TempDir()
-	originalPreferences, originalHome := obsidian.CliConfigPath, config.UserHomeDirectory
-	obsidian.CliConfigPath = func() (string, string, error) {
-		return preferences, filepath.Join(preferences, "config.yml"), nil
-	}
-	config.UserHomeDirectory = func() (string, error) { return preferences, nil }
-	t.Cleanup(func() {
-		obsidian.CliConfigPath, config.UserHomeDirectory = originalPreferences, originalHome
-		renameCmd.SetOut(nil)
-		renameCmd.SetErr(nil)
-		moveCmd.SetOut(nil)
-		moveCmd.SetErr(nil)
-		resetCommandContexts(rootCmd)
-	})
+	env.CLIConfigFile = filepath.Join(preferences, "config.yml")
+	env.HomeDir = preferences
+	env.WorkingDir = vault.path
+	env.ObsidianConfigFile = vault.env.ObsidianConfigFile
+	vault.env = env
+
 	return vault
 }
 
@@ -45,7 +43,7 @@ func TestNoteNamespaceCommandsPublishAndReportRequiredLinks(t *testing.T) {
 				"Old.md": "Link [[Old]]", "Ref.md": "Ref [[Old|Alias]]", "refs.go": "package fixture\n// [[Old]]\n",
 				".rhizome/config.yml": "notes: {}\ncode:\n  scan: ['*.go']\n",
 			})
-			stdout, stderr, err := runRootCLI(t, context.Background(), []string{"note", command, "Old", "New", "--vault", vault.name})
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"note", command, "Old", "New", "--vault", vault.name})
 			require.NoError(t, err, stderr)
 			require.Empty(t, stderr)
 			require.Contains(t, stdout, "link updates: 2")
@@ -65,7 +63,7 @@ func TestNoteNamespaceCommandsDoNotReportRejectedPublication(t *testing.T) {
 	for _, command := range []string{"rename", "move"} {
 		t.Run(command, func(t *testing.T) {
 			vault := setupNamespaceCommandVault(t, map[string]string{"Old.md": "# Old\n", "New.md": "# Occupied\n"})
-			stdout, _, err := runRootCLI(t, context.Background(), []string{"note", command, "Old.md", "New.md", "--vault", vault.name})
+			stdout, _, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"note", command, "Old.md", "New.md", "--vault", vault.name})
 			require.Error(t, err)
 			require.NotContains(t, stdout, "Renamed to")
 			require.NotContains(t, stdout, "Moved Old.md")
@@ -165,7 +163,7 @@ func TestNoteNamespaceCommandsRetainCommittedProjectionFailureAndRecovery(t *tes
 					}
 					return
 				}
-				stdout, _, err := runRootCLI(t, context.Background(), []string{"note", command, source, target, "--vault", vault.name})
+				stdout, _, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"note", command, source, target, "--vault", vault.name})
 				require.Error(t, err)
 				if recovered {
 					require.Contains(t, stdout, "Recovered move transaction")
@@ -214,6 +212,8 @@ func TestNoteNamespaceRecoveredCleanupRendersWithoutDeletedIdentity(t *testing.T
 
 // Exercise the actual Cobra stdio connection and local production composition.
 func runNamespaceCodeMove(t *testing.T, vault agentTestVault, input map[string]any) agentcode.CallOutcome {
+	rootCmd := newRootCommand(commandEnv{Config: vault.env})
+
 	t.Helper()
 	description, err := agentcode.Describe([]string{"note_move"})
 	require.NoError(t, err)
@@ -261,7 +261,7 @@ func runNamespaceCodeMove(t *testing.T, vault agentTestVault, input map[string]a
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	command.SetContext(ctx)
-	_, stderr, err := runRootCLI(t, ctx, []string{"agent", "code", "serve", "--vault", vault.name, "--read-write"})
+	_, stderr, err := runCommandInvocation(t, rootCmd, ctx, []string{"agent", "code", "serve", "--vault", vault.name, "--read-write"}, true)
 	_ = writer.Close()
 	require.NoError(t, err, stderr)
 	require.NoError(t, <-finished)

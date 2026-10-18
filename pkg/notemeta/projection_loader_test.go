@@ -104,7 +104,7 @@ func TestLoadProjectedEntriesForPathsNamesFailingAuthoredPath(t *testing.T) {
 func projectedEntryPaths(entries []projectedNoteEntry) []string {
 	paths := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		paths = append(paths, entry.Entry.Path)
+		paths = append(paths, entry.Source.Path().String())
 	}
 	return paths
 }

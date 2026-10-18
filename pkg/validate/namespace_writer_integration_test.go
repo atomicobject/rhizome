@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -58,15 +59,54 @@ func TestIntegrationNamespaceSettledPublicWritersPreserveLaterGitState(t *testin
 	}
 }
 
+func TestIntegrationNamespaceSettledFootprintAllowsLaterSourceEdit(t *testing.T) {
+	for _, decision := range []string{repairJournalCommitted, repairJournalRestored} {
+		t.Run(decision, func(t *testing.T) {
+			f := newNamespaceWriterFixture(t, decision, true)
+			f.installLaterGitState(t)
+			path := "new.md"
+			if decision == repairJournalRestored {
+				path = "old.md"
+			}
+			before := f.refusalSnapshot(t)
+			lease, acquired, err := indexlock.TryAcquireLease(f.root, indexlock.AcquireOptions{})
+			require.NoError(t, err)
+			require.True(t, acquired)
+			t.Cleanup(func() { require.NoError(t, lease.Release()) })
+			writer, _, err := sourcetxn.Open(f.root, lease, sourcetxn.WriterOptions{Role: sourcetxn.SourceEditor})
+			require.NoError(t, err)
+			t.Cleanup(writer.Close)
+			err = writer.Apply(t.Context(), sourcetxn.Intent{
+				Fingerprint: sourcetxn.Hash([]byte("later edit of settled namespace source")),
+				Files: []sourcetxn.FilePatch{{
+					Path: path, Original: []byte(before[path].content), OriginalMode: before[path].mode,
+					Updated: []byte("later authored edit on settled namespace source\n"),
+				}},
+			})
+			require.NoError(t, err)
+			writer.Close()
+			expected := before
+			expected[path] = namespaceWriterFile{exists: true, content: "later authored edit on settled namespace source\n", mode: before[path].mode}
+			require.Equal(t, expected, f.refusalSnapshot(t), "source editing must preserve settled native evidence and later Git ownership")
+
+			reopened, _, err := sourcetxn.Open(f.root, lease, sourcetxn.WriterOptions{Role: sourcetxn.SourceEditor})
+			require.NoError(t, err)
+			reopened.Close()
+			require.Equal(t, expected, f.refusalSnapshot(t), "reopening must not roll back the later edit or replay the old Git state")
+			journals, err := sourcetxn.InspectPending(f.root)
+			require.NoError(t, err)
+			require.Len(t, journals, 1)
+			require.Equal(t, f.info.Manifest.TransactionID, journals[0].Manifest.TransactionID)
+			require.Equal(t, decision, journals[0].Manifest.Namespace.SettledDecision)
+		})
+	}
+}
+
 func TestIntegrationNamespaceStartupStabilizesBeforeOntologyRecovery(t *testing.T) {
 	for _, decision := range []string{repairJournalPrepared, repairJournalCommitted, repairJournalRestored} {
 		t.Run(decision, func(t *testing.T) {
-			f := newNamespaceWriterFixture(t, decision, false)
+			f := newNamespaceWriterFixture(t, decision, false, namespaceFixtureCrash{partialPublication: decision == repairJournalPrepared})
 			if decision == repairJournalPrepared {
-				_, release, err := acquireRepairIndexLockLease(filepath.Join(f.root, ".rhizome/index.lock"))
-				require.NoError(t, err)
-				f.interruptPublication(t)
-				require.NoError(t, release())
 				require.NoFileExists(t, filepath.Join(f.root, "old.md"))
 			} else {
 				// A durable decision ends rollback authority even while projection
@@ -79,7 +119,7 @@ func TestIntegrationNamespaceStartupStabilizesBeforeOntologyRecovery(t *testing.
 			}
 			before := namespaceWriterSnapshot(t, f.root)
 			runNamespaceApplication(t, f, "startup", "stabilize")
-			journals, err := discoverRepairJournals(f.runCtx)
+			journals, err := sourcetxn.InspectPending(f.root)
 			require.NoError(t, err)
 			require.Len(t, journals, 1, "startup leaves the journal for projection convergence")
 			want := decision
@@ -95,8 +135,8 @@ func TestIntegrationNamespaceStartupStabilizesBeforeOntologyRecovery(t *testing.
 				delete(after, ".git/index.lock")
 				require.Equal(t, before, after)
 			}
-			require.Equal(t, want, journals[0].state)
-			require.Equal(t, want, journals[0].manifest.Namespace.SettledDecision)
+			require.Equal(t, want, journals[0].State)
+			require.Equal(t, want, journals[0].Manifest.Namespace.SettledDecision)
 			require.NoFileExists(t, filepath.Join(f.root, ".git/index.lock"))
 			f.requireWriterLeaseReleased(t)
 			// Repeated startup may inspect terminal evidence, but must not replay
@@ -112,25 +152,11 @@ func TestIntegrationNamespaceStartupStabilizesBeforeOntologyRecovery(t *testing.
 func TestIntegrationNamespaceStartupResynchronizesUncertainDecision(t *testing.T) {
 	for _, decision := range []string{repairJournalCommitted, repairJournalRestored} {
 		t.Run(decision, func(t *testing.T) {
-			f := newNamespaceWriterFixture(t, repairJournalPrepared, false)
-			_, release, err := acquireRepairIndexLockLease(filepath.Join(f.root, ".rhizome/index.lock"))
-			require.NoError(t, err)
 			failure := errors.New("synthetic namespace decision directory-sync failure")
+			f := newNamespaceWriterFixture(t, decision, false, namespaceFixtureCrash{decisionSyncFailure: failure})
 			marker := map[string]string{repairJournalCommitted: "COMMITTED", repairJournalRestored: "RESTORED"}[decision]
-			hooks := &repairExecutionHooks{BeforeNamespaceDecisionDirectorySync: func(got string) error {
-				require.Equal(t, marker, got)
-				return failure
-			}}
-			if decision == repairJournalCommitted {
-				err = commitPreparedRepairTransaction(f.runCtx, f.prepared, hooks)
-			} else {
-				f.interruptPublication(t)
-				err = restoreNamespacePrepared(f.runCtx, f.prepared, hooks)
-			}
-			require.ErrorIs(t, err, failure)
-			require.FileExists(t, filepath.Join(f.prepared.dir, marker), "the real exclusive marker creator ran before the failed directory sync")
+			require.FileExists(t, filepath.Join(f.info.Directory, marker), "the real exclusive marker creator ran before the failed directory sync")
 			require.FileExists(t, filepath.Join(f.root, ".git/index.lock"), "uncertain decision retains owned Git exclusion")
-			require.NoError(t, release())
 			before := namespaceWriterSnapshot(t, f.root)
 			runNamespaceApplication(t, f, "startup", "stabilize")
 			after := namespaceWriterSnapshot(t, f.root)
@@ -138,11 +164,11 @@ func TestIntegrationNamespaceStartupResynchronizesUncertainDecision(t *testing.T
 			delete(after, ".git/index.lock")
 			require.Equal(t, before, after, "startup must synchronize the terminal decision without replaying authored or Git state")
 			require.NoFileExists(t, filepath.Join(f.root, ".git/index.lock"))
-			journals, err := discoverRepairJournals(f.runCtx)
+			journals, err := sourcetxn.InspectPending(f.root)
 			require.NoError(t, err)
 			require.Len(t, journals, 1)
-			require.Equal(t, decision, journals[0].state)
-			require.Equal(t, decision, journals[0].manifest.Namespace.SettledDecision)
+			require.Equal(t, decision, journals[0].State)
+			require.Equal(t, decision, journals[0].Manifest.Namespace.SettledDecision)
 			f.requireWriterLeaseReleased(t)
 		})
 	}
@@ -151,9 +177,14 @@ func TestIntegrationNamespaceStartupResynchronizesUncertainDecision(t *testing.T
 type namespaceWriterFixture struct {
 	root            string
 	runCtx          RunContext
-	prepared        *preparedRepairTransaction
+	info            sourcetxn.JournalInfo
 	original        map[string]namespaceWriterFile
 	originalStaging string
+}
+
+type namespaceFixtureCrash struct {
+	partialPublication  bool
+	decisionSyncFailure error
 }
 
 type namespaceWriterFile struct {
@@ -162,7 +193,7 @@ type namespaceWriterFile struct {
 	mode    os.FileMode
 }
 
-func newNamespaceWriterFixture(t *testing.T, decision string, settled bool) *namespaceWriterFixture {
+func newNamespaceWriterFixture(t *testing.T, decision string, settled bool, crashes ...namespaceFixtureCrash) *namespaceWriterFixture {
 	t.Helper()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
@@ -194,9 +225,36 @@ type Spec @node(paths: ["edit.md"]) {
 	f.originalStaging = f.git(t, "ls-files", "--stage", "-z")
 	f.write(t, "old.md", "dirty authored source\n", 0o640)
 	f.original = namespaceWriterSnapshot(t, root)
-	_, release, err := acquireRepairIndexLockLease(filepath.Join(root, ".rhizome/index.lock"))
+	var crash namespaceFixtureCrash
+	if len(crashes) > 0 {
+		crash = crashes[0]
+	}
+	hooks := &repairExecutionHooks{}
+	if decision == repairJournalRestored || crash.partialPublication {
+		hooks.AfterMutation = func(_ int, path string) error {
+			if path != "old.md" {
+				return nil
+			}
+			if crash.partialPublication {
+				return errSimulatedRepairInterruption
+			}
+			return errors.New("publication rejected")
+		}
+	}
+	if crash.decisionSyncFailure != nil {
+		hooks.BeforeNamespaceDecisionDirectorySync = func(marker string) error {
+			require.Equal(t, map[string]string{repairJournalCommitted: "COMMITTED", repairJournalRestored: "RESTORED"}[decision], marker)
+			return crash.decisionSyncFailure
+		}
+	} else if !settled {
+		hooks.BeforeNamespaceGitRelease = func(got string) error {
+			require.Equal(t, decision, got)
+			return errSimulatedRepairInterruption
+		}
+	}
+	writer, err := openRepairWriterFixture(t, f.runCtx, hooks)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, release()) }()
+	defer writer.close()
 	var operations []RepairOperation
 	for _, path := range []string{"old.md", "backlinks.md"} {
 		file := f.original[path]
@@ -212,64 +270,39 @@ type Spec @node(paths: ["edit.md"]) {
 	}
 	compiled, err := compileNamespacePlan(f.runCtx, NamespaceMutationPlan{Operations: operations, Summary: []byte(`{"count":1}`)})
 	require.NoError(t, err)
-	f.prepared, err = prepareNativeNamespace(context.Background(), f.runCtx, compiled, nil)
+	prepared, err := writer.prepareNamespace(context.Background(), compiled)
 	require.NoError(t, err)
-	require.NotNil(t, f.prepared.manifest.Namespace.Git, "fixture must exercise actual owned Git artifacts")
-	require.Equal(t, namespaceGitLockContent(f.prepared.manifest.Namespace.Git), mustReadFile(t, filepath.Join(root, ".git/index.lock")))
-	switch decision {
-	case repairJournalPrepared:
-	case repairJournalCommitted:
-		require.NoError(t, commitPreparedRepairTransaction(f.runCtx, f.prepared, nil))
-	case repairJournalRestored:
-		f.interruptPublication(t)
-		f.restoreBeforeRelease(t)
-	default:
-		t.Fatalf("unknown fixture decision %s", decision)
+	initial := prepared.Info()
+	require.NotNil(t, initial.Manifest.Namespace.Git, "fixture must exercise actual owned Git artifacts")
+	require.Equal(t, initial.Manifest.Namespace.Git.LockHash, SourceHash(mustReadFile(t, filepath.Join(root, ".git/index.lock"))))
+	if decision != repairJournalPrepared || crash.partialPublication {
+		_, err = writer.writer.Publish(prepared)
+		switch {
+		case crash.decisionSyncFailure != nil:
+			require.ErrorIs(t, err, crash.decisionSyncFailure)
+		case !settled || crash.partialPublication:
+			require.ErrorIs(t, err, errSimulatedRepairInterruption)
+		case decision == repairJournalRestored:
+			require.ErrorContains(t, err, "publication rejected")
+		default:
+			require.NoError(t, err)
+		}
 	}
-	if settled {
-		journal := recoveredRepairJournal{dir: f.prepared.dir, manifest: f.prepared.manifest, state: decision, decisionSynced: f.prepared.decisionSynced}
-		require.NoError(t, settleNamespaceGitRelease(f.runCtx, &journal))
-		require.Equal(t, decision, journal.manifest.Namespace.SettledDecision)
+	f.info = prepared.Info()
+	writer.close()
+	if decision != repairJournalPrepared && crash.decisionSyncFailure == nil {
+		require.True(t, f.info.DecisionSynced, "the fixture stops only after a synchronized terminal decision")
 	}
-	journals, err := discoverRepairJournals(f.runCtx)
+	journals, err := sourcetxn.InspectPending(f.root)
 	require.NoError(t, err, "fixture must contain the owner's complete durable journal and owned artifacts")
 	require.Len(t, journals, 1)
-	require.Equal(t, decision, journals[0].state)
+	require.Equal(t, decision, journals[0].State)
 	wantSettled := ""
 	if settled {
 		wantSettled = decision
 	}
-	require.Equal(t, wantSettled, journals[0].manifest.Namespace.SettledDecision)
+	require.Equal(t, wantSettled, journals[0].Manifest.Namespace.SettledDecision)
 	return f
-}
-
-func (f *namespaceWriterFixture) restoreBeforeRelease(t *testing.T) {
-	t.Helper()
-	// Reproduce the real restore producer's verified prefix, stopping at its
-	// durable decision before Git release. The full restore helper settles in
-	// the same call, so it cannot model interruption between these boundaries.
-	require.NoError(t, acquireNamespaceGitExclusion(f.runCtx, f.prepared))
-	require.NoError(t, preflightNamespaceGitRollback(f.runCtx, f.prepared.manifest))
-	plan, err := buildRepairRollbackPlan(f.runCtx, f.prepared.manifest)
-	require.NoError(t, err)
-	_, err = executeRepairRollbackPlan(f.runCtx, f.prepared.manifest, plan, nil)
-	require.NoError(t, err)
-	require.NoError(t, restoreNamespaceGitIndex(f.runCtx, f.prepared))
-	require.NoError(t, verifyNamespaceOriginalFiles(f.runCtx, f.prepared.manifest))
-	require.NoError(t, verifyNamespaceGitRestored(f.runCtx, f.prepared.manifest))
-	require.NoError(t, markNamespaceRestored(f.prepared.dir))
-	f.prepared.decisionSynced = true
-}
-
-func (f *namespaceWriterFixture) interruptPublication(t *testing.T) {
-	t.Helper()
-	err := commitPreparedRepairTransaction(f.runCtx, f.prepared, &repairExecutionHooks{AfterMutation: func(_ int, path string) error {
-		if path == "old.md" {
-			return errSimulatedRepairInterruption
-		}
-		return nil
-	}})
-	require.ErrorIs(t, err, errSimulatedRepairInterruption)
 }
 
 func (f *namespaceWriterFixture) installLaterGitState(t *testing.T) {
@@ -304,7 +337,7 @@ func (f *namespaceWriterFixture) requireWriterLeaseReleased(t *testing.T) {
 
 func (f *namespaceWriterFixture) refusalSnapshot(t *testing.T) map[string]namespaceWriterFile {
 	t.Helper()
-	paths := append([]string{filepath.Join(f.prepared.dir, "manifest.json"), filepath.Join(f.prepared.dir, "COMMITTED"), filepath.Join(f.prepared.dir, "RESTORED")}, f.prepared.manifest.OwnedArtifacts...)
+	paths := append([]string{filepath.Join(f.info.Directory, "manifest.json"), filepath.Join(f.info.Directory, "COMMITTED"), filepath.Join(f.info.Directory, "RESTORED")}, f.info.Manifest.OwnedArtifacts...)
 	return namespaceWriterSnapshot(t, f.root, paths...)
 }
 
@@ -336,7 +369,7 @@ func runNamespaceApplication(t *testing.T, f *namespaceWriterFixture, mode, expe
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, executable, "-test.run=^TestIntegrationNamespaceApplicationHelper$", "-test.count=1")
-	cmd.Env = append(os.Environ(), "RZM_NAMESPACE_TEST_ROOT="+f.root, "RZM_NAMESPACE_TEST_MODE="+mode, "RZM_NAMESPACE_TEST_EXPECT="+expectation, "RZM_NAMESPACE_TEST_TRANSACTION="+f.prepared.manifest.TransactionID)
+	cmd.Env = append(os.Environ(), "RZM_NAMESPACE_TEST_ROOT="+f.root, "RZM_NAMESPACE_TEST_MODE="+mode, "RZM_NAMESPACE_TEST_EXPECT="+expectation, "RZM_NAMESPACE_TEST_TRANSACTION="+f.info.Manifest.TransactionID)
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "%s", output)
 }

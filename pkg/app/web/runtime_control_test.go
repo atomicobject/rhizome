@@ -9,9 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit/lanetest"
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -70,7 +72,7 @@ func TestRuntimeControlRequiresTokenExceptHealth(t *testing.T) {
 }
 
 func TestRuntimeControlIndexJobLifecycleAndAgentOp(t *testing.T) {
-	fake := lane.NewFake()
+	fake := lanetest.NewFake()
 	touched := 0
 	shutdownReason := ""
 	control := &RuntimeControl{
@@ -78,7 +80,7 @@ func TestRuntimeControlIndexJobLifecycleAndAgentOp(t *testing.T) {
 		Touch:    func() { touched++ },
 		Shutdown: func(reason string) { shutdownReason = reason },
 		SubmitIndex: func(ctx context.Context) (lane.Handle, bool, error) {
-			return fake.Submit(ctx, lane.Request{Kind: lane.KindExplicitIndex, Run: func(ctx context.Context, p lane.Reporter) error {
+			return fake.Submit(ctx, lane.Request{Kind: lane.KindExplicitIndex, Run: func(ctx context.Context, _ *indexlock.Lease, p lane.Reporter) error {
 				p.Segment("code", 3, 3)
 				return nil
 			}})

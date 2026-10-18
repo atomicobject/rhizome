@@ -4,30 +4,35 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"log"
 	"os"
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
+	"github.com/atomicobject/rhizome/pkg/app/agentservices"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
 	"github.com/atomicobject/rhizome/pkg/app/mcp"
 	"github.com/atomicobject/rhizome/pkg/app/oneshotruntime"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // runBackgroundIndex performs the boot catch-up index. It acquires no lock: the
 // vault runtime submits it as a lane job and the lane owns .rhizome/index.lock
 // and the yield policy (SPEC-0104 US3). ctx is the job's context, so an
 // explicit index job or an external priority request cancels this run.
-func runBackgroundIndex(ctx context.Context, noteMetadata notemeta.Indexer, vaultPath string, vaultDef obsidian.VaultDefinition, dbg bool, label string) error {
+func runBackgroundIndex(ctx context.Context, lease *indexlock.Lease, noteMetadata notemeta.Indexer, vaultPath string, vaultDef obsidian.VaultDefinition, dbg bool, label string) error {
 	if dbg {
 		log.Printf("%s: starting background index", label)
 	}
@@ -35,7 +40,7 @@ func runBackgroundIndex(ctx context.Context, noteMetadata notemeta.Indexer, vaul
 	bar := newCLIProgressBar(os.Stderr)
 	restoreLogs := withProgressLogOutput(bar, os.Stderr, dbg)
 
-	err := indexing.RunUnifiedCore(ctx, indexing.UnifiedOptions{
+	err := indexing.RunUnifiedCore(ctx, lease, indexing.UnifiedOptions{
 		VaultPath:    vaultPath,
 		VaultDef:     vaultDef,
 		NoteMetadata: noteMetadata,
@@ -66,12 +71,12 @@ func runBackgroundIndex(ctx context.Context, noteMetadata notemeta.Indexer, vaul
 	return nil
 }
 
-func buildSuppressTags() []string {
+func (commandOptions *vaultCommandOptions) buildSuppressTags() []string {
 	tags := []string{"no-prompt"}
-	if len(suppressTags) > 0 {
-		tags = append(tags, suppressTags...)
+	if len(commandOptions.suppressTags) > 0 {
+		tags = append(tags, commandOptions.suppressTags...)
 	}
-	if noSuppress {
+	if commandOptions.noSuppress {
 		return []string{}
 	}
 	return tags
@@ -81,54 +86,51 @@ func effectiveAgentBudgetChars(vaultPath string, budgetOverride int) int {
 	if budgetOverride > 0 {
 		return budgetOverride
 	}
-	budget := agentCLIBudgetFloor
-	if cfgBudget := obsidian.GetBudgetChars(vaultPath); cfgBudget > budget {
-		budget = cfgBudget
-	}
-	return budget
+	resolved, _ := repoconfig.Load(vaultPath)
+	return effectiveAgentBudget(resolved.BudgetChars, budgetOverride)
 }
 
-func buildAgentConfigWithRequirements(ctx context.Context, budgetOverride int, toolName string, requirements bootstrap.RuntimeRequirements) (agentapi.Config, *bootstrap.LiveRuntime, error) {
-	return buildAgentConfigWithOperationRequirements(ctx, budgetOverride, toolName, agentOperationIDForToolName(toolName), requirements)
+func (commandOptions *vaultCommandOptions) buildAgentConfigWithRequirements(ctx context.Context, budgetOverride int, toolName string, requirements bootstrap.RuntimeRequirements) (agentapi.Config, *bootstrap.LiveRuntime, error) {
+	return commandOptions.buildAgentConfigWithOperationRequirements(ctx, budgetOverride, toolName, agentOperationIDForToolName(toolName), requirements)
 }
 
-func buildAgentConfigForOperation(ctx context.Context, budgetOverride int, toolName string, operationID oneshotruntime.OperationID) (agentapi.Config, *bootstrap.LiveRuntime, error) {
+func (commandOptions *vaultCommandOptions) buildAgentConfigForOperation(ctx context.Context, budgetOverride int, toolName string, operationID oneshotruntime.OperationID) (agentapi.Config, *bootstrap.LiveRuntime, error) {
 	if declaration, ok := oneshotruntime.DefaultRegistry().Declaration(operationID); ok && declaration.StaticPlan != nil {
-		return buildAgentConfigWithOperationRequirementsAndPlan(ctx, budgetOverride, toolName, operationID, declaration.StaticPlan.RuntimeRequirements(), declaration.StaticPlan)
+		return commandOptions.buildAgentConfigWithOperationRequirementsAndPlan(ctx, budgetOverride, toolName, operationID, declaration.StaticPlan.RuntimeRequirements(), declaration.StaticPlan)
 	}
 	if declaration, ok := oneshotruntime.DefaultRegistry().Declaration(operationID); ok && declaration.PlanSource == oneshotruntime.PlanSourceExempt && declaration.Exemption == oneshotruntime.RuntimeExemptionFullRuntimeParity {
 		// This exemption is registry-declared until output parity freezes a
 		// narrower source-snippet plan. Do not infer it from a command name.
-		return buildAgentConfigWithOperationRequirementsAndPlan(ctx, budgetOverride, toolName, operationID, bootstrap.RuntimeRequirements{}, declaration.ExemptionPlan)
+		return commandOptions.buildAgentConfigWithOperationRequirementsAndPlan(ctx, budgetOverride, toolName, operationID, bootstrap.RuntimeRequirements{}, declaration.ExemptionPlan)
 	}
 	plan, err := oneshotruntime.RequestPlan(operationID, nil)
 	if err != nil {
 		return agentapi.Config{}, nil, fmt.Errorf("operation %q request plan: %w", operationID, err)
 	}
-	return buildAgentConfigWithPlan(ctx, budgetOverride, toolName, operationID, plan)
+	return commandOptions.buildAgentConfigWithPlan(ctx, budgetOverride, toolName, operationID, plan)
 }
 
 // buildAgentConfigForRequestPlan composes the already-normalized request plan.
 // IMPORTANT: planning happens after command input is known; command names do
 // not decide whether a response needs cache, index, or provider readiness.
-func buildAgentConfigForRequestPlan(ctx context.Context, budgetOverride int, toolName string, operationID oneshotruntime.OperationID, plan oneshotruntime.Plan) (agentapi.Config, *bootstrap.LiveRuntime, error) {
+func (commandOptions *vaultCommandOptions) buildAgentConfigForRequestPlan(ctx context.Context, budgetOverride int, toolName string, operationID oneshotruntime.OperationID, plan oneshotruntime.Plan) (agentapi.Config, *bootstrap.LiveRuntime, error) {
 	if err := plan.Validate(); err != nil {
 		return agentapi.Config{}, nil, err
 	}
 	if !plan.RequiresRuntime() {
-		cfg, err := buildRuntimeFreeAgentConfig(budgetOverride)
+		cfg, err := commandOptions.buildRuntimeFreeAgentConfig(ctx, budgetOverride)
 		if err != nil {
 			return agentapi.Config{}, nil, err
 		}
 		cfg.IntelStorePolicy = agentOperationIntelStorePolicyForPlan(operationID, &plan)
 		return cfg, nil, nil
 	}
-	return buildAgentConfigWithPlan(ctx, budgetOverride, toolName, operationID, plan)
+	return commandOptions.buildAgentConfigWithPlan(ctx, budgetOverride, toolName, operationID, plan)
 }
 
-func buildRuntimeFreeAgentConfig(budgetOverride int) (agentapi.Config, error) {
-	vault := &obsidian.Vault{Name: vaultName}
-	if vaultName == "" {
+func (commandOptions *vaultCommandOptions) buildRuntimeFreeAgentConfig(ctx context.Context, budgetOverride int) (agentapi.Config, error) {
+	vault := &repoconfig.Vault{Env: vaultconfig.FromContext(ctx), Name: commandOptions.vaultName}
+	if commandOptions.vaultName == "" {
 		name, err := vault.DefaultName()
 		if err != nil {
 			return agentapi.Config{}, err
@@ -139,25 +141,30 @@ func buildRuntimeFreeAgentConfig(budgetOverride int) (agentapi.Config, error) {
 	if err != nil {
 		return agentapi.Config{}, err
 	}
-	return agentapi.Config{
-		Vault:               vault,
-		VaultPath:           vaultDef.BasePath(),
-		VaultDef:            vaultDef,
-		BudgetCharsOverride: effectiveAgentBudgetChars(vaultDef.BasePath(), budgetOverride),
-		Debug:               debug,
-		SuppressedTags:      buildSuppressTags(),
-	}, nil
+	resolved, err := repoconfig.Load(vaultDef.BasePath())
+	if err != nil {
+		return agentapi.Config{}, err
+	}
+	return agentservices.Compose(runtimeview.Snapshot{
+		VaultDefinition: vaultDef,
+		Configuration:   &resolved,
+	}, agentservices.Options{
+		Vault:          vault,
+		BudgetChars:    effectiveAgentBudget(resolved.BudgetChars, budgetOverride),
+		Debug:          commandOptions.debug,
+		SuppressedTags: commandOptions.buildSuppressTags(),
+	}), nil
 }
 
-func buildAgentConfigWithPlan(ctx context.Context, budgetOverride int, toolName string, operationID oneshotruntime.OperationID, plan oneshotruntime.Plan) (agentapi.Config, *bootstrap.LiveRuntime, error) {
-	return buildAgentConfigWithOperationRequirementsAndPlan(ctx, budgetOverride, toolName, operationID, plan.RuntimeRequirements(), &plan)
+func (commandOptions *vaultCommandOptions) buildAgentConfigWithPlan(ctx context.Context, budgetOverride int, toolName string, operationID oneshotruntime.OperationID, plan oneshotruntime.Plan) (agentapi.Config, *bootstrap.LiveRuntime, error) {
+	return commandOptions.buildAgentConfigWithOperationRequirementsAndPlan(ctx, budgetOverride, toolName, operationID, plan.RuntimeRequirements(), &plan)
 }
 
-func buildAgentConfigWithOperationRequirements(ctx context.Context, budgetOverride int, toolName string, operationID oneshotruntime.OperationID, requirements bootstrap.RuntimeRequirements) (agentapi.Config, *bootstrap.LiveRuntime, error) {
-	return buildAgentConfigWithOperationRequirementsAndPlan(ctx, budgetOverride, toolName, operationID, requirements, nil)
+func (commandOptions *vaultCommandOptions) buildAgentConfigWithOperationRequirements(ctx context.Context, budgetOverride int, toolName string, operationID oneshotruntime.OperationID, requirements bootstrap.RuntimeRequirements) (agentapi.Config, *bootstrap.LiveRuntime, error) {
+	return commandOptions.buildAgentConfigWithOperationRequirementsAndPlan(ctx, budgetOverride, toolName, operationID, requirements, nil)
 }
 
-func buildAgentConfigWithOperationRequirementsAndPlan(ctx context.Context, budgetOverride int, toolName string, operationID oneshotruntime.OperationID, requirements bootstrap.RuntimeRequirements, plan *oneshotruntime.Plan) (agentapi.Config, *bootstrap.LiveRuntime, error) {
+func (commandOptions *vaultCommandOptions) buildAgentConfigWithOperationRequirementsAndPlan(ctx context.Context, budgetOverride int, toolName string, operationID oneshotruntime.OperationID, requirements bootstrap.RuntimeRequirements, plan *oneshotruntime.Plan) (agentapi.Config, *bootstrap.LiveRuntime, error) {
 	readOnlyCodeIndex := requirements.Includes(bootstrap.RuntimeCapabilityCodeIndex)
 	if plan != nil {
 		// StoreAccess is authoritative for planned requests. In particular, the
@@ -167,15 +174,14 @@ func buildAgentConfigWithOperationRequirementsAndPlan(ctx context.Context, budge
 	}
 	queryProvidersOnly := agentPlanUsesQueryProvidersOnly(operationID, plan)
 	liveOpts := bootstrap.LiveOptions{
-		VaultName:         vaultName,
-		Debug:             debug,
+		VaultName:         commandOptions.vaultName,
+		Debug:             commandOptions.debug,
 		SkipCacheWarmup:   true,
 		DisableWatchHub:   true,
 		DisableLeaderWork: true,
 		// Latency-sensitive read-only agent tools do not own full-store
 		// integrity validation. Explicit indexing retains the checked open.
-		SkipIntelIntegrityCheck: readOnlyCodeIndex,
-		ReadOnlyCodeIndex:       readOnlyCodeIndex,
+		ReadOnlyCodeIndex: readOnlyCodeIndex,
 		// A request-derived semantic plan may embed only query text. It must not
 		// create, migrate, or repair embedding stores merely because the shared
 		// find-connections handler can also run in a live MCP runtime.
@@ -230,7 +236,7 @@ func buildAgentConfigWithOperationRequirementsAndPlan(ctx context.Context, budge
 		doneSemantic(semanticErr)
 		// Semantic providers are optional retrieval lanes. Preserve the existing
 		// lexical/indexed degradation when provider setup is unavailable.
-		if semanticErr != nil && debug {
+		if semanticErr != nil && commandOptions.debug {
 			log.Printf("agent semantic provider unavailable for %s: %v", toolName, semanticErr)
 		}
 	}
@@ -259,7 +265,7 @@ func buildAgentConfigWithOperationRequirementsAndPlan(ctx context.Context, budge
 				indexedUnavailable = &freshness
 			}
 		}
-		if err != nil && debug {
+		if err != nil && commandOptions.debug {
 			log.Printf("agent metadata index unavailable for %s: %v", toolName, err)
 		}
 	}
@@ -275,24 +281,20 @@ func buildAgentConfigWithOperationRequirementsAndPlan(ctx context.Context, budge
 		}
 	}
 
-	intelStore := rt.IntelStore()
-
-	cfg := agentapi.Config{
+	snapshot := rt.Snapshot()
+	cfg := agentservices.Compose(snapshot, agentservices.Options{
 		Vault:                        rt.Vault,
-		VaultPath:                    rt.VaultPath,
-		VaultDef:                     rt.VaultDef,
-		BudgetCharsOverride:          effectiveAgentBudgetChars(rt.VaultPath, budgetOverride),
-		Debug:                        debug,
-		SuppressedTags:               buildSuppressTags(),
+		BudgetChars:                  effectiveAgentBudget(snapshot.Configuration.BudgetChars, budgetOverride),
+		Debug:                        commandOptions.debug,
+		SuppressedTags:               commandOptions.buildSuppressTags(),
 		Cache:                        rt.Cache(),
-		IntelStore:                   intelStore,
 		Runtime:                      rt,
 		NoteMetadata:                 rt.NoteMetadataIndexer(),
 		IndexedContextUnavailable:    indexedUnavailable,
 		IndexedReadOnlyFileContext:   toolName == "file_context",
 		IndexedReadOnlySemanticQuery: toolName == "semantic_query",
 		IntelStorePolicy:             agentOperationIntelStorePolicyForPlan(operationID, plan),
-	}
+	})
 	return cfg, rt, nil
 }
 
@@ -401,4 +403,14 @@ func agentRuntimeTimingPhase(toolName, defaultPhase, semanticQueryPhase string) 
 		return semanticQueryPhase
 	}
 	return defaultPhase
+}
+
+func effectiveAgentBudget(configured, budgetOverride int) int {
+	if budgetOverride > 0 {
+		return budgetOverride
+	}
+	if configured > agentCLIBudgetFloor {
+		return configured
+	}
+	return agentCLIBudgetFloor
 }

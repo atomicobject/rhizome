@@ -8,12 +8,17 @@ import (
 	"strings"
 	"testing"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/skilloverlay"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +46,6 @@ func TestAgenticEngineeringEffortRecipesExecuteLifecycleEvidence(t *testing.T) {
 		VaultDef:   obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}},
 		NoteReader: &obsidian.Note{},
 		Store:      store,
-		Service:    ontology.NewService(obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}, &obsidian.Note{}, store, schema),
 	}
 
 	for _, recipeID := range []string{"effort-execution-context", "closure-drift-pack"} {
@@ -101,7 +105,7 @@ func TestAgenticEngineeringWorkspaceRecipesReturnExplicitSources(t *testing.T) {
 	recipes, issues := queryrecipe.LoadPath(filepath.Join(root, ".rhizome", "query-recipes", "spec-driven.yaml"))
 	require.Empty(t, issues)
 	required := requiredWorkspaceRecipes(t, recipes)
-	deps := ontologyquery.Deps{VaultDef: obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}, NoteReader: &obsidian.Note{}, Store: store, Service: ontology.NewService(obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}, &obsidian.Note{}, store, schema)}
+	deps := ontologyquery.Deps{VaultDef: obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}, NoteReader: &obsidian.Note{}, Store: store}
 	formats, err := builtin.NewRuntime()
 	require.NoError(t, err)
 	deps.NoteFormats = formats
@@ -157,7 +161,7 @@ func TestAgenticEngineeringWorkspaceMissingLifecycleEvidenceRemainsAbsent(t *tes
 	vault := obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}
 	formats, err := builtin.NewRuntime()
 	require.NoError(t, err)
-	deps := ontologyquery.Deps{VaultDef: vault, NoteReader: &obsidian.Note{}, Store: store, Service: ontology.NewService(vault, &obsidian.Note{}, store, schema), NoteFormats: formats}
+	deps := ontologyquery.Deps{VaultDef: vault, NoteReader: &obsidian.Note{}, Store: store, NoteFormats: formats}
 	for _, recipe := range required {
 		t.Run(recipe.ID, func(t *testing.T) {
 			compiled, issues := queryrecipe.Compile(recipe, execSchema, map[string]string{"path": entry})
@@ -210,25 +214,25 @@ func TestAgenticEngineeringExperienceHooksStripAndTargetExtensions(t *testing.T)
 
 	rawSkills, err := loadStarterSkillTemplates(templateAgenticEngineering)
 	require.NoError(t, err)
-	rendered, _, err := applySkillOverlays(rawSkills, []loadedSkillOverlay{{
+	rendered, _, err := skilloverlay.Render(rawSkills, []skilloverlay.LoadedOverlay{{
 		Template:      "experience-test",
 		TemplateOrder: 0,
 		Path:          "experience-test.yaml",
-		Overlay: skillOverlay{
-			APIVersion:  skillOverlayAPIVersion,
+		Overlay: skilloverlay.Overlay{
+			APIVersion:  skilloverlay.APIVersion,
 			ID:          "experience-hooks",
 			TargetSkill: "agentic-engineering",
-			Fragments: []skillOverlayFragment{
+			Fragments: []skilloverlay.Fragment{
 				{
 					File:    "references/alignment.md",
 					Slot:    "alignment.additional-context",
-					Op:      skillOverlayOpAppend,
+					Op:      skilloverlay.Append,
 					Content: "Alignment extension fragment.",
 				},
 				{
 					File:    "references/reconciliation.md",
 					Slot:    "reconciliation.additional-targets",
-					Op:      skillOverlayOpAppend,
+					Op:      skilloverlay.Append,
 					Content: "Reconciliation extension fragment.",
 				},
 			},
@@ -263,9 +267,9 @@ func TestAgenticEngineeringInstalledDocsValidateReferenceFieldsAndEffortLinks(t 
 	}
 	require.NotEmpty(t, referencePaths)
 
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
-	sources, err := testNoteMetadataIndexer(t).BuildNoteSourceSnapshots(
+	sources, err := testkit.NoteMetadataIndexer(t).BuildNoteSourceSnapshots(
 		context.Background(), obsidian.VaultDefinition{Path: root}, &obsidian.Note{},
 	)
 	require.NoError(t, err)
@@ -294,7 +298,7 @@ func TestAgenticEngineeringInstalledDocsValidateReferenceFieldsAndEffortLinks(t 
 	cache := obsidian.BuildNotePathCache(notePaths)
 	effortBody, err := note.GetContents(obsidian.VaultDefinition{Path: root}, effortReadme)
 	require.NoError(t, err)
-	links := obsidian.ExtractMdLinks(effortBody, obsidian.DefaultMdLinkOptions)
+	links := markdownsyntax.ExtractMdLinks(effortBody, markdownsyntax.DefaultMdLinkOptions)
 	require.NotEmpty(t, links, "installed effort README should retain internal links")
 	for _, target := range links {
 		if isExternalAgenticEngineeringLink(target) {
@@ -305,7 +309,7 @@ func TestAgenticEngineeringInstalledDocsValidateReferenceFieldsAndEffortLinks(t 
 	}
 }
 
-func setupAgenticEngineeringRecipeVault(t *testing.T, notes map[string]string) (string, *ontology.Schema, *ontologyquery.ExecutableSchema, *codeanchorsqlite.Store) {
+func setupAgenticEngineeringRecipeVault(t *testing.T, notes map[string]string) (string, *ontoschema.Schema, *ontologyquery.ExecutableSchema, *codeanchorsqlite.Store) {
 	t.Helper()
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0o755))
@@ -332,41 +336,44 @@ func setupAgenticEngineeringRecipeVault(t *testing.T, notes map[string]string) (
 }
 
 func TestAgenticEngineeringFeatureAreasNestUnderOneParentArea(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	root := t.TempDir()
-	require.NoError(t, Run(RunOptions{Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}))
+	require.NoError(t, Run(RunOptions{Env: env, Dir: root, Workflow: templateAgenticEngineering, Stdout: io.Discard, Stderr: io.Discard}))
 	writeQueryRecipeExperienceNote(t, root, "docs/feature-areas/platform.md", "---\ntype: FeatureArea\nid: FA-0001\nsummary: Platform\n---\n\n# Platform\n\nIncludes [[views]].\n")
 	writeQueryRecipeExperienceNote(t, root, "docs/feature-areas/views.md", "---\ntype: FeatureArea\nid: FA-0002\nsummary: Views\nparent: \"[[platform]]\"\n---\n\n# Views\n")
 
 	_, schema, execSchema, store := indexAgenticEngineeringRecipeVault(t, root)
-	parent := ontology.ParentField(schema.Types["FeatureArea"].Fields)
+	parent := ontoschema.ParentField(schema.Types["FeatureArea"].Fields)
 	require.NotNil(t, parent)
 	require.Equal(t, "parent", parent.Name)
 	specActive := schema.EnumTypes["SpecStatus"].ByName["active"].View
-	require.Equal(t, ontology.StageDone, specActive.Stage, "a current contract is not in-motion work")
+	require.Equal(t, ontoschema.StageDone, specActive.Stage, "a current contract is not in-motion work")
 	require.NotEqual(t, "progress", specActive.Tone)
 
 	vaultDef := obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}
-	deps := ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store, Service: ontology.NewService(vaultDef, &obsidian.Note{}, store, schema)}
+	deps := ontologyquery.Deps{VaultDef: vaultDef, NoteReader: &obsidian.Note{}, Store: store}
 	prepared, errors := ontologyquery.Prepare(execSchema, `{
   child: note(path: "docs/feature-areas/views.md") { ... on FeatureArea { parent { id } } }
   top: note(path: "docs/feature-areas/platform.md") { ... on FeatureArea { parent { id } } }
  }`)
 	require.Empty(t, errors)
-	result := ontologyquery.Execute(context.Background(), deps, schema, prepared)
+	result := ontologyquery.Execute(vaultconfig.WithEnv(context.Background(), env), deps, schema, prepared)
 	require.Empty(t, result.Errors)
 	require.Equal(t, map[string]any{"id": "FA-0001"}, result.Data["child"].(map[string]any)["parent"])
 	require.Nil(t, result.Data["top"].(map[string]any)["parent"])
 
-	edges, err := store.OntologyEdgesForPaths(context.Background(), []string{"docs/feature-areas/platform.md"}, true, "parent", 0)
+	edges, err := store.OntologyEdgesForPaths(vaultconfig.WithEnv(context.Background(), env), []string{"docs/feature-areas/platform.md"}, true, "parent", 0)
 	require.NoError(t, err)
 	require.Len(t, edges, 1, "body links and backlinks must not appear as parent edges")
 	require.Equal(t, "docs/feature-areas/views.md", edges[0].SrcPath)
 	require.Equal(t, "docs/feature-areas/platform.md", edges[0].DstPath)
 }
 
-func indexAgenticEngineeringRecipeVault(t *testing.T, root string) (string, *ontology.Schema, *ontologyquery.ExecutableSchema, *codeanchorsqlite.Store) {
+func indexAgenticEngineeringRecipeVault(t *testing.T, root string) (string, *ontoschema.Schema, *ontologyquery.ExecutableSchema, *codeanchorsqlite.Store) {
 	t.Helper()
-	schema, err := ontology.LoadSchema(root)
+	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
 	execSchema, err := ontologyquery.BuildExecutableSchema(schema)
 	require.NoError(t, err)
@@ -378,7 +385,7 @@ func indexAgenticEngineeringRecipeVault(t *testing.T, root string) (string, *ont
 
 	ctx := context.Background()
 	vaultDef := obsidian.VaultDefinition{Root: root, Path: root, Includes: []string{"**/*.md", "**/*.html"}}
-	indexer := testNoteMetadataIndexer(t)
+	indexer := testkit.NoteMetadataIndexer(t)
 	_, err = indexer.EnsureIndexed(ctx, vaultDef, &obsidian.Note{}, store)
 	require.NoError(t, err)
 	build, err := ontology.BuildIndexWithStore(ctx, indexer, vaultDef, &obsidian.Note{}, store, schema, "agentic-engineering-experience")
@@ -396,7 +403,7 @@ func indexAgenticEngineeringRecipeVault(t *testing.T, root string) (string, *ont
 			Ready:      true,
 		},
 	}))
-	require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, codeanchor.IntelOntologyNodeReadModel{
+	require.NoError(t, store.ReplaceOntologyNodeReadModel(ctx, readmodel.NodeReadModel{
 		NotePaths:        build.NodePaths,
 		Nodes:            build.Nodes,
 		FieldValues:      build.NodeFieldValues,
@@ -475,15 +482,15 @@ func narrativeContent(t *testing.T, effort map[string]any, field string) string 
 	return content
 }
 
-func findSkillOverlayManifestEntry(manifest SkillOverlayManifest, target string) (SkillOverlayManifestEntry, bool) {
+func findSkillOverlayManifestEntry(manifest skilloverlay.Manifest, target string) (skilloverlay.Entry, bool) {
 	parts := strings.SplitN(target, ":", 2)
 	if len(parts) != 2 {
-		return SkillOverlayManifestEntry{}, false
+		return skilloverlay.Entry{}, false
 	}
 	for _, entry := range manifest.Entries {
 		if entry.TargetSkill == parts[0] && entry.Slot == parts[1] {
 			return entry, true
 		}
 	}
-	return SkillOverlayManifestEntry{}, false
+	return skilloverlay.Entry{}, false
 }

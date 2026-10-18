@@ -26,7 +26,7 @@ func observePhysicalEmbeddings(ctx context.Context) (context.Context, func()) {
 		op.TraceID = parent.TraceID
 	}
 	ctx = diagnostics.WithOperation(ctx, op)
-	collector := indexingperf.NewBounded()
+	collector := indexingperf.New()
 	ctx = indexingperf.WithCollector(ctx, collector)
 	recorder.Event(ctx, slog.LevelInfo, "runtime", "embedding_provider.started", "")
 	var once sync.Once

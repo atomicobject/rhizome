@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +31,7 @@ func TestPlanner_SkipsVectorRetrieversForTypedNilIntelStore(t *testing.T) {
 	plan, err := p.Plan(context.Background(), spec)
 	require.NoError(t, err)
 	require.False(t, planContainsLane(plan, "vector"))
-	response, err := (&search.Service{Retrievers: plan.Retrievers, Ranker: plan.Ranker}).Search(context.Background(), spec)
+	response, err := plan.Search(context.Background(), spec)
 	require.NoError(t, err, "a typed-nil store must not reach a vector retriever")
 	var lexicalAlice bool
 	for _, result := range response.Results {
@@ -189,11 +189,14 @@ func TestPlanner_WiresOverviewEvidenceShaperForOverviewModes(t *testing.T) {
 	results := make([]search.RankedResult, 0, 9)
 	for i := 0; i < 8; i++ {
 		path := fmt.Sprintf("docs/guide-%d.md", i)
-		results = append(results, search.RankedResult{Candidate: search.Candidate{Handle: knowledge.NoteHandle(path), Owner: knowledge.NoteHandle(path), Type: "note", Path: path}, FinalScore: 1 - float64(i)*.02})
+		results = append(results, search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: path}, Handle: knowledge.NoteHandle(path), Owner: knowledge.NoteHandle(path), Type: "note"}, FinalScore: 1 - float64(i)*.02})
 	}
 	results = append(results, search.RankedResult{Candidate: search.Candidate{
-		Handle: knowledge.FileHandle("pkg/search/service.go"), Owner: knowledge.FileHandle("pkg/search/service.go"),
-		Type: "code", Path: "pkg/search/service.go", Evidence: []search.Evidence{{Type: "symbol_match", RawScore: .85}},
+		SourceRef: search.SourceRef{Path: "pkg/search/service.go"},
+		Handle:    knowledge.FileHandle("pkg/search/service.go"),
+		Owner:     knowledge.FileHandle("pkg/search/service.go"),
+		Type:      "code",
+		Evidence:  []search.Evidence{{Type: "symbol_match", RawScore: .85}},
 	}, FinalScore: .8})
 	overviewSpec := search.QuerySpec{Text: "search architecture", Intent: search.IntentOverview, Limits: search.Limits{Total: 10}}
 	shaped, err := overview.Shaper.Shape(context.Background(), overviewSpec, results)
@@ -209,7 +212,7 @@ func TestPlanner_WiresOverviewEvidenceShaperForOverviewModes(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, subsystem.Shaper)
-	localDoc := search.RankedResult{Candidate: search.Candidate{Handle: knowledge.NoteHandle("pkg/search/CONTEXT.md"), Owner: knowledge.NoteHandle("pkg/search/CONTEXT.md"), Type: "note", Path: "pkg/search/CONTEXT.md", DocClass: search.DocClassModule, PrimaryDoc: true}, FinalScore: .75}
+	localDoc := search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "pkg/search/CONTEXT.md"}, Handle: knowledge.NoteHandle("pkg/search/CONTEXT.md"), Owner: knowledge.NoteHandle("pkg/search/CONTEXT.md"), Type: "note", DocClass: search.DocClassModule, PrimaryDoc: true}, FinalScore: .75}
 	subsystemSpec := search.QuerySpec{Text: "search architecture", Intent: search.IntentSubsystemOverview, ExplicitSeedPaths: []string{"pkg/search/service.go"}, HasExplicitSeeds: true, Limits: search.Limits{Total: 10}}
 	shaped, err = subsystem.Shaper.Shape(context.Background(), subsystemSpec, append(append([]search.RankedResult(nil), results...), localDoc))
 	require.NoError(t, err)

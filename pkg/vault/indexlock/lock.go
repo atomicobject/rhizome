@@ -41,20 +41,12 @@ type LockData struct {
 	// "cli/index" or "runtime/embed-cycle". Empty on locks written before the
 	// field existed.
 	Role string `json:"role,omitempty"`
-	// ProcessLifetime marks a lock the owner holds for its whole process
-	// lifetime (the runtime election lock). Such a lock is never reclaimed for
-	// heartbeat age: a healthy runtime can sit idle for hours.
-	ProcessLifetime bool `json:"processLifetime,omitempty"`
 }
 
 // AcquireOptions describes the lock a caller wants to take.
 type AcquireOptions struct {
 	// Role is recorded in the lock so a waiting process can name the holder.
 	Role string
-	// ProcessLifetime records that the owner intends to hold the lock for its
-	// process lifetime. All locks protect live owners regardless of heartbeat
-	// age; foreign runtime identities require explicit operator recovery.
-	ProcessLifetime bool
 }
 
 // TryAcquire attempts to acquire an index lock non-blockingly.
@@ -70,9 +62,12 @@ func TryAcquire(lockPath string) (release func() error, acquired bool, err error
 	return TryAcquireWithOptions(lockPath, AcquireOptions{})
 }
 
-// TryAcquireWithOptions is TryAcquire with a recorded role and an optional
-// process-lifetime mode (SPEC-0104 US6).
+// TryAcquireWithOptions is TryAcquire with a recorded role (SPEC-0104 US6).
 func TryAcquireWithOptions(lockPath string, opts AcquireOptions) (release func() error, acquired bool, err error) {
+	return tryAcquireOwned(lockPath, opts, nil)
+}
+
+func tryAcquireOwned(lockPath string, opts AcquireOptions, acquiredOwner *LockData) (release func() error, acquired bool, err error) {
 	// WHY: lock creation is intentionally atomic and non-blocking; callers own
 	// wait/yield policy so interactive indexing and background refresh can share
 	// the same primitive without surprising each other.
@@ -88,14 +83,16 @@ func TryAcquireWithOptions(lockPath string, opts AcquireOptions) (release func()
 		return nil, false, fmt.Errorf("determine lock runtime identity: %w", err)
 	}
 	lockData := LockData{
-		PID:             os.Getpid(),
-		Started:         time.Now().UTC().Format(time.RFC3339Nano),
-		Host:            getHostname(),
-		Runtime:         runtimeID,
-		Role:            opts.Role,
-		ProcessLifetime: opts.ProcessLifetime,
+		PID:     os.Getpid(),
+		Started: time.Now().UTC().Format(time.RFC3339Nano),
+		Host:    getHostname(),
+		Runtime: runtimeID,
+		Role:    opts.Role,
 	}
 	lockData.Token = rand.Text()
+	if acquiredOwner != nil {
+		*acquiredOwner = lockData
+	}
 	lockDataJSON, err := json.Marshal(lockData)
 	if err != nil {
 		return nil, false, fmt.Errorf("marshal lock data: %w", err)
@@ -134,10 +131,6 @@ func TryAcquireWithOptions(lockPath string, opts AcquireOptions) (release func()
 		// their recovery grace even though new metadata is published whole.
 		if info, statErr := os.Stat(lockPath); statErr == nil {
 			age := time.Since(info.ModTime())
-			if age < 2*time.Second {
-				return nil, false, nil
-			}
-			// If it's been corrupted for a while, assume stale and try to recover.
 			if age < 10*time.Minute {
 				return nil, false, nil
 			}

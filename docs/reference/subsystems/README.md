@@ -1,7 +1,7 @@
 ---
 summary: "Index of per-subsystem guidance notes: design constraints, must-dos, and review checklists keyed to code folders via code-paths frontmatter."
 reference-kind: guide
-last-verified: 2026-10-04
+last-verified: 2026-10-17
 tags: [subsystem/index]
 ---
 
@@ -15,21 +15,23 @@ Contract per note: `## Scope` (entry points), `## Design constraints` (hard inva
 
 | Note | Code paths | Skill |
 | --- | --- | --- |
-| [indexing](indexing.md) | `pkg/app/indexing`, `pkg/app/indexingpipe`, `pkg/vault/indexlock`, `pkg/indexingperf`, `pkg/vault/watchhub` | `indexing-subsystem` |
-| [search](search.md) | `pkg/search`, `pkg/app/unifiedsearch`, `pkg/app/semanticops`, `pkg/app/semanticruntime` | `search-subsystem` |
+| [web](web.md) | `pkg/app/web` | Load the owning note directly, plus the changed domain's skill. |
+| [views](views.md) | `pkg/app/views`, `pkg/ontology/viewconfig` | `graphql-query-subsystem`, plus the owning note. |
+| [indexing](indexing.md) | `pkg/app/indexing`, `pkg/app/indexcore`, `pkg/app/indexwriter`, `pkg/embedindex`, `pkg/graph/index`, `pkg/app/codeintel/candidate_workers.go`, `pkg/app/codeintel/candidate_types.go`, `pkg/vault/indexlock`, `pkg/indexingperf`, `pkg/vault/watchhub` | `indexing-subsystem` |
+| [search](search.md) | `pkg/search`, `pkg/embeddings`, `pkg/app/unifiedsearch` | `search-subsystem` |
 | [ontology](ontology.md) | `pkg/ontology` (core: schema, projection, catalog, sync, idalloc) | `ontology-subsystem` |
 | [graphql-query](graphql-query.md) | `pkg/ontology/query`, `pkg/ontology/pushdown`, `pkg/ontology/queryrecipe` | `graphql-query-subsystem` |
 | [noderead](noderead.md) | `pkg/ontology/noderead`, `pkg/ontology/readmodel` | `noderead-subsystem` |
 | [notemeta](notemeta.md) | `pkg/notemeta` | `notemeta-subsystem` |
-| [mcp-server](mcp-server.md) | `pkg/app/mcp`, `pkg/app/agentapi`, `pkg/app/runtimeview` (handlers, catalog dispatch, live capability view) | `mcp-server-subsystem` |
-| [agent-surface](agent-surface.md) | `pkg/app/agent`, `pkg/app/agentapi`, `pkg/app/agentcode`, `pkg/app/agentstart`, `pkg/app/contextpack`, `pkg/app/answer`, `pkg/app/presentation` | `agent-surface-subsystem` |
-| [cli](cli.md) | `cmd`, `pkg/app/cli` | `cli-subsystem` |
-| [vault-core](vault-core.md) | `pkg/fileio`, `pkg/noteformat`, `pkg/vault/notediscovery`, `pkg/vault/obsidian`, `pkg/paths`, `pkg/vault/config`, `pkg/vault/frontmatter`, `pkg/vault/ignore` | `vault-core-subsystem` |
-| [stores](stores.md) | `pkg/sqliteutil` | `stores-subsystem` |
+| [mcp-server](mcp-server.md) | `pkg/app/mcp`, `pkg/app/agentapi`, `pkg/app/agentservices`, `pkg/app/mcpserve`, `pkg/app/runtimeview` (handlers, catalog dispatch, live capability view) | `mcp-server-subsystem` |
+| [agent-surface](agent-surface.md) | `pkg/app/agentchat`, `pkg/app/agentapi`, `pkg/app/agentcode`, `pkg/app/contextpack`, `pkg/app/answer`, `pkg/app/presentation` | `agent-surface-subsystem` |
+| [cli](cli.md) | `cmd`, `pkg/app/operations`, `pkg/app/cli`, `pkg/skilloverlay` | `cli-subsystem` |
+| [vault-core](vault-core.md) | `pkg/fileio`, `pkg/noteformat`, `pkg/vault/notediscovery`, `pkg/vault/obsidian`, `pkg/markdownsyntax`, `pkg/vault/repoconfig`, `pkg/graph`, `pkg/vault/health`, `pkg/paths`, `pkg/vault/config`, `pkg/vault/frontmatter`, `pkg/vault/ignore` | `vault-core-subsystem` |
+| [stores](stores.md) | `pkg/sqliteutil`, `pkg/store`, `pkg/indexstore`, `pkg/embeddings/sqlite`, `pkg/app/userstate` | `stores-subsystem` |
 | [validate](validate.md) | `pkg/validate`, `pkg/app/validationrun`, `pkg/app/validationproduct` | `validate-subsystem` |
 | [code-intel](code-intel.md) | `pkg/anchors`, `pkg/app/codeintel`, `pkg/vault/coderefs`, `pkg/vault/codepatterns` | `code-intel-subsystem` |
 | [harness](harness.md) | `pkg/harness` | `harness-subsystem` |
-| [vault-runtime](vault-runtime.md) | `pkg/app/runtime`, `pkg/app/bootstrap`, `pkg/app/cli/serve`, `pkg/app/runtimestop` | `vault-runtime-subsystem` |
+| [vault-runtime](vault-runtime.md) | `pkg/app/runtime`, `pkg/app/bootstrap`, `pkg/app/cli/serve` | `vault-runtime-subsystem` |
 
 Each note also carries `code-anchors` glob refs that broadly track its `code-paths`, so the full guidance auto-surfaces in `rzm agent file-context` for files in those folders. The two lists are intentionally not identical: anchors are tuned for retrieval (e.g. a precise file glob, or omitting a package a sibling note already claims), while `code-paths` is the folder contract for review tooling. Query recipe `subsystem-guidance-notes` (and view `reference.subsystem-guidance`) lists these notes by `last-verified` age for staleness review.
 

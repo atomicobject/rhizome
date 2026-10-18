@@ -2,26 +2,23 @@ package indexing
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/app/noteownership"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/notediscovery"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/noteownership"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/notediscovery"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
-// This tests the filesystem-to-transition boundary that RunUnifiedCore must
-// consume before choosing its code or semantic execution paths. It deliberately
-// uses no configured code roots: an explicit descriptor-only HTML include must
-// still become a note ownership transition, but must not enter either legacy
-// Markdown ingestion or code discovery.
 func TestUnifiedOwnershipPrefix_NoCodeRootsPublishesHTMLSourceOnly(t *testing.T) {
 	t.Parallel()
 
@@ -67,6 +64,8 @@ func TestUnifiedOwnershipPrefix_NoCodeRootsPublishesHTMLSourceOnly(t *testing.T)
 // A trusted, explicitly included HTML root must persist source identity even
 // when no code or embedding lane is enabled; it remains absent from code state.
 func TestRunUnifiedCore_NoCodeRootsAndDisabledEmbeddingsPersistsHTMLSourceOnly(t *testing.T) {
+	t.Parallel()
+
 	root := t.TempDir()
 	writeOwnershipFile(t, root, "docs/Release.HTML")
 	ontologyDir := filepath.Join(root, ".rhizome", "ontology")
@@ -76,20 +75,20 @@ type Record @node(paths: ["records/*.md"]) {
   title: String
 }
 `), 0o600))
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Notes:          obsidian.LocalVaultConfig{Includes: []string{"docs/*.html"}},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Notes:          repoconfig.LocalVaultConfig{Includes: []string{"docs/*.html"}},
 		NoteEmbeddings: &embeddings.Config{Enabled: false},
 		CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
 	definition := obsidian.VaultDefinition{Root: root, Includes: []string{"docs/*.html"}}
 
-	require.NoError(t, RunUnifiedCore(context.Background(), UnifiedOptions{
+	require.NoError(t, runUnifiedCoreForTest(t, context.Background(), UnifiedOptions{
 		VaultPath:    root,
 		VaultDef:     definition,
-		NoteMetadata: descriptorOnlyHTMLNoteMetadataIndexer(t),
+		NoteMetadata: testkit.DescriptorOnlyHTMLNoteMetadataIndexer(t),
 	}))
 
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	require.NotNil(t, store)
 	debt, err := store.PendingDerivedWork(context.Background(), time.Now(), 64)
@@ -149,6 +148,8 @@ type Record @node(paths: ["records/*.md"]) {
 // shares one ownership run with a descriptor-only HTML root. HTML contributes
 // durable source identity only; it must not borrow Markdown-derived facts.
 func TestRunUnifiedCore_MarkdownParityAlongsideDescriptorOnlyHTML(t *testing.T) {
+	t.Parallel()
+
 	root := t.TempDir()
 	writeOwnershipFile(t, root, "docs/Reference.html")
 	writeOwnershipFile(t, root, "notes/Target.md")
@@ -163,19 +164,19 @@ tags: [team/alpha]
 
 See [[Target]].
 `), 0o600))
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Notes:          obsidian.LocalVaultConfig{Includes: []string{"notes/**/*.md", "docs/*.html"}},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Notes:          repoconfig.LocalVaultConfig{Includes: []string{"notes/**/*.md", "docs/*.html"}},
 		NoteEmbeddings: &embeddings.Config{Enabled: false},
 		CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
 	definition := obsidian.VaultDefinition{Root: root, Includes: []string{"notes/**/*.md", "docs/*.html"}}
-	require.NoError(t, RunUnifiedCore(context.Background(), UnifiedOptions{
+	require.NoError(t, runUnifiedCoreForTest(t, context.Background(), UnifiedOptions{
 		VaultPath:    root,
 		VaultDef:     definition,
-		NoteMetadata: descriptorOnlyHTMLNoteMetadataIndexer(t),
+		NoteMetadata: testkit.DescriptorOnlyHTMLNoteMetadataIndexer(t),
 	}))
 
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	require.NotNil(t, store)
 	t.Cleanup(cleanup)
@@ -229,6 +230,8 @@ See [[Target]].
 // generation. The metadata no-op preserves this barrier instead of advancing
 // LoadedAt without re-publishing ontology.
 func TestRunUnifiedCore_UnchangedPublishedStateStaysReady(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "ontology"), 0o755))
@@ -246,16 +249,16 @@ type Decision @node(paths: ["notes/Decision.md"]) {
 	for name, content := range map[string]string{"Blank.md": "", "Space.md": " \n", "Ambiguous.md": "---\ntags: [overlap]\n---\n"} {
 		require.NoError(t, os.WriteFile(filepath.Join(root, "notes", name), []byte(content), 0o600))
 	}
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Notes:          obsidian.LocalVaultConfig{Includes: []string{"notes/**/*.md", "docs/*.html"}},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Notes:          repoconfig.LocalVaultConfig{Includes: []string{"notes/**/*.md", "docs/*.html"}},
 		NoteEmbeddings: &embeddings.Config{Enabled: false},
 		CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
 	definition := obsidian.VaultDefinition{Root: root, Includes: []string{"notes/**/*.md", "docs/*.html"}}
-	indexer := descriptorOnlyHTMLNoteMetadataIndexer(t)
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	indexer := testkit.DescriptorOnlyHTMLNoteMetadataIndexer(t)
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	firstNoteState, err := store.GetNoteMetadataState(ctx)
 	require.NoError(t, err)
@@ -269,8 +272,8 @@ type Decision @node(paths: ["notes/Decision.md"]) {
 	require.NoError(t, err)
 	cleanup()
 
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
-	store, cleanup, err = obsidian.OpenIntelStore(root, false)
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	store, cleanup, err = indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	runtime, err := ontology.PublishedRuntimeWithStore(ctx, indexer, definition, store)
@@ -294,24 +297,26 @@ type Decision @node(paths: ["notes/Decision.md"]) {
 // but only the ownership transition for its changed source may bypass the
 // Markdown mtime/content fast path.
 func TestRunUnifiedCore_PublishedMetadataChangeForcesOnlyChangedMarkdownSource(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root := t.TempDir()
 	changedPath := filepath.Join(root, "notes", "Changed.md")
 	require.NoError(t, os.MkdirAll(filepath.Dir(changedPath), 0o755))
 	require.NoError(t, os.WriteFile(changedPath, []byte("# First\n"), 0o600))
 	writeOwnershipFile(t, root, "notes/Unchanged.md")
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Notes:          obsidian.LocalVaultConfig{Includes: []string{"notes/**/*.md"}},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Notes:          repoconfig.LocalVaultConfig{Includes: []string{"notes/**/*.md"}},
 		NoteEmbeddings: &embeddings.Config{Enabled: false},
 		CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
 	definition := obsidian.VaultDefinition{Root: root, Includes: []string{"notes/**/*.md"}}
-	indexer := testNoteMetadataIndexer(t)
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	indexer := testkit.NoteMetadataIndexer(t)
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 
 	require.NoError(t, os.WriteFile(changedPath, []byte("# Second\n"), 0o600))
 	progress := &progressRecorder{}
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{
 		VaultPath: root, VaultDef: definition, NoteMetadata: indexer, ProgressBar: progress, Verbose: true,
 	}))
 	require.Contains(t, progress.lines, "[index] Ingested 1 notes (1 unchanged)")
@@ -322,20 +327,22 @@ func TestRunUnifiedCore_PublishedMetadataChangeForcesOnlyChangedMarkdownSource(t
 // production coordinator forces and republishes Markdown before acknowledging
 // that exact outstanding generation.
 func TestRunUnifiedCore_RecoversPendingOwnershipGeneration(t *testing.T) {
+	t.Parallel()
+
 	root := t.TempDir()
 	decisionPath := filepath.Join(root, "notes", "Decision.md")
 	require.NoError(t, os.MkdirAll(filepath.Dir(decisionPath), 0o755))
 	require.NoError(t, os.WriteFile(decisionPath, []byte("---\nstatus: accepted\n---\n# Decision\n"), 0o600))
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Notes:          obsidian.LocalVaultConfig{Includes: []string{"notes/**/*.md"}},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Notes:          repoconfig.LocalVaultConfig{Includes: []string{"notes/**/*.md"}},
 		NoteEmbeddings: &embeddings.Config{Enabled: false},
 		CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
 	definition := obsidian.VaultDefinition{Root: root, Includes: []string{"notes/**/*.md"}}
-	indexer := testNoteMetadataIndexer(t)
-	require.NoError(t, RunUnifiedCore(context.Background(), UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	indexer := testkit.NoteMetadataIndexer(t)
+	require.NoError(t, runUnifiedCoreForTest(t, context.Background(), UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	rows, err := store.CurrentNoteMetadataRows(context.Background())
 	require.NoError(t, err)
@@ -356,8 +363,8 @@ func TestRunUnifiedCore_RecoversPendingOwnershipGeneration(t *testing.T) {
 	require.True(t, pending)
 	cleanup()
 
-	require.NoError(t, RunUnifiedCore(context.Background(), UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
-	store, cleanup, err = obsidian.OpenIntelStore(root, false)
+	require.NoError(t, runUnifiedCoreForTest(t, context.Background(), UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	store, cleanup, err = indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	generation, pending, err := store.PendingOwnershipReconciliation(context.Background())
@@ -411,31 +418,4 @@ func TestUnifiedOwnershipPrefix_NoteToCodeUsesOnlyCodeLane(t *testing.T) {
 	require.Len(t, candidates, 1)
 	require.Equal(t, notediscovery.Note, candidates[0].PreviousOwner)
 	require.Equal(t, notediscovery.Code, candidates[0].Owner)
-}
-
-type unifiedOwnershipTestStore struct {
-	notePaths  []string
-	codePaths  []string
-	generation int64
-	pending    bool
-}
-
-func (s *unifiedOwnershipTestStore) NotePaths(context.Context) ([]string, error) {
-	return append([]string(nil), s.notePaths...), nil
-}
-
-func (s *unifiedOwnershipTestStore) IndexedFilePaths(context.Context) ([]string, error) {
-	return append([]string(nil), s.codePaths...), nil
-}
-
-func (s *unifiedOwnershipTestStore) PendingOwnershipReconciliation(context.Context) (int64, bool, error) {
-	return s.generation, s.pending, nil
-}
-
-func ownershipTransitionBatches(batches [][]semdb.OwnershipTransition) [][]string {
-	result := make([][]string, 0, len(batches))
-	for _, batch := range batches {
-		result = append(result, ownershipTransitionShapes(batch))
-	}
-	return result
 }

@@ -2,10 +2,13 @@ package agentapi
 
 import (
 	"encoding/json"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"os"
 	"sort"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -86,11 +89,14 @@ func TestToolCatalogCapabilityMetadataMatchesMCPContract(t *testing.T) {
 }
 
 func TestToolCatalogCapabilityMetadataParityWithHandler(t *testing.T) {
+	env := testkit.Env(t)
+	env.LookupEnv = os.LookupEnv
+
 	for _, readWrite := range []bool{false, true} {
 		t.Run(map[bool]string{false: "read-only", true: "read-write"}[readWrite], func(t *testing.T) {
 			vaultPath := t.TempDir()
 			cfg := Config{
-				Vault:     &obsidian.Vault{Name: "test-vault"},
+				Vault:     &repoconfig.Vault{Env: env, Name: "test-vault"},
 				VaultPath: vaultPath,
 				VaultDef:  obsidian.VaultDefinition{Name: "test-vault", Path: vaultPath},
 				ReadWrite: readWrite,

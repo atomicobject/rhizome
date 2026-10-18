@@ -12,11 +12,9 @@ import (
 	"testing"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/app/indexingpipe"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/paths"
-	"github.com/atomicobject/rhizome/pkg/vault/ignore"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 const warmNoopCodeFileBytes = 4 * 1024
@@ -25,14 +23,14 @@ var benchmarkFilesPattern = regexp.MustCompile(`\bfiles=(\d+)\b`)
 
 func BenchmarkWarmNoopCodeIndex(b *testing.B) {
 	for _, fileCount := range []int{1000, 5000} {
-		for _, mode := range []string{"candidates", "root"} {
+		for _, mode := range []string{"candidates"} {
 			b.Run(fmt.Sprintf("%s/%d", mode, fileCount), func(b *testing.B) {
 				root := b.TempDir()
 				codeRoot := filepath.Join(root, "src")
 				if err := os.MkdirAll(codeRoot, 0o755); err != nil {
 					b.Fatal(err)
 				}
-				candidates := make([]indexingpipe.FileCandidate, 0, fileCount)
+				candidates := make([]FileCandidate, 0, fileCount)
 				for n := range fileCount {
 					content := benchmarkGoFile(warmNoopCodeFileBytes, n)
 					relPath := filepath.ToSlash(filepath.Join("src", fmt.Sprintf("file%05d.go", n)))
@@ -44,11 +42,11 @@ func BenchmarkWarmNoopCodeIndex(b *testing.B) {
 					if err != nil {
 						b.Fatal(err)
 					}
-					candidates = append(candidates, indexingpipe.FileCandidate{
+					candidates = append(candidates, FileCandidate{
 						AbsPath: absPath,
 						RelPath: relPath,
 						ModTime: info.ModTime().Unix(),
-						Kind:    indexingpipe.FileKindCode,
+						Kind:    FileKindCode,
 						Lang:    codeanchor.LangGo,
 					})
 				}
@@ -66,7 +64,8 @@ func BenchmarkWarmNoopCodeIndex(b *testing.B) {
 					codeanchor.WithBasePath(root),
 					codeanchor.WithoutWarmCache(),
 				)
-				if result, err := IndexCandidates(context.Background(), service, root, candidates, nil); err != nil || result.Indexed != fileCount {
+				writer := newCandidateTestWriter(b, service)
+				if result, err := IndexCandidates(context.Background(), service, writer, root, candidates, nil); err != nil || result.Indexed != fileCount {
 					b.Fatalf("seed index: indexed=%d err=%v", result.Indexed, err)
 				}
 				indexer.calls.Store(0)
@@ -81,11 +80,7 @@ func BenchmarkWarmNoopCodeIndex(b *testing.B) {
 					finish := indexingperf.StartSpan(ctx, "index_code")
 					var result IndexResult
 					var err error
-					if mode == "candidates" {
-						result, err = IndexCandidates(ctx, service, root, candidates, nil)
-					} else {
-						result, err = IndexRoot(ctx, service, root, codeRoot, ignore.NewMatcher(nil), nil)
-					}
+					result, err = IndexCandidates(ctx, service, writer, root, candidates, nil)
 					finish(err)
 					if err != nil {
 						b.Fatal(err)

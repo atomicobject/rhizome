@@ -3,12 +3,13 @@ package identifierreconcile
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // AmbiguousLinkProvenanceResult keeps independently blockable unresolved
@@ -23,7 +24,7 @@ type AmbiguousLinkProvenanceResult struct {
 // history limits from keeper provenance.
 type AmbiguousLinkGitResolver struct {
 	runner            gitCommandRunner
-	schema            *ontology.Schema
+	schema            *ontoschema.Schema
 	maxCommitsPerPath int
 	maxBlobBytes      int
 	maxBatchBytes     int
@@ -145,14 +146,14 @@ func (r AmbiguousLinkGitResolver) Resolve(ctx context.Context, vaultRoot string,
 		}
 	}
 
-	reachableBySource := make(map[string]map[string]struct{})
+	reachableBySource := make(map[string]gitCommitGraph)
 	for _, sourceOID := range uniqueStringValues(introductions) {
 		graphOut, _, graphErr := run(repoRoot, nil, "rev-list", "--parents", "--topo-order", "--max-count="+strconv.Itoa(r.maxCommitsPerPath+1), sourceOID)
 		if graphErr != nil {
 			reachableBySource[sourceOID] = nil
 			continue
 		}
-		reachable, complete := parseBoundedReachableOIDs(graphOut, sourceOID, r.maxCommitsPerPath)
+		reachable, complete := parseBoundedGitGraph(graphOut, sourceOID, r.maxCommitsPerPath)
 		if !complete {
 			reachableBySource[sourceOID] = nil
 			continue
@@ -227,9 +228,15 @@ func (r AmbiguousLinkGitResolver) loadLinkHistory(ctx context.Context, repoRoot,
 	if gitRenameDetectionSkipped(stderr) {
 		return nil, "git rename detection limit reached", nil
 	}
-	events, err := parseGitHistory(logOut, repoPath)
-	if err != nil || len(events) == 0 || len(events) > r.maxCommitsPerPath {
+	events, err := parseGitHistory(logOut, repoPath, r.maxCommitsPerPath)
+	if err != nil || len(events) == 0 {
 		return nil, "git link history incomplete", nil
+	}
+	if err := validateGitHistoryLineage(ctx, repoRoot, events, r.maxCommitsPerPath, run); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, "", ctxErr
+		}
+		return nil, err.Error(), nil
 	}
 	requests := make([]gitBlobRequest, len(events))
 	var stdin strings.Builder
@@ -257,7 +264,7 @@ func (r AmbiguousLinkGitResolver) loadLinkHistory(ctx context.Context, repoRoot,
 }
 
 func linkIntroductionOID(item normalizedAmbiguousLinkRequest, events []gitHistoryEvent, bareLinks []map[string]int) (string, bool) {
-	if len(events) == 0 || obsidian.StructuredLinkSourceFingerprint(string(events[0].blob)) != item.request.SourceHash {
+	if len(events) == 0 || markdownsyntax.StructuredLinkSourceFingerprint(string(events[0].blob)) != item.request.SourceHash {
 		return "", false
 	}
 	introduction := ""
@@ -281,7 +288,7 @@ func indexHistoricalBareLinks(events []gitHistoryEvent) []map[string]int {
 	out := make([]map[string]int, len(events))
 	for index, event := range events {
 		counts := make(map[string]int)
-		for _, link := range obsidian.ScanStructuredLinks(string(event.blob)) {
+		for _, link := range markdownsyntax.ScanStructuredLinks(string(event.blob)) {
 			if link.Path == link.Target && link.Fragment == "" {
 				counts[IdentifierComparisonKey(link.Target)]++
 			}
@@ -293,23 +300,6 @@ func indexHistoricalBareLinks(events []gitHistoryEvent) []map[string]int {
 
 func historicalBareLinkPresent(index map[string]int, target string, ordinal int) bool {
 	return ordinal == 0 && index[IdentifierComparisonKey(target)] == 1
-}
-
-func parseBoundedReachableOIDs(output []byte, sourceOID string, max int) (map[string]struct{}, bool) {
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	if len(lines) == 0 || len(lines) > max {
-		return nil, false
-	}
-	out := make(map[string]struct{}, len(lines))
-	for _, line := range lines {
-		fields := strings.Fields(line)
-		if len(fields) == 0 || !isFullGitOID(fields[0]) {
-			return nil, false
-		}
-		out[fields[0]] = struct{}{}
-	}
-	_, found := out[sourceOID]
-	return out, found
 }
 
 func uniqueStringValues(input map[string]string) []string {

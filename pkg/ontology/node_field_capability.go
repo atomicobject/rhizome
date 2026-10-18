@@ -1,6 +1,6 @@
 package ontology
 
-import "strings"
+import ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 
 type NodeFieldValueKind string
 
@@ -34,22 +34,22 @@ const (
 // NodeFieldCapability is the authoritative editing contract for one field on
 // one owning node. Clients must not join field metadata by name across owners.
 type NodeFieldCapability struct {
-	OwnerRef            NodeRef                 `json:"ownerRef"`
-	OwnerType           string                  `json:"ownerType"`
-	TypeName            string                  `json:"typeName"`
-	ValueKind           NodeFieldValueKind      `json:"valueKind"`
-	List                bool                    `json:"list"`
-	Required            bool                    `json:"required"`
-	EnumValues          []string                `json:"enumValues"`
-	EnumOptions         []NodeFieldEnumOption   `json:"enumOptions"`
-	TargetType          string                  `json:"targetType,omitempty"`
-	SourceKind          FieldSource             `json:"sourceKind,omitempty"`
-	ValueOrigin         NodeFieldValueOrigin    `json:"valueOrigin"`
-	Identifier          bool                    `json:"identifier"`
-	PreferredIdentifier bool                    `json:"preferredIdentifier"`
-	DisplayImportance   FieldDisplayImportance  `json:"displayImportance"`
-	WriteOperation      NodeFieldWriteOperation `json:"writeOperation,omitempty"`
-	ReadOnlyReason      string                  `json:"readOnlyReason,omitempty"`
+	OwnerRef            NodeRef                           `json:"ownerRef"`
+	OwnerType           string                            `json:"ownerType"`
+	TypeName            string                            `json:"typeName"`
+	ValueKind           NodeFieldValueKind                `json:"valueKind"`
+	List                bool                              `json:"list"`
+	Required            bool                              `json:"required"`
+	EnumValues          []string                          `json:"enumValues"`
+	EnumOptions         []NodeFieldEnumOption             `json:"enumOptions"`
+	TargetType          string                            `json:"targetType,omitempty"`
+	SourceKind          ontoschema.FieldSource            `json:"sourceKind,omitempty"`
+	ValueOrigin         NodeFieldValueOrigin              `json:"valueOrigin"`
+	Identifier          bool                              `json:"identifier"`
+	PreferredIdentifier bool                              `json:"preferredIdentifier"`
+	DisplayImportance   ontoschema.FieldDisplayImportance `json:"displayImportance"`
+	WriteOperation      NodeFieldWriteOperation           `json:"writeOperation,omitempty"`
+	ReadOnlyReason      string                            `json:"readOnlyReason,omitempty"`
 }
 
 // NodeFieldEnumOption presents one admitted enum value, in EnumValues order.
@@ -59,10 +59,10 @@ type NodeFieldEnumOption struct {
 	Label string `json:"label"`
 	Tone  string `json:"tone,omitempty"`
 	// Stage is the value's declared or inferred lifecycle stage, if any.
-	Stage LifecycleStage `json:"stage,omitempty"`
+	Stage ontoschema.LifecycleStage `json:"stage,omitempty"`
 }
 
-func buildNodeFieldCapability(schema *Schema, projection *NodeProjection, field *Field, binding FieldBinding) NodeFieldCapability {
+func buildNodeFieldCapability(schema *ontoschema.Schema, projection *NodeProjection, field *ontoschema.Field, binding FieldBinding) NodeFieldCapability {
 	capability := NodeFieldCapability{
 		OwnerRef:          projection.Ref,
 		OwnerType:         firstNonEmptyNodeValue(projection.ResolvedType, projection.Ref.TypeName),
@@ -70,7 +70,7 @@ func buildNodeFieldCapability(schema *Schema, projection *NodeProjection, field 
 		EnumValues:        []string{},
 		EnumOptions:       []NodeFieldEnumOption{},
 		ValueOrigin:       NodeFieldValueOriginAuthored,
-		DisplayImportance: FieldImportanceNormal,
+		DisplayImportance: ontoschema.FieldImportanceNormal,
 	}
 	if projection.Type != nil {
 		capability.OwnerType = projection.Type.Name
@@ -91,7 +91,7 @@ func buildNodeFieldCapability(schema *Schema, projection *NodeProjection, field 
 	capability.Identifier = field.IsIdentifier
 	capability.PreferredIdentifier = field.IsPreferredIdentifier
 	capability.DisplayImportance = field.Display.EffectiveImportance()
-	if field.Kind == FieldKindEnum && schema != nil {
+	if field.Kind == ontoschema.FieldKindEnum && schema != nil {
 		if enumType := schema.EnumTypes[field.TypeName]; enumType != nil {
 			tones := enumType.Tones()
 			stages := enumType.Stages()
@@ -111,12 +111,12 @@ func buildNodeFieldCapability(schema *Schema, projection *NodeProjection, field 
 			}
 		}
 	}
-	if field.Kind == FieldKindLink {
+	if field.Kind == ontoschema.FieldKindLink {
 		capability.TargetType = field.TypeName
 	}
 	if reason := nodeFieldReadOnlyReason(field, binding); reason != "" {
 		capability.ReadOnlyReason = reason
-	} else if field.Kind == FieldKindLink {
+	} else if field.Kind == ontoschema.FieldKindLink {
 		capability.WriteOperation = NodeFieldWriteOperationSetLinkField
 	} else {
 		capability.WriteOperation = NodeFieldWriteOperationSetField
@@ -124,51 +124,51 @@ func buildNodeFieldCapability(schema *Schema, projection *NodeProjection, field 
 	return capability
 }
 
-func nodeFieldValueKind(field *Field) NodeFieldValueKind {
+func nodeFieldValueKind(field *ontoschema.Field) NodeFieldValueKind {
 	if field == nil {
 		return NodeFieldValueKindText
 	}
 	switch field.Kind {
-	case FieldKindEnum:
+	case ontoschema.FieldKindEnum:
 		return NodeFieldValueKindEnum
-	case FieldKindLink:
+	case ontoschema.FieldKindLink:
 		return NodeFieldValueKindRelation
-	case FieldKindSection, FieldKindNeighbor, FieldKindReverse:
+	case ontoschema.FieldKindSection, ontoschema.FieldKindNeighbor, ontoschema.FieldKindReverse:
 		return NodeFieldValueKindSection
-	case FieldKindScalar:
-		switch strings.ToLower(strings.TrimSpace(field.TypeName)) {
-		case "date":
+	case ontoschema.FieldKindScalar:
+		switch ontoschema.ScalarKindForType(field.TypeName) {
+		case ontoschema.ScalarKindDate:
 			return NodeFieldValueKindDate
-		case "datetime":
+		case ontoschema.ScalarKindDateTime:
 			return NodeFieldValueKindDateTime
-		case "boolean", "bool":
+		case ontoschema.ScalarKindBoolean:
 			return NodeFieldValueKindBoolean
-		case "int", "integer":
+		case ontoschema.ScalarKindInt:
 			return NodeFieldValueKindInt
-		case "float", "number":
+		case ontoschema.ScalarKindReal:
 			return NodeFieldValueKindFloat
 		}
 	}
 	return NodeFieldValueKindText
 }
 
-func nodeFieldReadOnlyReason(field *Field, binding FieldBinding) string {
+func nodeFieldReadOnlyReason(field *ontoschema.Field, binding FieldBinding) string {
 	if field.IsIdentifier {
 		return "Identifiers are graph keys and must stay unique. Change them through identifier reconciliation."
 	}
-	if field.Kind == FieldKindNeighbor || field.Kind == FieldKindReverse {
+	if field.Kind == ontoschema.FieldKindNeighbor || field.Kind == ontoschema.FieldKindReverse {
 		return "This relation is computed from neighboring nodes."
 	}
-	if field.Kind == FieldKindSection {
+	if field.Kind == ontoschema.FieldKindSection {
 		return "This field is edited through its section collection."
 	}
 	if binding.Derived {
 		return "This value is derived from the node structure."
 	}
 	switch field.SourceKind {
-	case FieldSourceFrontmatter, FieldSourceInline, FieldSourceCheckbox:
+	case ontoschema.FieldSourceFrontmatter, ontoschema.FieldSourceInline, ontoschema.FieldSourceCheckbox:
 		return ""
-	case FieldSourceItemTitle, FieldSourceItemSummary, FieldSourceItemDetail:
+	case ontoschema.FieldSourceItemTitle, ontoschema.FieldSourceItemSummary, ontoschema.FieldSourceItemDetail:
 		return "This value is edited through the item's content editor."
 	default:
 		return "This field has no supported authored source."

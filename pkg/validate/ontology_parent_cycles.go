@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
 
@@ -34,7 +35,7 @@ func parentCycleIssues(ctx context.Context, runCtx RunContext, runtime *ontology
 	type parentLink struct{ typeName, field, target string }
 	parentOf := map[string]parentLink{}
 	for _, typeName := range typeNames {
-		field := ontology.ParentField(runtime.Schema.Types[typeName].Fields)
+		field := ontoschema.ParentField(runtime.Schema.Types[typeName].Fields)
 		if field == nil {
 			continue
 		}

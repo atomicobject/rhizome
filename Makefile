@@ -94,6 +94,10 @@ test-fast:
 	$(CGO_LDFLAGS_ENV) RZM_CODE_MODE_RUNTIME_FIXTURE="$$( [ -x '$(DEV_BINARY)' ] && echo '$(PWD)/$(DEV_BINARY)' )" GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} go test -mod=vendor -tags "fts5" -p $(GO_TEST_PACKAGES) -parallel $(GO_TEST_PARALLEL) ./...
 	@printf '<== test-fast\n'
 
+test-content:
+	@mkdir -p .gocache .gomodcache .gotmp
+	$(CGO_LDFLAGS_ENV) GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} go test -mod=vendor -tags "fts5 repo_content" -count=1 ./tests
+
 credential-check:
 	python3 scripts/secrets/check.py
 	python3 -m unittest discover -s scripts/secrets -p '*_test.py'
@@ -122,7 +126,14 @@ integration-mixed:
 # Three tiers. check-fast is the edit loop, check is the pre-commit gate, and
 # check-full adds what CI also runs on every pull request: the race detector,
 # integration tests, and benchmark contracts.
-CHECK_FAST_TARGETS=lint vet greptile-check web-lint web-typecheck web-typecheck-node
+CHECK_FAST_TARGETS=lint go-analysis file-size-check vet greptile-check web-lint web-typecheck web-typecheck-node test-content
+
+go-analysis:
+	@mkdir -p .gocache .gomodcache .gotmp .golangci-cache
+	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} GOTMPDIR=$${GOTMPDIR:-$(PWD)/.gotmp} GOLANGCI_LINT_CACHE=$${GOLANGCI_LINT_CACHE:-$(PWD)/.golangci-cache} golangci-lint run --config .golangci-gate.yml
+
+file-size-check:
+	python3 scripts/quality/file_size.py
 
 check-fast:
 	$(MAKE) web-generate
@@ -150,6 +161,8 @@ verify:
 check-serial:
 	$(MAKE) web-generate
 	$(MAKE) lint
+	$(MAKE) go-analysis file-size-check
+	$(MAKE) test-content
 	$(MAKE) greptile-check
 	$(MAKE) web-lint
 	$(MAKE) vet
@@ -270,7 +283,7 @@ dev-frontend: dev-web-prepare
 	cd $(WEB_DIR) && npm run dev
 
 # Docs: [Release process](docs/RELEASING.md)
-.PHONY: build build-release build-all web-build web-generate web-test web-lint web-typecheck web-typecheck-node web-fix web-e2e e2e clean clean-web clean-all lint vet test test-fast credential-check benchmark-test integration integration-packages integration-mixed check check-fast check-full verify check-serial test_all test_coverage greptile-check setup setup-reset hooks-setup hooks-reset vendor-treesitter build-stripped build-small-vault dev-build-backend dev-web-prepare dev dev-backend dev-frontend release release-plan release-dry release-build release-apply release-publish release-resume cut-release release-s3 release-s3-check release-s3-dry
+.PHONY: build build-release build-all web-build web-generate web-test web-lint web-typecheck web-typecheck-node web-fix web-e2e e2e clean clean-web clean-all lint vet test test-fast test-content credential-check benchmark-test integration integration-packages integration-mixed check check-fast check-full verify check-serial test_all test_coverage greptile-check setup setup-reset hooks-setup hooks-reset vendor-treesitter build-stripped build-small-vault dev-build-backend dev-web-prepare dev dev-backend dev-frontend release release-plan release-dry release-build release-apply release-publish release-resume cut-release release-s3 release-s3-check release-s3-dry
 release:
 	@if ! git describe --tags --exact-match >/dev/null 2>&1; then \
 		echo "error: HEAD is not an exact release tag"; \

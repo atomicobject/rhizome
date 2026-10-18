@@ -38,7 +38,7 @@ func beginSearchOperation(ctx context.Context) (context.Context, *searchOperatio
 		}
 		ctx = diagnostics.WithOperation(ctx, operation.operation)
 		if indexingperf.FromContext(ctx) == nil {
-			ctx = indexingperf.WithCollector(ctx, indexingperf.NewBounded())
+			ctx = indexingperf.WithCollector(ctx, indexingperf.New())
 			operation.metricsScope = "search_operation"
 		}
 		recorder.EventQuiet(ctx, slog.LevelInfo, "search", "search.started", "")
@@ -66,11 +66,11 @@ func (operation *searchOperation) finishAt(ctx context.Context, response Respons
 	if panicked {
 		outcome = "error"
 	}
-	indexingperf.AddCount(ctx, "search.outcome."+outcome, 1)
+	indexingperf.AddCount(ctx, indexingperf.SearchOutcome.Select(outcome), 1)
 	if timings := TimingsFromContext(ctx); timings != nil {
 		timings.Add(TimingEvent{
 			Name: "search", Kind: "stage", Started: operation.started,
-			Duration: finished.Sub(operation.started), Status: outcome, Err: errString(err),
+			Duration: finished.Sub(operation.started), Status: outcome, Err: TimingError(err),
 		})
 	}
 	recorder := diagnostics.FromContext(ctx)

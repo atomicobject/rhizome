@@ -2,6 +2,10 @@
 
 package cmd
 
+import codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+
+import "github.com/atomicobject/rhizome/internal/testkit"
+
 import (
 	"bytes"
 	"context"
@@ -9,13 +13,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/paths"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCodeExplain_TSReindexPreservesAliasImportResolution(t *testing.T) {
+	commandOptions := newCodeOptionsForTest(t)
+
+	rootCmd := newRootCommand(commandEnv{Getwd: os.Getwd, Config: testkit.Env(t)})
+
 	ctx := context.Background()
 	vaultDir := t.TempDir()
 
@@ -72,20 +79,20 @@ export function App() { return <SomeComponent />; }
 	errOut := &bytes.Buffer{}
 	origOut := rootCmd.OutOrStdout()
 	origErr := rootCmd.ErrOrStderr()
-	origVault := vaultName
+	origVault := commandOptions.vaultName
 	rootCmd.SetOut(out)
 	rootCmd.SetErr(errOut)
 	t.Cleanup(func() {
 		rootCmd.SetOut(origOut)
 		rootCmd.SetErr(origErr)
-		vaultName = origVault
-		codeExplainJSON = false
-		codeAnchorsListJSON = false
-		codeAnchorsListLimit = 0
-		codeAnchorsMatchJSON = false
-		codeAnchorsMatchKind = ""
-		codeAnchorsMatchValue = ""
-		codeAnchorsMatchLimit = 0
+		commandOptions.vaultName = origVault
+		commandOptions.codeExplainJSON = false
+		commandOptions.codeAnchorsListJSON = false
+		commandOptions.codeAnchorsListLimit = 0
+		commandOptions.codeAnchorsMatchJSON = false
+		commandOptions.codeAnchorsMatchKind = ""
+		commandOptions.codeAnchorsMatchValue = ""
+		commandOptions.codeAnchorsMatchLimit = 0
 	})
 
 	rootCmd.SetArgs([]string{"code", "anchors", "explain", appPath, "--vault", vaultDir, "--json"})

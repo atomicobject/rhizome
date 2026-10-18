@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 )
 
 // QueryEmbeddingRecord is a reusable query-vector result. Continuation

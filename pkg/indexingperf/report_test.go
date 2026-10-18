@@ -2,45 +2,55 @@ package indexingperf
 
 import (
 	"context"
-	"strings"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestCollectorReportsKeepWindowSamplesInRecordingOrder(t *testing.T) {
-	t.Parallel()
-
-	collector := New()
-	ctx := WithPhase(WithCollector(context.Background(), collector), "code")
-	ObserveLatency(ctx, "codeindex.worker_total", 9*time.Millisecond)
-	ObserveLatency(ctx, "codeindex.worker_total", time.Millisecond)
-	AddCount(ctx, "calledge.direct_paths", 2)
-
-	require.Equal(t, "[index-perf] window=1s phase=code worker_total_cum_ms=10 worker_total_p50_ms=1 worker_total_p95_ms=9 worker_total_max_ms=9 calledge_direct_paths=2", collector.RenderWindow(time.Second))
-
-	ObserveLatency(ctx, "codeindex.worker_total", 5*time.Millisecond)
-	AddCount(ctx, "calledge.direct_paths", 3)
-	require.Equal(t, "[index-perf] window=1s phase=code worker_total_cum_ms=5 worker_total_p50_ms=5 worker_total_p95_ms=5 worker_total_max_ms=5 calledge_direct_paths=3", collector.RenderWindow(time.Second))
-	require.Equal(t, "calledge_direct_paths=5 worker_total_cum=15ms worker_total_p50=5ms worker_total_p95=9ms worker_total_max=9ms", strings.Join(collector.phaseSummaryParts("code"), " "))
-	require.Empty(t, collector.RenderWindow(time.Second))
+func TestReportsDoNotReorderOrConsumeSnapshotMeasurements(t *testing.T) {
+	c := New()
+	ctx := WithPhase(WithCollector(context.Background(), c), "index_code")
+	ObserveLatency(ctx, CodeindexWorkerTotal, 9*time.Millisecond)
+	ObserveLatency(ctx, CodeindexWorkerTotal, time.Millisecond)
+	before := c.Snapshot()
+	require.NotEmpty(t, c.RenderWindow(time.Second))
+	require.NotEmpty(t, c.RenderSummary())
+	ObserveLatency(ctx, CodeindexWorkerTotal, 5*time.Millisecond)
+	after := c.Snapshot()
+	require.Equal(t, int64(10*time.Millisecond), before.Latencies[0].Total)
+	require.Equal(t, int64(15*time.Millisecond), after.Latencies[0].Total)
+	require.Equal(t, int64(5*time.Millisecond), after.Latencies[0].P50)
+	require.Equal(t, int64(9*time.Millisecond), after.Latencies[0].P95)
+	require.Equal(t, []time.Duration{9 * time.Millisecond, time.Millisecond, 5 * time.Millisecond}, c.latencies[Metric{Phase: "index_code", Name: CodeindexWorkerTotal, Kind: kindLatency}].Samples)
 }
 
-func TestCollectorReportsKeepPhaseAndMetricKindsSeparate(t *testing.T) {
-	t.Parallel()
-
-	collector := New()
-	ctx := WithPhase(WithCollector(context.Background(), collector), "code")
-	ObserveLatency(ctx, "codeindex.worker_total", 150*time.Microsecond)
-	ObserveSample(ctx, "codeindex.worker_total", 999)
-	AddCount(ctx, "codeindex.worker_total", 999)
-	SetGauge(ctx, "codeindex.worker_total", 999)
-	ObserveLatency(WithPhase(ctx, "notes"), "codeindex.worker_total", 100*time.Millisecond)
-
-	// Sub-millisecond work remains in the cumulative report but does not activate
-	// a rolling window whose duration fields are whole milliseconds.
-	require.Empty(t, collector.renderWindowPhaseLine(time.Second, "code"))
-	require.Equal(t, "worker_total_cum=0ms worker_total_p50=0ms worker_total_p95=0ms worker_total_max=0ms", strings.Join(collector.phaseSummaryParts("code"), " "))
-	require.Equal(t, "worker_total_cum=100ms worker_total_p50=100ms worker_total_p95=100ms worker_total_max=100ms", strings.Join(collector.phaseSummaryParts("notes"), " "))
+func TestRendererGoldens(t *testing.T) {
+	for _, renderer := range []string{"window", "summary"} {
+		t.Run(renderer, func(t *testing.T) {
+			c := New()
+			ctx := WithPhase(WithCollector(context.Background(), c), "embed_notes")
+			AddCount(WithPhase(ctx, "custom_phase"), OwnershipReconciliationAcknowledged, 1)
+			AddCount(ctx, ProviderCalls, 2)
+			AddCount(ctx, ProviderTexts, 6)
+			ObserveLatency(ctx, ProviderLatency, 40*time.Millisecond)
+			ObserveSample(ctx, ProviderBatchTexts, 3)
+			ObserveSample(ctx, ProviderCapTexts, 4)
+			ObserveSample(ctx, ProviderDispatchFloorTexts, 2)
+			ObserveLatency(ctx, WritebackMetric.Select("noteembed.writeback.intel", "submit_wait"), 5*time.Millisecond)
+			AddCount(ctx, WritebackMetric.Select("noteembed.writeback.intel", "flush.count"), 1)
+			SetGauge(ctx, ProviderInflight, 2)
+			at := time.Unix(100, 0)
+			c.RecordSpanWindow("embed_notes", at, at.Add(time.Second), nil)
+			actual := c.RenderSummary()
+			if renderer == "window" {
+				actual = c.RenderWindow(time.Second)
+			}
+			expected, err := os.ReadFile(filepath.Join("testdata", renderer+".golden"))
+			require.NoError(t, err)
+			require.Equal(t, string(expected), actual+"\n")
+		})
+	}
 }

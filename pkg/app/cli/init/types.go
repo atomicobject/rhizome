@@ -1,6 +1,7 @@
 package init
 
 import (
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"os"
 
@@ -14,6 +15,7 @@ func IsTTY(f *os.File) bool {
 
 // RunOptions controls the init flow.
 type RunOptions struct {
+	Env vaultconfig.Env
 	Dir string
 	// Interactive means a person at a terminal answers questions. Every
 	// other run uses the recommendations, keeps edited files, and lists them.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -27,9 +28,9 @@ func (s *Server) resolveMarkdownLinksCompat(rel string, content string) []Resolv
 
 	vaultDef := s.cfg.VaultDef
 	cache := s.notePathCache(context.Background())
-	wikiOpts := obsidian.DefaultWikilinkOptions
-	mdOpts := obsidian.DefaultMdLinkOptions
-	links := obsidian.ScanAllLinks(content, wikiOpts, mdOpts)
+	wikiOpts := markdownsyntax.DefaultWikilinkOptions
+	mdOpts := markdownsyntax.DefaultMdLinkOptions
+	links := markdownsyntax.ScanAllLinks(content, wikiOpts, mdOpts)
 	out := make([]ResolvedLink, 0, len(links))
 	for _, link := range links {
 		target := link.Target
@@ -65,7 +66,7 @@ func (s *Server) markdownEmbedsCompat(rel string, content string) []markdownEmbe
 	if !s.markdownCompatibilityFormat(rel) {
 		return nil
 	}
-	links := obsidian.ScanAllLinks(content, obsidian.DefaultWikilinkOptions, obsidian.DefaultMdLinkOptions)
+	links := markdownsyntax.ScanAllLinks(content, markdownsyntax.DefaultWikilinkOptions, markdownsyntax.DefaultMdLinkOptions)
 	out := make([]markdownEmbedCompat, 0, len(links))
 	for _, link := range links {
 		if link.Subtype != "embed" {
@@ -94,7 +95,7 @@ func (s *Server) markdownAliasesForNotePathCompat(ctx context.Context, notePath 
 	if err != nil {
 		return nil
 	}
-	frontmatter, _ := obsidian.ExtractFrontmatter(content)
+	frontmatter, _ := markdownsyntax.ExtractFrontmatter(content)
 	return obsidian.AliasListFromFrontmatter(frontmatter)
 }
 
@@ -118,8 +119,8 @@ func buildMarkdownDocumentSnapshotCompat(path, content string, mtime time.Time) 
 
 // scanStructuredMarkdownLinksCompat is the matching boundary for protecting
 // link targets while a user edits a note's complete Markdown source.
-func scanStructuredMarkdownLinksCompat(content string) []obsidian.StructuredLink {
-	return obsidian.ScanStructuredLinks(content)
+func scanStructuredMarkdownLinksCompat(content string) []markdownsyntax.StructuredLink {
+	return markdownsyntax.ScanStructuredLinks(content)
 }
 
 func (s *Server) markdownCompatibilityFormat(rel string) bool {

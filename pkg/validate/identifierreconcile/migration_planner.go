@@ -5,10 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"sort"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/ontology"
 )
 
 const migrationPlanVersion = "identifier-strategy-migration/v1"
@@ -55,9 +54,9 @@ type MigrationMember struct {
 // TargetReservations contains retained claims outside Members in the rendered
 // target namespace. Only an exact proposed-target collision blocks mapping.
 type MigrationInput struct {
-	TargetFormat       ontology.IdentifierFormat        `json:"targetFormat"`
-	Members            []MigrationMember                `json:"members"`
-	TargetReservations []ontology.IdentifierReservation `json:"targetReservations,omitempty"`
+	TargetFormat       ontoschema.IdentifierFormat        `json:"targetFormat"`
+	Members            []MigrationMember                  `json:"members"`
+	TargetReservations []ontoschema.IdentifierReservation `json:"targetReservations,omitempty"`
 }
 
 // MigrationRewrite is one root preferred-identifier transition. Discovery and
@@ -83,7 +82,7 @@ type MigrationPlan struct {
 
 type normalizedMigrationMember struct {
 	MigrationMember
-	parsed ontology.IdentifierValue
+	parsed ontoschema.IdentifierValue
 	stamp  string
 }
 
@@ -143,9 +142,9 @@ func BuildMigrationPlan(input MigrationInput) (*MigrationPlan, error) {
 
 	var rewrites []MigrationRewrite
 	switch targetPool.Strategy {
-	case ontology.IdentifierStrategyDateTime:
+	case ontoschema.IdentifierStrategyDateTime:
 		rewrites, err = mapSequentialToDateTime(members, targetContract)
-	case ontology.IdentifierStrategySequential:
+	case ontoschema.IdentifierStrategySequential:
 		rewrites, err = mapDateTimeToSequential(members, targetContract)
 	default:
 		err = migrationError(MigrationErrorNonallocatablePool, CanonicalNodeKey{}, "", "unsupported target strategy")
@@ -159,8 +158,8 @@ func BuildMigrationPlan(input MigrationInput) (*MigrationPlan, error) {
 	return sealMigrationPlan(sourcePool, targetPool, rewrites)
 }
 
-func validateMigrationTargetReservations(rewrites []MigrationRewrite, input []ontology.IdentifierReservation) error {
-	reservations := append([]ontology.IdentifierReservation(nil), input...)
+func validateMigrationTargetReservations(rewrites []MigrationRewrite, input []ontoschema.IdentifierReservation) error {
+	reservations := append([]ontoschema.IdentifierReservation(nil), input...)
 	sort.Slice(reservations, func(i, j int) bool {
 		left, right := IdentifierComparisonKey(reservations[i].Value), IdentifierComparisonKey(reservations[j].Value)
 		if left != right {
@@ -168,7 +167,7 @@ func validateMigrationTargetReservations(rewrites []MigrationRewrite, input []on
 		}
 		return reservations[i].Owner < reservations[j].Owner
 	})
-	byValue := make(map[string]ontology.IdentifierReservation, len(reservations))
+	byValue := make(map[string]ontoschema.IdentifierReservation, len(reservations))
 	for _, reservation := range reservations {
 		key := IdentifierComparisonKey(reservation.Value)
 		if _, exists := byValue[key]; !exists {
@@ -218,11 +217,11 @@ func normalizeMigrationMembers(input []MigrationMember) ([]normalizedMigrationMe
 
 func oppositeMigrationPool(target PoolKey, members []normalizedMigrationMember) PoolKey {
 	source := PoolKey{Prefix: target.Prefix, Separator: target.Separator}
-	if target.Strategy == ontology.IdentifierStrategySequential {
-		source.Strategy = ontology.IdentifierStrategyDateTime
+	if target.Strategy == ontoschema.IdentifierStrategySequential {
+		source.Strategy = ontoschema.IdentifierStrategyDateTime
 		return source
 	}
-	source.Strategy = ontology.IdentifierStrategySequential
+	source.Strategy = ontoschema.IdentifierStrategySequential
 	source.Pad = inferredSequentialPad(target, members)
 	return source
 }
@@ -249,22 +248,22 @@ func inferredSequentialPad(target PoolKey, members []normalizedMigrationMember) 
 	return pad
 }
 
-func migrationSourceValue(pool PoolKey, contract ontology.IdentifierStrategyContract, value string) (ontology.IdentifierValue, bool) {
+func migrationSourceValue(pool PoolKey, contract ontoschema.IdentifierStrategyContract, value string) (ontoschema.IdentifierValue, bool) {
 	parsed, ok := contract.Parse(value)
 	if !ok {
-		return ontology.IdentifierValue{}, false
+		return ontoschema.IdentifierValue{}, false
 	}
-	if pool.Strategy != ontology.IdentifierStrategySequential {
+	if pool.Strategy != ontoschema.IdentifierStrategySequential {
 		return parsed, true
 	}
 	canonical, err := contract.Format(parsed)
 	if err != nil || !strings.EqualFold(canonical, value) {
-		return ontology.IdentifierValue{}, false
+		return ontoschema.IdentifierValue{}, false
 	}
 	return parsed, true
 }
 
-func firstMemberOutsideStrategy(members []normalizedMigrationMember, pool PoolKey, contract ontology.IdentifierStrategyContract) normalizedMigrationMember {
+func firstMemberOutsideStrategy(members []normalizedMigrationMember, pool PoolKey, contract ontoschema.IdentifierStrategyContract) normalizedMigrationMember {
 	for _, member := range members {
 		if _, ok := migrationSourceValue(pool, contract, member.PreferredValue); !ok {
 			return member
@@ -273,13 +272,13 @@ func firstMemberOutsideStrategy(members []normalizedMigrationMember, pool PoolKe
 	return members[0]
 }
 
-func mapSequentialToDateTime(members []normalizedMigrationMember, target ontology.IdentifierStrategyContract) ([]MigrationRewrite, error) {
+func mapSequentialToDateTime(members []normalizedMigrationMember, target ontoschema.IdentifierStrategyContract) ([]MigrationRewrite, error) {
 	for index := range members {
 		if members[index].ProspectivePath != members[index].Node.NotePath {
 			return nil, migrationError(MigrationErrorInvalidProspectivePath, members[index].Node, members[index].ProspectivePath,
 				"prospective path must equal the member's canonical note path")
 		}
-		probe, err := target.Allocate(ontology.IdentifierAllocationRequest{Paths: []string{members[index].ProspectivePath}}, ontology.IdentifierReservationInventory{})
+		probe, err := target.Allocate(ontoschema.IdentifierAllocationRequest{Paths: []string{members[index].ProspectivePath}}, ontoschema.IdentifierReservationInventory{})
 		if err != nil || len(probe.Values) != 1 {
 			message := "prospective path cannot supply a canonical filename minute"
 			if err != nil {
@@ -302,7 +301,7 @@ func mapSequentialToDateTime(members []normalizedMigrationMember, target ontolog
 	for index := range members {
 		paths[index] = members[index].ProspectivePath
 	}
-	allocated, err := target.Allocate(ontology.IdentifierAllocationRequest{Paths: paths}, ontology.IdentifierReservationInventory{})
+	allocated, err := target.Allocate(ontoschema.IdentifierAllocationRequest{Paths: paths}, ontoschema.IdentifierReservationInventory{})
 	if err != nil || len(allocated.Values) != len(members) {
 		if err == nil {
 			err = fmt.Errorf("strategy returned %d values for %d members", len(allocated.Values), len(members))
@@ -322,7 +321,7 @@ func mapSequentialToDateTime(members []normalizedMigrationMember, target ontolog
 	return rewrites, nil
 }
 
-func mapDateTimeToSequential(members []normalizedMigrationMember, target ontology.IdentifierStrategyContract) ([]MigrationRewrite, error) {
+func mapDateTimeToSequential(members []normalizedMigrationMember, target ontoschema.IdentifierStrategyContract) ([]MigrationRewrite, error) {
 	sort.Slice(members, func(i, j int) bool {
 		if members[i].parsed.DateTimeStamp != members[j].parsed.DateTimeStamp {
 			return members[i].parsed.DateTimeStamp < members[j].parsed.DateTimeStamp
@@ -334,7 +333,7 @@ func mapDateTimeToSequential(members []normalizedMigrationMember, target ontolog
 	})
 	rewrites := make([]MigrationRewrite, 0, len(members))
 	for index, member := range members {
-		newIdentifier, err := target.Format(ontology.IdentifierValue{Strategy: ontology.IdentifierStrategySequential, Number: index + 1})
+		newIdentifier, err := target.Format(ontoschema.IdentifierValue{Strategy: ontoschema.IdentifierStrategySequential, Number: index + 1})
 		if err != nil {
 			return nil, migrationError(MigrationErrorNonallocatablePool, member.Node, member.PreferredValue, err.Error())
 		}

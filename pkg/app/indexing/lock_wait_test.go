@@ -32,7 +32,7 @@ func TestTryAcquireIndexLockWaitsAndReportsTheHolder(t *testing.T) {
 	writeHeldLock(t, lockPath, "runtime/embed-cycle")
 
 	var out bytes.Buffer
-	_, err := TryAcquireIndexLockWithOptions(context.Background(), lockPath, LockWaitOptions{
+	_, err := TryAcquireIndexLock(context.Background(), filepath.Dir(filepath.Dir(lockPath)), LockWaitOptions{
 		Role:  LockRoleCLIIndex,
 		Out:   &out,
 		Poll:  10 * time.Millisecond,
@@ -60,7 +60,7 @@ func TestTryAcquireIndexLockExitsCleanlyOnCancel(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_, err := TryAcquireIndexLockWithOptions(ctx, lockPath, LockWaitOptions{Out: &out, Poll: 10 * time.Millisecond})
+		_, err := TryAcquireIndexLock(ctx, filepath.Dir(filepath.Dir(lockPath)), LockWaitOptions{Out: &out, Poll: 10 * time.Millisecond})
 		done <- err
 	}()
 
@@ -83,9 +83,9 @@ func TestTryAcquireIndexLockAcquiresOnceTheHolderReleases(t *testing.T) {
 	require.True(t, acquired)
 
 	var out bytes.Buffer
-	acquiredCh := make(chan func() error, 1)
+	acquiredCh := make(chan *indexlock.Lease, 1)
 	go func() {
-		got, err := TryAcquireIndexLockWithOptions(context.Background(), lockPath, LockWaitOptions{
+		got, err := TryAcquireIndexLock(context.Background(), filepath.Dir(filepath.Dir(lockPath)), LockWaitOptions{
 			Role: LockRoleCLIIndex,
 			Out:  &out,
 			Poll: 10 * time.Millisecond,
@@ -103,7 +103,7 @@ func TestTryAcquireIndexLockAcquiresOnceTheHolderReleases(t *testing.T) {
 		data, ok := indexlock.ReadLockData(lockPath)
 		require.True(t, ok)
 		require.Equal(t, LockRoleCLIIndex, data.Role)
-		require.NoError(t, cleanup())
+		require.NoError(t, cleanup.Release())
 	case <-time.After(5 * time.Second):
 		t.Fatal("the waiter never acquired the released lock")
 	}
@@ -114,7 +114,7 @@ func TestTryAcquireIndexLockRequestsPriority(t *testing.T) {
 	writeHeldLock(t, lockPath, "runtime/embed-cycle")
 
 	var out bytes.Buffer
-	_, err := TryAcquireIndexLockWithOptions(context.Background(), lockPath, LockWaitOptions{
+	_, err := TryAcquireIndexLock(context.Background(), filepath.Dir(filepath.Dir(lockPath)), LockWaitOptions{
 		RequestPriority: true,
 		Out:             &out,
 		Poll:            10 * time.Millisecond,
@@ -127,7 +127,7 @@ func TestTryAcquireIndexLockRequestsPriority(t *testing.T) {
 }
 
 func TestCancelingOnePriorityWaiterPreservesTheOther(t *testing.T) {
-	lockPath := filepath.Join(t.TempDir(), "index.lock")
+	lockPath := filepath.Join(t.TempDir(), ".rhizome", "index.lock")
 	writeHeldLock(t, lockPath, "runtime/embed-cycle")
 	firstCleanup, err := indexlock.RequestPriority(lockPath)
 	require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestCancelingOnePriorityWaiterPreservesTheOther(t *testing.T) {
 	t.Cleanup(cancel)
 	done := make(chan error, 1)
 	go func() {
-		_, err := TryAcquireIndexLockWithOptions(ctx, lockPath, LockWaitOptions{
+		_, err := TryAcquireIndexLock(ctx, filepath.Dir(filepath.Dir(lockPath)), LockWaitOptions{
 			RequestPriority: true, Out: io.Discard, Poll: time.Millisecond,
 		})
 		done <- err
@@ -153,7 +153,7 @@ func TestCancelingOnePriorityWaiterPreservesTheOther(t *testing.T) {
 }
 
 func TestIndexWaiterRetriesPriorityAfterPublicationFailure(t *testing.T) {
-	lockPath := filepath.Join(t.TempDir(), "index.lock")
+	lockPath := filepath.Join(t.TempDir(), ".rhizome", "index.lock")
 	writeHeldLock(t, lockPath, "runtime/embed-cycle")
 	priorityPath := indexlock.PriorityPath(lockPath)
 	require.NoError(t, os.WriteFile(priorityPath, []byte("temporary blocker"), 0o644))
@@ -162,7 +162,7 @@ func TestIndexWaiterRetriesPriorityAfterPublicationFailure(t *testing.T) {
 	failed := make(chan struct{})
 	var once sync.Once
 	go func() {
-		_, err := TryAcquireIndexLockWithOptions(ctx, lockPath, LockWaitOptions{
+		_, err := TryAcquireIndexLock(ctx, filepath.Dir(filepath.Dir(lockPath)), LockWaitOptions{
 			RequestPriority: true, Debug: true, Poll: time.Millisecond,
 			Out: priorityWarningWriter(func(text string) {
 				if strings.Contains(text, "Warning: failed to request priority") {

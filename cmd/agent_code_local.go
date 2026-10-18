@@ -4,81 +4,82 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
-	"github.com/atomicobject/rhizome/pkg/app/agentstart"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	"github.com/atomicobject/rhizome/pkg/ontology/idalloc"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
 	"github.com/atomicobject/rhizome/pkg/vault/identity"
 )
 
-type codeLocalService struct{ readWrite bool }
-
-// callAgentCodeLocal delegates route selection to the authoritative catalog.
-func callAgentCodeLocal(ctx context.Context, name string, input map[string]any, readWrite bool) (agentcode.CallOutcome, bool) {
-	return agentapi.CallCodeLocal(ctx, codeLocalService{readWrite: readWrite}, name, input)
+type codeLocalService struct {
+	*vaultCommandOptions
+	readWrite bool
 }
 
-func (codeLocalService) Surface(_ context.Context, input map[string]any) agentapi.CallOutcome {
-	payload, err := selectAgentSurface(codeModeString(input, "command"))
+// callAgentCodeLocal delegates route selection to the authoritative catalog.
+func (commandOptions *vaultCommandOptions) callAgentCodeLocal(ctx context.Context, name string, input map[string]any, readWrite bool) (agentcode.CallOutcome, bool) {
+	return agentapi.CallCodeLocal(ctx, codeLocalService{vaultCommandOptions: commandOptions, readWrite: readWrite}, name, input)
+}
+
+func (commandOptions codeLocalService) Surface(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	payload, err := commandOptions.selectAgentSurface(ctx, codeModeString(input, "command"))
 	if err != nil {
 		return codeModeFailure(err)
 	}
 	return codeModeSuccess(payload)
 }
-func (codeLocalService) Start(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	return callAgentCodeStart(ctx, input)
+func (commandOptions codeLocalService) Start(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	return commandOptions.callAgentCodeStart(ctx, input)
 }
 func (service codeLocalService) CurrentUser(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	workflow := actions.CodeModeCurrentUserService{Runtime: commandCodeModeCurrentUserRuntime{}, ReadWrite: service.readWrite}
+	workflow := actions.CodeModeCurrentUserService{Runtime: commandCodeModeCurrentUserRuntime{vaultCommandOptions: service.vaultCommandOptions}, ReadWrite: service.readWrite}
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
-func (codeLocalService) NextID(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	workflow := actions.CodeModeNextIDService{Allocator: commandCodeModeNextIDAllocator{}}
+func (commandOptions codeLocalService) NextID(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	workflow := actions.CodeModeNextIDService{Allocator: commandCodeModeNextIDAllocator{vaultCommandOptions: commandOptions.vaultCommandOptions}}
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
-func (codeLocalService) OntologyQuerySchema(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	workflow := actions.CodeModeOntologySchemaService{Runtime: commandCodeModeOntologySchemaRuntime{}}
+func (commandOptions codeLocalService) OntologyQuerySchema(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	workflow := actions.CodeModeOntologySchemaService{Runtime: commandCodeModeOntologySchemaRuntime{vaultCommandOptions: commandOptions.vaultCommandOptions}}
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
-func (codeLocalService) OntologyQuery(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	workflow := actions.CodeModeOntologyQueryService{Runtime: commandCodeModeOntologyQueryRuntime{}}
+func (commandOptions codeLocalService) OntologyQuery(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	workflow := actions.CodeModeOntologyQueryService{Runtime: commandCodeModeOntologyQueryRuntime{vaultCommandOptions: commandOptions.vaultCommandOptions}}
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
-func (codeLocalService) OntologyReference(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	workflow := actions.CodeModeOntologyReferenceService{Runtime: commandCodeModeOntologyReferenceRuntime{}}
+func (commandOptions codeLocalService) OntologyReference(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	workflow := actions.CodeModeOntologyReferenceService{Runtime: commandCodeModeOntologyReferenceRuntime{vaultCommandOptions: commandOptions.vaultCommandOptions}}
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
-func (codeLocalService) OntologyAuthoringGuide(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	workflow := actions.CodeModeOntologyAuthoringService{Runtime: commandCodeModeOntologyAuthoringRuntime{}}
+func (commandOptions codeLocalService) OntologyAuthoringGuide(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	workflow := actions.CodeModeOntologyAuthoringService{Runtime: commandCodeModeOntologyAuthoringRuntime{vaultCommandOptions: commandOptions.vaultCommandOptions}}
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
-func (codeLocalService) OntologyInspect(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	workflow := actions.CodeModeOntologyInspectService{Runtime: commandCodeModeOntologyInspectRuntime{}}
+func (commandOptions codeLocalService) OntologyInspect(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	workflow := actions.CodeModeOntologyInspectService{Runtime: commandCodeModeOntologyInspectRuntime{vaultCommandOptions: commandOptions.vaultCommandOptions}}
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
-func (codeLocalService) QueryRecipe(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	return callAgentCodeQueryRecipe(ctx, input)
+func (commandOptions codeLocalService) QueryRecipe(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	return commandOptions.callAgentCodeQueryRecipe(ctx, input)
 }
 func (service codeLocalService) View(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	return callAgentCodeView(ctx, input, service.readWrite)
+	return service.callAgentCodeView(ctx, input, service.readWrite)
 }
 func (service codeLocalService) Validate(ctx context.Context, input map[string]any) agentapi.CallOutcome {
 	return callAgentCodeValidate(ctx, input, service.readWrite)
 }
-func (codeLocalService) CodeRationale(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	workflow := actions.CodeModeRationaleService{Runtime: commandCodeModeRationaleRuntime{Input: input}}
+func (commandOptions codeLocalService) CodeRationale(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	workflow := actions.CodeModeRationaleService{Runtime: commandCodeModeRationaleRuntime{vaultCommandOptions: commandOptions.vaultCommandOptions, Input: input}}
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
-func (codeLocalService) RenameHeading(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	workflow := actions.CodeModeRenameHeadingService{Renamer: commandCodeModeHeadingRenamer{}}
+func (commandOptions codeLocalService) RenameHeading(ctx context.Context, input map[string]any) agentapi.CallOutcome {
+	workflow := actions.CodeModeRenameHeadingService{Renamer: commandCodeModeHeadingRenamer{vaultCommandOptions: commandOptions.vaultCommandOptions}}
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
 func (service codeLocalService) NoteMove(ctx context.Context, input map[string]any) agentapi.CallOutcome {
-	workflow := actions.CodeModeNoteMoveService{Mover: commandCodeModeNoteMover{}, ReadWrite: service.readWrite, RenderText: renderMoveSummaryText}
+	workflow := actions.CodeModeNoteMoveService{Mover: commandCodeModeNoteMover{vaultCommandOptions: service.vaultCommandOptions}, ReadWrite: service.readWrite, RenderText: renderMoveSummaryText}
 	return codeModeWorkflowOutcome(workflow.Call(ctx, input))
 }
 
@@ -86,8 +87,8 @@ func codeModeSuccess(payload any) agentcode.CallOutcome {
 	return codeModeWorkflowOutcome(actions.CodeModeSuccess(payload))
 }
 
-func callAgentCodeStart(ctx context.Context, input map[string]any) agentcode.CallOutcome {
-	response, err := executeAgentStart(ctx, agentstart.Request{
+func (commandOptions *vaultCommandOptions) callAgentCodeStart(ctx context.Context, input map[string]any) agentcode.CallOutcome {
+	response, err := commandOptions.executeAgentStart(ctx, agentcode.StartRequest{
 		Profile: codeModeString(input, "profile"), Intent: codeModeString(input, "intent"),
 		ContextFiles: codeModeStrings(input, "contextFiles"), Files: codeModeStrings(input, "files"),
 		BudgetChars: codeModeInt(input, "budgetChars"), SubmoduleDepth: codeModeInt(input, "submoduleDepth"),
@@ -102,28 +103,28 @@ func callAgentCodeStart(ctx context.Context, input map[string]any) agentcode.Cal
 	return codeModeSuccess(response)
 }
 
-type commandCodeModeCurrentUserRuntime struct{}
+type commandCodeModeCurrentUserRuntime struct{ *vaultCommandOptions }
 
-func (commandCodeModeCurrentUserRuntime) Show(ctx context.Context) (identity.Resolution, error) {
-	return showCurrentUser(ctx)
+func (commandOptions commandCodeModeCurrentUserRuntime) Show(ctx context.Context) (identity.Resolution, error) {
+	return commandOptions.showCurrentUser(ctx)
 }
-func (commandCodeModeCurrentUserRuntime) Set(ctx context.Context, ref string) (identity.Resolution, error) {
-	return setCurrentUser(ctx, ref)
+func (commandOptions commandCodeModeCurrentUserRuntime) Set(ctx context.Context, ref string) (identity.Resolution, error) {
+	return commandOptions.setCurrentUser(ctx, ref)
 }
-func (commandCodeModeCurrentUserRuntime) Validate(ctx context.Context) (identity.Resolution, error) {
-	return validateCurrentUser(ctx)
-}
-
-type commandCodeModeNextIDAllocator struct{}
-
-func (commandCodeModeNextIDAllocator) Allocate(ctx context.Context, typeName string, count int, paths []string) (*idalloc.Result, error) {
-	return allocateAgentNextID(ctx, typeName, count, paths)
+func (commandOptions commandCodeModeCurrentUserRuntime) Validate(ctx context.Context) (identity.Resolution, error) {
+	return commandOptions.validateCurrentUser(ctx)
 }
 
-type commandCodeModeOntologySchemaRuntime struct{}
+type commandCodeModeNextIDAllocator struct{ *vaultCommandOptions }
 
-func (commandCodeModeOntologySchemaRuntime) Discover(ctx context.Context, typeName string) (ontologyquery.SchemaDiscovery, error) {
-	vaultDef, err := vaultDefOrDefaultContext(ctx)
+func (commandOptions commandCodeModeNextIDAllocator) Allocate(ctx context.Context, typeName string, count int, paths []string) (*idalloc.Result, error) {
+	return commandOptions.allocateAgentNextID(ctx, typeName, count, paths)
+}
+
+type commandCodeModeOntologySchemaRuntime struct{ *vaultCommandOptions }
+
+func (commandOptions commandCodeModeOntologySchemaRuntime) Discover(ctx context.Context, typeName string) (ontologyquery.SchemaDiscovery, error) {
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return ontologyquery.SchemaDiscovery{}, err
 	}
@@ -134,23 +135,23 @@ func (commandCodeModeOntologySchemaRuntime) Discover(ctx context.Context, typeNa
 	return ontologyquery.DiscoverSchema(ontologySchema, schema, typeName)
 }
 
-type commandCodeModeOntologyQueryRuntime struct{}
+type commandCodeModeOntologyQueryRuntime struct{ *vaultCommandOptions }
 
-func (commandCodeModeOntologyQueryRuntime) Execute(ctx context.Context, rawQuery string, variables map[string]any) (ontologyquery.Result, error) {
-	runtime, prepared, cleanup, err := prepareOntologyQuery(ctx, rawQuery, variables)
+func (commandOptions commandCodeModeOntologyQueryRuntime) Execute(ctx context.Context, rawQuery string, variables map[string]any) (ontologyquery.Result, error) {
+	runtime, prepared, cleanup, err := commandOptions.prepareOntologyQuery(ctx, rawQuery, variables)
 	if cleanup != nil {
 		defer cleanup()
 	}
 	if err != nil {
 		return ontologyquery.Result{}, err
 	}
-	return ontologyquery.ExecutePrepared(ctx, runtime.deps(), runtime.schema, runtime.execSchema, prepared), nil
+	return runtime.run(ctx, prepared)
 }
 
-type commandCodeModeOntologyReferenceRuntime struct{}
+type commandCodeModeOntologyReferenceRuntime struct{ *vaultCommandOptions }
 
-func (commandCodeModeOntologyReferenceRuntime) Render(ctx context.Context, rawType string, compact bool) (any, error) {
-	vaultDef, err := vaultDefOrDefaultContext(ctx)
+func (commandOptions commandCodeModeOntologyReferenceRuntime) Render(ctx context.Context, rawType string, compact bool) (any, error) {
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -163,9 +164,9 @@ func (commandCodeModeOntologyReferenceRuntime) Render(ctx context.Context, rawTy
 		return nil, err
 	}
 	if compact {
-		return reference.Compact(schema, typeName)
+		return schemadoc.CompactReference(schema, typeName, identity.CurrentUserType)
 	}
-	payload, err := reference.RenderJSON(schema, typeName)
+	payload, err := schemadoc.RenderReferenceJSON(schema, typeName, identity.CurrentUserType)
 	if err != nil {
 		return nil, err
 	}
@@ -176,22 +177,25 @@ func (commandCodeModeOntologyReferenceRuntime) Render(ctx context.Context, rawTy
 	return decoded, nil
 }
 
-type commandCodeModeOntologyAuthoringRuntime struct{}
+type commandCodeModeOntologyAuthoringRuntime struct{ *vaultCommandOptions }
 
-func (commandCodeModeOntologyAuthoringRuntime) Render(ctx context.Context, requested []string) (string, error) {
-	return renderAgentOntologyAuthoringGuide(ctx, requested)
+func (commandOptions commandCodeModeOntologyAuthoringRuntime) Render(ctx context.Context, requested []string) (string, error) {
+	return commandOptions.renderAgentOntologyAuthoringGuide(ctx, requested)
 }
 
-type commandCodeModeOntologyInspectRuntime struct{}
+type commandCodeModeOntologyInspectRuntime struct{ *vaultCommandOptions }
 
-func (commandCodeModeOntologyInspectRuntime) Inspect(ctx context.Context, inputs []string) (any, error) {
-	return buildOntologyInspectPayload(ctx, inputs)
+func (commandOptions commandCodeModeOntologyInspectRuntime) Inspect(ctx context.Context, inputs []string) (any, error) {
+	return commandOptions.buildOntologyInspectPayload(ctx, inputs)
 }
 
-type commandCodeModeRationaleRuntime struct{ Input map[string]any }
+type commandCodeModeRationaleRuntime struct {
+	*vaultCommandOptions
+	Input map[string]any
+}
 
 func (runtime commandCodeModeRationaleRuntime) Query(ctx context.Context, path string, kinds []string) (any, error) {
-	cfg, preparedRuntime, err := prepareAgentJSONTool(ctx, 0, "code_rationale", "agent.code-rationale", runtime.Input)
+	cfg, preparedRuntime, err := runtime.prepareAgentJSONTool(ctx, 0, "code_rationale", "agent.code-rationale", runtime.Input)
 	if err != nil {
 		return nil, err
 	}
@@ -204,14 +208,14 @@ func (runtime commandCodeModeRationaleRuntime) Query(ctx context.Context, path s
 	return queryAgentCodeRationale(ctx, cfg.GetIntelStore(), cfg.VaultPath, path, kinds)
 }
 
-type commandCodeModeHeadingRenamer struct{}
+type commandCodeModeHeadingRenamer struct{ *vaultCommandOptions }
 
-func (commandCodeModeHeadingRenamer) Rename(ctx context.Context, params actions.RenameHeadingParams) (actions.RenameHeadingResult, error) {
-	return executeRenameHeading(ctx, params)
+func (commandOptions commandCodeModeHeadingRenamer) Rename(ctx context.Context, params actions.RenameHeadingParams) (actions.RenameHeadingResult, error) {
+	return commandOptions.executeRenameHeading(ctx, params)
 }
 
-type commandCodeModeNoteMover struct{}
+type commandCodeModeNoteMover struct{ *vaultCommandOptions }
 
-func (commandCodeModeNoteMover) Move(ctx context.Context, params actions.MoveParams) (actions.MoveSummary, error) {
-	return executeMoveNotes(ctx, params)
+func (commandOptions commandCodeModeNoteMover) Move(ctx context.Context, params actions.MoveParams) (actions.MoveSummary, error) {
+	return commandOptions.executeMoveNotes(ctx, params)
 }

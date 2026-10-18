@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/testutil/indexingworkload"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/indexstore"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,16 +20,16 @@ func BenchmarkUnifiedDeterministicWorkload(b *testing.B) {
 				b.StopTimer()
 				root := b.TempDir()
 				indexingworkload.Write(b, root, notes, 32)
-				definition, err := obsidian.LoadDefinitionFromPath(root)
+				definition, err := repoconfig.LoadDefinitionFromPath(root)
 				require.NoError(b, err)
 				opts := UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: testNoteMetadataIndexerForHelper(), SkipConfigPersistence: true}
 				b.StartTimer()
 				start := time.Now()
-				err = RunUnifiedCore(b.Context(), opts)
+				err = runUnifiedCoreForTest(b, b.Context(), opts)
 				elapsed += time.Since(start)
 				b.StopTimer()
 				require.NoError(b, err)
-				store, closeStore, err := obsidian.OpenIntelStore(root, false)
+				store, closeStore, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 				require.NoError(b, err)
 				paths, err := store.CurrentNoteMetadataPaths(b.Context())
 				require.NoError(b, err)

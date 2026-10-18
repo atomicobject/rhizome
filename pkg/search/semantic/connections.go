@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 // NoteAgg captures top scores + hits per note for semantic connections.

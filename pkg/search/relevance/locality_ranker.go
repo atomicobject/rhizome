@@ -31,20 +31,6 @@ func (r *LocalityRanker) Rank(ctx context.Context, spec search.QuerySpec, candid
 	return results, nil
 }
 
-func (r *LocalityRanker) ApproxChannelWeights(spec search.QuerySpec) map[search.EvidenceChannel]float64 {
-	if provider, ok := r.Base.(search.ApproxScoreProvider); ok {
-		return provider.ApproxChannelWeights(spec)
-	}
-	return search.ApproxChannelWeightsForIntent(spec.Intent)
-}
-
-func (r *LocalityRanker) ApproxMaxPerOwner(spec search.QuerySpec) int {
-	if provider, ok := r.Base.(search.ApproxScoreProvider); ok {
-		return provider.ApproxMaxPerOwner(spec)
-	}
-	return 1
-}
-
 func adjustLocalityScore(spec search.QuerySpec, rr search.RankedResult) float64 {
 	score := rr.FinalScore
 	if score <= 0 {

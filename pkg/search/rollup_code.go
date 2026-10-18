@@ -114,7 +114,7 @@ func (r *CodeRollupper) Rollup(ctx context.Context, spec QuerySpec, results []Ra
 
 		// An exact symbol or definition hit is the answer; a small file must not
 		// replace it with its module summary.
-		if candidateHasEvidence(top[0].Candidate, "symbol_exact", "symbol_match", "definition_anchor") {
+		if HasEvidence(top[0].Evidence, "symbol_exact", "symbol_match", "definition_anchor") {
 			out = append(out, top[0])
 			continue
 		}

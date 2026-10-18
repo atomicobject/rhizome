@@ -2,13 +2,13 @@ package query
 
 import (
 	"context"
-	"sync/atomic"
-	"testing"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 
-	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	codeanchorsqlite "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+	"sync/atomic"
+	"testing"
 )
 
 const fieldLinksSchema = `
@@ -106,7 +106,7 @@ type countingFieldLinkStore struct {
 	fieldValueReads atomic.Int64
 }
 
-func (s *countingFieldLinkStore) OntologyNodeFieldValuesByNodeIDs(ctx context.Context, nodeIDs []string, fields []string) ([]codeanchor.IntelOntologyNodeFieldValue, error) {
+func (s *countingFieldLinkStore) OntologyNodeFieldValuesByNodeIDs(ctx context.Context, nodeIDs []string, fields []string) ([]readmodel.FieldValueRow, error) {
 	s.fieldValueReads.Add(1)
 	return s.Store.OntologyNodeFieldValuesByNodeIDs(ctx, nodeIDs, fields)
 }

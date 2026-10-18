@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"strconv"
-	"strings"
 )
 
 func sha256Hex(s string) string {
@@ -29,15 +28,6 @@ func intelAnchorID(lang Lang, kind string, relPath string, stableKey string) str
 
 func intelDocSectionID(relPath string, breadcrumbSlug string, startByte int) string {
 	return sha256HexParts(relPath, breadcrumbSlug, strconv.Itoa(startByte))
-}
-
-func slugifyHeading(title string) string {
-	title = strings.TrimSpace(title)
-	title = strings.ToLower(title)
-	title = strings.ReplaceAll(title, " ", "-")
-	title = strings.ReplaceAll(title, "/", "-")
-	title = strings.ReplaceAll(title, "\\", "-")
-	return title
 }
 
 // IntelChunkID generates a stable chunk ID from the owner ID, ordinal, and granularity.

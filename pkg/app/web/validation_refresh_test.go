@@ -1,7 +1,7 @@
 package web
 
 import (
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"

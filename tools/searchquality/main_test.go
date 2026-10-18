@@ -13,14 +13,14 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/unifiedsearch"
 	"github.com/atomicobject/rhizome/pkg/search"
-	"github.com/atomicobject/rhizome/pkg/search/qualityeval"
+	"github.com/atomicobject/rhizome/tools/searchquality/internal/qualityeval"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDevelopmentCorpusFamiliesUseDistinctPhysicalCollections(t *testing.T) {
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	require.NoError(t, err)
-	b, err := os.ReadFile(filepath.Join(repoRoot, "pkg/search/qualityeval/testdata/corpus-v2.json"))
+	b, err := os.ReadFile(filepath.Join(repoRoot, "tools/searchquality/internal/qualityeval/testdata/corpus-v3.json"))
 	require.NoError(t, err)
 	var corpus qualityeval.Corpus
 	require.NoError(t, json.Unmarshal(b, &corpus))
@@ -145,7 +145,7 @@ func TestReplayCapturedAnswersUsesSnapshotAndPreservesRetrievalEvidence(t *testi
 	require.NoError(t, err)
 	snapshot, err := json.Marshal(answerInputSnapshot{
 		Version: answerInputSnapshotVersion, Intent: search.IntentSearch, Query: "policy", Queries: []unifiedsearch.QueryInput{{Text: "policy", Mode: string(search.IntentSearch)}}, Availability: unifiedsearch.AvailabilityComplete,
-		Sources: []unifiedsearch.SourceAssessment{{Result: search.RankedResult{Candidate: search.Candidate{Path: "policy.md", Title: "Policy", Type: "note"}, FinalScore: .9}, Eligibility: unifiedsearch.EvidenceSupporting, Relevance: unifiedsearch.RelevanceStrong, SupportedRoles: []string{"documentation"}}},
+		Sources: []unifiedsearch.SourceAssessment{{Result: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "policy.md", Title: "Policy"}, Type: "note"}, FinalScore: .9}, Eligibility: unifiedsearch.EvidenceSupporting, Relevance: unifiedsearch.RelevanceStrong, SupportedRoles: []string{"documentation"}}},
 	})
 	require.NoError(t, err)
 	run := qualityeval.Run{Revision: "rev", ExecutionFingerprint: "original-source", CorpusFingerprint: fingerprint, Results: []qualityeval.QueryResult{{
@@ -183,8 +183,8 @@ func TestReplayCapturedAnswersMatchesCurrentMultifacetAndEvidenceLimitPath(t *te
 	}}}
 	// Each source directly identifies one facet and documents it strongly.
 	sources := []unifiedsearch.SourceAssessment{
-		{Result: search.RankedResult{Candidate: search.Candidate{Path: "owner.md", Title: "owner", Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}, FinalScore: .9}, Eligibility: unifiedsearch.EvidenceSupporting, Relevance: unifiedsearch.RelevanceStrong, SupportedRoles: []string{"documentation"}, FacetSupport: []unifiedsearch.FacetSupport{{Text: "owner", Mode: search.IntentSearch, Relevance: unifiedsearch.RelevanceStrong, Eligibility: unifiedsearch.EvidenceSupporting}}},
-		{Result: search.RankedResult{Candidate: search.Candidate{Path: "outage.md", Title: "outage", Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}, FinalScore: .8}, Eligibility: unifiedsearch.EvidenceSupporting, Relevance: unifiedsearch.RelevanceStrong, SupportedRoles: []string{"documentation"}, FacetSupport: []unifiedsearch.FacetSupport{{Text: "outage", Mode: search.IntentSearch, Relevance: unifiedsearch.RelevanceStrong, Eligibility: unifiedsearch.EvidenceSupporting}}},
+		{Result: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "owner.md", Title: "owner"}, Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}, FinalScore: .9}, Eligibility: unifiedsearch.EvidenceSupporting, Relevance: unifiedsearch.RelevanceStrong, SupportedRoles: []string{"documentation"}, FacetSupport: []unifiedsearch.FacetSupport{{Text: "owner", Mode: search.IntentSearch, Relevance: unifiedsearch.RelevanceStrong, Eligibility: unifiedsearch.EvidenceSupporting}}},
+		{Result: search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "outage.md", Title: "outage"}, Type: "note", Evidence: []search.Evidence{{Type: "note_title_exact", RawScore: 1}}}, FinalScore: .8}, Eligibility: unifiedsearch.EvidenceSupporting, Relevance: unifiedsearch.RelevanceStrong, SupportedRoles: []string{"documentation"}, FacetSupport: []unifiedsearch.FacetSupport{{Text: "outage", Mode: search.IntentSearch, Relevance: unifiedsearch.RelevanceStrong, Eligibility: unifiedsearch.EvidenceSupporting}}},
 	}
 	fingerprint, err := qualityeval.Fingerprint(corpus)
 	require.NoError(t, err)
@@ -228,10 +228,14 @@ func TestReassessCapturedAnswersRepairsFacetObservationWithoutChangingRetrieval(
 	corpus := qualityeval.Corpus{Version: "test", SourceRevision: "fixture", Cases: []qualityeval.Case{caseDef}}
 	fingerprint, err := qualityeval.Fingerprint(corpus)
 	require.NoError(t, err)
-	result := search.RankedResult{Candidate: search.Candidate{Path: "delivery.md", Type: "note", Evidence: []search.Evidence{
-		{Type: "query_match", Source: "multi_query", Details: map[string]string{"query": "missed delivery", "mode": "search", "relevance": "strong", "eligibility": "supporting"}},
-		{Type: "query_match", Source: "multi_query", Details: map[string]string{"query": "missed delivery", "mode": "search", "relevance": "useful", "eligibility": "supporting"}},
-	}}, FinalScore: .8}
+	result := search.RankedResult{Candidate: search.Candidate{
+		SourceRef: search.SourceRef{Path: "delivery.md"},
+		Type:      "note",
+		Evidence: []search.Evidence{
+			{Type: "query_match", Source: "multi_query", Details: map[string]string{"query": "missed delivery", "mode": "search", "relevance": "strong", "eligibility": "supporting"}},
+			{Type: "query_match", Source: "multi_query", Details: map[string]string{"query": "missed delivery", "mode": "search", "relevance": "useful", "eligibility": "supporting"}},
+		},
+	}, FinalScore: .8}
 	stale := unifiedsearch.SourceAssessment{Result: result, Relevance: unifiedsearch.RelevanceStrong, SupportedRoles: []string{"documentation"}, FacetSupport: []unifiedsearch.FacetSupport{{Text: "missed delivery", Mode: search.IntentSearch, Relevance: unifiedsearch.RelevanceUseful}}}
 	snapshot, err := json.Marshal(answerInputSnapshot{Version: answerInputSnapshotVersion, Intent: search.IntentSearch, Query: unifiedsearch.JoinQueryInputs(queries), Queries: queries, Availability: unifiedsearch.AvailabilityComplete, Sources: []unifiedsearch.SourceAssessment{stale}})
 	require.NoError(t, err)
@@ -312,7 +316,7 @@ func TestSameResolvedPathDetectsHardLinkAlias(t *testing.T) {
 
 func TestEvaluationRankedSourceRetainsCanonicalSymbolIdentityWithFileFallback(t *testing.T) {
 	const wantIdentity = "fqn\x00example.Worker.Run\x00fixture/src/worker.go"
-	ranked := search.RankedResult{Candidate: search.Candidate{Path: "src/worker.go", FQN: "example.Worker.Run"}}
+	ranked := search.RankedResult{Candidate: search.Candidate{SourceRef: search.SourceRef{Path: "src/worker.go", FQN: "example.Worker.Run"}}}
 
 	fileSource, fileIdentity := evaluationRankedSource(qualityeval.Case{Judgments: map[string]qualityeval.Judgment{
 		"fixture/src/worker.go": {Grade: 2},

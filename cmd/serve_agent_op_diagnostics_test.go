@@ -10,13 +10,15 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRuntimeAgentRequestDiagnosticsPreserveStructuredReadFailures(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	for _, test := range []struct {
 		name, operation, status, reason string
 		input                           map[string]any
@@ -38,7 +40,7 @@ func TestRuntimeAgentRequestDiagnosticsPreserveStructuredReadFailures(t *testing
 				}
 				return test.indexErr
 			}}
-			host := newDiagnosticAgentOpHost(root, runtime)
+			host := commandOptions.newDiagnosticAgentOpHost(root, runtime)
 			var stderr bytes.Buffer
 			recorder, err := diagnostics.Open(root, diagnostics.Options{Stderr: &stderr})
 			require.NoError(t, err)
@@ -74,10 +76,12 @@ func TestRuntimeAgentRequestDiagnosticsPreserveStructuredReadFailures(t *testing
 }
 
 func TestRuntimeAgentRequestDiagnosticsRecordAndPreservePanic(t *testing.T) {
+	commandOptions := newRuntimeOptionsForTest(t)
+
 	root := t.TempDir()
 	panicked := &struct{ message string }{message: "PRIVATE_PANIC"}
 	runtime := &diagnosticReadRuntime{vault: root, wait: func(context.Context) error { panic(panicked) }}
-	host := newDiagnosticAgentOpHost(root, runtime)
+	host := commandOptions.newDiagnosticAgentOpHost(root, runtime)
 	var stderr bytes.Buffer
 	recorder, err := diagnostics.Open(root, diagnostics.Options{Stderr: &stderr})
 	require.NoError(t, err)
@@ -110,8 +114,8 @@ func (r *diagnosticReadRuntime) WaitForCodeIndex(ctx context.Context) error {
 	return r.wait(ctx)
 }
 
-func newDiagnosticAgentOpHost(root string, runtime *diagnosticReadRuntime) *agentOpHost {
-	return &agentOpHost{
+func (commandOptions *vaultCommandOptions) newDiagnosticAgentOpHost(root string, runtime *diagnosticReadRuntime) *agentOpHost {
+	return &agentOpHost{vaultCommandOptions: commandOptions,
 		rt:         &bootstrap.LiveRuntime{VaultPath: root},
 		configPath: filepath.Join(root, ".rhizome", "config.yml"),
 		reads:      &actions.CodeModeRuntimeReads{Runtime: runtime},

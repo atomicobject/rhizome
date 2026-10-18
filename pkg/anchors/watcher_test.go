@@ -2,6 +2,7 @@ package codeanchor
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -108,8 +109,8 @@ func TestWatcherNoteSourceUsesCanonicalRelativePathAndFileMtime(t *testing.T) {
 	svc := NewServiceWithOptions(nil, nil, WithBasePath(root), WithoutWarmCache())
 	w := &Watcher{
 		service: svc,
-		noteSourceFactory: func(path string, content []byte, mtime int64) NoteSource {
-			return newTestNoteSource(path, string(content), mtime)
+		noteSourceFactory: func(path string, content []byte, mtime int64) (NoteSource, error) {
+			return newTestNoteSource(path, string(content), mtime), nil
 		},
 	}
 
@@ -208,4 +209,14 @@ func TestWatcherScheduleStaleRescanQueuesSinglePendingRun(t *testing.T) {
 		return !w.staleRescanRunning
 	}, 5*time.Second, time.Millisecond)
 	require.EqualValues(t, 2, idx.calls.Load(), "pending requests should coalesce into one follow-up")
+}
+
+func TestWatcherNoteSourcePropagatesProjectionFailure(t *testing.T) {
+	root := t.TempDir()
+	service := NewServiceWithOptions(nil, nil, WithBasePath(root), WithoutWarmCache())
+	failure := fmt.Errorf("projector rejected source")
+	watcher := &Watcher{service: service, noteSourceFactory: func(string, []byte, int64) (NoteSource, error) { return nil, failure }}
+	source, err := watcher.noteSource(filepath.Join(root, "note.md"), []byte("body"))
+	require.ErrorIs(t, err, failure)
+	require.Nil(t, source)
 }

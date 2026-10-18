@@ -1,9 +1,8 @@
 package init
 
 import (
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 )
 
 // Utility functions
@@ -31,7 +30,7 @@ func contains(list []string, v string) bool {
 
 // Summary functions
 
-func hasAnyCodeConfig(cfg obsidian.LocalCodeConfig) bool {
+func hasAnyCodeConfig(cfg repoconfig.LocalCodeConfig) bool {
 	return cfg.Enabled ||
 		len(cfg.Scan) > 0 ||
 		len(cfg.Ignore) > 0 ||

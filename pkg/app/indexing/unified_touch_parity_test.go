@@ -2,18 +2,20 @@ package indexing
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/indexstore"
+	"github.com/atomicobject/rhizome/pkg/ontology"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/search/embeddings"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/stretchr/testify/require"
 )
 
 func touchParityVault(t *testing.T) (string, obsidian.VaultDefinition) {
@@ -27,8 +29,8 @@ type Decision @node(paths: ["notes/*.md"]) {
 `), 0o600))
 	writeTouchParityNote(t, root, "notes/Source.md", "---\ntitle: Source\n---\nSee [[Target]].\n")
 	writeTouchParityNote(t, root, "notes/Target.md", "---\ntitle: Target\naliases: [Target]\n---\n# Target\n")
-	require.NoError(t, obsidian.SaveLocalConfig(root, obsidian.LocalConfig{
-		Notes:          obsidian.LocalVaultConfig{Includes: []string{"notes/**/*.md"}},
+	require.NoError(t, repoconfig.SaveLocalConfig(root, repoconfig.LocalConfig{
+		Notes:          repoconfig.LocalVaultConfig{Includes: []string{"notes/**/*.md"}},
 		NoteEmbeddings: &embeddings.Config{Enabled: false},
 		CodeEmbeddings: &embeddings.Config{Enabled: false},
 	}))
@@ -51,10 +53,10 @@ func indexedTouchParityVault(t *testing.T) (string, obsidian.VaultDefinition) {
 	t.Helper()
 	indexedTouchParitySnapshot.once.Do(func() {
 		root, definition := touchParityVault(t)
-		indexedTouchParitySnapshot.err = RunUnifiedCore(context.Background(), UnifiedOptions{
+		indexedTouchParitySnapshot.err = runUnifiedCoreForTest(t, context.Background(), UnifiedOptions{
 			VaultPath:    root,
 			VaultDef:     definition,
-			NoteMetadata: testNoteMetadataIndexer(t),
+			NoteMetadata: testkit.NoteMetadataIndexer(t),
 		})
 		if indexedTouchParitySnapshot.err != nil {
 			return
@@ -113,7 +115,7 @@ func touchEveryParityNote(t *testing.T, root string) {
 
 func openTouchParityStore(t *testing.T, root string) *semdb.Store {
 	t.Helper()
-	store, cleanup, err := obsidian.OpenIntelStore(root, false)
+	store, cleanup, err := indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	return store
@@ -124,10 +126,12 @@ func openTouchParityStore(t *testing.T, root string) *semdb.Store {
 // nothing else, so no cached graph response and no published-generation reader
 // is invalidated.
 func TestRunUnifiedCore_TouchOnlyReindexKeepsGenerationAndGraphRevision(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	root, definition := touchParityVault(t)
-	indexer := testNoteMetadataIndexer(t)
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	indexer := testkit.NoteMetadataIndexer(t)
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 
 	store := openTouchParityStore(t, root)
 	noteState, err := store.GetNoteMetadataState(ctx)
@@ -143,7 +147,7 @@ func TestRunUnifiedCore_TouchOnlyReindexKeepsGenerationAndGraphRevision(t *testi
 	touchEveryParityNote(t, root)
 	sourceInfo, err := os.Stat(filepath.Join(root, "notes", "Source.md"))
 	require.NoError(t, err)
-	require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+	require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 
 	updatedFingerprint, err := store.GraphWebFingerprint(ctx)
 	require.NoError(t, err)
@@ -171,6 +175,8 @@ func TestRunUnifiedCore_TouchOnlyReindexKeepsGenerationAndGraphRevision(t *testi
 // Every note-shaped change must still converge on exactly what a fresh index
 // of the same tree produces.
 func TestRunUnifiedCore_IncrementalScenariosMatchFreshRebuild(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []struct {
 		name  string
 		apply func(t *testing.T, root string)
@@ -194,15 +200,15 @@ func TestRunUnifiedCore_IncrementalScenariosMatchFreshRebuild(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			ctx := context.Background()
 			root, definition := indexedTouchParityVault(t)
-			indexer := testNoteMetadataIndexer(t)
+			indexer := testkit.NoteMetadataIndexer(t)
 			scenario.apply(t, root)
-			require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
+			require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: root, VaultDef: definition, NoteMetadata: indexer}))
 			incremental := openTouchParityStore(t, root)
 
 			freshRoot, freshDefinition := touchParityVault(t)
 			require.NoError(t, os.RemoveAll(filepath.Join(freshRoot, "notes")))
 			require.NoError(t, copyTouchParityNotes(filepath.Join(root, "notes"), filepath.Join(freshRoot, "notes")))
-			require.NoError(t, RunUnifiedCore(ctx, UnifiedOptions{VaultPath: freshRoot, VaultDef: freshDefinition, NoteMetadata: testNoteMetadataIndexer(t)}))
+			require.NoError(t, runUnifiedCoreForTest(t, ctx, UnifiedOptions{VaultPath: freshRoot, VaultDef: freshDefinition, NoteMetadata: testkit.NoteMetadataIndexer(t)}))
 			fresh := openTouchParityStore(t, freshRoot)
 
 			require.Equal(t, noteParitySnapshot(t, ctx, fresh), noteParitySnapshot(t, ctx, incremental))

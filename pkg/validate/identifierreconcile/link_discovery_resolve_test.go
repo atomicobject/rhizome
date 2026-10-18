@@ -1,12 +1,12 @@
 package identifierreconcile
 
 import (
-	"testing"
-
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestIdentifierLinkResolutionPreservesFragmentKindAndBaseAmbiguity(t *testing.T) {
@@ -43,8 +43,8 @@ func TestIdentifierFieldLocatorFragmentsAreScopedToOwningNote(t *testing.T) {
 }
 
 func TestIdentifierLinkResolutionPreservesPhysicalDuplicateTargets(t *testing.T) {
-	field := &ontology.Field{Name: "id", IsIdentifier: true, IsPreferredIdentifier: true}
-	noteType := &ontology.NoteType{Name: "Story", Fields: []*ontology.Field{field}}
+	field := &ontoschema.Field{Name: "id", IsIdentifier: true, IsPreferredIdentifier: true}
+	noteType := &ontoschema.NoteType{Name: "Story", Fields: []*ontoschema.Field{field}}
 	semantic := ontology.NodeRef{NotePath: "specs/spec.md", Fragment: "^DUP", TypeName: "Story", Kind: ontology.NodeKindEmbedded}
 	first := semantic
 	first.NodeID = "first"
@@ -56,25 +56,25 @@ func TestIdentifierLinkResolutionPreservesPhysicalDuplicateTargets(t *testing.T)
 		{Ref: first, ResolvedType: "Story", Type: noteType, Fields: map[string]ontology.FieldBinding{"id": {Present: true, Values: []string{"DUP"}}}},
 		{Ref: second, ResolvedType: "Story", Type: noteType, Fields: map[string]ontology.FieldBinding{"id": {Present: true, Values: []string{"DUP"}}}},
 	}
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewritePreferredRekey, OldRef: semantic, NewRef: semantic,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: semantic, NewRef: semantic,
 		OldIdentifier: "DUP", NewIdentifier: "SPEC-0002", PreferredField: "id", AliasesField: "aliases",
 	}
-	inventory, err := newIdentifierLinkResolutionInventory(nil, projections, nil, []reference.IdentifierRewrite{rewrite})
+	inventory, err := newIdentifierLinkResolutionInventory(nil, projections, nil, []identifierrewrite.IdentifierRewrite{rewrite})
 	require.NoError(t, err)
 	content := "[[DUP]]"
-	scan := obsidian.ScanStructuredLinkSnapshot(content)
+	scan := markdownsyntax.ScanStructuredLinkSnapshot(content)
 	resolutions := inventory.resolutionsFor("notes/inbound.md", scan.Links)
 	require.Len(t, resolutions, 1)
 	require.Len(t, resolutions[0].Candidates, 2, "physical nodes sharing a semantic locator remain ambiguous")
 
-	plan := reference.PlanStructuredLinkRewrites(reference.StructuredLinkRewriteInput{
+	plan := identifierrewrite.PlanStructuredLinkRewrites(identifierrewrite.StructuredLinkRewriteInput{
 		NotePath: "notes/inbound.md", Content: content, LinkSnapshot: &scan,
-		Rewrites: []reference.IdentifierRewrite{rewrite}, Resolutions: resolutions,
+		Rewrites: []identifierrewrite.IdentifierRewrite{rewrite}, Resolutions: resolutions,
 	})
 	require.Empty(t, plan.Edits)
 	require.Len(t, plan.Diagnostics, 1)
-	require.Equal(t, reference.LinkRewriteDiagnosticAmbiguousTarget, plan.Diagnostics[0].Kind)
+	require.Equal(t, identifierrewrite.LinkRewriteDiagnosticAmbiguousTarget, plan.Diagnostics[0].Kind)
 }
 
 func TestIdentifierLinkResolutionResolvesSourceRelativeWikiPaths(t *testing.T) {
@@ -87,7 +87,7 @@ func TestIdentifierLinkResolutionResolvesSourceRelativeWikiPaths(t *testing.T) {
 	inventory.normalize()
 
 	for _, content := range []string{"[[../specs/SPEC-0001]]", `[[..\specs\SPEC-0001]]`} {
-		scan := obsidian.ScanStructuredLinkSnapshot(content)
+		scan := markdownsyntax.ScanStructuredLinkSnapshot(content)
 		require.Len(t, scan.Links, 1)
 		resolutions := inventory.resolutionsFor("notes/inbound.md", scan.Links)
 		require.Equal(t, []ontology.NodeRef{target}, resolutions[0].Candidates, content)
@@ -118,7 +118,7 @@ func TestIdentifierLinkResolutionRejectsPathContainmentEscapesBeforeBasenameFall
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			scan := obsidian.ScanStructuredLinkSnapshot(tt.content)
+			scan := markdownsyntax.ScanStructuredLinkSnapshot(tt.content)
 			require.Len(t, scan.Links, 1)
 			resolutions := inventory.resolutionsFor("notes/inbound.md", scan.Links)
 			require.Len(t, resolutions, 1)

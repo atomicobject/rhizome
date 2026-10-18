@@ -16,8 +16,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
-	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/search/knowledge"
 )
 
@@ -47,14 +45,9 @@ const (
 	IntentSecurityAudit     Intent = "security_audit"
 )
 
-// Filters reuse the existing boolean expression DSL used by list/prompt matching.
-// This starts as an incremental bridge; we can extend predicates over time.
+// Filters define the eligibility rules shared by all retrievers.
 type Filters struct {
-	Inputs     []actions.ListInput
-	Expression *actions.InputExpression
-	// Types limits unified retrieval to code and/or note entities. These fields
-	// are deliberately kept beside the existing expression filter so every
-	// retriever receives the same immutable eligibility contract.
+	// Types limits unified retrieval to code and/or note entities.
 	Types        []string
 	PathPrefixes []string
 	// TestsOnly and ExcludeTests are mutually exclusive eligibility controls.
@@ -228,8 +221,8 @@ type TargetCandidate struct {
 
 // Retriever produces candidates from a QuerySpec.
 //
-// Multiple retrievers run in parallel, or progressively when the caller gives a
-// deadline. Evidence from different retrievers merges on the same Handle; a
+// Retrievers run in parallel and must honor context cancellation. Evidence
+// from different retrievers merges on the same Handle; a
 // retriever should not return multiple identities for the same underlying
 // source just to preserve its own ranking.
 type Retriever interface {
@@ -243,30 +236,19 @@ type NestedRetriever interface {
 	NestedRetrievers() []Retriever
 }
 
-type RetrieverCostClass int
-
-const (
-	RetrieverCostUnknown RetrieverCostClass = iota
-	RetrieverCostCPUHeavy
-	RetrieverCostIOBound
-)
-
-// CostedRetriever lets a retriever declare a coarse cost class to tune concurrency.
-type CostedRetriever interface {
-	Retriever
-	CostClass() RetrieverCostClass
-}
-
 // Ranker scores and orders candidates. The planner configures weights based on intent.
 type Ranker interface {
 	Rank(ctx context.Context, spec QuerySpec, candidates []Candidate) ([]RankedResult, error)
 }
 
-// ApproxScoreProvider lets rankers expose a cheaper but semantically aligned scoring
-// configuration for pruning and timeout fallback paths.
-type ApproxScoreProvider interface {
-	ApproxChannelWeights(spec QuerySpec) map[EvidenceChannel]float64
-	ApproxMaxPerOwner(spec QuerySpec) int
+// CandidateAdjuster adds optional persisted ranking evidence before pure scoring.
+type CandidateAdjuster interface {
+	Adjust(context.Context, QuerySpec, []Candidate) ([]Candidate, error)
+}
+
+// ResultAdjuster optionally refines the finished ranking without retrieving sources.
+type ResultAdjuster interface {
+	Adjust(context.Context, QuerySpec, []RankedResult) ([]RankedResult, error)
 }
 
 // Packer renders ranked results into a budgeted context string for LLM consumption.
@@ -302,32 +284,11 @@ type Candidate struct {
 	// that should boost anchors/files without making comments a result class.
 	SupportOnly bool
 
-	// Metadata for packing/rendering (retrievers fill what they know)
-	Type        string // Entity type: "note", "code", "anchor"
-	Path        string // Vault-relative path
-	Title       string // Note title or code file name
-	Symbol      string // Short symbol name (e.g., "Service")
-	FQN         string // Fully qualified name (e.g., "pkg/search.Service")
-	Kind        string // Symbol kind: "function", "type", "method", etc.
-	Granularity string // Chunk granularity: "symbol", "body", "module"
-	ChunkIndex  int    // Chunk index within parent (-1 if N/A)
-	Breadcrumb  string // Navigation path for display
-	Heading     string // Markdown heading this chunk belongs to
-
-	AnchorID string // Code anchor ID (for anchor/codechunk handles)
-	NoteID   string // Note path (for notechunk handles)
-
-	NodeID        string // Ontology node ID (for nodechunk handles)
-	NodeRefJSON   string // Serialized ontology NodeRef
-	SourceLocator string // Canonical ontology lookup/display locator
-	NodeKind      string // note_root, section, embedded, etc.
-	NodeType      string // Resolved ontology type
-	ParentNodeID  string // Parent ontology node ID, when present
+	SourceRef
+	Type string // Entity type: "note", "code", "anchor"
 
 	DocClass   DocClass // Stable doc classification for ranking/packing
 	PrimaryDoc bool     // True when this is the primary local module doc
-
-	NodeRef *ontology.NodeRef // Ontology navigation identity when available
 
 	handleKey string `json:"-"` // Cached Handle.String() for fast map lookups
 }

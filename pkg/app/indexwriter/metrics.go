@@ -20,7 +20,7 @@ func metricOutcome(err error) string {
 }
 
 func recordReconciliationAcknowledged(ctx context.Context, generation int64) {
-	indexingperf.AddCount(ctx, "ownership.reconciliation_acknowledged", 1)
+	indexingperf.AddCount(ctx, indexingperf.OwnershipReconciliationAcknowledged, 1)
 	if recorder := diagnostics.FromContext(ctx); recorder != nil {
 		recorder.Event(ctx, slog.LevelInfo, "indexing", "reconciliation.acknowledged", "", slog.Int64("generation", generation))
 	}

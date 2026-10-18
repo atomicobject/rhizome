@@ -26,7 +26,10 @@ import (
 // v13: dependency-affected sources reproject even when metadata includes them
 // among direct candidates, repairing older stale link targets and findings.
 // Version 14 materializes section-backed display summaries for compact reads.
-const OntologyMaterializationVersion = 14
+// v15: full and incremental paths share embedded validation and provider-current
+// type resolution; scalar and metadata-link normalization use one contract.
+// Alias retirement invalidates unresolved dependencies before old aliases vanish.
+const OntologyMaterializationVersion = 15
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

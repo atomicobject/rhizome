@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
@@ -13,7 +15,7 @@ import (
 	"golang.org/x/term"
 )
 
-func newAgentCodeExecuteCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentCodeExecuteCmd() *cobra.Command {
 	var options agentcode.ExecuteOptions
 	var input, inputFile string
 	command := &cobra.Command{
@@ -32,11 +34,7 @@ func newAgentCodeExecuteCmd() *cobra.Command {
 			if options.Input, err = readAgentCodeScriptInput(command, input, inputFile); err != nil {
 				return agentCodeError(err)
 			}
-			options.ExecutablePath, err = os.Executable()
-			if err != nil {
-				return agentCodeError(err)
-			}
-			def, err := vaultDefOrDefaultContext(command.Context())
+			def, err := commandOptions.vaultDefOrDefaultContext(command.Context())
 			if err != nil {
 				return agentCodeError(err)
 			}
@@ -44,7 +42,18 @@ func newAgentCodeExecuteCmd() *cobra.Command {
 			if err != nil {
 				return agentCodeError(err)
 			}
-			options.SessionID = agentSessionID
+			connectionEnv := commandEnvFromContext(command.Context())
+			connectionEnv.Config.WorkingDir = options.VaultPath
+			connectionEnv.Getwd = func() (string, error) { return options.VaultPath, nil }
+			options.OperationHost = func(ctx context.Context, input io.Reader, output io.Writer, readWrite bool) error {
+				ctx = contextWithCommandEnv(ctx, connectionEnv)
+				call, err := commandOptions.newAgentCodeInvoker(ctx, readWrite)
+				if err != nil {
+					return err
+				}
+				return agentcode.Serve(ctx, input, output, call)
+			}
+			options.SessionID = commandOptions.agentSessionID
 			result, err := agentcode.Execute(command.Context(), options)
 			if err != nil {
 				return agentCodeError(err)
@@ -94,6 +103,13 @@ func readAgentCodeScriptInput(command *cobra.Command, input, inputFile string) (
 	case command.Flags().Changed("input") && command.Flags().Changed("input-file"):
 		return nil, fmt.Errorf("use only one of --input or --input-file")
 	case command.Flags().Changed("input-file"):
+		if !filepath.IsAbs(inputFile) {
+			cwd, err := commandEnvFromContext(command.Context()).Getwd()
+			if err != nil {
+				return nil, fmt.Errorf("read --input-file: %w", err)
+			}
+			inputFile = filepath.Join(cwd, inputFile)
+		}
 		file, err := os.Open(inputFile)
 		if err != nil {
 			return nil, fmt.Errorf("read --input-file: %w", err)

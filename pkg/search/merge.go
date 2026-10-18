@@ -29,65 +29,12 @@ func MergeCandidate(a, b Candidate) Candidate {
 	if strings.TrimSpace(out.Type) == "" {
 		out.Type = b.Type
 	}
-	if strings.TrimSpace(out.Path) == "" {
-		out.Path = b.Path
-	}
-	if strings.TrimSpace(out.Title) == "" {
-		out.Title = b.Title
-	}
-	if strings.TrimSpace(out.Symbol) == "" {
-		out.Symbol = b.Symbol
-	}
-	if strings.TrimSpace(out.FQN) == "" {
-		out.FQN = b.FQN
-	}
-	if strings.TrimSpace(out.Kind) == "" {
-		out.Kind = b.Kind
-	}
-	if strings.TrimSpace(out.Granularity) == "" {
-		out.Granularity = b.Granularity
-	}
-	if out.ChunkIndex < 0 && b.ChunkIndex >= 0 {
-		out.ChunkIndex = b.ChunkIndex
-	}
-	if strings.TrimSpace(out.Breadcrumb) == "" {
-		out.Breadcrumb = b.Breadcrumb
-	}
-	if strings.TrimSpace(out.Heading) == "" {
-		out.Heading = b.Heading
-	}
-	if strings.TrimSpace(out.AnchorID) == "" {
-		out.AnchorID = b.AnchorID
-	}
-	if strings.TrimSpace(out.NoteID) == "" {
-		out.NoteID = b.NoteID
-	}
-	if strings.TrimSpace(out.NodeID) == "" {
-		out.NodeID = b.NodeID
-	}
-	if strings.TrimSpace(out.NodeRefJSON) == "" {
-		out.NodeRefJSON = b.NodeRefJSON
-	}
-	if strings.TrimSpace(out.SourceLocator) == "" {
-		out.SourceLocator = b.SourceLocator
-	}
-	if strings.TrimSpace(out.NodeKind) == "" {
-		out.NodeKind = b.NodeKind
-	}
-	if strings.TrimSpace(out.NodeType) == "" {
-		out.NodeType = b.NodeType
-	}
-	if strings.TrimSpace(out.ParentNodeID) == "" {
-		out.ParentNodeID = b.ParentNodeID
-	}
+	out.SourceRef.FillFrom(b.SourceRef)
 	if out.DocClass == "" || out.DocClass == DocClassNone {
 		out.DocClass = b.DocClass
 	}
 	if !out.PrimaryDoc {
 		out.PrimaryDoc = b.PrimaryDoc
-	}
-	if out.NodeRef == nil {
-		out.NodeRef = b.NodeRef
 	}
 	if out.handleKey == "" {
 		out.handleKey = b.handleKey
@@ -131,15 +78,23 @@ func coalesceNoteCandidates(candidates []Candidate) []Candidate {
 			continue
 		}
 		emitted[key] = true
-		semantic := func(c Candidate) float64 {
-			return AggregateEvidenceScoresForRanking(c.Evidence)[EvidenceChannelSemantic]
+		type semanticMember struct {
+			candidate Candidate
+			score     float64
 		}
-		sort.SliceStable(members, func(i, j int) bool {
-			if si, sj := semantic(members[i]), semantic(members[j]); si != sj {
-				return si > sj
+		ordered := make([]semanticMember, len(members))
+		for i, member := range members {
+			ordered[i] = semanticMember{member, AggregateEvidenceScoresForRanking(member.Evidence)[EvidenceChannelSemantic]}
+		}
+		sort.SliceStable(ordered, func(i, j int) bool {
+			if ordered[i].score != ordered[j].score {
+				return ordered[i].score > ordered[j].score
 			}
-			return members[i].Handle.String() < members[j].Handle.String()
+			return ordered[i].candidate.Handle.String() < ordered[j].candidate.Handle.String()
 		})
+		for i := range ordered {
+			members[i] = ordered[i].candidate
+		}
 		// A member's specificity can read evidence the others lack, such as
 		// an agreed link label, so the note keeps the strongest one.
 		var specificity *Evidence
@@ -197,53 +152,45 @@ func mergeEvidenceBounded(existing, incoming []Evidence) []Evidence {
 	if len(combined) == 0 {
 		return combined
 	}
-	combined = dedupeEvidenceFacts(normalizeEvidenceSlice(combined))
-	buckets := make(map[string][]Evidence, len(combined))
-	for _, ev := range combined {
-		buckets[ev.Type] = append(buckets[ev.Type], ev)
-	}
-	out := make([]Evidence, 0, min(len(combined), maxEvidenceTotal))
-	for _, bucket := range buckets {
-		sort.Slice(bucket, func(i, j int) bool {
-			if EvidenceScore(bucket[i]) != EvidenceScore(bucket[j]) {
-				return EvidenceScore(bucket[i]) > EvidenceScore(bucket[j])
-			}
-			return evidenceFactKey(bucket[i]) < evidenceFactKey(bucket[j])
-		})
-		if len(bucket) > maxEvidencePerType {
-			bucket = bucket[:maxEvidencePerType]
-		}
-		out = append(out, bucket...)
-	}
-	sort.Slice(out, func(i, j int) bool { return evidenceLess(out[i], out[j]) })
-	if len(out) > maxEvidenceTotal {
-		out = out[:maxEvidenceTotal]
-	}
-	return out
-}
-
-// dedupeEvidenceFacts prevents repeated observations of one fact from becoming
-// independent ranking votes. Retriever provenance is retained in Source, while
-// the fact identity is the signal type plus its semantic details. Operational
-// details such as lane rank do not make the underlying fact independent.
-func dedupeEvidenceFacts(evidence []Evidence) []Evidence {
-	if len(evidence) < 2 {
-		return evidence
-	}
-	byKey := make(map[string]Evidence, len(evidence))
-	for _, ev := range evidence {
+	byKey := make(map[string]Evidence, len(combined))
+	for _, ev := range normalizeEvidenceSlice(combined) {
 		key := evidenceFactKey(ev)
-		if prior, ok := byKey[key]; ok {
-			byKey[key] = mergeDuplicateEvidence(prior, ev)
+		if existing, ok := byKey[key]; ok {
+			byKey[key] = mergeDuplicateEvidence(existing, ev)
+		} else {
+			byKey[key] = ev
+		}
+	}
+	type rankedEvidence struct {
+		evidence Evidence
+		score    float64
+		key      string
+	}
+	ordered := make([]rankedEvidence, 0, len(byKey))
+	for key, ev := range byKey {
+		ordered = append(ordered, rankedEvidence{ev, EvidenceScore(ev), key})
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].score != ordered[j].score {
+			return ordered[i].score > ordered[j].score
+		}
+		if ordered[i].evidence.Type != ordered[j].evidence.Type {
+			return ordered[i].evidence.Type < ordered[j].evidence.Type
+		}
+		return ordered[i].key < ordered[j].key
+	})
+	out := make([]Evidence, 0, min(len(combined), maxEvidenceTotal))
+	perType := make(map[string]int)
+	for _, item := range ordered {
+		if perType[item.evidence.Type] >= maxEvidencePerType {
 			continue
 		}
-		byKey[key] = ev
+		perType[item.evidence.Type]++
+		out = append(out, item.evidence)
+		if len(out) == maxEvidenceTotal {
+			break
+		}
 	}
-	out := make([]Evidence, 0, len(byKey))
-	for _, ev := range byKey {
-		out = append(out, ev)
-	}
-	sort.Slice(out, func(i, j int) bool { return evidenceLess(out[i], out[j]) })
 	return out
 }
 
@@ -269,64 +216,7 @@ func mergeEvidenceDetails(a, b Evidence) map[string]string {
 			}
 		}
 	}
-	ranks := map[string]struct{}{}
-	collect := func(ev Evidence) {
-		if prior := strings.TrimSpace(ev.Details["lane_ranks"]); prior != "" {
-			for _, rank := range strings.Split(prior, ",") {
-				if rank = strings.TrimSpace(rank); rank != "" {
-					ranks[rank] = struct{}{}
-				}
-			}
-			return
-		}
-		rank := strings.TrimSpace(ev.Details["rank"])
-		if rank == "" {
-			rank = strings.TrimSpace(ev.Details["lane_rank"])
-		}
-		if rank != "" {
-			sources := strings.Split(ev.Source, ",")
-			if len(sources) == 0 || strings.TrimSpace(sources[0]) == "" {
-				ranks[rank] = struct{}{}
-			} else {
-				for _, source := range sources {
-					if source = strings.TrimSpace(source); source != "" {
-						ranks[source+"="+rank] = struct{}{}
-					}
-				}
-			}
-		}
-	}
-	collect(a)
-	collect(b)
-	if len(ranks) > 0 {
-		ordered := make([]string, 0, len(ranks))
-		for rank := range ranks {
-			ordered = append(ordered, rank)
-		}
-		sort.Strings(ordered)
-		details["lane_ranks"] = strings.Join(ordered, ",")
-	}
 	return details
-}
-
-func evidenceLess(a, b Evidence) bool {
-	if EvidenceScore(a) != EvidenceScore(b) {
-		return EvidenceScore(a) > EvidenceScore(b)
-	}
-	if a.Type != b.Type {
-		return a.Type < b.Type
-	}
-	if evidenceFactKey(a) != evidenceFactKey(b) {
-		return evidenceFactKey(a) < evidenceFactKey(b)
-	}
-	return canonicalEvidence(a) < canonicalEvidence(b)
-}
-
-func canonicalEvidence(ev Evidence) string {
-	copy := ev
-	copy.Source = strings.Join(sortedStrings(strings.Split(ev.Source, ",")), ",")
-	b, _ := json.Marshal(copy)
-	return string(b)
 }
 
 func canonicalEvidenceFactValue(ev Evidence) string {
@@ -340,17 +230,6 @@ func canonicalEvidenceFactValue(ev Evidence) string {
 	}
 	b, _ := json.Marshal(copy)
 	return string(b)
-}
-
-func sortedStrings(values []string) []string {
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		if value = strings.TrimSpace(value); value != "" {
-			out = append(out, value)
-		}
-	}
-	sort.Strings(out)
-	return out
 }
 
 func evidenceFactKey(ev Evidence) string {
@@ -367,7 +246,7 @@ func evidenceFactKey(ev Evidence) string {
 
 func isEvidenceOperationalDetail(key string) bool {
 	switch strings.ToLower(strings.TrimSpace(key)) {
-	case "rank", "lane_rank", "lane_ranks", "retriever", "provenance":
+	case "provenance":
 		return true
 	default:
 		return false

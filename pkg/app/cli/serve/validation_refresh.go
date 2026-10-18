@@ -84,21 +84,21 @@ func (c *ReadinessCoordinator) runValidationRefreshRequests(ctx context.Context)
 		case request = <-c.validationRequests:
 		}
 
-		timer := time.NewTimer(validationRefreshDebounce)
+		timer := c.newValidationTimer(validationRefreshDebounce)
 	debounce:
 		for {
 			select {
 			case <-ctx.Done():
 				if !timer.Stop() {
-					<-timer.C
+					<-timer.Ticks()
 				}
 				return
 			case request = <-c.validationRequests:
 				if !timer.Stop() {
-					<-timer.C
+					<-timer.Ticks()
 				}
 				timer.Reset(validationRefreshDebounce)
-			case <-timer.C:
+			case <-timer.Ticks():
 				break debounce
 			}
 		}

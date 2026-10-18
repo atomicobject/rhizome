@@ -1,6 +1,7 @@
 # Update test ownership
 
 - ResolveInvocation owns executable location and pin gating. BuildUpdatePlan owns target selection. Run owns prepare, commit order, and truthful partial results.
+- Update feed and manifest overrides use the invocation's `config.Env` carried in context. An explicit `Options.WorkDir` keeps its authority; when omitted, `Run` uses that environment's working directory and fails if it is unavailable. A supplied empty environment never falls back to host configuration. OS app-launch tools retain their process-owned environment; do not serialize arbitrary lookup functions into child processes.
 - Exercise trust checks with HTTP and archive fixtures. Keep process tests for delegation, standard streams, PID, and exit behavior at the command boundary.
 - Keep failure injection where production code owns the observable ordering. Do not replace it with a fake that supplies the expected sequence.
 - ResolveInvocation follows executable symlinks through `pkg/app/appbundle` before classifying an app-owned global installation. A detected bundle with unreadable metadata fails closed, so neither a bundled executable nor its command-line symlink becomes a replacement target.

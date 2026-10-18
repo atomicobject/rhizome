@@ -1,13 +1,13 @@
 package identifierreconcile
 
 import (
-	"strings"
-	"testing"
-
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/ontology/reference"
+	identifierrewrite "github.com/atomicobject/rhizome/pkg/validate/identifierreconcile/rewrite"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
+	"strings"
+	"testing"
 )
 
 func TestAssembleRepairIntentsAcceptsAliasRootToSuppliedPreferred(t *testing.T) {
@@ -15,13 +15,13 @@ func TestAssembleRepairIntentsAcceptsAliasRootToSuppliedPreferred(t *testing.T) 
 	collision := plan.Collisions[0]
 	loser := collision.Losers[0]
 	ref := repairRef(loser.Claim.Node.NotePath, "", "Spec")
-	rewrite := reference.IdentifierRewrite{
-		Mode: reference.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref,
+	rewrite := identifierrewrite.IdentifierRewrite{
+		Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref,
 		OldIdentifier: loser.Claim.Value, NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases",
 	}
-	fieldPlan := requiredAliasFieldPlan(rewrite, reference.StructuredFieldOccurrence{OwnerRef: repairRef("docs/consumer.md", "", "Plan"), Kind: reference.StructuredFieldReviewCandidate, Value: loser.Claim.Value, Range: ontology.ByteRange{Start: 50, End: 58}})
+	fieldPlan := requiredAliasFieldPlan(rewrite, identifierrewrite.StructuredFieldOccurrence{OwnerRef: repairRef("docs/consumer.md", "", "Plan"), Kind: identifierrewrite.StructuredFieldReviewCandidate, Value: loser.Claim.Value, Range: ontology.ByteRange{Start: 50, End: 58}})
 	collisions := []CollisionRepairInput{{
-		CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite},
+		CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 	}}
 	assembly, err := AssembleRekeyRepairIntents(repairAssemblyInputForTest(t, plan, collisions, fieldPlan))
 	require.NoError(t, err)
@@ -57,8 +57,8 @@ func TestAssembleRepairIntentsRejectsMissingOrMismatchedLoserRoot(t *testing.T) 
 	_, err := AssembleRekeyRepairIntents(repairAssemblyInputForTest(t, plan, []CollisionRepairInput{base}))
 	require.ErrorContains(t, err, "one root rewrite")
 
-	base.Rewrites = []reference.IdentifierRewrite{{
-		Mode: reference.IdentifierRewritePreferredRekey, OldRef: ref, NewRef: ref,
+	base.Rewrites = []identifierrewrite.IdentifierRewrite{{
+		Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: ref, NewRef: ref,
 		OldIdentifier: loser.Claim.Value, NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases",
 	}}
 	_, err = AssembleRekeyRepairIntents(repairAssemblyInputForTest(t, plan, []CollisionRepairInput{base}))
@@ -68,32 +68,32 @@ func TestAssembleRepairIntentsRejectsMissingOrMismatchedLoserRoot(t *testing.T) 
 func TestAssembleRepairIntentsBlocksOnlyConflictingCollisionAndKeepsSharedNoteMembership(t *testing.T) {
 	plan := twoAliasCollisionPlan(t)
 	inputs := make([]CollisionRepairInput, 0, 2)
-	fieldPlans := make([]reference.IdentifierFieldRewritePlan, 0, 2)
-	allRewrites := make([]reference.IdentifierRewrite, 0, 2)
-	var allResolutions []reference.StructuredLinkResolution
+	fieldPlans := make([]identifierrewrite.IdentifierFieldRewritePlan, 0, 2)
+	allRewrites := make([]identifierrewrite.IdentifierRewrite, 0, 2)
+	var allResolutions []identifierrewrite.StructuredLinkResolution
 	const sharedContent = "[[SHARED-A]] [[SHARED-A]] [[SHARED-B]]"
 	for index, collision := range plan.Collisions {
 		loser := collision.Losers[0]
 		ref := repairRef(loser.Claim.Node.NotePath, "", "Spec")
-		rewrite := reference.IdentifierRewrite{
-			Mode: reference.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref,
+		rewrite := identifierrewrite.IdentifierRewrite{
+			Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref,
 			OldIdentifier: loser.Claim.Value, NewIdentifier: "SPEC-009" + string(rune('1'+index)), PreferredField: "id", AliasesField: "aliases",
 		}
-		resolutions := []reference.StructuredLinkResolution{{LinkIndex: 2, Candidates: []ontology.NodeRef{ref}}}
+		resolutions := []identifierrewrite.StructuredLinkResolution{{LinkIndex: 2, Candidates: []ontology.NodeRef{ref}}}
 		if index == 0 {
-			resolutions = []reference.StructuredLinkResolution{
+			resolutions = []identifierrewrite.StructuredLinkResolution{
 				{LinkIndex: 0, Candidates: []ontology.NodeRef{ref}},
 				{LinkIndex: 1, Candidates: []ontology.NodeRef{ref, repairRef("docs/other.md", "", "Spec")}},
 			}
 		}
-		inputs = append(inputs, CollisionRepairInput{CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite}})
+		inputs = append(inputs, CollisionRepairInput{CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite}})
 		fieldPlans = append(fieldPlans, requiredAliasFieldPlan(rewrite))
 		allRewrites = append(allRewrites, rewrite)
 		allResolutions = append(allResolutions, resolutions...)
 	}
 	linkPlan := sealedLinkPlan(t, "docs/shared-consumer.md", sharedContent, allRewrites, allResolutions)
 
-	assembly, err := AssembleRekeyRepairIntents(repairAssemblyInputWithLinksForTest(t, plan, inputs, []reference.StructuredLinkRewritePlan{linkPlan}, fieldPlans...))
+	assembly, err := AssembleRekeyRepairIntents(repairAssemblyInputWithLinksForTest(t, plan, inputs, []identifierrewrite.StructuredLinkRewritePlan{linkPlan}, fieldPlans...))
 	require.NoError(t, err)
 	require.Len(t, assembly.Components, 2)
 	byMembership := componentsByMembership(assembly.Components)
@@ -112,16 +112,16 @@ func TestAssembleRepairIntentsBlocksMoveConflictAndBlockFragmentDoesNotRequestFr
 	loser := collision.Losers[0]
 	oldRef := repairRef(loser.Claim.Node.NotePath, "", "Spec")
 	newRef := repairRef("docs/SPEC-0002-b.md", "", "Spec")
-	rewrite := reference.IdentifierRewrite{Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef, OldIdentifier: loser.Claim.Value, NewIdentifier: loser.Replacement, PreferredField: "id", AliasesField: "aliases"}
+	rewrite := identifierrewrite.IdentifierRewrite{Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: newRef, OldIdentifier: loser.Claim.Value, NewIdentifier: loser.Replacement, PreferredField: "id", AliasesField: "aliases"}
 	move := obsidian.GovernedMovePlan{SourcePath: oldRef.NotePath, DestinationPath: newRef.NotePath, Renamed: true}
 	conflict := &obsidian.MoveConflict{DestinationPath: newRef.NotePath, ExistingPath: "docs/spec-0002-B.md"}
-	linkPlan := sealedLinkPlan(t, "docs/consumer.md", "[[SPEC-0001#^SPEC-0001]]", []reference.IdentifierRewrite{rewrite}, []reference.StructuredLinkResolution{{LinkIndex: 0, Candidates: []ontology.NodeRef{oldRef}}})
+	linkPlan := sealedLinkPlan(t, "docs/consumer.md", "[[SPEC-0001#^SPEC-0001]]", []identifierrewrite.IdentifierRewrite{rewrite}, []identifierrewrite.StructuredLinkResolution{{LinkIndex: 0, Candidates: []ontology.NodeRef{oldRef}}})
 
 	collisions := []CollisionRepairInput{{
-		CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite},
+		CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 		Moves: []GovernedMoveResult{{Request: obsidian.GovernedMoveRequest{SourcePath: oldRef.NotePath, OldID: "SPEC-0001", NewID: "SPEC-0002", SiblingPaths: []string{conflict.ExistingPath}}, Plan: move, Conflict: conflict}},
 	}}
-	assembly, err := AssembleRekeyRepairIntents(repairAssemblyInputWithLinksForTest(t, plan, collisions, []reference.StructuredLinkRewritePlan{linkPlan}, requiredPreferredFieldPlan(rewrite)))
+	assembly, err := AssembleRekeyRepairIntents(repairAssemblyInputWithLinksForTest(t, plan, collisions, []identifierrewrite.StructuredLinkRewritePlan{linkPlan}, requiredPreferredFieldPlan(rewrite)))
 	require.NoError(t, err)
 	component := assembly.Components[0]
 	require.True(t, component.Blocked)
@@ -139,12 +139,12 @@ func TestAssembleRepairIntentsRejectsSwappedSameRefAliasMembership(t *testing.T)
 	collision := plan.Collisions[0]
 	loser := collision.Losers[0]
 	ref := repairRef(loser.Claim.Node.NotePath, "", "Spec")
-	rewrite := reference.IdentifierRewrite{Mode: reference.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref, OldIdentifier: "SHARED-A", NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases"}
+	rewrite := identifierrewrite.IdentifierRewrite{Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref, OldIdentifier: "SHARED-A", NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases"}
 	swappedRewrite := rewrite
 	swappedRewrite.OldIdentifier = "SHARED-B"
 
 	collisions := []CollisionRepairInput{{
-		CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite},
+		CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 	}}
 	_, err := AssembleRekeyRepairIntents(repairAssemblyInputForTest(t, plan, collisions, requiredAliasFieldPlan(swappedRewrite)))
 	require.ErrorContains(t, err, "semantic rewrite membership")
@@ -155,16 +155,16 @@ func TestAssembleRepairIntentsRejectsInvalidPathsAndRefDrift(t *testing.T) {
 	collision := plan.Collisions[0]
 	loser := collision.Losers[0]
 	ref := repairRef(loser.Claim.Node.NotePath, "", "Spec")
-	base := reference.IdentifierRewrite{Mode: reference.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref, OldIdentifier: loser.Claim.Value, NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases"}
+	base := identifierrewrite.IdentifierRewrite{Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref, OldIdentifier: loser.Claim.Value, NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases"}
 
 	invalidPath := base
 	invalidPath.OldRef.NotePath = "../outside.md"
-	_, err := AssembleRekeyRepairIntents(RekeyRepairAssemblyInput{Plan: plan, Collisions: []CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{invalidPath}}}, FieldDiscovery: &IdentifierFieldDiscovery{sealed: "test"}})
+	_, err := AssembleRekeyRepairIntents(RekeyRepairAssemblyInput{Plan: plan, Collisions: []CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{invalidPath}}}, FieldDiscovery: &IdentifierFieldDiscovery{sealed: "test"}})
 	require.ErrorContains(t, err, "vault-relative")
 
 	typeDrift := base
 	typeDrift.NewRef.TypeName = "Plan"
-	typeDriftCollisions := []CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{typeDrift}}}
+	typeDriftCollisions := []CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{typeDrift}}}
 	_, err = AssembleRekeyRepairIntents(repairAssemblyInputForTest(t, plan, typeDriftCollisions))
 	require.ErrorContains(t, err, "type and kind")
 }
@@ -175,15 +175,15 @@ func TestAssembleRepairIntentsCanonicalizesZeroPreferredMode(t *testing.T) {
 	loser := collision.Losers[0]
 	oldRef := repairRef(loser.Claim.Node.NotePath, "", "Spec")
 	newRef := repairRef("docs/SPEC-0002-b.md", "", "Spec")
-	rewrite := reference.IdentifierRewrite{OldRef: oldRef, NewRef: newRef, OldIdentifier: loser.Claim.Value, NewIdentifier: loser.Replacement, PreferredField: "id", AliasesField: "aliases"}
+	rewrite := identifierrewrite.IdentifierRewrite{OldRef: oldRef, NewRef: newRef, OldIdentifier: loser.Claim.Value, NewIdentifier: loser.Replacement, PreferredField: "id", AliasesField: "aliases"}
 
 	collisions := []CollisionRepairInput{{
-		CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite},
+		CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 		Moves: []GovernedMoveResult{{Request: obsidian.GovernedMoveRequest{SourcePath: oldRef.NotePath, OldID: "SPEC-0001", NewID: "SPEC-0002"}, Plan: obsidian.GovernedMovePlan{SourcePath: oldRef.NotePath, DestinationPath: newRef.NotePath, Renamed: true}}},
 	}}
 	assembly, err := AssembleRekeyRepairIntents(repairAssemblyInputForTest(t, plan, collisions, requiredPreferredFieldPlan(rewrite)))
 	require.NoError(t, err)
-	require.Equal(t, reference.IdentifierRewritePreferredRekey, assembly.Components[0].Rewrites[0].Rewrite.Mode)
+	require.Equal(t, identifierrewrite.IdentifierRewritePreferredRekey, assembly.Components[0].Rewrites[0].Rewrite.Mode)
 	require.Equal(t, MoveDestinationVacancyPrecondition{
 		DestinationPath: newRef.NotePath, RequireExactVacancy: true, RequirePortableCaseFoldVacancy: true,
 	}, assembly.Components[0].Moves[0].DestinationVacancy)
@@ -195,10 +195,10 @@ func TestAssembleRepairIntentsRejectsCallerChosenUngovernedMoveDestination(t *te
 	loser := collision.Losers[0]
 	oldRef := repairRef(loser.Claim.Node.NotePath, "", "Spec")
 	evilRef := repairRef("docs/evil.md", "", "Spec")
-	rewrite := reference.IdentifierRewrite{Mode: reference.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: evilRef, OldIdentifier: loser.Claim.Value, NewIdentifier: loser.Replacement, PreferredField: "id", AliasesField: "aliases"}
+	rewrite := identifierrewrite.IdentifierRewrite{Mode: identifierrewrite.IdentifierRewritePreferredRekey, OldRef: oldRef, NewRef: evilRef, OldIdentifier: loser.Claim.Value, NewIdentifier: loser.Replacement, PreferredField: "id", AliasesField: "aliases"}
 
 	collisions := []CollisionRepairInput{{
-		CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite},
+		CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 		Moves: []GovernedMoveResult{{
 			Request: obsidian.GovernedMoveRequest{SourcePath: oldRef.NotePath, OldID: loser.Claim.Value, NewID: loser.Replacement},
 			Plan:    obsidian.GovernedMovePlan{SourcePath: oldRef.NotePath, DestinationPath: evilRef.NotePath, Renamed: true},
@@ -213,8 +213,8 @@ func TestRepairAssemblyValidatedSnapshotRejectsMutationAndReturnsDefensiveCopy(t
 	collision := plan.Collisions[0]
 	loser := collision.Losers[0]
 	ref := repairRef(loser.Claim.Node.NotePath, "", "Spec")
-	rewrite := reference.IdentifierRewrite{Mode: reference.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref, OldIdentifier: loser.Claim.Value, NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases"}
-	collisions := []CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite}}}
+	rewrite := identifierrewrite.IdentifierRewrite{Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref, OldIdentifier: loser.Claim.Value, NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases"}
+	collisions := []CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite}}}
 	assembly, err := AssembleRekeyRepairIntents(repairAssemblyInputForTest(t, plan, collisions, requiredAliasFieldPlan(rewrite)))
 	require.NoError(t, err)
 
@@ -243,13 +243,13 @@ func TestAssembleRepairIntentsRequiresCompleteFieldDiscoveryAndSealedLinkPlans(t
 	collision := plan.Collisions[0]
 	loser := collision.Losers[0]
 	ref := repairRef(loser.Claim.Node.NotePath, "", "Spec")
-	rewrite := reference.IdentifierRewrite{Mode: reference.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref, OldIdentifier: loser.Claim.Value, NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases"}
+	rewrite := identifierrewrite.IdentifierRewrite{Mode: identifierrewrite.IdentifierRewriteAliasRemoval, OldRef: ref, NewRef: ref, OldIdentifier: loser.Claim.Value, NewIdentifier: "SPEC-0099", PreferredField: "id", AliasesField: "aliases"}
 
-	collisions := []CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite}}}
+	collisions := []CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite}}}
 
 	t.Run("omitted field discovery", func(t *testing.T) {
 		_, err := AssembleRekeyRepairIntents(RekeyRepairAssemblyInput{Plan: plan, Collisions: []CollisionRepairInput{{
-			CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite},
+			CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite},
 		}}})
 		require.ErrorContains(t, err, "complete identifier field discovery")
 	})
@@ -261,15 +261,15 @@ func TestAssembleRepairIntentsRequiresCompleteFieldDiscoveryAndSealedLinkPlans(t
 	})
 
 	t.Run("link plan", func(t *testing.T) {
-		canonical, err := canonicalRepairRewriteSet([]reference.IdentifierRewrite{rewrite})
+		canonical, err := canonicalRepairRewriteSet([]identifierrewrite.IdentifierRewrite{rewrite})
 		require.NoError(t, err)
 		rewriteFingerprint, err := repairRewriteSetFingerprint(canonical)
 		require.NoError(t, err)
-		linkDiscovery := sealRawIdentifierLinkDiscoveryForTest(t, []reference.IdentifierRewrite{rewrite}, nil, []reference.StructuredLinkRewritePlan{{}})
+		linkDiscovery := sealRawIdentifierLinkDiscoveryForTest(t, []identifierrewrite.IdentifierRewrite{rewrite}, nil, []identifierrewrite.StructuredLinkRewritePlan{{}})
 		require.Equal(t, rewriteFingerprint, linkDiscovery.rewriteFingerprint)
 		input := RekeyRepairAssemblyInput{
-			Plan: plan, Collisions: []CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []reference.IdentifierRewrite{rewrite}}},
-			FieldDiscovery: sealFieldDiscoveryForTest(t, []reference.IdentifierRewrite{rewrite}, requiredAliasFieldPlan(rewrite)),
+			Plan: plan, Collisions: []CollisionRepairInput{{CollisionKey: collision.Key, Rewrites: []identifierrewrite.IdentifierRewrite{rewrite}}},
+			FieldDiscovery: sealFieldDiscoveryForTest(t, []identifierrewrite.IdentifierRewrite{rewrite}, requiredAliasFieldPlan(rewrite)),
 			LinkDiscovery:  linkDiscovery,
 		}
 		_, err = AssembleRekeyRepairIntents(input)
@@ -354,36 +354,36 @@ func postcheckValues(input []RepairPostcheckIntent) []RepairPostcheck {
 	return out
 }
 
-func requiredPreferredFieldPlan(rewrite reference.IdentifierRewrite) reference.IdentifierFieldRewritePlan {
-	return reference.PlanIdentifierFieldRewrites(reference.IdentifierFieldRewriteInput{Rewrites: []reference.IdentifierRewrite{rewrite}, Occurrences: []reference.StructuredFieldOccurrence{
-		repairOccurrence(rewrite.OldRef, rewrite.PreferredField, reference.StructuredFieldPreferredIdentifier, rewrite.OldIdentifier, 1, 10),
-		repairOccurrence(rewrite.OldRef, rewrite.AliasesField, reference.StructuredFieldAliasIdentifier, rewrite.OldIdentifier, 11, 20),
+func requiredPreferredFieldPlan(rewrite identifierrewrite.IdentifierRewrite) identifierrewrite.IdentifierFieldRewritePlan {
+	return identifierrewrite.PlanIdentifierFieldRewrites(identifierrewrite.IdentifierFieldRewriteInput{Rewrites: []identifierrewrite.IdentifierRewrite{rewrite}, Occurrences: []identifierrewrite.StructuredFieldOccurrence{
+		repairOccurrence(rewrite.OldRef, rewrite.PreferredField, identifierrewrite.StructuredFieldPreferredIdentifier, rewrite.OldIdentifier, 1, 10),
+		repairOccurrence(rewrite.OldRef, rewrite.AliasesField, identifierrewrite.StructuredFieldAliasIdentifier, rewrite.OldIdentifier, 11, 20),
 	}})
 }
 
-func requiredAliasFieldPlan(rewrite reference.IdentifierRewrite, extra ...reference.StructuredFieldOccurrence) reference.IdentifierFieldRewritePlan {
-	occurrences := []reference.StructuredFieldOccurrence{
-		repairOccurrence(rewrite.OldRef, rewrite.PreferredField, reference.StructuredFieldPreferredIdentifier, rewrite.NewIdentifier, 1, 10),
-		repairOccurrence(rewrite.OldRef, rewrite.AliasesField, reference.StructuredFieldAliasIdentifier, rewrite.OldIdentifier, 11, 20),
+func requiredAliasFieldPlan(rewrite identifierrewrite.IdentifierRewrite, extra ...identifierrewrite.StructuredFieldOccurrence) identifierrewrite.IdentifierFieldRewritePlan {
+	occurrences := []identifierrewrite.StructuredFieldOccurrence{
+		repairOccurrence(rewrite.OldRef, rewrite.PreferredField, identifierrewrite.StructuredFieldPreferredIdentifier, rewrite.NewIdentifier, 1, 10),
+		repairOccurrence(rewrite.OldRef, rewrite.AliasesField, identifierrewrite.StructuredFieldAliasIdentifier, rewrite.OldIdentifier, 11, 20),
 	}
 	occurrences = append(occurrences, extra...)
-	return reference.PlanIdentifierFieldRewrites(reference.IdentifierFieldRewriteInput{Rewrites: []reference.IdentifierRewrite{rewrite}, Occurrences: occurrences})
+	return identifierrewrite.PlanIdentifierFieldRewrites(identifierrewrite.IdentifierFieldRewriteInput{Rewrites: []identifierrewrite.IdentifierRewrite{rewrite}, Occurrences: occurrences})
 }
 
-func repairOccurrence(owner ontology.NodeRef, field string, kind reference.StructuredFieldKind, value string, start, end int) reference.StructuredFieldOccurrence {
-	return reference.StructuredFieldOccurrence{OwnerRef: owner, FieldName: field, Kind: kind, Value: value, Range: ontology.ByteRange{Start: start, End: end}}
+func repairOccurrence(owner ontology.NodeRef, field string, kind identifierrewrite.StructuredFieldKind, value string, start, end int) identifierrewrite.StructuredFieldOccurrence {
+	return identifierrewrite.StructuredFieldOccurrence{OwnerRef: owner, FieldName: field, Kind: kind, Value: value, Range: ontology.ByteRange{Start: start, End: end}}
 }
 
-func sealedLinkPlan(t *testing.T, notePath, content string, rewrites []reference.IdentifierRewrite, resolutions []reference.StructuredLinkResolution) reference.StructuredLinkRewritePlan {
+func sealedLinkPlan(t *testing.T, notePath, content string, rewrites []identifierrewrite.IdentifierRewrite, resolutions []identifierrewrite.StructuredLinkResolution) identifierrewrite.StructuredLinkRewritePlan {
 	t.Helper()
-	scan := obsidian.ScanStructuredLinkSnapshot(content)
+	scan := markdownsyntax.ScanStructuredLinkSnapshot(content)
 	return sealedLinkPlanWithSnapshot(t, notePath, content, scan, rewrites, resolutions)
 }
 
-func sealedLinkPlanWithSnapshot(t *testing.T, notePath, content string, scan obsidian.StructuredLinkScanSnapshot, rewrites []reference.IdentifierRewrite, resolutions []reference.StructuredLinkResolution) reference.StructuredLinkRewritePlan {
+func sealedLinkPlanWithSnapshot(t *testing.T, notePath, content string, scan markdownsyntax.StructuredLinkScanSnapshot, rewrites []identifierrewrite.IdentifierRewrite, resolutions []identifierrewrite.StructuredLinkResolution) identifierrewrite.StructuredLinkRewritePlan {
 	t.Helper()
 	validated, err := scan.ValidatedSnapshot()
 	require.NoError(t, err)
 	require.NotEmpty(t, validated.Links)
-	return reference.PlanStructuredLinkRewrites(reference.StructuredLinkRewriteInput{NotePath: notePath, Content: content, LinkSnapshot: &scan, Rewrites: rewrites, Resolutions: resolutions})
+	return identifierrewrite.PlanStructuredLinkRewrites(identifierrewrite.StructuredLinkRewriteInput{NotePath: notePath, Content: content, LinkSnapshot: &scan, Rewrites: rewrites, Resolutions: resolutions})
 }

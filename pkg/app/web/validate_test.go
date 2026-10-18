@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/stretchr/testify/require"
 )
@@ -258,9 +259,9 @@ func TestHandlePublicValidationGroupsCountsVariantsAndFiltersDiagnostics(t *test
 	for i := range snapshot.Diagnostics {
 		snapshot.Diagnostics[i].Code = "type_ambiguous"
 	}
-	snapshot.Diagnostics[0].Variant = &semdb.ValidationIssueVariant{Key: "A+B", Label: "A, B"}
-	snapshot.Diagnostics[1].Variant = &semdb.ValidationIssueVariant{Key: "C+D", Label: "C, D"}
-	snapshot.Diagnostics[2].Variant = &semdb.ValidationIssueVariant{Key: "C+D", Label: "C, D"}
+	snapshot.Diagnostics[0].Variant = &diag.Variant{Key: "A+B", Label: "A, B"}
+	snapshot.Diagnostics[1].Variant = &diag.Variant{Key: "C+D", Label: "C, D"}
+	snapshot.Diagnostics[2].Variant = &diag.Variant{Key: "C+D", Label: "C, D"}
 	published, err := store.PublishValidationSnapshot(ctx, snapshot)
 	require.NoError(t, err)
 	require.True(t, published)
@@ -277,8 +278,8 @@ func TestHandlePublicValidationGroupsCountsVariantsAndFiltersDiagnostics(t *test
 	var groups semdb.ValidationIssueGroupResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&groups))
 	require.Equal(t, []semdb.ValidationIssueGroup{
-		{Check: validate.CheckOntology, Code: "type_ambiguous", Variant: &semdb.ValidationIssueVariant{Key: "C+D", Label: "C, D"}, IssueCount: 2, AffectedFileCount: 2},
-		{Check: validate.CheckOntology, Code: "type_ambiguous", Variant: &semdb.ValidationIssueVariant{Key: "A+B", Label: "A, B"}, IssueCount: 1, AffectedFileCount: 1},
+		{Check: validate.CheckOntology, Code: "type_ambiguous", Variant: &diag.Variant{Key: "C+D", Label: "C, D"}, IssueCount: 2, AffectedFileCount: 2},
+		{Check: validate.CheckOntology, Code: "type_ambiguous", Variant: &diag.Variant{Key: "A+B", Label: "A, B"}, IssueCount: 1, AffectedFileCount: 1},
 	}, groups.Groups)
 
 	for _, test := range []struct {

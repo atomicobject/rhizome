@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"sort"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -41,7 +43,7 @@ type agentSurfaceIndexStatus struct {
 type agentSurfaceCommand = agentapi.SurfaceCommand
 type agentSurfaceFlag = agentapi.SurfaceFlag
 
-func newAgentSurfaceCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentSurfaceCmd() *cobra.Command {
 	var selector string
 	cmd := &cobra.Command{
 		Use:   "surface",
@@ -51,7 +53,7 @@ func newAgentSurfaceCmd() *cobra.Command {
 				writeAgentError(err)
 				return silentExitError{code: 1}
 			}
-			payload, err := selectAgentSurface(selector)
+			payload, err := commandOptions.selectAgentSurface(cmd.Context(), selector)
 			if err != nil {
 				writeAgentError(err)
 				return silentExitError{code: 1}
@@ -63,11 +65,11 @@ func newAgentSurfaceCmd() *cobra.Command {
 	return cmd
 }
 
-func buildAgentSurface() agentSurfaceResponse {
-	vaultDef, _ := vaultDefOrDefault()
+func (commandOptions *vaultCommandOptions) buildAgentSurface(ctx context.Context) agentSurfaceResponse {
+	vaultDef, _ := commandOptions.vaultDefOrDefaultContext(ctx)
 	vaultPath := vaultDef.BasePath()
 	budget := effectiveAgentBudgetChars(vaultPath, 0)
-	capabilities, indexes := buildAgentCapabilitiesSnapshot()
+	capabilities, indexes := commandOptions.buildAgentCapabilitiesSnapshot(ctx)
 	resp := agentSurfaceResponse{
 		Version:            version.Version,
 		Command:            "rzm agent",
@@ -103,6 +105,8 @@ func buildAgentSurface() agentSurfaceResponse {
 			"7. Before handoff: `rzm agent validate <check>` for one task-relevant check, `rzm agent validate all` for comprehensive checks, and `rzm agent validate audit` separately for maintenance checks.",
 		},
 	}
+	agentCmd, _, _ := commandOptions.root.Find([]string{"agent"})
+	moveCmd, _, _ := commandOptions.root.Find([]string{"note", "move"})
 	agentCommands := make(map[string]*cobra.Command, len(agentCmd.Commands()))
 	for _, child := range agentCmd.Commands() {
 		if child != nil && !child.Hidden {
@@ -185,8 +189,8 @@ func agentSurfaceToolName(descriptor agentapi.ToolDescriptor) string {
 	return descriptor.Name
 }
 
-func buildAgentCapabilitiesSnapshot() (agentapi.CapabilitiesResponse, agentSurfaceIndexStatus) {
-	def, err := vaultDefOrDefault()
+func (commandOptions *vaultCommandOptions) buildAgentCapabilitiesSnapshot(ctx context.Context) (agentapi.CapabilitiesResponse, agentSurfaceIndexStatus) {
+	def, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return agentapi.CapabilitiesResponse{
 			Server: agentapi.CapabilitiesServer{
@@ -217,23 +221,15 @@ func buildAgentCapabilitiesSnapshot() (agentapi.CapabilitiesResponse, agentSurfa
 		Reports: agentCapabilitiesReports(),
 	}
 	indexes := agentSurfaceIndexStatus{}
-
-	if codeCfg, err := obsidian.LoadCodeConfig(vaultPath); err == nil {
+	if resolved, err := repoconfig.Load(vaultPath); err == nil {
+		codeCfg, embCfg := resolved.Code, resolved.NoteEmbeddings
+		codeEmbCfg, _ := resolved.CodeEmbeddingsFor(embCfg)
 		resp.Features.CodeAnchors = codeCfg.Enabled
 		resp.Features.CodeIndex = codeCfg.Enabled
-		resp.Langs = configuredCodeLangs(codeCfg)
-		if indexes.UnifiedDBPath == "" {
-			indexes.UnifiedDBPath = obsidian.UnifiedIndexPath(vaultPath, codeCfg.IndexPath)
-		}
-	}
-	if embCfg, err := obsidian.LoadEmbeddingsConfig(vaultPath); err == nil {
 		resp.Features.NoteEmbeddings = embCfg.Enabled
-		if indexes.UnifiedDBPath == "" {
-			indexes.UnifiedDBPath = obsidian.UnifiedIndexPath(vaultPath, embCfg.IndexPath)
-		}
-		if codeEmbCfg, _, codeEmbErr := obsidian.EffectiveCodeEmbeddingsConfig(vaultPath, embCfg); codeEmbErr == nil {
-			resp.Features.CodeEmbeddings = codeEmbCfg.Enabled
-		}
+		resp.Features.CodeEmbeddings = codeEmbCfg.Enabled
+		resp.Langs = configuredCodeLangs(codeCfg)
+		indexes.UnifiedDBPath = codeCfg.IndexPath
 	}
 	if indexes.UnifiedDBPath != "" {
 		if _, err := os.Stat(indexes.UnifiedDBPath); err == nil {

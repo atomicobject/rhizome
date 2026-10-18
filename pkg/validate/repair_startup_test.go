@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/sourcetxn"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,7 +51,7 @@ func TestStabilizePendingRepairJournalsRollsBackPartialConnectedWriteBeforeStart
 	}})
 	runCtx := repairRunContext(t, root)
 
-	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, Options{
+	_, err := ApplyFixPlan(context.Background(), runCtx, &plan, ApplyOptions{
 		Fix: true, NonInteractive: true,
 		repairHooks: &repairExecutionHooks{AfterInstall: func(index int, _ string) error {
 			if index == 0 {
@@ -81,10 +82,21 @@ func TestStartupPreservesCommittedRepairAfterLaterSourceChanges(t *testing.T) {
 			transactions, err := GroupRepairTransactions([]RepairOperation{operation})
 			require.NoError(t, err)
 			transactions[0].Checks = []string{CheckOntology}
-			prepared, err := prepareRepairTransaction(runCtx, "plan:startup", transactions[0], []RepairOperation{operation}, false, nil)
+			interrupt := false
+			fixture, err := openRepairWriterFixture(t, runCtx, &repairExecutionHooks{
+				AfterInstall: func(_ int, _ string) error {
+					if interrupt {
+						return errSimulatedRepairInterruption
+					}
+					return nil
+				},
+			})
 			require.NoError(t, err)
-			require.NoError(t, commitPreparedRepairTransaction(runCtx, prepared, nil))
-			manifest := mustReadFile(t, filepath.Join(prepared.dir, "manifest.json"))
+			prepared, err := fixture.prepare("plan:startup", transactions[0], []RepairOperation{operation}, false)
+			require.NoError(t, err)
+			_, err = fixture.writer.Publish(prepared)
+			require.NoError(t, err)
+			manifest := mustReadFile(t, filepath.Join(prepared.Info().Directory, "manifest.json"))
 			// A separate transaction can still be unfinished in the same crashed apply.
 			unfinishedPath := filepath.Join(root, "unfinished.md")
 			require.NoError(t, os.WriteFile(unfinishedPath, before, 0o640))
@@ -92,12 +104,12 @@ func TestStartupPreservesCommittedRepairAfterLaterSourceChanges(t *testing.T) {
 			unfinishedTransactions, err := GroupRepairTransactions([]RepairOperation{unfinishedOperation})
 			require.NoError(t, err)
 			unfinishedTransactions[0].Checks = []string{CheckOntology}
-			unfinished, err := prepareRepairTransaction(runCtx, "plan:startup", unfinishedTransactions[0], []RepairOperation{unfinishedOperation}, false, nil)
+			unfinished, err := fixture.prepare("plan:startup", unfinishedTransactions[0], []RepairOperation{unfinishedOperation}, false)
 			require.NoError(t, err)
-			err = commitPreparedRepairTransaction(runCtx, unfinished, &repairExecutionHooks{
-				AfterInstall: func(_ int, _ string) error { return errSimulatedRepairInterruption },
-			})
+			interrupt = true
+			_, err = fixture.writer.Publish(unfinished)
 			require.ErrorIs(t, err, errSimulatedRepairInterruption)
+			fixture.close()
 			require.Equal(t, []byte("partial\n"), mustReadFile(t, unfinishedPath))
 			if removed {
 				require.NoError(t, os.Remove(path))
@@ -114,13 +126,16 @@ func TestStartupPreservesCommittedRepairAfterLaterSourceChanges(t *testing.T) {
 			} else {
 				assert.Equal(t, before, mustReadFile(t, path))
 			}
-			assert.Equal(t, manifest, mustReadFile(t, filepath.Join(prepared.dir, "manifest.json")))
-			assert.FileExists(t, filepath.Join(prepared.dir, "COMMITTED"))
-			assert.FileExists(t, prepared.manifest.Entries[0].BackupPath)
+			assert.Equal(t, manifest, mustReadFile(t, filepath.Join(prepared.Info().Directory, "manifest.json")))
+			assert.FileExists(t, filepath.Join(prepared.Info().Directory, "COMMITTED"))
+			assert.FileExists(t, prepared.Info().Manifest.Entries[0].BackupPath)
 			assert.Equal(t, before, mustReadFile(t, unfinishedPath))
 			require.Len(t, mustPendingRepairJournals(t, runCtx), 2)
-			_, err = recoverRepairJournals(runCtx)
-			require.ErrorContains(t, err, "recover committed transaction")
+			recovery, err := openRepairWriterFixture(t, runCtx, nil)
+			require.NoError(t, err)
+			defer recovery.close()
+			require.Empty(t, recovery.recovery.Committed, "changed committed sources must not receive a cleanup handle")
+			require.Error(t, sourcetxn.CheckAdmission(root, []string{"note.md"}))
 		})
 	}
 }

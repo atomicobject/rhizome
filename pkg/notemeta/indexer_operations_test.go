@@ -6,9 +6,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/noteformat/builtin"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/sqlitefixture"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
@@ -37,7 +37,7 @@ func TestIndexerEnsureIndexedPublishesCurrentProviderProvenance(t *testing.T) {
 	require.Equal(t, semdb.NoteProjectionStatusCurrent, row.Projection.Status)
 	require.Equal(t, row.ContentHash, row.Projection.SourceContentHash)
 	require.Equal(t, "markdown-provider-v1", row.Projection.ProviderVersion)
-	require.Equal(t, "markdown-projection-v3", row.Projection.ProjectionVersion)
+	require.Equal(t, "markdown-projection-v4", row.Projection.ProjectionVersion)
 }
 
 func TestIndexerProviderVersionChangeReprojectsWithoutRawHashChange(t *testing.T) {

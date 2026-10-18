@@ -4,15 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
+	"github.com/atomicobject/rhizome/pkg/diag"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/search/semantic"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -122,6 +125,13 @@ type ExecutableSchema struct {
 	Schema       *ast.Schema
 	RootTypes    map[string]string
 	RuntimeRoots map[string]RuntimeRootKind
+	sourceSchema *ontoschema.Schema
+	sourceHash   string
+}
+
+// MatchesOntologySchema verifies the source instance and identity captured at compilation.
+func (e *ExecutableSchema) MatchesOntologySchema(schema *ontoschema.Schema) bool {
+	return e != nil && schema != nil && e.sourceSchema == schema && e.sourceHash == schema.Hash
 }
 
 type PreparedQuery struct {
@@ -277,30 +287,13 @@ func typeNeedsCompleteModel(schema *ast.Schema, typeName string, seen map[string
 
 // Store is the query executor's indexed read contract.
 //
-// Keep this interface read-only. Query execution may fall back to note snapshots
-// for missing records, but it must not update ontology, metadata, or linkability
-// state while resolving a GraphQL request.
+// Keep this interface read-only. Shared scoped reads and bounded source projections
+// must not update ontology, metadata, or linkability while resolving a request.
 type Store interface {
-	GetOntologyTypeByPath(context.Context, string) (semdb.OntologyNoteTypeRow, bool, error)
-	GetOntologyAssessmentByPath(context.Context, string) (semdb.OntologyNoteAssessmentRow, bool, error)
-	OntologyAssessmentsByPaths(context.Context, []string) (map[string]semdb.OntologyNoteAssessmentRow, error)
-	OntologyAssessmentFlags(context.Context) (map[string]semdb.OntologyAssessmentFlags, error)
-	GetOntologySchemaState(context.Context) (semdb.OntologySchemaState, error)
-	OntologyTypesByPaths(context.Context, []string) (map[string]semdb.OntologyNoteTypeRow, error)
-	OntologyPathsByType(context.Context, string, int) ([]string, error)
-	OntologyNodesByIDs(context.Context, []string) (map[string]codeanchor.IntelOntologyNode, error)
-	OntologyNodesByTypePlan(context.Context, codeanchor.OntologyNodeQueryPlan) ([]codeanchor.IntelOntologyNode, error)
-	OntologyNodeFieldValuesByNodeIDs(context.Context, []string, []string) ([]codeanchor.IntelOntologyNodeFieldValue, error)
-	OntologyEdgesForPaths(context.Context, []string, bool, string, int) ([]semdb.OntologyEdgeRow, error)
-	OntologyStructuralEdgesBySources(context.Context, []string, string, int) ([]semdb.OntologyEdgeRow, error)
-	OntologyAmbientEdgesBySources(context.Context, []string, string, int) ([]semdb.OntologyEdgeRow, error)
+	noderead.ReadStore
+	GraphDocNoteLinkSourcesByTargets(context.Context, []string) ([]string, error)
 	OntologyAmbientEdgesByTargets(context.Context, []string, string, int) ([]semdb.OntologyEdgeRow, error)
-	CurrentNoteMetadataRows(context.Context) ([]semdb.NoteMetadataRow, error)
-	CurrentNoteMetadataRowsByPaths(context.Context, []string) (map[string]semdb.NoteMetadataRow, error)
-	CurrentNotePropertyValues(context.Context, []string, []string, semdb.NotePropertySource) ([]semdb.NotePropertyValueRow, error)
-	CurrentNoteTags(context.Context, []string) ([]semdb.NoteTagRow, error)
 	CurrentNotePathsByPropertyValue(context.Context, string, string, semdb.NotePropertySource) ([]string, error)
-	CurrentNoteAliases(context.Context) (map[string][]string, error)
 	IntelAnchorsByPath(context.Context, string) ([]codeanchor.IntelAnchor, error)
 }
 
@@ -334,12 +327,7 @@ type NoteSearchHit struct {
 
 type NoteSearchResponse struct {
 	Hits     []NoteSearchHit
-	Warnings []RuntimeWarning
-}
-
-type OntologyService interface {
-	ResolvedType(context.Context, string) (semdb.OntologyNoteTypeRow, bool, error)
-	Assessment(context.Context, string) (*ontology.NoteAssessment, bool, error)
+	Warnings []diag.Warning
 }
 
 type RuntimeRootKind string
@@ -348,12 +336,6 @@ const (
 	RuntimeRootOntology RuntimeRootKind = "ontology"
 	RuntimeRootCode     RuntimeRootKind = "code"
 )
-
-type RuntimeWarning struct {
-	Code    string `json:"code,omitempty"`
-	Message string `json:"message,omitempty"`
-	Path    string `json:"path,omitempty"`
-}
 
 type OntologyRuntimeProvider interface {
 	AuthoringGuide(context.Context, OntologyAuthoringGuideRequest) (OntologyAuthoringGuide, error)
@@ -369,7 +351,7 @@ type OntologyAuthoringGuide struct {
 	Type      string
 	Markdown  string
 	Available bool
-	Warnings  []RuntimeWarning
+	Warnings  []diag.Warning
 }
 
 type OntologyNextIDRequest struct {
@@ -388,7 +370,7 @@ type OntologyIDAllocation struct {
 type OntologyNextID struct {
 	Type            string
 	IdentifierField string
-	Strategy        ontology.IdentifierStrategy
+	Strategy        ontoschema.IdentifierStrategy
 	Source          string
 	Prefix          string
 	Separator       string
@@ -410,7 +392,7 @@ type OntologyNextID struct {
 	Available       bool
 	ErrorCode       string
 	Error           string
-	Warnings        []RuntimeWarning
+	Warnings        []diag.Warning
 }
 
 type OntologyCurrentUser struct {
@@ -423,7 +405,7 @@ type OntologyCurrentUser struct {
 	TypeName    string
 	ErrorCode   string
 	Error       string
-	Warnings    []RuntimeWarning
+	Warnings    []diag.Warning
 }
 
 type OntologyQueryPlan struct {
@@ -436,7 +418,7 @@ type OntologyQueryPlan struct {
 	ResidualFilters []string
 	PushedSort      []string
 	ResidualSort    []string
-	Warnings        []RuntimeWarning
+	Warnings        []diag.Warning
 }
 
 type CodeRuntimeProvider interface {
@@ -465,7 +447,7 @@ type CodeContextPack struct {
 	InputPath      string
 	NormalizedPath string
 	Available      bool
-	Warnings       []RuntimeWarning
+	Warnings       []diag.Warning
 	Docs           []RuntimePath
 	Notes          []RuntimePath
 	Code           []RuntimePath
@@ -484,7 +466,6 @@ type Deps struct {
 	PathOwner               func(string) PathOwner
 	SemanticSearcher        SemanticSearcher
 	NoteSearcher            NoteSearcher
-	Service                 OntologyService
 	OntologyRuntime         OntologyRuntimeProvider
 	CodeRuntime             CodeRuntimeProvider
 	ReadOverlay             *ReadOverlay
@@ -537,7 +518,7 @@ type sectionRecord struct {
 	// themselves have no propertyCase — their inline-key derivation is driven
 	// by whichever note type is referencing them, so we carry that context on
 	// the record as we descend through nested sections.
-	PropertyCase ontology.PropertyCase
+	PropertyCase ontoschema.PropertyCase
 
 	// inlineProps caches the Dataview-style `Key:: Value` pairs found inside
 	// this section's own content (descendant ranges subtracted). It is
@@ -545,7 +526,7 @@ type sectionRecord struct {
 	// don't read section scalar fields and parsing is cheap but not free.
 	inlineProps       map[string][]string
 	inlinePropsLoaded bool
-	indexedFields     map[string][]codeanchor.IntelOntologyNodeFieldValue
+	indexedFields     map[string][]readmodel.FieldValueRow
 }
 
 type codeRecord struct {
@@ -560,7 +541,7 @@ type codeRecord struct {
 // The inline key is derived from the enclosing note type's propertyCase so
 // the same section type can be reused under note types with different casing
 // conventions.
-func (s *sectionRecord) fieldValues(field *ontology.Field, propertyCase ontology.PropertyCase) []string {
+func (s *sectionRecord) fieldValues(field *ontoschema.Field, propertyCase ontoschema.PropertyCase) []string {
 	if s == nil || field == nil {
 		return nil
 	}
@@ -579,11 +560,11 @@ func (s *sectionRecord) fieldValues(field *ontology.Field, propertyCase ontology
 		}
 	}
 	s.ensureInlinePropsLoaded()
-	propertyName := ontology.DefaultPropertyName(field.Name, propertyCase)
+	propertyName := ontoschema.DefaultPropertyName(field.Name, propertyCase)
 	return normalizeStrings(caseInsensitiveInlineLookup(s.inlineProps, propertyName))
 }
 
-func (s *sectionRecord) hasFieldValue(field *ontology.Field, propertyCase ontology.PropertyCase) bool {
+func (s *sectionRecord) hasFieldValue(field *ontoschema.Field, propertyCase ontoschema.PropertyCase) bool {
 	if s == nil || field == nil {
 		return false
 	}
@@ -593,7 +574,7 @@ func (s *sectionRecord) hasFieldValue(field *ontology.Field, propertyCase ontolo
 		}
 	}
 	s.ensureInlinePropsLoaded()
-	propertyName := ontology.DefaultPropertyName(field.Name, propertyCase)
+	propertyName := ontoschema.DefaultPropertyName(field.Name, propertyCase)
 	return caseInsensitiveInlineHasKey(s.inlineProps, propertyName)
 }
 
@@ -608,20 +589,20 @@ func (s *sectionRecord) ensureInlinePropsLoaded() {
 	s.inlineProps = ontology.SectionInlineProperties(ontology.SectionOwnContent(s.Node))
 }
 
-func (n *noteRecord) hasField(field *ontology.Field) bool {
+func (n *noteRecord) hasField(field *ontoschema.Field) bool {
 	if n == nil || field == nil {
 		return false
 	}
 	switch field.SourceKind {
-	case ontology.FieldSourceInline:
-		for _, name := range ontology.FieldSourceNames(field) {
+	case ontoschema.FieldSourceInline:
+		for _, name := range ontoschema.FieldSourceNames(field) {
 			if caseInsensitiveInlineHasKey(n.InlineProps, name) {
 				return true
 			}
 		}
 		return false
 	default:
-		for _, name := range ontology.FieldSourceNames(field) {
+		for _, name := range ontoschema.FieldSourceNames(field) {
 			if caseInsensitiveFrontmatterHasKey(n.Frontmatter, name) {
 				return true
 			}
@@ -650,25 +631,25 @@ func (n *noteRecord) cloneTags() []string {
 	return out
 }
 
-func (n *noteRecord) fieldValues(field *ontology.Field) []string {
+func (n *noteRecord) fieldValues(field *ontoschema.Field) []string {
 	if n == nil || field == nil {
 		return nil
 	}
 	switch field.SourceKind {
-	case ontology.FieldSourceInline:
-		for _, name := range ontology.FieldSourceNames(field) {
+	case ontoschema.FieldSourceInline:
+		for _, name := range ontoschema.FieldSourceNames(field) {
 			if values := normalizeStrings(caseInsensitiveInlineLookup(n.InlineProps, name)); len(values) > 0 {
 				return values
 			}
 		}
 		return nil
 	default:
-		for _, name := range ontology.FieldSourceNames(field) {
+		for _, name := range ontoschema.FieldSourceNames(field) {
 			value := caseInsensitiveFrontmatterLookup(n.Frontmatter, name)
 			if value == nil {
 				continue
 			}
-			values := flattenValueStrings(value)
+			values := ontology.FieldTextValues(field, value)
 			if len(values) > 0 || caseInsensitiveFrontmatterHasKey(n.Frontmatter, name) {
 				return values
 			}

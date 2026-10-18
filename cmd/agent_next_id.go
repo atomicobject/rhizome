@@ -2,24 +2,25 @@ package cmd
 
 import (
 	"context"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 
-	actions "github.com/atomicobject/rhizome/pkg/app/cli"
 	"github.com/atomicobject/rhizome/pkg/app/oneshotruntime"
-	"github.com/atomicobject/rhizome/pkg/ontology"
+	actions "github.com/atomicobject/rhizome/pkg/app/operations"
+
 	"github.com/atomicobject/rhizome/pkg/ontology/idalloc"
 	"github.com/spf13/cobra"
 )
 
-func allocateAgentNextID(ctx context.Context, typeName string, count int, paths []string) (*idalloc.Result, error) {
-	vaultDef, err := vaultDefOrDefaultContext(ctx)
+func (commandOptions *vaultCommandOptions) allocateAgentNextID(ctx context.Context, typeName string, count int, paths []string) (*idalloc.Result, error) {
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// Preserve schema admission errors before starting the live runtime.
-	if _, err := ontology.LoadSchema(vaultDef.BasePath()); err != nil {
+	if _, err := ontoschema.LoadSchema(vaultDef.BasePath()); err != nil {
 		return nil, err
 	}
-	live, err := buildOntologyQueryLiveRuntime(ctx, oneshotruntime.OntologyQueryPlan(false, false))
+	live, err := commandOptions.buildOntologyQueryLiveRuntime(ctx, oneshotruntime.OntologyQueryPlan(false, false))
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +28,7 @@ func allocateAgentNextID(ctx context.Context, typeName string, count int, paths 
 	return actions.AllocateNextID(ctx, live.VaultDef, live.NoteMetadataIndexer(), live.IntelStore(), idalloc.Request{Type: typeName, Count: count, Paths: paths})
 }
 
-func newAgentNextIDCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentNextIDCmd() *cobra.Command {
 	var typeName string
 	var count int
 	var paths []string
@@ -35,7 +36,7 @@ func newAgentNextIDCmd() *cobra.Command {
 		Use:   "next-id",
 		Short: "Allocate the next identifier for a typed note family",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			result, err := allocateAgentNextID(cmd.Context(), typeName, count, paths)
+			result, err := commandOptions.allocateAgentNextID(cmd.Context(), typeName, count, paths)
 			if err != nil {
 				writeNextIDError(err, result)
 				return silentExitError{code: 1}

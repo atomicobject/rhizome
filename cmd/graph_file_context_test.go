@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +13,7 @@ import (
 func TestGraphFileContextApplyRepairsEmbeddedNodeTargetFromConfiguredPythonCodeRef(t *testing.T) {
 	vault := setupGraphFileContextLinkTargetVault(t)
 
-	stdout, stderr, err := runRootCLI(t, nil, []string{
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"graph", "file-context",
 		"--vault", vault.name,
 		"--profile", "code",
@@ -30,7 +32,7 @@ func TestGraphFileContextApplyRepairsEmbeddedNodeTargetFromConfiguredPythonCodeR
 func TestGraphFileContextDefaultAndNeverDoNotRepairEmbeddedNodeTargets(t *testing.T) {
 	vault := setupGraphFileContextLinkTargetVault(t)
 
-	defaultOutput, defaultErr, err := runRootCLI(t, nil, []string{
+	defaultOutput, defaultErr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"graph", "file-context",
 		"--vault", vault.name,
 		"--profile", "code",
@@ -39,7 +41,7 @@ func TestGraphFileContextDefaultAndNeverDoNotRepairEmbeddedNodeTargets(t *testin
 	require.NoError(t, err, "stdout=%s stderr=%s", defaultOutput, defaultErr)
 	require.Empty(t, defaultErr)
 
-	planOutput, planErr, err := runRootCLI(t, nil, []string{
+	planOutput, planErr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"graph", "file-context",
 		"--vault", vault.name,
 		"--profile", "code",
@@ -50,7 +52,7 @@ func TestGraphFileContextDefaultAndNeverDoNotRepairEmbeddedNodeTargets(t *testin
 	require.Empty(t, planErr)
 	require.Contains(t, planOutput, `kind="ontology-node"`)
 
-	neverOutput, neverErr, err := runRootCLI(t, nil, []string{
+	neverOutput, neverErr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{
 		"graph", "file-context",
 		"--vault", vault.name,
 		"--profile", "code",
@@ -69,7 +71,7 @@ func TestGraphFileContextDefaultAndNeverDoNotRepairEmbeddedNodeTargets(t *testin
 
 func setupGraphFileContextLinkTargetVault(t *testing.T) agentTestVault {
 	t.Helper()
-	return setupAgentTestVault(t, map[string]string{
+	vault := setupAgentTestVault(t, map[string]string{
 		".rhizome/config.yml": `notes:
   includes: ["**/*.md"]
 code:
@@ -100,4 +102,7 @@ summary:: Repair the embedded node locator.
 `,
 		"src/phase5.py": "# WHY: implements [[phase5-spec#Story A]]\nprint('phase 5')\n",
 	})
+	stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), vault.env), []string{"index", "--vault", vault.name})
+	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
+	return vault
 }

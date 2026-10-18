@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -214,7 +214,7 @@ func TestRunCommitsRepoMetadataAfterBinaryInOrder(t *testing.T) {
 	deps := executionDependencies()
 	deps.replace = func(_, target string) error { events = append(events, "binary "+target); return nil }
 	deps.writeMarker = func(target, _ string) error { events = append(events, "marker "+target); return nil }
-	deps.saveConfig = func(dir string, _ obsidian.LocalConfig) error { events = append(events, "pin "+dir); return nil }
+	deps.saveConfig = func(dir string, _ repoconfig.LocalConfig) error { events = append(events, "pin "+dir); return nil }
 
 	result, err := Run(context.Background(), Options{
 		ManifestURL:    "https://releases.invalid/latest.json",
@@ -256,7 +256,7 @@ func TestRunMetadataFailuresReturnTruthfulPartialResult(t *testing.T) {
 				}
 				return nil
 			}
-			deps.saveConfig = func(_ string, _ obsidian.LocalConfig) error {
+			deps.saveConfig = func(_ string, _ repoconfig.LocalConfig) error {
 				events = append(events, "pin")
 				return errors.New("pin denied")
 			}
@@ -279,8 +279,8 @@ func TestRunMetadataFailuresReturnTruthfulPartialResult(t *testing.T) {
 func TestRunReportsPinWrittenWhenConfigSavePersistsPinBeforeFailing(t *testing.T) {
 	repo, global, repoTarget := updateExecutionFixture(t, "v0.50.0")
 	deps := executionDependencies()
-	deps.saveConfig = func(dir string, cfg obsidian.LocalConfig) error {
-		require.NoError(t, obsidian.SaveLocalConfig(dir, cfg))
+	deps.saveConfig = func(dir string, cfg repoconfig.LocalConfig) error {
+		require.NoError(t, repoconfig.SaveLocalConfig(dir, cfg))
 		return errors.New("workflow metadata denied")
 	}
 
@@ -336,7 +336,7 @@ func executionDependencies() runDependencies {
 		},
 		replace:     func(_, _ string) error { return nil },
 		writeMarker: func(_, _ string) error { return nil },
-		saveConfig:  func(_ string, _ obsidian.LocalConfig) error { return nil },
+		saveConfig:  func(_ string, _ repoconfig.LocalConfig) error { return nil },
 	}
 }
 
@@ -347,7 +347,7 @@ func updateExecutionFixture(t *testing.T, pin string) (repo, global, repoTarget 
 	require.NoError(t, err)
 	repo = canonicalRepo
 	global = filepath.Join(t.TempDir(), executableName())
-	require.NoError(t, obsidian.SaveLocalConfig(repo, obsidian.LocalConfig{Rhizome: obsidian.LocalRhizomeConfig{Version: pin}}))
+	require.NoError(t, repoconfig.SaveLocalConfig(repo, repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{Version: pin}}))
 	repoTarget = filepath.Join(repo, ".rhizome", "bin", CurrentPlatformDir(), executableName())
 	return repo, global, repoTarget
 }

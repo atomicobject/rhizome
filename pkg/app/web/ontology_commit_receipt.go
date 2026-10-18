@@ -56,7 +56,7 @@ func (s *Server) writeOntologyCommitReceipt(ctx context.Context, sessionID, requ
 	}, &validate.RepairCompletionArtifact{Path: artifact.Path, Content: artifact.Content})
 }
 
-func (s *Server) ontologyCommitReceiptArtifact(sessionID, requestID, submissionHash string, response OntologyEditSessionResponse) (*ontology.CommitCompletionArtifact, error) {
+func (s *Server) ontologyCommitReceiptArtifact(sessionID, requestID, submissionHash string, response OntologyEditSessionResponse) (*validate.RepairCompletionArtifact, error) {
 	path, err := s.ontologyCommitReceiptPath(sessionID, requestID)
 	if err != nil || path == "" {
 		return nil, err
@@ -68,7 +68,7 @@ func (s *Server) ontologyCommitReceiptArtifact(sessionID, requestID, submissionH
 	if err != nil {
 		return nil, err
 	}
-	return &ontology.CommitCompletionArtifact{Path: path, Content: payload}, nil
+	return &validate.RepairCompletionArtifact{Path: path, Content: payload}, nil
 }
 
 func compactOntologyCommitReceiptResponse(response OntologyEditSessionResponse) OntologyEditSessionResponse {

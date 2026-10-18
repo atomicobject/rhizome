@@ -22,7 +22,7 @@ var validID = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
 
 const maxStoredFiles = 4096
 const maxScannedEntries = 16384
-const reportGuardWait = 2 * time.Second
+const reportGuardWait = 4 * time.Second
 const segmentGuardWait = reportGuardWait
 
 func ensureDirectories(dir string) error {

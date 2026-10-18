@@ -21,58 +21,58 @@ import (
 // clients.
 const agentCLIBudgetFloor = 150000
 
-var agentCmd = &cobra.Command{
-	Use:           "agent",
-	Short:         "Machine-oriented commands for agents",
-	SilenceUsage:  true,
-	SilenceErrors: true,
+func (commandOptions *vaultCommandOptions) makeAgentCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:           "agent",
+		Short:         "Machine-oriented commands for agents",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
 }
 
-var agentSessionID string
-
-func init() {
-	agentCmd.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault name (uses default if unset)")
-	agentCmd.PersistentFlags().StringVar(&agentSessionID, "session-id", "", "session id for cross-invocation dedupe")
-	agentCmd.PersistentFlags().StringVar(&agentSessionID, "session", "", "alias for --session-id")
-	agentCmd.PersistentFlags().StringSliceVar(&suppressTags, "suppress-tags", nil, "additional tags to suppress/exclude from output")
-	agentCmd.PersistentFlags().BoolVar(&noSuppress, "no-suppress", false, "disable all tag suppression")
+func (commandOptions *vaultCommandOptions) registerAgentCommands(agentCmd, rootCmd *cobra.Command) {
+	agentCmd.PersistentFlags().StringVarP(&commandOptions.vaultName, "vault", "v", "", "vault name (uses default if unset)")
+	agentCmd.PersistentFlags().StringVar(&commandOptions.agentSessionID, "session-id", "", "session id for cross-invocation dedupe")
+	agentCmd.PersistentFlags().StringVar(&commandOptions.agentSessionID, "session", "", "alias for --session-id")
+	agentCmd.PersistentFlags().StringSliceVar(&commandOptions.suppressTags, "suppress-tags", nil, "additional tags to suppress/exclude from output")
+	agentCmd.PersistentFlags().BoolVar(&commandOptions.noSuppress, "no-suppress", false, "disable all tag suppression")
 	rootCmd.AddCommand(agentCmd)
 
 	children := []*cobra.Command{
-		newAgentSurfaceCmd(),
-		newAgentCodeCmd(),
-		newAgentStartCmd(),
-		newAgentValidateProductCmdWithRunner(newProductionValidationRunner()),
-		newAgentNodeLinkCmd(),
-		newAgentNoteRenameHeadingCmd(),
-		newAgentOntologyQuerySchemaCmd(),
-		newAgentOntologyQueryCmd(),
-		newQueryRecipeCmd(true),
-		newViewCmd(true),
-		newAgentOntologyReferenceCmd(),
-		newAgentOntologyAuthoringGuideCmd(),
-		newAgentOntologyInspectCmd(),
-		newAgentNextIDCmd(),
-		newAgentCurrentUserCmd(),
-		newAgentFilesCmd(),
-		newAgentListTagsCmd(),
-		newAgentListPropertiesCmd(),
-		newAgentCommunityListCmd(),
-		newAgentReportCmd(),
-		newAgentFileContextCmd(),
-		newAgentVaultContextCmd(),
-		newAgentSemanticQueryCmd(),
-		newAgentCodeSymbolCmd(),
-		newAgentCodeReferencesCmd(),
-		newAgentCodeSymbolContextCmd(),
-		newAgentExternalReferencesCmd(),
-		newAgentEvaluateCmd(),
-		newAgentJSONStdinCmd("evaluate-batch", "Evaluate independent Jev states from JSON stdin"),
-		newAgentJSONStdinCmd("check-paths", "Check a collection of paths against unified ignore rules from JSON stdin"),
-		newAgentFindConnectionsCmd(),
-		newAgentGraphPathCmd(),
-		newAgentCodeRationaleCmd(),
-		newAgentVaultHealthCmd(),
+		commandOptions.newAgentSurfaceCmd(),
+		commandOptions.newAgentCodeCmd(),
+		commandOptions.newAgentStartCmd(),
+		commandOptions.newAgentValidateProductCmdWithRunner(newProductionValidationRunner()),
+		commandOptions.newAgentNodeLinkCmd(),
+		commandOptions.newAgentNoteRenameHeadingCmd(),
+		commandOptions.newAgentOntologyQuerySchemaCmd(),
+		commandOptions.newAgentOntologyQueryCmd(),
+		commandOptions.newQueryRecipeCmd(true),
+		commandOptions.newViewCmd(true),
+		commandOptions.newAgentOntologyReferenceCmd(),
+		commandOptions.newAgentOntologyAuthoringGuideCmd(),
+		commandOptions.newAgentOntologyInspectCmd(),
+		commandOptions.newAgentNextIDCmd(),
+		commandOptions.newAgentCurrentUserCmd(),
+		commandOptions.newAgentFilesCmd(),
+		commandOptions.newAgentListTagsCmd(),
+		commandOptions.newAgentListPropertiesCmd(),
+		commandOptions.newAgentCommunityListCmd(),
+		commandOptions.newAgentReportCmd(),
+		commandOptions.newAgentFileContextCmd(),
+		commandOptions.newAgentVaultContextCmd(),
+		commandOptions.newAgentSemanticQueryCmd(),
+		commandOptions.newAgentCodeSymbolCmd(),
+		commandOptions.newAgentCodeReferencesCmd(),
+		commandOptions.newAgentCodeSymbolContextCmd(),
+		commandOptions.newAgentExternalReferencesCmd(),
+		commandOptions.newAgentEvaluateCmd(),
+		commandOptions.newAgentJSONStdinCmd("evaluate-batch", "Evaluate independent Jev states from JSON stdin"),
+		commandOptions.newAgentJSONStdinCmd("check-paths", "Check a collection of paths against unified ignore rules from JSON stdin"),
+		commandOptions.newAgentFindConnectionsCmd(),
+		commandOptions.newAgentGraphPathCmd(),
+		commandOptions.newAgentCodeRationaleCmd(),
+		commandOptions.newAgentVaultHealthCmd(),
 	}
 	for _, child := range children {
 		agentCmd.AddCommand(suppressAgentCommandNoise(child))
@@ -80,13 +80,13 @@ func init() {
 	bindAgentRuntimePlanOperations(agentCmd)
 }
 
-func runAgentJSONTool(cmd *cobra.Command, budgetChars int, toolName string, args map[string]any) error {
+func (commandOptions *vaultCommandOptions) runAgentJSONTool(cmd *cobra.Command, budgetChars int, toolName string, args map[string]any) error {
 	operationID, err := agentOperationIDFromCommand(cmd)
 	if err != nil {
 		writeAgentError(err)
 		return silentExitError{code: 1}
 	}
-	cfg, rt, err := prepareAgentJSONTool(cmd.Context(), budgetChars, toolName, operationID, args)
+	cfg, rt, err := commandOptions.prepareAgentJSONTool(cmd.Context(), budgetChars, toolName, operationID, args)
 	if err != nil {
 		writeAgentError(err)
 		return silentExitError{code: 1}
@@ -105,8 +105,8 @@ func runAgentJSONTool(cmd *cobra.Command, budgetChars int, toolName string, args
 
 // prepareAgentJSONTool is the shared CLI/code-mode application boundary. Runtime
 // state is request-scoped so a later call sees edits and replacement indexes.
-func prepareAgentJSONTool(ctx context.Context, budgetChars int, toolName string, operationID oneshotruntime.OperationID, args map[string]any) (agentapi.Config, *bootstrap.LiveRuntime, error) {
-	if err := normalizeAgentRequestPlanArgs(ctx, operationID, args); err != nil {
+func (commandOptions *vaultCommandOptions) prepareAgentJSONTool(ctx context.Context, budgetChars int, toolName string, operationID oneshotruntime.OperationID, args map[string]any) (agentapi.Config, *bootstrap.LiveRuntime, error) {
+	if err := commandOptions.normalizeAgentRequestPlanArgs(ctx, operationID, args); err != nil {
 		return agentapi.Config{}, nil, err
 	}
 	var finishBootstrap func(error)
@@ -128,12 +128,12 @@ func prepareAgentJSONTool(ctx context.Context, budgetChars int, toolName string,
 		if !declared || declaration.PlanSource != oneshotruntime.PlanSourceExempt {
 			err = fmt.Errorf("operation %q has no runtime plan or exemption: %w", operationID, planErr)
 		} else {
-			cfg, rt, err = buildAgentConfigForOperation(ctx, budgetChars, toolName, operationID)
+			cfg, rt, err = commandOptions.buildAgentConfigForOperation(ctx, budgetChars, toolName, operationID)
 		}
 	} else if planErr != nil {
 		err = planErr
 	} else {
-		cfg, rt, err = buildAgentConfigForRequestPlan(ctx, budgetChars, toolName, operationID, plan)
+		cfg, rt, err = commandOptions.buildAgentConfigForRequestPlan(ctx, budgetChars, toolName, operationID, plan)
 	}
 	if finishBootstrap != nil {
 		finishBootstrap(err)
@@ -141,11 +141,11 @@ func prepareAgentJSONTool(ctx context.Context, budgetChars int, toolName string,
 	return cfg, rt, err
 }
 
-func normalizeAgentRequestPlanArgs(ctx context.Context, operationID oneshotruntime.OperationID, args map[string]any) error {
+func (commandOptions *vaultCommandOptions) normalizeAgentRequestPlanArgs(ctx context.Context, operationID oneshotruntime.OperationID, args map[string]any) error {
 	if operationID != "agent.files" {
 		return oneshotruntime.NormalizeRequestPlanArgs(operationID, args, nil, nil)
 	}
-	vaultDef, err := vaultDefOrDefaultContext(ctx)
+	vaultDef, err := commandOptions.vaultDefOrDefaultContext(ctx)
 	if err != nil {
 		return oneshotruntime.NormalizeRequestPlanArgs(operationID, args, nil, nil)
 	}
@@ -160,7 +160,7 @@ func normalizeAgentRequestPlanArgs(ctx context.Context, operationID oneshotrunti
 	return oneshotruntime.NormalizeRequestPlanArgs(operationID, args, &vaultPaths, &noteRuntime)
 }
 
-func newAgentNodeLinkCmd() *cobra.Command {
+func (commandOptions *vaultCommandOptions) newAgentNodeLinkCmd() *cobra.Command {
 	var ensure string
 	var refs []string
 	var targets []string
@@ -196,7 +196,7 @@ func newAgentNodeLinkCmd() *cobra.Command {
 				}
 				payload["targets"] = values
 			}
-			return runAgentJSONTool(cmd, agentCLIBudgetFloor, "node_link", payload)
+			return commandOptions.runAgentJSONTool(cmd, agentCLIBudgetFloor, "node_link", payload)
 		},
 	}
 	cmd.Flags().StringVar(&ensure, "ensure", string(ontology.EnsureLinkTargetNever), "link-target repair mode: never, plan, apply (apply refused by agent CLI)")

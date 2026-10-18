@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	semdb "github.com/atomicobject/rhizome/pkg/anchors/sqlite"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 const codeIndexOpenRecoveryWindow = 30 * time.Second
