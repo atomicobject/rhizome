@@ -62,6 +62,7 @@ Leave it out when:
 - the data is too sparse to show a shape, such as mostly zeros or fewer than about five points;
 - its series are hard to distinguish. Name xychart series so Pele shows a legend, and keep one color per category across the page.
 - the user acts on the records. Ranking, editing, and triage stay as rows; a chart is for reading.
+- its categories have long labels in a narrow panel. A horizontal bar chart drops labels that wrap past their row, so use an HTML list with proportional bars instead; its names can also link to notes.
 
 Place each chart beside the question it answers, in the lens, tab, or panel about that question, rather than above the page's working surface. Size it from the data through Mermaid frontmatter `config`, such as sankey height from node count or bar chart height from bar count. Keep one color per category across the page. Pele colors series and sankey nodes with `--pele-series-1` through `--pele-series-8` in order of appearance, and sankey nodes and links carry their labels in `data-id`, so CSS scoped to the view can match colors used elsewhere on the page. Show an empty state instead of an empty chart, and say in a caption what was left out, such as undated records. Only flowcharts, Gantt charts, class diagrams, state diagrams, and agentflow diagrams can open notes from their nodes; elsewhere, the rows near the chart carry navigation.
 
