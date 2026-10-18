@@ -114,8 +114,50 @@ List `@reverse` and `@neighbors` fields take `first`, which caps the targets rea
 | `StatusMark` | `<StatusMark value={record.status} values={enumValues} />` renders a lifecycle value: the fill shows its position among non-terminal values, the color its tone, and the label always accompanies it. `hideLabel` keeps the label for the tooltip and assistive technology. Values in the `done` or `dropped` stage are terminal, whatever their tone; an enum without stages has no terminal values. `orderedEnumValues`, `isTerminalValue`, and `statusPosition` expose the same rules. |
 | `HighlightProvider` / `RecordChip` | `<RecordChip recordKey={path} mark={...} indirect onOpen={...}>label</RecordChip>` is a compact record reference. Inside one `HighlightProvider`, pointing at or focusing a chip highlights every chip with the same `recordKey`; only chips whose state changes re-render. The label truncates to one line; `wrap` lets it take two, for narrow table cells. `indirect` marks a record reached through another record: the chip turns italic and fainter, screen readers hear "(indirect)", and `data-indirect` is set for further styling. |
 | `RelativeTime` | `<RelativeTime value={record.updatedAt} />` renders a compact age ("5m", "3h", "12d", then a date) with the exact time as its tooltip; screen readers hear both. It does not tick: the age is computed when the view renders, which vault changes trigger. Pass `now` to set the comparison time. |
+| `Diagram` | `<Diagram label="Ideas by impact" source={source} links={links} />` renders Mermaid text with Pele and the view's theme. `label` is required; `links` maps diagram ids to canonical node refs. Empty or whitespace source renders nothing. Optional `className` styles the container. See [Diagrams](#diagrams) for the API and examples. |
+| `mermaid` | `text(value)` escapes non-CSV labels with Mermaid entities; `csv(value)` produces a quoted Sankey CSV field; `id(key)` produces a deterministic, syntax-safe node id. |
 | `typeLabel(labels, { count?, plural?, prefix? })` | A type's schema label, plural when `plural` is set or `count` is not 1, with a shared prefix dropped. |
 | `sharedLabelPrefix(labels)` | The first word every label shares, with its trailing space, or `""`. Pass it to `typeLabel` as `prefix` inside a group page. |
+
+## Diagrams
+
+Import `Diagram` and `mermaid` from `@rhizome/kit`. Build `source` during render from query data, never in `useState` or `useEffect`, and the diagram stays current automatically:
+
+```tsx
+const { data } = useGraphQL<Data>(QUERY);
+const source = data ? portfolioSankey(data) : "";   // pure function → Mermaid text
+return <Diagram label="Ideas by impact" source={source} />;
+```
+
+Use `mermaid.text` for labels in flowchart, gantt, timeline, xychart, and other non-CSV types. Add quotes where the diagram syntax requires them. Use `mermaid.id` to turn a note path into a stable node id, then key `links` with that same id:
+
+```tsx
+const source = data
+  ? `flowchart LR\n${data.ideas
+      .map((idea) => `${mermaid.id(idea.ref.notePath)}["${mermaid.text(idea.title)}"]`)
+      .join("\n")}`
+  : "";
+const links = Object.fromEntries(
+  data?.ideas.map((idea) => [mermaid.id(idea.ref.notePath), idea.ref]) ?? [],
+);
+return <Diagram label="Ideas" source={source} links={links} />;
+```
+
+`links` supports flowchart, gantt, classDiagram, stateDiagram/stateDiagram-v2, and agentflow-beta. Click or keyboard Enter opens the note; Cmd, Ctrl, or middle click opens it beside the current note. The kit supplies the Mermaid click directives. An unsupported type or a missing id warns in the console. Author-written links never navigate the view.
+
+Sankey uses CSV quoting rather than Mermaid entities. Use `mermaid.csv` for both text fields and provide a numeric weight:
+
+```tsx
+function portfolioSankey(data: Data): string {
+  return `sankey-beta\n${data.ideas
+    .map((idea) => `${mermaid.csv(idea.title)},${mermaid.csv(idea.impact)},${idea.weight}`)
+    .join("\n")}`;
+}
+```
+
+For xychart legends, name series, for example `bar "Sales" [1, 2]`. Mermaid frontmatter sizing uses `config.sankey` and case-sensitive `config.xyChart`. Sankey nodes and links expose their labels through `data-id` for scoped category styling.
+
+`mermaid.csv` quotes the field and doubles embedded quotes. `mermaid.id` uses FNV-1a 32-bit, base36, with an `n` prefix. Pele loads on the first Diagram mount with nonempty source. A pending update keeps the previous SVG visible; errors show their message and expandable source inside the view.
 
 ## Freshness
 

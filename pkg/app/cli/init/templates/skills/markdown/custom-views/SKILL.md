@@ -45,6 +45,26 @@ Use `useViewPreference` for meaningful display choices such as filters, selected
 
 Personal overrides live in ignored repository-local SQLite, survive reloads and server restarts, and remain separate from shared YAML and staged Markdown edits. Reset removes overrides so current authored defaults apply. Show loading, pending writes, errors, and retry; a failed write is not saved. Read [Personal view preferences](references/kit-api.md#personal-view-preferences) for the React and subscribed HTML APIs and the board example for an interaction using them.
 
+## Diagrams
+
+A view can draw a live Mermaid diagram with `Diagram` from `@rhizome/kit`. Build its source during render from query data; the kit refetches when the vault changes, so the diagram stays current with no extra code. `mermaid.text`, `mermaid.csv`, and `mermaid.id` escape note titles and make node ids. Read [Diagrams](references/kit-api.md#diagrams) for the API and examples.
+
+Add a diagram when its shape answers a question the rows cannot:
+
+- proportion or concentration across categories: a sankey or a horizontal bar chart;
+- change over time: bars or a line per week;
+- structure or coverage among linked records: a flowchart, with muted nodes for what nothing connects to;
+- dates against each other: a Gantt chart.
+
+Leave it out when:
+
+- it restates a list or count already on the page, such as a timeline of the meetings listed below it;
+- the data is too sparse to show a shape, such as mostly zeros or fewer than about five points;
+- its series are hard to distinguish. Name xychart series so Pele shows a legend, and keep one color per category across the page.
+- the user acts on the records. Ranking, editing, and triage stay as rows; a chart is for reading.
+
+Place each chart beside the question it answers, in the lens, tab, or panel about that question, rather than above the page's working surface. Size it from the data through Mermaid frontmatter `config`, such as sankey height from node count or bar chart height from bar count. Keep one color per category across the page. Pele colors series and sankey nodes with `--pele-series-1` through `--pele-series-8` in order of appearance, and sankey nodes and links carry their labels in `data-id`, so CSS scoped to the view can match colors used elsewhere on the page. Show an empty state instead of an empty chart, and say in a caption what was left out, such as undated records. Only flowcharts, Gantt charts, class diagrams, state diagrams, and agentflow diagrams can open notes from their nodes; elsewhere, the rows near the chart carry navigation.
+
 ## Rules the transform imposes
 
 - Relative imports need the file extension: `import { Card } from "./components/Card.tsx"`.

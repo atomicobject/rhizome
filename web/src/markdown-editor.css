@@ -1,3 +1,5 @@
+@import "./diagram.css";
+
 /* Markdown editing surfaces: narrative blocks, whole-file source, Mermaid.
    Atomic Editor reads its theme from --atomic-editor-* custom properties; every
    one it consumes is mapped here so its dark defaults never reach a light
@@ -215,24 +217,6 @@
 }
 
 .mermaid-block {
-  --pele-bg: var(--surface);
-  --pele-fg: var(--text);
-  --pele-muted: var(--text-muted);
-  --pele-line: var(--link);
-  --pele-surface: var(--surface-alt);
-  --pele-surface-alt: var(--surface-sunk);
-  --pele-border: var(--border-strong);
-  --pele-accent: var(--ao-teal-ink);
-  --pele-critical: var(--accent-ink);
-  --pele-error: var(--accent-ink);
-  --pele-series-1: var(--ao-teal-ink);
-  --pele-series-2: var(--ao-purple);
-  --pele-series-3: var(--warning-ink);
-  --pele-series-4: var(--ao-red-700);
-  --pele-series-5: var(--ao-gray-700);
-  --pele-series-6: var(--ao-ink-3);
-  --pele-series-7: var(--ao-red-ink);
-  --pele-series-8: var(--ao-gray-500);
   display: flex;
   justify-content: center;
   width: 100%;

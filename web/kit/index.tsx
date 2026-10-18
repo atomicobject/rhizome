@@ -27,6 +27,10 @@ import {
 import { startView, type ViewConfig, type ViewModule } from "./startView";
 import { getViewInvocation } from "./viewContext";
 
+export { Diagram } from "./Diagram";
+
+export { mermaid } from "./mermaid";
+
 export * from "./viewContext";
 
 export * from "./preferences";

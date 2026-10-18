@@ -1,0 +1,59 @@
+.mermaid-block,
+.rhizome-diagram {
+  --pele-bg: var(--surface);
+  --pele-fg: var(--text);
+  --pele-muted: var(--text-muted);
+  --pele-line: var(--link);
+  --pele-surface: var(--surface-alt);
+  --pele-surface-alt: var(--surface-sunk);
+  --pele-border: var(--border-strong);
+  --pele-accent: var(--ao-teal-ink);
+  --pele-critical: var(--accent-ink);
+  --pele-error: var(--accent-ink);
+  --pele-series-1: var(--ao-teal-ink);
+  --pele-series-2: var(--ao-purple);
+  --pele-series-3: var(--warning-ink);
+  --pele-series-4: var(--ao-red-700);
+  --pele-series-5: var(--ao-gray-700);
+  --pele-series-6: var(--ao-ink-3);
+  --pele-series-7: var(--ao-red-ink);
+  --pele-series-8: var(--ao-gray-500);
+}
+
+.rhizome-diagram svg {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.rhizome-diagram {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.rhizome-diagram a {
+  cursor: pointer;
+}
+
+.rhizome-diagram a:focus-visible {
+  outline: 2px solid var(--pele-accent);
+}
+
+.rhizome-diagram__loading {
+  min-height: 6rem;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+
+.rhizome-diagram__error {
+  border: 1px solid var(--border-strong);
+  padding: var(--sp-3);
+}
+
+.rhizome-diagram__error pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
