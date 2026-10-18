@@ -122,6 +122,27 @@ describe("Diagram", () => {
     await waitFor(() => expect(renderer).toHaveBeenCalledTimes(2));
   });
 
+  it.each([{ fragment: "New section" }, { structuralFingerprint: "new-section-fingerprint" }])(
+    "uses current section metadata without rendering again: %j",
+    async (metadata) => {
+      const target = { ...ref, ...metadata };
+      const release = holdNextRender();
+      const view = render(<Diagram source={first} label="Portfolio" links={{ A: ref }} />);
+      view.rerender(<Diagram source={first} label="Portfolio" links={{ A: target }} />);
+      release();
+      await waitFor(() => expect(view.container.querySelector("svg")).not.toBeNull());
+      fireEvent.click(anchorIn(view.container));
+      expect(openNode).toHaveBeenLastCalledWith(target, { beside: false });
+
+      const svg = view.container.querySelector("svg");
+      view.rerender(<Diagram source={first} label="Portfolio" links={{ A: ref }} />);
+      fireEvent.click(anchorIn(view.container));
+      expect(openNode).toHaveBeenLastCalledWith(ref, { beside: false });
+      expect(renderer).toHaveBeenCalledTimes(1);
+      expect(view.container.querySelector("svg")).toBe(svg);
+    },
+  );
+
   it.each([
     [{}, false],
     [{ metaKey: true }, true],

@@ -14,7 +14,7 @@ import { openNode } from "./index";
 
 type DiagramState =
   | { kind: "loading" }
-  | { kind: "ready"; svg: string; targets: ViewNodeRef[] }
+  | { kind: "ready"; svg: string; source: string; linkKey: string; targets: ViewNodeRef[] }
   | { kind: "error"; message: string; source: string };
 
 export function Diagram(props: {
@@ -73,7 +73,13 @@ export function Diagram(props: {
           );
         }
 
-        setState({ kind: "ready", svg: result.svg, targets: activeTargets.map(([, ref]) => ref) });
+        setState({
+          kind: "ready",
+          svg: result.svg,
+          source,
+          linkKey,
+          targets: activeTargets.map(([, ref]) => ref),
+        });
       },
       // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Promise rejections can contain any value; normalize it here.
       (error: unknown) => {
@@ -114,7 +120,16 @@ export function Diagram(props: {
     if (event.button !== 0 && event.button !== 1) return;
 
     const match = /^#rzm-link-(\d+)$/.exec(href ?? "");
-    const ref = match && state.kind === "ready" ? state.targets[Number(match[1])] : undefined;
+
+    if (!match || state.kind !== "ready") return;
+
+    const index = Number(match[1]);
+
+    // Keep pending SVG targets, but use current section metadata for unchanged diagrams.
+    const ref =
+      state.source === source && state.linkKey === linkKey
+        ? entries[index]?.[1]
+        : state.targets[index];
 
     if (ref) openNode(ref, { beside: event.button === 1 || event.metaKey || event.ctrlKey });
   }
