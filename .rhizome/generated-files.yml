@@ -23,9 +23,9 @@ written:
   .agents/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .agents/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .agents/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
-  .agents/skills/custom-views/SKILL.md: d087a8e4dc3ad4a1
+  .agents/skills/custom-views/SKILL.md: 9e2f3983f15b0b0f
   .agents/skills/custom-views/references/example.md: 63094cc4c529eb2c
-  .agents/skills/custom-views/references/kit-api.md: cdd2e0e80ec3afb9
+  .agents/skills/custom-views/references/kit-api.md: c1172f52907041ab
   .agents/skills/custom-views/references/mounted-example.md: b92d990ea22f8cfb
   .agents/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
   .agents/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
@@ -74,9 +74,9 @@ written:
   .claude/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .claude/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .claude/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
-  .claude/skills/custom-views/SKILL.md: d087a8e4dc3ad4a1
+  .claude/skills/custom-views/SKILL.md: 9e2f3983f15b0b0f
   .claude/skills/custom-views/references/example.md: 63094cc4c529eb2c
-  .claude/skills/custom-views/references/kit-api.md: cdd2e0e80ec3afb9
+  .claude/skills/custom-views/references/kit-api.md: c1172f52907041ab
   .claude/skills/custom-views/references/mounted-example.md: b92d990ea22f8cfb
   .claude/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
   .claude/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176

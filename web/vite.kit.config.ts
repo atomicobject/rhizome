@@ -55,7 +55,7 @@ function bootScript(): Plugin {
 
       if (!tokens) throw new Error("src/base.css has no :root token block");
 
-      const theme = `${tokens[0]}\n${readFileSync(path.join(kitDir, "theme.css"), "utf8")}`;
+      const theme = `${tokens[0]}\n${readFileSync(path.join(kitDir, "theme.css"), "utf8")}\n${readFileSync(path.resolve(__dirname, "src/diagram.css"), "utf8")}`;
 
       const boot = readFileSync(path.join(kitDir, "boot.js"), "utf8")
         .replace("__THEME__", () => JSON.stringify(theme))
