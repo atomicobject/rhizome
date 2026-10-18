@@ -58,7 +58,7 @@ func isInertCommand(command *cobra.Command) bool {
 	}
 	for current := command; current != nil; current = current.Parent() {
 		switch current.Name() {
-		case "help", "version", "completion", "__complete", "__completeNoDesc", "desktop":
+		case "help", "version", "completion", "__complete", "__completeNoDesc", "desktop", "desktop-bridge":
 			return true
 		}
 	}

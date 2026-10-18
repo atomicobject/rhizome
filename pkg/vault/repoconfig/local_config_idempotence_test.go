@@ -67,3 +67,23 @@ func TestSaveLocalConfigPreservesUnchangedFiles(t *testing.T) {
 	require.Equal(t, before[workflowPath].Mode(), afterWorkflow.Mode())
 	require.False(t, before[workflowPath].ModTime().Equal(afterWorkflow.ModTime()))
 }
+
+func TestSavingRuntimeConfigPreservesAuthoredWorkflows(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".rhizome", "workflows.yml")
+	require.NoError(t, SaveLocalConfig(dir, LocalConfig{Rhizome: LocalRhizomeConfig{Version: "v1.0.0"}}))
+	original := []byte("# Hand-authored workflow layout\ntemplates: [spec-driven]\nfutureWorkflow: retained\n")
+	require.NoError(t, os.WriteFile(path, original, 0o640))
+	before, err := os.Stat(path)
+	require.NoError(t, err)
+	cfg, err := LoadLocalConfig(dir)
+	require.NoError(t, err)
+	cfg.Rhizome.Version = "v2.0.0"
+	require.NoError(t, SaveLocalConfig(dir, *cfg))
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, original, contents)
+	after, err := os.Stat(path)
+	require.NoError(t, err)
+	require.True(t, os.SameFile(before, after))
+}

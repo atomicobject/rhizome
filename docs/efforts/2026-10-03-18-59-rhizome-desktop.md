@@ -4,7 +4,7 @@ id: EFF-2026-10-03-18-59
 aliases: [EFF-2026-10-03-18-59]
 name: Rhizome desktop application
 created-at: 2026-10-03T22:59:47Z
-status: active
+status: complete
 summary: "Build and verify a Tauri desktop app that presents Rhizome repositories with switchable worktrees and starts each worktree's configured runtime."
 governing-specs:
   - "[[rhizome-desktop]]"
@@ -37,14 +37,14 @@ This is a requirements-only slice. The requirements in [[rhizome-desktop#Require
 - [x] Runtime startup, reuse, and isolated repository windows.
 - [x] Global install/update controls with repository isolation.
 - [x] Packaged application, relevant tests, native verification, and usage documentation.
-- [ ] Repository identity across worktrees, library migration, and missing-path recovery.
-- [ ] Worktree discovery, new indicators, primary worktree selection, and database seeding.
-- [ ] `rzm new-worktree` copy-on-write snapshot with `VACUUM INTO` fallback.
-- [ ] Sidebar and toolbar windows without a launch screen, multiple windows, and restored layout and selection.
-- [ ] Isolated content webview, per-worktree trust in the content area, loading states, and stale-open discarding.
-- [ ] Runtime presence for every worktree, external start and stop detection, and keeping displayed worktrees' runtimes alive.
-- [ ] `rzm desktop` opens the current worktree in the most recently focused window and fails clearly without an installed app.
-- [ ] Packaged application exercised with a multi-worktree repository, updated tests, and documentation.
+- [x] Repository identity across worktrees, library migration, and missing-path recovery.
+- [x] Worktree discovery, new indicators, primary worktree selection, and database seeding.
+- [x] `rzm new-worktree` copy-on-write snapshot with `VACUUM INTO` fallback.
+- [x] Sidebar and toolbar windows without a launch screen, multiple windows, and restored layout and selection.
+- [x] Isolated content webview, per-worktree trust in the content area, loading states, and stale-open discarding.
+- [x] Runtime presence for every worktree, external start and stop detection, and keeping displayed worktrees' runtimes alive.
+- [x] `rzm desktop` opens the current worktree in the most recently focused window and fails clearly without an installed app.
+- [x] Packaged application exercised with a multi-worktree repository, updated tests, and documentation.
 
 ## Plan Approval
 
@@ -80,7 +80,9 @@ Implemented the Tauri 2 application in `desktop/`, with a bundled one-request Go
 
 The source-built macOS app is `desktop/src-tauri/target/release/bundle/macos/Rhizome.app`. The existing Rhizome branding is retained. Make targets, a macOS CI job, usage documentation, subsystem constraints, and an Unreleased changelog entry accompany it.
 
-The work is local on `t3code/evaluate-rhizome-desktop`, based on `2d7e0c3`. It has not been published, pushed, or merged. The effort remains active for the repository's PR/merge closure requirement; implementation and local acceptance are delivered.
+The 2026-10-04 expansion delivered repositories as single units with switchable Git worktrees, migrated from the version 1 folder library; sidebar-and-toolbar windows over an isolated content webview, with no launch screen, multiple windows, and restored layout and selection; a staged open pipeline with loading states, per-worktree trust, seeding through `rzm new-worktree`, and stale-open discarding; the copy-on-write clone in `rzm new-worktree` with its `VACUUM INTO` fallback; runtime presence and keep-alive for displayed worktrees, including UI event streams counted as runtime activity; and `rzm desktop [path]`.
+
+Both deliveries merged together as PR #75 in the intermediate private repository, squash commit `ed373c25` (2026-10-04), which is on the retired pre-public history (local `retired/main-pre-public`). That repository has since been deleted, so the PR page no longer exists. The public history carries the same tree in its root commit `7ec4bcb9` (Initial commit, 2026-10-05): `desktop/`, `pkg/app/desktop`, `cmd/desktop.go`, and `pkg/sqliteutil/clone_*.go` are all present there. No release has been published. Native menus, keyboard shortcuts, ⌘W session removal, Dock reopen, and following a runtime to a new port rest on unit tests; the manual walkthrough is a follow-up below.
 
 ## Execution Notes
 
@@ -120,6 +122,11 @@ Verification on macOS arm64:
 - `rzm desktop`: the CLI checks the folder, finds the installed app, and passes `--open <path>` through process arguments; it runs on the invoking `rzm` like `trust`. The packaged app selected the worktree when cold-started, switched a running app's focused window, and added an unknown repository.
 - `./scripts/rzm validate` reported 0 issues. Frozen-scope drift initially flagged EFF-2026-09-29-14-46 for the SPEC-0104 amendment; a deviation there acknowledges it, and the check now passes.
 
+### Closure
+
+- 2026-10-17T17:47:00Z [validation]: Merge evidence. `git log` finds `ed373c25 feat(desktop): Rhizome desktop app with worktrees, runtime presence, and rzm desktop (#75)` (2026-10-04) on `retired/main-pre-public`; its message covers both the original launcher and the 2026-10-04 expansion. The public root `7ec4bcb9` contains `desktop/`, `pkg/app/desktop`, `cmd/desktop.go`, and `pkg/sqliteutil/clone_*.go`. Later desktop work (PRs #2, #7, #13) builds on it.
+- 2026-10-17T17:47:00Z [decision]: Closed as part of EFF-2026-10-17-13-07's pull request at Drew Colthorp's request. The expansion's coverage items are checked from the 2026-10-04 execution notes and the merged tree. The manual native walkthrough became an action item assigned to Drew Colthorp.
+
 ## Deviations
 
 Scope expansion on 2026-10-04 (frozen-scope-drift acknowledged for SPEC-0113 and SPEC-0104): Drew Colthorp added first-class worktrees, sidebar windows without a launch screen, persisted window state, and loading states before publication, and chose to expand this effort over a stacked one. SPEC-0113 was rewritten as one contract and SPEC-0104's `rzm new-worktree` snapshot rule was amended to permit a copy-on-write clone taken under the source's write lock. Both were refrozen here. Later the same day Drew added runtime presence and keep-alive for displayed worktrees; SPEC-0113 gained a Runtime presence section and was refrozen again. He then requested `rzm desktop`, and SPEC-0113 gained an "Opening from the terminal" section, refrozen again; his request is the approval for that step.
@@ -134,17 +141,26 @@ The public release feed has no published release at verification time. Global in
 
 Pointer added on 2026-10-07 (frozen-scope-drift acknowledged for SPEC-0113): EFF-2026-10-06-08-07 added a pointer from the unconfigured-worktree requirement to [[desktop-repository-setup|SPEC-0118]], which owns the setup sheet and the What gets indexed page. The requirement itself is unchanged.
 
+Amendment on 2026-10-17 (frozen-scope-drift acknowledged for SPEC-0113 and SPEC-0033): EFF-2026-10-17-13-07 ([[desktop-distribution-and-updates|SPEC-0122]]) removes "Publishing or signing a public release" from SPEC-0113's Non-Goals, replaces its Global installation section with the app's bundled `rzm` and `/usr/local/bin` command-line link, and amends SPEC-0033 so `rzm update` hands its global target to the desktop app when `rzm` runs from an app bundle. This effort's delivered scope is unchanged.
+
+Closure on 2026-10-17: the effort was not closed when PR #75 merged, and the history rewrite on 2026-10-05 moved its merge onto the retired history. Per the release policy, it closes in the next related pull request (EFF-2026-10-17-13-07's), with the merge evidence above. The manual walkthrough of native menus and shortcuts became an action item rather than holding the effort open.
+
 ## Closure Checklist
 
 - [x] Requirements exercised on the actual application.
 - [x] Focused and repository checks recorded.
 - [x] Independent review findings resolved.
 - [x] Documentation reflects implementation and remaining limits.
+- [x] Merge recorded: PR #75 (squash `ed373c25`, retired history), carried by public root `7ec4bcb9`.
+- [x] Remaining manual native checks converted to an action item for Drew Colthorp.
 
 ## Compounding Follow-ups
 
-The macOS desktop CI job and documented native smoke checks preserve the discovered WebKit and installation boundaries. Windows/Linux packaging and signed distribution are future work, not validated by this macOS delivery.
+The macOS desktop CI job and documented native smoke checks preserve the discovered WebKit and installation boundaries. Windows/Linux packaging and signed distribution are future work, not validated by this macOS delivery. Signed distribution and updates are now owned by EFF-2026-10-17-13-07.
+
+- [ ] Walk through Rhizome Desktop's native menus, keyboard shortcuts, ⌘W session removal, Dock reopen, and following a runtime to a new port in the packaged app (EFF-2026-10-03-18-59 left these to unit tests) #action-item
+  assignee:: [[Drew Colthorp]]
 
 ## Status
 
-The original delivery is implemented and verified locally. The 2026-10-04 expansion is approved and in progress. No release has been published.
+Complete. The original delivery and the 2026-10-04 expansion merged as PR #75 (`ed373c25`) on 2026-10-04 and are carried in the public history by `7ec4bcb9`. The manual native walkthrough is an action item for Drew Colthorp. No release has been published; distribution continues in EFF-2026-10-17-13-07.

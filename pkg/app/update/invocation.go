@@ -1,23 +1,31 @@
 package update
 
 import (
+	"errors"
 	"fmt"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/app/appbundle"
 )
+
+var appCommandLineLinkPath = "/usr/local/bin/rzm"
 
 // Invocation identifies the executable handling an update and the repository
 // target selected by the pin, if any. Paths remain logical install
 // destinations; filesystem identity is used only to classify RepoScoped.
 type Invocation struct {
-	ExecutablePath string
-	RepoTargetPath string
-	RepoPinned     bool
-	RepoScoped     bool
-	RepoPinVersion string
+	ExecutablePath     string
+	RepoTargetPath     string
+	RepoTargetAppOwned bool
+	RepoPinned         bool
+	RepoScoped         bool
+	RepoPinVersion     string
+	Bundle             *appbundle.Info
 }
 
 // ResolveInvocation derives executable and repository target identity from the
@@ -36,14 +44,21 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *repoconfig.LocalConfi
 		return Invocation{}, err
 	}
 	invocation := Invocation{ExecutablePath: filepath.Clean(executableAbs)}
-	if cfg == nil {
-		return invocation, nil
+	if cfg != nil {
+		externallyManaged, err := cfg.Rhizome.UsesExternalBinaryManager()
+		if err != nil {
+			return Invocation{}, err
+		}
+		if externallyManaged {
+			return invocation, nil
+		}
 	}
-	externallyManaged, err := cfg.Rhizome.UsesExternalBinaryManager()
+	bundle, err := appbundle.Resolve(executableAbs)
 	if err != nil {
-		return Invocation{}, err
+		return Invocation{}, fmt.Errorf("resolve executable bundle: %w", err)
 	}
-	if externallyManaged {
+	invocation.Bundle = bundle
+	if cfg == nil {
 		return invocation, nil
 	}
 
@@ -60,11 +75,50 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *repoconfig.LocalConfi
 	}
 	target := invocationRepoTarget(filepath.Clean(cfgDirAbs), cfg)
 
+	resolvedDir, err := resolveUpdateDirectory(filepath.Dir(target))
+	if err != nil {
+		return Invocation{}, fmt.Errorf("resolve repository target directory: %w", err)
+	}
+	entry := filepath.Join(resolvedDir, filepath.Base(target))
+	invocation.RepoTargetAppOwned = appbundle.Root(entry) != ""
+	var appEntries []string
+	if bundle != nil {
+		appEntries = append(appEntries, invocation.ExecutablePath)
+	}
+	// The command-line link belongs to the app whenever it resolves into a
+	// Rhizome bundle, whichever rzm runs the update; a plain rzm there does not.
+	if linked, err := appbundle.Resolve(appCommandLineLinkPath); err == nil && linked != nil && linked.Rhizome() {
+		appEntries = append(appEntries, appCommandLineLinkPath)
+	}
+	for _, appEntry := range appEntries {
+		entryDir, err := resolveUpdateDirectory(filepath.Dir(appEntry))
+		if err != nil {
+			return Invocation{}, fmt.Errorf("resolve app command directory: %w", err)
+		}
+		invocation.RepoTargetAppOwned = invocation.RepoTargetAppOwned || sameInvocationPath(entry, filepath.Join(entryDir, filepath.Base(appEntry)))
+	}
 	invocation.RepoTargetPath = target
 	invocation.RepoPinned = true
 	invocation.RepoPinVersion = pin
 	invocation.RepoScoped = sameInvocationFile(invocation.ExecutablePath, target)
 	return invocation, nil
+}
+
+func findRepoConfig(env vaultconfig.Env, workDir string) (string, *repoconfig.LocalConfig, error) {
+	if strings.TrimSpace(workDir) == "" {
+		workDir = env.WorkingDir
+	}
+	if !filepath.IsAbs(workDir) {
+		return "", nil, errors.New("update working directory must be absolute")
+	}
+	cfgDir, cfg, err := repoconfig.FindLocalConfig(workDir)
+	if err != nil {
+		if errors.Is(err, repoconfig.ErrNoLocalConfig) {
+			return "", nil, nil
+		}
+		return "", nil, err
+	}
+	return cfgDir, cfg, nil
 }
 
 func invocationRepoTarget(cfgDir string, cfg *repoconfig.LocalConfig) string {
@@ -105,4 +159,21 @@ func sameInvocationPath(a, b string) bool {
 		return strings.EqualFold(filepath.Clean(a), filepath.Clean(b))
 	}
 	return filepath.Clean(a) == filepath.Clean(b)
+}
+
+// Resolve only the destination directory: rename replaces a final symlink,
+// whereas a symlink in its parent directories redirects the write itself.
+func resolveUpdateDirectory(dir string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err == nil {
+		return resolved, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) || filepath.Dir(dir) == dir {
+		return "", err
+	}
+	parent, err := resolveUpdateDirectory(filepath.Dir(dir))
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(parent, filepath.Base(dir)), nil
 }

@@ -1,13 +1,23 @@
 # Desktop bridge
 
-`desktop/bridge/main.go` is a one-request JSON process bundled with the Tauri
-app. `Service` owns folder inspection, repository discovery, trust,
-setup reports, initialization, index scope, seeding, opening, and global
-installation. `protocol.go` bounds input and returns protocol 1 responses on both success and failure.
+`rzm desktop-bridge --state-dir <absolute directory>` is a hidden one-request
+JSON command bundled with the Tauri app. It runs on the invoking executable,
+bypassing repository delegation and diagnostics wiring. `Service` owns folder inspection, repository discovery, trust,
+setup reports, initialization, index scope, seeding, opening, command-line
+links, and repository pin advances. `protocol.go` bounds input and returns protocol 1 responses on both success and failure.
 
+- `New` receives the invocation's explicit `config.Env`. Home, PATH, login-shell,
+  and update-manifest lookups use that environment. Pin installation and advance
+  carry it into the in-process updater. Repository trust remains owned by the
+  real operating-system account through `repositorytrust.DefaultStore`; an
+  invocation home never redirects that authority. External process launch tools
+  retain their process-owned environment; arbitrary lookup functions are not
+  serialized into child processes.
 - Inspect reads configuration and existing trust only. It canonicalizes the
-  configured checkout, including aliases and subfolders, without probing,
-  installing, granting trust, or writing configuration.
+  configured checkout, including aliases and subfolders, without probing
+  repository executables, installing, granting trust, or writing configuration.
+  A pin offer may probe the global executable in a neutral directory; a bundled
+  bridge uses its own build version without probing.
 - Repository discovery reads Git metadata files only and never runs `git` or
   repository code. A repository's identity is its canonical common Git
   directory; a folder outside Git is a one-worktree repository identified like
@@ -67,7 +77,7 @@ installation. `protocol.go` bounds input and returns protocol 1 responses on bot
   then calls `runtime.Ensure` with its exact executable and build identity.
   Existing manifest and health folder identity must agree; returned origins use
   literal loopback IPs. Control tokens never enter JSON responses.
-- Stop shuts down the folder's runtime with `runtimestop.StopVault`, the code
+- Stop shuts down the folder's runtime with `runtime.StopVault`, the code
   behind `rzm stop`: graceful shutdown, then termination of a headless runtime
   that ignores it; an attached runtime is reported, not killed. Like Open, it
   first requires the manifest and health to name this folder, so a foreign
@@ -78,10 +88,25 @@ installation. `protocol.go` bounds input and returns protocol 1 responses on bot
   does not derive a replacement build ID from a shim file. Desktop never
   downloads or updates their installations. Global overrides require a native
   Rhizome binary, not an external manager shim.
-- Global management owns only the operating-system user's `~/.local/bin/rzm`.
-  An existing symlink at that path or its user-local parents prevents updates.
-  A verified neutral temporary directory scopes update planning, and updater
-  smoke tests run in the candidate's own directory. Neither mutates a repo pin.
+- Without an explicit global override, a bundled bridge selects its own resolved
+  executable before searching existing CLI installations. Desktop no longer
+  installs or updates `~/.local/bin/rzm`. Global status probes from a neutral
+  directory. App updates belong to the native updater; terminal `rzm update`
+  hands that global target to the app and keeps repository updates independent.
+- The command-line link owns `/usr/local/bin/rzm` only when it points to a
+  Rhizome app's `rzm`. A missing app's link is recognized by its structural
+  `*.app/Contents/.../rzm` path because deleted metadata cannot prove identity.
+  Existing foreign files and links remain untouched. Mutations try without
+  privileges first, then pass a quoted shell command as an argument to one
+  administrator prompt on a permission error. Dev bundles refuse mutations.
+- Pin offers compare managed pins with the bundled build's `version.Version`,
+  or the selected global executable's version. External managers, development
+  overrides, and Rhizome source checkouts receive no offer. Go always reports
+  an applicable offer; Rust owns repository library persistence and dismissal.
+  Pin advance requires existing checkout trust and invokes the in-process
+  updater with `SetVersion: version.Version, Yes: true`. It changes the pin and
+  managed binary without refreshing generated setup or workflow files. The
+  native shell reopens the worktree through Open after a successful advance.
 - A runtime remains independently owned after the bridge and app exit. Existing
   runtime election, attach, replacement, cancellation, and idle policies apply.
   The app relaunches a displayed worktree's runtime through Open after Status
@@ -105,3 +130,142 @@ Tests use temporary configuration, trust stores, executable scripts, local
 release servers, and fixture repositories built with `git init` and
 `git worktree add`. No test needs a personal vault or an installed global
 Rhizome.
+
+## Distribution bridge JSON contract
+
+All requests contain `"protocol": 1` and one `"operation"`. The command accepts
+one JSON document from stdin and writes one response to stdout. Success is
+`{"protocol":1,"result":<value>}`. Failure is
+`{"protocol":1,"result":<partial value>,"error":{"code":"...","message":"..."}}`
+and exits nonzero. Parsing failures omit `result`. Unknown request fields and
+requests larger than 1 MiB are rejected. Paths in the contracts below are
+absolute. Optional fields are omitted rather than `null`.
+
+### Inspect and folder information
+
+Request: `{"protocol":1,"operation":"inspect","folder":"/repo"}`.
+
+Result:
+
+```json
+{
+  "id": "<canonical-path SHA256>",
+  "path": "/repo",
+  "name": "repo",
+  "configured": true,
+  "trusted": true,
+  "trustRequired": false,
+  "authority": "managed",
+  "pinnedVersion": "v1.2.3",
+  "pinOffer": {"state":"advance","pinned":"v1.2.3","available":"v1.3.0"}
+}
+```
+
+`pinOffer` is optional on folder information wherever returned, including
+Inspect and Trust. Repository results expose the same optional `pinOffer` on
+each `worktrees[]` entry, copied from that worktree's inspection. Its `state` is
+exactly `advance` when
+the pin is older, or `app-older` when the pin is newer. Equal or unparsable
+versions omit it. There is no `none` state and no dismissal filtering in Go.
+`executable` is an optional string for development overrides. Existing folder
+fields keep their meanings, including empty `pinnedVersion` without a pin.
+
+### Repository worktrees
+
+Request: `{"protocol":1,"operation":"repository","folder":"/repo"}`.
+An optional `"primary":"/repo/worktree"` selects the preferred worktree.
+The result retains the existing repository fields and adds only the optional
+`worktrees[].pinOffer`:
+
+```json
+{
+  "id": "<repository ID>",
+  "root": "/repo",
+  "name": "repo",
+  "git": true,
+  "defaultPrimary": "/repo",
+  "primary": "/repo",
+  "worktrees": [{
+    "path": "/repo",
+    "configured": true,
+    "hasDatabase": false,
+    "trusted": true,
+    "trustRequired": false,
+    "authority": "managed",
+    "pinOffer": {"state":"advance","pinned":"v1.2.3","available":"v1.3.0"}
+  }]
+}
+```
+
+Repository `defaultBranch` and `subpath` are optional strings. Worktree
+`branch`, `head`, `authority`, `executable`, and `error` are optional strings;
+`main` is an optional boolean omitted when false. Each worktree computes its
+own offer, so linked worktrees with different pins may show different states.
+The same shape appears under `status` results at
+`repositories[].repository.worktrees[]`. Unavailable worktrees omit `pinOffer`.
+
+### Global status
+
+Request: `{"protocol":1,"operation":"global-status"}`. Optional
+`"globalExecutable":"/absolute/rzm"` selects an explicit override.
+
+Result: `{"path":"/Applications/Rhizome.app/Contents/MacOS/rzm","version":"v1.3.0","bundled":true}`.
+`bundled` means the selected executable resolves inside an app bundle. With no
+executable found, the result is `{"path":"","version":"","bundled":false}`.
+The `managedPath`, `installed`, and `canUpdate` fields and the `global-install`
+and `global-update` operations have been removed. Executable probe failures
+report `missing_executable`.
+
+### Command-line link
+
+Requests have no operation-specific fields:
+
+```json
+{"protocol":1,"operation":"cli-link-status"}
+{"protocol":1,"operation":"cli-link-install"}
+{"protocol":1,"operation":"cli-link-remove"}
+```
+
+All three return the same result shape, describing the state after a successful
+mutation, or the last observed state on failure:
+
+```json
+{
+  "linkPath": "/usr/local/bin/rzm",
+  "state": "installed",
+  "target": "/Applications/Rhizome.app/Contents/MacOS/rzm",
+  "shell": {"path":"/usr/local/bin/rzm","version":"v1.3.0","isApp":true}
+}
+```
+
+`state` is exactly `absent`, `installed`, `other-bundle`, `dangling`, `foreign`,
+or `unsupported`. `installed` resolves to this app's executable. `other-bundle`
+resolves to another Rhizome bundle. `dangling` targets an unavailable app's
+`rzm`. `foreign` is any other entry. `unsupported` means the bridge is outside
+a Rhizome release bundle, including Dev. `target` appears only for a symlink.
+`shell` is always present and reports `$SHELL -lc 'command -v rzm'`, falling back
+to `/bin/zsh`; both shell lookup and version probe share a five-second deadline.
+Its `path`, `version`, and `error` strings are optional; `isApp` is always a
+boolean comparing resolved executable paths. A shell failure appears in
+`shell.error` without failing link status or mutation. A different installation
+winning PATH has `isApp:false` and retains its path and reported version.
+
+Install/repair accepts `absent`, `installed`, `other-bundle`, and `dangling`.
+Remove accepts owned links and is idempotent when absent. Foreign entries
+produce `link_foreign`. Dev mutation produces `link_dev_bundle`; other
+unsupported mutation produces `link_unsupported`. Administrator cancellation
+produces `link_cancelled`; other link failures produce `link_failed`. Status
+itself succeeds with `unsupported` outside a release bundle.
+
+### Pin advance
+
+Request: `{"protocol":1,"operation":"pin-advance","folder":"/repo"}`, like the other worktree operations.
+
+Result: `{"pinnedVersion":"v1.3.0"}`. The result names the persisted pin after
+success. The existing trust must already be granted; the operation never
+prompts or grants trust. Errors include `trust_required`, `pin_unsupported`,
+and `pin_advance_failed`; failure messages name the updater's failing stage
+such as manifest, download, checksum, extract, smoke test, replace, marker,
+or pin. A partial failure may have updated the binary before the pin save
+failed, as the normal updater reports. The native caller reopens the worktree
+through `open` after success. No Go operation or field persists dismissals.

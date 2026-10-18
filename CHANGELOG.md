@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Duplicate-identifier repair works with Git 2.56. Its improved `git log --follow` also reported an identical note added on a merged branch, so Rhizome treated both claimants' history as incomplete and could not pick a keeper; that history is now ignored, matching earlier Git versions.
+- Rhizome Desktop ships with every release as `Rhizome-macos-arm64.dmg` (Apple silicon, not yet notarized) and updates itself from GitHub Releases: a ready update shows Restart to Update, and Check for Updates is in the app menu. The app carries the release's `rzm` and uses it unless you choose another executable; the separate `~/.local/bin/rzm` install in Settings is gone. Settings > Install Command-Line Tool links `/usr/local/bin/rzm` to the app, so terminals and coding agents find it until the app is deleted. `rzm update` run through that link asks the app to install the newer release and still updates the repository's pin and binary. A worktree pinned to an older Rhizome shows a toolbar offer to advance the pin. The README has install steps a coding agent can follow.
 - Custom views can open GraphQL node refs with null optional fields, including node view contexts. Rejected hosted view messages now warn with their type and validation failure in the browser console.
 - Open search indexes without changing their schema, metadata, or paid embedding caches. Explicit indexing owns upgrades and repairs, and database integrity checks run as requested maintenance.
 - Keep live and full ontology projections consistent across note formats, unresolved links, identifier changes, and direct database writes. Typed reads require a published readiness proof and preserve cancellation as a retryable error.

@@ -6,13 +6,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
+	"sync"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
 
 type FolderInfo struct {
@@ -25,31 +26,32 @@ type FolderInfo struct {
 	Authority     string `json:"authority"`
 	PinnedVersion string `json:"pinnedVersion"`
 	// Executable is the development build a developer override selects.
-	Executable string `json:"executable,omitempty"`
+	Executable string    `json:"executable,omitempty"`
+	PinOffer   *PinOffer `json:"pinOffer,omitempty"`
 }
 
 type Service struct {
-	stateDir     string
-	home         string
-	trust        repositorytrust.Store
-	ensure       func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error)
-	install      func(context.Context, appupdate.Options) (appupdate.Result, error)
-	ensurePinned func(context.Context, appupdate.EnsureOptions) error
+	available func() string
+	// availableOnce runs availableVersion at most once per bridge request.
+	availableOnce   sync.Once
+	availableCached string
+	stateDir        string
+	env             vaultconfig.Env
+	trust           repositorytrust.Store
+	ensure          func(context.Context, appruntime.EnsureOptions) (appruntime.EnsureResult, error)
+	install         func(context.Context, appupdate.Options) (appupdate.Result, error)
+	ensurePinned    func(context.Context, appupdate.EnsureOptions) error
 }
 
-func New(stateDir string) (*Service, error) {
+func New(stateDir string, env vaultconfig.Env) (*Service, error) {
 	if !filepath.IsAbs(stateDir) {
 		return nil, problem("invalid_request", "The desktop state directory must be absolute.")
-	}
-	account, err := user.Current()
-	if err != nil {
-		return nil, err
 	}
 	store, err := repositorytrust.DefaultStore()
 	if err != nil {
 		return nil, err
 	}
-	return &Service{stateDir: stateDir, home: account.HomeDir, trust: store, ensure: appruntime.Ensure, install: appupdate.Run, ensurePinned: appupdate.EnsurePinnedBinary}, nil
+	return &Service{stateDir: stateDir, env: env, trust: store, ensure: appruntime.Ensure, install: appupdate.Run, ensurePinned: appupdate.EnsurePinnedBinary}, nil
 }
 
 func (s *Service) inspect(path string) (FolderInfo, repoexec.Plan, error) {
@@ -92,6 +94,7 @@ func (s *Service) inspect(path string) (FolderInfo, repoexec.Plan, error) {
 		}
 		info.TrustRequired = !info.Trusted
 	}
+	info.PinOffer = s.pinOffer(plan)
 	return info, plan, nil
 }
 

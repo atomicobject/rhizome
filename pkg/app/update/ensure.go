@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
@@ -69,7 +70,7 @@ func EnsurePinnedBinary(ctx context.Context, opts EnsureOptions) error {
 		opts.Progress = io.Discard
 	}
 	if strings.TrimSpace(opts.ManifestURL) == "" {
-		opts.ManifestURL = os.Getenv("RZM_UPDATE_MANIFEST_URL")
+		opts.ManifestURL, _ = vaultconfig.FromContext(ctx).Lookup("RZM_UPDATE_MANIFEST_URL")
 	}
 	if opts.LockTimeout <= 0 {
 		opts.LockTimeout = defaultLockTimeout

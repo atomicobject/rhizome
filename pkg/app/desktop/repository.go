@@ -16,17 +16,18 @@ import (
 )
 
 type Worktree struct {
-	Path          string `json:"path"`
-	Branch        string `json:"branch,omitempty"`
-	Head          string `json:"head,omitempty"`
-	Main          bool   `json:"main,omitempty"`
-	Configured    bool   `json:"configured"`
-	HasDatabase   bool   `json:"hasDatabase"`
-	Trusted       bool   `json:"trusted"`
-	TrustRequired bool   `json:"trustRequired"`
-	Authority     string `json:"authority,omitempty"`
-	Executable    string `json:"executable,omitempty"`
-	Error         string `json:"error,omitempty"`
+	Path          string    `json:"path"`
+	Branch        string    `json:"branch,omitempty"`
+	Head          string    `json:"head,omitempty"`
+	Main          bool      `json:"main,omitempty"`
+	Configured    bool      `json:"configured"`
+	HasDatabase   bool      `json:"hasDatabase"`
+	Trusted       bool      `json:"trusted"`
+	TrustRequired bool      `json:"trustRequired"`
+	Authority     string    `json:"authority,omitempty"`
+	Executable    string    `json:"executable,omitempty"`
+	Error         string    `json:"error,omitempty"`
+	PinOffer      *PinOffer `json:"pinOffer,omitempty"`
 }
 
 // Repository groups every worktree that shares one Git common directory. A
@@ -139,6 +140,7 @@ func (s *Service) repository(repo Repository, worktrees []gitWorktree, primary s
 		if w.Error == "" {
 			info, err := s.Inspect(wt.path)
 			w.Configured, w.Trusted, w.TrustRequired, w.Authority, w.Executable = info.Configured, info.Trusted, info.TrustRequired, info.Authority, info.Executable
+			w.PinOffer = info.PinOffer
 			if err != nil {
 				w.Error = err.Error()
 			}

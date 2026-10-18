@@ -3,7 +3,7 @@ type: TechnicalSpec
 id: SPEC-0113
 aliases: [SPEC-0113]
 spec-status: active
-last-updated: 2026-10-07
+last-updated: 2026-10-17
 summary: "A desktop app presents each Rhizome repository as one unit with switchable worktrees, starts the selected worktree's configured runtime with visible loading states, and manages the user installation."
 ---
 
@@ -23,12 +23,12 @@ The desktop application owns the repository library, window layout, and worktree
 - Show what the app is waiting for while a runtime prepares, starts, and loads, and show the workspace as soon as it is available.
 - Respect repository pins, development executables, explicit external binary ownership, and per-worktree trust.
 - Support several windows at once and restore each window's layout and selection across sessions.
-- Offer a visible global installation and update workflow without changing repository pins.
+- Carry the matching Rhizome inside the app, and change a repository pin only when the user accepts an offer, as [[desktop-distribution-and-updates|SPEC-0122]] specifies.
 - Produce a locally buildable macOS application with testable native integration boundaries.
 
 ## Non-Goals
 
-Publishing or signing a public release, cloud hosting, synchronizing the library between machines, changing the repository web UI, creating or deleting Git worktrees, and replacing external package managers are outside this delivery.
+Cloud hosting, synchronizing the library between machines, changing the repository web UI, creating or deleting Git worktrees, and replacing external package managers are outside this delivery.
 
 The app requires the Rhizome release that ships it, or a newer one, in every worktree it opens. It relies on that release's copy-on-write seeding and on UI event streams counting as runtime activity, and it carries no compatibility behavior for older runtimes.
 
@@ -78,8 +78,8 @@ The app MUST add the containing repository when it is not already in the library
 
 ### Global installation
 
-The app MUST report the chosen global executable and provide installation when none exists. Managed installation and updates MUST reuse Rhizome's checksum verification and atomic replacement behavior. They MUST operate outside repository configuration, preserve pins, and avoid replacing a Homebrew or other externally managed executable. Network errors MUST leave the installed executable usable and offer retry.
+The app MUST contain the Rhizome release it ships with and use it as the global executable unless the user selects another executable, and MUST report which one it uses. It MUST NOT replace a Homebrew or other externally managed executable. [[desktop-distribution-and-updates|SPEC-0122]] specifies the bundled executable, the `/usr/local/bin/rzm` command-line link, self-update, publication, and pin offers; the app changes a repository pin only through that spec's offer.
 
 ### Verification
 
-Tests MUST cover library persistence and migration, repository identity across worktrees, worktree discovery and new markers, primary worktree selection, runtime presence and relaunch of a displayed worktree, missing paths, executable ownership, runtime identity, stale-open discarding, failure reporting, and global update isolation. Native verification MUST exercise the packaged app with a real repository that has several worktrees: seeding a new worktree, switching worktrees and repositories, a runtime started and stopped from the terminal, two windows, and restoring layout and selection after relaunch. Build and test instructions MUST be documented alongside the desktop source.
+Tests MUST cover library persistence and migration, repository identity across worktrees, worktree discovery and new markers, primary worktree selection, runtime presence and relaunch of a displayed worktree, missing paths, executable ownership, runtime identity, stale-open discarding, failure reporting, and selection of the bundled global executable. Native verification MUST exercise the packaged app with a real repository that has several worktrees: seeding a new worktree, switching worktrees and repositories, a runtime started and stopped from the terminal, two windows, and restoring layout and selection after relaunch. Build and test instructions MUST be documented alongside the desktop source.

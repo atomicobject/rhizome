@@ -11,15 +11,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync/atomic"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
-
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,51 +64,80 @@ func releaseFixture(t *testing.T, badChecksum bool) (*httptest.Server, *atomic.I
 	return server, &requests
 }
 
-func TestGlobalInstallUsesReleaseChecksumAndPreservesRepositoryPin(t *testing.T) {
+func TestPinAdvanceUsesReleaseAndChangesOnlyPin(t *testing.T) {
 	s := testService(t)
-	server, _ := releaseFixture(t, false)
-	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v9.9.9"})
-	before, err := os.ReadFile(filepath.Join(folder, ".rhizome", "config.yml"))
-	require.NoError(t, err)
-	prior, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(folder))
-	defer func() { require.NoError(t, os.Chdir(prior)) }()
+	// The app offers the version this bridge was built as.
+	s.available = func() string { return version.Version }
+	server, requests := releaseFixture(t, false)
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v1.0.0"})
+	priorVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = priorVersion })
+	workflowPath := filepath.Join(folder, ".rhizome", "workflows.yml")
+	workflow := []byte("# Preserve authored workflows\ntemplates: [spec-driven]\nfutureWorkflow: retained\n")
+	require.NoError(t, os.WriteFile(workflowPath, workflow, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(folder, ".gitignore"), []byte(".rhizome/bin/\n"), 0o644))
+	git := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = folder
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "%s", out)
+		return string(out)
+	}
+	git("init", "-q")
+	git("add", ".")
+	git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.test", "-c", "commit.gpgsign=false", "commit", "-qm", "fixture")
 	s.install = func(ctx context.Context, opts appupdate.Options) (appupdate.Result, error) {
+		require.Equal(t, version.Version, opts.SetVersion)
+		require.True(t, opts.Yes)
+		require.Equal(t, folder, opts.WorkDir)
 		opts.ManifestURL = server.URL + "/releases/latest"
 		opts.HTTPClient = server.Client()
 		return appupdate.Run(ctx, opts)
 	}
-	installed, err := s.InstallGlobal(context.Background())
+	_, err := s.PinAdvance(context.Background(), folder)
+	code(t, err, "trust_required")
+	require.Zero(t, requests.Load())
+	_, err = s.Trust(folder)
 	require.NoError(t, err)
-	require.Equal(t, "v1.2.3", installed.Version)
-	require.Equal(t, s.managedPath(), installed.Path)
-	require.True(t, installed.CanUpdate)
-	after, err := os.ReadFile(filepath.Join(folder, ".rhizome", "config.yml"))
+	advanced, err := s.PinAdvance(context.Background(), folder)
 	require.NoError(t, err)
-	require.Equal(t, before, after)
-	require.NoDirExists(t, filepath.Join(folder, ".rhizome", "bin"))
-	cwd, err := os.Getwd()
+	require.Equal(t, "v1.2.3", advanced.PinnedVersion)
+	require.Equal(t, " M .rhizome/config.yml\n", git("status", "--porcelain", "--untracked-files=all"))
+	installed := filepath.Join(folder, ".rhizome", "bin", repoexec.PlatformDir(), repoexec.ExecutableName())
+	probed, err := repoexec.Version(context.Background(), installed, folder)
 	require.NoError(t, err)
-	require.Equal(t, folder, cwd)
+	require.Equal(t, "v1.2.3", probed)
+	actualWorkflow, err := os.ReadFile(workflowPath)
+	require.NoError(t, err)
+	require.Equal(t, workflow, actualWorkflow)
 }
 
-func TestGlobalChecksumFailurePreservesExistingExecutable(t *testing.T) {
+func TestPinAdvanceChecksumFailureNamesStageAndPreservesPinAndBinary(t *testing.T) {
 	s := testService(t)
+	s.available = func() string { return "v1.2.3" }
 	server, _ := releaseFixture(t, true)
-	workingScript(t, s.managedPath())
-	before, err := os.ReadFile(s.managedPath())
+	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v1.0.0"})
+	target := filepath.Join(folder, ".rhizome", "bin", repoexec.PlatformDir(), repoexec.ExecutableName())
+	workingScript(t, target)
+	before, err := os.ReadFile(target)
 	require.NoError(t, err)
 	s.install = func(ctx context.Context, opts appupdate.Options) (appupdate.Result, error) {
+		opts.SetVersion = "v1.2.3"
 		opts.ManifestURL = server.URL + "/releases/latest"
 		opts.HTTPClient = server.Client()
 		return appupdate.Run(ctx, opts)
 	}
-	info, err := s.InstallGlobal(context.Background())
-	code(t, err, "install_error")
+	_, err = s.Trust(folder)
+	require.NoError(t, err)
+	_, err = s.PinAdvance(context.Background(), folder)
+	code(t, err, "pin_advance_failed")
 	require.Contains(t, err.Error(), "checksum")
-	require.True(t, info.Installed)
-	after, err := os.ReadFile(s.managedPath())
+	_, cfg, err := repoconfig.FindLocalConfigForDelegation(folder)
+	require.NoError(t, err)
+	require.Equal(t, "v1.0.0", cfg.Rhizome.Version)
+	after, err := os.ReadFile(target)
 	require.NoError(t, err)
 	require.Equal(t, before, after)
 }

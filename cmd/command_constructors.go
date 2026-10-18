@@ -206,6 +206,7 @@ func registerDesktopFamily(rootCmd *cobra.Command) {
 	commandOptions := &vaultCommandOptions{root: rootCmd}
 	desktopCmd := commandOptions.makeDesktopCmd()
 	commandOptions.registerDesktopCommands(rootCmd, desktopCmd)
+	rootCmd.AddCommand(newDesktopBridgeCmd())
 }
 
 func registerChangelogFamily(rootCmd *cobra.Command) {

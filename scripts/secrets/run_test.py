@@ -1,5 +1,7 @@
 import unittest
-from run import scoped_environment, sensitive_name
+from unittest import mock
+
+from run import environment_id, keychain_store_script, keychain_values, op_executable, scoped_environment, sensitive_name
 from check import forbidden_path
 
 
@@ -10,8 +12,44 @@ class SecretScopeTest(unittest.TestCase):
         self.assertEqual({"PATH": "/bin", "VOYAGE_API_KEY": "synthetic", "TYPESAFE_API_KEY": "synthetic"}, scoped_environment(source, "development"))
 
     def test_release_scopes_github_token_to_publish_adapter(self):
-        env = scoped_environment({"GITHUB_TOKEN": "synthetic-publish", "GH_TOKEN": "synthetic-gh", "ATOMIC_RHIZOME_KEY": "synthetic-unlock", "OP_SERVICE_ACCOUNT_TOKEN": "synthetic-op", "AWS_ACCESS_KEY_ID": "synthetic-aws-id", "AWS_SECRET_ACCESS_KEY": "synthetic-aws-secret", "AWS_SESSION_TOKEN": "synthetic-aws-session", "BREW_GITHUB_TOKEN": "synthetic-brew"}, "release")
-        self.assertEqual({"RZM_RELEASE_GITHUB_TOKEN": "synthetic-publish", "BREW_GITHUB_TOKEN": "synthetic-brew", "ATOMIC_RHIZOME_KEY": "synthetic-unlock", "AWS_ACCESS_KEY_ID": "synthetic-aws-id", "AWS_SECRET_ACCESS_KEY": "synthetic-aws-secret", "AWS_SESSION_TOKEN": "synthetic-aws-session"}, env)
+        env = scoped_environment({"GITHUB_TOKEN": "synthetic-publish", "GH_TOKEN": "synthetic-gh", "ATOMIC_RHIZOME_KEY": "synthetic-unlock", "OP_SERVICE_ACCOUNT_TOKEN": "synthetic-op", "AWS_ACCESS_KEY_ID": "synthetic-aws-id", "AWS_SECRET_ACCESS_KEY": "synthetic-aws-secret", "AWS_SESSION_TOKEN": "synthetic-aws-session", "BREW_GITHUB_TOKEN": "synthetic-brew", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-signing", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-signing-password"}, "release")
+        self.assertEqual({"RZM_RELEASE_GITHUB_TOKEN": "synthetic-publish", "BREW_GITHUB_TOKEN": "synthetic-brew", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-signing", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-signing-password", "ATOMIC_RHIZOME_KEY": "synthetic-unlock", "AWS_ACCESS_KEY_ID": "synthetic-aws-id", "AWS_SECRET_ACCESS_KEY": "synthetic-aws-secret", "AWS_SESSION_TOKEN": "synthetic-aws-session"}, env)
+
+    def test_release_may_use_its_own_environment(self):
+        development, release = "a" * 26, "b" * 26
+        both = {"RZM_OP_ENVIRONMENT_ID": development, "RZM_OP_RELEASE_ENVIRONMENT_ID": release}
+        self.assertEqual(release, environment_id("release", both))
+        self.assertEqual(development, environment_id("development", both))
+        self.assertEqual(development, environment_id("release", {"RZM_OP_ENVIRONMENT_ID": development}))
+
+    def test_op_on_path_is_used_unless_overridden(self):
+        with mock.patch("run.shutil.which", return_value="/opt/homebrew/bin/op"):
+            self.assertEqual("/opt/homebrew/bin/op", op_executable({}))
+            self.assertEqual("/custom/op", op_executable({"RZM_OP_BIN": "/custom/op"}))
+
+    def test_keychain_supplies_development_keys_only_when_all_are_stored(self):
+        stored = {"VOYAGE_API_KEY": "synthetic-voyage", "TYPESAFE_API_KEY": "synthetic-typesafe"}
+
+        def security(argv, **_):
+            account = argv[argv.index("-a") + 1]
+            value = stored.get(account, "")
+            return mock.Mock(returncode=0 if value else 44, stdout=value + "\n")
+
+        self.assertEqual(stored, keychain_values(security))
+        del stored["TYPESAFE_API_KEY"]
+        self.assertIsNone(keychain_values(security))
+
+    def test_keychain_import_keeps_values_off_the_command_line_and_rejects_quoting(self):
+        script = keychain_store_script({"VOYAGE_API_KEY": "synthetic-voyage", "TYPESAFE_API_KEY": "synthetic_typesafe"})
+        self.assertEqual(
+            'add-generic-password -U -s rhizome-development -a TYPESAFE_API_KEY -w "synthetic_typesafe"\n'
+            'add-generic-password -U -s rhizome-development -a VOYAGE_API_KEY -w "synthetic-voyage"\n',
+            script,
+        )
+        for value in ('quote"d', "back\\slash", "two words", "line\nbreak"):
+            with self.assertRaises(ValueError) as caught:
+                keychain_store_script({"VOYAGE_API_KEY": value})
+            self.assertNotIn(value, str(caught.exception))
 
     def test_local_env_files_cannot_be_committed(self):
         for path in (".env", "nested/.env", ".env.local", "nested/.env.production"):

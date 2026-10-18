@@ -71,12 +71,9 @@ pub async fn call(
     let sidecar = current
         .parent()
         .ok_or("Cannot locate the desktop companion.".to_string())?
-        .join(if cfg!(windows) {
-            "rhizome-desktop-bridge.exe"
-        } else {
-            "rhizome-desktop-bridge"
-        });
+        .join(if cfg!(windows) { "rzm.exe" } else { "rzm" });
     let mut child = Command::new(sidecar)
+        .arg("desktop-bridge")
         .arg("--state-dir")
         .arg(directory)
         .current_dir(directory)

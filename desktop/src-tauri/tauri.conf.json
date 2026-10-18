@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Rhizome",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "identifier": "com.atomicobject.rhizome",
   "build": {
-    "beforeDevCommand": "npm run bridge && npm run dev",
-    "beforeBuildCommand": "npm run bridge && npm run build",
+    "beforeDevCommand": "npm run rzm && npm run dev",
+    "beforeBuildCommand": "npm run rzm && npm run build",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../dist"
   },
@@ -22,7 +22,7 @@
     "targets": ["app", "dmg"],
     "category": "DeveloperTool",
     "shortDescription": "Open your repositories in Rhizome",
-    "externalBin": ["binaries/rhizome-desktop-bridge"],
+    "externalBin": ["binaries/rzm"],
     "macOS": {
       "minimumSystemVersion": "12.0"
     },
@@ -33,5 +33,11 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU5RDM5OTUwQjk1MDI0QzcKUldUSEpGQzVVSm5UV1ZJaTllSHZoOEZSalJpbWhvbkVJeVBaQWpFZWtiMnY0TjJXeGZGY3JnWlEK",
+      "endpoints": ["https://github.com/atomicobject/rhizome/releases/latest/download/latest.json"]
+    }
   }
 }

@@ -3,7 +3,7 @@ type: TechnicalSpec
 summary: "Defines Rhizome-managed and external-manager repository installs, user install, update, and GitHub release artifact contracts."
 id: SPEC-0033
 spec-status: active
-last-updated: 2026-09-22
+last-updated: 2026-10-17
 aliases:
   - SPEC-0033
   - Version-pinned Rhizome install and update
@@ -293,6 +293,7 @@ sequenceDiagram
 - Repo metadata must commit in binary, version-marker, then config-pin order. A marker failure must leave the pin unchanged; a later pin-save failure must report the successful binary and marker changes as a partial result.
 - If one destination succeeds and another fails, output and exit behavior must report the partial result truthfully rather than claiming transactional rollback.
 - When no repo pin applies, plain update and `--latest` must choose the currently running executable as the target. `--pinned` and `--set-version` must fail without mutation.
+- When the running executable resolves, after following symbolic links, to a file inside a `.app` bundle, the global target belongs to that app and must never be replaced as a file. [[desktop-distribution-and-updates|SPEC-0122]] defines how `rzm update` hands it to Rhizome Desktop and reports the result; repository targets and their prompts are unchanged.
 - Managed repo launchers must recognize update modes independent of option ordering, refresh the managed launcher according to their repo-scoped contract, and never infer or mutate a global executable.
 
 #### Should
