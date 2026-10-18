@@ -2,7 +2,7 @@
 type: ReferenceDoc
 reference-kind: guide
 summary: "Install Rhizome, initialize an Agentic Engineering project, and join an existing team."
-last-verified: 2026-10-01
+last-verified: 2026-10-18
 status: active
 ---
 
@@ -74,7 +74,7 @@ If the repository has `.rhizome/config.yml`, its skills, and a committed `bin/rz
 
 Ensure your coding agent can also resolve `rzm`. You do not need to initialize a configured project again just to join it.
 
-With a global installation, review the checkout and run `rzm trust` before automation. Trust lets that checkout select and run its configured Rhizome binary, including future updates there. Each new checkout or worktree needs its own trust decision. Revoke it with `rzm untrust`.
+With a global installation, review the checkout and run `rzm trust` before automation. Trust lets that checkout select and run its configured Rhizome binary, including future updates there. Each new clone needs its own trust decision; a Git worktree of a trusted checkout inherits that checkout's trust. Revoke it with `rzm untrust` in the main checkout.
 
 ## Initialize your project
 

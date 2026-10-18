@@ -421,6 +421,13 @@ body,
   border-bottom: 1px solid #fccfd2;
   color: #9c1d24;
 }
+.alert > span {
+  flex: 1;
+}
+.alert .text-button {
+  color: inherit;
+  font-weight: 550;
+}
 .content {
   flex: 1;
   min-height: 0;

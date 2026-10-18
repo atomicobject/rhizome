@@ -3,7 +3,7 @@ type: TechnicalSpec
 id: SPEC-0113
 aliases: [SPEC-0113]
 spec-status: active
-last-updated: 2026-10-17
+last-updated: 2026-10-18
 summary: "A desktop app presents each Rhizome repository as one unit with switchable worktrees, starts the selected worktree's configured runtime with visible loading states, and manages the user installation."
 ---
 
@@ -21,7 +21,7 @@ The desktop application owns the repository library, window layout, and worktree
 - Treat a repository's Git worktrees as views of one repository: detect them, mark ones the user has not opened, and switch the content to the selected worktree's runtime.
 - Start a worktree without a database from a copy of the primary worktree's index, using copy-on-write cloning where the host supports it.
 - Show what the app is waiting for while a runtime prepares, starts, and loads, and show the workspace as soon as it is available.
-- Respect repository pins, development executables, explicit external binary ownership, and per-worktree trust.
+- Respect repository pins, development executables, explicit external binary ownership, and repository trust.
 - Support several windows at once and restore each window's layout and selection across sessions.
 - Carry the matching Rhizome inside the app, and change a repository pin only when the user accepts an offer, as [[desktop-distribution-and-updates|SPEC-0122]] specifies.
 - Produce a locally buildable macOS application with testable native integration boundaries.
@@ -56,7 +56,7 @@ Repository content MUST render in a webview separate from the app's own interfac
 
 ### Opening a worktree
 
-Opening MUST select the worktree's configured Rhizome instance through existing executable-selection behavior. External binary ownership MUST require an explicit external launcher or selected executable rather than silently substituting the global binary. Executable trust MUST remain explicit and per worktree, using Rhizome's canonical checkout trust store; the app MUST ask for trust in the content area rather than inherit it from another worktree. An unconfigured worktree MUST show setup guidance or an explicit initialization action; [[desktop-repository-setup|SPEC-0118]] specifies the setup sheet and the What gets indexed page.
+Opening MUST select the worktree's configured Rhizome instance through existing executable-selection behavior. External binary ownership MUST require an explicit external launcher or selected executable rather than silently substituting the global binary. Executable trust MUST remain explicit, using Rhizome's canonical checkout trust store. A linked Git worktree without its own record inherits its main checkout's trust, so new worktrees of a trusted repository open without asking; the repository's worktree record MUST link back to the worktree, so a copied `.git` file cannot claim trust. Otherwise the app MUST ask for trust in the content area. An unconfigured worktree MUST show setup guidance or an explicit initialization action; [[desktop-repository-setup|SPEC-0118]] specifies the setup sheet and the What gets indexed page.
 
 The native controller MUST verify runtime identity and liveness before showing its URL. It MUST bind local starts to loopback and use dynamically selected ports. Repeated or concurrent selection of a worktree MUST converge on one runtime. A previously running runtime MUST remain owned by its existing lifecycle; closing a window or switching away MUST NOT terminate any runtime. Runtime control tokens MUST NOT reach the frontend or logs.
 

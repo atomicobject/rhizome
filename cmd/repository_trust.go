@@ -78,6 +78,14 @@ func newRepositoryUntrustCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			inherited, err := store.Trusted(canonical)
+			if err != nil {
+				return err
+			}
+			if main, ok := repositorytrust.MainCheckout(canonical); ok && inherited {
+				_, err = fmt.Fprintf(cmd.OutOrStdout(), "This worktree is trusted through its main checkout:\n%s\nRun `rzm untrust` there to revoke it.\n", main)
+				return err
+			}
 			if !removed {
 				_, err = fmt.Fprintf(cmd.OutOrStdout(), "Repository was not trusted:\n%s\n", canonical)
 				return err

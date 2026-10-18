@@ -745,6 +745,31 @@ describe("desktop shell", () => {
     expect(screen.getByRole("tab", { name: /project/ })).toHaveAttribute("aria-selected", "true");
   });
 
+  it("trusts and restarts a rebuilt worktree from its alert", async () => {
+    start(undefined, (operation) => (operation === "restart" ? null : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    act(() =>
+      emit({
+        type: "alert",
+        code: "trust_required",
+        message: "wt has a new Rhizome build. Trust this worktree to restart Rhizome on it.",
+        repository: repository.id,
+        worktree: "/repo/wt",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Trust and restart" }));
+    const target = { id: repository.id, worktree: "/repo/wt" };
+    await waitFor(() =>
+      expect(
+        call.mock.calls.filter(([operation]) => ["trust", "restart"].includes(operation)),
+      ).toEqual([
+        ["trust", target],
+        ["restart", target],
+      ]),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("stops showing the previous worktree when the selected repository is unavailable", async () => {
     start(undefined, (operation, args) => {
       if (operation === "list") return both;

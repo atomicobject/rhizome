@@ -31,7 +31,8 @@ func operatingSystemUserHome() (string, error) {
 }
 
 // Store keeps local repository trust outside the repository being trusted.
-// Each canonical checkout gets an independent record, including Git worktrees.
+// Each canonical checkout gets an independent record. A linked Git worktree
+// without its own record inherits its main checkout's trust.
 type Store struct {
 	Dir string
 }
@@ -64,7 +65,8 @@ func CanonicalCheckout(path string) (string, error) {
 	return filepath.Clean(canonical), nil
 }
 
-// Trusted reports whether checkout has an exact local trust record.
+// Trusted reports whether checkout, or the main checkout of the linked Git
+// worktree it lives in, has a local trust record.
 func (s Store) Trusted(checkout string) (bool, error) {
 	if err := s.validate(); err != nil {
 		return false, err
@@ -73,6 +75,17 @@ func (s Store) Trusted(checkout string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	trusted, err := s.recorded(canonical)
+	if trusted || err != nil {
+		return trusted, err
+	}
+	if main, ok := MainCheckout(canonical); ok {
+		return s.recorded(main)
+	}
+	return false, nil
+}
+
+func (s Store) recorded(canonical string) (bool, error) {
 	record, err := os.ReadFile(s.recordPath(canonical))
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -154,4 +167,72 @@ func (s Store) validate() error {
 func (s Store) recordPath(canonical string) string {
 	digest := sha256.Sum256([]byte(canonical))
 	return filepath.Join(s.Dir, hex.EncodeToString(digest[:])+".trust")
+}
+
+// MainCheckout maps a checkout inside a linked Git worktree to the same path
+// in the repository's main working tree. A worktree's .git file is checkout
+// content anyone could write, so the repository must link back to it: Git's
+// worktrees/<name>/gitdir record has to name this worktree's .git file.
+// ponytail: main trees found only as the parent of a ".git" common directory;
+// core.worktree and --separate-git-dir layouts keep per-checkout trust.
+func MainCheckout(canonical string) (string, bool) {
+	root := canonical
+	for {
+		if _, err := os.Lstat(filepath.Join(root, ".git")); err == nil {
+			break
+		}
+		parent := filepath.Dir(root)
+		if parent == root {
+			return "", false
+		}
+		root = parent
+	}
+	dotGit := filepath.Join(root, ".git")
+	stat, err := os.Lstat(dotGit)
+	if err != nil || !stat.Mode().IsRegular() {
+		return "", false
+	}
+	target, ok := strings.CutPrefix(readLine(dotGit), "gitdir:")
+	if !ok {
+		return "", false
+	}
+	gitDir := resolveFrom(root, strings.TrimSpace(target))
+	if resolveFrom(gitDir, readLine(filepath.Join(gitDir, "gitdir"))) != resolveFrom(root, ".git") {
+		return "", false
+	}
+	relative := readLine(filepath.Join(gitDir, "commondir"))
+	if relative == "" {
+		return "", false
+	}
+	common := resolveFrom(gitDir, relative)
+	if filepath.Base(common) != ".git" {
+		return "", false
+	}
+	rest, err := filepath.Rel(root, canonical)
+	if err != nil {
+		return "", false
+	}
+	main := filepath.Join(filepath.Dir(common), rest)
+	if main == canonical {
+		return "", false
+	}
+	return main, true
+}
+
+func readLine(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func resolveFrom(base, path string) string {
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(base, path)
+	}
+	if canonical, err := filepath.EvalSymlinks(path); err == nil {
+		return canonical
+	}
+	return filepath.Clean(path)
 }
