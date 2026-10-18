@@ -171,8 +171,9 @@ func (s Store) recordPath(canonical string) string {
 
 // MainCheckout maps a checkout inside a linked Git worktree to the same path
 // in the repository's main working tree. A worktree's .git file is checkout
-// content anyone could write, so the repository must link back to it: Git's
-// worktrees/<name>/gitdir record has to name this worktree's .git file.
+// content anyone could write, so the repository must vouch for it: the Git
+// directory it names must be an entry in the main repository's worktrees
+// directory, and that entry's gitdir record must name this worktree's .git file.
 // ponytail: main trees found only as the parent of a ".git" common directory;
 // core.worktree and --separate-git-dir layouts keep per-checkout trust.
 func MainCheckout(canonical string) (string, bool) {
@@ -205,7 +206,7 @@ func MainCheckout(canonical string) (string, bool) {
 		return "", false
 	}
 	common := resolveFrom(gitDir, relative)
-	if filepath.Base(common) != ".git" {
+	if filepath.Base(common) != ".git" || filepath.Dir(gitDir) != filepath.Join(common, "worktrees") {
 		return "", false
 	}
 	rest, err := filepath.Rel(root, canonical)

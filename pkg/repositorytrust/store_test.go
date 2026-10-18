@@ -95,6 +95,14 @@ func TestLinkedWorktreesInheritMainCheckoutTrust(t *testing.T) {
 	dotGit, err := os.ReadFile(filepath.Join(worktree, ".git"))
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(forged, ".git"), dotGit, 0o644))
+	// A folder that brings its own Git metadata, back-linked to itself and
+	// claiming the trusted repository as its common directory.
+	planted := filepath.Join(base, "planted")
+	metadata := filepath.Join(planted, "metadata")
+	require.NoError(t, os.MkdirAll(metadata, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(planted, ".git"), []byte("gitdir: "+metadata+"\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(metadata, "gitdir"), []byte(filepath.Join(planted, ".git")+"\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(metadata, "commondir"), []byte(filepath.Join(main, ".git")+"\n"), 0o644))
 
 	trusted := func(checkout string) bool {
 		ok, err := store.Trusted(checkout)
@@ -108,6 +116,7 @@ func TestLinkedWorktreesInheritMainCheckoutTrust(t *testing.T) {
 	require.True(t, trusted(worktree))
 	require.False(t, trusted(filepath.Join(worktree, "vault")), "a subfolder maps to the same subfolder")
 	require.False(t, trusted(forged))
+	require.False(t, trusted(planted))
 
 	_, err = store.Trust(filepath.Join(main, "vault"))
 	require.NoError(t, err)
