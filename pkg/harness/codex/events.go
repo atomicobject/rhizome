@@ -205,5 +205,6 @@ func toHarnessUsage(usage tokenUsage) harness.TokenUsage {
 		OutputTokens:          usage.OutputTokens,
 		ReasoningOutputTokens: usage.ReasoningOutputTokens,
 		TotalTokens:           usage.TotalTokens,
+		CacheWriteInputTokens: usage.CacheWriteInputTokens,
 	}
 }

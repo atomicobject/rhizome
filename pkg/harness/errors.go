@@ -17,6 +17,7 @@ var (
 	ErrTimeout         = errors.New("harness timeout")
 	ErrCommandFailed   = errors.New("harness command failed")
 	ErrSchemaMismatch  = errors.New("harness schema mismatch")
+	ErrUnsupported     = errors.New("harness unsupported")
 )
 
 type PhaseError struct {

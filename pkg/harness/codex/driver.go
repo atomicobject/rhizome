@@ -72,7 +72,7 @@ func (d *Driver) StartSession(ctx context.Context, options harness.SessionOption
 		}
 		return nil, harness.Phase(harness.ErrSpawn, err)
 	}
-	s := newSession(connection, options, cwd, d.cancelTimeout, d.shutdownTimeout, true)
+	s := newSession(connection, options, cwd, d.cancelTimeout, d.shutdownTimeout, true, nil)
 	version, err := s.client.initialize(ctx)
 	if err != nil {
 		_ = s.Stop()
@@ -105,14 +105,16 @@ func (d *Driver) StartSession(ctx context.Context, options harness.SessionOption
 	return s, nil
 }
 
-func newSession(connection transport, options harness.SessionOptions, cwd string, cancelTimeout, shutdownTimeout time.Duration, interactive bool) *session {
+// newSession starts the read loop. A non-nil observe receives every
+// notification in place of event mapping; Generate uses it.
+func newSession(connection transport, options harness.SessionOptions, cwd string, cancelTimeout, shutdownTimeout time.Duration, interactive bool, observe func(rpcMessage)) *session {
 	lifetime, cancel := context.WithCancel(context.Background())
 	s := &session{
 		transport: connection, options: options, cwd: cwd, stream: eventstream.New(),
 		lifetime: lifetime, cancel: cancel, responses: make(map[string]chan rpcMessage),
 		responseBacklog: make(map[string]rpcMessage),
 		pending:         make(map[string]pendingApproval), deltas: make(map[string]bool), cancelTimeout: cancelTimeout,
-		shutdownTimeout: shutdownTimeout, interactive: interactive,
+		shutdownTimeout: shutdownTimeout, interactive: interactive, observe: observe,
 	}
 	if s.cancelTimeout <= 0 {
 		s.cancelTimeout = turnCancelTimeout
@@ -143,6 +145,7 @@ type session struct {
 	cancelTimeout   time.Duration
 	shutdownTimeout time.Duration
 	interactive     bool
+	observe         func(rpcMessage)
 
 	stateMu         sync.Mutex
 	dispatchMu      sync.Mutex // serializes backlog replay in SendTurn with readLoop notification dispatch
@@ -410,6 +413,10 @@ func (s *session) readLoop() {
 			} else {
 				s.dispatchRequest(message)
 			}
+			continue
+		}
+		if message.Method != "" && s.observe != nil {
+			s.observe(message)
 			continue
 		}
 		if message.Method != "" {

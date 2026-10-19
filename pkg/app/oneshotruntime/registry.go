@@ -328,6 +328,7 @@ func DefaultRegistry() Registry {
 		static("agent.check-paths", "agent check-paths", CompositionOneShotRuntime, AuthorityReadOnly, empty()),
 		static("agent.evaluate-batch", "agent evaluate-batch", CompositionOneShotRuntime, AuthorityReadOnly, empty()),
 		static("agent.evaluate", "agent evaluate", CompositionOneShotRuntime, AuthorityReadOnly, empty()),
+		static("agent.generate", "agent generate", CompositionOneShotRuntime, AuthorityReadOnly, empty()),
 		static("agent.external-references", "agent external-references", CompositionOneShotRuntime, AuthorityReadOnly, code()),
 		exempt("agent.code-symbol-context", "agent code-symbol-context", CompositionOneShotRuntime, AuthorityReadOnly, RuntimeExemptionFullRuntimeParity, &Plan{
 			FullRuntime:  true,

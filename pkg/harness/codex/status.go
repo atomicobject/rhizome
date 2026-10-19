@@ -33,7 +33,7 @@ func (d *Driver) Status(ctx context.Context) (harness.Status, error) {
 		status.LastError = err.Error()
 		return status, nil
 	}
-	probe := newSession(connection, harness.SessionOptions{}, cwd, turnCancelTimeout, d.shutdownTimeout, false)
+	probe := newSession(connection, harness.SessionOptions{}, cwd, turnCancelTimeout, d.shutdownTimeout, false, nil)
 	defer probe.Stop()
 	client := probe.client
 	_, err = client.initialize(ctx)

@@ -293,6 +293,7 @@ func TestAgentSurfaceCommandOrderAndCategoriesRemainStable(t *testing.T) {
 		{"evaluate", "analysis"},
 		{"check-paths", "discovery"},
 		{"evaluate-batch", "analysis"},
+		{"generate", "analysis"},
 		{"surface", "self"},
 		{"note-move", "safe_mutation"},
 	}

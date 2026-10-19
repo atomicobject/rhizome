@@ -2,7 +2,6 @@ package codex
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -29,14 +28,14 @@ func TestLiveCodex(t *testing.T) {
 		t.Fatalf("expected installed and logged in: %+v", status)
 	}
 
-	out, err := driver.Generate(ctx, harness.GenerateRequest{
-		Prompt: "Return the JSON object {\"answer\": \"pong\"}.",
-		Schema: json.RawMessage(`{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}`),
-	})
+	generated, err := driver.Generate(ctx, harness.GenerateRequest{Prompt: "Reply pong.", Effort: "low"})
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	t.Logf("generate: %s", out)
+	t.Logf("generate: %s model=%s usage=%+v", generated.Output, generated.Model, generated.Usage)
+	if generated.ToolPolicy != harness.ToolPolicySandboxed {
+		t.Fatalf("generate tool policy: %q", generated.ToolPolicy)
+	}
 
 	session, err := driver.StartSession(ctx, harness.SessionOptions{Cwd: t.TempDir(), PermissionMode: harness.PermissionApprovalRequired})
 	if err != nil {

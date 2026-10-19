@@ -1,4 +1,5 @@
 // Package codex drives codex-cli 0.154.0 through its app-server protocol.
+// One-shot generation (generate.go) was verified against 0.163.0.
 //
 // The reference schemas can be regenerated with:
 //

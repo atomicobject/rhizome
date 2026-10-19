@@ -116,6 +116,7 @@ var toolCatalog = []ToolDescriptor{
 	runtimeRead(codeLocal(agentCLI(agentCapability(descriptor("query_recipe", "query-recipe", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.QueryRecipeTool), 18), 23, AgentCLICategoryOntology), CodeLocalService.QueryRecipe), runtimeReadActions("run")),
 	agentCLI(agentCapability(descriptor("graph_path", "graph-path", SurfaceAgentAPI|SurfaceAgentCLI, MutationNever, mcpapi.GraphPathTool), 9), 27, AgentCLICategoryNavigation),
 	agentCLI(agentCapability(descriptor("evaluate", "evaluate", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.EvaluateTool), 27), 31, AgentCLICategoryAnalysis),
+	agentCLI(agentCapability(descriptor("generate", "generate", SurfaceAgentAPI|SurfaceAgentCLI|SurfaceCapabilities, MutationNever, mcpapi.GenerateTool), 30), 34, AgentCLICategoryAnalysis),
 	codeLocal(localDescriptor("code_rationale", "code-rationale", 28, AgentCLICategoryAnalysis), CodeLocalService.CodeRationale),
 	codeLocal(localDescriptor("ontology_authoring_guide", "ontology-authoring-guide", 19, AgentCLICategoryOntology), CodeLocalService.OntologyAuthoringGuide),
 	codeLocal(localDescriptor("ontology_inspect", "ontology-inspect", 20, AgentCLICategoryOntology), CodeLocalService.OntologyInspect),
@@ -140,7 +141,7 @@ func init() {
 		if toolCatalog[i].CodeContract != nil {
 			toolCatalog[i].Surfaces |= SurfaceCodeMode
 			switch toolCatalog[i].Name {
-			case "evaluate", "evaluate_batch", "check_paths":
+			case "evaluate", "evaluate_batch", "check_paths", "generate":
 				toolCatalog[i].CodeAccess = CodeIndependent
 			case "code_symbol", "code_references", "external_references", "graph_path", "code_rationale":
 				toolCatalog[i].CodeAccess = CodeVaultRead

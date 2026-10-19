@@ -2,7 +2,6 @@ package harnesstest
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 
 	"github.com/atomicobject/rhizome/pkg/harness"
@@ -13,7 +12,7 @@ type Harness struct {
 	StatusError    error
 	Session        *Session
 	StartError     error
-	GenerateResult json.RawMessage
+	GenerateResult harness.GenerateResult
 	GenerateError  error
 	StartedWith    []harness.SessionOptions
 	GeneratedWith  []harness.GenerateRequest
@@ -34,9 +33,9 @@ func (h *Harness) StartSession(_ context.Context, options harness.SessionOptions
 	return h.Session, nil
 }
 
-func (h *Harness) Generate(_ context.Context, request harness.GenerateRequest) (json.RawMessage, error) {
+func (h *Harness) Generate(_ context.Context, request harness.GenerateRequest) (harness.GenerateResult, error) {
 	h.GeneratedWith = append(h.GeneratedWith, request)
-	return append(json.RawMessage(nil), h.GenerateResult...), h.GenerateError
+	return h.GenerateResult, h.GenerateError
 }
 
 type Turn struct {

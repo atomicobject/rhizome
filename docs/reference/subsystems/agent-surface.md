@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the agent surface: rzm agent * command family, agentapi in-process bridge, contextpack budgeting, answer packets, presentation packing."
 reference-kind: guide
-last-verified: 2026-10-17
+last-verified: 2026-10-18
 code-paths:
   - pkg/app/agentchat
   - pkg/app/agentapi
@@ -43,6 +43,7 @@ The agent surface is everything an AI agent consumes from Rhizome: the `rzm agen
 ## Design constraints
 
 - **Jev evaluates explicit state.** `evaluate` reuses the native TypeSafe client through one shared handler and an empty one-shot runtime plan. Credentials resolve from environment/global configuration before the Atomic bundle. Catalog schemas preserve question and answer discriminators; discovery teaches independent questions and probability semantics. Evaluation sends only supplied state/questions, incurs provider usage, and preserves usage and request IDs. Session dedupe and response budgets do not alter evaluations.
+- **Generate is one tool-free model call.** `generate` (`rzm agent generate`, `rzm.generate`) reuses one shared handler over `pkg/harness` with an empty one-shot runtime plan. It sends only the supplied prompt and optional schema, persists no session, and returns output, provider-reported usage, the model that ran, and `toolPolicy`: `none` when the CLI removed every tool, `sandboxed` when configuration removed what it can and a read-only, network-less sandbox bounds the rest. A provider that can do neither reports unsupported instead of running. An omitted provider uses the `agent.harness` setting, else the only provider installed and signed in. See [[session-memory-starter|SPEC-0121]].
 
 - **Code discovery explains evidence recovery.** Selected describe carries shared invocation/outcome guidance once, with verified field semantics and operation-specific conditions. Examples preserve bounded context metadata and qualify projected file bodies. Session dedupe records delivery to JavaScript, so a follow-up may explicitly reread selected files with `dedupe: false` to recover content omitted from the model-visible projection. Keep execution, validation, and dedupe behavior unchanged by descriptive metadata. See [[code-mode-evidence-guidance|SPEC-0096]].
 

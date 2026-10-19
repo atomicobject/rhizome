@@ -181,5 +181,5 @@ func toHarnessUsage(value *usage) harness.TokenUsage {
 		return harness.TokenUsage{}
 	}
 	totalInput := value.InputTokens + value.CacheCreationInputTokens + value.CacheReadInputTokens
-	return harness.TokenUsage{InputTokens: value.InputTokens, CachedInputTokens: value.CacheReadInputTokens, OutputTokens: value.OutputTokens, ReasoningOutputTokens: value.OutputTokenDetails.ThinkingTokens, TotalTokens: totalInput + value.OutputTokens}
+	return harness.TokenUsage{InputTokens: value.InputTokens, CachedInputTokens: value.CacheReadInputTokens, OutputTokens: value.OutputTokens, ReasoningOutputTokens: value.OutputTokenDetails.ThinkingTokens, TotalTokens: totalInput + value.OutputTokens, CacheWriteInputTokens: value.CacheCreationInputTokens}
 }

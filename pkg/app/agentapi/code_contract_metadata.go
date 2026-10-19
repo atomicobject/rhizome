@@ -30,6 +30,13 @@ var codeOperationInputMetadata = map[string]map[string]codeInputFieldMetadata{
 		"concurrency": {Description: "Maximum concurrent upstream requests within this batch, 1..32.", Default: 8, HasDefault: true},
 		"budgetMs":    {Description: "Batch scheduling budget in milliseconds, 1..300000. Returns partial results before the call deadline. Set CallOptions.timeoutMs longer than this budget.", Default: 20000, HasDefault: true},
 	},
+	"generate": {
+		"provider": {Description: "claude or codex. Omission uses the agent.harness setting, else the only provider installed and signed in, and otherwise fails naming the choices."},
+		"model":    {Description: "Provider model ID or alias. Omission uses the CLI's configured default."},
+		"effort":   {Description: "Provider reasoning effort, such as low or high. Omission uses the CLI's default."},
+		"prompt":   {Description: "Complete prompt text. The model sees nothing else from the vault."},
+		"schema":   {Description: "Optional JSON Schema for a structured result. Claude checks the top-level type and required keys; Codex sends it as a strict output schema, so objects need additionalProperties false and every property required."},
+	},
 	"evaluate": {
 		"state":     {Description: "Text, object, or array containing the evidence to evaluate. Send only content needed for the decision."},
 		"questions": {Description: "Independent named choice, score, or noul questions against the same state. IDs match answers; put instructions in each question, not in its ID."},
@@ -154,6 +161,7 @@ var codeOperationInputMetadata = map[string]map[string]codeInputFieldMetadata{
 var codeOperationInterpretations = map[string]string{
 	"check_paths":              "One result per input, in order. allowed means allowed by ignore rules, not selected as a note or supported as code. invalid is never equivalent to allowed. Rule attribution includes negations and ignored ancestors. sessionId and budgetChars do not alter decisions.",
 	"evaluate_batch":           "Questions within each item are independent against its state. Item statuses distinguish succeeded, failed, not_started and uncertain. Check every status even when the operation succeeds. Checkpoint successful results; never automatically replay uncertain items. Usage totals include validated successes only, not unknown usage from failures. Throttle coordination is per batch, not global across processes. budgetChars and sessionId do not truncate or deduplicate evaluations.",
+	"generate":                 "output is the schema-shaped JSON value, or a JSON string without a schema. model is the model the provider reported running and may differ from the requested alias. toolPolicy is none when the CLI removed every tool (Claude) or sandboxed when configuration removed what it can and a read-only, network-less sandbox with no approvals bounds the rest (Codex). usage and costUsd are provider-reported; cachedInputTokens are cache reads and cacheWriteInputTokens cache writes. Claude uses the five-minute prompt cache. Set CallOptions.timeoutMs above expected model latency; the 30-second default is short for large prompts. budgetChars and sessionId do not affect generation.",
 	"evaluate":                 "Questions run independently against the same state. Choice returns an option and distribution; score returns the expected zero-based rubric level, distribution and legend; noul returns the probability of yes. Inspect answer.type before reading variant fields. Confidence describes distribution concentration, not verified correctness. Batch related questions for one state; use separate calls for different states. API failures return a failed outcome. budgetChars and sessionId do not truncate or deduplicate evaluation.",
 	"files":                    "Use inputs for a first page or only continuationToken for later pages; the token carries the original paging and content settings.",
 	"file_context":             "Context is bounded around the requested files or directories; link-target apply is unavailable in code mode.",
