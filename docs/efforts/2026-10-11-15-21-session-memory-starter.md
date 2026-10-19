@@ -544,6 +544,15 @@ Nothing yet; execution starts after plan approval.
 
   - **Reading:** identical runs differ by 3 recovered and 6 proposed, so the first lean run's low recall was noise, not the prompt. The lean prompt stays: same recall within the noise, about 35% cheaper.
   - **For the cold-run yield:** the verifier is not stricter than in M1. The low M3 yield comes from which tier B clusters get verified, and from grouping. Single-run verdicts on borderline clusters are close to a coin flip.
+- 2026-10-19: **Astra high review of the hook plan and of Markdown anchors.** Verdict: approve with changes. Findings and responses:
+  - **Blocker for the T3 Codex option:** a user-level Codex hook that runs whichever repository's delivery script it finds would run repository code before the repository's own hook is trusted, because Codex loads user hooks in untrusted projects. Rejected as proposed. The alternatives are lookup only in T3 Codex threads, or a user-owned runner that reads shards as data and never runs repository scripts. Drew decides.
+  - **Path containment:** `relativize` maps a path in another T3 or Codex worktree onto this repository, which suits transcripts but not delivery. Fixed for lookup with a strict mode; delivery will use it too. The hook build also needs a quote-aware parser for the promised command forms (`cat Makefile` is missed, and an `rg` pattern can be read as a path).
+  - **CRLF:** `parseShard` rejected shards with CRLF line endings, so a Windows checkout lost every shard. Fixed and tested.
+  - **For the hook build:** synchronous `git` calls cannot honor a JavaScript deadline, so delivery needs bounded subprocesses and batched index reads. Dedupe must filter before the five-shard limit, or delivered shards hide later matches. Dedupe state needs serialized updates and the worktree in its key. On Windows, Claude hooks should launch `node` with an `args` array, and Codex runs hook commands through `cmd.exe /C`.
+  - **Timing:** Claude Code `PreToolUse` can add context, but it arrives with the tool result, so reads stay the preventive path.
+  - **Decisions:** command-triggered delivery yes, as corrective guidance in event-specific JSON. Hooks are enabled explicitly during add-on setup, and the choice persists through updates; the team setting goes in `.claude/settings.json`.
+  - **Freshness wording:** the fingerprint covers committed files, not unstaged edits, and old patternless shards are flagged for maintenance but still delivered. Status text should say so.
+  - **Markdown:** file context for a note returns before consulting anchors, though glob anchors match any path. Returning glob-anchored docs for notes is a separate, bounded Rhizome change that moves the note-to-code boundary. Tag, type, and link selectors need their own spec. The spec's claim that Markdown has no file context is corrected.
 
 ## Deviations
 

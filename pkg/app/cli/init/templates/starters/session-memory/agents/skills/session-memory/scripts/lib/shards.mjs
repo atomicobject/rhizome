@@ -118,7 +118,7 @@ export function evidenceLines(evidence = []) {
 // lists of scalars. Nested maps (code-anchors) are read as lists of their
 // `glob:` values.
 export function parseShard(text, path) {
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  const m = text.replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!m) return null;
   const fm = {};
   let key = null;

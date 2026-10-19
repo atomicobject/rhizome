@@ -45,9 +45,9 @@ function searchShards(root, task) {
 
 export function lookup({ root, files = [], command, task, search = searchShards }) {
   const tracked = git(root, ["ls-files", "-z"]).split("\0").filter(Boolean);
-  const paths = files.map((f) => relativize(f, root) ?? f);
+  const paths = files.map((f) => relativize(f, root, true)).filter(Boolean);
   if (command) {
-    const p = shellPaths(command, root);
+    const p = shellPaths(command, root, true);
     paths.push(...p.reads, ...p.edits);
   }
   const ranked = task ? search(root, task) : [];

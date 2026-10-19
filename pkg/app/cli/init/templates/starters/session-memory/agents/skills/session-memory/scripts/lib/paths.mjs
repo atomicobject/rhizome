@@ -22,15 +22,16 @@ function looksLikePath(token) {
 }
 
 // Make a path repository-relative. `root` is the session's working directory,
-// which for worktree sessions is the repository root.
-export function relativize(path, root) {
+// which for worktree sessions is the repository root. Transcripts map a path in
+// another worktree of the repository onto `root`; `strict` refuses it instead.
+export function relativize(path, root, strict = false) {
   if (!path) return null;
   let p = posix.normalize(path.replace(/\\/g, "/"));
   const r = (root ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
   if (p.startsWith("/") || /^[A-Za-z]:\//.test(p)) {
     if (r && (p === r || p.startsWith(r + "/"))) p = p.slice(r.length + 1);
     else {
-      const wt = p.match(/^.*?\/(?:\.t3\/worktrees\/[^/]+\/[^/]+|\.codex\/worktrees\/[^/]+\/[^/]+)\/(.*)$/);
+      const wt = !strict && p.match(/^.*?\/(?:\.t3\/worktrees\/[^/]+\/[^/]+|\.codex\/worktrees\/[^/]+\/[^/]+)\/(.*)$/);
       if (!wt) return null;
       p = wt[1];
     }
@@ -59,7 +60,7 @@ export function isReadOnlyShell(cmd) {
 }
 
 // Paths a shell command reads or edits, with a leading `cd` honored.
-export function shellPaths(cmd, root) {
+export function shellPaths(cmd, root, strict = false) {
   const reads = new Set();
   const edits = new Set();
   let cwd = root;
@@ -75,14 +76,14 @@ export function shellPaths(cmd, root) {
     if (head === "git" || head === "sudo" || head === "command") continue;
     const redirect = segment.match(/>{1,2}\s*([^\s;&|]+)/);
     if (redirect && looksLikePath(redirect[1])) {
-      const rel = relativize(resolve(redirect[1], cwd), root);
+      const rel = relativize(resolve(redirect[1], cwd), root, strict);
       if (rel) edits.add(rel);
     }
     const bucket = READ_COMMANDS.has(head) ? reads : EDIT_COMMANDS.has(head) ? edits : null;
     if (!bucket) continue;
     for (const arg of args) {
       if (!looksLikePath(arg)) continue;
-      const rel = relativize(resolve(arg, cwd), root);
+      const rel = relativize(resolve(arg, cwd), root, strict);
       if (rel) bucket.add(rel);
     }
   }

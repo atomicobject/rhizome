@@ -68,6 +68,11 @@ test("approving writes a current shard that lookup returns and review no longer 
   const hit = lookup({ root, files: [join(root, "pkg/store/db.go")] });
   assert.deepEqual(hit.shards.map((s) => s.path), [approved]);
   assert.deepEqual(lookup({ root, files: ["docs/store.md"] }).shards, []);
+  assert.deepEqual(lookup({ root, files: ["/other/.t3/worktrees/proj/branch/pkg/store/db.go"] }).shards, []);
+
+  // A Windows checkout converts the shard to CRLF line endings.
+  writeFileSync(join(root, approved), readFileSync(join(root, approved), "utf8").replace(/\n/g, "\r\n"));
+  assert.equal(loadShards(root)[0]?.path, approved);
 });
 
 test("approval is refused over uncommitted files and credential-shaped text", () => {

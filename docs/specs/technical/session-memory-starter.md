@@ -106,7 +106,7 @@ The rest of this story applies where hooks are installed.
 - Delivery adds at most five shards (about 4,000 characters) per call, rules first. A hook never blocks or fails a tool call. Every error, including a timeout, results in no output, an exit status of zero, and a bounded local diagnostic entry.
 - Setup reports, for each harness, whether the hook is installed, whether Codex trusts the project and the hook, and when delivery last succeeded.
 - An approved shard with no applies-to pattern is delivered at session start and at subagent start, once per agent context, and the skill also proposes an `AGENTS.md` edit for it.
-- Rhizome file context and search for a code file return its approved shards through their glob code anchors. Rhizome treats Markdown files as notes, which have no file context, so lookup alone covers shards that apply to Markdown.
+- Rhizome file context and search for a code file return its approved shards through their glob code anchors. File context for a Markdown note returns its links and typed fields but does not consult code anchors, so lookup alone covers shards that apply to Markdown.
 
 ### US4 - Later runs and teammates build on earlier decisions
 
