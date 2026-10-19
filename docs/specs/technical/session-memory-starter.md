@@ -1,0 +1,276 @@
+---
+type: TechnicalSpec
+id: SPEC-0121
+aliases:
+  - SPEC-0121
+  - Session memory starter
+summary: "An opt-in session-memory starter mines a developer's local Claude Code and Codex transcripts for corrections, facts, and research questions, screens them with Jev, verifies candidates against the current code, and promotes only human-approved context shards into the repository. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
+spec-status: proposed
+last-updated: 2026-10-17
+---
+
+# Session memory starter
+
+## Summary
+
+What an agent or a human learns during a coding session is lost when the next session starts with a fresh context window. Humans correct the same mistakes again, and agents spend hundreds of tool calls rediscovering the same facts. The `session-memory` starter turns a developer's past agent sessions into durable, reviewed context for the whole team.
+
+The design follows the pipeline Boundary and HumanLayer described in [Why AI Coding Agents Need a Memory Pipeline](https://www.youtube.com/watch?v=mAKUL12h1n8). That pipeline uses three lenses: what agents found out, what humans corrected, and what agents kept researching. Cheap classifiers screen messages before a stronger model judges them, a learning is kept only when it recurs, and each one cites the sessions behind it. The episode left two problems open: making repeated runs incremental, and noticing when a memory goes stale. This spec answers both and adds a third requirement the episode assumed: an approved learning has to reach the agent at the moment it matters.
+
+The starter has two halves with a hard boundary between them:
+
+- **Everything unreviewed stays on the developer's machine.** Transcript digests, screened episodes, candidates, and proposals live in ignored local state under `.rhizome/session-memory/`.
+- **The repository holds only what a person approved.** Each approved learning is a `ContextShard` note in `docs/context-shards/`, and the repository also records decisions not to keep a learning, so teammates are not asked again. A tracked shard is in force by definition. Retiring it removes the note and records the decision.
+
+Approved shards reach agents in two layers. The baseline works in every host, including T3 Code: a `lookup` workflow returns the current shards for a task, files, or a command, and managed `AGENTS.md`/`CLAUDE.md` guidance tells agents when to call it. Each shard also declares a glob `code-anchors` entry, so Rhizome's own file context and search find it. The second layer is optional push delivery. Claude Code and Codex both run project hooks around tool calls and accept context from them ([Claude Code hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)), so a delivery hook can add the shards for a file when an agent reads or edits it. Hooks are enabled per host only after a canary proves delivery there.
+
+The starter builds on [[init-template-architecture]], [[core-template-and-template-dependencies]], [[saved-query-recipes]], [[code-mode-skill-scripts]], and [[code-intel|code anchors]]. It is one `session-memory` skill whose workflows are Node scripts that call `rzm` subcommands. They are not code-mode scripts, because code mode caps each call at five minutes and extraction and grouping calls run longer. Scripts own transcript parsing, model calls, checkpoints, budgets, validation, local state, note writing, and delivery. The agent picks the workflow and explains results, and a person approves what is published. Decisions run on Jev through the existing integration (`rzm agent evaluate-batch`). Extraction and verification run through one new Rhizome operation, `generate`, with each model role bound to a concrete model per run.
+
+## Goals
+
+- Recover learnings that would otherwise be lost: human corrections, hard-won facts about the code, and questions agents keep researching.
+- Propose only learnings that are true of the current code, not already documented, not obvious from reading the code, and supported by independent evidence.
+- Keep a human in charge. Nothing the pipeline produces enters the repository until a person approves it, and hooks deliver a shard only while its content matches what was approved. A hand edit to a tracked shard is an ordinary repository change, reviewed like any other file, and verify mode flags it.
+- Get approved shards to agents in Claude Code, Codex, and T3 Code before consequential work: through lookup and guidance everywhere, and through hooks where a host supports them.
+- Make repeated runs incremental and crash-safe, and let decisions made by one developer spare teammates the same review.
+- Detect when the files behind an approved shard have changed, so it is re-verified rather than trusted.
+- Keep cost low: Jev for decisions, the cheapest model that holds quality for each role, and no model calls when nothing changed. Prove with held-out measurement that screening does not lose learnings people accept.
+
+## Non-Goals
+
+- Sharing transcripts or unreviewed candidates between developers, or any central store. Recurrence is therefore counted per developer.
+- Approving, dismissing, or retiring shards automatically.
+- Editing `AGENTS.md`, `CLAUDE.md`, or skills automatically. The skill may propose such edits.
+- Scheduled or background runs.
+- A review UI or a new storage engine. Review happens in the skill's conversation. The only new `rzm` surface is the generic `generate` operation.
+- Mining or delivery for harnesses other than Claude Code and Codex.
+- Detecting staleness by replaying sessions against newer models.
+- Enabling the starter by default.
+- Changing a model binding without a person's approval.
+
+## User Stories
+
+### US1 - Mine recent sessions into proposals
+
+- id:: ^SPEC-0121-US1
+- summary:: A developer runs the session-memory skill and gets local proposals drawn from their recent Claude Code and Codex sessions for this repository, each supported by independent evidence and checked against the current code.
+- status:: ready
+
+#### Acceptance Criteria
+
+- The skill finds the developer's sessions for this repository, including subagent transcripts and sessions from current and deleted worktrees. It excludes the session running the skill, and reports sessions read, skipped, and unrecognized, with reasons.
+- Every message records its role, transport, origin (`person`, `agent`, `harness`, or `unknown`), and how confident the origin is (`confirmed`, `likely`, or `unknown`), with the evidence for each. Only `person` messages feed the corrections lens.
+- Sessions are grouped into families: a root session together with its subagents, resumed continuations, spawned workers, and sessions it delegated through tools or started through a CLI (`codex exec`, `claude -p`). Recurrence counts distinct families, never transcript files.
+- Candidates are verified by tier. Tier A (two or more families, or a correction whose origin is `confirmed` person) is always verified. Tier B (one family, a claim the code can confirm) is verified up to a per-run budget, in the order Jev ranks them. Tier C (one family, a claim the code cannot confirm, such as environment, workflow, or behavior) is held until another family supports it.
+- Review shows each proposal's tier, so a reviewer knows when a learning was seen once and confirmed only in the code.
+- Each proposal has a kind (`rule`, `fact`, or `where_to_find`), a statement of at most 400 bytes, the reason it matters, the files it applies to, evidence references, and a verification record naming the code locations checked and the documentation searched.
+- A candidate that is false for the current code, already documented, or obvious from reading the files it applies to is not proposed. When the answer is already documented, the candidate becomes a `where_to_find` proposal whose target is that document.
+- Credential-shaped values are redacted before any text is truncated, written to disk, or sent to TypeSafe. No transcript text appears in tracked files.
+- The run reports Jev usage, episodes kept versus read, and candidates proposed, merged, held for more evidence, suppressed by a recorded decision, or rejected, each with a reason.
+  verification:: synthetic fixtures for every observed transcript record shape, plus measured runs over this repository (Batches 2–4).
+
+### US2 - Review and promote
+
+- id:: ^SPEC-0121-US2
+- summary:: A developer reviews proposals in the skill's review mode and approves, revises, dismisses, or defers each one. Approval writes a tracked shard atomically.
+- status:: ready
+
+#### Acceptance Criteria
+
+- Review presents each proposal with its statement, kind, applies-to patterns, target, evidence summary (families, tool calls spent), and verification record. On request, it opens a cited source message, redacted, from the local transcript.
+- Approving asks the reviewer to confirm that the statement is fit to publish in this repository. It then writes the `ContextShard` note in one atomic step, with reviewer, date, approved-content hash, verification fingerprint, and derived `code-anchors`.
+- Approval and renewal are refused while any fingerprinted file has uncommitted changes or unresolved merge stages, so the fingerprint always describes committed content the reviewer could see.
+- Dismissing records a decision with its reason. The reviewer chooses whether the decision is shared through the repository or kept local.
+- Deferring keeps the proposal local for a later review.
+- Text is scanned for credentials again before anything is written to a tracked file.
+
+### US3 - Approved shards reach agents
+
+- id:: ^SPEC-0121-US3
+- summary:: An agent in Claude Code, Codex, or T3 Code finds the approved shards for its task, files, or command through the lookup workflow and managed guidance. Where a host's hook canary passes, hooks also deliver a file's shards when the agent reads or edits it, once per agent context.
+- status:: ready
+
+#### Acceptance Criteria
+
+- Lookup takes a task description, file paths, or a command and returns the matching current shards, rules first, within a size budget. It works without hooks in every host.
+- The managed `AGENTS.md`/`CLAUDE.md` block tells agents to run lookup before editing files or running commands that shards may cover.
+- Hooks are optional. Setup installs them per host only after that host's canary has delivered context, and reports which hosts have them.
+
+The rest of this story applies where hooks are installed.
+
+- Hook context reaches the model on its next step after the tool call that triggered it; it cannot change a tool call the model has already generated. Reads are therefore the preventive path, and edits are the corrective one.
+- Claude Code: a `Read`, `Edit`, `Write`, or `MultiEdit` of a file an approved shard applies to adds that shard to the context of the agent or subagent that made the call. Claude Code requires a read before an edit, so shards for an existing file arrive before the agent edits it. For a new file written without a read, they arrive after the write, and the agent can correct it. The same shard revision is not added again in that agent's context until a compaction or clear.
+- Codex: once the project and the hook definition are trusted, a recognized read in a `Bash` command adds the shards for the files it reads. The recognized forms are `cat`, `sed -n`, `head`, `tail`, `nl`, and `rg`/`grep` with file arguments, optionally after a `cd`. An `apply_patch` adds them after the patch. Shards are added at most once per turn.
+- Batch 0 measures what agents actually do after an edit that came before any delivery: a first-operation patch and a new-file write. If agents break rules there, a setting that refuses the first unread edit of a file with rule shards, once per agent context, is evaluated with Drew.
+- Only shards whose content still matches their approved-content hash, and that are not stale (US5), are delivered by hooks or returned by lookup. Delivered text names the shard file and the date it was last verified.
+- Delivery adds at most five shards (about 4,000 characters) per call, rules first. A hook never blocks or fails a tool call. Every error, including a timeout, results in no output, an exit status of zero, and a bounded local diagnostic entry.
+- Setup reports, for each harness, whether the hook is installed, whether Codex trusts the project and the hook, and when delivery last succeeded.
+- An approved shard with no applies-to pattern is delivered at session start and at subagent start, once per agent context, and the skill also proposes an `AGENTS.md` edit for it.
+- Rhizome file context and search for a file return its approved shards through their glob code anchors.
+
+### US4 - Later runs and teammates build on earlier decisions
+
+- id:: ^SPEC-0121-US4
+- summary:: Later runs process only new messages, keep single-sighting candidates until they recur, and never re-propose what any teammate already approved or dismissed without materially new evidence.
+- status:: ready
+
+#### Acceptance Criteria
+
+- Each pipeline stage records its progress, and an interrupted run resumes without losing or duplicating work. Jev items that did not finish or whose outcome is uncertain are retried; items that succeeded are not.
+- A tier C candidate, and a tier B candidate beyond the run's budget, is held in the local pool. A later run can verify it when another family supports it or budget allows.
+- The reduce pass loads every recorded decision, tracked and local, directly from its files and compares candidates against them. It finds approved shards and documentation through semantic search. A candidate that matches an approved shard or a decision is not proposed. A candidate whose new evidence contradicts a dismissal reason is proposed together with that reason.
+- Two developers who approve the same learning on different branches produce a duplicate that the next run detects and offers to merge. Each decision event is its own file, named by learning and event, so concurrent decisions add separate files instead of editing the same one. The latest decision for a learning wins.
+- A second run over the same window changes nothing.
+
+### US5 - Stale shards are re-verified
+
+- id:: ^SPEC-0121-US5
+- summary:: When the files behind an approved shard change or disappear, the skill's verify mode surfaces the shard for re-verification, and the reviewer renews, revises, or retires it.
+- status:: ready
+
+#### Acceptance Criteria
+
+- Each shard records a verification fingerprint over its matched files, its `where_to_find` target, and the locations in its verification record. Verify mode lists shards whose fingerprint changed, whose patterns match no file, whose content no longer matches the approved-content hash, or whose derived code anchors drifted. A shard has no fingerprint only when it has no matched files, no target, and no checked locations. A shard with no patterns is listed once its verification is older than 30 days.
+- For each listed shard, the agent re-checks the statement against the code. The reviewer then renews it (new fingerprint and date), revises it (a new approval), or retires it (the note is removed and a decision recorded).
+- A changed fingerprint marks a shard stale. Stale shards stay in the repository but are withheld from hooks and lookup until they are renewed or revised.
+
+### US6 - Keep model choices current
+
+- id:: ^SPEC-0121-US6
+- summary:: A developer runs calibrate for one role. The workflow measures the current binding against the other available candidates and proposes a profile change, which the developer can approve or decline.
+- status:: draft
+
+#### Acceptance Criteria
+
+- Calibrate measures one role over a labeled set. When at least 10 approved shards still have local transcripts, the set is the developer's own: the approved shards and recorded decisions, replaying the episodes and clusters their evidence cites. Otherwise it is a shipped synthetic fixture. The report names the set and its label count. Quality measured on the fixture can only support changes driven by cost or latency.
+- Calibrate estimates its cost before any model call and stops at its budget.
+- For each candidate, the report shows quality, input and output tokens, cost where a price is known, and median seconds per call. For extract, quality is the labeled learnings found, as judged by the frozen `match` binding. For verify, it is agreement with the recorded human decisions. Candidates that match no label are reported as unlabeled, never as misses.
+- The current binding runs twice, the second time without the result cache, and the difference is reported as the noise floor.
+- A profile diff is proposed only in two cases: a candidate beats the current binding by more than the noise floor, or it matches within the noise floor for at least 25% less cost or latency. The diff names its evidence file, and nothing is written until the developer approves it.
+  verification:: a fixture run in CI with a fake `generate`; one live run per provider recorded in the effort.
+
+## Requirements
+
+### Packaging and installation
+
+- The starter MUST be named `session-memory`, install from `pkg/app/cli/init/templates/starters/session-memory/**`, require `core`, and be marked as an optional addon that no starter activates by default.
+- A first run MUST accept it in `--addons`.
+- An existing configured repository MUST be able to add or remove it without changing any other addon choice, and the change MUST survive later init reruns and settings edits. Adding moves the id into `addons.enabled` and out of `addons.disabled`. Adding an ejected addon is refused with an instruction to use `--restore`.
+- It MUST install a template-owned ontology file, query recipes, a view of approved shards, the `session-memory` skill and its scripts, and a managed `AGENTS.md` block. The block routes session-memory work to the skill, tells agents when to run lookup, and asks agents to state, in one sentence in their reply, any non-obvious fact an investigation turned up, because mining reads replies and drops tool output.
+
+### Skill and model calls
+
+- The skill MUST expose workflows for setup and status, mine, review, lookup, maintain, and calibrate through one dispatcher over shared stage scripts.
+- Mine MUST be resumable and MUST stop at its spend budget. Setup MUST estimate a run's cost before it starts.
+- Model roles (`decide`, `extract`, `verify`, `synthesize`, and `match` for calibration) MUST be bound through the model profile, frozen per run, and recorded in the run's provenance. `decide` uses Jev.
+- Rhizome MUST provide one `generate` operation, as both `rzm agent generate` and `rzm.generate`, backed by `pkg/harness`. It takes a provider, model, effort, prompt, and optional output schema; allows no tools; persists no session; and returns the output, token usage, and the model that actually ran. A provider whose CLI cannot remove every tool MAY run only when its configuration removes the tools it can, including sub-agents and note writing, and a read-only sandbox with no network and no approvals bounds the rest. Otherwise it MUST report itself unsupported rather than run with broader permissions. Codex qualifies only through its app-server. The result MUST name the policy that applied: `none` or `sandboxed`. When the caller names no provider, `generate` MUST use the user's `agent.harness` setting, or else the only provider installed and signed in, and otherwise fail and name the choices.
+- Every model result MUST be cached by the hash of its prompt, model, effort, schema, and input, separately from a ledger of attempts, so an unchanged rerun makes no model calls.
+- Skill scripts MUST be dependency-free Node ES modules for Node 20 or later. Setup MUST check the Node version.
+- Script tests and fixtures MUST NOT be installed downstream. A Go test MUST run them, read their files so Go's test cache sees changes, and fail rather than skip in CI when Node is missing. CI MUST provide Node to the Go test jobs on Linux and Windows.
+- Verification MUST include the build, `rzm init`, and `rzm init --check` gate from `docs/engineering/quality-gates.md`.
+
+### Model profile
+
+- Each role MUST resolve from an ordered list of candidates. Each candidate names a provider (`claude`, `codex`, or `typesafe`), a model family and the version it was measured at (for example Haiku 5.5), and the provider's own effort value.
+- A run MUST use only the providers the harness running the skill can reach, and MUST NOT move transcript text to another provider. In Claude Code that means `claude`; in Codex, `codex`. Only a harness that reaches both MAY choose between them, in profile order. Jev (`typesafe`) is the exception, because screening sends it passages in every harness.
+- The run MUST take its provider from, in order: the harness the calling agent names (the skill tells the agent to pass the harness it is running in); the user's Rhizome agent setting (`agent.harness`, which the desktop agent chat already uses); and the only provider installed and signed in. Otherwise it MUST stop and ask which to use. Only a local profile listing both providers lets a run choose between them.
+- When the provider's catalog has a newer version of a candidate's family than the profile names, and the profile has no entry for that version, the resolver MUST use the newest version at the candidate's effort, and report it as unmeasured.
+- When no version of a candidate's family is available, the resolver MUST fall back to the role's next candidate from the same provider (for example Haiku to Sonnet), never to another provider's.
+- The starter MUST ship its default profile as `models.json` in the `session-memory` skill. The profile has a `version`, and each candidate has either a reference to the measurement that chose it or a `provisional` flag. A change to the shipped profile MUST update `references/models.md` in the same change. A test MUST check that every role has a candidate for each provider, or an explicit `none` with a reason.
+- A developer MAY override the profile in `.rhizome/session-memory/models.json`. A run MAY override a role with `--model <role>=<provider>:<model>:<effort>`. A run flag takes precedence over the local file, and the local file over the shipped profile. An override replaces a role's whole candidate list.
+- When a run starts, the resolver MUST select, for each role, the first candidate that meets three conditions:
+  - Its provider is reachable from the running harness, and `rzm harness status` reports it as installed and signed in.
+  - Its model is in that provider's catalog, or a one-call probe with a minimal schema succeeds. Probe results are cached by provider, model, effort, and CLI version.
+  - Its effort is listed for that model, when the catalog lists efforts.
+- When it skips a candidate, the run MUST report the substitution and the reason in the cost estimate and the run report. If no candidate for `extract` or `verify` is available, the run MUST stop before any model call and name the role and what was missing.
+- The resolved bindings MUST be written to the run manifest when the run starts, and a resumed run MUST use them. If a frozen model becomes unavailable, the run MUST stop in a resumable state rather than switch models.
+- Provenance MUST record the following for each role:
+  - the profile version and the hash of each profile file read
+  - the requested and the reported model
+  - the CLI version
+  - how the candidate was chosen (`default`, `local`, `flag`, `newer-version`, or `fallback`)
+  - each skipped candidate and its reason
+- Setup and status MUST show the resolved binding for every role and name every provider that will receive transcript text.
+- The skill MUST NOT write a profile file except to apply a diff that a person approved in the calibrate workflow.
+
+### Tracked data
+
+- A `ContextShard` note MUST live in `docs/context-shards/`, named by kind and a slug, with no sequential identifier.
+- Its frontmatter MUST hold:
+  - `kind`
+  - `summary` (the statement)
+  - `applies-to` (patterns)
+  - `target` (an existing document; required for `where_to_find`)
+  - `reviewed-by` (a `Person`) and `reviewed-on` (`Date`)
+  - `approved-hash`
+  - `verified-on` (`Date`) and `verified-fingerprint`
+  - `families` (`Int`) and `tool-calls` (`Int`)
+  - `code-anchors` derived from `applies-to` under the `any` language key
+- Its body MUST hold `## Why it matters`, a `## Verification` list of checked locations, and an `## Evidence` list whose items name the harness, session, message, date, lens, and tool calls. Evidence is frozen at approval and includes no transcript text.
+- `applies-to` patterns MUST use one dialect: literal paths, `*`, `**`, and `?`. A test MUST prove that the delivery script's matcher and Rhizome's anchor matcher agree on a shared case table.
+- A decision event MUST be one JSON file under `docs/context-shards/decisions/`, named `<learning-hash>--<event-id>.json`, holding the statement, kind, applies-to, decision (`dismissed` or `retired`), reason, decider, and date. Decisions are not notes, so search does not surface them; the skill reads them directly.
+- Every tracked write MUST go through `shards.mjs` as one atomic replacement, and MUST be refused when the file's content differs from the hash in the change plan.
+
+### Local data and extraction
+
+- All unreviewed data MUST live under `.rhizome/session-memory/`, created with owner-only permissions. A lock MUST guard every write.
+- Session discovery MUST match by recorded `cwd` and, for Codex, by `git.repository_url`. It MUST cover the repository root, current worktrees, and configured path patterns for deleted worktrees, and MUST skip Codex guardian-review sessions.
+- Episodes MUST share one representation that carries:
+  - family and lineage
+  - the lenses it may serve
+  - origin and confidence
+  - redacted, middle-shortened text
+  - context: the session title, the opening task, and the preceding turn
+  - files read or edited
+  - tool calls spent
+- Research episodes MUST include main-thread investigation spans as well as subagent tasks and reports, and pass through the same screening.
+- The extraction watermark MUST advance only through the end of the last complete turn: a person message through the assistant's final reply before the next person message. An unfinished trailing turn is re-read on the next run, so no episode is split across runs.
+- Redaction MUST run on full text before shortening and cover escaped and multiline values. The scripts MUST NOT read `.env` files, Rhizome credential configuration, or credential environment variables.
+- Extraction MUST treat transcript content as data, never as instructions. Only the agent running the skill MAY write local state or tracked files. Subagents return candidate data in their final reply, and the main agent validates and persists it.
+- The candidate validator MUST enforce the schema and length limits itself and return a precise retry message.
+- Matching against approved shards and documentation MUST use semantic search, and matching against decisions MUST compare the loaded decision files.
+
+### Screening
+
+- Screening is the gate in front of extraction: only episodes it keeps reach the extraction model. A decision model makes this affordable at every run; an extraction model reading every episode does not.
+- Screening MUST use `rzm.evaluateBatch` with a pinned Jev model, explicit thresholds, and per-item checkpoints, following `scripts/repo-audit/run.mjs`.
+- Screening MUST score passages, not whole episodes. A passage is a paragraph or list item of at most 700 characters, with short pieces joined. The screen keeps the highest-scoring passages up to a share of the characters, 30% by default, and the extraction model sees only the kept passages of each episode. Jev asks two questions per passage: whether it states something reusable about the project, and whether it reports a surprise or a root cause. Passage screening found 72% more learnings than whole-episode screening at the same share of text, and a held-out check rejected adding more questions.
+- If no TypeSafe credential is available, the skill MUST say so and MAY run unscreened over a window small enough to fit.
+
+### Delivery
+
+- Hook commands MUST start the delivery script from the session's own worktree when it exists, and exit successfully without output when it does not.
+- The delivery script MUST resolve the repository root from the hook's `cwd` and normalize every touched path against it. It MUST ignore paths outside the repository.
+- It MUST parse `Bash` commands only in bounded, recognized forms (a leading `cd` and existing path arguments), and never execute them.
+- It MUST read shards through a Rhizome query recipe, following continuation offsets until the result is complete, all within a two-second deadline, and kill the child process on timeout. It MUST cache only a complete result, keyed by the shard directory's listing and modification times, and publish it only when that key is unchanged after the read.
+- Dedupe state MUST be keyed per agent context: Claude Code by session and agent ID, Codex by session and turn. It MUST be updated atomically and reset on `SessionStart` with source `compact` or `clear`. Patternless shards MUST be delivered on both `SessionStart` and `SubagentStart`.
+- Hooks are optional. When enabled, setup MUST add or remove marker-identified entries in `.claude/settings.json` and `.codex/hooks.json`, preserve every other entry, and be idempotent. Its `status` MUST report the facts listed in US3.
+
+### Quality evidence
+
+- Before any tuning, sessions MUST be split by family into a development window and a later held-out window, and the split recorded.
+- Extraction rules, Jev questions, thresholds, and every model identifier (Jev, and the harness and model that extract and judge) and the model profile version MUST be frozen before the held-out evaluation.
+- Each reference, screened, and threshold run MUST use its own checkpoints and candidate pool, seeded from the same frozen episode snapshot, and reference labels MUST be kept out of every judgment context.
+- The held-out evaluation MUST measure, per lens, how many shards a reviewer accepted from an unscreened reference run that the screened pipeline still produces with sufficient evidence. It MUST also audit a sample of screened-out episodes and report the fraction kept, Jev usage, and the reference-run cost.
+- The effort MUST record acceptance rates, dismissal reasons, and review time.
+- The effort MUST measure hook latency on cache hits, misses, cold starts, and failures, and confirm delivery live in Claude Code, Codex, and Claude and Codex threads in T3 Code worktrees.
+- Every transcript measurement MUST be reproducible from a committed, content-free survey command, with its window and versions recorded.
+
+## Open questions
+
+[TODO: Decide after M1] Verification method: a tool-using verifier, or scripts that gather evidence packets with up to two model-requested evidence rounds and run no model-supplied commands. The packet method is preferred if it matches the tool-using verifier's accepted learnings.
+
+[TODO: Decide with Drew] Add a `commands` trigger: literal command prefixes whose use in a `Bash` call delivers the shard. Five of the 22 first-run proposals were about running a command, and broad file globs standing in for them caused most scope disputes.
+
+[TODO: Confirm with Drew] Shards live in `docs/context-shards/`, named `<kind>-<slug>.md`.
+
+[TODO: Confirm with Drew] The default mining window is the last 7 days, and the first run asks before reading more than 200 sessions.
+
+[TODO: Confirm with Drew] This repository is public. Dogfood shards and shared decisions are committed only after Drew approves each one as fit to publish.
+
+## Documentation plan
+
+- A starter guide under the installed `docs/reference/guides/` explains the review loop, hook setup and trust, privacy boundaries, and TypeSafe usage.
+- `docs/specs/product/init-starter-workflow.md` gains the optional addon and the flags for adding or removing an addon in an existing setup.
+- The code-intel subsystem note records the `any`-keyed glob convention for context shards.
+- `references/models.md` in the skill records each role's needs, its current defaults, and the evidence for them.
