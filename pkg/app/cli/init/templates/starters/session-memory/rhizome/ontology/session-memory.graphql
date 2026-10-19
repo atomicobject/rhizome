@@ -30,6 +30,8 @@ type ContextShard
   """The statement, at most 400 bytes."""
   summary: String!
   appliesTo: [String!] @display(importance: KEY) @field(source: "applies-to")
+  """Command text that lookup matches, such as `make web-e2e`."""
+  commands: [String!] @display(importance: DETAIL) @field
   """Repository path of the document a where_to_find shard points to."""
   target: String @field
   reviewedBy: Person! @display(importance: DETAIL) @link(source: "reviewed-by")

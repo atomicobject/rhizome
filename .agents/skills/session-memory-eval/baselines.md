@@ -30,12 +30,15 @@ On held-out H (208 strong gold from an unscreened Haiku xhigh read), Haiku xhigh
 
 | Verifier | Mode | Recovered | Agrees with Opus high | Cost (5m cache) | Log |
 | --- | --- | --- | --- | --- | --- |
-| Sonnet 5.5 medium (shipped default) | packet | 7 | 81 of 94 | $9.13 | 2026-10-17 M1 |
+| Sonnet 5.5 medium (shipped default), lean prompt | packet | 4, 7 | 75, 77 of 94 | $5.81, $5.64 | 2026-10-19 verifier noise |
+| Sonnet 5.5 medium, Claude Code system prompt | packet | 6 | 79 of 94 | $8.57 | 2026-10-19 verifier noise |
+| Sonnet 5.5 medium, M1 packet code | packet | 7 | 81 of 94 | $9.13 | 2026-10-17 M1 |
 | Sonnet 5.5 medium | tools | 7 | 81 of 94 | $5.93 | 2026-10-17 M1 |
 | Opus 5.5 medium | tools | 8 | 86 of 94 | $11.22 | 2026-10-17 M1 |
 | Haiku 5.5 medium | tools | 5 | 76 of 89 | $0.71 | 2026-10-17 M1 |
 
-The packet rows ran with Claude Code's full system prompt. Shipped calls use the lean prompt, so packet costs should now be lower.
+- **Noise floor:** two identical runs of the shipped verifier recovered 4 and 7, and proposed 11 and 17. A verifier change needs to beat that spread, or to recover more over several runs.
+- **Lean prompt kept:** the full Claude Code system prompt cost about 50% more, and its recall fell inside the noise.
 
 ## End to end (`mine.mjs`, cold D)
 

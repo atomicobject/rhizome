@@ -17,6 +17,7 @@ query:
         kind
         summary
         appliesTo
+        commands
         target
         approvedHash
         verifiedOn

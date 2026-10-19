@@ -533,6 +533,18 @@ Nothing yet; execution starts after plan approval.
   - **Evidence:** 37 Node tests, including an 18-case glob table that the JavaScript matcher and Rhizome's doublestar both pass, and a dismissal that survives a rebuilt pool. Init and cmd Go tests pass. In a scratch repository, `init --addons action-items,session-memory` installed everything and `init --check` exited 0. `validate all` reported 0 issues. A synthetic proposal was approved, and lookup returned it by file and by task. File context showed it through its glob anchor.
   - **Deviations:** a Markdown file gets no anchor context, because Rhizome treats Markdown as notes, so lookup alone covers shards on Markdown. Lookup reads shard files directly rather than through the recipe; the recipe serves agents and the view. `commands` is a shard field that lookup matches, and the approved hash covers it. A decision suppresses only the same learning hash, so a teammate's reworded duplicate still relies on the verifier finding the approved shard by search. Hooks and calibrate are not built.
 
+- 2026-10-19: **Verifier noise, on D-v1-jev35's 94 clusters** ($20.64). The M3 run raised the question of whether the shipped verifier got stricter. Each run used the shipped Sonnet 5.5 medium packet verifier and seed sm-1 on the same clusters, so only the system prompt changed.
+
+  | Run | Proposed | Agrees with Opus high | Recovered (of 12) | Cost (5m) |
+  | --- | --- | --- | --- | --- |
+  | M1 packet code, Claude Code system prompt | 17 | 81 | 7 | $9.13 |
+  | Shipped, lean prompt | 11 | 75 | 4 | $5.81 |
+  | Shipped, lean prompt, repeat | 17 | 77 | 7 | $5.64 |
+  | Shipped, Claude Code system prompt | 13 | 79 | 6 | $8.57 |
+
+  - **Reading:** identical runs differ by 3 recovered and 6 proposed, so the first lean run's low recall was noise, not the prompt. The lean prompt stays: same recall within the noise, about 35% cheaper.
+  - **For the cold-run yield:** the verifier is not stricter than in M1. The low M3 yield comes from which tier B clusters get verified, and from grouping. Single-run verdicts on borderline clusters are close to a coin flip.
+
 ## Deviations
 
 None.
