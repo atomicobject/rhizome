@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
@@ -17,7 +18,7 @@ type summaryField struct {
 }
 
 func (r *initRun) summaryFields(s setup) []summaryField {
-	labels := []string{"Docs", "Code", "Agents", "Search", "Workflow"}
+	labels := []string{"Docs", "Code", "Agents", "Search", "Workflow", "Add-ons"}
 	out := make([]summaryField, 0, len(labels))
 	for _, label := range labels {
 		out = append(out, summaryField{label: label, value: r.summaryValue(s, label)})
@@ -35,6 +36,8 @@ func (r *initRun) summaryValue(s setup, label string) string {
 		return agentsFinding(r.harnessesFor(s.cfg))
 	case "Search":
 		return searchStatus(s.cfg, r.session)
+	case "Add-ons":
+		return r.addonsLabel(s)
 	default:
 		return workflowLabel(s.workflows, s.cfg.WorkflowTemplateManagement.Ejected)
 	}
@@ -94,6 +97,30 @@ func workflowLabel(workflows, ejected []string) string {
 		label += "; " + joinHumanPaths(starterNames(frozenStarters(ejected, managed))) + " files kept for your team"
 	}
 	return label
+}
+
+// addonsLabel names the add-ons the setup installs, including default ones.
+func (r *initRun) addonsLabel(s setup) string {
+	registry, err := loadStarterTemplateMetadataRegistry()
+	if err != nil {
+		return "unknown"
+	}
+	effective, err := resolveEffectiveTemplatesWithOptions(s.workflows, &s.cfg, suppressDefaultAddonsForExistingConfig(r.layout, s.cfg))
+	if err != nil {
+		return "unknown"
+	}
+	available := stringSet(addonIDs(registry))
+	var addons []string
+	for _, id := range effective {
+		if available[id] && !contains(s.workflows, id) {
+			addons = append(addons, id)
+		}
+	}
+	if len(addons) == 0 {
+		return "none"
+	}
+	sort.Strings(addons)
+	return joinHumanPaths(starterNames(addons))
 }
 
 // starterNames returns the display names of starter ids.

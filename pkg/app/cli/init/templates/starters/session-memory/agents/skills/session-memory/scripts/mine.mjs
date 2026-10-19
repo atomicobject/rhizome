@@ -20,6 +20,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
+import { pathToFileURL } from "node:url";
 import { Stop, costOf, makeCaller, pool, rzmClients, spendFrom } from "./lib/calls.mjs";
 import { episodesFor } from "./lib/episodes.mjs";
 import { callEstimates, estimate, formatEstimate } from "./lib/estimate.mjs";
@@ -27,6 +28,7 @@ import { batches, extractBatch } from "./lib/extract.mjs";
 import { mergeProfile, resolve } from "./lib/models.mjs";
 import { facts, group, rank, tierOf } from "./lib/reduce.mjs";
 import { screen } from "./lib/screen.mjs";
+import { learningHash, loadDecisions, loadShards } from "./lib/shards.mjs";
 import { openStore, readJsonl, sha, writeText } from "./lib/store.mjs";
 import { verifyCluster } from "./lib/verify.mjs";
 import { discover } from "./sessions.mjs";
@@ -202,7 +204,7 @@ async function mineLocked(opts, clients, store, dry) {
   const spend = spendFrom(readJsonl(store.path("ledger.jsonl")), run.id);
   const caller = makeCaller({ clients, store, run: run.id, bindings: run.bindings, budget: opts.budget, spend });
   try {
-    const report = await stages({ store, run, caller, clients, episodes, concurrency: Number(opts.concurrency ?? 4), log });
+    const report = await stages({ root: opts.root, store, run, caller, clients, episodes, concurrency: Number(opts.concurrency ?? 4), log });
     store.write("cursors.json", { ...store.read("cursors.json", {}), ...run.cursorTargets });
     saveRun(store, { ...run, status: "done", finishedAt: new Date().toISOString(), spend, report });
     return { status: "done", run: run.id, spend, report };
@@ -225,7 +227,7 @@ const stub = (e) => ({ id: e.id, harness: e.harness, session: e.session, family:
 
 // Each stage reads what earlier stages wrote and skips finished work, so a
 // killed or stopped run resumes without repeating a completed call.
-async function stages({ store, run, caller, clients, episodes, concurrency, log }) {
+async function stages({ root, store, run, caller, clients, episodes, concurrency, log }) {
   const per = callEstimates(run.bindings);
   const screened = run.unscreened || !episodes.length ? { gated: episodes, passages: 0 } : await screen(caller, episodes, { estimatePerItem: per.jev });
   const gated = screened.gated;
@@ -258,11 +260,16 @@ async function stages({ store, run, caller, clients, episodes, concurrency, log 
   }
   store.write("pool/clusters.json", clusters);
 
+  // A person already settled what they approved or dismissed, here or in a
+  // teammate's recorded decision.
+  const reviewed = store.read("reviewed.json", {});
+  const settled = new Set([...loadDecisions(root, store.dir).map((d) => d.learning), ...loadShards(root).map(learningHash)]);
+
   // The plan is frozen once, so a resumed run verifies the same clusters.
   const planName = `runs/${run.id}/verify-plan.json`;
   let plan = store.read(planName, null);
   if (!plan) {
-    const open = (c) => !c.verification;
+    const open = (c) => !c.verification && !reviewed[c.id];
     const byWorth = (x, y) => (y.worth ?? 0) - (x.worth ?? 0) || (x.id < y.id ? -1 : 1);
     const ids = new Set(touched.map((c) => c.id));
     plan = [
@@ -296,7 +303,7 @@ async function stages({ store, run, caller, clients, episodes, concurrency, log 
     log(`verify: ${id} tier ${cl.tier} ${v.result.decision}`);
   });
 
-  const proposals = Object.values(clusters).filter((cl) => cl.verification?.decision === "propose" && !cl.verification.contractProblems.length).map((cl) => proposal(cl, eps));
+  const proposals = Object.values(clusters).filter((cl) => cl.verification?.decision === "propose" && !cl.verification.contractProblems.length).map((cl) => proposal(cl, eps)).filter((p) => !reviewed[p.cluster] && !settled.has(learningHash(p)));
   store.write("proposals.json", proposals);
   return summarize({ episodes, screened, results, touched, plan, clusters, fresh, proposals });
 }
@@ -349,7 +356,7 @@ function args(argv) {
   return out;
 }
 
-const isMain = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href;
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const a = args(process.argv.slice(2));
   if (a.harness && !["claude", "codex"].includes(a.harness)) throw new Error("--harness must be claude or codex");

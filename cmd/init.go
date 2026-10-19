@@ -72,6 +72,8 @@ arguments.`,
 				BinaryManager:     commandOptions.initBinaryManager,
 				Eject:             commandOptions.initEject,
 				Restore:           commandOptions.initRestore,
+				AddAddon:          commandOptions.initAddAddon,
+				RemoveAddon:       commandOptions.initRemoveAddon,
 				Check:             commandOptions.initCheck,
 				AcceptSuggestions: commandOptions.initAccept,
 				IndexNow: func(projectRoot string) error {
@@ -197,8 +199,10 @@ func (commandOptions *initInvocationOptions) registerInitCommands(initCmd, rootC
 	initCmd.Flags().StringVar(&commandOptions.initBinaryManager, "binary-manager", "", "let an external tool such as mise own the Rhizome binary: external")
 	initCmd.Flags().StringVar(&commandOptions.initEject, "eject", "", "keep a workflow's files for your team to own and stop updating them (comma-separated)")
 	initCmd.Flags().StringVar(&commandOptions.initRestore, "restore", "", "resume updates for an ejected workflow")
+	initCmd.Flags().StringVar(&commandOptions.initAddAddon, "add-addon", "", "install an add-on starter, such as session-memory, in an existing setup (comma-separated)")
+	initCmd.Flags().StringVar(&commandOptions.initRemoveAddon, "remove-addon", "", "stop installing an add-on starter in an existing setup (comma-separated)")
 	initCmd.Flags().BoolVar(&commandOptions.initJSON, "json", false, "write one JSON document instead of text; first-run setup only (with --check: the plan and every choice)")
-	initCmd.Flags().StringVar(&commandOptions.initAddons, "addons", "", "add-on starters to install with the workflow, such as action-items (comma-separated), or none; first run only")
+	initCmd.Flags().StringVar(&commandOptions.initAddons, "addons", "", "add-on starters to install with the workflow, such as action-items or session-memory (comma-separated), or none; first run only")
 	initCmd.Flags().StringArrayVar(&commandOptions.initSkip, "skip", nil, "leave a folder or file out of the index (repeatable; first run only)")
 	initCmd.Flags().StringArrayVar(&commandOptions.initKeepIndexed, "keep-indexed", nil, "keep indexing a path init suggests skipping (repeatable; first run only)")
 	initCmd.Flags().BoolVar(&commandOptions.initSearchKeyStdin, "search-key-stdin", false, "read the semantic search key from a pipe and save it, so it never appears in arguments (first run only)")

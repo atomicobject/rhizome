@@ -236,6 +236,9 @@ func (r *initRun) rerun(s setup) error {
 	if _, err := applyStarterManagementOptions(cfg, r.opts, nil); err != nil {
 		return err
 	}
+	if err := applyAddonOptions(cfg, s.workflows, suppressDefaultAddonsForExistingConfig(r.layout, *cfg), r.opts); err != nil {
+		return err
+	}
 	// Restoring a starter the chosen workflow no longer installs selects it
 	// again, so its files resume updates instead of being removed.
 	if restored, _ := normalizeTemplateNames(splitList(r.opts.Restore)); len(restored) > 0 &&

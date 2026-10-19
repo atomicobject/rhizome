@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { SESSIONS, fakeClients, fakeDiscover, session, statuses, tempRepo, turn } from "./fakes.mjs";
 
@@ -103,8 +104,10 @@ test("a killed run resumes without repeating a finished call", async () => {
   const reference = tmp();
   await run(reference, fakeClients(), { concurrency: 1 });
   const state = tmp();
-  const child = spawnSync(process.execPath, [new URL("crash-run.mjs", import.meta.url).pathname, state, repo, "4"]);
-  assert.equal(child.signal, "SIGKILL");
+  const child = spawnSync(process.execPath, [fileURLToPath(new URL("crash-run.mjs", import.meta.url)), state, repo, "4"]);
+  // Windows reports a killed process by exit status, not by signal.
+  if (process.platform === "win32") assert.notEqual(child.status, 0);
+  else assert.equal(child.signal, "SIGKILL");
   assert.ok(existsSync(join(state, "lock")), "the dead run still holds its lock");
   const fake = fakeClients();
   const r = await run(state, fake, { concurrency: 1 });
@@ -238,4 +241,19 @@ test("review regressions: unreadable packet paths, cost totals, unreported probe
   assert.deepEqual([s.status, s.reason], ["stopped", "failed"]);
   assert.ok(!existsSync(join(ranked, "runs", s.run, "verify-plan.json")));
   assert.equal((await run(ranked, fakeClients())).status, "done");
+});
+
+test("a dismissed learning is not proposed again, even when the pool is rebuilt", async () => {
+  const root = tempRepo();
+  const state = tmp();
+  const fake = fakeClients();
+  await run(state, fake, { root });
+  const alpha = read(state, "proposals.json").find((p) => /Topic alpha/.test(p.statement));
+  const { run: review } = await import(new URL("shards.mjs", scripts));
+  const user = { found: true, typeName: "Person", path: "people/pat.md", title: "Pat" };
+  review(["dismiss", alpha.cluster, "--reason", "not wanted", "--shared"], { root, state, user });
+  // The shared decision alone suppresses it, as on a teammate's machine.
+  for (const name of ["pool", "runs", "cursors.json", "proposals.json", "reviewed.json"]) rmSync(join(state, name), { recursive: true });
+  await run(state, fake, { root });
+  assert.deepEqual(topics(state), ["beta"]);
 });

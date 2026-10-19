@@ -124,10 +124,13 @@ func start(opts RunOptions) (*initRun, setup, bool, error) {
 	}
 	r.detectedAgents = r.layout.AgentHarnesses
 	if r.layout.HasExistingConfig && hasFirstRunOption(opts) {
+		if strings.TrimSpace(opts.Addons) != "" {
+			return fail(fmt.Errorf("%w; use --add-addon or --remove-addon to change add-ons", ErrNotFirstRun))
+		}
 		return fail(fmt.Errorf("%w; use rzm index scope to change what gets indexed", ErrNotFirstRun))
 	}
 	if !r.layout.HasExistingConfig && hasStarterManagementOption(opts) {
-		return fail(fmt.Errorf("--eject and --restore need an existing Rhizome setup; run rzm init first"))
+		return fail(fmt.Errorf("--eject, --restore, --add-addon, and --remove-addon need an existing Rhizome setup; run rzm init first, choosing add-ons with --addons"))
 	}
 	includeIgnored, err := includeIgnoredInputs(r.layout.ProjectRoot, opts.IncludeIgnored)
 	if err != nil {
@@ -261,5 +264,6 @@ func ejectedAgenticEngineering(ejected []string) bool {
 }
 
 func hasStarterManagementOption(opts RunOptions) bool {
-	return strings.TrimSpace(opts.Eject) != "" || strings.TrimSpace(opts.Restore) != ""
+	return strings.TrimSpace(opts.Eject) != "" || strings.TrimSpace(opts.Restore) != "" ||
+		strings.TrimSpace(opts.AddAddon) != "" || strings.TrimSpace(opts.RemoveAddon) != ""
 }

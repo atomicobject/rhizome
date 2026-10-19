@@ -12,6 +12,7 @@ import { execFileSync } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { completeThrough, episodesFor, familyOf, openingTask } from "./lib/episodes.mjs";
 import { parseClaude, parseCodex } from "./lib/transcripts.mjs";
 
@@ -277,7 +278,7 @@ function extract(root, opts) {
   return { out: opts.out, report, families: new Set(sessions.map((s) => s.family)).size, episodes: lines.length, byLens, redactions };
 }
 
-const isMain = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href;
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const a = args(process.argv.slice(2));
   const root = git(process.cwd(), "rev-parse", "--show-toplevel") || process.cwd();

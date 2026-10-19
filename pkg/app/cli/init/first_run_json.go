@@ -271,6 +271,11 @@ func addonOptions(registry map[string]starterTemplateMetadata, effective []strin
 	out := []AddonOption{}
 	for _, id := range addonIDs(registry) {
 		meta := registry[id]
+		// The setup sheet does not list optional add-ons yet; --addons
+		// still accepts them.
+		if meta.OptionalAddon {
+			continue
+		}
 		option := AddonOption{ID: id, Label: firstNonEmpty(meta.Name, id), Description: meta.Description, DefaultFor: []string{}, Enabled: contains(effective, id)}
 		for _, choice := range workflowChoices {
 			set, err := resolveTemplateSet(choice.starters, repoconfig.WorkflowTemplateAddons{}, registry)

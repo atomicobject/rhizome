@@ -82,6 +82,8 @@ test("codex code-mode exec scripts expose commands and patches", () => {
 test("relativize maps other worktrees of the same repository", () => {
   assert.equal(relativize("/Users/x/.t3/worktrees/rhizome/t3-abc/pkg/a.go", "/Users/x/Developer/rhizome"), "pkg/a.go");
   assert.equal(relativize("/etc/hosts", "/repo"), null);
+  assert.equal(relativize("C:\\repo\\pkg\\a.go", "C:\\repo"), "pkg/a.go");
+  assert.equal(relativize("D:\\other\\a.go", "C:\\repo"), null);
 });
 
 test("redacts quoted values with spaces, escaped quotes, single quotes, and YAML blocks", () => {

@@ -1,35 +1,56 @@
 ---
 name: session-memory
-description: Use when mining this repository's Claude Code or Codex sessions for reusable project knowledge, estimating or resuming a mining run, or checking which models a run will use.
+description: Use when mining this repository's Claude Code or Codex sessions for reusable project knowledge, reviewing or approving the resulting proposals, looking up the context shards that apply to files, a command, or a task, or re-verifying shards whose files changed.
 ---
 
 # Session memory
 
-This skill turns the agent sessions recorded for this repository into proposed context shards: short, verified facts and rules that later agents should know. Proposals stay local until a person reviews them.
+This skill turns the agent sessions recorded for this repository into context shards: short, verified rules and facts that later agents should know. Mining produces local proposals; a person approves each one before it becomes a tracked note in `docs/context-shards/`.
 
-Run every script from the repository root with Node 20 or later. Scripts reach models only through `rzm agent generate` and Jev through `rzm agent evaluate-batch`; they never call a provider directly.
+Run every script from the repository root with Node 20 or later. `<skill>` below is this skill's directory. Scripts reach models only through `rzm agent generate` and Jev through `rzm agent evaluate-batch`, and print JSON. A script that refuses an action exits 2 and says why; relay the reason instead of working around it.
 
-## Choose the provider
+## Lookup
 
-Pass `--harness claude` when you are running in Claude Code and `--harness codex` in Codex. Transcript text goes only to that provider and to Jev, which screens passages. Without the flag, the run uses the user's `agent.harness` setting, or else the only provider installed and signed in, and otherwise stops and asks.
+Run before editing files or running commands in an area you have not worked in this session:
 
-## Status
+```sh
+node <skill>/scripts/lookup.mjs --files path/a.go path/b.md
+node <skill>/scripts/lookup.mjs --command "make web-e2e"
+node <skill>/scripts/lookup.mjs --task "add a validation check for views"
+```
 
-- `node <skill>/scripts/sessions.mjs survey [--since YYYY-MM-DD]` counts the sessions and episodes it found, without reading their content into the reply.
-- `node <skill>/scripts/mine.mjs --harness <h>` with no `--budget` prints the resolved model for each role, every provider that will receive transcript text, and the estimated cost. It spends nothing.
+Follow the rules it returns; facts are background, and a where-to-find shard names the document to open. Lookup returns at most five shards, rules first, and withholds shards whose files changed since they were verified. When it reports withheld shards, mention it; the person can run maintain.
 
 ## Mine
 
-1. Run `mine.mjs --harness <h>` without a budget and show the person the estimate and the bindings.
-2. Ask for a spend limit, then run `mine.mjs --harness <h> --budget <USD>`.
-3. Exit 3 means the run stopped at its budget. Rerunning with a new budget resumes it with the same models; finished calls are cached and not repeated. To discard an open run instead, pass `--abandon`.
-4. Proposals land in `.rhizome/session-memory/proposals.json`. Summarize them for the person; do not write them into the repository.
+1. Pass the harness you are running in: `--harness claude` in Claude Code, `--harness codex` in Codex. Transcript text goes only to that provider and to Jev.
+2. Run `node <skill>/scripts/mine.mjs --harness <h>` with no budget. It spends nothing and prints the model for each role, every provider that will receive transcript text, and the estimated cost. Show these to the person.
+3. Ask for a spend limit, then run `mine.mjs --harness <h> --budget <USD>`.
+4. Exit 3 means the run stopped at its budget. Rerunning resumes it with the same models, and finished calls are not repeated. `--abandon` discards an open run instead.
+5. Summarize the run report, then offer review.
 
-Useful options:
-- `--since` and `--until` bound the sessions by start date. Later runs continue from each session's cursor, so they read only new turns.
-- `--verify-budget N` verifies up to N single-session clusters per run (default 40). `--verify-held N` verifies N clusters that earlier runs held back.
-- `--model <role>=<provider>:<model>:<effort>` overrides one role for this run. A local `.rhizome/session-memory/models.json` overrides the shipped `models.json`.
+Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only new turns. `--verify-budget N` verifies up to N single-session clusters (default 40), and `--verify-held N` verifies N that earlier runs held back. `--model <role>=<provider>:<model>:<effort>` overrides one role; `references/models.md` explains the roles and defaults.
+
+## Review
+
+1. Check the reviewer: `rzm agent current-user validate` must resolve to a `Person`. If it does not, stop and ask the person to run `rzm agent current-user set "<Person title>"`.
+2. `node <skill>/scripts/shards.mjs list` shows pending proposals. Present each one with its tier (A: seen in two or more sessions; B: one session, confirmed in the code), statement, applies-to patterns, and why it matters. `shards.mjs show <cluster>` gives the verification record and evidence; `shards.mjs source <cluster> [n]` shows a cited excerpt, redacted.
+3. For each proposal, ask the person to approve, revise, dismiss, or defer:
+   - **Approve:** ask whether the statement is fit to publish in this repository, which may be public. Only after a yes, run `shards.mjs approve <cluster> --confirm-publish`.
+   - **Revise:** write the changed fields (`kind`, `statement`, `why`, `appliesTo`, `commands`, `target`) to a JSON file outside the repository, show the person the result, then approve with `--edit <file>`.
+   - **Dismiss:** ask for the reason and whether to share the decision with the team (`--shared`, a tracked file) or keep it local (`--local`), then run `shards.mjs dismiss <cluster> --reason "<reason>" --shared|--local`.
+   - **Defer:** do nothing; it stays pending.
+4. Approval is refused while files the shard depends on have uncommitted changes; ask the person to commit or stash first. New shards and shared decisions are ordinary repository changes for the person to commit.
+
+## Maintain
+
+1. `node <skill>/scripts/shards.mjs check` lists shards that need attention, with reasons: their files changed, their patterns match nothing, their content was edited by hand, or they have no patterns and were verified more than 30 days ago.
+2. For each, re-check the statement against the current code and documentation, and tell the person what you found.
+3. With the person's choice, pass the `expect` hash from `check`:
+   - still true: `shards.mjs renew <path> --expect <hash>`
+   - needs new wording or scope: `shards.mjs revise <path> --expect <hash> --edit <file> --confirm-publish`
+   - no longer true: `shards.mjs retire <path> --expect <hash> --reason "<reason>"`
 
 ## Not yet available
 
-Review and promotion into `docs/context-shards/`, lookup, maintenance of stale shards, and calibration are planned (SPEC-0121) but not part of this version. Tell the person so rather than improvising them.
+Calibrating model choices (SPEC-0121 US6) and hooks that deliver shards automatically are planned but not part of this version. Tell the person so rather than improvising them.

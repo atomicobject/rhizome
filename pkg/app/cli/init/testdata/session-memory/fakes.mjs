@@ -98,7 +98,8 @@ export function tempRepo() {
   writeFileSync(join(dir, "README.md"), "# Fixture\n");
   mkdirSync(join(dir, "skills"));
   writeFileSync(join(dir, "skills/a.md"), "a\n");
-  symlinkSync("skills", join(dir, "skilllink"));
+  // Windows needs the type to link a directory.
+  symlinkSync("skills", join(dir, "skilllink"), "dir");
   const git = (...a) => execFileSync("git", ["-C", dir, "-c", "user.email=t@example.com", "-c", "user.name=t", ...a], { stdio: "ignore" });
   git("init", "-q");
   git("add", ".");

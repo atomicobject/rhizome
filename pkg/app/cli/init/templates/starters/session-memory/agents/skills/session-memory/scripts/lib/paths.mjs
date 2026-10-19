@@ -27,7 +27,7 @@ export function relativize(path, root) {
   if (!path) return null;
   let p = posix.normalize(path.replace(/\\/g, "/"));
   const r = (root ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
-  if (p.startsWith("/")) {
+  if (p.startsWith("/") || /^[A-Za-z]:\//.test(p)) {
     if (r && (p === r || p.startsWith(r + "/"))) p = p.slice(r.length + 1);
     else {
       const wt = p.match(/^.*?\/(?:\.t3\/worktrees\/[^/]+\/[^/]+|\.codex\/worktrees\/[^/]+\/[^/]+)\/(.*)$/);

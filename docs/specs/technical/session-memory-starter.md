@@ -6,7 +6,7 @@ aliases:
   - Session memory starter
 summary: "An opt-in session-memory starter mines a developer's local Claude Code and Codex transcripts for corrections, facts, and research questions, screens them with Jev, verifies candidates against the current code, and promotes only human-approved context shards into the repository. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
 spec-status: proposed
-last-updated: 2026-10-17
+last-updated: 2026-10-19
 ---
 
 # Session memory starter
@@ -106,7 +106,7 @@ The rest of this story applies where hooks are installed.
 - Delivery adds at most five shards (about 4,000 characters) per call, rules first. A hook never blocks or fails a tool call. Every error, including a timeout, results in no output, an exit status of zero, and a bounded local diagnostic entry.
 - Setup reports, for each harness, whether the hook is installed, whether Codex trusts the project and the hook, and when delivery last succeeded.
 - An approved shard with no applies-to pattern is delivered at session start and at subagent start, once per agent context, and the skill also proposes an `AGENTS.md` edit for it.
-- Rhizome file context and search for a file return its approved shards through their glob code anchors.
+- Rhizome file context and search for a code file return its approved shards through their glob code anchors. Rhizome treats Markdown files as notes, which have no file context, so lookup alone covers shards that apply to Markdown.
 
 ### US4 - Later runs and teammates build on earlier decisions
 
@@ -200,9 +200,10 @@ The rest of this story applies where hooks are installed.
   - `kind`
   - `summary` (the statement)
   - `applies-to` (patterns)
+  - `commands` (literal command text that lookup matches; optional)
   - `target` (an existing document; required for `where_to_find`)
   - `reviewed-by` (a `Person`) and `reviewed-on` (`Date`)
-  - `approved-hash`
+  - `approved-hash`, over kind, statement, sorted applies-to, sorted commands, and target
   - `verified-on` (`Date`) and `verified-fingerprint`
   - `families` (`Int`) and `tool-calls` (`Int`)
   - `code-anchors` derived from `applies-to` under the `any` language key
@@ -260,7 +261,7 @@ The rest of this story applies where hooks are installed.
 
 [TODO: Decide after M1] Verification method: a tool-using verifier, or scripts that gather evidence packets with up to two model-requested evidence rounds and run no model-supplied commands. The packet method is preferred if it matches the tool-using verifier's accepted learnings.
 
-[TODO: Decide with Drew] Add a `commands` trigger: literal command prefixes whose use in a `Bash` call delivers the shard. Five of the 22 first-run proposals were about running a command, and broad file globs standing in for them caused most scope disputes.
+[TODO: Decide with Drew] Hooks for `commands`: lookup already matches a shard whose `commands` text appears in the command it is given. Whether a hook should also deliver on a matching `Bash` call waits for the hook canaries. Five of the 22 first-run proposals were about running a command, and broad file globs standing in for them caused most scope disputes.
 
 [TODO: Confirm with Drew] Shards live in `docs/context-shards/`, named `<kind>-<slug>.md`.
 
