@@ -1,8 +1,6 @@
 package operations
 
 import (
-	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/contextpack"
@@ -142,110 +140,17 @@ func renderCodeFileContextBlock(noteMgr obsidian.NoteReader, vaultDef obsidian.V
 	}
 
 	if len(ctx.LinkedNotes) > 0 {
-		b.WriteString("\n\n#### Linked notes\n")
-		notes := append([]LinkedNoteContext{}, ctx.LinkedNotes...)
-		sort.SliceStable(notes, func(i, j int) bool {
-			wi := linkedNoteKindWeight(notes[i].Kind)
-			wj := linkedNoteKindWeight(notes[j].Kind)
-			if wi != wj {
-				return wi > wj
-			}
-			return notes[i].Path < notes[j].Path
-		})
 		limit := 25
 		if profile == ContextProfileCode {
 			limit = 18
 		}
-		if ctx.IsDir {
-			limit = 10
-		}
-		if len(notes) > limit {
-			notes = notes[:limit]
-		}
-
-		// Prefer embedding full note bodies. Only fall back to summaries when budget is tight.
-		const minNoteBodyBudget = 800
 		noteFraction := 0.40
 		if ctx.IsDir {
+			limit = 10
 			noteFraction = 0.25
 		}
 		noteBudget := min(int(float64(perTargetBudget)*noteFraction), remaining)
-
-		type noteBlock struct {
-			LinkedNoteContext
-			content   string
-			truncated bool
-		}
-
-		blocks := make([]noteBlock, len(notes))
-		for i, note := range notes {
-			blocks[i].LinkedNoteContext = note
-		}
-
-		embeddedCount := 0
-		for i := range blocks {
-			if noteMgr == nil || blocks[i].Path == "" {
-				continue
-			}
-			if noteBudget < minNoteBodyBudget {
-				break
-			}
-			raw, err := noteMgr.GetContents(vaultDef, blocks[i].Path)
-			if err != nil || strings.TrimSpace(raw) == "" {
-				continue
-			}
-			content, truncated := contextpack.TrimMarkdown(raw, min(16000, noteBudget))
-			content = strings.TrimSpace(content)
-			if content == "" {
-				continue
-			}
-			if !nestedDedupe.include(blocks[i].Path, content) {
-				continue
-			}
-			blocks[i].content = content
-			blocks[i].truncated = truncated
-			noteBudget -= len(content) + 120
-			embeddedCount++
-		}
-
-		for _, nb := range blocks {
-			if nb.content == "" {
-				continue
-			}
-			b.WriteString("\n\n")
-			b.WriteString(renderEmbeddedFileXMLWithMeta("note", nb.Path, nb.Title, nb.Kind, nb.content, nb.truncated))
-		}
-
-		// If we couldn't embed all notes, list remaining as stubs with summary.
-		if embeddedCount < len(blocks) {
-			b.WriteString("\n\n##### Note stubs\n")
-			for _, nb := range blocks {
-				if nb.content != "" {
-					continue
-				}
-				b.WriteString("\n- ")
-				b.WriteString(nb.Title)
-				if nb.Path != "" {
-					b.WriteString(" (")
-					b.WriteString(nb.Path)
-					b.WriteString(")")
-				}
-				if value, ok := nb.Frontmatter["summary"]; ok {
-					if summary := strings.TrimSpace(fmt.Sprint(value)); summary != "" {
-						b.WriteString(" — ")
-						b.WriteString(summary)
-					}
-				}
-				if nb.Kind != "" {
-					b.WriteString(" [")
-					b.WriteString(nb.Kind)
-					b.WriteString("]")
-				}
-				if nb.Line > 0 {
-					b.WriteString(fmt.Sprintf(":%d", nb.Line))
-				}
-			}
-		}
+		renderLinkedNotesSection(&b, "Linked notes", noteMgr, vaultDef, ctx.LinkedNotes, limit, noteBudget, &nestedDedupe)
 	}
 
 	if len(ctx.ReturnedNotePaths) > 0 || len(ctx.ReturnedDocPaths) > 0 {
