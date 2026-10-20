@@ -3,7 +3,7 @@ type: ProductSpec
 summary: "Defines how rzm init resolves agent surface integration modes across detection, explicit flags, shared AGENTS.md guidance, .agents skills, interactive setup, and CI runs."
 id: SPEC-0045
 spec-status: active
-last-updated: 2026-10-01
+last-updated: 2026-10-19
 aliases:
   - SPEC-0045
   - agent-surface-integration-modes
@@ -156,6 +156,25 @@ Code anchors: `init.agent_surface_onboarding`, `init.agent_surface_run_pipeline`
 - If the managed block is present but the `rhizome` skill cannot be loaded, the agent tells the user Rhizome integration is incomplete and routes to installation/integration repair instead of silently imitating it. ^SPEC-0045-US4-AC3
 - Fresh init and refresh tests verify that each enabled skill surface receives `rhizome`; when a managed-doc surface is enabled while skill surfaces are explicitly disabled or missing, the block reports integration as incomplete rather than writing into the disabled surface. ^SPEC-0045-US4-AC4
 
+### US5 - Let starters deliver context through agent hooks that Rhizome installs and dispatches
+- id:: ^SPEC-0045-US5
+- summary:: A starter declares the agent hooks it needs; when the person turns hooks on, init installs one Rhizome dispatcher entry per hook event in each enabled harness, and the dispatcher runs the handlers of enabled starters and returns their context to the agent.
+- status:: draft
+
+Claude Code and Codex run project hooks around tool calls and accept context from them ([Claude Code hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)). Starters should not each write their own entries into harness settings, parse host payloads, or solve deadlines and Windows launching. Rhizome owns the harness side once; a starter supplies only a handler that turns a normalized event into context. Handler declarations come only from the starter registry built into Rhizome, not from repository files. Hook entries change only when the set of events or tool matchers changes, so Codex asks for trust again only then. Turning hooks on authorizes the handlers of enabled starters, including later starter updates; a host's hook trust covers the entry, not the handler's contents.
+
+#### Acceptance Criteria
+
+- A starter declares hooks in its `template.yaml`: an ID, the events it handles (session start, subagent start, after a tool call), the tool classes it handles (read, edit, shell, patch), the handler command as an argument list relative to the repository root, and a timeout. The handler declaration lives in the registry built into Rhizome. An ejected starter keeps its handler, now running team-owned files, and status names it. ^SPEC-0045-US5-AC1
+- Hooks are off until the person turns them on. When an enabled starter declares hooks, the first run and reruns name the starters that would use them and what each delivers, and `--hooks on|off` sets the choice. The choice is stored in `.rhizome/config.yml` and survives reruns, settings edits, and add-on changes. ^SPEC-0045-US5-AC2
+- With hooks on, init writes into `.claude/settings.json` (Claude Code enabled) and `.codex/hooks.json` (Codex enabled) one marker-identified entry per event that some enabled starter handles, with tool matchers narrowed to the tools those starters handle. Each entry runs `rzm hook <harness> <event>` and sets the host timeout slightly above the dispatcher's deadline. Init checks that the selected `rzm` binary supports `rzm hook` before writing entries. Init preserves every other entry, rewrites nothing when the entries are current, and removes its entries when hooks are turned off, the harness is disabled, or no enabled starter declares hooks. A Rhizome entry someone edited follows the ownership rule in [[init-starter-workflow]]. ^SPEC-0045-US5-AC3
+- `rzm hook` reads the host's payload and gives each matching handler one normalized event on standard input: harness, event, repository root, the agent's identity (canonical worktree, harness, session, agent ID when the host gives one, and turn when it gives one), whether the host reset that context (compact or clear), the tool class, the repository-relative paths the call read or edited, and the shell command text. ^SPEC-0045-US5-AC4
+- Paths come from the host's structured fields (`Read`, `Edit`, `Write`, `MultiEdit`, `apply_patch`) and from shell commands in a bounded set of read forms (`cat`, `sed -n`, `head`, `tail`, `nl`, and `rg`/`grep` file operands, optionally after `cd`), parsed with shell quoting and never executed. Paths resolve against the call's working directory, and a path outside the session's own worktree, including a symlink escape, is dropped. ^SPEC-0045-US5-AC5
+- `rzm hook` starts a handler only when the event, tool class, and parsed paths give it something to act on; a shell call with no recognized read starts none. It passes each handler the item IDs already emitted to that agent and the share of the output budget still unused. A handler returns `{"items": [{"id": "<id>", "text": "<text>"}]}` and must leave out the IDs it was given before applying its own limits. `rzm hook` drops any item beyond the allowance, joins the rest in starter order, emits them in the host's event-specific JSON form, and only then records their IDs as emitted. ^SPEC-0045-US5-AC6
+- Once started, `rzm hook` never blocks or fails a tool call. The whole invocation has one fixed deadline that covers payload parsing, lock waits, handlers, and cleanup. Input and handler output are size-bounded, and a timed-out handler's process tree is killed. One handler's failure does not discard another's items. Any error ends with exit status 0, the items gathered so far or no output, and one entry in a bounded local diagnostic log. A host that cannot start `rzm` at all reports that through its own hook diagnostics. ^SPEC-0045-US5-AC7
+- On Windows, Claude Code entries launch `rzm.exe` through the command-and-arguments form without a shell, and Codex entries set `commandWindows`, quoted for `cmd.exe /C`. ^SPEC-0045-US5-AC8
+- The rerun summary and `rzm init --check` report, per harness: whether the entries are installed and current, which starters use them, and when each handler last returned context. They tell Codex users that Codex asks to trust a new or changed hook entry through `/hooks`. ^SPEC-0045-US5-AC9
+
 ## Requirements
 
 - Stored agent preferences MUST accept only `auto`, `on`, and `off` for Cursor, Claude, Codex, `.agents/skills`, and `AGENTS.md`.
@@ -175,6 +194,10 @@ Code anchors: `init.agent_surface_onboarding`, `init.agent_surface_run_pipeline`
 - Reruns MUST resolve agent modes before applying managed template updates.
 - When shared agent guidance and a skill surface are both enabled, init MUST install the `rhizome` core skill and matching lean managed routing block as one coherent integration; explicit skill-surface opt-out MUST remain authoritative.
 - The managed block MUST report a missing core skill as incomplete Rhizome integration.
+- Hook entries MUST change only when the set of events or tool matchers that enabled starters need changes.
+- `rzm hook` MUST take an early path that skips binary bootstrap, update, and download. It MUST NOT start the vault runtime, open the index, or reach the network; handlers that need Rhizome data read files directly.
+- Emitted-item state MUST be updated under an exclusive lock with a bounded wait. Dedupe is best effort across crashes: when output and state cannot both be committed, a repeat is preferred to a lost item. Session-start delivery and tool-call delivery MUST use separate scopes, and a missing child agent ID MUST NOT be replaced by the parent's identity.
+- The dispatcher's own overhead MUST be measured on each supported platform, with and without a matching handler, and recorded before hooks leave draft.
 
 ## Open Questions
 

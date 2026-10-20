@@ -553,6 +553,16 @@ Nothing yet; execution starts after plan approval.
   - **Decisions:** command-triggered delivery yes, as corrective guidance in event-specific JSON. Hooks are enabled explicitly during add-on setup, and the choice persists through updates; the team setting goes in `.claude/settings.json`.
   - **Freshness wording:** the fingerprint covers committed files, not unstaged edits, and old patternless shards are flagged for maintenance but still delivered. Status text should say so.
   - **Markdown:** file context for a note returns before consulting anchors, though glob anchors match any path. Returning glob-anchored docs for notes is a separate, bounded Rhizome change that moves the note-to-code boundary. Tag, type, and link selectors need their own spec. The spec's claim that Markdown has no file context is corrected.
+  - **Drew's decisions:** T3 Codex threads use lookup only. Hooks should be a Rhizome system that installs hook entries and dispatches to the starters that declare handlers, rather than something each starter sets up for itself. Command-triggered delivery is still open; Drew asked why it helps (see the examples in the spec's open question).
+- 2026-10-19: **Rhizome hook dispatcher, SPEC-0045 US5.** Drafted, and Astra high reviewed it: approve with changes, no blocker. Changes applied:
+  - **Bootstrap:** `rzm hook` takes an early path that skips binary bootstrap and download, and fails open only once it has started. Init checks that the selected binary supports `rzm hook`.
+  - **Identity:** the normalized identity is worktree, harness, session, agent ID when present, and turn when present. Session-start and tool-call delivery use separate scopes.
+  - **Emitted state:** the dispatcher, not the handler, records emitted item IDs. It records them only after emitting, passes them and the remaining budget to each handler, and prefers a repeat to a lost item across crashes.
+  - **Deadline:** one fixed deadline covers the whole invocation. A timed-out handler's process tree is killed, and one handler's failure keeps the others' items.
+  - **Shell calls:** recognized shell reads are kept. A shell call with no recognized read starts no handler, because 100 ms on every Bash call would add about 22 minutes over this repository's recent Claude Code sessions, against 2 minutes for Read, Write, and Edit together. Entries narrow tool matchers, and change only when the events or matchers change.
+  - **Trust:** handler declarations come only from Rhizome's built-in starter registry. Turning hooks on authorizes enabled starters' handlers; host trust covers the entry, not handler contents.
+  - **Host facts:** Claude Code `command` plus `args` spawns without a shell. The Codex Windows field is `commandWindows`, run through `cmd.exe /C`. Codex has a `SubagentStart` event.
+  - **T3 Codex:** quality evidence now checks lookup in T3 Codex threads, not hook delivery.
 
 ## Deviations
 

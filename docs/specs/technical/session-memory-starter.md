@@ -94,7 +94,7 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 
 - Lookup takes a task description, file paths, or a command and returns the matching current shards, rules first, within a size budget. It works without hooks in every host.
 - The managed `AGENTS.md`/`CLAUDE.md` block tells agents to run lookup before editing files or running commands that shards may cover.
-- Hooks are optional. Setup installs them per host only after that host's canary has delivered context, and reports which hosts have them.
+- Hooks are optional. They are installed through the Rhizome hook dispatcher only when the person turns them on, and status reports which hosts have them.
 
 The rest of this story applies where hooks are installed.
 
@@ -240,12 +240,13 @@ The rest of this story applies where hooks are installed.
 
 ### Delivery
 
-- Hook commands MUST start the delivery script from the session's own worktree when it exists, and exit successfully without output when it does not.
-- The delivery script MUST resolve the repository root from the hook's `cwd` and normalize every touched path against it. It MUST ignore paths outside the repository.
-- It MUST parse `Bash` commands only in bounded, recognized forms (a leading `cd` and existing path arguments), and never execute them.
-- It MUST read shards through a Rhizome query recipe, following continuation offsets until the result is complete, all within a two-second deadline, and kill the child process on timeout. It MUST cache only a complete result, keyed by the shard directory's listing and modification times, and publish it only when that key is unchanged after the read.
-- Dedupe state MUST be keyed per agent context: Claude Code by session and agent ID, Codex by session and turn. It MUST be updated atomically and reset on `SessionStart` with source `compact` or `clear`. Patternless shards MUST be delivered on both `SessionStart` and `SubagentStart`.
-- Hooks are optional. When enabled, setup MUST add or remove marker-identified entries in `.claude/settings.json` and `.codex/hooks.json`, preserve every other entry, and be idempotent. Its `status` MUST report the facts listed in US3.
+- Hook delivery MUST run as this starter's handler under the Rhizome hook dispatcher ([[agent-surface-integration-modes#^SPEC-0045-US5]]), which owns harness settings, payload parsing, path containment, deadlines, Windows launching, emitted-item state, and status. The handler covers session start, subagent start, and read, edit, and patch tool calls, plus shell calls with recognized reads. Delivery on command text waits for the `commands` decision below.
+- The handler MUST select shards with the same function as lookup: current shards only, rules first, at most five shards and about 4,000 characters, or the dispatcher's remaining allowance if smaller. Item IDs are shard revisions (path and content hash).
+- It MUST leave out the shard revisions the dispatcher reports as already emitted before applying its limits, so delivered shards never hide later matches.
+- It MUST read shard files directly rather than through `rzm`. It MUST cache parsed shards only after a consistent read, keyed by the shard directory's listing and modification times, and MUST check eligibility (approved hash and fingerprint) against the current Git index on every call. Every `git` call MUST have a timeout inside the handler's deadline.
+- Patternless shards MUST be delivered on both session start and subagent start.
+- Freshness covers the current Git index: an unstaged edit to a dependency does not withhold a shard. Patternless shards older than 30 days are flagged by `check` for maintenance and are still delivered.
+- T3 Code Codex threads, where project hooks are not trusted, rely on lookup and managed guidance. No user-level hook runs repository scripts.
 
 ### Quality evidence
 
@@ -254,14 +255,14 @@ The rest of this story applies where hooks are installed.
 - Each reference, screened, and threshold run MUST use its own checkpoints and candidate pool, seeded from the same frozen episode snapshot, and reference labels MUST be kept out of every judgment context.
 - The held-out evaluation MUST measure, per lens, how many shards a reviewer accepted from an unscreened reference run that the screened pipeline still produces with sufficient evidence. It MUST also audit a sample of screened-out episodes and report the fraction kept, Jev usage, and the reference-run cost.
 - The effort MUST record acceptance rates, dismissal reasons, and review time.
-- The effort MUST measure hook latency on cache hits, misses, cold starts, and failures, and confirm delivery live in Claude Code, Codex, and Claude and Codex threads in T3 Code worktrees.
+- The effort MUST measure hook latency on cache hits, misses, cold starts, and failures; confirm hook delivery live in Claude Code, Codex, and Claude threads in T3 Code worktrees, including a GUI-launched host; and confirm lookup in T3 Code Codex threads.
 - Every transcript measurement MUST be reproducible from a committed, content-free survey command, with its window and versions recorded.
 
 ## Open questions
 
 [TODO: Decide after M1] Verification method: a tool-using verifier, or scripts that gather evidence packets with up to two model-requested evidence rounds and run no model-supplied commands. The packet method is preferred if it matches the tool-using verifier's accepted learnings.
 
-[TODO: Decide with Drew] Hooks for `commands`: lookup already matches a shard whose `commands` text appears in the command it is given. Whether a hook should also deliver on a matching `Bash` call waits for the hook canaries. Five of the 22 first-run proposals were about running a command, and broad file globs standing in for them caused most scope disputes.
+[TODO: Decide with Drew] Delivery on command text: lookup already matches a shard whose `commands` text appears in the command it is given. Whether the hook handler should also deliver after a matching shell command is open. Such shards cover commands whose results mislead: a web build leaves a tracked `dist/index.html` modified, a sandboxed `go test` fails with `operation not permitted`, `go mod vendor` deletes hand-vendored C sources, and Playwright attaches to another worktree's server. Delivery after the command fits them, but every shell call would then start the handler. 19 of the 25 development-run proposals name a command.
 
 [TODO: Confirm with Drew] Shards live in `docs/context-shards/`, named `<kind>-<slug>.md`.
 
