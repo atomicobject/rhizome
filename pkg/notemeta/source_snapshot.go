@@ -191,13 +191,7 @@ func (i Indexer) LoadNoteSourceSnapshots(ctx context.Context, vaultDef obsidian.
 	}
 	entries, err := i.loadProjectedEntriesForPaths(ctx, vaultDef, noteMgr, requestedPaths)
 	if err != nil {
-		// A missing persisted source is stale metadata, including the legacy reader's string error.
-		for cause := err; cause != nil; cause = errors.Unwrap(cause) {
-			if errors.Is(cause, fs.ErrNotExist) || cause.Error() == obsidian.NoteDoesNotExistError {
-				return nil, errors.Join(ErrProjectionNotCurrent, err)
-			}
-		}
-		return nil, err
+		return nil, missingSourceNotCurrent(err)
 	}
 	for _, entry := range entries {
 		row, ok := allRows[entry.Source.Path().String()]
@@ -246,4 +240,15 @@ type ResolvedNoteLink struct {
 	TargetInput string
 	TargetPath  paths.NotePath
 	Kind        string
+}
+
+// missingSourceNotCurrent classifies a missing persisted source as stale
+// metadata, including the legacy reader's string error.
+func missingSourceNotCurrent(err error) error {
+	for cause := err; cause != nil; cause = errors.Unwrap(cause) {
+		if errors.Is(cause, fs.ErrNotExist) || cause.Error() == obsidian.NoteDoesNotExistError {
+			return errors.Join(ErrProjectionNotCurrent, err)
+		}
+	}
+	return err
 }

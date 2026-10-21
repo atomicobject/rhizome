@@ -24,7 +24,7 @@ code-anchors:
 
 ## Design constraints
 
-- **Missing persisted sources are stale projections.** `LoadNoteSourceSnapshots` returns `ErrProjectionNotCurrent` when an eligible persisted source disappears during a read or stat, including the legacy Obsidian reader's missing-note error. It preserves the original error and persisted identity; coordinators must publish the discovered deletion through the normal metadata delta. Other read failures remain errors.
+- **Missing persisted sources are stale projections.** `LoadNoteSourceSnapshots` returns `ErrProjectionNotCurrent` when an eligible persisted source disappears during a read or stat, including the legacy Obsidian reader's missing-note error. `BuildPathDelta` classifies a missing topology dependent the same way. It preserves the original error and persisted identity; coordinators must publish the discovered deletion through the normal metadata delta. Other read failures remain errors.
 
 - **Nested metadata keys remain authored data.** Root field names must be nonempty, but objects inside a metadata value preserve all string keys, including the empty string. Markdown and HTML use the same canonical value domain and legacy frontmatter conversion. Indexer version 11 invalidates prior metadata state for this acceptance change.
 

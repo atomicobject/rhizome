@@ -273,42 +273,6 @@ func refreshValidationProjectionWithHeldStore(
 		return fail(err)
 	}
 	ontologyDeleted = unionOntologyPaths(ontologyDeleted, sourceDeleted)
-	if len(changed)+len(deleted) > 0 {
-		finishSourceSpan := indexingperf.StartSpan(ctx, "validation_projection_source")
-		started := time.Now()
-		delta, err := request.NoteMetadata.BuildPathDelta(ctx, request.VaultDef, reader, store, sourceChanged, sourceDeleted)
-		if err != nil {
-			finishSourceSpan(err)
-			return fail(fmt.Errorf("build note metadata delta: %w", err))
-		}
-		result.Timings["metadata_build"] = time.Since(started)
-		if delta != nil {
-			// The delta both narrows (content-identical notes need no ontology
-			// work) and expands (a bootstrap covers more than was requested).
-			// Exact paths are an explicit instruction, so they are a floor the
-			// narrowing must not cut below; discovered dirty paths are not.
-			deltaChanged := noteMetadataDeltaChangedPaths(*delta)
-			deltaDeleted := append([]string(nil), delta.DeletedPaths...)
-			if request.ExactPaths == nil {
-				ontologyChanged, ontologyDeleted = deltaChanged, deltaDeleted
-			} else {
-				ontologyChanged = unionOntologyPaths(ontologyChanged, deltaChanged)
-				ontologyDeleted = unionOntologyPaths(ontologyDeleted, deltaDeleted)
-			}
-			phaseCtx := indexingperf.WithPhase(ctx, "validation_projection_source")
-			if err := queue.SubmitNoteMetadataDelta(phaseCtx, *delta); err != nil {
-				finishSourceSpan(err)
-				return fail(err)
-			}
-			result.Counters.MetadataBatches++
-			if err := queue.FlushAndWait(phaseCtx); err != nil {
-				finishSourceSpan(err)
-				return fail(err)
-			}
-			result.Counters.QueueFlushes++
-		}
-		finishSourceSpan(nil)
-	}
 	// Another writer can change notes outside this delta before the watcher
 	// publishes them. Readers below require every loaded row to match disk, so
 	// a mismatch publishes all dirty note sources once and retries the read.
@@ -338,6 +302,47 @@ func refreshValidationProjectionWithHeldStore(
 		ontologyChanged = unionOntologyPaths(ontologyChanged, noteMetadataDeltaChangedPaths(*delta))
 		ontologyDeleted = unionOntologyPaths(ontologyDeleted, delta.DeletedPaths)
 		return nil
+	}
+	if len(changed)+len(deleted) > 0 {
+		finishSourceSpan := indexingperf.StartSpan(ctx, "validation_projection_source")
+		started := time.Now()
+		delta, err := request.NoteMetadata.BuildPathDelta(ctx, request.VaultDef, reader, store, sourceChanged, sourceDeleted)
+		if err != nil {
+			if err = catchUpDirtySources(ctx, err); err == nil {
+				delta, err = request.NoteMetadata.BuildPathDelta(ctx, request.VaultDef, reader, store, sourceChanged, sourceDeleted)
+			}
+		}
+		if err != nil {
+			finishSourceSpan(err)
+			return fail(fmt.Errorf("build note metadata delta: %w", err))
+		}
+		result.Timings["metadata_build"] = time.Since(started)
+		if delta != nil {
+			// The delta both narrows (content-identical notes need no ontology
+			// work) and expands (a bootstrap covers more than was requested).
+			// Exact paths are an explicit instruction, so they are a floor the
+			// narrowing must not cut below; discovered dirty paths are not.
+			deltaChanged := noteMetadataDeltaChangedPaths(*delta)
+			deltaDeleted := append([]string(nil), delta.DeletedPaths...)
+			if request.ExactPaths == nil && !caughtUp {
+				ontologyChanged, ontologyDeleted = deltaChanged, deltaDeleted
+			} else {
+				ontologyChanged = unionOntologyPaths(ontologyChanged, deltaChanged)
+				ontologyDeleted = unionOntologyPaths(ontologyDeleted, deltaDeleted)
+			}
+			phaseCtx := indexingperf.WithPhase(ctx, "validation_projection_source")
+			if err := queue.SubmitNoteMetadataDelta(phaseCtx, *delta); err != nil {
+				finishSourceSpan(err)
+				return fail(err)
+			}
+			result.Counters.MetadataBatches++
+			if err := queue.FlushAndWait(phaseCtx); err != nil {
+				finishSourceSpan(err)
+				return fail(err)
+			}
+			result.Counters.QueueFlushes++
+		}
+		finishSourceSpan(nil)
 	}
 	if request.refreshNoteAnchors {
 		if len(anchorChanged) > 0 {

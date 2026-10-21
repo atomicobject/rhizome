@@ -106,3 +106,37 @@ func TestNamespaceProjectionCatchesUpDependencyNeighbors(t *testing.T) {
 		}
 	}
 }
+
+func TestNamespaceProjectionCatchesUpDeletedInboundLinker(t *testing.T) {
+	for _, drift := range []string{"delete", "rename"} {
+		t.Run(drift, func(t *testing.T) {
+			ctx := context.Background()
+			root := t.TempDir()
+			seedMoveEndpoint(t, root, ".rhizome/ontology/schema.graphql", "type ExampleNote @node(paths: [\"*.md\"]) { name: String! }\n")
+			seedMoveEndpoint(t, root, "Old.md", "---\nname: Old\n---\n# Old\n")
+			inbound := seedMoveEndpoint(t, root, "Inbound.md", "---\nname: Inbound\n---\n[[Old]]\n")
+			metadata := namespaceTestMetadata(t)
+			initial, err := validationproduct.RefreshValidationProjection(ctx, validationproduct.ValidationProjectionRequest{
+				VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}, NoteMetadata: metadata, Target: validationproduct.ValidationProjectionLive,
+			})
+			require.NoError(t, err)
+			require.NoError(t, initial.Close())
+			target := filepath.Join(t.TempDir(), "Inbound.md")
+			if drift == "rename" {
+				target = filepath.Join(root, "Renamed.md")
+			}
+			require.NoError(t, os.Rename(inbound, target))
+
+			result, err := actions.MoveNotes(namespaceVault{path: root}, nil, actions.MoveParams{
+				Context: ctx, NoteMetadata: metadata, PostApplyRefresher: namespaceTestRefresher(t, root),
+				Moves: []actions.MoveRequest{{Source: "Old.md", Target: "New.md"}}, UpdateBacklinks: true,
+			})
+			require.NoError(t, err)
+			require.Equal(t, validate.NamespaceCommitted, result.Mutation.Current.Decision)
+			require.False(t, result.Mutation.Current.RecoveryPending)
+			pending, err := validate.DetectPendingRepairJournals(validate.RunContext{VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}})
+			require.NoError(t, err)
+			require.Empty(t, pending)
+		})
+	}
+}
