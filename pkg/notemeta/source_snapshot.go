@@ -2,7 +2,9 @@ package notemeta
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"sort"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat"
@@ -189,6 +191,12 @@ func (i Indexer) LoadNoteSourceSnapshots(ctx context.Context, vaultDef obsidian.
 	}
 	entries, err := i.loadProjectedEntriesForPaths(ctx, vaultDef, noteMgr, requestedPaths)
 	if err != nil {
+		// A missing persisted source is stale metadata, including the legacy reader's string error.
+		for cause := err; cause != nil; cause = errors.Unwrap(cause) {
+			if errors.Is(cause, fs.ErrNotExist) || cause.Error() == obsidian.NoteDoesNotExistError {
+				return nil, errors.Join(ErrProjectionNotCurrent, err)
+			}
+		}
 		return nil, err
 	}
 	for _, entry := range entries {

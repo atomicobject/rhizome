@@ -309,11 +309,46 @@ func refreshValidationProjectionWithHeldStore(
 		}
 		finishSourceSpan(nil)
 	}
+	// Another writer can change notes outside this delta before the watcher
+	// publishes them. Readers below require every loaded row to match disk, so
+	// a mismatch publishes all dirty note sources once and retries the read.
+	caughtUp := false
+	catchUpDirtySources := func(ctx context.Context, err error) error {
+		if caughtUp || !errors.Is(err, notemeta.ErrProjectionNotCurrent) {
+			return err
+		}
+		caughtUp = true
+		dirty, discoverErr := request.NoteMetadata.DiscoverDirtyPaths(ctx, request.VaultDef, reader, store)
+		if discoverErr != nil {
+			return errors.Join(err, discoverErr)
+		}
+		result.Counters.NoteScans++
+		delta, deltaErr := request.NoteMetadata.BuildPathDelta(ctx, request.VaultDef, reader, store, dirty.Changed, dirty.Deleted)
+		if deltaErr != nil || delta == nil {
+			return errors.Join(err, deltaErr)
+		}
+		if submitErr := queue.SubmitNoteMetadataDelta(ctx, *delta); submitErr != nil {
+			return errors.Join(err, submitErr)
+		}
+		result.Counters.MetadataBatches++
+		if flushErr := queue.FlushAndWait(ctx); flushErr != nil {
+			return errors.Join(err, flushErr)
+		}
+		result.Counters.QueueFlushes++
+		ontologyChanged = unionOntologyPaths(ontologyChanged, noteMetadataDeltaChangedPaths(*delta))
+		ontologyDeleted = unionOntologyPaths(ontologyDeleted, delta.DeletedPaths)
+		return nil
+	}
 	if request.refreshNoteAnchors {
 		if len(anchorChanged) > 0 {
 			started := time.Now()
 			anchorCtx := indexingperf.WithPhase(ctx, "validation_projection_code_anchors")
 			sources, err := request.NoteMetadata.LoadNoteSourceSnapshots(anchorCtx, request.VaultDef, reader, store, anchorChanged)
+			if err != nil {
+				if err = catchUpDirtySources(anchorCtx, err); err == nil {
+					sources, err = request.NoteMetadata.LoadNoteSourceSnapshots(anchorCtx, request.VaultDef, reader, store, anchorChanged)
+				}
+			}
 			if err != nil {
 				return fail(fmt.Errorf("load exact code-anchor sources: %w", err))
 			}
@@ -340,6 +375,11 @@ func refreshValidationProjectionWithHeldStore(
 	finishOntologySpan := indexingperf.StartSpan(ctx, "validation_projection_ontology")
 	ontologyCtx := indexingperf.WithPhase(ctx, "validation_projection_ontology")
 	ontologyResult, err := ontology.SyncPublishedPaths(ontologyCtx, request.NoteMetadata, request.VaultDef, reader, store, queue, ontologyChanged, ontologyDeleted)
+	if err != nil {
+		if err = catchUpDirtySources(ontologyCtx, err); err == nil {
+			ontologyResult, err = ontology.SyncPublishedPaths(ontologyCtx, request.NoteMetadata, request.VaultDef, reader, store, queue, ontologyChanged, ontologyDeleted)
+		}
+	}
 	if err != nil {
 		finishOntologySpan(err)
 		return fail(fmt.Errorf("sync validation ontology: %w", err))
