@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- `tools/searchquality -execute` runs every retrieval lane by default. Before, it silently ran a lexical-only measurement unless you passed `-fast=false`; pass `-fast` for the deterministic lexical run.
 - Native collection cells render wikilinks in text and list properties as clickable note links, including aliases, relative paths, and headings. Editable lists show every value and close after an unchanged edit.
 - `rzm note move` and `rzm note rename` finish refreshing the index when other notes were edited, deleted, or renamed but not yet indexed. Before, a committed move could exit with "note projection is not current" and leave recovery pending, and each later move replayed that recovery and stopped before starting.
 
