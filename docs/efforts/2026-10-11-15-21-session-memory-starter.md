@@ -570,6 +570,7 @@ Nothing yet; execution starts after plan approval.
   - **Resets:** the dispatcher now discards a context's emitted items on compaction or clear. The core template gets a dispatcher handler that tells the agent to start a new Rhizome session after a reset, and the `rhizome` skill says the same for hosts without hooks. Codex's once-per-turn repeat is explained: its subagent hooks carry the parent's session ID and no agent ID.
   - **Spec consistency:** the overview and US3 summary no longer say a canary enables hooks; the person turns them on.
   - **Reset handler moved out (same day):** a core hook would make init offer hooks in every repository for an unmeasured problem, and would not help hosts without hooks. SPEC-0045 AC10 was removed. SPEC-0082 US12 instead has dedupe responses name what they withheld and how to reread it, which works in every host. Drew expects hooks across Rhizome templates soon; core's reset reminder is the first candidate once US12 shows whether it is still needed.
+  - **Fixed hook entries:** with hooks spreading across templates, entries narrowed to each starter's tools would change, and Codex would ask for trust again, whenever add-ons change. SPEC-0045 US5 now installs one entry per hook point with no tool filter, and the dispatcher alone decides what runs. `rzm --version` took a median of 30 ms on macOS against 2 ms for an empty process, under 1% of an agent step; the earlier 22-minute estimate assumed 100 ms per call. A platform whose no-match overhead exceeds 50 ms may narrow its filter.
 
 ## Deviations
 
