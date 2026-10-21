@@ -14,6 +14,9 @@ type headingLineMatch struct {
 	level   int
 	text    string
 	blockID string
+	// ownLine marks an anchor on the line after the heading, the form this
+	// command writes, so a later rename reuses it instead of adding another.
+	ownLine bool
 }
 
 // Horizontal whitespace only: \s would cross line breaks and swallow the newline after the heading.
@@ -36,6 +39,12 @@ func matchingHeadingLines(content, oldHeading string) []headingLineMatch {
 			blockID = m[1]
 			text = strings.TrimSpace(trailingHeadingBlockIDRE.ReplaceAllString(text, ""))
 		}
+		ownLine := false
+		if next, ok := nextLine(content, loc[1]); ok && blockID == "" {
+			if id, caret, _, found := markdownsyntax.TrailingBlockID(next); found && strings.TrimSpace(next[:caret]) == "" {
+				blockID, ownLine = id, true
+			}
+		}
 		if markdownsyntax.NormalizeMarkdownHeadingFragment(text) != oldNorm {
 			continue
 		}
@@ -45,32 +54,53 @@ func matchingHeadingLines(content, oldHeading string) []headingLineMatch {
 			level:   loc[3] - loc[2],
 			text:    text,
 			blockID: blockID,
+			ownLine: ownLine,
 		})
 	}
 	return matches
 }
 
-// replaceHeadingLine keeps an authored heading-line anchor in place. A new
-// anchor goes on its own line after the heading: heading-line anchors read as
-// malformed to the ontology and leak into derived titles (SPEC-0023).
+// replaceHeadingLine keeps an authored anchor in place. A new anchor goes on
+// its own line after the heading, followed by a blank line so Obsidian reads
+// it as a separate block: heading-line anchors read as malformed to the
+// ontology and leak into derived titles (SPEC-0023).
 func replaceHeadingLine(content string, match headingLineMatch, newHeading, newBlockID string) string {
 	line := strings.Repeat("#", match.level) + " " + strings.TrimSpace(newHeading)
-	if match.blockID != "" {
+	if match.blockID != "" && !match.ownLine {
 		line += " ^" + match.blockID
 	}
 	rest := content[match.end:]
 	if newBlockID != "" {
+		newline := strings.IndexByte(rest, '\n')
 		eol := "\n"
-		if strings.HasPrefix(rest, "\r") {
+		if newline >= 0 && strings.HasSuffix(rest[:newline], "\r") || newline < 0 && strings.Contains(content, "\r\n") {
 			eol = "\r\n"
 		}
-		if newline := strings.IndexByte(rest, '\n'); newline >= 0 {
-			rest = rest[:newline+1] + "^" + newBlockID + eol + rest[newline+1:]
-		} else {
+		if newline < 0 {
 			rest += eol + "^" + newBlockID
+		} else {
+			anchor, after := "^"+newBlockID+eol, rest[newline+1:]
+			if next, _ := nextLine(rest, newline); after != "" && strings.TrimSpace(next) != "" {
+				anchor += eol
+			}
+			rest = rest[:newline+1] + anchor + after
 		}
 	}
 	return content[:match.start] + line + rest
+}
+
+// nextLine returns the line after the newline at or after offset, without its
+// line ending.
+func nextLine(content string, offset int) (string, bool) {
+	newline := strings.IndexByte(content[offset:], '\n')
+	if newline < 0 {
+		return "", false
+	}
+	next := content[offset+newline+1:]
+	if end := strings.IndexByte(next, '\n'); end >= 0 {
+		next = next[:end]
+	}
+	return strings.TrimRight(next, "\r"), true
 }
 
 // generatedHeadingBlockID derives an anchor from the heading text and returns

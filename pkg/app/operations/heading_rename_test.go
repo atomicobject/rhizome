@@ -257,6 +257,8 @@ func TestRenameHeadingAddsBlockIDOnlyForUpgradedReferences(t *testing.T) {
 			wantHeading: "# AI Transformation Service Offering\n^AI-Transformation-Service-Offering", wantFragment: "^AI-Transformation-Service-Offering", wantBlock: "AI-Transformation-Service-Offering"},
 		{name: "non-ASCII ID the parser cannot read", oldHeading: "Old", newHeading: "Café Plan", source: "[[target#Old]]",
 			wantHeading: "# Café Plan", wantFragment: "Café Plan"},
+		{name: "always with non-ASCII ID", oldHeading: "Old", newHeading: "Café Plan", source: "[[target#Old]]", upgrade: HeadingRenameUpgradeAlways,
+			wantHeading: "# Café Plan", wantFragment: "Café Plan"},
 		{name: "ID already used in note", oldHeading: "Old", newHeading: "New Plan", extra: "\nBody ^New-Plan\n", source: "[[target#Old]]",
 			wantHeading: "# New Plan", wantFragment: "New Plan"},
 	} {
@@ -273,6 +275,9 @@ func TestRenameHeadingAddsBlockIDOnlyForUpgradedReferences(t *testing.T) {
 			result, err := RenameHeading(stubVault{path: root}, params)
 			require.NoError(t, err)
 			assert.Equal(t, item.wantBlock, result.BlockID)
+			if item.upgrade == HeadingRenameUpgradeAlways && item.wantBlock == "" {
+				assert.Contains(t, result.Message, "no block ID added")
+			}
 
 			target, err := os.ReadFile(targetPath)
 			require.NoError(t, err)
@@ -290,6 +295,29 @@ func TestRenameHeadingAddsBlockIDOnlyForUpgradedReferences(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, "# Source\n\n[[target#"+item.wantFragment+"]]\n", string(source))
 			}
+		})
+	}
+}
+
+func TestRenameHeadingPlacesGeneratedBlockIDOnItsOwnLine(t *testing.T) {
+	cases := map[string]struct{ before, want string }{
+		"body right after heading":     {"# Old\nBody\n", "# New\n^New\n\nBody\n"},
+		"blank line after heading":     {"# Old\n\nBody\n", "# New\n^New\n\nBody\n"},
+		"crlf with trailing spaces":    {"# Old  \r\nBody\r\n", "# New  \r\n^New\r\n\r\nBody\r\n"},
+		"eof without newline":          {"# Old", "# New\n^New"},
+		"existing own-line anchor":     {"# Old\n^Old\n\nBody\n", "# New\n^Old\n\nBody\n"},
+		"existing heading-line anchor": {"# Old ^keep\nBody\n", "# New ^keep\nBody\n"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			targetPath := filepath.Join(root, "target.md")
+			require.NoError(t, os.WriteFile(targetPath, []byte(tc.before), 0o644))
+			_, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old", NewHeading: "New", Apply: true, UpgradeToBlockID: HeadingRenameUpgradeAlways})
+			require.NoError(t, err)
+			got, err := os.ReadFile(targetPath)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, string(got))
 		})
 	}
 }

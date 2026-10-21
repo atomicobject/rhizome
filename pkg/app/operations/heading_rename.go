@@ -234,6 +234,9 @@ func RenameHeading(vault repoconfig.VaultManager, params RenameHeadingParams) (R
 	if result.MatchedReferences == 0 && markdownsyntax.NormalizeMarkdownHeadingFragment(params.OldHeading) != markdownsyntax.NormalizeMarkdownHeadingFragment(params.NewHeading) {
 		result.Message = "no inbound heading references remain"
 	}
+	if params.UpgradeToBlockID == HeadingRenameUpgradeAlways && blockID == "" {
+		result.Message = strings.TrimPrefix(result.Message+"; no block ID added: the heading does not yield an unused ASCII block ID", "; ")
+	}
 	if !params.Apply {
 		return result, nil
 	}
