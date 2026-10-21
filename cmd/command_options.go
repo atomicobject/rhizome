@@ -114,8 +114,6 @@ type noteInvocationOptions struct {
 	moveUpdateBacklinks    bool
 	moveToFolder           string
 	renameHeadingApply     bool
-	renameHeadingUpgrade   string
-	renameHeadingFallback  string
 	propertiesMutationJSON bool
 	propertiesMutationMD   bool
 	propertiesDryRun       bool

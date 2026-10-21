@@ -36,7 +36,6 @@ func TestRenameHeadingUsesActualPathOnCaseInsensitiveFilesystem(t *testing.T) {
 
 				result, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{
 					NoteMetadata: testkit.NoteMetadataIndexer(t), Path: requested, OldHeading: "Old", NewHeading: "New", Apply: apply,
-					UpgradeToBlockID: HeadingRenameUpgradeNever, Fallback: HeadingRenameFallbackHeading,
 				})
 				require.NoError(t, err)
 				require.Equal(t, actual, result.Path)
@@ -79,7 +78,6 @@ func TestRenameHeadingKeepsDistinctCaseSensitiveNotes(t *testing.T) {
 
 			result, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{
 				NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old", NewHeading: "New", Apply: apply,
-				UpgradeToBlockID: HeadingRenameUpgradeNever, Fallback: HeadingRenameFallbackHeading,
 			})
 			require.NoError(t, err)
 			require.Equal(t, "target.md", result.Path)

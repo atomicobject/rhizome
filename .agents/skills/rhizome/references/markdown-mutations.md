@@ -8,7 +8,7 @@ Use the project launcher's `rzm note move` so backlinks can be rewritten with th
 
 ## Rename a linked heading
 
-Use `rzm agent note-rename-heading <path> "<old>" "<new>"` for a read-only plan. The operation can rewrite inbound heading-fragment references and may upgrade them to a durable block target. When the plan is accepted and mutation is authorized, use the project launcher's top-level `rzm note rename-heading ... --apply` command.
+Use `rzm agent note-rename-heading <path> "<old>" "<new>"` for a read-only plan. The operation rewrites inbound heading-fragment references to the new heading text and never adds a block ID, because Obsidian does not support block IDs on headings. When the plan is accepted and mutation is authorized, use the project launcher's top-level `rzm note rename-heading ... --apply` command.
 
 ## Durable links
 

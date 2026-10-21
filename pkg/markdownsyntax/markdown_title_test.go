@@ -19,6 +19,13 @@ func TestMarkdownH1TitleSemanticsMatchLegacyMetadataTitles(t *testing.T) {
 		{name: "multiple H1 has no single", content: "# One\n# Two\n", first: "One", single: ""},
 		{name: "inline wikilink", content: "# [[Tech Lead Sync]] 2022-05-12\n", first: "Tech Lead Sync 2022-05-12", single: "Tech Lead Sync 2022-05-12"},
 		{name: "bold wrapper", content: "# **AI in Healthcare Principles**\n", first: "AI in Healthcare Principles", single: "AI in Healthcare Principles"},
+		{name: "trailing block ID is metadata", content: "# AI Transformation Service Offering ^AI-Transformation-Service-Offering\n", first: "AI Transformation Service Offering", single: "AI Transformation Service Offering"},
+		{name: "block ID with crlf", content: "# Title ^t_1\r\n", first: "Title", single: "Title"},
+		{name: "caret without space stays", content: "# x^2\n", first: "x^2", single: "x^2"},
+		{name: "caret in code span stays", content: "# Use `^id`\n", first: "Use ^id", single: "Use ^id"},
+		{name: "non-block caret text stays", content: "# Ratio ^ 2\n", first: "Ratio ^ 2", single: "Ratio ^ 2"},
+		{name: "non-ASCII caret text stays", content: "# Note ^café\n", first: "Note ^café", single: "Note ^café"},
+		{name: "caret-only heading stays", content: "# ^id\n", first: "^id", single: "^id"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
