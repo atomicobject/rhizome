@@ -102,6 +102,22 @@ func TestAddAndRemoveAddonsChangeOnlyTheNamedAddon(t *testing.T) {
 	requireUpToDate(t, root)
 }
 
+func TestRemoveAddonDropsAnAddonListedAmongTheWorkflows(t *testing.T) {
+	root := t.TempDir()
+	writeProjectConfig(t, root, "notes:\n  includes: [\"**/*.md\"]\n", repoconfig.LocalWorkflowConfig{Templates: []string{templateAgenticEngineering, templateActionItems}})
+	_, err := runInit(t, RunOptions{Dir: root})
+	require.NoError(t, err)
+	require.FileExists(t, actionItemsOntology(root))
+
+	_, err = runInit(t, RunOptions{Dir: root, RemoveAddon: templateActionItems})
+	require.NoError(t, err)
+	cfg := loadConfigForTest(t, root)
+	require.Equal(t, []string{templateAgenticEngineering}, cfg.WorkflowTemplates)
+	require.Equal(t, []string{templateActionItems}, cfg.WorkflowTemplateAddons.Disabled)
+	require.NoFileExists(t, filepath.Join(root, ".agents", "skills", "action-items", "SKILL.md"))
+	requireUpToDate(t, root)
+}
+
 func TestAddingAnAddonDoesNotTurnOnUnrecordedDefaults(t *testing.T) {
 	root := t.TempDir()
 	writeProjectConfig(t, root, "notes:\n  includes: [\"**/*.md\"]\n", repoconfig.LocalWorkflowConfig{Templates: []string{templateAgenticEngineering}})

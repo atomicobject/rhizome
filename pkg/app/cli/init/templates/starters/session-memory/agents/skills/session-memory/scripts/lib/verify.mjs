@@ -5,7 +5,7 @@
 // a command of its own.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
 import { LEARNING_FIELDS, STATEMENT_MAX, validateLearning } from "./extract.mjs";
 import { PACKET_PREFIX, VERIFY_RULES } from "./prompts.mjs";
@@ -75,20 +75,27 @@ function grep(root, args, max) {
   }
 }
 
-function readFile(root, path, start = 1, end = 0) {
-  if (!trackedFiles(root).has(path)) return `(not a tracked file: ${path})`;
-  if (/(^|\/)\.env(\.|$)/.test(path)) return `(credential files are not read: ${path})`;
+// The redacted text of a tracked regular file inside the checkout, or a
+// parenthesized reason it was not read.
+function trackedText(root, path) {
+  if (!trackedFiles(root).has(path)) return { skipped: `(not a tracked file: ${path})` };
+  if (/(^|\/)\.env(\.|$)/.test(path)) return { skipped: `(credential files are not read: ${path})` };
   // A tracked symlink, or a symlinked parent directory, can point outside the
   // checkout, so the fully resolved path must stay inside it.
-  let real;
   try {
-    real = realpathSync(join(root, path));
-    if (!real.startsWith(realpathSync(root) + sep)) return `(outside the checkout: ${path})`;
-    if (!statSync(real).isFile()) return `(not a regular file: ${path})`;
+    const real = realpathSync(join(root, path));
+    if (!real.startsWith(realpathSync(root) + sep)) return { skipped: `(outside the checkout: ${path})` };
+    if (!statSync(real).isFile()) return { skipped: `(not a regular file: ${path})` };
+    return { text: redact(readFileSync(real, "utf8")).text };
   } catch {
-    return `(unreadable: ${path})`;
+    return { skipped: `(unreadable: ${path})` };
   }
-  const lines = redact(readFileSync(real, "utf8")).text.split("\n");
+}
+
+function readFile(root, path, start = 1, end = 0) {
+  const { text, skipped } = trackedText(root, path);
+  if (skipped) return skipped;
+  const lines = text.split("\n");
   const from = Math.max(1, start);
   const to = end > 0 ? Math.min(end, lines.length) : lines.length;
   const body = lines.slice(from - 1, to).map((l, i) => `${from + i}\t${l}`).join("\n");
@@ -102,9 +109,9 @@ async function fulfil(ctx, r) {
     case "grep":
       return grep(ctx.root, ["-E", "--max-count", "3", "-e", r.value, "--"], GREP_CHARS);
     case "search":
-      return cap(await ctx.search(["-n", "6", "--raw", "--", r.value]), SEARCH_CHARS);
+      return cap(redact(await ctx.search(["-n", "6", "--raw", "--", r.value])).text, SEARCH_CHARS);
     case "docs_for_file":
-      return cap(await ctx.search(["--mode", "docs_for_code", "-n", "6", "--raw", "-f", r.value]), SEARCH_CHARS);
+      return cap(redact(await ctx.search(["--mode", "docs_for_code", "-n", "6", "--raw", "-f", r.value])).text, SEARCH_CHARS);
     default:
       return `(unknown request kind ${r.kind})`;
   }
@@ -143,7 +150,8 @@ export async function initialPacket(ctx, cl, variants) {
   sections.push(["rzm search for the statement", await fulfil(ctx, { kind: "search", value: cl.statement.slice(0, 300) })]);
   const firstFile = scope.flatMap((s) => s.sample)[0];
   if (firstFile) sections.push([`notes governing ${firstFile}`, await fulfil(ctx, { kind: "docs_for_file", value: firstFile })]);
-  if (existsSync(join(ctx.root, "AGENTS.md"))) sections.push(["AGENTS.md", cap(readFileSync(join(ctx.root, "AGENTS.md"), "utf8"), 14000)]);
+  const agents = trackedText(ctx.root, "AGENTS.md");
+  if (agents.text) sections.push(["AGENTS.md", cap(agents.text, 14000)]);
   return sections;
 }
 

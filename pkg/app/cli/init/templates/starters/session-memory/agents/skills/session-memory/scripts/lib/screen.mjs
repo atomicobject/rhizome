@@ -7,8 +7,22 @@ import { PASSAGE_QUESTIONS } from "./prompts.mjs";
 
 export const SHARE = 0.3;
 
+// Splits an oversized paragraph at word boundaries so none of it is dropped.
+function split(s, max) {
+  const out = [];
+  while (s.length > max) {
+    let cut = s.lastIndexOf(" ", max);
+    if (cut < max / 2) cut = max;
+    out.push(s.slice(0, cut).trim());
+    s = s.slice(cut).trim();
+  }
+  if (s) out.push(s);
+  return out;
+}
+
 // Long reports bury one useful bullet among many, so each paragraph or list
-// item is judged alone. Short pieces join the next one.
+// item is judged alone. Short pieces join the next one, and a piece longer
+// than `max` becomes several passages.
 export function passages(text, max = 700) {
   const parts = text.split(/\n\s*\n|\n(?=\s*(?:[-*]|\d+\.)\s)/).map((p) => p.trim()).filter(Boolean);
   const out = [];
@@ -20,12 +34,12 @@ export function passages(text, max = 700) {
     }
     cur = cur ? `${cur}\n${p}` : p;
     if (cur.length >= 120) {
-      out.push(cur.slice(0, max));
+      out.push(...split(cur, max));
       cur = "";
     }
   }
   if (cur) out.push(cur);
-  return out.length ? out : [text.slice(0, max)];
+  return out.length ? out : split(text, max);
 }
 
 // The state a passage question sees.

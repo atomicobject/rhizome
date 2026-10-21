@@ -26,8 +26,9 @@ Follow the rules it returns; facts are background, and a where-to-find shard nam
 1. Pass the harness you are running in: `--harness claude` in Claude Code, `--harness codex` in Codex. Transcript text goes only to that provider and to Jev. Local state in `.rhizome/session-memory/` is readable only by the person on macOS and Linux; on Windows it has the checkout's permissions, so tell the person before a first run there.
 2. Run `node <skill>/scripts/mine.mjs --harness <h>` with no budget. It spends nothing and prints the model for each role, every provider that will receive transcript text, and the estimated cost. Show these to the person.
 3. Ask for a spend limit, then run `mine.mjs --harness <h> --budget <USD>`.
-4. Exit 3 means the run stopped at its budget. Rerunning resumes it with the same models, and finished calls are not repeated. `--abandon` discards an open run instead.
-5. Summarize the run report, then offer review.
+4. If the run refuses because no price is known for a model, choose a priced model with `--model`, or ask the person whether to pass `--allow-unpriced`, which makes the budget count only the costs the provider reports.
+5. Exit 3 means the run stopped at its budget. Rerunning resumes it with the same models, and finished calls are not repeated. `--abandon` discards an open run instead.
+6. Summarize the run report, then offer review.
 
 Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only new turns. `--verify-budget N` verifies up to N single-session clusters (default 40), and `--verify-held N` verifies N that earlier runs held back. `--model <role>=<provider>:<model>:<effort>` overrides one role; `references/models.md` explains the roles and defaults.
 
@@ -41,7 +42,8 @@ Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only
    - **Dismiss:** ask for the reason and whether to share the decision with the team (`--shared`, a tracked file) or keep it local (`--local`), then run `shards.mjs dismiss <cluster> --reason "<reason>" --shared|--local`.
    - **Defer:** do nothing; it stays pending.
 4. Approval is refused while files the shard depends on have uncommitted changes; ask the person to commit or stash first. New shards and shared decisions are ordinary repository changes for the person to commit.
-5. Approval is also refused when the patterns match much of the repository, because the shard would then reach nearly every agent. Propose narrower patterns through `--edit`; pass `--broad` only when the person confirms it applies that widely. When approval returns a `warning` that too many shards apply everywhere, tell the person and offer a pattern or an `AGENTS.md` edit instead.
+5. Approval is refused when files the shard depends on changed after verification read them. Re-check the statement against those files, tell the person what you found, and pass `--rechecked` only if it still holds; otherwise revise it.
+6. Approval is also refused when the patterns match much of the repository, because the shard would then reach nearly every agent. Propose narrower patterns through `--edit`; pass `--broad` only when the person confirms it applies that widely. When approval returns a `warning` that too many shards apply everywhere, tell the person and offer a pattern or an `AGENTS.md` edit instead.
 
 ## Maintain
 

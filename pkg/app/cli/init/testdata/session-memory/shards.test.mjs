@@ -28,7 +28,9 @@ function repo(proposals) {
   git(root, "commit", "-qm", "init");
   const state = join(root, ".rhizome/session-memory");
   mkdirSync(state, { recursive: true });
-  writeFileSync(join(state, "proposals.json"), JSON.stringify(proposals));
+  // Verification read the files at the initial commit.
+  const commit = git(root, "rev-parse", "HEAD").trim();
+  writeFileSync(join(state, "proposals.json"), JSON.stringify(proposals.map((p) => ({ verified: { commit }, ...p }))));
   const sm = (...argv) => run(argv, { root, state, user });
   return { root, state, sm };
 }
@@ -73,6 +75,26 @@ test("approving writes a current shard that lookup returns and review no longer 
   // A Windows checkout converts the shard to CRLF line endings.
   writeFileSync(join(root, approved), readFileSync(join(root, approved), "utf8").replace(/\n/g, "\r\n"));
   assert.equal(loadShards(root)[0]?.path, approved);
+});
+
+test("approval asks for a re-check when files changed after verification read them", () => {
+  const { root, sm } = repo([proposal("k-1"), proposal("k-2", { verified: undefined })]);
+  writeFileSync(join(root, "pkg/store/db.go"), "package store\n\nconst Default = 30\n");
+  git(root, "commit", "-qam", "change store");
+  assert.throws(() => sm("approve", "k-1", "--confirm-publish"), /changed since verification read them: pkg\/store\/db.go/);
+  assert.ok(sm("approve", "k-1", "--confirm-publish", "--rechecked").approved);
+  assert.throws(() => sm("approve", "k-2", "--confirm-publish"), /re-check the statement/);
+});
+
+test("a change refuses while another review holds the lock", async () => {
+  const { openStore } = await import(new URL("lib/store.mjs", scripts));
+  const { state, sm } = repo([proposal("k-1")]);
+  const other = openStore(state);
+  other.lock();
+  assert.throws(() => sm("dismiss", "k-1", "--reason", "covered elsewhere", "--local"), /is locked by pid/);
+  assert.equal(sm("list").length, 1);
+  other.unlock();
+  assert.ok(sm("dismiss", "k-1", "--reason", "covered elsewhere", "--local").dismissed);
 });
 
 test("approval is refused over uncommitted files and credential-shaped text", () => {
@@ -131,8 +153,9 @@ test("approval asks for narrower patterns and warns when too many shards apply e
   for (let k = 0; k < 60; k++) writeFileSync(join(root, `pkg/store/f${k}.go`), "package store\n");
   git(root, "add", "-A");
   git(root, "commit", "-qm", "more files");
-  assert.throws(() => sm("approve", "k-wide", "--confirm-publish"), /match 61 of \d+ tracked files/);
-  assert.ok(sm("approve", "k-wide", "--confirm-publish", "--broad").approved);
+  // The 60 files were added after verification, so each approval also confirms a re-check.
+  assert.throws(() => sm("approve", "k-wide", "--confirm-publish", "--rechecked"), /match 61 of \d+ tracked files/);
+  assert.ok(sm("approve", "k-wide", "--confirm-publish", "--broad", "--rechecked").approved);
   const warnings = global.map((p) => sm("approve", p.cluster, "--confirm-publish").warning);
   assert.deepEqual(warnings.slice(0, 5), [undefined, undefined, undefined, undefined, undefined]);
   assert.match(warnings[5], /^6 shards now apply everywhere/);
@@ -151,7 +174,7 @@ test("dismissing records a decision that suppresses the learning; retiring remov
   assert.deepEqual(sm("list"), []);
 
   writeFileSync(join(state, "proposals.json"), JSON.stringify([proposal("k-2")]));
-  const { approved } = sm("approve", "k-2", "--confirm-publish");
+  const { approved } = sm("approve", "k-2", "--confirm-publish", "--rechecked");
   const [s] = loadShards(root);
   assert.throws(() => sm("retire", approved, "--expect", s.contentHash), /--reason/);
   sm("retire", approved, "--expect", s.contentHash, "--reason", "the store was removed");

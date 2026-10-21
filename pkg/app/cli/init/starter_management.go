@@ -320,16 +320,18 @@ func hasManagedDefaultActivator(addon string, ejected, currentManaged map[string
 // clears its disabled mark; removing disables a default add-on of the
 // workflows and otherwise drops it from the enabled list. A setup that never
 // recorded its default add-ons records them as off first, since starting the
-// add-on list would otherwise turn them on.
+// add-on list would otherwise turn them on. An add-on an older setup lists
+// among its workflows is dropped from them too, since that listing would keep
+// installing it; the returned workflows replace the caller's.
 //
 // Docs: [[init-starter-workflow#^SPEC-0038-US12]]
-func applyAddonOptions(cfg *repoconfig.LocalConfig, workflows []string, unrecordedDefaults bool, opts RunOptions) error {
+func applyAddonOptions(cfg *repoconfig.LocalConfig, workflows []string, unrecordedDefaults bool, opts RunOptions) ([]string, error) {
 	if cfg == nil || strings.TrimSpace(opts.AddAddon) == "" && strings.TrimSpace(opts.RemoveAddon) == "" {
-		return nil
+		return workflows, nil
 	}
 	registry, err := loadStarterTemplateMetadataRegistry()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	available := addonIDs(registry)
 	parse := func(flag, raw string) ([]string, error) {
@@ -345,12 +347,19 @@ func applyAddonOptions(cfg *repoconfig.LocalConfig, workflows []string, unrecord
 	}
 	add, err := parse("--add-addon", opts.AddAddon)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	remove, err := parse("--remove-addon", opts.RemoveAddon)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	var kept []string
+	for _, w := range workflows {
+		if !contains(remove, canonicalTemplateID(w)) {
+			kept = append(kept, w)
+		}
+	}
+	workflows = kept
 	defaults := stringSet(defaultAddonsForTemplates(workflows, registry))
 	ejected := stringSet(normalizeMetadataIDs(cfg.WorkflowTemplateManagement.Ejected))
 	enabled := stringSet(normalizeMetadataIDs(cfg.WorkflowTemplateAddons.Enabled))
@@ -362,10 +371,10 @@ func applyAddonOptions(cfg *repoconfig.LocalConfig, workflows []string, unrecord
 	}
 	for _, id := range add {
 		if contains(remove, id) {
-			return fmt.Errorf("--add-addon and --remove-addon both name %q", id)
+			return nil, fmt.Errorf("--add-addon and --remove-addon both name %q", id)
 		}
 		if ejected[id] {
-			return fmt.Errorf("add-on %q is ejected; use --restore %s to resume updates for it", id, id)
+			return nil, fmt.Errorf("add-on %q is ejected; use --restore %s to resume updates for it", id, id)
 		}
 		enabled[id] = true
 		delete(disabled, id)
@@ -377,5 +386,5 @@ func applyAddonOptions(cfg *repoconfig.LocalConfig, workflows []string, unrecord
 		}
 	}
 	cfg.WorkflowTemplateAddons = repoconfig.WorkflowTemplateAddons{Enabled: sortedStringSet(enabled), Disabled: sortedStringSet(disabled)}
-	return nil
+	return workflows, nil
 }

@@ -9,13 +9,16 @@
 //            [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--episodes FILE]
 //            [--verify-budget N] [--verify-held N] [--model ROLE=PROVIDER:MODEL:EFFORT]...
 //            [--unscreened] [--abandon] [--state DIR] [--checkout DIR] [--concurrency N]
+//            [--allow-unpriced]
 //
 // Without --budget it prints the estimate and spends nothing. With it, it runs
 // or resumes the open run, which keeps its frozen bindings, and stops cleanly
 // at the budget; rerun to resume. Model calls go through `rzm agent generate`
 // and Jev through `rzm agent evaluate-batch` (RZM selects the binary). Run
 // from the repository root. --episodes mines a prebuilt episode file instead
-// of discovered sessions, for evaluations.
+// of discovered sessions, for evaluations. A binding with no known price
+// would reserve nothing against the budget, so it is refused unless
+// --allow-unpriced accepts that only reported costs count.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -36,6 +39,9 @@ import { discover } from "./sessions.mjs";
 const ROLES = ["decide", "extract", "synthesize", "verify"];
 const DAY = 24 * 3600 * 1000;
 const PROBE = { prompt: 'Reply with {"ok": true}.', schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] } };
+// The most one availability probe costs; probes run before the run's caller
+// exists, so the budget is checked against this before each one.
+const PROBE_USD = 0.01;
 
 export async function mine(opts, clients) {
   const store = openStore(opts.state ?? join(opts.root, ".rhizome/session-memory"));
@@ -121,10 +127,13 @@ async function bind(opts, clients, statuses, store, dry, runId) {
   const profile = mergeProfile(JSON.parse(shippedText), localText && JSON.parse(localText), opts.model ?? []);
   profile.roles = Object.fromEntries(ROLES.map((r) => [r, profile.roles[r] ?? []]));
   const probes = new Map(Object.entries(store.read("probes.json", {})));
+  let probeSpend = 0;
   const probe = async ({ provider, model, effort, candidate }) => {
     if (dry) return candidate?.model ?? model;
+    if (opts.budget != null && probeSpend + PROBE_USD > opts.budget) throw new Stop("budget", `budget $${opts.budget} cannot cover checking ${provider}:${model}`);
     const r = await clients.generate({ provider, model, effort, ...PROBE });
     const usd = Math.max(costOf(r.model || model, r.usage) ?? 0, r.usage?.costUsd ?? 0);
+    probeSpend += Math.max(usd, PROBE_USD);
     store.ledger({ run: runId, stage: "probe", role: "probe", provider, model, ok: !!r.model, reported: r.model, usage: r.usage, usd });
     // Freezing an alias would price nothing and stop the run at its first call.
     if (!r.model) throw new Error(`${provider} did not report which model ran for ${model}`);
@@ -177,7 +186,13 @@ async function mineLocked(opts, clients, store, dry) {
     }
     const id = `${new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "")}-${sha([process.pid, Math.random()]).slice(0, 6)}`;
     const statuses = await clients.harnessStatus();
-    const bound = await bind(opts, clients, statuses, store, dry, id);
+    let bound;
+    try {
+      bound = await bind(opts, clients, statuses, store, dry, id);
+    } catch (err) {
+      if (!(err instanceof Stop)) throw err;
+      return { status: "stopped", reason: err.reason, message: err.message };
+    }
     run = {
       id,
       status: "open",
@@ -200,6 +215,8 @@ async function mineLocked(opts, clients, store, dry) {
   const est = estimate(run, episodes, store);
   log(formatEstimate(est));
   if (dry) return { status: "estimate", estimate: est, bindings: run.bindings, next: "rerun with --budget <USD> to spend up to that amount" };
+  const unpriced = est.rows.filter((r) => !r.priced).map((r) => `${r.role} (${r.binding})`);
+  if (unpriced.length && !opts.allowUnpriced) throw new Error(`no price is known for ${unpriced.join(", ")}, so the budget cannot reserve for it; choose a priced model with --model, or pass --allow-unpriced to count only the costs the provider reports`);
   run.budget = opts.budget;
   const spend = spendFrom(readJsonl(store.path("ledger.jsonl")), run.id);
   const caller = makeCaller({ clients, store, run: run.id, bindings: run.bindings, budget: opts.budget, spend });
@@ -384,6 +401,7 @@ if (isMain) {
       state: a.state,
       checkout: a.checkout,
       concurrency: a.concurrency,
+      allowUnpriced: !!a["allow-unpriced"],
     },
     rzmClients(rzm, { cwd: root }),
   );

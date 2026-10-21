@@ -5,7 +5,7 @@
 //   shards.mjs list                               proposals awaiting review
 //   shards.mjs show <cluster>                     one proposal in full
 //   shards.mjs source <cluster> [n]               the nth cited source excerpt, redacted
-//   shards.mjs approve <cluster> --confirm-publish [--edit FILE] [--broad]
+//   shards.mjs approve <cluster> --confirm-publish [--edit FILE] [--broad] [--rechecked]
 //   shards.mjs dismiss <cluster> --reason TEXT (--shared | --local)
 //   shards.mjs check                              shards to re-verify, and why
 //   shards.mjs renew <shard> --expect HASH
@@ -128,6 +128,21 @@ function freshPrint(root, shard) {
   return fingerprint(root, files);
 }
 
+// Verification read the files at its recorded commit, while approval vouches
+// for the committed files now. Files that differ, or a proposal with no
+// recorded commit, need the statement re-checked first.
+function changedSinceVerified(root, p, shard) {
+  const files = shardFiles(root, shard);
+  const commit = p.verified?.commit;
+  if (!files.length) return [];
+  if (!commit) return files;
+  try {
+    return git(root, ["diff", "--name-only", "-z", commit, "HEAD", "--", ...files]).split("\0").filter(Boolean);
+  } catch {
+    return files;
+  }
+}
+
 // A shard whose patterns match much of the repository reaches nearly every
 // agent, so approval asks for narrower patterns unless the reviewer confirms.
 function checkBreadth(root, s, broad) {
@@ -161,8 +176,22 @@ function decide(root, store, { shared, statement, kind, appliesTo, cluster, deci
 // `user` stands in for the configured current user in tests.
 export function run(argv, { root = repoRoot(), state, user } = {}) {
   const a = args(argv);
-  const [cmd, id, n] = a._;
   const store = openStore(state ?? join(root, ".rhizome/session-memory"));
+  if (!CHANGES.has(a._[0])) return dispatch(a, { root, store, user });
+  // A change holds the lock from its first read to its last write, so two
+  // reviews cannot both pass the same check.
+  store.lock();
+  try {
+    return dispatch(a, { root, store, user });
+  } finally {
+    store.unlock();
+  }
+}
+
+const CHANGES = new Set(["approve", "dismiss", "renew", "revise", "retire"]);
+
+function dispatch(a, { root, store, user }) {
+  const [cmd, id, n] = a._;
   switch (cmd) {
     case "list":
       return pending(store, root).map((p) => ({ cluster: p.cluster, tier: p.tier, families: p.families, kind: p.kind, statement: p.statement, appliesTo: p.appliesTo, target: p.target }));
@@ -186,13 +215,10 @@ export function run(argv, { root = repoRoot(), state, user } = {}) {
       const verification = (s.verification ?? []).map((v) => ({ ...v, checked: redact(v.checked ?? "").text }));
       const shard = { ...s, verification, reviewedBy: who.link, reviewedOn: today(), verifiedOn: today(), checked: verification.map((v) => v.path), toolCalls: p.evidence.reduce((t, e) => t + (e.toolCalls ?? 0), 0), evidenceLines: evidenceLines(p.evidence) };
       shard.verifiedFingerprint = freshPrint(root, shard);
-      store.lock();
-      try {
-        publish(join(root, path), renderShard(shard));
-        store.write("reviewed.json", { ...store.read("reviewed.json", {}), [p.cluster]: { action: "approved", path, at: new Date().toISOString() } });
-      } finally {
-        store.unlock();
-      }
+      const changed = changedSinceVerified(root, p, shard);
+      if (changed.length && !a.rechecked) throw new Refused(`files changed since verification read them: ${changed.slice(0, 5).join(", ")}; re-check the statement against them, then pass --rechecked`);
+      publish(join(root, path), renderShard(shard));
+      store.write("reviewed.json", { ...store.read("reviewed.json", {}), [p.cluster]: { action: "approved", path, at: new Date().toISOString() } });
       const global = everywhere(s) ? loadShards(root).filter(everywhere).length : 0;
       const warning = global > 5 ? `${global} shards now apply everywhere, and session start delivers five; give this one a pattern or propose an AGENTS.md edit for it` : undefined;
       return { approved: path, approvedHash: approvedHash(shard), warning };
@@ -202,14 +228,9 @@ export function run(argv, { root = repoRoot(), state, user } = {}) {
       if (!a.shared === !a.local) throw new Refused("ask the reviewer whether to share the decision through the repository (--shared) or keep it local (--local)");
       const p = find(store, root, id);
       const who = reviewer(root, user);
-      store.lock();
-      try {
-        const file = decide(root, store, { shared: Boolean(a.shared), ...p, decision: "dismissed", reason: a.reason, decider: who.name });
-        store.write("reviewed.json", { ...store.read("reviewed.json", {}), [p.cluster]: { action: "dismissed", decision: file, at: new Date().toISOString() } });
-        return { dismissed: p.cluster, decision: file };
-      } finally {
-        store.unlock();
-      }
+      const file = decide(root, store, { shared: Boolean(a.shared), ...p, decision: "dismissed", reason: a.reason, decider: who.name });
+      store.write("reviewed.json", { ...store.read("reviewed.json", {}), [p.cluster]: { action: "dismissed", decision: file, at: new Date().toISOString() } });
+      return { dismissed: p.cluster, decision: file };
     }
     case "check": {
       const tracked = git(root, ["ls-files", "-z"]).split("\0").filter(Boolean);

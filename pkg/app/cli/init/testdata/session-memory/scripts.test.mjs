@@ -241,7 +241,10 @@ test("verification packets read only regular, non-credential files and redact wh
   rmSync(join(root, "sub"), { recursive: true });
   symlinkSync(outsideDir, join(root, "sub"));
   const cl = { statement: "See `store.go`, `link.txt`, `.env`, `sub/a.go`, and `markerword`.", appliesTo: [] };
-  const packet = JSON.stringify(await initialPacket({ root, search: async () => "" }, cl, []));
+  // AGENTS.md is a tracked link to an outside file, and search returns a credential.
+  symlinkSync(outside, join(root, "AGENTS.md"));
+  execFileSync("git", ["add", "AGENTS.md"], { cwd: root });
+  const packet = JSON.stringify(await initialPacket({ root, search: async () => `found ${fake.github}` }, cl, []));
   assert.ok(packet.includes("package store"));
   assert.ok(!packet.includes(fake.github));
   assert.ok(!packet.includes("outside-marker"));
@@ -267,4 +270,14 @@ test("a dead owner's lock is taken over, a live one is not, and unlock removes o
   assert.ok(existsSync(join(dir, "lock")), "another store's unlock left the lock alone");
   a.unlock();
   assert.ok(!existsSync(join(dir, "lock")));
+});
+
+test("a paragraph longer than a passage is split, not cut", async () => {
+  const { passages } = await import(new URL("screen.mjs", lib));
+  const long = Array.from({ length: 300 }, (_, k) => `word${k}`).join(" ");
+  const text = `Intro paragraph that is long enough to stand alone as a passage here, and then some more words.\n\n${long} tail-marker`;
+  const parts = passages(text);
+  assert.ok(parts.every((p) => p.length <= 700));
+  assert.ok(parts.at(-1).endsWith("tail-marker"));
+  assert.deepEqual(parts.join(" ").split(/\s+/), text.split(/\s+/));
 });

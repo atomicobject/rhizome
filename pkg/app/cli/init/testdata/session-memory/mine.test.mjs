@@ -238,6 +238,19 @@ test("review regressions: unreadable packet paths, cost totals, unreported probe
   assert.equal((await run(flagged, fakeClients(), { model, budget: 0.03 })).reason, "budget");
   assert.equal((await run(flagged, fakeClients(), { model })).status, "done");
 
+  // A binding with no known price is refused before any pipeline call, unless accepted.
+  const unpriced = tmp();
+  const custom = ["extract=claude:claude-custom-9:low"];
+  await assert.rejects(run(unpriced, fakeClients(), { model: custom }), /no price is known for extract/);
+  assert.equal((await run(unpriced, fakeClients(), { model: custom, allowUnpriced: true })).status, "done");
+
+  // A budget too small for the availability probes stops before probing.
+  const tiny = tmp();
+  const probing = fakeClients();
+  const stopped = await run(tiny, probing, { budget: 0.005 });
+  assert.deepEqual([stopped.status, stopped.reason], ["stopped", "budget"]);
+  assert.match(stopped.message, /cannot cover checking/);
+
   // Lost rank answers stop the run before tiers freeze into the verify plan.
   const ranked = tmp();
   const s = await run(ranked, fakeClients({ dropRank: true }));

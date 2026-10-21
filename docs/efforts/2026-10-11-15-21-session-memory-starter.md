@@ -593,6 +593,14 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
   - **Remember:** p03, p14, p16, and p20 until its guard lands.
   - **Decision (Drew):** the starter becomes a tool for agent effectiveness. SPEC-0124 now routes each finding to remember, document, fix, guard, or ask; adds `AgentFinding` notes with action items, a `documented` decision, and a friction report (US7) that ranks findings by agent cost and checks whether fixes held. SPEC-0045 US6 drafts guard rules that refuse a matching tool call before it runs. Small fixes for p18, p10, p19, p05, p11, p09, p15, p01, and p08 are delegated to Opus 5.5 high on `fix/agent-friction-small`, with a plan only for p06.
   - **Renumbered:** #21 merged `subsystem-refactor.md` as SPEC-0121 while this spec was unmerged, so `rzm validate identifiers` reported a collision after the rebase. This spec is now SPEC-0124; commit messages before this point say SPEC-0121. The frozen judge prompt `tools/sessionmemorybench/JUDGE.md` keeps its old text so cached judgments stay valid.
+- 2026-10-21: **Greptile on PR #28: confidence 0, eight comments, all addressed.** AGENTS.md now says Greptile does not review pull requests here on its own; `greptile review --json` runs it from the branch.
+  - **Verification inputs:** `AGENTS.md` and search results reached the verifier without containment or redaction. One guarded reader now serves files and `AGENTS.md`, and search output is redacted.
+  - **Budget:** a model with no known price reserved $0, so `--budget` could not stop a run. Unpriced bindings are refused unless `--allow-unpriced`. Availability probes ran before any budget check; each is now checked against the budget first, and a budget stop is no longer mistaken for an unavailable model.
+  - **Review races:** renew, revise, and retire did not lock, and approval checked before locking. Every change now holds the store lock from its first read to its last write.
+  - **Stale approval:** approval fingerprinted today's files though verification read them at its recorded commit. Files that changed since, or a proposal without a commit, now need `--rechecked` after the agent re-checks the statement.
+  - **Screening input:** passages cut a paragraph at 700 characters and dropped the rest. Oversized paragraphs now split at word boundaries, which changes screening input for long paragraphs; Jev answers for those passages are no longer cached, and M1's screening numbers were measured with the cut.
+  - **Add-on removal:** an add-on that an older setup lists among its workflows stayed installed after `--remove-addon`. It is now dropped from the workflows too.
+  - **Docs:** README and the getting-started guide describe `--add-addon`, `--remove-addon`, and `session-memory`. `rzm agent generate` is documented in `pkg/app/mcp/CONTEXT.md`; the README is a getting-started guide and lists no agent commands.
 
 ## Deviations
 

@@ -66,6 +66,8 @@ export async function resolve(profile, { providers, statuses, probe, cache = new
           model = await probe({ provider: candidate.provider, model: option.id, effort: candidate.effort, candidate });
           cache.set(key, model);
         } catch (err) {
+          // A budget stop ends the run; it does not rule out the candidate.
+          if (err?.reason === "budget") throw err;
           skipped.push({ model: option.id, reason: `probe failed: ${err.message}` });
           continue;
         }
