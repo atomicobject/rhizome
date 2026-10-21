@@ -43,7 +43,7 @@ This spec promotes ignored-subtree inclusion to a first-class, verified contract
 ### Layer semantics
 
 - The ignore files are the complete list. Once `.rhizome/ignore` (or legacy `.obsidianignore`) has any rule, the built-in default list does not apply; `rzm init` writes that list into the file so it stays visible and editable. Tooling that writes a negation into a file with no rules MUST write the starter list first so the negation does not silently drop it.
-- `.git/` is not content: it MUST NOT be discovered, indexed, or watched regardless of ignore rules.
+- `.git/` is not content: it MUST NOT be discovered or indexed, and changes inside it MUST NOT trigger ignore reloads or re-indexing, regardless of ignore rules.
 - Within a re-included subtree, the `.rhizome/ignore` rules that exclude junk elsewhere (for example the starter list's `node_modules/`) MUST still apply.
 - Within a re-included subtree, the subtree's own `.gitignore` (and deeper nested `.gitignore` files) MUST still apply: lazily loading a directory's `.gitignore` MUST happen whenever the directory itself is included after all layers are evaluated, not merely when no earlier layer ignored it.
 - Later `.rhizome/ignore` rules MUST still be able to re-exclude every path inside a re-included subtree. Config excludes MUST still re-exclude ordinary candidates, but MUST NOT suppress exact `CONTEXT.md`; `.rhizome/ignore` is the explicit hard boundary for system context.

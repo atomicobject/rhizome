@@ -18,7 +18,7 @@ Rhizome uses one unified ignore matcher across crawl, cache, semantic indexing, 
 
 - `.gitignore`, `.rhizome/ignore`, legacy `.obsidianignore`, and config excludes compose into one matcher
 - the ignore files are the complete list: `ignore.DefaultIgnorePatterns()` applies only while `.rhizome/ignore` (or legacy `.obsidianignore`) has no rules, and `rzm init` writes it into the file as a visible starter list. Tooling that adds rules to a file with no rules writes the starter list first (`withBuiltInList` in `pkg/app/cli/init/scope.go`) so the rules do not silently drop it
-- `.git/` is never content: discovery and code indexing skip hidden directories, and the watch hub drops `.git` paths (`shouldDropVaultRelPath`), whatever the ignore files say
+- `.git/` is never content: discovery and code indexing skip hidden directories, and the watch hub drops change events under `.git` before ignore-file reloads, hints, or batches see them (`shouldDropVaultRelPath`), whatever the ignore files say
 - later rules win, including negations
 - literal dir-only negations (`!/app/`) are include boundaries: they suppress earlier rules that excluded the boundary directory itself, while the subtree's own nested `.gitignore` and the rest of `.rhizome/ignore` keep applying ([[ignored-subtree-inclusion|SPEC-0064]]; see `pkg/vault/ignore/boundary.go`)
 - a directory's `.gitignore` loads whenever the directory is included after all layers evaluate, so re-included subtrees contribute their own `.gitignore`

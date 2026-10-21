@@ -22,7 +22,7 @@ When files are missing from search or indexing, the cause is usually the unified
 
 The ignore files are the complete list. Rhizome has a built-in starter list (`.git/`, `node_modules/`, `vendor/`, `dist/`, `build/`, caches, and similar), but it applies only while `.rhizome/ignore` has no rules. `rzm init` writes that list into `.rhizome/ignore`, where you can read and edit it. A `.rhizome/ignore` written by hand replaces it entirely, so copy in any starter entries you still want.
 
-`.git/` is never discovered, indexed, or watched, whatever the ignore files say. Hidden directories in general are skipped by discovery and code indexing.
+`.git/` is never discovered or indexed, and changes inside it never trigger a re-index, whatever the ignore files say. Hidden directories in general are skipped by discovery and code indexing.
 
 ## Practical rules
 
@@ -30,7 +30,7 @@ The ignore files are the complete list. Rhizome has a built-in starter list (`.g
 - `.rhizome/ignore` can force-index paths that Git ignores
 - ignore-file edits trigger a full cache resync
 - exact `CONTEXT.md` files are always selected inside the repository/vault even when `notes.includes` omits them or `notes.excludes` matches them
-- hard boundaries still win for `CONTEXT.md`: strict vault containment, hidden directories, `.gitignore`, and `.rhizome/ignore`; use `.rhizome/ignore` for an explicit do-not-index boundary
+- hard boundaries still win for `CONTEXT.md`: strict vault containment, hidden and built-in infrastructure directories (such as `vendor/` and `node_modules/`, even when `.rhizome/ignore` omits them), `.gitignore`, and `.rhizome/ignore`; use `.rhizome/ignore` for an explicit do-not-index boundary
 
 ## Including a gitignored subtree
 
