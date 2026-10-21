@@ -23,6 +23,28 @@ const CODE_OR_WIKILINK = new RegExp(
   "g",
 );
 
+type WikilinkPart =
+  | { kind: "text"; text: string }
+  | { kind: "link"; target: string; label: string };
+
+export function splitWikilinks(content: string): WikilinkPart[] {
+  const parts: WikilinkPart[] = [];
+  let offset = 0;
+
+  for (const match of content.matchAll(CODE_OR_WIKILINK)) {
+    const target = match[4];
+
+    if (target === undefined) continue;
+    parts.push({ kind: "text", text: content.slice(offset, match.index) });
+    parts.push({ kind: "link", target: target.trim(), label: (match[5] || target).trim() });
+    offset = match.index + match[0].length;
+  }
+
+  parts.push({ kind: "text", text: content.slice(offset) });
+
+  return parts;
+}
+
 export function convertWikilinks(content: string) {
   return content.replace(
     CODE_OR_WIKILINK,

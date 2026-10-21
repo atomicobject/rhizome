@@ -14,6 +14,7 @@ import {
 import { NoteLinkPreview, useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
 import { StatusMark } from "./StatusMark";
 import { viewFieldControl } from "./viewFieldControls";
+import { ConfiguredCellText, hasCellLinks } from "./ConfiguredCellText";
 
 export function renderReadOnlyCell(
   row: ViewTableRow,
@@ -122,6 +123,18 @@ export function renderReadOnlyCell(
 
   if (control.kind === "datetime" && value.length > 10) {
     return <time title={value}>{value.slice(0, 10)}</time>;
+  }
+
+  if (control.kind === "text" && onOpenRelation && hasCellLinks(value)) {
+    return (
+      <ConfiguredCellText
+        value={value}
+        from={row.ref.notePath || row.path}
+        onOpen={(target, mode) =>
+          onOpenRelation(relationTargetRow(target), mode === "beside" ? "beside" : "activate")
+        }
+      />
+    );
   }
 
   return value;

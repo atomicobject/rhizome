@@ -11,6 +11,17 @@ const rows = (page: Page) => page.locator("tr.configured-view__row");
 
 const footer = (page: Page) => page.locator(".configured-view__footer-status");
 
+test("string list columns open wikilinks as notes", async ({ page }) => {
+  await page.goto("/notes/tv-guide");
+  const row = rows(page).filter({ hasText: "Reading tide tables" });
+  await expect(row.getByRole("link", { name: "Flags", exact: true })).toBeVisible();
+  await expect(row.getByRole("link", { name: "Buoys", exact: true })).toBeVisible();
+  await row.getByRole("link", { name: "Flags", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Signal flag reference", exact: true }),
+  ).toBeVisible();
+});
+
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
   test(`collection grouping and note hover respect motion preference: ${reducedMotion}`, async ({
     page,

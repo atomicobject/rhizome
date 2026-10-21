@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Native collection cells render wikilinks in text and list properties as clickable note links, including aliases, relative paths, and headings. Editable lists show every value and close after an unchanged edit.
+
 - Custom views can render live Mermaid diagrams with `Diagram` and escape dynamic labels with `mermaid` from `@rhizome/kit`. Pele loads on demand; flowchart, Gantt, class, state, and agentflow nodes can open notes.
 
 - Mermaid diagrams use Pele in reading and editing views, with Rhizome colors for nodes, connections, and chart categories. Existing diagram source stays unchanged; layout may differ and arbitrary HTML labels are not supported.
