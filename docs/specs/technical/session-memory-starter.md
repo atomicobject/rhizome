@@ -6,7 +6,7 @@ aliases:
   - Session memory starter
 summary: "An opt-in session-memory starter mines a developer's local Claude Code and Codex transcripts for corrections, facts, and research questions, screens them with Jev, verifies candidates against the current code, and promotes only human-approved context shards into the repository. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
 spec-status: proposed
-last-updated: 2026-10-19
+last-updated: 2026-10-21
 ---
 
 # Session memory starter
@@ -22,7 +22,7 @@ The starter has two halves with a hard boundary between them:
 - **Everything unreviewed stays on the developer's machine.** Transcript digests, screened episodes, candidates, and proposals live in ignored local state under `.rhizome/session-memory/`.
 - **The repository holds only what a person approved.** Each approved learning is a `ContextShard` note in `docs/context-shards/`, and the repository also records decisions not to keep a learning, so teammates are not asked again. A tracked shard is in force by definition. Retiring it removes the note and records the decision.
 
-Approved shards reach agents in two layers. The baseline works in every host, including T3 Code: a `lookup` workflow returns the current shards for a task, files, or a command, and managed `AGENTS.md`/`CLAUDE.md` guidance tells agents when to call it. Each shard also declares a glob `code-anchors` entry, so Rhizome's own file context and search find it. The second layer is optional push delivery. Claude Code and Codex both run project hooks around tool calls and accept context from them ([Claude Code hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)), so a delivery hook can add the shards for a file when an agent reads or edits it. Hooks are enabled per host only after a canary proves delivery there.
+Approved shards reach agents in two layers. The baseline works in every host, including T3 Code: a `lookup` workflow returns the current shards for a task, files, or a command, and managed `AGENTS.md`/`CLAUDE.md` guidance tells agents when to call it. Each shard also declares a glob `code-anchors` entry, so Rhizome's own file context and search find it. The second layer is optional push delivery. Claude Code and Codex both run project hooks around tool calls and accept context from them ([Claude Code hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)), so a delivery hook can add the shards for a file when an agent reads or edits it. Hooks stay off until the person turns them on, and they leave draft only after delivery is confirmed live in each host.
 
 The starter builds on [[init-template-architecture]], [[core-template-and-template-dependencies]], [[saved-query-recipes]], [[code-mode-skill-scripts]], and [[code-intel|code anchors]]. It is one `session-memory` skill whose workflows are Node scripts that call `rzm` subcommands. They are not code-mode scripts, because code mode caps each call at five minutes and extraction and grouping calls run longer. Scripts own transcript parsing, model calls, checkpoints, budgets, validation, local state, note writing, and delivery. The agent picks the workflow and explains results, and a person approves what is published. Decisions run on Jev through the existing integration (`rzm agent evaluate-batch`). Extraction and verification run through one new Rhizome operation, `generate`, with each model role bound to a concrete model per run.
 
@@ -80,6 +80,7 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 - Review presents each proposal with its statement, kind, applies-to patterns, target, evidence summary (families, tool calls spent), and verification record. On request, it opens a cited source message, redacted, from the local transcript.
 - Approving asks the reviewer to confirm that the statement is fit to publish in this repository. It then writes the `ContextShard` note in one atomic step, with reviewer, date, approved-content hash, verification fingerprint, and derived `code-anchors`.
 - Approval and renewal are refused while any fingerprinted file has uncommitted changes or unresolved merge stages, so the fingerprint always describes committed content the reviewer could see.
+- Approval and revision are refused when the applies-to patterns match more than 50 tracked files and more than a tenth of them, unless the reviewer confirms the breadth. A broad shard reaches nearly every agent; in the development runs, three proposals matched 36–43% of tracked files while the median matched 0.5%.
 - Dismissing records a decision with its reason. The reviewer chooses whether the decision is shared through the repository or kept local.
 - Deferring keeps the proposal local for a later review.
 - Text is scanned for credentials again before anything is written to a tracked file.
@@ -87,7 +88,7 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 ### US3 - Approved shards reach agents
 
 - id:: ^SPEC-0121-US3
-- summary:: An agent in Claude Code, Codex, or T3 Code finds the approved shards for its task, files, or command through the lookup workflow and managed guidance. Where a host's hook canary passes, hooks also deliver a file's shards when the agent reads or edits it, once per agent context.
+- summary:: An agent in Claude Code, Codex, or T3 Code finds the approved shards for its task, files, or command through the lookup workflow and managed guidance. Where the person turned hooks on, they also deliver a file's shards when the agent reads or edits it, without repeating a shard the agent still has.
 - status:: ready
 
 #### Acceptance Criteria
@@ -100,12 +101,12 @@ The rest of this story applies where hooks are installed.
 
 - Hook context reaches the model on its next step after the tool call that triggered it; it cannot change a tool call the model has already generated. Reads are therefore the preventive path, and edits are the corrective one.
 - Claude Code: a `Read`, `Edit`, `Write`, or `MultiEdit` of a file an approved shard applies to adds that shard to the context of the agent or subagent that made the call. Claude Code requires a read before an edit, so shards for an existing file arrive before the agent edits it. For a new file written without a read, they arrive after the write, and the agent can correct it. The same shard revision is not added again in that agent's context until a compaction or clear.
-- Codex: once the project and the hook definition are trusted, a recognized read in a `Bash` command adds the shards for the files it reads. The recognized forms are `cat`, `sed -n`, `head`, `tail`, `nl`, and `rg`/`grep` with file arguments, optionally after a `cd`. An `apply_patch` adds them after the patch. Shards are added at most once per turn.
+- Codex: once the project and the hook definition are trusted, a recognized read in a `Bash` command adds the shards for the files it reads. The recognized forms are `cat`, `sed -n`, `head`, `tail`, `nl`, and `rg`/`grep` with file arguments, optionally after a `cd`. An `apply_patch` adds them after the patch. Shards are added at most once per turn, a wider repeat than Claude Code's: Codex gives a subagent's hooks its parent's session ID and no agent ID, so the turn is the narrowest scope that never hides a shard from a subagent.
 - Batch 0 measures what agents actually do after an edit that came before any delivery: a first-operation patch and a new-file write. If agents break rules there, a setting that refuses the first unread edit of a file with rule shards, once per agent context, is evaluated with Drew.
 - Only shards whose content still matches their approved-content hash, and that are not stale (US5), are delivered by hooks or returned by lookup. Delivered text names the shard file and the date it was last verified.
 - Delivery adds at most five shards (about 4,000 characters) per call, rules first. A hook never blocks or fails a tool call. Every error, including a timeout, results in no output, an exit status of zero, and a bounded local diagnostic entry.
 - Setup reports, for each harness, whether the hook is installed, whether Codex trusts the project and the hook, and when delivery last succeeded.
-- An approved shard with no applies-to pattern is delivered at session start and at subagent start, once per agent context, and the skill also proposes an `AGENTS.md` edit for it.
+- An approved shard with no applies-to pattern and no command applies everywhere. It is delivered at session start and at subagent start, and again after a compaction or clear, and the skill also proposes an `AGENTS.md` edit for it. When more than five apply everywhere, the delivery says how many more there are and to run lookup, and approving the sixth warns the reviewer.
 - Rhizome file context for a code file or a Markdown note returns its approved shards through their glob code anchors, as does search for a code file. Unlike lookup and hooks, file context does not withhold stale shards; each shown shard names its verification date.
 
 ### US4 - Later runs and teammates build on earlier decisions
@@ -244,7 +245,7 @@ The rest of this story applies where hooks are installed.
 - The handler MUST select shards with the same function as lookup: current shards only, rules first, at most five shards and about 4,000 characters, or the dispatcher's remaining allowance if smaller. Item IDs are shard revisions (path and content hash).
 - It MUST leave out the shard revisions the dispatcher reports as already emitted before applying its limits, so delivered shards never hide later matches.
 - It MUST read shard files directly rather than through `rzm`. It MUST cache parsed shards only after a consistent read, keyed by the shard directory's listing and modification times, and MUST check eligibility (approved hash and fingerprint) against the current Git index on every call. Every `git` call MUST have a timeout inside the handler's deadline.
-- Patternless shards MUST be delivered on both session start and subagent start.
+- Shards that apply everywhere MUST be delivered on session start and subagent start, including a session start after a compaction or clear. When more than the limit apply, the delivery MUST end with one line naming how many more apply and pointing to lookup.
 - Freshness covers the current Git index: an unstaged edit to a dependency does not withhold a shard. Patternless shards older than 30 days are flagged by `check` for maintenance and are still delivered.
 - T3 Code Codex threads, where project hooks are not trusted, rely on lookup and managed guidance. No user-level hook runs repository scripts.
 
@@ -255,6 +256,7 @@ The rest of this story applies where hooks are installed.
 - Each reference, screened, and threshold run MUST use its own checkpoints and candidate pool, seeded from the same frozen episode snapshot, and reference labels MUST be kept out of every judgment context.
 - The held-out evaluation MUST measure, per lens, how many shards a reviewer accepted from an unscreened reference run that the screened pipeline still produces with sufficient evidence. It MUST also audit a sample of screened-out episodes and report the fraction kept, Jev usage, and the reference-run cost.
 - The effort MUST record acceptance rates, dismissal reasons, and review time.
+- The composed evaluation run MUST record, for each task, the relevant approved shards that file-pattern delivery missed and whether task search would have found them. Delivery on the person's prompt through search is considered only on that evidence.
 - The effort MUST measure hook latency on cache hits, misses, cold starts, and failures; confirm hook delivery live in Claude Code, Codex, and Claude threads in T3 Code worktrees, including a GUI-launched host; and confirm lookup in T3 Code Codex threads.
 - Every transcript measurement MUST be reproducible from a committed, content-free survey command, with its window and versions recorded.
 

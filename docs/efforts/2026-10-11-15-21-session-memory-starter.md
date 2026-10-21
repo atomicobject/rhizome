@@ -563,6 +563,12 @@ Nothing yet; execution starts after plan approval.
   - **Trust:** handler declarations come only from Rhizome's built-in starter registry. Turning hooks on authorizes enabled starters' handlers; host trust covers the entry, not handler contents.
   - **Host facts:** Claude Code `command` plus `args` spawns without a shell. The Codex Windows field is `commandWindows`, run through `cmd.exe /C`. Codex has a `SubagentStart` event.
   - **T3 Codex:** quality evidence now checks lookup in T3 Codex threads, not hook delivery.
+- 2026-10-21: **Context size and resets.** Drew asked whether shards could overwhelm context, whether Rhizome search should help select them, and how sessions handle compaction. Findings and changes:
+  - **Size:** each delivery is capped at five shards and about 4,000 characters, and a shard is not repeated in a context. Across the five evaluation runs, 0 of 82 proposals applied everywhere, so session start delivers nothing today. No per-session total cap; one is cheap to add once a repository has hundreds of shards.
+  - **Breadth:** against the 7,085 tracked files, three development-run proposals matched 36–43% and the median matched 0.5%. Approval and revision now refuse patterns that match more than 50 files and more than a tenth of tracked files unless the reviewer passes `--broad`. Approving a sixth shard that applies everywhere returns a warning, and session-start delivery names the shards past the limit instead of dropping them.
+  - **Search:** lookup already ranks shards with `rzm search` for a task. Delivery on the person's prompt waits for evidence from the composed run of what file-pattern delivery missed.
+  - **Resets:** the dispatcher now discards a context's emitted items on compaction or clear. The core template gets a dispatcher handler that tells the agent to start a new Rhizome session after a reset, and the `rhizome` skill says the same for hosts without hooks. Codex's once-per-turn repeat is explained: its subagent hooks carry the parent's session ID and no agent ID.
+  - **Spec consistency:** the overview and US3 summary no longer say a canary enables hooks; the person turns them on.
 
 ## Deviations
 

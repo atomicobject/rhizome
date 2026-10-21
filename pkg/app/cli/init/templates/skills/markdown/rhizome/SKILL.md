@@ -55,7 +55,7 @@ Add another reference when the task needs it, for example code-mode mechanics al
 
 ## Sessions for agent routes
 
-Start or reuse a session only when the selected route calls `rzm agent`. Top-level commands such as `init`, `index`, and `note move` need none. Reuse the conversation's `sessionId` when one exists; otherwise start once:
+Start or reuse a session only when the selected route calls `rzm agent`. Top-level commands such as `init`, `index`, and `note move` need none. Reuse the conversation's `sessionId` when one exists, unless the context was compacted or cleared since it was issued; otherwise start once:
 
 ```bash
 rzm agent start --intent "<task>"

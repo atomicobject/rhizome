@@ -3,7 +3,7 @@ type: ProductSpec
 summary: "Defines how rzm init resolves agent surface integration modes across detection, explicit flags, shared AGENTS.md guidance, .agents skills, interactive setup, and CI runs."
 id: SPEC-0045
 spec-status: active
-last-updated: 2026-10-19
+last-updated: 2026-10-21
 aliases:
   - SPEC-0045
   - agent-surface-integration-modes
@@ -174,6 +174,7 @@ Claude Code and Codex run project hooks around tool calls and accept context fro
 - Once started, `rzm hook` never blocks or fails a tool call. The whole invocation has one fixed deadline that covers payload parsing, lock waits, handlers, and cleanup. Input and handler output are size-bounded, and a timed-out handler's process tree is killed. One handler's failure does not discard another's items. Any error ends with exit status 0, the items gathered so far or no output, and one entry in a bounded local diagnostic log. A host that cannot start `rzm` at all reports that through its own hook diagnostics. ^SPEC-0045-US5-AC7
 - On Windows, Claude Code entries launch `rzm.exe` through the command-and-arguments form without a shell, and Codex entries set `commandWindows`, quoted for `cmd.exe /C`. ^SPEC-0045-US5-AC8
 - The rerun summary and `rzm init --check` report, per harness: whether the entries are installed and current, which starters use them, and when each handler last returned context. They tell Codex users that Codex asks to trust a new or changed hook entry through `/hooks`. ^SPEC-0045-US5-AC9
+- The core template declares one handler: on a session start after a compaction or clear, it tells the agent to start a new Rhizome session with `rzm agent start` rather than reuse its earlier session ID, because that session's dedupe would hold back context the reset removed. ^SPEC-0045-US5-AC10
 
 ## Requirements
 
@@ -196,7 +197,7 @@ Claude Code and Codex run project hooks around tool calls and accept context fro
 - The managed block MUST report a missing core skill as incomplete Rhizome integration.
 - Hook entries MUST change only when the set of events or tool matchers that enabled starters need changes.
 - `rzm hook` MUST take an early path that skips binary bootstrap, update, and download. It MUST NOT start the vault runtime, open the index, or reach the network; handlers that need Rhizome data read files directly.
-- Emitted-item state MUST be updated under an exclusive lock with a bounded wait. Dedupe is best effort across crashes: when output and state cannot both be committed, a repeat is preferred to a lost item. Session-start delivery and tool-call delivery MUST use separate scopes, and a missing child agent ID MUST NOT be replaced by the parent's identity.
+- Emitted-item state MUST be updated under an exclusive lock with a bounded wait. Dedupe is best effort across crashes: when output and state cannot both be committed, a repeat is preferred to a lost item. Session-start delivery and tool-call delivery MUST use separate scopes, and a missing child agent ID MUST NOT be replaced by the parent's identity. A compaction or clear MUST discard the items recorded for that agent's context in both scopes, so they are delivered again.
 - The dispatcher's own overhead MUST be measured on each supported platform, with and without a matching handler, and recorded before hooks leave draft.
 
 ## Open Questions
