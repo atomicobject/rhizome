@@ -24,7 +24,7 @@ const topic = (s) => s.match(/Topic (\w+)/)?.[1];
 // `reported` overrides the model a call reports running; `unreported` names
 // an alias whose calls report no model; `costUsd` is each call's own total;
 // `dropRank` loses every cluster-ranking answer.
-export function fakeClients({ word = "states", fail = () => false, killAfter = null, reported = null, unreported = null, costUsd = 0, dropRank = false, status = statuses() } = {}) {
+export function fakeClients({ word = "states", fail = () => false, killAfter = null, reported = null, unreported = null, costUsd = 0, dropRank = false, badVerify = false, status = statuses() } = {}) {
   const calls = { generate: 0, evaluate: 0, items: [], prompts: [] };
   return {
     calls,
@@ -51,8 +51,11 @@ export function fakeClients({ word = "states", fail = () => false, killAfter = n
       }
       if (prompt.startsWith(P.PACKET_PREFIX)) {
         const statement = prompt.match(/"statement": "([^"]*)"/)[1];
-        return reply({ decision: "propose", kind: "fact", statement, why: "It costs time.", appliesTo: [], commands: [], documentation: "none found", verification: [{ path: "README.md", checked: "read it" }], notes: "" });
+        // An over-long statement breaks the proposal contract even after repair.
+        return reply({ decision: "propose", kind: "fact", statement: badVerify ? statement.padEnd(500, " and more") : statement, why: "It costs time.", appliesTo: [], commands: [], documentation: "none found", verification: [{ path: "README.md", checked: "read it" }], notes: "" });
       }
+      // A repair returns the proposal unchanged, so a bad answer stays bad.
+      if (prompt.startsWith("Revise this verified proposal")) return reply(JSON.parse(prompt.slice(prompt.lastIndexOf("\n\n") + 2)));
       return reply({ ok: true });
     },
     async evaluateBatch({ items }) {

@@ -24,7 +24,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
-import { Stop, costOf, makeCaller, pool, rzmClients, spendFrom } from "./lib/calls.mjs";
+import { Stop, costOf, makeCaller, pool, rzmClients, spendFrom, strictSchema } from "./lib/calls.mjs";
 import { episodesFor } from "./lib/episodes.mjs";
 import { callEstimates, estimate, formatEstimate } from "./lib/estimate.mjs";
 import { batches, extractBatch } from "./lib/extract.mjs";
@@ -38,7 +38,8 @@ import { discover } from "./sessions.mjs";
 
 const ROLES = ["decide", "extract", "synthesize", "verify"];
 const DAY = 24 * 3600 * 1000;
-const PROBE = { prompt: 'Reply with {"ok": true}.', schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] } };
+// Codex accepts only strict schemas, and the probe goes straight to the client.
+const PROBE = { prompt: 'Reply with {"ok": true}.', schema: strictSchema({ type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] }) };
 // The most one availability probe costs; probes run before the run's caller
 // exists, so the budget is checked against this before each one.
 const PROBE_USD = 0.01;
@@ -232,6 +233,15 @@ async function mineLocked(opts, clients, store, dry) {
   }
 }
 
+function cleanHead(dir) {
+  try {
+    if (execFileSync("git", ["-C", dir, "status", "--porcelain", "--untracked-files=no"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim()) return null;
+  } catch {
+    return null;
+  }
+  return headCommit(dir);
+}
+
 function headCommit(dir) {
   try {
     return execFileSync("git", ["-C", dir, "rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -297,7 +307,9 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
     store.write(planName, plan);
   }
   const ctx = { root: run.checkout, search: (args) => clients.search(args, { cwd: run.checkout }) };
-  const commit = headCommit(run.checkout);
+  // Verification reads the working tree, so it vouches for a commit only when
+  // tracked files match it; otherwise approval asks for a re-check.
+  const commit = cleanHead(run.checkout);
   await pool(plan, concurrency, async (id) => {
     const cl = clusters[id];
     if (cl.verification) return;
@@ -315,7 +327,15 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
       if (err instanceof Stop) throw err;
       throw new Stop("failed", `verify ${id}: ${err.message}`);
     }
-    cl.verification = { ...v.result, contractProblems: v.contractProblems, rounds: v.rounds.length, run: run.id, commit, model: run.bindings.verify.model, at: new Date().toISOString() };
+    const at = new Date().toISOString();
+    if (v.contractProblems.length) {
+      // A reply that still breaks the contract after repair stays retryable: an
+      // unchanged packet replays from the cache at no cost, and new evidence asks again.
+      cl.verifyProblems = { problems: v.contractProblems, run: run.id, at };
+    } else {
+      cl.verification = { ...v.result, contractProblems: [], rounds: v.rounds.length, run: run.id, commit, model: run.bindings.verify.model, at };
+      delete cl.verifyProblems;
+    }
     store.write("pool/clusters.json", clusters);
     log(`verify: ${id} tier ${cl.tier} ${v.result.decision}`);
   });
@@ -354,7 +374,7 @@ function summarize({ episodes, screened, results, touched, plan, clusters, fresh
     episodes: { read: episodes.length, kept: screened.gated.length, passages: screened.passages },
     candidates: { extracted: fresh.length, repaired: results.reduce((t, r) => t + r.repaired, 0), dropped: results.reduce((t, r) => t + r.dropped, 0), merged: touched.filter((c) => c.members.length > 1).reduce((t, c) => t + c.members.filter((m) => freshSet.has(m)).length, 0) },
     clusters: { touched: touched.length, byTier: count(touched, (c) => c.tier) },
-    verified: { planned: plan.length, proposed: verified.filter((c) => c.verification.decision === "propose").length, rejected: count(verified.filter((c) => c.verification.decision === "reject"), (c) => c.verification.rejectReason ?? "other"), contractProblems: verified.filter((c) => c.verification.contractProblems?.length).length },
+    verified: { planned: plan.length, proposed: verified.filter((c) => c.verification.decision === "propose").length, rejected: count(verified.filter((c) => c.verification.decision === "reject"), (c) => c.verification.rejectReason ?? "other"), contractProblems: plan.map((id) => clusters[id]).filter((c) => !c.verification && c.verifyProblems).length },
     held: { tierC: touched.filter((c) => c.tier === "C").length, tierBOverBudget: touched.filter((c) => c.tier === "B" && !planned.has(c.id) && !c.verification).length },
     proposals: proposals.length,
   };

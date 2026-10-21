@@ -2,7 +2,7 @@
 // crash resume, cluster identity, budgets, frozen bindings, and the ledger.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -250,6 +250,27 @@ test("review regressions: unreadable packet paths, cost totals, unreported probe
   const stopped = await run(tiny, probing, { budget: 0.005 });
   assert.deepEqual([stopped.status, stopped.reason], ["stopped", "budget"]);
   assert.match(stopped.message, /cannot cover checking/);
+
+  // A verification that still breaks the contract after repair is retried by a later run.
+  const retry = tmp();
+  const failed = await run(retry, fakeClients({ badVerify: true }), { discover: fakeDiscover([SESSIONS.s1]) });
+  assert.equal(failed.report.proposals, 0);
+  assert.ok(failed.report.verified.contractProblems > 0);
+  // New evidence makes one cluster tier A, so it is verified again and proposed;
+  // the other stays unverified and eligible for a later plan.
+  const again = await run(retry, fakeClients(), { discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]) });
+  assert.equal(again.report.proposals, 1);
+  assert.equal(again.report.verified.contractProblems, 0);
+  const pool = read(retry, "pool/clusters.json");
+  assert.equal(Object.values(pool).filter((c) => c.verifyProblems && !c.verification).length, 1);
+
+  // Verification vouches for a commit only when the checkout's tracked files match it.
+  assert.match(read(retry, "proposals.json")[0].verified.commit, /^[0-9a-f]{40}$/);
+  const dirtyRepo = tempRepo();
+  writeFileSync(join(dirtyRepo, "README.md"), "edited, not committed\n");
+  const dirty = tmp();
+  await mine({ root: dirtyRepo, state: dirty, budget: 5, harness: "claude", discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]), log: () => {} }, fakeClients());
+  assert.ok(read(dirty, "proposals.json").every((p) => p.verified.commit === null));
 
   // Lost rank answers stop the run before tiers freeze into the verify plan.
   const ranked = tmp();
