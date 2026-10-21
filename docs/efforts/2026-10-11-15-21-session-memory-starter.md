@@ -569,6 +569,7 @@ Nothing yet; execution starts after plan approval.
   - **Search:** lookup already ranks shards with `rzm search` for a task. Delivery on the person's prompt waits for evidence from the composed run of what file-pattern delivery missed.
   - **Resets:** the dispatcher now discards a context's emitted items on compaction or clear. The core template gets a dispatcher handler that tells the agent to start a new Rhizome session after a reset, and the `rhizome` skill says the same for hosts without hooks. Codex's once-per-turn repeat is explained: its subagent hooks carry the parent's session ID and no agent ID.
   - **Spec consistency:** the overview and US3 summary no longer say a canary enables hooks; the person turns them on.
+  - **Reset handler moved out (same day):** a core hook would make init offer hooks in every repository for an unmeasured problem, and would not help hosts without hooks. SPEC-0045 AC10 was removed. SPEC-0082 US12 instead has dedupe responses name what they withheld and how to reread it, which works in every host. Drew expects hooks across Rhizome templates soon; core's reset reminder is the first candidate once US12 shows whether it is still needed.
 
 ## Deviations
 
