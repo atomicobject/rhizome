@@ -48,6 +48,12 @@ export function VaultInvalidationBridge() {
     const cancelGlobalGraphReads = () =>
       queryClient.cancelQueries({ ...globalGraphQueries, fetchStatus: "fetching" });
 
+    const cancelLinkTargetReads = () =>
+      queryClient.cancelQueries({
+        queryKey: queryKeys.nodes.linkTargets(),
+        fetchStatus: "fetching",
+      });
+
     const clearGlobalGraphTimer = () => {
       if (globalGraphTimer === undefined) return;
       clearTimeout(globalGraphTimer);
@@ -67,6 +73,8 @@ export function VaultInvalidationBridge() {
     let indexPending = false;
 
     const refetchIndexQueries = () => {
+      // Initial queries otherwise reuse an in-flight response from before this index event.
+      void cancelLinkTargetReads();
       void queryClient.invalidateQueries({
         queryKey: queryKeys.all,
         predicate: (query) => !isGlobalGraphQuery(query) && !isValidationSnapshotQuery(query),
@@ -121,6 +129,7 @@ export function VaultInvalidationBridge() {
       // A restarted runtime may use a rebuilt database with reused generation numbers.
       clearGlobalGraphTimer();
       void cancelGlobalGraphReads();
+      void cancelLinkTargetReads();
       void queryClient.invalidateQueries({ queryKey: queryKeys.all });
       publishVaultEvent({ event: STREAM_RECONNECTED_EVENT });
     };

@@ -2,16 +2,62 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
-import { withFakeFetch } from "../test/fakeFetch";
-import { advanceVaultIndexRevision } from "../query/vaultIndexRevision";
+import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
+import { withFakeEventSource } from "../test/fakeEventSource";
+import { queryKeys } from "../api/queryKeys";
+import { VaultInvalidationBridge } from "../query/VaultInvalidationBridge";
 import { ConfiguredTableCellContent } from "./ConfiguredTableCell";
 
 describe("wikilinks in string cells", () => {
   const http = withFakeFetch();
+  const events = withFakeEventSource();
+
+  it.each(["index.changed", "reconnect"])(
+    "refreshes a lookup still loading on %s",
+    async (event) => {
+      const pending = deferredReply<{ matches: { path: string; title: string }[] }>();
+      let requests = 0;
+      http.on("GET", "/api/v1/search/notes", () => {
+        requests += 1;
+
+        return requests === 1
+          ? pending.promise
+          : jsonReply({ matches: [{ path: "Notes/New.md", title: "New" }] });
+      });
+      render(
+        <>
+          <VaultInvalidationBridge />
+          <ConfiguredTableCellContent
+            row={{
+              ref: { notePath: "Notes/Source.md", kind: "NOTE" },
+              fields: { about: "[[New]]" },
+            }}
+            field="about"
+            columnIndex={1}
+            capability={undefined}
+            onOpenRelation={vi.fn()}
+          />
+        </>,
+      );
+      await waitFor(() => expect(requests).toBe(1));
+      const source = events.latest();
+      act(() => source.open());
+      act(() => {
+        if (event === "reconnect") source.open();
+        else source.emit("", event);
+      });
+      const link = await screen.findByRole("link", { name: "New" });
+      expect(link).toHaveAttribute("href", "/notes?note=Notes%2FNew.md");
+      expect(http.requests("GET", "/api/v1/search/notes")[0].signal?.aborted).toBe(true);
+      await act(async () => pending.resolve({ matches: [] }));
+      expect(link).toHaveAttribute("href", "/notes?note=Notes%2FNew.md");
+    },
+  );
 
   it("resolves a previously missing note after the vault changes", async () => {
     http.json("GET", "/api/v1/search/notes", { matches: [] });
-    render(
+
+    const { queryClient } = render(
       <ConfiguredTableCellContent
         row={{
           ref: { notePath: "Notes/Perspective.md", kind: "NOTE" },
@@ -23,14 +69,70 @@ describe("wikilinks in string cells", () => {
         onOpenRelation={vi.fn()}
       />,
     );
+
     await screen.findByTitle("Could not resolve New note");
     http.json("GET", "/api/v1/search/notes", {
       matches: [{ path: "Notes/New note.md", title: "New note" }],
     });
-    act(() => advanceVaultIndexRevision());
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.all });
+    });
     expect(await screen.findByRole("link", { name: "New note" })).toHaveAttribute(
       "href",
       "/notes?note=Notes%2FNew+note.md",
+    );
+  });
+
+  it("shares repeated link lookups across cells and refetches once after invalidation", async () => {
+    http.json("GET", "/api/v1/search/notes", {
+      matches: [{ path: "Notes/Shared.md", title: "Shared" }],
+    });
+
+    const { queryClient } = render(
+      <>
+        {Array.from({ length: 20 }, (_, index) => (
+          <ConfiguredTableCellContent
+            key={index}
+            row={{
+              ref: { notePath: `Notes/Source ${index}.md`, kind: "NOTE" },
+              fields: { about: "[[Shared]]" },
+            }}
+            field="about"
+            columnIndex={1}
+            capability={undefined}
+            onOpenRelation={vi.fn()}
+          />
+        ))}
+      </>,
+    );
+
+    expect(await screen.findAllByRole("link", { name: "Shared" })).toHaveLength(20);
+    expect(http.count("GET", "/api/v1/search/notes")).toBe(1);
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.all });
+    });
+    expect(http.count("GET", "/api/v1/search/notes")).toBe(2);
+  });
+
+  it("keeps local heading links scoped to each source note", async () => {
+    render(
+      <>
+        {["Notes/First.md", "Notes/Second.md"].map((notePath) => (
+          <ConfiguredTableCellContent
+            key={notePath}
+            row={{ ref: { notePath, kind: "NOTE" }, fields: { about: "[[#Details]]" } }}
+            field="about"
+            columnIndex={1}
+            capability={undefined}
+            onOpenRelation={vi.fn()}
+          />
+        ))}
+      </>,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("link", { name: "#Details" }).map((link) => link.getAttribute("href")),
+      ).toEqual(["/notes?note=Notes%2FFirst.md#Details", "/notes?note=Notes%2FSecond.md#Details"]),
     );
   });
 

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "../api/queryKeys";
 import { splitWikilinks } from "../lib/content";
-import { getVaultIndexRevision, subscribeVaultIndexRevision } from "../query/vaultIndexRevision";
 import { createRhizomeLinkAdapter } from "./markdownEditor/rhizomeLinks";
 import { NoteLinkPreview, type OpenNote } from "./notePreview/NoteLinkPreview";
 
@@ -17,13 +17,6 @@ export function ConfiguredCellText({
   from?: string;
   onOpen: OpenNote;
 }) {
-  const indexRevision = useSyncExternalStore(subscribeVaultIndexRevision, getVaultIndexRevision);
-
-  const resolver = useMemo(
-    () => createRhizomeLinkAdapter({ currentPath: from || "" }),
-    [from, indexRevision],
-  );
-
   return (
     <>
       {splitWikilinks(value).map((part, index) =>
@@ -34,7 +27,7 @@ export function ConfiguredCellText({
             key={`${from}:${part.target}:${index}`}
             target={part.target}
             label={part.label}
-            resolver={resolver}
+            from={from}
             onOpen={onOpen}
           />
         ),
@@ -46,36 +39,28 @@ export function ConfiguredCellText({
 function CellLink({
   target,
   label,
-  resolver,
+  from,
   onOpen,
 }: {
   target: string;
   label: string;
-  resolver: ReturnType<typeof createRhizomeLinkAdapter>;
+  from?: string;
   onOpen: OpenNote;
 }) {
-  const [resolved, setResolved] = useState<string | null | undefined>(undefined);
+  // Named targets share a lookup across rows; relative targets need the source path.
+  const sourcePath =
+    target.startsWith(".") || target.startsWith("#") || target.startsWith("^") ? from : undefined;
 
-  useEffect(() => {
-    let active = true;
-    void resolver.resolveTarget(target).then(
-      (path) => {
-        if (active) setResolved(path);
-      },
-      () => {
-        if (active) setResolved(null);
-      },
-    );
+  const query = useQuery({
+    queryKey: queryKeys.nodes.linkTarget(target, sourcePath),
+    queryFn: ({ signal }) =>
+      createRhizomeLinkAdapter({ currentPath: sourcePath || "", signal }).resolveTarget(target),
+    staleTime: 30_000,
+    retry: false,
+  });
 
-    return () => {
-      active = false;
-    };
-  }, [resolver, target]);
-
-  if (!resolved)
-    return (
-      <span title={resolved === null ? `Could not resolve ${target}` : undefined}>{label}</span>
-    );
+  if (!query.data)
+    return <span title={query.isPending ? undefined : `Could not resolve ${target}`}>{label}</span>;
 
   return (
     <span
@@ -87,7 +72,7 @@ function CellLink({
         event.stopPropagation();
       }}
     >
-      <NoteLinkPreview target={resolved} open={onOpen}>
+      <NoteLinkPreview target={query.data} open={onOpen}>
         {label}
       </NoteLinkPreview>
     </span>
