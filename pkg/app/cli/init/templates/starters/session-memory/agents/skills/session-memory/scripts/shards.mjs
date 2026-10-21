@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Review proposals and maintain approved context shards (SPEC-0121 US2, US5).
+// Review proposals and maintain approved context shards (SPEC-0124 US2, US5).
 // Every tracked write happens here, as one atomic replacement.
 //
 //   shards.mjs list                               proposals awaiting review

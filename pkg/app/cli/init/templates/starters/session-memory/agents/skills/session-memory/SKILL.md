@@ -54,4 +54,4 @@ Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only
 
 ## Not yet available
 
-Calibrating model choices (SPEC-0121 US6) and hooks that deliver shards automatically are planned but not part of this version. Tell the person so rather than improvising them.
+Calibrating model choices (SPEC-0124 US6) and hooks that deliver shards automatically are planned but not part of this version. Tell the person so rather than improvising them.

@@ -1,4 +1,4 @@
-// Passage screening (SPEC-0121 "Screening"). Jev answers two questions about
+// Passage screening (SPEC-0124 "Screening"). Jev answers two questions about
 // each paragraph or list item; the extraction model sees only the best
 // passages, up to a share of the characters.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Benchmark harness for the session-memory pipeline (SPEC-0121). Map, screen,
+// Benchmark harness for the session-memory pipeline (SPEC-0124). Map, screen,
 // group, rank, and verify run the starter's own stage functions (shipped.mjs),
 // so a result measures what ships. Calls go through `rzm agent generate` and
 // are cached per run under RUN/state, so rerunning a run directory resumes it

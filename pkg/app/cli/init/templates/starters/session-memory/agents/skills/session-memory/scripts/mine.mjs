@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Mine this repository's agent sessions into local proposals (SPEC-0121 US1):
+// Mine this repository's agent sessions into local proposals (SPEC-0124 US1):
 // episodes past each session's cursor are screened by Jev passage by passage,
 // extracted, grouped with earlier clusters, tiered, and verified (tier A
 // always, tier B up to a per-run budget), and proposals land in

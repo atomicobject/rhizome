@@ -1,4 +1,4 @@
-// Approved context shards (SPEC-0121 "Tracked data"): one note per shard in
+// Approved context shards (SPEC-0124 "Tracked data"): one note per shard in
 // docs/context-shards/, decisions as JSON events beside them. Only
 // shards.mjs writes these files, and every write is one atomic replacement.
 

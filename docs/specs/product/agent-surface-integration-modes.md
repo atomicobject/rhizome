@@ -161,7 +161,7 @@ Code anchors: `init.agent_surface_onboarding`, `init.agent_surface_run_pipeline`
 - summary:: A starter declares the agent hooks it needs; when the person turns hooks on, init installs one Rhizome dispatcher entry per hook event in each enabled harness, and the dispatcher runs the handlers of enabled starters and returns their context to the agent.
 - status:: draft
 
-Claude Code and Codex run project hooks around tool calls and accept context from them ([Claude Code hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)). Starters should not each write their own entries into harness settings, parse host payloads, or solve deadlines and Windows launching. Rhizome owns the harness side once; a starter supplies only a handler that turns a normalized event into context. Handler declarations come only from the starter registry built into Rhizome, not from repository files. Rhizome installs one fixed entry per hook point and aggregates every starter's handlers behind it. Entries carry no tool filter, so enabling, disabling, or updating a starter never changes them, and Codex asks for trust again only when a Rhizome release adds a hook point. Turning hooks on authorizes the handlers of enabled starters, including later starter updates; a host's hook trust covers the entry, not the handler's contents. Session memory ([[session-memory-starter|SPEC-0121]]) is the first starter with handlers, and other templates, including core, are expected to follow. Core's first candidate is a reminder to start a new Rhizome session after a compaction or clear; it waits until [[agent-start-performance#^SPEC-0082-US12]], which makes session dedupe announce what it withheld, shows whether agents still need it.
+Claude Code and Codex run project hooks around tool calls and accept context from them ([Claude Code hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)). Starters should not each write their own entries into harness settings, parse host payloads, or solve deadlines and Windows launching. Rhizome owns the harness side once; a starter supplies only a handler that turns a normalized event into context. Handler declarations come only from the starter registry built into Rhizome, not from repository files. Rhizome installs one fixed entry per hook point and aggregates every starter's handlers behind it. Entries carry no tool filter, so enabling, disabling, or updating a starter never changes them, and Codex asks for trust again only when a Rhizome release adds a hook point. Turning hooks on authorizes the handlers of enabled starters, including later starter updates; a host's hook trust covers the entry, not the handler's contents. Session memory ([[session-memory-starter|SPEC-0124]]) is the first starter with handlers, and other templates, including core, are expected to follow. Core's first candidate is a reminder to start a new Rhizome session after a compaction or clear; it waits until [[agent-start-performance#^SPEC-0082-US12]], which makes session dedupe announce what it withheld, shows whether agents still need it.
 
 #### Acceptance Criteria
 
@@ -174,6 +174,22 @@ Claude Code and Codex run project hooks around tool calls and accept context fro
 - Once started, `rzm hook` never blocks or fails a tool call. The whole invocation has one fixed deadline that covers payload parsing, lock waits, handlers, and cleanup. Input and handler output are size-bounded, and a timed-out handler's process tree is killed. One handler's failure does not discard another's items. Any error ends with exit status 0, the items gathered so far or no output, and one entry in a bounded local diagnostic log. A host that cannot start `rzm` at all reports that through its own hook diagnostics. ^SPEC-0045-US5-AC7
 - On Windows, Claude Code entries launch `rzm.exe` through the command-and-arguments form without a shell, and Codex entries set `commandWindows`, quoted for `cmd.exe /C`. ^SPEC-0045-US5-AC8
 - The rerun summary and `rzm init --check` report, per harness: whether the entries are installed and current, which starters use them, and when each handler last returned context. They tell Codex users that Codex asks to trust a new or changed hook entry through `/hooks`. ^SPEC-0045-US5-AC9
+
+### US6 - Let approved guard rules refuse a tool call before it runs
+
+- id:: ^SPEC-0045-US6
+- summary:: Where the host can refuse a tool call before it runs, the dispatcher can block a call that matches an approved guard rule and tell the agent why and what to do instead.
+- status:: draft
+
+Some rules agents keep breaking are better enforced than remembered: a bare `go mod vendor` deletes hand-vendored sources, and the fix is to run `make vendor-treesitter` instead. A context shard arrives after the command has run. Claude Code can refuse a tool call from a `PreToolUse` hook with a reason ([Claude Code hooks](https://code.claude.com/docs/en/hooks)). Guard rules are data a person approved in the repository, matched against the normalized event and never executed; the handler that applies them comes from Rhizome's built-in registry like every other handler.
+
+#### Acceptance Criteria
+
+- A guard rule names a tool class, a match on the normalized event (command text or a contained path), the reason, and the alternative to use. Rules live in tracked files and take effect only after a person approves them, as [[session-memory-starter#^SPEC-0124-US2]] approves a `guard` finding. ^SPEC-0045-US6-AC1
+- With hooks on and at least one approved rule, the before-tool-call hook point is installed in each host that can refuse a call. A matching call is refused with one message naming the rule, its reason, and the alternative; other calls proceed unchanged. ^SPEC-0045-US6-AC2
+- A guard never blocks on its own failure: a parse error, a timeout, or an unreadable rule lets the call proceed and writes the diagnostic log entry. ^SPEC-0045-US6-AC3
+- In a host that cannot refuse a call before it runs, the rule's text is delivered as context after a matching call instead, and status says so. ^SPEC-0045-US6-AC4
+- Status lists the active guard rules per host, and how often each refused a call. ^SPEC-0045-US6-AC5
 
 ## Requirements
 

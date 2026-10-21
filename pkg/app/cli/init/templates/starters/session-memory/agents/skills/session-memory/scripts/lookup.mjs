@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Find the approved context shards for a task, files, or a command
-// (SPEC-0121 US3). Only current shards are returned: a shard whose content no
+// (SPEC-0124 US3). Only current shards are returned: a shard whose content no
 // longer matches its approved hash, or whose files changed since it was
 // verified, is withheld until it is renewed or revised.
 //

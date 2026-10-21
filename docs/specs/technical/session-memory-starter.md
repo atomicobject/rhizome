@@ -1,10 +1,10 @@
 ---
 type: TechnicalSpec
-id: SPEC-0121
+id: SPEC-0124
 aliases:
-  - SPEC-0121
+  - SPEC-0124
   - Session memory starter
-summary: "An opt-in session-memory starter mines a developer's local Claude Code and Codex transcripts for corrections, facts, and research questions, screens them with Jev, verifies candidates against the current code, and promotes only human-approved context shards into the repository. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
+summary: "An opt-in session-memory starter mines a developer's local Claude Code and Codex transcripts for what slows agents down: corrections, hard-won facts, and questions agents keep researching. It screens them with Jev, verifies candidates against the current code, and routes each one to the response that removes the friction: a remembered context shard, a documentation edit, a fix, a guardrail, or a question for an owner. Nothing enters the repository until a person approves it. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
 spec-status: proposed
 last-updated: 2026-10-21
 ---
@@ -13,7 +13,15 @@ last-updated: 2026-10-21
 
 ## Summary
 
-What an agent or a human learns during a coding session is lost when the next session starts with a fresh context window. Humans correct the same mistakes again, and agents spend hundreds of tool calls rediscovering the same facts. The `session-memory` starter turns a developer's past agent sessions into durable, reviewed context for the whole team.
+What an agent or a human learns during a coding session is lost when the next session starts with a fresh context window. Humans correct the same mistakes again, and agents spend hundreds of tool calls rediscovering the same facts. The `session-memory` starter turns a developer's past agent sessions into reviewed improvements to how well agents work in the repository.
+
+Not every learning should become a memory. The first labeled run showed that most recurring friction comes from something the team can change: dead code that misleads agents, a flaky test, a bad default, a rule nobody wrote down. A note that teaches agents to work around such a problem preserves it. So each finding is routed to one of five responses, and only lasting facts and deliberate design become remembered shards:
+
+- **Remember:** a lasting fact or deliberate design an agent cannot see from the code becomes a context shard.
+- **Document:** a rule that exists but is unwritten, or a document that is wrong, becomes a proposed edit to the canonical document.
+- **Fix:** a defect, dead code, a misleading default, or a confusing tool becomes an action item with a proposed fix.
+- **Guard:** a rule agents keep breaking that a machine could enforce becomes an action item for a check, a test, or a blocking hook.
+- **Ask:** unclear or disputed intent becomes a question for its owner, whose answer becomes a decision, an edit, or a dismissal.
 
 The design follows the pipeline Boundary and HumanLayer described in [Why AI Coding Agents Need a Memory Pipeline](https://www.youtube.com/watch?v=mAKUL12h1n8). That pipeline uses three lenses: what agents found out, what humans corrected, and what agents kept researching. Cheap classifiers screen messages before a stronger model judges them, a learning is kept only when it recurs, and each one cites the sessions behind it. The episode left two problems open: making repeated runs incremental, and noticing when a memory goes stale. This spec answers both and adds a third requirement the episode assumed: an approved learning has to reach the agent at the moment it matters.
 
@@ -29,6 +37,8 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 ## Goals
 
 - Recover learnings that would otherwise be lost: human corrections, hard-won facts about the code, and questions agents keep researching.
+- Remove friction at its source. Route each finding to the response that ends it, and remember only what an agent cannot learn from the code or its documents.
+- Show where agents lose the most effort, and whether a fix removed the friction it targeted.
 - Propose only learnings that are true of the current code, not already documented, not obvious from reading the code, and supported by independent evidence.
 - Keep a human in charge. Nothing the pipeline produces enters the repository until a person approves it, and hooks deliver a shard only while its content matches what was approved. A hand edit to a tracked shard is an ordinary repository change, reviewed like any other file, and verify mode flags it.
 - Get approved shards to agents in Claude Code, Codex, and T3 Code before consequential work: through lookup and guidance everywhere, and through hooks where a host supports them.
@@ -39,8 +49,9 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 ## Non-Goals
 
 - Sharing transcripts or unreviewed candidates between developers, or any central store. Recurrence is therefore counted per developer.
-- Approving, dismissing, or retiring shards automatically.
-- Editing `AGENTS.md`, `CLAUDE.md`, or skills automatically. The skill may propose such edits.
+- Approving, dismissing, or retiring shards automatically, or choosing a finding's response without a person.
+- Editing `AGENTS.md`, `CLAUDE.md`, skills, documentation, or code automatically. The skill proposes such edits, and a person applies or approves them.
+- Filing findings in an external tracker. Findings stay in the repository as notes with action items.
 - Scheduled or background runs.
 - A review UI or a new storage engine. Review happens in the skill's conversation. The only new `rzm` surface is the generic `generate` operation.
 - Mining or delivery for harnesses other than Claude Code and Codex.
@@ -52,7 +63,7 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 
 ### US1 - Mine recent sessions into proposals
 
-- id:: ^SPEC-0121-US1
+- id:: ^SPEC-0124-US1
 - summary:: A developer runs the session-memory skill and gets local proposals drawn from their recent Claude Code and Codex sessions for this repository, each supported by independent evidence and checked against the current code.
 - status:: ready
 
@@ -64,6 +75,8 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 - Candidates are verified by tier. Tier A (two or more families, or a correction whose origin is `confirmed` person) is always verified. Tier B (one family, a claim the code can confirm) is verified up to a per-run budget, in the order Jev ranks them. Tier C (one family, a claim the code cannot confirm, such as environment, workflow, or behavior) is held until another family supports it.
 - Review shows each proposal's tier, so a reviewer knows when a learning was seen once and confirmed only in the code.
 - Each proposal has a kind (`rule`, `fact`, or `where_to_find`), a statement of at most 400 bytes, the reason it matters, the files it applies to, evidence references, and a verification record naming the code locations checked and the documentation searched.
+- Verification also proposes a response: `remember`, `document`, `fix`, `guard`, or `ask`, with a one-sentence reason. A proposal that only helps agents work around something the team could change is marked as such and gets `fix`, `guard`, or `document` instead of `remember`. A `document` proposal names the document to change and drafts the edit; a `fix` or `guard` proposal names the code or check to change and sketches the change; an `ask` proposal names the decision and, when the evidence shows one, its owner.
+- A proposal whose evidence contradicts the current code or its tools is rejected as false, even when several sessions repeated it.
 - A candidate that is false for the current code, already documented, or obvious from reading the files it applies to is not proposed. When the answer is already documented, the candidate becomes a `where_to_find` proposal whose target is that document.
 - Credential-shaped values are redacted before any text is truncated, written to disk, or sent to TypeSafe. No transcript text appears in tracked files.
 - The run reports Jev usage, episodes kept versus read, and candidates proposed, merged, held for more evidence, suppressed by a recorded decision, or rejected, each with a reason.
@@ -71,13 +84,16 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 
 ### US2 - Review and promote
 
-- id:: ^SPEC-0121-US2
-- summary:: A developer reviews proposals in the skill's review mode and approves, revises, dismisses, or defers each one. Approval writes a tracked shard atomically.
+- id:: ^SPEC-0124-US2
+- summary:: A developer reviews proposals in the skill's review mode, accepts or changes each one's proposed response, and approves, revises, dismisses, or defers it. Approving a `remember` proposal writes a tracked shard; approving any other response writes a tracked finding with an action item.
 - status:: ready
 
 #### Acceptance Criteria
 
-- Review presents each proposal with its statement, kind, applies-to patterns, target, evidence summary (families, tool calls spent), and verification record. On request, it opens a cited source message, redacted, from the local transcript.
+- Review presents each proposal with its proposed response and reason first, then its statement, kind, applies-to patterns, target, evidence summary (families, tool calls spent), and verification record. On request, it opens a cited source message, redacted, from the local transcript.
+- The reviewer can change the response. Review asks one question per proposal and attaches the drafted edit, fix sketch, or question, so the common case is accepting or redirecting, not writing.
+- Approving a `document` response applies the drafted edit to the named document as an ordinary working-tree change for the person to commit, and records the outcome so the learning is not proposed again.
+- Approving a `fix`, `guard`, or `ask` response writes one `AgentFinding` note under `docs/agent-findings/`, holding the response, statement, reason, evidence summary, the proposed change or question, and one action item. The action item is assigned to the reviewer unless the reviewer names another `Person`. The learning is not proposed again while the action item is open.
 - Approving asks the reviewer to confirm that the statement is fit to publish in this repository. It then writes the `ContextShard` note in one atomic step, with reviewer, date, approved-content hash, verification fingerprint, and derived `code-anchors`.
 - Approval and renewal are refused while any fingerprinted file has uncommitted changes or unresolved merge stages, so the fingerprint always describes committed content the reviewer could see.
 - Approval and revision are refused when the applies-to patterns match more than 50 tracked files and more than a tenth of them, unless the reviewer confirms the breadth. A broad shard reaches nearly every agent; in the development runs, three proposals matched 36–43% of tracked files while the median matched 0.5%.
@@ -87,7 +103,7 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 
 ### US3 - Approved shards reach agents
 
-- id:: ^SPEC-0121-US3
+- id:: ^SPEC-0124-US3
 - summary:: An agent in Claude Code, Codex, or T3 Code finds the approved shards for its task, files, or command through the lookup workflow and managed guidance. Where the person turned hooks on, they also deliver a file's shards when the agent reads or edits it, without repeating a shard the agent still has.
 - status:: ready
 
@@ -111,7 +127,7 @@ The rest of this story applies where hooks are installed.
 
 ### US4 - Later runs and teammates build on earlier decisions
 
-- id:: ^SPEC-0121-US4
+- id:: ^SPEC-0124-US4
 - summary:: Later runs process only new messages, keep single-sighting candidates until they recur, and never re-propose what any teammate already approved or dismissed without materially new evidence.
 - status:: ready
 
@@ -119,13 +135,13 @@ The rest of this story applies where hooks are installed.
 
 - Each pipeline stage records its progress, and an interrupted run resumes without losing or duplicating work. Jev items that did not finish or whose outcome is uncertain are retried; items that succeeded are not.
 - A tier C candidate, and a tier B candidate beyond the run's budget, is held in the local pool. A later run can verify it when another family supports it or budget allows.
-- The reduce pass loads every recorded decision, tracked and local, directly from its files and compares candidates against them. It finds approved shards and documentation through semantic search. A candidate that matches an approved shard or a decision is not proposed. A candidate whose new evidence contradicts a dismissal reason is proposed together with that reason.
+- The reduce pass loads every recorded decision and every `AgentFinding`, tracked and local, directly from their files and compares candidates against them. It finds approved shards and documentation through semantic search. A candidate that matches an approved shard, a decision, or a finding whose action item is open is not proposed. A candidate whose new evidence contradicts a dismissal reason is proposed together with that reason.
 - Two developers who approve the same learning on different branches produce a duplicate that the next run detects and offers to merge. Each decision event is its own file, named by learning and event, so concurrent decisions add separate files instead of editing the same one. The latest decision for a learning wins.
 - A second run over the same window changes nothing.
 
 ### US5 - Stale shards are re-verified
 
-- id:: ^SPEC-0121-US5
+- id:: ^SPEC-0124-US5
 - summary:: When the files behind an approved shard change or disappear, the skill's verify mode surfaces the shard for re-verification, and the reviewer renews, revises, or retires it.
 - status:: ready
 
@@ -137,7 +153,7 @@ The rest of this story applies where hooks are installed.
 
 ### US6 - Keep model choices current
 
-- id:: ^SPEC-0121-US6
+- id:: ^SPEC-0124-US6
 - summary:: A developer runs calibrate for one role. The workflow measures the current binding against the other available candidates and proposes a profile change, which the developer can approve or decline.
 - status:: draft
 
@@ -149,6 +165,19 @@ The rest of this story applies where hooks are installed.
 - The current binding runs twice, the second time without the result cache, and the difference is reported as the noise floor.
 - A profile diff is proposed only in two cases: a candidate beats the current binding by more than the noise floor, or it matches within the noise floor for at least 25% less cost or latency. The diff names its evidence file, and nothing is written until the developer approves it.
   verification:: a fixture run in CI with a fake `generate`; one live run per provider recorded in the effort.
+
+### US7 - See where agents lose effort, and whether fixes worked
+
+- id:: ^SPEC-0124-US7
+- summary:: A developer asks for a friction report and sees open findings and unreviewed proposals ranked by the agent effort they cost, plus completed fixes and whether the friction came back.
+- status:: draft
+
+#### Acceptance Criteria
+
+- The report ranks open `fix`, `guard`, and `ask` findings and pending proposals by evidence: families, sessions, and tool calls spent, with the dates first and last seen.
+- For each finding whose action item is complete, later runs check whether new episodes still match its learning, and the report marks it `resolved` (no recurrence since completion) or `recurring`, with the episodes that matched. A recurring finding is offered for review again.
+- The report reads only local state and tracked notes, makes no model calls, and contains no transcript text.
+  verification:: a fixture with an open, a resolved, and a recurring finding.
 
 ## Requirements
 
@@ -210,7 +239,8 @@ The rest of this story applies where hooks are installed.
   - `code-anchors` derived from `applies-to` under the `any` language key
 - Its body MUST hold `## Why it matters`, a `## Verification` list of checked locations, and an `## Evidence` list whose items name the harness, session, message, date, lens, and tool calls. Evidence is frozen at approval and includes no transcript text.
 - `applies-to` patterns MUST use one dialect: literal paths, `*`, `**`, and `?`. A test MUST prove that the delivery script's matcher and Rhizome's anchor matcher agree on a shared case table.
-- A decision event MUST be one JSON file under `docs/context-shards/decisions/`, named `<learning-hash>--<event-id>.json`, holding the statement, kind, applies-to, decision (`dismissed` or `retired`), reason, decider, and date. Decisions are not notes, so search does not surface them; the skill reads them directly.
+- An `AgentFinding` note MUST live in `docs/agent-findings/`, named by response and a slug, with frontmatter holding the response (`fix`, `guard`, or `ask`), `summary` (the statement), `learning-hash`, `applies-to`, `reviewed-by`, `reviewed-on`, `families`, and `tool-calls`. Its body MUST hold `## Why it matters`, `## Proposed change` (or `## Question`), `## Evidence` in the shard's evidence form, and one action item written as an `#action-item` line with `assignee::`, as the `action-items` starter defines it. The line is written the same way when that add-on is disabled.
+- A decision event MUST be one JSON file under `docs/context-shards/decisions/`, named `<learning-hash>--<event-id>.json`, holding the statement, kind, applies-to, decision (`dismissed`, `retired`, or `documented`), reason, decider, and date. A `documented` decision names the document it changed. Decisions are not notes, so search does not surface them; the skill reads them directly.
 - Every tracked write MUST go through `shards.mjs` as one atomic replacement, and MUST be refused when the file's content differs from the hash in the change plan.
 
 ### Local data and extraction
@@ -266,7 +296,9 @@ The rest of this story applies where hooks are installed.
 
 [TODO: Decide with Drew] Delivery on command text: lookup already matches a shard whose `commands` text appears in the command it is given. Whether the hook handler should also deliver after a matching shell command is open. Such shards cover commands whose results mislead: a web build leaves a tracked `dist/index.html` modified, a sandboxed `go test` fails with `operation not permitted`, `go mod vendor` deletes hand-vendored C sources, and Playwright attaches to another worktree's server. Delivery after the command fits them, but every shell call would then start the handler. 19 of the 25 development-run proposals name a command.
 
-[TODO: Confirm with Drew] Shards live in `docs/context-shards/`, named `<kind>-<slug>.md`.
+[TODO: Confirm with Drew] Shards live in `docs/context-shards/`, named `<kind>-<slug>.md`, and findings live in `docs/agent-findings/`, named `<response>-<slug>.md`.
+
+[TODO: Decide with Drew] Guard enforcement: a `guard` finding becomes an action item for a test, lint, gate step, or Makefile target today. A blocking hook that refuses a matching tool call and says why is specified as a draft in [[agent-surface-integration-modes#^SPEC-0045-US6]]; whether approved guard rules should drive it is open.
 
 [TODO: Confirm with Drew] The default mining window is the last 7 days, and the first run asks before reading more than 200 sessions.
 

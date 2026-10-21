@@ -6,7 +6,7 @@ name: Session memory starter
 created-at: 2026-10-11T19:21:34Z
 status: active
 plan-approved-by: Drew Colthorp
-summary: Deliver SPEC-0121. An opt-in session-memory starter mines local Claude Code and Codex transcripts, screens messages with Jev, and records reviewed ContextShard notes that reach agents through approval-gated code anchors.
+summary: Deliver SPEC-0124. An opt-in session-memory starter mines local Claude Code and Codex transcripts, screens messages with Jev, and records reviewed ContextShard notes that reach agents through approval-gated code anchors.
 governing-specs:
   - "[[session-memory-starter]]"
   - "[[init-template-architecture]]"
@@ -68,21 +68,21 @@ Starting facts, verified at `184889cb` unless marked observational:
   - Claude Code prompts typed in T3 carry `promptSource: sdk`, as programmatic prompts can.
   - A warm `query-recipe run` took 120–200 ms.
 
-Out of scope: everything listed under SPEC-0121 Non-Goals.
+Out of scope: everything listed under SPEC-0124 Non-Goals.
 
 ## Spec Set (Frozen)
 
-- [[session-memory-starter|SPEC-0121]], revision 2026-10-11, proposed.
+- [[session-memory-starter|SPEC-0124]], revision 2026-10-11, proposed.
 - [[init-template-architecture|SPEC-0039]], revision 2026-05-06, proposed, for starter packaging.
 - [[core-template-and-template-dependencies|SPEC-0061]], revision 2026-10-01, active, for the `core` dependency.
 
 ## Stories In Scope (Frozen)
 
-- [[session-memory-starter#^SPEC-0121-US1|SPEC-0121 US1 — Mine recent sessions into proposed shards]].
-- [[session-memory-starter#^SPEC-0121-US2|SPEC-0121 US2 — Review shards]].
-- [[session-memory-starter#^SPEC-0121-US3|SPEC-0121 US3 — Approved shards reach agents working on that code]].
-- [[session-memory-starter#^SPEC-0121-US4|SPEC-0121 US4 — Later runs build on earlier decisions]].
-- [[session-memory-starter#^SPEC-0121-US5|SPEC-0121 US5 — Stale shards are flagged]].
+- [[session-memory-starter#^SPEC-0124-US1|SPEC-0124 US1 — Mine recent sessions into proposed shards]].
+- [[session-memory-starter#^SPEC-0124-US2|SPEC-0124 US2 — Review shards]].
+- [[session-memory-starter#^SPEC-0124-US3|SPEC-0124 US3 — Approved shards reach agents working on that code]].
+- [[session-memory-starter#^SPEC-0124-US4|SPEC-0124 US4 — Later runs build on earlier decisions]].
+- [[session-memory-starter#^SPEC-0124-US5|SPEC-0124 US5 — Stale shards are flagged]].
 
 ## Spec Coverage Checklist
 
@@ -247,7 +247,7 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
 
 ## Execution Notes
 
-- 2026-10-11T19:21:34Z — Effort opened with SPEC-0121 drafted. Plan approval is pending.
+- 2026-10-11T19:21:34Z — Effort opened with SPEC-0124 drafted. Plan approval is pending.
 - 2026-10-11 — Astra High review, round 1. Verdict: rework, with three blockers and fifteen major findings. Responses:
   - **Approval invariant and accidental commits (blockers 1–2):** only approved content is tracked, there is no status field, and approval is bound to content (D1, D2).
   - **Installing into an existing setup (blocker 3):** D10, tested in Batch 0.
@@ -422,7 +422,7 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
     - **M5:** composed D run, then H once.
     - **M6:** paired task evaluation and closure.
 - 2026-10-17 — Drew approved the revised plan and the M1 experiment spend (about $10–20): "So let's go with your gut. I approve the approach and the spend." Decisions:
-  - **Scope:** one generic `generate` operation, lookup and managed guidance as the delivery baseline with hooks optional per host, and stale shards withheld from hooks and lookup. SPEC-0121 is revised to match.
+  - **Scope:** one generic `generate` operation, lookup and managed guidance as the delivery baseline with hooks optional per host, and stale shards withheld from hooks and lookup. SPEC-0124 is revised to match.
   - **Verification tiers** replace the two-family gate: tier A always verified, tier B verified up to a budget in Jev's ranked order, tier C held for another family. Review shows each proposal's tier. Drew: "we can always evolve it." Acceptance by tier is reported in every run, and tier B is switched off if it underperforms.
   - `/tmp` was cleared after the 2026-10-12 work, so Astra's review and plan files are gone; the summaries above are the record. The pinned verification checkout was recreated at `184889cb`.
 - 2026-10-17 — M1 verification experiments on D-v1-jev35's 94 clusters (`bench.mjs compare`, `runs/verify-compare.json`). "Recovered" counts the 12 both-judge-accepted proposals from the Opus-high run, so it favors that run. "Cost (5m)" reprices token counts at five-minute cache-write rates.
@@ -496,7 +496,7 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
   | The seven from the search | 679 | 132 | $1.05 |
 
   On a week no question was tuned on, the search's extra questions add nothing, so the two hand-written questions stay. Recall here is measured against the same model reading everything. It therefore combines screening loss with run-to-run extraction variance: on D, two identical xhigh runs agreed on only part of what each found. A second unscreened H map would separate the two (about $3). Spend: $4.64 of Haiku, $0.66 of matching, and $0.17 of Jev, about $5.50.
-- 2026-10-18: **Model selection decisions.** Drew approved calibrate as a workflow inside the `session-memory` skill, and starting M2. On fallback he set the rule: "This should operate within the harness the user is already using. However, in a harness where there is access to both models, the model can prioritize amongst what's available." SPEC-0121's model profile now says:
+- 2026-10-18: **Model selection decisions.** Drew approved calibrate as a workflow inside the `session-memory` skill, and starting M2. On fallback he set the rule: "This should operate within the harness the user is already using. However, in a harness where there is access to both models, the model can prioritize amongst what's available." SPEC-0124's model profile now says:
   - A run uses only the providers its harness reaches, so transcript text never moves to another provider. Jev is the exception.
   - A newer catalog version of a candidate's family, with no profile entry of its own, runs at the candidate's effort and is reported as unmeasured.
   - When a family is unavailable, the role falls back to the next candidate from the same provider (Haiku to Sonnet).
@@ -511,7 +511,7 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
   | Claude Code default (two runs) | 139, 136 | 588, 606 | 1.31M | $1.31, $1.34 |
   | Lean | 133 | 772 | 0.74M | $1.41 |
 
-  The lean prompt removes about 14.5k input tokens per call, but those tokens were cache reads that cost Haiku almost nothing, so the run cost slightly more. The difference is the extra output: 30% more candidates, which grouping must also read. Recall is 3 to 6 below the two default runs, against a run-to-run gap of 3, so one run can't settle it. Drew kept the lean prompt without a second run: "Let's just leave the lean prompt in place. It's fine." The saving matters where cache writes or the model are expensive: first calls, short probes, and verification with Sonnet or Opus. Codex's app-server probe also found a working route to a call with no tools at about 1.3k input tokens; the driver is being built (see SPEC-0121's revised `generate` tool policy). Spend: $1.41 of Haiku and $0.56 of matching.
+  The lean prompt removes about 14.5k input tokens per call, but those tokens were cache reads that cost Haiku almost nothing, so the run cost slightly more. The difference is the extra output: 30% more candidates, which grouping must also read. Recall is 3 to 6 below the two default runs, against a run-to-run gap of 3, so one run can't settle it. Drew kept the lean prompt without a second run: "Let's just leave the lean prompt in place. It's fine." The saving matters where cache writes or the model are expensive: first calls, short probes, and verification with Sonnet or Opus. Codex's app-server probe also found a working route to a call with no tools at about 1.3k input tokens; the driver is being built (see SPEC-0124's revised `generate` tool policy). Spend: $1.41 of Haiku and $0.56 of matching.
 - 2026-10-18: **Codex generation through the app-server** (delegated Opus 5.5 high; uncommitted). This supersedes the M2 entry's "unsupported" result. A probe against a local fake endpoint found that Codex 0.163's model catalog (`use_responses_lite`, `tool_mode`, `multi_agent_version`) brings tools back, and that the backend adds its own note and history tools when the request omits `tools`. The driver now:
   - launches the app-server with tool features and instruction blocks off and a rewritten copy of the model catalog, starts an ephemeral thread with no environments, every configured MCP server disabled, a read-only sandbox, and approval `never`, and runs in an empty temporary directory.
   - fails closed with `ErrUnsupported` before any turn when Codex is older than 0.163.0, the model isn't in the catalog cache, `config/read` or `thread/start` fails, or Codex warns that it ignored one of the overrides.
@@ -585,6 +585,14 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
     - YAML secret blocks stopped at a blank line and missed indentation indicators such as `|2`, and quoted values over 1,000 characters escaped. Blocks now span blank lines, indicators are recognized, and a quoted value that spans lines or never closes within 8,000 characters is redacted whole.
     - Grep output was cut to 240 characters a line before redaction. It is now redacted first.
     - Redaction backtracked on text repeating sensitive names: 1.9 s at 50 KB. Names now start only at token boundaries with bounded affixes, and one-line quoted values are bounded; 200 KB of the worst shapes takes under 200 ms.
+- 2026-10-21: **Drew's first labels, and five responses instead of one.** Drew read p01–p07 of `runs/D-v1/review-for-drew.md` and found them "really great", but objected to p18: InlineFieldView is dead code that should be deleted, not documented, and notes like it teach agents to work around problems instead of fixing them. Reviewing all 21 against the code:
+  - **False:** p02. The vendored FTS5 shim enables FTS5 without the tag (`//go:build cgo && !fts5`), as an earlier judge round found; verification still proposed it.
+  - **Fix instead:** p18, p10 (paths also stale after #21), p19 (a real `select` race in `cancelTurn`), p06 (the tracked bundle is already broken: #19 committed an `index.html` that loads an untracked script), p05, p11, p09.
+  - **Guard instead:** p04 and p21 (golden tests with no update flag, outside `make check`), p17, p13, p20.
+  - **Document instead:** p15, p01, p08, p07 (13 efforts marked active), p12.
+  - **Remember:** p03, p14, p16, and p20 until its guard lands.
+  - **Decision (Drew):** the starter becomes a tool for agent effectiveness. SPEC-0124 now routes each finding to remember, document, fix, guard, or ask; adds `AgentFinding` notes with action items, a `documented` decision, and a friction report (US7) that ranks findings by agent cost and checks whether fixes held. SPEC-0045 US6 drafts guard rules that refuse a matching tool call before it runs. Small fixes for p18, p10, p19, p05, p11, p09, p15, p01, and p08 are delegated to Opus 5.5 high on `fix/agent-friction-small`, with a plan only for p06.
+  - **Renumbered:** #21 merged `subsystem-refactor.md` as SPEC-0121 while this spec was unmerged, so `rzm validate identifiers` reported a collision after the rebase. This spec is now SPEC-0124; commit messages before this point say SPEC-0121. The frozen judge prompt `tools/sessionmemorybench/JUDGE.md` keeps its old text so cached judgments stay valid.
 
 ## Deviations
 
@@ -593,7 +601,7 @@ None.
 ## Closure Checklist
 
 - [ ] Spec coverage checklist complete with evidence.
-- [ ] SPEC-0121 status and open questions resolved.
+- [ ] SPEC-0124 status and open questions resolved.
 - [ ] Documentation plan delivered.
 - [ ] Follow-ups recorded.
 

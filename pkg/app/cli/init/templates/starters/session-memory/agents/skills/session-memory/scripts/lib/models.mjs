@@ -1,4 +1,4 @@
-// Model profile resolution (SPEC-0121, "Model profile"). Pure apart from the
+// Model profile resolution (SPEC-0124, "Model profile"). Pure apart from the
 // injected probe, which makes one tiny generate call and returns the model
 // that actually ran.
 
