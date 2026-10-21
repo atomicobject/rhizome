@@ -89,7 +89,9 @@ npm run test:e2e
 - `npm test` runs the Vitest unit suite for the extracted UI helpers/components.
 - `npm run test:e2e` boots a temp copy of `testdata/integration/python-app/vault`,
   indexes it with `rzm index`, starts `rzm serve`, then drives the live UI
-  with Playwright.
+  with Playwright. Locally it reuses a server already on its port, so each
+  checkout derives its own port (20000–29999) from its path; set
+  `RHIZOME_E2E_PORT` to choose one. CI uses 4173 and always starts a fresh server.
 
 ## Hooks
 
