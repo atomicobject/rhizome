@@ -206,7 +206,7 @@ func TestClaudeRejectsInvalidMCPServers(t *testing.T) {
 }
 
 func TestClaudeRejectsUnsupportedPermissionMode(t *testing.T) {
-	_, err := testDriver(harnesstest.NewScriptedIO(initResponse("init-1"))).StartSession(context.Background(), harness.SessionOptions{PermissionMode: "future"})
+	_, err := testDriver(harnesstest.NewScriptedIO()).StartSession(context.Background(), harness.SessionOptions{PermissionMode: "future"})
 	require.ErrorIs(t, err, harness.ErrSpawn)
 }
 
