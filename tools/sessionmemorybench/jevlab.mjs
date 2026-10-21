@@ -262,10 +262,11 @@ async function passageLabels(a) {
   const episodes = new Map(readJsonl(a.episodes).map((e) => [e.id, e]));
   const { learnings } = readJson(a.labels);
   const candidates = new Map(readJsonl(join(a.run, "candidates.jsonl")).map((c) => [c.id, c]));
-  const { clusters } = readJson(join(a.run, "clusters.json"));
+  // A map-only run has candidates but no clusters or verification yet.
+  const { clusters = [] } = readJson(join(a.run, "clusters.json"), {});
   const statements = new Map([...candidates].map(([id, c]) => [id, c.statement]));
   for (const c of clusters) statements.set(c.id, c.statement);
-  for (const f of readdirSync(join(a.run, "verify"))) {
+  for (const f of existsSync(join(a.run, "verify")) ? readdirSync(join(a.run, "verify")) : []) {
     const v = readJson(join(a.run, "verify", f));
     if (v.result?.statement) statements.set(v.cluster, v.result.statement);
   }

@@ -601,6 +601,7 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
   - **Screening input:** passages cut a paragraph at 700 characters and dropped the rest. Oversized paragraphs now split at word boundaries, which changes screening input for long paragraphs; Jev answers for those passages are no longer cached, and M1's screening numbers were measured with the cut.
   - **Add-on removal:** an add-on that an older setup lists among its workflows stayed installed after `--remove-addon`. It is now dropped from the workflows too.
   - **Docs:** README and the getting-started guide describe `--add-addon`, `--remove-addon`, and `session-memory`. `rzm agent generate` is documented in `pkg/app/mcp/CONTEXT.md`; the README is a getting-started guide and lists no agent commands.
+  - **Round 2 (confidence 1, five comments, all fixed):** a shard on `docs/**` went stale by committing itself, so shard notes and decisions no longer count as dependencies. Claude subagent transcripts on Windows were not recognized because of backslash paths. Codex `generate` reported only the last model request's usage, which undercounted spend; it now reports the fresh one-turn thread's total. The harness note says so. The Codex generate test built JSON with unescaped Windows paths. The bench's `passage-labels` failed on map-only runs.
 
 ## Deviations
 

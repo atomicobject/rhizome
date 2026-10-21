@@ -90,7 +90,7 @@ func TestGenerateRunsSandboxedEphemeralTurn(t *testing.T) {
 	for _, line := range []string{
 		`{"jsonrpc":"2.0","method":"model/rerouted","params":{"threadId":"thr_1","turnId":"turn_1","fromModel":"gpt-a","toModel":"gpt-b","reason":"capacity"}}`,
 		`{"jsonrpc":"2.0","method":"item/completed","params":{"threadId":"thr_1","turnId":"turn_1","item":{"id":"m1","type":"agentMessage","text":"{\"answer\":\"pong\"}"}}}`,
-		`{"jsonrpc":"2.0","method":"thread/tokenUsage/updated","params":{"threadId":"thr_1","turnId":"turn_1","tokenUsage":{"total":{"inputTokens":99,"cachedInputTokens":0,"outputTokens":0,"reasoningOutputTokens":0,"totalTokens":99},"last":{"inputTokens":1300,"cachedInputTokens":200,"cacheWriteInputTokens":50,"outputTokens":7,"reasoningOutputTokens":3,"totalTokens":1307}}}}`,
+		`{"jsonrpc":"2.0","method":"thread/tokenUsage/updated","params":{"threadId":"thr_1","turnId":"turn_1","tokenUsage":{"total":{"inputTokens":1300,"cachedInputTokens":200,"cacheWriteInputTokens":50,"outputTokens":7,"reasoningOutputTokens":3,"totalTokens":1307},"last":{"inputTokens":99,"cachedInputTokens":0,"outputTokens":0,"reasoningOutputTokens":0,"totalTokens":99}}}}`,
 		`{"jsonrpc":"2.0","method":"turn/completed","params":{"threadId":"thr_1","turn":{"id":"turn_1","status":"completed"}}}`,
 	} {
 		script.Push(line)
@@ -102,7 +102,8 @@ func TestGenerateRunsSandboxedEphemeralTurn(t *testing.T) {
 		Usage: harness.TokenUsage{InputTokens: 1300, CachedInputTokens: 200, CacheWriteInputTokens: 50, OutputTokens: 7, ReasoningOutputTokens: 3, TotalTokens: 1307},
 	}, got.result)
 
-	catalogPath := filepath.Join(launch.cwd, "models.json")
+	catalogJSON, err := json.Marshal(filepath.Join(launch.cwd, "models.json"))
+	require.NoError(t, err)
 	want := []string{"app-server"}
 	for _, feature := range strings.Fields("multi_agent memories apps plugins hooks skill_search tool_suggest goals sleep_tool code_mode_host view_image image_generation browser_use computer_use chronicle workspace_dependencies recommended_plugins") {
 		want = append(want, "-c", "features."+feature+"=false")
@@ -112,20 +113,22 @@ func TestGenerateRunsSandboxedEphemeralTurn(t *testing.T) {
 		"-c", "include_collaboration_mode_instructions=false", "-c", "include_apps_instructions=false",
 		"-c", "skills.include_instructions=false", "-c", "skills.bundled.enabled=false",
 		"-c", "tools.experimental_request_user_input={enabled=false}", "-c", `web_search="disabled"`,
-		"-c", `model_catalog_json="`+catalogPath+`"`)
+		"-c", "model_catalog_json="+string(catalogJSON))
 	require.Equal(t, want, launch.args)
 	require.JSONEq(t, `{"models":[
 		{"slug":"gpt-a","context_window":272000,"use_responses_lite":false,"supports_experimental_context":false,"supports_search_tool":false,
 		 "node_repl_disabled":true,"experimental_supported_tools":[],"apply_patch_tool_type":null},
 		{"slug":"gpt-b","use_responses_lite":false,"supports_experimental_context":false,"supports_search_tool":false,
 		 "node_repl_disabled":true,"experimental_supported_tools":[],"apply_patch_tool_type":null}]}`, launch.catalog)
-	_, err := os.Stat(launch.cwd)
+	_, err = os.Stat(launch.cwd)
 	require.True(t, os.IsNotExist(err), "the temporary catalog directory must be removed")
 
 	require.Equal(t, []string{"initialize", "initialized", "config/read", "thread/start", "turn/start"}, transcriptMethods(t, script.Writes()))
 	require.JSONEq(t, `{"clientInfo":{"name":"rhizome","title":"Rhizome","version":"dev"},"capabilities":{"experimentalApi":true}}`, string(written(t, script, "initialize")))
-	require.JSONEq(t, `{"cwd":"`+launch.cwd+`"}`, string(written(t, script, "config/read")))
-	require.JSONEq(t, `{"model":"gpt-a","cwd":"`+launch.cwd+`","ephemeral":true,"environments":[],
+	cwd, err := json.Marshal(launch.cwd)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"cwd":`+string(cwd)+`}`, string(written(t, script, "config/read")))
+	require.JSONEq(t, `{"model":"gpt-a","cwd":`+string(cwd)+`,"ephemeral":true,"environments":[],
 		"baseInstructions":"Respond to the user's request.","approvalPolicy":"never","sandbox":"read-only",
 		"config":{"mcp_servers.remctl.enabled":false,"mcp_servers.node_repl.enabled":false}}`, string(written(t, script, "thread/start")))
 	require.JSONEq(t, `{"threadId":"thr_1","input":[{"type":"text","text":"Say pong."}],"effort":"low","outputSchema":{"type":"object"}}`, string(written(t, script, "turn/start")))

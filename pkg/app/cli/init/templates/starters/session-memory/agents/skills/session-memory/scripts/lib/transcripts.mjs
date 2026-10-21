@@ -107,7 +107,8 @@ function spawnTexts(input) {
 
 export function parseClaude(file, { root } = {}) {
   const rows = readJsonl(file);
-  const isSubagent = file.includes("/subagents/");
+  // Windows paths use backslashes; the subagent check needs either separator.
+  const isSubagent = /[\\/]subagents[\\/]/.test(file);
   const id = isSubagent ? `${basename(dirname(dirname(file)))}/${basename(file, ".jsonl")}` : basename(file, ".jsonl");
   const parentId = isSubagent ? basename(dirname(dirname(file))) : null;
   const cwd = rows.find((r) => r.cwd)?.cwd ?? null;

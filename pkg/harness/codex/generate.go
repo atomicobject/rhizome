@@ -278,7 +278,9 @@ func (g *generation) observe(message rpcMessage) {
 	case "model/rerouted":
 		g.rerouted = params.ToModel
 	case "thread/tokenUsage/updated":
-		g.usage = params.TokenUsage.Last
+		// The thread is fresh and runs one turn, so its total is this call's usage
+		// even when the turn makes several model requests.
+		g.usage = params.TokenUsage.Total
 	case "item/completed":
 		if params.Item.Type == "agentMessage" {
 			g.text = params.Item.Text

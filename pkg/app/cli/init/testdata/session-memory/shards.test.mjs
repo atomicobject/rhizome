@@ -86,6 +86,14 @@ test("approval asks for a re-check when files changed after verification read th
   assert.throws(() => sm("approve", "k-2", "--confirm-publish"), /re-check the statement/);
 });
 
+test("a shard on docs/** is not made stale by committing itself", () => {
+  const { root, sm } = repo([proposal("k-docs", { appliesTo: ["docs/**"], verification: [] })]);
+  const { approved } = sm("approve", "k-docs", "--confirm-publish");
+  git(root, "add", "-A");
+  git(root, "commit", "-qm", "approve");
+  assert.deepEqual(lookup({ root, files: ["docs/store.md"] }).shards.map((s) => s.path), [approved]);
+});
+
 test("a change refuses while another review holds the lock", async () => {
   const { openStore } = await import(new URL("lib/store.mjs", scripts));
   const { state, sm } = repo([proposal("k-1")]);

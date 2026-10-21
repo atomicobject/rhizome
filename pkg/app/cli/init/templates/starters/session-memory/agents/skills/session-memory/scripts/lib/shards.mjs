@@ -61,7 +61,9 @@ export const repoRoot = (cwd = process.cwd()) => git(cwd, ["rev-parse", "--show-
 // target, and the locations its verification checked.
 export function shardFiles(root, shard, tracked = git(root, ["ls-files", "-z"]).split("\0").filter(Boolean)) {
   const set = new Set(tracked);
-  const files = new Set(tracked.filter((f) => matchesAny(shard.appliesTo, f)));
+  // Shard notes and decisions are not what a shard describes; counting them
+  // would make a shard on docs/** stale as soon as it was committed.
+  const files = new Set(tracked.filter((f) => !f.startsWith(`${SHARD_DIR}/`) && matchesAny(shard.appliesTo, f)));
   for (const p of [shard.target, ...(shard.checked ?? [])]) if (p && set.has(p)) files.add(p);
   return [...files].sort();
 }
