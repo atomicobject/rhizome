@@ -6,7 +6,7 @@
 //  3. Returns code anchors and note doc sections as unified Results
 //
 // This file focuses on *chunk synthesis* for code embeddings: ChunkBuilder turns intel
-// anchors into deterministic chunks (module + symbol) bounded by ChunkBudget.
+// anchors into deterministic chunks (module + primary anchor) bounded by ChunkBudget.
 //
 // Docs: [Search (Hub)](docs/hubs/Search (Hub).md), [Indexing pipeline - Live updating (watcher runtime)](docs/reference/analysis/Indexing pipeline - Live updating (watcher runtime).md)
 package embedindex
@@ -22,8 +22,6 @@ import (
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
-
-	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 )
 
 // ChunkBudget constrains semantic chunk synthesis.
@@ -391,76 +389,6 @@ func (c SymbolChunkContext) Section(budgetChars int) string {
 		}
 	}
 	return strings.TrimSpace(sb.String())
-}
-
-// BuildSymbolChunk builds a semantic header chunk for a single code anchor.
-func (b ChunkBuilder) BuildSymbolChunk(anchor codeanchor.IntelAnchor, relatedTitles []string, context SymbolChunkContext) SemanticChunk {
-	if b.Budget.TargetChars == 0 {
-		b.Budget = DefaultChunkBudget()
-	}
-	var sb strings.Builder
-	if anchor.Signature != "" {
-		sb.WriteString(fmt.Sprintf("Signature: %s\n", strings.TrimSpace(anchor.Signature)))
-	}
-	if anchor.DocComment != "" {
-		sb.WriteString("\nDoc:\n")
-		sb.WriteString(strings.TrimSpace(anchor.DocComment))
-		sb.WriteString("\n")
-	}
-	if section := context.Section(b.Budget.TargetChars); section != "" {
-		sb.WriteString(section + "\n")
-	}
-	if len(relatedTitles) > 0 {
-		sb.WriteString("Related docs:\n")
-		for _, title := range relatedTitles {
-			sb.WriteString("- " + strings.TrimSpace(title) + "\n")
-		}
-	}
-	return b.BuildPrimaryAnchorChunk(anchor, "symbol", sb.String())
-}
-
-// BuildBodyChunks slices a symbol body into overlapping chunks if spans are provided.
-func (b ChunkBuilder) BuildBodyChunks(anchor codeanchor.IntelAnchor, body string) []SemanticChunk {
-	budget := b.Budget
-	if budget.TargetChars == 0 {
-		budget = DefaultChunkBudget()
-	}
-	body = strings.TrimSpace(body)
-	if body == "" {
-		return nil
-	}
-	parts := markdownsyntax.SplitTextWithOverlap(body, budget.MaxChars, budget.Overlap)
-	chunks := make([]SemanticChunk, 0, len(parts))
-	for i, part := range parts {
-		// Index 0 is reserved for the non-body "symbol" chunk for this anchor; body chunks start at 1
-		// so we can track content hashes with a simple index map and avoid re-embedding unchanged chunks.
-		header := fmt.Sprintf("Kind: %s_body\nLang: %s\nFQN: %s\nPath: %s\n", anchor.Kind, anchor.Lang, anchor.FQN, anchor.Path)
-		// Body slices are raw code; the symbol's own prose is what makes a
-		// paraphrased question match them.
-		if sig := strings.TrimSpace(anchor.Signature); sig != "" {
-			header += "Signature: " + sig + "\n"
-		}
-		if doc := docSummaryLine(anchor.DocComment); doc != "" {
-			header += "Doc: " + doc + "\n"
-		}
-		header += fmt.Sprintf("Chunk: %d/%d\n\n", i+1, len(parts))
-		text := header + strings.TrimSpace(part)
-		chunks = append(chunks, SemanticChunk{
-			Input: codeindex.ChunkInput{
-				Index:       i + 1,
-				Granularity: "body",
-				Breadcrumb:  anchor.Path,
-				Heading:     anchor.Symbol,
-				StartByte:   int(anchor.StartByte),
-				EndByte:     int(anchor.EndByte),
-				StartLine:   int(anchor.StartLine),
-				EndLine:     int(anchor.EndLine),
-				Hash:        hashText(text),
-			},
-			Text: text,
-		})
-	}
-	return chunks
 }
 
 // hashText delegates to the shared embeddings.HashText for consistent chunk hashing.

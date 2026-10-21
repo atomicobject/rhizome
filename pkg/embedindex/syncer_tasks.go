@@ -21,10 +21,6 @@ func (s *Syncer) buildModuleTask(id codeindex.AnchorID, fingerprint, path string
 
 func (s *Syncer) buildAnchorTask(anchor codeanchor.IntelAnchor, content []byte, moduleDoc string, rationale *pathRationale) codeTask {
 	chunks := s.Policy.BuildAnchorChunks(anchor, content, anchor.RelatedDocs, SymbolChunkContext{ModuleDoc: moduleDoc, Rationale: rationale.inSpan(anchor)})
-	if len(chunks) == 0 {
-		// Rebuild the context so a policy's mutation cannot change fallback prose.
-		chunks = []SemanticChunk{(ChunkBuilder{Budget: s.Budget}).BuildSymbolChunk(anchor, anchor.RelatedDocs, SymbolChunkContext{ModuleDoc: moduleDoc, Rationale: rationale.inSpan(anchor)})}
-	}
 	return codeTask{
 		id:          codeindex.AnchorID(anchor.AnchorID),
 		fingerprint: anchor.Fingerprint,

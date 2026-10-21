@@ -29,16 +29,14 @@ func (s *planningRationaleSource) RationaleForPath(_ context.Context, path strin
 	return []codeanchor.Rationale{{Kind: "why", Content: "original rationale", StartLine: 2, EndLine: 2}}, nil
 }
 
+// fallbackPlanningPolicy leaves module chunks to the syncer fallback.
 type fallbackPlanningPolicy struct{}
 
 func (fallbackPlanningPolicy) BuildModuleChunks(string, codeanchor.Lang, []codeanchor.IntelAnchor, []byte) []SemanticChunk {
 	return nil
 }
-func (fallbackPlanningPolicy) BuildAnchorChunks(_ codeanchor.IntelAnchor, _ []byte, _ []string, context SymbolChunkContext) []SemanticChunk {
-	if len(context.Rationale) > 0 {
-		context.Rationale[0].Content = "policy mutated its input"
-	}
-	return nil
+func (fallbackPlanningPolicy) BuildAnchorChunks(anchor codeanchor.IntelAnchor, content []byte, titles []string, context SymbolChunkContext) []SemanticChunk {
+	return DefaultSynthesisPolicy(PolicyOptions{Budget: DefaultChunkBudget()}).BuildAnchorChunks(anchor, content, titles, context)
 }
 func (fallbackPlanningPolicy) ShouldIndexAnchor(anchor codeanchor.IntelAnchor) bool {
 	return anchor.Kind != "field"
@@ -70,7 +68,7 @@ func planningFixture(t *testing.T, policy SynthesisPolicy) (*Syncer, *planningRa
 	}, source
 }
 
-func TestSyncerPlanningRoutesPreserveFallbackChunksAndLazyRationale(t *testing.T) {
+func TestSyncerPlanningRoutesPreserveChunksAndLazyRationale(t *testing.T) {
 	fullSyncer, fullSource := planningFixture(t, fallbackPlanningPolicy{})
 	fullPlan, err := fullSyncer.Plan(context.Background())
 	require.NoError(t, err)
@@ -116,9 +114,7 @@ func TestSyncerPlanningRoutesPreserveFallbackChunksAndLazyRationale(t *testing.T
 					require.Equal(t, "a.go", chunk.Input.Heading)
 					require.Contains(t, chunk.Text, "Package planning owns tasks.")
 				} else {
-					require.Equal(t, "symbol", chunk.Input.Granularity)
 					require.Contains(t, chunk.Text, "original rationale")
-					require.NotContains(t, chunk.Text, "policy mutated")
 				}
 			}
 			require.Equal(t, map[string]int{"pkg/a.go": 1}, source.loads, "rationale is loaded once per used file, never for suppressed-only files")
