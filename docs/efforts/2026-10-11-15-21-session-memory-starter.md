@@ -571,6 +571,20 @@ Nothing yet; execution starts after plan approval.
   - **Spec consistency:** the overview and US3 summary no longer say a canary enables hooks; the person turns them on.
   - **Reset handler moved out (same day):** a core hook would make init offer hooks in every repository for an unmeasured problem, and would not help hosts without hooks. SPEC-0045 AC10 was removed. SPEC-0082 US12 instead has dedupe responses name what they withheld and how to reread it, which works in every host. Drew expects hooks across Rhizome templates soon; core's reset reminder is the first candidate once US12 shows whether it is still needed.
   - **Fixed hook entries:** with hooks spreading across templates, entries narrowed to each starter's tools would change, and Codex would ask for trust again, whenever add-ons change. SPEC-0045 US5 now installs one entry per hook point with no tool filter, and the dispatcher alone decides what runs. `rzm --version` took a median of 30 ms on macOS against 2 ms for an empty process, under 1% of an agent step; the earlier 22-minute estimate assumed 100 ms per call. A platform whose no-match overhead exceeds 50 ms may narrow its filter.
+- 2026-10-21: **Merge-readiness review (GPT-6.1 Sol, xhigh).** Verdict: merge after fixes. All six findings were fixed and tested:
+  - **Redaction:** CRLF text and quoted values spanning lines were not redacted. Text is now normalized to LF first, and a rule covers multiline quoted values.
+  - **Publication:** approval wrote verification notes, and shared dismissals wrote reasons, without a credential scan. Every tracked write now scans its full text; verification notes are redacted and credential-shaped reasons are refused.
+  - **Containment:** verification followed tracked symlinks out of the checkout. It now reads only regular tracked files, skips `.env` files, and redacts what it reads.
+  - **Lock:** two contenders could both reclaim a dead owner's lock. Reclaiming now happens under a second lock after re-checking the owner, and unlock removes only the caller's lock.
+  - **Windows:** owner-only permission assertions now run on Unix only; Windows state inherits the checkout's access control, and the skill says so.
+  - **Changelog:** entries added.
+  - **Rebase:** onto `main` after #21, which moved file context into `pkg/app/operations` and agent commands onto `vaultCommandOptions`. Anchored notes, `generate`, and the add-on flags were ported.
+  - **Mid-effort merge:** release policy allows it. The hook dispatcher and handler, command-text delivery, calibrate, and M5/M6 remain, and the effort stays active.
+  - **Round 2** confirmed the lock fix (96 contenders, no overlap) and the rebase port, and found four more, all fixed and tested:
+    - Verification checked only the final path component, so a symlinked parent directory escaped the checkout. It now resolves the whole path, requires it inside the checkout, and reads the resolved file.
+    - YAML secret blocks stopped at a blank line and missed indentation indicators such as `|2`, and quoted values over 1,000 characters escaped. Blocks now span blank lines, indicators are recognized, and a quoted value that spans lines or never closes within 8,000 characters is redacted whole.
+    - Grep output was cut to 240 characters a line before redaction. It is now redacted first.
+    - Redaction backtracked on text repeating sensitive names: 1.9 s at 50 KB. Names now start only at token boundaries with bounded affixes, and one-line quoted values are bounded; 200 KB of the worst shapes takes under 200 ms.
 
 ## Deviations
 

@@ -14,31 +14,31 @@ const PATTERNS = [
   ["jwt", /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g],
 ];
 
-const SENSITIVE_NAME = String.raw`[A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?key|secret|token|passw(?:or)?d|credential|private[_-]?key|auth)[A-Za-z0-9_.-]*`;
+// A name starts at a token boundary and its affixes are bounded, so scanning
+// stays linear on text that repeats sensitive words.
+const SENSITIVE_NAME = String.raw`(?<![A-Za-z0-9_.-])[A-Za-z0-9_.-]{0,40}?(?:api[_-]?key|access[_-]?key|secret|token|passw(?:or)?d|credential|private[_-]?key|auth)[A-Za-z0-9_.-]{0,40}`;
 
 // name=value, name: value, "name": "value". A quoted value runs to the closing
 // quote before a delimiter, so spaces and escaped quotes inside it are covered;
 // bare values run to whitespace.
 const QUOTED_ASSIGNMENT = new RegExp(
-  String.raw`(\\?["']?\b${SENSITIVE_NAME}\\?["']?\s*[:=]\s*)(\\?")(.*?)(\\?")(?=\s*(?:[,}\]\n]|$))`,
+  String.raw`(\\?["']?\b${SENSITIVE_NAME}\\?["']?\s*[:=]\s*)(\\?")(.{0,2000}?)(\\?")(?=\s*(?:[,}\]\n]|$))`,
   "gi",
 );
 // A quoted value followed by more prose ends at the first closing quote that
 // precedes whitespace or punctuation; it runs after the strict rule above.
 const QUOTED_ASSIGNMENT_IN_PROSE = new RegExp(
-  String.raw`(\b${SENSITIVE_NAME}\s*[:=]\s*)(\\?")(.*?)(\\?")(?=[\s;:.)!?]|$)`,
+  String.raw`(\b${SENSITIVE_NAME}\s*[:=]\s*)(\\?")(.{0,2000}?)(\\?")(?=[\s;:.)!?]|$)`,
   "gi",
 );
-// A quoted value that spans lines, up to 1,000 characters, before the
-// single-line rules see only its first line.
-const MULTILINE_QUOTED = new RegExp(
-  String.raw`(\b${SENSITIVE_NAME}["']?\s*[:=]\s*)(["'])((?:(?!\2)[^\\]|\\[\s\S]){0,1000}?\n(?:(?!\2)[^\\]|\\[\s\S]){0,1000}?)\2`,
-  "gi",
-);
+// A quoted value that spans lines, or whose closing quote does not come within
+// 8,000 characters, is redacted whole; one-line values go to the rules below.
+const MULTILINE_DOUBLE = new RegExp(String.raw`(\b${SENSITIVE_NAME}["']?\s*[:=]\s*)"((?:[^"\\]|\\[\s\S]){0,8000})("?)`, "gi");
+const MULTILINE_SINGLE = new RegExp(String.raw`(\b${SENSITIVE_NAME}["']?\s*[:=]\s*)'((?:[^'\\]|\\[\s\S]){0,8000})('?)`, "gi");
 const SINGLE_QUOTED_ASSIGNMENT = new RegExp(String.raw`(\b${SENSITIVE_NAME}\s*[:=]\s*)'([^'\n]*)'`, "gi");
 const ASSIGNMENT = new RegExp(String.raw`(\b${SENSITIVE_NAME}\s*[:=]\s*)([^\s"'\\,;)}\]]{8,})`, "gi");
 // YAML block scalars: `secret: |` followed by indented lines.
-const YAML_BLOCK = new RegExp(String.raw`(\b${SENSITIVE_NAME}\s*:\s*[|>][-+]?[ \t]*\n)((?:[ \t]+\S.*(?:\n|$))+)`, "gi");
+const YAML_BLOCK = new RegExp(String.raw`(\b${SENSITIVE_NAME}\s*:\s*[|>][1-9]?[-+]?[1-9]?[ \t]*\n)((?:[ \t]+\S.*(?:\n|$)|[ \t]*\n)*[ \t]+\S.*(?:\n|$))`, "gi");
 const BEARER = /(\b(?:Bearer|Basic|Token)\s+)[A-Za-z0-9._~+/=-]{16,}/g;
 const URL_CREDENTIALS = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s:/@]+:)[^\s@/]+(@)/gi;
 // Dots are part of the token so a path ending in an extension is judged whole.
@@ -98,10 +98,13 @@ export function redact(text) {
     count++;
     return `${head}  [REDACTED:assignment]\n`;
   });
-  out = out.replace(MULTILINE_QUOTED, (_, head, quote) => {
-    count++;
-    return `${head}${quote}[REDACTED:assignment]${quote}`;
-  });
+  for (const [re, quote] of [[MULTILINE_DOUBLE, '"'], [MULTILINE_SINGLE, "'"]]) {
+    out = out.replace(re, (match, head, value, close) => {
+      if (close && !value.includes("\n")) return match;
+      count++;
+      return `${head}${quote}[REDACTED:assignment]${close}`;
+    });
+  }
   out = out.replace(QUOTED_ASSIGNMENT, (match, head, open, value, close) => {
     if (value.length < 4 || value.startsWith("[REDACTED")) return match;
     count++;

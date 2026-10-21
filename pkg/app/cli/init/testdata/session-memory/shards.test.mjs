@@ -89,6 +89,9 @@ test("every field written to the repository is scanned, including verification n
   const { root, sm } = repo([proposal("k-1", { verification: [{ path: "pkg/store/db.go", checked: `Configured with ${secret}.` }] }), proposal("k-2")]);
   const { approved } = sm("approve", "k-1", "--confirm-publish");
   assert.ok(!readFileSync(join(root, approved), "utf8").includes(secret));
+  const yaml = repo([proposal("k-3", { verification: [{ path: "pkg/store/db.go", checked: "Config:\nprivate_key: |\n  first\n\n  after-blank-secret\nnext: ok" }] })]);
+  const published = yaml.sm("approve", "k-3", "--confirm-publish").approved;
+  assert.ok(!readFileSync(join(yaml.root, published), "utf8").includes("after-blank-secret"));
   assert.throws(() => sm("dismiss", "k-2", "--reason", `rotated ${secret}`, "--shared"), /credential-shaped/);
   assert.equal(existsSync(join(root, "docs/context-shards/decisions")), false);
 });

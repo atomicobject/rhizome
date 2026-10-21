@@ -95,6 +95,10 @@ test("redacts quoted values with spaces, escaped quotes, single quotes, and YAML
     [`private_key: |\r\n  line-one-secret\r\n  line-two-secret\r\nnext: ok`, "line-two-secret"],
     [`password: "first line\nsecond-line-secret"`, "second-line-secret"],
     [`api_key = 'first line\nsecond-line-secret'`, "second-line-secret"],
+    [`private_key: |\n  line-one\n\n  after-blank-secret\nnext: ok`, "after-blank-secret"],
+    [`secret: |2\n  indicator-secret\nnext: ok`, "indicator-secret"],
+    [`password: "${"a".repeat(1500)}\nlong-value-secret"`, "long-value-secret"],
+    [`token: "unclosed-secret\nmore text`, "unclosed-secret"],
   ];
   for (const [input, leaked] of cases) {
     const { text } = redact(input);
@@ -204,10 +208,18 @@ test("a Codex harness picks the newest catalog version, and a missing role stops
   await assert.rejects(resolve(flagged, { providers: ["codex"], statuses: [codexStatus], probe: async (r) => r.model }), /no model for verify/);
 });
 
+test("redaction stays fast on long text that repeats sensitive names", () => {
+  for (const unit of ["token ", 'token: "x ', '{"token": "Ab3dEf"}, ']) {
+    const started = performance.now();
+    redact(unit.repeat(200_000 / unit.length));
+    assert.ok(performance.now() - started < 2000, unit);
+  }
+});
+
 test("verification packets read only regular, non-credential files and redact what they read", async (t) => {
   if (process.platform === "win32") t.skip("symlinks need privileges on Windows");
   const { execFileSync } = await import("node:child_process");
-  const { mkdtempSync, symlinkSync, writeFileSync } = await import("node:fs");
+  const { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const { initialPacket } = await import(new URL("verify.mjs", lib));
@@ -217,14 +229,26 @@ test("verification packets read only regular, non-credential files and redact wh
   writeFileSync(join(root, "store.go"), `package store // ${fake.github}\n`);
   writeFileSync(join(root, ".env"), "env-marker\n");
   symlinkSync(outside, join(root, "link.txt"));
+  const outsideDir = mkdtempSync(join(tmpdir(), "sm-outside-dir-"));
+  writeFileSync(join(outsideDir, "a.go"), "outside-dir-marker\n");
+  // The quoted value straddles the 240-character cut that grep output gets.
+  writeFileSync(join(root, "long.go"), `markerword ${"y".repeat(190)} password: "SecretValue-abcdefghij-XYZ"\n`);
   execFileSync("git", ["init", "-q"], { cwd: root });
+  mkdirSync(join(root, "sub"));
+  writeFileSync(join(root, "sub/a.go"), "package sub\n");
   execFileSync("git", ["add", "-A"], { cwd: root });
-  const cl = { statement: "See `store.go`, `link.txt`, and `.env`.", appliesTo: [] };
+  // Replace a tracked file's parent directory with a link to an outside one.
+  rmSync(join(root, "sub"), { recursive: true });
+  symlinkSync(outsideDir, join(root, "sub"));
+  const cl = { statement: "See `store.go`, `link.txt`, `.env`, `sub/a.go`, and `markerword`.", appliesTo: [] };
   const packet = JSON.stringify(await initialPacket({ root, search: async () => "" }, cl, []));
   assert.ok(packet.includes("package store"));
   assert.ok(!packet.includes(fake.github));
   assert.ok(!packet.includes("outside-marker"));
   assert.ok(!packet.includes("env-marker"));
+  assert.ok(!packet.includes("outside-dir-marker"));
+  assert.ok(packet.includes("markerword"));
+  assert.ok(!packet.includes("SecretVal"));
 });
 
 test("a dead owner's lock is taken over, a live one is not, and unlock removes only its own lock", async () => {
