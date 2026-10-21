@@ -5,6 +5,7 @@ import type { RenderedFile } from "../../api/types";
 type RhizomeLinkSource = {
   currentPath: string;
   rendered?: RenderedFile | null;
+  signal?: AbortSignal;
 };
 
 export function createRhizomeLinkAdapter(source: RhizomeLinkSource) {
@@ -20,7 +21,7 @@ export function createRhizomeLinkAdapter(source: RhizomeLinkSource) {
     const cached = resolutionCache.get(target);
 
     if (cached) return cached;
-    const pending = resolveThroughSearch(target, currentPath);
+    const pending = resolveThroughSearch(target, currentPath, source.signal);
     resolutionCache.set(target, pending);
 
     return pending;
@@ -40,7 +41,7 @@ export function createRhizomeLinkAdapter(source: RhizomeLinkSource) {
     // confirms them; only name and alias links need a unique claimant.
     resolveTarget: async (target: string) => (await resolveLink(target)).path,
     async suggestWikiLinks(query: string): Promise<WikiLinkSuggestion[]> {
-      const response = await searchNotes(query.trim(), { limit: 12 });
+      const response = await searchNotes(query.trim(), { limit: 12 }, { signal: source.signal });
 
       return (response.matches || []).map((match, index) => ({
         target: match.path,
@@ -104,6 +105,7 @@ const unresolved: ResolvedLink = { path: null, confirmed: false };
 async function resolveThroughSearch(
   target: string,
   currentPath: string | undefined,
+  signal: AbortSignal | undefined,
 ): Promise<ResolvedLink> {
   const { base, fragment } = splitTarget(target);
 
@@ -113,7 +115,7 @@ async function resolveThroughSearch(
   if (!base) return unresolved;
   const explicitPath = explicitVaultPath(base, currentPath);
   const query = explicitPath ? noteName(explicitPath) : base.replace(/\.md$/i, "");
-  const response = await searchNotes(query, { limit: 12 });
+  const response = await searchNotes(query, { limit: 12 }, { signal });
   const matches = response.matches || [];
 
   if (explicitPath) {

@@ -380,12 +380,28 @@ async fn poll(app: &AppHandle) {
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             let name = worktree.clone();
-            if let Err(failure) = pipeline::restart(app.clone(), id, worktree, false).await {
-                app.state::<Panes>().broadcast(&json!({
-                    "type": "alert",
-                    "code": failure.code,
-                    "message": format!("Could not restart {name} on its new build: {}", failure.message),
-                }));
+            if let Err(failure) = pipeline::restart(app.clone(), id.clone(), worktree, false).await
+            {
+                let alert = if failure.code == "trust_required" {
+                    // The shell offers to trust the worktree and restart it.
+                    let folder = std::path::Path::new(&name)
+                        .file_name()
+                        .map_or(name.clone(), |f| f.to_string_lossy().into_owned());
+                    json!({
+                        "type": "alert",
+                        "code": failure.code,
+                        "message": format!("{folder} has a new Rhizome build. Trust this worktree to restart Rhizome on it."),
+                        "repository": id,
+                        "worktree": name,
+                    })
+                } else {
+                    json!({
+                        "type": "alert",
+                        "code": failure.code,
+                        "message": format!("Could not restart {name} on its new build: {}", failure.message),
+                    })
+                };
+                app.state::<Panes>().broadcast(&alert);
             }
         });
     }

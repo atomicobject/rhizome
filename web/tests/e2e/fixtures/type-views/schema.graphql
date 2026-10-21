@@ -72,4 +72,5 @@ type TvGuide
   title: String!
   summary: String
   kind: TvGuideKind
+  about: [String!] @display(importance: KEY)
 }
