@@ -38,6 +38,16 @@ The first backend launch uses a random port. Restarts reuse the last discovered
 port via `rzm serve --reuse-discovery-port`, so Vite keeps talking to the same
 API origin after `make build` or `make` in another terminal.
 
+Both targets serve this repository as the vault unless `RZM_DEV_VAULT` is set,
+so edits made in the browser change tracked docs. To work against disposable
+notes, point it at a scratch copy (a relative path resolves from the repository
+root; the fixture vault itself is tracked too):
+
+```bash
+cp -R testdata/integration/python-app/vault /tmp/rzm-dev-vault
+RZM_DEV_VAULT=/tmp/rzm-dev-vault make dev
+```
+
 Split modes are available too:
 
 ```bash
