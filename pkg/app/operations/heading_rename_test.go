@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/ontology/sectionparse"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"os"
@@ -217,9 +219,12 @@ func TestRenameHeadingComposesSelfLinksAndRepeatedTargets(t *testing.T) {
 			}
 			require.Equal(t, upgraded, plan.UpgradedToBlockID)
 			require.Equal(t, upgraded, result.UpgradedToBlockID)
+			require.Equal(t, item.wantBlock, result.BlockID)
 			newHeading := "## New Heading"
-			if item.wantBlock != "" {
-				newHeading += " ^" + item.wantBlock
+			if item.originalBlock != "" {
+				newHeading += " ^" + item.originalBlock
+			} else if item.wantBlock != "" {
+				newHeading += "\n^" + item.wantBlock
 			}
 			for path, want := range map[string]string{
 				targetPath: "# Target\n\n" + newHeading + fmt.Sprintf("\n\n[[#%s|local]] [[#%s]] [[target#%s|self]] [[target#%s|again]]\n", item.fragment, item.fragment, item.fragment, item.fragment) + protectedSelfLinks,
@@ -231,6 +236,59 @@ func TestRenameHeadingComposesSelfLinksAndRepeatedTargets(t *testing.T) {
 				info, statErr := os.Stat(path)
 				require.NoError(t, statErr)
 				require.Equal(t, modes[path], info.Mode().Perm())
+			}
+		})
+	}
+}
+
+func TestRenameHeadingAddsBlockIDOnlyForUpgradedReferences(t *testing.T) {
+	const frontmatter = "---\ntype: IPOpportunity\n---\n"
+	for _, item := range []struct {
+		name, oldHeading, newHeading, extra, source string
+		upgrade                                     HeadingRenameUpgradeMode
+		wantHeading, wantFragment, wantBlock        string
+	}{
+		// The reported case: default options and no inbound references.
+		{name: "zero references default", oldHeading: "Helping clients turn AI and software into business improvements", newHeading: "AI Transformation Service Offering",
+			wantHeading: "# AI Transformation Service Offering"},
+		{name: "zero references always", oldHeading: "Old", newHeading: "AI Transformation Service Offering", upgrade: HeadingRenameUpgradeAlways,
+			wantHeading: "# AI Transformation Service Offering\n^AI-Transformation-Service-Offering", wantBlock: "AI-Transformation-Service-Offering"},
+		{name: "upgraded reference", oldHeading: "Old", newHeading: "AI Transformation Service Offering", source: "[[target#Old]]",
+			wantHeading: "# AI Transformation Service Offering\n^AI-Transformation-Service-Offering", wantFragment: "^AI-Transformation-Service-Offering", wantBlock: "AI-Transformation-Service-Offering"},
+		{name: "non-ASCII ID the parser cannot read", oldHeading: "Old", newHeading: "Café Plan", source: "[[target#Old]]",
+			wantHeading: "# Café Plan", wantFragment: "Café Plan"},
+		{name: "ID already used in note", oldHeading: "Old", newHeading: "New Plan", extra: "\nBody ^New-Plan\n", source: "[[target#Old]]",
+			wantHeading: "# New Plan", wantFragment: "New Plan"},
+	} {
+		t.Run(item.name, func(t *testing.T) {
+			root := t.TempDir()
+			targetPath, sourcePath := filepath.Join(root, "target.md"), filepath.Join(root, "source.md")
+			require.NoError(t, os.WriteFile(targetPath, []byte(frontmatter+"# "+item.oldHeading+"\n"+item.extra+"\n## Details\n"), 0o644))
+			require.NoError(t, os.WriteFile(sourcePath, []byte("# Source\n\n"+item.source+"\n"), 0o644))
+			params := RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: item.oldHeading, NewHeading: item.newHeading, UpgradeToBlockID: item.upgrade}
+			plan, err := RenameHeading(stubVault{path: root}, params)
+			require.NoError(t, err)
+			assert.Equal(t, item.wantBlock, plan.BlockID)
+			params.Apply = true
+			result, err := RenameHeading(stubVault{path: root}, params)
+			require.NoError(t, err)
+			assert.Equal(t, item.wantBlock, result.BlockID)
+
+			target, err := os.ReadFile(targetPath)
+			require.NoError(t, err)
+			assert.Equal(t, frontmatter+item.wantHeading+"\n"+item.extra+"\n## Details\n", string(target))
+			assert.Equal(t, item.newHeading, markdownsyntax.SingleMarkdownH1Title(string(target)))
+			sections := sectionparse.Parse("target.md", string(target))
+			require.NotEmpty(t, sections)
+			assert.Equal(t, item.newHeading, sections[0].Title)
+			assert.Empty(t, sections[0].MalformedBlockID)
+			if item.wantBlock != "" {
+				assert.Equal(t, item.wantBlock, sections[0].BlockID)
+			}
+			if item.source != "" {
+				source, err := os.ReadFile(sourcePath)
+				require.NoError(t, err)
+				assert.Equal(t, "# Source\n\n[[target#"+item.wantFragment+"]]\n", string(source))
 			}
 		})
 	}

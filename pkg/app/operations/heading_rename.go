@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
@@ -149,18 +148,11 @@ func RenameHeading(vault repoconfig.VaultManager, params RenameHeadingParams) (R
 	}
 	match := matches[0]
 	blockID := match.blockID
-	shouldUseBlock := params.UpgradeToBlockID == HeadingRenameUpgradeAlways || (params.UpgradeToBlockID == HeadingRenameUpgradeAuto && blockID != "")
-	if blockID == "" && params.UpgradeToBlockID == HeadingRenameUpgradeAlways {
-		blockID = ontology.BlockSafeIdentifier(params.NewHeading)
+	if blockID == "" && (params.UpgradeToBlockID == HeadingRenameUpgradeAlways ||
+		params.UpgradeToBlockID == HeadingRenameUpgradeAuto && params.Fallback == HeadingRenameFallbackBlockID) {
+		blockID = generatedHeadingBlockID(content, params.NewHeading)
 	}
-	if blockID == "" && params.UpgradeToBlockID == HeadingRenameUpgradeAuto && params.Fallback == HeadingRenameFallbackBlockID {
-		blockID = ontology.BlockSafeIdentifier(params.NewHeading)
-		shouldUseBlock = blockID != ""
-	}
-	if params.UpgradeToBlockID == HeadingRenameUpgradeNever {
-		shouldUseBlock = false
-	}
-	result.BlockID = blockID
+	shouldUseBlock := blockID != "" && params.UpgradeToBlockID != HeadingRenameUpgradeNever
 
 	cache := obsidian.BuildNotePathCache(allNotes)
 	for _, source := range allNotes {
@@ -229,6 +221,16 @@ func RenameHeading(vault repoconfig.VaultManager, params RenameHeadingParams) (R
 			originals[source] = body
 		}
 	}
+	// A generated anchor exists only to keep upgraded references durable, so
+	// auto adds none when no reference was upgraded. Only always insists.
+	newBlockID := ""
+	if match.blockID == "" && shouldUseBlock && (result.UpgradedToBlockID > 0 || params.UpgradeToBlockID == HeadingRenameUpgradeAlways) {
+		newBlockID = blockID
+	}
+	result.BlockID = match.blockID
+	if newBlockID != "" {
+		result.BlockID = newBlockID
+	}
 	if result.MatchedReferences == 0 && markdownsyntax.NormalizeMarkdownHeadingFragment(params.OldHeading) != markdownsyntax.NormalizeMarkdownHeadingFragment(params.NewHeading) {
 		result.Message = "no inbound heading references remain"
 	}
@@ -238,7 +240,7 @@ func RenameHeading(vault repoconfig.VaultManager, params RenameHeadingParams) (R
 	if err := ctx.Err(); err != nil {
 		return result, err
 	}
-	updated := map[string]string{notePath: replaceHeadingLine(content, match, params.NewHeading, shouldUseBlock || match.blockID != "", blockID)}
+	updated := map[string]string{notePath: replaceHeadingLine(content, match, params.NewHeading, newBlockID)}
 	for _, rewrite := range result.Rewrites {
 		body, composed := updated[rewrite.SourceNote]
 		if !composed {
@@ -324,56 +326,6 @@ func headingRenameNotePath(root, requested string, allNotes []string) (string, e
 		}
 	}
 	return rel.String(), nil
-}
-
-type headingLineMatch struct {
-	start   int
-	end     int
-	level   int
-	text    string
-	blockID string
-}
-
-// Horizontal whitespace only: \s would cross line breaks and swallow the newline after the heading.
-var headingLineWithHashesRE = regexp.MustCompile(`(?m)^(#{1,6})[ \t]+([^\r\n]+?)[ \t\r]*$`)
-var trailingHeadingBlockIDRE = regexp.MustCompile(`\s+\^([A-Za-z0-9_-]+)\s*$`)
-
-func matchingHeadingLines(content, oldHeading string) []headingLineMatch {
-	var matches []headingLineMatch
-	oldNorm := markdownsyntax.NormalizeMarkdownHeadingFragment(oldHeading)
-	for _, loc := range headingLineWithHashesRE.FindAllStringSubmatchIndex(content, -1) {
-		if len(loc) < 6 {
-			continue
-		}
-		if headingRenameInFencedCodeBlockAt(content, loc[0]) {
-			continue
-		}
-		text := strings.TrimSpace(content[loc[4]:loc[5]])
-		blockID := ""
-		if m := trailingHeadingBlockIDRE.FindStringSubmatch(text); len(m) == 2 {
-			blockID = m[1]
-			text = strings.TrimSpace(trailingHeadingBlockIDRE.ReplaceAllString(text, ""))
-		}
-		if markdownsyntax.NormalizeMarkdownHeadingFragment(text) != oldNorm {
-			continue
-		}
-		matches = append(matches, headingLineMatch{
-			start:   loc[0],
-			end:     loc[5], // keep trailing spaces and CR so only the heading text changes
-			level:   loc[3] - loc[2],
-			text:    text,
-			blockID: blockID,
-		})
-	}
-	return matches
-}
-
-func replaceHeadingLine(content string, match headingLineMatch, newHeading string, useBlock bool, blockID string) string {
-	line := strings.Repeat("#", match.level) + " " + strings.TrimSpace(newHeading)
-	if useBlock && strings.TrimSpace(blockID) != "" {
-		line += " ^" + strings.TrimPrefix(strings.TrimSpace(blockID), "^")
-	}
-	return content[:match.start] + line + content[match.end:]
 }
 
 func replaceExactWikilinkTarget(content, oldTarget, newTarget string) string {

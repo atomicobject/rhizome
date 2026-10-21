@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- `rzm note rename-heading` no longer adds a block ID when no inbound reference was upgraded. When it does add one, the ID goes on its own line below the heading, so validation no longer reports `malformed_block_id` and the heading text stays clean. Note titles taken from an H1 drop a trailing `^block-id`, so existing notes stop showing the marker in tables, group headers, and typed queries after reindexing.
+
 - Native collection cells render wikilinks in text and list properties as clickable note links, including aliases, relative paths, and headings. Editable lists show every value and close after an unchanged edit.
 
 - Custom views can render live Mermaid diagrams with `Diagram` and escape dynamic labels with `mermaid` from `@rhizome/kit`. Pele loads on demand; flowchart, Gantt, class, state, and agentflow nodes can open notes.
