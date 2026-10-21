@@ -243,7 +243,7 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
 
 ## Actual Delivered
 
-Nothing yet; execution starts after plan approval.
+- [PR #28](https://github.com/atomicobject/rhizome/pull/28) (open): the `session-memory` add-on with mining, review and approval, lookup, and maintenance; `rzm agent generate`; `--add-addon`/`--remove-addon`; anchored notes in Markdown-note file context; the hook dispatcher design in SPEC-0045 US5 (not built); SPEC-0082 US12 (draft). The effort stays active: the hook dispatcher and handler, command-text delivery, calibrate, and M5/M6 remain.
 
 ## Execution Notes
 
