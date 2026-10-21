@@ -284,7 +284,11 @@ func (s *session) cancelTurn(ctxErr error, done <-chan error) error {
 			cancel()
 		}
 		select {
-		case <-done:
+		case err := <-done:
+			// EOF fills done before it ends the lifetime; closure must win either way.
+			if errors.Is(err, harness.ErrTransportClosed) || s.lifetime.Err() != nil {
+				return harness.Phase(harness.ErrTransportClosed, ctxErr)
+			}
 			return harness.Phase(harness.ErrTimeout, ctxErr)
 		case <-s.lifetime.Done():
 			return harness.Phase(harness.ErrTransportClosed, ctxErr)

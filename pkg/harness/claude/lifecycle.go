@@ -72,3 +72,13 @@ func waitReader(ctx context.Context, reader interface{ Wait() }) {
 	case <-ctx.Done():
 	}
 }
+
+func signalTurn(done chan error, err error) {
+	for range 2 {
+		select {
+		case done <- err:
+		default:
+			return
+		}
+	}
+}
