@@ -113,6 +113,19 @@ test("a hand edit or a changed file withholds the shard until it is revised or r
   assert.equal(current.statement, "A busy timeout of 0 means the 60-second default.");
 });
 
+test("approval asks for narrower patterns and warns when too many shards apply everywhere", () => {
+  const global = Array.from({ length: 6 }, (_, k) => proposal(`g-${k}`, { statement: `Global fact ${k}.`, appliesTo: [], verification: [] }));
+  const { root, sm } = repo([proposal("k-wide", { appliesTo: ["pkg/**"] }), ...global]);
+  for (let k = 0; k < 60; k++) writeFileSync(join(root, `pkg/store/f${k}.go`), "package store\n");
+  git(root, "add", "-A");
+  git(root, "commit", "-qm", "more files");
+  assert.throws(() => sm("approve", "k-wide", "--confirm-publish"), /match 61 of \d+ tracked files/);
+  assert.ok(sm("approve", "k-wide", "--confirm-publish", "--broad").approved);
+  const warnings = global.map((p) => sm("approve", p.cluster, "--confirm-publish").warning);
+  assert.deepEqual(warnings.slice(0, 5), [undefined, undefined, undefined, undefined, undefined]);
+  assert.match(warnings[5], /^6 shards now apply everywhere/);
+});
+
 test("dismissing records a decision that suppresses the learning; retiring removes the note", () => {
   const { root, state, sm } = repo([proposal("k-1"), proposal("k-2")]);
   assert.throws(() => sm("dismiss", "k-1", "--reason", "covered elsewhere"), /--shared/);

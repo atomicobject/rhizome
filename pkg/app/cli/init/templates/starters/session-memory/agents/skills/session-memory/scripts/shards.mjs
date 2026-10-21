@@ -5,18 +5,19 @@
 //   shards.mjs list                               proposals awaiting review
 //   shards.mjs show <cluster>                     one proposal in full
 //   shards.mjs source <cluster> [n]               the nth cited source excerpt, redacted
-//   shards.mjs approve <cluster> --confirm-publish [--edit FILE]
+//   shards.mjs approve <cluster> --confirm-publish [--edit FILE] [--broad]
 //   shards.mjs dismiss <cluster> --reason TEXT (--shared | --local)
 //   shards.mjs check                              shards to re-verify, and why
 //   shards.mjs renew <shard> --expect HASH
-//   shards.mjs revise <shard> --expect HASH --edit FILE --confirm-publish
+//   shards.mjs revise <shard> --expect HASH --edit FILE --confirm-publish [--broad]
 //   shards.mjs retire <shard> --expect HASH --reason TEXT
 //
 // --edit names a JSON file with any of kind, statement, why, appliesTo,
 // commands, and target, replacing the proposal's values. --expect is the
 // shard's content hash from `check`; a shard edited since is refused. The
-// reviewer is the configured current user (`rzm agent current-user`). Run
-// from the repository root.
+// reviewer is the configured current user (`rzm agent current-user`).
+// --broad accepts patterns that match much of the repository. Run from the
+// repository root.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
@@ -119,6 +120,17 @@ function freshPrint(root, shard) {
   return fingerprint(root, files);
 }
 
+// A shard whose patterns match much of the repository reaches nearly every
+// agent, so approval asks for narrower patterns unless the reviewer confirms.
+function checkBreadth(root, s, broad) {
+  if (broad || !s.appliesTo?.length) return;
+  const tracked = git(root, ["ls-files", "-z"]).split("\0").filter(Boolean);
+  const n = tracked.filter((f) => matchesAny(s.appliesTo, f)).length;
+  if (n > 50 && n > tracked.length / 10) throw new Refused(`the patterns match ${n} of ${tracked.length} tracked files; narrow them with --edit, or pass --broad if the reviewer confirms the shard applies that widely`);
+}
+
+const everywhere = (s) => !s.appliesTo?.length && !s.commands?.length;
+
 function shardAt(root, path, expect) {
   const file = join(root, path);
   if (!existsSync(file)) throw new Refused(`no shard at ${path}`);
@@ -159,6 +171,7 @@ export function run(argv, { root = repoRoot(), state, user } = {}) {
       if (!a["confirm-publish"]) throw new Refused("ask the reviewer to confirm the statement is fit to publish in this repository, then pass --confirm-publish");
       const p = find(store, root, id);
       const s = edited(p, a.edit);
+      checkBreadth(root, s, a.broad);
       const path = `${SHARD_DIR}/${s.kind.replace(/_/g, "-")}-${slugify(titleOf(s.statement))}.md`;
       if (existsSync(join(root, path))) throw new Refused(`${path} already exists; if it is the same learning, revise that shard instead`);
       const who = reviewer(root, user);
@@ -171,7 +184,9 @@ export function run(argv, { root = repoRoot(), state, user } = {}) {
       } finally {
         store.unlock();
       }
-      return { approved: path, approvedHash: approvedHash(shard) };
+      const global = everywhere(s) ? loadShards(root).filter(everywhere).length : 0;
+      const warning = global > 5 ? `${global} shards now apply everywhere, and session start delivers five; give this one a pattern or propose an AGENTS.md edit for it` : undefined;
+      return { approved: path, approvedHash: approvedHash(shard), warning };
     }
     case "dismiss": {
       if (!a.reason || a.reason === true) throw new Refused("pass --reason with why the learning is not wanted");
@@ -218,6 +233,7 @@ export function run(argv, { root = repoRoot(), state, user } = {}) {
       if (!a["confirm-publish"]) throw new Refused("ask the reviewer to confirm the revised statement is fit to publish, then pass --confirm-publish");
       const old = shardAt(root, id, a.expect);
       const s = edited({ kind: old.kind, statement: old.statement, why: old.why, appliesTo: old.appliesTo, commands: old.commands, target: old.target }, a.edit);
+      checkBreadth(root, s, a.broad);
       const who = reviewer(root, user);
       const verification = old.checked.map((path) => ({ path, checked: "checked at the original approval" }));
       const shard = { ...s, reviewedBy: who.link, reviewedOn: today(), verifiedOn: today(), families: old.families, toolCalls: old.toolCalls, checked: old.checked, verification, evidenceLines: old.evidenceSection.split("\n").filter(Boolean) };
