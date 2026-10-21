@@ -16,11 +16,12 @@ When files are missing from search or indexing, the cause is usually the unified
 
 ## Precedence
 
-1. `.gitignore` files, root to leaf
-2. `.rhizome/ignore` or legacy `.obsidianignore`
-3. config excludes
+1. the built-in starter list, only while `.rhizome/ignore` has no rules
+2. `.gitignore` files, root to leaf
+3. `.rhizome/ignore` or legacy `.obsidianignore`
+4. config excludes
 
-The ignore files are the complete list. Rhizome has a built-in starter list (`.git/`, `node_modules/`, `vendor/`, `dist/`, `build/`, caches, and similar), but it applies only while `.rhizome/ignore` has no rules. `rzm init` writes that list into `.rhizome/ignore`, where you can read and edit it. A `.rhizome/ignore` written by hand replaces it entirely, so copy in any starter entries you still want.
+The ignore files are the complete list. Rhizome has a built-in starter list (`.git/`, `node_modules/`, `vendor/`, `dist/`, `build/`, caches, and similar), but it applies only while `.rhizome/ignore` has no rules, and a `.gitignore` negation can override it. `rzm init` writes that list into `.rhizome/ignore`, where you can read and edit it. A `.rhizome/ignore` written by hand replaces it entirely, so copy in any starter entries you still want.
 
 `.git/` is never discovered or indexed, and changes inside it never trigger a re-index, whatever the ignore files say. Hidden directories in general are skipped by discovery and code indexing.
 

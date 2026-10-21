@@ -29,7 +29,7 @@ This spec promotes ignored-subtree inclusion to a first-class, verified contract
 
 - Indexing nested repos as separate vaults or separate Rhizome configs; the wrapper repo's config remains the single root.
 - Bypassing ignore rules (`node_modules/`, `vendor/`, caches) inside re-included subtrees, or ever discovering, indexing, or watching `.git/`.
-- Changing the ignore-layer precedence model (gitignore → `.rhizome/ignore` → config excludes, with the built-in list standing in for `.rhizome/ignore` only while that file has no rules).
+- Changing the ignore-layer precedence model (built-in list → gitignore → `.rhizome/ignore` → config excludes, where the built-in list applies only while `.rhizome/ignore` has no rules).
 - Submodule lifecycle management (cloning, updating, or validating git submodules).
 
 ## Requirements
