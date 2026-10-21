@@ -153,6 +153,7 @@ export function ConfiguredTableCellContent({
         vaultKey={vaultKey}
         onStage={stage}
         onOpenRow={onOpenRow}
+        onOpenRelation={onOpenRelation}
       />
     );
   }
