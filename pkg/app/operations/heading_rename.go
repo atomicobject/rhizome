@@ -18,30 +18,13 @@ import (
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
-type HeadingRenameUpgradeMode string
-
-const (
-	HeadingRenameUpgradeAuto   HeadingRenameUpgradeMode = "auto"
-	HeadingRenameUpgradeAlways HeadingRenameUpgradeMode = "always"
-	HeadingRenameUpgradeNever  HeadingRenameUpgradeMode = "never"
-)
-
-type HeadingRenameFallbackMode string
-
-const (
-	HeadingRenameFallbackHeading HeadingRenameFallbackMode = "heading"
-	HeadingRenameFallbackBlockID HeadingRenameFallbackMode = "block-id"
-)
-
 type RenameHeadingParams struct {
-	Context          context.Context
-	NoteMetadata     notemeta.Indexer
-	Path             string
-	OldHeading       string
-	NewHeading       string
-	Apply            bool
-	UpgradeToBlockID HeadingRenameUpgradeMode
-	Fallback         HeadingRenameFallbackMode
+	Context      context.Context
+	NoteMetadata notemeta.Indexer
+	Path         string
+	OldHeading   string
+	NewHeading   string
+	Apply        bool
 }
 
 type RenameHeadingResult struct {
@@ -49,10 +32,8 @@ type RenameHeadingResult struct {
 	OldHeading        string                    `json:"oldHeading"`
 	NewHeading        string                    `json:"newHeading"`
 	Applied           bool                      `json:"applied"`
-	BlockID           string                    `json:"blockId,omitempty"`
 	MatchedReferences int                       `json:"matchedReferences"`
 	Rewritten         int                       `json:"rewritten"`
-	UpgradedToBlockID int                       `json:"upgradedToBlockId"`
 	Skipped           []HeadingRenameDiagnostic `json:"skipped,omitempty"`
 	Rewrites          []HeadingRenameRewrite    `json:"rewrites,omitempty"`
 	Message           string                    `json:"message,omitempty"`
@@ -63,7 +44,6 @@ type HeadingRenameRewrite struct {
 	Line       int    `json:"line,omitempty"`
 	OldTarget  string `json:"oldTarget"`
 	NewTarget  string `json:"newTarget"`
-	Kind       string `json:"kind"`
 }
 
 type HeadingRenameDiagnostic struct {
@@ -78,18 +58,6 @@ func RenameHeading(vault repoconfig.VaultManager, params RenameHeadingParams) (R
 	var result RenameHeadingResult
 	if strings.TrimSpace(params.Path) == "" || strings.TrimSpace(params.OldHeading) == "" || strings.TrimSpace(params.NewHeading) == "" {
 		return result, errors.New("path, old heading, and new heading are required")
-	}
-	if params.UpgradeToBlockID == "" {
-		params.UpgradeToBlockID = HeadingRenameUpgradeAuto
-	}
-	if params.Fallback == "" {
-		params.Fallback = HeadingRenameFallbackBlockID
-	}
-	if params.UpgradeToBlockID != HeadingRenameUpgradeAuto && params.UpgradeToBlockID != HeadingRenameUpgradeAlways && params.UpgradeToBlockID != HeadingRenameUpgradeNever {
-		return result, fmt.Errorf("unsupported --upgrade-to-block-id value %q", params.UpgradeToBlockID)
-	}
-	if params.Fallback != HeadingRenameFallbackHeading && params.Fallback != HeadingRenameFallbackBlockID {
-		return result, fmt.Errorf("unsupported --fallback value %q", params.Fallback)
 	}
 	vaultPath, err := vault.Path()
 	if err != nil {
@@ -147,12 +115,6 @@ func RenameHeading(vault repoconfig.VaultManager, params RenameHeadingParams) (R
 		return result, fmt.Errorf("ambiguous heading %q: %d matches", params.OldHeading, len(matches))
 	}
 	match := matches[0]
-	blockID := match.blockID
-	if blockID == "" && (params.UpgradeToBlockID == HeadingRenameUpgradeAlways ||
-		params.UpgradeToBlockID == HeadingRenameUpgradeAuto && params.Fallback == HeadingRenameFallbackBlockID) {
-		blockID = generatedHeadingBlockID(content, params.NewHeading)
-	}
-	shouldUseBlock := blockID != "" && params.UpgradeToBlockID != HeadingRenameUpgradeNever
 
 	cache := obsidian.BuildNotePathCache(allNotes)
 	for _, source := range allNotes {
@@ -202,40 +164,19 @@ func RenameHeading(vault repoconfig.VaultManager, params RenameHeadingParams) (R
 				})
 				continue
 			}
-			newFragment := params.NewHeading
-			kind := "heading_text_rewrite"
-			if shouldUseBlock && blockID != "" {
-				newFragment = "^" + strings.TrimPrefix(blockID, "^")
-				kind = "block_id_upgrade"
-				result.UpgradedToBlockID++
-			}
-			newTarget := rawTarget + "#" + newFragment
+			newTarget := rawTarget + "#" + params.NewHeading
 			result.Rewrites = append(result.Rewrites, HeadingRenameRewrite{
 				SourceNote: source,
 				Line:       link.Line,
 				OldTarget:  link.Target,
 				NewTarget:  newTarget,
-				Kind:       kind,
 			})
 			result.Rewritten++
 			originals[source] = body
 		}
 	}
-	// A generated anchor exists only to keep upgraded references durable, so
-	// auto adds none when no reference was upgraded. Only always insists.
-	newBlockID := ""
-	if match.blockID == "" && shouldUseBlock && (result.UpgradedToBlockID > 0 || params.UpgradeToBlockID == HeadingRenameUpgradeAlways) {
-		newBlockID = blockID
-	}
-	result.BlockID = match.blockID
-	if newBlockID != "" {
-		result.BlockID = newBlockID
-	}
 	if result.MatchedReferences == 0 && markdownsyntax.NormalizeMarkdownHeadingFragment(params.OldHeading) != markdownsyntax.NormalizeMarkdownHeadingFragment(params.NewHeading) {
 		result.Message = "no inbound heading references remain"
-	}
-	if params.UpgradeToBlockID == HeadingRenameUpgradeAlways && blockID == "" {
-		result.Message = strings.TrimPrefix(result.Message+"; no block ID added: the heading does not yield an unused ASCII block ID", "; ")
 	}
 	if !params.Apply {
 		return result, nil
@@ -243,7 +184,7 @@ func RenameHeading(vault repoconfig.VaultManager, params RenameHeadingParams) (R
 	if err := ctx.Err(); err != nil {
 		return result, err
 	}
-	updated := map[string]string{notePath: replaceHeadingLine(content, match, params.NewHeading, newBlockID)}
+	updated := map[string]string{notePath: replaceHeadingLine(content, match, params.NewHeading)}
 	for _, rewrite := range result.Rewrites {
 		body, composed := updated[rewrite.SourceNote]
 		if !composed {

@@ -23,7 +23,6 @@ func TestRenameHeadingUsesCanonicalParentAlias(t *testing.T) {
 			require.NoError(t, os.WriteFile(ref, []byte("[[notes/Target#Old]] [[#Old]]\n"), 0o644))
 			result, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{
 				NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "alias/Target.md", OldHeading: "Old", NewHeading: "New", Apply: apply,
-				UpgradeToBlockID: HeadingRenameUpgradeNever, Fallback: HeadingRenameFallbackHeading,
 			})
 			require.NoError(t, err)
 			require.Equal(t, "notes/Target.md", result.Path)

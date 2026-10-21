@@ -23,12 +23,10 @@ func TestRenameHeadingPlansAndAppliesInboundRewrites(t *testing.T) {
 	require.NoError(t, os.WriteFile(sourcePath, []byte(sourceBefore), 0o644))
 
 	plan, err := RenameHeading(stubVault{path: vaultDir}, RenameHeadingParams{
-		NoteMetadata:     testkit.NoteMetadataIndexer(t),
-		Path:             "target.md",
-		OldHeading:       "Old Heading",
-		NewHeading:       "New Heading",
-		UpgradeToBlockID: HeadingRenameUpgradeNever,
-		Fallback:         HeadingRenameFallbackHeading,
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
+		Path:         "target.md",
+		OldHeading:   "Old Heading",
+		NewHeading:   "New Heading",
 	})
 	require.NoError(t, err)
 	assert.False(t, plan.Applied)
@@ -50,13 +48,11 @@ func TestRenameHeadingPlansAndAppliesInboundRewrites(t *testing.T) {
 	}
 
 	applied, err := RenameHeading(stubVault{path: vaultDir}, RenameHeadingParams{
-		NoteMetadata:     testkit.NoteMetadataIndexer(t),
-		Path:             "target.md",
-		OldHeading:       "Old Heading",
-		NewHeading:       "New Heading",
-		Apply:            true,
-		UpgradeToBlockID: HeadingRenameUpgradeNever,
-		Fallback:         HeadingRenameFallbackHeading,
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
+		Path:         "target.md",
+		OldHeading:   "Old Heading",
+		NewHeading:   "New Heading",
+		Apply:        true,
 	})
 	require.NoError(t, err)
 	assert.True(t, applied.Applied)
@@ -74,13 +70,11 @@ func TestRenameHeadingAppliesExactWikilinkTargetOnly(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, "source.md"), []byte("# Source\n\n[[target#Old Heading Extra]]\n[[target#Old Heading|old]]\n"), 0o644))
 
 	applied, err := RenameHeading(stubVault{path: vaultDir}, RenameHeadingParams{
-		NoteMetadata:     testkit.NoteMetadataIndexer(t),
-		Path:             "target.md",
-		OldHeading:       "Old Heading",
-		NewHeading:       "New Heading",
-		Apply:            true,
-		UpgradeToBlockID: HeadingRenameUpgradeNever,
-		Fallback:         HeadingRenameFallbackHeading,
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
+		Path:         "target.md",
+		OldHeading:   "Old Heading",
+		NewHeading:   "New Heading",
+		Apply:        true,
 	})
 	require.NoError(t, err)
 	assert.True(t, applied.Applied)
@@ -111,13 +105,11 @@ func TestRenameHeadingIgnoresHeadingsInsideFencedCodeBlocks(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, "target.md"), []byte("# Target\n\n```md\n## Old Heading\n```\n\n## Old Heading\n"), 0o644))
 
 	applied, err := RenameHeading(stubVault{path: vaultDir}, RenameHeadingParams{
-		NoteMetadata:     testkit.NoteMetadataIndexer(t),
-		Path:             "target.md",
-		OldHeading:       "Old Heading",
-		NewHeading:       "New Heading",
-		Apply:            true,
-		UpgradeToBlockID: HeadingRenameUpgradeNever,
-		Fallback:         HeadingRenameFallbackHeading,
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
+		Path:         "target.md",
+		OldHeading:   "Old Heading",
+		NewHeading:   "New Heading",
+		Apply:        true,
 	})
 	require.NoError(t, err)
 	assert.True(t, applied.Applied)
@@ -143,13 +135,11 @@ func TestRenameHeadingApplyPreservesSurroundingBytes(t *testing.T) {
 			require.NoError(t, os.WriteFile(targetPath, []byte(tc.before), 0o644))
 
 			_, err := RenameHeading(stubVault{path: vaultDir}, RenameHeadingParams{
-				NoteMetadata:     testkit.NoteMetadataIndexer(t),
-				Path:             "target.md",
-				OldHeading:       "Old Heading",
-				NewHeading:       "New Heading",
-				Apply:            true,
-				UpgradeToBlockID: HeadingRenameUpgradeNever,
-				Fallback:         HeadingRenameFallbackHeading,
+				NoteMetadata: testkit.NoteMetadataIndexer(t),
+				Path:         "target.md",
+				OldHeading:   "Old Heading",
+				NewHeading:   "New Heading",
+				Apply:        true,
 			})
 			require.NoError(t, err)
 			got, err := os.ReadFile(targetPath)
@@ -160,17 +150,10 @@ func TestRenameHeadingApplyPreservesSurroundingBytes(t *testing.T) {
 }
 
 func TestRenameHeadingComposesSelfLinksAndRepeatedTargets(t *testing.T) {
-	for _, item := range []struct {
-		name, originalBlock, wantBlock, fragment string
-		upgrade                                  HeadingRenameUpgradeMode
-		fallback                                 HeadingRenameFallbackMode
-	}{
-		{"auto heading fallback", "", "", "New Heading", HeadingRenameUpgradeAuto, HeadingRenameFallbackHeading},
-		{"auto block fallback", "", "New-Heading", "^New-Heading", HeadingRenameUpgradeAuto, HeadingRenameFallbackBlockID},
-		{"auto existing block", "stable", "stable", "^stable", HeadingRenameUpgradeAuto, HeadingRenameFallbackHeading},
-		{"always block", "", "New-Heading", "^New-Heading", HeadingRenameUpgradeAlways, HeadingRenameFallbackHeading},
-		{"never block", "", "", "New Heading", HeadingRenameUpgradeNever, HeadingRenameFallbackBlockID},
-		{"never retains existing block", "stable", "stable", "New Heading", HeadingRenameUpgradeNever, HeadingRenameFallbackBlockID},
+	for _, item := range []struct{ name, originalBlock string }{
+		{"no anchor", ""},
+		// An authored heading-line anchor stays as written; links keep heading text.
+		{"existing heading-line anchor", "stable"},
 	} {
 		t.Run(item.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -190,7 +173,7 @@ func TestRenameHeadingComposesSelfLinksAndRepeatedTargets(t *testing.T) {
 				require.NoError(t, err)
 				modes[path] = info.Mode().Perm()
 			}
-			params := RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old Heading", NewHeading: "New Heading", UpgradeToBlockID: item.upgrade, Fallback: item.fallback}
+			params := RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old Heading", NewHeading: "New Heading"}
 			plan, err := RenameHeading(stubVault{path: root}, params)
 			require.NoError(t, err)
 			require.False(t, plan.Applied)
@@ -213,22 +196,14 @@ func TestRenameHeadingComposesSelfLinksAndRepeatedTargets(t *testing.T) {
 			for _, skipped := range result.Skipped {
 				require.Equal(t, "code_block", skipped.Reason)
 			}
-			upgraded := 0
-			if item.fragment[0] == '^' {
-				upgraded = 6
-			}
-			require.Equal(t, upgraded, plan.UpgradedToBlockID)
-			require.Equal(t, upgraded, result.UpgradedToBlockID)
-			require.Equal(t, item.wantBlock, result.BlockID)
+			const fragment = "New Heading"
 			newHeading := "## New Heading"
 			if item.originalBlock != "" {
 				newHeading += " ^" + item.originalBlock
-			} else if item.wantBlock != "" {
-				newHeading += "\n^" + item.wantBlock
 			}
 			for path, want := range map[string]string{
-				targetPath: "# Target\n\n" + newHeading + fmt.Sprintf("\n\n[[#%s|local]] [[#%s]] [[target#%s|self]] [[target#%s|again]]\n", item.fragment, item.fragment, item.fragment, item.fragment) + protectedSelfLinks,
-				sourcePath: fmt.Sprintf("# Source\n\n## Old Heading\n\n[[#Old Heading|unrelated]] [[target#%s]] [[target#%s|alias]] `[[target#Old Heading]]`\n", item.fragment, item.fragment),
+				targetPath: "# Target\n\n" + newHeading + fmt.Sprintf("\n\n[[#%s|local]] [[#%s]] [[target#%s|self]] [[target#%s|again]]\n", fragment, fragment, fragment, fragment) + protectedSelfLinks,
+				sourcePath: fmt.Sprintf("# Source\n\n## Old Heading\n\n[[#Old Heading|unrelated]] [[target#%s]] [[target#%s|alias]] `[[target#Old Heading]]`\n", fragment, fragment),
 			} {
 				got, readErr := os.ReadFile(path)
 				require.NoError(t, readErr)
@@ -241,84 +216,31 @@ func TestRenameHeadingComposesSelfLinksAndRepeatedTargets(t *testing.T) {
 	}
 }
 
-func TestRenameHeadingAddsBlockIDOnlyForUpgradedReferences(t *testing.T) {
+func TestRenameHeadingNeverAddsBlockID(t *testing.T) {
 	const frontmatter = "---\ntype: IPOpportunity\n---\n"
-	for _, item := range []struct {
-		name, oldHeading, newHeading, extra, source string
-		upgrade                                     HeadingRenameUpgradeMode
-		wantHeading, wantFragment, wantBlock        string
-	}{
-		// The reported case: default options and no inbound references.
-		{name: "zero references default", oldHeading: "Helping clients turn AI and software into business improvements", newHeading: "AI Transformation Service Offering",
-			wantHeading: "# AI Transformation Service Offering"},
-		{name: "zero references always", oldHeading: "Old", newHeading: "AI Transformation Service Offering", upgrade: HeadingRenameUpgradeAlways,
-			wantHeading: "# AI Transformation Service Offering\n^AI-Transformation-Service-Offering", wantBlock: "AI-Transformation-Service-Offering"},
-		{name: "upgraded reference", oldHeading: "Old", newHeading: "AI Transformation Service Offering", source: "[[target#Old]]",
-			wantHeading: "# AI Transformation Service Offering\n^AI-Transformation-Service-Offering", wantFragment: "^AI-Transformation-Service-Offering", wantBlock: "AI-Transformation-Service-Offering"},
-		{name: "non-ASCII ID the parser cannot read", oldHeading: "Old", newHeading: "Café Plan", source: "[[target#Old]]",
-			wantHeading: "# Café Plan", wantFragment: "Café Plan"},
-		{name: "always with non-ASCII ID", oldHeading: "Old", newHeading: "Café Plan", source: "[[target#Old]]", upgrade: HeadingRenameUpgradeAlways,
-			wantHeading: "# Café Plan", wantFragment: "Café Plan"},
-		{name: "ID already used in note", oldHeading: "Old", newHeading: "New Plan", extra: "\nBody ^New-Plan\n", source: "[[target#Old]]",
-			wantHeading: "# New Plan", wantFragment: "New Plan"},
-	} {
-		t.Run(item.name, func(t *testing.T) {
-			root := t.TempDir()
-			targetPath, sourcePath := filepath.Join(root, "target.md"), filepath.Join(root, "source.md")
-			require.NoError(t, os.WriteFile(targetPath, []byte(frontmatter+"# "+item.oldHeading+"\n"+item.extra+"\n## Details\n"), 0o644))
-			require.NoError(t, os.WriteFile(sourcePath, []byte("# Source\n\n"+item.source+"\n"), 0o644))
-			params := RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: item.oldHeading, NewHeading: item.newHeading, UpgradeToBlockID: item.upgrade}
-			plan, err := RenameHeading(stubVault{path: root}, params)
-			require.NoError(t, err)
-			assert.Equal(t, item.wantBlock, plan.BlockID)
-			params.Apply = true
-			result, err := RenameHeading(stubVault{path: root}, params)
-			require.NoError(t, err)
-			assert.Equal(t, item.wantBlock, result.BlockID)
-			if item.upgrade == HeadingRenameUpgradeAlways && item.wantBlock == "" {
-				assert.Contains(t, result.Message, "no block ID added")
-			}
+	// The reported case, with and without an inbound reference.
+	for _, source := range []string{"", "[[target#Helping clients turn AI and software into business improvements]]"} {
+		root := t.TempDir()
+		targetPath, sourcePath := filepath.Join(root, "target.md"), filepath.Join(root, "source.md")
+		require.NoError(t, os.WriteFile(targetPath, []byte(frontmatter+"# Helping clients turn AI and software into business improvements\nBody\n"), 0o644))
+		require.NoError(t, os.WriteFile(sourcePath, []byte("# Source\n\n"+source+"\n"), 0o644))
+		_, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md",
+			OldHeading: "Helping clients turn AI and software into business improvements", NewHeading: "AI Transformation Service Offering", Apply: true})
+		require.NoError(t, err)
 
-			target, err := os.ReadFile(targetPath)
+		target, err := os.ReadFile(targetPath)
+		require.NoError(t, err)
+		assert.Equal(t, frontmatter+"# AI Transformation Service Offering\nBody\n", string(target))
+		assert.Equal(t, "AI Transformation Service Offering", markdownsyntax.SingleMarkdownH1Title(string(target)))
+		sections := sectionparse.Parse("target.md", string(target))
+		require.NotEmpty(t, sections)
+		assert.Empty(t, sections[0].BlockID)
+		assert.Empty(t, sections[0].MalformedBlockID)
+		if source != "" {
+			got, err := os.ReadFile(sourcePath)
 			require.NoError(t, err)
-			assert.Equal(t, frontmatter+item.wantHeading+"\n"+item.extra+"\n## Details\n", string(target))
-			assert.Equal(t, item.newHeading, markdownsyntax.SingleMarkdownH1Title(string(target)))
-			sections := sectionparse.Parse("target.md", string(target))
-			require.NotEmpty(t, sections)
-			assert.Equal(t, item.newHeading, sections[0].Title)
-			assert.Empty(t, sections[0].MalformedBlockID)
-			if item.wantBlock != "" {
-				assert.Equal(t, item.wantBlock, sections[0].BlockID)
-			}
-			if item.source != "" {
-				source, err := os.ReadFile(sourcePath)
-				require.NoError(t, err)
-				assert.Equal(t, "# Source\n\n[[target#"+item.wantFragment+"]]\n", string(source))
-			}
-		})
-	}
-}
-
-func TestRenameHeadingPlacesGeneratedBlockIDOnItsOwnLine(t *testing.T) {
-	cases := map[string]struct{ before, want string }{
-		"body right after heading":     {"# Old\nBody\n", "# New\n^New\n\nBody\n"},
-		"blank line after heading":     {"# Old\n\nBody\n", "# New\n^New\n\nBody\n"},
-		"crlf with trailing spaces":    {"# Old  \r\nBody\r\n", "# New  \r\n^New\r\n\r\nBody\r\n"},
-		"eof without newline":          {"# Old", "# New\n^New"},
-		"existing own-line anchor":     {"# Old\n^Old\n\nBody\n", "# New\n^Old\n\nBody\n"},
-		"existing heading-line anchor": {"# Old ^keep\nBody\n", "# New ^keep\nBody\n"},
-	}
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			root := t.TempDir()
-			targetPath := filepath.Join(root, "target.md")
-			require.NoError(t, os.WriteFile(targetPath, []byte(tc.before), 0o644))
-			_, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old", NewHeading: "New", Apply: true, UpgradeToBlockID: HeadingRenameUpgradeAlways})
-			require.NoError(t, err)
-			got, err := os.ReadFile(targetPath)
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, string(got))
-		})
+			assert.Equal(t, "# Source\n\n[[target#AI Transformation Service Offering]]\n", string(got))
+		}
 	}
 }
 
@@ -329,7 +251,7 @@ func TestRenameHeadingUnchangedApplyKeepsSourceIdentity(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 	before, err := os.Stat(path)
 	require.NoError(t, err)
-	result, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old Heading", NewHeading: "Old Heading", Apply: true, UpgradeToBlockID: HeadingRenameUpgradeNever, Fallback: HeadingRenameFallbackHeading})
+	result, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old Heading", NewHeading: "Old Heading", Apply: true})
 	require.NoError(t, err)
 	require.False(t, result.Applied)
 	after, err := os.Stat(path)
@@ -368,7 +290,7 @@ func TestRenameHeadingReadOnlyBacklinkHasOnePublicationOutcome(t *testing.T) {
 	readOnly := filepath.Join(root, "zz-readonly.md")
 	require.NoError(t, os.Chmod(readOnly, 0o444))
 	t.Cleanup(func() { _ = os.Chmod(readOnly, 0o644) })
-	result, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old Heading", NewHeading: "New Heading", Apply: true, UpgradeToBlockID: HeadingRenameUpgradeNever, Fallback: HeadingRenameFallbackHeading})
+	result, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old Heading", NewHeading: "New Heading", Apply: true})
 	want := before
 	if err == nil {
 		require.True(t, result.Applied)

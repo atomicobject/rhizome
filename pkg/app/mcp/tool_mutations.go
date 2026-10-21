@@ -24,17 +24,13 @@ func RenameHeadingTool(config Config) func(context.Context, mcp.CallToolRequest)
 			})
 			return mcp.NewToolResultError(string(encoded)), nil
 		}
-		upgrade, _ := args["upgradeToBlockId"].(string)
-		fallback, _ := args["fallback"].(string)
 		result, err := actions.RenameHeading(config.Vault, actions.RenameHeadingParams{
-			Context:          ctx,
-			NoteMetadata:     config.NoteMetadata,
-			Path:             path,
-			OldHeading:       oldHeading,
-			NewHeading:       newHeading,
-			Apply:            apply,
-			UpgradeToBlockID: actions.HeadingRenameUpgradeMode(upgrade),
-			Fallback:         actions.HeadingRenameFallbackMode(fallback),
+			Context:      ctx,
+			NoteMetadata: config.NoteMetadata,
+			Path:         path,
+			OldHeading:   oldHeading,
+			NewHeading:   newHeading,
+			Apply:        apply,
 		})
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("rename heading failed: %s", err)), nil

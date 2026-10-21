@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- `rzm note rename-heading` no longer adds a block ID when no inbound reference was upgraded. When it does add one, the ID goes on its own line below the heading, so validation no longer reports `malformed_block_id` and the heading text stays clean. Note titles taken from an H1 drop a trailing `^block-id`, so existing notes stop showing the marker in tables, group headers, and typed queries after reindexing.
+- `rzm note rename-heading` rewrites inbound heading links to the new heading text and never adds a block ID, since Obsidian does not support block IDs on headings. The `--upgrade-to-block-id` and `--fallback` options are removed from the CLI, agent command, MCP tool, and code mode, along with the `blockId`, `upgradedToBlockId`, and per-rewrite `kind` result fields. Note titles taken from an H1 drop a trailing `^block-id`, so notes that already have one stop showing it in tables, group headers, and typed queries after reindexing.
 
 - Native collection cells render wikilinks in text and list properties as clickable note links, including aliases, relative paths, and headings. Editable lists show every value and close after an unchanged edit.
 

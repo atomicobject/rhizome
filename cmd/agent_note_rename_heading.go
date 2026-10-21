@@ -10,8 +10,6 @@ import (
 
 func (commandOptions *vaultCommandOptions) newAgentNoteRenameHeadingCmd() *cobra.Command {
 	var apply bool
-	var upgrade string
-	var fallback string
 	cmd := &cobra.Command{
 		Use:   "note-rename-heading <path> <old-heading> <new-heading>",
 		Short: "Plan a heading rename and inbound-link rewrite as JSON",
@@ -22,12 +20,9 @@ func (commandOptions *vaultCommandOptions) newAgentNoteRenameHeadingCmd() *cobra
 				return silentExitError{code: 1}
 			}
 			result, err := commandOptions.executeRenameHeading(cmd.Context(), actions.RenameHeadingParams{
-				Path:             args[0],
-				OldHeading:       args[1],
-				NewHeading:       args[2],
-				Apply:            false,
-				UpgradeToBlockID: actions.HeadingRenameUpgradeMode(upgrade),
-				Fallback:         actions.HeadingRenameFallbackMode(fallback),
+				Path:       args[0],
+				OldHeading: args[1],
+				NewHeading: args[2],
 			})
 			if err != nil {
 				writeAgentError(err)
@@ -37,7 +32,5 @@ func (commandOptions *vaultCommandOptions) newAgentNoteRenameHeadingCmd() *cobra
 		},
 	}
 	cmd.Flags().BoolVar(&apply, "apply", false, "refused on the read-only agent CLI")
-	cmd.Flags().StringVar(&upgrade, "upgrade-to-block-id", string(actions.HeadingRenameUpgradeAuto), "block ID upgrade mode: auto, always, never")
-	cmd.Flags().StringVar(&fallback, "fallback", string(actions.HeadingRenameFallbackBlockID), "fallback mode when a block ID is unavailable: heading, block-id")
 	return cmd
 }

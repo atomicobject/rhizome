@@ -96,8 +96,6 @@ func (s CodeModeRenameHeadingService) Call(ctx context.Context, input map[string
 	}
 	result, err := s.Renamer.Rename(ctx, RenameHeadingParams{
 		Path: path, OldHeading: oldHeading, NewHeading: newHeading,
-		UpgradeToBlockID: HeadingRenameUpgradeMode(codeModeStringDefault(input, "upgradeToBlockId", string(HeadingRenameUpgradeAuto))),
-		Fallback:         HeadingRenameFallbackMode(codeModeStringDefault(input, "fallback", string(HeadingRenameFallbackBlockID))),
 	})
 	if err != nil {
 		return codeModeFailure(err, 1)
@@ -157,13 +155,6 @@ func (s CodeModeNoteMoveService) Call(ctx context.Context, input map[string]any)
 		outcome.Stdout = s.RenderText(summary)
 	}
 	return outcome
-}
-
-func codeModeStringDefault(input map[string]any, key, fallback string) string {
-	if value := codeModeString(input, key); value != "" {
-		return value
-	}
-	return fallback
 }
 
 func codeModeBoolDefault(input map[string]any, key string, fallback bool) bool {
