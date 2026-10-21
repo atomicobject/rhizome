@@ -281,3 +281,11 @@ test("a paragraph longer than a passage is split, not cut", async () => {
   assert.ok(parts.at(-1).endsWith("tail-marker"));
   assert.deepEqual(parts.join(" ").split(/\s+/), text.split(/\s+/));
 });
+
+test("screening keeps the best passage even when it exceeds the run's share", async () => {
+  const { gate } = await import(new URL("screen.mjs", lib));
+  const answer = `The cause was ${"a stale lock ".repeat(25)}.`;
+  const kept = gate([{ id: "e1", text: `Why?\n\n${answer}` }], () => 1);
+  assert.equal(kept.length, 1);
+  assert.ok(kept[0].text.includes(answer));
+});

@@ -56,7 +56,8 @@ export function gate(episodes, scoreOf, share = SHARE) {
   const keep = new Map();
   let acc = 0;
   for (const p of all) {
-    if (acc + p.text.length > share * total) continue;
+    // The best passage is always kept, so a small run never drops its answer.
+    if (acc && acc + p.text.length > share * total) continue;
     acc += p.text.length;
     keep.set(p.e.id, [...(keep.get(p.e.id) ?? []), p]);
   }

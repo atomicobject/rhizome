@@ -60,12 +60,16 @@ function normalizeRemote(url) {
     .toLowerCase();
 }
 
+// Transcripts record Windows paths with either separator; Git prints forward slashes.
+const slash = (p) => (p ? p.replace(/\\/g, "/") : p);
+
 function repoMatcher(root) {
+  root = slash(root);
   const configPath = join(root, ".rhizome/session-memory/config.json");
   const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf8")) : {};
   const roots = new Set([root]);
   for (const line of git(root, "worktree", "list", "--porcelain").split("\n")) {
-    if (line.startsWith("worktree ")) roots.add(line.slice(9));
+    if (line.startsWith("worktree ")) roots.add(slash(line.slice(9)));
   }
   const patterns = [...roots].map((r) => globToRegExp(r)).concat((config.extraPaths ?? []).map(globToRegExp));
   const remote = normalizeRemote(git(root, "remote", "get-url", "origin"));
@@ -75,6 +79,7 @@ function repoMatcher(root) {
     // The repository root for a session's working directory, so paths from
     // sessions started in a subdirectory are still repository-relative.
     rootOf(cwd) {
+      cwd = slash(cwd);
       if (!cwd) return cwd;
       for (const r of roots) if (cwd === r || cwd.startsWith(r + "/")) return r;
       for (const { re, depth } of extraDepths) {
@@ -85,7 +90,7 @@ function repoMatcher(root) {
     },
     matches(cwd, repoUrl) {
       if (repoUrl && remote && normalizeRemote(repoUrl) === remote) return true;
-      return !!cwd && patterns.some((re) => re.test(cwd));
+      return !!cwd && patterns.some((re) => re.test(slash(cwd)));
     },
   };
 }
