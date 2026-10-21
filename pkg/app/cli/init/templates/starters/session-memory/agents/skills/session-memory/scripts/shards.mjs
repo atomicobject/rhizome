@@ -21,7 +21,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { validateLearning } from "./lib/extract.mjs";
 import { redact } from "./lib/redact.mjs";
@@ -100,6 +100,14 @@ function scan(fields) {
   }
 }
 
+// Every tracked write goes through here: the whole text is scanned, so no
+// field escapes the check. The refusal names the line, never the value.
+function publish(file, text) {
+  const line = text.split("\n").findIndex((l) => redact(l).count);
+  if (line >= 0 || redact(text).count) throw new Refused(`${line >= 0 ? `line ${line + 1}` : "a multiline value"} of ${basename(file)} would publish a credential-shaped value; edit it out first`);
+  writeAtomic(file, text);
+}
+
 function edited(base, file) {
   const edit = file ? JSON.parse(readFileSync(file, "utf8")) : {};
   const allowed = ["kind", "statement", "why", "appliesTo", "commands", "target"];
@@ -145,7 +153,7 @@ function decide(root, store, { shared, statement, kind, appliesTo, cluster, deci
   const at = new Date().toISOString();
   const event = { learning: learningHash({ kind, statement }), cluster: cluster ?? null, kind, statement, appliesTo: appliesTo ?? [], decision, reason, decider, at };
   const name = `${event.learning}--${at.replace(/\D/g, "").slice(0, 14)}-${slugify(decider)}.json`;
-  if (shared) writeAtomic(join(root, DECISION_DIR, name), JSON.stringify(event, null, 2) + "\n");
+  if (shared) publish(join(root, DECISION_DIR, name), JSON.stringify(event, null, 2) + "\n");
   else store.write(`decisions/${name}`, event);
   return shared ? `${DECISION_DIR}/${name}` : `.rhizome/session-memory/decisions/${name}`;
 }
@@ -175,11 +183,12 @@ export function run(argv, { root = repoRoot(), state, user } = {}) {
       const path = `${SHARD_DIR}/${s.kind.replace(/_/g, "-")}-${slugify(titleOf(s.statement))}.md`;
       if (existsSync(join(root, path))) throw new Refused(`${path} already exists; if it is the same learning, revise that shard instead`);
       const who = reviewer(root, user);
-      const shard = { ...s, reviewedBy: who.link, reviewedOn: today(), verifiedOn: today(), checked: (s.verification ?? []).map((v) => v.path), toolCalls: p.evidence.reduce((t, e) => t + (e.toolCalls ?? 0), 0), evidenceLines: evidenceLines(p.evidence) };
+      const verification = (s.verification ?? []).map((v) => ({ ...v, checked: redact(v.checked ?? "").text }));
+      const shard = { ...s, verification, reviewedBy: who.link, reviewedOn: today(), verifiedOn: today(), checked: verification.map((v) => v.path), toolCalls: p.evidence.reduce((t, e) => t + (e.toolCalls ?? 0), 0), evidenceLines: evidenceLines(p.evidence) };
       shard.verifiedFingerprint = freshPrint(root, shard);
       store.lock();
       try {
-        writeAtomic(join(root, path), renderShard(shard));
+        publish(join(root, path), renderShard(shard));
         store.write("reviewed.json", { ...store.read("reviewed.json", {}), [p.cluster]: { action: "approved", path, at: new Date().toISOString() } });
       } finally {
         store.unlock();
@@ -226,7 +235,7 @@ export function run(argv, { root = repoRoot(), state, user } = {}) {
           ? text.replace(/^verified-fingerprint: .*$/m, `verified-fingerprint: ${print}`)
           : text.replace(/^(verified-on: .*)$/m, `$1\nverified-fingerprint: ${print}`)
         : text.replace(/^verified-fingerprint: .*\n/m, "");
-      writeAtomic(join(root, id), next);
+      publish(join(root, id), next);
       return { renewed: id, verifiedFingerprint: print };
     }
     case "revise": {
@@ -238,7 +247,7 @@ export function run(argv, { root = repoRoot(), state, user } = {}) {
       const verification = old.checked.map((path) => ({ path, checked: "checked at the original approval" }));
       const shard = { ...s, reviewedBy: who.link, reviewedOn: today(), verifiedOn: today(), families: old.families, toolCalls: old.toolCalls, checked: old.checked, verification, evidenceLines: old.evidenceSection.split("\n").filter(Boolean) };
       shard.verifiedFingerprint = freshPrint(root, shard);
-      writeAtomic(join(root, id), renderShard(shard));
+      publish(join(root, id), renderShard(shard));
       return { revised: id, approvedHash: approvedHash(shard) };
     }
     case "retire": {

@@ -215,7 +215,7 @@ The rest of this story applies where hooks are installed.
 
 ### Local data and extraction
 
-- All unreviewed data MUST live under `.rhizome/session-memory/`, created with owner-only permissions. A lock MUST guard every write.
+- All unreviewed data MUST live under `.rhizome/session-memory/`, created with owner-only permissions on macOS and Linux. On Windows, which has no owner-only mode bits, it inherits the checkout's access control, and the skill tells the person before a first run there. A lock MUST guard every write.
 - Session discovery MUST match by recorded `cwd` and, for Codex, by `git.repository_url`. It MUST cover the repository root, current worktrees, and configured path patterns for deleted worktrees, and MUST skip Codex guardian-review sessions.
 - Episodes MUST share one representation that carries:
   - family and lineage

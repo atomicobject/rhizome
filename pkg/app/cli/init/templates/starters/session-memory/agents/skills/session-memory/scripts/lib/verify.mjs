@@ -5,10 +5,11 @@
 // a command of its own.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { LEARNING_FIELDS, STATEMENT_MAX, validateLearning } from "./extract.mjs";
 import { PACKET_PREFIX, VERIFY_RULES } from "./prompts.mjs";
+import { redact } from "./redact.mjs";
 
 const MAX_ROUNDS = 2;
 const MAX_REQUESTS = 6;
@@ -66,8 +67,8 @@ const cap = (s, n) => (s.length > n ? `${s.slice(0, n)}\n[... ${s.length - n} mo
 // Searches tracked files; long lines are cut so one minified file cannot fill the packet.
 function grep(root, args, max) {
   try {
-    const out = execFileSync("git", ["-C", root, "grep", "-n", "-I", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 20000, maxBuffer: 16 << 20 });
-    return cap(out.split("\n").map((l) => l.slice(0, 240)).join("\n"), max);
+    const out = execFileSync("git", ["-C", root, "grep", "-n", "-I", ...args, ":(exclude,glob)**/.env*"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 20000, maxBuffer: 16 << 20 });
+    return cap(redact(out.split("\n").map((l) => l.slice(0, 240)).join("\n")).text, max);
   } catch (e) {
     if (e.status === 1) return "(no matches)";
     return `(failed: ${String(e.stderr || e.message).split("\n")[0].slice(0, 200)})`;
@@ -76,13 +77,14 @@ function grep(root, args, max) {
 
 function readFile(root, path, start = 1, end = 0) {
   if (!trackedFiles(root).has(path)) return `(not a tracked file: ${path})`;
-  // Tracked symlinks can point at directories or outside the checkout.
+  if (/(^|\/)\.env(\.|$)/.test(path)) return `(credential files are not read: ${path})`;
+  // A tracked symlink can point outside the checkout, so only regular files are read.
   try {
-    if (!statSync(join(root, path)).isFile()) return `(not a regular file: ${path})`;
+    if (!lstatSync(join(root, path)).isFile()) return `(not a regular file: ${path})`;
   } catch {
     return `(unreadable: ${path})`;
   }
-  const lines = readFileSync(join(root, path), "utf8").split("\n");
+  const lines = redact(readFileSync(join(root, path), "utf8")).text.split("\n");
   const from = Math.max(1, start);
   const to = end > 0 ? Math.min(end, lines.length) : lines.length;
   const body = lines.slice(from - 1, to).map((l, i) => `${from + i}\t${l}`).join("\n");

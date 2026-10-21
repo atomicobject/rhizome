@@ -84,6 +84,15 @@ test("approval is refused over uncommitted files and credential-shaped text", ()
   assert.equal(existsSync(join(root, "docs/context-shards")), false);
 });
 
+test("every field written to the repository is scanned, including verification notes and dismissal reasons", () => {
+  const secret = ["ghp", "a1B2".repeat(9)].join("_");
+  const { root, sm } = repo([proposal("k-1", { verification: [{ path: "pkg/store/db.go", checked: `Configured with ${secret}.` }] }), proposal("k-2")]);
+  const { approved } = sm("approve", "k-1", "--confirm-publish");
+  assert.ok(!readFileSync(join(root, approved), "utf8").includes(secret));
+  assert.throws(() => sm("dismiss", "k-2", "--reason", `rotated ${secret}`, "--shared"), /credential-shaped/);
+  assert.equal(existsSync(join(root, "docs/context-shards/decisions")), false);
+});
+
 test("a hand edit or a changed file withholds the shard until it is revised or renewed", () => {
   const { root, sm } = repo([proposal("k-1")]);
   const { approved } = sm("approve", "k-1", "--confirm-publish");

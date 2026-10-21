@@ -68,6 +68,32 @@ export function openStore(dir) {
   chmodSync(dir, 0o700);
   const lockDir = join(dir, "lock");
   const cacheFile = (key) => join(dir, "cache", key.slice(0, 2), `${key}.json`);
+  const ownerFile = join(lockDir, "owner.json");
+  let held = null;
+  // A dead owner's lock is removed only under a second lock, after checking
+  // the owner is still the one seen dead, so a contender acting on an old
+  // reading cannot remove a lock another process has just taken.
+  // ponytail: a crash inside this window leaves the guard behind; the error
+  // names it for the person to delete.
+  const reclaim = (owner) => {
+    const guard = `${lockDir}.reclaim`;
+    try {
+      mkdirSync(guard, { mode: 0o700 });
+    } catch (err) {
+      if (err.code === "EEXIST") throw new Error(`${guard} exists: another run is recovering the lock; if no run is active, delete it`);
+      throw err;
+    }
+    try {
+      if (JSON.stringify(readJson(ownerFile, null)) !== JSON.stringify(owner)) return;
+      const tomb = tmpName(lockDir);
+      renameSync(lockDir, tomb);
+      rmSync(tomb, { recursive: true, force: true });
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    } finally {
+      rmSync(guard, { recursive: true, force: true });
+    }
+  };
   return {
     dir,
     path: (...parts) => join(dir, ...parts),
@@ -77,31 +103,32 @@ export function openStore(dir) {
     // The lock directory appears whole, owner file included, through one
     // rename. A lock whose process died on this host is taken over.
     lock() {
+      const token = randomBytes(8).toString("hex");
       const staged = tmpName(lockDir);
       mkdirSync(staged, { mode: 0o700 });
-      writeFileSync(join(staged, "owner.json"), JSON.stringify({ pid: process.pid, host: hostname(), at: new Date().toISOString() }));
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          renameSync(staged, lockDir);
-          return;
-        } catch (err) {
-          if (!["EEXIST", "ENOTEMPTY"].includes(err.code)) throw err;
+      writeFileSync(join(staged, "owner.json"), JSON.stringify({ pid: process.pid, host: hostname(), at: new Date().toISOString(), token }));
+      try {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            renameSync(staged, lockDir);
+            held = token;
+            return;
+          } catch (err) {
+            if (!["EEXIST", "ENOTEMPTY", "EPERM"].includes(err.code)) throw err;
+          }
+          const owner = readJson(ownerFile, null);
+          if (owner && (owner.host !== hostname() || alive(owner.pid))) throw new Error(`${dir} is locked by pid ${owner.pid} on ${owner.host} since ${owner.at}`);
+          reclaim(owner);
         }
-        const owner = readJson(join(lockDir, "owner.json"), null);
-        if (owner && (owner.host !== hostname() || alive(owner.pid))) {
-          rmSync(staged, { recursive: true, force: true });
-          throw new Error(`${dir} is locked by pid ${owner.pid} on ${owner.host} since ${owner.at}`);
-        }
-        const tomb = tmpName(lockDir);
-        try {
-          renameSync(lockDir, tomb);
-          rmSync(tomb, { recursive: true, force: true });
-        } catch {}
+        throw new Error(`could not take the lock at ${lockDir}`);
+      } finally {
+        rmSync(staged, { recursive: true, force: true });
       }
-      rmSync(staged, { recursive: true, force: true });
-      throw new Error(`could not take the lock at ${lockDir}`);
     },
-    unlock: () => rmSync(lockDir, { recursive: true, force: true }),
+    unlock() {
+      if (held && readJson(ownerFile, null)?.token === held) rmSync(lockDir, { recursive: true, force: true });
+      held = null;
+    },
 
     cacheGet: (key) => readJson(cacheFile(key), null),
     cachePut: (key, value) => writeJson(cacheFile(key), value),

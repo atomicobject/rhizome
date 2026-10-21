@@ -29,6 +29,12 @@ const QUOTED_ASSIGNMENT_IN_PROSE = new RegExp(
   String.raw`(\b${SENSITIVE_NAME}\s*[:=]\s*)(\\?")(.*?)(\\?")(?=[\s;:.)!?]|$)`,
   "gi",
 );
+// A quoted value that spans lines, up to 1,000 characters, before the
+// single-line rules see only its first line.
+const MULTILINE_QUOTED = new RegExp(
+  String.raw`(\b${SENSITIVE_NAME}["']?\s*[:=]\s*)(["'])((?:(?!\2)[^\\]|\\[\s\S]){0,1000}?\n(?:(?!\2)[^\\]|\\[\s\S]){0,1000}?)\2`,
+  "gi",
+);
 const SINGLE_QUOTED_ASSIGNMENT = new RegExp(String.raw`(\b${SENSITIVE_NAME}\s*[:=]\s*)'([^'\n]*)'`, "gi");
 const ASSIGNMENT = new RegExp(String.raw`(\b${SENSITIVE_NAME}\s*[:=]\s*)([^\s"'\\,;)}\]]{8,})`, "gi");
 // YAML block scalars: `secret: |` followed by indented lines.
@@ -72,7 +78,8 @@ function looksSecret(raw) {
 export function redact(text) {
   if (!text) return { text: text ?? "", count: 0 };
   let count = 0;
-  let out = text;
+  // CRLF and lone CR become LF so line-based rules see every line ending.
+  let out = text.replace(/\r\n?/g, "\n");
   for (const [kind, re] of PATTERNS) {
     out = out.replace(re, () => {
       count++;
@@ -90,6 +97,10 @@ export function redact(text) {
   out = out.replace(YAML_BLOCK, (_, head) => {
     count++;
     return `${head}  [REDACTED:assignment]\n`;
+  });
+  out = out.replace(MULTILINE_QUOTED, (_, head, quote) => {
+    count++;
+    return `${head}${quote}[REDACTED:assignment]${quote}`;
   });
   out = out.replace(QUOTED_ASSIGNMENT, (match, head, open, value, close) => {
     if (value.length < 4 || value.startsWith("[REDACTED")) return match;

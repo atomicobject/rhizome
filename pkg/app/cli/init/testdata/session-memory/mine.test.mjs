@@ -37,8 +37,11 @@ test("a cold run proposes tiers A and B, holds tier C, and keeps state owner-onl
   const tiers = Object.fromEntries(read(state, "proposals.json").map((p) => [p.statement.match(/Topic (\w+)/)[1], p.tier]));
   assert.deepEqual(tiers, { alpha: "A", beta: "B" });
   assert.equal(r.report.held.tierC, 1);
-  assert.equal(statSync(state).mode & 0o777, 0o700);
-  assert.equal(statSync(join(state, "proposals.json")).mode & 0o777, 0o600);
+  // Windows has no owner-only mode bits; the state inherits the checkout's access control.
+  if (process.platform !== "win32") {
+    assert.equal(statSync(state).mode & 0o777, 0o700);
+    assert.equal(statSync(join(state, "proposals.json")).mode & 0o777, 0o600);
+  }
   assert.ok(!existsSync(join(state, "lock")));
   const m = manifests(state)[0];
   assert.equal(m.bindings.extract.model, "claude-haiku-5-5");

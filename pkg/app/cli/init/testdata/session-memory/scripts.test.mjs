@@ -92,6 +92,9 @@ test("redacts quoted values with spaces, escaped quotes, single quotes, and YAML
     [String.raw`{\"client_secret\": \"ab\\\"cd efgh ijkl\"}`, "efgh ijkl"],
     [`API_TOKEN='tok en value 123'`, "en value"],
     [`private_key: |\n  line-one-secret\n  line-two-secret\nnext: ok`, "line-two-secret"],
+    [`private_key: |\r\n  line-one-secret\r\n  line-two-secret\r\nnext: ok`, "line-two-secret"],
+    [`password: "first line\nsecond-line-secret"`, "second-line-secret"],
+    [`api_key = 'first line\nsecond-line-secret'`, "second-line-secret"],
   ];
   for (const [input, leaked] of cases) {
     const { text } = redact(input);
@@ -199,4 +202,45 @@ test("a Codex harness picks the newest catalog version, and a missing role stops
   assert.deepEqual([bindings.extract.model, bindings.extract.effort, bindings.extract.choice], ["gpt-6.2-sol", "low", "newer-version"]);
   const flagged = mergeProfile(shipped, null, ["verify=claude:claude-opus-5-5:medium"]);
   await assert.rejects(resolve(flagged, { providers: ["codex"], statuses: [codexStatus], probe: async (r) => r.model }), /no model for verify/);
+});
+
+test("verification packets read only regular, non-credential files and redact what they read", async (t) => {
+  if (process.platform === "win32") t.skip("symlinks need privileges on Windows");
+  const { execFileSync } = await import("node:child_process");
+  const { mkdtempSync, symlinkSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { initialPacket } = await import(new URL("verify.mjs", lib));
+  const outside = join(mkdtempSync(join(tmpdir(), "sm-outside-")), "notes.txt");
+  writeFileSync(outside, "outside-marker\n");
+  const root = mkdtempSync(join(tmpdir(), "sm-verify-"));
+  writeFileSync(join(root, "store.go"), `package store // ${fake.github}\n`);
+  writeFileSync(join(root, ".env"), "env-marker\n");
+  symlinkSync(outside, join(root, "link.txt"));
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  execFileSync("git", ["add", "-A"], { cwd: root });
+  const cl = { statement: "See `store.go`, `link.txt`, and `.env`.", appliesTo: [] };
+  const packet = JSON.stringify(await initialPacket({ root, search: async () => "" }, cl, []));
+  assert.ok(packet.includes("package store"));
+  assert.ok(!packet.includes(fake.github));
+  assert.ok(!packet.includes("outside-marker"));
+  assert.ok(!packet.includes("env-marker"));
+});
+
+test("a dead owner's lock is taken over, a live one is not, and unlock removes only its own lock", async () => {
+  const { mkdirSync, mkdtempSync, writeFileSync, existsSync } = await import("node:fs");
+  const { hostname, tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { openStore } = await import(new URL("store.mjs", lib));
+  const dir = mkdtempSync(join(tmpdir(), "sm-lock-"));
+  mkdirSync(join(dir, "lock"));
+  writeFileSync(join(dir, "lock/owner.json"), JSON.stringify({ pid: 2 ** 22 + 7, host: hostname(), at: "2026-01-01T00:00:00Z", token: "dead" }));
+  const a = openStore(dir);
+  const b = openStore(dir);
+  a.lock();
+  assert.throws(() => b.lock(), new RegExp(`locked by pid ${process.pid}`));
+  b.unlock();
+  assert.ok(existsSync(join(dir, "lock")), "another store's unlock left the lock alone");
+  a.unlock();
+  assert.ok(!existsSync(join(dir, "lock")));
 });
