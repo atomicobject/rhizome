@@ -29,6 +29,9 @@ type AgentPreferences struct {
 	Codex       string `json:"codex,omitempty" yaml:"codex,omitempty"`
 	AgentSkills string `json:"agentSkills,omitempty" yaml:"agentSkills,omitempty"`
 	AgentsMd    string `json:"agentsmd,omitempty" yaml:"agentsmd,omitempty"`
+	// Hooks is on when the person turned on starter hooks; empty or off
+	// leaves them off ([[agent-surface-integration-modes#^SPEC-0045-US5-AC2]]).
+	Hooks string `json:"hooks,omitempty" yaml:"hooks,omitempty"`
 }
 
 func (a AgentPreferences) empty() bool {
@@ -36,7 +39,8 @@ func (a AgentPreferences) empty() bool {
 		strings.TrimSpace(a.Claude) == "" &&
 		strings.TrimSpace(a.Codex) == "" &&
 		strings.TrimSpace(a.AgentSkills) == "" &&
-		strings.TrimSpace(a.AgentsMd) == ""
+		strings.TrimSpace(a.AgentsMd) == "" &&
+		strings.TrimSpace(a.Hooks) == ""
 }
 
 func (a AgentPreferences) Empty() bool {

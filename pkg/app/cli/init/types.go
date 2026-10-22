@@ -36,6 +36,8 @@ type RunOptions struct {
 	// Agents chooses agent integrations without asking: a comma-separated
 	// subset of claude, codex, and cursor, or none.
 	Agents string
+	// Hooks turns starter hooks on or off; empty keeps the stored choice.
+	Hooks string
 	// Search chooses the semantic search provider: voyage, openai, ollama, or off.
 	Search string
 

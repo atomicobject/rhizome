@@ -19,6 +19,11 @@ type summaryField struct {
 
 func (r *initRun) summaryFields(s setup) []summaryField {
 	labels := []string{"Docs", "Code", "Agents", "Search", "Workflow", "Add-ons"}
+	cfg := s.cfg
+	cfg.WorkflowTemplates = s.workflows
+	if hooksRelevant(cfg) {
+		labels = append(labels, "Hooks")
+	}
 	out := make([]summaryField, 0, len(labels))
 	for _, label := range labels {
 		out = append(out, summaryField{label: label, value: r.summaryValue(s, label)})
@@ -38,6 +43,8 @@ func (r *initRun) summaryValue(s setup, label string) string {
 		return searchStatus(s.cfg, r.session)
 	case "Add-ons":
 		return r.addonsLabel(s)
+	case "Hooks":
+		return readyLabel(hooksOn(s.cfg), "on", "off")
 	default:
 		return workflowLabel(s.workflows, s.cfg.WorkflowTemplateManagement.Ejected)
 	}
@@ -147,6 +154,7 @@ func (r *initRun) printRerun(plan rerunPlan, s setup) {
 	for _, field := range r.summaryFields(s) {
 		printFinding(out, field.label, field.value)
 	}
+	printHookStatus(out, r.layout.ProjectRoot, plan.res)
 	if changes := append(append([]planLine{}, plan.settings...), plan.files...); len(changes) > 0 {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, styleHeading(out, "Changes"))

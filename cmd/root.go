@@ -86,6 +86,14 @@ func (app *commandInvocation) ExecuteC() (*cobra.Command, error) {
 func Execute() int {
 
 	decision := maybeDelegateToRepoBinary(os.Args[1:])
+	if IsHookInvocation(os.Args[1:]) {
+		// Hooks use an installed repository binary but never bootstrap one
+		// or stop on a delegation problem.
+		if decision.Delegate && decision.Err == nil {
+			return executeRepoBinary(decision.Target, os.Args[1:])
+		}
+		return runHook(os.Args[2:])
+	}
 	if shouldPrintRepoDelegateWarning(os.Args[1:], decision.Warning) {
 		fmt.Fprintf(os.Stderr, "rzm: warning: %s\n", decision.Warning)
 	}

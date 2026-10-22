@@ -71,6 +71,8 @@ type filePlan struct {
 	// when the plan is applied.
 	commandDirs     []string
 	currentCommands map[string]struct{}
+	// hookFiles are harness settings files holding Rhizome hook entries.
+	hookFiles []generatedHookFile
 }
 
 func (p *filePlan) addFile(file generatedFile) {
@@ -145,6 +147,7 @@ type generatedInputs struct {
 	templates   []string
 	surfaceOpts AgentSurfaceOptions
 	refreshDocs bool
+	hookFiles   []generatedHookFile
 }
 
 // syncGeneratedFiles plans every generated file, applies the ownership rule,
@@ -180,6 +183,7 @@ func prepareGeneratedFiles(projectRoot string, in generatedInputs) (*preparedFil
 	if err := planRemovedStarterFiles(in.templates, in.surfaceOpts.PreserveSkillTemplates, record, plan); err != nil {
 		return nil, err
 	}
+	plan.hookFiles = in.hookFiles
 	prepared, err := classifyFilePlan(projectRoot, plan, record)
 	if err != nil {
 		return nil, err
@@ -299,6 +303,15 @@ func (p *preparedFiles) pending() pendingFiles {
 			add(&out.Create, doc.rel)
 		}
 	}
+	for _, file := range p.plan.hookFiles {
+		if c := byKey[file.key()]; c != nil && c.take {
+			if _, err := os.Stat(filepath.Join(p.root, filepath.FromSlash(file.rel))); err == nil {
+				add(&out.Update, file.rel)
+			} else {
+				add(&out.Create, file.rel)
+			}
+		}
+	}
 	if p.removeRhizome {
 		add(&out.Remove, "RHIZOME.md")
 	}
@@ -378,6 +391,11 @@ func (p *preparedFiles) apply(ui ownershipUI) (syncReport, error) {
 	}
 	for i, doc := range plan.docs {
 		if err := applyDocChanges(projectRoot, doc, p.docStates[i], byKey, record, &report); err != nil {
+			return report, err
+		}
+	}
+	for _, file := range plan.hookFiles {
+		if err := applyHookFile(projectRoot, file, byKey[file.key()], record, &report); err != nil {
 			return report, err
 		}
 	}
