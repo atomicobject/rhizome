@@ -25,18 +25,28 @@ const warn = (what, err) => process.stderr.write(`session-memory hook: ${what}: 
 
 // The lookup command that shows the matches past the first `skip`, naming
 // this skill's lookup.mjs by absolute path, so it runs from any directory
-// the agent is in. A path that needs quoting is single-quoted for the
-// agent's shell: POSIX shells, including Claude Code's Git Bash on Windows,
-// or PowerShell for Codex on Windows.
-export function lookupCommand(skip, { harness, platform = process.platform } = {}) {
+// the agent is in, and quoted for the agent's shell: POSIX quoting off
+// Windows, PowerShell quoting for Codex on Windows. Claude Code on Windows
+// runs commands in Git Bash or PowerShell, which the hook cannot tell
+// apart, so it gets both forms, each labelled with its shell.
+export function lookupCommands(skip, { harness, platform = process.platform } = {}) {
   const script = fileURLToPath(new URL("./lookup.mjs", import.meta.url)).split(sep).join("/");
-  return `node ${shellQuote(script, platform === "win32" && harness === "codex")} --skip ${skip}`;
+  const posix = { shell: "Git Bash", command: `node ${posixQuote(script)} --skip ${skip}` };
+  const powershell = { shell: "PowerShell", command: `node ${powershellQuote(script)} --skip ${skip}` };
+  if (platform !== "win32") return [posix];
+  return harness === "codex" ? [powershell] : [posix, powershell];
 }
 
-const shellQuote = (s, powershell) => {
-  if (/^[\w@%+=:,./-]+$/.test(s)) return s;
-  return powershell ? `'${s.replaceAll("'", "''")}'` : `'${s.replaceAll("'", "'\\''")}'`;
-};
+export function lookupCommand(skip, options) {
+  const forms = lookupCommands(skip, options);
+  if (forms.length === 1) return forms[0].command;
+  return `${forms.map((f) => `${f.command} in ${f.shell}`).join(", or ")},`;
+}
+
+const posixQuote = (s) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replaceAll("'", "'\\''")}'`);
+// PowerShell splits an unquoted argument at a comma, and also ends a
+// single-quoted string at a typographic single quote.
+const powershellQuote = (s) => (/^[\w%+=:./-]+$/.test(s) ? s : `'${s.replace(/['\u2018\u2019\u201A\u201B]/g, "$&$&")}'`);
 
 export const moreLine = (n, command) => `${n} more context ${n === 1 ? "shard applies" : "shards apply"} everywhere; run ${command} to see them.`;
 

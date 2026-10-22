@@ -1,7 +1,7 @@
 // The session-memory handler `rzm hook` runs, against a scratch Git
 // repository with synthetic shards written straight to disk.
 import assert from "node:assert/strict";
-import { execFileSync, execSync, spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, realpathSync, utimesSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -11,7 +11,7 @@ import { scratchRepo } from "./fakes.mjs";
 const scripts = new URL("../../templates/starters/session-memory/agents/skills/session-memory/scripts/", import.meta.url);
 const S = await import(new URL("lib/shards.mjs", scripts));
 const { lookup } = await import(new URL("lookup.mjs", scripts));
-const { handle, cachedShards, HOOK_DIR, lookupCommand, moreLine } = await import(new URL("hook.mjs", scripts));
+const { handle, cachedShards, HOOK_DIR, lookupCommand, lookupCommands, moreLine } = await import(new URL("hook.mjs", scripts));
 
 const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
 
@@ -30,6 +30,15 @@ const read = (root, paths, over) => handle(request(root, { event: "post-tool-use
 const shell = (root, command, paths = []) => handle(request(root, { event: "post-tool-use", tool: "shell", command, paths }));
 const start = (root, over) => handle(request(root, { event: "session-start" }, over));
 const ids = (r) => r.items.map((i) => i.id);
+
+// Runs a lookup command as the agent's shell would: the PowerShell form in
+// PowerShell on Windows, the POSIX form in sh elsewhere.
+function runLookup(forms, cwd) {
+  if (process.platform !== "win32") return execFileSync("/bin/sh", ["-c", forms[0].command], { cwd, encoding: "utf8" });
+  const { command } = forms.find((f) => f.shell === "PowerShell");
+  const powershell = spawnSync("pwsh", ["-v"]).status === 0 ? "pwsh" : "powershell.exe";
+  return execFileSync(powershell, ["-NoProfile", "-Command", command], { cwd, encoding: "utf8" });
+}
 const pathOf = (id) => id.slice(0, id.lastIndexOf("@"));
 
 test("one index read fingerprints a shard exactly as git ls-files -s does", () => {
@@ -130,7 +139,7 @@ test("session start delivers only shards that apply everywhere, then says how ma
   const root = scratchRepo();
   shard(root, { statement: "Store rule: a busy timeout of 0 means the default." });
   shard(root, { statement: "Vendor rule: run make vendor-treesitter afterwards.", appliesTo: [], commands: ["go mod vendor"] });
-  const everywhere = Array.from({ length: 7 }, (_, k) => shard(root, { kind: "fact", statement: `Global fact ${k}: every package logs through one logger ${"and reports through one channel ".repeat(6)}`, appliesTo: [] }));
+  const everywhere = Array.from({ length: 7 }, (_, k) => shard(root, { kind: "fact", statement: `Global fact ${k}: every package logs through one logger ${"and reports through one channel ".repeat(12)}`, appliesTo: [] }));
   const r = start(root);
   assert.equal(r.items.length, 6);
   assert.ok(ids(r).slice(0, 5).every((id) => everywhere.includes(pathOf(id))));
@@ -138,7 +147,7 @@ test("session start delivers only shards that apply everywhere, then says how ma
   assert.match(more.id, /^session-memory:more@[0-9a-f]{16}$/);
   assert.equal(more.text, moreLine(2, lookupCommand(5)));
   // The command the line names shows exactly the shards it did not deliver.
-  const shown = execSync(more.text.match(/run (node .+) to see them\.$/)[1], { cwd: root, encoding: "utf8" });
+  const shown = runLookup(lookupCommands(5, { harness: "claude" }), root);
   const delivered = ids(r).slice(0, 5).map(pathOf);
   assert.deepEqual(everywhere.filter((p) => shown.includes(p)), everywhere.filter((p) => !delivered.includes(p)));
   assert.deepEqual(ids(handle(request(root, { event: "subagent-start", reset: "compact" }))), ids(r));
@@ -175,26 +184,29 @@ test("the closing line names lookup.mjs where the skill is installed", async () 
   const root = realpathSync(scratchRepo());
   const installed = join(root, ".claude/skills/session-memory/scripts");
   cpSync(fileURLToPath(scripts), installed, { recursive: true });
-  const copy = await import(new URL("hook.mjs", `file://${installed}/`).href);
-  assert.equal(copy.lookupCommand(5), `node ${join(installed, "lookup.mjs").split(sep).join("/")} --skip 5`);
+  const copy = await import(new URL("hook.mjs", pathToFileURL(`${installed}/`)).href);
+  assert.ok(copy.lookupCommand(5).includes(join(installed, "lookup.mjs").split(sep).join("/")));
   // It runs from a subdirectory, where the agent's shell may be.
   mkdirSync(join(root, "src"), { recursive: true });
-  execSync(copy.lookupCommand(0), { cwd: join(root, "src"), encoding: "utf8" });
+  runLookup(copy.lookupCommands(0), join(root, "src"));
 });
 
-test("the closing line quotes an install path the agent's shell would otherwise expand", async () => {
+test("the closing line quotes an install path for the agent's shell", async () => {
   const root = realpathSync(scratchRepo());
-  const installed = join(root, "it's $HOME `id` dir", "scripts");
+  const installed = join(root, "O'Neil $HOME `id` dir", "scripts");
   cpSync(fileURLToPath(scripts), installed, { recursive: true });
   const copy = await import(new URL("hook.mjs", pathToFileURL(`${installed}/`)).href);
   const script = join(installed, "lookup.mjs").split(sep).join("/");
-  assert.equal(copy.lookupCommand(3), `node '${script.replaceAll("'", "'\\''")}' --skip 3`);
-  assert.equal(copy.lookupCommand(3, { harness: "codex", platform: "win32" }), `node '${script.replaceAll("'", "''")}' --skip 3`);
-  assert.equal(copy.lookupCommand(3, { harness: "claude", platform: "win32" }), copy.lookupCommand(3));
-  // The shell runs exactly that script.
+  const posix = `node '${script.replaceAll("'", "'\\''")}' --skip 3`;
+  const powershell = `node '${script.replaceAll("'", "''")}' --skip 3`;
+  assert.equal(copy.lookupCommand(3, { platform: "linux" }), posix);
+  assert.equal(copy.lookupCommand(3, { harness: "codex", platform: "win32" }), powershell);
+  // Claude Code on Windows may run commands in Git Bash or PowerShell.
+  assert.deepEqual(copy.lookupCommands(3, { harness: "claude", platform: "win32" }), [{ shell: "Git Bash", command: posix }, { shell: "PowerShell", command: powershell }]);
+  assert.equal(copy.lookupCommand(3, { harness: "claude", platform: "win32" }), `${posix} in Git Bash, or ${powershell} in PowerShell,`);
+  // The agent's shell runs exactly that script.
   shard(root, { statement: "Global rule: every package logs through one logger.", appliesTo: [] });
-  const shown = execSync(copy.lookupCommand(0), { cwd: root, encoding: "utf8", shell: "/bin/sh" });
-  assert.match(shown, /Global rule/);
+  assert.match(runLookup(copy.lookupCommands(0, { harness: "claude" }), root), /Global rule/);
 });
 
 test("parsed shards are cached after a consistent read and reused until the listing changes", () => {
