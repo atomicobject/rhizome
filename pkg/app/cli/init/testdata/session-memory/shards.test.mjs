@@ -105,6 +105,16 @@ test("a change refuses while another review holds the lock", async () => {
   assert.ok(sm("dismiss", "k-1", "--reason", "covered elsewhere", "--local").dismissed);
 });
 
+test("approval refuses a scope that names no tracked file", () => {
+  const { root, sm } = repo([proposal("k-1")]);
+  const edit = join(root, "..", `edit-${Date.now()}.json`);
+  writeFileSync(edit, JSON.stringify({ appliesTo: ["pkg/stor/**/*.go"] }));
+  assert.throws(() => sm("approve", "k-1", "--confirm-publish", "--edit", edit), /no tracked file matches pkg\/stor/);
+  writeFileSync(edit, JSON.stringify({ kind: "where_to_find", target: "docs/missing.md" }));
+  assert.throws(() => sm("approve", "k-1", "--confirm-publish", "--edit", edit), /target docs\/missing.md is not a tracked file/);
+  assert.deepEqual(sm("list").map((p) => p.cluster), ["k-1"]);
+});
+
 test("approval is refused over uncommitted files and credential-shaped text", () => {
   const secret = ["ghp", "a1B2".repeat(9)].join("_");
   const { root, sm } = repo([proposal("k-1"), proposal("k-2", { statement: `Use token ${secret} for the store tests.` })]);

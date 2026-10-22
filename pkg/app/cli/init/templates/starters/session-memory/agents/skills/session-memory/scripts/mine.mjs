@@ -301,7 +301,9 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
   const planName = `runs/${run.id}/verify-plan.json`;
   let plan = store.read(planName, null);
   if (!plan) {
-    const open = (c) => due(c) && !reviewed[c.id];
+    // A learning a person already settled, here or in a teammate's shared
+    // decision or shard, does not spend a verification call.
+    const open = (c) => due(c) && !reviewed[c.id] && !settled.has(learningHash(c));
     const byWorth = (x, y) => (y.worth ?? 0) - (x.worth ?? 0) || (x.id < y.id ? -1 : 1);
     const ids = new Set(touched.map((c) => c.id));
     plan = [

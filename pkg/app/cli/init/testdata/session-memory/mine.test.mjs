@@ -2,7 +2,7 @@
 // crash resume, cluster identity, budgets, frozen bindings, and the ledger.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -270,6 +270,17 @@ test("review regressions: unreadable packet paths, cost totals, unreported probe
   assert.equal(first.report.proposals, 0);
   const second = await run(rejected, fakeClients(), { discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]) });
   assert.equal(second.report.proposals, 1);
+
+  // A learning a teammate already dismissed in a shared decision is not verified again.
+  const shared = tempRepo();
+  const sharedState = tmp();
+  const before = await mine({ root: shared, state: sharedState, budget: 5, harness: "claude", discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]), log: () => {} }, fakeClients());
+  const [dismissed] = read(sharedState, "proposals.json");
+  const { learningHash } = await import(new URL("../../templates/starters/session-memory/agents/skills/session-memory/scripts/lib/shards.mjs", import.meta.url));
+  mkdirSync(join(shared, "docs/context-shards/decisions"), { recursive: true });
+  writeFileSync(join(shared, "docs/context-shards/decisions", `${learningHash(dismissed)}--1.json`), JSON.stringify({ learning: learningHash(dismissed), decision: "dismissed", statement: dismissed.statement, kind: dismissed.kind }));
+  const after = await mine({ root: shared, state: tmp(), budget: 5, harness: "claude", discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]), log: () => {} }, fakeClients());
+  assert.equal(after.report.verified.planned, before.report.verified.planned - 1);
 
   // Verification vouches for a commit only when the checkout's tracked files match it.
   assert.match(read(retry, "proposals.json")[0].verified.commit, /^[0-9a-f]{40}$/);

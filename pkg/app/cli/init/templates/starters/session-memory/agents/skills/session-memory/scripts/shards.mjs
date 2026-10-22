@@ -143,6 +143,15 @@ function changedSinceVerified(root, p, shard) {
   }
 }
 
+// A shard whose scope matches nothing would be withheld as stale the moment
+// it was written, so its patterns and target must name tracked files.
+function checkScope(root, s) {
+  const tracked = git(root, ["ls-files", "-z"]).split("\0").filter(Boolean);
+  const empty = (s.appliesTo ?? []).filter((g) => !tracked.some((f) => matchesAny([g], f)));
+  if (empty.length) throw new Refused(`no tracked file matches ${empty.join(", ")}; fix the pattern with --edit`);
+  if (s.target && !tracked.includes(s.target)) throw new Refused(`target ${s.target} is not a tracked file; fix it with --edit`);
+}
+
 // A shard whose patterns match much of the repository reaches nearly every
 // agent, so approval asks for narrower patterns unless the reviewer confirms.
 function checkBreadth(root, s, broad) {
@@ -208,6 +217,7 @@ function dispatch(a, { root, store, user }) {
       if (!a["confirm-publish"]) throw new Refused("ask the reviewer to confirm the statement is fit to publish in this repository, then pass --confirm-publish");
       const p = find(store, root, id);
       const s = edited(p, a.edit);
+      checkScope(root, s);
       checkBreadth(root, s, a.broad);
       const path = `${SHARD_DIR}/${s.kind.replace(/_/g, "-")}-${slugify(titleOf(s.statement))}.md`;
       if (existsSync(join(root, path))) throw new Refused(`${path} already exists; if it is the same learning, revise that shard instead`);
@@ -263,6 +273,7 @@ function dispatch(a, { root, store, user }) {
       if (!a["confirm-publish"]) throw new Refused("ask the reviewer to confirm the revised statement is fit to publish, then pass --confirm-publish");
       const old = shardAt(root, id, a.expect);
       const s = edited({ kind: old.kind, statement: old.statement, why: old.why, appliesTo: old.appliesTo, commands: old.commands, target: old.target }, a.edit);
+      checkScope(root, s);
       checkBreadth(root, s, a.broad);
       const who = reviewer(root, user);
       const verification = old.checked.map((path) => ({ path, checked: "checked at the original approval" }));
