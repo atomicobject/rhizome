@@ -281,8 +281,8 @@ test("review regressions: unreadable packet paths, cost totals, unreported probe
   const before = await mine({ root: shared, state: sharedState, budget: 5, harness: "claude", discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]), log: () => {} }, fakeClients());
   const [dismissed] = read(sharedState, "proposals.json");
   const { learningHash } = await import(new URL("../../templates/starters/session-memory/agents/skills/session-memory/scripts/lib/shards.mjs", import.meta.url));
-  mkdirSync(join(shared, "docs/context-shards/decisions"), { recursive: true });
-  writeFileSync(join(shared, "docs/context-shards/decisions", `${learningHash(dismissed)}--1.json`), JSON.stringify({ learning: learningHash(dismissed), decision: "dismissed", statement: dismissed.statement, kind: dismissed.kind }));
+  mkdirSync(join(shared, "docs/memory/context-shards/decisions"), { recursive: true });
+  writeFileSync(join(shared, "docs/memory/context-shards/decisions", `${learningHash(dismissed)}--1.json`), JSON.stringify({ learning: learningHash(dismissed), decision: "dismissed", statement: dismissed.statement, kind: dismissed.kind }));
   const after = await mine({ root: shared, state: tmp(), budget: 5, harness: "claude", discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]), log: () => {} }, fakeClients());
   assert.equal(after.report.verified.planned, before.report.verified.planned - 1);
 
