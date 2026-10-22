@@ -60,6 +60,9 @@ test("shell paths: reads, cd prefixes, redirects, and ignored commands", () => {
   const root = "/repo";
   const r = shellPaths("cd pkg/app && sed -n '1,80p' cli/init/run.go | head -5; rg -n foo ../../docs/specs", root);
   assert.deepEqual(r.reads.sort(), ["docs/specs", "pkg/app/cli/init/run.go"]);
+  // Windows drive paths are absolute, directly and after `cd`.
+  assert.deepEqual(shellPaths("cat C:/repo/pkg/store/db.go", "C:/repo", true).reads, ["pkg/store/db.go"]);
+  assert.deepEqual(shellPaths("cd C:/repo/pkg && cat store/db.go", "C:/repo", true).reads, ["pkg/store/db.go"]);
   const w = shellPaths("echo hi > notes/out.md; git diff pkg/x.go; curl https://example.com/a.json", root);
   assert.deepEqual(w.edits, ["notes/out.md"]);
   assert.deepEqual(w.reads, []);

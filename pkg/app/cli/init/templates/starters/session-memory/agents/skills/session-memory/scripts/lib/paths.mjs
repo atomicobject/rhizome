@@ -70,7 +70,7 @@ export function shellPaths(cmd, root, strict = false) {
     let [head, ...args] = tokens;
     if (head === "cd" && args[0]) {
       const target = args[0];
-      cwd = target.startsWith("/") ? target : `${cwd ?? ""}/${target}`;
+      cwd = absolute(target) ? target : `${cwd ?? ""}/${target}`;
       continue;
     }
     if (head === "git" || head === "sudo" || head === "command") continue;
@@ -90,8 +90,11 @@ export function shellPaths(cmd, root, strict = false) {
   return { reads: [...reads], edits: [...edits] };
 }
 
+// POSIX paths and Windows drive paths, with either separator.
+const absolute = (p) => p.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p);
+
 function resolve(arg, cwd) {
-  if (arg.startsWith("/")) return arg;
+  if (absolute(arg)) return arg;
   if (!cwd) return arg;
   return `${cwd.replace(/\/+$/, "")}/${arg}`;
 }
