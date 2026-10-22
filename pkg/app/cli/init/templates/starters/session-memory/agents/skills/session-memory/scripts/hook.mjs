@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { approvedHash, loadShards, MAX_CHARS, SHARD_DIR, selectShards } from "./lib/shards.mjs";
+import { approvedHash, loadShards, MAX_CHARS, MAX_SHARDS, SHARD_DIR, selectShards } from "./lib/shards.mjs";
 import { readJson, writeJson, writeText } from "./lib/store.mjs";
 
 export const HOOK_DIR = ".rhizome/session-memory/hook";
@@ -95,7 +95,12 @@ export function handle(input, { startedAt = performance.now() } = {}) {
   const deadline = Number(input.deadlineMs) > 0 ? Number(input.deadlineMs) : 2000;
   const timeoutMs = Math.max(50, Math.floor(deadline - (performance.now() - startedAt) - 250));
   const budget = Number(input.budget);
-  const maxChars = Number.isFinite(budget) && budget >= 0 ? Math.min(MAX_CHARS, budget) : MAX_CHARS;
+  // One per-call limit covers everything this handler gives in a call, so
+  // a tool call that also brings start items counts what they already used.
+  const spent = (n) => Math.max(0, Math.floor(Number(input.spent?.[n])) || 0);
+  const maxShards = Math.max(0, MAX_SHARDS - spent("items"));
+  const allowance = Math.max(0, MAX_CHARS - spent("chars"));
+  const maxChars = Number.isFinite(budget) && budget >= 0 ? Math.min(allowance, budget) : allowance;
   const exclude = new Set(Array.isArray(input.emitted) ? input.emitted : []);
 
   const shards = cachedShards(root);
@@ -104,7 +109,7 @@ export function handle(input, { startedAt = performance.now() } = {}) {
   } catch (err) {
     warn("publishing command prefixes", err);
   }
-  const base = { root, shards, exclude, maxChars, timeoutMs, prefix: PREFIX };
+  const base = { root, shards, exclude, maxShards, maxChars, timeoutMs, prefix: PREFIX };
 
   if (ev.event === "session-start" || ev.event === "subagent-start") {
     let r = selectShards(base);
@@ -126,7 +131,7 @@ export function handle(input, { startedAt = performance.now() } = {}) {
   if (ev.event === "post-tool-use" && TOOLS.has(ev.tool)) {
     const paths = (Array.isArray(ev.paths) ? ev.paths : []).filter((p) => typeof p === "string" && p);
     const command = ev.tool === "shell" ? ev.command : undefined;
-    if (!paths.length && !command) return { items: [] };
+    if ((!paths.length && !command) || !maxShards) return { items: [] };
     const r = selectShards({ ...base, paths, command, everywhere: false });
     return { items: r.shards.map(({ id, text }) => ({ id, text })) };
   }

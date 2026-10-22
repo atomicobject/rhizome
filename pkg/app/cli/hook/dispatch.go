@@ -58,11 +58,20 @@ type Item struct {
 
 // handlerInput is what a handler reads on standard input.
 type handlerInput struct {
-	Version    int      `json:"version"`
-	Event      Event    `json:"event"`
-	Emitted    []string `json:"emitted"`
-	Budget     int      `json:"budget"`
-	DeadlineMS int64    `json:"deadlineMs"`
+	Version int      `json:"version"`
+	Event   Event    `json:"event"`
+	Emitted []string `json:"emitted"`
+	Budget  int      `json:"budget"`
+	// Spent is what the handler already delivered in this invocation, so a
+	// handler run for both start and tool items keeps one per-call limit.
+	Spent      Spent `json:"spent"`
+	DeadlineMS int64 `json:"deadlineMs"`
+}
+
+// Spent counts the items and characters one handler delivered.
+type Spent struct {
+	Items int `json:"items"`
+	Chars int `json:"chars"`
 }
 
 // Run dispatches one hook invocation. It never returns an error: failures
@@ -185,6 +194,7 @@ func (d *dispatch) run() error {
 
 	var texts, delivered, failures []string
 	used := 0
+	spent := map[string]Spent{}
 	// deliver runs handlers for runEv and gathers their new items within the
 	// output budget, returning the IDs to record under key.
 	deliver := func(hs []Handler, runEv Event, key string) (ids []string, failed bool) {
@@ -197,7 +207,7 @@ func (d *dispatch) run() error {
 			if remaining <= 0 {
 				break
 			}
-			items, stderr, err := d.runHandler(h, runEv, emitted, remaining)
+			items, stderr, err := d.runHandler(h, runEv, emitted, remaining, spent[h.Key()])
 			switch {
 			case err != nil:
 				// One handler's failure keeps the others' items, and its own
@@ -222,6 +232,7 @@ func (d *dispatch) run() error {
 					continue
 				}
 				used += cost
+				spent[h.Key()] = Spent{spent[h.Key()].Items + 1, spent[h.Key()].Chars + utf8.RuneCountInString(text)}
 				texts = append(texts, text)
 				ids = append(ids, item.ID)
 				emitted[item.ID] = true
@@ -233,6 +244,8 @@ func (d *dispatch) run() error {
 		}
 		return ids, failed
 	}
+	// A handler run in both passes sees what it gave in the first, so the two
+	// together stay within its one per-call limit.
 	startKey := scopeKey(scopeStart, ev.Agent)
 	startIDs, startFailed := deliver(starters, startEv, startKey)
 	key := scopeKey(scopeFor(ev.Event), ev.Agent)
@@ -329,7 +342,7 @@ func readPrefixes(root, rel string) []string {
 // items and what it wrote to standard error. A timeout kills the handler's
 // whole process tree. A handler that reports an error keeps its items, and
 // the error marks its run as failed.
-func (d *dispatch) runHandler(h Handler, ev Event, emitted map[string]bool, budget int) ([]Item, string, error) {
+func (d *dispatch) runHandler(h Handler, ev Event, emitted map[string]bool, budget int, spent Spent) ([]Item, string, error) {
 	if len(h.Command) == 0 {
 		return nil, "", errors.New("no command")
 	}
@@ -342,7 +355,7 @@ func (d *dispatch) runHandler(h Handler, ev Event, emitted map[string]bool, budg
 	}
 	ctx, cancel := context.WithTimeout(d.ctx, limit)
 	defer cancel()
-	in := handlerInput{Version: ProtocolVersion, Event: ev, Emitted: []string{}, Budget: budget, DeadlineMS: limit.Milliseconds()}
+	in := handlerInput{Version: ProtocolVersion, Event: ev, Emitted: []string{}, Budget: budget, Spent: spent, DeadlineMS: limit.Milliseconds()}
 	for id := range emitted {
 		in.Emitted = append(in.Emitted, id)
 	}

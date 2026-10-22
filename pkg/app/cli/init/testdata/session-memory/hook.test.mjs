@@ -154,6 +154,22 @@ test("session start delivers only shards that apply everywhere, then says how ma
   assert.deepEqual(rest.items.map((i) => pathOf(i.id)), everywhere.filter((p) => !ids(r).map(pathOf).includes(p)));
 });
 
+test("start and tool items in one call share the five-shard limit, and the rest arrive later", () => {
+  const root = scratchRepo();
+  const everywhere = Array.from({ length: 5 }, (_, k) => shard(root, { statement: `Global rule ${k}: every package logs through one logger.`, appliesTo: [] }));
+  const files = Array.from({ length: 5 }, (_, k) => shard(root, { statement: `Store rule ${k}: the store keeps invariant ${k}.` }));
+  // A compacted subagent's next tool call: the dispatcher runs the start
+  // pass, then the tool pass with what the start pass gave.
+  const starts = handle(request(root, { event: "subagent-start", reset: "compact" }));
+  assert.deepEqual(ids(starts).map(pathOf).sort(), everywhere.sort());
+  const chars = starts.items.reduce((n, i) => n + i.text.length, 0);
+  assert.deepEqual(read(root, ["pkg/store/db.go"], { spent: { items: starts.items.length, chars } }).items, []);
+  // A later call, with nothing spent yet, delivers the file's shards.
+  assert.deepEqual(ids(read(root, ["pkg/store/db.go"])).map(pathOf).sort(), files.sort());
+  // Characters count too: a nearly spent allowance leaves room for none.
+  assert.deepEqual(read(root, ["pkg/store/db.go"], { spent: { items: 1, chars: 3990 } }).items, []);
+});
+
 test("the closing line names lookup.mjs where the skill is installed", async () => {
   // The dispatcher passes the canonical root.
   const root = realpathSync(scratchRepo());
