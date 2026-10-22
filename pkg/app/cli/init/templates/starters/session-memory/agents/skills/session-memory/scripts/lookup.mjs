@@ -37,7 +37,7 @@ function searchShards(root, task) {
   const rzm = process.env.RZM || (existsSync(join(root, "bin/rzm")) ? join(root, "bin/rzm") : "rzm");
   try {
     const out = execFileSync(rzm, ["search", "-n", "20", "--raw", "--", task], { cwd: root, encoding: "utf8", timeout: 20000 });
-    return [...out.matchAll(/\((docs\/context-shards\/[^)]+\.md)\)/g)].map((m) => m[1]);
+    return [...out.matchAll(/\((docs\/memory\/context-shards\/[^)]+\.md)\)/g)].map((m) => m[1]);
   } catch {
     return [];
   }

@@ -1,5 +1,5 @@
 // Approved context shards (SPEC-0124 "Tracked data"): one note per shard in
-// docs/context-shards/, decisions as JSON events beside them. Only
+// docs/memory/context-shards/, decisions as JSON events beside them. Only
 // shards.mjs writes these files, and every write is one atomic replacement.
 
 import { execFileSync } from "node:child_process";
@@ -7,7 +7,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-export const SHARD_DIR = "docs/context-shards";
+export const SHARD_DIR = "docs/memory/context-shards";
 export const DECISION_DIR = `${SHARD_DIR}/decisions`;
 const KIND_ORDER = { rule: 0, fact: 1, where_to_find: 2 };
 

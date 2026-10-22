@@ -58,7 +58,7 @@ test("approving writes a current shard that lookup returns and review no longer 
   const { root, sm } = repo([proposal("k-1")]);
   assert.throws(() => sm("approve", "k-1"), /fit to publish/);
   const { approved } = sm("approve", "k-1", "--confirm-publish");
-  assert.match(approved, /^docs\/context-shards\/rule-busy-timeout-k-1/);
+  assert.match(approved, /^docs\/memory\/context-shards\/rule-busy-timeout-k-1/);
   const shard = parseShard(readFileSync(join(root, approved), "utf8"), approved);
   assert.equal(shard.reviewedBy, "[[pat-example]]");
   assert.equal(shard.approvedHash, approvedHash(shard));
@@ -133,7 +133,7 @@ test("approval is refused over uncommitted files and credential-shaped text", ()
   assert.throws(() => sm("approve", "k-1", "--confirm-publish"), /uncommitted: pkg\/store\/db.go/);
   assert.throws(() => sm("approve", "k-2", "--confirm-publish"), /credential-shaped/);
   assert.throws(() => sm("approve", "k-3", "--confirm-publish"), /credential-shaped/);
-  assert.equal(existsSync(join(root, "docs/context-shards")), false);
+  assert.equal(existsSync(join(root, "docs/memory/context-shards")), false);
 });
 
 test("every field written to the repository is scanned, including verification notes and dismissal reasons", () => {
@@ -145,7 +145,7 @@ test("every field written to the repository is scanned, including verification n
   const published = yaml.sm("approve", "k-3", "--confirm-publish").approved;
   assert.ok(!readFileSync(join(yaml.root, published), "utf8").includes("after-blank-secret"));
   assert.throws(() => sm("dismiss", "k-2", "--reason", `rotated ${secret}`, "--shared"), /credential-shaped/);
-  assert.equal(existsSync(join(root, "docs/context-shards/decisions")), false);
+  assert.equal(existsSync(join(root, "docs/memory/context-shards/decisions")), false);
 });
 
 test("a hand edit or a changed file withholds the shard until it is revised or renewed", () => {
@@ -195,7 +195,7 @@ test("dismissing records a decision that suppresses the learning; retiring remov
   const { root, state, sm } = repo([proposal("k-1"), proposal("k-2")]);
   assert.throws(() => sm("dismiss", "k-1", "--reason", "covered elsewhere"), /--shared/);
   const { decision } = sm("dismiss", "k-1", "--reason", "covered elsewhere", "--shared");
-  assert.match(decision, /^docs\/context-shards\/decisions\/[0-9a-f]{16}--\d{14}-pat-example\.json$/);
+  assert.match(decision, /^docs\/memory\/context-shards\/decisions\/[0-9a-f]{16}--\d{14}-pat-example\.json$/);
   assert.equal(JSON.parse(readFileSync(join(root, decision), "utf8")).decision, "dismissed");
   assert.deepEqual(sm("list").map((p) => p.cluster), ["k-2"]);
 
@@ -209,7 +209,7 @@ test("dismissing records a decision that suppresses the learning; retiring remov
   assert.throws(() => sm("retire", approved, "--expect", s.contentHash), /--reason/);
   sm("retire", approved, "--expect", s.contentHash, "--reason", "the store was removed");
   assert.equal(existsSync(join(root, approved)), false);
-  assert.equal(readdirSync(join(root, "docs/context-shards/decisions")).length, 2);
+  assert.equal(readdirSync(join(root, "docs/memory/context-shards/decisions")).length, 2);
 });
 
 test("lookup returns rules first, at most five, and shards with no patterns everywhere", () => {

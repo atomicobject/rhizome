@@ -18,7 +18,7 @@ checked against the code. The session-memory skill writes these notes; a
 person approves each one.
 """
 type ContextShard
-  @node(paths: ["docs/context-shards/*.md"])
+  @node(paths: ["docs/memory/context-shards/*.md"])
   @display(singular: "Context shard", plural: "Context shards", group: "Knowledge")
   @guidance(
     meaning: "Approved, verified project knowledge that agents should have when they touch the files it applies to.",

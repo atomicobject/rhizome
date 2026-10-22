@@ -28,7 +28,7 @@ The design follows the pipeline Boundary and HumanLayer described in [Why AI Cod
 The starter has two halves with a hard boundary between them:
 
 - **Everything unreviewed stays on the developer's machine.** Transcript digests, screened episodes, candidates, and proposals live in ignored local state under `.rhizome/session-memory/`.
-- **The repository holds only what a person approved.** Each approved learning is a `ContextShard` note in `docs/context-shards/`, and the repository also records decisions not to keep a learning, so teammates are not asked again. A tracked shard is in force by definition. Retiring it removes the note and records the decision.
+- **The repository holds only what a person approved.** Each approved learning is a `ContextShard` note in `docs/memory/context-shards/`, and the repository also records decisions not to keep a learning, so teammates are not asked again. A tracked shard is in force by definition. Retiring it removes the note and records the decision.
 
 Approved shards reach agents in two layers. The baseline works in every host, including T3 Code: a `lookup` workflow returns the current shards for a task, files, or a command, and managed `AGENTS.md`/`CLAUDE.md` guidance tells agents when to call it. Each shard also declares a glob `code-anchors` entry, so Rhizome's own file context and search find it. The second layer is optional push delivery. Claude Code and Codex both run project hooks around tool calls and accept context from them ([Claude Code hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)), so a delivery hook can add the shards for a file when an agent reads or edits it. Hooks stay off until the person turns them on, and they leave draft only after delivery is confirmed live in each host.
 
@@ -93,7 +93,7 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 - Review presents each proposal with its proposed response and reason first, then its statement, kind, applies-to patterns, target, evidence summary (families, tool calls spent), and verification record. On request, it opens a cited source message, redacted, from the local transcript.
 - The reviewer can change the response. Review asks one question per proposal and attaches the drafted edit, fix sketch, or question, so the common case is accepting or redirecting, not writing.
 - Approving a `document` response applies the drafted edit to the named document as an ordinary working-tree change for the person to commit, and records the outcome so the learning is not proposed again.
-- Approving a `fix`, `guard`, or `ask` response writes one `AgentFinding` note under `docs/agent-findings/`, holding the response, statement, reason, evidence summary, the proposed change or question, and one action item. The action item is assigned to the reviewer unless the reviewer names another `Person`. The learning is not proposed again while the action item is open.
+- Approving a `fix`, `guard`, or `ask` response writes one `AgentFinding` note under `docs/memory/agent-findings/`, holding the response, statement, reason, evidence summary, the proposed change or question, and one action item. The action item is assigned to the reviewer unless the reviewer names another `Person`. The learning is not proposed again while the action item is open.
 - Approving asks the reviewer to confirm that the statement is fit to publish in this repository. It then writes the `ContextShard` note in one atomic step, with reviewer, date, approved-content hash, verification fingerprint, and derived `code-anchors`.
 - Approval and renewal are refused while any fingerprinted file has uncommitted changes or unresolved merge stages, so the fingerprint always describes committed content the reviewer could see.
 - Approval and revision are refused when the applies-to patterns match more than 50 tracked files and more than a tenth of them, unless the reviewer confirms the breadth. A broad shard reaches nearly every agent; in the development runs, three proposals matched 36–43% of tracked files while the median matched 0.5%.
@@ -155,7 +155,7 @@ The rest of this story applies where hooks are installed.
 
 - id:: ^SPEC-0124-US6
 - summary:: A developer runs calibrate for one role. The workflow measures the current binding against the other available candidates and proposes a profile change, which the developer can approve or decline.
-- status:: draft
+- status:: ready
 
 #### Acceptance Criteria
 
@@ -170,7 +170,7 @@ The rest of this story applies where hooks are installed.
 
 - id:: ^SPEC-0124-US7
 - summary:: A developer asks for a friction report and sees open findings and unreviewed proposals ranked by the agent effort they cost, plus completed fixes and whether the friction came back.
-- status:: draft
+- status:: ready
 
 #### Acceptance Criteria
 
@@ -225,7 +225,7 @@ The rest of this story applies where hooks are installed.
 
 ### Tracked data
 
-- A `ContextShard` note MUST live in `docs/context-shards/`, named by kind and a slug, with no sequential identifier.
+- A `ContextShard` note MUST live in `docs/memory/context-shards/`, named by kind and a slug, with no sequential identifier.
 - Its frontmatter MUST hold:
   - `kind`
   - `summary` (the statement)
@@ -239,8 +239,8 @@ The rest of this story applies where hooks are installed.
   - `code-anchors` derived from `applies-to` under the `any` language key
 - Its body MUST hold `## Why it matters`, a `## Verification` list of checked locations, and an `## Evidence` list whose items name the harness, session, message, date, lens, and tool calls. Evidence is frozen at approval and includes no transcript text.
 - `applies-to` patterns MUST use one dialect: literal paths, `*`, `**`, and `?`. A test MUST prove that the delivery script's matcher and Rhizome's anchor matcher agree on a shared case table.
-- An `AgentFinding` note MUST live in `docs/agent-findings/`, named by response and a slug, with frontmatter holding the response (`fix`, `guard`, or `ask`), `summary` (the statement), `learning-hash`, `applies-to`, `reviewed-by`, `reviewed-on`, `families`, and `tool-calls`. Its body MUST hold `## Why it matters`, `## Proposed change` (or `## Question`), `## Evidence` in the shard's evidence form, and one action item written as an `#action-item` line with `assignee::`, as the `action-items` starter defines it. The line is written the same way when that add-on is disabled.
-- A decision event MUST be one JSON file under `docs/context-shards/decisions/`, named `<learning-hash>--<event-id>.json`, holding the statement, kind, applies-to, decision (`dismissed`, `retired`, or `documented`), reason, decider, and date. A `documented` decision names the document it changed. Decisions are not notes, so search does not surface them; the skill reads them directly.
+- An `AgentFinding` note MUST live in `docs/memory/agent-findings/`, named by response and a slug, with frontmatter holding the response (`fix`, `guard`, or `ask`), `summary` (the statement), `learning-hash`, `applies-to`, `reviewed-by`, `reviewed-on`, `families`, and `tool-calls`. Its body MUST hold `## Why it matters`, `## Proposed change` (or `## Question`), `## Evidence` in the shard's evidence form, and one action item written as an `#action-item` line with `assignee::`, as the `action-items` starter defines it. The line is written the same way when that add-on is disabled.
+- A decision event MUST be one JSON file under `docs/memory/context-shards/decisions/`, named `<learning-hash>--<event-id>.json`, holding the statement, kind, applies-to, decision (`dismissed`, `retired`, or `documented`), reason, decider, and date. A `documented` decision names the document it changed. Decisions are not notes, so search does not surface them; the skill reads them directly.
 - Every tracked write MUST go through `shards.mjs` as one atomic replacement, and MUST be refused when the file's content differs from the hash in the change plan.
 
 ### Local data and extraction
@@ -271,7 +271,7 @@ The rest of this story applies where hooks are installed.
 
 ### Delivery
 
-- Hook delivery MUST run as this starter's handler under the Rhizome hook dispatcher ([[agent-surface-integration-modes#^SPEC-0045-US5]]), which owns harness settings, payload parsing, path containment, deadlines, Windows launching, emitted-item state, and status. The handler covers session start, subagent start, and read, edit, and patch tool calls, plus shell calls with recognized reads. Delivery on command text waits for the `commands` decision below.
+- Hook delivery MUST run as this starter's handler under the Rhizome hook dispatcher ([[agent-surface-integration-modes#^SPEC-0045-US5]]), which owns harness settings, payload parsing, path containment, deadlines, Windows launching, emitted-item state, and status. The handler covers session start, subagent start, and read, edit, and patch tool calls, plus shell calls with recognized reads. After a shell command whose text starts with an approved shard's command prefix, it delivers that shard; the handler publishes its current prefixes so the dispatcher starts it for no other shell call.
 - The handler MUST select shards with the same function as lookup: current shards only, rules first, at most five shards and about 4,000 characters, or the dispatcher's remaining allowance if smaller. Item IDs are shard revisions (path and content hash).
 - It MUST leave out the shard revisions the dispatcher reports as already emitted before applying its limits, so delivered shards never hide later matches.
 - It MUST read shard files directly rather than through `rzm`. It MUST cache parsed shards only after a consistent read, keyed by the shard directory's listing and modification times, and MUST check eligibility (approved hash and fingerprint) against the current Git index on every call. Every `git` call MUST have a timeout inside the handler's deadline.
@@ -292,17 +292,14 @@ The rest of this story applies where hooks are installed.
 
 ## Open questions
 
-[TODO: Decide after M1] Verification method: a tool-using verifier, or scripts that gather evidence packets with up to two model-requested evidence rounds and run no model-supplied commands. The packet method is preferred if it matches the tool-using verifier's accepted learnings.
+None open. Decided:
 
-[TODO: Decide with Drew] Delivery on command text: lookup already matches a shard whose `commands` text appears in the command it is given. Whether the hook handler should also deliver after a matching shell command is open. Such shards cover commands whose results mislead: a web build leaves a tracked `dist/index.html` modified, a sandboxed `go test` fails with `operation not permitted`, `go mod vendor` deletes hand-vendored C sources, and Playwright attaches to another worktree's server. Delivery after the command fits them, but every shell call would then start the handler. 19 of the 25 development-run proposals name a command.
-
-[TODO: Confirm with Drew] Shards live in `docs/context-shards/`, named `<kind>-<slug>.md`, and findings live in `docs/agent-findings/`, named `<response>-<slug>.md`.
-
-[TODO: Decide with Drew] Guard enforcement: a `guard` finding becomes an action item for a test, lint, gate step, or Makefile target today. A blocking hook that refuses a matching tool call and says why is specified as a draft in [[agent-surface-integration-modes#^SPEC-0045-US6]]; whether approved guard rules should drive it is open.
-
-[TODO: Confirm with Drew] The default mining window is the last 7 days, and the first run asks before reading more than 200 sessions.
-
-[TODO: Confirm with Drew] This repository is public. Dogfood shards and shared decisions are committed only after Drew approves each one as fit to publish.
+- **Verification method (after M1):** scripts gather evidence packets, with up to two model-requested evidence rounds, and run no model-supplied commands. The packet verifier matched the tool-using verifier's recovered learnings (7 of 12) and agreement (81 of 94).
+- **Delivery on command text (Drew, 2026-10-22):** the hook handler delivers after a shell command whose text starts with an approved shard's command prefix. The dispatcher starts the handler for a shell call only when the command matches a prefix in the list the handler last published, so other shell calls start nothing.
+- **Tracked locations (Drew, 2026-10-22):** everything the starter tracks lives under `docs/memory/`: shards in `docs/memory/context-shards/<kind>-<slug>.md`, decisions in `docs/memory/context-shards/decisions/`, and findings in `docs/memory/agent-findings/<response>-<slug>.md`.
+- **Guard enforcement (Drew, 2026-10-22):** an approved `guard` finding may carry a guard rule, which the dispatcher enforces before the tool call runs where the host allows it ([[agent-surface-integration-modes#^SPEC-0045-US6]]).
+- **Mining window (Drew, 2026-10-22):** the last 7 days by default, and the first run asks before reading more than 200 sessions.
+- **Publication:** this repository is public, so dogfood shards, findings, and shared decisions are committed only after Drew approves each one as fit to publish.
 
 ## Documentation plan
 

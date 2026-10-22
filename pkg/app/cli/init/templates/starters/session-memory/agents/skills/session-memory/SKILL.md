@@ -5,7 +5,7 @@ description: Use when mining this repository's Claude Code or Codex sessions for
 
 # Session memory
 
-This skill turns the agent sessions recorded for this repository into context shards: short, verified rules and facts that later agents should know. Mining produces local proposals; a person approves each one before it becomes a tracked note in `docs/context-shards/`.
+This skill turns the agent sessions recorded for this repository into context shards: short, verified rules and facts that later agents should know. Mining produces local proposals; a person approves each one before it becomes a tracked note in `docs/memory/context-shards/`.
 
 Run every script from the repository root with Node 20 or later. `<skill>` below is this skill's directory. Scripts reach models only through `rzm agent generate` and Jev through `rzm agent evaluate-batch`, and print JSON. A script that refuses an action exits 2 and says why; relay the reason instead of working around it.
 

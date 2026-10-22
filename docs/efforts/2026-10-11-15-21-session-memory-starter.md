@@ -623,9 +623,17 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
   - **Web E2E** failed in CI because the Playwright download hit a certificate error before tests ran; unrelated to this change.
   - **Decision (Drew): option (c).** Review now asks first whether a proposal describes something to fix, guard, or ask about rather than remember; those are dismissed with the response as the reason until US2's findings notes exist. Classification in mining waits for US2, so the verifier's prompt and the evaluation baselines are unchanged. Revisions state the behavior to follow rather than the mistake to avoid. From a look at [GottZ/ctx](https://github.com/GottZ/ctx), mining also refuses a state directory inside the checkout that Git would track. Its verbatim-quote evidence gate is a candidate for the next mining iteration.
 
+- 2026-10-22 — PR #28 merged as `e8560480` (squash; CI 21 of 21 at `01912e78`). Drew chose to build the remaining work before closing, and decided the open questions:
+  - **Command delivery:** the hook handler delivers after a shell command that starts with an approved shard's command prefix; the dispatcher gates on a prefix list the handler publishes (SPEC-0045 US5 AC6 amended).
+  - **Guard:** build SPEC-0045 US6, so approved guard findings refuse a matching call where the host allows it.
+  - **Paths:** everything tracked moves under `docs/memory/` (`context-shards/`, `context-shards/decisions/`, `agent-findings/`). Nothing was released at the old paths, so there is no migration.
+  - **Window:** 7 days, asking before more than 200 sessions on a first run.
+  - SPEC-0124 US6 and US7 and SPEC-0045 US5 and US6 are now `ready`.
+  - **Plan:** (1) this pull request: path move and decisions; (2) the hook dispatcher with the session-memory handler, including command delivery; (3) response routing and findings, then the friction report; (4) calibrate; (5) guard rules on the dispatcher; (6) the starter guide and SPEC-0038 entry; (7) M5 and M6, with Drew's labels on H proposals; (8) closure.
+
 ## Deviations
 
-None.
+- **2026-10-22, scope extended (Drew: "Build everything first").** Closure waits for work added after the scope froze: SPEC-0124 US2's response routing with `AgentFinding` notes and `documented` decisions, US6 calibrate, and US7 friction report, plus [[agent-surface-integration-modes#^SPEC-0045-US5|SPEC-0045 US5]] (hook dispatcher) and [[agent-surface-integration-modes#^SPEC-0045-US6|US6]] (guard rules). The session-memory hook handler, M5 (composed D run, then H once), M6 (paired task evaluation), the starter guide, and the SPEC-0038 entry remain from the approved plan. Delivery is split into focused pull requests, because PR #28's 120-file diff never converged under Greptile; this effort closes in the last of them.
 
 ## Closure Checklist
 
