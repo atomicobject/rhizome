@@ -34,13 +34,14 @@ export function report({ root = repoRoot(), state } = {}) {
     if (f.open) {
       // Approved evidence plus the episodes mining matched since approval.
       // Families are a union of identities where this checkout approved the
-      // finding; a teammate's finding records only a count, so its later
-      // families are added to it. A finding approved before family IDs were
-      // recorded has only an approximate count, and says so.
+      // finding. Without those identities (a teammate's finding, or one
+      // approved before they were recorded) later families may repeat counted
+      // ones, so the count is the larger of the two and says it is approximate.
       const later = (r?.episodes ?? []).filter((e) => !f.evidence.some((x) => x.episode === e.id));
       const known = links[f.path]?.families;
-      const families = known ? new Set([...known, ...later.map((e) => e.family)]).size : f.families + new Set(later.map((e) => e.family)).size;
-      const approximate = !known && links[f.path]?.familiesApproximate ? { familiesApproximate: true } : {};
+      const laterFamilies = new Set(later.map((e) => e.family));
+      const families = known ? new Set([...known, ...laterFamilies]).size : Math.max(f.families, laterFamilies.size);
+      const approximate = known ? {} : { familiesApproximate: true };
       open.push({ finding: f.path, response: f.response, statement: f.statement, ...effort(families, [...f.evidence, ...later]), ...approximate });
     } else {
       const episodes = (r?.episodes ?? []).map((e) => ({ id: e.id, date: day(e.ts) }));

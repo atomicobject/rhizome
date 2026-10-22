@@ -108,12 +108,14 @@ export function loadFindings(root) {
 // kept in `links` (finding-links.json) apart from review status, since
 // reopening clears that status. A completed finding with episodes not
 // offered before recurs: the clusters holding them are reopened for review
-// and verified again against the new evidence. The caller saves the
+// and verified again against the new evidence, unless a newer finding for
+// the same learning is still open and so already covers it. The caller saves the
 // clusters, links, and reviewed.json before the returned record, so a crash
 // cannot lose a reopening.
 export function recur(prior, { findings, clusters, candidates, episodes, reviewed, links, now = new Date().toISOString() }) {
   const next = {};
   const reopened = new Set();
+  const covered = new Set(findings.filter((f) => f.open).map((f) => f.learning));
   for (const f of findings) {
     // Findings approved before links existed are linked through reviewed.json.
     const linked = new Set([...(links[f.path]?.clusters ?? []), ...Object.keys(reviewed).filter((id) => reviewed[id].path === f.path)]);
@@ -132,7 +134,7 @@ export function recur(prior, { findings, clusters, candidates, episodes, reviewe
     }
     const eps = [...matched.values()].sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
     const was = prior[f.path]?.completedAt === f.completedAt ? new Set(prior[f.path].offered ?? []) : new Set();
-    const fresh = f.completedAt ? eps.filter((e) => !was.has(e.id)) : [];
+    const fresh = f.completedAt && !covered.has(f.learning) ? eps.filter((e) => !was.has(e.id)) : [];
     for (const id of new Set(fresh.map((e) => e.cluster))) {
       delete reviewed[id];
       delete clusters[id].settled;

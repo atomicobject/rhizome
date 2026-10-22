@@ -590,6 +590,46 @@ test("a later recurrence is verified against its newest episode", async () => {
   assert.doesNotMatch(prompt, /area 5\b/);
 });
 
+test("a recurrence a newer open finding covers is recorded but not verified again", async () => {
+  const { root, state, sm, mineWith, finding, cluster } = await completedAlpha();
+  await mineWith([SESSIONS.s1, SESSIONS.s2, s3]);
+  // The recurrence becomes a second finding, still open when s6 brings alpha back.
+  const second = sm("approve", cluster, "--confirm-publish").finding;
+  const again = fakeClients({ routes });
+  assert.equal((await mineWith([SESSIONS.s1, SESSIONS.s2, s3, s6], again)).status, "done");
+  assert.deepEqual(alphaVerifies(again), []);
+  assert.equal(JSON.parse(readFileSync(join(state, "reviewed.json"), "utf8"))[cluster]?.path, second);
+  const first = report({ root, state }).completed.find((c) => c.finding === finding);
+  assert.deepEqual(first.episodes.map((e) => e.id.split(":").slice(0, 2).join(":")), ["claude:s3", "claude:s6"]);
+});
+
+test("a run with nothing new still dates a finding checked since the last run", async () => {
+  const { root, state, mineWith, finding } = await completedAlpha();
+  const clients = fakeClients({ routes });
+  assert.equal((await mineWith([SESSIONS.s1, SESSIONS.s2], clients)).status, "nothing-new");
+  assert.deepEqual(clients.calls.prompts, []);
+  const done = report({ root, state }).completed.find((c) => c.finding === finding);
+  assert.deepEqual([done.status, done.checkedThrough], ["resolved", new Date().toISOString().slice(0, 10)]);
+});
+
+test("a run with nothing new verifies a recurrence the pool already holds", async () => {
+  const root = tempRepo();
+  const state = mkdtempSync(join(tmpdir(), "sm-state-"));
+  const mineWith = (sessions, clients = fakeClients({ routes })) => mine({ root, state, budget: 5, harness: "claude", discover: fakeDiscover(sessions), log: () => {} }, clients);
+  await mineWith([SESSIONS.s1, SESSIONS.s2]);
+  const sm = (...argv) => run(argv, { root, state, user });
+  const { finding } = sm("approve", sm("list").find((p) => /Topic alpha/.test(p.statement)).cluster, "--confirm-publish");
+  // s6 arrives while the finding is open, and the check is committed with an earlier date.
+  await mineWith([SESSIONS.s1, SESSIONS.s2, s6]);
+  git(root, ["add", "-A"]);
+  git(root, ["commit", "-qm", "finding"], "2026-10-11T10:00:00Z");
+  writeFileSync(join(root, finding), readFileSync(join(root, finding), "utf8").replace("- [ ] ", "- [x] "));
+  git(root, ["commit", "-qam", "done"], "2026-10-11T11:00:00Z");
+  const again = fakeClients({ routes });
+  assert.equal((await mineWith([SESSIONS.s1, SESSIONS.s2, s6], again)).status, "done");
+  assert.equal(alphaVerifies(again).length, 1);
+});
+
 test("two fresh recurrences from one family are verified against the newer", () => {
   const ep = (id, ts) => ({ id, ts, family: "s1", lens: "discovery", origin: "agent", text: `excerpt ${id}` });
   const eps = { a: ep("a", "2026-10-05T10:00:00Z"), b: ep("b", "2026-10-06T10:00:00Z"), old: ep("old", "2026-10-01T10:00:00Z") };
@@ -649,6 +689,20 @@ test("a proposal without family IDs recovers them from the pool, or marks its co
   assert.deepEqual(links[two], { clusters: ["k-2"], familiesApproximate: true });
   const open = Object.fromEntries(report({ root, state }).open.map((o) => [o.finding, o]));
   assert.deepEqual([open[one].familiesApproximate, open[two].familiesApproximate, open[two].families], [undefined, true, 2]);
+});
+
+test("a teammate's finding without family identities reports an approximate count", () => {
+  const { root, state, sm } = repo([proposal("k-1", { response: "fix", change: "Delete the dead fallback.", families: 2, familyIds: ["s1", "s2"] })]);
+  const { finding } = sm("approve", "k-1", "--confirm-publish");
+  // As a teammate's checkout sees it: the finding, but no local links.
+  writeFileSync(join(state, "finding-links.json"), "{}");
+  const later = [
+    { id: "claude:s1:9", session: "s1", family: "s1", ts: "2026-10-11T10:00:00Z", toolCalls: 2 },
+    { id: "claude:s4:2", session: "s4", family: "s4", ts: "2026-10-12T10:00:00Z", toolCalls: 3 },
+  ];
+  writeFileSync(join(state, "findings.json"), JSON.stringify({ [finding]: { completedAt: null, episodes: later } }));
+  const [open] = report({ root, state }).open;
+  assert.deepEqual([open.finding, open.families, open.familiesApproximate], [finding, 2, true]);
 });
 
 test("an open finding counts families as a union of identities", () => {

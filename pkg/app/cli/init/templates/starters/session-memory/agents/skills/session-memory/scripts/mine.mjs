@@ -184,6 +184,14 @@ async function bind(opts, clients, statuses, store, dry, runId) {
   return { bindings, provenance: { profileVersion: profile.version, files, flags: opts.model ?? [] } };
 }
 
+// The findings record recomputed from the pool as it is, or null when that
+// would reopen a recurrence, which a run must verify.
+function refreshFindings(store, root) {
+  const read = (name) => store.read(name, {});
+  const { reopened, record } = recur(read("findings.json"), { findings: loadFindings(root), clusters: read("pool/clusters.json"), candidates: read("pool/candidates.json"), episodes: read("pool/episodes.json"), reviewed: read("reviewed.json"), links: read("finding-links.json") });
+  return reopened.size ? null : record;
+}
+
 async function mineLocked(opts, clients, store, dry) {
   const log = opts.log ?? ((m) => process.stderr.write(m + "\n"));
   let run = openRun(store);
@@ -207,9 +215,13 @@ async function mineLocked(opts, clients, store, dry) {
   } else {
     const found = collect(opts, store);
     episodes = found.episodes;
-    // A pending proposal with no response is verified again even when nothing is new.
-    if (!episodes.length && !opts.verifyHeld && !pending(store, opts.root).some((p) => !p.response && !p.rejected)) {
+    // A pending proposal with no response, or a finding whose friction the
+    // pool shows came back, is verified again even when nothing is new.
+    const record = !episodes.length && !opts.verifyHeld && !pending(store, opts.root).some((p) => !p.response && !p.rejected) && refreshFindings(store, opts.root);
+    if (record) {
       if (!dry && Object.keys(found.cursorTargets).length) store.write("cursors.json", { ...store.read("cursors.json", {}), ...found.cursorTargets });
+      // A finding checked since the last run gets its report dates now.
+      if (!dry) store.write("findings.json", record);
       return { status: "nothing-new", discovery: found.report };
     }
     const id = `${new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "")}-${sha([process.pid, Math.random()]).slice(0, 6)}`;

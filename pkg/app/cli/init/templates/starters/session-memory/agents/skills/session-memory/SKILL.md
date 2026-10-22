@@ -70,8 +70,8 @@ Approving a remember response is also refused when the patterns match much of th
 
 `node <skill>/scripts/report.mjs` shows where agents lose effort. It reads only local state and tracked notes, makes no model calls, and prints no transcript text.
 
-- `open` ranks open fix, guard, and ask findings and pending proposals by families, then sessions, then tool calls, with the dates first and last seen. A finding's evidence includes episodes mining matched after it was approved. When an entry has `familiesApproximate`, its family count is an estimate from before family IDs were recorded; show it as `~N (approximate)`.
-- `completed` lists findings whose action item is checked, as `resolved` (no matching episode since completion) or `recurring` (with the matching episode ids and dates). `checkedThrough` is the date of the last mine run; when it is older than the completion, offer to mine first. A recurring finding is offered for review again.
+- `open` ranks open fix, guard, and ask findings and pending proposals by families, then sessions, then tool calls, with the dates first and last seen. A finding's evidence includes episodes mining matched after it was approved. When an entry has `familiesApproximate`, its family count is an estimate, because this checkout lacks the finding's family IDs (a teammate approved it, or it predates them); show it as `~N (approximate)`.
+- `completed` lists findings whose action item is checked, as `resolved` (no matching episode since completion) or `recurring` (with the matching episode ids and dates). `checkedThrough` is the date of the last mine run; when it is older than the completion, offer to mine first. A recurring finding is offered for review again, unless a newer finding for the same learning is still open.
 
 Lead with the top few open items and any recurring findings, then offer review.
 
