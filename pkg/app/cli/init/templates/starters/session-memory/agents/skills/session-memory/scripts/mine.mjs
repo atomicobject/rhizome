@@ -426,7 +426,9 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
 
   // A recurrence the verifier rejects stays in review with the reason, since
   // only a person decides whether the finding's friction is back.
-  const offer = (cl) => (cl.verification?.decision === "propose" ? !cl.verification.contractProblems.length : reopen(cl) && cl.verification?.decision === "reject");
+  // A recurrence whose re-verification broke the output contract is offered
+  // too: a retry would replay the same cached answer, so a person decides.
+  const offer = (cl) => (cl.verification?.decision === "propose" ? !cl.verification.contractProblems.length : reopen(cl) && (cl.verification?.decision === "reject" || (!cl.verification && !!cl.verifyProblems)));
   const proposals = Object.values(clusters).filter(offer).map((cl) => proposal(cl, eps)).filter((p) => reopen(clusters[p.cluster]) || (!reviewed[p.cluster] && !settled.has(learningHash(p))));
   store.write("proposals.json", proposals);
   return { ...summarize({ episodes, screened, results, touched, plan, clusters, fresh, proposals }), recurring: reopened.size };
@@ -446,7 +448,8 @@ export function excerpts(cl, eps) {
 }
 
 function proposal(cl, eps) {
-  const v = cl.verification;
+  const broken = cl.verifyProblems;
+  const v = cl.verification ?? { decision: "reject", rejectReason: "contract", notes: broken.problems.join("; "), run: broken.run, at: broken.at };
   // A rejection drafts nothing, so no response field it carried is proposed.
   const r = v.decision === "reject" ? {} : v;
   return {

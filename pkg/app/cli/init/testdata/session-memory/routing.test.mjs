@@ -3,7 +3,7 @@
 // credential below is synthetic.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -670,6 +670,25 @@ test("a resumed run verifies a recurrence reopened since it stopped", async () =
   git(root, ["commit", "-qam", "done"], "2026-10-10T11:45:00Z");
   assert.equal((await mineWith([SESSIONS.s1, SESSIONS.s2, s3])).status, "done");
   assert.equal(sm("list").find((p) => p.cluster === alpha.cluster)?.recurrence?.finding, finding);
+});
+
+test("a recurrence whose re-verification broke the contract stays in review for a person to decide", async () => {
+  const { sm, mineWith, finding, cluster } = await completedAlpha();
+  await mineWith([SESSIONS.s1, SESSIONS.s2, s3], fakeClients({ routes, badVerify: true }));
+  const offered = sm("list").find((p) => p.cluster === cluster);
+  assert.deepEqual([offered?.recurrence?.finding, offered?.rejected?.reason, offered?.response], [finding, "contract", null]);
+  assert.throws(() => sm("approve", cluster, "--confirm-publish"), /no proposed response/);
+  // A run with nothing new keeps it there.
+  await mineWith([SESSIONS.s1, SESSIONS.s2, s3]);
+  assert.ok(sm("list").some((p) => p.cluster === cluster));
+});
+
+test("a document edit keeps the document's permissions", { skip: process.platform === "win32" && "no POSIX modes on Windows" }, () => {
+  const { root, sm } = repo([proposal("k-doc", { response: "document", edit: documentEdit })]);
+  chmodSync(join(root, "docs/store.md"), 0o755);
+  git(root, ["commit", "-qam", "mode"]);
+  sm("approve", "k-doc", "--confirm-publish", "--rechecked");
+  assert.equal(statSync(join(root, "docs/store.md")).mode & 0o777, 0o755);
 });
 
 test("redirecting a guard proposal to fix drops its guard rule", () => {

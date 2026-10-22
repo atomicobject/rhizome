@@ -85,7 +85,7 @@ function args(argv) {
 export function pending(store, root) {
   const reviewed = store.read("reviewed.json", {});
   const clusters = store.read("pool/clusters.json", {});
-  const current = (p) => !clusters[p.cluster] || clusters[p.cluster].verification?.at === p.verified?.at;
+  const current = (p) => !clusters[p.cluster] || (clusters[p.cluster].verification ?? clusters[p.cluster].verifyProblems)?.at === p.verified?.at;
   const suppressed = new Set(loadDecisions(root, store.dir).map((d) => d.learning));
   for (const s of loadShards(root)) suppressed.add(learningHash(s));
   const done = new Set();

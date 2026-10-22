@@ -4,7 +4,7 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 export const SHARD_DIR = "docs/memory/context-shards";
@@ -327,6 +327,8 @@ export function stageAtomic(file, text) {
   mkdirSync(dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   writeFileSync(tmp, text);
+  // A replaced file keeps its permissions.
+  if (existsSync(file)) chmodSync(tmp, statSync(file).mode & 0o7777);
   return { commit: () => renameSync(tmp, file), discard: () => rmSync(tmp, { force: true }) };
 }
 
