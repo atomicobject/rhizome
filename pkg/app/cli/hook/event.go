@@ -117,7 +117,9 @@ func normalize(harness, point string, raw []byte, cwd string) (Event, error) {
 	case ToolShell:
 		ev.Command = in.Command
 		// The host does not say where the command ran beyond cwd, so a read
-		// that names no existing file there was made somewhere else.
+		// made in another directory may be missed or attributed to a
+		// same-named file here. Dropping reads of files that do not exist
+		// only reduces noise.
 		ev.Paths = existing(root, containedPaths(root, cwd, shellReads(ev.Command, cwd)), false)
 	}
 	return ev, nil
