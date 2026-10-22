@@ -369,3 +369,22 @@ func TestALockedWriteLeavesAResetMarkerStillBeingWritten(t *testing.T) {
 	require.NotEmpty(t, out)
 	require.FileExists(t, inProgress, "the writer's rename must still find its file")
 }
+
+type brokenPipe struct{}
+
+func (brokenPipe) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+func TestAResetIsCommittedEvenWhenOutputFails(t *testing.T) {
+	root := repo(t)
+	h := helperHandler("one", "items:a")
+	_, out := dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
+	require.NotEmpty(t, out)
+
+	Run(context.Background(), Options{
+		Harness: HarnessClaude, Point: SessionStart, Stdout: brokenPipe{}, Cwd: root,
+		Stdin:    strings.NewReader(fmt.Sprintf(`{"session_id":"s1","cwd":%q,"source":"compact"}`, root)),
+		Handlers: func(string) ([]Handler, error) { return []Handler{h}, nil },
+	})
+	_, out = dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
+	require.NotEmpty(t, out, "items given before the compaction no longer suppress delivery")
+}

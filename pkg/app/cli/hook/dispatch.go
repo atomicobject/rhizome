@@ -207,6 +207,21 @@ func (d *dispatch) run() error {
 	if len(failures) > 0 {
 		errs = append(errs, errors.New(strings.Join(failures, "; ")))
 	}
+	commit := func() {
+		if err := writeJSONAtomic(statePath, state); err != nil {
+			errs = append(errs, fmt.Errorf("record emitted items: %w", err))
+			return
+		}
+		for _, marker := range pending {
+			_ = os.Remove(marker)
+		}
+		pending = nil
+	}
+	// A reset is committed before output, so a host that stops reading
+	// cannot leave pre-reset items suppressing later deliveries.
+	if release != nil && (ev.Reset != "" || len(pending) > 0) {
+		commit()
+	}
 	if len(texts) > 0 {
 		if err := writeOutput(d.opts.Stdout, ev, strings.Join(texts, itemSeparator)); err != nil {
 			return errors.Join(append(errs, err)...)
@@ -216,15 +231,9 @@ func (d *dispatch) run() error {
 	// than losing it.
 	if release == nil {
 		errs = append(errs, errors.New("state lock busy; emitted items not recorded"))
-	} else if len(ids) > 0 || ev.Reset != "" || len(pending) > 0 {
+	} else if len(ids) > 0 {
 		state.record(key, ids)
-		if err := writeJSONAtomic(statePath, state); err != nil {
-			errs = append(errs, fmt.Errorf("record emitted items: %w", err))
-		} else {
-			for _, marker := range pending {
-				_ = os.Remove(marker)
-			}
-		}
+		commit()
 	}
 	if len(delivered) > 0 {
 		if err := recordDelivered(ev.Root, ev.Harness, delivered, d.opts.Now()); err != nil {
