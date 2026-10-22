@@ -14,10 +14,9 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { relativize, shellPaths } from "./lib/paths.mjs";
-import { byKind, git, loadShards, matchesAny, repoRoot, staleness } from "./lib/shards.mjs";
+import { repoRoot, selectShards } from "./lib/shards.mjs";
 
-export const MAX_SHARDS = 5;
-export const MAX_CHARS = 4000;
+export { MAX_CHARS, MAX_SHARDS } from "./lib/shards.mjs";
 
 function args(argv) {
   const out = { files: [] };
@@ -29,8 +28,6 @@ function args(argv) {
   }
   return out;
 }
-
-const norm = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 
 // Shard paths Rhizome search ranks for a task; empty when search fails.
 function searchShards(root, task) {
@@ -44,41 +41,15 @@ function searchShards(root, task) {
 }
 
 export function lookup({ root, files = [], command, task, search = searchShards }) {
-  const tracked = git(root, ["ls-files", "-z"]).split("\0").filter(Boolean);
   const paths = files.map((f) => relativize(f, root, true)).filter(Boolean);
   if (command) {
     const p = shellPaths(command, root, true);
     paths.push(...p.reads, ...p.edits);
   }
   const ranked = task ? search(root, task) : [];
-  const hits = [];
-  const withheld = [];
-  for (const s of loadShards(root)) {
-    const reasons = [];
-    if (!s.appliesTo.length && !s.commands.length) reasons.push("applies everywhere");
-    const touched = paths.filter((p) => matchesAny(s.appliesTo, p));
-    if (touched.length) reasons.push(`applies to ${touched.slice(0, 3).join(", ")}`);
-    if (command && s.commands.some((c) => norm(command).includes(norm(c)))) reasons.push("matches the command");
-    const rank = ranked.indexOf(s.path);
-    if (rank >= 0) reasons.push("matches the task");
-    if (!reasons.length) continue;
-    const stale = staleness(root, s, tracked);
-    if (stale) withheld.push({ path: s.path, reason: stale });
-    else hits.push({ ...s, reasons, order: touched.length || reasons.includes("matches the command") ? 0 : rank >= 0 ? 1 + rank : 99 });
-  }
-  hits.sort((a, b) => byKind(a, b) || a.order - b.order || a.path.localeCompare(b.path));
-  const shards = [];
-  let chars = 0;
-  for (const s of hits) {
-    const text = render(s);
-    if (shards.length === MAX_SHARDS || chars + text.length > MAX_CHARS) break;
-    shards.push({ path: s.path, kind: s.kind, statement: s.statement, target: s.target, verifiedOn: s.verifiedOn, reasons: s.reasons, text });
-    chars += text.length;
-  }
-  return { shards, omitted: hits.length - shards.length, withheld };
+  const { shards, omitted, withheld } = selectShards({ root, paths, command, ranked });
+  return { shards, omitted, withheld };
 }
-
-const render = (s) => `- [${s.kind.replace(/_/g, " ")}] ${s.statement}${s.target ? ` See ${s.target}.` : ""} (${s.path}, verified ${s.verifiedOn})`;
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const a = args(process.argv.slice(2));

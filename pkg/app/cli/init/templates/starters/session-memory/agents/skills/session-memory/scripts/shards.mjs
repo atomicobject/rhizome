@@ -43,6 +43,7 @@ import {
   repoRoot,
   shardFiles,
   slugify,
+  readIndex,
   staleness,
   titleOf,
   today,
@@ -244,12 +245,13 @@ function dispatch(a, { root, store, user }) {
       return { dismissed: p.cluster, decision: file };
     }
     case "check": {
-      const tracked = git(root, ["ls-files", "-z"]).split("\0").filter(Boolean);
+      const index = readIndex(root);
+      const { tracked } = index;
       const old = Date.now() - 30 * 24 * 3600 * 1000;
       const out = [];
       for (const s of loadShards(root)) {
         const reasons = [];
-        const why = staleness(root, s, tracked);
+        const why = staleness(root, s, index);
         if (why) reasons.push(why);
         if ([...s.anchors].sort().join("\n") !== [...s.appliesTo].sort().join("\n")) reasons.push("code-anchors differ from applies-to");
         if (!s.appliesTo.length && Date.parse(s.verifiedOn) < old) reasons.push("no patterns, and verified more than 30 days ago");

@@ -2,10 +2,10 @@
 // repository. Every proposal and person below is synthetic.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { scratchRepo } from "./fakes.mjs";
 
 const scripts = new URL("../../templates/starters/session-memory/agents/skills/session-memory/scripts/", import.meta.url);
 const { globRegExp, loadShards, parseShard, approvedHash } = await import(new URL("lib/shards.mjs", scripts));
@@ -16,16 +16,7 @@ const user = { found: true, typeName: "Person", path: "docs/people/pat-example.m
 const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
 
 function repo(proposals) {
-  const root = mkdtempSync(join(tmpdir(), "sm-shards-"));
-  git(root, "init", "-q");
-  git(root, "config", "user.email", "test@example.com");
-  git(root, "config", "user.name", "Test");
-  mkdirSync(join(root, "pkg/store"), { recursive: true });
-  mkdirSync(join(root, "docs"), { recursive: true });
-  writeFileSync(join(root, "pkg/store/db.go"), "package store\n");
-  writeFileSync(join(root, "docs/store.md"), "# Store\n");
-  git(root, "add", "-A");
-  git(root, "commit", "-qm", "init");
+  const root = scratchRepo();
   const state = join(root, ".rhizome/session-memory");
   mkdirSync(state, { recursive: true });
   // Verification read the files at the initial commit.

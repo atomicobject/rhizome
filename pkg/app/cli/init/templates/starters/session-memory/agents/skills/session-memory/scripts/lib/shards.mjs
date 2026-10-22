@@ -54,7 +54,7 @@ export const approvedHash = (s) => hex({ kind: s.kind, statement: norm(s.stateme
 export const learningHash = (s) => hex(`${s.kind}\n${norm(s.statement).toLowerCase()}`);
 export const contentHash = (text) => hex(text);
 
-export const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 256 << 20 });
+export const git = (root, args, timeout) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 256 << 20, ...(timeout ? { timeout, killSignal: "SIGKILL" } : {}) });
 export const repoRoot = (cwd = process.cwd()) => git(cwd, ["rev-parse", "--show-toplevel"]).trim();
 
 // Every tracked file a shard depends on: files its patterns match, its
@@ -74,6 +74,21 @@ export function shardFiles(root, shard, tracked = git(root, ["ls-files", "-z"]).
 export function fingerprint(root, files) {
   if (!files.length) return null;
   return hex(git(root, ["ls-files", "-s", "-z", "--", ...files]));
+}
+
+// The whole index in one call: the tracked list, and each path's
+// `ls-files -s -z` records in index order (several for an unmerged path), so
+// fingerprints for many shards need no further Git calls.
+export function readIndex(root, timeout) {
+  const records = git(root, ["ls-files", "-s", "-z"], timeout).split("\0").filter(Boolean).map((r) => [r.slice(r.indexOf("\t") + 1), r]);
+  return { tracked: [...new Set(records.map(([path]) => path))], records };
+}
+
+// The bytes `git ls-files -s -z -- <files>` prints, hashed as fingerprint() does.
+export function indexFingerprint(index, files) {
+  if (!files.length) return null;
+  const want = new Set(files);
+  return hex(index.records.filter(([path]) => want.has(path)).map(([, r]) => `${r}\0`).join(""));
 }
 
 // Files with uncommitted changes or unresolved merge stages.
@@ -187,13 +202,63 @@ export function loadShards(root) {
 }
 
 // Why a shard should not be delivered, or null when it is current.
-export function staleness(root, shard, tracked) {
+export function staleness(root, shard, index = readIndex(root)) {
   if (approvedHash(shard) !== shard.approvedHash) return "content differs from the approved hash";
-  const files = shardFiles(root, shard, tracked);
+  const files = shardFiles(root, shard, index.tracked);
   if (shard.appliesTo.length && !files.some((f) => matchesAny(shard.appliesTo, f))) return "its patterns match no file";
   if (shard.target && !files.includes(shard.target)) return `its target ${shard.target} is missing`;
-  if ((fingerprint(root, files) ?? null) !== (shard.verifiedFingerprint ?? null)) return "files it depends on changed since verification";
+  if (indexFingerprint(index, files) !== (shard.verifiedFingerprint ?? null)) return "files it depends on changed since verification";
   return null;
+}
+
+export const MAX_SHARDS = 5;
+export const MAX_CHARS = 4000;
+export const patternless = (s) => !s.appliesTo.length && !s.commands.length;
+
+// The command-prefix rule `rzm hook` also applies before starting the
+// handler for a shell call; the two must stay identical.
+export const commandSegments = (command) => String(command ?? "").split(/&&|\|\||;|\||\n/).map(norm).filter(Boolean);
+export const matchesCommand = (prefixes, segments) => prefixes.some((c) => (c = norm(c)) && segments.some((s) => s.startsWith(c)));
+
+export const shardLine = (s, prefix = "- ") => `${prefix}[${s.kind.replace(/_/g, " ")}] ${s.statement}${s.target ? ` See ${s.target}.` : ""} (${s.path}, verified ${s.verifiedOn})`;
+
+// The one selection lookup and the hook handler share: current shards that
+// match the paths, the command, or the ranked task results (and, with
+// `everywhere`, shards with no patterns), rules first, within the limits.
+// Excluded IDs are dropped before the limits so they never hide later
+// matches. The index is read at most once, and only when something matches.
+export function selectShards({ root, paths = [], command, ranked = [], everywhere = true, exclude = new Set(), maxShards = MAX_SHARDS, maxChars = MAX_CHARS, shards, index, timeoutMs, prefix }) {
+  const segments = commandSegments(command);
+  const hits = [];
+  const withheld = [];
+  for (const s of shards ?? loadShards(root)) {
+    const id = `${s.path}@${s.contentHash}`;
+    if (exclude.has(id)) continue;
+    const reasons = [];
+    if (everywhere && patternless(s)) reasons.push("applies everywhere");
+    const touched = paths.filter((p) => matchesAny(s.appliesTo, p));
+    if (touched.length) reasons.push(`applies to ${touched.slice(0, 3).join(", ")}`);
+    const byCommand = matchesCommand(s.commands, segments);
+    if (byCommand) reasons.push("matches the command");
+    const rank = ranked.indexOf(s.path);
+    if (rank >= 0) reasons.push("matches the task");
+    if (!reasons.length) continue;
+    const stale = staleness(root, s, (index ??= readIndex(root, timeoutMs)));
+    if (stale) withheld.push({ path: s.path, reason: stale });
+    else hits.push({ ...s, id, reasons, order: touched.length || byCommand ? 0 : rank >= 0 ? 1 + rank : 99 });
+  }
+  hits.sort((a, b) => byKind(a, b) || a.order - b.order || a.path.localeCompare(b.path));
+  const picked = [];
+  let chars = 0;
+  for (const s of hits) {
+    const text = shardLine(s, prefix);
+    const size = Buffer.byteLength(text);
+    if (picked.length === maxShards || chars + size > maxChars) break;
+    picked.push({ id: s.id, path: s.path, kind: s.kind, statement: s.statement, target: s.target, verifiedOn: s.verifiedOn, reasons: s.reasons, text });
+    chars += size;
+  }
+  const rest = hits.slice(picked.length).map((s) => s.id);
+  return { shards: picked, omitted: rest.length, rest, withheld, index };
 }
 
 // Decision events from the repository and the local store; the latest event

@@ -95,6 +95,22 @@ export const SESSIONS = {
 
 export const fakeDiscover = (list) => () => ({ sessions: list.map((s) => (typeof s === "function" ? s() : s)), report: { matched: list.length } });
 
+// A committed scratch repository with a store package and its doc.
+export function scratchRepo() {
+  const root = mkdtempSync(join(tmpdir(), "sm-shards-"));
+  const git = (...a) => execFileSync("git", a, { cwd: root, stdio: "ignore" });
+  git("init", "-q");
+  git("config", "user.email", "test@example.com");
+  git("config", "user.name", "Test");
+  mkdirSync(join(root, "pkg/store"), { recursive: true });
+  mkdirSync(join(root, "docs"), { recursive: true });
+  writeFileSync(join(root, "pkg/store/db.go"), "package store\n");
+  writeFileSync(join(root, "docs/store.md"), "# Store\n");
+  git("add", "-A");
+  git("commit", "-qm", "init");
+  return root;
+}
+
 // A committed repository for packet verification to read, with a tracked
 // symlink to a directory, as skill links are.
 export function tempRepo() {
