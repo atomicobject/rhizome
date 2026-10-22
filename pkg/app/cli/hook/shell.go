@@ -157,8 +157,11 @@ func shellReads(cmd, cwd string) []string {
 		head = strings.TrimSuffix(strings.ToLower(head[strings.LastIndexAny(head, `/\`)+1:]), ".exe")
 		args := operands(words[1:])
 		if head == "cd" {
+			// Bash's cd is logical: ".." drops the previous component of the
+			// path text, not of the link's target. File operands after it
+			// still resolve physically (see physicalPath).
 			if len(args) == 1 && !args[0].dynamic {
-				cwd = resolveAgainst(cwd, args[0].text)
+				cwd = filepath.Clean(resolveAgainst(cwd, args[0].text))
 			}
 			continue
 		}

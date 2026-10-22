@@ -100,6 +100,9 @@ func TestDotDotAfterASymlinkFollowsTheLinkFirst(t *testing.T) {
 	}
 	// link/../secret.go opens the outside file, though it cleans to secret.go.
 	require.Empty(t, containedPaths(root, root, []string{"link/../secret.go", filepath.Join(root, "link") + "/../secret.go"}))
-	require.Empty(t, containedPaths(root, root, shellReads("cd link/.. && cat secret.go", root)), "cd link/.. leaves the worktree before the read")
+	// Bash's cd is logical: cd link/.. returns to the directory holding the
+	// link, while a file operand after cd link still resolves physically.
+	require.Equal(t, []string{"secret.go"}, containedPaths(root, root, shellReads("cd link/.. && cat secret.go", root)))
+	require.Empty(t, containedPaths(root, root, shellReads("cd link && cat ../secret.go", root)))
 	require.Equal(t, []string{"secret.go"}, containedPaths(root, root, []string{"pkg/../secret.go"}))
 }
