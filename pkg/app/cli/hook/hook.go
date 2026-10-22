@@ -37,7 +37,9 @@ const (
 	PostToolUse   = "post-tool-use"
 	// PostCompact follows a compaction. Neither host starts a subagent's
 	// context again after one, so the dispatcher resets that context and
-	// delivers its start items with its next tool call.
+	// delivers its start items with its next tool call. Codex's source shows
+	// a subagent's compaction running it with the agent ID; Claude Code's
+	// doing so is expected but not yet verified live.
 	PostCompact = "post-compact"
 )
 
