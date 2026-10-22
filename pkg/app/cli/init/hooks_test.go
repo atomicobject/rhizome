@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -110,10 +111,96 @@ func TestHooksOnInstallsOneEntryPerHookPointAndPreservesOtherEntries(t *testing.
 func TestHookStatusReportsWhenEachHandlerLastReturnedContext(t *testing.T) {
 	root := hookRepo(t, "on")
 	at := time.Date(2026, 10, 22, 14, 3, 0, 0, time.Local)
-	writeFixtureFile(t, root, ".rhizome/hooks/status.json", `{"claude":{"session-memory/deliver-shards":"`+at.UTC().Format(time.RFC3339)+`"}}`)
+	writeFixtureFile(t, root, ".rhizome/hooks/status.json", `{"delivered":{"claude":{"session-memory/deliver-shards":"`+at.UTC().Format(time.RFC3339)+`"}}}`)
 	out, err := runInit(t, RunOptions{Dir: root, Check: true})
 	require.NoError(t, err)
 	require.Contains(t, out, "session-memory/deliver-shards last returned context 2026-10-22 14:03")
+}
+
+// guardFinding is an approved guard finding whose rule refuses go mod vendor.
+const guardFinding = `---
+response: guard
+summary: "Agents run a bare go mod vendor."
+guard-rule: {"tool":"shell","command":"go mod vendor","reason":"It deletes hand-vendored C files.","alternative":"make vendor"}
+approved-hash: "b9a4a97b3a352156"
+reviewed-by: "Sam"
+reviewed-on: 2026-10-22
+---
+
+# Agents run a bare go mod vendor
+`
+
+func TestTheBeforeToolCallEntryFollowsApprovedGuardRules(t *testing.T) {
+	root := hookRepo(t, "on")
+	require.NotContains(t, hookCommands(t, root, ".claude/settings.json"), "PreToolUse", "no rule, no entry")
+
+	// Only a finding note tracked in Git holds a rule.
+	runGit(t, "-C", root, "init", "-q")
+	rel := "docs/memory/agent-findings/guard-go-mod-vendor.md"
+	writeFixtureFile(t, root, rel, guardFinding)
+	out, err := runInit(t, RunOptions{Dir: root, Check: true})
+	require.NoError(t, err)
+	require.Contains(t, out, "guard rule skipped: "+rel+": not tracked in Git; stage or commit it to activate its rule")
+	runGit(t, "-C", root, "add", "--", rel)
+	out, err = runInit(t, RunOptions{Dir: root, Check: true})
+	require.ErrorContains(t, err, "would make changes")
+	require.Contains(t, out, "Claude Code hooks (.claude/settings.json): installed; these changes update them")
+	_, err = runInit(t, RunOptions{Dir: root})
+	require.NoError(t, err)
+	require.Equal(t, []string{"rzm hook claude pre-tool-use"}, hookCommands(t, root, ".claude/settings.json")["PreToolUse"])
+	require.Equal(t, []string{"rzm hook codex pre-tool-use"}, hookCommands(t, root, ".codex/hooks.json")["PreToolUse"])
+	require.Equal(t, []string{"rzm hook claude post-tool-use"}, hookCommands(t, root, ".claude/settings.json")["PostToolUse"])
+	requireUpToDate(t, root)
+
+	// Status lists the active rule per host and how often it refused a call.
+	writeFixtureFile(t, root, ".rhizome/hooks/status.json", `{"refused":{"codex":{"`+rel+`":3}}}`)
+	out, err = runInit(t, RunOptions{Dir: root, Check: true})
+	require.NoError(t, err)
+	require.Contains(t, out, "guard rule "+rel+" (shell command go mod vendor) refused 0 calls")
+	require.Contains(t, out, "guard rule "+rel+" (shell command go mod vendor) refused 3 calls")
+
+	// A rule edited after approval is named and does not count.
+	writeFixtureFile(t, root, rel, strings.Replace(guardFinding, `"alternative":"make vendor"`, `"alternative":"anything"`, 1))
+	_, err = runInit(t, RunOptions{Dir: root})
+	require.NoError(t, err)
+	require.NotContains(t, hookCommands(t, root, ".claude/settings.json"), "PreToolUse", "no approved rule remains")
+	require.NotContains(t, hookCommands(t, root, ".codex/hooks.json"), "PreToolUse")
+	require.Contains(t, hookCommands(t, root, ".claude/settings.json"), "PostToolUse")
+	out, err = runInit(t, RunOptions{Dir: root, Check: true})
+	require.NoError(t, err)
+	require.Contains(t, out, "guard rule skipped: "+rel+": edited after approval; revise it through the session-memory review")
+	require.Contains(t, out, "session-memory/guard-rules has no approved guard rules")
+}
+
+// A binary that runs hook entries without applying guard rules gets every
+// entry but the before-tool-call one, and status says why.
+func TestTheBeforeToolCallEntryWaitsForABinaryThatAppliesGuardRules(t *testing.T) {
+	root := hookRepo(t, "on")
+	stubHookSupport(t, fmt.Errorf("the rzm on PATH (/bin/rzm) %w, so the before-tool-call entry was not installed; update it with rzm update", errNoGuard))
+	out, err := runInit(t, RunOptions{Dir: root, Check: true})
+	require.NoError(t, err, "no rule needs the entry, so nothing is reported")
+	require.NotContains(t, out, "Guard rules do not run")
+
+	runGit(t, "-C", root, "init", "-q")
+	rel := "docs/memory/agent-findings/guard-go-mod-vendor.md"
+	writeFixtureFile(t, root, rel, guardFinding)
+	runGit(t, "-C", root, "add", "--", rel)
+	_, err = runInit(t, RunOptions{Dir: root})
+	require.NoError(t, err)
+	require.NotContains(t, hookCommands(t, root, ".claude/settings.json"), "PreToolUse")
+	require.Contains(t, hookCommands(t, root, ".claude/settings.json"), "PostToolUse")
+	out, err = runInit(t, RunOptions{Dir: root, Check: true})
+	require.NoError(t, err)
+	require.Contains(t, out, "Guard rules do not run: the rzm on PATH (/bin/rzm) does not apply guard rules, so the before-tool-call entry was not installed; update it with rzm update")
+
+	// Machine setup reports the same reason.
+	fresh := machineRunRepo(t)
+	runGit(t, "-C", fresh, "init", "-q")
+	writeFixtureFile(t, fresh, rel, guardFinding)
+	runGit(t, "-C", fresh, "add", "--", rel)
+	plan, err := Plan(RunOptions{Dir: fresh, Workflow: "none", Addons: "session-memory", Agents: "claude", Search: "off", Hooks: "on"})
+	require.NoError(t, err)
+	require.Contains(t, plan.HooksBlocked, "does not apply guard rules")
 }
 
 func TestHooksStayOffUntilTurnedOnAndTheSummaryNamesWhatTheyDeliver(t *testing.T) {
@@ -270,7 +357,13 @@ func TestHookSupportCheckProbesTheRzmOnPath(t *testing.T) {
 	err = selectedBinarySupportsHooks(root, repoconfig.LocalConfig{})
 	require.ErrorContains(t, err, "the rzm on PATH ("+launcher+") does not support rzm hook")
 
+	// A dispatcher from before guard rules runs entries but not the guard.
 	require.NoError(t, os.WriteFile(launcher, []byte("#!/bin/sh\n[ \"$1 $2\" = \"hook --check\" ] && echo 'rzm-hook 1'\n"), 0o755))
+	err = selectedBinarySupportsHooks(root, repoconfig.LocalConfig{})
+	require.ErrorIs(t, err, errNoGuard)
+	require.ErrorContains(t, err, "the rzm on PATH ("+launcher+") does not apply guard rules")
+
+	require.NoError(t, os.WriteFile(launcher, []byte("#!/bin/sh\n[ \"$1 $2\" = \"hook --check\" ] && echo 'rzm-hook 1 guard'\n"), 0o755))
 	require.NoError(t, selectedBinarySupportsHooks(root, repoconfig.LocalConfig{}))
 }
 
@@ -286,7 +379,7 @@ func TestHookSupportCheckRunsNoBinaryAnUntrustedCheckoutSelects(t *testing.T) {
 	marker := filepath.Join(root, "ran")
 	dev := filepath.Join(root, "devbin", runtime.GOOS, "rzm")
 	require.NoError(t, os.MkdirAll(filepath.Dir(dev), 0o755))
-	require.NoError(t, os.WriteFile(dev, []byte("#!/bin/sh\n: > '"+marker+"'\necho 'rzm-hook 1'\n"), 0o755))
+	require.NoError(t, os.WriteFile(dev, []byte("#!/bin/sh\n: > '"+marker+"'\necho 'rzm-hook 1 guard'\n"), 0o755))
 	store := repositorytrust.Store{Dir: t.TempDir()}
 	saved := hookTrustStore
 	hookTrustStore = func() (repositorytrust.Store, error) { return store, nil }
@@ -331,6 +424,46 @@ func TestHookSupportCheckProbesASourceCheckoutsOwnBuild(t *testing.T) {
 
 	err = selectedBinarySupportsHooks(root, repoconfig.LocalConfig{})
 	require.ErrorContains(t, err, "the selected rzm ("+dev+") does not support rzm hook")
+
+	// A build from before guard rules runs entries but not the guard.
+	require.NoError(t, os.WriteFile(dev, []byte("#!/bin/sh\necho 'rzm-hook 1'\n"), 0o755))
+	err = selectedBinarySupportsHooks(root, repoconfig.LocalConfig{})
+	require.ErrorIs(t, err, errNoGuard)
+	require.ErrorContains(t, err, "the selected rzm ("+dev+") does not apply guard rules")
+
+	require.NoError(t, os.WriteFile(dev, []byte("#!/bin/sh\necho 'rzm-hook 1 guard'\n"), 0o755))
+	require.NoError(t, selectedBinarySupportsHooks(root, repoconfig.LocalConfig{}))
+}
+
+// The installed entries run the rzm on PATH, which selects the checkout's
+// build; a go run init selects nothing itself, so it must not stop at the
+// launcher.
+func TestHookSupportCheckSelectsFromTheLauncherWhenInitIsAGoRunBuild(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture is Unix-only")
+	}
+	bin := t.TempDir()
+	t.Setenv("PATH", bin)
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "rzm"), []byte("#!/bin/sh\necho 'rzm-hook 1 guard'\n"), 0o755))
+	root := t.TempDir()
+	writeFixtureFile(t, root, "go.mod", "module github.com/atomicobject/rhizome\n\ngo 1.27\n")
+	dev := filepath.Join(root, "bin", runtime.GOOS, "rzm")
+	require.NoError(t, os.MkdirAll(filepath.Dir(dev), 0o755))
+	require.NoError(t, os.WriteFile(dev, []byte("#!/bin/sh\necho 'rzm-hook 1'\n"), 0o755))
+	store := repositorytrust.Store{Dir: t.TempDir()}
+	saved := hookTrustStore
+	hookTrustStore = func() (repositorytrust.Store, error) { return store, nil }
+	t.Cleanup(func() { hookTrustStore = saved })
+	_, err := store.Trust(root)
+	require.NoError(t, err)
+	running := filepath.Join(t.TempDir(), "go-build123", "b001", "exe", "rzm")
+	savedExe := runningExecutable
+	runningExecutable = func() (string, error) { return running, nil }
+	t.Cleanup(func() { runningExecutable = savedExe })
+
+	err = selectedBinarySupportsHooks(root, repoconfig.LocalConfig{})
+	require.ErrorIs(t, err, errNoGuard)
+	require.ErrorContains(t, err, "the selected rzm ("+dev+") does not apply guard rules")
 }
 
 func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {
@@ -343,9 +476,11 @@ func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {
 	require.NoError(t, err)
 	handlers, err = HookHandlers(root)
 	require.NoError(t, err)
-	require.Len(t, handlers, 1)
+	require.Len(t, handlers, 2)
 	h := handlers[0]
 	require.Equal(t, "session-memory/deliver-shards", h.Key())
+	require.Equal(t, "session-memory/guard-rules", handlers[1].Key())
+	require.Equal(t, "docs/memory/agent-findings", handlers[1].GuardRules)
 	require.Equal(t, []string{"node", ".agents/skills/session-memory/scripts/hook.mjs"}, h.Command)
 	require.Equal(t, ".rhizome/session-memory/hook/command-prefixes.json", h.CommandPrefixes)
 	require.ElementsMatch(t, []string{hook.SessionStart, hook.SubagentStart, hook.PostToolUse}, h.Events)
@@ -357,13 +492,13 @@ func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {
 	require.NoError(t, err)
 	handlers, err = HookHandlers(root)
 	require.NoError(t, err)
-	require.Len(t, handlers, 1)
+	require.Len(t, handlers, 2)
 	_, err = runInit(t, RunOptions{Dir: root, RemoveAddon: "session-memory"})
 	require.NoError(t, err)
 	require.Contains(t, loadConfigForTest(t, root).WorkflowTemplateManagement.Ejected, "session-memory")
 	handlers, err = HookHandlers(root)
 	require.NoError(t, err)
-	require.Len(t, handlers, 1)
+	require.Len(t, handlers, 2)
 	require.FileExists(t, filepath.Join(root, filepath.FromSlash(handlers[0].Command[1])))
 }
 
@@ -380,7 +515,7 @@ func TestHookHandlersRunFromTheInstalledSkillFolder(t *testing.T) {
 
 	handlers, err := HookHandlers(root)
 	require.NoError(t, err)
-	require.Len(t, handlers, 1)
+	require.Len(t, handlers, 2)
 	require.Equal(t, []string{"node", ".claude/skills/session-memory/scripts/hook.mjs"}, handlers[0].Command)
 	require.FileExists(t, filepath.Join(root, ".claude", "skills", "session-memory", "scripts", "hook.mjs"))
 }
@@ -397,7 +532,8 @@ func TestAHandlerWhoseSkillFolderIsOffDoesNotRun(t *testing.T) {
 
 	handlers, err := HookHandlers(root)
 	require.NoError(t, err)
-	require.Empty(t, handlers, "the copy in a disabled folder is not run")
+	require.Len(t, handlers, 1, "the copy in a disabled folder is not run")
+	require.Equal(t, "session-memory/guard-rules", handlers[0].Key(), "the built-in guard needs no skill")
 	out, err := runInit(t, RunOptions{Dir: root, Check: true})
 	require.NoError(t, err)
 	require.Contains(t, out, "session-memory/deliver-shards does not run: no enabled skill folder holds its session-memory skill")
@@ -416,8 +552,25 @@ func TestHookDeclarationsAreValidated(t *testing.T) {
 		func(m *starterHookMetadata) { m.Timeout = "10s" },
 		func(m *starterHookMetadata) { m.Timeout = "" },
 		func(m *starterHookMetadata) { m.Skill = "" },
+		// Only the built-in guard acts before a tool call.
+		func(m *starterHookMetadata) { m.Events = []string{hook.PreToolUse} },
 	} {
 		m := good
+		bad(&m)
+		_, err := m.handler("s")
+		require.Error(t, err)
+	}
+
+	guard := starterHookMetadata{ID: "g", Delivers: "refusals", Events: []string{hook.PreToolUse}, Tools: []string{hook.ToolShell}, GuardRules: "docs/findings"}
+	h, err := guard.handler("s")
+	require.NoError(t, err)
+	require.Equal(t, "docs/findings", h.GuardRules)
+	for _, bad := range []func(m *starterHookMetadata){
+		func(m *starterHookMetadata) { m.Command = []string{"node", "g.mjs"} },
+		func(m *starterHookMetadata) { m.Events = []string{hook.PostToolUse} },
+		func(m *starterHookMetadata) { m.Tools = nil },
+	} {
+		m := guard
 		bad(&m)
 		_, err := m.handler("s")
 		require.Error(t, err)
@@ -433,7 +586,7 @@ func TestInvalidHooksOptionFailsBeforeWriting(t *testing.T) {
 
 func TestRenderHookFileKeepsOrderAndForeignEntries(t *testing.T) {
 	existing := []byte(`{"z":1,"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"lint"}]},{"hooks":[{"type":"command","command":"/usr/local/bin/rzm hook claude post-tool-use","timeout":9}]}]},"a":2}`)
-	next, err := renderHookFile(existing, desiredHookEntries(hook.HarnessClaude))
+	next, err := renderHookFile(existing, desiredHookEntries(hook.HarnessClaude, false))
 	require.NoError(t, err)
 	top, err := parseOrderedObject(next)
 	require.NoError(t, err)

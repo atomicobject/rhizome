@@ -259,13 +259,61 @@ export function responseProblems(r) {
   }
   if ((r.response === "fix" || r.response === "guard") && !filled(r.change)) problems.push(`a ${r.response} response needs change, a sketch of the ${r.response === "fix" ? "fix" : "check, test, or hook"}`);
   if (r.response === "ask" && !filled(r.question)) problems.push("an ask response needs question, the decision its owner must make");
-  const g = r.guardRule;
-  if (g) {
+  if (r.guardRule) {
     if (r.response !== "guard") problems.push("only a guard response may carry guardRule");
-    if (!["read", "edit", "shell", "patch"].includes(g.tool)) problems.push("guardRule.tool must be read, edit, shell, or patch");
-    if (filled(g.command) === filled(g.path)) problems.push("guardRule needs exactly one of command (a command prefix) or path (a glob using *, **, ?)");
-    if (!filled(g.reason) || !filled(g.alternative)) problems.push("guardRule needs reason and alternative");
+    problems.push(...guardRuleProblems(r.guardRule));
   }
+  return problems;
+}
+
+// The agent sees a rule's reason and alternative verbatim, so each is short.
+export const GUARD_TEXT_MAX = 300;
+const WRAPPERS = new Set(["env", "command", "builtin", "exec", "time", "nohup", "sudo"]);
+const assignment = (w) => /^[^=/.-][^=/.-]*=/.test(w);
+// The hook dispatcher evaluates only plain simple commands (SPEC-0045 US6
+// AC3): a literal command word that is no reserved word and no bash or zsh
+// builtin but cd, true, false, echo, and pwd. Its notPlain set in
+// guard_shell.go is the same list.
+const PLAIN_NAME = /^[A-Za-z0-9._/+][A-Za-z0-9._/+-]*$/;
+const NOT_PLAIN = new Set(`
+	! [[ ]] { } case coproc do done elif else end esac fi for foreach function if in nocorrect repeat select then time until while
+	. : alias bg bind break builtin caller command compgen complete compopt continue declare dirs disown enable eval exec exit
+	export fc fg getopts hash help history jobs kill let local logout mapfile popd printf pushd read readarray readonly return
+	set shift shopt source suspend times trap type typeset ulimit umask unalias unset wait test [
+	- autoload bindkey bye chdir compadd comparguments compcall compctl compdescribe compfiles compgroups compquote compset
+	comptags comptry compvalues disable echotc echoti emulate float functions getln integer limit log nameref noglob print
+	private pushln r rehash sched setopt ttyctl unfunction unhash unlimit unsetopt vared whence where which zcompile zformat
+	zle zmodload zparseopts zregexparse zstyle
+	cap clone getcap setcap pcre_compile pcre_match pcre_study strftime sysopen sysread sysseek syswrite zsystem zselect zpty
+	zsocket ztcp zprof zcurses zstat zgetattr zsetattr zdelattr zlistattr ztie zuntie zgdbmpath zftp
+	env sudo doas nohup nice timeout xargs sh bash zsh dash ksh fish
+`.trim().split(/\s+/));
+const plainCommandWord = (w) => PLAIN_NAME.test(w) && !NOT_PLAIN.has(w.replace(/^.*\//, "").toLowerCase().replace(/\.exe$/, ""));
+
+// Problems with a guard rule the hook dispatcher would skip (SPEC-0045 US6),
+// or whose text is too long to show an agent.
+export function guardRuleProblems(g) {
+  const problems = [];
+  if (!["read", "edit", "shell", "patch"].includes(g.tool)) problems.push("guardRule.tool must be read, edit, shell, or patch");
+  if (filled(g.command) === filled(g.path)) problems.push("guardRule needs exactly one of command (a command prefix) or path (a glob using *, **, ?)");
+  if (filled(g.command)) {
+    const words = g.command.trim().split(/\s+/);
+    while (words.length && (WRAPPERS.has(words[0]) || assignment(words[0]))) words.shift();
+    if (/['"\\$`]/.test(g.command)) problems.push("guardRule.command must be plain words, without quotes or expansions");
+    else if (!words.length || !plainCommandWord(words[0])) problems.push("guardRule.command must name a literal command word, not a glob such as * or a builtin such as eval");
+    // The dispatcher never evaluates a command with an unquoted glob or a
+    // leading ~, so a rule with one could match only a quoted word.
+    else if (words.some((w) => /[*?[]|^~/.test(w))) problems.push("guardRule.command may not use a glob (*, ?, [) or a leading ~ in any word");
+  }
+  if (filled(g.path) && /^\/|(^|\/)\.{1,2}(\/|$)|\/\/|\/$/.test(g.path.trim())) problems.push("guardRule.path must be a repository-relative glob, without a leading /, ./, or ..");
+  // The dispatcher's matcher would expand braces, classes, and escapes that
+  // the breadth check reads literally, so only the shard dialect is allowed.
+  if (filled(g.path) && /[{}[\]\\]|^!/.test(g.path.trim())) problems.push("guardRule.path may use only literal names, *, **, and ?, not {}, [], \\, or a leading !");
+  // The dispatcher's YAML parser rejects these, or reads U+0085, U+2028, and
+  // U+2029 as line breaks, which change the text.
+  if ([g.command, g.path, g.reason, g.alternative].some((v) => /[\u007f-\u009f\u2028\u2029\ufffe\uffff]|\p{Cs}/u.test(v ?? ""))) problems.push("guardRule text may not contain U+007F to U+009F, U+2028, U+2029, U+FFFE, U+FFFF, or an unpaired surrogate");
+  if (!filled(g.reason) || !filled(g.alternative)) problems.push("guardRule needs reason and alternative");
+  else if ([...g.reason].length > GUARD_TEXT_MAX || [...g.alternative].length > GUARD_TEXT_MAX) problems.push(`guardRule reason and alternative must each be at most ${GUARD_TEXT_MAX} characters`);
   return problems;
 }
 

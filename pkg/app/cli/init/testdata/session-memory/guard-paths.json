@@ -1,0 +1,13 @@
+[
+  ["docs/x.md", true],
+  ["gen/**", true],
+  ["**/*.pb.go", true],
+  ["docs/?.md", true],
+  ["path with spaces/*.md", true],
+  ["{gen,src}/**", false],
+  ["gen/{a}.go", false],
+  ["[gs]en/**", false],
+  ["gen/a]b.go", false],
+  ["!gen/**", false],
+  ["gen/\\*.go", false]
+]

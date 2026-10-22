@@ -290,7 +290,7 @@ func TestDispatcherRecordsWhenEachHandlerReturnedContext(t *testing.T) {
 			return []Handler{helperHandler("one", "items:a"), helperHandler("none", "items:")}, nil
 		},
 	})
-	require.Equal(t, Status{HarnessCodex: {"test/one": at}}, ReadStatus(root))
+	require.Equal(t, map[string]map[string]time.Time{HarnessCodex: {"test/one": at}}, ReadStatus(root).Delivered)
 }
 
 func TestBadInputEndsQuietly(t *testing.T) {
@@ -329,7 +329,7 @@ func TestCorruptStateFilesAreTreatedAsEmpty(t *testing.T) {
 	require.NoError(t, os.WriteFile(statePath, []byte(`{"scopes":[1]}`), 0o644))
 	res, _ := dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
 	require.Equal(t, "text a", res.HookSpecificOutput.AdditionalContext)
-	require.Contains(t, ReadStatus(root)[HarnessClaude], "test/one")
+	require.Contains(t, ReadStatus(root).Delivered[HarnessClaude], "test/one")
 	_, out := dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
 	require.Empty(t, out, "the rewritten state records the item")
 }
