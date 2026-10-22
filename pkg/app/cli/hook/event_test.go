@@ -35,6 +35,10 @@ func TestNormalizeClaudeAndCodexPayloads(t *testing.T) {
 		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","cwd":%q,"tool_use_id":"call_2","tool_name":"Bash","tool_input":{"command":"cat a.go"}}`, root),
 		want:    Event{Tool: ToolShell, Command: "cat a.go", Agent: Identity{Session: "s", Turn: "t"}},
 	}, {
+		name: "folder search keeps the folder and drops the root", harness: HarnessCodex, point: PostToolUse,
+		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","cwd":%q,"tool_use_id":"call_4","tool_name":"Bash","tool_input":{"command":"rg -n TODO pkg ."}}`, root),
+		want:    Event{Tool: ToolShell, Paths: []string{"pkg"}, Command: "rg -n TODO pkg .", Agent: Identity{Session: "s", Turn: "t"}},
+	}, {
 		name: "codex patch that moves and deletes", harness: HarnessCodex, point: PostToolUse,
 		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","cwd":%q,"tool_use_id":"call_3","tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\n*** Update File: pkg/a.go\n*** Move to: pkg/moved.go\n*** Delete File: pkg/old.go\n*** Delete File: gone/old.go\n*** End Patch"},"tool_response":"Success"}`, root),
 		want:    Event{Tool: ToolPatch, Paths: []string{"pkg/a.go", "pkg/moved.go", "pkg/old.go"}, Agent: Identity{Session: "s", Turn: "t"}},

@@ -84,6 +84,27 @@ test("lookup and the hook select the same shards, and match commands by segment 
   assert.equal(item.id, `${store}@${S.contentHash(readFileSync(join(root, store), "utf8"))}`);
 });
 
+test("a folder search delivers the shards for tracked files beneath it, unless it covers most of the repository", () => {
+  const root = scratchRepo();
+  const store = shard(root, { statement: "Store rule: a busy timeout of 0 means the default." });
+  shard(root, { statement: "Docs rule: the store doc is generated.", appliesTo: ["docs/*.md"] });
+  // The hook passes the folder, as the dispatcher's path extraction does.
+  assert.deepEqual(ids(shell(root, "rg -n TODO pkg/store", ["pkg/store"])).map(pathOf), [store]);
+  assert.deepEqual(ids(shell(root, "grep -r TODO pkg", ["pkg"])).map(pathOf), [store]);
+  assert.deepEqual(lookup({ root, files: ["pkg/store"] }).shards.map((s) => s.path), [store]);
+  assert.deepEqual(lookup({ root, command: "rg -n TODO pkg/store" }).shards.map((s) => s.path), [store]);
+  assert.deepEqual(lookup({ root, files: ["pkg/sto"] }).shards, []);
+  assert.deepEqual(lookup({ root, files: ["."] }).shards, []);
+
+  // Past 50 tracked files and a tenth of the repository, a folder selects nothing.
+  mkdirSync(join(root, "pkg/gen"), { recursive: true });
+  for (let k = 0; k < 60; k++) writeFileSync(join(root, `pkg/gen/f${k}.go`), "package gen\n");
+  git(root, "add", "pkg");
+  git(root, "commit", "-qm", "gen");
+  assert.deepEqual(ids(shell(root, "rg TODO pkg", ["pkg"])), []);
+  assert.deepEqual(ids(shell(root, "rg TODO pkg/store", ["pkg/store"])).map(pathOf), [store]);
+});
+
 test("emitted shards are left out before the five-shard limit", () => {
   const root = scratchRepo();
   for (let k = 0; k < 7; k++) shard(root, { kind: k < 2 ? "fact" : "rule", statement: `Rule ${k}: the store keeps invariant ${k}.` });

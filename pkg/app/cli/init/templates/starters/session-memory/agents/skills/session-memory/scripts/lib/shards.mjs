@@ -220,6 +220,23 @@ export const patternless = (s) => !s.appliesTo.length && !s.commands.length;
 export const commandSegments = (command) => String(command ?? "").split(/&&|\|\||;|\||\n/).map(norm).filter(Boolean);
 export const matchesCommand = (prefixes, segments) => prefixes.some((c) => (c = norm(c)) && segments.some((s) => s.startsWith(c)));
 
+// A directory operand (`rg TODO pkg/store`) matches a shard when a tracked
+// file beneath it does. One holding more than 50 tracked files and more than
+// a tenth of them, the breadth approval questions, matches nothing, so a
+// search over most of the repository does not select every shard.
+function filesUnder(index, dir) {
+  const files = index.tracked.filter((f) => f.startsWith(`${dir}/`));
+  return files.length > 50 && files.length > index.tracked.length / 10 ? [] : files;
+}
+
+// Whether a file beneath dir could match the pattern, judged from the
+// pattern's literal prefix, so most shards need no index read.
+function mayMatchUnder(pattern, dir) {
+  const wild = pattern.search(/[*?]/);
+  const literal = wild < 0 ? pattern : pattern.slice(0, wild);
+  return literal.startsWith(`${dir}/`) || `${dir}/`.startsWith(literal);
+}
+
 export const shardLine = (s, prefix = "- ") => `${prefix}[${s.kind.replace(/_/g, " ")}] ${s.statement}${s.target ? ` See ${s.target}.` : ""} (${s.path}, verified ${s.verifiedOn})`;
 
 // The one selection lookup and the hook handler share: current shards that
@@ -228,17 +245,26 @@ export const shardLine = (s, prefix = "- ") => `${prefix}[${s.kind.replace(/_/g,
 // Excluded IDs are dropped before the limits so they never hide later
 // matches, and `skip` drops that many leading matches, so a caller can page
 // past what it already showed. The index is read at most once, and only when
-// something matches.
+// something matches or a directory operand might.
 export function selectShards({ root, paths = [], command, ranked = [], everywhere = true, exclude = new Set(), skip = 0, maxShards = MAX_SHARDS, maxChars = MAX_CHARS, shards, index, timeoutMs, prefix }) {
   const segments = commandSegments(command);
   const hits = [];
   const withheld = [];
+  const dirs = new Map();
   for (const s of shards ?? loadShards(root)) {
     const id = `${s.path}@${s.contentHash}`;
     if (exclude.has(id)) continue;
     const reasons = [];
     if (everywhere && patternless(s)) reasons.push("applies everywhere");
-    const touched = paths.filter((p) => matchesAny(s.appliesTo, p));
+    const touched = paths.filter((p) => {
+      if (matchesAny(s.appliesTo, p)) return true;
+      const pats = s.appliesTo.filter((g) => mayMatchUnder(g, p)).map(globRegExp);
+      if (!pats.length) return false;
+      index ??= readIndex(root, timeoutMs);
+      if (!dirs.has(p)) dirs.set(p, filesUnder(index, p));
+      const under = dirs.get(p);
+      return under.some((f) => !f.startsWith(`${SHARD_DIR}/`) && pats.some((re) => re.test(f)));
+    });
     if (touched.length) reasons.push(`applies to ${touched.slice(0, 3).join(", ")}`);
     const byCommand = matchesCommand(s.commands, segments);
     if (byCommand) reasons.push("matches the command");
