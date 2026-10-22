@@ -4,10 +4,11 @@
 // longer matches its approved hash, or whose files changed since it was
 // verified, is withheld until it is renewed or revised.
 //
-//   lookup.mjs [--files PATH...] [--command "CMD"] [--task "TEXT"] [--json]
+//   lookup.mjs [--files PATH...] [--command "CMD"] [--task "TEXT"] [--skip N] [--json]
 //
 // At most five shards (about 4,000 characters), rules first. Shards with no
-// patterns always apply. Run from anywhere inside the repository.
+// patterns always apply. --skip N leaves out the first N matches, to see the
+// ones past the limit. Run from anywhere inside the repository.
 
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -40,24 +41,25 @@ function searchShards(root, task) {
   }
 }
 
-export function lookup({ root, files = [], command, task, search = searchShards }) {
+export function lookup({ root, files = [], command, task, skip = 0, search = searchShards }) {
   const paths = files.map((f) => relativize(f, root, true)).filter(Boolean);
   if (command) {
     const p = shellPaths(command, root, true);
     paths.push(...p.reads, ...p.edits);
   }
   const ranked = task ? search(root, task) : [];
-  const { shards, omitted, withheld } = selectShards({ root, paths, command, ranked });
+  const { shards, omitted, withheld } = selectShards({ root, paths, command, ranked, skip });
   return { shards, omitted, withheld };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const a = args(process.argv.slice(2));
-  const result = lookup({ root: repoRoot(), files: a.files, command: a.command, task: a.task });
+  const skip = Number(a.skip) || 0;
+  const result = lookup({ root: repoRoot(), files: a.files, command: a.command, task: a.task, skip });
   if (a.json) console.log(JSON.stringify(result, null, 2));
   else {
     console.log(result.shards.length ? result.shards.map((s) => s.text).join("\n") : "No current context shards match.");
-    if (result.omitted) console.log(`(${result.omitted} more matched; narrow the files or task to see them)`);
+    if (result.omitted) console.log(`(${result.omitted} more matched; run again with --skip ${skip + result.shards.length} to see them)`);
     if (result.withheld.length) console.log(`(${result.withheld.length} matching shard(s) withheld until re-verified; see \`shards.mjs check\`)`);
   }
 }

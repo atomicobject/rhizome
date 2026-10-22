@@ -1,8 +1,8 @@
 // The session-memory handler `rzm hook` runs, against a scratch Git
 // repository with synthetic shards written straight to disk.
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import { execFileSync, execSync, spawnSync } from "node:child_process";
+import { cpSync, mkdirSync, readFileSync, realpathSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
@@ -11,7 +11,7 @@ import { scratchRepo } from "./fakes.mjs";
 const scripts = new URL("../../templates/starters/session-memory/agents/skills/session-memory/scripts/", import.meta.url);
 const S = await import(new URL("lib/shards.mjs", scripts));
 const { lookup } = await import(new URL("lookup.mjs", scripts));
-const { handle, cachedShards, HOOK_DIR, moreLine } = await import(new URL("hook.mjs", scripts));
+const { handle, cachedShards, HOOK_DIR, lookupCommand, moreLine } = await import(new URL("hook.mjs", scripts));
 
 const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
 
@@ -130,24 +130,37 @@ test("session start delivers only shards that apply everywhere, then says how ma
   const root = scratchRepo();
   shard(root, { statement: "Store rule: a busy timeout of 0 means the default." });
   shard(root, { statement: "Vendor rule: run make vendor-treesitter afterwards.", appliesTo: [], commands: ["go mod vendor"] });
-  const everywhere = Array.from({ length: 7 }, (_, k) => shard(root, { kind: "fact", statement: `Global fact ${k}: every package logs through one logger.`, appliesTo: [] }));
+  const everywhere = Array.from({ length: 7 }, (_, k) => shard(root, { kind: "fact", statement: `Global fact ${k}: every package logs through one logger ${"and reports through one channel ".repeat(6)}`, appliesTo: [] }));
   const r = start(root);
   assert.equal(r.items.length, 6);
   assert.ok(ids(r).slice(0, 5).every((id) => everywhere.includes(pathOf(id))));
   const more = r.items[5];
   assert.match(more.id, /^session-memory:more@[0-9a-f]{16}$/);
-  assert.equal(more.text, moreLine(2));
+  assert.equal(more.text, moreLine(2, lookupCommand(root, 5)));
+  // The command the line names shows exactly the shards it did not deliver.
+  const shown = execSync(more.text.match(/run (node .+) to see them\.$/)[1], { cwd: root, encoding: "utf8" });
+  const delivered = ids(r).slice(0, 5).map(pathOf);
+  assert.deepEqual(everywhere.filter((p) => shown.includes(p)), everywhere.filter((p) => !delivered.includes(p)));
   assert.deepEqual(ids(handle(request(root, { event: "subagent-start", reset: "compact" }))), ids(r));
   assert.equal(read(root, ["docs/store.md"]).items.length, 0);
 
   // Room for the closing line is reserved inside a smaller budget: three
   // shards would fit it, but then the line would not.
   const lineSize = Buffer.byteLength(r.items[0].text);
-  assert.ok(Buffer.byteLength(moreLine(1)) < lineSize - 5);
+  assert.ok(Buffer.byteLength(moreLine(1, lookupCommand(root, 7))) < lineSize - 5);
   const tight = start(root, { budget: 3 * lineSize + 5 });
-  assert.deepEqual(tight.items.map((i) => i.text).slice(2), [moreLine(5)]);
+  assert.deepEqual(tight.items.map((i) => i.text).slice(2), [moreLine(5, lookupCommand(root, 2))]);
   const rest = start(root, { emitted: ids(r).slice(0, 5) });
   assert.deepEqual(rest.items.map((i) => pathOf(i.id)), everywhere.filter((p) => !ids(r).map(pathOf).includes(p)));
+});
+
+test("the closing line names lookup.mjs where the skill is installed", async () => {
+  // The dispatcher passes the canonical root.
+  const root = realpathSync(scratchRepo());
+  const installed = join(root, ".claude/skills/session-memory/scripts");
+  cpSync(fileURLToPath(scripts), installed, { recursive: true });
+  const copy = await import(new URL("hook.mjs", `file://${installed}/`).href);
+  assert.equal(copy.lookupCommand(root, 5), "node .claude/skills/session-memory/scripts/lookup.mjs --skip 5");
 });
 
 test("parsed shards are cached after a consistent read and reused until the listing changes", () => {

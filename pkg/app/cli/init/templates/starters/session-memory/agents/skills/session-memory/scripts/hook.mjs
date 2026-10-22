@@ -8,8 +8,8 @@
 
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { isAbsolute, join, relative, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { approvedHash, loadShards, MAX_CHARS, SHARD_DIR, selectShards } from "./lib/shards.mjs";
 import { readJson, writeJson, writeText } from "./lib/store.mjs";
 
@@ -22,7 +22,17 @@ const hash = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
 const norm = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const warn = (what, err) => process.stderr.write(`session-memory hook: ${what}: ${err?.message ?? err}\n`);
 
-export const moreLine = (n) => `${n} more context ${n === 1 ? "shard applies" : "shards apply"} everywhere; run node .agents/skills/session-memory/scripts/lookup.mjs to see them.`;
+// The lookup command that shows the matches past the first `skip`, naming
+// this skill's lookup.mjs wherever it is installed: relative to the
+// repository root when it is inside it, otherwise by absolute path.
+export function lookupCommand(root, skip) {
+  const file = fileURLToPath(new URL("./lookup.mjs", import.meta.url));
+  const rel = relative(root, file);
+  const script = (rel.startsWith("..") || isAbsolute(rel) ? file : rel).split(sep).join("/");
+  return `node ${/[\s"'$\\]/.test(script) ? JSON.stringify(script) : script} --skip ${skip}`;
+}
+
+export const moreLine = (n, command) => `${n} more context ${n === 1 ? "shard applies" : "shards apply"} everywhere; run ${command} to see them.`;
 
 // Names, nanosecond modification times, and sizes of the shard notes.
 function listing(root) {
@@ -100,12 +110,16 @@ export function handle(input, { startedAt = performance.now() } = {}) {
   if (ev.event === "session-start" || ev.event === "subagent-start") {
     let r = selectShards(base);
     if (!r.omitted) return { items: r.shards.map(({ id, text }) => ({ id, text })) };
+    // Lookup pages through every match, emitted ones included, so the
+    // closing line skips to the first omitted shard in that order.
+    const order = selectShards({ ...base, exclude: new Set(), maxShards: Infinity, maxChars: Infinity, index: r.index }).shards.map((s) => s.id);
+    const line = (n, skip) => moreLine(n, lookupCommand(root, skip));
     // Reserve room for the closing line; singular is the longer wording.
     const total = r.shards.length + r.omitted;
-    const reserve = Math.max(Buffer.byteLength(moreLine(1)), Buffer.byteLength(moreLine(total)));
+    const reserve = Math.max(Buffer.byteLength(line(1, order.length)), Buffer.byteLength(line(total, order.length)));
     r = selectShards({ ...base, maxChars: Math.max(0, maxChars - reserve), index: r.index });
     const items = r.shards.map(({ id, text }) => ({ id, text }));
-    const more = { id: `session-memory:more@${hash(r.rest.join("\n"))}`, text: moreLine(r.omitted) };
+    const more = { id: `session-memory:more@${hash(r.rest.join("\n"))}`, text: line(r.omitted, order.indexOf(r.rest[0])) };
     const used = items.reduce((n, i) => n + Buffer.byteLength(i.text), 0);
     if (!exclude.has(more.id) && used + Buffer.byteLength(more.text) <= maxChars) items.push(more);
     return { items };

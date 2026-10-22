@@ -226,8 +226,10 @@ export const shardLine = (s, prefix = "- ") => `${prefix}[${s.kind.replace(/_/g,
 // match the paths, the command, or the ranked task results (and, with
 // `everywhere`, shards with no patterns), rules first, within the limits.
 // Excluded IDs are dropped before the limits so they never hide later
-// matches. The index is read at most once, and only when something matches.
-export function selectShards({ root, paths = [], command, ranked = [], everywhere = true, exclude = new Set(), maxShards = MAX_SHARDS, maxChars = MAX_CHARS, shards, index, timeoutMs, prefix }) {
+// matches, and `skip` drops that many leading matches, so a caller can page
+// past what it already showed. The index is read at most once, and only when
+// something matches.
+export function selectShards({ root, paths = [], command, ranked = [], everywhere = true, exclude = new Set(), skip = 0, maxShards = MAX_SHARDS, maxChars = MAX_CHARS, shards, index, timeoutMs, prefix }) {
   const segments = commandSegments(command);
   const hits = [];
   const withheld = [];
@@ -248,6 +250,7 @@ export function selectShards({ root, paths = [], command, ranked = [], everywher
     else hits.push({ ...s, id, reasons, order: touched.length || byCommand ? 0 : rank >= 0 ? 1 + rank : 99 });
   }
   hits.sort((a, b) => byKind(a, b) || a.order - b.order || a.path.localeCompare(b.path));
+  hits.splice(0, Math.max(0, Math.floor(Number(skip)) || 0));
   const picked = [];
   let chars = 0;
   for (const s of hits) {

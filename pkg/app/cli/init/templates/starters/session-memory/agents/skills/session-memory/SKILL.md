@@ -19,7 +19,7 @@ node <skill>/scripts/lookup.mjs --command "make web-e2e"
 node <skill>/scripts/lookup.mjs --task "add a validation check for views"
 ```
 
-Follow the rules it returns; facts are background, and a where-to-find shard names the document to open. Lookup returns at most five shards, rules first, and withholds shards whose files changed since they were verified. When it reports withheld shards, mention it; the person can run maintain.
+Follow the rules it returns; facts are background, and a where-to-find shard names the document to open. Lookup returns at most five shards, rules first, and withholds shards whose files changed since they were verified. When more match, it says so; `--skip N` shows the matches after the first N. When it reports withheld shards, mention it; the person can run maintain.
 
 ## Hooks
 
