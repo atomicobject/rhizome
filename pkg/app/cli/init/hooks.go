@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -53,8 +54,8 @@ func (m starterHookMetadata) handler(starter string) (hook.Handler, error) {
 		return fail("declares no events")
 	}
 	for _, event := range m.Events {
-		if hook.HostEvent(event) == "" {
-			return fail("unknown event %q (use %s)", event, strings.Join(hook.HookPoints, ", "))
+		if !slices.Contains(hook.HandlerEvents, event) {
+			return fail("unknown event %q (use %s)", event, strings.Join(hook.HandlerEvents, ", "))
 		}
 	}
 	for _, tool := range m.Tools {

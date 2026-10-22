@@ -30,15 +30,23 @@ const (
 )
 
 // Hook points Rhizome installs one entry for in each enabled harness.
+// Handlers declare the first three; post-compact is the dispatcher's own.
 const (
 	SessionStart  = "session-start"
 	SubagentStart = "subagent-start"
 	PostToolUse   = "post-tool-use"
+	// PostCompact follows a compaction. Neither host starts a subagent's
+	// context again after one, so the dispatcher resets that context and
+	// delivers its start items with its next tool call.
+	PostCompact = "post-compact"
 )
 
 // HookPoints lists the installed hook points in a fixed order. Adding one is
 // the only change that alters installed entries.
-var HookPoints = []string{SessionStart, SubagentStart, PostToolUse}
+var HookPoints = []string{SessionStart, SubagentStart, PostToolUse, PostCompact}
+
+// HandlerEvents lists the hook points a starter handler may declare.
+var HandlerEvents = []string{SessionStart, SubagentStart, PostToolUse}
 
 // HostEvent is the event name Claude Code and Codex both use for a hook
 // point, or "" for an unknown one.
@@ -50,6 +58,8 @@ func HostEvent(point string) string {
 		return "SubagentStart"
 	case PostToolUse:
 		return "PostToolUse"
+	case PostCompact:
+		return "PostCompact"
 	}
 	return ""
 }

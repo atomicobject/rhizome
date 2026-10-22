@@ -97,6 +97,11 @@ func normalize(harness, point string, raw []byte, cwd string) (Event, error) {
 	if point == SessionStart && (p.Source == "compact" || p.Source == "clear") {
 		ev.Reset = p.Source
 	}
+	// A main agent's compaction is reset by the session start that follows
+	// it; only a subagent's needs this event.
+	if point == PostCompact && p.AgentID != "" {
+		ev.Reset = "compact"
+	}
 	if point != PostToolUse {
 		return ev, nil
 	}

@@ -388,3 +388,73 @@ func TestAResetIsCommittedEvenWhenOutputFails(t *testing.T) {
 	_, out = dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
 	require.NotEmpty(t, out, "items given before the compaction no longer suppress delivery")
 }
+
+func TestACompactedSubagentGetsItsStartItemsWithItsNextToolCall(t *testing.T) {
+	for _, harness := range []string{HarnessCodex, HarnessClaude} {
+		t.Run(harness, func(t *testing.T) {
+			root := repo(t)
+			starts := helperHandler("start", "items:g")
+			starts.Events = []string{SessionStart, SubagentStart}
+			tools := helperHandler("tools", "items:a")
+			tools.Events = []string{PostToolUse}
+			call := func(agent, tool string) string {
+				return fmt.Sprintf(`{"session_id":"s1","turn_id":"t1","agent_id":%q,"cwd":%q,"tool_name":%q,"tool_input":{"file_path":"pkg/a.go"}}`, agent, root, tool)
+			}
+			compact := func(agent string) string {
+				return fmt.Sprintf(`{"session_id":"s1","turn_id":"t1","agent_id":%q,"cwd":%q,"trigger":"auto"}`, agent, root)
+			}
+			dispatch := func(point, payload string) (result, string) {
+				return dispatchOnce(t, root, harness, point, payload, starts, tools)
+			}
+			res, _ := dispatch(SubagentStart, compact("sub-1"))
+			require.Equal(t, "text g", res.HookSpecificOutput.AdditionalContext)
+			_, out := dispatch(PostToolUse, call("sub-1", "Read"))
+			require.NotEmpty(t, out)
+			_, out = dispatch(PostToolUse, call("", "Read"))
+			require.NotEmpty(t, out, "the main agent has its own context")
+
+			_, out = dispatch(PostCompact, compact("sub-1"))
+			require.Empty(t, out, "the host takes no context after a compaction")
+			// Its next tool call, even one no tool handler acts on, brings the
+			// start items back.
+			res, _ = dispatch(PostToolUse, call("sub-1", "WebFetch"))
+			require.Equal(t, "PostToolUse", res.HookSpecificOutput.HookEventName)
+			require.Equal(t, "text g", res.HookSpecificOutput.AdditionalContext)
+			in := handlerInputOf(t, root, "items")
+			require.Equal(t, SubagentStart, in.Event.Event)
+			require.Equal(t, "compact", in.Event.Reset)
+			require.Empty(t, in.Emitted)
+			res, _ = dispatch(PostToolUse, call("sub-1", "Read"))
+			require.Equal(t, "text a", res.HookSpecificOutput.AdditionalContext, "tool items are delivered again, start items once")
+
+			// Another subagent and the main agent are untouched; a main
+			// agent's compaction is handled by its session start.
+			res, _ = dispatch(PostToolUse, call("sub-2", "Read"))
+			require.Equal(t, "text a", res.HookSpecificOutput.AdditionalContext)
+			_, out = dispatch(PostCompact, compact(""))
+			require.Empty(t, out)
+			_, out = dispatch(PostToolUse, call("", "Read"))
+			require.Empty(t, out)
+		})
+	}
+}
+
+func TestStartItemsStayDueWhenTheStateLockIsBusy(t *testing.T) {
+	root := repo(t)
+	starts := helperHandler("start", "items:g")
+	starts.Events = []string{SubagentStart}
+	payload := func(point string) string {
+		return fmt.Sprintf(`{"session_id":"s1","agent_id":"sub-1","cwd":%q,"tool_name":"Read","tool_input":{"file_path":"pkg/a.go"}}`, root)
+	}
+	_, out := dispatchOnce(t, root, HarnessCodex, SubagentStart, payload(SubagentStart), starts)
+	require.NotEmpty(t, out)
+	release := lockState(context.Background(), sessionStatePath(root, Identity{Worktree: root, Harness: HarnessCodex, Session: "s1"}))
+	require.NotNil(t, release)
+	_, out = dispatchOnce(t, root, HarnessCodex, PostCompact, payload(PostCompact), starts)
+	require.Empty(t, out)
+	require.NoError(t, release())
+	res, _ := dispatchOnce(t, root, HarnessCodex, PostToolUse, payload(PostToolUse), starts)
+	require.Equal(t, "text g", res.HookSpecificOutput.AdditionalContext)
+	_, out = dispatchOnce(t, root, HarnessCodex, PostToolUse, payload(PostToolUse), starts)
+	require.Empty(t, out)
+}

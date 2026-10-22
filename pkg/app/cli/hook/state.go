@@ -111,6 +111,22 @@ func writeResetMarker(path, agentID string) error {
 	return writeJSONAtomic(path+resetMarker+hex.EncodeToString(suffix[:]), map[string]string{"agentId": agentID})
 }
 
+// startMarker names an agent context whose start items are due with its
+// next tool call: neither host starts a subagent's context again after a
+// compaction. It is a file of its own, so a tool call that finds no
+// handler to run checks it without reading the state.
+const startMarker = ".start-"
+
+func startDuePath(path, agentID string) string {
+	sum := sha256.Sum256([]byte(agentID))
+	return path + startMarker + hex.EncodeToString(sum[:8])
+}
+
+func startDue(path, agentID string) bool {
+	_, err := os.Stat(startDuePath(path, agentID))
+	return err == nil
+}
+
 // reset discards what an agent's context was given, in both scopes and every
 // turn, so a compaction or clear delivers it again.
 func (s *sessionState) reset(agentID string) {
@@ -123,6 +139,9 @@ func (s *sessionState) reset(agentID string) {
 }
 
 func (s *sessionState) record(key string, ids []string) {
+	if len(ids) == 0 {
+		return
+	}
 	list := append(s.Scopes[key], ids...)
 	if len(list) > maxScopeItems {
 		list = list[len(list)-maxScopeItems:]

@@ -79,11 +79,13 @@ func TestHooksOnInstallsOneEntryPerHookPointAndPreservesOtherEntries(t *testing.
 		"SessionStart":  {"rzm hook claude session-start"},
 		"SubagentStart": {"rzm hook claude subagent-start"},
 		"PostToolUse":   {"rzm hook claude post-tool-use"},
+		"PostCompact":   {"rzm hook claude post-compact"},
 	}, hookCommands(t, root, ".claude/settings.json"))
 	require.Equal(t, map[string][]string{
 		"SessionStart":  {"rzm hook codex session-start"},
 		"SubagentStart": {"rzm hook codex subagent-start"},
 		"PostToolUse":   {"rzm hook codex post-tool-use"},
+		"PostCompact":   {"rzm hook codex post-compact"},
 	}, hookCommands(t, root, ".codex/hooks.json"))
 	settings, err := os.ReadFile(filepath.Join(root, ".claude/settings.json"))
 	require.NoError(t, err)
@@ -306,6 +308,8 @@ func TestHookDeclarationsAreValidated(t *testing.T) {
 	require.NoError(t, err)
 	for _, bad := range []func(m *starterHookMetadata){
 		func(m *starterHookMetadata) { m.Events = []string{"pre-commit"} },
+		// The host takes no context after a compaction.
+		func(m *starterHookMetadata) { m.Events = []string{hook.PostCompact} },
 		func(m *starterHookMetadata) { m.Tools = []string{"web"} },
 		func(m *starterHookMetadata) { m.Command = nil },
 		func(m *starterHookMetadata) { m.Timeout = "10s" },
@@ -335,7 +339,7 @@ func TestRenderHookFileKeepsOrderAndForeignEntries(t *testing.T) {
 	require.Equal(t, []string{"z", "hooks", "a"}, top.keys)
 	hooks, err := parseOrderedObject(top.values["hooks"])
 	require.NoError(t, err)
-	require.Equal(t, []string{"PostToolUse", "SessionStart", "SubagentStart"}, hooks.keys)
+	require.Equal(t, []string{"PostToolUse", "SessionStart", "SubagentStart", "PostCompact"}, hooks.keys)
 	require.Contains(t, string(next), `"command": "lint"`)
 	require.NotContains(t, string(next), "/usr/local/bin/rzm", "an old Rhizome entry is replaced")
 
