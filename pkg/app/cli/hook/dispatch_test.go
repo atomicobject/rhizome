@@ -356,3 +356,16 @@ func TestHandlerStderrIsLoggedEvenWhenItSucceeds(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(log), "test/warn stderr: session-memory hook: writing the shard cache: EACCES")
 }
+
+func TestALockedWriteLeavesAResetMarkerStillBeingWritten(t *testing.T) {
+	root := repo(t)
+	h := helperHandler("one", "items:a")
+	statePath := sessionStatePath(root, Identity{Worktree: root, Harness: HarnessClaude, Session: "s1"})
+	require.NoError(t, os.MkdirAll(filepath.Dir(statePath), 0o755))
+	// An atomic write in progress: the temporary file exists, still empty.
+	inProgress := statePath + resetMarker + "0123456789abcdef.tmp-42"
+	require.NoError(t, os.WriteFile(inProgress, nil, 0o644))
+	_, out := dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
+	require.NotEmpty(t, out)
+	require.FileExists(t, inProgress, "the writer's rename must still find its file")
+}

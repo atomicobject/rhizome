@@ -83,7 +83,9 @@ func readSessionState(path string) (sessionState, []string) {
 	entries, _ := os.ReadDir(filepath.Dir(path))
 	var markers []string
 	for _, e := range entries {
-		if !strings.HasPrefix(e.Name(), filepath.Base(path)+resetMarker) {
+		// A marker still being written is a temporary file with the same
+		// prefix; it is neither applied nor removed until it is renamed.
+		if !strings.HasPrefix(e.Name(), filepath.Base(path)+resetMarker) || strings.Contains(e.Name(), ".tmp-") {
 			continue
 		}
 		marker := filepath.Join(filepath.Dir(path), e.Name())
@@ -92,8 +94,8 @@ func readSessionState(path string) (sessionState, []string) {
 		}
 		if data, err := os.ReadFile(marker); err == nil && json.Unmarshal(data, &pending) == nil {
 			st.reset(pending.AgentID)
+			markers = append(markers, marker)
 		}
-		markers = append(markers, marker)
 	}
 	return st, markers
 }
