@@ -136,7 +136,11 @@ func TestHooksStayOffUntilTurnedOnAndTheSummaryNamesWhatTheyDeliver(t *testing.T
 func TestHookEntriesAreRemovedWhenHooksHarnessOrHandlersGo(t *testing.T) {
 	t.Run("hooks off", func(t *testing.T) {
 		root := hookRepo(t, "on")
-		_, err := runInit(t, RunOptions{Dir: root, Hooks: "off"})
+		out, err := runInit(t, RunOptions{Dir: root, Hooks: "off", Check: true})
+		require.Error(t, err)
+		require.Contains(t, out, "Update 1 Rhizome file\n      .claude/settings.json\n")
+		require.Contains(t, out, "Remove 1 file Rhizome no longer ships\n      .codex/hooks.json\n", "a file left empty is listed as removed")
+		_, err = runInit(t, RunOptions{Dir: root, Hooks: "off"})
 		require.NoError(t, err)
 		require.Equal(t, map[string][]string{"Stop": {"echo done"}}, hookCommands(t, root, ".claude/settings.json"))
 		require.NoFileExists(t, filepath.Join(root, ".codex/hooks.json"), "a file that held only Rhizome entries goes")

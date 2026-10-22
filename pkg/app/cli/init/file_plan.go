@@ -303,13 +303,24 @@ func (p *preparedFiles) pending() pendingFiles {
 			add(&out.Create, doc.rel)
 		}
 	}
+	// A hook file left with nothing but Rhizome's entries is deleted, so it
+	// is listed by what applying would leave.
 	for _, file := range p.plan.hookFiles {
-		if c := byKey[file.key()]; c != nil && c.take {
-			if _, err := os.Stat(filepath.Join(p.root, filepath.FromSlash(file.rel))); err == nil {
-				add(&out.Update, file.rel)
-			} else {
-				add(&out.Create, file.rel)
-			}
+		c := byKey[file.key()]
+		if c == nil || !c.take {
+			continue
+		}
+		current, exists, err := readIfExists(filepath.Join(p.root, filepath.FromSlash(file.rel)))
+		desired := file.desired
+		if c.removal {
+			desired = nil
+		}
+		if next, renderErr := renderHookFile(current, desired); err == nil && renderErr == nil && next == nil {
+			add(&out.Remove, file.rel)
+		} else if exists {
+			add(&out.Update, file.rel)
+		} else {
+			add(&out.Create, file.rel)
 		}
 	}
 	if p.removeRhizome {
