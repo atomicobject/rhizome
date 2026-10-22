@@ -174,6 +174,8 @@ async function mineLocked(opts, clients, store, dry) {
     return { status: "abandoned", run: run.id };
   }
   if (run) {
+    // Screening is frozen with the run, so the flag cannot change it mid-run.
+    if (opts.unscreened && !run.unscreened) throw new Error(`run ${run.id} is screened and resumes screened; pass --abandon first, then start an unscreened run over a small window`);
     episodes = readJsonl(store.path("runs", run.id, "episodes.jsonl"));
     const why = unavailable(run.bindings, await clients.harnessStatus());
     if (why) {
@@ -284,6 +286,22 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
   store.write("pool/candidates.json", cands);
 
   const clusters = store.read("pool/clusters.json", {});
+  // A person already settled what they approved or dismissed, here or in a
+  // teammate's recorded decision.
+  const reviewed = store.read("reviewed.json", {});
+  const decided = [...loadDecisions(root, store.dir), ...loadShards(root)];
+  const settled = new Set(decided.map((d) => d.learning ?? learningHash(d)));
+  // Settled learnings join grouping as clusters, so a reworded rediscovery
+  // joins the settled cluster and is skipped like the original.
+  const pooled = new Set(Object.values(clusters).map(learningHash));
+  let seq = Math.max(0, ...Object.values(clusters).map((c) => c.seq ?? 0));
+  for (const d of decided) {
+    const hash = d.learning ?? learningHash(d);
+    if (pooled.has(hash)) continue;
+    pooled.add(hash);
+    const id = `k-settled-${hash.slice(0, 12)}`;
+    clusters[id] = { id, seq: ++seq, members: [], kind: d.kind, statement: d.statement, appliesTo: d.appliesTo ?? [], commands: d.commands ?? [], settled: true, createdAt: new Date().toISOString() };
+  }
   const firstSeen = (id) => Math.min(...(cands[id]?.evidence ?? []).map((e) => Date.parse(eps[e]?.ts) || Infinity));
   await group(caller, { candidates: cands, clusters, fresh, firstSeen, save: (c) => store.write("pool/clusters.json", c), estimate: per.group });
   const freshSet = new Set(fresh);
@@ -294,11 +312,6 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
     Object.assign(cl, { evidence: f.evidence, families: f.families, tier: tierOf(f, cl, ranks.get(cl.id)), worth: ranks.get(cl.id)?.worth ?? null });
   }
   store.write("pool/clusters.json", clusters);
-
-  // A person already settled what they approved or dismissed, here or in a
-  // teammate's recorded decision.
-  const reviewed = store.read("reviewed.json", {});
-  const settled = new Set([...loadDecisions(root, store.dir).map((d) => d.learning), ...loadShards(root).map(learningHash)]);
 
   // The plan is frozen once, so a resumed run verifies the same clusters.
   const planName = `runs/${run.id}/verify-plan.json`;

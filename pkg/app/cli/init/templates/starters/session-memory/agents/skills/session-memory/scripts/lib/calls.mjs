@@ -22,13 +22,16 @@ export const PRICES = {
 };
 
 // Claude reports uncached input, cache reads, and cache writes separately;
-// Codex input includes its cache reads. Null when no price is known.
+// Codex input includes its cache reads.
+const inputIncludesReads = (model) => Boolean(model?.startsWith("gpt-"));
+
+// Null when no price is known.
 export function costOf(model, usage = {}) {
   const p = PRICES[model];
   if (!p) return usage.costUsd || null;
   const read = usage.cachedInputTokens ?? 0;
   const write = usage.cacheWriteInputTokens ?? 0;
-  const fresh = model.startsWith("gpt-") ? (usage.inputTokens ?? 0) - read : usage.inputTokens ?? 0;
+  const fresh = inputIncludesReads(model) ? (usage.inputTokens ?? 0) - read : usage.inputTokens ?? 0;
   return (fresh * p.input + write * (p.write5m ?? p.input) + read * p.read + (usage.outputTokens ?? 0) * p.output) / 1e6;
 }
 
@@ -123,17 +126,17 @@ export const itemKey = ({ stage, model, item }) => sha({ stage, version: PROMPT_
 // killed one paid for.
 export function spendFrom(entries, run) {
   const spend = { usd: 0, byRole: {} };
-  for (const e of entries) if (e.run === run && (e.ok || e.usd)) account(spend, e.role, e.usage, e.usd);
+  for (const e of entries) if (e.run === run && (e.ok || e.usd)) account(spend, e.role, e.usage, e.usd, e.model);
   return spend;
 }
 
 const FATAL = /harness (not installed|not logged in|unsupported)/;
 const JEV_ITEMS = 128;
 
-function account(spend, role, usage, usd) {
+function account(spend, role, usage, usd, model) {
   const r = (spend.byRole[role] ??= { calls: 0, cached: 0, inputTokens: 0, outputTokens: 0, usd: 0 });
   r.calls++;
-  r.inputTokens += (usage?.inputTokens ?? 0) + (usage?.cachedInputTokens ?? 0) + (usage?.cacheWriteInputTokens ?? 0);
+  r.inputTokens += (usage?.inputTokens ?? 0) + (inputIncludesReads(model) ? 0 : usage?.cachedInputTokens ?? 0) + (usage?.cacheWriteInputTokens ?? 0);
   r.outputTokens += usage?.outputTokens ?? 0;
   r.usd += usd ?? 0;
   spend.usd += usd ?? 0;
@@ -175,16 +178,16 @@ export function makeCaller({ clients, store, run, bindings, budget = null, spend
         // A frozen model that now resolves to another is unavailable, not a substitute.
         if (r.model && b.model && r.model !== b.model) {
           const paid = Math.max(costOf(r.model, r.usage) ?? 0, r.usage?.costUsd ?? 0);
-          store.ledger({ run, stage, role, key, attempt, ok: false, usage: r.usage, usd: paid, error: `model ${r.model} ran instead of ${b.model}` });
-          account(spend, role, r.usage, paid);
+          store.ledger({ run, stage, role, key, attempt, ok: false, model: r.model, usage: r.usage, usd: paid, error: `model ${r.model} ran instead of ${b.model}` });
+          account(spend, role, r.usage, paid, r.model);
           throw new Stop("binding", `${role} is frozen to ${b.model} but ${r.model} ran; resume when ${b.model} is available`);
         }
         // Token prices can miss requests a reply needed; Claude's own total covers them.
         const usd = Math.max(costOf(r.model || b.model, r.usage) ?? 0, r.usage?.costUsd ?? 0);
         const output = b.provider === "codex" ? dropNulls(r.output) : r.output;
-        store.ledger({ run, stage, role, key, attempt, ok: true, model: r.model, usage: r.usage, usd });
+        store.ledger({ run, stage, role, key, attempt, ok: true, model: r.model || b.model, usage: r.usage, usd });
         store.cachePut(key, { stage, role, model: r.model, output, usage: r.usage, usd });
-        account(spend, role, r.usage, usd);
+        account(spend, role, r.usage, usd, r.model || b.model);
         if (tally) addTally(tally, r.usage, usd, Date.now() - started);
         return output;
       }
@@ -217,7 +220,7 @@ export function makeCaller({ clients, store, run, bindings, budget = null, spend
         try {
           res = await clients.evaluateBatch({ items: chunk.map((t) => ({ id: t.id, model: b.model, state: t.state, questions: t.questions })), concurrency: 8, budgetMs: 60000 });
         } catch (err) {
-          if (/\b40[13]\b|credential|api key|TYPESAFE/i.test(err.message)) throw new Stop("credential", `Jev is unavailable (${err.message.slice(0, 200)}); set up the TypeSafe key, or rerun with --unscreened over a small window`);
+          if (/\b40[13]\b|credential|api key|TYPESAFE/i.test(err.message)) throw new Stop("credential", `Jev is unavailable (${err.message.slice(0, 200)}); set up the TypeSafe key and resume, or pass --abandon and start an unscreened run (--unscreened) over a small window`);
           res = { items: [], error: err.message };
         } finally {
           reserved -= est;
@@ -235,7 +238,7 @@ export function makeCaller({ clients, store, run, bindings, budget = null, spend
             continue;
           }
           store.ledger({ run, stage, role: "decide", key: t.key, attempt, ok: false, status: it?.status ?? "missing", error: String(it?.error ?? res.error ?? "").slice(0, 300) });
-          if ([401, 402, 403].includes(it?.statusCode)) throw new Stop("credential", `TypeSafe returned HTTP ${it.statusCode}; set up the TypeSafe key, or rerun with --unscreened over a small window`);
+          if ([401, 402, 403].includes(it?.statusCode)) throw new Stop("credential", `TypeSafe returned HTTP ${it.statusCode}; set up the TypeSafe key and resume, or pass --abandon and start an unscreened run (--unscreened) over a small window`);
         }
       }
     }

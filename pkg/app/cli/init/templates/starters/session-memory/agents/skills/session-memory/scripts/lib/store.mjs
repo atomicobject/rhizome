@@ -4,7 +4,7 @@
 // so a failure is never mistaken for a result.
 
 import { createHash, randomBytes } from "node:crypto";
-import { appendFileSync, chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -132,7 +132,20 @@ export function openStore(dir) {
 
     cacheGet: (key) => readJson(cacheFile(key), null),
     cachePut: (key, value) => writeJson(cacheFile(key), value),
-    // One short line per append; a torn last line is skipped on read.
-    ledger: (entry) => appendFileSync(join(dir, "ledger.jsonl"), JSON.stringify({ at: new Date().toISOString(), ...entry }) + "\n", { mode: 0o600 }),
+    // One short line per append; a torn last line is skipped on read, and
+    // terminated first here so it cannot swallow the entry written after it.
+    ledger(entry) {
+      const file = join(dir, "ledger.jsonl");
+      let torn = false;
+      try {
+        const fd = openSync(file, "r");
+        const { size } = fstatSync(fd);
+        const last = Buffer.alloc(1);
+        if (size) readSync(fd, last, 0, 1, size - 1);
+        closeSync(fd);
+        torn = size > 0 && last[0] !== 0x0a;
+      } catch {}
+      appendFileSync(file, (torn ? "\n" : "") + JSON.stringify({ at: new Date().toISOString(), ...entry }) + "\n", { mode: 0o600 });
+    },
   };
 }

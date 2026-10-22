@@ -174,6 +174,25 @@ func TestAwaitGenerationPrefersACompletedTurn(t *testing.T) {
 	require.ErrorIs(t, awaitGeneration(canceled, make(chan struct{}), make(chan struct{}), closedErr), harness.ErrTimeout)
 }
 
+// The turn/start response, the reply, the completion, and EOF can all arrive
+// before the request waiter resumes; the delivered response must win.
+func TestAwaitResponsePrefersADeliveredResponse(t *testing.T) {
+	ready := make(chan struct{})
+	close(ready)
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	for range 100 {
+		for _, ctx := range []context.Context{context.Background(), canceled} {
+			response := make(chan rpcMessage, 1)
+			response <- rpcMessage{Result: json.RawMessage(`{}`)}
+			_, ok := awaitResponse(ctx, response, ready)
+			require.True(t, ok)
+		}
+	}
+	_, ok := awaitResponse(context.Background(), make(chan rpcMessage), ready)
+	require.False(t, ok)
+}
+
 func TestGenerateFailsClosedBeforeTheTurn(t *testing.T) {
 	initialized := `{"jsonrpc":"2.0","id":1,"result":{"userAgent":"rhizome/0.163.0"}}`
 	configRead := `{"jsonrpc":"2.0","id":2,"result":{"config":{"mcp_servers":{"remctl":{}}},"origins":{}}}`

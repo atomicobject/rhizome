@@ -140,6 +140,7 @@ test("a run stops cleanly at its budget and resumes to the same result", async (
   assert.equal(prompts(first, P.PACKET_PREFIX).length, 0);
   assert.ok(!existsSync(join(state, "proposals.json")));
   assert.equal(manifests(state)[0].status, "stopped");
+  await assert.rejects(run(state, fakeClients(), { unscreened: true }), /pass --abandon first/);
   const second = fakeClients();
   assert.equal((await run(state, second)).status, "done");
   assert.equal(first.calls.generate + second.calls.generate, COLD_CALLS);
@@ -314,4 +315,11 @@ test("a dismissed learning is not proposed again, even when the pool is rebuilt"
   for (const name of ["pool", "runs", "cursors.json", "proposals.json", "reviewed.json"]) rmSync(join(state, name), { recursive: true });
   await run(state, fake, { root });
   assert.deepEqual(topics(state), ["beta"]);
+  // Reworded in a fresh store, it joins the settled learning instead of
+  // returning as new.
+  const fresh = tmp();
+  const reworded = fakeClients({ word: "records" });
+  await run(fresh, reworded, { root });
+  assert.deepEqual(topics(fresh), ["beta"]);
+  assert.ok(!prompts(reworded, P.PACKET_PREFIX).some((x) => /Topic alpha/.test(x.prompt)));
 });

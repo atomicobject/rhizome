@@ -130,9 +130,10 @@ function freshPrint(root, shard) {
 
 // Verification read the files at its recorded commit, while approval vouches
 // for the committed files now. Files that differ, or a proposal with no
-// recorded commit, need the statement re-checked first.
+// recorded commit, need the statement re-checked first. Checked paths are
+// compared even when they are no longer tracked, so a deletion counts.
 function changedSinceVerified(root, p, shard) {
-  const files = shardFiles(root, shard);
+  const files = [...new Set([...shardFiles(root, shard), ...[shard.target, ...(shard.checked ?? [])].filter(Boolean)])];
   const commit = p.verified?.commit;
   if (!files.length) return [];
   if (!commit) return files;

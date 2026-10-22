@@ -372,21 +372,39 @@ func (s *session) request(ctx context.Context, phase error, request rpcMessage, 
 	if err := s.transport.Send(ctx, request); err != nil {
 		return classifyError(ctx, phase, err)
 	}
+	message, ok := awaitResponse(ctx, response, s.lifetime.Done())
+	if !ok {
+		if ctx.Err() != nil {
+			return classifyError(ctx, phase, ctx.Err())
+		}
+		return s.transportError()
+	}
+	if message.Error != nil {
+		return harness.Phase(phase, message.Error)
+	}
+	if result != nil && len(message.Result) > 0 && string(message.Result) != "null" {
+		if err := json.Unmarshal(message.Result, result); err != nil {
+			return harness.Phase(harness.ErrDecode, err)
+		}
+	}
+	return nil
+}
+
+// awaitResponse waits for a request's response. The read loop delivers a
+// response before it closes the session on EOF, so a response already
+// delivered wins over a deadline or closure that became ready with it.
+func awaitResponse(ctx context.Context, response <-chan rpcMessage, closed <-chan struct{}) (rpcMessage, bool) {
 	select {
 	case message := <-response:
-		if message.Error != nil {
-			return harness.Phase(phase, message.Error)
-		}
-		if result != nil && len(message.Result) > 0 && string(message.Result) != "null" {
-			if err := json.Unmarshal(message.Result, result); err != nil {
-				return harness.Phase(harness.ErrDecode, err)
-			}
-		}
-		return nil
+		return message, true
 	case <-ctx.Done():
-		return classifyError(ctx, phase, ctx.Err())
-	case <-s.lifetime.Done():
-		return s.transportError()
+	case <-closed:
+	}
+	select {
+	case message := <-response:
+		return message, true
+	default:
+		return rpcMessage{}, false
 	}
 }
 

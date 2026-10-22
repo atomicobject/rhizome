@@ -86,6 +86,13 @@ test("approval asks for a re-check when files changed after verification read th
   assert.throws(() => sm("approve", "k-2", "--confirm-publish"), /re-check the statement/);
 });
 
+test("a checked file deleted after verification needs a re-check", () => {
+  const { root, sm } = repo([proposal("k-1", { verification: [{ path: "pkg/store/db.go", checked: "Default applied." }, { path: "docs/store.md", checked: "Documents it." }] })]);
+  git(root, "rm", "-q", "docs/store.md");
+  git(root, "commit", "-qm", "drop doc");
+  assert.throws(() => sm("approve", "k-1", "--confirm-publish"), /changed since verification read them: docs\/store.md/);
+});
+
 test("a shard on docs/** is not made stale by committing itself", () => {
   const { root, sm } = repo([proposal("k-docs", { appliesTo: ["docs/**"], verification: [] })]);
   const { approved } = sm("approve", "k-docs", "--confirm-publish");
@@ -117,10 +124,15 @@ test("approval refuses a scope that names no tracked file", () => {
 
 test("approval is refused over uncommitted files and credential-shaped text", () => {
   const secret = ["ghp", "a1B2".repeat(9)].join("_");
-  const { root, sm } = repo([proposal("k-1"), proposal("k-2", { statement: `Use token ${secret} for the store tests.` })]);
+  const { root, sm } = repo([
+    proposal("k-1"),
+    proposal("k-2", { statement: `Use token ${secret} for the store tests.` }),
+    proposal("k-3", { why: "Tests pass {'password': 'synthetic-secret-value'} to the store." }),
+  ]);
   writeFileSync(join(root, "pkg/store/db.go"), "package store // edited\n");
   assert.throws(() => sm("approve", "k-1", "--confirm-publish"), /uncommitted: pkg\/store\/db.go/);
   assert.throws(() => sm("approve", "k-2", "--confirm-publish"), /credential-shaped/);
+  assert.throws(() => sm("approve", "k-3", "--confirm-publish"), /credential-shaped/);
   assert.equal(existsSync(join(root, "docs/context-shards")), false);
 });
 

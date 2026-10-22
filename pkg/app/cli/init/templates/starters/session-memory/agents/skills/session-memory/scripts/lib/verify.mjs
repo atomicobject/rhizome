@@ -6,7 +6,7 @@
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, realpathSync, statSync } from "node:fs";
-import { join, sep } from "node:path";
+import { join, relative, sep } from "node:path";
 import { LEARNING_FIELDS, STATEMENT_MAX, validateLearning } from "./extract.mjs";
 import { PACKET_PREFIX, VERIFY_RULES } from "./prompts.mjs";
 import { redact } from "./redact.mjs";
@@ -64,27 +64,58 @@ export function globRegex(glob) {
 
 const cap = (s, n) => (s.length > n ? `${s.slice(0, n)}\n[... ${s.length - n} more characters]` : s);
 
-// Searches tracked files; long lines are cut so one minified file cannot fill the packet.
-function grep(root, args, max) {
+// Searches tracked files. Git only nominates candidate files; each is then
+// read through trackedText and searched after redaction, so a match can never
+// show text the protected reader would withhold. Long lines are cut so one
+// minified file cannot fill the packet.
+// ponytail: the model's pattern runs in-process with no timeout; a
+// pathological pattern can stall this run. Move matching to a child process
+// with a timeout if that is ever observed.
+function grep(root, pattern, { fixed = false, perFile, max }) {
+  let re;
   try {
-    const out = execFileSync("git", ["-C", root, "grep", "-n", "-I", ...args, ":(exclude,glob)**/.env*"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 20000, maxBuffer: 16 << 20 });
-    return cap(redact(out).text.split("\n").map((l) => l.slice(0, 240)).join("\n"), max);
+    re = new RegExp(fixed ? pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : pattern);
+  } catch {
+    return "(failed: invalid pattern)";
+  }
+  let candidates;
+  try {
+    candidates = execFileSync("git", ["-C", root, "grep", "-l", "-z", "-I", fixed ? "-F" : "-E", "-e", pattern, "--", ":(exclude,glob)**/.env*"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 20000, maxBuffer: 16 << 20 }).split("\0").filter(Boolean);
   } catch (e) {
     if (e.status === 1) return "(no matches)";
     return `(failed: ${String(e.stderr || e.message).split("\n")[0].slice(0, 200)})`;
   }
+  const out = [];
+  let chars = 0;
+  for (const path of candidates) {
+    const { text } = trackedText(root, path);
+    if (!text) continue;
+    let hits = 0;
+    for (const [i, line] of text.split("\n").entries()) {
+      if (!re.test(line)) continue;
+      const hit = `${path}:${i + 1}:${line.slice(0, 240)}`;
+      out.push(hit);
+      chars += hit.length + 1;
+      if (++hits >= perFile) break;
+    }
+    if (chars > max) break;
+  }
+  return out.length ? cap(out.join("\n"), max) : "(no matches)";
 }
 
 // The redacted text of a tracked regular file inside the checkout, or a
 // parenthesized reason it was not read.
+const CREDENTIAL_FILE = /(^|\/)\.env(\.|$)/;
 function trackedText(root, path) {
   if (!trackedFiles(root).has(path)) return { skipped: `(not a tracked file: ${path})` };
-  if (/(^|\/)\.env(\.|$)/.test(path)) return { skipped: `(credential files are not read: ${path})` };
+  if (CREDENTIAL_FILE.test(path)) return { skipped: `(credential files are not read: ${path})` };
   // A tracked symlink, or a symlinked parent directory, can point outside the
-  // checkout, so the fully resolved path must stay inside it.
+  // checkout or at a credential file, so the fully resolved path is checked too.
   try {
+    const top = realpathSync(root);
     const real = realpathSync(join(root, path));
-    if (!real.startsWith(realpathSync(root) + sep)) return { skipped: `(outside the checkout: ${path})` };
+    if (!real.startsWith(top + sep)) return { skipped: `(outside the checkout: ${path})` };
+    if (CREDENTIAL_FILE.test(relative(top, real).split(sep).join("/"))) return { skipped: `(credential files are not read: ${path})` };
     if (!statSync(real).isFile()) return { skipped: `(not a regular file: ${path})` };
     return { text: redact(readFileSync(real, "utf8")).text };
   } catch {
@@ -107,7 +138,7 @@ async function fulfil(ctx, r) {
     case "file":
       return readFile(ctx.root, r.value, r.startLine ?? 1, r.endLine ?? 0);
     case "grep":
-      return grep(ctx.root, ["-E", "--max-count", "3", "-e", r.value, "--"], GREP_CHARS);
+      return grep(ctx.root, r.value, { perFile: 3, max: GREP_CHARS });
     case "search":
       return cap(redact(await ctx.search(["-n", "6", "--raw", "--", r.value])).text, SEARCH_CHARS);
     case "docs_for_file":
@@ -144,7 +175,7 @@ export async function initialPacket(ctx, cl, variants) {
       opened++;
       sections.push([`file ${path}`, readFile(ctx.root, path, 1, 200)]);
     } else if (!files.has(path)) {
-      sections.push([`grep -F ${JSON.stringify(id)}`, grep(ctx.root, ["-F", "--max-count", "2", "-e", id, "--"], 1500)]);
+      sections.push([`grep -F ${JSON.stringify(id)}`, grep(ctx.root, id, { fixed: true, perFile: 2, max: 1500 })]);
     }
   }
   sections.push(["rzm search for the statement", await fulfil(ctx, { kind: "search", value: cl.statement.slice(0, 300) })]);

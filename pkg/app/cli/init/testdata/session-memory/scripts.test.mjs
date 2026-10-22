@@ -102,6 +102,9 @@ test("redacts quoted values with spaces, escaped quotes, single quotes, and YAML
     [`secret: |2\n  indicator-secret\nnext: ok`, "indicator-secret"],
     [`password: "${"a".repeat(1500)}\nlong-value-secret"`, "long-value-secret"],
     [`token: "unclosed-secret\nmore text`, "unclosed-secret"],
+    [`{'password': 'synthetic-secret-value'}`, "synthetic-secret-value"],
+    [`secret: | # rotated quarterly\n  commented-block-secret\nnext: ok`, "commented-block-secret"],
+    [`password: "${"b".repeat(2500)}long-tail-secret"`, "long-tail-secret"],
   ];
   for (const [input, leaked] of cases) {
     const { text } = redact(input);
@@ -231,19 +234,23 @@ test("verification packets read only regular, non-credential files and redact wh
   const root = mkdtempSync(join(tmpdir(), "sm-verify-"));
   writeFileSync(join(root, "store.go"), `package store // ${fake.github}\n`);
   writeFileSync(join(root, ".env"), "env-marker\n");
+  // A tracked alias of the untracked credential file.
+  symlinkSync(".env", join(root, "alias.txt"));
+  // Grep must not show a block scalar's continuation line without its key.
+  writeFileSync(join(root, "config.yml"), "private_key: |\n  yamlneedle-secret-line\n");
   symlinkSync(outside, join(root, "link.txt"));
   const outsideDir = mkdtempSync(join(tmpdir(), "sm-outside-dir-"));
-  writeFileSync(join(outsideDir, "a.go"), "outside-dir-marker\n");
+  writeFileSync(join(outsideDir, "a.go"), "outside-dir-marker dirneedle\n");
   // The quoted value straddles the 240-character cut that grep output gets.
   writeFileSync(join(root, "long.go"), `markerword ${"y".repeat(190)} password: "SecretValue-abcdefghij-XYZ"\n`);
   execFileSync("git", ["init", "-q"], { cwd: root });
   mkdirSync(join(root, "sub"));
-  writeFileSync(join(root, "sub/a.go"), "package sub\n");
+  writeFileSync(join(root, "sub/a.go"), "package sub // dirneedle\n");
   execFileSync("git", ["add", "-A"], { cwd: root });
   // Replace a tracked file's parent directory with a link to an outside one.
   rmSync(join(root, "sub"), { recursive: true });
   symlinkSync(outsideDir, join(root, "sub"));
-  const cl = { statement: "See `store.go`, `link.txt`, `.env`, `sub/a.go`, and `markerword`.", appliesTo: [] };
+  const cl = { statement: "See `store.go`, `link.txt`, `.env`, `alias.txt`, `sub/a.go`, `dirneedle`, `yamlneedle`, and `markerword`.", appliesTo: [] };
   // AGENTS.md is a tracked link to an outside file, and search returns a credential.
   symlinkSync(outside, join(root, "AGENTS.md"));
   execFileSync("git", ["add", "AGENTS.md"], { cwd: root });
@@ -255,6 +262,7 @@ test("verification packets read only regular, non-credential files and redact wh
   assert.ok(!packet.includes("outside-dir-marker"));
   assert.ok(packet.includes("markerword"));
   assert.ok(!packet.includes("SecretVal"));
+  assert.ok(!packet.includes("secret-line"));
 });
 
 test("a dead owner's lock is taken over, a live one is not, and unlock removes only its own lock", async () => {
@@ -273,6 +281,29 @@ test("a dead owner's lock is taken over, a live one is not, and unlock removes o
   assert.ok(existsSync(join(dir, "lock")), "another store's unlock left the lock alone");
   a.unlock();
   assert.ok(!existsSync(join(dir, "lock")));
+});
+
+test("an entry appended after a torn ledger line is still counted", async () => {
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { openStore, readJsonl } = await import(new URL("store.mjs", lib));
+  const { spendFrom } = await import(new URL("calls.mjs", lib));
+  const dir = mkdtempSync(join(tmpdir(), "sm-ledger-"));
+  writeFileSync(join(dir, "ledger.jsonl"), '{"run":"r1","role":"extract","ok":true,"usd":0.5}\n{"run":"r1","ro');
+  openStore(dir).ledger({ run: "r1", role: "extract", ok: true, usd: 1 });
+  assert.equal(spendFrom(readJsonl(join(dir, "ledger.jsonl")), "r1").usd, 1.5);
+});
+
+test("role input totals count Codex cache reads once and Claude's in addition", async () => {
+  const { spendFrom } = await import(new URL("calls.mjs", lib));
+  const usage = { inputTokens: 100, cachedInputTokens: 80 };
+  const spend = spendFrom([
+    { run: "r", role: "extract", ok: true, model: "gpt-6.1-sol", usage },
+    { run: "r", role: "verify", ok: true, model: "claude-opus-5-5", usage },
+  ], "r");
+  assert.equal(spend.byRole.extract.inputTokens, 100);
+  assert.equal(spend.byRole.verify.inputTokens, 180);
 });
 
 test("a paragraph longer than a passage is split, not cut", async () => {
