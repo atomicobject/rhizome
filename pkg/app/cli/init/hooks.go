@@ -83,14 +83,20 @@ func (m starterHookMetadata) handler(starter string) (hook.Handler, error) {
 // installed in.
 const skillPlaceholder = "{skill}"
 
-// resolveSkillCommand points a handler command at the folder its skill is
-// installed in: the first enabled skill folder holding it, .agents/skills
-// before .claude/skills, as init writes them. A folder the person turned off
-// is skipped even if an old copy remains there.
-func resolveSkillCommand(root string, prefs *repoconfig.AgentPreferences, h hook.Handler) []string {
-	if h.Skill == "" {
-		return h.Command
+// skillDir is the folder a starter skill is installed in: the first enabled
+// skill folder holding it, .agents/skills before .claude/skills, as init
+// writes them. A folder the person turned off is skipped even if an old copy
+// remains there, so ok is false when no enabled folder holds the skill.
+func skillDir(root string, prefs *repoconfig.AgentPreferences, skill string) (dir string, ok bool) {
+	for _, folder := range enabledSkillFolders(prefs) {
+		if info, err := os.Stat(filepath.Join(root, filepath.FromSlash(folder), skill)); err == nil && info.IsDir() {
+			return folder + "/" + skill, true
+		}
 	}
+	return "", false
+}
+
+func enabledSkillFolders(prefs *repoconfig.AgentPreferences) []string {
 	var folders []string
 	if prefs == nil || !strings.EqualFold(prefs.AgentSkills, agentModeOff) {
 		folders = append(folders, ".agents/skills")
@@ -98,18 +104,24 @@ func resolveSkillCommand(root string, prefs *repoconfig.AgentPreferences, h hook
 	if prefs == nil || !strings.EqualFold(prefs.Claude, agentModeOff) {
 		folders = append(folders, ".claude/skills")
 	}
-	dir := ".agents/skills/" + h.Skill
-	for _, folder := range folders {
-		if info, err := os.Stat(filepath.Join(root, filepath.FromSlash(folder), h.Skill)); err == nil && info.IsDir() {
-			dir = folder + "/" + h.Skill
-			break
-		}
+	return folders
+}
+
+// resolveSkillCommand points a handler command at the folder its skill is
+// installed in, or reports false when no enabled folder holds it.
+func resolveSkillCommand(root string, prefs *repoconfig.AgentPreferences, h hook.Handler) ([]string, bool) {
+	if h.Skill == "" {
+		return h.Command, true
+	}
+	dir, ok := skillDir(root, prefs, h.Skill)
+	if !ok {
+		return nil, false
 	}
 	out := make([]string, len(h.Command))
 	for i, arg := range h.Command {
 		out[i] = strings.ReplaceAll(arg, skillPlaceholder, dir)
 	}
-	return out
+	return out, true
 }
 
 // hooksOn reports whether the person turned hooks on.
@@ -197,10 +209,16 @@ func HookHandlers(root string) ([]hook.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	for i := range handlers {
-		handlers[i].Command = resolveSkillCommand(root, cfg.Agents, handlers[i])
+	// A handler whose skill no enabled folder holds does not run; status
+	// says so.
+	var out []hook.Handler
+	for _, h := range handlers {
+		if command, ok := resolveSkillCommand(root, cfg.Agents, h); ok {
+			h.Command = command
+			out = append(out, h)
+		}
 	}
-	return handlers, nil
+	return out, nil
 }
 
 // hooksRelevant reports whether a summary shows hooks: an active starter
@@ -296,7 +314,9 @@ func hookStatusLines(root string, res resolved, applied bool) []string {
 			continue
 		}
 		for _, h := range handlers {
-			if at, ok := status[file.harness][h.Key()]; ok {
+			if hooksOn(res.cfg) && !skillAvailable(root, res, applied, h.Skill) {
+				lines = append(lines, fmt.Sprintf("  %s does not run: no enabled skill folder holds its %s skill", h.Key(), h.Skill))
+			} else if at, ok := status[file.harness][h.Key()]; ok {
 				lines = append(lines, fmt.Sprintf("  %s last returned context %s", h.Key(), at.Local().Format("2006-01-02 15:04")))
 			} else {
 				lines = append(lines, fmt.Sprintf("  %s has not returned context yet", h.Key()))
@@ -307,6 +327,28 @@ func hookStatusLines(root string, res resolved, applied bool) []string {
 		}
 	}
 	return lines
+}
+
+// skillAvailable reports whether a handler's skill is in an enabled skill
+// folder, or, before res is applied, will be once its changes are written.
+func skillAvailable(root string, res resolved, applied bool, skill string) bool {
+	if skill == "" {
+		return true
+	}
+	if _, ok := skillDir(root, res.cfg.Agents, skill); ok {
+		return true
+	}
+	if applied {
+		return false
+	}
+	for _, c := range res.files.changes {
+		for _, folder := range enabledSkillFolders(res.cfg.Agents) {
+			if !c.removal && strings.HasPrefix(filepath.ToSlash(c.rel), folder+"/"+skill+"/") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // printHookStatus prints hookStatusLines under a Hooks heading, before or

@@ -282,6 +282,24 @@ func TestHookHandlersRunFromTheInstalledSkillFolder(t *testing.T) {
 	require.FileExists(t, filepath.Join(root, ".claude", "skills", "session-memory", "scripts", "hook.mjs"))
 }
 
+func TestAHandlerWhoseSkillFolderIsOffDoesNotRun(t *testing.T) {
+	stubHookSupport(t, nil)
+	root := machineRunRepo(t)
+	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "session-memory", Agents: "codex", Search: "off", Hooks: "on"})
+	require.NoError(t, err)
+	cfg := loadConfigForTest(t, root)
+	cfg.Agents.AgentSkills = "off"
+	require.NoError(t, repoconfig.SaveLocalConfig(root, *cfg))
+	require.DirExists(t, filepath.Join(root, ".agents", "skills", "session-memory"), "an old copy remains")
+
+	handlers, err := HookHandlers(root)
+	require.NoError(t, err)
+	require.Empty(t, handlers, "the copy in a disabled folder is not run")
+	out, err := runInit(t, RunOptions{Dir: root, Check: true})
+	require.NoError(t, err)
+	require.Contains(t, out, "session-memory/deliver-shards does not run: no enabled skill folder holds its session-memory skill")
+}
+
 func TestHookDeclarationsAreValidated(t *testing.T) {
 	good := starterHookMetadata{ID: "h", Delivers: "x", Events: []string{hook.PostToolUse}, Tools: []string{hook.ToolRead}, Skill: "s", Command: []string{"node", "{skill}/h.mjs"}, Timeout: "2s"}
 	_, err := good.handler("s")
