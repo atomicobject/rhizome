@@ -43,6 +43,7 @@ func shellSegments(cmd string) []shellSegment {
 	var words []shellWord
 	var word strings.Builder
 	inWord, dynamic, broken, isolated := false, false, false, false
+	depth := 0 // open subshell parentheses
 	endWord := func() {
 		if inWord {
 			words = append(words, shellWord{text: word.String(), dynamic: dynamic})
@@ -55,7 +56,8 @@ func shellSegments(cmd string) []shellSegment {
 		if len(words) > 0 && !broken {
 			segments = append(segments, shellSegment{words: words, isolated: isolated || sepIsolates})
 		}
-		words, broken = nil, false
+		// Every segment inside a subshell is dropped through its closing ).
+		words, broken = nil, depth > 0
 	}
 	for i := 0; i < len(cmd); i++ {
 		c := cmd[i]
@@ -107,6 +109,12 @@ func shellSegments(cmd string) []shellSegment {
 			if double {
 				i++
 			}
+		case c == '(' && !inWord:
+			depth++
+			broken = true
+		case c == ')' && depth > 0:
+			depth--
+			broken = true
 		case c == '(' || c == ')' || c == '<' && strings.HasPrefix(cmd[i:], "<<"):
 			broken = true
 		case c == '>' || c == '<':

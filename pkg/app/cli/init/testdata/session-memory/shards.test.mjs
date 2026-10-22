@@ -68,6 +68,12 @@ test("approving writes a current shard that lookup returns and review no longer 
   assert.equal(loadShards(root)[0]?.path, approved);
 });
 
+test("approving a command shard publishes its prefix for the hook at once", () => {
+  const { root, sm } = repo([proposal("k-cmd", { commands: ["go mod vendor"] })]);
+  sm("approve", "k-cmd", "--confirm-publish");
+  assert.deepEqual(JSON.parse(readFileSync(join(root, ".rhizome/session-memory/hook/command-prefixes.json"), "utf8")), ["go mod vendor"]);
+});
+
 test("approval asks for a re-check when files changed after verification read them", () => {
   const { root, sm } = repo([proposal("k-1"), proposal("k-2", { verified: undefined })]);
   writeFileSync(join(root, "pkg/store/db.go"), "package store\n\nconst Default = 30\n");

@@ -50,6 +50,7 @@ import {
   writeAtomic,
 } from "./lib/shards.mjs";
 import { openStore } from "./lib/store.mjs";
+import { publishPrefixes } from "./hook.mjs";
 
 
 class Refused extends Error {}
@@ -193,7 +194,13 @@ export function run(argv, { root = repoRoot(), state, user } = {}) {
   // reviews cannot both pass the same check.
   store.lock();
   try {
-    return dispatch(a, { root, store, user });
+    const out = dispatch(a, { root, store, user });
+    // The hook starts for a shell call only on a published prefix, so a
+    // changed command shard is published now, not at the next session start.
+    try {
+      publishPrefixes(root, loadShards(root));
+    } catch {}
+    return out;
   } finally {
     store.unlock();
   }

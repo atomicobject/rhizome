@@ -60,20 +60,22 @@ func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
 
 func TestShellReadsIgnoresEverythingElse(t *testing.T) {
 	for _, cmd := range []string{
-		"rg Deadline",            // the pattern is not a path
-		"grep -n TODO",           // no file operand
-		"sed 's/a/b/' x.go",      // sed without -n prints everything; not a read form
-		"sed -i -n 1p x.go",      // in-place edit
-		"sed -ni 1p x.go",        // in-place edit in a cluster
-		"# cat a.go",             // a comment
-		"cat $FILE",              // expansion
-		"cat *.go",               // glob
-		"cat $(git ls-files)",    // command substitution
-		"go test ./...",          // not a read command
-		"echo cat a.go",          // cat is an argument
-		"cat <<EOF\nhello\nEOF",  // here-document
-		"(cd pkg && cat a.go)",   // subshell
-		"cat 'unterminated a.go", // broken quoting
+		"rg Deadline",              // the pattern is not a path
+		"grep -n TODO",             // no file operand
+		"sed 's/a/b/' x.go",        // sed without -n prints everything; not a read form
+		"sed -i -n 1p x.go",        // in-place edit
+		"sed -ni 1p x.go",          // in-place edit in a cluster
+		"# cat a.go",               // a comment
+		"cat $FILE",                // expansion
+		"cat *.go",                 // glob
+		"cat $(git ls-files)",      // command substitution
+		"go test ./...",            // not a read command
+		"echo cat a.go",            // cat is an argument
+		"cat <<EOF\nhello\nEOF",    // here-document
+		"(cd pkg && cat a.go)",     // subshell
+		"(cd pkg; cat a.go; true)", // every segment of a subshell
+		"(cat a.go\ncat b.go)",     // a subshell across lines
+		"cat 'unterminated a.go",   // broken quoting
 	} {
 		require.Empty(t, shellReads(cmd, "/repo"), cmd)
 	}
