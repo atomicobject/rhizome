@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, parity duties, and review checklist for the CLI layer: thin Cobra commands in cmd/, shared capabilities in pkg/app/operations and CLI workflows in pkg/app/cli."
 reference-kind: guide
-last-verified: 2026-10-19
+last-verified: 2026-10-22
 code-paths:
   - cmd
   - pkg/app/operations
@@ -90,6 +90,8 @@ code-anchors:
 - **One ownership rule for generated files.** Every file init generates goes through one planner and applier (`pkg/app/cli/init/file_plan.go`): missing files are created without asking, files whose content matches the fingerprint in the tracked `.rhizome/generated-files.yml` are updated without asking, and only files someone edited need a decision. Interactive runs ask (take the update, keep my version, show the diff), one question per file across mirrored skill folders; every other run keeps edited files and lists them, and only a person's choice records a declined version. Files with no record that differ are grouped into one question; managed blocks are the exception because their fences mark them as Rhizome's. Skill folders carry no marker files: the record proves ownership, and files a newer version dropped or skills of inactive starters are removed only when they still match their record. Starter docs are created only, and offered as updates only with a requested refresh. Ontology refresh uses gqlparser-backed source positions to preserve each adopted identifier's complete allocation contract (`strategy`, `prefix`, `separator`, and sequential `pad`), and ontology fingerprints ignore those contracts, because init has no authority to rekey an existing identifier pool; unsafe preservation fails closed.
 - **Managed `.rhizome/.gitignore`**: any new committed (non-transient) file under `.rhizome/` requires updating the `rzm init` template/writer so it stays tracked after init refreshes.
 - **Dispatch is version-neutral.** Repository binary selection reads only the `rhizome` pin before delegation; unrelated unknown or older config shapes can warn but must not prevent the selected binary from running. `rzm init` migrates the three v0.49 workflow fields to tracked `.rhizome/workflows.yml`, removes only those fields from `config.yml`, and is idempotent.
+- **`rzm hook` is a fail-open early path.** `cmd/hook.go` runs before Cobra and without `.env` loading; it uses an already-installed repository binary through ordinary delegation but never bootstraps, updates, downloads, opens the index, or starts the runtime, and it exits 0 once started. `pkg/app/cli/hook` owns payload normalization, bounded shell-read parsing (never executed), worktree containment with symlinks resolved, handler selection including the published command-prefix gate, one fixed deadline with process-tree kill, per-handler failure isolation, the output budget, emitted-item state per agent identity under a bounded lock (recorded only after emitting, reset on compact or clear), host JSON output, status, and the bounded diagnostic log under `.rhizome/hooks/`. Handler declarations come only from embedded starter `template.yaml` `hooks:` entries through `init.HookHandlers`; installed entries are identical for every starter combination and change only when `hook.HookPoints` changes ([[agent-surface-integration-modes#^SPEC-0045-US5]]).
+- **Hook entries follow the ownership rule.** With `agents.hooks: on`, an enabled harness, a starter that declares handlers, and a selected `rzm` that answers `rzm hook --check`, init plans one marker-identified entry per hook point in `.claude/settings.json` and `.codex/hooks.json` (`hook_entries.go`). The record key is `<file>#rhizome-hooks`; unrecorded entries count as Rhizome's, as fenced blocks do. Other keys and entries keep their order, and a file left empty is removed.
 - **Init owns binary-manager migration.** `--binary-manager external` is the sole authored transition in this slice. It skips pin creation/bootstrap, preserves existing external ownership on rerun, and clears conflicting pin/path fields once the rerun's confirmation covers the listed change (the flag itself is the confirmation without a terminal) without deleting `.rhizome/bin` cache files.
 
 ## Must-dos when changing this subsystem
@@ -127,6 +129,7 @@ code-anchors:
 - `cmd/index.go` (indexing front), `cmd/create.go` (editor/content pitfalls), `pkg/app/cli/serve/readiness.go` (serve readiness coordinator)
 - `pkg/app/operations/CONTEXT.md` (entry points + invariant), `pkg/app/operations/file_context.go`, `pkg/app/operations/rename.go`
 - `pkg/app/cli/init/CONTEXT.md`, `pkg/app/cli/init/run.go`, `pkg/app/cli/init/templates/`, `docs/rhizome-md-templates/`
+- `cmd/hook.go`, `pkg/app/cli/hook/dispatch.go` (hook dispatcher), `pkg/app/cli/init/hooks.go`, `hook_entries.go` (declarations, entries, status)
 - `pkg/paths/input.go` (`AbsFromInputWithVaultPaths`, resolvers)
 - `pkg/app/mcp/tool_*.go`, `pkg/app/agentapi/catalog.go`, `cmd/agent_surface.go` (parity surfaces)
 
