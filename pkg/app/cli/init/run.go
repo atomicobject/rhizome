@@ -62,6 +62,9 @@ func start(opts RunOptions) (*initRun, setup, bool, error) {
 	if _, err := agentFlagModes(opts.Agents); err != nil {
 		return fail(err)
 	}
+	if _, err := normalizeHooksOption(opts.Hooks); err != nil {
+		return fail(err)
+	}
 	if err := checkAddonsOption(opts.Addons); err != nil {
 		return fail(err)
 	}
@@ -188,6 +191,7 @@ func (r *initRun) firstRun(s setup, workflowChosen bool) error {
 		lines := append([]planLine{{mark: "+", text: "Create .rhizome/config.yml"}}, skipLines(s.skips)...)
 		lines = append(lines, fileLines(res.files.pending())...)
 		printPlanLines(out, lines, true)
+		printHookStatus(out, r.layout.ProjectRoot, res, false)
 		return ErrChangesPending
 	}
 	report, err := r.apply(s, res)
@@ -197,6 +201,7 @@ func (r *initRun) firstRun(s setup, workflowChosen bool) error {
 	// Report what was written before the pinned-binary download, so a slow
 	// or failed download does not hide it.
 	printSetupSummary(out, report, res.effective, s.skips, outcome.savedKey)
+	printHookStatus(out, r.layout.ProjectRoot, res, true)
 	if err := ensurePinnedBinary(r.layout.ProjectRoot, res.cfg, r.opts); err != nil {
 		return err
 	}

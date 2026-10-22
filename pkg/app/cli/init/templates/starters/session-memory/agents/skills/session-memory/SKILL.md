@@ -19,7 +19,15 @@ node <skill>/scripts/lookup.mjs --command "make web-e2e"
 node <skill>/scripts/lookup.mjs --task "add a validation check for views"
 ```
 
-Follow the rules it returns; facts are background, and a where-to-find shard names the document to open. Lookup returns at most five shards, rules first, and withholds shards whose files changed since they were verified. When it reports withheld shards, mention it; the person can run maintain.
+Follow the rules it returns; facts are background, and a where-to-find shard names the document to open. Lookup returns at most five shards, rules first, and withholds shards whose files changed since they were verified. When more match, it says so; `--skip N` shows the matches after the first N. When it reports withheld shards, mention it; the person can run maintain.
+
+## Hooks
+
+With hooks on, Rhizome's hook dispatcher runs this skill's `scripts/hook.mjs` and the shards arrive without asking: shards with no patterns at session and subagent start, and after a tool call, the shards for the files the agent read, edited, or patched, or for a command it ran. A context sees each shard once until a compaction or clear. Hook delivery selects shards the same way lookup does, so lookup is still how to check a task or files before starting, and the only way in hosts that do not run project hooks, such as Codex threads in T3 Code.
+
+- Hooks are off until the person turns them on: `rzm init --hooks on`, and `rzm init --hooks off` to stop. Init writes the entries into `.claude/settings.json` and `.codex/hooks.json`; never edit those entries by hand.
+- `rzm init --check` reports, per harness, whether the entries are installed and current and when this skill last returned context. Codex runs a new or changed entry only after the person trusts it with `/hooks` in Codex; tell them so after turning hooks on.
+- When shards do not arrive, read the last lines of `.rhizome/hooks/diagnostics.log` and report what it says.
 
 ## Mine
 
@@ -57,4 +65,4 @@ Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only
 
 ## Not yet available
 
-Calibrating model choices (SPEC-0124 US6) and hooks that deliver shards automatically are planned but not part of this version. Tell the person so rather than improvising them.
+Calibrating model choices (SPEC-0124 US6) is planned but not part of this version. Tell the person so rather than improvising it.

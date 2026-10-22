@@ -167,6 +167,7 @@ type initInvocationOptions struct {
 	initPath           string
 	initWorkflow       string
 	initAgents         string
+	initHooks          string
 	initSearch         string
 	initRefreshDocs    bool
 	initIncludeIgnored []string

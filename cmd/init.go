@@ -66,6 +66,7 @@ arguments.`,
 				Interactive:       stdinIsTerminal(cmd),
 				Workflow:          commandOptions.initWorkflow,
 				Agents:            commandOptions.initAgents,
+				Hooks:             commandOptions.initHooks,
 				Search:            commandOptions.initSearch,
 				RefreshDocs:       commandOptions.initRefreshDocs,
 				IncludeIgnored:    commandOptions.initIncludeIgnored,
@@ -193,6 +194,7 @@ func (commandOptions *initInvocationOptions) registerInitCommands(initCmd, rootC
 	initCmd.Flags().StringVar(&commandOptions.initPath, "path", "", "project directory to set up (default: current directory or Git root)")
 	initCmd.Flags().StringVar(&commandOptions.initWorkflow, "workflow", "", "workflow to install: agentic-engineering, domain, or none")
 	initCmd.Flags().StringVar(&commandOptions.initAgents, "agents", "", "agents to set up: claude, codex, cursor (comma-separated), shared for AGENTS.md and shared skills only, or none")
+	initCmd.Flags().StringVar(&commandOptions.initHooks, "hooks", "", "agent hooks that deliver add-on context, such as session-memory shards: on or off (default off)")
 	initCmd.Flags().StringVar(&commandOptions.initSearch, "search", "", "semantic search provider: voyage (default), openai, ollama, or off")
 	initCmd.Flags().BoolVar(&commandOptions.initRefreshDocs, "refresh-docs", false, "offer Rhizome's latest versions of the starter docs your team owns")
 	initCmd.Flags().StringArrayVar(&commandOptions.initIncludeIgnored, "include-ignored", nil, "index a folder Git ignores (repeatable)")

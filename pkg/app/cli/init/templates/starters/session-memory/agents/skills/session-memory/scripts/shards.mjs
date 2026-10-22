@@ -43,12 +43,14 @@ import {
   repoRoot,
   shardFiles,
   slugify,
+  readIndex,
   staleness,
   titleOf,
   today,
   writeAtomic,
 } from "./lib/shards.mjs";
 import { openStore } from "./lib/store.mjs";
+import { publishPrefixes } from "./hook.mjs";
 
 
 class Refused extends Error {}
@@ -192,7 +194,13 @@ export function run(argv, { root = repoRoot(), state, user } = {}) {
   // reviews cannot both pass the same check.
   store.lock();
   try {
-    return dispatch(a, { root, store, user });
+    const out = dispatch(a, { root, store, user });
+    // The hook starts for a shell call only on a published prefix, so a
+    // changed command shard is published now, not at the next session start.
+    try {
+      publishPrefixes(root, loadShards(root));
+    } catch {}
+    return out;
   } finally {
     store.unlock();
   }
@@ -244,12 +252,13 @@ function dispatch(a, { root, store, user }) {
       return { dismissed: p.cluster, decision: file };
     }
     case "check": {
-      const tracked = git(root, ["ls-files", "-z"]).split("\0").filter(Boolean);
+      const index = readIndex(root);
+      const { tracked } = index;
       const old = Date.now() - 30 * 24 * 3600 * 1000;
       const out = [];
       for (const s of loadShards(root)) {
         const reasons = [];
-        const why = staleness(root, s, tracked);
+        const why = staleness(root, s, index);
         if (why) reasons.push(why);
         if ([...s.anchors].sort().join("\n") !== [...s.appliesTo].sort().join("\n")) reasons.push("code-anchors differ from applies-to");
         if (!s.appliesTo.length && Date.parse(s.verifiedOn) < old) reasons.push("no patterns, and verified more than 30 days ago");

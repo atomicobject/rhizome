@@ -108,6 +108,16 @@ func classifyPlan(projectRoot string, plan *filePlan, record *generatedFiles) ([
 		}
 	}
 
+	for _, file := range plan.hookFiles {
+		c, err := classifyHookFile(projectRoot, file, record)
+		if err != nil {
+			return nil, nil, err
+		}
+		if c != nil {
+			changes = append(changes, c)
+		}
+	}
+
 	for _, removal := range plan.removals {
 		current, exists, err := readIfExists(filepath.Join(projectRoot, filepath.FromSlash(removal.rel)))
 		if err != nil {
