@@ -303,6 +303,36 @@ func TestHookSupportCheckRunsNoBinaryAnUntrustedCheckoutSelects(t *testing.T) {
 	require.FileExists(t, marker)
 }
 
+func TestHookSupportCheckProbesASourceCheckoutsOwnBuild(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture is Unix-only")
+	}
+	bin := t.TempDir()
+	t.Setenv("PATH", bin)
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "rzm"), []byte("#!/bin/sh\necho 'rzm-hook 1'\n"), 0o755))
+	// A Rhizome source checkout with no devBinaryDir and no pin still selects
+	// its own bin/<os>/rzm, here a build from before rzm hook.
+	root := t.TempDir()
+	writeFixtureFile(t, root, "go.mod", "module github.com/atomicobject/rhizome\n\ngo 1.27\n")
+	dev := filepath.Join(root, "bin", runtime.GOOS, "rzm")
+	require.NoError(t, os.MkdirAll(filepath.Dir(dev), 0o755))
+	require.NoError(t, os.WriteFile(dev, []byte("#!/bin/sh\necho 'unknown command \"hook\"' >&2\nexit 1\n"), 0o755))
+	store := repositorytrust.Store{Dir: t.TempDir()}
+	saved := hookTrustStore
+	hookTrustStore = func() (repositorytrust.Store, error) { return store, nil }
+	t.Cleanup(func() { hookTrustStore = saved })
+	_, err := store.Trust(root)
+	require.NoError(t, err)
+	// Init runs as an installed rzm, not a go run build.
+	running := filepath.Join(bin, "rzm")
+	savedExe := runningExecutable
+	runningExecutable = func() (string, error) { return running, nil }
+	t.Cleanup(func() { runningExecutable = savedExe })
+
+	err = selectedBinarySupportsHooks(root, repoconfig.LocalConfig{})
+	require.ErrorContains(t, err, "the selected rzm ("+dev+") does not support rzm hook")
+}
+
 func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {
 	root := hookRepo(t, "")
 	handlers, err := HookHandlers(root)

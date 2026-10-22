@@ -386,8 +386,12 @@ var hookTrustStore = repositorytrust.DefaultStore
 // selectedBinarySupportsHooks probes, with `rzm hook --check`, the rzm on
 // PATH that every entry launches, and the binary this repository selects,
 // which that rzm hands hooks off to. This binary needs no probe.
+// runningExecutable is os.Executable, replaceable in tests, where the test
+// binary would otherwise count as a go run build.
+var runningExecutable = os.Executable
+
 func selectedBinarySupportsHooks(root string, cfg repoconfig.LocalConfig) error {
-	exe, err := os.Executable()
+	exe, err := runningExecutable()
 	if err != nil {
 		return err
 	}
@@ -402,8 +406,15 @@ func selectedBinarySupportsHooks(root string, cfg repoconfig.LocalConfig) error 
 	if err != nil {
 		return err
 	}
+	if external {
+		return nil
+	}
+	// A Rhizome source checkout selects its own bin/<os>/rzm even with no
+	// devBinaryDir, so selection decides whether a second binary needs a check.
+	plan, selectErr := repoexec.Select(root, exe)
+	development := selectErr == nil && plan.Authority == "development"
 	pin := strings.TrimSpace(cfg.Rhizome.Version)
-	if external || strings.TrimSpace(cfg.Rhizome.DevBinaryDir) == "" && (pin == "" || pin == version.Version) {
+	if !development && strings.TrimSpace(cfg.Rhizome.DevBinaryDir) == "" && (pin == "" || pin == version.Version) {
 		return nil
 	}
 	// The selected binary is the checkout's own code: run it only for a
@@ -422,7 +433,7 @@ func selectedBinarySupportsHooks(root string, cfg repoconfig.LocalConfig) error 
 		}
 	}
 	target := exe
-	if plan, err := repoexec.Select(root, exe); err == nil && plan.Target != "" {
+	if selectErr == nil && plan.Target != "" {
 		target = plan.Target
 	}
 	if _, err := os.Stat(target); err != nil {
