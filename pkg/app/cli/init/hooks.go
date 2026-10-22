@@ -269,8 +269,8 @@ func hookStatusLines(root string, res resolved, applied bool) []string {
 		}
 		lines = append(lines, "  "+name+": "+h.Delivers)
 	}
-	if hooksOn(res.cfg) && res.hooksBlocked != nil {
-		lines = append(lines, "Hook entries were left as they are: "+res.hooksBlocked.Error())
+	if reason := hooksBlockedReason(res); reason != "" {
+		lines = append(lines, "Hook entries were left as they are: "+reason)
 	}
 	byKey := map[string]*change{}
 	for _, c := range res.files.changes {
@@ -329,6 +329,15 @@ func hookStatusLines(root string, res resolved, applied bool) []string {
 		}
 	}
 	return lines
+}
+
+// hooksBlockedReason says why hook entries are left as they are though
+// hooks are on, or "" when nothing blocks them.
+func hooksBlockedReason(res resolved) string {
+	if !hooksOn(res.cfg) || res.hooksBlocked == nil {
+		return ""
+	}
+	return res.hooksBlocked.Error()
 }
 
 // skillAvailable reports whether a handler's skill is in an enabled skill

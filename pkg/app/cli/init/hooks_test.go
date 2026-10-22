@@ -214,6 +214,19 @@ func TestHookEntriesWaitForABinaryThatSupportsThem(t *testing.T) {
 	require.Contains(t, out, "Hook entries were left as they are: the selected rzm does not support rzm hook")
 }
 
+func TestMachineSetupSaysWhyNoHookEntriesWereWritten(t *testing.T) {
+	stubHookSupport(t, errors.New("there is no rzm on PATH"))
+	root := machineRunRepo(t)
+	opts := RunOptions{Dir: root, Workflow: "none", Addons: "session-memory", Agents: "claude", Search: "off", Hooks: "on"}
+	plan, err := Plan(opts)
+	require.NoError(t, err)
+	require.Equal(t, "there is no rzm on PATH", plan.HooksBlocked)
+	result, err := Apply(opts)
+	require.NoError(t, err)
+	require.Equal(t, "there is no rzm on PATH", result.HooksBlocked)
+	require.NoFileExists(t, filepath.Join(root, ".claude/settings.json"))
+}
+
 func TestHookSupportCheckProbesTheRzmOnPath(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell-script fixture is Unix-only")
