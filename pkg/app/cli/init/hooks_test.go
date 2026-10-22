@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/cli/hook"
+	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
@@ -230,6 +231,35 @@ func TestHookSupportCheckProbesTheRzmOnPath(t *testing.T) {
 
 	require.NoError(t, os.WriteFile(launcher, []byte("#!/bin/sh\n[ \"$1 $2\" = \"hook --check\" ] && echo 'rzm-hook 1'\n"), 0o755))
 	require.NoError(t, selectedBinarySupportsHooks(root, repoconfig.LocalConfig{}))
+}
+
+func TestHookSupportCheckRunsNoBinaryAnUntrustedCheckoutSelects(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture is Unix-only")
+	}
+	bin := t.TempDir()
+	t.Setenv("PATH", bin)
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "rzm"), []byte("#!/bin/sh\necho 'rzm-hook 1'\n"), 0o755))
+	root := t.TempDir()
+	writeFixtureFile(t, root, ".rhizome/config.yml", "rhizome:\n  devBinaryDir: devbin\n")
+	marker := filepath.Join(root, "ran")
+	dev := filepath.Join(root, "devbin", runtime.GOOS, "rzm")
+	require.NoError(t, os.MkdirAll(filepath.Dir(dev), 0o755))
+	require.NoError(t, os.WriteFile(dev, []byte("#!/bin/sh\n: > '"+marker+"'\necho 'rzm-hook 1'\n"), 0o755))
+	store := repositorytrust.Store{Dir: t.TempDir()}
+	saved := hookTrustStore
+	hookTrustStore = func() (repositorytrust.Store, error) { return store, nil }
+	t.Cleanup(func() { hookTrustStore = saved })
+	cfg := repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{DevBinaryDir: "devbin"}}
+
+	err := selectedBinarySupportsHooks(root, cfg)
+	require.ErrorContains(t, err, "is not trusted to select a Rhizome executable")
+	require.NoFileExists(t, marker)
+
+	_, err = store.Trust(root)
+	require.NoError(t, err)
+	require.NoError(t, selectedBinarySupportsHooks(root, cfg))
+	require.FileExists(t, marker)
 }
 
 func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {

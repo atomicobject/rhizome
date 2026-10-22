@@ -22,6 +22,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/cli/hook"
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
+	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/version"
 )
@@ -370,6 +371,9 @@ func printHookStatus(out io.Writer, root string, res resolved, applied bool) {
 // variable so tests need no second binary.
 var checkHookSupport = selectedBinarySupportsHooks
 
+// hookTrustStore is the repository trust store; tests replace it.
+var hookTrustStore = repositorytrust.DefaultStore
+
 // selectedBinarySupportsHooks probes, with `rzm hook --check`, the rzm on
 // PATH that every entry launches, and the binary this repository selects,
 // which that rzm hands hooks off to. This binary needs no probe.
@@ -392,6 +396,21 @@ func selectedBinarySupportsHooks(root string, cfg repoconfig.LocalConfig) error 
 	pin := strings.TrimSpace(cfg.Rhizome.Version)
 	if external || strings.TrimSpace(cfg.Rhizome.DevBinaryDir) == "" && (pin == "" || pin == version.Version) {
 		return nil
+	}
+	// The selected binary is the checkout's own code: run it only for a
+	// checkout the person trusts, as dispatch and the hook handoff do.
+	if checkout, required, err := repoexec.TrustRequirement([]string{"hook"}, root, exe); err != nil {
+		return err
+	} else if required {
+		store, err := hookTrustStore()
+		if err != nil {
+			return err
+		}
+		if trusted, err := store.Trusted(checkout); err != nil {
+			return err
+		} else if !trusted {
+			return fmt.Errorf("this checkout (%s) is not trusted to select a Rhizome executable, so its rzm was not checked; review it, run rzm trust there, then run rzm init again", checkout)
+		}
 	}
 	target := exe
 	if plan, err := repoexec.Select(root, exe); err == nil && plan.Target != "" {
