@@ -4,7 +4,7 @@ summary: "Implementation guide for Rhizome's unified ignore matcher, including p
 reference-kind: guide
 derived-from:
   - docs/reference-notes/Ignore + exclude rules.md
-last-verified: 2026-10-01
+last-verified: 2026-10-21
 status: active
 ---
 
@@ -17,8 +17,10 @@ Rhizome uses one unified ignore matcher across crawl, cache, semantic indexing, 
 ## Contracts
 
 - `.gitignore`, `.rhizome/ignore`, legacy `.obsidianignore`, and config excludes compose into one matcher
+- the ignore files are the complete list: `ignore.DefaultIgnorePatterns()` applies only while `.rhizome/ignore` (or legacy `.obsidianignore`) has no rules, and `rzm init` writes it into the file as a visible starter list. Tooling that adds rules to a file with no rules writes the starter list first (`withBuiltInList` in `pkg/app/cli/init/scope.go`) so the rules do not silently drop it
+- `.git/` is never content: discovery and code indexing skip hidden directories, and the watch hub drops change events under `.git` before ignore-file reloads, hints, or batches see them (`shouldDropVaultRelPath`), whatever the ignore files say
 - later rules win, including negations
-- literal dir-only negations (`!/app/`) are include boundaries: they suppress earlier rules that excluded the boundary directory itself, while the subtree's own nested `.gitignore`, defaults, and later rules keep applying ([[ignored-subtree-inclusion|SPEC-0064]]; see `pkg/vault/ignore/boundary.go`)
+- literal dir-only negations (`!/app/`) are include boundaries: they suppress earlier rules that excluded the boundary directory itself, while the subtree's own nested `.gitignore` and the rest of `.rhizome/ignore` keep applying ([[ignored-subtree-inclusion|SPEC-0064]]; see `pkg/vault/ignore/boundary.go`)
 - a directory's `.gitignore` loads whenever the directory is included after all layers evaluate, so re-included subtrees contribute their own `.gitignore`
 - `Matcher.Explain` reports the deciding layer/source/line/pattern for any path; `rzm index --explain <path>` is the CLI surface
 - ignore-file changes force stale cache state and full resync because indexed scope may have changed globally
