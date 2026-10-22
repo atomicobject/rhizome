@@ -45,9 +45,16 @@ func sessionStatePath(root string, id Identity) string {
 }
 
 // scopeKey separates session-start delivery from tool-call delivery and one
-// agent context from another. A missing agent ID or turn stays empty.
+// agent context from another: per agent ID when the host gives one, which
+// outlives its turns, and otherwise per turn, the narrowest scope a Codex
+// subagent without an ID never shares with its parent. Claude Code's main
+// agent has neither, so its scope is the session.
 func scopeKey(scope string, id Identity) string {
-	return scope + "|" + id.AgentID + "|" + id.Turn
+	turn := id.Turn
+	if id.AgentID != "" {
+		turn = ""
+	}
+	return scope + "|" + id.AgentID + "|" + turn
 }
 
 func scopeFor(point string) string {

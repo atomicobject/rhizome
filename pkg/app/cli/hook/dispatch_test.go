@@ -172,6 +172,15 @@ func TestCodexToolCallsDedupePerTurn(t *testing.T) {
 	require.Empty(t, out)
 	_, out = dispatchOnce(t, root, HarnessCodex, PostToolUse, patch("t2"), h)
 	require.NotEmpty(t, out)
+
+	// An agent ID scopes delivery to that agent's context across its turns.
+	agent := func(turn string) string {
+		return fmt.Sprintf(`{"session_id":"s1","turn_id":%q,"agent_id":"sub-1","cwd":%q,"tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\n*** Update File: pkg/a.go\n*** End Patch"}}`, turn, root)
+	}
+	_, out = dispatchOnce(t, root, HarnessCodex, PostToolUse, agent("t3"), h)
+	require.NotEmpty(t, out)
+	_, out = dispatchOnce(t, root, HarnessCodex, PostToolUse, agent("t4"), h)
+	require.Empty(t, out)
 }
 
 func TestOneHandlerFailureKeepsTheOthersItemsAndLogs(t *testing.T) {

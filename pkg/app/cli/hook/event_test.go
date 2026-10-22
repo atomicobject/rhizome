@@ -27,13 +27,17 @@ func TestNormalizeClaudeAndCodexPayloads(t *testing.T) {
 		payload: fmt.Sprintf(`{"session_id":"s","cwd":%q,"tool_name":"Bash","tool_input":{"command":"cd ../docs && cat 'my notes/a.md' ../../outside.md"}}`, sub),
 		want:    Event{Tool: ToolShell, Paths: []string{"docs/my notes/a.md"}, Command: "cd ../docs && cat 'my notes/a.md' ../../outside.md", Agent: Identity{Session: "s"}},
 	}, {
-		name: "codex shell argv with workdir", harness: HarnessCodex, point: PostToolUse,
-		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","cwd":%q,"tool_name":"shell","tool_input":{"command":["bash","-lc","head -n 3 a.go"],"workdir":"pkg"}}`, root),
-		want:    Event{Tool: ToolShell, Paths: []string{"pkg/a.go"}, Command: "head -n 3 a.go", Agent: Identity{Session: "s", Turn: "t"}},
+		name: "codex bash with cd, a missing file, and an agent ID", harness: HarnessCodex, point: PostToolUse,
+		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","agent_id":"sub-1","agent_type":"worker","cwd":%q,"tool_use_id":"call_1","tool_name":"Bash","tool_input":{"command":"cd pkg && head -n 3 a.go missing.go"},"tool_response":"package a"}`, root),
+		want:    Event{Tool: ToolShell, Paths: []string{"pkg/a.go"}, Command: "cd pkg && head -n 3 a.go missing.go", Agent: Identity{Session: "s", AgentID: "sub-1", Turn: "t"}},
+	}, {
+		name: "codex bash read run in another directory", harness: HarnessCodex, point: PostToolUse,
+		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","cwd":%q,"tool_use_id":"call_2","tool_name":"Bash","tool_input":{"command":"cat a.go"}}`, root),
+		want:    Event{Tool: ToolShell, Command: "cat a.go", Agent: Identity{Session: "s", Turn: "t"}},
 	}, {
 		name: "codex patch that moves and deletes", harness: HarnessCodex, point: PostToolUse,
-		payload: fmt.Sprintf(`{"session_id":"s","cwd":%q,"tool_name":"apply_patch","tool_input":"*** Begin Patch\n*** Update File: pkg/a.go\n*** Move to: pkg/moved.go\n*** Delete File: gone/old.go\n*** End Patch"}`, root),
-		want:    Event{Tool: ToolPatch, Paths: []string{"gone/old.go", "pkg/a.go", "pkg/moved.go"}, Agent: Identity{Session: "s"}},
+		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","cwd":%q,"tool_use_id":"call_3","tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\n*** Update File: pkg/a.go\n*** Move to: pkg/moved.go\n*** Delete File: pkg/old.go\n*** Delete File: gone/old.go\n*** End Patch"},"tool_response":"Success"}`, root),
+		want:    Event{Tool: ToolPatch, Paths: []string{"pkg/a.go", "pkg/moved.go", "pkg/old.go"}, Agent: Identity{Session: "s", Turn: "t"}},
 	}, {
 		name: "subagent start without an agent ID borrows nothing", harness: HarnessCodex, point: SubagentStart,
 		payload: fmt.Sprintf(`{"session_id":"parent","turn_id":"t2","cwd":%q}`, root),

@@ -36,7 +36,8 @@ type Event struct {
 }
 
 // payload holds the host fields the dispatcher reads; Claude Code and Codex
-// share these names.
+// share these names. Neither reports the directory a shell command or patch
+// ran in when it differs from cwd.
 type payload struct {
 	SessionID string          `json:"session_id"`
 	TurnID    string          `json:"turn_id"`
@@ -47,28 +48,27 @@ type payload struct {
 	ToolInput json.RawMessage `json:"tool_input"`
 }
 
+// toolInput holds Claude Code's file fields and the command text both hosts
+// send: a Bash script, or the body of a Codex apply_patch.
 type toolInput struct {
-	FilePath     string          `json:"file_path"`
-	NotebookPath string          `json:"notebook_path"`
-	Command      json.RawMessage `json:"command"`
-	Cmd          json.RawMessage `json:"cmd"`
-	Workdir      string          `json:"workdir"`
-	Patch        string          `json:"patch"`
-	Input        string          `json:"input"`
+	FilePath     string `json:"file_path"`
+	NotebookPath string `json:"notebook_path"`
+	Command      string `json:"command"`
 }
 
 var errNoWorktree = errors.New("no Git worktree contains the hook's working directory")
 
-// toolClass maps a host tool name to the class handlers declare.
+// toolClass maps a host tool name to the class handlers declare. Codex
+// reports its shell and unified exec tools as Bash.
 func toolClass(name string) string {
 	switch name {
 	case "Read":
 		return ToolRead
 	case "Edit", "Write", "MultiEdit", "NotebookEdit":
 		return ToolEdit
-	case "apply_patch", "ApplyPatch":
+	case "apply_patch":
 		return ToolPatch
-	case "Bash", "shell", "exec_command", "local_shell", "container.exec", "unified_exec":
+	case "Bash":
 		return ToolShell
 	}
 	return ""
@@ -102,46 +102,35 @@ func normalize(harness, point string, raw []byte, cwd string) (Event, error) {
 	}
 	ev.Tool = toolClass(p.ToolName)
 	var in toolInput
-	var patch string
-	if len(p.ToolInput) > 0 && p.ToolInput[0] == '"' {
-		// Some hosts send a patch or command as a bare string.
-		_ = json.Unmarshal(p.ToolInput, &patch)
-	} else if len(p.ToolInput) > 0 {
-		_ = json.Unmarshal(p.ToolInput, &in)
-	}
-	callDir := cwd
-	if in.Workdir != "" {
-		callDir = resolveAgainst(cwd, in.Workdir)
-	}
-	var candidates []string
+	_ = json.Unmarshal(p.ToolInput, &in)
 	switch ev.Tool {
 	case ToolRead, ToolEdit:
-		candidates = []string{firstNonEmpty(in.FilePath, in.NotebookPath)}
+		ev.Paths = containedPaths(root, cwd, []string{firstNonEmpty(in.FilePath, in.NotebookPath)})
 	case ToolPatch:
-		candidates = patchPaths(firstNonEmpty(patch, in.Patch, in.Input, commandText(in.Command)), callDir)
+		// A patch may delete its file, so its directory is enough.
+		ev.Paths = existing(root, containedPaths(root, cwd, patchPaths(in.Command, cwd)), true)
 	case ToolShell:
-		ev.Command = firstNonEmpty(commandText(in.Command), commandText(in.Cmd), patch)
-		candidates = shellReads(ev.Command, callDir)
+		ev.Command = in.Command
+		// The host does not say where the command ran beyond cwd, so a read
+		// that names no existing file there was made somewhere else.
+		ev.Paths = existing(root, containedPaths(root, cwd, shellReads(ev.Command, cwd)), false)
 	}
-	ev.Paths = containedPaths(root, callDir, candidates)
 	return ev, nil
 }
 
-// commandText accepts a command string or an argument list; for a list that
-// runs a shell script (bash -lc '...'), it returns the script.
-func commandText(raw json.RawMessage) string {
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return s
+// existing keeps the repository-relative paths that exist, or, with
+// parentOK, whose directory does.
+func existing(root string, rels []string, parentOK bool) []string {
+	var out []string
+	for _, rel := range rels {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		if _, err := os.Stat(p); err == nil {
+			out = append(out, rel)
+		} else if info, err := os.Stat(filepath.Dir(p)); parentOK && err == nil && info.IsDir() {
+			out = append(out, rel)
+		}
 	}
-	var argv []string
-	if json.Unmarshal(raw, &argv) != nil || len(argv) == 0 {
-		return ""
-	}
-	if n := len(argv); n >= 3 && strings.HasPrefix(argv[n-2], "-") && strings.Contains(argv[n-2], "c") {
-		return argv[n-1]
-	}
-	return strings.Join(argv, " ")
+	return out
 }
 
 func firstNonEmpty(values ...string) string {
