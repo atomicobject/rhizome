@@ -621,6 +621,7 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
   - **Role input totals counted Codex cache reads twice;** Codex input already includes them. Dollar accounting was unaffected.
   - **Decision raised for Drew:** proposals carry no response classification, so a correct observation about a defect can still be approved as a remembered shard, a workaround. The reviewer recommends classifying the response on proposals now and deferring non-`remember` publication until SPEC-0124 US2's routes exist.
   - **Web E2E** failed in CI because the Playwright download hit a certificate error before tests ran; unrelated to this change.
+  - **Decision (Drew): option (c).** Review now asks first whether a proposal describes something to fix, guard, or ask about rather than remember; those are dismissed with the response as the reason until US2's findings notes exist. Classification in mining waits for US2, so the verifier's prompt and the evaluation baselines are unchanged. Revisions state the behavior to follow rather than the mistake to avoid. From a look at [GottZ/ctx](https://github.com/GottZ/ctx), mining also refuses a state directory inside the checkout that Git would track. Its verbatim-quote evidence gate is a candidate for the next mining iteration.
 
 ## Deviations
 

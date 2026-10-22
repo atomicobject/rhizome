@@ -36,14 +36,15 @@ Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only
 
 1. Check the reviewer: `rzm agent current-user validate` must resolve to a `Person`. If it does not, stop and ask the person to run `rzm agent current-user set "<Person title>"`.
 2. `node <skill>/scripts/shards.mjs list` shows pending proposals. Present each one with its tier (A: seen in two or more sessions; B: one session, confirmed in the code), statement, applies-to patterns, and why it matters. `shards.mjs show <cluster>` gives the verification record and evidence; `shards.mjs source <cluster> [n]` shows a cited excerpt, redacted.
-3. For each proposal, ask the person to approve, revise, dismiss, or defer:
+3. For each proposal, first ask whether it describes something to fix rather than remember: dead or misleading code, a flaky test, a bad default, a missing check, or an open question. A shard that teaches agents to work around a defect keeps the defect. If the person chooses to fix it, guard against it with a check or test, or ask the team, dismiss the proposal as below with that response and the proposed change as its reason (`--reason "fix: <change>"`), and offer to make the change. Notes that track these responses are planned (SPEC-0124 US2).
+4. Otherwise, ask the person to approve, revise, dismiss, or defer:
    - **Approve:** ask whether the statement is fit to publish in this repository, which may be public. Only after a yes, run `shards.mjs approve <cluster> --confirm-publish`.
-   - **Revise:** write the changed fields (`kind`, `statement`, `why`, `appliesTo`, `commands`, `target`) to a JSON file outside the repository, show the person the result, then approve with `--edit <file>`.
+   - **Revise:** write the changed fields (`kind`, `statement`, `why`, `appliesTo`, `commands`, `target`) to a JSON file outside the repository, show the person the result, then approve with `--edit <file>`. State the behavior agents should follow, not the mistake to avoid; naming a mistake tends to invite it.
    - **Dismiss:** ask for the reason and whether to share the decision with the team (`--shared`, a tracked file) or keep it local (`--local`), then run `shards.mjs dismiss <cluster> --reason "<reason>" --shared|--local`.
    - **Defer:** do nothing; it stays pending.
-4. Approval is refused while files the shard depends on have uncommitted changes; ask the person to commit or stash first. New shards and shared decisions are ordinary repository changes for the person to commit.
-5. Approval is refused when files the shard depends on changed after verification read them. Re-check the statement against those files, tell the person what you found, and pass `--rechecked` only if it still holds; otherwise revise it.
-6. Approval is also refused when the patterns match much of the repository, because the shard would then reach nearly every agent. Propose narrower patterns through `--edit`; pass `--broad` only when the person confirms it applies that widely. When approval returns a `warning` that too many shards apply everywhere, tell the person and offer a pattern or an `AGENTS.md` edit instead.
+5. Approval is refused while files the shard depends on have uncommitted changes; ask the person to commit or stash first. New shards and shared decisions are ordinary repository changes for the person to commit.
+6. Approval is refused when files the shard depends on changed after verification read them. Re-check the statement against those files, tell the person what you found, and pass `--rechecked` only if it still holds; otherwise revise it.
+7. Approval is also refused when the patterns match much of the repository, because the shard would then reach nearly every agent. Propose narrower patterns through `--edit`; pass `--broad` only when the person confirms it applies that widely. When approval returns a `warning` that too many shards apply everywhere, tell the person and offer a pattern or an `AGENTS.md` edit instead.
 
 ## Maintain
 

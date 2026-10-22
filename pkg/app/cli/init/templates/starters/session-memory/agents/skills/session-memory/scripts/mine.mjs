@@ -22,7 +22,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { join, resolve as resolvePath } from "node:path";
+import { isAbsolute, join, relative, resolve as resolvePath, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Stop, costOf, makeCaller, pool, rzmClients, spendFrom, strictSchema } from "./lib/calls.mjs";
 import { episodesFor } from "./lib/episodes.mjs";
@@ -48,7 +48,9 @@ export async function mine(opts, clients) {
   // No workers would skip extraction and verification yet still advance the cursors.
   const concurrency = Number(opts.concurrency ?? 4);
   if (!Number.isInteger(concurrency) || concurrency < 1) throw new Error("--concurrency must be a whole number of at least 1");
-  const store = openStore(opts.state ?? join(opts.root, ".rhizome/session-memory"));
+  const state = opts.state ?? join(opts.root, ".rhizome/session-memory");
+  refuseTracked(opts.root, state);
+  const store = openStore(state);
   const dry = !opts.abandon && (opts.dryRun || opts.budget == null);
   if (dry) return mineLocked(opts, clients, store, true);
   store.lock();
@@ -56,6 +58,18 @@ export async function mine(opts, clients) {
     return await mineLocked(opts, clients, store, false);
   } finally {
     store.unlock();
+  }
+}
+
+// Mining writes transcript text into its state directory, so a directory
+// inside the checkout must be one Git ignores.
+function refuseTracked(root, dir) {
+  const rel = relative(root, resolvePath(dir));
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return;
+  try {
+    execFileSync("git", ["-C", root, "check-ignore", "-q", "--", `${rel.split(sep).join("/")}/ledger.jsonl`], { stdio: "ignore" });
+  } catch (err) {
+    if (err.status === 1) throw new Error(`Git does not ignore ${rel}, so transcript text written there could be committed; rerun rzm init to restore .rhizome/.gitignore, or pass --state outside the checkout`);
   }
 }
 

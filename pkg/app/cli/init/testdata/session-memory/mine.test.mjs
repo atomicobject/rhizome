@@ -302,6 +302,14 @@ test("review regressions: unreadable packet paths, cost totals, unreported probe
   assert.equal((await run(ranked, fakeClients())).status, "done");
 });
 
+test("mining refuses a state directory inside the checkout that Git would track", async () => {
+  const root = tempRepo();
+  await assert.rejects(run(undefined, fakeClients(), { root, budget: undefined }), /Git does not ignore \.rhizome\/session-memory/);
+  mkdirSync(join(root, ".rhizome"));
+  writeFileSync(join(root, ".rhizome/.gitignore"), "*\n!.gitignore\n");
+  assert.notEqual((await run(undefined, fakeClients(), { root, budget: undefined })).status, undefined);
+});
+
 test("a dismissed learning is not proposed again, even when the pool is rebuilt", async () => {
   const root = tempRepo();
   const state = tmp();
