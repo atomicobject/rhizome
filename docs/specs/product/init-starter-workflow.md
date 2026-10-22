@@ -1,9 +1,9 @@
 ---
 type: ProductSpec
-summary: "Defines the user-facing rzm init workflow: a one-screen first run, maintenance-first reruns, a four-section settings menu, single-pass credential onboarding with Voyage AI as the default, one ownership rule for generated files, ignored-subtree inclusion, agentic-engineering starter selection and migration, and starter ejection."
+summary: "Defines the user-facing rzm init workflow: a one-screen first run, maintenance-first reruns, a four-section settings menu, single-pass credential onboarding with Voyage AI as the default, one ownership rule for generated files, ignored-subtree inclusion, agentic-engineering starter selection and migration, starter ejection, and adding or removing add-ons."
 id: SPEC-0038
 spec-status: active
-last-updated: 2026-10-06
+last-updated: 2026-10-19
 aliases:
   - SPEC-0038
   - init-starter-workflow
@@ -28,6 +28,7 @@ Every generated file follows one ownership rule: Rhizome creates new files witho
 - ask for each credential at most once per run, and never re-ask for a key Rhizome already has
 - finish in one run: one confirmation in a terminal, none without one; give scripts and agents a small flag set plus `--check` to preview without writing
 - let maintainers eject a whole workflow starter from Rhizome management while keeping installed files in place
+- let maintainers add or remove an add-on in a configured repository without changing any other choice
 
 For guidance on choosing the right starter for a given use case, see [[choosing-your-starter]] (`docs/reference/guides/choosing-your-starter.md`).
 
@@ -73,7 +74,7 @@ The first run should feel inspectable rather than magical, and it should not ask
   - Missing-key and readiness notes appear once, in the summary.
 - Non-interactive runs express the same choices through options. ^SPEC-0038-US1-AC5
   - Without a terminal, `rzm init` uses the recommendations, writes, and prints the same summary of what it did.
-  - A first run also accepts `--addons`, `--skip`, `--keep-indexed`, and `--search-key-stdin`, and `--json` writes one machine-readable document, as [[desktop-repository-setup|SPEC-0118]] defines for scripts and the desktop app.
+  - A first run also accepts `--addons` (default add-ons and optional add-ons, per [[#^SPEC-0038-US12]]), `--skip`, `--keep-indexed`, and `--search-key-stdin`, and `--json` writes one machine-readable document, as [[desktop-repository-setup|SPEC-0118]] defines for scripts and the desktop app.
 - Semantic search turns on only with a usable key. ^SPEC-0038-US1-AC7
   - When no key resolves and none is pasted, semantic search stays off (no semantic search section is written) and init prints one line saying how to turn it on, so `rzm index` keeps working without a key.
   - A later rerun whose change list finds a usable key for Voyage AI offers to turn semantic search on.
@@ -305,6 +306,24 @@ Git-ignored files and the built-in dependency and build folders are already skip
 - "What gets indexed" in settings lets the user skip or stop skipping a folder or file by path, and shows the result in plain words. ^SPEC-0038-US10-AC4
 - Without a terminal, init applies proposed skips and lists them. ^SPEC-0038-US10-AC5
 
+### US12 - Add or remove an add-on in a configured repository
+- id:: ^SPEC-0038-US12
+- summary:: A maintainer turns one add-on on or off with a flag, and every other workflow and add-on choice stays as it was.
+- status:: ready
+
+Add-ons are starters installed alongside the workflow. A default add-on, such as `action-items`, is one a workflow turns on unless someone disables it. An optional add-on, such as `session-memory`, is one no workflow turns on; a repository gets it only by choosing it. A starter marks itself optional with `optionalAddon: true` in its `template.yaml`.
+
+#### Acceptance Criteria
+
+- A first run installs the add-ons listed in `--addons`, optional ones included, and the desktop setup API passes its add-on list through the same option. The interactive first run and the desktop setup sheet do not list optional add-ons yet. ^SPEC-0038-US12-AC1
+- A configured repository changes add-ons with `--add-addon <id>` and `--remove-addon <id>` (comma-separated ids are accepted), next to `--eject` and `--restore`. On a first run these flags fail and point to `--addons`; on a configured repository `--addons` fails and points to them. ^SPEC-0038-US12-AC2
+  - Adding moves the id into `addons.enabled` and out of `addons.disabled` in `.rhizome/workflows.yml`.
+  - Removing a default add-on of the chosen workflow moves it out of `addons.enabled` and into `addons.disabled`. Removing any other add-on, such as an optional one, drops it from `addons.enabled`.
+  - Adding an ejected add-on is refused with an instruction to use `--restore <id>`.
+  - No other workflow, add-on, or ejection choice changes. A repository that predates recorded add-on state records its default add-ons as disabled first, so starting the list does not install them; the rerun suggestion to add them no longer appears.
+- The choice survives later reruns and settings edits, including choosing another workflow in settings, and `rzm init --check` passes right after the change. ^SPEC-0038-US12-AC3
+- The rerun summary has an Add-ons row naming every add-on the setup installs, so an add or remove shows in the change list. ^SPEC-0038-US12-AC4
+
 ## Requirements
 
 ### Setup flow and credentials
@@ -351,6 +370,8 @@ Git-ignored files and the built-in dependency and build folders are already skip
 - `rzm init` MUST leave ejected starter managed blocks in agent docs untouched, including their fence comments, unless management is restored and an update is accepted.
 - `rzm init` MUST compute ejection consequences from the starter dependency graph and block ejection of required dependencies unless every dependent is ejected in the same request.
 - `rzm init` MUST distinguish required dependencies from optional default addons when presenting or applying ejection consequences, defaulting optional addons that are only active through an ejected starter to ejected.
+- `rzm init` MUST accept optional add-ons in `--addons`, MUST NOT turn one on unless a person chose it, and MUST refuse a starter that activates an optional add-on by default.
+- `rzm init --add-addon` and `--remove-addon` MUST change only the named add-ons, and MUST refuse to add an ejected add-on.
 - `rzm init` MUST leave legacy MCP config files untouched and MUST NOT scaffold new MCP config files.
 - `rzm init` MUST resolve agent-surface participation according to [[agent-surface-integration-modes]] before rendering managed docs, commands, prompts, or skills.
 - `rzm init` SHOULD make template updates observable through the rerun change list, a diff on request, and the list of kept files in batch runs.

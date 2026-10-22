@@ -31,7 +31,7 @@ written:
   .agents/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .agents/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
   .agents/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
-  .agents/skills/rhizome/SKILL.md: 1f955f621938b5a8
+  .agents/skills/rhizome/SKILL.md: 4bd7cce4cf1f0949
   .agents/skills/rhizome/references/code-mode.md: c633e02f6e6b1e04
   .agents/skills/rhizome/references/configuration.md: 519acbe756f1d74c
   .agents/skills/rhizome/references/diagnostics.md: 0488cba4ddad39d4
@@ -47,7 +47,7 @@ written:
   .agents/skills/rhizome/references/ontology-usage.md: fcce56df27de9801
   .agents/skills/rhizome/references/reports-and-health.md: 47849fa37df2132c
   .agents/skills/rhizome/references/search-and-code-evidence.md: 517c10d908edc627
-  .agents/skills/rhizome/references/sessions.md: 2b5efebb82b28cb9
+  .agents/skills/rhizome/references/sessions.md: 481277c87a0b1dbc
   .agents/skills/rhizome/references/skill-authoring.md: 35ec03c0e8a679f3
   .agents/skills/rhizome/references/skill-scripts.md: 9bc5e247cf8bf273
   .agents/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429
@@ -82,7 +82,7 @@ written:
   .claude/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .claude/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
   .claude/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
-  .claude/skills/rhizome/SKILL.md: 1f955f621938b5a8
+  .claude/skills/rhizome/SKILL.md: 4bd7cce4cf1f0949
   .claude/skills/rhizome/references/code-mode.md: c633e02f6e6b1e04
   .claude/skills/rhizome/references/configuration.md: 519acbe756f1d74c
   .claude/skills/rhizome/references/diagnostics.md: 0488cba4ddad39d4
@@ -98,7 +98,7 @@ written:
   .claude/skills/rhizome/references/ontology-usage.md: fcce56df27de9801
   .claude/skills/rhizome/references/reports-and-health.md: 47849fa37df2132c
   .claude/skills/rhizome/references/search-and-code-evidence.md: 517c10d908edc627
-  .claude/skills/rhizome/references/sessions.md: 2b5efebb82b28cb9
+  .claude/skills/rhizome/references/sessions.md: 481277c87a0b1dbc
   .claude/skills/rhizome/references/skill-authoring.md: 35ec03c0e8a679f3
   .claude/skills/rhizome/references/skill-scripts.md: 9bc5e247cf8bf273
   .claude/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429

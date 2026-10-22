@@ -54,6 +54,8 @@ type RunOptions struct {
 	IncludeIgnored []string
 	Eject          string // keep these workflows' files (comma-separated) and stop updating them
 	Restore        string // resume updates for an ejected workflow
+	AddAddon       string // install these add-ons in an existing setup (comma-separated)
+	RemoveAddon    string // stop installing these add-ons in an existing setup (comma-separated)
 
 	Stdout io.Writer
 	Stderr io.Writer

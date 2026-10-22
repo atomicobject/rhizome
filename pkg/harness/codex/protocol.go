@@ -20,7 +20,12 @@ type rpcError struct {
 func (e *rpcError) Error() string { return e.Message }
 
 type initializeParams struct {
-	ClientInfo clientInfo `json:"clientInfo"`
+	ClientInfo   clientInfo              `json:"clientInfo"`
+	Capabilities *initializeCapabilities `json:"capabilities,omitempty"`
+}
+
+type initializeCapabilities struct {
+	ExperimentalAPI bool `json:"experimentalApi"`
 }
 
 type clientInfo struct {
@@ -50,13 +55,14 @@ type threadResponse struct {
 }
 
 type turnStartParams struct {
-	ThreadID       string      `json:"threadId"`
-	Input          []userInput `json:"input"`
-	Model          string      `json:"model,omitempty"`
-	Effort         string      `json:"effort,omitempty"`
-	Cwd            string      `json:"cwd,omitempty"`
-	ApprovalPolicy string      `json:"approvalPolicy,omitempty"`
-	SandboxPolicy  any         `json:"sandboxPolicy,omitempty"`
+	ThreadID       string          `json:"threadId"`
+	Input          []userInput     `json:"input"`
+	Model          string          `json:"model,omitempty"`
+	Effort         string          `json:"effort,omitempty"`
+	Cwd            string          `json:"cwd,omitempty"`
+	ApprovalPolicy string          `json:"approvalPolicy,omitempty"`
+	SandboxPolicy  any             `json:"sandboxPolicy,omitempty"`
+	OutputSchema   json.RawMessage `json:"outputSchema,omitempty"`
 }
 
 type userInput struct {
@@ -155,6 +161,7 @@ type tokenUsage struct {
 	OutputTokens          int64 `json:"outputTokens"`
 	ReasoningOutputTokens int64 `json:"reasoningOutputTokens"`
 	TotalTokens           int64 `json:"totalTokens"`
+	CacheWriteInputTokens int64 `json:"cacheWriteInputTokens"`
 }
 
 type turnError struct {

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "roles": {
+    "decide": [
+      { "provider": "typesafe", "family": "jev", "version": "1.13", "model": "jev-1.13.0", "effort": "", "evidence": "effort 2026-10-17: Jev lab, passage screening" }
+    ],
+    "extract": [
+      { "provider": "claude", "family": "haiku", "version": "5.5", "model": "claude-haiku-5-5", "effort": "xhigh", "evidence": "effort 2026-10-18: 139 and 136 of 192 on D, 135 of 208 on H, $1.31 per D run" },
+      { "provider": "claude", "family": "sonnet", "version": "5.5", "model": "claude-sonnet-5-5", "effort": "medium", "provisional": true },
+      { "provider": "codex", "family": "sol", "version": "6.1", "model": "gpt-6.1-sol", "effort": "low", "evidence": "effort 2026-10-18: 110 of 192 on D, $3.05 API-equivalent" },
+      { "provider": "codex", "family": "luna", "version": "6", "model": "gpt-6-luna", "effort": "xhigh", "evidence": "effort 2026-10-18: 97 and 83 of 192 on D, $0.22" }
+    ],
+    "verify": [
+      { "provider": "claude", "family": "sonnet", "version": "5.5", "model": "claude-sonnet-5-5", "effort": "medium", "evidence": "effort 2026-10-17: 7 of 12 recovered, 81 of 94 agree, $5.93 at 5m cache" },
+      { "provider": "claude", "family": "opus", "version": "5.5", "model": "claude-opus-5-5", "effort": "medium", "evidence": "effort 2026-10-17: 8 of 12 recovered, 86 of 94 agree, $11.22 at 5m cache" },
+      { "provider": "codex", "family": "sol", "version": "6.1", "model": "gpt-6.1-sol", "effort": "low", "provisional": true }
+    ],
+    "synthesize": [
+      { "provider": "claude", "family": "opus", "version": "5.5", "model": "claude-opus-5-5", "effort": "medium", "provisional": true },
+      { "provider": "codex", "family": "sol", "version": "6.1", "model": "gpt-6.1-sol", "effort": "medium", "provisional": true }
+    ],
+    "match": [
+      { "provider": "claude", "family": "sonnet", "version": "5.5", "model": "claude-sonnet-5-5", "effort": "medium", "evidence": "effort 2026-10-17: recall matcher for every extraction comparison" },
+      { "provider": "codex", "family": "sol", "version": "6.1", "model": "gpt-6.1-sol", "effort": "low", "provisional": true }
+    ]
+  }
+}

@@ -280,6 +280,19 @@ func buildFileContextText(vault repoconfig.VaultManager, noteMgr obsidian.NoteRe
 					block += ctxBlocks
 				}
 				ctxDedupe = dedupe
+				shown := noteContextShownPaths(ctxDedupe, params.ExcludeNotePaths, vaultPaths)
+				if anchored := anchoredNotesForNote(ctx, codeAnchor, abs, norm, vaultDef, vaultPaths, params.AnchorKinds, params.IndexedReadOnly, shown); len(anchored) > 0 {
+					anchored = expandLinkedNoteFrontmatter(anchored, noteMgr)
+					limit := 25
+					if profile == ContextProfileCode {
+						limit = 18
+					}
+					anchorDedupe := renderedNoteDedupe{vaultPaths: vaultPaths, tracker: params.Dedupe}
+					var anchoredBlock strings.Builder
+					renderLinkedNotesSection(&anchoredBlock, "Anchored notes", noteMgr, vaultDef, anchored, limit, perTarget-len(block), &anchorDedupe)
+					block += anchoredBlock.String()
+					ctxDedupe = append(ctxDedupe, anchorDedupe.items...)
+				}
 			}
 			pieceKey := fmt.Sprintf("note:%s", norm)
 			trimmed := contextpack.TrimToBudget(block, perTarget)

@@ -46,8 +46,8 @@ func (f *fakeHarness) StartSession(_ context.Context, options harness.SessionOpt
 	}
 	return f.session, nil
 }
-func (f *fakeHarness) Generate(context.Context, harness.GenerateRequest) (json.RawMessage, error) {
-	return nil, nil
+func (f *fakeHarness) Generate(context.Context, harness.GenerateRequest) (harness.GenerateResult, error) {
+	return harness.GenerateResult{}, nil
 }
 
 type approvalResponse struct {

@@ -10,7 +10,7 @@ import (
 
 func TestCodeOperationCatalogCoversConcreteCLISurface(t *testing.T) {
 	want := map[string]bool{
-		"check_paths": true, "evaluate_batch": true, "evaluate": true, "files": true, "file_context": true, "vault_context": true, "semantic_query": true,
+		"check_paths": true, "evaluate_batch": true, "evaluate": true, "generate": true, "files": true, "file_context": true, "vault_context": true, "semantic_query": true,
 		"code_symbol": true, "code_references": true, "code_symbol_context": true, "external_references": true,
 		"find_connections": true, "graph_path": true, "list_tags": true, "list_properties": true,
 		"community_list": true, "report": true, "vault_health": true, "ontology_query_schema": true,
@@ -45,7 +45,7 @@ func TestCodeOperationCatalogCoversConcreteCLISurface(t *testing.T) {
 		}
 	}
 	require.Empty(t, want)
-	require.Len(t, leaves, 44)
+	require.Len(t, leaves, 45)
 }
 
 func TestCodeCatalogOwnsLocalOverrides(t *testing.T) {

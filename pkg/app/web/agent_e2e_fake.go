@@ -48,8 +48,8 @@ func (h *agentE2EHarness) StartSession(context.Context, harness.SessionOptions) 
 	return newAgentE2ESession(id), nil
 }
 
-func (h *agentE2EHarness) Generate(context.Context, harness.GenerateRequest) (json.RawMessage, error) {
-	return json.RawMessage(`{}`), nil
+func (h *agentE2EHarness) Generate(context.Context, harness.GenerateRequest) (harness.GenerateResult, error) {
+	return harness.GenerateResult{Output: json.RawMessage(`{}`)}, nil
 }
 
 type agentE2EApproval struct {

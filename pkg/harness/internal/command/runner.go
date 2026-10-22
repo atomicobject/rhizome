@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"os/exec"
 	"sync"
 	"sync/atomic"
@@ -17,6 +18,8 @@ type Spec struct {
 	Args  []string
 	Dir   string
 	Stdin io.Reader
+	// Env adds variables to the inherited environment.
+	Env []string
 }
 
 type Result struct {
@@ -43,6 +46,9 @@ func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 		return err
 	}
 	cmd.Dir = spec.Dir
+	if len(spec.Env) > 0 {
+		cmd.Env = append(os.Environ(), spec.Env...)
+	}
 	cmd.Stdin = spec.Stdin
 	var stdout bytes.Buffer
 	var stderr tailBuffer

@@ -39,6 +39,9 @@ type starterTemplateMetadata struct {
 	Requires            []string `yaml:"requires,omitempty"`
 	ActivatesByDefault  []string `yaml:"activatesByDefault,omitempty"`
 	InstalledAssetTypes []string `yaml:"installedAssetTypes,omitempty"`
+	// OptionalAddon marks an add-on no starter activates by default; a
+	// repository gets it only by choosing it.
+	OptionalAddon bool `yaml:"optionalAddon,omitempty"`
 }
 
 type resolvedTemplateSet struct {
@@ -140,6 +143,13 @@ func loadStarterTemplateMetadataRegistry() (map[string]starterTemplateMetadata, 
 			return nil, fmt.Errorf("duplicate starter template id %q", meta.ID)
 		}
 		registry[meta.ID] = meta
+	}
+	for _, meta := range registry {
+		for _, addon := range meta.ActivatesByDefault {
+			if registry[addon].OptionalAddon {
+				return nil, fmt.Errorf("starter %q activates optional add-on %q by default", meta.ID, addon)
+			}
+		}
 	}
 	return registry, nil
 }

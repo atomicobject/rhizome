@@ -173,6 +173,8 @@ type initInvocationOptions struct {
 	initBinaryManager  string
 	initEject          string
 	initRestore        string
+	initAddAddon       string
+	initRemoveAddon    string
 	initCheck          bool
 	initAccept         bool
 	initJSON           bool

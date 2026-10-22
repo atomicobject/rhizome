@@ -30,3 +30,17 @@ func evaluateContract() *CodeOperationContract {
 			"stale":  map[string]any{"type": "noul", "instructions": "Does this spec describe obsolete behavior?"},
 		}}, "sends supplied state and questions to TypeSafe and incurs API usage", "uses TYPESAFE_API_KEY from environment/config, then the unlocked Atomic key bundle", "does not mutate vault content")
 }
+
+func generateContract() *CodeOperationContract {
+	number := codeSchema{"type": "number"}
+	return contract("Run one tool-free, sessionless model call through the user's Claude Code or Codex CLI.",
+		input(map[string]codeSchema{"provider": enumeration("claude", "codex"), "model": str(), "effort": str(), "prompt": str(), "schema": unknownObject()}, "prompt"),
+		object([]string{"provider", "output", "usage", "toolPolicy"}, map[string]codeSchema{
+			"provider": str(), "output": unknownValue(), "model": str(), "toolPolicy": enumeration("none", "sandboxed"),
+			"usage": object([]string{"inputTokens", "cachedInputTokens", "outputTokens", "reasoningOutputTokens", "totalTokens"}, map[string]codeSchema{
+				"inputTokens": integer(), "cachedInputTokens": integer(), "cacheWriteInputTokens": integer(), "outputTokens": integer(), "reasoningOutputTokens": integer(), "totalTokens": integer(), "costUsd": number,
+			}),
+		}),
+		map[string]any{"provider": "claude", "model": "claude-haiku-5-5", "effort": "low", "prompt": "Name one prime number.", "schema": map[string]any{"type": "object", "properties": map[string]any{"prime": map[string]any{"type": "integer"}}, "required": []string{"prime"}}},
+		"sends the prompt to the provider through the installed CLI and its login, and incurs model usage", "allows no tools, or for Codex only a read-only, network-less sandbox, and persists no session", "does not read or mutate vault content")
+}

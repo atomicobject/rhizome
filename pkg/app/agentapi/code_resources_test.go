@@ -26,7 +26,7 @@ func TestCodeResourcesShareReadsAndIsolateRuntime(t *testing.T) {
 	release, err = resources.Acquire(t.Context(), "files")
 	require.NoError(t, err)
 	// Provider and path checking don't touch the live vault runtime.
-	for _, name := range []string{"evaluate", "evaluate_batch", "check_paths"} {
+	for _, name := range []string{"evaluate", "evaluate_batch", "check_paths", "generate"} {
 		done, err := resources.Acquire(t.Context(), name)
 		require.NoError(t, err)
 		done()

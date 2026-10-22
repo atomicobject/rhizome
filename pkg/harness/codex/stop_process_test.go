@@ -31,7 +31,7 @@ func TestStopDeadlineKillsChildBlockedOnApprovalWrites(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "fixture/ready", ready.Method)
 	const deadline = defaultShutdownTimeout
-	session := newSession(transport, harness.SessionOptions{}, t.TempDir(), time.Second, deadline, true)
+	session := newSession(transport, harness.SessionOptions{}, t.TempDir(), time.Second, deadline, true, nil)
 	session.stateMu.Lock()
 	for i := 0; i < 4; i++ {
 		id := json.RawMessage(`"` + strings.Repeat(string(rune('a'+i)), 1<<20) + `"`)

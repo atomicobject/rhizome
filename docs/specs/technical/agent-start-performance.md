@@ -3,7 +3,7 @@ type: TechnicalSpec
 id: SPEC-0082
 summary: "Defines a measured performance contract for one-shot rzm agent start: minimal code bootstrap by default, bounded index-backed rich context, batched session dedupe, capability-scoped runtime initialization, and latency-safe SQLite open behavior."
 spec-status: active
-last-updated: 2026-07-23
+last-updated: 2026-10-21
 aliases:
   - SPEC-0082
   - agent-start-performance
@@ -202,6 +202,20 @@ The earlier contained and capability-scoped slices made startup cost observable 
 - The request intent may rank already-indexed candidates through existing provider-free lexical and structural signals, but start does not initialize an embedding provider, create embeddings, or broaden beyond the target scope solely to satisfy intent ranking. ^SPEC-0082-US11-AC2
 - Missing, incompatible, or stale required index state returns minimal root/ancestor/target guidance plus a structured warning that names the unavailable enrichment and recommends the appropriate `rzm index` command; startup does not fail solely because optional indexed enrichment is unavailable. ^SPEC-0082-US11-AC3
 - Diagnostics distinguish bounded index reads, unavailable/stale indexed enrichment, and live discovery; the representative `--profile code --ontology --file docs/specs --submodule-depth 1` benchmark records the immediately preceding behavior and final behavior locally, with no Lima or VM benchmark requirement. ^SPEC-0082-US11-AC4
+
+### US12 - Tell the agent when session dedupe withheld content
+
+- id:: ^SPEC-0082-US12
+- summary:: A response that leaves out content because the session already delivered it says so and names how to get it again, so an agent whose context was compacted or cleared can recover it.
+- status:: draft
+
+An agent that keeps its session ID through a compaction or clear still has that session's record of delivered content, and dedupe holds back files and notes the reset removed from the agent's context. Hosts do not tell Rhizome about resets, so the response itself has to make the omission visible.
+
+#### Acceptance Criteria
+
+- When session dedupe leaves out items that file context, semantic query, search, or rich start would otherwise return, the response adds one line naming how many were left out because this session already delivered them, up to five of their paths, and how to get them again: a new session, or `dedupe: false` where the operation accepts it. ^SPEC-0082-US12-AC1
+- The line counts only items withheld as already delivered, never items omitted by budget or compression, and is absent when dedupe withheld nothing. ^SPEC-0082-US12-AC2
+- Before building, a live run confirms that an agent reusing its session after a compaction receives thinner context than a fresh session. ^SPEC-0082-US12-AC3
 
 ## Requirements
 

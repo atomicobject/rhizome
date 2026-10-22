@@ -23,6 +23,8 @@ type client struct {
 	transport transport
 	nextID    atomic.Int64
 	route     func(context.Context, error, rpcMessage, any) error
+	// experimentalAPI opts in to experimental thread/start and turn/start fields.
+	experimentalAPI bool
 }
 
 func newSessionClient(transport transport, route func(context.Context, error, rpcMessage, any) error) *client {
@@ -31,9 +33,11 @@ func newSessionClient(transport transport, route func(context.Context, error, rp
 
 func (c *client) initialize(ctx context.Context) (string, error) {
 	var result initializeResponse
-	err := c.request(ctx, harness.ErrInitialize, "initialize", initializeParams{
-		ClientInfo: clientInfo{Name: "rhizome", Title: "Rhizome", Version: "dev"},
-	}, &result, nil)
+	params := initializeParams{ClientInfo: clientInfo{Name: "rhizome", Title: "Rhizome", Version: "dev"}}
+	if c.experimentalAPI {
+		params.Capabilities = &initializeCapabilities{ExperimentalAPI: true}
+	}
+	err := c.request(ctx, harness.ErrInitialize, "initialize", params, &result, nil)
 	if err != nil {
 		return "", err
 	}

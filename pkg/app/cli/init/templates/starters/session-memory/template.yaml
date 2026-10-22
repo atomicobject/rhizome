@@ -1,0 +1,12 @@
+id: session-memory
+name: Session memory
+description: "Mine agent sessions into reviewed context shards that reach agents when they touch matching files"
+requires:
+  - core
+optionalAddon: true
+installedAssetTypes:
+  - ontology
+  - query-recipes
+  - views
+  - skills
+  - managed-docs

@@ -1,0 +1,20 @@
+[
+  ["pkg/a.go", "pkg/a.go", true],
+  ["a.b", "axb", false],
+  ["docs/*.md", "docs/x.md", true],
+  ["docs/*.md", "docs/a/x.md", false],
+  ["*.go", "a/b.go", false],
+  ["a*b", "axxb", true],
+  ["a**b", "ax/yb", false],
+  ["a?c", "abc", true],
+  ["a?c", "a/c", false],
+  ["**", "a/b", true],
+  ["a/**", "a", true],
+  ["a/**", "a/b/c", true],
+  ["**/x.go", "x.go", true],
+  ["**/x.go", "a/b/x.go", true],
+  ["a/**/b", "a/b", true],
+  ["a/**/b", "a/x/y/b", true],
+  ["**/*_windows.go", "x/y_windows.go", true],
+  ["path with spaces/*.md", "path with spaces/n.md", true]
+]

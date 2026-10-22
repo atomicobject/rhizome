@@ -61,7 +61,7 @@ func TestAgentHarnessSmokeOutputAndOptions(t *testing.T) {
 	session.Emit(harness.Event{Kind: harness.EventTurnCompleted, TurnID: "turn_1", Status: "completed"})
 	fake := &harnesstest.Harness{
 		StatusResult:   harness.Status{Kind: harness.KindCodex, Installed: true, LoggedIn: true, Version: "0.154.0"},
-		GenerateResult: json.RawMessage(`{"answer":"pong"}`),
+		GenerateResult: harness.GenerateResult{Output: json.RawMessage(`{"answer":"pong"}`)},
 		Session:        session,
 	}
 	registry := func() map[harness.Kind]harness.Harness {
@@ -106,4 +106,26 @@ func TestAgentHarnessSmokeReturnsPhaseFailureAsErrorExit(t *testing.T) {
 	err := cmd.Execute()
 	require.IsType(t, silentExitError{}, err)
 	require.Equal(t, 1, err.(silentExitError).ExitCode())
+}
+
+func TestAgentHarnessSmokeSkipsUnsupportedGeneration(t *testing.T) {
+	session := harnesstest.NewSession()
+	session.Emit(harness.Event{Kind: harness.EventAssistantTextDelta, Text: "pong"})
+	fake := &harnesstest.Harness{
+		StatusResult:  harness.Status{Kind: harness.KindCodex, Installed: true, LoggedIn: true},
+		GenerateError: harness.Phase(harness.ErrUnsupported, errors.New("no tool-free mode")),
+		Session:       session,
+	}
+	var stdout bytes.Buffer
+	cmd := newAgentHarnessSmokeCmd(func() map[harness.Kind]harness.Harness {
+		return map[harness.Kind]harness.Harness{harness.KindCodex: fake}
+	})
+	cmd.SetOut(&stdout)
+	cmd.SetArgs([]string{"--harness", "codex"})
+	require.NoError(t, cmd.Execute())
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	var summary harnesscheck.Summary
+	require.NoError(t, json.Unmarshal([]byte(lines[len(lines)-1]), &summary))
+	require.Equal(t, "harness unsupported: no tool-free mode", summary.GenerateSkipped)
+	require.Equal(t, "pong", summary.Turn.Text)
 }
