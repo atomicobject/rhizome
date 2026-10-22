@@ -18,7 +18,6 @@ func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
 		{"cat 'docs/a file.md' \"pkg/b c.go\"", []string{"/repo/docs/a file.md", "/repo/pkg/b c.go"}},
 		{`cat docs/a\ file.md`, []string{"/repo/docs/a file.md"}},
 		{"cd pkg && sed -n 1,20p store/db.go", []string{"/repo/pkg/store/db.go"}},
-		{"cd sub; head -n 5 x.go", []string{"/repo/sub/x.go"}},
 		{"head -20 a.go && tail -n +3 b.go", []string{"/repo/a.go", "/repo/b.go"}},
 		{"nl -ba main.go | head -40", []string{"/repo/main.go"}},
 		{"rg -n 'func Run' pkg/app cmd/root.go", []string{"/repo/pkg/app", "/repo/cmd/root.go"}},
@@ -45,6 +44,7 @@ func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
 		{"cat x.go | cd pkg; cat a.go", []string{"/repo/x.go", "/repo/a.go"}},
 		{"cd pkg && cat a.go | head -3", []string{"/repo/pkg/a.go"}},
 		{"cd -- pkg && cat a.go", []string{"/repo/pkg/a.go"}},
+		{"cd missing || cat /repo/a.go", []string{"/repo/a.go"}},
 		{"cd -L pkg && cat a.go", []string{"/repo/pkg/a.go"}},
 		// After a cd it cannot follow, relative reads are dropped; absolute ones stay.
 		{"cd -P pkg && cat a.go /repo/b.go", []string{"/repo/b.go"}},
@@ -84,6 +84,8 @@ func TestShellReadsIgnoresEverythingElse(t *testing.T) {
 		"(cat a.go\ncat b.go)",     // a subshell across lines
 		"cd $DIR && cat a.go",      // a cd it cannot follow
 		"cd - && cat a.go",         // the previous directory
+		"cd sub; head -n 5 x.go",   // the cd may have failed
+		"cd missing || cat a.go",   // runs only when the cd failed
 		"cat 'unterminated a.go",   // broken quoting
 	} {
 		require.Empty(t, shellReads(cmd, "/repo"), cmd)

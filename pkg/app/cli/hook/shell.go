@@ -30,6 +30,9 @@ type shellWord struct {
 type shellSegment struct {
 	words    []shellWord
 	isolated bool
+	// next is the operator after the segment: "&&", "||", ";", "|", "&",
+	// "\n", or "" at the end.
+	next string
 }
 
 // shellSegments splits a command into simple commands at unquoted &&, ||, ;,
@@ -52,10 +55,10 @@ func shellSegments(cmd string) []shellSegment {
 		word.Reset()
 		inWord, dynamic = false, false
 	}
-	endSegment := func(sepIsolates bool) {
+	endSegment := func(sepIsolates bool, next string) {
 		endWord()
 		if len(words) > 0 && !broken {
-			segments = append(segments, shellSegment{words: words, isolated: isolated || sepIsolates})
+			segments = append(segments, shellSegment{words: words, isolated: isolated || sepIsolates, next: next})
 		}
 		// Every segment inside a subshell is dropped through its closing ).
 		words, broken = nil, depth > 0
@@ -104,7 +107,11 @@ func shellSegments(cmd string) []shellSegment {
 		case c == '\n' || c == ';' || c == '&' || c == '|':
 			double := i+1 < len(cmd) && (c == '&' || c == '|') && cmd[i+1] == c
 			single := (c == '&' || c == '|') && !double
-			endSegment(single)
+			op := string(c)
+			if double {
+				op += string(c)
+			}
+			endSegment(single, op)
 			// The command after a single | is the next stage of the pipeline.
 			isolated = single && c == '|'
 			if double {
@@ -142,7 +149,7 @@ func shellSegments(cmd string) []shellSegment {
 			inWord = true
 		}
 	}
-	endSegment(false)
+	endSegment(false, "")
 	return segments
 }
 
@@ -198,10 +205,10 @@ func shellReads(cmd, cwd string) []string {
 			// still resolve physically (see paths.RelPhysicalStrict). A cd
 			// this cannot follow leaves the directory unknown, and later
 			// relative reads are dropped rather than guessed.
-			if dir, ok := cdTarget(args); ok && known {
-				cwd = filepath.Clean(paths.ResolveAgainst(cwd, dir))
-			} else if ok && filepath.IsAbs(dir) {
-				cwd, known = filepath.Clean(dir), true
+			// Only a following && runs after the cd succeeded; after ||, ;, or a
+			// newline the next command may run in the old directory.
+			if dir, ok := cdTarget(args); ok && seg.next == "&&" && (known || rooted(dir)) {
+				cwd, known = filepath.Clean(paths.ResolveAgainst(cwd, dir)), true
 			} else {
 				known = false
 			}
@@ -211,13 +218,19 @@ func shellReads(cmd, cwd string) []string {
 			if len(out) == maxShellPaths {
 				return out
 			}
-			if !known && !filepath.IsAbs(file) {
+			if !known && !rooted(file) {
 				continue
 			}
 			out = append(out, paths.ResolveAgainst(cwd, file))
 		}
 	}
 	return out
+}
+
+// rooted reports whether a path names its directory without the working
+// directory: absolute, or on Windows rooted at the current drive.
+func rooted(p string) bool {
+	return filepath.IsAbs(p) || strings.HasPrefix(p, "/") || strings.HasPrefix(p, `\`)
 }
 
 // cdTarget returns the directory a cd changes to when it can be followed:
