@@ -27,6 +27,14 @@ func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
 		{"cat a.go > out.txt", []string{"/repo/a.go"}},
 		{"FOO=1 cat a.go 2>/dev/null", []string{"/repo/a.go"}},
 		{"cat 'C:\\repo\\pkg\\a.go'", []string{`C:\repo\pkg\a.go`}},
+		{"sed -n -e1,20p pkg/a.go", []string{"/repo/pkg/a.go"}},
+		{"sed -n -e 1,20p pkg/a.go", []string{"/repo/pkg/a.go"}},
+		{"sed -ne1,20p pkg/a.go", []string{"/repo/pkg/a.go"}},
+		{"grep -eTODO pkg/a.go", []string{"/repo/pkg/a.go"}},
+		{"grep -e TODO pkg/a.go", []string{"/repo/pkg/a.go"}},
+		{"grep -ieTODO pkg/a.go", []string{"/repo/pkg/a.go"}},
+		{"grep -inA3 TODO pkg/a.go", []string{"/repo/pkg/a.go"}},
+		{"rg -g*.go TODO pkg", []string{"/repo/pkg"}},
 	} {
 		got := shellReads(tc.cmd, cwd)
 		want := make([]string, len(tc.want))
@@ -46,6 +54,7 @@ func TestShellReadsIgnoresEverythingElse(t *testing.T) {
 		"grep -n TODO",           // no file operand
 		"sed 's/a/b/' x.go",      // sed without -n prints everything; not a read form
 		"sed -i -n 1p x.go",      // in-place edit
+		"sed -ni 1p x.go",        // in-place edit in a cluster
 		"cat $FILE",              // expansion
 		"cat *.go",               // glob
 		"cat $(git ls-files)",    // command substitution

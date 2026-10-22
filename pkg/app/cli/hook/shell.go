@@ -241,36 +241,44 @@ func readOperands(head string, args []shellWord) []string {
 			endOfOptions = true
 			continue
 		}
-		if !endOfOptions && strings.HasPrefix(a.text, "-") && a.text != "-" {
-			name, long := a.text, strings.HasPrefix(a.text, "--")
-			if long {
-				name, _, _ = strings.Cut(a.text, "=")
-			}
+		if !endOfOptions && strings.HasPrefix(a.text, "--") {
+			name, _, attached := strings.Cut(a.text, "=")
 			switch {
-			case head == "sed" && (strings.HasPrefix(a.text, "-i") || name == "--in-place"):
+			case head == "sed" && name == "--in-place":
 				// An in-place edit is not a read form.
 				return nil
-			case head == "sed" && (name == "--quiet" || name == "--silent" || !long && strings.Contains(a.text, "n")):
+			case head == "sed" && (name == "--quiet" || name == "--silent"):
 				quietSed = true
 			case head == "rg" && name == "--files":
 				patternGiven = true
 			}
-			if long && name != a.text {
-				// --opt=value carries its value.
+			if takesValue[name] {
 				patternGiven = patternGiven || name == "--regexp" || name == "--file"
-				continue
-			}
-			if !long && len(a.text) > 2 {
-				// Grouped short flags: the last one may take the next word.
-				name = "-" + a.text[len(a.text)-1:]
-				if head == "head" || head == "tail" || strings.ContainsAny(a.text[1:2], "ABCm") {
-					// -20, -n5, -A3: the value is attached.
-					continue
+				if !attached {
+					i++
 				}
 			}
-			if takesValue[name] {
-				patternGiven = patternGiven || name == "-e" || name == "-f" || name == "--regexp" || name == "--file"
-				i++
+			continue
+		}
+		if !endOfOptions && strings.HasPrefix(a.text, "-") && a.text != "-" {
+			// A cluster of short flags (-rn, -n5, -e1p): flags up to the
+			// first that takes a value, whose value is the rest of the word,
+			// or else the next word.
+			for j := 1; j < len(a.text); j++ {
+				flag := "-" + a.text[j:j+1]
+				switch {
+				case head == "sed" && flag == "-i":
+					return nil
+				case head == "sed" && flag == "-n":
+					quietSed = true
+				}
+				if takesValue[flag] {
+					patternGiven = patternGiven || flag == "-e" || flag == "-f"
+					if j == len(a.text)-1 {
+						i++
+					}
+					break
+				}
 			}
 			continue
 		}
