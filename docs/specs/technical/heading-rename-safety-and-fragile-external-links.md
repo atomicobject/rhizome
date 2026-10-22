@@ -76,7 +76,7 @@ The check is opt-in. It runs as `rzm validate fragile-external` and through `rzm
 - The command MUST refuse to run when the old heading does not resolve to exactly one heading in the source note. Multiple matches return a structured "ambiguous heading" diagnostic and exit non-zero. Zero matches return a structured "heading not found" diagnostic.
 - The command MUST scan vault-internal references and rewrite each `note#<old>` reference whose target node resolves to the renamed heading. Each rewrite MUST produce `note#<new>`.
 - The command MUST NOT add a block ID to the renamed heading or its section. An authored anchor already on the heading line MUST be left as written.
-- The command MUST refuse a new heading that the rewritten links could not name: text containing `|`, `#`, `[`, `]`, or a line break, text starting with `^`, or text that matches another heading in the same note.
+- The command MUST refuse a new heading that the rewritten links could not name: text containing `|`, `#`, `[`, `]`, or a line break, text starting with `^` or ending with a `^block-id`, or text that matches another heading in the same note.
 - The command MUST run through the existing edit-session pipeline and produce a reviewable diff before mutation. `--apply` is required to mutate; without it, the command operates as a plan that prints the proposed rewrites and exits.
 - The command MUST be idempotent. A second invocation with the same arguments after a successful apply returns "no inbound heading references remain" and exits cleanly.
 - The command MUST emit a structured `heading_rename_skipped` diagnostic for each inbound reference it cannot safely rewrite (for example, a near-match that is not a confident rewrite target, or a link inside a code block).

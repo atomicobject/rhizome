@@ -110,6 +110,7 @@ func TestRenameHeadingRefusesUnlinkableNewHeading(t *testing.T) {
 		"pipe splits alias":  "Sales | Support",
 		"hash splits target": "C# Notes",
 		"block ref prefix":   "^id",
+		"trailing block id":  "New ^anchor",
 		"duplicate heading":  "existing",
 	} {
 		t.Run(name, func(t *testing.T) {

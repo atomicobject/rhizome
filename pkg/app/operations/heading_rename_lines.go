@@ -66,8 +66,8 @@ func replaceHeadingLine(content string, match headingLineMatch, newHeading strin
 // name shared with another heading in the note makes the fragment ambiguous.
 func checkNewHeading(content string, match headingLineMatch, newHeading string) error {
 	heading := strings.TrimSpace(newHeading)
-	if strings.ContainsAny(heading, "|#[]\r\n") || strings.HasPrefix(heading, "^") {
-		return fmt.Errorf("new heading %q contains characters a heading link cannot use: | # [ ] or a leading ^", heading)
+	if strings.ContainsAny(heading, "|#[]\r\n") || strings.HasPrefix(heading, "^") || trailingHeadingBlockIDRE.MatchString(heading) {
+		return fmt.Errorf("new heading %q contains characters a heading link cannot use: | # [ ], a leading ^, or a trailing ^block-id", heading)
 	}
 	for _, other := range matchingHeadingLines(content, heading) {
 		if other.start != match.start {
