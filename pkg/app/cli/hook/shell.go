@@ -24,8 +24,8 @@ type shellWord struct {
 }
 
 // shellSegments splits a command into simple commands at unquoted &&, ||, ;,
-// |, &, and newlines, honoring single quotes, double quotes, and
-// backslashes. A segment with a subshell or here-document is dropped.
+// |, &, and newlines, honoring single quotes, double quotes, backslashes, and
+// comments. A segment with a subshell or here-document is dropped.
 func shellSegments(cmd string) [][]shellWord {
 	if len(cmd) > maxCommandBytes {
 		return nil
@@ -84,6 +84,11 @@ func shellSegments(cmd string) [][]shellWord {
 			}
 		case c == ' ' || c == '\t':
 			endWord()
+		case c == '#' && !inWord:
+			// A comment runs to the end of the line.
+			for i+1 < len(cmd) && cmd[i+1] != '\n' {
+				i++
+			}
 		case c == '\n' || c == ';' || c == '&' || c == '|':
 			endSegment()
 			if i+1 < len(cmd) && (c == '&' || c == '|') && cmd[i+1] == c {

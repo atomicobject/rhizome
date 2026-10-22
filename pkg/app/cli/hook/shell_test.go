@@ -35,6 +35,9 @@ func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
 		{"grep -ieTODO pkg/a.go", []string{"/repo/pkg/a.go"}},
 		{"grep -inA3 TODO pkg/a.go", []string{"/repo/pkg/a.go"}},
 		{"rg -g*.go TODO pkg", []string{"/repo/pkg"}},
+		{"cat a.go # see docs/notes.md", []string{"/repo/a.go"}},
+		{"cat a.go #docs/notes.md\ncat b.go", []string{"/repo/a.go", "/repo/b.go"}},
+		{"cat a#b.go 'c # d.md'", []string{"/repo/a#b.go", "/repo/c # d.md"}},
 	} {
 		got := shellReads(tc.cmd, cwd)
 		want := make([]string, len(tc.want))
@@ -55,6 +58,7 @@ func TestShellReadsIgnoresEverythingElse(t *testing.T) {
 		"sed 's/a/b/' x.go",      // sed without -n prints everything; not a read form
 		"sed -i -n 1p x.go",      // in-place edit
 		"sed -ni 1p x.go",        // in-place edit in a cluster
+		"# cat a.go",             // a comment
 		"cat $FILE",              // expansion
 		"cat *.go",               // glob
 		"cat $(git ls-files)",    // command substitution
