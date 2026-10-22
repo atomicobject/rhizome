@@ -59,8 +59,8 @@ func scopeFor(point string) string {
 func readSessionState(path string) sessionState {
 	st := sessionState{Scopes: map[string][]string{}}
 	data, err := os.ReadFile(path)
-	if err == nil {
-		_ = json.Unmarshal(data, &st)
+	if err == nil && json.Unmarshal(data, &st) != nil {
+		st = sessionState{}
 	}
 	if st.Scopes == nil {
 		st.Scopes = map[string][]string{}
@@ -137,9 +137,15 @@ type Status map[string]map[string]time.Time
 // ReadStatus reads the dispatcher's status for init's report; a missing or
 // unreadable file is an empty status.
 func ReadStatus(root string) Status {
-	st := Status{}
+	var st Status
 	if data, err := os.ReadFile(filepath.Join(stateDir(root), statusFileName)); err == nil {
-		_ = json.Unmarshal(data, &st)
+		if json.Unmarshal(data, &st) != nil {
+			st = nil
+		}
+	}
+	if st == nil {
+		// A missing, unreadable, or null file.
+		st = Status{}
 	}
 	return st
 }

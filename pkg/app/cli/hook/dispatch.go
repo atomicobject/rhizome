@@ -81,9 +81,24 @@ func Run(ctx context.Context, opts Options) {
 	ctx, cancel := context.WithTimeout(ctx, deadline)
 	defer cancel()
 	d := &dispatch{opts: opts, ctx: ctx}
+	defer func() {
+		if p := recover(); p != nil {
+			d.log("panic: %v", p)
+		}
+	}()
 	if err := d.run(); err != nil {
-		logDiagnostic(d.ev.Root, opts.Now(), d.ev, "%v", err)
+		d.log("%v", err)
 	}
+}
+
+// log writes one diagnostic entry in the event's worktree, or the process
+// working directory's when the payload never named one.
+func (d *dispatch) log(format string, args ...any) {
+	root := d.ev.Root
+	if root == "" {
+		root, _ = worktreeRoot(d.opts.Cwd)
+	}
+	logDiagnostic(root, d.opts.Now(), d.ev, format, args...)
 }
 
 type dispatch struct {
@@ -96,7 +111,7 @@ func (d *dispatch) run() error {
 	if HostEvent(d.opts.Point) == "" || (d.opts.Harness != HarnessClaude && d.opts.Harness != HarnessCodex) {
 		return fmt.Errorf("unsupported hook %s %s", d.opts.Harness, d.opts.Point)
 	}
-	raw, err := io.ReadAll(io.LimitReader(d.opts.Stdin, maxPayloadBytes+1))
+	raw, err := readWithin(d.ctx, d.opts.Stdin)
 	if err != nil {
 		return fmt.Errorf("read payload: %w", err)
 	}
@@ -300,6 +315,26 @@ func (d *dispatch) runHandler(h Handler, emitted map[string]bool, budget int) ([
 		return nil, fmt.Errorf("parse output: %w", err)
 	}
 	return out.Items, nil
+}
+
+// readWithin reads the payload, giving up when ctx ends: a host that never
+// closes standard input must not hold the dispatcher past its deadline.
+func readWithin(ctx context.Context, r io.Reader) ([]byte, error) {
+	type read struct {
+		data []byte
+		err  error
+	}
+	done := make(chan read, 1)
+	go func() {
+		data, err := io.ReadAll(io.LimitReader(r, maxPayloadBytes+1))
+		done <- read{data, err}
+	}()
+	select {
+	case got := <-done:
+		return got.data, got.err
+	case <-ctx.Done():
+		return nil, errors.New("standard input stayed open past the deadline")
+	}
 }
 
 func deadlineOf(ctx context.Context) time.Time {

@@ -271,3 +271,46 @@ func TestBadInputEndsQuietly(t *testing.T) {
 	_, out := dispatchOnce(t, root, "cursor", PostToolUse, readPayload(root), h)
 	require.Empty(t, out)
 }
+
+func TestStdinThatNeverClosesEndsAtTheDeadline(t *testing.T) {
+	root := repo(t)
+	stdin, writer := io.Pipe()
+	t.Cleanup(func() { _ = writer.Close() })
+	started := time.Now()
+	Run(context.Background(), Options{
+		Harness: HarnessClaude, Point: PostToolUse, Stdin: stdin, Stdout: io.Discard, Cwd: root,
+		Deadline: 200 * time.Millisecond, Handlers: func(string) ([]Handler, error) { return nil, nil },
+	})
+	require.Less(t, time.Since(started), time.Second)
+	log, err := os.ReadFile(filepath.Join(root, ".rhizome", "hooks", "diagnostics.log"))
+	require.NoError(t, err)
+	require.Contains(t, string(log), "standard input stayed open")
+}
+
+func TestCorruptStateFilesAreTreatedAsEmpty(t *testing.T) {
+	root := repo(t)
+	h := helperHandler("one", "items:a")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome", "hooks"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "hooks", "status.json"), []byte("null"), 0o644))
+	statePath := sessionStatePath(root, Identity{Worktree: root, Harness: HarnessClaude, Session: "s1"})
+	require.NoError(t, os.MkdirAll(filepath.Dir(statePath), 0o755))
+	require.NoError(t, os.WriteFile(statePath, []byte(`{"scopes":[1]}`), 0o644))
+	res, _ := dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
+	require.Equal(t, "text a", res.HookSpecificOutput.AdditionalContext)
+	require.Contains(t, ReadStatus(root)[HarnessClaude], "test/one")
+	_, out := dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
+	require.Empty(t, out, "the rewritten state records the item")
+}
+
+func TestAPanicEndsQuietlyWithADiagnostic(t *testing.T) {
+	root := repo(t)
+	require.NotPanics(t, func() {
+		Run(context.Background(), Options{
+			Harness: HarnessClaude, Point: PostToolUse, Stdin: strings.NewReader(readPayload(root)), Stdout: io.Discard, Cwd: root,
+			Handlers: func(string) ([]Handler, error) { panic("handler registry broke") },
+		})
+	})
+	log, err := os.ReadFile(filepath.Join(root, ".rhizome", "hooks", "diagnostics.log"))
+	require.NoError(t, err)
+	require.Contains(t, string(log), "panic: handler registry broke")
+}
