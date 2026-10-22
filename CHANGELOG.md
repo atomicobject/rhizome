@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- `rzm harness status --configured` prints only the configured `agent.harness` setting, without starting any provider.
+- Session-memory model calibration compares extraction and verification on local human labels or a shipped synthetic fixture, reports cost, latency, and repeat-run noise, and applies an approved model diff only to the local profile.
 - `make check` and the other web gates stop with `web/node_modules is missing. Run: cd web && npm ci` in a checkout without web dependencies, instead of failing inside `npm run generate:api`.
 - Local `make web-e2e` runs pick a port derived from the checkout path instead of 4173, so a run never silently tests another worktree's server. `RHIZOME_E2E_PORT` still overrides it, and CI still uses 4173.
 - `tools/searchquality -execute` runs every retrieval lane by default. Before, it silently ran a lexical-only measurement unless you passed `-fast=false`; pass `-fast` for the deterministic lexical run.

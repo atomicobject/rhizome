@@ -4,14 +4,81 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"github.com/atomicobject/rhizome/pkg/app/cli/harnesscheck"
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/harness/harnesstest"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/stretchr/testify/require"
 )
+
+// runHarnessCLI executes a fresh root tree built from env, with the harness
+// family bound to registry, through the invocation wrapper.
+func runHarnessCLI(t *testing.T, env vaultconfig.Env, registry harnessRegistry, args ...string) (string, string, error) {
+	t.Helper()
+	app := newRootCommand(commandEnv{Config: env})
+	harnessCmd, _, err := app.Find([]string{"harness"})
+	require.NoError(t, err)
+	app.RemoveCommand(harnessCmd)
+	app.AddCommand(newAgentHarnessCmdWithRegistry(registry))
+	return runCommandInvocation(t, app, t.Context(), args, true)
+}
+
+func unprobedHarnesses(t *testing.T) harnessRegistry {
+	return func() map[harness.Kind]harness.Harness {
+		t.Fatal("configured status must not construct or probe providers")
+		return nil
+	}
+}
+
+func TestAgentHarnessConfiguredStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name, config, want string
+	}{
+		{name: "missing", want: ""},
+		{name: "unset", config: "agent: {}\n", want: ""},
+		{name: "claude", config: "agent:\n  harness: claude\n  harnesses:\n    claude:\n      model: private-model\n", want: "claude"},
+		{name: "codex", config: "agent:\n  harness: codex\n", want: "codex"},
+		{name: "unknown", config: "agent:\n  harness: other\n", want: ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := testkit.Env(t)
+			env.CLIConfigFile = filepath.Join(env.WorkingDir, "config.yml")
+			if tc.config != "" {
+				require.NoError(t, os.WriteFile(env.CLIConfigFile, []byte(tc.config), 0o600))
+			}
+			stdout, stderr, err := runHarnessCLI(t, env, unprobedHarnesses(t), "harness", "status", "--configured")
+			require.NoError(t, err, stderr)
+			require.JSONEq(t, `{"harness":"`+tc.want+`"}`, stdout)
+			if tc.config != "" {
+				after, err := os.ReadFile(env.CLIConfigFile)
+				require.NoError(t, err)
+				require.Equal(t, tc.config, string(after))
+			} else {
+				require.NoFileExists(t, env.CLIConfigFile)
+			}
+		})
+	}
+}
+
+func TestAgentHarnessConfiguredStatusRejectsHarnessFlag(t *testing.T) {
+	_, _, err := runHarnessCLI(t, testkit.Env(t), unprobedHarnesses(t), "harness", "status", "--configured", "--harness", "claude")
+	require.ErrorContains(t, err, "[configured harness]")
+}
+
+func TestAgentHarnessConfiguredStatusReturnsConfigError(t *testing.T) {
+	env := testkit.Env(t)
+	env.CLIConfigFile = filepath.Join(env.WorkingDir, "config.yml")
+	require.NoError(t, os.WriteFile(env.CLIConfigFile, []byte("agent: ["), 0o600))
+	_, _, err := runHarnessCLI(t, env, unprobedHarnesses(t), "harness", "status", "--configured")
+	require.IsType(t, silentExitError{}, err)
+	require.Equal(t, 1, err.(silentExitError).ExitCode())
+}
 
 func TestAgentHarnessStatusOutput(t *testing.T) {
 	codexFake := &harnesstest.Harness{StatusResult: harness.Status{

@@ -84,6 +84,26 @@ Lead with the top few open items and any recurring findings, then offer review.
    - needs new wording or scope: `shards.mjs revise <path> --expect <hash> --edit <file> --confirm-publish`
    - no longer true: `shards.mjs retire <path> --expect <hash> --reason "<reason>"`
 
-## Not yet available
+## Calibrate
 
-Calibrating model choices (SPEC-0124 US6) is planned but not part of this version. Tell the person so rather than improvising it.
+Compare extraction or verification models using the harness you are running in:
+
+```sh
+node <skill>/scripts/calibrate.mjs --role extract --harness claude
+node <skill>/scripts/calibrate.mjs --role extract --harness claude --budget 2
+node <skill>/scripts/calibrate.mjs --role verify --harness codex --budget 2 --candidates codex:gpt-6-luna:xhigh
+```
+
+1. Run without `--budget` first. Show the estimated cost, label set, and provider to the person. A budget authorizes the model calls; reuse an already approved limit. No transcript text crosses providers.
+2. By default, compare the role's profile candidates. `--candidates` takes space- or comma-separated `provider:model:effort` entries. The current model always runs twice, with the second run bypassing the result cache. Extract uses the frozen `match` model to judge learning equivalence. Verify compares decisions with human labels.
+3. With at least ten approved shards whose cited episodes remain in local state for this provider, calibrate replays those episodes and any recorded decisions with retained evidence. Otherwise it uses the small, shipped synthetic fixture. The report names the set and label count. Fixture quality can support only cost or latency changes, never a quality-driven change.
+4. Review quality, tokens, cost, median seconds per call, and the noise floor. Unmatched generated learnings are unlabeled; only missing human labels count as misses. A diff needs quality above the noise floor, or quality within it with at least 25% less cost or latency than both baseline runs. Cached samples report their original call time and token cost, while `spend` records what this run actually paid. An unknown price stops the run before using that model.
+5. A completed report and any proposed diff are saved under `.rhizome/session-memory/calibrations/`. Exit 3 means the budget or a model failure stopped the comparison; partial results cannot propose a diff. Rerunning reuses finished calls and repeats the uncached baseline.
+   Calls reserve their estimated cost. Providers report actual cost only after a call finishes, so that call can exceed the limit; calibration then stops without proposing a diff.
+6. Show the proposed diff and its evidence file to the person. Only after they approve that exact diff, apply it:
+
+```sh
+node <skill>/scripts/calibrate.mjs apply .rhizome/session-memory/calibrations/<run>/evidence.json --confirm
+```
+
+Apply writes only `.rhizome/session-memory/models.json`, preserves other roles, and refuses stale evidence if the profile changed. Never edit a profile file on the person's behalf outside this approval step. See `references/models.md` for the role defaults.
