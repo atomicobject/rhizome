@@ -187,6 +187,30 @@ func TestEditedHookEntriesFollowTheOwnershipRule(t *testing.T) {
 	require.Equal(t, edited, string(got), "an edited entry is not removed without a decision")
 }
 
+func TestAMatcherAddedToARhizomeGroupIsAnEdit(t *testing.T) {
+	root := hookRepo(t, "on")
+	path := filepath.Join(root, ".claude/settings.json")
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var file map[string]any
+	require.NoError(t, json.Unmarshal(data, &file))
+	groups := file["hooks"].(map[string]any)["PostToolUse"].([]any)
+	groups[len(groups)-1].(map[string]any)["matcher"] = "Read"
+	restricted, err := json.MarshalIndent(file, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, restricted, 0o644))
+
+	out, err := runInit(t, RunOptions{Dir: root, Check: true})
+	require.NoError(t, err)
+	require.Contains(t, out, "Claude Code hooks (.claude/settings.json): installed; you edited the entries, and your version is kept")
+	out, err = runInit(t, RunOptions{Dir: root, Hooks: "off"})
+	require.NoError(t, err)
+	require.Contains(t, out, ".claude/settings.json#rhizome-hooks", "the removal is listed as needing a decision")
+	got, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, string(restricted), string(got), "the restricted group is not replaced without a decision")
+}
+
 func TestClaudeEntriesUseTheSameExecFormOnEveryOS(t *testing.T) {
 	root := hookRepo(t, "on")
 	var file struct {

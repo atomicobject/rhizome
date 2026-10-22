@@ -2,7 +2,9 @@
 // marker-identified command per hook point, in a matcher group of its own
 // that matches every tool, that runs `rzm hook <harness> <event>`. Rhizome
 // owns those commands and nothing else: other commands, even in the same
-// group, and every other key belong to someone else and are preserved.
+// group, and every other key belong to someone else and are preserved. A
+// key added to a group holding Rhizome's commands, such as a matcher, changes
+// what they run on, so it counts as an edit to them.
 //
 // Docs:
 // - [[agent-surface-integration-modes#^SPEC-0045-US5-AC3]]
@@ -155,8 +157,10 @@ func canonicalJSON(raw json.RawMessage) json.RawMessage {
 	return data
 }
 
-// hookEntriesOf parses a settings file and returns its hooks object and the
-// Rhizome commands in it, by host event.
+// hookEntriesOf parses a settings file and returns its hooks object and,
+// by host event, each group holding Rhizome commands with only those
+// commands: a group's other keys, such as matcher, change what the commands
+// run on, so they count as part of the entries.
 func hookEntriesOf(data []byte) (*orderedObject, *orderedObject, map[string][]json.RawMessage, error) {
 	top, err := parseOrderedObject(data)
 	if err != nil {
@@ -175,11 +179,20 @@ func hookEntriesOf(data []byte) (*orderedObject, *orderedObject, map[string][]js
 			continue
 		}
 		for _, group := range groups {
+			var commands []json.RawMessage
 			for _, command := range groupCommands(group) {
 				if isRhizomeCommand(command) {
-					ours[event] = append(ours[event], canonicalJSON(command))
+					commands = append(commands, command)
 				}
 			}
+			if len(commands) == 0 {
+				continue
+			}
+			var fields map[string]json.RawMessage
+			_ = json.Unmarshal(group, &fields)
+			fields["hooks"], _ = json.Marshal(commands)
+			data, _ := json.Marshal(fields)
+			ours[event] = append(ours[event], canonicalJSON(data))
 		}
 	}
 	return top, hooks, ours, nil
@@ -194,8 +207,8 @@ func groupCommands(group json.RawMessage) []json.RawMessage {
 	return g.Hooks
 }
 
-// hookEntriesBody is the canonical text of a set of Rhizome commands, which
-// the record fingerprints.
+// hookEntriesBody is the canonical text of the groups holding Rhizome
+// commands, which the record fingerprints.
 func hookEntriesBody(entries map[string][]json.RawMessage) []byte {
 	if len(entries) == 0 {
 		return nil
@@ -210,9 +223,16 @@ func desiredBody(desired map[string]json.RawMessage) []byte {
 	}
 	entries := map[string][]json.RawMessage{}
 	for event, command := range desired {
-		entries[event] = []json.RawMessage{canonicalJSON(command)}
+		entries[event] = []json.RawMessage{canonicalJSON(desiredGroup(command))}
 	}
 	return hookEntriesBody(entries)
+}
+
+// desiredGroup is the group Rhizome writes a command in: no matcher, so it
+// runs on every tool.
+func desiredGroup(command json.RawMessage) json.RawMessage {
+	group, _ := json.Marshal(map[string]any{"hooks": []json.RawMessage{command}})
+	return group
 }
 
 // withoutRhizomeCommands returns a matcher group with Rhizome's commands
@@ -275,8 +295,7 @@ func renderHookFile(existing []byte, desired map[string]json.RawMessage) ([]byte
 			}
 		}
 		if command, ok := desired[event]; ok {
-			group, _ := json.Marshal(map[string]any{"hooks": []json.RawMessage{command}})
-			kept = append(kept, group)
+			kept = append(kept, desiredGroup(command))
 		}
 		if len(kept) == 0 && len(ours[event]) > 0 {
 			hooks.remove(event)
