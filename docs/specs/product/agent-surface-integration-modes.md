@@ -211,9 +211,20 @@ Some rules agents keep breaking are better enforced than remembered: a bare `go 
 - When shared agent guidance and a skill surface are both enabled, init MUST install the `rhizome` core skill and matching lean managed routing block as one coherent integration; explicit skill-surface opt-out MUST remain authoritative.
 - The managed block MUST report a missing core skill as incomplete Rhizome integration.
 - Hook entries MUST be identical for every combination of enabled starters, and MUST change only when a Rhizome release adds or removes a supported hook point.
-- `rzm hook` MUST take an early path that skips binary bootstrap, update, and download. It MUST NOT start the vault runtime, open the index, or reach the network; handlers that need Rhizome data read files directly.
-- Emitted-item state MUST be updated under an exclusive lock with a bounded wait. Dedupe is best effort across crashes: when output and state cannot both be committed, a repeat is preferred to a lost item. Session-start delivery and tool-call delivery MUST use separate scopes, and a missing child agent ID MUST NOT be replaced by the parent's identity. A compaction or clear MUST discard the items recorded for that agent's context in both scopes, so they are delivered again.
+- `rzm hook` MUST take an early path that skips binary bootstrap, update, download, version probes, and trust prompts, and MUST start its deadline before it selects a repository binary. It MUST NOT start the vault runtime, open the index, or reach the network; handlers that need Rhizome data read files directly.
+- Emitted-item state MUST be updated under an exclusive lock with a bounded wait. Dedupe is best effort across crashes: when output and state cannot both be committed, a repeat is preferred to a lost item. Session-start delivery and tool-call delivery MUST use separate scopes, and a missing child agent ID MUST NOT be replaced by the parent's identity. A compaction or clear MUST discard the items recorded for that agent's context in both scopes, so they are delivered again, including when the lock is busy: the pending reset is kept beside the state and applied by every later read until a locked write commits it.
 - The dispatcher's own overhead MUST be measured on each supported platform, with and without a matching handler, and recorded before hooks leave draft. Starting `rzm` for every tool call is affordable because an agent step takes seconds: `rzm --version` took a median of 30 ms on macOS (2026-10-21). If the median overhead with no matching handler exceeds 50 ms on a platform, entries on that platform MAY narrow their tool filter to the tools Rhizome's handlers support.
+  - macOS, 2026-10-22 (Apple M4 Pro, macOS 27.2, Node 22.23): `rzm hook claude <event>` run directly in a scratch repository with session memory on and five synthetic shards, one warm-up and 30 timed runs per case, each with a fresh session so items are delivered every time. With no matching handler the dispatcher costs what starting `rzm` costs; a handler run adds about 70 ms, almost all of it starting Node. A pinned repository's `rzm` on `PATH` hands off to the pinned binary first, which adds one more process start.
+
+    | Case | Median | p90 |
+    | --- | --- | --- |
+    | No match (shell call with no read or prefix; no handler starts) | 27 ms | 28 ms |
+    | Shard cache hit, delivers | 96 ms | 99 ms |
+    | Shard cache miss (a shard changed), delivers | 98 ms | 102 ms |
+    | Cold (no dispatcher state or shard cache), delivers | 97 ms | 102 ms |
+    | Handler failure (shard folder unreadable), no output | 72 ms | 74 ms |
+    | Session start, three shards that apply everywhere | 102 ms | 108 ms |
+    | `rzm --version`, for reference | 27 ms | 28 ms |
 
 ## Open Questions
 
