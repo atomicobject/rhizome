@@ -27,10 +27,10 @@ func TestAHandoffIsSupervisedUnderTheSameDeadline(t *testing.T) {
 	cases := []struct {
 		name, target, want, logged string
 	}{
-		// The host's payload reaches the child, and its JSON reaches the host.
+		// The host's payload reaches the child, and the child writes to the
+		// host itself: the binary that emits owns what it records.
 		{"passes through", script("echo", "cat"), payload, ""},
-		{"nonzero exit", script("exit37", "cat >/dev/null; echo '"+payload+"'; exit 37"), "", "exit status 37"},
-		{"not JSON", script("garbage", "echo 'not json'"), "", "output is not JSON"},
+		{"nonzero exit", script("exit37", "cat >/dev/null; echo '"+payload+"'; exit 37"), payload, "exit status 37"},
 		{"missing binary", filepath.Join(root, "no-such-rzm"), "", "no-such-rzm"},
 		{"timeout", script("slow", "sleep 30 & echo $! > '"+pidFile+"'; sleep 30"), "", "timed out"},
 	}
@@ -56,4 +56,17 @@ func TestAHandoffIsSupervisedUnderTheSameDeadline(t *testing.T) {
 	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
 	require.NoError(t, err)
 	require.Eventually(t, func() bool { return !processAlive(pid) }, 2*time.Second, 20*time.Millisecond, "the child's process tree was killed")
+}
+
+func TestAHostThatStopsReadingDuringAHandoffLeavesItsItemsUnrecorded(t *testing.T) {
+	root := repo(t)
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	require.NoError(t, r.Close())
+	Delegate(context.Background(), os.Args[0], os.Environ(), Options{
+		Harness: HarnessClaude, Point: PostToolUse, Stdin: strings.NewReader(readPayload(root)), Stdout: w, Cwd: root,
+	})
+	require.NoError(t, w.Close())
+	res, _ := dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), helperHandler("one", "items:a"))
+	require.Equal(t, "text a", res.HookSpecificOutput.AdditionalContext, "an item the host never received is delivered again")
 }

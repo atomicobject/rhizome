@@ -106,7 +106,10 @@ func TestAnExpiredInheritedDeadlineEndsAtOnce(t *testing.T) {
 	require.Contains(t, hookLog(t, root), "passed before rzm hook started")
 }
 
-func TestAFailingHandoffEmitsNothingAndExitsZero(t *testing.T) {
+// The child writes to the host's own standard output, so what it wrote
+// before failing has already reached the host; the failure is logged and
+// rzm hook still exits 0.
+func TestAFailingHandoffExitsZeroAndIsLogged(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell-script binary fixture is Unix-only")
 	}
@@ -119,6 +122,6 @@ func TestAFailingHandoffEmitsNothingAndExitsZero(t *testing.T) {
 	t.Cleanup(func() { hookDelegate = saved })
 
 	require.Equal(t, 0, runHook([]string{"claude", "post-tool-use"}))
-	require.Empty(t, stdout())
+	require.Equal(t, `{"hookSpecificOutput":{}}`+"\n", stdout())
 	require.Contains(t, hookLog(t, root), "exit status 37")
 }

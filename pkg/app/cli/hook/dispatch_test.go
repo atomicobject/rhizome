@@ -8,19 +8,32 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
-// The test binary doubles as a handler: `<test binary> hook-helper <mode>`.
+// The test binary doubles as a handler, `<test binary> hook-helper <mode>`,
+// and as a repository rzm a hook hands off to, `<test binary> hook <harness>
+// <point>`, whose one handler returns item a.
 func TestMain(m *testing.M) {
 	if len(os.Args) > 2 && os.Args[1] == "hook-helper" {
 		helper(os.Args[2], os.Args[3:])
+		return
+	}
+	if len(os.Args) == 4 && os.Args[1] == "hook" {
+		signal.Ignore(syscall.SIGPIPE)
+		cwd, _ := os.Getwd()
+		Run(context.Background(), Options{
+			Harness: os.Args[2], Point: os.Args[3], Stdin: os.Stdin, Stdout: os.Stdout, Cwd: cwd,
+			Handlers: func(string) ([]Handler, error) { return []Handler{helperHandler("one", "items:a")}, nil },
+		})
 		return
 	}
 	os.Exit(m.Run())
