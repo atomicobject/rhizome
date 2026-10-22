@@ -264,6 +264,13 @@ test("review regressions: unreadable packet paths, cost totals, unreported probe
   const pool = read(retry, "pool/clusters.json");
   assert.equal(Object.values(pool).filter((c) => c.verifyProblems && !c.verification).length, 1);
 
+  // A model's rejection is reconsidered once another family supports the learning.
+  const rejected = tmp();
+  const first = await run(rejected, fakeClients({ rejectVerify: true }), { discover: fakeDiscover([SESSIONS.s1]) });
+  assert.equal(first.report.proposals, 0);
+  const second = await run(rejected, fakeClients(), { discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]) });
+  assert.equal(second.report.proposals, 1);
+
   // Verification vouches for a commit only when the checkout's tracked files match it.
   assert.match(read(retry, "proposals.json")[0].verified.commit, /^[0-9a-f]{40}$/);
   const dirtyRepo = tempRepo();

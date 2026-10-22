@@ -233,6 +233,11 @@ async function mineLocked(opts, clients, store, dry) {
   }
 }
 
+// A cluster needs verification when it has none, or when a model rejected it
+// and another family has since supported it. Decisions a person made live in
+// reviewed.json and decision files, not here, so they are never reopened.
+const due = (c) => !c.verification || (c.verification.decision === "reject" && c.families.length > (c.verification.families ?? Infinity));
+
 function cleanHead(dir) {
   try {
     if (execFileSync("git", ["-C", dir, "status", "--porcelain", "--untracked-files=no"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim()) return null;
@@ -296,7 +301,7 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
   const planName = `runs/${run.id}/verify-plan.json`;
   let plan = store.read(planName, null);
   if (!plan) {
-    const open = (c) => !c.verification && !reviewed[c.id];
+    const open = (c) => due(c) && !reviewed[c.id];
     const byWorth = (x, y) => (y.worth ?? 0) - (x.worth ?? 0) || (x.id < y.id ? -1 : 1);
     const ids = new Set(touched.map((c) => c.id));
     plan = [
@@ -312,7 +317,7 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
   const commit = cleanHead(run.checkout);
   await pool(plan, concurrency, async (id) => {
     const cl = clusters[id];
-    if (cl.verification) return;
+    if (!due(cl)) return;
     const members = cl.members.map((m) => cands[m]).filter(Boolean);
     const variants = members.map((c) => ({ kind: c.kind, statement: c.statement, why: c.why, appliesTo: c.appliesTo, commands: c.commands, target: c.target }));
     // One excerpt per family, so the verifier sees independent sources.
@@ -333,7 +338,7 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
       // unchanged packet replays from the cache at no cost, and new evidence asks again.
       cl.verifyProblems = { problems: v.contractProblems, run: run.id, at };
     } else {
-      cl.verification = { ...v.result, contractProblems: [], rounds: v.rounds.length, run: run.id, commit, model: run.bindings.verify.model, at };
+      cl.verification = { ...v.result, contractProblems: [], rounds: v.rounds.length, run: run.id, commit, model: run.bindings.verify.model, at, families: cl.families.length };
       delete cl.verifyProblems;
     }
     store.write("pool/clusters.json", clusters);

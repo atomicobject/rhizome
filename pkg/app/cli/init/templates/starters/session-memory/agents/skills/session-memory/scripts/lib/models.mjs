@@ -2,7 +2,9 @@
 // injected probe, which makes one tiny generate call and returns the model
 // that actually ran.
 
-const REQUIRED = new Set(["extract", "verify"]);
+// Every role a mining run calls; a run must not pay for early stages and then
+// stop for want of a later one.
+const REQUIRED = new Set(["extract", "synthesize", "verify"]);
 
 // Merge shipped, local, and run-flag profiles. An override replaces a role's
 // whole candidate list. Flags look like `extract=claude:claude-haiku-5-5:xhigh`.
