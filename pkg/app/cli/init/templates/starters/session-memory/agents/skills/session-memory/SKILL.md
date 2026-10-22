@@ -1,11 +1,11 @@
 ---
 name: session-memory
-description: Use when mining this repository's Claude Code or Codex sessions for reusable project knowledge, reviewing or approving the resulting proposals, looking up the context shards that apply to files, a command, or a task, or re-verifying shards whose files changed.
+description: Use when mining this repository's Claude Code or Codex sessions for reusable project knowledge or recurring agent friction, reviewing or approving the resulting proposals, looking up the context shards that apply to files, a command, or a task, re-verifying shards whose files changed, or reporting where agents lose effort and whether fixes worked.
 ---
 
 # Session memory
 
-This skill turns the agent sessions recorded for this repository into context shards: short, verified rules and facts that later agents should know. Mining produces local proposals; a person approves each one before it becomes a tracked note in `docs/memory/context-shards/`.
+This skill turns the agent sessions recorded for this repository into reviewed improvements. Mining produces local proposals, and each carries a proposed response: remember it as a context shard (a short, verified rule or fact in `docs/memory/context-shards/`), document it in an existing document, or fix it, guard against it, or ask its owner, which becomes an agent finding with an action item in `docs/memory/agent-findings/`. A person approves each one before anything reaches the repository.
 
 Run every script from the repository root with Node 20 or later. `<skill>` below is this skill's directory. Scripts reach models only through `rzm agent generate` and Jev through `rzm agent evaluate-batch`, and print JSON. A script that refuses an action exits 2 and says why; relay the reason instead of working around it.
 
@@ -43,16 +43,37 @@ Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only
 ## Review
 
 1. Check the reviewer: `rzm agent current-user validate` must resolve to a `Person`. If it does not, stop and ask the person to run `rzm agent current-user set "<Person title>"`.
-2. `node <skill>/scripts/shards.mjs list` shows pending proposals. Present each one with its tier (A: seen in two or more sessions; B: one session, confirmed in the code), statement, applies-to patterns, and why it matters. `shards.mjs show <cluster>` gives the verification record and evidence; `shards.mjs source <cluster> [n]` shows a cited excerpt, redacted.
-3. For each proposal, first ask whether it describes something to fix rather than remember: dead or misleading code, a flaky test, a bad default, a missing check, or an open question. A shard that teaches agents to work around a defect keeps the defect. If the person chooses to fix it, guard against it with a check or test, or ask the team, dismiss the proposal as below with that response and the proposed change as its reason (`--reason "fix: <change>"`), and offer to make the change. Notes that track these responses are planned (SPEC-0124 US2).
-4. Otherwise, ask the person to approve, revise, dismiss, or defer:
-   - **Approve:** ask whether the statement is fit to publish in this repository, which may be public. Only after a yes, run `shards.mjs approve <cluster> --confirm-publish`.
-   - **Revise:** write the changed fields (`kind`, `statement`, `why`, `appliesTo`, `commands`, `target`) to a JSON file outside the repository, show the person the result, then approve with `--edit <file>`. State the behavior agents should follow, not the mistake to avoid; naming a mistake tends to invite it.
+2. `node <skill>/scripts/shards.mjs list` shows pending proposals. Present each one with its proposed response and reason first, then its tier (A: seen in two or more sessions; B: one session, confirmed in the code), statement, kind, applies-to patterns, target, and evidence (families, tool calls). `shards.mjs show <cluster>` gives the drafted artifact, verification record, and evidence; `shards.mjs source <cluster> [n]` shows a cited excerpt, redacted. A proposal with `recurrence` is a completed finding whose friction came back after its action item was checked; say so and name the finding. Mining verified it again against the new episodes. When it carries `rejected`, the verifier did not confirm the friction is back: show the reason and the matching episodes (`shards.mjs show`), and let the person choose a response or dismiss it. A reason of `contract` means the verifier's answer was unusable, so nothing was drafted. A proposal whose `response` is null has no proposed response, because the verifier rejected its recurrence or it was verified before responses existed (the next mine run verifies such a proposal again); approving it needs `--response` with the response the person chooses.
+3. Ask one question per proposal, with its drafted artifact attached, so the person accepts or redirects rather than writes:
+   - **remember:** the statement as it would be delivered.
+   - **document:** the document and the exact change (old text, new text).
+   - **fix:** the fix sketch (`change`).
+   - **guard:** the check (`change`) and, if present, the guard rule (`guardRule`: tool class, command prefix or path, reason, alternative), which hooks may later enforce.
+   - **ask:** the question and its owner, if known.
+
+   Remember only what an agent cannot learn from the code or documents. A shard that teaches agents to work around a defect keeps the defect, so when a proposal is marked `workaround`, say so.
+4. Act on the answer:
+   - **Approve:** ask whether the text is fit to publish in this repository, which may be public. Only after a yes, run `shards.mjs approve <cluster> --confirm-publish`. To redirect, add `--response remember|document|fix|guard|ask`; when the new response needs an artifact the proposal lacks (`edit`, `change`, or `question`), the script names it, and you write it to an `--edit` file.
+     - remember writes the shard.
+     - document applies the edit to the named document as an uncommitted change and records a `documented` decision. Show the person `git diff -- <document>`. When the document changed so the edit no longer applies, the script refuses; re-draft `edit` against the current text and pass it with `--edit`. When the document changed since verification read it, or the edit names a document verification did not read, the script refuses even if the old text still occurs: show the person the edit in the context of the current document, and pass `--rechecked` only if it still fits. A document holding a credential-shaped value is refused, because applying the edit would republish it.
+     - fix, guard, and ask write one finding note with an action item assigned to the reviewer. `--assignee "<Person title>"` assigns another Person, such as the owner of an ask; the script refuses a name that does not resolve to a `Person` note, so ask the person which Person they meant, or to create the note. Offer to start the fix if the person wants it now.
+   - **Revise:** write the changed fields (`kind`, `statement`, `why`, `appliesTo`, `commands`, `target`, and for a response other than remember also `responseReason`, `edit`, `change`, `guardRule`, `question`, `owner`) to a JSON file outside the repository, show the person the result, then approve with `--edit <file>`. State the behavior agents should follow, not the mistake to avoid; naming a mistake tends to invite it.
    - **Dismiss:** ask for the reason and whether to share the decision with the team (`--shared`, a tracked file) or keep it local (`--local`), then run `shards.mjs dismiss <cluster> --reason "<reason>" --shared|--local`.
    - **Defer:** do nothing; it stays pending.
-5. Approval is refused while files the shard depends on have uncommitted changes; ask the person to commit or stash first. New shards and shared decisions are ordinary repository changes for the person to commit.
-6. Approval is refused when files the shard depends on changed after verification read them. Re-check the statement against those files, tell the person what you found, and pass `--rechecked` only if it still holds; otherwise revise it.
-7. Approval is also refused when the patterns match much of the repository, because the shard would then reach nearly every agent. Propose narrower patterns through `--edit`; pass `--broad` only when the person confirms it applies that widely. When approval returns a `warning` that too many shards apply everywhere, tell the person and offer a pattern or an `AGENTS.md` edit instead.
+5. New shards, findings, document edits, and shared decisions are ordinary repository changes for the person to commit. A learning with an open finding is not proposed again until its action item is checked.
+
+Approving any response is refused while the files it depends on (those its patterns match, its target, the locations verification checked, and the document an edit changes) have uncommitted changes; ask the person to commit or stash first. It is also refused when those files changed after verification read them. Re-check the proposal against those files, tell the person what you found, and pass `--rechecked` only if it still holds; otherwise revise it.
+
+Approving a remember response is also refused when the patterns match much of the repository, because the shard would then reach nearly every agent. Propose narrower patterns through `--edit`; pass `--broad` only when the person confirms it applies that widely. When approval returns a `warning` that too many shards apply everywhere, tell the person and offer a pattern or an `AGENTS.md` edit instead.
+
+## Report
+
+`node <skill>/scripts/report.mjs` shows where agents lose effort. It reads only local state and tracked notes, makes no model calls, and prints no transcript text.
+
+- `open` ranks open fix, guard, and ask findings and pending proposals by families, then sessions, then tool calls, with the dates first and last seen. A finding's evidence includes episodes mining matched after it was approved. When an entry has `familiesApproximate`, its family count is an estimate, because this checkout lacks the finding's family IDs (a teammate approved it, or it predates them); show it as `~N (approximate)`.
+- `completed` lists findings whose action item is checked, as `resolved` (no matching episode since completion) or `recurring` (with the matching episode ids and dates). `checkedThrough` is the date of the last mine run; when it is older than the completion, offer to mine first. A recurring finding is offered for review again, unless a newer finding for the same learning is still open.
+
+Lead with the top few open items and any recurring findings, then offer review.
 
 ## Maintain
 

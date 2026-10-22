@@ -42,3 +42,43 @@ type ContextShard
   families: Int @display(importance: DETAIL) @field
   toolCalls: Int @display(importance: DETAIL) @field(source: "tool-calls")
 }
+
+"""
+What a person decided to do about friction agents kept hitting.
+"""
+enum AgentFindingResponse
+  @guidance(
+    meaning: "Whether the friction calls for a fix, a guard that enforces a rule, or a question for an owner.",
+    authoring: "Set by the session-memory skill when a person approves a proposal.",
+    agentImplications: "A guard finding may carry a guard rule that hooks enforce; a fix or ask finding is work for its assignee."
+  ) {
+  fix @view(label: "Fix", order: 10)
+  guard @view(label: "Guard", order: 20)
+  ask @view(label: "Ask", order: 30)
+}
+
+"""
+Friction mined from agent sessions that a person chose to fix, guard against,
+or ask about instead of remembering. Each note holds one action item; the
+session-memory skill writes these notes and does not propose the learning
+again while the action item is open.
+"""
+type AgentFinding
+  @node(paths: ["docs/memory/agent-findings/*.md"])
+  @display(singular: "Agent finding", plural: "Agent findings", group: "Knowledge")
+  @guidance(
+    meaning: "Approved friction that the team removes at its source: a defect to fix, a rule to enforce, or a question to settle.",
+    authoring: "Approve findings through the session-memory skill. Complete the action item by checking it; mining then reports whether the friction recurs.",
+    agentImplications: "Do not work around an open finding silently; follow its proposed change or question, and mention it when it affects your task."
+  )
+  {
+  response: AgentFindingResponse! @display(importance: KEY) @field
+  """The statement, at most 400 bytes."""
+  summary: String!
+  learningHash: String! @display(importance: DETAIL) @field(source: "learning-hash")
+  appliesTo: [String!] @display(importance: KEY) @field(source: "applies-to")
+  reviewedBy: Person! @display(importance: DETAIL) @link(source: "reviewed-by")
+  reviewedOn: Date! @display(importance: KEY) @field(source: "reviewed-on")
+  families: Int @display(importance: DETAIL) @field
+  toolCalls: Int @display(importance: DETAIL) @field(source: "tool-calls")
+}

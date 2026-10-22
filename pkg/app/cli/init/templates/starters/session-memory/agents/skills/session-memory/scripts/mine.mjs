@@ -31,10 +31,12 @@ import { batches, extractBatch } from "./lib/extract.mjs";
 import { mergeProfile, resolve } from "./lib/models.mjs";
 import { facts, group, rank, tierOf } from "./lib/reduce.mjs";
 import { screen } from "./lib/screen.mjs";
+import { loadFindings, recur } from "./lib/findings.mjs";
 import { learningHash, loadDecisions, loadShards } from "./lib/shards.mjs";
 import { openStore, readJsonl, sha, writeText } from "./lib/store.mjs";
 import { verifyCluster } from "./lib/verify.mjs";
 import { discover } from "./sessions.mjs";
+import { pending } from "./shards.mjs";
 
 const ROLES = ["decide", "extract", "synthesize", "verify"];
 const DAY = 24 * 3600 * 1000;
@@ -87,12 +89,16 @@ function openRun(store) {
 const saveRun = (store, run) => store.write(`runs/${run.id}/manifest.json`, run);
 
 // Only one run is open at a time, so the pool when it starts is exactly what
-// abandoning it restores; its episodes then count as new again.
-const POOL = ["pool/episodes.json", "pool/candidates.json", "pool/clusters.json", "proposals.json"];
-const snapshot = (store, id) => store.write(`runs/${id}/pool-before.json`, Object.fromEntries(POOL.map((name) => [name, store.read(name, null)])));
+// abandoning it restores; its episodes then count as new again, and so does
+// the recurrence bookkeeping a run keeps beside the pool. Review status is
+// restored only where the run cleared it to reopen a cluster, so a decision
+// a person made after the run started stays.
+const POOL = ["pool/episodes.json", "pool/candidates.json", "pool/clusters.json", "proposals.json", "findings.json"];
+const snapshot = (store, id) => store.write(`runs/${id}/pool-before.json`, Object.fromEntries([...POOL, "reviewed.json"].map((name) => [name, store.read(name, null)])));
 function restore(store, id) {
   for (const [name, value] of Object.entries(store.read(`runs/${id}/pool-before.json`, {}))) {
-    if (value === null) rmSync(store.path(name), { force: true });
+    if (name === "reviewed.json") store.write(name, { ...value, ...store.read(name, {}) });
+    else if (value === null) rmSync(store.path(name), { force: true });
     else store.write(name, value);
   }
 }
@@ -178,6 +184,14 @@ async function bind(opts, clients, statuses, store, dry, runId) {
   return { bindings, provenance: { profileVersion: profile.version, files, flags: opts.model ?? [] } };
 }
 
+// The findings record recomputed from the pool as it is, or null when that
+// would reopen a recurrence, which a run must verify.
+function refreshFindings(store, root) {
+  const read = (name) => store.read(name, {});
+  const { reopened, record } = recur(read("findings.json"), { findings: loadFindings(root), clusters: read("pool/clusters.json"), candidates: read("pool/candidates.json"), episodes: read("pool/episodes.json"), reviewed: read("reviewed.json"), links: read("finding-links.json") });
+  return reopened.size ? null : record;
+}
+
 async function mineLocked(opts, clients, store, dry) {
   const log = opts.log ?? ((m) => process.stderr.write(m + "\n"));
   let run = openRun(store);
@@ -201,8 +215,13 @@ async function mineLocked(opts, clients, store, dry) {
   } else {
     const found = collect(opts, store);
     episodes = found.episodes;
-    if (!episodes.length && !opts.verifyHeld) {
+    // A pending proposal with no response, or a finding whose friction the
+    // pool shows came back, is verified again even when nothing is new.
+    const record = !episodes.length && !opts.verifyHeld && !pending(store, opts.root).some((p) => !p.response && !p.rejected) && refreshFindings(store, opts.root);
+    if (record) {
       if (!dry && Object.keys(found.cursorTargets).length) store.write("cursors.json", { ...store.read("cursors.json", {}), ...found.cursorTargets });
+      // A finding checked since the last run gets its report dates now.
+      if (!dry) store.write("findings.json", record);
       return { status: "nothing-new", discovery: found.report };
     }
     const id = `${new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "")}-${sha([process.pid, Math.random()]).slice(0, 6)}`;
@@ -253,10 +272,15 @@ async function mineLocked(opts, clients, store, dry) {
   }
 }
 
-// A cluster needs verification when it has none, or when a model rejected it
-// and another family has since supported it. Decisions a person made live in
-// reviewed.json and decision files, not here, so they are never reopened.
-const due = (c) => !c.verification || (c.verification.decision === "reject" && c.families.length > (c.verification.families ?? Infinity));
+// A proposal verified before verification chose a response has none, so it
+// is verified again rather than defaulting to remember.
+const unrouted = (c) => c.verification?.decision === "propose" && !c.verification.response;
+
+// A cluster needs verification when it has none, when it has no response,
+// or when a model rejected it and another family has since supported it.
+// Decisions a person made live in reviewed.json and decision files, not
+// here, so they are never reopened.
+const due = (c) => !c.verification || unrouted(c) || (c.verification.decision === "reject" && c.families.length > (c.verification.families ?? Infinity));
 
 function cleanHead(dir) {
   try {
@@ -302,20 +326,22 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
 
   const clusters = store.read("pool/clusters.json", {});
   // A person already settled what they approved or dismissed, here or in a
-  // teammate's recorded decision.
+  // teammate's recorded decision, shard, or finding.
   const reviewed = store.read("reviewed.json", {});
-  const decided = [...loadDecisions(root, store.dir), ...loadShards(root)];
+  const findings = loadFindings(root);
+  const decided = [...loadDecisions(root, store.dir), ...loadShards(root), ...findings];
   const settled = new Set(decided.map((d) => d.learning ?? learningHash(d)));
   // Settled learnings join grouping as clusters, so a reworded rediscovery
   // joins the settled cluster and is skipped like the original.
-  const pooled = new Set(Object.values(clusters).map(learningHash));
+  const hashOf = (c) => c.learning ?? learningHash(c);
+  const pooled = new Set(Object.values(clusters).map(hashOf));
   let seq = Math.max(0, ...Object.values(clusters).map((c) => c.seq ?? 0));
   for (const d of decided) {
     const hash = d.learning ?? learningHash(d);
     if (pooled.has(hash)) continue;
     pooled.add(hash);
     const id = `k-settled-${hash.slice(0, 12)}`;
-    clusters[id] = { id, seq: ++seq, members: [], kind: d.kind, statement: d.statement, appliesTo: d.appliesTo ?? [], commands: d.commands ?? [], settled: true, createdAt: new Date().toISOString() };
+    clusters[id] = { id, seq: ++seq, members: [], kind: d.kind, statement: d.statement, appliesTo: d.appliesTo ?? [], commands: d.commands ?? [], learning: hash, settled: true, createdAt: new Date().toISOString() };
   }
   const firstSeen = (id) => Math.min(...(cands[id]?.evidence ?? []).map((e) => Date.parse(eps[e]?.ts) || Infinity));
   await group(caller, { candidates: cands, clusters, fresh, firstSeen, save: (c) => store.write("pool/clusters.json", c), estimate: per.group });
@@ -326,7 +352,20 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
     const f = facts(cl, cands, eps);
     Object.assign(cl, { evidence: f.evidence, families: f.families, tier: tierOf(f, cl, ranks.get(cl.id)), worth: ranks.get(cl.id)?.worth ?? null });
   }
+  // Episodes matching a finding are recorded for the friction report; a
+  // completed finding they recur for is offered for review again.
+  const links = store.read("finding-links.json", {});
+  const { reopened, record } = recur(store.read("findings.json", {}), { findings, clusters, candidates: cands, episodes: eps, reviewed, links });
   store.write("pool/clusters.json", clusters);
+  store.write("finding-links.json", links);
+  // A reopened cluster's earlier draft is withdrawn before its review status
+  // is cleared, so a run that stops before re-verifying offers nothing stale.
+  if (reopened.size) {
+    store.write("proposals.json", store.read("proposals.json", []).filter((p) => !reopened.has(p.cluster)));
+    store.write("reviewed.json", reviewed);
+  }
+  store.write("findings.json", record);
+  const reopen = (c) => !!c.recurrence && !reviewed[c.id];
 
   // The plan is frozen once, so a resumed run verifies the same clusters.
   const planName = `runs/${run.id}/verify-plan.json`;
@@ -334,15 +373,25 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
   if (!plan) {
     // A learning a person already settled, here or in a teammate's shared
     // decision or shard, does not spend a verification call.
-    const open = (c) => due(c) && !reviewed[c.id] && !settled.has(learningHash(c));
+    const open = (c) => due(c) && (reopen(c) || (!reviewed[c.id] && !settled.has(hashOf(c))));
     const byWorth = (x, y) => (y.worth ?? 0) - (x.worth ?? 0) || (x.id < y.id ? -1 : 1);
     const ids = new Set(touched.map((c) => c.id));
     plan = [
-      ...touched.filter((c) => open(c) && c.tier === "A"),
+      ...touched.filter((c) => open(c) && (c.tier === "A" || reopen(c))),
       ...touched.filter((c) => open(c) && c.tier === "B").sort(byWorth).slice(0, run.verifyBudget),
       ...Object.values(clusters).filter((c) => open(c) && c.tier === "B" && !ids.has(c.id)).sort(byWorth).slice(0, run.verifyHeld),
+      ...Object.values(clusters).filter((c) => open(c) && (unrouted(c) || reopen(c))),
     ].map((c) => c.id);
+    plan = [...new Set(plan)];
     store.write(planName, plan);
+  } else {
+    // A resumed run keeps its plan, but a recurrence reopened since it
+    // stopped had its draft withdrawn above, so it is verified too.
+    const added = [...reopened].filter((id) => clusters[id] && !plan.includes(id));
+    if (added.length) {
+      plan = [...plan, ...added];
+      store.write(planName, plan);
+    }
   }
   const ctx = { root: run.checkout, search: (args) => clients.search(args, { cwd: run.checkout }) };
   // Verification reads the working tree, so it vouches for a commit only when
@@ -353,10 +402,7 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
     if (!due(cl)) return;
     const members = cl.members.map((m) => cands[m]).filter(Boolean);
     const variants = members.map((c) => ({ kind: c.kind, statement: c.statement, why: c.why, appliesTo: c.appliesTo, commands: c.commands, target: c.target }));
-    // One excerpt per family, so the verifier sees independent sources.
-    const perFamily = new Map();
-    for (const e of cl.evidence.map((x) => eps[x]).filter((e) => e?.text)) if (!perFamily.has(e.family)) perFamily.set(e.family, e);
-    const sources = [...perFamily.values()].slice(0, 6).map((e) => ({ lens: e.lens, origin: e.origin, confidence: e.confidence, previous: e.context?.previous?.slice(0, 600) || undefined, text: e.text.slice(0, 1500) }));
+    const sources = excerpts(cl, eps);
     let v;
     try {
       v = await verifyCluster(caller, ctx, { cl, variants, sources, estimate: per.verify });
@@ -378,23 +424,56 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
     log(`verify: ${id} tier ${cl.tier} ${v.result.decision}`);
   });
 
-  const proposals = Object.values(clusters).filter((cl) => cl.verification?.decision === "propose" && !cl.verification.contractProblems.length).map((cl) => proposal(cl, eps)).filter((p) => !reviewed[p.cluster] && !settled.has(learningHash(p)));
+  // A recurrence the verifier rejects stays in review with the reason, since
+  // only a person decides whether the finding's friction is back.
+  // A recurrence whose re-verification broke the output contract is offered
+  // too: a retry would replay the same cached answer, so a person decides.
+  const offer = (cl) => (cl.verification?.decision === "propose" ? !cl.verification.contractProblems.length : reopen(cl) && (cl.verification?.decision === "reject" || (!cl.verification && !!cl.verifyProblems)));
+  const proposals = Object.values(clusters).filter(offer).map((cl) => proposal(cl, eps)).filter((p) => reopen(clusters[p.cluster]) || (!reviewed[p.cluster] && !settled.has(learningHash(p))));
   store.write("proposals.json", proposals);
-  return summarize({ episodes, screened, results, touched, plan, clusters, fresh, proposals });
+  return { ...summarize({ episodes, screened, results, touched, plan, clusters, fresh, proposals }), recurring: reopened.size };
+}
+
+// One excerpt per family, so the verifier sees independent sources; a
+// recurrence's episodes come first, those not offered before ahead of the
+// rest, and the newer of equals first, so the newest friction is what it checks.
+export function excerpts(cl, eps) {
+  const recurring = new Set((cl.recurrence?.episodes ?? []).map((e) => e.id));
+  const fresh = new Set(cl.recurrence?.fresh ?? []);
+  const rank = (x) => fresh.has(x) + recurring.has(x);
+  const time = (x) => Date.parse(eps[x]?.ts) || 0;
+  const perFamily = new Map();
+  for (const e of [...cl.evidence].sort((x, y) => rank(y) - rank(x) || time(y) - time(x)).map((x) => eps[x]).filter((e) => e?.text)) if (!perFamily.has(e.family)) perFamily.set(e.family, e);
+  return [...perFamily.values()].slice(0, 6).map((e) => ({ lens: e.lens, origin: e.origin, confidence: e.confidence, previous: e.context?.previous?.slice(0, 600) || undefined, text: e.text.slice(0, 1500) }));
 }
 
 function proposal(cl, eps) {
-  const v = cl.verification;
+  const broken = cl.verifyProblems;
+  const v = cl.verification ?? { decision: "reject", rejectReason: "contract", notes: broken.problems.join("; "), run: broken.run, at: broken.at };
+  // A rejection drafts nothing, so no response field it carried is proposed.
+  const r = v.decision === "reject" ? {} : v;
   return {
     cluster: cl.id,
     tier: cl.tier,
     families: cl.families.length,
+    familyIds: cl.families,
+    rejected: v.decision === "reject" ? { reason: v.rejectReason ?? "other", notes: v.notes } : undefined,
     kind: v.kind ?? cl.kind,
     statement: v.statement ?? cl.statement,
     why: v.why ?? cl.why,
     appliesTo: v.appliesTo ?? cl.appliesTo,
     commands: v.commands ?? cl.commands,
     target: v.target ?? cl.target,
+    response: r.response,
+    responseReason: r.responseReason,
+    workaround: r.workaround,
+    edit: r.edit,
+    documentHash: r.documentHash,
+    change: r.change,
+    guardRule: r.guardRule,
+    question: r.question,
+    owner: r.owner,
+    recurrence: cl.recurrence,
     documentation: v.documentation,
     verification: v.verification,
     notes: v.notes,

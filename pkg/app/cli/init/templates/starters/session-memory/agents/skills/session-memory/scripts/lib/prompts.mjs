@@ -1,6 +1,9 @@
 // Prompts and Jev questions for the mine workflow, rules v1. The wording is
 // what the effort log measured (EFF-2026-10-11-15-21); change it only with a
 // measured win, and bump PROMPT_VERSION so cached results are not reused.
+// Every call's cache key already holds its prompt and schema, so a change to
+// one stage's wording misses only that stage's cache. The response step in
+// VERIFY_RULES (SPEC-0124 US2) is not yet measured; M5 measures it.
 
 export const PROMPT_VERSION = "v1";
 
@@ -89,6 +92,12 @@ When proposing:
 - Set appliesTo (globs using *, **, ? only, each matching existing files where the task happens) and commands (literal command prefixes, or empty).
 - For where_to_find, set target to the existing file that answers the question, and only when the excerpts show agents searching for it.
 - In verification, list each file you checked and what you confirmed there, and record the documentation coverage you found in step 1.
+- Choose the response that removes the friction, and give the reason in responseReason, one sentence. Remember only what an agent cannot learn from the code or documents; a note teaching agents to work around a defect preserves it. Set workaround to true when the learning only helps agents work around something the team could change.
+  - remember: a lasting fact or deliberate design that an agent cannot see from the code.
+  - document: a rule that exists but is unwritten, or a document that is wrong. Set edit to the document an agent doing this task reads and the exact change: old is text that occurs exactly once in it, and new replaces it. To insert, set old to an existing line and new to that line followed by the addition.
+  - fix: a defect, dead code, a misleading default, or a confusing tool. Set change to a sketch of the fix.
+  - guard: a rule agents keep breaking that a check, a test, or a blocking hook could enforce. Set change to the check. When a command prefix or a path identifies the forbidden tool call, also set guardRule.
+  - ask: intent that is unclear or disputed. Set question to the decision needed, and owner to who decides when the excerpts show it.
 
 Be strict. A person will review every proposal, and a weak proposal costs them time and teaches them to ignore the rest.`;
 

@@ -4,7 +4,7 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 export const SHARD_DIR = "docs/memory/context-shards";
@@ -91,10 +91,11 @@ export function indexFingerprint(index, files) {
   return hex(index.records.filter(([path]) => want.has(path)).map(([, r]) => `${r}\0`).join(""));
 }
 
-// Files with uncommitted changes or unresolved merge stages.
+// Files with uncommitted changes or unresolved merge stages. Paths are
+// literal, so a name like `:!x` is never read as pathspec magic.
 export function dirtyFiles(root, files) {
   if (!files.length) return [];
-  return git(root, ["status", "--porcelain", "-z", "--", ...files]).split("\0").filter(Boolean).map((l) => l.slice(3));
+  return git(root, ["--literal-pathspecs", "status", "--porcelain", "-z", "--", ...files]).split("\0").filter(Boolean).map((l) => l.slice(3));
 }
 
 export function slugify(text) {
@@ -134,7 +135,7 @@ export function evidenceLines(evidence = []) {
 // Reads the frontmatter subset shards use: scalars, quoted strings, and
 // lists of scalars. Nested maps (code-anchors) are read as lists of their
 // `glob:` values.
-export function parseShard(text, path) {
+export function parseFrontmatter(text) {
   const m = text.replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!m) return null;
   const fm = {};
@@ -151,6 +152,13 @@ export function parseShard(text, path) {
   }
   const body = m[2];
   const section = (name) => body.split(/\n(?=## )/).find((s) => s.startsWith(`## ${name}`))?.replace(/^## .*\n+/, "").trim() ?? "";
+  return { fm, body, section };
+}
+
+export function parseShard(text, path) {
+  const parsed = parseFrontmatter(text);
+  if (!parsed) return null;
+  const { fm, section } = parsed;
   const checked = [...section("Verification").matchAll(/^- `([^`]+)`/gm)].map((x) => x[1]);
   const shard = {
     path,
@@ -175,7 +183,7 @@ export function parseShard(text, path) {
   return shard;
 }
 
-const list = (v) => (Array.isArray(v) ? v.map(String) : v ? [String(v)] : []);
+export const list = (v) => (Array.isArray(v) ? v.map(String) : v ? [String(v)] : []);
 
 function scalar(raw) {
   const s = raw.trim();
@@ -313,9 +321,46 @@ export function loadDecisions(root, localDir) {
 }
 
 // Tracked files keep ordinary permissions, unlike the owner-only local store.
-export function writeAtomic(file, text) {
+// Staging writes a temporary sibling and returns the rename that replaces the
+// file, so a change to several files can stage all of them before any lands.
+export function stageAtomic(file, text) {
   mkdirSync(dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   writeFileSync(tmp, text);
-  renameSync(tmp, file);
+  // A replaced file keeps its permissions.
+  if (existsSync(file)) chmodSync(tmp, statSync(file).mode & 0o7777);
+  return { commit: () => renameSync(tmp, file), discard: () => rmSync(tmp, { force: true }) };
+}
+
+export const writeAtomic = (file, text) => stageAtomic(file, text).commit();
+
+// Lands two staged writes as a pair. If the first cannot land, neither does.
+// If the second cannot, `restore` undoes the first before any cleanup, so a
+// failed cleanup never leaves the first in place; a failed restore is
+// attached to the error as `restoreError`.
+export function landPair(first, second, restore) {
+  const quietly = (f) => {
+    try {
+      f();
+    } catch {}
+  };
+  try {
+    first.commit();
+  } catch (err) {
+    quietly(first.discard);
+    quietly(second.discard);
+    err.firstFailed = true;
+    throw err;
+  }
+  try {
+    second.commit();
+  } catch (err) {
+    try {
+      restore();
+    } catch (restoreError) {
+      err.restoreError = restoreError;
+    }
+    quietly(second.discard);
+    throw err;
+  }
 }
