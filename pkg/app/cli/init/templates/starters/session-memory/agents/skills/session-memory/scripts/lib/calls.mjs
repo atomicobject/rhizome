@@ -103,6 +103,7 @@ export function rzmClients(rzm = "rzm", { cwd } = {}) {
     },
     evaluateBatch: async (request) => parse(await run(["agent", "evaluate-batch"], JSON.stringify(request)), "evaluate-batch"),
     harnessStatus: async () => parse(await run(["harness", "status"]), "harness status"),
+    configuredHarness: async () => (parse(await run(["harness", "status", "--configured"]), "configured harness")).harness,
     // Rhizome search for verification evidence; a failure is evidence too.
     async search(args, { cwd: dir } = {}) {
       const r = await run(["search", ...args], "", dir ?? cwd);
@@ -144,7 +145,7 @@ function account(spend, role, usage, usd, model) {
 
 // A caller bound to one run's frozen bindings, budget, and spend record.
 // `estimate` is the dollar reservation a call takes against the budget.
-export function makeCaller({ clients, store, run, bindings, budget = null, spend }) {
+export function makeCaller({ clients, store, run, bindings, budget = null, spend, onResult }) {
   let reserved = 0;
   const reserve = (usd) => {
     if (budget !== null && spend.usd + reserved + usd > budget) throw new Stop("budget", `budget $${budget} reached ($${spend.usd.toFixed(4)} spent)`);
@@ -152,15 +153,16 @@ export function makeCaller({ clients, store, run, bindings, budget = null, spend
   };
 
   // `effort` overrides the binding's for cheap follow-ups such as repairs.
-  async function generate({ role, stage, prompt, schema, estimate = 0, effort, tally }) {
+  async function generate({ role, stage, prompt, schema, estimate = 0, effort, tally, bypassCache = false }) {
     const b = bindings[role];
     if (!b) throw new Stop("binding", `no binding for ${role}`);
     effort ??= b.effort;
     const key = callKey({ stage, binding: { ...b, effort }, prompt, schema });
-    const hit = store.cacheGet(key);
+    const hit = bypassCache ? null : store.cacheGet(key);
     if (hit) {
       (spend.byRole[role] ??= { calls: 0, cached: 0, inputTokens: 0, outputTokens: 0, usd: 0 }).cached++;
       if (tally) tally.cached++;
+      onResult?.({ ...hit, role, cached: true });
       return hit.output;
     }
     reserve(estimate);
@@ -185,9 +187,11 @@ export function makeCaller({ clients, store, run, bindings, budget = null, spend
         // Token prices can miss requests a reply needed; Claude's own total covers them.
         const usd = Math.max(costOf(r.model || b.model, r.usage) ?? 0, r.usage?.costUsd ?? 0);
         const output = b.provider === "codex" ? dropNulls(r.output) : r.output;
-        store.ledger({ run, stage, role, key, attempt, ok: true, model: r.model || b.model, usage: r.usage, usd });
-        store.cachePut(key, { stage, role, model: r.model, output, usage: r.usage, usd });
+        const result = { stage, role, model: r.model || b.model, output, usage: r.usage, usd, ms: Date.now() - started };
+        store.ledger({ run, key, attempt, ok: true, ...result, output: undefined });
+        store.cachePut(key, result);
         account(spend, role, r.usage, usd, r.model || b.model);
+        onResult?.({ ...result, cached: false });
         if (tally) addTally(tally, r.usage, usd, Date.now() - started);
         return output;
       }

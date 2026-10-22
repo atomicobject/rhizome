@@ -2,16 +2,80 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
 	"github.com/atomicobject/rhizome/pkg/app/cli/harnesscheck"
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/harness/harnesstest"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/stretchr/testify/require"
 )
+
+func TestAgentHarnessConfiguredStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name, config, want string
+	}{
+		{name: "missing", want: ""},
+		{name: "unset", config: "agent: {}\n", want: ""},
+		{name: "claude", config: "agent:\n  harness: claude\n  harnesses:\n    claude:\n      model: private-model\n", want: "claude"},
+		{name: "codex", config: "agent:\n  harness: codex\n", want: "codex"},
+		{name: "unknown", config: "agent:\n  harness: other\n", want: ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := testkit.Env(t)
+			env.CLIConfigFile = filepath.Join(env.WorkingDir, "config.yml")
+			if tc.config != "" {
+				require.NoError(t, os.WriteFile(env.CLIConfigFile, []byte(tc.config), 0o600))
+			}
+			cmd := newAgentHarnessStatusCmd(func() map[harness.Kind]harness.Harness {
+				t.Fatal("configured status must not construct or probe providers")
+				return nil
+			})
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetArgs([]string{"--configured"})
+			require.NoError(t, cmd.ExecuteContext(vaultconfig.WithEnv(context.Background(), env)))
+			require.JSONEq(t, `{"harness":"`+tc.want+`"}`, stdout.String())
+			if tc.config != "" {
+				after, err := os.ReadFile(env.CLIConfigFile)
+				require.NoError(t, err)
+				require.Equal(t, tc.config, string(after))
+			} else {
+				require.NoFileExists(t, env.CLIConfigFile)
+			}
+		})
+	}
+}
+
+func TestAgentHarnessConfiguredStatusRejectsHarnessFlag(t *testing.T) {
+	cmd := newAgentHarnessStatusCmd(func() map[harness.Kind]harness.Harness {
+		t.Fatal("conflicting flags must not construct providers")
+		return nil
+	})
+	cmd.SetArgs([]string{"--configured", "--harness", "claude"})
+	require.ErrorContains(t, cmd.Execute(), "[configured harness]")
+}
+
+func TestAgentHarnessConfiguredStatusReturnsConfigError(t *testing.T) {
+	env := testkit.Env(t)
+	env.CLIConfigFile = filepath.Join(env.WorkingDir, "config.yml")
+	require.NoError(t, os.WriteFile(env.CLIConfigFile, []byte("agent: ["), 0o600))
+	cmd := newAgentHarnessStatusCmd(func() map[harness.Kind]harness.Harness {
+		t.Fatal("invalid configuration must not construct providers")
+		return nil
+	})
+	cmd.SetArgs([]string{"--configured"})
+	err := cmd.ExecuteContext(vaultconfig.WithEnv(context.Background(), env))
+	require.IsType(t, silentExitError{}, err)
+	require.Equal(t, 1, err.(silentExitError).ExitCode())
+}
 
 func TestAgentHarnessStatusOutput(t *testing.T) {
 	codexFake := &harnesstest.Harness{StatusResult: harness.Status{

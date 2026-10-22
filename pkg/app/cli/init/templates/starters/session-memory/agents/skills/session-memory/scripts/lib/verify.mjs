@@ -139,7 +139,8 @@ const shown = (ctx, path, hash) => ctx.reads && !ctx.reads.has(path) && ctx.read
 // hash of its raw content, or a parenthesized reason it was not read.
 const CREDENTIAL_FILE = /(^|\/)\.env(\.|$)/;
 function trackedText(ctx, path) {
-  const { root } = ctx;
+  const { root, exclude } = ctx;
+  if (exclude?.(path)) return { skipped: `(withheld calibration label: ${path})` };
   if (!trackedFiles(root).has(path)) return { skipped: `(not a tracked file: ${path})` };
   if (CREDENTIAL_FILE.test(path)) return { skipped: `(credential files are not read: ${path})` };
   // A tracked symlink, or a symlinked parent directory, can point outside the
@@ -148,6 +149,7 @@ function trackedText(ctx, path) {
     const top = realpathSync(root);
     const real = realpathSync(join(root, path));
     if (!real.startsWith(top + sep)) return { skipped: `(outside the checkout: ${path})` };
+    if (exclude?.(relative(top, real).split(sep).join("/"))) return { skipped: `(withheld calibration label: ${path})` };
     if (CREDENTIAL_FILE.test(relative(top, real).split(sep).join("/"))) return { skipped: `(credential files are not read: ${path})` };
     if (!statSync(real).isFile()) return { skipped: `(not a regular file: ${path})` };
     const raw = readFileSync(real, "utf8");
@@ -169,6 +171,23 @@ function readFile(ctx, path, start = 1, end = 0) {
   return `${path} (lines ${from}-${to} of ${lines.length})\n${cap(body, FILE_CHARS)}`;
 }
 
+async function searchEvidence(ctx, args) {
+  if (!ctx.exclude) return cap(redact(await ctx.search(args)).text, SEARCH_CHARS);
+  // Calibration labels must not become proof that their own learning is documented.
+  const result = await ctx.search(args.map((a) => a === "--raw" ? "--json" : a));
+  if (result.startsWith("(failed:")) return result;
+  let sources;
+  try {
+    sources = JSON.parse(result).sources;
+    if (sources === null) sources = [];
+  } catch {
+    throw new Error("calibration search requires structured sources to withhold labels");
+  }
+  if (!Array.isArray(sources)) throw new Error("calibration search returned no sources array");
+  const paths = [...new Set(sources.map((s) => s.result?.Path || s.result?.NoteID).filter((p) => typeof p === "string" && !ctx.exclude(p)))];
+  return cap(paths.map((p) => readFile(ctx, p, 1, 200)).join("\n\n") || "(no matches outside calibration labels)", SEARCH_CHARS);
+}
+
 async function fulfil(ctx, r) {
   switch (r.kind) {
     case "file":
@@ -176,9 +195,9 @@ async function fulfil(ctx, r) {
     case "grep":
       return grep(ctx, r.value, { perFile: 3, max: GREP_CHARS });
     case "search":
-      return cap(redact(await ctx.search(["-n", "6", "--raw", "--", r.value])).text, SEARCH_CHARS);
+      return searchEvidence(ctx, ["-n", "6", "--raw", "--", r.value]);
     case "docs_for_file":
-      return cap(redact(await ctx.search(["--mode", "docs_for_code", "-n", "6", "--raw", "-f", r.value])).text, SEARCH_CHARS);
+      return searchEvidence(ctx, ["--mode", "docs_for_code", "-n", "6", "--raw", "-f", r.value]);
     default:
       return `(unknown request kind ${r.kind})`;
   }
@@ -195,7 +214,7 @@ function identifiers(texts) {
 }
 
 export async function initialPacket(ctx, cl, variants) {
-  const files = trackedFiles(ctx.root);
+  const files = new Set([...trackedFiles(ctx.root)].filter((p) => !ctx.exclude?.(p)));
   const sections = [];
   const scope = (cl.appliesTo ?? []).map((g) => {
     const re = globRegex(g);
