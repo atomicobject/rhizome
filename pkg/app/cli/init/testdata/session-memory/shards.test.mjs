@@ -35,6 +35,8 @@ const proposal = (cluster, over = {}) => ({
   why: "Callers expecting no wait block for 30 seconds.",
   appliesTo: ["pkg/store/**/*.go"],
   commands: [],
+  response: "remember",
+  responseReason: "A lasting rule.",
   verification: [{ path: "pkg/store/db.go", checked: "The default is applied when the value is 0." }],
   evidence: [{ episode: "claude:s1:4", harness: "claude", session: "s1", ts: "2026-10-01T10:00:00Z", lens: "discovery", origin: "agent", toolCalls: 7 }],
   ...over,
@@ -51,7 +53,7 @@ test("approving writes a current shard that lookup returns and review no longer 
   const { approved } = sm("approve", "k-1", "--confirm-publish");
   assert.match(approved, /^docs\/memory\/context-shards\/rule-busy-timeout-k-1/);
   const shard = parseShard(readFileSync(join(root, approved), "utf8"), approved);
-  assert.equal(shard.reviewedBy, "[[pat-example]]");
+  assert.equal(shard.reviewedBy, "[[docs/people/pat-example]]");
   assert.equal(shard.approvedHash, approvedHash(shard));
   assert.deepEqual(shard.anchors, ["pkg/store/**/*.go"]);
   assert.ok(shard.verifiedFingerprint);
