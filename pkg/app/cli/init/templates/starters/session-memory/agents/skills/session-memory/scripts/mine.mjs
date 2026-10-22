@@ -66,10 +66,11 @@ export async function mine(opts, clients) {
 function refuseTracked(root, dir) {
   const rel = relative(root, resolvePath(dir));
   if (!rel || rel.startsWith("..") || isAbsolute(rel)) return;
+  const path = rel.split(sep).join("/");
   try {
-    execFileSync("git", ["-C", root, "check-ignore", "-q", "--", `${rel.split(sep).join("/")}/ledger.jsonl`], { stdio: "ignore" });
+    execFileSync("git", ["-C", root, "check-ignore", "-q", "--", `${path}/ledger.jsonl`], { stdio: "ignore" });
   } catch (err) {
-    if (err.status === 1) throw new Error(`Git does not ignore ${rel}, so transcript text written there could be committed; rerun rzm init to restore .rhizome/.gitignore, or pass --state outside the checkout`);
+    if (err.status === 1) throw new Error(`Git does not ignore ${path}, so transcript text written there could be committed; rerun rzm init to restore .rhizome/.gitignore, or pass --state outside the checkout`);
   }
 }
 
