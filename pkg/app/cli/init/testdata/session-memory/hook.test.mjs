@@ -195,7 +195,7 @@ test("parsed shards are cached after a consistent read and reused until the list
   assert.match(read(root, ["pkg/store/db.go"]).items[0].text, /verified 2026-10-01/);
 });
 
-test("the CLI reads one request from stdin and always exits 0", () => {
+test("the CLI reads one request from stdin, always exits 0, and reports an error it recovered from", () => {
   const root = scratchRepo();
   shard(root, { statement: "Store rule: a busy timeout of 0 means the default." });
   const cli = fileURLToPath(new URL("hook.mjs", scripts));
@@ -203,11 +203,14 @@ test("the CLI reads one request from stdin and always exits 0", () => {
   const ok = run(JSON.stringify(request(root, { event: "post-tool-use", tool: "edit", paths: ["pkg/store/db.go"] })));
   assert.equal(ok.status, 0);
   assert.equal(JSON.parse(ok.stdout).items.length, 1);
+  assert.equal(JSON.parse(ok.stdout).error, undefined);
   const huge = JSON.stringify({ ...request(root, { event: "post-tool-use", tool: "edit", paths: ["pkg/store/db.go"] }), pad: "x".repeat(1 << 20) });
   for (const bad of ["not json", JSON.stringify({ version: 2 }), huge]) {
     const r = run(bad);
     assert.equal(r.status, 0);
-    assert.deepEqual(JSON.parse(r.stdout), { items: [] });
+    const out = JSON.parse(r.stdout);
+    assert.deepEqual(out.items, []);
+    assert.ok(out.error, bad.slice(0, 20));
     assert.match(r.stderr, /session-memory hook/);
   }
 });

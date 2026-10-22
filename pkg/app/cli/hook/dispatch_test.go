@@ -59,6 +59,8 @@ func helper(mode string, args []string) {
 	case mode == "warn":
 		fmt.Fprintln(os.Stderr, "session-memory hook: writing the shard cache: EACCES")
 		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"items": []Item{{ID: "w", Text: "text w"}}})
+	case mode == "soft":
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"items": []Item{}, "error": "reading shards: EIO"})
 	case mode == "garbage":
 		fmt.Println("not json")
 	case mode == "sleep":
@@ -470,4 +472,24 @@ func TestStartItemsStayDueWhenTheStateLockIsBusy(t *testing.T) {
 	require.Equal(t, "text g", res.HookSpecificOutput.AdditionalContext)
 	_, out = dispatchOnce(t, root, HarnessCodex, PostToolUse, payload(PostToolUse), starts)
 	require.Empty(t, out)
+}
+
+func TestStartItemsStayDueWhenAStartHandlerReportsAFailure(t *testing.T) {
+	root := repo(t)
+	start := func(mode string) Handler {
+		h := helperHandler("start", mode)
+		h.Events = []string{SubagentStart}
+		return h
+	}
+	payload := fmt.Sprintf(`{"session_id":"s1","agent_id":"sub-1","cwd":%q,"tool_name":"Read","tool_input":{"file_path":"pkg/a.go"}}`, root)
+	_, out := dispatchOnce(t, root, HarnessCodex, PostCompact, payload, start("items:g"))
+	require.Empty(t, out)
+	// The handler recovered from its error and exited 0 with no items.
+	_, out = dispatchOnce(t, root, HarnessCodex, PostToolUse, payload, start("soft"))
+	require.Empty(t, out)
+	res, _ := dispatchOnce(t, root, HarnessCodex, PostToolUse, payload, start("items:g"))
+	require.Equal(t, "text g", res.HookSpecificOutput.AdditionalContext, "start items stay due until a start handler completes")
+	log, err := os.ReadFile(filepath.Join(root, ".rhizome", "hooks", "diagnostics.log"))
+	require.NoError(t, err)
+	require.Contains(t, string(log), "reading shards: EIO")
 }

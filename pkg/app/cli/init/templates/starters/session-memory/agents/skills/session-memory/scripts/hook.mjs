@@ -4,7 +4,8 @@
 // {"items": [{"id", "text"}]}: patternless shards at session and subagent
 // start, and the shards for a tool call's paths or command afterwards. The
 // dispatcher owns payload parsing, path containment, deadlines, and
-// emitted-item state; any error here prints no items and exits 0.
+// emitted-item state. An error here prints no items, names the error in
+// "error" so the dispatcher keeps start items due, and exits 0.
 
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -145,6 +146,7 @@ export async function main(stdin = process.stdin, stdout = process.stdout) {
     out = handle(JSON.parse(Buffer.concat(chunks).toString("utf8")), { startedAt: 0 });
   } catch (err) {
     warn("no items", err);
+    out = { items: [], error: String(err?.message ?? err) };
   }
   stdout.write(JSON.stringify(out));
 }

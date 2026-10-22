@@ -200,7 +200,8 @@ func (d *dispatch) run() error {
 			items, stderr, err := d.runHandler(h, runEv, emitted, remaining)
 			switch {
 			case err != nil:
-				// One handler's failure keeps the others' items.
+				// One handler's failure keeps the others' items, and its own
+				// when it reported the failure itself.
 				failures = append(failures, fmt.Sprintf("%s: %v", h.Key(), err))
 				failed = true
 			case stderr != "":
@@ -326,7 +327,8 @@ func readPrefixes(root, rel string) []string {
 
 // runHandler runs one handler under the remaining deadline and returns its
 // items and what it wrote to standard error. A timeout kills the handler's
-// whole process tree.
+// whole process tree. A handler that reports an error keeps its items, and
+// the error marks its run as failed.
 func (d *dispatch) runHandler(h Handler, ev Event, emitted map[string]bool, budget int) ([]Item, string, error) {
 	if len(h.Command) == 0 {
 		return nil, "", errors.New("no command")
@@ -373,9 +375,15 @@ func (d *dispatch) runHandler(h Handler, ev Event, emitted map[string]bool, budg
 	}
 	var out struct {
 		Items []Item `json:"items"`
+		// Error is a failure the handler recovered from: its items still
+		// count, but the run did not complete.
+		Error string `json:"error"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
 		return nil, "", fmt.Errorf("parse output: %w; stderr: %s", err, errText)
+	}
+	if out.Error != "" {
+		return out.Items, "", fmt.Errorf("reported %q; stderr: %s", out.Error, errText)
 	}
 	return out.Items, errText, nil
 }
