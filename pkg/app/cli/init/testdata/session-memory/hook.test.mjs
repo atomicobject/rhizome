@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { execFileSync, execSync, spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, realpathSync, utimesSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { test } from "node:test";
 import { scratchRepo } from "./fakes.mjs";
 
@@ -180,6 +180,21 @@ test("the closing line names lookup.mjs where the skill is installed", async () 
   // It runs from a subdirectory, where the agent's shell may be.
   mkdirSync(join(root, "src"), { recursive: true });
   execSync(copy.lookupCommand(0), { cwd: join(root, "src"), encoding: "utf8" });
+});
+
+test("the closing line quotes an install path the agent's shell would otherwise expand", async () => {
+  const root = realpathSync(scratchRepo());
+  const installed = join(root, "it's $HOME `id` dir", "scripts");
+  cpSync(fileURLToPath(scripts), installed, { recursive: true });
+  const copy = await import(new URL("hook.mjs", pathToFileURL(`${installed}/`)).href);
+  const script = join(installed, "lookup.mjs").split(sep).join("/");
+  assert.equal(copy.lookupCommand(3), `node '${script.replaceAll("'", "'\\''")}' --skip 3`);
+  assert.equal(copy.lookupCommand(3, { harness: "codex", platform: "win32" }), `node '${script.replaceAll("'", "''")}' --skip 3`);
+  assert.equal(copy.lookupCommand(3, { harness: "claude", platform: "win32" }), copy.lookupCommand(3));
+  // The shell runs exactly that script.
+  shard(root, { statement: "Global rule: every package logs through one logger.", appliesTo: [] });
+  const shown = execSync(copy.lookupCommand(0), { cwd: root, encoding: "utf8", shell: "/bin/sh" });
+  assert.match(shown, /Global rule/);
 });
 
 test("parsed shards are cached after a consistent read and reused until the listing changes", () => {

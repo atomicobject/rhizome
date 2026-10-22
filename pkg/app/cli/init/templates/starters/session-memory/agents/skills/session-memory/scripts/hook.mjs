@@ -25,11 +25,18 @@ const warn = (what, err) => process.stderr.write(`session-memory hook: ${what}: 
 
 // The lookup command that shows the matches past the first `skip`, naming
 // this skill's lookup.mjs by absolute path, so it runs from any directory
-// the agent is in.
-export function lookupCommand(skip) {
+// the agent is in. A path that needs quoting is single-quoted for the
+// agent's shell: POSIX shells, including Claude Code's Git Bash on Windows,
+// or PowerShell for Codex on Windows.
+export function lookupCommand(skip, { harness, platform = process.platform } = {}) {
   const script = fileURLToPath(new URL("./lookup.mjs", import.meta.url)).split(sep).join("/");
-  return `node ${/[\s"'$\\]/.test(script) ? JSON.stringify(script) : script} --skip ${skip}`;
+  return `node ${shellQuote(script, platform === "win32" && harness === "codex")} --skip ${skip}`;
 }
+
+const shellQuote = (s, powershell) => {
+  if (/^[\w@%+=:,./-]+$/.test(s)) return s;
+  return powershell ? `'${s.replaceAll("'", "''")}'` : `'${s.replaceAll("'", "'\\''")}'`;
+};
 
 export const moreLine = (n, command) => `${n} more context ${n === 1 ? "shard applies" : "shards apply"} everywhere; run ${command} to see them.`;
 
@@ -117,7 +124,7 @@ export function handle(input, { startedAt = performance.now() } = {}) {
     // Lookup pages through every match, emitted ones included, so the
     // closing line skips to the first omitted shard in that order.
     const order = selectShards({ ...base, exclude: new Set(), maxShards: Infinity, maxChars: Infinity, index: r.index }).shards.map((s) => s.id);
-    const line = (n, skip) => moreLine(n, lookupCommand(skip));
+    const line = (n, skip) => moreLine(n, lookupCommand(skip, { harness: ev.harness }));
     // Reserve room for the closing line; singular is the longer wording.
     const total = r.shards.length + r.omitted;
     const reserve = Math.max(Buffer.byteLength(line(1, order.length)), Buffer.byteLength(line(total, order.length)));
