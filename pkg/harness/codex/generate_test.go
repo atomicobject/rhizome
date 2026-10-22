@@ -159,6 +159,21 @@ func TestGenerateWithoutSchemaReturnsTextAndReportsTurnFailure(t *testing.T) {
 	require.ErrorContains(t, err, "usage limit reached")
 }
 
+// Codex may close stdout right after turn/completed, so the completion and the
+// closure can be ready at once; the completed reply must win.
+func TestAwaitGenerationPrefersACompletedTurn(t *testing.T) {
+	ready := func() chan struct{} { c := make(chan struct{}); close(c); return c }
+	closedErr := func() error { return harness.ErrTransportClosed }
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	for range 100 {
+		require.NoError(t, awaitGeneration(context.Background(), ready(), ready(), closedErr))
+		require.NoError(t, awaitGeneration(canceled, ready(), make(chan struct{}), closedErr))
+	}
+	require.ErrorIs(t, awaitGeneration(context.Background(), make(chan struct{}), ready(), closedErr), harness.ErrTransportClosed)
+	require.ErrorIs(t, awaitGeneration(canceled, make(chan struct{}), make(chan struct{}), closedErr), harness.ErrTimeout)
+}
+
 func TestGenerateFailsClosedBeforeTheTurn(t *testing.T) {
 	initialized := `{"jsonrpc":"2.0","id":1,"result":{"userAgent":"rhizome/0.163.0"}}`
 	configRead := `{"jsonrpc":"2.0","id":2,"result":{"config":{"mcp_servers":{"remctl":{}}},"origins":{}}}`

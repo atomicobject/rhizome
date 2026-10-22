@@ -96,14 +96,31 @@ func (d *Driver) Generate(ctx context.Context, request harness.GenerateRequest) 
 	}, nil); err != nil {
 		return harness.GenerateResult{}, s.preferTerminal(err)
 	}
-	select {
-	case <-run.done:
-	case <-ctx.Done():
-		return harness.GenerateResult{}, harness.Phase(harness.ErrTimeout, ctx.Err())
-	case <-s.lifetime.Done():
-		return harness.GenerateResult{}, s.transportError()
+	if err := awaitGeneration(ctx, run.done, s.lifetime.Done(), s.transportError); err != nil {
+		return harness.GenerateResult{}, err
 	}
 	return run.result(started.Model, request.Schema)
+}
+
+// awaitGeneration waits for the turn to complete. Codex can close stdout right
+// after turn/completed, so a completed turn wins over a deadline or transport
+// closure that became ready at the same moment.
+func awaitGeneration(ctx context.Context, done, closed <-chan struct{}, closedErr func() error) error {
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+	case <-closed:
+	}
+	select {
+	case <-done:
+		return nil
+	default:
+	}
+	if ctx.Err() != nil {
+		return harness.Phase(harness.ErrTimeout, ctx.Err())
+	}
+	return closedErr()
 }
 
 // generateMinimumVersion is the codex-cli release this recipe was verified

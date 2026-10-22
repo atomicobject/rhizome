@@ -606,6 +606,7 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
   - **Round 4 (confidence 3, two comments, both fixed):** in a small run, screening could drop the single best passage when it alone exceeded the run's share, and the cursor then moved past it; the best passage is now always kept. Session discovery compared Windows transcript paths with Git's forward slashes and skipped those sessions; both sides are now normalized.
   - **Round 5 (confidence 3, two comments, both fixed):** the resolver required only `extract` and `verify`, so a run could pay for screening and extraction and then stop for want of `synthesize`; every role a run calls is now required. A model's rejection was never reconsidered after another family supported the learning; it now is, while decisions a person made stay settled.
   - **Round 6 (confidence 5, one comment, fixed):** shell-path parsing treated Windows drive paths such as `C:/repo/pkg/a.go` as relative, so lookup missed their shards.
+  - **Round 7 (confidence 4, one comment, fixed):** Codex `generate` could discard a completed reply when stdout closed right after `turn/completed`, because the wait's `select` chose between the completion and the closure at random; callers would then retry paid work that had succeeded. A completed turn now wins, tested deterministically through the extracted wait.
 
 ## Deviations
 
