@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -19,11 +20,20 @@ import (
 // whose hook entries use them.
 func hookRepo(t *testing.T, hooks string) string {
 	t.Helper()
+	stubHookSupport(t, nil)
 	root := machineRunRepo(t)
 	writeFixtureFile(t, root, ".claude/settings.json", `{"permissions":{"allow":["Bash(ls)"]},"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo done"}]}]}}`)
 	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "session-memory", Agents: "claude,codex", Search: "off", Hooks: hooks})
 	require.NoError(t, err)
 	return root
+}
+
+// stubHookSupport answers init's check of the rzm the entries launch.
+func stubHookSupport(t *testing.T, err error) {
+	t.Helper()
+	saved := checkHookSupport
+	checkHookSupport = func(string, repoconfig.LocalConfig) error { return err }
+	t.Cleanup(func() { checkHookSupport = saved })
 }
 
 // hookCommands lists the commands in a settings file by host event.
@@ -190,17 +200,34 @@ func TestClaudeEntriesUseTheSameExecFormOnEveryOS(t *testing.T) {
 }
 
 func TestHookEntriesWaitForABinaryThatSupportsThem(t *testing.T) {
-	saved := checkHookSupport
-	checkHookSupport = func(string, repoconfig.LocalConfig) error {
-		return errors.New("the selected rzm does not support rzm hook")
-	}
-	t.Cleanup(func() { checkHookSupport = saved })
-	root := hookRepo(t, "on")
+	root := hookRepo(t, "")
+	stubHookSupport(t, errors.New("the selected rzm does not support rzm hook"))
+	_, err := runInit(t, RunOptions{Dir: root, Hooks: "on"})
+	require.NoError(t, err)
 	require.NotContains(t, hookCommands(t, root, ".claude/settings.json"), "PostToolUse")
 	require.NoFileExists(t, filepath.Join(root, ".codex/hooks.json"))
 	out, err := runInit(t, RunOptions{Dir: root, Check: true})
 	require.NoError(t, err)
 	require.Contains(t, out, "Hook entries were left as they are: the selected rzm does not support rzm hook")
+}
+
+func TestHookSupportCheckProbesTheRzmOnPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture is Unix-only")
+	}
+	root := t.TempDir()
+	bin := t.TempDir()
+	t.Setenv("PATH", bin)
+	err := selectedBinarySupportsHooks(root, repoconfig.LocalConfig{})
+	require.ErrorContains(t, err, "no rzm on PATH")
+
+	launcher := filepath.Join(bin, "rzm")
+	require.NoError(t, os.WriteFile(launcher, []byte("#!/bin/sh\necho 'unknown command \"hook\"' >&2\nexit 1\n"), 0o755))
+	err = selectedBinarySupportsHooks(root, repoconfig.LocalConfig{})
+	require.ErrorContains(t, err, "the rzm on PATH ("+launcher+") does not support rzm hook")
+
+	require.NoError(t, os.WriteFile(launcher, []byte("#!/bin/sh\n[ \"$1 $2\" = \"hook --check\" ] && echo 'rzm-hook 1'\n"), 0o755))
+	require.NoError(t, selectedBinarySupportsHooks(root, repoconfig.LocalConfig{}))
 }
 
 func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {

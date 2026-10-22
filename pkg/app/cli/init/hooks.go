@@ -264,46 +264,55 @@ func printHookStatus(out io.Writer, root string, res resolved) {
 	}
 }
 
-// checkHookSupport tells whether the rzm this repository selects can run
-// installed entries. It is a variable so tests need no second binary.
+// checkHookSupport tells whether installed entries can run. It is a
+// variable so tests need no second binary.
 var checkHookSupport = selectedBinarySupportsHooks
 
-// selectedBinarySupportsHooks probes the selected rzm with `rzm hook
-// --check` unless it is this binary.
+// selectedBinarySupportsHooks probes, with `rzm hook --check`, the rzm on
+// PATH that every entry launches, and the binary this repository selects,
+// which that rzm hands hooks off to. This binary needs no probe.
 func selectedBinarySupportsHooks(root string, cfg repoconfig.LocalConfig) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	launcher, err := exec.LookPath("rzm")
+	if err != nil {
+		return fmt.Errorf("hook entries run rzm from PATH, and there is no rzm on PATH")
+	}
+	if !supportsHooks(root, launcher, exe) {
+		return fmt.Errorf("the rzm on PATH (%s) does not support rzm hook; update it with rzm update", launcher)
+	}
 	external, err := cfg.Rhizome.UsesExternalBinaryManager()
 	if err != nil {
 		return err
 	}
 	pin := strings.TrimSpace(cfg.Rhizome.Version)
-	if !external && strings.TrimSpace(cfg.Rhizome.DevBinaryDir) == "" && (pin == "" || pin == version.Version) {
+	if external || strings.TrimSpace(cfg.Rhizome.DevBinaryDir) == "" && (pin == "" || pin == version.Version) {
 		return nil
-	}
-	exe, err := os.Executable()
-	if err != nil {
-		return err
 	}
 	target := exe
-	if external {
-		if target, err = exec.LookPath("rzm"); err != nil {
-			return fmt.Errorf("no rzm on PATH for the external binary manager")
-		}
-	} else if plan, err := repoexec.Select(root, exe); err == nil && plan.Target != "" {
+	if plan, err := repoexec.Select(root, exe); err == nil && plan.Target != "" {
 		target = plan.Target
-	}
-	if repoexec.SameExecutablePath(target, exe) {
-		return nil
 	}
 	if _, err := os.Stat(target); err != nil {
 		return fmt.Errorf("the selected rzm (%s) is not installed yet; run rzm init again once it is", target)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	out, err := repoexec.Probe(ctx, target, root, "hook", "--check")
-	if err != nil || !strings.HasPrefix(strings.TrimSpace(out), "rzm-hook ") {
+	if !supportsHooks(root, target, exe) {
 		return fmt.Errorf("the selected rzm (%s) does not support rzm hook; update it with rzm update", target)
 	}
 	return nil
+}
+
+// supportsHooks reports whether target answers `rzm hook --check`.
+func supportsHooks(root, target, exe string) bool {
+	if repoexec.SameExecutablePath(target, exe) {
+		return true
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := repoexec.Probe(ctx, target, root, "hook", "--check")
+	return err == nil && strings.HasPrefix(strings.TrimSpace(out), "rzm-hook ")
 }
 
 // planHookFiles decides the hook entries of each harness settings file:
