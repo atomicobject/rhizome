@@ -190,11 +190,13 @@ func operands(words []shellWord) []shellWord {
 	return out
 }
 
+// resolveAgainst joins a relative path to cwd without cleaning it: ".."
+// must apply after any symlink before it is followed (see physicalPath).
 func resolveAgainst(cwd, p string) string {
 	if filepath.IsAbs(p) || cwd == "" {
 		return p
 	}
-	return filepath.Join(cwd, p)
+	return strings.TrimRight(cwd, `/\`) + string(filepath.Separator) + p
 }
 
 // Options that take the next word as their value, per command.

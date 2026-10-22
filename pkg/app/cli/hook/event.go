@@ -200,7 +200,7 @@ func containedRel(root, p string) (string, bool) {
 	if !filepath.IsAbs(p) {
 		return "", false
 	}
-	rel, err := filepath.Rel(root, resolveExisting(filepath.Clean(p)))
+	rel, err := filepath.Rel(root, physicalPath(p))
 	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
 		return "", false
 	}
@@ -211,18 +211,33 @@ func containedRel(root, p string) (string, bool) {
 	return rel, true
 }
 
-// resolveExisting resolves symlinks in the longest existing prefix of p.
-func resolveExisting(p string) string {
-	rest := ""
-	for cur := p; ; {
-		if resolved, err := filepath.EvalSymlinks(cur); err == nil {
-			return filepath.Join(resolved, rest)
+// physicalPath resolves an absolute path one component at a time, as the
+// kernel does: a symlink is followed before a later ".." applies, so
+// link/../x names the parent of the link's target, not the link's parent.
+// Components after the first missing one cannot be links and apply
+// lexically.
+func physicalPath(p string) string {
+	p = filepath.FromSlash(p)
+	vol := filepath.VolumeName(p)
+	cur := vol + string(filepath.Separator)
+	missing := false
+	for _, part := range strings.Split(p[len(vol):], string(filepath.Separator)) {
+		switch part {
+		case "", ".":
+			continue
+		case "..":
+			cur = filepath.Dir(cur)
+			continue
 		}
-		parent := filepath.Dir(cur)
-		if parent == cur {
-			return p
+		next := filepath.Join(cur, part)
+		if !missing {
+			if resolved, err := filepath.EvalSymlinks(next); err == nil {
+				next = resolved
+			} else {
+				missing = true
+			}
 		}
-		rest = filepath.Join(filepath.Base(cur), rest)
-		cur = parent
+		cur = next
 	}
+	return cur
 }

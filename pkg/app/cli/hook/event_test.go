@@ -84,3 +84,18 @@ func TestNormalizeOutsideAWorktreeIsNotAnError(t *testing.T) {
 	_, err := normalize(HarnessClaude, SessionStart, []byte(fmt.Sprintf(`{"cwd":%q}`, t.TempDir())), "")
 	require.ErrorIs(t, err, errNoWorktree)
 }
+
+func TestDotDotAfterASymlinkFollowsTheLinkFirst(t *testing.T) {
+	root := repo(t)
+	outside := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(outside, "dir"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "secret.go"), nil, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "secret.go"), nil, 0o644))
+	if err := os.Symlink(filepath.Join(outside, "dir"), filepath.Join(root, "link")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	// link/../secret.go opens the outside file, though it cleans to secret.go.
+	require.Empty(t, containedPaths(root, root, []string{"link/../secret.go", filepath.Join(root, "link") + "/../secret.go"}))
+	require.Empty(t, containedPaths(root, root, shellReads("cd link/.. && cat secret.go", root)), "cd link/.. leaves the worktree before the read")
+	require.Equal(t, []string{"secret.go"}, containedPaths(root, root, []string{"pkg/../secret.go"}))
+}
