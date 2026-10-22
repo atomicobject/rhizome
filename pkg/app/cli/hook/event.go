@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/paths"
 )
 
 // Identity names the agent context an event belongs to. A field the host
@@ -179,64 +181,22 @@ func worktreeRoot(dir string) (string, error) {
 // escapes the worktree is dropped. Paths that do not exist (a deleted file)
 // are checked through their nearest existing parent.
 func containedPaths(root, callDir string, candidates []string) []string {
+	vault, err := paths.NewVaultPaths(root)
+	if err != nil {
+		return nil
+	}
 	seen := map[string]bool{}
 	var out []string
 	for _, c := range candidates {
 		if strings.TrimSpace(c) == "" {
 			continue
 		}
-		rel, ok := containedRel(root, resolveAgainst(callDir, c))
-		if ok && !seen[rel] {
-			seen[rel] = true
-			out = append(out, rel)
+		rel, err := vault.RelPhysicalStrict(paths.ResolveAgainst(callDir, c))
+		if r := rel.String(); err == nil && r != "" && r != ".git" && !strings.HasPrefix(r, ".git/") && !seen[r] {
+			seen[r] = true
+			out = append(out, r)
 		}
 	}
 	sort.Strings(out)
 	return out
-}
-
-func containedRel(root, p string) (string, bool) {
-	if !filepath.IsAbs(p) {
-		return "", false
-	}
-	rel, err := filepath.Rel(root, physicalPath(p))
-	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
-		return "", false
-	}
-	rel = filepath.ToSlash(rel)
-	if rel == ".git" || strings.HasPrefix(rel, ".git/") {
-		return "", false
-	}
-	return rel, true
-}
-
-// physicalPath resolves an absolute path one component at a time, as the
-// kernel does: a symlink is followed before a later ".." applies, so
-// link/../x names the parent of the link's target, not the link's parent.
-// Components after the first missing one cannot be links and apply
-// lexically.
-func physicalPath(p string) string {
-	p = filepath.FromSlash(p)
-	vol := filepath.VolumeName(p)
-	cur := vol + string(filepath.Separator)
-	missing := false
-	for _, part := range strings.Split(p[len(vol):], string(filepath.Separator)) {
-		switch part {
-		case "", ".":
-			continue
-		case "..":
-			cur = filepath.Dir(cur)
-			continue
-		}
-		next := filepath.Join(cur, part)
-		if !missing {
-			if resolved, err := filepath.EvalSymlinks(next); err == nil {
-				next = resolved
-			} else {
-				missing = true
-			}
-		}
-		cur = next
-	}
-	return cur
 }

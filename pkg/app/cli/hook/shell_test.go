@@ -2,13 +2,14 @@ package hook
 
 import (
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
-	cwd := "/repo"
+	cwd := filepath.FromSlash("/repo")
 	for _, tc := range []struct {
 		cmd  string
 		want []string
@@ -43,8 +44,9 @@ func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
 		want := make([]string, len(tc.want))
 		for i, p := range tc.want {
 			want[i] = filepath.FromSlash(p)
-			if p[0] == 'C' {
-				want[i] = resolveAgainst(cwd, p)
+			if p[0] == 'C' && runtime.GOOS != "windows" {
+				// A drive path is relative off Windows.
+				want[i] = "/repo/" + p
 			}
 		}
 		require.Equal(t, want, got, tc.cmd)
@@ -85,5 +87,5 @@ func TestPatchPathsIncludeMovesAndDeletes(t *testing.T) {
 	require.Equal(t, []string{
 		filepath.FromSlash("/repo/pkg/a.go"), filepath.FromSlash("/repo/pkg/b.go"),
 		filepath.FromSlash("/repo/old.go"), filepath.FromSlash("/repo/new.go"),
-	}, patchPaths(patch, "/repo"))
+	}, patchPaths(patch, filepath.FromSlash("/repo")))
 }

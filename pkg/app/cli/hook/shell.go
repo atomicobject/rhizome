@@ -3,6 +3,8 @@ package hook
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/paths"
 )
 
 // Shell commands are parsed, never executed. Only a bounded set of read
@@ -164,9 +166,9 @@ func shellReads(cmd, cwd string) []string {
 		if head == "cd" {
 			// Bash's cd is logical: ".." drops the previous component of the
 			// path text, not of the link's target. File operands after it
-			// still resolve physically (see physicalPath).
+			// still resolve physically (see paths.RelPhysicalStrict).
 			if len(args) == 1 && !args[0].dynamic {
-				cwd = filepath.Clean(resolveAgainst(cwd, args[0].text))
+				cwd = filepath.Clean(paths.ResolveAgainst(cwd, args[0].text))
 			}
 			continue
 		}
@@ -174,7 +176,7 @@ func shellReads(cmd, cwd string) []string {
 			if len(out) == maxShellPaths {
 				return out
 			}
-			out = append(out, resolveAgainst(cwd, file))
+			out = append(out, paths.ResolveAgainst(cwd, file))
 		}
 	}
 	return out
@@ -196,15 +198,6 @@ func operands(words []shellWord) []shellWord {
 		out = append(out, words[i])
 	}
 	return out
-}
-
-// resolveAgainst joins a relative path to cwd without cleaning it: ".."
-// must apply after any symlink before it is followed (see physicalPath).
-func resolveAgainst(cwd, p string) string {
-	if filepath.IsAbs(p) || cwd == "" {
-		return p
-	}
-	return strings.TrimRight(cwd, `/\`) + string(filepath.Separator) + p
 }
 
 // Options that take the next word as their value, per command.
@@ -316,7 +309,7 @@ func patchPaths(patch, cwd string) []string {
 		line = strings.TrimRight(line, "\r")
 		for _, marker := range []string{"*** Update File:", "*** Add File:", "*** Delete File:", "*** Move to:"} {
 			if rest, ok := strings.CutPrefix(line, marker); ok && strings.TrimSpace(rest) != "" && len(out) < maxShellPaths {
-				out = append(out, resolveAgainst(cwd, strings.TrimSpace(rest)))
+				out = append(out, paths.ResolveAgainst(cwd, strings.TrimSpace(rest)))
 			}
 		}
 	}
