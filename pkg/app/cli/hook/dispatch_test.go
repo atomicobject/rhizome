@@ -43,6 +43,9 @@ func helper(mode string, args []string) {
 	case mode == "fail":
 		fmt.Fprintln(os.Stderr, "handler broke")
 		os.Exit(3)
+	case mode == "warn":
+		fmt.Fprintln(os.Stderr, "session-memory hook: writing the shard cache: EACCES")
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"items": []Item{{ID: "w", Text: "text w"}}})
 	case mode == "garbage":
 		fmt.Println("not json")
 	case mode == "sleep":
@@ -343,4 +346,13 @@ func TestACompactionResetSurvivesABusyStateLock(t *testing.T) {
 	require.NotEmpty(t, out, "items given before the compaction no longer suppress delivery")
 	_, out = dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
 	require.Empty(t, out, "the reset was committed and the new delivery recorded")
+}
+
+func TestHandlerStderrIsLoggedEvenWhenItSucceeds(t *testing.T) {
+	root := repo(t)
+	res, _ := dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), helperHandler("warn", "warn"))
+	require.Equal(t, "text w", res.HookSpecificOutput.AdditionalContext, "the handler's items are kept")
+	log, err := os.ReadFile(filepath.Join(root, ".rhizome", "hooks", "diagnostics.log"))
+	require.NoError(t, err)
+	require.Contains(t, string(log), "test/warn stderr: session-memory hook: writing the shard cache: EACCES")
 }

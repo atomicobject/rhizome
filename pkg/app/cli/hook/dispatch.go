@@ -171,10 +171,14 @@ func (d *dispatch) run() error {
 		if remaining <= 0 {
 			break
 		}
-		items, err := d.runHandler(h, emitted, remaining)
-		if err != nil {
+		items, stderr, err := d.runHandler(h, emitted, remaining)
+		switch {
+		case err != nil:
 			// One handler's failure keeps the others' items.
 			failures = append(failures, fmt.Sprintf("%s: %v", h.Key(), err))
+		case stderr != "":
+			// A handler that recovers from an error still reports it.
+			failures = append(failures, fmt.Sprintf("%s stderr: %s", h.Key(), stderr))
 		}
 		gave := false
 		for _, item := range items {
@@ -273,17 +277,18 @@ func readPrefixes(root, rel string) []string {
 }
 
 // runHandler runs one handler under the remaining deadline and returns its
-// items. A timeout kills the handler's whole process tree.
-func (d *dispatch) runHandler(h Handler, emitted map[string]bool, budget int) ([]Item, error) {
+// items and what it wrote to standard error. A timeout kills the handler's
+// whole process tree.
+func (d *dispatch) runHandler(h Handler, emitted map[string]bool, budget int) ([]Item, string, error) {
 	if len(h.Command) == 0 {
-		return nil, errors.New("no command")
+		return nil, "", errors.New("no command")
 	}
 	limit := time.Until(deadlineOf(d.ctx)) - outputReserve
 	if h.Timeout > 0 && h.Timeout < limit {
 		limit = h.Timeout
 	}
 	if limit <= 0 {
-		return nil, errors.New("no time left before the deadline")
+		return nil, "", errors.New("no time left before the deadline")
 	}
 	ctx, cancel := context.WithTimeout(d.ctx, limit)
 	defer cancel()
@@ -293,7 +298,7 @@ func (d *dispatch) runHandler(h Handler, emitted map[string]bool, budget int) ([
 	}
 	input, err := json.Marshal(in)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	cmd := exec.CommandContext(ctx, h.Command[0], h.Command[1:]...)
 	cmd.Dir = d.ev.Root
@@ -305,25 +310,26 @@ func (d *dispatch) runHandler(h Handler, emitted map[string]bool, budget int) ([
 	cmd.Cancel = func() error { return killProcessTree(cmd) }
 	cmd.WaitDelay = 100 * time.Millisecond
 	runErr := cmd.Run()
+	errText := strings.TrimSpace(stderr.String())
 	if ctx.Err() != nil {
-		return nil, fmt.Errorf("timed out after %s", limit.Round(time.Millisecond))
+		return nil, "", fmt.Errorf("timed out after %s", limit.Round(time.Millisecond))
 	}
 	if stdout.overflow {
-		return nil, errors.New("output exceeds 256 KiB")
+		return nil, "", errors.New("output exceeds 256 KiB")
 	}
 	if runErr != nil {
-		return nil, fmt.Errorf("%v: %s", runErr, strings.TrimSpace(stderr.String()))
+		return nil, "", fmt.Errorf("%v: %s", runErr, errText)
 	}
 	if len(bytes.TrimSpace(stdout.Bytes())) == 0 {
-		return nil, nil
+		return nil, errText, nil
 	}
 	var out struct {
 		Items []Item `json:"items"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
-		return nil, fmt.Errorf("parse output: %w", err)
+		return nil, "", fmt.Errorf("parse output: %w; stderr: %s", err, errText)
 	}
-	return out.Items, nil
+	return out.Items, errText, nil
 }
 
 // readWithin reads the payload, giving up when ctx ends: a host that never
