@@ -8,7 +8,7 @@
 
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { join, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { approvedHash, loadShards, MAX_CHARS, SHARD_DIR, selectShards } from "./lib/shards.mjs";
 import { readJson, writeJson, writeText } from "./lib/store.mjs";
@@ -23,12 +23,10 @@ const norm = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const warn = (what, err) => process.stderr.write(`session-memory hook: ${what}: ${err?.message ?? err}\n`);
 
 // The lookup command that shows the matches past the first `skip`, naming
-// this skill's lookup.mjs wherever it is installed: relative to the
-// repository root when it is inside it, otherwise by absolute path.
-export function lookupCommand(root, skip) {
-  const file = fileURLToPath(new URL("./lookup.mjs", import.meta.url));
-  const rel = relative(root, file);
-  const script = (rel.startsWith("..") || isAbsolute(rel) ? file : rel).split(sep).join("/");
+// this skill's lookup.mjs by absolute path, so it runs from any directory
+// the agent is in.
+export function lookupCommand(skip) {
+  const script = fileURLToPath(new URL("./lookup.mjs", import.meta.url)).split(sep).join("/");
   return `node ${/[\s"'$\\]/.test(script) ? JSON.stringify(script) : script} --skip ${skip}`;
 }
 
@@ -113,7 +111,7 @@ export function handle(input, { startedAt = performance.now() } = {}) {
     // Lookup pages through every match, emitted ones included, so the
     // closing line skips to the first omitted shard in that order.
     const order = selectShards({ ...base, exclude: new Set(), maxShards: Infinity, maxChars: Infinity, index: r.index }).shards.map((s) => s.id);
-    const line = (n, skip) => moreLine(n, lookupCommand(root, skip));
+    const line = (n, skip) => moreLine(n, lookupCommand(skip));
     // Reserve room for the closing line; singular is the longer wording.
     const total = r.shards.length + r.omitted;
     const reserve = Math.max(Buffer.byteLength(line(1, order.length)), Buffer.byteLength(line(total, order.length)));

@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { execFileSync, execSync, spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, realpathSync, utimesSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { scratchRepo } from "./fakes.mjs";
@@ -136,7 +136,7 @@ test("session start delivers only shards that apply everywhere, then says how ma
   assert.ok(ids(r).slice(0, 5).every((id) => everywhere.includes(pathOf(id))));
   const more = r.items[5];
   assert.match(more.id, /^session-memory:more@[0-9a-f]{16}$/);
-  assert.equal(more.text, moreLine(2, lookupCommand(root, 5)));
+  assert.equal(more.text, moreLine(2, lookupCommand(5)));
   // The command the line names shows exactly the shards it did not deliver.
   const shown = execSync(more.text.match(/run (node .+) to see them\.$/)[1], { cwd: root, encoding: "utf8" });
   const delivered = ids(r).slice(0, 5).map(pathOf);
@@ -147,9 +147,9 @@ test("session start delivers only shards that apply everywhere, then says how ma
   // Room for the closing line is reserved inside a smaller budget: three
   // shards would fit it, but then the line would not.
   const lineSize = Buffer.byteLength(r.items[0].text);
-  assert.ok(Buffer.byteLength(moreLine(1, lookupCommand(root, 7))) < lineSize - 5);
+  assert.ok(Buffer.byteLength(moreLine(1, lookupCommand(7))) < lineSize - 5);
   const tight = start(root, { budget: 3 * lineSize + 5 });
-  assert.deepEqual(tight.items.map((i) => i.text).slice(2), [moreLine(5, lookupCommand(root, 2))]);
+  assert.deepEqual(tight.items.map((i) => i.text).slice(2), [moreLine(5, lookupCommand(2))]);
   const rest = start(root, { emitted: ids(r).slice(0, 5) });
   assert.deepEqual(rest.items.map((i) => pathOf(i.id)), everywhere.filter((p) => !ids(r).map(pathOf).includes(p)));
 });
@@ -160,7 +160,10 @@ test("the closing line names lookup.mjs where the skill is installed", async () 
   const installed = join(root, ".claude/skills/session-memory/scripts");
   cpSync(fileURLToPath(scripts), installed, { recursive: true });
   const copy = await import(new URL("hook.mjs", `file://${installed}/`).href);
-  assert.equal(copy.lookupCommand(root, 5), "node .claude/skills/session-memory/scripts/lookup.mjs --skip 5");
+  assert.equal(copy.lookupCommand(5), `node ${join(installed, "lookup.mjs").split(sep).join("/")} --skip 5`);
+  // It runs from a subdirectory, where the agent's shell may be.
+  mkdirSync(join(root, "src"), { recursive: true });
+  execSync(copy.lookupCommand(0), { cwd: join(root, "src"), encoding: "utf8" });
 });
 
 test("parsed shards are cached after a consistent read and reused until the listing changes", () => {
