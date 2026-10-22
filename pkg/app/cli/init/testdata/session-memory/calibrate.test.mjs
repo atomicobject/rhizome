@@ -203,6 +203,19 @@ test("missing local transcript or a different source provider falls back to fixt
   assert.equal(r.set.localApproved, 9);
 });
 
+test("verify excludes approved shards whose files changed since verification", async () => {
+  const root = repo(true);
+  const s = { kind: "fact", statement: "Learning 9: worker 9 keeps its queue until acknowledgement.", appliesTo: [], target: "README.md", reviewedBy: "Synthetic Reviewer", reviewedOn: "2026-10-20", verifiedOn: "2026-10-20", evidenceLines: evidenceLines([{ harness: "claude", session: "local-9", episode: "local-9", ts: "2026-10-20", lens: "research" }]) };
+  writeFileSync(join(root, "docs/memory/context-shards/fact-9.md"), renderShard(s));
+  const verify = await run(root, client(), { role: "verify", budget: undefined });
+  assert.equal(verify.set.synthetic, true);
+  assert.equal(verify.set.localApproved, 9);
+  assert.equal(verify.set.staleExcluded, 1);
+  const extract = await run(root, client(), { budget: undefined });
+  assert.equal(extract.set.synthetic, false);
+  assert.equal(extract.set.localApproved, 10);
+});
+
 test("latency savings require a quarter off both baseline measurements", () => {
   const sample = (score, seconds) => ({ binding: {}, quality: { score }, usd: 1, medianSeconds: seconds });
   assert.equal(compareMeasurements([sample(1, 8), sample(1, 4), sample(1, 3)], true).winner.reason, "latency");

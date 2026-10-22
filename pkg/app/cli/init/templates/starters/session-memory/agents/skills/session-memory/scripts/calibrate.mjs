@@ -39,10 +39,10 @@ export async function calibrate(opts, clients) {
   store.lock();
   try {
     const prepared = await calibrationProfile(opts, clients, store);
-    const set = labeledSet(opts.root, store, prepared.provider);
+    const set = labeledSet(opts.root, store, prepared.provider, opts.role);
     const dryBindings = await calibrationBindings(prepared, store, { dry: true });
     const estimate = calibrationEstimate(opts.role, dryBindings, set);
-    const summary = { name: set.name, synthetic: set.synthetic, labelCount: set.labels.length, qualityLabels: set.labels.filter((l) => opts.role === "verify" || l.decision === "propose").length, localApproved: set.localApproved,
+    const summary = { name: set.name, synthetic: set.synthetic, labelCount: set.labels.length, qualityLabels: set.labels.filter((l) => opts.role === "verify" || l.decision === "propose").length, localApproved: set.localApproved, staleExcluded: set.staleExcluded,
       limitation: set.synthetic ? "Fixture quality supports only cost/latency-driven changes; quality-driven diffs are refused." : null };
     const log = opts.log ?? ((text) => process.stderr.write(text + "\n"));
     log(JSON.stringify({ set: summary, estimate, transcriptsTo: [prepared.provider] }));

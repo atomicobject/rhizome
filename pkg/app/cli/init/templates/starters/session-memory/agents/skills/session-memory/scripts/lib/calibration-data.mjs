@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { approvedHash, learningHash, loadDecisions, loadShards } from "./shards.mjs";
+import { approvedHash, learningHash, loadDecisions, loadShards, readIndex, staleness } from "./shards.mjs";
 import { writeText } from "./store.mjs";
 
-export function labeledSet(root, store, provider) {
+export function labeledSet(root, store, provider, role) {
   const episodes = store.read("pool/episodes.json", {});
   const clusters = Object.values(store.read("pool/clusters.json", {}));
   const candidates = store.read("pool/candidates.json", {});
@@ -19,13 +19,17 @@ export function labeledSet(root, store, provider) {
     labels.push({ id, kind: item.kind, statement: item.statement, appliesTo: item.appliesTo ?? [], commands: item.commands ?? [], target: item.target,
       evidence: ids, decision, variants: (cl?.members ?? []).map((key) => candidates[key]).filter(Boolean).map(({ kind, statement, why, appliesTo, commands, target }) => ({ kind, statement, why, appliesTo, commands, target })) });
   };
+  let staleExcluded = 0;
+  let index;
   for (const s of loadShards(root)) {
     if (!s.reviewedBy || approvedHash(s) !== s.approvedHash) continue;
+    // A verifier that rejects a learning whose files changed since review is right, not wrong.
+    if (role === "verify" && staleness(root, s, (index ??= readIndex(root)))) { staleExcluded++; continue; }
     const ids = [...s.evidenceSection.matchAll(/message `([^`]+)`/g)].map((m) => m[1]);
     replay(s, s.path, "propose", ids);
   }
   const approved = labels.length;
-  if (approved < 10) return { ...JSON.parse(readFileSync(new URL("../../references/calibration-fixture.json", import.meta.url), "utf8")), localApproved: approved };
+  if (approved < 10) return { ...JSON.parse(readFileSync(new URL("../../references/calibration-fixture.json", import.meta.url), "utf8")), localApproved: approved, staleExcluded };
   const seen = new Set(labels.map(learningHash));
   for (const d of loadDecisions(root, store.dir)) {
     if (!d.decider || !["dismissed", "retired", "documented"].includes(d.decision) || seen.has(learningHash(d))) continue;
@@ -33,7 +37,7 @@ export function labeledSet(root, store, provider) {
     seen.add(learningHash(d));
   }
   const ids = new Set(labels.flatMap((l) => l.evidence));
-  return { name: "local approved shards and recorded decisions", synthetic: false, localApproved: approved, labels, episodes: [...ids].map((id) => episodes[id]) };
+  return { name: "local approved shards and recorded decisions", synthetic: false, localApproved: approved, staleExcluded, labels, episodes: [...ids].map((id) => episodes[id]) };
 }
 
 // The fixture verifier reads only this synthetic repository, never the user's code.
