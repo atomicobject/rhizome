@@ -14,14 +14,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 
 	"github.com/atomicobject/rhizome/pkg/app/cli/hook"
 )
-
-// hookEntryGOOS picks the platform form of Claude Code entries; tests set it.
-var hookEntryGOOS = runtime.GOOS
 
 // hookEntriesKey is the record key suffix for a file's Rhizome entries.
 const hookEntriesKey = "#rhizome-hooks"
@@ -42,16 +38,18 @@ type generatedHookFile struct {
 
 func (f generatedHookFile) key() string { return f.rel + hookEntriesKey }
 
-// hookEntry is the entry for one harness and hook point. Claude Code on
-// Windows launches rzm.exe without a shell; Codex carries its Windows form
-// in commandWindows, which it runs through cmd.exe /C.
+// hookEntry is the entry for one harness and hook point. Claude Code runs
+// the command-and-arguments form without a shell and finds rzm on PATH (rzm.exe
+// on Windows), so its entry is the same on every OS. Codex runs command
+// through a shell and carries its Windows form in commandWindows, which it
+// runs through cmd.exe /C.
 func hookEntry(harness, point string) json.RawMessage {
-	command := map[string]any{"type": "command", "command": hook.EntryCommand(harness, point), "timeout": hook.HostTimeoutSeconds}
-	switch {
-	case harness == hook.HarnessClaude && hookEntryGOOS == "windows":
-		command["command"] = "rzm.exe"
+	command := map[string]any{"type": "command", "timeout": hook.HostTimeoutSeconds}
+	if harness == hook.HarnessClaude {
+		command["command"] = "rzm"
 		command["args"] = []string{"hook", harness, point}
-	case harness == hook.HarnessCodex:
+	} else {
+		command["command"] = hook.EntryCommand(harness, point)
 		command["commandWindows"] = "rzm.exe hook " + harness + " " + point
 	}
 	data, _ := json.Marshal(map[string]any{"hooks": []any{command}})

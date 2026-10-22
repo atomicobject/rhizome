@@ -174,15 +174,19 @@ func TestEditedHookEntriesFollowTheOwnershipRule(t *testing.T) {
 	require.Equal(t, edited, string(got), "an edited entry is not removed without a decision")
 }
 
-func TestClaudeEntriesOnWindowsLaunchRzmExeWithoutAShell(t *testing.T) {
-	saved := hookEntryGOOS
-	hookEntryGOOS = "windows"
-	t.Cleanup(func() { hookEntryGOOS = saved })
+func TestClaudeEntriesUseTheSameExecFormOnEveryOS(t *testing.T) {
 	root := hookRepo(t, "on")
-	require.Equal(t, []string{"rzm.exe hook claude post-tool-use"}, hookCommands(t, root, ".claude/settings.json")["PostToolUse"])
+	var file struct {
+		Hooks map[string][]struct {
+			Hooks []map[string]any `json:"hooks"`
+		} `json:"hooks"`
+	}
 	data, err := os.ReadFile(filepath.Join(root, ".claude/settings.json"))
 	require.NoError(t, err)
-	require.Contains(t, string(data), `"args": [`)
+	require.NoError(t, json.Unmarshal(data, &file))
+	require.Equal(t, map[string]any{
+		"type": "command", "command": "rzm", "args": []any{"hook", "claude", "post-tool-use"}, "timeout": float64(hook.HostTimeoutSeconds),
+	}, file.Hooks["PostToolUse"][0].Hooks[0])
 }
 
 func TestHookEntriesWaitForABinaryThatSupportsThem(t *testing.T) {
