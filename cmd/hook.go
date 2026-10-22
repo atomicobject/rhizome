@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strconv"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/cli/hook"
@@ -18,7 +20,7 @@ import (
 )
 
 // hookDeadlineEnv carries the invocation's deadline, in Unix nanoseconds,
-// to a repository binary the hook hands off to, so the handoff does not
+// to the repository binary a hook hands off to, so the handoff does not
 // restart the clock.
 const hookDeadlineEnv = "RZM_HOOK_DEADLINE"
 
@@ -32,7 +34,7 @@ func IsHookInvocation(args []string) bool {
 // path before Cobra, so this command only documents it.
 func registerHookFamily(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(&cobra.Command{
-		Use:                "hook <claude|codex> <session-start|subagent-start|post-tool-use>",
+		Use:                "hook <claude|codex> <" + strings.Join(hook.HookPoints, "|") + ">",
 		Short:              "Run starter hook handlers for an agent harness (rzm init --hooks on installs the entries)",
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -41,10 +43,15 @@ func registerHookFamily(rootCmd *cobra.Command) {
 	})
 }
 
+// hookDelegate selects the repository binary a hook hands off to; tests
+// replace it.
+var hookDelegate = hookDelegateTargetForProcess
+
 // runHook is `rzm hook <harness> <event>` and `rzm hook --check`. It exits
 // 0 whatever happens: a hook never blocks or fails the host's tool call. The
 // deadline, its watchdog, and the panic guard start before the repository
-// binary is selected, so selection counts against them too.
+// binary is selected, so selection counts against them too, and a handoff
+// runs that binary as a supervised child under the same deadline.
 //
 // Docs: [[agent-surface-integration-modes#^SPEC-0045-US5-AC7]]
 func runHook(args []string) (code int) {
@@ -59,45 +66,47 @@ func runHook(args []string) (code int) {
 		return 0
 	}
 	if len(args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: rzm hook <claude|codex> <session-start|subagent-start|post-tool-use>")
+		fmt.Fprintf(os.Stderr, "usage: rzm hook <claude|codex> <%s>\n", strings.Join(hook.HookPoints, "|"))
 		return 0
 	}
 	deadline := hookDeadline(time.Now(), os.Getenv(hookDeadlineEnv))
-	// A last guard below the host's timeout, should file I/O hang past the
-	// dispatcher's own deadline.
-	time.AfterFunc(time.Until(deadline)+300*time.Millisecond, func() { os.Exit(0) })
 	cwd, _ := os.Getwd()
-	if target := hookDelegateTargetForProcess(cwd); target != "" {
-		_ = os.Setenv(hookDeadlineEnv, strconv.FormatInt(deadline.UnixNano(), 10))
-		// On Unix this replaces the process, and returning means the handoff
-		// failed, so the hook runs here instead.
-		executeRepoBinary(target, append([]string{"hook"}, args...))
-		if runtime.GOOS == "windows" {
-			return 0
-		}
+	opts := hook.Options{
+		Harness: args[0], Point: args[1], Stdin: os.Stdin, Stdout: os.Stdout, Cwd: cwd,
+		Handlers: initactions.HookHandlers, Deadline: time.Until(deadline),
 	}
-	remaining := time.Until(deadline)
-	if remaining <= 0 {
+	if opts.Deadline <= 0 {
+		hook.Diagnose(opts, "the deadline %s inherited passed before rzm hook started", hookDeadlineEnv)
 		return 0
 	}
-	hook.Run(context.Background(), hook.Options{
-		Harness:  args[0],
-		Point:    args[1],
-		Stdin:    os.Stdin,
-		Stdout:   os.Stdout,
-		Cwd:      cwd,
-		Handlers: initactions.HookHandlers,
-		Deadline: remaining,
-	})
+	// A last guard below the host's timeout, should file I/O hang past the
+	// dispatcher's own deadline.
+	guard := time.AfterFunc(opts.Deadline+300*time.Millisecond, func() { os.Exit(0) })
+	defer guard.Stop()
+	// A host that stops reading makes writes fail instead of killing rzm
+	// before it records state.
+	signal.Ignore(syscall.SIGPIPE)
+	if target := hookDelegate(cwd); target != "" {
+		env := append(os.Environ(), hookDeadlineEnv+"="+strconv.FormatInt(deadline.UnixNano(), 10), repoDelegatedEnv+"=1")
+		opts.Deadline = time.Until(deadline)
+		hook.Delegate(context.Background(), target, env, opts)
+		return 0
+	}
+	if opts.Deadline = time.Until(deadline); opts.Deadline <= 0 {
+		hook.Diagnose(opts, "the deadline passed while selecting the repository's rzm")
+		return 0
+	}
+	hook.Run(context.Background(), opts)
 	return 0
 }
 
 // hookDeadline is the invocation's deadline: the one a launcher handed off
-// with, when it is plausible, or a fresh one.
+// with, even one already past, unless it is malformed or further away than
+// a fresh one; otherwise a fresh one.
 func hookDeadline(now time.Time, inherited string) time.Time {
 	fresh := now.Add(hook.Deadline)
 	if ns, err := strconv.ParseInt(inherited, 10, 64); err == nil {
-		if at := time.Unix(0, ns); at.After(now) && !at.After(fresh) {
+		if at := time.Unix(0, ns); !at.After(fresh) {
 			return at
 		}
 	}

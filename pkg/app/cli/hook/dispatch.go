@@ -71,16 +71,8 @@ type handlerInput struct {
 // - [[agent-surface-integration-modes#^SPEC-0045-US5-AC6]]
 // - [[agent-surface-integration-modes#^SPEC-0045-US5-AC7]]
 func Run(ctx context.Context, opts Options) {
-	if opts.Now == nil {
-		opts.Now = time.Now
-	}
-	deadline := opts.Deadline
-	if deadline <= 0 {
-		deadline = Deadline
-	}
-	ctx, cancel := context.WithTimeout(ctx, deadline)
-	defer cancel()
-	d := &dispatch{opts: opts, ctx: ctx}
+	d := newDispatch(ctx, opts)
+	defer d.cancel()
 	defer func() {
 		if p := recover(); p != nil {
 			d.log("panic: %v", p)
@@ -102,9 +94,25 @@ func (d *dispatch) log(format string, args ...any) {
 }
 
 type dispatch struct {
-	opts Options
-	ctx  context.Context
-	ev   Event
+	opts   Options
+	ctx    context.Context
+	cancel context.CancelFunc
+	ev     Event
+}
+
+// newDispatch starts an invocation's deadline. Until the payload is parsed,
+// its diagnostics name the harness and hook point it was started for.
+func newDispatch(ctx context.Context, opts Options) *dispatch {
+	if opts.Now == nil {
+		opts.Now = time.Now
+	}
+	deadline := opts.Deadline
+	if deadline <= 0 {
+		deadline = Deadline
+	}
+	d := &dispatch{opts: opts, ev: Event{Harness: opts.Harness, Event: opts.Point}}
+	d.ctx, d.cancel = context.WithTimeout(ctx, deadline)
+	return d
 }
 
 func (d *dispatch) run() error {
