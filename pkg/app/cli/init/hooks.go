@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -30,6 +31,9 @@ type starterHookMetadata struct {
 	Delivers string   `yaml:"delivers"`
 	Events   []string `yaml:"events"`
 	Tools    []string `yaml:"tools,omitempty"`
+	// Skill names the starter skill whose installed folder {skill} stands
+	// for in Command.
+	Skill string `yaml:"skill,omitempty"`
 	// Command is an argument list relative to the repository root.
 	Command []string `yaml:"command"`
 	Timeout string   `yaml:"timeout"`
@@ -60,14 +64,52 @@ func (m starterHookMetadata) handler(starter string) (hook.Handler, error) {
 			return fail("unknown tool class %q", tool)
 		}
 	}
+	for _, arg := range m.Command {
+		if strings.Contains(arg, skillPlaceholder) && strings.TrimSpace(m.Skill) == "" {
+			return fail("uses %s in its command without naming a skill", skillPlaceholder)
+		}
+	}
 	timeout, err := time.ParseDuration(m.Timeout)
 	if err != nil || timeout <= 0 || timeout > hook.Deadline {
 		return fail("timeout %q must be a duration up to %s", m.Timeout, hook.Deadline)
 	}
 	return hook.Handler{
 		Starter: starter, ID: m.ID, Delivers: m.Delivers, Events: m.Events, Tools: m.Tools,
-		Command: m.Command, Timeout: timeout, CommandPrefixes: m.CommandPrefixes,
+		Skill: m.Skill, Command: m.Command, Timeout: timeout, CommandPrefixes: m.CommandPrefixes,
 	}, nil
+}
+
+// skillPlaceholder in a handler command stands for the folder its skill is
+// installed in.
+const skillPlaceholder = "{skill}"
+
+// resolveSkillCommand points a handler command at the folder its skill is
+// installed in: the first enabled skill folder holding it, .agents/skills
+// before .claude/skills, as init writes them. A folder the person turned off
+// is skipped even if an old copy remains there.
+func resolveSkillCommand(root string, prefs *repoconfig.AgentPreferences, h hook.Handler) []string {
+	if h.Skill == "" {
+		return h.Command
+	}
+	var folders []string
+	if prefs == nil || !strings.EqualFold(prefs.AgentSkills, agentModeOff) {
+		folders = append(folders, ".agents/skills")
+	}
+	if prefs == nil || !strings.EqualFold(prefs.Claude, agentModeOff) {
+		folders = append(folders, ".claude/skills")
+	}
+	dir := ".agents/skills/" + h.Skill
+	for _, folder := range folders {
+		if info, err := os.Stat(filepath.Join(root, filepath.FromSlash(folder), h.Skill)); err == nil && info.IsDir() {
+			dir = folder + "/" + h.Skill
+			break
+		}
+	}
+	out := make([]string, len(h.Command))
+	for i, arg := range h.Command {
+		out[i] = strings.ReplaceAll(arg, skillPlaceholder, dir)
+	}
+	return out
 }
 
 // hooksOn reports whether the person turned hooks on.
@@ -117,13 +159,14 @@ func handlersFor(starters []string, registry map[string]starterTemplateMetadata)
 }
 
 // hookStarters lists the starters whose handlers run: every active starter,
-// ejected ones included, since an ejected starter keeps its handler.
+// and every ejected one, including those retained after leaving the
+// selection, since an ejected starter keeps its files and its handler.
 func hookStarters(cfg repoconfig.LocalConfig, registry map[string]starterTemplateMetadata) ([]string, error) {
 	set, err := resolveTemplateSet(cfg.WorkflowTemplates, cfg.WorkflowTemplateAddons, registry)
 	if err != nil {
 		return nil, err
 	}
-	return set.Effective, nil
+	return append(set.Effective, frozenStarters(cfg.WorkflowTemplateManagement.Ejected, set.Effective)...), nil
 }
 
 // HookHandlers returns the handlers `rzm hook` runs for a repository: none
@@ -150,7 +193,14 @@ func HookHandlers(root string) ([]hook.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return handlersFor(starters, registry)
+	handlers, err := handlersFor(starters, registry)
+	if err != nil {
+		return nil, err
+	}
+	for i := range handlers {
+		handlers[i].Command = resolveSkillCommand(root, cfg.Agents, handlers[i])
+	}
+	return handlers, nil
 }
 
 // hooksRelevant reports whether a summary shows hooks: an active starter

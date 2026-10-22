@@ -248,16 +248,42 @@ func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {
 	require.ElementsMatch(t, []string{hook.SessionStart, hook.SubagentStart, hook.PostToolUse}, h.Events)
 	require.FileExists(t, filepath.Join(root, filepath.FromSlash(h.Command[1])), "the handler script is installed")
 
-	// An ejected starter keeps its handler.
+	// An ejected starter keeps its handler, even after it leaves the
+	// selection with its files retained.
 	_, err = runInit(t, RunOptions{Dir: root, Eject: "session-memory"})
 	require.NoError(t, err)
 	handlers, err = HookHandlers(root)
 	require.NoError(t, err)
 	require.Len(t, handlers, 1)
+	_, err = runInit(t, RunOptions{Dir: root, RemoveAddon: "session-memory"})
+	require.NoError(t, err)
+	require.Contains(t, loadConfigForTest(t, root).WorkflowTemplateManagement.Ejected, "session-memory")
+	handlers, err = HookHandlers(root)
+	require.NoError(t, err)
+	require.Len(t, handlers, 1)
+	require.FileExists(t, filepath.Join(root, filepath.FromSlash(handlers[0].Command[1])))
+}
+
+func TestHookHandlersRunFromTheInstalledSkillFolder(t *testing.T) {
+	stubHookSupport(t, nil)
+	root := machineRunRepo(t)
+	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "session-memory", Agents: "claude", Search: "off", Hooks: "on"})
+	require.NoError(t, err)
+	cfg := loadConfigForTest(t, root)
+	cfg.Agents.AgentSkills = "off"
+	require.NoError(t, repoconfig.SaveLocalConfig(root, *cfg))
+	_, err = runInit(t, RunOptions{Dir: root})
+	require.NoError(t, err)
+
+	handlers, err := HookHandlers(root)
+	require.NoError(t, err)
+	require.Len(t, handlers, 1)
+	require.Equal(t, []string{"node", ".claude/skills/session-memory/scripts/hook.mjs"}, handlers[0].Command)
+	require.FileExists(t, filepath.Join(root, ".claude", "skills", "session-memory", "scripts", "hook.mjs"))
 }
 
 func TestHookDeclarationsAreValidated(t *testing.T) {
-	good := starterHookMetadata{ID: "h", Delivers: "x", Events: []string{hook.PostToolUse}, Tools: []string{hook.ToolRead}, Command: []string{"node", "h.mjs"}, Timeout: "2s"}
+	good := starterHookMetadata{ID: "h", Delivers: "x", Events: []string{hook.PostToolUse}, Tools: []string{hook.ToolRead}, Skill: "s", Command: []string{"node", "{skill}/h.mjs"}, Timeout: "2s"}
 	_, err := good.handler("s")
 	require.NoError(t, err)
 	for _, bad := range []func(m *starterHookMetadata){
@@ -266,6 +292,7 @@ func TestHookDeclarationsAreValidated(t *testing.T) {
 		func(m *starterHookMetadata) { m.Command = nil },
 		func(m *starterHookMetadata) { m.Timeout = "10s" },
 		func(m *starterHookMetadata) { m.Timeout = "" },
+		func(m *starterHookMetadata) { m.Skill = "" },
 	} {
 		m := good
 		bad(&m)

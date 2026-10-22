@@ -71,6 +71,9 @@ type Handler struct {
 	Delivers string
 	Events   []string
 	Tools    []string
+	// Skill is the starter skill whose installed folder the command runs
+	// from; Command names it as {skill} until it is resolved.
+	Skill string
 	// Command is the argument list, relative to the repository root.
 	Command []string
 	Timeout time.Duration
