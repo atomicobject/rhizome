@@ -21,14 +21,13 @@ const { responseProblems, verifyCluster } = await import(new URL("lib/verify.mjs
 const user = { found: true, typeName: "Person", path: "docs/people/pat-example.md", title: "Pat Example" };
 // Sam resolves by title or alias; a Topic note is not a Person.
 const people = (root, ref) => (["Sam Example", "sam"].includes(ref) ? { found: true, typeName: "Person", path: "docs/people/Sam Example.md", title: "Sam Example" } : ref === "Store" ? { found: true, typeName: "Topic", path: "docs/store.md", title: "Store" } : { found: false });
-const git = (root, args, date) => execFileSync("git", args, { cwd: root, encoding: "utf8", env: { ...process.env, ...(date ? { GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date } : {}) } });
+// tempRepo sets no repository identity, and CI runners have no global one.
+const git = (root, args, date) => execFileSync("git", ["-c", "user.email=test@example.com", "-c", "user.name=Test", ...args], { cwd: root, encoding: "utf8", env: { ...process.env, ...(date ? { GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date } : {}) } });
 const secret = ["ghp", "a1B2".repeat(9)].join("_");
 
 function repo(proposals) {
   const root = mkdtempSync(join(tmpdir(), "sm-route-"));
   git(root, ["init", "-q"]);
-  git(root, ["config", "user.email", "test@example.com"]);
-  git(root, ["config", "user.name", "Test"]);
   mkdirSync(join(root, "pkg/store"), { recursive: true });
   mkdirSync(join(root, "docs"), { recursive: true });
   writeFileSync(join(root, "pkg/store/db.go"), "package store\n");
