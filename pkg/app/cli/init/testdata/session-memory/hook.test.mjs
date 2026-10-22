@@ -103,6 +103,11 @@ test("a folder search delivers the shards for tracked files beneath it, unless i
   git(root, "commit", "-qm", "gen");
   assert.deepEqual(ids(shell(root, "rg TODO pkg", ["pkg"])), []);
   assert.deepEqual(ids(shell(root, "rg TODO pkg/store", ["pkg/store"])).map(pathOf), [store]);
+  // A pattern that names the broad folder itself is held to the same limit,
+  // while a new file under it still matches directly.
+  const broad = shard(root, { statement: "Pkg rule: everything under pkg is generated.", appliesTo: ["pkg/**"] });
+  assert.ok(!ids(shell(root, "rg TODO pkg", ["pkg"])).map(pathOf).includes(broad));
+  assert.ok(lookup({ root, files: ["pkg/new/file.go"] }).shards.map((s) => s.path).includes(broad));
 });
 
 test("emitted shards are left out before the five-shard limit", () => {

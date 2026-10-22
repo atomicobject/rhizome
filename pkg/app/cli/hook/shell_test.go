@@ -39,6 +39,11 @@ func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
 		{"cat a.go # see docs/notes.md", []string{"/repo/a.go"}},
 		{"cat a.go #docs/notes.md\ncat b.go", []string{"/repo/a.go", "/repo/b.go"}},
 		{"cat a#b.go 'c # d.md'", []string{"/repo/a#b.go", "/repo/c # d.md"}},
+		// A cd in a pipeline stage or a background command runs in a subshell.
+		{"cd pkg | cat a.go", []string{"/repo/a.go"}},
+		{"cd pkg & cat a.go", []string{"/repo/a.go"}},
+		{"cat x.go | cd pkg; cat a.go", []string{"/repo/x.go", "/repo/a.go"}},
+		{"cd pkg && cat a.go | head -3", []string{"/repo/pkg/a.go"}},
 	} {
 		got := shellReads(tc.cmd, cwd)
 		want := make([]string, len(tc.want))

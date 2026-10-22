@@ -226,7 +226,7 @@ export const matchesCommand = (prefixes, segments) => prefixes.some((c) => (c = 
 // search over most of the repository does not select every shard.
 function filesUnder(index, dir) {
   const files = index.tracked.filter((f) => f.startsWith(`${dir}/`));
-  return files.length > 50 && files.length > index.tracked.length / 10 ? [] : files;
+  return files.length > 50 && files.length > index.tracked.length / 10 ? null : files;
 }
 
 // Whether a file beneath dir could match the pattern, judged from the
@@ -256,14 +256,19 @@ export function selectShards({ root, paths = [], command, ranked = [], everywher
     if (exclude.has(id)) continue;
     const reasons = [];
     if (everywhere && patternless(s)) reasons.push("applies everywhere");
-    const touched = paths.filter((p) => {
-      if (matchesAny(s.appliesTo, p)) return true;
-      const pats = s.appliesTo.filter((g) => mayMatchUnder(g, p)).map(globRegExp);
-      if (!pats.length) return false;
+    const under = (p) => {
       index ??= readIndex(root, timeoutMs);
       if (!dirs.has(p)) dirs.set(p, filesUnder(index, p));
-      const under = dirs.get(p);
-      return under.some((f) => !f.startsWith(`${SHARD_DIR}/`) && pats.some((re) => re.test(f)));
+      return dirs.get(p);
+    };
+    const touched = paths.filter((p) => {
+      // A folder that matches a pattern itself (pkg matches pkg/**) is still
+      // a folder: the breadth limit applies. A file, or a new file nothing
+      // is tracked under, matches directly.
+      if (matchesAny(s.appliesTo, p)) return under(p) !== null;
+      const pats = s.appliesTo.filter((g) => mayMatchUnder(g, p)).map(globRegExp);
+      if (!pats.length) return false;
+      return (under(p) ?? []).some((f) => !f.startsWith(`${SHARD_DIR}/`) && pats.some((re) => re.test(f)));
     });
     if (touched.length) reasons.push(`applies to ${touched.slice(0, 3).join(", ")}`);
     const byCommand = matchesCommand(s.commands, segments);

@@ -28,14 +28,21 @@ type shellWord struct {
 // shellSegments splits a command into simple commands at unquoted &&, ||, ;,
 // |, &, and newlines, honoring single quotes, double quotes, backslashes, and
 // comments. A segment with a subshell or here-document is dropped.
-func shellSegments(cmd string) [][]shellWord {
+// A segment in a pipeline or run in the background runs in a subshell, so a cd
+// there changes no later command's directory; isolated marks it.
+type shellSegment struct {
+	words    []shellWord
+	isolated bool
+}
+
+func shellSegments(cmd string) []shellSegment {
 	if len(cmd) > maxCommandBytes {
 		return nil
 	}
-	var segments [][]shellWord
+	var segments []shellSegment
 	var words []shellWord
 	var word strings.Builder
-	inWord, dynamic, broken := false, false, false
+	inWord, dynamic, broken, isolated := false, false, false, false
 	endWord := func() {
 		if inWord {
 			words = append(words, shellWord{text: word.String(), dynamic: dynamic})
@@ -43,10 +50,10 @@ func shellSegments(cmd string) [][]shellWord {
 		word.Reset()
 		inWord, dynamic = false, false
 	}
-	endSegment := func() {
+	endSegment := func(sepIsolates bool) {
 		endWord()
 		if len(words) > 0 && !broken {
-			segments = append(segments, words)
+			segments = append(segments, shellSegment{words: words, isolated: isolated || sepIsolates})
 		}
 		words, broken = nil, false
 	}
@@ -92,8 +99,12 @@ func shellSegments(cmd string) [][]shellWord {
 				i++
 			}
 		case c == '\n' || c == ';' || c == '&' || c == '|':
-			endSegment()
-			if i+1 < len(cmd) && (c == '&' || c == '|') && cmd[i+1] == c {
+			double := i+1 < len(cmd) && (c == '&' || c == '|') && cmd[i+1] == c
+			single := (c == '&' || c == '|') && !double
+			endSegment(single)
+			// The command after a single | is the next stage of the pipeline.
+			isolated = single && c == '|'
+			if double {
 				i++
 			}
 		case c == '(' || c == ')' || c == '<' && strings.HasPrefix(cmd[i:], "<<"):
@@ -118,7 +129,7 @@ func shellSegments(cmd string) [][]shellWord {
 			inWord = true
 		}
 	}
-	endSegment()
+	endSegment(false)
 	return segments
 }
 
@@ -153,7 +164,8 @@ func matchesPrefix(cmd string, prefixes []string) bool {
 // resolved against the working directory in effect for it.
 func shellReads(cmd, cwd string) []string {
 	var out []string
-	for _, words := range shellSegments(cmd) {
+	for _, seg := range shellSegments(cmd) {
+		words := seg.words
 		for len(words) > 0 && isAssignment(words[0]) {
 			words = words[1:]
 		}
@@ -167,7 +179,7 @@ func shellReads(cmd, cwd string) []string {
 			// Bash's cd is logical: ".." drops the previous component of the
 			// path text, not of the link's target. File operands after it
 			// still resolve physically (see paths.RelPhysicalStrict).
-			if len(args) == 1 && !args[0].dynamic {
+			if len(args) == 1 && !args[0].dynamic && !seg.isolated {
 				cwd = filepath.Clean(paths.ResolveAgainst(cwd, args[0].text))
 			}
 			continue
