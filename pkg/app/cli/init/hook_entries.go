@@ -1,7 +1,8 @@
 // Hook entries in .claude/settings.json and .codex/hooks.json: one
-// marker-identified entry per hook point, matching every tool, that runs
-// `rzm hook <harness> <event>`. Everything else in those files belongs to
-// someone else and is preserved.
+// marker-identified command per hook point, in a matcher group of its own
+// that matches every tool, that runs `rzm hook <harness> <event>`. Rhizome
+// owns those commands and nothing else: other commands, even in the same
+// group, and every other key belong to someone else and are preserved.
 //
 // Docs:
 // - [[agent-surface-integration-modes#^SPEC-0045-US5-AC3]]
@@ -33,14 +34,14 @@ var hookSettingsFiles = map[string]string{
 type generatedHookFile struct {
 	rel     string
 	harness string
-	desired map[string]json.RawMessage // host event -> entry
+	desired map[string]json.RawMessage // host event -> command
 }
 
 func (f generatedHookFile) key() string { return f.rel + hookEntriesKey }
 
-// hookEntry is the entry for one harness and hook point. Claude Code runs
+// hookEntry is the command for one harness and hook point. Claude Code runs
 // the command-and-arguments form without a shell and finds rzm on PATH (rzm.exe
-// on Windows), so its entry is the same on every OS. Codex runs command
+// on Windows), so its command is the same on every OS. Codex runs command
 // through a shell and carries its Windows form in commandWindows, which it
 // runs through cmd.exe /C.
 func hookEntry(harness, point string) json.RawMessage {
@@ -52,7 +53,7 @@ func hookEntry(harness, point string) json.RawMessage {
 		command["command"] = hook.EntryCommand(harness, point)
 		command["commandWindows"] = "rzm.exe hook " + harness + " " + point
 	}
-	data, _ := json.Marshal(map[string]any{"hooks": []any{command}})
+	data, _ := json.Marshal(command)
 	return data
 }
 
@@ -134,28 +135,28 @@ func (o *orderedObject) marshal() []byte {
 	return buf.Bytes()
 }
 
-// isRhizomeEntry reports whether an entry (a matcher group) runs a Rhizome
-// hook command.
-func isRhizomeEntry(raw json.RawMessage) bool {
-	var group struct {
-		Hooks []struct {
-			Command string   `json:"command"`
-			Args    []string `json:"args"`
-		} `json:"hooks"`
+// isRhizomeCommand reports whether one hook command is a Rhizome entry's.
+func isRhizomeCommand(raw json.RawMessage) bool {
+	var command struct {
+		Command string   `json:"command"`
+		Args    []string `json:"args"`
 	}
-	if json.Unmarshal(raw, &group) != nil {
-		return false
+	return json.Unmarshal(raw, &command) == nil && hook.IsEntryCommand(command.Command, command.Args)
+}
+
+// canonicalJSON re-encodes a value with sorted keys and no spacing, so key
+// order and formatting do not count as edits.
+func canonicalJSON(raw json.RawMessage) json.RawMessage {
+	var v any
+	if json.Unmarshal(raw, &v) != nil {
+		return raw
 	}
-	for _, h := range group.Hooks {
-		if hook.IsEntryCommand(h.Command, h.Args) {
-			return true
-		}
-	}
-	return false
+	data, _ := json.Marshal(v)
+	return data
 }
 
 // hookEntriesOf parses a settings file and returns its hooks object and the
-// Rhizome entries in it, by host event.
+// Rhizome commands in it, by host event.
 func hookEntriesOf(data []byte) (*orderedObject, *orderedObject, map[string][]json.RawMessage, error) {
 	top, err := parseOrderedObject(data)
 	if err != nil {
@@ -169,22 +170,31 @@ func hookEntriesOf(data []byte) (*orderedObject, *orderedObject, map[string][]js
 	}
 	ours := map[string][]json.RawMessage{}
 	for _, event := range hooks.keys {
-		var entries []json.RawMessage
-		if json.Unmarshal(hooks.values[event], &entries) != nil {
+		var groups []json.RawMessage
+		if json.Unmarshal(hooks.values[event], &groups) != nil {
 			continue
 		}
-		for _, entry := range entries {
-			if isRhizomeEntry(entry) {
-				var compact bytes.Buffer
-				_ = json.Compact(&compact, entry)
-				ours[event] = append(ours[event], compact.Bytes())
+		for _, group := range groups {
+			for _, command := range groupCommands(group) {
+				if isRhizomeCommand(command) {
+					ours[event] = append(ours[event], canonicalJSON(command))
+				}
 			}
 		}
 	}
 	return top, hooks, ours, nil
 }
 
-// hookEntriesBody is the canonical text of a set of Rhizome entries, which
+// groupCommands returns the commands of one matcher group.
+func groupCommands(group json.RawMessage) []json.RawMessage {
+	var g struct {
+		Hooks []json.RawMessage `json:"hooks"`
+	}
+	_ = json.Unmarshal(group, &g)
+	return g.Hooks
+}
+
+// hookEntriesBody is the canonical text of a set of Rhizome commands, which
 // the record fingerprints.
 func hookEntriesBody(entries map[string][]json.RawMessage) []byte {
 	if len(entries) == 0 {
@@ -199,15 +209,42 @@ func desiredBody(desired map[string]json.RawMessage) []byte {
 		return nil
 	}
 	entries := map[string][]json.RawMessage{}
-	for event, entry := range desired {
-		entries[event] = []json.RawMessage{entry}
+	for event, command := range desired {
+		entries[event] = []json.RawMessage{canonicalJSON(command)}
 	}
 	return hookEntriesBody(entries)
 }
 
-// renderHookFile replaces the Rhizome entries in a settings file with the
-// desired ones, keeping every other key and entry in place. It returns nil
-// when nothing but Rhizome's entries was in the file and they are removed.
+// withoutRhizomeCommands returns a matcher group with Rhizome's commands
+// taken out, keeping its other keys and commands in place. It returns nil
+// when only Rhizome's commands were in it.
+func withoutRhizomeCommands(group json.RawMessage) (json.RawMessage, error) {
+	commands := groupCommands(group)
+	kept := commands[:0:0]
+	for _, command := range commands {
+		if !isRhizomeCommand(command) {
+			kept = append(kept, command)
+		}
+	}
+	switch {
+	case len(kept) == len(commands):
+		return group, nil
+	case len(kept) == 0:
+		return nil, nil
+	}
+	obj, err := parseOrderedObject(group)
+	if err != nil {
+		return nil, err
+	}
+	data, _ := json.Marshal(kept)
+	obj.set("hooks", data)
+	return obj.marshal(), nil
+}
+
+// renderHookFile replaces the Rhizome commands in a settings file with the
+// desired ones, each in a group of its own, keeping every other key, group,
+// and command in place. It returns nil when nothing but Rhizome's commands
+// was in the file and they are removed.
 func renderHookFile(existing []byte, desired map[string]json.RawMessage) ([]byte, error) {
 	top, hooks, ours, err := hookEntriesOf(existing)
 	if err != nil {
@@ -223,18 +260,23 @@ func renderHookFile(existing []byte, desired map[string]json.RawMessage) ([]byte
 		return hookEventOrder(events[len(hooks.keys)+i]) < hookEventOrder(events[len(hooks.keys)+j])
 	})
 	for _, event := range events {
-		var entries []json.RawMessage
-		if raw, ok := hooks.values[event]; ok && json.Unmarshal(raw, &entries) != nil {
+		var groups []json.RawMessage
+		if raw, ok := hooks.values[event]; ok && json.Unmarshal(raw, &groups) != nil {
 			continue
 		}
-		kept := entries[:0:0]
-		for _, entry := range entries {
-			if !isRhizomeEntry(entry) {
-				kept = append(kept, entry)
+		kept := groups[:0:0]
+		for _, group := range groups {
+			next, err := withoutRhizomeCommands(group)
+			if err != nil {
+				return nil, fmt.Errorf("hooks.%s: %w", event, err)
+			}
+			if next != nil {
+				kept = append(kept, next)
 			}
 		}
-		if entry, ok := desired[event]; ok {
-			kept = append(kept, entry)
+		if command, ok := desired[event]; ok {
+			group, _ := json.Marshal(map[string]any{"hooks": []json.RawMessage{command}})
+			kept = append(kept, group)
 		}
 		if len(kept) == 0 && len(ours[event]) > 0 {
 			hooks.remove(event)
@@ -272,15 +314,18 @@ func hookEventOrder(event string) int {
 }
 
 // classifyHookFile reports the change a hook file needs, or nil when there
-// is nothing to do. Entries without a record count as Rhizome's, as fenced
-// managed blocks do, because the command marks them.
+// is nothing to do. Rhizome commands without a record may be someone's own,
+// so changing or removing them needs a decision, as for any generated file
+// Rhizome cannot tell it wrote.
+//
+// Docs: [[init-starter-workflow#^SPEC-0038-US3-AC4]]
 func classifyHookFile(projectRoot string, file generatedHookFile, record *generatedFiles) (*change, error) {
 	current, exists, err := readIfExists(filepath.Join(projectRoot, filepath.FromSlash(file.rel)))
 	if err != nil {
 		return nil, err
 	}
 	key := file.key()
-	// Without entries to write, a file that never mentions rzm is left
+	// Without commands to write, a file that never mentions rzm is left
 	// unparsed, so a broken unrelated settings file does not stop init.
 	if file.desired == nil && (!exists || !bytes.Contains(current, []byte("rzm"))) {
 		record.forget(key)
@@ -303,9 +348,11 @@ func classifyHookFile(projectRoot string, file generatedHookFile, record *genera
 		}
 		c.removal = true
 		switch {
-		case recorded && written != contentFingerprint(body) && record.Declined[key] == declinedRemoval:
+		case record.Declined[key] == declinedRemoval && written != contentFingerprint(body):
 			c.state = stateDeclined
-		case recorded && written != contentFingerprint(body):
+		case !recorded:
+			c.state = stateUnknown
+		case written != contentFingerprint(body):
 			c.state = stateEdited
 		default:
 			c.state = stateUnedited
@@ -315,9 +362,6 @@ func classifyHookFile(projectRoot string, file generatedHookFile, record *genera
 	c.desired = desiredBody(file.desired)
 	c.desiredF = contentFingerprint(c.desired)
 	c.state = classify(body != nil, body, c.desiredF, contentFingerprint, record, key)
-	if c.state == stateUnknown {
-		c.state = stateUnedited
-	}
 	return c, nil
 }
 

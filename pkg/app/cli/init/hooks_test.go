@@ -311,3 +311,39 @@ func TestTheHooksChoiceSurvivesSettingsEdits(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, hookCommands(t, root, ".codex/hooks.json"), "PostToolUse")
 }
+
+func TestRhizomeOwnsOnlyItsOwnCommandsInAHookGroup(t *testing.T) {
+	root := hookRepo(t, "on")
+	path := filepath.Join(root, ".claude/settings.json")
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	// Someone adds their own command to Rhizome's PostToolUse group.
+	mine := `{"type": "command", "command": "echo mine"}, {`
+	edited := strings.Replace(string(data), "{\n            \"args\": [\n              \"hook\",\n              \"claude\",\n              \"post-tool-use\"", mine+"\n            \"args\": [\n              \"hook\",\n              \"claude\",\n              \"post-tool-use\"", 1)
+	require.NotEqual(t, string(data), edited)
+	require.NoError(t, os.WriteFile(path, []byte(edited), 0o644))
+	requireUpToDate(t, root)
+
+	_, err = runInit(t, RunOptions{Dir: root, Hooks: "off"})
+	require.NoError(t, err)
+	require.Equal(t, map[string][]string{"Stop": {"echo done"}, "PostToolUse": {"echo mine"}}, hookCommands(t, root, ".claude/settings.json"))
+}
+
+func TestHookEntriesWithoutAnOwnershipRecordNeedADecision(t *testing.T) {
+	handWritten := `{"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"rzm","args":["hook","claude","post-tool-use"],"timeout":30},{"type":"command","command":"echo mine"}]}]}}`
+	for _, hooks := range []string{"", "on"} {
+		t.Run("hooks "+firstNonEmpty(hooks, "off"), func(t *testing.T) {
+			root := hookRepo(t, "")
+			writeFixtureFile(t, root, ".claude/settings.json", handWritten)
+			out, err := runInit(t, RunOptions{Dir: root, Hooks: hooks})
+			require.NoError(t, err)
+			got, err := os.ReadFile(filepath.Join(root, ".claude/settings.json"))
+			require.NoError(t, err)
+			require.Equal(t, handWritten, string(got), "entries Rhizome has no record of writing are kept")
+			require.Contains(t, out, ".claude/settings.json#rhizome-hooks")
+			out, err = runInit(t, RunOptions{Dir: root, Check: true})
+			require.NoError(t, err)
+			require.Contains(t, out, "Rhizome has no record of writing these entries")
+		})
+	}
+}

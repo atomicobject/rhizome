@@ -220,6 +220,10 @@ func hookStatusLines(root string, res resolved) []string {
 		switch {
 		case c.removal && c.take:
 			state = "Rhizome's entries are removed"
+		case c.state == stateUnknown && c.removal:
+			state = "Rhizome has no record of writing these entries, so removing them needs a decision"
+		case c.state == stateUnknown:
+			state = "Rhizome has no record of writing these entries, so replacing them needs a decision"
 		case c.removal:
 			state = "installed; you edited the entries, so they need a decision before removal"
 		case c.state == stateCurrent:
