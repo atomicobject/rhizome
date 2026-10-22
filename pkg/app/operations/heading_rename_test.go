@@ -100,6 +100,43 @@ func TestRenameHeadingRefusesAmbiguousOldHeading(t *testing.T) {
 	assert.Contains(t, err.Error(), "ambiguous")
 }
 
+func TestRenameHeadingRefusesUnlinkableNewHeading(t *testing.T) {
+	vaultDir := t.TempDir()
+	before := "# Target\n\n## Existing\n\n## Old Heading\n"
+	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, "target.md"), []byte(before), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, "source.md"), []byte("[[target#Old Heading|label]]\n"), 0o644))
+
+	for name, newHeading := range map[string]string{
+		"pipe splits alias":  "Sales | Support",
+		"hash splits target": "C# Notes",
+		"block ref prefix":   "^id",
+		"duplicate heading":  "existing",
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := RenameHeading(stubVault{path: vaultDir}, RenameHeadingParams{
+				NoteMetadata: testkit.NoteMetadataIndexer(t),
+				Path:         "target.md",
+				OldHeading:   "Old Heading",
+				NewHeading:   newHeading,
+				Apply:        true,
+			})
+			require.Error(t, err)
+		})
+	}
+	got, err := os.ReadFile(filepath.Join(vaultDir, "target.md"))
+	require.NoError(t, err)
+	assert.Equal(t, before, string(got))
+
+	// Case-only renames match the heading itself and stay allowed.
+	_, err = RenameHeading(stubVault{path: vaultDir}, RenameHeadingParams{
+		NoteMetadata: testkit.NoteMetadataIndexer(t),
+		Path:         "target.md",
+		OldHeading:   "Old Heading",
+		NewHeading:   "old heading",
+	})
+	require.NoError(t, err)
+}
+
 func TestRenameHeadingIgnoresHeadingsInsideFencedCodeBlocks(t *testing.T) {
 	vaultDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(vaultDir, "target.md"), []byte("# Target\n\n```md\n## Old Heading\n```\n\n## Old Heading\n"), 0o644))

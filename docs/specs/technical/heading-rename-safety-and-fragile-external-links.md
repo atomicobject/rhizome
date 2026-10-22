@@ -76,6 +76,7 @@ The check is opt-in. It runs as `rzm validate fragile-external` and through `rzm
 - The command MUST refuse to run when the old heading does not resolve to exactly one heading in the source note. Multiple matches return a structured "ambiguous heading" diagnostic and exit non-zero. Zero matches return a structured "heading not found" diagnostic.
 - The command MUST scan vault-internal references and rewrite each `note#<old>` reference whose target node resolves to the renamed heading. Each rewrite MUST produce `note#<new>`.
 - The command MUST NOT add a block ID to the renamed heading or its section. An authored anchor already on the heading line MUST be left as written.
+- The command MUST refuse a new heading that the rewritten links could not name: text containing `|`, `#`, `[`, `]`, or a line break, text starting with `^`, or text that matches another heading in the same note.
 - The command MUST run through the existing edit-session pipeline and produce a reviewable diff before mutation. `--apply` is required to mutate; without it, the command operates as a plan that prints the proposed rewrites and exits.
 - The command MUST be idempotent. A second invocation with the same arguments after a successful apply returns "no inbound heading references remain" and exits cleanly.
 - The command MUST emit a structured `heading_rename_skipped` diagnostic for each inbound reference it cannot safely rewrite (for example, a near-match that is not a confident rewrite target, or a link inside a code block).
@@ -110,6 +111,7 @@ The check is opt-in. It runs as `rzm validate fragile-external` and through `rzm
 - Unit tests MUST cover the shipped classification outcomes (`linkable`, `heading_drifted`, `heading_ambiguous`) of the fragile-external check. `heading_moved` is deferred until persistent linkability observations exist.
 - Unit tests MUST cover the block-ID upgrade fix path through identifier-backed conversion (target has identifier field) and the standalone-anchor fallback (target has no identifier field).
 - Unit tests MUST cover that a rename, with or without inbound references, adds no block ID and keeps an authored heading-line anchor in place.
+- Unit tests MUST cover the refusal of new heading text that link syntax would split or that duplicates another heading.
 - Unit tests MUST cover idempotent re-invocation of the rename command and the ambiguous-old-heading refusal path.
 - Integration tests MUST cover end-to-end `rzm note rename-heading` against a fixture vault that mixes vault-internal heading-fragment references, identifier-backed references (already durable), code-block references (skipped), and references with near-match heading text (skipped with diagnostic).
 - Validation tests MUST prove the fragile-external check is not in the default check set and emits zero issues unless explicitly requested.

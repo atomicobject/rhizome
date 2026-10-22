@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -58,4 +59,20 @@ func replaceHeadingLine(content string, match headingLineMatch, newHeading strin
 		line += " ^" + match.blockID
 	}
 	return content[:match.start] + line + content[match.end:]
+}
+
+// checkNewHeading rejects a new heading that incoming links could not name
+// uniquely: link syntax characters would split the rewritten wikilink, and a
+// name shared with another heading in the note makes the fragment ambiguous.
+func checkNewHeading(content string, match headingLineMatch, newHeading string) error {
+	heading := strings.TrimSpace(newHeading)
+	if strings.ContainsAny(heading, "|#[]\r\n") || strings.HasPrefix(heading, "^") {
+		return fmt.Errorf("new heading %q contains characters a heading link cannot use: | # [ ] or a leading ^", heading)
+	}
+	for _, other := range matchingHeadingLines(content, heading) {
+		if other.start != match.start {
+			return fmt.Errorf("new heading %q already exists in the note", heading)
+		}
+	}
+	return nil
 }

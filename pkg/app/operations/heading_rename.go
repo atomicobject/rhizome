@@ -115,6 +115,9 @@ func RenameHeading(vault repoconfig.VaultManager, params RenameHeadingParams) (R
 		return result, fmt.Errorf("ambiguous heading %q: %d matches", params.OldHeading, len(matches))
 	}
 	match := matches[0]
+	if err := checkNewHeading(content, match, params.NewHeading); err != nil {
+		return result, err
+	}
 
 	cache := obsidian.BuildNotePathCache(allNotes)
 	for _, source := range allNotes {
