@@ -154,7 +154,7 @@ func (r *initRun) printRerun(plan rerunPlan, s setup) {
 	for _, field := range r.summaryFields(s) {
 		printFinding(out, field.label, field.value)
 	}
-	printHookStatus(out, r.layout.ProjectRoot, plan.res)
+	printHookStatus(out, r.layout.ProjectRoot, plan.res, false)
 	if changes := append(append([]planLine{}, plan.settings...), plan.files...); len(changes) > 0 {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, styleHeading(out, "Changes"))

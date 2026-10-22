@@ -374,3 +374,18 @@ func TestHookEntriesWithoutAnOwnershipRecordNeedADecision(t *testing.T) {
 		})
 	}
 }
+
+func TestTheFirstRunSaysWhetherEntriesAreInstalledYet(t *testing.T) {
+	stubHookSupport(t, nil)
+	opts := RunOptions{Workflow: "none", Addons: "session-memory", Agents: "claude", Search: "off", Hooks: "on"}
+	opts.Dir, opts.Check = machineRunRepo(t), true
+	out, err := runInit(t, opts)
+	require.ErrorIs(t, err, ErrChangesPending)
+	require.Contains(t, out, "Claude Code hooks (.claude/settings.json): not installed yet; these changes install them")
+
+	opts.Dir, opts.Check = machineRunRepo(t), false
+	out, err = runInit(t, opts)
+	require.NoError(t, err)
+	require.Contains(t, out, "Claude Code hooks (.claude/settings.json): installed and current")
+	require.NotContains(t, out, "not installed yet")
+}

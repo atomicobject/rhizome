@@ -228,7 +228,7 @@ func hooksRelevant(cfg repoconfig.LocalConfig) bool {
 // and no entries are installed.
 //
 // Docs: [[agent-surface-integration-modes#^SPEC-0045-US5-AC9]]
-func hookStatusLines(root string, res resolved) []string {
+func hookStatusLines(root string, res resolved, applied bool) []string {
 	registry, err := loadStarterTemplateMetadataRegistry()
 	if err != nil {
 		return nil
@@ -268,8 +268,12 @@ func hookStatusLines(root string, res resolved) []string {
 		}
 		var state string
 		switch {
+		case applied && c.take && c.removal:
+			state = "Rhizome's entries were removed"
+		case applied && c.take:
+			state = "installed and current"
 		case c.removal && c.take:
-			state = "Rhizome's entries are removed"
+			state = "Rhizome's entries will be removed with these changes"
 		case c.state == stateUnknown && c.removal:
 			state = "Rhizome has no record of writing these entries, so removing them needs a decision"
 		case c.state == stateUnknown:
@@ -279,9 +283,9 @@ func hookStatusLines(root string, res resolved) []string {
 		case c.state == stateCurrent:
 			state = "installed and current"
 		case c.state == stateMissing:
-			state = "not installed yet; installed with these changes"
+			state = "not installed yet; these changes install them"
 		case c.state == stateUnedited:
-			state = "installed; updated with these changes"
+			state = "installed; these changes update them"
 		case c.state == stateLocal || c.state == stateDeclined:
 			state = "installed; you edited the entries, and your version is kept"
 		default:
@@ -305,9 +309,10 @@ func hookStatusLines(root string, res resolved) []string {
 	return lines
 }
 
-// printHookStatus prints hookStatusLines under a Hooks heading.
-func printHookStatus(out io.Writer, root string, res resolved) {
-	lines := hookStatusLines(root, res)
+// printHookStatus prints hookStatusLines under a Hooks heading, before or
+// after res is applied.
+func printHookStatus(out io.Writer, root string, res resolved, applied bool) {
+	lines := hookStatusLines(root, res, applied)
 	if len(lines) == 0 {
 		return
 	}
