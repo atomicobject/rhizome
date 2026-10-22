@@ -59,11 +59,11 @@ func helper(mode string, args []string) {
 	case mode == "warn":
 		fmt.Fprintln(os.Stderr, "session-memory hook: writing the shard cache: EACCES")
 		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"items": []Item{{ID: "w", Text: "text w"}}})
-	case mode == "spent":
+	case mode == "event":
 		var in handlerInput
 		_ = json.Unmarshal(input, &in)
-		text := fmt.Sprintf("%s after %d items, %d chars", in.Event.Event, in.Spent.Items, in.Spent.Chars)
-		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"items": []Item{{ID: in.Event.Event, Text: text}}})
+		text := fmt.Sprintf("%s startDue=%t", in.Event.Event, in.Event.StartDue)
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"items": []Item{{ID: text, Text: text}}})
 	case mode == "soft":
 		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"items": []Item{}, "error": "reading shards: EIO"})
 	case mode == "garbage":
@@ -499,13 +499,23 @@ func TestStartItemsStayDueWhenAStartHandlerReportsAFailure(t *testing.T) {
 	require.Contains(t, string(log), "reading shards: EIO")
 }
 
-func TestAHandlerRunForStartAndToolItemsSeesWhatItAlreadyGave(t *testing.T) {
+func TestAHandlerForStartAndToolItemsRunsOnceWithBoth(t *testing.T) {
 	root := repo(t)
-	h := helperHandler("both", "spent")
-	payload := fmt.Sprintf(`{"session_id":"s1","agent_id":"sub-1","cwd":%q,"tool_name":"Read","tool_input":{"file_path":"pkg/a.go"}}`, root)
-	_, out := dispatchOnce(t, root, HarnessClaude, PostCompact, payload, h)
+	h := helperHandler("both", "event")
+	payload := func(tool string) string {
+		return fmt.Sprintf(`{"session_id":"s1","agent_id":"sub-1","cwd":%q,"tool_name":%q,"tool_input":{"file_path":"pkg/a.go"}}`, root, tool)
+	}
+	_, out := dispatchOnce(t, root, HarnessClaude, PostCompact, payload("Read"), h)
 	require.Empty(t, out)
-	res, _ := dispatchOnce(t, root, HarnessClaude, PostToolUse, payload, h)
-	first := "subagent-start after 0 items, 0 chars"
-	require.Equal(t, first+itemSeparator+fmt.Sprintf("post-tool-use after 1 items, %d chars", len(first)), res.HookSpecificOutput.AdditionalContext)
+	res, _ := dispatchOnce(t, root, HarnessClaude, PostToolUse, payload("Read"), h)
+	require.Equal(t, "post-tool-use startDue=true", res.HookSpecificOutput.AdditionalContext)
+	require.Equal(t, []string{"pkg/a.go"}, handlerInputOf(t, root, "event").Event.Paths)
+	// Start items are no longer due.
+	res, _ = dispatchOnce(t, root, HarnessClaude, PostToolUse, payload("Read"), h)
+	require.Equal(t, "post-tool-use startDue=false", res.HookSpecificOutput.AdditionalContext)
+	// A tool call the handler does not act on brings only the start items.
+	_, out = dispatchOnce(t, root, HarnessClaude, PostCompact, payload("Read"), h)
+	require.Empty(t, out)
+	res, _ = dispatchOnce(t, root, HarnessClaude, PostToolUse, payload("WebFetch"), h)
+	require.Equal(t, "subagent-start startDue=false", res.HookSpecificOutput.AdditionalContext)
 }

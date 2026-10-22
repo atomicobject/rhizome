@@ -29,10 +29,13 @@ type Event struct {
 	Root    string   `json:"root"`
 	Agent   Identity `json:"agent"`
 	// Reset is "compact" or "clear" when the host reset this context.
-	Reset   string   `json:"reset,omitempty"`
-	Tool    string   `json:"tool,omitempty"`
-	Paths   []string `json:"paths,omitempty"`
-	Command string   `json:"command,omitempty"`
+	Reset string `json:"reset,omitempty"`
+	// StartDue marks a tool call that also brings the agent's due start
+	// items, for a handler that acts on both.
+	StartDue bool     `json:"startDue,omitempty"`
+	Tool     string   `json:"tool,omitempty"`
+	Paths    []string `json:"paths,omitempty"`
+	Command  string   `json:"command,omitempty"`
 }
 
 // payload holds the host fields the dispatcher reads; Claude Code and Codex

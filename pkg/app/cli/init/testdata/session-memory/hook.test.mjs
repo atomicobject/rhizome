@@ -163,20 +163,30 @@ test("session start delivers only shards that apply everywhere, then says how ma
   assert.deepEqual(rest.items.map((i) => pathOf(i.id)), everywhere.filter((p) => !ids(r).map(pathOf).includes(p)));
 });
 
-test("start and tool items in one call share the five-shard limit, and the rest arrive later", () => {
+test("a tool call that brings due start items selects from both together, rules first, within one limit", () => {
   const root = scratchRepo();
-  const everywhere = Array.from({ length: 5 }, (_, k) => shard(root, { statement: `Global rule ${k}: every package logs through one logger.`, appliesTo: [] }));
-  const files = Array.from({ length: 5 }, (_, k) => shard(root, { statement: `Store rule ${k}: the store keeps invariant ${k}.` }));
-  // A compacted subagent's next tool call: the dispatcher runs the start
-  // pass, then the tool pass with what the start pass gave.
-  const starts = handle(request(root, { event: "subagent-start", reset: "compact" }));
-  assert.deepEqual(ids(starts).map(pathOf).sort(), everywhere.sort());
-  const chars = starts.items.reduce((n, i) => n + i.text.length, 0);
-  assert.deepEqual(read(root, ["pkg/store/db.go"], { spent: { items: starts.items.length, chars } }).items, []);
-  // A later call, with nothing spent yet, delivers the file's shards.
-  assert.deepEqual(ids(read(root, ["pkg/store/db.go"])).map(pathOf).sort(), files.sort());
-  // Characters count too: a nearly spent allowance leaves room for none.
-  assert.deepEqual(read(root, ["pkg/store/db.go"], { spent: { items: 1, chars: 3990 } }).items, []);
+  const facts = Array.from({ length: 5 }, (_, k) => shard(root, { kind: "fact", statement: `Global fact ${k}: every package logs through one logger.`, appliesTo: [] }));
+  const rule = shard(root, { statement: "Store rule: a busy timeout of 0 means the default." });
+  // PostCompact, then Read: the file's rule arrives with the read, ahead of
+  // the facts, and the closing line names the fact left out.
+  const due = (paths, over) => handle(request(root, { event: "post-tool-use", tool: "read", paths, startDue: true }, over));
+  const r = due(["pkg/store/db.go"]);
+  assert.deepEqual(ids(r).slice(0, 5).map(pathOf), [rule, ...facts.slice(0, 4)]);
+  assert.equal(r.items[5].text, moreLine(1, lookupCommand(4)));
+  // A call that matches no file brings only the start items.
+  assert.deepEqual(ids(due(["docs/store.md"])).map(pathOf), facts);
+
+  // Five rules apply everywhere and five to the file: still five shards,
+  // the file's first, and the rest arrive later.
+  const root2 = scratchRepo();
+  const everywhere = Array.from({ length: 5 }, (_, k) => shard(root2, { statement: `Global rule ${k}: every package logs through one logger.`, appliesTo: [] }));
+  const files = Array.from({ length: 5 }, (_, k) => shard(root2, { statement: `Store rule ${k}: the store keeps invariant ${k}.` }));
+  const both = handle(request(root2, { event: "post-tool-use", tool: "read", paths: ["pkg/store/db.go"], startDue: true }));
+  const shards = both.items.filter((i) => !i.id.startsWith("session-memory:more@"));
+  assert.deepEqual(shards.map((i) => pathOf(i.id)).sort(), files.sort());
+  assert.equal(both.items.at(-1).text, moreLine(5, lookupCommand(0)));
+  const shown = runLookup(lookupCommands(0, { harness: "claude" }), root2);
+  assert.deepEqual(everywhere.filter((p) => shown.includes(p)), everywhere);
 });
 
 test("the closing line names lookup.mjs where the skill is installed", async () => {

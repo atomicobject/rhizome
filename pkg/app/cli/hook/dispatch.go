@@ -58,20 +58,11 @@ type Item struct {
 
 // handlerInput is what a handler reads on standard input.
 type handlerInput struct {
-	Version int      `json:"version"`
-	Event   Event    `json:"event"`
-	Emitted []string `json:"emitted"`
-	Budget  int      `json:"budget"`
-	// Spent is what the handler already delivered in this invocation, so a
-	// handler run for both start and tool items keeps one per-call limit.
-	Spent      Spent `json:"spent"`
-	DeadlineMS int64 `json:"deadlineMs"`
-}
-
-// Spent counts the items and characters one handler delivered.
-type Spent struct {
-	Items int `json:"items"`
-	Chars int `json:"chars"`
+	Version    int      `json:"version"`
+	Event      Event    `json:"event"`
+	Emitted    []string `json:"emitted"`
+	Budget     int      `json:"budget"`
+	DeadlineMS int64    `json:"deadlineMs"`
 }
 
 // Run dispatches one hook invocation. It never returns an error: failures
@@ -194,62 +185,96 @@ func (d *dispatch) run() error {
 
 	var texts, delivered, failures []string
 	used := 0
-	spent := map[string]Spent{}
-	// deliver runs handlers for runEv and gathers their new items within the
-	// output budget, returning the IDs to record under key.
-	deliver := func(hs []Handler, runEv Event, key string) (ids []string, failed bool) {
+	emittedIn := func(key string) map[string]bool {
 		emitted := map[string]bool{}
 		for _, id := range state.Scopes[key] {
 			emitted[id] = true
 		}
-		for _, h := range hs {
-			remaining := contextBudget(ev.Harness) - used
-			if remaining <= 0 {
-				break
+		return emitted
+	}
+	startKey := scopeKey(scopeStart, ev.Agent)
+	key := scopeKey(scopeFor(ev.Event), ev.Agent)
+	startSeen, toolSeen := emittedIn(startKey), emittedIn(key)
+	// deliver runs one handler for runEv and gathers its new items within
+	// the output budget. An item counts as emitted in every given scope.
+	deliver := func(h Handler, runEv Event, scopes ...map[string]bool) (ids []string, failed bool) {
+		remaining := contextBudget(ev.Harness) - used
+		if remaining <= 0 {
+			return nil, false
+		}
+		emitted := map[string]bool{}
+		for _, scope := range scopes {
+			for id := range scope {
+				emitted[id] = true
 			}
-			items, stderr, err := d.runHandler(h, runEv, emitted, remaining, spent[h.Key()])
-			switch {
-			case err != nil:
-				// One handler's failure keeps the others' items, and its own
-				// when it reported the failure itself.
-				failures = append(failures, fmt.Sprintf("%s: %v", h.Key(), err))
-				failed = true
-			case stderr != "":
-				// A handler that recovers from an error still reports it.
-				failures = append(failures, fmt.Sprintf("%s stderr: %s", h.Key(), stderr))
+		}
+		items, stderr, err := d.runHandler(h, runEv, emitted, remaining)
+		switch {
+		case err != nil:
+			// One handler's failure keeps the others' items, and its own
+			// when it reported the failure itself.
+			failures = append(failures, fmt.Sprintf("%s: %v", h.Key(), err))
+			failed = true
+		case stderr != "":
+			// A handler that recovers from an error still reports it.
+			failures = append(failures, fmt.Sprintf("%s stderr: %s", h.Key(), stderr))
+		}
+		for _, item := range items {
+			text := strings.TrimSpace(item.Text)
+			if item.ID == "" || text == "" || emitted[item.ID] {
+				continue
 			}
-			gave := false
-			for _, item := range items {
-				text := strings.TrimSpace(item.Text)
-				if item.ID == "" || text == "" || emitted[item.ID] {
-					continue
-				}
-				cost := utf8.RuneCountInString(text)
-				if len(texts) > 0 {
-					cost += len(itemSeparator)
-				}
-				if used+cost > contextBudget(ev.Harness) {
-					continue
-				}
-				used += cost
-				spent[h.Key()] = Spent{spent[h.Key()].Items + 1, spent[h.Key()].Chars + utf8.RuneCountInString(text)}
-				texts = append(texts, text)
-				ids = append(ids, item.ID)
-				emitted[item.ID] = true
-				gave = true
+			cost := utf8.RuneCountInString(text)
+			if len(texts) > 0 {
+				cost += len(itemSeparator)
 			}
-			if gave && !slices.Contains(delivered, h.Key()) {
-				delivered = append(delivered, h.Key())
+			if used+cost > contextBudget(ev.Harness) {
+				continue
 			}
+			used += cost
+			texts = append(texts, text)
+			ids = append(ids, item.ID)
+			emitted[item.ID] = true
+			for _, scope := range scopes {
+				scope[item.ID] = true
+			}
+		}
+		if len(ids) > 0 && !slices.Contains(delivered, h.Key()) {
+			delivered = append(delivered, h.Key())
 		}
 		return ids, failed
 	}
-	// A handler run in both passes sees what it gave in the first, so the two
-	// together stay within its one per-call limit.
-	startKey := scopeKey(scopeStart, ev.Agent)
-	startIDs, startFailed := deliver(starters, startEv, startKey)
-	key := scopeKey(scopeFor(ev.Event), ev.Agent)
-	ids, _ := deliver(applicable, ev, key)
+	// A handler that acts on both the due start items and the tool call runs
+	// once, with the tool event marked startDue, so its one selection and
+	// per-call limit cover both. Its items count as emitted in both scopes.
+	both := map[string]bool{}
+	for _, h := range applicable {
+		if slices.ContainsFunc(starters, func(s Handler) bool { return s.Key() == h.Key() }) {
+			both[h.Key()] = true
+		}
+	}
+	var startIDs, ids []string
+	startFailed := false
+	for _, h := range starters {
+		var got []string
+		var failed bool
+		if both[h.Key()] {
+			combined := ev
+			combined.StartDue = true
+			got, failed = deliver(h, combined, startSeen, toolSeen)
+			ids = append(ids, got...)
+		} else {
+			got, failed = deliver(h, startEv, startSeen)
+		}
+		startIDs = append(startIDs, got...)
+		startFailed = startFailed || failed
+	}
+	for _, h := range applicable {
+		if !both[h.Key()] {
+			got, _ := deliver(h, ev, toolSeen)
+			ids = append(ids, got...)
+		}
+	}
 
 	if len(failures) > 0 {
 		errs = append(errs, errors.New(strings.Join(failures, "; ")))
@@ -342,7 +367,7 @@ func readPrefixes(root, rel string) []string {
 // items and what it wrote to standard error. A timeout kills the handler's
 // whole process tree. A handler that reports an error keeps its items, and
 // the error marks its run as failed.
-func (d *dispatch) runHandler(h Handler, ev Event, emitted map[string]bool, budget int, spent Spent) ([]Item, string, error) {
+func (d *dispatch) runHandler(h Handler, ev Event, emitted map[string]bool, budget int) ([]Item, string, error) {
 	if len(h.Command) == 0 {
 		return nil, "", errors.New("no command")
 	}
@@ -355,7 +380,7 @@ func (d *dispatch) runHandler(h Handler, ev Event, emitted map[string]bool, budg
 	}
 	ctx, cancel := context.WithTimeout(d.ctx, limit)
 	defer cancel()
-	in := handlerInput{Version: ProtocolVersion, Event: ev, Emitted: []string{}, Budget: budget, Spent: spent, DeadlineMS: limit.Milliseconds()}
+	in := handlerInput{Version: ProtocolVersion, Event: ev, Emitted: []string{}, Budget: budget, DeadlineMS: limit.Milliseconds()}
 	for id := range emitted {
 		in.Emitted = append(in.Emitted, id)
 	}

@@ -2,7 +2,8 @@
 // The session-memory handler `rzm hook` runs (SPEC-0124 "Delivery",
 // SPEC-0045 US5 AC6). It reads one JSON request on stdin and prints
 // {"items": [{"id", "text"}]}: patternless shards at session and subagent
-// start, and the shards for a tool call's paths or command afterwards. The
+// start, the shards for a tool call's paths or command afterwards, and both
+// together on a tool call that brings due start items ("startDue"). The
 // dispatcher owns payload parsing, path containment, deadlines, and
 // emitted-item state. An error here prints no items, names the error in
 // "error" so the dispatcher keeps start items due, and exits 0.
@@ -11,7 +12,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { approvedHash, loadShards, MAX_CHARS, MAX_SHARDS, SHARD_DIR, selectShards } from "./lib/shards.mjs";
+import { approvedHash, loadShards, MAX_CHARS, SHARD_DIR, selectShards } from "./lib/shards.mjs";
 import { readJson, writeJson, writeText } from "./lib/store.mjs";
 
 export const HOOK_DIR = ".rhizome/session-memory/hook";
@@ -112,12 +113,7 @@ export function handle(input, { startedAt = performance.now() } = {}) {
   const deadline = Number(input.deadlineMs) > 0 ? Number(input.deadlineMs) : 2000;
   const timeoutMs = Math.max(50, Math.floor(deadline - (performance.now() - startedAt) - 250));
   const budget = Number(input.budget);
-  // One per-call limit covers everything this handler gives in a call, so
-  // a tool call that also brings start items counts what they already used.
-  const spent = (n) => Math.max(0, Math.floor(Number(input.spent?.[n])) || 0);
-  const maxShards = Math.max(0, MAX_SHARDS - spent("items"));
-  const allowance = Math.max(0, MAX_CHARS - spent("chars"));
-  const maxChars = Number.isFinite(budget) && budget >= 0 ? Math.min(allowance, budget) : allowance;
+  const maxChars = Number.isFinite(budget) && budget >= 0 ? Math.min(MAX_CHARS, budget) : MAX_CHARS;
   const exclude = new Set(Array.isArray(input.emitted) ? input.emitted : []);
 
   const shards = cachedShards(root);
@@ -126,29 +122,35 @@ export function handle(input, { startedAt = performance.now() } = {}) {
   } catch (err) {
     warn("publishing command prefixes", err);
   }
-  const base = { root, shards, exclude, maxShards, maxChars, timeoutMs, prefix: PREFIX };
+  const base = { root, shards, exclude, maxChars, timeoutMs, prefix: PREFIX };
+  const tool = ev.event === "post-tool-use" && TOOLS.has(ev.tool);
+  const paths = tool && Array.isArray(ev.paths) ? ev.paths.filter((p) => typeof p === "string" && p) : [];
+  const command = tool && ev.tool === "shell" ? ev.command : undefined;
 
-  if (ev.event === "session-start" || ev.event === "subagent-start") {
-    let r = selectShards(base);
+  // A tool call that also brings due start items selects from the shards
+  // that apply everywhere and the call's own together, rules first, within
+  // the one limit; its file shards that do not fit arrive with later calls.
+  if (ev.event === "session-start" || ev.event === "subagent-start" || (ev.event === "post-tool-use" && ev.startDue === true)) {
+    let r = selectShards({ ...base, paths, command });
     if (!r.omitted) return { items: r.shards.map(({ id, text }) => ({ id, text })) };
-    // Lookup pages through every match, emitted ones included, so the
-    // closing line skips to the first omitted shard in that order.
+    // Lookup pages through every shard that applies everywhere, emitted ones
+    // included, so the closing line skips to the first omitted one in that
+    // order.
     const order = selectShards({ ...base, exclude: new Set(), maxShards: Infinity, maxChars: Infinity, index: r.index }).shards.map((s) => s.id);
+    const omitted = (rest) => rest.filter((id) => order.includes(id));
+    if (!omitted(r.rest).length) return { items: r.shards.map(({ id, text }) => ({ id, text })) };
     const line = (n, skip) => moreLine(n, lookupCommand(skip, { harness: ev.harness }));
     // Reserve room for the closing line; singular is the longer wording.
-    const total = r.shards.length + r.omitted;
-    const reserve = Math.max(Buffer.byteLength(line(1, order.length)), Buffer.byteLength(line(total, order.length)));
-    r = selectShards({ ...base, maxChars: Math.max(0, maxChars - reserve), index: r.index });
+    const reserve = Math.max(Buffer.byteLength(line(1, order.length)), Buffer.byteLength(line(order.length, order.length)));
+    r = selectShards({ ...base, paths, command, maxChars: Math.max(0, maxChars - reserve), index: r.index });
     const items = r.shards.map(({ id, text }) => ({ id, text }));
-    const more = { id: `session-memory:more@${hash(r.rest.join("\n"))}`, text: line(r.omitted, order.indexOf(r.rest[0])) };
+    const rest = omitted(r.rest);
+    const more = { id: `session-memory:more@${hash(rest.join("\n"))}`, text: line(rest.length, order.indexOf(rest[0])) };
     const used = items.reduce((n, i) => n + Buffer.byteLength(i.text), 0);
     if (!exclude.has(more.id) && used + Buffer.byteLength(more.text) <= maxChars) items.push(more);
     return { items };
   }
-  if (ev.event === "post-tool-use" && TOOLS.has(ev.tool)) {
-    const paths = (Array.isArray(ev.paths) ? ev.paths : []).filter((p) => typeof p === "string" && p);
-    const command = ev.tool === "shell" ? ev.command : undefined;
-    if ((!paths.length && !command) || !maxShards) return { items: [] };
+  if (tool && (paths.length || command)) {
     const r = selectShards({ ...base, paths, command, everywhere: false });
     return { items: r.shards.map(({ id, text }) => ({ id, text })) };
   }
