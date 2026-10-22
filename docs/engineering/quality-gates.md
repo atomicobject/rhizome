@@ -7,7 +7,7 @@ Consulted when running verification and when deciding what is safe to run withou
 | Gate | When | Command |
 | --- | --- | --- |
 | Fast checks | every changed Go or TypeScript file, in the edit loop | `make check-fast` (gofmt, Go unused/SA analysis, file-size ratchet, `go vet`, repository content, Greptile config, web lint and typechecks) |
-| Focused tests | changed package or bug fix | `go test ./pkg/<path>/...` or `go test ./cmd/...` |
+| Focused tests | changed package or bug fix | `GOCACHE=$PWD/.gocache go test -tags fts5 ./pkg/<path>/...` or the same for `./cmd/...`; the Makefile keeps `GOCACHE` in the repository's `.gocache`, so sandboxed agents set it the same way to write and reuse that cache |
 | Pre-commit verification | before committing Go or TypeScript changes | `make check` (`check-fast` plus Go unit tests without the race detector and web unit tests; about a minute) |
 | Full verification | CI runs it on every pull request and is the merge gate. Run it locally before a release, before effort closure without a pull request, or when a change touches concurrency, the vault runtime, or indexing | `make check-full` (adds race-enabled unit tests, integration tests, and benchmark contracts) |
 | Documentation validation | changed Markdown, docs, or agent guidance | `./scripts/rzm validate` (`rzm validate fix` auto-fixes safe findings); `./scripts/rzm validate frozen-scope-drift` when specs or efforts changed |

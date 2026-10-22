@@ -283,7 +283,7 @@ dev-frontend: dev-web-prepare
 	cd $(WEB_DIR) && npm run dev
 
 # Docs: [Release process](docs/RELEASING.md)
-.PHONY: build build-release build-all web-build web-generate web-test web-lint web-typecheck web-typecheck-node web-fix web-e2e e2e clean clean-web clean-all lint vet test test-fast test-content credential-check benchmark-test integration integration-packages integration-mixed check check-fast check-full verify check-serial test_all test_coverage greptile-check setup setup-reset hooks-setup hooks-reset vendor-treesitter build-stripped build-small-vault dev-build-backend dev-web-prepare dev dev-backend dev-frontend release release-plan release-dry release-build release-apply release-publish release-resume cut-release release-s3 release-s3-check release-s3-dry
+.PHONY: build build-release build-all web-build web-deps web-generate web-test web-lint web-typecheck web-typecheck-node web-fix web-e2e e2e clean clean-web clean-all lint vet test test-fast test-content credential-check benchmark-test integration integration-packages integration-mixed check check-fast check-full verify check-serial test_all test_coverage greptile-check setup setup-reset hooks-setup hooks-reset vendor-treesitter build-stripped build-small-vault dev-build-backend dev-web-prepare dev dev-backend dev-frontend release release-plan release-dry release-build release-apply release-publish release-resume cut-release release-s3 release-s3-check release-s3-dry
 release:
 	@if ! git describe --tags --exact-match >/dev/null 2>&1; then \
 		echo "error: HEAD is not an exact release tag"; \
@@ -337,27 +337,31 @@ ifndef NO_WEB
 	@touch $(WEB_STAMP)
 endif
 
-web-generate:
+# Web gates need installed dependencies; fail with the fix instead of an npm error.
+web-deps:
+	@test -d $(WEB_DIR)/node_modules || { echo "$(WEB_DIR)/node_modules is missing. Run: cd $(WEB_DIR) && npm ci" >&2; exit 1; }
+
+web-generate: web-deps
 	@printf '\n==> web-generate\n'
 	cd $(WEB_DIR) && npm run generate:api
 	@printf '<== web-generate\n'
 
-web-test:
+web-test: web-deps
 	@printf '\n==> web-test\n'
 	cd $(WEB_DIR) && npm test
 	@printf '<== web-test\n'
 
-web-lint:
+web-lint: web-deps
 	@printf '\n==> web-lint\n'
 	cd $(WEB_DIR) && npm run lint
 	@printf '<== web-lint\n'
 
-web-typecheck:
+web-typecheck: web-deps
 	@printf '\n==> web-typecheck\n'
 	cd $(WEB_DIR) && npm run typecheck
 	@printf '<== web-typecheck\n'
 
-web-typecheck-node:
+web-typecheck-node: web-deps
 	@printf '\n==> web-typecheck-node\n'
 	cd $(WEB_DIR) && npm run typecheck:node
 	@printf '<== web-typecheck-node\n'
@@ -365,7 +369,7 @@ web-typecheck-node:
 web-fix:
 	cd $(WEB_DIR) && npm run lint:fix
 
-web-e2e:
+web-e2e: web-deps
 	cd $(WEB_DIR) && npm run test:e2e
 
 e2e: web-e2e

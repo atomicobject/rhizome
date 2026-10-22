@@ -5,10 +5,12 @@ import path from "node:path";
 
 const repoRoot = process.env.RHIZOME_REPO_ROOT;
 
-const port = process.env.RHIZOME_E2E_PORT || "4173";
+const port = process.env.RHIZOME_E2E_PORT;
 
-if (!repoRoot) {
-  throw new Error("RHIZOME_REPO_ROOT is required");
+if (!repoRoot || !port) {
+  throw new Error(
+    "RHIZOME_REPO_ROOT and RHIZOME_E2E_PORT are required; playwright.config.ts sets both",
+  );
 }
 
 const fixtureSrc = path.join(repoRoot, "testdata", "integration", "python-app", "vault");
