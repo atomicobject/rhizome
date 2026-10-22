@@ -177,6 +177,7 @@ func matchesPrefix(cmd string, prefixes []string) bool {
 // resolved against the working directory in effect for it.
 func shellReads(cmd, cwd string) []string {
 	var out []string
+	known := true
 	for _, seg := range shellSegments(cmd) {
 		words := seg.words
 		for len(words) > 0 && isAssignment(words[0]) {
@@ -189,11 +190,20 @@ func shellReads(cmd, cwd string) []string {
 		head = strings.TrimSuffix(strings.ToLower(head[strings.LastIndexAny(head, `/\`)+1:]), ".exe")
 		args := operands(words[1:])
 		if head == "cd" {
+			if seg.isolated {
+				continue
+			}
 			// Bash's cd is logical: ".." drops the previous component of the
 			// path text, not of the link's target. File operands after it
-			// still resolve physically (see paths.RelPhysicalStrict).
-			if len(args) == 1 && !args[0].dynamic && !seg.isolated {
-				cwd = filepath.Clean(paths.ResolveAgainst(cwd, args[0].text))
+			// still resolve physically (see paths.RelPhysicalStrict). A cd
+			// this cannot follow leaves the directory unknown, and later
+			// relative reads are dropped rather than guessed.
+			if dir, ok := cdTarget(args); ok && known {
+				cwd = filepath.Clean(paths.ResolveAgainst(cwd, dir))
+			} else if ok && filepath.IsAbs(dir) {
+				cwd, known = filepath.Clean(dir), true
+			} else {
+				known = false
 			}
 			continue
 		}
@@ -201,10 +211,30 @@ func shellReads(cmd, cwd string) []string {
 			if len(out) == maxShellPaths {
 				return out
 			}
+			if !known && !filepath.IsAbs(file) {
+				continue
+			}
 			out = append(out, paths.ResolveAgainst(cwd, file))
 		}
 	}
 	return out
+}
+
+// cdTarget returns the directory a cd changes to when it can be followed:
+// one literal operand, after "--" or the logical -L option. -P, -e, "-"
+// (the previous directory), and anything expanded cannot be.
+func cdTarget(args []shellWord) (string, bool) {
+	for len(args) > 0 && !args[0].dynamic && (args[0].text == "-L" || args[0].text == "--") {
+		end := args[0].text == "--"
+		args = args[1:]
+		if end {
+			break
+		}
+	}
+	if len(args) != 1 || args[0].dynamic || args[0].text == "-" || strings.HasPrefix(args[0].text, "-") && args[0].text != "" {
+		return "", false
+	}
+	return args[0].text, true
 }
 
 func isAssignment(w shellWord) bool {
