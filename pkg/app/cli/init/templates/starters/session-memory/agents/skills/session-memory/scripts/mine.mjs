@@ -384,6 +384,14 @@ async function stages({ root, store, run, caller, clients, episodes, concurrency
     ].map((c) => c.id);
     plan = [...new Set(plan)];
     store.write(planName, plan);
+  } else {
+    // A resumed run keeps its plan, but a recurrence reopened since it
+    // stopped had its draft withdrawn above, so it is verified too.
+    const added = [...reopened].filter((id) => clusters[id] && !plan.includes(id));
+    if (added.length) {
+      plan = [...plan, ...added];
+      store.write(planName, plan);
+    }
   }
   const ctx = { root: run.checkout, search: (args) => clients.search(args, { cwd: run.checkout }) };
   // Verification reads the working tree, so it vouches for a commit only when

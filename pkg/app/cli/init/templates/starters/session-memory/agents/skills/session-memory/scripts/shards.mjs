@@ -188,6 +188,9 @@ function edited(base, file, { response } = {}) {
   const extra = Object.keys(edit).filter((k) => !allowed.includes(k));
   if (extra.length) throw new Refused(`--edit may change only ${allowed.join(", ")}; got ${extra.join(", ")}`);
   const s = { ...base, ...edit, ...(response ? { response } : {}) };
+  // A guard rule belongs to the guard response; redirecting away drops it
+  // unless the reviewer's edit supplies one.
+  if (response && response !== "guard" && !("guardRule" in edit)) delete s.guardRule;
   // A reviewer who redirects the response writes its reason only if they want to.
   if (response && response !== base.response && !edit.responseReason) s.responseReason = `The reviewer chose ${response}.`;
   const problems = validateLearning(s, { candidate: false });

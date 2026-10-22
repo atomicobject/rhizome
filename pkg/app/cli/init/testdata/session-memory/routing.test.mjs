@@ -118,7 +118,7 @@ test("a document edit publishes the whole document, so no credential-shaped valu
   assert.deepEqual(decisions(root), []);
 });
 
-test("a tracked write through a symlinked directory is refused", () => {
+test("a tracked write through a symlinked directory is refused", { skip: process.platform === "win32" && "symlinks need privileges on Windows" }, () => {
   const { root, sm } = repo([
     proposal("k-doc", { response: "document", edit: { document: "ext/notes.md", old: "Old text.\n", new: "New text.\n" } }),
     proposal("k-fix", { response: "fix", change: "Delete the dead fallback." }),
@@ -649,6 +649,36 @@ test("a recurrence whose verification stops leaves no earlier draft to approve",
   assert.equal((await mineWith([SESSIONS.s1, SESSIONS.s2, s3, s6], failAlpha())).status, "stopped");
   assert.ok(!sm("list").some((p) => p.cluster === cluster));
   assert.throws(() => sm("approve", cluster, "--confirm-publish"), /no pending proposal/);
+});
+
+test("a resumed run verifies a recurrence reopened since it stopped", async () => {
+  const root = tempRepo();
+  const state = mkdtempSync(join(tmpdir(), "sm-state-"));
+  const mineWith = (sessions, clients = fakeClients({ routes })) => mine({ root, state, budget: 5, harness: "claude", discover: fakeDiscover(sessions), log: () => {} }, clients);
+  const sm = (...argv) => run(argv, { root, state, user });
+  await mineWith([SESSIONS.s1, SESSIONS.s2]);
+  const alpha = sm("list").find((p) => /Topic alpha/.test(p.statement));
+  const { finding } = sm("approve", alpha.cluster, "--confirm-publish");
+  git(root, ["add", "-A"]);
+  git(root, ["commit", "-qm", "finding"], "2026-10-10T11:30:00Z");
+  // While the finding is open, a run that sees alpha again stops on delta, its
+  // plan frozen without alpha.
+  const stopped = await mineWith([SESSIONS.s1, SESSIONS.s2, s3], fakeClients({ routes, fail: (prompt) => prompt.includes("<candidate>") && prompt.includes("Topic delta") }));
+  assert.equal(stopped.status, "stopped");
+  // The finding is completed before s3's episodes, so the resumed run reopens it.
+  writeFileSync(join(root, finding), readFileSync(join(root, finding), "utf8").replace("- [ ] ", "- [x] "));
+  git(root, ["commit", "-qam", "done"], "2026-10-10T11:45:00Z");
+  assert.equal((await mineWith([SESSIONS.s1, SESSIONS.s2, s3])).status, "done");
+  assert.equal(sm("list").find((p) => p.cluster === alpha.cluster)?.recurrence?.finding, finding);
+});
+
+test("redirecting a guard proposal to fix drops its guard rule", () => {
+  const rule = { tool: "shell", command: "go mod vendor", reason: "It deletes vendored C files.", alternative: "make vendor-treesitter" };
+  const { root, sm } = repo([proposal("k-guard", { response: "guard", change: "Refuse a bare go mod vendor.", guardRule: rule })]);
+  const { finding } = sm("approve", "k-guard", "--confirm-publish", "--response", "fix");
+  const note = readFileSync(join(root, finding), "utf8");
+  assert.match(note, /^response: fix$/m);
+  assert.doesNotMatch(note, /guard-rule/);
 });
 
 test("a proposal whose cluster verification was cleared or replaced is not pending", () => {
