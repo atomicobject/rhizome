@@ -92,26 +92,33 @@ jobs:
       SHARD_anchors_app: /rhizome/pkg/(anchors|app/(indexing|mcp|bootstrap|views|codeintel|runtime))(/|$)
       SHARD_web_cli: /rhizome/pkg/app/(web|cli)(/|$)
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      # None of these touch the workspace, so they overlap the checkout.
       - name: Set up Go
+        id: setup-go
+        background: true
         uses: actions/setup-go@v5
         with:
           go-version: "1.24.2"
           # setup-go keys its cache on go.sum alone, so it never refreshes.
           cache: false
 
-      - name: Locate Go build cache
-        shell: bash
-        run: echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
-
       - name: Restore Go build cache
+        id: restore-cache
+        background: true
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/go-build
           key: go-build-${{ runner.os }}-${{ github.sha }}
           restore-keys: go-build-${{ runner.os }}-
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Locate Go build cache
+        shell: bash
+        run: echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+
+      - wait: [setup-go, restore-cache]
 
       - name: Run unit tests
         shell: bash
@@ -212,26 +219,33 @@ jobs:
           - os: windows-latest
             race: ""
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      # None of these touch the workspace, so they overlap the checkout.
       - name: Set up Go
+        id: setup-go
+        background: true
         uses: actions/setup-go@v5
         with:
           go-version: "1.24.2"
           # setup-go keys its cache on go.sum alone, so it never refreshes.
           cache: false
 
-      - name: Locate Go build cache
-        shell: bash
-        run: echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
-
       - name: Restore Go build cache
+        id: restore-cache
+        background: true
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/go-build
           key: go-build-${{ runner.os }}-${{ github.sha }}
           restore-keys: go-build-${{ runner.os }}-
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Locate Go build cache
+        shell: bash
+        run: echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+
+      - wait: [setup-go, restore-cache]
 
       - name: Run integration tests
         # PowerShell reports only the last command's exit code, which hid
@@ -296,6 +310,18 @@ jobs:
           go-version: "1.24.2"
           cache: true
 
+      # The e2e server falls back to a repo-local GOCACHE, which would miss
+      # the cache setup-go restored.
+      - name: Locate Go build cache
+        run: echo "GOCACHE=$(go env GOCACHE)" >> "$GITHUB_ENV"
+
+      # Compile the server the e2e harness runs with `go run .` while the
+      # web toolchain installs.
+      - name: Warm Go build cache
+        id: warm-go
+        background: true
+        run: go build -o /dev/null .
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -314,6 +340,8 @@ jobs:
       - name: Install Playwright Chromium
         working-directory: web
         run: npx playwright install --with-deps chromium
+
+      - wait: [warm-go]
 
       - name: Run web e2e
         run: make web-e2e
