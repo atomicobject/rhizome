@@ -44,6 +44,8 @@ func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
 		{"cd pkg & cat a.go", []string{"/repo/a.go"}},
 		{"cat x.go | cd pkg; cat a.go", []string{"/repo/x.go", "/repo/a.go"}},
 		{"cd pkg && cat a.go | head -3", []string{"/repo/pkg/a.go"}},
+		// A here-document's body is text; parsing stops there.
+		{"cat a.go\ncat <<'EOF'\ncd pkg\ncat x.go\nEOF\ncat b.go", []string{"/repo/a.go"}},
 	} {
 		got := shellReads(tc.cmd, cwd)
 		want := make([]string, len(tc.want))

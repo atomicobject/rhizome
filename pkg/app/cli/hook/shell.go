@@ -25,9 +25,6 @@ type shellWord struct {
 	dynamic bool
 }
 
-// shellSegments splits a command into simple commands at unquoted &&, ||, ;,
-// |, &, and newlines, honoring single quotes, double quotes, backslashes, and
-// comments. A segment with a subshell or here-document is dropped.
 // A segment in a pipeline or run in the background runs in a subshell, so a cd
 // there changes no later command's directory; isolated marks it.
 type shellSegment struct {
@@ -35,6 +32,10 @@ type shellSegment struct {
 	isolated bool
 }
 
+// shellSegments splits a command into simple commands at unquoted &&, ||, ;,
+// |, &, and newlines, honoring single quotes, double quotes, backslashes, and
+// comments. Segments inside a subshell are dropped, and parsing stops at a
+// here-document.
 func shellSegments(cmd string) []shellSegment {
 	if len(cmd) > maxCommandBytes {
 		return nil
@@ -115,7 +116,11 @@ func shellSegments(cmd string) []shellSegment {
 		case c == ')' && depth > 0:
 			depth--
 			broken = true
-		case c == '(' || c == ')' || c == '<' && strings.HasPrefix(cmd[i:], "<<"):
+		case c == '<' && strings.HasPrefix(cmd[i:], "<<"):
+			// A here-document's body is literal text, not commands, and its
+			// end is not worth parsing for: stop at the first one.
+			return segments
+		case c == '(' || c == ')':
 			broken = true
 		case c == '>' || c == '<':
 			// A redirect target is not an operand; mark the next word so it
