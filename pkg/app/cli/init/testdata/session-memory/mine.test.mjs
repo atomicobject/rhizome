@@ -271,6 +271,9 @@ test("review regressions: unreadable packet paths, cost totals, unreported probe
   const second = await run(rejected, fakeClients(), { discover: fakeDiscover([SESSIONS.s1, SESSIONS.s2]) });
   assert.equal(second.report.proposals, 1);
 
+  // Zero workers would skip extraction yet advance the cursors, so it is refused.
+  await assert.rejects(run(tmp(), fakeClients(), { concurrency: 0 }), /--concurrency must be a whole number/);
+
   // A learning a teammate already dismissed in a shared decision is not verified again.
   const shared = tempRepo();
   const sharedState = tmp();

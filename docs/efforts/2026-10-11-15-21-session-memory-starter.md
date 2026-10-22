@@ -608,6 +608,8 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
   - **Round 6 (confidence 5, one comment, fixed):** shell-path parsing treated Windows drive paths such as `C:/repo/pkg/a.go` as relative, so lookup missed their shards.
   - **Round 7 (confidence 4, one comment, fixed):** Codex `generate` could discard a completed reply when stdout closed right after `turn/completed`, because the wait's `select` chose between the completion and the closure at random; callers would then retry paid work that had succeeded. A completed turn now wins, tested deterministically through the extracted wait.
   - **Round 8 (confidence 5, two comments, fixed):** approval accepted patterns that match no tracked file and targets that do not exist, so the new shard was withheld as stale at once; approve and revise now refuse them. Learnings already settled by a shared decision or shard still took verification calls and tier B slots; planning now skips them.
+  - **Round 9 (confidence 4, two comments, fixed):** `--concurrency 0` started no workers, so a run skipped extraction and verification yet advanced the cursors; it is now refused. Discovery read `~/.codex/sessions` even when `CODEX_HOME` points elsewhere; it now follows `CODEX_HOME`, and `CLAUDE_CONFIG_DIR` for Claude.
+  - **Pattern:** nine rounds raised 23 distinct findings and no repeats, and confidence has hovered between 3 and 5 since round 3. Each round reads the whole 120-file diff fresh and finds a new edge case, so a clean 5/5 may not come from iteration alone.
 
 ## Deviations
 

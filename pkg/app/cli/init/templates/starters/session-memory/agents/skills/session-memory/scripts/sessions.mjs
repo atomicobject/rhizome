@@ -144,7 +144,8 @@ export function discover(root, { since, until, now = Date.now() }) {
   const scanFromMs = sinceMs ? sinceMs - 30 * 24 * 3600 * 1000 : 0;
   const report = { matched: 0, skippedActive: 0, skippedGuardian: 0, unreadable: 0 };
   const files = [];
-  const claudeHome = join(homedir(), ".claude/projects");
+  // Both CLIs honor a relocated home; discovery reads the same one they write.
+  const claudeHome = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"), "projects");
   for (const file of walk(claudeHome, 3)) {
     const st = statSync(file);
     if (st.mtimeMs < scanFromMs) continue;
@@ -152,7 +153,7 @@ export function discover(root, { since, until, now = Date.now() }) {
     if (!matcher.matches(cwd, null)) continue;
     files.push({ harness: "claude", file, mtime: st.mtimeMs, root: matcher.rootOf(cwd) });
   }
-  for (const file of walk(join(homedir(), ".codex/sessions"), 4)) {
+  for (const file of walk(join(process.env.CODEX_HOME || join(homedir(), ".codex"), "sessions"), 4)) {
     const st = statSync(file);
     if (st.mtimeMs < scanFromMs) continue;
     const meta = codexMeta(file);

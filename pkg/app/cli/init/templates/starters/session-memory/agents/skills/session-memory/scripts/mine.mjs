@@ -45,6 +45,9 @@ const PROBE = { prompt: 'Reply with {"ok": true}.', schema: strictSchema({ type:
 const PROBE_USD = 0.01;
 
 export async function mine(opts, clients) {
+  // No workers would skip extraction and verification yet still advance the cursors.
+  const concurrency = Number(opts.concurrency ?? 4);
+  if (!Number.isInteger(concurrency) || concurrency < 1) throw new Error("--concurrency must be a whole number of at least 1");
   const store = openStore(opts.state ?? join(opts.root, ".rhizome/session-memory"));
   const dry = !opts.abandon && (opts.dryRun || opts.budget == null);
   if (dry) return mineLocked(opts, clients, store, true);
