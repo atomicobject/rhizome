@@ -314,3 +314,24 @@ func TestAPanicEndsQuietlyWithADiagnostic(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(log), "panic: handler registry broke")
 }
+
+func TestACompactionResetSurvivesABusyStateLock(t *testing.T) {
+	root := repo(t)
+	h := helperHandler("one", "items:a")
+	start := func(source string) string {
+		return fmt.Sprintf(`{"session_id":"s1","cwd":%q,"source":%q}`, root, source)
+	}
+	_, out := dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
+	require.NotEmpty(t, out)
+
+	release := lockState(context.Background(), sessionStatePath(root, Identity{Worktree: root, Harness: HarnessClaude, Session: "s1"}))
+	require.NotNil(t, release)
+	res, _ := dispatchOnce(t, root, HarnessClaude, SessionStart, start("compact"), h)
+	require.Equal(t, "text a", res.HookSpecificOutput.AdditionalContext)
+	require.NoError(t, release())
+
+	_, out = dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
+	require.NotEmpty(t, out, "items given before the compaction no longer suppress delivery")
+	_, out = dispatchOnce(t, root, HarnessClaude, PostToolUse, readPayload(root), h)
+	require.Empty(t, out, "the reset was committed and the new delivery recorded")
+}

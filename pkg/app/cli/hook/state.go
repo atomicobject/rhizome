@@ -2,6 +2,7 @@ package hook
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -56,7 +57,14 @@ func scopeFor(point string) string {
 	return scopeStart
 }
 
-func readSessionState(path string) sessionState {
+// resetMarker names a reset that could not take the state lock. It sits
+// beside the state file until a locked write applies it, and every read
+// applies it first, so pre-reset items never suppress delivery meanwhile.
+const resetMarker = ".reset-"
+
+// readSessionState reads a session's state with its pending resets applied,
+// and returns the marker files it applied.
+func readSessionState(path string) (sessionState, []string) {
 	st := sessionState{Scopes: map[string][]string{}}
 	data, err := os.ReadFile(path)
 	if err == nil && json.Unmarshal(data, &st) != nil {
@@ -65,15 +73,41 @@ func readSessionState(path string) sessionState {
 	if st.Scopes == nil {
 		st.Scopes = map[string][]string{}
 	}
-	return st
+	entries, _ := os.ReadDir(filepath.Dir(path))
+	var markers []string
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), filepath.Base(path)+resetMarker) {
+			continue
+		}
+		marker := filepath.Join(filepath.Dir(path), e.Name())
+		var pending struct {
+			AgentID string `json:"agentId"`
+		}
+		if data, err := os.ReadFile(marker); err == nil && json.Unmarshal(data, &pending) == nil {
+			st.reset(pending.AgentID)
+		}
+		markers = append(markers, marker)
+	}
+	return st, markers
+}
+
+// writeResetMarker records a reset of agentID's context without the lock.
+// Each marker has its own name, so concurrent resets never overwrite one
+// another and a locked write removes only the markers it applied.
+func writeResetMarker(path, agentID string) error {
+	var suffix [8]byte
+	if _, err := rand.Read(suffix[:]); err != nil {
+		return err
+	}
+	return writeJSONAtomic(path+resetMarker+hex.EncodeToString(suffix[:]), map[string]string{"agentId": agentID})
 }
 
 // reset discards what an agent's context was given, in both scopes and every
 // turn, so a compaction or clear delivers it again.
-func (s *sessionState) reset(id Identity) {
+func (s *sessionState) reset(agentID string) {
 	for key := range s.Scopes {
 		parts := strings.SplitN(key, "|", 3)
-		if len(parts) == 3 && parts[1] == id.AgentID {
+		if len(parts) == 3 && parts[1] == agentID {
 			delete(s.Scopes, key)
 		}
 	}

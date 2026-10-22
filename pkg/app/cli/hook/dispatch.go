@@ -147,9 +147,15 @@ func (d *dispatch) run() error {
 	if release != nil {
 		defer func() { _ = release() }()
 	}
-	state := readSessionState(statePath)
+	var errs []error
+	state, pending := readSessionState(statePath)
 	if ev.Reset != "" {
-		state.reset(ev.Agent)
+		state.reset(ev.Agent.AgentID)
+		if release == nil {
+			if err := writeResetMarker(statePath, ev.Agent.AgentID); err != nil {
+				errs = append(errs, fmt.Errorf("record reset: %w", err))
+			}
+		}
 	}
 	key := scopeKey(scopeFor(ev.Event), ev.Agent)
 	emitted := map[string]bool{}
@@ -194,7 +200,6 @@ func (d *dispatch) run() error {
 		}
 	}
 
-	var errs []error
 	if len(failures) > 0 {
 		errs = append(errs, errors.New(strings.Join(failures, "; ")))
 	}
@@ -207,10 +212,14 @@ func (d *dispatch) run() error {
 	// than losing it.
 	if release == nil {
 		errs = append(errs, errors.New("state lock busy; emitted items not recorded"))
-	} else if len(ids) > 0 || ev.Reset != "" {
+	} else if len(ids) > 0 || ev.Reset != "" || len(pending) > 0 {
 		state.record(key, ids)
 		if err := writeJSONAtomic(statePath, state); err != nil {
 			errs = append(errs, fmt.Errorf("record emitted items: %w", err))
+		} else {
+			for _, marker := range pending {
+				_ = os.Remove(marker)
+			}
 		}
 	}
 	if len(delivered) > 0 {
