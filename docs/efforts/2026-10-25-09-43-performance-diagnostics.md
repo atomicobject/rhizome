@@ -69,6 +69,8 @@ Not yet delivered.
 
 - 2026-10-25T13:43:47Z: Opened from a review of the primary checkout's `.rhizome/diagnostics`. 4,012 retained reports against the 4,096-artifact cap; 3,542 were watcher-batch jobs, 3,502 of them under 50 ms, so history covered about three hours. The same data showed 79 headless `rzm serve` starts within one minute at 12:08, and `runtime-output.log` showed an `intel_fts` FTS5 integrity failure that appeared nowhere else. The web UI has no performance instrumentation.
 
+- 2026-10-25T14:05:00Z: Revised SPEC-0116 (plan step 1): routine-work report suppression, structured integrity-failure WARN, code-mode host-call metrics, web UI evidence, the `rzm diagnostics perf` view with anomaly flags, and matching verification. One open decision is marked `[TODO: Confirm with Drew]`: whether production web builds ship React's profiling build. `frozen-scope-drift` reports no SPEC-0116 drift; its three findings belong to other efforts.
+
 ## Deviations
 
 None.
@@ -86,4 +88,4 @@ None yet.
 
 ## Status
 
-Active. Next step: revise SPEC-0116 (plan step 1).
+Active. SPEC-0116 revision drafted; waiting on Drew's profiling-build decision, then the planning phase.
