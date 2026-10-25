@@ -3,6 +3,7 @@ package finder
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -166,4 +167,32 @@ func TestSearchStopsWhenCanceled(t *testing.T) {
 	if got := c.Search(ctx, Query{Text: "roadmap"}); got != nil {
 		t.Fatalf("canceled search returned %d results, want none", len(got))
 	}
+}
+
+func TestLiveRetriesAFailedRefresh(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	builds := 0
+	live := NewLive(func(context.Context) (*Catalog, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		builds++
+		switch builds {
+		case 1:
+			return NewCatalog([]store.FinderNoteRow{{Path: "v.md", Title: "first"}}, nil), nil
+		case 2:
+			return nil, errors.New("database is locked")
+		}
+		return NewCatalog([]store.FinderNoteRow{{Path: "v.md", Title: "recovered"}}, nil), nil
+	}, time.Millisecond)
+	defer live.Close()
+	ctx := context.Background()
+	_, err := live.Catalog(ctx)
+	require.NoError(t, err)
+
+	live.Invalidate()
+	require.Eventually(t, func() bool {
+		c, _ := live.Catalog(ctx)
+		return c.Search(ctx, Query{Text: "v"})[0].Title == "recovered"
+	}, 3*time.Second, 10*time.Millisecond, "a failed refresh is retried without another index event")
 }

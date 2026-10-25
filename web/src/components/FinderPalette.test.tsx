@@ -244,4 +244,29 @@ describe("FinderPalette", () => {
 
     expect(onOpen).not.toHaveBeenCalled();
   });
+  it("drops a pending Enter when the query changes again", async () => {
+    const pending = deferred<FinderPaletteItem[]>();
+    const onOpen = vi.fn();
+
+    const search = vi.fn((query: string) => {
+      if (query === "") return Promise.resolve([row("Old")]);
+
+      if (query === "ne") return pending.promise;
+
+      return Promise.resolve([row("Newer")]);
+    });
+
+    render(<Harness search={search} onOpen={onOpen} />);
+    fireEvent.click(screen.getByRole("button", { name: "Find" }));
+    await screen.findByRole("option", { name: /Old/ });
+
+    const input = screen.getByRole("combobox", { name: "Find a note or file" });
+
+    fireEvent.change(input, { target: { value: "ne" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.change(input, { target: { value: "new" } });
+    await screen.findByRole("option", { name: /Newer/ });
+
+    expect(onOpen).not.toHaveBeenCalled();
+  });
 });

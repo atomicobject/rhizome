@@ -58,9 +58,9 @@ export function FinderPalette<T extends FinderPaletteItem>({
   const [results, setResults] = useState<Results<T>>(null);
   const [failed, setFailed] = useState(false);
   const [active, setActive] = useState(0);
-  // Enter pressed before the current query's results arrived; it opens the
-  // first of those results instead of a stale row.
-  const pendingOpen = useRef<{ beside: boolean } | null>(null);
+  // Enter pressed before its query's results arrived; it opens the first of
+  // those results instead of a stale row. Editing the query cancels it.
+  const pendingOpen = useRef<{ query: string; beside: boolean } | null>(null);
   const id = useId();
   const listId = `${id}-list`;
 
@@ -126,7 +126,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
   useEffect(() => {
     const pending = pendingOpen.current;
 
-    if (!pending || stale) return;
+    if (!pending || stale || results?.query !== pending.query) return;
     pendingOpen.current = null;
     choose(results?.items[0], pending.beside);
   });
@@ -149,7 +149,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
       const beside = event.metaKey || event.ctrlKey;
 
       // The rows on screen may be for an earlier query; wait for this one's.
-      if (stale) pendingOpen.current = { beside };
+      if (stale) pendingOpen.current = { query, beside };
       else choose(current, beside);
     } else if (event.key === "Escape") {
       event.preventDefault();
@@ -197,7 +197,10 @@ export function FinderPalette<T extends FinderPaletteItem>({
             spellCheck={false}
             autoComplete="off"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              pendingOpen.current = null;
+              setQuery(event.target.value);
+            }}
             onKeyDown={onKeyDown}
           />
           <kbd>esc</kbd>

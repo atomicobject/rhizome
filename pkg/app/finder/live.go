@@ -26,7 +26,15 @@ type Live struct {
 	building bool
 	dirty    bool
 	timer    *time.Timer
+	// retry is the delay before retrying a failed rebuild; zero after a
+	// success. It doubles up to maxRetryDelay.
+	retry time.Duration
 }
+
+const (
+	firstRetryDelay = time.Second
+	maxRetryDelay   = 30 * time.Second
+)
 
 // NewLive returns a holder that builds lazily and rebuilds debounce after
 // each Invalidate.
@@ -70,16 +78,7 @@ func (l *Live) Invalidate() {
 		l.dirty = true
 		return
 	}
-	if l.timer != nil {
-		l.timer.Stop()
-	}
-	l.timer = time.AfterFunc(l.debounce, func() {
-		l.mu.Lock()
-		defer l.mu.Unlock()
-		if !l.building && l.ctx.Err() == nil {
-			l.startLocked()
-		}
-	})
+	l.scheduleLocked(l.debounce)
 }
 
 func (l *Live) startLocked() {
@@ -93,7 +92,7 @@ func (l *Live) startLocked() {
 		defer l.mu.Unlock()
 		l.building = false
 		if err == nil {
-			l.current, l.err = catalog, nil
+			l.current, l.err, l.retry = catalog, nil, 0
 		} else if l.current == nil {
 			l.err = err
 		}
@@ -106,10 +105,31 @@ func (l *Live) startLocked() {
 			// Let the next request retry a failed first build.
 			l.ready = make(chan struct{})
 		}
-		if l.dirty && l.ctx.Err() == nil {
+		switch {
+		case l.ctx.Err() != nil:
+		case l.dirty:
 			l.startLocked()
+		case err != nil && l.current != nil:
+			// Keep serving the older catalog, but don't let one failed reload
+			// leave it stale until the next index event.
+			l.retry = min(max(2*l.retry, firstRetryDelay), maxRetryDelay)
+			l.scheduleLocked(l.retry)
 		}
 	}()
+}
+
+// scheduleLocked starts a build after delay unless one is already running.
+func (l *Live) scheduleLocked(delay time.Duration) {
+	if l.timer != nil {
+		l.timer.Stop()
+	}
+	l.timer = time.AfterFunc(delay, func() {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		if !l.building && l.ctx.Err() == nil {
+			l.startLocked()
+		}
+	})
 }
 
 // Close stops pending and running builds and waits for them to exit.
