@@ -42,13 +42,20 @@ func (s *Service) work(ctx context.Context, def Definition, itemID string, check
 	if err != nil {
 		return s.fail(ctx, def, itemID, commit, "create worktree: "+err.Error(), 0)
 	}
-	_ = s.store.Update(ctx, func(st *State) error {
-		if it, err := st.Item(itemID); err == nil {
-			it.set(StateRunning, s.opts.Now())
-			it.Branch, it.Worktree, it.Commit = branch, dir, commit
+	// The worktree's location must be saved before any work starts, or a
+	// later pass could not find it.
+	if err := s.store.Update(ctx, func(st *State) error {
+		it, err := st.Item(itemID)
+		if err != nil {
+			return err
 		}
+		it.set(StateRunning, s.opts.Now())
+		it.Branch, it.Worktree, it.Commit = branch, dir, commit
 		return nil
-	})
+	}); err != nil {
+		_ = s.removeWorktree(ctx, branch, dir)
+		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: "save the run's worktree: " + err.Error()}
+	}
 	loc := s.locations(def, commit)
 	if err := os.MkdirAll(loc.DataDir, 0o700); err != nil {
 		return s.fail(ctx, def, itemID, commit, err.Error(), 0)
@@ -63,25 +70,26 @@ func (s *Service) work(ctx context.Context, def Definition, itemID string, check
 	if len(message) > maxMessage {
 		message = message[:maxMessage]
 	}
-	changed, err := commitWork(ctx, def, dir, commit, message)
+	changed, committed, err := commitWork(ctx, def, dir, commit, message)
 	if err != nil {
 		return s.fail(ctx, def, itemID, commit, fmt.Sprintf("commit: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
 	now := s.opts.Now()
 	outcome := OutcomeReady
 	var cleanupErr error
-	if len(changed) == 0 {
+	if !committed {
 		outcome = OutcomeNoChanges
 		cleanupErr = s.removeWorktree(ctx, branch, dir)
 	}
-	_ = s.store.Update(ctx, func(st *State) error {
+	if err := s.store.Update(ctx, func(st *State) error {
 		if it, err := st.Item(itemID); err == nil {
 			it.Message, it.Tokens, it.Changed = message, res.Tokens, changed
 			switch {
 			case outcome == OutcomeReady:
 				it.set(StateReady, now)
 			case cleanupErr != nil:
-				it.set(StateDone, now)
+				// Keep the location so discard can retry the cleanup.
+				it.set(StateAttention, now)
 				it.Reason = "nothing changed, but the worktree could not be removed: " + cleanupErr.Error()
 			default:
 				it.set(StateDone, now)
@@ -90,7 +98,9 @@ func (s *Service) work(ctx context.Context, def Definition, itemID string, check
 		}
 		st.Record(RunRecord{Task: def.ID, At: now, Outcome: outcome, Tokens: res.Tokens, Message: firstLine(message)})
 		return nil
-	})
+	}); err != nil {
+		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: fmt.Sprintf("the run finished (%s, worktree at %s) but its result could not be saved: %v", outcome, dir, err)}
+	}
 	return Outcome{Task: def.ID, Outcome: outcome, Item: itemID}
 }
 
@@ -179,21 +189,23 @@ func (s *Service) removeWorktree(ctx context.Context, branch, dir string) error 
 
 // commitWork commits every change in dir with the work's message and the
 // task tag. When the work committed everything itself, an empty commit
-// carries the tag. It returns the files changed since base.
-func commitWork(ctx context.Context, def Definition, dir, base, message string) ([]string, error) {
+// carries the tag. It returns the files changed since base, and whether
+// there was anything to keep: changes, or commits the work made even if
+// they cancel out.
+func commitWork(ctx context.Context, def Definition, dir, base, message string) ([]string, bool, error) {
 	if _, err := gitOutput(ctx, dir, "add", "-A"); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	status, err := gitOutput(ctx, dir, "status", "--porcelain")
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	ahead, err := gitOutput(ctx, dir, "rev-list", "--count", base+"..HEAD")
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if status == "" && ahead == "0" {
-		return nil, nil
+		return nil, false, nil
 	}
 	if message == "" {
 		message = "The task's agent left no message."
@@ -204,16 +216,16 @@ func commitWork(ctx context.Context, def Definition, dir, base, message string) 
 		args = append(args, "--allow-empty")
 	}
 	if err := gitWithInput(ctx, dir, body, args...); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	out, err := gitOutput(ctx, dir, "diff", "--name-only", base, "HEAD")
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if out == "" {
-		return []string{}, nil
+		return []string{}, true, nil
 	}
-	return strings.Split(out, "\n"), nil
+	return strings.Split(out, "\n"), true, nil
 }
 
 func gitWithInput(ctx context.Context, dir, input string, args ...string) error {

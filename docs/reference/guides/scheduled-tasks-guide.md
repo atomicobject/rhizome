@@ -78,7 +78,7 @@ Tasks run only in a repository you trusted with `rzm trust`. The first time Rhiz
 
 ## When tasks run
 
-While Rhizome Desktop or any headless `rzm` runtime is up for a checkout that has `.rhizome/tasks`, it starts `rzm tasks run-due` every 15 minutes. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass.
+While Rhizome Desktop or any headless `rzm` runtime is up for a vault inside a Git checkout, it starts `rzm tasks run-due` every 15 minutes. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass.
 
 A `person` task is due when your own last run is older than its cadence. A `team` task also counts teammates: when a commit tagged `Rhizome-Task: <id>` reaches the primary branch, everyone's clock resets. Squash merges keep the tag when the repository squashes with commit messages. They drop it when it squashes with the pull request title alone.
 

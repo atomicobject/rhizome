@@ -204,3 +204,29 @@ func TestScriptCheckFailureKeepsTheScriptsError(t *testing.T) {
 		t.Fatalf("the script's own error should reach the item, got %+v", s)
 	}
 }
+
+func TestAgentCommitsThatCancelOutAreKept(t *testing.T) {
+	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nprompt: Look around.\n"})
+	agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+		for _, content := range []string{"draft\n", "hello\n"} {
+			if err := os.WriteFile(filepath.Join(req.Dir, "README.md"), []byte(content), 0o644); err != nil {
+				return AgentResult{}, err
+			}
+			if _, err := gitOutput(context.Background(), req.Dir, "commit", "--quiet", "-am", "agent step"); err != nil {
+				return AgentResult{}, err
+			}
+		}
+		return AgentResult{Message: "tried a change and reverted it"}, nil
+	}}
+	svc := newService(t, dir, agent, "auto")
+	if _, err := svc.RunDue(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	it := taskItems(mustState(t, svc), "look")[0]
+	if it.State != StateReady || it.Branch == "" {
+		t.Fatalf("an agent's own commits must be kept even when they cancel out, got %+v", it)
+	}
+	if count := run(t, dir, "rev-list", "--count", "main.."+it.Branch); count != "3" {
+		t.Fatalf("expected the agent's two commits plus the tagged one, got %s", count)
+	}
+}
