@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -238,6 +239,41 @@ func TestDesktopRestartReplacesAMatchingHeadlessRuntime(t *testing.T) {
 	require.Equal(t, first.BuildID, restarted.BuildID, "the same build, replaced on request")
 	requirePIDExits(t, first.PID, 15*time.Second)
 	require.Equal(t, restarted.PID, desktopOpen(t, vault, call, false).PID, "an open without restart attaches")
+}
+
+// A rebuild that lands while the desktop bridge restarts a runtime leaves the
+// bridge wanting a build its executable no longer produces; on 2026-10-25 it
+// replaced 79 runtimes in 35 seconds. A wrapper script makes that mismatch
+// permanent: the bridge stamps the script, the runtime stamps the real binary.
+// Ensure must replace once, then attach instead of restarting the same binary.
+func TestDesktopOpenStopsReplacingARuntimeItCannotMatch(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the mismatch uses a shell-script executable")
+	}
+	t.Parallel()
+	vault := newRuntimeVault(t, "")
+	spawns := filepath.Join(t.TempDir(), "spawns.log")
+	wrapper := filepath.Join(t.TempDir(), "rzm")
+	script := "#!/bin/sh\nif [ \"$1 $2\" = \"serve --headless\" ]; then echo spawn >> '" + spawns + "'; fi\nexec '" + vault.binary + "' \"$@\"\n"
+	require.NoError(t, os.WriteFile(wrapper, []byte(script), 0o755))
+
+	request, err := json.Marshal(map[string]any{"protocol": 1, "folder": vault.root, "operation": "open", "globalExecutable": wrapper})
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+	command := exec.CommandContext(ctx, vault.binary, "desktop-bridge", "--state-dir", t.TempDir())
+	command.Dir = vault.root
+	command.Env = vault.environment(nil)
+	command.Stdin = bytes.NewReader(request)
+	started := time.Now()
+	response, _ := command.Output()
+	require.Less(t, time.Since(started), appruntime.SpawnBudget/2, "the bridge returns instead of spending the spawn budget")
+	require.Contains(t, string(response), "does not match the selected executable")
+
+	vault.requireLiveRuntime(t)
+	log, err := os.ReadFile(spawns)
+	require.NoError(t, err)
+	require.Equal(t, 2, strings.Count(string(log), "spawn"), "the first spawn plus one replacement")
 }
 
 func TestDesktopStopEndsTheRuntimeUntilTheNextOpen(t *testing.T) {
