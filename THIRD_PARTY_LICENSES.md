@@ -388,5 +388,5 @@ Full license and notice text is stored in `licenses/**`. The browser notice is `
 
 | Package | Version | Declared license | Full text directory | Source |
 | --- | --- | --- | --- | --- |
-| Impeccable copied skills | 4.0.2 | Apache-2.0 | `licenses/skills/impeccable@4.0.2` | https://github.com/pbakaus/impeccable/tree/skill-v4.0.2 |
+| Impeccable copied skills | 4.7.0 | Apache-2.0 | `licenses/skills/impeccable@4.7.0` | https://github.com/pbakaus/impeccable/tree/skill-v4.7.0 |
 | Greptile copied skills (check-pr, greploop) | 1.3 | MIT | `licenses/skills/greptile@1.3` | https://github.com/greptileai/skills/tree/646e2dfad81e5157e97daecc802b68d3d2c4d1e4 |

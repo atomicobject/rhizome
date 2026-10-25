@@ -50,8 +50,8 @@ FETCHED_SOURCES = (
     Source("go/sqlite-vec-v0.1.6/LICENSE-MIT", "https://raw.githubusercontent.com/asg017/sqlite-vec/v0.1.6/LICENSE-MIT"),
     Source("web/react-compiler-runtime-19.1.0-rc.1/LICENSE", "https://raw.githubusercontent.com/facebook/react/v19.1.0/LICENSE"),
     Source("web/react-remove-scroll-bar-2.3.8/LICENSE", "https://raw.githubusercontent.com/theKashey/react-remove-scroll-bar/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE"),
-    Source("skills/impeccable-4.0.2/LICENSE", "https://raw.githubusercontent.com/pbakaus/impeccable/skill-v4.0.2/LICENSE"),
-    Source("skills/impeccable-4.0.2/NOTICE.md", "https://raw.githubusercontent.com/pbakaus/impeccable/skill-v4.0.2/NOTICE.md"),
+    Source("skills/impeccable-4.7.0/LICENSE", "https://raw.githubusercontent.com/pbakaus/impeccable/skill-v4.7.0/LICENSE"),
+    Source("skills/impeccable-4.7.0/NOTICE.md", "https://raw.githubusercontent.com/pbakaus/impeccable/skill-v4.7.0/NOTICE.md"),
     Source("skills/greptileai/LICENSE", "https://raw.githubusercontent.com/greptileai/skills/646e2dfad81e5157e97daecc802b68d3d2c4d1e4/LICENSE"),
 )
 
@@ -223,13 +223,13 @@ def generate_web(outputs: dict[Path, bytes]) -> list[NoticeEntry]:
 def generate_skills(outputs: dict[Path, bytes]) -> list[NoticeEntry]:
     entries: list[NoticeEntry] = []
     impeccable = (
-        ("LICENSE", (SOURCES / "skills/impeccable-4.0.2/LICENSE").read_bytes()),
-        ("NOTICE", (SOURCES / "skills/impeccable-4.0.2/NOTICE.md").read_bytes()),
+        ("LICENSE", (SOURCES / "skills/impeccable-4.7.0/LICENSE").read_bytes()),
+        ("NOTICE", (SOURCES / "skills/impeccable-4.7.0/NOTICE.md").read_bytes()),
     )
     for path in [ROOT / ".agents/skills/impeccable", ROOT / ".claude/skills/impeccable", ROOT / ".github/skills/impeccable"]:
         for filename, content in impeccable:
             add_output(outputs, path / filename, content)
-    entry = NoticeEntry("Skills", "Impeccable copied skills", "4.0.2", "Apache-2.0", "https://github.com/pbakaus/impeccable/tree/skill-v4.0.2", LICENSES / "skills" / "impeccable@4.0.2", impeccable)
+    entry = NoticeEntry("Skills", "Impeccable copied skills", "4.7.0", "Apache-2.0", "https://github.com/pbakaus/impeccable/tree/skill-v4.7.0", LICENSES / "skills" / "impeccable@4.7.0", impeccable)
     plan_entry(outputs, entry)
     entries.append(entry)
 
