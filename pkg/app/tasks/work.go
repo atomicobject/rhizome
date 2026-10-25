@@ -36,11 +36,11 @@ type AgentRunner interface {
 // The item must already exist.
 func (s *Service) work(ctx context.Context, def Definition, itemID string, check CheckResult, ref, commit string) Outcome {
 	if s.opts.Agent == nil {
-		return s.fail(ctx, def, itemID, commit, "no agent harness is available to run the prompt")
+		return s.fail(ctx, def, itemID, commit, "no agent harness is available to run the prompt", 0)
 	}
 	branch, dir, err := s.createWorktree(ctx, def, commit)
 	if err != nil {
-		return s.fail(ctx, def, itemID, commit, "create worktree: "+err.Error())
+		return s.fail(ctx, def, itemID, commit, "create worktree: "+err.Error(), 0)
 	}
 	_ = s.store.Update(ctx, func(st *State) error {
 		if it, err := st.Item(itemID); err == nil {
@@ -51,13 +51,13 @@ func (s *Service) work(ctx context.Context, def Definition, itemID string, check
 	})
 	loc := s.locations(def, commit)
 	if err := os.MkdirAll(loc.DataDir, 0o700); err != nil {
-		return s.fail(ctx, def, itemID, commit, err.Error())
+		return s.fail(ctx, def, itemID, commit, err.Error(), 0)
 	}
 	runCtx, cancel := context.WithTimeout(ctx, def.Limit)
 	res, err := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Dir: dir, Prompt: BackgroundPrompt(def, loc, check, ref, branch, dir)})
 	cancel()
 	if err != nil {
-		return s.fail(ctx, def, itemID, commit, fmt.Sprintf("prompt run failed: %v (worktree kept at %s)", err, dir))
+		return s.fail(ctx, def, itemID, commit, fmt.Sprintf("prompt run failed: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
 	message := strings.TrimSpace(res.Message)
 	if len(message) > maxMessage {
@@ -65,7 +65,7 @@ func (s *Service) work(ctx context.Context, def Definition, itemID string, check
 	}
 	changed, err := commitWork(ctx, def, dir, commit, message)
 	if err != nil {
-		return s.fail(ctx, def, itemID, commit, fmt.Sprintf("commit: %v (worktree kept at %s)", err, dir))
+		return s.fail(ctx, def, itemID, commit, fmt.Sprintf("commit: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
 	now := s.opts.Now()
 	outcome := OutcomeReady

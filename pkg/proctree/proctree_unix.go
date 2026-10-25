@@ -15,17 +15,18 @@ import (
 
 const supported = true
 
-// Configure puts cmd in its own process group, so Kill can reach the whole
-// group even after its leader exits.
+// Configure makes cmd a session leader, which also gives it its own process
+// group. The child has no controlling terminal, which suits children
+// driven over pipes.
 func Configure(cmd *exec.Cmd) {
 	if cmd.SysProcAttr == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 	}
-	cmd.SysProcAttr.Setpgid = true
+	cmd.SysProcAttr.Setsid = true
 }
 
-// snapshot lists every process with its parent and start time. A stalled
-// ps gives up after a second rather than holding up a shutdown.
+// snapshot lists every process with its parent, session, and start time. A
+// stalled ps gives up after a second rather than holding up a shutdown.
 func snapshot() (map[int]proc, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -41,9 +42,15 @@ func snapshot() (map[int]proc, bool) {
 		}
 		pid, err1 := strconv.Atoi(fields[0])
 		ppid, err2 := strconv.Atoi(fields[1])
-		if err1 == nil && err2 == nil {
-			procs[pid] = proc{ppid: ppid, start: strings.Join(fields[2:], " ")}
+		if err1 != nil || err2 != nil {
+			continue
 		}
+		// ps on macOS has no session column; getsid answers for any pid.
+		sid, err := syscall.Getsid(pid)
+		if err != nil {
+			sid = -1
+		}
+		procs[pid] = proc{ppid: ppid, sid: sid, start: strings.Join(fields[2:], " ")}
 	}
 	return procs, true
 }
@@ -52,7 +59,9 @@ func killPID(pid int) { _ = syscall.Kill(pid, syscall.SIGKILL) }
 
 func killGroup(process *os.Process) error {
 	err := syscall.Kill(-process.Pid, syscall.SIGKILL)
-	if errors.Is(err, syscall.ESRCH) {
+	// macOS answers EPERM for a group whose only member is an unreaped
+	// zombie; the group is ours, so that means it is gone.
+	if errors.Is(err, syscall.ESRCH) || errors.Is(err, syscall.EPERM) {
 		return os.ErrProcessDone
 	}
 	return err

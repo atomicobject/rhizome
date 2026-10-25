@@ -2,6 +2,8 @@ package tasks
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -132,5 +134,73 @@ func TestRunRerunsAFailedCheckBeforeAnyAgentWork(t *testing.T) {
 	outcome, err := svc.Run(ctx, item.ID)
 	if err != nil || outcome.Outcome != OutcomeFailed || agent.calls() != 0 {
 		t.Fatalf("a check that still fails must stop the retry before the agent: %+v %v calls=%d", outcome, err, agent.calls())
+	}
+}
+
+func TestUnneededRetryKeepsTheFailedAttemptReviewable(t *testing.T) {
+	shellAvailable(t)
+	check := `name: Flaky
+every: 1d
+check:
+  command: [sh, -c, 'if [ -f "$RZM_TASK_DATA_DIR/stop" ]; then echo "{\"needed\": false}"; else echo "{\"needed\": true}"; fi']
+prompt: x
+`
+	dir := newRepo(t, map[string]string{"flaky.yml": check})
+	agent := &fakeAgent{run: func(AgentRequest) (AgentResult, error) {
+		return AgentResult{Tokens: 77}, context.DeadlineExceeded
+	}}
+	svc := newService(t, dir, agent, "auto")
+	ctx := context.Background()
+	_, _ = svc.RunDue(ctx)
+	failed := taskItems(mustState(t, svc), "flaky")[0]
+	if failed.State != StateAttention || failed.Worktree == "" || failed.Tokens != 77 {
+		t.Fatalf("expected a failed attempt with its worktree and tokens, got %+v", failed)
+	}
+	if last, _ := mustStatePtr(t, svc).LastRun("flaky"); last.Tokens != 77 {
+		t.Fatalf("a failed run's tokens should be recorded, got %+v", last)
+	}
+	writeFile(t, svc.stateDir+"/data/flaky/stop", "")
+	if _, err := svc.Run(ctx, failed.ID); err != nil {
+		t.Fatal(err)
+	}
+	it, _ := mustStatePtr(t, svc).Item(failed.ID)
+	if it.State != StateAttention || it.Worktree != failed.Worktree {
+		t.Fatalf("the failed attempt must stay reviewable and discardable: %+v", it)
+	}
+	if err := svc.Discard(ctx, failed.ID); err != nil {
+		t.Fatalf("discard should still work: %v", err)
+	}
+}
+
+func TestRepeatedCheckFailuresReuseOneNotice(t *testing.T) {
+	shellAvailable(t)
+	dir := newRepo(t, map[string]string{"bad.yml": "name: Bad\nevery: 1d\ncheck:\n  command: [sh, -c, 'exit 3']\nprompt: x\n"})
+	svc := newService(t, dir, &fakeAgent{}, "auto")
+	now := time.Now()
+	svc.opts.Now = func() time.Time { return now }
+	ctx := context.Background()
+	for i := 0; i < 3; i++ {
+		_, _ = svc.RunDue(ctx)
+		now = now.Add(25 * time.Hour)
+	}
+	if items := taskItems(mustState(t, svc), "bad"); len(items) != 1 {
+		t.Fatalf("repeated check failures should share one notice, got %d", len(items))
+	}
+}
+
+func TestScriptCheckFailureKeepsTheScriptsError(t *testing.T) {
+	shellAvailable(t)
+	dir := newRepo(t, map[string]string{"scripted.yml": "name: Scripted\nevery: 1d\ncheck:\n  script: check.js\nprompt: x\n"})
+	commitFile(t, dir, "check.js", "throw new Error('boom')\n", "add script")
+	fakeRzm := filepath.Join(t.TempDir(), "rzm")
+	writeFile(t, fakeRzm, "#!/bin/sh\ncat >/dev/null\necho '{\"ok\": false, \"error\": {\"message\": \"boom from the script\"}}'\nexit 1\n")
+	if err := os.Chmod(fakeRzm, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	svc := newService(t, dir, &fakeAgent{}, "auto")
+	svc.opts.Rzm = fakeRzm
+	s, _ := svc.RunDue(context.Background())
+	if len(s.Outcomes) != 1 || !strings.Contains(s.Outcomes[0].Reason, "boom from the script") {
+		t.Fatalf("the script's own error should reach the item, got %+v", s)
 	}
 }

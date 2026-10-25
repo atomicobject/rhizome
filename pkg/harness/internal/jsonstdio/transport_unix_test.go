@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/proctree"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,8 +89,7 @@ func TestJSONStdioOwnGroupHelper(t *testing.T) {
 	}
 	_ = os.WriteFile(os.Args[arg+1], []byte(strconv.Itoa(descendant.Process.Pid)), 0o600)
 	if slices.Contains(os.Args, "exit-after-record") {
-		// Outlive one tracker interval, then exit without waiting for input.
-		time.Sleep(proctree.DefaultInterval + 500*time.Millisecond)
+		// Exit at once, before anything else could observe the descendant.
 		os.Exit(0)
 	}
 	_, _ = fmt.Fprintln(os.Stdout, `{ "ready": true }`)

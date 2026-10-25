@@ -18,7 +18,12 @@ import (
 	"github.com/atomicobject/rhizome/pkg/proctree"
 )
 
-const maxCheckOutput = 1 << 20
+const (
+	maxCheckOutput = 1 << 20
+	// maxCodeModeTimeout is the longest deadline `agent code execute`
+	// accepts; the task's own deadline still applies through ctx.
+	maxCodeModeTimeout = 24 * time.Hour
+)
 
 // CheckResult is what a pre-flight check prints.
 type CheckResult struct {
@@ -69,7 +74,7 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 		}
 		input, _ := json.Marshal(loc)
 		// code mode has its own default deadline; give it the task's.
-		cmd = exec.Command(s.opts.Rzm, "agent", "code", "execute", "--timeout", def.Limit.String(), "--input", string(input))
+		cmd = exec.Command(s.opts.Rzm, "agent", "code", "execute", "--timeout", min(def.Limit, maxCodeModeTimeout).String(), "--input", string(input))
 		cmd.Dir = loc.MainCheckout
 		cmd.Stdin = bytes.NewReader(code)
 	} else {
@@ -89,10 +94,15 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 	}
 	cmd.Env = append(withPath(os.Environ(), loginPath()), loc.env()...)
 	out, err := runBounded(ctx, cmd, log)
-	if err != nil {
+	if def.Check.Script == "" && err != nil {
 		return CheckResult{}, err
 	}
 	if def.Check.Script != "" {
+		// A failed script still prints code mode's result, which holds the
+		// script's own error.
+		if err != nil && (len(out) == 0 || ctx.Err() != nil) {
+			return CheckResult{}, err
+		}
 		var envelope struct {
 			OK     bool            `json:"ok"`
 			Result json.RawMessage `json:"result"`
@@ -155,7 +165,7 @@ func runBounded(ctx context.Context, cmd *exec.Cmd, log io.Writer) ([]byte, erro
 			err = nil
 		}
 		if err != nil {
-			return nil, fmt.Errorf("check exited: %w", err)
+			return stdout.Bytes(), fmt.Errorf("check exited: %w", err)
 		}
 		return stdout.Bytes(), nil
 	case <-ctx.Done():

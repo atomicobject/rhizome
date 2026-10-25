@@ -63,7 +63,8 @@ func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd
 	cmd := exec.Command(binary, args...)
 	cmd.Dir, cmd.Env = cwd, os.Environ()
 	// Harness CLIs spawn shells, tools, and MCP servers, some in process
-	// groups of their own; Close kills everything the tracker recorded.
+	// groups or sessions of their own; Close kills everything the tracker
+	// can attribute to the child.
 	proctree.Configure(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

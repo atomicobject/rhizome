@@ -18,6 +18,20 @@ const (
 	defaultTasksFirstDelay = time.Minute
 )
 
+// inGitCheckout reports whether dir or a parent holds a .git entry.
+func inGitCheckout(dir string) bool {
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return false
+		}
+		dir = parent
+	}
+}
+
 // runTasksTicker calls runTasks after a short delay and then on every
 // interval, for a vault that is a Git checkout.
 func runTasksTicker(ctx context.Context, vaultPath string, first, interval time.Duration, runTasks func(vaultPath string) error) {
@@ -29,9 +43,9 @@ func runTasksTicker(ctx context.Context, vaultPath string, first, interval time.
 			return
 		case <-timer.C:
 		}
-		// Any Git checkout asks: run-due reads the declarations from the
-		// primary ref, which an older branch's checkout may not show.
-		if _, err := os.Stat(filepath.Join(vaultPath, ".git")); err == nil {
+		// Any vault in a Git checkout asks: run-due reads the declarations
+		// from the primary ref, which an older branch's checkout may not show.
+		if inGitCheckout(vaultPath) {
 			if err := runTasks(vaultPath); err != nil {
 				recordServeDiagnostic(ctx, slog.LevelWarn, "tasks.start_failed", err)
 			}

@@ -53,13 +53,19 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 		check, err = s.runCheck(ctx, def, s.locations(def, commit), log, "")
 		closeLog()
 		if err != nil {
-			return s.fail(ctx, def, itemID, commit, "check failed: "+err.Error()), nil
+			return s.fail(ctx, def, itemID, commit, "check failed: "+err.Error(), 0), nil
 		}
 		if !check.Needed {
 			err := s.updateItem(ctx, itemID, func(st *State, it *Item) error {
+				st.Record(RunRecord{Task: def.ID, At: s.opts.Now(), Outcome: OutcomeNotNeeded})
+				if it.Worktree != "" {
+					// A failed attempt's work stays reviewable and discardable.
+					it.Reason = "the check found nothing to do now; the earlier attempt's worktree is kept at " + it.Worktree
+					it.Updated = s.opts.Now()
+					return nil
+				}
 				it.set(StateDone, s.opts.Now())
 				it.Reason = "the check found nothing to do"
-				st.Record(RunRecord{Task: def.ID, At: s.opts.Now(), Outcome: OutcomeNotNeeded})
 				return nil
 			})
 			return Outcome{Task: def.ID, Outcome: OutcomeNotNeeded, Item: itemID}, err

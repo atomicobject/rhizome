@@ -201,7 +201,7 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 		check, err = s.runCheck(ctx, def, loc, log, "")
 		closeLog()
 		if err != nil {
-			return s.fail(ctx, def, "", commit, "check failed: "+err.Error())
+			return s.fail(ctx, def, "", commit, "check failed: "+err.Error(), 0)
 		}
 	}
 	if !check.Needed {
@@ -233,8 +233,10 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 	return s.work(ctx, def, id, check, ref, commit)
 }
 
-// fail records a failed run and a needs-attention item.
-func (s *Service) fail(ctx context.Context, def Definition, itemID, commit, reason string) Outcome {
+// fail records a failed run, with any tokens it used, and a needs-attention
+// item. A failure with no item of its own reuses the task's earlier
+// failure notice when that holds no worktree, so notices do not pile up.
+func (s *Service) fail(ctx context.Context, def Definition, itemID, commit, reason string, tokens int64) Outcome {
 	now := s.opts.Now()
 	_ = s.store.Update(ctx, func(st *State) error {
 		var it *Item
@@ -242,12 +244,18 @@ func (s *Service) fail(ctx context.Context, def Definition, itemID, commit, reas
 			it, _ = st.Item(itemID)
 		}
 		if it == nil {
+			if prior := st.ActiveTaskItem(def.ID); prior != nil && prior.State == StateAttention && prior.Worktree == "" {
+				it = prior
+				it.Commit = commit
+			}
+		}
+		if it == nil {
 			it = st.AddItem(Item{Task: def.ID, Kind: KindTask, Commit: commit}, now)
 		}
 		it.set(StateAttention, now)
-		it.Reason = reason
+		it.Reason, it.Tokens = reason, tokens
 		itemID = it.ID
-		st.Record(RunRecord{Task: def.ID, At: now, Outcome: OutcomeFailed, Message: reason})
+		st.Record(RunRecord{Task: def.ID, At: now, Outcome: OutcomeFailed, Message: reason, Tokens: tokens})
 		return nil
 	})
 	return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: reason}
