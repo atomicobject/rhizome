@@ -5,7 +5,6 @@ import (
 	"fmt"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
-	"os/exec"
 	"strings"
 	"unicode"
 )
@@ -25,19 +24,9 @@ type OnePasswordCLI struct {
 // Read resolves reference through `op read`. It intentionally discards command
 // output when the command fails because it may contain a credential value.
 func (c OnePasswordCLI) Read(ctx context.Context, account, reference string) (string, error) {
-	binary := c.Binary
-	if binary == "" {
-		binary = "op"
-	}
-	run := c.Run
-	if run == nil {
-		run = func(ctx context.Context, name string, args ...string) ([]byte, error) {
-			return exec.CommandContext(ctx, name, args...).Output()
-		}
-	}
-	output, err := run(ctx, binary, "read", reference, "--account", account)
+	output, err := c.run(ctx, "read", reference, "--account", account)
 	if err != nil {
-		return "", fmt.Errorf("read 1Password credential")
+		return "", err
 	}
 	value := strings.TrimSpace(string(output))
 	if value == "" {
@@ -49,6 +38,8 @@ func (c OnePasswordCLI) Read(ctx context.Context, account, reference string) (st
 // ImportFromOnePassword resolves mappings from 1Password and writes them into
 // the user-level Rhizome config after every read succeeds.
 func ImportFromOnePassword(ctx context.Context, account string, mappings []string) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, ImportTimeout)
+	defer cancel()
 	return Import(ctx, OnePasswordCLI{}, account, mappings, func(allowMissing bool) (repoconfig.CliConfig, error) {
 		return repoconfig.LoadCliConfig(vaultconfig.FromContext(ctx), allowMissing)
 	}, func(cfg repoconfig.CliConfig) error {
@@ -86,7 +77,7 @@ func Import(
 	for _, mapping := range parsed {
 		value, err := reader.Read(ctx, account, mapping.reference)
 		if err != nil {
-			return 0, fmt.Errorf("import %s from 1Password", mapping.key)
+			return 0, fmt.Errorf("could not import %s from 1Password; unlock the app, sign in, and check read access", mapping.key)
 		}
 		values[mapping.key] = value
 	}
@@ -101,6 +92,9 @@ func Import(
 	for key, value := range values {
 		cfg.Env[key] = value
 		delete(cfg.CredentialSkips, key)
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, fmt.Errorf("1Password import was canceled or timed out; try again")
 	}
 	if err := save(cfg); err != nil {
 		return 0, fmt.Errorf("save CLI config: %w", err)

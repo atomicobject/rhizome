@@ -8,6 +8,7 @@ import {
   type SetupPlan,
   type SetupResult,
 } from "./api";
+import { CredentialImport } from "./CredentialImport";
 import { IndexScope, rulePath, type RuleAction } from "./IndexScope";
 import { Elapsed, Notice } from "./Status";
 
@@ -57,6 +58,7 @@ export function SetupSheet({
   const [problem, setProblem] = useState<Failure | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [key, setKey] = useState("");
+  const [credentialRevision, setCredentialRevision] = useState(0);
   const [view, setView] = useState<"sheet" | "scope">("sheet");
   const [started, setStarted] = useState<number | null>(null);
   const [setupError, setSetupError] = useState<Failure | null>(null);
@@ -95,10 +97,10 @@ export function SetupSheet({
   }, []);
 
   useEffect(() => {
-    if (!choices || !edited.current) return;
+    if (!choices || (!edited.current && credentialRevision === 0)) return;
     const timer = window.setTimeout(() => void report(choices), REFRESH_MS);
     return () => window.clearTimeout(timer);
-  }, [choices]);
+  }, [choices, credentialRevision]);
 
   function change(next: SetupChoices) {
     edited.current = true;
@@ -314,8 +316,8 @@ export function SetupSheet({
       <p className="path">{plan.root}</p>
       <p className="lede">
         Rhizome indexes this repository's docs and code so agents can search them, and installs
-        guidance that teaches your agents to use it. Nothing is written until you choose Set up
-        Rhizome.
+        guidance that teaches your agents to use it. Repository files are written when you choose
+        Set up Rhizome. Provider imports save only to your user configuration.
       </p>
       <fieldset className="setup-form" disabled={running}>
         <div className="setup-row">
@@ -527,6 +529,13 @@ export function SetupSheet({
         </div>
       </fieldset>
 
+      <CredentialImport
+        disabled={running || partial}
+        onImported={() => {
+          setRefreshing(true);
+          setCredentialRevision((revision) => revision + 1);
+        }}
+      />
       {problem && (
         <p className="error-text" role="alert">
           {problem.message}

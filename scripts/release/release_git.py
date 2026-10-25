@@ -68,16 +68,25 @@ class ReleaseGit:
             )
         return branch, head
 
+    def base_tag(self) -> str:
+        described = self._git("describe", "--tags", "--match", "v[0-9]*", "--abbrev=0", check=False)
+        if described.returncode == 0:
+            return described.stdout.strip()
+        if self._output("tag", "--list", "v[0-9]*"):
+            raise ReleaseGitError(described.stderr.strip() or "no reachable release base tag")
+        return ""
+
     def branch_targets(
         self, source_branch: str, release_commit: str, version: str
     ) -> PublicationTargets:
         if source_branch not in {"main", "release"}:
             raise ReleaseGitError("release source branch must be exactly main or release")
         self._output("cat-file", "-e", f"{release_commit}^{{commit}}")
-        self._output("fetch", "origin", "main", "release")
+        self._output("fetch", "origin", "main")
         if source_branch == "main":
             return PublicationTargets(source_branch, release_commit, release_commit)
 
+        self._output("fetch", "origin", "release")
         main_tip = self._output("rev-parse", "refs/remotes/origin/main")
         if main_tip == release_commit:
             raise ReleaseGitError(

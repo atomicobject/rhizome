@@ -102,3 +102,32 @@ fn page_requests_carry_the_command_beside_the_operation() {
     )
     .is_err());
 }
+
+#[test]
+fn setup_waits_for_import_to_release_user_configuration() {
+    tauri::async_runtime::block_on(async {
+        let directory = tempfile::tempdir().unwrap();
+        let desktop = Desktop::new(directory.path().into());
+        let importing = desktop.global.lock().await;
+        let request = Request {
+            operation: "initialize",
+            ..Request::default()
+        };
+        let setup = worktree_action(&desktop, "missing-repository", "/worktree", request);
+        tokio::pin!(setup);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(30), &mut setup)
+                .await
+                .is_err(),
+            "setup must not reach repository execution while an import owns user configuration"
+        );
+        drop(importing);
+        let result = tokio::time::timeout(std::time::Duration::from_secs(1), setup)
+            .await
+            .expect("setup should resume after import finishes");
+        assert!(
+            result.is_err(),
+            "the nonexistent repository must remain rejected"
+        );
+    });
+}

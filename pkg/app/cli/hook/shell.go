@@ -253,9 +253,12 @@ func shellReads(cmd, cwd string) []string {
 			// still resolve physically (see paths.RelPhysicalStrict). A cd
 			// this cannot follow leaves the directory unknown, and later
 			// relative reads are dropped rather than guessed.
-			// Only a following && runs after the cd succeeded; after ||, ;, or a
-			// newline the next command may run in the old directory.
-			if dir, ok := cdTarget(args); ok && seg.next == "&&" && (known || rooted(dir)) {
+			// After && the next command runs only if the cd succeeded; after ;
+			// or a newline it runs anyway, but a cd that failed leaves its
+			// reads failing too, and agents write `cd <dir>; cat ...` all the
+			// time. Delivery guesses there; the guard does not (guardShellReads).
+			// After || the next command runs only if the cd failed.
+			if dir, ok := cdTarget(args); ok && (seg.next == "&&" || seg.next == ";" || seg.next == "\n") && (known || rooted(dir)) {
 				cwd, known = filepath.Clean(paths.ResolveAgainst(cwd, dir)), true
 			} else {
 				known = false

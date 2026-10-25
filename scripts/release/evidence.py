@@ -83,14 +83,14 @@ def collect_mainline(repo: Path, base: str, head: str = "HEAD") -> tuple[GitComm
 def collect_mainline_with_runner(
     runner: GitRunner, base: str, head: str = "HEAD"
 ) -> tuple[GitCommit, ...]:
-    base_sha = runner(["rev-parse", base]).strip()
+    base_sha = runner(["rev-parse", base]).strip() if base else ""
     head_sha = runner(["rev-parse", head]).strip()
     chain = tuple(
         line.strip()
         for line in runner(["rev-list", "--first-parent", head_sha]).splitlines()
         if line.strip()
     )
-    if base_sha not in chain:
+    if base_sha and base_sha not in chain:
         raise ValueError(f"base {base} is not on {head}'s first-parent chain")
 
     output = runner(
@@ -99,7 +99,7 @@ def collect_mainline_with_runner(
             "--reverse",
             "--first-parent",
             "--format=%H%x1f%P%x1f%s%x1f%b%x1e",
-            f"{base_sha}..{head_sha}",
+            f"{base_sha}..{head_sha}" if base_sha else head_sha,
         ]
     )
     commits = []
@@ -126,7 +126,8 @@ def collect_mainline_with_runner(
 def changed_paths(repo: Path, before: str, after: str) -> tuple[str, ...]:
     output = _run_git(
         repo,
-        ["diff-tree", "--no-commit-id", "--name-only", "-r", "-M", before, after],
+        ["diff-tree", "--no-commit-id", "--name-only", "-r", "-M",
+         *([before, after] if before else ["--root", after])],
     )
     return tuple(sorted(line for line in output.splitlines() if line))
 

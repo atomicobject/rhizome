@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 - Rebuilding `rzm` while Rhizome Desktop or another client is restarting a vault's runtime no longer starts and stops dozens of runtimes. Before, a rebuild that landed mid-restart (as `make desktop-install-dev` does, because it builds `rzm` twice) made the client replace every runtime it spawned until its 60-second budget ran out.
+- Import selected provider keys from a 1Password Environment in desktop setup, Settings, or `rzm credentials import --environment`. Imports remember the source for rotation, preserve edits for retry, and isolate cancellation by window. CLI imports use the invoked version inside pinned repositories. Keys stay in private user configuration.
+- Release preparation works when a repository has no previous version tag or release branch, includes the initial commit in its evidence, and preserves the existing product version sequence. Public releases verify that the signing key and generated updater archive match the app's committed public key before publication.
+- Desktop update checks and downloads time out on stalled connections, allow retry, and preserve an already verified update. Progressing downloads have a 30-minute overall limit.
 - Native collection views stay in place while refreshing, and Git metadata changes no longer trigger vault refreshes.
 
 - `rzm harness status --configured` prints only the configured `agent.harness` setting, without starting any provider.

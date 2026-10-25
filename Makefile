@@ -300,19 +300,19 @@ release-dry:
 	python3 scripts/release/release_cli.py dry-run
 
 release-build:
-	@test -n "$(RELEASE_BASE)" -a -n "$(RELEASE_HEAD)" || { echo "set RELEASE_BASE and RELEASE_HEAD" >&2; exit 1; }
+	@test -n "$(RELEASE_HEAD)" || { echo "set RELEASE_HEAD and RELEASE_BASE (empty for the first release)" >&2; exit 1; }
 	python3 scripts/release/release_cli.py build --base "$(RELEASE_BASE)" --head "$(RELEASE_HEAD)"
 
 release-apply:
-	@test -n "$(RELEASE_BASE)" -a -n "$(RELEASE_HEAD)" || { echo "set RELEASE_BASE and RELEASE_HEAD" >&2; exit 1; }
+	@test -n "$(RELEASE_HEAD)" || { echo "set RELEASE_HEAD and RELEASE_BASE (empty for the first release)" >&2; exit 1; }
 	python3 scripts/release/release_cli.py apply --base "$(RELEASE_BASE)" --head "$(RELEASE_HEAD)" $(if $(ACCEPT_DEGRADED_EVIDENCE),--accept-degraded-evidence,)
 
 release-publish:
-	@test -n "$(RELEASE_BASE)" -a -n "$(RELEASE_HEAD)" || { echo "set RELEASE_BASE and RELEASE_HEAD" >&2; exit 1; }
+	@test -n "$(RELEASE_HEAD)" || { echo "set RELEASE_HEAD and RELEASE_BASE (empty for the first release)" >&2; exit 1; }
 	python3 scripts/release/release_cli.py publish --base "$(RELEASE_BASE)" --head "$(RELEASE_HEAD)"
 
 release-resume:
-	@test -n "$(RELEASE_BASE)" -a -n "$(RELEASE_HEAD)" || { echo "set RELEASE_BASE and RELEASE_HEAD" >&2; exit 1; }
+	@test -n "$(RELEASE_HEAD)" || { echo "set RELEASE_HEAD and RELEASE_BASE (empty for the first release)" >&2; exit 1; }
 	python3 scripts/release/release_cli.py resume --base "$(RELEASE_BASE)" --head "$(RELEASE_HEAD)" $(if $(ACCEPT_DEGRADED_EVIDENCE),--accept-degraded-evidence,)
 
 cut-release:
