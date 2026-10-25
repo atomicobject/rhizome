@@ -1,13 +1,43 @@
 //! The workspace page's controls in the shell toolbar (SPEC-0119). The content
 //! view has no native permissions, so the page reports its state through its
 //! document title, and the app sends it commands as `rhizome:desktop` events.
-use crate::{pane::Pane, security};
+use crate::{commands::Desktop, pane::Pane, security, state::Preferences, updater};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tauri::{AppHandle, Manager};
 use url::Url;
 
 /// Marks the content view so the web UI hides its header and reports state.
 pub const MARKER: &str = "window.__RHIZOME_DESKTOP__ = true;";
+
+/// Turns on the web UI's React render regions (SPEC-0116). They add noticeable
+/// render time, so a release build adds this only when the user asks.
+pub const RENDER_PROFILING: &str = "window.__RHIZOME_RENDER_PROFILING__ = true;";
+
+/// Whether new content views record render timings. `always` marks Rhizome Dev
+/// and local builds, the ones that never update themselves.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct Profiling {
+    pub enabled: bool,
+    pub always: bool,
+}
+
+pub fn profiling(identifier: &str, version: &str, chosen: bool) -> Profiling {
+    let always = !updater::enabled(identifier, version);
+    Profiling {
+        enabled: always || chosen,
+        always,
+    }
+}
+
+pub fn profiling_for(app: &AppHandle) -> Profiling {
+    let chosen = Preferences::load(&app.state::<Desktop>().directory).render_profiling;
+    profiling(
+        &app.config().identifier,
+        &app.package_info().version.to_string(),
+        chosen,
+    )
+}
 
 const PREFIX: &str = "rhizome-desktop:";
 const SEARCH_LIMIT: usize = 500;
@@ -120,6 +150,28 @@ impl Command {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn render_profiling_is_always_on_in_dev_and_local_builds_and_chosen_in_releases() {
+        let release = "com.atomicobject.rhizome";
+        let on = |always| Profiling {
+            enabled: true,
+            always,
+        };
+        assert_eq!(
+            profiling("com.atomicobject.rhizome.dev", "0.52.0", false),
+            on(true)
+        );
+        assert_eq!(profiling(release, "0.0.0", false), on(true));
+        assert_eq!(profiling(release, "0.52.0", true), on(false));
+        assert_eq!(
+            profiling(release, "0.52.0", false),
+            Profiling {
+                enabled: false,
+                always: false
+            }
+        );
+    }
 
     fn runtime() -> Url {
         "http://127.0.0.1:4100/".parse().unwrap()
