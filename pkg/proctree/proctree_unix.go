@@ -45,11 +45,7 @@ func snapshot() (map[int]proc, bool) {
 		if err1 != nil || err2 != nil {
 			continue
 		}
-		// ps on macOS has no session column; getsid answers for any pid.
-		sid, err := syscall.Getsid(pid)
-		if err != nil {
-			sid = -1
-		}
+		sid := sessionOf(pid)
 		procs[pid] = proc{ppid: ppid, sid: sid, start: strings.Join(fields[2:], " ")}
 	}
 	return procs, true
