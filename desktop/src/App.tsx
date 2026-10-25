@@ -361,8 +361,6 @@ export function App() {
   }
 
   function openSettings() {
-    // A finder draws above the page, so it would cover Settings.
-    if (finder.shown) finder.close();
     setScopeView(null);
     setSettings(true);
     void perform("Checking Rhizome…", loadInstallation);
@@ -593,11 +591,14 @@ export function App() {
       } else if (message.type === "settings") {
         setAppSettings(message.settings);
       } else if (message.type === "command") {
-        if (message.command === "add-repository") addRepository();
-        if (message.command === "repositories" || message.command === "worktrees")
-          if (library) finder.open(message.command);
-        if (message.command === "settings") openSettings();
-        if (message.command === "focus-search") {
+        const { command } = message;
+        // A finder draws above the window, so it would cover what any other command shows.
+        if (finder.shown && command !== "repositories" && command !== "worktrees") finder.close();
+        if (command === "add-repository") addRepository();
+        if (command === "repositories" || command === "worktrees")
+          if (library) finder.open(command);
+        if (command === "settings") openSettings();
+        if (command === "focus-search") {
           searchField.current?.focus();
           searchField.current?.select();
         }

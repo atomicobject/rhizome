@@ -894,7 +894,7 @@ describe("desktop shell", () => {
     expect(document.documentElement.dataset.theme).toBe("oxblood");
   });
 
-  it("closes a finder to show Settings", async () => {
+  it("closes a finder for any other menu command, such as Settings or Add Repository", async () => {
     start(undefined, (operation) => (operation === "global-status" ? null : undefined));
     await waitFor(() => expect(opened()).toHaveLength(1));
     act(() => emit({ type: "command", command: "repositories" }));
@@ -902,6 +902,13 @@ describe("desktop shell", () => {
     act(() => emit({ type: "command", command: "settings" }));
     expect(finderModel()).toBeNull();
     expect(screen.getByRole("radiogroup", { name: "Theme" })).toBeVisible();
+
+    pick.mockResolvedValue(null);
+    act(() => emit({ type: "command", command: "worktrees" }));
+    await waitFor(() => expect(finderModel()?.mode).toBe("worktrees"));
+    act(() => emit({ type: "command", command: "add-repository" }));
+    expect(finderModel()).toBeNull();
+    await waitFor(() => expect(pick).toHaveBeenCalledWith(true));
   });
 
   it("takes the app's theme on its own root", async () => {
