@@ -143,3 +143,18 @@ Active.
     - Start's open-pull-request check matches pull requests whose branch starts with `rzm/<task>/`, rather than searching commit messages.
     - Code-mode check scripts run against the main checkout's vault, read at the resolved commit, because the reset check checkout has no index.
     - A run where the agent committed everything itself gets an empty tagged commit, so the team clock still sees it.
+- 2026-10-25 harness change (batch 2):
+  - A T3 `delegate_task` Opus 5.5 High worker (`eff-2026-10-25-14-06-harness-pgroup`, branch `t3/fa9bd21a`) started JSON stdio children in their own process group and killed the group on `Close`, with grandchild tests (`8ca25135`, cherry-picked as `8a13054d`).
+  - I extended it (`b0fb0fff`): `Close` snapshots the descendant tree before closing input and kills it with the group, because spike (c) showed Claude Code's shells in their own groups. The new `TestCloseKillsDescendantsInOtherProcessGroups` failed first, then passed.
+  - `go test -race -count=2 ./pkg/harness/...` passed, and `GOOS=windows go vet ./pkg/harness/...` passed.
+  - Rerunning spike (c) live with Claude Code left no `sleep 300` behind.
+- 2026-10-25 batch 4 (`dd383b61`):
+  - Serve runs a detached `rzm tasks run-due` through `runtime.StartDetached`, one minute after start and then every 15 minutes, when the checkout has `.rhizome/tasks`.
+  - `TestRunHeadlessAsksForTasksAndStillExitsWhenIdle` shows the interval firing and a headless runtime still idle-exiting.
+  - Init installs a starter `tasks` family and allowlists `tasks/`. `TestRhizomeGitIgnoreTracksTaskFilesButNotTaskState` checks this with `git check-ignore`.
+  - `make build`, then `rzm init` (it updated only `.rhizome/.gitignore`), then `rzm init --check` exit 0.
+  - Live end to end, in a disposable repository in auto mode, `run-due` took 7 seconds. The check counted a draft line and wrote `last-check.txt` to the data folder. Claude Code edited `notes/todo.md`, read `last-check.txt`, and quoted it in its message. Rhizome committed this as `chore(tasks): Finalize notes` with `Rhizome-Task: finalize` on `rzm/finalize/2026-10-25`. Cleaned up afterward.
+- 2026-10-25 self-review fixes (`b08c8aee`):
+  - An item left running by a crashed pass now becomes needs attention, because a pass holding the run lock means nothing else is running.
+  - The login shell's PATH is read after a marker, so profile output can't corrupt it.
+  - Unix-only process tests moved to `runner_unix_test.go`, and shell-based tests skip on Windows.
