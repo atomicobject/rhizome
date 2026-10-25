@@ -84,6 +84,8 @@ describe("TypeWorkspaceHeader", () => {
 
     expect(screen.queryByText("notes")).toBeNull();
     expect(screen.queryByText("avg links")).toBeNull();
+    // Distinct from the facet line's "records with issues".
+    expect(screen.getByText("validation issues")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /Validation issues in SpecLike/ }));
     expect(onOpenIssues).toHaveBeenCalledOnce();
 

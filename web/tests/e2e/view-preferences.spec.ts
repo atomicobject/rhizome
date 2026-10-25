@@ -1,7 +1,7 @@
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, type APIRequestContext, type Page, test } from "./fixtures";
-import { chooseView } from "./workspaceView";
+import { chooseView, openViewOptions } from "./workspaceView";
 
 const frame = (page: Page) => page.frameLocator("iframe.custom-view-frame");
 
@@ -91,6 +91,7 @@ test("native layout choices persist for one collection and leave another indepen
   await page.goto("/notes/tv-guide");
   await chooseView(page, "Table");
   const density = page.getByRole("combobox", { name: "Rows", exact: true });
+  await openViewOptions(page);
   await expect(density).toHaveValue("two-line");
   await preferenceWrite(page, async () => {
     await density.selectOption("one-line");
@@ -98,10 +99,13 @@ test("native layout choices persist for one collection and leave another indepen
 
   await page.goto("/notes/tv-work-item");
   await chooseView(page, "Table");
+  await openViewOptions(page);
   await expect(density).toHaveValue("two-line");
   await page.goto("/notes/tv-guide");
+  await openViewOptions(page);
   await expect(density).toHaveValue("one-line");
   await page.reload();
+  await openViewOptions(page);
   await expect(density).toHaveValue("one-line");
 
   const freshContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
@@ -109,6 +113,7 @@ test("native layout choices persist for one collection and leave another indepen
   try {
     const freshPage = await freshContext.newPage();
     await freshPage.goto("/notes/tv-guide");
+    await openViewOptions(freshPage);
     await expect(freshPage.getByRole("combobox", { name: "Rows", exact: true })).toHaveValue(
       "one-line",
     );
@@ -252,6 +257,7 @@ test("shared saves review the YAML change, preserve collapse, and include search
     await expect(group).toHaveAttribute("aria-expanded", "false");
     expect(await readFile(file, "utf8")).toBe(original);
 
+    await openViewOptions(page);
     await page.getByRole("button", { name: /^Save view/ }).click();
     const review = page.getByRole("dialog", { name: "Save shared view configuration" });
     await expect(review).toContainText(".rhizome/views");
@@ -281,6 +287,7 @@ test("shared saves review the YAML change, preserve collapse, and include search
     await expect(page.getByRole("searchbox", { name: "Search view" })).toHaveValue("View demo");
 
     await page.getByRole("searchbox", { name: "Search view" }).fill("Alpha");
+    await openViewOptions(page);
     await page.getByRole("button", { name: /^Save view/ }).click();
     await review.getByRole("checkbox", { name: /^Include search/ }).check();
 

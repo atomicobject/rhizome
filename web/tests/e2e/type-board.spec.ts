@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "./fixtures";
-import { chooseView } from "./workspaceView";
+import { chooseView, openViewOptions } from "./workspaceView";
 
 /** Opens a SPEC-0112 fixture type from the Collections rail. */
 async function openCollection(page: Page, name: RegExp) {
@@ -87,6 +87,7 @@ test("saves a generated view and opens it as the type's default after reload", a
     (response) => response.url().endsWith("/save") && response.request().method() === "POST",
   );
 
+  await openViewOptions(page);
   await page.getByRole("button", { name: "Save view, unsaved changes" }).click();
   const review = page.getByRole("dialog", { name: "Save shared view configuration" });
   await expect(review).toContainText(".rhizome/views");
@@ -102,5 +103,5 @@ test("saves a generated view and opens it as the type's default after reload", a
   await openCollection(page, /^Lane projects \(\d+\)$/);
   await expect(rows).toHaveCount(3);
   await expect.poll(titles).toEqual([...ascending].reverse());
-  await expect(page.getByRole("button", { name: "Save view", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "View options", exact: true })).toBeVisible();
 });

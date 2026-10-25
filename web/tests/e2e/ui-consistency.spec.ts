@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures";
 import type { ViewExecuteResponse } from "../../src/api/types";
-import { chooseView } from "./workspaceView";
+import { chooseView, expectViewSettled } from "./workspaceView";
 
 test("previews configured row titles in every presentation", async ({ page }) => {
   await page.goto("/notes?view=e2e.action-items");
@@ -8,7 +8,7 @@ test("previews configured row titles in every presentation", async ({ page }) =>
 
   for (const variant of ["Table", "Board", "Cards"]) {
     await chooseView(page, variant);
-    await expect(page.getByRole("button", { name: "Refresh view", exact: true })).toBeEnabled();
+    await expectViewSettled(page);
 
     const title = page
       .locator(variant === "Table" ? ".configured-view__scalar-cell" : ".configured-card__title")

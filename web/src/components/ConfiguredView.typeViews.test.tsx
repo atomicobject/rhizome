@@ -9,6 +9,7 @@ import {
   baseView,
   execution,
   firstRow,
+  openViewOptions,
   renderView,
   secondRow,
 } from "./ConfiguredView.testFixtures";
@@ -29,7 +30,10 @@ describe("ConfiguredView type collections", () => {
     expect(within(facets).getByRole("button", { name: "Draft 9" })).toBeVisible();
     expect(within(facets).queryByRole("button", { name: /Archived/ })).toBeNull();
     expect(within(facets).getByRole("button", { name: "Unchanged 30d 3" })).toBeVisible();
-    expect(facets).toHaveTextContent("✓ no issues");
+    // No record has issues: the facet stays away rather than calling the
+    // collection clean, since the header counts validation issues separately.
+    expect(within(facets).queryByRole("button", { name: /with issues/ })).toBeNull();
+    expect(facets).not.toHaveTextContent(/no issues/i);
 
     const gap = within(facets).getByRole("button", { name: "ID empty 12/40" });
     expect(gap).toHaveAttribute("title", "Specs are cited by id.");
@@ -103,7 +107,7 @@ describe("ConfiguredView type collections", () => {
     expect(facets).toHaveTextContent("May 2025 – now");
     expect(facets).toHaveTextContent("1 this month · 4 last");
     expect(within(facets).getByRole("img", { name: /Records per month/ })).toBeVisible();
-    expect(within(facets).getByRole("button", { name: "Issues 2" })).toBeVisible();
+    expect(within(facets).getByRole("button", { name: "Records with issues 2" })).toBeVisible();
   });
 
   it("hides columns no matching row fills and lists them in the Columns menu", () => {
@@ -119,6 +123,7 @@ describe("ConfiguredView type collections", () => {
     });
 
     expect(screen.queryByRole("columnheader", { name: "ID" })).toBeNull();
+    openViewOptions();
     const columns = screen.getByRole("button", { name: "Columns" });
     expect(columns).toHaveTextContent("1 hidden empty");
 
@@ -133,11 +138,13 @@ describe("ConfiguredView type collections", () => {
     const { unmount } = renderView({ execution: typeExecution(), vaultKey: "vault" });
 
     expect(screen.getByText("Alpha defines the first contract.")).toBeVisible();
+    openViewOptions();
     fireEvent.change(screen.getByLabelText("Rows"), { target: { value: "one-line" } });
     expect(screen.queryByText("Alpha defines the first contract.")).toBeNull();
     unmount();
 
     renderView({ execution: typeExecution(), vaultKey: "vault" });
+    openViewOptions();
     expect(screen.getByLabelText("Rows")).toHaveValue("one-line");
     expect(screen.queryByText("Alpha defines the first contract.")).toBeNull();
   });
@@ -151,6 +158,7 @@ describe("ConfiguredView type collections", () => {
       execution: typeExecution(),
     });
 
+    openViewOptions();
     expect(screen.getByLabelText("Rows")).toHaveValue("one-line");
     expect(screen.queryByText("Alpha defines the first contract.")).toBeNull();
   });
