@@ -84,17 +84,18 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 	}
 	ref, commit, err := s.opts.Repo.ResolvePrimary(ctx, s.opts.Config.PrimaryRef)
 	if err != nil {
-		return RunSummary{}, err
+		return RunSummary{}, s.notePassError(ctx, err)
 	}
 	defs, problems, err := LoadDefinitions(ctx, s.opts.Repo, commit)
 	if err != nil {
-		return RunSummary{}, err
+		return RunSummary{}, s.notePassError(ctx, err)
 	}
 	summary := RunSummary{Ref: ref, Commit: commit, Problems: problems}
 	tagged := s.lastTagged(ctx, ref, defs)
 	now := s.opts.Now()
 	var paused bool
 	if err := s.store.Update(ctx, func(st *State) error {
+		st.PassError = nil
 		s.bookkeep(st, defs, tagged, now)
 		paused = st.Paused
 		return nil
@@ -113,8 +114,14 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 		if err != nil {
 			return summary, err
 		}
+		if st.Paused {
+			summary.Skipped = "paused"
+			break
+		}
 		mode, _ := st.ResolveMode(def.ID, s.opts.Config.DefaultMode)
-		if mode == ModeOff || st.ActiveTaskItem(def.ID) != nil {
+		// An open item blocks the task, except a needs-attention item, which
+		// waits only for the next cadence.
+		if it := st.ActiveTaskItem(def.ID); mode == ModeOff || (it != nil && it.State != StateAttention) {
 			continue
 		}
 		last, _ := st.LastRun(def.ID)
@@ -124,6 +131,16 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 		summary.Outcomes = append(summary.Outcomes, s.runTask(ctx, def, mode, ref, commit))
 	}
 	return summary, nil
+}
+
+// notePassError records why a pass failed before running any task, so
+// status can explain why automatic work stopped. It returns err.
+func (s *Service) notePassError(ctx context.Context, err error) error {
+	_ = s.store.Update(ctx, func(st *State) error {
+		st.PassError = &PassError{At: s.opts.Now(), Message: err.Error()}
+		return nil
+	})
+	return err
 }
 
 // bookkeep announces tasks the person has not seen and closes items whose

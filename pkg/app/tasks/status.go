@@ -2,6 +2,9 @@ package tasks
 
 import (
 	"context"
+	"fmt"
+	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -23,15 +26,19 @@ type TaskStatus struct {
 
 // Report is the whole `rzm tasks status` result.
 type Report struct {
-	Ref       string       `json:"ref,omitempty"`
-	Commit    string       `json:"commit,omitempty"`
-	RefError  string       `json:"refError,omitempty"`
-	FetchedAt time.Time    `json:"fetchedAt,omitzero"`
-	Paused    bool         `json:"paused"`
-	Untrusted string       `json:"untrusted,omitempty"`
-	StateDir  string       `json:"stateDir"`
-	Tasks     []TaskStatus `json:"tasks"`
-	Problems  []Problem    `json:"problems,omitempty"`
+	Ref       string     `json:"ref,omitempty"`
+	Commit    string     `json:"commit,omitempty"`
+	RefError  string     `json:"refError,omitempty"`
+	FetchedAt time.Time  `json:"fetchedAt,omitzero"`
+	Paused    bool       `json:"paused"`
+	Untrusted string     `json:"untrusted,omitempty"`
+	PassError *PassError `json:"lastPassError,omitempty"`
+	// MergeWarning says when the repository's squash merges drop task tags,
+	// so team tasks would not see teammates' merged runs.
+	MergeWarning string       `json:"mergeWarning,omitempty"`
+	StateDir     string       `json:"stateDir"`
+	Tasks        []TaskStatus `json:"tasks"`
+	Problems     []Problem    `json:"problems,omitempty"`
 }
 
 // Status reports every task's mode, last run, and next due time. It reads
@@ -41,7 +48,7 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	report := Report{Paused: st.Paused, Untrusted: s.untrusted(), StateDir: s.stateDir, Tasks: []TaskStatus{}}
+	report := Report{Paused: st.Paused, Untrusted: s.untrusted(), PassError: st.PassError, StateDir: s.stateDir, Tasks: []TaskStatus{}}
 	if t, ok := s.opts.Repo.FetchedAt(); ok {
 		report.FetchedAt = t
 	}
@@ -80,7 +87,35 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 		}
 		report.Tasks = append(report.Tasks, ts)
 	}
+	for _, def := range defs {
+		if def.Scope == ScopeTeam {
+			report.MergeWarning = mergeWarning(ctx, s.opts.Repo.MainCheckout)
+			break
+		}
+	}
 	return report, nil
+}
+
+// mergeWarning reads the GitHub repository's squash setting with gh, when
+// it is installed. Only a squash message built from the commit messages
+// keeps the task tag; any failure means nothing is known.
+func mergeWarning(ctx context.Context, dir string) string {
+	if _, err := exec.LookPath("gh"); err != nil || dir == "" {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "gh", "api", "repos/{owner}/{repo}", "--jq", "[.allow_squash_merge, .squash_merge_commit_message] | @tsv")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	fields := strings.Fields(string(out))
+	if len(fields) == 2 && fields[0] == "true" && fields[1] != "COMMIT_MESSAGES" {
+		return fmt.Sprintf("squash merges use %s as the commit message, which drops the %s line, so teammates' merged runs will not reset team tasks; set the squash message to the commit messages", fields[1], TagKey)
+	}
+	return ""
 }
 
 // Inbox lists the items the person should see now.

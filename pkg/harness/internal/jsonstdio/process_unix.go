@@ -3,12 +3,14 @@
 package jsonstdio
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // Harness CLIs spawn shells, tools, and MCP servers; a process group lets
@@ -22,7 +24,10 @@ func configureProcessGroup(cmd *exec.Cmd) {
 // group kill misses, and once the child exits they are reparented and can
 // no longer be found; so Close takes this snapshot before closing input.
 func processTree(process *os.Process) []int {
-	out, err := exec.Command("ps", "-A", "-o", "pid=,ppid=").Output()
+	// Stop has a three-second budget; a stalled ps must not spend it.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ps", "-A", "-o", "pid=,ppid=").Output()
 	if err != nil {
 		return nil
 	}

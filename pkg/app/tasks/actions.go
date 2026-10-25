@@ -51,6 +51,15 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 		if err != nil {
 			return err
 		}
+		if it.State != StateDue && it.State != StateAttention {
+			return fmt.Errorf("item %s is now %s", it.ID, it.State)
+		}
+		if it.Worktree != "" {
+			// A failed attempt's worktree stays on its item, so the new
+			// attempt gets an item of its own.
+			itemID = st.AddItem(Item{Task: it.Task, Kind: KindTask, State: StateRunning, Summary: it.Summary, Context: it.Context}, s.opts.Now()).ID
+			return nil
+		}
 		it.set(StateRunning, s.opts.Now())
 		it.Reason = ""
 		return nil
@@ -163,22 +172,28 @@ func (s *Service) Skip(ctx context.Context, itemID string) error {
 	})
 }
 
-// Discard removes a finished run's worktree and local branch.
+// Discard removes a finished run's worktree and local branch, then
+// dismisses the item. When removal fails, the item keeps its location.
 func (s *Service) Discard(ctx context.Context, itemID string) error {
-	var branch, dir string
-	if err := s.updateItem(ctx, itemID, func(st *State, it *Item) error {
-		if it.State != StateReady && it.State != StateAttention {
-			return fmt.Errorf("item %s is %s; only a ready or needs-attention item can be discarded", it.ID, it.State)
-		}
-		branch, dir = it.Branch, it.Worktree
+	st, err := s.store.Load()
+	if err != nil {
+		return err
+	}
+	it, err := st.Item(itemID)
+	if err != nil {
+		return err
+	}
+	if it.State != StateReady && it.State != StateAttention {
+		return fmt.Errorf("item %s is %s; only a ready or needs-attention item can be discarded", it.ID, it.State)
+	}
+	if err := s.removeWorktree(ctx, it.Branch, it.Worktree); err != nil {
+		return fmt.Errorf("remove %s: %w", it.Worktree, err)
+	}
+	return s.updateItem(ctx, itemID, func(st *State, it *Item) error {
 		it.set(StateDismissed, s.opts.Now())
 		it.Branch, it.Worktree = "", ""
 		return nil
-	}); err != nil {
-		return err
-	}
-	s.removeWorktree(ctx, branch, dir)
-	return nil
+	})
 }
 
 // Done closes an item.

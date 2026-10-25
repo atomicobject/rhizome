@@ -69,16 +69,21 @@ func (s *Service) work(ctx context.Context, def Definition, itemID string, check
 	}
 	now := s.opts.Now()
 	outcome := OutcomeReady
+	var cleanupErr error
 	if len(changed) == 0 {
 		outcome = OutcomeNoChanges
-		s.removeWorktree(ctx, branch, dir)
+		cleanupErr = s.removeWorktree(ctx, branch, dir)
 	}
 	_ = s.store.Update(ctx, func(st *State) error {
 		if it, err := st.Item(itemID); err == nil {
 			it.Message, it.Tokens, it.Changed = message, res.Tokens, changed
-			if outcome == OutcomeReady {
+			switch {
+			case outcome == OutcomeReady:
 				it.set(StateReady, now)
-			} else {
+			case cleanupErr != nil:
+				it.set(StateDone, now)
+				it.Reason = "nothing changed, but the worktree could not be removed: " + cleanupErr.Error()
+			default:
 				it.set(StateDone, now)
 				it.Branch, it.Worktree = "", ""
 			}
@@ -150,13 +155,26 @@ func (s *Service) freeBranch(ctx context.Context, def Definition) (string, error
 	return "", errors.New("no free branch name")
 }
 
-func (s *Service) removeWorktree(ctx context.Context, branch, dir string) {
+// removeWorktree removes a run's worktree and local branch. Ones already
+// gone are not errors.
+func (s *Service) removeWorktree(ctx context.Context, branch, dir string) error {
 	if dir != "" {
-		_, _ = s.opts.Repo.git(ctx, "worktree", "remove", "--force", dir)
+		if _, err := os.Stat(dir); err == nil {
+			if _, err := s.opts.Repo.git(ctx, "worktree", "remove", "--force", dir); err != nil {
+				return err
+			}
+		} else {
+			_, _ = s.opts.Repo.git(ctx, "worktree", "prune")
+		}
 	}
 	if branch != "" {
-		_, _ = s.opts.Repo.git(ctx, "branch", "-D", branch)
+		if _, err := s.opts.Repo.git(ctx, "show-ref", "--verify", "--quiet", "refs/heads/"+branch); err == nil {
+			if _, err := s.opts.Repo.git(ctx, "branch", "-D", branch); err != nil {
+				return err
+			}
+		}
 	}
+	return nil
 }
 
 // commitWork commits every change in dir with the work's message and the

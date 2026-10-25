@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -78,10 +79,17 @@ func InteractivePrompt(def Definition, loc Locations, check CheckResult, ref, br
 	return b.String()
 }
 
-// MarkStarted records that the harness launched for the item, and a run of
-// the task.
+// MarkStarted reserves the item for the harness about to launch and
+// records a run of the task. It fails when the repository is not trusted or
+// the item changed since the plan, for example because it was run.
 func (s *Service) MarkStarted(ctx context.Context, plan StartPlan) error {
+	if reason := s.untrusted(); reason != "" {
+		return errors.New(reason)
+	}
 	return s.updateItem(ctx, plan.ItemID, func(st *State, it *Item) error {
+		if it.State != plan.prior {
+			return fmt.Errorf("item %s is now %s; start it again if it still needs you", it.ID, it.State)
+		}
 		it.set(StateStarted, s.opts.Now())
 		it.Branch, it.Reason = plan.Branch, ""
 		st.Record(RunRecord{Task: it.Task, At: s.opts.Now(), Outcome: OutcomeStarted})
@@ -97,6 +105,13 @@ func (s *Service) UndoStart(ctx context.Context, plan StartPlan, reason string) 
 		it.Branch, it.Reason = "", reason
 		if n := len(st.History); n > 0 && st.History[n-1].Task == it.Task && st.History[n-1].Outcome == OutcomeStarted {
 			st.History = st.History[:n-1]
+			delete(st.Last, it.Task)
+			for i := len(st.History) - 1; i >= 0; i-- {
+				if st.History[i].Task == it.Task {
+					st.Last[it.Task] = st.History[i]
+					break
+				}
+			}
 		}
 		return nil
 	})

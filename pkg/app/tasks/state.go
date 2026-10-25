@@ -68,12 +68,25 @@ type State struct {
 	Modes   map[string]Mode      `json:"modes,omitempty"`
 	Seen    map[string]time.Time `json:"seen,omitempty"`
 	History []RunRecord          `json:"history,omitempty"`
-	Items   []Item               `json:"items,omitempty"`
-	NextID  int                  `json:"nextId,omitempty"`
+	// Last keeps each task's latest run even after history is trimmed.
+	Last map[string]RunRecord `json:"last,omitempty"`
+	// PassError is why the latest run-due pass failed before running tasks.
+	PassError *PassError `json:"passError,omitempty"`
+	Items     []Item     `json:"items,omitempty"`
+	NextID    int        `json:"nextId,omitempty"`
+}
+
+// PassError records a run-due pass that failed before running any task.
+type PassError struct {
+	At      time.Time `json:"at"`
+	Message string    `json:"message"`
 }
 
 // LastRun returns the person's latest run of a task.
 func (s *State) LastRun(task string) (RunRecord, bool) {
+	if r, ok := s.Last[task]; ok {
+		return r, true
+	}
 	for i := len(s.History) - 1; i >= 0; i-- {
 		if s.History[i].Task == task {
 			return s.History[i], true
@@ -84,6 +97,10 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 
 // Record appends a run, keeping history bounded.
 func (s *State) Record(r RunRecord) {
+	if s.Last == nil {
+		s.Last = map[string]RunRecord{}
+	}
+	s.Last[r.Task] = r
 	s.History = append(s.History, r)
 	if extra := len(s.History) - maxHistory; extra > 0 {
 		s.History = append([]RunRecord(nil), s.History[extra:]...)

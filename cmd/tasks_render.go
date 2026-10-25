@@ -22,6 +22,12 @@ func renderTaskStatus(w io.Writer, r tasks.Report) {
 		fetched = "fetched " + ago(r.FetchedAt)
 	}
 	fmt.Fprintf(w, "Primary ref %s at %s (%s)\n", r.Ref, shortCommit(r.Commit), fetched)
+	if r.PassError != nil {
+		fmt.Fprintf(w, "The last automatic pass failed %s: %s\n", ago(r.PassError.At), r.PassError.Message)
+	}
+	if r.MergeWarning != "" {
+		fmt.Fprintf(w, "Warning: %s.\n", r.MergeWarning)
+	}
 	if r.Paused {
 		fmt.Fprintln(w, "Paused: background work is off until `rzm tasks resume`.")
 	}

@@ -66,7 +66,8 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 			return CheckResult{}, fmt.Errorf("read check script: %w", err)
 		}
 		input, _ := json.Marshal(loc)
-		cmd = exec.Command(s.opts.Rzm, "agent", "code", "execute", "--input", string(input))
+		// code mode has its own default deadline; give it the task's.
+		cmd = exec.Command(s.opts.Rzm, "agent", "code", "execute", "--timeout", def.Limit.String(), "--input", string(input))
 		cmd.Dir = loc.MainCheckout
 		cmd.Stdin = bytes.NewReader(code)
 	} else {
@@ -109,16 +110,22 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 		}
 		out = envelope.Result
 	}
-	var result CheckResult
+	// needed must be explicit, so a check that prints {} or null fails
+	// instead of quietly skipping the task.
+	var result struct {
+		Needed  *bool  `json:"needed"`
+		Summary string `json:"summary"`
+		Context string `json:"context"`
+	}
 	dec := json.NewDecoder(bytes.NewReader(out))
 	dec.DisallowUnknownFields()
-	if err := dec.Decode(&result); err != nil {
-		return CheckResult{}, fmt.Errorf("check must print one JSON object like {\"needed\": true}: %w", err)
+	if err := dec.Decode(&result); err != nil || result.Needed == nil {
+		return CheckResult{}, fmt.Errorf("check must print one JSON object with a boolean \"needed\", like {\"needed\": true}; got %.200q", out)
 	}
 	if dec.More() {
 		return CheckResult{}, errors.New("check printed more than one JSON value")
 	}
-	return result, nil
+	return CheckResult{Needed: *result.Needed, Summary: result.Summary, Context: result.Context}, nil
 }
 
 // runBounded runs cmd in its own process group with stdin closed, returns

@@ -229,7 +229,7 @@ func TestInterruptedRunNeedsAttention(t *testing.T) {
 		t.Fatal(err)
 	}
 	items := taskItems(mustState(t, svc), "look")
-	if len(items) != 1 || items[0].State != StateAttention || !strings.Contains(items[0].Reason, "interrupted") {
+	if len(items) == 0 || items[0].State != StateAttention || !strings.Contains(items[0].Reason, "interrupted") {
 		t.Fatalf("an interrupted run should need attention, got %+v", items)
 	}
 }

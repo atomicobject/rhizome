@@ -231,12 +231,15 @@ func launchTaskHarness(cmd *cobra.Command, svc *tasks.Service, plan tasks.StartP
 	child := exec.CommandContext(cmd.Context(), plan.Argv[0], plan.Argv[1:]...)
 	child.Dir = plan.Dir
 	child.Stdin, child.Stdout, child.Stderr = os.Stdin, os.Stdout, os.Stderr
-	started := time.Now()
-	if err := child.Start(); err != nil {
-		return fmt.Errorf("start %s: %w", plan.Argv[0], err)
-	}
+	// Reserve the item before launching, so a concurrent run cannot do the
+	// same work; a launch that fails gives it back.
 	if err := svc.MarkStarted(cmd.Context(), plan); err != nil {
 		return err
+	}
+	started := time.Now()
+	if err := child.Start(); err != nil {
+		_ = svc.UndoStart(context.WithoutCancel(cmd.Context()), plan, "")
+		return fmt.Errorf("start %s: %w", plan.Argv[0], err)
 	}
 	err := child.Wait()
 	if err != nil && time.Since(started) < 10*time.Second {
@@ -259,7 +262,7 @@ func resolveTaskHarness(cmd *cobra.Command, drivers map[harness.Kind]harness.Har
 
 // openTasksService composes the service for the repository the command runs in.
 func openTasksService(ctx context.Context, cmd *cobra.Command, registry harnessRegistry) (*tasks.Service, error) {
-	cwd, err := os.Getwd()
+	cwd, err := commandEnvFromContext(ctx).Getwd()
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +275,12 @@ func openTasksService(ctx context.Context, cmd *cobra.Command, registry harnessR
 	if configRoot == "" {
 		configRoot = cwd
 	}
-	if local, err := repoconfig.LoadLocalConfig(configRoot); err == nil && local.Tasks != nil {
+	local, err := repoconfig.LoadLocalConfig(configRoot)
+	switch {
+	case errors.Is(err, repoconfig.ErrNoLocalConfig):
+	case err != nil:
+		return nil, fmt.Errorf("read .rhizome/config.yml: %w", err)
+	case local.Tasks != nil:
 		cfg = *local.Tasks
 	}
 	exe, err := os.Executable()

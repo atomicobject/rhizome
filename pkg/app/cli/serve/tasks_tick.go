@@ -19,7 +19,7 @@ const (
 )
 
 // runTasksTicker calls runTasks after a short delay and then on every
-// interval, while the vault declares tasks.
+// interval, for a vault that is a Git checkout.
 func runTasksTicker(ctx context.Context, vaultPath string, first, interval time.Duration, runTasks func(vaultPath string) error) {
 	timer := time.NewTimer(first)
 	defer timer.Stop()
@@ -29,9 +29,9 @@ func runTasksTicker(ctx context.Context, vaultPath string, first, interval time.
 			return
 		case <-timer.C:
 		}
-		// Only a checkout that has task files asks; run-due reads the
-		// declarations themselves from the primary ref.
-		if _, err := os.Stat(filepath.Join(vaultPath, ".rhizome", "tasks")); err == nil {
+		// Any Git checkout asks: run-due reads the declarations from the
+		// primary ref, which an older branch's checkout may not show.
+		if _, err := os.Stat(filepath.Join(vaultPath, ".git")); err == nil {
 			if err := runTasks(vaultPath); err != nil {
 				recordServeDiagnostic(ctx, slog.LevelWarn, "tasks.start_failed", err)
 			}

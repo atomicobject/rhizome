@@ -50,14 +50,21 @@ func (it Item) Active() bool { return it.State != StateDone && it.State != State
 // Visible reports whether the inbox shows the item at now.
 func (it Item) Visible(now time.Time) bool { return it.Active() && !now.Before(it.Snoozed) }
 
-// ActiveTaskItem returns the task's open work item, if any.
+// ActiveTaskItem returns the task's open work item, preferring one that is
+// not waiting for attention, or nil.
 func (s *State) ActiveTaskItem(task string) *Item {
+	var attention *Item
 	for i := range s.Items {
-		if it := &s.Items[i]; it.Task == task && it.Kind == KindTask && it.Active() {
+		it := &s.Items[i]
+		if it.Task != task || it.Kind != KindTask || !it.Active() {
+			continue
+		}
+		if it.State != StateAttention {
 			return it
 		}
+		attention = it
 	}
-	return nil
+	return attention
 }
 
 // Item finds an item by id.

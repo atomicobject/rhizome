@@ -3,10 +3,12 @@
 package tasks
 
 import (
+	"context"
 	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func configureProcess(cmd *exec.Cmd) {
@@ -31,7 +33,9 @@ func killTree(cmd *exec.Cmd) {
 
 // descendants lists every process below pid, from one `ps` snapshot.
 func descendants(pid int) []int {
-	out, err := exec.Command("ps", "-A", "-o", "pid=,ppid=").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ps", "-A", "-o", "pid=,ppid=").Output()
 	if err != nil {
 		return nil
 	}

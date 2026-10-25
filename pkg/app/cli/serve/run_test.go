@@ -351,7 +351,7 @@ func TestRunHeadlessExitsWhenIdle(t *testing.T) {
 
 func TestRunHeadlessAsksForTasksAndStillExitsWhenIdle(t *testing.T) {
 	vault := newTestVault(t)
-	require.NoError(t, os.MkdirAll(filepath.Join(vault.path, ".rhizome", "tasks"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(vault.path, ".git"), 0o755))
 	var calls atomic.Int32
 	handle := startRun(t, vault, func(o *Options) {
 		o.Headless = true
