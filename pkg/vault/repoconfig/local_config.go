@@ -93,6 +93,14 @@ type LocalRuntimeConfig struct {
 	IdleTimeout string `yaml:"idleTimeout,omitempty"`
 }
 
+// LocalTasksConfig configures scheduled tasks (SPEC-0126): the branch task
+// files are read from and work starts from, and whether tasks run
+// automatically or only notify unless a person overrides a task.
+type LocalTasksConfig struct {
+	PrimaryRef  string `yaml:"primaryRef,omitempty"`
+	DefaultMode string `yaml:"defaultMode,omitempty"`
+}
+
 // TemplateConfig configures output directories for template artifacts.
 type TemplateConfig struct {
 	Claude    *AgentTemplateConfig  `yaml:"claude,omitempty"`
@@ -288,6 +296,9 @@ type LocalConfig struct {
 	// Runtime configures the vault runtime process; nil means defaults.
 	Runtime     *LocalRuntimeConfig `yaml:"runtime,omitempty"`
 	Diagnostics *diagnostics.Config `yaml:"diagnostics,omitempty"`
+
+	// Tasks configures scheduled tasks; nil means defaults.
+	Tasks *LocalTasksConfig `yaml:"tasks,omitempty"`
 
 	// Templates configures output directories for template artifacts (skills, commands, prompts).
 	Templates *TemplateConfig `yaml:"templates,omitempty"`

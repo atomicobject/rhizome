@@ -63,6 +63,7 @@ func newRootCommand(env commandEnv) *commandInvocation {
 	registerQueryRecipeFamily(rootCmd)
 	registerViewFamily(rootCmd)
 	registerHookFamily(rootCmd)
+	registerTasksFamily(rootCmd)
 	return app
 }
 

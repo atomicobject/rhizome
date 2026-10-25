@@ -125,3 +125,21 @@ Active.
 
 - 2026-10-25T18:06:44Z: Effort created. Spec reviewed twice by GPT-6 Astra High (T3 delegated tasks spec-0126-astra-review-r1 and -r2). Both rounds' findings were resolved or made moot by Drew's later simplification (no caps or allowance, trusted tasks).
 - 2026-10-25: Drew asked to "plan out the effort and start executing" in chat. That authorizes this plan and its contracts; he has not yet read the plan text, so it is reported to him with the first progress update. No current Person is configured in this checkout, so `plan-approved-by` is omitted.
+- 2026-10-25 batch 0 spikes (macOS, Claude Code 2.1.302, Codex 0.163.0):
+  - (a) Interactive `codex --worktree "<prompt>"` passes the prompt in as the first turn (the TUI showed it submitted and working) in `~/.codex/worktrees/<id>/<repo>`, detached. Like Claude, Codex first asks to trust a folder it has not seen, and that trust applies to the repository root. Under `expect`, the TUI waits for answers to terminal color and cursor queries, which a real terminal gives.
+  - (b) A throwaway program on `pkg/harness` (`.spike/main.go`, never committed) ran Claude Code and Codex in `PermissionFullAccess` in a fresh Git repository. Both ran shell commands and wrote the file, with zero approval requests, and reported usage (Claude `CostUSD` is 0 on a subscription).
+  - (c) Stopping a session does not stop everything it started. Claude Code runs shell commands in their own process group (the shell's group 9769, Claude's 9595), and a backgrounded `sleep 300` survived a normal `Stop()` after Claude exited. Codex left nothing behind. So stopping the harness's process group is not enough. The runner must collect the whole descendant tree while the harness is still running, then terminate it. This widens the harness change in batch 2; it is a routine correction within the plan, not a deviation.
+- 2026-10-25 batches 1–3 (`pkg/app/tasks`, `cmd/tasks.go`, `cmd/tasks_render.go`, `repoconfig.LocalTasksConfig`, and `agentchat.ResolveHarness`, moved from `pkg/app/mcp` so tasks and `generate` share one harness choice):
+  - `GOCACHE=$PWD/.gocache go test -race -count=3 -tags fts5 ./pkg/app/tasks/` passed. Covered: the primary ref only (branch and dirty edits ignored), invalid siblings, `origin/HEAD` default, team clock from a squash-style body with whole-line matching, an auto run that commits tagged work on a local branch with the check's context in the prompt, no-change cleanup, notify then Run, mode overrides and pause, a failed check that waits instead of retrying, a check timeout that kills a grandchild, two concurrent passes running a task once, a teammate's tagged merge closing the item, the untrusted skip, and Start planning, MarkStarted, and UndoStart. `make check-fast` exit 0.
+  - Live, in a disposable repository with the built binary:
+    - `run-due` in notify mode made an announcement and a due item and spent nothing.
+    - `run <item>` ran Claude Code in about 5 seconds and committed `hello.txt` on `rzm/look/2026-10-25` with the task's name as subject, the agent's message, and `Rhizome-Task: look`; `main` was untouched.
+    - `discard` removed the worktree and branch, and `start --print` printed the preamble without changing state.
+    - `start --harness claude` in a folder Claude had not trusted returned the item to due with the fix in its reason.
+    - `start --harness codex` opened Codex in `~/.codex/worktrees/<id>/`, where the agent ran the preamble's `git switch` onto `rzm/second/2026-10-25` at the primary commit, and the item became started.
+    - The disposable repository, its trust record, and the Codex worktree were removed afterward.
+  - Choices made during implementation:
+    - Drafts run with `rzm tasks run --file <path>` and no item argument.
+    - Start's open-pull-request check matches pull requests whose branch starts with `rzm/<task>/`, rather than searching commit messages.
+    - Code-mode check scripts run against the main checkout's vault, read at the resolved commit, because the reset check checkout has no index.
+    - A run where the agent committed everything itself gets an empty tagged commit, so the team clock still sees it.
