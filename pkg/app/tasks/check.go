@@ -202,9 +202,13 @@ func loginPath() string {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		out, err := exec.CommandContext(ctx, shell, "-lc", `printf %s "$PATH"`).Output()
-		if err == nil && strings.TrimSpace(string(out)) != "" {
-			loginPathValue = strings.TrimSpace(string(out))
+		// A profile may print to stdout; the marker finds PATH after it.
+		const marker = "__RZM_LOGIN_PATH__"
+		out, err := exec.CommandContext(ctx, shell, "-lc", `printf '`+marker+`%s' "$PATH"`).Output()
+		if i := strings.LastIndex(string(out), marker); err == nil && i >= 0 {
+			if path := strings.TrimSpace(string(out[i+len(marker):])); path != "" {
+				loginPathValue = path
+			}
 		}
 	})
 	return loginPathValue

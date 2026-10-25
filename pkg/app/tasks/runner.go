@@ -147,6 +147,15 @@ func (s *Service) bookkeep(st *State, defs []Definition, tagged map[string]*Tagg
 	}
 	for i := range st.Items {
 		it := &st.Items[i]
+		// This pass holds the run lock, so nothing is running: an item left
+		// running was interrupted by a crash or reboot.
+		if it.State == StateRunning {
+			it.set(StateAttention, now)
+			it.Reason = "the run was interrupted before it finished"
+			if it.Worktree != "" {
+				it.Reason += " (worktree kept at " + it.Worktree + ")"
+			}
+		}
 		if t := tagged[it.Task]; it.Kind == KindTask && it.Active() && t != nil && t.At.After(it.Created) {
 			it.set(StateDone, now)
 			it.Reason = fmt.Sprintf("%s's commit %s reached the primary ref", t.Author, short(t.Commit))

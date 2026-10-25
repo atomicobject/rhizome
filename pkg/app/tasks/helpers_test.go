@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -139,8 +140,13 @@ func hasLine(text, line string) bool {
 	return false
 }
 
+// shellAvailable skips tests whose checks are shell scripts. Scheduled
+// tasks are not supported on Windows yet (SPEC-0126 Delivery Phases).
 func shellAvailable(t *testing.T) {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("scheduled tasks are not supported on Windows yet")
+	}
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("needs sh")
 	}

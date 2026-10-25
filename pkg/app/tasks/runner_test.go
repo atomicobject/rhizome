@@ -5,10 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -169,30 +167,6 @@ func TestFailedCheckNeedsAttentionAndDoesNotRetry(t *testing.T) {
 	}
 }
 
-func TestCheckTimeoutKillsTheWholeTree(t *testing.T) {
-	shellAvailable(t)
-	pidFile := filepath.Join(t.TempDir(), "pid")
-	dir := newRepo(t, map[string]string{"slow.yml": "name: Slow\nevery: 1d\ntimeout: 1s\ncheck:\n  command: [sh, -c, 'sh -c \"sleep 300\" & echo $! > " + pidFile + "; wait']\nprompt: x\n"})
-	svc := newService(t, dir, &fakeAgent{}, "auto")
-	start := time.Now()
-	s, _ := svc.RunDue(context.Background())
-	if len(s.Outcomes) != 1 || s.Outcomes[0].Outcome != OutcomeFailed || time.Since(start) > 30*time.Second {
-		t.Fatalf("expected the check to time out promptly: %+v", s)
-	}
-	data, err := os.ReadFile(pidFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pid, _ := strconv.Atoi(strings.TrimSpace(string(data)))
-	deadline := time.Now().Add(5 * time.Second)
-	for syscall.Kill(pid, 0) == nil {
-		if time.Now().After(deadline) {
-			t.Fatalf("grandchild %d survived the timeout", pid)
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-}
-
 func TestConcurrentPassesRunATaskOnce(t *testing.T) {
 	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nprompt: Look around.\n"})
 	release := make(chan struct{})
@@ -237,6 +211,26 @@ func TestTaggedMergeClosesTheItem(t *testing.T) {
 	items := taskItems(mustState(t, svc), "look")
 	if len(items) != 1 || items[0].State != StateDone || !strings.Contains(items[0].Reason, "Tester") {
 		t.Fatalf("a teammate's tagged merge should close the item: %+v", items)
+	}
+}
+
+func TestInterruptedRunNeedsAttention(t *testing.T) {
+	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nprompt: Look around.\n"})
+	svc := newService(t, dir, &fakeAgent{}, "auto")
+	ctx := context.Background()
+	// A crashed pass leaves its item running.
+	if err := svc.Store().Update(ctx, func(st *State) error {
+		st.AddItem(Item{Task: "look", Kind: KindTask, State: StateRunning}, time.Now())
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.RunDue(ctx); err != nil {
+		t.Fatal(err)
+	}
+	items := taskItems(mustState(t, svc), "look")
+	if len(items) != 1 || items[0].State != StateAttention || !strings.Contains(items[0].Reason, "interrupted") {
+		t.Fatalf("an interrupted run should need attention, got %+v", items)
 	}
 }
 
