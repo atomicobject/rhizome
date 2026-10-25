@@ -256,7 +256,7 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
 - [PR #35](https://github.com/atomicobject/rhizome/pull/35) (`2cfb6073`): guard rules.
 - [PR #36](https://github.com/atomicobject/rhizome/pull/36) (`73f4eae9`): removed the unreachable graph auto-expansion an M5 H proposal traced agent confusion to.
 - [PR #40](https://github.com/atomicobject/rhizome/pull/40) (`264ca2a5`): hook delivery for reads after `cd <dir>;`, from M6.
-- This closure pull request: the starter guide (`docs/reference/guides/session-memory.md` in the installed repository) and the session-memory entry in `docs/reference/guides/choosing-your-starter.md`, plus this closure.
+- [PR #46](https://github.com/atomicobject/rhizome/pull/46), this closure: the starter guide (`docs/reference/guides/session-memory.md` in the installed repository) and the session-memory entry in `docs/reference/guides/choosing-your-starter.md`, plus this closure.
 
 ## Execution Notes
 
@@ -692,4 +692,4 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
 
 ## Status
 
-Complete on 2026-10-25. SPEC-0124 US1–US7 and SPEC-0045 US5–US6 are delivered across PRs #28 and #30–#36, #40, and this closure pull request; M5 and M6 are recorded above. The prototype approval of 2026-10-11 and Drew's 2026-10-22 scope extension cover the delivered work. Open items are follow-ups, not closure blockers.
+Complete on 2026-10-25. SPEC-0124 US1–US7 and SPEC-0045 US5–US6 are delivered across PRs #28 and #30–#36, #40, and #46 (this closure); M5 and M6 are recorded above. The prototype approval of 2026-10-11 and Drew's 2026-10-22 scope extension cover the delivered work. Open items are follow-ups, not closure blockers.
