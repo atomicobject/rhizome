@@ -548,6 +548,7 @@ test("the verifier's response and drafted artifact are validated with precise re
   assert.deepEqual(responseProblems({ response: "keep" }), ["response must be one of remember, document, fix, guard, ask"]);
   assert.deepEqual(responseProblems({ response: "ask", responseReason: "x" }), ["an ask response needs question, the decision its owner must make"]);
   assert.deepEqual(responseProblems({ response: "guard", responseReason: "x", change: "c", guardRule: { tool: "shell", command: "go mod vendor", path: "vendor/**", reason: "r", alternative: "a" } }), ["guardRule needs exactly one of command (a command prefix) or path (a glob using *, **, ?)"]);
+  assert.deepEqual(guardRuleProblems({ tool: "read", path: "docs/**", command: [], reason: "r", alternative: "a" }), ["guardRule command must be text"]);
   assert.deepEqual(guardRuleProblems({ tool: "read", command: "cat docs/x.md", reason: "r", alternative: "a" }), ["guardRule.command needs tool shell, since only a shell call has command words; a read, edit, or patch rule needs a path"]);
   assert.deepEqual(responseProblems({ response: "fix", responseReason: "x", change: "c", guardRule: { tool: "shell", command: "x", reason: "r", alternative: "a" } }), ["only a guard response may carry guardRule"]);
 

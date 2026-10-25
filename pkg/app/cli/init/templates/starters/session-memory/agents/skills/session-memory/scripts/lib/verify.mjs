@@ -294,6 +294,9 @@ const plainCommandWord = (w) => PLAIN_NAME.test(w) && !NOT_PLAIN.has(w.replace(/
 // or whose text is too long to show an agent.
 export function guardRuleProblems(g) {
   const problems = [];
+  // guardFields writes any truthy value, and the dispatcher reads only strings.
+  const typed = ["command", "path", "reason", "alternative"].filter((k) => g[k] != null && typeof g[k] !== "string");
+  if (typed.length) return [`guardRule ${typed.join(", ")} must be text`];
   if (!["read", "edit", "shell", "patch"].includes(g.tool)) problems.push("guardRule.tool must be read, edit, shell, or patch");
   if (filled(g.command) === filled(g.path)) problems.push("guardRule needs exactly one of command (a command prefix) or path (a glob using *, **, ?)");
   if (filled(g.command) && g.tool !== "shell") problems.push("guardRule.command needs tool shell, since only a shell call has command words; a read, edit, or patch rule needs a path");
