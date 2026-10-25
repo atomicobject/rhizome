@@ -59,6 +59,28 @@ describe("ConfiguredView states and controls", () => {
     expect(screen.getByRole("searchbox", { name: "Search view" })).toHaveFocus();
   });
 
+  it("shows a sort by a source key under its field's option", () => {
+    const result = execution();
+    result.capabilities = [
+      ...(result.capabilities ?? []),
+      {
+        key: "priority",
+        label: "Priority",
+        sortable: true,
+        groupable: true,
+        filterOps: ["eq"],
+        sourceKeys: ["frontmatter.priority"],
+      },
+    ];
+    renderView({
+      execution: result,
+      state: { page: { offset: 0, first: 25 }, sort: [{ field: "frontmatter.priority" }] },
+    });
+
+    openViewOptions();
+    expect(screen.getByLabelText("Sort by")).toHaveDisplayValue("Priority");
+  });
+
   it("marks View options when the shared view has unsaved changes", () => {
     renderView({ state: { sort: [{ field: "title", direction: "desc" }] } });
 

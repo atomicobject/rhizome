@@ -116,7 +116,9 @@ export function ConfiguredViewViewMenu({
   const sortOption =
     sortable.find(
       (capability) =>
-        capability.key === sortKey?.field || capability.canonicalField === sortKey?.field,
+        capability.key === sortKey?.field ||
+        capability.canonicalField === sortKey?.field ||
+        (sortKey !== undefined && capability.sourceKeys?.includes(sortKey.field)),
     )?.key ??
     sortKey?.field ??
     "";
