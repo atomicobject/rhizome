@@ -1,4 +1,13 @@
-import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import type {
   NodeWorkspace,
@@ -11,8 +20,12 @@ import type {
 import { tabKeyTarget } from "./focusManagement";
 import type { NoteTabContext } from "./noteTabContext";
 import { NotesSidebarInfo } from "./NotesSidebarInfo";
-import { OntologyLocalGraph } from "./OntologyLocalGraph";
 import { useFocusedWorkspaceGraphQuery } from "./useNotesQueries";
+
+// Sigma, graphology, and ForceAtlas2 load with the Graph tab, not the Notes entry.
+const OntologyLocalGraph = lazy(() =>
+  import("./OntologyLocalGraph").then((module) => ({ default: module.OntologyLocalGraph })),
+);
 
 type RailTab = "info" | "outline" | "graph";
 
@@ -313,7 +326,15 @@ function GraphPanel({
   if (localWorkspace) {
     return (
       <div className="notes-right-rail__graph">
-        <OntologyLocalGraph workspace={localWorkspace} onOpen={onOpen} onOpenNode={onOpenNode} />
+        <Suspense
+          fallback={
+            <p className="notes-right-rail__graph-status" role="status">
+              Loading local graph…
+            </p>
+          }
+        >
+          <OntologyLocalGraph workspace={localWorkspace} onOpen={onOpen} onOpenNode={onOpenNode} />
+        </Suspense>
       </div>
     );
   }

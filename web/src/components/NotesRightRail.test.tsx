@@ -5,6 +5,7 @@ import type { NodeWorkspace, NodeWorkspaceGraph, RenderedSection } from "../api/
 import { stagedQueryKey } from "../staging/stagedQuery";
 import { queryKeys } from "../api/queryKeys";
 import { jsonReply, withFakeFetch } from "../test/fakeFetch";
+import { installFakeWebGL } from "../test/fakeWebGL";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import type { NoteTabContext } from "./noteTabContext";
 import { NotesRightRail, type NotesRightRailProps, useNotesRightRailState } from "./NotesRightRail";
@@ -263,5 +264,58 @@ describe("NotesRightRail", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Graph" }));
     expect(screen.queryByText("Loading local graph…")).not.toBeInTheDocument();
     expect(screen.getByText("No local graph yet.")).toBeVisible();
+  });
+
+  it("loads the local graph renderer when the Graph tab shows a graph", async () => {
+    graphFailure();
+    const restoreWebGL = installFakeWebGL();
+    const noteContext = context();
+
+    const { queryClient, unmount } = render(
+      <RailHarness
+        context={noteContext}
+        editSession={null}
+        onOpen={vi.fn()}
+        onOpenNode={vi.fn()}
+      />,
+    );
+
+    const nodeId = noteContext.workspace.focusedNodeId ?? "focused";
+    const notePath = noteContext.workspace.node.notePath;
+
+    const graph: NodeWorkspaceGraph = {
+      focusedNodeId: nodeId,
+      nodes: [
+        {
+          id: nodeId,
+          kind: "note",
+          ref: { notePath, kind: "NOTE" },
+          notePath,
+          status: noteContext.workspace.status,
+          capabilities: noteContext.workspace.capabilities,
+          data: { title: "Focused", locator: "FILE" },
+        },
+      ],
+      edges: [],
+      views: { localGraph: { nodeIds: [nodeId], centerNodeIds: [nodeId] } },
+    };
+
+    queryClient.setQueryData(
+      stagedQueryKey(
+        queryKeys.graph.local(noteContext.workspace.node.ref, 500, { notesOnly: true }),
+        noteContext.workspace.version,
+        null,
+      ),
+      graph,
+    );
+
+    try {
+      fireEvent.click(screen.getByRole("tab", { name: "Graph" }));
+      // The renderer arrives in its own chunk, after the tab opens.
+      expect(await screen.findByRole("button", { name: "Zoom in" })).toBeVisible();
+    } finally {
+      unmount();
+      restoreWebGL();
+    }
   });
 });
