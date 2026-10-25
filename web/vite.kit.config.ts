@@ -50,6 +50,7 @@ function bootScript(): Plugin {
     name: "rhizome-kit-boot",
     generateBundle() {
       const theme = [
+        path.resolve(__dirname, "src/fonts.css"),
         path.resolve(__dirname, "src/tokens.css"),
         path.join(kitDir, "theme.css"),
         path.join(kitDir, "components.css"),
