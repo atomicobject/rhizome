@@ -33,7 +33,7 @@ With hooks on, Rhizome's hook dispatcher runs this skill's `scripts/hook.mjs` an
 ## Mine
 
 1. Pass the harness you are running in: `--harness claude` in Claude Code, `--harness codex` in Codex. Transcript text goes only to that provider and to Jev. Local state in `.rhizome/session-memory/` is readable only by the person on macOS and Linux; on Windows it has the checkout's permissions, so tell the person before a first run there.
-2. Run `node <skill>/scripts/mine.mjs --harness <h>` with no budget. It spends nothing and prints the model for each role, every provider that will receive transcript text, and the estimated cost. Show these to the person.
+2. Run `node <skill>/scripts/mine.mjs --harness <h>` with no budget. It spends nothing and prints the model for each role, every provider that will receive transcript text, and the estimated cost; `discovery.inWindow` is the number of sessions it would read. Show these to the person. On a first run that would read more than 200 sessions, ask the person before mining them all, or narrow the window with `--since`.
 3. Ask for a spend limit, then run `mine.mjs --harness <h> --budget <USD>`.
 4. If the run refuses because no price is known for a model, choose a priced model with `--model`, or ask the person whether to pass `--allow-unpriced`, which makes the budget count only the costs the provider reports.
 5. Exit 3 means the run stopped at its budget. Rerunning resumes it with the same models, and finished calls are not repeated. `--abandon` discards an open run instead.

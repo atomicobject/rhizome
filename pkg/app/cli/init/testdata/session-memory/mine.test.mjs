@@ -210,6 +210,7 @@ test("without --budget a run only estimates, and names who receives transcript t
   const fake = fakeClients();
   const r = await mine({ root: repo, state, budget: null, harness: "claude", discover: fakeDiscover([SESSIONS.s1]), log: () => {} }, fake);
   assert.equal(r.status, "estimate");
+  assert.equal(r.discovery.matched, 1);
   assert.equal(fake.calls.generate + fake.calls.evaluate, 0);
   assert.deepEqual(r.estimate.transcriptsTo, ["claude", "typesafe (passages only)"]);
   assert.ok(r.estimate.rows.find((x) => x.role === "extract").usd > 0);

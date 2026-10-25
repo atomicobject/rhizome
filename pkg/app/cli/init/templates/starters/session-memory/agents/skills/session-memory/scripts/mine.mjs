@@ -254,7 +254,7 @@ async function mineLocked(opts, clients, store, dry) {
   }
   const est = estimate(run, episodes, store);
   log(formatEstimate(est));
-  if (dry) return { status: "estimate", estimate: est, bindings: run.bindings, next: "rerun with --budget <USD> to spend up to that amount" };
+  if (dry) return { status: "estimate", estimate: est, bindings: run.bindings, discovery: run.discovery, next: "rerun with --budget <USD> to spend up to that amount" };
   const unpriced = est.rows.filter((r) => !r.priced).map((r) => `${r.role} (${r.binding})`);
   if (unpriced.length && !opts.allowUnpriced) throw new Error(`no price is known for ${unpriced.join(", ")}, so the budget cannot reserve for it; choose a priced model with --model, or pass --allow-unpriced to count only the costs the provider reports`);
   run.budget = opts.budget;

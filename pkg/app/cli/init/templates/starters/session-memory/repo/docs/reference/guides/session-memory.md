@@ -73,7 +73,7 @@ Init writes one Rhizome entry per hook point into `.claude/settings.json` and `.
 - **Codex asks you to trust each new or changed entry** through `/hooks` in Codex. Until you do, Codex runs no Rhizome hook.
 - **Codex threads in T3 Code don't run untrusted project hooks.** They rely on lookup.
 - **`rzm init --check`** reports, per harness, whether the entries are installed and current, and when the add-on last delivered context.
-- **When shards don't arrive,** `.rhizome/hooks/diagnostics.log` says why. A hook never blocks or fails an agent's tool call.
+- **When shards don't arrive,** `.rhizome/hooks/diagnostics.log` says why. Delivery hooks never block or fail an agent's tool call; only an approved guard rule refuses one, on purpose, and its message names the rule's finding note.
 
 Known limits:
 - Codex doesn't tell hooks which directory a command ran in, so a read in another directory may be missed or matched to a same-named file.
