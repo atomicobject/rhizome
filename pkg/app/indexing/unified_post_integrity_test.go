@@ -11,13 +11,22 @@ import (
 )
 
 func TestIntegrityFailureRecordsWarnEventWithTable(t *testing.T) {
+	for _, result := range []string{
+		"malformed inverted index for FTS5 table main.intel_fts",
+		`fts5: corruption found reading blob 412316860436 from table "intel_fts"`,
+	} {
+		t.Run(result, func(t *testing.T) { requireIntegrityWarn(t, result) })
+	}
+}
+
+func requireIntegrityWarn(t *testing.T, result string) {
 	root := t.TempDir()
 	var stderr bytes.Buffer
 	recorder, err := diagnostics.Open(root, diagnostics.Options{Stderr: &stderr})
 	require.NoError(t, err)
 	ctx := diagnostics.WithRecorder(context.Background(), recorder)
 
-	recordIntegrityFailure(ctx, sqliteutil.IntegrityCheckFailed{Result: "malformed inverted index for FTS5 table main.intel_fts"})
+	recordIntegrityFailure(ctx, sqliteutil.IntegrityCheckFailed{Result: result})
 	require.NoError(t, recorder.Close())
 
 	events, err := diagnostics.ReadEvents(root, diagnostics.Filter{Subsystem: "indexing"})

@@ -141,8 +141,9 @@ func runUnifiedPostIndex(
 }
 
 // integrityTablePattern finds the table SQLite names in a check result, such as
-// "malformed inverted index for FTS5 table main.intel_fts".
-var integrityTablePattern = regexp.MustCompile(`\btable (?:[A-Za-z_]\w*\.)?([A-Za-z_]\w*)`)
+// "malformed inverted index for FTS5 table main.intel_fts" or
+// `corruption found reading blob ... from table "intel_fts"`.
+var integrityTablePattern = regexp.MustCompile(`\btable "?(?:[A-Za-z_]\w*\.)?([A-Za-z_]\w*)`)
 
 // recordIntegrityFailure records a WARN event, which the recorder also mirrors
 // to stderr. Without a recorder the console warning is the only output.
