@@ -190,6 +190,10 @@ func readGuardRule(file string) (GuardRule, bool, error) {
 		return r, false, fmt.Errorf("guard-rule path %q may use only literal names, *, **, and ?", r.Path)
 	case r.Path != "" && (!doublestar.ValidatePattern(r.Path) || path.IsAbs(r.Path) || r.Path != path.Clean(r.Path) || strings.HasPrefix(r.Path, "../")):
 		return r, false, fmt.Errorf("guard-rule path %q is not a repository-relative glob", r.Path)
+	case strings.ContainsAny(r.Command, ";&|<>()\n"):
+		// Matching splits a call at its operators and drops redirects, so a
+		// rule holding one could never match.
+		return r, false, fmt.Errorf("guard-rule command %q must be one simple command, without shell operators or redirects", r.Command)
 	case strings.ContainsAny(r.Command, "'\"\\$`"):
 		return r, false, fmt.Errorf("guard-rule command %q must be plain words, without quotes or expansions", r.Command)
 	case r.Command != "" && !namesCommand(r.Command):

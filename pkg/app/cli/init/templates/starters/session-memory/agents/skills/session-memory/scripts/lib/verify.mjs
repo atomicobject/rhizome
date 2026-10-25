@@ -301,7 +301,10 @@ export function guardRuleProblems(g) {
     const all = g.command.trim().split(/\s+/);
     const words = [...all];
     while (words.length && (WRAPPERS.has(words[0]) || assignment(words[0]))) words.shift();
-    if (/['"\\$`]/.test(g.command)) problems.push("guardRule.command must be plain words, without quotes or expansions");
+    // Matching splits a call at its operators and drops redirects, so a rule
+    // holding one could never match.
+    if (/[;&|<>()\n]/.test(g.command)) problems.push("guardRule.command must be one simple command, without shell operators or redirects");
+    else if (/['"\\$`]/.test(g.command)) problems.push("guardRule.command must be plain words, without quotes or expansions");
     else if (!words.length || !plainCommandWord(words[0])) problems.push("guardRule.command must name a literal command word, not a glob such as * or a builtin such as eval");
     // The dispatcher never evaluates a command with an unquoted glob or a
     // leading ~, so a rule with one could match only a quoted word.
