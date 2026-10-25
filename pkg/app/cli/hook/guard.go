@@ -181,6 +181,9 @@ func readGuardRule(file string) (GuardRule, bool, error) {
 		return r, false, fmt.Errorf("guard-rule tool %q must be read, edit, shell, or patch", r.Tool)
 	case (r.Command == "") == (r.Path == ""):
 		return r, false, errors.New("guard-rule needs exactly one of command or path")
+	case r.Command != "" && r.Tool != ToolShell:
+		// Only a shell call has command words to match.
+		return r, false, fmt.Errorf("guard-rule command %q needs tool shell; a %s rule needs a path", r.Command, r.Tool)
 	case strings.ContainsAny(r.Path, `{}[]\`) || strings.HasPrefix(r.Path, "!"):
 		// The shard pattern dialect, which approval's breadth check counts
 		// in: doublestar would expand what that check read literally.

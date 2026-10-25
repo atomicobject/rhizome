@@ -331,12 +331,13 @@ func TestOnlyApprovedGuardFindingsCarryRules(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, findingsDir, "guard-unreviewed.md"), []byte("---\nresponse: guard\nguard-rule: "+rule+"\n---\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, findingsDir, "guard-plain.md"), []byte("---\nresponse: guard\nreviewed-by: Sam\n---\n"), 0o644))
 	for name, rule := range map[string]string{
-		"guard-abs.md":    `{"tool":"read","path":"/docs/x.md","reason":"r","alternative":"a"}`,
-		"guard-dot.md":    `{"tool":"read","path":"./docs/x.md","reason":"r","alternative":"a"}`,
-		"guard-quote.md":  `{"tool":"shell","command":"git commit -m \"wip\"","reason":"r","alternative":"a"}`,
-		"guard-expand.md": `{"tool":"shell","command":"$GO mod vendor","reason":"r","alternative":"a"}`,
-		"guard-glob.md":   `{"tool":"shell","command":"sudo *","reason":"r","alternative":"a"}`,
-		"guard-long.md":   `{"tool":"shell","command":"make omega","reason":"` + strings.Repeat("é", 301) + `","alternative":"a"}`,
+		"guard-abs.md":     `{"tool":"read","path":"/docs/x.md","reason":"r","alternative":"a"}`,
+		"guard-dot.md":     `{"tool":"read","path":"./docs/x.md","reason":"r","alternative":"a"}`,
+		"guard-quote.md":   `{"tool":"shell","command":"git commit -m \"wip\"","reason":"r","alternative":"a"}`,
+		"guard-expand.md":  `{"tool":"shell","command":"$GO mod vendor","reason":"r","alternative":"a"}`,
+		"guard-glob.md":    `{"tool":"shell","command":"sudo *","reason":"r","alternative":"a"}`,
+		"guard-readcmd.md": `{"tool":"read","command":"cat docs/x.md","reason":"r","alternative":"a"}`,
+		"guard-long.md":    `{"tool":"shell","command":"make omega","reason":"` + strings.Repeat("é", 301) + `","alternative":"a"}`,
 	} {
 		writeFinding(t, root, name, rule)
 	}
@@ -351,6 +352,7 @@ func TestOnlyApprovedGuardFindingsCarryRules(t *testing.T) {
 		findingsDir + `/guard-glob.md: guard-rule command "sudo *" must name a literal command word`,
 		findingsDir + "/guard-long.md: guard-rule reason and alternative must each be at most 300 characters",
 		findingsDir + `/guard-quote.md: guard-rule command "git commit -m \"wip\"" must be plain words, without quotes or expansions`,
+		findingsDir + `/guard-readcmd.md: guard-rule command "cat docs/x.md" needs tool shell; a read rule needs a path`,
 		findingsDir + "/guard-unreviewed.md: no reviewed-by: a person has not approved it",
 	}, problems)
 	rules, problems = LoadGuardRules(context.Background(), root, "docs/none")
