@@ -94,6 +94,8 @@ Implemented on `t3/rhizome-release-readiness` in `8bc1e502`, then integrated pub
 
 - 2026-10-25T13:13:29Z [validation] Final default documentation validation passed with zero issues. Frozen-scope validation still reports only the same three unrelated baseline findings. Opened draft PR #39; its packaged visual check remains open.
 
+- 2026-10-25T13:26:49Z [review] The next Greptile pass confirmed the earlier findings fixed, then identified stale setup choices captured during import and manual search keys erased after failure/cancel. Three real-panel integration regressions reproduced both defects. Setup now triggers its existing report effect with current choices and preserves typed keys; all 59 UI tests and 71 native tests pass. The final `make check` also passed, including all Go unit tests and 1,580 web tests.
+
 ## Deviations
 
 Independent review added key/archive matching, source-version floors, named missing-key errors, and process-tree cancellation after concrete defects were identified. The initial five-minute archive cap was replaced by a stall timeout and a 30-minute cap so progressing slow transfers can complete. These strengthen the approved release-readiness outcomes without adding a publication target or live execution. The visual walkthrough remains blocked by the native automation service and is recorded separately from passing packaged-binary and automated UI evidence.
@@ -109,7 +111,7 @@ Independent review added key/archive matching, source-version floors, named miss
 
 ## Compounding Follow-ups
 
-Avoid allocating a new effort while shared source is changing: its required index snapshot can be invalidated. Reuse the allocator result after source freeze. The release-test fixture now follows the shipped template's governing-spec metadata.
+Avoid allocating a new effort while shared source is changing: its required index snapshot can be invalidated. Reuse the allocator result after source freeze. The release-test fixture now follows the shipped template's governing-spec metadata. Setup tests now mount the real shared credential panel; mocking it hid completion interactions with preview choices and manually entered keys.
 
 ## Status
 

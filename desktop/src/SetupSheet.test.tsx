@@ -106,6 +106,7 @@ function serve(overrides: Partial<Record<string, (args: unknown) => unknown>> = 
   call.mockImplementation(async (operation, args) => {
     const handle = overrides[operation];
     if (handle) return handle(args) as never;
+    if (operation === "credential-status") return { available: true, ready: [] };
     if (operation === "setup-report") return plan;
     if (operation === "initialize") return { result: done, folder: {} };
     throw new Error(`Unexpected operation: ${operation}`);
@@ -380,4 +381,66 @@ describe("what gets indexed after setup", () => {
   });
 });
 
-vi.mock("./CredentialImport", () => ({ CredentialImport: () => null }));
+it("refreshes current setup choices when an earlier import completes", async () => {
+  let finishImport: () => void = () => {};
+  const credentials = {
+    available: true,
+    ready: [],
+    source: {
+      account: "example.1password.com",
+      environment: "a".repeat(26),
+      keys: ["VOYAGE_API_KEY"],
+    },
+  };
+  serve({
+    "credential-status": () => credentials,
+    "credential-import": () =>
+      new Promise((resolve) => {
+        finishImport = () => resolve(credentials);
+      }),
+  });
+  sheet();
+  fireEvent.click(await screen.findByRole("button", { name: "Re-import selected keys" }));
+  fireEvent.click(screen.getByRole("radio", { name: /Search and agent guidance only/ }));
+  await waitFor(() => expect(calls("setup-report")).toHaveLength(2));
+  finishImport();
+  await waitFor(() => expect(calls("setup-report")).toHaveLength(3));
+  expect(calls("setup-report")[2]).toMatchObject({ choices: { workflow: "none", addons: [] } });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Set up Rhizome" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Set up Rhizome" }));
+  await screen.findByRole("heading", { name: "Rhizome is set up in acme" });
+  expect(calls("initialize")[0]).toMatchObject({ choices: { workflow: "none", addons: [] } });
+});
+
+it.each(["failure", "cancel"])("preserves a typed search key after import %s", async (outcome) => {
+  let rejectImport: () => void = () => {};
+  const credentials = {
+    available: true,
+    ready: [],
+    source: {
+      account: "example.1password.com",
+      environment: "a".repeat(26),
+      keys: ["VOYAGE_API_KEY"],
+    },
+  };
+  serve({
+    "credential-status": () => credentials,
+    "credential-import": () =>
+      new Promise((_resolve, reject) => {
+        rejectImport = () => reject(new Error("Import failed"));
+      }),
+    "credential-cancel": () => {
+      rejectImport();
+      return null;
+    },
+  });
+  sheet();
+  fireEvent.change(await screen.findByLabelText("Voyage API Key"), {
+    target: { value: "synthetic-manual-key" },
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Re-import selected keys" }));
+  if (outcome === "cancel") fireEvent.click(screen.getByRole("button", { name: "Cancel import" }));
+  else rejectImport();
+  await waitFor(() => expect(calls("setup-report")).toHaveLength(2));
+  expect(screen.getByLabelText("Voyage API Key")).toHaveValue("synthetic-manual-key");
+});

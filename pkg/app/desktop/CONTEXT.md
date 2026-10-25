@@ -302,4 +302,4 @@ running until its deadline and may save credentials if authentication completes
 before that deadline. Older binaries may drop source metadata when rewriting
 user configuration; imported provider keys still use the existing env map.
 
-Credential imports reject competing global operations immediately. Cancellation is scoped to the requesting native window; another window cannot cancel the active import. Status refreshes update readiness without overwriting edited source fields.
+Credential imports reject competing global operations immediately. Cancellation is scoped to the requesting native window; another window cannot cancel the active import. Status refreshes update readiness without overwriting edited source fields. Setup refreshes use the current choices and preserve a typed search key when an import fails or is canceled.

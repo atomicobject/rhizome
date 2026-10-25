@@ -58,6 +58,7 @@ export function SetupSheet({
   const [problem, setProblem] = useState<Failure | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [key, setKey] = useState("");
+  const [credentialRevision, setCredentialRevision] = useState(0);
   const [view, setView] = useState<"sheet" | "scope">("sheet");
   const [started, setStarted] = useState<number | null>(null);
   const [setupError, setSetupError] = useState<Failure | null>(null);
@@ -96,10 +97,10 @@ export function SetupSheet({
   }, []);
 
   useEffect(() => {
-    if (!choices || !edited.current) return;
+    if (!choices || (!edited.current && credentialRevision === 0)) return;
     const timer = window.setTimeout(() => void report(choices), REFRESH_MS);
     return () => window.clearTimeout(timer);
-  }, [choices]);
+  }, [choices, credentialRevision]);
 
   function change(next: SetupChoices) {
     edited.current = true;
@@ -531,8 +532,8 @@ export function SetupSheet({
       <CredentialImport
         disabled={running || partial}
         onImported={() => {
-          setKey("");
-          void report(choices);
+          setRefreshing(true);
+          setCredentialRevision((revision) => revision + 1);
         }}
       />
       {problem && (
