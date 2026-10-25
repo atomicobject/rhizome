@@ -125,6 +125,7 @@ test("invalid saved layout falls back visibly and recovers after a valid choice"
   expect((await saved).ok()).toBe(true);
   await expect(warning).toBeHidden();
   await page.reload();
+  await openViewOptions(page);
   await expect(density).toHaveValue("one-line");
   await expect(warning).toBeHidden();
 });
