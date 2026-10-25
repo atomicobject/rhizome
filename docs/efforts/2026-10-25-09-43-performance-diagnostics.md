@@ -86,6 +86,7 @@ Not yet delivered.
 
 - 2026-10-25T14:05:00Z: Revised SPEC-0116 (plan step 1): routine-work report suppression, structured integrity-failure WARN, code-mode host-call metrics, web UI evidence, the `rzm diagnostics perf` view with anomaly flags, and matching verification. One open decision is marked `[TODO: Confirm with Drew]`: whether production web builds ship React's profiling build. `frozen-scope-drift` reports no SPEC-0116 drift; its three findings belong to other efforts.
 - 2026-10-25T14:20:00Z: Drew chose the production profiling build (recommendation accepted). Planning found that recorder events take flat attributes only, so the spec now records a batch as one window event plus one event per committing region, and skips all-zero windows to protect the event budget.
+- 2026-10-25T14:13:00Z: B0 done in `c75e09ac`. `Recorder.EventMetrics` adds a bounded `metrics` object, sanitized by the existing `sanitizeMetrics`; invalid, oversized, or record-overflowing metrics are dropped with `truncated` set and the event kept. Evidence: `go test -tags fts5 ./pkg/diagnostics/...` passed (new `event_metrics_test.go`); `make check-fast` passed with 0 issues. B1, B2, and B3 started as parallel delegates in separate worktrees from `c75e09ac`.
 
 ## Deviations
 
@@ -104,4 +105,4 @@ None yet.
 
 ## Status
 
-Active. Plan approved; executing B0.
+Active. B0 done; B1, B2, B3 running in parallel.
