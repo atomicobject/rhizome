@@ -207,6 +207,22 @@ describe("AppShell", () => {
     expect(http.count("GET", "/api/v1/status")).toBe(1);
   });
 
+  it("labels the header's validation count with what it counts", async () => {
+    statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x" });
+    http.json("GET", "/api/v2/validate", {
+      status: "ok",
+      generation: 1,
+      health: "current_issues",
+      snapshot: { issueCount: 862 },
+    });
+    window.history.replaceState({}, "", "/notes");
+
+    render(<AppShell />);
+
+    const badge = await screen.findByRole("button", { name: "Open 862 validation issues" });
+    expect(badge).toHaveTextContent("862 issues");
+  });
+
   it("submits trimmed project search from another route and ignores empty input", async () => {
     statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x" });
     window.history.replaceState({}, "", "/explorer");
