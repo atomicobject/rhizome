@@ -16,6 +16,7 @@ import (
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/agentchat"
 
+	"github.com/atomicobject/rhizome/pkg/app/finder"
 	"github.com/atomicobject/rhizome/pkg/app/userstate"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
@@ -106,6 +107,7 @@ type Server struct {
 	globalEvents        *globalEventBroker
 	agentService        *agentchat.Service
 	userState           *userstate.Store
+	finder              *finder.Live
 	userStateErr        error // Retains startup diagnostics without exposing raw errors in responses.
 	watchHubMu          sync.Mutex
 	closed              bool
@@ -211,6 +213,7 @@ func NewServer(ctx context.Context, cfg Config, assets fs.FS) (*Server, error) {
 		return nil, err
 	}
 	s.agentService = agentService
+	s.finder = finder.NewLive(s.loadFinderCatalog, finderRebuildDelay)
 	s.lastReady = status
 	if runtime != nil {
 		runtime.OnWatchHubSet(s.attachWatchHub)
@@ -225,9 +228,12 @@ func (s *Server) Close() error {
 	if s == nil {
 		return nil
 	}
-	// Drain detached graph builds before the stores they read from are closed.
+	// Drain detached graph and finder builds before the stores they read from are closed.
 	if s.graphCache != nil {
 		s.graphCache.Close()
+	}
+	if s.finder != nil {
+		s.finder.Close()
 	}
 	var errs []string
 	for _, closeFn := range s.cleanup {
