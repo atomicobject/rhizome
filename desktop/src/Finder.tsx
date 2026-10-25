@@ -231,9 +231,11 @@ export function Finder({
           ))}
           {shown.length === 0 && (
             <li className="finder-empty" role="presentation">
-              {model.rows.length === 0
-                ? "No repositories yet."
-                : `No ${repositories ? "repository" : "worktree"} matches “${query.trim()}”.`}
+              {model.rows.length > 0
+                ? `No ${repositories ? "repository" : "worktree"} matches “${query.trim()}”.`
+                : repositories
+                  ? "No repositories yet."
+                  : "Finding this repository’s worktrees…"}
             </li>
           )}
         </ul>

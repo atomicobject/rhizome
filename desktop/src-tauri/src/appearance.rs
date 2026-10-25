@@ -96,14 +96,17 @@ pub fn update(
     appearance: Option<Appearance>,
 ) -> Result<Settings, String> {
     let desktop = app.state::<Desktop>();
-    let _saving = desktop.preferences.lock().unwrap();
-    let mut saved = Preferences::load(&desktop.directory);
-    saved.theme = theme.unwrap_or(saved.theme);
-    saved.appearance = appearance.unwrap_or(saved.appearance);
-    saved.save(&desktop.directory)?;
-    let settings = Settings {
-        theme: saved.theme,
-        appearance: saved.appearance,
+    // Applying waits on the main thread, so the lock covers only the file.
+    let settings = {
+        let _saving = desktop.preferences.lock().unwrap();
+        let mut saved = Preferences::load(&desktop.directory);
+        saved.theme = theme.unwrap_or(saved.theme);
+        saved.appearance = appearance.unwrap_or(saved.appearance);
+        saved.save(&desktop.directory)?;
+        Settings {
+            theme: saved.theme,
+            appearance: saved.appearance,
+        }
     };
     apply(app, settings);
     Ok(settings)
@@ -249,10 +252,16 @@ pub fn menu_event(app: &AppHandle, id: &str) -> bool {
     let Some((theme, appearance)) = menu_choice(id) else {
         return false;
     };
-    if theme.is_some() || appearance.is_some() {
-        let _ = update(app, theme, appearance);
-    } else {
+    let saved = (theme.is_some() || appearance.is_some()).then(|| update(app, theme, appearance));
+    // The click toggled its own item; put the checks back on what is saved.
+    if !matches!(saved, Some(Ok(_))) {
         check_menu(app, current(&app.state::<Desktop>().directory));
+    }
+    if let (Some(Err(message)), Some(window)) = (saved, crate::windows::focused_window(app)) {
+        app.state::<Panes>().deliver(
+            window.label(),
+            json!({"type": "alert", "code": "desktop_error", "message": message}),
+        );
     }
     true
 }

@@ -80,7 +80,8 @@ pub fn show(window: &Window, model: Value, return_to_content: bool) -> Result<()
                     LogicalPosition::new(0.0, 0.0),
                     LogicalSize::new(size.width, size.height),
                 )
-                .map_err(|e| e.to_string())?
+                // A concurrent request may have created it first.
+                .or_else(|error| window.get_webview(&finder).ok_or(error.to_string()))?
         }
     };
     view.show().map_err(|e| e.to_string())?;
