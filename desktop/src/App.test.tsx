@@ -799,6 +799,16 @@ describe("desktop shell", () => {
       ["other", false],
       ["project", true],
     ]);
+    // The current repository, shown on a feature worktree, switches to its primary.
+    openRepository(repository.id);
+    await waitFor(() =>
+      expect(opened().at(-1)).toEqual({ id: repository.id, worktree: main, skipSeed: false }),
+    );
+    // On the primary already, choosing it again changes nothing.
+    const shown = opened().length;
+    openRepository(repository.id);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(opened()).toHaveLength(shown);
     openRepository(other.id);
     await waitFor(() => expect(opened().at(-1)).toMatchObject({ id: other.id }));
     // A repository opens on its primary worktree, not the one last used here.
