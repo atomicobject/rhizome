@@ -42,6 +42,7 @@ impl Server {
         let worker = thread::spawn(move || {
             let mut replies = VecDeque::from(replies);
             let mut stalled = Vec::new();
+            let mut downloads = Vec::new();
             let mut count = 0;
             while stopped.try_recv().is_err() {
                 let (mut stream, _) = match listener.accept() {
@@ -84,10 +85,14 @@ impl Server {
                         respond(&mut stream, feed.to_string().as_bytes());
                     }
                     Reply::Package(bytes) => respond(&mut stream, bytes),
-                    Reply::SlowPackage => {
-                        stream
+                    // A canceled download must not delay the next feed request.
+                    Reply::SlowPackage => downloads.push(thread::spawn(move || {
+                        if stream
                             .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n")
-                            .unwrap();
+                            .is_err()
+                        {
+                            return;
+                        }
                         for (index, byte) in b"test".iter().enumerate() {
                             if index > 0 {
                                 thread::sleep(Duration::from_millis(100));
@@ -96,11 +101,14 @@ impl Server {
                                 break;
                             }
                         }
-                    }
+                    })),
                     Reply::Current => stream
                         .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
                         .unwrap(),
                 }
+            }
+            for download in downloads {
+                download.join().unwrap();
             }
             count
         });

@@ -98,6 +98,9 @@ Implemented on `t3/rhizome-release-readiness` in `8bc1e502`, then integrated pub
 
 - 2026-10-25T13:39:16Z [review] A further Greptile pass confirmed all five earlier findings fixed and identified overlapping setup/import user-config writes. A native regression reproduced setup reaching repository execution while import held the global lock. Setup now takes that same app-wide lock before its worktree lock and retains it through the bridge call; this serializes writes across windows. The regression and full desktop gate pass: 59 UI tests, 72 native tests, formatting and clippy. Final-head artifact and review results are tracked on PR #39.
 
+- 2026-10-25T13:52:12Z [review] Greptile recorded 5/5 with zero comments for exact production head `42bf59c2`, confirming all six earlier findings addressed. Built its app/DMG and repeated the integrity, read-only mount, signature, and bundled-CLI smoke checks successfully.
+- 2026-10-25T13:52:12Z [CI] macOS CI found the timeout/retry fixture serving an old slow response serially before the next feed, causing the feed's short test deadline to expire. Slow responses now run independently and are joined during teardown. The failing test passed ten consecutive focused runs; full desktop checks pass again with 59 UI tests and 72 native tests. Production code and deadlines are unchanged. Final-head CI and review are tracked on PR #39.
+
 ## Deviations
 
 Independent review added key/archive matching, source-version floors, named missing-key errors, and process-tree cancellation after concrete defects were identified. The initial five-minute archive cap was replaced by a stall timeout and a 30-minute cap so progressing slow transfers can complete. These strengthen the approved release-readiness outcomes without adding a publication target or live execution. The visual walkthrough remains blocked by the native automation service and is recorded separately from passing packaged-binary and automated UI evidence.
