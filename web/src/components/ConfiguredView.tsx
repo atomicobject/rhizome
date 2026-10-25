@@ -124,6 +124,7 @@ export function ConfiguredView({
   const { visibleFields, emptyFields, density } = layout;
 
   const [collapsedGroupCount, setCollapsedGroupCount] = useState(0);
+  const [movedColumns, setMovedColumns] = useState<string[]>([]);
   const [saveActive, setSaveActive] = useState(false);
   const titleID = useId();
   const typeLabel = useTypeLabel();
@@ -206,6 +207,7 @@ export function ConfiguredView({
             sort: nextSort(effectiveSort(state, rendererExecution.state), column.field, additive),
           }),
         onCollapsedGroupCountChange: setCollapsedGroupCount,
+        onMovedColumnsChange: setMovedColumns,
         profile,
         density,
         onLoadMore: loadMore,
@@ -391,6 +393,7 @@ export function ConfiguredView({
               : ""
           }
           stagedCount={stagedCount}
+          moved={activeVariant === "table" ? movedColumns : []}
           pager={
             paged && !scrolls
               ? { offset, first, hasMore: pageInfo ? pageInfo.hasMore : true }

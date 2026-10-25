@@ -1,4 +1,4 @@
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   OntologyEditOp,
@@ -16,6 +16,7 @@ import type { OpenMode } from "./useNoteTabs";
 import { configuredTableRowKey } from "./ConfiguredTableCell";
 import { fieldValue, stagedTargetForRow } from "./ConfiguredTableCellHelpers";
 import { ConfiguredViewBulkBar } from "./ConfiguredViewBulkBar";
+import { allocateColumns, columnKind } from "./ConfiguredViewColumnPolicy";
 import { ConfiguredViewRecord } from "./ConfiguredViewRecord";
 import { ConfiguredViewTableHeader } from "./ConfiguredViewTableHeader";
 import {
@@ -23,7 +24,6 @@ import {
   columnClassName,
   countCollapsedGroups,
   effectiveSort,
-  FIXED_WIDTH_CELL,
   leafReorderGroups,
   normalizeTableGroups,
   primaryColumn,
@@ -37,7 +37,7 @@ import {
   type TableRowProps,
   type TableRowState,
 } from "./ConfiguredViewTableRows";
-import { capabilityFor } from "./ConfiguredViewModel";
+import { capabilityFor, columnLabel } from "./ConfiguredViewModel";
 import { changedFields, changedFieldsByKey } from "../staging/stagedState";
 import { groupIdentity } from "./ConfiguredViewSave";
 import { RecordRailPortal } from "./recordRail";
@@ -75,6 +75,8 @@ type Props = {
   active?: boolean;
   /** The view instance whose expansion choices this layout remembers. */
   preferenceScope?: ViewPreferenceScope | null;
+  /** Reports the labels of columns too narrow to show, which the record pane shows instead. */
+  onMovedColumnsChange?: (labels: string[]) => void;
 };
 
 export type { ConfiguredTableGroup };
@@ -82,7 +84,7 @@ export type { ConfiguredTableGroup };
 export function ConfiguredViewTable({
   execution,
   rows,
-  columns,
+  columns: allColumns,
   capabilities,
   state,
   viewID,
@@ -103,7 +105,39 @@ export function ConfiguredViewTable({
   onColumnWidthsChange,
   active = true,
   preferenceScope,
+  onMovedColumnsChange,
 }: Props) {
+  const scroll = useLoadOnScroll(onLoadMore);
+  const available = useElementWidth(scroll.ref);
+  const twoLine = density === "two-line" && Boolean(profile?.summaryField);
+
+  const allocation = useMemo(() => {
+    const titleIndex = primaryColumn(allColumns, capabilities);
+
+    const kinds = allColumns.map((column, index) => ({
+      field: column.field,
+      kind: columnKind(columnClassName(column, capabilities), index === titleIndex),
+    }));
+
+    return allocateColumns(kinds, available, twoLine, columnWidths ?? {});
+  }, [allColumns, available, capabilities, columnWidths, twoLine]);
+
+  const columns = useMemo(
+    () => allColumns.filter((column) => allocation.shown.includes(column.field)),
+    [allColumns, allocation.shown],
+  );
+
+  const movedColumns = useMemo(
+    () => allColumns.filter((column) => allocation.moved.includes(column.field)),
+    [allColumns, allocation.moved],
+  );
+
+  const movedLabels = movedColumns.map((column) => columnLabel(column, capabilities)).join("\n");
+
+  useEffect(() => {
+    onMovedColumnsChange?.(movedLabels ? movedLabels.split("\n") : []);
+  }, [movedLabels, onMovedColumnsChange]);
+
   const groups = useMemo(
     () => normalizeTableGroups(execution.groups ?? [], rows),
     [execution.groups, rows],
@@ -140,12 +174,6 @@ export function ConfiguredViewTable({
   const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
   const primaryColumnIndex = primaryColumn(columns, capabilities);
 
-  // A title width only helps against other prose columns; beside fixed-width
-  // columns alone it would make the table spread the slack across them.
-  const widenPrimary =
-    columns.filter((column) => !FIXED_WIDTH_CELL.test(columnClassName(column, capabilities)))
-      .length > 1;
-
   // Checks, ranges, and select-all cover the rows on screen in their rendered
   // order, so rows in collapsed groups are never checked. The focused record
   // and checked rows survive re-execution, such as after staging an edit.
@@ -171,8 +199,7 @@ export function ConfiguredViewTable({
   });
 
   const selectedRow = rows.find((row) => configuredTableRowKey(row) === selectedRowKey);
-  const summaryField = density === "two-line" ? profile?.summaryField : undefined;
-  const scroll = useLoadOnScroll(onLoadMore);
+  const summaryField = twoLine ? profile?.summaryField : undefined;
 
   const collapsedGroupCount = countCollapsedGroups(groups, expansion.choices);
   useEffect(() => {
@@ -316,8 +343,8 @@ export function ConfiguredViewTable({
       )}
       <table
         className={`configured-view__table${summaryField ? " configured-view__table--two-line" : ""}`}
-        // SAFETY: React forwards this numeric custom property unchanged.
-        style={{ "--column-count": columns.length } as CSSProperties}
+        // The title takes the slack; this keeps it at its minimum when nothing is left.
+        style={{ minWidth: allocation.minWidth }}
       >
         <ConfiguredViewTableHeader
           columns={columns}
@@ -325,7 +352,7 @@ export function ConfiguredViewTable({
           sort={effectiveSort(state, execution.state)}
           issueCounts={issueCounts}
           onSort={onSort}
-          primaryColumnIndex={widenPrimary ? primaryColumnIndex : null}
+          primaryColumnIndex={primaryColumnIndex}
           columnWidths={columnWidths}
           onColumnWidthsChange={onColumnWidthsChange}
           allChecked={allChecked}
@@ -383,6 +410,7 @@ export function ConfiguredViewTable({
             row={selectedRow}
             profile={profile}
             capabilities={capabilities}
+            movedColumns={movedColumns}
             source={execution.view.source}
             viewID={viewID}
             vaultKey={vaultKey}
@@ -396,4 +424,26 @@ export function ConfiguredViewTable({
       </RecordRailPortal>
     </div>
   );
+}
+
+/** The element's content width, or Infinity until it is measured. */
+function useElementWidth(ref: RefObject<HTMLElement | null>) {
+  const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
+
+  useEffect(() => {
+    const element = ref.current;
+
+    if (!element) return;
+
+    const observer = new ResizeObserver(() => {
+      // A hidden table measures zero; it keeps its columns until it shows.
+      if (element.clientWidth > 0) setWidth(element.clientWidth);
+    });
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return width;
 }
