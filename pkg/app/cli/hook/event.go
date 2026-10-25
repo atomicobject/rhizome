@@ -38,6 +38,12 @@ type Event struct {
 	Tool     string   `json:"tool,omitempty"`
 	Paths    []string `json:"paths,omitempty"`
 	Command  string   `json:"command,omitempty"`
+	// cwd is the directory relative paths resolve against. cwdKnown says
+	// whether a shell command really starts there: Claude Code reports its
+	// shell's directory, while Codex runs a command in a workdir the hook
+	// payload does not carry.
+	cwd      string
+	cwdKnown bool
 }
 
 // payload holds the host fields the dispatcher reads; Claude Code and Codex
@@ -107,8 +113,16 @@ func normalize(harness, point string, raw []byte, cwd string) (Event, error) {
 	if point == PostCompact && p.AgentID != "" {
 		ev.Reset = "compact"
 	}
-	if point != PostToolUse {
+	if point != PostToolUse && point != PreToolUse {
 		return ev, nil
+	}
+	// Before a call runs, the files it is about to create do not exist yet,
+	// so the existence filter that reduces delivery noise does not apply.
+	present := func(rels []string, parentOK bool) []string {
+		if point == PreToolUse {
+			return rels
+		}
+		return existing(root, rels, parentOK)
 	}
 	ev.Tool = toolClass(p.ToolName)
 	var in toolInput
@@ -118,14 +132,17 @@ func normalize(harness, point string, raw []byte, cwd string) (Event, error) {
 		ev.Paths = containedPaths(root, cwd, []string{firstNonEmpty(in.FilePath, in.NotebookPath)})
 	case ToolPatch:
 		// A patch may delete its file, so its directory is enough.
-		ev.Paths = existing(root, containedPaths(root, cwd, patchPaths(in.Command, cwd)), true)
+		ev.Paths = present(containedPaths(root, cwd, patchPaths(in.Command, cwd)), true)
 	case ToolShell:
 		ev.Command = in.Command
+		ev.cwd = cwd
+		// Docs: [[agent-surface-integration-modes#^SPEC-0045-US6-AC3]]
+		ev.cwdKnown = harness == HarnessClaude && p.Cwd != ""
 		// The host does not say where the command ran beyond cwd, so a read
 		// made in another directory may be missed or attributed to a
 		// same-named file here. Dropping reads of files that do not exist
 		// only reduces noise.
-		ev.Paths = existing(root, containedPaths(root, cwd, shellReads(ev.Command, cwd)), false)
+		ev.Paths = present(containedPaths(root, cwd, shellReads(ev.Command, cwd)), false)
 	}
 	return ev, nil
 }

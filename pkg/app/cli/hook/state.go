@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -193,36 +194,47 @@ func pruneSessionStates(root string, now time.Time) {
 	}
 }
 
-// Status is when each handler last returned context, per harness.
-type Status map[string]map[string]time.Time
+// Status is what the dispatcher reports per harness: when each handler last
+// returned context, and how many calls each guard rule refused.
+type Status struct {
+	Delivered map[string]map[string]time.Time `json:"delivered"`
+	Refused   map[string]map[string]int       `json:"refused"`
+}
 
 // ReadStatus reads the dispatcher's status for init's report; a missing or
 // unreadable file is an empty status.
 func ReadStatus(root string) Status {
 	var st Status
 	if data, err := os.ReadFile(filepath.Join(stateDir(root), statusFileName)); err == nil {
-		if json.Unmarshal(data, &st) != nil {
-			st = nil
+		if json.Unmarshal(data, &st) == nil && st.Delivered == nil && st.Refused == nil {
+			// A status written before guard rules is the delivered map itself.
+			_ = json.Unmarshal(data, &st.Delivered)
 		}
 	}
-	if st == nil {
-		// A missing, unreadable, or null file.
-		st = Status{}
+	if st.Delivered == nil {
+		st.Delivered = map[string]map[string]time.Time{}
+	}
+	if st.Refused == nil {
+		st.Refused = map[string]map[string]int{}
 	}
 	return st
 }
 
-// recordDelivered notes that handlers returned context. Concurrent sessions
-// may lose one another's update; the next delivery repairs it.
-func recordDelivered(root, harness string, handlers []string, at time.Time) error {
+// updateStatus applies one change to the status under its lock, so
+// concurrent sessions do not lose one another's refusal counts.
+func updateStatus(ctx context.Context, root string, change func(*Status)) error {
+	path := filepath.Join(stateDir(root), statusFileName)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	release := lockState(ctx, path)
+	if release == nil {
+		return errors.New("status lock busy")
+	}
+	defer func() { _ = release() }()
 	st := ReadStatus(root)
-	if st[harness] == nil {
-		st[harness] = map[string]time.Time{}
-	}
-	for _, key := range handlers {
-		st[harness][key] = at.UTC().Truncate(time.Second)
-	}
-	return writeJSONAtomic(filepath.Join(stateDir(root), statusFileName), st)
+	change(&st)
+	return writeJSONAtomic(path, st)
 }
 
 // logDiagnostic appends one line to the bounded local diagnostic log. When

@@ -25,7 +25,15 @@ type CliConfig struct {
 	LLM              *llm.Config                         `json:"llm,omitempty" yaml:"llm,omitempty"`
 	Env              map[string]string                   `json:"env,omitempty" yaml:"env,omitempty"`
 	Agent            *AgentUserConfig                    `json:"agent,omitempty" yaml:"agent,omitempty"`
+	CredentialSource *CredentialSource                   `json:"credential_source,omitempty" yaml:"credential_source,omitempty"`
 	CredentialSkips  map[string]bool                     `json:"credential_skips,omitempty" yaml:"credentialSkips,omitempty"`
+}
+
+// CredentialSource stores non-secret import references only in user configuration.
+type CredentialSource struct {
+	Account     string   `json:"account" yaml:"account"`
+	Environment string   `json:"environment" yaml:"environment"`
+	Keys        []string `json:"keys" yaml:"keys"`
 }
 
 type AgentUserConfig struct {

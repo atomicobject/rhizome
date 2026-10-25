@@ -14,9 +14,9 @@ const scripts = new URL("../../templates/starters/session-memory/agents/skills/s
 const { run } = await import(new URL("shards.mjs", scripts));
 const { excerpts, mine } = await import(new URL("mine.mjs", scripts));
 const { report } = await import(new URL("report.mjs", scripts));
-const { loadFindings } = await import(new URL("lib/findings.mjs", scripts));
+const { frontmatterProblem, guardHash, loadFindings } = await import(new URL("lib/findings.mjs", scripts));
 const { contentHash, landPair, learningHash } = await import(new URL("lib/shards.mjs", scripts));
-const { responseProblems, verifyCluster } = await import(new URL("lib/verify.mjs", scripts));
+const { guardRuleProblems, responseProblems, verifyCluster } = await import(new URL("lib/verify.mjs", scripts));
 
 const user = { found: true, typeName: "Person", path: "docs/people/pat-example.md", title: "Pat Example" };
 // Sam resolves by title or alias; a Topic note is not a Person.
@@ -349,6 +349,163 @@ test("approving fix, guard, and ask writes one AgentFinding note each, with one 
   assert.deepEqual(sm("list"), []);
 });
 
+// The hook dispatcher's Go test pins the same value (GuardHash).
+test("a guard rule's approved hash is the one the hook dispatcher checks", () => {
+  assert.equal(guardHash("guard", { tool: "shell", command: "go mod vendor", reason: "It deletes hand-vendored C files.", alternative: "make vendor" }), "b9a4a97b3a352156");
+});
+
+// The hook dispatcher's Go test reads the same table (guard-paths.json), so
+// a pattern approval accepts is one the dispatcher matches as the breadth
+// check counted it.
+test("a guard rule's path uses only the shard pattern dialect", () => {
+  const cases = JSON.parse(readFileSync(new URL("guard-paths.json", import.meta.url), "utf8"));
+  for (const [path, ok] of cases) assert.equal(guardRuleProblems({ tool: "read", path, reason: "r", alternative: "a" }).length === 0, ok, path);
+});
+
+// The hook dispatcher's Go test reads the same table (guard-commands.json),
+// so a command approval accepts is one the dispatcher loads.
+test("a guard rule's command names a literal command word, as the dispatcher requires", () => {
+  const cases = JSON.parse(readFileSync(new URL("guard-commands.json", import.meta.url), "utf8"));
+  for (const [command, ok] of cases) assert.equal(guardRuleProblems({ tool: "shell", command, reason: "r", alternative: "a" }).length === 0, ok, command);
+});
+
+// The hook dispatcher's YAML parser rejects these, or folds U+0085, U+2028,
+// and U+2029 as line breaks, so the rule would never load; its Go test loads
+// the others.
+test("a guard rule's text uses only characters the dispatcher's YAML parser reads", () => {
+  for (const c of ["\u007f", "\u0085", "\u009f", "\u2028", "\u2029", "\ufffe", "\ud800"]) assert.equal(guardRuleProblems({ tool: "shell", command: "make x", reason: `r${c}`, alternative: "a" }).length, 1, escape(c));
+  assert.deepEqual(guardRuleProblems({ tool: "shell", command: "make x", reason: "r \t\u0001\u001f\u00a0\u00e9 \u2014 \u{1f600}", alternative: "a" }), []);
+});
+
+// The hook dispatcher's Go test reads the same table (guard-frontmatter.json),
+// so frontmatter the scripts accept is frontmatter the dispatcher loads. A
+// case with its own guard-rule replaces the canonical one.
+test("a guard finding's frontmatter is accepted only in the form the scripts write", () => {
+  const cases = JSON.parse(readFileSync(new URL("guard-frontmatter.json", import.meta.url), "utf8"));
+  const rule = `guard-rule: {"tool":"shell","command":"go mod vendor","reason":"r","alternative":"a"}\n`;
+  for (const [lines, accepted, loads] of cases) {
+    const front = `response: guard\n${lines}\n${lines.includes("guard-rule:") ? "" : rule}approved-hash: "h"\nreviewed-by: "Sam"`;
+    assert.equal(frontmatterProblem(front) === null, accepted, lines);
+    assert.ok(!accepted || loads, `the dispatcher loads what the scripts accept: ${lines}`);
+  }
+});
+
+test("approving a guard rule binds its text, refuses an overbroad or unusable rule, and revise approves an edit again", () => {
+  const rule = { tool: "shell", command: "go mod vendor", reason: "It deletes hand-vendored C files.", alternative: "make vendor" };
+  const { root, sm, state } = repo([
+    proposal("k-guard", { response: "guard", change: "Refuse a bare go mod vendor.", guardRule: { ...rule, note: "dropped" } }),
+    proposal("k-glob", { response: "guard", change: "c", guardRule: { ...rule, command: "sudo *" } }),
+    proposal("k-long", { response: "guard", change: "c", guardRule: { ...rule, reason: "x".repeat(301) } }),
+    proposal("k-wide", { response: "guard", change: "c", guardRule: { tool: "read", path: "gen/**", reason: "Generated.", alternative: "Read the source." } }),
+    proposal("k-brace", { response: "guard", change: "c", guardRule: { tool: "read", path: "{gen,src}/**", reason: "Generated.", alternative: "Read the source." } }),
+  ]);
+  const { finding } = sm("approve", "k-guard", "--confirm-publish");
+  const text = readFileSync(join(root, finding), "utf8");
+  assert.ok(text.includes(`\nguard-rule: ${JSON.stringify(rule)}\napproved-hash: "${guardHash("guard", rule)}"\nreviewed-by: `), text);
+
+  assert.throws(() => sm("approve", "k-glob", "--confirm-publish"), /guardRule.command must name a literal command word, not a glob such as \*/);
+  assert.throws(() => sm("approve", "k-long", "--confirm-publish"), /guardRule reason and alternative must each be at most 300 characters/);
+  // A path rule that matches more than 50 tracked files and a tenth of the
+  // repository needs --broad, as a shard's patterns do.
+  mkdirSync(join(root, "gen"));
+  for (let n = 0; n < 60; n++) writeFileSync(join(root, `gen/f${n}.go`), "package gen\n");
+  git(root, ["add", "-A", "gen"]);
+  git(root, ["commit", "-qm", "gen"]);
+  assert.throws(() => sm("approve", "k-wide", "--confirm-publish", "--rechecked"), /the patterns match 60 of 6\d tracked files; .*--broad if the reviewer confirms the rule should refuse calls that widely/);
+  assert.ok(sm("approve", "k-wide", "--confirm-publish", "--rechecked", "--broad").finding);
+  // The breadth check counts no match for a brace, which the dispatcher
+  // would expand, so the pattern is refused outright.
+  assert.throws(() => sm("approve", "k-brace", "--confirm-publish", "--rechecked"), /guardRule.path may use only literal names, \*, \*\*, and \?/);
+
+  // A rule edited by hand is listed by check, and revise approves it again.
+  assert.deepEqual(sm("check"), []);
+  writeFileSync(join(root, finding), text.replace('"alternative":"make vendor"', '"alternative":"anything"'));
+  const [stale] = sm("check");
+  assert.deepEqual([stale.path, stale.reasons], [finding, ["guard rule edited after approval; revise it"]]);
+  const edit = join(state, "..", `guard-edit-${Date.now()}.json`);
+  writeFileSync(edit, JSON.stringify({ guardRule: { ...rule, alternative: "make vendor-treesitter" }, statement: "x" }));
+  assert.throws(() => sm("revise", finding, "--expect", stale.expect, "--edit", edit, "--confirm-publish"), /--edit may change only guardRule for a guard finding; got statement/);
+  writeFileSync(edit, JSON.stringify({ guardRule: { ...rule, alternative: "make vendor-treesitter" } }));
+  assert.throws(() => sm("revise", finding, "--expect", "0000", "--edit", edit, "--confirm-publish"), /changed since you read it/);
+  assert.deepEqual(sm("revise", finding, "--expect", stale.expect, "--edit", edit, "--confirm-publish").guardRule.alternative, "make vendor-treesitter");
+  const revised = readFileSync(join(root, finding), "utf8");
+  assert.equal(revised.match(/^guard-rule: /gm).length, 1);
+  assert.match(revised, /\napproved-hash: "[0-9a-f]{16}"\nreviewed-by: "\[\[docs\/people\/pat-example\]\]"\nreviewed-on: \d{4}-\d\d-\d\d\nfamilies: 2\n/);
+  assert.deepEqual(sm("check"), []);
+  assert.equal(revised.split("\n---\n")[1], text.split("\n---\n")[1], "the body is kept");
+  // A rule whose reviewer was removed is skipped by the hook, so check lists it.
+  writeFileSync(join(root, finding), revised.replace(/\nreviewed-by: [^\n]*/, ""));
+  assert.deepEqual(sm("check").map((f) => f.reasons), [["no reviewed-by, so the hook skips the rule; revise it to approve it again"]]);
+});
+
+test("a guard rule rewritten as a YAML block is reported by check and replaced whole by revise", () => {
+  const rule = { tool: "shell", command: "go mod vendor", reason: "It deletes hand-vendored C files.", alternative: "make vendor" };
+  const { root, sm, state } = repo([proposal("k-guard", { response: "guard", change: "Refuse a bare go mod vendor.", guardRule: rule })]);
+  const { finding } = sm("approve", "k-guard", "--confirm-publish");
+  const text = readFileSync(join(root, finding), "utf8");
+  // A hand edit the dispatcher reads as a changed rule and skips.
+  const block = text.replace(`guard-rule: ${JSON.stringify(rule)}\n`, "guard-rule:\n  tool: shell\n  command: go mod vendor\n  reason: It deletes hand-vendored C files.\n  alternative: anything\n");
+  writeFileSync(join(root, finding), block);
+  const [stale] = sm("check");
+  assert.deepEqual([stale?.path, stale?.reasons], [finding, ["guard rule unreadable or not the JSON the scripts write; revise it with the rule in --edit"]]);
+
+  const edit = join(state, "..", `guard-edit-${Date.now()}.json`);
+  writeFileSync(edit, JSON.stringify({ guardRule: { ...rule, alternative: "make vendor-treesitter" } }));
+  sm("revise", finding, "--expect", stale.expect, "--edit", edit, "--confirm-publish");
+  const revised = readFileSync(join(root, finding), "utf8");
+  const front = revised.split("\n---\n")[0].split("\n").slice(1);
+  assert.deepEqual(front.filter((l) => !/^[\w-]+:/.test(l) && !/^  - /.test(l)), [], revised);
+  assert.deepEqual(sm("check"), []);
+
+  // Frontmatter revise cannot rewrite safely is refused, and left as it is.
+  const broken = revised.replace(/^(summary: .*)$/m, "$1\n  a continuation under a scalar");
+  writeFileSync(join(root, finding), broken);
+  const [bad] = sm("check");
+  assert.match(bad.reasons.join(), /frontmatter the hook cannot read/);
+  assert.throws(() => sm("revise", finding, "--expect", bad.expect, "--edit", edit, "--confirm-publish"), /frontmatter the hook cannot read \(line 5 is not a key/);
+  assert.equal(readFileSync(join(root, finding), "utf8"), broken);
+
+  // YAML the dispatcher cannot parse, which line-by-line reading would pass:
+  // an unclosed quote, and a malformed nested block.
+  for (const bad of [
+    revised.replace(/^summary: (.*)"$/m, "summary: $1"),
+    revised.replace(/^(applies-to:)$/m, "$1\n  foo: bar"),
+  ]) {
+    writeFileSync(join(root, finding), bad);
+    const [reported] = sm("check");
+    assert.match(reported?.reasons.join() ?? "", /frontmatter the hook cannot read/, bad);
+    assert.throws(() => sm("revise", finding, "--expect", reported.expect, "--edit", edit, "--confirm-publish"), /frontmatter the hook cannot read/);
+    assert.equal(readFileSync(join(root, finding), "utf8"), bad);
+  }
+  // In a field revise rewrites, it is reported, and revise repairs it.
+  writeFileSync(join(root, finding), revised.replace(/^reviewed-by: (.*)"$/m, "reviewed-by: $1"));
+  const [unclosed] = sm("check");
+  assert.deepEqual(unclosed?.reasons, ["frontmatter the hook cannot read (line 10 has a value the scripts do not write; use a JSON string); revise it"]);
+  sm("revise", finding, "--expect", unclosed.expect, "--edit", edit, "--confirm-publish");
+  assert.deepEqual(sm("check"), []);
+});
+
+// JSON.parse reads a duplicate key or reordered keys as the same rule; the
+// hook dispatcher's YAML parser rejects the first and the dispatcher skips
+// the second, so check reports both and revise rewrites the rule.
+test("a guard rule not written as the scripts write it is reported by check and repaired by revise", () => {
+  const rule = { tool: "shell", command: "go mod vendor", reason: "It deletes hand-vendored C files.", alternative: "make vendor" };
+  const { root, sm, state } = repo([proposal("k-guard", { response: "guard", change: "Refuse a bare go mod vendor.", guardRule: rule })]);
+  const { finding } = sm("approve", "k-guard", "--confirm-publish");
+  const text = readFileSync(join(root, finding), "utf8");
+  const json = JSON.stringify(rule);
+  const edit = join(state, "..", `guard-edit-${Date.now()}.json`);
+  writeFileSync(edit, JSON.stringify({ guardRule: rule }));
+  for (const written of [json.replace("}", ',"tool":"shell"}'), JSON.stringify({ command: rule.command, ...rule })]) {
+    writeFileSync(join(root, finding), text.replace(json, written));
+    const [stale] = sm("check");
+    assert.deepEqual([stale?.path, stale?.reasons], [finding, ["guard rule unreadable or not the JSON the scripts write; revise it with the rule in --edit"]], written);
+    sm("revise", finding, "--expect", stale.expect, "--edit", edit, "--confirm-publish");
+    assert.ok(readFileSync(join(root, finding), "utf8").includes(`\nguard-rule: ${json}\n`));
+    assert.deepEqual(sm("check"), []);
+  }
+});
+
 test("an assignee whose file name another Person shares is linked by path", () => {
   const { root, sm } = repo([proposal("k-1", { response: "fix", change: "Delete the dead fallback." })]);
   for (const team of ["team-a", "team-b"]) {
@@ -391,6 +548,8 @@ test("the verifier's response and drafted artifact are validated with precise re
   assert.deepEqual(responseProblems({ response: "keep" }), ["response must be one of remember, document, fix, guard, ask"]);
   assert.deepEqual(responseProblems({ response: "ask", responseReason: "x" }), ["an ask response needs question, the decision its owner must make"]);
   assert.deepEqual(responseProblems({ response: "guard", responseReason: "x", change: "c", guardRule: { tool: "shell", command: "go mod vendor", path: "vendor/**", reason: "r", alternative: "a" } }), ["guardRule needs exactly one of command (a command prefix) or path (a glob using *, **, ?)"]);
+  assert.deepEqual(guardRuleProblems({ tool: "read", path: "docs/**", command: [], reason: "r", alternative: "a" }), ["guardRule command must be text"]);
+  assert.deepEqual(guardRuleProblems({ tool: "read", command: "cat docs/x.md", reason: "r", alternative: "a" }), ["guardRule.command needs tool shell, since only a shell call has command words; a read, edit, or patch rule needs a path"]);
   assert.deepEqual(responseProblems({ response: "fix", responseReason: "x", change: "c", guardRule: { tool: "shell", command: "x", reason: "r", alternative: "a" } }), ["only a guard response may carry guardRule"]);
 
   // A drafted edit must apply to the document the verifier read.

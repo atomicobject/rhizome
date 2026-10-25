@@ -19,3 +19,8 @@ hooks:
     command: [node, "{skill}/scripts/hook.mjs"]
     timeout: 3s
     commandPrefixes: .rhizome/session-memory/hook/command-prefixes.json
+  - id: guard-rules
+    delivers: refuses a tool call that an approved guard finding's rule forbids, before it runs
+    events: [pre-tool-use]
+    tools: [read, edit, patch, shell]
+    guardRules: docs/memory/agent-findings

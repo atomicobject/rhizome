@@ -13,6 +13,7 @@ package init
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -59,12 +60,33 @@ func hookEntry(harness, point string) json.RawMessage {
 	return data
 }
 
-func desiredHookEntries(harness string) map[string]json.RawMessage {
+// desiredHookEntries are a harness's entries, with the before-tool-call one
+// only when guarded.
+func desiredHookEntries(harness string, guarded bool) map[string]json.RawMessage {
 	out := map[string]json.RawMessage{}
 	for _, point := range hook.HookPoints {
+		if point == hook.PreToolUse && !guarded {
+			continue
+		}
 		out[hook.HostEvent(point)] = hookEntry(harness, point)
 	}
 	return out
+}
+
+// guarded reports whether a guard declaration has an approved rule, which
+// is what installs the before-tool-call entry.
+//
+// Docs: [[agent-surface-integration-modes#^SPEC-0045-US6-AC2]]
+func guarded(root string, handlers []hook.Handler) bool {
+	for _, h := range handlers {
+		if h.GuardRules == "" {
+			continue
+		}
+		if rules, _ := hook.LoadGuardRules(context.Background(), root, h.GuardRules); len(rules) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // orderedObject is a JSON object that keeps its key order, so editing one

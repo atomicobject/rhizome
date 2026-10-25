@@ -27,7 +27,8 @@ With hooks on, Rhizome's hook dispatcher runs this skill's `scripts/hook.mjs` an
 
 - Hooks are off until the person turns them on: `rzm init --hooks on`, and `rzm init --hooks off` to stop. Init writes the entries into `.claude/settings.json` and `.codex/hooks.json`; never edit those entries by hand.
 - `rzm init --check` reports, per harness, whether the entries are installed and current and when this skill last returned context. Codex runs a new or changed entry only after the person trusts it with `/hooks` in Codex; tell them so after turning hooks on.
-- When shards do not arrive, read the last lines of `.rhizome/hooks/diagnostics.log` and report what it says.
+- Approved guard rules refuse a matching tool call before it runs, naming the rule's finding note, its reason, and the alternative. Follow the alternative; never rephrase a command to get past a rule. `rzm init --check` lists the active rules per harness and how often each refused a call.
+- When shards do not arrive, or a guard rule does not apply, read the last lines of `.rhizome/hooks/diagnostics.log` and report what it says.
 
 ## Mine
 
@@ -48,7 +49,7 @@ Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only
    - **remember:** the statement as it would be delivered.
    - **document:** the document and the exact change (old text, new text).
    - **fix:** the fix sketch (`change`).
-   - **guard:** the check (`change`) and, if present, the guard rule (`guardRule`: tool class, command prefix or path, reason, alternative), which hooks may later enforce.
+   - **guard:** the check (`change`) and, if present, the guard rule (`guardRule`: tool class, the command words or path glob to refuse, reason, alternative), which hooks enforce before the tool call runs once it is approved. Show the reason and alternative verbatim: agents see exactly that text when the rule refuses a call.
    - **ask:** the question and its owner, if known.
 
    Remember only what an agent cannot learn from the code or documents. A shard that teaches agents to work around a defect keeps the defect, so when a proposal is marked `workaround`, say so.
@@ -57,6 +58,7 @@ Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only
      - remember writes the shard.
      - document applies the edit to the named document as an uncommitted change and records a `documented` decision. Show the person `git diff -- <document>`. When the document changed so the edit no longer applies, the script refuses; re-draft `edit` against the current text and pass it with `--edit`. When the document changed since verification read it, or the edit names a document verification did not read, the script refuses even if the old text still occurs: show the person the edit in the context of the current document, and pass `--rechecked` only if it still fits. A document holding a credential-shaped value is refused, because applying the edit would republish it.
      - fix, guard, and ask write one finding note with an action item assigned to the reviewer. `--assignee "<Person title>"` assigns another Person, such as the owner of an ask; the script refuses a name that does not resolve to a `Person` note, so ask the person which Person they meant, or to create the note. Offer to start the fix if the person wants it now.
+     - Approving a guard finding with a rule activates the rule when hooks are on, once the note is tracked in Git (the person stages or commits it): then run `rzm init` so it installs the before-tool-call entry, and tell the person that Codex asks them to trust the changed entry with `/hooks`. The rule stays active after its action item is checked, since the guard is the check; deleting the note retires it. A rule edited by hand stops applying until it is revised (see Maintain). In Codex, a path rule refuses a shell read only under an absolute directory, because Codex does not tell the hook where a shell command runs; say so when the person approves a shell path rule.
    - **Revise:** write the changed fields (`kind`, `statement`, `why`, `appliesTo`, `commands`, `target`, and for a response other than remember also `responseReason`, `edit`, `change`, `guardRule`, `question`, `owner`) to a JSON file outside the repository, show the person the result, then approve with `--edit <file>`. State the behavior agents should follow, not the mistake to avoid; naming a mistake tends to invite it.
    - **Dismiss:** ask for the reason and whether to share the decision with the team (`--shared`, a tracked file) or keep it local (`--local`), then run `shards.mjs dismiss <cluster> --reason "<reason>" --shared|--local`.
    - **Defer:** do nothing; it stays pending.
@@ -64,7 +66,7 @@ Options: `--since`/`--until YYYY-MM-DD` bound the sessions; later runs read only
 
 Approving any response is refused while the files it depends on (those its patterns match, its target, the locations verification checked, and the document an edit changes) have uncommitted changes; ask the person to commit or stash first. It is also refused when those files changed after verification read them. Re-check the proposal against those files, tell the person what you found, and pass `--rechecked` only if it still holds; otherwise revise it.
 
-Approving a remember response is also refused when the patterns match much of the repository, because the shard would then reach nearly every agent. Propose narrower patterns through `--edit`; pass `--broad` only when the person confirms it applies that widely. When approval returns a `warning` that too many shards apply everywhere, tell the person and offer a pattern or an `AGENTS.md` edit instead.
+Approving a remember response, or a guard rule's path, is also refused when the patterns match much of the repository, because the shard would then reach nearly every agent and the rule would refuse nearly every call. Propose narrower patterns through `--edit`; pass `--broad` only when the person confirms it applies that widely. When approval returns a `warning` that too many shards apply everywhere, tell the person and offer a pattern or an `AGENTS.md` edit instead.
 
 ## Report
 
@@ -77,7 +79,7 @@ Lead with the top few open items and any recurring findings, then offer review.
 
 ## Maintain
 
-1. `node <skill>/scripts/shards.mjs check` lists shards that need attention, with reasons: their files changed, their patterns match nothing, their content was edited by hand, or they have no patterns and were verified more than 30 days ago.
+1. `node <skill>/scripts/shards.mjs check` lists shards that need attention, with reasons: their files changed, their patterns match nothing, their content was edited by hand, or they have no patterns and were verified more than 30 days ago. It also lists guard findings whose rule was edited after approval or can no longer be read, which the hooks skip until the rule is revised: show the person the rule's text verbatim, then `shards.mjs revise <finding> --expect <hash> --edit <file> --confirm-publish`, where the file holds only `guardRule`. When `check` says the frontmatter itself cannot be read, ask the person to fix it by hand first; revise refuses it.
 2. For each, re-check the statement against the current code and documentation, and tell the person what you found.
 3. With the person's choice, pass the `expect` hash from `check`:
    - still true: `shards.mjs renew <path> --expect <hash>`

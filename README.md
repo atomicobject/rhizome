@@ -48,6 +48,8 @@ rzm init
 
 `rzm init` shows the docs, code, and agents it found, asks which workflow to install (Agentic Engineering is the default), and sets everything up after one confirmation, then offers to build the search index. If no semantic search key is available, it asks for a Voyage AI key; press Enter to skip that and set it up later. Rhizome adds project configuration, agent skills, and places for specs and delivery work. Commit `.rhizome/` and the agent files it creates so teammates use the same guidance. [What gets installed and how to share it](docs/reference/guides/getting-started.md#initialize-your-project)
 
+Atomic Object employees can import shared provider keys from a team 1Password Environment in Rhizome setup or Settings. The import uses the stable 1Password CLI and saves keys on your computer; ordinary use needs no 1Password prompt. Ask the team for the account and Environment ID. [Credential setup](docs/engineering/secrets.md#developer-setup)
+
 When preparing another checkout, run `rzm new-worktree <source-worktree-path>` from the new worktree. It copies the index and seeds personal view settings once. Each worktree remembers later preference changes independently, and existing personal settings are preserved.
 
 ### 3. Give your agent a task
@@ -70,7 +72,7 @@ Start by editing the generated `docs/engineering/` documents with your team's te
 
 As you learn, you can improve the skills, change how specs are organized, and add workflows that fit your project. [Adapting your process](docs/reference/guides/adapting-rhizome.md)
 
-Add-ons extend a workflow: `rzm init --add-addon session-memory` adds one that learns from your past agent sessions which facts agents keep rediscovering and what slows them down, and proposes fixes and context for you to approve. `--remove-addon` takes one out. `rzm init --hooks on` lets add-ons that use agent hooks, such as session memory, deliver their context to Claude Code and Codex automatically. [Add-ons](docs/reference/guides/getting-started.md#initialize-your-project)
+Add-ons extend a workflow: `rzm init --add-addon session-memory` adds one that learns from your past agent sessions which facts agents keep rediscovering and what slows them down, and proposes fixes and context for you to approve. `--remove-addon` takes one out. `rzm init --hooks on` lets add-ons that use agent hooks, such as session memory, deliver their context to Claude Code and Codex automatically. An approved session-memory guard rule refuses a matching command before it runs: commit its finding note, rerun `rzm init`, and in Codex trust the changed entry through `/hooks`. [Add-ons](docs/reference/guides/getting-started.md#initialize-your-project)
 
 A skill can ship code-mode scripts that gather its context in one step. An agent runs one with `rzm agent code execute --session-id <id> --input '{"path": "Projects/Atlas.md"}' < scripts/subject.js`, and the script reads that JSON value as `input`; `--input-file <path>` reads it from a file instead. To read a view's rows without its field capability catalog, add `--omit-capabilities` to `rzm agent view run`. To read which coding agent `agent.harness` configures without starting any provider, run `rzm harness status --configured`.
 
