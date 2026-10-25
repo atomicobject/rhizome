@@ -45,7 +45,9 @@ describe("ConfiguredView states and controls", () => {
     );
     expect(screen.getByText("Refreshing view…")).toBeVisible();
     expect(screen.getByText("Alpha Spec")).toBeVisible();
-    expect(screen.getByText("Refreshing view…")).toHaveClass("configured-view__loading-overlay");
+    expect(
+      screen.getByText("Refreshing view…").closest(".configured-view__loading-overlay"),
+    ).not.toBeNull();
 
     rerender(
       <ConfiguredView

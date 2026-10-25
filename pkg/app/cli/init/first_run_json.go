@@ -38,6 +38,9 @@ type SetupPlan struct {
 	Pin    string      `json:"pin"`
 	Scope  Scope       `json:"scope"`
 	Writes SetupWrites `json:"writes"`
+	// HooksBlocked says why hook entries will not be written though hooks
+	// are on.
+	HooksBlocked string `json:"hooksBlocked,omitempty"`
 }
 
 // SetupFindings are the findings rows the terminal prints.
@@ -126,6 +129,9 @@ type SetupResult struct {
 	SavedKey   string    `json:"savedKey,omitempty"`
 	SearchHint string    `json:"searchHint,omitempty"`
 	Pin        PinResult `json:"pin"`
+	// HooksBlocked says why no hook entries were written though hooks are
+	// on.
+	HooksBlocked string `json:"hooksBlocked,omitempty"`
 }
 
 // PinResult reports installing the pinned Rhizome executable.
@@ -180,6 +186,7 @@ func Apply(opts RunOptions) (SetupResult, error) {
 	result.Commit = commitPaths(report)
 	result.SearchHint = searchHint(outcome.provider, outcome.ready)
 	result.Pin.Version = pinVersion(res.cfg)
+	result.HooksBlocked = hooksBlockedReason(res)
 	if err := ensurePinnedBinary(r.layout.ProjectRoot, res.cfg, r.opts); err != nil {
 		result.Pin.Error = err.Error()
 	}
@@ -224,6 +231,7 @@ func (r *initRun) setupPlan(s setup, res resolved, outcome firstRunOutcome) (Set
 		IgnoredRepositories: []IgnoredRepository{},
 		Pin:                 pinVersion(res.cfg),
 		Scope:               scope,
+		HooksBlocked:        hooksBlockedReason(res),
 	}
 	if len(s.skips) > 0 {
 		plan.Findings.Skip = skipSummary(s.skips)
@@ -271,6 +279,11 @@ func addonOptions(registry map[string]starterTemplateMetadata, effective []strin
 	out := []AddonOption{}
 	for _, id := range addonIDs(registry) {
 		meta := registry[id]
+		// The setup sheet does not list optional add-ons yet; --addons
+		// still accepts them.
+		if meta.OptionalAddon {
+			continue
+		}
 		option := AddonOption{ID: id, Label: firstNonEmpty(meta.Name, id), Description: meta.Description, DefaultFor: []string{}, Enabled: contains(effective, id)}
 		for _, choice := range workflowChoices {
 			set, err := resolveTemplateSet(choice.starters, repoconfig.WorkflowTemplateAddons{}, registry)

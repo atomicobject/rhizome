@@ -62,6 +62,9 @@ func start(opts RunOptions) (*initRun, setup, bool, error) {
 	if _, err := agentFlagModes(opts.Agents); err != nil {
 		return fail(err)
 	}
+	if _, err := normalizeHooksOption(opts.Hooks); err != nil {
+		return fail(err)
+	}
 	if err := checkAddonsOption(opts.Addons); err != nil {
 		return fail(err)
 	}
@@ -124,10 +127,13 @@ func start(opts RunOptions) (*initRun, setup, bool, error) {
 	}
 	r.detectedAgents = r.layout.AgentHarnesses
 	if r.layout.HasExistingConfig && hasFirstRunOption(opts) {
+		if strings.TrimSpace(opts.Addons) != "" {
+			return fail(fmt.Errorf("%w; use --add-addon or --remove-addon to change add-ons", ErrNotFirstRun))
+		}
 		return fail(fmt.Errorf("%w; use rzm index scope to change what gets indexed", ErrNotFirstRun))
 	}
 	if !r.layout.HasExistingConfig && hasStarterManagementOption(opts) {
-		return fail(fmt.Errorf("--eject and --restore need an existing Rhizome setup; run rzm init first"))
+		return fail(fmt.Errorf("--eject, --restore, --add-addon, and --remove-addon need an existing Rhizome setup; run rzm init first, choosing add-ons with --addons"))
 	}
 	includeIgnored, err := includeIgnoredInputs(r.layout.ProjectRoot, opts.IncludeIgnored)
 	if err != nil {
@@ -185,6 +191,7 @@ func (r *initRun) firstRun(s setup, workflowChosen bool) error {
 		lines := append([]planLine{{mark: "+", text: "Create .rhizome/config.yml"}}, skipLines(s.skips)...)
 		lines = append(lines, fileLines(res.files.pending())...)
 		printPlanLines(out, lines, true)
+		printHookStatus(out, r.layout.ProjectRoot, res, false)
 		return ErrChangesPending
 	}
 	report, err := r.apply(s, res)
@@ -194,6 +201,7 @@ func (r *initRun) firstRun(s setup, workflowChosen bool) error {
 	// Report what was written before the pinned-binary download, so a slow
 	// or failed download does not hide it.
 	printSetupSummary(out, report, res.effective, s.skips, outcome.savedKey)
+	printHookStatus(out, r.layout.ProjectRoot, res, true)
 	if err := ensurePinnedBinary(r.layout.ProjectRoot, res.cfg, r.opts); err != nil {
 		return err
 	}
@@ -261,5 +269,6 @@ func ejectedAgenticEngineering(ejected []string) bool {
 }
 
 func hasStarterManagementOption(opts RunOptions) bool {
-	return strings.TrimSpace(opts.Eject) != "" || strings.TrimSpace(opts.Restore) != ""
+	return strings.TrimSpace(opts.Eject) != "" || strings.TrimSpace(opts.Restore) != "" ||
+		strings.TrimSpace(opts.AddAddon) != "" || strings.TrimSpace(opts.RemoveAddon) != ""
 }

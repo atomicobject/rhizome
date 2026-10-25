@@ -3,6 +3,7 @@ package codex
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -111,6 +112,35 @@ func TestCodexEOFResolvesTurnAndApproval(t *testing.T) {
 			for range session.Events() {
 			}
 			require.NoError(t, session.Stop())
+		})
+	}
+}
+
+// Transport EOF sends on the turn channel before it cancels the session
+// lifetime, so cancelTurn can see either or both ready at once.
+func TestCodexCancelTurnPrefersTransportClosure(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		turnResult    error
+		lifetimeEnded bool
+		want          error
+	}{
+		{"eof result before lifetime ends", harness.Phase(harness.ErrTransportClosed, errors.New("EOF")), false, harness.ErrTransportClosed},
+		{"eof result and lifetime ended", harness.Phase(harness.ErrTransportClosed, errors.New("EOF")), true, harness.ErrTransportClosed},
+		{"completion after lifetime ended", nil, true, harness.ErrTransportClosed},
+		{"completion after interrupt", nil, false, harness.ErrTimeout},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			started, err := testDriver(codexHandshake()).StartSession(context.Background(), harness.SessionOptions{Cwd: "/tmp/project"})
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = started.Stop() })
+			s := started.(*session)
+			if tc.lifetimeEnded {
+				s.cancel()
+			}
+			done := make(chan error, 1)
+			done <- tc.turnResult
+			require.ErrorIs(t, s.cancelTurn(context.Canceled, done), tc.want)
 		})
 	}
 }

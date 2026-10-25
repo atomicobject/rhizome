@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
@@ -17,7 +18,12 @@ type summaryField struct {
 }
 
 func (r *initRun) summaryFields(s setup) []summaryField {
-	labels := []string{"Docs", "Code", "Agents", "Search", "Workflow"}
+	labels := []string{"Docs", "Code", "Agents", "Search", "Workflow", "Add-ons"}
+	cfg := s.cfg
+	cfg.WorkflowTemplates = s.workflows
+	if hooksRelevant(cfg) {
+		labels = append(labels, "Hooks")
+	}
 	out := make([]summaryField, 0, len(labels))
 	for _, label := range labels {
 		out = append(out, summaryField{label: label, value: r.summaryValue(s, label)})
@@ -35,6 +41,10 @@ func (r *initRun) summaryValue(s setup, label string) string {
 		return agentsFinding(r.harnessesFor(s.cfg))
 	case "Search":
 		return searchStatus(s.cfg, r.session)
+	case "Add-ons":
+		return r.addonsLabel(s)
+	case "Hooks":
+		return readyLabel(hooksOn(s.cfg), "on", "off")
 	default:
 		return workflowLabel(s.workflows, s.cfg.WorkflowTemplateManagement.Ejected)
 	}
@@ -96,6 +106,30 @@ func workflowLabel(workflows, ejected []string) string {
 	return label
 }
 
+// addonsLabel names the add-ons the setup installs, including default ones.
+func (r *initRun) addonsLabel(s setup) string {
+	registry, err := loadStarterTemplateMetadataRegistry()
+	if err != nil {
+		return "unknown"
+	}
+	effective, err := resolveEffectiveTemplatesWithOptions(s.workflows, &s.cfg, suppressDefaultAddonsForExistingConfig(r.layout, s.cfg))
+	if err != nil {
+		return "unknown"
+	}
+	available := stringSet(addonIDs(registry))
+	var addons []string
+	for _, id := range effective {
+		if available[id] && !contains(s.workflows, id) {
+			addons = append(addons, id)
+		}
+	}
+	if len(addons) == 0 {
+		return "none"
+	}
+	sort.Strings(addons)
+	return joinHumanPaths(starterNames(addons))
+}
+
 // starterNames returns the display names of starter ids.
 func starterNames(ids []string) []string {
 	registry, _ := loadStarterTemplateMetadataRegistry()
@@ -120,6 +154,7 @@ func (r *initRun) printRerun(plan rerunPlan, s setup) {
 	for _, field := range r.summaryFields(s) {
 		printFinding(out, field.label, field.value)
 	}
+	printHookStatus(out, r.layout.ProjectRoot, plan.res, false)
 	if changes := append(append([]planLine{}, plan.settings...), plan.files...); len(changes) > 0 {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, styleHeading(out, "Changes"))

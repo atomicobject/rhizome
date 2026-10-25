@@ -3,7 +3,6 @@ package codex
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -447,10 +446,3 @@ func (r *fakeRunner) Run(ctx context.Context, spec command.Spec) (command.Result
 }
 
 func notInstalledRunner() *fakeRunner { return &fakeRunner{lookErr: exec.ErrNotFound} }
-
-func commandInput(t *testing.T, spec command.Spec) string {
-	t.Helper()
-	data, err := io.ReadAll(spec.Stdin)
-	require.NoError(t, err)
-	return string(data)
-}

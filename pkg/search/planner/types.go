@@ -43,7 +43,7 @@ const (
 // Strategy flags:
 //   - EnableVector: enables VectorRetriever and SeedVectorRetriever (requires Deps.Semantic)
 //   - EnableIntel: enables IntelLexicalRetriever (requires Deps.IntelStore)
-//   - EnableGraph: enables GraphRetriever and OutgoingLinkRetriever (requires Deps.NoteReader)
+//   - EnableGraph: enables seeded GraphRetriever and OntologyRetriever (requires seeds and Deps.NoteReader)
 //   - EnableRefs: enables refs-based retrievers (DocLinksRetriever, CodeAnchorNotesRetriever, etc.; requires Deps.IntelStore)
 //
 // Diversity:

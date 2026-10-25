@@ -62,6 +62,7 @@ func newRootCommand(env commandEnv) *commandInvocation {
 	registerValidationFamily(rootCmd)
 	registerQueryRecipeFamily(rootCmd)
 	registerViewFamily(rootCmd)
+	registerHookFamily(rootCmd)
 	return app
 }
 
@@ -84,7 +85,11 @@ func (app *commandInvocation) ExecuteC() (*cobra.Command, error) {
 }
 
 func Execute() int {
-
+	if IsHookInvocation(os.Args[1:]) {
+		// Hooks select a repository binary their own way: no prompt, probe,
+		// or install, and never a nonzero exit.
+		return runHook(os.Args[2:])
+	}
 	decision := maybeDelegateToRepoBinary(os.Args[1:])
 	if shouldPrintRepoDelegateWarning(os.Args[1:], decision.Warning) {
 		fmt.Fprintf(os.Stderr, "rzm: warning: %s\n", decision.Warning)

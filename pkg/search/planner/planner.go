@@ -80,9 +80,9 @@ func (p *Planner) Plan(ctx context.Context, spec search.QuerySpec) (Plan, error)
 	var nodeScope *noderead.Scope
 	getNodeScope := func() *noderead.Scope {
 		if nodeScope == nil && p.Deps.IntelStore != nil {
-			// Share one noderead scope across ontology/diffusion retrievers in this
-			// plan. It is request-scoped, so cache hits help this search run without
-			// leaking graph/profile assumptions into later searches.
+			// Build the seeded ontology retriever's noderead scope lazily. It is
+			// request-scoped, so cache hits help this search run without leaking
+			// graph/profile assumptions into later searches.
 			nodeScope = noderead.NewService(p.Deps.VaultDef, &obsidian.Note{}, p.Deps.IntelStore, p.Deps.OntologySchema).WithNoteFormats(p.Deps.NoteFormats).NewScope(noderead.ScopeOptions{})
 		}
 		return nodeScope
@@ -94,7 +94,7 @@ func (p *Planner) Plan(ctx context.Context, spec search.QuerySpec) (Plan, error)
 	base := p.baseRetrievers(spec, opts)
 	retrieversOut := p.seedRetrievers(ctx, spec, opts, requestedSubsystemOverview, constrainedFilters, getNodeScope)
 	retrieversOut = append(retrieversOut, p.targetRetrievers(spec)...)
-	autoExpand, willAutoExpand := p.autoExpansion(spec, opts, signalProfile, base, requestedSubsystemOverview, constrainedFilters, getNodeScope)
+	autoExpand, willAutoExpand := p.autoExpansion(spec, opts, signalProfile, base, requestedSubsystemOverview, constrainedFilters)
 	if autoExpand != nil {
 		retrieversOut = append(retrieversOut, autoExpand)
 	} else {

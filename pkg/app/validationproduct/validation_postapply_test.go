@@ -52,6 +52,41 @@ func TestValidationProjectionPostApplyRefresherUsesHeldLeaseAndExactPaths(t *tes
 	assert.Equal(t, after, mustReadPostApplyProjectionFile(t, path))
 }
 
+// Another writer can edit a dependency neighbor outside the committed delta
+// before its watcher batch runs. Exact convergence must still succeed.
+func TestValidationProjectionPostApplyRefresherCatchesUpEditedDependencyNeighbor(t *testing.T) {
+	ctx := context.Background()
+	root := writeValidationProjectionVault(t)
+	path := filepath.Join(root, "notes", "one.md")
+	neighbor := filepath.Join(root, "notes", "two.md")
+	before := []byte("---\ntype: ExampleNote\nname: One\n---\n# One\nSee [[two]].\n")
+	require.NoError(t, os.WriteFile(path, before, 0o644))
+	require.NoError(t, os.WriteFile(neighbor, []byte("---\ntype: ExampleNote\nname: Two\n---\n# Two\n"), 0o644))
+	initial, err := RefreshValidationProjection(ctx, ValidationProjectionRequest{
+		VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}, NoteMetadata: testkit.NoteMetadataIndexer(t), Target: ValidationProjectionLive,
+	})
+	require.NoError(t, err)
+	require.NoError(t, initial.Close())
+
+	edited := []byte("---\ntype: ExampleNote\nname: Two edited elsewhere\n---\n# Two\n")
+	require.NoError(t, os.WriteFile(neighbor, edited, 0o644))
+	plan := postApplyProjectionRepairPlan(t, "notes/one.md", before, []byte("---\ntype: ExampleNote\nname: Updated\n---\n# One\nSee [[two]].\n"))
+	_, err = validate.ApplyFixPlan(ctx, validate.RunContext{
+		VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}, NoteReader: &obsidian.Note{},
+	}, &plan, validate.ApplyOptions{Fix: true, NonInteractive: true, PostApplyRefresher: postApplyProjectionRefresher(t, root)})
+	require.NoError(t, err)
+
+	store, err := sqlitefixture.Open(repoconfig.UnifiedIndexPath(root, ""))
+	require.NoError(t, err)
+	defer func() { require.NoError(t, store.Close()) }()
+	rows, err := store.CurrentNoteMetadataRowsByPaths(ctx, []string{"notes/two.md"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(len(edited)), rows["notes/two.md"].Size)
+	pending, err := validate.DetectPendingRepairJournals(validate.RunContext{VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}})
+	require.NoError(t, err)
+	require.Empty(t, pending)
+}
+
 func TestValidationProjectionPostApplyRefresherDoesNotParseUnrelatedInvalidCodeAnchors(t *testing.T) {
 	root := writeValidationProjectionVault(t)
 	path := filepath.Join(root, "notes", "one.md")

@@ -1,0 +1,18 @@
+{
+  "name": "shipped synthetic relay fixture v1",
+  "synthetic": true,
+  "files": {
+    "relay.mjs": "// Synthetic calibration repository.\nconst journal = new Map();\nexport function send(id, payload, transport) { journal.set(id, payload); return transport(id, payload); }\nexport function receipt(id) { journal.delete(id); }\nexport function retry(transport) { for (const [id, payload] of journal) transport(id, payload); }\n",
+    "config.mjs": "// Synthetic calibration repository.\nimport { readFileSync } from 'node:fs';\nconst config = JSON.parse(readFileSync('relay-config.json', 'utf8'));\nexport function endpoint() { return config.endpoint; }\n"
+  },
+  "episodes": [
+    { "id": "synthetic-relay", "session": "synthetic-1", "family": "synthetic-1", "lens": "research", "origin": "person", "confidence": "explicit", "text": "We traced the missing deliveries. Sending a message leaves its journal entry in place even when the transport resolves. Only receipt(id) removes it. The receiver must acknowledge the same id or retry sends it again. Keep this protocol when changing the sender.", "files": { "reads": ["relay.mjs"] } },
+    { "id": "synthetic-config", "session": "synthetic-2", "family": "synthetic-2", "lens": "correction", "origin": "person", "confidence": "explicit", "text": "The endpoint did not change after the configuration file was edited. We checked config.mjs: it reads relay-config.json once when the module loads. Restart the process after editing the endpoint; retrying a send alone keeps the previous endpoint.", "files": { "reads": ["config.mjs"] } },
+    { "id": "synthetic-generic", "session": "synthetic-3", "family": "synthetic-3", "lens": "research", "origin": "person", "confidence": "explicit", "text": "A suggestion during review was to use descriptive variable names. That is general programming advice, not a specific fact about this repository.", "files": { "reads": [] } }
+  ],
+  "labels": [
+    { "id": "relay", "kind": "rule", "statement": "relay.mjs keeps a sent message in its retry journal until receipt(id) acknowledges that same id.", "appliesTo": ["relay.mjs"], "evidence": ["synthetic-relay"], "decision": "propose" },
+    { "id": "config", "kind": "fact", "statement": "Restart the relay process after editing relay-config.json because config.mjs reads it only at module load.", "appliesTo": ["config.mjs"], "evidence": ["synthetic-config"], "decision": "propose" },
+    { "id": "generic", "kind": "rule", "statement": "Use descriptive variable names.", "appliesTo": [], "evidence": ["synthetic-generic"], "decision": "reject" }
+  ]
+}

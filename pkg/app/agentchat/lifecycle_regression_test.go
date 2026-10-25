@@ -2,7 +2,6 @@ package agentchat
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"sync"
@@ -34,8 +33,8 @@ func (f *sessionQueueHarness) StartSession(context.Context, harness.SessionOptio
 	return session, nil
 }
 
-func (*sessionQueueHarness) Generate(context.Context, harness.GenerateRequest) (json.RawMessage, error) {
-	return nil, nil
+func (*sessionQueueHarness) Generate(context.Context, harness.GenerateRequest) (harness.GenerateResult, error) {
+	return harness.GenerateResult{}, nil
 }
 
 func (f *sessionQueueHarness) startCount() int {
@@ -87,8 +86,8 @@ func (f *blockingStartHarness) StartSession(ctx context.Context, _ harness.Sessi
 	return nil, ctx.Err()
 }
 
-func (*blockingStartHarness) Generate(context.Context, harness.GenerateRequest) (json.RawMessage, error) {
-	return nil, nil
+func (*blockingStartHarness) Generate(context.Context, harness.GenerateRequest) (harness.GenerateResult, error) {
+	return harness.GenerateResult{}, nil
 }
 
 func TestServiceStartupDoesNotHoldMutexAndCloseCancelsIt(t *testing.T) {

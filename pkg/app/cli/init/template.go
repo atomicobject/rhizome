@@ -39,6 +39,11 @@ type starterTemplateMetadata struct {
 	Requires            []string `yaml:"requires,omitempty"`
 	ActivatesByDefault  []string `yaml:"activatesByDefault,omitempty"`
 	InstalledAssetTypes []string `yaml:"installedAssetTypes,omitempty"`
+	// OptionalAddon marks an add-on no starter activates by default; a
+	// repository gets it only by choosing it.
+	OptionalAddon bool `yaml:"optionalAddon,omitempty"`
+	// Hooks are handlers `rzm hook` runs for this starter once hooks are on.
+	Hooks []starterHookMetadata `yaml:"hooks,omitempty"`
 }
 
 type resolvedTemplateSet struct {
@@ -139,7 +144,19 @@ func loadStarterTemplateMetadataRegistry() (map[string]starterTemplateMetadata, 
 		if _, ok := registry[meta.ID]; ok {
 			return nil, fmt.Errorf("duplicate starter template id %q", meta.ID)
 		}
+		for _, h := range meta.Hooks {
+			if _, err := h.handler(meta.ID); err != nil {
+				return nil, fmt.Errorf("parse starter metadata %q: %w", metaPath, err)
+			}
+		}
 		registry[meta.ID] = meta
+	}
+	for _, meta := range registry {
+		for _, addon := range meta.ActivatesByDefault {
+			if registry[addon].OptionalAddon {
+				return nil, fmt.Errorf("starter %q activates optional add-on %q by default", meta.ID, addon)
+			}
+		}
 	}
 	return registry, nil
 }

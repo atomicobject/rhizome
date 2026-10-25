@@ -255,7 +255,7 @@ func (r *initRun) editAgents(s *setup) {
 		case "2":
 			prefs.Cursor = toggledMode(h.HasCursor)
 		case "3":
-			prefs = repoconfig.AgentPreferences{Claude: agentModeOff, Codex: agentModeOff, Cursor: agentModeOff, AgentSkills: agentModeOff, AgentsMd: agentModeOff}
+			prefs = repoconfig.AgentPreferences{Claude: agentModeOff, Codex: agentModeOff, Cursor: agentModeOff, AgentSkills: agentModeOff, AgentsMd: agentModeOff, Hooks: prefs.Hooks}
 			s.cfg.Agents = &prefs
 			return
 		default:

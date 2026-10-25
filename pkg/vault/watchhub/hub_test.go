@@ -54,6 +54,57 @@ func TestEmitHintPathsFiltersIgnored(t *testing.T) {
 	}
 }
 
+// A .rhizome/ignore with its own rules replaces the built-in list that ignores
+// .git/, so the hub must drop Git metadata on every admission path itself.
+func TestGitMetadataNeverAdmittedWithoutBuiltInIgnores(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(root, rhizomeDirName), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, rhizomeDirName, "ignore"), []byte("/_Archive/\n"), 0o644))
+
+	hub, err := NewHub(root, Options{DisableFSNotify: true, Debounce: 5 * time.Millisecond})
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	hub.Start(ctx)
+	t.Cleanup(func() { _ = hub.Close() })
+
+	eventsCh := make(chan []WatchEvent, 4)
+	staleCh := make(chan StaleEvent, 4)
+	unsub := hub.Subscribe("test", Filter{IncludeFiles: true, IncludeHidden: true}, func(ctx context.Context, events []WatchEvent) {
+		eventsCh <- events
+	}, func(ctx context.Context, ev StaleEvent) {
+		staleCh <- ev
+	})
+	defer unsub()
+
+	hub.EmitHintPaths([]string{".git/FETCH_HEAD", "ok.md"})
+	hub.handleBackendEvent(BackendEvent{Path: filepath.Join(root, ".git", "FETCH_HEAD"), Op: OpWrite, IsDirKnown: true})
+	hub.handleBackendEvent(BackendEvent{Path: filepath.Join(root, ".git", "info", ".gitignore"), Op: OpWrite, IsDirKnown: true})
+
+	select {
+	case events := <-eventsCh:
+		require.Len(t, events, 1)
+		require.Equal(t, "ok.md", events[0].RelPath)
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("timed out waiting for ok.md")
+	}
+	select {
+	case ev := <-staleCh:
+		t.Fatalf("unexpected stale event from Git metadata: %+v", ev)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	// Control: a real ignore file still reloads, so the stale channel works.
+	hub.handleBackendEvent(BackendEvent{Path: filepath.Join(root, ".gitignore"), Op: OpWrite, IsDirKnown: true})
+	select {
+	case ev := <-staleCh:
+		require.Equal(t, StaleIgnoreChanged, ev.Reason)
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("timed out waiting for the .gitignore reload")
+	}
+}
+
 func TestShouldFilterContextUsesHardIgnoreBoundaries(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, rhizomeDirName), 0o755))

@@ -116,12 +116,16 @@ func checkAddonsOption(raw string) error {
 	return err
 }
 
-// addonIDs lists starters that some starter activates by default.
+// addonIDs lists starters that some starter activates by default, and
+// optional add-ons.
 func addonIDs(registry map[string]starterTemplateMetadata) []string {
 	set := map[string]bool{}
 	for _, meta := range registry {
 		for _, id := range meta.ActivatesByDefault {
 			set[id] = true
+		}
+		if meta.OptionalAddon {
+			set[meta.ID] = true
 		}
 	}
 	ids := sortedStringSet(set)

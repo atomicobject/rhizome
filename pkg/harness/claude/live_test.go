@@ -30,7 +30,7 @@ func TestLiveClaude(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	t.Logf("generate: %s", out)
+	t.Logf("generate: %s model=%s usage=%+v", out.Output, out.Model, out.Usage)
 	session, err := driver.StartSession(ctx, harness.SessionOptions{Cwd: t.TempDir(), PermissionMode: harness.PermissionApprovalRequired})
 	if err != nil {
 		t.Fatalf("start: %v", err)

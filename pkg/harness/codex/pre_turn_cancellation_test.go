@@ -27,7 +27,7 @@ func TestCodexBlockedPreTurnWritesObserveCallerCancellation(t *testing.T) {
 				_ = outputWriter.Close()
 			})
 			transport := newJSONTransport(outputReader, inputWriter, inputWriter)
-			session := newSession(transport, test.options, "/tmp/project", 10*time.Millisecond, 10*time.Millisecond, true)
+			session := newSession(transport, test.options, "/tmp/project", 10*time.Millisecond, 10*time.Millisecond, true, nil)
 			session.stateMu.Lock()
 			session.threadID = "thread-1"
 			session.stateMu.Unlock()

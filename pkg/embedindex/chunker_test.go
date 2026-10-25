@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atomicobject/rhizome/pkg/embeddings"
-
 	"github.com/atomicobject/rhizome/pkg/anchors"
 )
 
@@ -83,52 +81,8 @@ func TestBuildModuleChunk_DoesNotIncludeCallsInPrimaryChunk(t *testing.T) {
 	}
 }
 
-func TestBuildBodyChunks_SplitsAndHashes(t *testing.T) {
-	builder := ChunkBuilder{Budget: ChunkBudget{TargetChars: 10, MaxChars: 30, Overlap: 5}}
-	anchor := codeanchor.IntelAnchor{Kind: "func", Lang: codeanchor.Lang("go"), FQN: "f", Path: "pkg/foo.go", Symbol: "f"}
-	body := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+TAIL"
-	chunks := builder.BuildBodyChunks(anchor, body)
-	if len(chunks) < 2 {
-		t.Fatalf("expected multiple chunks, got %d", len(chunks))
-	}
-	var reconstructed strings.Builder
-	for i, ch := range chunks {
-		// Index 0 is reserved for the non-body "symbol" chunk; body chunks start at 1.
-		if ch.Input.Index != i+1 {
-			t.Fatalf("expected chunk index %d, got %d", i+1, ch.Input.Index)
-		}
-		if ch.Input.Hash != embeddings.HashText(ch.Text) || ch.Text == "" {
-			t.Fatalf("chunk missing hash or text")
-		}
-		if !strings.Contains(ch.Text, "Chunk: ") {
-			t.Fatalf("chunk header missing: %s", ch.Text)
-		}
-		parts := strings.SplitN(ch.Text, "\n\n", 2)
-		if len(parts) != 2 || parts[1] == "" {
-			t.Fatalf("empty body slice: %q", ch.Text)
-		}
-		if i == 0 {
-			reconstructed.WriteString(parts[1])
-		} else {
-			if got := parts[1][:5]; got != reconstructed.String()[reconstructed.Len()-5:] {
-				t.Fatalf("overlap mismatch: %q", got)
-			}
-			reconstructed.WriteString(parts[1][5:])
-		}
-	}
-	if reconstructed.String() != body {
-		t.Fatalf("body changed: got %q want %q", reconstructed.String(), body)
-	}
-	again := builder.BuildBodyChunks(anchor, body)
-	for i := range chunks {
-		if chunks[i].Input.Hash != again[i].Input.Hash {
-			t.Fatalf("unstable hash at %d", i)
-		}
-	}
-}
-
-func TestBuildSymbolChunk_IncludesModuleDocAndInSpanRationale(t *testing.T) {
-	builder := ChunkBuilder{Budget: DefaultChunkBudget()}
+func TestBuildAnchorChunks_IncludesModuleDocAndInSpanRationale(t *testing.T) {
+	policy := DefaultSynthesisPolicy(PolicyOptions{Budget: DefaultChunkBudget()})
 	anchor := codeanchor.IntelAnchor{
 		Kind: "function", Lang: codeanchor.Lang("go"), Symbol: "Merge", FQN: "merge.Merge",
 		Path: "pkg/search/merge.go", Signature: "func Merge()", DocComment: "Merge combines lanes.",
@@ -143,7 +97,7 @@ func TestBuildSymbolChunk_IncludesModuleDocAndInSpanRationale(t *testing.T) {
 		}),
 	}
 
-	chunk := builder.BuildSymbolChunk(anchor, nil, context)
+	chunk := policy.BuildAnchorChunks(anchor, nil, nil, context)[0]
 
 	if !strings.Contains(chunk.Text, "Module: Package merge folds lane results into one ranking.") {
 		t.Fatalf("module doc missing: %s", chunk.Text)
@@ -159,54 +113,5 @@ func TestBuildSymbolChunk_IncludesModuleDocAndInSpanRationale(t *testing.T) {
 	}
 	if strings.Contains(chunk.Text, "unrelated to this symbol") {
 		t.Fatalf("out-of-span rationale leaked: %s", chunk.Text)
-	}
-}
-
-func TestBuildSymbolChunk_EmptyContextKeepsPreviousFormat(t *testing.T) {
-	builder := ChunkBuilder{Budget: DefaultChunkBudget()}
-	anchor := codeanchor.IntelAnchor{
-		Kind: "function", Lang: codeanchor.Lang("go"), Symbol: "Merge", FQN: "merge.Merge",
-		Path: "pkg/search/merge.go", Signature: "func Merge()", DocComment: "Merge combines lanes.",
-	}
-
-	chunk := builder.BuildSymbolChunk(anchor, nil, SymbolChunkContext{})
-
-	want := "Kind: function\nLang: go\nSymbol: Merge\nFQN: merge.Merge\nPath: pkg/search/merge.go\nRep: symbol\n\n" +
-		"Signature: func Merge()\n\nDoc:\nMerge combines lanes."
-	if chunk.Text != want {
-		t.Fatalf("empty-context chunk text changed:\ngot:  %q\nwant: %q", chunk.Text, want)
-	}
-}
-
-func TestBuildBodyChunks_CarrySymbolSignatureAndDoc(t *testing.T) {
-	builder := ChunkBuilder{Budget: ChunkBudget{TargetChars: 10, MaxChars: 30, Overlap: 5}}
-	body := strings.Repeat("x", 80)
-
-	withContext := codeanchor.IntelAnchor{
-		Kind: "func", Lang: codeanchor.Lang("go"), FQN: "f", Path: "pkg/foo.go", Symbol: "f",
-		Signature: "func f()", DocComment: "f does the thing.\nMore detail.",
-	}
-	withChunks := builder.BuildBodyChunks(withContext, body)
-	if len(withChunks) == 0 {
-		t.Fatal("expected body chunks with context")
-	}
-	for _, ch := range withChunks {
-		if !strings.Contains(ch.Text, "Signature: func f()\n") {
-			t.Fatalf("body chunk missing signature: %s", ch.Text)
-		}
-		if !strings.Contains(ch.Text, "Doc: f does the thing.\n") {
-			t.Fatalf("body chunk missing doc summary: %s", ch.Text)
-		}
-	}
-
-	bare := codeanchor.IntelAnchor{Kind: "func", Lang: codeanchor.Lang("go"), FQN: "f", Path: "pkg/foo.go", Symbol: "f"}
-	bareChunks := builder.BuildBodyChunks(bare, body)
-	if len(bareChunks) == 0 {
-		t.Fatal("expected bare body chunks")
-	}
-	for _, ch := range bareChunks {
-		if strings.Contains(ch.Text, "Signature:") || strings.Contains(ch.Text, "Doc:") {
-			t.Fatalf("body chunk added empty context lines: %s", ch.Text)
-		}
 	}
 }

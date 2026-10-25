@@ -72,7 +72,7 @@ func (d *Driver) StartSession(ctx context.Context, options harness.SessionOption
 		}
 		return nil, harness.Phase(harness.ErrSpawn, err)
 	}
-	s := newSession(connection, options, cwd, d.cancelTimeout, d.shutdownTimeout, true)
+	s := newSession(connection, options, cwd, d.cancelTimeout, d.shutdownTimeout, true, nil)
 	version, err := s.client.initialize(ctx)
 	if err != nil {
 		_ = s.Stop()
@@ -105,14 +105,16 @@ func (d *Driver) StartSession(ctx context.Context, options harness.SessionOption
 	return s, nil
 }
 
-func newSession(connection transport, options harness.SessionOptions, cwd string, cancelTimeout, shutdownTimeout time.Duration, interactive bool) *session {
+// newSession starts the read loop. A non-nil observe receives every
+// notification in place of event mapping; Generate uses it.
+func newSession(connection transport, options harness.SessionOptions, cwd string, cancelTimeout, shutdownTimeout time.Duration, interactive bool, observe func(rpcMessage)) *session {
 	lifetime, cancel := context.WithCancel(context.Background())
 	s := &session{
 		transport: connection, options: options, cwd: cwd, stream: eventstream.New(),
 		lifetime: lifetime, cancel: cancel, responses: make(map[string]chan rpcMessage),
 		responseBacklog: make(map[string]rpcMessage),
 		pending:         make(map[string]pendingApproval), deltas: make(map[string]bool), cancelTimeout: cancelTimeout,
-		shutdownTimeout: shutdownTimeout, interactive: interactive,
+		shutdownTimeout: shutdownTimeout, interactive: interactive, observe: observe,
 	}
 	if s.cancelTimeout <= 0 {
 		s.cancelTimeout = turnCancelTimeout
@@ -143,6 +145,7 @@ type session struct {
 	cancelTimeout   time.Duration
 	shutdownTimeout time.Duration
 	interactive     bool
+	observe         func(rpcMessage)
 
 	stateMu         sync.Mutex
 	dispatchMu      sync.Mutex // serializes backlog replay in SendTurn with readLoop notification dispatch
@@ -284,7 +287,11 @@ func (s *session) cancelTurn(ctxErr error, done <-chan error) error {
 			cancel()
 		}
 		select {
-		case <-done:
+		case err := <-done:
+			// EOF fills done before it ends the lifetime; closure must win either way.
+			if errors.Is(err, harness.ErrTransportClosed) || s.lifetime.Err() != nil {
+				return harness.Phase(harness.ErrTransportClosed, ctxErr)
+			}
 			return harness.Phase(harness.ErrTimeout, ctxErr)
 		case <-s.lifetime.Done():
 			return harness.Phase(harness.ErrTransportClosed, ctxErr)
@@ -365,21 +372,39 @@ func (s *session) request(ctx context.Context, phase error, request rpcMessage, 
 	if err := s.transport.Send(ctx, request); err != nil {
 		return classifyError(ctx, phase, err)
 	}
+	message, ok := awaitResponse(ctx, response, s.lifetime.Done())
+	if !ok {
+		if ctx.Err() != nil {
+			return classifyError(ctx, phase, ctx.Err())
+		}
+		return s.transportError()
+	}
+	if message.Error != nil {
+		return harness.Phase(phase, message.Error)
+	}
+	if result != nil && len(message.Result) > 0 && string(message.Result) != "null" {
+		if err := json.Unmarshal(message.Result, result); err != nil {
+			return harness.Phase(harness.ErrDecode, err)
+		}
+	}
+	return nil
+}
+
+// awaitResponse waits for a request's response. The read loop delivers a
+// response before it closes the session on EOF, so a response already
+// delivered wins over a deadline or closure that became ready with it.
+func awaitResponse(ctx context.Context, response <-chan rpcMessage, closed <-chan struct{}) (rpcMessage, bool) {
 	select {
 	case message := <-response:
-		if message.Error != nil {
-			return harness.Phase(phase, message.Error)
-		}
-		if result != nil && len(message.Result) > 0 && string(message.Result) != "null" {
-			if err := json.Unmarshal(message.Result, result); err != nil {
-				return harness.Phase(harness.ErrDecode, err)
-			}
-		}
-		return nil
+		return message, true
 	case <-ctx.Done():
-		return classifyError(ctx, phase, ctx.Err())
-	case <-s.lifetime.Done():
-		return s.transportError()
+	case <-closed:
+	}
+	select {
+	case message := <-response:
+		return message, true
+	default:
+		return rpcMessage{}, false
 	}
 }
 
@@ -406,6 +431,10 @@ func (s *session) readLoop() {
 			} else {
 				s.dispatchRequest(message)
 			}
+			continue
+		}
+		if message.Method != "" && s.observe != nil {
+			s.observe(message)
 			continue
 		}
 		if message.Method != "" {

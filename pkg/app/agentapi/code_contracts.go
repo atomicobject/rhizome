@@ -122,6 +122,7 @@ func initializeCodeContracts() {
 		"check_paths":    {checkPathsContract(), []string{"agent check-paths"}},
 		"evaluate_batch": {evaluateBatchContract(), []string{"agent evaluate-batch"}},
 		"evaluate":       {evaluateContract(), []string{"agent evaluate"}},
+		"generate":       {generateContract(), []string{"agent generate"}},
 		"files": {contract("Read files selected by input expressions.", input(map[string]codeSchema{
 			"inputs": stringsSchema(), "continuationToken": str(), "includeContent": codeSchema{"oneOf": []any{boolean(), enumeration("true", "false", "compress")}}, "intent": str(), "limit": integer(), "maxDepth": integer(), "dedupe": boolean(), "skipAnchors": boolean(), "skipEmbeds": boolean(), "includeFrontmatter": boolean(), "includeBacklinks": boolean(), "absolutePaths": boolean(), "suppressTags": stringsSchema(), "noSuppress": boolean(),
 		}), unknownValue(), map[string]any{"inputs": []string{"pkg/app/agentapi/catalog.go"}, "includeContent": true}, "reads selected files", "may update session dedupe bookkeeping", "provide inputs for a first page or continuationToken for a later page"), []string{"agent files"}},

@@ -162,6 +162,7 @@ func (r *initRun) runFirstRun(s *setup, workflowChosen bool) (firstRunOutcome, e
 		}
 		rec.Agents = prefs
 	}
+	applyHooksOption(&rec, r.opts.Hooks)
 
 	provider, err := normalizeSearchOption(r.opts.Search)
 	if err != nil {
