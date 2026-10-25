@@ -1,6 +1,5 @@
-import { isValidElement, useEffect, useId, useState } from "react";
+import { isValidElement, memo, useEffect, useId, useMemo, useState } from "react";
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
-import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { renderMermaid } from "./mermaid";
 
@@ -85,13 +84,67 @@ type MarkdownProps = Omit<Options, "components" | "rehypePlugins" | "remarkPlugi
   components?: Components;
 };
 
-export function Markdown({ components, ...props }: MarkdownProps) {
+type RehypePlugin = NonNullable<Options["rehypePlugins"]>[number];
+
+const REMARK_PLUGINS = [remarkGfm];
+
+const NO_REHYPE_PLUGINS: RehypePlugin[] = [];
+
+// Syntax highlighting (highlight.js grammars) loads on first use instead of in
+// the entry chunk. rehype-highlight only changes fenced code (it does not
+// detect languages), so a note without a fence never needs it.
+const FENCE = /^ {0,3}(```|~~~)/m;
+
+let highlightPlugins: RehypePlugin[] | null = null;
+
+let highlightLoad: Promise<RehypePlugin[]> | null = null;
+
+function loadHighlight() {
+  highlightLoad ??= import("rehype-highlight").then((module) => {
+    highlightPlugins = [module.default];
+
+    return highlightPlugins;
+  });
+
+  return highlightLoad;
+}
+
+function useRehypePlugins(source: string): RehypePlugin[] {
+  const needed = FENCE.test(source);
+  const [plugins, setPlugins] = useState(() => highlightPlugins);
+
+  useEffect(() => {
+    if (!needed || plugins) return;
+    let active = true;
+    void loadHighlight().then((loaded) => {
+      if (active) setPlugins(loaded);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [needed, plugins]);
+
+  return needed && plugins ? plugins : NO_REHYPE_PLUGINS;
+}
+
+/**
+ * Renders Markdown through the unified pipeline. Memoized: the pipeline runs
+ * again only when the source or a prop changes, so callers pass stable
+ * `components` and `urlTransform` values.
+ */
+export const Markdown = memo(function Markdown({ components, children, ...props }: MarkdownProps) {
+  const merged = useMemo(() => ({ ...defaultComponents, ...components }), [components]);
+  const rehypePlugins = useRehypePlugins(children ?? "");
+
   return (
     <ReactMarkdown
       {...props}
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeHighlight]}
-      components={{ ...defaultComponents, ...components }}
-    />
+      remarkPlugins={REMARK_PLUGINS}
+      rehypePlugins={rehypePlugins}
+      components={merged}
+    >
+      {children}
+    </ReactMarkdown>
   );
-}
+});

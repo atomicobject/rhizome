@@ -808,6 +808,10 @@ export function useNoteTabs(
   const [hydratedVault, setHydratedVault] = useState<string | null>(null);
 
   tabsRef.current = tabs;
+  // Commands read the current location through a ref so their identities stay
+  // stable across navigation; memoized tabs receive them as props.
+  const locationRef = useRef(location);
+  locationRef.current = location;
 
   if (!collectionForSelection(location.selection) && !location.view) {
     homeLocationRef.current = {
@@ -1102,7 +1106,7 @@ export function useNoteTabs(
 
       const { tabs: openedTabs } = openInto(
         tabsRef.current,
-        activeIdForLocation(tabsRef.current, location),
+        activeIdForLocation(tabsRef.current, locationRef.current),
         targetString(path, parsed.query, parsed.fragment),
         mode,
         ref,
@@ -1123,7 +1127,7 @@ export function useNoteTabs(
 
       writeLocation(
         buildNotesLocation({
-          selection: location.selection,
+          selection: locationRef.current.selection,
           note: path,
           query: opened?.query ?? parsed.query,
           fragment: parsed.fragment,
@@ -1134,7 +1138,7 @@ export function useNoteTabs(
         }),
       );
     },
-    [commitTabs, location, writeLocation],
+    [commitTabs, writeLocation],
   );
 
   const openSearch = useCallback(
@@ -1148,7 +1152,7 @@ export function useNoteTabs(
       commitTabs(result.tabs, true);
       writeLocation(
         buildNotesLocation({
-          selection: location.selection,
+          selection: locationRef.current.selection,
           search: normalizedQuery,
           scope: effectiveFilters.scope,
           noteType: effectiveFilters.noteType,
@@ -1157,7 +1161,7 @@ export function useNoteTabs(
         }),
       );
     },
-    [commitTabs, location.selection, writeLocation],
+    [commitTabs, writeLocation],
   );
 
   const openCollection = useCallback(
@@ -1224,7 +1228,7 @@ export function useNoteTabs(
       commitTabs(nextTabs, true);
       writeLocation(
         buildNotesLocation({
-          selection: location.selection,
+          selection: locationRef.current.selection,
           search: nextQuery,
           scope: effectiveFilters.scope,
           noteType: effectiveFilters.noteType,
@@ -1233,11 +1237,12 @@ export function useNoteTabs(
         }),
       );
     },
-    [commitTabs, location.selection, writeLocation],
+    [commitTabs, writeLocation],
   );
 
   const activate = useCallback(
     (id: string) => {
+      const location = locationRef.current;
       const tab = tabsRef.current.find((candidate) => candidate.id === id);
 
       if (!tab || activeIdForLocation(tabsRef.current, location) === id) return;
@@ -1251,11 +1256,12 @@ export function useNoteTabs(
           : tabLocation(tab, selection),
       );
     },
-    [location, writeLocation],
+    [writeLocation],
   );
 
   const close = useCallback(
     (id: string) => {
+      const location = locationRef.current;
       const currentTabs = tabsRef.current;
       const closedIndex = currentTabs.findIndex((tab) => tab.id === id);
 
@@ -1281,7 +1287,7 @@ export function useNoteTabs(
         true,
       );
     },
-    [commitTabs, location, writeLocation],
+    [commitTabs, writeLocation],
   );
 
   const markDirty = useCallback(

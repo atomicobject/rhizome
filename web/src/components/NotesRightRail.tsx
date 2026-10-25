@@ -47,7 +47,7 @@ export function useNotesRightRailState() {
   useEffect(() => {
     writeSessionValue(RAIL_COLLAPSED_KEY, String(collapsed));
   }, [collapsed]);
-  const toggle = () => setCollapsed((value) => !value);
+  const toggle = useCallback(() => setCollapsed((value) => !value), []);
 
   return { collapsed, toggle };
 }

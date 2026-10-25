@@ -2253,6 +2253,61 @@ describe("OntologyNotePane", () => {
     }
   });
 
+  it("keeps outline targets on whole-document Markdown headings across re-renders", () => {
+    const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    const contextRef: ContextRef = { current: null };
+    const notePath = "notes/plain.md";
+
+    const sections: RenderedSection[] = [
+      { id: `${notePath}#alpha`, title: "Alpha", level: "H2", content: "First." },
+      { id: `${notePath}#beta`, title: "Beta", level: "H2", content: "Second." },
+    ];
+
+    const rendered = {
+      path: notePath,
+      title: "Plain",
+      rendered: "## Alpha\n\nFirst.\n\n## Beta\n\nSecond.\n",
+      links: [],
+      embeds: [],
+      sections,
+    };
+
+    const pane = (contextCollapsed: boolean) => (
+      <OntologyNotePane
+        rendered={rendered}
+        workspace={asWorkspace({
+          requestedRef: notePath,
+          content: { path: notePath, title: "Plain", rendered },
+        })}
+        onOpen={vi.fn()}
+        contextCollapsed={contextCollapsed}
+        onContextChange={(next) => {
+          contextRef.current = next;
+        }}
+      />
+    );
+
+    try {
+      const view = render(pane(false));
+      // A re-render with an unchanged source keeps the memoized body and its refs.
+      view.rerender(pane(true));
+
+      const beta = contextRef.current?.outline.sections.find((section) => section.title === "Beta");
+
+      if (!beta) throw new Error("OntologyNotePane did not publish the Beta outline target");
+      contextRef.current?.outline.navigate(beta);
+
+      expect(scrollIntoView.mock.contexts[0]).toBe(
+        screen.getByRole("heading", { level: 2, name: "Beta" }),
+      );
+    } finally {
+      window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    }
+  });
+
   it("reads plain headings inline and keeps outline navigation within the note", () => {
     const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
     const scrollIntoView = vi.fn();

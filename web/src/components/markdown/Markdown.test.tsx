@@ -42,6 +42,13 @@ describe("Markdown", () => {
     expect(mockedRenderMermaid).not.toHaveBeenCalled();
   });
 
+  it("highlights fenced code once the lazily loaded highlighter arrives", async () => {
+    const { container } = render(<Markdown>{"```ts\nconst value = 1;\n```"}</Markdown>);
+
+    await waitFor(() => expect(container.querySelector("pre > code.hljs")).not.toBeNull());
+    expect(container.querySelector(".hljs-keyword")).toHaveTextContent("const");
+  });
+
   it("merges caller component overrides over the defaults", () => {
     render(
       <Markdown
