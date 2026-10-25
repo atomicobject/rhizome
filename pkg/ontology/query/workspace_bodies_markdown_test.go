@@ -2,7 +2,8 @@ package query
 
 import (
 	"context"
-
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -125,4 +126,55 @@ type Spec @node(paths: ["notes/specs/*.md"]) {
 	require.NoError(t, err)
 	require.Len(t, plan.Files, 1)
 	require.Equal(t, strings.Replace(content, "Alpha one body.", "Rewritten.", 1), plan.Files[0].UpdatedContentPreview)
+}
+
+// The web editor shows a section's prose without the blank line after its
+// heading or a CRLF tail, and sends that display text with the raw block as
+// previousMarkdown. Saving must leave every other byte of the file unchanged.
+func TestExecute_WorkspaceNarrativeTrimmedEditKeepsOtherBytes(t *testing.T) {
+	const notePath = "notes/plain.md"
+	lf := "# Plain\n\nIntro.\n\n## Alpha\n\nAlpha body.\nSecond line.\n\n## Beta\n\nBeta body.\n"
+	for name, content := range map[string]string{"LF": lf, "CRLF": strings.ReplaceAll(lf, "\n", "\r\n")} {
+		t.Run(name, func(t *testing.T) {
+			env := newCustomQueryTestEnv(t, `
+type Spec @node(paths: ["notes/specs/*.md"]) {
+  summary: String @field
+}
+`, map[string]string{notePath: content})
+			prepared, errs := PrepareWithVariables(env.execSchema, `query Plain($ref: String!) {
+  node(ref: $ref) {
+    workspace { bodies(first: 20) { ref { nodeId } title blocks { kind range { start end } markdown } } }
+  }
+}`, map[string]any{"ref": notePath})
+			require.Empty(t, errs)
+			result := Execute(context.Background(), env.deps(nil), env.schema, prepared)
+			require.Empty(t, result.Errors)
+			var alpha map[string]any
+			for _, raw := range result.Data["node"].(map[string]any)["workspace"].(map[string]any)["bodies"].([]any) {
+				if body := raw.(map[string]any); body["title"] == "Alpha" {
+					alpha = body
+				}
+			}
+			require.NotNil(t, alpha)
+			narrative := alpha["blocks"].([]any)[0].(map[string]any)
+			raw := narrative["markdown"].(string)
+			require.True(t, strings.HasPrefix(raw, "\n") || strings.HasPrefix(raw, "\r\n"), "the projection keeps the heading's blank line")
+			span := narrative["range"].(map[string]any)
+			ref := ontology.NodeRef{
+				NotePath: notePath,
+				NodeID:   alpha["ref"].(map[string]any)["nodeId"].(string),
+				Kind:     ontology.NodeKindSection,
+			}
+
+			session := ontology.NewEditSession(obsidian.VaultDefinition{Path: env.root}, &obsidian.Note{}, env.schema)
+			require.NoError(t, session.SetNarrative(ref, span["start"].(int), span["end"].(int), raw, "Alpha body.\nSecond line edited."))
+			commit, err := session.Commit(context.Background())
+			require.NoError(t, err)
+			require.True(t, commit.Applied)
+
+			written, err := os.ReadFile(filepath.Join(env.root, notePath))
+			require.NoError(t, err)
+			require.Equal(t, strings.Replace(content, "Second line.", "Second line edited.", 1), string(written))
+		})
+	}
 }
