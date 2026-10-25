@@ -545,6 +545,12 @@ async fn worktree_action(
     worktree: &str,
     request: Request<'_>,
 ) -> Result<Value, Failure> {
+    // Setup can save provider keys, so it shares the import's user-config lock.
+    let _global = if request.operation == "initialize" {
+        Some(state.global.lock().await)
+    } else {
+        None
+    };
     let lock = state.worktree(worktree);
     let _serialized = lock.lock().await;
     let library = state.library().await?.1;

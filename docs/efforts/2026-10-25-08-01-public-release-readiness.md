@@ -96,6 +96,8 @@ Implemented on `t3/rhizome-release-readiness` in `8bc1e502`, then integrated pub
 
 - 2026-10-25T13:26:49Z [review] The next Greptile pass confirmed the earlier findings fixed, then identified stale setup choices captured during import and manual search keys erased after failure/cancel. Three real-panel integration regressions reproduced both defects. Setup now triggers its existing report effect with current choices and preserves typed keys; all 59 UI tests and 71 native tests pass. The final `make check` also passed, including all Go unit tests and 1,580 web tests.
 
+- 2026-10-25T13:39:16Z [review] A further Greptile pass confirmed all five earlier findings fixed and identified overlapping setup/import user-config writes. A native regression reproduced setup reaching repository execution while import held the global lock. Setup now takes that same app-wide lock before its worktree lock and retains it through the bridge call; this serializes writes across windows. The regression and full desktop gate pass: 59 UI tests, 72 native tests, formatting and clippy. Final-head artifact and review results are tracked on PR #39.
+
 ## Deviations
 
 Independent review added key/archive matching, source-version floors, named missing-key errors, and process-tree cancellation after concrete defects were identified. The initial five-minute archive cap was replaced by a stall timeout and a 30-minute cap so progressing slow transfers can complete. These strengthen the approved release-readiness outcomes without adding a publication target or live execution. The visual walkthrough remains blocked by the native automation service and is recorded separately from passing packaged-binary and automated UI evidence.

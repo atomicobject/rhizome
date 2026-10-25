@@ -45,6 +45,7 @@ Amendment (2026-09-29, superseding the September 28 removal deadline): internal 
 - The native desktop boundary MUST expose only source references, provider-presence status, and sanitized errors. Secret values MUST remain inside the credential subprocess and config writer.
 - Environment import MUST work with stable 1Password CLI 2.41 or newer, including a GUI launch whose PATH omits Homebrew. Missing CLI, inaccessible account or Environment, missing requested keys, cancellation, and timeout MUST have actionable feedback.
 - Canceling an in-flight import MUST stop its credential process tree and prevent a pending result from being saved. Only the requesting window may cancel it; competing imports MUST fail immediately rather than queue after cancellation. If cancellation races an already committed atomic save, the UI MUST refresh status from disk instead of claiming rollback. An abrupt app crash is not a rollback mechanism.
+- Setup and credential imports MUST serialize user-config writes across desktop windows so one cannot erase keys or source references saved by the other.
 - Re-import MUST support key rotation without disrupting unrelated providers or preferences. Readiness refreshes MUST preserve edited source fields for retry, including edits made while initial status loads. Older Rhizome versions may drop saved source references when rewriting configuration; imported provider values remain usable, and re-entering the source references restores re-import.
 
 ## Verification
