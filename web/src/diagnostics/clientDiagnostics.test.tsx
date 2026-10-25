@@ -1,0 +1,132 @@
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
+import { act, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import {
+  recordError,
+  recordFrameGap,
+  recordReconnect,
+  recordRefreshCycle,
+  takeBatch,
+} from "./clientMetrics";
+import { DiagnosticRegion } from "./DiagnosticRegion";
+import { observeRefetches, trackRefresh } from "./refreshChurn";
+import { CLIENT_DIAGNOSTICS_URL, startClientDiagnostics } from "./startClientDiagnostics";
+
+const identity = {
+  session: "0123456789abcdef",
+  build: "dev",
+  surface: "browser",
+  route: "notes",
+} as const;
+
+afterEach(() => {
+  takeBatch(identity);
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+describe("client diagnostics", () => {
+  it("measures a region without adding commits", async () => {
+    let renders = 0;
+
+    function Child() {
+      renders++;
+
+      return <p>content</p>;
+    }
+
+    const stop = startClientDiagnostics(new QueryClient());
+    render(
+      <DiagnosticRegion name="sidebar">
+        <Child />
+      </DiagnosticRegion>,
+    );
+
+    await act(async () => {
+      recordFrameGap(120);
+      recordRefreshCycle();
+      recordReconnect();
+      window.dispatchEvent(new ErrorEvent("error", { error: new TypeError("PRIVATE") }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    stop();
+
+    expect(renders).toBe(1);
+    const batch = takeBatch(identity);
+    expect(batch?.regions.sidebar).toMatchObject({ mount: 1, update: 0, nested_update: 0 });
+    // Real animation frames may add slow gaps of their own on a busy machine.
+    expect(batch?.frames.longest_ms).toBeGreaterThanOrEqual(120);
+    expect(batch?.stability.errors).toEqual({ TypeError: 1 });
+  });
+
+  it("sends only windows with measurements, without private detail", () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
+    // Keep real frame timing out of the window under test.
+    vi.stubGlobal("requestAnimationFrame", vi.fn());
+
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(null, { status: 204 })),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.replaceState({}, "", "/notes/PRIVATE_PATH.md?q=PRIVATE_QUERY");
+    const stop = startClientDiagnostics(new QueryClient());
+
+    vi.advanceTimersByTime(10_000);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    recordReconnect();
+    recordError("rejections", "Error");
+    window.dispatchEvent(new ErrorEvent("error", { error: new RangeError("PRIVATE_MESSAGE") }));
+    vi.advanceTimersByTime(10_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      CLIENT_DIAGNOSTICS_URL,
+      expect.objectContaining({ method: "POST", keepalive: true }),
+    );
+    const body = String(fetchMock.mock.lastCall?.[1]?.body);
+    expect(body).not.toContain("PRIVATE");
+    expect(JSON.parse(body)).toMatchObject({
+      surface: "browser",
+      route: "notes",
+      stability: { reconnects: 1, errors: { RangeError: 1 }, rejections: { Error: 1 } },
+    });
+
+    window.dispatchEvent(new Event("pagehide"));
+    vi.advanceTimersByTime(10_000);
+    stop();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts refetches whose data was structurally unchanged", async () => {
+    const client = new QueryClient();
+    const cache = client.getQueryCache();
+    let value = 1;
+
+    const observer = new QueryObserver(client, {
+      queryKey: ["rhizome", "probe"],
+      queryFn: () => Promise.resolve({ value }),
+    });
+
+    const unsubscribe = observer.subscribe(() => undefined);
+    const stop = observeRefetches(cache);
+    await vi.waitFor(() => expect(observer.getCurrentResult().data).toEqual({ value: 1 }));
+    // The first load is not a refetch.
+    takeBatch(identity);
+
+    const refresh = async () => {
+      trackRefresh(cache, [{ queryKey: ["rhizome"] }]);
+      await client.invalidateQueries({ queryKey: ["rhizome"] });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    };
+
+    await refresh();
+    value = 2;
+    await refresh();
+    stop();
+    unsubscribe();
+
+    expect(takeBatch(identity)?.refresh).toEqual({ cycles: 2, refetched: 2, unchanged: 1 });
+  });
+});

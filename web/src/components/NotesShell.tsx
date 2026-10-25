@@ -10,6 +10,7 @@ import type {
   ValidationScope,
   ViewCatalogEntry,
 } from "../api/types";
+import { DiagnosticRegion } from "../diagnostics/DiagnosticRegion";
 import { HomeTab } from "./HomeTab";
 import { EDITOR_DRAFTS_CHANGED_EVENT, hasPersistedEditorDrafts } from "./editing/draftStorage";
 import { flushEditors } from "./editing/editorFlush";
@@ -609,27 +610,29 @@ export function NotesShell({ active = true }: { active?: boolean }) {
             hidden={searchActive}
             inert={searchActive ? true : undefined}
           >
-            <NotesLeftRail
-              active={noteSurfacesActive}
-              summary={summary}
-              selectedType={selectedType}
-              activeCollection={tabs.activeTab.kind === "view" ? null : selectedType}
-              activeViewID={tabs.activeTab.kind === "view" ? tabs.activeTab.viewId : null}
-              activeTabID={tabs.activeId}
-              collectionView={tabs.activeId === "home" && homeCollectionView}
-              editSession={editSession.session}
-              touchedPaths={touchedPaths}
-              findTabByPath={tabs.findByPath}
-              onSelectCollection={selectCollection}
-              onSelectGroup={selectGroup}
-              activeGroup={
-                tabs.activeTab.kind === "home" && homeSelection.kind === "group"
-                  ? homeSelection.group
-                  : null
-              }
-              onOpenConfiguredView={openConfiguredView}
-              onOpenNote={openTab}
-            />
+            <DiagnosticRegion name="sidebar">
+              <NotesLeftRail
+                active={noteSurfacesActive}
+                summary={summary}
+                selectedType={selectedType}
+                activeCollection={tabs.activeTab.kind === "view" ? null : selectedType}
+                activeViewID={tabs.activeTab.kind === "view" ? tabs.activeTab.viewId : null}
+                activeTabID={tabs.activeId}
+                collectionView={tabs.activeId === "home" && homeCollectionView}
+                editSession={editSession.session}
+                touchedPaths={touchedPaths}
+                findTabByPath={tabs.findByPath}
+                onSelectCollection={selectCollection}
+                onSelectGroup={selectGroup}
+                activeGroup={
+                  tabs.activeTab.kind === "home" && homeSelection.kind === "group"
+                    ? homeSelection.group
+                    : null
+                }
+                onOpenConfiguredView={openConfiguredView}
+                onOpenNote={openTab}
+              />
+            </DiagnosticRegion>
             <section
               id="panel-home"
               role="tabpanel"
@@ -710,41 +713,43 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                       className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
                       inert={tabs.activeId === tab.id ? undefined : true}
                     >
-                      <NoteTab
-                        tab={tab}
-                        views={viewCatalogQuery.data}
-                        onPresentation={tabs.setPresentation}
-                        onOpenNode={openNode}
-                        onOpenView={openView}
-                        onOpenSearch={openSearch}
-                        active={noteSurfacesActive && tabs.activeId === tab.id}
-                        anchor={
-                          tabs.activeId === tab.id &&
-                          location.note !== null &&
-                          normalizeNotePath(location.note) === tab.path
-                            ? location.fragment
-                            : null
-                        }
-                        editSession={editSession.session}
-                        readLifecycle={editSession.readLifecycle}
-                        savedWorkspaces={editSession.savedWorkspaces}
-                        editing={editSession.editing}
-                        onOpen={openTab}
-                        onTitle={tabs.setTitle}
-                        onFocusedTarget={tabs.setFocusedTarget}
-                        registerContext={registerTabContext}
-                        contextCollapsed={contextRail.collapsed}
-                        onToggleContext={contextRail.toggle}
-                        onStageOps={stageOps}
-                        vaultKey={editSession.vaultKey}
-                        validationIssueCount={
-                          tab.path === activeNotePath ? activeValidationIssueCount : undefined
-                        }
-                        validationHealth={activeValidationHealth}
-                        onOpenIssues={() => selectIssues({ kind: "note", key: tab.path })}
-                        onSelectIssues={selectIssues}
-                        onSelectCollection={selectCollection}
-                      />
+                      <DiagnosticRegion name="note-view">
+                        <NoteTab
+                          tab={tab}
+                          views={viewCatalogQuery.data}
+                          onPresentation={tabs.setPresentation}
+                          onOpenNode={openNode}
+                          onOpenView={openView}
+                          onOpenSearch={openSearch}
+                          active={noteSurfacesActive && tabs.activeId === tab.id}
+                          anchor={
+                            tabs.activeId === tab.id &&
+                            location.note !== null &&
+                            normalizeNotePath(location.note) === tab.path
+                              ? location.fragment
+                              : null
+                          }
+                          editSession={editSession.session}
+                          readLifecycle={editSession.readLifecycle}
+                          savedWorkspaces={editSession.savedWorkspaces}
+                          editing={editSession.editing}
+                          onOpen={openTab}
+                          onTitle={tabs.setTitle}
+                          onFocusedTarget={tabs.setFocusedTarget}
+                          registerContext={registerTabContext}
+                          contextCollapsed={contextRail.collapsed}
+                          onToggleContext={contextRail.toggle}
+                          onStageOps={stageOps}
+                          vaultKey={editSession.vaultKey}
+                          validationIssueCount={
+                            tab.path === activeNotePath ? activeValidationIssueCount : undefined
+                          }
+                          validationHealth={activeValidationHealth}
+                          onOpenIssues={() => selectIssues({ kind: "note", key: tab.path })}
+                          onSelectIssues={selectIssues}
+                          onSelectCollection={selectCollection}
+                        />
+                      </DiagnosticRegion>
                     </section>,
                   ]
                 : [],

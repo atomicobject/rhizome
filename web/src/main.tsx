@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 
 import { appQueryClient } from "./api/queryClient";
 import { AppShell } from "./components/AppShell";
+import { DiagnosticRegion } from "./diagnostics/DiagnosticRegion";
+import { startClientDiagnostics } from "./diagnostics/startClientDiagnostics";
 import { VaultInvalidationBridge } from "./query/VaultInvalidationBridge";
 
 import "highlight.js/styles/github.css";
@@ -21,11 +23,15 @@ if (!rootElement) {
   throw new Error("missing #root mount element");
 }
 
+startClientDiagnostics(appQueryClient);
+
 const root = createRoot(rootElement);
 
 root.render(
   <QueryClientProvider client={appQueryClient}>
     <VaultInvalidationBridge />
-    <AppShell />
+    <DiagnosticRegion name="app-shell">
+      <AppShell />
+    </DiagnosticRegion>
   </QueryClientProvider>,
 );
