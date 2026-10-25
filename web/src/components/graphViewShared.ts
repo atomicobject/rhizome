@@ -1,5 +1,6 @@
 import { publicTypeName } from "../lib/typeNames";
 import type { GraphNode } from "../api/types";
+import { typeAccentColor } from "../lib/typeAccent";
 
 /**
  * A graph node that a local/neighborhood view marked as one of its centers.
@@ -55,43 +56,24 @@ export const CAMERA = {
   zoomStep: 0.8,
 };
 
-export const EDGE_COLORS = {
-  faint: "#e8e5e0",
-};
-
 export const NODE_SIZE = {
   base: { normal: 6, module: 9 },
 };
 
-const COMMUNITY_PALETTE = [
-  "#6366f1",
-  "#8b5cf6",
-  "#ec4899",
-  "#f43f5e",
-  "#f97316",
-  "#eab308",
-  "#22c55e",
-  "#14b8a6",
-  "#06b6d4",
-  "#3b82f6",
-  "#a855f7",
-  "#d946ef",
-  "#84cc16",
-  "#10b981",
-  "#0ea5e9",
-  "#6d28d9",
-];
+// Graph colors are CSS values on the --type-* palette; useSigmaGraph resolves
+// them to concrete colors for WebGL and again when the theme changes.
+const MARKDOWN_COLOR = "var(--type-1)";
 
-const MARKDOWN_COLOR = "#3b82f6";
+const NEUTRAL_COLOR = "var(--type-8)";
 
 const LANG_COLORS = new Map<string, string>([
   ["markdown", MARKDOWN_COLOR],
-  ["go", "#06b6d4"],
-  ["python", "#eab308"],
+  ["go", "var(--type-4)"],
+  ["python", "var(--type-3)"],
   ["typescript", MARKDOWN_COLOR],
-  ["javascript", "#eab308"],
-  ["csharp", "#a855f7"],
-  ["rust", "#f97316"],
+  ["javascript", "var(--type-3)"],
+  ["csharp", "var(--type-7)"],
+  ["rust", "var(--type-6)"],
 ]);
 
 export const MIXED_EDGE_LABEL = "Mixed";
@@ -144,21 +126,9 @@ const NODE_ICONS = new Map<string, string>([
   ["module", svgDataUri(ICON_SVGS.module)],
 ]);
 
-function hashString(input: string) {
-  let hash = 0;
-
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash << 5) - hash + input.charCodeAt(i);
-    hash |= 0;
-  }
-
-  return hash;
-}
-
+/** Clusters share the type palette, so the graph never introduces new hues. */
 export function communityColor(id: string) {
-  const index = Math.abs(hashString(id)) % COMMUNITY_PALETTE.length;
-
-  return COMMUNITY_PALETTE[index];
+  return typeAccentColor(id);
 }
 
 export function nodeColor(
@@ -175,54 +145,33 @@ export function nodeColor(
     if (color) return color;
   }
 
-  if (node.kind === "module") return "#f59e0b";
+  if (node.kind === "module") return "var(--type-3)";
 
-  if (node.kind === "embedded") return "#0f766e";
+  if (node.kind === "embedded") return "var(--type-4)";
 
   if (node.community && communityColors.has(node.community)) {
     return communityColors.get(node.community) || MARKDOWN_COLOR;
   }
 
   if (node.kind === "code") {
-    return LANG_COLORS.get(node.lang || "") || "#64748b";
+    return LANG_COLORS.get(node.lang || "") || NEUTRAL_COLOR;
   }
 
   return MARKDOWN_COLOR;
 }
 
-// TYPE_PALETTE is a stable, distinguishable set of colors used to assign a
-// deterministic color per ontology type name. Types that aren't present are
-// rendered in a neutral fallback. It holds no red: red marks problems and
-// selection, so a large type must not paint the graph in the accent color.
-const TYPE_PALETTE = [
-  "#6366f1", // indigo
-  "#ec4899", // pink
-  "#22c55e", // green
-  "#f97316", // orange
-  "#06b6d4", // cyan
-  "#a855f7", // purple
-  "#eab308", // yellow
-  "#14b8a6", // teal
-  "#b45309", // amber brown
-  "#3b82f6", // blue
-  "#84cc16", // lime
-  "#d946ef", // fuchsia
-  "#0ea5e9", // sky
-  "#8b5cf6", // violet
-];
-
 /**
- * Build a deterministic resolvedType → color map for a set of type names.
- * Types are sorted alphabetically so the assignment is stable across renders
- * and between sessions. Untyped notes fall back to a neutral slate color.
+ * Map each resolved type to its palette color (the same slot it has in the
+ * Atlas and type pages). Untyped notes use a faint neutral.
  */
 export function buildTypeColors(typeNames: string[]): Map<string, string> {
-  const unique = Array.from(new Set(typeNames.filter(Boolean))).sort((a, b) => a.localeCompare(b));
   const colors = new Map<string, string>();
-  unique.forEach((name, index) => {
-    colors.set(name, TYPE_PALETTE[index % TYPE_PALETTE.length]);
-  });
-  colors.set("__untyped__", "#94a3b8");
+
+  for (const name of typeNames) {
+    if (name) colors.set(name, typeAccentColor(name));
+  }
+
+  colors.set("__untyped__", "var(--text-faint)");
 
   return colors;
 }

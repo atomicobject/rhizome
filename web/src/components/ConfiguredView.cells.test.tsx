@@ -8,6 +8,7 @@ import {
   executionWithMoreRows,
   firstRow,
   openEnumEditor,
+  openViewOptions,
   renderView,
 } from "./ConfiguredView.testFixtures";
 
@@ -209,7 +210,7 @@ describe("ConfiguredView cell editing", () => {
       }),
     ]);
   });
-  it("filters the current server-backed issue summaries and opens scoped detail", () => {
+  it("shows server-backed issue summaries in a column and opens scoped detail", () => {
     const onOpenIssues = vi.fn();
     renderView({
       issueCounts: new Map([
@@ -218,58 +219,16 @@ describe("ConfiguredView cell editing", () => {
       ]),
       onOpenIssues,
     });
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Issues" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Problems on this page" }));
 
     expect(screen.getByText("Alpha Spec")).toBeVisible();
-    expect(screen.queryByText("Bravo Spec")).toBeNull();
+    expect(screen.getByText("Bravo Spec")).toBeVisible();
     fireEvent.click(
       screen.getByRole("button", { name: /Open 2 problems for docs\/specs\/alpha.md/ }),
     );
     expect(onOpenIssues).toHaveBeenCalledWith({ kind: "note", key: "docs/specs/alpha.md" });
-  });
-  it("renders the problems filter flat so group ranges cannot point at the wrong rows", () => {
-    const base = execution();
-    renderView({
-      execution: {
-        ...base,
-        groups: [
-          {
-            field: "frontmatter.spec-status",
-            key: "frontmatter.spec-status=active",
-            label: "Active",
-            value: "active",
-            count: 1,
-            depth: 0,
-            rowStart: 0,
-            rowEnd: 1,
-          },
-          {
-            field: "frontmatter.spec-status",
-            key: "frontmatter.spec-status=draft",
-            label: "Draft",
-            value: "draft",
-            count: 1,
-            depth: 0,
-            rowStart: 1,
-            rowEnd: 2,
-          },
-        ],
-      },
-      issueCounts: new Map([
-        ["docs/specs/alpha.md", 0],
-        ["docs/specs/bravo.md", 3],
-      ]),
-    });
-    expect(screen.getByRole("button", { name: "Draft 1" })).toBeVisible();
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "Problems on this page" }));
-
-    expect(screen.getByText("Bravo Spec")).toBeVisible();
-    expect(screen.queryByText("Alpha Spec")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Draft 1" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Active 1" })).toBeNull();
   });
   it("keeps server enum values canonical while marking dirty fields", () => {
     renderView({

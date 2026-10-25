@@ -30,8 +30,7 @@
 .agent-workspace h1,
 .agent-workspace h2 {
   margin: 0;
-  font-family: var(--font-display);
-  letter-spacing: 0;
+  font-weight: 700;
 }
 
 .agent-workspace h1 {
@@ -60,7 +59,8 @@
 }
 
 .agent-workspace button:hover {
-  border-color: var(--accent);
+  border-color: var(--text-faint);
+  background: var(--bg-tint);
 }
 
 .agent-workspace button:disabled {
@@ -140,8 +140,8 @@
 
 .agent-session__delete:hover,
 .agent-session__delete.is-confirming {
-  color: var(--accent-danger, #b00020);
-  border-color: var(--accent-danger, #b00020);
+  color: var(--accent-ink);
+  border-color: var(--accent-ink);
   background: var(--surface);
 }
 
@@ -170,13 +170,17 @@
 .agent-settings label {
   display: grid;
   gap: var(--sp-2);
-  color: var(--muted);
-  font-size: var(--fs-sm);
-  text-transform: uppercase;
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .agent-model-controls__model {
   min-width: 0;
+}
+
+/* Mode names such as "approval-required" need the full row. */
+.agent-model-controls__wide {
+  grid-column: 1 / -1;
 }
 
 .agent-settings input,
@@ -227,17 +231,12 @@
 }
 
 .agent-empty {
-  margin: auto;
-  max-width: 520px;
-  text-align: center;
-}
-
-.agent-empty h2 {
-  font-size: var(--fs-2xl);
-  margin-bottom: var(--sp-3);
+  max-width: 78ch;
+  font-size: var(--fs-sm);
 }
 
 .agent-empty p {
+  margin: 0;
   color: var(--muted);
 }
 
@@ -252,9 +251,8 @@
 
 .agent-message--user {
   align-self: flex-end;
-  background: var(--ao-ink);
-  color: var(--ao-white);
-  border-color: var(--ao-ink);
+  background: var(--bg-tint);
+  border-color: var(--border-strong);
 }
 
 .agent-message--assistant {
@@ -262,7 +260,7 @@
 }
 
 .agent-message.is-working {
-  border-color: var(--ao-teal);
+  border-color: var(--success);
 }
 
 .agent-message header {
@@ -270,9 +268,8 @@
   justify-content: space-between;
   gap: var(--sp-4);
   margin-bottom: var(--sp-3);
-  color: inherit;
-  font-size: var(--fs-sm);
-  text-transform: uppercase;
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .agent-message p {
@@ -288,8 +285,9 @@
   overflow: auto;
   border-radius: var(--r);
   padding: var(--sp-4);
-  background: var(--ao-gray-900);
-  color: var(--ao-white);
+  border: 1px solid var(--border);
+  background: var(--bg-tint);
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
 }
@@ -319,9 +317,23 @@
 .agent-composer button {
   align-self: end;
   min-width: 86px;
-  background: var(--accent);
-  color: var(--ao-white);
-  border-color: var(--accent);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  border-color: var(--accent-fill);
+  font-weight: 600;
+}
+
+.agent-composer button:hover:not(:disabled) {
+  background: var(--accent-fill-hover);
+  border-color: var(--accent-fill-hover);
+}
+
+/* Disabled reads as unavailable, never as a pale red error tint. */
+.agent-composer button:disabled {
+  background: var(--surface-sunk);
+  border-color: var(--border);
+  color: var(--text-faint);
+  opacity: 1;
 }
 
 .agent-inline-event {
@@ -363,10 +375,8 @@
 
 .agent-inline-event__details h3 {
   margin: 0 0 var(--sp-2);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-faint);
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .agent-inline-event pre,
@@ -380,7 +390,7 @@
 }
 
 .agent-inline-event--done {
-  border-color: color-mix(in srgb, var(--ao-teal) 48%, var(--border));
+  border-color: color-mix(in srgb, var(--success) 48%, var(--border));
 }
 
 .agent-inline-event--status {
@@ -424,7 +434,7 @@
     padding: 0;
     border: 0;
     border-radius: 0;
-    background: rgba(42, 39, 36, 0.28);
+    background: var(--scrim);
     opacity: 0;
     pointer-events: none;
     transition: opacity 180ms var(--ease);

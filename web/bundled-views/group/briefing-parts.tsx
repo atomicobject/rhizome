@@ -1,7 +1,12 @@
 // Small pieces the Briefing and Overview blocks share: running-text labels,
 // the block frame and its loading body, and the "+N more" toggle.
-import { orderedEnumValues } from "@rhizome/kit";
-import { useId, type ReactNode } from "react";
+import {
+  MoreToggle,
+  orderedEnumValues,
+  Section as Block,
+  SectionBody as BlockBody,
+} from "@rhizome/kit";
+import type { ReactNode } from "react";
 
 import type { MemberRecords } from "./activity.ts";
 import type { GroupModelState } from "./load.ts";
@@ -40,91 +45,9 @@ export function countedByMember(model: GroupModel, groups: readonly MemberRecord
   return groups.map((group) => counted(model, group.member, group.records.length)).join(", ");
 }
 
-/**
- * A block of the page: a heading, an optional count and caption, controls
- * beside the heading, and its body. `className` reserves the body's space.
- */
-export function Block({
-  title,
-  count,
-  caption,
-  controls,
-  className,
-  children,
-}: {
-  title: string;
-  count?: ReactNode;
-  caption?: ReactNode;
-  controls?: ReactNode;
-  className?: string;
-  children: ReactNode;
-}) {
-  const id = useId();
-
-  return (
-    <section className={className ? `gv-blk ${className}` : "gv-blk"} aria-labelledby={id}>
-      <h2 className="gv-blk-head">
-        <span id={id}>{title}</span>
-        {count !== undefined && <span className="gv-num">{count}</span>}
-        {controls && <span className="gv-blk-controls">{controls}</span>}
-      </h2>
-      {caption && <p className="gv-cap">{caption}</p>}
-      {children}
-    </section>
-  );
-}
-
-/**
- * A block's body once its reads are ready; until then a spinner in its place,
- * and on failure what failed with a retry. `what` names the data, as in
- * "Loading the map…".
- */
-export function BlockBody({
-  status,
-  what,
-  children,
-}: {
-  status: BlockStatus;
-  what: string;
-  children: () => ReactNode;
-}) {
-  if (status.status === "loading")
-    return (
-      <p className="gv-spin" role="status">
-        <i aria-hidden="true" />
-        Loading {what}…
-      </p>
-    );
-
-  if (status.status === "error")
-    return (
-      <p className="gv-fail" role="alert">
-        Could not load {what}: {status.error.message}{" "}
-        <button type="button" className="gv-link" onClick={status.retry}>
-          Retry
-        </button>
-      </p>
-    );
-
-  return children();
-}
-
-/** "+N more" while the rest is hidden, "Show fewer" once revealed in place. */
-export function MoreToggle({
-  hidden,
-  open,
-  onToggle,
-}: {
-  hidden: number;
-  open: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button type="button" className="gv-link gv-more" aria-expanded={open} onClick={onToggle}>
-      {open ? "Show fewer" : `+${hidden} more`}
-    </button>
-  );
-}
+// Blocks, their loading and failure bodies, and "+N more" are the kit's page
+// primitives; the names stay for the views written against them.
+export { Block, BlockBody, MoreToggle };
 
 /** Distinct labels of the lifecycle values the records hold, in lifecycle order. */
 export function heldLabels(member: Member, records: readonly GroupRecord[]) {

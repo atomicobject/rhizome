@@ -11,136 +11,6 @@
   background: var(--bg);
 }
 
-/* ---- Slim status strip (replaces the big hero) ---- */
-
-.ontology-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-  padding: 8px 20px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  min-height: 44px;
-}
-
-.ontology-bar__title {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-3);
-  min-width: 0;
-}
-
-.ontology-bar__title h1 {
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 900;
-  letter-spacing: -0.015em;
-  margin: 0;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.ontology-bar__title p {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ontology-bar__stats {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-  margin-left: auto;
-  padding: 0 var(--sp-5);
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  height: 28px;
-}
-
-.ontology-stat {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-2);
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-}
-
-.ontology-stat b {
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 900;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
-.ontology-stat--warn b {
-  color: var(--accent);
-}
-
-.ontology-bar__modes {
-  display: flex;
-  gap: 2px;
-  background: var(--bg-tint);
-  padding: 3px;
-  border-radius: var(--r);
-  border: 1px solid var(--border);
-}
-
-.ontology-bar__modes button {
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  padding: 4px 12px;
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 3px;
-  transition:
-    background 0.15s var(--ease),
-    color 0.15s var(--ease);
-  letter-spacing: 0.01em;
-}
-
-.ontology-bar__modes button:hover {
-  color: var(--text);
-}
-
-.ontology-bar__modes button.is-active {
-  background: var(--surface);
-  color: var(--accent);
-  box-shadow: var(--shadow-sm);
-}
-
-/* ---- Two-column grid ---- */
-
-.ontology-grid {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-  gap: 1px;
-  background: var(--border);
-  position: relative;
-}
-
-.ontology-grid > section,
-.ontology-grid > aside {
-  background: var(--surface);
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.ontology-grid--detail-only .ontology-rail__list {
-  display: none;
-}
-
 /* ---- Left column: type rail + note list stacked ---- */
 
 .ontology-rail {
@@ -150,36 +20,11 @@
   min-height: 0;
 }
 
-.ontology-rail__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  padding: var(--sp-4) var(--sp-4) 4px;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  color: var(--text-faint);
-  background: var(--surface);
-  flex-shrink: 0;
-}
-
-.ontology-rail__header span {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-faint);
-  font-weight: 500;
-}
-
 .ontology-rail__navigation {
   max-height: min(360px, 46vh);
   overflow-y: auto;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-}
-
-.ontology-rail__types {
-  min-height: 0;
 }
 
 .ontology-type-list {
@@ -196,19 +41,10 @@
   gap: var(--sp-2);
 }
 
-.ontology-rail__view-group {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
 .ontology-rail__views-label {
   padding: 4px 10px;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  color: var(--text-faint);
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .ontology-view-row {
@@ -249,16 +85,6 @@
   white-space: nowrap;
 }
 
-.ontology-view-row__group {
-  overflow: hidden;
-  max-width: 92px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-}
-
 /*
  * Note list embedded in the rail. Fills the remaining aside height and
  * scrolls its body independently so the type list above stays visible.
@@ -284,8 +110,7 @@
 }
 
 .ontology-type-row__collapse,
-.ontology-type-row__collapse-spacer,
-.ontology-type-row__caret {
+.ontology-type-row__collapse-spacer {
   flex: 0 0 18px;
   width: 18px;
   height: 24px;
@@ -348,7 +173,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  letter-spacing: 0.005em;
 }
 
 .ontology-type-row__count {
@@ -364,30 +188,14 @@
   color: var(--accent-ink);
 }
 
-.ontology-type-row__issues {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  font-size: 10px;
-  font-weight: 700;
-  min-width: 18px;
-  line-height: 1.2;
-}
-
 /*
  * Pseudo-type rows ("All notes", "Issues") sit above the schema-defined
- * types. They share the base styling but call attention to themselves with
- * an uppercase label and, in the case of "Issues", a warning-tinted accent.
+ * types. They share the base styling with a heavier label; "Issues" reads
+ * in red ink.
  */
 .ontology-type-row--pseudo {
   font-weight: 600;
-  text-transform: uppercase;
   font-size: var(--fs-xs);
-  letter-spacing: 0.04em;
   color: var(--text-muted);
 }
 
@@ -417,11 +225,6 @@
   color: var(--warning-ink);
 }
 
-.ontology-type-row__modified-dot {
-  color: var(--warning);
-  font-size: 10px;
-}
-
 /*
  * Hierarchical rail rendering: interfaces act as parent rows grouping their
  * implementors below. Hierarchy reads from indent and the caret gutter
@@ -437,11 +240,10 @@
 .ontology-type-row--interface {
   font-weight: 500;
   color: var(--text);
-  letter-spacing: 0.01em;
 }
 
 .ontology-type-row--child {
-  font-size: calc(var(--fs-base) - 1px);
+  font-size: var(--fs-sm);
   color: var(--text-muted);
 }
 
@@ -457,96 +259,6 @@
 
 .ontology-type-row--embedded:hover {
   background: transparent;
-}
-
-/*
- * Floating type-info popover shown on row hover. Uses position: fixed so
- * it escapes the aside's overflow clipping and anchors to the viewport
- * coordinates supplied by the row's getBoundingClientRect.
- */
-.ontology-type-hover {
-  position: fixed;
-  z-index: 40;
-  width: 260px;
-  max-width: 280px;
-  padding: var(--sp-4);
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
-  box-shadow: 0 16px 32px -12px rgba(0, 0, 0, 0.28);
-  pointer-events: none;
-  font-size: var(--fs-sm);
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-}
-
-.ontology-type-hover__name {
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--text);
-  letter-spacing: -0.01em;
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-2);
-}
-
-.ontology-type-hover__count {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-}
-
-.ontology-type-hover__description {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.ontology-type-hover__fields {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.ontology-type-hover__field {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: baseline;
-  gap: var(--sp-2);
-  padding: 3px 6px;
-  border-radius: var(--r-sm);
-  background: var(--bg-tint);
-  font-size: var(--fs-xs);
-}
-
-.ontology-type-hover__field strong {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text);
-  font-weight: 600;
-}
-
-.ontology-type-hover__field span {
-  font-size: 9px;
-  text-transform: uppercase;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--text-faint);
-}
-
-.ontology-type-hover__loading {
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-  font-style: italic;
 }
 
 /* ---- Note list (embedded in rail) ---- */
@@ -569,21 +281,18 @@
 }
 
 .ontology-list__title h2 {
-  font-family: var(--font-display);
   margin: 0;
-  font-size: 16px;
+  font-size: var(--fs-base);
   font-weight: 700;
-  letter-spacing: -0.01em;
   color: var(--text);
 }
 
 .ontology-list__count {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-xs);
   color: var(--text-faint);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .ontology-list__filters {
@@ -601,15 +310,7 @@
   background: var(--surface);
   font-size: var(--fs-base);
   font-family: var(--font-sans);
-  transition:
-    border-color 0.15s var(--ease),
-    box-shadow 0.15s var(--ease);
-}
-
-.ontology-list__filters input[type="search"]:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  transition: border-color 0.15s var(--ease);
 }
 
 .ontology-list__filters label {
@@ -623,17 +324,8 @@
 }
 
 .ontology-list__filters input[type="checkbox"] {
-  accent-color: var(--accent);
+  accent-color: var(--accent-fill);
   cursor: pointer;
-}
-
-.ontology-list__modified-filter {
-  color: #92400e;
-  font-weight: 600;
-}
-
-.ontology-list__modified-filter input[type="checkbox"] {
-  accent-color: #f59e0b;
 }
 
 .ontology-list__filters select {
@@ -688,27 +380,6 @@
   box-shadow: var(--shadow-lg);
 }
 
-.ontology-list-settings__group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.ontology-list-settings__group + .ontology-list-settings__group {
-  margin-top: var(--sp-2);
-  padding-top: var(--sp-2);
-  border-top: 1px solid var(--border-faint);
-}
-
-.ontology-list-settings__label {
-  padding: 3px 6px;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-faint);
-  font-weight: 800;
-}
-
 .ontology-list-settings__menu button,
 .ontology-list-settings__menu label {
   display: flex;
@@ -745,21 +416,7 @@
 }
 
 .ontology-list-settings__menu input[type="checkbox"] {
-  accent-color: var(--accent);
-}
-
-.ontology-list__mode-hint {
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  border-radius: var(--r-sm);
-  background: var(--bg-tint);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  accent-color: var(--accent-fill);
 }
 
 .ontology-list__body {
@@ -809,15 +466,13 @@
   display: inline-flex;
   align-items: center;
   min-height: 20px;
-  padding: 2px 7px;
-  border: 1px solid var(--border-faint);
-  border-radius: 999px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   color: var(--text-muted);
-  background: var(--bg-tint);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  background: var(--surface-sunk);
+  font-size: var(--fs-xs);
+  font-weight: 600;
 }
 
 .ontology-sidebar-context {
@@ -841,15 +496,13 @@
   margin: 0 0 var(--sp-1);
   font: var(--label-font);
   color: var(--label-color);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .ontology-sidebar-context__count,
 .rail-bucket__count {
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   letter-spacing: 0;
 }
@@ -918,7 +571,7 @@
 }
 
 .rail-bucket__more:hover {
-  color: var(--accent);
+  color: var(--text);
 }
 
 .rail-row {
@@ -964,9 +617,15 @@
   cursor: pointer;
 }
 
-.rail-row > button:hover,
+.rail-row > button:hover {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
 .rail-row > button[aria-current="page"] {
-  color: var(--accent);
+  font-weight: 700;
 }
 
 .rail-row--problem .rail-row__label {
@@ -1005,33 +664,6 @@
   text-align: center;
 }
 
-.ontology-sidebar-properties {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  margin: 0;
-}
-
-.ontology-sidebar-properties > div {
-  display: grid;
-  grid-template-columns: minmax(72px, 38%) minmax(0, 1fr);
-  gap: var(--sp-2);
-  padding: 4px 0;
-  border-bottom: 1px solid var(--border-faint);
-}
-
-.ontology-sidebar-properties dt,
-.ontology-sidebar-properties dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-size: var(--fs-sm);
-}
-
-.ontology-sidebar-properties dt {
-  color: var(--text-faint);
-  font-weight: 700;
-}
-
 /*
  * Note row: dense 2-line layout.
  *   Row 1: title (full width)
@@ -1064,25 +696,31 @@
 }
 
 .ontology-note.is-keyboard-selected {
-  background: color-mix(in srgb, var(--bg-tint) 76%, #d6d8de 24%);
+  background: color-mix(in srgb, var(--text) 8%, var(--surface));
 }
 
 .ontology-note.is-active.is-keyboard-selected {
-  background:
-    linear-gradient(
-      0deg,
-      color-mix(in srgb, var(--bg-tint) 70%, #d6d8de 30%),
-      color-mix(in srgb, var(--bg-tint) 70%, #d6d8de 30%)
-    ),
-    var(--accent-soft);
+  background: color-mix(in srgb, var(--text) 7%, var(--accent-soft));
+}
+
+/* Faint metadata would drop under 4.5:1 on the tinted rows. */
+.ontology-note:is(.is-active, .is-keyboard-selected) .ontology-note__meta {
+  color: var(--text-muted);
 }
 
 .ontology-note.is-modified {
-  border-left-color: #f59e0b;
+  border-left-color: var(--warning);
 }
 
 .ontology-note.is-modified.is-active {
   border-left-color: var(--accent);
+}
+
+/* The shaped mark carries "modified" without relying on the border color. */
+.ontology-note__modified {
+  margin-right: 4px;
+  color: var(--warning-ink);
+  font-size: 0.85em;
 }
 
 .ontology-note__main {
@@ -1102,13 +740,13 @@
 }
 
 .ontology-note__main:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
   border-radius: var(--r-sm);
 }
 
 .ontology-note__title {
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   font-weight: 600;
   color: var(--text);
   line-height: 1.3;
@@ -1126,7 +764,7 @@
   align-items: center;
   gap: var(--sp-2);
   padding-left: 28px; /* leave room for the absolutely positioned compare */
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   color: var(--text-faint);
   font-family: var(--font-mono);
   min-width: 0;
@@ -1149,25 +787,6 @@
   white-space: nowrap;
 }
 
-.ontology-note__relations {
-  font-family: var(--font-sans);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-  color: var(--text-faint);
-}
-
-.ontology-note__issues {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 2px;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-sans);
-  flex-shrink: 0;
-}
-
 .ontology-note .ontology-compare-icon {
   position: absolute;
   left: 6px;
@@ -1182,10 +801,8 @@
   position: absolute;
   left: 6px;
   bottom: 2px;
-  font-size: 8px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: var(--fs-xs);
+  font-weight: 600;
   color: var(--text-faint);
   max-width: 60px;
   overflow: hidden;
@@ -1193,19 +810,6 @@
   white-space: nowrap;
   pointer-events: none;
   line-height: 1;
-}
-
-/* ---- Right column: detail (pane) or graph ---- */
-
-.ontology-detail {
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.ontology-detail--stack {
-  overflow: auto;
 }
 
 /* ---- Type workspace (shared header + Home/Table body) ---- */
@@ -1218,23 +822,6 @@
   height: 100%;
   width: 100%;
   background: var(--surface);
-}
-
-.type-workspace__body {
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  width: 100%;
-}
-
-.type-workspace__body > * {
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-  width: 100%;
 }
 
 /* ---- Note pane ---- */
@@ -1284,20 +871,12 @@
   gap: 4px;
   padding: 2px 8px;
   border-radius: var(--r-sm);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  border: 1px solid var(--accent-line);
-  line-height: 1.5;
-}
-
-.ontology-chip--type {
-  background: var(--bg-tint);
+  background: var(--surface-sunk);
   color: var(--text-muted);
-  border-color: var(--border);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  border: 1px solid var(--border);
+  line-height: 1.5;
 }
 
 .ontology-chip--warning {
@@ -1334,7 +913,7 @@
 }
 
 .ontology-icon-btn.is-active {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .ontology-compare-icon {
@@ -1357,12 +936,10 @@
     border-color 0.12s var(--ease);
 }
 
-.ontology-compare-icon:hover,
-.ontology-compare-icon:focus-visible {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  border-color: var(--accent-line);
-  outline: none;
+.ontology-compare-icon:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 
 /* ---- Pane body: outline · main · relations ---- */
@@ -1418,7 +995,7 @@
   border: 0;
   padding: 0;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   line-height: 1;
   cursor: pointer;
   border-radius: var(--r-sm);
@@ -1435,7 +1012,7 @@
 
 .ontology-outline__toggle:focus-visible {
   color: var(--text);
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -1px;
 }
 
@@ -1476,12 +1053,12 @@
 
 .ontology-outline__title:focus-visible {
   color: var(--text);
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
 .ontology-outline .ontology-outline__title[aria-current="location"] {
-  color: var(--accent);
+  color: var(--accent-ink);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
@@ -1504,18 +1081,6 @@
   padding: var(--sp-6);
   overflow: auto;
   background: var(--surface);
-}
-
-.ontology-pane__content {
-  min-width: 0;
-}
-
-.ontology-pane__content-inner {
-  min-width: 0;
-}
-
-.ontology-pane__content-inner--node {
-  max-width: 760px;
 }
 
 /* Structural view rendered by OntologyNotePane.tsx. */
@@ -1569,12 +1134,10 @@
 }
 
 .ontology-struct__section-badge {
-  font-size: 10px;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
   color: var(--text-faint);
-  background: var(--bg-tint);
-  padding: 1px 6px;
-  border-radius: var(--r-full);
   line-height: 1.3;
 }
 
@@ -1597,38 +1160,11 @@
 }
 
 .ontology-struct__section-heading-link:hover {
-  color: var(--accent);
+  color: var(--link);
 }
 
 .ontology-struct__section-heading-link > span:first-child {
   min-width: 0;
-}
-
-.ontology-struct__section-link {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  background: var(--surface);
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text);
-  cursor: pointer;
-  text-align: left;
-  transition:
-    border-color 0.12s var(--ease),
-    box-shadow 0.12s var(--ease),
-    transform 0.12s var(--ease);
-}
-
-.ontology-struct__section-link:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
 }
 
 .ontology-struct__section-collection {
@@ -1641,11 +1177,8 @@
 
 .ontology-struct__section-collection-label {
   margin-bottom: var(--sp-2);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 /* Full-width clickable list items within sections */
@@ -1745,7 +1278,7 @@
   bottom: var(--sp-4);
   padding: 0.45rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  border: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 92%, var(--bg-tint));
   color: var(--text-muted);
   font-size: var(--fs-xs);
@@ -1781,7 +1314,7 @@
 }
 
 .ontology-markdown h2 {
-  font-size: 16px;
+  font-size: var(--fs-lg);
   border-bottom: 1px solid var(--border-faint);
   padding-bottom: 0.25em;
 }
@@ -1822,7 +1355,7 @@
 
 .ontology-markdown li.task-list-item > input[type="checkbox"] {
   margin: 0 0.45em 0 -1.3em;
-  accent-color: var(--accent);
+  accent-color: var(--accent-fill);
   vertical-align: -1px;
 }
 
@@ -1833,7 +1366,7 @@
   border-radius: var(--r-md);
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.55;
 }
 
@@ -1869,11 +1402,8 @@
 
 .ontology-markdown th {
   border-bottom-color: var(--border);
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 /* A quote is not a problem: a neutral hairline rule, no red tint. */
@@ -1922,7 +1452,7 @@
 }
 
 .typed-section-card:hover {
-  border-color: var(--border-strong, var(--border));
+  border-color: var(--border-strong);
 }
 
 .typed-section-card__details {
@@ -1980,9 +1510,10 @@
 }
 
 .typed-section-card__preview a {
-  color: var(--accent);
-  text-decoration: none;
-  border-bottom: 1px dotted var(--accent);
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
 }
 
 .typed-section-card__chips {
@@ -2008,7 +1539,6 @@
 .typed-section-card__chip-key {
   color: var(--text-faint);
   text-transform: lowercase;
-  letter-spacing: 0.02em;
 }
 
 .typed-section-card__chip-value {
@@ -2018,7 +1548,7 @@
 
 .typed-section-card__body {
   padding: 10px 14px 14px;
-  border-top: 1px solid var(--border-faint, var(--border));
+  border-top: 1px solid var(--border-faint);
 }
 
 .typed-section-card__body > :first-child {
@@ -2039,7 +1569,7 @@
  */
 .ontology-issues {
   margin: 0 0 var(--sp-4);
-  border: 1px solid var(--warning-line, var(--warning));
+  border: 1px solid var(--warning);
   background: var(--warning-soft);
   border-radius: var(--r-md);
   overflow: hidden;
@@ -2075,17 +1605,15 @@
 }
 
 .ontology-issues__count {
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
   color: var(--warning-ink);
 }
 
 .ontology-issues__label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -2095,15 +1623,12 @@
   flex-direction: column;
   gap: var(--sp-3);
   background: var(--surface);
-  border-top: 1px solid var(--warning-line, var(--warning));
+  border-top: 1px solid var(--warning);
 }
 
 .ontology-issues__group-label {
-  font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 700;
-  color: var(--text-faint);
+  font: var(--label-font);
+  color: var(--label-color);
   margin-bottom: 3px;
 }
 
@@ -2127,7 +1652,7 @@
 
 .ontology-issues__code {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   text-transform: lowercase;
   color: var(--warning-ink);
@@ -2140,334 +1665,6 @@
 .ontology-issues__message {
   color: var(--text-muted);
   word-break: break-word;
-}
-
-.ontology-kv {
-  display: grid;
-  gap: var(--sp-3);
-  margin: 0;
-}
-
-.ontology-kv div {
-  display: grid;
-  gap: 1px;
-}
-
-.ontology-kv dt {
-  font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-faint);
-  font-weight: 600;
-}
-
-.ontology-kv dd {
-  margin: 0;
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  color: var(--text);
-  word-break: break-word;
-  font-family: var(--font-mono);
-}
-
-.ontology-kv dd.is-muted {
-  color: var(--text-faint);
-  font-family: var(--font-sans);
-  font-weight: 400;
-}
-
-.ontology-kv > div.is-dirty {
-  padding-left: 8px;
-  border-left: 2px solid var(--accent);
-}
-
-.ontology-pane__field-editor {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.ontology-pane__field-editor input {
-  min-width: 0;
-  flex: 1;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px 10px;
-  font: inherit;
-  font-family: var(--font-mono);
-  color: inherit;
-  background: var(--surface);
-}
-
-.ontology-pane__field-editor button {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 6px 12px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-}
-
-.ontology-pane__field-editor button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.ontology-relation-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-}
-
-.ontology-relation-group h3 {
-  margin: 0;
-}
-
-/*
- * All relation buckets use the flat look — no wrapper boxes. Keeps the
- * rail scannable by reclaiming the border/background real estate. The
- * `--flat` modifier is kept as an alias so markup that already uses it
- * (structural relations) continues to render identically.
- */
-.ontology-relation-bucket {
-  border: 0;
-  background: transparent;
-  border-radius: 0;
-  padding: 0;
-}
-
-.ontology-relation-bucket + .ontology-relation-bucket {
-  margin-top: var(--sp-2);
-}
-
-.ontology-relation-bucket--flat {
-  border: 0;
-  background: transparent;
-  border-radius: 0;
-  padding: 0;
-}
-
-.ontology-relation-bucket--flat + .ontology-relation-bucket--flat {
-  margin-top: var(--sp-2);
-}
-
-.ontology-relation-bucket__flat-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: lowercase;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
-  padding: 0 0 2px 2px;
-}
-
-.ontology-relation-group--flat .ontology-relation-list {
-  padding: 0;
-}
-
-.ontology-relation-bucket__summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  padding: 6px var(--sp-2);
-  cursor: pointer;
-  list-style: none;
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-  user-select: none;
-}
-
-.ontology-relation-bucket__summary::-webkit-details-marker {
-  display: none;
-}
-
-.ontology-relation-bucket__summary::before {
-  content: "▸";
-  font-size: 10px;
-  color: var(--text-faint);
-  transition: transform 0.15s var(--ease);
-  display: inline-block;
-  width: 10px;
-}
-
-.ontology-relation-bucket[open] > .ontology-relation-bucket__summary::before {
-  transform: rotate(90deg);
-}
-
-.ontology-relation-bucket__label {
-  flex: 1;
-  font-weight: 600;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-}
-
-.ontology-relation-bucket__count {
-  color: var(--text-faint);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.ontology-relation-list {
-  list-style: none;
-  margin: 0;
-  padding: 2px var(--sp-1) var(--sp-1);
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.ontology-relation-link {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-}
-
-.ontology-relation-link__main {
-  flex: 1;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  padding: 6px 8px;
-  background: transparent;
-  border: 0;
-  border-radius: var(--r-sm);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--fs-sm);
-  text-align: left;
-  line-height: 1.35;
-  transition:
-    background 0.12s var(--ease),
-    color 0.12s var(--ease);
-}
-
-.ontology-relation-link__main:hover,
-.ontology-relation-link__main:focus-visible {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  outline: none;
-}
-
-/*
- * Non-note items (code files) render as a static span so clicks don't
- * pivot the notes-only ontology graph into a dead end. Muted color
- * signals that these entries are informational.
- */
-.ontology-relation-link__main--static {
-  cursor: default;
-  color: var(--text-faint);
-}
-
-.ontology-relation-link__main--static:hover,
-.ontology-relation-link__main--static:focus-visible {
-  background: transparent;
-  color: var(--text-faint);
-}
-
-.ontology-relation-link__title {
-  font-weight: 500;
-  word-break: break-word;
-  min-width: 0;
-  flex: 1;
-}
-
-.ontology-relation-link__compare {
-  flex-shrink: 0;
-  width: 24px;
-  background: transparent;
-  border: 0;
-  color: var(--text-faint);
-  cursor: pointer;
-  border-radius: var(--r-sm);
-  font-size: 14px;
-  line-height: 1;
-  transition:
-    background 0.12s var(--ease),
-    color 0.12s var(--ease);
-}
-
-.ontology-relation-link__compare:hover,
-.ontology-relation-link__compare:focus-visible {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  outline: none;
-}
-
-.ontology-relation-link__tooltip {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 20;
-  margin-top: 4px;
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.3);
-  border-radius: var(--r-md);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-4px);
-  transition:
-    opacity 0.15s var(--ease),
-    transform 0.15s var(--ease);
-  font-size: var(--fs-xs);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ontology-relation-link:hover .ontology-relation-link__tooltip,
-.ontology-relation-link:focus-within .ontology-relation-link__tooltip {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.ontology-relation-link__tooltip-title {
-  font-weight: 600;
-  color: var(--text);
-  font-size: var(--fs-sm);
-  line-height: 1.25;
-  word-break: break-word;
-}
-
-.ontology-relation-link__tooltip-summary {
-  margin: 0;
-  color: var(--text-muted);
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.ontology-relation-link__tooltip-summary.is-muted {
-  color: var(--text-faint);
-  font-style: italic;
-}
-
-.ontology-relation-link__tooltip-meta {
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: lowercase;
-  letter-spacing: 0.02em;
-}
-
-.ontology-relation-link__tooltip-path {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-faint);
-  word-break: break-all;
-  background: transparent;
-  padding: 0;
 }
 
 .ontology-link-button {
@@ -2490,15 +1687,22 @@
 }
 
 .ontology-link-button--primary {
-  background: var(--accent);
-  color: var(--ao-white);
-  border-color: var(--accent);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  border-color: var(--accent-fill);
 }
 
 .ontology-link-button--primary:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: var(--ao-white);
+  background: var(--accent-fill-hover);
+  border-color: var(--accent-fill-hover);
+  color: var(--on-accent);
+}
+
+.ontology-link-button--primary:disabled {
+  background: var(--surface-sunk);
+  border-color: var(--border);
+  color: var(--text-faint);
+  cursor: default;
 }
 
 /* ---- Edit toggle button (read-only mode) ---- */
@@ -2525,8 +1729,8 @@
 
 .ontology-edit-toggle:hover {
   color: var(--text);
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
+  border-color: var(--border-strong);
+  background: var(--bg-tint);
 }
 
 .ontology-edit-toggle__icon {
@@ -2561,9 +1765,9 @@
 }
 
 .ontology-edit-notice {
-  color: var(--ao-teal-ink);
+  color: var(--success-ink);
   font-size: var(--fs-xs);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .ontology-edit-bar.is-dirty {
@@ -2582,8 +1786,6 @@
   gap: 6px;
   font-weight: 700;
   font-size: var(--fs-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -2665,15 +1867,23 @@
 }
 
 .ontology-edit-bar__btn--save {
-  background: var(--accent);
-  color: var(--ao-white);
-  border-color: var(--accent);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  border-color: var(--accent-fill);
 }
 
 .ontology-edit-bar__btn--save:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: var(--ao-white);
+  background: var(--accent-fill-hover);
+  border-color: var(--accent-fill-hover);
+  color: var(--on-accent);
+}
+
+/* Nothing to save reads as unavailable, never as a pale red error tint. */
+.ontology-edit-bar__btn--save:disabled {
+  background: var(--surface-sunk);
+  border-color: var(--border);
+  color: var(--text-faint);
+  opacity: 1;
 }
 
 .ontology-edit-bar__btn--discard {
@@ -2754,11 +1964,8 @@
 }
 
 .ontology-inline-previews__header h3 {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  color: var(--text-faint);
+  font: var(--label-font);
+  color: var(--label-color);
   margin: 0;
 }
 
@@ -2805,60 +2012,6 @@
   flex-wrap: wrap;
 }
 
-.ontology-expanded {
-  margin-top: var(--sp-6);
-  padding-top: var(--sp-5);
-  border-top: 1px solid var(--border);
-}
-
-.ontology-expanded h3 {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  color: var(--text-faint);
-  margin: 0 0 var(--sp-3);
-}
-
-.ontology-expanded__list {
-  display: grid;
-  gap: var(--sp-3);
-}
-
-.ontology-expanded__card {
-  display: grid;
-  gap: var(--sp-3);
-  padding: var(--sp-4);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--surface-alt);
-}
-
-.ontology-expanded__top {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  align-items: flex-start;
-}
-
-.ontology-expanded__title {
-  font-size: var(--fs-md);
-  font-weight: 700;
-  color: var(--text);
-}
-
-.ontology-expanded__body {
-  font-size: var(--fs-sm);
-  line-height: 1.55;
-  color: var(--text-muted);
-  max-height: 240px;
-  overflow: auto;
-  padding: var(--sp-3);
-  border-radius: var(--r);
-  background: var(--surface);
-  border: 1px solid var(--border-faint);
-}
-
 .ontology-muted {
   color: var(--text-faint);
   font-size: var(--fs-xs);
@@ -2878,135 +2031,16 @@
 .ontology-empty__icon {
   display: block;
   margin: 0 auto var(--sp-4);
-  width: 48px;
-  height: 48px;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border-strong);
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 55% 40%, var(--ao-white) 3px, transparent 3.5px),
-    conic-gradient(
-      from 30deg,
-      var(--accent),
-      var(--ao-red-600) 35%,
-      var(--ao-ink) 65%,
-      var(--accent) 100%
-    );
-  opacity: 0.4;
 }
 
 .ontology-empty__hint {
   font-size: var(--fs-xs);
   color: var(--text-faint);
   margin-top: var(--sp-2);
-}
-
-/* ---- Graph mode inside detail region ---- */
-
-.ontology-detail--graph {
-  padding: 0;
-}
-
-.ontology-graph-shell {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-
-.ontology-graph-shell__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--sp-3) var(--sp-5);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  flex-shrink: 0;
-}
-
-.ontology-graph-shell__header h2 {
-  font-family: var(--font-display);
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.ontology-graph-shell__scope {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-}
-
-.ontology-graph-shell__legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2) var(--sp-4);
-  padding: var(--sp-2) var(--sp-5);
-  background: var(--surface-alt);
-  border-bottom: 1px solid var(--border);
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-
-.ontology-graph-shell__legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.ontology-graph-shell__legend-swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
-}
-
-.ontology-graph-shell .graph-container {
-  flex: 1;
-  border: none;
-  border-radius: 0;
-}
-
-/* ---- Responsive fallbacks ---- */
-
-@media (max-width: 1280px) {
-  .ontology-grid {
-    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 1100px) {
-  .ontology-grid {
-    grid-template-columns: 260px minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 760px) {
-  .ontology-bar {
-    flex-wrap: wrap;
-    height: auto;
-    padding: var(--sp-3) var(--sp-5);
-  }
-
-  .ontology-bar__stats {
-    border: none;
-    padding: 0;
-    margin-left: 0;
-  }
-
-  .ontology-bar__modes {
-    width: 100%;
-  }
-
-  .ontology-bar__modes button {
-    flex: 1;
-  }
-
-  .ontology-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -3036,25 +2070,8 @@
   align-items: center;
   gap: var(--sp-3);
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
-}
-
-.ontology-identity__type {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 700;
-  font-size: 11px;
-  padding: 2px var(--sp-3);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  border-radius: var(--radius, 4px);
-  white-space: nowrap;
-}
-
-.ontology-identity__type.is-untyped {
-  background: var(--surface-sunk);
-  color: var(--text-faint);
 }
 
 .ontology-identity__slot {
@@ -3082,15 +2099,10 @@
   align-items: center;
   gap: var(--sp-1);
   padding: 2px var(--sp-3);
-  border-radius: var(--radius, 4px);
-  font-size: 11px;
+  border-radius: var(--r);
+  font-size: var(--fs-xs);
   background: var(--surface-sunk);
   color: var(--text-muted);
-}
-
-.ontology-identity__chip--issues {
-  background: var(--warning-soft);
-  color: var(--warning-ink);
 }
 
 .ontology-identity__chip--dirty {
@@ -3101,18 +2113,11 @@
 .ontology-identity__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: var(--fs-2xl);
   line-height: 1.18;
   font-weight: 900;
   letter-spacing: -0.015em;
   color: var(--text);
-}
-
-.ontology-identity__path {
-  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace);
-  font-size: 12px;
-  color: var(--text-faint);
-  word-break: break-all;
 }
 
 .ontology-properties {
@@ -3143,7 +2148,7 @@
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   cursor: pointer;
 }
 
@@ -3152,7 +2157,7 @@
 }
 
 .ontology-properties__details-toggle:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -3179,7 +2184,7 @@
 
 .ontology-properties__key {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text-muted);
   align-self: start;
@@ -3189,28 +2194,12 @@
 
 .ontology-properties__value {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--text);
   align-self: stretch;
   min-width: 0;
   padding: 5px 0;
   border-top: 1px solid var(--border-faint);
-}
-
-.ontology-properties__list {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-}
-
-.ontology-properties__chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px var(--sp-3);
-  border-radius: var(--radius, 4px);
-  background: var(--surface-sunk);
-  color: var(--text-muted);
-  font-size: 12px;
 }
 
 .ontology-properties__link {
@@ -3249,9 +2238,13 @@
 }
 
 .widget-text--input {
+  display: block;
+  max-height: 12lh;
+  overflow-y: auto;
+  resize: none;
   font: inherit;
   border: 1px solid var(--border);
-  border-radius: var(--radius, 4px);
+  border-radius: var(--r);
   padding: 2px var(--sp-2);
   background: var(--surface);
   color: var(--text);
@@ -3261,18 +2254,12 @@
   box-sizing: border-box;
 }
 
-.widget-text--input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
-}
-
 .widget-text.is-dirty,
 .widget-date.is-dirty,
 .widget-enum.is-dirty {
   background-color: var(--warning-soft);
   color: var(--warning-ink);
-  border-radius: var(--radius, 4px);
+  border-radius: var(--r);
   padding: 0 var(--sp-2);
 }
 
@@ -3291,7 +2278,7 @@
   border-radius: 999px;
   background: var(--surface-sunk);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 
@@ -3301,10 +2288,11 @@
   text-decoration: line-through wavy;
 }
 
+/* Matches .segmented in base.css: one look for every mode or value switch. */
 .widget-enum--segmented {
   display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: var(--radius, 4px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
   overflow: hidden;
   background: var(--surface);
   margin: 0;
@@ -3325,16 +2313,17 @@
 
 .widget-enum__segment {
   appearance: none;
+  height: 24px;
   border: none;
   background: transparent;
-  padding: 2px var(--sp-3);
-  font-size: 12px;
+  padding: 0 10px;
+  font: 600 var(--fs-sm) / 1 var(--font-sans);
   color: var(--text-muted);
   cursor: pointer;
   transition:
     background 0.1s,
     color 0.1s;
-  border-right: 1px solid var(--border-faint);
+  border-right: 1px solid var(--border);
 }
 
 .widget-enum__segment:last-child {
@@ -3342,15 +2331,14 @@
 }
 
 .widget-enum__segment:hover {
-  background: var(--surface-alt);
+  background: var(--bg-tint);
   color: var(--text);
 }
 
 /* The chosen value is a selection, not an alert: neutral, never the accent. */
 .widget-enum__segment.is-active {
   background: var(--text);
-  color: var(--ao-white);
-  font-weight: 600;
+  color: var(--surface);
 }
 
 .widget-enum__segment--unknown {
@@ -3389,16 +2377,10 @@
 .widget-date--input {
   font: inherit;
   border: 1px solid var(--border);
-  border-radius: var(--radius, 4px);
+  border-radius: var(--r);
   padding: 2px var(--sp-2);
   background: var(--surface);
   color: var(--text);
-}
-
-.widget-date--input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 .field-editor,
@@ -3465,7 +2447,7 @@
 .field-editor__number:focus-visible,
 .field-editor__list:focus-visible,
 .field-editor__multi-enum input:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -3558,7 +2540,7 @@
 
 .field-editor__relation-item button:focus-visible,
 .widget-enum__clear:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -3629,7 +2611,7 @@
 
 .body-section__open:hover {
   background: var(--bg-tint);
-  color: var(--accent);
+  color: var(--text);
 }
 
 /* Collapsed sections read as the note's own headings, with a gutter chevron. */
@@ -3648,7 +2630,7 @@
 }
 
 .body-disclosure__summary:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -3684,7 +2666,7 @@
 }
 
 .body-disclosure__summary:hover > * > .body-disclosure__chevron {
-  border-left-color: var(--accent);
+  border-left-color: var(--text);
 }
 
 /* Long titles wrap; the excerpt gives way first, then the title. */
@@ -3734,7 +2716,7 @@
 .body-collection {
   margin: var(--sp-5) 0;
   border: 1px solid var(--border-faint);
-  border-radius: var(--radius, 6px);
+  border-radius: var(--r-md);
   background: var(--surface);
   overflow: hidden;
 }
@@ -3749,15 +2731,14 @@
 }
 
 .body-collection__label {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--text-muted);
 }
 
 .body-collection__count {
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
@@ -3767,15 +2748,9 @@
   min-width: 200px;
   font: inherit;
   border: 1px solid var(--border);
-  border-radius: var(--radius, 4px);
+  border-radius: var(--r);
   padding: 2px var(--sp-3);
   background: var(--surface);
-}
-
-.body-collection__search:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 .body-collection__empty {
@@ -3820,27 +2795,27 @@
   min-width: 0;
 }
 
+/* A type names a note: the neutral .type-chip look, never red. */
 .body-collection__type {
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: var(--accent-ink);
-  background: var(--accent-soft);
-  padding: 2px var(--sp-2);
-  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
   white-space: nowrap;
 }
 
 .body-collection__id {
-  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace);
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   white-space: nowrap;
 }
 
 .body-collection__title {
-  font-size: 13px;
+  font-size: var(--fs-base);
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
@@ -3857,7 +2832,7 @@
 
 .body-collection__summary {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3894,7 +2869,7 @@
 .changes-workspace__header h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: var(--fs-2xl);
   line-height: 1.2;
 }
 
@@ -3902,7 +2877,7 @@
   margin: 4px 0 0;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 
 .changes-workspace__status-conflicts {
@@ -3913,7 +2888,7 @@
   margin: 0;
   padding: var(--sp-2) var(--sp-5);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .changes-workspace__notice--error {
@@ -3929,10 +2904,8 @@
 .changes-conflicts h3 {
   margin: 0;
   padding: 6px var(--sp-5);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .changes-conflicts ul {
@@ -3948,12 +2921,12 @@
   min-height: 28px;
   padding: 2px var(--sp-5);
   border-top: 1px solid var(--accent-line);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .changes-conflicts li strong {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 
@@ -3971,7 +2944,7 @@
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--accent-ink);
-  font: 600 11px var(--font-sans);
+  font: 600 var(--fs-xs) var(--font-sans);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -4010,7 +2983,7 @@
 .changes-note__name {
   flex: 0 1 auto;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--fs-base);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4018,7 +2991,7 @@
 
 .changes-note__title:hover .changes-note__name,
 .changes-note__title:focus-visible .changes-note__name {
-  color: var(--accent-ink);
+  color: var(--link);
 }
 
 .changes-note__path {
@@ -4027,7 +3000,7 @@
   overflow: hidden;
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4072,10 +3045,8 @@
 .changes-op__kind {
   min-width: 60px;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .changes-op__body {
@@ -4083,7 +3054,7 @@
   align-items: baseline;
   gap: 6px;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .changes-op__body--stack {
@@ -4097,7 +3068,7 @@
   flex: 0 0 auto;
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .changes-op__old {
@@ -4125,7 +3096,7 @@
 
 .changes-op__hint {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 
@@ -4134,13 +3105,13 @@
   padding: 0 6px;
   border: 1px solid var(--border-faint);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   line-height: 16px;
 }
 
 .changes-op__chip--add {
-  border-color: color-mix(in srgb, var(--success, #16cbc4) 50%, var(--border));
-  background: color-mix(in srgb, var(--success, #16cbc4) 14%, transparent);
+  border-color: color-mix(in srgb, var(--success) 50%, var(--border));
+  background: color-mix(in srgb, var(--success) 14%, transparent);
 }
 
 .changes-op__block {
@@ -4152,7 +3123,7 @@
   border-radius: var(--r-sm);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   white-space: pre-wrap;
 }
 
@@ -4189,7 +3160,7 @@
 
 .changes-note__discard:focus-visible,
 .changes-op__discard:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -4201,7 +3172,7 @@
   padding: 0 var(--sp-5) 0 calc(var(--sp-5) + 12px);
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   cursor: pointer;
 }
 
@@ -4232,7 +3203,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  background: var(--surface, #fff);
+  background: var(--surface);
 }
 
 .ontology-atlas {
@@ -4243,39 +3214,39 @@
 }
 .ontology-atlas h1 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--fs-xl);
   font-weight: 700;
 }
 
 .ontology-atlas h2 {
-  margin: 0 0 var(--sp-3, 12px);
-  font-size: 1.15rem;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-xl);
 }
 
 .ontology-atlas__zero,
 .ontology-atlas__error,
 .ontology-atlas__loading {
-  padding: var(--sp-4, 16px);
-  background: var(--surface-2, #f5f5f5);
-  border-radius: 8px;
+  padding: var(--sp-4);
+  background: var(--surface-sunk);
+  border-radius: var(--r-md);
   color: var(--text);
 }
 
 .ontology-atlas__error {
-  color: var(--accent-danger, #b00020);
+  color: var(--accent-ink);
 }
 
 .ontology-atlas__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px;
+  gap: var(--sp-5);
+  padding: var(--sp-4) var(--sp-5);
   border-bottom: 1px solid var(--border);
 }
 .ontology-atlas__stats {
   display: flex;
-  gap: 20px;
+  gap: var(--sp-6);
   margin: 0;
 }
 .ontology-atlas__stats > div {
@@ -4284,13 +3255,14 @@
   gap: 6px;
 }
 .ontology-atlas__stats dt {
-  color: var(--text-muted);
-  font-size: 12px;
+  font: var(--label-font);
+  color: var(--label-color);
 }
 .ontology-atlas__stats dd {
   margin: 0;
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 .ontology-atlas__diagram-scroll {
@@ -4313,16 +3285,19 @@
   background: var(--surface);
 }
 .atlas-index__search {
-  padding: 10px;
+  padding: var(--sp-4);
 }
 .atlas-index__search input {
   width: 100%;
   min-width: 0;
-  padding: 7px 8px;
+  height: 26px;
+  padding: 0 var(--sp-3);
   border: 1px solid var(--border-strong);
-  border-radius: 3px;
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 .atlas-index button {
   border: 0;
@@ -4333,23 +3308,27 @@
   width: 100%;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--sp-3);
+  min-height: 28px;
+  padding: var(--sp-1) var(--sp-4);
   text-align: left;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   cursor: pointer;
 }
 .atlas-index button:hover {
-  background: var(--surface-sunk);
+  background: var(--bg-tint);
+}
+.atlas-index button:focus-visible {
+  outline-offset: -2px;
 }
 .atlas-index button[aria-pressed="true"] {
   background: var(--accent-soft);
   color: var(--accent-ink);
   box-shadow: inset 2px 0 var(--accent);
 }
-.atlas-index__all {
-  font-weight: 600 !important;
+.atlas-index button.atlas-index__all {
+  font-weight: 600;
 }
 .atlas-index__list {
   overflow: auto;
@@ -4361,16 +3340,17 @@
   text-overflow: ellipsis;
 }
 .atlas-index__count {
-  color: var(--text-muted);
-  font-size: 10px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
 .atlas-index__hint,
 .atlas-index__empty {
-  padding: 12px;
+  padding: var(--sp-4);
   margin: 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
 }
 .atlas-index__hint {
@@ -4384,8 +3364,8 @@
 }
 .atlas-canvas__status {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: var(--sp-5);
+  left: var(--sp-5);
   z-index: 5;
   margin: 0;
 }
@@ -4394,15 +3374,28 @@
 }
 .atlas-legend {
   position: absolute;
-  bottom: 12px;
-  right: 12px;
+  bottom: var(--sp-4);
+  right: var(--sp-4);
   display: flex;
-  gap: 16px;
-  padding: 6px 10px;
+  gap: var(--sp-5);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   pointer-events: none;
+}
+/* React Flow reads these for its canvas, dots, and zoom controls. */
+.atlas-canvas .react-flow {
+  --xy-background-pattern-dots-color: var(--border-strong);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-background-color-hover: var(--bg-tint);
+  --xy-controls-button-color: var(--text-muted);
+  --xy-controls-button-color-hover: var(--text);
+  --xy-controls-button-border-color: var(--border);
+  --xy-node-background-color: var(--surface);
+  --xy-node-color: var(--text);
 }
 .atlas-canvas .react-flow__controls {
   box-shadow: none;
@@ -4428,15 +3421,16 @@
   display: none;
 }
 
+/* A card's type color is its dot and its outgoing edges; text stays ink. */
 .ontology-node {
-  --type-accent: #6366f1;
+  --type-accent: var(--type-8);
   width: 100%;
   height: 100%;
   box-sizing: border-box;
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: var(--r);
+  font-size: var(--fs-sm);
   color: var(--text);
 }
 .ontology-node__card {
@@ -4474,8 +3468,17 @@
   font-weight: 700;
   color: var(--text);
   font-size: var(--atlas-label-size, 15px);
-  letter-spacing: 0;
   text-decoration: none;
+}
+.ontology-node__name::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--sp-2);
+  border-radius: 50%;
+  background: var(--type-accent);
+  vertical-align: 0.05em;
 }
 .ontology-node__card:hover .ontology-node__name,
 .ontology-node__card:focus-visible .ontology-node__name {
@@ -4486,35 +3489,32 @@
   text-decoration: underline;
 }
 .ontology-node__count {
-  font-size: 11px;
-  color: var(--text-muted, #64748b);
-  background: var(--surface-2, #f1f5f9);
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  font-weight: 500;
 }
 .ontology-node__badge {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted, #64748b);
-  border: 1px solid var(--border, #e5e5e5);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: var(--r-sm);
 }
 .ontology-node__impl {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   align-items: center;
-  font-size: 10px;
-  color: var(--text-muted, #64748b);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
 }
 .ontology-node__description {
   margin: 0;
-  color: var(--text-muted, #475569);
+  color: var(--text-muted);
   display: -webkit-box;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   line-height: 1.35;
   overflow: hidden;
   -webkit-box-orient: vertical;
@@ -4525,41 +3525,25 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  color: var(--text-muted, #64748b);
-  font-size: 10px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
 .ontology-node__stats strong {
-  color: var(--text, #1e293b);
+  color: var(--text);
   font-weight: 700;
 }
 .ontology-node__issues {
-  color: var(--accent-warning, #b26b00);
+  color: var(--warning-ink);
   font-weight: 600;
 }
-.ontology-node__required {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-  color: var(--text-muted, #64748b);
-  font-size: 10px;
-}
-.ontology-node__required code {
-  background: var(--surface-2, #f1f5f9);
-  border: 1px solid color-mix(in srgb, var(--type-accent) 26%, transparent);
-  border-radius: 3px;
-  color: var(--text, #1e293b);
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10px;
-  padding: 1px 5px;
-}
+
 .ontology-node__chip {
-  background: var(--surface-2, #f1f5f9);
-  border-radius: 3px;
+  background: var(--surface-sunk);
+  border-radius: var(--r-sm);
   padding: 1px 5px;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
 }
 .ontology-node__fields {
   list-style: none;
@@ -4573,171 +3557,165 @@
   justify-content: space-between;
   gap: 8px;
   padding: 2px 10px;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   line-height: 18px;
   height: var(--atlas-row-height);
   box-sizing: border-box;
 }
-.ontology-node__field--relation {
-  background: color-mix(in srgb, var(--type-accent) 8%, transparent);
+.ontology-node__field--relation .ontology-node__field-type {
+  color: var(--link);
 }
-.ontology-node__field--empty {
-  color: var(--text-muted, #94a3b8);
-  font-style: italic;
-  font-family: inherit;
-}
+
 .ontology-node__field-name {
-  color: var(--text, #1e293b);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .ontology-node__field-name.is-required {
-  color: var(--type-accent);
   font-weight: 600;
 }
 .ontology-node__field-type {
-  color: var(--text-muted, #64748b);
-  font-size: 10px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 .ontology-node__handle {
   opacity: 0 !important;
 }
 
-/* === Type Detail === */
+/* === Type Detail ===
+   One flat page on the shared tokens: hairline sections, label-style heads,
+   mono counts, teal links. The type color marks dots only; text stays ink. */
 
 .ontology-type-detail {
   width: min(100%, 1100px);
   margin: 0 auto;
-  padding: var(--sp-6, 24px);
+  padding: var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* The tab panel keeps the page's section rhythm. */
+.ontology-type-detail__tabpanel {
   display: flex;
   flex-direction: column;
   gap: var(--sp-5, 20px);
 }
 
 .ontology-type-detail__hero {
-  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3, 12px);
-  padding: var(--sp-5, 20px) var(--sp-5, 20px) var(--sp-5, 20px) var(--sp-6, 24px);
-  border: 1px solid var(--border, #e5e5e5);
-  border-left: 6px solid var(--type-accent, var(--accent, #4338ca));
-  border-radius: 10px;
-  background:
-    linear-gradient(
-      120deg,
-      color-mix(in srgb, var(--type-accent, var(--accent, #4338ca)) 10%, transparent) 0%,
-      transparent 60%
-    ),
-    var(--surface, #fff);
-  overflow: hidden;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
 }
 
 .ontology-type-detail__hero-body {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2, 8px);
+  gap: var(--sp-2);
 }
 
 .ontology-type-detail__hero-title {
   display: flex;
   align-items: center;
-  gap: var(--sp-3, 12px);
+  gap: var(--sp-3);
   flex-wrap: wrap;
 }
+
 .ontology-type-detail__hero-title h1 {
   margin: 0;
-  font-family: var(--font-display, inherit);
-  font-size: 1.75rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--type-accent, var(--text, #222));
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.18;
+  color: var(--text);
 }
 
 .ontology-type-detail__accent-dot {
-  width: 14px;
-  height: 14px;
+  flex: none;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: var(--type-accent, var(--accent, #4338ca));
-  box-shadow: 0 0 0 3px
-    color-mix(in srgb, var(--type-accent, var(--accent, #4338ca)) 20%, transparent);
+  background: var(--type-accent, var(--type-8));
 }
 
 .ontology-type-detail__role-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--type-accent, var(--accent, #4338ca)) 14%, transparent);
-  color: var(--type-accent, var(--accent, #4338ca));
-  font-size: var(--fs-xs, 0.75rem);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .ontology-type-detail__tagline {
   margin: 0;
-  color: var(--text-muted, #555);
-  font-size: var(--fs-md, 0.95rem);
+  color: var(--text-muted);
+  font-size: var(--fs-md);
   max-width: 72ch;
 }
 
 .ontology-type-detail__back {
-  all: unset;
   align-self: flex-start;
-  cursor: pointer;
-  font-size: var(--fs-sm, 0.875rem);
-  color: var(--text-muted, #666);
   padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
 }
+
 .ontology-type-detail__back:hover {
-  color: var(--type-accent, var(--accent, #4338ca));
+  color: var(--text);
 }
 
 .ontology-type-detail__error {
-  color: var(--accent-danger, #b00020);
+  color: var(--accent-ink);
 }
-.ontology-type-detail__loading {
-  color: var(--text-muted, #666);
-}
+
+.ontology-type-detail__loading,
 .ontology-type-detail__empty {
-  color: var(--text-muted, #666);
-  font-size: var(--fs-sm, 0.875rem);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .ontology-type-detail__stats {
   display: flex;
-  gap: var(--sp-5, 20px);
+  gap: var(--sp-6);
   flex-wrap: wrap;
   margin: 0;
-  padding: var(--sp-3, 12px) var(--sp-4, 16px);
-  border: 1px solid var(--border, #e5e5e5);
-  border-radius: 8px;
-  background: var(--surface, #fff);
 }
+
 .ontology-type-detail__stats > div {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
+
 .ontology-type-detail__stats dt {
-  font-size: var(--fs-xs, 0.75rem);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted, #666);
+  font: var(--label-font);
+  color: var(--label-color);
 }
+
 .ontology-type-detail__stats dd {
   margin: 0;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
+
 .ontology-type-detail__stat--warn dd {
-  color: var(--accent-warning, #b26b00);
+  color: var(--warning-ink);
 }
+
 .ontology-type-detail__stat--wide {
   flex-basis: 100%;
 }
@@ -4745,80 +3723,71 @@
 .ontology-type-detail__chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 
-.ontology-type-detail__chip {
+.ontology-type-detail__chip,
+.ontology-type-detail__chip--interactive {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--surface-2, #f3f3f7);
-  border: 1px solid var(--border, #e5e5e5);
-  color: var(--text, #333);
-  font-size: var(--fs-xs, 0.75rem);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-xs);
   font-weight: 500;
 }
+
 .ontology-type-detail__chip--interactive {
-  all: unset;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--surface-2, #f3f3f7);
-  border: 1px solid var(--border, #e5e5e5);
-  color: var(--text, #333);
-  font-size: var(--fs-xs, 0.75rem);
-  font-weight: 500;
   cursor: pointer;
   transition:
-    border-color 120ms,
-    background 120ms;
+    border-color 120ms var(--ease),
+    background 120ms var(--ease);
 }
-.ontology-type-detail__chip--interactive:hover,
-.ontology-type-detail__chip--interactive:focus-visible {
-  border-color: var(--type-accent, var(--accent, #4338ca));
-  color: var(--type-accent, var(--accent, #4338ca));
-  outline: none;
+
+.ontology-type-detail__chip--interactive:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-tint);
 }
 
 .ontology-type-detail__section {
-  padding: var(--sp-4, 16px);
-  border: 1px solid var(--border, #e5e5e5);
-  border-left: 3px solid var(--type-accent, var(--accent, #4338ca));
-  border-radius: 8px;
-  background: var(--surface, #fff);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3, 12px);
+  gap: var(--sp-3);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border-faint);
 }
+
 .ontology-type-detail__section h2 {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: var(--sp-3, 12px);
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text);
 }
+
 .ontology-type-detail__section h3 {
-  margin: 0 0 6px;
-  font-size: var(--fs-xs, 0.75rem);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted, #666);
+  margin: 0 0 var(--sp-2);
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .ontology-type-detail__see-all {
-  font-size: var(--fs-sm, 0.875rem);
+  color: var(--link);
+  font-size: var(--fs-sm);
   font-weight: 500;
-  color: var(--type-accent, var(--accent, #4338ca));
-  text-decoration: none;
-}
-.ontology-type-detail__see-all:hover {
   text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+.ontology-type-detail__see-all:hover {
+  text-decoration-color: currentcolor;
 }
 
 /* Implementors grid */
@@ -4828,128 +3797,143 @@
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--sp-3, 12px);
+  gap: var(--sp-3);
 }
+
 .ontology-type-detail__impl-card {
-  all: unset;
-  cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: var(--sp-3, 12px);
-  border: 1px solid var(--border, #e5e5e5);
-  border-left: 4px solid var(--impl-accent, var(--accent, #4338ca));
-  border-radius: 8px;
-  background: var(--surface, #fff);
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   transition:
-    border-color 120ms,
-    box-shadow 120ms,
-    transform 120ms;
+    border-color 120ms var(--ease),
+    background 120ms var(--ease);
 }
-.ontology-type-detail__impl-card:hover,
-.ontology-type-detail__impl-card:focus-visible {
-  border-color: var(--impl-accent, var(--accent, #4338ca));
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  transform: translateY(-1px);
-  outline: none;
+
+.ontology-type-detail__impl-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-alt);
 }
+
 .ontology-type-detail__impl-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--sp-2, 8px);
+  gap: var(--sp-2);
 }
+
 .ontology-type-detail__impl-name {
   font-weight: 700;
-  color: var(--impl-accent, var(--text, #222));
+  color: var(--text);
 }
+
+.ontology-type-detail__impl-name::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--sp-2);
+  border-radius: 50%;
+  background: var(--impl-accent, var(--type-8));
+}
+
 .ontology-type-detail__impl-count {
-  color: var(--text-muted, #666);
-  font-size: var(--fs-sm, 0.875rem);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
+
 .ontology-type-detail__impl-desc {
   margin: 0;
-  font-size: var(--fs-sm, 0.875rem);
-  color: var(--text-muted, #555);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
 }
 
 /* Matchers */
 .ontology-type-detail__matchers-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--sp-4, 16px);
+  gap: var(--sp-4);
 }
+
 .ontology-type-detail__matchers ul {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
 }
+
 .ontology-type-detail__matchers code {
-  background: var(--surface-2, #f3f3f7);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: var(--fs-xs, 0.75rem);
+  padding: 1px 5px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  font-size: var(--fs-xs);
 }
 
 /* Tables */
 .ontology-type-detail__table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--fs-sm, 0.875rem);
+  font-size: var(--fs-sm);
 }
+
 .ontology-type-detail__table th,
 .ontology-type-detail__table td {
+  padding: var(--sp-2) var(--sp-4) var(--sp-2) 0;
+  border-bottom: 1px solid var(--border-faint);
   text-align: left;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border, #e5e5e5);
   vertical-align: top;
 }
+
 .ontology-type-detail__table tbody tr:last-child td {
   border-bottom: none;
 }
+
 .ontology-type-detail__table th {
-  font-weight: 600;
-  font-size: var(--fs-xs, 0.75rem);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted, #666);
-  background: var(--surface-2, #f7f7fb);
+  border-bottom-color: var(--border);
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
-/* Target chip (for relation / inbound cells) */
+/* Target link (relation and inbound cells): a teal note-style link with the
+   target type's dot. */
 .ontology-type-detail__target-chip {
-  all: unset;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--target-accent, var(--accent, #4338ca)) 10%, transparent);
-  border: 1px solid
-    color-mix(in srgb, var(--target-accent, var(--accent, #4338ca)) 40%, transparent);
-  color: var(--target-accent, var(--accent, #4338ca));
-  font-size: var(--fs-xs, 0.8rem);
+  gap: var(--sp-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--link);
+  font: inherit;
   font-weight: 600;
-  transition:
-    background 120ms,
-    border-color 120ms;
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
-.ontology-type-detail__target-chip:hover,
-.ontology-type-detail__target-chip:focus-visible {
-  background: color-mix(in srgb, var(--target-accent, var(--accent, #4338ca)) 20%, transparent);
-  border-color: var(--target-accent, var(--accent, #4338ca));
-  outline: none;
+
+.ontology-type-detail__target-chip:hover {
+  text-decoration-color: currentcolor;
 }
+
 .ontology-type-detail__target-dot {
+  flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--target-accent, var(--accent, #4338ca));
+  background: var(--target-accent, var(--type-8));
 }
 
 /* Companion docs */
@@ -4959,35 +3943,33 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
+
 .ontology-type-detail__doc-link {
   display: flex;
-  gap: var(--sp-3, 12px);
+  gap: var(--sp-3);
   align-items: baseline;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border-faint);
+  color: var(--text);
   text-decoration: none;
-  color: var(--text, #222);
-  background: var(--surface-2, #f7f7fb);
-  transition: background 120ms;
 }
-.ontology-type-detail__doc-link:hover {
-  background: color-mix(
-    in srgb,
-    var(--type-accent, var(--accent, #4338ca)) 10%,
-    var(--surface-2, #f7f7fb)
-  );
-}
+
 .ontology-type-detail__doc-link code {
-  background: transparent;
   padding: 0;
-  color: var(--type-accent, var(--accent, #4338ca));
+  background: transparent;
+  color: var(--link);
   font-weight: 600;
 }
+
+.ontology-type-detail__doc-link:hover code {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+}
+
 .ontology-type-detail__doc-purpose {
-  color: var(--text-muted, #666);
-  font-size: var(--fs-sm, 0.875rem);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 /* Example cards */
@@ -4997,141 +3979,143 @@
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--sp-3, 12px);
+  gap: var(--sp-3);
 }
+
 .ontology-type-detail__example-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: var(--sp-3, 12px);
-  border: 1px solid var(--border, #e5e5e5);
-  border-radius: 8px;
-  background: var(--surface, #fff);
-  transition:
-    border-color 120ms,
-    box-shadow 120ms;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  transition: border-color 120ms var(--ease);
 }
+
 .ontology-type-detail__example-card:hover {
-  border-color: var(--type-accent, var(--accent, #4338ca));
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  border-color: var(--border-strong);
 }
+
 .ontology-type-detail__example-title {
   font-weight: 700;
   text-decoration: none;
-  color: var(--text, #222);
+  color: var(--text);
 }
+
 .ontology-type-detail__example-title:hover {
-  color: var(--type-accent, var(--accent, #4338ca));
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
 }
+
 .ontology-type-detail__example-meta {
-  font-size: var(--fs-xs, 0.75rem);
-  color: var(--text-muted, #888);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
   word-break: break-all;
 }
+
 .ontology-type-detail__example-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--sp-1);
   align-items: center;
   margin-top: auto;
 }
+
 .ontology-type-detail__tag-chip {
   display: inline-flex;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--surface-2, #f3f3f7);
-  color: var(--text-muted, #555);
-  font-size: 0.7rem;
-}
-.ontology-type-detail__example-stat {
-  font-size: 0.7rem;
-  color: var(--text-muted, #666);
-  font-variant-numeric: tabular-nums;
-}
-.ontology-type-detail__example-stat--warn {
-  color: var(--accent-warning, #b26b00);
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
 }
 
-/* ---- Tabs for type detail view ---- */
+.ontology-type-detail__example-stat {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.ontology-type-detail__example-stat--warn {
+  color: var(--warning-ink);
+}
+
+/* ---- Tabs for type detail view: neutral underline, like the context rail ---- */
 
 .ontology-type-detail__tabs {
   display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--border, #e5e5e5);
-  padding: 0;
+  gap: var(--sp-1);
   margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .ontology-type-detail__tab {
   appearance: none;
-  border: 1px solid transparent;
-  border-bottom: none;
-  background: transparent;
-  color: var(--text-muted, #666);
-  font-family: inherit;
-  font-size: var(--fs-sm, 0.875rem);
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 8px 8px 0 0;
-  cursor: pointer;
   margin-bottom: -1px;
+  padding: var(--sp-2) var(--sp-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
   transition:
-    color 120ms ease,
-    background 120ms ease,
-    border-color 120ms ease;
+    color 120ms var(--ease),
+    background 120ms var(--ease);
 }
 
 .ontology-type-detail__tab:hover {
-  color: var(--text, #222);
-  background: color-mix(in srgb, var(--type-accent, var(--accent, #4338ca)) 6%, transparent);
+  color: var(--text);
+  background: var(--bg-tint);
 }
 
 .ontology-type-detail__tab--active,
 .ontology-type-detail__tab[aria-selected="true"] {
-  color: var(--type-accent, var(--accent, #4338ca));
-  background: var(--surface, #fff);
-  border-color: var(--border, #e5e5e5);
-  border-bottom-color: var(--surface, #fff);
-}
-
-.ontology-type-detail__tab:focus-visible {
-  outline: 2px solid var(--type-accent, var(--accent, #4338ca));
-  outline-offset: 2px;
+  color: var(--text);
+  border-bottom-color: var(--text);
 }
 
 /* ---- Authoring guide rendered markdown ---- */
 
 .ontology-type-detail__markdown {
-  font-size: var(--fs-sm, 0.925rem);
+  font-size: var(--fs-base);
   line-height: 1.55;
-  color: var(--text, #222);
+  color: var(--text);
+  max-width: 80ch;
 }
 
 .ontology-type-detail__markdown h1,
 .ontology-type-detail__markdown h2,
 .ontology-type-detail__markdown h3,
 .ontology-type-detail__markdown h4 {
-  font-family: var(--font-display, inherit);
-  font-weight: 800;
-  letter-spacing: -0.01em;
   margin-top: 1.4em;
   margin-bottom: 0.4em;
-  color: var(--text, #222);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
 }
 
 .ontology-type-detail__markdown h1 {
-  font-size: 1.4rem;
-  color: var(--type-accent, var(--accent, #4338ca));
+  font-size: var(--fs-xl);
 }
 
 .ontology-type-detail__markdown h2 {
-  font-size: 1.15rem;
-  border-bottom: 1px solid var(--border, #e5e5e5);
-  padding-bottom: 4px;
+  font-size: var(--fs-lg);
+  border-bottom: 1px solid var(--border-faint);
+  padding-bottom: var(--sp-1);
 }
 
-.ontology-type-detail__markdown h3 {
-  font-size: 1rem;
+.ontology-type-detail__markdown h3,
+.ontology-type-detail__markdown h4 {
+  font-size: var(--fs-md);
 }
 
 .ontology-type-detail__markdown p,
@@ -5150,50 +4134,49 @@
 }
 
 .ontology-type-detail__markdown code {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.875em;
-  background: var(--surface-2, #f3f3f7);
-  border-radius: 4px;
   padding: 1px 5px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
 }
 
 .ontology-type-detail__markdown pre {
-  background: var(--surface-2, #f7f7f9);
-  border: 1px solid var(--border, #e5e5e5);
-  border-radius: 8px;
-  padding: 12px 14px;
   overflow-x: auto;
-  font-size: 0.85em;
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunk);
+  font-size: var(--fs-sm);
 }
 
 .ontology-type-detail__markdown pre code {
-  background: transparent;
   padding: 0;
+  background: transparent;
 }
 
 .ontology-type-detail__markdown blockquote {
-  border-left: 3px solid var(--type-accent, var(--accent, #4338ca));
-  background: color-mix(in srgb, var(--type-accent, var(--accent, #4338ca)) 5%, transparent);
-  padding: 6px 12px;
   margin: 0.6em 0;
-  color: var(--text-muted, #555);
+  padding: 0.1em var(--sp-5);
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-muted);
 }
 
 .ontology-type-detail__markdown table {
-  border-collapse: collapse;
   margin: 0.5em 0;
-  font-size: 0.9em;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
 }
 
 .ontology-type-detail__markdown th,
 .ontology-type-detail__markdown td {
-  border: 1px solid var(--border, #e5e5e5);
-  padding: 4px 8px;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--border);
   text-align: left;
 }
 
 .ontology-type-detail__markdown th {
-  background: var(--surface-2, #f3f3f7);
+  background: var(--surface-sunk);
 }
 
 /* ---- Visual schema panel ---- */
@@ -5201,101 +4184,100 @@
 .ontology-type-detail__schema {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: var(--sp-6);
 }
 
 .ontology-type-detail__schema h3 {
-  margin: 0 0 10px;
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted, #6b6b77);
+  margin: 0 0 var(--sp-3);
+  font: var(--label-font);
+  color: var(--label-color);
+}
+
+.schema-type-header,
+.schema-meta-grid,
+.schema-field,
+.schema-enum {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
 }
 
 .schema-type-header {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px 18px;
-  background: var(--surface-1, #fafafc);
-  border: 1px solid var(--border, #e5e5e5);
-  border-radius: 12px;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
 }
 
 .schema-type-signature {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 1rem;
+  gap: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
 }
 
 .schema-type-kw {
-  color: var(--accent, #7c3aed);
+  color: var(--syntax-keyword);
   font-weight: 600;
 }
 
 .schema-type-name {
-  font-size: 1.1rem;
+  font-size: var(--fs-xl);
   font-weight: 700;
-  color: var(--text, #222);
+  color: var(--text);
 }
 
 .schema-type-implements {
-  color: var(--text, #333);
+  color: var(--text);
 }
 
 .schema-description {
   margin: 0;
-  color: var(--text-muted, #555);
-  font-size: 0.92rem;
+  color: var(--text-muted);
+  font-size: var(--fs-md);
   line-height: 1.5;
 }
 
 .schema-chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 
 .schema-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  font-size: 0.75rem;
-  background: var(--surface-2, #f3f3f7);
-  border: 1px solid var(--border, #e5e5e5);
-  border-radius: 999px;
-  color: var(--text-muted, #4a4a55);
+  gap: var(--sp-2);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .schema-chip__label {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.68rem;
-  color: var(--text-muted, #6b6b77);
 }
 
 .schema-chip__value {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  background: transparent;
   padding: 0;
-  font-size: 0.78rem;
-  color: var(--text, #222);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
 }
 
 .schema-meta-grid {
   display: grid;
   grid-template-columns: minmax(120px, auto) 1fr;
-  gap: 10px 16px;
+  gap: var(--sp-4) var(--sp-5);
   margin: 0;
-  padding: 14px 18px;
-  background: var(--surface-1, #fafafc);
-  border: 1px solid var(--border, #e5e5e5);
-  border-radius: 12px;
+  padding: var(--sp-5);
 }
 
 .schema-meta-row {
@@ -5303,141 +4285,133 @@
 }
 
 .schema-meta-row > dt {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted, #6b6b77);
   align-self: start;
   padding-top: 2px;
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .schema-meta-row > dd {
   margin: 0;
-  font-size: 0.9rem;
-  color: var(--text, #222);
+  color: var(--text);
+  font-size: var(--fs-base);
 }
 
 .schema-code-list,
 .schema-companion-list {
   list-style: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
 }
 
 .schema-code-list code {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  background: var(--surface-2, #f3f3f7);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.82rem;
+  padding: 1px 5px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
 }
 
 .schema-companion-purpose {
-  color: var(--text-muted, #6b6b77);
-  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
 }
 
 .schema-color-swatch {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-3);
 }
 
 .schema-color-dot {
   display: inline-block;
   width: 14px;
   height: 14px;
-  border-radius: 4px;
-  border: 1px solid var(--border, #d5d5db);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
 }
 
 .schema-directives {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-3);
 }
 
 .schema-directive-list,
 .schema-field__directives {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 
 .schema-directive {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 3px 9px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.78rem;
-  background: color-mix(in srgb, var(--type-accent, #7c3aed) 10%, var(--surface-1, #fff));
-  color: var(--text, #222);
-  border: 1px solid color-mix(in srgb, var(--type-accent, #7c3aed) 25%, var(--border, #e5e5e5));
-  border-radius: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
 }
 
 .schema-directive__name {
-  color: var(--accent, #7c3aed);
+  color: var(--syntax-keyword);
   font-weight: 600;
 }
 
-.schema-directive__args {
-  color: var(--text-muted, #4a4a55);
-}
-
+.schema-directive__args,
 .schema-directive__arg-key {
-  color: var(--text-muted, #6b6b77);
+  color: var(--text-muted);
 }
 
 .schema-directive__arg-val {
-  background: transparent;
   padding: 0;
-  color: var(--text, #333);
+  background: transparent;
+  color: var(--text);
 }
 
 .schema-guidance {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
-  background: var(--surface-1, #fafafc);
-  border-left: 3px solid var(--type-accent, #7c3aed);
-  border-radius: 6px;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
 }
 
 .schema-guidance__summary {
   margin: 0;
-  font-size: 0.93rem;
+  color: var(--text);
+  font-size: var(--fs-md);
   line-height: 1.55;
-  color: var(--text, #222);
 }
 
 .schema-guidance__section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
 }
 
 .schema-guidance__label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted, #6b6b77);
-  font-weight: 600;
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .schema-guidance__body {
-  font-size: 0.88rem;
+  color: var(--text);
+  font-size: var(--fs-base);
   line-height: 1.55;
-  color: var(--text, #333);
 }
 
 .schema-guidance__body p {
-  margin: 0 0 6px;
+  margin: 0 0 var(--sp-2);
 }
 
 .schema-guidance__body p:last-child {
@@ -5445,10 +4419,10 @@
 }
 
 .schema-guidance__body code {
-  background: var(--surface-2, #f3f3f7);
   padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 0.82em;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  font-size: 0.88em;
 }
 
 .schema-fields-block,
@@ -5459,87 +4433,69 @@
 
 .schema-field-list {
   list-style: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--sp-3);
 }
 
 .schema-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  background: var(--surface-1, #fafafc);
-  border: 1px solid var(--border, #e5e5e5);
-  border-radius: 10px;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
 }
 
 .schema-field__head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-4);
 }
 
 .schema-field__sig {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.92rem;
-  background: transparent;
   padding: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
 }
 
 .schema-field__name {
   font-weight: 700;
-  color: var(--text, #222);
+  color: var(--text);
 }
 
 .schema-field__colon {
-  color: var(--text-muted, #6b6b77);
+  color: var(--text-muted);
 }
 
 .schema-field__type {
-  color: var(--accent, #7c3aed);
+  color: var(--syntax-type);
 }
 
+/* Field kinds are neutral chips; relation kinds read in the teal link ink. */
 .schema-field__kind {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--surface-2, #f3f3f7);
-  color: var(--text-muted, #6b6b77);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 
 .schema-field__kind--link,
-.schema-field__kind--reverse {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
+.schema-field__kind--reverse,
 .schema-field__kind--neighbor {
-  background: #ede9fe;
-  color: #5b21b6;
-}
-
-.schema-field__kind--section {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.schema-field__kind--scalar,
-.schema-field__kind--field {
-  background: #e0f2fe;
-  color: #075985;
+  border-color: var(--link-line);
+  color: var(--link);
 }
 
 .schema-field__desc {
   margin: 0;
-  color: var(--text-muted, #555);
-  font-size: 0.88rem;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
   line-height: 1.5;
 }
 
@@ -5547,97 +4503,88 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
-  padding-top: 4px;
+  gap: var(--sp-3);
+  padding-top: var(--sp-1);
 }
 
 .schema-field__enum-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted, #6b6b77);
-  font-weight: 600;
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .schema-field__enum-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--sp-1);
 }
 
 .schema-enum-value-chip {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  background: var(--surface-2, #f3f3f7);
-  border: 1px solid var(--border, #e5e5e5);
-  padding: 1px 7px;
-  font-size: 0.78rem;
-  border-radius: 4px;
-  color: var(--text, #333);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
 }
 
 .schema-enum-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-4);
 }
 
 .schema-enum {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
-  background: var(--surface-1, #fafafc);
-  border: 1px solid var(--border, #e5e5e5);
-  border-radius: 10px;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
 }
 
 .schema-enum__head {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  gap: var(--sp-3);
+  font-family: var(--font-mono);
 }
 
 .schema-enum__name {
+  color: var(--text);
+  font-size: var(--fs-md);
   font-weight: 700;
-  font-size: 1rem;
-  color: var(--text, #222);
 }
 
 .schema-enum-values {
   list-style: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .schema-enum-value {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
-  background: var(--surface-2, #f3f3f7);
-  border-radius: 6px;
+  gap: var(--sp-1);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--border-faint);
 }
 
 .schema-enum-value__name {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.86rem;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
   font-weight: 700;
-  color: var(--text, #222);
 }
 
 .schema-enum-value__summary {
-  font-size: 0.85rem;
-  color: var(--text-muted, #555);
+  color: var(--text-muted);
+  font-size: var(--fs-base);
   line-height: 1.45;
 }
 
 .schema-enum-value__guidance .schema-guidance {
-  background: var(--surface-1, #fafafc);
-  padding: 8px 10px;
+  padding: var(--sp-3) var(--sp-4);
 }
 
 .ontology-node--overview .ontology-node__description {
@@ -5655,7 +4602,8 @@
   display: none;
 }
 .atlas-node--focused .ontology-node {
-  border-color: var(--accent);
+  border-color: var(--text);
+  box-shadow: 0 0 0 1px var(--text);
 }
 @media (prefers-reduced-motion: reduce) {
   .ontology-edit-bar,
@@ -5700,7 +4648,7 @@
 .problems-workspace__header h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: var(--fs-2xl);
   line-height: 1.2;
 }
 
@@ -5759,12 +4707,12 @@
   border-radius: 50%;
   color: var(--text-muted);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .validation-status-strip--success .validation-status-strip__mark {
   border-color: var(--success);
-  color: var(--ao-teal-ink);
+  color: var(--success-ink);
 }
 
 .validation-status-strip--warning .validation-status-strip__mark {
@@ -5878,7 +4826,6 @@
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 10px;
-  text-transform: uppercase;
 }
 
 .validation-disclosure__outcome--failed,
@@ -5937,7 +4884,7 @@
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--accent-ink);
-  font: 650 var(--fs-sm) var(--font-sans);
+  font: 600 var(--fs-sm) var(--font-sans);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -5999,7 +4946,7 @@
 }
 
 .problems-kinds__row:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -6018,7 +4965,7 @@
 }
 
 .problems-kinds__label {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .problems-kinds__row.is-variant .problems-kinds__label,
@@ -6114,8 +5061,8 @@
 }
 
 .problems-resolve > button:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  border-color: var(--border-strong);
+  background: var(--bg-tint);
 }
 
 .problems-resolve > button:disabled {
@@ -6263,7 +5210,7 @@
 }
 
 .problems-row:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -6318,7 +5265,7 @@
   flex-shrink: 0;
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -6392,7 +5339,7 @@
 }
 
 .ontology-pane .is-issue-target {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -6439,8 +5386,8 @@
 }
 
 .problem-detail__path:hover {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
+  border-color: var(--border-strong);
+  background: var(--bg-tint);
 }
 
 .problem-detail__path code {
@@ -6454,9 +5401,9 @@
 
 .problem-detail__path span {
   flex-shrink: 0;
-  color: var(--accent-ink);
+  color: var(--link);
   font-size: var(--fs-sm);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .problem-detail__facts {
@@ -6610,22 +5557,24 @@
 .problems-action-bar__stage {
   height: 26px;
   padding: 0 12px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-fill);
   border-radius: var(--r-sm);
-  background: var(--accent);
-  color: var(--ao-white);
+  background: var(--accent-fill);
+  color: var(--on-accent);
   font: inherit;
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .problems-action-bar__stage:hover:not(:disabled) {
-  border-color: var(--accent-hover);
-  background: var(--accent-hover);
+  border-color: var(--accent-fill-hover);
+  background: var(--accent-fill-hover);
 }
 
 .problems-action-bar__stage:disabled {
-  opacity: 0.6;
+  border-color: var(--border);
+  background: var(--surface-sunk);
+  color: var(--text-faint);
   cursor: default;
 }
 .problems-group + .problems-row {
@@ -6672,7 +5621,7 @@ button.validation-issue-badge:hover {
 }
 
 .validation-issue-badge--failed {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 @media (max-width: 880px) {
@@ -6758,8 +5707,8 @@ button.validation-issue-badge:hover {
 
 .repair-review__header h3 {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 22px;
+  font-size: var(--fs-xl);
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -6775,8 +5724,8 @@ button.validation-issue-badge:hover {
 
 .repair-review__success {
   border-color: color-mix(in srgb, var(--success) 50%, var(--border));
-  background: var(--ao-teal-soft);
-  color: var(--ao-teal-ink);
+  background: var(--success-soft);
+  color: var(--success-ink);
 }
 
 .repair-review__meta {
@@ -6822,8 +5771,6 @@ button.validation-issue-badge:hover {
   color: var(--text-faint);
   font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .repair-review__move {
@@ -6849,10 +5796,8 @@ button.validation-issue-badge:hover {
 .repair-review__confirmations legend {
   padding: 0;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .repair-review__confirmations label {
@@ -6867,7 +5812,7 @@ button.validation-issue-badge:hover {
 
 .repair-review__confirmations label:has(input:checked) {
   border-color: color-mix(in srgb, var(--success) 50%, var(--border));
-  background: var(--ao-teal-soft);
+  background: var(--success-soft);
 }
 
 .repair-review__confirmations small {
@@ -6924,14 +5869,20 @@ button.validation-issue-badge:hover {
 }
 
 .repair-review__button--primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--ao-white);
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent);
 }
 
 .repair-review__button--primary:hover:not(:disabled) {
-  border-color: var(--accent-hover);
-  background: var(--accent-hover);
+  border-color: var(--accent-fill-hover);
+  background: var(--accent-fill-hover);
+}
+
+.repair-review__button--primary:disabled {
+  border-color: var(--border);
+  background: var(--surface-sunk);
+  color: var(--text-faint);
 }
 
 /* Shared unified diff (repair review, Changes). */
@@ -6954,8 +5905,8 @@ button.validation-issue-badge:hover {
 }
 
 .unified-diff__line.is-add {
-  background: var(--ao-teal-soft);
-  color: var(--ao-teal-ink);
+  background: var(--success-soft);
+  color: var(--success-ink);
 }
 
 .unified-diff__line.is-remove {

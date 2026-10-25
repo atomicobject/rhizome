@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { isContentNode, type NodeRef } from "../../api/types";
 import { publicWorkspaceRef } from "../../api/client";
-import { formatTypeName } from "../../lib/typeNames";
 import { useNotePreviewTrigger } from "../notePreview/NoteLinkPreview";
+import { useTypeLabel } from "../typeLabels";
 import { extractChildIdentity, structuralNodeFromWorkspace } from "./childIdentity";
 import type { BodyRendererProps } from "./registry";
 
@@ -83,6 +83,8 @@ function CollectionItem({
   row: CollectionRow;
   context: BodyRendererProps["context"];
 }) {
+  const typeLabel = useTypeLabel();
+
   const previewTrigger = useNotePreviewTrigger<HTMLButtonElement>({
     target: row.refKey,
     from: context.workspace.node.notePath,
@@ -107,7 +109,9 @@ function CollectionItem({
       >
         <div className="body-collection__row-head">
           {row.typeName && (
-            <span className="body-collection__type">{formatTypeName(row.typeName)}</span>
+            <span className="body-collection__type" title={row.typeName}>
+              {typeLabel(row.typeName)}
+            </span>
           )}
           {row.id && <span className="body-collection__id">{row.id}</span>}
           <span className="body-collection__title">{row.title}</span>

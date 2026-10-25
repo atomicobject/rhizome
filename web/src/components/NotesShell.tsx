@@ -55,13 +55,30 @@ function navigate(url: string, replace = false) {
   notifyLocationChange();
 }
 
+const COLLECTION_SELECTIONS = {
+  issues: { kind: "issues" },
+  modified: { kind: "modified" },
+} as const satisfies Record<CollectionTab["collection"], NotesLocation["selection"]>;
+
+function collectionLocation(tab: CollectionTab): NotesLocation {
+  return {
+    selection: COLLECTION_SELECTIONS[tab.collection],
+    note: null,
+    query: null,
+    fragment: null,
+    view: null,
+    issueScope: tab.collection === "issues" ? tab.issueScope : null,
+    issueKey: tab.collection === "issues" ? tab.issueKey : null,
+  };
+}
+
 // F6 order: tab row, left rail, the active panel, context rail.
 const FOCUS_REGIONS =
   ".notes-shell__tabs-row, .notes-left-rail, .notes-shell__panel.is-active, .notes-right-rail";
 
 export function NotesShell({ active = true }: { active?: boolean }) {
   const queryClient = useQueryClient();
-  const shellRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLElement>(null);
   useFocusRegions(shellRef, FOCUS_REGIONS, active);
   const browserLocation = useLocationSnapshot();
   const [retainedBrowserLocation, setRetainedBrowserLocation] = useState(browserLocation);
@@ -218,22 +235,24 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   );
 
   // Open panes and staged reads refresh themselves when the session changes.
+  // Callbacks depend on the controller's stable actions, not the whole controller,
+  // so retained tabs keep equal props while unrelated session state changes.
+  const { startEditing, stageOps: stageSessionOps, replaceOps: replaceSessionOps } = editSession;
+
   const stageOps = useCallback(
     async (ops: OntologyEditOp[]) => {
-      editSession.startEditing();
-      await editSession.stageOps(ops);
+      startEditing();
+      await stageSessionOps(ops);
     },
-    [editSession],
+    [stageSessionOps, startEditing],
   );
 
   const replaceOps = useCallback(
     async (ops: OntologyEditOp[]) => {
-      await editSession.replaceOps(ops);
+      await replaceSessionOps(ops);
     },
-    [editSession],
+    [replaceSessionOps],
   );
-
-  const startEditing = editSession.startEditing;
 
   const registerTabContext = useCallback((tabId: string, context: NoteTabContext | null) => {
     setContexts((current) => {
@@ -492,30 +511,64 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     return () => window.removeEventListener("rhizome:close-tab", onCloseTab);
   }, [active, closeTab, tabs.activeId, tabs.activeTab.kind]);
 
-  const locationForCollection = (tab: CollectionTab): NotesLocation => {
-    if (tabs.activeId === tab.id) return location;
+  // Inactive collection tabs keep one location object per tab model, so their
+  // memoized panels see equal props until that tab changes.
+  const inactiveCollectionLocations = useMemo(() => {
+    const locations = new Map<string, NotesLocation>();
 
-    return {
-      selection: { kind: tab.collection },
+    for (const tab of tabs.tabs) {
+      if (tab.kind === "collection") locations.set(tab.id, collectionLocation(tab));
+    }
+
+    return locations;
+  }, [tabs.tabs]);
+
+  const locationForCollection = (tab: CollectionTab): NotesLocation =>
+    tabs.activeId === tab.id
+      ? location
+      : (inactiveCollectionLocations.get(tab.id) ?? collectionLocation(tab));
+
+  const homeSelection = tabs.homeLocation.selection;
+  const homePresentation = tabs.homeLocation.presentation;
+
+  const homeLocation = useMemo<NotesLocation>(
+    () => ({
+      selection: homeSelection,
       note: null,
       query: null,
       fragment: null,
       view: null,
-      issueScope: tab.collection === "issues" ? tab.issueScope : null,
-      issueKey: tab.collection === "issues" ? tab.issueKey : null,
-    };
-  };
+      presentation: homePresentation,
+    }),
+    [homePresentation, homeSelection],
+  );
 
-  const homeSelection = tabs.homeLocation.selection;
+  const homeSelectedType = useMemo(
+    () => selectionType(homeSelection, summaryQuery.data),
+    [homeSelection, summaryQuery.data],
+  );
 
-  const homeLocation: NotesLocation = {
-    selection: homeSelection,
-    note: null,
-    query: null,
-    fragment: null,
-    view: null,
-    presentation: tabs.homeLocation.presentation,
-  };
+  const viewEditSession = useMemo(
+    () => ({
+      session: editSession.session,
+      readLifecycle: editSession.readLifecycle,
+      vaultKey: editSession.vaultKey,
+      busy: editSession.busy,
+      unacknowledged: editSession.unacknowledged,
+    }),
+    [
+      editSession.busy,
+      editSession.readLifecycle,
+      editSession.session,
+      editSession.unacknowledged,
+      editSession.vaultKey,
+    ],
+  );
+
+  const homeEditSession = useMemo(
+    () => ({ ...viewEditSession, replaceOps }),
+    [replaceOps, viewEditSession],
+  );
 
   const renderHomeTab = (
     id: string,
@@ -529,14 +582,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
       selection={selection}
       selectedType={tabSelectedType}
       location={tabLocation}
-      editSession={{
-        session: editSession.session,
-        replaceOps,
-        readLifecycle: editSession.readLifecycle,
-        vaultKey: editSession.vaultKey,
-        busy: editSession.busy,
-        unacknowledged: editSession.unacknowledged,
-      }}
+      editSession={homeEditSession}
       onOpenNote={openTab}
       onOpenNode={openNode}
       onOpenView={openView}
@@ -551,7 +597,12 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   );
 
   return (
-    <div className="workspace workspace--ontology notes-shell" ref={shellRef}>
+    <main
+      className="workspace workspace--ontology notes-shell"
+      aria-label="Notes workspace"
+      ref={shellRef}
+    >
+      <h1 className="sr-only">Notes</h1>
       <div className="notes-shell__tabs-row">
         <NoteTabStrip
           tabs={tabs.tabs}
@@ -640,12 +691,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
               className={`notes-shell__panel${tabs.activeId === "home" ? " is-active" : ""}`}
               inert={tabs.activeId === "home" ? undefined : true}
             >
-              {renderHomeTab(
-                "home",
-                homeSelection,
-                selectionType(homeSelection, summaryQuery.data),
-                homeLocation,
-              )}
+              {renderHomeTab("home", homeSelection, homeSelectedType, homeLocation)}
             </section>
             {tabs.tabs.flatMap((tab) =>
               tab.kind === "collection"
@@ -660,7 +706,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                     >
                       {renderHomeTab(
                         tab.id,
-                        { kind: tab.collection },
+                        COLLECTION_SELECTIONS[tab.collection],
                         tab.collection === "issues" ? PSEUDO_TYPE_ISSUES : PSEUDO_TYPE_MODIFIED,
                         locationForCollection(tab),
                       )}
@@ -682,13 +728,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                       <ViewTab
                         tab={tab}
                         active={noteSurfacesActive && tabs.activeId === tab.id}
-                        editSession={{
-                          session: editSession.session,
-                          readLifecycle: editSession.readLifecycle,
-                          vaultKey: editSession.vaultKey,
-                          busy: editSession.busy,
-                          unacknowledged: editSession.unacknowledged,
-                        }}
+                        editSession={viewEditSession}
                         onOpenNote={openTab}
                         onOpenNode={openNode}
                         onOpenView={openView}
@@ -745,7 +785,6 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                             tab.path === activeNotePath ? activeValidationIssueCount : undefined
                           }
                           validationHealth={activeValidationHealth}
-                          onOpenIssues={() => selectIssues({ kind: "note", key: tab.path })}
                           onSelectIssues={selectIssues}
                           onSelectCollection={selectCollection}
                         />
@@ -770,6 +809,6 @@ export function NotesShell({ active = true }: { active?: boolean }) {
           </div>
         </RecordRailProvider>
       </div>
-    </div>
+    </main>
   );
 }

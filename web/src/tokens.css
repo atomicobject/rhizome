@@ -1,0 +1,278 @@
+/* Rhizome design tokens: the one source for the host app and the custom-view
+   kit (vite.kit.config.ts embeds this whole file in the kit theme). DESIGN.md
+   names the roles; components read semantic tokens, never raw hex. */
+
+:root {
+  /* ---- Atomic Object brand palette ---- */
+  --ao-red: #fd4f57;
+  --ao-red-600: #e63e46;
+  --ao-red-700: #c8313a;
+  --ao-red-soft: #ffeaec;
+  --ao-red-line: #fccfd2;
+  --ao-red-ink: #9c1d24;
+
+  --ao-black: #4c4845;
+  --ao-ink: #2a2724;
+  --ao-ink-2: #3a3734;
+  --ao-ink-3: #5c5853;
+
+  --ao-teal: #16cbc4;
+  --ao-teal-600: #11b5ae;
+  --ao-teal-soft: #d8f7f5;
+  --ao-teal-ink: #0b6a66;
+
+  --ao-blue: #3295bd;
+  --ao-purple: #a5488b;
+  --ao-gold: #dcad66;
+
+  --ao-gray-900: #2a2724;
+  --ao-gray-700: #4c4845;
+  --ao-gray-500: #595959;
+  --ao-gray-400: #8a8682;
+  --ao-gray-300: #c3c3c3;
+  --ao-gray-200: #e4e2dd;
+  --ao-gray-150: #ecebe6;
+  --ao-gray-100: #f2f1ec;
+  --ao-gray-50: #f7f7f7;
+  --ao-white: #ffffff;
+
+  /* ---- Semantic tokens ---- */
+  --bg: #f7f7f7;
+  --bg-tint: #f2f1ec;
+  --panel: #ffffff;
+  --surface: #ffffff;
+  --surface-alt: #fbfbfa;
+  --surface-sunk: #f4f3ef;
+  --border: #e4e2dd;
+  --border-strong: #c9c6bf;
+  --border-faint: #ecebe6;
+
+  --text: #2a2724;
+  --muted: #595959;
+  --text-muted: #595959;
+  --text-faint: #706c68;
+
+  --accent: #fd4f57;
+  --accent-hover: #e63e46;
+  --accent-active: #c8313a;
+  --accent-soft: #ffeaec;
+  --accent-line: #fccfd2;
+  --accent-ink: #9c1d24;
+
+  --info: #3295bd;
+  --success: #16cbc4;
+  --warning: #dcad66;
+  --warning-soft: #fbefd4;
+  --warning-ink: #8a5a0f;
+
+  /* Note links: teal means connection, everywhere a link points at a note. */
+  --link: var(--ao-teal-ink);
+  --link-line: color-mix(in srgb, var(--ao-teal) 45%, transparent);
+
+  /* Section label: the one style for section heads, rail groups, column heads,
+     and fact labels. Sentence case; hierarchy comes from weight, not tracking. */
+  --label-font: 700 var(--fs-xs) / 1.3 var(--font-sans);
+  --label-color: var(--text-muted);
+
+  /* ---- Typography ---- */
+  --font-display: "Merriweather", Georgia, "Times New Roman", serif;
+  --font-sans: "Barlow", -apple-system, system-ui, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+  --fs-2xl: 24px;
+  --fs-display: 32px;
+
+  /* ---- Spacing (compact scale) ---- */
+  --sp-1: 4px;
+  --sp-2: 6px;
+  --sp-3: 8px;
+  --sp-4: 10px;
+  --sp-5: 14px;
+  --sp-6: 18px;
+  --sp-7: 24px;
+  --sp-8: 32px;
+
+  /* ---- Radii (restrained, technical) ---- */
+  --r-sm: 3px;
+  --r: 4px;
+  --r-md: 6px;
+  --r-lg: 10px;
+
+  /* ---- Shadows ---- */
+  --shadow-sm: 0 1px 2px rgba(42, 39, 36, 0.06);
+  --shadow: 0 1px 3px rgba(42, 39, 36, 0.08), 0 2px 6px rgba(42, 39, 36, 0.04);
+  --shadow-lg: 0 10px 28px rgba(42, 39, 36, 0.1);
+
+  /* ---- Motion ---- */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* ---- Filled primary and focus ----
+     White on --accent is 3.3:1, so filled controls (commit, run, save) use the
+     deeper red, 5.3:1 with white. Marks, dots, and selection edges keep --accent. */
+  --accent-fill: #c8313a;
+  --accent-fill-hover: #ad2a32;
+  --on-accent: #ffffff;
+  --focus-ring: #c8313a;
+
+  /* ---- Status roles ---- */
+  --success-soft: #d8f7f5;
+  --success-ink: #0b6a66;
+  --info-soft: #e1f0f7;
+  --info-ink: #1f6f91;
+
+  /* ---- App chrome (the warm-black header in both themes) ---- */
+  --chrome-bg: #2a2724;
+  --chrome-text: #f2f1ec;
+  --chrome-muted: #c3c3c3;
+  --chrome-raised: #3a3734;
+  --chrome-active: #4c4845;
+  --chrome-risk: #fccfd2;
+  --scrim: rgba(42, 39, 36, 0.32);
+
+  /* ---- Type palette ----
+     Categorical colors for ontology types in graphs, atlas cards, and type
+     dots. Never red (risk) or teal (connection). Each -ink variant is the
+     text color for that type and clears 4.5:1 on every light surface. */
+  --type-1: #3295bd;
+  --type-1-ink: #1f6f91;
+  --type-2: #a5488b;
+  --type-2-ink: #8a3a74;
+  --type-3: #a87720;
+  --type-3-ink: #7a5410;
+  --type-4: #5b7a99;
+  --type-4-ink: #3f5a75;
+  --type-5: #6f8f3a;
+  --type-5-ink: #4d6625;
+  --type-6: #a0663c;
+  --type-6-ink: #7a4a26;
+  --type-7: #7b6aa8;
+  --type-7-ink: #5a4a87;
+  --type-8: #8a8682;
+  --type-8-ink: #5c5853;
+
+  /* ---- Chart series ----
+     Neutral first; no red. Teal is reserved for "linked" or "connected"
+     series (--series-link). */
+  --series-1: #5c5853;
+  --series-2: #3295bd;
+  --series-3: #a87720;
+  --series-4: #a29d97;
+  --series-5: #a5488b;
+  --series-6: #6f8f3a;
+  --series-7: #a0663c;
+  --series-8: #5b7a99;
+  --series-link: #16cbc4;
+
+  /* ---- Code syntax ---- */
+  --syntax-keyword: #8a3a74;
+  --syntax-string: #0b6a66;
+  --syntax-number: #1f6f91;
+  --syntax-comment: #706c68;
+  --syntax-function: #7a4a26;
+  --syntax-type: #3f5a75;
+  --syntax-property: #7a5410;
+  --syntax-tag: #9c1d24;
+  --syntax-meta: #5c5853;
+
+  /* ---- Loading placeholders ---- */
+  --placeholder: var(--surface-sunk);
+
+  color-scheme: light dark;
+}
+
+/* Dark theme: follows the operating system. Only semantic tokens change; the
+   brand palette above keeps its literal values, so surfaces must read the
+   semantic tokens, never --ao-* colors, to switch. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161514;
+    --bg-tint: #24221f;
+    --panel: #1d1b1a;
+    --surface: #1d1b1a;
+    --surface-alt: #211f1d;
+    --surface-sunk: #181716;
+    --border: #36332f;
+    --border-strong: #4b4743;
+    --border-faint: #2a2826;
+
+    --text: #ece9e4;
+    --muted: #b3ada6;
+    --text-muted: #b3ada6;
+    --text-faint: #9a948d;
+
+    --accent: #ff5a62;
+    --accent-hover: #ff737a;
+    --accent-active: #e0444c;
+    --accent-soft: #3b2022;
+    --accent-line: #6a2e32;
+    --accent-ink: #ff9096;
+    --accent-fill: #c8313a;
+    --accent-fill-hover: #b02a33;
+    --focus-ring: #ff6b72;
+
+    --info: #5fb3d6;
+    --info-soft: #1b2c34;
+    --info-ink: #8ccbe6;
+    --success: #2fd3cc;
+    --success-soft: #15302e;
+    --success-ink: #5fe0da;
+    --warning: #dcad66;
+    --warning-soft: #362b19;
+    --warning-ink: #e8c27e;
+
+    --link: #5fd6d0;
+    --link-line: color-mix(in srgb, #2fd3cc 45%, transparent);
+
+    --chrome-bg: #100f0e;
+    --chrome-raised: #24221f;
+    --chrome-active: #33302c;
+    --scrim: rgba(0, 0, 0, 0.55);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.5);
+
+    --type-1: #5fb3d6;
+    --type-1-ink: #8ccbe6;
+    --type-2: #c873b0;
+    --type-2-ink: #dca0cb;
+    --type-3: #dcad66;
+    --type-3-ink: #e8c27e;
+    --type-4: #8aa5c2;
+    --type-4-ink: #b0c4d9;
+    --type-5: #9cbc63;
+    --type-5-ink: #bcd48f;
+    --type-6: #c98c5f;
+    --type-6-ink: #ddb08e;
+    --type-7: #a493d1;
+    --type-7-ink: #c4b8e3;
+    --type-8: #a29d97;
+    --type-8-ink: #c9c4bd;
+
+    --series-1: #c9c4bd;
+    --series-2: #5fb3d6;
+    --series-3: #dcad66;
+    --series-4: #7d7872;
+    --series-5: #c873b0;
+    --series-6: #9cbc63;
+    --series-7: #c98c5f;
+    --series-8: #8aa5c2;
+    --series-link: #2fd3cc;
+
+    --syntax-keyword: #dca0cb;
+    --syntax-string: #5fd6d0;
+    --syntax-number: #8ccbe6;
+    --syntax-comment: #9a948d;
+    --syntax-function: #ddb08e;
+    --syntax-type: #b0c4d9;
+    --syntax-property: #e8c27e;
+    --syntax-tag: #ff9096;
+    --syntax-meta: #b3ada6;
+  }
+}

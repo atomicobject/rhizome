@@ -25,14 +25,24 @@ export function TreeList({
             <button
               type="button"
               className={`tree-row ${isSelected ? "tree-row--selected" : ""}`}
+              aria-expanded={isDir ? isExpanded : undefined}
+              aria-current={isSelected ? "page" : undefined}
               onClick={() => (isDir ? onToggle(entry) : onSelect(entry))}
             >
               {isDir ? (
-                <span className={`tree-chevron ${isExpanded ? "tree-chevron--open" : ""}`}>›</span>
+                <span
+                  className={`tree-chevron ${isExpanded ? "tree-chevron--open" : ""}`}
+                  aria-hidden="true"
+                >
+                  ›
+                </span>
               ) : (
-                <span className="tree-chevron tree-chevron--spacer" />
+                <span className="tree-chevron tree-chevron--spacer" aria-hidden="true" />
               )}
-              <span className={`tree-icon ${isDir ? "tree-icon--dir" : "tree-icon--file"}`}>
+              <span
+                className={`tree-icon ${isDir ? "tree-icon--dir" : "tree-icon--file"}`}
+                aria-hidden="true"
+              >
                 {isDir ? (isExpanded ? "📂" : "📁") : entry.kind === "note" ? "📄" : "📝"}
               </span>
               <span className="tree-name">{entry.name}</span>

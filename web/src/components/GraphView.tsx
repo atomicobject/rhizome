@@ -160,7 +160,12 @@ export function GraphView({
 
   return (
     <div className="graph-container">
-      <div ref={containerRef} className="graph-surface" />
+      <div
+        ref={containerRef}
+        className="graph-surface"
+        role="img"
+        aria-label={`Graph of ${countLabel(nodes.length, "node")} and ${countLabel(edges.length, "link")}. Use Find to search nodes; the navigation lists the same notes.`}
+      />
 
       <div className="graph-zoom">
         <button
@@ -206,6 +211,7 @@ export function GraphView({
           </div>
           <input
             className="graph-search"
+            aria-label="Search graph nodes"
             value={graphQuery}
             onChange={(e) => setGraphQuery(e.target.value)}
             placeholder="Search nodes"
@@ -384,4 +390,8 @@ export function GraphView({
       )}
     </div>
   );
+}
+
+function countLabel(count: number, noun: string) {
+  return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }

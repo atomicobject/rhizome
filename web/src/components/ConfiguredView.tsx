@@ -15,7 +15,6 @@ import type {
 import type { ViewContext } from "../views/context";
 import { nativePreferenceScope } from "../viewPreferences/native";
 import type { OpenMode } from "./useNoteTabs";
-import { configuredTableRowKey } from "./ConfiguredTableCell";
 import { rowsWithStagedValues } from "./ConfiguredTableCellHelpers";
 import { ConfiguredViewBoard } from "./ConfiguredViewBoard";
 import { ConfiguredViewCards } from "./ConfiguredViewCards";
@@ -124,8 +123,8 @@ export function ConfiguredView({
 
   const { visibleFields, emptyFields, density } = layout;
 
-  const [issuesOnly, setIssuesOnly] = useState(false);
   const [collapsedGroupCount, setCollapsedGroupCount] = useState(0);
+  const [saveActive, setSaveActive] = useState(false);
   const titleID = useId();
   const typeLabel = useTypeLabel();
   const title = viewDisplayName(view, typeLabel);
@@ -168,30 +167,11 @@ export function ConfiguredView({
     return showStagedEdits ? rowsWithStagedValues(rows, capabilities, editSession) : rows;
   }, [capabilities, editSession, execution?.rows, showStagedEdits]);
 
-  const displayRows = useMemo(() => {
-    if (!issuesOnly) return stagedRows;
-    const seen = new Set<string>();
-
-    return stagedRows.filter((row) => {
-      const key = configuredTableRowKey(row);
-
-      if (seen.has(key) || (issueCounts?.get(row.ref.notePath || row.path || "") ?? 0) === 0) {
-        return false;
-      }
-
-      seen.add(key);
-
-      return true;
-    });
-  }, [issueCounts, issuesOnly, stagedRows]);
-  // Group and column ranges index the unfiltered rows, so the problems filter
-  // renders flat in the table and cards; the board filters inside each column.
-
   const rendererExecution = useMemo(() => {
-    if (!execution || (!issuesOnly && stagedRows === execution.rows)) return execution;
+    if (!execution || stagedRows === execution.rows) return execution;
 
-    return { ...execution, rows: stagedRows, groups: issuesOnly ? [] : execution.groups };
-  }, [execution, issuesOnly, stagedRows]);
+    return { ...execution, rows: stagedRows };
+  }, [execution, stagedRows]);
 
   const visibleColumns = columns.filter((column) => visibleFields.includes(column.field));
   const stagedCount = stagedChangeCount(execution?.rows ?? [], editSession);
@@ -208,7 +188,7 @@ export function ConfiguredView({
   const rendererProps = rendererExecution
     ? {
         execution: rendererExecution,
-        rows: displayRows,
+        rows: stagedRows,
         columns: visibleColumns,
         capabilities,
         state,
@@ -254,14 +234,17 @@ export function ConfiguredView({
     onViewSaved,
   });
 
-  const headerActions = (
+  const preferencesStatus = (
+    <ViewPreferencesStatus
+      scope={preferenceScope}
+      vaultKey={vaultKey}
+      validationError={layout.preferences.error}
+    />
+  );
+
+  const viewActions = (
     <>
-      <ViewPreferencesStatus
-        scope={preferenceScope}
-        vaultKey={vaultKey}
-        validationError={layout.preferences.error}
-      />
-      <SaveViewAction {...save} />
+      <SaveViewAction {...save} onActiveChange={setSaveActive} />
       <button
         type="button"
         className="configured-view__refresh"
@@ -280,6 +263,7 @@ export function ConfiguredView({
       className={`configured-view${embedded ? " configured-view--embedded" : ""}`}
       aria-labelledby={embedded ? undefined : titleID}
       aria-label={embedded ? `${title} view` : undefined}
+      aria-busy={loading}
     >
       {/* The type page already names the type, so an embedded view keeps its
           layout controls in the toolbar instead of a header of its own. */}
@@ -297,7 +281,7 @@ export function ConfiguredView({
             </p>
             <h2 id={titleID}>{title}</h2>
           </div>
-          <div className="configured-view__header-actions">{headerActions}</div>
+          <div className="configured-view__header-actions">{preferencesStatus}</div>
         </header>
       )}
 
@@ -337,7 +321,6 @@ export function ConfiguredView({
         capabilities={capabilities}
         columns={columns}
         visibleFields={visibleFields}
-        issueCounts={issueCounts}
         activeVariant={activeVariant}
         boardColumnField={execution?.board?.columnField}
         boardLaneField={execution?.board?.laneField}
@@ -349,8 +332,10 @@ export function ConfiguredView({
         density={summaryField ? density : undefined}
         onDensityChange={layout.setDensity}
         onResetPage={resetPage}
-        onIssuesOnlyChange={setIssuesOnly}
-        trailing={embedded ? headerActions : undefined}
+        viewActions={viewActions}
+        optionsDirty={save.dirty}
+        optionsPinned={saveActive}
+        trailing={embedded ? preferencesStatus : undefined}
       />
 
       {executionWarnings && (
@@ -359,12 +344,16 @@ export function ConfiguredView({
         </div>
       )}
 
-      {loading && !execution && <div className="configured-view__status">Loading view…</div>}
+      {loading && !execution && (
+        <div className="configured-view__status" role="status">
+          Loading view…
+        </div>
+      )}
       {viewError && <ViewErrorStatus error={viewError} />}
-      {!viewError && execution && displayRows.length === 0 && activeVariant !== "kanban" && (
-        <div className="configured-view__status">
-          {issuesOnly ? "No rows on this page have problems." : "No rows match this view."}
-          {!issuesOnly && (state.search || state.filters?.length) ? (
+      {!viewError && execution && stagedRows.length === 0 && activeVariant !== "kanban" && (
+        <div className="configured-view__status" role="status">
+          No rows match this view.
+          {state.search || state.filters?.length ? (
             <button
               type="button"
               className="configured-view__status-action"
@@ -377,7 +366,7 @@ export function ConfiguredView({
       )}
       {!viewError &&
         rendererProps &&
-        (displayRows.length > 0 || activeVariant === "kanban") &&
+        (stagedRows.length > 0 || activeVariant === "kanban") &&
         (activeVariant === "kanban" ? (
           <ConfiguredViewBoard {...rendererProps} />
         ) : activeVariant === "card" ? (

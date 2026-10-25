@@ -47,10 +47,23 @@ export function preferenceServer(http: FakeFetch) {
       values?: JsonObject;
     };
 
-  // SAFETY: The typed client serializes a ViewPreferenceScope into this query parameter.
-  http.on("GET", "/api/v1/view-preferences", (request) =>
-    jsonReply(read(JSON.parse(request.query.get("scope") ?? "{}") as ViewPreferenceScope)),
-  );
+  // A host scope reports whether any of its widget slots holds a value, as the server does.
+  const familyOverrides = (scope: ViewPreferenceScope) =>
+    [...rows.values()].some(
+      (row) =>
+        row.scope.widgetSlot &&
+        preferenceFamilyKey(row.scope) === preferenceFamilyKey(scope) &&
+        Object.keys(row.values).length > 0,
+    );
+
+  http.on("GET", "/api/v1/view-preferences", (request) => {
+    // SAFETY: The typed client serializes a ViewPreferenceScope into this query parameter.
+    const row = read(JSON.parse(request.query.get("scope") ?? "{}") as ViewPreferenceScope);
+
+    return jsonReply(
+      row.scope.widgetSlot ? row : { ...row, familyOverrides: familyOverrides(row.scope) },
+    );
+  });
   http.on("PATCH", "/api/v1/view-preferences", (request) => {
     const input = body(request);
     const current = read(input.scope);

@@ -7,7 +7,6 @@ import { DiagnosticRegion } from "./diagnostics/DiagnosticRegion";
 import { startClientDiagnostics } from "./diagnostics/startClientDiagnostics";
 import { VaultInvalidationBridge } from "./query/VaultInvalidationBridge";
 
-import "highlight.js/styles/github.css";
 import "./base.css";
 import "./agent.css";
 import "./explorer.css";

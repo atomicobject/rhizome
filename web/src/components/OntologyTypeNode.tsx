@@ -36,11 +36,11 @@ export function OntologyTypeNode({ data }: Props) {
 
   const roleLabel =
     data.role === "interface"
-      ? "interface"
+      ? "Interface"
       : data.role === "section"
-        ? "section"
+        ? "Section"
         : data.role === "embedded"
-          ? "embedded"
+          ? "Embedded"
           : null;
 
   const handleTypeLinkClick = (event: React.MouseEvent<HTMLAnchorElement>) => {

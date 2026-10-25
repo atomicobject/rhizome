@@ -112,3 +112,44 @@ it("aborts every outstanding batch when its observer unmounts", async () => {
 
   expect(requests.every((request) => request.signal?.aborted)).toBe(true);
 });
+
+it("keeps earlier full batches when the scope list grows", async () => {
+  const scopes = Array.from({ length: 450 }, (_, index) => ({
+    kind: "note" as const,
+    key: `note-${index}.md`,
+  }));
+
+  http.on("POST", "/api/v1/validation/summaries", (request) => {
+    const body = requestBody(request);
+
+    return jsonReply({
+      generation: body.generation,
+      summaries: body.scopes.map((scope) => ({
+        scope,
+        issueCount: 1,
+        affectedFileCount: 1,
+        affectedNoteCount: 1,
+        repairActionCount: 0,
+      })),
+    });
+  });
+
+  const { result, rerender } = renderHook(
+    ({ count }) => useValidationScopeSummaries(3, scopes.slice(0, count)),
+    { wrapper, initialProps: { count: 250 } },
+  );
+
+  await waitFor(() => expect(result.current.summaries.size).toBe(250));
+  const before = http.requests("POST", "/api/v1/validation/summaries").length;
+
+  // A table loads more rows: the first batch is unchanged, the second grows.
+  rerender({ count: 450 });
+
+  await waitFor(() => expect(result.current.summaries.size).toBe(450));
+  const loaded = http.requests("POST", "/api/v1/validation/summaries").slice(before);
+  expect(loaded.map((request) => requestBody(request).scopes.length)).toEqual([200, 50]);
+  expect(loaded.map((request) => requestBody(request).scopes[0]?.key)).toEqual([
+    "note-200.md",
+    "note-400.md",
+  ]);
+});

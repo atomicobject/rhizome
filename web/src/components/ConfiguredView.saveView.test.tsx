@@ -1,11 +1,11 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { isJsonObject } from "../api/parse";
 import type { ViewSaveRequest } from "../api/types";
-import { decodeJSONBody, withFakeFetch } from "../test/fakeFetch";
+import { decodeJSONBody, deferredReply, withFakeFetch } from "../test/fakeFetch";
 import { ideaBoard, ideaView } from "./ConfiguredView.profileFixtures";
-import { renderView } from "./ConfiguredView.testFixtures";
+import { openViewOptions, renderView } from "./ConfiguredView.testFixtures";
 
 const SAVE_PATH = `/api/v1/views/${encodeURIComponent(ideaView.id)}/save`;
 
@@ -44,13 +44,17 @@ describe("Save view", () => {
     const onViewSaved = renderBoard(undefined, { laneField: "priority", search: "agents" });
 
     // A lane choice the definition does not hold is an unsaved change.
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Save view, unsaved changes" }));
     // A typed search is temporary; it saves only when the reader includes it.
     fireEvent.click(screen.getByRole("checkbox", { name: "Include search “agents”" }));
     fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Saved .rhizome/views/ip-ideas.yaml",
+    // The footer's row count is a status region too.
+    await waitFor(() =>
+      expect(screen.getAllByRole("status").map((status) => status.textContent)).toContain(
+        "Saved .rhizome/views/ip-ideas.yaml",
+      ),
     );
     expect(onViewSaved).toHaveBeenCalledWith(
       expect.objectContaining({ id: "ip-ideas", created: true }),
@@ -64,6 +68,44 @@ describe("Save view", () => {
     // Settings the reader left alone stay as the file has them.
     expect(body.state).not.toHaveProperty("columnField");
     expect(body.state).not.toHaveProperty("columns");
+  });
+
+  it("keeps View options open while a save runs, so its result stays visible", async () => {
+    const reply = deferredReply<unknown>();
+    http.on("POST", SAVE_PATH, () => reply.promise);
+    renderBoard(undefined, { laneField: "priority" });
+
+    openViewOptions();
+    fireEvent.click(screen.getByRole("button", { name: "Save view, unsaved changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
+    // Clicking back into the view would close the panel; a running save keeps it.
+    fireEvent.pointerDown(document.body);
+    fireEvent.mouseDown(document.body);
+    expect(screen.getByRole("group", { name: "View options" })).toBeVisible();
+
+    reply.resolve({ id: "ip-ideas", path: ".rhizome/views/ip-ideas.yaml", created: false });
+    await waitFor(() =>
+      expect(screen.getAllByRole("status").map((status) => status.textContent)).toContain(
+        "Saved .rhizome/views/ip-ideas.yaml",
+      ),
+    );
+    expect(screen.getByRole("group", { name: "View options" })).toBeVisible();
+  });
+
+  it("lets a failed save's result be dismissed", async () => {
+    http.json("POST", SAVE_PATH, { error: "disk full", code: "INTERNAL" }, 500);
+    renderBoard(undefined, { laneField: "priority" });
+
+    openViewOptions();
+    fireEvent.click(screen.getByRole("button", { name: "Save view, unsaved changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
+    await screen.findByRole("alert");
+    // The save's end releases the pin one effect after the alert renders.
+    await act(async () => {});
+    expect(screen.getByRole("group", { name: "View options" })).toBeVisible();
+
+    fireEvent.mouseDown(document.body);
+    await waitFor(() => expect(screen.queryByRole("group", { name: "View options" })).toBeNull());
   });
 
   it("toggles a header sort away from the view's own sort", () => {
@@ -87,7 +129,7 @@ describe("Save view", () => {
   it("shows no unsaved marker when nothing differs from the definition", () => {
     renderBoard();
 
-    expect(screen.getByRole("button", { name: "Save view" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "View options" })).toBeVisible();
   });
 
   it("shows an invalid result inline", async () => {
@@ -99,6 +141,7 @@ describe("Save view", () => {
     );
 
     const onViewSaved = renderBoard();
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Save view" }));
     fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
 
@@ -113,6 +156,7 @@ describe("Save view", () => {
     http.json("POST", SAVE_PATH, { error: "view changed", code: "conflict" }, 409);
 
     renderBoard();
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Save view" }));
     fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
 
@@ -129,6 +173,10 @@ describe("Save view", () => {
     await waitFor(() => expect(http.requests("POST", SAVE_PATH)).toHaveLength(2));
     const retry = decodeJSONBody(http.requests("POST", SAVE_PATH)[1], isSaveRequest);
     expect(retry.definitionFingerprint).toBeUndefined();
-    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    await waitFor(() =>
+      expect(screen.getAllByRole("status").map((status) => status.textContent)).toContainEqual(
+        expect.stringMatching(/^Saved /),
+      ),
+    );
   });
 });

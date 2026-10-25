@@ -16,7 +16,8 @@
 | `useSetField(readSession?)` | Mutation: `mutate({ target, field, value })`. Writes through the surrounding `EditSession`. Pass `query.displaySession` when editing a `useGraphQL` result. |
 | `setField(target, field, value)` | Commits the same write as a promise, whatever the `EditSession`. |
 | `EditSession` | `<EditSession mode="immediate">` around a view or part of one makes `useSetField` commit each write. Without it the mode is `workspace`, in any React tree, including one the view mounts itself. |
-| `NoteLink` | `<NoteLink path="docs/a.md">label</NoteLink>`. Opens the note in the Rhizome workspace when the view is embedded, navigates when standalone. Cmd or Ctrl click opens the note beside the current tab when embedded, and in a new browser tab when standalone. |
+| `NoteLink` | `<NoteLink path="docs/a.md">label</NoteLink>`. Opens the note in the Rhizome workspace when the view is embedded, navigates when standalone. Cmd or Ctrl click opens the note beside the current tab when embedded, and in a new browser tab when standalone. Styled as a note link (teal with a light underline); `className` adds to it. |
+| `NodeLink` | `<NodeLink node={row.ref} view="team.detail">{row.title}</NodeLink>`. The same link for a canonical note or embedded node, optionally opening a named node presentation. |
 | `openNote(path, { beside? })` | The same navigation from code. |
 | `noteHref(path)` | The note's URL in the Rhizome UI. |
 | `openNode(ref, { view?, beside? })` | Open a canonical root or embedded node, optionally selecting a named node presentation. Uses the workspace bridge when embedded. |
@@ -111,13 +112,61 @@ List `@reverse` and `@neighbors` fields take `first`, which caps the targets rea
 
 | Export | Use |
 | --- | --- |
-| `StatusMark` | `<StatusMark value={record.status} values={enumValues} />` renders a lifecycle value: the fill shows its position among non-terminal values, the color its tone, and the label always accompanies it. `hideLabel` keeps the label for the tooltip and assistive technology. Values in the `done` or `dropped` stage are terminal, whatever their tone; an enum without stages has no terminal values. `orderedEnumValues`, `isTerminalValue`, and `statusPosition` expose the same rules. |
+| `StatusMark` | `<StatusMark value={record.status} values={enumValues} />` renders a lifecycle value: the fill shows its position among non-terminal values, the color its tone, a `warning` tone draws a triangle and `risk` a diamond, `muted` a dashed ring, and the label always accompanies it. `hideLabel` keeps the label for the tooltip and assistive technology. Values in the `done` or `dropped` stage are terminal, whatever their tone; an enum without stages has no terminal values. `orderedEnumValues`, `isTerminalValue`, and `statusPosition` expose the same rules. |
 | `HighlightProvider` / `RecordChip` | `<RecordChip recordKey={path} mark={...} indirect onOpen={...}>label</RecordChip>` is a compact record reference. Inside one `HighlightProvider`, pointing at or focusing a chip highlights every chip with the same `recordKey`; only chips whose state changes re-render. The label truncates to one line; `wrap` lets it take two, for narrow table cells. `indirect` marks a record reached through another record: the chip turns italic and fainter, screen readers hear "(indirect)", and `data-indirect` is set for further styling. |
 | `RelativeTime` | `<RelativeTime value={record.updatedAt} />` renders a compact age ("5m", "3h", "12d", then a date) with the exact time as its tooltip; screen readers hear both. It does not tick: the age is computed when the view renders, which vault changes trigger. Pass `now` to set the comparison time. |
 | `Diagram` | `<Diagram label="Ideas by impact" source={source} links={links} />` renders Mermaid text with Pele and the view's theme. `label` is required; `links` maps diagram ids to canonical node refs. Empty or whitespace source renders nothing. Optional `className` styles the container. See [Diagrams](#diagrams) for the API and examples. |
 | `mermaid` | `text(value)` escapes non-CSV labels with Mermaid entities; `csv(value)` produces a quoted Sankey CSV field; `id(key)` produces a deterministic, syntax-safe node id. |
 | `typeLabel(labels, { count?, plural?, prefix? })` | A type's schema label, plural when `plural` is set or `count` is not 1, with a shared prefix dropped. |
 | `sharedLabelPrefix(labels)` | The first word every label shares, with its trailing space, or `""`. Pass it to `typeLabel` as `prefix` inside a group page. |
+
+## Page primitives
+
+The blocks Rhizome's own pages are built from. They carry the house style, so a page made of them needs little Tailwind beyond layout.
+
+| Export | Use |
+| --- | --- |
+| `Section` | `<Section title="Opportunities" count={rows.length} caption="Ranked by signal." controls={…} status={sectionStatus(query)} what="opportunities" empty={rows.length ? undefined : "No opportunities yet."}>{() => …}</Section>`. A block with a bold heading, a mono count, controls at the right, and a caption. Its heading paints at once; the body shows "Loading opportunities…" after 150 ms, a failure with Retry, the one-line `empty` text, or the children. Pass children as a function to build them only once the data is ready. |
+| `SectionBody` | The same body states without the heading, for a Section whose controls need loaded data. |
+| `sectionStatus(...queries)` | One status from any TanStack queries (`isPending`, `error`, `refetch`): failed when any failed, with a retry that refetches each failed query; loading while any is pending. |
+| `Facts` / `Fact` | `<Facts note="Ranked by the opportunity's rank field."><Fact value={12}>opportunities</Fact><Fact tone="risk" value={2}>with issues</Fact></Facts>`. The strip of figures under a page title, mono on the right, an optional note on the left. `tone="ok"` adds a check. |
+| `Count` | `<Count>{n}</Count>`: unboxed mono numerals. `tone="risk"` for problem counts, with a word beside it saying what is counted. |
+| `Dash` | An empty value: "—" on screen, "None" to screen readers. |
+| `Segmented` | `<Segmented label="Lens" value={lens} onChange={setLens} options={[{ value: "rank", label: "Rank" }, { value: "impact", label: "By impact", count: 5 }]} />`. One mode switch; the chosen segment fills with ink. Native radios underneath, so arrow keys move the choice. `showLabel` shows the label before it. |
+| `MoreToggle` | `<MoreToggle hidden={rest.length} open={open} onToggle={…} />`: "+N more" that reveals the rest in place. |
+| `BarList` | `<BarList label="Time by office" items={[{ label: "Ann Arbor", value: 35.25, display: "35.25 h", series: 2, onOpen: () => openNote(path) }]} />`. Proportional bars as a list, for a handful of named amounts; long labels truncate rather than drop. `max` fixes the scale; `series` picks `--series-N` or `"link"`. |
+
+The theme also gives Tailwind `bg-surface`, `bg-sunk`, `bg-tint`, `text-faint`, `text-link`, and `text-risk`, and the CSS variables `--series-1` through `--series-8`, `--series-link`, and `--type-1` through `--type-8` (each with an `-ink` text variant) for colors a view draws itself. Every token has a dark value, chosen by the operating system.
+
+A small mounted page:
+
+```tsx
+import { Count, Fact, Facts, NodeLink, Section, sectionStatus, useGraphQL } from "@rhizome/kit";
+
+// The type and its reverse-link count come from the vault's schema; discover them first.
+export default function Features() {
+  const query = useGraphQL<{ feature: Feature[] }>(`{ feature(first: 200) { ref { notePath kind fragment nodeId } title specsCount } }`);
+  const features = query.data?.feature ?? [];
+
+  return (
+    <main className="px-5 py-3">
+      <Facts><Fact value={features.length}>features</Fact></Facts>
+      <Section title="Most specified" status={sectionStatus(query)} what="features" empty={features.length ? undefined : "No features yet."}>
+        {() => (
+          <ul className="divide-y divide-[var(--border-faint)]">
+            {features.map((feature) => (
+              <li key={feature.ref.notePath} className="flex items-baseline gap-2 py-1">
+                <NodeLink node={feature.ref}>{feature.title}</NodeLink>
+                <Count className="ml-auto">{feature.specsCount}</Count>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+    </main>
+  );
+}
+```
 
 ## Diagrams
 
@@ -172,6 +221,6 @@ A `views.changed` event reloads a repository view whose own folder changed. Bund
 
 ## `@rhizome/ui`
 
-shadcn/ui components with their usual names, props, and composition: `Button` (`variant`, `size`, `asChild`), `Badge`, `Card` `CardHeader` `CardTitle` `CardDescription` `CardAction` `CardContent` `CardFooter`, `Input`, `Label`, `Checkbox`, `Select` `SelectTrigger` `SelectValue` `SelectContent` `SelectItem` `SelectGroup` `SelectLabel` `SelectSeparator`, `Dialog` `DialogTrigger` `DialogContent` `DialogHeader` `DialogTitle` `DialogDescription` `DialogFooter` `DialogClose`, `Tabs` `TabsList` `TabsTrigger` `TabsContent`, `Table` `TableHeader` `TableBody` `TableRow` `TableHead` `TableCell` `TableCaption` `TableFooter`, `Tooltip` `TooltipTrigger` `TooltipContent` `TooltipProvider`, `Separator`, `Skeleton`, and `cn`.
+shadcn/ui components with their usual names, props, and composition, restyled to Rhizome's design: `Button` is a neutral 26px button by default, with `variant="primary"` for the one commit, run, or save action and `destructive` for removal; `Badge` is a neutral chip by default, `destructive` for risk; `Card` is flat with a hairline border; `Tabs` look like Rhizome's segmented control; `Table` has 28px rows and label-style heads; `Skeleton` is a neutral placeholder that appears after 150 ms. Focus uses the app's one outline. The components: `Button` (`variant`, `size`, `asChild`), `Badge`, `Card` `CardHeader` `CardTitle` `CardDescription` `CardAction` `CardContent` `CardFooter`, `Input`, `Label`, `Checkbox`, `Select` `SelectTrigger` `SelectValue` `SelectContent` `SelectItem` `SelectGroup` `SelectLabel` `SelectSeparator`, `Dialog` `DialogTrigger` `DialogContent` `DialogHeader` `DialogTitle` `DialogDescription` `DialogFooter` `DialogClose`, `Tabs` `TabsList` `TabsTrigger` `TabsContent`, `Table` `TableHeader` `TableBody` `TableRow` `TableHead` `TableCell` `TableCaption` `TableFooter`, `Tooltip` `TooltipTrigger` `TooltipContent` `TooltipProvider`, `Separator`, `Skeleton`, and `cn`.
 
 Import them from `@rhizome/ui`, not from `@/components/ui/...`. Icons come from `lucide-react`. A shadcn component that is not listed can be written in the view folder from its usual source; `radix-ui` is not in the import map, so build it on plain elements or import Radix from a URL.

@@ -9,6 +9,7 @@
 // - At All notes: untyped notes by folder and the coverage line. On a group:
 //   relations declared but unused, notes outside the group, guide and views.
 import {
+  Segmented,
   openIssues,
   useValidationSummaries,
   useViewContext,
@@ -184,18 +185,15 @@ function MapBlock({ data, expanded, onToggle }: { data: ScopeData } & Expansion)
       title="Map"
       className="gv-slot-map"
       controls={
-        <span className="gv-toggle" role="group" aria-label="Map or matrix">
-          {(["map", "matrix"] as const).map((choice) => (
-            <button
-              key={choice}
-              type="button"
-              aria-pressed={mode.value === choice}
-              onClick={() => choose(choice)}
-            >
-              {choice === "map" ? "Map" : "Matrix"}
-            </button>
-          ))}
-        </span>
+        <Segmented
+          label="Map or matrix"
+          value={mode.value}
+          options={[
+            { value: "map", label: "Map" },
+            { value: "matrix", label: "Matrix" },
+          ]}
+          onChange={choose}
+        />
       }
     >
       <BlockBody status={status} what="the map">

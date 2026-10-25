@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import type { AgentApprovalDecision, AgentEvent, AgentMessage } from "../../api/types";
 import { isString, type JsonValue } from "../../api/parse";
+import { humanizeName } from "../../lib/labels";
 
 const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 
@@ -323,9 +324,11 @@ export function AgentTimeline({
 
   if (groups.length === 0) {
     return (
-      <div className="agent-empty">
-        <h2>Ask against the vault.</h2>
-        <p>Rhizome will route the turn through the selected coding-agent harness.</p>
+      <div className="agent-empty" role="status">
+        <p>
+          <b>No messages yet.</b> Ask about this vault below; Rhizome sends each turn through the
+          selected harness. <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends.
+        </p>
       </div>
     );
   }
@@ -358,7 +361,7 @@ export function AgentTimeline({
               key={`message-${entry.message.id}`}
             >
               <header>
-                <span>{entry.message.role}</span>
+                <span>{humanizeName(entry.message.role)}</span>
                 <time>{formatTime(entry.message.createdAt)}</time>
               </header>
               <ReactMarkdown>{entry.message.content}</ReactMarkdown>

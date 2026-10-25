@@ -182,6 +182,7 @@ function NotesNavTools() {
         health={health}
         label={issueCount ? `Open ${issueCount} validation issues` : "Open validation status"}
         onClick={openIssues}
+        showUnit
       />
     </div>
   );

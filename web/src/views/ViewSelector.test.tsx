@@ -41,6 +41,20 @@ describe("ViewSelector", () => {
     expect(setup(standard.slice(0, 1), "overview", "overview").toolbar).toBeNull();
   });
 
+  it("keeps the selected view's controls when there is no switcher", () => {
+    render(
+      <ViewSelector
+        target={{ choices: standard.slice(0, 1), defaultChoiceId: "overview" }}
+        selectedId="overview"
+        onSelect={vi.fn()}
+        trailing={<button type="button">Reset to shared</button>}
+      />,
+    );
+
+    expect(screen.queryByRole("toolbar", { name: "Workspace view" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Reset to shared" })).toBeVisible();
+  });
+
   it("shows standard choices as pressed-state buttons and selects one on click", () => {
     const { onSelect, toolbar } = setup(standard);
     const buttons = within(toolbar!).getAllByRole("button");

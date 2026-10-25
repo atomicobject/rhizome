@@ -364,6 +364,7 @@ export function ExplorerWorkspace({ vaultName }: ExplorerWorkspaceProps) {
         >
           <input
             type="search"
+            aria-label="Search notes and code"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);

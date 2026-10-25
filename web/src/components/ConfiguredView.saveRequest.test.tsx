@@ -17,7 +17,7 @@ import {
 } from "../test/fakeFetch";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { ideaBoard, ideaView } from "./ConfiguredView.profileFixtures";
-import { baseView, execution, renderView } from "./ConfiguredView.testFixtures";
+import { baseView, execution, openViewOptions, renderView } from "./ConfiguredView.testFixtures";
 import { ViewTab } from "./ViewTab";
 
 /** What Save sends (SPEC-0112): settings the reader left alone stay as the file has them. */
@@ -68,6 +68,7 @@ describe("Save view request", () => {
 
   async function save() {
     http.json("POST", SAVE_PATH, { id: authored.id, path: "views/ip.yaml", created: false });
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: /^Save view/ }));
     fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
     await waitFor(() => expect(http.requests("POST", SAVE_PATH)).toHaveLength(1));
@@ -83,6 +84,7 @@ describe("Save view request", () => {
       state: { variant: "kanban", sort: [{ field: "title", direction: "desc" }] },
     });
 
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: /^Save view/ }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Sort");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -112,6 +114,7 @@ describe("Save view request", () => {
         state: { variant: "table" },
       });
 
+      openViewOptions();
       fireEvent.click(screen.getByRole("button", { name: /^Save view/ }));
       expect(screen.getByRole("dialog")).not.toHaveTextContent("Sort");
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -154,7 +157,7 @@ describe("Save view request", () => {
       state: { variant: "kanban", filterPreset: "mine" },
     });
 
-    expect(screen.getByRole("button", { name: "Save view, unsaved changes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "View options, unsaved changes" })).toBeVisible();
   });
 
   it("saves Group: None as an explicit no-grouping", async () => {
@@ -179,7 +182,7 @@ describe("Save view request", () => {
     });
 
     expect(screen.getByLabelText("Group by")).toHaveDisplayValue("None");
-    expect(screen.getByRole("button", { name: "Save view" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "View options" })).toBeVisible();
   });
 
   it("saves no columns when only empty columns hide", async () => {
@@ -211,6 +214,7 @@ describe("Save view request", () => {
     renderView({ view: authored, execution: result, state: { variant: "table" } });
 
     // The reader hides Updated while the empty ID column is hidden.
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: /^Columns/ }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Updated" }));
 
@@ -258,6 +262,7 @@ describe("Save view request", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Active" }));
     await waitFor(() => expect(http.count("POST", execute)).toBe(2));
     // The preset's execution has not answered; Save still writes what the reader picked.
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Save view, unsaved changes" }));
     fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
     await waitFor(() => expect(http.requests("POST", save)).toHaveLength(1));

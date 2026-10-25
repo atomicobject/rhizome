@@ -252,6 +252,53 @@ describe("NotesLeftRail", () => {
     expect(await screen.findByRole("button", { name: "Collapse Other" })).toBeVisible();
   });
 
+  it("exposes the current collection, the open note, its change, and type issues by name", async () => {
+    http.json("GET", "/api/v2/validate", {
+      status: "ok",
+      generation: 1,
+      snapshot: { generation: 1, issueCount: 2 },
+    });
+    http.on("POST", "/api/v1/validation/summaries", (request) => {
+      // SAFETY: the rail sends the typed validation-summary request.
+      const body = JSON.parse(request.body || "{}") as {
+        generation?: number;
+        scopes?: Array<{ kind: string; key?: string }>;
+      };
+
+      return jsonReply({
+        generation: body.generation ?? 0,
+        summaries: (body.scopes ?? []).map((scope) => ({
+          scope,
+          issueCount: scope.kind === "type" && scope.key === "Spec" ? 2 : 0,
+          affectedFileCount: 0,
+          affectedNoteCount: 0,
+          repairActionCount: 0,
+        })),
+      });
+    });
+    render(
+      <NotesLeftRail
+        {...props({
+          activeCollection: "Spec",
+          findTabByPath: (path) => (path === specNote.path ? { id: "tab-spec" } : undefined),
+          touchedPaths: new Set([specNote.path]),
+        })}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Expand Other" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand Document" }));
+    const spec = await screen.findByRole("button", { name: "Spec (1), 2 validation issues" });
+    expect(spec).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "All notes (2)" })).not.toHaveAttribute(
+      "aria-current",
+    );
+
+    const open = await screen.findByRole("button", { name: /^Demo spec Modified/ });
+    expect(open).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: /^Demo plan/ })).not.toHaveAttribute("aria-current");
+  });
+
   it("renders collection and note-list regions with one local filter", async () => {
     const openView = vi.fn();
     registerRailData("__all__", allNotes, [coverageView, planView]);

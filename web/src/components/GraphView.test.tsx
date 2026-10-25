@@ -58,6 +58,8 @@ describe("GraphView", () => {
     const view = render(<GraphView {...props} />);
 
     try {
+      expect(screen.getByRole("img", { name: /^Graph of 1 node and 0 links\./ })).toBeVisible();
+      expect(screen.getByRole("textbox", { name: "Search graph nodes" })).toBeVisible();
       fireEvent.click(screen.getByRole("button", { name: "More" }));
       const labels = screen.getByRole("checkbox", { name: "Edge labels" });
       expect(labels).not.toBeChecked();
@@ -200,7 +202,8 @@ describe("GraphView", () => {
         if (!renderer) throw new Error("Sigma renderer did not mount");
         renderer.refresh({ schedule: false });
         expect(renderer.getNodeDisplayData("task")?.hidden).toBe(false);
-        expect(renderer.getNodeDisplayData("task")?.color).toBe("rgba(36, 39, 44, 0.24)");
+        // jsdom loads no token stylesheet, so the neutral is resolveCssColor's fallback.
+        expect(renderer.getNodeDisplayData("task")?.color).toBe("rgba(33, 32, 31, 0.24)");
 
         view.rerender(<GraphView {...graphProps} highlightTypes={new Set()} />);
         expect(screen.getByText("3 nodes")).toBeInTheDocument();

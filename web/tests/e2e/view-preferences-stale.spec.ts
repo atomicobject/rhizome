@@ -1,5 +1,6 @@
 import { isPreferenceResponse, isPreferenceScope } from "../../src/viewPreferences/types";
 import { expect, test } from "./fixtures";
+import { openViewOptions } from "./workspaceView";
 
 function guideScope(url: string) {
   const parsed = new URL(url);
@@ -10,8 +11,11 @@ function guideScope(url: string) {
   if (!serialized) return null;
   const scope: unknown = JSON.parse(serialized);
 
+  // The native table's own scope, not the view selection or a built-in
+  // presentation such as builtin:overview.
   return isPreferenceScope(scope) &&
     scope.viewId !== "$selection" &&
+    !scope.viewId.startsWith("builtin:") &&
     scope.context.kind === "type" &&
     scope.context.type === "TvGuide"
     ? scope
@@ -83,6 +87,7 @@ test("invalid saved layout falls back visibly and recovers after a valid choice"
 
   if (!scope) throw new Error("The guide did not request its native preference scope");
   const density = page.getByRole("combobox", { name: "Rows", exact: true });
+  await openViewOptions(page);
   await expect(density).toHaveValue("two-line");
 
   const read = await request.get("/api/v1/view-preferences", {
@@ -100,6 +105,7 @@ test("invalid saved layout falls back visibly and recovers after a valid choice"
 
   expect(seeded.ok(), await seeded.text()).toBe(true);
   await page.reload();
+  await openViewOptions(page);
   await expect(density).toHaveValue("two-line");
 
   const warning = page
@@ -116,10 +122,13 @@ test("invalid saved layout falls back visibly and recovers after a valid choice"
       response.request().method() === "PATCH",
   );
 
+  // Retry sits outside View options, so pressing it closed them.
+  await openViewOptions(page);
   await density.selectOption("one-line");
   expect((await saved).ok()).toBe(true);
   await expect(warning).toBeHidden();
   await page.reload();
+  await openViewOptions(page);
   await expect(density).toHaveValue("one-line");
   await expect(warning).toBeHidden();
 });

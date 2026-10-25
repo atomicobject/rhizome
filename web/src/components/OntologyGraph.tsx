@@ -97,13 +97,13 @@ export function OntologyGraph({ atlas }: Props) {
                 animated: false,
                 data: { routedPoints: e.points },
                 style: {
-                  stroke: "var(--text-muted, #94a3b8)",
+                  stroke: "var(--text-muted)",
                   strokeDasharray: "4 4",
                   strokeWidth: 1,
                 },
                 markerEnd: {
                   type: MarkerType.ArrowClosed,
-                  color: "var(--text-muted, #94a3b8)",
+                  color: "var(--text-muted)",
                   width: 14,
                   height: 14,
                 },
@@ -113,9 +113,9 @@ export function OntologyGraph({ atlas }: Props) {
 
             const accent =
               e.kind === "section"
-                ? "var(--text-default, #1f2937)"
+                ? "var(--text)"
                 : e.kind === "neighbor"
-                  ? "var(--text-muted, #94a3b8)"
+                  ? "var(--text-muted)"
                   : typeAccentColor(e.source);
 
             return {
@@ -274,7 +274,7 @@ export function OntologyGraph({ atlas }: Props) {
           proOptions={{ hideAttribution: true }}
         >
           <FocusViewport ids={focusedIds} selected={selected} />
-          <Background gap={24} size={1} color="#dedbd5" />
+          <Background gap={24} size={1} />
           <Controls showInteractive={false} />
         </ReactFlow>
         <div className="atlas-legend" aria-label="Connection legend">

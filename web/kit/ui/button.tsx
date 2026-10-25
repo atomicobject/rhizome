@@ -5,23 +5,27 @@ import type { ComponentProps } from "react";
 import { cn } from "../lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20",
-        outline: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        // The neutral toolbar button. Red is opt-in: `primary` for commit,
+        // run, or save; `destructive` for removal.
+        default:
+          "border border-border bg-surface text-foreground hover:border-input hover:bg-accent",
+        primary: "bg-primary text-primary-foreground hover:bg-[var(--accent-fill-hover)]",
+        destructive: "bg-destructive text-primary-foreground hover:bg-[var(--accent-fill-hover)]",
+        outline:
+          "border border-border bg-surface text-foreground hover:border-input hover:bg-accent",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-accent",
+        ghost: "text-foreground hover:bg-accent",
+        link: "text-link underline decoration-[var(--link-line)] underline-offset-2 hover:decoration-current",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
+        default: "h-[26px] px-2.5 has-[>svg]:px-2",
+        sm: "h-[22px] gap-1 px-2 text-xs has-[>svg]:px-1.5",
+        lg: "h-[30px] px-3.5 has-[>svg]:px-3",
+        icon: "size-[26px]",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

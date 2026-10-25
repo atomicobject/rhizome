@@ -1,5 +1,5 @@
 import { isJsonObject } from "../api/parse";
-import { useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import type {
   OntologySummaryResponse,
   OntologyEditOp,
@@ -11,7 +11,7 @@ import type {
 import { changeSummary } from "../staging/stagedState";
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import { BuiltinOverview } from "../views/BuiltinOverview";
-import { ViewHost, type ViewServices } from "../views/ViewHost";
+import { ViewHost, ViewPreferenceReset, type ViewServices } from "../views/ViewHost";
 import { ViewSelector } from "../views/ViewSelector";
 import { useViewSelection } from "../views/useViewSelection";
 import type { ViewContext } from "../views/context";
@@ -68,7 +68,7 @@ const TYPES: ViewChoice = { ...OVERVIEW, name: "Types" };
 
 const RENDERERS = { overview: BuiltinOverview };
 
-export function HomeTab({
+export const HomeTab = memo(function HomeTab({
   active = true,
   summary: providedSummary,
   selectedType,
@@ -266,6 +266,18 @@ export function HomeTab({
                   selectedId={choice.id}
                   onSelect={selectionState.select}
                   status={selectionState}
+                  trailing={
+                    // The fallback choice shows while the selection loads; read
+                    // preferences only for the view that will actually show.
+                    !selectionState.loading && (
+                      <ViewPreferenceReset
+                        choice={choice}
+                        definition={definition}
+                        context={context}
+                        vaultKey={services.vaultKey}
+                      />
+                    )
+                  }
                 />
               )
             }
@@ -322,4 +334,4 @@ export function HomeTab({
       </div>
     </div>
   );
-}
+});

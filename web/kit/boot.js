@@ -16,13 +16,8 @@
   map.textContent = JSON.stringify({ imports: imports });
   document.currentScript.after(map);
 
-  // Same families the Rhizome UI loads in web/index.html.
-  var fonts = document.createElement("link");
-  fonts.rel = "stylesheet";
-  fonts.href =
-    "https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap";
-  document.head.appendChild(fonts);
-
+  // The theme carries web/src/fonts.css, so frames load the same self-hosted
+  // font files the Rhizome UI serves from /fonts/.
   var theme = document.createElement("style");
   theme.type = "text/tailwindcss";
   theme.textContent = __THEME__;

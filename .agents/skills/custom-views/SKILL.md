@@ -39,6 +39,21 @@ mount:
 
 `board.tsx` default-exports a component receiving `{ view: { id, name }, context, configuration }`. The context is standalone, workspace, type, interface, group, or node; node context includes the canonical ref. It renders in kit providers and an error boundary. Use `useViewContext()` in React or `getViewContext()` in HTML/self-mounted code. Reuse canonical refs unchanged and use `openNode(ref, { view })` to select a node presentation. Never hardcode one node into a parameterized page.
 
+## Look like Rhizome
+
+Rhizome's pages are dense, flat, and quiet, and a view built from the kit's defaults matches them. Drift starts when a view hand-rolls what the kit already provides.
+
+- Build pages from the kit's [page primitives](references/kit-api.md#page-primitives): `Section` for each block (heading, mono count, caption, controls, and its loading, failure, and one-line empty states), `Facts` and `Fact` for the figures under a title, `Count` for numbers, `Dash` for empty values, `Segmented` for a mode switch, `MoreToggle` for "+N more", and `BarList` for a handful of named amounts.
+- On a type, interface, group, or All notes mount the host already shows the title, so start with the facts strip or the first section. A node presentation or standalone page draws one title in Barlow (`text-xl font-bold`).
+- Barlow everywhere inside the page; `font-serif` is never for panel or card titles. Text sizes are `text-xs` (11px), `text-sm` (12px), and `text-base` (13px); go no smaller.
+- Flat and white: separate blocks with space and hairlines (`border-b`), not cards on a gray page. A `Card` holds one item in a set of comparable items, never page scaffolding, and never nests.
+- Red means commit or risk. `<Button>` is neutral; give the one save, run, or commit action `variant="primary"`. Show problems with `text-risk` or `<Count tone="risk">` beside a word saying what is counted. Status is `StatusMark` (shape and label), never color alone.
+- Link notes with `NoteLink` and nodes with `NodeLink`; both use the teal link style.
+- Charts and bars use `--series-1` through `--series-8` (`Diagram` and `BarList` already do). Reserve teal (`series: "link"`) for linked or connected amounts, and never use red for a category.
+- While loading, show the shape of what is coming: `Section` does, and a `Skeleton` sized like its content does elsewhere. An empty section is one line, and a disclosure or panel whose count is zero is not rendered at all.
+- The light and dark themes come from the kit and follow the operating system. Use the theme classes (`bg-background`, `bg-sunk`, `text-foreground`, `text-muted-foreground`, `text-faint`, `text-link`, `text-risk`, `border`) or tokens, never hex colors or a per-view theme.
+- Keep each remembered choice in `useViewPreference`, so the host's "Reset to shared" can clear it.
+
 ## Remember personal choices
 
 Use `useViewPreference` for meaningful display choices such as filters, selected row type, and stable expansion controls. Supply defaults from the definition's `configuration`, validate values, and write only in response to interaction. The kit scopes preferences to the current view and concrete type, interface, group, node, or standalone context, with an optional stable authored widget `slot` nested within the host instance. A widget slot supplements the inherited host identity; it never replaces it. Reusing one generic view does not merge its subjects' settings. Do not construct browser-storage keys or persist drag state, menus, focus, scroll, temporary search, or camera motion.
@@ -62,9 +77,9 @@ Leave it out when:
 - the data is too sparse to show a shape, such as mostly zeros or fewer than about five points;
 - its series are hard to distinguish. Name xychart series so Pele shows a legend, and keep one color per category across the page.
 - the user acts on the records. Ranking, editing, and triage stay as rows; a chart is for reading.
-- its categories have long labels in a narrow panel. A horizontal bar chart drops labels that wrap past their row, so use an HTML list with proportional bars instead; its names can also link to notes.
+- its categories have long labels in a narrow panel. A horizontal bar chart drops labels that wrap past their row, so use `BarList` instead; its labels can also open notes.
 
-Place each chart beside the question it answers, in the lens, tab, or panel about that question, rather than above the page's working surface. Size it from the data through Mermaid frontmatter `config`, such as sankey height from node count or bar chart height from bar count. Keep one color per category across the page. Pele colors series and sankey nodes with `--pele-series-1` through `--pele-series-8` in order of appearance, and sankey nodes and links carry their labels in `data-id`, so CSS scoped to the view can match colors used elsewhere on the page. Show an empty state instead of an empty chart, and say in a caption what was left out, such as undated records. Only flowcharts, Gantt charts, class diagrams, state diagrams, and agentflow diagrams can open notes from their nodes; elsewhere, the rows near the chart carry navigation.
+Place each chart beside the question it answers, in the lens, tab, or panel about that question, rather than above the page's working surface. Size it from the data through Mermaid frontmatter `config`, such as sankey height from node count or bar chart height from bar count. Keep one color per category across the page. Pele colors series and sankey nodes with the kit's `--series-1` through `--series-8` in order of appearance, and an xychart fills the view's width. Sankey nodes and links carry their labels in `data-id`, so CSS scoped to the view can match colors used elsewhere on the page. Show an empty state instead of an empty chart, and say in a caption what was left out, such as undated records. Only flowcharts, Gantt charts, class diagrams, state diagrams, and agentflow diagrams can open notes from their nodes; elsewhere, the rows near the chart carry navigation.
 
 ## Rules the transform imposes
 
@@ -74,7 +89,7 @@ Place each chart beside the question it answers, in the lens, tab, or panel abou
 - A side-effect import of a sibling stylesheet applies it: `import "./board.css";`. The view renders after the stylesheet loads.
 - Each file is transformed once per content and revalidated by ETag, so a saved file is served fresh with no cache busting.
 - TypeScript types are stripped, not checked. Keep types for readability; do not rely on them to catch mistakes.
-- Style with Tailwind v4 utilities and the theme tokens (`bg-background`, `bg-card`, `text-muted-foreground`, `border`, `text-destructive`, `bg-primary`, `font-serif` for headings). The root font size is 14px because Rhizome's UI is dense; prefer compact spacing.
+- Style with Tailwind v4 utilities and the theme tokens; see [Look like Rhizome](#look-like-rhizome). The root font size is 14px, so spacing utilities are compact, while text sizes are pinned to Rhizome's 11, 12, and 13px scale.
 
 Read `references/example.md` for a standalone board with a shared component and staged write. The mounted example covers a specific group dashboard, parameterized node page, and HTML accessor.
 

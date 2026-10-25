@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import {
@@ -10,12 +10,20 @@ import type {
   ValidationDiagnosticFilter,
   ValidationScope,
   ValidationScopeSummary,
+  ValidationScopeSummaryResponse,
 } from "../api/types";
 
 export function validationScopeKey(scope: ValidationScope) {
   return `${scope.kind}:${scope.key ?? ""}`;
 }
 
+/**
+ * Validation summaries for scopes, read in batches of 200 that are each their
+ * own query. A list that grows (a table loading more rows) keeps the keys of
+ * its earlier, full batches, so only the batches it adds or extends fetch.
+ * Keys carry the published generation, so a new generation reads everything
+ * again and summaries never mix generations.
+ */
 export function useValidationScopeSummaries(
   generation: number | null,
   scopes: ValidationScope[],
@@ -24,41 +32,49 @@ export function useValidationScopeSummaries(
   // Stable identities matter: rails pass thousands of scopes and memoize on the result.
   const requestedScopes = useMemo(() => deduplicateScopes(scopes), [scopes]);
   const scopeBatches = useMemo(() => batchScopes(requestedScopes), [requestedScopes]);
+  const published = generation ?? 0;
+  const enabled = Boolean(generation && generation > 0);
 
-  const query = useQuery({
-    queryKey: queryKeys.validationScopeSummaries(generation ?? 0, requestedScopes, filter),
-    queryFn: async ({ signal }: { signal: AbortSignal }) => {
-      const responses = await Promise.all(
-        scopeBatches.map((batch) =>
-          getPublicValidationScopeSummaries(
-            { generation: generation ?? 0, scopes: batch, filter },
-            { signal },
-          ),
+  return useQueries({
+    queries: scopeBatches.map((batch) => ({
+      queryKey: queryKeys.validationScopeSummaries(published, batch, filter),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        getPublicValidationScopeSummaries(
+          { generation: published, scopes: batch, filter },
+          { signal },
         ),
-      );
-
-      return {
-        generation: generation ?? 0,
-        summaries: responses.flatMap((response) => response.summaries),
-      };
-    },
-    enabled: Boolean(generation && generation > 0 && scopeBatches.length > 0),
+      enabled,
+      // A batch that grows keeps its earlier counts, from the same generation,
+      // until the larger read arrives.
+      placeholderData: (
+        previous: ValidationScopeSummaryResponse | undefined,
+        previousQuery?: { queryKey: readonly unknown[] },
+      ) => (previousQuery?.queryKey[3] === published ? previous : undefined),
+    })),
+    combine: combineSummaries,
   });
+}
 
-  const summaries = useMemo(() => {
-    const byScope = new Map<string, ValidationScopeSummary>();
-
-    for (const summary of query.data?.summaries ?? []) {
-      byScope.set(validationScopeKey(summary.scope), summary);
-    }
-
-    return byScope;
-  }, [query.data]);
+// Module-level so useQueries reuses the combined result while no batch changes.
+function combineSummaries(
+  results: ReadonlyArray<{
+    data?: ValidationScopeSummaryResponse;
+    isLoading: boolean;
+    error: Error | null;
+  }>,
+) {
+  const summaries: ReadonlyMap<string, ValidationScopeSummary> = new Map(
+    results.flatMap((result) =>
+      (result.data?.summaries ?? []).map(
+        (summary) => [validationScopeKey(summary.scope), summary] as const,
+      ),
+    ),
+  );
 
   return {
-    ...query,
     summaries,
-    data: scopeBatches.length === 0 ? { generation: generation ?? 0, summaries: [] } : query.data,
+    isLoading: results.some((result) => result.isLoading),
+    error: results.find((result) => result.error)?.error ?? null,
   };
 }
 

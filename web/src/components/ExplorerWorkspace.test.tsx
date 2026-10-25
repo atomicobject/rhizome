@@ -348,7 +348,7 @@ describe("ExplorerWorkspace", () => {
     );
 
     renderExplorer();
-    const search = screen.getByPlaceholderText("Search notes + code");
+    const search = screen.getByRole("searchbox", { name: "Search notes and code" });
     fireEvent.focus(search);
     fireEvent.change(search, { target: { value: "spe" } });
     await waitFor(() => {

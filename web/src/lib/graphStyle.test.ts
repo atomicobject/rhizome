@@ -23,6 +23,12 @@ function reducerState(overrides: Partial<ReducerState> = {}): ReducerState {
     hoverNodeID: null,
     cameraRatio: 1,
     maxScore: 10,
+    colors: {
+      neutral: "#94a3b8",
+      edgeFaint: "#e8e5e0",
+      edgeLight: "#dedad4",
+      edgeStrong: "#b8b3ac",
+    },
     ...overrides,
   };
 }

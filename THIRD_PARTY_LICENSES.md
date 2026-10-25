@@ -384,9 +384,17 @@ Full license and notice text is stored in `licenses/**`. The browser notice is `
 | zustand (zustand) | 4.5.7 | MIT | `licenses/web/zustand@4.5.7` | https://github.com/pmndrs/zustand |
 | zwitch (zwitch) | 2.0.4 | MIT | `licenses/web/zwitch@2.0.4` | wooorm/zwitch |
 
+## Fonts
+
+| Package | Version | Declared license | Full text directory | Source |
+| --- | --- | --- | --- | --- |
+| Merriweather | google/fonts@e7db6ca | OFL-1.1 | `licenses/fonts/merriweather` | https://github.com/google/fonts/tree/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/merriweather (woff2 files from Google Fonts in web/public/fonts) |
+| Barlow | google/fonts@e7db6ca | OFL-1.1 | `licenses/fonts/barlow` | https://github.com/google/fonts/tree/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow (woff2 files from Google Fonts in web/public/fonts) |
+| JetBrains Mono | google/fonts@e7db6ca | OFL-1.1 | `licenses/fonts/jetbrainsmono` | https://github.com/google/fonts/tree/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/jetbrainsmono (woff2 files from Google Fonts in web/public/fonts) |
+
 ## Skills
 
 | Package | Version | Declared license | Full text directory | Source |
 | --- | --- | --- | --- | --- |
-| Impeccable copied skills | 4.0.2 | Apache-2.0 | `licenses/skills/impeccable@4.0.2` | https://github.com/pbakaus/impeccable/tree/skill-v4.0.2 |
+| Impeccable copied skills | 4.7.0 | Apache-2.0 | `licenses/skills/impeccable@4.7.0` | https://github.com/pbakaus/impeccable/tree/skill-v4.7.0 |
 | Greptile copied skills (check-pr, greploop) | 1.3 | MIT | `licenses/skills/greptile@1.3` | https://github.com/greptileai/skills/tree/646e2dfad81e5157e97daecc802b68d3d2c4d1e4 |

@@ -150,6 +150,7 @@ export function NoteTabStrip({
             aria-label={accessibleName(tab)}
             aria-controls={`panel-${tab.id}`}
             aria-selected={active}
+            aria-keyshortcuts={tab.kind === "home" ? undefined : "Delete"}
             tabIndex={active ? 0 : -1}
             className={tabClass(tab, active)}
             title={tab.kind === "home" ? "Home" : undefined}

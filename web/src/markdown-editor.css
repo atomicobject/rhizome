@@ -29,11 +29,8 @@
 
 .ontology-source-editor > label,
 .body-narrative--empty-editor > label {
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .ontology-source-editor > small {
@@ -64,11 +61,6 @@
   tab-size: 2;
 }
 
-.body-narrative--empty-editor textarea:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 .markdown-editor {
   width: 100%;
 }
@@ -80,10 +72,10 @@
   border: 0;
   --atomic-editor-font: var(--font-sans);
   --atomic-editor-font-mono: var(--font-mono);
-  --atomic-editor-body-size: 14px;
+  --atomic-editor-body-size: var(--fs-md);
   --atomic-editor-body-leading: 1.65;
   --atomic-editor-measure: none;
-  --atomic-editor-radius: var(--radius, 6px);
+  --atomic-editor-radius: var(--r-md);
   --atomic-editor-fg: var(--text);
   --atomic-editor-fg-muted: var(--text-muted);
   --atomic-editor-fg-faint: var(--text-faint);
@@ -103,19 +95,19 @@
   --atomic-editor-link-hover: var(--link);
   --atomic-editor-code-bg: var(--surface-sunk);
   --atomic-editor-code-rail: var(--border);
-  --atomic-editor-hl-keyword: #cf222e;
-  --atomic-editor-hl-string: #0a3069;
-  --atomic-editor-hl-number: #0550ae;
-  --atomic-editor-hl-comment: #6e7781;
-  --atomic-editor-hl-type: #953800;
-  --atomic-editor-hl-function: #8250df;
-  --atomic-editor-hl-property: #0550ae;
-  --atomic-editor-hl-regexp: #116329;
-  --atomic-editor-hl-escape: #0550ae;
-  --atomic-editor-hl-tag: #116329;
-  --atomic-editor-hl-variable: #24292f;
-  --atomic-editor-hl-operator: #cf222e;
-  --atomic-editor-hl-invalid: #82071e;
+  --atomic-editor-hl-keyword: var(--syntax-keyword);
+  --atomic-editor-hl-string: var(--syntax-string);
+  --atomic-editor-hl-number: var(--syntax-number);
+  --atomic-editor-hl-comment: var(--syntax-comment);
+  --atomic-editor-hl-type: var(--syntax-type);
+  --atomic-editor-hl-function: var(--syntax-function);
+  --atomic-editor-hl-property: var(--syntax-property);
+  --atomic-editor-hl-regexp: var(--syntax-string);
+  --atomic-editor-hl-escape: var(--syntax-number);
+  --atomic-editor-hl-tag: var(--syntax-tag);
+  --atomic-editor-hl-variable: var(--text);
+  --atomic-editor-hl-operator: var(--syntax-keyword);
+  --atomic-editor-hl-invalid: var(--accent-ink);
 }
 
 .markdown-editor--atomic .atomic-cm-editor,
@@ -132,7 +124,7 @@
   margin: 0 calc(-1 * var(--sp-3));
   padding: 0 var(--sp-3);
   border: 1px solid transparent;
-  border-radius: var(--radius, 6px);
+  border-radius: var(--r-md);
   background: var(--surface);
   transition:
     border-color 120ms ease-out,
@@ -161,8 +153,8 @@
 
 .markdown-editor--atomic .cm-editor.cm-focused {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-ring);
 }
 
 .markdown-editor--atomic .cm-scroller {
@@ -184,11 +176,9 @@
 .markdown-editor--atomic .cm-tooltip.cm-tooltip-autocomplete {
   max-width: 480px;
   border: 1px solid var(--border);
-  border-radius: var(--radius, 6px);
+  border-radius: var(--r-md);
   background: var(--surface);
-  box-shadow:
-    0 1px 3px rgba(42, 39, 36, 0.08),
-    0 2px 6px rgba(42, 39, 36, 0.04);
+  box-shadow: var(--shadow);
   overflow: hidden;
 }
 
@@ -203,8 +193,8 @@
 }
 
 .markdown-editor--atomic .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--bg-tint);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -271,7 +261,7 @@
   position: relative;
   cursor: pointer;
   border: 1px solid transparent;
-  border-radius: var(--radius, 6px);
+  border-radius: var(--r-md);
   transition: border-color 120ms ease-out;
 }
 
@@ -282,8 +272,8 @@
 }
 
 .mermaid-block--editor:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-ring);
 }
 
 .mermaid-block--editor::after {
@@ -293,14 +283,12 @@
   right: var(--sp-2);
   padding: 2px var(--sp-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius, 4px);
+  border-radius: var(--r);
   background: var(--surface);
   color: var(--text-muted);
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 600;
   opacity: 0;
   transition: opacity 120ms ease-out;
   pointer-events: none;

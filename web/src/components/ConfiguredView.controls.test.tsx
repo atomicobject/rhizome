@@ -6,15 +6,55 @@ import { clearPreferenceStores } from "../viewPreferences/store";
 import { ConfiguredView } from "./ConfiguredView";
 import {
   baseView,
+  boardExecution,
   execution,
   executionWithMoreRows,
   filterFieldOptionLabels,
   firstRow,
-  boardExecution,
+  openViewOptions,
   renderView,
 } from "./ConfiguredView.testFixtures";
 
 describe("ConfiguredView states and controls", () => {
+  it("keeps search, filter, and grouping in the toolbar and the rest under View options", () => {
+    const onRefresh = vi.fn();
+    renderView({ onRefresh });
+
+    expect(screen.getByRole("searchbox", { name: "Search view" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Add filter" })).toBeVisible();
+    expect(screen.getByLabelText("Group by")).toBeVisible();
+    expect(screen.queryByRole("checkbox", { name: /Problems on this page/ })).toBeNull();
+
+    for (const name of [/^Columns/, /^Save view/, "Refresh view"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+
+    const options = screen.getByRole("button", { name: "View options" });
+    expect(options).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(options);
+    expect(options).toHaveAttribute("aria-expanded", "true");
+    const panel = screen.getByRole("group", { name: "View options" });
+    expect(within(panel).getByRole("button", { name: /^Columns/ })).toBeVisible();
+    expect(within(panel).getByRole("button", { name: /^Save view/ })).toBeVisible();
+    fireEvent.click(within(panel).getByRole("button", { name: "Refresh view" }));
+    expect(onRefresh).toHaveBeenCalledOnce();
+
+    // Escape closes the options and returns focus to their button.
+    within(panel)
+      .getByRole("button", { name: /^Columns/ })
+      .focus();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(options).toHaveAttribute("aria-expanded", "false");
+    expect(options).toHaveFocus();
+    expect(screen.queryByRole("button", { name: /^Columns/ })).toBeNull();
+  });
+
+  it("marks View options when the shared view has unsaved changes", () => {
+    renderView({ state: { sort: [{ field: "title", direction: "desc" }] } });
+
+    expect(screen.getByRole("button", { name: "View options, unsaved changes" })).toBeVisible();
+  });
+
   it("renders loading, error, and empty states", () => {
     const { rerender } = render(
       <ConfiguredView
@@ -29,7 +69,7 @@ describe("ConfiguredView states and controls", () => {
       />,
     );
 
-    expect(screen.getByText("Loading view…")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading view…");
 
     rerender(
       <ConfiguredView
@@ -97,7 +137,10 @@ describe("ConfiguredView states and controls", () => {
         onOpenRow={() => {}}
       />,
     );
-    expect(screen.getByText("No rows match this view.")).toBeVisible();
+    // Empty results and the footer count announce through status regions.
+    expect(screen.getAllByRole("status").map((status) => status.textContent)).toEqual(
+      expect.arrayContaining(["No rows match this view.", "0 rows"]),
+    );
   });
   it("renders configured columns, group header rows, rows, and row identity", () => {
     const onOpenRow = vi.fn();
@@ -338,6 +381,7 @@ describe("ConfiguredView states and controls", () => {
     renderView({ execution: { ...baseExecution, capabilities } });
 
     expect(screen.queryByRole("columnheader", { name: "Detail note" })).toBeNull();
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     const columns = screen.getByRole("group", { name: "Visible columns" });
     expect(
@@ -353,6 +397,8 @@ describe("ConfiguredView states and controls", () => {
   it("remembers the column choice for the view after a remount", async () => {
     onTestFinished(clearPreferenceStores);
     const rendered = renderView({ vaultKey: "vault" });
+    await screen.findByRole("button", { name: /^View options/ });
+    openViewOptions();
     fireEvent.click(await screen.findByRole("button", { name: "Columns" }));
     fireEvent.click(
       within(screen.getByRole("group", { name: "Visible columns" })).getByLabelText("Status"),
@@ -518,9 +564,11 @@ describe("ConfiguredView states and controls", () => {
       sort: [{ field: "title", direction: "asc" }],
     });
 
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Refresh view" }));
     expect(onRefresh).toHaveBeenCalledTimes(1);
 
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     const columns = screen.getByRole("group", { name: "Visible columns" });
     fireEvent.click(within(columns).getByLabelText("Status"));
@@ -576,6 +624,7 @@ describe("ConfiguredView states and controls", () => {
       group: { field: "" },
     });
 
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     const columns = screen.getByRole("group", { name: "Visible columns" });
     fireEvent.click(within(columns).getByLabelText("Status"));
