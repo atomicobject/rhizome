@@ -34,7 +34,7 @@ This skill owns universal Rhizome mechanics. A more-specific workflow skill owns
 | Learn an unfamiliar topic, subsystem, or vault area | `references/onboarding.md` |
 | Diagnose or edit project configuration | `references/configuration.md` |
 | Index content, or results look missing or stale | `references/indexing-and-freshness.md` |
-| Diagnose slow/failed indexing, runtime startup, degraded queries, or operational errors from retained logs and timings | `references/diagnostics.md` |
+| Diagnose slow/failed indexing, runtime startup, degraded queries, web UI stalls or rerenders, or operational errors from retained logs, timings, and the `perf` summary | `references/diagnostics.md` |
 | Change what gets indexed: skip bulky content, include an ignored folder, or explain why a file or code is left out | `references/index-scope.md` |
 | Validate content, or plan and apply a repair | `references/validation-and-repair.md` |
 | Move or rename a note or attachment, or rename a linked heading | `references/markdown-mutations.md` |

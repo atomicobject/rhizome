@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 	"github.com/atomicobject/rhizome/pkg/app/agentcode"
@@ -119,19 +120,24 @@ func (commandOptions *vaultCommandOptions) newAgentCodeInvoker(ctx context.Conte
 		return outcome, true
 	}
 	connectionEnv := commandEnvFromContext(ctx)
+	metrics := codeCallMetricsFromContext(ctx)
 	return func(ctx context.Context, name string, input map[string]any) (outcome agentcode.CallOutcome, callErr error) {
 		ctx = contextWithCommandEnv(ctx, connectionEnv)
 		ctx, finish := observeAgentRequest(ctx, name, "code_stdio")
+		started, forwarded := time.Now(), false
 		defer func() {
 			if panicked := recover(); panicked != nil {
+				metrics.record(name, forwarded, true, time.Since(started))
 				finish(false, errors.New("diagnostic boundary panicked"))
 				panic(panicked)
 			}
+			metrics.record(name, forwarded, !outcome.OK || callErr != nil, time.Since(started))
 			finish(outcome.OK, callErr)
 		}()
 		descriptor, _ := agentapi.CodeOperationDescriptor(name)
 		if descriptor.CodeRuntimeRead != nil && descriptor.CodeRuntimeRead(input) && !wrote.Load() {
 			if outcome, handled := runtimeRead(ctx, name, input); handled {
+				forwarded = true
 				return outcome, nil
 			}
 		} else if readWrite && descriptor.Mutation != agentapi.MutationNever {
@@ -154,6 +160,7 @@ func (commandOptions *vaultCommandOptions) newAgentCodeInvoker(ctx context.Conte
 			return commandOptions.callAgentCodeOperation(ctx, name, input, readWrite), nil
 		}
 		if outcome, handled := forwarder.call(ctx, name, input, readWrite); handled {
+			forwarded = true
 			return outcome, nil
 		}
 		return commandOptions.callAgentCodeOperation(ctx, name, input, readWrite), nil

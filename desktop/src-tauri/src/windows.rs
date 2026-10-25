@@ -277,77 +277,83 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         LogicalSize::new(width, height),
     )?;
     let popup_app = app.clone();
+    let mut view = WebviewBuilder::new(
+        content_label(&label),
+        WebviewUrl::External("about:blank".parse().unwrap()),
+    )
+    .initialization_script(CLICK_GUARD)
+    .initialization_script(page::MARKER);
+    // Scripts are fixed when the view is created, so a changed setting
+    // reaches only windows opened afterward.
+    if page::profiling_for(app).enabled {
+        view = view.initialization_script(page::RENDER_PROFILING);
+    }
     let content = window.add_child(
-        WebviewBuilder::new(
-            content_label(&label),
-            WebviewUrl::External("about:blank".parse().unwrap()),
-        )
-        .initialization_script(CLICK_GUARD)
-        .initialization_script(page::MARKER)
-        // Tauri's native file-drop handler claims every drag, so the page never
-        // sees dragover or drop; the runtime UI needs HTML5 drag and drop.
-        .disable_drag_drop_handler()
-        .on_navigation(move |target| {
-            expected.read().is_ok_and(|origin| match origin.as_ref() {
-                Some(origin) => {
-                    security::same_origin(origin, target)
-                        || security::runtime_content_origin(origin, target)
-                        || security::empty_frame_document(target)
-                }
-                None => security::empty_frame_document(target),
+        view
+            // Tauri's native file-drop handler claims every drag, so the page never
+            // sees dragover or drop; the runtime UI needs HTML5 drag and drop.
+            .disable_drag_drop_handler()
+            .on_navigation(move |target| {
+                expected.read().is_ok_and(|origin| match origin.as_ref() {
+                    Some(origin) => {
+                        security::same_origin(origin, target)
+                            || security::runtime_content_origin(origin, target)
+                            || security::empty_frame_document(target)
+                    }
+                    None => security::empty_frame_document(target),
+                })
             })
-        })
-        // The page reports the state the toolbar shows through its title.
-        .on_document_title_changed(|webview, title| {
-            webview
-                .app_handle()
-                .state::<Panes>()
-                .with(webview.window().label(), |pane| page::titled(pane, &title));
-        })
-        .on_new_window(move |target, _| {
-            if security::external_url(&target) {
-                let _ = popup_app.opener().open_url(target.as_str(), None::<&str>);
-            }
-            NewWindowResponse::Deny
-        })
-        .on_page_load(|webview, payload| {
-            let shown = || {
+            // The page reports the state the toolbar shows through its title.
+            .on_document_title_changed(|webview, title| {
                 webview
                     .app_handle()
                     .state::<Panes>()
-                    .with(webview.window().label(), |pane| pane.visible())
-                    .unwrap_or(false)
-            };
-            // Going back past the runtime's first page reaches the blank page
-            // the view started on; return to the workspace instead.
-            if payload.event() == PageLoadEvent::Finished
-                && payload.url().as_str() == "about:blank"
-                && shown()
-            {
-                let _ = webview.eval("history.forward()");
-                return;
-            }
-            if payload.event() == PageLoadEvent::Started {
-                webview
-                    .app_handle()
-                    .state::<Panes>()
-                    .with(webview.window().label(), |pane| {
-                        page::loading(pane, payload.url())
-                    });
-                crate::pipeline::navigation_started(
-                    webview.app_handle(),
-                    webview.window().label(),
-                    payload.url(),
-                );
-            }
-            if payload.event() == PageLoadEvent::Finished {
-                crate::pipeline::loaded(
-                    webview.app_handle(),
-                    webview.window().label(),
-                    payload.url(),
-                );
-            }
-        }),
+                    .with(webview.window().label(), |pane| page::titled(pane, &title));
+            })
+            .on_new_window(move |target, _| {
+                if security::external_url(&target) {
+                    let _ = popup_app.opener().open_url(target.as_str(), None::<&str>);
+                }
+                NewWindowResponse::Deny
+            })
+            .on_page_load(|webview, payload| {
+                let shown = || {
+                    webview
+                        .app_handle()
+                        .state::<Panes>()
+                        .with(webview.window().label(), |pane| pane.visible())
+                        .unwrap_or(false)
+                };
+                // Going back past the runtime's first page reaches the blank page
+                // the view started on; return to the workspace instead.
+                if payload.event() == PageLoadEvent::Finished
+                    && payload.url().as_str() == "about:blank"
+                    && shown()
+                {
+                    let _ = webview.eval("history.forward()");
+                    return;
+                }
+                if payload.event() == PageLoadEvent::Started {
+                    webview
+                        .app_handle()
+                        .state::<Panes>()
+                        .with(webview.window().label(), |pane| {
+                            page::loading(pane, payload.url())
+                        });
+                    crate::pipeline::navigation_started(
+                        webview.app_handle(),
+                        webview.window().label(),
+                        payload.url(),
+                    );
+                }
+                if payload.event() == PageLoadEvent::Finished {
+                    crate::pipeline::loaded(
+                        webview.app_handle(),
+                        webview.window().label(),
+                        payload.url(),
+                    );
+                }
+            }),
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(1.0, 1.0),
     )?;

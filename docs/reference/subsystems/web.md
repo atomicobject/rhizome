@@ -1,7 +1,7 @@
 ---
 summary: "Browser and public HTTP adapters: provider-aware readiness, shared node reads and edit sessions, and bounded runtime ownership."
 reference-kind: guide
-last-verified: 2026-10-17
+last-verified: 2026-10-25
 code-paths:
   - pkg/app/web
 tags: [subsystem/web]
@@ -26,6 +26,7 @@ code-anchors:
 - File and rendered-content routes admit only resolved paths within the resolved vault root. Ignore policy applies to both an authored symlink path and its target. Validate the application host before dispatch; isolated HTML viewing retains its separate origin and nonce contract.
 - Source edits go through the shared edit-session and source-transaction owners under a real vault lease. Preview, rebase, commit, recovery, and idempotency receipts preserve conflict outcomes and later external edits. Browser backups are recovery input, not write authority.
 - Event streams are invalidation signals. Preserve subscribed refs while tracking canonical relocated identity, advance versions after publication, and refresh affected panes and collection data after commits. Provider selection governs eligible events; filename assumptions do not exclude supported formats.
+- Browser diagnostics batches (`POST /api/v1/diagnostics/client`) pass the global host and origin checks, are size-bounded and strictly validated, and become one `web.client` event each. Without a recorder or with persistence disabled they are accepted and discarded.
 - Server-owned handles and subscriptions have one cleanup owner. Cancellation reaches reads and background work. A failed construction releases only resources that construction acquired.
 
 ## Must-dos when changing this subsystem

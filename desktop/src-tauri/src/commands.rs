@@ -1,12 +1,13 @@
 use crate::{
     bridge::{self, Failure, Request},
     menu::{self, MenuEntry},
+    page,
     pane::Panes,
     pipeline,
     presence::Presence,
     security,
     setup::{ScopeEdits, Secret, SetupChoices},
-    state::{valid_id, Discovery, Library},
+    state::{valid_id, Discovery, Library, Preferences},
     updater,
     windows::{self, Sessions},
 };
@@ -90,6 +91,10 @@ pub enum Action {
     CredentialCancel,
     UpdateStatus,
     CheckForUpdates,
+    RenderProfiling,
+    SetRenderProfiling {
+        enabled: bool,
+    },
     InstallUpdate,
     CliLinkStatus,
     CliLinkInstall,
@@ -159,7 +164,7 @@ pub enum Action {
         to: windows::Browse,
     },
     /// A toolbar control's command to the workspace page.
-    Page(crate::page::Command),
+    Page(page::Command),
     #[serde(rename_all = "camelCase")]
     Session {
         repository: Option<String>,
@@ -327,6 +332,14 @@ pub async fn desktop_request(
             .await
         }
         Action::UpdateStatus => Ok(json!(app.state::<updater::Updates>().status())),
+        Action::RenderProfiling => Ok(json!(page::profiling_for(&app))),
+        Action::SetRenderProfiling { enabled } => {
+            Preferences {
+                render_profiling: enabled,
+            }
+            .save(&state.directory)?;
+            Ok(json!(page::profiling_for(&app)))
+        }
         Action::CheckForUpdates => Ok(json!(updater::check(&app).await)),
         Action::InstallUpdate => {
             updater::install(&app)?;

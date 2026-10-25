@@ -1,10 +1,12 @@
-import { useQueryClient, type QueryKey } from "@tanstack/react-query";
+import { useQueryClient, type Query, type QueryKey } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { getPublicEventsUrl } from "../api/client";
 import { openReconnectingEventSource } from "../api/eventStream";
 import { isCallable, isString } from "../api/parse";
 import { isValidationSnapshotQuery, queryKeys } from "../api/queryKeys";
+import { recordReconnect } from "../diagnostics/clientMetrics";
+import { trackRefresh } from "../diagnostics/refreshChurn";
 import { advanceVaultIndexRevision } from "./vaultIndexRevision";
 import {
   INDEX_EVENTS,
@@ -39,6 +41,7 @@ export function VaultInvalidationBridge() {
     if (typeof EventSource === "undefined") return;
 
     let globalGraphTimer: ReturnType<typeof setTimeout> | undefined;
+    const cache = queryClient.getQueryCache();
 
     const globalGraphQueries = {
       queryKey: queryKeys.graph.all(),
@@ -65,6 +68,7 @@ export function VaultInvalidationBridge() {
       globalGraphTimer = setTimeout(() => {
         globalGraphTimer = undefined;
         void cancelGlobalGraphReads();
+        trackRefresh(cache, [globalGraphQueries]);
         void queryClient.invalidateQueries(globalGraphQueries);
       }, GLOBAL_GRAPH_INVALIDATE_DELAY_MS);
     };
@@ -75,10 +79,15 @@ export function VaultInvalidationBridge() {
     const refetchIndexQueries = () => {
       // Initial queries otherwise reuse an in-flight response from before this index event.
       void cancelLinkTargetReads();
-      void queryClient.invalidateQueries({
+
+      const indexQueries = {
         queryKey: queryKeys.all,
-        predicate: (query) => !isGlobalGraphQuery(query) && !isValidationSnapshotQuery(query),
-      });
+        predicate: (query: Query) =>
+          !isGlobalGraphQuery(query) && !isValidationSnapshotQuery(query),
+      };
+
+      trackRefresh(cache, [indexQueries]);
+      void queryClient.invalidateQueries(indexQueries);
       invalidateGlobalGraphSoon();
     };
 
@@ -108,11 +117,15 @@ export function VaultInvalidationBridge() {
     };
 
     const invalidateValidation = () => {
-      void queryClient.invalidateQueries({
+      const validationQueries = {
         queryKey: queryKeys.validationAll(),
-        predicate: (query) => !isValidationSnapshotQuery(query),
-      });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.status() });
+        predicate: (query: Query) => !isValidationSnapshotQuery(query),
+      };
+
+      const statusQuery = { queryKey: queryKeys.status() };
+      trackRefresh(cache, [validationQueries, statusQuery]);
+      void queryClient.invalidateQueries(validationQueries);
+      void queryClient.invalidateQueries(statusQuery);
     };
 
     let connected = false;
@@ -127,9 +140,11 @@ export function VaultInvalidationBridge() {
       }
 
       // A restarted runtime may use a rebuilt database with reused generation numbers.
+      recordReconnect();
       clearGlobalGraphTimer();
       void cancelGlobalGraphReads();
       void cancelLinkTargetReads();
+      trackRefresh(cache, [{ queryKey: queryKeys.all }]);
       void queryClient.invalidateQueries({ queryKey: queryKeys.all });
       publishVaultEvent({ event: STREAM_RECONNECTED_EVENT });
     };

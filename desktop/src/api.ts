@@ -87,6 +87,11 @@ export type UpdateStatus =
   | { state: "disabled" | "idle" | "checking" }
   | { state: "current" | "downloading" | "ready"; version: string }
   | { state: "failed"; message: string };
+/** Whether new content views record render timings; `always` in Rhizome Dev. */
+export interface RenderProfiling {
+  enabled: boolean;
+  always: boolean;
+}
 export interface Failure {
   code: string;
   message: string;
@@ -269,6 +274,8 @@ type Results = {
   "update-status": UpdateStatus;
   "check-for-updates": UpdateStatus;
   "install-update": null;
+  "render-profiling": RenderProfiling;
+  "set-render-profiling": RenderProfiling;
   "cli-link-status": LinkInfo;
   "cli-link-install": LinkInfo;
   "cli-link-remove": LinkInfo;
@@ -307,6 +314,8 @@ type Args = {
   "update-status": Record<string, never>;
   "check-for-updates": Record<string, never>;
   "install-update": Record<string, never>;
+  "render-profiling": Record<string, never>;
+  "set-render-profiling": { enabled: boolean };
   "cli-link-status": Record<string, never>;
   "cli-link-install": Record<string, never>;
   "cli-link-remove": Record<string, never>;

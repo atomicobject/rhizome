@@ -57,7 +57,11 @@ func WriteText(out io.Writer, result Result) error {
 			return err
 		}
 	}
-	if len(result.Reports) == 0 && len(result.Events) == 0 {
+	if result.Perf != nil {
+		if err := writePerf(out, *result.Perf); err != nil {
+			return err
+		}
+	} else if len(result.Reports) == 0 && len(result.Events) == 0 {
 		if _, err := fmt.Fprintln(out, "No retained matching records."); err != nil {
 			return err
 		}
