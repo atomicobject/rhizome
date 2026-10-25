@@ -277,11 +277,13 @@ func (t *Transport[M]) Close(ctx context.Context) error {
 
 func (t *Transport[M]) closeProcess(ctx context.Context) error {
 	defer t.closeOutput()
-	t.closeInput()
 	exited, process := t.exited, t.process
 	if exited == nil {
+		t.closeInput()
 		return nil
 	}
+	tree := processTree(process)
+	t.closeInput()
 	grace := forceKillAfter
 	if deadline, ok := ctx.Deadline(); ok {
 		remaining := time.Until(deadline)
@@ -297,13 +299,13 @@ func (t *Transport[M]) closeProcess(ctx context.Context) error {
 	select {
 	case <-exited:
 		// Descendants outlive the child and may hold stderr open.
-		_ = killProcessGroup(process)
+		_ = killProcessTree(process, tree)
 		t.waitStderr(ctx)
 		return nil
 	case <-timer.C:
 	case <-ctx.Done():
 	}
-	killErr := killProcessGroup(process)
+	killErr := killProcessTree(process, tree)
 	// After SIGKILL the child reaps promptly; wait a short floor for it, but
 	// never past the caller's shutdown deadline.
 	killWait := time.NewTimer(killWaitFloor)
