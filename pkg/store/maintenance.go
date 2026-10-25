@@ -8,10 +8,15 @@ import (
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 )
 
-// CheckIntegrity inspects database pages during explicit maintenance.
+// CheckIntegrity inspects database pages and FTS5 indexes during explicit
+// maintenance. Confirmed corruption is counted so index reports show it.
 func (s *Store) CheckIntegrity(ctx context.Context) error {
 	indexingperf.AddCount(ctx, indexingperf.DBIntegrityChecks, 1)
-	return sqliteutil.QuickIntegrityCheck(ctx, s.db)
+	err := sqliteutil.QuickIntegrityCheck(ctx, s.db)
+	if sqliteutil.IsCorruptError(err) {
+		indexingperf.AddCount(ctx, indexingperf.DBIntegrityFailures, 1)
+	}
+	return err
 }
 
 // VacuumStats summarizes reclaimable free pages in the main SQLite database.

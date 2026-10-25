@@ -1,9 +1,13 @@
 package indexing
 
 import (
+	"bytes"
+	"context"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
+	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
@@ -80,4 +84,25 @@ func TestPersistCodeEmbeddingsConfig_PreservesExplicitDisable(t *testing.T) {
 	if reloaded.CodeEmbeddings.Enabled {
 		t.Fatalf("expected explicit disabled code embeddings to remain disabled")
 	}
+}
+
+func TestReportIntegrityFailureRetainsWarnEvent(t *testing.T) {
+	root := t.TempDir()
+	var stderr bytes.Buffer
+	recorder, err := diagnostics.Open(root, diagnostics.Options{Stderr: &stderr})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = recorder.Close() })
+	ctx := diagnostics.WithRecorder(context.Background(), recorder)
+
+	reportIntegrityFailure(ctx, sqliteutil.IntegrityCheckFailed{Result: "fts5: corruption in table \"intel_fts\""})
+
+	events, err := diagnostics.ReadEvents(root, diagnostics.Filter{Subsystem: "indexing"})
+	require.NoError(t, err)
+	require.Len(t, events.Events, 1)
+	event := events.Events[0]
+	require.Equal(t, "WARN", event.Level)
+	require.Equal(t, "integrity.failed", event.Name)
+	require.Equal(t, "corrupt", event.Attributes["reason_code"])
+	require.Contains(t, event.Message, "intel_fts")
+	require.Contains(t, stderr.String(), "integrity.failed")
 }

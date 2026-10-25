@@ -67,6 +67,58 @@ func TestQuickIntegrityCheck_ReturnsCorruptionForCorruptDB(t *testing.T) {
 	assert.True(t, IsCorruptError(err), "expected corruption, got %v", err)
 }
 
+// A pooled connection caches each FTS5 table's segment structure, and SQLite's
+// FTS5 integrity method trusts that cache without checking data_version. After
+// another connection merges segments, a stale connection used to report
+// "fts5: corruption found reading blob" for a healthy database.
+func TestQuickIntegrityCheck_IgnoresStaleFTS5StructureCache(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	db, err := sql.Open("sqlite3", DSN(filepath.Join(t.TempDir(), "fts.db")))
+	require.NoError(t, err)
+	defer db.Close()
+	db.SetMaxIdleConns(4)
+
+	writer, err := db.Conn(ctx)
+	require.NoError(t, err)
+	defer writer.Close()
+	_, err = writer.ExecContext(ctx, `CREATE VIRTUAL TABLE docs USING fts5(body)`)
+	require.NoError(t, err)
+	fill := func(start int) {
+		tx, err := writer.BeginTx(ctx, nil)
+		require.NoError(t, err)
+		for i := start; i < start+500; i++ {
+			_, err := tx.Exec(`INSERT INTO docs(body) VALUES (?)`, fmt.Sprintf("alpha beta term%d", i))
+			require.NoError(t, err)
+		}
+		require.NoError(t, tx.Commit())
+	}
+	for i := 0; i < 4; i++ {
+		fill(i * 500)
+	}
+
+	reader, err := db.Conn(ctx)
+	require.NoError(t, err)
+	var n int
+	require.NoError(t, reader.QueryRowContext(ctx, `SELECT count(*) FROM docs WHERE docs MATCH 'alpha'`).Scan(&n))
+	require.NoError(t, reader.Close()) // the stale connection is now the pool's only idle one
+
+	fill(2000)
+	_, err = writer.ExecContext(ctx, `INSERT INTO docs(docs) VALUES('optimize')`)
+	require.NoError(t, err)
+
+	require.NoError(t, QuickIntegrityCheck(ctx, db))
+
+	// Real FTS5 damage is still reported: drop a leaf page of the merged segment.
+	_, err = writer.ExecContext(ctx, `DELETE FROM docs_data WHERE id = (SELECT max(id) FROM docs_data)`)
+	require.NoError(t, err)
+	err = QuickIntegrityCheck(ctx, db)
+	require.Error(t, err)
+	assert.True(t, IsCorruptError(err), "expected corruption, got %v", err)
+	assert.Contains(t, err.Error(), "fts5")
+}
+
 func TestQuickIntegrityCheck_ExclusiveLockReturnsBusy(t *testing.T) {
 	t.Parallel()
 

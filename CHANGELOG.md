@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- The integrity check after a full index no longer reports a healthy full-text index as corrupt (`fts5: corruption found reading blob …`). A failed check is now a WARN `integrity.failed` event that `rzm diagnostics logs` shows, and the index report counts confirmed corruption as `db.integrity_failures`.
 - Native collection views stay in place while refreshing, and Git metadata changes no longer trigger vault refreshes.
 
 - `rzm harness status --configured` prints only the configured `agent.harness` setting, without starting any provider.
