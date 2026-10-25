@@ -112,7 +112,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 - Verification MUST cover concurrent writers/readers, retention, partial/corrupt records, filesystem failure, collector bounds, cancellation, correlation, and protocol output.
 - A repeatable local workload MUST compare behavior and overhead before and after recording. Report measured evidence and its limitations; do not claim indexing speedups from instrumentation alone.
 - A sustained watcher workload MUST show that routine jobs no longer consume the artifact budget, while failed and slow jobs still publish reports.
-- Web UI verification MUST show, in a real browser, that an induced frame stall and an induced post-refresh render storm appear in `rzm diagnostics perf`, that measurement adds no renders, and that rejected batches (oversized, unknown fields, cross-origin) are not recorded.
+- Web UI verification MUST show, in a real browser, that an induced frame stall and a background refresh with unchanged data appear in `rzm diagnostics perf`, that measurement adds no renders, and that rejected batches (oversized, unknown fields, cross-origin) are not recorded. Because production builds omit render regions, the post-refresh render churn flag is verified with synthetic batches.
 - Code-mode verification MUST show per-operation host-call metrics in the command report for a script that makes in-process and forwarded calls.
 
 ## Open Questions
