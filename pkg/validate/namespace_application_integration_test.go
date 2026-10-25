@@ -64,7 +64,6 @@ func TestIntegrationNamespaceApplicationHelper(t *testing.T) {
 		require.NoError(t, indexerErr)
 		result, renameErr := actions.RenameHeading(&repoconfig.Vault{Env: env, Name: root}, actions.RenameHeadingParams{
 			Context: ctx, NoteMetadata: metadata, Path: "edit.md", OldHeading: "Old heading", NewHeading: "New heading", Apply: true,
-			UpgradeToBlockID: actions.HeadingRenameUpgradeNever, Fallback: actions.HeadingRenameFallbackHeading,
 		})
 		err, applied = renameErr, result.Applied
 	case "delete":

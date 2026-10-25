@@ -29,7 +29,7 @@ func (Provider) Descriptor() noteformat.Descriptor {
 		ID:                "markdown",
 		Extensions:        []string{".md"},
 		ProviderVersion:   "markdown-provider-v1",
-		ProjectionVersion: "markdown-projection-v4",
+		ProjectionVersion: "markdown-projection-v5",
 		OwnershipPolicy:   noteformat.OwnershipDefault,
 		Capabilities: noteformat.MustCapabilities(
 			noteformat.CapabilitySourceReading,

@@ -120,7 +120,7 @@ func TestPerfFlagsRuntimeBurstsUnfinishedWorkAndIntegrity(t *testing.T) {
 	done := evidence.NewOperation("command", "rzm index")
 	f.event(slog.LevelInfo, "command", "command.started", done)
 	f.at(time.Second).event(slog.LevelInfo, "command", "operation.finished", done, slog.Int64("duration_ms", 1000), slog.String("kind", "command"), slog.String("trigger", "rzm index"))
-	f.at(2*time.Minute).event(slog.LevelWarn, "indexing", "index.integrity_check_failed", evidence.NewOperation("index", "post"), slog.String("table", "intel_fts"))
+	f.at(2*time.Minute).event(slog.LevelWarn, "indexing", "integrity.failed", evidence.NewOperation("index", "post"), slog.String("table", "intel_fts"))
 	recent := evidence.NewOperation("command", "rzm serve")
 	f.at(10*time.Second).event(slog.LevelInfo, "command", "command.started", recent)
 	f.at(10*time.Second).finished("http.request", "/api/v1/runtime", "success", 1)

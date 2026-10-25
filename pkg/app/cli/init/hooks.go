@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -21,10 +20,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/cli/hook"
-	"github.com/atomicobject/rhizome/pkg/app/repoexec"
-	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
-	"github.com/atomicobject/rhizome/pkg/vault/version"
 )
 
 // starterHookMetadata is one hook a starter declares in template.yaml.
@@ -42,11 +38,31 @@ type starterHookMetadata struct {
 	// CommandPrefixes names the handler's published prefix file, relative to
 	// the repository root.
 	CommandPrefixes string `yaml:"commandPrefixes,omitempty"`
+	// GuardRules declares Rhizome's built-in guard instead of a command: the
+	// folder, relative to the repository root, of finding notes whose
+	// approved guard rules refuse tool calls before they run.
+	GuardRules string `yaml:"guardRules,omitempty"`
 }
 
 func (m starterHookMetadata) handler(starter string) (hook.Handler, error) {
 	fail := func(format string, args ...any) (hook.Handler, error) {
 		return hook.Handler{}, fmt.Errorf("starter %q hook %q: %s", starter, m.ID, fmt.Sprintf(format, args...))
+	}
+	for _, tool := range m.Tools {
+		switch tool {
+		case hook.ToolRead, hook.ToolEdit, hook.ToolShell, hook.ToolPatch:
+		default:
+			return fail("unknown tool class %q", tool)
+		}
+	}
+	if m.GuardRules != "" {
+		if strings.TrimSpace(m.ID) == "" || len(m.Command) > 0 || strings.TrimSpace(m.Delivers) == "" {
+			return fail("a guard needs an id and what it delivers, and no command")
+		}
+		if !slices.Equal(m.Events, []string{hook.PreToolUse}) || len(m.Tools) == 0 {
+			return fail("a guard handles only %s and names its tool classes", hook.PreToolUse)
+		}
+		return hook.Handler{Starter: starter, ID: m.ID, Delivers: m.Delivers, Events: m.Events, Tools: m.Tools, GuardRules: m.GuardRules}, nil
 	}
 	if strings.TrimSpace(m.ID) == "" || len(m.Command) == 0 || strings.TrimSpace(m.Delivers) == "" {
 		return fail("needs an id, a command, and what it delivers")
@@ -57,13 +73,6 @@ func (m starterHookMetadata) handler(starter string) (hook.Handler, error) {
 	for _, event := range m.Events {
 		if !slices.Contains(hook.HandlerEvents, event) {
 			return fail("unknown event %q (use %s)", event, strings.Join(hook.HandlerEvents, ", "))
-		}
-	}
-	for _, tool := range m.Tools {
-		switch tool {
-		case hook.ToolRead, hook.ToolEdit, hook.ToolShell, hook.ToolPatch:
-		default:
-			return fail("unknown tool class %q", tool)
 		}
 	}
 	for _, arg := range m.Command {
@@ -269,7 +278,9 @@ func hookStatusLines(root string, res resolved, applied bool) []string {
 		}
 		lines = append(lines, "  "+name+": "+h.Delivers)
 	}
-	if reason := hooksBlockedReason(res); reason != "" {
+	if reason := hooksBlockedReason(res); errors.Is(res.hooksBlocked, errNoGuard) {
+		lines = append(lines, "Guard rules do not run: "+reason)
+	} else if reason != "" {
 		lines = append(lines, "Hook entries were left as they are: "+reason)
 	}
 	byKey := map[string]*change{}
@@ -316,9 +327,11 @@ func hookStatusLines(root string, res resolved, applied bool) []string {
 			continue
 		}
 		for _, h := range handlers {
-			if hooksOn(res.cfg) && !skillAvailable(root, res, applied, h.Skill) {
+			if h.GuardRules != "" {
+				lines = append(lines, guardStatusLines(root, h, status.Refused[file.harness])...)
+			} else if hooksOn(res.cfg) && !skillAvailable(root, res, applied, h.Skill) {
 				lines = append(lines, fmt.Sprintf("  %s does not run: no enabled skill folder holds its %s skill", h.Key(), h.Skill))
-			} else if at, ok := status[file.harness][h.Key()]; ok {
+			} else if at, ok := status.Delivered[file.harness][h.Key()]; ok {
 				lines = append(lines, fmt.Sprintf("  %s last returned context %s", h.Key(), at.Local().Format("2006-01-02 15:04")))
 			} else {
 				lines = append(lines, fmt.Sprintf("  %s has not returned context yet", h.Key()))
@@ -338,6 +351,26 @@ func hooksBlockedReason(res resolved) string {
 		return ""
 	}
 	return res.hooksBlocked.Error()
+}
+
+// guardStatusLines list a guard's active rules for one harness and how many
+// calls each refused there, and the rules it skips.
+//
+// Docs: [[agent-surface-integration-modes#^SPEC-0045-US6-AC5]]
+func guardStatusLines(root string, h hook.Handler, refused map[string]int) []string {
+	rules, problems := hook.LoadGuardRules(context.Background(), root, h.GuardRules)
+	var lines []string
+	if len(rules) == 0 {
+		lines = append(lines, fmt.Sprintf("  %s has no approved guard rules in %s; the before-tool-call entry is installed once one exists", h.Key(), h.GuardRules))
+	}
+	for _, r := range rules {
+		n := refused[r.Source]
+		lines = append(lines, fmt.Sprintf("  guard rule %s (%s) refused %s", r.Source, r.Match(), countNoun(n, "call")))
+	}
+	for _, p := range problems {
+		lines = append(lines, "  guard rule skipped: "+p)
+	}
+	return lines
 }
 
 // skillAvailable reports whether a handler's skill is in an enabled skill
@@ -376,90 +409,13 @@ func printHookStatus(out io.Writer, root string, res resolved, applied bool) {
 	}
 }
 
-// checkHookSupport tells whether installed entries can run. It is a
-// variable so tests need no second binary.
-var checkHookSupport = selectedBinarySupportsHooks
-
-// hookTrustStore is the repository trust store; tests replace it.
-var hookTrustStore = repositorytrust.DefaultStore
-
-// selectedBinarySupportsHooks probes, with `rzm hook --check`, the rzm on
-// PATH that every entry launches, and the binary this repository selects,
-// which that rzm hands hooks off to. This binary needs no probe.
-// runningExecutable is os.Executable, replaceable in tests, where the test
-// binary would otherwise count as a go run build.
-var runningExecutable = os.Executable
-
-func selectedBinarySupportsHooks(root string, cfg repoconfig.LocalConfig) error {
-	exe, err := runningExecutable()
-	if err != nil {
-		return err
-	}
-	launcher, err := exec.LookPath("rzm")
-	if err != nil {
-		return fmt.Errorf("hook entries run rzm from PATH, and there is no rzm on PATH")
-	}
-	if !supportsHooks(root, launcher, exe) {
-		return fmt.Errorf("the rzm on PATH (%s) does not support rzm hook; update it with rzm update", launcher)
-	}
-	external, err := cfg.Rhizome.UsesExternalBinaryManager()
-	if err != nil {
-		return err
-	}
-	if external {
-		return nil
-	}
-	// A Rhizome source checkout selects its own bin/<os>/rzm even with no
-	// devBinaryDir, so selection decides whether a second binary needs a check.
-	plan, selectErr := repoexec.Select(root, exe)
-	development := selectErr == nil && plan.Authority == "development"
-	pin := strings.TrimSpace(cfg.Rhizome.Version)
-	if !development && strings.TrimSpace(cfg.Rhizome.DevBinaryDir) == "" && (pin == "" || pin == version.Version) {
-		return nil
-	}
-	// The selected binary is the checkout's own code: run it only for a
-	// checkout the person trusts, as dispatch and the hook handoff do.
-	if checkout, required, err := repoexec.TrustRequirement([]string{"hook"}, root, exe); err != nil {
-		return err
-	} else if required {
-		store, err := hookTrustStore()
-		if err != nil {
-			return err
-		}
-		if trusted, err := store.Trusted(checkout); err != nil {
-			return err
-		} else if !trusted {
-			return fmt.Errorf("this checkout (%s) is not trusted to select a Rhizome executable, so its rzm was not checked; review it, run rzm trust there, then run rzm init again", checkout)
-		}
-	}
-	target := exe
-	if selectErr == nil && plan.Target != "" {
-		target = plan.Target
-	}
-	if _, err := os.Stat(target); err != nil {
-		return fmt.Errorf("the selected rzm (%s) is not installed yet; run rzm init again once it is", target)
-	}
-	if !supportsHooks(root, target, exe) {
-		return fmt.Errorf("the selected rzm (%s) does not support rzm hook; update it with rzm update", target)
-	}
-	return nil
-}
-
-// supportsHooks reports whether target answers `rzm hook --check`.
-func supportsHooks(root, target, exe string) bool {
-	if repoexec.SameExecutablePath(target, exe) {
-		return true
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	out, err := repoexec.Probe(ctx, target, root, "hook", "--check")
-	return err == nil && strings.HasPrefix(strings.TrimSpace(out), "rzm-hook ")
-}
-
 // planHookFiles decides the hook entries of each harness settings file:
 // installed when hooks are on, the harness is enabled, and an active starter
-// declares handlers; removed otherwise. When the selected binary cannot run
-// them, the files are left as they are and blocked says why.
+// declares handlers; removed otherwise. The before-tool-call entry is
+// installed only while a guard declaration has an approved rule and the
+// binary that runs it applies guard rules. When the selected binary cannot
+// run the entries, the files are left as they are; blocked says why entries
+// were left out.
 func planHookFiles(root string, cfg repoconfig.LocalConfig, harnesses AgentHarnesses) (files []generatedHookFile, blocked error, err error) {
 	registry, err := loadStarterTemplateMetadataRegistry()
 	if err != nil {
@@ -474,9 +430,18 @@ func planHookFiles(root string, cfg repoconfig.LocalConfig, harnesses AgentHarne
 		return nil, nil, err
 	}
 	want := hooksOn(cfg) && len(handlers) > 0
+	guard := want && guarded(root, handlers)
 	var unsupported error
 	if want {
 		unsupported = checkHookSupport(root, cfg)
+	}
+	// A binary without guard rules still runs the other entries; only a
+	// needed before-tool-call entry makes its absence worth reporting.
+	if errors.Is(unsupported, errNoGuard) {
+		if guard {
+			blocked = unsupported
+		}
+		guard, unsupported = false, nil
 	}
 	for _, harness := range []string{hook.HarnessClaude, hook.HarnessCodex} {
 		enabled := harnesses.HasClaude
@@ -488,9 +453,12 @@ func planHookFiles(root string, cfg repoconfig.LocalConfig, harnesses AgentHarne
 			if unsupported != nil {
 				continue
 			}
-			file.desired = desiredHookEntries(harness)
+			file.desired = desiredHookEntries(harness, guard)
 		}
 		files = append(files, file)
 	}
-	return files, unsupported, nil
+	if unsupported != nil {
+		blocked = unsupported
+	}
+	return files, blocked, nil
 }

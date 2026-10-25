@@ -113,9 +113,7 @@ var codeOperationInputMetadata = map[string]map[string]codeInputFieldMetadata{
 		"ensure":  {Description: "Choose never or plan when resolving targets. apply is rejected in code mode."},
 	},
 	"note_rename_heading": {
-		"apply":            {Description: "Request an applied rename. Code mode remains plan-only and rejects true.", Default: false, HasDefault: true},
-		"upgradeToBlockId": {Description: "Heading-link upgrade strategy.", Default: "auto", HasDefault: true},
-		"fallback":         {Description: "Fallback link strategy.", Default: "block-id", HasDefault: true},
+		"apply": {Description: "Request an applied rename. Code mode remains plan-only and rejects true.", Default: false, HasDefault: true},
 	},
 	"start": {
 		"profile":        {Description: "Bootstrap profile: code or vault."},

@@ -2,7 +2,6 @@ package indexing
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -15,7 +14,6 @@ import (
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	graphindex "github.com/atomicobject/rhizome/pkg/graph/index"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/logging"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
@@ -119,7 +117,7 @@ func runUnifiedPostIndex(
 				fmt.Fprintf(os.Stderr, "Warning: PRAGMA optimize failed: %v\n", err)
 			}
 			if err := intelStore.CheckIntegrity(phaseCtx); err != nil {
-				recordIntegrityFailure(phaseCtx, err)
+				reportIntegrityFailure(phaseCtx, err)
 			}
 			if err := intelStore.Checkpoint(phaseCtx, true); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: WAL checkpoint failed: %v\n", err)
@@ -145,23 +143,22 @@ func runUnifiedPostIndex(
 // `corruption found reading blob ... from table "intel_fts"`.
 var integrityTablePattern = regexp.MustCompile(`\btable "?(?:[A-Za-z_]\w*\.)?([A-Za-z_]\w*)`)
 
-// recordIntegrityFailure records a WARN event, which the recorder also mirrors
-// to stderr. Without a recorder the console warning is the only output.
-func recordIntegrityFailure(ctx context.Context, err error) {
+// reportIntegrityFailure retains the failure as a WARN event on the index
+// operation, which the recorder also mirrors to stderr, so `rzm diagnostics`
+// shows it after the console output is gone.
+func reportIntegrityFailure(ctx context.Context, err error) {
+	reason := "check_failed"
+	if sqliteutil.IsCorruptError(err) {
+		reason = "corrupt"
+	}
 	recorder := diagnostics.FromContext(ctx)
 	if recorder == nil {
 		fmt.Fprintf(os.Stderr, "Warning: integrity check failed: %v\n", err)
 		return
 	}
-	attrs := []slog.Attr{slog.String("check", "quick_check"), slog.String("database", "intel")}
-	var failed sqliteutil.IntegrityCheckFailed
-	if errors.As(err, &failed) {
-		attrs = append(attrs, slog.String("error", "database_corrupt"))
-		if match := integrityTablePattern.FindStringSubmatch(failed.Result); match != nil {
-			attrs = append(attrs, slog.String("table", match[1]))
-		}
-	} else {
-		attrs = append(attrs, slog.String("error", logging.ClassifyError(err)))
+	attrs := []slog.Attr{slog.String("reason_code", reason)}
+	if match := integrityTablePattern.FindStringSubmatch(err.Error()); match != nil {
+		attrs = append(attrs, slog.String("table", match[1]))
 	}
-	recorder.Event(ctx, slog.LevelWarn, "indexing", "index.integrity_check_failed", "integrity check failed: "+err.Error(), attrs...)
+	recorder.Event(ctx, slog.LevelWarn, "indexing", "integrity.failed", err.Error(), attrs...)
 }

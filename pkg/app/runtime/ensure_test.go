@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -255,6 +256,49 @@ func TestEnsureReplacesAHeadlessBuildMismatch(t *testing.T) {
 	require.True(t, result.Spawned)
 	require.NotEqual(t, os.Getpid(), result.Health.PID)
 	require.Contains(t, strings.Join(lines, "\n"), "replacing headless runtime")
+}
+
+// The executable can be rebuilt between computing the caller's build id and
+// spawning it (make desktop-install-dev runs make build twice). The spawned
+// runtime then reports a build the caller cannot produce; replacing it again
+// only restarts the same binary, so Ensure attaches instead of looping.
+func TestEnsureReplacesOnlyOnceWhenTheExecutableChangedBuild(t *testing.T) {
+	vault := newTestVault(t)
+	startFakeRuntime(t, vault, ModeHeadless, "old-build")
+	useHelperSpawn(t)
+	t.Setenv("RZM_TEST_HELPER_BUILD", "rebuilt")
+	stopSpawnedRuntime(t, vault)
+
+	var lines []string
+	var mu sync.Mutex
+	result, err := Ensure(t.Context(), EnsureOptions{
+		VaultPath: vault, Executable: testBinary(t), BuildID: "stale-build",
+		Autostart: true, Wait: true, Budget: 30 * time.Second, Logf: captureLogf(&lines, &mu),
+	})
+	require.NoError(t, err)
+	require.True(t, result.Spawned)
+	require.Equal(t, "rebuilt", result.Health.BuildID)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, 1, strings.Count(strings.Join(lines, "\n"), "replacing headless runtime"))
+}
+
+// After a replacement, a mismatched runtime from another executable belongs to
+// another client (or another build); Ensure reports it rather than using it.
+func TestEnsureRefusesAMismatchedSuccessorFromAnotherExecutable(t *testing.T) {
+	vault := newTestVault(t)
+	startFakeRuntime(t, vault, ModeHeadless, "old-build")
+	useHelperSpawn(t)
+	t.Setenv("RZM_TEST_HELPER_BUILD", "other-build")
+	stopSpawnedRuntime(t, vault)
+
+	other := filepath.Join(t.TempDir(), "rzm")
+	require.NoError(t, os.WriteFile(other, []byte("not the helper"), 0o755))
+	_, err := Ensure(t.Context(), EnsureOptions{
+		VaultPath: vault, Executable: other, BuildID: "new-build",
+		Autostart: true, Wait: true, Budget: 30 * time.Second,
+	})
+	require.ErrorIs(t, err, ErrBuildMismatch)
 }
 
 func TestEnsureReplaceRestartsAMatchingHeadlessRuntimeOnce(t *testing.T) {

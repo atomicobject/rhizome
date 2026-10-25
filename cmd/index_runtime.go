@@ -73,6 +73,7 @@ func (commandOptions *indexInvocationOptions) runIndexThroughRuntime(cmd *cobra.
 func runtimeStillOwnsVault(err error) bool {
 	return errors.Is(err, appruntime.ErrRuntimeUnresponsive) ||
 		errors.Is(err, appruntime.ErrAttachedMismatch) ||
+		errors.Is(err, appruntime.ErrBuildMismatch) ||
 		errors.Is(err, appruntime.ErrLegacyRuntime)
 }
 

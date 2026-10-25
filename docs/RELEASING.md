@@ -24,6 +24,16 @@ Normal releases may start only from the exact local branch `main` or `release`. 
 
 The candidate build and first apply additionally require a clean worktree. The first apply repeats the source check before repository mutation, so an origin advance during plan review or the candidate build stops the release. Ahead, behind, and diverged worktrees are all refused; update the branch normally, inspect the resulting range, and create a new plan when necessary. `make release-plan` and `make release-dry` remain read-only inspection surfaces, but they do not authorize a later apply from a stale or non-canonical branch.
 
+### First release in a repository
+
+When the repository has no version tags, the plan has empty `base_tag` and `base_commit` fields. Its evidence includes the root commit and every later commit up to the reviewed head. No baseline tag needs to be invented. Discovery considers tags matching `v[0-9]*`; a repository with version tags but no reachable release base is an error, not an implicit first release.
+
+The existing changelog through `v0.50.5` records pre-public releases whose tags are absent from this clean repository. Version selection continues from the version stored in the planned source commit, not from zero: a minor recommendation yields `v0.51.0` and a patch yields `v0.50.6`. Every selected version, including a custom command-line version, `VERSION`, or a reused stored plan, must exceed that baseline. Later releases use their previous version tag as the floor.
+
+First-release state is stored in `.release/first-release-<head>/`. The phase commands accept `RELEASE_BASE=` with the reviewed `RELEASE_HEAD`; printed Python resume commands quote the empty base as `--base ''`. Keep those reviewed inputs when resuming.
+
+A release from `main` creates `origin/release` in the same atomic, non-force push that advances `origin/main`. A hotfix still requires an existing `release` branch. If another release tag appears after a first-release plan was prepared, create a new plan instead of reusing the empty baseline.
+
 ## Evidence and note generation
 
 The release range is divided by first-parent commits. Each delivery unit is synthesized once from this trust order:
@@ -41,7 +51,7 @@ The launcher maps the Environment's `GITHUB_TOKEN` to `RZM_RELEASE_GITHUB_TOKEN`
 only the GoReleaser publish subprocess receives it as `GITHUB_TOKEN`. The Homebrew
 token remains `BREW_GITHUB_TOKEN`. Do not store token values in `.env`.
 
-Release processes discard provider, 1Password, and AWS credentials; only publishing subprocesses receive the required GitHub tokens, only GoReleaser and its desktop build hook receive the updater signing key, and only the team-key bundler receives team keys. Set `OP_ACCOUNT`, and `RZM_OP_RELEASE_ENVIRONMENT_ID` to the release Environment (falling back to `RZM_OP_ENVIRONMENT_ID`), when using the optional Environment wrapper. See [credential policy](engineering/secrets.md).
+Release processes discard provider, 1Password, and AWS credentials; only publishing subprocesses receive the required GitHub tokens. The updater signing key reaches only GoReleaser, its desktop build hook, and the public-apply Tauri signing probe; only the team-key bundler receives team keys. Set `OP_ACCOUNT`, and `RZM_OP_RELEASE_ENVIRONMENT_ID` to the release Environment (falling back to `RZM_OP_ENVIRONMENT_ID`), when using the optional Environment wrapper. See [credential policy](engineering/secrets.md).
 
 Overrides:
 
@@ -102,9 +112,13 @@ If the desktop build fails during publication, GoReleaser stops in its build pha
 
 ### Updater signing key
 
-The installed app accepts an update only when its signature verifies against the public key committed in `desktop/src-tauri/tauri.conf.json`. The private key and its password live only in the release 1Password Environment as `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; `./scripts/with-secrets release` loads them and `run_clean.py` passes them only to GoReleaser. Never commit them, print them, or copy them into release notes or logs.
+The installed app accepts an update only when its signature verifies against the public key committed in `desktop/src-tauri/tauri.conf.json`. The private key and its password live only in the release 1Password Environment as `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. `./scripts/with-secrets release` loads them; `run_clean.py` passes them to GoReleaser and its desktop build, and public apply passes them to its Tauri signing probe. The verifier receives neither value. Never commit them, print them, or copy them into release notes or logs.
 
-Until the first public release, `tauri.conf.json` holds the placeholder `REPLACE_WITH_RELEASE_UPDATER_PUBLIC_KEY`, and the desktop hook refuses to publish with it. To create the release key once:
+The release public key is committed in `tauri.conf.json`. The desktop hook refuses a placeholder key and verifies the generated archive's signature against that public key before staging any desktop assets. Public apply also signs a disposable probe and verifies it before changing release files or refs, catching a changed or mismatched key even if the candidate build skipped signing.
+
+Verification uses `scripts/release/updater-signature`, a small helper pinned to the same `minisign-verify` version as the desktop updater. It builds with `cargo --offline --locked` into `.tmp/updater-signature`; the release machine therefore needs that pinned crate in its Cargo cache. A normal desktop dependency fetch supplies it. Cargo and the verifier receive no signing or provider credentials. Only the Tauri signing subprocess receives the updater key and password; subprocess output is suppressed on failure.
+
+To replace or recover the release key before any app has shipped:
 
 1. From `desktop/`, run `npx tauri signer generate -w <offline path>/rhizome-updater.key` and choose a password when it asks. Do not paste the key or password into a terminal command, chat, or log.
 2. Add the key file's contents as `TAURI_SIGNING_PRIVATE_KEY` and the password as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in the release 1Password Environment.
@@ -179,6 +193,25 @@ The GitHub Actions workflow never builds the desktop app: it does not set `RZM_R
 
 ## Public migration
 
-The historical repository is retained as a private archive. This clean repository remains private until publication is separately approved. The [open-source preparation specification](specs/technical/open-source-preparation.md) records the source and artifact requirements. Preparation does not authorize running release commands or changing repository visibility. Anonymous installation must be verified against a real public release after publication.
+The historical repository is retained as a private archive. This clean repository's source is public. The [open-source preparation specification](specs/technical/open-source-preparation.md) records the source and artifact requirements. Source publication does not establish that release downloads or installation work. Release preparation does not authorize publishing artifacts or changing repository visibility.
 
 The current configuration retains the existing Homebrew formula and requires GoReleaser v2. GoReleaser reports `brews` as deprecated; migrating to a cask later requires a coordinated tap migration, not just renaming the config key. See [GoReleaser migration guidance](https://goreleaser.com/resources/deprecations/#brews).
+
+## Release acceptance
+
+Record the commit, tag, platform, commands, and observed result for each check. Local fixtures and CI establish preparation evidence; public downloads and installed-app updates need separate evidence. Do not mark a check complete because its implementation or test exists.
+
+Before publication:
+
+1. Run the required release gates in [quality gates](engineering/quality-gates.md), including `make check-full`, `make desktop-check`, and `make desktop-build`. Review the complete change set and finish the required independent review.
+2. Run the release candidate build on Apple Silicon with the actual release configuration. Verify the app and bundled `rzm` versions match, the bundle signature is valid, and the DMG, updater archive, signature, feed, and checksums are staged. Confirm signing-key access without displaying or recording private values.
+3. Install the candidate into a disposable location or account. Exercise Settings, the command-line installation prompt, login-shell resolution, repository setup, and pin advancement. Keep the normal Rhizome and Rhizome Dev installations intact.
+4. Test AO credential setup with a consenting account: import the intended providers, cancel an import, repeat after rotation, and verify a subsequent fresh process uses the saved configuration. Missing CLI, denied access, timeout, and missing-provider cases must have actionable messages without secret values. Use synthetic fixtures for automated tests.
+
+After the first public release:
+
+1. Fetch all desktop assets and `checksums.txt` without GitHub authentication. Verify the DMG and updater archive checksums, the feed's version and archive URL, and the archive signature against the committed public key.
+2. Download the DMG in a browser on a fresh macOS account. Record Gatekeeper behavior and complete the documented Open Anyway flow. Install the command-line tool, confirm a new login shell resolves the app's `rzm`, then verify deleting the disposable app leaves that link unable to run the app.
+3. Follow only the README from a fresh agent session. Install, initialize a disposable repository, index it, and complete an agent retrieval. Test both provider-key setup and the no-key path. Verify Homebrew installation against the newly published formula.
+
+After the next public release, update an installed first-release app through Settings and through `rzm update`. Confirm signature verification, restart, restored windows, the bundled CLI version, an unchanged command-line link, and independent repository pin advancement. Record whether folder-access prompts return. Until this passes, production release-to-release updating remains unverified.

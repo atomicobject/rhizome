@@ -85,3 +85,5 @@ it("restarts into a ready update and checks otherwise", () => {
   fireEvent.click(screen.getByRole("button", { name: "Restart to Update" }));
   expect(base.onInstallUpdate).toHaveBeenCalled();
 });
+
+vi.mock("./CredentialImport", () => ({ CredentialImport: () => null }));

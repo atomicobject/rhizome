@@ -26,6 +26,10 @@ struct Response {
 #[derive(Clone, Copy, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Request<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<&'a crate::credentials::Source>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub import_id: Option<&'a str>,
     pub operation: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub folder: Option<&'a str>,
@@ -72,6 +76,15 @@ pub async fn call(
         .parent()
         .ok_or("Cannot locate the desktop companion.".to_string())?
         .join(if cfg!(windows) { "rzm.exe" } else { "rzm" });
+    call_sidecar(directory, request, timeout, &sidecar).await
+}
+
+async fn call_sidecar(
+    directory: &Path,
+    request: Request<'_>,
+    timeout: Duration,
+    sidecar: &Path,
+) -> Result<Value, Failure> {
     let mut child = Command::new(sidecar)
         .arg("desktop-bridge")
         .arg("--state-dir")
@@ -80,7 +93,9 @@ pub async fn call(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .kill_on_drop(true)
+        // Credential requests keep their supervisor alive after a native drop.
+        // Its marker watcher cancels op and the capture child before it exits.
+        .kill_on_drop(request.operation != "credential-import")
         .spawn()
         .map_err(|e| format!("Cannot start the Rhizome companion: {e}"))?;
     let mut bytes = serde_json::to_value(request).map_err(|e| e.to_string())?;
@@ -119,4 +134,41 @@ pub async fn call(
             .to_string()
             .into()
     })
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn credential_timeout_and_future_drop_leave_supervisor_to_observe_cancellation() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            for timeout in [true, false] {
+                let directory = tempfile::tempdir().unwrap();
+                let marker = directory.path().join("credential-import-1-1");
+                std::fs::write(&marker, []).unwrap();
+                let sidecar = directory.path().join("sidecar");
+                std::fs::write(&sidecar, b"#!/bin/sh\n/bin/cat >/dev/null\nwhile [ -f credential-import-1-1 ]; do /bin/sleep 0.01; done\nprintf done > supervisor-exited\n").unwrap();
+                std::fs::set_permissions(&sidecar, std::fs::Permissions::from_mode(0o700)).unwrap();
+                let request = Request { operation: "credential-import", ..Request::default() };
+                if timeout {
+                    assert!(call_sidecar(directory.path(), request, Duration::from_millis(30), &sidecar).await.is_err());
+                } else {
+                    let future = call_sidecar(directory.path(), request, Duration::from_secs(10), &sidecar);
+                    tokio::pin!(future);
+                    // Dropping the in-flight call must leave its Go supervisor alive.
+                    assert!(tokio::time::timeout(Duration::from_millis(30), &mut future).await.is_err());
+                }
+                std::fs::remove_file(&marker).unwrap();
+                tokio::time::timeout(Duration::from_secs(2), async {
+                    while !directory.path().join("supervisor-exited").exists() { tokio::time::sleep(Duration::from_millis(10)).await; }
+                }).await.expect("supervisor was killed before it could cancel its child");
+            }
+        });
+    }
 }

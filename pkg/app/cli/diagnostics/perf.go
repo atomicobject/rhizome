@@ -167,7 +167,7 @@ func (a *perfAggregator) warn(event evidence.Event) {
 		a.warnings[key] = warning
 	}
 	warning.flag.Observation = fmt.Sprintf("%s event %s/%s was recorded", event.Level, event.Subsystem, event.Name)
-	if event.Name == "index.integrity_check_failed" {
+	if event.Name == "integrity.failed" {
 		warning.flag.Kind = "index_integrity"
 		warning.flag.Observation = "Index integrity check failed; inspect the index before trusting search results."
 		if table := attrString(event.Attributes, "table"); table != "" {

@@ -25,19 +25,19 @@ func TestNormalizeClaudeAndCodexPayloads(t *testing.T) {
 	}, {
 		name: "claude bash with cd and quoted spaces", harness: HarnessClaude, point: PostToolUse,
 		payload: fmt.Sprintf(`{"session_id":"s","cwd":%q,"tool_name":"Bash","tool_input":{"command":"cd ../docs && cat 'my notes/a.md' ../../outside.md"}}`, sub),
-		want:    Event{Tool: ToolShell, Paths: []string{"docs/my notes/a.md"}, Command: "cd ../docs && cat 'my notes/a.md' ../../outside.md", Agent: Identity{Session: "s"}},
+		want:    Event{Tool: ToolShell, Paths: []string{"docs/my notes/a.md"}, Command: "cd ../docs && cat 'my notes/a.md' ../../outside.md", Agent: Identity{Session: "s"}, cwd: sub, cwdKnown: true},
 	}, {
 		name: "codex bash with cd, a missing file, and an agent ID", harness: HarnessCodex, point: PostToolUse,
 		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","agent_id":"sub-1","agent_type":"worker","cwd":%q,"tool_use_id":"call_1","tool_name":"Bash","tool_input":{"command":"cd pkg && head -n 3 a.go missing.go"},"tool_response":"package a"}`, root),
-		want:    Event{Tool: ToolShell, Paths: []string{"pkg/a.go"}, Command: "cd pkg && head -n 3 a.go missing.go", Agent: Identity{Session: "s", AgentID: "sub-1", Turn: "t"}},
+		want:    Event{Tool: ToolShell, Paths: []string{"pkg/a.go"}, Command: "cd pkg && head -n 3 a.go missing.go", Agent: Identity{Session: "s", AgentID: "sub-1", Turn: "t"}, cwd: root},
 	}, {
 		name: "codex bash read run in another directory", harness: HarnessCodex, point: PostToolUse,
 		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","cwd":%q,"tool_use_id":"call_2","tool_name":"Bash","tool_input":{"command":"cat a.go"}}`, root),
-		want:    Event{Tool: ToolShell, Command: "cat a.go", Agent: Identity{Session: "s", Turn: "t"}},
+		want:    Event{Tool: ToolShell, Command: "cat a.go", Agent: Identity{Session: "s", Turn: "t"}, cwd: root},
 	}, {
 		name: "folder search keeps the folder and drops the root", harness: HarnessCodex, point: PostToolUse,
 		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","cwd":%q,"tool_use_id":"call_4","tool_name":"Bash","tool_input":{"command":"rg -n TODO pkg ."}}`, root),
-		want:    Event{Tool: ToolShell, Paths: []string{"pkg"}, Command: "rg -n TODO pkg .", Agent: Identity{Session: "s", Turn: "t"}},
+		want:    Event{Tool: ToolShell, Paths: []string{"pkg"}, Command: "rg -n TODO pkg .", Agent: Identity{Session: "s", Turn: "t"}, cwd: root},
 	}, {
 		name: "codex patch that moves and deletes", harness: HarnessCodex, point: PostToolUse,
 		payload: fmt.Sprintf(`{"session_id":"s","turn_id":"t","cwd":%q,"tool_use_id":"call_3","tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\n*** Update File: pkg/a.go\n*** Move to: pkg/moved.go\n*** Delete File: pkg/old.go\n*** Delete File: gone/old.go\n*** End Patch"},"tool_response":"Success"}`, root),

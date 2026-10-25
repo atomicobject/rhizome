@@ -11,6 +11,7 @@
 //   shards.mjs check                              shards to re-verify, and why
 //   shards.mjs renew <shard> --expect HASH
 //   shards.mjs revise <shard> --expect HASH --edit FILE --confirm-publish [--broad]
+//   shards.mjs revise <guard finding> --expect HASH --edit FILE --confirm-publish [--broad]
 //   shards.mjs retire <shard> --expect HASH --reason TEXT
 //
 // Approval follows the proposal's response, or --response (remember,
@@ -24,15 +25,18 @@
 // shard's content hash from `check`; a shard edited since is refused. The
 // reviewer is the configured current user (`rzm agent current-user`), and an
 // --assignee must resolve to a Person note the same way.
-// --broad accepts patterns that match much of the repository. Run from the
-// repository root.
+// --broad accepts patterns, and a guard rule's path, that match much of the
+// repository. Revising a guard finding replaces its guardRule (the only field
+// its --edit file may hold) and approves it again; `check` lists guard
+// findings whose rule was edited after approval. Run from the repository
+// root.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { validateLearning } from "./lib/extract.mjs";
-import { findingPath, loadFindings, renderFinding } from "./lib/findings.mjs";
+import { FINDING_DIR, findingPath, frontmatterProblem, guardHash, guardLines, loadFindings, renderFinding, REVISED_FIELDS } from "./lib/findings.mjs";
 import { redact } from "./lib/redact.mjs";
 import {
   DECISION_DIR,
@@ -61,7 +65,7 @@ import {
   writeAtomic,
 } from "./lib/shards.mjs";
 import { openStore } from "./lib/store.mjs";
-import { RESPONSES, applyEdit, responseProblems } from "./lib/verify.mjs";
+import { RESPONSES, applyEdit, guardRuleProblems, responseProblems } from "./lib/verify.mjs";
 import { publishPrefixes } from "./hook.mjs";
 
 
@@ -256,13 +260,16 @@ function checkScope(root, s) {
 }
 
 // A shard whose patterns match much of the repository reaches nearly every
-// agent, so approval asks for narrower patterns unless the reviewer confirms.
-function checkBreadth(root, s, broad) {
+// agent, and a guard rule's path that does refuses nearly every call, so
+// approval asks for narrower patterns unless the reviewer confirms.
+function checkBreadth(root, s, broad, what = "the shard applies") {
   if (broad || !s.appliesTo?.length) return;
   const tracked = git(root, ["ls-files", "-z"]).split("\0").filter(Boolean);
   const n = tracked.filter((f) => matchesAny(s.appliesTo, f)).length;
-  if (n > 50 && n > tracked.length / 10) throw new Refused(`the patterns match ${n} of ${tracked.length} tracked files; narrow them with --edit, or pass --broad if the reviewer confirms the shard applies that widely`);
+  if (n > 50 && n > tracked.length / 10) throw new Refused(`the patterns match ${n} of ${tracked.length} tracked files; narrow them with --edit, or pass --broad if the reviewer confirms ${what} that widely`);
 }
+
+const checkGuardBreadth = (root, g, broad) => g?.path && checkBreadth(root, { appliesTo: [g.path.trim()] }, broad, "the rule should refuse calls");
 
 const everywhere = (s) => !s.appliesTo?.length && !s.commands?.length;
 
@@ -374,6 +381,41 @@ function writeFinding(root, store, p, s, who, assignee, people = lookupPerson) {
   return { finding: path, assignee: finding.assignee };
 }
 
+// Replaces a guard finding's rule and approves it again, so a rule edited by
+// hand, which the dispatcher skips, applies once a person approves the text.
+function reviseGuard(root, id, a, user) {
+  const file = inside(root, id);
+  const text = existsSync(file) ? readFileSync(file, "utf8").replace(/\r\n/g, "\n") : null;
+  const f = text && loadFindings(root).find((x) => x.path === id);
+  if (f?.response !== "guard") throw new Refused(`${id} is not a guard finding`);
+  if (!a.expect) throw new Refused(`pass --expect ${f.contentHash} (from \`shards.mjs check\`) to change ${id}`);
+  if (f.contentHash !== a.expect) throw new Refused(`${id} changed since you read it (expected ${a.expect}, now ${f.contentHash}); run \`shards.mjs check\` again`);
+  const edit = a.edit ? JSON.parse(readFileSync(a.edit, "utf8")) : {};
+  const extra = Object.keys(edit).filter((k) => k !== "guardRule");
+  if (extra.length) throw new Refused(`--edit may change only guardRule for a guard finding; got ${extra.join(", ")}`);
+  const rule = edit.guardRule ?? f.guardRule;
+  const problems = rule ? guardRuleProblems(rule) : ["pass the rule as guardRule in the --edit file"];
+  if (problems.length) throw new Refused(problems.join("; "));
+  checkGuardBreadth(root, rule, a.broad);
+  scan({ guardRule: JSON.stringify(rule) });
+  const who = reviewer(root, user);
+  const [, front, body] = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  // Each replaced field goes whole, with any indented lines under it, and
+  // the result must read the same to the dispatcher's YAML parser.
+  const problem = frontmatterProblem(front, REVISED_FIELDS);
+  if (problem) throw new Refused(`${id} has frontmatter the hook cannot read (${problem}); fix it by hand, then revise`);
+  const lines = [];
+  let dropping = false;
+  for (const l of front.split("\n")) {
+    if (/^[\w-]+:/.test(l)) dropping = /^(guard-rule|approved-hash|reviewed-by|reviewed-on):/.test(l);
+    if (!dropping) lines.push(l);
+  }
+  const at = lines.findIndex((l) => l.startsWith("families:"));
+  lines.splice(at < 0 ? lines.length : at, 0, ...guardLines("guard", rule), `reviewed-by: ${JSON.stringify(who.link)}`, `reviewed-on: ${today()}`);
+  publish(root, id, `---\n${lines.join("\n")}\n---\n${body}`);
+  return { revised: id, guardRule: rule };
+}
+
 // `user` stands in for the configured current user in tests, and
 // `people(root, ref)` for the Person lookup.
 export function run(argv, { root = repoRoot(), state, user, people } = {}) {
@@ -422,6 +464,7 @@ function dispatch(a, { root, store, user, people }) {
       const remember = response === "remember";
       const s = remember ? edited(p, a.edit) : edited({ ...p, response: p.response ?? "remember" }, a.edit, { response });
       const path = `${SHARD_DIR}/${s.kind.replace(/_/g, "-")}-${slugify(titleOf(s.statement))}.md`;
+      if (response === "guard") checkGuardBreadth(root, s.guardRule, a.broad);
       if (remember) {
         checkScope(root, s);
         checkBreadth(root, s, a.broad);
@@ -465,6 +508,18 @@ function dispatch(a, { root, store, user, people }) {
         if (!s.appliesTo.length && Date.parse(s.verifiedOn) < old) reasons.push("no patterns, and verified more than 30 days ago");
         if (reasons.length) out.push({ path: s.path, expect: s.contentHash, kind: s.kind, statement: s.statement, verifiedOn: s.verifiedOn, reasons, matched: tracked.filter((f) => matchesAny(s.appliesTo, f)).slice(0, 20) });
       }
+      // The hook dispatcher skips a guard rule edited after approval, one
+      // without a reviewer, or one it cannot read.
+      for (const f of loadFindings(root)) {
+        if (f.response !== "guard" || !f.hasGuardRule) continue;
+        const reasons = [];
+        if (f.frontmatterProblem) reasons.push(`frontmatter the hook cannot read (${f.frontmatterProblem}); fix it by hand, then revise`);
+        else if (!f.guardRule) reasons.push("guard rule unreadable or not the JSON the scripts write; revise it with the rule in --edit");
+        else if (f.unreadableFrontmatter) reasons.push(`frontmatter the hook cannot read (${f.unreadableFrontmatter}); revise it`);
+        else if (!String(f.reviewedBy ?? "").trim()) reasons.push("no reviewed-by, so the hook skips the rule; revise it to approve it again");
+        else if (guardHash(f.response, f.guardRule) !== f.approvedHash) reasons.push("guard rule edited after approval; revise it");
+        if (reasons.length) out.push({ path: f.path, expect: f.contentHash, statement: f.statement, guardRule: f.guardRule, reasons });
+      }
       return out;
     }
     case "renew": {
@@ -482,6 +537,7 @@ function dispatch(a, { root, store, user, people }) {
     }
     case "revise": {
       if (!a["confirm-publish"]) throw new Refused("ask the reviewer to confirm the revised statement is fit to publish, then pass --confirm-publish");
+      if (String(id ?? "").startsWith(`${FINDING_DIR}/`)) return reviseGuard(root, id, a, user);
       const old = shardAt(root, id, a.expect);
       const s = edited({ kind: old.kind, statement: old.statement, why: old.why, appliesTo: old.appliesTo, commands: old.commands, target: old.target }, a.edit);
       checkScope(root, s);
