@@ -197,6 +197,9 @@ pub enum Action {
         opened: Option<f64>,
         #[serde(default)]
         to_shell: bool,
+        /// Numbers each model the shell sends, so a late older one is dropped.
+        #[serde(default)]
+        revision: u64,
     },
     /// From the finder: the user's choice.
     FinderChoice(finder::Choice),
@@ -574,9 +577,10 @@ pub async fn desktop_request(
             return_to_content,
             opened,
             to_shell,
+            revision,
         } => {
             match model {
-                Some(model) => finder::show(&window, model, return_to_content)?,
+                Some(model) => finder::show(&window, model, revision, return_to_content)?,
                 None => finder::hide(&window, opened, to_shell),
             }
             Ok(Value::Null)

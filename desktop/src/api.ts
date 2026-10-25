@@ -401,6 +401,7 @@ type Args = {
     returnToContent?: boolean;
     opened?: number;
     toShell?: boolean;
+    revision?: number;
   };
   "finder-choice": FinderChoice;
   settings: Record<string, never>;

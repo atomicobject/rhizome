@@ -45,23 +45,29 @@ pub enum Choice {
     },
 }
 
-/// Shows `model` in the window's finder, creating the overlay on first use.
-/// `return_to_content` names where focus goes back when the finder closes.
-pub fn show(window: &Window, model: Value, return_to_content: bool) -> Result<(), String> {
+/// Shows the shell's `revision`th `model` in the window's finder, creating the
+/// overlay on first use. `return_to_content` names where focus goes back when
+/// the finder closes.
+pub fn show(
+    window: &Window,
+    model: Value,
+    revision: u64,
+    return_to_content: bool,
+) -> Result<(), String> {
     let finder = label(window.label());
     let opened = model["opened"]
         .as_f64()
         .ok_or("The finder model has no opening stamp.")?;
-    let current = window
+    let Some(starts) = window
         .app_handle()
         .state::<Panes>()
         .with(window.label(), |pane| {
-            pane.open_finder(model, opened, return_to_content)
+            pane.open_finder(model, opened, revision, return_to_content)
         })
-        .unwrap_or(false);
-    if !current {
+        .flatten()
+    else {
         return Ok(());
-    }
+    };
     if window.get_webview(&finder).is_none() {
         let size = window
             .inner_size()
@@ -84,7 +90,9 @@ pub fn show(window: &Window, model: Value, return_to_content: bool) -> Result<()
             // A concurrent request may have created it first.
             .or_else(|error| window.get_webview(&finder).ok_or(error.to_string()))?;
     }
-    sync(window, None);
+    // A live update leaves focus alone, so it never pulls focus back from
+    // another window.
+    sync(window, if starts { Focus::Finder } else { Focus::Stay });
     Ok(())
 }
 
@@ -97,15 +105,32 @@ pub fn hide(window: &Window, opening: Option<f64>, to_shell: bool) {
         .state::<Panes>()
         .with(window.label(), |pane| pane.close_finder(opening))
         .unwrap_or(false);
-    sync(window, closed.then_some(to_shell));
+    sync(
+        window,
+        if closed {
+            Focus::Return { to_shell }
+        } else {
+            Focus::Stay
+        },
+    );
+}
+
+/// Where focus goes when the overlay syncs.
+#[derive(Clone, Copy)]
+enum Focus {
+    /// Left alone: a live update, or a close that closed nothing.
+    Stay,
+    /// To the finder, as an opening starts.
+    Finder,
+    /// After a close: to the shell when `to_shell`, else back where it was
+    /// when the finder opened.
+    Return { to_shell: bool },
 }
 
 /// Shows or hides the overlay as the pane says. Show and hide requests race,
 /// so each queues this on the main thread, which runs tasks in order, and it
 /// reads the pane when it runs: the last one leaves the overlay right.
-/// `refocus` moves focus after a close: to the shell when it holds true, else
-/// back to where it was when the finder opened.
-fn sync(window: &Window, refocus: Option<bool>) {
+fn sync(window: &Window, focus: Focus) {
     let window = window.clone();
     let app = window.app_handle().clone();
     let _ = app.run_on_main_thread(move || {
@@ -122,14 +147,16 @@ fn sync(window: &Window, refocus: Option<bool>) {
         if open {
             if let Some(view) = view {
                 let _ = view.show();
-                let _ = view.set_focus();
+                if matches!(focus, Focus::Finder) {
+                    let _ = view.set_focus();
+                }
             }
             return;
         }
         if let Some(view) = view {
             let _ = view.hide();
         }
-        let Some(to_shell) = refocus else {
+        let Focus::Return { to_shell } = focus else {
             return;
         };
         let back = match to_content && visible && !to_shell {

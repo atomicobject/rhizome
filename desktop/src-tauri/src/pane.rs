@@ -74,6 +74,9 @@ pub struct Pane {
     /// that has closed arrives late and is dropped.
     finder_opening: f64,
     finder_closed: f64,
+    /// The shell numbers each finder model it sends, so an older update that
+    /// arrives after a newer one is dropped.
+    finder_revision: u64,
 }
 
 pub enum Load {
@@ -94,10 +97,11 @@ pub enum Supervise {
 
 impl Pane {
     /// A shell attached, as after its webview loaded; it numbers selections
-    /// from the start again.
+    /// and finder models from the start again.
     pub fn attach(&mut self, channel: Channel<Value>) {
         self.channel = Some(channel);
         self.selection = 0;
+        self.finder_revision = 0;
         if let Some(message) = self.held.take() {
             self.send(message);
         }
@@ -112,20 +116,33 @@ impl Pane {
         self.finder = Some(channel);
     }
 
-    /// Takes the shell's model for finder opening `opened`. False when that
-    /// opening has already closed or been replaced, so the finder stays as it is.
-    pub fn open_finder(&mut self, model: Value, opened: f64, return_to_content: bool) -> bool {
-        // A late update for an opening that closed, or that a newer one replaced.
-        if opened <= self.finder_closed || opened < self.finder_opening {
-            return false;
+    /// Takes the shell's `revision`th model, for finder opening `opened`.
+    /// Returns whether it starts an opening, which takes focus, or None when
+    /// it arrived late and the finder stays as it is.
+    pub fn open_finder(
+        &mut self,
+        model: Value,
+        opened: f64,
+        revision: u64,
+        return_to_content: bool,
+    ) -> Option<bool> {
+        // A late update for an opening that closed or that a newer one
+        // replaced, or older than one already shown.
+        if opened <= self.finder_closed
+            || opened < self.finder_opening
+            || revision <= self.finder_revision
+        {
+            return None;
         }
+        let starts = !self.finder_open || opened != self.finder_opening;
         if !self.finder_open {
             self.return_to_content = return_to_content;
         }
         self.finder_open = true;
         self.finder_opening = opened;
+        self.finder_revision = revision;
         self.show_finder(model);
-        true
+        Some(starts)
     }
 
     /// Closes finder opening `opening`, or the one on screen. Returns whether
@@ -599,27 +616,32 @@ mod tests {
     fn a_finder_update_or_close_that_arrives_late_leaves_the_finder_as_it_should_be() {
         let mut pane = Pane::default();
         let model = || serde_json::json!({"opened": 1.0});
-        assert!(pane.open_finder(model(), 1.0, true));
+        assert_eq!(pane.open_finder(model(), 1.0, 1, true), Some(true));
+        // A live update shows without taking focus; an older one is dropped.
+        assert_eq!(pane.open_finder(model(), 1.0, 3, true), Some(false));
+        assert_eq!(pane.open_finder(model(), 1.0, 2, true), None);
         assert!(pane.close_finder(Some(1.0)));
         // An update for that opening, sent before the close, stays hidden.
-        assert!(!pane.open_finder(model(), 1.0, true));
+        assert_eq!(pane.open_finder(model(), 1.0, 4, true), None);
         assert!(!pane.finder_open);
 
         // A close that overtakes its opening's first show keeps it hidden too.
         assert!(!pane.close_finder(Some(2.0)));
-        assert!(!pane.open_finder(model(), 2.0, true));
+        assert_eq!(pane.open_finder(model(), 2.0, 5, true), None);
 
         // A later opening shows; a late close or update for an older one, as
         // after switching finders, leaves it as it is.
-        assert!(pane.open_finder(model(), 4.0, false));
+        assert_eq!(pane.open_finder(model(), 4.0, 6, false), Some(true));
         assert!(!pane.close_finder(Some(2.0)));
-        assert!(!pane.open_finder(model(), 3.0, false));
+        assert_eq!(pane.open_finder(model(), 3.0, 7, false), None);
         assert!(pane.finder_open);
+        // Switching finders starts a new opening, which takes focus.
+        assert_eq!(pane.open_finder(model(), 5.0, 8, false), Some(true));
         // The app's own close, after a choice, closes what is on screen and
         // clears the model it showed.
         assert!(pane.close_finder(None));
         assert_eq!(pane.finder_held, Some(Value::Null));
-        assert!(!pane.open_finder(model(), 4.0, false));
+        assert_eq!(pane.open_finder(model(), 5.0, 9, false), None);
     }
 
     #[test]

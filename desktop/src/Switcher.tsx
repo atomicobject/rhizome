@@ -99,10 +99,18 @@ export function useFinder(
   const returnTo = useRef<HTMLElement | null>(null);
   // Each opening's stamp is newer than the last, even if the clock steps back.
   const stamp = useRef(0);
+  // Numbers each model sent, so the app drops one that arrives after a newer one.
+  const revision = useRef(0);
   const model: FinderModel | null = finder && { ...finder, theme, rows: rows(finder.mode) };
   const key = JSON.stringify(model);
   useEffect(() => {
-    if (model) void request("finder", { model, returnToContent: toContent.current }).catch(onError);
+    if (!model) return;
+    revision.current += 1;
+    void request("finder", {
+      model,
+      returnToContent: toContent.current,
+      revision: revision.current,
+    }).catch(onError);
   }, [key]);
 
   /** Opens a finder, switches to it from the other, or closes it when it shows. */

@@ -311,6 +311,13 @@ describe("desktop shell", () => {
     ]);
     present({ [added]: { state: "starting" } });
     await waitFor(() => expect(finderModel()!.rows[0].runtime).toBe("starting"));
+    // Each live update is numbered, so the app drops one that arrives late.
+    const revisions = call.mock.calls
+      .filter(([operation]) => operation === "finder")
+      .map(([, args]) => args as { model: FinderModel | null; revision?: number })
+      .filter((args) => args.model)
+      .map((args) => args.revision);
+    expect(revisions).toEqual(revisions.map((_, at) => at + 1));
   });
   it("restarts a running worktree's Rhizome from the repository name's menu", async () => {
     start(undefined, (operation) => (operation === "restart" ? null : undefined));
