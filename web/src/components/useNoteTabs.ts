@@ -80,6 +80,30 @@ export type Tab = HomeTab | CollectionTab | NoteTab | SearchTab | ViewTab;
 export type OpenMode = "activate" | "beside";
 
 /** ⌘/Ctrl-click opens beside the current tab, as links do elsewhere in the app. */
+const SEARCH_SCROLL_COMMIT_MS = 200;
+
+function withPendingScroll(
+  tabs: Tab[],
+  pending: Map<string, { scrollTop: number; identity: string }>,
+): Tab[] {
+  if (pending.size === 0) return tabs;
+
+  const next = tabs.map((tab) => {
+    const entry = isSearchTab(tab) ? pending.get(tab.id) : undefined;
+
+    return entry &&
+      isSearchTab(tab) &&
+      tab.scrollTop !== entry.scrollTop &&
+      entry.identity === searchTabIdentity(tab.query, tab.filters)
+      ? { ...tab, scrollTop: entry.scrollTop }
+      : tab;
+  });
+
+  pending.clear();
+
+  return next;
+}
+
 export function openModeFor(event: { metaKey: boolean; ctrlKey: boolean }): OpenMode {
   return event.metaKey || event.ctrlKey ? "beside" : "activate";
 }
@@ -808,6 +832,10 @@ export function useNoteTabs(
   const [hydratedVault, setHydratedVault] = useState<string | null>(null);
 
   tabsRef.current = tabs;
+  // Commands read the current location through a ref so their identities stay
+  // stable across navigation; memoized tabs receive them as props.
+  const locationRef = useRef(location);
+  locationRef.current = location;
 
   if (!collectionForSelection(location.selection) && !location.view) {
     homeLocationRef.current = {
@@ -816,8 +844,16 @@ export function useNoteTabs(
     };
   }
 
+  // Search scroll positions wait here instead of committing tab state on every
+  // scroll event. Each keeps the search identity it was recorded under, so a
+  // refinement that resets the tab's position also drops a stale one.
+  const pendingScrollRef = useRef(new Map<string, { scrollTop: number; identity: string }>());
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const commitTabs = useCallback(
-    (nextTabs: Tab[], userInteraction = false) => {
+    (requestedTabs: Tab[], userInteraction = false) => {
+      const nextTabs = withPendingScroll(requestedTabs, pendingScrollRef.current);
+
       if (userInteraction && !hasHydratedRef.current && vaultName === null) {
         preHydrationInteractionRef.current = true;
 
@@ -844,6 +880,16 @@ export function useNoteTabs(
     },
     [vaultName],
   );
+
+  const flushSearchScroll = useCallback(() => {
+    if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = null;
+
+    if (pendingScrollRef.current.size === 0) return;
+    const next = withPendingScroll(tabsRef.current, pendingScrollRef.current);
+
+    if (!sameTabs(next, tabsRef.current)) commitTabs(next);
+  }, [commitTabs]);
 
   const writeLocation = useCallback((next: string, replace = false) => {
     if (next === currentLocationValue()) return;
@@ -978,6 +1024,38 @@ export function useNoteTabs(
     }
   }, [hydratedVault, tabs, vaultName]);
 
+  // A page that unloads before the scroll debounce fires still stores the
+  // latest position; React may not commit again before the page goes away.
+  useEffect(() => {
+    if (vaultName === null || hydratedVault !== vaultName) return;
+
+    const onPageHide = () => {
+      // Otherwise storage already holds the last committed tabs.
+      if (pendingScrollRef.current.size === 0) return;
+      flushSearchScroll();
+
+      try {
+        window.sessionStorage.setItem(
+          storedTabsForVault(vaultName),
+          serializeTabs(tabsRef.current),
+        );
+      } catch {
+        // Session storage is optional and can be unavailable in private contexts.
+      }
+    };
+
+    window.addEventListener("pagehide", onPageHide);
+
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [flushSearchScroll, hydratedVault, vaultName]);
+
+  useEffect(
+    () => () => {
+      if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!location.note) return;
 
@@ -1102,7 +1180,7 @@ export function useNoteTabs(
 
       const { tabs: openedTabs } = openInto(
         tabsRef.current,
-        activeIdForLocation(tabsRef.current, location),
+        activeIdForLocation(tabsRef.current, locationRef.current),
         targetString(path, parsed.query, parsed.fragment),
         mode,
         ref,
@@ -1123,7 +1201,7 @@ export function useNoteTabs(
 
       writeLocation(
         buildNotesLocation({
-          selection: location.selection,
+          selection: locationRef.current.selection,
           note: path,
           query: opened?.query ?? parsed.query,
           fragment: parsed.fragment,
@@ -1134,7 +1212,7 @@ export function useNoteTabs(
         }),
       );
     },
-    [commitTabs, location, writeLocation],
+    [commitTabs, writeLocation],
   );
 
   const openSearch = useCallback(
@@ -1148,7 +1226,7 @@ export function useNoteTabs(
       commitTabs(result.tabs, true);
       writeLocation(
         buildNotesLocation({
-          selection: location.selection,
+          selection: locationRef.current.selection,
           search: normalizedQuery,
           scope: effectiveFilters.scope,
           noteType: effectiveFilters.noteType,
@@ -1157,7 +1235,7 @@ export function useNoteTabs(
         }),
       );
     },
-    [commitTabs, location.selection, writeLocation],
+    [commitTabs, writeLocation],
   );
 
   const openCollection = useCallback(
@@ -1224,7 +1302,7 @@ export function useNoteTabs(
       commitTabs(nextTabs, true);
       writeLocation(
         buildNotesLocation({
-          selection: location.selection,
+          selection: locationRef.current.selection,
           search: nextQuery,
           scope: effectiveFilters.scope,
           noteType: effectiveFilters.noteType,
@@ -1233,11 +1311,12 @@ export function useNoteTabs(
         }),
       );
     },
-    [commitTabs, location.selection, writeLocation],
+    [commitTabs, writeLocation],
   );
 
   const activate = useCallback(
     (id: string) => {
+      const location = locationRef.current;
       const tab = tabsRef.current.find((candidate) => candidate.id === id);
 
       if (!tab || activeIdForLocation(tabsRef.current, location) === id) return;
@@ -1251,11 +1330,12 @@ export function useNoteTabs(
           : tabLocation(tab, selection),
       );
     },
-    [location, writeLocation],
+    [writeLocation],
   );
 
   const close = useCallback(
     (id: string) => {
+      const location = locationRef.current;
       const currentTabs = tabsRef.current;
       const closedIndex = currentTabs.findIndex((tab) => tab.id === id);
 
@@ -1281,7 +1361,7 @@ export function useNoteTabs(
         true,
       );
     },
-    [commitTabs, location, writeLocation],
+    [commitTabs, writeLocation],
   );
 
   const markDirty = useCallback(
@@ -1316,15 +1396,18 @@ export function useNoteTabs(
 
   const setSearchScroll = useCallback(
     (id: string, scrollTop: number) => {
-      const index = tabsRef.current.findIndex((candidate) => candidate.id === id);
-      const tab = tabsRef.current[index];
+      const tab = tabsRef.current.find((candidate) => candidate.id === id);
 
-      if (index < 0 || !tab || !isSearchTab(tab) || tab.scrollTop === scrollTop) return;
-      const nextTabs = [...tabsRef.current];
-      nextTabs[index] = { ...tab, scrollTop };
-      commitTabs(nextTabs);
+      if (!tab || !isSearchTab(tab)) return;
+      pendingScrollRef.current.set(id, {
+        scrollTop,
+        identity: searchTabIdentity(tab.query, tab.filters),
+      });
+
+      if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = setTimeout(flushSearchScroll, SEARCH_SCROLL_COMMIT_MS);
     },
-    [commitTabs],
+    [flushSearchScroll],
   );
 
   const setPresentation = useCallback(
@@ -1409,6 +1492,10 @@ export function useNoteTabs(
   }, []);
 
   const activeId = activeIdForLocation(tabs, location);
+
+  // Leaving a search tab commits its position before it can be reactivated,
+  // so restoration on return (including Back/Forward) reads the latest value.
+  useEffect(() => flushSearchScroll(), [activeId, flushSearchScroll]);
 
   const activeTab = useMemo(
     () => tabs.find((tab) => tab.id === activeId) || HOME_TAB,

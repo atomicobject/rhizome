@@ -35,6 +35,8 @@ type ConfiguredTableCellContentProps = {
   columnIndex: number;
   capability: ViewFieldCapability | undefined;
   editSession?: OntologyEditSessionResponse | null;
+  /** The row's staged fields, when the caller computed them for many rows at once. */
+  changedFields?: ReadonlySet<string>;
   onStageOps?: (ops: OntologyEditOp[]) => Promise<void> | undefined;
   onOpenRow?: (row: ViewTableRow, mode?: OpenMode) => void;
   onOpenRelation?: (row: ViewTableRow, mode?: OpenMode) => void;
@@ -48,12 +50,16 @@ export function ConfiguredTableCellContent({
   columnIndex,
   capability,
   editSession,
+  changedFields: rowChangedFields,
   onStageOps,
   onOpenRow,
   onOpenRelation,
 }: ConfiguredTableCellContentProps) {
   const edit = capability?.edit;
-  const changedFields = stagedChangedFields(editSession, stagedTargetForRow(row));
+
+  const changedFields =
+    rowChangedFields ?? stagedChangedFields(editSession, stagedTargetForRow(row));
+
   const dirty = cellHasChangedField(field, capability, changedFields);
 
   if (!edit || !onStageOps) {

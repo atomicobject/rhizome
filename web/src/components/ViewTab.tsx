@@ -1,6 +1,6 @@
 import { isJsonObject } from "../api/parse";
 import { isConfiguredViewVariant } from "./ConfiguredViewModel";
-import { useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import { ViewHost, ViewPreferenceReset, type ViewServices } from "../views/ViewHost";
 import { ViewSelector } from "../views/ViewSelector";
 import { useViewSelection } from "../views/useViewSelection";
@@ -26,7 +26,7 @@ type Props = {
   onTitle: (id: string, title: string) => void;
 };
 
-export function ViewTab({
+export const ViewTab = memo(function ViewTab({
   tab,
   active,
   editSession,
@@ -134,4 +134,4 @@ export function ViewTab({
       {selected.loading ? <p role="status">Loading view…</p> : host(true)}
     </>
   );
-}
+});

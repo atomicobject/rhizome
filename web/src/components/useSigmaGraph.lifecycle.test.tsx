@@ -30,15 +30,17 @@ function Harness({
   nodes,
   onNodeClick,
   highlightTypes,
+  scope = globalScope,
 }: {
   nodes: GraphNode[];
   onNodeClick: (node: GraphNode) => void;
   highlightTypes?: ReadonlySet<string>;
+  scope?: { mode: "global" | "local"; label?: string };
 }): ReactNode {
   const { containerRef, hover } = useSigmaGraph({
     nodes,
     edges: emptyEdges,
-    scope: globalScope,
+    scope,
     onNodeClick,
     searchActive: false,
     searchPaths: emptySet,
@@ -110,12 +112,14 @@ describe("useSigmaGraph renderer lifecycle", () => {
       { beside: false },
     );
 
+    // New graph data swaps the renderer's graph instead of recreating it.
     view.rerender(<Harness nodes={[firstNode, secondNode]} onNodeClick={latestCallback} />);
-    expect(renderers()).toHaveLength(2);
-    expect(killSpy.mock.contexts).toEqual([renderers()[0]]);
+    expect(renderers()).toHaveLength(1);
+    expect(killSpy).not.toHaveBeenCalled();
+    expect(renderers()[0].getGraph().hasNode("two")).toBe(true);
 
     view.unmount();
-    expect(killSpy.mock.contexts).toEqual([renderers()[0], renderers()[1]]);
+    expect(killSpy.mock.contexts).toEqual([renderers()[0]]);
   });
 
   it("refreshes highlight reducers without rebuilding the renderer or camera", () => {
@@ -179,43 +183,55 @@ describe("useSigmaGraph renderer lifecycle", () => {
     }
   });
 
-  it("refreshes the current renderer after graph replacement during mount layout delay", () => {
-    vi.useFakeTimers();
+  it("keeps the renderer and camera when graph data refreshes, and resets on a new subject", () => {
+    vi.useFakeTimers({
+      toFake: [
+        "setTimeout",
+        "clearTimeout",
+        "requestAnimationFrame",
+        "cancelAnimationFrame",
+        "Date",
+      ],
+    });
     const onSpy = vi.spyOn(Sigma.prototype, "on");
     const killSpy = vi.spyOn(Sigma.prototype, "kill");
     const renderers = () => Array.from(new Set(onSpy.mock.contexts)).filter(isSigma);
     const callback = vi.fn();
-    const view = render(<Harness nodes={[firstNode]} onNodeClick={callback} />);
+    const scope = { mode: "local", label: "one.md" } as const;
+    const view = render(<Harness nodes={[firstNode]} onNodeClick={callback} scope={scope} />);
 
     try {
-      const stale = renderers()[0];
-      const staleResize = vi.spyOn(stale, "resize");
-      const staleRefresh = vi.spyOn(stale, "refresh");
-      view.rerender(<Harness nodes={[secondNode]} onNodeClick={callback} />);
-      const current = renderers()[1];
-      expect(current).toBeDefined();
-      expect(killSpy.mock.contexts).toContain(stale);
-      const currentResize = vi.spyOn(current, "resize");
-      const currentRefresh = vi.spyOn(current, "refresh");
-      const camera = current.getCamera();
-      // The camera starts at ratio 1, so move it first; a hard-coded ratio must fail.
-      camera.setState({ ratio: 0.5 });
-      const animate = vi.spyOn(camera, "animate");
-      const staleResizeBefore = staleResize.mock.calls.length;
-      const staleRefreshBefore = staleRefresh.mock.calls.length;
-      const currentResizeBefore = currentResize.mock.calls.length;
-      const currentRefreshBefore = currentRefresh.mock.calls.length;
+      const renderer = renderers()[0];
+      const camera = renderer.getCamera();
+      // Let the mount refresh's centering animation finish first.
+      act(() => vi.advanceTimersByTime(600));
+      camera.setState({ x: 0.3, y: 0.6, angle: 0, ratio: 0.5 });
+      const cameraBefore = camera.getState();
 
-      act(() => vi.advanceTimersByTime(120));
-
-      expect(staleResize).toHaveBeenCalledTimes(staleResizeBefore);
-      expect(staleRefresh).toHaveBeenCalledTimes(staleRefreshBefore);
-      expect(currentResize.mock.calls.length).toBeGreaterThan(currentResizeBefore);
-      expect(currentRefresh.mock.calls.length).toBeGreaterThan(currentRefreshBefore);
-      expect(animate).toHaveBeenCalledWith(
-        { x: 0.5, y: 0.5, angle: 0, ratio: 0.5 },
-        { duration: 350 },
+      // An index refresh returns equal data as new objects, plus a new node.
+      view.rerender(
+        <Harness
+          nodes={[{ ...firstNode }, secondNode]}
+          onNodeClick={callback}
+          scope={{ ...scope }}
+        />,
       );
+      act(() => vi.advanceTimersToNextFrame());
+
+      expect(renderers()).toEqual([renderer]);
+      expect(killSpy).not.toHaveBeenCalled();
+      expect(renderer.getGraph().order).toBe(2);
+      expect(camera.getState()).toEqual(cameraBefore);
+
+      view.rerender(
+        <Harness
+          nodes={[secondNode]}
+          onNodeClick={callback}
+          scope={{ ...scope, label: "two.md" }}
+        />,
+      );
+      expect(renderers()).toEqual([renderer]);
+      expect(camera.getState()).toEqual({ x: 0.5, y: 0.5, angle: 0, ratio: 1 });
     } finally {
       view.unmount();
       vi.useRealTimers();

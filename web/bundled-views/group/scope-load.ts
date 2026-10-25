@@ -59,12 +59,16 @@ const NO_SCOPES: Parameters<typeof useValidationSummaries>[0] = [];
 export function useAggregatePart(part: AggregatePart) {
   // Issue counts come from published validation, which data events do not
   // announce, so the members part rereads when a new generation publishes.
-  const { generation } = useValidationSummaries(NO_SCOPES);
+  // It waits for the validation envelope, so the first read already carries
+  // the generation instead of reading once without it and again with it.
+  const validation = useValidationSummaries(NO_SCOPES);
+  const members = part === "members";
 
   const query = useQuery({
-    queryKey: ["group-views", "aggregate", part, ...(part === "members" ? [generation] : [])],
+    queryKey: ["group-views", "aggregate", part, ...(members ? [validation.generation] : [])],
     queryFn: async ({ signal }) => parseAggregate(await getJSON(aggregatePath(part), signal)),
     placeholderData: keepPreviousData,
+    enabled: !members || !validation.isLoading,
   });
 
   return { ...query, read: readOf(query) };

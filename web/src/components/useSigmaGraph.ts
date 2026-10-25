@@ -1,6 +1,5 @@
 import { createNodeImageProgram } from "@sigma/node-image";
 import Graph from "graphology";
-import forceAtlas2 from "graphology-layout-forceatlas2";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Sigma from "sigma";
 import { drawDiscNodeLabel, type NodeHoverDrawingFunction } from "sigma/rendering";
@@ -29,6 +28,7 @@ import {
   nodeColor,
   nodeIcon,
 } from "./graphViewShared";
+import { type LayoutInput, type LayoutPositions, runLayout } from "./graphLayout";
 
 type SigmaRenderer = Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>;
 
@@ -194,6 +194,8 @@ export function useSigmaGraph({
   const sigmaRef = useRef<SigmaRenderer | null>(null);
   const graphRef = useRef<SigmaGraph | null>(null);
   const onNodeClickRef = useRef(onNodeClick);
+  const problemCountsRef = useRef(problemCounts);
+  problemCountsRef.current = problemCounts;
   const globalLayoutRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   const colorsRef = useRef<ThemeColors | null>(null);
@@ -329,6 +331,9 @@ export function useSigmaGraph({
     return counts;
   }, [edges]);
 
+  const connectionCountsRef = useRef(connectionCounts);
+  connectionCountsRef.current = connectionCounts;
+
   const scheduleRefresh = useCallback(() => {
     if (!sigmaRef.current || refreshRef.current !== null) return;
     refreshRef.current = window.requestAnimationFrame(() => {
@@ -375,153 +380,22 @@ export function useSigmaGraph({
     showProblems,
   ]);
 
+  // One renderer per mounted container. Data refreshes swap its graph (below)
+  // instead of recreating it, so WebGL state and the camera survive a refresh.
+  const empty = nodes.length === 0;
+
   useEffect(() => {
     const container = containerRef.current;
 
-    if (!container || needsIndex || nodes.length === 0) return;
+    if (!container || needsIndex || empty) return;
     container.style.cursor = "grab";
-
-    setHover(null);
-    stateRef.current.hoverCommunity = null;
-    stateRef.current.hoverNodeID = null;
-
-    if (sigmaRef.current) {
-      sigmaRef.current.kill();
-      sigmaRef.current = null;
-    }
-
-    graphRef.current = null;
-
-    const graph: SigmaGraph = new Graph();
-    graphRef.current = graph;
-
-    const total = Math.max(1, nodes.length);
-    const radius = Math.max(80, Math.sqrt(total) * 28);
-
-    const hasCompleteGlobalLayout =
-      scope.mode === "global" &&
-      nodes.length > 0 &&
-      nodes.every((node) => globalLayoutRef.current.has(node.id));
-
-    nodes.forEach((n, index) => {
-      const cached = scope.mode === "global" ? globalLayoutRef.current.get(n.id) : undefined;
-      const angle = (index / total) * Math.PI * 2;
-      const jitter = (Math.random() - 0.5) * 12;
-      const x = cached ? cached.x : Math.cos(angle) * radius + jitter;
-      const y = cached ? cached.y : Math.sin(angle) * radius + jitter;
-
-      const baseSize =
-        (n.kind === "module" ? NODE_SIZE.base.module : NODE_SIZE.base.normal) + (n.center ? 2 : 0);
-
-      const colorValue = nodeColor(n, communityColors, typeColors);
-      const baseColor = resolveCssColor(colorValue);
-      graph.addNode(n.id, {
-        label: n.label,
-        kind: n.kind,
-        center: Boolean(n.center),
-        ...graphNodeIdentityAttrs(n),
-        module: n.module,
-        lang: n.lang,
-        community: n.community,
-        resolvedType: n.resolvedType,
-        authority: n.authority,
-        hub: n.hub,
-        pageRank: n.pageRank,
-        score: n.score,
-        problemCount: 0,
-        baseSize,
-        colorValue,
-        baseColor,
-        size: baseSize,
-        color: baseColor,
-        type: "circle",
-        image: nodeIcon(n.kind),
-        x,
-        y,
-      });
-    });
-
-    const edgeAgg = new Map<
-      string,
-      {
-        source: string;
-        target: string;
-        weight: number;
-        kind: string;
-        label?: string;
-      }
-    >();
-
-    edges.forEach((e) => {
-      if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) return;
-      const a = e.source <= e.target ? e.source : e.target;
-      const b = e.source <= e.target ? e.target : e.source;
-      const key = `${a}|${b}`;
-      const current = edgeAgg.get(key);
-
-      if (!current) {
-        edgeAgg.set(key, {
-          source: a,
-          target: b,
-          weight: e.weight ?? 1,
-          kind: e.kind,
-          label: e.relationLabel || edgeKindLabel(e.kind),
-        });
-      } else {
-        current.weight += e.weight ?? 1;
-
-        if (current.kind !== e.kind) {
-          current.kind = "mixed";
-          current.label = MIXED_EDGE_LABEL;
-        }
-      }
-    });
-
-    Array.from(edgeAgg.values()).forEach((e, index) => {
-      graph.addEdgeWithKey(`edge-${index}`, e.source, e.target, {
-        size: Math.max(0.6, Math.min(4, Math.sqrt(e.weight))),
-        weight: e.weight,
-        color: stateRef.current.colors.edgeFaint,
-        baseColor: stateRef.current.colors.edgeFaint,
-        kind: e.kind,
-        label: e.label || edgeKindLabel(e.kind),
-      });
-    });
-
-    if (graph.order > 1) {
-      const shouldRunLayout = scope.mode !== "global" || !hasCompleteGlobalLayout;
-
-      if (shouldRunLayout) {
-        const isWarmGlobal = scope.mode === "global" && globalLayoutRef.current.size > 0;
-
-        const iterations = isWarmGlobal
-          ? 28
-          : graph.order > 400
-            ? 50
-            : graph.order > 200
-              ? 80
-              : 120;
-
-        const settings = forceAtlas2.inferSettings(graph);
-        settings.edgeWeightInfluence = 1;
-        forceAtlas2.assign(graph, { iterations, settings });
-      }
-    }
-
-    if (scope.mode === "global") {
-      const nextLayout = new Map<string, { x: number; y: number }>();
-      graph.forEachNode((id, attrs) => {
-        nextLayout.set(id, { x: attrs.x, y: attrs.y });
-      });
-      globalLayoutRef.current = nextLayout;
-    }
 
     // WHY: allowInvalidContainer keeps Sigma from throwing when its container
     // has zero width at mount time — this can happen on the first commit
     // before flex layout has resolved cross-axis sizing. Sigma resizes itself
     // once layout settles, so the only effect is suppressing a fatal error
     // that would otherwise tear down the React tree without an error boundary.
-    const sigma: SigmaRenderer = new Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>(graph, container, {
+    const sigma: SigmaRenderer = new Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>(new Graph(), container, {
       renderEdgeLabels: stateRef.current.showEdgeLabels,
       labelDensity: 0.07,
       // Wider cells keep long labels from overlapping in dense clusters.
@@ -570,6 +444,7 @@ export function useSigmaGraph({
     });
 
     sigma.setSetting("edgeReducer", (edgeId, attrs) => {
+      const graph = sigma.getGraph();
       const source = graph.source(edgeId);
       const target = graph.target(edgeId);
       const sourceAttrs = graph.getNodeAttributes(source);
@@ -626,13 +501,12 @@ export function useSigmaGraph({
     };
 
     mouseCanvas?.addEventListener("wheel", onWheel, { capture: true, passive: false });
-    let hoverNodeID: string | null = null;
     let hoverFrameID: number | null = null;
     let lastPointer: { x: number; y: number } | null = null;
 
+    // Compare with the shared hover state, which a graph swap clears.
     const syncHoverNode = (nextNode: string | null) => {
-      if (hoverNodeID === nextNode) return;
-      hoverNodeID = nextNode;
+      if (stateRef.current.hoverNodeID === nextNode) return;
 
       if (!nextNode) {
         container.style.cursor = "grab";
@@ -646,7 +520,7 @@ export function useSigmaGraph({
         return;
       }
 
-      const attrs = graph.getNodeAttributes(nextNode);
+      const attrs = sigma.getGraph().getNodeAttributes(nextNode);
       container.style.cursor = "pointer";
 
       if (mouseCanvas) mouseCanvas.style.cursor = "pointer";
@@ -659,7 +533,7 @@ export function useSigmaGraph({
         path: attrs.path,
         nodeId: attrs.nodeId || nextNode,
         resolvedType: attrs.resolvedType,
-        connectionCount: connectionCounts.get(nextNode) || 0,
+        connectionCount: connectionCountsRef.current.get(nextNode) || 0,
         problemCount: attrs.problemCount,
       });
       scheduleRefresh();
@@ -723,7 +597,7 @@ export function useSigmaGraph({
     camera.on("updated", onCameraUpdated);
 
     sigma.on("clickNode", ({ node, event }) => {
-      const attrs = graph.getNodeAttributes(node);
+      const attrs = sigma.getGraph().getNodeAttributes(node);
       const original = event.original;
 
       const beside =
@@ -731,8 +605,6 @@ export function useSigmaGraph({
 
       onNodeClickRef.current(graphNodeFromAttrs(node, attrs), { beside });
     });
-
-    scheduleRefresh();
 
     return () => {
       camera.off("updated", onCameraUpdated);
@@ -747,16 +619,158 @@ export function useSigmaGraph({
       sigmaRef.current = null;
       graphRef.current = null;
     };
-  }, [
-    communityColors,
-    connectionCounts,
-    edges,
-    needsIndex,
-    nodes,
-    scheduleRefresh,
-    scope.mode,
-    typeColors,
-  ]);
+  }, [empty, needsIndex, scheduleRefresh]);
+
+  // Builds the graph for the current data and installs it on the renderer once
+  // laid out. Large layouts run in a worker; until one finishes, the renderer
+  // keeps showing the previous graph.
+  useEffect(() => {
+    const sigma = sigmaRef.current;
+
+    if (!sigma || needsIndex || empty) return;
+
+    const graph: SigmaGraph = new Graph();
+
+    const total = Math.max(1, nodes.length);
+    const radius = Math.max(80, Math.sqrt(total) * 28);
+
+    const hasCompleteGlobalLayout =
+      scope.mode === "global" &&
+      nodes.length > 0 &&
+      nodes.every((node) => globalLayoutRef.current.has(node.id));
+
+    nodes.forEach((n, index) => {
+      const cached = scope.mode === "global" ? globalLayoutRef.current.get(n.id) : undefined;
+      const angle = (index / total) * Math.PI * 2;
+      const jitter = (Math.random() - 0.5) * 12;
+      const x = cached ? cached.x : Math.cos(angle) * radius + jitter;
+      const y = cached ? cached.y : Math.sin(angle) * radius + jitter;
+
+      const baseSize =
+        (n.kind === "module" ? NODE_SIZE.base.module : NODE_SIZE.base.normal) + (n.center ? 2 : 0);
+
+      const colorValue = nodeColor(n, communityColors, typeColors);
+      const baseColor = resolveCssColor(colorValue);
+      graph.addNode(n.id, {
+        label: n.label,
+        kind: n.kind,
+        center: Boolean(n.center),
+        ...graphNodeIdentityAttrs(n),
+        module: n.module,
+        lang: n.lang,
+        community: n.community,
+        resolvedType: n.resolvedType,
+        authority: n.authority,
+        hub: n.hub,
+        pageRank: n.pageRank,
+        score: n.score,
+        problemCount: problemCountsRef.current.get(n.id) ?? 0,
+        baseSize,
+        colorValue,
+        baseColor,
+        size: baseSize,
+        color: baseColor,
+        type: "circle",
+        image: nodeIcon(n.kind),
+        x,
+        y,
+      });
+    });
+
+    const edgeAgg = new Map<
+      string,
+      {
+        source: string;
+        target: string;
+        weight: number;
+        kind: string;
+        label?: string;
+      }
+    >();
+
+    edges.forEach((e) => {
+      if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) return;
+      const a = e.source <= e.target ? e.source : e.target;
+      const b = e.source <= e.target ? e.target : e.source;
+      const key = `${a}|${b}`;
+      const current = edgeAgg.get(key);
+
+      if (!current) {
+        edgeAgg.set(key, {
+          source: a,
+          target: b,
+          weight: e.weight ?? 1,
+          kind: e.kind,
+          label: e.relationLabel || edgeKindLabel(e.kind),
+        });
+      } else {
+        current.weight += e.weight ?? 1;
+
+        if (current.kind !== e.kind) {
+          current.kind = "mixed";
+          current.label = MIXED_EDGE_LABEL;
+        }
+      }
+    });
+
+    Array.from(edgeAgg.values()).forEach((e, index) => {
+      graph.addEdgeWithKey(`edge-${index}`, e.source, e.target, {
+        size: Math.max(0.6, Math.min(4, Math.sqrt(e.weight))),
+        weight: e.weight,
+        color: stateRef.current.colors.edgeFaint,
+        baseColor: stateRef.current.colors.edgeFaint,
+        kind: e.kind,
+        label: e.label || edgeKindLabel(e.kind),
+      });
+    });
+
+    const shouldRunLayout =
+      graph.order > 1 && (scope.mode !== "global" || !hasCompleteGlobalLayout);
+
+    const install = (positions?: LayoutPositions) => {
+      if (positions) {
+        graph.forEachNode((id) => {
+          const position = positions.get(id);
+
+          if (position) graph.mergeNodeAttributes(id, position);
+        });
+      }
+
+      if (scope.mode === "global") {
+        const nextLayout = new Map<string, { x: number; y: number }>();
+        graph.forEachNode((id, attrs) => {
+          nextLayout.set(id, { x: attrs.x, y: attrs.y });
+        });
+        globalLayoutRef.current = nextLayout;
+      }
+
+      setHover(null);
+      stateRef.current.hoverCommunity = null;
+      stateRef.current.hoverNodeID = null;
+      graphRef.current = graph;
+      sigma.setGraph(graph);
+      scheduleRefresh();
+    };
+
+    if (!shouldRunLayout) {
+      install();
+
+      return;
+    }
+
+    const isWarmGlobal = scope.mode === "global" && globalLayoutRef.current.size > 0;
+
+    const iterations = isWarmGlobal ? 28 : graph.order > 400 ? 50 : graph.order > 200 ? 80 : 120;
+
+    const layoutNodes: LayoutInput["nodes"] = [];
+    graph.forEachNode((id, attrs) => layoutNodes.push({ id, x: attrs.x, y: attrs.y }));
+    const layoutEdges: LayoutInput["edges"] = [];
+    graph.forEachEdge((_edge, attrs, source, target) =>
+      layoutEdges.push({ source, target, weight: attrs.weight ?? 1 }),
+    );
+
+    return runLayout({ nodes: layoutNodes, edges: layoutEdges, iterations }, install);
+  }, [communityColors, edges, empty, needsIndex, nodes, scheduleRefresh, scope.mode, typeColors]);
 
   // A theme switch re-reads the token colors and repaints in place: no new
   // renderer, no layout run, and the camera stays where it was.
@@ -819,6 +833,9 @@ export function useSigmaGraph({
     setActiveCommunity(null);
     stateRef.current.hoverCommunity = null;
     stateRef.current.hoverNodeID = null;
+    // A different subject starts from the default view; a refresh of the same
+    // subject keeps the reader's camera.
+    sigmaRef.current?.getCamera().setState({ x: 0.5, y: 0.5, ratio: 1, angle: 0 });
   }, [scope.label, scope.mode]);
 
   const handleZoomIn = useCallback(() => {

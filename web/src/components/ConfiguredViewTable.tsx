@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   OntologyEditOp,
@@ -14,7 +14,7 @@ import type {
 import type { ViewPreferenceScope } from "../viewPreferences/types";
 import type { OpenMode } from "./useNoteTabs";
 import { configuredTableRowKey } from "./ConfiguredTableCell";
-import { fieldValue } from "./ConfiguredTableCellHelpers";
+import { fieldValue, stagedTargetForRow } from "./ConfiguredTableCellHelpers";
 import { ConfiguredViewBulkBar } from "./ConfiguredViewBulkBar";
 import { ConfiguredViewRecord } from "./ConfiguredViewRecord";
 import { ConfiguredViewTableHeader } from "./ConfiguredViewTableHeader";
@@ -35,7 +35,10 @@ import {
   ConfiguredViewTableRow,
   focusRow,
   type TableRowProps,
+  type TableRowState,
 } from "./ConfiguredViewTableRows";
+import { capabilityFor } from "./ConfiguredViewModel";
+import { changedFields, changedFieldsByKey } from "../staging/stagedState";
 import { groupIdentity } from "./ConfiguredViewSave";
 import { RecordRailPortal } from "./recordRail";
 import { useRememberedExpansion } from "./useRememberedExpansion";
@@ -188,35 +191,108 @@ export function ConfiguredViewTable({
   const tabbableRowKey =
     selectedRowKey && orderedKeys.includes(selectedRowKey) ? selectedRowKey : orderedKeys[0];
 
-  const rowProps: TableRowProps = {
-    columns,
-    capabilities,
-    viewID,
-    editSession,
-    vaultKey,
-    onStageOps,
-    onOpenRow,
-    issueCounts,
-    onOpenIssues,
-    selectedRowKey,
-    tabbableRowKey,
-    onSelectRow: setSelectedRowKey,
-    reorder,
-    checked: selection.checked,
-    onToggleChecked: selection.toggle,
-    onClearSelection: () => {
-      if (selection.checked.size > 0) selection.clear();
-      else setSelectedRowKey(null);
-    },
-    summaryField,
-    categoryFields: new Set(
-      (profile?.categoryFields ?? []).flatMap((field) => [
-        field,
-        ...capabilities.flatMap((capability) =>
-          capability.canonicalField === field ? [capability.key] : [],
-        ),
-      ]),
-    ),
+  // Rows read the latest reorder state when an event fires (see TableRowProps).
+  const reorderRef = useRef(reorder);
+  reorderRef.current = reorder;
+
+  const checkedCount = useRef(0);
+  checkedCount.current = selection.checked.size;
+
+  const clearRowSelection = useCallback(() => {
+    if (checkedCount.current > 0) clearSelection();
+    else setSelectedRowKey(null);
+  }, [clearSelection]);
+
+  const categoryFields = useMemo(
+    () =>
+      new Set(
+        (profile?.categoryFields ?? []).flatMap((field) => [
+          field,
+          ...capabilities.flatMap((capability) =>
+            capability.canonicalField === field ? [capability.key] : [],
+          ),
+        ]),
+      ),
+    [capabilities, profile?.categoryFields],
+  );
+
+  const columnCells = useMemo(
+    () =>
+      columns.map((column) => ({
+        column,
+        capability: capabilityFor(capabilities, column.field),
+        className: columnClassName(column, capabilities),
+      })),
+    [capabilities, columns],
+  );
+
+  // Staged fields for every row, once per session revision instead of per cell.
+  const changedByRow = useMemo(
+    () =>
+      changedFieldsByKey(
+        editSession,
+        rows.map((row) => [configuredTableRowKey(row), stagedTargetForRow(row)] as const),
+      ),
+    [editSession, rows],
+  );
+
+  const dragActive = reorder.dragKey !== null;
+
+  const rowProps = useMemo<TableRowProps>(
+    () => ({
+      columnCells,
+      primaryColumnIndex,
+      capabilities,
+      viewID,
+      editSession,
+      vaultKey,
+      onStageOps,
+      onOpenRow,
+      issueCounts,
+      onOpenIssues,
+      onSelectRow: setSelectedRowKey,
+      reorderRef,
+      reorderEnabled: reorder.enabled,
+      reorderBlockedReason: reorder.blockedReason,
+      dragActive,
+      onToggleChecked: selection.toggle,
+      onClearSelection: clearRowSelection,
+      summaryField,
+      categoryFields,
+    }),
+    [
+      capabilities,
+      categoryFields,
+      clearRowSelection,
+      columnCells,
+      dragActive,
+      editSession,
+      issueCounts,
+      onOpenIssues,
+      onOpenRow,
+      onStageOps,
+      primaryColumnIndex,
+      reorder.blockedReason,
+      reorder.enabled,
+      selection.toggle,
+      summaryField,
+      vaultKey,
+      viewID,
+    ],
+  );
+
+  const rowState = (row: ViewTableRow, groupId: string): TableRowState => {
+    const key = configuredTableRowKey(row);
+
+    return {
+      selected: selectedRowKey === key,
+      tabbable: tabbableRowKey === key,
+      checked: selection.checked.has(key),
+      dragging: reorder.dragKey === key,
+      pending: reorder.pendingKeys.has(key),
+      dropClass: reorder.dropClass(groupId, row),
+      changedFields: changedByRow.get(key) ?? changedFields(editSession, stagedTargetForRow(row)),
+    };
   };
 
   const columnSpan = columns.length + 1;
@@ -264,6 +340,7 @@ export function ConfiguredViewTable({
                   rowsForGroup={rowsForGroup}
                   columnSpan={columnSpan}
                   rowProps={rowProps}
+                  rowState={rowState}
                   isExpanded={groupIsExpanded}
                   onToggle={toggleGroup}
                 />
@@ -274,6 +351,7 @@ export function ConfiguredViewTable({
                   row={row}
                   groupId={UNGROUPED}
                   {...rowProps}
+                  {...rowState(row, UNGROUPED)}
                 />
               ))}
         </tbody>

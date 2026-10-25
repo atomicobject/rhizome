@@ -750,29 +750,65 @@ function useOntologyEditSessionState(vaultKey: string | null) {
 
   const stopEditing = useCallback(() => setEditing(false), []);
 
-  return {
-    vaultKey,
-    session,
-    editing,
-    busy: restoredVaultKey !== vaultKey || pendingCount > 0 || restoringRef.current || restoring,
-    savedWorkspaces,
-    readLifecycle,
-    /** Local edits the server has not accepted, e.g. after a failed stage request. */
-    unacknowledged: transportDirty && Boolean(session?.hasUncommittedChanges),
-    saving,
-    error,
-    warnings: storageWarning ? [...warnings, storageWarning] : warnings,
-    notice,
-    summary,
-    stageOps,
-    replaceOps,
-    preview,
-    commit,
-    discard,
-    startEditing,
-    stopEditing,
-    setSession: applySession,
-  };
+  const busy =
+    restoredVaultKey !== vaultKey || pendingCount > 0 || restoringRef.current || restoring;
+
+  /** Local edits the server has not accepted, e.g. after a failed stage request. */
+  const unacknowledged = transportDirty && Boolean(session?.hasUncommittedChanges);
+
+  const allWarnings = useMemo(
+    () => (storageWarning ? [...warnings, storageWarning] : warnings),
+    [storageWarning, warnings],
+  );
+
+  // One stable controller per state change, so context consumers and the props
+  // they pass down change only when the session does.
+  return useMemo(
+    () => ({
+      vaultKey,
+      session,
+      editing,
+      busy,
+      savedWorkspaces,
+      readLifecycle,
+      unacknowledged,
+      saving,
+      error,
+      warnings: allWarnings,
+      notice,
+      summary,
+      stageOps,
+      replaceOps,
+      preview,
+      commit,
+      discard,
+      startEditing,
+      stopEditing,
+      setSession: applySession,
+    }),
+    [
+      allWarnings,
+      applySession,
+      busy,
+      commit,
+      discard,
+      editing,
+      error,
+      notice,
+      preview,
+      readLifecycle,
+      replaceOps,
+      savedWorkspaces,
+      saving,
+      session,
+      stageOps,
+      startEditing,
+      stopEditing,
+      summary,
+      unacknowledged,
+      vaultKey,
+    ],
+  );
 }
 
 const NO_WORKSPACES: NodeWorkspace[] = [];

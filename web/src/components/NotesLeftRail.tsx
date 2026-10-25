@@ -216,7 +216,7 @@ const RailNoteRow = memo(function RailNoteRow({
   );
 });
 
-export function NotesLeftRail({
+export const NotesLeftRail = memo(function NotesLeftRail({
   active = true,
   summary,
   selectedType,
@@ -829,4 +829,4 @@ export function NotesLeftRail({
       )}
     </aside>
   );
-}
+});

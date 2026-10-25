@@ -1,5 +1,5 @@
 import { isJsonObject } from "../api/parse";
-import { useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import type {
   OntologySummaryResponse,
   OntologyEditOp,
@@ -68,7 +68,7 @@ const TYPES: ViewChoice = { ...OVERVIEW, name: "Types" };
 
 const RENDERERS = { overview: BuiltinOverview };
 
-export function HomeTab({
+export const HomeTab = memo(function HomeTab({
   active = true,
   summary: providedSummary,
   selectedType,
@@ -330,4 +330,4 @@ export function HomeTab({
       </div>
     </div>
   );
-}
+});

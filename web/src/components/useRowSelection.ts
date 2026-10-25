@@ -11,36 +11,37 @@ const NONE: ReadonlySet<string> = new Set();
 export function useRowSelection(orderedKeys: string[]) {
   const [checked, setChecked] = useState<ReadonlySet<string>>(NONE);
   const anchor = useRef<string | null>(null);
+  // Read at toggle time, so `toggle` keeps one identity for memoized rows.
+  const keysRef = useRef(orderedKeys);
+  keysRef.current = orderedKeys;
   const shown = new Set(orderedKeys);
 
   if ([...checked].some((key) => !shown.has(key))) {
     setChecked(new Set([...checked].filter((key) => shown.has(key))));
   }
 
-  const toggle = useCallback(
-    (key: string, range = false) => {
-      const from = anchor.current ? orderedKeys.indexOf(anchor.current) : -1;
-      const to = orderedKeys.indexOf(key);
-      anchor.current = key;
+  const toggle = useCallback((key: string, range = false) => {
+    const orderedKeys = keysRef.current;
+    const from = anchor.current ? orderedKeys.indexOf(anchor.current) : -1;
+    const to = orderedKeys.indexOf(key);
+    anchor.current = key;
 
-      setChecked((current) => {
-        const next = new Set(current);
+    setChecked((current) => {
+      const next = new Set(current);
 
-        if (range && from >= 0 && to >= 0) {
-          for (const item of orderedKeys.slice(Math.min(from, to), Math.max(from, to) + 1)) {
-            next.add(item);
-          }
-        } else if (next.has(key)) {
-          next.delete(key);
-        } else {
-          next.add(key);
+      if (range && from >= 0 && to >= 0) {
+        for (const item of orderedKeys.slice(Math.min(from, to), Math.max(from, to) + 1)) {
+          next.add(item);
         }
+      } else if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
 
-        return next;
-      });
-    },
-    [orderedKeys],
-  );
+      return next;
+    });
+  }, []);
 
   const setAll = useCallback((keys: string[]) => setChecked(new Set(keys)), []);
 
