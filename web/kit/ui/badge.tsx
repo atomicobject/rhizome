@@ -5,15 +5,16 @@ import type { ComponentProps } from "react";
 import { cn } from "../lib/utils";
 
 export const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>svg]:pointer-events-none [&>svg]:size-3",
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-sm border px-1.5 py-px text-xs font-semibold whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-        destructive: "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90",
-        outline: "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        // Neutral, like the host's type chip. `destructive` marks risk.
+        default: "border-border bg-sunk text-muted-foreground [a&]:hover:bg-accent",
+        secondary: "border-border bg-sunk text-muted-foreground [a&]:hover:bg-accent",
+        destructive:
+          "border-[var(--accent-line)] bg-[var(--accent-soft)] text-risk [a&]:hover:bg-[var(--accent-soft)]",
+        outline: "border-border text-foreground [a&]:hover:bg-accent",
       },
     },
     defaultVariants: { variant: "default" },

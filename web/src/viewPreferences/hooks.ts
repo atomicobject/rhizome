@@ -9,7 +9,10 @@ export type PreferenceDefinition<T> = {
   validate(value: unknown): value is T;
 };
 
-export type PreferenceSnapshot<T> = Omit<PreferenceStoreSnapshot, "values" | "revision"> & {
+export type PreferenceSnapshot<T> = Omit<
+  PreferenceStoreSnapshot,
+  "values" | "revision" | "familyOverrides"
+> & {
   value: T;
   overridden: boolean;
 };
@@ -163,6 +166,7 @@ const EMPTY: PreferenceStoreSnapshot = {
   pending: false,
   error: null,
   revision: 0,
+  familyOverrides: false,
 };
 
 const emptySnapshot = () => EMPTY;

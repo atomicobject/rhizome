@@ -11,7 +11,7 @@ import type {
 import { changeSummary } from "../staging/stagedState";
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import { BuiltinOverview } from "../views/BuiltinOverview";
-import { ViewHost, type ViewServices } from "../views/ViewHost";
+import { ViewHost, ViewPreferenceReset, type ViewServices } from "../views/ViewHost";
 import { ViewSelector } from "../views/ViewSelector";
 import { useViewSelection } from "../views/useViewSelection";
 import type { ViewContext } from "../views/context";
@@ -266,6 +266,14 @@ export function HomeTab({
                   selectedId={choice.id}
                   onSelect={selectionState.select}
                   status={selectionState}
+                  trailing={
+                    <ViewPreferenceReset
+                      choice={choice}
+                      definition={definition}
+                      context={context}
+                      vaultKey={services.vaultKey}
+                    />
+                  }
                 />
               )
             }

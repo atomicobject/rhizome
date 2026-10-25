@@ -84,7 +84,7 @@ spacing:
   xxxl: "32px"
 components:
   button-primary:
-    backgroundColor: "{colors.primary-red}"
+    backgroundColor: "{colors.primary-red-active}"
     textColor: "{colors.white}"
     typography: "{typography.body}"
     rounded: "{rounded.base}"
@@ -152,6 +152,11 @@ The palette is restrained by default: neutral work surfaces carry the interface,
 - **Connection Teal** (`connection-teal`): Relation lines, provenance, confirmed links, graph focus, success states, and connected-context hints.
 - **Connection Teal Soft** (`connection-teal-soft`): Low-emphasis link/provenance backgrounds and selected connection chips.
 
+### Type and series palettes
+
+- **Type palette** (`--type-1` … `--type-8`, each with an `-ink` text variant): categorical colors for ontology types in graphs, atlas cards, and type dots. Blue, purple, gold, slate, olive, brown, violet, and warm gray; never red or teal, so types never read as risk or connection. A type's color is its dot or edge; its name stays in ink or uses the `-ink` variant.
+- **Series palette** (`--series-1` … `--series-8`, plus `--series-link`): chart and bar colors, neutral first. No red; teal (`--series-link`) only for linked or connected amounts.
+
 ### Tertiary
 
 - **Type Blue** (`info-blue`): Secondary type families, informational badges, and graph/data categories.
@@ -166,6 +171,10 @@ The palette is restrained by default: neutral work surfaces carry the interface,
 - **Canvas White** (`surface`, `surface-alt`): Panels, panes, tables, command palette, and note bodies.
 - **Sunk Surface** (`surface-sunk`, `bg-tint`): Side rails, toolbar bands, sticky table headers, and read-only depth.
 - **Warm Borders** (`border`, `border-strong`, `border-faint`): Separators, control outlines, pane edges, and table rows.
+
+### Dark theme
+
+Every semantic token has a dark value in `web/src/tokens.css`, applied with `prefers-color-scheme: dark`, so the host, the custom-view kit, and the desktop shell follow the operating system together. Dark surfaces are warm near-blacks (`#161514` background, `#1d1b1a` surface), text is warm off-white, and red, teal, gold, and the palettes lighten to keep their contrast. The app header stays warm black in both themes. Surfaces read semantic tokens, never the `--ao-*` brand values, or they stay light in the dark theme.
 
 ### Named Rules
 
@@ -190,6 +199,7 @@ The palette is restrained by default: neutral work surfaces carry the interface,
 - **Title** (700, 18px, 1.22): Pane titles, section titles, selected note titles, and drawer headings.
 - **Body** (400, 13px, 1.45): Main UI text, table rows, note summaries, controls, and prose excerpts.
 - **Label** (700, 11px, sentence case, no tracking, `--label-font` / `--label-color`): the one style for section heads, rail group headers, table column heads, and fact labels ("Recently changed", "Properties", "What it means"). No uppercase eyebrows; hierarchy comes from weight and color. Sub-group heads under a label drop to 600 and the faint gray.
+- **Block head** (700, 12px, ink): the heading of a page block (`Section` in the kit, "Needs attention", "In motion"), one step above the label style, with an unboxed mono count beside it.
 - **Mono** (500, 12px, 1.35): Paths, identifiers, code refs, GraphQL, field names, and schema metadata.
 
 ### Named Rules
@@ -228,13 +238,13 @@ The compact red orb remains the temporary brand mark. Do not treat it as the lon
 - **Shape:** Temporary orb stays compact; app shell controls use restrained radius (4px to 6px).
 - **Color:** Temporary mark uses the existing red and warm-ink treatment.
 - **State:** Active nav uses red underline or red-soft background plus text; focus rings must be visible.
-- **Focus:** One keyboard focus style everywhere: a 2px AO red outline from `:focus-visible` in `base.css` (inset on rows and cells). Components may inset or offset it, not restyle it.
+- **Focus:** One keyboard focus style everywhere: a 2px outline in `--focus-ring` (the deeper red `#c8313a`, which clears 3:1 on tinted rows; a brighter red in the dark theme) from `:focus-visible` in `base.css` and the kit (inset on rows and cells). Components may inset or offset it, not restyle it.
 - **Keyboard:** Long lists, table rows, and issue rows are one Tab stop each (roving focus) and move with arrow keys; F6 cycles the left rail, main panel, and context rail; `?` lists the shortcuts.
 
 ### Buttons
 
 - **Shape:** Compact technical rectangle with restrained corners (4px).
-- **Primary:** Workbench Red background with white text; use for commit/run/save/primary execution only.
+- **Primary:** Workbench Red Active (`#c8313a`, `--accent-fill`) background with white text, 5.3:1; use for commit/run/save/primary execution only. The bright `#fd4f57` fails AA under white text, so it never fills a labeled control.
 - **Secondary:** White background, warm ink text, 1px `border`, 26px high, 500 12px. Toolbar buttons, Copy link, Columns, Filter, and the icon-only refresh all share these metrics.
 - **Hover / Focus:** Secondary hover tints neutral (`bg-tint`, stronger border), never red. Focus uses a visible red or teal outline plus offset. Do not invent new button shapes per screen.
 - **Segmented control (`.segmented`):** every mode switch (Table / Board / Cards, Home / Table, Structure / Markdown, By kind / By file) uses one control: a bordered group of 24px segments with hairline dividers; the chosen segment fills with ink. Selection is neutral, never red.
@@ -291,6 +301,10 @@ Panes are the core reading/editing pattern. They need clear headers, type/status
 ### Ontology Canvas
 
 The canvas uses neutral grid depth, typed cards, role-colored relation lines, readable field rows, and a persistent inspector for selected nodes. Graph color must encode relation/type/status with labels or legends; never rely on color alone.
+
+### Custom views
+
+Agent-written views use the kit's page primitives (`Section`, `Facts`, `Count`, `Dash`, `Segmented`, `MoreToggle`, `BarList`) and `@rhizome/ui` components restyled to these rules, so a view built from defaults matches the bundled pages: Barlow on the surface, hairline-separated blocks, mono counts, teal note links, neutral buttons with red only for the one commit action, and neutral loading placeholders that appear after 150ms. Views never set their own theme colors.
 
 ### Command Palette
 

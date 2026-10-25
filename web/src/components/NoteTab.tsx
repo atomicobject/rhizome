@@ -21,7 +21,7 @@ import { NodePresentationHost } from "./NodePresentationHost";
 import { ViewSelector } from "../views/ViewSelector";
 import { useViewSelection } from "../views/useViewSelection";
 import { type OpenNodeOptions, type ViewContext } from "../views/context";
-import type { ViewServices } from "../views/ViewHost";
+import { ViewPreferenceReset, type ViewServices } from "../views/ViewHost";
 import { flushEditors } from "./editing/editorFlush";
 import { OntologyNotePane } from "./OntologyNotePane";
 import { buildNoteWebHref } from "../lib/content";
@@ -357,6 +357,17 @@ export function NoteTab({
               selectedId={choice?.id ?? null}
               onSelect={(id) => void changePresentation(id)}
               status={selection}
+              trailing={
+                choice &&
+                nodeContext && (
+                  <ViewPreferenceReset
+                    choice={choice}
+                    definition={definition}
+                    context={nodeContext}
+                    vaultKey={vaultKey}
+                  />
+                )
+              }
             />
             {presentationError && <span role="alert">{presentationError}</span>}
           </>

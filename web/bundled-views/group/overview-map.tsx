@@ -26,18 +26,19 @@ const WIDTH = 760;
 
 const HEIGHT = 340;
 
-// Categorical hues for named groups. Blue marks types in no named group and
-// AO red stays reserved for risk.
-const HUES = ["var(--ao-purple)", "var(--ao-gold)", "var(--ao-teal-600)", "var(--ao-teal-ink)"];
+// Categorical hues for named groups, from the shared type palette. The first
+// palette color marks types in no named group; red (risk) and teal
+// (connection) never mark a group.
+const HUES = [2, 3, 4, 5, 6, 7].map((n) => `var(--type-${n})`);
 
 const fmt = (count: number) => count.toLocaleString("en-US");
 
 /** A node's color: its named group's hue, blue without one, light gray for untyped notes. */
 export function nodeHue(model: ScopeModel, node: Pick<ScopeNode, "kind" | "group">) {
-  if (node.kind === "untyped") return "var(--ao-gray-300)";
+  if (node.kind === "untyped") return "var(--border-strong)";
   const index = node.group === null ? -1 : model.groupNames.indexOf(node.group);
 
-  return index < 0 ? "var(--ao-blue)" : HUES[index % HUES.length];
+  return index < 0 ? "var(--type-1)" : HUES[index % HUES.length];
 }
 
 /** Declared relations no record uses between members with no edge, one hairline per pair. */

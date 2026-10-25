@@ -1836,13 +1836,22 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 .configured-view__save-review-actions button,
 .view-preferences button,
 .view-preferences__reset {
-  padding: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--surface);
   color: var(--text);
   font: 500 12px var(--font-sans);
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.view-preferences__reset:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-tint);
 }
 
 .configured-view__save-review-actions .configured-view__save-confirm {

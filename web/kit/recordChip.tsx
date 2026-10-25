@@ -103,13 +103,13 @@ export function RecordChip({
     onFocus: enter,
     onBlur: leave,
     className: cn(
-      "inline-flex max-w-full min-w-0 gap-1.5 rounded-sm px-1.5 py-px text-left text-[12px] leading-snug text-[var(--ao-ink-2)]",
+      "inline-flex max-w-full min-w-0 gap-1.5 rounded-sm px-1.5 py-px text-left text-[12px] leading-snug text-[var(--text)]",
       wrap ? "items-start" : "items-center",
       onOpen &&
-        "cursor-pointer border-0 bg-transparent focus-visible:outline-2 focus-visible:outline-[var(--ring)]",
+        "cursor-pointer border-0 bg-transparent focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]",
       indirect && "text-[var(--text-faint)] italic",
       highlighted &&
-        "bg-[var(--ao-teal-soft)] text-[var(--ao-teal-ink)] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ao-teal)_55%,transparent)]",
+        "bg-[var(--success-soft)] text-[var(--link)] shadow-[inset_0_0_0_1px_var(--link-line)]",
       className,
     ),
   };

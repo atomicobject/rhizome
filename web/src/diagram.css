@@ -7,17 +7,18 @@
   --pele-surface: var(--surface-alt);
   --pele-surface-alt: var(--surface-sunk);
   --pele-border: var(--border-strong);
-  --pele-accent: var(--ao-teal-ink);
+  --pele-accent: var(--link);
   --pele-critical: var(--accent-ink);
   --pele-error: var(--accent-ink);
-  --pele-series-1: var(--ao-teal-ink);
-  --pele-series-2: var(--ao-purple);
-  --pele-series-3: var(--warning-ink);
-  --pele-series-4: var(--ao-red-700);
-  --pele-series-5: var(--ao-gray-700);
-  --pele-series-6: var(--ao-ink-3);
-  --pele-series-7: var(--ao-red-ink);
-  --pele-series-8: var(--ao-gray-500);
+  /* Chart series from the shared tokens: neutral first, no red. */
+  --pele-series-1: var(--series-1);
+  --pele-series-2: var(--series-2);
+  --pele-series-3: var(--series-3);
+  --pele-series-4: var(--series-4);
+  --pele-series-5: var(--series-5);
+  --pele-series-6: var(--series-6);
+  --pele-series-7: var(--series-7);
+  --pele-series-8: var(--series-8);
 }
 
 .rhizome-diagram svg {
@@ -38,7 +39,7 @@
 }
 
 .rhizome-diagram a:focus-visible {
-  outline: 2px solid var(--pele-accent);
+  outline: 2px solid var(--focus-ring);
 }
 
 .rhizome-diagram__loading {

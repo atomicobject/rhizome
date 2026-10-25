@@ -1453,6 +1453,20 @@
   white-space: nowrap;
 }
 
+/* Controls for the selected view ("Reset to shared"), beside the selector. */
+.view-selector__trailing {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: var(--sp-2);
+  white-space: nowrap;
+}
+
+.view-selector__trailing:empty {
+  display: none;
+}
+
 .view-selector > .segmented > button {
   flex: 0 1 auto;
   min-width: 0;

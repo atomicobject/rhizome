@@ -2,6 +2,7 @@ import {
   useEffect,
   useEffectEvent,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -39,6 +40,26 @@ export function Diagram(props: {
   );
 
   const readEntries = useEffectEvent(() => entries);
+  const [width, setWidth] = useState(0);
+  const hasSource = source.trim() !== "";
+
+  // Charts fill the view's width; measured in 20px steps so resizing re-lays
+  // the chart out without a render per pixel.
+  useLayoutEffect(() => {
+    const element = container.current;
+
+    if (!element) return;
+
+    const update = () => setWidth(Math.floor(element.clientWidth / 20) * 20);
+    update();
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [hasSource]);
 
   useEffect(() => {
     if (!source.trim()) return;
@@ -50,6 +71,7 @@ export function Diagram(props: {
       idPrefix,
       true,
       targets.map(([id]) => id),
+      width || undefined,
     ).then(
       (result) => {
         if (cancelled) return;
@@ -99,7 +121,7 @@ export function Diagram(props: {
     return () => {
       cancelled = true;
     };
-  }, [source, linkKey, idPrefix]);
+  }, [source, linkKey, idPrefix, width]);
 
   useEffect(() => {
     container.current

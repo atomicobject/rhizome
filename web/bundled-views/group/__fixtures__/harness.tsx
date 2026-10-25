@@ -256,7 +256,7 @@ export async function renderGroupView(
 
   // Blocks that load on their own show a spinner until their reads arrive.
   if (options.settle ?? true)
-    await waitFor(() => expect(document.querySelector(".gv-spin")).toBeNull());
+    await waitFor(() => expect(document.querySelector(".rz-loading")).toBeNull());
 
   return { ...view, posted };
 }

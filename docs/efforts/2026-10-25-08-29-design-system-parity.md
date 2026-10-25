@@ -68,7 +68,9 @@ Pending.
 
 ## Deviations
 
-None yet.
+- Phase 1, 2026-10-25: the spec's preference non-goal admitted no REST change, but hiding "Reset to shared" when nothing is saved needs to know whether a custom view's widget slots hold values. Added an additive `familyOverrides` field to host preference snapshots (read-only SQL in `userstate.readSnapshot`, no schema change) and refreshed hosts on widget events; SPEC-0125 updated in place. Within the approved plan's scope (the reset rule); recorded because it touches an API the spec had excluded.
+- Phase 1: kept the kit's 14px root (spacing density) and pinned text sizes instead of dropping the root; `Diagram` fills width for charts only, since scaling flowcharts enlarges their text; node presentations keep a Barlow title because the note tab does not title custom presentations. SPEC-0125 updated in place.
+- Phase 1: undefined host tokens (`--line`, `--r-full`, `--surface-1/2`, and others) are replaced in phase 2's stylesheet sweep, which owns those files, rather than in phase 1.
 
 ## Closure Checklist
 

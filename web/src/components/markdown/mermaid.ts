@@ -1,4 +1,4 @@
-import type { DiagramType } from "pele";
+import type { DiagramType, RenderOptions } from "pele";
 
 // ponytail: C4 emits $link links but rejects appended click directives; add types only after verifying both parsing and emitted links.
 const LINK_TYPES = new Set<DiagramType>(["flowchart", "gantt", "class", "state", "agentflow"]);
@@ -9,6 +9,8 @@ export async function renderDiagram(
   id: string,
   links = false,
   linkIds: string[] = [],
+  /** Container width: charts lay out at it, other diagrams shrink to fit it. */
+  width?: number,
 ) {
   const { render, detectType } = await import("pele");
   const type = detectType(code);
@@ -25,7 +27,7 @@ export async function renderDiagram(
         ].join("\n")
       : code;
 
-  const options = {
+  const options: RenderOptions = {
     idPrefix: id,
     fontFamily: '"Barlow", -apple-system, system-ui, "Segoe UI", sans-serif',
     fontFamilyMono: '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace',
@@ -34,6 +36,12 @@ export async function renderDiagram(
     linkSchemes: [],
     images: false,
   };
+
+  if (width) {
+    options.maxWidth = width;
+
+    if (type === "xychart") options.config = { xyChart: { width } };
+  }
 
   let result: ReturnType<typeof render>;
 

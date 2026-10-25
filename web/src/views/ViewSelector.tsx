@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import type { ViewChoice, ViewTarget } from "../api/types";
 import { usePopoverDismiss } from "../components/focusManagement";
 
@@ -60,11 +68,14 @@ export function ViewSelector({
   selectedId,
   onSelect,
   status,
+  trailing,
 }: {
   target: Pick<ViewTarget, "choices" | "defaultChoiceId">;
   selectedId: string | null;
   onSelect: (id: string) => void;
   status?: ViewSelectionStatus;
+  /** Controls for the selected view, such as "Reset to shared", in the selector's row. */
+  trailing?: ReactNode;
 }) {
   // Fixed placement escapes toolbars that clip their overflow.
   const [menuPlace, setMenuPlace] = useState<{ top: number; right: number } | null>(null);
@@ -257,6 +268,7 @@ export function ViewSelector({
           </button>
         </span>
       )}
+      {trailing && <span className="view-selector__trailing">{trailing}</span>}
       <span id={defaultNoteId} hidden>
         Default view
       </span>

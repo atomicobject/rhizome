@@ -13,6 +13,10 @@ type Snapshot struct {
 	Revision        uint64                     `json:"revision"`
 	Values          map[string]json.RawMessage `json:"values"`
 	MigrationClosed bool                       `json:"migrationClosed"`
+	// FamilyOverrides reports, on a host scope, whether any of its widget
+	// slots holds a saved value, so the host can offer a reset that the
+	// widgets need even when the host's own values are empty.
+	FamilyOverrides bool `json:"familyOverrides,omitempty"`
 }
 
 // ConflictError includes the snapshot that rejected a stale write.
@@ -21,6 +25,17 @@ type ConflictError struct{ Current Snapshot }
 func (e *ConflictError) Error() string { return "view preferences changed" }
 
 func readSnapshot(ctx context.Context, tx *sql.Tx, scope Scope, key string) (Snapshot, error) {
+	result, err := readScopeSnapshot(ctx, tx, scope, key)
+	if err != nil || scope.WidgetSlot != "" {
+		return result, err
+	}
+	err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM view_preferences WHERE scope_key IN
+	 (SELECT scope_key FROM view_preference_scopes WHERE json_remove(scope_key, '$.widgetSlot')=? AND scope_key<>?))`,
+		key, key).Scan(&result.FamilyOverrides)
+	return result, err
+}
+
+func readScopeSnapshot(ctx context.Context, tx *sql.Tx, scope Scope, key string) (Snapshot, error) {
 	result := Snapshot{Scope: scope, Values: make(map[string]json.RawMessage)}
 	err := tx.QueryRowContext(ctx, `SELECT revision, migration_closed FROM view_preference_scopes WHERE scope_key = ?`, key).Scan(&result.Revision, &result.MigrationClosed)
 	if errors.Is(err, sql.ErrNoRows) {
