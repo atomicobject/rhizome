@@ -10,6 +10,7 @@ import { MarkdownEditor } from "../markdownEditor/MarkdownEditor";
 import type { MarkdownEditorHandle } from "../markdownEditor/types";
 import { useRhizomeMarkdownLinks } from "../markdownEditor/useRhizomeMarkdownLinks";
 import { useActiveEditSession } from "../useOntologyEditSession";
+import { narrativeClassName } from "./NarrativeView";
 import type { BodyRendererProps } from "./registry";
 
 const NARRATIVE_DEBOUNCE_MS = 300;
@@ -221,7 +222,12 @@ export function NarrativeEditor({ block, kindOrdinal, node, context }: BodyRende
     draft !== authoredMarkdown || Boolean(editSession?.ops?.some((op) => op.id === operationID));
 
   return (
-    <div className={`body-narrative body-narrative--editor${hasChanges ? " is-dirty" : ""}`}>
+    <div
+      className={narrativeClassName(
+        `body-narrative body-narrative--editor${hasChanges ? " is-dirty" : ""}`,
+        { block, kindOrdinal, node },
+      )}
+    >
       <MarkdownEditor
         className="body-narrative__editor"
         documentId={operationID}

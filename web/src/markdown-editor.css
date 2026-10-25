@@ -5,10 +5,19 @@
    one it consumes is mapped here so its dark defaults never reach a light
    surface. */
 
+/* A section's editor takes the place of its rendered prose: no margin of its
+   own, so toggling Edit leaves the first line where read mode put it. */
 .body-narrative--editor {
+  --editor-bleed-block: calc(var(--sp-2) + 1px);
   display: grid;
-  gap: var(--sp-3);
-  margin: var(--sp-3) 0;
+  margin: 0;
+}
+
+/* The lead metadata line keeps its quiet read-mode type while editing. */
+.body-narrative--meta .markdown-editor--atomic {
+  --atomic-editor-body-size: var(--fs-sm);
+  --atomic-editor-body-leading: 1.5;
+  --atomic-editor-fg: var(--text-muted);
 }
 
 /* The editor already reserves a transparent 1px border. Recoloring that
@@ -73,7 +82,7 @@
   --atomic-editor-font: var(--font-sans);
   --atomic-editor-font-mono: var(--font-mono);
   --atomic-editor-body-size: var(--fs-md);
-  --atomic-editor-body-leading: 1.65;
+  --atomic-editor-body-leading: 1.6;
   --atomic-editor-measure: none;
   --atomic-editor-radius: var(--r-md);
   --atomic-editor-fg: var(--text);
@@ -117,22 +126,24 @@
   max-height: none;
 }
 
-/* The editor is the document, not a form field: no box at rest, a hairline on
-   hover, and the shared input focus ring only while focused. */
+/* The editor is the document, not a form field: no box at rest, a faint tint
+   on hover, and the shared input focus ring only while focused. Its padding
+   and border bleed outward through negative margins, so the text inside sits
+   exactly where the rendered prose does. */
 .markdown-editor--atomic .cm-editor {
-  min-height: 2.5rem;
-  margin: 0 calc(-1 * var(--sp-3));
-  padding: 0 var(--sp-3);
+  margin: calc(-1 * var(--editor-bleed-block, 0px)) calc(-1 * var(--sp-3));
+  padding: 0 calc(var(--sp-3) - 1px);
   border: 1px solid transparent;
   border-radius: var(--r-md);
-  background: var(--surface);
+  background: transparent;
   transition:
+    background-color 120ms ease-out,
     border-color 120ms ease-out,
     box-shadow 120ms ease-out;
 }
 
 .markdown-editor--atomic .cm-editor:hover {
-  border-color: var(--border);
+  background: var(--bg-tint);
 }
 
 /* A read-only document offers nothing on hover; only keyboard focus draws
@@ -140,6 +151,7 @@
 .markdown-editor--readonly .cm-editor,
 .markdown-editor--readonly .cm-editor:hover {
   border-color: transparent;
+  background: transparent;
 }
 
 .markdown-editor--readonly .cm-editor.cm-focused {
@@ -153,17 +165,19 @@
 
 .markdown-editor--atomic .cm-editor.cm-focused {
   outline: none;
+  background: var(--surface);
   border-color: var(--focus-ring);
   box-shadow: 0 0 0 1px var(--focus-ring);
 }
 
 .markdown-editor--atomic .cm-scroller {
-  min-height: 2.5rem;
   overflow: visible;
 }
 
-.markdown-editor--atomic .cm-content {
-  padding: var(--sp-2) 0 var(--sp-3);
+/* Atomic's own `.atomic-cm-editor .cm-content` adds inline padding; the
+   editor's border box already supplies the inset. */
+.markdown-editor--atomic .cm-editor .cm-content {
+  padding: var(--sp-2) 0;
 }
 
 /* Atomic tints inline code with its link color; here code is evidence, not a
