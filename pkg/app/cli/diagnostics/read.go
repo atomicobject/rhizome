@@ -35,6 +35,7 @@ type Result struct {
 	Events         []evidence.Event  `json:"events,omitempty"`
 	Coverage       evidence.Coverage `json:"coverage"`
 	IndexSummaries []IndexSummary    `json:"index_summaries,omitempty"`
+	Perf           *PerfSummary      `json:"perf,omitempty"`
 	Error          string            `json:"error,omitempty"`
 }
 
@@ -78,6 +79,9 @@ func Read(opts Options) (Result, error) {
 		since := opts.Since
 		if since == "" {
 			since = "7d"
+			if opts.Mode == "perf" {
+				since = "24h"
+			}
 		}
 		filter := evidence.Filter{Kind: opts.Kind, Status: opts.Status, OperationID: opts.OperationID, TraceID: opts.TraceID, Subsystem: opts.Subsystem, Limit: opts.Limit, MaxBytes: opts.MaxBytes}
 		filter.Since, err = ParseTime(since, opts.Now)
@@ -105,6 +109,15 @@ func Read(opts Options) (Result, error) {
 			}
 			result, readErr := evidence.ReadEvents(root, filter)
 			out.Events, out.Coverage, err = result.Events, result.Coverage, readErr
+		case "perf":
+			// Aggregation needs the whole budget; the record limit does not apply.
+			if filter.MaxBytes == 0 {
+				filter.MaxBytes = 16 << 20
+			}
+			aggregator := newPerfAggregator()
+			out.Coverage, err = evidence.ScanEvents(root, filter, aggregator.visit)
+			summary := aggregator.summary()
+			out.Perf = &summary
 		default:
 			return out, fmt.Errorf("unknown diagnostics mode %q", opts.Mode)
 		}

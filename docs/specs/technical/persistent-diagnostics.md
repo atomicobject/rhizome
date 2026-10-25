@@ -95,7 +95,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 
 ### Performance view
 
-- `rzm diagnostics perf` MUST summarize a time window, defaulting to the last 24 hours, from reports and terminal events, in human and JSON forms. It MUST share the existing reader bounds and coverage disclosure, and say when the window is only partly covered.
+- `rzm diagnostics perf` MUST summarize a time window, defaulting to the last 24 hours, from terminal events, in human and JSON forms. Every reported operation also emits a terminal event, so events cover both reported and event-only work. It MUST share the existing reader bounds and coverage disclosure, and say when the window is only partly covered.
 - It MUST group operations by kind and name (command path, HTTP route, MCP tool, code-mode operation, indexing job kind), reporting count, error and cancellation counts, median and maximum duration, and queue and lock waits where present. It MUST report a 95th percentile only for groups with at least 20 samples, and always show the sample count.
 - It MUST summarize web UI evidence per render region and surface: commits, render time, frame stalls, refresh churn, and stability counts.
 - It MUST flag these anomalies with the supporting operation or event identifiers:
