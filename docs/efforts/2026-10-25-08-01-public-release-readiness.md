@@ -63,7 +63,7 @@ A release path that works in the new public repository, an easy one-time AO cred
 
 ## Actual Delivered
 
-Implemented on `t3/rhizome-release-readiness` in `8bc1e502`, then integrated public main `73f4eae9` through merge `e699a834`. No release has been published. A draft PR will retain the open packaged visual check.
+Implemented on `t3/rhizome-release-readiness` in `8bc1e502`, then integrated public main `73f4eae9` through merge `e699a834`. No release has been published. [Draft PR #39](https://github.com/atomicobject/rhizome/pull/39) retains the open packaged visual check; review corrections are committed in `1b7dcdaa`.
 
 - First-release collection uses empty prior fields, includes root content, preserves safe retry topology, and atomically creates the release branch. Version selection continues from source `v0.50.5` and rejects a version at or below the floor on every input path.
 - A pinned Minisign helper verifies candidate archives before staging. Future public apply signs and verifies a disposable probe before mutations; execution in this effort used only temporary synthetic keys.
@@ -92,6 +92,8 @@ Implemented on `t3/rhizome-release-readiness` in `8bc1e502`, then integrated pub
 - 2026-10-25T13:10:59Z [validation] Final `make check` passed, including all Go unit tests and 1,580 web tests. The initial invocation completed its tests but failed because another checkout held the global lint lock; after confirming its process exited, the full retry passed. `make desktop-check` passed with 56 UI tests and 71 native tests.
 - 2026-10-25T13:10:59Z [artifact] Built the final app and local DMG with only a minimal non-credential environment. The 41.53 MiB DMG passed integrity verification, read-only mounting, expected app version and Applications link, deep ad-hoc signature verification, and an actual bundled-CLI synthetic import inside the older-pinned fixture. Detached the disk image. This is local packaging proof, not production signing, installation, or publication.
 
+- 2026-10-25T13:13:29Z [validation] Final default documentation validation passed with zero issues. Frozen-scope validation still reports only the same three unrelated baseline findings. Opened draft PR #39; its packaged visual check remains open.
+
 ## Deviations
 
 Independent review added key/archive matching, source-version floors, named missing-key errors, and process-tree cancellation after concrete defects were identified. The initial five-minute archive cap was replaced by a stall timeout and a 30-minute cap so progressing slow transfers can complete. These strengthen the approved release-readiness outcomes without adding a publication target or live execution. The visual walkthrough remains blocked by the native automation service and is recorded separately from passing packaged-binary and automated UI evidence.
@@ -103,7 +105,7 @@ Independent review added key/archive matching, source-version floors, named miss
 - [ ] Packaged visual walkthrough with synthetic credentials; native automation blocked.
 - [x] Ontology, links, frozen-scope and documentation validation; unrelated baseline drift is classified above.
 - [x] Final alignment, actual outcomes, and remaining live acceptance checks recorded.
-- [ ] Draft PR and commit evidence.
+- [x] Draft PR and commit evidence: [#39](https://github.com/atomicobject/rhizome/pull/39), implementation `8bc1e502`, integration `e699a834`, review fixes `1b7dcdaa`.
 
 ## Compounding Follow-ups
 
@@ -111,4 +113,4 @@ Avoid allocating a new effort while shared source is changing: its required inde
 
 ## Status
 
-Implementation, integrated verification, packaged-binary smoke testing, and independent code review are complete locally. Prepare a draft PR while the packaged visual walkthrough remains open due to the native automation error. Production credentials, publication, browser/Gatekeeper installation, and a real second-release update remain outside the executed evidence. Keep this effort active until its remaining in-scope visual check is resolved or an explicit deviation closes it.
+Implementation, integrated verification, local DMG and packaged-binary smoke testing are recorded in draft PR #39. Opus found no blockers in the initial frozen implementation; subsequent Greptile fixes are committed. Current-head review and CI results are tracked on the PR. The packaged visual walkthrough remains open due to the native automation error. Production credentials, publication, browser/Gatekeeper installation, and a real second-release update remain outside the executed evidence. Keep this effort active until its remaining in-scope visual check is resolved or an explicit deviation closes it.
