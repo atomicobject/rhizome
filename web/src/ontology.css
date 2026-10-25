@@ -3249,6 +3249,10 @@
 }
 
 .widget-text--input {
+  display: block;
+  max-height: 12lh;
+  overflow-y: auto;
+  resize: none;
   font: inherit;
   border: 1px solid var(--border);
   border-radius: var(--radius, 4px);

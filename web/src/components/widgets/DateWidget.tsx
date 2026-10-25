@@ -129,7 +129,7 @@ export function DateWidget({
 
   if (!editing) {
     if (!trimmed) {
-      return <span className="widget-date widget-date--empty">(empty)</span>;
+      return <span className="widget-date widget-date--empty">Empty</span>;
     }
 
     return (

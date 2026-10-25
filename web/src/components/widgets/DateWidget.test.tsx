@@ -16,7 +16,7 @@ describe("DateWidget", () => {
 
   it("renders an empty placeholder when missing", () => {
     render(<DateWidget value="" editing={false} />);
-    expect(screen.getByText("(empty)")).toBeInTheDocument();
+    expect(screen.getByText("Empty")).toBeInTheDocument();
   });
 
   it("renders a date input pre-populated with ISO form in edit mode", () => {
