@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { CredentialImport } from "./CredentialImport";
-import type { GlobalInfo, LinkInfo, UpdateStatus } from "./api";
+import {
+  failure,
+  request,
+  type GlobalInfo,
+  type LinkInfo,
+  type RenderProfiling,
+  type UpdateStatus,
+} from "./api";
 
 const linkText: Record<LinkInfo["state"], string> = {
   absent: "Not installed. Install it to run rzm from terminals and coding agents.",
@@ -41,6 +48,59 @@ function shadowHint(path: string): string {
   return /homebrew|Cellar/.test(path)
     ? " Run brew uninstall rhizome to use this app's rzm."
     : " Remove it or move it later in your PATH to use this app's rzm.";
+}
+
+/** React render regions for `rzm diagnostics perf` (SPEC-0116). */
+function Diagnostics() {
+  const [profiling, setProfiling] = useState<RenderProfiling | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    void request("render-profiling", {})
+      .then(setProfiling)
+      .catch((cause) => setError(failure(cause).message));
+  }, []);
+  async function toggle(enabled: boolean) {
+    setSaving(true);
+    setError("");
+    try {
+      setProfiling(await request("set-render-profiling", { enabled }));
+    } catch (cause) {
+      setError(failure(cause).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <div className="setting-group">
+      <h2>Diagnostics</h2>
+      <p>
+        Render timings measure how often parts of the page re-render, for rzm diagnostics perf. They
+        add noticeable overhead while on.
+      </p>
+      <p className="hint">
+        {profiling?.always
+          ? "Always on in Rhizome Dev."
+          : "Applies to windows opened after you change it."}
+      </p>
+      <div className="inline-choices">
+        <label>
+          <input
+            type="checkbox"
+            checked={profiling?.enabled ?? false}
+            disabled={!profiling || profiling.always || saving}
+            onChange={(e) => void toggle(e.target.checked)}
+          />
+          Record render timings
+        </label>
+      </div>
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function Settings({
@@ -161,6 +221,7 @@ export function Settings({
         {action && <p className="hint">macOS asks for an administrator password when needed.</p>}
       </div>
       <CredentialImport />
+      <Diagnostics />
       {developmentBuilds.length > 0 && (
         <div className="development-builds">
           <h2>Developer builds</h2>
