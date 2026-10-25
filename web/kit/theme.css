@@ -66,13 +66,13 @@
   --font-serif: var(--font-display);
 
   /* DESIGN.md's fixed type scale, independent of the root size. */
-  --text-xs: 11px;
+  --text-xs: 12px;
   --text-xs--line-height: 1.35;
-  --text-sm: 12px;
+  --text-sm: 13px;
   --text-sm--line-height: 1.4;
-  --text-base: 13px;
+  --text-base: 14px;
   --text-base--line-height: 1.45;
-  --text-lg: 15px;
+  --text-lg: 16px;
   --text-lg--line-height: 1.35;
   --text-xl: 18px;
   --text-xl--line-height: 1.22;

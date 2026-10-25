@@ -120,6 +120,23 @@ Not yet delivered.
 
 - 2026-10-25T19:15:41Z: Drew approved execution in chat ("Go ahead and update your spec and begin executing"). This came after reviewing the batch order presented earlier in the session (tokens, themes, and Inter; shell layout; view header and table; ⌘P; desktop with the finder spike; documentation and critique) and confirming every decision listed under Scope. This plan revision was written from that order. No current Person is configured in this checkout, so `plan-approved-by` is omitted; the chat approval stands. Push and PR authority is requested in the plan and confirmed with Drew before the first push.
 
+- 2026-10-25 Batch 1 (the `feat(web): chrome themes, appearance, and Inter` commit, local).
+  - **Token design:** every color token is a `light-dark()` pair resolved by the root `color-scheme`. Appearance is one attribute (`data-appearance`) with the OS as the default, so the separate dark block and its duplication are gone.
+  - **Build output:** Vite's lightningcss lowers `light-dark()` to its `--lightningcss-light`/`--lightningcss-dark` fallback and rewrites the `color-scheme` rules for both attribute values and the media query. That lowering was checked in the built CSS.
+  - **Kit:** frames get the raw token text through `boot.js` and mirror the host's attributes.
+  - **Themes and type:** five themes; the neutral ramp is white, 96.5, and 92.7 L\* with 89.9 and 82.4 L\* lines. Inter (Google Fonts, 7 subset files) replaces Barlow's 14 files. The type scale moves to a 14px base with 600-weight labels. The global `ss01`/`tnum`/`cv11` features are removed, because Inter widens the hyphen under `tnum`.
+  - **Browser controls and followers:** the browser header has an Appearance control. Canvas colors resolve through a probe element and refresh on appearance changes. GraphiQL is forced to the resolved appearance.
+  - **Evidence:**
+    - `make check` exit 0 (web unit tests 1,643 passed).
+    - `RHIZOME_E2E_PORT=7881 make web-e2e` exit 0, 102 passed.
+    - `python3 scripts/licenses/generate.py --check` current.
+    - The contrast test (`web/src/lib/themes.test.ts`, 20 theme checks plus content checks) passes.
+    - Screenshots of the Effort notes table, a note, All notes, GraphiQL, and the Appearance panel in Graphite, Spruce, Slate, and Indigo, light and dark.
+  - **Fixed during the batch:** header button padding hid the Appearance icon; GraphiQL's own dark palette outranked ours.
+
+- 2026-10-25T19:47:43Z: Drew reviewed the Batch 1 screenshots and approved continuing ("1 Yeah"), so batches 2–5 may start. He also granted the push and PR authority requested under Plan ("2. Yeah"): push the parent and batch branches with explicit refs, open the parent and batch PRs, squash-merge batch PRs into the parent, and run Greptile on each. Merging to `main` stays with Drew.
+- 2026-10-25T19:47:43Z: Rebased onto `main` at `20113f3d` (#46, #47) before the first push. The rebase was clean; `make check` exit 0 (web unit tests 1,651 passed).
+
 ## Deviations
 
 None yet.
@@ -138,4 +155,4 @@ None yet.
 
 ## Status
 
-Active. Batch 1 in progress.
+Active. Batch 1 on the parent branch; batches 2–5 in progress.

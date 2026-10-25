@@ -389,7 +389,7 @@ Full license and notice text is stored in `licenses/**`. The browser notice is `
 | Package | Version | Declared license | Full text directory | Source |
 | --- | --- | --- | --- | --- |
 | Merriweather | google/fonts@e7db6ca | OFL-1.1 | `licenses/fonts/merriweather` | https://github.com/google/fonts/tree/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/merriweather (woff2 files from Google Fonts in web/public/fonts) |
-| Barlow | google/fonts@e7db6ca | OFL-1.1 | `licenses/fonts/barlow` | https://github.com/google/fonts/tree/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow (woff2 files from Google Fonts in web/public/fonts) |
+| Inter | google/fonts@e7db6ca | OFL-1.1 | `licenses/fonts/inter` | https://github.com/google/fonts/tree/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/inter (woff2 files from Google Fonts in web/public/fonts) |
 | JetBrains Mono | google/fonts@e7db6ca | OFL-1.1 | `licenses/fonts/jetbrainsmono` | https://github.com/google/fonts/tree/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/jetbrainsmono (woff2 files from Google Fonts in web/public/fonts) |
 
 ## Skills

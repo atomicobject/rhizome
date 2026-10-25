@@ -4,6 +4,7 @@ import "graphiql/style.css";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import GraphQLWorker from "./graphql.worker?worker";
+import { useAppearance } from "../lib/appearance";
 import { installMonacoEnvironment } from "./monacoEnvironment";
 
 installMonacoEnvironment(globalThis, {
@@ -65,9 +66,13 @@ export const graphQLExplorerFetcher: Fetcher = async (graphQLParams) => {
 };
 
 function GraphQLExplorer() {
+  // GraphiQL's own theme toggle would disagree with the Appearance setting.
+  const { resolved } = useAppearance();
+
   return (
     <main className="graphql-explorer">
       <GraphiQL
+        forcedTheme={resolved}
         fetcher={graphQLExplorerFetcher}
         defaultQuery={GRAPHQL_EXPLORER_QUERY}
         initialVariables={GRAPHQL_EXPLORER_VARIABLES}

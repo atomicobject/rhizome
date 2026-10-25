@@ -10,6 +10,7 @@ import { desktopTitle, inDesktop, type Section, useDesktopCommands } from "./des
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ExplorerWorkspace } from "./ExplorerWorkspace";
 import { IndexReadyBanner } from "./IndexReadyBanner";
+import { AppearanceMenu } from "./AppearanceMenu";
 import { KeyboardShortcuts } from "./KeyboardShortcuts";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { NotesShell } from "./NotesShell";
@@ -325,6 +326,7 @@ export function AppShell() {
           <div className="app-shell__header-tools">
             <GlobalSearch route={route} />
             {route === "notes" ? <NotesNavTools /> : null}
+            <AppearanceMenu />
             <KeyboardShortcuts />
           </div>
         </header>
