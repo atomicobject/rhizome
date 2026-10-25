@@ -917,6 +917,17 @@ describe("desktop shell", () => {
     await waitFor(() => expect(pick).toHaveBeenCalledWith(true));
   });
 
+  it("uncovers the workspace when a finder picks the one Settings covers", async () => {
+    start(undefined, (operation) => (operation === "global-status" ? null : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("radiogroup", { name: "Theme" })).toBeVisible();
+    choose({ choice: "open", repository: repository.id, worktree: main, newWindow: false });
+    expect(screen.queryByRole("radiogroup", { name: "Theme" })).toBeNull();
+    expect(opened()).toHaveLength(1);
+  });
+
   it("closes a finder when a terminal opens a folder in this window", async () => {
     start();
     await waitFor(() => expect(opened()).toHaveLength(1));

@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent } from "react";
 
 import { isJsonObject, isString } from "../api/parse";
 import type { ValidationHealth } from "../api/types";
-import { applyTheme, isThemeName } from "../lib/appearance";
+import { applyTheme, isThemeName, type ThemeName } from "../lib/appearance";
 
 declare global {
   interface Window {
@@ -63,6 +63,9 @@ function readCommand(event: Event): DesktopCommand | null {
   return null;
 }
 
+/** Where the page remembers the app's latest theme; web/index.html reads it. */
+export const DESKTOP_THEME_KEY = "rhizome:desktop-theme";
+
 /** The app's theme command: the chrome theme its settings hold. The page
  * applies it itself, so components never see it. */
 function applyThemeCommand(event: Event): boolean {
@@ -70,9 +73,22 @@ function applyThemeCommand(event: Event): boolean {
 
   if (!isJsonObject(detail) || detail.command !== "theme") return false;
 
-  if (isString(detail.theme) && isThemeName(detail.theme)) applyTheme(detail.theme);
+  if (isString(detail.theme) && isThemeName(detail.theme)) {
+    applyTheme(detail.theme);
+    rememberTheme(detail.theme);
+  }
 
   return true;
+}
+
+/** Stamped, so a reload paints this theme only when it is newer than the one
+ * the window opened with. */
+function rememberTheme(theme: ThemeName) {
+  try {
+    localStorage.setItem(DESKTOP_THEME_KEY, JSON.stringify({ theme, at: Date.now() }));
+  } catch {
+    // Without storage, a reload paints the window's theme until the app sends its own.
+  }
 }
 
 /** Calls `handle` for each command the app sends the page. */

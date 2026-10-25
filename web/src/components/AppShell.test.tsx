@@ -321,9 +321,14 @@ describe("AppShell", () => {
 
       await send({ command: "theme", theme: "spruce" });
       expect(document.documentElement.dataset.theme).toBe("spruce");
+      // Remembered, so a reload paints it before the app sends it again.
+      expect(JSON.parse(localStorage.getItem("rhizome:desktop-theme") ?? "{}")).toMatchObject({
+        theme: "spruce",
+      });
       await send({ command: "theme", theme: "teal" });
       expect(document.documentElement.dataset.theme).toBe("spruce");
       delete document.documentElement.dataset.theme;
+      localStorage.removeItem("rhizome:desktop-theme");
     });
 
     it("switches sections, searches, and opens issues on app commands", async () => {

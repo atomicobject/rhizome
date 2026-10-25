@@ -295,6 +295,10 @@ export function App() {
     finder.closed();
     if (choice.choice === "add") addRepository();
     if (choice.choice !== "open" || choice.newWindow || !library) return;
+    // Choosing a workspace shows it, even the one Settings or What Gets
+    // Indexed covers now.
+    setSettings(false);
+    setScopeView(null);
     // Choosing what this window already shows, or is opening, changes nothing;
     // a stopped or failed worktree opens again. A repository means its primary
     // checkout, so its own row still switches this window off a feature worktree.

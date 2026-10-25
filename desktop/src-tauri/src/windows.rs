@@ -294,11 +294,15 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     )
     .initialization_script(CLICK_GUARD)
     .initialization_script(page::MARKER)
-    // The page's first paint takes the theme current when the window opened;
-    // later changes arrive as page commands.
+    // The page's first paint takes the theme current when the window opened,
+    // stamped so a newer theme the page remembers wins on a reload
+    // (web/index.html); later changes arrive as page commands.
     .initialization_script(format!(
-        "window.__RHIZOME_DESKTOP_THEME__ = {};",
-        serde_json::json!(settings.theme)
+        "window.__RHIZOME_DESKTOP_THEME__ = {}; window.__RHIZOME_DESKTOP_THEME_AT__ = {};",
+        serde_json::json!(settings.theme),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.as_millis())
     ))
     .background_color(surface);
     // Scripts are fixed when the view is created, so a changed setting
