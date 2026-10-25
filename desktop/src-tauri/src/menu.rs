@@ -138,7 +138,7 @@ fn dismiss_finder(window: &Window) {
         .with(window.label(), |pane| pane.finder_open)
         .unwrap_or(false);
     if open {
-        finder::choose(app, window, finder::Choice::Close);
+        finder::choose(app, window, None, finder::Choice::Close);
     }
 }
 

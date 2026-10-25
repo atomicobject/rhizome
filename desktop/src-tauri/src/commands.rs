@@ -201,8 +201,12 @@ pub enum Action {
         #[serde(default)]
         revision: u64,
     },
-    /// From the finder: the user's choice.
-    FinderChoice(finder::Choice),
+    /// From the finder: the user's choice, naming the opening it was made in
+    /// so a late one is dropped.
+    FinderChoice {
+        opened: f64,
+        choice: finder::Choice,
+    },
 }
 
 fn absolute_executable(value: &Option<String>) -> Result<(), String> {
@@ -585,8 +589,8 @@ pub async fn desktop_request(
             }
             Ok(Value::Null)
         }
-        Action::FinderChoice(choice) => {
-            finder::choose(&app, &window, choice);
+        Action::FinderChoice { opened, choice } => {
+            finder::choose(&app, &window, Some(opened), choice);
             Ok(Value::Null)
         }
     }

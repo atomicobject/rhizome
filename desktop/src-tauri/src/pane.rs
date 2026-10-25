@@ -145,6 +145,11 @@ impl Pane {
         Some(starts)
     }
 
+    /// Whether finder opening `opened` is the one on screen.
+    pub fn finder_shows(&self, opened: f64) -> bool {
+        self.finder_open && self.finder_opening == opened
+    }
+
     /// Closes finder opening `opening`, or the one on screen. Returns whether
     /// this closed the finder: a late close for an older opening leaves a newer
     /// one open.
@@ -635,8 +640,11 @@ mod tests {
         assert!(!pane.close_finder(Some(2.0)));
         assert_eq!(pane.open_finder(model(), 3.0, 7, false), None);
         assert!(pane.finder_open);
-        // Switching finders starts a new opening, which takes focus.
+        // Switching finders starts a new opening, which takes focus; a choice
+        // from the one it replaced no longer counts.
         assert_eq!(pane.open_finder(model(), 5.0, 8, false), Some(true));
+        assert!(pane.finder_shows(5.0));
+        assert!(!pane.finder_shows(4.0));
         // The app's own close, after a choice, closes what is on screen and
         // clears the model it showed.
         assert!(pane.close_finder(None));

@@ -403,7 +403,7 @@ type Args = {
     toShell?: boolean;
     revision?: number;
   };
-  "finder-choice": FinderChoice;
+  "finder-choice": { opened: number; choice: FinderChoice };
   settings: Record<string, never>;
   "set-settings": Partial<AppSettings>;
 };

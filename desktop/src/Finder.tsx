@@ -97,7 +97,10 @@ export function FinderApp() {
     <Finder
       key={model.opened}
       model={model}
-      onChoose={(choice) => void request("finder-choice", choice).catch(() => {})}
+      // Naming the opening lets the app drop a choice from one it replaced.
+      onChoose={(choice) =>
+        void request("finder-choice", { opened: model.opened, choice }).catch(() => {})
+      }
     />
   );
 }

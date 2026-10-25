@@ -169,9 +169,21 @@ fn sync(window: &Window, focus: Focus) {
     });
 }
 
-/// Acts on the finder's choice: a new window opens here; everything else goes
-/// to the shell, which owns selection and the repository actions.
-pub fn choose(app: &AppHandle, window: &Window, choice: Choice) {
+/// Acts on the finder's choice made in opening `opened`, or on the app's own:
+/// a new window opens here; everything else goes to the shell, which owns
+/// selection and the repository actions.
+pub fn choose(app: &AppHandle, window: &Window, opened: Option<f64>, choice: Choice) {
+    // A choice from an opening that closed or was replaced, as when the user
+    // switched finders before the overlay showed the new one, is dropped.
+    if let Some(opened) = opened {
+        let shown = app
+            .state::<Panes>()
+            .with(window.label(), |pane| pane.finder_shows(opened))
+            .unwrap_or(false);
+        if !shown {
+            return;
+        }
+    }
     if !matches!(choice, Choice::Menu { .. }) {
         hide(window, None, false);
     }
