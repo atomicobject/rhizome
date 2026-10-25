@@ -69,6 +69,11 @@ pub struct Pane {
     /// `return_to_content`, else to the shell.
     pub finder_open: bool,
     pub return_to_content: bool,
+    /// The shell stamps each finder opening; these are the one on screen and
+    /// the newest that has closed. Requests race, so an update for an opening
+    /// that has closed arrives late and is dropped.
+    finder_opening: f64,
+    finder_closed: f64,
 }
 
 pub enum Load {
@@ -107,8 +112,32 @@ impl Pane {
         self.finder = Some(channel);
     }
 
+    /// Takes the shell's model for finder opening `opened`. False when that
+    /// opening has already closed, so the finder stays hidden.
+    pub fn open_finder(&mut self, model: Value, opened: f64, return_to_content: bool) -> bool {
+        if opened <= self.finder_closed {
+            return false;
+        }
+        if !self.finder_open {
+            self.return_to_content = return_to_content;
+        }
+        self.finder_open = true;
+        self.finder_opening = opened;
+        self.show_finder(model);
+        true
+    }
+
+    /// Closes finder opening `opening`, or the one on screen. Returns whether
+    /// this closed the finder: a late close for an older opening leaves a newer
+    /// one open.
+    pub fn close_finder(&mut self, opening: Option<f64>) -> bool {
+        let closing = opening.unwrap_or(self.finder_opening);
+        self.finder_closed = self.finder_closed.max(closing);
+        closing >= self.finder_opening && std::mem::take(&mut self.finder_open)
+    }
+
     /// Hands the finder the model the shell built, now or when it attaches.
-    pub fn show_finder(&mut self, model: Value) {
+    fn show_finder(&mut self, model: Value) {
         match &self.finder {
             Some(channel) => {
                 let _ = channel.send(model);
@@ -558,6 +587,29 @@ mod tests {
     /// Starts a user's open as the shell's `selection`th choice.
     fn open(pane: &mut Pane, selection: u64, worktree: &str) -> u64 {
         pane.select(selection, 1, "r", worktree).unwrap().0
+    }
+
+    #[test]
+    fn a_finder_update_or_close_that_arrives_late_leaves_the_finder_as_it_should_be() {
+        let mut pane = Pane::default();
+        let model = || serde_json::json!({"opened": 1.0});
+        assert!(pane.open_finder(model(), 1.0, true));
+        assert!(pane.close_finder(Some(1.0)));
+        // An update for that opening, sent before the close, stays hidden.
+        assert!(!pane.open_finder(model(), 1.0, true));
+        assert!(!pane.finder_open);
+
+        // A close that overtakes its opening's first show keeps it hidden too.
+        assert!(!pane.close_finder(Some(2.0)));
+        assert!(!pane.open_finder(model(), 2.0, true));
+
+        // A later opening shows; a late close for an older one leaves it open.
+        assert!(pane.open_finder(model(), 3.0, false));
+        assert!(!pane.close_finder(Some(2.0)));
+        assert!(pane.finder_open);
+        // The app's own close, after a choice, closes what is on screen.
+        assert!(pane.close_finder(None));
+        assert!(!pane.open_finder(model(), 3.0, false));
     }
 
     #[test]

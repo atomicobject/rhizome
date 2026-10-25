@@ -850,7 +850,7 @@ describe("desktop shell", () => {
     start(undefined, (operation) => (operation === "reveal" ? null : undefined));
     await waitFor(() => expect(opened()).toHaveLength(1));
     present();
-    await showFinder(/^Repository /);
+    const model = await showFinder(/^Repository /);
     choose({ choice: "menu", repository: repository.id, x: 120, y: 240 });
     await waitFor(() =>
       expect(call).toHaveBeenCalledWith("menu", expect.objectContaining({ x: 120, y: 240 })),
@@ -867,7 +867,8 @@ describe("desktop shell", () => {
       "Remove from Library",
     ]);
     act(() => emit({ type: "menu", id: items.find((i) => i.label === "Reveal in Finder")!.id! }));
-    expect(call).toHaveBeenCalledWith("finder", { model: null });
+    // The close names the opening it closes, so a late show for it stays hidden.
+    expect(call).toHaveBeenCalledWith("finder", { model: null, opened: model.opened });
     await waitFor(() => expect(call).toHaveBeenCalledWith("reveal", { worktree: main }));
   });
 

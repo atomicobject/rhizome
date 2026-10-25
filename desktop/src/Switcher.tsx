@@ -117,7 +117,8 @@ export function useFinder(
 
   function close() {
     setFinder(null);
-    void request("finder", { model: null }).catch(() => {});
+    // Naming the opening lets the app drop a show for it that arrives late.
+    void request("finder", { model: null, opened: finder?.opened }).catch(() => {});
   }
 
   /** The finder closed itself after a choice; the app already hid it. */

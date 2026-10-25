@@ -186,12 +186,15 @@ pub enum Action {
         y: f64,
         items: Vec<MenuEntry>,
     },
-    /// From the shell: show the finder with this model, or hide it.
+    /// From the shell: show the finder with this model, or hide it. A hide
+    /// names the opening it closes, from the model's `opened` stamp.
     #[serde(rename_all = "camelCase")]
     Finder {
         model: Option<Value>,
         #[serde(default)]
         return_to_content: bool,
+        #[serde(default)]
+        opened: Option<f64>,
     },
     /// From the finder: the user's choice.
     FinderChoice(finder::Choice),
@@ -567,10 +570,11 @@ pub async fn desktop_request(
         Action::Finder {
             model,
             return_to_content,
+            opened,
         } => {
             match model {
                 Some(model) => finder::show(&window, model, return_to_content)?,
-                None => finder::hide(&window),
+                None => finder::hide(&window, opened),
             }
             Ok(Value::Null)
         }

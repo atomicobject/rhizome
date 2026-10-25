@@ -49,74 +49,102 @@ pub enum Choice {
 /// `return_to_content` names where focus goes back when the finder closes.
 pub fn show(window: &Window, model: Value, return_to_content: bool) -> Result<(), String> {
     let finder = label(window.label());
-    window
+    let opened = model["opened"]
+        .as_f64()
+        .ok_or("The finder model has no opening stamp.")?;
+    let current = window
         .app_handle()
         .state::<Panes>()
         .with(window.label(), |pane| {
-            pane.show_finder(model);
-            if !pane.finder_open {
-                pane.return_to_content = return_to_content;
-            }
-            pane.finder_open = true;
-        });
-    let view = match window.get_webview(&finder) {
-        Some(view) => view,
-        None => {
-            let size = window
-                .inner_size()
-                .map_err(|e| e.to_string())?
-                .to_logical::<f64>(window.scale_factor().map_err(|e| e.to_string())?);
-            let allowed = finder.clone();
-            window
-                .add_child(
-                    WebviewBuilder::new(&finder, WebviewUrl::App("index.html".into()))
-                        // Transparent outside the palette, so the scrim lets the page show.
-                        .transparent(true)
-                        .auto_resize()
-                        .initialization_script(MARKER)
-                        .on_navigation(move |url| {
-                            security::shell_authorized(&allowed, url, cfg!(debug_assertions))
-                        }),
-                    LogicalPosition::new(0.0, 0.0),
-                    LogicalSize::new(size.width, size.height),
-                )
-                // A concurrent request may have created it first.
-                .or_else(|error| window.get_webview(&finder).ok_or(error.to_string()))?
-        }
-    };
-    view.show().map_err(|e| e.to_string())?;
-    view.set_focus().map_err(|e| e.to_string())
+            pane.open_finder(model, opened, return_to_content)
+        })
+        .unwrap_or(false);
+    if !current {
+        return Ok(());
+    }
+    if window.get_webview(&finder).is_none() {
+        let size = window
+            .inner_size()
+            .map_err(|e| e.to_string())?
+            .to_logical::<f64>(window.scale_factor().map_err(|e| e.to_string())?);
+        let allowed = finder.clone();
+        window
+            .add_child(
+                WebviewBuilder::new(&finder, WebviewUrl::App("index.html".into()))
+                    // Transparent outside the palette, so the scrim lets the page show.
+                    .transparent(true)
+                    .auto_resize()
+                    .initialization_script(MARKER)
+                    .on_navigation(move |url| {
+                        security::shell_authorized(&allowed, url, cfg!(debug_assertions))
+                    }),
+                LogicalPosition::new(0.0, 0.0),
+                LogicalSize::new(size.width, size.height),
+            )
+            // A concurrent request may have created it first.
+            .or_else(|error| window.get_webview(&finder).ok_or(error.to_string()))?;
+    }
+    sync(window, false);
+    Ok(())
 }
 
-/// Hides the finder and returns focus where it was when the finder opened.
-pub fn hide(window: &Window) {
-    let panes = window.app_handle().state::<Panes>();
-    let Some((open, to_content, visible)) = panes.with(window.label(), |pane| {
-        let open = std::mem::take(&mut pane.finder_open);
-        (open, pane.return_to_content, pane.visible())
-    }) else {
-        return;
-    };
-    if let Some(view) = window.get_webview(&label(window.label())) {
-        let _ = view.hide();
-    }
-    if !open {
-        return;
-    }
-    let back = match to_content && visible {
-        true => content_label(window.label()),
-        false => shell_label(window.label()),
-    };
-    if let Some(view) = window.get_webview(&back) {
-        let _ = view.set_focus();
-    }
+/// Hides the finder for opening `opening`, or the one on screen, and returns
+/// focus where it was when the finder opened.
+pub fn hide(window: &Window, opening: Option<f64>) {
+    let closed = window
+        .app_handle()
+        .state::<Panes>()
+        .with(window.label(), |pane| pane.close_finder(opening))
+        .unwrap_or(false);
+    sync(window, closed);
+}
+
+/// Shows or hides the overlay as the pane says. Show and hide requests race,
+/// so each queues this on the main thread, which runs tasks in order, and it
+/// reads the pane when it runs: the last one leaves the overlay right.
+/// `refocus` returns focus to where it was when the finder opened.
+fn sync(window: &Window, refocus: bool) {
+    let window = window.clone();
+    let app = window.app_handle().clone();
+    let _ = app.run_on_main_thread(move || {
+        let Some((open, to_content, visible)) = window
+            .app_handle()
+            .state::<Panes>()
+            .with(window.label(), |pane| {
+                (pane.finder_open, pane.return_to_content, pane.visible())
+            })
+        else {
+            return;
+        };
+        let view = window.get_webview(&label(window.label()));
+        if open {
+            if let Some(view) = view {
+                let _ = view.show();
+                let _ = view.set_focus();
+            }
+            return;
+        }
+        if let Some(view) = view {
+            let _ = view.hide();
+        }
+        if !refocus {
+            return;
+        }
+        let back = match to_content && visible {
+            true => content_label(window.label()),
+            false => shell_label(window.label()),
+        };
+        if let Some(view) = window.get_webview(&back) {
+            let _ = view.set_focus();
+        }
+    });
 }
 
 /// Acts on the finder's choice: a new window opens here; everything else goes
 /// to the shell, which owns selection and the repository actions.
 pub fn choose(app: &AppHandle, window: &Window, choice: Choice) {
     if !matches!(choice, Choice::Menu { .. }) {
-        hide(window);
+        hide(window, None);
     }
     if let Choice::Open {
         repository,

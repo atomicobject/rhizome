@@ -394,7 +394,7 @@ type Args = {
   layout: { x: number; y: number; width: number; height: number; covered: boolean };
   menu: { x: number; y: number; items: MenuEntry[] };
   /** Shows the finder with `model`, or hides it with null. */
-  finder: { model: FinderModel | null; returnToContent?: boolean };
+  finder: { model: FinderModel | null; returnToContent?: boolean; opened?: number };
   "finder-choice": FinderChoice;
   settings: Record<string, never>;
   "set-settings": Partial<AppSettings>;
