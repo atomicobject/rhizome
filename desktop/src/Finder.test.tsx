@@ -195,6 +195,20 @@ describe("finder", () => {
     expect(onChoose).toHaveBeenCalledTimes(1);
   });
 
+  it("leaves keys that compose IME text to the input", () => {
+    const { input, onChoose } = show();
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+    expect(onChoose).not.toHaveBeenCalled();
+  });
+
+  it("marks a matched emoji whole", () => {
+    expect(fuzzy("🦊x", "🦊 fox")?.at).toEqual([0, 5]);
+    show({ rows: [row("🦊 fox", "/w/fox")] });
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "🦊" } });
+    expect(document.querySelector("mark")?.textContent).toBe("🦊");
+  });
+
   it("keeps the highlighted repository when live updates reorder the rows", () => {
     const onChoose = vi.fn();
     const first = model();

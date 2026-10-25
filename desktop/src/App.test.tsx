@@ -917,6 +917,16 @@ describe("desktop shell", () => {
     await waitFor(() => expect(pick).toHaveBeenCalledWith(true));
   });
 
+  it("closes a finder when a terminal opens a folder in this window", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    act(() => emit({ type: "command", command: "repositories" }));
+    await waitFor(() => expect(finderModel()?.mode).toBe("repositories"));
+    act(() => emit({ type: "select", library, repository: repository.id, worktree: feature }));
+    expect(finderModel()).toBeNull();
+    await waitFor(() => expect(opened().at(-1)).toMatchObject({ worktree: feature }));
+  });
+
   it("keeps a settings message over a startup reply that arrives after it", async () => {
     let reply: (settings: Result) => void = () => {};
     start(undefined, (operation) =>

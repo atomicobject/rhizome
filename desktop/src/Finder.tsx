@@ -23,14 +23,17 @@ export function fuzzy(query: string, text: string): Match | null {
   const hay = query === query.toLowerCase() ? text.toLowerCase() : text;
   const at: number[] = [];
   let score = 0;
+  // Where the last matched character ends, in UTF-16 units: an emoji is two.
+  let end = -1;
   // ponytail: greedy leftmost match, not the best alignment; fine for short names.
   for (const char of query) {
-    const index = hay.indexOf(char, (at.at(-1) ?? -1) + 1);
+    const index = hay.indexOf(char, Math.max(end, 0));
     if (index < 0) return null;
-    if (at.length && index === at.at(-1)! + 1) score += 3;
+    if (index === end) score += 3;
     if (index === 0 || /[\s/_.-]/.test(text[index - 1])) score += 2;
     at.push(index);
     score += 1;
+    end = index + char.length;
   }
   return { score, at };
 }
@@ -59,9 +62,13 @@ function Marked({ text, at }: { text: string; at?: number[] }) {
   const parts: ReactNode[] = [];
   let from = 0;
   for (const index of at) {
+    // The whole character, so an emoji is never split.
+    const point = text.codePointAt(index);
+    if (point === undefined) continue;
+    const char = String.fromCodePoint(point);
     if (index > from) parts.push(text.slice(from, index));
-    parts.push(<mark key={index}>{text[index]}</mark>);
-    from = index + 1;
+    parts.push(<mark key={index}>{char}</mark>);
+    from = index + char.length;
   }
   parts.push(text.slice(from));
   return <>{parts}</>;
@@ -142,6 +149,8 @@ export function Finder({
   };
 
   function onKeyDown(event: React.KeyboardEvent) {
+    // Keys that compose or confirm IME text are the input's own.
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     // Enter on a button, such as Add repository…, is the button's own.
     if (event.key === "Enter" && event.target instanceof HTMLButtonElement) return;
     const digit = Number(event.key);

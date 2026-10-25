@@ -566,6 +566,8 @@ export function App() {
       } else if (message.type === "library") {
         applyLibrary(message.library);
       } else if (message.type === "select") {
+        // A terminal's `rzm desktop` opens here; a finder left open would cover it.
+        if (finder.shown) finder.close();
         setLibrary(message.library);
         void selectRepository(message.library, message.repository, message.worktree);
       } else if (message.type === "notice") {
