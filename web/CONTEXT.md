@@ -71,6 +71,13 @@ React/Vite browser for Notes, Ontology, Explorer, Agent, and GraphQL. Server sta
 
 `HTMLRootMetadataPanel` starts collapsed and groups root and typed metadata under one keyboard-operable disclosure. Issue counts and unsaved edits remain discoverable in the collapsed state; issue navigation can expand the panel. The HTML document fills the available pane through the surrounding flex layout. Disclosure and sizing preserve iframe isolation and existing root-metadata edit permissions.
 
+## Theme and fonts
+
+- Colors come from `src/tokens.css` (light plus `prefers-color-scheme: dark`). Canvas renderers (Sigma graphs) cannot read CSS variables, so they resolve token values through `resolveCssColor` and repaint on `subscribeColorScheme` (`lib/themeColors.ts`) without re-running layout; never put color literals in renderer code. Type colors hash to a `--type-*` slot (`lib/typeAccent.ts`).
+- GraphiQL takes HSL copies of the tokens in `base.css`; change them with the tokens. Syntax highlighting (highlight.js and the editor) maps onto `--syntax-*`.
+- `src/fonts.css` declares the self-hosted families from `public/fonts`; the kit theme embeds the same file, so custom-view frames make no third-party font requests.
+- `formatTypeName` is for URL slugs only; display text uses `useTypeLabel` or `humanizeName`.
+
 ## Custom view kit
 
 `web/kit/` is the public surface for custom views and standalone tools ([[custom-view-apps|SPEC-0105]]), built by `vite.kit.config.ts` into `pkg/app/web/assets/dist/kit/v1/` after the main build, because that build empties `assets/dist`.

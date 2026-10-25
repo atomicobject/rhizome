@@ -14,6 +14,7 @@ import type {
   TypeDoc,
   TypeFieldDoc,
 } from "../api/types";
+import { humanizeName } from "../lib/labels";
 import { typeAccentColor } from "../lib/typeAccent";
 import { buildNoteWebHref } from "../lib/content";
 import { tabKeyTarget } from "./focusManagement";
@@ -91,7 +92,9 @@ export function OntologyTypeDetail({ name, atlas, onBack, onSelectType }: Props)
             <span className="ontology-type-detail__accent-dot" aria-hidden="true" />
             <h1>{name}</h1>
             {data?.type?.role ? (
-              <span className="ontology-type-detail__role-pill">{data.type.role}</span>
+              <span className="ontology-type-detail__role-pill">
+                {humanizeName(data.type.role.toLowerCase())}
+              </span>
             ) : null}
           </div>
           {data?.type?.description ? (
@@ -523,7 +526,7 @@ function SchemaFieldCard({ field }: { field: TypeFieldDoc }) {
         </code>
         {field.kind ? (
           <span className={`schema-field__kind schema-field__kind--${field.kind}`}>
-            {field.kind}
+            {humanizeName(field.kind)}
           </span>
         ) : null}
       </header>

@@ -9,48 +9,20 @@
   min-width: 0;
   margin-left: auto;
   max-width: 100%;
-  color: var(--ao-gray-300);
-  font-size: 10px;
+  color: var(--chrome-muted);
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 
 .app-shell__notes-tools b {
-  color: var(--ao-white);
+  color: var(--chrome-text);
   font-family: var(--font-mono);
   font-weight: 600;
 }
 
 .app-shell__notes-tools .has-problems,
 .app-shell__notes-tools .has-problems b {
-  color: var(--accent-line);
-}
-
-.app-shell__nav .app-shell__notes-search {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: clamp(180px, 22vw, 300px);
-  min-width: 0;
-  height: 24px;
-  padding: 0 var(--sp-3);
-  border: 1px solid var(--ao-black);
-  border-radius: var(--r);
-  background: var(--ao-ink-2);
-  color: var(--ao-gray-300);
-  font-size: 10px;
-  text-align: left;
-}
-
-.app-shell__notes-search span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.app-shell__notes-search kbd {
-  color: var(--ao-gray-300);
-  font-family: var(--font-mono);
-  font-size: 9px;
+  color: var(--chrome-risk);
 }
 
 @media (max-width: 1120px) {
@@ -103,7 +75,7 @@
   min-width: 110px;
   max-width: 230px;
   padding: 0 6px 0 10px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   border-right: 1px solid var(--border);
   color: var(--muted);
   cursor: default;
@@ -133,7 +105,7 @@
 }
 
 .notes-tab.is-active {
-  color: var(--ink);
+  color: var(--text);
   background: var(--panel);
   box-shadow: inset 0 -2px var(--accent);
 }
@@ -235,7 +207,7 @@
   overflow: hidden;
   color: var(--text);
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: var(--fs-2xl);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -245,7 +217,7 @@
   margin: 3px 0 0;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -272,18 +244,23 @@
   border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 
 .search-workspace__filters > button {
   cursor: pointer;
 }
 
+.search-workspace__filters > button:hover {
+  background: var(--bg-tint);
+  border-color: var(--border-strong);
+}
+
 .search-workspace__filters > button.is-active,
 .search-workspace__filters > button[aria-pressed="true"] {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--surface);
 }
 
 .search-workspace__filters label {
@@ -291,7 +268,7 @@
   align-items: center;
   gap: 4px;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .search-workspace__filters label span {
@@ -310,7 +287,7 @@
   margin: var(--sp-4) auto 0;
   width: min(100% - 2 * var(--sp-6), 920px);
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 
 .search-workspace__meta {
@@ -351,20 +328,26 @@
 
 .search-workspace__state strong {
   color: var(--text);
-  font-family: var(--font-display);
-  font-size: 16px;
+  font-size: var(--fs-lg);
+  font-weight: 700;
 }
 
 .search-workspace__state button,
 .search-workspace__load-more {
-  padding: 6px 11px;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--r-sm);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  font-size: 11px;
-  font-weight: 700;
+  height: 26px;
+  padding: 0 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
   cursor: pointer;
+}
+
+.search-workspace__state button:hover,
+.search-workspace__load-more:hover {
+  background: var(--bg-tint);
 }
 
 .search-workspace__results {
@@ -384,11 +367,8 @@
 }
 
 .search-workspace__result-kind {
-  color: var(--text-faint);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .search-workspace__result-link {
@@ -400,8 +380,7 @@
   border: 0;
   background: transparent;
   color: var(--text);
-  font-family: var(--font-display);
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   text-align: left;
   text-overflow: ellipsis;
@@ -411,8 +390,10 @@
 
 .search-workspace__result-link:hover,
 .search-workspace__result-link:focus-visible {
-  color: var(--accent);
+  color: var(--link);
   text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
 }
 
 .search-workspace__result-source {
@@ -420,7 +401,7 @@
   overflow: hidden;
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -429,7 +410,7 @@
   max-width: 78ch;
   margin: 7px 0 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.45;
   white-space: pre-wrap;
 }
@@ -441,8 +422,8 @@
 
 .search-workspace__result mark {
   border-radius: 2px;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--warning-soft);
+  color: inherit;
 }
 
 .search-workspace__load-more,
@@ -496,7 +477,7 @@
   min-height: 24px;
   /* Leading 22px matches the caret gutter of the type rows below. */
   padding: 3px 8px 3px 22px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.25;
 }
 
@@ -525,14 +506,14 @@
 }
 
 .notes-left-rail .ontology-note__title {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.25;
 }
 
 .notes-left-rail .ontology-note__meta {
   gap: 5px;
   padding-left: 0;
-  font-size: 9px;
+  font-size: var(--fs-xs);
   line-height: 1.15;
 }
 
@@ -541,11 +522,9 @@
   flex: none;
   max-width: 80px;
   font-family: var(--font-sans);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 500;
-  letter-spacing: 0;
   line-height: inherit;
-  text-transform: none;
 }
 
 .notes-left-rail .ontology-note .ontology-compare-icon {
@@ -563,22 +542,20 @@
   min-height: 24px;
   gap: 6px;
   padding: 2px 6px 2px 4px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .notes-left-rail .ontology-type-row__count {
   min-width: 0;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 500;
 }
 
 .notes-left-rail .ontology-type-row--pseudo {
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
 }
 
 .notes-left-rail .ontology-type-row--issues:not(.is-selected) {
@@ -591,8 +568,6 @@
   margin-top: 6px;
   font: var(--label-font);
   color: var(--label-color);
-  letter-spacing: 0;
-  text-transform: none;
 }
 
 .notes-left-rail .ontology-type-row--group {
@@ -602,10 +577,6 @@
 .notes-left-rail .ontology-rail__views-label {
   margin-top: 0;
   padding: 4px 4px 2px 22px;
-}
-
-.notes-left-rail .ontology-list__title h2 {
-  font-size: 15px;
 }
 
 .notes-shell__panel {
@@ -662,8 +633,8 @@
 }
 
 .notes-right-rail__tab[aria-selected="true"] {
-  border-bottom-color: var(--accent);
-  color: var(--accent-ink);
+  border-bottom-color: var(--text);
+  color: var(--text);
 }
 
 .notes-right-rail__content,
@@ -741,11 +712,8 @@
   gap: var(--sp-2);
   height: 100%;
   padding-top: 4px;
-  color: var(--text-faint);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font: var(--label-font);
+  color: var(--label-color);
   writing-mode: horizontal-tb;
 }
 
@@ -758,17 +726,6 @@
   flex: none;
 }
 
-.ontology-sidebar-properties__long-value summary {
-  color: var(--text);
-  cursor: pointer;
-  list-style-position: outside;
-}
-
-.ontology-sidebar-properties__long-value div {
-  margin-top: var(--sp-2);
-  color: var(--text-muted);
-}
-
 .ontology-pane__type {
   flex: none;
 }
@@ -779,33 +736,25 @@
   overflow: hidden;
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ontology-pane__section-tabs {
-  display: flex;
-  align-self: stretch;
-  min-width: 0;
+/* Section jumps share the .segmented look; the row scrolls when crowded. */
+.ontology-pane__section-tabs.segmented {
+  flex: 0 1 auto;
+  align-self: center;
   overflow-x: auto;
 }
 
-.ontology-pane__section-tabs button {
+.ontology-pane__section-tabs > button {
   flex: none;
-  padding: 0 var(--sp-3);
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 10px;
-  cursor: pointer;
 }
 
-.ontology-pane__section-tabs button[aria-selected="true"] {
-  border-bottom-color: var(--accent);
-  color: var(--accent-ink);
+.ontology-pane__section-tabs > button:disabled {
+  color: var(--text-faint);
+  cursor: default;
 }
 
 .ontology-source {
@@ -816,7 +765,7 @@
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.55;
   white-space: pre-wrap;
 }
@@ -869,11 +818,6 @@
 .ontology-properties__html-summary {
   display: list-item;
   cursor: pointer;
-}
-
-.ontology-properties__html-summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .html-note-viewer {
@@ -996,7 +940,7 @@
   border-bottom: 1px solid var(--border);
   background: var(--surface-alt);
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 /* The refreshing pill floats over the content so a refetch does not shift it. */
@@ -1111,7 +1055,7 @@
   overflow: hidden;
   color: var(--text);
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: var(--fs-xl);
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1120,7 +1064,7 @@
 .ontology-home__hero-eyebrow {
   flex: none;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 
 .ontology-home__hero-link {
@@ -1131,7 +1075,7 @@
 
 .ontology-home__hero-link:hover,
 .ontology-home__hero-link:focus-visible {
-  color: var(--accent-ink);
+  color: var(--link);
   text-decoration: underline;
 }
 
@@ -1141,7 +1085,7 @@
   margin: 3px 0 0;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.3;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -1165,13 +1109,13 @@
 .ontology-home__stat b {
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--fs-base);
   font-weight: 600;
 }
 
 .ontology-home__stat span {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 
 /* Recent / most linked / problems: three hairline-separated columns of fixed height. */
@@ -1223,13 +1167,13 @@
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   cursor: pointer;
 }
 
 .ontology-home__link:hover,
 .ontology-home__link:focus-visible {
-  color: var(--accent-ink);
+  color: var(--link);
   text-decoration: underline;
 }
 
@@ -1254,7 +1198,7 @@
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   text-align: left;
   cursor: pointer;
 }
@@ -1281,7 +1225,7 @@
   flex: none;
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 
@@ -1293,7 +1237,7 @@
 .ontology-home__empty-row {
   padding: 3px 0;
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .ontology-home__unavailable {
@@ -1306,7 +1250,7 @@
   border-radius: var(--r-sm);
   background: var(--warning-soft);
   color: var(--warning-ink);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .ontology-home__unavailable p {
@@ -1355,14 +1299,14 @@
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   background: var(--surface);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   transform: translateX(-50%);
 }
 
 .ontology-home__hint {
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .ontology-home__graph-canvas {
@@ -1540,7 +1484,6 @@
 }
 
 .view-selector__menu > button:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -1592,7 +1535,7 @@
 .notes-left-rail__list-toggle > span {
   color: var(--text-faint);
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 
 .notes-right-rail__record {

@@ -1,4 +1,5 @@
 import { publicTypeName } from "../lib/typeNames";
+import { humanizeName } from "../lib/labels";
 import {
   useEffect,
   useEffectEvent,
@@ -282,7 +283,7 @@ function FolderNotesWorkspace({
             <li key={note.path}>
               <article className="search-workspace__result">
                 <div className="search-workspace__result-kind">
-                  {publicTypeName(note.resolvedType) || "untyped"}
+                  {humanizeName(publicTypeName(note.resolvedType)) || "Untyped"}
                 </div>
                 <NoteResultLink target={publicOntologyListItemRef(note)} onOpenNote={onOpenNote}>
                   {note.title || note.path}
@@ -554,8 +555,10 @@ function RankedSearchWorkspace({
                 <li key={`${match.type}:${match.path}:${match.anchorID || match.nodeID || index}`}>
                   <article className="search-workspace__result">
                     <div className="search-workspace__result-kind">
-                      {match.type || "source"}
-                      {publicTypeName(match.noteType) ? ` · ${publicTypeName(match.noteType)}` : ""}
+                      {humanizeName(match.type) || "Source"}
+                      {publicTypeName(match.noteType)
+                        ? ` · ${humanizeName(publicTypeName(match.noteType))}`
+                        : ""}
                     </div>
                     {isNoteMatch(match) ? (
                       <NoteResultLink target={noteTargetForMatch(match)} onOpenNote={onOpenNote}>

@@ -154,7 +154,7 @@ The palette is restrained by default: neutral work surfaces carry the interface,
 
 ### Type and series palettes
 
-- **Type palette** (`--type-1` … `--type-8`, each with an `-ink` text variant): categorical colors for ontology types in graphs, atlas cards, and type dots. Blue, purple, gold, slate, olive, brown, violet, and warm gray; never red or teal, so types never read as risk or connection. A type's color is its dot or edge; its name stays in ink or uses the `-ink` variant.
+- **Type palette** (`--type-1` … `--type-8`, each with an `-ink` text variant): categorical colors for ontology types in graphs, atlas cards, and type dots. Blue, purple, gold, slate, olive, brown, violet, and warm gray; never red or teal, so types never read as risk or connection. A type's color comes from a stable hash of its name, so it is the same on every surface (graphs, Atlas cards, Type Detail, views). It marks dots and edges only; type names and headings stay in ink or use the `-ink` variant.
 - **Series palette** (`--series-1` … `--series-8`, plus `--series-link`): chart and bar colors, neutral first. No red; teal (`--series-link`) only for linked or connected amounts.
 
 ### Tertiary
@@ -174,7 +174,7 @@ The palette is restrained by default: neutral work surfaces carry the interface,
 
 ### Dark theme
 
-Every semantic token has a dark value in `web/src/tokens.css`, applied with `prefers-color-scheme: dark`, so the host, the custom-view kit, and the desktop shell follow the operating system together. Dark surfaces are warm near-blacks (`#161514` background, `#1d1b1a` surface), text is warm off-white, and red, teal, gold, and the palettes lighten to keep their contrast. The app header stays warm black in both themes. Surfaces read semantic tokens, never the `--ao-*` brand values, or they stay light in the dark theme.
+Every semantic token has a dark value in `web/src/tokens.css`, applied with `prefers-color-scheme: dark`, so the host, the custom-view kit, and the desktop shell follow the operating system together. Dark surfaces are warm near-blacks (`#161514` background, `#1d1b1a` surface), text is warm off-white, and red, teal, gold, and the palettes lighten to keep their contrast. The app header stays warm black in both themes. Its controls use the chrome tokens (`--chrome-bg`, `--chrome-raised`, `--chrome-active`, `--chrome-text`, `--chrome-muted`, `--chrome-risk` for the issue count). Surfaces read semantic tokens, never the `--ao-*` brand values, or they stay light in the dark theme.
 
 ### Named Rules
 
@@ -185,6 +185,8 @@ Every semantic token has a dark value in `web/src/tokens.css`, applied with `pre
 **The No Purple Theme Rule.** Purple can categorize schema data, but purple-on-white gradients and purple-dominant AI-tool palettes are prohibited.
 
 ## 3. Typography
+
+The three families are self-hosted (`web/public/fonts`, served at `/fonts/`, `font-display: swap`); the host and every custom-view frame load the same files, with no third-party font requests.
 
 **Display Font:** Merriweather, Georgia, Times New Roman, serif
 **Body Font:** Barlow, -apple-system, system-ui, Segoe UI, sans-serif

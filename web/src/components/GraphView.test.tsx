@@ -202,7 +202,8 @@ describe("GraphView", () => {
         if (!renderer) throw new Error("Sigma renderer did not mount");
         renderer.refresh({ schedule: false });
         expect(renderer.getNodeDisplayData("task")?.hidden).toBe(false);
-        expect(renderer.getNodeDisplayData("task")?.color).toBe("rgba(36, 39, 44, 0.24)");
+        // jsdom loads no token stylesheet, so the neutral is resolveCssColor's fallback.
+        expect(renderer.getNodeDisplayData("task")?.color).toBe("rgba(33, 32, 31, 0.24)");
 
         view.rerender(<GraphView {...graphProps} highlightTypes={new Set()} />);
         expect(screen.getByText("3 nodes")).toBeInTheDocument();
