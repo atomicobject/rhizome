@@ -25,7 +25,9 @@ func TestPerfSummarizesWebBatchesAndFlagsChurnStallsAndReconnects(t *testing.T) 
 	f.at(10*time.Second).webBatch("desktop", "aaaaaaaaaaaaaaaa",
 		`{"regions":{"type-view-table":{"update":1,"actual_total_ms":5,"actual_max_ms":5,"commits_after_refresh":1}},"frames":{},"refresh":{"cycles":1,"refetched":2,"unchanged":1},"stability":{"reconnects":0}}`)
 	f.at(10*time.Second).webBatch("browser", "bbbbbbbbbbbbbbbb",
-		`{"frames":{},"refresh":{"cycles":1},"stability":{"reconnects":3,"errors":{"TypeError":2}}}`)
+		`{"frames":{},"refresh":{"cycles":3},"stability":{"reconnects":3,"errors":{"TypeError":2}}}`)
+	// One reconnect, such as a runtime restart, is not instability.
+	f.at(10*time.Second).webBatch("browser", "cccccccccccccccc", `{"frames":{},"refresh":{"cycles":1},"stability":{"reconnects":1}}`)
 	require.NoError(t, f.recorder.Close())
 
 	summary := *readPerf(t, root, f.now, "1h").Perf

@@ -104,7 +104,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
   - WARN and ERROR events grouped by event name, including index integrity failures;
   - refreshes the browser judged as churn (only where render regions are enabled);
   - frame stalls over 200 ms;
-  - more event stream reconnects than refresh cycles in a window.
+  - two or more event stream reconnects in one batch window. Every reconnect also starts a refresh, so reconnects are not compared with refresh cycles.
 - Flags MUST be worded as observations to investigate, not diagnoses.
 
 ### Verification

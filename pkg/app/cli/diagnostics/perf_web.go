@@ -15,6 +15,10 @@ import (
 // webClientEvent names the browser batch event recorded by pkg/app/web.
 const webClientEvent = "web.client"
 
+// Every reconnect also refreshes, so reconnects alone mark instability: two
+// within one ten-second window mean the connection keeps dropping.
+const unstableReconnects = 2
+
 // WebSummary aggregates browser batches for one surface (desktop or browser).
 type WebSummary struct {
 	Surface    string            `json:"surface"`
@@ -134,7 +138,7 @@ func (w *webAggregator) visit(event evidence.Event) {
 	if batch.Refresh.Churned > 0 {
 		w.note(&w.churn, event, batch.Refresh.Churned)
 	}
-	if batch.Stability.Reconnects > batch.Refresh.Cycles {
+	if batch.Stability.Reconnects >= unstableReconnects {
 		w.note(&w.unstable, event, 1)
 	}
 }
@@ -181,7 +185,7 @@ func (w *webAggregator) flags() []PerfFlag {
 		flags = append(flags, w.churn)
 	}
 	if w.unstable.Count > 0 {
-		w.unstable.Observation = fmt.Sprintf("In %d windows, the event stream reconnected more often than refreshes ran; the runtime connection may be unstable.", w.unstable.Count)
+		w.unstable.Observation = fmt.Sprintf("In %d windows, the event stream reconnected two or more times within ten seconds; the runtime connection may be unstable.", w.unstable.Count)
 		flags = append(flags, w.unstable)
 	}
 	return flags
