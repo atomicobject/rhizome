@@ -40,18 +40,32 @@ Requirements-only extension of SPEC-0116. No stories are selected.
 - [ ] Aggregate perf view with anomaly flags, human and JSON output.
 - [ ] Frontend render and responsiveness evidence in persistent diagnostics.
 - [ ] Code-mode execution breakdown in command reports.
+- [ ] Integrity check failures recorded as structured WARN events.
 - [ ] Agent guidance updated so agents know how to review performance from diagnostics.
 
 ## Plan
 
-1. Specify: revise SPEC-0116 with the new requirements, including the client evidence privacy bounds and how frontend measurement works in production WebKit builds (Tauri on macOS) where Long Tasks and Long Animation Frames may be unavailable and React Profiler needs a profiling build.
-2. Retention fix (smallest, independent).
-3. Aggregate perf view and anomaly flags over existing evidence.
-4. Frontend client evidence: browser aggregation, endpoint, recorder events.
-5. Code-mode timings.
-6. Agent guidance, quality gates, independent review, pull request.
+SPEC-0116 was revised on 2026-10-25 (commits `4a2cbad3` and later) and is the contract for this plan. The current gap: every watcher batch publishes a report, so retention covers about three hours; the web UI records nothing; code-mode command reports carry no metrics; there is no aggregate view; and integrity failures reach only raw stderr.
 
-Detailed design follows in the planning phase.
+### Decisions
+
+- **D1, command report metrics.** Commands need a way to add metrics to their `command` report. Recommendation: a context-carried metrics setter next to the existing finalizer key in `cmd/diagnostics_wiring.go`, so `agent code execute` sets metrics before finishing. This stays inside `cmd`, not a new shared contract.
+- **D2, client event shape.** Settled in the spec: one `web.client.window` event per batch plus one `web.client.region` event per committing region, flat attributes only. Batches with all-zero windows are not sent, which keeps an idle tab from filling the event budget.
+- **D3, profiling-build fallback threshold.** Drew chose the profiling build in production. Recommendation: fall back to development-only render regions if the profiling build raises scripted-scenario scripting time on a heavy type view by more than 10 percent (median of five Playwright runs).
+
+None needs a foundation review: each is local to one module and cheap to change.
+
+### Batches
+
+| Batch | Outcome and scope | Work | Exit evidence |
+| --- | --- | --- | --- |
+| B1 Retention and integrity | Routine jobs stop publishing reports; integrity failures become WARN events. `pkg/app/bootstrap/lane` (`diagnostics.go` `publishDiagnostics`), `pkg/app/indexing/unified_post.go`. | Suppression rule from the spec (kinds, under 1 s, success, no fallback or truncation); confirm `job.finished` carries kind, trigger, status, duration, and waits. Replace the integrity `fmt.Fprintf` with a structured WARN that still mirrors to stderr. Coordinate with the `intel_fts` investigation thread, which may touch the same code. Update the indexing subsystem note. | Lane tests for the suppression matrix; a test that many routine jobs publish no reports while slow and failed jobs do; an integrity-failure test that sees the WARN event. `make check-fast`, focused tests. |
+| B2 Code-mode metrics | `agent code execute` reports carry startup, script, and per-operation host-call metrics. `pkg/app/agentcode` (`execute.go`, `server.go` dispatch), `cmd/agent_code_execute.go`, `cmd/diagnostics_wiring.go` (D1). | Time Node startup until the runner is ready and script execution; aggregate host calls per catalog operation at the single dispatch point, recording in-process or forwarded; attach through D1. | `cmd` test running a script with in-process and forwarded calls and asserting the report metrics; no inputs or outputs recorded. Focused tests. |
+| B3 Web UI evidence | The browser sends bounded batches; the runtime records them. `web/src` (new `diagnostics/` module, `main.tsx`, `VaultInvalidationBridge.tsx`, region wrappers), `web/vite.config.ts`, `pkg/app/web` (new route and handler). Custom views and the kit bundle are excluded. | Client: counters outside React state; `<Profiler>` regions (`app-shell`, `sidebar`, `type-view-table`, `note-view`, refined during implementation); `requestAnimationFrame` gap detector while visible; refresh-cycle, refetch, and unchanged-data counts from the query cache at the invalidation bridge; reconnect and error counts; 10 s flush plus `pagehide`/`visibilitychange` with `keepalive`; surface from `window.__RHIZOME_DESKTOP__`. Build: alias `react-dom/client` to `react-dom/profiling` for production. Server: `POST /api/v1/diagnostics/client` under `registerRoutes`, existing host and origin checks, `MaxBytesReader`, strict decode, identifier patterns, D2 events. Run the D3 overhead experiment. Update the web subsystem note. | Go handler tests for accepted, oversized, unknown-field, and cross-origin batches; web unit tests that measurement adds no commits and all-zero windows are skipped; D3 measurement recorded in execution notes. `make check`. |
+| B4 Performance view | `rzm diagnostics perf` summarizes and flags. `pkg/app/cli/diagnostics` (new `perf.go`, `read.go` dispatch, `text.go`), `cmd/diagnostics.go`. | Read reports and terminal events within existing bounds; group by kind and name with count, errors, cancellations, median, max, waits, and p95 only at 20 or more samples; web region and window summaries; the six spec anomaly flags with supporting IDs and observational wording; JSON and text output with coverage. | Package tests over synthetic diagnostics directories covering each flag, sparse-sample p95 omission, and partial coverage; run against the primary checkout's real diagnostics (read-only) and record the output. |
+| B5 Integration and delivery | End-to-end evidence, guidance, review, pull request. | Playwright E2E: induce a 300 ms stall and a refresh whose data is unchanged but triggers region commits, then assert both appear in `rzm diagnostics perf --json`. Update the managed skill source (`pkg/app/cli/init/templates/skills/markdown/rhizome/references/diagnostics.md`, `SKILL.md`) to teach the perf view; regenerate with `make build`, `rzm init`, `rzm init --check`. Bump `last-verified` on touched subsystem notes. | `make verify` (or `make check-full` plus `make web-e2e`), `./scripts/rzm validate`, `frozen-scope-drift`; independent review with findings resolved; `greptile review --json`; pull request opened and linked. No merge or release. |
+
+B1 and B2 (Go) and B3 (web plus its route) are independent and can run in parallel lanes, using T3 `delegate_task` for long work. B4 starts once B1's event fields and D2 are in place. Escalate a material change to the spec contract, a needed SQLite or schema migration, or a D3 result that is ambiguous; everything else is a routine choice recorded in execution notes.
 
 ## Plan Approval
 
@@ -70,6 +84,7 @@ Not yet delivered.
 - 2026-10-25T13:43:47Z: Opened from a review of the primary checkout's `.rhizome/diagnostics`. 4,012 retained reports against the 4,096-artifact cap; 3,542 were watcher-batch jobs, 3,502 of them under 50 ms, so history covered about three hours. The same data showed 79 headless `rzm serve` starts within one minute at 12:08, and `runtime-output.log` showed an `intel_fts` FTS5 integrity failure that appeared nowhere else. The web UI has no performance instrumentation.
 
 - 2026-10-25T14:05:00Z: Revised SPEC-0116 (plan step 1): routine-work report suppression, structured integrity-failure WARN, code-mode host-call metrics, web UI evidence, the `rzm diagnostics perf` view with anomaly flags, and matching verification. One open decision is marked `[TODO: Confirm with Drew]`: whether production web builds ship React's profiling build. `frozen-scope-drift` reports no SPEC-0116 drift; its three findings belong to other efforts.
+- 2026-10-25T14:20:00Z: Drew chose the production profiling build (recommendation accepted). Planning found that recorder events take flat attributes only, so the spec now records a batch as one window event plus one event per committing region, and skips all-zero windows to protect the event budget.
 
 ## Deviations
 
@@ -88,4 +103,4 @@ None yet.
 
 ## Status
 
-Active. SPEC-0116 revision drafted; waiting on Drew's profiling-build decision, then the planning phase.
+Active. Detailed plan written; waiting on Drew's approval before B1.

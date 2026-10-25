@@ -74,7 +74,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 
 ### Web UI evidence
 
-- The web UI MUST aggregate measurements in the browser and send at most one batch every ten seconds while the page is visible, plus a final batch when the page is hidden or unloaded. It MUST NOT send per-render or per-frame records.
+- The web UI MUST aggregate measurements in the browser and send at most one batch every ten seconds while the page is visible, plus a final batch when the page is hidden or unloaded. It MUST skip windows in which every measurement is zero. It MUST NOT send per-render or per-frame records.
 - Measurement MUST NOT cause renders. Counters live outside React state, and a failed or disabled send MUST be dropped silently without retry storms.
 - Each batch MUST carry a per-page-load client session identity, the web build version, the surface (desktop or browser), and the window start and end. It MAY carry these measurements:
   - **Render regions.** For each named `<Profiler>` region: commit counts by phase (mount, update, nested update), and the total and maximum `actualDuration` and `baseDuration`. Region names MUST be fixed identifiers defined in source, such as `app-shell`, `sidebar`, `type-view-table`, or `note-view`.
@@ -82,8 +82,8 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
   - **Background refresh churn.** From the single invalidation point, `VaultInvalidationBridge`: refresh cycles, queries refetched, refetches whose data was structurally unchanged, and the commits per render region in the second after each refresh.
   - **Stability.** Event stream reconnects, uncaught errors, and unhandled promise rejections, counted by error name only.
 - Batches MUST NOT contain note titles, paths, URLs beyond a fixed route kind, query text, error messages, or stack traces.
-- The runtime MUST accept batches on a browser-facing `POST` route that applies the existing loopback-host and same-origin checks. It MUST bound the body size, validate the schema and identifier patterns, reject unknown fields, and record each accepted batch as one `web.client` event through the process recorder. When persistence is disabled, the route MUST accept and discard batches.
-- [TODO: Confirm with Drew] Render-region measurement MUST work in the packaged desktop app, so production web builds use React's profiling build (`react-dom/profiling`). Verification MUST measure its overhead on a representative heavy view; if the overhead is noticeable, render regions become development-only and frame stalls, refresh churn, and stability counts remain in production. Alternative: render regions only in development and E2E builds from the start, which avoids the overhead but misses render churn in real use.
+- The runtime MUST accept batches on a browser-facing `POST` route that applies the existing loopback-host and same-origin checks. It MUST bound the body size, validate the schema and identifier patterns, reject unknown fields, and record each accepted batch through the process recorder as one `web.client.window` event with the window totals, plus one `web.client.region` event for each render region that committed in the window. Both use the recorder's flat, bounded attributes. When persistence is disabled, the route MUST accept and discard batches.
+- Render-region measurement MUST work in the packaged desktop app, so production web builds use React's profiling build (`react-dom/profiling`). Verification MUST measure its overhead on a representative heavy view; if the overhead is noticeable, render regions become development-only and frame stalls, refresh churn, and stability counts remain in production. Drew chose this over development-only render regions on 2026-10-25, because render churn mostly appears in real use.
 
 ### Offline use
 
