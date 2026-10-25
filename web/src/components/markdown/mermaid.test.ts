@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { renderMermaid } from "./mermaid";
+import { fitChartWidth, renderDiagram, renderMermaid } from "./mermaid";
 
 describe("Mermaid syntax rendered by Pele", () => {
   it.each([
@@ -41,5 +41,26 @@ describe("Mermaid syntax rendered by Pele", () => {
     const second = await renderMermaid(source, "second");
     expect(first).toContain('aria-labelledby="first-title"');
     expect(second).toContain('aria-labelledby="second-title"');
+  });
+});
+
+describe("chart width", () => {
+  it("lays an xychart out at the container width, keeping its frontmatter", async () => {
+    const chart =
+      "---\nconfig:\n  xyChart:\n    height: 240\n---\nxychart-beta\n  x-axis [a, b]\n  bar [1, 2]";
+
+    const result = await renderDiagram(chart, "w", false, [], 1100);
+
+    expect(result.width).toBe(1100);
+    expect(result.height).toBe(240);
+  });
+
+  it("keeps an author's own chart width and leaves other diagrams at natural size", async () => {
+    expect(
+      fitChartWidth("---\nconfig:\n  xyChart:\n    width: 500\n---\nxychart-beta\n  bar [1]", 1100),
+    ).not.toContain("init");
+    expect((await renderDiagram("flowchart LR\n  a-->b", "f", false, [], 1100)).width).toBeLessThan(
+      400,
+    );
   });
 });

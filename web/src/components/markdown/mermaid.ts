@@ -37,24 +37,33 @@ export async function renderDiagram(
     images: false,
   };
 
-  if (width) {
-    options.maxWidth = width;
-
-    if (type === "xychart") options.config = { xyChart: { width } };
-  }
+  if (width) options.maxWidth = width;
 
   let result: ReturnType<typeof render>;
+  const sized = width && type === "xychart" ? fitChartWidth(source, width) : source;
 
   try {
-    result = render(source, options);
+    result = render(sized, options);
   } catch (error) {
-    if (source === code) throw error;
+    if (sized === code) throw error;
 
     // Malformed generated click lines must not hide an otherwise valid diagram.
     result = render(code, { ...options, links: false });
   }
 
   return { ...result, linksSupported };
+}
+
+/**
+ * Lay a chart out at `width` unless its author set one. Frontmatter config
+ * replaces Pele's config option, so the width goes in as an init directive
+ * after the frontmatter, which merges with it.
+ */
+export function fitChartWidth(code: string, width: number) {
+  if (/xyChart[\s\S]*?\bwidth\b/.test(code)) return code;
+  const frontmatter = /^\s*---\r?\n[\s\S]*?\r?\n---\r?\n/.exec(code)?.[0] ?? "";
+
+  return `${frontmatter}%%{init: {"xyChart": {"width": ${width}}}}%%\n${code.slice(frontmatter.length)}`;
 }
 
 export async function renderMermaid(code: string, id: string): Promise<string> {
