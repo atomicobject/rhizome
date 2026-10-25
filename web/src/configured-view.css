@@ -345,20 +345,28 @@
   overflow: auto;
 }
 
+/* A zero-height sticky anchor: background refetches arrive about once a second
+   while files change, and a pill with any in-flow height would nudge the
+   table each time it mounted. */
 .configured-view__loading-overlay {
   position: sticky;
   top: 30px;
   z-index: 4;
-  width: max-content;
-  margin: 4px auto -28px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: 0;
+  /* One save sends several index events; refetches that finish quickly show nothing. */
+  animation: configured-view-loading-reveal 0s 400ms both;
+}
+
+.configured-view__loading-overlay > span {
   padding: 4px 8px;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--text-muted);
   font-size: 11px;
-  /* One save sends several index events; refetches that finish quickly show nothing. */
-  animation: configured-view-loading-reveal 0s 400ms both;
 }
 
 @keyframes configured-view-loading-reveal {
@@ -376,7 +384,6 @@
   position: absolute;
   top: 14px;
   left: 50%;
-  margin: 0;
   transform: translateX(-50%);
 }
 

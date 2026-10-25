@@ -121,7 +121,7 @@ export function ConfiguredViewCards(props: Props) {
     <div className="configured-view__cards" onKeyDown={handleGridKeyDown}>
       {props.loading && (
         <div className="configured-view__loading-overlay" aria-live="polite">
-          Refreshing view…
+          <span>Refreshing view…</span>
         </div>
       )}
       {reorder.error && (

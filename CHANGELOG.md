@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Native collection views stay in place while refreshing, and Git metadata changes no longer trigger vault refreshes.
+
 - `rzm harness status --configured` prints only the configured `agent.harness` setting, without starting any provider.
 - Session-memory model calibration compares extraction and verification on local human labels or a shipped synthetic fixture, reports cost, latency, and repeat-run noise, and applies an approved model diff only to the local profile.
 - `make check` and the other web gates stop with `web/node_modules is missing. Run: cd web && npm ci` in a checkout without web dependencies, instead of failing inside `npm run generate:api`.
