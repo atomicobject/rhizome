@@ -311,7 +311,7 @@ Git-ignored files and the built-in dependency and build folders are already skip
 - summary:: A maintainer turns one add-on on or off with a flag, and every other workflow and add-on choice stays as it was.
 - status:: ready
 
-Add-ons are starters installed alongside the workflow. A default add-on, such as `action-items`, is one a workflow turns on unless someone disables it. An optional add-on, such as `session-memory`, is one no workflow turns on; a repository gets it only by choosing it. A starter marks itself optional with `optionalAddon: true` in its `template.yaml`.
+Add-ons are starters installed alongside the workflow. A default add-on, such as `action-items`, is one a workflow turns on unless someone disables it. An optional add-on, such as `compounding`, is one no workflow turns on; a repository gets it only by choosing it. A starter marks itself optional with `optionalAddon: true` in its `template.yaml`.
 
 #### Acceptance Criteria
 

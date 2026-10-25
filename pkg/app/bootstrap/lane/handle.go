@@ -42,7 +42,7 @@ type jobHandle struct {
 	finishTotal                    func(error)
 	pickedAt                       time.Time
 	queueWait, lockWait, execution time.Duration
-	reason                         string
+	reason, trigger                string
 
 	mu        sync.Mutex
 	cancel    context.CancelFunc

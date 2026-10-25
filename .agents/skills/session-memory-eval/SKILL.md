@@ -1,11 +1,11 @@
 ---
 name: session-memory-eval
-description: Use when measuring or improving the session-memory starter in this repository — changing its prompts, Jev screening questions, thresholds, or model defaults, benchmarking a new model, or rerunning the D or H evaluations.
+description: Use when measuring or improving the compounding starter in this repository — changing its prompts, Jev screening questions, thresholds, or model defaults, benchmarking a new model, or rerunning the D or H evaluations.
 ---
 
 # Session-memory evaluation
 
-This is the developer workflow for changing what the `session-memory` starter ships. Users tune their own bindings with the shipped skill's calibrate workflow; this skill changes the defaults everyone gets, so every change needs a measured win over a known baseline.
+This is the developer workflow for changing what the `compounding` starter ships. Users tune their own bindings with the shipped skill's calibrate workflow; this skill changes the defaults everyone gets, so every change needs a measured win over a known baseline.
 
 The contract is [SPEC-0124](../../../docs/specs/technical/session-memory-starter.md). Its "Quality evidence" section governs held-out use. The measurement history is the log of [EFF-2026-10-11-15-21](../../../docs/efforts/2026-10-11-15-21-session-memory-starter.md). The numbers to beat are in [baselines.md](baselines.md).
 

@@ -20,7 +20,7 @@ func newDiagnosticsCmd() *cobra.Command {
 	}
 	command.PersistentFlags().StringVarP(&vault, "vault", "v", "", "vault directory or registered name (defaults to nearest .rhizome directory)")
 	command.PersistentFlags().BoolVar(&asJSON, "json", false, "write one machine-readable JSON result")
-	for _, mode := range []string{"index", "reports", "report", "logs"} {
+	for _, mode := range []string{"index", "reports", "report", "logs", "perf"} {
 		opts := diagnosticcli.Options{Mode: mode}
 		use, short := mode, "Read retained operation reports"
 		switch mode {
@@ -30,6 +30,8 @@ func newDiagnosticsCmd() *cobra.Command {
 			use, short = "report <operation-id>", "Read one retained report by operation ID"
 		case "logs":
 			short = "Read bounded structured log events"
+		case "perf":
+			short = "Summarize latency by operation and flag instability worth investigating"
 		}
 		leaf := &cobra.Command{Use: use, Short: short, Args: cobra.NoArgs, SilenceErrors: true, SilenceUsage: true}
 		if mode == "report" {
@@ -86,9 +88,15 @@ func newDiagnosticsCmd() *cobra.Command {
 			return diagnosticcli.WriteText(cmd.OutOrStdout(), result)
 		}
 		if mode != "report" {
-			leaf.Flags().StringVar(&opts.Since, "since", "", "history start: 7d, 2h, or RFC3339 (default 7d; index defaults to latest)")
+			sinceHelp := "history start: 7d, 2h, or RFC3339 (default 7d; index defaults to latest)"
+			if mode == "perf" {
+				sinceHelp = "window start: 24h, 2h, or RFC3339 (default 24h)"
+			}
+			leaf.Flags().StringVar(&opts.Since, "since", "", sinceHelp)
 			leaf.Flags().StringVar(&opts.Until, "until", "", "history end: duration ago or RFC3339")
-			leaf.Flags().IntVar(&opts.Limit, "limit", 100, "maximum retained records to return")
+			if mode != "perf" {
+				leaf.Flags().IntVar(&opts.Limit, "limit", 100, "maximum retained records to return")
+			}
 			leaf.Flags().Int64Var(&opts.MaxBytes, "max-bytes", 0, "maximum input bytes to read (0 uses bounded default)")
 		}
 		if mode == "index" {

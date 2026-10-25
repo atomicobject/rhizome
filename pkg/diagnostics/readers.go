@@ -289,38 +289,59 @@ func ReadReports(vaultRoot string, filter Filter) (ReportResult, error) {
 
 func ReadEvents(vaultRoot string, filter Filter) (EventResult, error) {
 	result := EventResult{Events: []Event{}}
+	limit := readerLimits(filter).Limit
+	truncated := false
+	coverage, err := ScanEvents(vaultRoot, filter, func(event Event) {
+		result.Events = append(result.Events, event)
+		if len(result.Events) > limit {
+			sort.Slice(result.Events, func(i, j int) bool { return eventBefore(result.Events[i], result.Events[j]) })
+			result.Events = result.Events[1:]
+			truncated = true
+		}
+	})
+	result.Coverage = coverage
+	result.Coverage.Truncated = result.Coverage.Truncated || truncated
+	sort.Slice(result.Events, func(i, j int) bool { return eventBefore(result.Events[i], result.Events[j]) })
+	return result, err
+}
+
+// ScanEvents visits every matching event within the filter's byte budget,
+// without a record limit, so aggregate readers keep ReadEvents' coverage rules.
+// Visit order follows the files examined, not time.
+func ScanEvents(vaultRoot string, filter Filter, visit func(Event)) (Coverage, error) {
+	var coverage Coverage
 	dir, err := readerRoot(vaultRoot)
 	if errors.Is(err, ErrNotFound) {
-		result.Coverage.finish(filter)
-		return result, nil
+		coverage.finish(filter)
+		return coverage, nil
 	}
 	if err != nil {
-		return result, err
+		return coverage, err
 	}
 	filter = readerLimits(filter)
-	files, err := readerFiles(filepath.Join(dir, "events"), eventFilename.MatchString, &result.Coverage, true)
+	files, err := readerFiles(filepath.Join(dir, "events"), eventFilename.MatchString, &coverage, true)
 	if err != nil {
-		return result, err
+		return coverage, err
 	}
 	for i, path := range files {
-		remaining := filter.MaxBytes - result.Coverage.Bytes
+		remaining := filter.MaxBytes - coverage.Bytes
 		if remaining <= 0 {
-			result.Coverage.Truncated = true
-			result.Coverage.warn("event read byte limit reached")
+			coverage.Truncated = true
+			coverage.warn("event read byte limit reached")
 			break
 		}
 		file, err := fileio.OpenRead(path)
 		if err != nil {
-			result.Coverage.warn(filepath.Base(path) + ": cannot open event file")
+			coverage.warn(filepath.Base(path) + ": cannot open event file")
 			continue
 		}
 		info, err := file.Stat()
 		if err != nil || !info.Mode().IsRegular() {
-			result.Coverage.warn(filepath.Base(path) + ": event metadata unavailable")
+			coverage.warn(filepath.Base(path) + ": event metadata unavailable")
 			_ = file.Close()
 			continue
 		}
-		result.Coverage.Files++
+		coverage.Files++
 		// Share the remaining budget without shrinking dense histories' tails
 		// below a useful record window. Small files leave bytes for later files.
 		allowance := min(remaining, max(int64(256<<10), remaining/int64(len(files)-i)))
@@ -329,8 +350,8 @@ func ReadEvents(vaultRoot string, filter Filter) (EventResult, error) {
 		limited := &io.LimitedReader{R: io.NewSectionReader(file, start, readBytes), N: readBytes}
 		reader := bufio.NewReaderSize(limited, DefaultMaxEventBytes)
 		if start > 0 {
-			result.Coverage.Truncated = true
-			result.Coverage.warn("event read byte limit reached")
+			coverage.Truncated = true
+			coverage.warn("event read byte limit reached")
 			// Discard the first line because its beginning is outside our
 			// coverage. A byte-budget boundary is not record corruption.
 			lineErr := bufio.ErrBufferFull
@@ -338,13 +359,13 @@ func ReadEvents(vaultRoot string, filter Filter) (EventResult, error) {
 				_, lineErr = reader.ReadSlice('\n')
 			}
 			if lineErr != nil && lineErr != io.EOF {
-				result.Coverage.warn(filepath.Base(path) + ": event read failed")
+				coverage.warn(filepath.Base(path) + ": event read failed")
 			}
 		}
 		for {
 			line, lineErr := reader.ReadSlice('\n')
 			if lineErr == bufio.ErrBufferFull {
-				result.Coverage.warn(filepath.Base(path) + ": oversized event record omitted")
+				coverage.warn(filepath.Base(path) + ": oversized event record omitted")
 				for lineErr == bufio.ErrBufferFull {
 					_, lineErr = reader.ReadSlice('\n')
 				}
@@ -356,45 +377,39 @@ func ReadEvents(vaultRoot string, filter Filter) (EventResult, error) {
 			if len(line) > 0 {
 				var event Event
 				if json.Unmarshal(line, &event) != nil {
-					result.Coverage.warn(filepath.Base(path) + ": malformed event record")
+					coverage.warn(filepath.Base(path) + ": malformed event record")
 				} else if event.SchemaVersion != SchemaVersion {
-					result.Coverage.warn(filepath.Base(path) + ": unsupported event schema")
+					coverage.warn(filepath.Base(path) + ": unsupported event schema")
 				} else if event.Time.IsZero() || event.ProcessID == "" {
-					result.Coverage.warn(filepath.Base(path) + ": incomplete event record")
+					coverage.warn(filepath.Base(path) + ": incomplete event record")
 				} else {
-					result.Coverage.observe(event.Time)
+					coverage.observe(event.Time)
 					var level slog.Level
 					if level.UnmarshalText([]byte(event.Level)) != nil {
-						result.Coverage.warn(filepath.Base(path) + ": invalid event level")
+						coverage.warn(filepath.Base(path) + ": invalid event level")
 					} else if level >= filter.Level && within(event.Time, filter) &&
 						(filter.OperationID == "" || event.OperationID == filter.OperationID) &&
 						(filter.TraceID == "" || event.TraceID == filter.TraceID) &&
 						(filter.Subsystem == "" || event.Subsystem == filter.Subsystem) {
-						result.Events = append(result.Events, event)
-						if len(result.Events) > filter.Limit {
-							sort.Slice(result.Events, func(i, j int) bool { return eventBefore(result.Events[i], result.Events[j]) })
-							result.Events = result.Events[1:]
-							result.Coverage.Truncated = true
-						}
+						visit(event)
 					}
 				}
 				if lineErr == io.EOF {
-					result.Coverage.warn(filepath.Base(path) + ": unterminated final event record")
+					coverage.warn(filepath.Base(path) + ": unterminated final event record")
 				}
 			}
 			if lineErr != nil {
 				if lineErr != io.EOF {
-					result.Coverage.warn(filepath.Base(path) + ": event read failed")
+					coverage.warn(filepath.Base(path) + ": event read failed")
 				}
 				break
 			}
 		}
-		result.Coverage.Bytes += readBytes - limited.N
+		coverage.Bytes += readBytes - limited.N
 		_ = file.Close()
 	}
-	sort.Slice(result.Events, func(i, j int) bool { return eventBefore(result.Events[i], result.Events[j]) })
-	result.Coverage.finish(filter)
-	return result, nil
+	coverage.finish(filter)
+	return coverage, nil
 }
 
 func eventBefore(a, b Event) bool {

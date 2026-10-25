@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"regexp"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/codeintel"
@@ -137,6 +138,11 @@ func runUnifiedPostIndex(
 	})
 }
 
+// integrityTablePattern finds the table SQLite names in a check result, such as
+// "malformed inverted index for FTS5 table main.intel_fts" or
+// `corruption found reading blob ... from table "intel_fts"`.
+var integrityTablePattern = regexp.MustCompile(`\btable "?(?:[A-Za-z_]\w*\.)?([A-Za-z_]\w*)`)
+
 // reportIntegrityFailure retains the failure as a WARN event on the index
 // operation, which the recorder also mirrors to stderr, so `rzm diagnostics`
 // shows it after the console output is gone.
@@ -150,5 +156,9 @@ func reportIntegrityFailure(ctx context.Context, err error) {
 		fmt.Fprintf(os.Stderr, "Warning: integrity check failed: %v\n", err)
 		return
 	}
-	recorder.Event(ctx, slog.LevelWarn, "indexing", "integrity.failed", err.Error(), slog.String("reason_code", reason))
+	attrs := []slog.Attr{slog.String("reason_code", reason)}
+	if match := integrityTablePattern.FindStringSubmatch(err.Error()); match != nil {
+		attrs = append(attrs, slog.String("table", match[1]))
+	}
+	recorder.Event(ctx, slog.LevelWarn, "indexing", "integrity.failed", err.Error(), attrs...)
 }

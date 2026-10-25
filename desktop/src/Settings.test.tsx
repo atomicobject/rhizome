@@ -1,7 +1,17 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
-import type { LinkInfo } from "./api";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import { request, type LinkInfo } from "./api";
 import { Settings } from "./Settings";
+
+vi.mock("./api", async (original) => ({
+  ...(await original<typeof import("./api")>()),
+  request: vi.fn(),
+}));
+const call = vi.mocked(request);
+beforeEach(() => {
+  call.mockReset();
+  call.mockResolvedValue({ enabled: false, always: false });
+});
 
 const props = () => ({
   info: null,
@@ -84,6 +94,31 @@ it("restarts into a ready update and checks otherwise", () => {
   rerender(<Settings {...base} update={{ state: "ready", version: "0.52.0" }} />);
   fireEvent.click(screen.getByRole("button", { name: "Restart to Update" }));
   expect(base.onInstallUpdate).toHaveBeenCalled();
+});
+
+it("records render timings in new windows once turned on", async () => {
+  call.mockImplementation(async (operation, args) =>
+    operation === "set-render-profiling"
+      ? { enabled: (args as { enabled: boolean }).enabled, always: false }
+      : { enabled: false, always: false },
+  );
+  render(<Settings {...props()} />);
+  const box = screen.getByRole("checkbox", { name: "Record render timings" });
+  await waitFor(() => expect(box).toBeEnabled());
+  expect(box).not.toBeChecked();
+  expect(screen.getByText("Applies to windows opened after you change it.")).toBeVisible();
+  fireEvent.click(box);
+  await waitFor(() => expect(box).toBeChecked());
+  expect(call).toHaveBeenCalledWith("set-render-profiling", { enabled: true });
+});
+
+it("keeps render timings on in Rhizome Dev", async () => {
+  call.mockResolvedValue({ enabled: true, always: true });
+  render(<Settings {...props()} />);
+  expect(await screen.findByText("Always on in Rhizome Dev.")).toBeVisible();
+  const box = screen.getByRole("checkbox", { name: "Record render timings" });
+  expect(box).toBeChecked();
+  expect(box).toBeDisabled();
 });
 
 vi.mock("./CredentialImport", () => ({ CredentialImport: () => null }));

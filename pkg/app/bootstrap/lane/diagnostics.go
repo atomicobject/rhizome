@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
@@ -33,14 +34,58 @@ func (h *jobHandle) admitDiagnostics(ctx context.Context, trigger string) {
 	h.collector = indexingperf.New()
 	h.diagnosticCtx = indexingperf.WithCollector(h.diagnosticCtx, h.collector)
 	h.finishTotal = indexingperf.StartSpan(indexingperf.WithPhase(h.diagnosticCtx, "total"), "total")
+	h.trigger = trigger
 	h.diagnosticEvent(slog.LevelInfo, "job.admitted", slog.String("trigger", trigger))
 }
 
 func (h *jobHandle) diagnosticEvent(level slog.Level, event string, attrs ...slog.Attr) {
+	h.diagnosticEventMetrics(level, event, nil, attrs...)
+}
+
+func (h *jobHandle) diagnosticEventMetrics(level slog.Level, event string, metrics json.RawMessage, attrs ...slog.Attr) {
 	if recorder := diagnostics.FromContext(h.diagnosticCtx); recorder != nil {
 		attrs = append(attrs, slog.String("job_id", h.id), slog.String("job_kind", string(h.kind)))
-		recorder.Event(h.diagnosticCtx, level, "indexing-lane", event, "", attrs...)
+		recorder.EventMetrics(h.diagnosticCtx, level, "indexing-lane", event, "", metrics, attrs...)
 	}
+}
+
+// routineReportLimit is the duration below which a successful routine
+// background job is recorded by its job.finished event alone.
+const routineReportLimit = time.Second
+
+// routineMetricsLimit leaves room for the event envelope so a routine job's
+// snapshot fits its job.finished record. A larger snapshot would be truncated
+// there, so it publishes a report instead.
+const routineMetricsLimit = diagnostics.DefaultMaxEventBytes - 4<<10
+
+// degradedFallbackPrefixes name counters for fallback branches that replace a
+// preferred path with a degraded one. Counters that merely contain "fallback"
+// in a classification, such as untyped-note projections
+// (ontology_nodes.fallback_projections_planned), hash-based embedding reuse
+// (codeembed.need.unchanged_hash_fallback), or the call-edge py_fallback
+// resolver cache, are routine outcomes and do not force a report.
+var degradedFallbackPrefixes = []string{indexingperf.DiagnosticFallbackPrefix, "calledge.source_fallback."}
+
+func recordsFallback(snapshot indexingperf.Snapshot) bool {
+	for _, counter := range snapshot.Counters {
+		for _, prefix := range degradedFallbackPrefixes {
+			if counter.Total > 0 && strings.HasPrefix(counter.Name, prefix) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// routineJob reports whether a finished job's report adds nothing its
+// job.finished event cannot carry (SPEC-0116 routine work evidence).
+// Explicit index and boot catch-up always publish.
+func routineJob(kind Kind, status string, duration time.Duration, fallback, truncated bool) bool {
+	switch kind {
+	case KindWatcherBatch, KindEmbedCycle, KindGraphCycle, KindValidationRefresh:
+		return status == "success" && duration < routineReportLimit && !fallback && !truncated
+	}
+	return false
 }
 
 func (h *jobHandle) setReason(reason string) {
@@ -102,8 +147,18 @@ func (h *jobHandle) publishDiagnostics(err error) {
 	if status == "error" {
 		level = slog.LevelWarn
 	}
-	h.diagnosticEvent(level, "job.finished", slog.String("status", status), slog.String("reason_code", reason), slog.Int64("queue_wait_ms", queueWait.Milliseconds()), slog.Int64("lock_wait_ms", h.lockWait.Milliseconds()), slog.Int64("execution_ms", h.execution.Milliseconds()))
-	if recorder := diagnostics.FromContext(h.diagnosticCtx); recorder != nil {
+	duration := now.Sub(h.started)
+	truncated := snapshot.Coverage.RejectedObservations > 0 || snapshot.Coverage.DroppedSamples > 0 || snapshot.Coverage.DroppedIntervals > 0
+	fitsEvent := marshalErr == nil && len(metrics) <= routineMetricsLimit
+	recorder := diagnostics.FromContext(h.diagnosticCtx)
+	// Skip the report only when the event replacing it will be retained.
+	routine := fitsEvent && recorder.Retains(level) && routineJob(h.kind, status, duration, recordsFallback(snapshot), truncated)
+	var eventMetrics json.RawMessage
+	if routine {
+		eventMetrics = metrics // The event is this job's only record.
+	}
+	h.diagnosticEventMetrics(level, "job.finished", eventMetrics, slog.String("trigger", h.trigger), slog.String("status", status), slog.String("reason_code", reason), slog.Int64("duration_ms", duration.Milliseconds()), slog.Int64("queue_wait_ms", queueWait.Milliseconds()), slog.Int64("lock_wait_ms", h.lockWait.Milliseconds()), slog.Int64("execution_ms", h.execution.Milliseconds()), slog.Bool("report", !routine))
+	if recorder != nil && !routine {
 		errorClass := logging.ClassifyError(err)
 		if status == "skipped" {
 			errorClass = ""
@@ -112,7 +167,7 @@ func (h *jobHandle) publishDiagnostics(err error) {
 			FinishedAt: now, Status: status, ReasonCode: reason, Error: errorClass,
 			QueueWaitMS: queueWait.Milliseconds(), LockWaitMS: h.lockWait.Milliseconds(), ExecutionMS: h.execution.Milliseconds(),
 			Attributes: map[string]any{"job_id": h.id, "job_kind": string(h.kind)}, Metrics: metrics,
-			Truncated: snapshot.Coverage.RejectedObservations > 0 || snapshot.Coverage.DroppedSamples > 0 || snapshot.Coverage.DroppedIntervals > 0,
+			Truncated: truncated,
 		}); reportErr != nil {
 			h.diagnosticEvent(slog.LevelWarn, "report.publish_failed")
 		}

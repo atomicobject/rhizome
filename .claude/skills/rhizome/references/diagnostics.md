@@ -1,6 +1,6 @@
 # Operational diagnostics
 
-Use this route when Rhizome indexing is slow or fails, the runtime will not start, a query degrades, or a mutation returns an operational error. These are retained operational records, distinct from content validation and ontology health reports.
+Use this route when Rhizome indexing is slow or fails, the runtime will not start, a query degrades, the web UI stalls or rerenders, or a mutation returns an operational error. These are retained operational records, distinct from content validation and ontology health reports.
 
 Read evidence before rerunning expensive work:
 
@@ -26,6 +26,23 @@ rzm diagnostics logs --operation-id <operation-id> --since 7d --level debug --js
 
 `reports` accepts exact `--kind`, `--status`, `--operation-id`, and `--trace-id` filters. `logs` accepts an exact `--subsystem` filter and a minimum severity. History queries support `--since`, `--until`, `--limit`, and `--max-bytes`; times accept durations such as `7d` or `2h`, or RFC3339 timestamps. Consult the command's `--help` for current defaults.
 
+## Find what is slow or unstable
+
+Start a performance or stability question with the summary view:
+
+```bash
+rzm diagnostics perf --json
+rzm diagnostics perf --since 2h --json
+```
+
+It covers the last 24 hours by default and reads terminal events within the same byte bound as the other commands, so check `coverage` before trusting a quiet result. It returns:
+
+- `groups`: operations by kind and name (command, HTTP route, MCP tool, indexing job kind), sorted by total time, with count, errors, cancellations, median, maximum, and queue and lock waits. `p95_ms` appears only with 20 or more samples; always weigh `count`.
+- `web`: per surface (`browser` or `desktop`), frame gaps over 50 ms and 200 ms, background refresh cycles and refetches that returned unchanged data, event stream reconnects, and error names. Per-region render counts appear only when render timing is on: always in Rhizome Dev and development builds, and in the released desktop app only when its Diagnostics setting is on.
+- `flags`: runtime start bursts, operations started without a terminal record, WARN and ERROR events grouped by name (integrity failures separately), frame stalls over 200 ms, render regions committing after an unchanged refresh, and two or more stream reconnects within one ten-second window. Each flag lists supporting operation IDs or `session:` client IDs.
+
+Flags are observations to investigate, not diagnoses. Follow a flag's operation IDs into `report` and `logs` before naming a cause. `rzm agent code execute` reports carry per-operation host-call counts and durations, split into in-process and forwarded calls, plus Node startup and script time; read them with `rzm diagnostics reports --kind command --json`.
+
 ## Read the evidence accurately
 
 - `index --last` selects the latest completed index attempt, including error and cancellation, and excludes individual watcher updates. It is independent of the history cutoff. Check its timestamps before treating it as recent.
@@ -35,7 +52,7 @@ rzm diagnostics logs --operation-id <operation-id> --since 7d --level debug --js
 - Reports preserve raw `metrics`, operation/parent/trace IDs, version, status, timestamps, and queue, lock, and execution waits. Metrics use nanoseconds unless a field says otherwise; report duration and wait fields use milliseconds. Use explicit values instead of deriving a timing from a counter.
 - Retained-prefix quantiles and interval unions describe retained detail. Dropped sample/interval counts and rejected observations are evidence gaps. Do not call them complete distributions.
 
-For a performance comparison, keep repository content, file/chunk counts, index mode, cache warmth, providers/fingerprints, configured concurrency, and versions comparable. Report what changed and the measured before/after values. Use both cumulative measurements and latency distributions when available. Identify unavailable coverage or mismatched workloads before attributing a difference to a change. These summaries do not detect anomalies or establish causation automatically.
+For a performance comparison, keep repository content, file/chunk counts, index mode, cache warmth, providers/fingerprints, configured concurrency, and versions comparable. Report what changed and the measured before/after values. Use both cumulative measurements and latency distributions when available. Identify unavailable coverage or mismatched workloads before attributing a difference to a change. `perf` flags known instability patterns, but no summary establishes causation.
 
 Read the failing operation's warning/error events and measured phases, then inspect the implicated subsystem or configuration. Preserve returned evidence; rerun only the smallest authorized workload needed to test a concrete hypothesis. Content problems still use `references/validation-and-repair.md`; indexing scope/freshness uses `references/indexing-and-freshness.md`.
 

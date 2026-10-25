@@ -46,7 +46,7 @@ const (
 var findingName = regexp.MustCompile(`^(fix|guard|ask)-[a-z0-9]+(-[a-z0-9]+)*\.md$`)
 
 // errEditedRule marks a rule changed since a person approved it.
-var errEditedRule = errors.New("edited after approval; revise it through the session-memory review")
+var errEditedRule = errors.New("edited after approval; revise it through the compounding review")
 
 // GuardHash is the approved hash shards.mjs writes beside a guard rule: the
 // first 16 hex digits of the SHA-256 of the finding's response and the
@@ -174,7 +174,7 @@ func readGuardRule(file string) (GuardRule, bool, error) {
 	case strings.TrimSpace(fm.ReviewedBy) == "":
 		return r, false, errors.New("no reviewed-by: a person has not approved it")
 	case !written:
-		return r, false, errors.New("guard-rule is not the JSON the session-memory scripts write; revise it through the session-memory review")
+		return r, false, errors.New("guard-rule is not the JSON the compounding scripts write; revise it through the compounding review")
 	case strings.TrimSpace(fm.ApprovedHash) != approved:
 		return r, false, errEditedRule
 	case r.Tool != ToolRead && r.Tool != ToolEdit && r.Tool != ToolShell && r.Tool != ToolPatch:

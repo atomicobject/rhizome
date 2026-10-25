@@ -9,6 +9,7 @@ use std::{
 const LIBRARY: &str = "library.json";
 const LEGACY: &str = "folders.json";
 const SESSION: &str = "session.json";
+const PREFERENCES: &str = "preferences.json";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -391,6 +392,29 @@ impl Session {
     }
 }
 
+/// App preferences kept apart from `library.json`, whose strict format an older
+/// app could not read after a downgrade. Unknown fields are ignored for the same
+/// reason.
+#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Preferences {
+    pub render_profiling: bool,
+}
+
+impl Preferences {
+    /// An unreadable file means the defaults; it holds nothing worth preserving.
+    pub fn load(directory: &Path) -> Self {
+        read(&directory.join(PREFERENCES), "Preferences")
+            .ok()
+            .flatten()
+            .unwrap_or_default()
+    }
+
+    pub fn save(&self, directory: &Path) -> Result<(), String> {
+        write(directory, PREFERENCES, self)
+    }
+}
+
 pub fn valid_id(id: &str) -> bool {
     id.len() == 64 && id.bytes().all(|c| c.is_ascii_hexdigit())
 }
@@ -679,5 +703,24 @@ mod tests {
             );
             assert_eq!(fs::read_to_string(file).unwrap(), contents);
         }
+    }
+
+    #[test]
+    fn preferences_default_off_and_survive_save_and_reload() {
+        let directory = tempfile::tempdir().unwrap();
+        assert!(!Preferences::load(directory.path()).render_profiling);
+        Preferences {
+            render_profiling: true,
+        }
+        .save(directory.path())
+        .unwrap();
+        assert!(Preferences::load(directory.path()).render_profiling);
+        // A newer app's fields do not stop an older app from reading the file.
+        fs::write(
+            directory.path().join(PREFERENCES),
+            "{\"renderProfiling\":true,\"later\":1}",
+        )
+        .unwrap();
+        assert!(Preferences::load(directory.path()).render_profiling);
     }
 }

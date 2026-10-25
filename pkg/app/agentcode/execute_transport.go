@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 )
 
 // executeTransport multiplexes the Node child's protocol requests and final
@@ -26,6 +27,9 @@ type executeTransport struct {
 	err        error
 	frame      []byte
 	result     []byte
+	// readyAt and resultAt are written by the stdout copier and read after
+	// the process wait, which orders them.
+	readyAt, resultAt time.Time
 }
 
 func newExecuteTransport(ctx context.Context, nodeWriter io.WriteCloser) *executeTransport {
@@ -113,6 +117,7 @@ func (transport *executeTransport) routeFrame(line []byte) error {
 		JSONRPC string          `json:"jsonrpc"`
 		Method  string          `json:"method"`
 		Result  json.RawMessage `json:"executionResult"`
+		Ready   bool            `json:"executionReady"`
 	}
 	if err := json.Unmarshal(line, &frame); err != nil {
 		return errors.New("Node.js emitted malformed execution framing")
@@ -129,7 +134,23 @@ func (transport *executeTransport) routeFrame(line []byte) error {
 	}
 	if frame.JSONRPC == "" && frame.Result != nil {
 		transport.result = append([]byte(nil), frame.Result...)
+		transport.resultAt = time.Now()
+		return nil
+	}
+	if frame.JSONRPC == "" && frame.Ready && transport.readyAt.IsZero() {
+		transport.readyAt = time.Now()
 		return nil
 	}
 	return errors.New("Node.js emitted an invalid execution frame")
+}
+
+func (transport *executeTransport) timing(started time.Time) ExecuteTiming {
+	if transport.readyAt.IsZero() {
+		return ExecuteTiming{}
+	}
+	end := transport.resultAt
+	if end.IsZero() {
+		end = time.Now()
+	}
+	return ExecuteTiming{Startup: transport.readyAt.Sub(started), Script: end.Sub(transport.readyAt)}
 }

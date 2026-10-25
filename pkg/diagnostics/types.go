@@ -29,22 +29,23 @@ type Operation struct {
 }
 
 type Event struct {
-	SchemaVersion     int            `json:"schema_version"`
-	Time              time.Time      `json:"time"`
-	ProcessID         string         `json:"process_id"`
-	PID               int            `json:"pid"`
-	Role              string         `json:"role,omitempty"`
-	Version           string         `json:"version,omitempty"`
-	Sequence          uint64         `json:"sequence"`
-	OperationID       string         `json:"operation_id,omitempty"`
-	ParentOperationID string         `json:"parent_operation_id,omitempty"`
-	TraceID           string         `json:"trace_id,omitempty"`
-	Subsystem         string         `json:"subsystem"`
-	Level             string         `json:"level"`
-	Name              string         `json:"event"`
-	Message           string         `json:"message,omitempty"`
-	Attributes        map[string]any `json:"attributes,omitempty"`
-	Truncated         bool           `json:"truncated,omitempty"`
+	SchemaVersion     int             `json:"schema_version"`
+	Time              time.Time       `json:"time"`
+	ProcessID         string          `json:"process_id"`
+	PID               int             `json:"pid"`
+	Role              string          `json:"role,omitempty"`
+	Version           string          `json:"version,omitempty"`
+	Sequence          uint64          `json:"sequence"`
+	OperationID       string          `json:"operation_id,omitempty"`
+	ParentOperationID string          `json:"parent_operation_id,omitempty"`
+	TraceID           string          `json:"trace_id,omitempty"`
+	Subsystem         string          `json:"subsystem"`
+	Level             string          `json:"level"`
+	Name              string          `json:"event"`
+	Message           string          `json:"message,omitempty"`
+	Attributes        map[string]any  `json:"attributes,omitempty"`
+	Metrics           json.RawMessage `json:"metrics,omitempty"`
+	Truncated         bool            `json:"truncated,omitempty"`
 }
 
 type Report struct {

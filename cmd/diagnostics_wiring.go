@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,9 +22,25 @@ type commandDiagnostics struct {
 	command         *cobra.Command
 	previousContext context.Context
 	finished        bool
+	metrics         json.RawMessage
 }
 
 type commandDiagnosticsFinalizerKey struct{}
+
+type commandDiagnosticsMetricsKey struct{}
+
+// setCommandDiagnosticMetrics attaches measurements to the running command's
+// report. The command owns their safety and bounds; without a diagnostics
+// boundary they are dropped.
+func setCommandDiagnosticMetrics(ctx context.Context, metrics any) {
+	set, _ := ctx.Value(commandDiagnosticsMetricsKey{}).(func(json.RawMessage))
+	if set == nil {
+		return
+	}
+	if data, err := json.Marshal(metrics); err == nil {
+		set(data)
+	}
+}
 
 func diagnosticCommandFinalizer(ctx context.Context) func(error) {
 	finalizer, _ := ctx.Value(commandDiagnosticsFinalizerKey{}).(func(error))
@@ -120,6 +137,7 @@ func (d *commandDiagnostics) start(command *cobra.Command) {
 	ctx := diagnostics.WithRecorder(command.Context(), recorder)
 	ctx = diagnostics.WithOperation(ctx, d.operation)
 	ctx = context.WithValue(ctx, commandDiagnosticsFinalizerKey{}, func(err error) { d.finish(command, err) })
+	ctx = context.WithValue(ctx, commandDiagnosticsMetricsKey{}, func(metrics json.RawMessage) { d.metrics = metrics })
 	d.previousContext = command.Context()
 	command.SetContext(ctx)
 	d.restore = logging.InstallStandard(ctx)
@@ -156,7 +174,7 @@ func (d *commandDiagnostics) finish(command *cobra.Command, err error) {
 	}
 	// Cobra or the protocol owns error output. Keep the retained failure without
 	// adding a second diagnostic error line to the existing terminal contract.
-	logging.CompleteQuiet(diagnostics.WithOperation(command.Context(), d.operation), d.operation, status, reason, map[string]any{"command": command.CommandPath()})
+	logging.CompleteQuietMetrics(diagnostics.WithOperation(command.Context(), d.operation), d.operation, status, reason, map[string]any{"command": command.CommandPath()}, d.metrics)
 
 	d.restore()
 	_ = d.recorder.Close()

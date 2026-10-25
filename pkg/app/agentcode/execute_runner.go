@@ -107,6 +107,7 @@ try {
     };
   }
   Object.freeze(rzm);
+  originalWrite('{"executionReady":true}\n');
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
   let value, executionError;
   try { value = await new AsyncFunction("rzm", "input", config.code)(rzm, config.input ?? null); }

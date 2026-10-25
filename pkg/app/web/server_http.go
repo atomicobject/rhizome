@@ -88,6 +88,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/v1/view-preferences", s.handleViewPreferences)
 	s.mux.HandleFunc("/api/v1/view-preferences/reset", s.handleViewPreferencesReset)
 	s.mux.HandleFunc("/api/v1/view-preferences/import", s.handleViewPreferencesImport)
+	s.mux.HandleFunc("/api/v1/diagnostics/client", s.handleClientDiagnostics)
 	s.registerRuntimeControlRoutes()
 	// API endpoints
 	s.mux.HandleFunc("/api/v1/status", s.handlePublicStatus)

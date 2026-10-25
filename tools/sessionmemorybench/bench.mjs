@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Benchmark harness for the session-memory pipeline (SPEC-0124). Map, screen,
+// Benchmark harness for the compounding pipeline (SPEC-0124). Map, screen,
 // group, rank, and verify run the starter's own stage functions (shipped.mjs),
 // so a result measures what ships. Calls go through `rzm agent generate` and
 // are cached per run under RUN/state, so rerunning a run directory resumes it
@@ -33,7 +33,7 @@ import * as P from "./prompts.mjs";
 import { JEV, benchCaller, bindingOf, calls, extract, generate, reduce, screen as S_screen, prompts as SP, searchIn, verify as S_verify } from "./shipped.mjs";
 
 const PRICES = calls.PRICES;
-const PROFILE = JSON.parse(readFileSync(new URL("../../pkg/app/cli/init/templates/starters/session-memory/agents/skills/session-memory/models.json", import.meta.url), "utf8"));
+const PROFILE = JSON.parse(readFileSync(new URL("../../pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/models.json", import.meta.url), "utf8"));
 // The shipped profile's first Claude candidate for a role.
 const DEFAULT = (role) => PROFILE.roles[role].find((c) => c.provider === "claude");
 
@@ -72,7 +72,7 @@ function recordProvenance(run, stage, extra) {
   mkdirSync(run, { recursive: true });
   const cfg = readJson(join(run, "config.json"), {});
   const promptsCopy = join(run, `prompts-${P.RULES_VERSION}.mjs`);
-  if (!existsSync(promptsCopy)) copyFileSync(new URL("../../pkg/app/cli/init/templates/starters/session-memory/agents/skills/session-memory/scripts/lib/prompts.mjs", import.meta.url), promptsCopy);
+  if (!existsSync(promptsCopy)) copyFileSync(new URL("../../pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/lib/prompts.mjs", import.meta.url), promptsCopy);
   const prompts = { map: sha(P.MAP_PROMPT), group: sha(P.GROUP_PROMPT), verify: sha(P.PACKET_PREFIX + P.VERIFY_RULES), dedupe: sha(P.DEDUPE_PROMPT), screen: sha(SP.PASSAGE_QUESTIONS) };
   writeJson(join(run, "config.json"), { ...cfg, rules: P.RULES_VERSION, prompts, [stage]: { ...extra, at: new Date().toISOString() } });
 }

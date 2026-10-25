@@ -201,7 +201,7 @@ func shellSegments(cmd string) (segments []shellSegment, complete bool) {
 }
 
 // commandSegments splits command text for prefix matching the way the
-// session-memory handler does: at &&, ||, ;, |, and newlines, trimmed, with
+// compounding handler does: at &&, ||, ;, |, and newlines, trimmed, with
 // whitespace collapsed. It is deliberately not quote-aware so the
 // dispatcher's gate and the handler agree.
 func commandSegments(cmd string) []string {

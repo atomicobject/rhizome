@@ -72,7 +72,7 @@ Start by editing the generated `docs/engineering/` documents with your team's te
 
 As you learn, you can improve the skills, change how specs are organized, and add workflows that fit your project. [Adapting your process](docs/reference/guides/adapting-rhizome.md)
 
-Add-ons extend a workflow: `rzm init --add-addon session-memory` adds one that learns from your past agent sessions which facts agents keep rediscovering and what slows them down, and proposes fixes and context for you to approve. `--remove-addon` takes one out. `rzm init --hooks on` lets add-ons that use agent hooks, such as session memory, deliver their context to Claude Code and Codex automatically. An approved session-memory guard rule refuses a matching command before it runs: commit its finding note, rerun `rzm init`, and in Codex trust the changed entry through `/hooks`. [Add-ons](docs/reference/guides/getting-started.md#initialize-your-project)
+Add-ons extend a workflow: `rzm init --add-addon compounding` adds one that learns from your past agent sessions which facts agents keep rediscovering and what slows them down, and proposes fixes and context for you to approve. `--remove-addon` takes one out. `rzm init --hooks on` lets add-ons that use agent hooks, such as session memory, deliver their context to Claude Code and Codex automatically. An approved compounding guard rule refuses a matching command before it runs: commit its finding note, rerun `rzm init`, and in Codex trust the changed entry through `/hooks`. [Add-ons](docs/reference/guides/getting-started.md#initialize-your-project)
 
 A skill can ship code-mode scripts that gather its context in one step. An agent runs one with `rzm agent code execute --session-id <id> --input '{"path": "Projects/Atlas.md"}' < scripts/subject.js`, and the script reads that JSON value as `input`; `--input-file <path>` reads it from a file instead. To read a view's rows without its field capability catalog, add `--omit-capabilities` to `rzm agent view run`. To read which coding agent `agent.harness` configures without starting any provider, run `rzm harness status --configured`.
 
@@ -133,7 +133,7 @@ Agent instructions:
 | Change team policy, skills, data, or views | [Adapting Rhizome](docs/reference/guides/adapting-rhizome.md) |
 | Explore other workflow starters | [Choosing a starter](docs/reference/guides/choosing-your-starter.md) |
 | Understand retrieval and links between notes and code | [How Rhizome works](docs/reference/guides/how-rhizome-works.md) |
-| Diagnose slow indexing, runtime failures, or degraded operations | [Operational diagnostics](docs/reference/guides/diagnostics.md) |
+| Diagnose slow indexing, runtime failures, degraded operations, or web UI stalls; summarize performance with `rzm diagnostics perf` | [Operational diagnostics](docs/reference/guides/diagnostics.md) |
 | Contribute to Rhizome itself | [Contributor guide](CONTRIBUTING.md) |
 
 ID suggestions from `rzm agent next-id` and `rzm agent ontology-authoring-guide` use the current ontology and shared identifier pool.

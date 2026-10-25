@@ -74,7 +74,7 @@ func plainCommandWord(w shellWord) bool {
 // run other words; cd, true, false, echo, and pwd are left out. test and [
 // are listed: in zsh and bash, `test -v 'path[functions[go]=1]'` assigns as
 // it tests.
-// lib/verify.mjs in the session-memory starter holds the same list.
+// lib/verify.mjs in the compounding starter holds the same list.
 var notPlain = set(strings.Fields(`
 	! [[ ]] { } case coproc do done elif else end esac fi for foreach function if in nocorrect repeat select then time until while
 	. : alias bg bind break builtin caller command compgen complete compopt continue declare dirs disown enable eval exec exit

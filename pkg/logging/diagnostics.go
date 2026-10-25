@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log"
@@ -57,16 +58,22 @@ func ClassifyError(err error) string {
 // Complete publishes one terminal report. Diagnostics never changes the caller's
 // result, including when persistence itself fails.
 func Complete(ctx context.Context, op diagnostics.Operation, status, reason string, attrs map[string]any) {
-	complete(ctx, op, status, reason, attrs, false)
+	complete(ctx, op, status, reason, attrs, nil, false)
 }
 
 // CompleteQuiet preserves structured failures for protocols that already return
 // their error in a JSON envelope. Unrelated warnings still reach stderr.
 func CompleteQuiet(ctx context.Context, op diagnostics.Operation, status, reason string, attrs map[string]any) {
-	complete(ctx, op, status, reason, attrs, true)
+	complete(ctx, op, status, reason, attrs, nil, true)
 }
 
-func complete(ctx context.Context, op diagnostics.Operation, status, reason string, attrs map[string]any, quiet bool) {
+// CompleteQuietMetrics is CompleteQuiet with a bounded metrics object on the
+// report. The caller owns which measurements are safe to record.
+func CompleteQuietMetrics(ctx context.Context, op diagnostics.Operation, status, reason string, attrs map[string]any, metrics json.RawMessage) {
+	complete(ctx, op, status, reason, attrs, metrics, true)
+}
+
+func complete(ctx context.Context, op diagnostics.Operation, status, reason string, attrs map[string]any, metrics json.RawMessage, quiet bool) {
 	r := diagnostics.FromContext(ctx)
 	if r == nil {
 		return
@@ -75,7 +82,7 @@ func complete(ctx context.Context, op diagnostics.Operation, status, reason stri
 	_ = r.PublishReport(ctx, diagnostics.Report{
 		OperationID: op.ID, ParentOperationID: op.ParentID, TraceID: op.TraceID,
 		Kind: op.Kind, Trigger: op.Trigger, StartedAt: op.StartedAt, FinishedAt: finished,
-		DurationMS: finished.Sub(op.StartedAt).Milliseconds(), Status: status, ReasonCode: reason, Attributes: attrs,
+		DurationMS: finished.Sub(op.StartedAt).Milliseconds(), Status: status, ReasonCode: reason, Attributes: attrs, Metrics: metrics,
 	})
 	completeEvent(ctx, op, status, reason, attrs, finished, "operation.finished", terminalLevel(status), quiet)
 }

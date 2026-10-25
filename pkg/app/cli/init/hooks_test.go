@@ -20,14 +20,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// hookRepo is a first-run repository with session memory and both harnesses
+// hookRepo is a first-run repository with the compounding add-on and both harnesses
 // whose hook entries use them.
 func hookRepo(t *testing.T, hooks string) string {
 	t.Helper()
 	stubHookSupport(t, nil)
 	root := machineRunRepo(t)
 	writeFixtureFile(t, root, ".claude/settings.json", `{"permissions":{"allow":["Bash(ls)"]},"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo done"}]}]}}`)
-	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "session-memory", Agents: "claude,codex", Search: "off", Hooks: hooks})
+	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "compounding", Agents: "claude,codex", Search: "off", Hooks: hooks})
 	require.NoError(t, err)
 	return root
 }
@@ -103,20 +103,20 @@ func TestHooksOnInstallsOneEntryPerHookPointAndPreservesOtherEntries(t *testing.
 	out, err := runInit(t, RunOptions{Dir: root, Check: true})
 	require.NoError(t, err)
 	require.Contains(t, out, "Hooks     on")
-	require.Contains(t, out, "Session memory: approved context shards")
+	require.Contains(t, out, "Compounding: approved context shards")
 	require.Contains(t, out, "Claude Code hooks (.claude/settings.json): installed and current")
 	require.Contains(t, out, "Codex hooks (.codex/hooks.json): installed and current")
-	require.Contains(t, out, "session-memory/deliver-shards has not returned context yet")
+	require.Contains(t, out, "compounding/deliver-shards has not returned context yet")
 	require.Contains(t, out, "review it with /hooks in Codex")
 }
 
 func TestHookStatusReportsWhenEachHandlerLastReturnedContext(t *testing.T) {
 	root := hookRepo(t, "on")
 	at := time.Date(2026, 10, 22, 14, 3, 0, 0, time.Local)
-	writeFixtureFile(t, root, ".rhizome/hooks/status.json", `{"delivered":{"claude":{"session-memory/deliver-shards":"`+at.UTC().Format(time.RFC3339)+`"}}}`)
+	writeFixtureFile(t, root, ".rhizome/hooks/status.json", `{"delivered":{"claude":{"compounding/deliver-shards":"`+at.UTC().Format(time.RFC3339)+`"}}}`)
 	out, err := runInit(t, RunOptions{Dir: root, Check: true})
 	require.NoError(t, err)
-	require.Contains(t, out, "session-memory/deliver-shards last returned context 2026-10-22 14:03")
+	require.Contains(t, out, "compounding/deliver-shards last returned context 2026-10-22 14:03")
 }
 
 // guardFinding is an approved guard finding whose rule refuses go mod vendor.
@@ -170,8 +170,8 @@ func TestTheBeforeToolCallEntryFollowsApprovedGuardRules(t *testing.T) {
 	require.Contains(t, hookCommands(t, root, ".claude/settings.json"), "PostToolUse")
 	out, err = runInit(t, RunOptions{Dir: root, Check: true})
 	require.NoError(t, err)
-	require.Contains(t, out, "guard rule skipped: "+rel+": edited after approval; revise it through the session-memory review")
-	require.Contains(t, out, "session-memory/guard-rules has no approved guard rules")
+	require.Contains(t, out, "guard rule skipped: "+rel+": edited after approval; revise it through the compounding review")
+	require.Contains(t, out, "compounding/guard-rules has no approved guard rules")
 }
 
 // A binary that runs hook entries without applying guard rules gets every
@@ -200,7 +200,7 @@ func TestTheBeforeToolCallEntryWaitsForABinaryThatAppliesGuardRules(t *testing.T
 	runGit(t, "-C", fresh, "init", "-q")
 	writeFixtureFile(t, fresh, rel, guardFinding)
 	runGit(t, "-C", fresh, "add", "--", rel)
-	plan, err := Plan(RunOptions{Dir: fresh, Workflow: "none", Addons: "session-memory", Agents: "claude", Search: "off", Hooks: "on"})
+	plan, err := Plan(RunOptions{Dir: fresh, Workflow: "none", Addons: "compounding", Agents: "claude", Search: "off", Hooks: "on"})
 	require.NoError(t, err)
 	require.Contains(t, plan.HooksBlocked, "does not apply guard rules")
 }
@@ -213,7 +213,7 @@ func TestHooksStayOffUntilTurnedOnAndTheSummaryNamesWhatTheyDeliver(t *testing.T
 	require.NoError(t, err)
 	require.Contains(t, out, "Hooks     off")
 	require.Contains(t, out, "Hooks are off. Turn them on with rzm init --hooks on to get:")
-	require.Contains(t, out, "Session memory: approved context shards")
+	require.Contains(t, out, "Compounding: approved context shards")
 
 	out, err = runInit(t, RunOptions{Dir: root, Hooks: "on"})
 	require.NoError(t, err)
@@ -245,11 +245,11 @@ func TestHookEntriesAreRemovedWhenHooksHarnessOrHandlersGo(t *testing.T) {
 	})
 	t.Run("no starter declares hooks", func(t *testing.T) {
 		root := hookRepo(t, "on")
-		_, err := runInit(t, RunOptions{Dir: root, RemoveAddon: "session-memory"})
+		_, err := runInit(t, RunOptions{Dir: root, RemoveAddon: "compounding"})
 		require.NoError(t, err)
 		require.NoFileExists(t, filepath.Join(root, ".codex/hooks.json"))
 		require.Equal(t, "on", loadConfigForTest(t, root).Agents.Hooks, "the choice survives add-on changes")
-		_, err = runInit(t, RunOptions{Dir: root, AddAddon: "session-memory"})
+		_, err = runInit(t, RunOptions{Dir: root, AddAddon: "compounding"})
 		require.NoError(t, err)
 		require.Contains(t, hookCommands(t, root, ".codex/hooks.json"), "PostToolUse")
 	})
@@ -334,7 +334,7 @@ func TestHookEntriesWaitForABinaryThatSupportsThem(t *testing.T) {
 func TestMachineSetupSaysWhyNoHookEntriesWereWritten(t *testing.T) {
 	stubHookSupport(t, errors.New("there is no rzm on PATH"))
 	root := machineRunRepo(t)
-	opts := RunOptions{Dir: root, Workflow: "none", Addons: "session-memory", Agents: "claude", Search: "off", Hooks: "on"}
+	opts := RunOptions{Dir: root, Workflow: "none", Addons: "compounding", Agents: "claude", Search: "off", Hooks: "on"}
 	plan, err := Plan(opts)
 	require.NoError(t, err)
 	require.Equal(t, "there is no rzm on PATH", plan.HooksBlocked)
@@ -518,24 +518,24 @@ func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, handlers, 2)
 	h := handlers[0]
-	require.Equal(t, "session-memory/deliver-shards", h.Key())
-	require.Equal(t, "session-memory/guard-rules", handlers[1].Key())
+	require.Equal(t, "compounding/deliver-shards", h.Key())
+	require.Equal(t, "compounding/guard-rules", handlers[1].Key())
 	require.Equal(t, "docs/memory/agent-findings", handlers[1].GuardRules)
-	require.Equal(t, []string{"node", ".agents/skills/session-memory/scripts/hook.mjs"}, h.Command)
-	require.Equal(t, ".rhizome/session-memory/hook/command-prefixes.json", h.CommandPrefixes)
+	require.Equal(t, []string{"node", ".agents/skills/compounding/scripts/hook.mjs"}, h.Command)
+	require.Equal(t, ".rhizome/compounding/hook/command-prefixes.json", h.CommandPrefixes)
 	require.ElementsMatch(t, []string{hook.SessionStart, hook.SubagentStart, hook.PostToolUse}, h.Events)
 	require.FileExists(t, filepath.Join(root, filepath.FromSlash(h.Command[1])), "the handler script is installed")
 
 	// An ejected starter keeps its handler, even after it leaves the
 	// selection with its files retained.
-	_, err = runInit(t, RunOptions{Dir: root, Eject: "session-memory"})
+	_, err = runInit(t, RunOptions{Dir: root, Eject: "compounding"})
 	require.NoError(t, err)
 	handlers, err = HookHandlers(root)
 	require.NoError(t, err)
 	require.Len(t, handlers, 2)
-	_, err = runInit(t, RunOptions{Dir: root, RemoveAddon: "session-memory"})
+	_, err = runInit(t, RunOptions{Dir: root, RemoveAddon: "compounding"})
 	require.NoError(t, err)
-	require.Contains(t, loadConfigForTest(t, root).WorkflowTemplateManagement.Ejected, "session-memory")
+	require.Contains(t, loadConfigForTest(t, root).WorkflowTemplateManagement.Ejected, "compounding")
 	handlers, err = HookHandlers(root)
 	require.NoError(t, err)
 	require.Len(t, handlers, 2)
@@ -545,7 +545,7 @@ func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {
 func TestHookHandlersRunFromTheInstalledSkillFolder(t *testing.T) {
 	stubHookSupport(t, nil)
 	root := machineRunRepo(t)
-	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "session-memory", Agents: "claude", Search: "off", Hooks: "on"})
+	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "compounding", Agents: "claude", Search: "off", Hooks: "on"})
 	require.NoError(t, err)
 	cfg := loadConfigForTest(t, root)
 	cfg.Agents.AgentSkills = "off"
@@ -556,27 +556,27 @@ func TestHookHandlersRunFromTheInstalledSkillFolder(t *testing.T) {
 	handlers, err := HookHandlers(root)
 	require.NoError(t, err)
 	require.Len(t, handlers, 2)
-	require.Equal(t, []string{"node", ".claude/skills/session-memory/scripts/hook.mjs"}, handlers[0].Command)
-	require.FileExists(t, filepath.Join(root, ".claude", "skills", "session-memory", "scripts", "hook.mjs"))
+	require.Equal(t, []string{"node", ".claude/skills/compounding/scripts/hook.mjs"}, handlers[0].Command)
+	require.FileExists(t, filepath.Join(root, ".claude", "skills", "compounding", "scripts", "hook.mjs"))
 }
 
 func TestAHandlerWhoseSkillFolderIsOffDoesNotRun(t *testing.T) {
 	stubHookSupport(t, nil)
 	root := machineRunRepo(t)
-	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "session-memory", Agents: "codex", Search: "off", Hooks: "on"})
+	_, err := Apply(RunOptions{Dir: root, Workflow: "none", Addons: "compounding", Agents: "codex", Search: "off", Hooks: "on"})
 	require.NoError(t, err)
 	cfg := loadConfigForTest(t, root)
 	cfg.Agents.AgentSkills = "off"
 	require.NoError(t, repoconfig.SaveLocalConfig(root, *cfg))
-	require.DirExists(t, filepath.Join(root, ".agents", "skills", "session-memory"), "an old copy remains")
+	require.DirExists(t, filepath.Join(root, ".agents", "skills", "compounding"), "an old copy remains")
 
 	handlers, err := HookHandlers(root)
 	require.NoError(t, err)
 	require.Len(t, handlers, 1, "the copy in a disabled folder is not run")
-	require.Equal(t, "session-memory/guard-rules", handlers[0].Key(), "the built-in guard needs no skill")
+	require.Equal(t, "compounding/guard-rules", handlers[0].Key(), "the built-in guard needs no skill")
 	out, err := runInit(t, RunOptions{Dir: root, Check: true})
 	require.NoError(t, err)
-	require.Contains(t, out, "session-memory/deliver-shards does not run: no enabled skill folder holds its session-memory skill")
+	require.Contains(t, out, "compounding/deliver-shards does not run: no enabled skill folder holds its compounding skill")
 }
 
 func TestHookDeclarationsAreValidated(t *testing.T) {
@@ -693,7 +693,7 @@ func TestHookEntriesWithoutAnOwnershipRecordNeedADecision(t *testing.T) {
 
 func TestTheFirstRunSaysWhetherEntriesAreInstalledYet(t *testing.T) {
 	stubHookSupport(t, nil)
-	opts := RunOptions{Workflow: "none", Addons: "session-memory", Agents: "claude", Search: "off", Hooks: "on"}
+	opts := RunOptions{Workflow: "none", Addons: "compounding", Agents: "claude", Search: "off", Hooks: "on"}
 	opts.Dir, opts.Check = machineRunRepo(t), true
 	out, err := runInit(t, opts)
 	require.ErrorIs(t, err, ErrChangesPending)
