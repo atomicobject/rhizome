@@ -29,7 +29,8 @@ import (
 // v15: full and incremental paths share embedded validation and provider-current
 // type resolution; scalar and metadata-link normalization use one contract.
 // Alias retirement invalidates unresolved dependencies before old aliases vanish.
-const OntologyMaterializationVersion = 15
+// v16: note titles derived from an H1 drop a trailing Obsidian block ID.
+const OntologyMaterializationVersion = 16
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

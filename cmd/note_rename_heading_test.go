@@ -37,12 +37,12 @@ func TestRenameHeadingCommandReportsActualPublication(t *testing.T) {
 				renameHeadingCmd.SetErr(nil)
 			})
 			next := "Old Heading"
-			want := "Heading unchanged in target.md; rewrites: 1; upgraded: 0; skipped: 0"
+			want := "Heading unchanged in target.md; rewrites: 1; skipped: 0"
 			if changed {
 				next = "New Heading"
-				want = "Renamed heading in target.md; rewrites: 1; upgraded: 0; skipped: 0"
+				want = "Renamed heading in target.md; rewrites: 1; skipped: 0"
 			}
-			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), env), []string{"note", "rename-heading", "target.md", "Old Heading", next, "--apply", "--upgrade-to-block-id", "never", "--fallback", "heading"})
+			stdout, stderr, err := runRootCLI(t, vaultconfig.WithEnv(context.Background(), env), []string{"note", "rename-heading", "target.md", "Old Heading", next, "--apply"})
 			require.NoError(t, err, stderr)
 			require.Empty(t, stderr)
 			require.Equal(t, want, stdout)
@@ -60,5 +60,5 @@ func TestRenameHeadingApplyResultPreservesCommittedWarning(t *testing.T) {
 	require.NoError(t, writeRenameHeadingApplyResult(&out, actions.RenameHeadingResult{
 		Path: "target.md", Applied: true, Message: "no inbound heading references remain; files were saved, but recovery cleanup failed",
 	}))
-	require.Equal(t, "Renamed heading in target.md; rewrites: 0; upgraded: 0; skipped: 0\nno inbound heading references remain; files were saved, but recovery cleanup failed\n", out.String())
+	require.Equal(t, "Renamed heading in target.md; rewrites: 0; skipped: 0\nno inbound heading references remain; files were saved, but recovery cleanup failed\n", out.String())
 }

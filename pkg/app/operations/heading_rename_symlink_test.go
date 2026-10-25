@@ -22,7 +22,6 @@ func TestRenameHeadingRefusesFileSymlinkAlias(t *testing.T) {
 			}
 			result, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{
 				NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "Alias.md", OldHeading: "Old", NewHeading: "New", Apply: apply,
-				UpgradeToBlockID: HeadingRenameUpgradeNever, Fallback: HeadingRenameFallbackHeading,
 			})
 			require.ErrorContains(t, err, "unsupported symbolic-link alias")
 			require.False(t, result.Applied)

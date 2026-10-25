@@ -26,7 +26,7 @@ func TestRenameHeadingParentFailurePreservesEverySourceAndCanRetry(t *testing.T)
 	require.NoError(t, os.Chmod(ref, 0o444))
 	require.NoError(t, os.Chmod(locked, 0o555))
 	t.Cleanup(func() { _ = os.Chmod(locked, 0o755); _ = os.Chmod(ref, 0o644) })
-	params := RenameHeadingParams{Context: context.Background(), NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old Heading", NewHeading: "New Heading", Apply: true, UpgradeToBlockID: HeadingRenameUpgradeNever, Fallback: HeadingRenameFallbackHeading}
+	params := RenameHeadingParams{Context: context.Background(), NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old Heading", NewHeading: "New Heading", Apply: true}
 	result, err := RenameHeading(stubVault{path: root}, params)
 	require.ErrorIs(t, err, os.ErrPermission)
 	require.False(t, result.Applied)
@@ -60,7 +60,7 @@ func TestRenameHeadingUnreadablePotentialBacklinkStopsApply(t *testing.T) {
 	unreadable := filepath.Join(root, "zz-unreadable.md")
 	require.NoError(t, os.Chmod(unreadable, 0))
 	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o644) })
-	result, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old Heading", NewHeading: "New Heading", Apply: true, UpgradeToBlockID: HeadingRenameUpgradeNever, Fallback: HeadingRenameFallbackHeading})
+	result, err := RenameHeading(stubVault{path: root}, RenameHeadingParams{NoteMetadata: testkit.NoteMetadataIndexer(t), Path: "target.md", OldHeading: "Old Heading", NewHeading: "New Heading", Apply: true})
 	require.ErrorIs(t, err, os.ErrPermission)
 	require.False(t, result.Applied)
 	require.NoError(t, os.Chmod(unreadable, 0o644))

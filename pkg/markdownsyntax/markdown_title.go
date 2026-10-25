@@ -78,6 +78,10 @@ func stripMarkdownTitleFrontmatter(content string) string {
 }
 
 func cleanMarkdownTitleText(text string) string {
+	// A trailing Obsidian block ID is link metadata, not title text.
+	if _, caret, _, ok := TrailingBlockID(text); ok && strings.TrimSpace(text[:caret]) != "" {
+		text = text[:caret]
+	}
 	return PlainMarkdownTitle(trimMarkdownTitleClosingHashes(text))
 }
 

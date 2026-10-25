@@ -17,12 +17,10 @@ func (commandOptions *noteInvocationOptions) makeRenameHeadingCmd() *cobra.Comma
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			result, err := commandOptions.executeRenameHeading(cmd.Context(), actions.RenameHeadingParams{
-				Path:             args[0],
-				OldHeading:       args[1],
-				NewHeading:       args[2],
-				Apply:            commandOptions.renameHeadingApply,
-				UpgradeToBlockID: actions.HeadingRenameUpgradeMode(commandOptions.renameHeadingUpgrade),
-				Fallback:         actions.HeadingRenameFallbackMode(commandOptions.renameHeadingFallback),
+				Path:       args[0],
+				OldHeading: args[1],
+				NewHeading: args[2],
+				Apply:      commandOptions.renameHeadingApply,
 			})
 			if err != nil {
 				return err
@@ -42,7 +40,7 @@ func writeRenameHeadingApplyResult(out io.Writer, result actions.RenameHeadingRe
 	if result.Applied {
 		status = "Renamed heading"
 	}
-	if _, err := fmt.Fprintf(out, "%s in %s; rewrites: %d; upgraded: %d; skipped: %d\n", status, result.Path, result.Rewritten, result.UpgradedToBlockID, len(result.Skipped)); err != nil {
+	if _, err := fmt.Fprintf(out, "%s in %s; rewrites: %d; skipped: %d\n", status, result.Path, result.Rewritten, len(result.Skipped)); err != nil {
 		return err
 	}
 	if result.Message != "" {
@@ -68,7 +66,5 @@ func (commandOptions *vaultCommandOptions) executeRenameHeading(ctx context.Cont
 func (commandOptions *noteInvocationOptions) registerNoteRenameHeadingCommands(renameHeadingCmd, noteCmd *cobra.Command) {
 	renameHeadingCmd.Flags().StringVarP(&commandOptions.vaultName, "vault", "v", "", "vault name (not required if default is set)")
 	renameHeadingCmd.Flags().BoolVar(&commandOptions.renameHeadingApply, "apply", false, "apply the planned heading and inbound-link rewrites")
-	renameHeadingCmd.Flags().StringVar(&commandOptions.renameHeadingUpgrade, "upgrade-to-block-id", string(actions.HeadingRenameUpgradeAuto), "block ID upgrade mode: auto, always, never")
-	renameHeadingCmd.Flags().StringVar(&commandOptions.renameHeadingFallback, "fallback", string(actions.HeadingRenameFallbackBlockID), "fallback mode when a block ID is unavailable: heading, block-id")
 	noteCmd.AddCommand(renameHeadingCmd)
 }
