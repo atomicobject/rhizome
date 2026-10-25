@@ -1,26 +1,30 @@
-/* Rhizome's tokens mapped onto shadcn's variable names. The build prepends the
-   :root block of src/base.css, so the values below have one source of truth.
-   Tailwind's browser compiler reads this from the inline style tag boot.js adds. */
+/* Rhizome's tokens mapped onto shadcn's variable names. The build prepends
+   src/tokens.css (light and dark), so the values below have one source of
+   truth and follow the operating system's theme. Tailwind's browser compiler
+   reads this from the inline style tag boot.js adds. */
 @import "tailwindcss";
 
 :root {
-  --background: var(--bg);
+  --background: var(--surface);
   --foreground: var(--text);
   --card: var(--surface);
   --card-foreground: var(--text);
   --popover: var(--surface);
   --popover-foreground: var(--text);
-  --primary: var(--accent);
-  --primary-foreground: var(--ao-white);
+  /* Filled primary is the deeper red: white on it clears 4.5:1. */
+  --primary: var(--accent-fill);
+  --primary-foreground: var(--on-accent);
   --secondary: var(--surface-sunk);
   --secondary-foreground: var(--text);
-  --muted: var(--surface-sunk);
+  /* shadcn's muted and accent are surfaces, not Rhizome's text gray or red,
+     so they get kit-private names and neutral values. */
+  --shadcn-muted: var(--surface-sunk);
   --muted-foreground: var(--text-muted);
-  --shadcn-accent: var(--accent-soft);
-  --accent-foreground: var(--accent-ink);
-  --destructive: var(--accent-active);
+  --shadcn-accent: var(--bg-tint);
+  --accent-foreground: var(--text);
+  --destructive: var(--accent-fill);
   --input: var(--border-strong);
-  --ring: var(--accent);
+  --ring: var(--focus-ring);
   --radius: var(--r-md);
 }
 
@@ -35,7 +39,7 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
+  --color-muted: var(--shadcn-muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--shadcn-accent);
   --color-accent-foreground: var(--accent-foreground);
@@ -47,6 +51,12 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-teal: var(--ao-teal);
+  --color-surface: var(--surface);
+  --color-sunk: var(--surface-sunk);
+  --color-tint: var(--bg-tint);
+  --color-faint: var(--text-faint);
+  --color-link: var(--link);
+  --color-risk: var(--accent-ink);
   --radius-sm: var(--r-sm);
   --radius-md: var(--r);
   --radius-lg: var(--r-md);
@@ -54,15 +64,29 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-display);
+
+  /* DESIGN.md's fixed type scale, independent of the root size. */
+  --text-xs: 11px;
+  --text-xs--line-height: 1.35;
+  --text-sm: 12px;
+  --text-sm--line-height: 1.4;
+  --text-base: 13px;
+  --text-base--line-height: 1.45;
+  --text-lg: 15px;
+  --text-lg--line-height: 1.35;
+  --text-xl: 18px;
+  --text-xl--line-height: 1.22;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 1.18;
 }
 
 @layer base {
   * {
     border-color: var(--border);
-    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
 
-  /* Rhizome is dense: 14px rem scales every shadcn size down together. */
+  /* Rhizome is dense: a 14px rem keeps Tailwind's spacing scale compact.
+     Text sizes are pinned above, so they do not follow the root. */
   html {
     font-size: 14px;
   }
@@ -71,5 +95,7 @@
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
+    font-size: var(--fs-base);
+    line-height: 1.45;
   }
 }

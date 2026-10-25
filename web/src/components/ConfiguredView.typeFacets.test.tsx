@@ -219,7 +219,7 @@ describe("type collection facets under their own filters", () => {
       ),
     });
 
-    for (const name of ["Draft 0", "Unchanged 30d 0", "Issues 0"]) {
+    for (const name of ["Draft 0", "Unchanged 30d 0", "Records with issues 0"]) {
       expect(within(facets()).getByRole("button", { name })).toHaveAttribute(
         "aria-pressed",
         "true",

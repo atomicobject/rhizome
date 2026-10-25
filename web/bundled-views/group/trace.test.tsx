@@ -109,10 +109,10 @@ it("defaults to the hierarchical member, nests its rows, and rolls subtrees up",
   await screen.findByRole("table");
 
   expect(screen.getAllByRole("radio").map((radio) => radio.parentElement?.textContent)).toEqual([
-    "Areas6(default)",
-    "Work items6",
-    "Releases2",
-    "Checklists1",
+    "Areas 6 (default)",
+    "Work items 6",
+    "Releases 2",
+    "Checklists 1",
   ]);
   expect(screen.getByRole("radio", { name: /^Areas/ })).toBeChecked();
   expect(screen.getByText(/the tree other types link to/)).toBeVisible();

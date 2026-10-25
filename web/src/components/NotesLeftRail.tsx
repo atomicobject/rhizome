@@ -159,6 +159,7 @@ const RailNoteRow = memo(function RailNoteRow({
         }}
         type="button"
         className="ontology-note__main"
+        aria-current={active ? "page" : undefined}
         tabIndex={tabbable ? 0 : -1}
         aria-keyshortcuts="Enter O X"
         onClick={(event) => {
@@ -178,6 +179,12 @@ const RailNoteRow = memo(function RailNoteRow({
       >
         <div className="ontology-note__title">{title || path}</div>
         <div className="ontology-note__meta">
+          {modified && (
+            <span className="ontology-note__modified" title="Changed in this edit session">
+              <span aria-hidden="true">◆</span>
+              <span className="sr-only">Modified</span>
+            </span>
+          )}
           <span className="ontology-note__path">
             <bdo dir="ltr">{detail || path}</bdo>
           </span>
@@ -209,7 +216,7 @@ const RailNoteRow = memo(function RailNoteRow({
   );
 });
 
-export function NotesLeftRail({
+export const NotesLeftRail = memo(function NotesLeftRail({
   active = true,
   summary,
   selectedType,
@@ -452,6 +459,7 @@ export function NotesLeftRail({
       type="button"
       key={view.id}
       className={`ontology-view-row${activeViewID === view.id ? " is-selected" : ""}`}
+      aria-current={activeViewID === view.id ? "page" : undefined}
       onClick={() => onOpenConfiguredView(view)}
     >
       <span className="ontology-view-row__icon" aria-hidden="true">
@@ -540,9 +548,13 @@ export function NotesLeftRail({
           <button
             type="button"
             disabled={embedded}
-            aria-label={
-              embedded || totalNotes === null ? label(item) : `${label(item)} (${item.count})`
-            }
+            aria-label={[
+              embedded || totalNotes === null ? label(item) : `${label(item)} (${item.count})`,
+              typeIssues ? `${typeIssues} validation ${typeIssues === 1 ? "issue" : "issues"}` : "",
+            ]
+              .filter(Boolean)
+              .join(", ")}
+            aria-current={activeCollection === item.name ? "page" : undefined}
             className={`ontology-type-row${depth > 1 ? " ontology-type-row--child" : ""}${node.kind === "interface" ? " ontology-type-row--interface" : ""}${embedded ? " ontology-type-row--embedded" : ""}${activeCollection === item.name ? " is-selected" : ""}`}
             onClick={() => onSelectCollection(item.name)}
           >
@@ -609,6 +621,7 @@ export function NotesLeftRail({
               type="button"
               className={`ontology-type-row ontology-type-row--pseudo ontology-type-row--issues${activeCollection === PSEUDO_TYPE_ISSUES ? " is-selected" : ""}`}
               aria-label={issueCount ? `Problems ${issueCount}` : "Problems"}
+              aria-current={activeCollection === PSEUDO_TYPE_ISSUES ? "page" : undefined}
               onClick={() => onSelectCollection(PSEUDO_TYPE_ISSUES)}
             >
               <span className="ontology-type-row__label">Problems</span>
@@ -626,6 +639,7 @@ export function NotesLeftRail({
                 type="button"
                 className={`ontology-type-row ontology-type-row--pseudo ontology-type-row--modified${activeCollection === PSEUDO_TYPE_MODIFIED ? " is-selected" : ""}`}
                 aria-label={`Changes ${touchedPaths.size}`}
+                aria-current={activeCollection === PSEUDO_TYPE_MODIFIED ? "page" : undefined}
                 onClick={() => onSelectCollection(PSEUDO_TYPE_MODIFIED)}
               >
                 <span className="ontology-type-row__label">Changes</span>
@@ -639,6 +653,7 @@ export function NotesLeftRail({
               type="button"
               className={`ontology-type-row ontology-type-row--pseudo${activeCollection === PSEUDO_TYPE_ALL ? " is-selected" : ""}`}
               aria-label={totalNotes === null ? "All notes" : `All notes (${totalNotes})`}
+              aria-current={activeCollection === PSEUDO_TYPE_ALL ? "page" : undefined}
               onClick={() => onSelectCollection(PSEUDO_TYPE_ALL)}
             >
               <span className="ontology-type-row__label">All notes</span>
@@ -670,6 +685,7 @@ export function NotesLeftRail({
                   <button
                     type="button"
                     className={`ontology-type-row ontology-type-row--group${activeGroup === group.name ? " is-selected" : ""}`}
+                    aria-current={activeGroup === group.name ? "page" : undefined}
                     onClick={() => onSelectGroup?.(group.name)}
                   >
                     {group.name}
@@ -813,4 +829,4 @@ export function NotesLeftRail({
       )}
     </aside>
   );
-}
+});

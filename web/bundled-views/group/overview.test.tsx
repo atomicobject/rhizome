@@ -107,7 +107,7 @@ it("opens a member from its node and the group's Trace from a relation edge", as
 
 it("switches to the Matrix, with self links, an Outside column, and unused relations", async () => {
   await renderGroupView(loadOverview, { routes: scopeRoutes() });
-  fireEvent.click(within(region("Map")).getByRole("button", { name: "Matrix" }));
+  fireEvent.click(within(region("Map")).getByRole("radio", { name: "Matrix" }));
   const table = within(region("Map")).getByRole("table");
 
   expect(
@@ -130,10 +130,7 @@ it("switches to the Matrix, with self links, an Outside column, and unused relat
     ["plain", "5"],
   ]);
   expect(cells("Releases")[0]).toEqual(["unused", "declared, unused"]);
-  expect(within(region("Map")).getByRole("button", { name: "Matrix" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  expect(within(region("Map")).getByRole("radio", { name: "Matrix" })).toBeChecked();
 });
 
 it("compares members in one table, nesting an interface's implementors", async () => {
@@ -144,6 +141,8 @@ it("compares members in one table, nesting an interface's implementors", async (
   expect(work).toHaveAttribute("title", "Planned work.");
   expect(work).toHaveTextContent("Work items6");
   expect(work).toHaveTextContent("4 active");
+  // The stage bar reads as a text breakdown.
+  expect(within(work).getByRole("img", { name: /^Stages: .+ \d+/ })).toBeInTheDocument();
   expect(work).toHaveTextContent("Next step 3/6");
   expect(work).toHaveTextContent("67%");
   // Optional gaps stay neutral.
@@ -207,7 +206,7 @@ it("says when no member records link and keeps the Matrix, and draws a one-membe
 
   expect(region("Map")).toHaveTextContent("No member records link to each other.");
   expect(map()).toHaveTextContent("No member links");
-  expect(within(region("Map")).getByRole("button", { name: "Matrix" })).toBeEnabled();
+  expect(within(region("Map")).getByRole("radio", { name: "Matrix" })).toBeEnabled();
   library.unmount();
 
   await renderGroupView(loadOverview, { group: "People", routes: scopeRoutes() });
@@ -353,7 +352,10 @@ it("paints every block's heading at once and fills each in as its part arrives",
   );
   expect(within(region("Map")).getByRole("status")).toHaveTextContent("Loading the map…");
   expect(within(region("Members")).getByRole("status")).toHaveTextContent("Loading members…");
-  expect(document.querySelector(".gv-facts-list")).toHaveTextContent("49 notes");
+  // Members wait for the validation envelope's generation, not for the links.
+  await waitFor(() =>
+    expect(document.querySelector(".gv-facts-list")).toHaveTextContent("49 notes"),
+  );
 
   release();
 
@@ -482,4 +484,14 @@ it("reads Outside the group and Guide and views on their own, so one failing lea
   expect(
     within(region("Guide and views")).getByRole("button", { name: "Planning guide" }),
   ).toBeVisible();
+});
+
+it("reads the members part once, with the published validation generation", async () => {
+  const view = await renderGroupView(loadOverview, { routes: scopeRoutes() });
+
+  const members = view.http
+    .requests("GET", "/api/v1/ontology/shape")
+    .filter((request) => request.query.get("parts") === "members");
+
+  expect(members).toHaveLength(1);
 });

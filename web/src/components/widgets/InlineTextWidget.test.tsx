@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   editorDraftStorageKey,
@@ -15,8 +15,8 @@ describe("InlineTextWidget", () => {
   });
 
   it("renders a placeholder when the value is missing", () => {
-    render(<InlineTextWidget value="" editing={false} present={false} placeholder="(empty)" />);
-    expect(screen.getByText("(empty)")).toBeInTheDocument();
+    render(<InlineTextWidget value="" editing={false} present={false} placeholder="Empty" />);
+    expect(screen.getByText("Empty")).toBeInTheDocument();
   });
 
   it("stages on blur when the value changes in edit mode", () => {
@@ -26,6 +26,19 @@ describe("InlineTextWidget", () => {
     fireEvent.change(input, { target: { value: "v1.1" } });
     fireEvent.blur(input);
     expect(onStage).toHaveBeenCalledWith("v1.1");
+  });
+
+  it("edits a long value in a wrapping textarea that keeps one line of text", () => {
+    const onStage = vi.fn();
+    const summary = "A long summary that a single-line input would cut off at its edge. ".repeat(4);
+    render(<InlineTextWidget value={summary} editing={true} onStage={onStage} />);
+    const input = screen.getByRole("textbox");
+
+    expect(input.tagName).toBe("TEXTAREA");
+    expect(input).toHaveValue(summary);
+    fireEvent.change(input, { target: { value: "First line\nsecond line" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onStage).toHaveBeenCalledWith("First line second line");
   });
 
   it("does not stage when blurred without a change", () => {
@@ -175,5 +188,52 @@ describe("InlineTextWidget", () => {
 
     expect(onStage).toHaveBeenNthCalledWith(1, "bravo");
     expect(onStage).toHaveBeenNthCalledWith(2, "alpha");
+  });
+});
+
+describe("InlineTextWidget height", () => {
+  it("waits while its tab is hidden and fits the text once the field is shown", () => {
+    // WHY: jsdom has no layout, so the test supplies what a browser measures:
+    // no client rects while the tab is hidden, and the text's scroll height.
+    let visible = false;
+    let resize: ((entries: { contentRect: { width: number } }[]) => void) | null = null;
+
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: typeof resize) {
+          resize = callback;
+        }
+
+        observe() {}
+
+        disconnect() {}
+      },
+    );
+
+    const rects = vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(() => {
+      const list = { length: visible ? 1 : 0 };
+
+      // SAFETY: the widget reads only the list's length to tell whether it is shown.
+      return list as DOMRectList;
+    });
+
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(48);
+
+    try {
+      render(<InlineTextWidget value={"A long summary\nthat wraps"} editing ariaLabel="Summary" />);
+      const field = screen.getByRole("textbox", { name: "Summary" });
+
+      // Hidden: no zero-height write that would stick after the tab returns.
+      expect(field.style.height).not.toBe("0px");
+
+      visible = true;
+      act(() => resize?.([{ contentRect: { width: 300 } }]));
+      expect(field.style.height).toBe("48px");
+    } finally {
+      rects.mockRestore();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
   });
 });

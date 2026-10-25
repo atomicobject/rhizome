@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { chooseView } from "./workspaceView";
+import { chooseView, expectViewSettled } from "./workspaceView";
 
 test("moves a board card, reports the staged change, and opens a card", async ({ page }) => {
   await page.goto("/notes?view=e2e.action-items");
@@ -46,7 +46,7 @@ test("moves a board card, reports the staged change, and opens a card", async ({
 
   await chooseView(page, "Cards");
   // The previous layout's rows stay on screen until the Cards execution settles.
-  await expect(page.getByRole("button", { name: "Refresh view", exact: true })).toBeEnabled();
+  await expectViewSettled(page);
   const title = page.locator(".configured-card__title").first();
   const openedTitle = (await title.innerText()).trim();
   await title.click();
@@ -64,7 +64,7 @@ test("reorders a table row by keyboard in a view sorted by an editable field", a
   // Sorting by the status enum makes the view orderable. Earlier specs may have
   // saved other statuses, so read the values instead of assuming them.
   await page.getByRole("button", { name: "Sort Status ascending" }).click();
-  await expect(page.getByRole("button", { name: "Refresh view", exact: true })).toBeEnabled();
+  await expectViewSettled(page);
   const rows = page.locator("tr.configured-view__row");
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toHaveAttribute("aria-keyshortcuts", /Alt\+ArrowDown/);
@@ -82,7 +82,7 @@ test("reorders a table row by keyboard in a view sorted by an editable field", a
       .toBe(true);
   }
 
-  await expect(page.getByRole("button", { name: "Refresh view", exact: true })).toBeEnabled();
+  await expectViewSettled(page);
   const movedTitle = (await rows.first().locator("td").last().textContent())?.trim() ?? "";
   const firstStatus = await statusOf(rows.first());
   const nextStatus = await statusOf(rows.last());

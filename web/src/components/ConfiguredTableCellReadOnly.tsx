@@ -288,6 +288,23 @@ export function relationDisplayValue(value: string) {
     .join(", ");
 }
 
+// The options `Date.prototype.toLocaleString()` uses, built once: a table
+// formats one timestamp per row.
+let localTimeFormat: Intl.DateTimeFormat | null = null;
+
+function formatLocalTime(date: Date) {
+  localTimeFormat ??= new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+  });
+
+  return localTimeFormat.format(date);
+}
+
 /** A change time as its age ("4h", "3d"), with the full local time on hover. */
 export function ChangedCell({
   value,
@@ -300,7 +317,7 @@ export function ChangedCell({
   const date = new Date(value < 1e12 ? value * 1000 : value);
 
   return (
-    <time dateTime={date.toISOString()} title={date.toLocaleString()}>
+    <time dateTime={date.toISOString()} title={formatLocalTime(date)}>
       {relativeAge(date.getTime(), now)}
     </time>
   );

@@ -459,7 +459,7 @@ function LocatorWidget({
 
   if (!editing) {
     if (!present || value.trim() === "") {
-      return <span className="widget-text widget-text--empty">(empty)</span>;
+      return <span className="widget-text widget-text--empty">Empty</span>;
     }
 
     return <span className={`widget-text${dirty ? " is-dirty" : ""}`}>^{value}</span>;

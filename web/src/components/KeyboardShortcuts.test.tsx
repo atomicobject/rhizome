@@ -57,6 +57,45 @@ describe("KeyboardShortcuts", () => {
     fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
     expect(dialog()).toBeVisible();
   });
+  it("ignores ? inside rich editors and custom text boxes", () => {
+    render(
+      <>
+        <div contentEditable suppressContentEditableWarning>
+          <p data-testid="paragraph">Draft</p>
+        </div>
+        <div role="textbox" tabIndex={0} aria-label="Code" />
+        <KeyboardShortcuts />
+      </>,
+    );
+
+    fireEvent.keyDown(screen.getByTestId("paragraph"), { key: "?" });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Code" }), { key: "?" });
+
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+  });
+
+  it("lets the reader turn the ? shortcut off and remembers the choice", () => {
+    const first = render(<KeyboardShortcuts />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
+    const toggle = screen.getByRole("checkbox", { name: "Open this list with the ? key" });
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    fireEvent.keyDown(document.body, { key: "?" });
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Keyboard shortcuts" })).not.toHaveAttribute(
+      "aria-keyshortcuts",
+    );
+
+    first.unmount();
+    render(<KeyboardShortcuts />);
+    fireEvent.keyDown(document.body, { key: "?" });
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+    window.localStorage.clear();
+  });
+
   it("opens from the desktop toolbar when the page has no button", () => {
     render(<KeyboardShortcuts trigger={false} />);
 

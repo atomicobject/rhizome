@@ -61,14 +61,34 @@ export function hostPreferenceScope({
   return scope;
 }
 
+/**
+ * "Reset to shared" for a custom view or built-in presentation, shown only
+ * while it has personal overrides. Hosts with a view selector render it in the
+ * selector's row; a bare host draws it above the view.
+ */
+export function ViewPreferenceReset({
+  vaultKey,
+  ...props
+}: Pick<ViewRuntimeProps, "choice" | "definition" | "context" | "preferenceSlot"> & {
+  vaultKey?: string | null;
+}) {
+  if (props.choice.renderer !== "custom" && props.choice.renderer !== "overview") return null;
+
+  return (
+    <ViewPreferencesStatus
+      scope={hostPreferenceScope(props)}
+      vaultKey={vaultKey}
+      includeWidgets={props.choice.renderer === "custom"}
+    />
+  );
+}
+
 function PreferencesBar(props: ViewRuntimeProps) {
+  if (props.embedded) return null;
+
   return (
     <div className="view-preferences-bar">
-      <ViewPreferencesStatus
-        scope={hostPreferenceScope(props)}
-        vaultKey={props.services.vaultKey}
-        includeWidgets={props.choice.renderer === "custom"}
-      />
+      <ViewPreferenceReset {...props} vaultKey={props.services.vaultKey} />
     </div>
   );
 }

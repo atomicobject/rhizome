@@ -43,6 +43,12 @@ class NoticeEntry:
     texts: tuple[tuple[str, bytes], ...]
 
 
+# Self-hosted web fonts in web/public/fonts: the Google Fonts woff2 files
+# (latin and latin-ext subsets) and their OFL text from the google/fonts
+# repository at this commit.
+GOOGLE_FONTS_COMMIT = "e7db6ca603fd4862010383ff17ffd6cc4ffac1c0"
+SELF_HOSTED_FONTS = (("Merriweather", "merriweather"), ("Barlow", "barlow"), ("JetBrains Mono", "jetbrainsmono"))
+
 # These source companions cover dependencies which do not ship a standalone
 # license file. URLs are immutable tags or commits. Fetch them only explicitly.
 FETCHED_SOURCES = (
@@ -50,9 +56,13 @@ FETCHED_SOURCES = (
     Source("go/sqlite-vec-v0.1.6/LICENSE-MIT", "https://raw.githubusercontent.com/asg017/sqlite-vec/v0.1.6/LICENSE-MIT"),
     Source("web/react-compiler-runtime-19.1.0-rc.1/LICENSE", "https://raw.githubusercontent.com/facebook/react/v19.1.0/LICENSE"),
     Source("web/react-remove-scroll-bar-2.3.8/LICENSE", "https://raw.githubusercontent.com/theKashey/react-remove-scroll-bar/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE"),
-    Source("skills/impeccable-4.0.2/LICENSE", "https://raw.githubusercontent.com/pbakaus/impeccable/skill-v4.0.2/LICENSE"),
-    Source("skills/impeccable-4.0.2/NOTICE.md", "https://raw.githubusercontent.com/pbakaus/impeccable/skill-v4.0.2/NOTICE.md"),
+    Source("skills/impeccable-4.7.0/LICENSE", "https://raw.githubusercontent.com/pbakaus/impeccable/skill-v4.7.0/LICENSE"),
+    Source("skills/impeccable-4.7.0/NOTICE.md", "https://raw.githubusercontent.com/pbakaus/impeccable/skill-v4.7.0/NOTICE.md"),
     Source("skills/greptileai/LICENSE", "https://raw.githubusercontent.com/greptileai/skills/646e2dfad81e5157e97daecc802b68d3d2c4d1e4/LICENSE"),
+    *(
+        Source(f"fonts/google-fonts-{GOOGLE_FONTS_COMMIT[:7]}/{directory}/OFL.txt", f"https://raw.githubusercontent.com/google/fonts/{GOOGLE_FONTS_COMMIT}/ofl/{directory}/OFL.txt")
+        for _, directory in SELF_HOSTED_FONTS
+    ),
 )
 
 
@@ -223,13 +233,13 @@ def generate_web(outputs: dict[Path, bytes]) -> list[NoticeEntry]:
 def generate_skills(outputs: dict[Path, bytes]) -> list[NoticeEntry]:
     entries: list[NoticeEntry] = []
     impeccable = (
-        ("LICENSE", (SOURCES / "skills/impeccable-4.0.2/LICENSE").read_bytes()),
-        ("NOTICE", (SOURCES / "skills/impeccable-4.0.2/NOTICE.md").read_bytes()),
+        ("LICENSE", (SOURCES / "skills/impeccable-4.7.0/LICENSE").read_bytes()),
+        ("NOTICE", (SOURCES / "skills/impeccable-4.7.0/NOTICE.md").read_bytes()),
     )
     for path in [ROOT / ".agents/skills/impeccable", ROOT / ".claude/skills/impeccable", ROOT / ".github/skills/impeccable"]:
         for filename, content in impeccable:
             add_output(outputs, path / filename, content)
-    entry = NoticeEntry("Skills", "Impeccable copied skills", "4.0.2", "Apache-2.0", "https://github.com/pbakaus/impeccable/tree/skill-v4.0.2", LICENSES / "skills" / "impeccable@4.0.2", impeccable)
+    entry = NoticeEntry("Skills", "Impeccable copied skills", "4.7.0", "Apache-2.0", "https://github.com/pbakaus/impeccable/tree/skill-v4.7.0", LICENSES / "skills" / "impeccable@4.7.0", impeccable)
     plan_entry(outputs, entry)
     entries.append(entry)
 
@@ -240,6 +250,17 @@ def generate_skills(outputs: dict[Path, bytes]) -> list[NoticeEntry]:
     plan_entry(outputs, entry)
     entries.append(entry)
 
+    return entries
+
+
+def generate_fonts(outputs: dict[Path, bytes]) -> list[NoticeEntry]:
+    entries: list[NoticeEntry] = []
+    for family, directory in SELF_HOSTED_FONTS:
+        texts = (("OFL.txt", (SOURCES / f"fonts/google-fonts-{GOOGLE_FONTS_COMMIT[:7]}/{directory}/OFL.txt").read_bytes()),)
+        source = f"https://github.com/google/fonts/tree/{GOOGLE_FONTS_COMMIT}/ofl/{directory} (woff2 files from Google Fonts in web/public/fonts)"
+        entry = NoticeEntry("Fonts", family, f"google/fonts@{GOOGLE_FONTS_COMMIT[:7]}", "OFL-1.1", source, LICENSES / "fonts" / directory, texts)
+        plan_entry(outputs, entry)
+        entries.append(entry)
     return entries
 
 
@@ -258,7 +279,7 @@ def render_index(entries: list[NoticeEntry]) -> bytes:
         "Full license and notice text is stored in `licenses/**`. The browser notice is `web/public/third-party-licenses.txt`.",
         "",
     ]
-    for group in ("Go", "Web", "Skills"):
+    for group in ("Go", "Web", "Fonts", "Skills"):
         lines.extend([f"## {group}", "", "| Package | Version | Declared license | Full text directory | Source |", "| --- | --- | --- | --- | --- |"])
         for entry in (item for item in entries if item.group == group):
             lines.append(f"| {entry.title} | {entry.version} | {entry.declared} | `{entry.directory.relative_to(ROOT)}` | {entry.source} |")
@@ -267,7 +288,7 @@ def render_index(entries: list[NoticeEntry]) -> bytes:
 
 
 def stale_outputs(outputs: dict[Path, bytes]) -> list[Path]:
-    generated_roots = (LICENSES / "go", LICENSES / "web", LICENSES / "skills")
+    generated_roots = (LICENSES / "go", LICENSES / "web", LICENSES / "fonts", LICENSES / "skills")
     files: set[Path] = {ROOT / "THIRD_PARTY_LICENSES.md", WEB / "public/third-party-licenses.txt"}
     for root in generated_roots:
         if root.exists():
@@ -306,20 +327,21 @@ def main() -> int:
     outputs: dict[Path, bytes] = {}
     go_entries = generate_go(outputs)
     web_entries = generate_web(outputs)
+    font_entries = generate_fonts(outputs)
     skill_entries = generate_skills(outputs)
     go_module_count = len(go_modules())
     go_alias_count = len(tree_sitter_aliases())
-    entries = go_entries + web_entries + skill_entries
+    entries = go_entries + web_entries + font_entries + skill_entries
     add_output(outputs, ROOT / "THIRD_PARTY_LICENSES.md", render_index(entries))
-    web_notice = ("Third-party web dependency license notices\nGenerated by `python3 scripts/licenses/generate.py`.\n\n" + "\n".join(render_full_entry(entry) for entry in web_entries)).rstrip() + "\n"
+    web_notice = ("Third-party web dependency license notices\nGenerated by `python3 scripts/licenses/generate.py`.\n\n" + "\n".join(render_full_entry(entry) for entry in web_entries + font_entries)).rstrip() + "\n"
     add_output(outputs, WEB / "public/third-party-licenses.txt", web_notice.encode())
 
     if args.check:
         check_outputs(outputs)
-        print(f"license notices are current for {go_module_count} vendored Go modules, {go_alias_count} replacement aliases, {len(web_entries)} non-development web packages, and {len(skill_entries)} copied skills")
+        print(f"license notices are current for {go_module_count} vendored Go modules, {go_alias_count} replacement aliases, {len(web_entries)} non-development web packages, {len(font_entries)} self-hosted fonts, and {len(skill_entries)} copied skills")
     else:
         apply_outputs(outputs)
-        print(f"generated notices for {go_module_count} vendored Go modules, {go_alias_count} replacement aliases, {len(web_entries)} non-development web packages, and {len(skill_entries)} copied skills")
+        print(f"generated notices for {go_module_count} vendored Go modules, {go_alias_count} replacement aliases, {len(web_entries)} non-development web packages, {len(font_entries)} self-hosted fonts, and {len(skill_entries)} copied skills")
     return 0
 
 

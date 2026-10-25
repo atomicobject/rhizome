@@ -117,7 +117,7 @@ export function AgentSettingsPanel({
             ))}
           </select>
         </label>
-        <label>
+        <label className="agent-model-controls__wide">
           Permission mode
           <select
             aria-label="Permission mode"

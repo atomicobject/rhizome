@@ -10,6 +10,7 @@
 //   LinkedTitles, Dash: record- and member-level atoms.
 // - openRecord(record), openMemberIssues(member): navigation helpers.
 import {
+  Dash,
   RelativeTime,
   StatusMark,
   openCollection,
@@ -146,13 +147,7 @@ export function GroupFrame({ state, children }: { state: GroupModelState; childr
   );
 }
 
-/** An empty value: a dash on screen, "None" to assistive technology. */
-export const Dash = () => (
-  <span className="gv-dash">
-    <span aria-hidden="true">—</span>
-    <span className="sr-only">None</span>
-  </span>
-);
+export { Dash };
 
 /**
  * The record's lifecycle mark, a plain square for a member without a

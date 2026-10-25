@@ -67,6 +67,26 @@ describe("status marks", () => {
     rerender(<StatusMark value={null} values={LIFECYCLE} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("draw risk and warning as shapes, not only colors, like the host's marks", () => {
+    const values: EnumValueDoc[] = [
+      ...LIFECYCLE,
+      { name: "late", label: "Late", tone: "warning", stage: "active" },
+    ];
+
+    const { container, rerender } = render(<StatusMark value="blocked" values={values} />);
+
+    expect(container.firstElementChild).toHaveAttribute("data-tone", "risk");
+    expect(container.querySelector("svg circle")).toBeNull();
+    expect(container.querySelector("svg path")).not.toBeNull();
+
+    rerender(<StatusMark value="late" values={values} />);
+    expect(container.firstElementChild).toHaveAttribute("data-tone", "warning");
+    expect(container.querySelector("svg circle")).toBeNull();
+
+    rerender(<StatusMark value="abandoned" values={values} />);
+    expect(container.querySelector("svg circle")).toHaveAttribute("stroke-dasharray");
+  });
 });
 
 describe("record chips", () => {

@@ -5,7 +5,6 @@ import { appQueryClient } from "./api/queryClient";
 import { AppShell } from "./components/AppShell";
 import { VaultInvalidationBridge } from "./query/VaultInvalidationBridge";
 
-import "highlight.js/styles/github.css";
 import "./base.css";
 import "./agent.css";
 import "./explorer.css";

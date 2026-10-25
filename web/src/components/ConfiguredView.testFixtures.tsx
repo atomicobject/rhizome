@@ -227,6 +227,13 @@ export function openEnumEditor(index = 0) {
   return editor;
 }
 
+/** Opens the toolbar's View options, where density, columns, Save view, and refresh live. */
+export function openViewOptions() {
+  const button = screen.getByRole("button", { name: /^View options/ });
+
+  if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
+}
+
 export function renderView(
   props: Partial<{
     view: ViewCatalogEntry;

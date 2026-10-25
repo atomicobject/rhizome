@@ -1,7 +1,7 @@
 import { publicTypeName } from "../lib/typeNames";
 import type { MutableRefObject, ReactNode } from "react";
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Components as MarkdownComponents } from "react-markdown";
+import type { ExtraProps, Components as MarkdownComponents } from "react-markdown";
 import type {
   NodeLocator,
   NodeStatus,
@@ -397,9 +397,50 @@ function ReadonlySource({
   );
 }
 
-type HeadingComponent = (tag: HeadingTag) => (props: { children?: ReactNode }) => ReactNode;
-
 type HeadingTag = "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+
+type RegisterHeading = (sectionId: string) => (element: HTMLElement | null) => void;
+
+// Keeps a URL as authored; Rhizome resolves note links itself. Module-level so
+// the memoized Markdown body sees a stable prop.
+const keepUrl = (url: string) => url;
+
+/**
+ * Heading components for a whole-document Markdown body. Each heading
+ * registers by its source offset, so the component types stay stable across
+ * renders (the memoized body does not re-parse) and the outline still finds
+ * the nth heading in document order.
+ */
+function documentHeadingComponents(
+  refs: MutableRefObject<Map<number, HTMLElement>>,
+): MarkdownComponents {
+  const heading = (tag: HeadingTag) =>
+    function Heading({ node, children }: { children?: ReactNode } & ExtraProps) {
+      const offset = node?.position?.start.offset;
+
+      return createElement(
+        tag,
+        {
+          ref: (element: HTMLElement | null) => {
+            if (offset === undefined) return;
+
+            if (element) refs.current.set(offset, element);
+            else refs.current.delete(offset);
+          },
+        },
+        children,
+      );
+    };
+
+  return {
+    h1: heading("h1"),
+    h2: heading("h2"),
+    h3: heading("h3"),
+    h4: heading("h4"),
+    h5: heading("h5"),
+    h6: heading("h6"),
+  };
+}
 
 function headingTag(level: string | undefined): HeadingTag {
   switch (level?.toUpperCase()) {
@@ -420,17 +461,15 @@ function headingTag(level: string | undefined): HeadingTag {
 
 type SectionWalkerProps = {
   sections: RenderedSection[];
-  headingComponent: HeadingComponent;
+  registerHeading: RegisterHeading;
   markdownComponents: MarkdownComponents;
   keyPrefix?: string;
 };
 
 /**
  * SectionWalker renders the note body as a depth-first preorder traversal of
- * the parsed section tree, using each section's own-content. It mirrors the
- * iteration order of `flattenSections` so `headingComponent` — which
- * increments a closure-scoped counter to bind DOM refs — stays in lockstep
- * with the outline's section-index map.
+ * the parsed section tree, using each section's own-content. Each section
+ * heading registers its DOM element by section id for outline navigation.
  *
  * Typed sections (those carrying `typeName` + `previewTemplate`) render
  * inside a collapsible `TypedSectionCard`; their children recurse *inside*
@@ -438,7 +477,7 @@ type SectionWalkerProps = {
  */
 function SectionWalker({
   sections,
-  headingComponent,
+  registerHeading,
   markdownComponents,
   keyPrefix = "",
 }: SectionWalkerProps) {
@@ -447,11 +486,10 @@ function SectionWalker({
       {sections.map((section, index) => {
         const key = `${keyPrefix}${section.id || index}`;
         const level = headingTag(section.level);
-        const Heading = headingComponent(level);
         const ownContent = convertWikilinks(section.content || "");
 
         const bodyMarkdown = ownContent ? (
-          <Markdown urlTransform={(url) => url} components={markdownComponents}>
+          <Markdown urlTransform={keepUrl} components={markdownComponents}>
             {ownContent}
           </Markdown>
         ) : null;
@@ -460,7 +498,7 @@ function SectionWalker({
           section.children && section.children.length > 0 ? (
             <SectionWalker
               sections={section.children}
-              headingComponent={headingComponent}
+              registerHeading={registerHeading}
               markdownComponents={markdownComponents}
               keyPrefix={`${key}-`}
             />
@@ -470,7 +508,11 @@ function SectionWalker({
 
         return (
           <section key={key} className="ontology-section">
-            <Heading>{displayTitle(section.title)}</Heading>
+            {createElement(
+              level,
+              { ref: section.id ? registerHeading(section.id) : undefined },
+              displayTitle(section.title),
+            )}
             {isTyped ? (
               <TypedSectionCard section={section} markdownComponents={markdownComponents}>
                 {bodyMarkdown}
@@ -772,7 +814,7 @@ function StructuralNodeView({
 
                 {nodeOwnMarkdown && (
                   <div className="ontology-struct__section-body">
-                    <Markdown urlTransform={(url) => url} components={markdownComponents}>
+                    <Markdown urlTransform={keepUrl} components={markdownComponents}>
                       {nodeOwnMarkdown}
                     </Markdown>
                   </div>
@@ -854,7 +896,7 @@ function StructuralNodeView({
             >
               {ownMarkdown && (
                 <div className="ontology-struct__section-body">
-                  <Markdown urlTransform={(url) => url} components={markdownComponents}>
+                  <Markdown urlTransform={keepUrl} components={markdownComponents}>
                     {ownMarkdown}
                   </Markdown>
                 </div>
@@ -1143,7 +1185,8 @@ export function OntologyNotePane({
   );
 
   const useStructuralMode = viewMode === "read" && structuralNodes.length > 0;
-  const headingRefs = useRef<Array<HTMLElement | null>>([]);
+  const headingRefs = useRef<Map<number, HTMLElement>>(new Map());
+  const sectionHeadingRefs = useRef<Map<string, HTMLElement>>(new Map());
   const structuralSectionRefs = useRef<Map<string, HTMLElement>>(new Map());
   const sourceSectionRefs = useRef<Map<string, HTMLElement>>(new Map());
   const sourceEditorRef = useRef<MarkdownEditorHandle | null>(null);
@@ -1322,32 +1365,34 @@ export function OntologyNotePane({
     [onOpen, rendered, toolbarPath],
   );
 
-  let headingIndex = 0;
+  const documentMarkdownComponents = useMemo<MarkdownComponents>(
+    () => ({ ...documentHeadingComponents(headingRefs), ...markdownComponents }),
+    [markdownComponents],
+  );
 
-  const headingComponent = (tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") =>
-    function Heading({ children }: { children?: ReactNode }) {
-      const current = headingIndex++;
-
-      return createElement(
-        tag,
-        {
-          ref: (node: HTMLElement | null) => {
-            headingRefs.current[current] = node;
-          },
-        },
-        children,
-      );
-    };
+  const registerHeading = useCallback<RegisterHeading>(
+    (sectionId) => (element) => {
+      if (element) sectionHeadingRefs.current.set(sectionId, element);
+      else sectionHeadingRefs.current.delete(sectionId);
+    },
+    [],
+  );
 
   // The element that renders an outline section in the current view, if any.
   const outlineTarget = useCallback(
     (section: RenderedSection): HTMLElement | null => {
       const index = sectionIndexMap.get(section.id);
 
+      const documentHeading = () =>
+        index === undefined
+          ? undefined
+          : [...headingRefs.current].sort(([left], [right]) => left - right)[index]?.[1];
+
       return (
         structuralSectionRefs.current.get(section.id) ??
         sourceSectionRefs.current.get(section.id) ??
-        (index === undefined ? null : headingRefs.current[index]) ??
+        sectionHeadingRefs.current.get(section.id) ??
+        documentHeading() ??
         null
       );
     },
@@ -1480,7 +1525,11 @@ export function OntologyNotePane({
           </span>
           {toolbarPath && <span className="ontology-pane__toolbar-path">{toolbarPath}</span>}
           {structuralTabs.length > 0 && onOpenNode ? (
-            <div className="ontology-pane__section-tabs" role="toolbar" aria-label="Sections">
+            <div
+              className="ontology-pane__section-tabs segmented"
+              role="toolbar"
+              aria-label="Sections"
+            >
               {structuralTabs.map((tab) => {
                 const target = tab.nodes?.[0];
 
@@ -1548,7 +1597,11 @@ export function OntologyNotePane({
               {locator.status === "requires_fix" ? "Make linkable" : "Copy link"}
             </button>
           )}
-          {copyLinkMessage && <span className="ontology-chip">{copyLinkMessage}</span>}
+          {copyLinkMessage && (
+            <span className="ontology-chip" role="status">
+              {copyLinkMessage}
+            </span>
+          )}
           {onToggleContext && !contextCollapsed ? (
             <button
               type="button"
@@ -1601,7 +1654,11 @@ export function OntologyNotePane({
                 Refreshing note…
               </div>
             )}
-            {error && <div className="ontology-pane__refresh-status is-error">{error}</div>}
+            {error && (
+              <div className="ontology-pane__refresh-status is-error" role="alert">
+                {error}
+              </div>
+            )}
             {(renderPresentation ?? ((body) => body))(
               <>
                 {viewMode === "read" &&
@@ -1758,13 +1815,13 @@ export function OntologyNotePane({
                   ) : useSectionWalker ? (
                     <>
                       {prefaceMarkdown && (
-                        <Markdown urlTransform={(url) => url} components={markdownComponents}>
+                        <Markdown urlTransform={keepUrl} components={markdownComponents}>
                           {prefaceMarkdown}
                         </Markdown>
                       )}
                       <SectionWalker
                         sections={rendered.sections || []}
-                        headingComponent={headingComponent}
+                        registerHeading={registerHeading}
                         markdownComponents={markdownComponents}
                       />
                     </>
@@ -1779,18 +1836,7 @@ export function OntologyNotePane({
                       onStageOps={onStageOps}
                     />
                   ) : (
-                    <Markdown
-                      urlTransform={(url) => url}
-                      components={{
-                        h1: headingComponent("h1"),
-                        h2: headingComponent("h2"),
-                        h3: headingComponent("h3"),
-                        h4: headingComponent("h4"),
-                        h5: headingComponent("h5"),
-                        h6: headingComponent("h6"),
-                        ...markdownComponents,
-                      }}
-                    >
+                    <Markdown urlTransform={keepUrl} components={documentMarkdownComponents}>
                       {markdown}
                     </Markdown>
                   )}

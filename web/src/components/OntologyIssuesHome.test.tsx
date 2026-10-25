@@ -453,7 +453,7 @@ describe("NotesIssuesHome", () => {
     ).toBeVisible();
     fireEvent.click(screen.getByText("Check details"));
     expect(screen.getByText("default")).toBeVisible();
-    expect(screen.getAllByText("completed")).toHaveLength(2);
+    expect(screen.getAllByText("Completed")).toHaveLength(2);
   });
 
   it("shows repair membership once and preserves selection after staging fails", async () => {

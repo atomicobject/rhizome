@@ -120,3 +120,35 @@ func TestResetInstanceRacingWidgetWriteCannotRestorePriorState(t *testing.T) {
 		require.EqualValues(t, 2, final.Revision)
 	}
 }
+
+func TestHostSnapshotReportsWidgetOverrides(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := openTestStore(t, t.TempDir())
+	host := testScope("work")
+	sibling := testScope("home")
+	_, err := store.Patch(ctx, widgetScope(sibling, "table"), 0, map[string]json.RawMessage{"density": json.RawMessage(`"compact"`)}, nil)
+	require.NoError(t, err)
+
+	snapshot, err := store.Read(ctx, host)
+	require.NoError(t, err)
+	require.False(t, snapshot.FamilyOverrides, "another instance's widget is not this host's")
+
+	widget := widgetScope(host, "table")
+	_, err = store.Patch(ctx, widget, 0, map[string]json.RawMessage{"density": json.RawMessage(`"compact"`)}, nil)
+	require.NoError(t, err)
+	snapshot, err = store.Read(ctx, host)
+	require.NoError(t, err)
+	require.Empty(t, snapshot.Values)
+	require.True(t, snapshot.FamilyOverrides)
+	widgetSnapshot, err := store.Read(ctx, widget)
+	require.NoError(t, err)
+	require.False(t, widgetSnapshot.FamilyOverrides, "only host scopes report their widgets")
+
+	_, err = store.ResetInstance(ctx, host, snapshot.Revision)
+	require.NoError(t, err)
+	snapshot, err = store.Read(ctx, host)
+	require.NoError(t, err)
+	require.False(t, snapshot.FamilyOverrides)
+	require.NoError(t, store.Close())
+}

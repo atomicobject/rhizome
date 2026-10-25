@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 
 import { publicWorkspaceRef } from "../api/client";
@@ -21,7 +21,7 @@ import { NodePresentationHost } from "./NodePresentationHost";
 import { ViewSelector } from "../views/ViewSelector";
 import { useViewSelection } from "../views/useViewSelection";
 import { type OpenNodeOptions, type ViewContext } from "../views/context";
-import type { ViewServices } from "../views/ViewHost";
+import { ViewPreferenceReset, type ViewServices } from "../views/ViewHost";
 import { flushEditors } from "./editing/editorFlush";
 import { OntologyNotePane } from "./OntologyNotePane";
 import { buildNoteWebHref } from "../lib/content";
@@ -32,7 +32,8 @@ import { parseIssueTarget } from "./validation/issueNavigation";
 
 type OpenTarget = "current" | "stack" | "beside";
 
-export function NoteTab({
+// Memoized so a retained tab skips shell renders whose props it does not read.
+export const NoteTab = memo(function NoteTab({
   tab,
   active,
   anchor,
@@ -50,7 +51,7 @@ export function NoteTab({
   vaultKey = null,
   validationIssueCount,
   validationHealth,
-  onOpenIssues,
+  onOpenIssues: openIssues,
   onSelectIssues,
   onSelectCollection,
   views,
@@ -87,6 +88,14 @@ export function NoteTab({
   views?: ViewCatalog;
   onPresentation?: (tabId: string, presentation: string | null) => void;
 }) {
+  // Without an explicit handler, a note's issue count opens that note's issues.
+  const onOpenIssues = useMemo(
+    () =>
+      openIssues ??
+      (onSelectIssues ? () => onSelectIssues({ kind: "note", key: tab.path }) : undefined),
+    [onSelectIssues, openIssues, tab.path],
+  );
+
   const { paneStack, openRootPane, focusOrPushNodeFromIndex, closePaneAt, loadPane } = usePaneStack(
     editSession,
     savedWorkspaces,
@@ -358,6 +367,14 @@ export function NoteTab({
               onSelect={(id) => void changePresentation(id)}
               status={selection}
             />
+            {choice && nodeContext && (
+              <ViewPreferenceReset
+                choice={choice}
+                definition={definition}
+                context={nodeContext}
+                vaultKey={vaultKey}
+              />
+            )}
             {presentationError && <span role="alert">{presentationError}</span>}
           </>
         }
@@ -432,4 +449,4 @@ export function NoteTab({
       />
     </div>
   );
-}
+});

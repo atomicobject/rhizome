@@ -57,10 +57,10 @@ const TONE_COLOR: Record<StatusTone, string> = {
   neutral: "var(--text-faint)",
   info: "var(--info)",
   progress: "var(--info)",
-  success: "var(--ao-teal-ink)",
+  success: "var(--success-ink)",
   warning: "var(--warning-ink)",
-  risk: "var(--accent-active)",
-  muted: "var(--ao-gray-400)",
+  risk: "var(--accent)",
+  muted: "var(--text-faint)",
 };
 
 const R = 4.6;
@@ -75,6 +75,13 @@ function wedge(fill: number) {
   return `M${C} ${C}L${C} ${C - R}A${R} ${R} 0 ${fill > 0.5 ? 1 : 0} 1 ${x} ${y}Z`;
 }
 
+// Warning and risk are shapes, not only colors, as in the host's status marks:
+// a triangle and a diamond replace the lifecycle ring.
+const TONE_GLYPH: Partial<Record<StatusTone, string>> = {
+  warning: "M5.5 1.1L10.1 9.7H0.9Z",
+  risk: "M5.5 0.7L10.3 5.5L5.5 10.3L0.7 5.5Z",
+};
+
 function Glyph({ position }: { position: StatusPosition }) {
   if (position.kind === "unknown") return null;
 
@@ -82,7 +89,7 @@ function Glyph({ position }: { position: StatusPosition }) {
     return (
       <>
         <circle cx={C} cy={C} r={R} fill="currentColor" />
-        <path d="M3.4 5.6l1.5 1.5 2.8-3" stroke="var(--ao-white)" strokeWidth="1.3" fill="none" />
+        <path d="M3.4 5.6l1.5 1.5 2.8-3" stroke="var(--surface)" strokeWidth="1.3" fill="none" />
       </>
     );
   }
@@ -109,18 +116,21 @@ type StatusMarkProps = {
 };
 
 /**
- * A lifecycle value: the mark's fill shows how far along the value is, its
- * color shows the value's tone, and the label always accompanies it.
+ * A lifecycle value: the mark's fill shows how far along the value is, a
+ * warning or risk tone changes its shape, and the label always accompanies it.
  */
 export function StatusMark({ value, values, label, hideLabel, className }: StatusMarkProps) {
   if (!value) return null;
   const position = statusPosition(values, value);
   const doc = position.kind === "unknown" ? undefined : position.value;
   const text = label ?? doc?.label ?? value;
+  const tone = toneOf(doc?.tone);
+  const toneGlyph = TONE_GLYPH[tone];
 
   return (
     <span
       data-status={position.kind}
+      data-tone={tone}
       title={hideLabel && isString(text) ? text : undefined}
       className={cn(
         "inline-flex min-w-0 items-center gap-1.5 text-[12px] leading-tight whitespace-nowrap",
@@ -131,10 +141,24 @@ export function StatusMark({ value, values, label, hideLabel, className }: Statu
         aria-hidden="true"
         viewBox="0 0 11 11"
         className="size-[11px] shrink-0"
-        style={{ color: TONE_COLOR[toneOf(doc?.tone)] }}
+        style={{ color: TONE_COLOR[tone] }}
       >
-        <circle cx={C} cy={C} r={R} fill="none" stroke="currentColor" strokeWidth="1.2" />
-        <Glyph position={position} />
+        {toneGlyph ? (
+          <path d={toneGlyph} fill="currentColor" />
+        ) : (
+          <>
+            <circle
+              cx={C}
+              cy={C}
+              r={R}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeDasharray={tone === "muted" ? "1.6 1.4" : undefined}
+            />
+            <Glyph position={position} />
+          </>
+        )}
       </svg>
       <span className={hideLabel ? "sr-only" : "truncate"}>{text}</span>
     </span>

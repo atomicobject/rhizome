@@ -231,3 +231,19 @@ export function moveMenuFocus(menu: HTMLElement, key: string) {
 
   return true;
 }
+
+/**
+ * The tab a tablist key moves to: arrows wrap, Home and End jump to the ends.
+ * Returns null for any other key, which the tab leaves alone.
+ */
+export function tabKeyTarget(key: string, index: number, count: number): number | null {
+  if (key === "ArrowRight" || key === "ArrowDown") return (index + 1) % count;
+
+  if (key === "ArrowLeft" || key === "ArrowUp") return (index - 1 + count) % count;
+
+  if (key === "Home") return 0;
+
+  if (key === "End") return count - 1;
+
+  return null;
+}

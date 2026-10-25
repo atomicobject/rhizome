@@ -34,7 +34,8 @@ export function ViewPreferencesStatus({
           Saving preferences…
         </span>
       )}
-      {(includeWidgets || Object.keys(preferences.values).length > 0) && (
+      {(Object.keys(preferences.values).length > 0 ||
+        (includeWidgets && preferences.familyOverrides)) && (
         <button
           type="button"
           className="view-preferences__reset"

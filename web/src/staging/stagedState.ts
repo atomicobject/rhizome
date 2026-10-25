@@ -26,6 +26,51 @@ export type StagedTarget = {
 
 /** Field names the session changes on this node, including unacknowledged edits. */
 export function changedFields(session: Session, target: StagedTarget): Set<string> {
+  const lineage = session?.refLineage ?? [];
+
+  return collectChangedFields(session, target, fieldOps(session, lineage), lineage);
+}
+
+const NO_FIELDS: ReadonlySet<string> = new Set();
+
+/**
+ * `changedFields` for many nodes at once, such as every row of a table. Ops
+ * are prepared once rather than per node, and nodes without changes share one
+ * empty set, so callers can compute this once per session revision and hand
+ * each node a value that stays equal while its own changes do not.
+ */
+export function changedFieldsByKey<K>(
+  session: Session,
+  targets: Iterable<readonly [K, StagedTarget]>,
+): Map<K, ReadonlySet<string>> {
+  const lineage = session?.refLineage ?? [];
+  const ops = fieldOps(session, lineage);
+  const result = new Map<K, ReadonlySet<string>>();
+
+  for (const [key, target] of targets) {
+    const changed = collectChangedFields(session, target, ops, lineage);
+    result.set(key, changed.size > 0 ? changed : NO_FIELDS);
+  }
+
+  return result;
+}
+
+type Lineage = NonNullable<OntologyEditSessionResponse["refLineage"]>;
+
+// Field ops with committed refs already remapped, so matching can skip it.
+function fieldOps(session: Session, lineage: Lineage) {
+  return remapCommittedEditOps(
+    (session?.ops || []).filter((op) => op.field),
+    lineage,
+  );
+}
+
+function collectChangedFields(
+  session: Session,
+  target: StagedTarget,
+  remappedOps: OntologyEditOp[],
+  lineage: Lineage,
+): Set<string> {
   const changed = new Set<string>();
 
   for (const key of refKeys(target)) {
@@ -36,8 +81,8 @@ export function changedFields(session: Session, target: StagedTarget): Set<strin
     session?.changedFieldsByNode?.[key]?.forEach((field) => changed.add(field));
   }
 
-  for (const op of session?.ops || []) {
-    if (op.field && opTargets(op, target, session?.refLineage ?? [])) changed.add(op.field);
+  for (const op of remappedOps) {
+    if (op.field && remappedOpTargets(op, target, lineage)) changed.add(op.field);
   }
 
   return changed;
@@ -201,12 +246,11 @@ function pathKeys(target: StagedTarget) {
   return [...keys];
 }
 
-function opTargets(
-  op: OntologyEditOp,
-  target: StagedTarget,
-  lineage: NonNullable<OntologyEditSessionResponse["refLineage"]>,
-) {
-  op = remapCommittedEditOps([op], lineage)[0];
+function opTargets(op: OntologyEditOp, target: StagedTarget, lineage: Lineage) {
+  return remappedOpTargets(remapCommittedEditOps([op], lineage)[0], target, lineage);
+}
+
+function remappedOpTargets(op: OntologyEditOp, target: StagedTarget, lineage: Lineage) {
   let ref = target.ref;
 
   for (const { original, preview } of lineage) {

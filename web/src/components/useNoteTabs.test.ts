@@ -403,12 +403,13 @@ describe("useNoteTabs", () => {
     expect(new URLSearchParams(window.location.search).get("search")).toBe("plan");
   });
 
-  it("refines one search tab in place and keeps its stable tab identity", () => {
+  it("refines one search tab in place and keeps its stable tab identity", async () => {
     const { result } = renderHook(() => useNoteTabs("vault-a"));
     act(() => result.current.openSearch("architecture review"));
     const id = result.current.activeId;
 
     act(() => result.current.setSearchScroll(id, 160));
+    await waitFor(() => expect(result.current.activeTab).toMatchObject({ scrollTop: 160 }));
     act(() => result.current.refineSearch(id, { scope: "all" }, " architecture review "));
     expect(result.current.activeTab).toMatchObject({ scrollTop: 160 });
 
@@ -422,6 +423,45 @@ describe("useNoteTabs", () => {
       filters: { scope: "notes", noteType: "Spec", folder: null },
       scrollTop: 0,
     });
+  });
+
+  it("commits search scroll after scrolling settles, on leaving the tab, and on pagehide", () => {
+    vi.useFakeTimers();
+
+    try {
+      const { result } = renderHook(() => useNoteTabs("vault-a"));
+      act(() => result.current.openSearch("architecture review"));
+      const id = result.current.activeId;
+      const tabs = result.current.tabs;
+
+      // Scroll events stay out of tab state until scrolling pauses.
+      act(() => {
+        result.current.setSearchScroll(id, 40);
+        result.current.setSearchScroll(id, 120);
+      });
+      expect(result.current.tabs).toBe(tabs);
+      act(() => vi.advanceTimersByTime(200));
+      expect(result.current.activeTab).toMatchObject({ id, scrollTop: 120 });
+
+      // Leaving the tab commits a pending position before the debounce.
+      act(() => result.current.setSearchScroll(id, 300));
+      act(() => result.current.activate("home"));
+      expect(result.current.tabs.find((tab) => tab.id === id)).toMatchObject({ scrollTop: 300 });
+
+      // A refinement that resets the position drops an older pending one.
+      act(() => result.current.activate(id));
+      act(() => result.current.setSearchScroll(id, 500));
+      act(() => result.current.refineSearch(id, { scope: "notes", noteType: "Spec" }));
+      act(() => vi.advanceTimersByTime(200));
+      expect(result.current.activeTab).toMatchObject({ id, scrollTop: 0 });
+
+      // Unloading stores the latest position even when React cannot commit again.
+      act(() => result.current.setSearchScroll(id, 75));
+      window.dispatchEvent(new Event("pagehide"));
+      expect(window.sessionStorage.getItem(storedKey("vault-a"))).toContain('"scrollTop":75');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("replays search filter history into the same tab", async () => {

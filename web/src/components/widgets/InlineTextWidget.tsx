@@ -3,6 +3,7 @@ import {
   type KeyboardEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -42,7 +43,9 @@ type Props = {
 
 /**
  * Compact inline text field. In browse mode it renders as a static value; in
- * edit mode it presents an input that stages on blur (or Enter). Escape
+ * edit mode it presents a one-value textarea that wraps and grows with its
+ * text, so long values such as summaries stay readable, and stages on blur
+ * (or Enter; a scalar holds no line breaks). Escape
  * cancels and reverts to the on-disk value. The widget never owns persistence
  * directly — it emits a single staged value to the parent panel.
  */
@@ -62,13 +65,43 @@ export function InlineTextWidget({
     () => readPersistedEditorDraft(vaultKey, operationTarget) ?? value,
   );
 
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const draftRef = useRef(draft);
   const valueRef = useRef(value);
   const onStageRef = useRef(onStage);
   const lastStagedRef = useRef<string | null>(null);
   const suppressBlurRef = useRef(false);
   const composingRef = useRef(false);
+
+  // Grow with the text; the stylesheet caps the height and scrolls beyond it.
+  // A field in a hidden tab measures zero, so it waits until it is shown.
+  const fitHeight = useCallback(() => {
+    const input = inputRef.current;
+
+    if (!input || input.getClientRects().length === 0) return;
+    input.style.height = "auto";
+    input.style.height = `${input.scrollHeight + input.offsetHeight - input.clientHeight}px`;
+  }, []);
+
+  useLayoutEffect(fitHeight, [draft, editing, fitHeight]);
+
+  // Re-fit when the field's width changes, including when a hidden tab shows.
+  useEffect(() => {
+    const input = inputRef.current;
+
+    if (!input || typeof ResizeObserver === "undefined") return;
+    let width = -1;
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry || entry.contentRect.width === width) return;
+      width = entry.contentRect.width;
+      fitHeight();
+    });
+
+    observer.observe(input);
+
+    return () => observer.disconnect();
+  }, [editing, fitHeight]);
 
   useEffect(() => {
     draftRef.current = draft;
@@ -147,7 +180,7 @@ export function InlineTextWidget({
   }, [draft, onStage, value]);
 
   const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
       if (event.key === "Enter") {
         if (composingRef.current || event.nativeEvent.isComposing || event.keyCode === 229) {
           return;
@@ -180,11 +213,11 @@ export function InlineTextWidget({
     commit();
   }, [commit]);
 
-  const handleCompositionStart = useCallback((_event: CompositionEvent<HTMLInputElement>) => {
+  const handleCompositionStart = useCallback((_event: CompositionEvent<HTMLTextAreaElement>) => {
     composingRef.current = true;
   }, []);
 
-  const handleCompositionEnd = useCallback((_event: CompositionEvent<HTMLInputElement>) => {
+  const handleCompositionEnd = useCallback((_event: CompositionEvent<HTMLTextAreaElement>) => {
     composingRef.current = false;
   }, []);
 
@@ -197,15 +230,16 @@ export function InlineTextWidget({
   }
 
   return (
-    <input
+    <textarea
       ref={inputRef}
-      type="text"
+      rows={1}
       className={`widget-text widget-text--input${dirty ? " is-dirty" : ""}`}
       value={draft}
       placeholder={placeholder}
       aria-label={ariaLabel}
       onChange={(event) => {
-        const next = event.target.value;
+        // Pasted line breaks become spaces, as a single-line field would keep one value.
+        const next = event.target.value.replace(/\r?\n/g, " ");
         draftRef.current = next;
         setDraft(next);
 

@@ -21,7 +21,15 @@ function receive({ event, data }: VaultEvent) {
     const vaultKey = isString(body.vaultKey) ? body.vaultKey : undefined;
 
     if (body.includeSlots === true) invalidatePreferenceFamily(body.scope, vaultKey);
-    else refreshPreferenceStores(body.scope, vaultKey);
+    else {
+      refreshPreferenceStores(body.scope, vaultKey);
+
+      // A widget's write changes whether its host has anything to reset.
+      if (body.scope.widgetSlot) {
+        const { widgetSlot: _widget, ...host } = body.scope;
+        refreshPreferenceStores(host, vaultKey);
+      }
+    }
   }
 }
 

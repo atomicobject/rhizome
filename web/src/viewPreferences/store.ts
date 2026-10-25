@@ -23,6 +23,8 @@ export type PreferenceStoreSnapshot = {
   pending: boolean;
   error: Error | null;
   revision: number;
+  /** A widget slot of this host scope holds a saved value. */
+  familyOverrides: boolean;
 };
 
 type Operation = {
@@ -68,7 +70,14 @@ export class PreferenceStore {
     this.scope = canonicalPreferenceScope(scope);
     this.vaultKey = vaultKey;
     this.base = { scope: this.scope, revision: 0, values: {}, migrationClosed: false };
-    this.snapshot = { values: {}, revision: 0, loading: true, pending: false, error: null };
+    this.snapshot = {
+      values: {},
+      revision: 0,
+      loading: true,
+      pending: false,
+      error: null,
+      familyOverrides: false,
+    };
     this.addMigrations(migrations);
     void this.refresh().catch(() => {});
   }
@@ -122,6 +131,7 @@ export class PreferenceStore {
       loading: !this.hydrated && !this.error,
       pending: this.operations.length > 0,
       error: this.error,
+      familyOverrides: this.base.familyOverrides === true,
     };
 
     for (const listener of this.listeners) listener();

@@ -4,7 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 import type { OntologyEditSessionResponse } from "../api/types";
 
 import { ConfiguredViewBoard } from "./ConfiguredViewBoard";
-import { baseView, boardExecution, rendererProps, renderView } from "./ConfiguredView.testFixtures";
+import {
+  baseView,
+  boardExecution,
+  openViewOptions,
+  rendererProps,
+  renderView,
+} from "./ConfiguredView.testFixtures";
 
 describe("ConfiguredViewBoard", () => {
   it("renders ordered columns, an empty strip, collapsed strip, and remaining count", () => {
@@ -258,6 +264,7 @@ describe("ConfiguredViewBoard", () => {
     expect(screen.queryByLabelText("Group by")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Board columns")).toHaveValue("frontmatter.spec-status");
     expect(screen.getByLabelText("Board lanes")).toHaveValue("none");
+    openViewOptions();
     expect(screen.queryByRole("button", { name: "Columns" })).not.toBeInTheDocument();
   });
 });

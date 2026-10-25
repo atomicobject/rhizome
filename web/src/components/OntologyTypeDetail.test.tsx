@@ -41,6 +41,19 @@ describe("OntologyTypeDetail", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Schema" }));
     expect(screen.getByText("@reverse")).toBeVisible();
     expect(screen.getByText('"opportunities"')).toBeVisible();
+
+    // The tab pattern: one Tab stop on the selected tab, arrows and Home move and select.
+    const schema = screen.getByRole("tab", { name: "Schema" });
+    expect(schema).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", schema.id);
+    expect(schema).toHaveAttribute("aria-controls", screen.getByRole("tabpanel").id);
+    fireEvent.keyDown(schema, { key: "Home" });
+    const overview = screen.getByRole("tab", { name: "Overview" });
+    expect(overview).toHaveAttribute("aria-selected", "true");
+    expect(overview).toHaveFocus();
+    expect(schema).toHaveAttribute("tabindex", "-1");
+    fireEvent.keyDown(overview, { key: "ArrowLeft" });
+    expect(screen.getByRole("tab", { name: "Schema" })).toHaveFocus();
   });
 
   it("shows typed relations and previews example links by canonical identity", async () => {

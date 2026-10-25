@@ -80,7 +80,7 @@ export function TypeWorkspaceHeader({
               label={`Validation issues in ${label}`}
               onClick={onOpenIssues}
             />
-            <span>issues</span>
+            <span>validation {issueCount === 1 ? "issue" : "issues"}</span>
           </div>
         )}
         {showStats && (

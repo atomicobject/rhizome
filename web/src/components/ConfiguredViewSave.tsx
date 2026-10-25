@@ -312,6 +312,7 @@ export function SaveViewAction({
   changes,
   search,
   prepare,
+  onActiveChange,
 }: {
   viewID: string;
   dirty: boolean;
@@ -321,8 +322,13 @@ export function SaveViewAction({
   search: string | null;
   /** Builds the request; its `onSaved` runs only after the server writes the file. */
   prepare: (includeSearch: boolean) => PreparedSave;
+  /** Reports whether a save request is running. */
+  onActiveChange?: (active: boolean) => void;
 }) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const active = status.kind === "saving";
+
+  useEffect(() => onActiveChange?.(active), [active, onActiveChange]);
   const [reviewing, setReviewing] = useState(false);
   const [includeSearch, setIncludeSearch] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);

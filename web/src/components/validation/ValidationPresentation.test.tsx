@@ -56,7 +56,7 @@ describe("validation presentation", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Validation incomplete");
     fireEvent.click(screen.getByText("Check details"));
     expect(screen.getByText("default")).toBeVisible();
-    expect(screen.getByText("blocked")).toBeVisible();
+    expect(screen.getByText("Blocked")).toBeVisible();
     expect(screen.getByText("Index unavailable")).toBeVisible();
   });
 

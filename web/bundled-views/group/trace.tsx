@@ -2,6 +2,7 @@
 // record they connect to across the group as columns. Rows band by lifecycle
 // and nest under parents; pointing at a record lights every row it appears in.
 import {
+  Segmented,
   HighlightProvider,
   openCollection,
   useViewPreference,
@@ -229,33 +230,31 @@ function SpineSwitcher({
 
   return (
     <div className="gv-toolbar">
-      <span id="gv-rows-label" className="gv-label">
-        Rows
-      </span>
-      <div className="gv-seg" role="radiogroup" aria-labelledby="gv-rows-label">
-        {choices.map((name) => {
+      <Segmented
+        label="Rows"
+        showLabel
+        value={spine}
+        onChange={onChoose}
+        options={choices.flatMap((name) => {
           const choice = model.memberIndex.get(name);
 
-          if (!choice) return null;
+          if (!choice) return [];
 
-          return (
-            <label key={name}>
-              <input
-                type="radio"
-                name="gv-trace-spine"
-                className="sr-only"
-                value={name}
-                checked={name === spine}
-                onChange={() => onChoose(name)}
-              />
-              {name === fallback && <span className="gv-default-dot" aria-hidden="true" />}
-              {memberLabel(model, choice, { plural: true })}
-              <span className="gv-num">{choice.records.length}</span>
-              {name === fallback && <span className="sr-only">(default)</span>}
-            </label>
-          );
+          return [
+            {
+              value: name,
+              label: (
+                <>
+                  {name === fallback && <span className="gv-default-dot" aria-hidden="true" />}
+                  {memberLabel(model, choice, { plural: true })}
+                </>
+              ),
+              count: choice.records.length,
+              description: name === fallback ? "(default)" : undefined,
+            },
+          ];
         })}
-      </div>
+      />
       <span className="gv-faint">
         <span className="gv-default-dot" aria-hidden="true" /> Default:{" "}
         {tree ? "the tree other types link to" : "the type linked with the most others"}. Columns

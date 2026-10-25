@@ -21,6 +21,8 @@ export type ViewPreferenceResponse = {
   revision: number;
   values: JsonObject;
   migrationClosed: boolean;
+  /** On a host scope: a widget slot holds a saved value. */
+  familyOverrides?: boolean;
 };
 
 export type PreferencePatch = { set?: JsonObject; unset?: string[] };
@@ -117,6 +119,7 @@ export function isPreferenceResponse(value: unknown): value is ViewPreferenceRes
     value.revision >= 0 &&
     isJsonObject(value.values) &&
     Object.values(value.values).every(isPreferenceValue) &&
-    typeof value.migrationClosed === "boolean"
+    typeof value.migrationClosed === "boolean" &&
+    (value.familyOverrides === undefined || typeof value.familyOverrides === "boolean")
   );
 }
