@@ -304,7 +304,7 @@ export function rowsWithStagedValues(
 export function cellHasChangedField(
   field: string,
   capability: ViewFieldCapability | undefined,
-  changedFields: Set<string>,
+  changedFields: ReadonlySet<string>,
 ) {
   const candidates = [
     field,

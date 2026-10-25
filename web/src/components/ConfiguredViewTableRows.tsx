@@ -1,4 +1,4 @@
-import { type CSSProperties, Fragment } from "react";
+import { type CSSProperties, type DragEvent, Fragment, memo, type RefObject } from "react";
 
 import type {
   OntologyEditOp,
@@ -9,11 +9,7 @@ import type {
   ViewTableRow,
 } from "../api/types";
 import type { OpenMode } from "./useNoteTabs";
-import {
-  ConfiguredTableCellContent,
-  configuredTableRowHasChanges,
-  configuredTableRowKey,
-} from "./ConfiguredTableCell";
+import { ConfiguredTableCellContent, configuredTableRowKey } from "./ConfiguredTableCell";
 import { fieldValue } from "./ConfiguredTableCellHelpers";
 import { ChangedCell } from "./ConfiguredTableCellReadOnly";
 import {
@@ -22,18 +18,25 @@ import {
   groupValueLabel,
   isIssueColumn,
 } from "./ConfiguredViewModel";
-import {
-  type ConfiguredTableGroup,
-  columnClassName,
-  groupTone,
-  primaryColumn,
-} from "./ConfiguredViewTableModel";
+import { type ConfiguredTableGroup, groupTone } from "./ConfiguredViewTableModel";
 import { moveTableFocus } from "./focusManagement";
 import { reorderDelta, type ViewReorder } from "./useViewReorder";
 import { useTypeLabel } from "./typeLabels";
 
+/** A column with its capability and class resolved once per table, not per cell. */
+export type TableColumnCell = {
+  column: ViewTableColumn;
+  capability: ViewFieldCapability | undefined;
+  className: string;
+};
+
+/**
+ * Props every row shares. The table keeps them stable while only selection,
+ * checks, or drag state change, so memoized rows skip those renders.
+ */
 export type TableRowProps = {
-  columns: ViewTableColumn[];
+  columnCells: TableColumnCell[];
+  primaryColumnIndex: number;
   capabilities: ViewFieldCapability[];
   viewID: string;
   editSession?: OntologyEditSessionResponse | null;
@@ -42,11 +45,13 @@ export type TableRowProps = {
   onOpenRow: (row: ViewTableRow, mode?: OpenMode) => void;
   issueCounts?: ReadonlyMap<string, number>;
   onOpenIssues?: (scope: ValidationScope) => void;
-  selectedRowKey: string | null;
-  tabbableRowKey: string | undefined;
   onSelectRow: (key: string) => void;
-  reorder: ViewReorder;
-  checked: ReadonlySet<string>;
+  /** The latest reorder state; rows call its handlers when an event fires. */
+  reorderRef: RefObject<ViewReorder>;
+  reorderEnabled: boolean;
+  reorderBlockedReason: ViewReorder["blockedReason"];
+  /** True while any row is being dragged, so rows accept drops. */
+  dragActive: boolean;
   onToggleChecked: (key: string, range?: boolean) => void;
   onClearSelection: () => void;
   /** Set when rows show this field as a clamped second line under the title. */
@@ -55,11 +60,23 @@ export type TableRowProps = {
   categoryFields: ReadonlySet<string>;
 };
 
+/** What one row shows for the current selection, checks, drag, and staged edits. */
+export type TableRowState = {
+  selected: boolean;
+  tabbable: boolean;
+  checked: boolean;
+  dragging: boolean;
+  pending: boolean;
+  dropClass: string;
+  changedFields: ReadonlySet<string>;
+};
+
 export function ConfiguredViewTableGroup({
   group,
   rowsForGroup,
   columnSpan,
   rowProps,
+  rowState,
   isExpanded,
   onToggle,
 }: {
@@ -67,6 +84,7 @@ export function ConfiguredViewTableGroup({
   rowsForGroup: (group: ConfiguredTableGroup) => ViewTableRow[];
   columnSpan: number;
   rowProps: TableRowProps;
+  rowState: (row: ViewTableRow, groupId: string) => TableRowState;
   isExpanded: (group: ConfiguredTableGroup) => boolean;
   onToggle: (group: ConfiguredTableGroup) => void;
 }) {
@@ -76,7 +94,7 @@ export function ConfiguredViewTableGroup({
   const label = groupValueLabel(capability, group.value, group.label);
 
   const leaf = group.children.length === 0;
-  const { reorder } = rowProps;
+  const reorder = rowProps.reorderRef.current;
   // Dropping on a header puts the item first in the group, beside the header.
   const firstRow = leaf ? (rowsForGroup(group)[0] ?? null) : null;
 
@@ -115,6 +133,7 @@ export function ConfiguredViewTableGroup({
               rowsForGroup={rowsForGroup}
               columnSpan={columnSpan}
               rowProps={rowProps}
+              rowState={rowState}
               isExpanded={isExpanded}
               onToggle={onToggle}
             />
@@ -127,6 +146,7 @@ export function ConfiguredViewTableGroup({
               row={row}
               groupId={group.key}
               {...rowProps}
+              {...rowState(row, group.key)}
             />
           ))
         : null}
@@ -134,10 +154,13 @@ export function ConfiguredViewTableGroup({
   );
 }
 
-export function ConfiguredViewTableRow({
+// Memoized: a row renders again only when its own state or the shared props
+// change. Reorder handlers run through `reorderRef` when an event fires, so a
+// row that skipped a render never acts on stale drag state.
+export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
   row,
-  columns,
-  capabilities,
+  columnCells,
+  primaryColumnIndex,
   viewID,
   editSession,
   vaultKey,
@@ -145,57 +168,73 @@ export function ConfiguredViewTableRow({
   onOpenRow,
   issueCounts,
   onOpenIssues,
-  selectedRowKey,
-  tabbableRowKey,
   onSelectRow,
-  reorder,
-  checked,
+  reorderRef,
+  reorderEnabled,
+  reorderBlockedReason,
+  dragActive,
   onToggleChecked,
   onClearSelection,
   summaryField,
   categoryFields,
   groupId,
-}: TableRowProps & { row: ViewTableRow; groupId: string }) {
+  selected,
+  tabbable,
+  checked: isChecked,
+  dragging,
+  pending,
+  dropClass,
+  changedFields,
+}: TableRowProps & TableRowState & { row: ViewTableRow; groupId: string }) {
   const rowKey = configuredTableRowKey(row);
-  const dirty = configuredTableRowHasChanges(row, editSession);
-  const primaryColumnIndex = primaryColumn(columns, capabilities);
-  const dragging = reorder.dragKey === rowKey;
-  const source = reorder.dragSource(row);
-  const showHandle = reorder.enabled || reorder.blockedReason !== "unsupported";
+  const dirty = changedFields.size > 0;
+  const showHandle = reorderEnabled || reorderBlockedReason !== "unsupported";
+  const source = () => reorderRef.current.dragSource(row);
+  const target = () => reorderRef.current.dropTarget(groupId, row);
 
   const handle = showHandle ? (
     <span
-      className={`configured-view__drag-handle${reorder.enabled ? "" : " is-disabled"}`}
+      className={`configured-view__drag-handle${reorderEnabled ? "" : " is-disabled"}`}
       aria-hidden="true"
       title={
-        reorder.enabled
+        reorderEnabled
           ? "Drag to reorder, or press Alt+Up or Alt+Down"
-          : (reorder.blockedReason ?? "")
+          : (reorderBlockedReason ?? "")
       }
-      {...(reorder.enabled ? source : {})}
-      onDragStart={(event) => {
-        // Drag the whole row's image, not the small handle.
-        const rowElement = event.currentTarget.closest("tr");
+      {...(reorderEnabled
+        ? {
+            draggable: !pending,
+            onDragStart: (event: DragEvent<HTMLSpanElement>) => {
+              // Drag the whole row's image, not the small handle.
+              const rowElement = event.currentTarget.closest("tr");
 
-        if (rowElement) event.dataTransfer.setDragImage(rowElement, 12, 14);
-        source.onDragStart(event);
-      }}
+              if (rowElement) event.dataTransfer.setDragImage(rowElement, 12, 14);
+              source().onDragStart(event);
+            },
+            onDragEnd: () => source().onDragEnd(),
+          }
+        : {})}
     />
   ) : null;
 
   const typeLabel = useTypeLabel();
-  const isChecked = checked.has(rowKey);
   const summary = summaryField ? fieldValue(row, summaryField) : "";
 
   return (
     <tr
-      className={`configured-view__row${selectedRowKey === rowKey ? " is-selected" : ""}${isChecked ? " is-checked" : ""}${dirty ? " is-dirty" : ""}${dragging ? " is-dragging" : ""}${reorder.dropClass(groupId, row)}`}
+      className={`configured-view__row${selected ? " is-selected" : ""}${isChecked ? " is-checked" : ""}${dirty ? " is-dirty" : ""}${dragging ? " is-dragging" : ""}${dropClass}`}
       data-row-key={rowKey}
       data-group-key={groupId}
-      tabIndex={rowKey === tabbableRowKey ? 0 : -1}
-      aria-keyshortcuts={`Enter ArrowUp ArrowDown ArrowRight X Escape${reorder.enabled ? " Alt+ArrowUp Alt+ArrowDown" : ""}`}
-      aria-busy={reorder.pendingKeys.has(rowKey) || undefined}
-      {...(reorder.dragKey ? reorder.dropTarget(groupId, row) : {})}
+      tabIndex={tabbable ? 0 : -1}
+      aria-keyshortcuts={`Enter ArrowUp ArrowDown ArrowRight X Escape${reorderEnabled ? " Alt+ArrowUp Alt+ArrowDown" : ""}`}
+      aria-busy={pending || undefined}
+      {...(dragActive
+        ? {
+            onDragOver: (event: DragEvent<HTMLTableRowElement>) => target().onDragOver(event),
+            onDragLeave: (event: DragEvent<HTMLTableRowElement>) => target().onDragLeave(event),
+            onDrop: (event: DragEvent<HTMLTableRowElement>) => target().onDrop(event),
+          }
+        : {})}
       onClick={(event) => {
         if (event.shiftKey) onToggleChecked(rowKey, true);
         onSelectRow(rowKey);
@@ -230,9 +269,11 @@ export function ConfiguredViewTableRow({
 
         const delta = event.target === event.currentTarget ? reorderDelta(event) : null;
 
-        if (delta !== null && reorder.enabled) {
+        if (delta !== null && reorderEnabled) {
           event.preventDefault();
-          void reorder.moveByKeyboard(row, delta, groupId).then(() => focusRow(rowKey, groupId));
+          void reorderRef.current
+            .moveByKeyboard(row, delta, groupId)
+            .then(() => focusRow(rowKey, groupId));
 
           return;
         }
@@ -258,7 +299,7 @@ export function ConfiguredViewTableRow({
           onChange={() => {}}
         />
       </td>
-      {columns.map((column, columnIndex) => {
+      {columnCells.map(({ column, capability, className }, columnIndex) => {
         if (isIssueColumn(column.field, issueCounts)) {
           const path = row.ref.notePath || row.path || "";
           const count = issueCounts?.get(path);
@@ -283,12 +324,11 @@ export function ConfiguredViewTableRow({
           );
         }
 
-        const capability = capabilityFor(capabilities, column.field);
         const value = fieldValue(row, column.field);
 
         if (column.field === "updatedAt") {
           return (
-            <td key={column.field} className={columnClassName(column, capabilities)}>
+            <td key={column.field} className={className}>
               <ChangedCell value={row.updatedAt} />
             </td>
           );
@@ -297,7 +337,7 @@ export function ConfiguredViewTableRow({
         // An interface's rows name their implementing type by its schema label.
         if (column.field === "resolvedType") {
           return (
-            <td key={column.field} className={columnClassName(column, capabilities)} title={value}>
+            <td key={column.field} className={className} title={value}>
               {typeLabel(row.resolvedType)}
             </td>
           );
@@ -312,6 +352,7 @@ export function ConfiguredViewTableRow({
             columnIndex={columnIndex}
             capability={capability}
             editSession={editSession}
+            changedFields={changedFields}
             onStageOps={onStageOps}
             onOpenRow={columnIndex === primaryColumnIndex ? onOpenRow : undefined}
             onOpenRelation={onOpenRow}
@@ -321,7 +362,7 @@ export function ConfiguredViewTableRow({
         return (
           <td
             key={column.field}
-            className={`${columnClassName(column, capabilities)}${capability?.semanticRole === "count" && value === "0" ? " is-zero" : ""}${categoryFields.has(column.field) ? " is-category" : ""}`}
+            className={`${className}${capability?.semanticRole === "count" && value === "0" ? " is-zero" : ""}${categoryFields.has(column.field) ? " is-category" : ""}`}
             title={value || undefined}
           >
             {columnIndex === primaryColumnIndex && dirty ? (
@@ -345,7 +386,7 @@ export function ConfiguredViewTableRow({
       })}
     </tr>
   );
-}
+});
 
 /** A row's title or plain cells open it on double-click; its other controls act on their own. */
 function rowOpenTarget(target: EventTarget) {
