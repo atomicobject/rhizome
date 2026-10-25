@@ -323,6 +323,10 @@ func loadStarterViewTemplates(template string) ([]starterTemplateFile, error) {
 	return loadStarterFamilyTemplates(template, "views", "view")
 }
 
+func loadStarterTaskTemplates(template string) ([]starterTemplateFile, error) {
+	return loadStarterFamilyTemplates(template, "tasks", "task")
+}
+
 func loadStarterFamilyTemplates(template, family, label string) ([]starterTemplateFile, error) {
 	root := path.Join("templates", "starters", template, "rhizome", family)
 	if _, err := fs.Stat(agentHelperTemplates, root); err != nil {

@@ -150,6 +150,16 @@ The other accepted cells are `source-local_database-virtiofs` and `source-virtio
 
 Before sampling, the harness asks the selected executable's `agent surface` to resolve the effective vault and unified database paths. It fails if either identity differs from the cell declaration and records the verified identity in the result. The harness then runs the exact representative command with additive `--timings`, discards one warm-up, collects seven measured samples by default, reports median and p95 latency plus diagnostics and an environment manifest, and compares output after removing volatile session/timing fields.
 
+## Scheduled tasks
+
+`tasks:` sets how the repository's scheduled tasks run for everyone; each person can still override a task with `rzm tasks mode`. See [[scheduled-tasks-guide]].
+
+```yaml
+tasks:
+  defaultMode: auto      # auto or notify (default notify)
+  primaryRef: origin/dev # branch tasks are read from and work starts from (default origin/HEAD)
+```
+
 ## Related
 
 - [[Ignore behavior]] — what gets indexed at all

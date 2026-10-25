@@ -349,6 +349,28 @@ func TestRunHeadlessExitsWhenIdle(t *testing.T) {
 	require.NoFileExists(t, appruntime.ManifestPath(vault.path))
 }
 
+func TestRunHeadlessAsksForTasksAndStillExitsWhenIdle(t *testing.T) {
+	vault := newTestVault(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(vault.path, ".rhizome", "tasks"), 0o755))
+	var calls atomic.Int32
+	handle := startRun(t, vault, func(o *Options) {
+		o.Headless = true
+		o.IdleTimeout = 300 * time.Millisecond
+		o.TasksFirstDelay = 5 * time.Millisecond
+		o.TasksInterval = 10 * time.Millisecond
+		o.RunTasks = func(path string) error {
+			if path == vault.path {
+				calls.Add(1)
+			}
+			return nil
+		}
+	})
+
+	result := handle.awaitExit(t, 30*time.Second)
+	require.NoError(t, result.err)
+	require.GreaterOrEqual(t, calls.Load(), int32(2), "the runtime should ask for due tasks on its interval")
+}
+
 func TestRunAttachedNeverIdleExits(t *testing.T) {
 	vault := newTestVault(t)
 	handle := startRun(t, vault, func(o *Options) {

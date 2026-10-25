@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentchat"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/tasks"
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
@@ -293,6 +294,16 @@ func openTasksService(ctx context.Context, cmd *cobra.Command, registry harnessR
 			Settings: func() (agentchat.Settings, error) { return agentchat.LoadSettings(env) },
 		},
 	})
+}
+
+// startTasksRunDue is how a runtime asks for due tasks: a detached
+// `rzm tasks run-due` in the vault, so the work outlives the runtime.
+func startTasksRunDue(vaultPath string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	return appruntime.StartDetached(exe, vaultPath, "tasks", "run-due")
 }
 
 func printTasks(cmd *cobra.Command, asJSON bool, v any, human func(io.Writer)) error {
