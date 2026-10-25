@@ -85,3 +85,51 @@ it("cancels an in-flight import and refreshes status from disk", async () => {
     expect(screen.getByRole("button", { name: "Re-import selected keys" })).toBeEnabled(),
   );
 });
+
+it("keeps edited source fields after a failed import and retries that source", async () => {
+  call.mockImplementation(async (operation) => {
+    if (operation === "credential-status") return status;
+    throw new Error("Environment is missing TYPESAFE_API_KEY");
+  });
+  render(<CredentialImport />);
+  await screen.findByRole("button", { name: "Re-import selected keys" });
+  fireEvent.change(screen.getByLabelText("1Password account"), {
+    target: { value: "new.1password.com" },
+  });
+  fireEvent.change(screen.getByLabelText("Environment ID"), { target: { value: "b".repeat(26) } });
+  fireEvent.click(screen.getByRole("checkbox", { name: "Voyage" }));
+  fireEvent.click(screen.getByRole("button", { name: "Re-import selected keys" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Re-import selected keys" })).toBeEnabled(),
+  );
+  expect(screen.getByLabelText("1Password account")).toHaveValue("new.1password.com");
+  expect(screen.getByLabelText("Environment ID")).toHaveValue("b".repeat(26));
+  fireEvent.click(screen.getByRole("button", { name: "Re-import selected keys" }));
+  expect(call).toHaveBeenLastCalledWith("credential-import", {
+    source: {
+      account: "new.1password.com",
+      environment: "b".repeat(26),
+      keys: ["TYPESAFE_API_KEY"],
+    },
+  });
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Re-import selected keys" })).toBeEnabled(),
+  );
+});
+
+it("keeps edits made while the initial status is loading", async () => {
+  let resolveStatus: (value: CredentialStatus) => void = () => {};
+  call.mockImplementation(
+    () =>
+      new Promise<CredentialStatus>((resolve) => {
+        resolveStatus = resolve;
+      }),
+  );
+  render(<CredentialImport />);
+  fireEvent.change(screen.getByLabelText("1Password account"), {
+    target: { value: "new.1password.com" },
+  });
+  resolveStatus(status);
+  await screen.findByRole("button", { name: "Re-import selected keys" });
+  expect(screen.getByLabelText("1Password account")).toHaveValue("new.1password.com");
+});

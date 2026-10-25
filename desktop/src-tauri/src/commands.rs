@@ -304,13 +304,13 @@ pub async fn desktop_request(
             .await
         }
         Action::CredentialImport { source } => {
-            let _global = state.global.lock().await;
             app.state::<crate::credentials::Imports>()
-                .import(&state.directory, &source)
+                .import(&state.directory, &source, window.label(), &state.global)
                 .await
         }
         Action::CredentialCancel => {
-            app.state::<crate::credentials::Imports>().cancel();
+            app.state::<crate::credentials::Imports>()
+                .cancel(Some(window.label()));
             Ok(Value::Null)
         }
         Action::GlobalStatus => {

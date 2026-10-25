@@ -18,7 +18,7 @@ governing-specs:
 
 Prepare a reviewable release path from the clean public repository, with no previous version tags or release branch. Complete AO credential onboarding and desktop update recovery. Preserve the existing Apple Silicon, ad-hoc signing, GitHub Releases, and Homebrew boundaries.
 
-Excluded: publication, pushes, tags, live credentials or signing, credential rotation or 1Password administration, installation over Rhizome or Rhizome Dev, notarization, Intel desktop builds, and production release-to-release verification.
+Excluded: release publication, release-branch pushes, tags, live credentials or signing, credential rotation or 1Password administration, installation over Rhizome or Rhizome Dev, notarization, Intel desktop builds, and production release-to-release verification.
 
 ## Spec Set (Frozen)
 
@@ -63,7 +63,7 @@ A release path that works in the new public repository, an easy one-time AO cred
 
 ## Actual Delivered
 
-Implemented locally on `t3/rhizome-release-readiness`, based on `900efa2c`; not committed, merged, or released.
+Implemented on `t3/rhizome-release-readiness` in `8bc1e502`, then integrated public main `73f4eae9` through merge `e699a834`. No release has been published. A draft PR will retain the open packaged visual check.
 
 - First-release collection uses empty prior fields, includes root content, preserves safe retry topology, and atomically creates the release branch. Version selection continues from source `v0.50.5` and rejects a version at or below the floor on every input path.
 - A pinned Minisign helper verifies candidate archives before staging. Future public apply signs and verifies a disposable probe before mutations; execution in this effort used only temporary synthetic keys.
@@ -83,6 +83,14 @@ Implemented locally on `t3/rhizome-release-readiness`, based on `900efa2c`; not 
 - 2026-10-25T12:42:59Z [validation] The actual packaged `rzm` and desktop bridge passed a disposable synthetic smoke test for import, private permissions, named missing-key failure without config changes, rotation, source persistence, marker cancellation, process exit, and unchanged config on cancel. The temporary app was stopped; installed apps and real credentials were untouched.
 - 2026-10-25T12:42:59Z [gap] Native automation returned `cgWindowNotFound` for the packaged app, including a variant with a unique bundle identity. The process ran and persisted window geometry, but no visual walkthrough is claimed. This remains an open check for the draft PR.
 - 2026-10-25T12:42:59Z [validation] Default validation passed with zero issues. Frozen-scope validation reported three existing findings for SPEC-0045, SPEC-0111, and SPEC-0124 in unrelated active efforts. Their specs and efforts are byte-unchanged from `HEAD`; none concerns the three specs amended here. They remain classified as unrelated/pre-existing.
+
+- 2026-10-25T13:01:21Z [integration] Merged current public main. `make verify` passed again, including all 102 browser tests. No source conflicts remained after preserving both sets of changelog entries.
+- 2026-10-25T13:01:21Z [review] Greptile scored the first implementation 4/5 and identified competing-window cancellation, source edits overwritten on status refresh, and missing CLI subsystem guidance. Root fixed these locally: competing imports are rejected immediately, only the owning window can cancel, readiness refresh preserves edits, and the owning guide now records Environment imports and the early capture route.
+- 2026-10-25T13:01:21Z [validation] Added two UI regressions and captured both failures before the fix; all five CredentialImport tests now pass. Added a native competing-window regression; full desktop gate passes with 56 UI tests and 71 native tests, formatting and clippy.
+- 2026-10-25T13:01:21Z [validation] Captured CLI delegation failures in an untrusted pinned checkout and a configured development checkout. The shared invoking-executable exception now includes user-global credentials. Focused regressions pass, and the actual built CLI imported synthetic keys inside an untrusted older-pinned fixture without executing its sentinel binary.
+
+- 2026-10-25T13:10:59Z [validation] Final `make check` passed, including all Go unit tests and 1,580 web tests. The initial invocation completed its tests but failed because another checkout held the global lint lock; after confirming its process exited, the full retry passed. `make desktop-check` passed with 56 UI tests and 71 native tests.
+- 2026-10-25T13:10:59Z [artifact] Built the final app and local DMG with only a minimal non-credential environment. The 41.53 MiB DMG passed integrity verification, read-only mounting, expected app version and Applications link, deep ad-hoc signature verification, and an actual bundled-CLI synthetic import inside the older-pinned fixture. Detached the disk image. This is local packaging proof, not production signing, installation, or publication.
 
 ## Deviations
 

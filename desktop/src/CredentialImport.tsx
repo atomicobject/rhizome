@@ -27,6 +27,7 @@ export function CredentialImport({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const alive = useRef(true);
+  const edited = useRef(false);
   const importing = useRef(false);
   const canceled = useRef(false);
   useEffect(() => {
@@ -35,7 +36,7 @@ export function CredentialImport({
       .then((fresh) => {
         if (!alive.current) return;
         setStatus(fresh);
-        if (fresh.source) setSource(fresh.source);
+        if (fresh.source && !edited.current) setSource(fresh.source);
       })
       .catch((cause) => {
         if (alive.current) setError(failure(cause).message);
@@ -75,7 +76,6 @@ export function CredentialImport({
         const fresh = await request("credential-status", {});
         if (alive.current) {
           setStatus(fresh);
-          if (fresh.source) setSource(fresh.source);
           onImported?.();
         }
       } catch (refreshCause) {
@@ -119,7 +119,12 @@ export function CredentialImport({
           .
         </p>
       )}
-      <fieldset disabled={busy || disabled}>
+      <fieldset
+        disabled={busy || disabled}
+        onChange={() => {
+          edited.current = true;
+        }}
+      >
         <label>
           1Password account
           <input

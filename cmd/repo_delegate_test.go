@@ -100,7 +100,7 @@ func TestRepoDelegationTrustControlAndDirectExecutionBypassTrust(t *testing.T) {
 	writeVersionMarkerFile(t, target, "v1.2.3")
 	store := repositorytrust.Store{Dir: filepath.Join(t.TempDir(), "trust")}
 
-	for _, args := range [][]string{{"trust"}, {"untrust"}, {"desktop"}, {"desktop-bridge", "--state-dir", t.TempDir()}} {
+	for _, args := range [][]string{{"trust"}, {"untrust"}, {"credentials", "import", "--environment", "aaaaaaaaaaaaaaaaaaaaaaaaaa"}, {"desktop"}, {"desktop-bridge", "--state-dir", t.TempDir()}} {
 		decision := repoDelegateDecisionForTrust(args, repo, filepath.Join(t.TempDir(), "global-rzm"), store, nil)
 		require.NoError(t, decision.Err, args)
 		require.False(t, decision.Delegate, args)

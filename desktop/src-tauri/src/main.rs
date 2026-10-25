@@ -66,7 +66,7 @@ fn main() {
         }
         // Quitting does not close windows one by one, so the session keeps them.
         tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
-            app.state::<credentials::Imports>().cancel();
+            app.state::<credentials::Imports>().cancel(None);
             windows::quit(app);
         }
         _ => {}
