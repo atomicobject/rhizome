@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import type { OntologyEditSessionResponse } from "../api/types";
@@ -70,15 +70,18 @@ describe("AppShell", () => {
     );
   });
 
-  it("fetches /api/v1/status once, surfaces vaultName in the subtitle, and sets document.title", async () => {
-    statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x" });
+  it("fetches /api/v1/status once, names the vault, and sets document.title", async () => {
+    statusReplies({ vaultName: "/Users/someone/testvault", vaultPath: "/Users/someone/testvault" });
 
     render(<AppShell />);
 
-    await waitFor(() => {
-      const subtitle = document.querySelector(".app-shell__brand small");
-      expect(subtitle?.textContent).toBe("testvault");
-    });
+    // Notes names the vault in its sidebar; a path shows as its folder name with the path as a tooltip.
+    const navigation = await screen.findByRole("complementary", { name: "Notes navigation" });
+    await waitFor(() => expect(navigation).toHaveTextContent("testvault"));
+    expect(within(navigation).getByTitle("/Users/someone/testvault")).toHaveTextContent(
+      /^testvault$/,
+    );
+    expect(document.querySelector(".app-shell__brand small")).toBeNull();
 
     await waitFor(() => {
       expect(document.title).toBe("Rhizome · testvault");
@@ -87,18 +90,18 @@ describe("AppShell", () => {
     // The explorer rail's root button shows the vault name AppShell handed it.
     fireEvent.click(screen.getByRole("button", { name: "Explorer" }));
     expect(await screen.findByTitle("View full graph")).toHaveTextContent("testvault");
+    expect(document.querySelector(".app-shell__brand small")).toHaveTextContent(/^testvault$/);
     expect(http.count("GET", "/api/v1/status")).toBe(1);
   });
 
-  it("renders a neutral fallback (blank subtitle) before the status fetch resolves", () => {
+  it("names no vault before the status fetch resolves", () => {
     const status = deferredReply<StatusStub>();
     http.on("GET", "/api/v1/status", () => status.promise);
 
     render(<AppShell />);
 
-    const subtitle = document.querySelector(".app-shell__brand small");
-    expect(subtitle?.textContent).toBe("");
-    expect(subtitle?.textContent).not.toContain("Vault explorer");
+    expect(document.querySelector(".app-shell__brand small")).toBeNull();
+    expect(document.querySelector(".notes-left-rail__header")).toBeNull();
 
     // Cleanup the pending promise.
     status.resolve({ vaultName: "after", vaultPath: "/tmp/x" });

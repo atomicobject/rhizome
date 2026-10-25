@@ -8,11 +8,11 @@ import { jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { installFakeWebGL } from "../test/fakeWebGL";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import type { NoteTabContext } from "./noteTabContext";
-import { NotesRightRail, type NotesRightRailProps, useNotesRightRailState } from "./NotesRightRail";
+import { useState } from "react";
+
+import { NotesRightRail, type NotesRightRailProps } from "./NotesRightRail";
 
 const http = withFakeFetch();
-
-const collapsedKey = "rhizome:notes:right-rail:collapsed:v1";
 
 const tabKey = "rhizome:notes:right-rail:tab:v1";
 
@@ -139,15 +139,15 @@ function graphFailure() {
   );
 }
 
-function RailHarness(props: Omit<NotesRightRailProps, "collapsed" | "onToggleCollapsed">) {
-  const rail = useNotesRightRailState();
+function RailHarness(props: Omit<NotesRightRailProps, "open" | "onClose">) {
+  const [open, setOpen] = useState(true);
 
   return (
     <>
-      <button type="button" onClick={rail.toggle}>
-        Toggle context
+      <button type="button" onClick={() => setOpen((value) => !value)}>
+        Toggle pane
       </button>
-      <NotesRightRail {...props} collapsed={rail.collapsed} onToggleCollapsed={rail.toggle} />
+      <NotesRightRail {...props} open={open} onClose={() => setOpen(false)} />
     </>
   );
 }
@@ -157,14 +157,40 @@ beforeEach(() => {
 });
 
 describe("NotesRightRail", () => {
-  it("keeps Home collapsed and does not request a graph", () => {
-    const onOpen = vi.fn();
-    render(<RailHarness context={null} editSession={null} onOpen={onOpen} onOpenNode={vi.fn()} />);
+  it("renders nothing while closed and requests no graph", () => {
+    render(
+      <NotesRightRail
+        open={false}
+        onClose={vi.fn()}
+        context={context()}
+        editSession={null}
+        onOpen={vi.fn()}
+        onOpenNode={vi.fn()}
+      />,
+    );
 
-    const rail = screen.getByRole("complementary", { name: "Note context" });
-    expect(screen.getByRole("button", { name: "Expand note context" })).toBeDisabled();
-    expect(within(rail).queryByRole("tablist", { name: "Note context" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
     expect(http.requests()).toHaveLength(0);
+  });
+
+  it("shows the selected record's slot under a Record title", () => {
+    const onRecordSlot = vi.fn();
+    render(
+      <RailHarness
+        context={null}
+        record
+        onRecordSlot={onRecordSlot}
+        editSession={null}
+        onOpen={vi.fn()}
+        onOpenNode={vi.fn()}
+      />,
+    );
+
+    const pane = screen.getByRole("complementary", { name: "Record" });
+    expect(within(pane).getByRole("heading", { name: "Record" })).toBeVisible();
+    expect(onRecordSlot).toHaveBeenCalledWith(expect.any(HTMLElement));
+    fireEvent.click(within(pane).getByRole("button", { name: "Hide right pane" }));
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
   });
 
   it("shows note context, preserves outline hierarchy, and opens relations with tab targets", async () => {
@@ -211,7 +237,7 @@ describe("NotesRightRail", () => {
     );
   });
 
-  it("persists the selected tab and collapse state for the session", () => {
+  it("keeps the selected tab while closed and for the session", () => {
     graphFailure();
 
     const first = render(
@@ -219,17 +245,16 @@ describe("NotesRightRail", () => {
     );
 
     fireEvent.click(screen.getByRole("tab", { name: "Outline" }));
-    fireEvent.click(screen.getByRole("button", { name: "Toggle context" }));
-    expect(window.sessionStorage.getItem(collapsedKey)).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Hide right pane" }));
+    expect(screen.queryByRole("tablist", { name: "Note context" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Toggle pane" }));
+    expect(screen.getByRole("tab", { name: "Outline" })).toHaveAttribute("aria-selected", "true");
     expect(window.sessionStorage.getItem(tabKey)).toBe("outline");
 
     first.unmount();
     render(
       <RailHarness context={context()} editSession={null} onOpen={vi.fn()} onOpenNode={vi.fn()} />,
     );
-    expect(screen.getByRole("button", { name: "Expand note context" })).toBeVisible();
-    expect(screen.queryByRole("tablist", { name: "Note context" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Expand note context" }));
     expect(screen.getByRole("tab", { name: "Outline" })).toHaveAttribute("aria-selected", "true");
   });
 

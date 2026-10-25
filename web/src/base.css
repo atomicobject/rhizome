@@ -76,60 +76,51 @@ textarea {
 
 .app-shell__nav {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
+  /* Brand and sections, the search centred in the remaining width, then tools. */
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
-  min-height: 38px;
+  height: 44px;
   gap: var(--sp-4);
-  padding: 0 14px;
-  background: var(--chrome-bg);
-  border-bottom: 1px solid var(--chrome-raised);
+  padding: 0 var(--sp-4) 0 var(--sp-5);
+  background: var(--chrome-top);
+  color: var(--chrome-text);
   flex-shrink: 0;
-  box-shadow: none;
 }
 
 .app-shell__brand {
   min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-right: var(--sp-4);
+  line-height: 1;
 }
 
 .app-shell__brand::before {
   content: "";
+  align-self: center;
   width: 7px;
   height: 7px;
-  border-radius: 0;
   background: var(--accent);
-  box-shadow: none;
   transform: rotate(45deg);
   flex-shrink: 0;
-}
-
-.app-shell__brand > div {
-  min-width: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--sp-3);
-  line-height: 1;
 }
 
 .app-shell__brand span {
   color: var(--chrome-text);
   font-family: var(--font-mono);
   font-size: var(--fs-md);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.015em;
 }
 
 .app-shell__brand small {
-  min-width: 0;
+  max-width: 20ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--chrome-muted);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: 500;
 }
 
@@ -162,45 +153,40 @@ textarea {
 
 .app-shell__nav nav {
   display: flex;
-  align-self: stretch;
-  gap: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  gap: 2px;
 }
 
-.app-shell__nav button {
-  border: none;
+.app-shell__nav nav button {
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
   background: transparent;
   color: var(--chrome-muted);
-  padding: 0 12px;
   font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: 600;
+  font-size: var(--fs-base);
+  font-weight: 500;
   cursor: pointer;
-  border-radius: 0;
   transition:
     background 0.15s var(--ease),
     color 0.15s var(--ease);
 }
 
-.app-shell__nav button:hover {
+.app-shell__nav nav button:hover {
   color: var(--chrome-text);
   background: var(--chrome-raised);
 }
 
-.app-shell__nav button.is-active {
+.app-shell__nav nav button.is-active {
   color: var(--chrome-text);
   background: var(--chrome-active);
-  box-shadow: inset 0 -2px var(--accent);
 }
 
 .app-shell__header-tools {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--sp-4);
+  gap: var(--sp-3);
   min-width: 0;
 }
 
@@ -208,35 +194,45 @@ textarea {
   position: relative;
   display: flex;
   align-items: center;
-  width: clamp(190px, 24vw, 340px);
+  justify-self: center;
+  width: min(560px, 100%);
   min-width: 0;
+}
+
+.app-shell__global-search > svg {
+  position: absolute;
+  left: 10px;
+  width: 15px;
+  height: 15px;
+  color: var(--chrome-muted);
+  pointer-events: none;
 }
 
 .app-shell__global-search input {
   width: 100%;
-  height: 25px;
+  height: 28px;
   min-width: 0;
-  padding: 0 38px 0 9px;
-  border: 1px solid var(--chrome-raised);
-  border-radius: var(--r);
+  padding: 0 44px 0 32px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
   outline: none;
   background: var(--chrome-raised);
   color: var(--chrome-text);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 
 .app-shell__global-search input::placeholder {
   color: var(--chrome-muted);
 }
 
-.app-shell__global-search input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+.app-shell__global-search input:focus-visible {
+  border-color: var(--chrome-muted);
+  background: var(--chrome-active);
 }
 
 .app-shell__global-search kbd {
   position: absolute;
-  right: 8px;
+  right: 10px;
   color: var(--chrome-muted);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -1185,34 +1181,6 @@ html
   color: var(--text);
 }
 
-@media (max-width: 600px) {
-  .app-shell__nav {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .app-shell__nav nav {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-content: center;
-    min-height: 38px;
-  }
-  .app-shell__brand {
-    min-height: 38px;
-  }
-  .app-shell__header-tools {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  /* The search shrinks so the issue count and shortcuts button still fit. */
-  .app-shell__global-search {
-    flex: 1 1 auto;
-    width: auto;
-    min-width: 0;
-  }
-  .app-shell__header-tools > :not(.app-shell__global-search) {
-    flex-shrink: 0;
-  }
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -1226,23 +1194,20 @@ html
 }
 
 .app-shell__shortcuts-button {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-  /* Keeps "?" from reading as punctuation after the issue count. */
-  margin-left: var(--sp-3);
-  border: 1px solid var(--chrome-raised);
-  border-radius: var(--r);
+  border: 0;
+  border-radius: var(--r-md);
   background: transparent;
   color: var(--chrome-muted);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  font-weight: 700;
+  font-size: var(--fs-base);
+  font-weight: 600;
   cursor: pointer;
 }
 
 .app-shell__shortcuts-button:hover {
-  border-color: var(--chrome-muted);
+  background: var(--chrome-raised);
   color: var(--chrome-text);
 }
 
@@ -1251,15 +1216,14 @@ html
 .appearance-menu {
   position: relative;
   display: inline-flex;
-  margin-left: var(--sp-3);
 }
 
 .appearance-menu .appearance-menu__trigger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
   border-radius: var(--r-md);

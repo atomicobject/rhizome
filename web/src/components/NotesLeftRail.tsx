@@ -5,49 +5,30 @@ import {
   type RailGroup,
   type RailNode,
 } from "./noteRailGroups";
-import { displayTitle } from "../lib/labels";
-import { publicTypeName } from "../lib/typeNames";
 import {
   type CSSProperties,
   type KeyboardEvent,
-  type MouseEvent,
   memo,
-  useDeferredValue,
+  type ReactNode,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-import { publicOntologyListItemRef } from "../api/client";
 import { decodeJson, isBoolean, isJsonObject } from "../api/parse";
+import { vaultLabel } from "../lib/labels";
 import type {
   OntologyEditSessionResponse,
   OntologySummaryResponse,
-  ValidationHealth,
   ViewCatalogEntry,
 } from "../api/types";
-import type { OpenMode } from "./useNoteTabs";
-import { queryErrorMessage } from "../views/viewErrors";
-import {
-  isPseudoType,
-  PSEUDO_TYPE_ALL,
-  PSEUDO_TYPE_ISSUES,
-  PSEUDO_TYPE_MODIFIED,
-  splitNoteTarget,
-} from "./notesRoute";
-import {
-  summaryCountsKnown,
-  useOntologyTypeQuery,
-  useValidationQuery,
-  useViewCatalogQuery,
-} from "./useNotesQueries";
-import { usePopoverDismiss } from "./focusManagement";
-import { useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
+import { PSEUDO_TYPE_ALL, PSEUDO_TYPE_ISSUES, PSEUDO_TYPE_MODIFIED } from "./notesRoute";
+import { summaryCountsKnown, useValidationQuery, useViewCatalogQuery } from "./useNotesQueries";
 import { useValidationScopeSummaries, validationScopeKey } from "./useValidationScopeSummaries";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import { validationHealth } from "./validation/validationPresentation";
-import { useTypeLabel } from "./typeLabels";
 import { groupStandaloneViews } from "./viewCatalog";
 
 type RailDepthStyle = CSSProperties & { "--ontology-type-depth": number };
@@ -58,7 +39,7 @@ function isExpandedMap(value: unknown): value is Record<string, boolean> {
   return isJsonObject(value) && Object.values(value).every(isBoolean);
 }
 
-// Type groups stay the way the user left them across reloads.
+// Sections and type groups stay the way the user left them across reloads.
 function readExpanded(): Record<string, boolean> {
   try {
     return decodeJson(window.localStorage.getItem(EXPANDED_KEY), isExpandedMap) ?? {};
@@ -69,26 +50,23 @@ function readExpanded(): Record<string, boolean> {
 
 export type NotesLeftRailProps = {
   active?: boolean;
+  /** The vault this browser tab serves; Rhizome Desktop names it in its toolbar instead. */
+  vaultName?: string | null;
+  vaultPath?: string | null;
   summary: OntologySummaryResponse | null;
   selectedType: string | null;
   activeCollection: string | null;
   activeViewID: string | null;
-  activeTabID: string;
   editSession: OntologyEditSessionResponse | null;
   touchedPaths: Set<string>;
-  findTabByPath: (path: string) => { id: string } | undefined;
   activeGroup?: string | null;
+  /** Recently changed is showing (All notes in its Briefing). */
+  recentActive?: boolean;
   onSelectGroup?: (group: string) => void;
   onSelectCollection: (typeName: string) => void;
+  onOpenRecent?: () => void;
   onOpenConfiguredView: (view: ViewCatalogEntry) => void;
-  onOpenNote: (path: string, mode: OpenMode) => void;
-  /** A type or interface collection view is showing, which lists the records itself. */
-  collectionView?: boolean;
 };
-
-function matchesFilter(values: (string | undefined)[], filter: string): boolean {
-  return !filter || values.some((value) => value?.toLocaleLowerCase().includes(filter));
-}
 
 function activeRailAncestors(groups: RailGroup[], selectedType: string | null): Set<string> {
   const active = new Set<string>();
@@ -107,156 +85,93 @@ function activeRailAncestors(groups: RailGroup[], selectedType: string | null): 
   return active;
 }
 
-type RailNoteHandlers = {
-  open: (event: MouseEvent<HTMLButtonElement>, path: string) => void;
-  move: (event: KeyboardEvent<HTMLButtonElement>, path: string) => void;
-  focus: (path: string) => void;
-  openBeside: (path: string) => void;
-  preview: (path: string, mode: "stack" | "beside") => void;
-  register: (path: string, element: HTMLButtonElement | null) => void;
-};
+// Stroke icons drawn on one 16px grid, in the row's text color.
+const ICONS = {
+  home: "M2.5 7 8 2.5 13.5 7v6a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5zM6.5 13.5V9.5h3v4",
+  clock: "M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12zM8 4.5V8l2.5 1.5",
+  alert: "M8 2.5 14 13H2zM8 6.5v3M8 11.25v.01",
+  edit: "M10.5 2.5 13.5 5.5 6 13H3v-3zM9 4l3 3",
+  view: "M2.5 3.5h11v9h-11zM2.5 6.5h11M6.5 6.5v6",
+  caret: "M6 4l4 4-4 4",
+} as const;
 
-const RailNoteRow = memo(function RailNoteRow({
-  path,
-  title,
-  detail,
-  type,
-  issueCount,
-  health,
-  active,
-  modified,
-  keyboardSelected,
-  tabbable,
-  handlers,
-}: {
-  path: string;
-  title: string;
-  detail: string;
-  type?: string;
-  issueCount?: number;
-  health: ValidationHealth;
-  active: boolean;
-  modified: boolean;
-  keyboardSelected: boolean;
-  /** The list is one Tab stop; arrow keys move between rows. */
-  tabbable: boolean;
-  handlers: RailNoteHandlers;
-}) {
-  const previewTrigger = useNotePreviewTrigger<HTMLButtonElement>({
-    target: path,
-    open: handlers.preview,
-  });
-
+function RailIcon({ name }: { name: keyof typeof ICONS }) {
   return (
-    <div
-      className={`ontology-note ontology-note-list__item${active ? " is-active" : ""}${modified ? " is-modified" : ""}${keyboardSelected ? " is-keyboard-selected" : ""}`}
+    <svg
+      className={`notes-left-rail__icon notes-left-rail__icon--${name}`}
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     >
-      <button
-        {...previewTrigger.triggerProps}
-        ref={(element) => {
-          previewTrigger.triggerProps.ref.current = element;
-          handlers.register(path, element);
-        }}
-        type="button"
-        className="ontology-note__main"
-        aria-current={active ? "page" : undefined}
-        tabIndex={tabbable ? 0 : -1}
-        aria-keyshortcuts="Enter O X"
-        onClick={(event) => {
-          previewTrigger.close();
-          handlers.open(event, path);
-        }}
-        onFocus={() => {
-          previewTrigger.triggerProps.onFocus();
-          handlers.focus(path);
-        }}
-        onKeyDown={(event) => {
-          previewTrigger.triggerProps.onKeyDown(event);
-
-          if (["enter", "o", "x"].includes(event.key.toLowerCase())) previewTrigger.close();
-          handlers.move(event, path);
-        }}
-      >
-        <div className="ontology-note__title">{title || path}</div>
-        <div className="ontology-note__meta">
-          {modified && (
-            <span className="ontology-note__modified" title="Changed in this edit session">
-              <span aria-hidden="true">◆</span>
-              <span className="sr-only">Modified</span>
-            </span>
-          )}
-          <span className="ontology-note__path">
-            <bdo dir="ltr">{detail || path}</bdo>
-          </span>
-          {type && <span className="ontology-note__type-mini">{type}</span>}
-          <ValidationIssueBadge
-            count={issueCount}
-            health={health}
-            presenceOnly
-            label={`${issueCount ?? "Unknown"} validation issues in ${title || path}`}
-          />
-        </div>
-      </button>
-      <button
-        type="button"
-        className="ontology-compare-icon"
-        aria-label="Open beside"
-        title="Open beside (O)"
-        // The row's O and X keys open beside, so this stays out of the Tab order.
-        tabIndex={-1}
-        onClick={() => {
-          previewTrigger.close();
-          handlers.openBeside(path);
-        }}
-      >
-        ⇆
-      </button>
-      {previewTrigger.preview}
-    </div>
+      <path d={ICONS[name]} />
+    </svg>
   );
-});
+}
+
+const ROW = "[data-rail-row]";
+
+/**
+ * The sidebar is one Tab stop: arrow keys move between rows, Home and End
+ * jump to the ends, and Right and Left open and close a row's section.
+ */
+function moveRailFocus(event: KeyboardEvent<HTMLElement>) {
+  if (event.altKey || event.metaKey || event.ctrlKey) return;
+  const target = event.target;
+
+  if (!(target instanceof HTMLElement) || !target.matches(ROW)) return;
+  const rows = [...event.currentTarget.querySelectorAll<HTMLElement>(`${ROW}:not(:disabled)`)];
+  const index = rows.indexOf(target);
+  const caret = target.parentElement?.querySelector<HTMLButtonElement>(":scope > [aria-expanded]");
+  const expanded = (caret ?? target).getAttribute("aria-expanded");
+
+  const next =
+    event.key === "ArrowDown"
+      ? rows[index + 1]
+      : event.key === "ArrowUp"
+        ? rows[index - 1]
+        : event.key === "Home"
+          ? rows[0]
+          : event.key === "End"
+            ? rows.at(-1)
+            : null;
+
+  if (next) {
+    event.preventDefault();
+    next.focus();
+  } else if (
+    (event.key === "ArrowRight" && expanded === "false") ||
+    (event.key === "ArrowLeft" && expanded === "true")
+  ) {
+    event.preventDefault();
+    (caret ?? target).click();
+  }
+}
 
 export const NotesLeftRail = memo(function NotesLeftRail({
   active = true,
+  vaultName,
+  vaultPath,
   summary,
   selectedType,
   activeCollection,
   activeViewID,
-  activeTabID,
   editSession,
   touchedPaths,
-  findTabByPath,
   onSelectCollection,
   activeGroup,
+  recentActive = false,
   onSelectGroup,
+  onOpenRecent,
   onOpenConfiguredView,
-  onOpenNote,
-  collectionView = false,
 }: NotesLeftRailProps) {
-  const [listFilter, setListFilter] = useState("");
-  // Typing stays responsive while a long list re-filters behind it.
-  const deferredListFilter = useDeferredValue(listFilter);
-  const [sort, setSort] = useState<"title" | "recent" | "relations">("title");
-  const [onlyIssues, setOnlyIssues] = useState(false);
-  const [onlyModified, setOnlyModified] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [expanded, setExpanded] = useState(readExpanded);
-  const [keyboardPath, setKeyboardPath] = useState<string | null>(null);
-  // A type's collection view already lists its records, so the rail's copy starts collapsed.
-  const [listOpen, setListOpen] = useState(false);
-  const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
-  const filterRef = useRef<HTMLInputElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
-  usePopoverDismiss(settingsOpen, settingsRef, () => setSettingsOpen(false));
-
-  const typeQuery = useOntologyTypeQuery(
-    selectedType,
-    editSession,
-    active && selectedType !== PSEUDO_TYPE_ISSUES && selectedType !== PSEUDO_TYPE_MODIFIED,
-  );
-
+  const railRef = useRef<HTMLElement>(null);
+  const lastFocused = useRef<HTMLElement | null>(null);
   const catalogQuery = useViewCatalogQuery(active);
-  const typeLabel = useTypeLabel();
   const validationQuery = useValidationQuery(active);
   const catalog = catalogQuery.data?.views ?? [];
   const standaloneGroups = useMemo(() => groupStandaloneViews(catalog), [catalog]);
@@ -272,20 +187,12 @@ export const NotesLeftRail = memo(function NotesLeftRail({
   const activeAncestorKey = [...activeAncestors].sort().join("\n");
 
   useEffect(() => {
-    setListFilter("");
-    setOnlyIssues(false);
-    setOnlyModified(false);
-    setListOpen(false);
-  }, [selectedType]);
-  useEffect(() => {
     setExpanded((current) => {
       const next = { ...current };
       let changed = false;
 
       for (const key of activeAncestorKey.split("\n")) {
-        if (!key) continue;
-
-        if (next[key]) continue;
+        if (!key || next[key]) continue;
         next[key] = true;
         changed = true;
       }
@@ -294,9 +201,6 @@ export const NotesLeftRail = memo(function NotesLeftRail({
     });
   }, [activeAncestorKey, selectedType]);
   useEffect(() => {
-    if (!editSession?.hasUncommittedChanges) setOnlyModified(false);
-  }, [editSession?.hasUncommittedChanges]);
-  useEffect(() => {
     try {
       window.localStorage.setItem(EXPANDED_KEY, JSON.stringify(expanded));
     } catch {
@@ -304,19 +208,30 @@ export const NotesLeftRail = memo(function NotesLeftRail({
     }
   }, [expanded]);
 
+  // Roving focus: one row is tabbable, the last one focused while it is still
+  // shown, else the current row, else the first.
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+
+    if (!rail) return;
+    const rows = [...rail.querySelectorAll<HTMLElement>(`${ROW}:not(:disabled)`)];
+
+    const tabbable =
+      (lastFocused.current && rows.includes(lastFocused.current) ? lastFocused.current : null) ??
+      rows.find((row) => row.getAttribute("aria-current") === "page") ??
+      rows[0];
+
+    for (const row of rows) row.tabIndex = row === tabbable ? 0 : -1;
+  });
+
   const validationScopes = useMemo(
-    () => [
-      ...flattenRailNodes(railGroups.flatMap((group) => group.children)).map((node) =>
+    () =>
+      flattenRailNodes(railGroups.flatMap((group) => group.children)).map((node) =>
         node.kind === "type"
           ? { kind: "type" as const, key: node.type.name }
           : { kind: "interface" as const, key: node.interface.name },
       ),
-      ...(typeQuery.data?.notes ?? []).map((note) => ({
-        kind: "note" as const,
-        key: note.path,
-      })),
-    ],
-    [railGroups, typeQuery.data?.notes],
+    [railGroups],
   );
 
   const validationSummaries = useValidationScopeSummaries(
@@ -324,125 +239,7 @@ export const NotesLeftRail = memo(function NotesLeftRail({
     validationScopes,
   );
 
-  const notes = useMemo(() => {
-    const filter = deferredListFilter.trim().toLocaleLowerCase();
-    let next = [...(typeQuery.data?.notes ?? [])];
-
-    if (filter)
-      next = next.filter((note) =>
-        matchesFilter([note.title, note.path, publicTypeName(note.resolvedType)], filter),
-      );
-
-    if (onlyIssues)
-      next = next.filter((note) => {
-        const count = validationSummaries.summaries.get(
-          validationScopeKey({ kind: "note", key: note.path }),
-        )?.issueCount;
-
-        return count === undefined || count > 0;
-      });
-
-    if (onlyModified) next = next.filter((note) => touchedPaths.has(note.path));
-
-    return next.sort((a, b) =>
-      sort === "recent"
-        ? (b.updatedAt || 0) - (a.updatedAt || 0)
-        : sort === "relations"
-          ? (b.relationCount || 0) - (a.relationCount || 0)
-          : (a.title || a.path).localeCompare(b.title || b.path),
-    );
-  }, [
-    deferredListFilter,
-    onlyIssues,
-    onlyModified,
-    sort,
-    touchedPaths,
-    typeQuery.data?.notes,
-    validationSummaries.summaries,
-  ]);
-
-  const paths = notes.map(publicOntologyListItemRef);
-  // The list is one Tab stop; arrow keys and j/k move within it.
-  const tabbablePath = keyboardPath && paths.includes(keyboardPath) ? keyboardPath : paths[0];
-
-  const open = (event: MouseEvent<HTMLButtonElement>, path: string) => {
-    setKeyboardPath(path);
-    onOpenNote(path, event.metaKey || event.ctrlKey ? "beside" : "activate");
-  };
-
-  const move = (event: KeyboardEvent<HTMLButtonElement>, path: string) => {
-    const key = event.key.toLowerCase();
-
-    if (key === "enter" || key === "o" || key === "x") {
-      event.preventDefault();
-      onOpenNote(path, key === "enter" ? "activate" : "beside");
-
-      return;
-    }
-
-    const delta =
-      key === "arrowdown" || key === "j" ? 1 : key === "arrowup" || key === "k" ? -1 : 0;
-
-    if (!delta) return;
-    event.preventDefault();
-    const index = Math.max(0, paths.indexOf(path));
-
-    if (delta < 0 && index === 0) {
-      filterRef.current?.focus();
-
-      return;
-    }
-
-    const next = paths[Math.max(0, Math.min(paths.length - 1, index + delta))];
-
-    if (next) {
-      setKeyboardPath(next);
-      buttonRefs.current.get(next)?.focus();
-    }
-  };
-
-  const enterListFromFilter = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "ArrowDown" && event.key !== "Enter") return;
-    const firstPath = paths[0];
-
-    if (!firstPath) return;
-    event.preventDefault();
-    setKeyboardPath(firstPath);
-
-    if (event.key === "Enter") onOpenNote(firstPath, "activate");
-    else buttonRefs.current.get(firstPath)?.focus();
-  };
-
-  // Rows are memoized so opening a note re-renders two rows, not thousands;
-  // their handlers stay stable and read the latest list through this ref.
-  const latestRowActions = useRef({ open, move, onOpenNote });
-  latestRowActions.current = { open, move, onOpenNote };
-
-  const rowHandlers = useMemo<RailNoteHandlers>(
-    () => ({
-      open: (event, path) => latestRowActions.current.open(event, path),
-      move: (event, path) => latestRowActions.current.move(event, path),
-      focus: setKeyboardPath,
-      openBeside: (path) => latestRowActions.current.onOpenNote(path, "beside"),
-      preview: (path, mode) =>
-        latestRowActions.current.onOpenNote(path, mode === "beside" ? "beside" : "activate"),
-      register: (path, element) => {
-        if (element) buttonRefs.current.set(path, element);
-        else buttonRefs.current.delete(path);
-      },
-    }),
-    [],
-  );
-
   const issueCount = validationQuery.data?.snapshot?.issueCount;
-  const selectedInterface = summary?.interfaces?.find((item) => item.name === selectedType);
-
-  const selectedLabel =
-    (selectedInterface ?? summary?.types?.find((item) => item.name === selectedType))?.label ||
-    selectedType;
-
-  // A single-type list does not repeat the type on every row.
-  const showRowType = selectedType === PSEUDO_TYPE_ALL || Boolean(selectedInterface);
   const health = validationHealth(validationQuery.data ?? null);
 
   // A group that holds configured views starts open so its views stay one click away.
@@ -454,63 +251,40 @@ export const NotesLeftRail = memo(function NotesLeftRail({
   const typeGroupNames = new Set(railGroups.map((group) => group.name));
   const viewsByGroup = new Map(standaloneGroups.map((group) => [group.group, group.views]));
 
+  // Views whose group matches a type group render inside it, so a group is named once.
+  const standaloneViews = standaloneGroups
+    .filter((group) => !typeGroupNames.has(group.group))
+    .flatMap((group) => group.views);
+
+  const viewsOpen = isExpanded("views", true);
+
   const renderView = (view: ViewCatalogEntry) => (
-    <button
-      type="button"
-      key={view.id}
-      className={`ontology-view-row${activeViewID === view.id ? " is-selected" : ""}`}
-      aria-current={activeViewID === view.id ? "page" : undefined}
-      onClick={() => onOpenConfiguredView(view)}
-    >
-      <span className="ontology-view-row__icon" aria-hidden="true">
-        ▦
-      </span>
-      <span className="ontology-view-row__label">{view.name}</span>
-    </button>
+    <div className="ontology-type-row-wrap" key={view.id}>
+      <button
+        type="button"
+        data-rail-row
+        className={`ontology-view-row${activeViewID === view.id ? " is-selected" : ""}`}
+        aria-current={activeViewID === view.id ? "page" : undefined}
+        onClick={() => onOpenConfiguredView(view)}
+      >
+        <RailIcon name="view" />
+        <span className="ontology-view-row__label">{view.name}</span>
+      </button>
+    </div>
   );
 
-  // Built once per change that matters: parents re-render this rail often,
-  // and thousands of row elements are the cost even when rows are memoized.
-  const noteRows = useMemo(
-    () =>
-      notes.map((note) => {
-        const path = publicOntologyListItemRef(note);
-        const notePath = splitNoteTarget(path).path;
-
-        return (
-          <RailNoteRow
-            key={path}
-            path={path}
-            title={displayTitle(note.title)}
-            detail={note.path}
-            type={showRowType ? typeLabel(note.resolvedType) : undefined}
-            issueCount={
-              validationSummaries.summaries.get(
-                validationScopeKey({ kind: "note", key: note.path }),
-              )?.issueCount
-            }
-            health={health}
-            active={findTabByPath(notePath)?.id === activeTabID}
-            modified={touchedPaths.has(notePath)}
-            keyboardSelected={keyboardPath === path}
-            tabbable={path === tabbablePath}
-            handlers={rowHandlers}
-          />
-        );
-      }),
-    [
-      activeTabID,
-      findTabByPath,
-      health,
-      keyboardPath,
-      notes,
-      rowHandlers,
-      showRowType,
-      tabbablePath,
-      typeLabel,
-      touchedPaths,
-      validationSummaries.summaries,
-    ],
+  const caret = (key: string, open: boolean, name: string, onToggle = () => toggle(key, open)) => (
+    <button
+      type="button"
+      className="ontology-type-row__collapse"
+      aria-label={`${open ? "Collapse" : "Expand"} ${name}`}
+      aria-expanded={open}
+      // Right and Left on the row open and close it, so the caret is not a Tab stop.
+      tabIndex={-1}
+      onClick={onToggle}
+    >
+      <RailIcon name="caret" />
+    </button>
   );
 
   const renderNode = (node: RailNode, depth = 0) => {
@@ -533,20 +307,13 @@ export const NotesLeftRail = memo(function NotesLeftRail({
       >
         <div className="ontology-type-row-wrap" style={depthStyle}>
           {hasChildren ? (
-            <button
-              type="button"
-              className="ontology-type-row__collapse"
-              aria-label={`${expandedNode ? "Collapse" : "Expand"} ${label(item)}`}
-              aria-expanded={expandedNode}
-              onClick={() => toggle(key)}
-            >
-              {expandedNode ? "▾" : "▸"}
-            </button>
+            caret(key, expandedNode, label(item))
           ) : (
             <span className="ontology-type-row__collapse-spacer" aria-hidden="true" />
           )}
           <button
             type="button"
+            data-rail-row
             disabled={embedded}
             aria-label={[
               embedded || totalNotes === null ? label(item) : `${label(item)} (${item.count})`,
@@ -575,93 +342,109 @@ export const NotesLeftRail = memo(function NotesLeftRail({
     );
   };
 
-  const showNoteList =
-    !activeGroup && selectedType !== PSEUDO_TYPE_ISSUES && selectedType !== PSEUDO_TYPE_MODIFIED;
-
-  const collectionShowing = collectionView && Boolean(selectedType) && !isPseudoType(selectedType);
-
-  const listCollapsed = collectionShowing && !listOpen;
-
-  const listTitle =
-    selectedType === PSEUDO_TYPE_ALL
-      ? "All notes"
-      : selectedType === PSEUDO_TYPE_ISSUES
-        ? "Notes with issues"
-        : selectedType === PSEUDO_TYPE_MODIFIED
-          ? "Modified notes"
-          : selectedType
-            ? `${selectedLabel} notes`
-            : "Notes";
+  const quickRow = (
+    current: boolean,
+    icon: keyof typeof ICONS,
+    text: string,
+    accessibleName: string,
+    onClick: () => void,
+    trailing?: ReactNode,
+    tone = "",
+  ) => (
+    <div className="ontology-type-row-wrap">
+      <button
+        type="button"
+        data-rail-row
+        className={`ontology-type-row ontology-type-row--pseudo${tone}${current ? " is-selected" : ""}`}
+        aria-label={accessibleName}
+        aria-current={current ? "page" : undefined}
+        onClick={onClick}
+      >
+        <RailIcon name={icon} />
+        <span className="ontology-type-row__label">{text}</span>
+        {trailing}
+      </button>
+    </div>
+  );
 
   return (
     <aside
-      className={`ontology-rail notes-left-rail${listCollapsed ? " notes-left-rail--list-collapsed" : ""}`}
+      ref={railRef}
+      className="notes-left-rail"
       aria-label="Notes navigation"
+      onKeyDown={moveRailFocus}
+      onFocus={(event) => {
+        if (!event.target.matches(ROW)) return;
+        lastFocused.current = event.target;
+
+        for (const row of event.currentTarget.querySelectorAll<HTMLElement>(ROW))
+          row.tabIndex = row === event.target ? 0 : -1;
+      }}
     >
-      <section
-        className="notes-left-rail__collections ontology-rail__navigation"
-        role="region"
-        aria-label="Collections"
-      >
-        {/* Views whose group matches a type group render inside it, so a group is named once. */}
-        {standaloneGroups
-          .filter((group) => !typeGroupNames.has(group.group))
-          .map((group) => (
-            <nav className="ontology-rail__views" aria-label={group.group} key={group.group}>
-              <span className="ontology-rail__views-label" aria-hidden="true">
-                {group.group}
-              </span>
-              {group.views.map(renderView)}
-            </nav>
-          ))}
+      {vaultName ? (
+        <div className="notes-left-rail__header" title={vaultPath ?? undefined}>
+          {vaultLabel(vaultName)}
+        </div>
+      ) : null}
+      <section className="notes-left-rail__collections" role="region" aria-label="Collections">
         <div className="ontology-type-list">
-          <div className="ontology-type-row-wrap">
-            <span className="ontology-type-row__collapse-spacer" aria-hidden="true" />
-            <button
-              type="button"
-              className={`ontology-type-row ontology-type-row--pseudo ontology-type-row--issues${activeCollection === PSEUDO_TYPE_ISSUES ? " is-selected" : ""}`}
-              aria-label={issueCount ? `Problems ${issueCount}` : "Problems"}
-              aria-current={activeCollection === PSEUDO_TYPE_ISSUES ? "page" : undefined}
-              onClick={() => onSelectCollection(PSEUDO_TYPE_ISSUES)}
-            >
-              <span className="ontology-type-row__label">Problems</span>
-              <ValidationIssueBadge
-                count={issueCount}
-                health={health}
-                label={issueCount ? `${issueCount} validation issues` : "Validation status"}
-              />
-            </button>
-          </div>
-          {editSession?.hasUncommittedChanges && (
-            <div className="ontology-type-row-wrap">
-              <span className="ontology-type-row__collapse-spacer" aria-hidden="true" />
-              <button
-                type="button"
-                className={`ontology-type-row ontology-type-row--pseudo ontology-type-row--modified${activeCollection === PSEUDO_TYPE_MODIFIED ? " is-selected" : ""}`}
-                aria-label={`Changes ${touchedPaths.size}`}
-                aria-current={activeCollection === PSEUDO_TYPE_MODIFIED ? "page" : undefined}
-                onClick={() => onSelectCollection(PSEUDO_TYPE_MODIFIED)}
-              >
-                <span className="ontology-type-row__label">Changes</span>
-                <span className="ontology-type-row__count">{touchedPaths.size}</span>
-              </button>
-            </div>
+          {quickRow(
+            activeCollection === PSEUDO_TYPE_ALL && !recentActive,
+            "home",
+            "All notes",
+            totalNotes === null ? "All notes" : `All notes (${totalNotes})`,
+            () => onSelectCollection(PSEUDO_TYPE_ALL),
+            totalNotes !== null && <span className="ontology-type-row__count">{totalNotes}</span>,
           )}
-          <div className="ontology-type-row-wrap">
-            <span className="ontology-type-row__collapse-spacer" aria-hidden="true" />
-            <button
-              type="button"
-              className={`ontology-type-row ontology-type-row--pseudo${activeCollection === PSEUDO_TYPE_ALL ? " is-selected" : ""}`}
-              aria-label={totalNotes === null ? "All notes" : `All notes (${totalNotes})`}
-              aria-current={activeCollection === PSEUDO_TYPE_ALL ? "page" : undefined}
-              onClick={() => onSelectCollection(PSEUDO_TYPE_ALL)}
+          {onOpenRecent &&
+            quickRow(recentActive, "clock", "Recently changed", "Recently changed", onOpenRecent)}
+          {quickRow(
+            activeCollection === PSEUDO_TYPE_ISSUES,
+            "alert",
+            "Problems",
+            issueCount ? `Problems ${issueCount}` : "Problems",
+            () => onSelectCollection(PSEUDO_TYPE_ISSUES),
+            issueCount == null ? (
+              <ValidationIssueBadge count={issueCount} health={health} label="Validation status" />
+            ) : (
+              <span className={`ontology-type-row__count${issueCount > 0 ? " is-risk" : ""}`}>
+                {issueCount}
+              </span>
+            ),
+            " ontology-type-row--issues",
+          )}
+          {editSession?.hasUncommittedChanges &&
+            quickRow(
+              activeCollection === PSEUDO_TYPE_MODIFIED,
+              "edit",
+              "Changes",
+              `Changes ${touchedPaths.size}`,
+              () => onSelectCollection(PSEUDO_TYPE_MODIFIED),
+              <span className="ontology-type-row__count">{touchedPaths.size}</span>,
+              " ontology-type-row--modified",
+            )}
+          {standaloneViews.length > 0 && (
+            <nav
+              className={`ontology-type-group ontology-type-group--presentation${viewsOpen ? " is-expanded" : " is-collapsed"}`}
+              aria-label="Views"
             >
-              <span className="ontology-type-row__label">All notes</span>
-              {totalNotes !== null && (
-                <span className="ontology-type-row__count">{totalNotes}</span>
-              )}
-            </button>
-          </div>
+              <div className="ontology-type-row-wrap notes-left-rail__section">
+                <button
+                  type="button"
+                  data-rail-row
+                  className="ontology-type-row ontology-type-row--group"
+                  aria-expanded={viewsOpen}
+                  onClick={() => toggle("views", viewsOpen)}
+                >
+                  <span className="ontology-type-row__collapse" aria-hidden="true">
+                    <RailIcon name="caret" />
+                  </span>
+                  Views
+                </button>
+              </div>
+              {viewsOpen && standaloneViews.map(renderView)}
+            </nav>
+          )}
           {railGroups.map((group) => {
             const key = `group:${group.name}`;
             const groupViews = viewsByGroup.get(group.name);
@@ -672,18 +455,11 @@ export const NotesLeftRail = memo(function NotesLeftRail({
                 className={`ontology-type-group ontology-type-group--presentation${expandedGroup ? " is-expanded" : " is-collapsed"}`}
                 key={group.name}
               >
-                <div className="ontology-type-row-wrap">
+                <div className="ontology-type-row-wrap notes-left-rail__section">
+                  {caret(key, expandedGroup, group.name)}
                   <button
                     type="button"
-                    className="ontology-type-row__collapse"
-                    aria-label={`${expandedGroup ? "Collapse" : "Expand"} ${group.name}`}
-                    aria-expanded={expandedGroup}
-                    onClick={() => toggle(key, expandedGroup)}
-                  >
-                    {expandedGroup ? "▾" : "▸"}
-                  </button>
-                  <button
-                    type="button"
+                    data-rail-row
                     className={`ontology-type-row ontology-type-row--group${activeGroup === group.name ? " is-selected" : ""}`}
                     aria-current={activeGroup === group.name ? "page" : undefined}
                     onClick={() => onSelectGroup?.(group.name)}
@@ -692,10 +468,7 @@ export const NotesLeftRail = memo(function NotesLeftRail({
                   </button>
                 </div>
                 {expandedGroup && groupViews && (
-                  <nav
-                    className="ontology-rail__views ontology-rail__views--nested"
-                    aria-label={`${group.name} views`}
-                  >
+                  <nav className="notes-left-rail__nested-views" aria-label={`${group.name} views`}>
                     {groupViews.map(renderView)}
                   </nav>
                 )}
@@ -705,128 +478,6 @@ export const NotesLeftRail = memo(function NotesLeftRail({
           })}
         </div>
       </section>
-      {showNoteList && (
-        <section
-          className="notes-left-rail__notes ontology-rail__list"
-          role="region"
-          aria-label="Note list"
-        >
-          <div className="ontology-list__toolbar">
-            <div className="ontology-list__title">
-              {collectionShowing ? (
-                <h2>
-                  <button
-                    type="button"
-                    className="notes-left-rail__list-toggle"
-                    aria-expanded={!listCollapsed}
-                    onClick={() => setListOpen(listCollapsed)}
-                  >
-                    <span aria-hidden="true">{listCollapsed ? "▸" : "▾"}</span>
-                    {listTitle}
-                  </button>
-                </h2>
-              ) : (
-                <h2>{listTitle}</h2>
-              )}
-              {typeQuery.data && (
-                <span className="ontology-list__count">
-                  {`${notes.length} / ${typeQuery.data.notes?.length ?? 0}`}
-                </span>
-              )}
-            </div>
-            <div className="ontology-list__filters" hidden={listCollapsed}>
-              <input
-                ref={filterRef}
-                type="search"
-                value={listFilter}
-                onChange={(event) => setListFilter(event.target.value)}
-                aria-label="Filter note list"
-                placeholder="Filter notes…"
-                onKeyDown={enterListFromFilter}
-              />
-              <div
-                ref={settingsRef}
-                className={`ontology-list-settings${settingsOpen ? " is-open" : ""}`}
-              >
-                <button
-                  type="button"
-                  className="ontology-list-settings__trigger"
-                  aria-label="Open note list settings"
-                  aria-expanded={settingsOpen}
-                  onClick={() => setSettingsOpen((value) => !value)}
-                >
-                  ...
-                </button>
-                {settingsOpen && (
-                  <div
-                    className="ontology-list-settings__menu"
-                    role="group"
-                    aria-label="Note list settings"
-                  >
-                    <button
-                      type="button"
-                      aria-pressed={sort === "title"}
-                      onClick={() => setSort("title")}
-                    >
-                      Title
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={sort === "recent"}
-                      onClick={() => setSort("recent")}
-                    >
-                      Recent
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={sort === "relations"}
-                      onClick={() => setSort("relations")}
-                    >
-                      Relations
-                    </button>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={onlyIssues}
-                        onChange={(event) => setOnlyIssues(event.target.checked)}
-                      />
-                      Issues
-                    </label>
-                    {editSession?.hasUncommittedChanges && (
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={onlyModified}
-                          onChange={(event) => setOnlyModified(event.target.checked)}
-                        />
-                        Modified
-                      </label>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="ontology-list__body" hidden={listCollapsed}>
-            {typeQuery.isError && !typeQuery.data ? (
-              <div className="ontology-list__empty" role="alert">
-                {queryErrorMessage(typeQuery.error)}{" "}
-                <button type="button" onClick={() => void typeQuery.refetch()}>
-                  Retry
-                </button>
-              </div>
-            ) : typeQuery.isPending ? (
-              <div className="ontology-list__empty" role="status">
-                Loading notes…
-              </div>
-            ) : notes.length ? (
-              noteRows
-            ) : (
-              <div className="ontology-list__empty">No notes match the current filter.</div>
-            )}
-          </div>
-        </section>
-      )}
     </aside>
   );
 });

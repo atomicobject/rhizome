@@ -7,7 +7,7 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
     "Anywhere",
     [
       ["⌘K", "Search this project"],
-      ["F6 / ⇧F6", "Next / previous area: tabs, rail, main, context"],
+      ["F6 / ⇧F6", "Next / previous area: sidebar, tabs, main, right pane"],
       ["?", "Show these shortcuts"],
     ],
   ],
@@ -20,12 +20,12 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
     ],
   ],
   [
-    "Note list",
+    "Sidebar and panes",
     [
-      ["↑ ↓  j k", "Move"],
-      ["Enter", "Open"],
-      ["O  X", "Open beside"],
-      ["↓ in filter", "Enter the list"],
+      ["↑ ↓", "Move between sidebar rows"],
+      ["→ ←", "Open / close a section"],
+      ["]", "Show or hide the right pane"],
+      ["← → on a divider", "Resize a pane"],
     ],
   ],
   [
@@ -67,7 +67,7 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
 const EDITABLE =
   'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="searchbox"], [role="combobox"]';
 
-function typingIn(target: EventTarget | null) {
+export function typingIn(target: EventTarget | null) {
   return (
     target instanceof Element &&
     ((target instanceof HTMLElement && target.isContentEditable) ||
@@ -78,7 +78,7 @@ function typingIn(target: EventTarget | null) {
 /** WCAG 2.1.4: a reader can turn off the one global single-character shortcut. */
 const SINGLE_KEY_STORAGE = "rhizome:shortcuts:single-key";
 
-function readSingleKey() {
+export function readSingleKey() {
   try {
     return window.localStorage.getItem(SINGLE_KEY_STORAGE) !== "off";
   } catch {

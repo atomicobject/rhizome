@@ -91,9 +91,16 @@ describe("NotesShell render boundaries", () => {
   it("does not re-render or re-parse an inactive note tab when shell state changes", async () => {
     render(<NotesShell />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /Alpha.*a\.md/i }));
+    const open = (path: string) =>
+      act(() => {
+        window.history.pushState({}, "", `/notes?note=${path}`);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+
+    await screen.findByRole("button", { name: "All notes (2)" });
+    open("a.md");
     await waitFor(() => expect(screen.getAllByText(/with a/)).toHaveLength(1));
-    fireEvent.click(screen.getByRole("button", { name: /Beta.*b\.md/i }));
+    open("b.md");
     await waitFor(() => expect(screen.getAllByText(/with a/)).toHaveLength(2));
     // Let staged loads, titles, and context registration settle.
     await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
@@ -113,9 +120,8 @@ describe("NotesShell render boundaries", () => {
     const switchRenders = alphaRenders();
     const switchParses = parses();
 
-    // Every pane's toolbar shows the context rail state, so collapsing it
-    // re-renders each pane once, without re-parsing any Markdown.
-    fireEvent.click(screen.getAllByRole("button", { name: "Collapse note context" })[0]!);
+    // The right pane's state lives in the shell, so hiding it re-renders no note pane.
+    fireEvent.click(screen.getAllByRole("button", { name: "Hide right pane" })[0]!);
     await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
 
     const collapseRenders = alphaRenders() - switchRenders;
@@ -126,7 +132,7 @@ describe("NotesShell render boundaries", () => {
 
     expect(switchRenders).toBe(0);
     expect(switchParses).toBe(0);
-    expect(collapseRenders).toBe(1);
+    expect(collapseRenders).toBe(0);
     expect(totalParses).toBe(0);
   });
 });

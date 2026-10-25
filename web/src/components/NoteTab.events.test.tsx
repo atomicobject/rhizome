@@ -107,8 +107,6 @@ function ControlledTab({ path }: { path: string }) {
       onOpen={(target) => setAnchor(splitNoteTarget(target).fragment)}
       onTitle={noop}
       registerContext={noop}
-      contextCollapsed={false}
-      onToggleContext={noop}
       onStageOps={stage}
     />
   );

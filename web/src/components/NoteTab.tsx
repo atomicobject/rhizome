@@ -45,8 +45,6 @@ export const NoteTab = memo(function NoteTab({
   onTitle,
   onFocusedTarget,
   registerContext,
-  contextCollapsed = false,
-  onToggleContext,
   onStageOps,
   vaultKey = null,
   validationIssueCount,
@@ -72,8 +70,6 @@ export const NoteTab = memo(function NoteTab({
   onTitle: (tabId: string, title: string) => void;
   onFocusedTarget?: (tabId: string, target: string, requestedTarget: string) => void;
   registerContext: (tabId: string, context: NoteTabContext | null) => void;
-  contextCollapsed?: boolean;
-  onToggleContext?: () => void;
   onStageOps: (ops: OntologyEditOp[]) => Promise<void>;
   vaultKey?: string | null;
   validationIssueCount?: number;
@@ -410,8 +406,6 @@ export const NoteTab = memo(function NoteTab({
                 )
               : undefined
         }
-        contextCollapsed={contextCollapsed}
-        onToggleContext={onToggleContext}
         breadcrumbs={
           paneStack.length > 1 ? (
             <nav className="notes-crumbs" aria-label="Node path">

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -8,7 +8,7 @@ import type {
   OntologyTypeResponse,
   ViewCatalogEntry,
 } from "../api/types";
-import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
+import { jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { NotesLeftRail, type NotesLeftRailProps } from "./NotesLeftRail";
 
@@ -177,13 +177,10 @@ function props(overrides: Partial<NotesLeftRailProps> = {}): NotesLeftRailProps 
     selectedType: "__all__",
     activeCollection: overrides.selectedType ?? "__all__",
     activeViewID: null,
-    activeTabID: "tab-spec",
     editSession: null,
     touchedPaths: new Set(),
-    findTabByPath: () => undefined,
     onSelectCollection: vi.fn(),
     onOpenConfiguredView: vi.fn(),
-    onOpenNote: vi.fn(),
     ...overrides,
   };
 }
@@ -217,11 +214,13 @@ describe("NotesLeftRail", () => {
     registerRailData("__all__", allNotes, [coverageView, planView]);
   });
 
-  it("does not show a pending note list for a display group", async () => {
-    render(<NotesLeftRail {...props({ selectedType: null, activeGroup: "Delivery" })} />);
+  it("lists no notes and never loads a type's note list", async () => {
+    render(<NotesLeftRail {...props({ selectedType: "Plan", activeCollection: "Plan" })} />);
     expect(await screen.findByRole("region", { name: "Collections" })).toBeVisible();
     expect(screen.queryByRole("region", { name: "Note list" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Loading notes…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    await waitFor(() => expect(http.count("GET", "/api/v1/views")).toBe(1));
+    expect(http.requests().some((request) => request.url.includes("/ontology/types/"))).toBe(false);
   });
 
   it("lists types without counts while the first index after a start rebuilds", async () => {
@@ -276,15 +275,7 @@ describe("NotesLeftRail", () => {
         })),
       });
     });
-    render(
-      <NotesLeftRail
-        {...props({
-          activeCollection: "Spec",
-          findTabByPath: (path) => (path === specNote.path ? { id: "tab-spec" } : undefined),
-          touchedPaths: new Set([specNote.path]),
-        })}
-      />,
-    );
+    render(<NotesLeftRail {...props({ activeCollection: "Spec" })} />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Expand Other" }));
     fireEvent.click(screen.getByRole("button", { name: "Expand Document" }));
@@ -293,33 +284,34 @@ describe("NotesLeftRail", () => {
     expect(screen.getByRole("button", { name: "All notes (2)" })).not.toHaveAttribute(
       "aria-current",
     );
-
-    const open = await screen.findByRole("button", { name: /^Demo spec Modified/ });
-    expect(open).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("button", { name: /^Demo plan/ })).not.toHaveAttribute("aria-current");
+    // Problems shows its count in the risk color only while there are problems.
+    expect(
+      screen.getByRole("button", { name: "Problems 2" }).querySelector(".is-risk"),
+    ).toHaveTextContent("2");
   });
 
-  it("renders collection and note-list regions with one local filter", async () => {
+  it("names the vault, then quick items, views, and types", async () => {
     const openView = vi.fn();
+    const openRecent = vi.fn();
     registerRailData("__all__", allNotes, [coverageView, planView]);
     render(
       <NotesLeftRail
         {...props({
+          vaultName: "/vaults/demo",
+          vaultPath: "/vaults/demo",
           activeViewID: coverageView.id,
           editSession: editSession(),
           onOpenConfiguredView: openView,
-          findTabByPath: (path) => (path === specNote.path ? { id: "tab-spec" } : undefined),
+          onOpenRecent: openRecent,
           touchedPaths: new Set([specNote.path]),
         })}
       />,
     );
 
     const rail = await screen.findByRole("complementary", { name: "Notes navigation" });
-    expect(screen.queryByRole("searchbox", { name: "Search notes" })).not.toBeInTheDocument();
+    expect(within(rail).getByTitle("/vaults/demo")).toHaveTextContent(/^demo$/);
     const collections = await within(rail).findByRole("region", { name: "Collections" });
-    const noteList = within(rail).getByRole("region", { name: "Note list" });
     expect(collections).toHaveClass("notes-left-rail__collections");
-    expect(noteList).toHaveClass("notes-left-rail__notes");
 
     expect(within(collections).getByRole("button", { name: "Coverage" })).toHaveClass(
       "is-selected",
@@ -327,8 +319,15 @@ describe("NotesLeftRail", () => {
     expect(within(collections).getByRole("button", { name: "Problems" })).toBeVisible();
     expect(within(collections).getByRole("button", { name: "Changes 1" })).toBeVisible();
     expect(within(collections).getByRole("button", { name: "All notes (2)" })).toBeVisible();
+    fireEvent.click(within(collections).getByRole("button", { name: "Recently changed" }));
+    expect(openRecent).toHaveBeenCalled();
     fireEvent.click(within(collections).getByRole("button", { name: "Coverage" }));
     expect(openView).toHaveBeenCalledWith(coverageView);
+
+    // Views is one collapsible section.
+    fireEvent.click(within(collections).getByRole("button", { name: "Views" }));
+    expect(within(collections).queryByRole("button", { name: "Coverage" })).toBeNull();
+    fireEvent.click(within(collections).getByRole("button", { name: "Views" }));
 
     fireEvent.click(within(collections).getByRole("button", { name: "Expand Other" }));
     fireEvent.click(within(collections).getByRole("button", { name: "Expand Document" }));
@@ -337,67 +336,38 @@ describe("NotesLeftRail", () => {
     expect(
       within(collections).queryByRole("button", { name: "Open Plan table for Plan" }),
     ).toBeNull();
-
-    const specRow = within(noteList)
-      .getByRole("button", { name: /Demo spec.*specs\/demo-spec\.md/i })
-      .closest(".ontology-note");
-
-    expect(specRow).toHaveClass("is-active", "is-modified");
-    fireEvent.change(within(noteList).getByRole("searchbox", { name: "Filter note list" }), {
-      target: { value: "plan" },
-    });
-    expect(within(noteList).getByText("Demo plan")).toBeVisible();
-    expect(within(noteList).queryByText("Demo spec")).toBeNull();
-    fireEvent.change(within(noteList).getByRole("searchbox", { name: "Filter note list" }), {
-      target: { value: "" },
-    });
-    const settings = within(noteList).getByRole("button", { name: "Open note list settings" });
-    fireEvent.click(settings);
-    const recent = within(noteList).getByRole("button", { name: "Recent" });
-    fireEvent.click(recent);
-    expect(recent).toHaveAttribute("aria-pressed", "true");
-    expect(
-      [...noteList.querySelectorAll(".ontology-note__title")].map((node) => node.textContent),
-    ).toEqual(["Demo spec", "Demo plan"]);
-
-    // Escape closes the settings and returns focus to their trigger.
-    recent.focus();
-    fireEvent.keyDown(recent, { key: "Escape" });
-    expect(within(noteList).queryByRole("group", { name: "Note list settings" })).toBeNull();
-    expect(settings).toHaveFocus();
   });
 
-  it("keeps the note list to one Tab stop that follows keyboard movement", async () => {
-    registerRailData("__all__", allNotes);
-    render(<NotesLeftRail {...props()} />);
+  it("keeps the sidebar to one Tab stop that follows arrow keys", async () => {
+    render(<NotesLeftRail {...props({ activeCollection: null })} />);
 
-    const noteList = await screen.findByRole("region", { name: "Note list" });
-    await within(noteList).findByText("Demo plan");
-    const rows = () => [...noteList.querySelectorAll<HTMLButtonElement>(".ontology-note__main")];
+    const collections = await screen.findByRole("region", { name: "Collections" });
+    await within(collections).findByRole("button", { name: "Coverage" });
+    const rows = () => [...collections.querySelectorAll<HTMLButtonElement>("[data-rail-row]")];
     const tabbable = () => rows().filter((row) => row.tabIndex === 0);
 
     expect(tabbable()).toEqual([rows()[0]]);
     expect(
-      within(noteList)
-        .getAllByRole("button", { name: "Open beside" })
-        .every((button) => button.tabIndex === -1),
+      within(collections)
+        .getAllByRole("button", { name: /^(Expand|Collapse) / })
+        .every((caret) => caret.tabIndex === -1),
     ).toBe(true);
 
     rows()[0].focus();
     fireEvent.keyDown(rows()[0], { key: "ArrowDown" });
     expect(rows()[1]).toHaveFocus();
-    expect(tabbable()).toEqual([rows()[1]]);
-  });
+    await waitFor(() => expect(tabbable()).toEqual([rows()[1]]));
+    fireEvent.keyDown(rows()[1], { key: "End" });
+    const other = within(collections).getByRole("button", { name: "Other" });
+    expect(other).toHaveFocus();
 
-  it("titles a single-type note list by its label and drops the repeated type", async () => {
-    const alphaNote = note("alpha/one.md", "First alpha", "Alpha", 10);
-    registerRailData("Alpha", typeDetail("Alpha", [alphaNote]));
-    render(<NotesLeftRail {...props({ summary: presentationSummary, selectedType: "Alpha" })} />);
-
-    const noteList = await screen.findByRole("region", { name: "Note list" });
-    expect(within(noteList).getByRole("heading", { name: "Alpha item notes" })).toBeVisible();
-    await within(noteList).findByText("First alpha");
-    expect(noteList.querySelector(".ontology-note__type-mini")).toBeNull();
+    // Right opens the focused row's section and Left closes it.
+    fireEvent.keyDown(other, { key: "ArrowRight" });
+    expect(within(collections).getByRole("button", { name: "Collapse Other" })).toBeVisible();
+    fireEvent.keyDown(other, { key: "ArrowLeft" });
+    expect(within(collections).getByRole("button", { name: "Expand Other" })).toBeVisible();
+    fireEvent.keyDown(other, { key: "Home" });
+    expect(rows()[0]).toHaveFocus();
   });
 
   it("names a group once by showing its views inside the matching type group", async () => {
@@ -423,45 +393,6 @@ describe("NotesLeftRail", () => {
 
     fireEvent.click(within(collections).getByRole("button", { name: "Collapse Knowledge" }));
     expect(within(collections).queryByRole("button", { name: "Knowledge board" })).toBeNull();
-  });
-
-  it("filters locally, supports keyboard movement, and preserves note open modes", async () => {
-    const openNote = vi.fn();
-    registerRailData("__all__", allNotes);
-    render(<NotesLeftRail {...props({ onOpenNote: openNote })} />);
-
-    const noteList = await screen.findByRole("region", { name: "Note list" });
-    const rows = () => [...noteList.querySelectorAll<HTMLButtonElement>(".ontology-note__main")];
-
-    const search = within(noteList).getByRole<HTMLInputElement>("searchbox", {
-      name: "Filter note list",
-    });
-
-    expect(screen.getAllByRole("searchbox")).toHaveLength(1);
-    fireEvent.change(search, { target: { value: "demo" } });
-    expect(await screen.findByText("Demo plan")).toBeVisible();
-    fireEvent.keyDown(search, { key: "ArrowDown" });
-    expect(rows()[0]).toHaveFocus();
-    fireEvent.keyDown(rows()[0], { key: "j" });
-    expect(rows()[1]).toHaveFocus();
-    fireEvent.keyDown(rows()[1], { key: "k" });
-    expect(rows()[0]).toHaveFocus();
-    fireEvent.keyDown(rows()[0], { key: "o" });
-    fireEvent.keyDown(rows()[0], { key: "x" });
-    expect(openNote).toHaveBeenNthCalledWith(1, planNote.path, "beside");
-    expect(openNote).toHaveBeenNthCalledWith(2, planNote.path, "beside");
-
-    fireEvent.keyDown(rows()[0], { key: "ArrowUp" });
-    expect(search).toHaveFocus();
-    fireEvent.keyDown(search, { key: "Enter" });
-    expect(openNote).toHaveBeenLastCalledWith(planNote.path, "activate");
-
-    fireEvent.click(rows()[1]);
-    expect(openNote).toHaveBeenLastCalledWith(specNote.path, "activate");
-    fireEvent.click(rows()[0], { metaKey: true });
-    expect(openNote).toHaveBeenLastCalledWith(planNote.path, "beside");
-    fireEvent.click(within(noteList).getAllByRole("button", { name: "Open beside" })[0]);
-    expect(openNote).toHaveBeenLastCalledWith(planNote.path, "beside");
   });
 
   it("retains disabled embedded implementors while hiding standalone embedded types", async () => {
@@ -594,12 +525,6 @@ describe("NotesLeftRail", () => {
 
     expect(materials.querySelector(".ontology-type-row__collapse-spacer")).toBeInTheDocument();
     expect(materials.firstElementChild).toHaveClass("ontology-type-row__collapse-spacer");
-
-    const allNotesWrap = within(collections)
-      .getByRole("button", { name: "All notes (2)" })
-      .closest(".ontology-type-row-wrap")!;
-
-    expect(allNotesWrap.firstElementChild).toHaveClass("ontology-type-row__collapse-spacer");
   });
 
   it("expands a collapsed branch when navigating to a sibling type", async () => {
@@ -622,98 +547,5 @@ describe("NotesLeftRail", () => {
     expect(
       within(collections).getByRole("button", { name: "Effort workspaces (2)" }),
     ).toBeVisible();
-  });
-
-  it("opens embedded list entries by stable identity while marking their owning tab", async () => {
-    const onOpenNote = vi.fn();
-
-    const embedded: OntologyNoteListItem = {
-      ...specNote,
-      path: `${specNote.path}#item-373`,
-      ref: {
-        notePath: specNote.path,
-        fragment: "item-373",
-        kind: "EMBEDDED",
-        structuralFingerprint: "criterion-fingerprint",
-      },
-    };
-
-    registerRailData("__all__", typeDetail("All", [embedded]));
-    http.json("GET", "/api/v1/nodes/preview", {
-      ref: `${specNote.path}#struct:criterion-fingerprint`,
-      path: specNote.path,
-      title: "Embedded criterion preview",
-      format: "markdown",
-      fragmentResolved: true,
-      fields: [],
-      hasIssues: false,
-    });
-    render(
-      <NotesLeftRail
-        {...props({
-          onOpenNote,
-          findTabByPath: (path) => (path === specNote.path ? { id: "tab-spec" } : undefined),
-          touchedPaths: new Set([specNote.path]),
-        })}
-      />,
-    );
-    const row = await screen.findByRole("button", { name: /Demo spec.*item-373/i });
-    expect(row.closest(".ontology-note")).toHaveClass("is-active", "is-modified");
-    fireEvent.focus(row);
-    await waitFor(() =>
-      expect(http.requests("GET", "/api/v1/nodes/preview")[0]?.query.get("ref")).toBe(
-        `${specNote.path}#struct:criterion-fingerprint`,
-      ),
-    );
-    expect(
-      await screen.findByRole("region", { name: "Preview of Embedded criterion preview" }),
-    ).toBeVisible();
-    fireEvent.click(row);
-    expect(onOpenNote).toHaveBeenLastCalledWith(
-      `${specNote.path}#struct:criterion-fingerprint`,
-      "activate",
-    );
-    fireEvent.keyDown(row, { key: "Enter" });
-    expect(onOpenNote).toHaveBeenLastCalledWith(
-      `${specNote.path}#struct:criterion-fingerprint`,
-      "activate",
-    );
-  });
-
-  it("shows loading and keeps the current type when an older type reply arrives", async () => {
-    const planReply = deferredReply<OntologyTypeResponse>();
-    const specReply = deferredReply<OntologyTypeResponse>();
-    http.on("GET", "/api/v1/ontology/types/Plan", () => planReply.promise);
-    http.on("GET", "/api/v1/ontology/types/Spec", () => specReply.promise);
-    const view = render(<NotesLeftRail {...props({ selectedType: "Plan" })} />);
-    expect(await screen.findByRole("status")).toHaveTextContent("Loading notes");
-
-    view.rerender(<NotesLeftRail {...props({ selectedType: "Spec" })} />);
-    await waitFor(() => expect(http.count("GET", "/api/v1/ontology/types/Spec")).toBe(1));
-    specReply.resolve(typeDetail("Spec", [specNote]));
-    expect(await screen.findByText("Demo spec")).toBeVisible();
-    await act(async () => {
-      planReply.resolve(typeDetail("Plan", [planNote]));
-      await planReply.promise;
-    });
-    expect(screen.getByText("Demo spec")).toBeVisible();
-    expect(screen.queryByText("Demo plan")).toBeNull();
-  });
-
-  it("recovers from a type-list error and renders a loaded empty state", async () => {
-    let attempts = 0;
-    http.on("GET", "/api/v1/ontology/types/Plan", () => {
-      attempts += 1;
-
-      return attempts === 1
-        ? jsonReply({ error: "Type list failed" }, 500)
-        : jsonReply(typeDetail("Plan", []));
-    });
-    render(<NotesLeftRail {...props({ selectedType: "Plan" })} />);
-
-    expect(await screen.findByText("Type list failed")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(attempts).toBe(2));
-    expect(await screen.findByText("No notes match the current filter.")).toBeVisible();
   });
 });

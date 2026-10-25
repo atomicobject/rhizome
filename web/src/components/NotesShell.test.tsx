@@ -148,6 +148,14 @@ function nodeDetailReply(ref: string): PublicGraphQLResult<PublicNodeDetailData>
   return { data: { node: publicNode(ref) } };
 }
 
+// The sidebar lists no notes (SPEC-0126 US8); a note opens from its URL.
+function openNote(path: string) {
+  act(() => {
+    window.history.pushState({}, "", `/notes?note=${encodeURIComponent(path)}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+}
+
 describe("NotesShell", () => {
   const http = withFakeFetch();
   withFakeEventSource();
@@ -169,7 +177,7 @@ describe("NotesShell", () => {
       );
   });
 
-  it("loads rail and home data and retains each opened file tab", async () => {
+  it("loads sidebar and home data and retains each opened note tab", async () => {
     render(<NotesShell />);
 
     expect(await screen.findByRole("heading", { name: "All notes" })).toBeVisible();
@@ -178,29 +186,59 @@ describe("NotesShell", () => {
     expect(within(main).getByRole("heading", { level: 1, name: "Notes" })).toBeInTheDocument();
     await screen.findByRole("button", { name: "All notes (2)" });
     expect(screen.getByRole("button", { name: "All notes (2)" })).toBeVisible();
-    expect(screen.getByRole("button", { name: /Demo plan.*plans\/demo-plan\.md/i })).toBeVisible();
-    expect(screen.getByRole("button", { name: /Demo spec.*specs\/demo-spec\.md/i })).toBeVisible();
 
-    fireEvent.click(screen.getByRole("button", { name: /Demo plan.*plans\/demo-plan\.md/i }));
-    await waitFor(() => {
-      expect(window.location.search).toBe("?note=plans%2Fdemo-plan.md");
-    });
+    openNote(planNote.path);
     expect(await screen.findByRole("tab", { name: /demo-plan\.md/i })).toBeVisible();
 
-    fireEvent.click(screen.getByRole("button", { name: /Demo spec.*specs\/demo-spec\.md/i }));
+    openNote(specNote.path);
     await waitFor(() => {
-      expect(window.location.search).toBe("?note=specs%2Fdemo-spec.md");
       expect(screen.getByRole("tab", { name: /demo-plan\.md/i })).toBeVisible();
       expect(screen.getByRole("tab", { name: /demo-spec\.md/i })).toBeVisible();
     });
   });
 
+  it("shows the active note's context in one right pane that ] and the toggles control", async () => {
+    render(<NotesShell />);
+    await screen.findByRole("button", { name: "All notes (2)" });
+
+    // Home has nothing to show, so the pane is closed and its toggle disabled.
+    expect(screen.getByRole("button", { name: "Show right pane" })).toBeDisabled();
+    expect(screen.queryByRole("complementary", { name: "Note context" })).toBeNull();
+
+    openNote(planNote.path);
+    expect(await screen.findByRole("complementary", { name: "Note context" })).toBeVisible();
+
+    fireEvent.keyDown(window, { key: "]" });
+    await waitFor(() =>
+      expect(screen.queryByRole("complementary", { name: "Note context" })).toBeNull(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show right pane" }));
+    expect(await screen.findByRole("complementary", { name: "Note context" })).toBeVisible();
+
+    // F6 cycles the sidebar, the tab row, the note, and the right pane.
+    const regions = [
+      screen.getByRole("complementary", { name: "Notes navigation" }),
+      document.querySelector(".notes-shell__tabs-row"),
+      document.querySelector(".notes-shell__panel.is-active"),
+      screen.getByRole("complementary", { name: "Note context" }),
+    ];
+
+    for (const region of regions) {
+      fireEvent.keyDown(window, { key: "F6" });
+      expect(region?.contains(document.activeElement)).toBe(true);
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
+    expect(screen.queryByRole("complementary", { name: "Notes navigation" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
+    expect(screen.getByRole("complementary", { name: "Notes navigation" })).toBeVisible();
+  });
+
   it("closes the active note tab when the desktop app asks, but never Home", async () => {
     render(<NotesShell />);
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Demo plan.*plans\/demo-plan\.md/i }),
-    );
+    await screen.findByRole("button", { name: "All notes (2)" });
+    openNote(planNote.path);
     expect(await screen.findByRole("tab", { name: /demo-plan\.md/i })).toBeVisible();
 
     act(() => {
@@ -217,9 +255,8 @@ describe("NotesShell", () => {
   it("leaves note tabs alone when the desktop app asks while Notes is not on screen", async () => {
     const shell = render(<NotesShell />);
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Demo plan.*plans\/demo-plan\.md/i }),
-    );
+    await screen.findByRole("button", { name: "All notes (2)" });
+    openNote(planNote.path);
     expect(await screen.findByRole("tab", { name: /demo-plan\.md/i })).toBeVisible();
     shell.rerender(<NotesShell active={false} />);
 
@@ -367,7 +404,6 @@ describe("NotesShell", () => {
 
     render(<NotesShell />);
     await waitFor(() => expect(http.count("GET", "/api/v1/ontology/types/Plan")).toBe(1));
-    expect(screen.getByText("Loading notes…")).toBeVisible();
 
     fireEvent.click(await screen.findByRole("button", { name: "Spec (1)" }));
     await waitFor(() => expect(http.count("GET", "/api/v1/ontology/types/Spec")).toBe(1));
@@ -376,33 +412,6 @@ describe("NotesShell", () => {
 
     planReply.resolve(typeDetail("Plan", [planNote]));
     await waitFor(() => expect(screen.queryByText("Demo plan")).toBeNull());
-  });
-
-  it("keeps one local note-list filter without issuing a project search", async () => {
-    window.history.replaceState({}, "", "/notes/plan");
-    const rendered = render(<NotesShell />);
-    await screen.findByRole("button", { name: "Plan (1)" });
-    expect(screen.queryByLabelText("Search notes")).toBeNull();
-
-    const filter = screen.getByRole("searchbox", { name: "Filter note list" });
-    fireEvent.change(filter, { target: { value: "plan" } });
-
-    const noteList = screen.getByRole("region", { name: "Note list" });
-    expect(within(noteList).getByText("Demo plan")).toBeVisible();
-    expect(within(noteList).queryByText("Demo spec")).toBeNull();
-    expect(http.count("GET", "/api/v1/search/notes")).toBe(0);
-
-    act(() => {
-      window.history.pushState({}, "", "/explorer?file=pkg%2Fsearch%2Fservice.go");
-      window.dispatchEvent(new PopStateEvent("popstate"));
-      rendered.rerender(<NotesShell active={false} />);
-    });
-    act(() => {
-      window.history.pushState({}, "", "/notes/plan");
-      window.dispatchEvent(new PopStateEvent("popstate"));
-      rendered.rerender(<NotesShell active />);
-    });
-    expect(screen.getByRole("searchbox", { name: "Filter note list" })).toHaveValue("plan");
   });
 
   it("opens a type's generated table by default despite a legacy table preference", async () => {
@@ -440,13 +449,6 @@ describe("NotesShell", () => {
     expect(viewSegment("Table")).toHaveAttribute("aria-pressed", "true");
     // A generated view is named for its type.
     expect(screen.getByRole("region", { name: "Plan view" })).toBeVisible();
-
-    // The table lists the records, so the rail's copy starts collapsed until the reader opens it.
-    const listToggle = screen.getByRole("button", { name: "Plan notes" });
-    await waitFor(() => expect(listToggle).toHaveAttribute("aria-expanded", "false"));
-    expect(screen.queryByRole("searchbox", { name: "Filter note list" })).toBeNull();
-    fireEvent.click(listToggle);
-    expect(screen.getByRole("searchbox", { name: "Filter note list" })).toBeVisible();
 
     rendered.rerender(<NotesShell active={false} />);
     await act(async () => {
