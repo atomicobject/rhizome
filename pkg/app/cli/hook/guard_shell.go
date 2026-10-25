@@ -170,7 +170,9 @@ func commandRuleMatches(cmd string, want []string) (matched, unsure bool) {
 		return false, mentioned
 	}
 	for _, seg := range segments {
-		words := seg.words
+		// A redirect may sit between arguments: `go mod >log vendor` runs
+		// `go mod vendor`.
+		words := append(seg.words[:1:1], operands(seg.words[1:])...)
 		if len(words) < len(want) {
 			continue
 		}

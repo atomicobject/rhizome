@@ -9,6 +9,7 @@
   ["cat ~/x", false],
   ["env GOFLAGS=-mod=mod go mod vendor", true],
   ["FOO=1 go mod vendor", true],
+  ["GOFLAGS=-tags=* go mod vendor", false],
   ["sudo reboot", true],
   ["builtin cd", true],
   ["./scripts/release.sh publish", true],

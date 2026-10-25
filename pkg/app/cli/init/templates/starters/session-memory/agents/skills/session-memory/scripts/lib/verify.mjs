@@ -297,13 +297,14 @@ export function guardRuleProblems(g) {
   if (!["read", "edit", "shell", "patch"].includes(g.tool)) problems.push("guardRule.tool must be read, edit, shell, or patch");
   if (filled(g.command) === filled(g.path)) problems.push("guardRule needs exactly one of command (a command prefix) or path (a glob using *, **, ?)");
   if (filled(g.command)) {
-    const words = g.command.trim().split(/\s+/);
+    const all = g.command.trim().split(/\s+/);
+    const words = [...all];
     while (words.length && (WRAPPERS.has(words[0]) || assignment(words[0]))) words.shift();
     if (/['"\\$`]/.test(g.command)) problems.push("guardRule.command must be plain words, without quotes or expansions");
     else if (!words.length || !plainCommandWord(words[0])) problems.push("guardRule.command must name a literal command word, not a glob such as * or a builtin such as eval");
     // The dispatcher never evaluates a command with an unquoted glob or a
     // leading ~, so a rule with one could match only a quoted word.
-    else if (words.some((w) => /[*?[]|^~/.test(w))) problems.push("guardRule.command may not use a glob (*, ?, [) or a leading ~ in any word");
+    else if (all.some((w) => /[*?[]|^~/.test(w))) problems.push("guardRule.command may not use a glob (*, ?, [) or a leading ~ in any word");
   }
   if (filled(g.path) && /^\/|(^|\/)\.{1,2}(\/|$)|\/\/|\/$/.test(g.path.trim())) problems.push("guardRule.path must be a repository-relative glob, without a leading /, ./, or ..");
   // The dispatcher's matcher would expand braces, classes, and escapes that

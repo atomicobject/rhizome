@@ -111,6 +111,8 @@ func TestCommandRulesMatchCommandWordsOfEachSimpleCommand(t *testing.T) {
 		{"make lint || go mod vendor", true, false},
 		{"ls\ngo mod vendor", true, false},
 		{"FOO=1 go mod vendor", true, false},
+		{"go mod >vendor.log vendor", true, false},
+		{"go mod 2>&1 vendor -v", true, false},
 		{`FOO="a b" BAR+=1 go mod vendor`, true, false},
 		{"/usr/local/go/bin/go mod vendor", true, false},
 		{"go mod 'vendor'", true, false},
