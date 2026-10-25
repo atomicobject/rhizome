@@ -3,15 +3,18 @@ package indexing
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/codeintel"
 	"github.com/atomicobject/rhizome/pkg/app/indexwriter"
+	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	graphindex "github.com/atomicobject/rhizome/pkg/graph/index"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
@@ -113,7 +116,7 @@ func runUnifiedPostIndex(
 				fmt.Fprintf(os.Stderr, "Warning: PRAGMA optimize failed: %v\n", err)
 			}
 			if err := intelStore.CheckIntegrity(phaseCtx); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: integrity check failed: %v\n", err)
+				reportIntegrityFailure(phaseCtx, err)
 			}
 			if err := intelStore.Checkpoint(phaseCtx, true); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: WAL checkpoint failed: %v\n", err)
@@ -132,4 +135,20 @@ func runUnifiedPostIndex(
 
 		return ctx.Err()
 	})
+}
+
+// reportIntegrityFailure retains the failure as a WARN event on the index
+// operation, which the recorder also mirrors to stderr, so `rzm diagnostics`
+// shows it after the console output is gone.
+func reportIntegrityFailure(ctx context.Context, err error) {
+	reason := "check_failed"
+	if sqliteutil.IsCorruptError(err) {
+		reason = "corrupt"
+	}
+	recorder := diagnostics.FromContext(ctx)
+	if recorder == nil {
+		fmt.Fprintf(os.Stderr, "Warning: integrity check failed: %v\n", err)
+		return
+	}
+	recorder.Event(ctx, slog.LevelWarn, "indexing", "integrity.failed", err.Error(), slog.String("reason_code", reason))
 }

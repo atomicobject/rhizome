@@ -5,6 +5,7 @@ type MetricName string
 
 const (
 	DBIntegrityChecks                                MetricName = "db.integrity_checks"
+	DBIntegrityFailures                              MetricName = "db.integrity_failures"
 	AnchorScopesAffectedIds                          MetricName = "anchor_scopes.affected_ids"
 	AnchorScopesRecomputeStructuralChangeOrRecovery  MetricName = "anchor_scopes.recompute.structural_change_or_recovery"
 	CallEdgesRecomputeStructuralChange               MetricName = "call_edges.recompute.structural_change"
