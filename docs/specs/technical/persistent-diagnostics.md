@@ -38,6 +38,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 ### Persistence and lifecycle
 
 - Events and reports MUST carry a schema version, timestamp, process identity, operation identity when available, subsystem, severity or outcome, and stable event or reason names.
+- Events MAY carry a bounded `metrics` JSON object alongside their flat attributes. Attributes hold identity and filter values; `metrics` holds measurements. Event metrics MUST pass the same sanitization as report metrics (byte bound, nesting limit, credential redaction) with a cap that keeps the whole record within the per-event bound. The field is additive within schema version 1; readers ignore it when absent.
 - Each process MUST own its event segments. Complete reports MUST publish atomically; readers MUST tolerate partial records, corrupt files, concurrent rotation, and unknown schema versions with explicit coverage warnings.
 - Retention MUST default to seven days and a bounded disk budget. The latest completed full-index attempt MUST remain available within a bounded exception. Unknown files and symlink targets MUST not be deleted by retention.
 - Raw headless startup and crash output MAY use a separate rotated fallback under the diagnostics directory. Its rotation budget and any pre-capture or native-descriptor limits MUST be documented separately from structured retention.
@@ -49,7 +50,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 
 - A background indexing job of kind `watcher-batch`, `embed-cycle`, `graph-cycle`, or `validation-refresh` that succeeds in under one second, with no fallback, truncation, or error, MUST NOT publish a standalone report. Its `job.finished` event remains its record.
 - Any job that fails, is canceled or preempted, records a fallback or truncation, or runs for at least one second MUST still publish a report. Explicit indexing and boot catch-up MUST always publish reports.
-- `job.finished` events MUST carry the job kind, trigger, status, duration, queue wait, lock wait, and execution time, so aggregate views can account for jobs without reports.
+- `job.finished` events MUST carry the job kind, trigger, status, duration, queue wait, lock wait, and execution time, so aggregate views can account for jobs without reports. Jobs without a report SHOULD carry their bounded indexing metrics snapshot in the event's `metrics`.
 - On a vault with continuous watcher activity, routine jobs MUST NOT be the reason history younger than the retention window is evicted.
 
 ### Indexing evidence
@@ -82,7 +83,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
   - **Background refresh churn.** From the single invalidation point, `VaultInvalidationBridge`: refresh cycles, queries refetched, refetches whose data was structurally unchanged, and the commits per render region in the second after each refresh.
   - **Stability.** Event stream reconnects, uncaught errors, and unhandled promise rejections, counted by error name only.
 - Batches MUST NOT contain note titles, paths, URLs beyond a fixed route kind, query text, error messages, or stack traces.
-- The runtime MUST accept batches on a browser-facing `POST` route that applies the existing loopback-host and same-origin checks. It MUST bound the body size, validate the schema and identifier patterns, reject unknown fields, and record each accepted batch through the process recorder as one `web.client.window` event with the window totals, plus one `web.client.region` event for each render region that committed in the window. Both use the recorder's flat, bounded attributes. When persistence is disabled, the route MUST accept and discard batches.
+- The runtime MUST accept batches on a browser-facing `POST` route that applies the existing loopback-host and same-origin checks. It MUST bound the body size, validate the schema and identifier patterns, reject unknown fields, and record each accepted batch through the process recorder as one `web.client` event: identity and window in attributes, measurements (including per-region data) in `metrics`. When persistence is disabled, the route MUST accept and discard batches.
 - Render-region measurement MUST work in the packaged desktop app, so production web builds use React's profiling build (`react-dom/profiling`). Verification MUST measure its overhead on a representative heavy view; if the overhead is noticeable, render regions become development-only and frame stalls, refresh churn, and stability counts remain in production. Drew chose this over development-only render regions on 2026-10-25, because render churn mostly appears in real use.
 
 ### Offline use
