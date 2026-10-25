@@ -323,9 +323,11 @@ export function AgentTimeline({
 
   if (groups.length === 0) {
     return (
-      <div className="agent-empty">
-        <h2>Ask against the vault.</h2>
-        <p>Rhizome will route the turn through the selected coding-agent harness.</p>
+      <div className="agent-empty" role="status">
+        <p>
+          <b>No messages yet.</b> Ask about this vault below; Rhizome sends each turn through the
+          selected harness. <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends.
+        </p>
       </div>
     );
   }

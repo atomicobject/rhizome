@@ -896,7 +896,24 @@ describe("OntologyNotePane", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
 
     expect(writeText).toHaveBeenCalledWith("[[spec#^story-a]]");
-    expect(await screen.findByText("Copied link.")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Copied link.");
+  });
+
+  it("announces an inline refresh failure as an alert", () => {
+    const workspace = asWorkspace({
+      requestedRef: "notes/a.md",
+      content: {
+        path: "notes/a.md",
+        title: "A",
+        rendered: { path: "notes/a.md", title: "A", rendered: "Body" },
+      },
+    });
+
+    render(
+      <OntologyNotePane workspace={workspace} onOpen={vi.fn()} error="Could not refresh note." />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not refresh note.");
   });
 
   it("stages the block-id fix instead of copying a fragile locator", async () => {

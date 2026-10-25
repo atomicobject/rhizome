@@ -72,7 +72,7 @@ No phone or touch layouts, no in-app appearance override (the theme follows the 
 
 - Rail rows expose the active collection and open note with `aria-current`; a modified note shows a visible shaped mark with text; type rows include their issue count in their accessible name.
 - The Notes route has a `main` landmark and a heading; configured-view result counts, empty and loading states, copy-link results, and inline errors announce through status or alert regions.
-- Graph surfaces have an accessible name and summary; graph search inputs are labeled; Type Detail tabs implement the tab pattern; the Explorer tree exposes expanded and current state; the Overview stage bar has a text breakdown; closable tabs expose their Delete shortcut; the `?` shortcut does not fire from text input contexts and can be turned off.
+- Graph surfaces have an accessible name and summary; graph search inputs are labeled; Type Detail tabs implement the tab pattern; the Explorer tree exposes expanded and current state; the Overview stage bar has a text breakdown; closable tabs expose their Delete shortcut; the `?` shortcut, the only global single-key shortcut, does not fire from text input contexts and can be turned off; other single-key shortcuts act only while their list or board has focus.
 
 ### Performance
 

@@ -32,7 +32,6 @@ type Props = {
   capabilities: ViewFieldCapability[];
   columns: ViewTableColumn[];
   visibleFields: string[];
-  issueCounts?: ReadonlyMap<string, number>;
   activeVariant: ConfiguredViewVariant;
   boardColumnField?: string;
   boardLaneField?: string;
@@ -40,13 +39,16 @@ type Props = {
   executedGroupField?: string;
   onToggleColumn: (field: string) => void;
   onResetPage: (patch: ViewExecuteRequest) => void;
-  onIssuesOnlyChange: (enabled: boolean) => void;
   /** Generated columns no matching row fills; the menu lists them as hidden empty. */
   emptyFields?: string[];
   /** Table row density; the Rows control shows only when it is set. */
   density?: "two-line" | "one-line";
   onDensityChange?: (density: "two-line" | "one-line") => void;
-  /** Controls placed after the tools, such as an embedded view's layout switcher. */
+  /** Less frequent actions, such as Save view and refresh, shown under View options. */
+  viewActions?: ReactNode;
+  /** The shared view has unsaved changes; View options marks it while closed. */
+  optionsDirty?: boolean;
+  /** Controls placed after the tools, such as an embedded view's preference status. */
   trailing?: ReactNode;
 };
 
@@ -61,7 +63,6 @@ export function ConfiguredViewToolbar({
   capabilities,
   columns,
   visibleFields,
-  issueCounts,
   activeVariant,
   boardColumnField,
   boardLaneField,
@@ -69,10 +70,11 @@ export function ConfiguredViewToolbar({
   executedGroupField,
   onToggleColumn,
   onResetPage,
-  onIssuesOnlyChange,
   emptyFields = [],
   density,
   onDensityChange,
+  viewActions,
+  optionsDirty = false,
   trailing,
 }: Props) {
   const displayCapabilities = useMemo(
@@ -102,6 +104,7 @@ export function ConfiguredViewToolbar({
     )?.key ?? groupField;
 
   const hiddenEmpty = emptyFields.filter((field) => !visibleFields.includes(field));
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
@@ -109,7 +112,7 @@ export function ConfiguredViewToolbar({
     draftsFromState(state.filters ?? [], capabilities),
   );
 
-  const columnPopoverRef = useRef<HTMLDivElement | null>(null);
+  const optionsRef = useRef<HTMLDivElement | null>(null);
   const lastEmittedFiltersKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -119,7 +122,7 @@ export function ConfiguredViewToolbar({
     setDraftFilters(draftsFromState(state.filters ?? [], displayCapabilities));
   }, [displayCapabilities, state.filters]);
 
-  usePopoverDismiss(columnsOpen, columnPopoverRef, () => setColumnsOpen(false));
+  usePopoverDismiss(optionsOpen, optionsRef, () => setOptionsOpen(false));
 
   const executableFilters = useMemo(
     () =>
@@ -252,54 +255,7 @@ export function ConfiguredViewToolbar({
             </select>
           </label>
         )}
-        {activeVariant === "table" && density && (
-          <label className="configured-view__select">
-            <span>Rows</span>
-            <select
-              aria-label="Rows"
-              value={density}
-              onChange={(event) =>
-                onDensityChange?.(event.target.value === "one-line" ? "one-line" : "two-line")
-              }
-            >
-              <option value="two-line">Two-line</option>
-              <option value="one-line">One-line</option>
-            </select>
-          </label>
-        )}
         <div className="configured-view__tools">
-          {activeVariant === "table" && (
-            <div className="configured-view__columns-menu" ref={columnPopoverRef}>
-              <button
-                type="button"
-                className="configured-view__tool-button"
-                aria-label="Columns"
-                aria-expanded={columnsOpen}
-                onClick={() => setColumnsOpen((open) => !open)}
-              >
-                Columns {visibleFields.length}/{columns.length}
-                {hiddenEmpty.length > 0 && ` · ${hiddenEmpty.length} hidden empty`}
-              </button>
-              {columnsOpen && (
-                <fieldset className="configured-view__columns-popover">
-                  <legend>Visible columns</legend>
-                  {columnOptions.map((column) => (
-                    <label key={column.field}>
-                      <input
-                        type="checkbox"
-                        checked={visibleFields.includes(column.field)}
-                        onChange={() => onToggleColumn(column.field)}
-                      />
-                      <span>{columnLabel(column, capabilities)}</span>
-                      {hiddenEmpty.includes(column.field) && (
-                        <small className="configured-view__column-note">hidden empty</small>
-                      )}
-                    </label>
-                  ))}
-                </fieldset>
-              )}
-            </div>
-          )}
           <button
             ref={addFilterRef}
             type="button"
@@ -310,15 +266,6 @@ export function ConfiguredViewToolbar({
           >
             + Filter
           </button>
-          {issueCounts && (
-            <label className="configured-view__issues-filter">
-              <input
-                type="checkbox"
-                onChange={(event) => onIssuesOnlyChange(event.target.checked)}
-              />
-              Problems on this page
-            </label>
-          )}
           {draftFilters.length > 0 && (
             <button
               type="button"
@@ -329,6 +276,74 @@ export function ConfiguredViewToolbar({
               Filters ({executableFilters.length})
             </button>
           )}
+          <div className="configured-view__options" ref={optionsRef}>
+            <button
+              type="button"
+              className="configured-view__tool-button configured-view__options-button"
+              aria-label={optionsDirty ? "View options, unsaved changes" : "View options"}
+              aria-expanded={optionsOpen}
+              onClick={() => setOptionsOpen((open) => !open)}
+            >
+              View options
+              {optionsDirty && <span className="configured-view__unsaved-dot" aria-hidden />}
+            </button>
+            {/* Stays mounted while closed so a save in progress keeps its status. */}
+            <div
+              className="configured-view__options-panel"
+              role="group"
+              aria-label="View options"
+              hidden={!optionsOpen}
+            >
+              {activeVariant === "table" && density && (
+                <label className="configured-view__select">
+                  <span>Rows</span>
+                  <select
+                    aria-label="Rows"
+                    value={density}
+                    onChange={(event) =>
+                      onDensityChange?.(event.target.value === "one-line" ? "one-line" : "two-line")
+                    }
+                  >
+                    <option value="two-line">Two-line</option>
+                    <option value="one-line">One-line</option>
+                  </select>
+                </label>
+              )}
+              {activeVariant === "table" && (
+                <>
+                  <button
+                    type="button"
+                    className="configured-view__tool-button"
+                    aria-label="Columns"
+                    aria-expanded={columnsOpen}
+                    onClick={() => setColumnsOpen((open) => !open)}
+                  >
+                    Columns {visibleFields.length}/{columns.length}
+                    {hiddenEmpty.length > 0 && ` · ${hiddenEmpty.length} hidden empty`}
+                  </button>
+                  {columnsOpen && (
+                    <fieldset className="configured-view__columns-list">
+                      <legend>Visible columns</legend>
+                      {columnOptions.map((column) => (
+                        <label key={column.field}>
+                          <input
+                            type="checkbox"
+                            checked={visibleFields.includes(column.field)}
+                            onChange={() => onToggleColumn(column.field)}
+                          />
+                          <span>{columnLabel(column, capabilities)}</span>
+                          {hiddenEmpty.includes(column.field) && (
+                            <small className="configured-view__column-note">hidden empty</small>
+                          )}
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
+                </>
+              )}
+              {viewActions && <div className="configured-view__options-actions">{viewActions}</div>}
+            </div>
+          </div>
           {trailing}
         </div>
       </div>

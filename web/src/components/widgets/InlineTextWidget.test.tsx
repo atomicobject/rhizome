@@ -15,8 +15,8 @@ describe("InlineTextWidget", () => {
   });
 
   it("renders a placeholder when the value is missing", () => {
-    render(<InlineTextWidget value="" editing={false} present={false} placeholder="(empty)" />);
-    expect(screen.getByText("(empty)")).toBeInTheDocument();
+    render(<InlineTextWidget value="" editing={false} present={false} placeholder="Empty" />);
+    expect(screen.getByText("Empty")).toBeInTheDocument();
   });
 
   it("stages on blur when the value changes in edit mode", () => {
@@ -26,6 +26,19 @@ describe("InlineTextWidget", () => {
     fireEvent.change(input, { target: { value: "v1.1" } });
     fireEvent.blur(input);
     expect(onStage).toHaveBeenCalledWith("v1.1");
+  });
+
+  it("edits a long value in a wrapping textarea that keeps one line of text", () => {
+    const onStage = vi.fn();
+    const summary = "A long summary that a single-line input would cut off at its edge. ".repeat(4);
+    render(<InlineTextWidget value={summary} editing={true} onStage={onStage} />);
+    const input = screen.getByRole("textbox");
+
+    expect(input.tagName).toBe("TEXTAREA");
+    expect(input).toHaveValue(summary);
+    fireEvent.change(input, { target: { value: "First line\nsecond line" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onStage).toHaveBeenCalledWith("First line second line");
   });
 
   it("does not stage when blurred without a change", () => {

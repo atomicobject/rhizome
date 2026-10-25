@@ -44,7 +44,7 @@ export function ConfiguredViewFooter({
   return (
     <footer className="configured-view__footer">
       <div className="configured-view__footer-status">
-        <span>{summary}</span>
+        <span role="status">{summary}</span>
         {loadingMore && <span role="status">Loading more rows…</span>}
         {collapsed && <span>{collapsed}</span>}
         {stagedCount > 0 && (

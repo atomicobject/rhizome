@@ -13,7 +13,7 @@ import { withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { nativePreferenceScope } from "../viewPreferences/native";
 import { getPreferenceStore } from "../viewPreferences/store";
-import { baseView, secondRow } from "./ConfiguredView.testFixtures";
+import { baseView, openViewOptions, secondRow } from "./ConfiguredView.testFixtures";
 import {
   executedWith,
   RailHarness,
@@ -52,6 +52,7 @@ describe("type collection table columns", () => {
     );
 
     expect(screen.queryByRole("columnheader", { name: "Updated" })).toBeNull();
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     const menu = screen.getByRole("group", { name: "Visible columns" });
     fireEvent.click(within(menu).getByLabelText(/^ID/));
@@ -71,6 +72,7 @@ describe("type collection table columns", () => {
     // Hiding the re-shown column returns it to the hidden-empty list.
     fireEvent.click(within(menu).getByLabelText(/^ID/));
     expect(screen.queryByRole("columnheader", { name: "ID" })).toBeNull();
+    openViewOptions();
     expect(screen.getByRole("button", { name: "Columns" })).toHaveTextContent("1 hidden empty");
   });
 });

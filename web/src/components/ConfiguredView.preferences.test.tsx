@@ -9,7 +9,13 @@ import type { ViewContext } from "../views/context";
 import { nativePreferenceScope } from "../viewPreferences/native";
 import { clearPreferenceStores, getPreferenceStore } from "../viewPreferences/store";
 import { preferenceServer } from "../viewPreferences/testServer";
-import { baseView, boardExecution, execution, renderView } from "./ConfiguredView.testFixtures";
+import {
+  baseView,
+  boardExecution,
+  execution,
+  openViewOptions,
+  renderView,
+} from "./ConfiguredView.testFixtures";
 
 const VAULT = "vault-a";
 
@@ -177,6 +183,8 @@ describe("Save view shared configuration", () => {
   }
 
   const openReview = async () => {
+    await screen.findByRole("button", { name: /^View options/ });
+    openViewOptions();
     fireEvent.click(await screen.findByRole("button", { name: "Save view, unsaved changes" }));
 
     return screen.getByRole("dialog", { name: "Save shared view configuration" });

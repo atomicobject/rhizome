@@ -173,6 +173,9 @@ describe("NotesShell", () => {
     render(<NotesShell />);
 
     expect(await screen.findByRole("heading", { name: "All notes" })).toBeVisible();
+    // One landmark and page heading name the workspace for assistive tech.
+    const main = screen.getByRole("main", { name: "Notes workspace" });
+    expect(within(main).getByRole("heading", { level: 1, name: "Notes" })).toBeInTheDocument();
     await screen.findByRole("button", { name: "All notes (2)" });
     expect(screen.getByRole("button", { name: "All notes (2)" })).toBeVisible();
     expect(screen.getByRole("button", { name: /Demo plan.*plans\/demo-plan\.md/i })).toBeVisible();

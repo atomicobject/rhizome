@@ -1085,6 +1085,13 @@
   border-left-color: var(--accent);
 }
 
+/* The shaped mark carries "modified" without relying on the border color. */
+.ontology-note__modified {
+  margin-right: 4px;
+  color: var(--warning-ink);
+  font-size: 0.85em;
+}
+
 .ontology-note__main {
   display: flex;
   flex-direction: column;
@@ -3249,6 +3256,10 @@
 }
 
 .widget-text--input {
+  display: block;
+  max-height: 12lh;
+  overflow-y: auto;
+  resize: none;
   font: inherit;
   border: 1px solid var(--border);
   border-radius: var(--radius, 4px);
@@ -4612,6 +4623,13 @@
   width: min(100%, 1100px);
   margin: 0 auto;
   padding: var(--sp-6, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5, 20px);
+}
+
+/* The tab panel keeps the page's section rhythm. */
+.ontology-type-detail__tabpanel {
   display: flex;
   flex-direction: column;
   gap: var(--sp-5, 20px);

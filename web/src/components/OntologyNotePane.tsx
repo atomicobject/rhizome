@@ -1548,7 +1548,11 @@ export function OntologyNotePane({
               {locator.status === "requires_fix" ? "Make linkable" : "Copy link"}
             </button>
           )}
-          {copyLinkMessage && <span className="ontology-chip">{copyLinkMessage}</span>}
+          {copyLinkMessage && (
+            <span className="ontology-chip" role="status">
+              {copyLinkMessage}
+            </span>
+          )}
           {onToggleContext && !contextCollapsed ? (
             <button
               type="button"
@@ -1601,7 +1605,11 @@ export function OntologyNotePane({
                 Refreshing note…
               </div>
             )}
-            {error && <div className="ontology-pane__refresh-status is-error">{error}</div>}
+            {error && (
+              <div className="ontology-pane__refresh-status is-error" role="alert">
+                {error}
+              </div>
+            )}
             {(renderPresentation ?? ((body) => body))(
               <>
                 {viewMode === "read" &&

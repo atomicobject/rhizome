@@ -29,3 +29,15 @@ export async function expandNoteList(page: Page, name: string) {
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await toggle.click();
 }
+
+/** Waits until the visible configured view has finished loading. */
+export async function expectViewSettled(page: Page) {
+  await expect(page.locator(".configured-view:visible")).toHaveAttribute("aria-busy", "false");
+}
+
+/** Opens the configured view toolbar's View options (density, columns, Save view, refresh). */
+export async function openViewOptions(scope: Page | Locator) {
+  const button = scope.getByRole("button", { name: /^View options/ });
+
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+}

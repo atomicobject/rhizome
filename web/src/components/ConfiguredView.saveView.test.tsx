@@ -5,7 +5,7 @@ import { isJsonObject } from "../api/parse";
 import type { ViewSaveRequest } from "../api/types";
 import { decodeJSONBody, withFakeFetch } from "../test/fakeFetch";
 import { ideaBoard, ideaView } from "./ConfiguredView.profileFixtures";
-import { renderView } from "./ConfiguredView.testFixtures";
+import { openViewOptions, renderView } from "./ConfiguredView.testFixtures";
 
 const SAVE_PATH = `/api/v1/views/${encodeURIComponent(ideaView.id)}/save`;
 
@@ -44,13 +44,17 @@ describe("Save view", () => {
     const onViewSaved = renderBoard(undefined, { laneField: "priority", search: "agents" });
 
     // A lane choice the definition does not hold is an unsaved change.
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Save view, unsaved changes" }));
     // A typed search is temporary; it saves only when the reader includes it.
     fireEvent.click(screen.getByRole("checkbox", { name: "Include search “agents”" }));
     fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Saved .rhizome/views/ip-ideas.yaml",
+    // The footer's row count is a status region too.
+    await waitFor(() =>
+      expect(screen.getAllByRole("status").map((status) => status.textContent)).toContain(
+        "Saved .rhizome/views/ip-ideas.yaml",
+      ),
     );
     expect(onViewSaved).toHaveBeenCalledWith(
       expect.objectContaining({ id: "ip-ideas", created: true }),
@@ -87,7 +91,7 @@ describe("Save view", () => {
   it("shows no unsaved marker when nothing differs from the definition", () => {
     renderBoard();
 
-    expect(screen.getByRole("button", { name: "Save view" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "View options" })).toBeVisible();
   });
 
   it("shows an invalid result inline", async () => {
@@ -99,6 +103,7 @@ describe("Save view", () => {
     );
 
     const onViewSaved = renderBoard();
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Save view" }));
     fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
 
@@ -113,6 +118,7 @@ describe("Save view", () => {
     http.json("POST", SAVE_PATH, { error: "view changed", code: "conflict" }, 409);
 
     renderBoard();
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Save view" }));
     fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
 
@@ -129,6 +135,10 @@ describe("Save view", () => {
     await waitFor(() => expect(http.requests("POST", SAVE_PATH)).toHaveLength(2));
     const retry = decodeJSONBody(http.requests("POST", SAVE_PATH)[1], isSaveRequest);
     expect(retry.definitionFingerprint).toBeUndefined();
-    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    await waitFor(() =>
+      expect(screen.getAllByRole("status").map((status) => status.textContent)).toContainEqual(
+        expect.stringMatching(/^Saved /),
+      ),
+    );
   });
 });

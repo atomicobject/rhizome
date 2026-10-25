@@ -8,6 +8,7 @@ import type {
   StructuralNode,
   ValidationHealth,
 } from "../api/types";
+import { tabKeyTarget } from "./focusManagement";
 import type { NoteTabContext } from "./noteTabContext";
 import { NotesSidebarInfo } from "./NotesSidebarInfo";
 import { OntologyLocalGraph } from "./OntologyLocalGraph";
@@ -387,17 +388,7 @@ export function NotesRightRail({
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     const index = RAIL_TABS.findIndex((tab) => tab.id === activeTab);
-    let nextIndex: number | null = null;
-
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      nextIndex = (index + 1) % RAIL_TABS.length;
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      nextIndex = (index - 1 + RAIL_TABS.length) % RAIL_TABS.length;
-    } else if (event.key === "Home") {
-      nextIndex = 0;
-    } else if (event.key === "End") {
-      nextIndex = RAIL_TABS.length - 1;
-    }
+    const nextIndex = tabKeyTarget(event.key, index, RAIL_TABS.length);
 
     if (nextIndex === null) return;
     event.preventDefault();

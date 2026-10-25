@@ -138,16 +138,17 @@ export function ConfiguredViewFacets({
           onClick={() => toggle(STALE_FILTER)}
         />
       )}
-      {stats.issueCount > 0 || issuesActive ? (
+      {/* Counts records the ontology flags, not validation issues, so it never
+          claims the collection is clean: the header owns that number. */}
+      {(stats.issueCount > 0 || issuesActive) && (
         <FacetButton
           tone="risk"
-          label="Issues"
+          label={stats.issueCount === 1 ? "Record with issues" : "Records with issues"}
           count={stats.issueCount}
+          title="Show only records that have issues"
           pressed={issuesActive}
           onClick={() => toggle({ field: "hasIssues", op: "eq", value: "true" })}
         />
-      ) : (
-        <span className="view-facets__clean">✓ no issues</span>
       )}
     </div>
   );
