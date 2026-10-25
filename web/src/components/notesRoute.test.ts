@@ -343,29 +343,6 @@ describe("normalizeNotePath", () => {
 });
 
 describe("splitNoteTarget", () => {
-  it("keeps # and ? that belong to a note's file name", () => {
-    expect(splitNoteTarget("Archive/Budget#USD.md")).toEqual({
-      path: "Archive/Budget#USD.md",
-      query: null,
-      fragment: null,
-    });
-    expect(splitNoteTarget("Archive/Budget#USD.md#Totals")).toEqual({
-      path: "Archive/Budget#USD.md",
-      query: null,
-      fragment: "Totals",
-    });
-    expect(splitNoteTarget("Ideas/Why?.md?view=raw")).toEqual({
-      path: "Ideas/Why?.md",
-      query: "view=raw",
-      fragment: null,
-    });
-    expect(splitNoteTarget("Note#Heading")).toEqual({
-      path: "Note",
-      query: null,
-      fragment: "Heading",
-    });
-  });
-
   it("decodes a literal percent escape exactly once at the browser boundary", () => {
     const target = splitNoteTarget("docs/spec.md#section%201");
 

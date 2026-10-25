@@ -35,6 +35,9 @@ export function useFinderNoteRequests(open: NoteOpener) {
  * beside), so the caller records that open itself; a location change is
  * recorded by useRecordLocationOpens.
  */
+// Known limit: tab targets are strings split at the first # and ?, so a note
+// whose file name contains either opens the wrong file; that is the tab
+// model's, not the finder's (see the effort's follow-ups).
 function openNote(path: string, mode: OpenMode): boolean {
   if (notesOpener) {
     notesOpener(path, mode);
@@ -145,6 +148,8 @@ function QuickOpenPalette({ onClose }: { onClose: () => void }) {
   );
 
   const onOpen = useCallback((row: QuickOpenItem, { beside }: { beside: boolean }) => {
+    // Explorer shows one file at a time, so a code file has no "beside";
+    // the palette hides that hint for code rows.
     if (row.kind === "code") {
       openCodeFile(row.path);
 

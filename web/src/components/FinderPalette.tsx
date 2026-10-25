@@ -260,9 +260,11 @@ export function FinderPalette<T extends FinderPaletteItem>({
           <span>
             <kbd>↵</kbd> open
           </span>
-          <span>
-            <kbd>{MOD_KEY}↵</kbd> open beside
-          </span>
+          {current?.kind !== "code" && (
+            <span>
+              <kbd>{MOD_KEY}↵</kbd> open beside
+            </span>
+          )}
           <span>
             <kbd>esc</kbd> close
           </span>

@@ -283,32 +283,10 @@ function parseIssueScope(kind: string | null, key: string | undefined): Validati
   return null;
 }
 
-const NOTE_EXTENSION = /\.(md|markdown|html?)$/i;
-
-/**
- * The index of the `separator` that starts a query or fragment, or -1. A
- * `#` or `?` belongs to the file name when the text before it has no note
- * extension but the name after it does, as in `Budget#USD.md`; a wikilink's
- * `Note#Heading` and a path's `spec.md#section` still split.
- */
-function suffixIndex(target: string, separator: "#" | "?"): number {
-  for (
-    let index = target.indexOf(separator);
-    index !== -1;
-    index = target.indexOf(separator, index + 1)
-  ) {
-    const rest = target.slice(index + 1).split(/[#?]/, 1)[0];
-
-    if (NOTE_EXTENSION.test(target.slice(0, index)) || !NOTE_EXTENSION.test(rest)) return index;
-  }
-
-  return -1;
-}
-
 export function splitNoteTarget(target: string): NoteTarget {
-  const hashIndex = suffixIndex(target, "#");
+  const hashIndex = target.indexOf("#");
   const beforeFragment = hashIndex === -1 ? target : target.slice(0, hashIndex);
-  const queryIndex = suffixIndex(beforeFragment, "?");
+  const queryIndex = beforeFragment.indexOf("?");
 
   if (queryIndex === -1) {
     return {
