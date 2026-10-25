@@ -161,6 +161,9 @@ test("a selected row shows as a record in the right rail and opens in a tab", as
 });
 
 test("a bulk edit adds a link to every selected row, stages, and saves", async ({ page }) => {
+  // Wide enough that the Attendees relation column stays in the table rather
+  // than moving to the Record pane (SPEC-0126 US4).
+  await page.setViewportSize({ width: 1680, height: 900 });
   await page.goto("/notes/tv-meeting");
   await expect(rows(page)).toHaveCount(8);
 
