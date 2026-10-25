@@ -30,9 +30,11 @@ test("⌘P finds a note by a typo'd query and opens it as a tab, then a code fil
   await input.press("Enter");
   await expect(page).toHaveURL(/\/explorer\?file=.*main\.py/);
 
-  // With no query the finder lists what was just opened.
+  // With no query the finder lists recent opens; other specs share the vault,
+  // so only assert that the files opened here are among them.
   await page.keyboard.press("ControlOrMeta+p");
-  await expect(page.getByRole("option").first()).toContainText(/main\.py|Sync Strategy/);
+  await expect(page.getByRole("option", { name: /main\.py/ }).first()).toBeVisible();
+  await expect(page.getByRole("option", { name: /Sync Strategy/ })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(input).toBeHidden();
 });
