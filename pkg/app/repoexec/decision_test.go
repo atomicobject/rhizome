@@ -36,6 +36,8 @@ func TestDecisionForExecutableAuthority(t *testing.T) {
 		{name: "go run keeps source executable", config: "version: v1.2.3", source: true, goRun: true, installed: true},
 		{name: "trust command never bootstraps", config: "version: v1.2.3", args: []string{"trust"}},
 		{name: "untrust command never bootstraps", config: "version: v1.2.3", args: []string{"untrust"}},
+		{name: "credentials never bootstrap", config: "version: v1.2.3", args: []string{"credentials", "import"}},
+		{name: "credentials ignore configured development binary", config: "version: v1.2.3\n  devBinaryDir: dev", installed: true, args: []string{"credentials", "import"}},
 		{name: "desktop dispatch never bootstraps", config: "version: v1.2.3", args: []string{"desktop"}},
 		{name: "update owns its installation", config: "version: v1.2.3", args: []string{"update", "--pinned"}},
 		{name: "external ownership migration uses invoking binary", config: "version: v1.2.3", args: []string{"init", "--binary-manager", "external"}},

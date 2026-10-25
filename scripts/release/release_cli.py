@@ -9,6 +9,7 @@ import hashlib
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -24,7 +25,7 @@ from notes import (
     GenerationResult,
     generate_release_notes,
 )
-from release_actions import RELEASE_FILE_PATHS, apply_release_files
+from release_actions import RELEASE_FILE_PATHS, VERSION_PATH, apply_release_files
 from release_command import run_cli
 from release_git import ReleaseGit, ReleaseGitError
 from release_preconditions import ReleasePreconditionError, validate_stored_apply_boundary, verify_base_tag
@@ -33,7 +34,7 @@ from release_publish import PUBLISH_TOKEN_ENV, publish_command
 from release_store import ReleaseStore, ReleaseStoreError, StoredReleaseRun
 from release_theme import merge_curated_themes
 from release_types import ReleaseEvidence, ReleasePlan, ReleaseRunState
-from release_version import choose_release_version, present_release_preview
+from release_version import choose_release_version, present_release_preview, source_release_version, validate_next_version
 
 
 CommandRunner = Callable[[Sequence[str], Path], subprocess.CompletedProcess[str]]
@@ -119,7 +120,22 @@ class Orchestrator:
 
     def _base(self) -> str:
         base = self.environ.get("PREV_TAG", "").strip()
-        return base or self._git("describe", "--tags", "--abbrev=0")
+        if base:
+            return base
+        try:
+            return self.release_git.base_tag()
+        except ReleaseGitError as error:
+            raise OrchestrationError(str(error)) from error
+
+    def _verify_base(self, run: StoredReleaseRun) -> None:
+        verify_base_tag(run.plan.base_tag, run.plan.base_commit, lambda ref: self._git("rev-parse", ref))
+        if not run.plan.base_tag:
+            tags = set(self._git("tag", "--list", "v[0-9]*").splitlines())
+            # An apply retry may already have created this run's exact local tag.
+            if self._head() != run.plan.head_commit:
+                tags.discard(run.plan.selected_version)
+            if tags:
+                raise OrchestrationError("version tags appeared since first-release planning; create a new plan")
 
     def _github_client(self) -> GhGitHubClient | None:
         if shutil.which("gh") is None:
@@ -169,7 +185,7 @@ class Orchestrator:
         return path
 
     def _revalidate_unmutated(self, run: StoredReleaseRun) -> None:
-        verify_base_tag(run.plan.base_tag, run.plan.base_commit, lambda ref: self._git("rev-parse", ref))
+        self._verify_base(run)
         if self._head() != run.plan.head_commit:
             raise OrchestrationError("HEAD changed since the release plan was reviewed")
         if self._status():
@@ -221,7 +237,11 @@ class Orchestrator:
         return self._checkpoint(run, "applied", "applied")
 
     def load(self, base: str, head: str) -> StoredReleaseRun:
-        return self.store.load_run(base, head)
+        run = self.store.load_run(base, head)
+        if run.plan.selected_version is not None:
+            baseline = base or source_release_version(self._git_file(run.plan.head_commit, VERSION_PATH.as_posix()))
+            validate_next_version(baseline, run.plan.selected_version)
+        return run
 
     def plan(
         self,
@@ -233,14 +253,16 @@ class Orchestrator:
         new_plan: bool = False,
     ) -> StoredReleaseRun:
         source_branch, source_head = self._preflight_source()
-        base = base or self._base()
+        base = self._base() if base is None else base
+        if not base and self._git("tag", "--list", "v[0-9]*"):
+            raise OrchestrationError("first-release planning requires no existing version tags")
         guidance = guidance or self.environ.get("FEEDBACK", "").strip()
         head_sha = self._git("rev-parse", head)
         if head_sha != source_head:
             raise OrchestrationError("release plan head must equal the canonical source HEAD")
         run_dir = self.store.run_dir(base, head_sha)
         if run_dir.exists() and not new_plan:
-            run = self.store.load_run(base, head_sha)
+            run = self.load(base, head_sha)
             if run.evidence.release_branch != source_branch:
                 raise OrchestrationError(
                     "reviewed release plan belongs to a different canonical branch; "
@@ -271,8 +293,11 @@ class Orchestrator:
             generated.recommended_bump,
             output_fn=self.output_fn,
         )
+        version_base = base or source_release_version(self._git_file(head_sha, VERSION_PATH.as_posix()))
+        if not base:
+            self.output_fn(f"No previous version tag; continuing from source version {version_base}.")
         selected = choose_release_version(
-            base,
+            version_base,
             generated.recommended_bump,
             supplied=version,
             environ=self.environ,
@@ -348,7 +373,9 @@ class Orchestrator:
         version = run.plan.selected_version
         if version is None:
             raise OrchestrationError("reviewed release plan has no selected version")
-        verify_base_tag(run.plan.base_tag, run.plan.base_commit, lambda ref: self._git("rev-parse", ref))
+        self._verify_base(run)
+        if not self._internal_release():
+            self._run((sys.executable, "scripts/release/verify_desktop_signing.py"), next_command=retry)
         recovered = self._recover_applied(run, version, retry)
         if recovered is not None:
             return recovered
@@ -529,12 +556,12 @@ class Orchestrator:
 
     @staticmethod
     def _resume_command(base: str, head: str) -> str:
-        return f"python3 scripts/release/release_cli.py resume --base {base} --head {head}"
+        return f"python3 scripts/release/release_cli.py resume --base {shlex.quote(base)} --head {shlex.quote(head)}"
 
     @staticmethod
     def _dry_run_command(base: str, head: str, version: str | None) -> str:
         suffix = f" --version {version}" if version else ""
-        return f"python3 scripts/release/release_cli.py dry-run --base {base} --head {head}{suffix}"
+        return f"python3 scripts/release/release_cli.py dry-run --base {shlex.quote(base)} --head {shlex.quote(head)}{suffix}"
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -3,7 +3,7 @@ type: TechnicalSpec
 id: SPEC-0122
 summary: "Every public Rhizome release ships a macOS desktop app that updates itself, carries the matching rzm, offers that rzm on the system PATH while the app is installed, and offers to advance a repository's older pin."
 spec-status: active
-last-updated: 2026-10-17
+last-updated: 2026-10-25
 aliases:
   - SPEC-0122
 ---
@@ -119,9 +119,9 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 - When Developer ID and notarization credentials are later added to the release Environment, the same build MUST sign with the hardened runtime, notarize, and staple without other pipeline changes.
 - Asset names MUST be stable across versions so `https://github.com/atomicobject/rhizome/releases/latest/download/<asset>` always resolves to the newest stable release.
 - `latest.json` MUST follow Tauri's static updater format with a `darwin-aarch64` entry whose URL points at the same release's updater archive.
-- The updater signing key, and later the Apple credentials, MUST come from the release 1Password Environment through `scripts/with-secrets release` and MUST reach only the GoReleaser processes that build a release and the desktop build they run, which receives no other credentials. They MUST NOT appear in Git, logs, or artifacts, per [credential policy](../../engineering/secrets.md).
+- The updater signing key, and later the Apple credentials, MUST come from the release 1Password Environment through `scripts/with-secrets release`. The updater key MUST reach only the GoReleaser processes that build a release, the desktop build they run, and the public-apply Tauri signing probe. The desktop build and signing probe MUST receive no other credentials; the verifier MUST receive no credentials. Keys MUST NOT appear in Git, logs, or artifacts, per [credential policy](../../engineering/secrets.md).
 - Every executable in the bundle MUST pass the public-artifact content checks the CLI binaries pass (`scripts/teamkeys/release.py --check-artifact`).
-- A public release MUST refuse to publish the app until the committed updater public key is the release key rather than the placeholder.
+- A public release MUST refuse to publish the app until the committed updater public key is the release key rather than the placeholder. The candidate archive's signature MUST verify against that public key before staging. Apply MUST verify that the current signing key matches the public key before mutating release files or refs.
 - Losing the updater private key strands installed apps. Its custody and backup MUST be documented in `docs/RELEASING.md`.
 
 ### Updater
@@ -129,6 +129,7 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 - The app MUST use `tauri-plugin-updater` with the endpoint `https://github.com/atomicobject/rhizome/releases/latest/download/latest.json` and the release public key embedded at build time.
 - The app MUST check at launch and then every 24 hours, download in the background, and install only on the user's restart action. It MUST NOT interrupt or restart on its own.
 - Rhizome Dev and local development builds (version `0.0.0`) MUST NOT check for updates.
+- Feed checks MUST settle within 30 seconds. Archive downloads MUST reject a 30-second connection or read stall and have a 30-minute overall limit, so progressing slow downloads can finish. Failure MUST release the update lock, permit retry, and preserve an already verified download.
 
 ### Bundled rzm and the command-line link
 

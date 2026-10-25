@@ -5,6 +5,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,7 +16,7 @@ func TestCredentialsImportPassesMappingsWithoutWritingValues(t *testing.T) {
 		gotAccount = account
 		gotKeys = append([]string(nil), keys...)
 		return 2, nil
-	})
+	}, nil)
 	output := &bytes.Buffer{}
 	command.SetOut(output)
 	command.SetErr(output)
@@ -27,7 +28,7 @@ func TestCredentialsImportPassesMappingsWithoutWritingValues(t *testing.T) {
 }
 
 func TestCredentialsImportHelpDocumentsStableReferences(t *testing.T) {
-	command := newCredentialsCommand(func(context.Context, string, []string) (int, error) { return 0, nil })
+	command := newCredentialsCommand(func(context.Context, string, []string) (int, error) { return 0, nil }, nil)
 	output := &bytes.Buffer{}
 	command.SetOut(output)
 	command.SetErr(output)
@@ -35,4 +36,13 @@ func TestCredentialsImportHelpDocumentsStableReferences(t *testing.T) {
 	require.NoError(t, command.Execute())
 	require.Contains(t, output.String(), "KEY=op://vault/item/field")
 	require.Contains(t, output.String(), "--from")
+}
+
+func TestCredentialsEnvironmentPassesOnlyExplicitSource(t *testing.T) {
+	var source repoconfig.CredentialSource
+	command := newCredentialsCommand(nil, func(_ context.Context, got repoconfig.CredentialSource) (int, error) { source = got; return 1, nil })
+	command.SetOut(&bytes.Buffer{})
+	command.SetArgs([]string{"import", "--from", "1password", "--account", "example.1password.com", "--environment", "aaaaaaaaaaaaaaaaaaaaaaaaaa", "--key", "VOYAGE_API_KEY"})
+	require.NoError(t, command.Execute())
+	require.Equal(t, repoconfig.CredentialSource{Account: "example.1password.com", Environment: "aaaaaaaaaaaaaaaaaaaaaaaaaa", Keys: []string{"VOYAGE_API_KEY"}}, source)
 }

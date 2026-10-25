@@ -83,6 +83,11 @@ pub enum Action {
         executable: Option<String>,
     },
     GlobalStatus,
+    CredentialStatus,
+    CredentialImport {
+        source: crate::credentials::Source,
+    },
+    CredentialCancel,
     UpdateStatus,
     CheckForUpdates,
     InstallUpdate,
@@ -286,6 +291,27 @@ pub async fn desktop_request(
             let (_lock, mut library) = state.library().await?;
             library.global_executable = executable;
             save(&app, &state, &library)
+        }
+        Action::CredentialStatus => {
+            bridge::call(
+                &state.directory,
+                Request {
+                    operation: "credential-status",
+                    ..Request::default()
+                },
+                bridge::TIMEOUT,
+            )
+            .await
+        }
+        Action::CredentialImport { source } => {
+            app.state::<crate::credentials::Imports>()
+                .import(&state.directory, &source, window.label(), &state.global)
+                .await
+        }
+        Action::CredentialCancel => {
+            app.state::<crate::credentials::Imports>()
+                .cancel(Some(window.label()));
+            Ok(Value::Null)
         }
         Action::GlobalStatus => {
             let global = state.library().await?.1.global_executable;
@@ -519,6 +545,12 @@ async fn worktree_action(
     worktree: &str,
     request: Request<'_>,
 ) -> Result<Value, Failure> {
+    // Setup can save provider keys, so it shares the import's user-config lock.
+    let _global = if request.operation == "initialize" {
+        Some(state.global.lock().await)
+    } else {
+        None
+    };
     let lock = state.worktree(worktree);
     let _serialized = lock.lock().await;
     let library = state.library().await?.1;

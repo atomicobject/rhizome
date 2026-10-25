@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import os
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -151,6 +152,20 @@ class BuildTest(unittest.TestCase):
         (self.root / "desktop/node_modules").rmdir()
         self.build({})
         self.assertEqual(["make", "desktop-deps"], self.runner.commands()[0])
+
+    def test_bad_updater_signature_stops_before_staging_any_assets(self) -> None:
+        def reject_signature(command, **kwargs):
+            if Path(command[0]).name == "rhizome-verify-updater":
+                self.assertNotIn("TAURI_SIGNING_PRIVATE_KEY", kwargs["env"])
+                self.assertNotIn("VOYAGE_API_KEY", kwargs["env"])
+                raise subprocess.CalledProcessError(1, command)
+            return self.runner(command, **kwargs)
+
+        with self.assertRaisesRegex(DesktopBuildError, "signature verification"):
+            build(self.rzm, "v0.51.0", environ={"PATH": "/usr/bin", "RZM_RELEASE_DESKTOP": "1",
+                  "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key", "VOYAGE_API_KEY": "synthetic-provider"},
+                  root=self.root, runner=reject_signature, machine="arm64", home=self.home)
+        self.assertFalse(self.output.exists())
 
     def test_missing_rust_toolchain_is_reported(self) -> None:
         (self.home / ".cargo/bin/cargo").unlink()
