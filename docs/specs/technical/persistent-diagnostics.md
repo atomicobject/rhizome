@@ -60,7 +60,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 - Collectors MUST bound metric cardinality, raw samples, and intervals; snapshots MUST disclose truncation and preserve aggregate counts where possible.
 - Reports MUST distinguish full discovery, incremental work, and destructive rebuild. Watcher reconciliation MUST retain known trigger reasons instead of reducing every cause to a boolean.
 - Metrics MUST distinguish logical embedding demand, reuse and misses, physical provider attempts, retries, backoff, and observed HTTP status where available. No cache or fallback optimization is authorized by this spec.
-- A failed index integrity check MUST record a structured WARN event naming the check and the affected table, in addition to any console output.
+- A failed index integrity check MUST record a structured WARN `integrity.failed` event with a reason code and, when SQLite names one, the affected table, in addition to any console output.
 
 ### Runtime evidence
 
@@ -78,13 +78,13 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 - The web UI MUST aggregate measurements in the browser and send at most one batch every ten seconds while the page is visible, plus a final batch when the page is hidden or unloaded. It MUST skip windows in which every measurement is zero. It MUST NOT send per-render or per-frame records.
 - Measurement MUST NOT cause renders. Counters live outside React state, and a failed or disabled send MUST be dropped silently without retry storms.
 - Each batch MUST carry a per-page-load client session identity, the web build version, the surface (desktop or browser), and the window start and end. It MAY carry these measurements:
-  - **Render regions.** For each named `<Profiler>` region: commit counts by phase (mount, update, nested update), and the total and maximum `actualDuration` and `baseDuration`. Region names MUST be fixed identifiers defined in source, such as `app-shell`, `sidebar`, `type-view-table`, or `note-view`.
+  - **Render regions.** For each named `<Profiler>` region: commit counts by phase (mount, update, nested update), and the total and maximum `actualDuration` and `baseDuration`. Region names MUST be fixed identifiers defined in source, such as `app-shell`, `sidebar`, `view-table`, or `note-view`.
   - **Frame stalls.** Gaps between `requestAnimationFrame` callbacks while the page is visible: counts of gaps over 50 ms and over 200 ms, the total stalled time, and the longest gap. This works in WebKit, which lacks the Long Tasks and Long Animation Frames APIs.
   - **Background refresh churn.** From the single invalidation point, `VaultInvalidationBridge`: refresh cycles, queries refetched, refetches whose data was structurally unchanged, and the commits per render region in the second after each refresh.
   - **Stability.** Event stream reconnects, uncaught errors, and unhandled promise rejections, counted by error name only.
 - Batches MUST NOT contain note titles, paths, URLs beyond a fixed route kind, query text, error messages, or stack traces.
 - The runtime MUST accept batches on a browser-facing `POST` route that applies the existing loopback-host and same-origin checks. It MUST bound the body size, validate the schema and identifier patterns, reject unknown fields, and record each accepted batch through the process recorder as one `web.client` event: identity and window in attributes, measurements (including per-region data) in `metrics`. When persistence is disabled, the route MUST accept and discard batches.
-- Render-region measurement MUST work in the packaged desktop app, so production web builds use React's profiling build (`react-dom/profiling`). Verification MUST measure its overhead on a representative heavy view; if the overhead is noticeable, render regions become development-only and frame stalls, refresh churn, and stability counts remain in production. Drew chose this over development-only render regions on 2026-10-25, because render churn mostly appears in real use.
+- Render regions are development-only. On 2026-10-25 Drew chose to ship React's profiling build (`react-dom/profiling`) in production unless its overhead was noticeable, because render churn mostly appears in real use. Measured on a 1,500-row table view, it added 47 to 51% scripting time, so production builds use the normal React build and omit region data. Frame stalls, refresh churn, and stability counts remain in production.
 
 ### Offline use
 
@@ -102,7 +102,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
   - more than three runtime starts for the vault within 60 seconds;
   - started operations with no terminal record that are older than the newest evidence from their process;
   - WARN and ERROR events grouped by event name, including index integrity failures;
-  - render regions that commit after a refresh whose refetched data was structurally unchanged;
+  - render regions that commit after a refresh whose refetched data was structurally unchanged (development sessions only, since production omits regions);
   - frame stalls over 200 ms;
   - more event stream reconnects than refresh cycles in a window.
 - Flags MUST be worded as observations to investigate, not diagnoses.
@@ -118,4 +118,4 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 ## Open Questions
 
 - Should `perf` cover a full seven-day window? Reader byte caps limit how much event history it can examine. If agents need week-scale trends, periodic summary reports written by the runtime are the proposed answer, not a database.
-- Should the runtime spawn storm and `intel_fts` corruption seen on 2026-10-25 add anomaly flags beyond the ones above? Separate investigations are deciding the causes.
+- Should the runtime spawn storm seen on 2026-10-25 add an anomaly flag beyond the runtime start burst? Its fix landed in #41; the `intel_fts` warning was a false report, fixed in #43.
