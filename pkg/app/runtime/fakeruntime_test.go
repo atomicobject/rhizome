@@ -282,9 +282,10 @@ func runHelperRuntime(args []string) int {
 	}
 	runID, _ := NewRunID()
 	token, _ := NewControlToken()
+	helperExecutable, _ := os.Executable()
 	manifest := InstanceManifest{
 		InstanceID: "helper", VaultPath: root, PID: os.Getpid(), RunID: runID,
-		Mode: ModeHeadless, BuildID: os.Getenv("RZM_TEST_HELPER_BUILD"),
+		Mode: ModeHeadless, BuildID: os.Getenv("RZM_TEST_HELPER_BUILD"), Executable: helperExecutable,
 		ControlToken: token, HTTPURL: "http://" + listener.Addr().String(),
 		StartedAt: time.Now(), Ready: true,
 	}

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -280,6 +281,24 @@ func TestEnsureReplacesOnlyOnceWhenTheExecutableChangedBuild(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	require.Equal(t, 1, strings.Count(strings.Join(lines, "\n"), "replacing headless runtime"))
+}
+
+// After a replacement, a mismatched runtime from another executable belongs to
+// another client (or another build); Ensure reports it rather than using it.
+func TestEnsureRefusesAMismatchedSuccessorFromAnotherExecutable(t *testing.T) {
+	vault := newTestVault(t)
+	startFakeRuntime(t, vault, ModeHeadless, "old-build")
+	useHelperSpawn(t)
+	t.Setenv("RZM_TEST_HELPER_BUILD", "other-build")
+	stopSpawnedRuntime(t, vault)
+
+	other := filepath.Join(t.TempDir(), "rzm")
+	require.NoError(t, os.WriteFile(other, []byte("not the helper"), 0o755))
+	_, err := Ensure(t.Context(), EnsureOptions{
+		VaultPath: vault, Executable: other, BuildID: "new-build",
+		Autostart: true, Wait: true, Budget: 30 * time.Second,
+	})
+	require.ErrorIs(t, err, ErrBuildMismatch)
 }
 
 func TestEnsureReplaceRestartsAMatchingHeadlessRuntimeOnce(t *testing.T) {

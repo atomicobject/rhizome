@@ -245,7 +245,8 @@ func TestDesktopRestartReplacesAMatchingHeadlessRuntime(t *testing.T) {
 // bridge wanting a build its executable no longer produces; on 2026-10-25 it
 // replaced 79 runtimes in 35 seconds. A wrapper script makes that mismatch
 // permanent: the bridge stamps the script, the runtime stamps the real binary.
-// Ensure must replace once, then attach instead of restarting the same binary.
+// Ensure must replace once, then report the mismatch instead of restarting
+// the same binary.
 func TestDesktopOpenStopsReplacingARuntimeItCannotMatch(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the mismatch uses a shell-script executable")
@@ -268,7 +269,7 @@ func TestDesktopOpenStopsReplacingARuntimeItCannotMatch(t *testing.T) {
 	started := time.Now()
 	response, _ := command.Output()
 	require.Less(t, time.Since(started), appruntime.SpawnBudget/2, "the bridge returns instead of spending the spawn budget")
-	require.Contains(t, string(response), "does not match the selected executable")
+	require.Contains(t, string(response), "runs a different build")
 
 	vault.requireLiveRuntime(t)
 	log, err := os.ReadFile(spawns)

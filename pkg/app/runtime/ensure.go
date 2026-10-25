@@ -92,9 +92,12 @@ func Ensure(ctx context.Context, opts EnsureOptions) (result EnsureResult, resul
 				return EnsureResult{}, fmt.Errorf("%w (pid %d); stop it first (`rzm stop`)", ErrAttachedMismatch, health.PID)
 			}
 			if replacement {
-				// The executable changed after opts.BuildID was computed (a
-				// rebuild landed mid-call). Replacing again would only restart
-				// the same binary until the budget runs out.
+				// Replacing again would only restart the same binary until the
+				// budget runs out. A runtime from our executable means a rebuild
+				// landed mid-call; one from elsewhere is another client's build.
+				if !sameExecutable(client.Manifest.Executable, opts.Executable) {
+					return EnsureResult{}, fmt.Errorf("%w: pid %d runs build %s from %s, not %s", ErrBuildMismatch, health.PID, health.BuildID, client.Manifest.Executable, opts.BuildID)
+				}
 				logf("warning: runtime pid %d runs build %s, not %s; the executable changed during this call", health.PID, health.BuildID, opts.BuildID)
 				return EnsureResult{Client: client, Health: health, Spawned: spawned}, nil
 			}
@@ -156,6 +159,20 @@ func Ensure(ctx context.Context, opts EnsureOptions) (result EnsureResult, resul
 			return EnsureResult{}, fmt.Errorf("%w: no runtime became ready for %s within %s", ErrNoRuntime, opts.VaultPath, budget)
 		}
 	}
+}
+
+// sameExecutable reports whether a runtime's recorded executable is the file
+// this client would spawn (empty means os.Executable()).
+func sameExecutable(runtimeExecutable, executable string) bool {
+	if executable == "" {
+		executable, _ = os.Executable()
+	}
+	if runtimeExecutable == "" || executable == "" {
+		return false
+	}
+	a, errA := os.Stat(runtimeExecutable)
+	b, errB := os.Stat(executable)
+	return errA == nil && errB == nil && os.SameFile(a, b)
 }
 
 func buildMismatch(want, got string) bool {
@@ -311,6 +328,8 @@ func runtimeDiagnosticReason(err error) string {
 		return "autostart_disabled"
 	case errors.Is(err, ErrAttachedMismatch):
 		return "attached_build_mismatch"
+	case errors.Is(err, ErrBuildMismatch):
+		return "build_mismatch"
 	case errors.Is(err, ErrRuntimeUnresponsive):
 		return "runtime_unresponsive"
 	case errors.Is(err, ErrNoRuntime):
