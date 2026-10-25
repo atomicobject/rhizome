@@ -379,7 +379,10 @@ export function ConfiguredViewToolbar({
     ];
   });
 
-  const showChips = !filtersExpanded && (chips.length > 0 || activePreset);
+  // The editor shows only while it has rows; removing the last one returns
+  // the chips, so an active preset never hides with nothing to edit.
+  const editingFilters = filtersExpanded && draftFilters.length > 0;
+  const showChips = !editingFilters && (chips.length > 0 || activePreset);
 
   return (
     <>

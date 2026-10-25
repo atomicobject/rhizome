@@ -90,19 +90,6 @@
   margin-left: auto;
 }
 
-/* A narrow header drops its least useful text before anything wraps or scrolls. */
-@container view-header (max-width: 760px) {
-  .view-header__about,
-  .view-header__fact:not(.view-header__issues),
-  .configured-view__find kbd {
-    display: none;
-  }
-
-  .configured-view__find {
-    width: 160px;
-  }
-}
-
 .view-header__tabs {
   display: flex;
   align-items: stretch;
@@ -196,6 +183,19 @@
   flex: none;
   color: var(--text-faint);
   font: 500 var(--fs-xs) var(--font-mono);
+}
+
+/* A narrow header drops its least useful text before anything wraps or scrolls. */
+@container view-header (max-width: 760px) {
+  .view-header__about,
+  .view-header__fact:not(.view-header__issues),
+  .configured-view__find kbd {
+    display: none;
+  }
+
+  .configured-view__find {
+    width: 160px;
+  }
 }
 
 .configured-view .configured-view__find .configured-view__search,
