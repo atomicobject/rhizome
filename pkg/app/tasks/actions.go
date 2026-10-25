@@ -46,6 +46,25 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 		return Outcome{}, fmt.Errorf("task %q has no prompt to run", def.ID)
 	}
 	check := CheckResult{Needed: true, Summary: it.Summary, Context: it.Context}
+	if def.Check != nil {
+		// The work uses fresh context, and a check that failed must pass
+		// before any agent work starts.
+		log, closeLog := s.openLog(def.ID, "check")
+		check, err = s.runCheck(ctx, def, s.locations(def, commit), log, "")
+		closeLog()
+		if err != nil {
+			return s.fail(ctx, def, itemID, commit, "check failed: "+err.Error()), nil
+		}
+		if !check.Needed {
+			err := s.updateItem(ctx, itemID, func(st *State, it *Item) error {
+				it.set(StateDone, s.opts.Now())
+				it.Reason = "the check found nothing to do"
+				st.Record(RunRecord{Task: def.ID, At: s.opts.Now(), Outcome: OutcomeNotNeeded})
+				return nil
+			})
+			return Outcome{Task: def.ID, Outcome: OutcomeNotNeeded, Item: itemID}, err
+		}
+	}
 	if err := s.store.Update(ctx, func(st *State) error {
 		it, err := st.Item(itemID)
 		if err != nil {
@@ -57,11 +76,11 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 		if it.Worktree != "" {
 			// A failed attempt's worktree stays on its item, so the new
 			// attempt gets an item of its own.
-			itemID = st.AddItem(Item{Task: it.Task, Kind: KindTask, State: StateRunning, Summary: it.Summary, Context: it.Context}, s.opts.Now()).ID
+			itemID = st.AddItem(Item{Task: it.Task, Kind: KindTask, State: StateRunning, Summary: check.Summary, Context: check.Context}, s.opts.Now()).ID
 			return nil
 		}
 		it.set(StateRunning, s.opts.Now())
-		it.Reason = ""
+		it.Reason, it.Summary, it.Context = "", check.Summary, check.Context
 		return nil
 	}); err != nil {
 		return Outcome{}, err

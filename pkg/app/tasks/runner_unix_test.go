@@ -36,3 +36,22 @@ func TestCheckTimeoutKillsTheWholeTree(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 }
+
+// A check that leaves a descendant in another process group holding its
+// output pipes must not keep the run lock after its timeout.
+func TestCheckTimeoutWithAnEscapedDescendantReleasesTheLock(t *testing.T) {
+	shellAvailable(t)
+	dir := newRepo(t, map[string]string{"escape.yml": "name: Escape\nevery: 1d\ntimeout: 1s\ncheck:\n  command: [sh, -c, 'set -m; sleep 300 & sleep 300']\nprompt: x\n"})
+	svc := newService(t, dir, &fakeAgent{}, "auto")
+	start := time.Now()
+	s, err := svc.RunDue(context.Background())
+	if err != nil || len(s.Outcomes) != 1 || s.Outcomes[0].Outcome != OutcomeFailed {
+		t.Fatalf("expected a failed check, got %+v %v", s, err)
+	}
+	if elapsed := time.Since(start); elapsed > 15*time.Second {
+		t.Fatalf("the pass took %s; the escaped descendant held it", elapsed)
+	}
+	if again, err := svc.RunDue(context.Background()); err != nil || again.Skipped != "" {
+		t.Fatalf("the run lock should be free again: %+v %v", again, err)
+	}
+}

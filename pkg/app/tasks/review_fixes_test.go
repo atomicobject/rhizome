@@ -120,3 +120,17 @@ func mustStatePtr(t *testing.T, svc *Service) *State {
 	st := mustState(t, svc)
 	return &st
 }
+
+func TestRunRerunsAFailedCheckBeforeAnyAgentWork(t *testing.T) {
+	shellAvailable(t)
+	dir := newRepo(t, map[string]string{"bad.yml": "name: Bad\nevery: 1d\ncheck:\n  command: [sh, -c, 'exit 3']\nprompt: x\n"})
+	agent := &fakeAgent{}
+	svc := newService(t, dir, agent, "auto")
+	ctx := context.Background()
+	_, _ = svc.RunDue(ctx)
+	item := taskItems(mustState(t, svc), "bad")[0]
+	outcome, err := svc.Run(ctx, item.ID)
+	if err != nil || outcome.Outcome != OutcomeFailed || agent.calls() != 0 {
+		t.Fatalf("a check that still fails must stop the retry before the agent: %+v %v calls=%d", outcome, err, agent.calls())
+	}
+}

@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/proctree"
 )
 
 const maxCheckOutput = 1 << 20
@@ -129,26 +131,35 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 }
 
 // runBounded runs cmd in its own process group with stdin closed, returns
-// at most maxCheckOutput bytes of stdout, writes stderr to log, and kills
-// the whole tree when ctx ends.
+// at most maxCheckOutput bytes of stdout, and writes stderr to log. Every
+// process the check started is killed when it ends or ctx does, and a
+// descendant left holding the output pipes cannot keep Wait from returning.
 func runBounded(ctx context.Context, cmd *exec.Cmd, log io.Writer) ([]byte, error) {
 	var stdout bytes.Buffer
 	cmd.Stdout = &limitWriter{w: &stdout, n: maxCheckOutput}
 	cmd.Stderr = log
-	configureProcess(cmd)
+	cmd.WaitDelay = 2 * time.Second
+	proctree.Configure(cmd)
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
+	tree := proctree.Track(cmd.Process, time.Second)
+	defer tree.Stop()
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	select {
 	case err := <-done:
+		_ = tree.Kill()
+		// The check exited cleanly but something it started held the pipes.
+		if errors.Is(err, exec.ErrWaitDelay) {
+			err = nil
+		}
 		if err != nil {
 			return nil, fmt.Errorf("check exited: %w", err)
 		}
 		return stdout.Bytes(), nil
 	case <-ctx.Done():
-		killTree(cmd)
+		_ = tree.Kill()
 		<-done
 		return nil, fmt.Errorf("check stopped: %w", ctx.Err())
 	}
