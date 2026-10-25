@@ -15,6 +15,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/cli/hook"
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
+	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
@@ -93,6 +94,13 @@ func selectedBinarySupportsHooks(root string, cfg repoconfig.LocalConfig) error 
 	}
 	if _, err := os.Stat(target); err != nil {
 		return fmt.Errorf("the selected rzm (%s) is not installed yet; run rzm init again once it is", target)
+	}
+	// A hook hands off to a pinned binary only when its version marker
+	// matches the pin, as rzm hook checks; otherwise the launcher runs it.
+	if selectErr == nil && plan.Authority == "managed" {
+		if installed, ok := appupdate.ReadVersionMarker(target); !ok || installed != appupdate.NormalizeVersion(plan.PinnedVersion) {
+			return fmt.Errorf("the selected rzm (%s) is not marked as the pinned version %s yet; run rzm init again once it is", target, plan.PinnedVersion)
+		}
 	}
 	if hooks, guard = supportsHooks(root, target, exe); !hooks {
 		return fmt.Errorf("the selected rzm (%s) does not support rzm hook; update it with rzm update", target)

@@ -497,6 +497,9 @@ func TestHookSupportCheckProbesThePinnedBinaryAtInitsVersion(t *testing.T) {
 	pinned := filepath.Join(root, ".rhizome", "bin", appupdate.CurrentPlatformDir(), "rzm")
 	require.NoError(t, os.MkdirAll(filepath.Dir(pinned), 0o755))
 	require.NoError(t, os.WriteFile(pinned, []byte("#!/bin/sh\necho 'rzm-hook 1 guard'\n"), 0o755))
+	// Without a matching version marker, rzm hook does not hand off to it.
+	require.ErrorContains(t, selectedBinarySupportsHooks(root, cfg), "is not marked as the pinned version")
+	require.NoError(t, appupdate.WriteVersionMarker(pinned, version.Version))
 	require.NoError(t, selectedBinarySupportsHooks(root, cfg), "the older launcher's missing guard does not matter")
 
 	require.NoError(t, os.WriteFile(pinned, []byte("#!/bin/sh\necho 'rzm-hook 1'\n"), 0o755))
