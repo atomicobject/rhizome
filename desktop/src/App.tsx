@@ -358,6 +358,8 @@ export function App() {
   }
 
   function openSettings() {
+    // A finder draws above the page, so it would cover Settings.
+    if (finder.shown) finder.close();
     setScopeView(null);
     setSettings(true);
     void perform("Checking Rhizome…", loadInstallation);
@@ -624,10 +626,10 @@ export function App() {
           )}
           onClose={() => setSettings(false)}
           appearance={appSettings}
+          // The app's settings message, sent to every shell after each save
+          // in save order, sets the settings; a reply can arrive out of order.
           onAppearance={(change) =>
-            void request("set-settings", change)
-              .then(setAppSettings)
-              .catch((cause) => setAlert(failure(cause)))
+            void request("set-settings", change).catch((cause) => setAlert(failure(cause)))
           }
           onRefresh={() => void perform("Checking Rhizome…", loadInstallation)}
           onLink={(action) =>

@@ -862,6 +862,31 @@ describe("desktop shell", () => {
     await waitFor(() => expect(pick).toHaveBeenCalledWith(true));
   });
 
+  it("lets the app's settings messages, not a save's reply, set the settings", async () => {
+    let reply: (settings: Result) => void = () => {};
+    start(undefined, (operation) => {
+      if (operation === "global-status") return null;
+      if (operation === "set-settings") return new Promise<Result>((resolve) => (reply = resolve));
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Slate" }));
+    // Another window's later change arrives before this save's reply.
+    act(() => emit({ type: "settings", settings: { theme: "oxblood", appearance: "auto" } }));
+    await act(async () => reply({ theme: "slate", appearance: "auto" }));
+    expect(document.documentElement.dataset.theme).toBe("oxblood");
+  });
+
+  it("closes a finder to show Settings", async () => {
+    start(undefined, (operation) => (operation === "global-status" ? null : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    act(() => emit({ type: "command", command: "repositories" }));
+    await waitFor(() => expect(finderModel()?.mode).toBe("repositories"));
+    act(() => emit({ type: "command", command: "settings" }));
+    expect(finderModel()).toBeNull();
+    expect(screen.getByRole("radiogroup", { name: "Theme" })).toBeVisible();
+  });
+
   it("takes the app's theme on its own root", async () => {
     start();
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("graphite"));
