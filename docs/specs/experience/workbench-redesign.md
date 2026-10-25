@@ -118,7 +118,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 #### Acceptance Criteria
 
-- One right pane hosts Record (selected table or board item), Links, Outline, and Graph. It replaces the separate Record rail and note context rail.
+- One right pane hosts Record for the selected table or board item, and Info, Outline, and Graph for the active note. It replaces the separate Record rail and note context rail, with one width, one toggle, and one collapsed state.
 - With nothing selected on a collection, the pane is closed. Selecting a row opens it unless the user closed it explicitly, and ] toggles it.
 - The pane title, field labels, and values use the new type scale: 15–17px semibold title, 13px labels, no 700 weights.
 
@@ -150,12 +150,12 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 ### US9 - Switch repositories with ⌘O
 
 - id:: ^SPEC-0126-US9
-- summary:: In Rhizome Desktop, press ⌘O or click the repository name in the sidebar header to fuzzy-find a known repository and open its primary checkout.
+- summary:: In Rhizome Desktop, press ⌘O or click the repository name in the toolbar to fuzzy-find a known repository and open its primary checkout.
 - status:: ready
 
 #### Acceptance Criteria
 
-- The sidebar header shows the current repository and worktree as two separate click targets, with ⌘O and ⇧⌘O hints.
+- The desktop toolbar, where the shell already draws its worktree selector, shows the current repository and worktree as two separate click targets with ⌘O and ⇧⌘O hints. In a browser the sidebar header names the vault.
 - The repository finder lists known repositories by most recent use, works without typing, and fuzzy-filters by name and path. ⌘1–⌘9 open the first nine.
 - Enter opens the repository's primary worktree in the current window, and ⌘Enter opens it in a new window. "Add repository…" sits at the bottom.
 - Each row shows whether a Rhizome runtime is running for that repository. Per-repository actions (Open in Browser, Reveal in Finder, What Gets Indexed…, Stop/Restart Rhizome, Primary worktree, Rhizome executable, Remove from Library) are available from the row and from the repository name's menu.
@@ -170,7 +170,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 - The worktree finder lists only the current repository's worktrees, with the primary worktree pinned first, and fuzzy-filters by branch and path.
 - Rows show branch, path, the running indicator, and the new-worktree marker. Enter opens in this window and ⌘Enter opens a new window.
-- On the primary worktree the header's worktree label is quiet. On any other worktree it is visibly distinct.
+- On the primary worktree the toolbar's worktree label is quiet. On any other worktree it is visibly distinct.
 
 ## Requirements
 
