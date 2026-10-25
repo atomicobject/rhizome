@@ -275,6 +275,11 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     window.add_child(
         WebviewBuilder::new(&shell, WebviewUrl::App("index.html".into()))
             .auto_resize()
+            // The shell paints the saved theme before it can ask for settings.
+            .initialization_script(format!(
+                "window.__RHIZOME_SHELL_SETTINGS__ = {};",
+                serde_json::json!(settings)
+            ))
             .background_color(chrome)
             .on_navigation(move |url| {
                 security::shell_authorized(&shell, url, cfg!(debug_assertions))

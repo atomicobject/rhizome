@@ -8,6 +8,8 @@ declare global {
     __RHIZOME_DESKTOP__?: boolean;
     /** Set by the finder overlay's initialization script. */
     __RHIZOME_FINDER__?: boolean;
+    /** The app's settings when this shell's window opened, for its first paint. */
+    __RHIZOME_SHELL_SETTINGS__?: AppSettings;
   }
 }
 

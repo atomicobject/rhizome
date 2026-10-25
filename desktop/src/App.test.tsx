@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { App } from "./App";
 import {
   attach,
@@ -910,6 +910,15 @@ describe("desktop shell", () => {
     act(() => emit({ type: "command", command: "add-repository" }));
     expect(finderModel()).toBeNull();
     await waitFor(() => expect(pick).toHaveBeenCalledWith(true));
+  });
+
+  it("paints the theme saved when its window opened, before asking the app", () => {
+    window.__RHIZOME_SHELL_SETTINGS__ = { theme: "spruce", appearance: "auto" };
+    onTestFinished(() => {
+      delete window.__RHIZOME_SHELL_SETTINGS__;
+    });
+    start();
+    expect(document.documentElement.dataset.theme).toBe("spruce");
   });
 
   it("takes the app's theme on its own root", async () => {

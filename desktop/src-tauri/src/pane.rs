@@ -113,9 +113,10 @@ impl Pane {
     }
 
     /// Takes the shell's model for finder opening `opened`. False when that
-    /// opening has already closed, so the finder stays hidden.
+    /// opening has already closed or been replaced, so the finder stays as it is.
     pub fn open_finder(&mut self, model: Value, opened: f64, return_to_content: bool) -> bool {
-        if opened <= self.finder_closed {
+        // A late update for an opening that closed, or that a newer one replaced.
+        if opened <= self.finder_closed || opened < self.finder_opening {
             return false;
         }
         if !self.finder_open {
@@ -603,13 +604,15 @@ mod tests {
         assert!(!pane.close_finder(Some(2.0)));
         assert!(!pane.open_finder(model(), 2.0, true));
 
-        // A later opening shows; a late close for an older one leaves it open.
-        assert!(pane.open_finder(model(), 3.0, false));
+        // A later opening shows; a late close or update for an older one, as
+        // after switching finders, leaves it as it is.
+        assert!(pane.open_finder(model(), 4.0, false));
         assert!(!pane.close_finder(Some(2.0)));
+        assert!(!pane.open_finder(model(), 3.0, false));
         assert!(pane.finder_open);
         // The app's own close, after a choice, closes what is on screen.
         assert!(pane.close_finder(None));
-        assert!(!pane.open_finder(model(), 3.0, false));
+        assert!(!pane.open_finder(model(), 4.0, false));
     }
 
     #[test]

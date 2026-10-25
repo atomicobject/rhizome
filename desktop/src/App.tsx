@@ -46,7 +46,9 @@ export function App() {
   const [found, setFound] = useState<Record<string, Found>>({});
   const [runtimes, setRuntimes] = useState<Runtimes>({});
   const [selection, setSelection] = useState<{ repository?: string; worktree?: string }>({});
-  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [appSettings, setAppSettings] = useState<AppSettings>(
+    () => window.__RHIZOME_SHELL_SETTINGS__ ?? DEFAULT_SETTINGS,
+  );
   const [restored, setRestored] = useState(false);
   const [settings, setSettings] = useState(false);
   /** The worktree whose What gets indexed page covers the content area. */
@@ -223,7 +225,8 @@ export function App() {
     }).catch(() => {});
   }, [restored, selection]);
 
-  useEffect(() => {
+  // Before paint, so a new window never shows another theme first.
+  useLayoutEffect(() => {
     document.documentElement.dataset.theme = appSettings.theme;
   }, [appSettings.theme]);
 
