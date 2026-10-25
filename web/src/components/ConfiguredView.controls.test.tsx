@@ -5,6 +5,7 @@ import type { ViewCatalogEntry, ViewExecuteResponse } from "../api/types";
 import { clearPreferenceStores } from "../viewPreferences/store";
 import { ConfiguredView } from "./ConfiguredView";
 import {
+  addFilter,
   baseView,
   boardExecution,
   execution,
@@ -16,37 +17,46 @@ import {
 } from "./ConfiguredView.testFixtures";
 
 describe("ConfiguredView states and controls", () => {
-  it("keeps search, filter, and grouping in the toolbar and the rest under View options", () => {
+  it("keeps Find, Filter, and View in the header and the rest one click away", () => {
     const onRefresh = vi.fn();
     renderView({ onRefresh });
 
     expect(screen.getByRole("searchbox", { name: "Search view" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Add filter" })).toBeVisible();
-    expect(screen.getByLabelText("Group by")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Filter" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Add filter" })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: /Problems on this page/ })).toBeNull();
 
-    for (const name of [/^Columns/, /^Save view/, "Refresh view"]) {
+    for (const name of [/^Save view/, "Refresh view"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+    expect(screen.getByRole("button", { name: "Add filter" })).toBeVisible();
 
     const options = screen.getByRole("button", { name: "View options" });
     expect(options).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(options);
     expect(options).toHaveAttribute("aria-expanded", "true");
     const panel = screen.getByRole("group", { name: "View options" });
-    expect(within(panel).getByRole("button", { name: /^Columns/ })).toBeVisible();
+    expect(within(panel).getByRole("combobox", { name: "Group by" })).toBeVisible();
+    expect(within(panel).getByRole("group", { name: "Visible columns" })).toBeVisible();
     expect(within(panel).getByRole("button", { name: /^Save view/ })).toBeVisible();
     fireEvent.click(within(panel).getByRole("button", { name: "Refresh view" }));
     expect(onRefresh).toHaveBeenCalledOnce();
 
     // Escape closes the options and returns focus to their button.
-    within(panel)
-      .getByRole("button", { name: /^Columns/ })
-      .focus();
+    within(panel).getByRole("combobox", { name: "Group by" }).focus();
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     expect(options).toHaveAttribute("aria-expanded", "false");
     expect(options).toHaveFocus();
-    expect(screen.queryByRole("button", { name: /^Columns/ })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Visible columns" })).toBeNull();
+  });
+
+  it("focuses Find in view on ⌘F", () => {
+    renderView();
+
+    fireEvent.keyDown(window, { key: "f", metaKey: true });
+    expect(screen.getByRole("searchbox", { name: "Search view" })).toHaveFocus();
   });
 
   it("marks View options when the shared view has unsaved changes", () => {
@@ -382,7 +392,7 @@ describe("ConfiguredView states and controls", () => {
 
     expect(screen.queryByRole("columnheader", { name: "Detail note" })).toBeNull();
     openViewOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    openViewOptions();
     const columns = screen.getByRole("group", { name: "Visible columns" });
     expect(
       within(columns)
@@ -399,7 +409,8 @@ describe("ConfiguredView states and controls", () => {
     const rendered = renderView({ vaultKey: "vault" });
     await screen.findByRole("button", { name: /^View options/ });
     openViewOptions();
-    fireEvent.click(await screen.findByRole("button", { name: "Columns" }));
+    await screen.findByRole("button", { name: /^View options/ });
+    openViewOptions();
     fireEvent.click(
       within(screen.getByRole("group", { name: "Visible columns" })).getByLabelText("Status"),
     );
@@ -433,7 +444,7 @@ describe("ConfiguredView states and controls", () => {
       onStateChange,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    addFilter();
     fireEvent.change(screen.getByLabelText("Field"), {
       target: { value: "done" },
     });
@@ -471,7 +482,7 @@ describe("ConfiguredView states and controls", () => {
       onStateChange,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    addFilter();
     fireEvent.click(screen.getByRole("button", { name: "Archived" }));
 
     await waitFor(() => {
@@ -506,7 +517,7 @@ describe("ConfiguredView states and controls", () => {
       },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    addFilter();
     expect(screen.getByLabelText("Value")).toHaveAttribute("type", "date");
     fireEvent.change(screen.getByLabelText("Field"), {
       target: { value: "estimate" },
@@ -539,7 +550,7 @@ describe("ConfiguredView states and controls", () => {
       group: { field: "specStatus" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    addFilter();
     const fieldOptions = filterFieldOptionLabels();
     expect(fieldOptions.filter((option) => option === "Id")).toHaveLength(1);
     expect(fieldOptions).toContain("Spec status");
@@ -569,7 +580,7 @@ describe("ConfiguredView states and controls", () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
 
     openViewOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    openViewOptions();
     const columns = screen.getByRole("group", { name: "Visible columns" });
     fireEvent.click(within(columns).getByLabelText("Status"));
     expect(screen.queryByRole("columnheader", { name: "Status" })).toBeNull();
@@ -587,7 +598,7 @@ describe("ConfiguredView states and controls", () => {
       onStateChange,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    addFilter();
     fireEvent.click(screen.getByRole("button", { name: "active" }));
     fireEvent.click(screen.getByRole("button", { name: "draft" }));
     await waitFor(() => {
@@ -625,7 +636,7 @@ describe("ConfiguredView states and controls", () => {
     });
 
     openViewOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    openViewOptions();
     const columns = screen.getByRole("group", { name: "Visible columns" });
     fireEvent.click(within(columns).getByLabelText("Status"));
     expect(screen.queryByRole("columnheader", { name: "Status" })).toBeNull();

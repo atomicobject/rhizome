@@ -6,11 +6,14 @@ export function ViewPreferencesStatus({
   vaultKey,
   includeWidgets = false,
   validationError,
+  part = "all",
 }: {
   scope: ViewPreferenceScope | null;
   vaultKey: string | null | undefined;
   includeWidgets?: boolean;
   validationError?: Error | null;
+  /** Renders only the save status or only the reset control, for callers that place them apart. */
+  part?: "all" | "status" | "reset";
 }) {
   const preferences = useViewPreferences(scope, vaultKey ?? null);
 
@@ -19,7 +22,7 @@ export function ViewPreferencesStatus({
 
   return (
     <>
-      {error && (
+      {part !== "reset" && error && (
         <span className="view-preferences view-preferences--error" role="alert">
           {preferences.pending
             ? "Your view preferences are not saved."
@@ -29,26 +32,27 @@ export function ViewPreferencesStatus({
           </button>
         </span>
       )}
-      {!error && preferences.pending && (
+      {part !== "reset" && !error && preferences.pending && (
         <span className="view-preferences view-preferences--pending" role="status">
           Saving preferences…
         </span>
       )}
-      {(Object.keys(preferences.values).length > 0 ||
-        (includeWidgets && preferences.familyOverrides)) && (
-        <button
-          type="button"
-          className="view-preferences__reset"
-          title="Forget your personal settings for this view and use its shared configuration"
-          onClick={() =>
-            void (includeWidgets ? preferences.resetFamily() : preferences.resetAll()).catch(
-              () => {},
-            )
-          }
-        >
-          Reset to shared
-        </button>
-      )}
+      {part !== "status" &&
+        (Object.keys(preferences.values).length > 0 ||
+          (includeWidgets && preferences.familyOverrides)) && (
+          <button
+            type="button"
+            className="view-preferences__reset"
+            title="Forget your personal settings for this view and use its shared configuration"
+            onClick={() =>
+              void (includeWidgets ? preferences.resetFamily() : preferences.resetAll()).catch(
+                () => {},
+              )
+            }
+          >
+            Reset to shared
+          </button>
+        )}
     </>
   );
 }

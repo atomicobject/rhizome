@@ -6,8 +6,6 @@ import type {
   ViewFieldCapability,
   ViewTableColumn,
 } from "../api/types";
-import { NO_LANES } from "./boardLayout";
-import { BoardFieldControls } from "./ConfiguredViewBoardParts";
 import { humanizeLabel } from "./ConfiguredTableCellHelpers";
 import {
   type DraftFilter,
@@ -21,11 +19,12 @@ import { usePopoverDismiss } from "./focusManagement";
 import { capabilityOptions, viewFieldControl } from "./viewFieldControls";
 import {
   capabilityFor,
-  capabilityLabel,
-  columnLabel,
   dedupeCapabilitiesForControls,
   type ConfiguredViewVariant,
+  type FilterPreset,
 } from "./ConfiguredViewModel";
+import type { SortSpec } from "./ConfiguredViewTableModel";
+import { ConfiguredViewViewMenu } from "./ConfiguredViewViewMenu";
 
 type Props = {
   state: ViewExecuteRequest;
@@ -37,6 +36,8 @@ type Props = {
   boardLaneField?: string;
   profile?: TypeProfile;
   executedGroupField?: string;
+  /** The sort the view runs with: the reader's, else its configured one. */
+  sort?: SortSpec[];
   onToggleColumn: (field: string) => void;
   onResetPage: (patch: ViewExecuteRequest) => void;
   /** Generated columns no matching row fills; the menu lists them as hidden empty. */
@@ -44,14 +45,24 @@ type Props = {
   /** Table row density; the Rows control shows only when it is set. */
   density?: "two-line" | "one-line";
   onDensityChange?: (density: "two-line" | "one-line") => void;
-  /** Less frequent actions, such as Save view and refresh, shown under View options. */
+  /** Less frequent actions, such as Save view and refresh, shown under View. */
   viewActions?: ReactNode;
-  /** The shared view has unsaved changes; View options marks it while closed. */
+  /** Forgets the reader's personal settings, shown under View. */
+  reset?: ReactNode;
+  /** The shared view has unsaved changes; View marks it while closed. */
   optionsDirty?: boolean;
-  /** A shared save is running: View options stays open, and reopens for its result. */
+  /** A shared save is running: View stays open, and reopens for its result. */
   optionsPinned?: boolean;
-  /** Controls placed after the tools, such as an embedded view's preference status. */
-  trailing?: ReactNode;
+  /** The view's named filter presets, offered at the top of Filter. */
+  presets?: FilterPreset[];
+  /** One-click filters with their counts, such as lifecycle stages, offered in Filter. */
+  quickFilters?: ReactNode;
+  /** Status shown beside the active filters, such as preference errors. */
+  status?: ReactNode;
+  /** Only the active view takes ⌘F. */
+  active?: boolean;
+  /** Places Find, Filter, and View: in the page header, or in a row of their own. */
+  placeTools: (tools: ReactNode) => ReactNode;
 };
 
 type FilterSpec = NonNullable<ViewExecuteRequest["filters"]>[number];
@@ -70,53 +81,64 @@ export function ConfiguredViewToolbar({
   boardLaneField,
   profile,
   executedGroupField,
+  sort = [],
   onToggleColumn,
   onResetPage,
   emptyFields = [],
   density,
   onDensityChange,
   viewActions,
+  reset,
   optionsDirty = false,
   optionsPinned = false,
-  trailing,
+  presets = [],
+  quickFilters,
+  status,
+  active = true,
+  placeTools,
 }: Props) {
   const displayCapabilities = useMemo(
     () => dedupeCapabilitiesForControls(capabilities),
     [capabilities],
   );
 
-  const columnOptions = useMemo(
-    () =>
-      [...columns].sort(
-        (left, right) =>
-          columnImportanceRank(capabilityFor(capabilities, left.field)?.importance) -
-          columnImportanceRank(capabilityFor(capabilities, right.field)?.importance),
-      ),
-    [capabilities, columns],
-  );
-
-  const groupField = state.group?.field ?? executedGroupField ?? "";
-
-  // A view may group by a selector, such as frontmatter.status, whose control shows under its canonical key.
-  const groupOption =
-    displayCapabilities.find(
-      (capability) =>
-        capability.key === groupField ||
-        capability.canonicalField === groupField ||
-        capability.sourceKeys?.includes(groupField),
-    )?.key ?? groupField;
-
-  const hiddenEmpty = emptyFields.filter((field) => !visibleFields.includes(field));
-  const [optionsOpen, setOptionsOpen] = useState(false);
-  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   const [draftFilters, setDraftFilters] = useState<DraftFilter[]>(() =>
     draftsFromState(state.filters ?? [], capabilities),
   );
 
-  const optionsRef = useRef<HTMLDivElement | null>(null);
+  const filterRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const lastEmittedFiltersKeyRef = useRef<string | null>(null);
+
+  usePopoverDismiss(filterOpen, filterRef, () => setFilterOpen(false));
+
+  // ⌘F (Ctrl+F elsewhere) finds in the view while it shows.
+  useEffect(() => {
+    if (!active) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const search = searchRef.current;
+
+      if (
+        event.key.toLowerCase() !== "f" ||
+        !(event.metaKey || event.ctrlKey) ||
+        event.shiftKey ||
+        event.altKey ||
+        !search?.isConnected
+      )
+        return;
+      event.preventDefault();
+      search.focus();
+      search.select();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [active]);
 
   useEffect(() => {
     const stateFiltersKey = JSON.stringify(state.filters ?? []);
@@ -124,18 +146,6 @@ export function ConfiguredViewToolbar({
     if (lastEmittedFiltersKeyRef.current === stateFiltersKey) return;
     setDraftFilters(draftsFromState(state.filters ?? [], displayCapabilities));
   }, [displayCapabilities, state.filters]);
-
-  usePopoverDismiss(optionsOpen && !optionsPinned, optionsRef, () => setOptionsOpen(false));
-
-  // A save's progress and result live in the panel: keep it open while the
-  // request runs and show it again when the result arrives. Afterwards the
-  // panel dismisses normally, so a failed save never traps it open.
-  const wasPinned = useRef(optionsPinned);
-
-  useEffect(() => {
-    if (optionsPinned || wasPinned.current) setOptionsOpen(true);
-    wasPinned.current = optionsPinned;
-  }, [optionsPinned]);
 
   const executableFilters = useMemo(
     () =>
@@ -160,12 +170,12 @@ export function ConfiguredViewToolbar({
     return () => window.clearTimeout(timer);
   }, [executableFilters, executableFiltersKey, onResetPage, state.filters]);
 
-  const addFilterRef = useRef<HTMLButtonElement | null>(null);
+  const filterButtonRef = useRef<HTMLButtonElement | null>(null);
   const filtersRef = useRef<HTMLDivElement | null>(null);
   const [focusFilterID, setFocusFilterID] = useState<string | null>(null);
 
   // A new filter takes focus at its field; a removed one hands focus back to
-  // "+ Filter" instead of dropping it on the page.
+  // Filter instead of dropping it on the page.
   useEffect(() => {
     if (!focusFilterID) return;
     filtersRef.current
@@ -176,6 +186,7 @@ export function ConfiguredViewToolbar({
 
   function addFilter() {
     const draft = initialDraftFilter(displayCapabilities);
+    setFilterOpen(false);
     setFiltersExpanded(true);
     setDraftFilters((current) => [...current, draft]);
     setFocusFilterID(draft.id);
@@ -183,7 +194,7 @@ export function ConfiguredViewToolbar({
 
   function removeFilter(index: number) {
     setDraftFilters((current) => current.filter((_, filterIndex) => filterIndex !== index));
-    addFilterRef.current?.focus();
+    filterButtonRef.current?.focus();
   }
 
   function updateFilter(index: number, patch: Partial<DraftFilter>) {
@@ -228,138 +239,180 @@ export function ConfiguredViewToolbar({
     );
   }
 
-  return (
+  const activePreset = presets.find((preset) => preset.id === state.filterPreset);
+  const activeCount = executableFilters.length + (activePreset ? 1 : 0);
+
+  const tools = (
     <>
-      <div className="configured-view__toolbar">
+      <label className="configured-view__find">
+        <SearchIcon />
         <input
+          ref={searchRef}
           className="configured-view__search"
           type="search"
           aria-label="Search view"
-          placeholder="Search view…"
+          aria-keyshortcuts="Meta+F Control+F"
+          placeholder="Find in view"
           value={state.search ?? ""}
           onChange={(event) => onResetPage({ search: event.target.value })}
         />
-        {activeVariant === "kanban" ? (
-          <BoardFieldControls
-            capabilities={capabilities}
-            profile={profile}
-            columnField={state.columnField ?? boardColumnField}
-            laneField={state.laneField ?? (boardLaneField || NO_LANES)}
-            onChange={onResetPage}
-          />
-        ) : (
-          <label className="configured-view__select">
-            <span>Group</span>
-            <select
-              aria-label="Group by"
-              value={groupField ? groupOption : ""}
-              onChange={(event) =>
-                onResetPage({ group: groupSpec(event.target.value, capabilities) })
-              }
-            >
-              <option value="">None</option>
-              {displayCapabilities
-                .filter((capability) => capability.groupable)
-                .map((capability) => (
-                  <option key={capability.key} value={capability.key}>
-                    {capabilityLabel(capability)}
-                  </option>
-                ))}
-            </select>
-          </label>
-        )}
-        <div className="configured-view__tools">
-          <button
-            ref={addFilterRef}
-            type="button"
-            className="configured-view__tool-button"
-            aria-label="Add filter"
-            onClick={addFilter}
-            disabled={capabilities.length === 0}
-          >
-            + Filter
-          </button>
-          {draftFilters.length > 0 && (
+        {!state.search && <kbd aria-hidden="true">⌘F</kbd>}
+      </label>
+      <div className="configured-view__options" ref={filterRef}>
+        <button
+          ref={filterButtonRef}
+          type="button"
+          className="configured-view__tool-button configured-view__options-button"
+          aria-label={activeCount ? `Filter, ${activeCount} active` : "Filter"}
+          aria-expanded={filterOpen}
+          onClick={() => setFilterOpen((open) => !open)}
+          disabled={capabilities.length === 0 && presets.length === 0}
+        >
+          <FilterIcon />
+          Filter
+          {activeCount > 0 && <span className="configured-view__tool-count">{activeCount}</span>}
+        </button>
+        {/* Stays mounted while closed: quick filters remember the values the
+            unfiltered collection offered, so the reader can add another. */}
+        <div
+          className="configured-view__options-panel configured-view__filter-menu"
+          role="group"
+          aria-label="Filter options"
+          hidden={!filterOpen}
+        >
+          {presets.length > 0 && (
+            <div className="configured-view__options-section" aria-label="Filter presets">
+              <h4>Presets</h4>
+              {presets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className="configured-view__menu-toggle"
+                  aria-pressed={state.filterPreset === preset.id}
+                  onClick={() =>
+                    onResetPage({
+                      filterPreset: state.filterPreset === preset.id ? "" : preset.id,
+                    })
+                  }
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {quickFilters}
+          <div className="configured-view__options-actions">
             <button
               type="button"
               className="configured-view__tool-button"
-              aria-expanded={filtersExpanded}
-              onClick={() => setFiltersExpanded((expanded) => !expanded)}
+              aria-label="Add filter"
+              onClick={addFilter}
+              disabled={capabilities.length === 0}
             >
-              Filters ({executableFilters.length})
+              + Add filter
             </button>
-          )}
-          <div className="configured-view__options" ref={optionsRef}>
-            <button
-              type="button"
-              className="configured-view__tool-button configured-view__options-button"
-              aria-label={optionsDirty ? "View options, unsaved changes" : "View options"}
-              aria-expanded={optionsOpen}
-              onClick={() => setOptionsOpen((open) => !open)}
-            >
-              View options
-              {optionsDirty && <span className="configured-view__unsaved-dot" aria-hidden />}
-            </button>
-            {/* Stays mounted while closed so a save in progress keeps its status. */}
-            <div
-              className="configured-view__options-panel"
-              role="group"
-              aria-label="View options"
-              hidden={!optionsOpen}
-            >
-              {activeVariant === "table" && density && (
-                <label className="configured-view__select">
-                  <span>Rows</span>
-                  <select
-                    aria-label="Rows"
-                    value={density}
-                    onChange={(event) =>
-                      onDensityChange?.(event.target.value === "one-line" ? "one-line" : "two-line")
-                    }
-                  >
-                    <option value="two-line">Two-line</option>
-                    <option value="one-line">One-line</option>
-                  </select>
-                </label>
-              )}
-              {activeVariant === "table" && (
-                <>
-                  <button
-                    type="button"
-                    className="configured-view__tool-button"
-                    aria-label="Columns"
-                    aria-expanded={columnsOpen}
-                    onClick={() => setColumnsOpen((open) => !open)}
-                  >
-                    Columns {visibleFields.length}/{columns.length}
-                    {hiddenEmpty.length > 0 && ` · ${hiddenEmpty.length} hidden empty`}
-                  </button>
-                  {columnsOpen && (
-                    <fieldset className="configured-view__columns-list">
-                      <legend>Visible columns</legend>
-                      {columnOptions.map((column) => (
-                        <label key={column.field}>
-                          <input
-                            type="checkbox"
-                            checked={visibleFields.includes(column.field)}
-                            onChange={() => onToggleColumn(column.field)}
-                          />
-                          <span>{columnLabel(column, capabilities)}</span>
-                          {hiddenEmpty.includes(column.field) && (
-                            <small className="configured-view__column-note">hidden empty</small>
-                          )}
-                        </label>
-                      ))}
-                    </fieldset>
-                  )}
-                </>
-              )}
-              {viewActions && <div className="configured-view__options-actions">{viewActions}</div>}
-            </div>
+            {draftFilters.length > 0 && (
+              <button
+                type="button"
+                className="configured-view__tool-button"
+                onClick={() => {
+                  setFilterOpen(false);
+                  setFiltersExpanded(true);
+                }}
+              >
+                Edit filters ({draftFilters.length})
+              </button>
+            )}
           </div>
-          {trailing}
         </div>
       </div>
+      <ConfiguredViewViewMenu
+        state={state}
+        capabilities={capabilities}
+        displayCapabilities={displayCapabilities}
+        columns={columns}
+        visibleFields={visibleFields}
+        activeVariant={activeVariant}
+        boardColumnField={boardColumnField}
+        boardLaneField={boardLaneField}
+        profile={profile}
+        executedGroupField={executedGroupField}
+        sort={sort}
+        onToggleColumn={onToggleColumn}
+        onResetPage={onResetPage}
+        emptyFields={emptyFields}
+        density={density}
+        onDensityChange={onDensityChange}
+        viewActions={viewActions}
+        reset={reset}
+        dirty={optionsDirty}
+        pinned={optionsPinned}
+      />
+    </>
+  );
+
+  const chips = draftFilters.flatMap((draft, index) => {
+    const filter = filterSpecForDraft(draft);
+
+    if (!filterIsRunnable(filter)) return [];
+
+    const summary = [
+      humanizeLabel(capabilityFor(capabilities, filter.field)?.label || filter.field),
+      opLabel(filter.op),
+      filterSummary(filter, capabilityFor(capabilities, filter.field)),
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    return [
+      <span key={draft.id} className="configured-view__active-filter">
+        {summary}
+        <button
+          type="button"
+          aria-label={`Remove filter ${summary}`}
+          title="Remove filter"
+          onClick={() => removeFilter(index)}
+        >
+          ×
+        </button>
+      </span>,
+    ];
+  });
+
+  const showChips = !filtersExpanded && (chips.length > 0 || activePreset);
+
+  return (
+    <>
+      {placeTools(tools)}
+      {(showChips || status) && (
+        <div className="configured-view__active-filters">
+          {showChips && activePreset && (
+            <span className="configured-view__active-filter">
+              {activePreset.label}
+              <button
+                type="button"
+                aria-label={`Remove preset ${activePreset.label}`}
+                title="Remove preset"
+                onClick={() => onResetPage({ filterPreset: "" })}
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {showChips && chips}
+          {showChips && draftFilters.length > 0 && (
+            <button
+              type="button"
+              className="configured-view__chip-action"
+              aria-expanded={false}
+              onClick={() => setFiltersExpanded(true)}
+            >
+              Edit
+            </button>
+          )}
+          {status}
+        </div>
+      )}
       {draftFilters.length > 0 && filtersExpanded && (
         <div className="configured-view__filters" ref={filtersRef}>
           {draftFilters.map((filter, index) => (
@@ -378,50 +431,56 @@ export function ConfiguredViewToolbar({
               onRemove={() => removeFilter(index)}
             />
           ))}
-        </div>
-      )}
-      {executableFilters.length > 0 && !filtersExpanded && (
-        <div className="configured-view__active-filters">
-          {draftFilters.flatMap((draft, index) => {
-            const filter = filterSpecForDraft(draft);
-
-            if (!filterIsRunnable(filter)) return [];
-
-            const summary = [
-              humanizeLabel(capabilityFor(capabilities, filter.field)?.label || filter.field),
-              opLabel(filter.op),
-              filterSummary(filter, capabilityFor(capabilities, filter.field)),
-            ]
-              .filter(Boolean)
-              .join(" ");
-
-            return [
-              <span key={draft.id} className="configured-view__active-filter">
-                {summary}
-                <button
-                  type="button"
-                  aria-label={`Remove filter ${summary}`}
-                  title="Remove filter"
-                  onClick={() => removeFilter(index)}
-                >
-                  ×
-                </button>
-              </span>,
-            ];
-          })}
+          <span className="configured-view__filters-actions">
+            <button type="button" className="configured-view__tool-button" onClick={addFilter}>
+              + Add filter
+            </button>
+            <button
+              type="button"
+              className="configured-view__tool-button"
+              aria-expanded
+              onClick={() => setFiltersExpanded(false)}
+            >
+              Done
+            </button>
+          </span>
         </div>
       )}
     </>
   );
 }
 
-/** Dates group by calendar month; other fields by value. */
-function groupSpec(field: string, capabilities: ViewFieldCapability[]) {
-  const kind = viewFieldControl(capabilityFor(capabilities, field)).kind;
+function SearchIcon() {
+  return (
+    <svg
+      className="configured-view__tool-icon"
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    >
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="m10.5 10.5 3 3" />
+    </svg>
+  );
+}
 
-  return field && (kind === "date" || kind === "datetime")
-    ? { field, bucket: "month" as const }
-    : { field };
+function FilterIcon() {
+  return (
+    <svg
+      className="configured-view__tool-icon"
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    >
+      <path d="M2.5 3.5h11l-4.25 5v4l-2.5 1v-5z" />
+    </svg>
+  );
 }
 
 function initialDraftFilter(capabilities: ViewFieldCapability[]): DraftFilter {
@@ -505,12 +564,4 @@ function filterCapabilitiesForDraft(
   const selected = capabilityFor(all, field);
 
   return selected ? [...display, selected] : display;
-}
-
-function columnImportanceRank(importance: ViewFieldCapability["importance"] | undefined) {
-  if (importance === "KEY") return 0;
-
-  if (importance === "DETAIL") return 2;
-
-  return 1;
 }

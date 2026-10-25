@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { execution, renderView } from "./ConfiguredView.testFixtures";
+import { addFilter, execution, renderView } from "./ConfiguredView.testFixtures";
 
 describe("configured view filter operators", () => {
   it("keeps neq when choosing an enum value and switches its single selection", async () => {
@@ -23,7 +23,7 @@ describe("configured view filter operators", () => {
       },
       onStateChange,
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    addFilter();
     fireEvent.change(screen.getByLabelText("Operator"), { target: { value: "neq" } });
     fireEvent.click(screen.getByRole("button", { name: "Active" }));
     await waitFor(() =>
@@ -78,7 +78,7 @@ describe("configured view filter operators", () => {
         },
         onStateChange,
       });
-      fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+      addFilter();
       fireEvent.change(screen.getByLabelText("Operator"), { target: { value: op } });
       fireEvent.click(screen.getByRole("button", { name: "Active" }));
       fireEvent.change(screen.getByLabelText("Operator"), { target: { value: "in" } });
@@ -135,7 +135,7 @@ describe("configured view filter operators", () => {
       },
       onStateChange,
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    addFilter();
     fireEvent.change(screen.getByLabelText("Operator"), { target: { value: "neq" } });
     fireEvent.click(screen.getByText("Select values"));
     expect(screen.getAllByRole("radio")).toHaveLength(13);

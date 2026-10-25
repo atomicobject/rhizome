@@ -117,6 +117,8 @@ describe("ConfiguredView shell interactions", () => {
   it("sets and clears a filter preset", () => {
     const onStateChange = vi.fn();
     const rendered = renderConfiguredView({ onStateChange });
+    expect(screen.queryByRole("button", { name: "Active" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     fireEvent.click(screen.getByRole("button", { name: "Active" }));
     expect(onStateChange).toHaveBeenLastCalledWith({ filterPreset: "active", page: { offset: 0 } });
 
@@ -132,7 +134,8 @@ describe("ConfiguredView shell interactions", () => {
         onOpenRow={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Active" }));
+    // The active preset shows as a removable chip under the header.
+    fireEvent.click(screen.getByRole("button", { name: "Remove preset Active" }));
     expect(onStateChange).toHaveBeenLastCalledWith({ filterPreset: "", page: { offset: 0 } });
   });
 
