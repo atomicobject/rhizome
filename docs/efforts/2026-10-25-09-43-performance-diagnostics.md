@@ -4,7 +4,7 @@ id: EFF-2026-10-25-09-43
 aliases: [EFF-2026-10-25-09-43]
 name: Performance diagnostics
 created-at: 2026-10-25T13:43:47Z
-status: active
+status: complete
 summary: "Extend persistent diagnostics so agents can find Rhizome performance and stability problems: real retention, an aggregate perf view with anomaly flags, frontend render evidence, and code-mode timings."
 governing-specs:
   - "[[persistent-diagnostics]]"
@@ -78,7 +78,15 @@ Persistent diagnostics that keep their full retention window, summarize performa
 
 ## Actual Delivered
 
-Not yet delivered.
+Delivered on `t3/performance-metrics-review` through the pull request recorded below. No release was made.
+
+- Retention holds its window: fast successful routine indexing jobs record `job.finished` events with timings and metrics instead of reports; failed, slow, fallback, and explicit work still publish reports.
+- Diagnostic events accept a bounded, sanitized `metrics` object.
+- Code-mode command reports carry Node startup, script time, and per-operation host-call metrics split into in-process and forwarded calls.
+- The web UI sends bounded ten-second batches (frame stalls, refresh churn decided per refresh, reconnects, error names) to `POST /api/v1/diagnostics/client`, recorded as `web.client` events. Production ships React's profiling build (about 4.5% scripting cost); render regions mount per page load, always in Rhizome Dev and behind an off-by-default desktop setting in release builds.
+- `rzm diagnostics perf` summarizes latency by operation and flags runtime start bursts, unfinished operations, WARN and ERROR groups, integrity failures, frame stalls, refresh churn, and stream instability, with supporting identifiers.
+- The integrity WARN is main's `integrity.failed`, extended with the affected table.
+- The managed Rhizome skill, diagnostics guide, README, CLI, web, and indexing notes, SPEC-0116, and the CHANGELOG are reconciled.
 
 ## Execution Notes
 
@@ -96,6 +104,7 @@ Not yet delivered.
 - 2026-10-25T16:17:00Z: Merged `origin/main` (`9b336978`). Main's FTS5 fix (#43) added its own integrity WARN, `integrity.failed` with `reason_code`, and fixed the false corruption reports behind the 2026-10-25 `intel_fts` warning. B1's `index.integrity_check_failed` was dropped in favor of main's event, keeping B1's `table` attribute; the `index_integrity` flag now matches `integrity.failed`. Main also carries the spawn-storm fix (#41). Integrity, diagnostics, web, and lane package tests passed after the merge.
 - 2026-10-25T16:37:00Z: Drew accepted the D3 fallback, then asked that Rhizome Dev builds enable render regions and release desktop builds offer an off-by-default setting. A second measurement with the same harness separated the cost: the profiling build with no regions mounted added 4.7% median scripting time (2350.2 ms to 2461.7 ms), and 4.4% with vault copies swapped. So production ships the profiling build again, and `DiagnosticRegion` mounts only in development or when the page loads with `window.__RHIZOME_RENDER_PROFILING__`, which the desktop sets in Rhizome Dev or when its Diagnostics setting is on. Plain browsers never set it. A new E2E case shows the production bundle records `app-shell` regions with the flag and none without it; it fails when the flag is ignored. The desktop setting is a separate delegate lane.
 - 2026-10-25T16:45:00Z: Independent review (GPT-6.1 Sol, high) found four issues, all fixed. (1) Runtime start bursts were timed by shutdown events, so spread-out shutdowns hid a burst and running or crashed runtimes were missed; bursts now come from `runtime/startup.started`. (2) Code-mode requests grouped by transport (`code_stdio`) and merged operations; groups now use the `tool` operation with the transport in parentheses. (3) Churn was judged per 10-second window, so a refresh split across a batch boundary lost its flag; the browser now decides churn per refresh, after its one-second commit window closes and its refetches resolve, and sends a `churned` count that `perf` flags. (4) The E2E test could pass on earlier evidence from a reused server; reads are now scoped with `--since` to the test's start. Each fix has a test that fails without it (checked by mutation). Go diagnostics and web package tests, 31 vitest tests, and both E2E cases passed.
+- 2026-10-25T16:55:00Z: Desktop setting merged from `t3/desktop-render-profiling` (`4448edcf`): `preferences.json` (kept out of strict `library.json` so downgrades still read it), render timing always on when the build does not update itself, and a Settings > Diagnostics checkbox that applies to windows opened afterward. Delegate evidence: `make desktop-check` (74 Rust and 61 vitest tests, clippy) and `make desktop-build` passed; no GUI click-through was possible. Greptile (confidence 4) then raised three findings, all fixed: runtime lifetimes and event streams no longer count as unfinished (HTTP starts carry `stream` from the `Accept` header), a refresh with a refetch still outstanding at the ten-second cap is never judged as churn, and the diagnostics guide and README document `perf`. Each fix has a test that fails without it. `make verify` passed before these fixes (1,585 web tests, 104 E2E).
 
 ## Deviations
 
@@ -104,15 +113,16 @@ Not yet delivered.
 
 ## Closure Checklist
 
-- [ ] Required quality gates pass.
-- [ ] Alignment and actual outcomes are verified.
-- [ ] Specs and documentation are reconciled.
-- [ ] Follow-ups are triaged.
+- [x] Required quality gates pass: `make verify`, `make desktop-check`, `rzm validate`, and frozen-scope drift (three findings, all on older efforts).
+- [x] Alignment and actual outcomes are verified, with the deviations above. The desktop setting has no GUI click-through; Drew checks it after merge with `make desktop-install-dev`.
+- [x] Specs and documentation are reconciled.
+- [x] Follow-ups are triaged.
 
 ## Compounding Follow-ups
 
-None yet.
+- Open question in SPEC-0116: week-scale `perf` trends would need periodic summary reports, since reader byte caps bound how much event history one read examines.
+- Delegated lanes must be told which docs another lane owns; the desktop delegate correctly left SPEC-0116 alone and reported the stale line instead.
 
 ## Status
 
-Active. B0 to B4 merged with main; B5 (end-to-end test, agent guidance, full verification, review, pull request) remains.
+Complete. Delivery and closure ship together in the pull request recorded above. No merge or release is authorized by this effort.
