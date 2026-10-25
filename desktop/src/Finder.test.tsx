@@ -177,6 +177,24 @@ describe("finder", () => {
     );
   });
 
+  it("leaves Enter on a button to the button and opens row actions with →", () => {
+    const { input, onChoose } = show();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Add repository…" }), { key: "Enter" });
+    expect(onChoose).not.toHaveBeenCalled();
+
+    // The highlighted row starts on the first one this window does not show.
+    fireEvent.keyDown(input, { key: "ArrowRight" });
+    expect(onChoose).toHaveBeenLastCalledWith(
+      expect.objectContaining({ choice: "menu", repository: "drews-vault" }),
+    );
+
+    // Mid-query, → moves the caret instead.
+    fireEvent.change(input, { target: { value: "dr" } });
+    (input as HTMLInputElement).setSelectionRange(1, 1);
+    fireEvent.keyDown(input, { key: "ArrowRight" });
+    expect(onChoose).toHaveBeenCalledTimes(1);
+  });
+
   it("lists worktrees by branch without repository-only controls", () => {
     const { options } = show({
       mode: "worktrees",

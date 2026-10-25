@@ -97,6 +97,9 @@ pub fn update(
 ) -> Result<Settings, String> {
     let desktop = app.state::<Desktop>();
     // Applying waits on the main thread, so the lock covers only the file.
+    // Each save queues its apply on the main thread, which runs tasks in
+    // order, and the apply reads what is saved by then: when two windows
+    // change settings together, the last save is the last applied.
     let settings = {
         let _saving = desktop.preferences.lock().unwrap();
         let mut saved = Preferences::load(&desktop.directory);
@@ -108,7 +111,16 @@ pub fn update(
             appearance: saved.appearance,
         }
     };
-    apply(app, settings);
+    let handle = app.clone();
+    app.run_on_main_thread(move || {
+        let desktop = handle.state::<Desktop>();
+        let latest = {
+            let _saving = desktop.preferences.lock().unwrap();
+            current(&desktop.directory)
+        };
+        apply(&handle, latest);
+    })
+    .map_err(|error| error.to_string())?;
     Ok(settings)
 }
 

@@ -127,14 +127,34 @@ export function Finder({
       newWindow,
     });
 
+  const actions = (row: FinderRow | undefined, button: Element | null | undefined) => {
+    if (!row || !button) return;
+    const box = button.getBoundingClientRect();
+    onChoose({ choice: "menu", repository: row.repository, x: box.left, y: box.bottom + 4 });
+  };
+
   function onKeyDown(event: React.KeyboardEvent) {
+    // Enter on a button, such as Add repository…, is the button's own.
+    if (event.key === "Enter" && event.target instanceof HTMLButtonElement) return;
     const digit = Number(event.key);
+    const caret = input.current;
     if (event.key === "Escape") onChoose({ choice: "close" });
     else if (event.key === "ArrowDown") setActive(Math.min(index + 1, shown.length - 1));
     else if (event.key === "ArrowUp") setActive(Math.max(index - 1, 0));
     else if (event.key === "Enter") open(shown[index]?.row, event.metaKey);
     else if (repositories && event.metaKey && digit >= 1 && digit <= 9)
       open(shown[digit - 1]?.row, false);
+    // → at the end of the query opens the highlighted row's actions, as in Alfred.
+    else if (
+      repositories &&
+      event.key === "ArrowRight" &&
+      caret?.selectionStart === query.length &&
+      caret.selectionEnd === query.length
+    )
+      actions(
+        shown[index]?.row,
+        document.getElementById(`${list}-${index}`)?.querySelector(".finder-actions"),
+      );
     else return;
     event.preventDefault();
   }
@@ -214,13 +234,7 @@ export function Finder({
                     tabIndex={-1}
                     onClick={(event) => {
                       event.stopPropagation();
-                      const box = event.currentTarget.getBoundingClientRect();
-                      onChoose({
-                        choice: "menu",
-                        repository: row.repository,
-                        x: box.left,
-                        y: box.bottom + 4,
-                      });
+                      actions(row, event.currentTarget);
                     }}
                   >
                     •••
@@ -253,6 +267,12 @@ export function Finder({
             <kbd>⌘↵</kbd>
             new window
           </span>
+          {repositories && (
+            <span>
+              <kbd>→</kbd>
+              actions
+            </span>
+          )}
           <span className="grow" />
           {repositories && (
             <button className="text-button" onClick={() => onChoose({ choice: "add" })}>
