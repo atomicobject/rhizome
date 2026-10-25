@@ -13,6 +13,8 @@ import { renderDiagram } from "../src/components/markdown/mermaid";
 import type { ViewNodeRef } from "../src/views/context";
 import { openNode } from "./index";
 
+const XY_CHART = /^\s*(?:---[\s\S]*?---\s*)?(?:%%\{[\s\S]*?\}%%\s*)?xychart/;
+
 type DiagramState =
   | { kind: "loading" }
   | { kind: "ready"; svg: string; source: string; linkKey: string; targets: ViewNodeRef[] }
@@ -42,6 +44,9 @@ export function Diagram(props: {
   const readEntries = useEffectEvent(() => entries);
   const [width, setWidth] = useState(0);
   const hasSource = source.trim() !== "";
+  // Only charts lay out at the container's width; other diagrams keep their
+  // natural size, so resizing never re-renders them.
+  const fitWidth = width && XY_CHART.test(source) ? width : undefined;
 
   // Charts fill the view's width; measured in 20px steps so resizing re-lays
   // the chart out without a render per pixel.
@@ -71,7 +76,7 @@ export function Diagram(props: {
       idPrefix,
       true,
       targets.map(([id]) => id),
-      width || undefined,
+      fitWidth,
     ).then(
       (result) => {
         if (cancelled) return;
@@ -121,7 +126,7 @@ export function Diagram(props: {
     return () => {
       cancelled = true;
     };
-  }, [source, linkKey, idPrefix, width]);
+  }, [source, linkKey, idPrefix, fitWidth]);
 
   useEffect(() => {
     container.current

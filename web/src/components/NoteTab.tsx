@@ -357,18 +357,15 @@ export function NoteTab({
               selectedId={choice?.id ?? null}
               onSelect={(id) => void changePresentation(id)}
               status={selection}
-              trailing={
-                choice &&
-                nodeContext && (
-                  <ViewPreferenceReset
-                    choice={choice}
-                    definition={definition}
-                    context={nodeContext}
-                    vaultKey={vaultKey}
-                  />
-                )
-              }
             />
+            {choice && nodeContext && (
+              <ViewPreferenceReset
+                choice={choice}
+                definition={definition}
+                context={nodeContext}
+                vaultKey={vaultKey}
+              />
+            )}
             {presentationError && <span role="alert">{presentationError}</span>}
           </>
         }
