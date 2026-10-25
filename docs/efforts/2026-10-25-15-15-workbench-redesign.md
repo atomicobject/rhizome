@@ -31,11 +31,11 @@ Excluded: SPEC-0126 Non-Goals (touch layouts, custom theme colours, a multi-scop
 
 ## Spec Set (Frozen)
 
-- [[workbench-redesign|SPEC-0126]], 2026-10-25 revision: US1–US10 and all requirements.
+- [[workbench-redesign|SPEC-0126]], 2026-10-25 revision: US1–US11 and all requirements. It was refrozen on 2026-10-25 to add US11 and the note editing fidelity requirement (see Deviations).
 
 ## Stories In Scope (Frozen)
 
-All ten stories of SPEC-0126 (`^SPEC-0126-US1` through `^SPEC-0126-US10`).
+All eleven stories of SPEC-0126 (`^SPEC-0126-US1` through `^SPEC-0126-US11`).
 
 ## Spec Coverage Checklist
 
@@ -49,6 +49,7 @@ All ten stories of SPEC-0126 (`^SPEC-0126-US1` through `^SPEC-0126-US10`).
 - [ ] US8 ⌘P finder; finder requirements and latency target.
 - [ ] US9 ⌘O repository finder.
 - [ ] US10 ⇧⌘O worktree finder.
+- [ ] US11 note reader rhythm and edit mode; note editing fidelity requirement.
 - [ ] Typography (Inter, scale, tabular figures) and contrast test.
 - [ ] Documentation: DESIGN.md and design.json, PRODUCT.md, SPEC-0090/0113/0119/0125 amendments, desktop README, custom-views skill templates, changelog.
 
@@ -73,9 +74,10 @@ Delivery uses a parent branch (pushed as `feat/workbench-redesign`) with one par
 | 3. View header, table policy, reading widths | US3, US4, US7 | `ConfiguredView*.tsx`, `ConfiguredViewToolbar.tsx`, `ViewSelector.tsx`, `ConfiguredViewTableModel.ts`, `configured-view.css`, `web/bundled-views/group/` | Title row and presentation tabs. View popover holding group, sort, a "1 line \| 2 lines" segmented control, columns, reset, and save. Presets move into Filter, and active filters show as chips. Facets band removed. Column policy: title minimums of 240 and 320px; fixed evidence widths; overflow columns move to the right pane in priority order with a footer note; table minimum width computed from real widths. Reading caps for Briefing and Overview and centred note measure; board columns 260–360px. Bundled-view font sizes on tokens. | Unit tests for column allocation and overflow at 1100/1440/1920 widths; `type-views`, `view-variants`, `unified-views`, and `group-views` e2e passing; first data row at or below 140px measured. |
 | 4. ⌘P finder | US8 | New finder catalog and handler in `pkg/app/web` (search-subsystem and indexing-subsystem constraints loaded first), `openapi.yaml` and generated client, new `web/src/components/Finder*`, frecency in per-checkout user state | Catalog built from the index (notes with display titles and types, code files), refreshed on index change events. fzf algorithm scoring with typo tolerance and smart-case. Frecency recorded on open, used only to break close scores. A shared keyboard-first palette component (listbox, active descendant, Esc restores focus) and ⌘P in the browser. | Go unit tests for scoring and catalog freshness; a benchmark showing p95 under 50ms per query on a synthetic 20,000-note vault; vitest for the palette; e2e for ⌘P open and search. |
 | 5. Desktop chrome and finders | US2, US9, US10, desktop requirements | `desktop/src-tauri/src` (`windows.rs`, `menu.rs`, `page.rs`, `state.rs`, `pane.rs`, `security.rs`), `desktop/src` (`App.tsx`, `RepositoryList.tsx`, `Settings.tsx`, `style.css`, `api.ts`), `web/src/components/desktopHost.ts`; amends SPEC-0113 and SPEC-0119 | Lenient `settings.json` for theme and appearance, broadcast to windows. Native appearance via Tauri's theme API. Window and webview background colours. A validated `theme` page command pushed on first report and on change. Themed toolbar. Appearance in a native View › Appearance menu and in Settings. ⌘P menu item routed to the page. **Spike first:** a transparent finder webview above the content view (stopping rule below). Then the ⌘O and ⇧⌘O finders with ⌘1–⌘9, open in a new window, the repository actions relocated, Add Repository moved off ⌘O, and the sidebar removed. | `make desktop-deps`, `make desktop-check`, and `make desktop-build`; Rust tests for settings tolerance and command validation; vitest for finder filtering; the packaged app exercised against a fixture folder in both appearances, with screenshots via the CGWindow capture path. |
+| 2b. Note reader and edit mode | US11, note editing fidelity | `web/src/ontology.css` (note body, section, and properties rules), `web/src/markdown-editor.css`, `web/src/components/body/` (`NarrativeEditor.tsx`, `ChildSection*.tsx`), `OntologyPropertyPanel.tsx`, `OntologyNotePane.tsx` (body wrapper only) | Section rhythm without per-heading rules, with more space above headings than below; distinct H2 and H3 sizes; 15px Inter prose at a 65–75ch measure. Disclosure controls on hover and focus. Empty properties behind "Show N empty fields", with quieter rows. A quiet home line. In edit mode, trim the displayed leading blank lines and CRLF tails in `NarrativeEditor` while `previousMarkdown` keeps the raw block; borderless regions that show on hover and focus; read-mode typography so toggling Edit doesn't move text. | A unit test that an edit and save of a section with a blank line after its heading (LF and CRLF) leaves every other byte unchanged; existing narrative edit tests and the GraphQL body-block tests unchanged and passing; screenshots of a typed note in read and edit mode at 1440, light and dark; `make check` and `make web-e2e`. |
 | 6. Integration and closure | Documentation requirements, full verification | `DESIGN.md`, `.impeccable/design.json`, `PRODUCT.md`, SPEC-0090/0113/0119/0125, `desktop/README.md`, custom-views skill templates, `CHANGELOG.md` | Rewrite DESIGN.md from the shipped result (`/impeccable document`). Amend the specs. `make build`, `rzm init`, and `rzm init --check` for skill templates. Screenshot goldens for the Effort notes table (1100 and 1440, light and dark). Re-run the Impeccable critique. | `make verify`, desktop checks, `./scripts/rzm validate` and `frozen-scope-drift`, Greptile 5/5 per batch, CI green, and a critique score recorded against the 24/40 baseline. |
 
-**Dependencies.** Batch 1 comes first, because every later batch reads its token names and type scale. Once Drew has looked at Batch 1, batches 2, 3, 4, and 5 run in parallel:
+**Dependencies.** Batch 1 comes first, because every later batch reads its token names and type scale. Batch 2b starts once Batch 2 has merged into the parent, because both change the note reader's width and styles. Once Drew has looked at Batch 1, batches 2, 3, 4, and 5 run in parallel:
 - **Batch 2** owns the shell and rails.
 - **Batch 3** owns configured-view and bundled-view files. It writes overflow columns into the right pane through the existing record slot.
 - **Batch 4** owns the Go finder, the API, and the palette component.
@@ -137,9 +139,14 @@ Not yet delivered.
 - 2026-10-25T19:47:43Z: Drew reviewed the Batch 1 screenshots and approved continuing ("1 Yeah"), so batches 2–5 may start. He also granted the push and PR authority requested under Plan ("2. Yeah"): push the parent and batch branches with explicit refs, open the parent and batch PRs, squash-merge batch PRs into the parent, and run Greptile on each. Merging to `main` stays with Drew.
 - 2026-10-25T19:47:43Z: Rebased onto `main` at `20113f3d` (#46, #47) before the first push. The rebase was clean; `make check` exit 0 (web unit tests 1,651 passed).
 
+- 2026-10-25T20:23:19Z: Queued Batch 2b (note reader and edit mode) to start after Batch 2 merges.
+
 ## Deviations
 
-None yet.
+- 2026-10-25T20:23:19Z: Scope change approved by Drew in chat ("Yes, please do"). He reported, with screenshots, that edit mode shows blank lines and stacked boxes in note sections, and that read mode looks cramped and inelegant.
+  - **Spec change:** added US11 (read and edit a note comfortably) and a note editing fidelity requirement to SPEC-0126. Removed "the note reader" from the restructuring non-goal, and added a non-goal that rules out changing the GraphQL body-block projection or the edit-session op contract.
+  - **Cause of the blank lines:** the server's narrative block keeps the blank line after a heading as a leading `\n` (`pkg/ontology/body.go` `emitNarrative`), which tests pin as part of the public GraphQL contract, and `NarrativeEditor` shows it unchanged. The fix trims only the display.
+  - **Plan change:** delivered as new Batch 2b. frozen-scope-drift acknowledged for SPEC-0126: the spec set is refrozen at this revision.
 
 ## Closure Checklist
 

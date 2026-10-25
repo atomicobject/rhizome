@@ -20,7 +20,7 @@ The direction follows Slack's model:
 - **Desktop:** Rhizome Desktop's web-drawn title bar takes the same theme.
 - **Finders:** fuzzy finders replace the left-rail note list and the desktop repository sidebar.
 
-This spec governs the Notes workspace shell, configured views, bundled group views, the desktop shell chrome, and the finders. It amends [[notes-workspace-shell|SPEC-0090]] (rail note list and fixed rail widths), [[rhizome-desktop|SPEC-0113]] (repository sidebar), [[desktop-unified-toolbar|SPEC-0119]] (toolbar chrome), and [[design-system-parity|SPEC-0125]] (its "no in-app appearance override" non-goal and Barlow as the UI face).
+This spec governs the Notes workspace shell, configured views, bundled group views, the note reader and its edit mode, the desktop shell chrome, and the finders. It amends [[notes-workspace-shell|SPEC-0090]] (rail note list and fixed rail widths), [[rhizome-desktop|SPEC-0113]] (repository sidebar), [[desktop-unified-toolbar|SPEC-0119]] (toolbar chrome), and [[design-system-parity|SPEC-0125]] (its "no in-app appearance override" non-goal and Barlow as the UI face).
 
 ## Goals
 
@@ -37,7 +37,8 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 - Phone or touch layouts.
 - User-defined theme colours. Themes are presets.
 - A multi-scope command palette (commands, branches, commits). The finders are separate and scoped.
-- Restructuring Board and Cards, the note reader, Ontology, Explorer, Agent, or GraphQL beyond the new tokens, type scale, and shared header pattern.
+- Restructuring Board and Cards, Ontology, Explorer, Agent, or GraphQL beyond the new tokens, type scale, and shared header pattern.
+- Changes to the GraphQL body-block projection (`workspace.bodies.blocks.markdown`) or the edit-session op contract.
 - New identity or logo work, and commercial fonts.
 - Changes to view YAML, preference storage contracts, or GraphQL beyond the additive finder endpoint named below.
 
@@ -172,6 +173,22 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 - Rows show branch, path, the running indicator, and the new-worktree marker. Enter opens in this window and ⌘Enter opens a new window.
 - On the primary worktree the toolbar's worktree label is quiet. On any other worktree it is visibly distinct.
 
+### US11 - Read and edit a note comfortably
+
+- id:: ^SPEC-0126-US11
+- summary:: Read a typed note with a calm document rhythm, and switch to Edit without stray blank lines, stacked boxes, or the text moving.
+- status:: ready
+
+#### Acceptance Criteria
+
+- Sections separate by space, not by a rule under every heading. There is more space above a heading (about 28px) than below it (about 8px), and H2 and H3 sizes differ clearly on the type scale.
+- Prose uses Inter at about 15px with a 65–75 character measure. Spacing between paragraphs is visibly smaller than spacing between sections.
+- A collapsible section's disclosure control appears on hover and keyboard focus rather than permanently in the margin. A collapsed section still shows its control.
+- In read mode, properties without values collapse behind a "Show N empty fields" toggle. The remaining rows use muted labels without a rule on every row.
+- The note's home or breadcrumb line reads as quiet metadata above the body.
+- In edit mode, each section body shows its prose without the leading blank line that follows its heading, and without trailing blank lines from CRLF files. It uses the same typography as read mode. An editable region shows a border or tint only on hover and focus, and toggling Edit does not move the text.
+- Saving an edited section writes the file with its original surrounding blank lines and line endings.
+
 ## Requirements
 
 ### Themes, appearance, and tokens
@@ -207,6 +224,10 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 - MUST record opens for frecency per checkout, and apply frecency only to break close scores, so a strong match is never buried under a frequently opened weak one.
 - MUST cancel superseded finder requests and never let a slow response replace a newer one.
 - MUST make every finder keyboard-first: focus starts in the input, ↑ and ↓ move, Enter opens, Esc closes and returns focus to where it was, and the list is an ARIA listbox with an active descendant.
+
+### Note editing fidelity
+
+- MUST trim the leading blank lines (and a CRLF section's trailing carriage returns) only in what the section editor displays. The edit's `previousMarkdown` stays the raw block markdown, so the server's block matching and surrounding-whitespace restoration keep files byte-identical. The test is that an edit followed by a save leaves every other byte unchanged.
 
 ### Accessibility and verification
 
