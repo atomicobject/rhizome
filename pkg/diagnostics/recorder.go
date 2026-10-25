@@ -60,13 +60,20 @@ func Open(vaultRoot string, opts Options) (*Recorder, error) {
 }
 
 func (r *Recorder) Event(ctx context.Context, level slog.Level, subsystem, name, message string, attrs ...slog.Attr) {
-	r.event(ctx, true, level, subsystem, name, message, attrs...)
+	r.event(ctx, true, level, subsystem, name, message, nil, attrs...)
+}
+
+// EventMetrics records an event whose measurements are a bounded JSON object.
+// Attributes keep identity and filter values. Invalid or oversized metrics are
+// dropped and the event is marked truncated; the event itself is still kept.
+func (r *Recorder) EventMetrics(ctx context.Context, level slog.Level, subsystem, name, message string, metrics json.RawMessage, attrs ...slog.Attr) {
+	r.event(ctx, true, level, subsystem, name, message, metrics, attrs...)
 }
 
 // EventQuiet retains an event without mirroring it to stderr when a protocol
 // response already owns the caller's error output. Persistence failures still warn.
 func (r *Recorder) EventQuiet(ctx context.Context, level slog.Level, subsystem, name, message string, attrs ...slog.Attr) {
-	r.event(ctx, false, level, subsystem, name, message, attrs...)
+	r.event(ctx, false, level, subsystem, name, message, nil, attrs...)
 }
 
 // SetStderr changes the console destination during a runtime output handoff.
@@ -92,7 +99,7 @@ func (r *Recorder) SetStderr(writer io.Writer) func() {
 	}
 }
 
-func (r *Recorder) event(ctx context.Context, mirror bool, level slog.Level, subsystem, name, message string, attrs ...slog.Attr) {
+func (r *Recorder) event(ctx context.Context, mirror bool, level slog.Level, subsystem, name, message string, metrics json.RawMessage, attrs ...slog.Attr) {
 	if r == nil {
 		return
 	}
@@ -139,10 +146,19 @@ func (r *Recorder) event(ctx context.Context, mirror bool, level slog.Level, sub
 		}
 		e.Attributes["diagnostics.dropped"] = r.dropped
 	}
+	if len(metrics) > 0 {
+		e.Metrics, cut = eventMetrics(metrics, r.opts.MaxEventBytes)
+		e.Truncated = e.Truncated || cut
+	}
 	if mirror && level >= slog.LevelWarn {
 		fmt.Fprintf(r.opts.Stderr, "%s [%s] %s: %s\n", e.Level, e.Subsystem, e.Name, e.Message)
 	}
 	data, err := json.Marshal(e)
+	if err == nil && len(data)+1 > r.opts.MaxEventBytes && e.Metrics != nil {
+		e.Metrics = nil
+		e.Truncated = true
+		data, err = json.Marshal(e)
+	}
 	if err == nil && len(data)+1 > r.opts.MaxEventBytes {
 		e.Attributes = nil
 		e.Message = ""
@@ -160,6 +176,17 @@ func (r *Recorder) event(ctx context.Context, mirror bool, level slog.Level, sub
 		return
 	}
 	r.dropped = 0
+}
+
+func eventMetrics(metrics json.RawMessage, maxEventBytes int) (json.RawMessage, bool) {
+	if len(metrics) > maxEventBytes {
+		return nil, true
+	}
+	clean, cut, err := sanitizeMetrics(metrics)
+	if err != nil {
+		return nil, true
+	}
+	return clean, cut
 }
 
 func terminalEvent(name string) bool {
