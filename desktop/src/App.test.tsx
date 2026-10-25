@@ -822,6 +822,23 @@ describe("desktop shell", () => {
     expect(opened()).toHaveLength(count);
   });
 
+  it("opens a stopped or failed worktree again from the finders", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    // Shown already, choosing it changes nothing.
+    choose({ choice: "open", repository: repository.id, worktree: main, newWindow: false });
+    openRepository(repository.id);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(opened()).toHaveLength(1);
+    report({ step: "sleeping" });
+    openRepository(repository.id);
+    await waitFor(() => expect(opened()).toHaveLength(2));
+    report({ step: "error" });
+    choose({ choice: "open", repository: repository.id, worktree: main, newWindow: false });
+    await waitFor(() => expect(opened()).toHaveLength(3));
+  });
+
   it("keeps the worktree label quiet on the primary worktree only", async () => {
     start();
     expect(await screen.findByRole("button", { name: "Worktree main" })).not.toHaveClass("other");

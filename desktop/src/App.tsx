@@ -290,15 +290,18 @@ export function App() {
     finder.closed();
     if (choice.choice === "add") addRepository();
     if (choice.choice !== "open" || choice.newWindow || !library) return;
-    // Choosing what this window already shows, or is opening, changes nothing.
-    // A repository means its primary checkout, so its own row still switches
-    // this window off a feature worktree.
+    // Choosing what this window already shows, or is opening, changes nothing;
+    // a stopped or failed worktree opens again. A repository means its primary
+    // checkout, so its own row still switches this window off a feature worktree.
     const { repository, worktree } = target.current;
+    const settled =
+      open?.step === "sleeping" || open?.step === "error" || open?.step === "seed-error";
+    const showing = (path?: string) => !!path && path === worktree && !settled;
     if (choice.worktree) {
-      if (choice.worktree !== worktree) void openWorktree(choice.repository, choice.worktree);
+      if (!showing(choice.worktree)) void openWorktree(choice.repository, choice.worktree);
     } else if (
       choice.repository !== repository ||
-      worktree !== found[choice.repository]?.info?.primary
+      !showing(found[choice.repository]?.info?.primary)
     ) {
       void selectRepository(library, choice.repository, undefined, true);
     }
