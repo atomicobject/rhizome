@@ -234,6 +234,24 @@ describe("NotesShell", () => {
     expect(screen.getByRole("complementary", { name: "Notes navigation" })).toBeVisible();
   });
 
+  it("returns focus to the pane toggle when the pane closes from inside", async () => {
+    render(<NotesShell />);
+    await screen.findByRole("button", { name: "All notes (2)" });
+
+    openNote(planNote.path);
+    const pane = await screen.findByRole("complementary", { name: "Note context" });
+
+    // Keyboard activation: the close control holds focus when it is pressed.
+    const close = within(pane).getByRole("button", { name: "Hide right pane" });
+
+    close.focus();
+    fireEvent.click(close);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Show right pane" })).toHaveFocus(),
+    );
+  });
+
   it("closes the active note tab when the desktop app asks, but never Home", async () => {
     render(<NotesShell />);
 

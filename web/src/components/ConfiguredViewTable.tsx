@@ -377,7 +377,7 @@ export function ConfiguredViewTable({
       )}
       {/* The rail keeps the record's place while the table shows, so selecting a
           row never reflows the table under the pointer mid double-click. */}
-      <RecordRailPortal show={active}>
+      <RecordRailPortal show={active} selected={Boolean(selectedRow)}>
         {selectedRow ? (
           <ConfiguredViewRecord
             row={selectedRow}

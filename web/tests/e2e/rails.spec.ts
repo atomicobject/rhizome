@@ -135,3 +135,14 @@ test("below 1200px the right pane starts closed and opens over the content", asy
   await page.keyboard.press("Escape");
   await expect(pane).toBeHidden();
 });
+
+test("a hidden sidebar leaves the workspace panel filling the window", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/notes");
+  await page.getByRole("button", { name: "Hide sidebar" }).click();
+
+  const frame = await page.locator(".notes-shell__frame").boundingBox();
+
+  // Only the 6px insets on each side remain.
+  expect(frame?.width ?? 0).toBeGreaterThan(1440 - 24);
+});

@@ -590,7 +590,21 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   const paneHasContent = !searchActive && (tabs.activeTab.kind === "note" || record);
   const paneOpen = paneHasContent && !panes.paneCollapsed;
   const sidebarHidden = searchActive || panes.sidebarCollapsed;
-  const { togglePane, toggleSidebar } = panes;
+  const { togglePane: togglePaneState, toggleSidebar } = panes;
+
+  const paneToggleRef = useRef<HTMLButtonElement>(null);
+
+  // Closing the pane from a control inside it would drop focus to the page;
+  // hand it to the pane toggle in the tab row instead.
+  const togglePane = useCallback(() => {
+    const fromInside = document
+      .getElementById("notes-right-pane")
+      ?.contains(document.activeElement);
+
+    togglePaneState();
+
+    if (fromInside) requestAnimationFrame(() => paneToggleRef.current?.focus());
+  }, [togglePaneState]);
 
   useEffect(() => {
     if (!active || !paneHasContent) return;
@@ -763,6 +777,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
           ) : null}
           {searchActive ? null : (
             <button
+              ref={paneToggleRef}
               type="button"
               className="notes-shell__pane-toggle"
               aria-label={paneOpen ? "Hide right pane" : "Show right pane"}
