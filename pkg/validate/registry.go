@@ -42,6 +42,7 @@ const (
 	ApplicabilityCodeAnchors  CheckApplicability = "code_anchor_roots_configured"
 	ApplicabilityQueryRecipes CheckApplicability = "query_recipes_configured"
 	ApplicabilityViews        CheckApplicability = "views_configured"
+	ApplicabilityTasks        CheckApplicability = "tasks_present"
 	ApplicabilityEfforts      CheckApplicability = "efforts_present"
 )
 
@@ -182,6 +183,13 @@ var checkRegistry = []registeredCheck{
 		Remediation: RemediationSupport{Kind: RemediationNone},
 	}, checkNeeds{}, func(_ context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
 		return RunSkillOverlays(runCtx)
+	}),
+	checkRegistration(CheckDescriptor{
+		Name: CheckTasks, Description: "scheduled task files", Category: CheckCategoryConfig,
+		Suites: allSuites, Applicability: ApplicabilityTasks,
+		Remediation: RemediationSupport{Kind: RemediationNone},
+	}, checkNeeds{}, func(_ context.Context, runCtx RunContext, _ ScanOptions, _ *ontology.Runtime) CheckResult {
+		return RunTasks(runCtx)
 	}),
 	checkRegistration(CheckDescriptor{
 		Name: CheckCodeFrontmatter, Description: "code documentation frontmatter", Category: CheckCategoryCode,

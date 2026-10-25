@@ -34,6 +34,8 @@ timeout: 1h                         # optional, applies to the check and the pro
 
 Rhizome reads task files from the primary branch's history, never from the files you have checked out. Editing a task on a branch changes nothing until it merges. To try a draft, run it once by hand: `rzm tasks run --file .rhizome/tasks/finalize.yml`.
 
+`rzm validate tasks` (also part of `rzm validate all`) checks the task files you have checked out and reports each one that does not parse, such as a bad id, an unknown field, an invalid `every` or `timeout`, or an id that another file also declares. `rzm tasks status` reports the same problems for the primary branch.
+
 Starters can ship task files the way they ship views; `rzm init` installs and refreshes those. Task files your team writes are left alone.
 
 ### The check

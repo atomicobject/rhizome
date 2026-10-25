@@ -98,6 +98,10 @@ func vaultFeatureFacts(root string, local *repoconfig.LocalConfig, includeQueryR
 	if err != nil {
 		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect view configuration: %w", err)
 	}
+	tasksPresent, err := present(".rhizome", "tasks")
+	if err != nil {
+		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect task configuration: %w", err)
+	}
 	effortsPresent, err := present("docs", "efforts")
 	if err != nil {
 		return validate.VaultFeatureFacts{}, fmt.Errorf("inspect effort configuration: %w", err)
@@ -108,7 +112,7 @@ func vaultFeatureFacts(root string, local *repoconfig.LocalConfig, includeQueryR
 		OntologyConfigured: ontologyConfigured, CodeConfigured: codeConfigured,
 		CodeAnchorRootsConfigured: repoconfig.CodeAnchorRootsConfigured(code),
 		QueryRecipesConfigured:    includeQueryRecipes && queryrecipe.HasDefaultSources(root),
-		ViewsConfigured:           viewsConfigured, EffortsPresent: effortsPresent,
+		ViewsConfigured:           viewsConfigured, TasksPresent: tasksPresent, EffortsPresent: effortsPresent,
 	}
 	if codeConfigured {
 		facts.RequiredCodeIndexerVersion = codeanchor.IndexerVersion
