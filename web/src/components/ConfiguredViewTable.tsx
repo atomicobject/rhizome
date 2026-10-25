@@ -306,7 +306,7 @@ export function ConfiguredViewTable({
     >
       {loading && (
         <div className="configured-view__loading-overlay" aria-live="polite">
-          Refreshing view…
+          <span>Refreshing view…</span>
         </div>
       )}
       {reorder.error && (

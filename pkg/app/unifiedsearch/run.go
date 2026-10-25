@@ -168,9 +168,11 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	plannerOptions := searchplanner.Options{
 		EnableVector: opts.UseVector,
 		EnableIntel:  opts.UseIntel,
-		EnableGraph:  opts.UseGraph && hasNoteSeeds,
-		EnableRefs:   opts.UseRefs,
-		MaxPerOwner:  maxPerOwner,
+		// Graph features are seed-only for text queries by measurement; see
+		// docs/reference/subsystems/search.md ("Graph features stay seed-only for text queries").
+		EnableGraph: opts.UseGraph && hasNoteSeeds,
+		EnableRefs:  opts.UseRefs,
+		MaxPerOwner: maxPerOwner,
 
 		DirectorySeedExpansion: opts.DirectorySeedExpansion,
 		GraphSource:            opts.GraphSource,

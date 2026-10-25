@@ -21,6 +21,8 @@ class ReleasePreconditionError(ValueError):
 
 
 def verify_base_tag(base_tag: str, base_commit: str, resolve: Callable[[str], str]) -> None:
+    if not base_tag and not base_commit:
+        return
     if resolve(base_tag) != base_commit:
         raise ReleasePreconditionError(
             f"base tag {base_tag} moved since evidence collection"

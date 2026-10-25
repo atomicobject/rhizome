@@ -53,6 +53,16 @@ export interface Discovery {
   primary: string;
   worktrees: Worktree[];
 }
+export interface CredentialSource {
+  account: string;
+  environment: string;
+  keys: string[];
+}
+export interface CredentialStatus {
+  source?: CredentialSource;
+  available: boolean;
+  ready: string[];
+}
 export interface GlobalInfo {
   path: string;
   version: string;
@@ -245,6 +255,9 @@ export interface MenuEntry {
   items?: MenuEntry[];
 }
 type Results = {
+  "credential-status": CredentialStatus;
+  "credential-import": CredentialStatus;
+  "credential-cancel": null;
   list: Library;
   discover: Discovery;
   add: { library: Library; id: string };
@@ -280,6 +293,9 @@ type Results = {
   menu: null;
 };
 type Args = {
+  "credential-status": Record<string, never>;
+  "credential-import": { source: CredentialSource };
+  "credential-cancel": Record<string, never>;
   list: Record<string, never>;
   discover: { id: string };
   add: { path: string };

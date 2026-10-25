@@ -62,7 +62,7 @@ func runHook(args []string) (code int) {
 		}
 	}()
 	if len(args) == 1 && args[0] == "--check" {
-		fmt.Printf("rzm-hook %d\n", hook.ProtocolVersion)
+		fmt.Printf("rzm-hook %d %s\n", hook.ProtocolVersion, hook.GuardCapability)
 		return 0
 	}
 	if len(args) != 2 {

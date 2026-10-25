@@ -399,7 +399,7 @@ export function ConfiguredViewBoard(props: Props) {
     <div className="configured-view__board" aria-label="Board">
       {props.loading && (
         <div className="configured-view__loading-overlay" aria-live="polite">
-          Refreshing view…
+          <span>Refreshing view…</span>
         </div>
       )}
       {(moveError || reorder.error) && (

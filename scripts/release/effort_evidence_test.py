@@ -54,6 +54,7 @@ class ParseEffortSnapshotTest(unittest.TestCase):
             "effort_title_yaml": json.dumps(title),
             "summary_yaml": json.dumps('Summary "quoted" with \\path\nand another line'),
             "created_at_iso_yaml": json.dumps("2026-09-13T14:00:00Z"),
+            "governing_specs_yaml": json.dumps(["[[docs/specs/release.md]]"]),
             "effort_title": "Release effort",
         }
         text = re.sub(r"\{\{(\w+)\}\}", lambda match: values[match[1]], path.read_text())

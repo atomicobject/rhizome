@@ -46,8 +46,6 @@ Code sample remains literal: [[notes/heading-rename/target#Old Heading]]
 	stdout, stderr, err := runOntologyCLI(t, ws.CodeRoot,
 		"note", "rename-heading", targetRel, "Old Heading", "New Heading",
 		"--vault", ws.CodeRoot,
-		"--upgrade-to-block-id", "never",
-		"--fallback", "heading",
 	)
 	require.NoError(t, err, stdout+stderr)
 	require.Empty(t, stderr)
@@ -64,8 +62,6 @@ Code sample remains literal: [[notes/heading-rename/target#Old Heading]]
 	stdout, stderr, err = runOntologyCLI(t, ws.CodeRoot,
 		"note", "rename-heading", targetRel, "Old Heading", "New Heading",
 		"--vault", ws.CodeRoot,
-		"--upgrade-to-block-id", "never",
-		"--fallback", "heading",
 		"--apply",
 	)
 	require.NoError(t, err, stdout+stderr)

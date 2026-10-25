@@ -1,0 +1,18 @@
+[
+  ["summary: \"x\"", true, true],
+  ["summary: \"x\"\napplies-to:\n  - \"gen/**\"\n  - \"docs/x.md\"\nfamilies: 2\nreviewed-on: 2026-10-22", true, true],
+  ["summary: \"x\"\napplies-to:\n- \"gen/**\"", true, true],
+  ["summary: \"x", false, false],
+  ["summary: \"x\"\napplies-to:\n  foo: bar\n  - \"x\"", false, false],
+  ["summary: \"x\"\napplies-to:\n  - \"a\"\n    - \"b\"", false, false],
+  ["summary: a: b", false, false],
+  ["summary: \"x\"\n  a continuation under a scalar", false, false],
+  ["summary: plain words", false, true],
+  ["summary: \"x\"\napplies-to:\n  foo: bar", false, true],
+  ["summary: \"x\"\ntags: [a, b]", false, true],
+  ["summary: \"x\" # note", false, true],
+  ["# a comment\nsummary: \"x\"", false, true],
+  ["summary: \"x\"\nguard-rule: {\"tool\":\"shell\",\"command\":\"go mod vendor\",\"reason\":\"r\",\"alternative\":\"a\",\"tool\":\"shell\"}", false, false],
+  ["summary: \"x\"\nguard-rule: {\"command\":\"go mod vendor\",\"tool\":\"shell\",\"reason\":\"r\",\"alternative\":\"a\"}", false, false],
+  ["summary: \"x\"\nguard-rule: {\"tool\": \"shell\", \"command\": \"go mod vendor\", \"reason\": \"r\", \"alternative\": \"a\"}", false, false]
+]

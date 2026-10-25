@@ -19,10 +19,14 @@ const (
 )
 
 // shellWord is one word with whether any of it came from an unquoted
-// expansion or glob, which makes it unusable as a path.
+// expansion or glob, which makes it unusable as a path, whether it holds an
+// unquoted glob character (*, ?, [) or starts with an unquoted ~, and how
+// many of its leading bytes were neither quoted nor escaped.
 type shellWord struct {
 	text    string
 	dynamic bool
+	glob    bool
+	plain   int
 }
 
 // A segment in a pipeline or run in the background runs in a subshell, so a cd
@@ -38,27 +42,57 @@ type shellSegment struct {
 // shellSegments splits a command into simple commands at unquoted &&, ||, ;,
 // |, &, and newlines, honoring single quotes, double quotes, backslashes, and
 // comments. Segments inside a subshell are dropped, and parsing stops at a
-// here-document.
-func shellSegments(cmd string) []shellSegment {
+// here-document. complete is false when either happened, a quote never
+// closed, a $ or backquote outside single quotes may expand, or the grammar is
+// broken: an empty command before an operator or at the end after &&, ||, or
+// |, a redirect without a target, or a malformed redirect operator such as
+// >>> or >&&. Only the guard reads complete.
+func shellSegments(cmd string) (segments []shellSegment, complete bool) {
 	if len(cmd) > maxCommandBytes {
-		return nil
+		return nil, false
 	}
-	var segments []shellSegment
+	complete = true
 	var words []shellWord
 	var word strings.Builder
-	inWord, dynamic, broken, isolated := false, false, false, false
-	depth := 0 // open subshell parentheses
+	inWord, dynamic, glob, broken, isolated := false, false, false, false, false
+	operand := false // the last operator needs a command after it
+	depth := 0       // open subshell parentheses
+	plain := -1      // where the word's first quote or escape began
+	quote := func() {
+		if plain < 0 {
+			plain = word.Len()
+		}
+	}
 	endWord := func() {
 		if inWord {
-			words = append(words, shellWord{text: word.String(), dynamic: dynamic})
+			if plain < 0 {
+				plain = word.Len()
+			}
+			words = append(words, shellWord{text: word.String(), dynamic: dynamic, glob: glob, plain: plain})
 		}
 		word.Reset()
-		inWord, dynamic = false, false
+		inWord, dynamic, glob, plain = false, false, false, -1
 	}
-	endSegment := func(sepIsolates bool, next string) {
+	endSegment := func(op string) {
 		endWord()
-		if len(words) > 0 && !broken {
-			segments = append(segments, shellSegment{words: words, isolated: isolated || sepIsolates, next: next})
+		switch {
+		case broken:
+			complete = false
+		case len(words) == 0:
+			// Blank lines and comments are fine, and a line may end after
+			// &&, ||, or |; bash rejects any other empty command. zsh
+			// runs some, which the guard then gives up on.
+			if op != "\n" && (op != "" || operand) {
+				complete = false
+			}
+		default:
+			for j, w := range words {
+				if redirect(w) && (j+1 == len(words) || redirect(words[j+1])) {
+					complete = false
+				}
+			}
+			segments = append(segments, shellSegment{words: words, isolated: isolated || op == "&" || op == "|", next: op})
+			operand = op == "&&" || op == "||" || op == "|"
 		}
 		// Every segment inside a subshell is dropped through its closing ).
 		words, broken = nil, depth > 0
@@ -69,12 +103,14 @@ func shellSegments(cmd string) []shellSegment {
 		case c == '\'':
 			end := strings.IndexByte(cmd[i+1:], '\'')
 			if end < 0 {
-				return segments
+				return segments, false
 			}
+			quote()
 			word.WriteString(cmd[i+1 : i+1+end])
 			inWord = true
 			i += end + 1
 		case c == '"':
+			quote()
 			inWord = true
 			for i++; i < len(cmd) && cmd[i] != '"'; i++ {
 				switch {
@@ -82,18 +118,19 @@ func shellSegments(cmd string) []shellSegment {
 					i++
 					word.WriteByte(cmd[i])
 				case cmd[i] == '$' || cmd[i] == '`':
-					dynamic = true
+					dynamic, complete = true, false
 					word.WriteByte(cmd[i])
 				default:
 					word.WriteByte(cmd[i])
 				}
 			}
 			if i >= len(cmd) {
-				return segments
+				return segments, false
 			}
 		case c == '\\' && i+1 < len(cmd):
 			i++
 			if cmd[i] != '\n' {
+				quote()
 				word.WriteByte(cmd[i])
 				inWord = true
 			}
@@ -104,19 +141,15 @@ func shellSegments(cmd string) []shellSegment {
 			for i+1 < len(cmd) && cmd[i+1] != '\n' {
 				i++
 			}
-		case c == '\n' || c == ';' || c == '&' || c == '|':
-			double := i+1 < len(cmd) && (c == '&' || c == '|') && cmd[i+1] == c
-			single := (c == '&' || c == '|') && !double
+		case c == '\n' || c == ';' || c == '|' || c == '&' && !strings.HasPrefix(cmd[i:], "&>"):
 			op := string(c)
-			if double {
-				op += string(c)
-			}
-			endSegment(single, op)
-			// The command after a single | is the next stage of the pipeline.
-			isolated = single && c == '|'
-			if double {
+			if i+1 < len(cmd) && (c == '&' || c == '|') && cmd[i+1] == c {
 				i++
+				op += op
 			}
+			endSegment(op)
+			// The command after a single | is the next stage of the pipeline.
+			isolated = op == "|"
 		case c == '(' && !inWord:
 			depth++
 			broken = true
@@ -126,31 +159,45 @@ func shellSegments(cmd string) []shellSegment {
 		case c == '<' && strings.HasPrefix(cmd[i:], "<<"):
 			// A here-document's body is literal text, not commands, and its
 			// end is not worth parsing for: stop at the first one.
-			return segments
+			return segments, false
 		case c == '(' || c == ')':
 			broken = true
-		case c == '>' || c == '<':
+		case c == '>' || c == '<' || c == '&':
 			// A redirect target is not an operand; mark the next word so it
-			// is skipped. A file descriptor number before it (2>) goes too.
-			if inWord && !dynamic && strings.Trim(word.String(), "0123456789") == "" {
+			// is skipped. A file descriptor number before it (2>) goes too;
+			// &> redirects both outputs.
+			if c != '&' && inWord && !dynamic && strings.Trim(word.String(), "0123456789") == "" {
 				word.Reset()
 				inWord = false
 			}
 			endWord()
-			for i+1 < len(cmd) && (cmd[i+1] == '>' || cmd[i+1] == '&') {
-				i++
+			// The whole run of operator characters is one token, so >>> or
+			// >&& is not read as a redirect followed by something else.
+			end := i + 1
+			for end < len(cmd) && strings.IndexByte("<>&|", cmd[end]) >= 0 {
+				end++
 			}
-			words = append(words, shellWord{text: string(c), dynamic: true})
+			if !redirectOps[cmd[i:end]] {
+				complete = false
+			}
+			i = end - 1
+			words = append(words, shellWord{text: strings.ReplaceAll(string(c), "&", ">"), dynamic: true})
 		default:
+			if c == '$' || c == '`' {
+				complete = false
+			}
 			if c == '$' || c == '`' || c == '*' || c == '?' || c == '[' || c == '{' || c == '~' {
 				dynamic = true
+			}
+			if c == '*' || c == '?' || c == '[' || c == '~' && !inWord {
+				glob = true
 			}
 			word.WriteByte(c)
 			inWord = true
 		}
 	}
-	endSegment(false, "")
-	return segments
+	endSegment("")
+	return segments, complete
 }
 
 // commandSegments splits command text for prefix matching the way the
@@ -185,7 +232,8 @@ func matchesPrefix(cmd string, prefixes []string) bool {
 func shellReads(cmd, cwd string) []string {
 	var out []string
 	known := true
-	for _, seg := range shellSegments(cmd) {
+	segments, _ := shellSegments(cmd)
+	for _, seg := range segments {
 		words := seg.words
 		for len(words) > 0 && isAssignment(words[0]) {
 			words = words[1:]
@@ -193,10 +241,10 @@ func shellReads(cmd, cwd string) []string {
 		if len(words) == 0 {
 			continue
 		}
-		head := words[0].text
-		head = strings.TrimSuffix(strings.ToLower(head[strings.LastIndexAny(head, `/\`)+1:]), ".exe")
 		args := operands(words[1:])
-		if head == "cd" {
+		// Only the bare word cd is the builtin; ./cd is a program, which
+		// cannot change the shell's directory.
+		if words[0].text == "cd" {
 			if seg.isolated {
 				continue
 			}
@@ -205,16 +253,19 @@ func shellReads(cmd, cwd string) []string {
 			// still resolve physically (see paths.RelPhysicalStrict). A cd
 			// this cannot follow leaves the directory unknown, and later
 			// relative reads are dropped rather than guessed.
-			// Only a following && runs after the cd succeeded; after ||, ;, or a
-			// newline the next command may run in the old directory.
-			if dir, ok := cdTarget(args); ok && seg.next == "&&" && (known || rooted(dir)) {
+			// After && the next command runs only if the cd succeeded; after ;
+			// or a newline it runs anyway, but a cd that failed leaves its
+			// reads failing too, and agents write `cd <dir>; cat ...` all the
+			// time. Delivery guesses there; the guard does not (guardShellReads).
+			// After || the next command runs only if the cd failed.
+			if dir, ok := cdTarget(args); ok && (seg.next == "&&" || seg.next == ";" || seg.next == "\n") && (known || rooted(dir)) {
 				cwd, known = filepath.Clean(paths.ResolveAgainst(cwd, dir)), true
 			} else {
 				known = false
 			}
 			continue
 		}
-		for _, file := range readOperands(head, args) {
+		for _, file := range readOperands(commandName(words[0].text), args) {
 			if len(out) == maxShellPaths {
 				return out
 			}
@@ -250,16 +301,31 @@ func cdTarget(args []shellWord) (string, bool) {
 	return args[0].text, true
 }
 
+// commandName is a command word without its directory or .exe suffix.
+func commandName(word string) string {
+	return strings.TrimSuffix(strings.ToLower(word[strings.LastIndexAny(word, `/\`)+1:]), ".exe")
+}
+
 func isAssignment(w shellWord) bool {
 	eq := strings.IndexByte(w.text, '=')
 	return eq > 0 && !strings.ContainsAny(w.text[:eq], "/-.")
+}
+
+// The redirect operators bash and zsh share; any other run of <, >, &, and |
+// leaves the command incomplete.
+var redirectOps = set("<", ">", ">>", ">|", "<>", "<&", ">&", "&>", "&>>")
+
+// redirect reports whether a word is the mark shellSegments leaves for a
+// redirect operator.
+func redirect(w shellWord) bool {
+	return w.dynamic && (w.text == ">" || w.text == "<")
 }
 
 // operands drops redirects and their targets.
 func operands(words []shellWord) []shellWord {
 	var out []shellWord
 	for i := 0; i < len(words); i++ {
-		if words[i].dynamic && (words[i].text == ">" || words[i].text == "<") {
+		if redirect(words[i]) {
 			i++
 			continue
 		}
@@ -370,11 +436,16 @@ func readOperands(head string, args []shellWord) []string {
 }
 
 // patchPaths returns the files an apply_patch body adds, updates, deletes,
-// or moves to.
+// or moves to. Codex resolves them against the turn's directory, which is
+// the hook's cwd, unless an "*** Environment ID:" line sends the patch to
+// another environment, whose files are not this worktree's.
 func patchPaths(patch, cwd string) []string {
 	var out []string
 	for _, line := range strings.Split(patch, "\n") {
 		line = strings.TrimRight(line, "\r")
+		if strings.HasPrefix(line, "*** Environment ID:") {
+			return nil
+		}
 		for _, marker := range []string{"*** Update File:", "*** Add File:", "*** Delete File:", "*** Move to:"} {
 			if rest, ok := strings.CutPrefix(line, marker); ok && strings.TrimSpace(rest) != "" && len(out) < maxShellPaths {
 				out = append(out, paths.ResolveAgainst(cwd, strings.TrimSpace(rest)))
