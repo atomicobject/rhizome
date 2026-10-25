@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "./fixtures";
-import { chooseView, expandNoteList, workspaceView } from "./workspaceView";
+import { chooseView, workspaceView } from "./workspaceView";
 
 // Synthetic Tv* types from tests/e2e/fixtures/type-views: one per SPEC-0112 shape.
 
@@ -31,12 +31,12 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const group = page.getByRole("button", { name: "Howto 2", exact: true });
     const caret = group.locator(".configured-view__group-caret");
     await expect(group).toHaveAttribute("aria-expanded", "true");
-    await expandNoteList(page, "Field guide notes");
 
+    // A sidebar row's hover tint, on a row that is not the current one.
     const note = page
-      .getByRole("region", { name: "Note list", exact: true })
-      .locator(".ontology-note")
-      .filter({ hasText: "Mooring knots" });
+      .getByRole("complementary", { name: "Notes navigation" })
+      .locator(".ontology-type-row-wrap")
+      .filter({ has: page.getByRole("button", { name: /^All notes/ }) });
 
     await expect(note).toBeVisible();
     const transform = await caret.evaluate((element) => getComputedStyle(element).transform);
@@ -86,11 +86,6 @@ test("each collection shape opens with its default layout", async ({ page }) => 
   await page.goto("/notes/tv-work-item");
   await expect(selectedView(page)).toContainText("Board");
   await expect(facets(page)).toContainText("10 work items");
-  // The view lists the records, so the rail's copy starts collapsed.
-  await expect(page.getByRole("button", { name: "Work item notes" })).toHaveAttribute(
-    "aria-expanded",
-    "false",
-  );
 
   // Dated: a month-grouped log, newest first.
   await page.goto("/notes/tv-meeting");

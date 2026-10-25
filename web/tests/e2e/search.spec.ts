@@ -1,5 +1,4 @@
 import { expect, test } from "./fixtures";
-import { expandNoteList } from "./workspaceView";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/v1/search?*", async (route) => {
@@ -190,15 +189,15 @@ test("searches from shared chrome in a retained full-width workspace", async ({
 
   await page.getByRole("tab", { name: "Home", exact: true }).click();
   await page.getByRole("button", { name: "Expand Other" }).click();
-  await page.getByRole("button", { name: /^Spec \(1\)/ }).click();
-  await expandNoteList(page, "Spec notes");
-  const localFilter = page.getByRole("searchbox", { name: "Filter note list" });
-  await localFilter.fill("rewrite");
+  const specRow = page.getByRole("button", { name: /^Spec \(1\)/ });
+  await specRow.click();
+  await expect(specRow).toHaveAttribute("aria-current", "page");
   await page.getByRole("tab", { name: /typed retrieval/i }).click();
   await page.getByRole("button", { name: "main", exact: true }).click();
   await page.goBack();
   await page.getByRole("tab", { name: "Home", exact: true }).click();
-  await expect(localFilter).toHaveValue("rewrite");
+  // Home keeps its collection while the search tab comes and goes.
+  await expect(specRow).toHaveAttribute("aria-current", "page");
 
   await page.getByRole("tab", { name: /typed retrieval/i }).click();
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -285,7 +284,7 @@ test("keeps note context tabs fixed while removing redundant outline identity", 
     "true",
   );
   const contextTabs = page.getByRole("tablist", { name: "Note context" });
-  const expand = page.getByRole("button", { name: "Expand note context" });
+  const expand = page.getByRole("button", { name: "Show right pane" });
 
   if (!(await contextTabs.isVisible())) {
     await expect(expand).toBeEnabled();

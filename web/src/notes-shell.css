@@ -46,7 +46,8 @@
 .notes-shell__sidebar {
   position: relative;
   display: flex;
-  width: var(--sidebar-width);
+  /* A stored width never takes most of a narrow window. */
+  width: min(var(--sidebar-width), 45vw);
   min-height: 0;
 }
 
@@ -625,6 +626,7 @@
   display: flex;
   align-items: center;
   height: 30px;
+  transition: background-color 0.12s var(--ease);
   /* Top-level types sit at depth 1, level with the section header. */
   padding-left: calc(max(0, var(--ontology-type-depth, 1) - 1) * 16px);
   border-radius: var(--r-md);
@@ -1567,7 +1569,8 @@
 @media (prefers-reduced-motion: reduce) {
   .notes-tab,
   .panel-resize::after,
-  .notes-left-rail__icon {
+  .notes-left-rail .ontology-type-row-wrap,
+  .notes-left-rail .ontology-type-row__collapse .notes-left-rail__icon {
     scroll-behavior: auto;
     transition: none;
   }
@@ -1686,6 +1689,30 @@
 
 .view-selector__menu > button[aria-checked="true"] {
   font-weight: 700;
+}
+
+/* Pane type scale (SPEC-0126 US6): a 16px semibold title, 13px labels,
+   14px values, and no 700 weights, for the record and the note's Info. */
+.notes-right-rail .view-record {
+  padding: var(--sp-4) var(--sp-5) var(--sp-6);
+  font-size: var(--fs-base);
+}
+
+.notes-right-rail .view-record__title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.notes-right-rail .view-record__fields > div {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+
+.notes-right-rail .view-record__fields dt,
+.notes-right-rail .view-record__reverse h4,
+.notes-right-rail .ontology-sidebar-context__group h3 {
+  font-size: var(--fs-sm);
+  font-weight: 500;
 }
 
 /* ---- Note reader measure ----

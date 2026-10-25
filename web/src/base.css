@@ -239,6 +239,22 @@ textarea {
   pointer-events: none;
 }
 
+/* Narrow windows (not a supported layout) keep the bar inside the viewport:
+   the section tabs drop to their own scrolling row. */
+@media (max-width: 760px) {
+  .app-shell__nav {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    height: auto;
+    padding-block: var(--sp-2);
+  }
+
+  .app-shell__nav nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    overflow-x: auto;
+  }
+}
+
 /* IndexReadyBanner — non-blocking strip under the nav while the runtime
    gate (pkg/app/web/gate.go) is still closed during cold-start or
    post-migration windows. Routes render normally beneath it. */
