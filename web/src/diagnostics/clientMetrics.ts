@@ -71,6 +71,8 @@ export type RefreshCycle = {
   commits: number;
   windowOpen: boolean;
   settled: boolean;
+  /** A refetch failed or was replaced, so its data is unknown. */
+  incomplete: boolean;
 };
 
 let currentCycle: RefreshCycle | undefined;
@@ -134,9 +136,9 @@ function settleCycle(cycle: RefreshCycle, force = false) {
   if (cycle.settled || (!force && (cycle.windowOpen || cycle.pending > 0))) return;
   cycle.settled = true;
 
-  // A refetch still outstanding at the cap could yet return changed data, so
-  // an incomplete cycle is never judged.
-  if (cycle.pending > 0) return;
+  // A refetch still outstanding at the cap, failed, or replaced could have
+  // returned changed data, so such a cycle is never judged.
+  if (cycle.pending > 0 || cycle.incomplete) return;
 
   // Regions committed right after this refresh, yet every refetch returned
   // identical data: those renders had nothing new to show.
@@ -155,6 +157,7 @@ export function recordRefreshCycle(): RefreshCycle {
     commits: 0,
     windowOpen: true,
     settled: false,
+    incomplete: false,
   };
 
   currentCycle = cycle;
@@ -171,7 +174,8 @@ export function recordRefreshCycle(): RefreshCycle {
 export function finishRefetch(cycle: RefreshCycle, unchanged: boolean | null) {
   cycle.pending--;
 
-  if (unchanged !== null) {
+  if (unchanged === null) cycle.incomplete = true;
+  else {
     refresh.refetched++;
     cycle.refetched++;
 

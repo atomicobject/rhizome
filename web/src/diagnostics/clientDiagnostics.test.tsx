@@ -175,6 +175,38 @@ describe("client diagnostics", () => {
     expect(takeBatch(identity)?.refresh).toMatchObject({ refetched: 1, churned });
   });
 
+  it("does not judge a refresh when another of its refetches fails", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const cache = client.getQueryCache();
+    let fail = false;
+
+    const steady = new QueryObserver(client, {
+      queryKey: ["rhizome", "steady"],
+      queryFn: () => Promise.resolve({ value: 1 }),
+    });
+
+    const flaky = new QueryObserver(client, {
+      queryKey: ["rhizome", "flaky"],
+      queryFn: () => (fail ? Promise.reject(new Error("offline")) : Promise.resolve({ value: 1 })),
+    });
+
+    const unsubscribes = [steady, flaky].map((observer) => observer.subscribe(() => undefined));
+    const stop = observeRefetches(cache);
+    await vi.waitFor(() => expect(flaky.getCurrentResult().data).toEqual({ value: 1 }));
+    takeBatch(identity);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+    fail = true;
+    trackRefresh(cache, [{ queryKey: ["rhizome"] }]);
+    void client.invalidateQueries({ queryKey: ["rhizome"] });
+    recordCommit("view-table", "update", 1, 1);
+    await vi.advanceTimersByTimeAsync(1_000);
+    stop();
+    unsubscribes.forEach((unsubscribe) => unsubscribe());
+
+    expect(takeBatch(identity)?.refresh).toMatchObject({ refetched: 1, unchanged: 1, churned: 0 });
+  });
+
   it("does not judge a refresh whose slow refetch is still outstanding at the cap", async () => {
     const client = new QueryClient();
     const cache = client.getQueryCache();
