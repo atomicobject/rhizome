@@ -6,6 +6,7 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
   [
     "Anywhere",
     [
+      ["⌘P", "Find a note or file"],
       ["⌘K", "Search this project"],
       ["F6 / ⇧F6", "Next / previous area: sidebar, tabs, main, right pane"],
       ["?", "Show these shortcuts"],
