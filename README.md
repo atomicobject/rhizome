@@ -131,7 +131,7 @@ Agent instructions:
 | Change team policy, skills, data, or views | [Adapting Rhizome](docs/reference/guides/adapting-rhizome.md) |
 | Explore other workflow starters | [Choosing a starter](docs/reference/guides/choosing-your-starter.md) |
 | Understand retrieval and links between notes and code | [How Rhizome works](docs/reference/guides/how-rhizome-works.md) |
-| Diagnose slow indexing, runtime failures, or degraded operations | [Operational diagnostics](docs/reference/guides/diagnostics.md) |
+| Diagnose slow indexing, runtime failures, degraded operations, or web UI stalls; summarize performance with `rzm diagnostics perf` | [Operational diagnostics](docs/reference/guides/diagnostics.md) |
 | Contribute to Rhizome itself | [Contributor guide](CONTRIBUTING.md) |
 
 ID suggestions from `rzm agent next-id` and `rzm agent ontology-authoring-guide` use the current ontology and shared identifier pool.

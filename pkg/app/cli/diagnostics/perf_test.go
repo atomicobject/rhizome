@@ -128,6 +128,9 @@ func TestPerfFlagsRuntimeBurstsUnfinishedWorkAndIntegrity(t *testing.T) {
 			slog.String("kind", "runtime.serve"), slog.String("trigger", "start"), slog.String("status", "success"), slog.Int64("duration_ms", 1))
 	}
 
+	// A runtime still serving and an open event stream have no finish yet; that is normal.
+	f.at(time.Second).event(slog.LevelInfo, "runtime", "startup.started", evidence.NewOperation("runtime.serve", "start"))
+	f.event(slog.LevelInfo, "http", "request.started", evidence.NewOperation("http.request", "/api/v1/events"), slog.Bool("stream", true))
 	hung := evidence.NewOperation("command", "rzm search")
 	f.at(time.Second).event(slog.LevelInfo, "command", "command.started", hung)
 	done := evidence.NewOperation("command", "rzm index")

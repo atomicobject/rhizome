@@ -134,6 +134,10 @@ function settleCycle(cycle: RefreshCycle, force = false) {
   if (cycle.settled || (!force && (cycle.windowOpen || cycle.pending > 0))) return;
   cycle.settled = true;
 
+  // A refetch still outstanding at the cap could yet return changed data, so
+  // an incomplete cycle is never judged.
+  if (cycle.pending > 0) return;
+
   // Regions committed right after this refresh, yet every refetch returned
   // identical data: those renders had nothing new to show.
   if (cycle.commits > 0 && cycle.refetched > 0 && cycle.unchanged === cycle.refetched) {

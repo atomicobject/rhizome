@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -138,4 +139,27 @@ func TestDiagnosticRequestDoesNotInventStreamingSupport(t *testing.T) {
 	s := &Server{diagnostics: recorder, mux: http.NewServeMux()}
 	handler := s.observeRequest(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, ok := w.(http.Flusher); require.False(t, ok) }))
 	handler.ServeHTTP(diagnosticUnflushable{header: make(http.Header)}, httptest.NewRequest(http.MethodGet, "http://127.0.0.1/", nil))
+}
+
+func TestDiagnosticRequestMarksEventStreams(t *testing.T) {
+	root := t.TempDir()
+	recorder, err := diagnostics.Open(root, diagnostics.Options{Stderr: io.Discard})
+	require.NoError(t, err)
+	s := &Server{diagnostics: recorder, mux: http.NewServeMux()}
+	s.mux.HandleFunc("/api/v1/events", func(w http.ResponseWriter, r *http.Request) {})
+	for _, accept := range []string{"text/event-stream", "application/json"} {
+		request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/v1/events", nil)
+		request.Header.Set("Accept", accept)
+		s.observeRequest(s.mux).ServeHTTP(httptest.NewRecorder(), request)
+	}
+	require.NoError(t, recorder.Close())
+	events, err := diagnostics.ReadEvents(root, diagnostics.Filter{})
+	require.NoError(t, err)
+	var streams []any
+	for _, event := range events.Events {
+		if event.Name == "request.started" {
+			streams = append(streams, event.Attributes["stream"])
+		}
+	}
+	require.Equal(t, []any{true, false}, streams)
 }

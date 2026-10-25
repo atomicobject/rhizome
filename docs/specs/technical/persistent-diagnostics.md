@@ -100,7 +100,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 - It MUST summarize web UI evidence per render region and surface: commits, render time, frame stalls, refresh churn, and stability counts.
 - It MUST flag these anomalies with the supporting operation or event identifiers:
   - more than three runtime starts for the vault within 60 seconds, timed by their start events;
-  - started operations with no terminal record that are older than the newest evidence from their process;
+  - started operations with no terminal record that are older than the newest evidence from their process, excluding runtime lifetimes and event-stream requests, which finish only when they stop;
   - WARN and ERROR events grouped by event name, including index integrity failures;
   - refreshes the browser judged as churn (only where render regions are enabled);
   - frame stalls over 200 ms;

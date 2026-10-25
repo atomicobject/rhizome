@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
@@ -72,7 +73,10 @@ func (s *Server) observeRequest(handler http.Handler) http.Handler {
 		}
 		ctx := diagnostics.WithRecorder(r.Context(), s.diagnostics)
 		ctx = diagnostics.WithOperation(ctx, op)
-		s.diagnostics.Event(ctx, slog.LevelInfo, "http", "request.started", "", slog.String("route", route), slog.String("method", method))
+		// EventSource and the runtime's event client ask for a stream; such a
+		// request finishes only when its connection closes.
+		stream := strings.Contains(r.Header.Get("Accept"), "text/event-stream")
+		s.diagnostics.Event(ctx, slog.LevelInfo, "http", "request.started", "", slog.String("route", route), slog.String("method", method), slog.Bool("stream", stream))
 		observed := &diagnosticResponse{ResponseWriter: w}
 		defer func() {
 			panicked := recover()

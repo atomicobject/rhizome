@@ -174,4 +174,45 @@ describe("client diagnostics", () => {
 
     expect(takeBatch(identity)?.refresh).toMatchObject({ refetched: 1, churned });
   });
+
+  it("does not judge a refresh whose slow refetch is still outstanding at the cap", async () => {
+    const client = new QueryClient();
+    const cache = client.getQueryCache();
+    let slow = Promise.resolve();
+    let slowValue = 1;
+
+    const fast = new QueryObserver(client, {
+      queryKey: ["rhizome", "fast"],
+      queryFn: () => Promise.resolve({ value: 1 }),
+    });
+
+    const delayed = new QueryObserver(client, {
+      queryKey: ["rhizome", "slow"],
+      queryFn: async () => {
+        await slow;
+
+        return { value: slowValue };
+      },
+    });
+
+    const unsubscribes = [fast, delayed].map((observer) => observer.subscribe(() => undefined));
+    const stop = observeRefetches(cache);
+    await vi.waitFor(() => expect(delayed.getCurrentResult().data).toEqual({ value: 1 }));
+    takeBatch(identity);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+    let release: () => void = () => undefined;
+    slow = new Promise((resolve) => (release = resolve));
+    slowValue = 2;
+    trackRefresh(cache, [{ queryKey: ["rhizome"] }]);
+    void client.invalidateQueries({ queryKey: ["rhizome"] });
+    recordCommit("view-table", "update", 1, 1);
+    await vi.advanceTimersByTimeAsync(10_000);
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    stop();
+    unsubscribes.forEach((unsubscribe) => unsubscribe());
+
+    expect(takeBatch(identity)?.refresh).toMatchObject({ refetched: 2, unchanged: 1, churned: 0 });
+  });
 });

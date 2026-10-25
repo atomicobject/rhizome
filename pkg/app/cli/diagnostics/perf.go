@@ -68,6 +68,16 @@ type perfStart struct {
 	process, name, kind string
 }
 
+// lifetimeStart reports a start whose operation lasts as long as a process or
+// connection: a runtime, or an event stream. Its missing finish is normal.
+func lifetimeStart(event evidence.Event) bool {
+	if event.Subsystem == "runtime" && event.Name == "startup.started" {
+		return true
+	}
+	stream, _ := event.Attributes["stream"].(bool)
+	return stream
+}
+
 type perfWarning struct {
 	flag PerfFlag
 	seen map[string]bool
@@ -105,7 +115,9 @@ func (a *perfAggregator) visit(event evidence.Event) {
 	case event.Name == webClientEvent:
 		a.web.visit(event)
 	case strings.HasSuffix(event.Name, ".started") && event.OperationID != "":
-		a.started[event.OperationID] = perfStart{at: event.Time, process: event.ProcessID, name: event.Name, kind: event.Subsystem}
+		if !lifetimeStart(event) {
+			a.started[event.OperationID] = perfStart{at: event.Time, process: event.ProcessID, name: event.Name, kind: event.Subsystem}
+		}
 		// Starts count when they begin, including runtimes still running or crashed.
 		if event.Subsystem == "runtime" && event.Name == "startup.started" {
 			a.runtimeStarts = append(a.runtimeStarts, timedOperation{at: event.Time, id: event.OperationID})
