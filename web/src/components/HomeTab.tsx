@@ -1,5 +1,5 @@
 import { isJsonObject } from "../api/parse";
-import { memo, useEffect, useMemo } from "react";
+import { memo, useMemo } from "react";
 import type {
   OntologySummaryResponse,
   OntologyEditOp,
@@ -60,7 +60,6 @@ type Props = {
   onOpenView?: ViewServices["onOpenView"];
   onOpenSearch?: ViewServices["onOpenSearch"];
   /** Reports whether a type or interface collection view (not Overview) is showing. */
-  onCollectionViewChange?: (showing: boolean) => void;
 };
 
 const OVERVIEW: ViewChoice = { id: "builtin:overview", name: "Overview", renderer: "overview" };
@@ -86,7 +85,6 @@ export const HomeTab = memo(function HomeTab({
   onOpenNode,
   onOpenView,
   onOpenSearch,
-  onCollectionViewChange,
 }: Props) {
   const summaryQuery = useOntologySummaryQuery(active);
   const summary = providedSummary ?? summaryQuery.data ?? null;
@@ -139,10 +137,6 @@ export const HomeTab = memo(function HomeTab({
 
   const choice = selectionState.choice ?? builtin;
   const collectionView = Boolean(realType) && choice?.renderer !== "overview";
-
-  useEffect(() => {
-    if (active) onCollectionViewChange?.(collectionView);
-  }, [active, collectionView, onCollectionViewChange]);
   const definition = catalogQuery.data?.views.find((view) => view.id === choice?.viewId) ?? null;
 
   // Overview fetches this same query key itself. Disabled here, the header still
