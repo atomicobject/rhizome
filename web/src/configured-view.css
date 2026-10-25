@@ -13,6 +13,8 @@
   flex: none;
   min-width: 0;
   background: var(--surface);
+  /* A query container is not a stacking context (unlike contain: layout), so
+     the header's menus still paint over the table's sticky headings. */
   container: view-header / inline-size;
 }
 
