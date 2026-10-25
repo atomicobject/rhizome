@@ -2,11 +2,14 @@ import { useEffect, useEffectEvent } from "react";
 
 import { isJsonObject, isString } from "../api/parse";
 import type { ValidationHealth } from "../api/types";
+import { applyTheme, isThemeName } from "../lib/appearance";
 
 declare global {
   interface Window {
     /** Set by Rhizome Desktop's content view initialization script. */
     __RHIZOME_DESKTOP__?: boolean;
+    /** The chrome theme current when Rhizome Desktop opened the window. */
+    __RHIZOME_DESKTOP_THEME__?: string;
   }
 }
 
@@ -60,12 +63,26 @@ function readCommand(event: Event): DesktopCommand | null {
   return null;
 }
 
+/** The app's theme command: the chrome theme its settings hold. The page
+ * applies it itself, so components never see it. */
+function applyThemeCommand(event: Event): boolean {
+  const detail: unknown = event instanceof CustomEvent ? event.detail : null;
+
+  if (!isJsonObject(detail) || detail.command !== "theme") return false;
+
+  if (isString(detail.theme) && isThemeName(detail.theme)) applyTheme(detail.theme);
+
+  return true;
+}
+
 /** Calls `handle` for each command the app sends the page. */
 export function useDesktopCommands(handle: (command: DesktopCommand) => void) {
   const onCommand = useEffectEvent(handle);
 
   useEffect(() => {
     const listener = (event: Event) => {
+      if (applyThemeCommand(event)) return;
+
       const command = readCommand(event);
 
       if (command) onCommand(command);
