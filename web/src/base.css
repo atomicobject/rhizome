@@ -1110,6 +1110,8 @@ textarea {
   width: 22px;
   height: 22px;
   flex-shrink: 0;
+  /* Keeps "?" from reading as punctuation after the issue count. */
+  margin-left: var(--sp-3);
   border: 1px solid var(--ao-ink-2);
   border-radius: var(--r);
   background: transparent;
