@@ -102,7 +102,7 @@ func (a *perfAggregator) visit(event evidence.Event) {
 		a.warn(event)
 	}
 	switch {
-	case event.Subsystem == webClientSubsystem:
+	case event.Name == webClientEvent:
 		a.web.visit(event)
 	case strings.HasSuffix(event.Name, ".started") && event.OperationID != "":
 		a.started[event.OperationID] = perfStart{at: event.Time, process: event.ProcessID, name: event.Name, kind: event.Subsystem}
