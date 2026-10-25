@@ -230,3 +230,26 @@ func TestAgentCommitsThatCancelOutAreKept(t *testing.T) {
 		t.Fatalf("expected the agent's two commits plus the tagged one, got %s", count)
 	}
 }
+
+func TestAnOldFailureCannotRepeatANewerAttempt(t *testing.T) {
+	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nprompt: Look around.\n"})
+	fail := true
+	agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+		if fail {
+			return AgentResult{}, context.DeadlineExceeded
+		}
+		return AgentResult{Message: "done"}, os.WriteFile(filepath.Join(req.Dir, "x.md"), []byte("x\n"), 0o644)
+	}}
+	svc := newService(t, dir, agent, "auto")
+	ctx := context.Background()
+	_, _ = svc.RunDue(ctx)
+	failed := taskItems(mustState(t, svc), "look")[0]
+	fail = false
+	if _, err := svc.Run(ctx, failed.ID); err != nil {
+		t.Fatal(err)
+	}
+	calls := agent.calls()
+	if _, err := svc.Run(ctx, failed.ID); err == nil || agent.calls() != calls {
+		t.Fatalf("running the old failure again must not repeat the ready attempt: %v", err)
+	}
+}

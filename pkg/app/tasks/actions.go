@@ -38,6 +38,9 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 	if it.Kind != KindTask || (it.State != StateDue && it.State != StateAttention) {
 		return Outcome{}, fmt.Errorf("item %s is %s; only a due or needs-attention task can be run", it.ID, it.State)
 	}
+	if other := st.ActiveTaskItem(it.Task); other != nil && other.ID != it.ID && other.State != StateAttention {
+		return Outcome{}, fmt.Errorf("item %s already has this task %s; finish or discard it first", other.ID, other.State)
+	}
 	ref, commit, def, err := s.currentDefinition(ctx, it.Task)
 	if err != nil {
 		return Outcome{}, err
@@ -198,8 +201,17 @@ func (s *Service) Skip(ctx context.Context, itemID string) error {
 }
 
 // Discard removes a finished run's worktree and local branch, then
-// dismisses the item. When removal fails, the item keeps its location.
+// dismisses the item. When removal fails, the item keeps its location. It
+// holds the run lock, so no run can reuse the item meanwhile.
 func (s *Service) Discard(ctx context.Context, itemID string) error {
+	release, err := s.lockRun(ctx, 0)
+	if errors.Is(err, errLocked) {
+		return ErrBusy
+	}
+	if err != nil {
+		return err
+	}
+	defer func() { _ = release() }()
 	st, err := s.store.Load()
 	if err != nil {
 		return err
