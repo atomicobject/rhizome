@@ -1030,6 +1030,8 @@ export function useNoteTabs(
     if (vaultName === null || hydratedVault !== vaultName) return;
 
     const onPageHide = () => {
+      // Otherwise storage already holds the last committed tabs.
+      if (pendingScrollRef.current.size === 0) return;
       flushSearchScroll();
 
       try {
