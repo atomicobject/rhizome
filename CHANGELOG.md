@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Rebuilding `rzm` while Rhizome Desktop or another client is restarting a vault's runtime no longer starts and stops dozens of runtimes. Before, a rebuild that landed mid-restart (as `make desktop-install-dev` does, because it builds `rzm` twice) made the client replace every runtime it spawned until its 60-second budget ran out.
 - Native collection views stay in place while refreshing, and Git metadata changes no longer trigger vault refreshes.
 
 - `rzm harness status --configured` prints only the configured `agent.harness` setting, without starting any provider.

@@ -91,6 +91,13 @@ func Ensure(ctx context.Context, opts EnsureOptions) (result EnsureResult, resul
 			if health.Mode == ModeAttached {
 				return EnsureResult{}, fmt.Errorf("%w (pid %d); stop it first (`rzm stop`)", ErrAttachedMismatch, health.PID)
 			}
+			if replacement {
+				// The executable changed after opts.BuildID was computed (a
+				// rebuild landed mid-call). Replacing again would only restart
+				// the same binary until the budget runs out.
+				logf("warning: runtime pid %d runs build %s, not %s; the executable changed during this call", health.PID, health.BuildID, opts.BuildID)
+				return EnsureResult{Client: client, Health: health, Spawned: spawned}, nil
+			}
 			if err := replaceHeadless(ctx, client, health, opts, logf); err != nil {
 				return EnsureResult{}, err
 			}
