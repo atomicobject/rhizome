@@ -75,7 +75,14 @@ function useRecordLocationOpens() {
         ? params.get("file")
         : null;
 
-    if (!path || path === last.current) return;
+    // Leaving files clears the memory, so a later visit to the same one counts.
+    if (!path) {
+      last.current = null;
+
+      return;
+    }
+
+    if (path === last.current) return;
     last.current = path;
     void recordFinderOpen(path);
   }, [snapshot.pathname, snapshot.search]);
