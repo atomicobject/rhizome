@@ -273,12 +273,21 @@ export const NotesLeftRail = memo(function NotesLeftRail({
     </div>
   );
 
-  const caret = (key: string, open: boolean, name: string, onToggle = () => toggle(key, open)) => (
+  // `asRow` makes the caret the keyboard row when its row is disabled (an
+  // embedded type with children), so arrow keys still reach and open it.
+  const caret = (
+    key: string,
+    open: boolean,
+    name: string,
+    onToggle = () => toggle(key, open),
+    asRow = false,
+  ) => (
     <button
       type="button"
       className="ontology-type-row__collapse"
       aria-label={`${open ? "Collapse" : "Expand"} ${name}`}
       aria-expanded={open}
+      data-rail-row={asRow ? "" : undefined}
       // Right and Left on the row open and close it, so the caret is not a Tab stop.
       tabIndex={-1}
       onClick={onToggle}
@@ -307,7 +316,7 @@ export const NotesLeftRail = memo(function NotesLeftRail({
       >
         <div className="ontology-type-row-wrap" style={depthStyle}>
           {hasChildren ? (
-            caret(key, expandedNode, label(item))
+            caret(key, expandedNode, label(item), undefined, embedded)
           ) : (
             <span className="ontology-type-row__collapse-spacer" aria-hidden="true" />
           )}

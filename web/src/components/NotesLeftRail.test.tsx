@@ -423,6 +423,37 @@ describe("NotesLeftRail", () => {
     expect(within(collections).queryByRole("button", { name: "Loose metric" })).toBeNull();
   });
 
+  it("lets the keyboard open a disabled embedded parent's children", async () => {
+    registerRailData("__all__", allNotes);
+
+    const nestedSummary: OntologySummaryResponse = {
+      ...summary,
+      types: [
+        ...(summary.types ?? []),
+        { name: "Metric", label: "Metric", count: 2, role: "embedded" },
+        { name: "MetricSample", label: "Metric sample", count: 3, displayParent: "Metric" },
+      ],
+      interfaces: [
+        { ...summary.interfaces![0], count: 4, implementors: ["Plan", "Spec", "Metric"] },
+      ],
+    };
+
+    render(<NotesLeftRail {...props({ summary: nestedSummary })} />);
+    const collections = await screen.findByRole("region", { name: "Collections" });
+
+    fireEvent.click(within(collections).getByRole("button", { name: "Expand Other" }));
+    fireEvent.click(within(collections).getByRole("button", { name: "Expand Document" }));
+
+    // The disabled row's caret stands in as its keyboard row.
+    const caret = within(collections).getByRole("button", { name: "Expand Metric" });
+
+    expect(caret).toHaveAttribute("data-rail-row");
+    caret.focus();
+    fireEvent.keyDown(caret, { key: "ArrowRight" });
+
+    expect(await within(collections).findByRole("button", { name: /Metric sample/ })).toBeVisible();
+  });
+
   it("organizes presentation parents under inherited groups without changing semantic counts", async () => {
     registerRailData("Material", typeDetail("Material", []));
 
