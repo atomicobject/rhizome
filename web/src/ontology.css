@@ -243,7 +243,7 @@
 }
 
 .ontology-type-row--child {
-  font-size: calc(var(--fs-base) - 1px);
+  font-size: var(--fs-sm);
   color: var(--text-muted);
 }
 
@@ -466,13 +466,13 @@
   display: inline-flex;
   align-items: center;
   min-height: 20px;
-  padding: 2px 7px;
-  border: 1px solid var(--border-faint);
-  border-radius: 999px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   color: var(--text-muted);
-  background: var(--bg-tint);
+  background: var(--surface-sunk);
   font-size: var(--fs-xs);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .ontology-sidebar-context {
@@ -2991,7 +2991,7 @@
 
 .changes-note__title:hover .changes-note__name,
 .changes-note__title:focus-visible .changes-note__name {
-  color: var(--accent-ink);
+  color: var(--link);
 }
 
 .changes-note__path {

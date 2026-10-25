@@ -1075,7 +1075,7 @@
 
 .ontology-home__hero-link:hover,
 .ontology-home__hero-link:focus-visible {
-  color: var(--accent-ink);
+  color: var(--link);
   text-decoration: underline;
 }
 
@@ -1173,7 +1173,7 @@
 
 .ontology-home__link:hover,
 .ontology-home__link:focus-visible {
-  color: var(--accent-ink);
+  color: var(--link);
   text-decoration: underline;
 }
 
