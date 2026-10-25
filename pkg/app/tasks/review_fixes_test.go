@@ -324,3 +324,19 @@ func TestMergedOlderTaggedWorkClosesTheItem(t *testing.T) {
 		t.Fatalf("older tagged work merged after the item was created should close it, got %+v", it)
 	}
 }
+
+func TestRunDueLeavesRepositoriesWithoutTasksUntouched(t *testing.T) {
+	dir := newRepo(t, nil)
+	svc := newService(t, dir, &fakeAgent{}, "auto")
+	s, err := svc.RunDue(context.Background())
+	if err != nil || s.Skipped == "" {
+		t.Fatalf("expected a skip, got %+v %v", s, err)
+	}
+	svc.opts.Config.PrimaryRef = "origin/nowhere"
+	if _, err := svc.RunDue(context.Background()); err == nil {
+		t.Fatal("an unresolvable ref should still be reported to the caller")
+	}
+	if _, err := os.Stat(svc.stateDir); !os.IsNotExist(err) {
+		t.Fatalf("no task state should be created, got %v", err)
+	}
+}

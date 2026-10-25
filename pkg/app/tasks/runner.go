@@ -70,6 +70,19 @@ type RunSummary struct {
 // RunDue runs every enabled task that is due, once per repository: a pass
 // that finds another pass in progress skips.
 func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
+	// Runtimes call this in every Git checkout. A repository that declares
+	// no tasks, or that the person has not trusted, is left untouched: no
+	// state folder, no lock, no recorded error.
+	if reason := s.untrusted(); reason != "" {
+		return RunSummary{Skipped: reason}, nil
+	}
+	if _, commit, err := s.opts.Repo.ResolvePrimary(ctx, s.opts.Config.PrimaryRef); err == nil {
+		if files, err := s.opts.Repo.TaskFiles(ctx, commit); err == nil && len(files) == 0 {
+			return RunSummary{Skipped: "no tasks are declared on the primary ref"}, nil
+		}
+	} else if _, statErr := os.Stat(s.stateDir); statErr != nil {
+		return RunSummary{}, err
+	}
 	release, err := s.lockRun(ctx, 0)
 	if errors.Is(err, errLocked) {
 		return RunSummary{Skipped: "another task run is in progress"}, nil
@@ -79,9 +92,6 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 	}
 	defer func() { _ = release() }()
 
-	if reason := s.untrusted(); reason != "" {
-		return RunSummary{Skipped: reason}, nil
-	}
 	ref, commit, err := s.opts.Repo.ResolvePrimary(ctx, s.opts.Config.PrimaryRef)
 	if err != nil {
 		return RunSummary{}, s.notePassError(ctx, err)

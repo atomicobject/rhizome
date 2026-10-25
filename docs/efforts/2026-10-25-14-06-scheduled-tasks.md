@@ -100,7 +100,7 @@ Phase 1 of SPEC-0126 on one branch: task files and modes, the Git clock, the ser
 
 ## Actual Delivered
 
-Phase 1 on `t3/rhizome-scheduled-tasks`, from `b12e36e7` to `9b8ec3ec`, for one pull request to `main`:
+Phase 1 on `t3/rhizome-scheduled-tasks`, from `b12e36e7` to `50981265`, squash-merged to `main` through one pull request:
 
 - `rzm tasks status|inbox|run-due|run|start|snooze|skip|discard|done|mode|pause|resume` (`cmd/tasks.go`), over the new `pkg/app/tasks`:
   - task files read from the primary ref (`pkg/vault/taskdef`);
@@ -139,10 +139,10 @@ These are implementation choices that differ from SPEC-0126's wording. None chan
 ## Closure Checklist
 
 - [x] Every in-scope criterion traced to evidence (Spec Coverage Checklist).
-- [x] `make check-full` exit 0 at `9b8ec3ec`; `./scripts/rzm validate` 0 issues; `rzm init --check` exit 0. `frozen-scope-drift` reports only three findings on other efforts (EFF-2026-10-01-10-06, EFF-2026-10-03-18-33, EFF-2026-10-11-15-21), which were there before this branch.
+- [x] `make check-full` exit 0 at `9b8ec3ec` and again at `50981265`; `./scripts/rzm validate` 0 issues; `rzm init --check` exit 0. `frozen-scope-drift` reports only three findings on other efforts (EFF-2026-10-01-10-06, EFF-2026-10-03-18-33, EFF-2026-10-11-15-21), which were there before this branch.
 - [x] Live end-to-end runs recorded (Execution Notes).
 - [x] Full diff reviewed by me, by GPT-6.1 Sol xhigh (two rounds), and by Greptile (four rounds); all confirmed findings fixed.
-- [ ] Greptile 5/5 with no unresolved comments. Rounds scored 4, 3, and 3 as each round found narrower cases in new code.
+- [x] Merge review: Greptile scored 4, 3, and 3 as each round found narrower cases in new code. On 2026-10-25, Drew chose one more GPT-6.1 Sol xhigh full review in its place, as for PR #35. Its four findings are fixed in `50981265`.
 - [ ] Pull request number recorded.
 
 ## Compounding Follow-ups
@@ -216,3 +216,10 @@ Active.
   - A live check showed Claude Code gives each shell its own session (`setsid`), so session membership alone is not enough. `a9aa862c` combines the child's session, recorded descendants, and the sessions those descendants lead. A live rerun left nothing behind.
   - Greptile round 2 (4/5, five findings), round 3 (3/5, three findings), and round 4 (3/5, two race findings) were all fixed with regression tests (`a9aa862c`, `1c6ea907`, `9b8ec3ec`).
   - Final gates at `9b8ec3ec`: `make check-full` exit 0, validation 0 issues, `rzm init --check` exit 0.
+- 2026-10-25 final GPT-6.1 Sol xhigh full review (`eff-2026-10-25-14-06-sol-review-r3`): "ready after listed fixes", with four P2 findings, all reproduced and fixed in `50981265` with regression tests.
+  - A check timeout now records descendants before killing. `Kill` takes one snapshot for both recording and choosing what to kill.
+  - Start's reservation holds the run lock and refuses a task with another active attempt.
+  - An interrupted run counts toward the clock, so recovery doesn't rerun it in the same pass.
+  - Items close when tagged work newly reaches the primary ref, judged by ancestry rather than dates.
+  - One `jsonstdio` failure appeared once under parallel race load and didn't reproduce in 8 isolated or 9 loaded runs. The likely cause was three process snapshots of about 45 ms each inside the tests' 300 ms close budget; one snapshot per `Kill` now. Six further loaded race runs passed.
+- 2026-10-25: Drew authorized opening the pull request and squash-merging it once CI is green ("unless there's anything else I'm forgetting").
