@@ -508,14 +508,15 @@ function dispatch(a, { root, store, user, people }) {
         if (!s.appliesTo.length && Date.parse(s.verifiedOn) < old) reasons.push("no patterns, and verified more than 30 days ago");
         if (reasons.length) out.push({ path: s.path, expect: s.contentHash, kind: s.kind, statement: s.statement, verifiedOn: s.verifiedOn, reasons, matched: tracked.filter((f) => matchesAny(s.appliesTo, f)).slice(0, 20) });
       }
-      // The hook dispatcher skips a guard rule edited after approval, or one
-      // it cannot read.
+      // The hook dispatcher skips a guard rule edited after approval, one
+      // without a reviewer, or one it cannot read.
       for (const f of loadFindings(root)) {
         if (f.response !== "guard" || !f.hasGuardRule) continue;
         const reasons = [];
         if (f.frontmatterProblem) reasons.push(`frontmatter the hook cannot read (${f.frontmatterProblem}); fix it by hand, then revise`);
         else if (!f.guardRule) reasons.push("guard rule unreadable or not the JSON the scripts write; revise it with the rule in --edit");
         else if (f.unreadableFrontmatter) reasons.push(`frontmatter the hook cannot read (${f.unreadableFrontmatter}); revise it`);
+        else if (!String(f.reviewedBy ?? "").trim()) reasons.push("no reviewed-by, so the hook skips the rule; revise it to approve it again");
         else if (guardHash(f.response, f.guardRule) !== f.approvedHash) reasons.push("guard rule edited after approval; revise it");
         if (reasons.length) out.push({ path: f.path, expect: f.contentHash, statement: f.statement, guardRule: f.guardRule, reasons });
       }

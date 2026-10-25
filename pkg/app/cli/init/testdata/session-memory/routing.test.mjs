@@ -433,6 +433,9 @@ test("approving a guard rule binds its text, refuses an overbroad or unusable ru
   assert.match(revised, /\napproved-hash: "[0-9a-f]{16}"\nreviewed-by: "\[\[docs\/people\/pat-example\]\]"\nreviewed-on: \d{4}-\d\d-\d\d\nfamilies: 2\n/);
   assert.deepEqual(sm("check"), []);
   assert.equal(revised.split("\n---\n")[1], text.split("\n---\n")[1], "the body is kept");
+  // A rule whose reviewer was removed is skipped by the hook, so check lists it.
+  writeFileSync(join(root, finding), revised.replace(/\nreviewed-by: [^\n]*/, ""));
+  assert.deepEqual(sm("check").map((f) => f.reasons), [["no reviewed-by, so the hook skips the rule; revise it to approve it again"]]);
 });
 
 test("a guard rule rewritten as a YAML block is reported by check and replaced whole by revise", () => {

@@ -161,6 +161,7 @@ export function loadFindings(root) {
       unreadableFrontmatter: frontmatterProblem(front),
       approvedHash: fm["approved-hash"],
       contentHash: contentHash(text),
+      reviewedBy: fm["reviewed-by"],
       reviewedOn: fm["reviewed-on"],
       families: Number(fm.families ?? 0),
       toolCalls: Number(fm["tool-calls"] ?? 0),
