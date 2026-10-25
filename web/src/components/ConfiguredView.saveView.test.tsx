@@ -50,8 +50,11 @@ describe("Save view", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Include search “agents”" }));
     fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Saved .rhizome/views/ip-ideas.yaml",
+    // The footer's row count is a status region too.
+    await waitFor(() =>
+      expect(screen.getAllByRole("status").map((status) => status.textContent)).toContain(
+        "Saved .rhizome/views/ip-ideas.yaml",
+      ),
     );
     expect(onViewSaved).toHaveBeenCalledWith(
       expect.objectContaining({ id: "ip-ideas", created: true }),
@@ -132,6 +135,10 @@ describe("Save view", () => {
     await waitFor(() => expect(http.requests("POST", SAVE_PATH)).toHaveLength(2));
     const retry = decodeJSONBody(http.requests("POST", SAVE_PATH)[1], isSaveRequest);
     expect(retry.definitionFingerprint).toBeUndefined();
-    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    await waitFor(() =>
+      expect(screen.getAllByRole("status").map((status) => status.textContent)).toContainEqual(
+        expect.stringMatching(/^Saved /),
+      ),
+    );
   });
 });

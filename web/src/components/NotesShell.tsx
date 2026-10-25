@@ -60,7 +60,7 @@ const FOCUS_REGIONS =
 
 export function NotesShell({ active = true }: { active?: boolean }) {
   const queryClient = useQueryClient();
-  const shellRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLElement>(null);
   useFocusRegions(shellRef, FOCUS_REGIONS, active);
   const browserLocation = useLocationSnapshot();
   const [retainedBrowserLocation, setRetainedBrowserLocation] = useState(browserLocation);
@@ -550,7 +550,12 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   );
 
   return (
-    <div className="workspace workspace--ontology notes-shell" ref={shellRef}>
+    <main
+      className="workspace workspace--ontology notes-shell"
+      aria-label="Notes workspace"
+      ref={shellRef}
+    >
+      <h1 className="sr-only">Notes</h1>
       <div className="notes-shell__tabs-row">
         <NoteTabStrip
           tabs={tabs.tabs}
@@ -765,6 +770,6 @@ export function NotesShell({ active = true }: { active?: boolean }) {
           </div>
         </RecordRailProvider>
       </div>
-    </div>
+    </main>
   );
 }

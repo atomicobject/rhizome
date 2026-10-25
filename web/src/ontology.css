@@ -1085,6 +1085,13 @@
   border-left-color: var(--accent);
 }
 
+/* The shaped mark carries "modified" without relying on the border color. */
+.ontology-note__modified {
+  margin-right: 4px;
+  color: var(--warning-ink);
+  font-size: 0.85em;
+}
+
 .ontology-note__main {
   display: flex;
   flex-direction: column;

@@ -69,7 +69,7 @@ describe("ConfiguredView states and controls", () => {
       />,
     );
 
-    expect(screen.getByText("Loading view…")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading view…");
 
     rerender(
       <ConfiguredView
@@ -135,7 +135,10 @@ describe("ConfiguredView states and controls", () => {
         onOpenRow={() => {}}
       />,
     );
-    expect(screen.getByText("No rows match this view.")).toBeVisible();
+    // Empty results and the footer count announce through status regions.
+    expect(screen.getAllByRole("status").map((status) => status.textContent)).toEqual(
+      expect.arrayContaining(["No rows match this view.", "0 rows"]),
+    );
   });
   it("renders configured columns, group header rows, rows, and row identity", () => {
     const onOpenRow = vi.fn();
