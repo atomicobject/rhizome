@@ -4,7 +4,7 @@ id: EFF-2026-10-25-14-06
 aliases: [EFF-2026-10-25-14-06]
 name: Scheduled tasks, phase 1
 created-at: 2026-10-25T18:06:44Z
-status: active
+status: complete
 summary: "Build phase 1 of scheduled tasks: repository task files, modes, the Git-history clock, the repository-wide runner with free checks and background prompt runs in Rhizome-created worktrees, interactive Start through the person's harness, the CLI inbox, and the runtime trigger."
 governing-specs: ["[[scheduled-tasks]]"]
 ---
@@ -143,7 +143,7 @@ These are implementation choices that differ from SPEC-0126's wording. None chan
 - [x] Live end-to-end runs recorded (Execution Notes).
 - [x] Full diff reviewed by me, by GPT-6.1 Sol xhigh (two rounds), and by Greptile (four rounds); all confirmed findings fixed.
 - [x] Merge review: Greptile scored 4, 3, and 3 as each round found narrower cases in new code. On 2026-10-25, Drew chose one more GPT-6.1 Sol xhigh full review in its place, as for PR #35. Its four findings are fixed in `50981265`.
-- [ ] Pull request number recorded.
+- [x] Pull request [#49](https://github.com/atomicobject/rhizome/pull/49), squash-merged to `main` once CI is green.
 
 ## Compounding Follow-ups
 
@@ -153,7 +153,7 @@ These are implementation choices that differ from SPEC-0126's wording. None chan
 
 ## Status
 
-Active.
+Complete. Phase 1 ships in [#49](https://github.com/atomicobject/rhizome/pull/49). Phase 2 (the Rhizome Desktop inbox) and session memory adopting tasks are follow-ups for new efforts.
 
 ## Execution Notes
 
@@ -223,3 +223,4 @@ Active.
   - Items close when tagged work newly reaches the primary ref, judged by ancestry rather than dates.
   - One `jsonstdio` failure appeared once under parallel race load and didn't reproduce in 8 isolated or 9 loaded runs. The likely cause was three process snapshots of about 45 ms each inside the tests' 300 ms close budget; one snapshot per `Kill` now. Six further loaded race runs passed.
 - 2026-10-25: Drew authorized opening the pull request and squash-merging it once CI is green ("unless there's anything else I'm forgetting").
+- 2026-10-25: `d8a4ac33` stops `run-due` from creating task state in repositories that declare no tasks on their primary ref or are untrusted, since runtimes start it in every Git checkout; `TestRunDueLeavesRepositoriesWithoutTasksUntouched` covers it. Pull request [#49](https://github.com/atomicobject/rhizome/pull/49) opened; CI is its full gate.
