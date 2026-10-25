@@ -35,6 +35,10 @@ func TestRebuildPublishesReportBeforeRuntimeRestart(t *testing.T) {
 	for _, event := range events.Events {
 		if event.Name == "index.finished" {
 			indexFinished = event.Sequence
+			// perf groups terminal events by these attributes.
+			require.Equal(t, "index", event.Attributes["kind"])
+			require.NotEmpty(t, event.Attributes["trigger"])
+			require.Contains(t, event.Attributes, "duration_ms")
 		}
 		if event.Subsystem == "runtime" && event.Name == "ensure.started" {
 			restartStarted = event.Sequence

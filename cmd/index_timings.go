@@ -117,7 +117,10 @@ func withIndexTimings(ctx context.Context, out io.Writer, enabled bool, options 
 				if status == "error" {
 					level = slog.LevelWarn
 				}
-				recorder.EventQuiet(ctx, level, "indexing", "index.finished", "", slog.String("status", status), slog.String("reason_code", reason), slog.Int64("lock_wait_ms", lockWait), slog.Int64("execution_ms", execution))
+				// kind, trigger, and duration let `rzm diagnostics perf` time index runs.
+				recorder.EventQuiet(ctx, level, "indexing", "index.finished", "", slog.String("kind", op.Kind), slog.String("trigger", op.Trigger),
+					slog.String("status", status), slog.String("reason_code", reason), slog.Int64("duration_ms", finished.Sub(op.StartedAt).Milliseconds()),
+					slog.Int64("lock_wait_ms", lockWait), slog.Int64("execution_ms", execution))
 				if reportErr := recorder.PublishReport(ctx, diagnostics.Report{FinishedAt: finished, Status: status, ReasonCode: reason, Error: logging.ClassifyError(err), LockWaitMS: lockWait, ExecutionMS: execution, Metrics: metrics,
 					Attributes: map[string]any{"rebuild": opts.Rebuild, "vacuum": opts.Vacuum},
 					Truncated:  snapshot.Coverage.RejectedObservations > 0 || snapshot.Coverage.DroppedSamples > 0 || snapshot.Coverage.DroppedIntervals > 0,
