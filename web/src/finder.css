@@ -1,0 +1,191 @@
+/* ⌘P finder (SPEC-0126 US8): a centred palette over a scrim. */
+
+.finder {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: min(12vh, 92px) var(--sp-5) var(--sp-5);
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: var(--fs-base) / 1.4 var(--font-sans);
+}
+
+.finder[open] {
+  display: grid;
+  justify-items: center;
+  align-items: start;
+}
+
+.finder::backdrop {
+  background: var(--scrim);
+}
+
+.finder__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: calc(var(--r-lg) + 4px);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: finder-in 140ms var(--ease);
+}
+
+@keyframes finder-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.99);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finder__panel {
+    animation: none;
+  }
+}
+
+.finder kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  font: var(--fs-xs) / 1 var(--font-mono);
+}
+
+.finder__input {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-5);
+  height: 56px;
+  padding: 0 var(--sp-5) 0 var(--sp-6);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.finder__input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: var(--fs-lg) / 1.3 var(--font-sans);
+  caret-color: var(--text);
+}
+
+.finder__input input::placeholder {
+  color: var(--text-faint);
+}
+
+.finder__heading {
+  padding: var(--sp-4) var(--sp-6) 0;
+  color: var(--text-muted);
+  font: var(--label-font);
+}
+
+.finder__list {
+  flex: 1 1 auto;
+  max-height: 440px;
+  margin: 0;
+  padding: var(--sp-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.finder__list:empty {
+  display: none;
+}
+
+.finder__row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: var(--sp-4);
+  align-items: center;
+  min-height: 46px;
+  padding: var(--sp-1) var(--sp-4);
+  border-radius: calc(var(--r-md) + 3px);
+  cursor: pointer;
+}
+
+.finder__row[aria-selected="true"] {
+  background: var(--selection);
+  box-shadow: inset 3px 0 0 var(--selection-edge);
+}
+
+.finder__icon {
+  grid-row: 1 / span 2;
+  color: var(--text-muted);
+}
+
+.finder__title {
+  overflow: hidden;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.finder__detail {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.finder__path {
+  grid-column: 2 / span 2;
+  overflow: hidden;
+  color: var(--text-muted);
+  font: var(--fs-xs) / 1.4 var(--font-mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.finder mark {
+  background: none;
+  color: var(--text);
+  font-weight: 650;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--selection-edge) 55%, transparent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.finder__status {
+  margin: 0;
+  padding: var(--sp-5) var(--sp-6);
+  color: var(--text-muted);
+}
+
+.finder__foot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-5);
+  padding: var(--sp-4) var(--sp-5);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.finder__foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}

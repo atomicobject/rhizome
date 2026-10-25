@@ -9,6 +9,7 @@ import { BareHTMLNote } from "./BareHTMLNote";
 import { desktopTitle, inDesktop, type Section, useDesktopCommands } from "./desktopHost";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ExplorerWorkspace } from "./ExplorerWorkspace";
+import { FinderQuickOpen } from "./FinderQuickOpen";
 import { IndexReadyBanner } from "./IndexReadyBanner";
 import { AppearanceMenu } from "./AppearanceMenu";
 import { KeyboardShortcuts } from "./KeyboardShortcuts";
@@ -369,6 +370,7 @@ export function AppShell() {
           )}
         </ErrorBoundary>
       </OntologyEditSessionProvider>
+      <FinderQuickOpen />
     </div>
   );
 }

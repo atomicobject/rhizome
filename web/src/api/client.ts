@@ -16,6 +16,8 @@ import type {
   AgentSettingsResponse,
   EditSessionReadRequest,
   FileView,
+  FindItem,
+  FindResponse,
   GraphResponse,
   ModifiedNotesResponse,
   NodePreview,
@@ -689,6 +691,31 @@ export function getSuggestions(
   return fetchJSON<SuggestResponse>(
     `/api/v1/suggest?q=${encodeURIComponent(query)}&limit=${limit}`,
     requestInit(requestOptions),
+  );
+}
+
+export function findItems(
+  query: string,
+  options: { limit?: number; kind?: FindItem["kind"] } & RequestOptions = {},
+) {
+  const params = new URLSearchParams({ q: query });
+
+  if (options.limit) params.set("limit", String(options.limit));
+
+  if (options.kind) params.set("kind", options.kind);
+
+  return fetchJSON<FindResponse>(`/api/v1/find?${params.toString()}`, requestInit(options));
+}
+
+/** Records an open for finder frecency. Frecency is optional, so failures are ignored. */
+export function recordFinderOpen(path: string): Promise<void> {
+  return fetch("/api/v1/find/opens", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  }).then(
+    () => undefined,
+    () => undefined,
   );
 }
 

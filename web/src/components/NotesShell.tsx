@@ -37,6 +37,7 @@ import {
 } from "./notesRoute";
 import { OntologyEditSessionPanel } from "./OntologyEditSessionPanel";
 import { type CollectionTab, type OpenMode, useNoteTabs } from "./useNoteTabs";
+import { useFinderNoteRequests } from "./FinderQuickOpen";
 import {
   useOntologySummaryQuery,
   useValidationQuery,
@@ -270,6 +271,8 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     (target: string, mode: OpenMode = "activate") => tabs.open(target, { mode }),
     [tabs.open],
   );
+
+  useFinderNoteRequests(openTab);
 
   const openNode = useCallback(
     (ref: NodeRef, options: OpenNodeOptions) => {
