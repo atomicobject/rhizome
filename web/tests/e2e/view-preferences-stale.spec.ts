@@ -11,8 +11,11 @@ function guideScope(url: string) {
   if (!serialized) return null;
   const scope: unknown = JSON.parse(serialized);
 
+  // The native table's own scope, not the view selection or a built-in
+  // presentation such as builtin:overview.
   return isPreferenceScope(scope) &&
     scope.viewId !== "$selection" &&
+    !scope.viewId.startsWith("builtin:") &&
     scope.context.kind === "type" &&
     scope.context.type === "TvGuide"
     ? scope

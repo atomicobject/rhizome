@@ -267,12 +267,16 @@ export const HomeTab = memo(function HomeTab({
                   onSelect={selectionState.select}
                   status={selectionState}
                   trailing={
-                    <ViewPreferenceReset
-                      choice={choice}
-                      definition={definition}
-                      context={context}
-                      vaultKey={services.vaultKey}
-                    />
+                    // The fallback choice shows while the selection loads; read
+                    // preferences only for the view that will actually show.
+                    !selectionState.loading && (
+                      <ViewPreferenceReset
+                        choice={choice}
+                        definition={definition}
+                        context={context}
+                        vaultKey={services.vaultKey}
+                      />
+                    )
                   }
                 />
               )
