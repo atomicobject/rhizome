@@ -491,8 +491,8 @@ func TestHookSupportCheckProbesThePinnedBinaryAtInitsVersion(t *testing.T) {
 	t.Cleanup(func() { runningExecutable = savedExe })
 	cfg := repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{Version: version.Version}}
 
-	// Not installed yet: the launcher installs this version on first use.
-	require.NoError(t, selectedBinarySupportsHooks(root, cfg))
+	// Not installed yet: a hook never installs it, so entries wait for it.
+	require.ErrorContains(t, selectedBinarySupportsHooks(root, cfg), "is not installed yet")
 
 	pinned := filepath.Join(root, ".rhizome", "bin", appupdate.CurrentPlatformDir(), "rzm")
 	require.NoError(t, os.MkdirAll(filepath.Dir(pinned), 0o755))

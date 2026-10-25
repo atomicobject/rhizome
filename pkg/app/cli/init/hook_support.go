@@ -17,7 +17,6 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
-	"github.com/atomicobject/rhizome/pkg/vault/version"
 )
 
 // checkHookSupport tells whether installed entries can run. It is a
@@ -93,11 +92,6 @@ func selectedBinarySupportsHooks(root string, cfg repoconfig.LocalConfig) error 
 		target = plan.Target
 	}
 	if _, err := os.Stat(target); err != nil {
-		// The launcher installs a missing pinned binary on first use; when it
-		// is this binary's version, this binary's capabilities answer.
-		if selectErr == nil && plan.Authority == "managed" && plan.PinnedVersion == version.Version {
-			return nil
-		}
 		return fmt.Errorf("the selected rzm (%s) is not installed yet; run rzm init again once it is", target)
 	}
 	if hooks, guard = supportsHooks(root, target, exe); !hooks {
