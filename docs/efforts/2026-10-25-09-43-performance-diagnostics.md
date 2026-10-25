@@ -94,10 +94,11 @@ Not yet delivered.
 - 2026-10-25T14:40:00Z: B4 web summary in `c5151e06`. `perf` reads `web.client` metrics into per-surface summaries (frames, refresh, reconnects, error names) and per-region totals, and adds the three web flags: frame gaps over 200 ms, region commits after a refresh whose refetches were all unchanged, and more reconnects than refresh cycles. `perf_web_test.go` fails when the all-unchanged condition is removed. `make check-fast` passed.
 - 2026-10-25T16:12:00Z: B3 merged (`aa065ea7`, `c71585eb`). D3 failed the 10% threshold: on a 1,500-note `Person` table (scroll to 1,200 rows, four sorts, Chromium CDP metrics, one warm-up and five interleaved runs per build) the profiling build added 47.1% median scripting time (2357.5 ms to 3467.6 ms), and 50.7% with the vault copies swapped as a control. Render regions are development-only; production ships frame stalls, refresh churn, and stability counts. The region `type-view-table` became `view-table` because the table renders for every configured view. Reconnects are counted in `VaultInvalidationBridge`, not `eventStream.ts`, to keep the kit bundle unchanged. Delegate evidence: handler tests for accepted, oversized, unknown-field, pattern, negative-count, trailing-value, and cross-origin batches; 29 vitest tests in `src/diagnostics` and `src/query` (no added commits, all-zero windows skipped, no private strings); `make check` passed; a real-browser smoke run recorded a `web.client` event with `over_200ms: 1, longest_ms: 300`. The final `pagehide` flush is covered by a unit test only. The `perf` reader matches the handler's metrics shape.
 - 2026-10-25T16:17:00Z: Merged `origin/main` (`9b336978`). Main's FTS5 fix (#43) added its own integrity WARN, `integrity.failed` with `reason_code`, and fixed the false corruption reports behind the 2026-10-25 `intel_fts` warning. B1's `index.integrity_check_failed` was dropped in favor of main's event, keeping B1's `table` attribute; the `index_integrity` flag now matches `integrity.failed`. Main also carries the spawn-storm fix (#41). Integrity, diagnostics, web, and lane package tests passed after the merge.
+- 2026-10-25T16:37:00Z: Drew accepted the D3 fallback, then asked that Rhizome Dev builds enable render regions and release desktop builds offer an off-by-default setting. A second measurement with the same harness separated the cost: the profiling build with no regions mounted added 4.7% median scripting time (2350.2 ms to 2461.7 ms), and 4.4% with vault copies swapped. So production ships the profiling build again, and `DiagnosticRegion` mounts only in development or when the page loads with `window.__RHIZOME_RENDER_PROFILING__`, which the desktop sets in Rhizome Dev or when its Diagnostics setting is on. Plain browsers never set it. A new E2E case shows the production bundle records `app-shell` regions with the flag and none without it; it fails when the flag is ignored. The desktop setting is a separate delegate lane.
 
 ## Deviations
 
-- D3 fallback: React's profiling build cost 47 to 51% scripting time, so render regions are development-only instead of shipping in production. The `web_refresh_render_churn` flag therefore fires only for development sessions.
+- D3 outcome: render regions with the profiling build cost 47 to 51% scripting time, over the 10% threshold. Instead of a development-only fallback, production ships the profiling build (4.5% with regions unmounted), and regions are a per-page-load opt-in: always on in Rhizome Dev, off by default in release desktop builds behind a setting, and never in plain browsers. Drew directed this on 2026-10-25.
 - The integrity WARN event is main's `integrity.failed` (#43), not the `index.integrity_check_failed` this plan introduced in B1.
 
 ## Closure Checklist
@@ -109,7 +110,7 @@ Not yet delivered.
 
 ## Compounding Follow-ups
 
-- Production render-churn evidence: on 2026-10-25 Drew accepted development-only render regions for now. A later option is an opt-in profiling build for diagnosis sessions, so production churn can be captured without the 47 to 51% overhead in normal use.
+None yet.
 
 ## Status
 

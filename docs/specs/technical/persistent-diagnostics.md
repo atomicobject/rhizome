@@ -84,7 +84,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
   - **Stability.** Event stream reconnects, uncaught errors, and unhandled promise rejections, counted by error name only.
 - Batches MUST NOT contain note titles, paths, URLs beyond a fixed route kind, query text, error messages, or stack traces.
 - The runtime MUST accept batches on a browser-facing `POST` route that applies the existing loopback-host and same-origin checks. It MUST bound the body size, validate the schema and identifier patterns, reject unknown fields, and record each accepted batch through the process recorder as one `web.client` event: identity and window in attributes, measurements (including per-region data) in `metrics`. When persistence is disabled, the route MUST accept and discard batches.
-- Render regions are development-only. On 2026-10-25 Drew chose to ship React's profiling build (`react-dom/profiling`) in production unless its overhead was noticeable, because render churn mostly appears in real use. Measured on a 1,500-row table view, it added 47 to 51% scripting time, so production builds use the normal React build and omit region data. Frame stalls, refresh churn, and stability counts remain in production.
+- Production web builds use React's profiling build (`react-dom/profiling`), which costs about 4.5% scripting time with no regions mounted. Render regions mount only when the page is loaded with `window.__RHIZOME_RENDER_PROFILING__` set, or in a development build, and the choice holds for the page load. Mounted regions cost about 47 to 51% scripting time on a 1,500-row table view. Rhizome Dev always sets the flag; release desktop builds set it only when the desktop setting is on, which defaults to off and applies to windows opened afterward. Plain browsers do not set it. Drew chose this on 2026-10-25 after the first measurement ruled out always-on regions.
 
 ### Offline use
 
@@ -102,7 +102,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
   - more than three runtime starts for the vault within 60 seconds;
   - started operations with no terminal record that are older than the newest evidence from their process;
   - WARN and ERROR events grouped by event name, including index integrity failures;
-  - render regions that commit after a refresh whose refetched data was structurally unchanged (development sessions only, since production omits regions);
+  - render regions that commit after a refresh whose refetched data was structurally unchanged (only where render regions are enabled);
   - frame stalls over 200 ms;
   - more event stream reconnects than refresh cycles in a window.
 - Flags MUST be worded as observations to investigate, not diagnoses.
@@ -112,7 +112,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 - Verification MUST cover concurrent writers/readers, retention, partial/corrupt records, filesystem failure, collector bounds, cancellation, correlation, and protocol output.
 - A repeatable local workload MUST compare behavior and overhead before and after recording. Report measured evidence and its limitations; do not claim indexing speedups from instrumentation alone.
 - A sustained watcher workload MUST show that routine jobs no longer consume the artifact budget, while failed and slow jobs still publish reports.
-- Web UI verification MUST show, in a real browser, that an induced frame stall and a background refresh with unchanged data appear in `rzm diagnostics perf`, that measurement adds no renders, and that rejected batches (oversized, unknown fields, cross-origin) are not recorded. Because production builds omit render regions, the post-refresh render churn flag is verified with synthetic batches.
+- Web UI verification MUST show, in a real browser, that an induced frame stall and a background refresh with unchanged data appear in `rzm diagnostics perf`, that measurement adds no renders, and that rejected batches (oversized, unknown fields, cross-origin) are not recorded. Verification MUST show that the production bundle mounts render regions only when the render-profiling flag is set. The post-refresh render churn flag is verified with synthetic batches.
 - Code-mode verification MUST show per-operation host-call metrics in the command report for a script that makes in-process and forwarded calls.
 
 ## Open Questions

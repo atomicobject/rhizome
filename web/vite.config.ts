@@ -7,6 +7,12 @@ export default defineConfig(({ command }) => {
   return {
     root: path.resolve(__dirname),
     plugins: command === "serve" ? [rhizomeDevProxyPlugin({ cwd: __dirname })] : undefined,
+    // React's profiling build lets the desktop app turn on <Profiler> render
+    // regions at runtime (SPEC-0116). The kit build is separate.
+    resolve:
+      command === "build"
+        ? { alias: [{ find: /^react-dom\/client$/, replacement: "react-dom/profiling" }] }
+        : undefined,
     build: {
       outDir: path.resolve(__dirname, "../pkg/app/web/assets/dist"),
       emptyOutDir: true,

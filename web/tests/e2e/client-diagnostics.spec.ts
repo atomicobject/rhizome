@@ -11,6 +11,7 @@ type WebSummary = {
   surface: string;
   frames: { over_200ms: number; longest_ms: number };
   refresh: { cycles: number; refetched: number; unchanged: number };
+  regions?: { name: string; mount: number }[];
 };
 
 type PerfResult = { perf: { flags: { kind: string }[]; web?: WebSummary[] } };
@@ -74,15 +75,43 @@ test("a frame stall and an unchanged background refresh reach rzm diagnostics pe
           return {
             stalled: (web?.frames.over_200ms ?? 0) > 0,
             unchanged: (web?.refresh.unchanged ?? 0) > 0,
+            // Production bundles mount no render regions unless the desktop asks.
+            regions: web?.regions?.length ?? 0,
           };
         },
         { timeout: 60000, intervals: [5000] },
       )
-      .toEqual({ stalled: true, unchanged: true });
+      .toEqual({ stalled: true, unchanged: true, regions: 0 });
 
     const result = await readPerf(vaultPath);
     expect(result.perf.flags.map((flag) => flag.kind)).toContain("web_frame_stalls");
   } finally {
     await writeFile(notePath, original);
   }
+});
+
+test("the desktop render-profiling flag mounts render regions in the production bundle", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120000);
+  const status = await (await request.get("/api/v1/status")).json();
+
+  await page.addInitScript(() => {
+    window.__RHIZOME_RENDER_PROFILING__ = true;
+  });
+  await page.goto("/notes/issues");
+
+  await expect
+    .poll(
+      async () => {
+        const web = (await readPerf(status.vaultPath)).perf.web?.find(
+          (s) => s.surface === "browser",
+        );
+
+        return web?.regions?.find((region) => region.name === "app-shell")?.mount ?? 0;
+      },
+      { timeout: 60000, intervals: [5000] },
+    )
+    .toBeGreaterThan(0);
 });
