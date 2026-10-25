@@ -23,6 +23,7 @@ Full license and notice text is stored in `licenses/**`. The browser notice is `
 | github.com/google/uuid | v1.6.0 | vendored source | `licenses/go/github.com_google_uuid@v1.6.0` | vendor/github.com/google/uuid |
 | github.com/inconshreveable/mousetrap | v1.1.0 | vendored source | `licenses/go/github.com_inconshreveable_mousetrap@v1.1.0` | vendor/github.com/inconshreveable/mousetrap |
 | github.com/jbenet/go-context | v0.0.0-20150711004518-d14ea06fba99 | vendored source | `licenses/go/github.com_jbenet_go-context@v0.0.0-20150711004518-d14ea06fba99` | vendor/github.com/jbenet/go-context |
+| github.com/junegunn/fzf | v0.57.0 | vendored source | `licenses/go/github.com_junegunn_fzf@v0.57.0` | vendor/github.com/junegunn/fzf |
 | github.com/ktr0731/go-ansisgr | v0.1.0 | vendored source | `licenses/go/github.com_ktr0731_go-ansisgr@v0.1.0` | vendor/github.com/ktr0731/go-ansisgr |
 | github.com/ktr0731/go-fuzzyfinder | v0.8.0 | vendored source | `licenses/go/github.com_ktr0731_go-fuzzyfinder@v0.8.0` | vendor/github.com/ktr0731/go-fuzzyfinder |
 | github.com/lucasb-eyer/go-colorful | v1.2.0 | vendored source | `licenses/go/github.com_lucasb-eyer_go-colorful@v1.2.0` | vendor/github.com/lucasb-eyer/go-colorful |

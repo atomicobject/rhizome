@@ -22,7 +22,8 @@ export type DesktopCommand =
   | { command: "section"; section: Section }
   | { command: "search"; query: string }
   | { command: "issues" }
-  | { command: "shortcuts" };
+  | { command: "shortcuts" }
+  | { command: "find" };
 
 export type DesktopReport = {
   section: Section;
@@ -54,7 +55,7 @@ function readCommand(event: Event): DesktopCommand | null {
 
   if (command === "search") return isString(detail.query) ? { command, query: detail.query } : null;
 
-  if (command === "issues" || command === "shortcuts") return { command };
+  if (command === "issues" || command === "shortcuts" || command === "find") return { command };
 
   return null;
 }

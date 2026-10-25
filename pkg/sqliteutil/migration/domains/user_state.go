@@ -12,7 +12,7 @@ import (
 func UserStatePlan() migration.DomainPlan {
 	return migration.DomainPlan{
 		Domain: migration.DomainUserState,
-		Target: 2,
+		Target: 3,
 		Steps: []migration.Step{{To: 1, Name: "view_preferences", Run: func(ctx context.Context, tx *sql.Tx) error {
 			for _, statement := range []string{
 				`CREATE TABLE view_preference_scopes (
@@ -41,6 +41,12 @@ func UserStatePlan() migration.DomainPlan {
 			}
 			_, err := tx.ExecContext(ctx, `CREATE INDEX view_preference_scope_family ON view_preference_scopes(json_remove(scope_key, '$.widgetSlot'))`)
 			return err
+		}}, {To: 3, Name: "finder_opens", Run: func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `CREATE TABLE finder_opens (
+			 path TEXT NOT NULL PRIMARY KEY,
+			 open_count INTEGER NOT NULL CHECK(open_count > 0),
+			 last_opened_at INTEGER NOT NULL)`)
+			return err
 		}}},
 		Validate: validateUserState,
 	}
@@ -56,6 +62,7 @@ func validateUserState(ctx context.Context, tx *sql.Tx) error {
 		"view_preferences":              {{"scope_key", "TEXT", 1}, {"preference_key", "TEXT", 2}, {"value_json", "TEXT", 0}},
 		"view_preference_imports":       {{"migration_id", "TEXT", 1}, {"scope_key", "TEXT", 0}},
 		"view_preference_family_resets": {{"family_key", "TEXT", 1}, {"generation", "INTEGER", 0}},
+		"finder_opens":                  {{"path", "TEXT", 1}, {"open_count", "INTEGER", 0}, {"last_opened_at", "INTEGER", 0}},
 	}
 	for table, expected := range tables {
 		rows, err := tx.QueryContext(ctx, "PRAGMA table_info("+table+")")

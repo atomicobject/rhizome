@@ -135,6 +135,9 @@ func (b *globalEventBroker) NotifyIndexChanged(data any) {
 
 // NotifyGlobalEvent publishes a global event to all SSE subscribers.
 func (s *Server) NotifyGlobalEvent(kind string, data any) {
+	if s != nil {
+		s.invalidateFinderOnEvent(kind)
+	}
 	if s != nil && s.globalEvents != nil {
 		s.globalEvents.Publish(kind, data)
 	}
