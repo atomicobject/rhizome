@@ -1,0 +1,33 @@
+package indexing
+
+import (
+	"bytes"
+	"context"
+	"testing"
+
+	"github.com/atomicobject/rhizome/pkg/diagnostics"
+	"github.com/atomicobject/rhizome/pkg/sqliteutil"
+	"github.com/stretchr/testify/require"
+)
+
+func TestIntegrityFailureRecordsWarnEventWithTable(t *testing.T) {
+	root := t.TempDir()
+	var stderr bytes.Buffer
+	recorder, err := diagnostics.Open(root, diagnostics.Options{Stderr: &stderr})
+	require.NoError(t, err)
+	ctx := diagnostics.WithRecorder(context.Background(), recorder)
+
+	recordIntegrityFailure(ctx, sqliteutil.IntegrityCheckFailed{Result: "malformed inverted index for FTS5 table main.intel_fts"})
+	require.NoError(t, recorder.Close())
+
+	events, err := diagnostics.ReadEvents(root, diagnostics.Filter{Subsystem: "indexing"})
+	require.NoError(t, err)
+	require.Len(t, events.Events, 1)
+	event := events.Events[0]
+	require.Equal(t, "WARN", event.Level)
+	require.Equal(t, "index.integrity_check_failed", event.Name)
+	require.Equal(t, "quick_check", event.Attributes["check"])
+	require.Equal(t, "intel_fts", event.Attributes["table"])
+	require.Equal(t, "database_corrupt", event.Attributes["error"])
+	require.Equal(t, 1, bytes.Count(stderr.Bytes(), []byte("integrity check failed")), "the recorder mirrors the warning once")
+}
