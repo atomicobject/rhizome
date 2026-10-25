@@ -33,7 +33,7 @@ Primary semantic matches are source-owned evidence, not a separate result class.
 - `related_to_seed`: graph- and ref-heavy expansion around explicit seeds
 - fetch-like intents such as `go_to_def`, `find_usages`, `callers`, `callees`, `tests_for_code`, `implementers`, `overrides`, and `imports`: precision-first, code-leaning behavior
 
-For no-seed broad search, graph/ref auto-expansion is gated by direct-match quality so weak semantic-only hits do not become noisy implicit seeds.
+For no-seed broad search, refs auto-expansion is gated by direct-match quality so weak semantic-only hits do not become noisy implicit seeds.
 
 ## Core invariant
 

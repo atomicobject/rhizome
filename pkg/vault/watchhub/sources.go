@@ -34,7 +34,7 @@ func (h *Hub) EmitHintPathHints(hints []HintPath) {
 		if rel == "." {
 			continue
 		}
-		if strings.HasPrefix(rel, rhizomeDirName+"/") || rel == rhizomeDirName {
+		if strings.HasPrefix(rel, rhizomeDirName+"/") || rel == rhizomeDirName || shouldDropVaultRelPath(rel) {
 			continue
 		}
 		op := hintPathOp(hint.Kind)
@@ -168,6 +168,15 @@ func (h *Hub) handleBackendEvent(ev BackendEvent) {
 		}
 		return
 	}
+	// Hard drops come first so a .gitignore inside .git or node_modules does
+	// not trigger an ignore reload and full resync.
+	rel, relErr := h.vault.RelStrict(abs)
+	if relErr == nil && shouldDropVaultRelPath(rel.String()) {
+		if h.debug {
+			h.logger.Printf("watchhub: dropping ignored vault path: %s", rel.String())
+		}
+		return
+	}
 	if isIgnoreFile(abs) {
 		h.reloadIgnore(nil)
 		h.roots.ResetWalked()
@@ -176,16 +185,9 @@ func (h *Hub) handleBackendEvent(ev BackendEvent) {
 		return
 	}
 
-	rel, err := h.vault.RelStrict(abs)
-	if err != nil || rel.String() == "" {
+	if relErr != nil || rel.String() == "" {
 		if h.debug {
-			h.logger.Printf("watchhub: dropping event outside vault: %s (err=%v)", abs, err)
-		}
-		return
-	}
-	if shouldDropVaultRelPath(rel.String()) {
-		if h.debug {
-			h.logger.Printf("watchhub: dropping ignored vault path: %s", rel.String())
+			h.logger.Printf("watchhub: dropping event outside vault: %s (err=%v)", abs, relErr)
 		}
 		return
 	}

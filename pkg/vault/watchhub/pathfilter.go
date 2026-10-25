@@ -41,7 +41,10 @@ func shouldDropVaultRelPath(path string) bool {
 		return false
 	}
 	p := strings.ToLower(filepath.ToSlash(filepath.Clean(path)))
-	if hasPathSegment(p, ".claude") || hasPathSegment(p, "node_modules") {
+	// Git metadata is never vault content, even when a .rhizome/ignore file
+	// replaces the default ignores; a periodic fetch would otherwise refresh
+	// every open view.
+	if hasPathSegment(p, ".git") || hasPathSegment(p, ".claude") || hasPathSegment(p, "node_modules") {
 		return true
 	}
 	if !hasPathSegment(p, ".rhizome") {

@@ -53,6 +53,9 @@ func TestShouldDropVaultRelPath(t *testing.T) {
 	}{
 		{path: ".claude/worktrees/kind-shaw/web/main.go", want: true},
 		{path: "web/node_modules/playwright-core/index.js", want: true},
+		{path: ".git/FETCH_HEAD", want: true},
+		{path: ".git/refs/remotes/origin/HEAD.lock", want: true},
+		{path: "notes/.gitignore", want: false},
 		{path: ".rhizome/db.sqlite", want: true},
 		{path: ".rhizome/db.sqlite-wal", want: true},
 		{path: ".rhizome/config.yml", want: false},
