@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { isJsonObject } from "../api/parse";
@@ -90,6 +90,22 @@ describe("Save view", () => {
       ),
     );
     expect(screen.getByRole("group", { name: "View options" })).toBeVisible();
+  });
+
+  it("lets a failed save's result be dismissed", async () => {
+    http.json("POST", SAVE_PATH, { error: "disk full", code: "INTERNAL" }, 500);
+    renderBoard(undefined, { laneField: "priority" });
+
+    openViewOptions();
+    fireEvent.click(screen.getByRole("button", { name: "Save view, unsaved changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
+    await screen.findByRole("alert");
+    // The save's end releases the pin one effect after the alert renders.
+    await act(async () => {});
+    expect(screen.getByRole("group", { name: "View options" })).toBeVisible();
+
+    fireEvent.mouseDown(document.body);
+    await waitFor(() => expect(screen.queryByRole("group", { name: "View options" })).toBeNull());
   });
 
   it("toggles a header sort away from the view's own sort", () => {

@@ -31,14 +31,17 @@ function Harness({
   onNodeClick,
   highlightTypes,
   scope = globalScope,
+  problemCounts,
 }: {
   nodes: GraphNode[];
   onNodeClick: (node: GraphNode) => void;
   highlightTypes?: ReadonlySet<string>;
   scope?: { mode: "global" | "local"; label?: string };
+  problemCounts?: ReadonlyMap<string, number>;
 }): ReactNode {
   const { containerRef, hover } = useSigmaGraph({
     nodes,
+    problemCounts,
     edges: emptyEdges,
     scope,
     onNodeClick,
@@ -86,6 +89,47 @@ describe("useSigmaGraph renderer lifecycle", () => {
   afterEach(() => {
     restoreWebGL();
     vi.restoreAllMocks();
+  });
+
+  it("installs problem counts that arrive while a worker lays the graph out", () => {
+    // WHY: a stand-in Worker holds the layout until the test answers it, so
+    // counts can change between the layout request and the install.
+    let answer: ((positions: Map<string, { x: number; y: number }>) => void) | null = null;
+
+    class HeldWorker {
+      onmessage: ((event: { data: Map<string, { x: number; y: number }> }) => void) | null = null;
+
+      postMessage() {
+        answer = (positions) => this.onmessage?.({ data: positions });
+      }
+
+      terminate() {}
+    }
+
+    vi.stubGlobal("Worker", HeldWorker);
+    const onSpy = vi.spyOn(Sigma.prototype, "on");
+    const renderers = () => Array.from(new Set(onSpy.mock.contexts)).filter(isSigma);
+
+    const nodes: GraphNode[] = Array.from({ length: 401 }, (_, index) => ({
+      id: `n${index}`,
+      label: `Node ${index}`,
+      kind: "note",
+      path: `n${index}.md`,
+    }));
+
+    const view = render(<Harness nodes={nodes} onNodeClick={vi.fn()} />);
+
+    try {
+      expect(answer).not.toBeNull();
+      view.rerender(
+        <Harness nodes={nodes} onNodeClick={vi.fn()} problemCounts={new Map([["n0", 3]])} />,
+      );
+      act(() => answer?.(new Map(nodes.map((node, index) => [node.id, { x: index, y: 0 }]))));
+
+      expect(renderers()[0].getGraph().getNodeAttribute("n0", "problemCount")).toBe(3);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("keeps the renderer for callback changes and dispatches through the latest callback", () => {

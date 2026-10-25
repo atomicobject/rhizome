@@ -48,7 +48,7 @@ type Props = {
   viewActions?: ReactNode;
   /** The shared view has unsaved changes; View options marks it while closed. */
   optionsDirty?: boolean;
-  /** A shared save is running or showing its result, so View options stays open. */
+  /** A shared save is running: View options stays open, and reopens for its result. */
   optionsPinned?: boolean;
   /** Controls placed after the tools, such as an embedded view's preference status. */
   trailing?: ReactNode;
@@ -127,9 +127,14 @@ export function ConfiguredViewToolbar({
 
   usePopoverDismiss(optionsOpen && !optionsPinned, optionsRef, () => setOptionsOpen(false));
 
-  // A save's progress and result live in the panel, so show them.
+  // A save's progress and result live in the panel: keep it open while the
+  // request runs and show it again when the result arrives. Afterwards the
+  // panel dismisses normally, so a failed save never traps it open.
+  const wasPinned = useRef(optionsPinned);
+
   useEffect(() => {
-    if (optionsPinned) setOptionsOpen(true);
+    if (optionsPinned || wasPinned.current) setOptionsOpen(true);
+    wasPinned.current = optionsPinned;
   }, [optionsPinned]);
 
   const executableFilters = useMemo(
