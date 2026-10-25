@@ -50,6 +50,17 @@ type ExecuteResult struct {
 	Result      json.RawMessage `json:"result"`
 	Error       *ExecuteError   `json:"error,omitempty"`
 	Diagnostics []string        `json:"diagnostics,omitempty"`
+	// Timing is diagnostic evidence for the caller's report, never script output.
+	Timing ExecuteTiming `json:"-"`
+}
+
+// ExecuteTiming measures one managed execution. A zero duration means the
+// runner never reached that point.
+type ExecuteTiming struct {
+	// Startup runs from starting Node until the runner is ready to evaluate the script.
+	Startup time.Duration
+	// Script runs from that readiness until the final result, or until the process ended.
+	Script time.Duration
 }
 
 type executeInput struct {
@@ -69,7 +80,7 @@ type executeEnvelope struct {
 
 // Execute evaluates a script against every cataloged code-mode operation. It
 // owns the generated stream client, operation host and JavaScript child process.
-func Execute(ctx context.Context, options ExecuteOptions) (ExecuteResult, error) {
+func Execute(ctx context.Context, options ExecuteOptions) (result ExecuteResult, err error) {
 	timeout, nodePath, err := validateExecuteOptions(options)
 	if err != nil {
 		return ExecuteResult{}, err
@@ -109,6 +120,8 @@ func Execute(ctx context.Context, options ExecuteOptions) (ExecuteResult, error)
 	if err := command.Start(); err != nil {
 		return ExecuteResult{}, fmt.Errorf("node_runtime_unavailable: start Node.js runtime %q: %w", nodePath, err)
 	}
+	started := time.Now()
+	defer func() { result.Timing = transport.timing(started) }()
 	defer func() { _ = terminateExecuteProcessTree(command) }()
 	transport.start(options, input)
 	wait := make(chan error, 1)

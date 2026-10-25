@@ -45,8 +45,9 @@ func (commandOptions *vaultCommandOptions) newAgentCodeExecuteCmd() *cobra.Comma
 			connectionEnv := commandEnvFromContext(command.Context())
 			connectionEnv.Config.WorkingDir = options.VaultPath
 			connectionEnv.Getwd = func() (string, error) { return options.VaultPath, nil }
+			metrics := &codeCallMetrics{}
 			options.OperationHost = func(ctx context.Context, input io.Reader, output io.Writer, readWrite bool) error {
-				ctx = contextWithCommandEnv(ctx, connectionEnv)
+				ctx = withCodeCallMetrics(contextWithCommandEnv(ctx, connectionEnv), metrics)
 				call, err := commandOptions.newAgentCodeInvoker(ctx, readWrite)
 				if err != nil {
 					return err
@@ -55,6 +56,7 @@ func (commandOptions *vaultCommandOptions) newAgentCodeExecuteCmd() *cobra.Comma
 			}
 			options.SessionID = commandOptions.agentSessionID
 			result, err := agentcode.Execute(command.Context(), options)
+			setCommandDiagnosticMetrics(command.Context(), metrics.report(result.Timing))
 			if err != nil {
 				return agentCodeError(err)
 			}
