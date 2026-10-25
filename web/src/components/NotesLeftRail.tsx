@@ -290,7 +290,12 @@ export const NotesLeftRail = memo(function NotesLeftRail({
       data-rail-row={asRow ? "" : undefined}
       // Right and Left on the row open and close it, so the caret is not a Tab stop.
       tabIndex={-1}
-      onClick={onToggle}
+      onClick={(event) => {
+        onToggle();
+
+        // A clicked caret hands focus to its row so the arrow keys keep working.
+        if (!asRow) event.currentTarget.parentElement?.querySelector<HTMLElement>(ROW)?.focus();
+      }}
     >
       <RailIcon name="caret" />
     </button>

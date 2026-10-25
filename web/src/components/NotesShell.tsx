@@ -102,6 +102,28 @@ function PanelIcon({ side }: { side: "left" | "right" }) {
   );
 }
 
+/** Longer than a typical double-click interval. */
+const RECORD_PANE_DELAY_MS = 400;
+
+/** `value`, but it turns true only after staying true for `delay` ms; it turns false at once. */
+function useSettledTrue(value: boolean, delay: number): boolean {
+  const [settled, setSettled] = useState(value);
+
+  useEffect(() => {
+    if (!value) {
+      setSettled(false);
+
+      return;
+    }
+
+    const timer = window.setTimeout(() => setSettled(true), delay);
+
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+
+  return value && settled;
+}
+
 export function NotesShell({ active = true }: { active?: boolean }) {
   const queryClient = useQueryClient();
   const shellRef = useRef<HTMLElement>(null);
@@ -585,8 +607,14 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   );
 
   // One right pane: the active note's context, or the selected record of the
-  // active collection view. With neither, it stays closed.
-  const record = recordRail.showing && recordRail.selected && tabs.activeTab.kind !== "note";
+  // active collection view. With neither, it stays closed. A first selection
+  // opens it a beat later, so the second click of a double-click still lands
+  // on the row instead of a table the opening pane just narrowed.
+  const record = useSettledTrue(
+    recordRail.showing && recordRail.selected && tabs.activeTab.kind !== "note",
+    RECORD_PANE_DELAY_MS,
+  );
+
   const paneHasContent = !searchActive && (tabs.activeTab.kind === "note" || record);
   const paneOpen = paneHasContent && !panes.paneCollapsed;
   const sidebarHidden = searchActive || panes.sidebarCollapsed;

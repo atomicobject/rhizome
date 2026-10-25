@@ -423,6 +423,22 @@ describe("NotesLeftRail", () => {
     expect(within(collections).queryByRole("button", { name: "Loose metric" })).toBeNull();
   });
 
+  it("keeps arrow keys working after a caret is clicked", async () => {
+    registerRailData("__all__", allNotes);
+    render(<NotesLeftRail {...props()} />);
+    const collections = await screen.findByRole("region", { name: "Collections" });
+
+    fireEvent.click(within(collections).getByRole("button", { name: "Expand Other" }));
+
+    const row = document.activeElement;
+
+    if (!(row instanceof HTMLElement)) throw new Error("the clicked caret left focus nowhere");
+    expect(row).toHaveAttribute("data-rail-row");
+    fireEvent.keyDown(row, { key: "ArrowDown" });
+    expect(document.activeElement).not.toBe(row);
+    expect(document.activeElement).toHaveAttribute("data-rail-row");
+  });
+
   it("lets the keyboard open a disabled embedded parent's children", async () => {
     registerRailData("__all__", allNotes);
 
