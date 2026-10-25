@@ -27,6 +27,7 @@ import {
 import { useViewHeaderSlotRefs, ViewHeaderSlotsProvider } from "./ConfiguredViewHeader";
 import { TypeWorkspaceHeader } from "./TypeWorkspaceHeader";
 import {
+  summaryCountsKnown,
   useOntologySummaryQuery,
   useOntologyTypeQuery,
   useValidationQuery,
@@ -252,7 +253,13 @@ export const HomeTab = memo(function HomeTab({
                     : ""
               }
               description={realType ? typeQuery.data?.type?.description : null}
-              totalNotes={realType ? (typeQuery.data?.count ?? null) : null}
+              totalNotes={
+                realType
+                  ? (typeQuery.data?.count ?? null)
+                  : !group && summaryCountsKnown(summary)
+                    ? (summary?.totalNotes ?? null)
+                    : null
+              }
               meanRelations={group || !typeQuery.data ? null : mean}
               issueCount={
                 realType

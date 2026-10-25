@@ -442,11 +442,16 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* Long column lists scroll on their own, so Reset and Save view stay in reach. */
 .configured-view__columns-list {
   display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: 0;
+  min-height: 0;
+  max-height: min(40vh, 360px);
   margin: 0;
+  overflow-y: auto;
   padding: var(--sp-4) var(--sp-5);
   border: 0;
   border-bottom: 1px solid var(--border);

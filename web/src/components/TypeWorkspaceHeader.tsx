@@ -54,7 +54,9 @@ export function TypeWorkspaceHeader({
       className="type-workspace-header"
       title={label || typeName || "Untitled type"}
       titleHint={label || typeName}
-      count={showStats ? (totalNotes ?? "—") : undefined}
+      // A type's collection view fills the count slot with its own rows; All notes
+      // shows the vault's note count, since its Briefing reports none.
+      count={showStats ? (totalNotes ?? "—") : !typeName ? (totalNotes ?? undefined) : undefined}
       countRef={countRef}
       description={description}
       facts={
