@@ -24,6 +24,11 @@ export type FinderPaletteProps<T extends FinderPaletteItem> = {
   emptyText: (query: string) => string;
   /** Heading over the rows of an empty query. */
   recentHeading?: string;
+  /**
+   * The muted label beside a row's title, resolved while rendering so a
+   * change (type labels loading) relabels rows without searching again.
+   */
+  describe?: (item: T) => string | undefined;
 };
 
 type Results<T> = { query: string; items: T[] } | null;
@@ -50,6 +55,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
   onClose,
   emptyText,
   recentHeading,
+  describe,
 }: FinderPaletteProps<T>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -219,6 +225,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
         >
           {items.map((item, index) => {
             const selected = item === current;
+            const detail = describe?.(item) ?? item.detail;
             const Icon = item.kind === "code" ? FileCode2 : FileText;
 
             return (
@@ -239,7 +246,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
                 <span className="finder__title">
                   <Highlighted text={item.title} ranges={item.titleMatches} />
                 </span>
-                {item.detail && <span className="finder__detail">{item.detail}</span>}
+                {detail && <span className="finder__detail">{detail}</span>}
                 <span className="finder__path" title={item.path}>
                   <Highlighted text={item.path} ranges={item.pathMatches} max={PATH_CHARS} />
                 </span>

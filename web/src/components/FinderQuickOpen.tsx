@@ -130,6 +130,8 @@ export function FinderQuickOpen() {
 function QuickOpenPalette({ onClose }: { onClose: () => void }) {
   const typeLabel = useTypeLabel();
 
+  // Stable, so type labels loading later never re-runs the search and
+  // resets the selection; describe applies them as rows render.
   const search = useCallback(
     (query: string, signal: AbortSignal) =>
       findItems(query, { signal }).then((response) =>
@@ -138,12 +140,21 @@ function QuickOpenPalette({ onClose }: { onClose: () => void }) {
           kind: item.kind,
           title: item.title,
           path: item.path,
-          detail: item.kind === "code" ? item.lang : item.type ? typeLabel(item.type) : undefined,
           titleMatches: item.titleMatches,
           pathMatches: item.pathMatches,
           item,
         })),
       ),
+    [],
+  );
+
+  const describe = useCallback(
+    (row: QuickOpenItem) =>
+      row.item.kind === "code"
+        ? row.item.lang
+        : row.item.type
+          ? typeLabel(row.item.type)
+          : undefined,
     [typeLabel],
   );
 
@@ -171,6 +182,7 @@ function QuickOpenPalette({ onClose }: { onClose: () => void }) {
       onOpen={onOpen}
       onClose={onClose}
       emptyText={(query) => `No notes or files match “${query}”`}
+      describe={describe}
     />
   );
 }
