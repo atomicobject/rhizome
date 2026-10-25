@@ -12,17 +12,12 @@ import (
 )
 
 // AutoExpandRetriever runs a first-stage retrieval, then uses the top results
-// as implicit seeds to run seed-driven retrievers (graph/refs). This improves
+// as implicit seeds to run the seed-driven refs retriever. This improves
 // recall and cross-domain bridging without requiring explicit seeds.
 type AutoExpandRetriever struct {
 	Base []search.Retriever
 
-	Graph    search.Retriever
-	Refs     search.Retriever
-	Ontology search.Retriever
-	// Diffusion runs query-time graph diffusion over a bounded induced doc graph.
-	// It is expected to be seeded (explicitly or via derived seeds).
-	Diffusion search.Retriever
+	Refs search.Retriever
 
 	MaxSeedsTotal   int
 	MaxSeedsPerKind int
@@ -34,16 +29,14 @@ type AutoExpandRetriever struct {
 func (r *AutoExpandRetriever) Name() string { return "auto_expand" }
 
 func (r *AutoExpandRetriever) NestedRetrievers() []search.Retriever {
-	out := make([]search.Retriever, 0, len(r.Base)+4)
+	out := make([]search.Retriever, 0, len(r.Base)+1)
 	for _, retriever := range r.Base {
 		if retriever != nil {
 			out = append(out, retriever)
 		}
 	}
-	for _, retriever := range []search.Retriever{r.Graph, r.Refs, r.Ontology, r.Diffusion} {
-		if retriever != nil {
-			out = append(out, retriever)
-		}
+	if r.Refs != nil {
+		out = append(out, r.Refs)
 	}
 	return out
 }
@@ -74,9 +67,9 @@ func (r *AutoExpandRetriever) Retrieve(ctx context.Context, spec search.QuerySpe
 		baseCandidates[i] = queryframe.EnrichCandidate(frame, baseCandidates[i])
 	}
 
-	// IMPORTANT: no-seed auto expansion only earns graph/refs fanout from base
+	// IMPORTANT: no-seed auto expansion only earns refs fanout from base
 	// hits with direct query specificity or strong evidence. Otherwise a broad
-	// vector hit can turn into a noisy graph walk that looks more confident than
+	// vector hit can turn into a noisy refs walk that looks more confident than
 	// the original evidence supports.
 	seeds := deriveSeeds(baseCandidates, r.MaxSeedsTotal, r.MaxSeedsPerKind, r.ApproxWeights, r.MinSeedSpecificity)
 	if len(seeds) == 0 {
@@ -115,17 +108,9 @@ func (s expansionStage) Retrieve(ctx context.Context, spec search.QuerySpec) ([]
 }
 
 func (r *AutoExpandRetriever) expandInParallel(ctx context.Context, spec search.QuerySpec) ([]search.Candidate, error) {
-	stages := []expansionStage{
-		{key: "graph", retriever: r.Graph},
-		{key: "refs", retriever: r.Refs},
-		{key: "ontology", retriever: r.Ontology},
-		{key: "diffusion", retriever: r.Diffusion},
-	}
-	retrievers := make([]search.Retriever, 0, len(stages))
-	for _, stage := range stages {
-		if stage.retriever != nil {
-			retrievers = append(retrievers, stage)
-		}
+	var retrievers []search.Retriever
+	if r.Refs != nil {
+		retrievers = append(retrievers, expansionStage{key: "refs", retriever: r.Refs})
 	}
 	return search.RunLanes(ctx, spec, retrievers, "auto_expand")
 }
@@ -153,7 +138,7 @@ func runRetrievers(ctx context.Context, retrievers []search.Retriever, spec sear
 	return out, nil
 }
 
-// deriveSeeds extracts the best seeds from base candidates for graph/refs expansion.
+// deriveSeeds extracts the best seeds from base candidates for refs expansion.
 //
 // It deduplicates by handle, sorts by normalized blended candidate score, and
 // caps per-kind to avoid over-representation of a single entity type. The
