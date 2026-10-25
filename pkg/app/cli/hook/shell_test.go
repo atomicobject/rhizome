@@ -49,6 +49,9 @@ func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
 		// After a cd it cannot follow, relative reads are dropped; absolute ones stay.
 		{"cd -P pkg && cat a.go /repo/b.go", []string{"/repo/b.go"}},
 		{"cd $DIR && cd /repo/pkg && cat a.go", []string{"/repo/pkg/a.go"}},
+		// Only the bare word cd is the builtin; ./cd is a program.
+		{"./cd pkg && cat a.go", []string{"/repo/a.go"}},
+		{"/usr/bin/cd pkg && cat a.go", []string{"/repo/a.go"}},
 		// A here-document's body is text; parsing stops there.
 		{"cat a.go\ncat <<'EOF'\ncd pkg\ncat x.go\nEOF\ncat b.go", []string{"/repo/a.go"}},
 	} {

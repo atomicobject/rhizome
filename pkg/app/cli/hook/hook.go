@@ -21,6 +21,10 @@ const (
 	// ProtocolVersion is printed by `rzm hook --check`, which init uses to
 	// tell whether the selected binary can run installed entries.
 	ProtocolVersion = 1
+	// GuardCapability follows the version in `rzm hook --check` from a
+	// binary that applies guard rules before a tool call; init installs the
+	// before-tool-call entry only for one that does.
+	GuardCapability = "guard"
 )
 
 // Harnesses that run installed entries.
@@ -30,11 +34,15 @@ const (
 )
 
 // Hook points Rhizome installs one entry for in each enabled harness.
-// Handlers declare the first three; post-compact is the dispatcher's own.
+// Handlers declare session-start, subagent-start, and post-tool-use; guard
+// declarations declare pre-tool-use, whose entry is installed only while an
+// approved guard rule exists; post-compact is the dispatcher's own.
 const (
 	SessionStart  = "session-start"
 	SubagentStart = "subagent-start"
-	PostToolUse   = "post-tool-use"
+	// PreToolUse runs before a tool call, which a guard rule may refuse.
+	PreToolUse  = "pre-tool-use"
+	PostToolUse = "post-tool-use"
 	// PostCompact follows a compaction. Neither host starts a subagent's
 	// context again after one, so the dispatcher resets that context and
 	// delivers its start items with its next tool call. Codex's source shows
@@ -45,7 +53,7 @@ const (
 
 // HookPoints lists the installed hook points in a fixed order. Adding one is
 // the only change that alters installed entries.
-var HookPoints = []string{SessionStart, SubagentStart, PostToolUse, PostCompact}
+var HookPoints = []string{SessionStart, SubagentStart, PreToolUse, PostToolUse, PostCompact}
 
 // HandlerEvents lists the hook points a starter handler may declare.
 var HandlerEvents = []string{SessionStart, SubagentStart, PostToolUse}
@@ -58,6 +66,8 @@ func HostEvent(point string) string {
 		return "SessionStart"
 	case SubagentStart:
 		return "SubagentStart"
+	case PreToolUse:
+		return "PreToolUse"
 	case PostToolUse:
 		return "PostToolUse"
 	case PostCompact:
@@ -93,6 +103,10 @@ type Handler struct {
 	// prefixes that start the handler for a shell call with no recognized
 	// read. Empty means shell calls need a recognized read.
 	CommandPrefixes string
+	// GuardRules makes a declaration Rhizome's built-in guard instead of a
+	// command: the repository-relative folder of finding notes whose
+	// approved guard rules it applies before a tool call.
+	GuardRules string
 }
 
 // Key names the handler in status and diagnostics.
