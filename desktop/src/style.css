@@ -1002,10 +1002,11 @@ label.choice {
 }
 /* The repository and worktree finders, drawn in a transparent overlay webview
    above the content view, so the page stays visible under the scrim. */
+/* Lighter than a modal's scrim: the page stays readable beneath it. */
 .finder-scrim {
   position: fixed;
   inset: 0;
-  background: var(--scrim);
+  background: color-mix(in srgb, var(--scrim) 65%, transparent);
 }
 .finder {
   position: fixed;
