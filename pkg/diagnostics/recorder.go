@@ -99,6 +99,11 @@ func (r *Recorder) SetStderr(writer io.Writer) func() {
 	}
 }
 
+// Retains reports whether an event at level would be written to retained files.
+func (r *Recorder) Retains(level slog.Level) bool {
+	return r != nil && !r.opts.Disabled && level >= r.opts.Level
+}
+
 func (r *Recorder) event(ctx context.Context, mirror bool, level slog.Level, subsystem, name, message string, metrics json.RawMessage, attrs ...slog.Attr) {
 	if r == nil {
 		return

@@ -8,6 +8,7 @@ import {
   recordFrameGap,
   recordReconnect,
   recordRefreshCycle,
+  resetClientMetrics,
   takeBatch,
 } from "./clientMetrics";
 import { DiagnosticRegion } from "./DiagnosticRegion";
@@ -22,7 +23,7 @@ const identity = {
 } as const;
 
 afterEach(() => {
-  takeBatch(identity);
+  resetClientMetrics();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -173,6 +174,56 @@ describe("client diagnostics", () => {
     unsubscribe();
 
     expect(takeBatch(identity)?.refresh).toMatchObject({ refetched: 1, churned });
+  });
+
+  it("judges overlapping refreshes together", async () => {
+    const client = new QueryClient();
+    const cache = client.getQueryCache();
+    let slow = Promise.resolve();
+    let changingValue = 1;
+
+    const changing = new QueryObserver(client, {
+      queryKey: ["rhizome", "changing"],
+      queryFn: async () => {
+        await slow;
+
+        return { value: changingValue };
+      },
+    });
+
+    const steady = new QueryObserver(client, {
+      queryKey: ["rhizome", "steady"],
+      queryFn: () => Promise.resolve({ value: 1 }),
+    });
+
+    const unsubscribes = [changing, steady].map((observer) => observer.subscribe(() => undefined));
+    const stop = observeRefetches(cache);
+    await vi.waitFor(() => expect(changing.getCurrentResult().data).toEqual({ value: 1 }));
+    takeBatch(identity);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+    let release: () => void = () => undefined;
+    slow = new Promise((resolve) => (release = resolve));
+    changingValue = 2;
+    trackRefresh(cache, [{ queryKey: ["rhizome", "changing"] }]);
+    void client.invalidateQueries({ queryKey: ["rhizome", "changing"] });
+    await vi.advanceTimersByTimeAsync(500);
+    // A second refresh inside the first one's window returns unchanged data,
+    // and the commit after it could come from the first refresh's change.
+    trackRefresh(cache, [{ queryKey: ["rhizome", "steady"] }]);
+    void client.invalidateQueries({ queryKey: ["rhizome", "steady"] });
+    recordCommit("view-table", "update", 1, 1);
+    release();
+    await vi.advanceTimersByTimeAsync(1_000);
+    stop();
+    unsubscribes.forEach((unsubscribe) => unsubscribe());
+
+    expect(takeBatch(identity)?.refresh).toMatchObject({
+      cycles: 2,
+      refetched: 2,
+      unchanged: 1,
+      churned: 0,
+    });
   });
 
   it("does not judge a refresh when another of its refetches fails", async () => {

@@ -150,13 +150,15 @@ func (h *jobHandle) publishDiagnostics(err error) {
 	duration := now.Sub(h.started)
 	truncated := snapshot.Coverage.RejectedObservations > 0 || snapshot.Coverage.DroppedSamples > 0 || snapshot.Coverage.DroppedIntervals > 0
 	fitsEvent := marshalErr == nil && len(metrics) <= routineMetricsLimit
-	routine := fitsEvent && routineJob(h.kind, status, duration, recordsFallback(snapshot), truncated)
+	recorder := diagnostics.FromContext(h.diagnosticCtx)
+	// Skip the report only when the event replacing it will be retained.
+	routine := fitsEvent && recorder.Retains(level) && routineJob(h.kind, status, duration, recordsFallback(snapshot), truncated)
 	var eventMetrics json.RawMessage
 	if routine {
 		eventMetrics = metrics // The event is this job's only record.
 	}
 	h.diagnosticEventMetrics(level, "job.finished", eventMetrics, slog.String("trigger", h.trigger), slog.String("status", status), slog.String("reason_code", reason), slog.Int64("duration_ms", duration.Milliseconds()), slog.Int64("queue_wait_ms", queueWait.Milliseconds()), slog.Int64("lock_wait_ms", h.lockWait.Milliseconds()), slog.Int64("execution_ms", h.execution.Milliseconds()), slog.Bool("report", !routine))
-	if recorder := diagnostics.FromContext(h.diagnosticCtx); recorder != nil && !routine {
+	if recorder != nil && !routine {
 		errorClass := logging.ClassifyError(err)
 		if status == "skipped" {
 			errorClass = ""

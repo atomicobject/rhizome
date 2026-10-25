@@ -73,6 +73,7 @@ export type RefreshCycle = {
   settled: boolean;
   /** A refetch failed or was replaced, so its data is unknown. */
   incomplete: boolean;
+  windowTimer?: ReturnType<typeof setTimeout>;
 };
 
 let currentCycle: RefreshCycle | undefined;
@@ -147,9 +148,7 @@ function settleCycle(cycle: RefreshCycle, force = false) {
   }
 }
 
-export function recordRefreshCycle(): RefreshCycle {
-  refresh.cycles++;
-
+function newCycle(): RefreshCycle {
   const cycle: RefreshCycle = {
     pending: 0,
     refetched: 0,
@@ -160,12 +159,27 @@ export function recordRefreshCycle(): RefreshCycle {
     incomplete: false,
   };
 
+  setTimeout(() => settleCycle(cycle, true), CYCLE_SETTLE_CAP_MS);
+
+  return cycle;
+}
+
+/**
+ * Starts a refresh. One that begins inside an earlier refresh's commit window
+ * joins it: a commit in the shared window cannot be attributed to either alone,
+ * so the group is churn only if every refetch from all of them was unchanged.
+ */
+export function recordRefreshCycle(): RefreshCycle {
+  refresh.cycles++;
+
+  const cycle = currentCycle?.windowOpen && !currentCycle.settled ? currentCycle : newCycle();
+
   currentCycle = cycle;
-  setTimeout(() => {
+  clearTimeout(cycle.windowTimer);
+  cycle.windowTimer = setTimeout(() => {
     cycle.windowOpen = false;
     settleCycle(cycle);
   }, REFRESH_COMMIT_WINDOW_MS);
-  setTimeout(() => settleCycle(cycle, true), CYCLE_SETTLE_CAP_MS);
 
   return cycle;
 }
@@ -199,6 +213,16 @@ export function recordError(kind: "errors" | "rejections", errorName: string | n
 
   if (!counts.has(name) && counts.size >= MAX_ERROR_NAMES) name = "Other";
   counts.set(name, (counts.get(name) ?? 0) + 1);
+}
+
+/** Clears all counters and the open refresh, for tests that need a clean start. */
+export function resetClientMetrics() {
+  currentCycle = undefined;
+  refresh = { cycles: 0, refetched: 0, unchanged: 0, churned: 0 };
+  regions = new Map();
+  frames = { over_50ms: 0, over_200ms: 0, stalled_ms: 0, longest_ms: 0 };
+  stability = { reconnects: 0, errors: new Map(), rejections: new Map() };
+  windowStart = Date.now();
 }
 
 const round = (ms: number) => Math.round(ms * 100) / 100;

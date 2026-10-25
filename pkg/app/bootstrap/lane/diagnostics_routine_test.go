@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -136,4 +139,17 @@ func finishedEvent(t *testing.T, root string, handle Handle) diagnostics.Event {
 	}
 	t.Fatalf("no job.finished event for %s", handle.ID())
 	return diagnostics.Event{}
+}
+
+func TestDiagnosticLaneKeepsReportsWhenInfoEventsAreNotRetained(t *testing.T) {
+	root := t.TempDir()
+	recorder, err := diagnostics.Open(root, diagnostics.Options{Stderr: io.Discard, Level: slog.LevelWarn})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, recorder.Close()) })
+	executor := New(Options{LockPath: filepath.Join(root, ".rhizome", "index.lock"), PriorityPoll: time.Millisecond})
+	t.Cleanup(executor.Close)
+	handle, _, err := executor.Submit(diagnostics.WithRecorder(context.Background(), recorder), Request{Kind: KindWatcherBatch, Trigger: "test-trigger"})
+	require.NoError(t, err)
+	<-handle.Done()
+	require.Len(t, diagnosticReports(t, root), 1, "with job.finished dropped, the report is the job's only record")
 }
