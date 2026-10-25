@@ -12,6 +12,7 @@ require (
 	github.com/fsnotify/fsevents v0.2.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-git/go-git/v5 v5.16.4
+	github.com/junegunn/fzf v0.57.0
 	github.com/ktr0731/go-fuzzyfinder v0.8.0
 	github.com/mark3labs/mcp-go v0.34.0
 	github.com/mattn/go-isatty v0.0.20
