@@ -1,4 +1,5 @@
 import type { ValidationSnapshot } from "../../api/types";
+import { humanizeName } from "../../lib/labels";
 
 export function ValidationIssueDisclosure({ snapshot }: { snapshot?: ValidationSnapshot }) {
   if (!snapshot) return null;
@@ -32,7 +33,7 @@ export function ValidationIssueDisclosure({ snapshot }: { snapshot?: ValidationS
               <span
                 className={`validation-disclosure__outcome validation-disclosure__outcome--${check.outcome}`}
               >
-                {check.outcome.replace("_", " ")}
+                {humanizeName(check.outcome)}
               </span>
               <strong>{check.check.replaceAll("_", " ")}</strong>
               <span>

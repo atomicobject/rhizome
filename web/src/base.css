@@ -81,8 +81,8 @@ textarea {
   min-height: 38px;
   gap: var(--sp-4);
   padding: 0 14px;
-  background: var(--ao-ink);
-  border-bottom: 1px solid var(--ao-ink-2);
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-raised);
   flex-shrink: 0;
   box-shadow: none;
 }
@@ -115,10 +115,10 @@ textarea {
 }
 
 .app-shell__brand span {
-  color: var(--ao-white);
+  color: var(--chrome-text);
   font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 900;
+  font-size: var(--fs-md);
+  font-weight: 700;
   letter-spacing: -0.015em;
 }
 
@@ -127,12 +127,10 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--ao-gray-300);
+  color: var(--chrome-muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
 }
 
 .app-shell__connection {
@@ -175,27 +173,26 @@ textarea {
 .app-shell__nav button {
   border: none;
   background: transparent;
-  color: var(--ao-gray-300);
+  color: var(--chrome-muted);
   padding: 0 12px;
   font: inherit;
   font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
   border-radius: 0;
-  letter-spacing: 0.01em;
   transition:
     background 0.15s var(--ease),
     color 0.15s var(--ease);
 }
 
 .app-shell__nav button:hover {
-  color: var(--ao-white);
-  background: var(--ao-ink-2);
+  color: var(--chrome-text);
+  background: var(--chrome-raised);
 }
 
 .app-shell__nav button.is-active {
-  color: var(--ao-white);
-  background: var(--ao-black);
+  color: var(--chrome-text);
+  background: var(--chrome-active);
   box-shadow: inset 0 -2px var(--accent);
 }
 
@@ -220,16 +217,16 @@ textarea {
   height: 25px;
   min-width: 0;
   padding: 0 38px 0 9px;
-  border: 1px solid var(--ao-ink-2);
+  border: 1px solid var(--chrome-raised);
   border-radius: var(--r);
   outline: none;
-  background: var(--ao-ink-2);
-  color: var(--ao-white);
-  font-size: 10px;
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+  font-size: var(--fs-xs);
 }
 
 .app-shell__global-search input::placeholder {
-  color: var(--ao-gray-300);
+  color: var(--chrome-muted);
 }
 
 .app-shell__global-search input:focus {
@@ -240,9 +237,9 @@ textarea {
 .app-shell__global-search kbd {
   position: absolute;
   right: 8px;
-  color: var(--ao-gray-300);
+  color: var(--chrome-muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--fs-xs);
   pointer-events: none;
 }
 
@@ -278,7 +275,7 @@ textarea {
 
 .index-ready-banner__hint {
   color: var(--text-faint);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
 }
 
 @keyframes index-ready-spin {
@@ -318,25 +315,20 @@ textarea {
   padding: var(--sp-7);
   background: var(--surface);
   border: 1px solid var(--accent-line);
-  border-left: 4px solid var(--accent);
   border-radius: var(--r-md);
-  box-shadow: var(--shadow);
   overflow: auto;
 }
 
 .app-error-boundary__eyebrow {
   margin: 0 0 var(--sp-2);
+  font: var(--label-font);
   color: var(--accent-ink);
-  font-size: var(--fs-xs);
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .app-error-boundary h1 {
   margin: 0 0 var(--sp-3);
-  font-family: var(--font-display);
   font-size: var(--fs-2xl);
+  font-weight: 700;
 }
 
 .app-error-boundary p {
@@ -360,9 +352,14 @@ textarea {
 }
 
 .app-error-boundary__actions button:first-child {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--ao-white);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
+}
+
+.app-error-boundary__actions button:first-child:hover {
+  background: var(--accent-fill-hover);
+  border-color: var(--accent-fill-hover);
 }
 
 .app-error-boundary__details {
@@ -416,22 +413,22 @@ textarea {
 }
 
 .markdown h1 {
-  font-size: 26px;
+  font-size: var(--fs-2xl);
   font-weight: 900;
 }
 
 .markdown h2 {
-  font-size: 20px;
+  font-size: var(--fs-xl);
   font-weight: 700;
   border-bottom: 1px solid var(--border-faint);
   padding-bottom: 0.3em;
 }
 
 .markdown h3 {
-  font-size: 16px;
+  font-size: var(--fs-lg);
   font-style: italic;
   font-weight: 400;
-  color: var(--ao-ink-2);
+  color: var(--text);
 }
 
 .markdown p {
@@ -454,7 +451,7 @@ textarea {
   border-radius: var(--r-md);
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.55;
 }
 
@@ -475,11 +472,100 @@ textarea {
 .markdown blockquote {
   margin: 1em 0;
   padding: 0.4em var(--sp-5);
-  border-left: 3px solid var(--accent);
-  background: var(--accent-soft);
+  border-left: 2px solid var(--border-strong);
   color: var(--text-muted);
   font-style: italic;
-  border-radius: 0 var(--r) var(--r) 0;
+}
+
+/* Syntax highlighting (highlight.js classes) on the --syntax-* roles, so code
+   reads the same in both themes and in the editor. */
+.hljs {
+  color: var(--text);
+  background: transparent;
+}
+
+.hljs-keyword,
+.hljs-doctag,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-variable.language_,
+.hljs-operator {
+  color: var(--syntax-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-meta .hljs-string {
+  color: var(--syntax-string);
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-selector-id,
+.hljs-char.escape_ {
+  color: var(--syntax-number);
+}
+
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  color: var(--syntax-comment);
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-section {
+  color: var(--syntax-function);
+}
+
+.hljs-type,
+.hljs-built_in,
+.hljs-symbol {
+  color: var(--syntax-type);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-property,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-bullet {
+  color: var(--syntax-property);
+}
+
+.hljs-name,
+.hljs-tag,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+  color: var(--syntax-tag);
+}
+
+.hljs-meta,
+.hljs-quote,
+.hljs-punctuation {
+  color: var(--syntax-meta);
+}
+
+.hljs-section,
+.hljs-strong {
+  font-weight: 700;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-addition {
+  color: var(--success-ink);
+  background: var(--success-soft);
+}
+
+.hljs-deletion {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
 }
 
 /* Segmented control: one look for every mode switch (view layout, pane mode,
@@ -526,7 +612,6 @@ textarea {
 }
 
 .segmented > button:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -577,25 +662,12 @@ textarea {
 .frontmatter {
   background: var(--surface-sunk);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
   border-radius: var(--r);
   padding: var(--sp-4) var(--sp-5);
   margin-bottom: var(--sp-4);
   font-size: var(--fs-sm);
   color: var(--text-muted);
   font-family: var(--font-mono);
-}
-
-.code-viewer pre {
-  background: var(--bg-tint);
-  border: 1px solid var(--border);
-  padding: var(--sp-5);
-  border-radius: var(--r-md);
-  overflow: auto;
-  white-space: pre;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.55;
 }
 
 /* ==========================================================================
@@ -609,9 +681,7 @@ textarea {
   min-height: 320px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  background:
-    radial-gradient(circle at 10% 10%, rgba(22, 203, 196, 0.05), transparent 40%),
-    radial-gradient(circle at 90% 90%, rgba(253, 79, 87, 0.04), transparent 40%), var(--surface-alt);
+  background: var(--surface-alt);
   overflow: hidden;
 }
 
@@ -664,7 +734,7 @@ textarea {
 .graph-type-legend__caption {
   overflow: hidden;
   color: var(--text-faint);
-  font-size: 9px;
+  font-size: var(--fs-xs);
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -686,7 +756,7 @@ textarea {
   min-height: 18px;
   max-width: 200px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 
 .graph-type-legend__item.is-highlighted,
@@ -715,7 +785,7 @@ textarea {
 .graph-type-legend__count {
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .graph-tools {
@@ -730,7 +800,7 @@ textarea {
 }
 
 .graph-tool {
-  background: rgba(255, 255, 255, 0.96);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   padding: 8px 10px;
@@ -781,12 +851,6 @@ textarea {
   font-size: var(--fs-base);
   margin-bottom: var(--sp-2);
   background: var(--surface);
-}
-
-.graph-search:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 .graph-search-meta {
@@ -866,7 +930,7 @@ textarea {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(42, 39, 36, 0.15);
+  box-shadow: 0 0 0 1px var(--border-strong);
 }
 
 .cluster-label {
@@ -902,26 +966,6 @@ textarea {
   background: var(--bg-tint);
 }
 
-.graph-legend {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-}
-
-.legend-swatch {
-  width: 16px;
-  height: 3px;
-  border-radius: 999px;
-}
-
 .graph-zoom {
   position: absolute;
   left: var(--sp-3);
@@ -937,7 +981,7 @@ textarea {
   height: 30px;
   border: 1px solid var(--border);
   border-radius: var(--r);
-  background: rgba(255, 255, 255, 0.94);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
   font-size: 16px;
   font-weight: 500;
   color: var(--text-muted);
@@ -952,8 +996,8 @@ textarea {
 }
 
 .zoom-btn:hover {
-  background: var(--surface);
-  color: var(--accent);
+  background: var(--bg-tint);
+  color: var(--text);
 }
 
 .zoom-btn--fit {
@@ -966,7 +1010,7 @@ textarea {
   bottom: var(--sp-3);
   padding: var(--sp-3) var(--sp-4);
   border-radius: var(--r-md);
-  background: rgba(255, 255, 255, 0.97);
+  background: color-mix(in srgb, var(--surface) 97%, transparent);
   border: 1px solid var(--border);
   font-size: var(--fs-xs);
   color: var(--text);
@@ -991,16 +1035,14 @@ textarea {
   align-items: center;
   gap: var(--sp-2);
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .graph-hover-kind {
   background: var(--bg-tint);
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .graph-hover-connections {
@@ -1010,7 +1052,7 @@ textarea {
 
 .graph-hover-path {
   margin-top: 4px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1030,8 +1072,6 @@ textarea {
   color: var(--warning-ink);
   pointer-events: none;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .graph-notice {
@@ -1050,7 +1090,6 @@ textarea {
 }
 
 .graph-notice-title {
-  font-family: var(--font-display);
   font-weight: 700;
   margin-bottom: var(--sp-2);
   color: var(--text);
@@ -1066,9 +1105,9 @@ textarea {
 .graph-notice-body code {
   background: var(--bg-tint);
   padding: 2px 5px;
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text);
 }
 
@@ -1112,19 +1151,19 @@ textarea {
   flex-shrink: 0;
   /* Keeps "?" from reading as punctuation after the issue count. */
   margin-left: var(--sp-3);
-  border: 1px solid var(--ao-ink-2);
+  border: 1px solid var(--chrome-raised);
   border-radius: var(--r);
   background: transparent;
-  color: var(--ao-gray-300);
+  color: var(--chrome-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   cursor: pointer;
 }
 
 .app-shell__shortcuts-button:hover {
-  border-color: var(--ao-gray-400);
-  color: var(--ao-white);
+  border-color: var(--chrome-muted);
+  color: var(--chrome-text);
 }
 
 .keyboard-shortcuts {
@@ -1139,7 +1178,7 @@ textarea {
 }
 
 .keyboard-shortcuts::backdrop {
-  background: rgba(42, 39, 36, 0.35);
+  background: var(--scrim);
 }
 
 .keyboard-shortcuts header {
@@ -1183,10 +1222,8 @@ textarea {
 
 .keyboard-shortcuts h3 {
   margin: 0 0 var(--sp-2);
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font: var(--label-font);
+  color: var(--label-color);
 }
 
 .keyboard-shortcuts dl {

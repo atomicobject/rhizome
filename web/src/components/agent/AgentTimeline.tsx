@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import type { AgentApprovalDecision, AgentEvent, AgentMessage } from "../../api/types";
 import { isString, type JsonValue } from "../../api/parse";
+import { humanizeName } from "../../lib/labels";
 
 const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 
@@ -360,7 +361,7 @@ export function AgentTimeline({
               key={`message-${entry.message.id}`}
             >
               <header>
-                <span>{entry.message.role}</span>
+                <span>{humanizeName(entry.message.role)}</span>
                 <time>{formatTime(entry.message.createdAt)}</time>
               </header>
               <ReactMarkdown>{entry.message.content}</ReactMarkdown>

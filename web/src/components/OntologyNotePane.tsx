@@ -1480,7 +1480,11 @@ export function OntologyNotePane({
           </span>
           {toolbarPath && <span className="ontology-pane__toolbar-path">{toolbarPath}</span>}
           {structuralTabs.length > 0 && onOpenNode ? (
-            <div className="ontology-pane__section-tabs" role="toolbar" aria-label="Sections">
+            <div
+              className="ontology-pane__section-tabs segmented"
+              role="toolbar"
+              aria-label="Sections"
+            >
               {structuralTabs.map((tab) => {
                 const target = tab.nodes?.[0];
 
