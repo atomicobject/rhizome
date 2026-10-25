@@ -109,7 +109,7 @@ Not yet delivered.
 
 ## Compounding Follow-ups
 
-None yet.
+- Production render-churn evidence: on 2026-10-25 Drew accepted development-only render regions for now. A later option is an opt-in profiling build for diagnosis sessions, so production churn can be captured without the 47 to 51% overhead in normal use.
 
 ## Status
 
