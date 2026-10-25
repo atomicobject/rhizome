@@ -113,7 +113,7 @@ jobs:
           key: go-build-${{ runner.os }}-${{ github.sha }}
           restore-keys: go-build-${{ runner.os }}-
 
-      # The session-memory starter's Node script tests run inside go test.
+      # The compounding starter's Node script tests run inside go test.
       - name: Set up Node
         uses: actions/setup-node@v4
         with:

@@ -28,6 +28,7 @@ The first `rzm init` asks which workflow to install. Each choice maps to a `--wo
 | Action-item tracking | `action-items` | `core` |
 | Agentic software delivery with specs, efforts, and phase routing | `agentic-engineering` | `core` |
 | Source-backed requirements and domain traceability | `complex-domain` | `agentic-engineering` |
+| Learning from past agent sessions: context shards, document edits, and findings (optional add-on) | `compounding` | `core` |
 
 ## `core`
 
@@ -69,6 +70,14 @@ rzm init --workflow domain
 Choose `complex-domain` when product behavior depends on regulations, contracts, research, operational rules, or another source-backed domain. It implies `agentic-engineering`, then adds requirement, source, process, workflow, and traceability assets.
 
 Use Agentic Engineering alone when the work does not need a durable source-to-requirement layer.
+
+## `compounding`
+
+```bash
+rzm init --add-addon compounding
+```
+
+An optional add-on that no workflow turns on. It mines this repository's Claude Code and Codex sessions into reviewed proposals: context shards for agents, edits to documents, and findings for friction worth fixing. Installing it adds a guide at `docs/reference/guides/compounding.md`.
 
 ## Valid combinations
 

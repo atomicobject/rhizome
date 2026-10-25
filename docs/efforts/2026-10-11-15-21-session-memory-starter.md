@@ -4,7 +4,7 @@ id: EFF-2026-10-11-15-21
 aliases: [EFF-2026-10-11-15-21]
 name: Session memory starter
 created-at: 2026-10-11T19:21:34Z
-status: active
+status: complete
 plan-approved-by: Drew Colthorp
 summary: Deliver SPEC-0124. An opt-in session-memory starter mines local Claude Code and Codex transcripts, screens messages with Jev, and records reviewed ContextShard notes that reach agents through approval-gated code anchors.
 governing-specs:
@@ -86,11 +86,15 @@ Out of scope: everything listed under SPEC-0124 Non-Goals.
 
 ## Spec Coverage Checklist
 
-- [ ] US1 — families, origin model, episodes, recurrence gate, verification records, redaction, run report: fixtures plus Batches 2–4.
-- [ ] US2 — review mode with atomic promotion, publication confirmation, decisions, rescanning.
-- [ ] US3 — delivery proven by script tests and live in Claude Code, Codex, and T3 worktrees, plus Rhizome-native lookup through anchors.
-- [ ] US4 — checkpointed stages, the local pool, decision suppression, duplicate detection across branches, an idempotent rerun.
-- [ ] US5 — fingerprints, verify mode, renew, revise, and retire.
+- [x] US1 — families, origin model, episodes, recurrence gate, verification records, redaction, run report: `mine.mjs` and its tests in PR #28; D and H evaluations in Execution Notes (M1–M5).
+- [x] US2 — review with atomic promotion, publication confirmation, decisions, and rescanning in PR #28; routing to remember, document, fix, guard, or ask with `AgentFinding` notes and `documented` decisions in PR #33 (scope extension).
+- [x] US3 — lookup and managed guidance in PR #28; hook delivery at session and subagent start, after reads, edits, patches, and named commands in PR #32, with `cd <dir>;` reads in PR #40; live delivery in Claude Code plan-mode sessions during M6. Codex delivery needs `/hooks` trust, and T3 Codex threads rely on lookup (starter guide).
+- [x] US4 — checkpointed stages, the local pool, decision suppression, duplicate detection across branches, and an idempotent rerun in PR #28; M5's second D run resumed from checkpoints.
+- [x] US5 — fingerprints, verify mode, renew, revise, and retire in PR #28.
+- [x] US6 (scope extension) — calibrate in PR #34.
+- [x] US7 (scope extension) — friction report in PR #33.
+- [x] [[agent-surface-integration-modes#^SPEC-0045-US5|SPEC-0045 US5]] (scope extension) — hook dispatcher in PR #32.
+- [x] [[agent-surface-integration-modes#^SPEC-0045-US6|SPEC-0045 US6]] (scope extension) — guard rules in PR #35.
 
 ## Plan
 
@@ -243,7 +247,16 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
 
 ## Actual Delivered
 
-- [PR #28](https://github.com/atomicobject/rhizome/pull/28) (open): the `session-memory` add-on with mining, review and approval, lookup, and maintenance; `rzm agent generate`; `--add-addon`/`--remove-addon`; anchored notes in Markdown-note file context; the hook dispatcher design in SPEC-0045 US5 (not built); SPEC-0082 US12 (draft). The effort stays active: the hook dispatcher and handler, command-text delivery, calibrate, and M5/M6 remain.
+- [PR #28](https://github.com/atomicobject/rhizome/pull/28) (`e8560480`): the `session-memory` add-on with mining, review and approval, lookup, and maintenance; `rzm agent generate`; `--add-addon`/`--remove-addon`; anchored notes in Markdown-note file context; the SPEC-0045 US5 design; SPEC-0082 US12 (draft).
+- [PR #30](https://github.com/atomicobject/rhizome/pull/30) (`dcb05d8d`): fixes for friction the D-v1 learnings found (dead code agents kept reading, a Codex harness race, E2E port reuse across worktrees, gate messages).
+- [PR #31](https://github.com/atomicobject/rhizome/pull/31) (`8de51532`): tracked memory grouped under `docs/memory/`, and Drew's spec decisions.
+- [PR #32](https://github.com/atomicobject/rhizome/pull/32) (`87713ed3`): the `rzm hook` dispatcher and `rzm init --hooks`, with the session-memory handler and command-prefix delivery.
+- [PR #33](https://github.com/atomicobject/rhizome/pull/33) (`7ac989db`): response routing, `AgentFinding` notes, `documented` decisions, and the friction report.
+- [PR #34](https://github.com/atomicobject/rhizome/pull/34) (`900efa2c`): calibrate.
+- [PR #35](https://github.com/atomicobject/rhizome/pull/35) (`2cfb6073`): guard rules.
+- [PR #36](https://github.com/atomicobject/rhizome/pull/36) (`73f4eae9`): removed the unreachable graph auto-expansion an M5 H proposal traced agent confusion to.
+- [PR #40](https://github.com/atomicobject/rhizome/pull/40) (`264ca2a5`): hook delivery for reads after `cd <dir>;`, from M6.
+- [PR #46](https://github.com/atomicobject/rhizome/pull/46), this closure: the starter guide (`docs/reference/guides/session-memory.md` in the installed repository) and the session-memory entry in `docs/reference/guides/choosing-your-starter.md`, plus this closure.
 
 ## Execution Notes
 
@@ -639,27 +652,45 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
   - Verification: `node --test pkg/app/cli/init/testdata/session-memory/*.test.mjs` passed all 72 tests, including 20 calibration tests. `go test ./pkg/app/cli/init/...` and focused `TestAgentHarness` tests passed. Sixteen targeted mutations each failed the corresponding behavioral test. `make check` passed, including 1,580 web tests. Build and disposable `rzm init` / `rzm init --check` passed; documentation validation found no issues. The budget reserves estimates, since the provider reports actual cost only after a call; an overrun stops calibration without a profile proposal.
   - The separate `frozen-scope-drift` check reports three pre-existing findings, on the init-experience, type-briefing, and session-memory efforts. Their governing specs and frozen sections are unchanged from `d8dfe6c3`; resolving that prior drift is outside this calibration slice.
 
+- 2026-10-22 — PRs #31–#34 merged: memory paths, the hook dispatcher and handler, routing with the friction report, and calibrate. Each cleared Greptile and CI; #32 took nine Greptile rounds.
+- 2026-10-22 — **M5, composed runs on D, then H once** (Drew approved both, about $30). Spend $26.66.
+  - **D** ($13.80): 9 proposals (remember 5, document 3, fix 1). They recovered 2 of the 13 learnings both judges accepted in D-v1; #30 had already fixed several others.
+  - **H** ($12.50): 146 of 208 gold learnings extracted, 2 proposed (both remember).
+  - **Drew's labels** (with my drafts as a starting point): 9 of 11 accepted. Responses: fix 5 (D2 `connected` omits typed links, D5 runtime test fakes share a PID, D7 tracked files in `assets/dist`, D8 `next-id` should check local and fetched remote branches, H1 unreachable graph auto-expansion), document 2 (D4, D9), guard 2 (D1, H2). D3 and D6 were dismissed because #30 fixed them. The pipeline proposed remember for 7 of the 11 and Drew kept none as remember, so routing still leans to remember; 2 of the 9 accepted proposals had the response Drew chose.
+  - **Verification is the bottleneck.** Sonnet 5.5 verified 148 D and 137 H clusters and rejected all but 11: already documented 116, obvious from code 66, false now 44, one-off 25, other 19, too vague 2, plan not done 2.
+  - **Verifier audit** ($3 approved): GPT-6.1 Sol high re-checked 20 rejections, stratified by reason, at the verifier's commit `184889cb` with no transcript text. 14 agreed, 5 agreed with the verdict under a different reason, and 1 was a wrong rejection (an H constraint on metadata commands' side effects, rejected as too vague). The verifier is strict but right; its reason labels are loose. About 1.1M input tokens (1.0M cached).
+- 2026-10-25 — **M6, paired task evaluation** (Drew approved $15–25; spent $9.13). Eight D-v1 learnings still true on main became shards through `shards.mjs approve` (g2, g54, g173, and g391 are now false; g364 duplicates g164). Each was paired with a task whose pitfall applies without being named. Opus 5.5 ran each task once per arm in plan mode at medium effort: memory (shards, hooks on) against baseline (add-on installed, no shards, hooks off), from the same commit. Blind pairwise judges (Opus 5.5 high, GPT-6.1 Sol high) rated the pitfall handled 7/8 and 6/8 with memory against 4/8 and 3/8 without, preferred the memory plan 6–2 and 7–1, and agreed on 13 of 16 pitfall verdicts. Every gain came where a shard reached the agent (5 of 8 runs: the hook in 4, the agent opening the shard folder in 1); the three runs with no delivery showed no advantage. The gap: the hook followed a `cd` only before `&&`, and Opus 5.5 writes `cd <repo>; cat …` for nearly every read. PR #40 fixed that, and a rerun of the memory arm for T1–T3 ($1.65 including a smoke run, judged against the original baselines) delivered each task's target shard through the hook (g18 needed #40; in T2 and T3 the agent happened to read without `cd <dir>;`). The pitfall verdicts barely moved, because the baselines already handled T1 and T3, and pairwise preference went to memory in 5 of 6 judgments for reasons unrelated to the pitfall, so the headline stands. Task-text lookup was off in both arms, since it needs an index the scratch worktrees lacked. Qualitative evidence: n = 8, one run per arm, plans judged rather than executed.
+- 2026-10-25 — PR #35 (guard rules) merged after ten Greptile rounds that each found a narrower case and one GPT-6.1 Sol xhigh final review (Drew: "stop the Greptile reviews"), which found nothing at its bar: no realistic false refusal, no approved rule that silently never runs, no hook-path failure, and no spec contradiction. CI also caught a Rhizome Markdown parser bug: a code span holding only a backslash in SPEC-0045 US6 AC1 hid the rest of the spec from validation; the text was reworded.
+
 ## Deviations
 
+- **Renamed to `compounding` at closure (Drew, 2026-10-25).** The add-on, skill, hook handlers, and local state directory were renamed in PR #46, since most findings became fix, document, or guard and memory proper is human intent and need-to-know facts. Notes before this entry use the old name; tracked notes stay under `docs/memory/`, and this repository's evaluation data stays in `.rhizome/session-memory/eval/`.
 - **2026-10-22, scope extended (Drew: "Build everything first").** Closure waits for work added after the scope froze: SPEC-0124 US2's response routing with `AgentFinding` notes and `documented` decisions, US6 calibrate, and US7 friction report, plus [[agent-surface-integration-modes#^SPEC-0045-US5|SPEC-0045 US5]] (hook dispatcher) and [[agent-surface-integration-modes#^SPEC-0045-US6|US6]] (guard rules). The session-memory hook handler, M5 (composed D run, then H once), M6 (paired task evaluation), the starter guide, and the SPEC-0038 entry remain from the approved plan. Delivery is split into focused pull requests, because PR #28's 120-file diff never converged under Greptile; this effort closes in the last of them.
+- **2026-10-22, reviews.** Drew stopped Astra reviews after six rounds on the guard design did not converge; second opinions use GPT-6.1 Sol. On 2026-10-25 Drew replaced further Greptile rounds on PR #35 with one Sol xhigh final review.
+- **Documentation plan, code-intel item.** Shards match files through their own `applies-to` patterns, not `any`-keyed glob anchors, so the code-intel note records the convention that shipped instead: path and glob anchors match any vault-relative path, Markdown notes included (PR #28).
+- **M5 labels.** Drew labeled M5's 11 proposals from drafts I prepared rather than blind. He changed two (D2 and D8), and H1 moved from document to fix after the search code turned out to be unreachable. The D-v1 judge panel stood in for Drew's labels on earlier runs, as the prototype approval allowed.
+- **M6 basis (Drew).** M6 used the D-v1 accepted learnings as shards, since M5 kept no remember proposals, and judged plans in plan mode rather than executed changes, to stay within budget.
 
 ## Closure Checklist
 
-- [ ] Spec coverage checklist complete with evidence.
-- [ ] SPEC-0124 status and open questions resolved.
-- [ ] Documentation plan delivered.
-- [ ] Follow-ups recorded.
+- [x] Spec coverage checklist complete with evidence.
+- [x] SPEC-0124 status and open questions resolved: `spec-status: active`, every story `satisfied`, no open questions. SPEC-0045 US5 and US6 are `satisfied`.
+- [x] Documentation plan delivered: starter guide (this pull request), SPEC-0038 US12 (PR #28), code-intel note (PR #28, see Deviations), `references/models.md` (PR #28, updated by calibrate). CHANGELOG entries came with each pull request.
+- [x] Follow-ups recorded below.
 
 ## Compounding Follow-ups
 
-None yet.
+- **Routing leans to remember.** Drew kept none of the 7 remember proposals in M5 as remember. Tune the verifier's response prompt against M5's labels before the next run.
+- **Memory for intent, and a notes-vault profile.** The rename to `compounding` is done (see Deviations). A read-only probe of Drew's Obsidian vault (2026-10-25) found its corrections are mostly intent and need-to-know facts (about 9 remember, 4 document, 3 fix, 1 guard), the reverse of this repository's mix, but the extract, verify, and rank prompts discard personal preferences and facts not checkable against code. A trial there (about $6 a pass) needs a domain profile that keeps them and checks them against notes.
+- **Verifier reason labels** are loose (5 of 20 audited rejections had the right verdict under the wrong reason), which skews the friction report's rejection mix.
+- **Task-text lookup needs an index.** Without one it returns nothing; M6 could not measure it.
+- **Fixes from M5 labels,** to file as findings once Drew approves each for publication: GraphQL `connected` omits a record's typed links (D2); runtime test fakes stop each other's manifests by PID (D5); stale tracked files under `pkg/app/web/assets/dist/` (D7); `rzm agent next-id` should check local and fetched remote branches (D8). D1 and H2 are guard candidates.
+- **Rhizome Markdown parser:** a code span holding only a backslash ends early and hides the rest of the note from validation; CommonMark keeps backslashes literal inside code spans.
+- **Claude session `initialize` and `SendTurn` waits** can prefer transport closure over a delivered response, as Codex's did before PR #28; generation does not use them.
+- **Dream mode:** periodic mining and maintenance as a scheduled job once Rhizome has scheduled jobs (Drew, 2026-10-22).
+- **Verbatim-quote evidence gate** from [GottZ/ctx](https://github.com/GottZ/ctx) for the next mining iteration.
+- **Live checks not yet run:** Codex hook delivery after `/hooks` trust, and redelivery to a Claude Code subagent after it compacts.
 
 ## Status
 
-Active. On 2026-10-11, Drew approved moving forward as a prototype: "move forward in prototype and run some benchmarks to measure efficacy and use Astra and run independent Opus 5.5 extra high reviews to get dialed in." The approved revision is the plan after the Astra round 2 responses.
-
-Prototype scope for this approval:
-- Run Batches 1–4 first, as benchmarks of efficacy.
-- Use an independent judge panel (Opus 5.5 extra high and Astra high) as a proxy for Drew's labels until Drew reviews the results.
-- Prove delivery with a Batch 0 canary.
-- Packaging (D10, the full init integration) follows the benchmark results.
+Complete on 2026-10-25. SPEC-0124 US1–US7 and SPEC-0045 US5–US6 are delivered across PRs #28 and #30–#36, #40, and #46 (this closure); M5 and M6 are recorded above. The prototype approval of 2026-10-11 and Drew's 2026-10-22 scope extension cover the delivered work. Open items are follow-ups, not closure blockers.

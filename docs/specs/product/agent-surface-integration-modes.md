@@ -3,7 +3,7 @@ type: ProductSpec
 summary: "Defines how rzm init resolves agent surface integration modes across detection, explicit flags, shared AGENTS.md guidance, .agents skills, interactive setup, and CI runs."
 id: SPEC-0045
 spec-status: active
-last-updated: 2026-10-22
+last-updated: 2026-10-25
 aliases:
   - SPEC-0045
   - agent-surface-integration-modes
@@ -159,7 +159,7 @@ Code anchors: `init.agent_surface_onboarding`, `init.agent_surface_run_pipeline`
 ### US5 - Let starters deliver context through agent hooks that Rhizome installs and dispatches
 - id:: ^SPEC-0045-US5
 - summary:: A starter declares the agent hooks it needs; when the person turns hooks on, init installs one Rhizome dispatcher entry per hook event in each enabled harness, and the dispatcher runs the handlers of enabled starters and returns their context to the agent.
-- status:: ready
+- status:: satisfied
 
 Claude Code and Codex run project hooks around tool calls and accept context from them ([Claude Code hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)). Starters should not each write their own entries into harness settings, parse host payloads, or solve deadlines and Windows launching. Rhizome owns the harness side once; a starter supplies only a handler that turns a normalized event into context. Handler declarations come only from the starter registry built into Rhizome, not from repository files. Rhizome installs one fixed entry per hook point and aggregates every starter's handlers behind it. Entries carry no tool filter, so enabling, disabling, or updating a starter never changes them, and Codex asks for trust again only when a Rhizome release adds a hook point or the first approved guard rule appears or the last one goes ([[#^SPEC-0045-US6]]). Turning hooks on authorizes the handlers of enabled starters, including later starter updates; a host's hook trust covers the entry, not the handler's contents. Session memory ([[session-memory-starter|SPEC-0124]]) is the first starter with handlers, and other templates, including core, are expected to follow. Core's first candidate is a reminder to start a new Rhizome session after a compaction or clear; it waits until [[agent-start-performance#^SPEC-0082-US12]], which makes session dedupe announce what it withheld, shows whether agents still need it.
 
@@ -179,7 +179,7 @@ Claude Code and Codex run project hooks around tool calls and accept context fro
 
 - id:: ^SPEC-0045-US6
 - summary:: Where the host can refuse a tool call before it runs, the dispatcher can block a call that matches an approved guard rule and tell the agent why and what to do instead.
-- status:: ready
+- status:: satisfied
 
 Some rules agents keep breaking are better enforced than remembered: a bare `go mod vendor` deletes hand-vendored sources, and the fix is to run `make vendor-treesitter` instead. A context shard arrives after the command has run. Both supported hosts can refuse a tool call from a `PreToolUse` hook that answers `hookSpecificOutput.permissionDecision: "deny"` with a `permissionDecisionReason`, which the agent sees: Claude Code documents it ([Claude Code hooks](https://code.claude.com/docs/en/hooks)), and Codex's source (openai/codex at `be537fb6`, `codex-rs/hooks/src/engine/output_parser.rs` and `codex-rs/core/src/hook_runtime.rs`) blocks `Bash`, `apply_patch`, and other tools on that answer and ignores a deny without a reason. Guard rules are data a person approved in the repository, matched against the normalized event and never executed. A starter declares the guard in Rhizome's built-in registry like every other handler, but the dispatcher applies the rules itself rather than starting a process, so a guarded call costs what starting `rzm` costs plus one `git ls-files` of the rule folder, about 13 ms on macOS; see the measurements below.
 
@@ -216,7 +216,7 @@ Some rules agents keep breaking are better enforced than remembered: a bare `go 
 - `rzm hook` MUST take an early path that skips binary bootstrap, update, download, version probes, and trust prompts, and MUST start its deadline before it selects a repository binary. It MUST NOT start the vault runtime, open the index, or reach the network; handlers that need Rhizome data read files directly.
 - Emitted-item state MUST be updated under an exclusive lock with a bounded wait. Dedupe is best effort across crashes: when output and state cannot both be committed, a repeat is preferred to a lost item. Session-start delivery and tool-call delivery MUST use separate scopes, and a missing child agent ID MUST NOT be replaced by the parent's identity. A compaction or clear MUST discard the items recorded for that agent's context in both scopes, so they are delivered again, including when the lock is busy: the pending reset is kept beside the state and applied by every later read until a locked write commits it.
 - The dispatcher's own overhead MUST be measured on each supported platform, with and without a matching handler, and recorded before hooks leave draft. Starting `rzm` for every tool call is affordable because an agent step takes seconds: `rzm --version` took a median of 30 ms on macOS (2026-10-21). If the median overhead with no matching handler exceeds 50 ms on a platform, entries on that platform MAY narrow their tool filter to the tools Rhizome's handlers support.
-  - macOS, 2026-10-22 (Apple M4 Pro, macOS 27.2, Node 22.23): `rzm hook claude <event>` run directly in a scratch repository with session memory on and five synthetic shards, one warm-up and 30 timed runs per case, each with a fresh session so items are delivered every time. With no matching handler the dispatcher costs what starting `rzm` costs; a handler run adds about 70 ms, almost all of it starting Node. A pinned repository's `rzm` on `PATH` runs the pinned binary as a supervised child, which adds one more process start.
+  - macOS, 2026-10-22 (Apple M4 Pro, macOS 27.2, Node 22.23): `rzm hook claude <event>` run directly in a scratch repository with the compounding add-on on and five synthetic shards, one warm-up and 30 timed runs per case, each with a fresh session so items are delivered every time. With no matching handler the dispatcher costs what starting `rzm` costs; a handler run adds about 70 ms, almost all of it starting Node. A pinned repository's `rzm` on `PATH` runs the pinned binary as a supervised child, which adds one more process start.
 
     | Case | Median | p90 |
     | --- | --- | --- |
@@ -227,7 +227,7 @@ Some rules agents keep breaking are better enforced than remembered: a bare `go 
     | Handler failure (shard folder unreadable), no output | 72 ms | 74 ms |
     | Session start, three shards that apply everywhere | 102 ms | 108 ms |
     | `rzm --version`, for reference | 27 ms | 28 ms |
-  - macOS, 2026-10-22, before a tool call (same machine and method; a scratch repository with session memory and hooks on, three guard rules among eight finding notes, and the `PreToolUse` entries installed). The guard reads the rules and matches them in the dispatcher, without starting a handler; a refusal also updates the refusal count under the status lock. The rows with rules were measured again after the guard began listing tracked notes with one `git ls-files` (about 13 ms of each call); they give the range of medians across runs.
+  - macOS, 2026-10-22, before a tool call (same machine and method; a scratch repository with the compounding add-on and hooks on, three guard rules among eight finding notes, and the `PreToolUse` entries installed). The guard reads the rules and matches them in the dispatcher, without starting a handler; a refusal also updates the refusal count under the status lock. The rows with rules were measured again after the guard began listing tracked notes with one `git ls-files` (about 13 ms of each call); they give the range of medians across runs.
 
     | Case | Median | p90 |
     | --- | --- | --- |
