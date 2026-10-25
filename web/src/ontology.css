@@ -4628,6 +4628,13 @@
   gap: var(--sp-5, 20px);
 }
 
+/* The tab panel keeps the page's section rhythm. */
+.ontology-type-detail__tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5, 20px);
+}
+
 .ontology-type-detail__hero {
   position: relative;
   display: flex;

@@ -1,6 +1,6 @@
 import { publicTypeName } from "../lib/typeNames";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { type KeyboardEvent, useId, useMemo, useState } from "react";
 
 import { isJsonObject, type JsonObject, type JsonValue } from "../api/parse";
 import { publicOntologyListItemRef } from "../api/client";
@@ -16,6 +16,7 @@ import type {
 } from "../api/types";
 import { typeAccentColor } from "../lib/typeAccent";
 import { buildNoteWebHref } from "../lib/content";
+import { tabKeyTarget } from "./focusManagement";
 import { Markdown } from "./markdown/Markdown";
 import { notifyLocationChange } from "./locationStore";
 import { useNotePreviewTrigger, type OpenNote } from "./notePreview/NoteLinkPreview";
@@ -61,6 +62,7 @@ export function OntologyTypeDetail({ name, atlas, onBack, onSelectType }: Props)
 
   const tab = tabState.name === name ? tabState.tab : "overview";
   const setTab = (next: DetailTab) => setTabState({ name, tab: next });
+  const tabsID = useId();
 
   const typeQuery = useOntologyTypeQuery(name, useActiveEditSession());
 
@@ -117,30 +119,64 @@ export function OntologyTypeDetail({ name, atlas, onBack, onSelectType }: Props)
               </button>
             </div>
           ) : null}
-          <TabBar active={tab} onSelect={setTab} />
-          {tab === "overview" ? (
-            <TypeDetailBody data={data} atlas={atlas} onSelectType={onSelectType} />
-          ) : null}
-          {tab === "guide" ? <AuthoringGuidePanel data={data} /> : null}
-          {tab === "schema" ? <SchemaPanel data={data} /> : null}
+          <TabBar idPrefix={tabsID} active={tab} onSelect={setTab} />
+          <div
+            id={`${tabsID}-panel`}
+            role="tabpanel"
+            aria-labelledby={`${tabsID}-tab-${tab}`}
+            className="ontology-type-detail__tabpanel"
+          >
+            {tab === "overview" ? (
+              <TypeDetailBody data={data} atlas={atlas} onSelectType={onSelectType} />
+            ) : null}
+            {tab === "guide" ? <AuthoringGuidePanel data={data} /> : null}
+            {tab === "schema" ? <SchemaPanel data={data} /> : null}
+          </div>
         </>
       )}
     </section>
   );
 }
 
-function TabBar({ active, onSelect }: { active: DetailTab; onSelect: (tab: DetailTab) => void }) {
+/** The tab pattern, as in the note context rail: one Tab stop, arrows move and select. */
+function TabBar({
+  idPrefix,
+  active,
+  onSelect,
+}: {
+  idPrefix: string;
+  active: DetailTab;
+  onSelect: (tab: DetailTab) => void;
+}) {
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const next = tabKeyTarget(event.key, TAB_ORDER.indexOf(active), TAB_ORDER.length);
+
+    if (next === null) return;
+    event.preventDefault();
+    onSelect(TAB_ORDER[next]);
+    document.getElementById(`${idPrefix}-tab-${TAB_ORDER[next]}`)?.focus();
+  };
+
   return (
-    <div className="ontology-type-detail__tabs" role="tablist" aria-label="Type view">
+    <div
+      className="ontology-type-detail__tabs"
+      role="tablist"
+      aria-label="Type view"
+      aria-orientation="horizontal"
+    >
       {TAB_ORDER.map((id) => {
         const selected = id === active;
 
         return (
           <button
             key={id}
+            id={`${idPrefix}-tab-${id}`}
             type="button"
             role="tab"
             aria-selected={selected}
+            aria-controls={`${idPrefix}-panel`}
+            tabIndex={selected ? 0 : -1}
+            onKeyDown={onKeyDown}
             className={`ontology-type-detail__tab${
               selected ? " ontology-type-detail__tab--active" : ""
             }`}
@@ -159,10 +195,7 @@ function AuthoringGuidePanel({ data }: { data: OntologyTypeResponse }) {
 
   if (!guide) {
     return (
-      <section
-        className="ontology-type-detail__section ontology-type-detail__guide"
-        role="tabpanel"
-      >
+      <section className="ontology-type-detail__section ontology-type-detail__guide">
         <p className="ontology-type-detail__empty">
           No authoring guide available for this type. Ensure the ontology schema is loaded and the
           type is declared.
@@ -172,7 +205,7 @@ function AuthoringGuidePanel({ data }: { data: OntologyTypeResponse }) {
   }
 
   return (
-    <section className="ontology-type-detail__section ontology-type-detail__guide" role="tabpanel">
+    <section className="ontology-type-detail__section ontology-type-detail__guide">
       <div className="ontology-type-detail__markdown">
         <Markdown>{guide}</Markdown>
       </div>
@@ -185,10 +218,7 @@ function SchemaPanel({ data }: { data: OntologyTypeResponse }) {
 
   if (!type?.name) {
     return (
-      <section
-        className="ontology-type-detail__section ontology-type-detail__schema"
-        role="tabpanel"
-      >
+      <section className="ontology-type-detail__section ontology-type-detail__schema">
         <p className="ontology-type-detail__empty">No schema data available for this type.</p>
       </section>
     );
@@ -198,7 +228,7 @@ function SchemaPanel({ data }: { data: OntologyTypeResponse }) {
   const fields = type.fields ?? [];
 
   return (
-    <section className="ontology-type-detail__section ontology-type-detail__schema" role="tabpanel">
+    <section className="ontology-type-detail__section ontology-type-detail__schema">
       <TypeSchemaHeader type={type} />
       <GuidanceBlock guidance={guidanceFromType(type)} />
       <TypeMetaGrid type={type} />

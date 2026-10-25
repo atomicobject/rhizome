@@ -217,6 +217,7 @@ export function OntologyLocalGraph({ workspace, onOpen, onOpenNode }: Props) {
       <div className="ontology-local-graph__toolbar">
         <input
           className="graph-search"
+          aria-label="Find nearby nodes"
           value={graphQuery}
           onChange={(event) => setGraphQuery(event.target.value)}
           placeholder="Find nearby nodes"
@@ -228,7 +229,12 @@ export function OntologyLocalGraph({ workspace, onOpen, onOpenNode }: Props) {
         ) : null}
       </div>
       <div className="graph-container ontology-local-graph__canvas">
-        <div ref={containerRef} className="graph-surface" />
+        <div
+          ref={containerRef}
+          className="graph-surface"
+          role="img"
+          aria-label={`Local graph of ${nodes.length} ${nodes.length === 1 ? "node" : "nodes"} and ${edges.length} ${edges.length === 1 ? "link" : "links"} around this note. The note's links and backlinks list the same neighbors.`}
+        />
         <div className="graph-zoom">
           <button
             type="button"

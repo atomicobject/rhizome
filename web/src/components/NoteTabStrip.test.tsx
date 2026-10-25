@@ -137,6 +137,9 @@ describe("NoteTabStrip", () => {
     render(<ClosingStrip initialTabs={tabs} />);
 
     const middleTab = screen.getByRole("tab", { name: "b" });
+    // Closable tabs announce the shortcut; Home cannot close.
+    expect(middleTab).toHaveAttribute("aria-keyshortcuts", "Delete");
+    expect(screen.getByRole("tab", { name: "Home" })).not.toHaveAttribute("aria-keyshortcuts");
     middleTab.focus();
     fireEvent.keyDown(middleTab, { key: "Delete" });
     frames.shift()?.(0);

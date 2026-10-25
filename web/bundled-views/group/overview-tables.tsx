@@ -117,7 +117,13 @@ function LifecycleCell({ lifecycle }: { lifecycle: LifecycleSummary | null | und
 
   return (
     <span className="gv-ov-stage">
-      <span className="gv-dist gv-ov-bar">
+      {/* A table cell has no room for type-briefing's visible key, so the
+          bar carries the same breakdown as its text alternative. */}
+      <span
+        className="gv-dist gv-ov-bar"
+        role="img"
+        aria-label={`Stages: ${lifecycle.segments.map((segment) => `${segment.label} ${segment.count}`).join(", ")}`}
+      >
         {lifecycle.segments.map((segment) => (
           <i
             key={segment.name}

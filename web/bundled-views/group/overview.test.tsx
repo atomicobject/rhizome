@@ -141,6 +141,8 @@ it("compares members in one table, nesting an interface's implementors", async (
   expect(work).toHaveAttribute("title", "Planned work.");
   expect(work).toHaveTextContent("Work items6");
   expect(work).toHaveTextContent("4 active");
+  // The stage bar reads as a text breakdown.
+  expect(within(work).getByRole("img", { name: /^Stages: .+ \d+/ })).toBeInTheDocument();
   expect(work).toHaveTextContent("Next step 3/6");
   expect(work).toHaveTextContent("67%");
   // Optional gaps stay neutral.

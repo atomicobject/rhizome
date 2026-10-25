@@ -202,6 +202,10 @@ describe("OntologyLocalGraph", () => {
 
     const { rerender } = render(<OntologyLocalGraph workspace={workspace} onOpen={onOpen} />);
     expect(renderers(onSpy)).toHaveLength(1);
+    expect(
+      screen.getByRole("img", { name: /^Local graph of \d+ nodes? and \d+ links?/ }),
+    ).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Find nearby nodes" })).toBeVisible();
 
     rerender(<OntologyLocalGraph workspace={workspace} onOpen={onOpen} />);
 
