@@ -238,6 +238,9 @@ func TestShellPathRulesRefuseOnlyWhereTheDirectoryIsCertain(t *testing.T) {
 		_, out := preToolUse(t, root, harness, "Bash", map[string]string{"command": cmd}, guardHandler)
 		return strings.Contains(out, `"deny"`)
 	}
+	// An unquoted backslash is an escape in bash, so commands name a Windows
+	// directory with forward slashes, as Git Bash does.
+	slashRoot := filepath.ToSlash(root)
 	for _, cmd := range []string{
 		"cat docs/x.md",
 		"cd ./pkg/.. && cat docs/x.md",
@@ -247,9 +250,9 @@ func TestShellPathRulesRefuseOnlyWhereTheDirectoryIsCertain(t *testing.T) {
 		"FOO=1 cat docs/x.md",
 		"git status && cd ../" + filepath.Base(root) + "/sub && cat docs/x.md",
 		"cd . && cat docs/x.md",
-		"cd sub | true; cd " + root + " && cat docs/x.md",
-		"cat " + filepath.Join(root, "docs", "x.md"),
-		"cd " + root + " && cat docs/x.md",
+		"cd sub | true; cd " + slashRoot + " && cat docs/x.md",
+		"cat " + slashRoot + "/docs/x.md",
+		"cd " + slashRoot + " && cat docs/x.md",
 	} {
 		require.True(t, refused(HarnessClaude, cmd), cmd)
 	}
@@ -318,9 +321,9 @@ func TestShellPathRulesRefuseOnlyWhereTheDirectoryIsCertain(t *testing.T) {
 	// a read under an absolute directory is certain there.
 	require.False(t, refused(HarnessCodex, "cat docs/x.md"))
 	require.False(t, refused(HarnessCodex, "cd ./sub && cat docs/x.md"))
-	require.True(t, refused(HarnessCodex, "cd "+root+" && cat docs/x.md"))
-	require.True(t, refused(HarnessCodex, "cd "+filepath.Join(root, "sub")+" && cat docs/x.md"))
-	require.True(t, refused(HarnessCodex, "cat "+filepath.Join(root, "docs", "x.md")))
+	require.True(t, refused(HarnessCodex, "cd "+slashRoot+" && cat docs/x.md"))
+	require.True(t, refused(HarnessCodex, "cd "+slashRoot+"/sub && cat docs/x.md"))
+	require.True(t, refused(HarnessCodex, "cat "+slashRoot+"/docs/x.md"))
 }
 
 func TestOnlyApprovedGuardFindingsCarryRules(t *testing.T) {
