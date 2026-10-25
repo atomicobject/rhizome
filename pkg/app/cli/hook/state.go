@@ -206,7 +206,10 @@ type Status struct {
 func ReadStatus(root string) Status {
 	var st Status
 	if data, err := os.ReadFile(filepath.Join(stateDir(root), statusFileName)); err == nil {
-		_ = json.Unmarshal(data, &st)
+		if json.Unmarshal(data, &st) == nil && st.Delivered == nil && st.Refused == nil {
+			// A status written before guard rules is the delivered map itself.
+			_ = json.Unmarshal(data, &st.Delivered)
+		}
 	}
 	if st.Delivered == nil {
 		st.Delivered = map[string]map[string]time.Time{}

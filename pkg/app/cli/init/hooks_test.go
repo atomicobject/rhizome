@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/cli/hook"
+	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/stretchr/testify/require"
 )
 
@@ -464,6 +466,41 @@ func TestHookSupportCheckSelectsFromTheLauncherWhenInitIsAGoRunBuild(t *testing.
 	err = selectedBinarySupportsHooks(root, repoconfig.LocalConfig{})
 	require.ErrorIs(t, err, errNoGuard)
 	require.ErrorContains(t, err, "the selected rzm ("+dev+") does not apply guard rules")
+}
+
+// A pin matching init's own version still sends hooks to the pinned binary,
+// whatever version the launcher is.
+func TestHookSupportCheckProbesThePinnedBinaryAtInitsVersion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture is Unix-only")
+	}
+	bin := t.TempDir()
+	t.Setenv("PATH", bin)
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "rzm"), []byte("#!/bin/sh\necho 'rzm-hook 1'\n"), 0o755))
+	root := t.TempDir()
+	writeFixtureFile(t, root, ".rhizome/config.yml", "rhizome:\n  version: "+version.Version+"\n")
+	store := repositorytrust.Store{Dir: t.TempDir()}
+	saved := hookTrustStore
+	hookTrustStore = func() (repositorytrust.Store, error) { return store, nil }
+	t.Cleanup(func() { hookTrustStore = saved })
+	_, err := store.Trust(root)
+	require.NoError(t, err)
+	running := filepath.Join(t.TempDir(), "rzm")
+	savedExe := runningExecutable
+	runningExecutable = func() (string, error) { return running, nil }
+	t.Cleanup(func() { runningExecutable = savedExe })
+	cfg := repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{Version: version.Version}}
+
+	// Not installed yet: the launcher installs this version on first use.
+	require.NoError(t, selectedBinarySupportsHooks(root, cfg))
+
+	pinned := filepath.Join(root, ".rhizome", "bin", appupdate.CurrentPlatformDir(), "rzm")
+	require.NoError(t, os.MkdirAll(filepath.Dir(pinned), 0o755))
+	require.NoError(t, os.WriteFile(pinned, []byte("#!/bin/sh\necho 'rzm-hook 1 guard'\n"), 0o755))
+	require.NoError(t, selectedBinarySupportsHooks(root, cfg), "the older launcher's missing guard does not matter")
+
+	require.NoError(t, os.WriteFile(pinned, []byte("#!/bin/sh\necho 'rzm-hook 1'\n"), 0o755))
+	require.ErrorIs(t, selectedBinarySupportsHooks(root, cfg), errNoGuard)
 }
 
 func TestHookHandlersComeFromTheRegistryOnlyWhenHooksAreOn(t *testing.T) {

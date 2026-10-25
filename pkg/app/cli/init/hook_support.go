@@ -64,8 +64,10 @@ func selectedBinarySupportsHooks(root string, cfg repoconfig.LocalConfig) error 
 	// devBinaryDir, so selection decides whether a second binary needs a check.
 	plan, selectErr := repoexec.Select(root, launcher)
 	development := selectErr == nil && plan.Authority == "development"
+	// A pin, even one matching this binary, sends hooks to the pinned binary
+	// whatever version the launcher is, so that binary is the one to check.
 	pin := strings.TrimSpace(cfg.Rhizome.Version)
-	if external || !development && strings.TrimSpace(cfg.Rhizome.DevBinaryDir) == "" && (pin == "" || pin == version.Version) {
+	if external || !development && strings.TrimSpace(cfg.Rhizome.DevBinaryDir) == "" && pin == "" {
 		if !guard {
 			return fmt.Errorf("the rzm on PATH (%s) %w, so the before-tool-call entry was not installed; update it with rzm update", launcher, errNoGuard)
 		}
@@ -91,6 +93,11 @@ func selectedBinarySupportsHooks(root string, cfg repoconfig.LocalConfig) error 
 		target = plan.Target
 	}
 	if _, err := os.Stat(target); err != nil {
+		// The launcher installs a missing pinned binary on first use; when it
+		// is this binary's version, this binary's capabilities answer.
+		if selectErr == nil && plan.Authority == "managed" && plan.PinnedVersion == version.Version {
+			return nil
+		}
 		return fmt.Errorf("the selected rzm (%s) is not installed yet; run rzm init again once it is", target)
 	}
 	if hooks, guard = supportsHooks(root, target, exe); !hooks {

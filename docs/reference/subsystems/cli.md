@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, parity duties, and review checklist for the CLI layer: thin Cobra commands in cmd/, shared capabilities in pkg/app/operations and CLI workflows in pkg/app/cli."
 reference-kind: guide
-last-verified: 2026-10-22
+last-verified: 2026-10-25
 code-paths:
   - cmd
   - pkg/app/operations

@@ -293,6 +293,15 @@ func TestDispatcherRecordsWhenEachHandlerReturnedContext(t *testing.T) {
 	require.Equal(t, map[string]map[string]time.Time{HarnessCodex: {"test/one": at}}, ReadStatus(root).Delivered)
 }
 
+func TestStatusFromBeforeGuardRulesKeepsItsDeliveryTimes(t *testing.T) {
+	root := repo(t)
+	path := filepath.Join(stateDir(root), statusFileName)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(`{"claude":{"test/one":"2026-10-22T09:30:00Z"}}`), 0o644))
+	at := time.Date(2026, 10, 22, 9, 30, 0, 0, time.UTC)
+	require.Equal(t, map[string]map[string]time.Time{HarnessClaude: {"test/one": at}}, ReadStatus(root).Delivered)
+}
+
 func TestBadInputEndsQuietly(t *testing.T) {
 	root := repo(t)
 	h := helperHandler("one", "items:a")
