@@ -5,8 +5,8 @@ aliases:
   - SPEC-0124
   - Session memory starter
 summary: "An opt-in session-memory starter mines a developer's local Claude Code and Codex transcripts for what slows agents down: corrections, hard-won facts, and questions agents keep researching. It screens them with Jev, verifies candidates against the current code, and routes each one to the response that removes the friction: a remembered context shard, a documentation edit, a fix, a guardrail, or a question for an owner. Nothing enters the repository until a person approves it. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
-spec-status: proposed
-last-updated: 2026-10-22
+spec-status: active
+last-updated: 2026-10-25
 ---
 
 # Session memory starter
@@ -65,7 +65,7 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 
 - id:: ^SPEC-0124-US1
 - summary:: A developer runs the session-memory skill and gets local proposals drawn from their recent Claude Code and Codex sessions for this repository, each supported by independent evidence and checked against the current code.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -86,7 +86,7 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 
 - id:: ^SPEC-0124-US2
 - summary:: A developer reviews proposals in the skill's review mode, accepts or changes each one's proposed response, and approves, revises, dismisses, or defers it. Approving a `remember` proposal writes a tracked shard; approving any other response writes a tracked finding with an action item.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -106,7 +106,7 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 
 - id:: ^SPEC-0124-US3
 - summary:: An agent in Claude Code, Codex, or T3 Code finds the approved shards for its task, files, or command through the lookup workflow and managed guidance. Where the person turned hooks on, they also deliver a file's shards when the agent reads or edits it, without repeating a shard the agent still has.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -130,7 +130,7 @@ The rest of this story applies where hooks are installed.
 
 - id:: ^SPEC-0124-US4
 - summary:: Later runs process only new messages, keep single-sighting candidates until they recur, and never re-propose what any teammate already approved or dismissed without materially new evidence.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -144,7 +144,7 @@ The rest of this story applies where hooks are installed.
 
 - id:: ^SPEC-0124-US5
 - summary:: When the files behind an approved shard change or disappear, the skill's verify mode surfaces the shard for re-verification, and the reviewer renews, revises, or retires it.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -156,7 +156,7 @@ The rest of this story applies where hooks are installed.
 
 - id:: ^SPEC-0124-US6
 - summary:: A developer runs calibrate for one role. The workflow measures the current binding against the other available candidates and proposes a profile change, which the developer can approve or decline.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -171,7 +171,7 @@ The rest of this story applies where hooks are installed.
 
 - id:: ^SPEC-0124-US7
 - summary:: A developer asks for a friction report and sees open findings and unreviewed proposals ranked by the agent effort they cost, plus completed fixes and whether the friction came back.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 

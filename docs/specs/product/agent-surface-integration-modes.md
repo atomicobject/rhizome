@@ -3,7 +3,7 @@ type: ProductSpec
 summary: "Defines how rzm init resolves agent surface integration modes across detection, explicit flags, shared AGENTS.md guidance, .agents skills, interactive setup, and CI runs."
 id: SPEC-0045
 spec-status: active
-last-updated: 2026-10-22
+last-updated: 2026-10-25
 aliases:
   - SPEC-0045
   - agent-surface-integration-modes
@@ -159,7 +159,7 @@ Code anchors: `init.agent_surface_onboarding`, `init.agent_surface_run_pipeline`
 ### US5 - Let starters deliver context through agent hooks that Rhizome installs and dispatches
 - id:: ^SPEC-0045-US5
 - summary:: A starter declares the agent hooks it needs; when the person turns hooks on, init installs one Rhizome dispatcher entry per hook event in each enabled harness, and the dispatcher runs the handlers of enabled starters and returns their context to the agent.
-- status:: ready
+- status:: satisfied
 
 Claude Code and Codex run project hooks around tool calls and accept context from them ([Claude Code hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)). Starters should not each write their own entries into harness settings, parse host payloads, or solve deadlines and Windows launching. Rhizome owns the harness side once; a starter supplies only a handler that turns a normalized event into context. Handler declarations come only from the starter registry built into Rhizome, not from repository files. Rhizome installs one fixed entry per hook point and aggregates every starter's handlers behind it. Entries carry no tool filter, so enabling, disabling, or updating a starter never changes them, and Codex asks for trust again only when a Rhizome release adds a hook point or the first approved guard rule appears or the last one goes ([[#^SPEC-0045-US6]]). Turning hooks on authorizes the handlers of enabled starters, including later starter updates; a host's hook trust covers the entry, not the handler's contents. Session memory ([[session-memory-starter|SPEC-0124]]) is the first starter with handlers, and other templates, including core, are expected to follow. Core's first candidate is a reminder to start a new Rhizome session after a compaction or clear; it waits until [[agent-start-performance#^SPEC-0082-US12]], which makes session dedupe announce what it withheld, shows whether agents still need it.
 
@@ -179,7 +179,7 @@ Claude Code and Codex run project hooks around tool calls and accept context fro
 
 - id:: ^SPEC-0045-US6
 - summary:: Where the host can refuse a tool call before it runs, the dispatcher can block a call that matches an approved guard rule and tell the agent why and what to do instead.
-- status:: ready
+- status:: satisfied
 
 Some rules agents keep breaking are better enforced than remembered: a bare `go mod vendor` deletes hand-vendored sources, and the fix is to run `make vendor-treesitter` instead. A context shard arrives after the command has run. Both supported hosts can refuse a tool call from a `PreToolUse` hook that answers `hookSpecificOutput.permissionDecision: "deny"` with a `permissionDecisionReason`, which the agent sees: Claude Code documents it ([Claude Code hooks](https://code.claude.com/docs/en/hooks)), and Codex's source (openai/codex at `be537fb6`, `codex-rs/hooks/src/engine/output_parser.rs` and `codex-rs/core/src/hook_runtime.rs`) blocks `Bash`, `apply_patch`, and other tools on that answer and ignores a deny without a reason. Guard rules are data a person approved in the repository, matched against the normalized event and never executed. A starter declares the guard in Rhizome's built-in registry like every other handler, but the dispatcher applies the rules itself rather than starting a process, so a guarded call costs what starting `rzm` costs plus one `git ls-files` of the rule folder, about 13 ms on macOS; see the measurements below.
 
