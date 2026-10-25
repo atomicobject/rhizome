@@ -46,6 +46,9 @@ func TestShellReadsRecognizesBoundedReadForms(t *testing.T) {
 		{"cd -- pkg && cat a.go", []string{"/repo/pkg/a.go"}},
 		{"cd missing || cat /repo/a.go", []string{"/repo/a.go"}},
 		{"cd -L pkg && cat a.go", []string{"/repo/pkg/a.go"}},
+		// Agents write `cd <dir>; cat ...`; a failed cd fails the read too.
+		{"cd sub; head -n 5 x.go", []string{"/repo/sub/x.go"}},
+		{"cd /repo/pkg\ncat a.go", []string{"/repo/pkg/a.go"}},
 		// After a cd it cannot follow, relative reads are dropped; absolute ones stay.
 		{"cd -P pkg && cat a.go /repo/b.go", []string{"/repo/b.go"}},
 		{"cd $DIR && cd /repo/pkg && cat a.go", []string{"/repo/pkg/a.go"}},
@@ -87,7 +90,6 @@ func TestShellReadsIgnoresEverythingElse(t *testing.T) {
 		"(cat a.go\ncat b.go)",     // a subshell across lines
 		"cd $DIR && cat a.go",      // a cd it cannot follow
 		"cd - && cat a.go",         // the previous directory
-		"cd sub; head -n 5 x.go",   // the cd may have failed
 		"cd missing || cat a.go",   // runs only when the cd failed
 		"cat 'unterminated a.go",   // broken quoting
 	} {

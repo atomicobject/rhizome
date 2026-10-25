@@ -6,11 +6,13 @@ use crate::{pane::Panes, windows};
 use serde::Serialize;
 use serde_json::json;
 use std::{sync::Mutex, time::Duration};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
-use tauri_plugin_updater::{Update, UpdaterExt};
+use tauri_plugin_updater::{Update, UpdaterBuilder, UpdaterExt};
 
 const INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+const CHECK_TIMEOUT: Duration = Duration::from_secs(30);
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 const INSTALL_ARGUMENT: &str = "--install-update";
 /// Set just before relaunching after an install. The relaunched process
 /// inherits it along with the original arguments, so a carried-over
@@ -64,7 +66,7 @@ pub fn enabled_for(app: &AppHandle) -> bool {
     )
 }
 
-fn set(app: &AppHandle, status: Status) {
+fn set<R: Runtime>(app: &AppHandle<R>, status: Status) {
     *app.state::<Updates>().status.lock().unwrap() = status.clone();
     app.state::<Panes>()
         .broadcast(&json!({"type": "update", "status": status}));
@@ -91,10 +93,19 @@ pub async fn check(app: &AppHandle) -> Status {
     if !enabled_for(app) {
         return Status::Disabled;
     }
+    check_with_timeouts(app, app.updater_builder(), CHECK_TIMEOUT, DOWNLOAD_TIMEOUT).await
+}
+
+async fn check_with_timeouts<R: Runtime>(
+    app: &AppHandle<R>,
+    builder: UpdaterBuilder,
+    check_timeout: Duration,
+    download_timeout: Duration,
+) -> Status {
     let updates = app.state::<Updates>();
     let _running = updates.running.lock().await;
     set(app, Status::Checking);
-    let status = match download(app).await {
+    let status = match download(app, builder, check_timeout, download_timeout).await {
         Ok(status) => status,
         // A verified download stays installable when refreshing the feed or
         // fetching a newer release fails.
@@ -113,8 +124,23 @@ pub async fn check(app: &AppHandle) -> Status {
 
 /// Reads the feed every time, so a postponed download is replaced when a newer
 /// release appears and dropped when the feed no longer offers it.
-async fn download(app: &AppHandle) -> tauri_plugin_updater::Result<Status> {
-    let Some(update) = app.updater()?.check().await? else {
+async fn download<R: Runtime>(
+    app: &AppHandle<R>,
+    builder: UpdaterBuilder,
+    check_timeout: Duration,
+    download_timeout: Duration,
+) -> tauri_plugin_updater::Result<Status> {
+    let Some(mut update) = builder
+        .timeout(check_timeout)
+        .configure_client(move |client| {
+            client
+                .connect_timeout(check_timeout)
+                .read_timeout(check_timeout)
+        })
+        .build()?
+        .check()
+        .await?
+    else {
         app.state::<Updates>().ready.lock().unwrap().take();
         return Ok(Status::Current {
             version: app.package_info().version.to_string(),
@@ -137,6 +163,8 @@ async fn download(app: &AppHandle) -> tauri_plugin_updater::Result<Status> {
             version: version.clone(),
         },
     );
+    // The plugin does not carry the builder's timeout into the download.
+    update.timeout = Some(download_timeout);
     // Download verifies the signature against the embedded public key.
     let bytes = update.download(|_, _| {}, || {}).await?;
     *app.state::<Updates>().ready.lock().unwrap() = Some((update, bytes));
@@ -229,7 +257,11 @@ pub fn check_from_menu(app: &AppHandle) {
 }
 
 #[cfg(test)]
-mod tests {
+#[path = "updater/tests.rs"]
+mod tests;
+
+#[cfg(test)]
+mod status_tests {
     use super::*;
 
     #[test]

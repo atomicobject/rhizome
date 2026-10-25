@@ -14,6 +14,7 @@ from typing import Sequence
 from collect_evidence import collect_release_evidence
 from evidence import GhGitHubClient
 from notes import generate_release_notes
+from release_git import ReleaseGit
 
 
 def run_git(root: Path, *args: str) -> str:
@@ -36,7 +37,7 @@ def repo_root() -> Path:
 
 
 def detect_prev_tag(root: Path) -> str:
-    return run_git(root, "describe", "--tags", "--abbrev=0")
+    return ReleaseGit(root).base_tag()
 
 
 def github_client(root: Path) -> GhGitHubClient | None:

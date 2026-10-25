@@ -3,7 +3,7 @@ type: TechnicalSpec
 summary: "Defines bounded release evidence, reviewable release plans, and resumable apply/build/publish orchestration for Rhizome releases."
 id: SPEC-0078
 spec-status: active
-last-updated: 2026-09-22
+last-updated: 2026-10-25
 aliases:
   - SPEC-0078
 ---
@@ -99,6 +99,9 @@ The workflow separates read-only planning from repository mutation and artifact 
 ### Must
 
 - Release planning MUST be a deterministic, read-only phase before release mutation.
+- When no version tag exists, planning MUST use an empty prior-release baseline and include the root commit. The plan and resume commands MUST preserve that empty baseline without inventing a historical release. Existing non-version tags MUST NOT become release baselines.
+- First publication from `main` MUST create a missing `release` branch in the same atomic non-force push that advances `main`. Hotfix publication still requires an existing `release` branch.
+- A selected release version MUST be greater than the prior version tag, or the source version at the planned commit when no version tag exists. This applies to prompted, command-line, and environment-provided versions; a new repository does not reset the product version sequence.
 - Evidence MUST retain source identifiers and MUST be bounded independently of raw diff size.
 - Curated `Unreleased` entries MUST outrank generated narrative evidence.
 - Completed effort `Actual Delivered` content MUST be eligible as authoritative delivery evidence only after its associated code or delivery commit is verified in the range.
