@@ -48,6 +48,8 @@ type Props = {
   viewActions?: ReactNode;
   /** The shared view has unsaved changes; View options marks it while closed. */
   optionsDirty?: boolean;
+  /** A shared save is running or showing its result, so View options stays open. */
+  optionsPinned?: boolean;
   /** Controls placed after the tools, such as an embedded view's preference status. */
   trailing?: ReactNode;
 };
@@ -75,6 +77,7 @@ export function ConfiguredViewToolbar({
   onDensityChange,
   viewActions,
   optionsDirty = false,
+  optionsPinned = false,
   trailing,
 }: Props) {
   const displayCapabilities = useMemo(
@@ -122,7 +125,12 @@ export function ConfiguredViewToolbar({
     setDraftFilters(draftsFromState(state.filters ?? [], displayCapabilities));
   }, [displayCapabilities, state.filters]);
 
-  usePopoverDismiss(optionsOpen, optionsRef, () => setOptionsOpen(false));
+  usePopoverDismiss(optionsOpen && !optionsPinned, optionsRef, () => setOptionsOpen(false));
+
+  // A save's progress and result live in the panel, so show them.
+  useEffect(() => {
+    if (optionsPinned) setOptionsOpen(true);
+  }, [optionsPinned]);
 
   const executableFilters = useMemo(
     () =>

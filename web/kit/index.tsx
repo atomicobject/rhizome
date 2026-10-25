@@ -430,6 +430,7 @@ export function NoteLink({
   path,
   children,
   className,
+  onClick,
   ...props
 }: { path: string } & Omit<ComponentProps<"a">, "href">) {
   return (
@@ -438,6 +439,8 @@ export function NoteLink({
       className={className ? `rz-note-link ${className}` : "rz-note-link"}
       href={noteHref(path)}
       onClick={(event) => {
+        onClick?.(event);
+
         if (event.defaultPrevented || event.button !== 0 || event.shiftKey || event.altKey) return;
         event.preventDefault();
         openNote(path, { beside: event.metaKey || event.ctrlKey });
@@ -457,6 +460,7 @@ export function NodeLink({
   view,
   children,
   className,
+  onClick,
   ...props
 }: { node: ViewNodeRef; view?: string } & Omit<ComponentProps<"a">, "href">) {
   return (
@@ -465,6 +469,8 @@ export function NodeLink({
       className={className ? `rz-note-link ${className}` : "rz-note-link"}
       href={nodeHref(node, { view })}
       onClick={(event) => {
+        onClick?.(event);
+
         if (event.defaultPrevented || event.button !== 0 || event.shiftKey || event.altKey) return;
         event.preventDefault();
         openNode(node, { view, beside: event.metaKey || event.ctrlKey });

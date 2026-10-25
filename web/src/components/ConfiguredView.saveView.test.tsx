@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { isJsonObject } from "../api/parse";
 import type { ViewSaveRequest } from "../api/types";
-import { decodeJSONBody, withFakeFetch } from "../test/fakeFetch";
+import { decodeJSONBody, deferredReply, withFakeFetch } from "../test/fakeFetch";
 import { ideaBoard, ideaView } from "./ConfiguredView.profileFixtures";
 import { openViewOptions, renderView } from "./ConfiguredView.testFixtures";
 
@@ -68,6 +68,28 @@ describe("Save view", () => {
     // Settings the reader left alone stay as the file has them.
     expect(body.state).not.toHaveProperty("columnField");
     expect(body.state).not.toHaveProperty("columns");
+  });
+
+  it("keeps View options open while a save runs, so its result stays visible", async () => {
+    const reply = deferredReply<unknown>();
+    http.on("POST", SAVE_PATH, () => reply.promise);
+    renderBoard(undefined, { laneField: "priority" });
+
+    openViewOptions();
+    fireEvent.click(screen.getByRole("button", { name: "Save view, unsaved changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write view YAML" }));
+    // Clicking back into the view would close the panel; a running save keeps it.
+    fireEvent.pointerDown(document.body);
+    fireEvent.mouseDown(document.body);
+    expect(screen.getByRole("group", { name: "View options" })).toBeVisible();
+
+    reply.resolve({ id: "ip-ideas", path: ".rhizome/views/ip-ideas.yaml", created: false });
+    await waitFor(() =>
+      expect(screen.getAllByRole("status").map((status) => status.textContent)).toContain(
+        "Saved .rhizome/views/ip-ideas.yaml",
+      ),
+    );
+    expect(screen.getByRole("group", { name: "View options" })).toBeVisible();
   });
 
   it("toggles a header sort away from the view's own sort", () => {

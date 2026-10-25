@@ -101,7 +101,13 @@ export function ViewSelector({
 
   const { choices, defaultChoiceId } = target;
 
-  if (choices.length < 2) return null;
+  // One choice needs no switcher, but its controls (Reset to shared) remain.
+  if (choices.length < 2)
+    return trailing ? (
+      <div className="view-selector">
+        <span className="view-selector__trailing">{trailing}</span>
+      </div>
+    ) : null;
 
   const custom = choices.filter((choice) => choice.custom);
   const useMenu = custom.length > 1;

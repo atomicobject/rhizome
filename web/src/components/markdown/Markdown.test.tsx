@@ -49,6 +49,14 @@ describe("Markdown", () => {
     expect(container.querySelector(".hljs-keyword")).toHaveTextContent("const");
   });
 
+  it("highlights fenced code inside a blockquote", async () => {
+    const { container } = render(<Markdown>{"> ```ts\n> const value = 1;\n> ```"}</Markdown>);
+
+    await waitFor(() =>
+      expect(container.querySelector("blockquote pre > code.hljs")).not.toBeNull(),
+    );
+  });
+
   it("merges caller component overrides over the defaults", () => {
     render(
       <Markdown

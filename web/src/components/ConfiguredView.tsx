@@ -123,6 +123,7 @@ export function ConfiguredView({
   const { visibleFields, emptyFields, density } = layout;
 
   const [collapsedGroupCount, setCollapsedGroupCount] = useState(0);
+  const [saveActive, setSaveActive] = useState(false);
   const titleID = useId();
   const typeLabel = useTypeLabel();
   const title = viewDisplayName(view, typeLabel);
@@ -242,7 +243,7 @@ export function ConfiguredView({
 
   const viewActions = (
     <>
-      <SaveViewAction {...save} />
+      <SaveViewAction {...save} onActiveChange={setSaveActive} />
       <button
         type="button"
         className="configured-view__refresh"
@@ -332,6 +333,7 @@ export function ConfiguredView({
         onResetPage={resetPage}
         viewActions={viewActions}
         optionsDirty={save.dirty}
+        optionsPinned={saveActive}
         trailing={embedded ? preferencesStatus : undefined}
       />
 

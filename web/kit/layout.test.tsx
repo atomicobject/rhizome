@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { BarList, Count, Fact, Facts, Section, Segmented, sectionStatus } from "./index";
+import { BarList, Count, Fact, Facts, NoteLink, Section, Segmented, sectionStatus } from "./index";
 
 describe("Section", () => {
   it("names its region by the heading and shows a count beside it", () => {
@@ -121,6 +121,20 @@ describe("Facts, Count, and Segmented", () => {
     render(<Count tone="risk">3</Count>);
 
     expect(screen.getByText("3")).toHaveAttribute("data-tone", "risk");
+  });
+});
+
+describe("NoteLink", () => {
+  it("runs a supplied click handler, which can cancel navigation", () => {
+    const onClick = vi.fn((event: { preventDefault: () => void }) => event.preventDefault());
+    render(
+      <NoteLink path="docs/a.md" onClick={onClick}>
+        A
+      </NoteLink>,
+    );
+
+    fireEvent.click(screen.getByRole("link", { name: "A" }));
+    expect(onClick).toHaveBeenCalledOnce();
   });
 });
 

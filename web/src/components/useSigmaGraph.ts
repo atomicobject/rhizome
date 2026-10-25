@@ -744,6 +744,11 @@ export function useSigmaGraph({
         globalLayoutRef.current = nextLayout;
       }
 
+      // Counts can arrive while a worker lays the graph out; install the latest.
+      graph.forEachNode((id) => {
+        graph.setNodeAttribute(id, "problemCount", problemCountsRef.current.get(id) ?? 0);
+      });
+
       setHover(null);
       stateRef.current.hoverCommunity = null;
       stateRef.current.hoverNodeID = null;

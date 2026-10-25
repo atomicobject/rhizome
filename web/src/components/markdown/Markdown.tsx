@@ -93,18 +93,28 @@ const NO_REHYPE_PLUGINS: RehypePlugin[] = [];
 // Syntax highlighting (highlight.js grammars) loads on first use instead of in
 // the entry chunk. rehype-highlight only changes fenced code (it does not
 // detect languages), so a note without a fence never needs it.
-const FENCE = /^ {0,3}(```|~~~)/m;
+// A fence may sit in a blockquote or a nested list item; a false positive
+// only loads the highlighter.
+const FENCE = /^(?:[ \t]*>)*[ \t]*(```|~~~)/m;
 
 let highlightPlugins: RehypePlugin[] | null = null;
 
 let highlightLoad: Promise<RehypePlugin[]> | null = null;
 
 function loadHighlight() {
-  highlightLoad ??= import("rehype-highlight").then((module) => {
-    highlightPlugins = [module.default];
+  highlightLoad ??= import("rehype-highlight").then(
+    (module) => {
+      highlightPlugins = [module.default];
 
-    return highlightPlugins;
-  });
+      return highlightPlugins;
+    },
+    () => {
+      // Code stays readable unhighlighted; a later mount tries again.
+      highlightLoad = null;
+
+      return NO_REHYPE_PLUGINS;
+    },
+  );
 
   return highlightLoad;
 }
@@ -117,7 +127,7 @@ function useRehypePlugins(source: string): RehypePlugin[] {
     if (!needed || plugins) return;
     let active = true;
     void loadHighlight().then((loaded) => {
-      if (active) setPlugins(loaded);
+      if (active && loaded.length) setPlugins(loaded);
     });
 
     return () => {

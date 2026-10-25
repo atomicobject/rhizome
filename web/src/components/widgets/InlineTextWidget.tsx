@@ -74,13 +74,34 @@ export function InlineTextWidget({
   const composingRef = useRef(false);
 
   // Grow with the text; the stylesheet caps the height and scrolls beyond it.
-  useLayoutEffect(() => {
+  // A field in a hidden tab measures zero, so it waits until it is shown.
+  const fitHeight = useCallback(() => {
     const input = inputRef.current;
 
-    if (!input) return;
+    if (!input || input.getClientRects().length === 0) return;
     input.style.height = "auto";
     input.style.height = `${input.scrollHeight + input.offsetHeight - input.clientHeight}px`;
-  }, [draft, editing]);
+  }, []);
+
+  useLayoutEffect(fitHeight, [draft, editing, fitHeight]);
+
+  // Re-fit when the field's width changes, including when a hidden tab shows.
+  useEffect(() => {
+    const input = inputRef.current;
+
+    if (!input || typeof ResizeObserver === "undefined") return;
+    let width = -1;
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry || entry.contentRect.width === width) return;
+      width = entry.contentRect.width;
+      fitHeight();
+    });
+
+    observer.observe(input);
+
+    return () => observer.disconnect();
+  }, [editing, fitHeight]);
 
   useEffect(() => {
     draftRef.current = draft;
