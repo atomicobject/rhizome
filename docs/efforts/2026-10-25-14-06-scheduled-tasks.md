@@ -68,14 +68,14 @@ tasks:
 
 ## Spec Coverage Checklist
 
-- [ ] US1: task files, starter and custom, read from the primary ref; drafts with `--file`; invalid files isolated.
-- [ ] US2: repository default mode, per-person overrides, trust gate, first-seen announcement, pause and resume.
-- [ ] US3: `run-due`, runtime interval, shared state, repository-wide lock, one run after a missed cadence.
-- [ ] US4: checks in the reset checkout, shared locations, background worktree runs, Rhizome's tagged commit, usage, process groups, failure handling.
-- [ ] US5: Start through each harness's worktree, branch preamble, untrusted Claude folder, `--print`, started after launch, open pull request check.
-- [ ] US6 (CLI): item states, no-change cleanup, the actions, done on tagged merge.
-- [ ] US7: `person` and `team` clocks, whole-line tag match, `status`.
-- [ ] Requirements and edge cases: no push, ref-only definitions, owner-only state, no fetch, login-shell PATH, bare repositories, missing ref, merge settings, no harness.
+- [x] US1: task files, starter and custom, read from the primary ref (`definition_test.go`); drafts with `rzm tasks run --file`; invalid files isolated in `status` and reported by `rzm validate tasks` (`pkg/validate/tasks_test.go`).
+- [x] US2: repository default mode, per-person overrides, the trust gate, the first-seen announcement, pause and resume (`runner_test.go`, `review_fixes_test.go`).
+- [x] US3: `run-due`, the runtime interval (`TestRunHeadlessAsksForTasksAndStillExitsWhenIdle`), shared state, the repository-wide lock (`TestConcurrentPassesRunATaskOnce`), one run after a missed cadence.
+- [x] US4: checks in the reset checkout, shared locations, background worktree runs, Rhizome's tagged commit, usage, process cleanup (`pkg/proctree`, `runner_unix_test.go`), failure handling, live runs with Claude Code.
+- [x] US5: Start through each harness's worktree, the branch preamble, the untrusted-folder relay, `--print`, reservation before launch, the open-pull-request check (`start_test.go`; live with Claude Code and Codex).
+- [x] US6, CLI part: item states, no-change cleanup, the actions, done on tagged merge. The Rhizome Desktop criterion is phase 2.
+- [x] US7: `person` and `team` clocks, whole-line tag matching, `status` with merge settings.
+- [x] Requirements and edge cases: no push, definitions from the ref only, owner-only state, no fetch, login-shell PATH, bare repositories (state falls back to the per-user folder), missing ref, merge settings, no harness.
 
 ## Plan
 
@@ -100,22 +100,56 @@ Phase 1 of SPEC-0126 on one branch: task files and modes, the Git clock, the ser
 
 ## Actual Delivered
 
-Not yet delivered.
+Phase 1 on `t3/rhizome-scheduled-tasks`, from `b12e36e7` to `9b8ec3ec`, for one pull request to `main`:
+
+- `rzm tasks status|inbox|run-due|run|start|snooze|skip|discard|done|mode|pause|resume` (`cmd/tasks.go`), over the new `pkg/app/tasks`:
+  - task files read from the primary ref (`pkg/vault/taskdef`);
+  - modes with a repository default (`tasks:` in `.rhizome/config.yml`);
+  - the Git-history clock;
+  - `run.lock` and `state.lock`;
+  - checks in a reset checkout;
+  - background prompt runs through the person's harness that commit tagged work on `rzm/<task>/<date>`;
+  - the inbox;
+  - Start through `claude --worktree` or `codex --worktree`.
+- `rzm validate tasks` reports invalid task files (in the `all` suite).
+- Runtimes start a detached `rzm tasks run-due` every 15 minutes for vaults inside a Git checkout (`pkg/app/cli/serve/tasks_tick.go`).
+- `rzm init` installs starter task files and allowlists `.rhizome/tasks/`.
+- `pkg/proctree` gives `pkg/harness` and task checks cleanup that reaches shells in other process groups and sessions, which fixes harness sessions leaving Claude Code's shells running after `Stop`.
+- `agentchat.ResolveHarness` is shared by `generate` and tasks.
+- Documentation:
+  - the guide `docs/reference/guides/scheduled-tasks-guide.md`;
+  - the config guide;
+  - the README;
+  - `CHANGELOG.md`;
+  - the vault-runtime, harness, CLI, and validate subsystem notes;
+  - `CONTEXT.md` files.
 
 ## Deviations
 
-None yet.
+These are implementation choices that differ from SPEC-0126's wording. None changes a contract another phase depends on.
+
+- **Drafts:** run with `rzm tasks run --file <path>`, with no item argument (US1 shows `run <id> --file`).
+- **Script checks:** read at the resolved commit but run against the main checkout's vault, because the reset check checkout has no index (US4 says checks run in the reset checkout; command checks do).
+- **Start's open pull request check:** matches pull requests whose branch starts with `rzm/<task>/` rather than searching commit messages (US5).
+- **Runtime trigger:** fires for any vault inside a Git checkout, not only checkouts with `.rhizome/tasks`, because task files come from the primary ref.
+- **Validation suite:** `rzm validate tasks` is in the `all` suite, like `views` and `query_recipes`, rather than the default suite.
+- **Process cleanup:** a known gap remains. A process that starts its own session and whose parent exits within one two-second recording interval, as can happen when a harness crashes, can survive. The normal stop path records just before closing input.
+- **Windows:** tests that need a shell skip on Windows. Scheduled tasks remain unsupported there, as planned.
 
 ## Closure Checklist
 
-- [ ] Every in-scope criterion traced to evidence.
-- [ ] `make check-full`, validation, `rzm init --check`, and the live end-to-end run recorded.
-- [ ] Greptile 5/5 with no unresolved comments, and the full diff self-reviewed.
+- [x] Every in-scope criterion traced to evidence (Spec Coverage Checklist).
+- [x] `make check-full` exit 0 at `9b8ec3ec`; `./scripts/rzm validate` 0 issues; `rzm init --check` exit 0. `frozen-scope-drift` reports only three findings on other efforts (EFF-2026-10-01-10-06, EFF-2026-10-03-18-33, EFF-2026-10-11-15-21), which were there before this branch.
+- [x] Live end-to-end runs recorded (Execution Notes).
+- [x] Full diff reviewed by me, by GPT-6.1 Sol xhigh (two rounds), and by Greptile (four rounds); all confirmed findings fixed.
+- [ ] Greptile 5/5 with no unresolved comments. Rounds scored 4, 3, and 3 as each round found narrower cases in new code.
 - [ ] Pull request number recorded.
 
 ## Compounding Follow-ups
 
-None yet.
+- Phase 2: the Rhizome Desktop inbox, badge, notifications, and Open worktree (US6), in a new effort.
+- Adopt tasks in session memory (SPEC-0124): mining as a task, its state in the task's data folder, and dropping its "Scheduled or background runs" non-goal.
+- Later: a launchd or systemd job, Windows, a diff view, and starter-provided outcome views (SPEC-0126 Delivery Phases).
 
 ## Status
 
@@ -176,3 +210,9 @@ Active.
   - P2: retrying a failed-check item skipped the check.
   - The fix adds the leaf package `pkg/proctree`. It records descendants by PID and start time while the child runs and just before input closes, so cleanup reaches reparented processes without touching reused PIDs. Checks also set `WaitDelay`, and `Run` reruns the check first.
   - `go test -race -count=2` passed for `pkg/app/tasks`, `jsonstdio`, and `pkg/proctree`, and a live Claude Code rerun left no `sleep 300`.
+- 2026-10-25 later review rounds:
+  - The validation check came from a T3 Opus 5.5 High worker: commit `06138158`, cherry-picked as `0797c7db`. It moved parsing to `pkg/vault/taskdef`.
+  - Sol's confirmation round (`eff-2026-10-25-14-06-sol-review-r2`) confirmed the lock and retry fixes and found two more problems: the polling gap in descendant cleanup, and an unneeded retry hiding a failed attempt's worktree.
+  - A live check showed Claude Code gives each shell its own session (`setsid`), so session membership alone is not enough. `a9aa862c` combines the child's session, recorded descendants, and the sessions those descendants lead. A live rerun left nothing behind.
+  - Greptile round 2 (4/5, five findings), round 3 (3/5, three findings), and round 4 (3/5, two race findings) were all fixed with regression tests (`a9aa862c`, `1c6ea907`, `9b8ec3ec`).
+  - Final gates at `9b8ec3ec`: `make check-full` exit 0, validation 0 issues, `rzm init --check` exit 0.
