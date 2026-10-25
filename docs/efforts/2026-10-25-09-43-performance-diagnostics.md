@@ -78,7 +78,7 @@ Persistent diagnostics that keep their full retention window, summarize performa
 
 ## Actual Delivered
 
-Delivered on `t3/performance-metrics-review` through the pull request recorded below. No release was made.
+Delivered through [PR #47](https://github.com/atomicobject/rhizome/pull/47) on `t3/performance-metrics-review`; implementation head `bf76c905` passed `make verify`, `make desktop-check`, and Greptile 5/5 with no comments. No release was made.
 
 - Retention holds its window: fast successful routine indexing jobs record `job.finished` events with timings and metrics instead of reports; failed, slow, fallback, and explicit work still publish reports.
 - Diagnostic events accept a bounded, sanitized `metrics` object.
@@ -127,4 +127,4 @@ Delivered on `t3/performance-metrics-review` through the pull request recorded b
 
 ## Status
 
-Complete. Delivery and closure ship together in the pull request recorded above. No merge or release is authorized by this effort.
+Complete. Delivery and closure ship together in [PR #47](https://github.com/atomicobject/rhizome/pull/47). No merge or release is authorized by this effort.
