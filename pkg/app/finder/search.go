@@ -1,6 +1,7 @@
 package finder
 
 import (
+	"context"
 	"math"
 	"runtime"
 	"slices"
@@ -29,6 +30,8 @@ const (
 	DefaultLimit  = 50
 	MaxLimit      = 200
 	recentNotes   = 100
+	// Scan workers check for cancellation this often.
+	cancelCheckEvery = 512
 )
 
 const (
@@ -71,9 +74,11 @@ type hit struct {
 	rank int
 }
 
-// Search ranks the catalog for q. It is safe for concurrent use.
-func (c *Catalog) Search(q Query) []Result {
-	if c == nil {
+// Search ranks the catalog for q. It is safe for concurrent use. A canceled
+// ctx, such as a request the browser abandoned for a newer keystroke, stops
+// the scan early and returns nil.
+func (c *Catalog) Search(ctx context.Context, q Query) []Result {
+	if c == nil || ctx.Err() != nil {
 		return nil
 	}
 	initAlgo()
@@ -91,7 +96,10 @@ func (c *Catalog) Search(q Query) []Result {
 		text = strings.ToLower(text)
 	}
 	pattern := algo.NormalizeRunes([]rune(text))
-	hits := c.scan([][]rune{pattern}, caseSensitive, q.Kind, true)
+	hits := c.scan(ctx, [][]rune{pattern}, caseSensitive, q.Kind, true)
+	if ctx.Err() != nil {
+		return nil
+	}
 	for i := range hits {
 		hits[i].tier = c.tier(hits[i].idx, text, caseSensitive)
 	}
@@ -102,7 +110,11 @@ func (c *Catalog) Search(q Query) []Result {
 		for _, h := range hits {
 			direct[h.idx] = true
 		}
-		for _, h := range c.scan(typo, caseSensitive, q.Kind, false) {
+		typoHits := c.scan(ctx, typo, caseSensitive, q.Kind, false)
+		if ctx.Err() != nil {
+			return nil
+		}
+		for _, h := range typoHits {
 			if direct[h.idx] {
 				continue
 			}
@@ -156,7 +168,7 @@ func (c *Catalog) Search(q Query) []Result {
 // entry's best score. variant indexes patterns. Typo variants skip paths:
 // titles and file names carry the intent, and long paths would multiply the
 // cost of every variant.
-func (c *Catalog) scan(patterns [][]rune, caseSensitive bool, kind Kind, withPath bool) []hit {
+func (c *Catalog) scan(ctx context.Context, patterns [][]rune, caseSensitive bool, kind Kind, withPath bool) []hit {
 	workers := min(runtime.GOMAXPROCS(0), max(1, len(c.entries)/2048))
 	chunk := (len(c.entries) + workers - 1) / workers
 	parts := make([][]hit, workers)
@@ -169,6 +181,9 @@ func (c *Catalog) scan(patterns [][]rune, caseSensitive bool, kind Kind, withPat
 			slab := slabs.Get().(*util.Slab)
 			defer slabs.Put(slab)
 			for i := lo; i < hi; i++ {
+				if i%cancelCheckEvery == 0 && ctx.Err() != nil {
+					return
+				}
 				e := &c.entries[i]
 				if kind != "" && e.Kind != kind {
 					continue

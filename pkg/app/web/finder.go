@@ -90,7 +90,7 @@ func (s *Server) handleFind(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	results := catalog.Search(finder.Query{Text: query.Get("q"), Limit: limit, Kind: kind, Opens: opens, Now: time.Now()})
+	results := catalog.Search(r.Context(), finder.Query{Text: query.Get("q"), Limit: limit, Kind: kind, Opens: opens, Now: time.Now()})
 	resp := FindResponse{Items: make([]FindItem, len(results))}
 	for i, result := range results {
 		resp.Items[i] = FindItem{

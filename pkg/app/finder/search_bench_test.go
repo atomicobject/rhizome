@@ -1,6 +1,7 @@
 package finder
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"slices"
@@ -56,7 +57,7 @@ func BenchmarkSearch20kNotes(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		q := benchQueries[i%len(benchQueries)]
 		start := time.Now()
-		c.Search(Query{Text: q, Limit: DefaultLimit, Opens: opens, Now: now})
+		c.Search(context.Background(), Query{Text: q, Limit: DefaultLimit, Opens: opens, Now: now})
 		samples = append(samples, time.Since(start))
 	}
 	b.StopTimer()

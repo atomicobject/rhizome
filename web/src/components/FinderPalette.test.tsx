@@ -201,4 +201,47 @@ describe("FinderPalette", () => {
       "redesign",
     ]);
   });
+  it("opens the current query's first result when Enter beats its response", async () => {
+    const later = deferred<FinderPaletteItem[]>();
+    const onOpen = vi.fn();
+
+    const search = vi.fn((query: string) =>
+      query === "" ? Promise.resolve([row("Old")]) : later.promise,
+    );
+
+    render(<Harness search={search} onOpen={onOpen} />);
+    fireEvent.click(screen.getByRole("button", { name: "Find" }));
+    await screen.findByRole("option", { name: /Old/ });
+
+    const input = screen.getByRole("combobox", { name: "Find a note or file" });
+
+    fireEvent.change(input, { target: { value: "new" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onOpen).not.toHaveBeenCalled();
+
+    await act(async () => later.resolve([row("New")]));
+
+    await waitFor(() =>
+      expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ title: "New" }), {
+        beside: false,
+      }),
+    );
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves Enter to an input method that is composing", async () => {
+    const onOpen = vi.fn();
+
+    render(<Harness search={() => Promise.resolve([row("Alpha")])} onOpen={onOpen} />);
+    fireEvent.click(screen.getByRole("button", { name: "Find" }));
+    await screen.findByRole("option", { name: /Alpha/ });
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Find a note or file" }), {
+      key: "Enter",
+      isComposing: true,
+    });
+
+    expect(onOpen).not.toHaveBeenCalled();
+  });
 });

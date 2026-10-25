@@ -30,16 +30,24 @@ export function useFinderNoteRequests(open: NoteOpener) {
   }, []);
 }
 
-function openNote(path: string, mode: OpenMode) {
+/**
+ * Opens a note. Returns true when the location stayed put (a tab opened
+ * beside), so the caller records that open itself; a location change is
+ * recorded by useRecordLocationOpens.
+ */
+function openNote(path: string, mode: OpenMode): boolean {
   if (notesOpener) {
     notesOpener(path, mode);
 
-    return;
+    return mode === "beside";
   }
 
-  // The Notes workspace has not mounted yet; its URL opens the note as a tab.
+  // Outside Notes there is no tab strip to open beside, so the note opens in
+  // Notes as a regular tab through its URL.
   window.history.pushState({}, "", buildNotesLocation({ selection: { kind: "all" }, note: path }));
   notifyLocationChange();
+
+  return false;
 }
 
 function openCodeFile(path: string) {
@@ -136,10 +144,9 @@ function QuickOpenPalette({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    openNote(row.path, beside ? "beside" : "activate");
+    const locationUnchanged = openNote(row.path, beside ? "beside" : "activate");
 
-    // A tab opened beside leaves the location unchanged, so record it here.
-    if (beside) void recordFinderOpen(row.path);
+    if (locationUnchanged) void recordFinderOpen(row.path);
   }, []);
 
   return (

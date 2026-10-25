@@ -26,7 +26,7 @@ func TestSearchRanksExactThenPrefixTitlesAndFavorsTitles(t *testing.T) {
 		{Path: "c/roadmap.md", Title: "Roadmap", Type: "Effort"},
 		{Path: "roadmap/notes.md", Title: "Notes"},
 	}, []store.FinderCodeRow{{Path: "pkg/roadmap/roadmap.go", Lang: "go"}})
-	got := c.Search(Query{Text: "roadmap"})
+	got := c.Search(context.Background(), Query{Text: "roadmap"})
 	// Exact title, then title prefixes (notes before code), then fuzzy matches
 	// where a title match beats the same match in a path.
 	require.Equal(t, []string{"c/roadmap.md", "a/roadmap-archive.md", "pkg/roadmap/roadmap.go", "b/plan.md", "roadmap/notes.md"}, paths(got))
@@ -40,8 +40,8 @@ func TestSearchIsSmartCase(t *testing.T) {
 		{Path: "guide.md", Title: "Schema Guide"},
 		{Path: "notes/schema-notes.md", Title: "notes on the schema"},
 	}, nil)
-	require.ElementsMatch(t, []string{"guide.md", "notes/schema-notes.md"}, paths(c.Search(Query{Text: "schema"})))
-	require.Equal(t, []string{"guide.md"}, paths(c.Search(Query{Text: "Schema"})))
+	require.ElementsMatch(t, []string{"guide.md", "notes/schema-notes.md"}, paths(c.Search(context.Background(), Query{Text: "schema"})))
+	require.Equal(t, []string{"guide.md"}, paths(c.Search(context.Background(), Query{Text: "Schema"})))
 }
 
 func TestSearchToleratesSwappedAndDroppedCharacters(t *testing.T) {
@@ -51,12 +51,12 @@ func TestSearchToleratesSwappedAndDroppedCharacters(t *testing.T) {
 		{Path: "docs/other.md", Title: "Something else"},
 	}, nil)
 	for _, query := range []string{"shcema", "schemma", "scehma"} {
-		got := c.Search(Query{Text: query})
+		got := c.Search(context.Background(), Query{Text: query})
 		require.NotEmpty(t, got, query)
 		require.Equal(t, "docs/schema.md", got[0].Path, query)
 		require.NotEmpty(t, got[0].TitleMatches, query)
 	}
-	require.Empty(t, c.Search(Query{Text: "zzzz"}))
+	require.Empty(t, c.Search(context.Background(), Query{Text: "zzzz"}))
 }
 
 func TestFrecencyBreaksCloseScoresOnly(t *testing.T) {
@@ -67,13 +67,13 @@ func TestFrecencyBreaksCloseScoresOnly(t *testing.T) {
 		{Path: "b.md", Title: "Alpha plans"},
 		{Path: "weak.md", Title: "a long list of percolating heuristics"},
 	}, nil)
-	require.Equal(t, "a.md", c.Search(Query{Text: "alpha", Now: now})[0].Path)
+	require.Equal(t, "a.md", c.Search(context.Background(), Query{Text: "alpha", Now: now})[0].Path)
 	opens := map[string]Open{"b.md": {Count: 3, LastOpened: now.Add(-time.Hour)}}
-	require.Equal(t, "b.md", c.Search(Query{Text: "alpha", Now: now, Opens: opens})[0].Path)
+	require.Equal(t, "b.md", c.Search(context.Background(), Query{Text: "alpha", Now: now, Opens: opens})[0].Path)
 
 	// A heavily opened weak match cannot overtake a strong one.
 	opens = map[string]Open{"weak.md": {Count: 500, LastOpened: now}}
-	got := c.Search(Query{Text: "alp", Now: now, Opens: opens})
+	got := c.Search(context.Background(), Query{Text: "alp", Now: now, Opens: opens})
 	require.Equal(t, "weak.md", got[len(got)-1].Path)
 }
 
@@ -90,15 +90,15 @@ func TestEmptyQueryListsFrecentThenRecentlyChanged(t *testing.T) {
 		"old.md":  {Count: 4, LastOpened: now},
 		"gone.md": {Count: 9, LastOpened: now},
 	}
-	got := c.Search(Query{Now: now, Opens: opens, Limit: 4})
+	got := c.Search(context.Background(), Query{Now: now, Opens: opens, Limit: 4})
 	require.Equal(t, []string{"old.md", "main.go", "new.md", "mid.md"}, paths(got))
-	require.Equal(t, []string{"main.go"}, paths(c.Search(Query{Now: now, Opens: opens, Kind: KindCode})))
+	require.Equal(t, []string{"main.go"}, paths(c.Search(context.Background(), Query{Now: now, Opens: opens, Kind: KindCode})))
 }
 
 func TestMatchRangesUseUTF16Units(t *testing.T) {
 	t.Parallel()
 	c := NewCatalog([]store.FinderNoteRow{{Path: "x.md", Title: "🎉 café"}}, nil)
-	got := c.Search(Query{Text: "cafe"})
+	got := c.Search(context.Background(), Query{Text: "cafe"})
 	require.Len(t, got, 1)
 	require.Equal(t, [][2]int{{3, 7}}, got[0].TitleMatches)
 }
@@ -127,7 +127,7 @@ func TestLiveServesPreviousCatalogWhileRebuilding(t *testing.T) {
 	first, err := live.Catalog(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, <-builds)
-	require.Equal(t, "first", first.Search(Query{Text: "v"})[0].Title)
+	require.Equal(t, "first", first.Search(context.Background(), Query{Text: "v"})[0].Title)
 
 	live.Invalidate()
 	require.Equal(t, 2, <-builds)
@@ -137,7 +137,7 @@ func TestLiveServesPreviousCatalogWhileRebuilding(t *testing.T) {
 	close(release)
 	require.Eventually(t, func() bool {
 		c, _ := live.Catalog(ctx)
-		return c != first && c.Search(Query{Text: "v"})[0].Title == "second"
+		return c != first && c.Search(context.Background(), Query{Text: "v"})[0].Title == "second"
 	}, time.Second, time.Millisecond)
 }
 
@@ -157,4 +157,13 @@ func TestLiveRetriesAFailedFirstBuild(t *testing.T) {
 	c, err := live.Catalog(context.Background())
 	require.NoError(t, err)
 	require.NotNil(t, c)
+}
+
+func TestSearchStopsWhenCanceled(t *testing.T) {
+	c := NewCatalog([]store.FinderNoteRow{{Path: "notes/roadmap.md", Title: "Roadmap"}}, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if got := c.Search(ctx, Query{Text: "roadmap"}); got != nil {
+		t.Fatalf("canceled search returned %d results, want none", len(got))
+	}
 }

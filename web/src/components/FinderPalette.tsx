@@ -58,6 +58,9 @@ export function FinderPalette<T extends FinderPaletteItem>({
   const [results, setResults] = useState<Results<T>>(null);
   const [failed, setFailed] = useState(false);
   const [active, setActive] = useState(0);
+  // Enter pressed before the current query's results arrived; it opens the
+  // first of those results instead of a stale row.
+  const pendingOpen = useRef<{ beside: boolean } | null>(null);
   const id = useId();
   const listId = `${id}-list`;
 
@@ -77,6 +80,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
       if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
       setQuery("");
       setResults(null);
+      pendingOpen.current = null;
     };
   }, [open]);
 
@@ -84,6 +88,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
     if (!open) return;
     const controller = new AbortController();
 
+    setFailed(false);
     search(query, controller.signal).then(
       (items) => {
         if (controller.signal.aborted) return;
@@ -92,7 +97,9 @@ export function FinderPalette<T extends FinderPaletteItem>({
         setActive(0);
       },
       () => {
-        if (!controller.signal.aborted) setFailed(true);
+        if (controller.signal.aborted) return;
+        setFailed(true);
+        pendingOpen.current = null;
       },
     );
 
@@ -101,6 +108,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
 
   const items = results?.items ?? [];
   const current = items[Math.min(active, items.length - 1)];
+  const stale = results === null || results.query !== query;
 
   useEffect(() => {
     if (!current) return;
@@ -115,7 +123,18 @@ export function FinderPalette<T extends FinderPaletteItem>({
     onClose();
   };
 
+  useEffect(() => {
+    const pending = pendingOpen.current;
+
+    if (!pending || stale) return;
+    pendingOpen.current = null;
+    choose(results?.items[0], pending.beside);
+  });
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    // Keys that confirm an input method's candidate belong to the input method.
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
 
@@ -127,7 +146,11 @@ export function FinderPalette<T extends FinderPaletteItem>({
       );
     } else if (event.key === "Enter") {
       event.preventDefault();
-      choose(current, event.metaKey || event.ctrlKey);
+      const beside = event.metaKey || event.ctrlKey;
+
+      // The rows on screen may be for an earlier query; wait for this one's.
+      if (stale) pendingOpen.current = { beside };
+      else choose(current, beside);
     } else if (event.key === "Escape") {
       event.preventDefault();
       onClose();
@@ -139,7 +162,6 @@ export function FinderPalette<T extends FinderPaletteItem>({
 
   if (!open) return null;
 
-  const stale = results !== null && results.query !== query;
   let status: ReactNode = null;
 
   if (failed) status = "Search is unavailable right now. Try again in a moment.";
@@ -190,7 +212,7 @@ export function FinderPalette<T extends FinderPaletteItem>({
           role="listbox"
           aria-label={label}
           className="finder__list"
-          aria-busy={stale || results === null}
+          aria-busy={stale}
         >
           {items.map((item, index) => {
             const selected = item === current;
@@ -205,7 +227,10 @@ export function FinderPalette<T extends FinderPaletteItem>({
                 className="finder__row"
                 onMouseMove={() => setActive(index)}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={(event) => choose(item, event.metaKey || event.ctrlKey)}
+                onClick={(event) => {
+                  // Rows for an earlier query are on their way out; ignore them.
+                  if (!stale) choose(item, event.metaKey || event.ctrlKey);
+                }}
               >
                 <Icon aria-hidden="true" size={16} strokeWidth={1.75} className="finder__icon" />
                 <span className="finder__title">
