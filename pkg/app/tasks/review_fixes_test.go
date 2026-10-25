@@ -253,3 +253,74 @@ func TestAnOldFailureCannotRepeatANewerAttempt(t *testing.T) {
 		t.Fatalf("running the old failure again must not repeat the ready attempt: %v", err)
 	}
 }
+
+func TestStartCannotDuplicateANewerAttempt(t *testing.T) {
+	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nprompt: Look around.\n"})
+	fail := true
+	agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+		if fail {
+			return AgentResult{}, context.DeadlineExceeded
+		}
+		return AgentResult{Message: "done"}, os.WriteFile(filepath.Join(req.Dir, "x.md"), []byte("x\n"), 0o644)
+	}}
+	svc := newService(t, dir, agent, "auto")
+	ctx := context.Background()
+	_, _ = svc.RunDue(ctx)
+	failed := taskItems(mustState(t, svc), "look")[0]
+	fail = false
+	if _, err := svc.Run(ctx, failed.ID); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := svc.PlanStart(ctx, failed.ID, harness.KindClaude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.MarkStarted(ctx, plan); err == nil || !strings.Contains(err.Error(), "already has this task") {
+		t.Fatalf("starting the old failure must not duplicate the ready attempt, got %v", err)
+	}
+}
+
+func TestInterruptedRunWaitsForItsCadence(t *testing.T) {
+	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nprompt: Look around.\n"})
+	agent := &fakeAgent{}
+	svc := newService(t, dir, agent, "auto")
+	ctx := context.Background()
+	if err := svc.Store().Update(ctx, func(st *State) error {
+		st.Seen = map[string]time.Time{"look": time.Now()}
+		st.AddItem(Item{Task: "look", Kind: KindTask, State: StateRunning}, time.Now())
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.RunDue(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if agent.calls() != 0 {
+		t.Fatal("recovering an interrupted run must not start the task again in the same pass")
+	}
+}
+
+func TestMergedOlderTaggedWorkClosesTheItem(t *testing.T) {
+	dir := newRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\nscope: team\nprompt: Look around.\n"})
+	// A teammate commits tagged work on a branch before the item exists.
+	run(t, dir, "switch", "--quiet", "-c", "teammate")
+	commitFile(t, dir, "x.md", "x\n", "teammate did it\n\nRhizome-Task: look")
+	run(t, dir, "switch", "--quiet", "main")
+	svc := newService(t, dir, editingAgent(), "")
+	ctx := context.Background()
+	time.Sleep(1100 * time.Millisecond)
+	if _, err := svc.RunDue(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if items := taskItems(mustState(t, svc), "look"); len(items) != 1 || items[0].State != StateDue {
+		t.Fatalf("expected a due item, got %+v", items)
+	}
+	// It merges afterward with a merge commit that keeps the older date.
+	run(t, dir, "merge", "--quiet", "--no-ff", "--no-edit", "teammate")
+	if _, err := svc.RunDue(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if it := taskItems(mustState(t, svc), "look")[0]; it.State != StateDone {
+		t.Fatalf("older tagged work merged after the item was created should close it, got %+v", it)
+	}
+}

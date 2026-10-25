@@ -83,12 +83,23 @@ func InteractivePrompt(def Definition, loc Locations, check CheckResult, ref, br
 // records a run of the task. It fails when the repository is not trusted or
 // the item changed since the plan, for example because it was run.
 func (s *Service) MarkStarted(ctx context.Context, plan StartPlan) error {
+	release, err := s.lockRun(ctx, 0)
+	if errors.Is(err, errLocked) {
+		return ErrBusy
+	}
+	if err != nil {
+		return err
+	}
+	defer func() { _ = release() }()
 	if reason := s.untrusted(); reason != "" {
 		return errors.New(reason)
 	}
 	return s.updateItem(ctx, plan.ItemID, func(st *State, it *Item) error {
 		if it.State != plan.prior {
 			return fmt.Errorf("item %s is now %s; start it again if it still needs you", it.ID, it.State)
+		}
+		if other := st.ActiveTaskItem(it.Task); other != nil && other.ID != it.ID && other.State != StateAttention {
+			return fmt.Errorf("item %s already has this task %s; finish or discard it first", other.ID, other.State)
 		}
 		it.set(StateStarted, s.opts.Now())
 		it.Branch, it.Reason = plan.Branch, ""

@@ -5,6 +5,7 @@ package tasks
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -53,5 +54,35 @@ func TestCheckTimeoutWithAnEscapedDescendantReleasesTheLock(t *testing.T) {
 	}
 	if again, err := svc.RunDue(context.Background()); err != nil || again.Skipped != "" {
 		t.Fatalf("the run lock should be free again: %+v %v", again, err)
+	}
+}
+
+// A check that starts a child in a session of its own just before its
+// timeout must not leave that child running.
+func TestCheckTimeoutKillsALateOwnSessionChild(t *testing.T) {
+	shellAvailable(t)
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("needs python3 to call setsid")
+	}
+	pidFile := filepath.Join(t.TempDir(), "pid")
+	check := "name: Late\nevery: 1d\ntimeout: 1s\ncheck:\n  command: [sh, -c, 'sleep 0.5; python3 -c \"import os,subprocess; p=subprocess.Popen([\\\"sleep\\\",\\\"300\\\"], start_new_session=True); open(\\\"" + pidFile + "\\\",\\\"w\\\").write(str(p.pid)); p.wait()\"']\nprompt: x\n"
+	dir := newRepo(t, map[string]string{"late.yml": check})
+	svc := newService(t, dir, &fakeAgent{}, "auto")
+	s, _ := svc.RunDue(context.Background())
+	if len(s.Outcomes) != 1 || s.Outcomes[0].Outcome != OutcomeFailed {
+		t.Fatalf("expected the check to time out: %+v", s)
+	}
+	data, err := os.ReadFile(pidFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pid, _ := strconv.Atoi(strings.TrimSpace(string(data)))
+	deadline := time.Now().Add(3 * time.Second)
+	for syscall.Kill(pid, 0) == nil {
+		if time.Now().After(deadline) {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+			t.Fatalf("own-session child %d survived the check timeout", pid)
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }

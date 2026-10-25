@@ -65,10 +65,12 @@ func (t *Tracker) Stop() { t.once.Do(func() { close(t.stop) }) }
 // anything that may end the child, since nothing is found through it
 // afterward; earlier records are kept.
 func (t *Tracker) Record() {
-	procs, ok := snapshot()
-	if !ok {
-		return
+	if procs, ok := snapshot(); ok {
+		t.recordFrom(procs)
 	}
+}
+
+func (t *Tracker) recordFrom(procs map[int]proc) {
 	found := descendants(procs, t.process.Pid)
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -81,20 +83,25 @@ func (t *Tracker) Record() {
 // its session, every recorded descendant that is still the same process,
 // and every process in a session such a descendant leads. It returns the
 // error from killing the group, os.ErrProcessDone when the group is gone.
-// The group goes first: macOS refuses to signal a group whose only member
-// is an unreaped zombie.
+// One snapshot, taken before the group is killed, both records the
+// current descendants and decides the rest, so killing the group cannot
+// orphan anything unseen. The group goes first: macOS refuses to signal a
+// group whose only member is an unreaped zombie.
 func (t *Tracker) Kill() error {
+	procs, ok := snapshot()
+	if ok {
+		t.recordFrom(procs)
+	}
 	err := killGroup(t.process)
+	if !ok {
+		return err
+	}
 	t.mu.Lock()
 	recorded := make(map[int]string, len(t.seen))
 	for pid, start := range t.seen {
 		recorded[pid] = start
 	}
 	t.mu.Unlock()
-	procs, ok := snapshot()
-	if !ok {
-		return err
-	}
 	sessions := map[int]bool{t.process.Pid: true}
 	var victims []int
 	for pid, start := range recorded {

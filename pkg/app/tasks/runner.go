@@ -96,7 +96,7 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 	var paused bool
 	if err := s.store.Update(ctx, func(st *State) error {
 		st.PassError = nil
-		s.bookkeep(st, defs, tagged, now)
+		s.bookkeep(ctx, st, defs, tagged, now)
 		paused = st.Paused
 		return nil
 	}); err != nil {
@@ -145,7 +145,7 @@ func (s *Service) notePassError(ctx context.Context, err error) error {
 
 // bookkeep announces tasks the person has not seen and closes items whose
 // work reached the primary ref.
-func (s *Service) bookkeep(st *State, defs []Definition, tagged map[string]*Tagged, now time.Time) {
+func (s *Service) bookkeep(ctx context.Context, st *State, defs []Definition, tagged map[string]*Tagged, now time.Time) {
 	st.pruneItems(now)
 	if st.Seen == nil {
 		st.Seen = map[string]time.Time{}
@@ -172,12 +172,30 @@ func (s *Service) bookkeep(st *State, defs []Definition, tagged map[string]*Tagg
 			if it.Worktree != "" {
 				it.Reason += " (worktree kept at " + it.Worktree + ")"
 			}
+			// The attempt counts as a run, so the task waits for its cadence
+			// instead of starting again in this pass.
+			st.Record(RunRecord{Task: it.Task, At: now, Outcome: OutcomeFailed, Message: it.Reason})
 		}
-		if t := tagged[it.Task]; it.Kind == KindTask && it.Active() && t != nil && t.At.After(it.Created) {
+		if t := tagged[it.Task]; it.Kind == KindTask && it.Active() && t != nil && s.newlyMerged(ctx, *t, *it) {
 			it.set(StateDone, now)
 			it.Reason = fmt.Sprintf("%s's commit %s reached the primary ref", t.Author, short(t.Commit))
 		}
 	}
+}
+
+// newlyMerged reports whether tagged work reached the primary ref after the
+// item was created: it is not already part of the commit the item was made
+// from. A merge can bring in work committed earlier, so committer dates
+// cannot decide this; they still drive cadence.
+func (s *Service) newlyMerged(ctx context.Context, t Tagged, it Item) bool {
+	if it.Commit == "" {
+		return t.At.After(it.Created)
+	}
+	if t.Commit == it.Commit {
+		return false
+	}
+	_, err := s.opts.Repo.git(ctx, "merge-base", "--is-ancestor", t.Commit, it.Commit)
+	return err != nil
 }
 
 func (s *Service) lastTagged(ctx context.Context, ref string, defs []Definition) map[string]*Tagged {
