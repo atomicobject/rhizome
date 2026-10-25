@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getStatus } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
@@ -23,8 +23,12 @@ import { NoteTab } from "./NoteTab";
 import { NoteTabStrip } from "./NoteTabStrip";
 import { SearchWorkspace } from "./SearchWorkspace";
 import { ViewTab } from "./ViewTab";
-import { NotesRightRail, useNotesRightRailState } from "./NotesRightRail";
+import { NotesRightRail } from "./NotesRightRail";
+import { PanelResizeHandle } from "./PanelResizeHandle";
 import { RecordRailProvider, useRecordRailState } from "./recordRail";
+import { inDesktop } from "./desktopHost";
+import { readSingleKey, typingIn } from "./KeyboardShortcuts";
+import { PANE_RANGE, SIDEBAR_RANGE, useShellPanes } from "./shellPanes";
 import {
   buildNotesLocation,
   normalizeNotePath,
@@ -73,9 +77,52 @@ function collectionLocation(tab: CollectionTab): NotesLocation {
   };
 }
 
-// F6 order: tab row, left rail, the active panel, context rail.
+// F6 moves in document order: sidebar, tab row, the active panel, right pane.
 const FOCUS_REGIONS =
-  ".notes-shell__tabs-row, .notes-left-rail, .notes-shell__panel.is-active, .notes-right-rail";
+  ".notes-left-rail, .notes-shell__tabs-row, .notes-shell__panel.is-active, .notes-right-rail";
+
+// All notes in its Briefing, whose Recent changes section is the sidebar's Recently changed.
+const RECENT_PRESENTATION = "workspace.briefing";
+
+type ShellStyle = CSSProperties & { "--sidebar-width": string; "--pane-width": string };
+
+function PanelIcon({ side }: { side: "left" | "right" }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <path d={side === "left" ? "M6 3v10" : "M10 3v10"} />
+    </svg>
+  );
+}
+
+/** Longer than a typical double-click interval. */
+const RECORD_PANE_DELAY_MS = 400;
+
+/** `value`, but it turns true only after staying true for `delay` ms; it turns false at once. */
+function useSettledTrue(value: boolean, delay: number): boolean {
+  const [settled, setSettled] = useState(value);
+
+  useEffect(() => {
+    if (!value) {
+      setSettled(false);
+
+      return;
+    }
+
+    const timer = window.setTimeout(() => setSettled(true), delay);
+
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+
+  return value && settled;
+}
 
 export function NotesShell({ active = true }: { active?: boolean }) {
   const queryClient = useQueryClient();
@@ -140,9 +187,9 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   }, [editSession.vaultKey]);
   const viewCatalogQuery = useViewCatalogQuery(active);
   const [contexts, setContexts] = useState<Map<string, NoteTabContext>>(new Map());
-  const contextRail = useNotesRightRailState();
+  const panes = useShellPanes();
   const recordRail = useRecordRailState();
-  const [homeCollectionView, setHomeCollectionView] = useState(false);
+  const [desktop] = useState(inDesktop);
 
   const { touchedPaths } = editSession.summary;
 
@@ -546,6 +593,75 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     [homePresentation, homeSelection],
   );
 
+  const recentActive =
+    tabs.activeTab.kind === "home" &&
+    homeSelection.kind === "all" &&
+    homePresentation === RECENT_PRESENTATION;
+
+  const openRecent = useCallback(
+    () =>
+      navigate(
+        buildNotesLocation({ selection: { kind: "all" }, presentation: RECENT_PRESENTATION }),
+      ),
+    [],
+  );
+
+  // One right pane: the active note's context, or the selected record of the
+  // active collection view. With neither, it stays closed. A first selection
+  // opens it a beat later, so the second click of a double-click still lands
+  // on the row instead of a table the opening pane just narrowed.
+  const record = useSettledTrue(
+    recordRail.showing && recordRail.selected && tabs.activeTab.kind !== "note",
+    RECORD_PANE_DELAY_MS,
+  );
+
+  const paneHasContent = !searchActive && (tabs.activeTab.kind === "note" || record);
+  const paneOpen = paneHasContent && !panes.paneCollapsed;
+  const sidebarHidden = searchActive || panes.sidebarCollapsed;
+  const { togglePane: togglePaneState, toggleSidebar } = panes;
+
+  const paneToggleRef = useRef<HTMLButtonElement>(null);
+
+  // Closing the pane from a control inside it would drop focus to the page;
+  // hand it to the pane toggle in the tab row instead.
+  const togglePane = useCallback(() => {
+    const fromInside = document
+      .getElementById("notes-right-pane")
+      ?.contains(document.activeElement);
+
+    togglePaneState();
+
+    if (fromInside) requestAnimationFrame(() => paneToggleRef.current?.focus());
+  }, [togglePaneState]);
+
+  useEffect(() => {
+    if (!active || !paneHasContent) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key !== "]" ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.defaultPrevented ||
+        typingIn(event.target) ||
+        !readSingleKey()
+      )
+        return;
+      event.preventDefault();
+      togglePane();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [active, paneHasContent, togglePane]);
+
+  const shellStyle: ShellStyle = {
+    "--sidebar-width": `${panes.sidebarWidth}px`,
+    "--pane-width": `${panes.paneWidth}px`,
+  };
+
   const homeSelectedType = useMemo(
     () => selectionType(homeSelection, summaryQuery.data),
     [homeSelection, summaryQuery.data],
@@ -595,7 +711,6 @@ export function NotesShell({ active = true }: { active?: boolean }) {
       onOpenIssues={selectIssues}
       onSelectIssue={selectIssue}
       onStageOps={stageOps}
-      onCollectionViewChange={id === "home" ? setHomeCollectionView : undefined}
     />
   );
 
@@ -604,213 +719,275 @@ export function NotesShell({ active = true }: { active?: boolean }) {
       className="workspace workspace--ontology notes-shell"
       aria-label="Notes workspace"
       ref={shellRef}
+      style={shellStyle}
     >
       <h1 className="sr-only">Notes</h1>
-      <div className="notes-shell__tabs-row">
-        <NoteTabStrip
-          tabs={tabs.tabs}
-          activeId={tabs.activeId}
-          onActivate={tabs.activate}
-          onClose={closeTab}
+      <div
+        className="notes-shell__sidebar"
+        hidden={sidebarHidden}
+        inert={sidebarHidden ? true : undefined}
+      >
+        <DiagnosticRegion name="sidebar">
+          <NotesLeftRail
+            active={active && !sidebarHidden}
+            vaultName={desktop ? null : (statusQuery.data?.vaultName ?? null)}
+            vaultPath={statusQuery.data?.vaultPath ?? null}
+            summary={summary}
+            selectedType={selectedType}
+            // A note or view tab is not a collection, so no sidebar row is current.
+            activeCollection={
+              tabs.activeTab.kind === "home" || tabs.activeTab.kind === "collection"
+                ? selectedType
+                : null
+            }
+            activeViewID={tabs.activeTab.kind === "view" ? tabs.activeTab.viewId : null}
+            editSession={editSession.session}
+            touchedPaths={touchedPaths}
+            onSelectCollection={selectCollection}
+            onSelectGroup={selectGroup}
+            activeGroup={
+              tabs.activeTab.kind === "home" && homeSelection.kind === "group"
+                ? homeSelection.group
+                : null
+            }
+            recentActive={recentActive}
+            onOpenRecent={openRecent}
+            onOpenConfiguredView={openConfiguredView}
+          />
+        </DiagnosticRegion>
+        <PanelResizeHandle
+          label="Resize sidebar"
+          range={SIDEBAR_RANGE}
+          value={panes.sidebarWidth}
+          edge="end"
+          cssVar="--sidebar-width"
+          target={shellRef}
+          onResize={panes.setSidebarWidth}
         />
-        {!searchActive ? (
-          <div className="notes-shell__session">
-            <OntologyEditSessionPanel
-              session={editSession.session}
-              editing={editSession.editing}
-              busy={editSession.busy}
-              saving={editSession.saving}
-              error={editSession.error}
-              warnings={editSession.warnings}
-              notice={editSession.notice}
-              hasLocalDrafts={hasLocalDrafts}
-              onStartEditing={startEditing}
-              onReview={() => selectCollection(PSEUDO_TYPE_MODIFIED)}
-              onCommit={() => void commit()}
-              onDiscard={() => void discard()}
-            />
-          </div>
-        ) : null}
       </div>
-      <div className={`notes-shell__body${searchActive ? " notes-shell__body--search" : ""}`}>
-        {tabs.tabs.flatMap((tab) =>
-          tab.kind === "search"
-            ? [
-                <section
-                  key={tab.id}
-                  id={`panel-${tab.id}`}
-                  role="tabpanel"
-                  aria-labelledby={`tab-${tab.id}`}
-                  className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
-                  inert={tabs.activeId === tab.id ? undefined : true}
-                >
-                  <SearchWorkspace
-                    tab={tab}
-                    active={active && tabs.activeId === tab.id}
-                    restoreReady={tabs.hydrated}
-                    types={summary?.types ?? []}
-                    editSession={editSession.session}
-                    onRefineSearch={tabs.refineSearch}
-                    onOpenNote={openTab}
-                    onScrollPosition={tabs.setSearchScroll}
-                  />
-                </section>,
-              ]
-            : [],
-        )}
-        <RecordRailProvider value={recordRail.rail}>
-          <div
-            className="notes-shell__note-surfaces"
-            hidden={searchActive}
-            inert={searchActive ? true : undefined}
-          >
-            <DiagnosticRegion name="sidebar">
-              <NotesLeftRail
-                active={noteSurfacesActive}
-                summary={summary}
-                selectedType={selectedType}
-                activeCollection={tabs.activeTab.kind === "view" ? null : selectedType}
-                activeViewID={tabs.activeTab.kind === "view" ? tabs.activeTab.viewId : null}
-                activeTabID={tabs.activeId}
-                collectionView={tabs.activeId === "home" && homeCollectionView}
-                editSession={editSession.session}
-                touchedPaths={touchedPaths}
-                findTabByPath={tabs.findByPath}
-                onSelectCollection={selectCollection}
-                onSelectGroup={selectGroup}
-                activeGroup={
-                  tabs.activeTab.kind === "home" && homeSelection.kind === "group"
-                    ? homeSelection.group
-                    : null
-                }
-                onOpenConfiguredView={openConfiguredView}
-                onOpenNote={openTab}
-              />
-            </DiagnosticRegion>
-            <section
-              id="panel-home"
-              role="tabpanel"
-              aria-labelledby="tab-home"
-              className={`notes-shell__panel${tabs.activeId === "home" ? " is-active" : ""}`}
-              inert={tabs.activeId === "home" ? undefined : true}
+      <div className="notes-shell__frame">
+        <div className="notes-shell__tabs-row">
+          {searchActive ? null : (
+            <button
+              type="button"
+              className="notes-shell__pane-toggle"
+              aria-label={panes.sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+              aria-expanded={!panes.sidebarCollapsed}
+              title={panes.sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+              onClick={toggleSidebar}
             >
-              {renderHomeTab("home", homeSelection, homeSelectedType, homeLocation)}
-            </section>
-            {tabs.tabs.flatMap((tab) =>
-              tab.kind === "collection"
-                ? [
-                    <section
-                      key={tab.id}
-                      id={`panel-${tab.id}`}
-                      role="tabpanel"
-                      aria-labelledby={`tab-${tab.id}`}
-                      className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
-                      inert={tabs.activeId === tab.id ? undefined : true}
-                    >
-                      {renderHomeTab(
-                        tab.id,
-                        COLLECTION_SELECTIONS[tab.collection],
-                        tab.collection === "issues" ? PSEUDO_TYPE_ISSUES : PSEUDO_TYPE_MODIFIED,
-                        locationForCollection(tab),
-                      )}
-                    </section>,
-                  ]
-                : [],
-            )}
-            {tabs.tabs.flatMap((tab) =>
-              tab.kind === "view"
-                ? [
-                    <section
-                      key={tab.id}
-                      id={`panel-${tab.id}`}
-                      role="tabpanel"
-                      aria-labelledby={`tab-${tab.id}`}
-                      className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
-                      inert={tabs.activeId === tab.id ? undefined : true}
-                    >
-                      <ViewTab
-                        tab={tab}
-                        active={noteSurfacesActive && tabs.activeId === tab.id}
-                        editSession={viewEditSession}
-                        onOpenNote={openTab}
-                        onOpenNode={openNode}
-                        onOpenView={openView}
-                        onOpenSearch={openSearch}
-                        onStageOps={stageOps}
-                        onOpenIssues={selectIssues}
-                        onSelectCollection={selectCollection}
-                        onTitle={tabs.setTitle}
-                      />
-                    </section>,
-                  ]
-                : [],
-            )}
-            {tabs.tabs.flatMap((tab) =>
-              tab.kind === "note"
-                ? [
-                    <section
-                      key={tab.id}
-                      id={`panel-${tab.id}`}
-                      role="tabpanel"
-                      aria-labelledby={`tab-${tab.id}`}
-                      className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
-                      inert={tabs.activeId === tab.id ? undefined : true}
-                    >
-                      <DiagnosticRegion name="note-view">
-                        <NoteTab
+              <PanelIcon side="left" />
+            </button>
+          )}
+          <NoteTabStrip
+            tabs={tabs.tabs}
+            activeId={tabs.activeId}
+            onActivate={tabs.activate}
+            onClose={closeTab}
+          />
+          {!searchActive ? (
+            <div className="notes-shell__session">
+              <OntologyEditSessionPanel
+                session={editSession.session}
+                editing={editSession.editing}
+                busy={editSession.busy}
+                saving={editSession.saving}
+                error={editSession.error}
+                warnings={editSession.warnings}
+                notice={editSession.notice}
+                hasLocalDrafts={hasLocalDrafts}
+                onStartEditing={startEditing}
+                onReview={() => selectCollection(PSEUDO_TYPE_MODIFIED)}
+                onCommit={() => void commit()}
+                onDiscard={() => void discard()}
+              />
+            </div>
+          ) : null}
+          {searchActive ? null : (
+            <button
+              ref={paneToggleRef}
+              type="button"
+              className="notes-shell__pane-toggle"
+              aria-label={paneOpen ? "Hide right pane" : "Show right pane"}
+              aria-expanded={paneOpen}
+              aria-keyshortcuts="]"
+              title={paneOpen ? "Hide right pane (])" : "Show right pane (])"}
+              disabled={!paneHasContent}
+              onClick={togglePane}
+            >
+              <PanelIcon side="right" />
+            </button>
+          )}
+        </div>
+        <div className={`notes-shell__body${searchActive ? " notes-shell__body--search" : ""}`}>
+          {tabs.tabs.flatMap((tab) =>
+            tab.kind === "search"
+              ? [
+                  <section
+                    key={tab.id}
+                    id={`panel-${tab.id}`}
+                    role="tabpanel"
+                    aria-labelledby={`tab-${tab.id}`}
+                    className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
+                    inert={tabs.activeId === tab.id ? undefined : true}
+                  >
+                    <SearchWorkspace
+                      tab={tab}
+                      active={active && tabs.activeId === tab.id}
+                      restoreReady={tabs.hydrated}
+                      types={summary?.types ?? []}
+                      editSession={editSession.session}
+                      onRefineSearch={tabs.refineSearch}
+                      onOpenNote={openTab}
+                      onScrollPosition={tabs.setSearchScroll}
+                    />
+                  </section>,
+                ]
+              : [],
+          )}
+          <RecordRailProvider value={recordRail.rail}>
+            <div
+              className="notes-shell__note-surfaces"
+              hidden={searchActive}
+              inert={searchActive ? true : undefined}
+            >
+              <section
+                id="panel-home"
+                role="tabpanel"
+                aria-labelledby="tab-home"
+                className={`notes-shell__panel${tabs.activeId === "home" ? " is-active" : ""}`}
+                inert={tabs.activeId === "home" ? undefined : true}
+              >
+                {renderHomeTab("home", homeSelection, homeSelectedType, homeLocation)}
+              </section>
+              {tabs.tabs.flatMap((tab) =>
+                tab.kind === "collection"
+                  ? [
+                      <section
+                        key={tab.id}
+                        id={`panel-${tab.id}`}
+                        role="tabpanel"
+                        aria-labelledby={`tab-${tab.id}`}
+                        className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
+                        inert={tabs.activeId === tab.id ? undefined : true}
+                      >
+                        {renderHomeTab(
+                          tab.id,
+                          COLLECTION_SELECTIONS[tab.collection],
+                          tab.collection === "issues" ? PSEUDO_TYPE_ISSUES : PSEUDO_TYPE_MODIFIED,
+                          locationForCollection(tab),
+                        )}
+                      </section>,
+                    ]
+                  : [],
+              )}
+              {tabs.tabs.flatMap((tab) =>
+                tab.kind === "view"
+                  ? [
+                      <section
+                        key={tab.id}
+                        id={`panel-${tab.id}`}
+                        role="tabpanel"
+                        aria-labelledby={`tab-${tab.id}`}
+                        className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
+                        inert={tabs.activeId === tab.id ? undefined : true}
+                      >
+                        <ViewTab
                           tab={tab}
-                          views={viewCatalogQuery.data}
-                          onPresentation={tabs.setPresentation}
+                          active={noteSurfacesActive && tabs.activeId === tab.id}
+                          editSession={viewEditSession}
+                          onOpenNote={openTab}
                           onOpenNode={openNode}
                           onOpenView={openView}
                           onOpenSearch={openSearch}
-                          active={noteSurfacesActive && tabs.activeId === tab.id}
-                          anchor={
-                            tabs.activeId === tab.id &&
-                            location.note !== null &&
-                            normalizeNotePath(location.note) === tab.path
-                              ? location.fragment
-                              : null
-                          }
-                          editSession={editSession.session}
-                          readLifecycle={editSession.readLifecycle}
-                          savedWorkspaces={editSession.savedWorkspaces}
-                          editing={editSession.editing}
-                          onOpen={openTab}
-                          onTitle={tabs.setTitle}
-                          onFocusedTarget={tabs.setFocusedTarget}
-                          registerContext={registerTabContext}
-                          contextCollapsed={contextRail.collapsed}
-                          onToggleContext={contextRail.toggle}
                           onStageOps={stageOps}
-                          vaultKey={editSession.vaultKey}
-                          validationIssueCount={
-                            tab.path === activeNotePath ? activeValidationIssueCount : undefined
-                          }
-                          validationHealth={activeValidationHealth}
-                          onSelectIssues={selectIssues}
+                          onOpenIssues={selectIssues}
                           onSelectCollection={selectCollection}
+                          onTitle={tabs.setTitle}
                         />
-                      </DiagnosticRegion>
-                    </section>,
-                  ]
-                : [],
-            )}
-            <NotesRightRail
-              active={noteSurfacesActive}
-              context={activeContext}
-              editSession={editSession.session}
-              collapsed={contextRail.collapsed}
-              onToggleCollapsed={contextRail.toggle}
-              onOpen={openFromContext}
-              onOpenNode={openNodeFromContext}
-              validationIssueCount={activeValidationIssueCount}
-              validationHealth={activeValidationHealth}
-              record={recordRail.showing && tabs.activeTab.kind !== "note"}
-              onRecordSlot={recordRail.setSlot}
-            />
-          </div>
-        </RecordRailProvider>
+                      </section>,
+                    ]
+                  : [],
+              )}
+              {tabs.tabs.flatMap((tab) =>
+                tab.kind === "note"
+                  ? [
+                      <section
+                        key={tab.id}
+                        id={`panel-${tab.id}`}
+                        role="tabpanel"
+                        aria-labelledby={`tab-${tab.id}`}
+                        className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
+                        inert={tabs.activeId === tab.id ? undefined : true}
+                      >
+                        <DiagnosticRegion name="note-view">
+                          <NoteTab
+                            tab={tab}
+                            views={viewCatalogQuery.data}
+                            onPresentation={tabs.setPresentation}
+                            onOpenNode={openNode}
+                            onOpenView={openView}
+                            onOpenSearch={openSearch}
+                            active={noteSurfacesActive && tabs.activeId === tab.id}
+                            anchor={
+                              tabs.activeId === tab.id &&
+                              location.note !== null &&
+                              normalizeNotePath(location.note) === tab.path
+                                ? location.fragment
+                                : null
+                            }
+                            editSession={editSession.session}
+                            readLifecycle={editSession.readLifecycle}
+                            savedWorkspaces={editSession.savedWorkspaces}
+                            editing={editSession.editing}
+                            onOpen={openTab}
+                            onTitle={tabs.setTitle}
+                            onFocusedTarget={tabs.setFocusedTarget}
+                            registerContext={registerTabContext}
+                            onStageOps={stageOps}
+                            vaultKey={editSession.vaultKey}
+                            validationIssueCount={
+                              tab.path === activeNotePath ? activeValidationIssueCount : undefined
+                            }
+                            validationHealth={activeValidationHealth}
+                            onSelectIssues={selectIssues}
+                            onSelectCollection={selectCollection}
+                          />
+                        </DiagnosticRegion>
+                      </section>,
+                    ]
+                  : [],
+              )}
+              <NotesRightRail
+                active={noteSurfacesActive}
+                context={activeContext}
+                editSession={editSession.session}
+                open={paneOpen}
+                overlay={panes.paneOverlay}
+                onClose={togglePane}
+                onOpen={openFromContext}
+                onOpenNode={openNodeFromContext}
+                validationIssueCount={activeValidationIssueCount}
+                validationHealth={activeValidationHealth}
+                record={record}
+                onRecordSlot={recordRail.setSlot}
+                resizeHandle={
+                  panes.paneOverlay ? null : (
+                    <PanelResizeHandle
+                      label="Resize right pane"
+                      range={PANE_RANGE}
+                      value={panes.paneWidth}
+                      edge="start"
+                      cssVar="--pane-width"
+                      target={shellRef}
+                      onResize={panes.setPaneWidth}
+                    />
+                  )
+                }
+              />
+            </div>
+          </RecordRailProvider>
+        </div>
       </div>
     </main>
   );

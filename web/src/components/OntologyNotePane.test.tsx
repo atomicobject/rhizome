@@ -2275,7 +2275,7 @@ describe("OntologyNotePane", () => {
       sections,
     };
 
-    const pane = (contextCollapsed: boolean) => (
+    const pane = () => (
       <OntologyNotePane
         rendered={rendered}
         workspace={asWorkspace({
@@ -2283,7 +2283,6 @@ describe("OntologyNotePane", () => {
           content: { path: notePath, title: "Plain", rendered },
         })}
         onOpen={vi.fn()}
-        contextCollapsed={contextCollapsed}
         onContextChange={(next) => {
           contextRef.current = next;
         }}
@@ -2291,9 +2290,9 @@ describe("OntologyNotePane", () => {
     );
 
     try {
-      const view = render(pane(false));
+      const view = render(pane());
       // A re-render with an unchanged source keeps the memoized body and its refs.
-      view.rerender(pane(true));
+      view.rerender(pane());
 
       const beta = contextRef.current?.outline.sections.find((section) => section.title === "Beta");
 

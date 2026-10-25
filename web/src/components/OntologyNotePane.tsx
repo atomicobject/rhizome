@@ -71,8 +71,6 @@ type Props = {
   presentationControls?: ReactNode;
   renderPresentation?: (body: ReactNode) => ReactNode;
   onViewModeChange?: (mode: NoteViewMode) => void;
-  contextCollapsed?: boolean;
-  onToggleContext?: () => void;
   breadcrumbs?: ReactNode;
   editing?: boolean;
   editSession?: OntologyEditSessionResponse | null;
@@ -989,8 +987,6 @@ export function OntologyNotePane({
   onViewModeChange,
   presentationControls,
   renderPresentation,
-  contextCollapsed,
-  onToggleContext,
   breadcrumbs,
   editing = false,
   editSession,
@@ -1602,17 +1598,6 @@ export function OntologyNotePane({
               {copyLinkMessage}
             </span>
           )}
-          {onToggleContext && !contextCollapsed ? (
-            <button
-              type="button"
-              className="ontology-icon-btn ontology-pane__context-toggle"
-              aria-label={contextCollapsed ? "Expand note context" : "Collapse note context"}
-              aria-pressed={!contextCollapsed}
-              onClick={onToggleContext}
-            >
-              <span aria-hidden="true">▥</span>
-            </button>
-          ) : null}
         </div>
       </header>
 

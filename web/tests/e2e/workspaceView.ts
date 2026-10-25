@@ -23,13 +23,6 @@ export async function expectView(scope: Page | Locator, name: string) {
   await expect(workspaceView(scope).locator("[aria-pressed=true]")).toHaveText(name);
 }
 
-/** Opens the rail's note list, which starts collapsed while a collection view lists the records. */
-export async function expandNoteList(page: Page, name: string) {
-  const toggle = page.getByRole("button", { name, exact: true });
-  await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await toggle.click();
-}
-
 /** Waits until the visible configured view has finished loading. */
 export async function expectViewSettled(page: Page) {
   await expect(page.locator(".configured-view:visible")).toHaveAttribute("aria-busy", "false");
