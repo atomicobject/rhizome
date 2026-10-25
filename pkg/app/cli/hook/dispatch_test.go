@@ -57,7 +57,7 @@ func helper(mode string, args []string) {
 		fmt.Fprintln(os.Stderr, "handler broke")
 		os.Exit(3)
 	case mode == "warn":
-		fmt.Fprintln(os.Stderr, "session-memory hook: writing the shard cache: EACCES")
+		fmt.Fprintln(os.Stderr, "compounding hook: writing the shard cache: EACCES")
 		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"items": []Item{{ID: "w", Text: "text w"}}})
 	case mode == "event":
 		var in handlerInput
@@ -383,7 +383,7 @@ func TestHandlerStderrIsLoggedEvenWhenItSucceeds(t *testing.T) {
 	require.Equal(t, "text w", res.HookSpecificOutput.AdditionalContext, "the handler's items are kept")
 	log, err := os.ReadFile(filepath.Join(root, ".rhizome", "hooks", "diagnostics.log"))
 	require.NoError(t, err)
-	require.Contains(t, string(log), "test/warn stderr: session-memory hook: writing the shard cache: EACCES")
+	require.Contains(t, string(log), "test/warn stderr: compounding hook: writing the shard cache: EACCES")
 }
 
 func TestALockedWriteLeavesAResetMarkerStillBeingWritten(t *testing.T) {

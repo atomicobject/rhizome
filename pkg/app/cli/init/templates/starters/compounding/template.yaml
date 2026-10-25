@@ -1,0 +1,26 @@
+id: compounding
+name: Compounding
+description: "Review agent sessions for recurring friction and missing context, and turn each into a fix, a document edit, a guard rule, or a context shard you approve"
+requires:
+  - core
+optionalAddon: true
+installedAssetTypes:
+  - ontology
+  - query-recipes
+  - views
+  - skills
+  - managed-docs
+hooks:
+  - id: deliver-shards
+    delivers: approved context shards when an agent starts or reads, edits, or runs commands they apply to
+    events: [session-start, subagent-start, post-tool-use]
+    tools: [read, edit, patch, shell]
+    skill: compounding
+    command: [node, "{skill}/scripts/hook.mjs"]
+    timeout: 3s
+    commandPrefixes: .rhizome/compounding/hook/command-prefixes.json
+  - id: guard-rules
+    delivers: refuses a tool call that an approved guard finding's rule forbids, before it runs
+    events: [pre-tool-use]
+    tools: [read, edit, patch, shell]
+    guardRules: docs/memory/agent-findings

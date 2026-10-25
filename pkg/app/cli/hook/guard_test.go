@@ -390,13 +390,13 @@ func TestOnlyTrackedUnchangedFindingNotesHoldRules(t *testing.T) {
 	writeNote(t, root, "guard-ok.md", strings.Replace(string(text), `"reason":"r"`, `"reason":"edited"`, 1), true)
 	rules, problems = LoadGuardRules(context.Background(), root, findingsDir)
 	require.Empty(t, rules)
-	require.Contains(t, problems, rel+": edited after approval; revise it through the session-memory review")
+	require.Contains(t, problems, rel+": edited after approval; revise it through the compounding review")
 	_, out = preToolUse(t, root, HarnessClaude, "Bash", map[string]string{"command": "make omega"}, guardHandler)
 	require.Empty(t, out)
 }
 
 // A rule loads only as JSON.stringify writes it, escapes included; the
-// session-memory scripts' table (guard-frontmatter.json) covers other forms.
+// compounding scripts' table (guard-frontmatter.json) covers other forms.
 func TestGuardRulesLoadOnlyAsTheScriptsWriteThem(t *testing.T) {
 	root := guardRepo(t)
 	written := `{"tool":"shell","command":"make omega","reason":"Say \"hi\" \\ <b>&\t\u0001\u001f é — 😀","alternative":"a\nb"}`
@@ -405,7 +405,7 @@ func TestGuardRulesLoadOnlyAsTheScriptsWriteThem(t *testing.T) {
 	rules, problems := LoadGuardRules(context.Background(), root, findingsDir)
 	require.Len(t, rules, 1)
 	require.Equal(t, "Say \"hi\" \\ <b>&\t\x01\x1f é — 😀", rules[0].Reason)
-	require.Equal(t, []string{findingsDir + "/guard-escaped-letter.md: guard-rule is not the JSON the session-memory scripts write; revise it through the session-memory review"}, problems)
+	require.Equal(t, []string{findingsDir + "/guard-escaped-letter.md: guard-rule is not the JSON the compounding scripts write; revise it through the compounding review"}, problems)
 }
 
 // shards.mjs computes the same hash; its test pins the same value.
@@ -467,11 +467,11 @@ func TestAGuardNeverBlocksOnItsOwnFailure(t *testing.T) {
 	require.Empty(t, out)
 }
 
-// The session-memory scripts check a rule's path against the same table
+// The compounding scripts check a rule's path against the same table
 // before approval, so the dispatcher matches only the dialect approval's
 // breadth check counted.
 func TestGuardPathRulesUseTheShardPatternDialect(t *testing.T) {
-	raw, err := os.ReadFile("../init/testdata/session-memory/guard-paths.json")
+	raw, err := os.ReadFile("../init/testdata/compounding/guard-paths.json")
 	require.NoError(t, err)
 	var cases [][2]any
 	require.NoError(t, json.Unmarshal(raw, &cases))
@@ -488,10 +488,10 @@ func TestGuardPathRulesUseTheShardPatternDialect(t *testing.T) {
 	}
 }
 
-// The session-memory scripts check a rule's command against the same table
+// The compounding scripts check a rule's command against the same table
 // before approval, so a command approval accepts is one the dispatcher loads.
 func TestGuardCommandRulesLoadAsTheScriptsValidateThem(t *testing.T) {
-	raw, err := os.ReadFile("../init/testdata/session-memory/guard-commands.json")
+	raw, err := os.ReadFile("../init/testdata/compounding/guard-commands.json")
 	require.NoError(t, err)
 	var cases [][2]any
 	require.NoError(t, json.Unmarshal(raw, &cases))
@@ -505,12 +505,12 @@ func TestGuardCommandRulesLoadAsTheScriptsValidateThem(t *testing.T) {
 	}
 }
 
-// The session-memory scripts accept only frontmatter in the form they write;
+// The compounding scripts accept only frontmatter in the form they write;
 // the same table pins that the dispatcher loads every note they accept, and
 // rejects the malformed ones check reports. A case with its own guard-rule
 // replaces the canonical one.
 func TestGuardNotesTheScriptsAcceptLoad(t *testing.T) {
-	raw, err := os.ReadFile("../init/testdata/session-memory/guard-frontmatter.json")
+	raw, err := os.ReadFile("../init/testdata/compounding/guard-frontmatter.json")
 	require.NoError(t, err)
 	var cases [][3]any
 	require.NoError(t, json.Unmarshal(raw, &cases))

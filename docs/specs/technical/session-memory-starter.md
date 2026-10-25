@@ -4,16 +4,17 @@ id: SPEC-0124
 aliases:
   - SPEC-0124
   - Session memory starter
-summary: "An opt-in session-memory starter mines a developer's local Claude Code and Codex transcripts for what slows agents down: corrections, hard-won facts, and questions agents keep researching. It screens them with Jev, verifies candidates against the current code, and routes each one to the response that removes the friction: a remembered context shard, a documentation edit, a fix, a guardrail, or a question for an owner. Nothing enters the repository until a person approves it. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
+  - Compounding add-on
+summary: "An opt-in compounding starter mines a developer's local Claude Code and Codex transcripts for what slows agents down: corrections, hard-won facts, and questions agents keep researching. It screens them with Jev, verifies candidates against the current code, and routes each one to the response that removes the friction: a remembered context shard, a documentation edit, a fix, a guardrail, or a question for an owner. Nothing enters the repository until a person approves it. Agents find shards through a lookup workflow and managed guidance, and optional harness hooks deliver them when an agent reads or edits the files they apply to."
 spec-status: active
 last-updated: 2026-10-25
 ---
 
-# Session memory starter
+# Compounding add-on (formerly session memory)
 
 ## Summary
 
-What an agent or a human learns during a coding session is lost when the next session starts with a fresh context window. Humans correct the same mistakes again, and agents spend hundreds of tool calls rediscovering the same facts. The `session-memory` starter turns a developer's past agent sessions into reviewed improvements to how well agents work in the repository.
+What an agent or a human learns during a coding session is lost when the next session starts with a fresh context window. Humans correct the same mistakes again, and agents spend hundreds of tool calls rediscovering the same facts. The `compounding` starter turns a developer's past agent sessions into reviewed improvements to how well agents work in the repository.
 
 Not every learning should become a memory. The first labeled run showed that most recurring friction comes from something the team can change: dead code that misleads agents, a flaky test, a bad default, a rule nobody wrote down. A note that teaches agents to work around such a problem preserves it. So each finding is routed to one of five responses, and only lasting facts and deliberate design become remembered shards:
 
@@ -27,12 +28,12 @@ The design follows the pipeline Boundary and HumanLayer described in [Why AI Cod
 
 The starter has two halves with a hard boundary between them:
 
-- **Everything unreviewed stays on the developer's machine.** Transcript digests, screened episodes, candidates, and proposals live in ignored local state under `.rhizome/session-memory/`.
+- **Everything unreviewed stays on the developer's machine.** Transcript digests, screened episodes, candidates, and proposals live in ignored local state under `.rhizome/compounding/`.
 - **The repository holds only what a person approved.** Each approved learning is a `ContextShard` note in `docs/memory/context-shards/`, and the repository also records decisions not to keep a learning, so teammates are not asked again. A tracked shard is in force by definition. Retiring it removes the note and records the decision.
 
 Approved shards reach agents in two layers. The baseline works in every host, including T3 Code: a `lookup` workflow returns the current shards for a task, files, or a command, and managed `AGENTS.md`/`CLAUDE.md` guidance tells agents when to call it. Each shard also declares a glob `code-anchors` entry, so Rhizome's own file context and search find it. The second layer is optional push delivery. Claude Code and Codex both run project hooks around tool calls and accept context from them ([Claude Code hooks](https://code.claude.com/docs/en/hooks), [Codex hooks](https://learn.chatgpt.com/docs/hooks)), so a delivery hook can add the shards for a file when an agent reads or edits it. Hooks stay off until the person turns them on, and they leave draft only after delivery is confirmed live in each host.
 
-The starter builds on [[init-template-architecture]], [[core-template-and-template-dependencies]], [[saved-query-recipes]], [[code-mode-skill-scripts]], and [[code-intel|code anchors]]. It is one `session-memory` skill whose workflows are Node scripts that call `rzm` subcommands. They are not code-mode scripts, because code mode caps each call at five minutes and extraction and grouping calls run longer. Scripts own transcript parsing, model calls, checkpoints, budgets, validation, local state, note writing, and delivery. The agent picks the workflow and explains results, and a person approves what is published. Decisions run on Jev through the existing integration (`rzm agent evaluate-batch`). Extraction and verification run through one new Rhizome operation, `generate`, with each model role bound to a concrete model per run.
+The starter builds on [[init-template-architecture]], [[core-template-and-template-dependencies]], [[saved-query-recipes]], [[code-mode-skill-scripts]], and [[code-intel|code anchors]]. It is one `compounding` skill whose workflows are Node scripts that call `rzm` subcommands. They are not code-mode scripts, because code mode caps each call at five minutes and extraction and grouping calls run longer. Scripts own transcript parsing, model calls, checkpoints, budgets, validation, local state, note writing, and delivery. The agent picks the workflow and explains results, and a person approves what is published. Decisions run on Jev through the existing integration (`rzm agent evaluate-batch`). Extraction and verification run through one new Rhizome operation, `generate`, with each model role bound to a concrete model per run.
 
 ## Goals
 
@@ -64,7 +65,7 @@ The starter builds on [[init-template-architecture]], [[core-template-and-templa
 ### US1 - Mine recent sessions into proposals
 
 - id:: ^SPEC-0124-US1
-- summary:: A developer runs the session-memory skill and gets local proposals drawn from their recent Claude Code and Codex sessions for this repository, each supported by independent evidence and checked against the current code.
+- summary:: A developer runs the compounding skill and gets local proposals drawn from their recent Claude Code and Codex sessions for this repository, each supported by independent evidence and checked against the current code.
 - status:: satisfied
 
 #### Acceptance Criteria
@@ -184,10 +185,10 @@ The rest of this story applies where hooks are installed.
 
 ### Packaging and installation
 
-- The starter MUST be named `session-memory`, install from `pkg/app/cli/init/templates/starters/session-memory/**`, require `core`, and be marked as an optional addon that no starter activates by default.
+- The starter MUST be named `compounding`, install from `pkg/app/cli/init/templates/starters/compounding/**`, require `core`, and be marked as an optional addon that no starter activates by default.
 - A first run MUST accept it in `--addons`.
 - An existing configured repository MUST be able to add or remove it without changing any other addon choice, and the change MUST survive later init reruns and settings edits. Adding moves the id into `addons.enabled` and out of `addons.disabled`. Adding an ejected addon is refused with an instruction to use `--restore`.
-- It MUST install a template-owned ontology file, query recipes, a view of approved shards, the `session-memory` skill and its scripts, and a managed `AGENTS.md` block. The block routes session-memory work to the skill, tells agents when to run lookup, and asks agents to state, in one sentence in their reply, any non-obvious fact an investigation turned up, because mining reads replies and drops tool output.
+- It MUST install a template-owned ontology file, query recipes, a view of approved shards, the `compounding` skill and its scripts, and a managed `AGENTS.md` block. The block routes compounding work to the skill, tells agents when to run lookup, and asks agents to state, in one sentence in their reply, any non-obvious fact an investigation turned up, because mining reads replies and drops tool output.
 
 ### Skill and model calls
 
@@ -207,8 +208,8 @@ The rest of this story applies where hooks are installed.
 - The run MUST take its provider from, in order: the harness the calling agent names (the skill tells the agent to pass the harness it is running in); the user's Rhizome agent setting (`agent.harness`, which the desktop agent chat already uses); and the only provider installed and signed in. Otherwise it MUST stop and ask which to use. Only a local profile listing both providers lets a run choose between them.
 - When the provider's catalog has a newer version of a candidate's family than the profile names, and the profile has no entry for that version, the resolver MUST use the newest version at the candidate's effort, and report it as unmeasured.
 - When no version of a candidate's family is available, the resolver MUST fall back to the role's next candidate from the same provider (for example Haiku to Sonnet), never to another provider's.
-- The starter MUST ship its default profile as `models.json` in the `session-memory` skill. The profile has a `version`, and each candidate has either a reference to the measurement that chose it or a `provisional` flag. A change to the shipped profile MUST update `references/models.md` in the same change. A test MUST check that every role has a candidate for each provider, or an explicit `none` with a reason.
-- A developer MAY override the profile in `.rhizome/session-memory/models.json`. A run MAY override a role with `--model <role>=<provider>:<model>:<effort>`. A run flag takes precedence over the local file, and the local file over the shipped profile. An override replaces a role's whole candidate list.
+- The starter MUST ship its default profile as `models.json` in the `compounding` skill. The profile has a `version`, and each candidate has either a reference to the measurement that chose it or a `provisional` flag. A change to the shipped profile MUST update `references/models.md` in the same change. A test MUST check that every role has a candidate for each provider, or an explicit `none` with a reason.
+- A developer MAY override the profile in `.rhizome/compounding/models.json`. A run MAY override a role with `--model <role>=<provider>:<model>:<effort>`. A run flag takes precedence over the local file, and the local file over the shipped profile. An override replaces a role's whole candidate list.
 - When a run starts, the resolver MUST select, for each role, the first candidate that meets three conditions:
   - Its provider is reachable from the running harness, and `rzm harness status` reports it as installed and signed in.
   - Its model is in that provider's catalog, or a one-call probe with a minimal schema succeeds. Probe results are cached by provider, model, effort, and CLI version.
@@ -246,7 +247,7 @@ The rest of this story applies where hooks are installed.
 
 ### Local data and extraction
 
-- All unreviewed data MUST live under `.rhizome/session-memory/`, created with owner-only permissions on macOS and Linux. On Windows, which has no owner-only mode bits, it inherits the checkout's access control, and the skill tells the person before a first run there. A lock MUST guard every write.
+- All unreviewed data MUST live under `.rhizome/compounding/`, created with owner-only permissions on macOS and Linux. On Windows, which has no owner-only mode bits, it inherits the checkout's access control, and the skill tells the person before a first run there. A lock MUST guard every write.
 - Session discovery MUST match by recorded `cwd` and, for Codex, by `git.repository_url`. It MUST cover the repository root, current worktrees, and configured path patterns for deleted worktrees, and MUST skip Codex guardian-review sessions.
 - Episodes MUST share one representation that carries:
   - family and lineage
@@ -301,6 +302,7 @@ None open. Decided:
 - **Delivery on command text (Drew, 2026-10-22):** the hook handler delivers after a shell command whose text starts with an approved shard's command prefix. The dispatcher starts the handler for a shell call only when the command matches a prefix in the list the handler last published, so other shell calls start nothing.
 - **Tracked locations (Drew, 2026-10-22):** everything the starter tracks lives under `docs/memory/`: shards in `docs/memory/context-shards/<kind>-<slug>.md`, decisions in `docs/memory/context-shards/decisions/`, and findings in `docs/memory/agent-findings/<response>-<slug>.md`.
 - **Guard enforcement (Drew, 2026-10-22):** an approved `guard` finding may carry a guard rule, which the dispatcher enforces before the tool call runs where the host allows it ([[agent-surface-integration-modes#^SPEC-0045-US6]]). The dispatcher applies the rules itself, without starting a handler, so it shares the shell parser and path containment delivery uses; on macOS a guarded call takes about 28–40 ms with no match and 32–45 ms when refused, including one `git ls-files` of about 13 ms. A rule stays active after its action item is checked, since the guard is that check.
+- **Name (Drew, 2026-10-25):** the add-on, its skill, its hook handlers, and its local state in `.rhizome/compounding/` are named `compounding`, not `session-memory`. Most findings in the first labeled runs became fixes, document edits, or guards, and memory proper holds human intent and facts an agent needs that documentation will not surface at the right moment. Tracked notes stay under `docs/memory/`, and this spec keeps its file name.
 - **Mining window (Drew, 2026-10-22):** the last 7 days by default, and the first run asks before reading more than 200 sessions.
 - **Publication:** this repository is public, so dogfood shards, findings, and shared decisions are committed only after Drew approves each one as fit to publish.
 

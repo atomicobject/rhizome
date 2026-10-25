@@ -1,4 +1,4 @@
-// The benchmark's bridge to the session-memory starter: its stage functions,
+// The benchmark's bridge to the compounding starter: its stage functions,
 // clients, and caller, so a benchmark measures what ships. Model calls go
 // through `rzm agent generate` (RZM, default ./bin/darwin/rzm) and are cached
 // by content under each run's state directory.
@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-const SCRIPTS = new URL("../../pkg/app/cli/init/templates/starters/session-memory/agents/skills/session-memory/scripts/", import.meta.url);
+const SCRIPTS = new URL("../../pkg/app/cli/init/templates/starters/compounding/agents/skills/compounding/scripts/", import.meta.url);
 const load = (path) => import(new URL(path, SCRIPTS));
 
 export const calls = await load("lib/calls.mjs");

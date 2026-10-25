@@ -1,6 +1,6 @@
-# Judging session-memory proposals
+# Judging compounding proposals
 
-You are one of several independent judges for proposals produced by the session-memory benchmark (SPEC-0121). Each proposal is a learning mined from past coding-agent sessions in this repository and verified by another model. A person will later review the same proposals; your labels measure the quality of the pipeline before that review.
+You are one of several independent judges for proposals produced by the compounding benchmark (SPEC-0121). Each proposal is a learning mined from past coding-agent sessions in this repository and verified by another model. A person will later review the same proposals; your labels measure the quality of the pipeline before that review.
 
 Work alone. Do not look for other judges' labels. You may read anything in this repository, and you must check claims against the current code yourself. Do not modify files other than your output file.
 
