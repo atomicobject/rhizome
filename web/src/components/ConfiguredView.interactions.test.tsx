@@ -114,9 +114,24 @@ afterEach(() => {
 });
 
 describe("ConfiguredView shell interactions", () => {
+  it("brings an active preset's chip back when the last filter row is removed", () => {
+    renderConfiguredView({ state: { filterPreset: "active" } });
+
+    // An active preset counts toward the Filter button's label.
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    expect(screen.queryByRole("button", { name: "Remove preset Active" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    expect(screen.getByRole("button", { name: "Remove preset Active" })).toBeVisible();
+  });
+
   it("sets and clears a filter preset", () => {
     const onStateChange = vi.fn();
     const rendered = renderConfiguredView({ onStateChange });
+    expect(screen.queryByRole("button", { name: "Active" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     fireEvent.click(screen.getByRole("button", { name: "Active" }));
     expect(onStateChange).toHaveBeenLastCalledWith({ filterPreset: "active", page: { offset: 0 } });
 
@@ -132,7 +147,8 @@ describe("ConfiguredView shell interactions", () => {
         onOpenRow={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Active" }));
+    // The active preset shows as a removable chip under the header.
+    fireEvent.click(screen.getByRole("button", { name: "Remove preset Active" }));
     expect(onStateChange).toHaveBeenLastCalledWith({ filterPreset: "", page: { offset: 0 } });
   });
 

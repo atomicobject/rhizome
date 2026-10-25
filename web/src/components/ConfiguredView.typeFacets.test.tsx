@@ -3,14 +3,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ViewExecuteRequest } from "../api/types";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
-import { baseView, renderView } from "./ConfiguredView.testFixtures";
+import { baseView, openFilterMenu, renderView } from "./ConfiguredView.testFixtures";
 import { executedWith, STATUS, typeExecution, typeView } from "./ConfiguredView.typeFixtures";
 
 type Filter = NonNullable<ViewExecuteRequest["filters"]>[number];
 
 const STALE: Filter = { field: "stale", op: "eq", value: "true" };
 
-const facets = () => screen.getByRole("group", { name: "Collection summary" });
+/** The quick filters in the Filter popover, which opens if it is closed. */
+function facets() {
+  openFilterMenu();
+
+  return screen.getByRole("group", { name: "Quick filters" });
+}
 
 describe("type collection facets", () => {
   it("combines Stale with a lifecycle facet and toggles it without touching lifecycle filters", () => {

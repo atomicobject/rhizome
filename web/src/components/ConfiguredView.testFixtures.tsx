@@ -227,11 +227,24 @@ export function openEnumEditor(index = 0) {
   return editor;
 }
 
-/** Opens the toolbar's View options, where density, columns, Save view, and refresh live. */
+/** Opens the header's View popover, where grouping, sort, density, columns, reset, Save view, and refresh live. */
 export function openViewOptions() {
   const button = screen.getByRole("button", { name: /^View options/ });
 
   if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
+}
+
+/** Opens the header's Filter popover, where presets, quick filters, and Add filter live. */
+export function openFilterMenu() {
+  const button = screen.getByRole("button", { name: /^Filter(,|$)/ });
+
+  if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
+}
+
+/** Adds a draft filter row from the Filter popover. */
+export function addFilter() {
+  openFilterMenu();
+  fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
 }
 
 export function renderView(

@@ -1,7 +1,7 @@
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, type APIRequestContext, type Page, test } from "./fixtures";
-import { chooseView, openViewOptions } from "./workspaceView";
+import { chooseView, openViewOptions, rowsChoice } from "./workspaceView";
 
 const frame = (page: Page) => page.frameLocator("iframe.custom-view-frame");
 
@@ -90,23 +90,22 @@ test("native layout choices persist for one collection and leave another indepen
 }) => {
   await page.goto("/notes/tv-guide");
   await chooseView(page, "Table");
-  const density = page.getByRole("combobox", { name: "Rows", exact: true });
   await openViewOptions(page);
-  await expect(density).toHaveValue("two-line");
+  await expect(rowsChoice(page, "2 lines")).toHaveAttribute("aria-pressed", "true");
   await preferenceWrite(page, async () => {
-    await density.selectOption("one-line");
+    await rowsChoice(page, "1 line").click();
   });
 
   await page.goto("/notes/tv-work-item");
   await chooseView(page, "Table");
   await openViewOptions(page);
-  await expect(density).toHaveValue("two-line");
+  await expect(rowsChoice(page, "2 lines")).toHaveAttribute("aria-pressed", "true");
   await page.goto("/notes/tv-guide");
   await openViewOptions(page);
-  await expect(density).toHaveValue("one-line");
+  await expect(rowsChoice(page, "1 line")).toHaveAttribute("aria-pressed", "true");
   await page.reload();
   await openViewOptions(page);
-  await expect(density).toHaveValue("one-line");
+  await expect(rowsChoice(page, "1 line")).toHaveAttribute("aria-pressed", "true");
 
   const freshContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
 
@@ -114,9 +113,7 @@ test("native layout choices persist for one collection and leave another indepen
     const freshPage = await freshContext.newPage();
     await freshPage.goto("/notes/tv-guide");
     await openViewOptions(freshPage);
-    await expect(freshPage.getByRole("combobox", { name: "Rows", exact: true })).toHaveValue(
-      "one-line",
-    );
+    await expect(rowsChoice(freshPage, "1 line")).toHaveAttribute("aria-pressed", "true");
   } finally {
     await freshContext.close();
   }
@@ -247,9 +244,11 @@ test("shared saves review the YAML change, preserve collapse, and include search
   try {
     await page.goto("/notes/view-demo-effort");
     await chooseView(page, "Demo native · Table");
+    await openViewOptions(page);
     await preferenceWrite(page, async () => {
       await page.getByRole("combobox", { name: "Group by" }).selectOption("status");
     });
+    await page.keyboard.press("Escape");
     const group = page.locator(".configured-view__group-toggle").first();
     await expect(group).toHaveAttribute("aria-expanded", "true");
     await preferenceWrite(page, () => group.click());

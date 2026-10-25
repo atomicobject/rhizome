@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { ViewExecuteResponse } from "../api/types";
-import { execution, renderView } from "./ConfiguredView.testFixtures";
+import { addFilter, execution, renderView, openViewOptions } from "./ConfiguredView.testFixtures";
 
 const link = "[[IP opportunity - AI in the products we build]]";
 
@@ -50,6 +50,7 @@ describe("Configured views grouped by a link field", () => {
   it("offers the link field in Group and names each group by its target's title", () => {
     renderView({ execution: groupedByLink() });
 
+    openViewOptions();
     const groupBy = screen.getByLabelText("Group by");
     expect(groupBy).toHaveValue("opportunities");
     expect(within(groupBy).getByRole("option", { name: "Opportunities" })).toBeInTheDocument();
@@ -71,7 +72,7 @@ describe("Configured views grouped by a link field", () => {
 
     expect(screen.getByText(`Opportunities is ${title}`)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    addFilter();
     fireEvent.change(screen.getAllByLabelText("Field").at(-1)!, {
       target: { value: "opportunities" },
     });

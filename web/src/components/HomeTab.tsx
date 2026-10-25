@@ -1,5 +1,5 @@
 import { isJsonObject } from "../api/parse";
-import { memo, useEffect, useMemo } from "react";
+import { memo, useMemo } from "react";
 import type {
   OntologySummaryResponse,
   OntologyEditOp,
@@ -24,8 +24,10 @@ import {
   PSEUDO_TYPE_ISSUES,
   PSEUDO_TYPE_MODIFIED,
 } from "./notesRoute";
+import { useViewHeaderSlotRefs, ViewHeaderSlotsProvider } from "./ConfiguredViewHeader";
 import { TypeWorkspaceHeader } from "./TypeWorkspaceHeader";
 import {
+  summaryCountsKnown,
   useOntologySummaryQuery,
   useOntologyTypeQuery,
   useValidationQuery,
@@ -58,7 +60,6 @@ type Props = {
   onOpenView?: ViewServices["onOpenView"];
   onOpenSearch?: ViewServices["onOpenSearch"];
   /** Reports whether a type or interface collection view (not Overview) is showing. */
-  onCollectionViewChange?: (showing: boolean) => void;
 };
 
 const OVERVIEW: ViewChoice = { id: "builtin:overview", name: "Overview", renderer: "overview" };
@@ -84,7 +85,6 @@ export const HomeTab = memo(function HomeTab({
   onOpenNode,
   onOpenView,
   onOpenSearch,
-  onCollectionViewChange,
 }: Props) {
   const summaryQuery = useOntologySummaryQuery(active);
   const summary = providedSummary ?? summaryQuery.data ?? null;
@@ -137,10 +137,6 @@ export const HomeTab = memo(function HomeTab({
 
   const choice = selectionState.choice ?? builtin;
   const collectionView = Boolean(realType) && choice?.renderer !== "overview";
-
-  useEffect(() => {
-    if (active) onCollectionViewChange?.(collectionView);
-  }, [active, collectionView, onCollectionViewChange]);
   const definition = catalogQuery.data?.views.find((view) => view.id === choice?.viewId) ?? null;
 
   // Overview fetches this same query key itself. Disabled here, the header still
@@ -170,6 +166,8 @@ export const HomeTab = memo(function HomeTab({
     active ? (validation?.snapshot?.generation ?? null) : null,
     scopes,
   );
+
+  const header = useViewHeaderSlotRefs();
 
   if (selectedType === PSEUDO_TYPE_ISSUES)
     return (
@@ -216,122 +214,132 @@ export const HomeTab = memo(function HomeTab({
   };
 
   return (
-    <div className={realType || group ? "type-workspace" : "home-workspace"}>
-      <div className="home-workspace__header-slot">
-        {!summary && summaryQuery.isError && (
-          <div className="ontology-home__unavailable" role="alert">
-            <span>
-              Workspace data is unavailable. {summaryQuery.error.message} Check that the Rhizome
-              server is reachable, then retry.
-            </span>
-            <button type="button" onClick={() => void summaryQuery.refetch()}>
-              Retry connection
-            </button>
-          </div>
-        )}
-        {(realType || group || summary) && (
-          <TypeWorkspaceHeader
-            typeName={realType ?? ""}
-            label={
-              group ??
-              (realType
-                ? (typeQuery.data?.type?.pluralLabel ?? typeQuery.data?.type?.label ?? realType)
-                : "All notes")
-            }
-            eyebrow={
-              group
-                ? "Display group"
-                : realType
-                  ? kind === "interface"
-                    ? "Interface"
-                    : "Type"
-                  : ""
-            }
-            description={realType ? typeQuery.data?.type?.description : null}
-            totalNotes={realType ? (typeQuery.data?.count ?? null) : null}
-            meanRelations={group || !typeQuery.data ? null : mean}
-            issueCount={
-              realType
-                ? summaries.summaries.get(validationScopeKey({ kind, key: realType }))?.issueCount
-                : undefined
-            }
-            validationHealth={validation?.health}
-            onOpenIssues={() => openIssues(realType ? { kind, key: realType } : undefined)}
-            showStats={Boolean(realType) && !collectionView}
-            viewSelector={
-              shownTarget &&
-              choice && (
-                <ViewSelector
-                  target={shownTarget}
-                  selectedId={choice.id}
-                  onSelect={selectionState.select}
-                  status={selectionState}
-                  trailing={
-                    // The fallback choice shows while the selection loads; read
-                    // preferences only for the view that will actually show.
-                    !selectionState.loading && (
-                      <ViewPreferenceReset
-                        choice={choice}
-                        definition={definition}
-                        context={context}
-                        vaultKey={services.vaultKey}
-                      />
-                    )
-                  }
-                />
-              )
-            }
-          />
-        )}
+    <ViewHeaderSlotsProvider value={header.slots}>
+      <div className={realType || group ? "type-workspace" : "home-workspace"}>
+        <div className="home-workspace__header-slot">
+          {!summary && summaryQuery.isError && (
+            <div className="ontology-home__unavailable" role="alert">
+              <span>
+                Workspace data is unavailable. {summaryQuery.error.message} Check that the Rhizome
+                server is reachable, then retry.
+              </span>
+              <button type="button" onClick={() => void summaryQuery.refetch()}>
+                Retry connection
+              </button>
+            </div>
+          )}
+          {(realType || group || summary) && (
+            <TypeWorkspaceHeader
+              typeName={realType ?? ""}
+              label={
+                group ??
+                (realType
+                  ? (typeQuery.data?.type?.pluralLabel ?? typeQuery.data?.type?.label ?? realType)
+                  : "All notes")
+              }
+              eyebrow={
+                group
+                  ? "Display group"
+                  : realType
+                    ? kind === "interface"
+                      ? "Interface"
+                      : "Type"
+                    : ""
+              }
+              description={realType ? typeQuery.data?.type?.description : null}
+              totalNotes={
+                realType
+                  ? (typeQuery.data?.count ?? null)
+                  : !group && summaryCountsKnown(summary)
+                    ? (summary?.totalNotes ?? null)
+                    : null
+              }
+              meanRelations={group || !typeQuery.data ? null : mean}
+              issueCount={
+                realType
+                  ? summaries.summaries.get(validationScopeKey({ kind, key: realType }))?.issueCount
+                  : undefined
+              }
+              validationHealth={validation?.health}
+              onOpenIssues={() => openIssues(realType ? { kind, key: realType } : undefined)}
+              showStats={Boolean(realType) && !collectionView}
+              countRef={header.countRef}
+              toolsRef={header.toolsRef}
+              viewSelector={
+                shownTarget &&
+                choice && (
+                  <ViewSelector
+                    target={shownTarget}
+                    selectedId={choice.id}
+                    onSelect={selectionState.select}
+                    status={selectionState}
+                    trailing={
+                      // The fallback choice shows while the selection loads; read
+                      // preferences only for the view that will actually show.
+                      !selectionState.loading && (
+                        <ViewPreferenceReset
+                          choice={choice}
+                          definition={definition}
+                          context={context}
+                          vaultKey={services.vaultKey}
+                        />
+                      )
+                    }
+                  />
+                )
+              }
+            />
+          )}
+        </div>
+        <div className="home-workspace__body">
+          {(!catalogQuery.data && !catalogQuery.isError) ||
+          ((realType || group) && !summary && !summaryQuery.isError) ||
+          (selectionState.loading && !location.presentation) ? (
+            <p role="status">Loading views…</p>
+          ) : !choice && catalogQuery.isError ? (
+            <div className="ontology-home__unavailable" role="alert">
+              <span>All notes views could not be loaded.</span>
+              <button type="button" onClick={() => void catalogQuery.refetch()}>
+                Retry
+              </button>
+            </div>
+          ) : !choice ? (
+            <p className="ontology-empty">No views are available for All notes.</p>
+          ) : (
+            <ViewHost
+              view={{ id: choice.viewId ?? choice.id, name: choice.name }}
+              context={context}
+              choice={choice}
+              definition={definition}
+              configuration={
+                isJsonObject(definition?.configuration) ? definition.configuration : undefined
+              }
+              active={active}
+              services={services}
+              renderers={RENDERERS}
+              embedded
+            />
+          )}
+          {Boolean(catalogQuery.data?.issues?.length) && (
+            <details className="configured-view__status configured-view__status--error">
+              <summary>View configuration issues</summary>
+              <ul>
+                {catalogQuery.data?.issues?.map((issue, index) => (
+                  <li key={`${issue.path}:${issue.code}:${index}`}>
+                    {issue.view ? `${issue.view}: ` : ""}
+                    {issue.message}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {catalogQuery.isError && builtin && (
+            <p role="alert">
+              View configuration could not be loaded. {builtin.name} remains available.
+            </p>
+          )}
+        </div>
       </div>
-      <div className="home-workspace__body">
-        {(!catalogQuery.data && !catalogQuery.isError) ||
-        ((realType || group) && !summary && !summaryQuery.isError) ||
-        (selectionState.loading && !location.presentation) ? (
-          <p role="status">Loading views…</p>
-        ) : !choice && catalogQuery.isError ? (
-          <div className="ontology-home__unavailable" role="alert">
-            <span>All notes views could not be loaded.</span>
-            <button type="button" onClick={() => void catalogQuery.refetch()}>
-              Retry
-            </button>
-          </div>
-        ) : !choice ? (
-          <p className="ontology-empty">No views are available for All notes.</p>
-        ) : (
-          <ViewHost
-            view={{ id: choice.viewId ?? choice.id, name: choice.name }}
-            context={context}
-            choice={choice}
-            definition={definition}
-            configuration={
-              isJsonObject(definition?.configuration) ? definition.configuration : undefined
-            }
-            active={active}
-            services={services}
-            renderers={RENDERERS}
-            embedded
-          />
-        )}
-        {Boolean(catalogQuery.data?.issues?.length) && (
-          <details className="configured-view__status configured-view__status--error">
-            <summary>View configuration issues</summary>
-            <ul>
-              {catalogQuery.data?.issues?.map((issue, index) => (
-                <li key={`${issue.path}:${issue.code}:${index}`}>
-                  {issue.view ? `${issue.view}: ` : ""}
-                  {issue.message}
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
-        {catalogQuery.isError && builtin && (
-          <p role="alert">
-            View configuration could not be loaded. {builtin.name} remains available.
-          </p>
-        )}
-      </div>
-    </div>
+    </ViewHeaderSlotsProvider>
   );
 });

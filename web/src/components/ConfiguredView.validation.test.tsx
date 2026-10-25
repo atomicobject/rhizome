@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { withFakeFetch } from "../test/fakeFetch";
 import { nativePreferenceScope } from "../viewPreferences/native";
 import { preferenceServer } from "../viewPreferences/testServer";
-import { baseView, execution, renderView } from "./ConfiguredView.testFixtures";
+import { baseView, execution, openViewOptions, renderView } from "./ConfiguredView.testFixtures";
 
 describe("invalid native preference feedback", () => {
   const http = withFakeFetch();
@@ -33,6 +33,7 @@ describe("invalid native preference feedback", () => {
     );
     expect(screen.getByRole("alert")).toBeVisible();
     expect(server.read(scope).values).toEqual({ "native.density": "unsupported" });
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Reset to shared" }));
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     expect(server.read(scope).values).toEqual({});
@@ -44,6 +45,7 @@ describe("invalid native preference feedback", () => {
     server.change(scope, { "native.sort": [{ field: "title", direction: "sideways" }] });
     renderView({ vaultKey: "vault" });
     const alert = await screen.findByRole("alert");
+    openViewOptions();
     expect(screen.getByRole("button", { name: "Reset to shared" })).toBeVisible();
     server.change(scope, { "native.sort": [{ field: "title", direction: "desc" }] });
     fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
@@ -61,6 +63,7 @@ describe("invalid native preference feedback", () => {
       "aria-expanded",
       "true",
     );
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Reset to shared" }));
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   });

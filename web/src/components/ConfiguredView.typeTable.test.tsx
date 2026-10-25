@@ -53,7 +53,7 @@ describe("type collection table columns", () => {
 
     expect(screen.queryByRole("columnheader", { name: "Updated" })).toBeNull();
     openViewOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    openViewOptions();
     const menu = screen.getByRole("group", { name: "Visible columns" });
     fireEvent.click(within(menu).getByLabelText(/^ID/));
     expect(screen.getByRole("columnheader", { name: "ID" })).toBeVisible();
@@ -73,7 +73,9 @@ describe("type collection table columns", () => {
     fireEvent.click(within(menu).getByLabelText(/^ID/));
     expect(screen.queryByRole("columnheader", { name: "ID" })).toBeNull();
     openViewOptions();
-    expect(screen.getByRole("button", { name: "Columns" })).toHaveTextContent("1 hidden empty");
+    expect(screen.getByRole("group", { name: "Visible columns" })).toHaveTextContent(
+      "1 hidden empty",
+    );
   });
 });
 

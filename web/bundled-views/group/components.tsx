@@ -66,15 +66,21 @@ const STATE_TEXT = {
 export function GroupPage({
   state,
   subject = "group",
+  reading = false,
   children,
 }: {
   state: GroupModelState;
   subject?: keyof typeof STATE_TEXT;
+  /** A reading surface, such as a Briefing, caps its width and centres (SPEC-0126 US7). */
+  reading?: boolean;
   children: (model: GroupModel) => ReactNode;
 }) {
   if (state.status === "ready") {
     return (
-      <main className="gv-page" aria-busy={state.refreshing || undefined}>
+      <main
+        className={reading ? "gv-page gv-page--reading" : "gv-page"}
+        aria-busy={state.refreshing || undefined}
+      >
         <RefreshError.Provider value={state.refreshError}>
           {children(state.model)}
         </RefreshError.Provider>
@@ -138,7 +144,7 @@ export function GroupFrame({ state, children }: { state: GroupModelState; childr
   // The blocks keep one place in the tree, so they stay mounted, with their
   // own reads, when the facts arrive.
   return (
-    <main className="gv-page" aria-busy={(ready && state.refreshing) || undefined}>
+    <main className="gv-page gv-page--reading" aria-busy={(ready && state.refreshing) || undefined}>
       <RefreshError.Provider value={ready ? state.refreshError : null}>
         {ready ? <GroupFacts model={state.model} /> : <GroupStateLine state={state} />}
         {state.status !== "missing" && children}

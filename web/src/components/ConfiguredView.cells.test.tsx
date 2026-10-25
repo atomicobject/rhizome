@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ConfiguredView } from "./ConfiguredView";
 import {
+  addFilter,
   baseView,
   execution,
   executionWithMoreRows,
@@ -22,7 +23,7 @@ describe("ConfiguredView cell editing", () => {
       onStateChange,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    addFilter();
     fireEvent.click(screen.getByRole("button", { name: "active" }));
     await waitFor(() => {
       expect(onStateChange).toHaveBeenLastCalledWith({
@@ -220,7 +221,7 @@ describe("ConfiguredView cell editing", () => {
       onOpenIssues,
     });
     openViewOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    openViewOptions();
     fireEvent.click(screen.getByRole("checkbox", { name: "Issues" }));
 
     expect(screen.getByText("Alpha Spec")).toBeVisible();
