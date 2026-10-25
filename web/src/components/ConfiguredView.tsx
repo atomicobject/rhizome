@@ -28,6 +28,7 @@ import {
   stagedChangeCount,
 } from "./ConfiguredViewModel";
 import { ConfiguredViewTable } from "./ConfiguredViewTable";
+import { DiagnosticRegion } from "../diagnostics/DiagnosticRegion";
 import { SaveViewAction, saveViewProps } from "./ConfiguredViewSave";
 import { ConfiguredViewFooter, ViewErrorStatus } from "./ConfiguredViewStatus";
 import { effectiveSort, nextSort } from "./ConfiguredViewTableModel";
@@ -382,7 +383,9 @@ export function ConfiguredView({
         ) : activeVariant === "card" ? (
           <ConfiguredViewCards {...rendererProps} />
         ) : (
-          <ConfiguredViewTable {...rendererProps} />
+          <DiagnosticRegion name="view-table">
+            <ConfiguredViewTable {...rendererProps} />
+          </DiagnosticRegion>
         ))}
 
       {execution && (
