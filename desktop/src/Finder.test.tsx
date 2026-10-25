@@ -204,6 +204,8 @@ describe("finder", () => {
 
   it("marks a matched emoji whole", () => {
     expect(fuzzy("🦊x", "🦊 fox")?.at).toEqual([0, 5]);
+    // İ lowercases to two units; positions stay the original text's.
+    expect(fuzzy("st", "İstanbul")?.at).toEqual([1, 2]);
     show({ rows: [row("🦊 fox", "/w/fox")] });
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "🦊" } });
     expect(document.querySelector("mark")?.textContent).toBe("🦊");

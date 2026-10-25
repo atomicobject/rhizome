@@ -20,20 +20,29 @@ type Match = { score: number; at: number[] };
  * query ignores case. Consecutive and word-start characters score higher.
  * Returns null when `text` does not contain the query's characters in order. */
 export function fuzzy(query: string, text: string): Match | null {
-  const hay = query === query.toLowerCase() ? text.toLowerCase() : text;
+  const fold = query === query.toLowerCase();
   const at: number[] = [];
   let score = 0;
-  // Where the last matched character ends, in UTF-16 units: an emoji is two.
-  let end = -1;
+  // Positions are in `text`'s own UTF-16 units: matching compares its whole
+  // characters, so an emoji (two units) or a character that lowercases longer
+  // (İ to i̇) never shifts them.
+  let index = 0;
+  // Where the last matched character ended, for the consecutive bonus.
+  let previous = -1;
   // ponytail: greedy leftmost match, not the best alignment; fine for short names.
   for (const char of query) {
-    const index = hay.indexOf(char, Math.max(end, 0));
-    if (index < 0) return null;
-    if (index === end) score += 3;
+    let here = "";
+    for (; index < text.length; index += here.length) {
+      here = String.fromCodePoint(text.codePointAt(index)!);
+      if ((fold ? here.toLowerCase() : here).startsWith(char)) break;
+    }
+    if (index >= text.length) return null;
+    if (index === previous) score += 3;
     if (index === 0 || /[\s/_.-]/.test(text[index - 1])) score += 2;
     at.push(index);
     score += 1;
-    end = index + char.length;
+    index += here.length;
+    previous = index;
   }
   return { score, at };
 }
