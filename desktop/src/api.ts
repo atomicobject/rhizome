@@ -1,5 +1,15 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import type { ThemeName } from "../../web/src/lib/appearance";
+
+declare global {
+  interface Window {
+    /** Marks the web UI's content view; read by the shared appearance module. */
+    __RHIZOME_DESKTOP__?: boolean;
+    /** Set by the finder overlay's initialization script. */
+    __RHIZOME_FINDER__?: boolean;
+  }
+}
 
 export interface Repository {
   id: string;
@@ -102,7 +112,6 @@ export interface Alert extends Failure {
   worktree?: string;
 }
 export interface WindowSession {
-  sidebarCollapsed: boolean;
   repository?: string;
   worktree?: string;
 }
@@ -152,9 +161,49 @@ export type Message =
   | { type: "notice"; message: string }
   | { type: "menu"; id: string }
   | { type: "update"; status: UpdateStatus }
-  | { type: "command"; command: "add-repository" | "toggle-sidebar" | "settings" | "focus-search" }
+  | {
+      type: "command";
+      command: "add-repository" | "settings" | "focus-search" | "repositories" | "worktrees";
+    }
+  /** The finder's choice, relayed by the app. */
+  | ({ type: "finder" } & FinderChoice)
+  | { type: "settings"; settings: AppSettings }
   /** The workspace page's reported state, or null when no page has reported. */
   | { type: "page"; state: PageState | null };
+/** The app-wide appearance; `auto` follows the operating system. */
+export type AppearanceChoice = "auto" | "light" | "dark";
+export interface AppSettings {
+  theme: ThemeName;
+  appearance: AppearanceChoice;
+}
+export type FinderMode = "repositories" | "worktrees";
+/** One finder row: a repository, or one worktree of the current repository. */
+export interface FinderRow {
+  repository: string;
+  /** A worktree row's path; a repository row opens its primary worktree. */
+  worktree?: string;
+  title: string;
+  detail: string;
+  runtime: "running" | "starting" | "stopped" | "sleeping";
+  /** A worktree the user has not opened yet. */
+  fresh?: boolean;
+  primary?: boolean;
+  /** What this window shows. */
+  current?: boolean;
+}
+/** What the shell asks the finder to show. `opened` changes for each new
+ * opening, so the finder starts a fresh query then but not on live updates. */
+export interface FinderModel {
+  mode: FinderMode;
+  opened: number;
+  theme: ThemeName;
+  rows: FinderRow[];
+}
+export type FinderChoice =
+  | { choice: "close" }
+  | { choice: "add" }
+  | { choice: "open"; repository: string; worktree: string | null; newWindow: boolean }
+  | { choice: "menu"; repository: string; x: number; y: number };
 export type PageSection = "notes" | "ontology" | "explorer" | "agent" | "graphql";
 /** What the toolbar's page controls show; see SPEC-0119. */
 export interface PageState {
@@ -175,7 +224,8 @@ export type PageCommand =
   | { command: "section"; section: PageSection }
   | { command: "search"; query: string }
   | { command: "issues" }
-  | { command: "shortcuts" };
+  | { command: "shortcuts" }
+  | { command: "find" };
 /** Choices a setup sheet passes to `rzm init`; see SPEC-0118. */
 export interface SetupChoices {
   workflow: string;
@@ -292,12 +342,15 @@ type Results = {
   stop: null;
   reveal: null;
   "open-in-browser": null;
-  reorder: Library;
   browse: null;
   page: null;
   session: null;
   layout: null;
   menu: null;
+  finder: null;
+  "finder-choice": null;
+  settings: AppSettings;
+  "set-settings": AppSettings;
 };
 type Args = {
   "credential-status": Record<string, never>;
@@ -335,13 +388,16 @@ type Args = {
   stop: { worktree: string };
   reveal: { worktree: string };
   "open-in-browser": { id: string; worktree: string };
-  /** Repository ids in the order the sidebar lists them. */
-  reorder: { ids: string[] };
   browse: { to: "back" | "forward" | "reload" };
   page: PageCommand;
-  session: { repository: string | null; worktree: string | null; sidebarCollapsed: boolean };
+  session: { repository: string | null; worktree: string | null };
   layout: { x: number; y: number; width: number; height: number; covered: boolean };
   menu: { x: number; y: number; items: MenuEntry[] };
+  /** Shows the finder with `model`, or hides it with null. */
+  finder: { model: FinderModel | null; returnToContent?: boolean };
+  "finder-choice": FinderChoice;
+  settings: Record<string, never>;
+  "set-settings": Partial<AppSettings>;
 };
 export function request<K extends keyof Results>(operation: K, args: Args[K]): Promise<Results[K]> {
   return invoke("desktop_request", { action: { operation, ...args } });
@@ -349,6 +405,12 @@ export function request<K extends keyof Results>(operation: K, args: Args[K]): P
 export function attach(onMessage: (message: Message) => void): Promise<WindowSession> {
   const channel = new Channel<Message>();
   channel.onmessage = onMessage;
+  return invoke("desktop_attach", { channel });
+}
+/** Connects the finder overlay to the models its window's shell sends. */
+export function attachFinder(onModel: (model: FinderModel) => void): Promise<null> {
+  const channel = new Channel<FinderModel>();
+  channel.onmessage = onModel;
   return invoke("desktop_attach", { channel });
 }
 export async function pickPath(directory: boolean): Promise<string | null> {

@@ -1,3 +1,4 @@
+use crate::appearance::{Appearance, Theme};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -246,13 +247,6 @@ impl Library {
             .ok_or_else(|| "This repository is no longer in your library.".into())
     }
 
-    /// Orders repositories as `ids` lists them. Repositories it omits, such as
-    /// one another window added meanwhile, keep their order after the rest.
-    pub fn reorder(&mut self, ids: &[String]) {
-        self.repositories
-            .sort_by_key(|r| ids.iter().position(|id| *id == r.id).unwrap_or(usize::MAX));
-    }
-
     /// Adds a newly discovered repository, acknowledging the worktrees present
     /// now. An existing entry with the same identity keeps its settings. Returns
     /// whether the library changed.
@@ -361,8 +355,6 @@ pub struct WindowSession {
     pub width: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<f64>,
-    #[serde(default)]
-    pub sidebar_collapsed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repository: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -394,11 +386,24 @@ impl Session {
 
 /// App preferences kept apart from `library.json`, whose strict format an older
 /// app could not read after a downgrade. Unknown fields are ignored for the same
-/// reason.
+/// reason, and a field this app cannot read takes its default.
 #[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Preferences {
+    #[serde(deserialize_with = "lenient")]
     pub render_profiling: bool,
+    #[serde(deserialize_with = "lenient")]
+    pub theme: Theme,
+    #[serde(deserialize_with = "lenient")]
+    pub appearance: Appearance,
+}
+
+/// Reads a field, or its default when the value is one a newer app wrote.
+fn lenient<'de, D: serde::Deserializer<'de>, T: DeserializeOwned + Default>(
+    deserializer: D,
+) -> Result<T, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_default())
 }
 
 impl Preferences {
@@ -469,22 +474,6 @@ mod tests {
                 })
                 .collect(),
         }
-    }
-
-    #[test]
-    fn reordering_keeps_unlisted_repositories_after_the_listed_ones() {
-        let mut library = Library::default();
-        for (id, root) in [('a', "/a"), ('b', "/b"), ('c', "/c"), ('d', "/d")] {
-            library.add(&discovery(id, root, &[root]));
-        }
-        let id = |c: char| c.to_string().repeat(64);
-        library.reorder(&[id('c'), id('a'), "gone".into()]);
-        let roots: Vec<_> = library
-            .repositories
-            .iter()
-            .map(|r| r.root.as_str())
-            .collect();
-        assert_eq!(roots, ["/c", "/a", "/b", "/d"]);
     }
 
     #[test]
@@ -711,6 +700,7 @@ mod tests {
         assert!(!Preferences::load(directory.path()).render_profiling);
         Preferences {
             render_profiling: true,
+            ..Preferences::default()
         }
         .save(directory.path())
         .unwrap();
@@ -722,5 +712,34 @@ mod tests {
         )
         .unwrap();
         assert!(Preferences::load(directory.path()).render_profiling);
+    }
+
+    #[test]
+    fn appearance_settings_tolerate_missing_unknown_and_newer_values() {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join(PREFERENCES);
+        assert_eq!(Preferences::load(directory.path()), Preferences::default());
+        fs::write(&file, r#"{"theme":"spruce","appearance":"dark","later":1}"#).unwrap();
+        let saved = Preferences::load(directory.path());
+        assert_eq!(
+            (saved.theme, saved.appearance),
+            (Theme::Spruce, Appearance::Dark)
+        );
+        assert!(!saved.render_profiling);
+        // A theme a newer app added falls back alone; the other fields stand.
+        fs::write(
+            &file,
+            r#"{"theme":"teal","appearance":"light","renderProfiling":true}"#,
+        )
+        .unwrap();
+        let saved = Preferences::load(directory.path());
+        assert_eq!(
+            saved,
+            Preferences {
+                render_profiling: true,
+                theme: Theme::Graphite,
+                appearance: Appearance::Light,
+            }
+        );
     }
 }

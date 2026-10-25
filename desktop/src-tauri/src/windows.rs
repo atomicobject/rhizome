@@ -1,4 +1,6 @@
 use crate::{
+    appearance,
+    commands::Desktop,
     page,
     pane::{Pane, Panes},
     presence::Presence,
@@ -256,7 +258,12 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             builder = builder.position(x, y);
         }
     }
+    let settings = appearance::current(&app.state::<Desktop>().directory);
     let window = builder.build()?;
+    // Before any webview paints: the theme's chrome behind the title bar, and
+    // the content panel's colour under the page, in the window's appearance.
+    let (chrome, surface) = appearance::colors(settings.theme, appearance::dark(&window));
+    window.set_background_color(Some(chrome))?;
     app.state::<Sessions>()
         .update(app, &label, |saved| *saved = session);
     record(app, &window);
@@ -268,8 +275,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     window.add_child(
         WebviewBuilder::new(&shell, WebviewUrl::App("index.html".into()))
             .auto_resize()
-            // The sidebar reorders repositories with HTML5 drag and drop.
-            .disable_drag_drop_handler()
+            .background_color(chrome)
             .on_navigation(move |url| {
                 security::shell_authorized(&shell, url, cfg!(debug_assertions))
             }),
@@ -282,7 +288,14 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         WebviewUrl::External("about:blank".parse().unwrap()),
     )
     .initialization_script(CLICK_GUARD)
-    .initialization_script(page::MARKER);
+    .initialization_script(page::MARKER)
+    // The page's first paint takes the theme current when the window opened;
+    // later changes arrive as page commands.
+    .initialization_script(format!(
+        "window.__RHIZOME_DESKTOP_THEME__ = {};",
+        serde_json::json!(settings.theme)
+    ))
+    .background_color(surface);
     // Scripts are fixed when the view is created, so a changed setting
     // reaches only windows opened afterward.
     if page::profiling_for(app).enabled {
@@ -305,10 +318,16 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             })
             // The page reports the state the toolbar shows through its title.
             .on_document_title_changed(|webview, title| {
-                webview
-                    .app_handle()
+                let app = webview.app_handle();
+                let first = app
                     .state::<Panes>()
                     .with(webview.window().label(), |pane| page::titled(pane, &title));
+                // Each runtime document takes the current theme once it reports.
+                if first == Some(true) {
+                    let theme = appearance::current(&app.state::<Desktop>().directory).theme;
+                    let _ =
+                        webview.eval(page::Command::Theme { theme }.script().unwrap_or_default());
+                }
             })
             .on_new_window(move |target, _| {
                 if security::external_url(&target) {
@@ -367,6 +386,11 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             app.state::<Presence>().rediscover();
         }
         WindowEvent::Moved(_) | WindowEvent::Resized(_) => record(&app, &events),
+        // Match System follows the OS; repaint in the new appearance.
+        WindowEvent::ThemeChanged(_) => appearance::paint(
+            &events,
+            appearance::current(&app.state::<Desktop>().directory).theme,
+        ),
         WindowEvent::CloseRequested { .. } => app
             .state::<Sessions>()
             .close(events.label(), Geometry::read(&events)),
@@ -511,7 +535,7 @@ mod tests {
     fn quitting_saves_geometry_of_windows_that_never_moved() {
         let directory = tempfile::tempdir().unwrap();
         let sessions = Sessions::new(directory.path().into());
-        sessions.apply("window-1", |saved| saved.sidebar_collapsed = true);
+        sessions.apply("window-1", |saved| saved.worktree = Some("/w/one".into()));
         sessions.apply("window-2", |_| {});
         let geometry = Geometry {
             x: 40.0,
@@ -530,7 +554,7 @@ mod tests {
                 y: Some(60.0),
                 width: Some(1000.0),
                 height: Some(700.0),
-                sidebar_collapsed: true,
+                worktree: Some("/w/one".into()),
                 ..WindowSession::default()
             }
         );

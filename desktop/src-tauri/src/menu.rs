@@ -1,11 +1,11 @@
 //! The application menu bar and the shell's native popup menus.
 use crate::{
-    page,
+    appearance, finder, page,
     pane::Panes,
     state::WindowSession,
     windows::{
-        browse, content_label, create, focused_window, shell_label, visible_page_url, Browse,
-        Sessions,
+        browse, content_label, create, focused_window, page_command, shell_label, visible_page_url,
+        Browse, Sessions,
     },
 };
 use serde::Deserialize;
@@ -127,6 +127,26 @@ fn focus_search(window: &Window) {
         });
 }
 
+/// Opens the page's note and file finder (⌘P). The menu shortcut pre-empts
+/// whichever webview has focus, so the content view takes focus first.
+fn find_in_page(window: &Window) {
+    let app = window.app_handle();
+    let open = app
+        .state::<Panes>()
+        .with(window.label(), |pane| pane.finder_open)
+        .unwrap_or(false);
+    if open {
+        finder::choose(app, window, finder::Choice::Close);
+    }
+    if visible_page_url(window).is_none() {
+        return;
+    }
+    if let Some(content) = window.get_webview(&content_label(window.label())) {
+        let _ = content.set_focus();
+    }
+    page_command(window, &page::Command::Find);
+}
+
 fn copy_page_url(window: &Window) -> Result<(), String> {
     let url = visible_page_url(window).ok_or("No Rhizome page is open in this window.")?;
     copy_text(url.as_str())
@@ -202,20 +222,30 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         true,
         Some("CmdOrCtrl+K"),
     )?;
-    let add = MenuItem::with_id(
+    // Add Repository has no shortcut: ⌘O switches repositories (SPEC-0126).
+    let add = MenuItem::with_id(app, "add-repository", "Add Repository…", true, None::<&str>)?;
+    let repositories = MenuItem::with_id(
         app,
-        "add-repository",
-        "Add Repository…",
+        "repositories",
+        "Switch Repository…",
         true,
         Some("CmdOrCtrl+O"),
     )?;
-    let sidebar = MenuItem::with_id(
+    let worktrees = MenuItem::with_id(
         app,
-        "toggle-sidebar",
-        "Toggle Sidebar",
+        "worktrees",
+        "Switch Worktree…",
         true,
-        Some("Ctrl+CmdOrCtrl+S"),
+        Some("CmdOrCtrl+Shift+O"),
     )?;
+    let find = MenuItem::with_id(
+        app,
+        "find",
+        "Go to Note or File…",
+        true,
+        Some("CmdOrCtrl+P"),
+    )?;
+    let (appearance_menu, theme_menu) = appearance::submenus(app)?;
     let app_menu = Submenu::with_items(
         app,
         &app.package_info().name,
@@ -239,6 +269,8 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         true,
         &[
             &new_window,
+            &repositories,
+            &worktrees,
             &add,
             &PredefinedMenuItem::separator(app)?,
             &close_tab,
@@ -258,6 +290,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::paste(app, None)?,
             &PredefinedMenuItem::select_all(app, None)?,
             &PredefinedMenuItem::separator(app)?,
+            &find,
             &search,
             &copy_url,
         ],
@@ -275,7 +308,9 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &back,
             &forward,
             &PredefinedMenuItem::separator(app)?,
-            &sidebar,
+            &appearance_menu,
+            &theme_menu,
+            &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::fullscreen(app, None)?,
         ],
     )?;
@@ -303,6 +338,9 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             });
             return;
         }
+        if appearance::menu_event(app, id) {
+            return;
+        }
         match id {
             "new-window" => {
                 let session = match app.windows().is_empty() {
@@ -311,7 +349,12 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
                 };
                 let _ = create(app, session);
             }
-            "add-repository" | "toggle-sidebar" | "settings" => command(app, id),
+            "add-repository" | "repositories" | "worktrees" | "settings" => command(app, id),
+            "find" => {
+                if let Some(window) = focused_window(app) {
+                    find_in_page(&window);
+                }
+            }
             "check-updates" => crate::updater::check_from_menu(app),
             "search" => {
                 if let Some(window) = focused_window(app) {

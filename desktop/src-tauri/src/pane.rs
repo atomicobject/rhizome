@@ -62,6 +62,13 @@ pub struct Pane {
     pub channel: Option<Channel<Value>>,
     /// A message for a shell that has not attached yet.
     held: Option<Value>,
+    /// The finder overlay (⌘O, ⇧⌘O), with the model it shows until it attaches.
+    finder: Option<Channel<Value>>,
+    finder_held: Option<Value>,
+    /// The finder is on screen; Esc returns focus to the content view when
+    /// `return_to_content`, else to the shell.
+    pub finder_open: bool,
+    pub return_to_content: bool,
 }
 
 pub enum Load {
@@ -88,6 +95,25 @@ impl Pane {
         self.selection = 0;
         if let Some(message) = self.held.take() {
             self.send(message);
+        }
+    }
+
+    /// The finder overlay attached. Unlike the shell's, its attach keeps the
+    /// selection count, since it makes no selections of its own.
+    pub fn attach_finder(&mut self, channel: Channel<Value>) {
+        if let Some(model) = self.finder_held.take() {
+            let _ = channel.send(model);
+        }
+        self.finder = Some(channel);
+    }
+
+    /// Hands the finder the model the shell built, now or when it attaches.
+    pub fn show_finder(&mut self, model: Value) {
+        match &self.finder {
+            Some(channel) => {
+                let _ = channel.send(model);
+            }
+            None => self.finder_held = Some(model),
         }
     }
 
