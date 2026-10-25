@@ -179,6 +179,11 @@
   min-width: 0;
 }
 
+/* Mode names such as "approval-required" need the full row. */
+.agent-model-controls__wide {
+  grid-column: 1 / -1;
+}
+
 .agent-settings input,
 .agent-settings select,
 .agent-composer textarea {
@@ -227,17 +232,12 @@
 }
 
 .agent-empty {
-  margin: auto;
-  max-width: 520px;
-  text-align: center;
-}
-
-.agent-empty h2 {
-  font-size: var(--fs-2xl);
-  margin-bottom: var(--sp-3);
+  max-width: 78ch;
+  font-size: var(--fs-sm);
 }
 
 .agent-empty p {
+  margin: 0;
   color: var(--muted);
 }
 

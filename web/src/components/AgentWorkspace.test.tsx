@@ -221,6 +221,17 @@ describe("AgentWorkspace", () => {
     expect(await screen.findByText("Resolved: first available")).toBeVisible();
   });
 
+  it("shows a compact empty state for a session without messages", async () => {
+    http
+      .json("GET", "/api/agent/settings", settingsWith(readyStatus))
+      .json("GET", "/api/agent/sessions", { sessions: [] });
+
+    render(<AgentWorkspace />);
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/^No messages yet\./);
+    expect(screen.queryByRole("heading", { name: /Ask against the vault/ })).toBeNull();
+  });
+
   it("uses the Claude Code install hint", async () => {
     const response = settingsWith({ installed: false, loggedIn: false, capabilities });
     response.settings.harness = "claude";
