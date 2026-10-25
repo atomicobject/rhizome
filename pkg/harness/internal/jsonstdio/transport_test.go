@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -162,6 +164,23 @@ func TestJSONStdioChildHelper(t *testing.T) {
 		}
 		_, _ = fmt.Fprintln(os.Stderr, "final diagnostic")
 		os.Exit(0)
+	}
+	if mode == "grandchild-exits" || mode == "grandchild-ignores" {
+		// The grandchild holds stderr open, as a harness CLI's tools would.
+		grandchild := exec.Command("sleep", "300")
+		grandchild.Stderr = os.Stderr
+		if err := grandchild.Start(); err != nil {
+			os.Exit(1)
+		}
+		_ = os.WriteFile(marker, []byte(strconv.Itoa(grandchild.Process.Pid)), 0o600)
+		_, _ = fmt.Fprintln(os.Stdout, `{ "ready": true }`)
+		_, _ = io.Copy(io.Discard, os.Stdin)
+		if mode == "grandchild-exits" {
+			os.Exit(0)
+		}
+		for {
+			time.Sleep(time.Hour)
+		}
 	}
 	if mode != "immediate" {
 		_, _ = fmt.Fprintln(os.Stderr, "synthetic diagnostic")

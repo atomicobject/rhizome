@@ -60,6 +60,7 @@ func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd
 	}
 	cmd := exec.Command(binary, args...)
 	cmd.Dir, cmd.Env = cwd, os.Environ()
+	configureProcessGroup(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, harness.Phase(harness.ErrSpawn, err)
@@ -295,15 +296,14 @@ func (t *Transport[M]) closeProcess(ctx context.Context) error {
 	defer timer.Stop()
 	select {
 	case <-exited:
+		// Descendants outlive the child and may hold stderr open.
+		_ = killProcessGroup(process)
 		t.waitStderr(ctx)
 		return nil
 	case <-timer.C:
 	case <-ctx.Done():
 	}
-	var killErr error
-	if process != nil {
-		killErr = process.Kill()
-	}
+	killErr := killProcessGroup(process)
 	// After SIGKILL the child reaps promptly; wait a short floor for it, but
 	// never past the caller's shutdown deadline.
 	killWait := time.NewTimer(killWaitFloor)
