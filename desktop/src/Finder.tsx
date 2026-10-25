@@ -88,6 +88,8 @@ export function FinderApp() {
 
 const HOME = /^\/Users\/[^/]+/;
 
+const rowKey = (row: FinderRow) => row.worktree ?? row.repository;
+
 export function Finder({
   model,
   onChoose,
@@ -96,21 +98,25 @@ export function Finder({
   onChoose: (choice: FinderChoice) => void;
 }) {
   const [query, setQuery] = useState("");
-  // Without a query, start on the first row this window does not show: one
-  // Enter switches away, as ⌘Tab does.
-  const [active, setActive] = useState(() =>
-    Math.max(
-      0,
-      model.rows.findIndex((r) => !r.current),
-    ),
-  );
+  // The highlighted row, by identity, so live updates that reorder the rows
+  // keep it; none means the top row. Without a query, start on the first row
+  // this window does not show: one Enter switches away, as ⌘Tab does.
+  const [active, setActive] = useState(() => {
+    const away = model.rows.find((r) => !r.current);
+    return away && rowKey(away);
+  });
   const input = useRef<HTMLInputElement>(null);
   const list = useId();
   const repositories = model.mode === "repositories";
   const shown = useMemo(() => rank(model.rows, query), [model.rows, query]);
-  // Never negative, so rows that arrive after an arrow key on an empty list
-  // still start highlighted.
-  const index = Math.max(0, Math.min(active, shown.length - 1));
+  const index = Math.max(
+    0,
+    shown.findIndex(({ row }) => rowKey(row) === active),
+  );
+  const highlight = (at: number) => {
+    const row = shown[Math.max(0, Math.min(at, shown.length - 1))]?.row;
+    if (row) setActive(rowKey(row));
+  };
 
   // The overlay keeps its document between openings; take focus each time.
   useEffect(() => {
@@ -141,8 +147,8 @@ export function Finder({
     const digit = Number(event.key);
     const caret = input.current;
     if (event.key === "Escape") onChoose({ choice: "close" });
-    else if (event.key === "ArrowDown") setActive(Math.min(index + 1, shown.length - 1));
-    else if (event.key === "ArrowUp") setActive(Math.max(index - 1, 0));
+    else if (event.key === "ArrowDown") highlight(index + 1);
+    else if (event.key === "ArrowUp") highlight(index - 1);
     else if (event.key === "Enter") open(shown[index]?.row, event.metaKey);
     else if (repositories && event.metaKey && digit >= 1 && digit <= 9)
       open(shown[digit - 1]?.row, false);
@@ -189,7 +195,7 @@ export function Finder({
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
-              setActive(0);
+              setActive(undefined);
             }}
           />
           <kbd>esc</kbd>
@@ -197,12 +203,12 @@ export function Finder({
         <ul className="finder-list" id={list} role="listbox" aria-label={label}>
           {shown.map(({ row, title, detail }, at) => (
             <li
-              key={row.worktree ?? row.repository}
+              key={rowKey(row)}
               id={`${list}-${at}`}
               role="option"
               aria-selected={at === index}
               className="finder-row"
-              onMouseMove={() => at !== index && setActive(at)}
+              onMouseMove={() => at !== index && setActive(rowKey(row))}
               onClick={(event) => open(row, event.metaKey)}
             >
               <span

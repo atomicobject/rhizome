@@ -84,26 +84,28 @@ pub fn show(window: &Window, model: Value, return_to_content: bool) -> Result<()
             // A concurrent request may have created it first.
             .or_else(|error| window.get_webview(&finder).ok_or(error.to_string()))?;
     }
-    sync(window, false);
+    sync(window, None);
     Ok(())
 }
 
-/// Hides the finder for opening `opening`, or the one on screen, and returns
-/// focus where it was when the finder opened.
-pub fn hide(window: &Window, opening: Option<f64>) {
+/// Hides the finder for opening `opening`, or the one on screen. Focus returns
+/// where it was when the finder opened, or to the shell when `to_shell`, as
+/// when the shell closes it to show something of its own.
+pub fn hide(window: &Window, opening: Option<f64>, to_shell: bool) {
     let closed = window
         .app_handle()
         .state::<Panes>()
         .with(window.label(), |pane| pane.close_finder(opening))
         .unwrap_or(false);
-    sync(window, closed);
+    sync(window, closed.then_some(to_shell));
 }
 
 /// Shows or hides the overlay as the pane says. Show and hide requests race,
 /// so each queues this on the main thread, which runs tasks in order, and it
 /// reads the pane when it runs: the last one leaves the overlay right.
-/// `refocus` returns focus to where it was when the finder opened.
-fn sync(window: &Window, refocus: bool) {
+/// `refocus` moves focus after a close: to the shell when it holds true, else
+/// back to where it was when the finder opened.
+fn sync(window: &Window, refocus: Option<bool>) {
     let window = window.clone();
     let app = window.app_handle().clone();
     let _ = app.run_on_main_thread(move || {
@@ -127,10 +129,10 @@ fn sync(window: &Window, refocus: bool) {
         if let Some(view) = view {
             let _ = view.hide();
         }
-        if !refocus {
+        let Some(to_shell) = refocus else {
             return;
-        }
-        let back = match to_content && visible {
+        };
+        let back = match to_content && visible && !to_shell {
             true => content_label(window.label()),
             false => shell_label(window.label()),
         };
@@ -144,7 +146,7 @@ fn sync(window: &Window, refocus: bool) {
 /// to the shell, which owns selection and the repository actions.
 pub fn choose(app: &AppHandle, window: &Window, choice: Choice) {
     if !matches!(choice, Choice::Menu { .. }) {
-        hide(window, None);
+        hide(window, None, false);
     }
     if let Choice::Open {
         repository,

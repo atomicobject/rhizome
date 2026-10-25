@@ -97,6 +97,8 @@ export function useFinder(
   const [finder, setFinder] = useState<{ mode: FinderMode; opened: number } | null>(null);
   const toContent = useRef(false);
   const returnTo = useRef<HTMLElement | null>(null);
+  // Each opening's stamp is newer than the last, even if the clock steps back.
+  const stamp = useRef(0);
   const model: FinderModel | null = finder && { ...finder, theme, rows: rows(finder.mode) };
   const key = JSON.stringify(model);
   useEffect(() => {
@@ -112,13 +114,16 @@ export function useFinder(
       toContent.current = !focused;
       returnTo.current = focused ? (document.activeElement as HTMLElement | null) : null;
     }
-    setFinder({ mode, opened: Date.now() });
+    stamp.current = Math.max(Date.now(), stamp.current + 1);
+    setFinder({ mode, opened: stamp.current });
   }
 
-  function close() {
+  /** Closes the finder. `toShell` keeps focus in the shell, which is about to
+   * show something of its own; otherwise focus goes back where it was. */
+  function close(toShell = false) {
     setFinder(null);
     // Naming the opening lets the app drop a show for it that arrives late.
-    void request("finder", { model: null, opened: finder?.opened }).catch(() => {});
+    void request("finder", { model: null, opened: finder?.opened, toShell }).catch(() => {});
   }
 
   /** The finder closed itself after a choice; the app already hid it. */

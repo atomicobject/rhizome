@@ -72,6 +72,8 @@ export function App() {
   const updateMessages = useRef(0);
   const remembered = useRef<Record<string, string>>({});
   const handler = useRef<(message: Message) => void>(() => {});
+  /** A settings message arrived; it is newer than any reply still in flight. */
+  const settingsHeard = useRef(false);
   const region = useRef<HTMLDivElement>(null);
   const reported = useRef("");
   const revision = useRef(-1);
@@ -204,7 +206,7 @@ export function App() {
     void attach((message) => handler.current(message)).then((session) => {
       setRestored(true);
       void request("settings", {})
-        .then(setAppSettings)
+        .then((saved) => settingsHeard.current || setAppSettings(saved))
         .catch(() => {});
       // An update can become ready before this window attaches.
       void refreshUpdateStatus().catch(() => {});
@@ -587,16 +589,18 @@ export function App() {
         const run = menus.current[message.id] as (() => void) | undefined;
         menus.current = {};
         // A finder row's actions run on the window behind the finder.
-        if (run && finder.shown) finder.close();
+        if (run && finder.shown) finder.close(true);
         run?.();
       } else if (message.type === "finder") {
         chooseInFinder(message);
       } else if (message.type === "settings") {
+        settingsHeard.current = true;
         setAppSettings(message.settings);
       } else if (message.type === "command") {
         const { command } = message;
         // A finder draws above the window, so it would cover what any other command shows.
-        if (finder.shown && command !== "repositories" && command !== "worktrees") finder.close();
+        if (finder.shown && command !== "repositories" && command !== "worktrees")
+          finder.close(true);
         if (command === "add-repository") addRepository();
         if (command === "repositories" || command === "worktrees")
           if (library) finder.open(command);

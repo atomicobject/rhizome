@@ -195,6 +195,19 @@ describe("finder", () => {
     expect(onChoose).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the highlighted repository when live updates reorder the rows", () => {
+    const onChoose = vi.fn();
+    const first = model();
+    const { rerender } = render(<Finder model={first} onChoose={onChoose} />);
+    // Another window opens harness-lab, which moves to the top.
+    const [current, vault, lab] = first.rows;
+    rerender(<Finder model={{ ...first, rows: [lab, current, vault] }} onChoose={onChoose} />);
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+    expect(onChoose).toHaveBeenLastCalledWith(
+      expect.objectContaining({ choice: "open", repository: "drews-vault" }),
+    );
+  });
+
   it("highlights the first worktree once discovery fills an empty list", () => {
     const onChoose = vi.fn();
     const empty = model({ mode: "worktrees", rows: [] });

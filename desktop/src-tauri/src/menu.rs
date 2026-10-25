@@ -129,7 +129,9 @@ fn focus_search(window: &Window) {
 
 /// Opens the page's note and file finder (⌘P). The menu shortcut pre-empts
 /// whichever webview has focus, so the content view takes focus first.
-fn find_in_page(window: &Window) {
+/// Closes the window's repository or worktree finder, if open, before an
+/// action on the window behind it; the shell hears that it closed.
+fn dismiss_finder(window: &Window) {
     let app = window.app_handle();
     let open = app
         .state::<Panes>()
@@ -138,6 +140,10 @@ fn find_in_page(window: &Window) {
     if open {
         finder::choose(app, window, finder::Choice::Close);
     }
+}
+
+fn find_in_page(window: &Window) {
+    dismiss_finder(window);
     if visible_page_url(window).is_none() {
         return;
     }
@@ -358,11 +364,13 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             "check-updates" => crate::updater::check_from_menu(app),
             "search" => {
                 if let Some(window) = focused_window(app) {
+                    dismiss_finder(&window);
                     focus_search(&window);
                 }
             }
             "close-tab" => {
                 if let Some(window) = focused_window(app) {
+                    dismiss_finder(&window);
                     close_active_tab(&window);
                 }
             }
@@ -390,6 +398,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
                     _ => Browse::Forward,
                 };
                 if let Some(window) = focused_window(app) {
+                    dismiss_finder(&window);
                     let _ = browse(&window, to);
                 }
             }

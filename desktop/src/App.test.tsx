@@ -867,8 +867,13 @@ describe("desktop shell", () => {
       "Remove from Library",
     ]);
     act(() => emit({ type: "menu", id: items.find((i) => i.label === "Reveal in Finder")!.id! }));
-    // The close names the opening it closes, so a late show for it stays hidden.
-    expect(call).toHaveBeenCalledWith("finder", { model: null, opened: model.opened });
+    // The close names the opening it closes, so a late show for it stays hidden,
+    // and keeps focus in the shell, which runs the action.
+    expect(call).toHaveBeenCalledWith("finder", {
+      model: null,
+      opened: model.opened,
+      toShell: true,
+    });
     await waitFor(() => expect(call).toHaveBeenCalledWith("reveal", { worktree: main }));
   });
 
@@ -910,6 +915,17 @@ describe("desktop shell", () => {
     act(() => emit({ type: "command", command: "add-repository" }));
     expect(finderModel()).toBeNull();
     await waitFor(() => expect(pick).toHaveBeenCalledWith(true));
+  });
+
+  it("keeps a settings message over a startup reply that arrives after it", async () => {
+    let reply: (settings: Result) => void = () => {};
+    start(undefined, (operation) =>
+      operation === "settings" ? new Promise<Result>((resolve) => (reply = resolve)) : undefined,
+    );
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    act(() => emit({ type: "settings", settings: { theme: "indigo", appearance: "auto" } }));
+    await act(async () => reply({ theme: "graphite", appearance: "auto" }));
+    expect(document.documentElement.dataset.theme).toBe("indigo");
   });
 
   it("paints the theme saved when its window opened, before asking the app", () => {

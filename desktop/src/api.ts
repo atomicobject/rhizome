@@ -396,7 +396,12 @@ type Args = {
   layout: { x: number; y: number; width: number; height: number; covered: boolean };
   menu: { x: number; y: number; items: MenuEntry[] };
   /** Shows the finder with `model`, or hides it with null. */
-  finder: { model: FinderModel | null; returnToContent?: boolean; opened?: number };
+  finder: {
+    model: FinderModel | null;
+    returnToContent?: boolean;
+    opened?: number;
+    toShell?: boolean;
+  };
   "finder-choice": FinderChoice;
   settings: Record<string, never>;
   "set-settings": Partial<AppSettings>;
@@ -410,8 +415,9 @@ export function attach(onMessage: (message: Message) => void): Promise<WindowSes
   return invoke("desktop_attach", { channel });
 }
 /** Connects the finder overlay to the models its window's shell sends. */
-export function attachFinder(onModel: (model: FinderModel) => void): Promise<null> {
-  const channel = new Channel<FinderModel>();
+/** `onModel` receives null when the finder closes. */
+export function attachFinder(onModel: (model: FinderModel | null) => void): Promise<null> {
+  const channel = new Channel<FinderModel | null>();
   channel.onmessage = onModel;
   return invoke("desktop_attach", { channel });
 }

@@ -134,7 +134,12 @@ impl Pane {
     pub fn close_finder(&mut self, opening: Option<f64>) -> bool {
         let closing = opening.unwrap_or(self.finder_opening);
         self.finder_closed = self.finder_closed.max(closing);
-        closing >= self.finder_opening && std::mem::take(&mut self.finder_open)
+        let closed = closing >= self.finder_opening && std::mem::take(&mut self.finder_open);
+        if closed {
+            // Cleared now, so the next opening never shows this one's last frame.
+            self.show_finder(Value::Null);
+        }
+        closed
     }
 
     /// Hands the finder the model the shell built, now or when it attaches.
@@ -610,8 +615,10 @@ mod tests {
         assert!(!pane.close_finder(Some(2.0)));
         assert!(!pane.open_finder(model(), 3.0, false));
         assert!(pane.finder_open);
-        // The app's own close, after a choice, closes what is on screen.
+        // The app's own close, after a choice, closes what is on screen and
+        // clears the model it showed.
         assert!(pane.close_finder(None));
+        assert_eq!(pane.finder_held, Some(Value::Null));
         assert!(!pane.open_finder(model(), 4.0, false));
     }
 
