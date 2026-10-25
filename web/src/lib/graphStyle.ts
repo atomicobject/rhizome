@@ -19,6 +19,8 @@ export type SigmaNodeAttrs = {
   score?: number;
   problemCount?: number;
   baseSize: number;
+  /** The node's color as a CSS value (often a token); baseColor is its resolved form. */
+  colorValue?: string;
   baseColor: string;
   size: number;
   color: string;
@@ -47,6 +49,14 @@ export type SigmaEdgeAttrs = {
   label: string;
 };
 
+/** Concrete renderer colors, resolved from tokens by the caller (useSigmaGraph). */
+export type GraphColors = {
+  neutral: string;
+  edgeFaint: string;
+  edgeLight: string;
+  edgeStrong: string;
+};
+
 export type ReducerState = {
   graphMatches: Set<string>;
   semanticMatches: Set<string>;
@@ -62,6 +72,7 @@ export type ReducerState = {
   cameraRatio: number;
   maxScore: number;
   showProblems?: boolean;
+  colors: GraphColors;
 };
 
 const CAMERA = {
@@ -87,13 +98,6 @@ const NODE_ALPHA = {
 const TYPE_HIGHLIGHT_ALPHA = {
   node: 0.24,
   edge: 0.28,
-};
-
-const EDGE_COLORS = {
-  faint: "#e8e5e0",
-  light: "#dedad4",
-  normal: "#d0ccc6",
-  strong: "#b8b3ac",
 };
 
 const NODE_SIZE = {
@@ -166,7 +170,7 @@ function rgbToHex(r: number, g: number, b: number) {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-function mixColors(colorA: string, colorB: string, t: number) {
+export function mixColors(colorA: string, colorB: string, t: number) {
   const a = parseHexColor(colorA);
   const b = parseHexColor(colorB);
 
@@ -253,7 +257,7 @@ export type NodeReducerOutput = {
 
 export function computeNodeStyle(input: NodeReducerInput): NodeReducerOutput {
   const { nodeId, attrs, state, lod } = input;
-  const neutral = "#94a3b8";
+  const neutral = state.colors.neutral;
   const hasTypeHighlighting = state.highlightTypes.size > 0;
 
   const typeMatch =
@@ -460,7 +464,7 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
     }
 
     if (!sAllowed || !tAllowed) {
-      return { hidden: true, color: EDGE_COLORS.faint, size: 0.5, label: "" };
+      return { hidden: true, color: state.colors.edgeFaint, size: 0.5, label: "" };
     }
   }
 
@@ -487,16 +491,18 @@ export function computeEdgeStyle(input: EdgeReducerInput): EdgeReducerOutput {
 
   let color: string;
 
+  const { edgeFaint, edgeLight, edgeStrong } = state.colors;
+
   if (isFocus || isHoverEdge) {
-    color = EDGE_COLORS.strong;
+    color = edgeStrong;
   } else if (hasHighlighting) {
-    color = EDGE_COLORS.faint;
+    color = edgeFaint;
   } else {
-    color = lod > 0.3 ? EDGE_COLORS.faint : EDGE_COLORS.light;
+    color = lod > 0.3 ? edgeFaint : edgeLight;
   }
 
   if (hasTypeHighlighting && (!sourceTypeMatch || !targetTypeMatch) && !isFocus) {
-    color = colorWithPremultipliedAlpha(EDGE_COLORS.faint, TYPE_HIGHLIGHT_ALPHA.edge);
+    color = colorWithPremultipliedAlpha(edgeFaint, TYPE_HIGHLIGHT_ALPHA.edge);
     label = "";
   }
 

@@ -3,20 +3,23 @@ import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Sigma from "sigma";
+import { drawDiscNodeLabel, type NodeHoverDrawingFunction } from "sigma/rendering";
 import type { GraphEdge, GraphNode } from "../api/types";
 import {
   computeEdgeStyle,
   computeNodeStyle,
+  type GraphColors,
   graphNodeIdentityAttrs,
   lodFromRatio,
+  mixColors,
   type ReducerState,
   type SigmaEdgeAttrs,
   type SigmaNodeAttrs,
 } from "../lib/graphStyle";
+import { resolveCssColor, subscribeColorScheme } from "../lib/themeColors";
 import {
   CAMERA,
   communityColor,
-  EDGE_COLORS,
   edgeKindLabel,
   type GraphScope,
   type GraphViewNode,
@@ -62,6 +65,70 @@ const NodeImageProgram = createNodeImageProgram<SigmaNodeAttrs, SigmaEdgeAttrs>(
 // published declaration leaves untyped), check that it is callable, and fall
 // back to enterNode/leaveNode events if a future Sigma drops it.
 type NodePicker = (position: { x: number; y: number }) => string | null;
+
+type ThemeColors = GraphColors & { label: string; edgeLabel: string; surface: string };
+
+/** Read the renderer colors from the current theme's tokens. */
+function readThemeColors(): ThemeColors {
+  const border = resolveCssColor("var(--border)");
+  const strong = resolveCssColor("var(--border-strong)");
+  const faint = resolveCssColor("var(--text-faint)");
+
+  return {
+    neutral: resolveCssColor("var(--type-8)"),
+    edgeFaint: border,
+    edgeLight: mixColors(border, strong, 0.35),
+    edgeStrong: mixColors(strong, faint, 0.35),
+    label: resolveCssColor("var(--text)"),
+    edgeLabel: faint,
+    surface: resolveCssColor("var(--surface)"),
+  };
+}
+
+function rendererColorSettings(colors: ThemeColors) {
+  return {
+    defaultEdgeColor: colors.edgeFaint,
+    labelColor: { color: colors.label },
+    edgeLabelColor: { color: colors.edgeLabel },
+  };
+}
+
+// WHY: Sigma's default hover box is hard-coded white, which hides the light
+// label text of the dark theme. This draws the same shape on the surface token.
+function themedNodeHover(
+  colors: () => ThemeColors,
+): NodeHoverDrawingFunction<SigmaNodeAttrs, SigmaEdgeAttrs> {
+  return (context, data, settings) => {
+    const size = settings.labelSize;
+    const padding = 2;
+    context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
+    context.fillStyle = colors().surface;
+    context.shadowBlur = 8;
+    context.shadowColor = "rgba(0, 0, 0, 0.35)";
+
+    const radius = Math.max(data.size, size / 2) + padding;
+    context.beginPath();
+
+    if (data.label) {
+      const boxWidth = Math.round(context.measureText(data.label).width + 5);
+      const boxHeight = Math.round(size + 2 * padding);
+      const angle = Math.asin(boxHeight / 2 / radius);
+      const dx = Math.sqrt(Math.abs(radius ** 2 - (boxHeight / 2) ** 2));
+      context.moveTo(data.x + dx, data.y + boxHeight / 2);
+      context.lineTo(data.x + radius + boxWidth, data.y + boxHeight / 2);
+      context.lineTo(data.x + radius + boxWidth, data.y - boxHeight / 2);
+      context.lineTo(data.x + dx, data.y - boxHeight / 2);
+      context.arc(data.x, data.y, radius, angle, -angle);
+    } else {
+      context.arc(data.x, data.y, data.size + padding, 0, Math.PI * 2);
+    }
+
+    context.closePath();
+    context.fill();
+    context.shadowBlur = 0;
+    drawDiscNodeLabel(context, data, settings);
+  };
+}
 
 /** Rebuild the API graph node a click refers to from its renderer attributes. */
 function graphNodeFromAttrs(id: string, attrs: SigmaNodeAttrs): GraphNode {
@@ -129,6 +196,9 @@ export function useSigmaGraph({
   const onNodeClickRef = useRef(onNodeClick);
   const globalLayoutRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
+  const colorsRef = useRef<ThemeColors | null>(null);
+  colorsRef.current ??= readThemeColors();
+
   const stateRef = useRef<ReducerState>({
     graphMatches: new Set(),
     semanticMatches: new Set(),
@@ -144,6 +214,7 @@ export function useSigmaGraph({
     cameraRatio: 1,
     maxScore: 0,
     showProblems: false,
+    colors: colorsRef.current,
   });
 
   const refreshRef = useRef<number | null>(null);
@@ -233,7 +304,7 @@ export function useSigmaGraph({
         id,
         size: data.size,
         label: data.topLabel || `Cluster ${id}`,
-        color: communityColors.get(id) || "#64748b",
+        color: communityColors.get(id) || "var(--type-8)",
       }))
       .sort((a, b) => b.size - a.size);
   }, [communityColors, nodes]);
@@ -342,7 +413,8 @@ export function useSigmaGraph({
       const baseSize =
         (n.kind === "module" ? NODE_SIZE.base.module : NODE_SIZE.base.normal) + (n.center ? 2 : 0);
 
-      const baseColor = nodeColor(n, communityColors, typeColors);
+      const colorValue = nodeColor(n, communityColors, typeColors);
+      const baseColor = resolveCssColor(colorValue);
       graph.addNode(n.id, {
         label: n.label,
         kind: n.kind,
@@ -358,6 +430,7 @@ export function useSigmaGraph({
         score: n.score,
         problemCount: 0,
         baseSize,
+        colorValue,
         baseColor,
         size: baseSize,
         color: baseColor,
@@ -408,8 +481,8 @@ export function useSigmaGraph({
       graph.addEdgeWithKey(`edge-${index}`, e.source, e.target, {
         size: Math.max(0.6, Math.min(4, Math.sqrt(e.weight))),
         weight: e.weight,
-        color: EDGE_COLORS.faint,
-        baseColor: EDGE_COLORS.faint,
+        color: stateRef.current.colors.edgeFaint,
+        baseColor: stateRef.current.colors.edgeFaint,
         kind: e.kind,
         label: e.label || edgeKindLabel(e.kind),
       });
@@ -454,14 +527,14 @@ export function useSigmaGraph({
       labelGridCellSize: 90,
       labelRenderedSizeThreshold: 10,
       defaultNodeType: "circle",
-      defaultEdgeColor: EDGE_COLORS.faint,
+      ...rendererColorSettings(colorsRef.current ?? readThemeColors()),
+      defaultDrawNodeHover: themedNodeHover(() => colorsRef.current ?? readThemeColors()),
       minCameraRatio: CAMERA.minRatio,
       maxCameraRatio: CAMERA.maxRatio,
       zIndex: true,
       enableEdgeEvents: true,
       edgeLabelSize: 9,
       edgeLabelWeight: "500",
-      edgeLabelColor: { color: "#9a9488" },
       nodeProgramClasses: { image: NodeImageProgram },
       nodeHoverProgramClasses: { image: NodeImageProgram },
       allowInvalidContainer: true,
@@ -680,6 +753,27 @@ export function useSigmaGraph({
     scope.mode,
     typeColors,
   ]);
+
+  // A theme switch re-reads the token colors and repaints in place: no new
+  // renderer, no layout run, and the camera stays where it was.
+  useEffect(
+    () =>
+      subscribeColorScheme(() => {
+        const colors = readThemeColors();
+        colorsRef.current = colors;
+        stateRef.current = { ...stateRef.current, colors };
+        const graph = graphRef.current;
+
+        graph?.forEachNode((nodeID, attrs) => {
+          if (attrs.colorValue) {
+            graph.setNodeAttribute(nodeID, "baseColor", resolveCssColor(attrs.colorValue));
+          }
+        });
+        sigmaRef.current?.setSettings(rendererColorSettings(colors));
+        scheduleRefresh();
+      }),
+    [scheduleRefresh],
+  );
 
   useEffect(() => {
     const graph = graphRef.current;
