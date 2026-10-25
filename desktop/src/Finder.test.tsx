@@ -195,6 +195,20 @@ describe("finder", () => {
     expect(onChoose).toHaveBeenCalledTimes(1);
   });
 
+  it("highlights the first worktree once discovery fills an empty list", () => {
+    const onChoose = vi.fn();
+    const empty = model({ mode: "worktrees", rows: [] });
+    const { rerender } = render(<Finder model={empty} onChoose={onChoose} />);
+    const input = screen.getByRole("combobox");
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    const found = [row("main", "/w/r", { worktree: "/w/r" })];
+    rerender(<Finder model={{ ...empty, rows: found }} onChoose={onChoose} />);
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onChoose).toHaveBeenLastCalledWith(
+      expect.objectContaining({ choice: "open", worktree: "/w/r" }),
+    );
+  });
+
   it("lists worktrees by branch without repository-only controls", () => {
     const { options } = show({
       mode: "worktrees",

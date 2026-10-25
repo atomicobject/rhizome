@@ -108,7 +108,9 @@ export function Finder({
   const list = useId();
   const repositories = model.mode === "repositories";
   const shown = useMemo(() => rank(model.rows, query), [model.rows, query]);
-  const index = Math.min(active, shown.length - 1);
+  // Never negative, so rows that arrive after an arrow key on an empty list
+  // still start highlighted.
+  const index = Math.max(0, Math.min(active, shown.length - 1));
 
   // The overlay keeps its document between openings; take focus each time.
   useEffect(() => {
