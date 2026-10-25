@@ -158,3 +158,21 @@ Active.
   - An item left running by a crashed pass now becomes needs attention, because a pass holding the run lock means nothing else is running.
   - The login shell's PATH is read after a marker, so profile output can't corrupt it.
   - Unix-only process tests moved to `runner_unix_test.go`, and shell-based tests skip on Windows.
+- 2026-10-25 `make check-full` exit 0 at `b08c8aee`. Its edits landed mid-run, so the gate reruns before merge.
+- 2026-10-25 Greptile round 1 (`greptile review --json`) raised 18 findings, fixed in `8dff0234` with regression tests in `review_fixes_test.go`:
+  - Start checks trust and reserves the item before launching.
+  - Failed tasks run again at their next cadence, and pause is rechecked before each task.
+  - Script checks get the task's timeout, and a check must state `needed` explicitly.
+  - A retry keeps the failed attempt's worktree on its own item, and discard keeps the location when removal fails.
+  - Each task's last run is kept outside the trimmed history.
+  - Runtimes ask for tasks in any Git checkout, and `ps` snapshots are bounded.
+  - `rzm tasks` uses the invocation's directory and reports a broken config.
+  - `status` shows failed passes and squash settings that drop the tag (US7).
+  - The README mentions tasks.
+  - The validation check for task files (US1) went to a T3 Opus 5.5 High worker (`eff-2026-10-25-14-06-validate-tasks`).
+- 2026-10-25 GPT-6.1 Sol xhigh review (`eff-2026-10-25-14-06-sol-review-r1`) of the branch through `8dff0234`: "ready after the listed fixes", with three findings, all reproduced and fixed in `d0b65728`:
+  - P1: a timed-out check whose escaped descendant held the output pipes kept the run lock.
+  - P2: harness cleanup missed descendants when the harness exited before `Close`.
+  - P2: retrying a failed-check item skipped the check.
+  - The fix adds the leaf package `pkg/proctree`. It records descendants by PID and start time while the child runs and just before input closes, so cleanup reaches reparented processes without touching reused PIDs. Checks also set `WaitDelay`, and `Run` reruns the check first.
+  - `go test -race -count=2` passed for `pkg/app/tasks`, `jsonstdio`, and `pkg/proctree`, and a live Claude Code rerun left no `sleep 300`.
