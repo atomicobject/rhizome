@@ -348,7 +348,7 @@ export default function TypeBriefing(_props: ViewModuleProps) {
   const state = useCollectionModel();
 
   return (
-    <GroupPage state={state} subject="collection">
+    <GroupPage state={state} subject="collection" reading>
       {(model) => model.members[0] && <BriefingBody model={model} member={model.members[0]} />}
     </GroupPage>
   );

@@ -60,7 +60,7 @@ export function TypeWorkspaceHeader({
       facts={
         <>
           {(issueCount ?? 0) > 0 && (
-            <span className="view-header__fact">
+            <span className="view-header__fact view-header__issues">
               <ValidationIssueBadge
                 count={issueCount}
                 health={validationHealth}
@@ -80,9 +80,9 @@ export function TypeWorkspaceHeader({
               href={buildOntologyTypePath(typeName)}
               className="view-header__fact view-header__schema"
               aria-label={`View ontology type ${typeName}`}
-              title={`View ontology type ${typeName}`}
+              title={`${eyebrow}: view ontology type ${typeName}`}
             >
-              {eyebrow}
+              {typeName}
             </a>
           ) : eyebrow ? (
             <span className="view-header__fact">{eyebrow}</span>

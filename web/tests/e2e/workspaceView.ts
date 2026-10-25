@@ -28,9 +28,22 @@ export async function expectViewSettled(page: Page) {
   await expect(page.locator(".configured-view:visible")).toHaveAttribute("aria-busy", "false");
 }
 
-/** Opens the configured view toolbar's View options (density, columns, Save view, refresh). */
+/** Opens the view header's View popover (grouping, sort, density, columns, Save view, refresh). */
 export async function openViewOptions(scope: Page | Locator) {
   const button = scope.getByRole("button", { name: /^View options/ });
 
   if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
 }
+
+/** Opens the view header's Filter popover (presets, quick filters, Add filter). */
+export async function openFilterMenu(scope: Page | Locator) {
+  const button = scope.getByRole("button", { name: /^Filter(,|$)/ });
+
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+}
+
+/** A choice in the View popover's "1 line | 2 lines" Rows control. */
+export const rowsChoice = (scope: Page | Locator, name: "1 line" | "2 lines") =>
+  scope
+    .getByRole("group", { name: "Rows", exact: true })
+    .getByRole("button", { name, exact: true });

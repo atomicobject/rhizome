@@ -13,6 +13,7 @@
   flex: none;
   min-width: 0;
   background: var(--surface);
+  container: view-header / inline-size;
 }
 
 .view-header__title-row {
@@ -70,6 +71,7 @@
 }
 
 .view-header__schema {
+  font: 400 var(--fs-xs) var(--font-mono);
   text-decoration: none;
 }
 
@@ -79,12 +81,26 @@
   text-decoration: underline;
 }
 
+/* The tools never shrink; the description gives way first. */
 .view-header__tools {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--sp-1);
   margin-left: auto;
+}
+
+/* A narrow header drops its least useful text before anything wraps or scrolls. */
+@container view-header (max-width: 760px) {
+  .view-header__about,
+  .view-header__fact:not(.view-header__issues),
+  .configured-view__find kbd {
+    display: none;
+  }
+
+  .configured-view__find {
+    width: 160px;
+  }
 }
 
 .view-header__tabs {
@@ -157,6 +173,7 @@
 /* Find in view, Filter, and View: quiet ghost controls on the title row. */
 .configured-view__find {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--sp-3);
   width: 220px;
@@ -539,6 +556,10 @@
 .configured-view__active-filters {
   padding: var(--sp-2) 22px;
   border-bottom: 1px solid var(--border);
+}
+
+.configured-view__active-filters:empty {
+  display: none;
 }
 
 .configured-view__active-filter {
@@ -2259,14 +2280,15 @@ tr:focus-within .configured-view__boolean-editor .configured-view__cell-clear {
 
 .configured-view__table--two-line .configured-view__row td {
   height: 56px;
-  padding-top: 9px;
-  padding-bottom: 9px;
+  padding-top: 8px;
+  padding-bottom: 6px;
+  line-height: 20px;
   vertical-align: top;
 }
 
 .configured-view__row-summary {
   display: block;
-  margin-top: 2px;
+  margin-top: 1px;
   overflow: hidden;
   color: var(--text-muted);
   font-size: var(--fs-sm);
