@@ -242,7 +242,7 @@ test("group Overview maps member types, lists members and outside notes, and swi
   await expect(outside).toContainText("Ada Example");
   await expect(outside).toContainText("Lin Example");
 
-  await map.getByRole("button", { name: "Matrix" }).click();
+  await map.getByRole("radio", { name: "Matrix" }).locator("xpath=..").click();
 
   const matrix = map.getByRole("table");
   await expect(matrix.getByRole("rowheader", { name: "Work items" })).toBeVisible();

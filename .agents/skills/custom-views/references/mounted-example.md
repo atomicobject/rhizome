@@ -58,29 +58,28 @@ The dashboard reuses native execution and canonical navigation:
 
 ```tsx
 // dashboard.tsx
-import { nodeHref, openNode, useViewRows, type ViewModuleProps } from "@rhizome/kit";
+import { NodeLink, Section, sectionStatus, useViewRows, type ViewModuleProps } from "@rhizome/kit";
 
 export default function Dashboard({ context, configuration }: ViewModuleProps) {
   const source = String(configuration?.nativeView ?? "delivery.efforts");
   const detail = String(configuration?.detailView ?? "delivery.effort-detail");
   const rows = useViewRows(source, { variant: "table" });
-  if (context.kind !== "group") return <p>Select a display group to open this page.</p>;
-  if (rows.isPending) return <p>Loading efforts…</p>;
-  if (rows.error) return <p role="alert">{rows.error.message}</p>;
+  if (context.kind !== "group") return <p className="p-4 text-faint">Select a display group to open this page.</p>;
+  // The host already shows the group's name above the page.
   return (
-    <main className="space-y-3 p-4">
-      <h1 className="font-serif text-xl">{context.group}</h1>
-      <ul>
-        {rows.data.rows.map((row) => (
-          <li key={row.ref.nodeId ?? row.ref.notePath}>
-            <a href={nodeHref(row.ref, { view: detail })} onClick={(event) => {
-              if (event.button !== 0 || event.shiftKey || event.altKey) return;
-              event.preventDefault();
-              openNode(row.ref, { view: detail, beside: event.metaKey || event.ctrlKey });
-            }}>{row.title}</a>
-          </li>
-        ))}
-      </ul>
+    <main className="px-5 py-3">
+      <Section title="Efforts" count={rows.data?.rows.length} status={sectionStatus(rows)} what="efforts"
+        empty={rows.data?.rows.length === 0 ? "No efforts yet." : undefined}>
+        {() => (
+          <ul className="divide-y divide-[var(--border-faint)]">
+            {rows.data?.rows.map((row) => (
+              <li key={row.ref.nodeId ?? row.ref.notePath} className="py-1">
+                <NodeLink node={row.ref} view={detail}>{row.title}</NodeLink>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
     </main>
   );
 }
@@ -90,8 +89,10 @@ The node page derives its read/write target from context. Its GraphQL query is s
 
 ```tsx
 // detail.tsx
-import { useGraphQL, useSetField, type ViewContext, type ViewModuleProps } from "@rhizome/kit";
+import { Section, StatusMark, useGraphQL, useSetField, useTypeDocs, type ViewContext, type ViewModuleProps } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
+
+const TYPES = ["EffortNote"]; // stable, so the docs query is not re-keyed every render
 
 const QUERY = `query Detail($ref: String!) {
   node(ref: $ref) { title ... on EffortNote { summary status } }
@@ -104,18 +105,23 @@ function Detail({ context }: { context: Extract<ViewContext, { kind: "node" }> }
     QUERY, { ref: locator },
   );
   const edit = useSetField();
-  if (result.isPending) return <p>Loading effort…</p>;
-  if (result.error) return <p role="alert">{result.error.message}</p>;
-  if (!result.data.node) return <p>This effort is unavailable.</p>;
+  const statuses = useTypeDocs(TYPES).docs.EffortNote?.fields.find((field) => field.name === "status")?.enum?.values ?? [];
+  if (result.isPending) return <p className="p-4 text-faint">Loading effort…</p>;
+  if (result.error) return <p role="alert" className="p-4 text-risk">{result.error.message}</p>;
+  if (!result.data.node) return <p className="p-4 text-faint">This effort is unavailable.</p>;
+  // A node presentation draws its own title, in Barlow.
   return (
-    <main className="space-y-3 p-4">
-      <h1 className="font-serif text-xl">{result.data.node.title}</h1>
-      <p>{result.data.node.summary}</p>
-      <p>Status: {result.data.node.status}</p>
-      <Button disabled={edit.isPending} onClick={() =>
-        edit.mutate({ target: ref, field: "status", value: "active" })
-      }>Set active</Button>
-      {edit.error && <p role="alert">{edit.error.message}</p>}
+    <main className="space-y-3 px-5 py-3">
+      <h1 className="text-xl font-bold">{result.data.node.title}</h1>
+      <p className="max-w-[68ch]">{result.data.node.summary}</p>
+      <Section title="Status" controls={
+        <Button size="sm" disabled={edit.isPending} onClick={() =>
+          edit.mutate({ target: ref, field: "status", value: "active" })
+        }>Set active</Button>
+      }>
+        <StatusMark value={result.data.node.status} values={statuses} />
+        {edit.error && <p role="alert" className="text-risk">{edit.error.message}</p>}
+      </Section>
     </main>
   );
 }

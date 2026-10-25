@@ -49,13 +49,14 @@ function bootScript(): Plugin {
   return {
     name: "rhizome-kit-boot",
     generateBundle() {
-      const tokens = /:root\s*\{[^}]*\}/.exec(
-        readFileSync(path.resolve(__dirname, "src/base.css"), "utf8"),
-      );
-
-      if (!tokens) throw new Error("src/base.css has no :root token block");
-
-      const theme = `${tokens[0]}\n${readFileSync(path.join(kitDir, "theme.css"), "utf8")}\n${readFileSync(path.resolve(__dirname, "src/diagram.css"), "utf8")}`;
+      const theme = [
+        path.resolve(__dirname, "src/tokens.css"),
+        path.join(kitDir, "theme.css"),
+        path.join(kitDir, "components.css"),
+        path.resolve(__dirname, "src/diagram.css"),
+      ]
+        .map((file) => readFileSync(file, "utf8"))
+        .join("\n");
 
       const boot = readFileSync(path.join(kitDir, "boot.js"), "utf8")
         .replace("__THEME__", () => JSON.stringify(theme))

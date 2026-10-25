@@ -64,11 +64,17 @@ Pending.
 
 - 2026-10-25: Audit evidence (screenshots, detector output, four review reports) gathered in the planning session; the shell's Impeccable update landed first as `1f17987b` and `c593d2f2` on this branch.
 - 2026-10-25T12:33:57Z: Drew approved this plan revision and its frozen scope in chat ("Yes"), including the branch, PR, squash-merge, and vault-view authority listed under Plan. No current Person is configured in this checkout, so `plan-approved-by` is omitted; the chat approval stands.
+- 2026-10-25 foundation review after phase 1 (PR #38), decided by Drew: restyle `@rhizome/ui` defaults in place under `/kit/v1` (visual defaults may change within a kit version; names and props stay); lock the public token names (`--type-1..8` with `-ink`, `--series-1..8`, `--series-link`, `--focus-ring`, `--accent-fill`, and the `text-faint`, `text-link`, `text-risk`, `bg-sunk`, `bg-tint` utilities); keep the additive `familyOverrides` preference field. Phases 2–5 may start.
+- Phase 1 evidence: `make check` passed; `make web-e2e` first run 92 passed, 3 failed (Matrix toggle now a radio, Diagram re-rendering flowcharts on resize, the note toolbar's reset overlapping Copy link); fixed, and the three specs rerun pass (19 passed). `rzm init --check` exit 0; `rzm validate` 0 issues.
+- Phase 5 (2026-10-25): rebuilt IP Desk, Postcard prep, Home base, and Quarter slate on the kit primitives in a copy of the vault and verified them in light and dark against this branch's build. Staged at `/tmp/rzm-phase5-views/` and applied to `drews-vault/.rhizome/views/` only once the parent PR is ready, because Drew's installed Rhizome Dev predates the new kit exports and would fail to load the rebuilt views. Postcard prep's per-view dark stylesheet is deleted. Home base keeps its bucket colors, which deliberately match the leadership site, rather than the series palette.
+- Phase 1 follow-up fixes found while rebuilding the views: chart width now survives xyChart frontmatter (init directive), and kit component styles sit in `@layer components` so view utilities override them.
 - Drew's planning decisions (2026-10-25): darker filled primary `#c8313a`; add dark tokens now for host and kit; self-host fonts and keep every current weight; parent PR with squash-merged phase PRs.
 
 ## Deviations
 
-None yet.
+- Phase 1, 2026-10-25: the spec's preference non-goal admitted no REST change, but hiding "Reset to shared" when nothing is saved needs to know whether a custom view's widget slots hold values. Added an additive `familyOverrides` field to host preference snapshots (read-only SQL in `userstate.readSnapshot`, no schema change) and refreshed hosts on widget events; SPEC-0125 updated in place. Within the approved plan's scope (the reset rule); recorded because it touches an API the spec had excluded.
+- Phase 1: kept the kit's 14px root (spacing density) and pinned text sizes instead of dropping the root; `Diagram` fills width for charts only, since scaling flowcharts enlarges their text; node presentations keep a Barlow title because the note tab does not title custom presentations. SPEC-0125 updated in place.
+- Phase 1: undefined host tokens (`--line`, `--r-full`, `--surface-1/2`, and others) are replaced in phase 2's stylesheet sweep, which owns those files, rather than in phase 1.
 
 ## Closure Checklist
 

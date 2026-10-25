@@ -86,6 +86,22 @@ export {
 
 export { HighlightProvider, RecordChip } from "./recordChip";
 
+export {
+  BarList,
+  Count,
+  Dash,
+  Fact,
+  Facts,
+  MoreToggle,
+  Section,
+  SectionBody,
+  Segmented,
+  sectionStatus,
+  type BarListItem,
+  type SectionStatus,
+  type SegmentedOption,
+} from "./layout";
+
 export { RelativeTime, sharedLabelPrefix, typeLabel } from "./format";
 
 export type { ViewConfig, ViewModule } from "./startView";
@@ -413,11 +429,13 @@ export function openNote(path: string, options: { beside?: boolean } = {}) {
 export function NoteLink({
   path,
   children,
+  className,
   ...props
 }: { path: string } & Omit<ComponentProps<"a">, "href">) {
   return (
     <a
       {...props}
+      className={className ? `rz-note-link ${className}` : "rz-note-link"}
       href={noteHref(path)}
       onClick={(event) => {
         if (event.defaultPrevented || event.button !== 0 || event.shiftKey || event.altKey) return;
@@ -426,6 +444,33 @@ export function NoteLink({
       }}
     >
       {children ?? path}
+    </a>
+  );
+}
+
+/**
+ * A link to a canonical note or embedded node, optionally in a named
+ * presentation, styled like `NoteLink`. Cmd or Ctrl click opens it beside.
+ */
+export function NodeLink({
+  node,
+  view,
+  children,
+  className,
+  ...props
+}: { node: ViewNodeRef; view?: string } & Omit<ComponentProps<"a">, "href">) {
+  return (
+    <a
+      {...props}
+      className={className ? `rz-note-link ${className}` : "rz-note-link"}
+      href={nodeHref(node, { view })}
+      onClick={(event) => {
+        if (event.defaultPrevented || event.button !== 0 || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        openNode(node, { view, beside: event.metaKey || event.ctrlKey });
+      }}
+    >
+      {children}
     </a>
   );
 }

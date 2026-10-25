@@ -878,6 +878,8 @@ export interface components {
       revision: number;
       values: components["schemas"]["ViewPreferenceValues"];
       migrationClosed: boolean;
+      /** @description On a host scope, true when any of its widget slots holds a saved value. */
+      familyOverrides?: boolean;
     };
     ViewPreferencesPatchRequest: {
       scope: components["schemas"]["ViewPreferenceScope"];

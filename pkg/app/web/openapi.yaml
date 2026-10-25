@@ -1555,6 +1555,7 @@ components:
         values:
           $ref: "#/components/schemas/ViewPreferenceValues"
         migrationClosed: { type: boolean }
+        familyOverrides: { type: boolean, description: "On a host scope, true when any of its widget slots holds a saved value." }
     ViewPreferencesPatchRequest:
       type: object
       additionalProperties: false

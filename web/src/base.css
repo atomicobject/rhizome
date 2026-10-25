@@ -14,116 +14,7 @@
    Workspace-specific layout lives in `explorer.css` and `ontology.css`.
    ========================================================================== */
 
-:root {
-  /* ---- Atomic Object brand palette ---- */
-  --ao-red: #fd4f57;
-  --ao-red-600: #e63e46;
-  --ao-red-700: #c8313a;
-  --ao-red-soft: #ffeaec;
-  --ao-red-line: #fccfd2;
-  --ao-red-ink: #9c1d24;
-
-  --ao-black: #4c4845;
-  --ao-ink: #2a2724;
-  --ao-ink-2: #3a3734;
-  --ao-ink-3: #5c5853;
-
-  --ao-teal: #16cbc4;
-  --ao-teal-600: #11b5ae;
-  --ao-teal-soft: #d8f7f5;
-  --ao-teal-ink: #0b6a66;
-
-  --ao-blue: #3295bd;
-  --ao-purple: #a5488b;
-  --ao-gold: #dcad66;
-
-  --ao-gray-900: #2a2724;
-  --ao-gray-700: #4c4845;
-  --ao-gray-500: #595959;
-  --ao-gray-400: #8a8682;
-  --ao-gray-300: #c3c3c3;
-  --ao-gray-200: #e4e2dd;
-  --ao-gray-150: #ecebe6;
-  --ao-gray-100: #f2f1ec;
-  --ao-gray-50: #f7f7f7;
-  --ao-white: #ffffff;
-
-  /* ---- Semantic tokens ---- */
-  --bg: #f7f7f7;
-  --bg-tint: #f2f1ec;
-  --panel: #ffffff;
-  --surface: #ffffff;
-  --surface-alt: #fbfbfa;
-  --surface-sunk: #f4f3ef;
-  --border: #e4e2dd;
-  --border-strong: #c9c6bf;
-  --border-faint: #ecebe6;
-
-  --text: #2a2724;
-  --muted: #595959;
-  --text-muted: #595959;
-  --text-faint: #706c68;
-
-  --accent: #fd4f57;
-  --accent-hover: #e63e46;
-  --accent-active: #c8313a;
-  --accent-soft: #ffeaec;
-  --accent-line: #fccfd2;
-  --accent-ink: #9c1d24;
-
-  --info: #3295bd;
-  --success: #16cbc4;
-  --warning: #dcad66;
-  --warning-soft: #fbefd4;
-  --warning-ink: #8a5a0f;
-
-  /* Note links: teal means connection, everywhere a link points at a note. */
-  --link: var(--ao-teal-ink);
-  --link-line: color-mix(in srgb, var(--ao-teal) 45%, transparent);
-
-  /* Section label: the one style for section heads, rail groups, column heads,
-     and fact labels. Sentence case; hierarchy comes from weight, not tracking. */
-  --label-font: 700 var(--fs-xs) / 1.3 var(--font-sans);
-  --label-color: var(--text-muted);
-
-  /* ---- Typography ---- */
-  --font-display: "Merriweather", Georgia, "Times New Roman", serif;
-  --font-sans: "Barlow", -apple-system, system-ui, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-
-  --fs-xs: 11px;
-  --fs-sm: 12px;
-  --fs-base: 13px;
-  --fs-md: 14px;
-  --fs-lg: 15px;
-  --fs-xl: 18px;
-  --fs-2xl: 24px;
-  --fs-display: 32px;
-
-  /* ---- Spacing (compact scale) ---- */
-  --sp-1: 4px;
-  --sp-2: 6px;
-  --sp-3: 8px;
-  --sp-4: 10px;
-  --sp-5: 14px;
-  --sp-6: 18px;
-  --sp-7: 24px;
-  --sp-8: 32px;
-
-  /* ---- Radii (restrained, technical) ---- */
-  --r-sm: 3px;
-  --r: 4px;
-  --r-md: 6px;
-  --r-lg: 10px;
-
-  /* ---- Shadows ---- */
-  --shadow-sm: 0 1px 2px rgba(42, 39, 36, 0.06);
-  --shadow: 0 1px 3px rgba(42, 39, 36, 0.08), 0 2px 6px rgba(42, 39, 36, 0.04);
-  --shadow-lg: 0 10px 28px rgba(42, 39, 36, 0.1);
-
-  /* ---- Motion ---- */
-  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-}
+@import "./tokens.css";
 
 * {
   box-sizing: border-box;
@@ -1316,7 +1207,7 @@ textarea {
 /* One keyboard focus style for the whole app. Zero specificity, so a
    component can inset or offset it (rows, cells) without restyling it. */
 :where(a, button, input, select, textarea, summary, [tabindex], [role="tab"]):focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 

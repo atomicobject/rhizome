@@ -2,6 +2,7 @@ import {
   useEffect,
   useEffectEvent,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -11,6 +12,8 @@ import {
 import { renderDiagram } from "../src/components/markdown/mermaid";
 import type { ViewNodeRef } from "../src/views/context";
 import { openNode } from "./index";
+
+const XY_CHART = /^\s*(?:---[\s\S]*?---\s*)?(?:%%\{[\s\S]*?\}%%\s*)?xychart/;
 
 type DiagramState =
   | { kind: "loading" }
@@ -39,6 +42,29 @@ export function Diagram(props: {
   );
 
   const readEntries = useEffectEvent(() => entries);
+  const [width, setWidth] = useState(0);
+  const hasSource = source.trim() !== "";
+  // Only charts lay out at the container's width; other diagrams keep their
+  // natural size, so resizing never re-renders them.
+  const fitWidth = width && XY_CHART.test(source) ? width : undefined;
+
+  // Charts fill the view's width; measured in 20px steps so resizing re-lays
+  // the chart out without a render per pixel.
+  useLayoutEffect(() => {
+    const element = container.current;
+
+    if (!element) return;
+
+    const update = () => setWidth(Math.floor(element.clientWidth / 20) * 20);
+    update();
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [hasSource]);
 
   useEffect(() => {
     if (!source.trim()) return;
@@ -50,6 +76,7 @@ export function Diagram(props: {
       idPrefix,
       true,
       targets.map(([id]) => id),
+      fitWidth,
     ).then(
       (result) => {
         if (cancelled) return;
@@ -99,7 +126,7 @@ export function Diagram(props: {
     return () => {
       cancelled = true;
     };
-  }, [source, linkKey, idPrefix]);
+  }, [source, linkKey, idPrefix, fitWidth]);
 
   useEffect(() => {
     container.current

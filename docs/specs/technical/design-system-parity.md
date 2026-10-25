@@ -26,7 +26,7 @@ This spec makes one token source and one component grammar serve the host and th
 
 ## Non-Goals
 
-No phone or touch layouts, no in-app appearance override (the theme follows the OS), no new identity or logo work, no changes to view YAML, preference storage, GraphQL, or REST contracts, no server-side aggregation for the Briefing collection read, no custom-view frame keep-alive, no ELK worker, no lucide splitting. Personal vault views are updated by this effort but are not part of the product contract.
+No phone or touch layouts, no in-app appearance override (the theme follows the OS), no new identity or logo work, no changes to view YAML, preference storage, or GraphQL contracts, no REST changes beyond the additive `familyOverrides` preference field below, no server-side aggregation for the Briefing collection read, no custom-view frame keep-alive, no ELK worker, no lucide splitting. Personal vault views are updated by this effort but are not part of the product contract.
 
 ## Requirements
 
@@ -48,12 +48,12 @@ No phone or touch layouts, no in-app appearance override (the theme follows the 
 
 ### Kit defaults (`@rhizome/ui`, `@rhizome/kit`)
 
-- `theme.css` maps Tailwind's `text-xs/sm/base/lg` to 11/12/13/15px and drops the 14px root override. The view page background is `--surface`. The shared `:focus-visible` outline from `base.css` applies inside frames; components do not draw their own translucent rings.
+- `theme.css` pins Tailwind's `text-xs/sm/base/lg` to 11/12/13/15px; the 14px root stays so spacing utilities remain compact. The view page background is `--surface`. The shared `:focus-visible` outline from `base.css` applies inside frames; components do not draw their own translucent rings.
 - Existing component names and props keep working, restyled: `Button` defaults to the 26px neutral secondary with `variant="default"` mapping to it and a red `primary` variant opt-in; `Badge` defaults neutral like `.type-chip`; `Card` is flat (1px border, no resting shadow, 10–14px padding); `Tabs` renders like `.segmented`; `Table` uses 28px rows, label-style heads, and mono numbers; shadcn `accent` (hover, select focus) maps to a neutral tint; `Skeleton` uses a neutral sunk fill.
 - `NoteLink` renders the teal note-link style by default; `className` extends it.
 - `StatusMark` uses the host's tone shapes (ring, half, filled, triangle, diamond, dashed) so one enum value looks the same in native and custom views.
-- New public primitives, promoted from the bundled group views so both use one implementation: `Section` (label head, mono count, caption, controls, and a body that renders loading, error-with-retry, and one-line empty states in reserved space), `Facts` (one-line facts strip), `Count`, `Dash` (empty value with screen-reader text), `MoreToggle`, `Segmented`, and `BarList` (proportional HTML bars with linkable labels and series tokens). Their CSS ships in the kit theme. Exports are additive under `/kit/v1`.
-- `Diagram` fills its container's width.
+- New public primitives, promoted from the bundled group views so both use one implementation: `Section`, `SectionBody`, and `sectionStatus` (block head, mono count, caption, controls, and a body that renders loading, error-with-retry, and one-line empty states), `Facts`/`Fact` (one-line facts strip), `Count`, `Dash` (empty value with screen-reader text), `MoreToggle`, `Segmented`, `BarList` (proportional HTML bars with linkable labels and series tokens), and `NodeLink` (the note-link style for canonical nodes). Their CSS ships in the kit theme. Exports are additive under `/kit/v1`.
+- `Diagram` lays charts (xychart) out at its container's width; other diagram types keep their natural size and shrink to fit.
 
 ### Loading and empty states
 
@@ -62,7 +62,7 @@ No phone or touch layouts, no in-app appearance override (the theme follows the 
 
 ### Host chrome
 
-- "Reset to shared" renders only when the view family has personal overrides, and sits in the view-selector row instead of its own row.
+- "Reset to shared" renders only when the view family has personal overrides, and sits in the view-selector row instead of its own row. A host preference snapshot reports `familyOverrides` (any widget slot holds a value), so a custom view whose choices live in widget slots still offers the reset.
 - Collection toolbars (configured views) show search, filter, and grouping by default; density, column choice, saved-view publishing, and refresh move into one "View options" disclosure. The toolbar does not wrap at a 1280px window with both rails open. "Problems on this page" merges into the facet line's Issues toggle.
 - The header's validation count and the facet line's issue count use distinct labels so they never contradict ("N validation issues" for the type versus "N records with issues").
 - Edit mode: a disabled primary button reads as disabled, not as an error tint; long text fields edit in a growing textarea; empty values read "Empty" everywhere.
@@ -84,7 +84,7 @@ No phone or touch layouts, no in-app appearance override (the theme follows the 
 
 ### Author guidance
 
-- The canonical custom-views skill (`pkg/app/cli/init/templates/skills/markdown/custom-views/`) gains a short "Look like Rhizome" section and rewrites its examples on the kit primitives: no page title when mounted on a type, group, or node; Barlow inside the page; counts as `Count`; red only for commit or risk; `NoteLink` for references; `useViewPreference` for remembered choices; the light and dark themes come from the kit, never from per-view overrides.
+- The canonical custom-views skill (`pkg/app/cli/init/templates/skills/markdown/custom-views/`) gains a short "Look like Rhizome" section and rewrites its examples on the kit primitives: no page title when mounted on a type, interface, group, or All notes (node presentations and standalone pages draw one Barlow title); Barlow inside the page; counts as `Count`; red only for commit or risk; `NoteLink` for references; `useViewPreference` for remembered choices; the light and dark themes come from the kit, never from per-view overrides.
 
 ## Verification
 

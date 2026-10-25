@@ -107,7 +107,7 @@ it("opens a member from its node and the group's Trace from a relation edge", as
 
 it("switches to the Matrix, with self links, an Outside column, and unused relations", async () => {
   await renderGroupView(loadOverview, { routes: scopeRoutes() });
-  fireEvent.click(within(region("Map")).getByRole("button", { name: "Matrix" }));
+  fireEvent.click(within(region("Map")).getByRole("radio", { name: "Matrix" }));
   const table = within(region("Map")).getByRole("table");
 
   expect(
@@ -130,10 +130,7 @@ it("switches to the Matrix, with self links, an Outside column, and unused relat
     ["plain", "5"],
   ]);
   expect(cells("Releases")[0]).toEqual(["unused", "declared, unused"]);
-  expect(within(region("Map")).getByRole("button", { name: "Matrix" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  expect(within(region("Map")).getByRole("radio", { name: "Matrix" })).toBeChecked();
 });
 
 it("compares members in one table, nesting an interface's implementors", async () => {
@@ -207,7 +204,7 @@ it("says when no member records link and keeps the Matrix, and draws a one-membe
 
   expect(region("Map")).toHaveTextContent("No member records link to each other.");
   expect(map()).toHaveTextContent("No member links");
-  expect(within(region("Map")).getByRole("button", { name: "Matrix" })).toBeEnabled();
+  expect(within(region("Map")).getByRole("radio", { name: "Matrix" })).toBeEnabled();
   library.unmount();
 
   await renderGroupView(loadOverview, { group: "People", routes: scopeRoutes() });
