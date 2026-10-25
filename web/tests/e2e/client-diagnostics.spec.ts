@@ -16,11 +16,12 @@ type WebSummary = {
 
 type PerfResult = { perf: { flags: { kind: string }[]; web?: WebSummary[] } };
 
-// Reads the vault's persisted evidence offline, the way an agent would.
-async function readPerf(vaultPath: string): Promise<PerfResult> {
+// Reads the vault's persisted evidence offline, the way an agent would. `since`
+// scopes it to this test, since a reused server keeps earlier tests' evidence.
+async function readPerf(vaultPath: string, since: string): Promise<PerfResult> {
   const { stdout } = await promisify(execFile)(
     "go",
-    ["run", ".", "diagnostics", "perf", "--json", "--vault", vaultPath],
+    ["run", ".", "diagnostics", "perf", "--json", "--vault", vaultPath, "--since", since],
     {
       cwd: repoRoot,
       env: {
@@ -45,6 +46,7 @@ test("a frame stall and an unchanged background refresh reach rzm diagnostics pe
   request,
 }) => {
   test.setTimeout(120000);
+  const since = new Date().toISOString();
   const status = await (await request.get("/api/v1/status")).json();
   const vaultPath: string = status.vaultPath;
   const notePath = path.join(vaultPath, "notes", "task-flow.md");
@@ -70,7 +72,9 @@ test("a frame stall and an unchanged background refresh reach rzm diagnostics pe
     await expect
       .poll(
         async () => {
-          const web = (await readPerf(vaultPath)).perf.web?.find((s) => s.surface === "browser");
+          const web = (await readPerf(vaultPath, since)).perf.web?.find(
+            (s) => s.surface === "browser",
+          );
 
           return {
             stalled: (web?.frames.over_200ms ?? 0) > 0,
@@ -83,7 +87,7 @@ test("a frame stall and an unchanged background refresh reach rzm diagnostics pe
       )
       .toEqual({ stalled: true, unchanged: true, regions: 0 });
 
-    const result = await readPerf(vaultPath);
+    const result = await readPerf(vaultPath, since);
     expect(result.perf.flags.map((flag) => flag.kind)).toContain("web_frame_stalls");
   } finally {
     await writeFile(notePath, original);
@@ -95,6 +99,7 @@ test("the desktop render-profiling flag mounts render regions in the production 
   request,
 }) => {
   test.setTimeout(120000);
+  const since = new Date().toISOString();
   const status = await (await request.get("/api/v1/status")).json();
 
   await page.addInitScript(() => {
@@ -105,7 +110,7 @@ test("the desktop render-profiling flag mounts render regions in the production 
   await expect
     .poll(
       async () => {
-        const web = (await readPerf(status.vaultPath)).perf.web?.find(
+        const web = (await readPerf(status.vaultPath, since)).perf.web?.find(
           (s) => s.surface === "browser",
         );
 

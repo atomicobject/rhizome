@@ -39,6 +39,7 @@ type WebRefresh struct {
 	Cycles    uint64 `json:"cycles"`
 	Refetched uint64 `json:"refetched"`
 	Unchanged uint64 `json:"unchanged"`
+	Churned   uint64 `json:"churned"`
 }
 
 type WebRegion struct {
@@ -104,6 +105,7 @@ func (w *webAggregator) visit(event evidence.Event) {
 	s.Refresh.Cycles += batch.Refresh.Cycles
 	s.Refresh.Refetched += batch.Refresh.Refetched
 	s.Refresh.Unchanged += batch.Refresh.Unchanged
+	s.Refresh.Churned += batch.Refresh.Churned
 	s.Reconnects += batch.Stability.Reconnects
 	for errorName, count := range batch.Stability.Errors {
 		s.Errors[errorName] += count
@@ -111,7 +113,6 @@ func (w *webAggregator) visit(event evidence.Event) {
 	for errorName, count := range batch.Stability.Rejections {
 		s.Rejections[errorName] += count
 	}
-	churned := false
 	for regionName, region := range batch.Regions {
 		total := surface.regions[regionName]
 		if total == nil {
@@ -124,15 +125,14 @@ func (w *webAggregator) visit(event evidence.Event) {
 		total.ActualTotalMs += region.ActualTotalMs
 		total.ActualMaxMs = max(total.ActualMaxMs, region.ActualMaxMs)
 		total.CommitsAfterRefresh += region.CommitsAfterRefresh
-		churned = churned || region.CommitsAfterRefresh > 0
 	}
 	if batch.Frames.Over200ms > 0 {
 		w.note(&w.stalls, event, batch.Frames.Over200ms)
 	}
-	// Every refetch in the window returned identical data, yet regions still
-	// committed right after a refresh: those renders had no new data to show.
-	if churned && batch.Refresh.Refetched > 0 && batch.Refresh.Unchanged == batch.Refresh.Refetched {
-		w.note(&w.churn, event, 1)
+	// The browser decides churn per refresh: regions committed right after it,
+	// yet every refetch returned identical data.
+	if batch.Refresh.Churned > 0 {
+		w.note(&w.churn, event, batch.Refresh.Churned)
 	}
 	if batch.Stability.Reconnects > batch.Refresh.Cycles {
 		w.note(&w.unstable, event, 1)
@@ -177,7 +177,7 @@ func (w *webAggregator) flags() []PerfFlag {
 		flags = append(flags, w.stalls)
 	}
 	if w.churn.Count > 0 {
-		w.churn.Observation = fmt.Sprintf("In %d windows, render regions committed after a background refresh whose refetched data was unchanged; those renders may be unnecessary.", w.churn.Count)
+		w.churn.Observation = fmt.Sprintf("After %d background refreshes, render regions committed although every refetch returned unchanged data; those renders may be unnecessary.", w.churn.Count)
 		flags = append(flags, w.churn)
 	}
 	if w.unstable.Count > 0 {
@@ -189,9 +189,9 @@ func (w *webAggregator) flags() []PerfFlag {
 
 func writeWebText(b *strings.Builder, summaries []WebSummary) {
 	for _, s := range summaries {
-		fmt.Fprintf(b, "Web UI (%s): %d windows from %d sessions; frames >50ms=%d >200ms=%d stalled=%s longest=%s; refresh cycles=%d refetched=%d unchanged=%d; reconnects=%d\n",
+		fmt.Fprintf(b, "Web UI (%s): %d windows from %d sessions; frames >50ms=%d >200ms=%d stalled=%s longest=%s; refresh cycles=%d refetched=%d unchanged=%d churned=%d; reconnects=%d\n",
 			s.Surface, s.Windows, s.Sessions, s.Frames.Over50ms, s.Frames.Over200ms, msDuration(s.Frames.StalledMs), msDuration(s.Frames.LongestMs),
-			s.Refresh.Cycles, s.Refresh.Refetched, s.Refresh.Unchanged, s.Reconnects)
+			s.Refresh.Cycles, s.Refresh.Refetched, s.Refresh.Unchanged, s.Refresh.Churned, s.Reconnects)
 		for _, region := range s.Regions {
 			fmt.Fprintf(b, "  region %s: mount=%d update=%d nested=%d render total=%s max=%s after-refresh=%d\n",
 				region.Name, region.Mount, region.Update, region.NestedUpdate, msDuration(region.ActualTotalMs), msDuration(region.ActualMaxMs), region.CommitsAfterRefresh)

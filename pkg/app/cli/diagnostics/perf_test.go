@@ -76,6 +76,8 @@ func TestPerfGroupsReportPercentilesOnlyWithEnoughSamples(t *testing.T) {
 		f.at(time.Second).finished("tool", "search", "success", 100*i)
 	}
 	f.at(time.Second).finished("ignored", "no-duration", "success", 0)
+	f.at(time.Second).finished("agent.request", "code_stdio", "success", 4, slog.String("tool", "surface"))
+	f.at(time.Second).finished("agent.request", "code_stdio", "error", 9, slog.String("tool", "current_user"))
 	op := evidence.NewOperation("indexing-job", "watcher-batch")
 	f.event(slog.LevelInfo, "indexing-lane", "job.finished", op, slog.String("job_kind", "watcher-batch"), slog.String("status", "success"),
 		slog.Int64("duration_ms", 7), slog.Int64("queue_wait_ms", 2), slog.Int64("lock_wait_ms", 1))
@@ -99,6 +101,11 @@ func TestPerfGroupsReportPercentilesOnlyWithEnoughSamples(t *testing.T) {
 	require.Nil(t, search.P95MS, "five samples do not support a p95")
 	require.Equal(t, summary.Groups[0], search, "groups sort by total time")
 
+	for _, tool := range []string{"surface", "current_user"} {
+		group := groups["agent.request "+tool+" (code_stdio)"]
+		require.Equal(t, 1, group.Count, "code-mode requests group by operation, keeping the transport")
+	}
+
 	job := groups["indexing-job watcher-batch"]
 	require.Equal(t, 1, job.Count)
 	require.Equal(t, &WaitSummary{MedianMS: 2, MaxMS: 2}, job.QueueWait)
@@ -109,11 +116,17 @@ func TestPerfFlagsRuntimeBurstsUnfinishedWorkAndIntegrity(t *testing.T) {
 	root := t.TempDir()
 	start := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
 	f := newPerfFixture(t, root, start)
-	for range 5 {
-		f.at(5*time.Second).finished("runtime.serve", "start", "success", 200)
+	var runtimes []evidence.Operation
+	for _, gap := range []time.Duration{5 * time.Second, 5 * time.Second, 5 * time.Second, 5 * time.Second, 5 * time.Second, 10 * time.Minute, 5 * time.Minute} {
+		op := evidence.NewOperation("runtime.serve", "start")
+		f.at(gap).event(slog.LevelInfo, "runtime", "startup.started", op)
+		runtimes = append(runtimes, op)
 	}
-	f.at(10*time.Minute).finished("runtime.serve", "start", "success", 200)
-	f.at(5*time.Minute).finished("runtime.serve", "start", "success", 200)
+	// Shutdowns land minutes apart; a burst is judged by when runtimes started.
+	for _, op := range runtimes {
+		f.at(200*time.Second).event(slog.LevelInfo, "runtime", "operation.finished", op,
+			slog.String("kind", "runtime.serve"), slog.String("trigger", "start"), slog.String("status", "success"), slog.Int64("duration_ms", 1))
+	}
 
 	hung := evidence.NewOperation("command", "rzm search")
 	f.at(time.Second).event(slog.LevelInfo, "command", "command.started", hung)
@@ -130,7 +143,7 @@ func TestPerfFlagsRuntimeBurstsUnfinishedWorkAndIntegrity(t *testing.T) {
 	bursts := flagsOfKind(summary, "runtime_start_burst")
 	require.Len(t, bursts, 1, "isolated starts are not a burst")
 	require.Equal(t, 5, bursts[0].Count)
-	require.Len(t, bursts[0].OperationIDs, 5)
+	require.Equal(t, []string{runtimes[0].ID, runtimes[1].ID, runtimes[2].ID, runtimes[3].ID, runtimes[4].ID}, bursts[0].OperationIDs)
 
 	unfinished := flagsOfKind(summary, "unfinished_operations")
 	require.Len(t, unfinished, 1)

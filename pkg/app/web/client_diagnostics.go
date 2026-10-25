@@ -68,6 +68,7 @@ type clientRefresh struct {
 	Cycles    uint64 `json:"cycles"`
 	Refetched uint64 `json:"refetched"`
 	Unchanged uint64 `json:"unchanged"`
+	Churned   uint64 `json:"churned"`
 }
 
 type clientStability struct {

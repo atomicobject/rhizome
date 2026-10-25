@@ -106,6 +106,10 @@ func (a *perfAggregator) visit(event evidence.Event) {
 		a.web.visit(event)
 	case strings.HasSuffix(event.Name, ".started") && event.OperationID != "":
 		a.started[event.OperationID] = perfStart{at: event.Time, process: event.ProcessID, name: event.Name, kind: event.Subsystem}
+		// Starts count when they begin, including runtimes still running or crashed.
+		if event.Subsystem == "runtime" && event.Name == "startup.started" {
+			a.runtimeStarts = append(a.runtimeStarts, timedOperation{at: event.Time, id: event.OperationID})
+		}
 	case strings.HasSuffix(event.Name, ".finished"):
 		if event.OperationID != "" {
 			a.finished[event.OperationID] = true
@@ -120,6 +124,10 @@ func (a *perfAggregator) terminal(event evidence.Event) {
 		return
 	}
 	kind, name := attrString(event.Attributes, "kind"), attrString(event.Attributes, "trigger")
+	// Agent requests carry the transport as trigger and the operation as tool.
+	if tool := attrString(event.Attributes, "tool"); tool != "" {
+		name = tool + " (" + name + ")"
+	}
 	if jobKind := attrString(event.Attributes, "job_kind"); jobKind != "" {
 		kind, name = "indexing-job", jobKind
 	}
@@ -149,9 +157,6 @@ func (a *perfAggregator) terminal(event evidence.Event) {
 	}
 	if wait, ok := attrInt(event.Attributes, "lock_wait_ms"); ok {
 		samples.locks = append(samples.locks, wait)
-	}
-	if kind == "runtime.serve" && name == "start" {
-		a.runtimeStarts = append(a.runtimeStarts, timedOperation{at: event.Time, id: event.OperationID})
 	}
 }
 

@@ -29,7 +29,7 @@ export type ClientBatch = {
   window_end: number;
   regions: Partial<Record<RegionName, RegionStats>>;
   frames: { over_50ms: number; over_200ms: number; stalled_ms: number; longest_ms: number };
-  refresh: { cycles: number; refetched: number; unchanged: number };
+  refresh: { cycles: number; refetched: number; unchanged: number; churned: number };
   stability: {
     reconnects: number;
     errors: Record<string, number>;
@@ -38,6 +38,10 @@ export type ClientBatch = {
 };
 
 const REFRESH_COMMIT_WINDOW_MS = 1_000;
+
+// A refetch that never resolves (canceled, or replaced by a later refresh
+// before it finished) must not hold its cycle open forever.
+const CYCLE_SETTLE_CAP_MS = 10_000;
 
 const STALL_MS = 50;
 
@@ -52,7 +56,24 @@ let regions = new Map<RegionName, RegionStats>();
 
 let frames = { over_50ms: 0, over_200ms: 0, stalled_ms: 0, longest_ms: 0 };
 
-let refresh = { cycles: 0, refetched: 0, unchanged: 0 };
+let refresh = { cycles: 0, refetched: 0, unchanged: 0, churned: 0 };
+
+/**
+ * One background refresh: the commits in the second after it and how its
+ * refetches resolved. Churn is decided per cycle, once its commit window has
+ * closed and its refetches have resolved, so a batch boundary cannot split a
+ * commit from the refetch it followed.
+ */
+export type RefreshCycle = {
+  pending: number;
+  refetched: number;
+  unchanged: number;
+  commits: number;
+  windowOpen: boolean;
+  settled: boolean;
+};
+
+let currentCycle: RefreshCycle | undefined;
 
 let stability = {
   reconnects: 0,
@@ -61,10 +82,6 @@ let stability = {
 };
 
 let windowStart = Date.now();
-
-let refreshCommitsUntil = -Infinity;
-
-const now = () => performance.now();
 
 export function recordCommit(
   region: RegionName,
@@ -96,7 +113,10 @@ export function recordCommit(
   stats.base_total_ms += baseMs;
   stats.base_max_ms = Math.max(stats.base_max_ms, baseMs);
 
-  if (now() <= refreshCommitsUntil) stats.commits_after_refresh++;
+  if (currentCycle?.windowOpen) {
+    stats.commits_after_refresh++;
+    currentCycle.commits++;
+  }
 }
 
 /** Records one gap between animation frames observed while the page was visible. */
@@ -110,15 +130,54 @@ export function recordFrameGap(gapMs: number) {
   frames.longest_ms = Math.max(frames.longest_ms, gapMs);
 }
 
-export function recordRefreshCycle() {
-  refresh.cycles++;
-  refreshCommitsUntil = now() + REFRESH_COMMIT_WINDOW_MS;
+function settleCycle(cycle: RefreshCycle, force = false) {
+  if (cycle.settled || (!force && (cycle.windowOpen || cycle.pending > 0))) return;
+  cycle.settled = true;
+
+  // Regions committed right after this refresh, yet every refetch returned
+  // identical data: those renders had nothing new to show.
+  if (cycle.commits > 0 && cycle.refetched > 0 && cycle.unchanged === cycle.refetched) {
+    refresh.churned++;
+  }
 }
 
-export function recordRefetch(unchanged: boolean) {
-  refresh.refetched++;
+export function recordRefreshCycle(): RefreshCycle {
+  refresh.cycles++;
 
-  if (unchanged) refresh.unchanged++;
+  const cycle: RefreshCycle = {
+    pending: 0,
+    refetched: 0,
+    unchanged: 0,
+    commits: 0,
+    windowOpen: true,
+    settled: false,
+  };
+
+  currentCycle = cycle;
+  setTimeout(() => {
+    cycle.windowOpen = false;
+    settleCycle(cycle);
+  }, REFRESH_COMMIT_WINDOW_MS);
+  setTimeout(() => settleCycle(cycle, true), CYCLE_SETTLE_CAP_MS);
+
+  return cycle;
+}
+
+/** Ends one refetch of `cycle`; `unchanged` is null when it produced no data. */
+export function finishRefetch(cycle: RefreshCycle, unchanged: boolean | null) {
+  cycle.pending--;
+
+  if (unchanged !== null) {
+    refresh.refetched++;
+    cycle.refetched++;
+
+    if (unchanged) {
+      refresh.unchanged++;
+      cycle.unchanged++;
+    }
+  }
+
+  settleCycle(cycle);
 }
 
 export function recordReconnect() {
@@ -151,7 +210,7 @@ export function takeBatch(identity: {
 
   regions = new Map();
   frames = { over_50ms: 0, over_200ms: 0, stalled_ms: 0, longest_ms: 0 };
-  refresh = { cycles: 0, refetched: 0, unchanged: 0 };
+  refresh = { cycles: 0, refetched: 0, unchanged: 0, churned: 0 };
   stability = { reconnects: 0, errors: new Map(), rejections: new Map() };
   windowStart = windowEnd;
 
@@ -160,6 +219,7 @@ export function takeBatch(identity: {
     closed.frames.over_50ms === 0 &&
     closed.refresh.cycles === 0 &&
     closed.refresh.refetched === 0 &&
+    closed.refresh.churned === 0 &&
     closed.stability.reconnects === 0 &&
     closed.stability.errors.size === 0 &&
     closed.stability.rejections.size === 0;

@@ -3,6 +3,7 @@ import { act, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  recordCommit,
   recordError,
   recordFrameGap,
   recordReconnect,
@@ -127,6 +128,50 @@ describe("client diagnostics", () => {
     stop();
     unsubscribe();
 
-    expect(takeBatch(identity)?.refresh).toEqual({ cycles: 2, refetched: 2, unchanged: 1 });
+    expect(takeBatch(identity)?.refresh).toMatchObject({ cycles: 2, refetched: 2, unchanged: 1 });
+  });
+
+  it.each([
+    { label: "unchanged data counts as churn", next: 1, churned: 1 },
+    { label: "changed data does not", next: 2, churned: 0 },
+  ])("decides churn per refresh across a batch boundary: $label", async ({ next, churned }) => {
+    const client = new QueryClient();
+    const cache = client.getQueryCache();
+    let respond = Promise.resolve();
+    let value = 1;
+
+    const observer = new QueryObserver(client, {
+      queryKey: ["rhizome", "probe"],
+      queryFn: async () => {
+        await respond;
+
+        return { value };
+      },
+    });
+
+    const unsubscribe = observer.subscribe(() => undefined);
+    const stop = observeRefetches(cache);
+    await vi.waitFor(() => expect(observer.getCurrentResult().data).toEqual({ value: 1 }));
+    takeBatch(identity);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+    let release: () => void = () => undefined;
+    respond = new Promise((resolve) => (release = resolve));
+    value = next;
+    trackRefresh(cache, [{ queryKey: ["rhizome"] }]);
+    void client.invalidateQueries({ queryKey: ["rhizome"] });
+    recordCommit("view-table", "update", 1, 1);
+
+    // The batch closes after the commit but before the refetch resolves.
+    const first = takeBatch(identity);
+    expect(first?.regions["view-table"]?.commits_after_refresh).toBe(1);
+    expect(first?.refresh.churned).toBe(0);
+
+    release();
+    await vi.advanceTimersByTimeAsync(1_000);
+    stop();
+    unsubscribe();
+
+    expect(takeBatch(identity)?.refresh).toMatchObject({ refetched: 1, churned });
   });
 });

@@ -21,7 +21,7 @@ const validClientBatch = `{
   "regions": {"sidebar": {"mount": 1, "update": 4, "nested_update": 0, "actual_total_ms": 12.5,
     "actual_max_ms": 6.25, "base_total_ms": 20, "base_max_ms": 8, "commits_after_refresh": 3}},
   "frames": {"over_50ms": 2, "over_200ms": 1, "stalled_ms": 310.5, "longest_ms": 240},
-  "refresh": {"cycles": 1, "refetched": 5, "unchanged": 4},
+  "refresh": {"cycles": 1, "refetched": 5, "unchanged": 4, "churned": 1},
   "stability": {"reconnects": 1, "errors": {"TypeError": 2}, "rejections": {}}
 }`
 
@@ -86,6 +86,7 @@ func TestClientDiagnosticsRecordsOneEventPerBatch(t *testing.T) {
 	require.Equal(t, uint64(3), metrics.Regions["sidebar"].CommitsAfterRefresh)
 	require.Equal(t, 240.0, metrics.Frames.LongestMs)
 	require.Equal(t, uint64(4), metrics.Refresh.Unchanged)
+	require.Equal(t, uint64(1), metrics.Refresh.Churned)
 	require.Equal(t, uint64(2), metrics.Stab.Errors["TypeError"])
 	require.False(t, event.Truncated)
 }
