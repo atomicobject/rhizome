@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CredentialImport } from "./CredentialImport";
 import type { GlobalInfo, LinkInfo, UpdateStatus } from "./api";
 
 const linkText: Record<LinkInfo["state"], string> = {
@@ -159,6 +160,7 @@ export function Settings({
         )}
         {action && <p className="hint">macOS asks for an administrator password when needed.</p>}
       </div>
+      <CredentialImport />
       {developmentBuilds.length > 0 && (
         <div className="development-builds">
           <h2>Developer builds</h2>

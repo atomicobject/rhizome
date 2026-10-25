@@ -379,3 +379,5 @@ describe("what gets indexed after setup", () => {
     });
   });
 });
+
+vi.mock("./CredentialImport", () => ({ CredentialImport: () => null }));

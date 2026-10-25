@@ -20,6 +20,7 @@ import sys
 from typing import Any, Callable, Mapping, Sequence
 
 from run_clean import sensitive_name
+from verify_desktop_signing import PUBKEY_PLACEHOLDER, DesktopSigningError, verify_archive
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -62,9 +63,6 @@ def signs_updater(environ: Mapping[str, str]) -> bool:
             "run the release through ./scripts/with-secrets release"
         )
     return False
-
-
-PUBKEY_PLACEHOLDER = "REPLACE_WITH_RELEASE_UPDATER_PUBLIC_KEY"
 
 
 def require_release_pubkey(root: Path) -> None:
@@ -188,10 +186,16 @@ def build(
          str(bundle_dir / "macos/Rhizome.app/Contents/MacOS/rhizome-desktop")],
         env=env, check=True,
     )
+    outputs = bundle_outputs(bundle_dir, updater=updater)
+    if updater:
+        try:
+            verify_archive(root, outputs[ARCHIVE], outputs[SIGNATURE], environ=env, runner=runner)
+        except DesktopSigningError as error:
+            raise DesktopBuildError(str(error)) from error
     output_dir = root / OUTPUT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
     staged = []
-    for name, source in bundle_outputs(bundle_dir, updater=updater).items():
+    for name, source in outputs.items():
         shutil.copyfile(source, output_dir / name)
         staged.append(output_dir / name)
     if updater:

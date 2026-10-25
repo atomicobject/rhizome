@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod bridge;
 mod commands;
+mod credentials;
 mod menu;
 mod page;
 mod pane;
@@ -38,6 +39,7 @@ fn main() {
             app.manage(presence::Presence::default());
             app.manage(terminal::Focus::default());
             app.manage(updater::Updates::default());
+            app.manage(credentials::Imports::default());
             menu::install_menu(app.handle())?;
             windows::restore(app.handle(), session)?;
             let args = std::env::args().collect::<Vec<_>>();
@@ -64,6 +66,7 @@ fn main() {
         }
         // Quitting does not close windows one by one, so the session keeps them.
         tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+            app.state::<credentials::Imports>().cancel();
             windows::quit(app);
         }
         _ => {}

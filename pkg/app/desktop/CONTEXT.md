@@ -269,3 +269,35 @@ such as manifest, download, checksum, extract, smoke test, replace, marker,
 or pin. A partial failure may have updated the binary before the pin save
 failed, as the normal updater reports. The native caller reopens the worktree
 through `open` after success. No Go operation or field persists dismissals.
+
+### Provider credential import
+
+`credential-status` reads user-local source references and provider readiness,
+without invoking 1Password or returning values. It returns
+`{"available":true,"ready":["VOYAGE_API_KEY"],"source":{"account":"example.1password.com","environment":"aaaaaaaaaaaaaaaaaaaaaaaaaa","keys":["VOYAGE_API_KEY"]}}`.
+`available` means the CLI executable was found, not that authentication or its
+version has been checked. Native GUI discovery includes absolute PATH entries,
+`~/.local/bin`, `/opt/homebrew/bin`, and `/usr/local/bin`.
+
+`credential-import` accepts `source` in that shape plus a native `importId`.
+The native shell creates an empty `credential-import-<importId>` marker with
+mode `0600` in its explicitly private `0700` state directory. Missing or
+unreadable markers cancel the import. The Go supervisor checks the marker
+while importing and again before saving. The explicit setup operation runs
+stable 1Password CLI 2.41+ with `op run --environment`, removes inherited
+provider keys and aliases, and starts this executable's early
+`credentials-capture` route. That route validates the complete supported-key
+allowlist before writing any requested values to a private, bounded JSON pipe.
+It bypasses dotenv, configuration, logging, and repository dispatch. Neither
+raw output nor credentials enter bridge results or subprocess arguments.
+
+Imports have a 90-second deadline and cancel the op process tree. All selected
+keys must exist before one atomic `0600` user-config save also records the
+non-secret source. Ordinary execution never invokes op. A `credential-cancel`
+native action, request drop, timeout, or normal quit removes the marker; the
+native shell leaves the Go supervisor alive long enough to cancel its children.
+The UI refreshes saved status after errors or cancellation because cancellation
+can race an already committed save. An abrupt app crash may leave an import
+running until its deadline and may save credentials if authentication completes
+before that deadline. Older binaries may drop source metadata when rewriting
+user configuration; imported provider keys still use the existing env map.

@@ -5,14 +5,14 @@ aliases:
   - SPEC-0107
 summary: "Remove private release dependencies and bundled internal content; establish explicit checkout trust and a resumable public migration."
 spec-status: active
-last-updated: 2026-09-29
+last-updated: 2026-10-25
 ---
 
 # Open Source Preparation
 
 ## Summary
 
-Prepare Rhizome's code and developer setup for a future public repository. This contract implements the decisions approved in the September 22 migration discussion. Publication and historical content review remain separate work.
+Keep Rhizome's public source, release artifacts, and developer setup independent of private credentials and infrastructure. This contract began with the September 22 migration decisions. Source publication is complete; artifact publication, credential administration, and installation verification remain separate work.
 
 ## Goals
 
@@ -29,7 +29,7 @@ History rewriting, repository renaming, changing visibility, publishing a releas
 ## Requirements
 
 1. Public binaries and release artifacts MUST NOT bundle provider keys. The shared unlock-key mechanism and internal release tooling MAY remain temporarily, with all credentials, encrypted bundles, and private artifact locations outside Git. Environment overrides and manually entered credentials MUST continue working.
-2. Setup-time import MUST use explicit 1Password item references, read all requested values before a single atomic global-config update, preserve unrelated configuration, restrict file permissions, and avoid printing credentials or provider output on failure. Repeating import MUST support rotation. Normal execution MUST NOT require 1Password.
+2. Setup-time import MUST use explicit 1Password item references or an explicitly selected account and Environment ID. Environment imports MUST request only supported provider keys, reject missing requested values, and never use ambient provider values as fallbacks. All imports MUST read all requested values before a single atomic global-config update, preserve unrelated configuration, restrict file permissions, and avoid printing credentials or provider output on failure. Repeating import MUST support rotation. Normal execution MUST NOT require 1Password.
 3. A repository-selected executable, including a version probe, MUST require explicit trust for that canonical checkout. Trust MUST live outside repository-controlled configuration. Noninteractive execution MUST fail with an actionable trust command. Users MUST be able to grant and revoke trust without first running repository code.
 4. The application HTTP handler MUST reject untrusted Host values before API or mutation routes. The isolated HTML viewer and configured application origins MUST retain their intended behavior. Existing message nonce checks MUST remain intact.
 5. Public installation, update discovery, and release automation MUST use GitHub Releases and the existing Homebrew tap. Public artifacts MUST exclude private S3 locations, legacy URL tokens, AWS release credentials, and encrypted key bundles. Internal publication MAY continue from the private archive until a replacement is ready. Historical S3 objects remain untouched.
@@ -38,6 +38,14 @@ History rewriting, repository renaming, changing visibility, publishing a releas
 Amendment (2026-09-29, superseding the September 28 removal deadline): internal releases, selected by a setting in the release 1Password Environment, may continue to bundle team keys and publish to a private S3 mirror after the source becomes public. The code may remain in the public tree, but internal publication MUST remain confined to the private archive. Public builds MUST reject inherited compiler overlays, disable persisted Go environment settings, remove private mirror settings, and check the built binaries and staged installer before upload. Internal releases MUST fail unless the target repository is verified private. Retire the bridge and unlock key when the replacement is ready. See [internal releases](../../RELEASING.md#internal-releases).
 
 8. A durable migration guide MUST distinguish completed code preparation from remaining key rotation, private content review, licensing verification, archive/public-repository creation, and publication verification.
+
+### Desktop credential import
+
+- Setup and Settings MUST offer the same 1Password Environment import flow. The saved account, Environment ID, and selected provider names belong in user-local configuration, never repository configuration.
+- The native desktop boundary MUST expose only source references, provider-presence status, and sanitized errors. Secret values MUST remain inside the credential subprocess and config writer.
+- Environment import MUST work with stable 1Password CLI 2.41 or newer, including a GUI launch whose PATH omits Homebrew. Missing CLI, inaccessible account or Environment, missing requested keys, cancellation, and timeout MUST have actionable feedback.
+- Canceling an in-flight import MUST stop its credential process tree and prevent a pending result from being saved. If cancellation races an already committed atomic save, the UI MUST refresh status from disk instead of claiming rollback. An abrupt app crash is not a rollback mechanism.
+- Re-import MUST support key rotation without disrupting unrelated providers or preferences. Older Rhizome versions may drop saved source references when rewriting configuration; imported provider values remain usable, and re-entering the source references restores re-import.
 
 ## Verification
 

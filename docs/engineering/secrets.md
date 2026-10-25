@@ -6,7 +6,16 @@ Secrets belong in 1Password, private user configuration, or protected GitHub Act
 
 Ordinary contributors need no provider credentials to build, test, or use local Ollama embeddings. Optional cloud providers resolve keys from the environment first, then the user-global `~/.config/rhizome/config.yml`.
 
-Atomic Object developers use dedicated shared Rhizome provider keys in a 1Password item. Install the stable `op` CLI, enable desktop integration if desired, and authenticate an account with access to the item. Import explicit field references once:
+Atomic Object developers use dedicated shared Rhizome provider keys in a 1Password Environment. Install stable `op` 2.41 or newer, sign in to an account with read access, and enable **Settings > Developer > Integrate with 1Password CLI** in the 1Password app. In Rhizome setup or Settings, use **Import provider keys from 1Password**. Select Voyage and TypeSafe, enter the account and shared Environment ID supplied by the team, then approve the 1Password prompt. The CLI supports the same import:
+
+```sh
+rzm credentials import --from 1password --account example.1password.com \
+  --environment <environment-id> --key VOYAGE_API_KEY --key TYPESAFE_API_KEY
+```
+
+The Environment ID is available in **Developer > View Environments > View environment > Manage environment > Copy environment ID**. Missing requested keys fail the import; existing shell values cannot substitute for missing Environment values. The desktop can find `op` in the process PATH, `~/.local/bin`, `/opt/homebrew/bin`, or `/usr/local/bin`.
+
+Existing shared items can still be imported using explicit field references:
 
 ```sh
 rzm credentials import --from 1password --account example.1password.com \
@@ -14,9 +23,11 @@ rzm credentials import --from 1password --account example.1password.com \
   --key 'TYPESAFE_API_KEY=op://Shared/Rhizome/TYPESAFE_API_KEY'
 ```
 
-Replace the non-secret references and account with those supplied by the team. The command validates references, reads all requested fields before saving, preserves unrelated user settings, and writes the global config atomically with mode `0600`. This is plaintext user-local storage. It does not change repository configuration. Normal execution needs no `op` process. Repeat import after rotation; environment variables still take precedence.
+Replace the non-secret references and account with those supplied by the team. Imports validate the source, read all requested keys before saving, preserve unrelated settings, and write the global config atomically with mode `0600`. This is plaintext user-local storage. Environment source references are remembered on this computer for re-import; they never enter repository configuration. Normal execution needs no `op` process. Repeat import after rotation; environment variables still take precedence.
 
-The shared item and provider administration belong to the team, outside the repository. Use provider spend limits and separately scoped keys where available. Do not put tenant IDs, account defaults, live values, or exported secret files in Git.
+An import times out after 90 seconds. Cancel stops its credential process tree and discards a pending result. Cancellation cannot undo an atomic save that already completed; the desktop refreshes provider status after cancellation or failure. An abrupt app crash can leave an import running until its timeout and may allow it to finish before then. An older Rhizome version may discard the saved source references when it rewrites user configuration; enter them again to re-import.
+
+The shared Environment or item and provider administration belong to the team, outside the repository. Use provider spend limits and separately scoped keys where available. Removing 1Password access does not revoke an already imported provider key; rotate the provider keys when access must end. Do not put tenant IDs, account defaults, live values, or exported secret files in Git.
 
 ## Development and release tooling
 
@@ -36,4 +47,4 @@ Run `mise install` to install gitleaks and `make hooks-setup` to enable commit c
 
 History through `961e3b41feb9e082985357acb710f7c6ab243b54` is retained by instruction. That boundary does not certify history as safe to publish. Revoke superseded or exposed historically bundled provider keys (Voyage, TypeSafe, OpenAI, Cerebras). The current internal keys and unlock key are intentionally retained until the bridge is replaced; rotate the provider keys and retire the unlock key then. Removing a bundle or rewriting Git history cannot revoke a credential. Update the shared item, repeat setup import, and restart processes with the new values.
 
-The historical repository is retained as a private archive. This clean repository remains private until publication is separately approved. Never merge archive history into this repository. The [open-source preparation specification](../specs/technical/open-source-preparation.md) records the source and artifact requirements.
+The historical repository is retained as a private archive. This clean repository's source is public. Never merge archive history into this repository. Source publication does not authorize a release or prove that public installation works. The [open-source preparation specification](../specs/technical/open-source-preparation.md) records the source and artifact requirements.

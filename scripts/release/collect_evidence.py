@@ -50,7 +50,8 @@ def _branch(repo: Path) -> str:
 
 
 def _change_totals(repo: Path, before: str, after: str) -> tuple[int, int]:
-    output = _git(repo, "diff-tree", "--no-commit-id", "--numstat", "-r", before, after)
+    output = _git(repo, "diff-tree", "--no-commit-id", "--numstat", "-r",
+                  *([before, after] if before else ["--root", after]))
     insertions = 0
     deletions = 0
     for line in output.splitlines():
@@ -82,6 +83,8 @@ def _pr_evidence(
 
 
 def _read_blob(repo: Path, revision: str, path: str) -> str | None:
+    if not revision:
+        return None
     result = subprocess.run(
         ["git", "show", f"{revision}:{path}"],
         cwd=repo,
@@ -122,8 +125,7 @@ def _effort_pairs(repo: Path, before: str, after: str) -> tuple[tuple[str | None
         "--name-status",
         "-r",
         "-M",
-        before,
-        after,
+        *([before, after] if before else ["--root", after]),
         "--",
         "docs/efforts",
     )
@@ -338,7 +340,7 @@ def collect_release_evidence(
 ) -> ReleaseEvidence:
     """Collect a complete read-only evidence snapshot for one frozen range."""
     repo = repo.resolve()
-    base_sha = _git(repo, "rev-parse", base)
+    base_sha = _git(repo, "rev-parse", base) if base else ""
     head_sha = _git(repo, "rev-parse", head)
     branch = release_branch or _branch(repo)
     mainline = collect_mainline(repo, base_sha, head_sha)
@@ -392,7 +394,7 @@ def collect_release_evidence(
         record = anchor_by_sha.get(commit.sha)
         grouped = coverage.get(record.number, (commit,)) if record else (commit,)
         grouped = tuple(sorted(grouped, key=lambda item: item.mainline_index))
-        before = grouped[0].parents[0]
+        before = grouped[0].parents[0] if grouped[0].parents else ""
         after = grouped[-1].sha
         paths = changed_paths(repo, before, after)
         insertions, deletions = _change_totals(repo, before, after)

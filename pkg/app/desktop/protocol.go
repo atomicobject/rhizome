@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"io"
 )
 
@@ -15,15 +16,17 @@ const Protocol = 1
 const MaxRequestBytes = 1 << 20
 
 type Request struct {
-	Protocol         int           `json:"protocol"`
-	Operation        string        `json:"operation"`
-	Folder           string        `json:"folder,omitempty"`
-	Executable       string        `json:"executable,omitempty"`
-	GlobalExecutable string        `json:"globalExecutable,omitempty"`
-	Primary          string        `json:"primary,omitempty"`
-	Setup            *SetupChoices `json:"setup,omitempty"`
-	Key              string        `json:"key,omitempty"`
-	Edits            *ScopeEdits   `json:"edits,omitempty"`
+	Source           *repoconfig.CredentialSource `json:"source,omitempty"`
+	ImportID         string                       `json:"importId,omitempty"`
+	Protocol         int                          `json:"protocol"`
+	Operation        string                       `json:"operation"`
+	Folder           string                       `json:"folder,omitempty"`
+	Executable       string                       `json:"executable,omitempty"`
+	GlobalExecutable string                       `json:"globalExecutable,omitempty"`
+	Primary          string                       `json:"primary,omitempty"`
+	Setup            *SetupChoices                `json:"setup,omitempty"`
+	Key              string                       `json:"key,omitempty"`
+	Edits            *ScopeEdits                  `json:"edits,omitempty"`
 	// Restart makes open replace a live headless runtime with a fresh one.
 	Restart bool `json:"restart,omitempty"`
 	// Folders and Repositories select what the status operation reports.
@@ -108,6 +111,10 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 			response.Result, err = s.Scope(ctx, req)
 		case "initialize":
 			response.Result, err = s.Initialize(ctx, req)
+		case "credential-status":
+			response.Result, err = s.CredentialStatus()
+		case "credential-import":
+			response.Result, err = s.ImportCredentials(ctx, req)
 		case "global-status":
 			response.Result, err = s.GlobalStatus(ctx, req.GlobalExecutable)
 		case "cli-link-status":

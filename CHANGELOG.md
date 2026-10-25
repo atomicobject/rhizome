@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Import selected provider keys from a 1Password Environment in desktop setup, Settings, or `rzm credentials import --environment`. Imports remember the source on this computer, support cancellation and rotation, and keep credentials out of repository files and UI responses.
+- Release preparation works when a repository has no previous version tag or release branch, includes the initial commit in its evidence, and preserves the existing product version sequence. Public releases verify that the signing key and generated updater archive match the app's committed public key before publication.
+- Desktop update checks and downloads time out on stalled connections, allow retry, and preserve an already verified update. Progressing downloads have a 30-minute overall limit.
 - `rzm harness status --configured` prints only the configured `agent.harness` setting, without starting any provider.
 - Session-memory model calibration compares extraction and verification on local human labels or a shipped synthetic fixture, reports cost, latency, and repeat-run noise, and applies an approved model diff only to the local profile.
 - `make check` and the other web gates stop with `web/node_modules is missing. Run: cd web && npm ci` in a checkout without web dependencies, instead of failing inside `npm run generate:api`.

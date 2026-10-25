@@ -63,7 +63,7 @@ class ReleaseStore:
         self._command_runner = command_runner
 
     def run_dir(self, base_tag: str, head_commit: str) -> Path:
-        safe_base = _safe_component(base_tag, label="base tag")
+        safe_base = _safe_component(base_tag, label="base tag") if base_tag else "first-release"
         safe_head = _safe_component(head_commit, label="head commit")[:12]
         return self.root / f"{safe_base}-{safe_head}"
 

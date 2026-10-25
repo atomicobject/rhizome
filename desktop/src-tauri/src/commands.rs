@@ -83,6 +83,11 @@ pub enum Action {
         executable: Option<String>,
     },
     GlobalStatus,
+    CredentialStatus,
+    CredentialImport {
+        source: crate::credentials::Source,
+    },
+    CredentialCancel,
     UpdateStatus,
     CheckForUpdates,
     InstallUpdate,
@@ -286,6 +291,27 @@ pub async fn desktop_request(
             let (_lock, mut library) = state.library().await?;
             library.global_executable = executable;
             save(&app, &state, &library)
+        }
+        Action::CredentialStatus => {
+            bridge::call(
+                &state.directory,
+                Request {
+                    operation: "credential-status",
+                    ..Request::default()
+                },
+                bridge::TIMEOUT,
+            )
+            .await
+        }
+        Action::CredentialImport { source } => {
+            let _global = state.global.lock().await;
+            app.state::<crate::credentials::Imports>()
+                .import(&state.directory, &source)
+                .await
+        }
+        Action::CredentialCancel => {
+            app.state::<crate::credentials::Imports>().cancel();
+            Ok(Value::Null)
         }
         Action::GlobalStatus => {
             let global = state.library().await?.1.global_executable;

@@ -8,6 +8,7 @@ import {
   type SetupPlan,
   type SetupResult,
 } from "./api";
+import { CredentialImport } from "./CredentialImport";
 import { IndexScope, rulePath, type RuleAction } from "./IndexScope";
 import { Elapsed, Notice } from "./Status";
 
@@ -314,8 +315,8 @@ export function SetupSheet({
       <p className="path">{plan.root}</p>
       <p className="lede">
         Rhizome indexes this repository's docs and code so agents can search them, and installs
-        guidance that teaches your agents to use it. Nothing is written until you choose Set up
-        Rhizome.
+        guidance that teaches your agents to use it. Repository files are written when you choose
+        Set up Rhizome. Provider imports save only to your user configuration.
       </p>
       <fieldset className="setup-form" disabled={running}>
         <div className="setup-row">
@@ -527,6 +528,13 @@ export function SetupSheet({
         </div>
       </fieldset>
 
+      <CredentialImport
+        disabled={running || partial}
+        onImported={() => {
+          setKey("");
+          void report(choices);
+        }}
+      />
       {problem && (
         <p className="error-text" role="alert">
           {problem.message}

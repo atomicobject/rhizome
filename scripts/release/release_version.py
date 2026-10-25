@@ -9,11 +9,29 @@ from typing import Callable, Mapping
 from release_actions import validate_release_version
 
 
-def _increments(base: str) -> dict[str, str]:
+def source_release_version(content: str) -> str:
+    matches = re.findall(r'^var\s+Version\s*=\s*"([^"]+)"\s*$', content, re.MULTILINE)
+    if len(matches) != 1:
+        raise ValueError("source version must contain one Version declaration")
+    return validate_release_version(matches[0])
+
+
+def _version_parts(base: str) -> tuple[int, ...]:
     match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", base)
     if not match:
-        raise ValueError(f"base tag is not semantic versioned: {base}")
-    major, minor, patch = (int(item) for item in match.groups())
+        raise ValueError(f"version baseline is not semantic versioned: {base}")
+    return tuple(int(item) for item in match.groups())
+
+
+def validate_next_version(base: str, version: str) -> str:
+    validate_release_version(version)
+    if _version_parts(version) <= _version_parts(base):
+        raise ValueError(f"release version must be greater than {base}")
+    return version
+
+
+def _increments(base: str) -> dict[str, str]:
+    major, minor, patch = _version_parts(base)
     return {
         "major": f"v{major + 1}.0.0",
         "minor": f"v{major}.{minor + 1}.0",
@@ -49,7 +67,7 @@ def choose_release_version(
 
     version = supplied or environ.get("VERSION", "").strip()
     if version:
-        return validate_release_version(version)
+        return validate_next_version(base, version)
     if recommendation not in {"minor", "patch"}:
         raise ValueError("release recommendation must be minor or patch")
 
@@ -73,4 +91,4 @@ def choose_release_version(
         version = options[int(choice) - 1][1]
     else:
         version = options[0][1]
-    return validate_release_version(version)
+    return validate_next_version(base, version)
