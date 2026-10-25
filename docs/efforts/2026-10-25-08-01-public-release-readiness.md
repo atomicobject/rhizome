@@ -4,7 +4,7 @@ id: EFF-2026-10-25-08-01
 aliases: [EFF-2026-10-25-08-01]
 name: Public release readiness
 created-at: 2026-10-25T12:19:28Z
-status: active
+status: complete
 summary: "Prepare the first release in the clean public repository, add AO 1Password Environment onboarding, and bound desktop update requests without publishing or using live credentials."
 governing-specs:
   - "[[evidence-grounded-release-orchestration]]"
@@ -40,7 +40,7 @@ The requirement sections above define this slice. Existing desktop stories are e
 - [x] CLI and shared desktop Environment import preserve item-reference mode and unrelated config, with bounded private transport and process-tree cancellation.
 - [x] Real-plugin update regressions cover stall, progress, retry, and verified-cache preservation.
 - [x] Integrated checks, packaged-binary smoke test, and documentation validation.
-- [ ] Packaged visual walkthrough; native automation cannot locate the running test app's window.
+- [x] Packaged visual walkthrough explicitly deferred to release acceptance under the closure deviation below; no visual pass is claimed.
 
 ## Plan
 
@@ -63,7 +63,7 @@ A release path that works in the new public repository, an easy one-time AO cred
 
 ## Actual Delivered
 
-Implemented on `t3/rhizome-release-readiness` in `8bc1e502`, then integrated public main `73f4eae9` through merge `e699a834`. No release has been published. [Draft PR #39](https://github.com/atomicobject/rhizome/pull/39) retains the open packaged visual check; review corrections are committed in `1b7dcdaa`.
+Delivered through [PR #39](https://github.com/atomicobject/rhizome/pull/39) on `t3/rhizome-release-readiness`, including integration of public main `73f4eae9`. Implementation and review corrections through `1b8dcff4` passed all 21 CI checks and current-head Greptile review at 5/5 with zero comments. No release has been published. The packaged visual walkthrough is carried forward to release acceptance under the explicit closure deviation below.
 
 - First-release collection uses empty prior fields, includes root content, preserves safe retry topology, and atomically creates the release branch. Version selection continues from source `v0.50.5` and rejects a version at or below the floor on every input path.
 - A pinned Minisign helper verifies candidate archives before staging. Future public apply signs and verifies a disposable probe before mutations; execution in this effort used only temporary synthetic keys.
@@ -101,18 +101,22 @@ Implemented on `t3/rhizome-release-readiness` in `8bc1e502`, then integrated pub
 - 2026-10-25T13:52:12Z [review] Greptile recorded 5/5 with zero comments for exact production head `42bf59c2`, confirming all six earlier findings addressed. Built its app/DMG and repeated the integrity, read-only mount, signature, and bundled-CLI smoke checks successfully.
 - 2026-10-25T13:52:12Z [CI] macOS CI found the timeout/retry fixture serving an old slow response serially before the next feed, causing the feed's short test deadline to expire. Slow responses now run independently and are joined during teardown. The failing test passed ten consecutive focused runs; full desktop checks pass again with 59 UI tests and 72 native tests. Production code and deadlines are unchanged. Final-head CI and review are tracked on PR #39.
 
+- 2026-10-25T14:14:10Z [closure] Drew authorized closure and merge after the remaining acceptance gaps were reported. Marked this preparation effort complete with the visual-walkthrough deferral below. `./scripts/rzm validate` passed with zero issues using the local runtime; sandbox-only execution could not prepare its projection. `./scripts/rzm validate frozen-scope-drift` returned the same three unrelated findings above and none for this effort. Implementation head `1b8dcff4` has all 21 CI checks passing and Greptile 5/5 with zero comments; the closure update will receive current-head checks and review before merge.
+
 ## Deviations
 
-Independent review added key/archive matching, source-version floors, named missing-key errors, and process-tree cancellation after concrete defects were identified. The initial five-minute archive cap was replaced by a stall timeout and a 30-minute cap so progressing slow transfers can complete. These strengthen the approved release-readiness outcomes without adding a publication target or live execution. The visual walkthrough remains blocked by the native automation service and is recorded separately from passing packaged-binary and automated UI evidence.
+Independent review added key/archive matching, source-version floors, named missing-key errors, and process-tree cancellation after concrete defects were identified. The initial five-minute archive cap was replaced by a stall timeout and a 30-minute cap so progressing slow transfers can complete. These strengthen the approved release-readiness outcomes without adding a publication target or live execution.
+
+On 2026-10-25, after the remaining visual and live acceptance gaps were reported, Drew instructed: "Okay, close out the effort if needed and get it merged." This authorizes closure of the implementation effort with the packaged visual walkthrough deferred to the release acceptance checklist in [[docs/RELEASING.md#Release acceptance|RELEASING]]. Native automation returned `cgWindowNotFound` even with a unique test bundle identity. Automated UI checks and actual packaged-binary/DMG smoke checks passed, but they do not establish a visual walkthrough. This deviation permits merging the preparation work; the visual walkthrough, real Environment import, production signing, installation, and production update checks remain required before the applicable release acceptance is claimed.
 
 ## Closure Checklist
 
 - [x] Focused worker tests and independent final source review.
 - [x] Combined repository verification and desktop gates.
-- [ ] Packaged visual walkthrough with synthetic credentials; native automation blocked.
+- [x] Recorded the authorized deferral of the blocked packaged visual walkthrough to release acceptance; no visual pass is claimed.
 - [x] Ontology, links, frozen-scope and documentation validation; unrelated baseline drift is classified above.
 - [x] Final alignment, actual outcomes, and remaining live acceptance checks recorded.
-- [x] Draft PR and commit evidence: [#39](https://github.com/atomicobject/rhizome/pull/39), implementation `8bc1e502`, integration `e699a834`, review fixes `1b7dcdaa`.
+- [x] Delivery and closure ship together in [PR #39](https://github.com/atomicobject/rhizome/pull/39); implementation head `1b8dcff4` has 21 passing CI checks and Greptile 5/5 with zero comments. The closure commit receives its own current-head review and CI before merge.
 
 ## Compounding Follow-ups
 
@@ -120,4 +124,4 @@ Avoid allocating a new effort while shared source is changing: its required inde
 
 ## Status
 
-Implementation, integrated verification, local DMG and packaged-binary smoke testing are recorded in draft PR #39. Opus found no blockers in the initial frozen implementation; subsequent Greptile fixes are committed. Current-head review and CI results are tracked on the PR. The packaged visual walkthrough remains open due to the native automation error. Production credentials, publication, browser/Gatekeeper installation, and a real second-release update remain outside the executed evidence. Keep this effort active until its remaining in-scope visual check is resolved or an explicit deviation closes it.
+Complete as release preparation, with delivery and closure in PR #39. Implementation, integrated verification, local DMG and packaged-binary smoke testing are recorded above. Opus found no blockers in the frozen implementation, subsequent Greptile findings are fixed, and implementation head `1b8dcff4` has Greptile 5/5 and all 21 CI checks passing. Drew authorized closure and merge on 2026-10-25; the blocked visual walkthrough is explicitly deferred above. Production credentials, publication, browser/Gatekeeper installation, and a real second-release update remain outside the executed evidence. Completion does not establish public-release acceptance or authorize publication.
