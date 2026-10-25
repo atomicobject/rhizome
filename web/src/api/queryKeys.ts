@@ -77,6 +77,9 @@ export const queryKeys = {
       [...queryKeys.graph.all(), "expanded", modulePath, limit] as const,
   },
   nodes: {
+    linkTargets: () => [...queryKeys.all, "nodes", "link-target"] as const,
+    linkTarget: (target: string, from: string | undefined) =>
+      [...queryKeys.nodes.linkTargets(), target, from ?? null] as const,
     preview: (target: string, from: string | undefined) =>
       [...queryKeys.all, "nodes", "preview", target, from ?? null] as const,
   },

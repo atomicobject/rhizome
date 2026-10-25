@@ -58,6 +58,9 @@ type resolved struct {
 	effective []string
 	harnesses AgentHarnesses
 	files     *preparedFiles
+	// hooksBlocked says why hook entries were left as they are, when the
+	// selected rzm cannot run them.
+	hooksBlocked error
 }
 
 // harnessesFor applies agent preferences to what detection found.
@@ -105,6 +108,10 @@ func (r *initRun) resolve(s setup) (resolved, error) {
 		return resolved{}, err
 	}
 	frozen := frozenStarters(cfg.WorkflowTemplateManagement.Ejected, effective)
+	hookFiles, hooksBlocked, err := planHookFiles(root, cfg, harnesses)
+	if err != nil {
+		return resolved{}, err
+	}
 	files, err := prepareGeneratedFiles(root, generatedInputs{
 		harnesses: harnesses,
 		section:   section,
@@ -115,11 +122,12 @@ func (r *initRun) resolve(s setup) (resolved, error) {
 			PreserveSkillTemplates:       frozen,
 		},
 		refreshDocs: r.opts.RefreshDocs,
+		hookFiles:   hookFiles,
 	})
 	if err != nil {
 		return resolved{}, err
 	}
-	return resolved{cfg: cfg, effective: effective, harnesses: harnesses, files: files}, nil
+	return resolved{cfg: cfg, effective: effective, harnesses: harnesses, files: files, hooksBlocked: hooksBlocked}, nil
 }
 
 // apply writes a resolved setup: generated files first, then config, so a
@@ -226,6 +234,7 @@ func (r *initRun) rerun(s setup) error {
 		}
 		cfg.Agents = prefs
 	}
+	applyHooksOption(cfg, r.opts.Hooks)
 	if strings.TrimSpace(r.opts.Search) != "" {
 		provider, _ := normalizeSearchOption(r.opts.Search)
 		ready := searchReady(provider, r.session, cfg.NoteEmbeddings)
@@ -236,6 +245,11 @@ func (r *initRun) rerun(s setup) error {
 	if _, err := applyStarterManagementOptions(cfg, r.opts, nil); err != nil {
 		return err
 	}
+	workflows, err := applyAddonOptions(cfg, s.workflows, suppressDefaultAddonsForExistingConfig(r.layout, *cfg), r.opts)
+	if err != nil {
+		return err
+	}
+	s.workflows = workflows
 	// Restoring a starter the chosen workflow no longer installs selects it
 	// again, so its files resume updates instead of being removed.
 	if restored, _ := normalizeTemplateNames(splitList(r.opts.Restore)); len(restored) > 0 &&

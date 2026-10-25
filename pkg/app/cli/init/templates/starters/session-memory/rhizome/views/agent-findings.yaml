@@ -1,0 +1,34 @@
+apiVersion: rhizome.view.v1
+id: agent-findings
+name: Agent findings
+description: Friction from agent sessions that a person chose to fix, guard against, or ask about. Their action items appear in the Action Items view.
+source:
+  kind: ontology_type
+  type: AgentFinding
+mount:
+  kind: standalone
+  group: Knowledge
+  order: 31
+defaults:
+  variant: table
+  first: 100
+  group:
+    field: response
+  sort:
+    - field: response
+      direction: asc
+    - field: reviewedOn
+      direction: desc
+variants:
+  table:
+    columns:
+      - field: response
+        label: Response
+      - field: summary
+        label: Statement
+      - field: families
+        label: Families
+      - field: reviewedOn
+        label: Reviewed
+      - field: reviewedBy
+        label: Reviewed by

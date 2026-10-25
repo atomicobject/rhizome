@@ -23,7 +23,9 @@ type Options struct {
 type Summary struct {
 	Status   harness.Status  `json:"status"`
 	Generate json.RawMessage `json:"generate"`
-	Turn     Turn            `json:"turn"`
+	// GenerateSkipped explains a provider that reports tool-free generation unsupported.
+	GenerateSkipped string `json:"generateSkipped,omitempty"`
+	Turn            Turn   `json:"turn"`
 }
 
 type Turn struct {
@@ -90,14 +92,20 @@ func Smoke(ctx context.Context, driver harness.Harness, options Options, writeEv
 		return Summary{}, harness.Phase(harness.ErrInitialize, errors.New(status.LastError))
 	}
 
+	summary := Summary{Status: status}
 	generated, err := driver.Generate(ctx, harness.GenerateRequest{
 		Prompt: "Return the JSON object {\"answer\":\"pong\"}.",
 		Schema: smokeSchema,
 		Model:  options.Model,
 		Effort: options.Effort,
 	})
-	if err != nil {
+	switch {
+	case errors.Is(err, harness.ErrUnsupported):
+		summary.GenerateSkipped = err.Error()
+	case err != nil:
 		return Summary{}, err
+	default:
+		summary.Generate = generated.Output
 	}
 	session, err := driver.StartSession(ctx, harness.SessionOptions{
 		PermissionMode: harness.PermissionApprovalRequired,
@@ -147,7 +155,8 @@ func Smoke(ctx context.Context, driver harness.Harness, options Options, writeEv
 	if streamErr != nil {
 		return Summary{}, streamErr
 	}
-	return Summary{Status: status, Generate: generated, Turn: turn}, nil
+	summary.Turn = turn
+	return summary, nil
 }
 
 func statusPhase(phase error, status harness.Status) error {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Pencil } from "lucide-react";
 import type {
   OntologyEditFieldValue,
   OntologyEditOp,
@@ -28,6 +29,7 @@ import { ListValueEditor } from "./ConfiguredTableNodeEditor";
 import { FieldEditor, fieldExpectedFromNode, fieldOperationTarget } from "./editing/FieldEditor";
 import { useReturnFocusOnClose } from "./focusManagement";
 import { useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
+import { ConfiguredCellText, hasCellLinks } from "./ConfiguredCellText";
 
 export function EnumEditableCell({
   capability,
@@ -226,6 +228,7 @@ export function ScalarEditableCell({
   vaultKey,
   onStage,
   onOpenRow,
+  onOpenRelation,
 }: {
   row: ViewTableRow;
   field: string;
@@ -242,8 +245,9 @@ export function ScalarEditableCell({
     expected?: OntologyEditOp["expected"],
   ) => Promise<void> | undefined;
   onOpenRow?: (row: ViewTableRow, mode?: OpenMode) => void;
+  onOpenRelation?: (row: ViewTableRow, mode?: OpenMode) => void;
 }) {
-  const displayValue = stringifyCell(firstScalar(value));
+  const displayValue = stringifyCell(list ? value : firstScalar(value));
   const [editing, setEditing] = useState(false);
   const editorRef = useRef<HTMLSpanElement>(null);
   const triggerRef = useReturnFocusOnClose<HTMLButtonElement>(editing);
@@ -302,7 +306,7 @@ export function ScalarEditableCell({
 
           if (
             (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) &&
-            input.value === displayValue
+            input.value === (list ? cellValues(value).join("\n") : displayValue)
           ) {
             setEditing(false);
           }
@@ -317,6 +321,33 @@ export function ScalarEditableCell({
           expected={fieldExpectedFromNode(node)}
           onStage={stageSharedValue}
         />
+      </span>
+    );
+  }
+
+  if (!onOpenRow && onOpenRelation && hasCellLinks(displayValue)) {
+    return (
+      <span
+        className={`configured-view__scalar-cell configured-view__linked-cell${dirty ? " is-dirty" : ""}`}
+      >
+        <span className="configured-view__linked-cell-value">
+          <ConfiguredCellText
+            value={displayValue}
+            from={row.ref.notePath || row.path}
+            onOpen={(target, mode) =>
+              onOpenRelation(relationTargetRow(target), mode === "beside" ? "beside" : "activate")
+            }
+          />
+        </span>
+        <button
+          ref={triggerRef}
+          type="button"
+          className="configured-view__cell-clear"
+          aria-label={`Edit ${capabilityLabel(capability)}`}
+          onClick={() => setEditing(true)}
+        >
+          <Pencil size={12} aria-hidden="true" />
+        </button>
       </span>
     );
   }

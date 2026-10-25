@@ -553,6 +553,21 @@
   font-weight: 500;
 }
 
+.configured-view__linked-cell {
+  display: inline-flex;
+  align-items: center;
+}
+
+.configured-view__linked-cell-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.configured-view__linked-cell > button {
+  flex-shrink: 0;
+}
+
 .configured-view__title-button:hover,
 .configured-view__relation-value {
   color: var(--link);

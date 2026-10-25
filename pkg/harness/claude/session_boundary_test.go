@@ -2,6 +2,7 @@ package claude
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -207,4 +208,33 @@ func TestClaudeRejectsInvalidMCPServers(t *testing.T) {
 func TestClaudeRejectsUnsupportedPermissionMode(t *testing.T) {
 	_, err := testDriver(harnesstest.NewScriptedIO()).StartSession(context.Background(), harness.SessionOptions{PermissionMode: "future"})
 	require.ErrorIs(t, err, harness.ErrSpawn)
+}
+
+// Transport EOF signals the turn before it cancels the session lifetime, so
+// cancelTurn can see either or both ready at once.
+func TestClaudeCancelTurnPrefersTransportClosure(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		turnResult    error
+		lifetimeEnded bool
+		want          error
+	}{
+		{"eof result before lifetime ends", harness.Phase(harness.ErrTransportClosed, errors.New("EOF")), false, harness.ErrTransportClosed},
+		{"eof result and lifetime ended", harness.Phase(harness.ErrTransportClosed, errors.New("EOF")), true, harness.ErrTransportClosed},
+		{"completion after lifetime ended", nil, true, harness.ErrTransportClosed},
+		{"completion after interrupt", nil, false, harness.ErrTimeout},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			started, err := testDriver(harnesstest.NewScriptedIO(initResponse("init-1"))).StartSession(context.Background(), harness.SessionOptions{Cwd: "/tmp/project"})
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = started.Stop() })
+			s := started.(*session)
+			if tc.lifetimeEnded {
+				s.cancel()
+			}
+			done := make(chan error, 1)
+			done <- tc.turnResult
+			require.ErrorIs(t, s.cancelTurn(context.Canceled, done), tc.want)
+		})
+	}
 }

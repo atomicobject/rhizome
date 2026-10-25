@@ -67,6 +67,7 @@ func (commandOptions *vaultCommandOptions) registerAgentCommands(agentCmd, rootC
 		commandOptions.newAgentCodeSymbolContextCmd(),
 		commandOptions.newAgentExternalReferencesCmd(),
 		commandOptions.newAgentEvaluateCmd(),
+		commandOptions.newAgentGenerateCmd(),
 		commandOptions.newAgentJSONStdinCmd("evaluate-batch", "Evaluate independent Jev states from JSON stdin"),
 		commandOptions.newAgentJSONStdinCmd("check-paths", "Check a collection of paths against unified ignore rules from JSON stdin"),
 		commandOptions.newAgentFindConnectionsCmd(),

@@ -237,7 +237,11 @@ func (s *session) cancelTurn(ctxErr error, done <-chan error) error {
 	timer := time.NewTimer(s.cancelTimeout)
 	defer timer.Stop()
 	select {
-	case <-done:
+	case err := <-done:
+		// EOF fills done before it ends the lifetime; closure must win either way.
+		if errors.Is(err, harness.ErrTransportClosed) || s.lifetime.Err() != nil {
+			return harness.Phase(harness.ErrTransportClosed, ctxErr)
+		}
 		return harness.Phase(harness.ErrTimeout, ctxErr)
 	case <-s.lifetime.Done():
 		return harness.Phase(harness.ErrTransportClosed, ctxErr)
@@ -485,16 +489,6 @@ func supportedPermissionMode(mode harness.PermissionMode) bool {
 
 func claudeTurnScoped(messageType string) bool {
 	return messageType == "result" || messageType == "stream_event" || messageType == "assistant" || messageType == "user"
-}
-
-func signalTurn(done chan error, err error) {
-	for range 2 {
-		select {
-		case done <- err:
-		default:
-			return
-		}
-	}
 }
 
 func classifyError(ctx context.Context, phase, err error) error {

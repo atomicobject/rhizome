@@ -21,18 +21,38 @@ func TestGenerateStructuredArgsAndPrompt(t *testing.T) {
 		require.Equal(t, "high", argValue(t, spec.Args, "--effort"))
 		require.Equal(t, "", argValue(t, spec.Args, "--tools"))
 		require.JSONEq(t, `{"type":"object"}`, argValue(t, spec.Args, "--json-schema"))
-		return command.Result{Stdout: `{"result":"ignored","structured_output":{"answer":"yes"}}`}, nil
+		require.Contains(t, spec.Args, "--no-session-persistence")
+		require.Contains(t, spec.Args, "--safe-mode")
+		require.Equal(t, generateSystemPrompt, argValue(t, spec.Args, "--system-prompt"))
+		require.Equal(t, []string{"FORCE_PROMPT_CACHING_5M=1"}, spec.Env)
+		return command.Result{Stdout: `{"result":"ignored","structured_output":{"answer":"yes"},
+			"usage":{"input_tokens":2,"cache_creation_input_tokens":900,"cache_read_input_tokens":100,"output_tokens":61},
+			"total_cost_usd":0.0488,
+			"modelUsage":{"claude-haiku-4-5-20251001":{"inputTokens":900,"outputTokens":12},"claude-opus-5-5":{"inputTokens":2,"outputTokens":61}}}`}, nil
 	}
 	result, err := (&Driver{binary: "claude", runner: runner}).Generate(context.Background(), harness.GenerateRequest{Prompt: "summarize", Model: "opus", Effort: "high", Schema: []byte(`{"type":"object"}`)})
 	require.NoError(t, err)
-	require.JSONEq(t, `{"answer":"yes"}`, string(result))
+	require.JSONEq(t, `{"answer":"yes"}`, string(result.Output))
+	require.Equal(t, "claude-opus-5-5", result.Model, "auxiliary model calls must not be reported as the generation model")
+	require.Equal(t, harness.ToolPolicyNone, result.ToolPolicy)
+	require.Equal(t, harness.TokenUsage{InputTokens: 2, CachedInputTokens: 100, CacheWriteInputTokens: 900, OutputTokens: 61, TotalTokens: 1063, CostUSD: 0.0488}, result.Usage)
+}
+
+func TestGenerateMultiRequestReplyReportsItsOnlyModel(t *testing.T) {
+	runner := &fakeRunner{results: []command.Result{{Stdout: "2.1.302 (Claude Code)"}, {Stdout: `{"structured_output":{"ok":true},
+		"usage":{"input_tokens":2,"cache_creation_input_tokens":336,"output_tokens":52},"total_cost_usd":0.0002,
+		"modelUsage":{"claude-haiku-5-5":{"inputTokens":1178,"outputTokens":67,"cacheReadInputTokens":719,"cacheCreationInputTokens":336}}}`}}}
+	result, err := (&Driver{binary: "claude", runner: runner}).Generate(context.Background(), harness.GenerateRequest{Model: "haiku", Schema: []byte(`{"type":"object"}`)})
+	require.NoError(t, err)
+	require.Equal(t, "claude-haiku-5-5", result.Model)
+	require.Equal(t, harness.TokenUsage{InputTokens: 1178, CachedInputTokens: 719, CacheWriteInputTokens: 336, OutputTokens: 67, TotalTokens: 2300, CostUSD: 0.0002}, result.Usage)
 }
 
 func TestGeneratePlainResultIsJSONString(t *testing.T) {
 	runner := &fakeRunner{results: []command.Result{{Stdout: "2.1.269 (Claude Code)"}, {Stdout: `{"result":"plain text"}`}}}
 	result, err := (&Driver{binary: "claude", runner: runner}).Generate(context.Background(), harness.GenerateRequest{})
 	require.NoError(t, err)
-	require.JSONEq(t, `"plain text"`, string(result))
+	require.JSONEq(t, `"plain text"`, string(result.Output))
 }
 
 func TestGenerateFailureClasses(t *testing.T) {

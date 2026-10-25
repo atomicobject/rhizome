@@ -1,12 +1,19 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "@playwright/test";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const port = Number(process.env.RHIZOME_E2E_PORT || "4173");
-
 const repoRoot = path.resolve(dirname, "..");
+
+// Local runs reuse a server already listening on the port, so a shared default
+// would test whichever worktree started first. Each checkout gets its own port.
+// ponytail: 1-in-10,000 collision per pair of checkouts; set RHIZOME_E2E_PORT if two collide.
+const checkoutPort = () =>
+  20000 + (createHash("sha256").update(repoRoot).digest().readUInt32BE(0) % 10000);
+
+const port = Number(process.env.RHIZOME_E2E_PORT || (process.env.CI ? 4173 : checkoutPort()));
 
 export default defineConfig({
   testDir: path.resolve(dirname, "tests/e2e"),

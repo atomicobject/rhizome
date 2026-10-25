@@ -168,7 +168,8 @@ func (i Indexer) BuildPathDelta(ctx context.Context, vaultDef obsidian.VaultDefi
 		}
 		dependents, err := i.loadProjectedEntriesForPaths(ctx, vaultDef, noteMgr, additional)
 		if err != nil {
-			return nil, err
+			// Persisted link inputs can name a dependent another writer removed.
+			return nil, missingSourceNotCurrent(err)
 		}
 		entries = append(entries, dependents...)
 		durable, err = store.CurrentNoteMetadataRowsByPaths(ctx, projectedPaths(entries))

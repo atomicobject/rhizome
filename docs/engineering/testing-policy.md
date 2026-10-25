@@ -10,7 +10,7 @@ Confidence should be proportional to the change, with a regression test for any 
 
 | Change shape | Evidence |
 | --- | --- |
-| Go package behavior | focused package test (`go test ./pkg/<path>/...`), race-enabled in the full gate |
+| Go package behavior | focused package test (`GOCACHE=$PWD/.gocache go test -tags fts5 ./pkg/<path>/...`, as in [quality gates](quality-gates.md)), race-enabled in the full gate |
 | Cross-package or CLI contract | `cmd` tests, and the integration suite (`go test -tags=integration ./...`) when indexing, code intel, or fixtures are involved |
 | Init templates, skills, or managed docs | `pkg/app/cli/init` tests plus a real `rzm init` followed by `rzm init --check` exiting 0 |
 | Migration or persisted state | replay, upgrade, and idempotence coverage; SQLite changes go through migrations, never compatibility shims |

@@ -167,12 +167,15 @@ type initInvocationOptions struct {
 	initPath           string
 	initWorkflow       string
 	initAgents         string
+	initHooks          string
 	initSearch         string
 	initRefreshDocs    bool
 	initIncludeIgnored []string
 	initBinaryManager  string
 	initEject          string
 	initRestore        string
+	initAddAddon       string
+	initRemoveAddon    string
 	initCheck          bool
 	initAccept         bool
 	initJSON           bool

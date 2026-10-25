@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/agentchat"
 	"github.com/atomicobject/rhizome/pkg/app/cli/harnesscheck"
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/harness/claude"
@@ -41,11 +42,19 @@ func newAgentHarnessCmdWithRegistry(registry harnessRegistry) *cobra.Command {
 
 func newAgentHarnessStatusCmd(registry harnessRegistry) *cobra.Command {
 	var requested string
+	var configured bool
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Report coding-agent harness readiness",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if configured {
+				settings, err := agentchat.LoadSettings(commandEnvFromContext(cmd.Context()).Config)
+				if err != nil {
+					return writeHarnessCommandError(err)
+				}
+				return writeAgentPayload(cmd, map[string]harness.Kind{"harness": settings.Harness})
+			}
 			result, err := harnesscheck.Status(cmd.Context(), registry(), requested)
 			if err != nil {
 				return writeHarnessCommandError(err)
@@ -54,6 +63,8 @@ func newAgentHarnessStatusCmd(registry harnessRegistry) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&requested, "harness", "", "harness to inspect (codex or claude)")
+	cmd.Flags().BoolVar(&configured, "configured", false, "report only the configured harness without probing providers")
+	cmd.MarkFlagsMutuallyExclusive("configured", "harness")
 	return cmd
 }
 

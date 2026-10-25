@@ -16,7 +16,7 @@ const (
 type Harness interface {
 	Status(context.Context) (Status, error)
 	StartSession(context.Context, SessionOptions) (Session, error)
-	Generate(context.Context, GenerateRequest) (json.RawMessage, error)
+	Generate(context.Context, GenerateRequest) (GenerateResult, error)
 }
 
 type Session interface {
@@ -47,12 +47,33 @@ type MCPServer struct {
 	Env     []string
 }
 
+// GenerateRequest is one tool-free, sessionless model call.
 type GenerateRequest struct {
 	Prompt string
 	Schema json.RawMessage
 	Model  string
 	Effort string
 }
+
+// GenerateResult carries the output with the usage and model the vendor
+// reported, and the tool policy the call ran under.
+type GenerateResult struct {
+	Output     json.RawMessage `json:"output"`
+	Usage      TokenUsage      `json:"usage"`
+	Model      string          `json:"model,omitempty"`
+	ToolPolicy ToolPolicy      `json:"toolPolicy"`
+}
+
+// ToolPolicy names how a generation was kept from using tools.
+type ToolPolicy string
+
+const (
+	// ToolPolicyNone: the CLI removed every tool.
+	ToolPolicyNone ToolPolicy = "none"
+	// ToolPolicySandboxed: configuration removed every tool it can, and a
+	// read-only, network-less sandbox with no approvals bounds the rest.
+	ToolPolicySandboxed ToolPolicy = "sandboxed"
+)
 
 type PermissionMode string
 
@@ -119,11 +140,13 @@ const (
 )
 
 type TokenUsage struct {
-	InputTokens           int64 `json:"inputTokens"`
-	CachedInputTokens     int64 `json:"cachedInputTokens"`
-	OutputTokens          int64 `json:"outputTokens"`
-	ReasoningOutputTokens int64 `json:"reasoningOutputTokens"`
-	TotalTokens           int64 `json:"totalTokens"`
+	InputTokens           int64   `json:"inputTokens"`
+	CachedInputTokens     int64   `json:"cachedInputTokens"`
+	OutputTokens          int64   `json:"outputTokens"`
+	ReasoningOutputTokens int64   `json:"reasoningOutputTokens"`
+	TotalTokens           int64   `json:"totalTokens"`
+	CacheWriteInputTokens int64   `json:"cacheWriteInputTokens,omitempty"`
+	CostUSD               float64 `json:"costUsd,omitempty"`
 }
 
 type Status struct {

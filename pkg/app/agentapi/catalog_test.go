@@ -15,7 +15,7 @@ import (
 func TestToolCatalogIsUniqueAndConstructible(t *testing.T) {
 	wantAgentAPI := []string{
 		"capabilities", "check_paths", "code_references", "code_symbol", "code_symbol_context",
-		"community_list", "evaluate", "evaluate_batch", "external_references", "file_context", "files", "find_connections", "graph_path",
+		"community_list", "evaluate", "evaluate_batch", "external_references", "file_context", "files", "find_connections", "generate", "graph_path",
 		"list_properties", "list_tags", "node_link", "note_rename_heading",
 		"ontology_query", "ontology_query_schema", "query_recipe", "report",
 		"semantic_query", "vault_context", "vault_health",
@@ -78,7 +78,7 @@ func TestToolCatalogCapabilityMetadataMatchesMCPContract(t *testing.T) {
 		"file_context", "vault_context", "semantic_query", "code_symbol", "code_references",
 		"code_symbol_context", "external_references", "find_connections", "report", "node_link",
 		"note_rename_heading", "vault_health", "ontology_query_schema",
-		"ontology_query", "query_recipe", "evaluate",
+		"ontology_query", "query_recipe", "evaluate", "generate",
 	}
 	wantReadWrite := append([]string{}, wantReadOnly...)
 
@@ -176,7 +176,7 @@ func TestAgentCapabilityToolNamesPreserveContract(t *testing.T) {
 		"community_list", "file_context", "files", "find_connections", "graph_path",
 		"list_properties", "list_tags", "node_link", "note_rename_heading", "ontology_query", "ontology_query_schema",
 		"query_recipe", "report", "semantic_query",
-		"vault_context", "vault_health", "external_references", "evaluate", "check_paths", "evaluate_batch",
+		"vault_context", "vault_health", "external_references", "evaluate", "check_paths", "evaluate_batch", "generate",
 	}, AgentCapabilityToolNames())
 	for _, name := range AgentCapabilityToolNames() {
 		_, err := toolHandler(name, Config{})

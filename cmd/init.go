@@ -66,12 +66,15 @@ arguments.`,
 				Interactive:       stdinIsTerminal(cmd),
 				Workflow:          commandOptions.initWorkflow,
 				Agents:            commandOptions.initAgents,
+				Hooks:             commandOptions.initHooks,
 				Search:            commandOptions.initSearch,
 				RefreshDocs:       commandOptions.initRefreshDocs,
 				IncludeIgnored:    commandOptions.initIncludeIgnored,
 				BinaryManager:     commandOptions.initBinaryManager,
 				Eject:             commandOptions.initEject,
 				Restore:           commandOptions.initRestore,
+				AddAddon:          commandOptions.initAddAddon,
+				RemoveAddon:       commandOptions.initRemoveAddon,
 				Check:             commandOptions.initCheck,
 				AcceptSuggestions: commandOptions.initAccept,
 				IndexNow: func(projectRoot string) error {
@@ -191,14 +194,17 @@ func (commandOptions *initInvocationOptions) registerInitCommands(initCmd, rootC
 	initCmd.Flags().StringVar(&commandOptions.initPath, "path", "", "project directory to set up (default: current directory or Git root)")
 	initCmd.Flags().StringVar(&commandOptions.initWorkflow, "workflow", "", "workflow to install: agentic-engineering, domain, or none")
 	initCmd.Flags().StringVar(&commandOptions.initAgents, "agents", "", "agents to set up: claude, codex, cursor (comma-separated), shared for AGENTS.md and shared skills only, or none")
+	initCmd.Flags().StringVar(&commandOptions.initHooks, "hooks", "", "agent hooks that deliver add-on context, such as session-memory shards: on or off (default off)")
 	initCmd.Flags().StringVar(&commandOptions.initSearch, "search", "", "semantic search provider: voyage (default), openai, ollama, or off")
 	initCmd.Flags().BoolVar(&commandOptions.initRefreshDocs, "refresh-docs", false, "offer Rhizome's latest versions of the starter docs your team owns")
 	initCmd.Flags().StringArrayVar(&commandOptions.initIncludeIgnored, "include-ignored", nil, "index a folder Git ignores (repeatable)")
 	initCmd.Flags().StringVar(&commandOptions.initBinaryManager, "binary-manager", "", "let an external tool such as mise own the Rhizome binary: external")
 	initCmd.Flags().StringVar(&commandOptions.initEject, "eject", "", "keep a workflow's files for your team to own and stop updating them (comma-separated)")
 	initCmd.Flags().StringVar(&commandOptions.initRestore, "restore", "", "resume updates for an ejected workflow")
+	initCmd.Flags().StringVar(&commandOptions.initAddAddon, "add-addon", "", "install an add-on starter, such as session-memory, in an existing setup (comma-separated)")
+	initCmd.Flags().StringVar(&commandOptions.initRemoveAddon, "remove-addon", "", "stop installing an add-on starter in an existing setup (comma-separated)")
 	initCmd.Flags().BoolVar(&commandOptions.initJSON, "json", false, "write one JSON document instead of text; first-run setup only (with --check: the plan and every choice)")
-	initCmd.Flags().StringVar(&commandOptions.initAddons, "addons", "", "add-on starters to install with the workflow, such as action-items (comma-separated), or none; first run only")
+	initCmd.Flags().StringVar(&commandOptions.initAddons, "addons", "", "add-on starters to install with the workflow, such as action-items or session-memory (comma-separated), or none; first run only")
 	initCmd.Flags().StringArrayVar(&commandOptions.initSkip, "skip", nil, "leave a folder or file out of the index (repeatable; first run only)")
 	initCmd.Flags().StringArrayVar(&commandOptions.initKeepIndexed, "keep-indexed", nil, "keep indexing a path init suggests skipping (repeatable; first run only)")
 	initCmd.Flags().BoolVar(&commandOptions.initSearchKeyStdin, "search-key-stdin", false, "read the semantic search key from a pipe and save it, so it never appears in arguments (first run only)")

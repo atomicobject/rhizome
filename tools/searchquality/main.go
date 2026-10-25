@@ -33,7 +33,7 @@ func main() {
 	execute := flag.Bool("execute", false, "execute corpus requests through unified search")
 	vaultPath := flag.String("vault", ".", "vault root used with -execute")
 	runOut := flag.String("run-out", "", "write executed run artifact to this path")
-	fast := flag.Bool("fast", true, "disable network embedding, graph, and refs lanes")
+	fast := flag.Bool("fast", false, "deterministic lexical-only run: disable network embedding, graph, and refs lanes (default runs every lane)")
 	format := flag.String("format", "json", "json or markdown")
 	split := flag.String("split", "", "optional corpus split, such as development or held-out")
 	corpusNames := flag.String("corpus-name", "", "optional comma-separated corpus names")

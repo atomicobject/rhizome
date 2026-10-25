@@ -1,0 +1,21 @@
+id: session-memory
+name: Session memory
+description: "Mine agent sessions into reviewed context shards that reach agents when they touch matching files"
+requires:
+  - core
+optionalAddon: true
+installedAssetTypes:
+  - ontology
+  - query-recipes
+  - views
+  - skills
+  - managed-docs
+hooks:
+  - id: deliver-shards
+    delivers: approved context shards when an agent starts or reads, edits, or runs commands they apply to
+    events: [session-start, subagent-start, post-tool-use]
+    tools: [read, edit, patch, shell]
+    skill: session-memory
+    command: [node, "{skill}/scripts/hook.mjs"]
+    timeout: 3s
+    commandPrefixes: .rhizome/session-memory/hook/command-prefixes.json

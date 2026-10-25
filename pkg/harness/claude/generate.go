@@ -11,13 +11,19 @@ import (
 	"github.com/atomicobject/rhizome/pkg/harness/internal/command"
 )
 
-func (d *Driver) Generate(ctx context.Context, request harness.GenerateRequest) (json.RawMessage, error) {
+// Generate runs one tool-free, sessionless print-mode call. Safe mode keeps
+// CLAUDE.md, skills, and plugins out of the prompt while preserving the user's
+// login, and the minimal system prompt replaces the coding-agent prompt; together
+// they cut a call from about 17k to about 1k input tokens (2.1.280). The
+// five-minute prompt cache suits short-gap call sequences; Claude Code otherwise
+// writes the one-hour cache at twice the input price.
+func (d *Driver) Generate(ctx context.Context, request harness.GenerateRequest) (harness.GenerateResult, error) {
 	path, err := d.runner.LookPath(d.binary)
 	if err != nil {
-		return nil, harness.Phase(harness.ErrNotInstalled, err)
+		return harness.GenerateResult{}, harness.Phase(harness.ErrNotInstalled, err)
 	}
 	if _, err := d.checkedVersion(ctx, path); err != nil {
-		return nil, err
+		return harness.GenerateResult{}, err
 	}
 	args := []string{"-p", "--output-format", "json"}
 	if request.Model != "" {
@@ -26,56 +32,84 @@ func (d *Driver) Generate(ctx context.Context, request harness.GenerateRequest) 
 	if request.Effort != "" {
 		args = append(args, "--effort", request.Effort)
 	}
-	args = append(args, "--tools", "", "--disable-slash-commands", "--strict-mcp-config", "--permission-mode", "dontAsk", "--settings", `{"disableAllHooks":true}`)
+	args = append(args, "--tools", "", "--disable-slash-commands", "--strict-mcp-config", "--permission-mode", "dontAsk", "--settings", `{"disableAllHooks":true}`, "--no-session-persistence", "--safe-mode", "--system-prompt", generateSystemPrompt)
 	if len(request.Schema) > 0 {
 		if !json.Valid(request.Schema) {
-			return nil, harness.Phase(harness.ErrSchemaMismatch, errors.New("schema is not valid JSON"))
+			return harness.GenerateResult{}, harness.Phase(harness.ErrSchemaMismatch, errors.New("schema is not valid JSON"))
 		}
 		args = append(args, "--json-schema", string(request.Schema))
 	}
-	result, err := d.runner.Run(ctx, command.Spec{Path: path, Args: args, Stdin: strings.NewReader(request.Prompt)})
+	result, err := d.runner.Run(ctx, command.Spec{Path: path, Args: args, Stdin: strings.NewReader(request.Prompt), Env: []string{"FORCE_PROMPT_CACHING_5M=1"}})
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) || errors.Is(ctx.Err(), context.Canceled) {
-			return nil, harness.Phase(harness.ErrTimeout, ctx.Err())
+			return harness.GenerateResult{}, harness.Phase(harness.ErrTimeout, ctx.Err())
 		}
 		if isNotFound(err) {
-			return nil, harness.Phase(harness.ErrNotInstalled, err)
+			return harness.GenerateResult{}, harness.Phase(harness.ErrNotInstalled, err)
 		}
-		return nil, harness.Phase(harness.ErrSpawn, err)
+		return harness.GenerateResult{}, harness.Phase(harness.ErrSpawn, err)
 	}
 	if result.ExitCode != 0 {
 		detail := strings.TrimSpace(result.Stderr)
 		if looksLikeAuthFailure(detail) {
-			return nil, harness.Phase(harness.ErrNotLoggedIn, errors.New(detail))
+			return harness.GenerateResult{}, harness.Phase(harness.ErrNotLoggedIn, errors.New(detail))
 		}
-		return nil, harness.Phase(harness.ErrCommandFailed, fmt.Errorf("exit %d: %s", result.ExitCode, detail))
+		return harness.GenerateResult{}, harness.Phase(harness.ErrCommandFailed, fmt.Errorf("exit %d: %s", result.ExitCode, detail))
 	}
 	var output struct {
 		Result           string          `json:"result"`
 		StructuredOutput json.RawMessage `json:"structured_output"`
 		IsError          bool            `json:"is_error"`
+		Usage            *usage          `json:"usage"`
+		TotalCostUSD     float64         `json:"total_cost_usd"`
+		ModelUsage       map[string]struct {
+			InputTokens              int64 `json:"inputTokens"`
+			OutputTokens             int64 `json:"outputTokens"`
+			CacheReadInputTokens     int64 `json:"cacheReadInputTokens"`
+			CacheCreationInputTokens int64 `json:"cacheCreationInputTokens"`
+		} `json:"modelUsage"`
 	}
 	if err := json.Unmarshal([]byte(strings.TrimSpace(result.Stdout)), &output); err != nil {
-		return nil, harness.Phase(harness.ErrDecode, err)
+		return harness.GenerateResult{}, harness.Phase(harness.ErrDecode, err)
 	}
 	if output.IsError {
 		if looksLikeAuthFailure(output.Result) {
-			return nil, harness.Phase(harness.ErrNotLoggedIn, errors.New(output.Result))
+			return harness.GenerateResult{}, harness.Phase(harness.ErrNotLoggedIn, errors.New(output.Result))
 		}
-		return nil, harness.Phase(harness.ErrCommandFailed, errors.New(output.Result))
+		return harness.GenerateResult{}, harness.Phase(harness.ErrCommandFailed, errors.New(output.Result))
 	}
 	if len(request.Schema) > 0 {
 		if len(output.StructuredOutput) == 0 || string(output.StructuredOutput) == "null" || !json.Valid(output.StructuredOutput) {
-			return nil, harness.Phase(harness.ErrSchemaMismatch, errors.New("Claude did not return valid structured_output"))
+			return harness.GenerateResult{}, harness.Phase(harness.ErrSchemaMismatch, errors.New("Claude did not return valid structured_output"))
 		}
 		if err := validateStructuredOutput(request.Schema, output.StructuredOutput); err != nil {
-			return nil, harness.Phase(harness.ErrSchemaMismatch, err)
+			return harness.GenerateResult{}, harness.Phase(harness.ErrSchemaMismatch, err)
 		}
-		return append(json.RawMessage(nil), output.StructuredOutput...), nil
 	}
-	encoded, _ := json.Marshal(output.Result)
-	return encoded, nil
+	generated := harness.GenerateResult{Output: append(json.RawMessage(nil), output.StructuredOutput...), Usage: toHarnessUsage(output.Usage), ToolPolicy: harness.ToolPolicyNone}
+	if len(request.Schema) == 0 {
+		generated.Output, _ = json.Marshal(output.Result)
+	}
+	generated.Usage.CostUSD = output.TotalCostUSD
+	// modelUsage also lists auxiliary calls; the generation is the entry matching top-level usage.
+	for model, used := range output.ModelUsage {
+		if output.Usage != nil && used.InputTokens == output.Usage.InputTokens && used.OutputTokens == output.Usage.OutputTokens {
+			generated.Model = model
+		}
+	}
+	// A structured reply that took several requests reports only the last one
+	// in usage; with a single model, its modelUsage entry covers them all.
+	if generated.Model == "" && len(output.ModelUsage) == 1 {
+		for model, used := range output.ModelUsage {
+			generated.Model = model
+			total := used.InputTokens + used.CacheReadInputTokens + used.CacheCreationInputTokens + used.OutputTokens
+			generated.Usage = harness.TokenUsage{InputTokens: used.InputTokens, CachedInputTokens: used.CacheReadInputTokens, CacheWriteInputTokens: used.CacheCreationInputTokens, OutputTokens: used.OutputTokens, ReasoningOutputTokens: generated.Usage.ReasoningOutputTokens, TotalTokens: total, CostUSD: output.TotalCostUSD}
+		}
+	}
+	return generated, nil
 }
+
+const generateSystemPrompt = "Respond to the user's request."
 
 func validateStructuredOutput(schemaJSON, outputJSON []byte) error {
 	var schema map[string]any

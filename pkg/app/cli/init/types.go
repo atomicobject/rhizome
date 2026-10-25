@@ -36,6 +36,8 @@ type RunOptions struct {
 	// Agents chooses agent integrations without asking: a comma-separated
 	// subset of claude, codex, and cursor, or none.
 	Agents string
+	// Hooks turns starter hooks on or off; empty keeps the stored choice.
+	Hooks string
 	// Search chooses the semantic search provider: voyage, openai, ollama, or off.
 	Search string
 
@@ -54,6 +56,8 @@ type RunOptions struct {
 	IncludeIgnored []string
 	Eject          string // keep these workflows' files (comma-separated) and stop updating them
 	Restore        string // resume updates for an ejected workflow
+	AddAddon       string // install these add-ons in an existing setup (comma-separated)
+	RemoveAddon    string // stop installing these add-ons in an existing setup (comma-separated)
 
 	Stdout io.Writer
 	Stderr io.Writer

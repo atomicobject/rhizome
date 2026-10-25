@@ -30,7 +30,7 @@ rzm agent file-context --session-id <id> --file <path> --intent "<task>"
 rzm agent semantic-query --session-id <id> --query "<question>"
 ```
 
-Do not restart merely to change the query. A new session is appropriate when the old id is invalid, the project/vault changed, or the work is intentionally independent.
+Do not restart merely to change the query. A new session is appropriate when the old id is invalid, the project/vault changed, or the work is intentionally independent. Start one after a compaction or clear as well: the old session still counts the files and notes it delivered, so it would hold back content the reset removed from your context.
 
 ## Discover current commands
 
