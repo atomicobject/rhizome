@@ -255,7 +255,7 @@ Batches 0–6 on one branch, delivered in one PR with this effort's closure. Bat
 - [PR #34](https://github.com/atomicobject/rhizome/pull/34) (`900efa2c`): calibrate.
 - [PR #35](https://github.com/atomicobject/rhizome/pull/35) (`2cfb6073`): guard rules.
 - [PR #36](https://github.com/atomicobject/rhizome/pull/36) (`73f4eae9`): removed the unreachable graph auto-expansion an M5 H proposal traced agent confusion to.
-- [PR #40](https://github.com/atomicobject/rhizome/pull/40): hook delivery for reads after `cd <dir>;`, from M6.
+- [PR #40](https://github.com/atomicobject/rhizome/pull/40) (`264ca2a5`): hook delivery for reads after `cd <dir>;`, from M6.
 - This closure pull request: the starter guide (`docs/reference/guides/session-memory.md` in the installed repository) and the session-memory entry in `docs/reference/guides/choosing-your-starter.md`, plus this closure.
 
 ## Execution Notes
