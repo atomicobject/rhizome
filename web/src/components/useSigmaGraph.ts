@@ -524,8 +524,12 @@ export function useSigmaGraph({
     const sigma: SigmaRenderer = new Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>(graph, container, {
       renderEdgeLabels: stateRef.current.showEdgeLabels,
       labelDensity: 0.07,
-      labelGridCellSize: 90,
+      // Wider cells keep long labels from overlapping in dense clusters.
+      labelGridCellSize: 140,
       labelRenderedSizeThreshold: 10,
+      // Canvas text cannot read CSS variables; this is --font-sans.
+      labelFont: "Barlow, -apple-system, system-ui, sans-serif",
+      edgeLabelFont: "Barlow, -apple-system, system-ui, sans-serif",
       defaultNodeType: "circle",
       ...rendererColorSettings(colorsRef.current ?? readThemeColors()),
       defaultDrawNodeHover: themedNodeHover(() => colorsRef.current ?? readThemeColors()),

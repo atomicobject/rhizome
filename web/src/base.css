@@ -383,11 +383,81 @@ textarea {
   white-space: pre-wrap;
 }
 
+/* GraphiQL reads HSL triplets, not colors, so its palette restates the
+   tokens: ink neutral, surface base, deeper red primary, teal success. Its
+   dialogs and tooltips render outside the explorer, hence the body scope. */
 .graphql-explorer .graphiql-container {
   height: 100%;
   font-family: var(--font-sans);
+}
+
+body
+  :is(
+    .graphiql-container,
+    .graphiql-dialog,
+    .graphiql-dialog-overlay,
+    .graphiql-tooltip,
+    [data-radix-popper-content-wrapper]
+  ) {
   --font-family: var(--font-sans);
   --font-family-mono: var(--font-mono);
+  --font-size-hint: var(--fs-xs);
+  --font-size-inline-code: var(--fs-sm);
+  --font-size-body: var(--fs-base);
+  --font-size-h4: var(--fs-lg);
+  --font-size-h3: var(--fs-xl);
+  --font-size-h2: var(--fs-2xl);
+  --border-radius-8: var(--r-md);
+  --border-radius-12: var(--r-lg);
+  --popover-box-shadow: var(--shadow);
+  --color-primary: 356, 61%, 49%;
+  --color-secondary: 256, 29%, 41%;
+  --color-tertiary: 177, 81%, 23%;
+  --color-info: 198, 65%, 35%;
+  --color-success: 177, 81%, 23%;
+  --color-warning: 37, 80%, 30%;
+  --color-error: 357, 69%, 36%;
+  --color-neutral: 30, 8%, 15%;
+  --color-base: 0, 0%, 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  html
+    body:not(.graphiql-light)
+    :is(
+      .graphiql-container,
+      .graphiql-dialog,
+      .graphiql-dialog-overlay,
+      .graphiql-tooltip,
+      [data-radix-popper-content-wrapper]
+    ) {
+    --color-primary: 357, 100%, 71%;
+    --color-secondary: 257, 43%, 81%;
+    --color-tertiary: 177, 59%, 61%;
+    --color-info: 198, 64%, 73%;
+    --color-success: 177, 68%, 63%;
+    --color-warning: 38, 70%, 70%;
+    --color-error: 357, 100%, 78%;
+    --color-neutral: 37, 17%, 91%;
+    --color-base: 20, 5%, 11%;
+    --popover-box-shadow: var(--shadow);
+    --popover-border: 1px solid var(--border);
+  }
+}
+
+/* Run is the one commit action: the filled primary in both themes. */
+.graphql-explorer button.graphiql-execute-button {
+  background-color: var(--accent-fill);
+  border-radius: var(--r-md);
+}
+
+.graphql-explorer button.graphiql-execute-button:hover,
+.graphql-explorer button.graphiql-execute-button:active {
+  background-color: var(--accent-fill-hover);
+}
+
+.graphql-explorer button.graphiql-execute-button > svg {
+  color: var(--on-accent);
 }
 
 /* ==========================================================================
@@ -1061,10 +1131,13 @@ textarea {
   font-family: var(--font-mono);
 }
 
+/* Top center, clear of the graph tools in the right corner. */
 .graph-banner {
   position: absolute;
+  z-index: 2;
   top: var(--sp-3);
-  right: var(--sp-3);
+  left: 50%;
+  transform: translateX(-50%);
   padding: 3px 10px;
   border-radius: 999px;
   background: var(--warning-soft);

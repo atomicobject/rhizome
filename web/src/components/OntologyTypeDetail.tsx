@@ -93,7 +93,7 @@ export function OntologyTypeDetail({ name, atlas, onBack, onSelectType }: Props)
             <h1>{name}</h1>
             {data?.type?.role ? (
               <span className="ontology-type-detail__role-pill">
-                {humanizeName(data.type.role)}
+                {humanizeName(data.type.role.toLowerCase())}
               </span>
             ) : null}
           </div>
