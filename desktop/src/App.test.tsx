@@ -910,8 +910,7 @@ describe("desktop shell", () => {
   it("closes a finder for any other menu command, such as Settings or Add Repository", async () => {
     start(undefined, (operation) => (operation === "global-status" ? null : undefined));
     await waitFor(() => expect(opened()).toHaveLength(1));
-    act(() => emit({ type: "command", command: "repositories" }));
-    await waitFor(() => expect(finderModel()?.mode).toBe("repositories"));
+    await showFinder(/^Repository /);
     act(() => emit({ type: "command", command: "settings" }));
     expect(finderModel()).toBeNull();
     expect(screen.getByRole("radiogroup", { name: "Theme" })).toBeVisible();
@@ -938,8 +937,7 @@ describe("desktop shell", () => {
   it("closes a finder when a terminal opens a folder in this window", async () => {
     start();
     await waitFor(() => expect(opened()).toHaveLength(1));
-    act(() => emit({ type: "command", command: "repositories" }));
-    await waitFor(() => expect(finderModel()?.mode).toBe("repositories"));
+    await showFinder(/^Repository /);
     act(() => emit({ type: "select", library, repository: repository.id, worktree: feature }));
     expect(finderModel()).toBeNull();
     await waitFor(() => expect(opened().at(-1)).toMatchObject({ worktree: feature }));
