@@ -36,11 +36,7 @@ export function AgentSessionRail({
   onSettingsChange,
 }: Props) {
   return (
-    <aside
-      className="agent-workspace__rail"
-      id="agent-sidebar"
-      aria-label="Agent sessions and settings"
-    >
+    <aside className="agent-workspace__rail" aria-label="Agent sessions and settings">
       <div className="agent-workspace__rail-head">
         <h1>Agent</h1>
         <button type="button" onClick={onNew}>

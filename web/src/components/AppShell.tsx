@@ -276,6 +276,9 @@ export function AppShell() {
     : null;
 
   const vaultName = status?.vaultName || null;
+  // Every section's sidebar names the vault; Desktop's toolbar names it instead.
+  const sidebarTitle = desktop || !vaultName ? null : vaultLabel(vaultName);
+  const sidebarHint = status?.vaultPath || null;
 
   useEffect(() => {
     if (vaultName && !desktop) {
@@ -300,8 +303,8 @@ export function AppShell() {
         <header className="app-shell__nav">
           <div className="app-shell__brand" title={status?.vaultPath || undefined}>
             <span>Rhizome</span>
-            {/* The Notes sidebar names the vault; other sections keep it here. */}
-            {route !== "notes" || statusQuery.isError ? (
+            {/* Each sidebar names the vault; GraphQL, which has none, keeps it here. */}
+            {route === "graphql" || statusQuery.isError ? (
               <small>
                 {vaultName
                   ? vaultLabel(vaultName)
@@ -388,15 +391,19 @@ export function AppShell() {
             </div>
           ) : null}
           {route === "notes" ? null : route === "ontology" ? (
-            <OntologyAtlasWorkspace />
+            <OntologyAtlasWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "agent" ? (
-            <AgentWorkspace />
+            <AgentWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "graphql" ? (
             <Suspense fallback={<main className="graphql-explorer" />}>
               <GraphQLExplorer />
             </Suspense>
           ) : (
-            <ExplorerWorkspace vaultName={vaultName ?? ""} />
+            <ExplorerWorkspace
+              vaultName={vaultName ?? ""}
+              sidebarTitle={sidebarTitle}
+              sidebarHint={sidebarHint}
+            />
           )}
         </ErrorBoundary>
       </OntologyEditSessionProvider>

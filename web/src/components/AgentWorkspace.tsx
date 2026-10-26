@@ -28,6 +28,7 @@ import type {
 import { AgentSessionRail } from "./agent/AgentSessionRail";
 import { AgentStatusHeader } from "./agent/AgentStatusHeader";
 import { AgentTimeline } from "./agent/AgentTimeline";
+import { WorkbenchSidebar } from "./WorkbenchSidebar";
 
 const defaultSettings: AgentSettings = {
   harnesses: {
@@ -116,7 +117,13 @@ function completedAssistant(events: AgentEvent[], completed: AgentEvent): AgentM
   };
 }
 
-export function AgentWorkspace() {
+export function AgentWorkspace({
+  sidebarTitle,
+  sidebarHint,
+}: {
+  sidebarTitle?: string | null;
+  sidebarHint?: string | null;
+}) {
   const queryClient = useQueryClient();
   const [selectedID, setSelectedID] = useState("");
 
@@ -129,7 +136,6 @@ export function AgentWorkspace() {
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleteConfirmID, setDeleteConfirmID] = useState("");
   const threadRef = useRef<HTMLDivElement | null>(null);
   const latestEventIDRef = useRef(0);
@@ -307,7 +313,6 @@ export function AgentWorkspace() {
       const response = await createAgentSession("Rhizome agent chat");
       setSessions((current) => [response.session, ...current]);
       setSelectedID(response.session.id);
-      setDrawerOpen(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -393,48 +398,37 @@ export function AgentWorkspace() {
     error || (readError instanceof Error ? readError.message : readError ? String(readError) : "");
 
   return (
-    <main
-      className={drawerOpen ? "agent-workspace agent-workspace--drawer-open" : "agent-workspace"}
-    >
-      {drawerOpen ? (
-        <button
-          type="button"
-          className="agent-drawer-scrim"
-          aria-label="Close agent sidebar"
-          onClick={() => setDrawerOpen(false)}
+    <main className="workspace workbench agent-workspace">
+      <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
+        <AgentSessionRail
+          sessions={sessions}
+          selectedID={selectedID}
+          loading={sessionsQuery.isPending}
+          error={sessionsQuery.isError}
+          deleteConfirmID={deleteConfirmID}
+          settings={settingsResponse}
+          settingsSaving={settingsMutation.isPending}
+          onSelect={(id) => {
+            setDeleteConfirmID("");
+            setSelectedID(id);
+          }}
+          onNew={startSession}
+          onDelete={deleteSession}
+          onRetry={() => sessionsQuery.refetch()}
+          onSettingsChange={(settings) => {
+            settingsMutation.mutate(settings, {
+              onError: (cause) => setError(cause instanceof Error ? cause.message : String(cause)),
+            });
+          }}
         />
-      ) : null}
-      <AgentSessionRail
-        sessions={sessions}
-        selectedID={selectedID}
-        loading={sessionsQuery.isPending}
-        error={sessionsQuery.isError}
-        deleteConfirmID={deleteConfirmID}
-        settings={settingsResponse}
-        settingsSaving={settingsMutation.isPending}
-        onSelect={(id) => {
-          setDeleteConfirmID("");
-          setSelectedID(id);
-          setDrawerOpen(false);
-        }}
-        onNew={startSession}
-        onDelete={deleteSession}
-        onRetry={() => sessionsQuery.refetch()}
-        onSettingsChange={(settings) => {
-          settingsMutation.mutate(settings, {
-            onError: (cause) => setError(cause instanceof Error ? cause.message : String(cause)),
-          });
-        }}
-      />
-      <section className="agent-thread" aria-label="Agent chat">
+      </WorkbenchSidebar>
+      <section className="workbench__panel agent-thread" aria-label="Agent chat">
         <AgentStatusHeader
           session={selectedSession}
           harness={harness}
           status={status}
           resolutionReason={settingsResponse.resolved.reason}
           messageCount={messages.length}
-          drawerOpen={drawerOpen}
-          onToggleDrawer={() => setDrawerOpen((open) => !open)}
         />
         {selectedSession?.readOnly ? (
           <p className="agent-error" role="status">

@@ -41,3 +41,42 @@ test("keeps the sidebar where the user put it across searches, reloads, and sect
   await page.keyboard.press("ControlOrMeta+Backslash");
   await expect(rail).toBeVisible();
 });
+
+test("shows the same sidebar in every section and keeps it collapsed across them", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/notes");
+  const primary = page.getByRole("navigation", { name: "Primary" });
+  const header = page.locator(".workbench-sidebar:visible .workbench-sidebar__header");
+  const vault = (await header.textContent()) ?? "";
+  expect(vault).not.toBe("");
+
+  const sections = [
+    { name: "Notes", rail: "Notes navigation" },
+    { name: "Ontology", rail: "Ontology navigation" },
+    { name: "Explorer", rail: "Vault files" },
+    { name: "Agent", rail: "Agent sessions and settings" },
+  ];
+
+  for (const section of sections) {
+    await primary.getByRole("button", { name: section.name }).click();
+    const rail = page.getByRole("complementary", { name: section.rail });
+    await expect(rail).toBeVisible();
+    // The shared frame names the vault above each section's contents.
+    await expect(header).toHaveText(vault);
+  }
+
+  await page.getByRole("button", { name: "Hide sidebar" }).click();
+  await expect(page.locator(".workbench-sidebar:visible")).toHaveCount(0);
+
+  for (const section of [...sections, sections[0]]) {
+    await primary.getByRole("button", { name: section.name }).click();
+    await expect(page.getByRole("button", { name: "Show sidebar" })).toBeEnabled();
+    await expect(page.getByRole("complementary", { name: section.rail })).toBeHidden();
+  }
+
+  await page.getByRole("button", { name: "Show sidebar" }).click();
+  await primary.getByRole("button", { name: "Explorer" }).click();
+  await expect(page.getByRole("complementary", { name: "Vault files" })).toBeVisible();
+});

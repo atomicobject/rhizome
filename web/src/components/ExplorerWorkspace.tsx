@@ -11,11 +11,13 @@ import {
 } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
 import type { FileView, GraphNode, GraphResponse, TreeEntry } from "../api/types";
+import { vaultLabel } from "../lib/labels";
 import { encodeURLFragment } from "../lib/noteDeepLink";
 import { graphNodeNavigationTarget, type GraphScope } from "./graphViewShared";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { NOTES_ROOT_PATH } from "./notesRoute";
 import { TreeList } from "./TreeList";
+import { WorkbenchSidebar } from "./WorkbenchSidebar";
 
 const FilePanel = lazy(() =>
   import("./FilePanel").then((module) => ({
@@ -64,8 +66,10 @@ function openNoteWorkspace(path: string) {
 type ExplorerWorkspaceProps = {
   /** Vault name lifted from AppShell so this component avoids a redundant
    *  `/api/v1/status` fetch. Empty string = still loading; renders the
-   *  "Vault" fallback in the rail header. */
+   *  "Vault" fallback on the tree's root row. */
   vaultName: string;
+  sidebarTitle?: string | null;
+  sidebarHint?: string | null;
 };
 
 type ExplorerSelection =
@@ -103,7 +107,11 @@ function useDebouncedValue(value: string, delay: number) {
   return debounced;
 }
 
-export function ExplorerWorkspace({ vaultName }: ExplorerWorkspaceProps) {
+export function ExplorerWorkspace({
+  vaultName,
+  sidebarTitle,
+  sidebarHint,
+}: ExplorerWorkspaceProps) {
   const browserLocation = useLocationSnapshot();
   const deepLink = explorerFileFromLocation(browserLocation.search);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -350,103 +358,9 @@ export function ExplorerWorkspace({ vaultName }: ExplorerWorkspaceProps) {
     graphScope.mode === "global" ? "Global scope" : graphScope.label || "Local scope";
 
   return (
-    <div className="workspace workspace--explorer">
-      <header className="explorer-bar">
-        <div className="explorer-bar__title">
-          <h1>Explorer</h1>
-          <p>Navigate the vault as files, folders, and a live graph.</p>
-        </div>
-        <div
-          className="explorer-bar__search"
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget)) setShowSuggestions(false);
-          }}
-        >
-          <input
-            type="search"
-            aria-label="Search notes and code"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-
-              if (e.target.value.trim() === "") {
-                clearSearch();
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                runSearch();
-                setShowSuggestions(false);
-              }
-            }}
-            onFocus={() => {
-              setShowSuggestions(true);
-            }}
-            placeholder="Search notes + code"
-          />
-          <button
-            type="button"
-            className="explorer-bar__search-btn"
-            onClick={() => {
-              if (query.trim() !== "" || searchActive) {
-                setQuery("");
-                setShowSuggestions(false);
-                clearSearch();
-              } else {
-                runSearch();
-              }
-            }}
-            disabled={searching}
-            title={query.trim() !== "" || searchActive ? "Clear search" : "Search"}
-          >
-            {query.trim() !== "" || searchActive ? "Clear" : searching ? "Searching…" : "Search"}
-          </button>
-          <label
-            className={`explorer-bar__filter ${searchActive ? "" : "explorer-bar__filter--disabled"}`}
-          >
-            <input
-              type="checkbox"
-              checked={searchOnlyMatches}
-              disabled={!searchActive}
-              onChange={(e) => setSearchOnlyMatches(e.target.checked)}
-            />
-            Only matches
-          </label>
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="explorer-suggestions">
-              {suggestions.map((suggestion) => (
-                <button
-                  type="button"
-                  key={suggestion.path}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                  }}
-                  onClick={() => {
-                    onSelectFile(suggestion.path, suggestion.kind);
-                    setShowSuggestions(false);
-                  }}
-                >
-                  {suggestion.path} ({suggestion.kind})
-                </button>
-              ))}
-            </div>
-          )}
-          {searchQuery.isError ? (
-            <div className="explorer-bar__search-error" role="alert">
-              Search unavailable.{" "}
-              <button type="button" onClick={() => searchQuery.refetch()}>
-                Retry
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </header>
-      <div className={`explorer-grid ${hasPanel ? "explorer-grid--with-pane" : ""}`}>
-        <aside className="explorer-rail">
-          <div className="explorer-rail__header">
-            <span>Vault</span>
-            <span>{tree.length}</span>
-          </div>
+    <div className="workspace workbench">
+      <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
+        <aside className="explorer-rail" aria-label="Vault files">
           <div className="explorer-rail__body">
             {treeQuery.isPending && !treeQuery.data && (
               <div className="explorer-rail__status" role="status">
@@ -468,7 +382,7 @@ export function ExplorerWorkspace({ vaultName }: ExplorerWorkspaceProps) {
               title="View full graph"
             >
               <span className="explorer-rail__root-icon">📂</span>
-              <span>{vaultName || "Vault"}</span>
+              <span className="tree-name">{vaultName ? vaultLabel(vaultName) : "Vault"}</span>
             </button>
             <TreeList
               entries={tree}
@@ -479,106 +393,199 @@ export function ExplorerWorkspace({ vaultName }: ExplorerWorkspaceProps) {
             />
           </div>
         </aside>
-
-        <section className="explorer-focus">
-          <div className="explorer-focus__header">
-            <h2>Graph</h2>
-            <span className="explorer-focus__scope">{graphScopeLabel}</span>
+      </WorkbenchSidebar>
+      <div className="workbench__panel workspace--explorer">
+        <header className="explorer-bar">
+          <div className="explorer-bar__title">
+            <h1>Explorer</h1>
+            <p>Navigate the vault as files, folders, and a live graph.</p>
           </div>
-          <div className="explorer-focus__body">
-            {graphQuery.isPending && !graphQuery.data ? (
-              <div className="graph-notice" role="status">
-                <div className="graph-notice-title">Loading graph</div>
-                <div className="graph-notice-body">Preparing graph workspace…</div>
+          <div
+            className="explorer-bar__search"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setShowSuggestions(false);
+            }}
+          >
+            <input
+              type="search"
+              aria-label="Search notes and code"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+
+                if (e.target.value.trim() === "") {
+                  clearSearch();
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  runSearch();
+                  setShowSuggestions(false);
+                }
+              }}
+              onFocus={() => {
+                setShowSuggestions(true);
+              }}
+              placeholder="Search notes + code"
+            />
+            <button
+              type="button"
+              className="explorer-bar__search-btn"
+              onClick={() => {
+                if (query.trim() !== "" || searchActive) {
+                  setQuery("");
+                  setShowSuggestions(false);
+                  clearSearch();
+                } else {
+                  runSearch();
+                }
+              }}
+              disabled={searching}
+              title={query.trim() !== "" || searchActive ? "Clear search" : "Search"}
+            >
+              {query.trim() !== "" || searchActive ? "Clear" : searching ? "Searching…" : "Search"}
+            </button>
+            <label
+              className={`explorer-bar__filter ${searchActive ? "" : "explorer-bar__filter--disabled"}`}
+            >
+              <input
+                type="checkbox"
+                checked={searchOnlyMatches}
+                disabled={!searchActive}
+                onChange={(e) => setSearchOnlyMatches(e.target.checked)}
+              />
+              Only matches
+            </label>
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="explorer-suggestions">
+                {suggestions.map((suggestion) => (
+                  <button
+                    type="button"
+                    key={suggestion.path}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                    }}
+                    onClick={() => {
+                      onSelectFile(suggestion.path, suggestion.kind);
+                      setShowSuggestions(false);
+                    }}
+                  >
+                    {suggestion.path} ({suggestion.kind})
+                  </button>
+                ))}
               </div>
-            ) : graphQuery.isError && !graphQuery.data ? (
-              <div className="graph-notice" role="alert">
-                <div className="graph-notice-title">Graph unavailable</div>
-                <button type="button" onClick={() => graphQuery.refetch()}>
+            )}
+            {searchQuery.isError ? (
+              <div className="explorer-bar__search-error" role="alert">
+                Search unavailable.{" "}
+                <button type="button" onClick={() => searchQuery.refetch()}>
                   Retry
                 </button>
               </div>
+            ) : null}
+          </div>
+        </header>
+        <div className={`explorer-grid ${hasPanel ? "explorer-grid--with-pane" : ""}`}>
+          <section className="explorer-focus">
+            <div className="explorer-focus__header">
+              <h2>Graph</h2>
+              <span className="explorer-focus__scope">{graphScopeLabel}</span>
+            </div>
+            <div className="explorer-focus__body">
+              {graphQuery.isPending && !graphQuery.data ? (
+                <div className="graph-notice" role="status">
+                  <div className="graph-notice-title">Loading graph</div>
+                  <div className="graph-notice-body">Preparing graph workspace…</div>
+                </div>
+              ) : graphQuery.isError && !graphQuery.data ? (
+                <div className="graph-notice" role="alert">
+                  <div className="graph-notice-title">Graph unavailable</div>
+                  <button type="button" onClick={() => graphQuery.refetch()}>
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <Suspense
+                  fallback={
+                    <div className="graph-notice">
+                      <div className="graph-notice-title">Loading graph</div>
+                      <div className="graph-notice-body">Preparing graph workspace…</div>
+                    </div>
+                  }
+                >
+                  <GraphView
+                    nodes={graph.nodes}
+                    edges={graph.edges}
+                    truncated={graph.truncated}
+                    needsIndex={graph.needsIndex}
+                    scope={graphScope}
+                    onResetScope={resetGraphScope}
+                    onNodeClick={onNodeClick}
+                    searchActive={searchActive}
+                    searchPaths={searchPathSet}
+                    searchModules={searchModuleSet}
+                    searchOnlyMatches={searchOnlyMatches}
+                    zoomKey={graphZoomKey}
+                  />
+                </Suspense>
+              )}
+            </div>
+          </section>
+
+          {hasPanel &&
+            ((selection.kind === "file" && fileQuery.isPending && !fileQuery.data) ||
+            (selection.kind === "module" && moduleQuery.isPending && !moduleQuery.data) ? (
+              <section className="explorer-pane" role="status">
+                <div className="explorer-pane__header">
+                  <div className="explorer-pane__head-main">
+                    <span className="explorer-pane__label">Loading</span>
+                    <h2>Preparing pane…</h2>
+                  </div>
+                </div>
+              </section>
+            ) : (selection.kind === "file" && fileQuery.isError && !fileQuery.data) ||
+              (selection.kind === "module" && moduleQuery.isError && !moduleQuery.data) ? (
+              <section className="explorer-pane" role="alert">
+                <div className="explorer-pane__header">
+                  <div className="explorer-pane__head-main">
+                    <span className="explorer-pane__label">Unavailable</span>
+                    <h2>Could not load selection</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selection.kind === "file") void fileQuery.refetch();
+                      else void moduleQuery.refetch();
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              </section>
             ) : (
               <Suspense
                 fallback={
-                  <div className="graph-notice">
-                    <div className="graph-notice-title">Loading graph</div>
-                    <div className="graph-notice-body">Preparing graph workspace…</div>
-                  </div>
+                  <section className="explorer-pane">
+                    <div className="explorer-pane__header">
+                      <div className="explorer-pane__head-main">
+                        <span className="explorer-pane__label">Loading</span>
+                        <h2>Preparing pane…</h2>
+                      </div>
+                    </div>
+                  </section>
                 }
               >
-                <GraphView
-                  nodes={graph.nodes}
-                  edges={graph.edges}
-                  truncated={graph.truncated}
-                  needsIndex={graph.needsIndex}
-                  scope={graphScope}
-                  onResetScope={resetGraphScope}
-                  onNodeClick={onNodeClick}
-                  searchActive={searchActive}
-                  searchPaths={searchPathSet}
-                  searchModules={searchModuleSet}
-                  searchOnlyMatches={searchOnlyMatches}
-                  zoomKey={graphZoomKey}
+                <FilePanel
+                  file={file}
+                  line={selectedLine}
+                  moduleFocus={moduleFocus}
+                  onClose={closePanel}
+                  onSelectFile={onSelectFile}
+                  onFocusModule={focusModule}
                 />
               </Suspense>
-            )}
-          </div>
-        </section>
-
-        {hasPanel &&
-          ((selection.kind === "file" && fileQuery.isPending && !fileQuery.data) ||
-          (selection.kind === "module" && moduleQuery.isPending && !moduleQuery.data) ? (
-            <section className="explorer-pane" role="status">
-              <div className="explorer-pane__header">
-                <div className="explorer-pane__head-main">
-                  <span className="explorer-pane__label">Loading</span>
-                  <h2>Preparing pane…</h2>
-                </div>
-              </div>
-            </section>
-          ) : (selection.kind === "file" && fileQuery.isError && !fileQuery.data) ||
-            (selection.kind === "module" && moduleQuery.isError && !moduleQuery.data) ? (
-            <section className="explorer-pane" role="alert">
-              <div className="explorer-pane__header">
-                <div className="explorer-pane__head-main">
-                  <span className="explorer-pane__label">Unavailable</span>
-                  <h2>Could not load selection</h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (selection.kind === "file") void fileQuery.refetch();
-                    else void moduleQuery.refetch();
-                  }}
-                >
-                  Retry
-                </button>
-              </div>
-            </section>
-          ) : (
-            <Suspense
-              fallback={
-                <section className="explorer-pane">
-                  <div className="explorer-pane__header">
-                    <div className="explorer-pane__head-main">
-                      <span className="explorer-pane__label">Loading</span>
-                      <h2>Preparing pane…</h2>
-                    </div>
-                  </div>
-                </section>
-              }
-            >
-              <FilePanel
-                file={file}
-                line={selectedLine}
-                moduleFocus={moduleFocus}
-                onClose={closePanel}
-                onSelectFile={onSelectFile}
-                onFocusModule={focusModule}
-              />
-            </Suspense>
-          ))}
+            ))}
+        </div>
       </div>
     </div>
   );

@@ -1,20 +1,16 @@
 /* ==========================================================================
-   Explorer workspace — tree rail · graph focus · file detail
-   Visually paired with ontology workspace: slim status bar, grid dividers,
-   pane-style file viewer. Structure stays 2–3 columns:
+   Explorer workspace — vault tree sidebar · graph focus · file detail
+   The vault tree sits in the shared workbench sidebar (SPEC-0127); the inset
+   panel holds the slim bar and a 1–2 column grid:
 
-     Tree rail │ Graph focus │ [File pane]
+     Graph focus │ [File pane]
 
    The graph is always visible in the focus column. Selecting a note/code
-   file opens the file pane as an optional third column.
+   file opens the file pane as an optional second column.
    ========================================================================== */
 
 .workspace--explorer {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  background: var(--bg);
+  background: var(--surface);
 }
 
 /* ---- Slim status strip ---- */
@@ -165,160 +161,131 @@
   background: var(--bg-tint);
 }
 
-/* ---- Grid shell (2–3 columns with 1px dividers) ---- */
+/* ---- Grid shell (1–2 columns with 1px dividers) ---- */
 
 .explorer-grid {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1px;
   background: var(--border);
 }
 
 .explorer-grid--with-pane {
-  grid-template-columns: 260px minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
 }
 
-.explorer-grid > section,
-.explorer-grid > aside {
+.explorer-grid > section {
   background: var(--surface);
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-/* ---- Tree rail (left column) ---- */
+/* ---- Vault tree, in the workbench sidebar ----
+   Rows match the Notes sidebar: 30px, chrome text, a raised hover, and the
+   light pill for the current folder or file. */
 
 .explorer-rail {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
-}
-
-.explorer-rail__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  padding: var(--sp-4) var(--sp-4) 4px;
-  font: var(--label-font);
-  color: var(--label-color);
-  position: sticky;
-  top: 0;
-  background: var(--surface);
-  z-index: 1;
-}
-
-.explorer-rail__header span {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-faint);
-  font-weight: 500;
+  scrollbar-color: var(--chrome-raised) transparent;
+  scrollbar-width: thin;
 }
 
 .explorer-rail__body {
-  padding: 2px var(--sp-2) var(--sp-4);
   display: flex;
   flex-direction: column;
   gap: 1px;
+  padding: 6px 8px 16px;
+}
+
+.explorer-rail__status {
+  padding: 6px 10px;
+  font-size: var(--fs-sm);
+}
+
+.explorer-rail__root,
+.explorer-rail .tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px 0 4px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s var(--ease);
 }
 
 .explorer-rail__root {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: 6px 10px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  font-size: var(--fs-base);
-  color: var(--text);
+  padding-left: 8px;
+  color: var(--chrome-text);
+}
+
+.explorer-rail__root:hover,
+.explorer-rail .tree-row:hover {
+  background: var(--chrome-raised);
+}
+
+.explorer-rail__root.is-selected,
+.explorer-rail .tree-row--selected,
+.explorer-rail .tree-row--selected:hover {
+  background: var(--chrome-pill);
+  color: var(--chrome-pill-text);
   font-weight: 600;
-  border-left: 2px solid transparent;
-  transition:
-    background 0.12s var(--ease),
-    color 0.12s var(--ease);
 }
 
-.explorer-rail__root:hover {
-  background: var(--bg-tint);
+.explorer-rail__root:focus-visible,
+.explorer-rail .tree-row:focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: -2px;
 }
 
-.explorer-rail__root.is-selected {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  border-left-color: var(--accent);
+.explorer-rail__root.is-selected:focus-visible,
+.explorer-rail .tree-row--selected:focus-visible {
+  outline-color: var(--chrome-pill-text);
+}
+
+.explorer-rail__root .tree-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .explorer-rail__root-icon {
   font-size: 13px;
-  color: var(--text-faint);
 }
-
-.explorer-rail__root.is-selected .explorer-rail__root-icon {
-  color: var(--accent-ink);
-}
-
-/* Tree list — data-dense rail look */
 
 .explorer-rail .tree-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: var(--fs-base);
 }
 
 .explorer-rail .tree-list .tree-list {
-  padding-left: 12px;
-  border-left: 1px dashed var(--border-faint);
-  margin-left: 8px;
+  padding-left: 16px;
 }
 
 .explorer-rail .tree-item {
   margin: 0;
 }
 
-.explorer-rail .tree-row {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-1);
-  width: 100%;
-  padding: 4px 8px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  border-left: 2px solid transparent;
-  cursor: pointer;
-  text-align: left;
-  font-size: var(--fs-base);
-  color: var(--text);
-  transition:
-    background 0.12s var(--ease),
-    color 0.12s var(--ease);
-}
-
-.explorer-rail .tree-row:hover {
-  background: var(--bg-tint);
-}
-
-.explorer-rail .tree-row--selected {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  border-left-color: var(--accent);
-  font-weight: 600;
-}
-
-.explorer-rail .tree-row--selected:hover {
-  background: var(--accent-soft);
-}
-
 .explorer-rail .tree-chevron {
   flex-shrink: 0;
   width: 14px;
   font-size: 12px;
-  color: var(--text-faint);
   transition: transform 0.15s var(--ease);
   display: inline-flex;
   align-items: center;
@@ -340,11 +307,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-faint);
-}
-
-.explorer-rail .tree-row--selected .tree-icon {
-  color: var(--accent-ink);
 }
 
 .explorer-rail .tree-name {
@@ -710,20 +672,9 @@
 
 /* ---- Responsive fallbacks ---- */
 
-@media (max-width: 1280px) {
-  .explorer-grid {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-
-  .explorer-grid--with-pane {
-    grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr);
-  }
-}
-
 @media (max-width: 1100px) {
-  .explorer-grid,
   .explorer-grid--with-pane {
-    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .explorer-grid--with-pane .explorer-focus {
@@ -741,10 +692,5 @@
   .explorer-bar__search {
     margin-left: 0;
     max-width: 100%;
-  }
-
-  .explorer-grid,
-  .explorer-grid--with-pane {
-    grid-template-columns: 1fr;
   }
 }

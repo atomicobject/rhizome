@@ -92,10 +92,13 @@ describe("AppShell", () => {
       expect(document.title).toBe("Rhizome · testvault");
     });
 
-    // The explorer rail's root button shows the vault name AppShell handed it.
+    // Explorer's sidebar names the vault too, and its root row shows the name AppShell handed it.
     fireEvent.click(screen.getByRole("button", { name: "Explorer" }));
     expect(await screen.findByTitle("View full graph")).toHaveTextContent("testvault");
-    expect(document.querySelector(".app-shell__brand small")).toHaveTextContent(/^testvault$/);
+    expect(
+      screen.getByRole("complementary", { name: "Vault files" }).closest(".workbench-sidebar"),
+    ).toHaveTextContent(/^testvault/);
+    expect(document.querySelector(".app-shell__brand small")).toBeNull();
     expect(http.count("GET", "/api/v1/status")).toBe(1);
   });
 
