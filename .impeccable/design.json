@@ -1,105 +1,387 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-27T14:55:15Z",
+  "generatedAt": "2026-10-26T00:49:24Z",
   "title": "Design System: Rhizome",
   "extensions": {
     "colorMeta": {
       "primary-red": {
         "role": "primary",
-        "displayName": "Workbench Red",
+        "displayName": "AO Red",
         "canonical": "#fd4f57",
-        "tonalRamp": ["oklch(28% 0.16 25)", "oklch(38% 0.19 25)", "oklch(48% 0.21 25)", "oklch(61% 0.22 25)", "oklch(72% 0.17 25)", "oklch(82% 0.11 25)", "oklch(91% 0.05 25)", "oklch(97% 0.02 25)"]
+        "tonalRamp": [
+          "oklch(18% 0.068 22)",
+          "oklch(28% 0.134 22)",
+          "oklch(38% 0.18 22)",
+          "oklch(50% 0.207 22)",
+          "oklch(62% 0.205 22)",
+          "oklch(74% 0.172 22)",
+          "oklch(86% 0.11 22)",
+          "oklch(96% 0.036 22)"
+        ]
+      },
+      "primary-red-deep": {
+        "role": "primary",
+        "displayName": "Deep Red",
+        "canonical": "#c8313a",
+        "tonalRamp": [
+          "oklch(18% 0.061 23)",
+          "oklch(28% 0.12 23)",
+          "oklch(38% 0.16 23)",
+          "oklch(50% 0.185 23)",
+          "oklch(62% 0.182 23)",
+          "oklch(74% 0.154 23)",
+          "oklch(86% 0.098 23)",
+          "oklch(96% 0.032 23)"
+        ]
+      },
+      "primary-red-ink": {
+        "role": "primary",
+        "displayName": "Red Ink",
+        "canonical": "#9c1d24",
+        "tonalRamp": [
+          "oklch(18% 0.052 24)",
+          "oklch(28% 0.104 24)",
+          "oklch(38% 0.139 24)",
+          "oklch(50% 0.16 24)",
+          "oklch(62% 0.158 24)",
+          "oklch(74% 0.133 24)",
+          "oklch(86% 0.085 24)",
+          "oklch(96% 0.027 24)"
+        ]
       },
       "connection-teal": {
         "role": "secondary",
         "displayName": "Connection Teal",
         "canonical": "#16cbc4",
-        "tonalRamp": ["oklch(24% 0.09 190)", "oklch(34% 0.11 190)", "oklch(45% 0.13 190)", "oklch(70% 0.14 190)", "oklch(78% 0.10 190)", "oklch(86% 0.07 190)", "oklch(93% 0.04 190)", "oklch(97% 0.02 190)"]
+        "tonalRamp": [
+          "oklch(18% 0.042 190)",
+          "oklch(28% 0.082 190)",
+          "oklch(38% 0.11 190)",
+          "oklch(50% 0.127 190)",
+          "oklch(62% 0.126 190)",
+          "oklch(74% 0.106 190)",
+          "oklch(86% 0.068 190)",
+          "oklch(96% 0.022 190)"
+        ]
       },
-      "ink": {
-        "role": "neutral",
-        "displayName": "Warm Ink",
-        "canonical": "#2a2724",
-        "tonalRamp": ["#2a2724", "#3a3734", "#4c4845", "#5c5853", "#8a8682", "#c3c3c3", "#e4e2dd", "#f7f7f7"]
+      "connection-teal-ink": {
+        "role": "secondary",
+        "displayName": "Link Teal",
+        "canonical": "#0b6a66",
+        "tonalRamp": [
+          "oklch(18% 0.026 190)",
+          "oklch(28% 0.051 190)",
+          "oklch(38% 0.068 190)",
+          "oklch(50% 0.078 190)",
+          "oklch(62% 0.077 190)",
+          "oklch(74% 0.065 190)",
+          "oklch(86% 0.042 190)",
+          "oklch(96% 0.013 190)"
+        ]
       },
-      "surface": {
-        "role": "neutral",
-        "displayName": "Canvas White",
-        "canonical": "#ffffff",
-        "tonalRamp": ["#2a2724", "#4c4845", "#8a8682", "#c3c3c3", "#e4e2dd", "#f2f1ec", "#f7f7f7", "#ffffff"]
+      "info-blue": {
+        "role": "tertiary",
+        "displayName": "Info Blue",
+        "canonical": "#3295bd",
+        "tonalRamp": [
+          "oklch(18% 0.035 229)",
+          "oklch(28% 0.069 229)",
+          "oklch(38% 0.092 229)",
+          "oklch(50% 0.106 229)",
+          "oklch(62% 0.105 229)",
+          "oklch(74% 0.088 229)",
+          "oklch(86% 0.056 229)",
+          "oklch(96% 0.018 229)"
+        ]
       },
       "warning-gold": {
         "role": "tertiary",
         "displayName": "Warning Gold",
         "canonical": "#dcad66",
-        "tonalRamp": ["oklch(26% 0.09 75)", "oklch(38% 0.11 75)", "oklch(50% 0.12 75)", "oklch(70% 0.13 75)", "oklch(80% 0.09 75)", "oklch(88% 0.06 75)", "oklch(94% 0.03 75)", "oklch(98% 0.01 75)"]
+        "tonalRamp": [
+          "oklch(18% 0.034 77)",
+          "oklch(28% 0.067 77)",
+          "oklch(38% 0.09 77)",
+          "oklch(50% 0.103 77)",
+          "oklch(62% 0.102 77)",
+          "oklch(74% 0.086 77)",
+          "oklch(86% 0.055 77)",
+          "oklch(96% 0.018 77)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1f1e1d",
+        "tonalRamp": [
+          "#1f1e1d",
+          "#45433f",
+          "#5b5955",
+          "#6b6965",
+          "#cfcdc8",
+          "#e3e2de",
+          "#f5f5f3",
+          "#ffffff"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#5b5955",
+        "tonalRamp": [
+          "#1f1e1d",
+          "#45433f",
+          "#5b5955",
+          "#6b6965",
+          "#cfcdc8",
+          "#e3e2de",
+          "#f5f5f3",
+          "#ffffff"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#1f1e1d",
+          "#45433f",
+          "#5b5955",
+          "#6b6965",
+          "#cfcdc8",
+          "#e3e2de",
+          "#f5f5f3",
+          "#ffffff"
+        ]
+      },
+      "surface-tint": {
+        "role": "neutral",
+        "displayName": "Tint",
+        "canonical": "#f5f5f3",
+        "tonalRamp": [
+          "#1f1e1d",
+          "#45433f",
+          "#5b5955",
+          "#6b6965",
+          "#cfcdc8",
+          "#e3e2de",
+          "#f5f5f3",
+          "#ffffff"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border",
+        "canonical": "#e3e2de",
+        "tonalRamp": [
+          "#1f1e1d",
+          "#45433f",
+          "#5b5955",
+          "#6b6965",
+          "#cfcdc8",
+          "#e3e2de",
+          "#f5f5f3",
+          "#ffffff"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Surface (dark)",
+        "canonical": "#1c1b1a",
+        "tonalRamp": [
+          "oklch(18% 0.001 68)",
+          "oklch(28% 0.002 68)",
+          "oklch(38% 0.002 68)",
+          "oklch(50% 0.002 68)",
+          "oklch(62% 0.002 68)",
+          "oklch(74% 0.002 68)",
+          "oklch(86% 0.001 68)",
+          "oklch(96% 0.0 68)"
+        ]
+      },
+      "graphite-chrome": {
+        "role": "neutral",
+        "displayName": "Graphite Chrome",
+        "canonical": "#45433f",
+        "tonalRamp": [
+          "oklch(18% 0.002 85)",
+          "oklch(28% 0.005 85)",
+          "oklch(38% 0.006 85)",
+          "oklch(50% 0.007 85)",
+          "oklch(62% 0.007 85)",
+          "oklch(74% 0.006 85)",
+          "oklch(86% 0.004 85)",
+          "oklch(96% 0.001 85)"
+        ]
+      },
+      "slate-chrome": {
+        "role": "neutral",
+        "displayName": "Slate Chrome",
+        "canonical": "#3d4654",
+        "tonalRamp": [
+          "oklch(18% 0.009 259)",
+          "oklch(28% 0.017 259)",
+          "oklch(38% 0.023 259)",
+          "oklch(50% 0.026 259)",
+          "oklch(62% 0.026 259)",
+          "oklch(74% 0.022 259)",
+          "oklch(86% 0.014 259)",
+          "oklch(96% 0.005 259)"
+        ]
+      },
+      "spruce-chrome": {
+        "role": "neutral",
+        "displayName": "Spruce Chrome",
+        "canonical": "#2f4a47",
+        "tonalRamp": [
+          "oklch(18% 0.011 187)",
+          "oklch(28% 0.021 187)",
+          "oklch(38% 0.028 187)",
+          "oklch(50% 0.033 187)",
+          "oklch(62% 0.032 187)",
+          "oklch(74% 0.027 187)",
+          "oklch(86% 0.017 187)",
+          "oklch(96% 0.006 187)"
+        ]
+      },
+      "oxblood-chrome": {
+        "role": "neutral",
+        "displayName": "Oxblood Chrome",
+        "canonical": "#573538",
+        "tonalRamp": [
+          "oklch(18% 0.016 14)",
+          "oklch(28% 0.031 14)",
+          "oklch(38% 0.042 14)",
+          "oklch(50% 0.049 14)",
+          "oklch(62% 0.048 14)",
+          "oklch(74% 0.04 14)",
+          "oklch(86% 0.026 14)",
+          "oklch(96% 0.008 14)"
+        ]
+      },
+      "indigo-chrome": {
+        "role": "neutral",
+        "displayName": "Indigo Chrome",
+        "canonical": "#3c3d63",
+        "tonalRamp": [
+          "oklch(18% 0.021 282)",
+          "oklch(28% 0.041 282)",
+          "oklch(38% 0.055 282)",
+          "oklch(50% 0.064 282)",
+          "oklch(62% 0.063 282)",
+          "oklch(74% 0.053 282)",
+          "oklch(86% 0.034 282)",
+          "oklch(96% 0.011 282)"
+        ]
       }
     },
     "typographyMeta": {
       "display": {
-        "displayName": "Display",
-        "purpose": "Brand wordmark, workspace titles, and rare document title moments."
+        "displayName": "Document Title",
+        "purpose": "Merriweather note titles and workspace headings."
+      },
+      "headline": {
+        "displayName": "View Title",
+        "purpose": "A collection or view title in its header row."
+      },
+      "section": {
+        "displayName": "Section Heading",
+        "purpose": "H2 inside a note body."
+      },
+      "title": {
+        "displayName": "Pane Title",
+        "purpose": "H3, the right pane's record title, and the sidebar's vault name."
+      },
+      "prose": {
+        "displayName": "Note Prose",
+        "purpose": "Note body text at a 540px measure."
       },
       "body": {
-        "displayName": "Product UI",
-        "purpose": "All working UI, controls, lists, tables, panels, and prose excerpts."
+        "displayName": "UI Base",
+        "purpose": "Table cells, sidebar rows, tabs, controls, and popovers."
+      },
+      "secondary": {
+        "displayName": "Secondary",
+        "purpose": "Column heads, document tabs, field labels, and tool buttons."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Section heads, Properties, finder group headings, and fact labels."
       },
       "mono": {
         "displayName": "Evidence Mono",
-        "purpose": "Paths, ids, GraphQL, schema fields, commands, code refs, and query fragments."
+        "purpose": "Ids, paths, dates, kbd hints, and the footer status line."
       }
     },
     "shadows": [
       {
         "name": "resting-surface",
         "value": "none",
-        "purpose": "Default for panes, tables, cards, rails, and graph cards."
+        "purpose": "The content panel, tables, panes, sidebar rows, board columns, and cards at rest."
       },
       {
-        "name": "low-structural-lift",
+        "name": "low-lift",
         "value": "0 1px 2px rgba(42, 39, 36, 0.06)",
-        "purpose": "Compact controls that need tactile definition."
+        "purpose": "Compact controls that need tactile definition (--shadow-sm)."
       },
       {
         "name": "overlay-lift",
         "value": "0 1px 3px rgba(42, 39, 36, 0.08), 0 2px 6px rgba(42, 39, 36, 0.04)",
-        "purpose": "Menus, popovers, and small panels."
+        "purpose": "Menus, popovers, and editor autocomplete (--shadow)."
       },
       {
         "name": "command-lift",
-        "value": "0 10px 28px rgba(42, 39, 36, 0.10)",
-        "purpose": "Command palette, overlays, and high-priority drawers."
+        "value": "0 10px 28px rgba(42, 39, 36, 0.1)",
+        "purpose": "The finder, the Appearance panel, and the overlaid right pane (--shadow-lg)."
+      },
+      {
+        "name": "scrim",
+        "value": "rgba(31, 30, 29, 0.32)",
+        "purpose": "Behind the finder; black at 55% in dark appearance (--scrim)."
       }
     ],
     "motion": [
       {
         "name": "ease-standard",
         "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
-        "purpose": "Default state transition easing."
+        "purpose": "Default state-transition easing (--ease)."
       },
       {
-        "name": "duration-fast",
+        "name": "duration-hover",
+        "value": "120ms",
+        "purpose": "Link underlines, editor hover and focus, disclosure chevrons."
+      },
+      {
+        "name": "duration-state",
         "value": "150ms",
-        "purpose": "Hover, focus, active, and compact state changes."
+        "purpose": "Tab, button, and resize-handle state changes."
       },
       {
-        "name": "duration-overlay",
-        "value": "220ms",
-        "purpose": "Command palette, popover, and drawer entrance."
+        "name": "duration-finder",
+        "value": "140ms",
+        "purpose": "Finder palette entrance (fade and 6px rise), removed under reduced motion."
+      },
+      {
+        "name": "duration-row",
+        "value": "180ms",
+        "purpose": "Table row hover and group caret rotation."
       }
     ],
     "breakpoints": [
       {
-        "name": "compact",
-        "value": "720px"
+        "name": "header-compact",
+        "value": "760px",
+        "purpose": "View header container width below which the description and hints drop out."
       },
       {
-        "name": "workspace",
-        "value": "1024px"
+        "name": "notes-tools",
+        "value": "1120px",
+        "purpose": "Top-bar note counts hide below this window width."
       },
       {
-        "name": "wide-workbench",
-        "value": "1440px"
+        "name": "pane-overlay",
+        "value": "1200px",
+        "purpose": "Below this window width the right pane overlays the content."
       }
     ]
   },
@@ -108,133 +390,173 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "High-signal execution button for run, save, commit, or apply actions.",
-      "html": "<button class='ds-btn-primary'>Run command</button>",
-      "css": ".ds-btn-primary { background: #fd4f57; color: #fff; border: 1px solid #fd4f57; border-radius: 4px; padding: 8px 12px; font: 700 13px/1.2 Barlow, system-ui, sans-serif; transition: background 150ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 150ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-btn-primary:hover { background: #e63e46; border-color: #e63e46; } .ds-btn-primary:focus-visible { outline: 2px solid #9c1d24; outline-offset: 2px; }"
+      "description": "The one commit action on a surface: Save, Run, execute.",
+      "html": "<button class='ds-btn-primary'>Save</button>",
+      "css": ".ds-btn-primary { background: var(--accent-fill, #c8313a); color: var(--on-accent, #fff); border: 1px solid var(--accent-fill, #c8313a); border-radius: 4px; padding: 4px 10px; font: 600 13px/1.3 Inter, -apple-system, system-ui, sans-serif; cursor: pointer; transition: background 150ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-btn-primary:hover { background: var(--accent-fill-hover, #ad2a32); border-color: var(--accent-fill-hover, #ad2a32); } .ds-btn-primary:focus-visible { outline: 2px solid var(--focus-ring, #c8313a); outline-offset: 2px; }"
     },
     {
       "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "Default workbench command button for non-destructive actions.",
-      "html": "<button class='ds-btn-secondary'>Edit view</button>",
-      "css": ".ds-btn-secondary { background: #fff; color: #2a2724; border: 1px solid #c9c6bf; border-radius: 4px; padding: 8px 12px; font: 700 13px/1.2 Barlow, system-ui, sans-serif; transition: background 150ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 150ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-btn-secondary:hover { background: #fbfbfa; border-color: #8a8682; } .ds-btn-secondary:focus-visible { outline: 2px solid #16cbc4; outline-offset: 2px; }"
+      "description": "Toolbar actions, pagers, and Copy link: neutral, never red on hover.",
+      "html": "<button class='ds-btn-secondary'>Copy link</button>",
+      "css": ".ds-btn-secondary { height: 28px; padding: 0 10px; background: var(--surface, #fff); color: var(--text, #1f1e1d); border: 1px solid var(--border-strong, #cfcdc8); border-radius: 6px; font: 500 13px/26px Inter, -apple-system, system-ui, sans-serif; cursor: pointer; } .ds-btn-secondary:hover { background: var(--surface-sunk, #f5f5f3); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--focus-ring, #c8313a); outline-offset: 2px; }"
     },
     {
-      "name": "Search Field",
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Filter and View in a view header: quiet until hovered or open.",
+      "html": "<button class='ds-btn-ghost'><svg width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M3 5h18l-7 8v6l-4 2v-8z'/></svg>Filter</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; background: transparent; color: var(--text-muted, #5b5955); border: 1px solid transparent; border-radius: 6px; font: 400 14px/1 Inter, -apple-system, system-ui, sans-serif; cursor: pointer; } .ds-btn-ghost:hover { background: var(--surface-sunk, #f5f5f3); color: var(--text, #1f1e1d); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--focus-ring, #c8313a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Find in View",
       "kind": "input",
-      "refersTo": "input-default",
-      "description": "Compact searchable control for notes, nodes, commands, and configured views.",
-      "html": "<label class='ds-field'><span>Search view</span><input placeholder='Filter notes, types, issues...' /></label>",
-      "css": ".ds-field { display: grid; gap: 6px; color: #4c4845; font: 700 11px/1.2 Barlow, system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; } .ds-field input { width: 320px; background: #fff; color: #2a2724; border: 1px solid #c9c6bf; border-radius: 4px; padding: 8px 10px; font: 400 13px/1.45 Barlow, system-ui, sans-serif; } .ds-field input::placeholder { color: #595959; } .ds-field input:focus-visible { outline: 2px solid #16cbc4; outline-offset: 2px; border-color: #11b5ae; }"
+      "refersTo": "input-find",
+      "description": "The view header's search field with its shortcut hint.",
+      "html": "<label class='ds-find'><svg width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg><input placeholder='Find in view'><kbd>⌘F</kbd></label>",
+      "css": ".ds-find { display: flex; align-items: center; gap: 8px; width: 220px; height: 30px; padding: 0 10px; border: 1px solid var(--border-strong, #cfcdc8); border-radius: 7px; color: var(--text-muted, #5b5955); background: var(--surface, #fff); } .ds-find input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--text, #1f1e1d); font: 400 14px/28px Inter, -apple-system, system-ui, sans-serif; } .ds-find kbd { color: var(--text-faint, #6b6965); font: 500 12px 'JetBrains Mono', ui-monospace, Menlo, monospace; } .ds-find:focus-within { border-color: var(--text-muted, #5b5955); outline: 2px solid var(--focus-ring, #c8313a); outline-offset: 1px; }"
     },
     {
       "name": "Type Chip",
       "kind": "chip",
       "refersTo": "chip-type",
-      "description": "Typed note, ontology, filter, or provenance chip with count-first scanning.",
-      "html": "<button class='ds-chip'><strong>121</strong><span>Requirement</span></button>",
-      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; background: #fff; color: #4c4845; border: 1px solid #e4e2dd; border-radius: 10px; padding: 3px 8px; font: 600 12px/1.2 Barlow, system-ui, sans-serif; } .ds-chip strong { color: #2a2724; font-weight: 800; } .ds-chip:hover { border-color: #16cbc4; background: #d8f7f5; } .ds-chip:focus-visible { outline: 2px solid #16cbc4; outline-offset: 2px; }"
+      "description": "A note's type: one neutral chip; untyped notes get a dashed border.",
+      "html": "<span class='ds-type-chip'>Experience spec</span> <span class='ds-type-chip ds-type-chip--untyped'>Untyped</span>",
+      "css": ".ds-type-chip { display: inline-flex; align-items: center; padding: 1px 6px; border: 1px solid var(--border, #e3e2de); border-radius: 3px; background: var(--surface-sunk, #f5f5f3); color: var(--text-muted, #5b5955); font: 600 12px/1.35 Inter, -apple-system, system-ui, sans-serif; white-space: nowrap; } .ds-type-chip--untyped { border-style: dashed; background: transparent; color: var(--text-faint, #6b6965); }"
     },
     {
-      "name": "Active Navigation Item",
+      "name": "Sidebar Rows",
       "kind": "nav",
-      "refersTo": "nav-active",
-      "description": "Current route or selected rail row using red as a rare focus signal.",
-      "html": "<button class='ds-nav-active'>Notes</button>",
-      "css": ".ds-nav-active { background: #ffeaec; color: #9c1d24; border: 1px solid #fccfd2; border-radius: 4px; padding: 7px 12px; font: 800 13px/1.2 Barlow, system-ui, sans-serif; } .ds-nav-active:focus-visible { outline: 2px solid #fd4f57; outline-offset: 2px; }"
+      "refersTo": "sidebar-row-active",
+      "description": "Themed sidebar rows: muted chrome text, a raised hover, and a light pill for the current row.",
+      "html": "<nav class='ds-sidebar'><a class='ds-sidebar__row'>All notes<span>622</span></a><a class='ds-sidebar__row is-current'>Effort notes<span>38</span></a><a class='ds-sidebar__row'>Specs<span class='is-risk'>3</span></a></nav>",
+      "css": ".ds-sidebar { display: flex; flex-direction: column; gap: 1px; width: 240px; padding: 8px; background: var(--chrome-bg, #45433f); font: 400 14px/1 Inter, -apple-system, system-ui, sans-serif; } .ds-sidebar__row { display: flex; align-items: center; height: 30px; padding: 0 10px 0 8px; border-radius: 6px; color: var(--chrome-muted, #c9c5bf); cursor: pointer; } .ds-sidebar__row span { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; opacity: 0.85; } .ds-sidebar__row span.is-risk { color: var(--chrome-risk, #fccfd2); font-weight: 600; opacity: 1; } .ds-sidebar__row:hover { background: var(--chrome-raised, #55534f); } .ds-sidebar__row.is-current { background: var(--chrome-pill, #f1efec); color: var(--chrome-pill-text, #2b2a28); font-weight: 600; }"
     },
     {
-      "name": "Pane Surface",
-      "kind": "card",
-      "refersTo": "surface-panel",
-      "description": "Flat workbench pane for notes, relation lists, ontology cards, and detail drawers.",
-      "html": "<section class='ds-pane'><header><span>TechnicalSpec</span><strong>Action items starter template</strong></header><p>docs/specs/technical/action-items-starter-template.md</p></section>",
-      "css": ".ds-pane { width: 360px; background: #fff; color: #2a2724; border: 1px solid #e4e2dd; border-radius: 6px; padding: 14px; box-shadow: none; font: 400 13px/1.45 Barlow, system-ui, sans-serif; } .ds-pane header { display: grid; gap: 6px; border-bottom: 1px solid #e4e2dd; padding-bottom: 10px; margin-bottom: 10px; } .ds-pane span { width: max-content; background: #ffeaec; color: #9c1d24; border-radius: 4px; padding: 3px 6px; font: 800 11px/1 Barlow, system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; } .ds-pane strong { font: 800 18px/1.2 Barlow, system-ui, sans-serif; } .ds-pane p { margin: 0; color: #595959; font: 500 12px/1.35 JetBrains Mono, monospace; }"
-    },
-    {
-      "name": "Command Palette",
+      "name": "Table Rows",
       "kind": "custom",
-      "refersTo": "command-palette",
-      "description": "Keyboard-first agent and navigation surface with provenance preview.",
-      "html": "<div class='ds-command'><input value='summarize selected note' aria-label='Command' /><div><button class='is-active'>Summarize selected note</button><button>Find related specs</button><button>Validate links and hygiene</button></div></div>",
-      "css": ".ds-command { width: 520px; background: #fff; color: #2a2724; border: 1px solid #e4e2dd; border-radius: 10px; padding: 12px; box-shadow: 0 10px 28px rgba(42,39,36,0.10); font: 400 13px/1.45 Barlow, system-ui, sans-serif; } .ds-command input { width: 100%; border: 1px solid #fd4f57; border-radius: 4px; padding: 10px 12px; color: #2a2724; font: 500 14px/1.3 Barlow, system-ui, sans-serif; } .ds-command input:focus-visible { outline: 2px solid #9c1d24; outline-offset: 2px; } .ds-command div { display: grid; gap: 4px; margin-top: 10px; } .ds-command button { text-align: left; background: #fff; color: #2a2724; border: 0; border-radius: 4px; padding: 8px 10px; font: 600 13px/1.2 Barlow, system-ui, sans-serif; } .ds-command button.is-active { background: #fd4f57; color: #fff; }"
+      "refersTo": "table-row",
+      "description": "36px rows with fixed evidence columns, a status mark, and a chrome-tinted selection with a left edge.",
+      "html": "<table class='ds-table'><thead><tr><th>Title</th><th class='ds-w-id'>ID</th><th class='ds-w-enum'>Status</th></tr></thead><tbody><tr><td class='ds-title'>Workbench redesign</td><td class='ds-id'>EFF-2026-10-25-15-15</td><td><span class='ds-mark ds-mark--progress'></span>Active</td></tr><tr class='is-selected'><td class='ds-title'>Note link hover preview</td><td class='ds-id'>EFF-2026-09-19-18-09</td><td><span class='ds-mark ds-mark--success'></span>Done</td></tr></tbody></table>",
+      "css": ".ds-table { width: 100%; border-collapse: collapse; table-layout: fixed; font: 400 14px/1.45 Inter, -apple-system, system-ui, sans-serif; color: var(--text, #1f1e1d); } .ds-table th { height: 34px; padding: 0 10px; text-align: left; color: var(--text-muted, #5b5955); font: 500 13px/1.3 Inter, -apple-system, system-ui, sans-serif; border-bottom: 1px solid var(--border, #e3e2de); } .ds-w-id { width: 176px; } .ds-w-enum { width: 136px; } .ds-table td { height: 36px; padding: 0 10px; border-bottom: 1px solid var(--border-faint, #edece9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-title { font-weight: 500; } .ds-id { color: var(--text-muted, #5b5955); font: 500 12px 'JetBrains Mono', ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; } .ds-table tbody tr:hover td { background: var(--surface-sunk, #f5f5f3); } .ds-table tr.is-selected td { background: var(--selection, #f0f0ef); } .ds-table tr.is-selected td:first-child { box-shadow: inset 3px 0 0 var(--selection-edge, #45433f); } .ds-mark { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; vertical-align: -1px; } .ds-mark--progress { border: 1.5px solid var(--info, #3295bd); background: linear-gradient(90deg, var(--info, #3295bd) 50%, transparent 50%); } .ds-mark--success { border: 1.5px solid var(--success-ink, #0b6a66); background: var(--success-ink, #0b6a66); }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "custom",
+      "refersTo": "button-secondary",
+      "description": "Every mode switch: 24px segments with hairline dividers; the choice fills with ink, never red.",
+      "html": "<div class='ds-segmented'><button>Match system</button><button aria-pressed='true'>Light</button><button>Dark</button></div>",
+      "css": ".ds-segmented { display: inline-flex; overflow: hidden; border: 1px solid var(--border-strong, #cfcdc8); border-radius: 4px; background: var(--surface, #fff); } .ds-segmented button { height: 24px; padding: 0 10px; border: 0; background: transparent; color: var(--text-muted, #5b5955); font: 600 13px/1 Inter, -apple-system, system-ui, sans-serif; cursor: pointer; } .ds-segmented button + button { border-left: 1px solid var(--border, #e3e2de); } .ds-segmented button:hover { background: var(--bg-tint, #f5f5f3); color: var(--text, #1f1e1d); } .ds-segmented button[aria-pressed='true'] { background: var(--text, #1f1e1d); color: var(--surface, #fff); } .ds-segmented button:focus-visible { outline: 2px solid var(--focus-ring, #c8313a); outline-offset: -2px; }"
+    },
+    {
+      "name": "Finder Palette",
+      "kind": "custom",
+      "refersTo": "finder-palette",
+      "description": "The ⌘P finder: input row, listbox with a selected row, mono paths, and underlined matches.",
+      "html": "<div class='ds-finder'><div class='ds-finder__input'>shcema</div><div class='ds-finder__heading'>Notes</div><div class='ds-finder__row is-active'><b>Ontology <mark>schema</mark> authoring</b><span>Guide</span><code>docs/reference/…/schema-authoring.md</code></div><div class='ds-finder__row'><b><mark>Schema</mark> parity</b><span>Spec</span><code>docs/specs/technical/…/parity.md</code></div></div>",
+      "css": ".ds-finder { width: 560px; overflow: hidden; border: 1px solid var(--border-strong, #cfcdc8); border-radius: 14px; background: var(--surface, #fff); color: var(--text, #1f1e1d); box-shadow: var(--shadow-lg, 0 10px 28px rgba(42, 39, 36, 0.1)); font: 400 14px/1.4 Inter, -apple-system, system-ui, sans-serif; } .ds-finder__input { display: flex; align-items: center; height: 56px; padding: 0 18px; border-bottom: 1px solid var(--border, #e3e2de); font-size: 16px; } .ds-finder__heading { padding: 10px 18px 0; color: var(--text-muted, #5b5955); font: 600 12px/1.3 Inter, -apple-system, system-ui, sans-serif; } .ds-finder__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; margin: 6px; padding: 4px 10px; border-radius: 9px; } .ds-finder__row b { font-weight: 500; } .ds-finder__row span { color: var(--text-muted, #5b5955); font-size: 13px; } .ds-finder__row code { grid-column: 1 / -1; color: var(--text-muted, #5b5955); font: 12px/1.4 'JetBrains Mono', ui-monospace, Menlo, monospace; } .ds-finder__row.is-active { background: var(--selection, #f0f0ef); box-shadow: inset 3px 0 0 var(--selection-edge, #45433f); } .ds-finder mark { background: none; color: inherit; font-weight: 650; text-decoration: underline 1.5px; text-underline-offset: 3px; }"
     }
   ],
   "narrative": {
     "northStar": "The Structured Workbench",
-    "overview": "Rhizome should feel like a precise professional workbench for structured markdown, code context, ontology, and agent collaboration. It is not a consumer notes app and not an AI chat wrapper. The product is used mid-task by developers and technical leads who need dense surfaces that stay readable while exposing provenance, relations, status, and next actions. The visual system builds from Atomic Object-inspired foundations: red for high-signal focus and risk, teal for connection and provenance, warm black for structure, warm white for calm working surfaces, and Merriweather / Barlow / JetBrains Mono as the type family.",
+    "overview": "**Creative North Star: \"The Structured Workbench\"**\n\nRhizome is a precise professional workbench for structured markdown, code context, ontology, and agent collaboration. It is not a consumer notes app and not an AI chat wrapper. Developers and technical leads use it mid-task, so its surfaces stay dense while exposing provenance, relations, status, and next actions.\n\nThe shipped workbench follows a Slack-like model. One soft, tinted chrome colour carries the top bar and the sidebar; the work sits on a white content panel inset from the window with a rounded corner; headers stay quiet and keep rarely used controls one click away; and fuzzy finders (⌘P, and in Rhizome Desktop ⌘O and ⇧⌘O) replace long navigation lists. Five chrome themes, each with light and dark appearance, change the chrome only. Content tokens are shared by every theme and vary only by appearance.\n\nThe identity stays Atomic Object's: warm near-black ink, AO red for focus and risk, teal for connection, Merriweather for document titles, and JetBrains Mono for evidence. Inter carries the working UI. The compact red diamond in the top bar remains a temporary app-shell marker; the runner-r mark in `docs/brand/` is the reviewed identity.\n\nThe supported product surface is desktop web and Rhizome Desktop. Optimize for 1100 to 1920px working widths; narrower windows reflow where layouts naturally allow it.",
     "keyCharacteristics": [
-      "Dense, inspectable, and keyboard-friendly.",
-      "Light-first, warm-neutral, AO-inspired, not generic SaaS.",
-      "Structured surfaces over decorative cards.",
-      "Typography that distinguishes brand, UI, and code/data roles.",
-      "Status always paired with text, icons, shape, or position; never color alone."
+      "Dense but calm: a 14px UI base, 30–36px rows, and progressive disclosure instead of stacked control bands.",
+      "One tinted chrome layer, white work surfaces, one tinted neutral, and hairlines.",
+      "Typography that separates roles: Merriweather for document titles, Inter for UI and prose, JetBrains Mono for evidence.",
+      "Red is rare; selection is a neutral chrome tint, never red.",
+      "Status always pairs colour with shape, text, or position."
     ],
     "rules": [
       {
         "name": "The Red Rarity Rule",
-        "body": "Red is for focus, action, and risk. A normal screen should not have red spread across more than a few high-signal elements.",
+        "body": "Red is for focus, the one commit action, and real risk. A normal screen has red on only a few high-signal elements; a selected row, a chosen enum value, and an active tab are never red.",
         "section": "colors"
       },
       {
         "name": "The Teal Means Connection Rule",
-        "body": "Teal means relationship, provenance, success, or confirmed link. Do not use teal as generic decoration.",
+        "body": "Teal means relationship, provenance, success, or a confirmed link. It is never decoration.",
         "section": "colors"
       },
       {
-        "name": "The No Purple Theme Rule",
-        "body": "Purple can categorize schema data, but purple-on-white gradients and purple-dominant AI-tool palettes are prohibited.",
+        "name": "The Chrome Owns the Theme Rule",
+        "body": "Themes recolour the top bar, sidebar, and selection only. Content surfaces never take a theme colour, so every theme reads the same inside the panel.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Tint Rule",
+        "body": "The content area uses white, one tinted neutral, and hairlines. Do not introduce a third near-white; adjacent surfaces must differ by a visible step.",
         "section": "colors"
       },
       {
         "name": "The Product Type Rule",
-        "body": "Barlow owns the working UI. Merriweather is brand and high-level document display only.",
+        "body": "Inter owns the working UI and note prose. Merriweather appears only as a document or workspace title. Neither font appears in the other's role.",
+        "section": "typography"
+      },
+      {
+        "name": "The Scoped Figures Rule",
+        "body": "Tabular figures (`font-variant-numeric: tabular-nums`) apply only to number-bearing elements: counts, dates, ids, and numeric cells. Never set them globally; Inter widens the hyphen under `tnum`, which breaks titles and prose.",
         "section": "typography"
       },
       {
         "name": "The Fixed Scale Rule",
-        "body": "Product typography uses fixed sizes, not viewport-fluid scaling. Dense tools must remain predictable at different window sizes.",
+        "body": "Product type uses the fixed token sizes, not viewport-fluid scaling, so dense tools stay predictable at every window width.",
+        "section": "typography"
+      },
+      {
+        "name": "The Human Label Rule",
+        "body": "Show schema labels, never identifiers: type `label`/`pluralLabel`, humanized field names (\"Next step\", not `nextStep`), enum labels, and note titles with their Markdown stripped. Raw identifiers stay available in `title` attributes and in mono where they are evidence. The helpers live in `web/src/lib/labels.ts` and `useTypeLabel`.",
         "section": "typography"
       },
       {
         "name": "The Mono Evidence Rule",
-        "body": "Use JetBrains Mono when the text is evidence: paths, ids, schema fields, commands, query fragments, and code references.",
+        "body": "Use JetBrains Mono when the text is evidence: paths, ids, schema fields, commands, dates, query fragments, and code references.",
         "section": "typography"
       },
       {
+        "name": "The Title Never Yields Rule",
+        "body": "In a table, supporting columns leave before the title shrinks below its minimum.",
+        "section": "layout"
+      },
+      {
+        "name": "The Reading Measure Rule",
+        "body": "Reading surfaces cap and centre; data surfaces fill. Never stretch prose or Briefing blocks across a 1920px window.",
+        "section": "layout"
+      },
+      {
         "name": "The Flat Workbench Rule",
-        "body": "Working surfaces are flat at rest. If a table, pane, or graph card needs hierarchy, use spacing, borders, typography, or tonal bands before shadow.",
+        "body": "Working surfaces are flat at rest. Use the chrome, spacing, hairlines, or the tint for hierarchy before shadow.",
         "section": "elevation"
       },
       {
         "name": "The Overlay Only Rule",
-        "body": "Large soft shadows belong to transient overlays only. Do not pair decorative wide shadows with 1px card borders.",
+        "body": "Large soft shadows belong to transient overlays only.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do preserve dense professional workflows: left rail, typed lists, stacked panes, ontology canvas, configured tables, and command palette.",
-      "Do use AO-inspired red, warm black, teal, and supporting palette as the product foundation.",
-      "Do keep repeated workflows fast to scan, compare, filter, and act on.",
-      "Do make confidence inspectable with provenance, links, counts, status, and source paths.",
-      "Do use Merriweather for brand/display, Barlow for UI, and JetBrains Mono for paths, code, ids, GraphQL, and schema evidence.",
-      "Do pair color with labels, icons, shape, or position for all validation, graph state, risk, and status signals.",
-      "Do target WCAG AA, preserve visible focus, and respect reduced motion.",
-      "Do use motion only for state feedback, overlay entrance, focus, and loading feedback in the 150ms to 250ms range.",
-      "Do treat current UI as context to learn from, not a visual ceiling."
+      "Do keep the shell's model: themed chrome around a white inset panel, one right pane, and finders for navigation.",
+      "Do keep supporting table columns fixed and let the title take the slack, with a 240px minimum (320px in two-line rows).",
+      "Do cap reading surfaces (1120px for Briefing and Overview, 540px prose in a 680px note column) and let data surfaces fill.",
+      "Do use Merriweather only for document and workspace titles, Inter for UI and prose, and JetBrains Mono for paths, ids, dates, GraphQL, and schema evidence.",
+      "Do read semantic tokens so every surface follows appearance and theme.",
+      "Do pair colour with labels, icons, shape, or position for validation, graph state, risk, and status.",
+      "Do target WCAG AA in all five themes and both appearances, keep visible focus, and respect reduced motion.",
+      "Do keep motion to state feedback, overlay entrance, and loading, in the 120 to 250ms range."
     ],
     "donts": [
-      "Don't use AI-slop aesthetics: purple-on-white gradients, glassmorphism, oversized hero layouts, vague productivity SaaS copy, generic card grids, decorative blobs/orbs, or soft marketing polish that reduces information density.",
-      "Don't use consumer-app bloat: empty whitespace, gamified onboarding, overanimated transitions, modal-heavy flows, cheerful simplification, or single-purpose layouts that cannot scale to expert work.",
-      "Don't drift away from Atomic Object brand foundations into an unrelated palette or generic SaaS type system.",
-      "Don't treat the temporary red orb or any unreviewed proposal as the final identity.",
-      "Don't make Rhizome feel like a chatbot wrapper, landing page, toy knowledge graph demo, or glossy consumer knowledge app.",
-      "Don't turn Notion/Coda inspiration into a blocky consumer document editor. Rhizome is closer to Obsidian plus Linear plus Raycast, filtered through AO identity.",
-      "Don't use thick colored side stripes, nested cards, huge rounded containers, decorative shadows, or card grids as default layout scaffolding.",
+      "Don't set tabular figures globally or on titles and prose.",
+      "Don't use red for selection, active tabs, chosen enum values, or theme chrome.",
+      "Don't add a third near-white surface, beige tints, or theme colours inside the content panel.",
+      "Don't stack equal-weight bands (stats, presets, toolbars) above a table; put rarely used controls behind View or Filter.",
+      "Don't use 700 weights in the sidebar, labels, or pane fields; 700 is for view titles only.",
+      "Don't use AI-slop aesthetics: purple-on-white gradients, glassmorphism, oversized hero layouts, decorative blobs or orbs, or soft marketing polish that reduces density.",
+      "Don't turn Notion or Coda inspiration into a blocky consumer document editor; Rhizome is closer to Obsidian plus Linear plus Raycast, filtered through AO identity.",
+      "Don't use thick coloured side stripes as decoration, nested cards, decorative shadows, or card grids as default scaffolding.",
       "Don't use display fonts in labels, buttons, tables, or data.",
-      "Don't rely on color alone for status, validation, graph state, risk, or selected state.",
-      "Don't hide complexity behind friendly summaries when the user needs structure, provenance, and constraints."
+      "Don't treat the temporary red diamond as the final identity."
     ]
   }
 }
