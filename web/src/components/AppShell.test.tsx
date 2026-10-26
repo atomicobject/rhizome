@@ -404,6 +404,14 @@ describe("AppShell", () => {
       // The app owns the collapsed state; the page keeps only the width.
       expect(JSON.parse(localStorage.getItem(SIDEBAR_KEY) ?? "{}")).toEqual({ width: 264 });
 
+      // Another window of this repository resizes it; only the width follows.
+      localStorage.setItem(SIDEBAR_KEY, JSON.stringify({ collapsed: true, width: 320 }));
+      act(() => {
+        window.dispatchEvent(new StorageEvent("storage", { key: SIDEBAR_KEY }));
+      });
+      expect(sidebar()?.style.getPropertyValue("--sidebar-width")).toBe("320px");
+      expect(sidebar()).toBeVisible();
+
       // The View menu owns ⌃⌘S in Desktop.
       fireEvent.keyDown(window, {
         code: "KeyS",

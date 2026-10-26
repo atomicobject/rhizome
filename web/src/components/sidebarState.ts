@@ -119,17 +119,18 @@ function update(next: SidebarState, persist = true) {
   for (const listener of listeners) listener();
 }
 
+// Another tab or window of this origin changed the stored choice. In Desktop
+// only the width follows; the app sends the collapsed state.
 function onStorage(event: StorageEvent) {
-  if (event.key !== SIDEBAR_KEY || inDesktop()) return;
+  if (event.key !== SIDEBAR_KEY) return;
+
   const stored = readStored();
+  const width = clampWidth(stored.width ?? SIDEBAR_RANGE.initial, SIDEBAR_RANGE);
 
   update(
-    {
-      collapsed: stored.collapsed ?? false,
-      width: clampWidth(stored.width ?? SIDEBAR_RANGE.initial, SIDEBAR_RANGE),
-      synced: true,
-      toggles: current().toggles,
-    },
+    inDesktop()
+      ? { ...current(), width }
+      : { ...current(), collapsed: stored.collapsed ?? false, width, synced: true },
     false,
   );
 }
