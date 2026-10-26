@@ -34,7 +34,7 @@ Rhizome operates inside real repositories and Markdown vaults. Teams install and
 
 ## Brand Commitments
 
-The product voice is precise, grounded, practical, technical, and quietly opinionated: direct enough for expert users, restrained enough for repeated daily use, and confident without hype. Rhizome's identity is visibly inspired by Atomic Object, with AO red, warm black, teal, Merriweather, Barlow, and JetBrains Mono as established foundations unless a future reviewed redesign deliberately replaces them. The mark is the runner r: a Merriweather Black r growing out of a horizontal runner that ends in one AO-red node, with roots below; the wordmark sets "rhizome" on the same runner. SVG masters live in `docs/brand/`, and app icons are generated from them. Do not treat the temporary in-product red diamond as the final identity.
+The product voice is precise, grounded, practical, technical, and quietly opinionated: direct enough for expert users, restrained enough for repeated daily use, and confident without hype. Rhizome's identity is visibly inspired by Atomic Object, with AO red, warm black, teal, Merriweather, Inter, and JetBrains Mono as established foundations unless a future reviewed redesign deliberately replaces them. The mark is the runner r: a Merriweather Black r growing out of a horizontal runner that ends in one AO-red node, with roots below; the wordmark sets "rhizome" on the same runner. SVG masters live in `docs/brand/`, and app icons are generated from them. Do not treat the temporary in-product red diamond as the final identity.
 
 ## Evidence on Hand
 
