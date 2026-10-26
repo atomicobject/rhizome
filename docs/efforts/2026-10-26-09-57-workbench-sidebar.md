@@ -80,7 +80,7 @@ One PR in which the sidebar stays where the user put it across searches, section
 
 ## Actual Delivered
 
-One PR on `feat/persistent-sidebar`, with one commit per batch:
+PR [#57](https://github.com/atomicobject/rhizome/pull/57) on `feat/persistent-sidebar`, with one commit per batch:
 - batch 1: the shared state, the frame, and the browser toggle;
 - batch 2: the Ontology, Explorer, and Agent sidebars;
 - batch 3: the Desktop toolbar toggle, View menu item, and app-wide preference;
@@ -147,7 +147,7 @@ The sidebar is now one frame in Notes, Ontology, Explorer, and Agent, and only t
 - [x] Spec coverage checklist complete or deviations recorded.
 - [x] Quality gates recorded with exact commands and results (Execution Notes).
 - [x] SPEC-0128 and the amended specs (SPEC-0090, SPEC-0098, SPEC-0113, SPEC-0119, SPEC-0126) reconciled with delivery.
-- [ ] PR open; Greptile 5/5; independent review; CI green on the final head.
+- [x] PR #57 open; Greptile 5/5 with no comments; independent GPT-6.1 Sol review addressed; CI green (21 checks) on `046a8efa`.
 - [x] Follow-ups recorded.
 - [x] Desktop verification: recorded as a post-merge click-through in Rhizome Dev (Follow-ups); Rhizome Dev installs only from `main`.
 
@@ -159,4 +159,4 @@ The sidebar is now one frame in Notes, Ontology, Explorer, and Agent, and only t
 
 ## Status
 
-Complete. SPEC-0128 is delivered on `feat/persistent-sidebar`; the PR, its review, and CI are recorded below as they land.
+Complete. SPEC-0128 is delivered by #57. Drew's Rhizome Dev click-through follows the merge.
