@@ -1,11 +1,11 @@
-/* The desktop shell reads the web UI's tokens, so it follows the same light
-   and dark themes as the pages it hosts. */
+/* The desktop shell reads the web UI's tokens, so it follows the same themes
+   and appearance as the pages it hosts. The app sets the appearance natively;
+   the shell sets data-theme on its root from the desktop settings. */
 @import "../../web/src/tokens.css";
 
 :root {
   font-family: var(--font-sans);
   color: var(--text);
-  background: var(--bg);
   font-size: var(--fs-base);
   line-height: 1.45;
   font-synthesis: none;
@@ -85,14 +85,13 @@ body,
   height: 100%;
   overflow: hidden;
 }
+/* The root stays transparent, so the finder overlay, which shares this
+   stylesheet, shows the page beneath it; the shell paints its own surface. */
 .shell {
   height: 100%;
   display: grid;
-  grid-template-columns: 216px minmax(0, 1fr);
   grid-template-rows: 38px minmax(0, 1fr);
-}
-.shell.collapsed {
-  grid-template-columns: minmax(0, 1fr);
+  background: var(--surface);
 }
 /* The section tabs sit centered in the window, between the window
    controls and the page tools, and give way when space runs short. */
@@ -105,8 +104,10 @@ body,
   align-items: center;
   gap: 6px;
   padding: 0 8px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-tint);
+  /* The theme's top bar, which the overlay title bar puts behind the
+     traffic lights too. */
+  background: var(--chrome-top);
+  color: var(--chrome-text);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -131,7 +132,7 @@ body,
   min-width: 0;
   overflow: hidden;
   font-size: var(--fs-xs);
-  color: var(--text-faint);
+  color: var(--chrome-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -157,31 +158,6 @@ body,
 .icon-button[aria-pressed="true"] {
   color: var(--text);
 }
-.worktree-selector {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 56px;
-  /* A fixed cap, unlike a percentage, also limits the width the toolbar
-     reserves for the name, so long names truncate instead of crowding. */
-  max-width: 320px;
-  height: 26px;
-  padding: 0 9px;
-  overflow: hidden;
-  border-color: transparent;
-  background: transparent;
-}
-.worktree-selector strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.worktree-selector .branch {
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 /* Quiet toolbar notices that open a choice: a pin offer, a ready update. */
 .toolbar-pill {
   display: inline-flex;
@@ -190,15 +166,12 @@ body,
   gap: 6px;
   height: 22px;
   padding: 0 8px;
-  border-color: var(--border);
-  background: var(--surface-alt);
-  color: var(--text-muted);
+  border-color: transparent;
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
   font-size: var(--fs-xs);
 }
 .toolbar-pill.ready {
-  border-color: color-mix(in srgb, var(--success) 45%, var(--surface));
-  background: var(--success-soft);
-  color: var(--link);
   font-weight: 600;
 }
 .toolbar-pill.ready::before {
@@ -208,15 +181,70 @@ body,
   border-radius: 50%;
   background: var(--success);
 }
-.toolbar-pill.ready:hover:enabled {
-  border-color: var(--success);
-  background: color-mix(in srgb, var(--success) 22%, var(--surface));
+/* Toolbar controls sit on the theme's chrome, not on the content surface. */
+.toolbar .icon-button,
+.page-sections button {
+  color: var(--chrome-muted);
 }
-.path-hint {
-  color: var(--text-faint);
+.toolbar button:hover:enabled {
+  border-color: transparent;
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+}
+.toolbar button:focus-visible,
+.toolbar input:focus-visible {
+  outline-color: var(--chrome-text);
+  outline-offset: 1px;
+}
+.toolbar kbd {
+  color: var(--chrome-muted);
+  font-family: inherit;
   font-size: var(--fs-xs);
+}
+/* The repository and worktree, each its own finder (⌘O, ⇧⌘O). The worktree
+   is quiet on the primary checkout and a pill anywhere else. */
+.switch-repository,
+.switch-worktree {
+  display: inline-flex;
+  flex-shrink: 1;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--chrome-text);
+}
+.switch-repository {
+  /* A fixed cap, unlike a percentage, also limits the width the toolbar
+     reserves for the name, so long names truncate instead of crowding. */
+  max-width: 240px;
+}
+.switch-repository strong {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 600;
+}
+.switch-worktree {
+  max-width: 280px;
+  color: var(--chrome-muted);
+}
+.switch-worktree .branch {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+.switch-worktree.other,
+.toolbar .switch-worktree.other:hover:enabled {
+  background: var(--chrome-pill);
+  color: var(--chrome-pill-text);
+}
+.switch-worktree.other kbd {
+  color: inherit;
 }
 .page-sections {
   display: flex;
@@ -227,12 +255,10 @@ body,
   padding: 0 9px;
   border-color: transparent;
   background: transparent;
-  color: var(--text-muted);
 }
 .page-sections button[aria-current="page"] {
-  border-color: var(--border);
-  background: var(--surface);
-  color: var(--text);
+  background: var(--chrome-active);
+  color: var(--chrome-text);
   font-weight: 600;
 }
 .page-search {
@@ -244,16 +270,19 @@ body,
   width: 100%;
   height: 26px;
   padding: 3px 34px 3px 8px;
+  border-color: transparent;
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
   font-size: var(--fs-sm);
+}
+.page-search input::placeholder {
+  color: var(--chrome-muted);
 }
 .page-search kbd {
   position: absolute;
   top: 50%;
   right: 7px;
   transform: translateY(-50%);
-  color: var(--text-faint);
-  font-family: inherit;
-  font-size: var(--fs-xs);
   pointer-events: none;
 }
 .issue-badge {
@@ -262,7 +291,7 @@ body,
   padding: 0 4px;
   border-color: transparent;
   background: transparent;
-  color: var(--accent-ink);
+  color: var(--chrome-risk);
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -275,25 +304,27 @@ body,
 .issue-badge.running,
 .issue-badge.stale,
 .issue-badge.incomplete {
-  color: var(--warning-ink);
+  color: var(--chrome-muted);
 }
 @media (max-width: 1180px) {
-  .path-hint {
+  .switch-repository kbd,
+  .switch-worktree kbd {
     display: none;
   }
-  .worktree-selector {
-    max-width: 200px;
+  .switch-repository {
+    max-width: 160px;
+  }
+  .switch-worktree {
+    max-width: 180px;
   }
 }
 @media (max-width: 960px) {
-  .worktree-selector {
-    max-width: 56px;
+  .switch-repository,
+  .switch-worktree {
+    max-width: 96px;
   }
   .page-search {
     min-width: 56px;
-  }
-  .worktree-selector .branch {
-    display: none;
   }
   .page-sections button {
     padding: 0 4px;
@@ -331,75 +362,6 @@ body,
 }
 .runtime-dot.sleeping {
   border: 1.5px dashed var(--border-strong);
-}
-.sidebar {
-  overflow-y: auto;
-  border-right: 1px solid var(--border);
-  background: var(--surface-alt);
-  padding: 6px 6px 12px;
-}
-.sidebar-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 2px 2px 4px 8px;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--text-faint);
-}
-.repository-tab {
-  position: relative;
-  display: flex;
-  align-items: center;
-  border-radius: 5px;
-}
-.repository-tab:hover {
-  background: var(--border-faint);
-}
-.repository-tab.dragging {
-  opacity: 0.5;
-}
-.repository-tab.drop-before {
-  box-shadow: inset 0 2px 0 var(--accent-fill);
-}
-.repository-tab.drop-after {
-  box-shadow: inset 0 -2px 0 var(--accent-fill);
-}
-.repository-tab [role="tab"] {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 8px;
-  border: 0;
-  background: transparent;
-  text-align: left;
-}
-.repository-tab:has([aria-selected="true"]) {
-  background: var(--accent-soft);
-}
-.repository-tab [role="tab"][aria-selected="true"] {
-  color: var(--accent-ink);
-  font-weight: 600;
-}
-.repository-tab .name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tab-status {
-  font-size: var(--fs-xs);
-}
-.repository-tab .options {
-  position: absolute;
-  right: 2px;
-  background: inherit;
-  visibility: hidden;
-}
-.repository-tab:hover .options,
-.repository-tab .options:focus-visible {
-  visibility: visible;
 }
 .main {
   display: flex;
@@ -552,6 +514,70 @@ button.text-button:hover:enabled {
 }
 .setting-group .hint {
   margin-top: 8px;
+}
+/* Appearance: a segmented choice of Match System, Light, and Dark, then a
+   swatch per theme showing its chrome around a content panel. */
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--surface-strong);
+}
+.segmented label {
+  padding: 4px 14px;
+  border-radius: 5px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.segmented label:has(:checked) {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.segmented input,
+.theme-swatches input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.segmented label:has(:focus-visible),
+.theme-swatches label:has(:focus-visible) .swatch {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.theme-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 16px;
+}
+.theme-swatches label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.theme-swatches label:has(:checked) {
+  color: var(--text);
+  font-weight: 600;
+}
+.swatch {
+  width: 52px;
+  height: 38px;
+  border: 6px solid var(--swatch);
+  border-left-width: 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.theme-swatches label:has(:checked) .swatch {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--text);
 }
 /* The link path and shell report sit under the status line they explain. */
 .setting-group > p.path,
@@ -973,4 +999,177 @@ label.choice {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+/* The repository and worktree finders, drawn in a transparent overlay webview
+   above the content view, so the page stays visible under the scrim. */
+/* Lighter than a modal's scrim: the page stays readable beneath it. */
+.finder-scrim {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--scrim) 65%, transparent);
+}
+.finder {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  overflow: hidden;
+  transform: translateX(-50%);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  color: var(--text);
+  background: var(--surface);
+  box-shadow:
+    0 4px 10px light-dark(rgba(20, 20, 20, 0.08), rgba(0, 0, 0, 0.3)),
+    0 28px 60px light-dark(rgba(20, 20, 20, 0.28), rgba(0, 0, 0, 0.6));
+}
+.finder kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.finder-input {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+  height: 54px;
+  padding: 0 16px 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+.finder-input svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.4;
+}
+/* The palette is the focus context; the caret marks the field. */
+.finder-input input,
+.finder-input input:focus-visible {
+  flex: 1;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: var(--fs-md);
+  caret-color: var(--focus-ring);
+}
+.finder-input input::placeholder {
+  color: var(--text-faint);
+}
+.finder-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 440px;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+.finder-row {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 0 8px 0 14px;
+  border-radius: 9px;
+  cursor: default;
+}
+.finder-row[aria-selected="true"] {
+  background: var(--selection);
+}
+.finder-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.finder-title {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.finder-title.branch {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.finder-row mark {
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--selection-edge);
+  text-underline-offset: 3px;
+}
+.finder-tag {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.finder-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.finder-path {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.finder-current {
+  color: var(--link);
+  font-weight: 500;
+}
+.finder-actions {
+  visibility: hidden;
+}
+.finder-row:hover .finder-actions,
+.finder-row[aria-selected="true"] .finder-actions {
+  visibility: visible;
+}
+.finder-empty {
+  padding: 14px 12px;
+  color: var(--text-muted);
+}
+.finder-foot {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 10px 8px 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.finder-foot > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.finder-foot .grow {
+  flex: 1;
 }

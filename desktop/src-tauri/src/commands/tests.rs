@@ -131,3 +131,30 @@ fn setup_waits_for_import_to_release_user_configuration() {
         );
     });
 }
+#[test]
+fn finder_requests_decode_the_shell_contract() {
+    let choice: Action = serde_json::from_value(json!({
+        "operation": "finder-choice",
+        "opened": 7.0,
+        "choice": {"choice": "open", "repository": "r", "worktree": null, "newWindow": false}
+    }))
+    .unwrap();
+    assert!(matches!(
+        choice,
+        Action::FinderChoice { opened, choice: finder::Choice::Open { .. } } if opened == 7.0
+    ));
+    let hide: Action = serde_json::from_value(json!({
+        "operation": "finder", "model": null, "opened": 7.0, "toShell": true
+    }))
+    .unwrap();
+    assert!(matches!(
+        hide,
+        Action::Finder {
+            model: None,
+            opened: Some(_),
+            to_shell: true,
+            revision: 0,
+            ..
+        }
+    ));
+}

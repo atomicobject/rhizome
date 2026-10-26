@@ -267,7 +267,12 @@ describe("AppShell", () => {
   });
 
   describe("inside Rhizome Desktop", () => {
-    const send = (detail: DesktopCommand | { command: "section"; section: string }) =>
+    const send = (
+      detail:
+        | DesktopCommand
+        | { command: "section"; section: string }
+        | { command: "theme"; theme: string },
+    ) =>
       act(() => {
         window.dispatchEvent(new CustomEvent("rhizome:desktop", { detail }));
       });
@@ -309,6 +314,21 @@ describe("AppShell", () => {
       // The vault title never replaces the report.
       await waitFor(() => expect(http.count("GET", "/api/v1/status")).toBe(1));
       expect(document.title).toMatch(/^rhizome-desktop:/);
+    });
+
+    it("takes the chrome theme the app sends", async () => {
+      render(<AppShell />);
+
+      await send({ command: "theme", theme: "spruce" });
+      expect(document.documentElement.dataset.theme).toBe("spruce");
+      // Remembered, so a reload paints it before the app sends it again.
+      expect(JSON.parse(localStorage.getItem("rhizome:desktop-theme") ?? "{}")).toMatchObject({
+        theme: "spruce",
+      });
+      await send({ command: "theme", theme: "teal" });
+      expect(document.documentElement.dataset.theme).toBe("spruce");
+      delete document.documentElement.dataset.theme;
+      localStorage.removeItem("rhizome:desktop-theme");
     });
 
     it("switches sections, searches, and opens issues on app commands", async () => {

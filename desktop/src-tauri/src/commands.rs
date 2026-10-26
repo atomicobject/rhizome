@@ -1,5 +1,7 @@
 use crate::{
+    appearance,
     bridge::{self, Failure, Request},
+    finder,
     menu::{self, MenuEntry},
     page,
     pane::Panes,
@@ -92,6 +94,11 @@ pub enum Action {
     UpdateStatus,
     CheckForUpdates,
     RenderProfiling,
+    Settings,
+    SetSettings {
+        theme: Option<appearance::Theme>,
+        appearance: Option<appearance::Appearance>,
+    },
     SetRenderProfiling {
         enabled: bool,
     },
@@ -157,9 +164,6 @@ pub enum Action {
         id: String,
         worktree: String,
     },
-    Reorder {
-        ids: Vec<String>,
-    },
     Browse {
         to: windows::Browse,
     },
@@ -169,7 +173,6 @@ pub enum Action {
     Session {
         repository: Option<String>,
         worktree: Option<String>,
-        sidebar_collapsed: bool,
     },
     Layout {
         x: f64,
@@ -182,6 +185,27 @@ pub enum Action {
         x: f64,
         y: f64,
         items: Vec<MenuEntry>,
+    },
+    /// From the shell: show the finder with this model, or hide it. A hide
+    /// names the opening it closes, from the model's `opened` stamp.
+    #[serde(rename_all = "camelCase")]
+    Finder {
+        model: Option<Value>,
+        #[serde(default)]
+        return_to_content: bool,
+        #[serde(default)]
+        opened: Option<f64>,
+        #[serde(default)]
+        to_shell: bool,
+        /// Numbers each model the shell sends, so a late older one is dropped.
+        #[serde(default)]
+        revision: u64,
+    },
+    /// From the finder: the user's choice, naming the opening it was made in
+    /// so a late one is dropped.
+    FinderChoice {
+        opened: f64,
+        choice: finder::Choice,
     },
 }
 
@@ -222,6 +246,11 @@ pub fn desktop_attach(
 ) -> Result<Value, Failure> {
     authorize(&webview)?;
     let window = webview.window();
+    if webview.label() == finder::label(window.label()) {
+        app.state::<Panes>()
+            .with(window.label(), |pane| pane.attach_finder(channel));
+        return Ok(Value::Null);
+    }
     if let Some(presence) = app.state::<Presence>().published() {
         let _ = channel.send(presence);
     }
@@ -333,11 +362,18 @@ pub async fn desktop_request(
         }
         Action::UpdateStatus => Ok(json!(app.state::<updater::Updates>().status())),
         Action::RenderProfiling => Ok(json!(page::profiling_for(&app))),
+        Action::Settings => Ok(json!(appearance::current(&state.directory))),
+        Action::SetSettings {
+            theme,
+            appearance: chosen,
+        } => Ok(json!(appearance::update(&app, theme, chosen)?)),
         Action::SetRenderProfiling { enabled } => {
-            Preferences {
-                render_profiling: enabled,
+            {
+                let _saving = state.preferences.lock().unwrap();
+                let mut saved = Preferences::load(&state.directory);
+                saved.render_profiling = enabled;
+                saved.save(&state.directory)?;
             }
-            .save(&state.directory)?;
             Ok(json!(page::profiling_for(&app)))
         }
         Action::CheckForUpdates => Ok(json!(updater::check(&app).await)),
@@ -503,11 +539,6 @@ pub async fn desktop_request(
                 .map_err(|e| e.to_string())?;
             Ok(Value::Null)
         }
-        Action::Reorder { ids } => {
-            let (_lock, mut library) = state.library().await?;
-            library.reorder(&ids);
-            save(&app, &state, &library)
-        }
         Action::Browse { to } => {
             windows::browse(&window, to)?;
             Ok(Value::Null)
@@ -519,13 +550,11 @@ pub async fn desktop_request(
         Action::Session {
             repository,
             worktree,
-            sidebar_collapsed,
         } => {
             app.state::<Sessions>()
                 .update(&app, window.label(), |saved| {
                     saved.repository = repository;
                     saved.worktree = worktree;
-                    saved.sidebar_collapsed = sidebar_collapsed;
                 });
             Ok(Value::Null)
         }
@@ -545,6 +574,23 @@ pub async fn desktop_request(
         }
         Action::Menu { x, y, items } => {
             menu::popup(&window, x, y, &items)?;
+            Ok(Value::Null)
+        }
+        Action::Finder {
+            model,
+            return_to_content,
+            opened,
+            to_shell,
+            revision,
+        } => {
+            match model {
+                Some(model) => finder::show(&window, model, revision, return_to_content)?,
+                None => finder::hide(&window, opened, to_shell),
+            }
+            Ok(Value::Null)
+        }
+        Action::FinderChoice { opened, choice } => {
+            finder::choose(&app, &window, Some(opened), choice);
             Ok(Value::Null)
         }
     }

@@ -6,7 +6,9 @@ import {
   request,
   type Discovery,
   type Alert,
+  type AppSettings,
   type Failure,
+  type FinderChoice,
   type GlobalInfo,
   type LinkInfo,
   type UpdateStatus,
@@ -17,9 +19,16 @@ import {
   type PageCommand,
   type PageState,
   type Repository,
-  type Worktree,
 } from "./api";
-import { newWorktrees, RepositoryList, runtimeText, type Runtimes } from "./RepositoryList";
+import {
+  basename,
+  repositoryRows,
+  Switcher,
+  useFinder,
+  worktreeName,
+  worktreeRows,
+  type Runtimes,
+} from "./Switcher";
 import { ScopePage } from "./IndexScope";
 import { PageSections, PageTools } from "./PageControls";
 import { Settings } from "./Settings";
@@ -29,13 +38,7 @@ import { Notice, OpenStatus } from "./Status";
 type Found = { info?: Discovery; error?: Failure };
 type Item = Omit<MenuEntry, "id" | "items"> & { run?: () => void; items?: Item[] };
 type Target = { repository?: string; worktree?: string; after: number };
-
-export function worktreeName(worktree: Worktree) {
-  return worktree.branch || (worktree.head ? `detached ${worktree.head}` : basename(worktree.path));
-}
-function basename(path: string) {
-  return path.split("/").filter(Boolean).pop() ?? path;
-}
+const DEFAULT_SETTINGS: AppSettings = { theme: "graphite", appearance: "auto" };
 
 export function App() {
   const [library, setStoredLibrary] = useState<Library | null>(null);
@@ -43,7 +46,9 @@ export function App() {
   const [found, setFound] = useState<Record<string, Found>>({});
   const [runtimes, setRuntimes] = useState<Runtimes>({});
   const [selection, setSelection] = useState<{ repository?: string; worktree?: string }>({});
-  const [collapsed, setCollapsed] = useState(false);
+  const [appSettings, setAppSettings] = useState<AppSettings>(
+    () => window.__RHIZOME_SHELL_SETTINGS__ ?? DEFAULT_SETTINGS,
+  );
   const [restored, setRestored] = useState(false);
   const [settings, setSettings] = useState(false);
   /** The worktree whose What gets indexed page covers the content area. */
@@ -67,6 +72,8 @@ export function App() {
   const updateMessages = useRef(0);
   const remembered = useRef<Record<string, string>>({});
   const handler = useRef<(message: Message) => void>(() => {});
+  /** A settings message arrived; it is newer than any reply still in flight. */
+  const settingsHeard = useRef(false);
   const region = useRef<HTMLDivElement>(null);
   const reported = useRef("");
   const revision = useRef(-1);
@@ -134,7 +141,14 @@ export function App() {
     }
   }
 
-  async function selectRepository(current: Library, id: string, worktree?: string) {
+  /** Opens a repository's worktree: `worktree` when it still exists, else the
+   * one last opened here, else the primary; `primary` skips the remembered one. */
+  async function selectRepository(
+    current: Library,
+    id: string,
+    worktree?: string,
+    primary = false,
+  ) {
     const ticket = ++selecting.current;
     const repository = current.repositories.find((r) => r.id === id);
     if (!repository) return;
@@ -143,7 +157,8 @@ export function App() {
     if (ticket !== selecting.current) return;
     if (!info) return deselect(id, ticket);
     const known = (path?: string) => path && info.worktrees.some((w) => w.path === path);
-    const choice = [worktree, remembered.current[id]].find(known) ?? info.primary;
+    const choice =
+      [worktree, primary ? undefined : remembered.current[id]].find(known) ?? info.primary;
     await openWorktree(id, choice, false, ticket);
   }
 
@@ -189,8 +204,10 @@ export function App() {
 
   useEffect(() => {
     void attach((message) => handler.current(message)).then((session) => {
-      setCollapsed(session.sidebarCollapsed);
       setRestored(true);
+      void request("settings", {})
+        .then((saved) => settingsHeard.current || setAppSettings(saved))
+        .catch(() => {});
       // An update can become ready before this window attaches.
       void refreshUpdateStatus().catch(() => {});
       // A moved or deleted app leaves the command-line link pointing elsewhere.
@@ -207,9 +224,13 @@ export function App() {
     void request("session", {
       repository: selection.repository ?? null,
       worktree: selection.worktree ?? null,
-      sidebarCollapsed: collapsed,
     }).catch(() => {});
-  }, [restored, selection, collapsed]);
+  }, [restored, selection]);
+
+  // Before paint, so a new window never shows another theme first.
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = appSettings.theme;
+  }, [appSettings.theme]);
 
   useEffect(() => {
     if (!notice) return;
@@ -244,6 +265,58 @@ export function App() {
   const selected = repositories.find((r) => r.id === selection.repository);
   const selectedFound = selected ? found[selected.id] : undefined;
   const worktree = selectedFound?.info?.worktrees.find((w) => w.path === selection.worktree);
+  const sleeping = open?.step === "sleeping" ? open.repository : undefined;
+
+  const finder = useFinder(
+    appSettings.theme,
+    (mode) => {
+      if (!library) return { rows: [] };
+      if (mode === "repositories")
+        return { rows: repositoryRows(library, found, runtimes, selection.repository, sleeping) };
+      if (!selected || !selectedFound?.info)
+        return { rows: [], error: selectedFound?.error?.message };
+      return {
+        rows: worktreeRows(
+          selected,
+          selectedFound.info,
+          runtimes,
+          selection.worktree,
+          sleeping === selected.id,
+        ),
+      };
+    },
+    (cause) => setAlert(failure(cause)),
+  );
+
+  function chooseInFinder(choice: FinderChoice) {
+    if (choice.choice === "menu") {
+      const repository = repositories.find((r) => r.id === choice.repository);
+      if (repository) repositoryMenu(repository, { x: choice.x, y: choice.y });
+      return;
+    }
+    finder.closed();
+    if (choice.choice === "add") addRepository();
+    if (choice.choice !== "open" || choice.newWindow || !library) return;
+    // Choosing a workspace shows it, even the one Settings or What Gets
+    // Indexed covers now.
+    setSettings(false);
+    setScopeView(null);
+    // Choosing what this window already shows, or is opening, changes nothing;
+    // a stopped or failed worktree opens again. A repository means its primary
+    // checkout, so its own row still switches this window off a feature worktree.
+    const { repository, worktree } = target.current;
+    const settled =
+      open?.step === "sleeping" || open?.step === "error" || open?.step === "seed-error";
+    const showing = (path?: string) => !!path && path === worktree && !settled;
+    if (choice.worktree) {
+      if (!showing(choice.worktree)) void openWorktree(choice.repository, choice.worktree);
+    } else if (
+      choice.repository !== repository ||
+      !showing(found[choice.repository]?.info?.primary)
+    ) {
+      void selectRepository(library, choice.repository, undefined, true);
+    }
+  }
 
   function popup(items: Item[], at: HTMLElement | { x: number; y: number }) {
     menus.current = {};
@@ -361,20 +434,6 @@ export function App() {
         { separator: true },
         { label: `Changes .rhizome/config.yml from ${offer.pinned}`, disabled: true },
       ],
-      anchor,
-    );
-  }
-
-  function worktreeMenu(anchor: HTMLElement) {
-    if (!selected || !selectedFound?.info) return;
-    const info = selectedFound.info;
-    const fresh = newWorktrees(selected, info).map((w) => w.path);
-    popup(
-      info.worktrees.map((w) => ({
-        label: `${fresh.includes(w.path) ? "● " : ""}${worktreeName(w)} — ${basename(w.path)}${w.path === info.primary ? " (primary)" : ""}${w.error ? " · Unavailable" : runtimeText[runtimes[w.path]?.state ?? "stopped"].menu}`,
-        checked: w.path === selection.worktree,
-        run: () => void openWorktree(selected.id, w.path),
-      })),
       anchor,
     );
   }
@@ -513,6 +572,8 @@ export function App() {
       } else if (message.type === "library") {
         applyLibrary(message.library);
       } else if (message.type === "select") {
+        // A terminal's `rzm desktop` opens here; a finder left open would cover it.
+        if (finder.shown) finder.close();
         setLibrary(message.library);
         void selectRepository(message.library, message.repository, message.worktree);
       } else if (message.type === "notice") {
@@ -533,14 +594,26 @@ export function App() {
         updateMessages.current += 1;
         setUpdate(message.status);
       } else if (message.type === "menu") {
-        const run = menus.current[message.id];
+        const run = menus.current[message.id] as (() => void) | undefined;
         menus.current = {};
+        // A finder row's actions run on the window behind the finder.
+        if (run && finder.shown) finder.close(true);
         run?.();
+      } else if (message.type === "finder") {
+        chooseInFinder(message);
+      } else if (message.type === "settings") {
+        settingsHeard.current = true;
+        setAppSettings(message.settings);
       } else if (message.type === "command") {
-        if (message.command === "add-repository") addRepository();
-        if (message.command === "toggle-sidebar") setCollapsed((value) => !value);
-        if (message.command === "settings") openSettings();
-        if (message.command === "focus-search") {
+        const { command } = message;
+        // A finder draws above the window, so it would cover what any other command shows.
+        if (finder.shown && command !== "repositories" && command !== "worktrees")
+          finder.close(true);
+        if (command === "add-repository") addRepository();
+        if (command === "repositories" || command === "worktrees")
+          if (library) finder.open(command);
+        if (command === "settings") openSettings();
+        if (command === "focus-search") {
           searchField.current?.focus();
           searchField.current?.select();
         }
@@ -571,6 +644,12 @@ export function App() {
             ),
           )}
           onClose={() => setSettings(false)}
+          appearance={appSettings}
+          // The app's settings message, sent to every shell after each save
+          // in save order, sets the settings; a reply can arrive out of order.
+          onAppearance={(change) =>
+            void request("set-settings", change).catch((cause) => setAlert(failure(cause)))
+          }
           onRefresh={() => void perform("Checking Rhizome…", loadInstallation)}
           onLink={(action) =>
             void perform(
@@ -688,20 +767,18 @@ export function App() {
   }
 
   return (
-    <div className={collapsed ? "shell collapsed" : "shell"}>
+    <div className="shell">
       <header className="toolbar" data-tauri-drag-region>
         <div className="toolbar-start" data-tauri-drag-region>
-          <button
-            className="icon-button"
-            aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
-            aria-pressed={!collapsed}
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
-              <path d="M6 2.5v11" />
-            </svg>
-          </button>
+          {repositories.length > 0 && (
+            <Switcher
+              repository={selected}
+              info={selectedFound?.info}
+              worktree={worktree}
+              onOpen={finder.open}
+              onMenu={(at) => selected && repositoryMenu(selected, at)}
+            />
+          )}
           {(
             [
               ["back", "Back", "M10 3.5 5.5 8l4.5 4.5"],
@@ -722,23 +799,6 @@ export function App() {
               </svg>
             </button>
           ))}
-          {selected && (
-            <button
-              className="worktree-selector"
-              aria-haspopup="menu"
-              aria-label="Worktree"
-              disabled={!selectedFound?.info}
-              onClick={(e) => worktreeMenu(e.currentTarget)}
-            >
-              <strong>{selected.name}</strong>
-              <span className="branch">{worktree ? worktreeName(worktree) : "…"}</span>
-              {worktree && <span className="path-hint">{basename(worktree.path)}</span>}
-              {newWorktrees(selected, selectedFound?.info).length > 0 && (
-                <span className="new-dot" title="New worktrees" />
-              )}
-              <span aria-hidden="true">▾</span>
-            </button>
-          )}
           {worktree?.pinOffer && selected?.pinOfferDismissed !== worktree.pinOffer.available && (
             <button
               className="toolbar-pill"
@@ -796,35 +856,6 @@ export function App() {
           </button>
         </div>
       </header>
-      {!collapsed && (
-        <nav className="sidebar" aria-label="Repositories">
-          <div className="sidebar-heading">
-            <span>Repositories</span>
-            <button
-              className="icon-button"
-              aria-label="Add repository"
-              disabled={!!busy || !library}
-              onClick={addRepository}
-            >
-              +
-            </button>
-          </div>
-          <RepositoryList
-            repositories={repositories}
-            found={found}
-            runtimes={runtimes}
-            selected={selection.repository}
-            sleeping={open?.step === "sleeping" ? open.repository : undefined}
-            onSelect={(id) => library && void selectRepository(library, id)}
-            onMenu={repositoryMenu}
-            onReorder={(ids) =>
-              void request("reorder", { ids })
-                .then(setLibrary)
-                .catch((cause) => setAlert(failure(cause)))
-            }
-          />
-        </nav>
-      )}
       <main className="main">
         {alert && (
           <div className="alert" role="alert">
