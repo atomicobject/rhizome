@@ -552,6 +552,23 @@
   font-size: var(--fs-base);
 }
 
+/* A sidebar read that failed: a quiet line with a retry. */
+.notes-left-rail__state {
+  margin: 6px 18px;
+  color: var(--chrome-muted);
+  font-size: var(--fs-sm);
+}
+
+.notes-left-rail__state button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--chrome-text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .notes-left-rail__collections {
   flex: 1;
   min-height: 0;

@@ -37,6 +37,8 @@ export type DesktopReport = {
   health?: ValidationHealth;
   /** The workbench sidebar's state, once the app has sent its stored choice. */
   sidebarCollapsed?: boolean;
+  /** How many times the page itself toggled it, sent with `sidebarCollapsed`. */
+  sidebarToggles?: number;
 };
 
 /** The app marks its content view with an initialization script. */

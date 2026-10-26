@@ -225,6 +225,8 @@ export interface PageState {
     | "stale";
   /** The workbench sidebar's state, once the app has sent the page its choice. */
   sidebarCollapsed?: boolean;
+  /** How many times the page itself toggled it; the app reads it, not the shell. */
+  sidebarToggles?: number;
 }
 export type PageCommand =
   | { command: "section"; section: PageSection }

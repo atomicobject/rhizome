@@ -41,7 +41,7 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 
 - Opening a project search keeps the sidebar visible if it was visible. The search results fill the content panel beside it.
 - Switching among Notes, Ontology, Explorer, and Agent keeps the sidebar's collapsed state and width.
-- The collapsed state and width survive a reload. In the browser they are remembered per origin and follow changes made in another tab of the same origin. In Rhizome Desktop they apply to every window and repository and survive restarts.
+- The collapsed state and width survive a reload. In the browser they are remembered per origin and follow changes made in another tab of the same origin. In Rhizome Desktop the collapsed state applies to every window and repository and survives restarts; the width is remembered per repository.
 - In GraphQL the content fills the window. Returning to another section restores the sidebar as it was.
 
 ### US2 - Toggle the sidebar from one place

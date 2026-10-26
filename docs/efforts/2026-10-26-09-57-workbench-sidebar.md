@@ -125,6 +125,10 @@ The sidebar is now one frame in Notes, Ontology, Explorer, and Agent, and only t
 
 ## Deviations
 
+- 2026-10-26T15:45:00Z: Greptile review of #57 (4/5) found three issues, all fixed:
+  - **Late replies:** a late reply to an earlier app command could look like a page toggle and undo a newer choice after two quick toggles. The page now reports `sidebarToggles`, a count of its own toggles, and the app treats a report as a toggle only when that count rises.
+  - **Ontology read failure:** a failed type-tree read showed an empty tree. The sidebar now says "Types unavailable" with a Retry button.
+  - **Desktop width:** the width is not shared across Desktop windows. SPEC-0127 US1 is amended: in Desktop the collapsed state is app-wide, and the width is remembered per repository in the page's storage. frozen-scope-drift acknowledged for SPEC-0127: the spec set is refrozen at this revision.
 - 2026-10-26T15:20:00Z: routine choices within the approved plan, recorded for review:
   - Ontology lets embedded types open their detail (Notes still disables them), because US3 says choosing a type opens its detail.
   - Explorer's root row shows the vault's short name.

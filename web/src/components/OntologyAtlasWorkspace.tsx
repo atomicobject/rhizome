@@ -80,6 +80,14 @@ export function OntologyAtlasWorkspace({
                   <span className="ontology-type-row__label">Atlas</span>
                 </button>
               </div>
+              {!summary && summaryQuery.isError ? (
+                <p className="notes-left-rail__state" role="status">
+                  Types unavailable.{" "}
+                  <button type="button" onClick={() => void summaryQuery.refetch()}>
+                    Retry
+                  </button>
+                </p>
+              ) : null}
               <TypeTree
                 groups={groups}
                 expansion={expansion}

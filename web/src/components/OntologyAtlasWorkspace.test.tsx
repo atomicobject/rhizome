@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { OntologySummaryResponse } from "../api/types";
-import { withFakeFetch } from "../test/fakeFetch";
+import { jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { withFakeLayout } from "../test/fakeLayout";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { OntologyAtlasWorkspace } from "./OntologyAtlasWorkspace";
@@ -103,5 +103,20 @@ describe("OntologyAtlasWorkspace sidebar", () => {
     expect(story).toBeEnabled();
     fireEvent.click(within(nav).getByRole("button", { name: "Specs (2)" }));
     expect(window.location.pathname).toBe("/ontology/type/Spec");
+  });
+
+  it("says when the type tree could not load and retries it", async () => {
+    let fail = true;
+    http.on("GET", "/api/v1/ontology/summary", () =>
+      fail ? jsonReply({ error: "unavailable" }, 500) : jsonReply(summary),
+    );
+    render(<OntologyAtlasWorkspace />);
+
+    const sidebar = await screen.findByRole("complementary", { name: "Ontology navigation" });
+    expect(await within(sidebar).findByRole("status")).toHaveTextContent("Types unavailable.");
+    fail = false;
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Retry" }));
+    expect(await within(sidebar).findByRole("button", { name: "Delivery" })).toBeVisible();
+    expect(within(sidebar).queryByRole("status")).toBeNull();
   });
 });

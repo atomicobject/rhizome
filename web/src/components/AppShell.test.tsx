@@ -393,11 +393,14 @@ describe("AppShell", () => {
       await send({ command: "sidebar", collapsed: true });
       expect(sidebar()).not.toBeVisible();
       await waitFor(() => expect(report().sidebarCollapsed).toBe(true));
+      // A reply to the app's command is not a toggle the page made.
+      expect(report().sidebarToggles).toBe(0);
 
       // ⌘\ in the page toggles it, and the report carries the change to the app.
       fireEvent.keyDown(window, { code: "Backslash", key: "\\", ctrlKey: true, metaKey: true });
       expect(sidebar()).toBeVisible();
       await waitFor(() => expect(report().sidebarCollapsed).toBe(false));
+      expect(report().sidebarToggles).toBe(1);
       // The app owns the collapsed state; the page keeps only the width.
       expect(JSON.parse(localStorage.getItem(SIDEBAR_KEY) ?? "{}")).toEqual({ width: 264 });
 

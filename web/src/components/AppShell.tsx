@@ -215,10 +215,18 @@ function DesktopReporter({ route }: { route: Route }) {
   const sidebar = useWorkbenchSidebar();
   // Until the app sends its stored choice, the page's default is not a choice.
   const sidebarCollapsed = sidebar.synced ? sidebar.collapsed : undefined;
+  const sidebarToggles = sidebar.synced ? sidebar.toggles : undefined;
 
   useEffect(() => {
-    document.title = desktopTitle({ section: route, search, issues, health, sidebarCollapsed });
-  }, [route, search, issues, health, sidebarCollapsed]);
+    document.title = desktopTitle({
+      section: route,
+      search,
+      issues,
+      health,
+      sidebarCollapsed,
+      sidebarToggles,
+    });
+  }, [route, search, issues, health, sidebarCollapsed, sidebarToggles]);
 
   return null;
 }

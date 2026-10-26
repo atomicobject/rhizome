@@ -16,6 +16,9 @@ export type SidebarState = {
   width: number;
   /** In Desktop, whether the app has sent its stored choice yet. */
   synced: boolean;
+  /** How many times the page itself toggled it; Desktop tells these apart
+   * from replies to its own commands. */
+  toggles: number;
 };
 
 export const SIDEBAR_KEY = "rhizome:workbench:sidebar:v1";
@@ -63,6 +66,7 @@ function read(): SidebarState {
     collapsed: inDesktop() ? false : (stored.collapsed ?? false),
     width: clampWidth(stored.width ?? SIDEBAR_RANGE.initial, SIDEBAR_RANGE),
     synced: !inDesktop(),
+    toggles: 0,
   };
 }
 
@@ -104,7 +108,8 @@ function update(next: SidebarState, persist = true) {
   if (
     next.collapsed === previous.collapsed &&
     next.width === previous.width &&
-    next.synced === previous.synced
+    next.synced === previous.synced &&
+    next.toggles === previous.toggles
   )
     return;
   state = next;
@@ -123,6 +128,7 @@ function onStorage(event: StorageEvent) {
       collapsed: stored.collapsed ?? false,
       width: clampWidth(stored.width ?? SIDEBAR_RANGE.initial, SIDEBAR_RANGE),
       synced: true,
+      toggles: current().toggles,
     },
     false,
   );
@@ -141,7 +147,10 @@ function subscribe(listener: () => void) {
 
 /** Show or hide the sidebar, as the user asked. */
 export function setSidebarCollapsed(collapsed: boolean) {
-  update({ ...current(), collapsed });
+  const state = current();
+
+  if (state.collapsed === collapsed) return;
+  update({ ...state, collapsed, toggles: state.toggles + 1 });
 }
 
 export function toggleSidebar() {

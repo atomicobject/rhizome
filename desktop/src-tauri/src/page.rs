@@ -84,6 +84,14 @@ pub struct Report {
         skip_serializing_if = "Option::is_none"
     )]
     sidebar_collapsed: Option<bool>,
+    /// How many times the page itself toggled the sidebar (⌘\). Replies to
+    /// the app's commands leave it unchanged.
+    #[serde(
+        default,
+        rename = "sidebarToggles",
+        skip_serializing_if = "Option::is_none"
+    )]
+    sidebar_toggles: Option<u32>,
 }
 
 /// Reads a page title as a report, only from a page on the verified runtime
@@ -103,14 +111,16 @@ pub fn loading(pane: &mut Pane, url: &Url) {
     pane.document = Some(url.clone());
     pane.reported = false;
     pane.sidebar = None;
+    pane.sidebar_toggles = None;
     pane.graphql = false;
     pane.send(json!({"type": "page", "state": null}));
 }
 
 /// Relays the current document's title to the shell as its page state.
 /// Returns whether this is the document's first valid report, and the sidebar
-/// state when the page changed it since its last report (⌘\ in the page).
-/// A page's first sidebar state echoes the app's command, so it is no change.
+/// state when the page itself toggled it since its last report (⌘\ in the
+/// page). Only the page's own toggle count marks a toggle: a late reply to an
+/// earlier app command must not undo a newer choice.
 pub fn titled(pane: &mut Pane, title: &str) -> (bool, Option<bool>) {
     let runtime = pane.expected.read().unwrap().clone();
     let report = pane
@@ -119,14 +129,16 @@ pub fn titled(pane: &mut Pane, title: &str) -> (bool, Option<bool>) {
         .and_then(|document| decode(title, document, runtime.as_ref()));
     let first = !pane.reported && report.is_some();
     pane.reported = report.is_some();
-    let previous = pane.sidebar;
+    let previous_toggles = pane.sidebar_toggles;
     pane.sidebar = report.as_ref().and_then(|r| r.sidebar_collapsed);
+    pane.sidebar_toggles = report.as_ref().and_then(|r| r.sidebar_toggles);
     pane.graphql = report
         .as_ref()
         .is_some_and(|r| r.section == Section::Graphql);
-    let toggled = pane
-        .sidebar
-        .filter(|_| previous.is_some() && previous != pane.sidebar);
+    let toggled = match (previous_toggles, pane.sidebar_toggles) {
+        (Some(before), Some(now)) if now > before => pane.sidebar,
+        _ => None,
+    };
     pane.send(json!({"type": "page", "state": report}));
     (first, toggled)
 }
@@ -410,9 +422,9 @@ mod tests {
     #[test]
     fn only_a_change_the_page_made_counts_as_a_sidebar_toggle() {
         let (mut pane, _received) = shown_pane();
-        let report = |section: &str, collapsed: Option<bool>| {
-            let sidebar = collapsed
-                .map(|c| format!(r#","sidebarCollapsed":{c}"#))
+        let report = |section: &str, sidebar: Option<(bool, u32)>| {
+            let sidebar = sidebar
+                .map(|(c, n)| format!(r#","sidebarCollapsed":{c},"sidebarToggles":{n}"#))
                 .unwrap_or_default();
             format!(r#"rhizome-desktop:{{"v":1,"section":"{section}","search":""{sidebar}}}"#)
         };
@@ -420,24 +432,41 @@ mod tests {
         assert_eq!(titled(&mut pane, &report("notes", None)), (true, None));
         assert!(!toggles_sidebar(&mut pane), "no sidebar command yet");
         // The page's echo of the app's command is not a toggle.
-        assert_eq!(titled(&mut pane, &report("notes", Some(false))).1, None);
-        assert!(toggles_sidebar(&mut pane));
-        assert_eq!(titled(&mut pane, &report("notes", Some(false))).1, None);
         assert_eq!(
-            titled(&mut pane, &report("notes", Some(true))).1,
+            titled(&mut pane, &report("notes", Some((false, 0)))).1,
+            None
+        );
+        assert!(toggles_sidebar(&mut pane));
+        // Late replies to two quick app commands change the value but not the
+        // page's own count, so neither undoes the newer choice.
+        assert_eq!(titled(&mut pane, &report("notes", Some((true, 0)))).1, None);
+        assert_eq!(
+            titled(&mut pane, &report("notes", Some((false, 0)))).1,
+            None
+        );
+        // ⌘\ in the page raises its count.
+        assert_eq!(
+            titled(&mut pane, &report("notes", Some((true, 1)))).1,
             Some(true)
         );
-        assert_eq!(titled(&mut pane, &report("graphql", Some(true))).1, None);
+        assert_eq!(titled(&mut pane, &report("notes", Some((true, 1)))).1, None);
+        assert_eq!(
+            titled(&mut pane, &report("graphql", Some((true, 1)))).1,
+            None
+        );
         assert!(!toggles_sidebar(&mut pane), "GraphQL has no sidebar");
-        assert!(titled(&mut pane, &report("agent", Some(true))).1.is_none());
+        assert!(titled(&mut pane, &report("agent", Some((true, 1))))
+            .1
+            .is_none());
         assert!(toggles_sidebar(&mut pane));
         pane.cover(true);
         assert!(!toggles_sidebar(&mut pane));
         pane.cover(false);
+        // A new document starts its own count.
         loading(&mut pane, &page("/notes"));
         assert!(!toggles_sidebar(&mut pane));
         assert_eq!(
-            titled(&mut pane, &report("notes", Some(false))),
+            titled(&mut pane, &report("notes", Some((false, 0)))),
             (true, None)
         );
     }

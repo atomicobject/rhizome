@@ -65,7 +65,7 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
 Amended by [[workbench-sidebar|SPEC-0127]] on 2026-10-26:
 - **Toolbar:** a sidebar toggle returns as the first control after the window buttons, now for the page's workbench sidebar. The View menu has Show Sidebar or Hide Sidebar with ⌃⌘S.
 - **`sidebar` command:** a page command whose detail carries only the collapsed flag. The app sends its stored choice when a workspace page loads and whenever the choice changes.
-- **Report:** the title report gains an optional `sidebarCollapsed`, present once the page has the app's choice, so a change made in the page (⌘\\) reaches the app, which stores it for every window.
+- **Report:** the title report gains optional `sidebarCollapsed` and `sidebarToggles`, present once the page has the app's choice. `sidebarToggles` counts the page's own toggles (⌘\\), so the app stores a change for every window only when the count rises, and a late reply to its own command never undoes a newer choice.
 
 - The content webview MUST NOT gain native command permissions. The page MUST report state only through its document title, and the native layer MUST send it commands only as DOM events with fixed names whose details it serializes.
 - The native layer MUST accept a report only while the content view's top-level page is on the verified runtime origin. It MUST check the report (known section names, bounded search text, a non-negative issue count, known health values) and ignore anything else. A page load, a navigation away from the runtime origin, or clearing the content view MUST clear the shell's page state.
