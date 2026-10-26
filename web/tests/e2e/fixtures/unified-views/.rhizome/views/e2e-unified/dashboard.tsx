@@ -1,4 +1,11 @@
-import { openNode, openView, useGraphQL, useViewContext, useViewRows } from "@rhizome/kit";
+import {
+  NodeLink,
+  openNode,
+  openView,
+  useGraphQL,
+  useViewContext,
+  useViewRows,
+} from "@rhizome/kit";
 
 export default function Dashboard({ configuration }) {
   const context = useViewContext();
@@ -21,6 +28,7 @@ export default function Dashboard({ configuration }) {
       <ul aria-label="GraphQL effort rows">
         {queried.data?.viewDemoEffort.map((record) => (
           <li key={record.ref.notePath}>
+            <NodeLink node={record.ref}>{record.title}</NodeLink>
             <output aria-label={`GraphQL ref ${record.title}`}>{JSON.stringify(record.ref)}</output>
             <button onClick={() => openNode(record.ref, { view: "e2e.views.node" })}>
               GraphQL open {record.title}
