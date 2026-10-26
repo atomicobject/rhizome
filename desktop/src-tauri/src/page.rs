@@ -6,7 +6,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Window};
 use url::Url;
 
 /// Marks the content view so the web UI hides its header and reports state.
@@ -77,6 +77,13 @@ pub struct Report {
     issues: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     health: Option<Health>,
+    /// The workbench sidebar's state, once the app has sent the page its choice.
+    #[serde(
+        default,
+        rename = "sidebarCollapsed",
+        skip_serializing_if = "Option::is_none"
+    )]
+    sidebar_collapsed: Option<bool>,
 }
 
 /// Reads a page title as a report, only from a page on the verified runtime
@@ -95,12 +102,16 @@ pub fn decode(title: &str, page: &Url, runtime: Option<&Url>) -> Option<Report> 
 pub fn loading(pane: &mut Pane, url: &Url) {
     pane.document = Some(url.clone());
     pane.reported = false;
+    pane.sidebar = None;
+    pane.graphql = false;
     pane.send(json!({"type": "page", "state": null}));
 }
 
 /// Relays the current document's title to the shell as its page state.
-/// Returns whether this is the document's first valid report.
-pub fn titled(pane: &mut Pane, title: &str) -> bool {
+/// Returns whether this is the document's first valid report, and the sidebar
+/// state when the page changed it since its last report (⌘\ in the page).
+/// A page's first sidebar state echoes the app's command, so it is no change.
+pub fn titled(pane: &mut Pane, title: &str) -> (bool, Option<bool>) {
     let runtime = pane.expected.read().unwrap().clone();
     let report = pane
         .document
@@ -108,8 +119,62 @@ pub fn titled(pane: &mut Pane, title: &str) -> bool {
         .and_then(|document| decode(title, document, runtime.as_ref()));
     let first = !pane.reported && report.is_some();
     pane.reported = report.is_some();
+    let previous = pane.sidebar;
+    pane.sidebar = report.as_ref().and_then(|r| r.sidebar_collapsed);
+    pane.graphql = report
+        .as_ref()
+        .is_some_and(|r| r.section == Section::Graphql);
+    let toggled = pane
+        .sidebar
+        .filter(|_| previous.is_some() && previous != pane.sidebar);
     pane.send(json!({"type": "page", "state": report}));
-    first
+    (first, toggled)
+}
+
+/// Whether the shown page can toggle its sidebar: a runtime page that took
+/// the app's sidebar command, in a section other than GraphQL.
+pub fn toggles_sidebar(pane: &mut Pane) -> bool {
+    on_runtime(pane) && pane.sidebar.is_some() && !pane.graphql
+}
+
+/// Hands a runtime document an app setting (theme, sidebar). A page that is
+/// loading or covered still takes it.
+pub fn send_setting(window: &Window, command: &Command) {
+    let shown = window
+        .app_handle()
+        .state::<crate::pane::Panes>()
+        .with(window.label(), |pane| on_runtime_document(pane))
+        .unwrap_or(false);
+    let content = window.get_webview(&crate::windows::content_label(window.label()));
+    if let (true, Some(content), Some(script)) = (shown, content, command.script()) {
+        let _ = content.eval(script);
+    }
+}
+
+/// Saves the app-wide sidebar state and hands it to every window's page; the
+/// pages' reports then update each toolbar.
+pub fn set_sidebar(app: &AppHandle, collapsed: bool) -> Result<(), String> {
+    let desktop = app.state::<Desktop>();
+    {
+        let _saving = desktop.preferences.lock().unwrap();
+        let mut saved = Preferences::load(&desktop.directory);
+        saved.sidebar_collapsed = collapsed;
+        saved.save(&desktop.directory)?;
+    }
+    for window in app.windows().values() {
+        send_setting(window, &Command::Sidebar { collapsed });
+    }
+    crate::menu::refresh_sidebar(app);
+    Ok(())
+}
+
+/// Applies a page's report that the user toggled its sidebar, unless the app
+/// already holds that state.
+pub fn sidebar_reported(app: &AppHandle, collapsed: bool) {
+    let saved = Preferences::load(&app.state::<Desktop>().directory).sidebar_collapsed;
+    if saved != collapsed {
+        let _ = set_sidebar(app, collapsed);
+    }
 }
 
 /// Whether a visible content view shows a document on the verified runtime origin.
@@ -149,6 +214,11 @@ pub enum Command {
     #[serde(skip_deserializing)]
     Theme {
         theme: Theme,
+    },
+    /// Shows or hides the workbench sidebar. From the shell it asks the app to
+    /// store the state and send it to every window's page.
+    Sidebar {
+        collapsed: bool,
     },
 }
 
@@ -288,14 +358,17 @@ mod tests {
         assert!(!pane.reported);
 
         loading(&mut pane, &page("/agent"));
-        assert!(!titled(&mut pane, "Rhizome · vault"));
+        assert!(!titled(&mut pane, "Rhizome · vault").0);
         assert!(!pane.reported, "an older runtime's title is not a report");
         assert!(
-            titled(&mut pane, report),
+            titled(&mut pane, report).0,
             "the first report takes the theme"
         );
         assert!(pane.reported);
-        assert!(!titled(&mut pane, report), "later reports do not resend it");
+        assert!(
+            !titled(&mut pane, report).0,
+            "later reports do not resend it"
+        );
         assert_eq!(
             page_states(),
             vec![
@@ -314,6 +387,59 @@ mod tests {
         );
         loading(&mut pane, &viewer);
         assert!(!on_runtime_document(&pane));
+    }
+
+    #[test]
+    fn reports_carry_the_sidebar_state_when_the_page_has_one() {
+        let title =
+            r#"rhizome-desktop:{"v":1,"section":"explorer","search":"","sidebarCollapsed":true}"#;
+        let report = decode(title, &page("/explorer"), Some(&runtime())).unwrap();
+        assert_eq!(report.sidebar_collapsed, Some(true));
+        assert_eq!(
+            serde_json::to_value(&report).unwrap(),
+            json!({"section": "explorer", "search": "", "sidebarCollapsed": true})
+        );
+        let title = r#"rhizome-desktop:{"v":1,"section":"explorer","search":""}"#;
+        let report = decode(title, &page("/explorer"), Some(&runtime())).unwrap();
+        assert_eq!(report.sidebar_collapsed, None);
+        let title =
+            r#"rhizome-desktop:{"v":1,"section":"explorer","search":"","sidebarCollapsed":"no"}"#;
+        assert!(decode(title, &page("/explorer"), Some(&runtime())).is_none());
+    }
+
+    #[test]
+    fn only_a_change_the_page_made_counts_as_a_sidebar_toggle() {
+        let (mut pane, _received) = shown_pane();
+        let report = |section: &str, collapsed: Option<bool>| {
+            let sidebar = collapsed
+                .map(|c| format!(r#","sidebarCollapsed":{c}"#))
+                .unwrap_or_default();
+            format!(r#"rhizome-desktop:{{"v":1,"section":"{section}","search":""{sidebar}}}"#)
+        };
+        loading(&mut pane, &page("/notes"));
+        assert_eq!(titled(&mut pane, &report("notes", None)), (true, None));
+        assert!(!toggles_sidebar(&mut pane), "no sidebar command yet");
+        // The page's echo of the app's command is not a toggle.
+        assert_eq!(titled(&mut pane, &report("notes", Some(false))).1, None);
+        assert!(toggles_sidebar(&mut pane));
+        assert_eq!(titled(&mut pane, &report("notes", Some(false))).1, None);
+        assert_eq!(
+            titled(&mut pane, &report("notes", Some(true))).1,
+            Some(true)
+        );
+        assert_eq!(titled(&mut pane, &report("graphql", Some(true))).1, None);
+        assert!(!toggles_sidebar(&mut pane), "GraphQL has no sidebar");
+        assert!(titled(&mut pane, &report("agent", Some(true))).1.is_none());
+        assert!(toggles_sidebar(&mut pane));
+        pane.cover(true);
+        assert!(!toggles_sidebar(&mut pane));
+        pane.cover(false);
+        loading(&mut pane, &page("/notes"));
+        assert!(!toggles_sidebar(&mut pane));
+        assert_eq!(
+            titled(&mut pane, &report("notes", Some(false))),
+            (true, None)
+        );
     }
 
     #[test]
@@ -349,7 +475,17 @@ mod tests {
             serde_json::from_value::<Command>(json!({"command": "find"})).unwrap(),
             Command::Find
         );
+        let sidebar: Command =
+            serde_json::from_value(json!({"command": "sidebar", "collapsed": true})).unwrap();
+        assert_eq!(sidebar, Command::Sidebar { collapsed: true });
+        assert_eq!(
+            sidebar.script().unwrap(),
+            r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"sidebar","collapsed":true} }))"#
+        );
         for invalid in [
+            json!({"command": "sidebar"}),
+            json!({"command": "sidebar", "collapsed": "yes"}),
+            json!({"command": "sidebar", "collapsed": true, "width": 300}),
             // The shell cannot send the theme command; the app sends it from settings.
             json!({"command": "theme", "theme": "indigo"}),
             json!({"command": "section", "section": "settings"}),

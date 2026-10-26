@@ -543,6 +543,16 @@ pub async fn desktop_request(
             windows::browse(&window, to)?;
             Ok(Value::Null)
         }
+        Action::Page(page::Command::Sidebar { collapsed }) => {
+            let toggles = app
+                .state::<Panes>()
+                .with(window.label(), page::toggles_sidebar)
+                .unwrap_or(false);
+            if toggles {
+                page::set_sidebar(&app, collapsed)?;
+            }
+            Ok(Value::Null)
+        }
         Action::Page(command) => {
             windows::page_command(&window, &command);
             Ok(Value::Null)
