@@ -4,7 +4,7 @@ id: SPEC-0126
 aliases: [SPEC-0126, Workbench redesign]
 summary: "Redesigns the Rhizome workbench in the browser and in Rhizome Desktop: selectable chrome themes with light and dark appearance, an Inter type scale and neutral surfaces, a calmer view header with progressive disclosure, a table column policy that keeps titles readable, resizable side panels with one right pane, and fuzzy finders for notes and files (⌘P), repositories (⌘O), and worktrees (⇧⌘O)."
 spec-status: active
-last-updated: 2026-10-25
+last-updated: 2026-10-26
 ---
 
 # Workbench redesign
@@ -80,7 +80,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 #### Acceptance Criteria
 
 - The header shows the collection dot and title, its count, a short description that truncates, Find in view (⌘F), Filter, View, and the pane toggle on one row. Presentations (Table, Board, Cards, Briefing, and saved views) appear as text tabs on the row below.
-- View opens a popover holding Group by, Sort, Rows (a visible "1 line | 2 lines" segmented control), Columns, Reset to default, and Save view.
+- View opens a popover holding Group by, Sort, Rows (a visible "1 line | 2 lines" segmented control), Columns, Reset to shared, and Save view.
 - The separate stats band and preset pill band no longer appear. Counts appear on group headers and in the title row, and active filters appear as removable chips under the header only while a filter is active.
 - On a 900px-tall window the first data row starts no more than about 140px below the top of the content panel.
 
@@ -205,7 +205,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 - MUST replace Barlow with Inter as the UI face, self-hosted as variable woff2 (Latin and Latin Extended) under SIL OFL, with license notices generated through `scripts/licenses/generate.py`. Merriweather stays for document titles and JetBrains Mono for evidence.
 - MUST apply tabular figures only to number-bearing elements (counts, dates, numeric cells), because Inter widens the hyphen under `tnum`.
-- MUST use a 14px-class UI base, 13px secondary text, 12.5px column heads and labels, and an 18px view title, with weights 400, 500, and 600 in chrome and 650–700 only for titles.
+- MUST use a 14px-class UI base, 13px secondary text and column heads, 12px labels, and an 18px view title, with weights 400, 500, and 600 in chrome and 650–700 only for titles.
 - MUST replace hard-coded Barlow references (graph labels, mermaid, docs, skill copies) and hard-coded font sizes in bundled group views with tokens.
 
 ### Desktop
@@ -244,4 +244,21 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 - Resolved 2026-10-25: the ⌘O and ⇧⌘O finders draw in a dedicated finder webview layered above the content view. It is transparent outside the palette so it can show a scrim and shadow, and its capabilities and channel are scoped like the shell's. A spike proves it first; the fallback is a band that drops from the title bar and temporarily pushes the content view down. Rendering the finders inside the content page is ruled out, because the page and its same-origin custom views would receive the user's other repository names and paths.
 - Resolved 2026-10-25: ⌘P finds notes and code files. Notes rank first, and a code file opens in Explorer.
-- Proposed: Add Repository gets no shortcut once ⌘O moves. It stays in the File menu and at the foot of the repository finder.
+- Resolved 2026-10-25: Add Repository gets no shortcut once ⌘O moves. It stays in the File menu and at the foot of the repository finder.
+- Resolved 2026-10-25, delivery: the finder spike succeeded, so the overlay webview (`shell-finder-N`) shipped and the drop-down band fallback was not needed.
+- Resolved 2026-10-25, delivery: the desktop settings file is the lenient `preferences.json`, which already holds the app's other preferences, rather than a new file.
+- Resolved 2026-10-25, delivery: ⌘P scoring pins `github.com/junegunn/fzf` v0.57.0 and vendors only `src/algo` and `src/util`.
+  - **When typo variants run:** only when the direct query matches fewer than 10 items and has 3 to 24 runes.
+  - **What a variant is:** one adjacent pair swapped, or, from four runes, one rune dropped.
+  - **What they match:** titles and file names, never full paths.
+- Resolved 2026-10-25, delivery: the View popover's Sort shows and sets the first sort key only. For a view whose YAML sorts by several keys, reversing the direction keeps the later keys, and choosing another field replaces the sort with that one key.
+- Resolved 2026-10-25, delivery: a reading measure.
+  - **Width:** the note reads in a 680px column, where tables, code, and properties may use the full width. Prose (paragraphs, lists, block quotes) caps at 540px inside it, which holds 66–79 characters (72 on average) of 15px Inter. The section editor's lines wrap at the same width.
+  - **Disclosure chevron:** it sits in the gutter beside a section's title.
+  - **Home line:** a note's first body block reads as quiet metadata when it is a single line of a short label followed only by links.
+- Resolved 2026-10-26, delivery: "toggling Edit does not move the text" (US11) holds within a section: a section's prose keeps its position relative to its heading. The note body can still shift, because Edit reveals every property, including the empty ones read mode hides, as form controls.
+- Resolved 2026-10-26, delivery: below 1200px the narrow-window rule (US5) wins over opening on selection (US6). Selecting a row does not open the right pane there; `]` or the tab row's toggle opens it over the content.
+- Resolved 2026-10-26, delivery: column heads ship at 13px and labels at 12px, the nearest steps on the type scale, instead of 12.5px.
+- Resolved 2026-10-26, delivery: the screenshot requirement is met with reference captures in `.impeccable/references/workbench-2026-10/`, not asserted tests, because the repository has no pixel-diff layer and CI renders fonts differently. The desktop-mode shell has no capture: windows launched from this session never paint into captures.
+- Resolved 2026-10-25, delivery: a page's first paint in Rhizome Desktop uses the theme baked into its window when it opened, unless that page's origin remembers a newer theme command (a reload after a change). A first load of another runtime origin in a window opened before a theme change can still show the older theme until the page reports its title.
+

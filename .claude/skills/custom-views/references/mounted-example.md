@@ -109,7 +109,7 @@ function Detail({ context }: { context: Extract<ViewContext, { kind: "node" }> }
   if (result.isPending) return <p className="p-4 text-faint">Loading effort…</p>;
   if (result.error) return <p role="alert" className="p-4 text-risk">{result.error.message}</p>;
   if (!result.data.node) return <p className="p-4 text-faint">This effort is unavailable.</p>;
-  // A node presentation draws its own title, in Barlow.
+  // A node presentation draws its own title, in Inter.
   return (
     <main className="space-y-3 px-5 py-3">
       <h1 className="text-xl font-bold">{result.data.node.title}</h1>

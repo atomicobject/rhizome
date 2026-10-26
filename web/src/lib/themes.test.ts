@@ -132,6 +132,14 @@ describe.each(THEMES.map((option) => option.id))("%s theme", (id) => {
       const active = mix(text, pick(tokens, "--chrome-bg", side), 0.16);
 
       expect(contrast(text, active), "chrome text on the active tab").toBeGreaterThanOrEqual(AA);
+
+      // --chrome-raised: the global search field, whose placeholder is muted text.
+      const raised = mix(text, pick(tokens, "--chrome-bg", side), 0.09);
+
+      expect(
+        contrast(muted, raised),
+        "muted chrome text on the search field",
+      ).toBeGreaterThanOrEqual(AA);
       expect(
         contrast(pick(tokens, "--chrome-pill-text", side), pick(tokens, "--chrome-pill", side)),
         "pill text on the pill",
