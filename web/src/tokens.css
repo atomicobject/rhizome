@@ -226,7 +226,7 @@
 :root[data-theme="graphite"] {
   --chrome-bg: light-dark(#45433f, #2b2a28);
   --chrome-top: light-dark(#3b3936, #232220);
-  --chrome-muted: light-dark(#c9c5bf, #b9b5ae);
+  --chrome-muted: light-dark(#cbc7c1, #b9b5ae);
   --chrome-pill: light-dark(#f1efec, #45433f);
   --chrome-pill-text: light-dark(#2b2a28, #f4f3f1);
 }
