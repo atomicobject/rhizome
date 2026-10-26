@@ -1,6 +1,6 @@
 # Workbench redesign reference screenshots
 
-Reference captures of the Effort notes table (the `EffortNote` type collection, Table presentation) after the SPEC-0126 workbench redesign. They are fixtures for future design work, not asserted tests: the repository has no pixel-diff test layer.
+Reference captures of the Effort notes table (the `EffortNote` type collection, Table presentation) after the SPEC-0126 workbench redesign. They are fixtures for future design work, not asserted tests: the repository has no pixel-diff test layer. The four PNGs sit beside this file, tracked in Git, at 165–225 KB each; review tools that skip binary files will not list them.
 
 | File | Viewport | Appearance |
 |---|---|---|
