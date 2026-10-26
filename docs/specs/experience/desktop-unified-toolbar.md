@@ -62,7 +62,7 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
 - **`theme` command:** a page command whose detail carries only a validated preset name. It goes to any document on the verified runtime origin, including a covered or still-loading page, so a page never keeps the old theme. Other commands still wait for a reported workspace page.
 - **Window creation:** the content view's initialization script supplies the theme current then, and the time it was read, for the page's first paint.
 
-Amended by [[workbench-sidebar|SPEC-0127]] on 2026-10-26:
+Amended by [[workbench-sidebar|SPEC-0128]] on 2026-10-26:
 - **Toolbar:** a sidebar toggle returns as the first control after the window buttons, now for the page's workbench sidebar. The View menu has Show Sidebar or Hide Sidebar with ⌃⌘S.
 - **`sidebar` command:** a page command whose detail carries only the collapsed flag. The app sends its stored choice when a workspace page loads and whenever the choice changes.
 - **Report:** the title report gains optional `sidebarCollapsed` and `sidebarToggles`, present once the page has the app's choice. `sidebarToggles` counts the page's own toggles (⌘\\), so the app stores a change for every window only when the count rises, and a late reply to its own command never undoes a newer choice.

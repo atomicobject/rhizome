@@ -50,7 +50,7 @@ Before starting a runtime in a configured worktree whose Rhizome database is mis
 
 Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US2, US9, US10). The repository sidebar, its reorder, and its saved collapsed state are gone; sessions no longer record a sidebar state.
 
-Amended by [[workbench-sidebar|SPEC-0127]] on 2026-10-26: the toolbar's sidebar toggle now shows or hides the page's workbench sidebar, and the app keeps that choice in its app-wide preferences rather than per window.
+Amended by [[workbench-sidebar|SPEC-0128]] on 2026-10-26: the toolbar's sidebar toggle now shows or hides the page's workbench sidebar, and the app keeps that choice in its app-wide preferences rather than per window.
 - **Toolbar:** it names the window's repository and worktree as separate targets. The repository opens a repository finder (⌘O) that lists known repositories by most recent use and opens one's primary checkout; ⌘Enter opens it in a new window, and ⌘1–⌘9 open the first nine. The worktree opens a worktree finder (⇧⌘O).
 - **Finders:** they draw in a transparent `shell-finder-N` overlay webview above the content view, which holds the shell's capabilities and nothing more.
 - **Repository actions:** they live in the repository name's context menu and the repository finder rows' actions. Add Repository has no shortcut.

@@ -396,7 +396,7 @@ pub struct Preferences {
     pub theme: Theme,
     #[serde(deserialize_with = "lenient")]
     pub appearance: Appearance,
-    /// The workbench sidebar's state in every window (SPEC-0127).
+    /// The workbench sidebar's state in every window (SPEC-0128).
     #[serde(deserialize_with = "lenient")]
     pub sidebar_collapsed: bool,
 }

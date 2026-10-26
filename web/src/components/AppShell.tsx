@@ -257,7 +257,7 @@ export function AppShell() {
     }
   });
 
-  // GraphQL has no sidebar (SPEC-0127).
+  // GraphQL has no sidebar (SPEC-0128).
   useSidebarShortcut({ desktop, disabled: route === "graphql" });
 
   useEffect(() => {

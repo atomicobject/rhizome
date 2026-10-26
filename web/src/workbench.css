@@ -1,6 +1,6 @@
 /* ---- Workbench: one themed sidebar beside an inset content panel ----
    Every section with a sidebar (Notes, Ontology, Explorer, Agent) uses this
-   layout (SPEC-0127). The sidebar sits on the chrome; the content is a white
+   layout (SPEC-0128). The sidebar sits on the chrome; the content is a white
    panel inset 6px from the right and bottom with a rounded corner. */
 .workbench {
   display: grid;

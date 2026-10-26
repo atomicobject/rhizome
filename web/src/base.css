@@ -157,7 +157,7 @@ textarea {
   gap: 2px;
 }
 
-/* The workbench sidebar's toggle, just before the sections (SPEC-0127). */
+/* The workbench sidebar's toggle, just before the sections (SPEC-0128). */
 .app-shell__sidebar-toggle {
   display: inline-flex;
   align-items: center;

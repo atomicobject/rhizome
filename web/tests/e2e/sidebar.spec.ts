@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures";
 
-// One workbench sidebar, toggled only by the user (SPEC-0127).
+// One workbench sidebar, toggled only by the user (SPEC-0128).
 
 test("keeps the sidebar where the user put it across searches, reloads, and sections", async ({
   page,

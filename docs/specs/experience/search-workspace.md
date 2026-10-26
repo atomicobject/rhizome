@@ -14,7 +14,7 @@ aliases:
 
 Rhizome users need to find relevant notes and code without confusing project search with filtering a note list. Today the top-bar search control focuses a second search input in the Notes sidebar, while a third input filters the list below. The server-side sidebar query produces alphabetized note matches; it does not provide the ranked project search experience.
 
-The global header becomes the entry point for Rhizome's existing retrieval engine. Submitting a query opens a retained search-results tab. Search occupies the workspace below the tab strip, without a right pane. The workbench sidebar stays as the user left it ([[workbench-sidebar|SPEC-0127]]). Results have useful excerpts and explicit scope filters. The note browser retains one local note-list filter. Returning to a note restores its context, whose Info, Outline, and Graph tabs keep the same position.
+The global header becomes the entry point for Rhizome's existing retrieval engine. Submitting a query opens a retained search-results tab. Search occupies the workspace below the tab strip, without a right pane. The workbench sidebar stays as the user left it ([[workbench-sidebar|SPEC-0128]]). Results have useful excerpts and explicit scope filters. The note browser retains one local note-list filter. Returning to a note restores its context, whose Info, Outline, and Graph tabs keep the same position.
 
 This spec extends [Notes workspace shell](notes-workspace-shell.md) and consumes [Frontend data lifecycle](../technical/frontend-data-lifecycle.md). Once approved, it replaces SPEC-0090's requirement for a separate sidebar search and makes search tabs an explicit exception to its every-tab left-rail rule. It does not supersede the rest of the Notes-shell contract. Search behavior follows [Search subsystem guidance](../../reference/subsystems/search.md).
 
@@ -50,7 +50,7 @@ This spec extends [Notes workspace shell](notes-workspace-shell.md) and consumes
 - Enter submits a nonempty trimmed query. Typing alone does not run the full engine, and whitespace-only submission creates no tab or request.
 - A new submitted query opens and activates a search tab labelled with that query, preserving Home and existing note/search tabs. Repeating the same normalized query with its initial filters reuses the matching tab.
 - While a search tab is active, results occupy the workspace below the global header and tab strip. The right pane, note-edit toolbar, and note-context title are not present. Home remains reachable in the tab strip.
-- Amended by [[workbench-sidebar|SPEC-0127]] on 2026-10-26: the workbench sidebar stays visible on a search tab unless the user collapsed it.
+- Amended by [[workbench-sidebar|SPEC-0128]] on 2026-10-26: the workbench sidebar stays visible on a search tab unless the user collapsed it.
 - The header is the only editable query field on the search page. The result heading and submitted query are read-only text. Submitting another query from the header starts from All, Any type, and Anywhere, independently of the current note collection.
 
 ### US2 - Read ranked evidence and open its source

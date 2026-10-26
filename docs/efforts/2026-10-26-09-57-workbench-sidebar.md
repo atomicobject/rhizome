@@ -6,7 +6,7 @@ name: Workbench sidebar
 created-at: 2026-10-26T13:57:31Z
 plan-approved-by: Drew Colthorp
 status: complete
-summary: "Deliver SPEC-0127: one persistent, user-toggled sidebar frame across Notes, Ontology, Explorer, and Agent, with one remembered collapsed state and width, a toggle in the browser top bar and the desktop toolbar, and ⌃⌘S or ⌘\\ shortcuts."
+summary: "Deliver SPEC-0128: one persistent, user-toggled sidebar frame across Notes, Ontology, Explorer, and Agent, with one remembered collapsed state and width, a toggle in the browser top bar and the desktop toolbar, and ⌃⌘S or ⌘\\ shortcuts."
 governing-specs: ["[[workbench-sidebar]]"]
 ---
 
@@ -14,7 +14,7 @@ governing-specs: ["[[workbench-sidebar]]"]
 
 ## Scope
 
-Implement [[workbench-sidebar|SPEC-0127]], which Drew asked for on 2026-10-26 after #48 merged. His decisions:
+Implement [[workbench-sidebar|SPEC-0128]], which Drew asked for on 2026-10-26 after #48 merged. His decisions:
 
 | Decision | Choice |
 |---|---|
@@ -26,15 +26,15 @@ Implement [[workbench-sidebar|SPEC-0127]], which Drew asked for on 2026-10-26 af
 | GraphQL | No sidebar; toggle disabled |
 | Shortcuts | ⌃⌘S and ⌘\\ |
 
-Excluded: SPEC-0127 Non-Goals (a GraphQL sidebar, per-section state or widths, new narrow-window behaviour, right-pane changes, and changes to what the Notes sidebar holds).
+Excluded: SPEC-0128 Non-Goals (a GraphQL sidebar, per-section state or widths, new narrow-window behaviour, right-pane changes, and changes to what the Notes sidebar holds).
 
 ## Spec Set (Frozen)
 
-- [[workbench-sidebar|SPEC-0127]], 2026-10-26 revision: US1–US3 and all requirements.
+- [[workbench-sidebar|SPEC-0128]], 2026-10-26 revision: US1–US3 and all requirements.
 
 ## Stories In Scope (Frozen)
 
-All three stories of SPEC-0127 (`^SPEC-0127-US1` through `^SPEC-0127-US3`).
+All three stories of SPEC-0128 (`^SPEC-0128-US1` through `^SPEC-0128-US3`).
 
 ## Spec Coverage Checklist
 
@@ -125,25 +125,26 @@ The sidebar is now one frame in Notes, Ontology, Explorer, and Agent, and only t
 
 ## Deviations
 
+- 2026-10-26T16:30:00Z: #49 (scheduled tasks) merged to `main` holding SPEC-0127 first, so this spec is renumbered SPEC-0128, along with every reference this branch added. frozen-scope-drift acknowledged for SPEC-0128: the spec set is refrozen at this revision.
 - 2026-10-26T16:05:00Z: an independent GPT-6.1 Sol review (xhigh) of `a3bc9734` found three issues:
   - **Delayed echo:** a delayed reply could overwrite the latest choice. This was already fixed by the toggle count in `257af38d`.
   - **Width across windows:** windows of the same repository now follow each other's width through `storage` events in Desktop too.
-  - **⌃⌘S in a text field:** the native View-menu ⌃⌘S toggles even while a text field has focus. SPEC-0127 US2 now says the page's shortcuts skip text fields, while the menu item answers ⌃⌘S from anywhere, like any macOS menu command. ⌃⌘S has no text-editing meaning. frozen-scope-drift acknowledged for SPEC-0127: the spec set is refrozen at this revision.
+  - **⌃⌘S in a text field:** the native View-menu ⌃⌘S toggles even while a text field has focus. SPEC-0128 US2 now says the page's shortcuts skip text fields, while the menu item answers ⌃⌘S from anywhere, like any macOS menu command. ⌃⌘S has no text-editing meaning. frozen-scope-drift acknowledged for SPEC-0128: the spec set is refrozen at this revision.
 - 2026-10-26T15:45:00Z: Greptile review of #57 (4/5) found three issues, all fixed:
   - **Late replies:** a late reply to an earlier app command could look like a page toggle and undo a newer choice after two quick toggles. The page now reports `sidebarToggles`, a count of its own toggles, and the app treats a report as a toggle only when that count rises.
   - **Ontology read failure:** a failed type-tree read showed an empty tree. The sidebar now says "Types unavailable" with a Retry button.
-  - **Desktop width (also flagged by the Sol review):** the width is not shared across Desktop windows. SPEC-0127 US1 is amended: in Desktop the collapsed state is app-wide, and the width is remembered per repository in the page's storage. frozen-scope-drift acknowledged for SPEC-0127: the spec set is refrozen at this revision.
+  - **Desktop width (also flagged by the Sol review):** the width is not shared across Desktop windows. SPEC-0128 US1 is amended: in Desktop the collapsed state is app-wide, and the width is remembered per repository in the page's storage. frozen-scope-drift acknowledged for SPEC-0128: the spec set is refrozen at this revision.
 - 2026-10-26T15:20:00Z: routine choices within the approved plan, recorded for review:
   - Ontology lets embedded types open their detail (Notes still disables them), because US3 says choosing a type opens its detail.
   - Explorer's root row shows the vault's short name.
-  - Off macOS the View menu's accelerator is Ctrl+Alt+S, following SPEC-0127. `Ctrl+CmdOrCtrl+S` would be Ctrl+S (Save) there.
+  - Off macOS the View menu's accelerator is Ctrl+Alt+S, following SPEC-0128. `Ctrl+CmdOrCtrl+S` would be Ctrl+S (Save) there.
   - The top bar names the vault only on GraphQL or a status error, since every sidebar header names it.
 
 ## Closure Checklist
 
 - [x] Spec coverage checklist complete or deviations recorded.
 - [x] Quality gates recorded with exact commands and results (Execution Notes).
-- [x] SPEC-0127 and the amended specs (SPEC-0090, SPEC-0098, SPEC-0113, SPEC-0119, SPEC-0126) reconciled with delivery.
+- [x] SPEC-0128 and the amended specs (SPEC-0090, SPEC-0098, SPEC-0113, SPEC-0119, SPEC-0126) reconciled with delivery.
 - [ ] PR open; Greptile 5/5; independent review; CI green on the final head.
 - [x] Follow-ups recorded.
 - [x] Desktop verification: recorded as a post-merge click-through in Rhizome Dev (Follow-ups); Rhizome Dev installs only from `main`.
@@ -156,4 +157,4 @@ The sidebar is now one frame in Notes, Ontology, Explorer, and Agent, and only t
 
 ## Status
 
-Complete. SPEC-0127 is delivered on `feat/persistent-sidebar`; the PR, its review, and CI are recorded below as they land.
+Complete. SPEC-0128 is delivered on `feat/persistent-sidebar`; the PR, its review, and CI are recorded below as they land.

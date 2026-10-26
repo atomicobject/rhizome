@@ -147,7 +147,7 @@ test("searches from shared chrome in a retained full-width workspace", async ({
     }),
   ).toBeVisible();
   await expect(page.getByLabel("Search status")).toContainText("Confidence high");
-  // The sidebar stays where the user left it (SPEC-0127).
+  // The sidebar stays where the user left it (SPEC-0128).
   await expect(page.locator(".notes-left-rail")).toBeVisible();
   await expect(page.getByRole("complementary", { name: "Note context" })).toBeHidden();
   await expect(page.getByPlaceholder("Search notes...")).toHaveCount(0);
@@ -202,7 +202,7 @@ test("searches from shared chrome in a retained full-width workspace", async ({
 
   await page.getByRole("tab", { name: /typed retrieval/i }).click();
   await page.setViewportSize({ width: 1440, height: 900 });
-  // The sidebar stays where the user left it (SPEC-0127).
+  // The sidebar stays where the user left it (SPEC-0128).
   await expect(page.locator(".notes-left-rail")).toBeVisible();
   await expect(page.getByRole("complementary", { name: "Note context" })).toBeHidden();
   await expect

@@ -1,7 +1,7 @@
 ---
 type: ExperienceSpec
-id: SPEC-0127
-aliases: [SPEC-0127, Workbench sidebar]
+id: SPEC-0128
+aliases: [SPEC-0128, Workbench sidebar]
 summary: "One persistent, user-toggled sidebar across Notes, Ontology, Explorer, and Agent: the same themed frame with section-specific contents, one remembered collapsed state and width, a toggle in the browser top bar and in Rhizome Desktop's toolbar, and ⌃⌘S or ⌘\\ to toggle it."
 spec-status: active
 last-updated: 2026-10-26
@@ -33,7 +33,7 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 
 ### US1 - Keep the sidebar where I put it
 
-- id:: ^SPEC-0127-US1
+- id:: ^SPEC-0128-US1
 - summary:: Hide or show the sidebar once and have it stay that way across searches, sections, reloads, and windows.
 - status:: ready
 
@@ -46,7 +46,7 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 
 ### US2 - Toggle the sidebar from one place
 
-- id:: ^SPEC-0127-US2
+- id:: ^SPEC-0128-US2
 - summary:: Show or hide the sidebar with one control that sits in the same place in every section, or with a shortcut.
 - status:: ready
 
@@ -59,7 +59,7 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 
 ### US3 - Use the same sidebar in every section
 
-- id:: ^SPEC-0127-US3
+- id:: ^SPEC-0128-US3
 - summary:: See the same sidebar frame in Notes, Ontology, Explorer, and Agent, holding what each section needs.
 - status:: ready
 

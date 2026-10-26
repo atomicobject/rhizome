@@ -1,5 +1,5 @@
 // The sidebar's row parts and its type tree, shared by the Notes and Ontology
-// sidebars (SPEC-0127): display groups holding their types and interfaces,
+// sidebars (SPEC-0128): display groups holding their types and interfaces,
 // with the same rows, carets, keyboard model, and remembered expansion.
 
 import {

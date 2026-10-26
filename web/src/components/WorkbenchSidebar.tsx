@@ -92,7 +92,7 @@ export function SidebarToggle({ disabled = false }: { disabled?: boolean }) {
 type SidebarStyle = CSSProperties & { "--sidebar-width": string };
 
 /**
- * The one sidebar frame every section shares (SPEC-0127): the themed column,
+ * The one sidebar frame every section shares (SPEC-0128): the themed column,
  * its header, and its resize handle. Each section passes its own contents.
  * While collapsed it stays mounted, hidden and inert, so section state such
  * as expanded groups survives.

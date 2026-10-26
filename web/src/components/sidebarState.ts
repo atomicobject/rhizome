@@ -1,5 +1,5 @@
 // The workbench sidebar's collapsed state and width, shared by every section
-// (SPEC-0127). In a browser both persist per origin and follow other tabs. In
+// (SPEC-0128). In a browser both persist per origin and follow other tabs. In
 // Rhizome Desktop the app owns the collapsed state: it sends it as a page
 // command, and once the page has it, the page reports its state through its
 // title, so a change made in the page (a shortcut) reaches the app, which

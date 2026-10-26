@@ -1,4 +1,4 @@
-/* The session list sits in the shared workbench sidebar (SPEC-0127) and the
+/* The session list sits in the shared workbench sidebar (SPEC-0128) and the
    chat in its inset panel. */
 .agent-workspace__rail {
   flex: 1;
