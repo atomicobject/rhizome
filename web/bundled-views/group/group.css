@@ -10,6 +10,12 @@
   padding-bottom: 40px;
 }
 
+/* Briefings keep readable proportions on wide screens; tabular views stay fluid. */
+.gv-page:has(> .gv-brief) {
+  max-width: 1400px;
+  margin-inline: auto;
+}
+
 .gv-state {
   margin: 0;
   padding: 14px 20px;
