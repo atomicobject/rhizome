@@ -123,7 +123,7 @@ The parent PR #48 (`feat/workbench-redesign`) carries one commit per batch:
 - #52 (view header, column rule, reading widths);
 - #53 (desktop chrome and the ⌘O and ⇧⌘O finders);
 - #54 (note reader and edit mode);
-- the Batch 6 documentation, critique, and closure PR.
+- #55 (Batch 6: documentation, critique, and closure).
 
 The workbench has five chrome themes with Light, Dark, and Match System appearance in the browser and in Rhizome Desktop, and Inter on a 14px scale. A table's title column keeps at least 240px. The panels resize and persist. ⌘P, ⌘O, and ⇧⌘O reach notes, files, repositories, and worktrees. The note reader reads calmly and edits in place. The critique score rose from 24/40 to 29/40.
 
@@ -181,7 +181,7 @@ Not delivered: US3's 140px first-row criterion, pending Drew's decision. The pac
     - A manual save through the UI kept every other byte, including all 23 CRLF line endings.
     - Greptile 5/5 with no comments on the first pass; `make check` and 104 e2e tests; CI green.
 
-- 2026-10-26T01:12:17Z Batch 6 (documentation, critique, and closure) on `feat/workbench-redesign-b6-docs`.
+- 2026-10-26T01:12:17Z Batch 6 (documentation, critique, and closure) on `feat/workbench-redesign-b6-docs`, opened as #55.
   - **Design truth (worker):** `DESIGN.md` and `.impeccable/design.json` are rewritten from the shipped code, and `PRODUCT.md` names Inter. Reference screenshots of the Effort notes table (1100×800 and 1440×900, Graphite light and dark) are in `.impeccable/references/workbench-2026-10/`.
   - **Critique:** the fresh Impeccable critique (`.impeccable/critique/2026-10-26T00-54-53Z__web-src.md`) scores **29/40 against the 24/40 baseline**, with no P0 left. The title column that collapsed to 10px at 1100px is now 456px.
   - **Its P1s:** Edit mode grows the properties into form controls; the header is still 210px tall; "Active" still renders three ways (pre-existing).
@@ -223,7 +223,7 @@ Not delivered: US3's 140px first-row criterion, pending Drew's decision. The pac
 - [ ] Spec coverage checklist complete or deviations recorded. US3's 140px criterion awaits Drew's decision.
 - [x] Quality gates recorded with exact commands and results (Execution Notes, Batch 6).
 - [x] SPEC-0126 reconciled with delivery; amended specs, DESIGN.md, and PRODUCT.md updated.
-- [ ] Parent PR open; Greptile 5/5 per batch; CI green on the final head. #48 is open, and every child PR reached Greptile 5/5 with green CI; the Batch 6 PR is pending.
+- [ ] Parent PR open; Greptile 5/5 per batch; CI green on the final head. #48 is open, and every child PR reached Greptile 5/5 with green CI; the Batch 6 PR is #55.
 - [x] Follow-ups recorded.
 - [ ] Desktop verification: the packaged app exercised with a real repository (Drew's click-through in Rhizome Dev).
 
@@ -244,4 +244,4 @@ Not delivered: US3's 140px first-row criterion, pending Drew's decision. The pac
 
 ## Status
 
-Active. All six code batches are on the parent branch (#48), and Batch 6's documentation and closure pass is ready. Three things keep the effort open: Drew's decision on US3's 140px criterion, his desktop click-through in Rhizome Dev, and the Batch 6 PR's review and merge. The next action is Drew's call on the header criterion.
+Active. All six code batches are on the parent branch (#48), and Batch 6's documentation and closure pass is ready. Three things keep the effort open: Drew's decision on US3's 140px criterion, his desktop click-through in Rhizome Dev, and the review and merge of #55. The next action is Drew's call on the header criterion.
