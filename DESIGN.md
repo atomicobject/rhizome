@@ -39,7 +39,7 @@ colors:
   chrome-text: "#f4f3f1"
   graphite-chrome: "#45433f"
   graphite-top: "#3b3936"
-  graphite-muted: "#c9c5bf"
+  graphite-muted: "#cbc7c1"
   graphite-pill: "#f1efec"
   graphite-pill-text: "#2b2a28"
   graphite-chrome-dark: "#2b2a28"
@@ -307,7 +307,7 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 
 **Content panel.** A 36px document tab strip (Home pinned at the left, the pane toggle and Edit at the right) sits above the active surface.
 
-**Collections.** A configured view's header is two rows: a 56px title row (title, count, a truncating description, the schema link, Find in view, Filter, and View) and a 40px row of presentation tabs. The table begins directly under them, so the first data row sits about 140px below the panel's top edge. Below a 760px header width, the description, facts, and kbd hint drop out before anything wraps.
+**Collections.** A configured view's header is two rows: a 56px title row (title, count, a truncating description, the schema link, Find in view, Filter, and View) and a 40px row of presentation tabs. The table's 34px column heads begin directly under them. Under the content panel's 36px tab strip, the first data row of an ungrouped table sits 166px below the panel's top edge, and a grouped table adds its 44px group header. Below a 760px header width, the description, facts, and kbd hint drop out before anything wraps.
 
 **Table column policy.** Every column except the title has a fixed width and never takes a share of extra space: ids 176px, enums and short text 136px, relations 180px, dates 104px, numbers and flags 72px, plus a 30px select cell. The title takes all remaining width and never drops below 240px in one-line rows or 320px in two-line rows. When the columns cannot fit at those minimums, relation columns leave first, then ids, then dates; they show in the Record pane, and the footer names them. Rows are 36px in one-line density and 56px in two-line density with the summary.
 
@@ -379,7 +379,7 @@ The sidebar sits on `--chrome-bg`. It names the vault or repository (16/600) and
 
 ### Collections and the View Header
 
-A configured view is one result set with presentations chosen from text tabs (Briefing, Table, Cards, Board, and saved views); switching presentation never resets search, filters, or sort. The title row shows the 18/700 title, a 14px muted count, a 13px muted description that truncates first, the type's schema name as a mono link, then Find in view, Filter, and View. View opens a popover with Group by, Sort, Rows, Columns, Reset to default, and Save view. Active filters appear as removable chips in a tinted band under the header only while a filter is active. The footer is a status line: row count, collapsed groups, and any columns moved to the Record pane.
+A configured view is one result set with presentations chosen from text tabs (Briefing, Table, Cards, Board, and saved views); switching presentation never resets search, filters, or sort. The title row shows the 18/700 title, a 14px muted count, a 13px muted description that truncates first, the type's schema name as a mono link, then Find in view, Filter, and View. View opens a popover with Group by, Sort, Rows, Columns, Reset to shared (only while the view holds personal settings), and Save view. Active filters appear as removable chips in a tinted band under the header only while a filter is active. The footer is a status line: row count, collapsed groups, and any columns moved to the Record pane.
 
 ### Tables
 

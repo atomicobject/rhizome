@@ -4,7 +4,7 @@ id: SPEC-0126
 aliases: [SPEC-0126, Workbench redesign]
 summary: "Redesigns the Rhizome workbench in the browser and in Rhizome Desktop: selectable chrome themes with light and dark appearance, an Inter type scale and neutral surfaces, a calmer view header with progressive disclosure, a table column policy that keeps titles readable, resizable side panels with one right pane, and fuzzy finders for notes and files (⌘P), repositories (⌘O), and worktrees (⇧⌘O)."
 spec-status: active
-last-updated: 2026-10-25
+last-updated: 2026-10-26
 ---
 
 # Workbench redesign

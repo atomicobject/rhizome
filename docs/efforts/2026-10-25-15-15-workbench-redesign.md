@@ -39,19 +39,19 @@ All eleven stories of SPEC-0126 (`^SPEC-0126-US1` through `^SPEC-0126-US11`).
 
 ## Spec Coverage Checklist
 
-- [ ] US1 themes and appearance; theme and token requirements.
-- [ ] US2 desktop window chrome; desktop requirements.
-- [ ] US3 view header and View popover.
-- [ ] US4 table column policy and density.
-- [ ] US5 resizable, persisted panels.
-- [ ] US6 one right pane.
-- [ ] US7 reading-surface width caps and board columns.
-- [ ] US8 ⌘P finder; finder requirements and latency target.
-- [ ] US9 ⌘O repository finder.
-- [ ] US10 ⇧⌘O worktree finder.
-- [ ] US11 note reader rhythm and edit mode; note editing fidelity requirement.
-- [ ] Typography (Inter, scale, tabular figures) and contrast test.
-- [ ] Documentation: DESIGN.md and design.json, PRODUCT.md, SPEC-0090/0113/0119/0125 amendments, desktop README, custom-views skill templates, changelog.
+- [x] US1 themes and appearance; theme and token requirements (batch 1, #48; Graphite placeholder contrast fixed in batch 6).
+- [x] US2 desktop window chrome; desktop requirements (#53). The packaged-app click-through is carried to Drew.
+- [ ] US3 view header and View popover (#52). Delivered except the 140px first-row criterion, which awaits Drew's decision (Deviations).
+- [x] US4 table column policy and density (#52).
+- [x] US5 resizable, persisted panels (#51).
+- [x] US6 one right pane (#51; below 1200px the narrow rule wins, per Deviations).
+- [x] US7 reading-surface width caps and board columns (#52, #54).
+- [x] US8 ⌘P finder; finder requirements and latency target (#50; p95 9.1ms on 20,000 notes).
+- [x] US9 ⌘O repository finder (#53).
+- [x] US10 ⇧⌘O worktree finder (#53).
+- [x] US11 note reader rhythm and edit mode; note editing fidelity requirement (#54).
+- [x] Typography (Inter, scale, tabular figures) and contrast test (batch 1; labels reconciled in SPEC-0126).
+- [x] Documentation: DESIGN.md and design.json, PRODUCT.md, SPEC-0090/0099/0112/0113/0119/0125 and diagrams amendments, desktop README, custom-views skill templates, changelog (batch 6).
 
 ## Plan
 
@@ -116,7 +116,18 @@ One parent PR that retires the beige, cramped workbench for Slack-like themed ch
 
 ## Actual Delivered
 
-Not yet delivered.
+The parent PR #48 (`feat/workbench-redesign`) carries one commit per batch:
+- batch 1 (themes, appearance, Inter);
+- #50 (⌘P finder);
+- #51 (shell, resizable panels, one right pane);
+- #52 (view header, column rule, reading widths);
+- #53 (desktop chrome and the ⌘O and ⇧⌘O finders);
+- #54 (note reader and edit mode);
+- the Batch 6 documentation, critique, and closure PR.
+
+The workbench has five chrome themes with Light, Dark, and Match System appearance in the browser and in Rhizome Desktop, and Inter on a 14px scale. A table's title column keeps at least 240px. The panels resize and persist. ⌘P, ⌘O, and ⇧⌘O reach notes, files, repositories, and worktrees. The note reader reads calmly and edits in place. The critique score rose from 24/40 to 29/40.
+
+Not delivered: US3's 140px first-row criterion, pending Drew's decision. The packaged-app click-through is carried to Drew.
 
 ## Execution Notes
 
@@ -170,20 +181,51 @@ Not yet delivered.
     - A manual save through the UI kept every other byte, including all 23 CRLF line endings.
     - Greptile 5/5 with no comments on the first pass; `make check` and 104 e2e tests; CI green.
 
+- 2026-10-26T01:12:17Z Batch 6 (documentation, critique, and closure) on `feat/workbench-redesign-b6-docs`.
+  - **Design truth (worker):** `DESIGN.md` and `.impeccable/design.json` are rewritten from the shipped code, and `PRODUCT.md` names Inter. Reference screenshots of the Effort notes table (1100×800 and 1440×900, Graphite light and dark) are in `.impeccable/references/workbench-2026-10/`.
+  - **Critique:** the fresh Impeccable critique (`.impeccable/critique/2026-10-26T00-54-53Z__web-src.md`) scores **29/40 against the 24/40 baseline**, with no P0 left. The title column that collapsed to 10px at 1100px is now 456px.
+  - **Its P1s:** Edit mode grows the properties into form controls; the header is still 210px tall; "Active" still renders three ways (pre-existing).
+  - **Fixed from the critique:** the global search placeholder in Graphite light was 4.47:1. Graphite's light `--chrome-muted` is now `#cbc7c1`, and the contrast test covers muted text on the raised field for every theme.
+  - **Not reproduced:** the critique's report that the pane toggle claims an open pane at 1100px. A browser probe showed `aria-expanded` false until `]` opens the pane, then true.
+  - **Specs:**
+    - SPEC-0090, SPEC-0099, SPEC-0112, SPEC-0113, SPEC-0119, SPEC-0125, and the custom-view diagrams spec carry dated amendment notes.
+    - SPEC-0126 records its delivery decisions. SPEC-0110 needed no change.
+    - The web `CONTEXT.md` documents the finder routes, and the stores note the `finder_opens` table.
+    - The custom-views skill names Inter and the current kit sizes; `rzm init --check` exits 0.
+    - The changelog describes the final state.
+  - **Gates on the docs branch:**
+    - `RHIZOME_E2E_PORT=7887 make verify` exit 0: the full checks (1,694 web unit tests) and 104 e2e tests.
+    - `make desktop-deps`, `make desktop-check` (88 shell and 81 Rust tests), and `make desktop-build` all exit 0.
+    - `./scripts/rzm validate` exit 0. `./scripts/rzm validate frozen-scope-drift` reports only two drifts in other efforts (EFF-2026-10-01-10-06 and EFF-2026-10-03-18-33), both from specs changed on `main` before this branch.
+  - **Packaged app:** it was built and launched against a temporary data directory, but its windows never painted into captures. A build from just before Batch 5 behaved the same, so this is the capture environment, not a regression. Temporary instrumentation confirmed the packaged shell loads `tauri://localhost` and renders "Add a repository to begin". Exercising it with a real repository is carried to Drew's click-through in Rhizome Dev.
+
 ## Deviations
 
 - 2026-10-25T20:23:19Z: Scope change approved by Drew in chat ("Yes, please do"). He reported, with screenshots, that edit mode shows blank lines and stacked boxes in note sections, and that read mode looks cramped and inelegant.
   - **Spec change:** added US11 (read and edit a note comfortably) and a note editing fidelity requirement to SPEC-0126. Removed "the note reader" from the restructuring non-goal, and added a non-goal that rules out changing the GraphQL body-block projection or the edit-session op contract.
   - **Cause of the blank lines:** the server's narrative block keeps the blank line after a heading as a leading `\n` (`pkg/ontology/body.go` `emitNarrative`), which tests pin as part of the public GraphQL contract, and `NarrativeEditor` shows it unchanged. The fix trims only the display.
   - **Plan change:** delivered as new Batch 2b. frozen-scope-drift acknowledged for SPEC-0126: the spec set is refrozen at this revision.
+- 2026-10-26T01:12:17Z: delivery reconciliation of SPEC-0126, with no scope change. frozen-scope-drift acknowledged for SPEC-0126 (`last-updated: 2026-10-26`).
+  - **Resolved entries:** the spike result, the preferences file, the fzf pin and typo bounds, Sort's first key, the reading measure, and the desktop first-paint limit.
+  - **US11:** "does not move the text" holds within a section.
+  - **US5 and US6:** below 1200px the narrow-window rule wins over opening on selection.
+  - **Labels and screenshots:** column heads ship at 13px and labels at 12px. The screenshot requirement is met with reference captures.
+  - **Reset label:** the View popover's reset is "Reset to shared", matching the existing control.
+- 2026-10-26T01:12:17Z: **awaiting Drew's decision.** US3's "first data row no more than about 140px below the top of the content panel" is not met.
+  - **What ships:** the first data row sits 166px down in an ungrouped table and 210px in a grouped one: the 36px document tab strip, the 56px title row, the 40px presentation tabs, the 34px column heads, and a 44px group header.
+  - **Why:** the header matches the approved comp (`comps3.html`) exactly. The 140px figure came from that comp, which had no document tab strip and no group header.
+  - **Options:** amend the criterion to the shipped geometry (recommended), or compress the header rows to about 48, 32, and 30px to reach about 146px ungrouped.
+- 2026-10-26T01:12:17Z: Batch 3's exit evidence ("first data row at or below 140px measured") was not checked before #52 merged; it was measured in Batch 6 (above).
+- 2026-10-26T01:12:17Z: `desktop/README.md` was updated in Batch 5 instead of Batch 6. Batch 6 was split between a design-truth worker (DESIGN.md, design.json, PRODUCT.md, reference screenshots, critique) and the integrator (specs, changelog, context notes, skill templates, closure).
 
 ## Closure Checklist
 
-- [ ] Spec coverage checklist complete or deviations recorded.
-- [ ] Quality gates recorded with exact commands and results.
-- [ ] SPEC-0126 reconciled with delivery; amended specs, DESIGN.md, and PRODUCT.md updated.
-- [ ] Parent PR open; Greptile 5/5 per batch; CI green on the final head.
-- [ ] Follow-ups recorded.
+- [ ] Spec coverage checklist complete or deviations recorded. US3's 140px criterion awaits Drew's decision.
+- [x] Quality gates recorded with exact commands and results (Execution Notes, Batch 6).
+- [x] SPEC-0126 reconciled with delivery; amended specs, DESIGN.md, and PRODUCT.md updated.
+- [ ] Parent PR open; Greptile 5/5 per batch; CI green on the final head. #48 is open, and every child PR reached Greptile 5/5 with green CI; the Batch 6 PR is pending.
+- [x] Follow-ups recorded.
+- [ ] Desktop verification: the packaged app exercised with a real repository (Drew's click-through in Rhizome Dev).
 
 ## Compounding Follow-ups
 
@@ -202,4 +244,4 @@ Not yet delivered.
 
 ## Status
 
-Active. Batch 1 on the parent branch; batches 2–5 in progress.
+Active. All six code batches are on the parent branch (#48), and Batch 6's documentation and closure pass is ready. Three things keep the effort open: Drew's decision on US3's 140px criterion, his desktop click-through in Rhizome Dev, and the Batch 6 PR's review and merge. The next action is Drew's call on the header criterion.

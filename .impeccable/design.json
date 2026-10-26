@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-26T00:50:50Z",
+  "generatedAt": "2026-10-26T01:11:42Z",
   "title": "Design System: Rhizome",
   "extensions": {
     "colorMeta": {
@@ -432,7 +432,7 @@
       "refersTo": "sidebar-row-active",
       "description": "Themed sidebar rows: muted chrome text, a raised hover, and a light pill for the current row.",
       "html": "<nav class='ds-sidebar'><a class='ds-sidebar__row'>All notes<span>622</span></a><a class='ds-sidebar__row is-current'>Effort notes<span>38</span></a><a class='ds-sidebar__row'>Specs<span class='is-risk'>3</span></a></nav>",
-      "css": ".ds-sidebar { display: flex; flex-direction: column; gap: 1px; width: 240px; padding: 8px; background: var(--chrome-bg, #45433f); font: 400 14px/1 Inter, -apple-system, system-ui, sans-serif; } .ds-sidebar__row { display: flex; align-items: center; height: 30px; padding: 0 10px 0 8px; border-radius: 6px; color: var(--chrome-muted, #c9c5bf); cursor: pointer; } .ds-sidebar__row span { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; opacity: 0.85; } .ds-sidebar__row span.is-risk { color: var(--chrome-risk, #fccfd2); font-weight: 600; opacity: 1; } .ds-sidebar__row:hover { background: var(--chrome-raised, #55534f); } .ds-sidebar__row.is-current { background: var(--chrome-pill, #f1efec); color: var(--chrome-pill-text, #2b2a28); font-weight: 600; }"
+      "css": ".ds-sidebar { display: flex; flex-direction: column; gap: 1px; width: 240px; padding: 8px; background: var(--chrome-bg, #45433f); font: 400 14px/1 Inter, -apple-system, system-ui, sans-serif; } .ds-sidebar__row { display: flex; align-items: center; height: 30px; padding: 0 10px 0 8px; border-radius: 6px; color: var(--chrome-muted, #cbc7c1); cursor: pointer; } .ds-sidebar__row span { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; opacity: 0.85; } .ds-sidebar__row span.is-risk { color: var(--chrome-risk, #fccfd2); font-weight: 600; opacity: 1; } .ds-sidebar__row:hover { background: var(--chrome-raised, #55534f); } .ds-sidebar__row.is-current { background: var(--chrome-pill, #f1efec); color: var(--chrome-pill-text, #2b2a28); font-weight: 600; }"
     },
     {
       "name": "Table Rows",
