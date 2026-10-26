@@ -363,7 +363,7 @@ The sidebar sits on `--chrome-bg`. It names the vault or repository (16/600) and
 - **Secondary:** 28px, white surface, 1px `border-strong`, 6px corners, 13/500 ink. Toolbar actions, pagers, Copy link, and the 28px icon-only refresh share these metrics. Hover tints to `surface-tint`, never red.
 - **Ghost:** Filter, View, the pane toggle, and close buttons are transparent with muted text until hover or open, when they take the tint and full ink.
 - **Edit toggle:** 13/600 muted text with a 1px border and 4px corners; in a session it becomes Editing, Review, Save, and Done.
-- **Segmented control (`.segmented`):** every mode switch (Light / Dark / Match system, Structure / Markdown, enum pickers in edit mode, the View popover's "1 line | 2 lines") is one bordered group of 24px segments with hairline dividers. The chosen segment fills with ink and surface-coloured text; selection is neutral, never red.
+- **Segmented control (`.segmented`):** every mode switch (Light / Dark / Match system, enum pickers in edit mode, the View popover's "1 line | 2 lines") is one bordered group of 24px segments with hairline dividers. The chosen segment fills with ink and surface-coloured text; selection is neutral, never red.
 
 ### Chips, Links, and Counts
 
@@ -399,7 +399,7 @@ The pane has a 40px header with its 15/600 title or Info / Outline / Graph tabs 
 
 ### Note Reader
 
-A note opens in a centred 680px column. Above it, a tinted control bar holds the type chip, the mono path (which truncates before any control does), Structure / Markdown, and Copy link. The title is Merriweather 24/900. Properties sit under a 12/600 "Properties" label as a two-column grid with 13/500 muted labels and 14px values in 30px rows, without a rule on every row; empty properties wait behind a "Show N empty fields" toggle, and a `border-faint` hairline closes the block. Body headings are Inter 600 with more space above than below; a collapsible section's 14px chevron sits in the gutter and shows on hover, on focus, and while collapsed. Prose is 15/1.6 at the 540px measure. Inline code and code blocks use the tint and mono.
+A note opens in a centred 680px column. Above it, a tinted control bar holds the type chip, the mono path (which truncates before any control does), the note's presentations (Structure, Markdown, and any saved view) as the same text tabs a collection uses, and Copy link. The title is Merriweather 24/900. Properties sit under a 12/600 "Properties" label as a two-column grid with 13/500 muted labels and 14px values in 30px rows, without a rule on every row; empty properties wait behind a "Show N empty fields" toggle, and a `border-faint` hairline closes the block. Body headings are Inter 600 with more space above than below; a collapsible section's 14px chevron sits in the gutter and shows on hover, on focus, and while collapsed. Prose is 15/1.6 at the 540px measure. Inline code and code blocks use the tint and mono.
 
 ### Section Editor
 
