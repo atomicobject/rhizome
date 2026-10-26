@@ -45,7 +45,7 @@ All eleven stories of SPEC-0126 (`^SPEC-0126-US1` through `^SPEC-0126-US11`).
 - [x] US4 table column policy and density (#52).
 - [x] US5 resizable, persisted panels (#51).
 - [x] US6 one right pane (#51; below 1200px the narrow rule wins, per Deviations).
-- [x] US7 reading-surface width caps and board columns (#52, #54).
+- [x] US7 reading-surface width caps and board columns (#52, #54). Briefing and Overview now fill the panel (Deviations).
 - [x] US8 ⌘P finder; finder requirements and latency target (#50; p95 9.1ms on 20,000 notes).
 - [x] US9 ⌘O repository finder (#53).
 - [x] US10 ⇧⌘O worktree finder (#53).
@@ -216,6 +216,7 @@ US3's first-row criterion was amended to the shipped 166px (210px grouped). The 
   - **Why:** the header matches the approved comp (`comps3.html`) exactly. The 140px figure came from that comp, which had no document tab strip and no group header.
   - **Options:** amend the criterion to the shipped geometry (recommended), or compress the header rows to about 48, 32, and 30px to reach about 146px ungrouped.
 - 2026-10-26T13:10:00Z: Drew reviewed the redesigned workbench ("that looks really good") and asked for #48's cleanup and merge. The US3 criterion is amended to the shipped geometry, as recommended: SPEC-0126 now allows about 166px ungrouped, with a grouped table adding its 44px group header.
+- 2026-10-26T13:40:00Z: Drew asked for Briefing and Overview to fill the content panel and hug the presentation tabs, instead of a centred 1120px block that floats apart from them. US7 now caps only note prose. frozen-scope-drift acknowledged for SPEC-0126: the spec set is refrozen at this revision.
 - 2026-10-26T13:10:00Z: the packaged-app click-through moves after the merge. Rhizome Dev installs only from `main` (`make desktop-install-dev` refuses a feature branch), so Drew exercises it with a real repository once #48 lands.
 - 2026-10-26T01:12:17Z: Batch 3's exit evidence ("first data row at or below 140px measured") was not checked before #52 merged; it was measured in Batch 6 (above).
 - 2026-10-26T01:12:17Z: `desktop/README.md` was updated in Batch 5 instead of Batch 6. Batch 6 was split between a design-truth worker (DESIGN.md, design.json, PRODUCT.md, reference screenshots, critique) and the integrator (specs, changelog, context notes, skill templates, closure).

@@ -311,7 +311,7 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 
 **Table column policy.** Every column except the title has a fixed width and never takes a share of extra space: ids 176px, enums and short text 136px, relations 180px, dates 104px, numbers and flags 72px, plus a 30px select cell. The title takes all remaining width and never drops below 240px in one-line rows or 320px in two-line rows. When the columns cannot fit at those minimums, relation columns leave first, then ids, then dates; they show in the Record pane, and the footer names them. Rows are 36px in one-line density and 56px in two-line density with the summary.
 
-**Reading and data surfaces.** Reading surfaces cap their width and centre: Briefing and Overview at 1120px, a note at a 680px column with prose at a 540px measure. The note's control row aligns to the same column. Data surfaces fill the width: tables stretch, and board columns range from 260 to 360px, so a wider window shows more columns rather than wider ones. Collapsed board values become 34px strips. Cards fill an auto-fill grid with a 260px minimum.
+**Reading and data surfaces.** A note is the one capped reading surface: a 680px column with prose at a 540px measure. Briefing and Overview fill the content panel and align with the presentation tabs above them, so their columns hug the header rather than float as a centred block. The note's control row aligns to the same column. Data surfaces fill the width: tables stretch, and board columns range from 260 to 360px, so a wider window shows more columns rather than wider ones. Collapsed board values become 34px strips. Cards fill an auto-fill grid with a 260px minimum.
 
 **Note rhythm.** Sections separate by space, not rules: 28px above an H2 and 24px above an H3, 8px below any heading, and paragraphs 0.75em apart (about 11px), well under the section gap. The note's lead line of links reads as 13px muted metadata above the body.
 
@@ -321,7 +321,7 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 
 **The Title Never Yields Rule.** In a table, supporting columns leave before the title shrinks below its minimum.
 
-**The Reading Measure Rule.** Reading surfaces cap and centre; data surfaces fill. Never stretch prose or Briefing blocks across a 1920px window.
+**The Reading Measure Rule.** Note prose caps and centres; collection presentations, Briefing and Overview included, fill the panel under their tabs. Never stretch note prose across a 1920px window.
 
 ## 5. Elevation & Depth
 
@@ -433,7 +433,7 @@ Agent-written views use the kit's page primitives (`Section`, `Facts`, `Count`, 
 
 - **Do** keep the shell's model: themed chrome around a white inset panel, one right pane, and finders for navigation.
 - **Do** keep supporting table columns fixed and let the title take the slack, with a 240px minimum (320px in two-line rows).
-- **Do** cap reading surfaces (1120px for Briefing and Overview, 540px prose in a 680px note column) and let data surfaces fill.
+- **Do** cap note prose (540px in a 680px note column) and let collection presentations, Briefing and Overview included, fill the panel under their tabs.
 - **Do** use Merriweather only for document and workspace titles, Inter for UI and prose, and JetBrains Mono for paths, ids, dates, GraphQL, and schema evidence.
 - **Do** read semantic tokens so every surface follows appearance and theme.
 - **Do** pair colour with labels, icons, shape, or position for validation, graph state, risk, and status.

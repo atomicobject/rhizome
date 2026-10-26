@@ -269,7 +269,7 @@ function OverviewPage({ scope }: { scope: Scope }) {
   const expansion: Expansion = { expanded, onToggle: remembered.setOpen };
 
   return (
-    <main className="gv-page gv-page--reading">
+    <main className="gv-page">
       <ScopeFacts scope={scope} data={data} status={status} />
       {!data.missing && (
         <>
@@ -306,7 +306,7 @@ export default function Overview(_props: ViewModuleProps) {
 
   if (!scope)
     return (
-      <main className="gv-page gv-page--reading">
+      <main className="gv-page">
         <p className="gv-state" role="status">
           Open this view from All notes or a display group.
         </p>

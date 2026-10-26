@@ -355,7 +355,7 @@ function RecentChanges() {
 
 export default function WorkspaceBriefing(_props: ViewModuleProps) {
   return (
-    <main className="gv-page gv-page--reading">
+    <main className="gv-page">
       <div className="gv-brief gv-brief-two">
         <div className="gv-brief-col">
           <NeedsAttention />

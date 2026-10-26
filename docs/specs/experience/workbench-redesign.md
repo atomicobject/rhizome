@@ -126,12 +126,12 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 ### US7 - Read wide-screen pages that stay composed
 
 - id:: ^SPEC-0126-US7
-- summary:: Read Briefing, Overview, and notes on a wide monitor without content stretching across the whole window.
+- summary:: Read notes on a wide monitor without prose stretching across the whole window, while collection presentations such as Briefing and Overview use the full panel under their tabs.
 - status:: ready
 
 #### Acceptance Criteria
 
-- Reading surfaces (Briefing, Overview, the note body and its header controls) cap their width (about 1120px for Briefing and Overview, a 65–75 character measure for note prose) and centre in the content panel.
+- The note body and its header controls cap their width at a 65–75 character measure for prose and centre in the content panel. Briefing and Overview fill the content panel and align with the presentation tabs above them.
 - Data surfaces (Table, Board) fill the width. Board columns range from 260 to 360px, so a wider window shows more columns rather than wider ones.
 
 ### US8 - Jump to any note or file with ⌘P

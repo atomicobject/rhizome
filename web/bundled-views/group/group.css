@@ -10,12 +10,6 @@
   padding-bottom: 40px;
 }
 
-/* Reading surfaces (Briefing, Overview) cap their measure and centre in the
-   frame (SPEC-0126 US7); data surfaces keep the full width. */
-.gv-page--reading {
-  padding-inline: max(0px, calc((100% - 1120px) / 2));
-}
-
 .gv-state {
   margin: 0;
   padding: 14px 20px;
