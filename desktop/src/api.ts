@@ -200,6 +200,8 @@ export interface FinderModel {
   opened: number;
   theme: ThemeName;
   rows: FinderRow[];
+  /** Why there are no rows, as when worktree discovery failed. */
+  error?: string;
 }
 export type FinderChoice =
   | { choice: "close" }

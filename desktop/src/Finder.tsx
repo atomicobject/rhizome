@@ -276,9 +276,8 @@ export function Finder({
             <li className="finder-empty" role="presentation">
               {model.rows.length > 0
                 ? `No ${repositories ? "repository" : "worktree"} matches “${query.trim()}”.`
-                : repositories
-                  ? "No repositories yet."
-                  : "Finding this repository’s worktrees…"}
+                : (model.error ??
+                  (repositories ? "No repositories yet." : "Finding this repository’s worktrees…"))}
             </li>
           )}
         </ul>

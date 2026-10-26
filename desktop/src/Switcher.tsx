@@ -91,7 +91,7 @@ export function worktreeRows(
  * returns focus to whatever had it when it opened. */
 export function useFinder(
   theme: ThemeName,
-  rows: (mode: FinderMode) => FinderRow[],
+  list: (mode: FinderMode) => Pick<FinderModel, "rows" | "error">,
   onError: (cause: unknown) => void,
 ) {
   const [finder, setFinder] = useState<{ mode: FinderMode; opened: number } | null>(null);
@@ -101,7 +101,7 @@ export function useFinder(
   const stamp = useRef(0);
   // Numbers each model sent, so the app drops one that arrives after a newer one.
   const revision = useRef(0);
-  const model: FinderModel | null = finder && { ...finder, theme, rows: rows(finder.mode) };
+  const model: FinderModel | null = finder && { ...finder, theme, ...list(finder.mode) };
   const key = JSON.stringify(model);
   useEffect(() => {
     if (!model) return;

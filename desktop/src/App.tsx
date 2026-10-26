@@ -269,20 +269,22 @@ export function App() {
 
   const finder = useFinder(
     appSettings.theme,
-    (mode) =>
-      !library
-        ? []
-        : mode === "repositories"
-          ? repositoryRows(library, found, runtimes, selection.repository, sleeping)
-          : selected && selectedFound?.info
-            ? worktreeRows(
-                selected,
-                selectedFound.info,
-                runtimes,
-                selection.worktree,
-                sleeping === selected.id,
-              )
-            : [],
+    (mode) => {
+      if (!library) return { rows: [] };
+      if (mode === "repositories")
+        return { rows: repositoryRows(library, found, runtimes, selection.repository, sleeping) };
+      if (!selected || !selectedFound?.info)
+        return { rows: [], error: selectedFound?.error?.message };
+      return {
+        rows: worktreeRows(
+          selected,
+          selectedFound.info,
+          runtimes,
+          selection.worktree,
+          sleeping === selected.id,
+        ),
+      };
+    },
     (cause) => setAlert(failure(cause)),
   );
 

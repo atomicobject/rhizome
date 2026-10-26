@@ -224,6 +224,12 @@ describe("finder", () => {
     );
   });
 
+  it("says why the worktree list is empty when discovery failed", () => {
+    show({ mode: "worktrees", rows: [], error: "Git could not list worktrees." });
+    expect(screen.getByText("Git could not list worktrees.")).toBeVisible();
+    expect(screen.queryByText(/Finding/)).toBeNull();
+  });
+
   it("highlights the first worktree once discovery fills an empty list", () => {
     const onChoose = vi.fn();
     const empty = model({ mode: "worktrees", rows: [] });
