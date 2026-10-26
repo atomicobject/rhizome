@@ -18,6 +18,7 @@ const (
 	CheckQueryRecipes     = "query_recipes"
 	CheckViews            = "views"
 	CheckSkillOverlays    = "skill_overlays"
+	CheckTasks            = "tasks"
 	CheckCompanionDocs    = "companion_docs"
 	CheckFrozenScopeDrift = "frozen_scope_drift"
 	CheckFragileExternal  = "fragile_external_link"
@@ -40,6 +41,7 @@ var checks = []Check{
 	{ID: CheckQueryRecipes, Name: "query-recipes", Aliases: []string{"query_recipe", "recipes"}},
 	{ID: CheckViews, Name: "views", Aliases: []string{"view", "configured_views", "view_config"}},
 	{ID: CheckSkillOverlays, Name: "skill-overlays", Aliases: []string{"skill_overlay", "skilloverlays", "skilloverlay", "overlays"}},
+	{ID: CheckTasks, Name: "tasks", Aliases: []string{"task", "scheduled_tasks", "task_files"}},
 	{ID: CheckCodeFrontmatter, Name: "code-frontmatter", Aliases: []string{"frontmatter", "code_validate"}},
 	{ID: CheckCodeAnchors, Name: "code-anchors", Aliases: []string{"anchors", "anchor_matches"}},
 	{ID: CheckCompanionDocs, Name: "companion-docs", Aliases: []string{"companiondocs", "companion_doc", "companiondoc"}},

@@ -155,10 +155,14 @@ func planTemplateScaffold(projectRoot string, templates []string, refreshDocs bo
 		if err != nil {
 			return err
 		}
+		taskFiles, err := loadStarterTaskTemplates(template)
+		if err != nil {
+			return err
+		}
 		for _, group := range []struct {
 			dir   string
 			files []starterTemplateFile
-		}{{".rhizome/query-recipes", recipeFiles}, {".rhizome/views", viewFiles}} {
+		}{{".rhizome/query-recipes", recipeFiles}, {".rhizome/views", viewFiles}, {".rhizome/tasks", taskFiles}} {
 			for _, file := range group.files {
 				target := group.dir + "/" + filepath.ToSlash(file.Path)
 				fresh, err := register(target, file.Content, template)
@@ -222,10 +226,14 @@ func planRemovedStarterFiles(templates, unlinked []string, record *generatedFile
 		if err != nil {
 			return err
 		}
+		tasks, err := loadStarterTaskTemplates(id)
+		if err != nil {
+			return err
+		}
 		for _, group := range []struct {
 			dir   string
 			files []starterTemplateFile
-		}{{".rhizome/query-recipes", recipes}, {".rhizome/views", views}} {
+		}{{".rhizome/query-recipes", recipes}, {".rhizome/views", views}, {".rhizome/tasks", tasks}} {
 			for _, file := range group.files {
 				target := group.dir + "/" + filepath.ToSlash(file.Path)
 				if _, recorded := record.Written[target]; !recorded || planned[target] {

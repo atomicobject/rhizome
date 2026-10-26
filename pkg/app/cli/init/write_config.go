@@ -287,6 +287,8 @@ func rhizomeGitIgnoreBody() string {
 		"!ontology/**",
 		"!query-recipes/",
 		"!query-recipes/**",
+		"!tasks/",
+		"!tasks/**",
 		"!views/",
 		"!views/**",
 		"agent/",

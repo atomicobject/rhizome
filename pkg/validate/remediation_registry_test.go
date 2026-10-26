@@ -61,6 +61,7 @@ func TestRemediationRegistryHasExactClassificationForAuditedIssueCodes(t *testin
 			"missing_required_field", "nested_slot", "unknown_slot", "unknown_target_skill", "unsupported_api_version",
 			"unterminated_slot", "conflicting_replace", "conflicting_replace_suppress", "conflicting_suppress",
 		},
+		CheckTasks: {IssueCodeInvalidTaskFile},
 		CheckCompanionDocs: {
 			"companion_doc_outside_vault", "companion_doc_invalid_path", "companion_doc_missing",
 			"companion_doc_stat_failed", "companion_doc_directory",

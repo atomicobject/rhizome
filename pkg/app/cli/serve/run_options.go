@@ -58,4 +58,11 @@ type Options struct {
 	// IdlePoll and RootPoll override the lifecycle poll intervals for tests.
 	IdlePoll time.Duration
 	RootPoll time.Duration
+
+	// RunTasks starts a pass over the vault's scheduled tasks; nil turns
+	// the task interval off. TasksFirstDelay and TasksInterval override the
+	// timing for tests.
+	RunTasks        func(vaultPath string) error
+	TasksFirstDelay time.Duration
+	TasksInterval   time.Duration
 }

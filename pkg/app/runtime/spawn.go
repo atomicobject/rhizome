@@ -85,3 +85,24 @@ func openRuntimeLog(vaultRoot string) (*os.File, error) {
 	}
 	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 }
+
+// StartDetached starts executable with args in dir, detached from this
+// process the way a headless runtime is (its own session or process group,
+// stdio on the null device), and does not wait for it.
+func StartDetached(executable, dir string, args ...string) error {
+	cmd := exec.Command(executable, args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), skipRepoDelegateEnv+"=1")
+	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", os.DevNull, err)
+	}
+	defer devNull.Close()
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = devNull, devNull, devNull
+	detachProcess(cmd)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	_ = cmd.Process.Release()
+	return nil
+}

@@ -892,6 +892,18 @@ func TestEnsureRhizomeGitIgnoreWritesManagedFile(t *testing.T) {
 	require.Equal(t, rhizomeGitIgnoreBody(), string(data))
 }
 
+func TestRhizomeGitIgnoreTracksTaskFilesButNotTaskState(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, exec.Command("git", "-C", root, "init", "--quiet").Run())
+	require.NoError(t, ensureRhizomeGitIgnore(root))
+	ignored := func(rel string) bool {
+		return exec.Command("git", "-C", root, "check-ignore", "--quiet", "--no-index", rel).Run() == nil
+	}
+	require.False(t, ignored(".rhizome/tasks/update-memory.yml"), "task files are tracked")
+	require.True(t, ignored(".rhizome/task-state/state.json"), "task state is personal")
+	require.True(t, ignored(".rhizome/task-state/worktrees/x/notes.md"), "background worktrees are personal")
+}
+
 func TestRun_NonInteractiveFirstRunUsesTheRecommendedSetup(t *testing.T) {
 	env := initTestEnv(t)
 	root := t.TempDir()
