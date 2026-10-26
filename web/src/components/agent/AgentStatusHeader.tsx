@@ -7,8 +7,6 @@ type Props = {
   status: AgentHarnessStatus | undefined;
   resolutionReason: string;
   messageCount: number;
-  drawerOpen: boolean;
-  onToggleDrawer: () => void;
 };
 
 const harnessName = (kind?: AgentHarnessKind) =>
@@ -23,8 +21,6 @@ export function AgentStatusHeader({
   status,
   resolutionReason,
   messageCount,
-  drawerOpen,
-  onToggleDrawer,
 }: Props) {
   const [copied, setCopied] = useState(false);
 
@@ -58,18 +54,6 @@ export function AgentStatusHeader({
   return (
     <header className="agent-thread__head">
       <div className="agent-thread__title">
-        <button
-          type="button"
-          className="agent-drawer-toggle"
-          aria-controls="agent-sidebar"
-          aria-expanded={drawerOpen}
-          aria-label={drawerOpen ? "Close agent sidebar" : "Open agent sidebar"}
-          onClick={onToggleDrawer}
-        >
-          <span />
-          <span />
-          <span />
-        </button>
         <div>
           <h2>{session?.title || "Rhizome agent"}</h2>
           <p>

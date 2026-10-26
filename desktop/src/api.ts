@@ -223,13 +223,19 @@ export interface PageState {
     | "incomplete"
     | "failed"
     | "stale";
+  /** The workbench sidebar's state, once the app has sent the page its choice. */
+  sidebarCollapsed?: boolean;
+  /** How many times the page itself toggled it; the app reads it, not the shell. */
+  sidebarToggles?: number;
 }
 export type PageCommand =
   | { command: "section"; section: PageSection }
   | { command: "search"; query: string }
   | { command: "issues" }
   | { command: "shortcuts" }
-  | { command: "find" };
+  | { command: "find" }
+  /** Asks the app to store the sidebar state and send it to every window's page. */
+  | { command: "sidebar"; collapsed: boolean };
 /** Choices a setup sheet passes to `rzm init`; see SPEC-0118. */
 export interface SetupChoices {
   workflow: string;

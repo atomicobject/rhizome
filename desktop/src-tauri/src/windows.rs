@@ -5,7 +5,7 @@ use crate::{
     pane::{Pane, Panes},
     presence::Presence,
     security,
-    state::{Session, WindowSession},
+    state::{Preferences, Session, WindowSession},
     terminal::Focus,
 };
 use serde::Deserialize;
@@ -328,15 +328,27 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
             // The page reports the state the toolbar shows through its title.
             .on_document_title_changed(|webview, title| {
                 let app = webview.app_handle();
-                let first = app
+                let (first, toggled) = app
                     .state::<Panes>()
-                    .with(webview.window().label(), |pane| page::titled(pane, &title));
-                // Each runtime document takes the current theme once it reports.
-                if first == Some(true) {
-                    let theme = appearance::current(&app.state::<Desktop>().directory).theme;
-                    let _ =
-                        webview.eval(page::Command::Theme { theme }.script().unwrap_or_default());
+                    .with(webview.window().label(), |pane| page::titled(pane, &title))
+                    .unwrap_or_default();
+                // Each runtime document takes the current theme and sidebar
+                // state once it reports.
+                if first {
+                    let saved = Preferences::load(&app.state::<Desktop>().directory);
+                    for command in [
+                        page::Command::Theme { theme: saved.theme },
+                        page::Command::Sidebar {
+                            collapsed: saved.sidebar_collapsed,
+                        },
+                    ] {
+                        let _ = webview.eval(command.script().unwrap_or_default());
+                    }
                 }
+                if let Some(collapsed) = toggled {
+                    page::sidebar_reported(app, collapsed);
+                }
+                crate::menu::refresh_sidebar(app);
             })
             .on_new_window(move |target, _| {
                 if security::external_url(&target) {
@@ -368,6 +380,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
                         .with(webview.window().label(), |pane| {
                             page::loading(pane, payload.url())
                         });
+                    crate::menu::refresh_sidebar(webview.app_handle());
                     crate::pipeline::navigation_started(
                         webview.app_handle(),
                         webview.window().label(),
@@ -393,6 +406,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         WindowEvent::Focused(true) => {
             app.state::<Focus>().focused(events.label());
             app.state::<Presence>().rediscover();
+            crate::menu::refresh_sidebar(&app);
         }
         WindowEvent::Moved(_) | WindowEvent::Resized(_) => record(&app, &events),
         // Match System follows the OS; repaint in the new appearance.
@@ -422,7 +436,9 @@ pub fn layout(window: &Window, bounds: Rect, covered: bool) -> Result<(), String
         .app_handle()
         .state::<Panes>()
         .with(window.label(), |pane| pane.cover(covered));
-    sync_visibility(window)
+    let synced = sync_visibility(window);
+    crate::menu::refresh_sidebar(window.app_handle());
+    synced
 }
 
 /// Leaves the content view's runtime page, closing its event streams.

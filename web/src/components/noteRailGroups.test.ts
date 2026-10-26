@@ -83,4 +83,26 @@ describe("buildRailGroups", () => {
       })),
     ).toEqual(expected.groups);
   });
+
+  it("leaves out standalone embedded types unless the caller includes them", () => {
+    const summary: OntologySummaryResponse = {
+      schemaPresent: true,
+      totalNotes: 1,
+      typedNotes: 1,
+      untypedNotes: 0,
+      ambiguousNotes: 0,
+      issueNotes: 0,
+      types: [
+        { name: "Spec", label: "Spec", count: 1, role: "note" },
+        { name: "Step", label: "Step", count: 0, role: "embedded" },
+      ],
+      interfaces: [],
+    };
+
+    const roots = (groups: ReturnType<typeof buildRailGroups>) =>
+      groups.flatMap((group) => group.children.map(nodeName));
+
+    expect(roots(buildRailGroups(summary))).toEqual(["Spec"]);
+    expect(roots(buildRailGroups(summary, { includeEmbedded: true }))).toEqual(["Spec", "Step"]);
+  });
 });

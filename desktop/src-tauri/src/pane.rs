@@ -58,6 +58,12 @@ pub struct Pane {
     pub document: Option<Url>,
     /// The current document reported page state, so the toolbar shows its controls.
     pub reported: bool,
+    /// The current document's last reported sidebar state, how many times the
+    /// page itself had toggled it then, and whether it shows a section without
+    /// a sidebar (GraphQL).
+    pub sidebar: Option<bool>,
+    pub sidebar_toggles: Option<u32>,
+    pub graphql: bool,
     pub expected: Arc<RwLock<Option<Url>>>,
     pub channel: Option<Channel<Value>>,
     /// A message for a shell that has not attached yet.

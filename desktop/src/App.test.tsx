@@ -431,6 +431,42 @@ describe("desktop shell", () => {
     expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull();
   });
 
+  it("toggles the sidebar from the toolbar while the page has one", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    const toggle = () => screen.getByRole("button", { name: /sidebar$/ });
+    expect(toggle()).toBeDisabled();
+    report({ step: "ready" });
+    // A page that has not taken the app's sidebar state cannot toggle it.
+    act(() => emit({ type: "page", state: { section: "notes", search: "" } }));
+    expect(toggle()).toBeDisabled();
+
+    act(() =>
+      emit({ type: "page", state: { section: "notes", search: "", sidebarCollapsed: false } }),
+    );
+    expect(toggle()).toBeEnabled();
+    expect(toggle()).toHaveAccessibleName("Hide sidebar");
+    expect(toggle()).toHaveAttribute("aria-pressed", "true");
+    expect(toggle()).toHaveAttribute("title", "Hide sidebar (⌃⌘S or ⌘\\)");
+    fireEvent.click(toggle());
+    expect(call).toHaveBeenCalledWith("page", { command: "sidebar", collapsed: true });
+
+    act(() =>
+      emit({ type: "page", state: { section: "agent", search: "", sidebarCollapsed: true } }),
+    );
+    expect(toggle()).toHaveAccessibleName("Show sidebar");
+    expect(toggle()).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle());
+    expect(call).toHaveBeenCalledWith("page", { command: "sidebar", collapsed: false });
+
+    act(() =>
+      emit({ type: "page", state: { section: "graphql", search: "", sidebarCollapsed: true } }),
+    );
+    expect(toggle()).toBeDisabled();
+    act(() => emit({ type: "page", state: null }));
+    expect(toggle()).toBeDisabled();
+  });
+
   it("drops a search draft when the page moves to another section", async () => {
     start();
     await waitFor(() => expect(opened()).toHaveLength(1));

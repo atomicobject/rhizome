@@ -8,6 +8,8 @@ import type { StatusResponse } from "../api/types";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { BareHTMLNote } from "./BareHTMLNote";
 import { desktopTitle, inDesktop, type Section, useDesktopCommands } from "./desktopHost";
+import { applyDesktopSidebar, useWorkbenchSidebar } from "./sidebarState";
+import { SidebarToggle, useSidebarShortcut } from "./WorkbenchSidebar";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ExplorerWorkspace } from "./ExplorerWorkspace";
 import { FinderQuickOpen } from "./FinderQuickOpen";
@@ -210,9 +212,21 @@ function DesktopReporter({ route }: { route: Route }) {
   const issues = notes ? (validationQuery.data?.snapshot?.issueCount ?? null) : undefined;
   const health = notes ? validationHealth(validationQuery.data ?? null) : undefined;
 
+  const sidebar = useWorkbenchSidebar();
+  // Until the app sends its stored choice, the page's default is not a choice.
+  const sidebarCollapsed = sidebar.synced ? sidebar.collapsed : undefined;
+  const sidebarToggles = sidebar.synced ? sidebar.toggles : undefined;
+
   useEffect(() => {
-    document.title = desktopTitle({ section: route, search, issues, health });
-  }, [route, search, issues, health]);
+    document.title = desktopTitle({
+      section: route,
+      search,
+      issues,
+      health,
+      sidebarCollapsed,
+      sidebarToggles,
+    });
+  }, [route, search, issues, health, sidebarCollapsed, sidebarToggles]);
 
   return null;
 }
@@ -238,8 +252,13 @@ export function AppShell() {
       runProjectSearch(command.query);
     } else if (command.command === "issues") {
       openIssues();
+    } else if (command.command === "sidebar") {
+      applyDesktopSidebar(command.collapsed);
     }
   });
+
+  // GraphQL has no sidebar (SPEC-0128).
+  useSidebarShortcut({ desktop, disabled: route === "graphql" });
 
   useEffect(() => {
     if (route === "notes") setNotesVisited(true);
@@ -265,6 +284,9 @@ export function AppShell() {
     : null;
 
   const vaultName = status?.vaultName || null;
+  // Every section's sidebar names the vault; Desktop's toolbar names it instead.
+  const sidebarTitle = desktop || !vaultName ? null : vaultLabel(vaultName);
+  const sidebarHint = status?.vaultPath || null;
 
   useEffect(() => {
     if (vaultName && !desktop) {
@@ -289,8 +311,8 @@ export function AppShell() {
         <header className="app-shell__nav">
           <div className="app-shell__brand" title={status?.vaultPath || undefined}>
             <span>Rhizome</span>
-            {/* The Notes sidebar names the vault; other sections keep it here. */}
-            {route !== "notes" || statusQuery.isError ? (
+            {/* Each sidebar names the vault; GraphQL, which has none, keeps it here. */}
+            {route === "graphql" || statusQuery.isError ? (
               <small>
                 {vaultName
                   ? vaultLabel(vaultName)
@@ -300,6 +322,7 @@ export function AppShell() {
               </small>
             ) : null}
           </div>
+          <SidebarToggle disabled={route === "graphql"} />
           <nav aria-label="Primary">
             <button
               type="button"
@@ -376,15 +399,19 @@ export function AppShell() {
             </div>
           ) : null}
           {route === "notes" ? null : route === "ontology" ? (
-            <OntologyAtlasWorkspace />
+            <OntologyAtlasWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "agent" ? (
-            <AgentWorkspace />
+            <AgentWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "graphql" ? (
             <Suspense fallback={<main className="graphql-explorer" />}>
               <GraphQLExplorer />
             </Suspense>
           ) : (
-            <ExplorerWorkspace vaultName={vaultName ?? ""} />
+            <ExplorerWorkspace
+              vaultName={vaultName ?? ""}
+              sidebarTitle={sidebarTitle}
+              sidebarHint={sidebarHint}
+            />
           )}
         </ErrorBoundary>
       </OntologyEditSessionProvider>

@@ -31,47 +31,7 @@
   }
 }
 
-/* ---- Shell: themed sidebar beside an inset content panel ----
-   The sidebar sits on the chrome; the content is a white panel inset 6px
-   from the right and bottom with a rounded corner. Panel widths are custom
-   properties that the resize handles set (SPEC-0126 US5). */
-.notes-shell {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  min-height: 0;
-  background: var(--chrome-bg);
-}
-
-.notes-shell__sidebar {
-  position: relative;
-  display: flex;
-  /* A stored width never takes most of a narrow window. */
-  width: min(var(--sidebar-width), 45vw);
-  min-height: 0;
-}
-
-.notes-shell__sidebar[hidden] {
-  display: none;
-}
-
-.notes-shell__frame {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  margin: 0 6px 6px 0;
-  overflow: hidden;
-  border-radius: var(--r-lg);
-  background: var(--surface);
-}
-
-/* With the sidebar hidden the frame spans both columns, so it still fills
-   the window instead of landing in the sidebar's content-sized column. */
-.notes-shell__sidebar[hidden] + .notes-shell__frame {
-  grid-column: 1 / -1;
-  margin-left: 6px;
-}
+/* The shell's layout is the shared workbench (workbench.css). */
 
 /* ---- Resize handles ---- */
 .panel-resize {
@@ -592,16 +552,21 @@
   font-size: var(--fs-base);
 }
 
-.notes-left-rail__header {
-  flex: none;
-  padding: 12px 18px 8px;
-  overflow: hidden;
+/* A sidebar read that failed: a quiet line with a retry. */
+.notes-left-rail__state {
+  margin: 6px 18px;
+  color: var(--chrome-muted);
+  font-size: var(--fs-sm);
+}
+
+.notes-left-rail__state button {
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--chrome-text);
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .notes-left-rail__collections {

@@ -3,7 +3,7 @@ type: ExperienceSpec
 summary: "Defines the Notes workspace shell: pinned Home, note and project-search tabs, note-browser rails, Structure/Markdown modes, and a graph-dominant Home whose type selection dims rather than filters."
 id: SPEC-0090
 spec-status: active
-last-updated: 2026-10-06
+last-updated: 2026-10-26
 aliases:
   - SPEC-0090
 ---
@@ -14,7 +14,7 @@ aliases:
 
 The Notes workspace is where humans read and edit typed notes. The previous workspace placed every open note in a fixed-width sheet sliding over the home page; within-note drill-down and cross-note navigation shared that horizontal stack, and at 1280px the first note collapsed to a strip as soon as a second opened.
 
-This spec replaces that model with a tabbed shell. A pinned Home tab owns every collection surface (all notes, a type or interface, problems, modified), and each configured view opens as its own retained tab. Each note file gets one tab that takes the full content width. Within a note tab, structural sections are tabs and node drill-down is in-tab with a breadcrumb, so cross-note navigation is always a tab change and never a pane push. A persistent left rail navigates Home and locally filters the current collection; a collapsible right rail carries note-scoped context. Project search opens retained, full-width search tabs without either rail, as specified by [[search-workspace|SPEC-0098]]. Home is dominated by the vault graph with the listings as a compact band above it.
+This spec replaces that model with a tabbed shell. A pinned Home tab owns every collection surface (all notes, a type or interface, problems, modified), and each configured view opens as its own retained tab. Each note file gets one tab that takes the full content width. Within a note tab, structural sections are tabs and node drill-down is in-tab with a breadcrumb, so cross-note navigation is always a tab change and never a pane push. A persistent left rail navigates Home and locally filters the current collection; a collapsible right rail carries note-scoped context. Project search opens retained search tabs without the right rail, as specified by [[search-workspace|SPEC-0098]]; the left rail stays as the user left it ([[workbench-sidebar|SPEC-0128]]). Home is dominated by the vault graph with the listings as a compact band above it.
 
 This spec succeeds [[ontology-browser-navigation-model|SPEC-0030]]. It carries forward SPEC-0030's structural-first reading, section tabs, and node-anchored refresh commitments and retires its right-sliding pane stack. Visual density and theming follow `PRODUCT.md` and the `DESIGN.md` tokens: hairline dividers over nested cards, one accent color, mono for identifiers and paths, usable at 1280px.
 
@@ -75,6 +75,8 @@ This spec succeeds [[ontology-browser-navigation-model|SPEC-0030]]. It carries f
 - status:: satisfied
 
 Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25. The left rail is a themed sidebar with quick scopes (All notes, Recently changed, Problems), Views, and the type tree, and it has no note list: ⌘P finds notes and files instead, so the note-list parts of AC1, AC3, and AC4 no longer apply. The sidebar resizes between 200 and 400px by pointer or keyboard, and its width and collapsed state persist per browser, replacing AC5.
+
+Amended by [[workbench-sidebar|SPEC-0128]] on 2026-10-26. The sidebar is the shared workbench sidebar: it stays visible on project-search tabs unless the user collapsed it, replacing AC4's omission, and its toggle sits in the top bar (or Rhizome Desktop's toolbar) instead of the tab strip.
 
 #### Acceptance Criteria
 

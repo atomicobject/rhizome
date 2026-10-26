@@ -299,13 +299,13 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 
 ## 4. Layout
 
-**Shell.** A 44px top bar on `--chrome-top` holds the brand, the section tabs (Notes, Ontology, Explorer, Agent, GraphQL), a centred global search up to 560px wide, and the tools. Below it the Notes shell is a two-column grid on `--chrome-bg`: the themed sidebar, then the content panel, inset 6px from the right and bottom with a 10px corner. With the sidebar hidden, the panel insets 6px on the left too.
+**Shell.** A 44px top bar on `--chrome-top` holds the brand, the sidebar toggle, the section tabs (Notes, Ontology, Explorer, Agent, GraphQL), a centred global search up to 560px wide, and the tools. Below it every section except GraphQL is the same two-column workbench on `--chrome-bg`: the themed sidebar, then the content panel, inset 6px from the right and bottom with a 10px corner. With the sidebar hidden, the panel insets 6px on the left too.
 
-**Resizable panes.** The sidebar ranges from 200 to 400px (264 default) and never takes more than 45% of the window. The right pane ranges from 280 to 560px (340 default). Each has an 8px drag handle on its inner edge that shows a 2px line on hover and a red line on keyboard focus; it is a `role=separator` that moves in 16px steps with the arrow keys and jumps to its bounds with Home and End. Widths and collapsed state persist per browser.
+**Resizable panes.** The sidebar ranges from 200 to 400px (264 default) and never takes more than 45% of the window. The right pane ranges from 280 to 560px (340 default). Each has an 8px drag handle on its inner edge that shows a 2px line on hover and a red line on keyboard focus; it is a `role=separator` that moves in 16px steps with the arrow keys and jumps to its bounds with Home and End. Widths and collapsed state persist per browser; the sidebar's are shared by every section and change only when the user changes them, never on search or a section switch.
 
 **One right pane.** The right pane hosts Record for a selected table or board row, and Info, Outline, and Graph for an active note. Its 40px header matches the note's control bar. With nothing selected on a collection it is closed; `]` toggles it. Below 1200px wide it opens over the content with an overlay shadow instead of narrowing the table.
 
-**Content panel.** A 36px document tab strip (Home pinned at the left, the pane toggle and Edit at the right) sits above the active surface.
+**Content panel.** In Notes, a 36px document tab strip (Home pinned at the left, the right-pane toggle and Edit at the right) sits above the active surface.
 
 **Collections.** A configured view's header is two rows: a 56px title row (title, count, a truncating description, the schema link, Find in view, Filter, and View) and a 40px row of presentation tabs. The table's 34px column heads begin directly under them. Under the content panel's 36px tab strip, the first data row of an ungrouped table sits 166px below the panel's top edge, and a grouped table adds its 44px group header. Below a 760px header width, the description, facts, and kbd hint drop out before anything wraps.
 
@@ -351,11 +351,11 @@ Corners are restrained and technical: 3px (`--r-sm`) for chips, kbd, and tab clo
 
 ### Brand Mark and Top Bar
 
-The top bar is the theme's `--chrome-top`. The brand is a 7px AO-red diamond and "Rhizome" in 15/600 mono; the diamond is a temporary marker, not the identity. Section tabs are 30px, 14/500, muted chrome text; hover raises them to `--chrome-raised`, and the current section sits on `--chrome-active` with full chrome text. The global search is a 28px field on `--chrome-raised` with a ⌘K hint. The Appearance control (a 28px icon button) opens a 360px panel with Match system, Light, and Dark as a segmented control and the five themes as swatches that preview their chrome around a white panel.
+The top bar is the theme's `--chrome-top`. The brand is a 7px AO-red diamond and "Rhizome" in 15/600 mono; the diamond is a temporary marker, not the identity. The sidebar toggle, a 30px panel-left icon button in muted chrome text, sits just before the section tabs; it is disabled on GraphQL, which has no sidebar. Section tabs are 30px, 14/500, muted chrome text; hover raises them to `--chrome-raised`, and the current section sits on `--chrome-active` with full chrome text. The global search is a 28px field on `--chrome-raised` with a ⌘K hint. The Appearance control (a 28px icon button) opens a 360px panel with Match system, Light, and Dark as a segmented control and the five themes as swatches that preview their chrome around a white panel.
 
 ### Sidebar
 
-The sidebar sits on `--chrome-bg`. It names the vault or repository (16/600) and holds All notes, Recently changed, and Problems, then Views, then the type tree in collapsible groups. Rows are 30px, 14px, muted chrome text with 16px icons; hover uses `--chrome-raised`, and the current row is a light pill (`--chrome-pill`, 600 weight, `--chrome-pill-text`). Counts sit at the right in 12px tabular figures; a problem count turns `--chrome-risk`. Focus inside the sidebar is a 2px `--chrome-text` ring inset on the row. There is no note list; ⌘P finds notes.
+The sidebar sits on `--chrome-bg` and is one frame for every section: it names the vault or repository (16/600), and only its contents change. Notes holds All notes, Recently changed, and Problems, then Views, then the type tree in collapsible groups; Ontology holds an Atlas row and the same type tree; Explorer holds the vault tree; Agent holds the session list. Rows are 30px, 14px, muted chrome text with 16px icons; hover uses `--chrome-raised`, and the current row is a light pill (`--chrome-pill`, 600 weight, `--chrome-pill-text`). Counts sit at the right in 12px tabular figures; a problem count turns `--chrome-risk`. Focus inside the sidebar is a 2px `--chrome-text` ring inset on the row. There is no note list; ⌘P finds notes.
 
 ### Buttons
 
@@ -417,7 +417,7 @@ Rhizome Desktop's ⌘O repository and ⇧⌘O worktree finders draw the same pal
 
 ### Desktop Toolbar
 
-Rhizome Desktop's 38px toolbar is the theme's `--chrome-top`, which the overlay title bar extends behind the traffic lights (72px reserved at the left). It holds the repository name (600, up to 240px) and the worktree branch in mono as two click targets whose tooltips name ⌘O and ⇧⌘O; the worktree is quiet on the primary checkout and a `--chrome-pill` on any other. The section tabs are centred, 26px, with the current one on `--chrome-active`. A 26px search on `--chrome-raised` and the issue count in `--chrome-risk` sit at the right. Window and webview backgrounds take the theme, so opening or resizing never flashes white.
+Rhizome Desktop's 38px toolbar is the theme's `--chrome-top`, which the overlay title bar extends behind the traffic lights (72px reserved at the left). Its first control after the traffic lights is the sidebar toggle, a 26px icon button pressed while the sidebar shows. Then it holds the repository name (600, up to 240px) and the worktree branch in mono as two click targets whose tooltips name ⌘O and ⇧⌘O; the worktree is quiet on the primary checkout and a `--chrome-pill` on any other. The section tabs are centred, 26px, with the current one on `--chrome-active`. A 26px search on `--chrome-raised` and the issue count in `--chrome-risk` sit at the right. Window and webview backgrounds take the theme, so opening or resizing never flashes white.
 
 ### Ontology Canvas
 

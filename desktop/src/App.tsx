@@ -259,6 +259,8 @@ export function App() {
 
   // Page controls appear only while the page they act on is on screen.
   const shown = !covered && open?.step === "ready" ? page : null;
+  // A page reports its sidebar once the app has sent it one; GraphQL has none.
+  const sidebarCollapsed = shown?.section === "graphql" ? undefined : shown?.sidebarCollapsed;
   const pageCommand = (command: PageCommand) => void request("page", command).catch(() => {});
 
   const repositories = library?.repositories ?? [];
@@ -770,6 +772,19 @@ export function App() {
     <div className="shell">
       <header className="toolbar" data-tauri-drag-region>
         <div className="toolbar-start" data-tauri-drag-region>
+          <button
+            className="icon-button"
+            aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+            aria-pressed={sidebarCollapsed === false}
+            title={`${sidebarCollapsed ? "Show" : "Hide"} sidebar (⌃⌘S or ⌘\\)`}
+            disabled={sidebarCollapsed === undefined}
+            onClick={() => pageCommand({ command: "sidebar", collapsed: !sidebarCollapsed })}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="2" y="3" width="12" height="10" rx="1.5" />
+              <path d="M6 3v10" />
+            </svg>
+          </button>
           {repositories.length > 0 && (
             <Switcher
               repository={selected}

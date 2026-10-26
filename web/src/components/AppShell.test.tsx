@@ -1,10 +1,11 @@
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import type { OntologyEditSessionResponse } from "../api/types";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { AppShell } from "./AppShell";
 import type { DesktopCommand } from "./desktopHost";
+import { resetSidebarForTests, SIDEBAR_KEY } from "./sidebarState";
 
 type StatusStub = { vaultName: string; vaultPath: string; indexState?: "initializing" | "ready" };
 
@@ -18,6 +19,7 @@ describe("AppShell", () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    resetSidebarForTests();
     // Workspaces render for real; they only need empty, well-formed reads.
     http
       .json("GET", "/api/v1/files/tree", { path: "", entries: [] })
@@ -75,11 +77,14 @@ describe("AppShell", () => {
 
     render(<AppShell />);
 
-    // Notes names the vault in its sidebar; a path shows as its folder name with the path as a tooltip.
-    const navigation = await screen.findByRole("complementary", { name: "Notes navigation" });
-    await waitFor(() => expect(navigation).toHaveTextContent("testvault"));
-    expect(within(navigation).getByTitle("/Users/someone/testvault")).toHaveTextContent(
-      /^testvault$/,
+    // The sidebar names the vault; a path shows as its folder name with the path as a tooltip.
+    await screen.findByRole("complementary", { name: "Notes navigation" });
+    await waitFor(() =>
+      expect(document.querySelector(".workbench-sidebar__header")).toHaveTextContent(/^testvault$/),
+    );
+    expect(document.querySelector(".workbench-sidebar__header")).toHaveAttribute(
+      "title",
+      "/Users/someone/testvault",
     );
     expect(document.querySelector(".app-shell__brand small")).toBeNull();
 
@@ -87,10 +92,13 @@ describe("AppShell", () => {
       expect(document.title).toBe("Rhizome · testvault");
     });
 
-    // The explorer rail's root button shows the vault name AppShell handed it.
+    // Explorer's sidebar names the vault too, and its root row shows the name AppShell handed it.
     fireEvent.click(screen.getByRole("button", { name: "Explorer" }));
     expect(await screen.findByTitle("View full graph")).toHaveTextContent("testvault");
-    expect(document.querySelector(".app-shell__brand small")).toHaveTextContent(/^testvault$/);
+    expect(
+      screen.getByRole("complementary", { name: "Vault files" }).closest(".workbench-sidebar"),
+    ).toHaveTextContent(/^testvault/);
+    expect(document.querySelector(".app-shell__brand small")).toBeNull();
     expect(http.count("GET", "/api/v1/status")).toBe(1);
   });
 
@@ -101,7 +109,7 @@ describe("AppShell", () => {
     render(<AppShell />);
 
     expect(document.querySelector(".app-shell__brand small")).toBeNull();
-    expect(document.querySelector(".notes-left-rail__header")).toBeNull();
+    expect(document.querySelector(".workbench-sidebar__header")).toBeNull();
 
     // Cleanup the pending promise.
     status.resolve({ vaultName: "after", vaultPath: "/tmp/x" });
@@ -210,6 +218,63 @@ describe("AppShell", () => {
     expect(http.count("GET", "/api/v1/status")).toBe(1);
   });
 
+  it("keeps the sidebar where the user puts it across searches and sections", async () => {
+    statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x" });
+    localStorage.setItem("rhizome:notes:panes:v1", JSON.stringify({ sidebar: 300 }));
+
+    render(<AppShell />);
+
+    const sidebar = () => document.querySelector<HTMLElement>(".workbench-sidebar");
+    await screen.findByRole("complementary", { name: "Notes navigation" });
+    // The Notes shell's stored width carries over.
+    expect(sidebar()?.style.getPropertyValue("--sidebar-width")).toBe("300px");
+
+    // A search tab keeps the sidebar.
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search this project" }), {
+      target: { value: "meetings" },
+    });
+    fireEvent.submit(screen.getByRole("searchbox", { name: "Search this project" }));
+    await waitFor(() => expect(window.location.search).toContain("search=meetings"));
+    expect(sidebar()).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
+    expect(sidebar()).not.toBeVisible();
+    expect(JSON.parse(localStorage.getItem(SIDEBAR_KEY) ?? "{}")).toEqual({
+      collapsed: true,
+      width: 300,
+    });
+
+    // ⌘\ or ⌃⌘S (Ctrl+\ or Ctrl+Alt+S here) shows it again, but not from a text field.
+    const search = screen.getByRole("searchbox", { name: "Search this project" });
+    fireEvent.keyDown(search, { code: "Backslash", key: "\\", ctrlKey: true, metaKey: true });
+    expect(sidebar()).not.toBeVisible();
+    fireEvent.keyDown(window, { code: "Backslash", key: "\\", ctrlKey: true, metaKey: true });
+    expect(sidebar()).toBeVisible();
+
+    // GraphQL has no sidebar, and its toggle and shortcuts do nothing there.
+    fireEvent.click(screen.getByRole("button", { name: "GraphQL" }));
+    const toggle = await screen.findByRole("button", { name: "Hide sidebar" });
+    expect(toggle).toBeDisabled();
+    expect(toggle).toHaveAttribute("title", "This section has no sidebar");
+    fireEvent.keyDown(window, { code: "Backslash", key: "\\", ctrlKey: true, metaKey: true });
+    expect(JSON.parse(localStorage.getItem(SIDEBAR_KEY) ?? "{}").collapsed).toBe(false);
+  });
+
+  it("follows the sidebar choice another tab makes", async () => {
+    statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x" });
+    render(<AppShell />);
+    await screen.findByRole("complementary", { name: "Notes navigation" });
+
+    localStorage.setItem(SIDEBAR_KEY, JSON.stringify({ collapsed: true, width: 264 }));
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: SIDEBAR_KEY }));
+    });
+    expect(screen.getByRole("button", { name: "Show sidebar" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
   it("labels the header's validation count with what it counts", async () => {
     statusReplies({ vaultName: "testvault", vaultPath: "/tmp/x" });
     http.json("GET", "/api/v2/validate", {
@@ -314,6 +379,48 @@ describe("AppShell", () => {
       // The vault title never replaces the report.
       await waitFor(() => expect(http.count("GET", "/api/v1/status")).toBe(1));
       expect(document.title).toMatch(/^rhizome-desktop:/);
+    });
+
+    it("takes the sidebar choice the app sends and reports changes the page makes", async () => {
+      render(<AppShell />);
+      await screen.findByRole("complementary", { name: "Notes navigation" });
+      const sidebar = () => document.querySelector<HTMLElement>(".workbench-sidebar");
+
+      // Until the app sends its choice, the page reports none.
+      await waitFor(() => expect(report().section).toBe("notes"));
+      expect(report()).not.toHaveProperty("sidebarCollapsed");
+
+      await send({ command: "sidebar", collapsed: true });
+      expect(sidebar()).not.toBeVisible();
+      await waitFor(() => expect(report().sidebarCollapsed).toBe(true));
+      // A reply to the app's command is not a toggle the page made.
+      expect(report().sidebarToggles).toBe(0);
+
+      // ⌘\ in the page toggles it, and the report carries the change to the app.
+      fireEvent.keyDown(window, { code: "Backslash", key: "\\", ctrlKey: true, metaKey: true });
+      expect(sidebar()).toBeVisible();
+      await waitFor(() => expect(report().sidebarCollapsed).toBe(false));
+      expect(report().sidebarToggles).toBe(1);
+      // The app owns the collapsed state; the page keeps only the width.
+      expect(JSON.parse(localStorage.getItem(SIDEBAR_KEY) ?? "{}")).toEqual({ width: 264 });
+
+      // Another window of this repository resizes it; only the width follows.
+      localStorage.setItem(SIDEBAR_KEY, JSON.stringify({ collapsed: true, width: 320 }));
+      act(() => {
+        window.dispatchEvent(new StorageEvent("storage", { key: SIDEBAR_KEY }));
+      });
+      expect(sidebar()?.style.getPropertyValue("--sidebar-width")).toBe("320px");
+      expect(sidebar()).toBeVisible();
+
+      // The View menu owns ⌃⌘S in Desktop.
+      fireEvent.keyDown(window, {
+        code: "KeyS",
+        key: "s",
+        ctrlKey: true,
+        metaKey: true,
+        altKey: true,
+      });
+      expect(sidebar()).toBeVisible();
     });
 
     it("takes the chrome theme the app sends", async () => {

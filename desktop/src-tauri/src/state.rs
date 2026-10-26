@@ -396,6 +396,9 @@ pub struct Preferences {
     pub theme: Theme,
     #[serde(deserialize_with = "lenient")]
     pub appearance: Appearance,
+    /// The workbench sidebar's state in every window (SPEC-0128).
+    #[serde(deserialize_with = "lenient")]
+    pub sidebar_collapsed: bool,
 }
 
 /// Reads a field, or its default when the value is one a newer app wrote.
@@ -739,7 +742,31 @@ mod tests {
                 render_profiling: true,
                 theme: Theme::Graphite,
                 appearance: Appearance::Light,
+                sidebar_collapsed: false,
             }
+        );
+    }
+
+    #[test]
+    fn the_sidebar_preference_defaults_to_shown_and_round_trips() {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join(PREFERENCES);
+        assert!(!Preferences::load(directory.path()).sidebar_collapsed);
+        Preferences {
+            sidebar_collapsed: true,
+            ..Preferences::default()
+        }
+        .save(directory.path())
+        .unwrap();
+        assert!(fs::read_to_string(&file)
+            .unwrap()
+            .contains("\"sidebarCollapsed\": true"));
+        assert!(Preferences::load(directory.path()).sidebar_collapsed);
+        fs::write(&file, r#"{"sidebarCollapsed":"yes","theme":"slate"}"#).unwrap();
+        let saved = Preferences::load(directory.path());
+        assert_eq!(
+            (saved.sidebar_collapsed, saved.theme),
+            (false, Theme::Slate)
         );
     }
 }

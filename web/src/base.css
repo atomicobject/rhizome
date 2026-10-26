@@ -76,8 +76,9 @@ textarea {
 
 .app-shell__nav {
   display: grid;
-  /* Brand and sections, the search centred in the remaining width, then tools. */
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  /* Brand, the sidebar toggle and sections, the search centred in the
+     remaining width, then tools. */
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
   align-items: center;
   height: 44px;
   gap: var(--sp-4);
@@ -154,6 +155,44 @@ textarea {
 .app-shell__nav nav {
   display: flex;
   gap: 2px;
+}
+
+/* The workbench sidebar's toggle, just before the sections (SPEC-0128). */
+.app-shell__sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-right: calc(-1 * var(--sp-3));
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--chrome-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    color 0.15s var(--ease);
+}
+
+.app-shell__sidebar-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.app-shell__sidebar-toggle:hover:enabled {
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+}
+
+.app-shell__sidebar-toggle[aria-expanded="true"] {
+  color: var(--chrome-text);
+}
+
+.app-shell__sidebar-toggle:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .app-shell__nav nav button {
@@ -243,7 +282,7 @@ textarea {
    the section tabs drop to their own scrolling row. */
 @media (max-width: 760px) {
   .app-shell__nav {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
     height: auto;
     padding-block: var(--sp-2);
   }

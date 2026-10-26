@@ -1,22 +1,22 @@
-.agent-workspace {
-  position: relative;
+/* The session list sits in the shared workbench sidebar (SPEC-0128) and the
+   chat in its inset panel. */
+.agent-workspace__rail {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(360px, 1fr);
-  background: var(--bg);
-}
-
-.agent-workspace__rail {
-  min-height: 0;
   overflow: hidden;
-  background: var(--surface-alt);
-  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
 }
 
-.agent-workspace__rail-head,
+.agent-workspace__rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: 6px 8px 4px 16px;
+  color: var(--chrome-text);
+}
+
 .agent-thread__head {
   min-height: 58px;
   display: flex;
@@ -34,7 +34,8 @@
 }
 
 .agent-workspace h1 {
-  font-size: var(--fs-xl);
+  font-size: var(--fs-base);
+  font-weight: 600;
 }
 
 .agent-workspace h2 {
@@ -68,30 +69,60 @@
   opacity: 0.55;
 }
 
-.agent-drawer-toggle,
-.agent-drawer-scrim {
-  display: none;
-}
-
 .agent-session-list {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 8px var(--sp-4);
+  scrollbar-color: var(--chrome-raised) transparent;
+  scrollbar-width: thin;
+}
+
+.agent-session-list > p {
+  padding: 6px 8px;
+}
+
+/* Controls keep their own ink on the chrome; status text takes the chrome's. */
+.agent-workspace__rail button:not(.agent-session__open),
+.agent-workspace__rail input,
+.agent-workspace__rail select {
+  color: var(--text);
+}
+
+.agent-workspace__rail .agent-muted {
+  color: var(--chrome-muted);
 }
 
 .agent-session {
   width: 100%;
   position: relative;
-  margin-bottom: var(--sp-2);
 }
 
-.agent-session__open {
+/* Session rows match the Notes sidebar's: chrome text, a raised hover, and
+   the light pill for the current session. */
+.agent-workspace .agent-session__open {
   width: 100%;
   display: grid;
-  gap: var(--sp-1);
-  padding-right: 40px;
+  gap: 1px;
+  padding: 5px 40px 5px 8px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--chrome-text);
   text-align: left;
+  transition: background-color 0.12s var(--ease);
+}
+
+.agent-workspace .agent-session__open:hover {
+  background: var(--chrome-raised);
+}
+
+.agent-workspace .agent-session__open:focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: -2px;
 }
 
 .agent-session__open span {
@@ -100,10 +131,20 @@
   white-space: nowrap;
 }
 
-.agent-session.is-active .agent-session__open {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+.agent-workspace .agent-session.is-active .agent-session__open {
+  background: var(--chrome-pill);
+  color: var(--chrome-pill-text);
+  font-weight: 600;
+}
+
+.agent-session.is-active .agent-session__open:focus-visible {
+  outline-color: var(--chrome-pill-text);
+}
+
+.agent-session .agent-session__open small {
+  color: inherit;
+  font-weight: 400;
+  opacity: 0.85;
 }
 
 .agent-session__delete {
@@ -154,7 +195,7 @@
 }
 
 .agent-settings {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--chrome-raised);
   padding: var(--sp-5);
   display: grid;
   gap: var(--sp-4);
@@ -171,7 +212,7 @@
   display: grid;
   gap: var(--sp-2);
   font: var(--label-font);
-  color: var(--label-color);
+  color: var(--chrome-muted);
 }
 
 .agent-model-controls__model {
@@ -404,69 +445,6 @@
 }
 
 @media (max-width: 980px) {
-  .agent-workspace {
-    grid-template-columns: 1fr;
-    overflow: hidden;
-  }
-
-  .agent-workspace__rail {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 20;
-    width: min(320px, 86vw);
-    min-height: 0;
-    transform: translateX(-100%);
-    box-shadow: var(--shadow-lg);
-    transition: transform 180ms var(--ease);
-  }
-
-  .agent-workspace--drawer-open .agent-workspace__rail {
-    transform: translateX(0);
-  }
-
-  .agent-drawer-scrim {
-    position: absolute;
-    inset: 0;
-    z-index: 10;
-    display: block;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: var(--scrim);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 180ms var(--ease);
-  }
-
-  .agent-workspace--drawer-open .agent-drawer-scrim {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .agent-thread {
-    min-height: 0;
-  }
-
-  .agent-drawer-toggle {
-    display: inline-grid;
-    place-items: center;
-    flex: 0 0 auto;
-    width: 34px;
-    height: 34px;
-    padding: 7px;
-    gap: 4px;
-  }
-
-  .agent-drawer-toggle span {
-    display: block;
-    width: 16px;
-    height: 2px;
-    border-radius: 999px;
-    background: currentColor;
-  }
-
   .agent-thread__head {
     padding: var(--sp-4);
   }

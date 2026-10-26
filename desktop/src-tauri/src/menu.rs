@@ -1,8 +1,10 @@
 //! The application menu bar and the shell's native popup menus.
 use crate::{
-    appearance, finder, page,
+    appearance,
+    commands::Desktop,
+    finder, page,
     pane::Panes,
-    state::WindowSession,
+    state::{Preferences, WindowSession},
     windows::{
         browse, content_label, create, focused_window, page_command, shell_label, visible_page_url,
         Browse, Sessions,
@@ -183,6 +185,60 @@ fn copy_text(_: &str) -> Result<(), String> {
     Err("Copying the page address is available only on macOS.".into())
 }
 
+/// ⌃⌘S on macOS; ⌃⌥S elsewhere, where ⌘ is Ctrl and ⌃S would be Save.
+const SIDEBAR_SHORTCUT: &str = if cfg!(target_os = "macos") {
+    "Ctrl+CmdOrCtrl+S"
+} else {
+    "Ctrl+Alt+S"
+};
+
+fn sidebar_label(collapsed: bool) -> &'static str {
+    if collapsed {
+        "Show Sidebar"
+    } else {
+        "Hide Sidebar"
+    }
+}
+
+struct SidebarItem(MenuItem<Wry>);
+
+/// Names the View menu's sidebar item for the saved state, and enables it
+/// while the focused window's page can toggle its sidebar.
+pub fn refresh_sidebar(app: &AppHandle) {
+    let Some(item) = app.try_state::<SidebarItem>() else {
+        return;
+    };
+    let collapsed = Preferences::load(&app.state::<Desktop>().directory).sidebar_collapsed;
+    let enabled = focused_window(app)
+        .and_then(|window| {
+            app.state::<Panes>()
+                .with(window.label(), page::toggles_sidebar)
+        })
+        .unwrap_or(false);
+    let _ = item.0.set_text(sidebar_label(collapsed));
+    let _ = item.0.set_enabled(enabled);
+}
+
+fn toggle_sidebar(app: &AppHandle) {
+    let Some(window) = focused_window(app) else {
+        return;
+    };
+    let toggles = app
+        .state::<Panes>()
+        .with(window.label(), page::toggles_sidebar)
+        .unwrap_or(false);
+    if !toggles {
+        return;
+    }
+    let collapsed = Preferences::load(&app.state::<Desktop>().directory).sidebar_collapsed;
+    if let Err(message) = page::set_sidebar(app, !collapsed) {
+        app.state::<Panes>().deliver(
+            window.label(),
+            json!({"type": "alert", "code": "desktop_error", "message": message}),
+        );
+    }
+}
+
 fn command(app: &AppHandle, name: &str) {
     match focused_window(app) {
         Some(window) => {
@@ -305,6 +361,14 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
     // No shortcuts: the editor uses Cmd-[ and Cmd-] for indentation.
     let back = MenuItem::with_id(app, "back", "Back", true, None::<&str>)?;
     let forward = MenuItem::with_id(app, "forward", "Forward", true, None::<&str>)?;
+    let sidebar = MenuItem::with_id(
+        app,
+        "sidebar",
+        sidebar_label(Preferences::load(&app.state::<Desktop>().directory).sidebar_collapsed),
+        false,
+        Some(SIDEBAR_SHORTCUT),
+    )?;
+    app.manage(SidebarItem(sidebar.clone()));
     let view_menu = Submenu::with_items(
         app,
         "View",
@@ -317,6 +381,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &appearance_menu,
             &theme_menu,
             &PredefinedMenuItem::separator(app)?,
+            &sidebar,
             &PredefinedMenuItem::fullscreen(app, None)?,
         ],
     )?;
@@ -362,6 +427,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
                 }
             }
             "check-updates" => crate::updater::check_from_menu(app),
+            "sidebar" => toggle_sidebar(app),
             "search" => {
                 if let Some(window) = focused_window(app) {
                     dismiss_finder(&window);
@@ -426,5 +492,13 @@ mod tests {
         assert!(entries[0].items[1].separator);
         assert_eq!(entries[1].id, "m3");
         assert!(serde_json::from_str::<Vec<MenuEntry>>(r#"[{"label":"x","run":1}]"#).is_err());
+    }
+
+    #[test]
+    fn the_sidebar_item_names_what_it_will_do() {
+        assert_eq!(sidebar_label(false), "Hide Sidebar");
+        assert_eq!(sidebar_label(true), "Show Sidebar");
+        #[cfg(target_os = "macos")]
+        assert_eq!(SIDEBAR_SHORTCUT, "Ctrl+CmdOrCtrl+S");
     }
 }

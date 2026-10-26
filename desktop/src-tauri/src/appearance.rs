@@ -129,23 +129,16 @@ pub fn apply(app: &AppHandle, settings: Settings) {
     app.set_theme(settings.appearance.native());
     for window in app.windows().values() {
         paint(window, settings.theme);
-        send_theme(window, settings.theme);
+        page::send_setting(
+            window,
+            &page::Command::Theme {
+                theme: settings.theme,
+            },
+        );
     }
     check_menu(app, settings);
     app.state::<Panes>()
         .broadcast(&json!({"type": "settings", "settings": settings}));
-}
-
-/// Hands the page its theme. A page that is loading or covered still takes it.
-pub fn send_theme(window: &Window, theme: Theme) {
-    let shown = window
-        .app_handle()
-        .state::<Panes>()
-        .with(window.label(), |pane| page::on_runtime_document(pane))
-        .unwrap_or(false);
-    if let (true, Some(content)) = (shown, window.get_webview(&content_label(window.label()))) {
-        let _ = content.eval(page::Command::Theme { theme }.script().unwrap_or_default());
-    }
 }
 
 const TOKENS: &str = include_str!("../../../web/src/tokens.css");
