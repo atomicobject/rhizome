@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { createElement, type MouseEvent } from "react";
 import { publicWorkspaceRef } from "../../api/client";
 import { ChildSectionBody, hasBodyBlocks, headingTag, resolveChild } from "./ChildSectionInline";
@@ -47,7 +48,7 @@ export function ChildSectionDisclosure({ block, context }: BodyRendererProps) {
         {createElement(
           headingTag(child),
           { className: "body-disclosure__heading" },
-          <span className="body-disclosure__chevron" aria-hidden="true" />,
+          <ChevronRight className="body-disclosure__chevron" aria-hidden="true" />,
           identity.id && <span className="body-disclosure__id">{identity.id}</span>,
           <span className="body-disclosure__title">{identity.title}</span>,
           identity.status && <span className="body-disclosure__meta">{identity.status}</span>,

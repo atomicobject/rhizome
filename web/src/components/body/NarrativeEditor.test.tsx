@@ -2,7 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NodeBodyBlock, NodeWorkspace, WorkspaceContentNode } from "../../api/types";
-import { readPersistedEditorDraftRecord } from "../editing/draftStorage";
+import { readPersistedEditorDraftRecord, writePersistedEditorDraft } from "../editing/draftStorage";
 import { flushEditors } from "../editing/editorFlush";
 import { NarrativeEditor } from "./NarrativeEditor";
 import type { BodyRenderContext } from "./registry";
@@ -173,6 +173,63 @@ describe("NarrativeEditor", () => {
 
     expect(view.state.doc.toString()).toBe("Line one\n\n- [ ] Task");
     expect(view.contentDOM).toBe(screen.getByRole("textbox", { name: "Narrative markdown" }));
+  });
+
+  it("shows a section's prose without the heading's blank line or a CRLF tail", async () => {
+    const onStageOps = vi.fn();
+    const rendered = renderEditor({ markdown: "\r\nLine one\r\n\r\n    indented\r", onStageOps });
+    const view = await narrativeView();
+
+    expect(view.state.doc.toString()).toBe("Line one\n\n    indented");
+    expect(rendered.container.querySelector(".is-dirty")).toBeNull();
+    fireEvent.blur(view.contentDOM);
+    await act(async () => flushEditors());
+    expect(onStageOps).not.toHaveBeenCalled();
+  });
+
+  it("keeps the first line's indentation when only blank lines lead", async () => {
+    renderEditor({ markdown: "\n  \n    code()" });
+    const view = await narrativeView();
+
+    expect(view.state.doc.toString()).toBe("    code()");
+  });
+
+  it("stages an edit against the raw block markdown", async () => {
+    const onStageOps = vi.fn();
+    renderEditor({ markdown: "\nOriginal narrative", onStageOps });
+    const view = await narrativeView();
+    replaceNarrative(view, "Edited narrative");
+
+    await act(async () => flushEditors());
+
+    expect(onStageOps).toHaveBeenCalledWith([
+      expect.objectContaining({
+        markdown: "Edited narrative",
+        previousMarkdown: "\nOriginal narrative",
+      }),
+    ]);
+  });
+
+  it("drops a persisted draft that differs only by the heading's blank line", async () => {
+    const onStageOps = vi.fn();
+    writePersistedEditorDraft("/vault", operationID, "\nOriginal narrative\n");
+    const rendered = renderEditor({ markdown: "\nOriginal narrative", onStageOps });
+    const view = await narrativeView();
+
+    expect(view.state.doc.toString()).toBe("Original narrative");
+    expect(rendered.container.querySelector(".is-dirty")).toBeNull();
+    expect(readPersistedEditorDraftRecord("/vault", operationID)).toBeNull();
+    await act(async () => flushEditors());
+    expect(onStageOps).not.toHaveBeenCalled();
+  });
+
+  it("restores a persisted draft's edit without its leading blank line", async () => {
+    writePersistedEditorDraft("/vault", operationID, "\nRecovered edit");
+    const rendered = renderEditor({ markdown: "\nOriginal narrative" });
+    const view = await narrativeView();
+
+    expect(view.state.doc.toString()).toBe("Recovered edit");
+    expect(rendered.container.querySelector(".is-dirty")).not.toBeNull();
   });
 
   it("debounces typing into one witnessed operation with a stable id", async () => {

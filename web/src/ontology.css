@@ -693,12 +693,14 @@
 .ontology-markdown {
   min-width: 0;
   font-size: var(--fs-md);
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--text);
   max-width: 80ch;
 }
 
-/* Merriweather stays with the note title; body headings use the UI face. */
+/* Merriweather stays with the note title; body headings use the UI face.
+   Sections separate by space alone: more above a heading than below it, and
+   size, not weight, tells H2 from H3. */
 .ontology-markdown h1,
 .ontology-markdown h2,
 .ontology-markdown h3,
@@ -707,21 +709,21 @@
 .ontology-markdown h6 {
   scroll-margin-top: var(--sp-4);
   font-family: var(--font-sans);
-  font-weight: 700;
-  line-height: 1.3;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
   color: var(--text);
-  margin-top: 1.4em;
-  margin-bottom: 0.35em;
+  margin-top: var(--sp-7);
+  margin-bottom: var(--sp-3);
 }
 
 .ontology-markdown h1 {
-  font-size: var(--fs-xl);
+  font-size: var(--fs-2xl);
 }
 
 .ontology-markdown h2 {
-  font-size: var(--fs-lg);
-  border-bottom: 1px solid var(--border-faint);
-  padding-bottom: 0.25em;
+  margin-top: calc(var(--sp-7) + var(--sp-1));
+  font-size: var(--fs-xl);
 }
 
 .ontology-markdown h3 {
@@ -737,12 +739,23 @@
 
 /* The first heading sits under the property rule, not a paragraph. */
 .ontology-markdown > :first-child,
-.ontology-markdown > .body-section:first-child > :first-child {
-  margin-top: 0.2em;
+.ontology-markdown > .body-section:first-child > :first-child,
+.ontology-markdown > .body-disclosure:first-child > summary > :first-child {
+  margin-top: var(--sp-5);
 }
 
+/* Paragraph gaps stay well under the section gap. Margins collapse through
+   the narrative wrappers, so a heading keeps its own 8px below. */
 .ontology-markdown p {
-  margin: 0.5em 0;
+  margin: 0 0 0.75em;
+}
+
+.ontology-markdown .body-narrative > :first-child {
+  margin-top: 0;
+}
+
+.ontology-markdown .body-narrative > :last-child {
+  margin-bottom: 0;
 }
 
 .ontology-markdown ul,
@@ -1527,9 +1540,9 @@
 
 .ontology-properties {
   margin: 0 0 var(--sp-5);
-  padding: 0 0 var(--sp-3);
+  padding: 0 0 var(--sp-5);
   border: 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-faint);
   border-radius: 0;
   background: transparent;
 }
@@ -1537,7 +1550,7 @@
 .ontology-properties__header {
   display: flex;
   align-items: center;
-  margin-bottom: var(--sp-2);
+  margin-bottom: var(--sp-1);
 }
 
 .ontology-properties__label {
@@ -1546,9 +1559,10 @@
   color: var(--label-color);
 }
 
-.ontology-properties__details-toggle {
-  margin-left: auto;
+.ontology-properties__details-toggle,
+.ontology-properties__empty-toggle {
   border: 0;
+  border-radius: var(--r-sm);
   padding: 2px var(--sp-2);
   background: transparent;
   color: var(--text-muted);
@@ -1557,19 +1571,32 @@
   cursor: pointer;
 }
 
-.ontology-properties__details-toggle:hover {
-  color: var(--text);
+.ontology-properties__details-toggle {
+  margin-left: auto;
 }
 
-.ontology-properties__details-toggle:focus-visible {
+/* Sits under the label column, where the hidden rows would start. */
+.ontology-properties__empty-toggle {
+  margin: var(--sp-1) 0 0 calc(-1 * var(--sp-2));
+}
+
+.ontology-properties__details-toggle:hover,
+.ontology-properties__empty-toggle:hover {
+  color: var(--text);
+  background: var(--bg-tint);
+}
+
+.ontology-properties__details-toggle:focus-visible,
+.ontology-properties__empty-toggle:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
+/* Rows separate by rhythm, not rules: a muted label column and 30px rows. */
 .ontology-properties__grid {
   display: grid;
   grid-template-columns: minmax(112px, 160px) minmax(0, 1fr);
-  column-gap: var(--sp-4);
+  column-gap: var(--sp-5);
   row-gap: 0;
   margin: 0;
 }
@@ -1590,21 +1617,21 @@
 .ontology-properties__key {
   margin: 0;
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 20px;
   color: var(--text-muted);
   align-self: start;
-  padding: 7px 0;
-  border-top: 1px solid var(--border-faint);
+  padding: 5px 0;
 }
 
 .ontology-properties__value {
   margin: 0;
   font-size: var(--fs-base);
+  line-height: 20px;
   color: var(--text);
   align-self: stretch;
   min-width: 0;
   padding: 5px 0;
-  border-top: 1px solid var(--border-faint);
 }
 
 .ontology-properties__link {
@@ -1974,11 +2001,18 @@
 
 .body-narrative {
   color: var(--text);
-  line-height: 1.55;
 }
 
 .body-narrative + .body-narrative {
-  margin-top: var(--sp-4);
+  margin-top: 0.75em;
+}
+
+/* A note's lead line of links ("Home: [[A]] · [[B]]") is metadata about the
+   note, not its prose: it reads quietly above the body in both modes. */
+.ontology-markdown .body-narrative--meta {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
 }
 
 .body-section {
@@ -2019,7 +2053,9 @@
   color: var(--text);
 }
 
-/* Collapsed sections read as the note's own headings, with a gutter chevron. */
+/* Collapsible sections read as the note's own headings. The chevron sits in
+   the gutter beside the title, centred on its first line, so titles keep the
+   prose's left edge. It shows while collapsed, and on hover or focus. */
 .body-disclosure {
   scroll-margin-top: var(--sp-4);
 }
@@ -2035,6 +2071,11 @@
 }
 
 .body-disclosure__summary:focus-visible {
+  outline: none;
+}
+
+.body-disclosure__summary:focus-visible .body-disclosure__title {
+  border-radius: var(--r-sm);
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -2047,31 +2088,52 @@
   min-width: 0;
 }
 
+/* Collapsed neighbours read as a list of headings, not separate sections. */
+.ontology-markdown
+  .body-disclosure:not([open])
+  > .body-disclosure__summary
+  > .body-disclosure__heading {
+  margin-bottom: 0;
+}
+
 .body-disclosure:not([open])
   + .body-disclosure
   > .body-disclosure__summary
   > .body-disclosure__heading {
-  margin-top: 0.6em;
+  margin-top: var(--sp-5);
 }
 
 .body-disclosure__chevron {
   position: absolute;
-  top: 0.5em;
-  left: -14px;
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid var(--text-faint);
-  transition: transform 0.12s var(--ease);
+  top: calc(0.5lh - 7px);
+  left: -18px;
+  width: 14px;
+  height: 14px;
+  color: var(--text-faint);
+  opacity: 0;
+  transition:
+    opacity 0.12s var(--ease),
+    transform 0.12s var(--ease);
+}
+
+.body-disclosure:not([open]) > .body-disclosure__summary .body-disclosure__chevron,
+.body-disclosure__summary:hover .body-disclosure__chevron,
+.body-disclosure__summary:focus-visible .body-disclosure__chevron {
+  opacity: 1;
 }
 
 .body-disclosure[open] > .body-disclosure__summary .body-disclosure__chevron {
   transform: rotate(90deg);
 }
 
-.body-disclosure__summary:hover > * > .body-disclosure__chevron {
-  border-left-color: var(--text);
+.body-disclosure__summary:hover .body-disclosure__chevron {
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body-disclosure__chevron {
+    transition: none;
+  }
 }
 
 /* Long titles wrap; the excerpt gives way first, then the title. */

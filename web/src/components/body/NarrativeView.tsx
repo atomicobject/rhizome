@@ -11,13 +11,13 @@ import type { BodyRendererProps } from "./registry";
  * The edit-mode counterpart (`NarrativeEditor`) is a separate component;
  * swap via the registry instead of branching here.
  */
-export function NarrativeView({ block, context }: BodyRendererProps) {
+export function NarrativeView({ block, kindOrdinal, node, context }: BodyRendererProps) {
   const markdown = convertWikilinks(block.markdown || "");
 
   if (!markdown.trim()) return null;
 
   return (
-    <div className="body-narrative">
+    <div className={narrativeClassName("body-narrative", { block, kindOrdinal, node })}>
       <Markdown
         urlTransform={(url) => url}
         components={{
@@ -48,4 +48,26 @@ export function NarrativeView({ block, context }: BodyRendererProps) {
       </Markdown>
     </div>
   );
+}
+
+// A short label, then only links and separators: "Home: [[A]] · [[B]]".
+const LEAD_METADATA_LINE =
+  /^[\p{L}][\p{L}\p{N} ]{0,23}:(?:\s*(?:\[\[[^\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\))\s*[·•|,/–—-]?)+\s*$/u;
+
+/**
+ * The class for a narrative block. A note's lead line that holds only a label
+ * and links is metadata about the note, so it reads quietly in both modes.
+ */
+export function narrativeClassName(
+  base: string,
+  { block, kindOrdinal, node }: Pick<BodyRendererProps, "block" | "kindOrdinal" | "node">,
+): string {
+  const lead =
+    node.kind === "note" &&
+    kindOrdinal === 0 &&
+    node.body?.find((candidate) => candidate.kind !== "inline_field") === block;
+
+  return lead && LEAD_METADATA_LINE.test((block.markdown || "").trim())
+    ? `${base} body-narrative--meta`
+    : base;
 }
