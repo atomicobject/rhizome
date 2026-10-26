@@ -8,6 +8,7 @@ import type { ViewChoice, ViewTarget } from "../api/types";
 import type { ViewTab as ViewTabModel } from "./useNoteTabs";
 import { useViewCatalogQuery } from "./useNotesQueries";
 import { useTypeLabel, viewDisplayName } from "./typeLabels";
+import { useViewHeaderSlotRefs, ViewHeader, ViewHeaderSlotsProvider } from "./ConfiguredViewHeader";
 
 type Props = {
   tab: ViewTabModel;
@@ -67,6 +68,7 @@ export const ViewTab = memo(function ViewTab({
   });
 
   const typeLabel = useTypeLabel();
+  const header = useViewHeaderSlotRefs();
   const name = entry ? viewDisplayName(entry, typeLabel) : null;
   useEffect(() => {
     if (name && name !== tab.title) onTitle(tab.id, name);
@@ -108,30 +110,32 @@ export const ViewTab = memo(function ViewTab({
   const sourceType = entry.source.type || entry.source.interface;
 
   return (
-    <>
-      <header className="configured-view__header">
-        <div className="configured-view__identity">
-          {!entry.generated && sourceType && (
-            <p className="configured-view__eyebrow">{typeLabel(sourceType)}</p>
-          )}
-          <h2>{name}</h2>
-        </div>
-        <ViewSelector
-          target={viewTarget}
-          selectedId={choice.id}
-          onSelect={selected.select}
-          status={selected}
-          trailing={
-            <ViewPreferenceReset
-              choice={choice}
-              definition={entry}
-              context={{ kind: "standalone" }}
-              vaultKey={editSession.vaultKey}
-            />
-          }
-        />
-      </header>
+    <ViewHeaderSlotsProvider value={header.slots}>
+      <ViewHeader
+        title={name}
+        description={
+          entry.description || (!entry.generated && sourceType ? typeLabel(sourceType) : "")
+        }
+        countRef={header.countRef}
+        toolsRef={header.toolsRef}
+        tabs={
+          <ViewSelector
+            target={viewTarget}
+            selectedId={choice.id}
+            onSelect={selected.select}
+            status={selected}
+            trailing={
+              <ViewPreferenceReset
+                choice={choice}
+                definition={entry}
+                context={{ kind: "standalone" }}
+                vaultKey={editSession.vaultKey}
+              />
+            }
+          />
+        }
+      />
       {selected.loading ? <p role="status">Loading view…</p> : host(true)}
-    </>
+    </ViewHeaderSlotsProvider>
   );
 });

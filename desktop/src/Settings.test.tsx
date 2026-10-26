@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { request, type LinkInfo } from "./api";
 import { Settings } from "./Settings";
@@ -25,6 +25,8 @@ const props = () => ({
   onSelect: vi.fn(),
   onPick: vi.fn(),
   onClose: vi.fn(),
+  appearance: { theme: "graphite", appearance: "auto" } as const,
+  onAppearance: vi.fn(),
 });
 const link = (state: LinkInfo["state"], shell: LinkInfo["shell"] = { isApp: false }): LinkInfo => ({
   linkPath: "/usr/local/bin/rzm",
@@ -122,3 +124,17 @@ it("keeps render timings on in Rhizome Dev", async () => {
 });
 
 vi.mock("./CredentialImport", () => ({ CredentialImport: () => null }));
+
+it("chooses the app-wide appearance and theme", () => {
+  const base = props();
+  render(<Settings {...base} />);
+  const appearance = screen.getByRole("radiogroup", { name: "Appearance" });
+  expect(within(appearance).getByLabelText("Match System")).toBeChecked();
+  fireEvent.click(within(appearance).getByLabelText("Dark"));
+  expect(base.onAppearance).toHaveBeenCalledWith({ appearance: "dark" });
+  const themes = screen.getByRole("radiogroup", { name: "Theme" });
+  expect(within(themes).getAllByRole("radio")).toHaveLength(5);
+  expect(within(themes).getByLabelText("Graphite")).toBeChecked();
+  fireEvent.click(within(themes).getByLabelText("Spruce"));
+  expect(base.onAppearance).toHaveBeenCalledWith({ theme: "spruce" });
+});

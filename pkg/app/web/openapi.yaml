@@ -119,6 +119,71 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuggestResponse"
+  /api/v1/find:
+    get:
+      operationId: findNotesAndFiles
+      description: >-
+        Fuzzy-finds indexed notes and code files for the ⌘P finder. Scores display titles and vault-relative paths with
+        fzf's algorithm, smart-case, favouring titles and ranking exact and prefix title matches first. Queries with few
+        matches also try one swapped or dropped character. Frecency recorded through /api/v1/find/opens only breaks close
+        scores. An empty q lists recently opened items, then recently changed notes.
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - in: query
+          name: kind
+          schema:
+            type: string
+            enum: [note, code]
+      responses:
+        "200":
+          description: Ranked notes and code files
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FindResponse"
+        "400":
+          description: Invalid limit or kind
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/IndexInitializing"
+  /api/v1/find/opens:
+    post:
+      operationId: recordFinderOpen
+      description: Records that the user opened a note or file, for this checkout's finder frecency.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FindOpenRequest"
+      responses:
+        "204":
+          description: Recorded
+        "400":
+          description: The path is not a clean vault-relative path
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Personal state is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/search:
     get:
       operationId: searchPublicPaths
@@ -2547,6 +2612,56 @@ components:
         kind: { type: string }
         lang: { type: string }
         score: { type: integer }
+    FindResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FindItem"
+    FindItem:
+      type: object
+      required: [kind, path, title, score, titleMatches, pathMatches]
+      properties:
+        kind:
+          type: string
+          enum: [note, code]
+        path:
+          type: string
+          description: Vault-relative path.
+        title:
+          type: string
+          description: Display title for a note; the file name for a code file.
+        type:
+          type: string
+          description: Resolved ontology type of a typed note.
+        lang:
+          type: string
+          description: Language of a code file.
+        score:
+          type: integer
+        titleMatches:
+          $ref: "#/components/schemas/FindMatchRanges"
+        pathMatches:
+          $ref: "#/components/schemas/FindMatchRanges"
+    FindMatchRanges:
+      type: array
+      description: Matched [start, end) ranges in UTF-16 code units.
+      items:
+        type: array
+        minItems: 2
+        maxItems: 2
+        items:
+          type: integer
+    FindOpenRequest:
+      type: object
+      required: [path]
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          description: Vault-relative path of the opened note or file.
     SuggestResponse:
       type: object
       required: [query, matches]

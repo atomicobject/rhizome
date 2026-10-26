@@ -58,3 +58,13 @@ export function displayTitle(title: string | null | undefined): string {
 export function enumLabel(value: string, label?: string | null): string {
   return label && label !== value ? label : humanizeName(value);
 }
+
+/** A vault registered by path shows its folder name; the full path belongs in a tooltip. */
+export function vaultLabel(name: string): string {
+  return (
+    name
+      .replace(/[\\/]+$/, "")
+      .split(/[\\/]/)
+      .at(-1) || name
+  );
+}

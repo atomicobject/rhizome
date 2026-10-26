@@ -1,11 +1,13 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { App } from "./App";
 import {
   attach,
   pickPath,
   request,
   type Discovery,
+  type FinderChoice,
+  type FinderModel,
   type Library,
   type MenuEntry,
   type Message,
@@ -73,7 +75,7 @@ type Result = Awaited<ReturnType<typeof request>>;
 let emit: (message: Message) => void;
 let generation = 0;
 function start(
-  session: WindowSession = { sidebarCollapsed: false, repository: repository.id, worktree: main },
+  session: WindowSession = { repository: repository.id, worktree: main },
   handle?: (operation: string, args: unknown) => Result | Promise<Result> | undefined,
 ) {
   generation = 0;
@@ -90,7 +92,9 @@ function start(
     if (operation === "update-status") return { state: "idle" };
     if (operation === "cli-link-status")
       return { linkPath: "/usr/local/bin/rzm", state: "absent", shell: { isApp: false } };
-    if (["session", "layout", "menu", "trust", "deselect"].includes(operation)) return null;
+    if (operation === "settings") return { theme: "graphite", appearance: "auto" };
+    if (["session", "layout", "menu", "trust", "deselect", "finder"].includes(operation))
+      return null;
     throw new Error(`Unexpected operation: ${operation}`);
   });
   render(<App />);
@@ -117,11 +121,51 @@ function opened() {
       Object.fromEntries(Object.entries(args).filter(([key]) => key !== "selection")),
     );
 }
+/** The model the shell last showed the finder, or null once it closed it. */
+function finderModel(): FinderModel | null {
+  const calls = call.mock.calls.filter(([operation]) => operation === "finder");
+  return (calls.at(-1)?.[1] as { model: FinderModel | null } | undefined)?.model ?? null;
+}
+async function showFinder(name: string | RegExp) {
+  fireEvent.click(await screen.findByRole("button", { name }));
+  await waitFor(() => expect(finderModel()).not.toBeNull());
+  return finderModel()!;
+}
+function choose(choice: FinderChoice) {
+  act(() => emit({ type: "finder", ...choice }));
+}
+const openRepository = (id: string) =>
+  choose({ choice: "open", repository: id, worktree: null, newWindow: false });
+/** The popup menu the shell last asked for. */
+function lastMenu() {
+  const [, menu] = call.mock.calls.filter(([operation]) => operation === "menu").at(-1)!;
+  return (menu as { items: MenuEntry[] }).items;
+}
+/** The current repository's actions, from its name in the toolbar. */
+async function repositoryMenu() {
+  const before = call.mock.calls.filter(([operation]) => operation === "menu").length;
+  fireEvent.contextMenu(await screen.findByRole("button", { name: /^Repository / }));
+  await waitFor(() =>
+    expect(call.mock.calls.filter(([operation]) => operation === "menu").length).toBe(before + 1),
+  );
+  return lastMenu();
+}
+function present(runtimes: Record<string, { state: "running" | "starting" | "stopped" }> = {}) {
+  act(() =>
+    emit({
+      type: "presence",
+      repositories: { [repository.id]: { info: discovery } },
+      runtimes: Object.fromEntries(
+        Object.entries(runtimes).map(([path, { state }]) => [path, { state, mode: null }]),
+      ),
+    }),
+  );
+}
 beforeEach(() => vi.resetAllMocks());
 
 describe("desktop shell", () => {
-  it("restores the window's sidebar state and selected worktree", async () => {
-    start({ sidebarCollapsed: true, repository: repository.id, worktree: feature });
+  it("restores the window's selected worktree", async () => {
+    start({ repository: repository.id, worktree: feature });
     await waitFor(() =>
       expect(opened()).toEqual([{ id: repository.id, worktree: feature, skipSeed: false }]),
     );
@@ -130,35 +174,27 @@ describe("desktop shell", () => {
       expect(call).toHaveBeenCalledWith("session", {
         repository: repository.id,
         worktree: feature,
-        sidebarCollapsed: true,
       }),
     );
   });
 
-  it("marks worktrees that have not been opened", async () => {
-    start();
-    expect(await screen.findByTitle("1 new worktree")).toBeVisible();
-    fireEvent.click(await screen.findByRole("button", { name: "Worktree" }));
-    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
-    const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
-    const labels = (menu as { items: MenuEntry[] }).items.map((item) => item.label);
-    expect(labels).toEqual([
-      "main — project (primary)",
-      "feature — project-feature",
-      "● spike — project-new",
+  it("lists the worktree finder's rows with the primary first and new ones marked", async () => {
+    start({ repository: repository.id, worktree: feature });
+    expect(await screen.findByTitle("New worktrees")).toBeVisible();
+    const model = await showFinder(/^Worktree /);
+    expect(model.mode).toBe("worktrees");
+    expect(model.rows.map((r) => [r.title, r.primary, r.fresh, r.current])).toEqual([
+      ["main", true, false, false],
+      ["feature", false, false, true],
+      ["spike", false, true, false],
     ]);
   });
-
   it("shows each open step and ignores reports from a replaced open", async () => {
     start();
     await waitFor(() => expect(opened()).toHaveLength(1));
     report({ step: "seeding", primary: feature });
     expect(screen.getByRole("status")).toHaveTextContent("Copying the index from project-feature");
-    fireEvent.click(screen.getByRole("button", { name: "Worktree" }));
-    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
-    const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
-    const item = (menu as { items: MenuEntry[] }).items[1];
-    act(() => emit({ type: "menu", id: item.id! }));
+    choose({ choice: "open", repository: repository.id, worktree: feature, newWindow: false });
     await waitFor(() => expect(opened()).toHaveLength(2));
     report({ generation: 1, step: "error", message: "stale failure" });
     expect(screen.queryByText("stale failure")).toBeNull();
@@ -201,19 +237,8 @@ describe("desktop shell", () => {
         : undefined,
     );
     await waitFor(() => expect(opened()).toHaveLength(1));
-    act(() =>
-      emit({
-        type: "presence",
-        repositories: { [repository.id]: { info: discovery } },
-        runtimes: {},
-      }),
-    );
-    fireEvent.contextMenu(screen.getByRole("tab", { name: /project/ }));
-    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
-    const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
-    const item = (menu as { items: MenuEntry[] }).items.find(
-      (entry) => entry.label === "What Gets Indexed…",
-    )!;
+    present();
+    const item = (await repositoryMenu()).find((entry) => entry.label === "What Gets Indexed…")!;
     expect(item.disabled).toBe(false);
     act(() => emit({ type: "menu", id: item.id! }));
     expect(
@@ -239,7 +264,7 @@ describe("desktop shell", () => {
   });
 
   it("adds a repository from the empty state without running it", async () => {
-    start({ sidebarCollapsed: false }, (operation) => {
+    start({}, (operation) => {
       if (operation === "list") return { version: 3, repositories: [], revision: 0 };
       if (operation === "add") return { library, id: repository.id };
     });
@@ -248,7 +273,7 @@ describe("desktop shell", () => {
     await waitFor(() => expect(opened()).toHaveLength(1));
     expect(call).toHaveBeenCalledWith("add", { path: feature });
     expect(call.mock.calls.map(([operation]) => operation)).not.toContain("initialize");
-    expect(screen.getByRole("tab", { name: /project/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Repository project" })).toBeVisible();
   });
 
   it("preserves a broken library and offers retry", async () => {
@@ -261,60 +286,44 @@ describe("desktop shell", () => {
     });
     expect(await screen.findByRole("alert")).toHaveTextContent("Your file has been preserved.");
     expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Add repository" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /^Repository / })).toBeNull();
   });
 
-  it("shows which worktrees run Rhizome alongside the new marker", async () => {
+  it("shows which worktrees and repositories run Rhizome in the finders", async () => {
     start();
     await waitFor(() => expect(opened()).toHaveLength(1));
-    expect(screen.queryByLabelText("Rhizome running")).toBeNull();
-    act(() =>
-      emit({
-        type: "presence",
-        repositories: { [repository.id]: { info: discovery } },
-        runtimes: {
-          [main]: { state: "running", mode: "headless" },
-          [feature]: { state: "stopped", mode: null },
-          [added]: { state: "starting", mode: null },
-        },
-      }),
-    );
-    expect(screen.getByLabelText("Rhizome running")).toBeVisible();
-    expect(screen.getByTitle("1 new worktree")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Worktree" }));
-    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
-    const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
-    expect((menu as { items: MenuEntry[] }).items.map((item) => item.label)).toEqual([
-      "main — project (primary) · Running",
-      "feature — project-feature",
-      "● spike — project-new · Starting…",
+    present({
+      [main]: { state: "running" },
+      [feature]: { state: "stopped" },
+      [added]: { state: "starting" },
+    });
+    const worktrees = await showFinder(/^Worktree /);
+    expect(worktrees.rows.map((r) => [r.title, r.runtime])).toEqual([
+      ["main", "running"],
+      ["feature", "stopped"],
+      ["spike", "starting"],
     ]);
-    act(() =>
-      emit({
-        type: "presence",
-        repositories: {},
-        runtimes: { [added]: { state: "starting", mode: null } },
-      }),
-    );
-    expect(screen.getByLabelText("Rhizome starting")).toBeVisible();
+    // ⌘O while the worktree finder is open switches to the repository finder.
+    act(() => emit({ type: "command", command: "repositories" }));
+    await waitFor(() => expect(finderModel()?.mode).toBe("repositories"));
+    expect(finderModel()!.rows).toEqual([
+      expect.objectContaining({ title: "project", runtime: "running", current: true, fresh: true }),
+    ]);
+    present({ [added]: { state: "starting" } });
+    await waitFor(() => expect(finderModel()!.rows[0].runtime).toBe("starting"));
+    // Each live update is numbered, so the app drops one that arrives late.
+    const revisions = call.mock.calls
+      .filter(([operation]) => operation === "finder")
+      .map(([, args]) => args as { model: FinderModel | null; revision?: number })
+      .filter((args) => args.model)
+      .map((args) => args.revision);
+    expect(revisions).toEqual(revisions.map((_, at) => at + 1));
   });
-
-  it("restarts a running worktree's Rhizome from the sidebar context menu", async () => {
+  it("restarts a running worktree's Rhizome from the repository name's menu", async () => {
     start(undefined, (operation) => (operation === "restart" ? null : undefined));
     await waitFor(() => expect(opened()).toHaveLength(1));
-    act(() =>
-      emit({
-        type: "presence",
-        repositories: { [repository.id]: { info: discovery } },
-        runtimes: { [main]: { state: "running", mode: "headless" } },
-      }),
-    );
-    fireEvent.contextMenu(screen.getByRole("tab", { name: /project/ }));
-    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
-    const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
-    const restart = (menu as { items: MenuEntry[] }).items.find((item) =>
-      item.label?.startsWith("Restart"),
-    )!;
+    present({ [main]: { state: "running" } });
+    const restart = (await repositoryMenu()).find((item) => item.label?.startsWith("Restart"))!;
     expect(restart).toMatchObject({ label: "Restart Rhizome for main", disabled: false });
     act(() => emit({ type: "menu", id: restart.id! }));
     await waitFor(() =>
@@ -335,17 +344,8 @@ describe("desktop shell", () => {
   it("stops Rhizome from the context menu and starts it again from the sleeping view", async () => {
     start(undefined, (operation) => (operation === "stop" ? null : undefined));
     await waitFor(() => expect(opened()).toHaveLength(1));
-    act(() =>
-      emit({
-        type: "presence",
-        repositories: { [repository.id]: { info: discovery } },
-        runtimes: { [main]: { state: "running", mode: "headless" } },
-      }),
-    );
-    fireEvent.contextMenu(screen.getByRole("tab", { name: /project/ }));
-    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
-    const [, menu] = call.mock.calls.find(([operation]) => operation === "menu")!;
-    const items = (menu as { items: MenuEntry[] }).items;
+    present({ [main]: { state: "running" } });
+    const items = await repositoryMenu();
     expect(items.slice(0, 2).map((item) => [item.label, item.disabled])).toEqual([
       ["Open in Browser", false],
       ["Reveal in Finder", false],
@@ -354,14 +354,9 @@ describe("desktop shell", () => {
     act(() => emit({ type: "menu", id: stop.id! }));
     await waitFor(() => expect(call).toHaveBeenCalledWith("stop", { worktree: main }));
     report({ generation: 2, step: "sleeping" });
-    act(() =>
-      emit({
-        type: "presence",
-        repositories: { [repository.id]: { info: discovery } },
-        runtimes: { [main]: { state: "stopped", mode: null } },
-      }),
-    );
-    expect(screen.getByLabelText("Rhizome sleeping")).toBeVisible();
+    present({ [main]: { state: "stopped" } });
+    expect((await showFinder(/^Worktree /)).rows[0].runtime).toBe("sleeping");
+    choose({ choice: "close" });
     fireEvent.click(screen.getByRole("button", { name: "Start Rhizome" }));
     await waitFor(() => expect(opened()).toHaveLength(2));
   });
@@ -384,21 +379,10 @@ describe("desktop shell", () => {
         return new Promise<Discovery>((resolve) => (finishDiscovery = resolve));
     });
     await waitFor(() => expect(opened()).toHaveLength(1));
-    act(() =>
-      emit({
-        type: "presence",
-        repositories: { [repository.id]: { info: discovery } },
-        runtimes: { [main]: { state: "running", mode: "headless" } },
-      }),
-    );
-    fireEvent.click(screen.getByRole("tab", { name: /project/ }));
+    present({ [main]: { state: "running" } });
+    act(() => emit({ type: "select", library, repository: repository.id, worktree: main }));
     await waitFor(() => expect(discoveries).toBe(2));
-    fireEvent.contextMenu(screen.getByRole("tab", { name: /project/ }));
-    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
-    const [, menu] = call.mock.calls.filter(([operation]) => operation === "menu").at(-1)!;
-    const stop = (menu as { items: MenuEntry[] }).items.find((item) =>
-      item.label?.startsWith("Stop Rhizome"),
-    )!;
+    const stop = (await repositoryMenu()).find((item) => item.label?.startsWith("Stop Rhizome"))!;
     act(() => emit({ type: "menu", id: stop.id! }));
     await waitFor(() => expect(call).toHaveBeenCalledWith("stop", { worktree: main }));
     await act(async () => finishDiscovery(discovery));
@@ -575,15 +559,7 @@ describe("desktop shell", () => {
     await waitFor(() =>
       expect(call).toHaveBeenCalledWith("pin-advance", { id: repository.id, worktree: main }),
     );
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Worktree" }));
-    });
-    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
-    const [, menu] = call.mock.calls.filter(([operation]) => operation === "menu").pop()!;
-    const other = (menu as { items: MenuEntry[] }).items.find((item) =>
-      item.label?.startsWith("feature"),
-    )!;
-    act(() => emit({ type: "menu", id: other.id! }));
+    choose({ choice: "open", repository: repository.id, worktree: feature, newWindow: false });
     await waitFor(() => expect(opened().at(-1)).toMatchObject({ worktree: feature }));
     const count = opened().length;
     await act(async () => finish());
@@ -626,24 +602,6 @@ describe("desktop shell", () => {
     expect(screen.getByText("Copied the page URL")).toBeVisible();
   });
 
-  it("reorders repositories from the keyboard", async () => {
-    start(undefined, (operation, args) => {
-      if (operation === "list") return both;
-      if (operation === "discover")
-        return (args as { id: string }).id === other.id ? otherDiscovery : discovery;
-      if (operation === "reorder")
-        return { ...both, repositories: [other, repository], revision: 3 };
-    });
-    const tab = await screen.findByRole("tab", { name: /project/ });
-    fireEvent.keyDown(tab, { key: "ArrowDown", altKey: true });
-    await waitFor(() =>
-      expect(call).toHaveBeenCalledWith("reorder", { ids: [other.id, repository.id] }),
-    );
-    await waitFor(() =>
-      expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["other", "project"]),
-    );
-  });
-
   it("shows reconnecting while the app restarts a stopped runtime, then offers retry", async () => {
     start();
     await waitFor(() => expect(opened()).toHaveLength(1));
@@ -672,51 +630,49 @@ describe("desktop shell", () => {
       if (operation === "list") return both;
       if (operation === "open") return { generation: ++generation, library: both };
       const id = (args as { id?: string }).id;
-      if (operation === "discover" && id === other.id) return otherDiscovery;
-      if (operation === "discover" && slow)
+      if (operation === "discover" && id === other.id && slow)
         return new Promise<Result>((resolve) => {
-          release = () => resolve(discovery);
+          release = () => resolve(otherDiscovery);
         });
     });
     await waitFor(() => expect(opened()).toHaveLength(1));
     slow = true;
-    fireEvent.click(screen.getByRole("tab", { name: /project/ }));
-    fireEvent.click(screen.getByRole("tab", { name: /other/ }));
+    openRepository(other.id);
+    openRepository(repository.id);
     await waitFor(() => expect(opened()).toHaveLength(2));
     await act(async () => release());
     expect(opened()).toHaveLength(2);
-    expect(opened()[1]).toEqual({ id: other.id, worktree: "/work/other", skipSeed: false });
+    expect(opened()[1]).toEqual({ id: repository.id, worktree: main, skipSeed: false });
     const [first, second] = call.mock.calls
       .filter(([operation]) => operation === "open")
       .map(([, args]) => (args as { selection: number }).selection);
     expect(second).toBeGreaterThan(first);
-    expect(screen.getByRole("tab", { name: /other/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Repository project" })).toBeVisible();
   });
 
   it("lets a terminal selection outrank a pending earlier one", async () => {
     let release = () => {};
     let slow = false;
     start(undefined, (operation, args) => {
-      if (operation === "list") return library;
+      if (operation === "list") return both;
       if (operation === "open") return { generation: ++generation, library: both };
       const id = (args as { id?: string }).id;
-      if (operation === "discover" && id === other.id) return otherDiscovery;
-      if (operation === "discover" && slow)
+      if (operation === "discover" && id === other.id && slow)
         return new Promise<Result>((resolve) => {
-          release = () => resolve(discovery);
+          release = () => resolve(otherDiscovery);
         });
     });
     await waitFor(() => expect(opened()).toHaveLength(1));
     slow = true;
-    fireEvent.click(screen.getByRole("tab", { name: /project/ }));
+    openRepository(other.id);
     act(() =>
-      emit({ type: "select", library: both, repository: other.id, worktree: "/work/other" }),
+      emit({ type: "select", library: both, repository: repository.id, worktree: feature }),
     );
     await waitFor(() => expect(opened()).toHaveLength(2));
     await act(async () => release());
     expect(opened()).toHaveLength(2);
-    expect(opened()[1]).toEqual({ id: other.id, worktree: "/work/other", skipSeed: false });
-    expect(screen.getByRole("tab", { name: /other/ })).toHaveAttribute("aria-selected", "true");
+    expect(opened()[1]).toEqual({ id: repository.id, worktree: feature, skipSeed: false });
+    expect(screen.getByRole("button", { name: "Repository project" })).toBeVisible();
   });
 
   it("opens a terminal selection instead of restoring the session at launch", async () => {
@@ -742,7 +698,7 @@ describe("desktop shell", () => {
     );
     expect(screen.getByRole("alert")).toHaveTextContent("Cannot open /gone: missing");
     expect(opened()).toHaveLength(1);
-    expect(screen.getByRole("tab", { name: /project/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Repository project" })).toBeVisible();
   });
 
   it("trusts and restarts a rebuilt worktree from its alert", async () => {
@@ -781,7 +737,7 @@ describe("desktop shell", () => {
         });
     });
     await waitFor(() => expect(opened()).toHaveLength(1));
-    fireEvent.click(screen.getByRole("tab", { name: /other/ }));
+    openRepository(other.id);
     expect(await screen.findByText("other is unavailable")).toBeVisible();
     expect(call).toHaveBeenCalledWith("deselect", { selection: expect.any(Number) });
   });
@@ -794,15 +750,18 @@ describe("desktop shell", () => {
         return otherDiscovery;
     });
     await waitFor(() => expect(opened()).toHaveLength(1));
+    await showFinder(/^Repository /);
     saved = both;
     act(() => emit({ type: "library", library: saved }));
-    expect(screen.getByRole("tab", { name: /other/ })).toBeVisible();
+    await waitFor(() =>
+      expect(finderModel()!.rows.map((r) => r.title)).toEqual(["project", "other"]),
+    );
     saved = { version: 3, repositories: [other], revision: 3 };
     act(() => emit({ type: "library", library: saved }));
     await waitFor(() =>
       expect(opened().at(-1)).toEqual({ id: other.id, worktree: "/work/other", skipSeed: false }),
     );
-    expect(screen.queryByRole("tab", { name: /project/ })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Repository other" })).toBeVisible();
   });
 
   it("ignores a library snapshot older than one it already applied", async () => {
@@ -815,11 +774,199 @@ describe("desktop shell", () => {
         });
     });
     await waitFor(() => expect(opened()).toHaveLength(1));
-    expect(screen.getByRole("tab", { name: /other/ })).toBeVisible();
+    const titles = () => finderModel()!.rows.map((r) => r.title);
+    await showFinder(/^Repository /);
+    expect(titles()).toEqual(["project", "other"]);
     act(() => emit({ type: "library", library: { ...library, revision: 3 } }));
-    expect(screen.queryByRole("tab", { name: /other/ })).toBeNull();
+    await waitFor(() => expect(titles()).toEqual(["project"]));
     await act(async () => release());
-    expect(screen.queryByRole("tab", { name: /other/ })).toBeNull();
-    expect(screen.getByRole("tab", { name: /project/ })).toHaveAttribute("aria-selected", "true");
+    expect(titles()).toEqual(["project"]);
+  });
+
+  it("opens a repository's primary worktree from the repository finder, newest first", async () => {
+    const recent: Library = {
+      ...both,
+      repositories: [
+        { ...repository, lastOpened: 1 },
+        { ...other, lastOpened: 5 },
+      ],
+    };
+    start(undefined, (operation, args) => {
+      if (operation === "list") return recent;
+      if (operation === "open") return { generation: ++generation, library: recent };
+      if (operation === "discover" && (args as { id: string }).id === other.id)
+        return otherDiscovery;
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    choose({ choice: "open", repository: repository.id, worktree: feature, newWindow: false });
+    await waitFor(() => expect(opened()).toHaveLength(2));
+    act(() => emit({ type: "command", command: "repositories" }));
+    await waitFor(() => expect(finderModel()?.mode).toBe("repositories"));
+    expect(finderModel()!.rows.map((r) => [r.title, r.current])).toEqual([
+      ["other", false],
+      ["project", true],
+    ]);
+    // The current repository, shown on a feature worktree, switches to its primary.
+    openRepository(repository.id);
+    await waitFor(() =>
+      expect(opened().at(-1)).toEqual({ id: repository.id, worktree: main, skipSeed: false }),
+    );
+    // On the primary already, choosing it again changes nothing.
+    const shown = opened().length;
+    openRepository(repository.id);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(opened()).toHaveLength(shown);
+    openRepository(other.id);
+    await waitFor(() => expect(opened().at(-1)).toMatchObject({ id: other.id }));
+    // A repository opens on its primary worktree, not the one last used here.
+    openRepository(repository.id);
+    await waitFor(() =>
+      expect(opened().at(-1)).toEqual({ id: repository.id, worktree: main, skipSeed: false }),
+    );
+    // A new window is the app's to open; this window keeps its selection.
+    const count = opened().length;
+    choose({ choice: "open", repository: other.id, worktree: null, newWindow: true });
+    expect(opened()).toHaveLength(count);
+  });
+
+  it("opens a stopped or failed worktree again from the finders", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    // Shown already, choosing it changes nothing.
+    choose({ choice: "open", repository: repository.id, worktree: main, newWindow: false });
+    openRepository(repository.id);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(opened()).toHaveLength(1);
+    report({ step: "sleeping" });
+    openRepository(repository.id);
+    await waitFor(() => expect(opened()).toHaveLength(2));
+    report({ step: "error" });
+    choose({ choice: "open", repository: repository.id, worktree: main, newWindow: false });
+    await waitFor(() => expect(opened()).toHaveLength(3));
+  });
+
+  it("keeps the worktree label quiet on the primary worktree only", async () => {
+    start();
+    expect(await screen.findByRole("button", { name: "Worktree main" })).not.toHaveClass("other");
+    choose({ choice: "open", repository: repository.id, worktree: feature, newWindow: false });
+    expect(await screen.findByRole("button", { name: "Worktree feature" })).toHaveClass("other");
+  });
+
+  it("runs a finder row's repository actions on the window behind the finder", async () => {
+    start(undefined, (operation) => (operation === "reveal" ? null : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    present();
+    const model = await showFinder(/^Repository /);
+    choose({ choice: "menu", repository: repository.id, x: 120, y: 240 });
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("menu", expect.objectContaining({ x: 120, y: 240 })),
+    );
+    const items = lastMenu();
+    expect(items.filter((item) => item.label).map((item) => item.label)).toEqual([
+      "Open in Browser",
+      "Reveal in Finder",
+      "What Gets Indexed…",
+      "Stop Rhizome for main",
+      "Restart Rhizome for main",
+      "Primary worktree",
+      "Rhizome executable for main",
+      "Remove from Library",
+    ]);
+    act(() => emit({ type: "menu", id: items.find((i) => i.label === "Reveal in Finder")!.id! }));
+    // The close names the opening it closes, so a late show for it stays hidden,
+    // and keeps focus in the shell, which runs the action.
+    expect(call).toHaveBeenCalledWith("finder", {
+      model: null,
+      opened: model.opened,
+      toShell: true,
+    });
+    await waitFor(() => expect(call).toHaveBeenCalledWith("reveal", { worktree: main }));
+  });
+
+  it("adds a repository from the finder's foot", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    pick.mockResolvedValue(null);
+    choose({ choice: "add" });
+    await waitFor(() => expect(pick).toHaveBeenCalledWith(true));
+  });
+
+  it("lets the app's settings messages, not a save's reply, set the settings", async () => {
+    let reply: (settings: Result) => void = () => {};
+    start(undefined, (operation) => {
+      if (operation === "global-status") return null;
+      if (operation === "set-settings") return new Promise<Result>((resolve) => (reply = resolve));
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Slate" }));
+    // Another window's later change arrives before this save's reply.
+    act(() => emit({ type: "settings", settings: { theme: "oxblood", appearance: "auto" } }));
+    await act(async () => reply({ theme: "slate", appearance: "auto" }));
+    expect(document.documentElement.dataset.theme).toBe("oxblood");
+  });
+
+  it("closes a finder for any other menu command, such as Settings or Add Repository", async () => {
+    start(undefined, (operation) => (operation === "global-status" ? null : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    await showFinder(/^Repository /);
+    act(() => emit({ type: "command", command: "settings" }));
+    expect(finderModel()).toBeNull();
+    expect(screen.getByRole("radiogroup", { name: "Theme" })).toBeVisible();
+
+    pick.mockResolvedValue(null);
+    act(() => emit({ type: "command", command: "worktrees" }));
+    await waitFor(() => expect(finderModel()?.mode).toBe("worktrees"));
+    act(() => emit({ type: "command", command: "add-repository" }));
+    expect(finderModel()).toBeNull();
+    await waitFor(() => expect(pick).toHaveBeenCalledWith(true));
+  });
+
+  it("uncovers the workspace when a finder picks the one Settings covers", async () => {
+    start(undefined, (operation) => (operation === "global-status" ? null : undefined));
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("radiogroup", { name: "Theme" })).toBeVisible();
+    choose({ choice: "open", repository: repository.id, worktree: main, newWindow: false });
+    expect(screen.queryByRole("radiogroup", { name: "Theme" })).toBeNull();
+    expect(opened()).toHaveLength(1);
+  });
+
+  it("closes a finder when a terminal opens a folder in this window", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    await showFinder(/^Repository /);
+    act(() => emit({ type: "select", library, repository: repository.id, worktree: feature }));
+    expect(finderModel()).toBeNull();
+    await waitFor(() => expect(opened().at(-1)).toMatchObject({ worktree: feature }));
+  });
+
+  it("keeps a settings message over a startup reply that arrives after it", async () => {
+    let reply: (settings: Result) => void = () => {};
+    start(undefined, (operation) =>
+      operation === "settings" ? new Promise<Result>((resolve) => (reply = resolve)) : undefined,
+    );
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    act(() => emit({ type: "settings", settings: { theme: "indigo", appearance: "auto" } }));
+    await act(async () => reply({ theme: "graphite", appearance: "auto" }));
+    expect(document.documentElement.dataset.theme).toBe("indigo");
+  });
+
+  it("paints the theme saved when its window opened, before asking the app", () => {
+    window.__RHIZOME_SHELL_SETTINGS__ = { theme: "spruce", appearance: "auto" };
+    onTestFinished(() => {
+      delete window.__RHIZOME_SHELL_SETTINGS__;
+    });
+    start();
+    expect(document.documentElement.dataset.theme).toBe("spruce");
+  });
+
+  it("takes the app's theme on its own root", async () => {
+    start();
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("graphite"));
+    act(() => emit({ type: "settings", settings: { theme: "oxblood", appearance: "dark" } }));
+    expect(document.documentElement.dataset.theme).toBe("oxblood");
   });
 });

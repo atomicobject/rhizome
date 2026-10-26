@@ -332,7 +332,13 @@ export function SaveViewAction({
   const [reviewing, setReviewing] = useState(false);
   const [includeSearch, setIncludeSearch] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const reviewRef = useRef<HTMLDivElement>(null);
   usePopoverDismiss(reviewing, rootRef, () => setReviewing(false));
+
+  // The review opens inline at the foot of the scrolling View panel.
+  useEffect(() => {
+    if (reviewing) reviewRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [reviewing]);
 
   useEffect(() => {
     if (status.kind !== "saved") return;
@@ -386,6 +392,7 @@ export function SaveViewAction({
       </button>
       {reviewing && (
         <div
+          ref={reviewRef}
           className="configured-view__save-review"
           role="dialog"
           aria-label="Save shared view configuration"

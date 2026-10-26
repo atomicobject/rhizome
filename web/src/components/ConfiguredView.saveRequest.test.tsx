@@ -215,7 +215,6 @@ describe("Save view request", () => {
 
     // The reader hides Updated while the empty ID column is hidden.
     openViewOptions();
-    fireEvent.click(screen.getByRole("button", { name: /^Columns/ }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Updated" }));
 
     expect((await save()).columns?.map((column) => column.field)).toEqual([
@@ -259,7 +258,8 @@ describe("Save view request", () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Active" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Filter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Active" }));
     await waitFor(() => expect(http.count("POST", execute)).toBe(2));
     // The preset's execution has not answered; Save still writes what the reader picked.
     openViewOptions();

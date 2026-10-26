@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { chooseView, expectViewSettled } from "./workspaceView";
+import { chooseView, expectViewSettled, openViewOptions } from "./workspaceView";
 
 test("moves a board card, reports the staged change, and opens a card", async ({ page }) => {
   await page.goto("/notes?view=e2e.action-items");
@@ -143,6 +143,7 @@ test("groups a table by a link field under each target's title", async ({ page }
   await page.goto("/notes?view=e2e.action-items");
   await expect(page.getByRole("heading", { name: "Action Items Editing Fixture" })).toBeVisible();
 
+  await openViewOptions(page);
   const groupBy = page.getByRole("combobox", { name: "Group by" });
   await groupBy.selectOption({ label: "Assigned to" });
   await expect(groupBy).toHaveValue("assignedTo");

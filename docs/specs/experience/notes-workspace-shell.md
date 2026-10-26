@@ -74,6 +74,8 @@ This spec succeeds [[ontology-browser-navigation-model|SPEC-0030]]. It carries f
 - summary:: Use one left rail for collections and the locally filtered note list, where collections navigate Home and notes open tabs.
 - status:: satisfied
 
+Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25. The left rail is a themed sidebar with quick scopes (All notes, Recently changed, Problems), Views, and the type tree, and it has no note list: ⌘P finds notes and files instead, so the note-list parts of AC1, AC3, and AC4 no longer apply. The sidebar resizes between 200 and 400px by pointer or keyboard, and its width and collapsed state persist per browser, replacing AC5.
+
 #### Acceptance Criteria
 
 - The left rail has two stacked regions: collections (views, browse entries, types with counts) and the note list for the current collection with one local filter. Project search is owned by the global header. ^SPEC-0090-US3-AC1
@@ -87,6 +89,11 @@ This spec succeeds [[ontology-browser-navigation-model|SPEC-0030]]. It carries f
 - id:: ^SPEC-0090-US4
 - summary:: See properties, relations, problems, outline, and neighborhood graph for the active note tab in a right rail that collapses to a strip.
 - status:: satisfied
+
+Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25. The right rail is the workspace's one right pane:
+- **Content:** for a note tab it shows Info, Outline, and Graph as before. For a collection view it shows the selected record, and it stays closed while no row is selected, which replaces AC5's disabled tabs on Home.
+- **Open and closed:** it closes fully instead of collapsing to a strip, which replaces AC2's strip. `]` or the tab row's toggle opens it again. Below 1200px it starts closed and opens over the content.
+- **Width:** it resizes between 280 and 560px, and its width and closed state persist per browser.
 
 #### Acceptance Criteria
 

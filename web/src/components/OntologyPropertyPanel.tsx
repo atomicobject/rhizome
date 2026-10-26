@@ -24,6 +24,8 @@ import { displayTitle, humanizeName } from "../lib/labels";
 
 const DETAIL_DISCLOSURE_KEY_PREFIX = "rhizome:ontology-properties:details:v1:";
 
+const EMPTY_DISCLOSURE_KEY_PREFIX = "rhizome:ontology-properties:empty:v1:";
+
 type Props = {
   workspace: NodeWorkspace;
   /** Fields NOT consumed by the identity strip. */
@@ -79,18 +81,33 @@ export function OntologyPropertyPanel({
   );
 
   const forceDetailsOpen = detailFields.some(detailFieldMustStayVisible);
-  const disclosureKey = detailDisclosureKey(workspace);
-  const [detailsOpen, setDetailsOpen] = useState(() => readDetailDisclosure(disclosureKey));
+  const disclosureKey = disclosureKeyFor(DETAIL_DISCLOSURE_KEY_PREFIX, workspace);
+  const emptyKey = disclosureKeyFor(EMPTY_DISCLOSURE_KEY_PREFIX, workspace);
+  const [detailsOpen, setDetailsOpen] = useState(() => readDisclosure(disclosureKey));
+  const [emptyOpen, setEmptyOpen] = useState(() => readDisclosure(emptyKey));
 
   useEffect(() => {
-    setDetailsOpen(readDetailDisclosure(disclosureKey));
+    setDetailsOpen(readDisclosure(disclosureKey));
   }, [disclosureKey]);
 
-  const displayable = [
+  useEffect(() => {
+    setEmptyOpen(readDisclosure(emptyKey));
+  }, [emptyKey]);
+
+  const shown = [
     ...keyFields,
     ...normalFields,
     ...(editing || detailsOpen || forceDetailsOpen ? detailFields : []),
   ];
+
+  // Reading, a field with nothing to say waits behind one toggle; editing
+  // shows every field so it can be filled. Fields with issues stay visible.
+  const emptyFields = editing
+    ? []
+    : shown.filter((node) => isEmptyField(node) && !detailFieldMustStayVisible(node));
+
+  const emptyCount = emptyFields.length;
+  const displayable = emptyOpen ? shown : shown.filter((node) => !emptyFields.includes(node));
 
   const parentRef = workspace.node.parentRef;
   const parentPath = parentRef ? publicWorkspaceRef(parentRef) : "";
@@ -144,7 +161,7 @@ export function OntologyPropertyPanel({
               setDetailsOpen((open) => {
                 const next = !open;
 
-                writeDetailDisclosure(disclosureKey, next);
+                writeDisclosure(disclosureKey, next);
 
                 return next;
               });
@@ -187,6 +204,23 @@ export function OntologyPropertyPanel({
           />
         ))}
       </dl>
+      {emptyCount > 0 && (
+        <button
+          type="button"
+          className="ontology-properties__empty-toggle"
+          aria-expanded={emptyOpen}
+          onClick={() => {
+            const next = !emptyOpen;
+
+            writeDisclosure(emptyKey, next);
+            setEmptyOpen(next);
+          }}
+        >
+          {emptyOpen
+            ? `Hide ${emptyCount} empty field${emptyCount === 1 ? "" : "s"}`
+            : `Show ${emptyCount} empty field${emptyCount === 1 ? "" : "s"}`}
+        </button>
+      )}
     </section>
   );
 }
@@ -247,14 +281,24 @@ function detailFieldMustStayVisible(node: WorkspaceFieldNode): boolean {
   );
 }
 
-function detailDisclosureKey(workspace: NodeWorkspace): string {
+// Empty means nothing to show: no value text, links, or bound sections.
+function isEmptyField(node: WorkspaceFieldNode): boolean {
+  const { present, values, links, sectionRefs } = node.field;
+
+  return (
+    !present ||
+    (!(values || []).some((value) => value.trim()) && !links?.length && !sectionRefs?.length)
+  );
+}
+
+function disclosureKeyFor(prefix: string, workspace: NodeWorkspace): string {
   const typeName =
     workspace.node.resolvedType || workspace.node.ref.typeName || workspace.content.resolvedType;
 
-  return typeName ? `${DETAIL_DISCLOSURE_KEY_PREFIX}${encodeURIComponent(typeName)}` : "";
+  return typeName ? `${prefix}${encodeURIComponent(typeName)}` : "";
 }
 
-function readDetailDisclosure(key: string): boolean {
+function readDisclosure(key: string): boolean {
   if (!key || typeof window === "undefined") return false;
 
   try {
@@ -264,7 +308,7 @@ function readDetailDisclosure(key: string): boolean {
   }
 }
 
-function writeDetailDisclosure(key: string, open: boolean): void {
+function writeDisclosure(key: string, open: boolean): void {
   if (!key || typeof window === "undefined") return;
 
   try {

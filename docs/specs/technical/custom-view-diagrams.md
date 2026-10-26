@@ -33,7 +33,7 @@ No polling, refresh callbacks, fetching props, per-type builders, per-type link 
 
 ### Rendering and links
 
-- Markdown and Diagram use one renderer with the same Barlow/JetBrains Mono fonts, 13px font size, and `images: false`. Markdown uses `links: false`; Diagram permits only fragment links via `linkSchemes: []`.
+- Markdown and Diagram use one renderer with the same Inter/JetBrains Mono fonts (Inter replaced Barlow with [[workbench-redesign|SPEC-0126]]), 13px font size, and `images: false`. Markdown uses `links: false`; Diagram permits only fragment links via `linkSchemes: []`.
 - Load Pele only on a nonempty Diagram mount. Render identity is source plus sorted id-to-notePath/kind/nodeId targets, independent of link-map object identity. Use a React useId-derived prefix per instance. Preserve the preceding SVG and its targets while new output is pending; stale completions cannot replace newer output.
 - Detect type with Pele before appending `click <id> href "#rzm-link-<n>"`. The verified Pele 1.6.0 detected types are `flowchart`, `gantt`, `class`, `state`, and `agentflow`. A small Set owns this list and a `ponytail:` comment records C4's incompatible `$link` syntax.
 - For unsupported types with nonempty links, append nothing, disable rendered links, and warn once per distinct source, naming the type and supported list. Supported types warn once per distinct source for missing returned link ids. Neither case throws.

@@ -29,7 +29,7 @@ export async function renderDiagram(
 
   const options: RenderOptions = {
     idPrefix: id,
-    fontFamily: '"Barlow", -apple-system, system-ui, "Segoe UI", sans-serif',
+    fontFamily: '"Inter", -apple-system, system-ui, "Segoe UI", sans-serif',
     fontFamilyMono: '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace',
     fontSize: 13,
     links: links && !ignoredLinks,

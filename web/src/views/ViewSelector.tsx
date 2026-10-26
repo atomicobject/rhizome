@@ -159,7 +159,7 @@ export function ViewSelector({
   return (
     <div className="view-selector" ref={rootRef}>
       <div
-        className="segmented"
+        className="view-tabs"
         role="toolbar"
         aria-label="Workspace view"
         onKeyDown={(event) => {

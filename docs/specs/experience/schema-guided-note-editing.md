@@ -58,6 +58,8 @@ The visual model is one compact editing bar, one coherent review surface, and on
 - summary:: Type into fields and narrative blocks immediately, move around the application, and return to the same durable draft.
 - status:: ready
 
+Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US11). A section editor shows its narrative block without the blank line after the heading and without a CRLF file's trailing `\r`, and compares drafts against that display text, so an untouched block is never dirty. Its `previousMarkdown` stays the raw block, and replay restores the source's surrounding whitespace and line endings. A draft persisted before this change that differs only by that blank line is cleared.
+
 #### Acceptance Criteria
 
 - Keystrokes update route-independent local draft state without issuing one stage, replay, persistence, and workspace-refresh cycle per character. ^SPEC-0099-US2-AC1
@@ -111,6 +113,11 @@ The visual model is one compact editing bar, one coherent review surface, and on
 - id:: ^SPEC-0099-US6
 - summary:: Edit in a calm layout with readable properties, consistent tokens, keyboard access, and motion and contrast that respect user settings.
 - status:: ready
+
+Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US11):
+- **Reading:** the property panel hides fields with no value text, links, or bound sections behind a "Show N empty fields" toggle, remembered per type for the browser session. Fields with validation issues always show.
+- **Editing:** every field shows.
+- **Section editors:** they keep read-mode typography and position, with no box at rest, a faint tint on hover, and the focus ring while focused.
 
 #### Acceptance Criteria
 

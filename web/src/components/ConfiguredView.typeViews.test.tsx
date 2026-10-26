@@ -12,20 +12,25 @@ import {
   openViewOptions,
   renderView,
   secondRow,
+  openFilterMenu,
 } from "./ConfiguredView.testFixtures";
 import { monthKey, RailHarness, STATUS, typeExecution } from "./ConfiguredView.typeFixtures";
 
 const http = withFakeFetch();
+
+/** A choice in the View popover's "1 line | 2 lines" control. */
+function rowsChoice(name: string) {
+  return within(screen.getByRole("group", { name: "Rows" })).getByRole("button", { name });
+}
 
 describe("ConfiguredView type collections", () => {
   it("summarizes the collection from statistics and toggles facet filters", () => {
     const onStateChange = vi.fn();
     const { rerender } = renderView({ execution: typeExecution(), onStateChange });
 
-    const facets = screen.getByRole("group", { name: "Collection summary" });
-    // Counts come from every matching row, not the two loaded rows. Without
-    // schema labels the type reads as its humanized name.
-    expect(facets).toHaveTextContent("40 product spec");
+    openFilterMenu();
+    const facets = screen.getByRole("group", { name: "Quick filters" });
+    // Counts come from every matching row, not the two loaded rows.
     expect(within(facets).getByRole("button", { name: "Active 31" })).toBeVisible();
     expect(within(facets).getByRole("button", { name: "Draft 9" })).toBeVisible();
     expect(within(facets).queryByRole("button", { name: /Archived/ })).toBeNull();
@@ -82,7 +87,7 @@ describe("ConfiguredView type collections", () => {
     expect(onStateChange).toHaveBeenLastCalledWith(expect.objectContaining({ filters: [] }));
   });
 
-  it("shows the primary date span, monthly spark, and recent month counts", () => {
+  it("offers records with issues as a quick filter", () => {
     renderView({
       execution: typeExecution({
         stats: {
@@ -103,10 +108,8 @@ describe("ConfiguredView type collections", () => {
       }),
     });
 
-    const facets = screen.getByRole("group", { name: "Collection summary" });
-    expect(facets).toHaveTextContent("May 2025 – now");
-    expect(facets).toHaveTextContent("1 this month · 4 last");
-    expect(within(facets).getByRole("img", { name: /Records per month/ })).toBeVisible();
+    openFilterMenu();
+    const facets = screen.getByRole("group", { name: "Quick filters" });
     expect(within(facets).getByRole("button", { name: "Records with issues 2" })).toBeVisible();
   });
 
@@ -124,11 +127,8 @@ describe("ConfiguredView type collections", () => {
 
     expect(screen.queryByRole("columnheader", { name: "ID" })).toBeNull();
     openViewOptions();
-    const columns = screen.getByRole("button", { name: "Columns" });
-    expect(columns).toHaveTextContent("1 hidden empty");
-
-    fireEvent.click(columns);
     const menu = screen.getByRole("group", { name: "Visible columns" });
+    expect(menu).toHaveTextContent("1 hidden empty");
     expect(within(menu).getByText("hidden empty")).toBeVisible();
     fireEvent.click(within(menu).getByLabelText(/ID/));
     expect(screen.getByRole("columnheader", { name: "ID" })).toBeVisible();
@@ -139,13 +139,13 @@ describe("ConfiguredView type collections", () => {
 
     expect(screen.getByText("Alpha defines the first contract.")).toBeVisible();
     openViewOptions();
-    fireEvent.change(screen.getByLabelText("Rows"), { target: { value: "one-line" } });
+    fireEvent.click(rowsChoice("1 line"));
     expect(screen.queryByText("Alpha defines the first contract.")).toBeNull();
     unmount();
 
     renderView({ execution: typeExecution(), vaultKey: "vault" });
     openViewOptions();
-    expect(screen.getByLabelText("Rows")).toHaveValue("one-line");
+    expect(rowsChoice("1 line")).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByText("Alpha defines the first contract.")).toBeNull();
   });
 
@@ -159,7 +159,7 @@ describe("ConfiguredView type collections", () => {
     });
 
     openViewOptions();
-    expect(screen.getByLabelText("Rows")).toHaveValue("one-line");
+    expect(rowsChoice("1 line")).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByText("Alpha defines the first contract.")).toBeNull();
   });
 

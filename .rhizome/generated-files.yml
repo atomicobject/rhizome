@@ -23,10 +23,10 @@ written:
   .agents/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .agents/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .agents/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
-  .agents/skills/custom-views/SKILL.md: c96fcb29e003aea7
+  .agents/skills/custom-views/SKILL.md: ee3dde65ec1b967d
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .agents/skills/custom-views/references/kit-api.md: 83cff28086e61977
-  .agents/skills/custom-views/references/mounted-example.md: 844e66c536d79709
+  .agents/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .agents/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
   .agents/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .agents/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
@@ -74,10 +74,10 @@ written:
   .claude/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .claude/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .claude/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
-  .claude/skills/custom-views/SKILL.md: c96fcb29e003aea7
+  .claude/skills/custom-views/SKILL.md: ee3dde65ec1b967d
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .claude/skills/custom-views/references/kit-api.md: 83cff28086e61977
-  .claude/skills/custom-views/references/mounted-example.md: 844e66c536d79709
+  .claude/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .claude/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
   .claude/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .claude/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534

@@ -1,4 +1,5 @@
-import { useCallback, useId, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useId, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { isString } from "../api/parse";
 import type {
@@ -19,6 +20,7 @@ import { rowsWithStagedValues } from "./ConfiguredTableCellHelpers";
 import { ConfiguredViewBoard } from "./ConfiguredViewBoard";
 import { ConfiguredViewCards } from "./ConfiguredViewCards";
 import { ConfiguredViewFacets } from "./ConfiguredViewFacets";
+import { useViewHeaderSlots, ViewHeader } from "./ConfiguredViewHeader";
 import {
   activeViewVariant,
   availableViewColumns,
@@ -124,7 +126,10 @@ export function ConfiguredView({
   const { visibleFields, emptyFields, density } = layout;
 
   const [collapsedGroupCount, setCollapsedGroupCount] = useState(0);
+  const [movedColumns, setMovedColumns] = useState<string[]>([]);
   const [saveActive, setSaveActive] = useState(false);
+  const [ownTools, setOwnTools] = useState<HTMLElement | null>(null);
+  const headerSlots = useViewHeaderSlots();
   const titleID = useId();
   const typeLabel = useTypeLabel();
   const title = viewDisplayName(view, typeLabel);
@@ -206,6 +211,7 @@ export function ConfiguredView({
             sort: nextSort(effectiveSort(state, rendererExecution.state), column.field, additive),
           }),
         onCollapsedGroupCountChange: setCollapsedGroupCount,
+        onMovedColumnsChange: setMovedColumns,
         profile,
         density,
         onLoadMore: loadMore,
@@ -234,13 +240,27 @@ export function ConfiguredView({
     onViewSaved,
   });
 
-  const preferencesStatus = (
+  const preferencesStatus = (part: "status" | "reset") => (
     <ViewPreferencesStatus
       scope={preferenceScope}
       vaultKey={vaultKey}
       validationError={layout.preferences.error}
+      part={part}
     />
   );
+
+  // A standalone view draws its own header; an embedded one fills the page
+  // header's slots, or keeps a row of its own where the page has no header.
+  const toolsSlot = embedded ? (headerSlots?.tools ?? null) : ownTools;
+
+  const placeTools = (tools: ReactNode) =>
+    toolsSlot ? (
+      createPortal(tools, toolsSlot)
+    ) : embedded && !headerSlots ? (
+      <div className="configured-view__toolbar">{tools}</div>
+    ) : null;
+
+  const total = pageInfo?.total ?? execution?.rows.length;
 
   const viewActions = (
     <>
@@ -265,56 +285,23 @@ export function ConfiguredView({
       aria-label={embedded ? `${title} view` : undefined}
       aria-busy={loading}
     >
-      {/* The type page already names the type, so an embedded view keeps its
-          layout controls in the toolbar instead of a header of its own. */}
       {!embedded && (
-        <header className="configured-view__header">
-          <div className="configured-view__identity">
-            <p className="configured-view__eyebrow">
-              {[
-                // A generated view is titled by its type already.
-                view.generated ? "" : typeLabel(view.source.type || view.source.interface),
-                pageInfo ? rowCountLabel(pageInfo.total) : "",
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            <h2 id={titleID}>{title}</h2>
-          </div>
-          <div className="configured-view__header-actions">{preferencesStatus}</div>
-        </header>
-      )}
-
-      {stats && (
-        <ConfiguredViewFacets
-          // Remembered facet values belong to one view's collection.
-          key={view.id}
-          stats={stats}
-          profile={profile}
-          capabilities={capabilities}
-          pluralLabel={typeLabel(view.source.type || view.source.interface || view.name, true)}
-          filters={state.filters ?? []}
-          executedFilters={execution?.state.filters}
-          onFiltersChange={(filters) => resetPage({ filters })}
+        <ViewHeader
+          title={title}
+          titleId={titleID}
+          count={total}
+          description={
+            // A generated view is titled by its type already.
+            view.description ||
+            (view.generated ? "" : typeLabel(view.source.type || view.source.interface))
+          }
+          toolsRef={setOwnTools}
         />
       )}
-
-      {presets.length > 0 && (
-        <div className="configured-view__presets" aria-label="Filter presets">
-          {presets.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              aria-pressed={state.filterPreset === preset.id}
-              onClick={() =>
-                resetPage({ filterPreset: state.filterPreset === preset.id ? "" : preset.id })
-              }
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {embedded &&
+        headerSlots?.count &&
+        total !== undefined &&
+        createPortal(String(total), headerSlots.count)}
 
       <ConfiguredViewToolbar
         state={state}
@@ -327,15 +314,34 @@ export function ConfiguredView({
         profile={execution?.profile}
         // A saved "no grouping" reads as Group: None.
         executedGroupField={groupField === "none" ? "" : groupField}
+        sort={execution ? effectiveSort(state, execution.state) : (state.sort ?? [])}
         onToggleColumn={layout.toggleColumn}
         emptyFields={emptyFields}
         density={summaryField ? density : undefined}
         onDensityChange={layout.setDensity}
         onResetPage={resetPage}
         viewActions={viewActions}
+        reset={preferencesStatus("reset")}
         optionsDirty={save.dirty}
         optionsPinned={saveActive}
-        trailing={embedded ? preferencesStatus : undefined}
+        presets={presets}
+        quickFilters={
+          stats && (
+            <ConfiguredViewFacets
+              // Remembered facet values belong to one view's collection.
+              key={view.id}
+              stats={stats}
+              profile={profile}
+              capabilities={capabilities}
+              filters={state.filters ?? []}
+              executedFilters={execution?.state.filters}
+              onFiltersChange={(filters) => resetPage({ filters })}
+            />
+          )
+        }
+        status={preferencesStatus("status")}
+        active={active}
+        placeTools={placeTools}
       />
 
       {executionWarnings && (
@@ -391,6 +397,7 @@ export function ConfiguredView({
               : ""
           }
           stagedCount={stagedCount}
+          moved={activeVariant === "table" ? movedColumns : []}
           pager={
             paged && !scrolls
               ? { offset, first, hasMore: pageInfo ? pageInfo.hasMore : true }

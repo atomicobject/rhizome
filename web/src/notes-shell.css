@@ -31,12 +31,97 @@
   }
 }
 
+/* ---- Shell: themed sidebar beside an inset content panel ----
+   The sidebar sits on the chrome; the content is a white panel inset 6px
+   from the right and bottom with a rounded corner. Panel widths are custom
+   properties that the resize handles set (SPEC-0126 US5). */
+.notes-shell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  background: var(--chrome-bg);
+}
+
+.notes-shell__sidebar {
+  position: relative;
+  display: flex;
+  /* A stored width never takes most of a narrow window. */
+  width: min(var(--sidebar-width), 45vw);
+  min-height: 0;
+}
+
+.notes-shell__sidebar[hidden] {
+  display: none;
+}
+
+.notes-shell__frame {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 6px 6px 0;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+/* With the sidebar hidden the frame spans both columns, so it still fills
+   the window instead of landing in the sidebar's content-sized column. */
+.notes-shell__sidebar[hidden] + .notes-shell__frame {
+  grid-column: 1 / -1;
+  margin-left: 6px;
+}
+
+/* ---- Resize handles ---- */
+.panel-resize {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.panel-resize--end {
+  right: -4px;
+}
+
+.panel-resize--start {
+  left: -4px;
+}
+
+.panel-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background 0.15s var(--ease);
+}
+
+.panel-resize:hover::after,
+.panel-resize:active::after {
+  background: var(--border-strong);
+}
+
+.panel-resize:focus-visible {
+  outline: none;
+}
+
+.panel-resize:focus-visible::after {
+  background: var(--focus-ring);
+}
+
+/* ---- Tab strip at the top of the content panel ---- */
 .notes-tabs {
   display: flex;
-  min-height: 38px;
   overflow-x: auto;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  scrollbar-width: none;
 }
 
 /* Fixed height: opening the first note tab must not push the workspace down. */
@@ -44,23 +129,58 @@
   display: flex;
   align-items: stretch;
   flex-shrink: 0;
-  height: 33px;
+  height: 36px;
+  padding: 0 var(--sp-2);
   border-bottom: 1px solid var(--border);
-  background: var(--surface);
 }
 
 .notes-shell__tabs-row .notes-tabs {
   flex: 1;
   min-width: 0;
-  min-height: 0;
-  border-bottom: 0;
+}
+
+.notes-shell__pane-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.notes-shell__pane-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.notes-shell__pane-toggle:hover {
+  background: var(--surface-sunk);
+  color: var(--text);
+}
+
+.notes-shell__pane-toggle[aria-expanded="true"] {
+  color: var(--text);
+}
+
+.notes-shell__pane-toggle:disabled {
+  color: var(--text-faint);
+  opacity: 0.5;
+  cursor: default;
+  background: transparent;
 }
 
 .notes-shell__session {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  padding: 3px var(--sp-3);
+  padding: 0 var(--sp-3);
 }
 
 .notes-shell__session .ontology-edit-toggle {
@@ -69,17 +189,34 @@
 }
 
 .notes-tab {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-width: 110px;
-  max-width: 230px;
+  gap: 6px;
+  min-width: 96px;
+  max-width: 220px;
   padding: 0 6px 0 10px;
+  color: var(--text-muted);
   font-size: var(--fs-sm);
-  border-right: 1px solid var(--border);
-  color: var(--muted);
+  font-weight: 500;
   cursor: default;
   user-select: none;
+}
+
+/* Hairline dividers between tabs, hidden next to the active tab. */
+.notes-tab + .notes-tab::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.notes-tab.is-active::before,
+.notes-tab.is-active + .notes-tab::before {
+  display: none;
 }
 
 /* Home stays reachable however far the strip scrolls. */
@@ -88,10 +225,10 @@
   left: 0;
   z-index: 1;
   flex: none;
-  background: var(--surface);
   min-width: 0;
-  padding: 0 11px;
+  padding: 0 10px;
   justify-content: center;
+  background: var(--surface);
 }
 
 .notes-tab__home-icon {
@@ -100,14 +237,12 @@
 }
 
 .notes-tab:not(.is-active):hover {
-  background: var(--bg-tint);
   color: var(--text);
 }
 
 .notes-tab.is-active {
   color: var(--text);
-  background: var(--panel);
-  box-shadow: inset 0 -2px var(--accent);
+  box-shadow: inset 0 -2px var(--text);
 }
 
 .notes-tab__title {
@@ -115,10 +250,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .notes-tab__dirty {
   color: var(--warning);
   font-size: 9px;
 }
+
 .notes-tab__close {
   display: inline-flex;
   align-items: center;
@@ -136,10 +273,17 @@
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
+  opacity: 0;
+}
+
+.notes-tab:hover .notes-tab__close,
+.notes-tab.is-active .notes-tab__close,
+.notes-tab:focus-within .notes-tab__close {
+  opacity: 1;
 }
 
 .notes-tab__close:hover {
-  background: var(--bg-tint);
+  background: var(--surface-sunk);
   color: var(--text);
 }
 
@@ -150,12 +294,11 @@
 
 .notes-shell__body {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-height: 0;
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: var(--surface);
 }
 
 .notes-shell__body--search {
@@ -436,151 +579,226 @@
   text-align: center;
 }
 
+/* ---- Sidebar: quick items, Views, and the type tree on the chrome ----
+   30px rows, muted chrome text, and a light pill for the current row. */
 .notes-left-rail {
-  width: 220px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
-  display: grid;
-  /* The collections take what they need, up to half the rail; the note list gets the rest. */
-  grid-template-rows: fit-content(50%) minmax(0, 1fr);
-  border-right: 1px solid var(--border);
-  background: var(--surface);
+  color: var(--chrome-muted);
+  font-size: var(--fs-base);
 }
 
-.notes-left-rail__collections,
-.notes-left-rail__notes {
-  min-height: 0;
-  overflow: auto;
+.notes-left-rail__header {
+  flex: none;
+  padding: 12px 18px 8px;
+  overflow: hidden;
+  color: var(--chrome-text);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notes-left-rail__collections {
-  max-height: none;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 0 16px;
+  scrollbar-color: var(--chrome-raised) transparent;
+  scrollbar-width: thin;
 }
 
-.notes-left-rail__notes {
-  border-top: 1px solid var(--border);
-}
-
-.notes-left-rail__notes .ontology-list__body {
-  flex: 0 0 auto;
-  overflow: visible;
-}
-
-.notes-left-rail .ontology-rail__views {
-  gap: 1px;
-  padding: 4px 6px;
-}
-
-.notes-left-rail .ontology-view-row {
+.notes-left-rail .ontology-type-list,
+.notes-left-rail .ontology-type-group,
+.notes-left-rail__nested-views {
   display: flex;
-  gap: 0;
-  min-height: 24px;
-  /* Leading 22px matches the caret gutter of the type rows below. */
-  padding: 3px 8px 3px 22px;
-  font-size: var(--fs-sm);
-  line-height: 1.25;
-}
-
-/* The view glyph hangs in the caret gutter so view and type labels align. */
-.notes-left-rail .ontology-view-row__icon {
-  width: 14px;
-  margin-left: -16px;
-  margin-right: 2px;
-  color: var(--text-faint);
-  font-size: 11px;
-}
-
-/* Views inside a type group line up with that group's type rows. */
-.notes-left-rail .ontology-rail__views--nested {
-  padding: 0;
-}
-
-.notes-left-rail .ontology-rail__views--nested .ontology-view-row {
-  padding-left: 40px;
-}
-
-.notes-left-rail .ontology-note__main {
-  min-height: 32px;
-  gap: 0;
-  padding: 3px 29px 3px 8px;
-}
-
-.notes-left-rail .ontology-note__title {
-  font-size: var(--fs-sm);
-  line-height: 1.25;
-}
-
-.notes-left-rail .ontology-note__meta {
-  gap: 5px;
-  padding-left: 0;
-  font-size: var(--fs-xs);
-  line-height: 1.15;
-}
-
-.notes-left-rail .ontology-note__type-mini {
-  position: static;
-  flex: none;
-  max-width: 80px;
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  line-height: inherit;
-}
-
-.notes-left-rail .ontology-note .ontology-compare-icon {
-  top: 50%;
-  right: 4px;
-  left: auto;
-  transform: translateY(-50%);
+  flex-direction: column;
+  gap: 1px;
 }
 
 .notes-left-rail .ontology-type-list {
-  padding: 2px 6px 6px;
+  padding: 0 8px;
 }
 
-.notes-left-rail .ontology-type-row {
-  min-height: 24px;
-  gap: 6px;
-  padding: 2px 6px 2px 4px;
-  font-size: var(--fs-sm);
+.notes-left-rail .ontology-type-row-wrap {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  transition: background-color 0.12s var(--ease);
+  /* Top-level types sit at depth 1, level with the section header. */
+  padding-left: calc(max(0, var(--ontology-type-depth, 1) - 1) * 16px);
+  border-radius: var(--r-md);
 }
 
-.notes-left-rail .ontology-type-row__count {
+.notes-left-rail .ontology-type-row-wrap:hover {
+  background: var(--chrome-raised);
+}
+
+.notes-left-rail .ontology-type-row-wrap:has(> .is-selected) {
+  background: var(--chrome-pill);
+  color: var(--chrome-pill-text);
+}
+
+.notes-left-rail .ontology-type-row,
+.notes-left-rail .ontology-view-row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-}
-
-.notes-left-rail .ontology-type-row--pseudo {
-  color: var(--text);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-}
-
-.notes-left-rail .ontology-type-row--issues:not(.is-selected) {
-  color: var(--text);
-}
-
-.notes-left-rail .ontology-type-row--group,
-.notes-left-rail .ontology-rail__views-label {
-  gap: 0;
-  margin-top: 6px;
-  font: var(--label-font);
-  color: var(--label-color);
-}
-
-.notes-left-rail .ontology-type-row--group {
+  height: 100%;
+  padding: 0 10px 0 4px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
-.notes-left-rail .ontology-rail__views-label {
-  margin-top: 0;
-  padding: 4px 4px 2px 22px;
+.notes-left-rail .ontology-type-row:focus-visible,
+.notes-left-rail .ontology-view-row:focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: -2px;
+}
+
+.notes-left-rail .is-selected {
+  font-weight: 600;
+}
+
+/* The selected pill is close to the chrome text in light themes, so its
+   focus ring takes the pill's own ink. */
+.notes-left-rail .is-selected:focus-visible {
+  outline-color: var(--chrome-pill-text);
+}
+
+/* Rows without an icon or caret start where icon rows put their label. */
+.notes-left-rail .ontology-type-row--pseudo,
+.notes-left-rail .ontology-view-row {
+  padding-left: 8px;
+}
+
+.notes-left-rail .ontology-type-row--pseudo:not(.is-selected) {
+  color: var(--chrome-text);
+}
+
+.notes-left-rail__icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.notes-left-rail .ontology-type-row__collapse,
+.notes-left-rail .ontology-type-row__collapse-spacer {
+  display: inline-flex;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.notes-left-rail .ontology-type-row__collapse {
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.notes-left-rail .ontology-type-row__collapse .notes-left-rail__icon {
+  width: 13px;
+  height: 13px;
+  transition: transform 0.15s var(--ease);
+}
+
+.notes-left-rail [aria-expanded="true"] > .notes-left-rail__icon--caret,
+.notes-left-rail [aria-expanded="true"] .notes-left-rail__icon--caret {
+  transform: rotate(90deg);
+}
+
+.notes-left-rail .ontology-type-row__label,
+.notes-left-rail .ontology-view-row__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-left-rail .ontology-type-row__count {
+  flex: none;
+  color: inherit;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.notes-left-rail .ontology-type-row__count.is-risk {
+  color: var(--chrome-risk);
+  font-weight: 600;
+  opacity: 1;
+}
+
+.notes-left-rail .is-selected .ontology-type-row__count.is-risk {
+  color: var(--accent-ink);
+}
+
+.notes-left-rail .validation-issue-badge {
+  color: var(--chrome-risk);
+}
+
+.notes-left-rail .validation-issue-badge--presence {
+  background: var(--chrome-risk);
+}
+
+.notes-left-rail .ontology-type-row--embedded {
+  opacity: 0.6;
+  font-style: italic;
+  cursor: default;
+}
+
+.notes-left-rail .ontology-type-row-wrap:has(> .ontology-type-row--embedded):hover {
+  background: transparent;
+}
+
+/* Section headers: Views and each type group, collapsible. */
+.notes-left-rail__section {
+  margin-top: 14px;
+}
+
+.notes-left-rail .ontology-type-row--group {
+  padding-left: 2px;
+  font-weight: 500;
+}
+
+.notes-left-rail
+  .notes-left-rail__section
+  .ontology-type-row__collapse
+  + .ontology-type-row--group {
+  padding-left: 0;
+}
+
+/* The Views header's caret sits inside its one button. */
+.notes-left-rail .ontology-type-row--group > .ontology-type-row__collapse {
+  flex-basis: 18px;
+  margin-left: -2px;
+}
+
+.notes-left-rail .ontology-type-row--group.is-selected {
+  font-weight: 600;
 }
 
 .notes-shell__panel {
-  grid-column: 2;
+  grid-column: 1;
+  grid-row: 1;
   position: absolute;
   inset: 0;
   min-width: 0;
@@ -591,50 +809,100 @@
   pointer-events: none;
 }
 
+/* ---- The one right pane: note context or a collection's record ---- */
 .notes-right-rail {
   position: relative;
-  grid-column: 3;
-  width: 300px;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+  grid-column: 2;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
+  width: var(--pane-width);
+  min-width: 0;
+  min-height: 0;
   border-left: 1px solid var(--border);
   background: var(--surface);
 }
 
-.notes-right-rail.is-collapsed {
-  width: 36px;
+/* Below 1200px the pane covers the content so the table keeps its width. */
+.notes-right-rail.is-overlay {
+  position: absolute;
+  z-index: 6;
+  inset: 0 0 0 auto;
+  grid-column: 1 / -1;
+  width: min(var(--pane-width), 100%);
+  border-left-color: var(--border-strong);
+  box-shadow: var(--shadow-lg);
 }
 
-.notes-right-rail__tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+.notes-right-rail__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-3);
+  /* Matches the note's control bar beside it. */
+  height: 40px;
+  padding: 0 var(--sp-3) 0 var(--sp-5);
   border-bottom: 1px solid var(--border);
 }
 
-.notes-right-rail__tab {
-  min-height: 38px;
+.notes-right-rail__title {
+  flex: 1;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.notes-right-rail__close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.notes-right-rail__close svg {
+  width: 15px;
+  height: 15px;
+}
+
+.notes-right-rail__close:hover {
+  background: var(--surface-sunk);
+  color: var(--text);
+}
+
+.notes-right-rail__tabs {
+  display: flex;
+  align-self: stretch;
+  gap: var(--sp-5);
+}
+
+.notes-right-rail__tab {
+  padding: 0;
+  border: 0;
   background: transparent;
   color: var(--text-muted);
   font: inherit;
   font-size: var(--fs-sm);
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.notes-right-rail__tab:hover,
-.notes-right-rail__tab:focus-visible {
+.notes-right-rail__tab:hover {
   color: var(--text);
-  background: var(--bg-tint);
 }
 
 .notes-right-rail__tab[aria-selected="true"] {
-  border-bottom-color: var(--text);
   color: var(--text);
+  box-shadow: inset 0 -2px var(--text);
 }
 
 .notes-right-rail__content,
@@ -645,7 +913,8 @@
 
 .notes-right-rail__content {
   display: flex;
-  overflow: hidden;
+  flex-direction: column;
+  overflow: auto;
 }
 
 .notes-right-rail__content > [role="tabpanel"] {
@@ -654,7 +923,7 @@
 }
 
 .notes-right-rail__outline {
-  padding: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
 }
 
 .notes-right-rail__graph {
@@ -677,53 +946,6 @@
   padding: var(--sp-5);
   color: var(--text-faint);
   text-align: center;
-}
-
-.notes-right-rail__toggle {
-  position: absolute;
-  z-index: 2;
-  top: 5px;
-  right: 4px;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  cursor: pointer;
-}
-
-.notes-right-rail__toggle:hover,
-.notes-right-rail__toggle:focus-visible {
-  background: var(--bg-tint);
-  color: var(--text);
-}
-
-.notes-right-rail__toggle:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-
-.notes-right-rail__collapsed-strip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-2);
-  height: 100%;
-  padding-top: 4px;
-  font: var(--label-font);
-  color: var(--label-color);
-  writing-mode: horizontal-tb;
-}
-
-.notes-right-rail__collapsed-strip > span {
-  writing-mode: vertical-rl;
-}
-
-.notes-right-rail__collapsed-strip .notes-right-rail__toggle {
-  position: static;
-  flex: none;
 }
 
 .ontology-pane__type {
@@ -1353,28 +1575,11 @@
   white-space: nowrap;
 }
 
-@media (max-width: 760px) {
-  .notes-shell__body {
-    grid-template-columns: 180px minmax(0, 1fr) 36px;
-  }
-  .notes-left-rail {
-    width: 180px;
-  }
-
-  .notes-right-rail:not(.is-collapsed) {
-    position: absolute;
-    inset: 0 0 0 auto;
-    z-index: 10;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .notes-tab,
-  .notes-right-rail__tab,
-  .notes-right-rail__toggle,
-  .notes-left-rail .ontology-note,
-  .notes-left-rail .ontology-note__main,
-  .notes-left-rail .ontology-view-row {
+  .panel-resize::after,
+  .notes-left-rail .ontology-type-row-wrap,
+  .notes-left-rail .ontology-type-row__collapse .notes-left-rail__icon {
     scroll-behavior: auto;
     transition: none;
   }
@@ -1495,63 +1700,61 @@
   font-weight: 700;
 }
 
-/* A collection view lists its own records, so the rail's copy folds to its header. */
-.notes-left-rail--list-collapsed {
-  grid-template-rows: minmax(0, 1fr) auto;
+/* Pane type scale (SPEC-0126 US6): a 16px semibold title, 13px labels,
+   14px values, and no 700 weights, for the record and the note's Info. */
+.notes-right-rail .view-record {
+  padding: var(--sp-4) var(--sp-5) var(--sp-6);
+  font-size: var(--fs-base);
 }
 
-.notes-left-rail--list-collapsed .ontology-list__filters,
-.notes-left-rail--list-collapsed .ontology-list__body {
-  display: none;
+.notes-right-rail .view-record__title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.005em;
 }
 
-.notes-left-rail--list-collapsed .ontology-list__title h2 {
-  min-width: 0;
+.notes-right-rail .view-record__fields > div {
+  grid-template-columns: 104px minmax(0, 1fr);
 }
 
-.notes-left-rail--list-collapsed .ontology-list__count {
+.notes-right-rail .view-record__fields dt,
+.notes-right-rail .view-record__reverse h4,
+.notes-right-rail .ontology-sidebar-context__group h3 {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+/* ---- Note reader measure ----
+   The note reads in a centred 680px column, and its controls align with
+   that column rather than the panel edge. Percentages resolve against the
+   pane's width. HTML notes keep running edge to edge. */
+.notes-shell .ontology-pane {
+  --note-gutter: max(var(--sp-6), calc((100% - 680px) / 2));
+}
+
+.notes-shell .ontology-pane__controls,
+.notes-shell .ontology-pane__main:not(.ontology-pane__main--html) {
+  padding-inline: var(--note-gutter);
+}
+
+.notes-shell .ontology-pane__main:not(.ontology-pane__main--html) .ontology-markdown {
+  max-width: none;
+}
+
+/* The column is the note's width, which tables, code, and properties may
+   fill. Prose keeps a 65–75 character measure inside it (about 540px of 15px
+   Inter), and the editor's lines wrap at the same width, so editing keeps
+   read mode's line breaks. */
+.notes-shell .body-narrative :is(p, ul, ol, blockquote),
+.notes-shell .body-narrative--editor .cm-line {
+  max-width: 540px;
+}
+
+/* The controls row is only as wide as the column: the path gives way, never
+   the controls. */
+.notes-shell
+  .ontology-pane__controls
+  > :not(.ontology-pane__toolbar-path, .ontology-pane__controls-spacer) {
   flex: none;
   white-space: nowrap;
-}
-
-.notes-left-rail__list-toggle {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  max-width: 100%;
-  overflow: hidden;
-  padding: 0;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  cursor: pointer;
-}
-
-.notes-left-rail__list-toggle > span {
-  color: var(--text-faint);
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-}
-
-.notes-right-rail__record {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.notes-right-rail__record-bar {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-height: 38px;
-  padding: 0 var(--sp-4);
-  border-bottom: 1px solid var(--border);
-  color: var(--label-color);
-  font: var(--label-font);
 }

@@ -1,6 +1,6 @@
 import { isPreferenceResponse, isPreferenceScope } from "../../src/viewPreferences/types";
 import { expect, test } from "./fixtures";
-import { openViewOptions } from "./workspaceView";
+import { openViewOptions, rowsChoice } from "./workspaceView";
 
 function guideScope(url: string) {
   const parsed = new URL(url);
@@ -86,9 +86,8 @@ test("invalid saved layout falls back visibly and recovers after a valid choice"
   const scope = guideScope((await nativeRead).url());
 
   if (!scope) throw new Error("The guide did not request its native preference scope");
-  const density = page.getByRole("combobox", { name: "Rows", exact: true });
   await openViewOptions(page);
-  await expect(density).toHaveValue("two-line");
+  await expect(rowsChoice(page, "2 lines")).toHaveAttribute("aria-pressed", "true");
 
   const read = await request.get("/api/v1/view-preferences", {
     params: { scope: JSON.stringify(scope) },
@@ -106,7 +105,7 @@ test("invalid saved layout falls back visibly and recovers after a valid choice"
   expect(seeded.ok(), await seeded.text()).toBe(true);
   await page.reload();
   await openViewOptions(page);
-  await expect(density).toHaveValue("two-line");
+  await expect(rowsChoice(page, "2 lines")).toHaveAttribute("aria-pressed", "true");
 
   const warning = page
     .getByRole("alert")
@@ -124,11 +123,11 @@ test("invalid saved layout falls back visibly and recovers after a valid choice"
 
   // Retry sits outside View options, so pressing it closed them.
   await openViewOptions(page);
-  await density.selectOption("one-line");
+  await rowsChoice(page, "1 line").click();
   expect((await saved).ok()).toBe(true);
   await expect(warning).toBeHidden();
   await page.reload();
   await openViewOptions(page);
-  await expect(density).toHaveValue("one-line");
+  await expect(rowsChoice(page, "1 line")).toHaveAttribute("aria-pressed", "true");
   await expect(warning).toBeHidden();
 });
