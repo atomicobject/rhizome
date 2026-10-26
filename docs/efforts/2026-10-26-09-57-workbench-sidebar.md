@@ -125,6 +125,7 @@ The sidebar is now one frame in Notes, Ontology, Explorer, and Agent, and only t
 
 ## Deviations
 
+- 2026-10-26T17:05:00Z: Greptile (5/5) noted that the Ontology sidebar dropped standalone embedded types, because `buildRailGroups` filters them for Notes. It now takes `includeEmbedded`, which Ontology passes, so every type has a row; Notes is unchanged.
 - 2026-10-26T16:50:00Z: Greptile's pass on the merged head (4/5) found that two overlapping sidebar requests could send pages an older choice than the one saved. `page::set_sidebar` now queues its send on the main thread and reads the latest saved value there, as `appearance::update` does for the theme. `make desktop-check` passed on the second run; the first hit the known timing-sensitive shell test ("shows nothing for progress that finishes within the quiet period", an EFF-2026-10-25-15-15 follow-up).
 - 2026-10-26T16:30:00Z: #49 (scheduled tasks) merged to `main` holding SPEC-0127 first, so this spec is renumbered SPEC-0128, along with every reference this branch added. frozen-scope-drift acknowledged for SPEC-0128: the spec set is refrozen at this revision.
 - 2026-10-26T16:05:00Z: an independent GPT-6.1 Sol review (xhigh) of `a3bc9734` found three issues:

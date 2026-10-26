@@ -39,7 +39,14 @@ function sortRailNodes(nodes: RailNode[]): RailNode[] {
     .sort((left, right) => railNodeLabel(left).localeCompare(railNodeLabel(right)));
 }
 
-export function buildRailGroups(summary: OntologySummaryResponse | null): RailGroup[] {
+/**
+ * Groups types and interfaces for a sidebar tree. Notes leaves out standalone
+ * embedded types; Ontology passes `includeEmbedded` so every type has a row.
+ */
+export function buildRailGroups(
+  summary: OntologySummaryResponse | null,
+  { includeEmbedded = false }: { includeEmbedded?: boolean } = {},
+): RailGroup[] {
   const types = summary?.types ?? [];
   const interfaces = summary?.interfaces ?? [];
   const nodes = new Map<string, RailNode>();
@@ -99,7 +106,7 @@ export function buildRailGroups(summary: OntologySummaryResponse | null): RailGr
   for (const [name, node] of nodes) {
     if (parents.has(name)) continue;
 
-    if (node.kind === "type" && node.type.role === "embedded") continue;
+    if (!includeEmbedded && node.kind === "type" && node.type.role === "embedded") continue;
     const group = groupFor(name) ?? "Other";
     grouped.set(group, [...(grouped.get(group) ?? []), node]);
   }

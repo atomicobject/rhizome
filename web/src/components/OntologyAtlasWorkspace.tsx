@@ -32,7 +32,7 @@ export function OntologyAtlasWorkspace({
   const sidebarShown = !useWorkbenchSidebar().collapsed;
   const summaryQuery = useOntologySummaryQuery();
   const summary = summaryQuery.data ?? null;
-  const groups = useMemo(() => buildRailGroups(summary), [summary]);
+  const groups = useMemo(() => buildRailGroups(summary, { includeEmbedded: true }), [summary]);
   const { railProps, ...expansion } = useRail(EXPANDED_KEY, groups, selected);
 
   const atlasQuery = useQuery({
