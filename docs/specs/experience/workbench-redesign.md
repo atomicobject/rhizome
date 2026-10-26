@@ -205,7 +205,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 - MUST replace Barlow with Inter as the UI face, self-hosted as variable woff2 (Latin and Latin Extended) under SIL OFL, with license notices generated through `scripts/licenses/generate.py`. Merriweather stays for document titles and JetBrains Mono for evidence.
 - MUST apply tabular figures only to number-bearing elements (counts, dates, numeric cells), because Inter widens the hyphen under `tnum`.
-- MUST use a 14px-class UI base, 13px secondary text, 12.5px column heads and labels, and an 18px view title, with weights 400, 500, and 600 in chrome and 650–700 only for titles.
+- MUST use a 14px-class UI base, 13px secondary text and column heads, 12px labels, and an 18px view title, with weights 400, 500, and 600 in chrome and 650–700 only for titles.
 - MUST replace hard-coded Barlow references (graph labels, mermaid, docs, skill copies) and hard-coded font sizes in bundled group views with tokens.
 
 ### Desktop
@@ -256,5 +256,9 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
   - **Width:** the note reads in a 680px column, where tables, code, and properties may use the full width. Prose (paragraphs, lists, block quotes) caps at 540px inside it, which holds 66–79 characters (72 on average) of 15px Inter. The section editor's lines wrap at the same width.
   - **Disclosure chevron:** it sits in the gutter beside a section's title.
   - **Home line:** a note's first body block reads as quiet metadata when it is a single line of a short label followed only by links.
+- Resolved 2026-10-26, delivery: "toggling Edit does not move the text" (US11) holds within a section: a section's prose keeps its position relative to its heading. The note body can still shift, because Edit reveals every property, including the empty ones read mode hides, as form controls.
+- Resolved 2026-10-26, delivery: below 1200px the narrow-window rule (US5) wins over opening on selection (US6). Selecting a row does not open the right pane there; `]` or the tab row's toggle opens it over the content.
+- Resolved 2026-10-26, delivery: column heads ship at 13px and labels at 12px, the nearest steps on the type scale, instead of 12.5px.
+- Resolved 2026-10-26, delivery: the screenshot requirement is met with reference captures in `.impeccable/references/workbench-2026-10/`, not asserted tests, because the repository has no pixel-diff layer and CI renders fonts differently. The desktop-mode shell has no capture: windows launched from this session never paint into captures.
 - Resolved 2026-10-25, delivery: a page's first paint in Rhizome Desktop uses the theme baked into its window when it opened, unless that page's origin remembers a newer theme command (a reload after a change). A first load of another runtime origin in a window opened before a theme change can still show the older theme until the page reports its title.
 

@@ -141,6 +141,35 @@ Not yet delivered.
 
 - 2026-10-25T20:23:19Z: Queued Batch 2b (note reader and edit mode) to start after Batch 2 merges.
 
+- 2026-10-25T21:32:05Z Batch 4 (⌘P finder) merged into the parent as #50 (`0d840d70`).
+  - **Review fixes:** superseded searches are canceled through the request context, a failed catalog rebuild retries with backoff, and Enter during an in-flight search opens the first fresh result. The palette also ignores IME composition keys and hides "Open beside" for code files.
+  - **Reverted:** a `#`/`?` file-name heuristic in tab targets broke heading links, so it was reverted and recorded as a known limitation (see Compounding Follow-ups).
+  - **Evidence:** Greptile 5/5 with no comments; `make check` and web e2e passed; CI green. `BenchmarkSearch20kNotes`, rerun on 2026-10-26 on the parent tree, gave p50 1.3ms, p95 9.1ms, and max 10.6ms against the 50ms target.
+- 2026-10-25T22:02:32Z Batch 2 (shell) merged as #51 (`bf1e4d44`).
+  - **Review fixes:** the frame fills the window when the sidebar is hidden, a table passes `selected` to the record pane, closing the pane from inside returns focus to its toggle, and the record pane opens 400ms after a selection settles.
+  - **Evidence:** Greptile 5/5; `make check` and web e2e, including a new check that the frame fills the window; CI green.
+- 2026-10-25T22:41:20Z Batch 3 (view header, column rule, reading widths) merged as #52 (`f643f4f1`).
+  - **Review fixes:** an active preset's chip returns when its last filter row is removed, narrow headers shrink Find, and Sort shows a sort by a source key under its field.
+  - **False positive:** Greptile's claim that the header's container query traps its menus under the sticky table headings was disproved with a probe in Chromium and WebKit. A control probe with `contain: layout` is covered, so the probe tells the two apart.
+  - **Evidence:** Greptile 5/5; `make check` (1,682 web unit tests) and 104 e2e tests; CI green.
+- 2026-10-26T00:25:47Z Batch 5 (desktop chrome and finders) merged as #53 (`078acb31`).
+  - **Greptile:** it took about fifteen passes, each finding one real race or edge case. An independent Opus review of the whole diff then found four more at once.
+  - **Fixes:** settings apply in save order on the main thread, and shells take settings only from the broadcast. Finder show, hide, and choice requests carry opening stamps and revisions so late ones are dropped. The finder takes focus only when an opening starts, and other menu commands close it first. → opens a row's actions, IME keys are ignored, and emoji and case-folded matches highlight correctly. The highlight follows row identity, and a new shell paints its saved theme from an initialization script.
+  - **CI fix:** the desktop CI job installs only desktop packages, so the theme list moved to a dependency-free `web/src/lib/themes.ts`.
+  - **README:** `desktop/README.md` was updated in this batch rather than Batch 6.
+  - **Evidence:** Greptile 5/5 with no comments; `make check`; `make desktop-check` (88 shell and 81 Rust tests); 104 e2e tests; CI green.
+- 2026-10-26T00:45:20Z Batch 2b (note reader and edit mode) merged as #54 (`17dc115f`).
+  - **Worker delivery:** the display trim with raw `previousMarkdown`, the section rhythm, the gutter chevron, the empty-fields toggle, the quiet home line, and the in-place editor states.
+  - **Integration fixes:**
+    - Prose now holds the spec's 65–75 character measure: 540px inside the 680px column, measured in a browser at 66–79 characters per line with a 72 average.
+    - The controls row truncates the path instead of the buttons.
+    - A field with links or bound sections counts as filled.
+    - A wikilink example in `web/CONTEXT.md` that failed content validation is now quoted.
+  - **Evidence:**
+    - `TestExecute_WorkspaceNarrativeTrimmedEditKeepsOtherBytes` covers LF and CRLF files.
+    - A manual save through the UI kept every other byte, including all 23 CRLF line endings.
+    - Greptile 5/5 with no comments on the first pass; `make check` and 104 e2e tests; CI green.
+
 ## Deviations
 
 - 2026-10-25T20:23:19Z: Scope change approved by Drew in chat ("Yes, please do"). He reported, with screenshots, that edit mode shows blank lines and stacked boxes in note sections, and that read mode looks cramped and inelegant.
@@ -158,7 +187,18 @@ Not yet delivered.
 
 ## Compounding Follow-ups
 
-None yet.
+- **Tab targets with `#` or `?` in a file name:** ⌘P opens such a code or note file through a tab target that treats `#` and `?` as a fragment or query. A heuristic fix broke heading links and was reverted, so these files stay a known limitation until tab targets carry the path and fragment separately.
+- **E2E only in a fake-harness worktree:** web e2e run from a `/tmp` worktree failed 98 tests, because the server there was not the fake-harness test build. Workers had to run e2e in their own prepared worktree. The e2e setup should build or check the server it needs instead of trusting what the port serves.
+- **Tracked build artifact:** `make build` rewrites the tracked `pkg/app/web/assets/dist/index.html`. That blocked rebases twice and had to be restored after every build. It should be generated, untracked, or written only when its content changes.
+- **Desktop first paint:** a first load of another runtime origin, in a window opened before a theme change, still paints the older theme until the page reports its title (SPEC-0126 Open Questions). A window-scoped theme source that the content view reads at document start would close it.
+- **Desktop CI and web imports:** the desktop CI job installs only desktop packages, so a desktop import of a web module with package dependencies fails only in CI. A lint rule or a check in `make desktop-check` that resolves `web/src` imports without `web/node_modules` would catch it locally.
+- **Timing-sensitive desktop test:** "shows nothing for progress that finishes within the quiet period" (`desktop/src/App.test.tsx`) waits 2s for an 800ms quiet period and timed out once under load. It should use fake timers.
+- **Section editor fidelity:**
+  - Edit mode shows wikilinks by their resolved labels.
+  - The editor's table widget adds space above tables.
+  - Blank lines between paragraphs show as full source lines, so only a section's first paragraph sits exactly where read mode puts it.
+- **No pixel-diff layer:** the repository has no visual regression tests. Reference screenshots under `.impeccable/references/` record the shipped look, but nothing fails when it drifts.
+- **Review cost on concurrency-heavy batches:** Greptile found Batch 5's races one per pass. An early whole-diff review by an independent model found several at once, so run one before the Greptile loop on stateful or concurrent work.
 
 ## Status
 
