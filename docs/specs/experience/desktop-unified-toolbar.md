@@ -3,7 +3,7 @@ type: ExperienceSpec
 id: SPEC-0119
 summary: "In Rhizome Desktop, the native toolbar carries the workspace's section tabs, project search, issue badge, and shortcuts, and the web UI hides its own header, so a window has one top bar."
 spec-status: proposed
-last-updated: 2026-10-07
+last-updated: 2026-10-26
 aliases:
   - SPEC-0119
 ---
@@ -61,6 +61,11 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
 - **`find` command:** a page command that opens the page's ⌘P finder.
 - **`theme` command:** a page command whose detail carries only a validated preset name. It goes to any document on the verified runtime origin, including a covered or still-loading page, so a page never keeps the old theme. Other commands still wait for a reported workspace page.
 - **Window creation:** the content view's initialization script supplies the theme current then, and the time it was read, for the page's first paint.
+
+Amended by [[workbench-sidebar|SPEC-0127]] on 2026-10-26:
+- **Toolbar:** a sidebar toggle returns as the first control after the window buttons, now for the page's workbench sidebar. The View menu has Show Sidebar or Hide Sidebar with ⌃⌘S.
+- **`sidebar` command:** a page command whose detail carries only the collapsed flag. The app sends its stored choice when a workspace page loads and whenever the choice changes.
+- **Report:** the title report gains an optional `sidebarCollapsed`, present once the page has the app's choice, so a change made in the page (⌘\\) reaches the app, which stores it for every window.
 
 - The content webview MUST NOT gain native command permissions. The page MUST report state only through its document title, and the native layer MUST send it commands only as DOM events with fixed names whose details it serializes.
 - The native layer MUST accept a report only while the content view's top-level page is on the verified runtime origin. It MUST check the report (known section names, bounded search text, a non-negative issue count, known health values) and ignore anything else. A page load, a navigation away from the runtime origin, or clearing the content view MUST clear the shell's page state.

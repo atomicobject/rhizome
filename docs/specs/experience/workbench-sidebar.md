@@ -54,7 +54,7 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 
 - In the browser, a sidebar toggle sits in the top bar immediately before the section switcher. It uses the panel-left icon, is labelled "Hide sidebar" or "Show sidebar", and reports its state with `aria-expanded`. The document tab strip no longer has a sidebar toggle.
 - In Rhizome Desktop the page draws no toggle of its own. The toolbar's first control after the window buttons is the sidebar toggle, drawn like the other toolbar icon buttons and pressed while the sidebar shows. The View menu has Show Sidebar or Hide Sidebar with ⌃⌘S.
-- ⌃⌘S and ⌘\ toggle the sidebar in the browser and in Rhizome Desktop (Ctrl+Alt+S and Ctrl+\ off macOS), including while focus is in the content page, but not while typing in a text field or editor.
+- ⌃⌘S and ⌘\\ toggle the sidebar in the browser and in Rhizome Desktop (Ctrl+Alt+S and Ctrl+\\ off macOS), including while focus is in the content page, but not while typing in a text field or editor.
 - In GraphQL the toggle is disabled and its tooltip says the section has no sidebar.
 
 ### US3 - Use the same sidebar in every section
@@ -98,4 +98,4 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 
 ## Open Questions
 
-None. Drew settled the open choices on 2026-10-26: one shared collapsed state, an Ontology type tree, no GraphQL sidebar, and both ⌃⌘S and ⌘\.
+None. Drew settled the open choices on 2026-10-26: one shared collapsed state, an Ontology type tree, no GraphQL sidebar, and both ⌃⌘S and ⌘\\.

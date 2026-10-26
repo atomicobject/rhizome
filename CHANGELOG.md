@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- One sidebar now serves Notes, Ontology, Explorer, and Agent, and it stays where you put it: searching, switching sections, and reloading no longer show or hide it. Show or hide it with the toggle beside the section tabs, ⌃⌘S, or ⌘\\ (Ctrl+Alt+S or Ctrl+\\ elsewhere). In Rhizome Desktop the toggle is the toolbar's first button, View › Show Sidebar has ⌃⌘S, and the choice applies to every window. Ontology's sidebar lists the types; Agent's session list replaces its small-window drawer.
 - Choose a chrome theme (Graphite, Slate, Spruce, Oxblood, or Indigo) and Light, Dark, or Match System appearance. In a browser they're in the header's Appearance menu. In Rhizome Desktop they're in View › Theme, View › Appearance, and Settings, and they theme the desktop toolbar too. Inter replaces Barlow as the interface typeface, on a 14px base.
 - The Notes sidebar and right pane resize by dragging or with the keyboard and remember their widths. The sidebar's note list is gone; ⌘P finds notes instead.
 - The right pane shows Info, Outline, and Graph for a note, or the selected record for a table. `]` opens and closes it, and below 1200px it opens over the content.

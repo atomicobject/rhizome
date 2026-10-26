@@ -110,6 +110,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 - Each handle is keyboard operable (`role=separator`, arrow keys in 16px steps, Home and End for minimum and maximum) and shows a visible focus state.
 - Widths and collapsed state persist across reloads.
 - Below 1200px wide, the right pane starts collapsed and opens over the content when toggled, so the table keeps its width.
+- Amended by [[workbench-sidebar|SPEC-0127]] on 2026-10-26: the sidebar's width and collapsed state are shared by every section, and its toggle is in the top bar (Rhizome Desktop: the toolbar), with ⌃⌘S and ⌘\\.
 
 ### US6 - Use one right pane for the selected thing
 

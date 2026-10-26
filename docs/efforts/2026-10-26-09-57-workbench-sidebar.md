@@ -5,7 +5,7 @@ aliases: [EFF-2026-10-26-09-57]
 name: Workbench sidebar
 created-at: 2026-10-26T13:57:31Z
 plan-approved-by: Drew Colthorp
-status: active
+status: complete
 summary: "Deliver SPEC-0127: one persistent, user-toggled sidebar frame across Notes, Ontology, Explorer, and Agent, with one remembered collapsed state and width, a toggle in the browser top bar and the desktop toolbar, and ⌃⌘S or ⌘\\ shortcuts."
 governing-specs: ["[[workbench-sidebar]]"]
 ---
@@ -24,7 +24,7 @@ Implement [[workbench-sidebar|SPEC-0127]], which Drew asked for on 2026-10-26 af
 | Desktop toggle | A toolbar control in Rhizome Desktop |
 | Ontology contents | The type tree, with an Atlas row |
 | GraphQL | No sidebar; toggle disabled |
-| Shortcuts | ⌃⌘S and ⌘\ |
+| Shortcuts | ⌃⌘S and ⌘\\ |
 
 Excluded: SPEC-0127 Non-Goals (a GraphQL sidebar, per-section state or widths, new narrow-window behaviour, right-pane changes, and changes to what the Notes sidebar holds).
 
@@ -38,13 +38,13 @@ All three stories of SPEC-0127 (`^SPEC-0127-US1` through `^SPEC-0127-US3`).
 
 ## Spec Coverage Checklist
 
-- [ ] US1 keep the sidebar where I put it (batch 1; desktop part batch 3).
-- [ ] US2 toggle from one place (browser batch 1; desktop batch 3).
-- [ ] US3 the same sidebar in every section (batch 1 frame; batch 2 contents).
+- [x] US1 keep the sidebar where I put it (batch 1; desktop part batch 3).
+- [x] US2 toggle from one place (browser batch 1; desktop batch 3).
+- [x] US3 the same sidebar in every section (batch 1 frame; batch 2 contents).
 - [x] Shell and state requirements (batch 1).
-- [ ] Desktop requirements (batch 3).
-- [ ] Accessibility and verification requirements (batches 1–3).
-- [ ] Documentation requirements (batch 4).
+- [x] Desktop requirements (batch 3). The packaged-app click-through follows the merge.
+- [x] Accessibility and verification requirements (batches 1–3).
+- [x] Documentation requirements (batch 4).
 
 ## Plan
 
@@ -63,9 +63,9 @@ Delivery is one PR from `feat/persistent-sidebar` to `main`, with one commit per
 
 | Batch | Outcome | Scope and ownership | Work | Exit evidence |
 |---|---|---|---|---|
-| 1. Shared state, frame, and browser toggle | US1 in the browser, US2 in the browser, US3's frame, the shell and state requirements | New `web/src/components/workbenchSidebar.ts` (state) and `WorkbenchSidebar.tsx` (frame), a `sidebar.css` taken from `notes-shell.css`, `AppShell.tsx`, `NotesShell.tsx`, `shellPanes.ts` (right pane only afterwards), `desktopHost.ts` | One external store for `collapsed` and `width`, under `rhizome:workbench:sidebar:v1`. It carries over the Notes values from `rhizome:notes:panes:v1` once, follows `storage` events, and in Desktop takes its state from the shell's command instead of storage. A frame component draws the chrome aside, header, resize handle, and hidden, inert collapse. The top-bar toggle goes before the section switcher, and ⌃⌘S and ⌘\ are handled outside text fields. Notes renders its rail in the frame. The tab-strip toggle goes, and search tabs keep the sidebar. | Unit tests for the store (persistence, carry-over, cross-tab, desktop command) and the shortcut exclusion. `search.spec.ts` now expects the sidebar on search tabs. A new `sidebar.spec.ts` covers toggle, reload, and section switches. `make check` passes. |
+| 1. Shared state, frame, and browser toggle | US1 in the browser, US2 in the browser, US3's frame, the shell and state requirements | New `web/src/components/workbenchSidebar.ts` (state) and `WorkbenchSidebar.tsx` (frame), a `sidebar.css` taken from `notes-shell.css`, `AppShell.tsx`, `NotesShell.tsx`, `shellPanes.ts` (right pane only afterwards), `desktopHost.ts` | One external store for `collapsed` and `width`, under `rhizome:workbench:sidebar:v1`. It carries over the Notes values from `rhizome:notes:panes:v1` once, follows `storage` events, and in Desktop takes its state from the shell's command instead of storage. A frame component draws the chrome aside, header, resize handle, and hidden, inert collapse. The top-bar toggle goes before the section switcher, and ⌃⌘S and ⌘\\ are handled outside text fields. Notes renders its rail in the frame. The tab-strip toggle goes, and search tabs keep the sidebar. | Unit tests for the store (persistence, carry-over, cross-tab, desktop command) and the shortcut exclusion. `search.spec.ts` now expects the sidebar on search tabs. A new `sidebar.spec.ts` covers toggle, reload, and section switches. `make check` passes. |
 | 2. Section contents | US3: Ontology, Explorer, Agent, and the GraphQL exception | `NotesLeftRail.tsx` (extract the type tree for reuse), `OntologyAtlasWorkspace.tsx`, `ExplorerWorkspace.tsx`, `explorer.css`, `AgentWorkspace.tsx`, `AgentSessionRail.tsx`, `AgentStatusHeader.tsx`, `agent.css` | Ontology gets an Atlas row and the shared type tree, routing to type detail with the current type selected. The Explorer tree and the Agent session list move into the frame with the shared row styles. Agent's drawer and hamburger go. GraphQL renders no frame, and the toggle is disabled with a tooltip there. | Unit tests for the Ontology tree selection and routing. `sidebar.spec.ts` covers each section and GraphQL. Existing `explorer`, `agent`, and `ontology` e2e pass. Screenshots of all four sections in light and dark. |
-| 3. Desktop toggle | US2 and US1 in Desktop, the desktop requirements | `desktop/src/App.tsx`, `api.ts`, `style.css`, `src-tauri/src/{page,state,menu,commands}.rs`, `web/src/components/desktopHost.ts` | Additive `page::Command::Sidebar { collapsed }` and a `sidebar` field in the title report. `Preferences.sidebar_collapsed` is app-wide, applied on page load and broadcast to every window. A toolbar icon button goes first after the traffic lights, pressed while the sidebar shows and disabled on GraphQL and on non-runtime pages. View menu: Show Sidebar or Hide Sidebar with ⌃⌘S. ⌘\ pressed in the page reports through the title, and the shell persists it. | `make desktop-check` (shell tests and Rust tests for the command, report, preference, and menu). `make desktop-build` succeeds. Drew's click-through in Rhizome Dev after merge. |
+| 3. Desktop toggle | US2 and US1 in Desktop, the desktop requirements | `desktop/src/App.tsx`, `api.ts`, `style.css`, `src-tauri/src/{page,state,menu,commands}.rs`, `web/src/components/desktopHost.ts` | Additive `page::Command::Sidebar { collapsed }` and a `sidebar` field in the title report. `Preferences.sidebar_collapsed` is app-wide, applied on page load and broadcast to every window. A toolbar icon button goes first after the traffic lights, pressed while the sidebar shows and disabled on GraphQL and on non-runtime pages. View menu: Show Sidebar or Hide Sidebar with ⌃⌘S. ⌘\\ pressed in the page reports through the title, and the shell persists it. | `make desktop-check` (shell tests and Rust tests for the command, report, preference, and menu). `make desktop-build` succeeds. Drew's click-through in Rhizome Dev after merge. |
 | 4. Documentation and closure | Documentation requirements | SPEC-0090, SPEC-0098, SPEC-0113, SPEC-0119, SPEC-0126, `DESIGN.md`, `web/CONTEXT.md`, `desktop/README.md`, `CHANGELOG.md`, this effort | Amend each spec where it omits the sidebar from search, places the toggle in the tab strip, or describes the toolbar without it. Update the docs and changelog, then run the closure pass. | `./scripts/rzm validate` reports 0 issues; `rzm agent validate frozen-scope-drift` is clean. |
 
 **Escalation boundary.** Stop for Drew if the Ontology tree needs data the atlas query does not provide, or if a Desktop design would need the page to gain a capability beyond SPEC-0119's title-only reports.
@@ -76,11 +76,17 @@ Delivery is one PR from `feat/persistent-sidebar` to `main`, with one commit per
 
 ## Original Intended Delivery
 
-One PR in which the sidebar stays where the user put it across searches, sections, reloads, and windows. One toggle in the browser top bar or the desktop toolbar, and ⌃⌘S or ⌘\, shows or hides it, and Notes, Ontology, Explorer, and Agent each fill the same frame.
+One PR in which the sidebar stays where the user put it across searches, sections, reloads, and windows. One toggle in the browser top bar or the desktop toolbar, and ⌃⌘S or ⌘\\, shows or hides it, and Notes, Ontology, Explorer, and Agent each fill the same frame.
 
 ## Actual Delivered
 
-Not started.
+One PR on `feat/persistent-sidebar`, with one commit per batch:
+- batch 1: the shared state, the frame, and the browser toggle;
+- batch 2: the Ontology, Explorer, and Agent sidebars;
+- batch 3: the Desktop toolbar toggle, View menu item, and app-wide preference;
+- batch 4: documentation and this closure.
+
+The sidebar is now one frame in Notes, Ontology, Explorer, and Agent, and only the user shows or hides it. The toggle sits in the top bar before the section tabs, and ⌃⌘S or ⌘\\ work too. In Rhizome Desktop the toggle is the toolbar's first button, View › Show Sidebar has ⌃⌘S, and the choice applies to every window. Search tabs keep the sidebar, and GraphQL has none.
 
 ## Execution Notes
 
@@ -89,30 +95,57 @@ Not started.
   - **State:** `web/src/components/sidebarState.ts` holds one external store for the collapsed state and width, under `rhizome:workbench:sidebar:v1`. It carries over the Notes values from `rhizome:notes:panes:v1` once and follows `storage` events. In Desktop it takes the collapsed state from the app's `sidebar` command and reports `sidebarCollapsed` in the title only after that command arrives, so the page's default never overwrites the app's stored choice.
   - **Frame:** `WorkbenchSidebar.tsx` holds the frame (header, body, resize handle; collapsed means hidden and inert), the top-bar `SidebarToggle`, and the shortcuts. `workbench.css` holds the shared layout.
   - **Notes:** Notes renders in the frame. The tab-strip toggle is gone, search tabs keep the sidebar, and `shellPanes.ts` now owns only the right pane.
-  - **Shortcuts:** in Desktop the page answers only ⌘\, since the View menu will own ⌃⌘S. The Notes ⌘S save handler now ignores ⌃⌘S.
+  - **Shortcuts:** in Desktop the page answers only ⌘\\, since the View menu will own ⌃⌘S. The Notes ⌘S save handler now ignores ⌃⌘S.
   - **Naming:** the state module is `sidebarState.ts`, not `workbenchSidebar.ts`, because that would collide with `WorkbenchSidebar.tsx` on a case-insensitive filesystem.
   - **Evidence:**
     - `make check` passed: 1,697 web unit tests, plus the Go suites and lint.
     - `npx playwright test` passed all 105 e2e tests, including the new `sidebar.spec.ts` and `search.spec.ts`, which now expects the sidebar on search tabs.
     - Browser screenshots at 1440px show search results beside the sidebar and the top-bar toggle.
+- Batch 3 (Desktop), commit `07e8e718` from a worker (Opus 5.5 medium), integrated as `17cd689d`:
+  - **Command:** additive `page::Command::Sidebar { collapsed }`, sent to runtime pages, covered or loading ones included (the same rule as the theme).
+  - **Report:** an optional `sidebarCollapsed` in the title report.
+  - **Preference:** `Preferences.sidebar_collapsed`, sent when a page first reports and broadcast to every window when it changes.
+  - **Toggle detection:** a change counts as a toggle only when the same document's previous report had a value and this one differs. A page echoing the app's command is therefore not a toggle, and a stale report from another window cannot flip the preference back.
+  - **Controls:** the toolbar's first `icon-button`, pressed while the sidebar shows, and View › Hide/Show Sidebar with ⌃⌘S, placed before Enter Full Screen.
+  - **Disabled:** on GraphQL, while Settings covers the page, and before the page reports a sidebar state.
+  - **Refactor:** `appearance::send_theme` became `page::send_setting`, shared by the theme and the sidebar.
+  - **Evidence:** `make desktop-check` passed (89 shell tests; `cargo test` passed 85; fmt and clippy clean). `make desktop-build` built `Rhizome.app`.
+- Batch 2 (section sidebars), commit `0ad97916` from a worker (Opus 5.5 medium), integrated as `69830f16`:
+  - **Shared tree:** the type tree moved from `NotesLeftRail.tsx` into `RailTree.tsx`, which Notes and Ontology share. Ontology keeps its expanded groups under its own key, because both sidebars can be mounted at once.
+  - **Ontology:** an Atlas row, then the groups, types, and interfaces from `useOntologySummaryQuery`. No API was added.
+  - **Explorer:** the vault tree moved into the frame. The 260px rail and its breakpoints are gone.
+  - **Agent:** the session list and settings moved into the frame. The drawer, scrim, and hamburger are gone.
+  - **Header:** every section's header names the vault in a browser, and the top bar no longer repeats it outside GraphQL.
+  - **Evidence:** `make check` passed (1,700 web unit tests). The new `OntologyAtlasWorkspace.test.tsx` passed, and `sidebar.spec.ts` now covers all four sections.
+- Integration on `feat/persistent-sidebar` (69830f16):
+  - `make check` passed (1,700 web unit tests, plus the Go suites and lint).
+  - `make desktop-check` passed (89 shell tests, 85 Rust tests).
+  - `npx playwright test` passed all 106 e2e tests.
+  - Light and dark screenshots of Notes, Ontology, Explorer, and Agent at 1440px, against a copy of Drew's vault, show one chrome sidebar beside the inset panel in each section.
 
 ## Deviations
 
-None yet.
+- 2026-10-26T15:20:00Z: routine choices within the approved plan, recorded for review:
+  - Ontology lets embedded types open their detail (Notes still disables them), because US3 says choosing a type opens its detail.
+  - Explorer's root row shows the vault's short name.
+  - Off macOS the View menu's accelerator is Ctrl+Alt+S, following SPEC-0127. `Ctrl+CmdOrCtrl+S` would be Ctrl+S (Save) there.
+  - The top bar names the vault only on GraphQL or a status error, since every sidebar header names it.
 
 ## Closure Checklist
 
-- [ ] Spec coverage checklist complete or deviations recorded.
-- [ ] Quality gates recorded with exact commands and results.
-- [ ] SPEC-0127 and the amended specs reconciled with delivery.
+- [x] Spec coverage checklist complete or deviations recorded.
+- [x] Quality gates recorded with exact commands and results (Execution Notes).
+- [x] SPEC-0127 and the amended specs (SPEC-0090, SPEC-0098, SPEC-0113, SPEC-0119, SPEC-0126) reconciled with delivery.
 - [ ] PR open; Greptile 5/5; independent review; CI green on the final head.
-- [ ] Follow-ups recorded.
-- [ ] Desktop verification: Drew's click-through in Rhizome Dev.
+- [x] Follow-ups recorded.
+- [x] Desktop verification: recorded as a post-merge click-through in Rhizome Dev (Follow-ups); Rhizome Dev installs only from `main`.
 
 ## Compounding Follow-ups
 
+- **Desktop click-through:** after merge, run `make desktop-install-dev` from the primary checkout and try the toolbar toggle, View › Hide Sidebar (⌃⌘S), and ⌘\\ in the page across two windows.
+- **Atlas type list:** the Ontology atlas home still has its own "Find a type" list, which focuses a type on the canvas, beside the new sidebar tree. Merging the two would remove the duplication.
 - **Shortcuts inside view frames:** keyboard events in a custom-view iframe never reach the host window, so the sidebar shortcuts (like ⌘P) do nothing while focus is inside a view. The kit could forward host shortcuts to the parent.
 
 ## Status
 
-Active. Batch 1 is committed; batches 2 and 3 are running as parallel workers.
+Complete. SPEC-0127 is delivered on `feat/persistent-sidebar`; the PR, its review, and CI are recorded below as they land.
