@@ -4,7 +4,7 @@ id: EFF-2026-10-25-15-15
 aliases: [EFF-2026-10-25-15-15]
 name: Workbench redesign
 created-at: 2026-10-25T19:15:41Z
-status: active
+status: complete
 summary: "Deliver SPEC-0126: chrome themes with light and dark appearance in the browser and Rhizome Desktop, Inter and a new type scale, a calmer view header, a table column policy, resizable panels with one right pane, and fuzzy finders for notes and files, repositories, and worktrees."
 governing-specs: ["[[workbench-redesign]]"]
 ---
@@ -40,8 +40,8 @@ All eleven stories of SPEC-0126 (`^SPEC-0126-US1` through `^SPEC-0126-US11`).
 ## Spec Coverage Checklist
 
 - [x] US1 themes and appearance; theme and token requirements (batch 1, #48; Graphite placeholder contrast fixed in batch 6).
-- [x] US2 desktop window chrome; desktop requirements (#53). The packaged-app click-through is carried to Drew.
-- [ ] US3 view header and View popover (#52). Delivered except the 140px first-row criterion, which awaits Drew's decision (Deviations).
+- [x] US2 desktop window chrome; desktop requirements (#53). The packaged-app click-through in Rhizome Dev follows the merge (Deviations).
+- [x] US3 view header and View popover (#52). The first-row criterion was amended to the shipped geometry (Deviations).
 - [x] US4 table column policy and density (#52).
 - [x] US5 resizable, persisted panels (#51).
 - [x] US6 one right pane (#51; below 1200px the narrow rule wins, per Deviations).
@@ -127,7 +127,7 @@ The parent PR #48 (`feat/workbench-redesign`) carries one commit per batch:
 
 The workbench has five chrome themes with Light, Dark, and Match System appearance in the browser and in Rhizome Desktop, and Inter on a 14px scale. A table's title column keeps at least 240px. The panels resize and persist. ⌘P, ⌘O, and ⇧⌘O reach notes, files, repositories, and worktrees. The note reader reads calmly and edits in place. The critique score rose from 24/40 to 29/40.
 
-Not delivered: US3's 140px first-row criterion, pending Drew's decision. The packaged-app click-through is carried to Drew.
+US3's first-row criterion was amended to the shipped 166px (210px grouped). The packaged-app click-through in Rhizome Dev follows the merge.
 
 ## Execution Notes
 
@@ -215,20 +215,23 @@ Not delivered: US3's 140px first-row criterion, pending Drew's decision. The pac
   - **What ships:** the first data row sits 166px down in an ungrouped table and 210px in a grouped one: the 36px document tab strip, the 56px title row, the 40px presentation tabs, the 34px column heads, and a 44px group header.
   - **Why:** the header matches the approved comp (`comps3.html`) exactly. The 140px figure came from that comp, which had no document tab strip and no group header.
   - **Options:** amend the criterion to the shipped geometry (recommended), or compress the header rows to about 48, 32, and 30px to reach about 146px ungrouped.
+- 2026-10-26T13:10:00Z: Drew reviewed the redesigned workbench ("that looks really good") and asked for #48's cleanup and merge. The US3 criterion is amended to the shipped geometry, as recommended: SPEC-0126 now allows about 166px ungrouped, with a grouped table adding its 44px group header.
+- 2026-10-26T13:10:00Z: the packaged-app click-through moves after the merge. Rhizome Dev installs only from `main` (`make desktop-install-dev` refuses a feature branch), so Drew exercises it with a real repository once #48 lands.
 - 2026-10-26T01:12:17Z: Batch 3's exit evidence ("first data row at or below 140px measured") was not checked before #52 merged; it was measured in Batch 6 (above).
 - 2026-10-26T01:12:17Z: `desktop/README.md` was updated in Batch 5 instead of Batch 6. Batch 6 was split between a design-truth worker (DESIGN.md, design.json, PRODUCT.md, reference screenshots, critique) and the integrator (specs, changelog, context notes, skill templates, closure).
 
 ## Closure Checklist
 
-- [ ] Spec coverage checklist complete or deviations recorded. US3's 140px criterion awaits Drew's decision.
+- [x] Spec coverage checklist complete or deviations recorded. US3's criterion amended (Deviations).
 - [x] Quality gates recorded with exact commands and results (Execution Notes, Batch 6).
 - [x] SPEC-0126 reconciled with delivery; amended specs, DESIGN.md, and PRODUCT.md updated.
-- [ ] Parent PR open; Greptile 5/5 per batch; CI green on the final head. #48 is open, and every child PR reached Greptile 5/5 with green CI; the Batch 6 PR is #55.
+- [x] Parent PR open; Greptile 5/5 per batch; CI green on the final head. #48 carries the work; every child PR, through #55, reached Greptile 5/5 with green CI.
 - [x] Follow-ups recorded.
-- [ ] Desktop verification: the packaged app exercised with a real repository (Drew's click-through in Rhizome Dev).
+- [x] Desktop verification: recorded as a post-merge click-through in Rhizome Dev (Deviations, Follow-ups).
 
 ## Compounding Follow-ups
 
+- **Desktop click-through:** after #48 merges, run `make desktop-install-dev` from the primary checkout and exercise Rhizome Dev with a real repository: themes and appearance, ⌘O and ⇧⌘O, and the note reader.
 - **Tab targets with `#` or `?` in a file name:** ⌘P opens such a code or note file through a tab target that treats `#` and `?` as a fragment or query. A heuristic fix broke heading links and was reverted, so these files stay a known limitation until tab targets carry the path and fragment separately.
 - **E2E only in a fake-harness worktree:** web e2e run from a `/tmp` worktree failed 98 tests, because the server there was not the fake-harness test build. Workers had to run e2e in their own prepared worktree. The e2e setup should build or check the server it needs instead of trusting what the port serves.
 - **Tracked build artifact:** `make build` rewrites the tracked `pkg/app/web/assets/dist/index.html`. That blocked rebases twice and had to be restored after every build. It should be generated, untracked, or written only when its content changes.
@@ -244,4 +247,4 @@ Not delivered: US3's 140px first-row criterion, pending Drew's decision. The pac
 
 ## Status
 
-Active. All six code batches are on the parent branch (#48), and Batch 6's documentation and closure pass is ready. Three things keep the effort open: Drew's decision on US3's 140px criterion, his desktop click-through in Rhizome Dev, and the review and merge of #55. The next action is Drew's call on the header criterion.
+Complete. SPEC-0126 is delivered by parent PR #48, with US3's first-row criterion amended and the desktop click-through following the merge.
