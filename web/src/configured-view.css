@@ -382,6 +382,25 @@
   display: none;
 }
 
+/* The panel scrolls, so the save review opens inline below its button
+   instead of floating where the panel would clip it. */
+.configured-view__options-panel .configured-view__save-menu {
+  flex-wrap: wrap;
+}
+
+/* The panel scrolls instead of squeezing the column list under the review. */
+.configured-view__options-panel:has(.configured-view__save-review) .configured-view__columns-list {
+  flex-shrink: 0;
+}
+
+.configured-view__options-panel .configured-view__save-review {
+  position: static;
+  flex-basis: 100%;
+  width: auto;
+  margin-top: 0;
+  box-shadow: none;
+}
+
 .configured-view__options-section {
   display: flex;
   flex-direction: column;

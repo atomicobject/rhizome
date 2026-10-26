@@ -672,6 +672,12 @@
   font-weight: 600;
 }
 
+/* The selected pill is close to the chrome text in light themes, so its
+   focus ring takes the pill's own ink. */
+.notes-left-rail .is-selected:focus-visible {
+  outline-color: var(--chrome-pill-text);
+}
+
 /* Rows without an icon or caret start where icon rows put their label. */
 .notes-left-rail .ontology-type-row--pseudo,
 .notes-left-rail .ontology-view-row {
