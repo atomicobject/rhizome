@@ -167,17 +167,29 @@ pub fn send_setting(window: &Window, command: &Command) {
 /// pages' reports then update each toolbar.
 pub fn set_sidebar(app: &AppHandle, collapsed: bool) -> Result<(), String> {
     let desktop = app.state::<Desktop>();
+    // As with the theme (appearance::update): the lock covers only the file,
+    // each save queues its send on the main thread, which runs tasks in order,
+    // and the send reads what is saved by then. When two windows toggle
+    // together, every page ends with the last saved choice.
     {
         let _saving = desktop.preferences.lock().unwrap();
         let mut saved = Preferences::load(&desktop.directory);
         saved.sidebar_collapsed = collapsed;
         saved.save(&desktop.directory)?;
     }
-    for window in app.windows().values() {
-        send_setting(window, &Command::Sidebar { collapsed });
-    }
-    crate::menu::refresh_sidebar(app);
-    Ok(())
+    let handle = app.clone();
+    app.run_on_main_thread(move || {
+        let desktop = handle.state::<Desktop>();
+        let collapsed = {
+            let _saving = desktop.preferences.lock().unwrap();
+            Preferences::load(&desktop.directory).sidebar_collapsed
+        };
+        for window in handle.windows().values() {
+            send_setting(window, &Command::Sidebar { collapsed });
+        }
+        crate::menu::refresh_sidebar(&handle);
+    })
+    .map_err(|error| error.to_string())
 }
 
 /// Applies a page's report that the user toggled its sidebar, unless the app
