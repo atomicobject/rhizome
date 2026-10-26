@@ -216,6 +216,7 @@ US3's first-row criterion was amended to the shipped 166px (210px grouped). The 
   - **Why:** the header matches the approved comp (`comps3.html`) exactly. The 140px figure came from that comp, which had no document tab strip and no group header.
   - **Options:** amend the criterion to the shipped geometry (recommended), or compress the header rows to about 48, 32, and 30px to reach about 146px ungrouped.
 - 2026-10-26T13:10:00Z: Drew reviewed the redesigned workbench ("that looks really good") and asked for #48's cleanup and merge. The US3 criterion is amended to the shipped geometry, as recommended: SPEC-0126 now allows about 166px ungrouped, with a grouped table adding its 44px group header.
+- 2026-10-26T13:55:00Z: Drew asked for the desktop toolbar's ⌘O and ⇧⌘O hints to show only in the repository and worktree tooltips. US9's toolbar criterion now says so.
 - 2026-10-26T13:40:00Z: Drew asked for Briefing and Overview to fill the content panel and hug the presentation tabs, instead of a centred 1120px block that floats apart from them. US7 now caps only note prose. frozen-scope-drift acknowledged for SPEC-0126: the spec set is refrozen at this revision.
 - 2026-10-26T13:10:00Z: the packaged-app click-through moves after the merge. Rhizome Dev installs only from `main` (`make desktop-install-dev` refuses a feature branch), so Drew exercises it with a real repository once #48 lands.
 - 2026-10-26T01:12:17Z: Batch 3's exit evidence ("first data row at or below 140px measured") was not checked before #52 merged; it was measured in Batch 6 (above).

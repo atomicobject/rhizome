@@ -201,8 +201,9 @@ body,
   font-family: inherit;
   font-size: var(--fs-xs);
 }
-/* The repository and worktree, each its own finder (⌘O, ⇧⌘O). The worktree
-   is quiet on the primary checkout and a pill anywhere else. */
+/* The repository and worktree, each its own finder (⌘O, ⇧⌘O, named in their
+   tooltips). The worktree is quiet on the primary checkout and a pill
+   anywhere else. */
 .switch-repository,
 .switch-worktree {
   display: inline-flex;
@@ -242,9 +243,6 @@ body,
 .toolbar .switch-worktree.other:hover:enabled {
   background: var(--chrome-pill);
   color: var(--chrome-pill-text);
-}
-.switch-worktree.other kbd {
-  color: inherit;
 }
 .page-sections {
   display: flex;
@@ -307,10 +305,6 @@ body,
   color: var(--chrome-muted);
 }
 @media (max-width: 1180px) {
-  .switch-repository kbd,
-  .switch-worktree kbd {
-    display: none;
-  }
   .switch-repository {
     max-width: 160px;
   }

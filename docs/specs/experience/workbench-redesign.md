@@ -156,7 +156,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 #### Acceptance Criteria
 
-- The desktop toolbar, where the shell already draws its worktree selector, shows the current repository and worktree as two separate click targets with ⌘O and ⇧⌘O hints. In a browser the sidebar header names the vault.
+- The desktop toolbar, where the shell already draws its worktree selector, shows the current repository and worktree as two separate click targets whose tooltips name ⌘O and ⇧⌘O. In a browser the sidebar header names the vault.
 - The repository finder lists known repositories by most recent use, works without typing, and fuzzy-filters by name and path. ⌘1–⌘9 open the first nine.
 - Enter opens the repository's primary worktree in the current window, and ⌘Enter opens it in a new window. "Add repository…" sits at the bottom.
 - Each row shows whether a Rhizome runtime is running for that repository. Per-repository actions (Open in Browser, Reveal in Finder, What Gets Indexed…, Stop/Restart Rhizome, Primary worktree, Rhizome executable, Remove from Library) are available from the row and from the repository name's menu.

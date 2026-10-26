@@ -417,7 +417,7 @@ Rhizome Desktop's ⌘O repository and ⇧⌘O worktree finders draw the same pal
 
 ### Desktop Toolbar
 
-Rhizome Desktop's 38px toolbar is the theme's `--chrome-top`, which the overlay title bar extends behind the traffic lights (72px reserved at the left). It holds the repository name (600, up to 240px) and the worktree branch in mono as two click targets with ⌘O and ⇧⌘O hints; the worktree is quiet on the primary checkout and a `--chrome-pill` on any other. The section tabs are centred, 26px, with the current one on `--chrome-active`. A 26px search on `--chrome-raised` and the issue count in `--chrome-risk` sit at the right. Window and webview backgrounds take the theme, so opening or resizing never flashes white.
+Rhizome Desktop's 38px toolbar is the theme's `--chrome-top`, which the overlay title bar extends behind the traffic lights (72px reserved at the left). It holds the repository name (600, up to 240px) and the worktree branch in mono as two click targets whose tooltips name ⌘O and ⇧⌘O; the worktree is quiet on the primary checkout and a `--chrome-pill` on any other. The section tabs are centred, 26px, with the current one on `--chrome-active`. A 26px search on `--chrome-raised` and the issue count in `--chrome-risk` sit at the right. Window and webview backgrounds take the theme, so opening or resizing never flashes white.
 
 ### Ontology Canvas
 

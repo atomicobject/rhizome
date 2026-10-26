@@ -174,7 +174,6 @@ export function Switcher({
         }}
       >
         <strong>{repository?.name ?? "Choose repository"}</strong>
-        <kbd>⌘O</kbd>
       </button>
       {repository && (
         <button
@@ -194,7 +193,6 @@ export function Switcher({
           {newWorktrees(repository, info).length > 0 && (
             <span className="new-dot" title="New worktrees" />
           )}
-          <kbd>⇧⌘O</kbd>
         </button>
       )}
     </>
