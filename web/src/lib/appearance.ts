@@ -7,28 +7,13 @@
 
 import { useSyncExternalStore } from "react";
 
+import { DEFAULT_THEME, isThemeName, type ThemeName } from "./themes";
+
 export type Appearance = "auto" | "light" | "dark";
-
-export type ThemeName = "graphite" | "slate" | "spruce" | "oxblood" | "indigo";
-
-/** Preset chrome themes; `swatch` is the light sidebar color for pickers. */
-export const THEMES: readonly { id: ThemeName; label: string; swatch: string }[] = [
-  { id: "graphite", label: "Graphite", swatch: "#45433f" },
-  { id: "slate", label: "Slate", swatch: "#3d4654" },
-  { id: "spruce", label: "Spruce", swatch: "#2f4a47" },
-  { id: "oxblood", label: "Oxblood", swatch: "#573538" },
-  { id: "indigo", label: "Indigo", swatch: "#3c3d63" },
-];
-
-export const DEFAULT_THEME: ThemeName = "graphite";
 
 const APPEARANCE_KEY = "rhizome:appearance";
 
 const THEME_KEY = "rhizome:theme";
-
-export function isThemeName(value: string | null | undefined): value is ThemeName {
-  return THEMES.some((theme) => theme.id === value);
-}
 
 function isAppearance(value: string | null | undefined): value is Appearance {
   return value === "auto" || value === "light" || value === "dark";

@@ -5,13 +5,13 @@ import { attachFinder, request, type FinderChoice, type FinderModel, type Finder
 // shell builds the rows (Switcher.tsx); this overlay webview filters them and
 // sends back the user's choice.
 
-/** What the toolbar and finder say about a runtime. A sleeping runtime is one
- * the user stopped while this window shows it. */
-export const runtimeText = {
-  running: { menu: " · Running", title: "Rhizome running" },
-  starting: { menu: " · Starting…", title: "Rhizome starting" },
-  stopped: { menu: "", title: "Rhizome not running" },
-  sleeping: { menu: "", title: "Rhizome sleeping" },
+/** What a finder row says about its runtime. A sleeping runtime is one the
+ * user stopped while this window shows it. */
+const runtimeTitle = {
+  running: "Rhizome running",
+  starting: "Rhizome starting",
+  stopped: "Rhizome not running",
+  sleeping: "Rhizome sleeping",
 };
 
 type Match = { score: number; at: number[] };
@@ -235,8 +235,8 @@ export function Finder({
               <span
                 className={`runtime-dot ${row.runtime}`}
                 role="img"
-                aria-label={runtimeText[row.runtime].title}
-                title={runtimeText[row.runtime].title}
+                aria-label={runtimeTitle[row.runtime]}
+                title={runtimeTitle[row.runtime]}
               />
               <span className="finder-main">
                 <span className={repositories ? "finder-title" : "finder-title branch"}>

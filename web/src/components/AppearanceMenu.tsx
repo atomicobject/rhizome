@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 
-import { type Appearance, setAppearance, setTheme, THEMES, useAppearance } from "../lib/appearance";
+import { type Appearance, setAppearance, setTheme, useAppearance } from "../lib/appearance";
+import { THEMES } from "../lib/themes";
 import { usePopoverDismiss } from "./focusManagement";
 
 const APPEARANCES: readonly { id: Appearance; label: string }[] = [

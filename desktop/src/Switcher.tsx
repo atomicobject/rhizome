@@ -11,7 +11,7 @@ import {
   type Runtime,
   type Worktree,
 } from "./api";
-import type { ThemeName } from "../../web/src/lib/appearance";
+import type { ThemeName } from "../../web/src/lib/themes";
 
 // The shell's side of the finders: the toolbar's repository and worktree
 // targets, the rows it builds from the library and presence it holds, and the

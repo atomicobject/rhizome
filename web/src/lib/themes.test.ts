@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { THEMES } from "./appearance";
+import { THEMES } from "./themes";
 
 const css = readFileSync(resolve(__dirname, "../tokens.css"), "utf8");
 

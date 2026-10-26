@@ -1,6 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { ThemeName } from "../../web/src/lib/appearance";
+import type { ThemeName } from "../../web/src/lib/themes";
 
 declare global {
   interface Window {

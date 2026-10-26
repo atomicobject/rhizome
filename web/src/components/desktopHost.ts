@@ -2,7 +2,8 @@ import { useEffect, useEffectEvent } from "react";
 
 import { isJsonObject, isString } from "../api/parse";
 import type { ValidationHealth } from "../api/types";
-import { applyTheme, isThemeName, type ThemeName } from "../lib/appearance";
+import { applyTheme } from "../lib/appearance";
+import { isThemeName, type ThemeName } from "../lib/themes";
 
 declare global {
   interface Window {

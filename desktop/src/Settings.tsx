@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { THEMES } from "../../web/src/lib/appearance";
+import { THEMES } from "../../web/src/lib/themes";
 import { CredentialImport } from "./CredentialImport";
 import {
   failure,
