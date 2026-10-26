@@ -1,5 +1,5 @@
 /* Styles for the kit's page primitives (layout.tsx) and the shared atoms,
-   on src/tokens.css. They match the host and the bundled views: Barlow on
+   on src/tokens.css. They match the host and the bundled views: Inter on
    the surface, label-style heads, unboxed mono counts, teal note links, and
    one focus outline. They sit in the components layer, so a view's Tailwind
    utilities (text-foreground, no-underline, …) override them. */

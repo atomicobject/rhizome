@@ -1,7 +1,9 @@
 //! The workspace page's controls in the shell toolbar (SPEC-0119). The content
 //! view has no native permissions, so the page reports its state through its
 //! document title, and the app sends it commands as `rhizome:desktop` events.
-use crate::{commands::Desktop, pane::Pane, security, state::Preferences, updater};
+use crate::{
+    appearance::Theme, commands::Desktop, pane::Pane, security, state::Preferences, updater,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Manager};
@@ -97,22 +99,31 @@ pub fn loading(pane: &mut Pane, url: &Url) {
 }
 
 /// Relays the current document's title to the shell as its page state.
-pub fn titled(pane: &mut Pane, title: &str) {
+/// Returns whether this is the document's first valid report.
+pub fn titled(pane: &mut Pane, title: &str) -> bool {
     let runtime = pane.expected.read().unwrap().clone();
     let report = pane
         .document
         .as_ref()
         .and_then(|document| decode(title, document, runtime.as_ref()));
+    let first = !pane.reported && report.is_some();
     pane.reported = report.is_some();
     pane.send(json!({"type": "page", "state": report}));
+    first
 }
 
 /// Whether a visible content view shows a document on the verified runtime origin.
 pub fn on_runtime(pane: &Pane) -> bool {
+    pane.visible() && on_runtime_document(pane)
+}
+
+/// Whether the content view's document is on the verified runtime origin,
+/// even while it loads or the shell covers it. Only the theme command, which
+/// carries nothing but a preset name, is sent on this looser gate.
+pub fn on_runtime_document(pane: &Pane) -> bool {
     let runtime = pane.expected.read().unwrap();
-    pane.visible()
-        && matches!((runtime.as_ref(), pane.document.as_ref()),
-            (Some(runtime), Some(document)) if security::same_origin(runtime, document))
+    matches!((runtime.as_ref(), pane.document.as_ref()),
+        (Some(runtime), Some(document)) if security::same_origin(runtime, document))
 }
 
 /// Hands ⌘K to a page that shows its own header, as a runtime older than this
@@ -124,10 +135,21 @@ pub const LEGACY_SEARCH: &str =
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "command", rename_all = "lowercase", deny_unknown_fields)]
 pub enum Command {
-    Section { section: Section },
-    Search { query: String },
+    Section {
+        section: Section,
+    },
+    Search {
+        query: String,
+    },
     Issues,
     Shortcuts,
+    /// Opens the page's note and file finder (⌘P).
+    Find,
+    /// The chrome theme, sent by the app rather than a toolbar control.
+    #[serde(skip_deserializing)]
+    Theme {
+        theme: Theme,
+    },
 }
 
 impl Command {
@@ -266,21 +288,32 @@ mod tests {
         assert!(!pane.reported);
 
         loading(&mut pane, &page("/agent"));
-        titled(&mut pane, "Rhizome · vault");
+        assert!(!titled(&mut pane, "Rhizome · vault"));
         assert!(!pane.reported, "an older runtime's title is not a report");
-        titled(&mut pane, report);
+        assert!(
+            titled(&mut pane, report),
+            "the first report takes the theme"
+        );
         assert!(pane.reported);
+        assert!(!titled(&mut pane, report), "later reports do not resend it");
         assert_eq!(
             page_states(),
             vec![
                 json!(null),
                 json!(null),
+                json!({"section": "agent", "search": ""}),
                 json!({"section": "agent", "search": ""})
             ]
         );
         assert!(on_runtime(&pane));
         pane.cover(true);
         assert!(!on_runtime(&pane));
+        assert!(
+            on_runtime_document(&pane),
+            "a covered page still takes the theme"
+        );
+        loading(&mut pane, &viewer);
+        assert!(!on_runtime_document(&pane));
     }
 
     #[test]
@@ -304,7 +337,21 @@ mod tests {
             query: "a".repeat(501),
         };
         assert!(long.script().is_none());
+        assert_eq!(
+            Command::Theme {
+                theme: Theme::Indigo
+            }
+            .script()
+            .unwrap(),
+            r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"theme","theme":"indigo"} }))"#
+        );
+        assert_eq!(
+            serde_json::from_value::<Command>(json!({"command": "find"})).unwrap(),
+            Command::Find
+        );
         for invalid in [
+            // The shell cannot send the theme command; the app sends it from settings.
+            json!({"command": "theme", "theme": "indigo"}),
             json!({"command": "section", "section": "settings"}),
             json!({"command": "navigate", "url": "https://example.com"}),
             json!({"command": "search"}),

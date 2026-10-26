@@ -23,8 +23,8 @@ type Props = {
   issueCounts?: ReadonlyMap<string, number>;
   /** Shift-activation adds the column as another sort key. */
   onSort: (column: ViewTableColumn, additive?: boolean) => void;
-  /** Set when the title column takes the slack beside other prose columns. */
-  primaryColumnIndex: number | null;
+  /** The title column: it takes the slack, so it has no width or resize handle. */
+  primaryColumnIndex: number;
   columnWidths?: Record<string, number>;
   onColumnWidthsChange?: (widths: Record<string, number>) => void;
   allChecked: boolean;
@@ -113,6 +113,7 @@ export function ConfiguredViewTableHeader({
           const direction = sortDirection(sort, column.field);
           const sortIndex = sort.findIndex((item) => item.field === column.field);
           const label = columnLabel(column, capabilities);
+          const primary = columnIndex === primaryColumnIndex;
 
           const sortable =
             !isIssueColumn(column.field, issueCounts) &&
@@ -132,13 +133,13 @@ export function ConfiguredViewTableHeader({
                   : undefined
               }
               className={`${columnClassName(column, capabilities)}${
-                columnIndex === primaryColumnIndex ? " configured-view__cell--primary" : ""
+                primary ? " configured-view__cell--primary" : ""
               }`}
               title={sortable ? `${label} (Shift-click to add a sort key)` : label}
               // Cells announce this as their header; the sort button's
               // action wording would otherwise become the column name.
               aria-label={label}
-              style={widths[column.field] ? { width: widths[column.field] } : undefined}
+              style={!primary && widths[column.field] ? { width: widths[column.field] } : undefined}
             >
               {!sortable ? (
                 <span className="configured-view__header-label">{label}</span>
@@ -157,7 +158,7 @@ export function ConfiguredViewTableHeader({
                   )}
                 </button>
               )}
-              {onColumnWidthsChange && (
+              {onColumnWidthsChange && !primary && (
                 <span
                   className="configured-view__column-resize"
                   role="separator"

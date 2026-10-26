@@ -14,6 +14,7 @@ import "./ontology.css";
 import "./configured-view.css";
 import "./markdown-editor.css";
 import "./notes-shell.css";
+import "./finder.css";
 import "./components/notePreview/notePreview.css";
 
 const rootElement = document.getElementById("root");

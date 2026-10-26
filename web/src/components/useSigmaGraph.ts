@@ -402,8 +402,8 @@ export function useSigmaGraph({
       labelGridCellSize: 140,
       labelRenderedSizeThreshold: 10,
       // Canvas text cannot read CSS variables; this is --font-sans.
-      labelFont: "Barlow, -apple-system, system-ui, sans-serif",
-      edgeLabelFont: "Barlow, -apple-system, system-ui, sans-serif",
+      labelFont: "Inter, -apple-system, system-ui, sans-serif",
+      edgeLabelFont: "Inter, -apple-system, system-ui, sans-serif",
       defaultNodeType: "circle",
       ...rendererColorSettings(colorsRef.current ?? readThemeColors()),
       defaultDrawNodeHover: themedNodeHover(() => colorsRef.current ?? readThemeColors()),

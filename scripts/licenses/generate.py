@@ -47,7 +47,7 @@ class NoticeEntry:
 # (latin and latin-ext subsets) and their OFL text from the google/fonts
 # repository at this commit.
 GOOGLE_FONTS_COMMIT = "e7db6ca603fd4862010383ff17ffd6cc4ffac1c0"
-SELF_HOSTED_FONTS = (("Merriweather", "merriweather"), ("Barlow", "barlow"), ("JetBrains Mono", "jetbrainsmono"))
+SELF_HOSTED_FONTS = (("Merriweather", "merriweather"), ("Inter", "inter"), ("JetBrains Mono", "jetbrainsmono"))
 
 # These source companions cover dependencies which do not ship a standalone
 # license file. URLs are immutable tags or commits. Fetch them only explicitly.

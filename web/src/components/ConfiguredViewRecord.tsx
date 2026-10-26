@@ -6,6 +6,7 @@ import type {
   TypeProfile,
   ViewCatalogEntry,
   ViewFieldCapability,
+  ViewTableColumn,
   ViewTableRow,
 } from "../api/types";
 import { displayTitle, enumLabel } from "../lib/labels";
@@ -13,7 +14,12 @@ import { publicWorkspaceRef } from "../api/client";
 import { ConfiguredTableCellContent, configuredTableRowKey } from "./ConfiguredTableCell";
 import { relationDisplayValue, relationTargetRow } from "./ConfiguredTableCellReadOnly";
 import { cellValues, fieldValue, rawFieldValue } from "./ConfiguredTableCellHelpers";
-import { capabilityLabel, fieldCapability } from "./ConfiguredViewModel";
+import {
+  capabilityFor,
+  capabilityLabel,
+  columnLabel,
+  fieldCapability,
+} from "./ConfiguredViewModel";
 import { StatusMark } from "./StatusMark";
 import { useTypeLabel } from "./typeLabels";
 import {
@@ -32,6 +38,8 @@ type Props = {
   row: ViewTableRow;
   profile?: TypeProfile;
   capabilities: ViewFieldCapability[];
+  /** Table columns too narrow to show; the record lists them after its own fields. */
+  movedColumns?: ViewTableColumn[];
   source: ViewSourceSpec;
   viewID: string;
   vaultKey?: string | null;
@@ -49,6 +57,7 @@ export function ConfiguredViewRecord({
   row,
   profile,
   capabilities,
+  movedColumns = [],
   source,
   viewID,
   vaultKey,
@@ -61,6 +70,11 @@ export function ConfiguredViewRecord({
   const summary = profile?.summaryField ? fieldValue(row, profile.summaryField) : "";
 
   const fields = useMemo(() => recordFields(profile, capabilities), [capabilities, profile]);
+
+  const moved = movedColumns.filter(
+    (column) =>
+      !fields.some((field) => field.key === capabilityFor(capabilities, column.field)?.key),
+  );
 
   return (
     <article className="view-record" aria-label={`Selected record ${title}`}>
@@ -81,7 +95,7 @@ export function ConfiguredViewRecord({
       </header>
       <h3 className="view-record__title">{title}</h3>
       {summary && <p className="view-record__summary">{summary}</p>}
-      {fields.length > 0 && (
+      {fields.length + moved.length > 0 && (
         <dl className="view-record__fields">
           {fields.map((capability) => (
             <div key={capability.key}>
@@ -94,6 +108,24 @@ export function ConfiguredViewRecord({
                   field={capability.key}
                   columnIndex={1}
                   capability={capability}
+                  editSession={editSession}
+                  onStageOps={onStageOps}
+                  onOpenRelation={onOpenRow}
+                />
+              </dd>
+            </div>
+          ))}
+          {moved.map((column) => (
+            <div key={column.field}>
+              <dt>{columnLabel(column, capabilities)}</dt>
+              <dd>
+                <ConfiguredTableCellContent
+                  viewID={viewID}
+                  vaultKey={vaultKey}
+                  row={row}
+                  field={column.field}
+                  columnIndex={1}
+                  capability={capabilityFor(capabilities, column.field)}
                   editSession={editSession}
                   onStageOps={onStageOps}
                   onOpenRelation={onOpenRow}

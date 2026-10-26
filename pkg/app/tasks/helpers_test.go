@@ -141,7 +141,7 @@ func hasLine(text, line string) bool {
 }
 
 // shellAvailable skips tests whose checks are shell scripts. Scheduled
-// tasks are not supported on Windows yet (SPEC-0126 Delivery Phases).
+// tasks are not supported on Windows yet (SPEC-0127 Delivery Phases).
 func shellAvailable(t *testing.T) {
 	t.Helper()
 	if runtime.GOOS == "windows" {

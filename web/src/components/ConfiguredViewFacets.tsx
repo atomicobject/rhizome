@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import type {
   TypeProfile,
@@ -18,35 +18,29 @@ type Filter = NonNullable<ViewExecuteRequest["filters"]>[number];
 /** The server's stale rule, the one `stats.staleCount` counts by. */
 const STALE_FILTER: Filter = { field: "stale", op: "eq", value: "true" };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 type Props = {
   stats: ViewExecutionStats;
   profile?: TypeProfile;
   capabilities: ViewFieldCapability[];
-  /** Plural reader label for the collection, such as "Specs". */
-  pluralLabel: string;
   filters: Filter[];
   /** The filters these statistics were computed under, as the execution reports them. */
   executedFilters?: Filter[];
   onFiltersChange: (filters: Filter[]) => void;
-  now?: Date;
 };
 
 /**
- * The collection's summary line (SPEC-0112): every count comes from the
- * execution statistics over all matching rows, not the loaded page, and
- * each filterable facet toggles the filter it describes.
+ * The collection's quick filters in the Filter menu (SPEC-0112, moved there
+ * by SPEC-0126): every count comes from the execution statistics over all
+ * matching rows, not the loaded page, and each facet toggles the filter it
+ * describes.
  */
 export function ConfiguredViewFacets({
   stats,
   profile,
   capabilities,
-  pluralLabel,
   filters,
   executedFilters = [],
   onFiltersChange,
-  now = new Date(),
 }: Props) {
   const typeLabel = useTypeLabel();
   const lifecycle = fieldCapability(capabilities, profile?.lifecycleField);
@@ -75,11 +69,22 @@ export function ConfiguredViewFacets({
   const staleActive = hasFilter(filters, STALE_FILTER);
   const issuesActive = filters.some((filter) => filter.field === "hasIssues");
 
+  const empty =
+    kindsShown.length === 0 &&
+    !(lifecycle && lifecycleShown.length > 0) &&
+    gaps.length === 0 &&
+    !(stats.staleCount > 0 || staleActive) &&
+    !(stats.issueCount > 0 || issuesActive);
+
+  if (empty) return null;
+
   return (
-    <div className="view-facets" role="group" aria-label="Collection summary">
-      <span className="view-facets__total">
-        <b>{stats.total}</b> {readerPlural(pluralLabel)}
-      </span>
+    <div
+      className="view-facets configured-view__options-section"
+      role="group"
+      aria-label="Quick filters"
+    >
+      <h4>Quick filters</h4>
       {kindsShown.length > 0 && (
         <span className="view-facets__set">
           {kindsShown.map((kind) => (
@@ -114,7 +119,6 @@ export function ConfiguredViewFacets({
           )}
         </span>
       )}
-      {stats.dates && <DateFacet dates={stats.dates} now={now} />}
       {gaps.map((gap) => {
         const label = gap.capability ? capabilityLabel(gap.capability) : gap.key;
 
@@ -179,7 +183,7 @@ function FacetButton({
   return (
     <button
       type="button"
-      className={`view-facets__facet${plain ? " is-plain" : ""}${tone ? ` is-${tone}` : ""}`}
+      className={`configured-view__menu-toggle view-facets__facet${plain ? " is-plain" : ""}${tone ? ` is-${tone}` : ""}`}
       aria-pressed={pressed}
       aria-label={`${text} ${count}`}
       title={title}
@@ -188,47 +192,6 @@ function FacetButton({
       {label}
       <b>{count}</b>
     </button>
-  );
-}
-
-function DateFacet({ dates, now }: { dates: NonNullable<ViewExecutionStats["dates"]>; now: Date }) {
-  const counts = new Map(dates.months?.map((month) => [month.value, month.count]));
-  const months = lastMonths(now, 24);
-  const max = Math.max(1, ...months.map((month) => counts.get(month) ?? 0));
-  const thisMonth = months[months.length - 1];
-  const lastMonth = months[months.length - 2];
-
-  const span = [
-    monthLabel(dates.first),
-    dates.last?.slice(0, 7) === thisMonth ? "now" : monthLabel(dates.last),
-  ];
-
-  return (
-    <span className="view-facets__dates">
-      {dates.first && <span className="view-facets__span">{span.filter(Boolean).join(" – ")}</span>}
-      <span
-        className="view-facets__spark"
-        role="img"
-        aria-label={`Records per month over the last 24 months, up to ${max}`}
-      >
-        {months.map((month) => {
-          const count = counts.get(month) ?? 0;
-
-          return (
-            <span
-              key={month}
-              title={`${monthLabel(month)}: ${count}`}
-              // SAFETY: React forwards this custom property unchanged.
-              style={{ "--bar": count / max } as CSSProperties}
-              className={count ? "" : "is-empty"}
-            />
-          );
-        })}
-      </span>
-      <span className="view-facets__months">
-        <b>{counts.get(thisMonth) ?? 0}</b> this month · <b>{counts.get(lastMonth) ?? 0}</b> last
-      </span>
-    </span>
   );
 }
 
@@ -328,24 +291,4 @@ function sameFilter(left: Filter, right: Filter | undefined) {
     String(left.value ?? "") === String(right.value ?? "") &&
     JSON.stringify(left.values ?? []) === JSON.stringify(right.values ?? [])
   );
-}
-
-/** "Specs" reads "specs" mid-sentence, but "IP opportunities" keeps its acronym. */
-function readerPlural(label: string) {
-  return /^[A-Z]{2}/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1);
-}
-
-/** YYYY-MM keys for the `count` months ending with the current one, oldest first. */
-function lastMonths(now: Date, count: number) {
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - (count - 1 - index), 1);
-
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-  });
-}
-
-function monthLabel(value: string | undefined) {
-  const match = value?.match(/^(\d{4})-(\d{2})/);
-
-  return match ? `${MONTHS[Number(match[2]) - 1]} ${match[1]}` : "";
 }

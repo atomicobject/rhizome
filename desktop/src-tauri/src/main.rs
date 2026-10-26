@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod appearance;
 mod bridge;
 mod commands;
 mod credentials;
+mod finder;
 mod menu;
 mod page;
 mod pane;
@@ -41,6 +43,8 @@ fn main() {
             app.manage(updater::Updates::default());
             app.manage(credentials::Imports::default());
             menu::install_menu(app.handle())?;
+            let settings = appearance::current(&app.state::<commands::Desktop>().directory);
+            app.handle().set_theme(settings.appearance.native());
             windows::restore(app.handle(), session)?;
             let args = std::env::args().collect::<Vec<_>>();
             terminal::handle(app.handle(), &args);

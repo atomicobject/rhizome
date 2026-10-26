@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent,
+  type ReactNode,
   lazy,
   Suspense,
   useCallback,
@@ -31,8 +32,6 @@ type RailTab = "info" | "outline" | "graph";
 
 type OpenTarget = "current" | "stack" | "beside";
 
-const RAIL_COLLAPSED_KEY = "rhizome:notes:right-rail:collapsed:v1";
-
 const RAIL_TAB_KEY = "rhizome:notes:right-rail:tab:v1";
 
 const RAIL_TABS: Array<{ id: RailTab; label: string }> = [
@@ -43,26 +42,6 @@ const RAIL_TABS: Array<{ id: RailTab; label: string }> = [
 
 function isRailTab(value: string | null): value is RailTab {
   return RAIL_TABS.some((tab) => tab.id === value);
-}
-
-function readCollapsed(): boolean {
-  if (typeof window === "undefined") return false;
-
-  try {
-    return window.sessionStorage.getItem(RAIL_COLLAPSED_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-export function useNotesRightRailState() {
-  const [collapsed, setCollapsed] = useState(readCollapsed);
-  useEffect(() => {
-    writeSessionValue(RAIL_COLLAPSED_KEY, String(collapsed));
-  }, [collapsed]);
-  const toggle = useCallback(() => setCollapsed((value) => !value), []);
-
-  return { collapsed, toggle };
 }
 
 function readTab(): RailTab {
@@ -361,29 +340,57 @@ export type NotesRightRailProps = {
   active?: boolean;
   context: NoteTabContext | null;
   editSession: OntologyEditSessionResponse | null;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
+  /** The pane is open: something to show, and the user has not closed it. */
+  open: boolean;
+  /** Below 1200px the pane covers the content instead of narrowing it. */
+  overlay?: boolean;
+  onClose: () => void;
   onOpen: (path: string, target?: OpenTarget) => void;
   onOpenNode: (node: StructuralNode) => void;
   validationIssueCount?: number;
   validationHealth?: ValidationHealth;
-  /** A collection view has a selected record to show; the rail renders it into its slot. */
+  /** A collection view has a selected record; the pane renders it into its slot. */
   record?: boolean;
   onRecordSlot?: (element: HTMLElement | null) => void;
+  /** The drag handle on the pane's inner edge. */
+  resizeHandle?: ReactNode;
 };
 
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    >
+      <path d="M4 4l8 8M12 4l-8 8" />
+    </svg>
+  );
+}
+
+/**
+ * The Notes workspace's one right pane (SPEC-0126 US6): Info, Outline, and
+ * Graph for the active note tab, or the record a collection view selected.
+ * It renders nothing while closed; NotesShell opens it only when there is
+ * something to show.
+ */
 export function NotesRightRail({
   active = true,
   context,
   editSession,
-  collapsed,
-  onToggleCollapsed,
+  open,
+  overlay = false,
+  onClose,
   onOpen,
   onOpenNode,
   validationIssueCount,
   validationHealth,
   record = false,
   onRecordSlot,
+  resizeHandle,
 }: NotesRightRailProps) {
   const [activeTab, setActiveTab] = useState<RailTab>(readTab);
 
@@ -391,21 +398,17 @@ export function NotesRightRail({
     context?.workspace.node.ref ?? null,
     editSession,
     context?.workspace.version ?? "",
-    active && activeTab === "graph" && !collapsed,
+    active && activeTab === "graph" && open && Boolean(context),
   );
 
   // A note tab's context wins; otherwise the active collection view's record.
   const showRecord = record && !context;
-  const isCollapsed = collapsed || (!context && !showRecord);
 
   useEffect(() => {
     writeSessionValue(RAIL_TAB_KEY, activeTab);
   }, [activeTab]);
 
-  const selectTab = (tab: RailTab) => {
-    if (!context) return;
-    setActiveTab(tab);
-  };
+  if (!open) return null;
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     const index = RAIL_TABS.findIndex((tab) => tab.id === activeTab);
@@ -418,113 +421,120 @@ export function NotesRightRail({
     document.getElementById(`notes-right-rail-tab-${next.id}`)?.focus();
   };
 
+  const close = (
+    <button
+      type="button"
+      className="notes-right-rail__close"
+      aria-label="Hide right pane"
+      aria-keyshortcuts="]"
+      title="Hide right pane (])"
+      onClick={onClose}
+    >
+      <CloseIcon />
+    </button>
+  );
+
   return (
     <aside
-      className={`notes-right-rail${isCollapsed ? " is-collapsed" : ""}${context || showRecord ? "" : " is-disabled"}`}
-      aria-label="Note context"
+      id="notes-right-pane"
+      className={`notes-right-rail${overlay ? " is-overlay" : ""}`}
+      aria-label={context ? "Note context" : "Record"}
+      onKeyDown={(event) => {
+        // An overlay covers the content, so Escape gives the content back.
+        if (overlay && event.key === "Escape" && !event.defaultPrevented) {
+          event.preventDefault();
+          onClose();
+        }
+      }}
     >
-      {!isCollapsed && showRecord && (
-        <div className="notes-right-rail__record">
-          <div className="notes-right-rail__record-bar">
-            <span>Record</span>
-            <button
-              type="button"
-              className="notes-right-rail__toggle"
-              aria-label="Collapse note context"
-              aria-expanded="true"
-              onClick={onToggleCollapsed}
-            >
-              <span aria-hidden="true">›</span>
-            </button>
+      {resizeHandle}
+      {showRecord ? (
+        <>
+          <div className="notes-right-rail__header">
+            <h2 className="notes-right-rail__title">Record</h2>
+            {close}
           </div>
           <div className="notes-right-rail__content" ref={onRecordSlot} />
-        </div>
-      )}
-      {!isCollapsed && context && (
-        <div
-          className="notes-right-rail__tabs"
-          role="tablist"
-          aria-label="Note context"
-          aria-orientation="horizontal"
-        >
-          {RAIL_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              id={`notes-right-rail-tab-${tab.id}`}
-              type="button"
-              role="tab"
-              className="notes-right-rail__tab"
-              aria-selected={activeTab === tab.id}
-              aria-controls={`notes-right-rail-panel-${tab.id}`}
-              tabIndex={activeTab === tab.id ? 0 : -1}
-              onClick={() => selectTab(tab.id)}
-              onKeyDown={handleTabKeyDown}
+        </>
+      ) : context ? (
+        <>
+          <div className="notes-right-rail__header">
+            <div
+              className="notes-right-rail__tabs"
+              role="tablist"
+              aria-label="Note context"
+              aria-orientation="horizontal"
             >
-              {tab.label}
-            </button>
-          ))}
+              {RAIL_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  id={`notes-right-rail-tab-${tab.id}`}
+                  type="button"
+                  role="tab"
+                  className="notes-right-rail__tab"
+                  aria-selected={activeTab === tab.id}
+                  aria-controls={`notes-right-rail-panel-${tab.id}`}
+                  tabIndex={activeTab === tab.id ? 0 : -1}
+                  onClick={() => setActiveTab(tab.id)}
+                  onKeyDown={handleTabKeyDown}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {close}
+          </div>
+          <div className="notes-right-rail__content">
+            <div
+              id="notes-right-rail-panel-info"
+              role="tabpanel"
+              aria-labelledby="notes-right-rail-tab-info"
+              hidden={activeTab !== "info"}
+            >
+              {activeTab === "info" ? (
+                <NotesSidebarInfo
+                  workspace={context.workspace}
+                  onOpen={onOpen}
+                  validationIssueCount={validationIssueCount}
+                  validationHealth={validationHealth}
+                />
+              ) : null}
+            </div>
+            <div
+              id="notes-right-rail-panel-outline"
+              role="tabpanel"
+              aria-labelledby="notes-right-rail-tab-outline"
+              hidden={activeTab !== "outline"}
+            >
+              {activeTab === "outline" ? <OutlinePanel context={context} /> : null}
+            </div>
+            <div
+              id="notes-right-rail-panel-graph"
+              role="tabpanel"
+              aria-labelledby="notes-right-rail-tab-graph"
+              hidden={activeTab !== "graph"}
+            >
+              {activeTab === "graph" ? (
+                <GraphPanel
+                  workspace={context.workspace}
+                  graph={graphQuery.data}
+                  graphLoading={graphQuery.isPending}
+                  graphError={graphQuery.isError}
+                  onRetry={() => void graphQuery.refetch()}
+                  onOpen={onOpen}
+                  onOpenNode={onOpenNode}
+                />
+              ) : null}
+            </div>
+          </div>
+        </>
+      ) : (
+        // A note tab whose context is still loading keeps the pane's place.
+        <div className="notes-right-rail__header">
+          <span className="notes-right-rail__title" />
+          {close}
         </div>
       )}
-      {!isCollapsed && context && (
-        <div className="notes-right-rail__content">
-          <div
-            id="notes-right-rail-panel-info"
-            role="tabpanel"
-            aria-labelledby="notes-right-rail-tab-info"
-            hidden={activeTab !== "info"}
-          >
-            {activeTab === "info" ? (
-              <NotesSidebarInfo
-                workspace={context.workspace}
-                onOpen={onOpen}
-                validationIssueCount={validationIssueCount}
-                validationHealth={validationHealth}
-              />
-            ) : null}
-          </div>
-          <div
-            id="notes-right-rail-panel-outline"
-            role="tabpanel"
-            aria-labelledby="notes-right-rail-tab-outline"
-            hidden={activeTab !== "outline"}
-          >
-            {activeTab === "outline" ? <OutlinePanel context={context} /> : null}
-          </div>
-          <div
-            id="notes-right-rail-panel-graph"
-            role="tabpanel"
-            aria-labelledby="notes-right-rail-tab-graph"
-            hidden={activeTab !== "graph"}
-          >
-            {activeTab === "graph" ? (
-              <GraphPanel
-                workspace={context.workspace}
-                graph={graphQuery.data}
-                graphLoading={graphQuery.isPending}
-                graphError={graphQuery.isError}
-                onRetry={() => void graphQuery.refetch()}
-                onOpen={onOpen}
-                onOpenNode={onOpenNode}
-              />
-            ) : null}
-          </div>
-        </div>
-      )}
-      {isCollapsed ? (
-        <div className="notes-right-rail__collapsed-strip">
-          <button
-            type="button"
-            className="notes-right-rail__toggle"
-            aria-label="Expand note context"
-            aria-expanded="false"
-            disabled={!context && !showRecord}
-            onClick={onToggleCollapsed}
-          >
-            <span aria-hidden="true">‹</span>
-          </button>
-          <span aria-hidden="true">Context</span>
-        </div>
-      ) : null}
     </aside>
   );
 }

@@ -17,7 +17,7 @@ import (
 const IssueCodeInvalidTaskFile = "invalid_task_file"
 
 // RunTasks parses the working tree's `.rhizome/tasks` files with the task
-// runner's parser ([[scheduled-tasks|SPEC-0126]] US1).
+// runner's parser ([[scheduled-tasks|SPEC-0127]] US1).
 func RunTasks(runCtx RunContext) CheckResult {
 	result := CheckResult{Name: CheckTasks, OK: true}
 	dir := filepath.Join(runCtx.VaultPath, filepath.FromSlash(taskdef.TasksDir))

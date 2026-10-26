@@ -24,6 +24,8 @@ pub struct Desktop {
     /// arrives late cannot restore an entry a later save removed.
     revision: AtomicU64,
     pub(super) global: Mutex<()>,
+    /// Serializes changes to the preferences file.
+    pub preferences: std::sync::Mutex<()>,
     // ponytail: one small lock per worktree ever touched, never pruned.
     worktrees: std::sync::Mutex<HashMap<String, Arc<Mutex<()>>>>,
 }
@@ -35,6 +37,7 @@ impl Desktop {
             library: Mutex::default(),
             revision: AtomicU64::new(0),
             global: Mutex::default(),
+            preferences: std::sync::Mutex::default(),
             worktrees: std::sync::Mutex::default(),
         }
     }

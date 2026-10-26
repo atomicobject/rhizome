@@ -1,8 +1,8 @@
 ---
 type: TechnicalSpec
-id: SPEC-0126
+id: SPEC-0127
 aliases:
-  - SPEC-0126
+  - SPEC-0127
   - Scheduled tasks
 summary: "Repositories declare periodic agent tasks: an optional free pre-flight check that decides whether work is needed, then a prompt run by each person's own agent harness. A repository sets whether tasks run automatically or only notify, and each person can override that per task. Background runs work in their own worktree, never push, and report back with a message and the changed files. Git history is the team's shared clock, and run records stay in each person's ignored local state, so teammates using different harnesses need no coordination."
 spec-status: proposed
@@ -70,7 +70,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 
 ### US1 - Declare a task once for the whole repository
 
-- id:: ^SPEC-0126-US1
+- id:: ^SPEC-0127-US1
 - summary:: A maintainer commits a task declaration, and every teammate's Rhizome reads the same definition from the primary ref.
 - status:: draft
 
@@ -86,7 +86,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 
 ### US2 - Choose whether tasks run automatically or notify
 
-- id:: ^SPEC-0126-US2
+- id:: ^SPEC-0127-US2
 - summary:: A repository sets the default mode for its tasks, and each person can override it per task or pause everything.
 - status:: draft
 
@@ -100,7 +100,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 
 ### US3 - Run due tasks once, whatever triggers them
 
-- id:: ^SPEC-0126-US3
+- id:: ^SPEC-0127-US3
 - summary:: While Rhizome Desktop or any headless runtime is up, due tasks run once per person and repository, even with many worktrees open.
 - status:: draft
 
@@ -114,7 +114,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 
 ### US4 - Check, then run the prompt only when needed
 
-- id:: ^SPEC-0126-US4
+- id:: ^SPEC-0127-US4
 - summary:: A check decides whether the task is needed and passes context to the prompt, and background work runs in its own worktree and ends in a local, tagged commit.
 - status:: draft
 
@@ -130,7 +130,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 
 ### US5 - Start a task in the person's harness, in its own worktree
 
-- id:: ^SPEC-0126-US5
+- id:: ^SPEC-0127-US5
 - summary:: A person starts a due task interactively and lands in their own harness, in a worktree that harness creates and manages, on a branch from the primary ref.
 - status:: draft
 
@@ -146,7 +146,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 
 ### US6 - See and act on tasks in the inbox
 
-- id:: ^SPEC-0126-US6
+- id:: ^SPEC-0127-US6
 - summary:: A person sees due tasks and finished runs in Rhizome Desktop and the CLI, acts on them, and items that are finished or handled by someone else close on their own.
 - status:: draft
 
@@ -168,7 +168,7 @@ Tasks are trusted repository code, reviewed on the primary branch, the same trus
 
 ### US7 - Keep each task's clock
 
-- id:: ^SPEC-0126-US7
+- id:: ^SPEC-0127-US7
 - summary:: A task comes due from the latest run that counts for its scope, read from local records and the primary ref's history.
 - status:: draft
 

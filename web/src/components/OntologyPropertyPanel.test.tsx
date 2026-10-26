@@ -372,6 +372,49 @@ describe("OntologyPropertyPanel", () => {
     expect(screen.queryByRole("button", { name: /more|Hide details/ })).not.toBeInTheDocument();
   });
 
+  it("collapses empty fields behind one remembered toggle while reading", () => {
+    const fields = [
+      makeField("summary", ["Filled in"]),
+      // Links alone are a value, so the field still shows.
+      makeField("parent", [], { links: [{ value: "[[Plan]]", title: "Plan" }] }),
+      makeField("owner", [], { present: false }),
+      makeField("blank", [" "]),
+      makeField("flagged", [], { present: false, issueCount: 1 }),
+    ];
+
+    const panel = (editing: boolean) => (
+      <OntologyPropertyPanel
+        workspace={makeWorkspace()}
+        fields={fields}
+        editing={editing}
+        changedFieldNames={new Set()}
+      />
+    );
+
+    const first = renderWithQueryClient(panel(false));
+    const terms = () => screen.getAllByRole("term").map((term) => term.textContent);
+
+    expect(terms()).toEqual(["Summary", "Parent", "Flagged"]);
+    const toggle = screen.getByRole("button", { name: "Show 2 empty fields" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(terms()).toEqual(["Summary", "Parent", "Owner", "Blank", "Flagged"]);
+    expect(screen.getByRole("button", { name: "Hide 2 empty fields" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    first.unmount();
+    const { rerender } = renderWithQueryClient(panel(false));
+    expect(terms()).toEqual(["Summary", "Parent", "Owner", "Blank", "Flagged"]);
+    fireEvent.click(screen.getByRole("button", { name: "Hide 2 empty fields" }));
+    expect(terms()).toEqual(["Summary", "Parent", "Flagged"]);
+
+    rerender(panel(true));
+    expect(terms()).toEqual(["Summary", "Parent", "Owner", "Blank", "Flagged"]);
+    expect(screen.queryByRole("button", { name: /empty field/ })).not.toBeInTheDocument();
+  });
+
   it("stages DateTime edits as RFC3339 instead of dropping time", () => {
     const onStageOps = vi.fn();
     render(

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// ItemState is where an inbox item stands (SPEC-0126 US6).
+// ItemState is where an inbox item stands (SPEC-0127 US6).
 type ItemState string
 
 const (

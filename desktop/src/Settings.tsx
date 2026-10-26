@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { THEMES } from "../../web/src/lib/themes";
 import { CredentialImport } from "./CredentialImport";
 import {
   failure,
   request,
+  type AppearanceChoice,
+  type AppSettings,
   type GlobalInfo,
   type LinkInfo,
   type RenderProfiling,
@@ -103,6 +106,55 @@ function Diagnostics() {
   );
 }
 
+const APPEARANCES: [AppearanceChoice, string][] = [
+  ["auto", "Match System"],
+  ["light", "Light"],
+  ["dark", "Dark"],
+];
+
+/** The app-wide appearance and chrome theme (SPEC-0126 US1). */
+function Appearance({
+  settings,
+  onChange,
+}: {
+  settings: AppSettings;
+  onChange: (change: Partial<AppSettings>) => void;
+}) {
+  return (
+    <div className="setting-group">
+      <h2>Appearance</h2>
+      <p>Applies to every window and repository, including the pages they show.</p>
+      <div className="segmented" role="radiogroup" aria-label="Appearance">
+        {APPEARANCES.map(([appearance, label]) => (
+          <label key={appearance}>
+            <input
+              type="radio"
+              name="appearance"
+              checked={settings.appearance === appearance}
+              onChange={() => onChange({ appearance })}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      <div className="theme-swatches" role="radiogroup" aria-label="Theme">
+        {THEMES.map((theme) => (
+          <label key={theme.id} style={{ "--swatch": theme.swatch } as CSSProperties}>
+            <input
+              type="radio"
+              name="theme"
+              checked={settings.theme === theme.id}
+              onChange={() => onChange({ theme: theme.id })}
+            />
+            <span className="swatch" aria-hidden="true" />
+            {theme.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function Settings({
   info,
   link,
@@ -116,6 +168,8 @@ export function Settings({
   onSelect,
   onPick,
   onClose,
+  appearance,
+  onAppearance,
   developmentBuilds = [],
 }: {
   info: GlobalInfo | null;
@@ -130,6 +184,8 @@ export function Settings({
   onSelect: (value: string | null) => void;
   onPick: () => void;
   onClose: () => void;
+  appearance: AppSettings;
+  onAppearance: (change: Partial<AppSettings>) => void;
   developmentBuilds?: { repository: string; worktree: string; executable: string }[];
 }) {
   const [path, setPath] = useState(selected ?? "");
@@ -164,6 +220,7 @@ export function Settings({
         </div>
         {info?.path && <span className="badge">{info.bundled ? "Bundled" : "Selected"}</span>}
       </div>
+      <Appearance settings={appearance} onChange={onAppearance} />
       <div className="setting-group">
         <h2>Updates</h2>
         <p role="status">{updateText(update)}</p>

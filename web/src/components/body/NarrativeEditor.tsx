@@ -10,6 +10,7 @@ import { MarkdownEditor } from "../markdownEditor/MarkdownEditor";
 import type { MarkdownEditorHandle } from "../markdownEditor/types";
 import { useRhizomeMarkdownLinks } from "../markdownEditor/useRhizomeMarkdownLinks";
 import { useActiveEditSession } from "../useOntologyEditSession";
+import { narrativeClassName } from "./NarrativeView";
 import type { BodyRendererProps } from "./registry";
 
 const NARRATIVE_DEBOUNCE_MS = 300;
@@ -20,9 +21,20 @@ function targetPathForNode({ node }: Pick<BodyRendererProps, "node">): string {
   return node.ref.fragment ? `${node.notePath}#${node.ref.fragment}` : node.notePath;
 }
 
-// Matches narrative projection/replay normalization in pkg/ontology/edit_session.go.
+// Matches narrative replay normalization in pkg/ontology/edit_session_narrative.go.
 function normalizeMarkdown(markdown: string): string {
-  return markdown.replace(/[ \t\n]+$/, "");
+  return markdown.replace(/\r\n?/g, "\n").replace(/[ \t\n]+$/, "");
+}
+
+/**
+ * What the editor shows for a block: the projection keeps the blank line after
+ * a section heading as a leading newline and a CRLF file's trailing `\r`. The
+ * server restores the source's surrounding whitespace on replay, so only the
+ * display drops them; `previousMarkdown` stays the raw block. Indentation on
+ * the first prose line survives, so an indented code block keeps its meaning.
+ */
+export function displayNarrativeMarkdown(markdown: string): string {
+  return normalizeMarkdown(markdown).replace(/^(?:[ \t]*\n)+/, "");
 }
 
 type PendingNarrative = {
@@ -31,7 +43,8 @@ type PendingNarrative = {
 };
 
 export function NarrativeEditor({ block, kindOrdinal, node, context }: BodyRendererProps) {
-  const authoredMarkdown = block.markdown || "";
+  const rawMarkdown = block.markdown || "";
+  const authoredMarkdown = displayNarrativeMarkdown(rawMarkdown);
   const nodePath = useMemo(() => targetPathForNode({ node }), [node]);
 
   const operationID = useMemo(
@@ -43,9 +56,13 @@ export function NarrativeEditor({ block, kindOrdinal, node, context }: BodyRende
   const vaultKey = context.vaultKey ?? null;
   const editSession = useActiveEditSession();
 
-  const [draft, setDraft] = useState(
-    () => readPersistedEditorDraft(vaultKey, operationID) ?? authoredMarkdown,
-  );
+  // A draft persisted before the display trim may still carry the heading's
+  // blank line; trimming it leaves the edit and lets replay restore the gap.
+  const [draft, setDraft] = useState(() => {
+    const persisted = readPersistedEditorDraft(vaultKey, operationID);
+
+    return persisted === null ? authoredMarkdown : displayNarrativeMarkdown(persisted);
+  });
 
   const authoredRef = useRef(authoredMarkdown);
   const draftRef = useRef(draft);
@@ -53,7 +70,7 @@ export function NarrativeEditor({ block, kindOrdinal, node, context }: BodyRende
   const blockRef = useRef(block);
   const nodePathRef = useRef(nodePath);
   const operationIDRef = useRef(operationID);
-  const previousMarkdownRef = useRef(authoredMarkdown);
+  const previousMarkdownRef = useRef(rawMarkdown);
   const lastEmittedMarkdownRef = useRef(authoredMarkdown);
   const sourceRevisionRef = useRef(context.workspace.sourceRevision);
   const onStageOpsRef = useRef(context.onStageOps);
@@ -205,7 +222,12 @@ export function NarrativeEditor({ block, kindOrdinal, node, context }: BodyRende
     draft !== authoredMarkdown || Boolean(editSession?.ops?.some((op) => op.id === operationID));
 
   return (
-    <div className={`body-narrative body-narrative--editor${hasChanges ? " is-dirty" : ""}`}>
+    <div
+      className={narrativeClassName(
+        `body-narrative body-narrative--editor${hasChanges ? " is-dirty" : ""}`,
+        { block, kindOrdinal, node },
+      )}
+    >
       <MarkdownEditor
         className="body-narrative__editor"
         documentId={operationID}

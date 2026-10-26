@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import { getStatus } from "../api/client";
+import { vaultLabel } from "../lib/labels";
 import { queryKeys } from "../api/queryKeys";
 import type { StatusResponse } from "../api/types";
 import { AgentWorkspace } from "./AgentWorkspace";
@@ -9,7 +10,9 @@ import { BareHTMLNote } from "./BareHTMLNote";
 import { desktopTitle, inDesktop, type Section, useDesktopCommands } from "./desktopHost";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ExplorerWorkspace } from "./ExplorerWorkspace";
+import { FinderQuickOpen } from "./FinderQuickOpen";
 import { IndexReadyBanner } from "./IndexReadyBanner";
+import { AppearanceMenu } from "./AppearanceMenu";
 import { KeyboardShortcuts } from "./KeyboardShortcuts";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { NotesShell } from "./NotesShell";
@@ -143,6 +146,16 @@ function GlobalSearch({ route }: { route: Route }) {
         runProjectSearch(value);
       }}
     >
+      <svg
+        viewBox="0 0 16 16"
+        aria-hidden="true"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <circle cx="7" cy="7" r="4.5" />
+        <path d="m10.5 10.5 3 3" strokeLinecap="round" />
+      </svg>
       <input
         ref={inputRef}
         type="search"
@@ -255,7 +268,7 @@ export function AppShell() {
 
   useEffect(() => {
     if (vaultName && !desktop) {
-      document.title = `Rhizome · ${vaultName}`;
+      document.title = `Rhizome · ${vaultLabel(vaultName)}`;
     }
   }, [vaultName, desktop]);
 
@@ -274,11 +287,18 @@ export function AppShell() {
         </>
       ) : (
         <header className="app-shell__nav">
-          <div className="app-shell__brand">
-            <div>
-              <span>Rhizome</span>
-              <small>{vaultName ?? (statusQuery.isError ? "Status unavailable" : "")}</small>
-            </div>
+          <div className="app-shell__brand" title={status?.vaultPath || undefined}>
+            <span>Rhizome</span>
+            {/* The Notes sidebar names the vault; other sections keep it here. */}
+            {route !== "notes" || statusQuery.isError ? (
+              <small>
+                {vaultName
+                  ? vaultLabel(vaultName)
+                  : statusQuery.isError
+                    ? "Status unavailable"
+                    : ""}
+              </small>
+            ) : null}
           </div>
           <nav aria-label="Primary">
             <button
@@ -322,9 +342,10 @@ export function AppShell() {
               GraphQL
             </button>
           </nav>
+          <GlobalSearch route={route} />
           <div className="app-shell__header-tools">
-            <GlobalSearch route={route} />
             {route === "notes" ? <NotesNavTools /> : null}
+            <AppearanceMenu />
             <KeyboardShortcuts />
           </div>
         </header>
@@ -367,6 +388,7 @@ export function AppShell() {
           )}
         </ErrorBoundary>
       </OntologyEditSessionProvider>
+      <FinderQuickOpen />
     </div>
   );
 }

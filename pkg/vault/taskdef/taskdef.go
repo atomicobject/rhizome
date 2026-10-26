@@ -1,5 +1,5 @@
 // Package taskdef parses scheduled task files, `.rhizome/tasks/<id>.yml`
-// ([[scheduled-tasks|SPEC-0126]]). It has no I/O so the task runner and
+// ([[scheduled-tasks|SPEC-0127]]). It has no I/O so the task runner and
 // validation share one parser.
 package taskdef
 

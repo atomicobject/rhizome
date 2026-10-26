@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { chooseView, expandNoteList } from "./workspaceView";
+import { chooseView } from "./workspaceView";
 
 test("loads the graph and navigates notes/code from the tree", async ({ page }) => {
   await page.goto("/explorer");
@@ -39,82 +39,6 @@ test("focuses folders and supports search suggestions", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/notes\?note=notes%2Ftask-flow\.md$/);
   await expect(page.locator(".ontology-identity__title")).toHaveText("Task Flow");
-});
-
-test("keeps the Specs type bound to its delayed response identity", async ({ page }) => {
-  let releaseResponse = () => {};
-
-  const responseGate = new Promise<void>((resolve) => {
-    releaseResponse = resolve;
-  });
-
-  await page.route("**/api/v1/ontology/types/Spec", async (route) => {
-    await responseGate;
-    await route.continue();
-  });
-
-  await page.goto("/notes");
-  await page.getByRole("button", { name: "Expand Other" }).click();
-  await page.getByRole("button", { name: /^Spec \(1\)/ }).click();
-  // The Specs table lists its records, so the rail's list starts collapsed.
-  await expandNoteList(page, "Spec notes");
-
-  const noteList = page.getByRole("region", { name: "Note list" });
-  await expect(noteList.getByText("Loading notes…")).toBeVisible();
-  releaseResponse();
-  await expect(noteList.getByText("Search Rewrite")).toBeVisible();
-  await expect(page).toHaveURL(/\/notes\/spec$/);
-});
-
-test("shows a retryable Specs error and recovers without stale content", async ({ page }) => {
-  let fail = true;
-  await page.route("**/api/v1/ontology/types/Spec", async (route) => {
-    if (fail) {
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "temporary failure" }),
-      });
-
-      return;
-    }
-
-    await route.continue();
-  });
-
-  await page.goto("/notes");
-  await page.getByRole("button", { name: "Expand Other" }).click();
-  await page.getByRole("button", { name: /^Spec \(1\)/ }).click();
-  // The Specs table lists its records, so the rail's list starts collapsed.
-  await expandNoteList(page, "Spec notes");
-
-  const error = page.locator(".ontology-list__empty[role=alert]");
-  await expect(error).toContainText("temporary failure");
-  fail = false;
-  await error.getByRole("button", { name: "Retry" }).click();
-  await expect(
-    page.getByRole("region", { name: "Note list" }).getByText("Search Rewrite"),
-  ).toBeVisible();
-});
-
-test("renders a successful empty Specs list distinctly from loading", async ({ page }) => {
-  await page.route("**/api/v1/ontology/types/Spec", async (route) => {
-    const response = await route.fetch();
-    const body = await response.json();
-    await route.fulfill({
-      response,
-      json: { ...body, count: 0, notes: [] },
-    });
-  });
-
-  await page.goto("/notes");
-  await page.getByRole("button", { name: "Expand Other" }).click();
-  await page.getByRole("button", { name: /^Spec \(1\)/ }).click();
-  // The Specs table lists its records, so the rail's list starts collapsed.
-  await expandNoteList(page, "Spec notes");
-
-  await expect(page.getByText("Loading type…")).toHaveCount(0);
-  await expect(page.getByText("No notes match the current filter.")).toBeVisible();
 });
 
 test("does not revive a collapsed specs folder after a delayed read", async ({ page }) => {

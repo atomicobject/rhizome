@@ -93,7 +93,7 @@ type LocalRuntimeConfig struct {
 	IdleTimeout string `yaml:"idleTimeout,omitempty"`
 }
 
-// LocalTasksConfig configures scheduled tasks (SPEC-0126): the branch task
+// LocalTasksConfig configures scheduled tasks (SPEC-0127): the branch task
 // files are read from and work starts from, and whether tasks run
 // automatically or only notify unless a person overrides a task.
 type LocalTasksConfig struct {

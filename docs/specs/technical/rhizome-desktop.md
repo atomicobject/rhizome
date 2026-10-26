@@ -48,6 +48,12 @@ Before starting a runtime in a configured worktree whose Rhizome database is mis
 
 ### Windows and navigation
 
+Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US2, US9, US10). The repository sidebar, its reorder, and its saved collapsed state are gone; sessions no longer record a sidebar state.
+- **Toolbar:** it names the window's repository and worktree as separate targets. The repository opens a repository finder (⌘O) that lists known repositories by most recent use and opens one's primary checkout; ⌘Enter opens it in a new window, and ⌘1–⌘9 open the first nine. The worktree opens a worktree finder (⇧⌘O).
+- **Finders:** they draw in a transparent `shell-finder-N` overlay webview above the content view, which holds the shell's capabilities and nothing more.
+- **Repository actions:** they live in the repository name's context menu and the repository finder rows' actions. Add Repository has no shortcut.
+- **Theme and appearance:** the chrome theme and the light or dark appearance are app-wide settings in `preferences.json`, applied natively and to every window, shell, and page.
+
 Every window MUST show the repository sidebar, a toolbar, and a content area; there is no separate launch screen. The sidebar MUST list repositories as vertical tabs, collapse and expand from a toolbar button, and offer adding a repository. The toolbar MUST include a worktree selector for the selected repository with the new indicator. Selecting a repository or worktree MUST switch only that window's content. Every window MUST reflect library changes made in any window, and an older library snapshot MUST NOT replace a newer one. The app MUST support multiple independent windows, and the same worktree MAY be open in several windows, sharing one runtime.
 
 The app MUST restore each window's size, position, sidebar state, and selected repository and worktree after a restart, and MUST restore at least one window. Global installation settings and per-repository options MUST be reachable from every window.
@@ -63,6 +69,8 @@ The native controller MUST verify runtime identity and liveness before showing i
 While a worktree opens, the content area MUST show the current step — checking the worktree, waiting for trust, seeding the index, starting Rhizome, or loading the workspace — and MUST keep the indicator until the repository page has loaded. Errors and timeouts MUST show the cause and a retry action. Switching to another worktree while one is opening MUST discard the earlier result so a slower open cannot replace the newer selection.
 
 ### Runtime presence
+
+Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25: presence shows on the finders' rows (each worktree, and each repository's aggregate) instead of in a worktree menu and the sidebar.
 
 The app MUST show in the worktree selector whether a Rhizome runtime is running for each worktree, and in the sidebar whether any worktree of each repository has one, regardless of which process started it, and MUST notice runtimes started or stopped by other processes within seconds. Selecting a worktree without a running runtime MUST start one through the opening steps above.
 

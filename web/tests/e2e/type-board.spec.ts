@@ -23,6 +23,7 @@ test("switches board lanes on the workflow type and moves a card between columns
   await expect(board.locator(".configured-card").first()).toBeVisible();
 
   // Priority lanes come in enum order, with records lacking a value last.
+  await openViewOptions(page);
   await page.getByLabel("Board lanes").selectOption({ label: "Priority" });
   const lanes = board.locator(".configured-view__board-lane");
   await expect(lanes.locator(".configured-view__board-lane-header")).toHaveText([

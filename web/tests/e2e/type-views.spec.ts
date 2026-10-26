@@ -1,11 +1,18 @@
 import { expect, type Page, test } from "./fixtures";
-import { chooseView, expandNoteList, workspaceView } from "./workspaceView";
+import { chooseView, openFilterMenu, workspaceView } from "./workspaceView";
 
 // Synthetic Tv* types from tests/e2e/fixtures/type-views: one per SPEC-0112 shape.
 
 const selectedView = (page: Page) => workspaceView(page).locator("[aria-pressed=true]");
 
-const facets = (page: Page) => page.getByRole("group", { name: "Collection summary" });
+/** The Filter popover's quick filters, which were the header facet line. */
+async function facets(page: Page) {
+  await openFilterMenu(page);
+
+  return page.getByRole("group", { name: "Quick filters" });
+}
+
+const count = (page: Page) => page.locator(".view-header__count");
 
 const rows = (page: Page) => page.locator("tr.configured-view__row");
 
@@ -31,12 +38,12 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const group = page.getByRole("button", { name: "Howto 2", exact: true });
     const caret = group.locator(".configured-view__group-caret");
     await expect(group).toHaveAttribute("aria-expanded", "true");
-    await expandNoteList(page, "Field guide notes");
 
+    // A sidebar row's hover tint, on a row that is not the current one.
     const note = page
-      .getByRole("region", { name: "Note list", exact: true })
-      .locator(".ontology-note")
-      .filter({ hasText: "Mooring knots" });
+      .getByRole("complementary", { name: "Notes navigation" })
+      .locator(".ontology-type-row-wrap")
+      .filter({ has: page.getByRole("button", { name: /^All notes/ }) });
 
     await expect(note).toBeVisible();
     const transform = await caret.evaluate((element) => getComputedStyle(element).transform);
@@ -85,19 +92,13 @@ test("each collection shape opens with its default layout", async ({ page }) => 
   // Workflow: open work spans several stages and stays small, so it opens as a Board.
   await page.goto("/notes/tv-work-item");
   await expect(selectedView(page)).toContainText("Board");
-  await expect(facets(page)).toContainText("10 work items");
-  // The view lists the records, so the rail's copy starts collapsed.
-  await expect(page.getByRole("button", { name: "Work item notes" })).toHaveAttribute(
-    "aria-expanded",
-    "false",
-  );
+  await expect(count(page)).toHaveText("10");
 
   // Dated: a month-grouped log, newest first.
   await page.goto("/notes/tv-meeting");
   await expect(selectedView(page)).toContainText("Table");
   const months = page.locator(".configured-view__group-row");
   await expect(months).toHaveText([/Oct 2026\s*2/, /Sep 2026\s*3/, /Aug 2026\s*3/]);
-  await expect(facets(page)).toContainText("Aug 2026 –");
 
   // Catalog: grouped by its category enum in declaration order.
   await page.goto("/notes/tv-guide");
@@ -109,16 +110,16 @@ test("each collection shape opens with its default layout", async ({ page }) => 
   ]);
 });
 
-test("header facets filter the table and show as filter chips", async ({ page }) => {
+test("quick filters filter the table and show as filter chips", async ({ page }) => {
   await page.goto("/notes/tv-work-item");
   await chooseView(page, "Table");
   await expect(rows(page)).not.toHaveCount(0);
 
-  const gap = facets(page).getByRole("button", { name: "Next step empty 5/10" });
+  const gap = (await facets(page)).getByRole("button", { name: "Next step empty 5/10" });
   await expect(gap).toHaveAttribute("title", "Every open item names its next step.");
   await gap.click();
   // The counts now describe the filtered rows, so find the facet by its field.
-  const applied = facets(page).getByRole("button", { name: /^Next step empty/ });
+  const applied = (await facets(page)).getByRole("button", { name: /^Next step empty/ });
   await expect(applied).toHaveAttribute("aria-pressed", "true");
   // One of the five is Cancelled, a dropped stage whose group starts collapsed.
   await expect(footer(page)).toContainText("5 rows");
@@ -128,7 +129,7 @@ test("header facets filter the table and show as filter chips", async ({ page })
   ).toBeVisible();
 
   await applied.click();
-  await facets(page).getByRole("button", { name: "Doing 3" }).click();
+  await (await facets(page)).getByRole("button", { name: "Doing 3" }).click();
   await expect(footer(page)).toContainText("3 rows");
   await expect(rows(page)).toHaveCount(3);
   await expect(
@@ -160,6 +161,9 @@ test("a selected row shows as a record in the right rail and opens in a tab", as
 });
 
 test("a bulk edit adds a link to every selected row, stages, and saves", async ({ page }) => {
+  // Wide enough that the Attendees relation column stays in the table rather
+  // than moving to the Record pane (SPEC-0126 US4).
+  await page.setViewportSize({ width: 1680, height: 900 });
   await page.goto("/notes/tv-meeting");
   await expect(rows(page)).toHaveCount(8);
 

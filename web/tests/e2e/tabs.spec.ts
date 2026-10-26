@@ -195,7 +195,11 @@ test("keeps node drill history in its note tab and returns to a cached parent", 
       .getByRole("heading", { name: "Requirements", exact: true }),
   ).toBeVisible();
   await expect(tabs.getByRole("tab")).toHaveCount(2);
-  await page.getByRole("button", { name: "Task Flow notes/task-flow.md", exact: true }).click();
+  // The sidebar lists no notes; open Task Flow by in-app navigation, as a link would.
+  await page.evaluate(() => {
+    window.history.pushState({}, "", "/notes?note=notes%2Ftask-flow.md");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
   await expect(
     page
       .getByRole("tabpanel", { name: /Task Flow/ })

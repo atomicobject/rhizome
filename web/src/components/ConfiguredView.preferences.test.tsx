@@ -138,6 +138,7 @@ describe("remembered view preferences", () => {
     await waitFor(() => expect(server.read(scope).values).toHaveProperty("native.boardColumns"));
     expect(screen.getByRole("button", { name: /^Expand Planned column/ })).toBeVisible();
 
+    openViewOptions();
     fireEvent.click(screen.getByRole("button", { name: "Reset to shared" }));
     expect(await screen.findByRole("button", { name: "Collapse Planned column" })).toBeVisible();
     await waitFor(() => expect(server.read(scope).values).toEqual({}));

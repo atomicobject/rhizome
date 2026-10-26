@@ -44,8 +44,8 @@ mount:
 Rhizome's pages are dense, flat, and quiet, and a view built from the kit's defaults matches them. Drift starts when a view hand-rolls what the kit already provides.
 
 - Build pages from the kit's [page primitives](references/kit-api.md#page-primitives): `Section` for each block (heading, mono count, caption, controls, and its loading, failure, and one-line empty states), `Facts` and `Fact` for the figures under a title, `Count` for numbers, `Dash` for empty values, `Segmented` for a mode switch, `MoreToggle` for "+N more", and `BarList` for a handful of named amounts.
-- On a type, interface, group, or All notes mount the host already shows the title, so start with the facts strip or the first section. A node presentation or standalone page draws one title in Barlow (`text-xl font-bold`).
-- Barlow everywhere inside the page; `font-serif` is never for panel or card titles. Text sizes are `text-xs` (11px), `text-sm` (12px), and `text-base` (13px); go no smaller.
+- On a type, interface, group, or All notes mount the host already shows the title, so start with the facts strip or the first section. A node presentation or standalone page draws one title in Inter (`text-xl font-bold`).
+- Inter everywhere inside the page; `font-serif` is never for panel or card titles. Text sizes are `text-xs` (12px), `text-sm` (13px), `text-base` (14px), `text-lg` (16px), and `text-xl` (18px); go no smaller.
 - Flat and white: separate blocks with space and hairlines (`border-b`), not cards on a gray page. A `Card` holds one item in a set of comparable items, never page scaffolding, and never nests.
 - Red means commit or risk. `<Button>` is neutral; give the one save, run, or commit action `variant="primary"`. Show problems with `text-risk` or `<Count tone="risk">` beside a word saying what is counted. Status is `StatusMark` (shape and label), never color alone.
 - Link notes with `NoteLink` and nodes with `NodeLink`; both use the teal link style.
@@ -89,7 +89,7 @@ Place each chart beside the question it answers, in the lens, tab, or panel abou
 - A side-effect import of a sibling stylesheet applies it: `import "./board.css";`. The view renders after the stylesheet loads.
 - Each file is transformed once per content and revalidated by ETag, so a saved file is served fresh with no cache busting.
 - TypeScript types are stripped, not checked. Keep types for readability; do not rely on them to catch mistakes.
-- Style with Tailwind v4 utilities and the theme tokens; see [Look like Rhizome](#look-like-rhizome). The root font size is 14px, so spacing utilities are compact, while text sizes are pinned to Rhizome's 11, 12, and 13px scale.
+- Style with Tailwind v4 utilities and the theme tokens; see [Look like Rhizome](#look-like-rhizome). The root font size is 14px, so spacing utilities are compact, while text sizes are pinned to Rhizome's 12, 13, 14, 16, and 18px scale.
 
 Read `references/example.md` for a standalone board with a shared component and staged write. The mounted example covers a specific group dashboard, parameterized node page, and HTML accessor.
 

@@ -13,23 +13,23 @@ governing-specs: ["[[scheduled-tasks]]"]
 
 ## Scope
 
-Implement phase 1 of [[scheduled-tasks|SPEC-0126]]: the task capability and its command line, triggered by `rzm tasks run-due` and the runtime interval. A synthetic task proves the whole path.
+Implement phase 1 of [[scheduled-tasks|SPEC-0127]]: the task capability and its command line, triggered by `rzm tasks run-due` and the runtime interval. A synthetic task proves the whole path.
 
-Excluded: the Rhizome Desktop inbox, badge, notifications, and Open worktree (the desktop part of US6, phase 2); launchd or systemd jobs; Windows behavior beyond compiling and failing clearly; diff views; starter-provided outcome views; real session-memory or dream tasks (SPEC-0126 Delivery Phases and Non-Goals).
+Excluded: the Rhizome Desktop inbox, badge, notifications, and Open worktree (the desktop part of US6, phase 2); launchd or systemd jobs; Windows behavior beyond compiling and failing clearly; diff views; starter-provided outcome views; real session-memory or dream tasks (SPEC-0127 Delivery Phases and Non-Goals).
 
 ## Spec Set (Frozen)
 
-- [[scheduled-tasks|SPEC-0126]], 2026-10-25 revision.
+- [[scheduled-tasks|SPEC-0127]], 2026-10-25 revision.
 
 ## Stories In Scope (Frozen)
 
-- [[scheduled-tasks#^SPEC-0126-US1|US1]] Declare a task once for the whole repository.
-- [[scheduled-tasks#^SPEC-0126-US2|US2]] Choose whether tasks run automatically or notify.
-- [[scheduled-tasks#^SPEC-0126-US3|US3]] Run due tasks once, whatever triggers them.
-- [[scheduled-tasks#^SPEC-0126-US4|US4]] Check, then run the prompt only when needed.
-- [[scheduled-tasks#^SPEC-0126-US5|US5]] Start a task in the person's harness, in its own worktree.
-- [[scheduled-tasks#^SPEC-0126-US6|US6]] See and act on tasks in the inbox, CLI criteria only; the Rhizome Desktop criterion is phase 2.
-- [[scheduled-tasks#^SPEC-0126-US7|US7]] Keep each task's clock.
+- [[scheduled-tasks#^SPEC-0127-US1|US1]] Declare a task once for the whole repository.
+- [[scheduled-tasks#^SPEC-0127-US2|US2]] Choose whether tasks run automatically or notify.
+- [[scheduled-tasks#^SPEC-0127-US3|US3]] Run due tasks once, whatever triggers them.
+- [[scheduled-tasks#^SPEC-0127-US4|US4]] Check, then run the prompt only when needed.
+- [[scheduled-tasks#^SPEC-0127-US5|US5]] Start a task in the person's harness, in its own worktree.
+- [[scheduled-tasks#^SPEC-0127-US6|US6]] See and act on tasks in the inbox, CLI criteria only; the Rhizome Desktop criterion is phase 2.
+- [[scheduled-tasks#^SPEC-0127-US7|US7]] Keep each task's clock.
 
 ## Contracts Fixed by This Plan
 
@@ -96,7 +96,7 @@ Escalation boundary: a spike result that breaks a contract above, a change to th
 
 ## Original Intended Delivery
 
-Phase 1 of SPEC-0126 on one branch: task files and modes, the Git clock, the serialized runner with checks and background prompt runs, Start, the CLI inbox, the runtime trigger, init support, and a synthetic task proving the path, with documentation and a pull request ready for Drew.
+Phase 1 of SPEC-0127 on one branch: task files and modes, the Git clock, the serialized runner with checks and background prompt runs, Start, the CLI inbox, the runtime trigger, init support, and a synthetic task proving the path, with documentation and a pull request ready for Drew.
 
 ## Actual Delivered
 
@@ -126,7 +126,7 @@ Phase 1 on `t3/rhizome-scheduled-tasks`, from `b12e36e7` to `50981265`, squash-m
 
 ## Deviations
 
-These are implementation choices that differ from SPEC-0126's wording. None changes a contract another phase depends on.
+These are implementation choices that differ from SPEC-0127's wording. None changes a contract another phase depends on.
 
 - **Drafts:** run with `rzm tasks run --file <path>`, with no item argument (US1 shows `run <id> --file`).
 - **Script checks:** read at the resolved commit but run against the main checkout's vault, because the reset check checkout has no index (US4 says checks run in the reset checkout; command checks do).
@@ -149,7 +149,7 @@ These are implementation choices that differ from SPEC-0126's wording. None chan
 
 - Phase 2: the Rhizome Desktop inbox, badge, notifications, and Open worktree (US6), in a new effort.
 - Adopt tasks in session memory (SPEC-0124): mining as a task, its state in the task's data folder, and dropping its "Scheduled or background runs" non-goal.
-- Later: a launchd or systemd job, Windows, a diff view, and starter-provided outcome views (SPEC-0126 Delivery Phases).
+- Later: a launchd or systemd job, Windows, a diff view, and starter-provided outcome views (SPEC-0127 Delivery Phases).
 
 ## Status
 

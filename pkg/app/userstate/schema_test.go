@@ -18,7 +18,7 @@ func TestOpenRefusesFuturePersonalSchemaWithoutSuggestingIndexRebuild(t *testing
 	ctx, root := context.Background(), t.TempDir()
 	store := openTestStore(t, root)
 	require.NoError(t, store.withWrite(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `UPDATE rzm_migration_state SET version=3 WHERE domain='user_state'`)
+		_, err := tx.ExecContext(ctx, `UPDATE rzm_migration_state SET version=4 WHERE domain='user_state'`)
 		return err
 	}))
 	require.NoError(t, store.Close())

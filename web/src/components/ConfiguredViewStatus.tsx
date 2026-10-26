@@ -30,6 +30,7 @@ export function ConfiguredViewFooter({
   loadingMore,
   collapsed,
   stagedCount,
+  moved = [],
   pager,
   onPage,
 }: {
@@ -38,6 +39,8 @@ export function ConfiguredViewFooter({
   /** Such as "2 columns collapsed"; empty when nothing is. */
   collapsed: string;
   stagedCount: number;
+  /** Labels of table columns too narrow to show, which the Record pane shows instead. */
+  moved?: string[];
   pager: (Page & { hasMore: boolean }) | null;
   onPage: (page: Page) => void;
 }) {
@@ -47,6 +50,11 @@ export function ConfiguredViewFooter({
         <span role="status">{summary}</span>
         {loadingMore && <span role="status">Loading more rows…</span>}
         {collapsed && <span>{collapsed}</span>}
+        {moved.length > 0 && (
+          <span className="configured-view__moved-columns">
+            {moved.join(", ")} {moved.length === 1 ? "shows" : "show"} in the Record pane
+          </span>
+        )}
         {stagedCount > 0 && (
           <span className="configured-view__staged-count">
             {stagedCount} staged {stagedCount === 1 ? "change" : "changes"}

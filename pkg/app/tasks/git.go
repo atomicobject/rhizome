@@ -1,4 +1,4 @@
-// Package tasks implements scheduled tasks (SPEC-0126): task files read
+// Package tasks implements scheduled tasks (SPEC-0127): task files read
 // from the primary ref, per-person modes and run records, the Git-history
 // clock, the repository-wide runner, and the inbox.
 //

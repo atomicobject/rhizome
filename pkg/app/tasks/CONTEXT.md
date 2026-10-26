@@ -1,6 +1,6 @@
 # pkg/app/tasks
 
-Scheduled tasks ([[scheduled-tasks|SPEC-0126]]); user guide: `docs/reference/guides/scheduled-tasks-guide.md`.
+Scheduled tasks ([[scheduled-tasks|SPEC-0127]]); user guide: `docs/reference/guides/scheduled-tasks-guide.md`.
 
 - **Entry points:** `OpenRepo` (repository identity by Git common directory), `New`/`Service` with `RunDue`, `Run`, `RunDraft`, `PlanStart`/`MarkStarted`/`UndoStart`, `Status`, `Inbox`, and the item actions. `cmd/tasks.go` is the thin Cobra front; `pkg/app/cli/serve` starts `rzm tasks run-due` on an interval.
 - **Definitions come from the primary ref only.** `LoadDefinitions` reads `.rhizome/tasks/*.yml` through `git ls-tree`/`git show` at one resolved commit; the working tree never matters. A file that fails to parse is a `Problem`, not an error. Parsing lives in `pkg/vault/taskdef`, which `rzm validate tasks` also uses on the working tree.

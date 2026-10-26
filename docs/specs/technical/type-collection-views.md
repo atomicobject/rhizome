@@ -84,6 +84,11 @@ The execution response for a type or interface source MUST include statistics co
 
 ### Header
 
+Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US3):
+- **Facet line:** there is no longer a separate facet line. The record total is the title row's count. The lifecycle, implementing-type, gap, stale, and issue facets are quick filters with counts in the header's Filter menu, and they still show as active filter chips.
+- **Dates:** the date span and per-month spark are gone.
+- **Notes rail:** the rail has no record list to collapse ([[notes-workspace-shell|SPEC-0090]] US3 as amended).
+
 - The collection header MUST replace the record-count and mean-links line with a facet line: total; implementing-type counts for an interface; one facet per populated lifecycle value with its status mark and count; for a primary date, the date span, a per-month spark of the last 24 months, and this and last month's counts; gap fields empty on some records, as "<field> empty n/N" with the field's policy reason as a tooltip; the stale count; and issues or "no issues".
 - The header's gap facets MUST come from the profile's gap fields.
 - Lifecycle, implementing-type, gap, stale, and issue facets MUST apply the matching filter when activated, and show as active filter chips. Native views MUST support a `missing` filter operator that matches rows where a scalar, enum, or link field has no value.
@@ -94,6 +99,7 @@ The execution response for a type or interface source MUST include statistics co
 - When the type has a summary field, rows MUST show it as a clamped second line under the title; a Rows control MUST switch between two-line and one-line rows and persist with the other view state.
 - Columns whose field is empty on every matching row MUST be hidden, except title and lifecycle, and listed as hidden-empty in the Columns menu, from which the reader can show them.
 - Reverse fields MUST render as counts under a header named by the target's plural label. Changed MUST render as a relative age with the absolute time on hover.
+- Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US6): the record shows in the workspace's one right pane, which opens when a row is selected (unless the reader closed it) and stays closed while none is.
 - Activating a row MUST show that record in the workspace's right rail: title, summary, editable lifecycle, ordered, category, and relation fields, its reverse relations with status marks, and an Open action. Enter or double-click MUST open the note in a tab.
 - The reader MUST be able to select several rows (checkbox, shift-range, `x`) and set an enum field or add a link value on all of them. Bulk edits MUST stage through the edit session exactly like single-cell edits. Escape clears the selection.
 - The Table MUST load further pages as the reader scrolls instead of showing a pager. Grouped tables keep group headers and counts across loaded pages.

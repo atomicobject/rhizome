@@ -87,6 +87,10 @@ export type ViewFieldCandidatesResponse = components["schemas"]["ViewFieldCandid
 
 export type SuggestResponse = components["schemas"]["SuggestResponse"];
 
+export type FindResponse = components["schemas"]["FindResponse"];
+
+export type FindItem = components["schemas"]["FindItem"];
+
 export type SearchResponse = components["schemas"]["SearchResponse"];
 
 export type SearchMatch = components["schemas"]["SearchMatch"];

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Scheduled tasks (SPEC-0126 US3): while a runtime is up, it asks for due
+// Scheduled tasks (SPEC-0127 US3): while a runtime is up, it asks for due
 // tasks on an interval. The work runs in a separate `rzm tasks run-due`
 // process, so it never counts as client activity, survives the runtime's
 // idle exit, and is deduplicated across runtimes by the repository's run

@@ -100,6 +100,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/find": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Fuzzy-finds indexed notes and code files for the ⌘P finder. Scores display titles and vault-relative paths with fzf's algorithm, smart-case, favouring titles and ranking exact and prefix title matches first. Queries with few matches also try one swapped or dropped character. Frecency recorded through /api/v1/find/opens only breaks close scores. An empty q lists recently opened items, then recently changed notes. */
+    get: operations["findNotesAndFiles"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/find/opens": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Records that the user opened a note or file, for this checkout's finder frecency. */
+    post: operations["recordFinderOpen"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/search": {
     parameters: {
       query?: never;
@@ -1573,6 +1607,30 @@ export interface components {
       kind: string;
       lang?: string;
       score?: number;
+    };
+    FindResponse: {
+      items: components["schemas"]["FindItem"][];
+    };
+    FindItem: {
+      /** @enum {string} */
+      kind: "note" | "code";
+      /** @description Vault-relative path. */
+      path: string;
+      /** @description Display title for a note; the file name for a code file. */
+      title: string;
+      /** @description Resolved ontology type of a typed note. */
+      type?: string;
+      /** @description Language of a code file. */
+      lang?: string;
+      score: number;
+      titleMatches: components["schemas"]["FindMatchRanges"];
+      pathMatches: components["schemas"]["FindMatchRanges"];
+    };
+    /** @description Matched [start, end) ranges in UTF-16 code units. */
+    FindMatchRanges: number[][];
+    FindOpenRequest: {
+      /** @description Vault-relative path of the opened note or file. */
+      path: string;
     };
     SuggestResponse: {
       query: string;
@@ -3155,6 +3213,80 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SuggestResponse"];
+        };
+      };
+    };
+  };
+  findNotesAndFiles: {
+    parameters: {
+      query?: {
+        q?: string;
+        limit?: number;
+        kind?: "note" | "code";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Ranked notes and code files */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FindResponse"];
+        };
+      };
+      /** @description Invalid limit or kind */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      503: components["responses"]["IndexInitializing"];
+    };
+  };
+  recordFinderOpen: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FindOpenRequest"];
+      };
+    };
+    responses: {
+      /** @description Recorded */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The path is not a clean vault-relative path */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Personal state is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };

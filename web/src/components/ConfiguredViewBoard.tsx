@@ -259,8 +259,8 @@ export function ConfiguredViewBoard(props: Props) {
     };
   }
 
-  // ponytail: fixed 480px cap keeps a lone column readable; make it a token if layouts need it.
-  const template = columns.map((item) => (item.strip ? "34px" : "minmax(240px, 480px)")).join(" ");
+  // Columns stay 260–360px (SPEC-0126 US7): a wider window shows more of them, not wider ones.
+  const template = columns.map((item) => (item.strip ? "34px" : "minmax(260px, 360px)")).join(" ");
   const laneList: Array<BoardLane | null> = lanes ? lanes.lanes : [null];
 
   function renderCard(row: ViewTableRow, item: (typeof columns)[number], lane: BoardLane | null) {
