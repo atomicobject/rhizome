@@ -56,6 +56,12 @@ The two webviews stay separated as [[rhizome-desktop|SPEC-0113]] requires: the c
 
 ## Requirements
 
+Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
+- **Toolbar:** it takes the app's chrome theme. Its worktree selector became two finder targets: the repository (⌘O) and the worktree (⇧⌘O).
+- **`find` command:** a page command that opens the page's ⌘P finder.
+- **`theme` command:** a page command whose detail carries only a validated preset name. It goes to any document on the verified runtime origin, including a covered or still-loading page, so a page never keeps the old theme. Other commands still wait for a reported workspace page.
+- **Window creation:** the content view's initialization script supplies the theme current then, and the time it was read, for the page's first paint.
+
 - The content webview MUST NOT gain native command permissions. The page MUST report state only through its document title, and the native layer MUST send it commands only as DOM events with fixed names whose details it serializes.
 - The native layer MUST accept a report only while the content view's top-level page is on the verified runtime origin. It MUST check the report (known section names, bounded search text, a non-negative issue count, known health values) and ignore anything else. A page load, a navigation away from the runtime origin, or clearing the content view MUST clear the shell's page state.
 - The native layer MUST send page commands only while the content view shows a workspace page on the verified runtime origin.

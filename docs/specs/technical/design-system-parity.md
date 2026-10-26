@@ -28,6 +28,11 @@ This spec makes one token source and one component grammar serve the host and th
 
 No phone or touch layouts, no in-app appearance override (the theme follows the OS), no new identity or logo work, no changes to view YAML, preference storage, or GraphQL contracts, no REST changes beyond the additive `familyOverrides` preference field below, no server-side aggregation for the Briefing collection read, no custom-view frame keep-alive, no ELK worker, no lucide splitting. Personal vault views are updated by this effort but are not part of the product contract.
 
+Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25:
+- **Typeface:** Inter replaced Barlow as the UI face everywhere this spec names Barlow, including the kit's defaults.
+- **Appearance:** the "no in-app appearance override" non-goal no longer holds. Appearance follows the OS by default, and the browser and Rhizome Desktop offer Light, Dark, and Match System, with five chrome themes.
+- **Toolbar:** the collection toolbar is now a two-row view header (US3). Find in view, Filter, and View sit in the title row, with presentations as tabs below. Filter holds presets, the quick filters that were the facet line, and Add filter. View holds Group by, Sort, Rows, Columns, Reset to shared, and Save view.
+
 ## Requirements
 
 ### Tokens and themes
