@@ -281,8 +281,14 @@ function detailFieldMustStayVisible(node: WorkspaceFieldNode): boolean {
   );
 }
 
+// Empty means nothing to show: no value text, links, or bound sections.
 function isEmptyField(node: WorkspaceFieldNode): boolean {
-  return !node.field.present || !(node.field.values || []).some((value) => value.trim());
+  const { present, values, links, sectionRefs } = node.field;
+
+  return (
+    !present ||
+    (!(values || []).some((value) => value.trim()) && !links?.length && !sectionRefs?.length)
+  );
 }
 
 function disclosureKeyFor(prefix: string, workspace: NodeWorkspace): string {

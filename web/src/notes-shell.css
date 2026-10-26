@@ -1719,10 +1719,9 @@
 }
 
 /* ---- Note reader measure ----
-   Prose reads in a centred column of about 72 characters (680px at the
-   15px body size), and the note's controls align with that column rather
-   than the panel edge. Percentages resolve against the pane's width. HTML
-   notes keep running edge to edge. */
+   The note reads in a centred 680px column, and its controls align with
+   that column rather than the panel edge. Percentages resolve against the
+   pane's width. HTML notes keep running edge to edge. */
 .notes-shell .ontology-pane {
   --note-gutter: max(var(--sp-6), calc((100% - 680px) / 2));
 }
@@ -1734,4 +1733,22 @@
 
 .notes-shell .ontology-pane__main:not(.ontology-pane__main--html) .ontology-markdown {
   max-width: none;
+}
+
+/* The column is the note's width, which tables, code, and properties may
+   fill. Prose keeps a 65–75 character measure inside it (about 540px of 15px
+   Inter), and the editor's lines wrap at the same width, so editing keeps
+   read mode's line breaks. */
+.notes-shell .body-narrative :is(p, ul, ol, blockquote),
+.notes-shell .body-narrative--editor .cm-line {
+  max-width: 540px;
+}
+
+/* The controls row is only as wide as the column: the path gives way, never
+   the controls. */
+.notes-shell
+  .ontology-pane__controls
+  > :not(.ontology-pane__toolbar-path, .ontology-pane__controls-spacer) {
+  flex: none;
+  white-space: nowrap;
 }
