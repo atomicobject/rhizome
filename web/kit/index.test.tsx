@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { afterEach, expect, it, onTestFinished, vi } from "vitest";
 
@@ -77,6 +77,26 @@ it("navigates using nullable GraphQL refs and canonicalizes node view contexts",
     },
     window.location.origin,
   );
+});
+
+it("NodeLink omits an unset presentation from the host navigation request", async () => {
+  const frame = document.createElement("iframe");
+  document.body.append(frame);
+  onTestFinished(() => frame.remove());
+  const parent = frame.contentWindow!;
+  Object.defineProperty(window, "parent", { configurable: true, value: parent });
+  vi.resetModules();
+  const { NodeLink } = await import("./index");
+  const posted = vi.spyOn(parent, "postMessage");
+  const ref = { notePath: "a.md", kind: "NOTE" };
+  const { getByRole } = render(<NodeLink node={ref}>Opportunity</NodeLink>);
+
+  fireEvent.click(getByRole("link", { name: "Opportunity" }));
+  expect(posted).toHaveBeenLastCalledWith(
+    { type: OPEN_NODE_MESSAGE, ref, beside: false },
+    window.location.origin,
+  );
+  expect(posted.mock.calls.at(-1)?.[0]).not.toHaveProperty("view");
 });
 
 it("keeps optimistic data after Save, passes cancellation, and adopts canonical data once", async () => {

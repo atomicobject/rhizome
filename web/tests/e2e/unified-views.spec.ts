@@ -33,6 +33,12 @@ test("GraphQL nullable refs open nodes and node views, and invalid refs warn", a
   await frame.getByRole("button", { name: "Send invalid ref", exact: true }).click();
   await expect.poll(() => warnings.join("\n")).toContain("Rejected rhizome:open-node");
   expect(warnings.join("\n")).toContain("Invalid ref");
+  await frame.getByRole("link", { name: "View demo Alpha", exact: true }).click();
+  await expect(
+    customFrame(page).getByRole("heading", { name: "View demo Alpha", exact: true }),
+  ).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("note")).toBe(effortPath);
+  await openEffortCollection(page);
   await frame.getByRole("button", { name: "GraphQL open View demo Alpha", exact: true }).click();
   await expect(
     customFrame(page).getByRole("heading", { name: "View demo Alpha", exact: true }),

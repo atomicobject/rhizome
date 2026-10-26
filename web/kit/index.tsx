@@ -332,7 +332,14 @@ export function useViewRows(
 /** Open a canonical note or embedded node, optionally in a named presentation. */
 export function openNode(ref: ViewNodeRef, options: OpenNodeOptions = {}) {
   if (embedded) {
-    window.parent.postMessage({ type: OPEN_NODE_MESSAGE, ref, ...options }, window.location.origin);
+    const navigation = { ...options };
+
+    if (navigation.view === undefined) delete navigation.view;
+
+    window.parent.postMessage(
+      { type: OPEN_NODE_MESSAGE, ref, ...navigation },
+      window.location.origin,
+    );
 
     return;
   }
