@@ -13,6 +13,7 @@ import "./explorer.css";
 import "./ontology.css";
 import "./configured-view.css";
 import "./markdown-editor.css";
+import "./workbench.css";
 import "./notes-shell.css";
 import "./finder.css";
 import "./components/notePreview/notePreview.css";

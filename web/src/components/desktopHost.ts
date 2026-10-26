@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent } from "react";
 
-import { isJsonObject, isString } from "../api/parse";
+import { isBoolean, isJsonObject, isString } from "../api/parse";
 import type { ValidationHealth } from "../api/types";
 import { applyTheme } from "../lib/appearance";
 import { isThemeName, type ThemeName } from "../lib/themes";
@@ -27,13 +27,16 @@ export type DesktopCommand =
   | { command: "search"; query: string }
   | { command: "issues" }
   | { command: "shortcuts" }
-  | { command: "find" };
+  | { command: "find" }
+  | { command: "sidebar"; collapsed: boolean };
 
 export type DesktopReport = {
   section: Section;
   search: string;
   issues?: number | null;
   health?: ValidationHealth;
+  /** The workbench sidebar's state, once the app has sent its stored choice. */
+  sidebarCollapsed?: boolean;
 };
 
 /** The app marks its content view with an initialization script. */
@@ -60,6 +63,9 @@ function readCommand(event: Event): DesktopCommand | null {
   if (command === "search") return isString(detail.query) ? { command, query: detail.query } : null;
 
   if (command === "issues" || command === "shortcuts" || command === "find") return { command };
+
+  if (command === "sidebar")
+    return isBoolean(detail.collapsed) ? { command, collapsed: detail.collapsed } : null;
 
   return null;
 }

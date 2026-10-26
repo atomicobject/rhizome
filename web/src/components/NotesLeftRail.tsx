@@ -18,7 +18,6 @@ import {
 } from "react";
 
 import { decodeJson, isBoolean, isJsonObject } from "../api/parse";
-import { vaultLabel } from "../lib/labels";
 import type {
   OntologyEditSessionResponse,
   OntologySummaryResponse,
@@ -51,8 +50,6 @@ function readExpanded(): Record<string, boolean> {
 export type NotesLeftRailProps = {
   active?: boolean;
   /** The vault this browser tab serves; Rhizome Desktop names it in its toolbar instead. */
-  vaultName?: string | null;
-  vaultPath?: string | null;
   summary: OntologySummaryResponse | null;
   selectedType: string | null;
   activeCollection: string | null;
@@ -153,8 +150,6 @@ function moveRailFocus(event: KeyboardEvent<HTMLElement>) {
 
 export const NotesLeftRail = memo(function NotesLeftRail({
   active = true,
-  vaultName,
-  vaultPath,
   summary,
   selectedType,
   activeCollection,
@@ -395,11 +390,6 @@ export const NotesLeftRail = memo(function NotesLeftRail({
           row.tabIndex = row === event.target ? 0 : -1;
       }}
     >
-      {vaultName ? (
-        <div className="notes-left-rail__header" title={vaultPath ?? undefined}>
-          {vaultLabel(vaultName)}
-        </div>
-      ) : null}
       <section className="notes-left-rail__collections" role="region" aria-label="Collections">
         <div className="ontology-type-list">
           {quickRow(

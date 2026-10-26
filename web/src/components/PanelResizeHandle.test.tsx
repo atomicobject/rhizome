@@ -4,23 +4,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PanelResizeHandle } from "./PanelResizeHandle";
 import { PANE_RANGE, SIDEBAR_RANGE, useShellPanes } from "./shellPanes";
+import { resetSidebarForTests, setSidebarWidth, useWorkbenchSidebar } from "./sidebarState";
 
 const STORAGE_KEY = "rhizome:notes:panes:v1";
 
 function Shell() {
   const ref = useRef<HTMLDivElement>(null);
   const panes = useShellPanes();
+  const sidebarState = useWorkbenchSidebar();
 
   return (
     <div ref={ref} data-testid="shell" data-pane-collapsed={panes.paneCollapsed}>
       <PanelResizeHandle
         label="Resize sidebar"
         range={SIDEBAR_RANGE}
-        value={panes.sidebarWidth}
+        value={sidebarState.width}
         edge="end"
         cssVar="--sidebar-width"
         target={ref}
-        onResize={panes.setSidebarWidth}
+        onResize={setSidebarWidth}
       />
       <PanelResizeHandle
         label="Resize right pane"
@@ -53,7 +55,10 @@ function mockViewport(narrow: boolean) {
   );
 }
 
-beforeEach(() => window.localStorage.clear());
+beforeEach(() => {
+  window.localStorage.clear();
+  resetSidebarForTests();
+});
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -115,6 +120,7 @@ describe("panel resizing", () => {
     fireEvent.keyDown(sidebar(), { key: "End" });
     fireEvent.click(screen.getByRole("button", { name: "Toggle pane" }));
     first.unmount();
+    resetSidebarForTests();
 
     render(<Shell />);
     expect(sidebar()).toHaveAttribute("aria-valuenow", "400");

@@ -8,6 +8,8 @@ import type { StatusResponse } from "../api/types";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { BareHTMLNote } from "./BareHTMLNote";
 import { desktopTitle, inDesktop, type Section, useDesktopCommands } from "./desktopHost";
+import { applyDesktopSidebar, useWorkbenchSidebar } from "./sidebarState";
+import { SidebarToggle, useSidebarShortcut } from "./WorkbenchSidebar";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ExplorerWorkspace } from "./ExplorerWorkspace";
 import { FinderQuickOpen } from "./FinderQuickOpen";
@@ -210,9 +212,13 @@ function DesktopReporter({ route }: { route: Route }) {
   const issues = notes ? (validationQuery.data?.snapshot?.issueCount ?? null) : undefined;
   const health = notes ? validationHealth(validationQuery.data ?? null) : undefined;
 
+  const sidebar = useWorkbenchSidebar();
+  // Until the app sends its stored choice, the page's default is not a choice.
+  const sidebarCollapsed = sidebar.synced ? sidebar.collapsed : undefined;
+
   useEffect(() => {
-    document.title = desktopTitle({ section: route, search, issues, health });
-  }, [route, search, issues, health]);
+    document.title = desktopTitle({ section: route, search, issues, health, sidebarCollapsed });
+  }, [route, search, issues, health, sidebarCollapsed]);
 
   return null;
 }
@@ -238,8 +244,13 @@ export function AppShell() {
       runProjectSearch(command.query);
     } else if (command.command === "issues") {
       openIssues();
+    } else if (command.command === "sidebar") {
+      applyDesktopSidebar(command.collapsed);
     }
   });
+
+  // GraphQL has no sidebar (SPEC-0127).
+  useSidebarShortcut({ desktop, disabled: route === "graphql" });
 
   useEffect(() => {
     if (route === "notes") setNotesVisited(true);
@@ -300,6 +311,7 @@ export function AppShell() {
               </small>
             ) : null}
           </div>
+          <SidebarToggle disabled={route === "graphql"} />
           <nav aria-label="Primary">
             <button
               type="button"

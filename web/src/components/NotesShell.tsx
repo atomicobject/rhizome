@@ -11,6 +11,7 @@ import type {
   ViewCatalogEntry,
 } from "../api/types";
 import { DiagnosticRegion } from "../diagnostics/DiagnosticRegion";
+import { vaultLabel } from "../lib/labels";
 import { HomeTab } from "./HomeTab";
 import { EDITOR_DRAFTS_CHANGED_EVENT, hasPersistedEditorDrafts } from "./editing/draftStorage";
 import { flushEditors } from "./editing/editorFlush";
@@ -28,7 +29,9 @@ import { PanelResizeHandle } from "./PanelResizeHandle";
 import { RecordRailProvider, useRecordRailState } from "./recordRail";
 import { inDesktop } from "./desktopHost";
 import { readSingleKey, typingIn } from "./KeyboardShortcuts";
-import { PANE_RANGE, SIDEBAR_RANGE, useShellPanes } from "./shellPanes";
+import { PANE_RANGE, useShellPanes } from "./shellPanes";
+import { isSidebarShortcut, PanelIcon, WorkbenchSidebar } from "./WorkbenchSidebar";
+import { useWorkbenchSidebar } from "./sidebarState";
 import {
   buildNotesLocation,
   normalizeNotePath,
@@ -84,23 +87,7 @@ const FOCUS_REGIONS =
 // All notes in its Briefing, whose Recent changes section is the sidebar's Recently changed.
 const RECENT_PRESENTATION = "workspace.briefing";
 
-type ShellStyle = CSSProperties & { "--sidebar-width": string; "--pane-width": string };
-
-function PanelIcon({ side }: { side: "left" | "right" }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinejoin="round"
-    >
-      <rect x="2" y="3" width="12" height="10" rx="1.5" />
-      <path d={side === "left" ? "M6 3v10" : "M10 3v10"} />
-    </svg>
-  );
-}
+type ShellStyle = CSSProperties & { "--pane-width": string };
 
 /** Longer than a typical double-click interval. */
 const RECORD_PANE_DELAY_MS = 400;
@@ -490,7 +477,8 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     const onKeyDown = (event: KeyboardEvent) => {
       const command = event.metaKey || event.ctrlKey;
 
-      if (!command || event.isComposing) return;
+      // ⌃⌘S toggles the sidebar; it is not a save.
+      if (!command || event.isComposing || isSidebarShortcut(event)) return;
 
       if (
         event.key.toLowerCase() === "s" &&
@@ -617,8 +605,8 @@ export function NotesShell({ active = true }: { active?: boolean }) {
 
   const paneHasContent = !searchActive && (tabs.activeTab.kind === "note" || record);
   const paneOpen = paneHasContent && !panes.paneCollapsed;
-  const sidebarHidden = searchActive || panes.sidebarCollapsed;
-  const { togglePane: togglePaneState, toggleSidebar } = panes;
+  const sidebarHidden = useWorkbenchSidebar().collapsed;
+  const { togglePane: togglePaneState } = panes;
 
   const paneToggleRef = useRef<HTMLButtonElement>(null);
 
@@ -658,7 +646,6 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   }, [active, paneHasContent, togglePane]);
 
   const shellStyle: ShellStyle = {
-    "--sidebar-width": `${panes.sidebarWidth}px`,
     "--pane-width": `${panes.paneWidth}px`,
   };
 
@@ -714,24 +701,23 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     />
   );
 
+  const vaultName = statusQuery.data?.vaultName;
+
   return (
     <main
-      className="workspace workspace--ontology notes-shell"
+      className="workspace workspace--ontology workbench notes-shell"
       aria-label="Notes workspace"
       ref={shellRef}
       style={shellStyle}
     >
       <h1 className="sr-only">Notes</h1>
-      <div
-        className="notes-shell__sidebar"
-        hidden={sidebarHidden}
-        inert={sidebarHidden ? true : undefined}
+      <WorkbenchSidebar
+        title={desktop || !vaultName ? null : vaultLabel(vaultName)}
+        titleHint={statusQuery.data?.vaultPath}
       >
         <DiagnosticRegion name="sidebar">
           <NotesLeftRail
             active={active && !sidebarHidden}
-            vaultName={desktop ? null : (statusQuery.data?.vaultName ?? null)}
-            vaultPath={statusQuery.data?.vaultPath ?? null}
             summary={summary}
             selectedType={selectedType}
             // A note or view tab is not a collection, so no sidebar row is current.
@@ -755,30 +741,9 @@ export function NotesShell({ active = true }: { active?: boolean }) {
             onOpenConfiguredView={openConfiguredView}
           />
         </DiagnosticRegion>
-        <PanelResizeHandle
-          label="Resize sidebar"
-          range={SIDEBAR_RANGE}
-          value={panes.sidebarWidth}
-          edge="end"
-          cssVar="--sidebar-width"
-          target={shellRef}
-          onResize={panes.setSidebarWidth}
-        />
-      </div>
-      <div className="notes-shell__frame">
+      </WorkbenchSidebar>
+      <div className="workbench__panel notes-shell__frame">
         <div className="notes-shell__tabs-row">
-          {searchActive ? null : (
-            <button
-              type="button"
-              className="notes-shell__pane-toggle"
-              aria-label={panes.sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
-              aria-expanded={!panes.sidebarCollapsed}
-              title={panes.sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
-              onClick={toggleSidebar}
-            >
-              <PanelIcon side="left" />
-            </button>
-          )}
           <NoteTabStrip
             tabs={tabs.tabs}
             activeId={tabs.activeId}

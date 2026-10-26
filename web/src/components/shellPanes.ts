@@ -14,9 +14,7 @@ export const NARROW_QUERY = "(max-width: 1199px)";
 const STORAGE_KEY = "rhizome:notes:panes:v1";
 
 type PaneLayout = {
-  sidebar: number;
   pane: number;
-  sidebarCollapsed: boolean;
   paneCollapsed: boolean;
 };
 
@@ -27,14 +25,13 @@ export function clampWidth(value: number, range: PanelRange): number {
 function isLayout(value: unknown): value is Partial<PaneLayout> {
   return (
     isJsonObject(value) &&
-    ["sidebar", "pane"].every((key) => value[key] === undefined || isFiniteNumber(value[key])) &&
-    ["sidebarCollapsed", "paneCollapsed"].every(
-      (key) => value[key] === undefined || isBoolean(value[key]),
-    )
+    (value.pane === undefined || isFiniteNumber(value.pane)) &&
+    (value.paneCollapsed === undefined || isBoolean(value.paneCollapsed))
   );
 }
 
-// Widths and collapsed state are per browser origin, like the other shell layout choices.
+// The pane's width and collapsed state are per browser origin, like the other
+// shell layout choices. The sidebar's live in sidebarState.ts.
 function readLayout(): PaneLayout {
   let stored: Partial<PaneLayout> = {};
 
@@ -45,9 +42,7 @@ function readLayout(): PaneLayout {
   }
 
   return {
-    sidebar: clampWidth(stored.sidebar ?? SIDEBAR_RANGE.initial, SIDEBAR_RANGE),
     pane: clampWidth(stored.pane ?? PANE_RANGE.initial, PANE_RANGE),
-    sidebarCollapsed: stored.sidebarCollapsed ?? false,
     paneCollapsed: stored.paneCollapsed ?? false,
   };
 }
@@ -70,9 +65,9 @@ function useMediaQuery(query: string): boolean {
 }
 
 /**
- * The Notes shell's side panels: the sidebar and the one right pane. Widths
- * and the user's explicit collapse choices persist; below 1200px the right
- * pane ignores the stored choice, starts collapsed, and opens as an overlay.
+ * The Notes shell's one right pane. Its width and the user's explicit collapse
+ * choice persist; below 1200px it ignores the stored choice, starts collapsed,
+ * and opens as an overlay.
  */
 export function useShellPanes() {
   const [layout, setLayout] = useState(readLayout);
@@ -90,20 +85,9 @@ export function useShellPanes() {
   // Crossing the breakpoint either way starts the overlay closed.
   useEffect(() => setOverlayOpen(false), [narrow]);
 
-  const setSidebarWidth = useCallback(
-    (width: number) =>
-      setLayout((current) => ({ ...current, sidebar: clampWidth(width, SIDEBAR_RANGE) })),
-    [],
-  );
-
   const setPaneWidth = useCallback(
     (width: number) =>
       setLayout((current) => ({ ...current, pane: clampWidth(width, PANE_RANGE) })),
-    [],
-  );
-
-  const toggleSidebar = useCallback(
-    () => setLayout((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed })),
     [],
   );
 
@@ -113,15 +97,11 @@ export function useShellPanes() {
   }, [narrow]);
 
   return {
-    sidebarWidth: layout.sidebar,
     paneWidth: layout.pane,
-    sidebarCollapsed: layout.sidebarCollapsed,
     paneCollapsed: narrow ? !overlayOpen : layout.paneCollapsed,
     /** The pane, when open, covers the content instead of narrowing it. */
     paneOverlay: narrow,
-    setSidebarWidth,
     setPaneWidth,
-    toggleSidebar,
     togglePane,
   };
 }

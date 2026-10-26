@@ -290,15 +290,13 @@ describe("NotesLeftRail", () => {
     ).toHaveTextContent("2");
   });
 
-  it("names the vault, then quick items, views, and types", async () => {
+  it("lists quick items, views, and types", async () => {
     const openView = vi.fn();
     const openRecent = vi.fn();
     registerRailData("__all__", allNotes, [coverageView, planView]);
     render(
       <NotesLeftRail
         {...props({
-          vaultName: "/vaults/demo",
-          vaultPath: "/vaults/demo",
           activeViewID: coverageView.id,
           editSession: editSession(),
           onOpenConfiguredView: openView,
@@ -309,7 +307,6 @@ describe("NotesLeftRail", () => {
     );
 
     const rail = await screen.findByRole("complementary", { name: "Notes navigation" });
-    expect(within(rail).getByTitle("/vaults/demo")).toHaveTextContent(/^demo$/);
     const collections = await within(rail).findByRole("region", { name: "Collections" });
     expect(collections).toHaveClass("notes-left-rail__collections");
 

@@ -227,11 +227,6 @@ describe("NotesShell", () => {
       fireEvent.keyDown(window, { key: "F6" });
       expect(region?.contains(document.activeElement)).toBe(true);
     }
-
-    fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
-    expect(screen.queryByRole("complementary", { name: "Notes navigation" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
-    expect(screen.getByRole("complementary", { name: "Notes navigation" })).toBeVisible();
   });
 
   it("returns focus to the pane toggle when the pane closes from inside", async () => {

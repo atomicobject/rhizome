@@ -1,0 +1,65 @@
+/* ---- Workbench: one themed sidebar beside an inset content panel ----
+   Every section with a sidebar (Notes, Ontology, Explorer, Agent) uses this
+   layout (SPEC-0127). The sidebar sits on the chrome; the content is a white
+   panel inset 6px from the right and bottom with a rounded corner. */
+.workbench {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  background: var(--chrome-bg);
+}
+
+.workbench-sidebar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* A stored width never takes most of a narrow window. */
+  width: min(var(--sidebar-width), 45vw);
+  min-width: 0;
+  min-height: 0;
+  color: var(--chrome-muted);
+  font-size: var(--fs-base);
+}
+
+.workbench-sidebar[hidden] {
+  display: none;
+}
+
+.workbench-sidebar__header {
+  flex: none;
+  padding: 12px 18px 8px;
+  overflow: hidden;
+  color: var(--chrome-text);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workbench-sidebar__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workbench__panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 6px 6px 0;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+/* With the sidebar hidden the panel spans both columns, so it still fills
+   the window instead of landing in the sidebar's content-sized column. */
+.workbench-sidebar[hidden] + .workbench__panel {
+  grid-column: 1 / -1;
+  margin-left: 6px;
+}

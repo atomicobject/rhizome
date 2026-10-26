@@ -4,7 +4,8 @@ id: EFF-2026-10-26-09-57
 aliases: [EFF-2026-10-26-09-57]
 name: Workbench sidebar
 created-at: 2026-10-26T13:57:31Z
-status: planned
+plan-approved-by: Drew Colthorp
+status: active
 summary: "Deliver SPEC-0127: one persistent, user-toggled sidebar frame across Notes, Ontology, Explorer, and Agent, with one remembered collapsed state and width, a toggle in the browser top bar and the desktop toolbar, and ⌃⌘S or ⌘\\ shortcuts."
 governing-specs: ["[[workbench-sidebar]]"]
 ---
@@ -40,14 +41,14 @@ All three stories of SPEC-0127 (`^SPEC-0127-US1` through `^SPEC-0127-US3`).
 - [ ] US1 keep the sidebar where I put it (batch 1; desktop part batch 3).
 - [ ] US2 toggle from one place (browser batch 1; desktop batch 3).
 - [ ] US3 the same sidebar in every section (batch 1 frame; batch 2 contents).
-- [ ] Shell and state requirements (batch 1).
+- [x] Shell and state requirements (batch 1).
 - [ ] Desktop requirements (batch 3).
 - [ ] Accessibility and verification requirements (batches 1–3).
 - [ ] Documentation requirements (batch 4).
 
 ## Plan
 
-Delivery is one PR from `feat/persistent-sidebar` to `main`, with one commit per batch. I implement batch 1. Batches 2 and 3 then run in parallel as T3 `delegate_task` workers (Opus 5.5 high, own worktrees branched from batch 1), and I review and integrate each. Before merge: `greptile review --json` on the branch until it reports 5/5 with no comments, and an independent GPT-6.1 Sol review of the whole diff. After CI is green I squash-merge, as with #37 and #48.
+Delivery is one PR from `feat/persistent-sidebar` to `main`, with one commit per batch. I implement batch 1. Batches 2 and 3 then run in parallel as T3 `delegate_task` workers (Opus 5.5 medium, own worktrees branched from batch 1), and I review and integrate each. Before merge: `greptile review --json` on the branch until it reports 5/5 with no comments, and an independent GPT-6.1 Sol review of the whole diff. After CI is green I squash-merge, as with #37 and #48.
 
 **Current gap.**
 
@@ -71,7 +72,7 @@ Delivery is one PR from `feat/persistent-sidebar` to `main`, with one commit per
 
 ## Plan Approval
 
-Awaiting Drew.
+- 2026-10-26T14:05:59Z: Drew approved the plan at commit 579fc126 ("Do it. Opus medium workers"), including the merge after Greptile, an independent review, and green CI. Batch workers run Opus 5.5 at medium effort.
 
 ## Original Intended Delivery
 
@@ -84,6 +85,16 @@ Not started.
 ## Execution Notes
 
 - 2026-10-26T13:57:31Z: effort opened from `907e1bb8` (#48 merged) on `feat/persistent-sidebar`.
+- Batch 1 (shared state, frame, browser toggle):
+  - **State:** `web/src/components/sidebarState.ts` holds one external store for the collapsed state and width, under `rhizome:workbench:sidebar:v1`. It carries over the Notes values from `rhizome:notes:panes:v1` once and follows `storage` events. In Desktop it takes the collapsed state from the app's `sidebar` command and reports `sidebarCollapsed` in the title only after that command arrives, so the page's default never overwrites the app's stored choice.
+  - **Frame:** `WorkbenchSidebar.tsx` holds the frame (header, body, resize handle; collapsed means hidden and inert), the top-bar `SidebarToggle`, and the shortcuts. `workbench.css` holds the shared layout.
+  - **Notes:** Notes renders in the frame. The tab-strip toggle is gone, search tabs keep the sidebar, and `shellPanes.ts` now owns only the right pane.
+  - **Shortcuts:** in Desktop the page answers only ⌘\, since the View menu will own ⌃⌘S. The Notes ⌘S save handler now ignores ⌃⌘S.
+  - **Naming:** the state module is `sidebarState.ts`, not `workbenchSidebar.ts`, because that would collide with `WorkbenchSidebar.tsx` on a case-insensitive filesystem.
+  - **Evidence:**
+    - `make check` passed: 1,697 web unit tests, plus the Go suites and lint.
+    - `npx playwright test` passed all 105 e2e tests, including the new `sidebar.spec.ts` and `search.spec.ts`, which now expects the sidebar on search tabs.
+    - Browser screenshots at 1440px show search results beside the sidebar and the top-bar toggle.
 
 ## Deviations
 
@@ -100,8 +111,8 @@ None yet.
 
 ## Compounding Follow-ups
 
-None yet.
+- **Shortcuts inside view frames:** keyboard events in a custom-view iframe never reach the host window, so the sidebar shortcuts (like ⌘P) do nothing while focus is inside a view. The kit could forward host shortcuts to the parent.
 
 ## Status
 
-Planned. The next action is Drew's approval of the plan.
+Active. Batch 1 is committed; batches 2 and 3 are running as parallel workers.
