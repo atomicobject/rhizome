@@ -15,6 +15,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/harness/internal/processlog"
+	"github.com/atomicobject/rhizome/pkg/proctree"
 )
 
 const forceKillAfter = 2 * time.Second
@@ -34,6 +35,7 @@ type Transport[M any] struct {
 	recv       chan recvResult[M]
 	done       chan struct{}
 	process    *os.Process
+	tree       *proctree.Tracker
 	stdout     io.Closer
 	stderr     io.Closer
 	vendor     string
@@ -60,6 +62,10 @@ func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd
 	}
 	cmd := exec.Command(binary, args...)
 	cmd.Dir, cmd.Env = cwd, os.Environ()
+	// Harness CLIs spawn shells, tools, and MCP servers, some in process
+	// groups or sessions of their own; Close kills everything the tracker
+	// can attribute to the child.
+	proctree.Configure(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, harness.Phase(harness.ErrSpawn, err)
@@ -89,6 +95,7 @@ func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd
 	_ = stderrWriter.Close()
 	t := newTransport[M](vendor, stdin, stdin)
 	t.process, t.stdout, t.stderr = cmd.Process, stdout, stderr
+	t.tree = proctree.Track(cmd.Process, proctree.DefaultInterval)
 	t.exited, t.stderrDone = make(chan struct{}), make(chan struct{})
 	processlog.Spawn(vendor, binary, cwd, t.corr, cmd.Process.Pid)
 	go t.scan(stdout)
@@ -276,11 +283,16 @@ func (t *Transport[M]) Close(ctx context.Context) error {
 
 func (t *Transport[M]) closeProcess(ctx context.Context) error {
 	defer t.closeOutput()
-	t.closeInput()
-	exited, process := t.exited, t.process
+	exited, tree := t.exited, t.tree
 	if exited == nil {
+		t.closeInput()
 		return nil
 	}
+	defer tree.Stop()
+	// Closing input usually ends the child, after which its descendants are
+	// reparented; record them while they are still linked.
+	tree.Record()
+	t.closeInput()
 	grace := forceKillAfter
 	if deadline, ok := ctx.Deadline(); ok {
 		remaining := time.Until(deadline)
@@ -295,15 +307,14 @@ func (t *Transport[M]) closeProcess(ctx context.Context) error {
 	defer timer.Stop()
 	select {
 	case <-exited:
+		// Descendants outlive the child and may hold stderr open.
+		_ = tree.Kill()
 		t.waitStderr(ctx)
 		return nil
 	case <-timer.C:
 	case <-ctx.Done():
 	}
-	var killErr error
-	if process != nil {
-		killErr = process.Kill()
-	}
+	killErr := tree.Kill()
 	// After SIGKILL the child reaps promptly; wait a short floor for it, but
 	// never past the caller's shutdown deadline.
 	killWait := time.NewTimer(killWaitFloor)

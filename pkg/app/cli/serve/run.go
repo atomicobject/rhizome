@@ -404,6 +404,20 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 			stopServe()
 		})
 	}()
+	if opts.RunTasks != nil {
+		first, interval := defaultTasksFirstDelay, defaultTasksInterval
+		if opts.TasksFirstDelay > 0 {
+			first = opts.TasksFirstDelay
+		}
+		if opts.TasksInterval > 0 {
+			interval = opts.TasksInterval
+		}
+		bg.Add(1)
+		go func() {
+			defer bg.Done()
+			runTasksTicker(serveCtx, vaultPath, first, interval, opts.RunTasks)
+		}()
+	}
 	if opts.Headless {
 		timeout, err := resolveIdleTimeout(rt.LocalCfg, opts.IdleTimeout)
 		if err != nil {

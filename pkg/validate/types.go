@@ -28,6 +28,7 @@ const (
 	CheckQueryRecipes     = validationcatalog.CheckQueryRecipes
 	CheckViews            = validationcatalog.CheckViews
 	CheckSkillOverlays    = validationcatalog.CheckSkillOverlays
+	CheckTasks            = validationcatalog.CheckTasks
 	CheckCompanionDocs    = validationcatalog.CheckCompanionDocs
 	CheckFrozenScopeDrift = validationcatalog.CheckFrozenScopeDrift
 	// CheckFragileExternal is opt-in only and never appears in DefaultChecks.

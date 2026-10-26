@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Scheduled tasks: declare periodic agent work in `.rhizome/tasks/*.yml` and Rhizome runs it on each teammate's machine in their own Claude Code or Codex. A free pre-flight check decides whether the work is needed; the prompt then runs in the background in its own worktree and commits to a local `rzm/<task>/<date>` branch, never pushing. The repository chooses whether tasks run automatically or wait in the inbox (`tasks.defaultMode`), and each person can override a task. `rzm tasks status|inbox|run-due|run|start|mode|pause` manage them, and Rhizome Desktop and headless runtimes check for due tasks every 15 minutes. A teammate's merged run, tagged `Rhizome-Task: <id>`, resets a team task's clock. `rzm validate tasks` (part of `rzm validate all`) reports task files that fail to parse.
+- Stopping a Claude Code or Codex session now also stops the shells, tools, and MCP servers it started, including Claude Code shells that run in process groups of their own.
 - Choose a chrome theme (Graphite, Slate, Spruce, Oxblood, or Indigo) and Light, Dark, or Match System appearance. In a browser they're in the header's Appearance menu. In Rhizome Desktop they're in View › Theme, View › Appearance, and Settings, and they theme the desktop toolbar too. Inter replaces Barlow as the interface typeface, on a 14px base.
 - The Notes sidebar and right pane resize by dragging or with the keyboard and remember their widths. The sidebar's note list is gone; ⌘P finds notes instead.
 - The right pane shows Info, Outline, and Graph for a note, or the selected record for a table. `]` opens and closes it, and below 1200px it opens over the content.
