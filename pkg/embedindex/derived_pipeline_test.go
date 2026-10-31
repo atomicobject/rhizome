@@ -3,7 +3,9 @@ package embedindex
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -34,6 +36,32 @@ func TestNoteDerivedMetricsMeasureSinkFailures(t *testing.T) {
 	})
 	require.ErrorIs(t, err, want)
 	require.Contains(t, collector.RenderSummary(), "finalize_cum=")
+}
+
+func TestDerivedFinalizersAreBoundedByProviderConcurrency(t *testing.T) {
+	provider := embeddings.NewDeterministicProvider(embeddings.ProviderConfig{Provider: "test", Dimensions: 8})
+	syncer := NoteSyncer{Provider: provider, MaxConcurrent: 2}
+	plan := NotePlan{TotalWork: 64}
+	for i := range 64 {
+		text := fmt.Sprintf("content %d", i)
+		plan.tasks = append(plan.tasks, noteTask{id: embeddings.NoteID(fmt.Sprintf("notes/%d.md", i)), payload: noteTaskPayload{
+			embedChunks: []embeddings.ChunkInput{embeddings.NewChunkInput(0, text, "T", "T")},
+			embedTexts:  []string{text},
+		}})
+	}
+	var active, peak, seen atomic.Int64
+	require.NoError(t, syncer.ComputeDerived(t.Context(), plan, func(context.Context, NoteDerivedResult) error {
+		n := active.Add(1)
+		for p := peak.Load(); n > p && !peak.CompareAndSwap(p, n); p = peak.Load() {
+		}
+		// A slow sink must stall the pipeline rather than accumulate owners.
+		time.Sleep(5 * time.Millisecond)
+		active.Add(-1)
+		seen.Add(1)
+		return nil
+	}))
+	require.EqualValues(t, 64, seen.Load())
+	require.LessOrEqual(t, peak.Load(), int64(2))
 }
 
 func TestOntologyDerivedComputeDoesNotPublishChunksOrVectors(t *testing.T) {
