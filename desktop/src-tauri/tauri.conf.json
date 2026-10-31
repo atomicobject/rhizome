@@ -22,7 +22,7 @@
     "targets": ["app", "dmg"],
     "category": "DeveloperTool",
     "shortDescription": "Open your repositories in Rhizome",
-    "externalBin": ["binaries/rzm"],
+    "externalBin": ["binaries/rzm", "binaries/team-api"],
     "macOS": {
       "minimumSystemVersion": "12.0"
     },

@@ -9,6 +9,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/agentapi"
 
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 
@@ -39,7 +40,7 @@ func initSemanticTools(ctx context.Context, vaultPath string, cfg *agentapi.Conf
 	codeEmbCfg, _ := resolved.CodeEmbeddingsFor(embCfg)
 
 	if embCfg.Enabled {
-		provider, providerCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(ctx), embCfg, "")
+		provider, providerCfg, err := provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(ctx), embCfg, "")
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("semantic: %v", embeddings.ProviderUnavailableError(embCfg, err)))
 		} else {
@@ -66,7 +67,7 @@ func initSemanticTools(ctx context.Context, vaultPath string, cfg *agentapi.Conf
 	}
 
 	if codeEmbCfg.Enabled {
-		provider, providerCfg, err := embeddings.NewProviderForConfig(vaultconfig.FromContext(ctx), codeEmbCfg, "")
+		provider, providerCfg, err := provideraccess.Default().NewEmbeddings(vaultconfig.FromContext(ctx), codeEmbCfg, "")
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("semantic: %v", embeddings.ProviderUnavailableError(codeEmbCfg, err)))
 		} else {

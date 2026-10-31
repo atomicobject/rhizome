@@ -50,6 +50,13 @@ rzm init
 
 Atomic Object employees can import shared provider keys from a team 1Password Environment in Rhizome setup or Settings. The import uses the stable 1Password CLI and saves keys on your computer; ordinary use needs no 1Password prompt. Ask the team for the account and Environment ID. [Credential setup](docs/engineering/secrets.md#developer-setup)
 
+A team API gateway will replace those shared keys with a per-person Google sign-in. It is not deployed yet:
+- `rzm auth login --server <gateway URL>` signs in once for every Rhizome process on your Mac.
+- `rzm auth status` and `rzm auth logout` manage the session.
+- `rzm auth admin` lets admins check usage and manage people, sessions, and limits.
+
+Your own provider keys still take precedence. [Team API gateway](services/team-api/README.md)
+
 When preparing another checkout, run `rzm new-worktree <source-worktree-path>` from the new worktree. It copies the index and seeds personal view settings once. Each worktree remembers later preference changes independently, and existing personal settings are preserved.
 
 ### 3. Give your agent a task

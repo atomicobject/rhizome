@@ -3,6 +3,7 @@
   "bundle": {
     "targets": ["app", "dmg"],
     "createUpdaterArtifacts": true,
+    "externalBin": ["binaries/rzm"],
     "macOS": {
       "signingIdentity": "-"
     }

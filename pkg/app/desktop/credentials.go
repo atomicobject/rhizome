@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
+	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
@@ -16,6 +17,8 @@ type CredentialStatus struct {
 	Source    *repoconfig.CredentialSource `json:"source,omitempty"`
 	Available bool                         `json:"available"`
 	Ready     []string                     `json:"ready"`
+	// Team is the team API session; it never includes a token.
+	Team provideraccess.TeamStatus `json:"team"`
 }
 
 func (s *Service) CredentialStatus() (CredentialStatus, error) {
@@ -23,7 +26,11 @@ func (s *Service) CredentialStatus() (CredentialStatus, error) {
 	if err != nil {
 		return CredentialStatus{}, problem("credential_config", "Cannot read user configuration. Repair it before importing credentials.")
 	}
-	status := CredentialStatus{Source: cfg.CredentialSource, Available: credentials.FindOnePassword(s.env) != "", Ready: []string{}}
+	teamStatus := s.teamStatus
+	if teamStatus == nil {
+		teamStatus = provideraccess.Default().TeamStatus
+	}
+	status := CredentialStatus{Source: cfg.CredentialSource, Available: credentials.FindOnePassword(s.env) != "", Ready: []string{}, Team: teamStatus()}
 	for _, provider := range []string{"voyage", "typesafe", "openai", "cerebras", "anthropic"} {
 		need, _ := credentials.NeedForProvider(provider, "")
 		keys := append([]string{need.Key}, need.AltKeys...)
