@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -326,6 +327,9 @@ func TestReadTranscriptPartialLineAndResume(t *testing.T) {
 }
 
 func TestTranscriptFileMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("owner-only modes apply on macOS and Linux (SPEC-0127)")
+	}
 	path := transcriptPath(t)
 	transcript, err := NewTranscript(path)
 	if err != nil {
