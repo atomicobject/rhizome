@@ -104,6 +104,21 @@ func TestFirstRunSettingsCanTurnOffAnAddonListedInAddons(t *testing.T) {
 	require.NoFileExists(t, compoundingSkill(root))
 }
 
+func TestFirstRunSettingsWorkflowChangeKeepsAddonsNone(t *testing.T) {
+	root := firstRunRepo(t)
+
+	// No key, e, 4 for the workflow, 1 picks Agentic Engineering, Enter
+	// leaves settings, Enter sets up.
+	var out bytes.Buffer
+	require.NoError(t, Run(RunOptions{Env: initTestEnv(t), Dir: root, Interactive: true, Workflow: "none", Addons: "none",
+		Stdin: bytes.NewBufferString("\ne\n4\n1\n\n\n"), Stdout: &out, Stderr: &out}))
+
+	cfg := loadConfigForTest(t, root)
+	require.Equal(t, []string{templateAgenticEngineering}, cfg.WorkflowTemplates)
+	require.Equal(t, []string{templateActionItems}, cfg.WorkflowTemplateAddons.Disabled)
+	require.NoFileExists(t, actionItemsOntology(root))
+}
+
 func TestRerunSettingsAddAnAddonAndKeepHooksOff(t *testing.T) {
 	root := rerunRepo(t)
 	n := addonMenuNumber(t, templateCompounding)

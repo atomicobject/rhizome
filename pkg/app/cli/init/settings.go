@@ -318,7 +318,14 @@ func (r *initRun) editWorkflow(s *setup) error {
 	}
 	s.cfg.WorkflowTemplateManagement.Ejected = sortedStringSet(ejected)
 	s.workflows = next
-	return nil
+	if strings.TrimSpace(r.opts.Addons) == "" {
+		return nil
+	}
+	registry, err := loadStarterTemplateMetadataRegistry()
+	if err != nil {
+		return err
+	}
+	return disableUnlistedDefaults(s, registry)
 }
 
 // starterClosure lists every starter workflows installs, ignoring ejection.
