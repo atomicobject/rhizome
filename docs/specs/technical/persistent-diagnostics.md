@@ -67,7 +67,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 
 - One process-level recorder MUST serve the vault's participating boundaries. Request and job context MUST preserve correlation while retaining existing cancellation and ownership behavior.
 - Runtime lifecycle and readiness, MCP tool outcome, HTTP route/status/latency, and background job outcomes MUST have stable structured events with useful safe attributes.
-- A runtime health probe (`GET /api/v1/runtime`) that answers below status 400 within the slow-request threshold MUST NOT record request events. Failed, slow, canceled, and panicking probes MUST record their start and terminal events together when the probe finishes, under one operation identity. This is the one exception to a start event preceding work: the terminal event's `duration_ms` carries the probe's real duration.
+- A runtime health probe (`GET /api/v1/runtime`) that answers below status 400 within one second MUST NOT record request events. Failed, slow, canceled, and panicking probes MUST record their start and terminal events together when the probe finishes, under one operation identity. This is the one exception to a start event preceding work: the terminal event's `duration_ms` carries the probe's real duration.
 - Legacy logging bridges MUST avoid recursive logging and unsafe payload capture. Redacted or unavailable detail MUST be recognizable as incomplete evidence.
 
 ### Code-mode evidence

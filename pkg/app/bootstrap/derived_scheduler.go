@@ -166,9 +166,12 @@ type derivedResult interface{ RetainedBytes() int }
 // The publisher publishes bounded batches, each inside one lease, so a pass
 // admits one lane job and one witness check per batch rather than per result.
 // A sink call blocks while the buffer is full and returns the publisher's
-// error once a batch fails. It returns after the publisher has drained, so a
-// nil result means every computed result was published.
-func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context, ticket codeanchor.DerivedWork, compute func(func(context.Context, R) error) error, publish func(context.Context, R) error) error {
+// error once a batch fails; a failed batch also cancels compute's context so
+// the pass stops calling the provider. It returns after the publisher has
+// drained, so a nil result means every computed result was published.
+func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context, ticket codeanchor.DerivedWork, compute func(context.Context, func(context.Context, R) error) error, publish func(context.Context, R) error) error {
+	computeCtx, stopCompute := context.WithCancel(ctx)
+	defer stopCompute()
 	// ponytail: the byte cap bounds a batch, not this buffer; buffered results
 	// are capped by count only. Weigh the buffer too if owners grow huge.
 	results := make(chan R, derivedPublishBatchResults)
@@ -207,12 +210,18 @@ func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context
 				return nil
 			}); err != nil {
 				publishErr = err
+				stopCompute()
 				close(failed)
 				return
 			}
 		}
 	}()
-	err := compute(func(sinkCtx context.Context, result R) error {
+	err := compute(computeCtx, func(sinkCtx context.Context, result R) error {
+		select {
+		case <-failed:
+			return publishErr
+		default:
+		}
 		select {
 		case results <- result:
 			return nil
@@ -300,7 +309,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		if err != nil {
 			return err
 		}
-		err = computeAndPublish(s, ctx, ticket, func(sink func(context.Context, embedindex.NoteDerivedResult) error) error {
+		err = computeAndPublish(s, ctx, ticket, func(ctx context.Context, sink func(context.Context, embedindex.NoteDerivedResult) error) error {
 			return s.compute(ctx, "embed_notes", func(computeCtx context.Context) error {
 				return w.noteSyncer.ComputeDerived(computeCtx, plan, sink)
 			})
@@ -346,7 +355,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		if err != nil {
 			return err
 		}
-		err = computeAndPublish(s, ctx, ticket, func(sink func(context.Context, embedindex.CodeDerivedResult) error) error {
+		err = computeAndPublish(s, ctx, ticket, func(ctx context.Context, sink func(context.Context, embedindex.CodeDerivedResult) error) error {
 			return s.compute(ctx, "embed_code", func(computeCtx context.Context) error {
 				return w.codeSyncer.ComputeDerived(computeCtx, plan, sink)
 			})
