@@ -23,6 +23,8 @@ import { NOTES_ROOT_PATH, parseNotesLocation } from "./notesRoute";
 import { OntologyAtlasWorkspace } from "./OntologyAtlasWorkspace";
 import { isOntologyPath, ONTOLOGY_ROOT_PATH } from "./ontologyRoute";
 import { OntologyEditSessionProvider } from "./useOntologyEditSession";
+import { isTasksPath, TASKS_ROOT_PATH } from "./tasks/tasksRoute";
+import { TasksWorkspace } from "./tasks/TasksWorkspace";
 import { summaryCountsKnown, useOntologySummaryQuery, useValidationQuery } from "./useNotesQueries";
 import { ValidationIssueBadge } from "./validation/ValidationIssueBadge";
 import { validationHealth } from "./validation/validationPresentation";
@@ -60,6 +62,8 @@ function normalizeRouteLocation(): Route {
 
   if (isAgentPath(pathname)) return "agent";
 
+  if (isTasksPath(pathname)) return "tasks";
+
   if (isGraphQLPath(pathname)) return "graphql";
 
   if (isOntologyPath(pathname)) return "ontology";
@@ -78,9 +82,11 @@ function navigateTo(next: Route) {
         ? ONTOLOGY_ROOT_PATH
         : next === "agent"
           ? "/agent"
-          : next === "graphql"
-            ? "/graphql"
-            : "/explorer";
+          : next === "tasks"
+            ? TASKS_ROOT_PATH
+            : next === "graphql"
+              ? "/graphql"
+              : "/explorer";
 
   window.history.pushState({}, "", url);
   notifyLocationChange();
@@ -358,6 +364,14 @@ export function AppShell() {
             </button>
             <button
               type="button"
+              className={route === "tasks" ? "is-active" : ""}
+              aria-current={route === "tasks" ? "page" : undefined}
+              onClick={() => navigateTo("tasks")}
+            >
+              Tasks
+            </button>
+            <button
+              type="button"
               className={route === "graphql" ? "is-active" : ""}
               aria-current={route === "graphql" ? "page" : undefined}
               onClick={() => navigateTo("graphql")}
@@ -402,6 +416,8 @@ export function AppShell() {
             <OntologyAtlasWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "agent" ? (
             <AgentWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
+          ) : route === "tasks" ? (
+            <TasksWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
           ) : route === "graphql" ? (
             <Suspense fallback={<main className="graphql-explorer" />}>
               <GraphQLExplorer />

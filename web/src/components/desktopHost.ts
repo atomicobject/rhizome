@@ -18,7 +18,7 @@ declare global {
 // The page has no native permissions: it reports its state through the
 // document title, and the app sends it commands as `rhizome:desktop` events.
 
-export const SECTIONS = ["notes", "ontology", "explorer", "agent", "graphql"] as const;
+export const SECTIONS = ["notes", "ontology", "explorer", "agent", "tasks", "graphql"] as const;
 
 export type Section = (typeof SECTIONS)[number];
 

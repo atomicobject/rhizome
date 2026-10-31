@@ -6,6 +6,7 @@ const SECTIONS = [
   ["ontology", "Ontology"],
   ["explorer", "Explorer"],
   ["agent", "Agent"],
+  ["tasks", "Tasks"],
   ["graphql", "GraphQL"],
 ] as const;
 
