@@ -241,7 +241,7 @@ node tools/sessionmemorybench/campaign.mjs recall
 node tools/sessionmemorybench/verify-models.mjs pilot gpt-6.1-terra low 1
 ```
 
-Grouping/matching use `roles.mjs prepare`, `roles.mjs reference`, `roles.mjs run --model MODEL --effort EFFORT --repeat N`, and `roles.mjs report`. Paid role commands require the absolute campaign `spend.json` as `SM_BENCH_SPEND_FILE` and `SM_BENCH_BUDGET_USD=75`.
+Grouping/matching use `roles.mjs prepare`, `roles.mjs reference`, `roles.mjs run --model MODEL --effort EFFORT --repeat N`, and `roles.mjs report`. Paid role commands require the absolute campaign `spend.json` as `SM_BENCH_SPEND_FILE` and `SM_BENCH_BUDGET_USD=75`. `roles.mjs reference` reproduces this campaign: it reuses the archived v3 Sonnet-medium matching reference and its ledger (`--match-reference`, `--match-ledger`) and regenerates only the grouping judgments, so a fresh comparison needs a new matching reference first. `verify-models.mjs` refuses to run unless both the evidence checkout and the search checkout are clean at the frozen commit.
 
 The frozen confirmation uses `heldout.mjs prepare` followed by `heldout.mjs run`, with the staged manifest and finalist file retained locally. Fresh full verifier repeats use `verify-models.mjs full MODEL EFFORT REPEAT`; `verify-reference.mjs compare --phase full` compares against the frozen reference. `summarize.mjs` reconciles aggregate ledgers.
 

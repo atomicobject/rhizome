@@ -41,7 +41,10 @@ for (const v of negatives) if (pilot.length < 24 && !pilot.includes(v)) pilot.pu
 const ids = phase === "pilot" ? pilot.map((v) => v.cluster) : old.map((v) => v.cluster).sort();
 if (!["pilot", "full"].includes(phase) || !model || !effort) throw new Error("usage: verify-models.mjs pilot|full MODEL EFFORT [REPEAT]");
 if (new Set(ids).size !== ids.length || ids.length !== (phase === "pilot" ? 24 : 94) || ids.some((id) => !byId.has(id))) throw new Error("verification case fixture is incomplete or duplicated");
-if (execFileSync("git", ["-C", evidence, "rev-parse", "HEAD"], { encoding: "utf8" }).trim() !== commit || execFileSync("git", ["-C", evidence, "status", "--porcelain", "--untracked-files=no"], { encoding: "utf8" }).trim()) throw new Error("historical evidence checkout drifted");
+// Searches run in their own checkout, so it must stay at the same commit.
+for (const checkout of [evidence, searchRoot]) {
+  if (execFileSync("git", ["-C", checkout, "rev-parse", "HEAD"], { encoding: "utf8" }).trim() !== commit || execFileSync("git", ["-C", checkout, "status", "--porcelain", "--untracked-files=no"], { encoding: "utf8" }).trim()) throw new Error(`historical checkout ${checkout} drifted`);
+}
 const dir = join(root, `verify-${phase}-${model}-${effort}-${repeat}`);
 mkdirSync(dir, { recursive: true, mode: 0o700 });
 mkdirSync(join(root, "search-cache"), { recursive: true, mode: 0o700 });

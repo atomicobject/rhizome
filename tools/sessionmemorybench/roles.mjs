@@ -170,6 +170,7 @@ async function reference(options) {
   const f = fixture(), path = join(ROOT, "reference.json");
   if (existsSync(path)) { validateReference(f, read(path)); console.log("Frozen reference already exists"); return; }
   const matchingPath = resolve(options["match-reference"] ?? join(ROOT, "reference.v3-before-multimembership-fix.json"));
+  if (!existsSync(matchingPath)) throw new Error("reference reuses this campaign's archived v3 matching reference; pass --match-reference and --match-ledger, or build a new matching reference for a fresh comparison");
   const prior = read(matchingPath);
   if (prior.inputVersion !== 3 || prior.fixtureSha256 !== f.provenance.fixtureSha256 || prior.binding?.model !== JUDGE || prior.binding?.effort !== "medium") throw new Error("matching reference must be the unchanged v3 Sonnet-medium reference for this fixture");
   exactIds(prior.pairs, f.pairs.map((p) => p.id));
