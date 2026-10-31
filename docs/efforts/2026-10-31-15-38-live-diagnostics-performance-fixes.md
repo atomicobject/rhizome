@@ -98,6 +98,8 @@ Live measurement: the old build (`main` at `dbc04f3a`) and the new build ran sid
 
 ## Deviations
 
+- 2026-10-31T22:30:00Z: Drew decided the projection-refresh follow-up. Text already embedded with the same provider, model, and dimensions must never be re-embedded, even when notes are reprojected; only a chunking or text change, or a change of provider, model, or dimensions, justifies a provider call. This was added to this effort as WP-H: a content-addressed cache for ontology body embeddings in the intel store, which ownership transitions do not delete.
+
 - 2026-10-31T21:00:00Z: the plan excluded idle-CPU work unless it remained after the other fixes. It did: about 1.1 CPU-s/min on the fixture with both builds. `sample` attributed it to `watchStartIntent`, which took a file lock and read the start intent every 50 ms for the runtime's lifetime. The poll now backs off from 50 ms to a 1 s cap, still within `StopGrace` (10 s). Added under the original authority because it is the root cause of finding F4, which was in the plan's measure-then-decide scope.
 - Desktop verification ran `make desktop-check` (cargo fmt, clippy, and 87 Rust tests, including the new interval tests) and `make desktop-build`. The packaged app could not be exercised: the single-instance plugin handed each launch to Drew's already-running `Rhizome.app`, built in worktree `t3-e36f9b1a`, and quitting that app was not authorized. Watch sidecar launches per minute after `make desktop-install-dev`.
 - WP-F accepts a slower relaunch: a runtime that crashes behind an open pane while the desktop is idle can take about 23 s to relaunch instead of about 6. No page-to-presence wake hook exists; recorded as a follow-up.
