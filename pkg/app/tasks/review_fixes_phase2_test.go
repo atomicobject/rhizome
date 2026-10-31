@@ -54,7 +54,11 @@ func TestEndRecordsAnAttemptThatSavedNoResult(t *testing.T) {
 	dir := newRepo(t, map[string]string{"look.yml": lookTask})
 	svc := newService(t, dir, &fakeAgent{}, "notify")
 	a := svc.newAttempt(false)
-	if err := svc.begin(context.Background(), a, a.record("look", "", time.Now()), nil); err != nil {
+	var itemID string
+	if err := svc.begin(context.Background(), a, a.record("look", "", time.Now()), func(st *State) {
+		itemID = st.AddItem(Item{Task: "look", Kind: KindTask, State: StateRunning}, time.Now()).ID
+		st.Running.Item = itemID
+	}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -64,6 +68,9 @@ func TestEndRecordsAnAttemptThatSavedNoResult(t *testing.T) {
 	last, ok := st.LastRun("look")
 	if st.Running != nil || !ok || last.ID != a.id || last.Outcome != OutcomeFailed {
 		t.Fatalf("running=%v last=%+v, want the attempt recorded as failed", st.Running, last)
+	}
+	if it, err := st.Item(itemID); err != nil || it.State != StateAttention {
+		t.Fatalf("item = %+v (%v), want needs attention so it can be retried", it, err)
 	}
 }
 

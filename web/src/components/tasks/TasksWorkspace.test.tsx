@@ -105,6 +105,18 @@ describe("TasksWorkspace", () => {
     await waitFor(() => expect(http.count("POST", "/api/tasks/items/12/done")).toBe(1));
   });
 
+  it("reloads the task's history after an item action", async () => {
+    http.json("POST", "/api/tasks/items/9/skip", {});
+    open("/tasks/dependency-updates");
+    render(<TasksWorkspace />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
+    const before = http.count("GET", "/api/tasks/runs");
+
+    await waitFor(() => expect(http.count("POST", "/api/tasks/items/9/skip")).toBe(1));
+    await waitFor(() => expect(http.count("GET", "/api/tasks/runs")).toBeGreaterThan(before));
+  });
+
   it("pauses and resumes all background work", async () => {
     http.json("GET", "/api/tasks", { ...reportFixture(NOW), paused: true });
     http.json("GET", "/api/tasks/state", { ...stateFixture(NOW), paused: true });

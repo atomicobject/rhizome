@@ -166,6 +166,11 @@ func (s *Service) end(ctx context.Context, a attempt) {
 			r := *st.Running
 			r.At, r.Outcome = s.opts.Now(), OutcomeFailed
 			r.Message = "the run ended without saving its result"
+			if it, err := st.Item(r.Item); r.Item != "" && err == nil && it.State == StateRunning {
+				// Keep it retryable and discardable, with its worktree.
+				it.set(StateAttention, r.At)
+				it.Reason = r.Message
+			}
 			st.Record(r)
 		}
 		return nil

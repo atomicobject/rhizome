@@ -152,6 +152,9 @@ export function TasksWorkspace({
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.report() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.state() });
+    // Skip and Done can add records that carry no run id, which the live
+    // state's change check cannot see.
+    void queryClient.invalidateQueries({ queryKey: [...queryKeys.tasks.all(), "runs"] });
   };
 
   const perform = async (kind: typeof pending, scope: string, action: () => Promise<void>) => {
