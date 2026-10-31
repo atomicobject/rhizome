@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
@@ -162,4 +163,49 @@ func TestDiagnosticRequestMarksEventStreams(t *testing.T) {
 		}
 	}
 	require.Equal(t, []any{true, false}, streams)
+}
+
+func TestDiagnosticHealthProbesRecordOnlyWhenUnhealthyOrSlow(t *testing.T) {
+	root := t.TempDir()
+	recorder, err := diagnostics.Open(root, diagnostics.Options{Stderr: io.Discard})
+	require.NoError(t, err)
+	s := &Server{diagnostics: recorder, mux: http.NewServeMux()}
+	var status int
+	var delay time.Duration
+	s.mux.HandleFunc(appruntime.HealthPath, func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(delay)
+		if status == 0 {
+			panic("probe")
+		}
+		w.WriteHeader(status)
+	})
+	s.mux.HandleFunc("/api/other", func(w http.ResponseWriter, r *http.Request) {})
+	probe := func(code int, wait time.Duration) {
+		status, delay = code, wait
+		s.observeRequest(s.mux).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://127.0.0.1"+appruntime.HealthPath, nil))
+	}
+	probe(http.StatusOK, 0)
+	probe(http.StatusOK, 0)
+	probe(http.StatusInternalServerError, 0)
+	probe(http.StatusOK, quietHealthLimit)
+	require.Panics(t, func() { probe(0, 0) })
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	status, delay = http.StatusOK, 0
+	s.observeRequest(s.mux).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://127.0.0.1"+appruntime.HealthPath, nil).WithContext(ctx))
+	s.observeRequest(s.mux).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/other", nil))
+	require.NoError(t, recorder.Close())
+	events, err := diagnostics.ReadEvents(root, diagnostics.Filter{})
+	require.NoError(t, err)
+	var got []string
+	for i := 0; i+1 < len(events.Events); i += 2 {
+		start, finish := events.Events[i], events.Events[i+1]
+		require.Equal(t, "request.started", start.Name)
+		require.Equal(t, "http.request.finished", finish.Name)
+		require.Equal(t, start.OperationID, finish.OperationID)
+		got = append(got, start.Attributes["route"].(string)+" "+finish.Attributes["status"].(string))
+	}
+	require.Len(t, events.Events, 2*len(got))
+	h := appruntime.HealthPath
+	require.Equal(t, []string{h + " error", h + " success", h + " error", h + " canceled", "/api/other success"}, got)
 }
