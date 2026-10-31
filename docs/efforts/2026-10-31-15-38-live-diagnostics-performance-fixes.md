@@ -95,8 +95,8 @@ Live measurement: the old build (`main` at `dbc04f3a`) and the new build ran sid
 - 2026-10-31T23:30:00Z: WP-H council review.
   - Round 4: Opus 7, Sol 6. Fixed the upgrade backfill, exact dimensions, permanent retention, and superseded results.
   - Round 5: Opus 5, Sol 8. Fixed default-config sizes, partial provider failures, and interim-table repair.
-  - Round 7: Opus 7, Sol 8. Fixed caching when publication fails after embedding. The shared embedding node now drops queued texts from a cancelled pass and returns its in-flight vectors, so a sibling-lane failure or a preemption no longer pays for unsent text or loses delivered vectors.
   - Round 6: Opus 8, Sol 7. Fixed cancellation dropping partial cache writes. The shared-node and stop or preemption limits are accepted and recorded. Sol's repair-history finding is dismissed because it affects only unreleased branch databases.
+  - Round 7: Opus 7, Sol 8. Fixed caching when publication fails after embedding. The shared embedding node now drops queued texts from a cancelled pass and returns its in-flight vectors, so a sibling-lane failure or a preemption no longer pays for unsent text or loses delivered vectors.
 - 2026-10-31T21:40:00Z: council code review, with Claude Opus 5.5 (high) and GPT-6.1 Sol (high).
   - Round 1: Opus 8.5, Sol 5. Fixed a duplicate test type and the agent resync baseline race.
   - Round 2: Opus 8.5, Sol 9. Fixed compute continuing after a failed publish, the spec threshold, and a stray generated file.
