@@ -420,7 +420,7 @@ team-api-dev: team-api-build
 # Live upstreams with the development keys from 1Password; the keys reach only
 # the gateway process.
 team-api-dev-live: team-api-build
-	python3 scripts/secrets/run.py development -- $(TEAM_API_BIN) dev --listen $(TEAM_API_DEV_LISTEN) --data-dir $(TEAM_API_DEV_DIR) --upstreams live
+	./scripts/with-secrets development $(TEAM_API_BIN) dev --listen $(TEAM_API_DEV_LISTEN) --data-dir $(TEAM_API_DEV_DIR) --upstreams live
 
 team-api-dev-reset:
 	rm -rf $(TEAM_API_DEV_DIR)

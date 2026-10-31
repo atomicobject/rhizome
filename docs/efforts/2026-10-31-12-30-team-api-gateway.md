@@ -41,14 +41,14 @@ All eight stories of SPEC-0129 (`^SPEC-0129-US1` through `^SPEC-0129-US8`).
 
 ## Spec Coverage Checklist
 
-- [ ] US1 sign in once per computer (Batches 1 and 3).
-- [ ] US2 Voyage and Jev without a provider key (Batches 2 and 3).
-- [ ] US3 access ends when it should (Batches 2 and 6).
-- [ ] US4 spending stays inside hard limits (Batches 2, 5, and 6).
-- [ ] US5 desktop sign-in (Batch 4).
+- [ ] US1 sign in once per computer. Built and verified locally against the development issuer; Google itself (P1–P4) is still owed.
+- [x] US2 Voyage and Jev without a provider key: e2e with fake and live providers.
+- [ ] US3 access ends when it should. Gateway behavior is built and tested; the offboarding drill (A6) is a live Batch 6 check.
+- [ ] US4 spending stays inside hard limits. Built and tested in process; deployment-transition and live checks (A12–A15) are Batches 5 and 6.
+- [ ] US5 desktop sign-in. Built, with `make desktop-check` and `make desktop-build` passing; the packaged-app click-through is owed.
 - [ ] US6 retire distributed keys (Batch 7).
-- [ ] US7 admin usage and access management (local build).
-- [ ] US8 the whole stack runs locally (local build).
+- [x] US7 admin usage and access management.
+- [x] US8 the whole stack runs locally, including dev-build auto-start.
 - [ ] Identity, session, store, origin, gateway, admission, logging, and placement requirements (Batches 1–3, verified in 5–6).
 
 ## Plan
@@ -91,11 +91,24 @@ An Atomic staff member runs `rzm auth login` once, or signs in from Rhizome Desk
 
 ## Actual Delivered
 
-In progress. So far, on `t3/team-api-proxy-auth` (uncommitted):
+The local build, on `t3/team-api-proxy-auth`:
 
-- SPEC-0129 and this effort.
-- `pkg/teamapi/wire`: the v1 routes, headers, error codes, JSON bodies, and request ceilings, with tests for its standard-library-only imports and for the size ceilings.
-- `pkg/teamapi/session`: typed store errors and the macOS keychain adapter, with an opt-in round-trip test against a temporary keychain.
+- **Contract:** `pkg/teamapi/wire`: routes, headers, error codes and statuses, `GatewayError`, admin types, and request ceilings.
+- **Server (`services/team-api`):**
+  - `config`, plus the `store` (SQLite) with a reusable contract suite.
+  - `auth`: Google-compatible OIDC verification, opaque rotating sessions with a 120-second grace, and middleware.
+  - `admin` with audit and limit ceilings, and `identity`, which composes them.
+  - `ledger` and `traffic`: validation, an ingress gate, combined slots, receipts that never dispatch twice, atomic reservation, settlement by admission day, and restart recovery.
+  - `devidp`, a real OIDC issuer, and `fakeupstream`, with fault markers.
+  - `cmd/team-api` with `serve` and `dev`.
+- **Client:**
+  - `pkg/teamapi/session`: record, keychain with a 10-second deadline, flock refresh coordination, a write check before rotation, the origin selector, and the transport.
+  - `pkg/teamapi/login`, a loopback PKCE flow.
+  - `rzm auth login|status|logout|admin`, which runs on the invoked executable without dotenv.
+- **Provider access:** `pkg/app/provideraccess`, the one factory deciding between a direct key, the team session, and the bundle. It also adds managed modes and idempotency-key rules to Voyage and TypeSafe, and gateway-aware batch classification. `cmd/team_access.go` installs it.
+- **Development builds:** `version.Channel` (release tooling sets `release`), and `pkg/app/teamdev`, which auto-starts the live local gateway and refuses fake upstreams.
+- **Desktop:** Team account in Settings and setup through the `team-*` bridge operations.
+- **Tooling:** `make team-api-{build,check,dev,dev-live,dev-reset}`, the CI job `Team API Gateway`, `scripts/team-api/e2e.sh`, and `services/team-api/README.md`.
 
 ## Execution Notes
 
@@ -118,8 +131,24 @@ In progress. So far, on `t3/team-api-proxy-auth` (uncommitted):
   - `make check-fast` stopped at `web-deps` because this worktree has no `web/node_modules`; no web files changed. Its Go and content targets, `make lint go-analysis file-size-check vet test-content`, passed (golangci-lint: 0 issues).
   - `./scripts/rzm validate` reported 0 issues. `rzm agent validate frozen-scope-drift` reported 2 issues, both in older efforts (EFF-2026-10-01-10-06, EFF-2026-10-03-18-33), and only a same-day note for this one.
 
+- 2026-10-31T17:25:00Z: Council round 1 on the plan and architecture. GPT-6.1 Sol (high) scored it 7.5/10 and Claude Fable 5.1 (high) 7/10. No Gemini model was available, so the council had two members.
+  - **Taken now:** fake-upstream reuse protection, a trusted origin selector, receipts without expiry plus restart recovery, a bounded ingress gate, a switch recheck before reservation, combined per-person slots, idempotency keys renewed after definitive answers and reused only after ambiguous ones, no splitting on ambiguous failures, a deadline on keychain calls, a write check before rotation, operation-shaped store and ledger interfaces, admin limit ceilings, and DynamoDB as the deployed store.
+  - **Declined:** removing revocation on predecessor reuse (the write check addresses the cause), and making charge credits optional (a pilot-policy decision for Drew).
+- 2026-10-31T17:40:00Z–18:00:00Z: Six lanes merged: devidp `c915398d`, desktop `30cfaf71`, server identity `a3635693`, server traffic `4d9621b3`, client session `98c9c1f0`, and provider access `a7e567c8`.
+  - Only `services/team-api/go.mod` and `go.sum` conflicted; they were resolved by union and `go mod tidy`.
+  - Ledger failures now return `internal_error` rather than `upstream_unavailable`.
+- 2026-10-31T18:00:00Z, integration evidence:
+  - `make team-api-check` and `cmd/team-api` `TestDevStack` pass. `TestDevStack` runs the composed stack with the real `login` and `session` packages, covering sign-in, embeddings, a repeated key refused with `result_unavailable` and exactly one upstream hit, `not_admin`, admin usage, disable, audit, logout, ineligible identities, and server diagnostics.
+  - `scripts/team-api/e2e.sh` passes with fake providers. With `TEAM_API_E2E_UPSTREAMS=live`, real Voyage served 4 requests and real Jev (`jev-1.14.0`) one evaluation, using the development keys from the keychain.
+  - Dev-build auto-start: `rzm auth login` with no `--server` started the live gateway on 8787 and signed in as `dev-admin`.
+  - Precedence: with a synthetic direct `TYPESAFE_API_KEY` set, a dev build still evaluated through the gateway (admin usage showed 1 request).
+  - Afterwards the session was revoked, the gateway stopped, `~/.config/rhizome/team-api-dev` removed, and no `rhizome-team-session` keychain item remained.
+- **Surprise: the fixture vault indexes no code.** Its code roots point at the repository root rather than `vault/`. With code embeddings enabled, search then fails with "code embedding metadata is missing", which predates this work (Follow-ups). The e2e script points the roots at `vault/`.
+- **Surprise: search right after `rzm index` can fail** with "stale search continuation: index changed during search" while live background work settles. This predates this work; the script retries search.
+
 ## Deviations
 
+- 2026-10-31T18:00:00Z: The repository had no development-build marker; `version.Version` is always a release number. `version.Channel` now defaults to `dev`, and Goreleaser and `make build-release` set `release`. SPEC-0129 says so, and also gains the origin-selector and fake-gateway requirements that came out of the council (requirements only, same scope). frozen-scope-drift acknowledged for SPEC-0129: the spec set is refrozen at this revision.
 - 2026-10-31T17:18:43Z: Drew moved the server into this repository, chose SQLite for local state, and added an admin API (US7) and the local stack (US8). SPEC-0129 was revised and refrozen the same day. frozen-scope-drift acknowledged for SPEC-0129: the spec set is refrozen at this revision.
 - 2026-10-31T16:29:31Z: macOS-only managed sign-in, approved by Drew with the plan defaults. Acceptance row A22 (Linux and Windows stores) leaves this effort.
 
@@ -132,10 +161,20 @@ In progress. So far, on `t3/team-api-proxy-auth` (uncommitted):
 
 ## Compounding Follow-ups
 
+- **Google prototypes (P1–P4):** these need the Atomic Google Cloud project, the Desktop client, test accounts, and the domain list (X2, X3). Then point a production-mode config at Google and run the same e2e sign-in.
+- **Batch 5:** a DynamoDB store passing `storetest` plus the ledger contract tests; CloudFormation; stdout JSON diagnostics for CloudWatch; and a trusted forwarded address for the auth rate limiter behind the ALB.
+- **Desktop click-through:** after merge, sign in, cancel, and sign out in Rhizome Dev against the local gateway.
+- **Pre-existing search issues:** search fails when code embeddings are enabled in a vault with no indexed code; and "stale search continuation" can follow `rzm index` while background work settles.
+- **Real-binary auth test in CI:** `cmd/auth_binary_test.go` uses the `integration` tag, but the Makefile's integration target covers only `./tests/integration/...`.
+
 - **Repository-configured Voyage endpoint:** today a direct `VOYAGE_API_KEY` is sent to whatever `embeddings.endpoint` a repository configures (`pkg/embeddings/config.go`). Track as its own hardening task.
 - **Local key broker (Drew, 2026-10-31):** run the same gateway code as a per-user local service, started by `rzm` or Rhizome Desktop, holding a person's own provider keys so they leave environment variables and config files. It prevents accidental key exposure to agents, not access by a deliberate process running as the same user. A separate effort after this one.
 - **Linux and Windows managed sign-in:** Secret Service and Credential Manager adapters, with native checks (plan A22).
 
 ## Status
 
-Active, in Batch 1. Done: the wire contract, the macOS keychain adapter, P5 for the CLI, and P7. Next, blocked on Atomic IT: a Google Cloud project under Atomic's organization with an Internal consent screen and a Desktop OAuth client, test accounts, and the accepted domain list (X2, X3). Those unblock the loopback sign-in spike and P1–P4. Then the foundation review and a re-estimate before Batch 2.
+Active. The local build is complete and verified end to end with fake and live providers, and it is in review as a pull request. Remaining, outside the approved local scope:
+- Google configuration (X2, X3), then P1–P4.
+- AWS deployment and the DynamoDB store (Batch 5).
+- The pilot and live drills (Batch 6).
+- Rollout and key retirement (Batch 7).

@@ -8,7 +8,7 @@
 #      server diagnostics; then sign out.
 #
 # TEAM_API_E2E_UPSTREAMS=live uses the real providers with the development keys
-# from the login keychain (python3 scripts/secrets/run.py sync-keychain); the
+# from the login keychain (./scripts/with-secrets sync-keychain); the
 # gateway alone reads them. Build first with `NO_WEB=1 make build`. The sign-in writes a synthetic
 # session for the e2e origin to the login keychain; the script signs out and
 # removes it, even on failure.

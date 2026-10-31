@@ -120,7 +120,7 @@ func liveKeys(fromKeychain bool) (providerKeys, error) {
 			out, err := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password", "-s", developmentKeychainService, "-a", name, "-w").Output()
 			cancel()
 			if err != nil {
-				return keys, fmt.Errorf("%s is not in the %s keychain items; run python3 scripts/secrets/run.py sync-keychain", name, developmentKeychainService)
+				return keys, fmt.Errorf("%s is not in the %s keychain items; run ./scripts/with-secrets sync-keychain", name, developmentKeychainService)
 			}
 			*dst = strings.TrimSpace(string(out))
 		}
