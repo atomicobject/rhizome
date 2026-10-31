@@ -348,6 +348,14 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
                 if let Some(collapsed) = toggled {
                     page::sidebar_reported(app, collapsed);
                 }
+                let label = webview.window().label().to_string();
+                if let Some(ask) = app
+                    .state::<Panes>()
+                    .with(&label, |pane| pane.asked.take())
+                    .flatten()
+                {
+                    crate::tasks::handle(app, &label, ask);
+                }
                 crate::menu::refresh_sidebar(app);
             })
             .on_new_window(move |target, _| {

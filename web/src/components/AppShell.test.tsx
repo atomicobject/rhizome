@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import type { OntologyEditSessionResponse } from "../api/types";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
@@ -380,6 +380,23 @@ describe("AppShell", () => {
       // The vault title never replaces the report.
       await waitFor(() => expect(http.count("GET", "/api/v1/status")).toBe(1));
       expect(document.title).toMatch(/^rhizome-desktop:/);
+    });
+
+    it("carries each Tasks request to the app in the title, numbered", async () => {
+      // A fresh module graph, since the page keeps its latest request for the
+      // document's life and other tests compare the whole report.
+      vi.resetModules();
+      const { AppShell: FreshShell } = await import("./AppShell");
+      const { requestDesktop } = await import("./desktopHost");
+
+      render(<FreshShell />);
+      await waitFor(() => expect(report().section).toBe("notes"));
+      expect(report()).not.toHaveProperty("request");
+
+      act(() => requestDesktop({ action: "startTask", item: "3" }));
+      expect(report().request).toEqual({ action: "startTask", item: "3", n: 1 });
+      act(() => requestDesktop({ action: "openTaskWorktree", path: "/repo/wt" }));
+      expect(report().request).toEqual({ action: "openTaskWorktree", path: "/repo/wt", n: 2 });
     });
 
     it("takes the sidebar choice the app sends and reports changes the page makes", async () => {

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TaskRunDetail, TasksLiveState } from "../../api/tasks";
 import { jsonReply, withFakeFetch } from "../../test/fakeFetch";
 import { renderWithQueryClient as render } from "../../test/renderWithQueryClient";
+import { useDesktopRequest } from "../desktopHost";
 import {
   CODEX_RUN_ID,
   codexTranscript,
@@ -19,6 +20,13 @@ const NOW = Date.parse("2026-10-31T17:00:00Z");
 
 function open(path: string) {
   window.history.replaceState({}, "", path);
+}
+
+/** Shows the request the page's next title report hands Rhizome Desktop. */
+function RequestProbe() {
+  const request = useDesktopRequest();
+
+  return <output aria-label="Desktop request">{JSON.stringify(request ?? null)}</output>;
 }
 
 function summaryRow(name: RegExp | string) {
@@ -436,6 +444,91 @@ describe("TasksWorkspace", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not change the mode: mode must be auto, notify, or off",
     );
+  });
+
+  it("offers Start and Open worktree only in Rhizome Desktop, and hands them to the app", async () => {
+    const worktree = "/repo/.rhizome/task-state/worktrees/flaky-tests-2026-10-31";
+
+    const withWorktree = <T extends { id: string; worktree?: string }>(item: T) =>
+      item.id === "8" ? { ...item, worktree } : item;
+
+    const report = reportFixture(NOW);
+
+    http
+      .json("GET", "/api/tasks", {
+        ...report,
+        tasks: report.tasks.map((task) =>
+          task.item ? { ...task, item: withWorktree(task.item) } : task,
+        ),
+      })
+      .json("GET", "/api/tasks/state", {
+        ...stateFixture(NOW),
+        items: stateFixture(NOW).items.map(withWorktree),
+      });
+
+    const buttons = async (path: string) => {
+      open(path);
+
+      const view = render(
+        <>
+          <TasksWorkspace />
+          <RequestProbe />
+        </>,
+      );
+
+      const item = await screen.findByRole("region", { name: "Inbox item" });
+
+      const labels = within(item)
+        .getAllByRole("button")
+        .map((button) => button.textContent);
+
+      return { item, labels, view };
+    };
+
+    // A browser keeps only the worktree path and its copy button.
+    const browser = await buttons("/tasks/flaky-tests");
+
+    expect(browser.labels).toEqual(["Run", "Snooze…", "Discard", "Done"]);
+    browser.view.unmount();
+
+    window.__RHIZOME_DESKTOP__ = true;
+
+    try {
+      const attention = await buttons("/tasks/flaky-tests");
+
+      expect(attention.labels).toEqual([
+        "Run",
+        "Start",
+        "Open worktree",
+        "Snooze…",
+        "Discard",
+        "Done",
+      ]);
+
+      const request = () =>
+        JSON.parse(screen.getByRole("status", { name: "Desktop request" }).textContent!);
+
+      fireEvent.click(within(attention.item).getByRole("button", { name: "Start" }));
+
+      const started = request();
+
+      expect(started).toEqual({ action: "startTask", item: "8", n: started.n });
+      fireEvent.click(within(attention.item).getByRole("button", { name: "Open worktree" }));
+      expect(request()).toEqual({ action: "openTaskWorktree", path: worktree, n: started.n + 1 });
+      attention.view.unmount();
+
+      // A ready item has nothing to start; a due one has no worktree yet.
+      const ready = await buttons("/tasks/docs-drift");
+
+      expect(ready.labels).toEqual(["Open worktree", "Snooze…", "Discard", "Done"]);
+      ready.view.unmount();
+
+      const due = await buttons("/tasks/dependency-updates");
+
+      expect(due.labels).toEqual(["Run", "Start", "Snooze…", "Skip", "Done"]);
+    } finally {
+      delete window.__RHIZOME_DESKTOP__;
+    }
   });
 
   it("reports an interrupted run once the run lock holder is gone", async () => {

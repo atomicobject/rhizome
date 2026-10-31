@@ -12,6 +12,7 @@ mod presence;
 mod security;
 mod setup;
 mod state;
+mod tasks;
 mod terminal;
 mod updater;
 mod windows;

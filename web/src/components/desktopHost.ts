@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent } from "react";
+import { useEffect, useEffectEvent, useSyncExternalStore } from "react";
 
 import { isBoolean, isJsonObject, isString } from "../api/parse";
 import type { ValidationHealth } from "../api/types";
@@ -39,7 +39,39 @@ export type DesktopReport = {
   sidebarCollapsed?: boolean;
   /** How many times the page itself toggled it, sent with `sidebarCollapsed`. */
   sidebarToggles?: number;
+  /** The page's latest Tasks request; the app acts on each new `n` once. */
+  request?: NumberedRequest;
 };
+
+/** What the Tasks page may ask the app to do. The app validates both. */
+export type DesktopRequest =
+  | { action: "openTaskWorktree"; path: string }
+  | { action: "startTask"; item: string };
+
+type NumberedRequest = DesktopRequest & { n: number };
+
+let latestRequest: NumberedRequest | undefined;
+
+const requestListeners = new Set<() => void>();
+
+/** Asks Rhizome Desktop to act; the next title report carries the request. */
+export function requestDesktop(request: DesktopRequest) {
+  latestRequest = { ...request, n: (latestRequest?.n ?? 0) + 1 };
+
+  for (const listener of requestListeners) listener();
+}
+
+function subscribeRequests(listener: () => void) {
+  requestListeners.add(listener);
+
+  return () => {
+    requestListeners.delete(listener);
+  };
+}
+
+export function useDesktopRequest(): NumberedRequest | undefined {
+  return useSyncExternalStore(subscribeRequests, () => latestRequest);
+}
 
 /** The app marks its content view with an initialization script. */
 export function inDesktop(): boolean {

@@ -93,6 +93,27 @@ pub struct Report {
         skip_serializing_if = "Option::is_none"
     )]
     sidebar_toggles: Option<u32>,
+    /// The page's latest Tasks request, numbered by the page. Rust acts on
+    /// each new number once and validates what it names (tasks.rs).
+    #[serde(default, skip_serializing)]
+    request: Option<Request>,
+}
+
+/// A Tasks page request: only these two, never a command or URL.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct Request {
+    pub n: u32,
+    #[serde(flatten)]
+    pub ask: Ask,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(tag = "action", rename_all = "camelCase")]
+pub enum Ask {
+    /// Opens an item's worktree in a new window.
+    OpenTaskWorktree { path: String },
+    /// Opens Terminal running `rzm tasks start <item>`.
+    StartTask { item: String },
 }
 
 /// Reads a page title as a report, only from a page on the verified runtime
@@ -114,6 +135,7 @@ pub fn loading(pane: &mut Pane, url: &Url) {
     pane.sidebar = None;
     pane.sidebar_toggles = None;
     pane.graphql = false;
+    pane.requests = None;
     pane.send(json!({"type": "page", "state": null}));
 }
 
@@ -136,12 +158,30 @@ pub fn titled(pane: &mut Pane, title: &str) -> (bool, Option<bool>) {
     pane.graphql = report
         .as_ref()
         .is_some_and(|r| r.section == Section::Graphql);
+    if let Some(report) = &report {
+        asked(pane, report.request.as_ref());
+    }
     let toggled = match (previous_toggles, pane.sidebar_toggles) {
         (Some(before), Some(now)) if now > before => pane.sidebar,
         _ => None,
     };
     pane.send(json!({"type": "page", "state": report}));
     (first, toggled)
+}
+
+/// Holds a request newer than the document's last, for the caller to take. A
+/// document's first report only sets the count, so a late title from an
+/// earlier document never repeats its request.
+fn asked(pane: &mut Pane, request: Option<&Request>) {
+    let n = request.map_or(0, |r| r.n);
+    match pane.requests {
+        Some(before) if n > before => {
+            pane.asked = request.map(|r| r.ask.clone());
+            pane.requests = Some(n);
+        }
+        Some(_) => {}
+        None => pane.requests = Some(n),
+    }
 }
 
 /// Whether the shown page can toggle its sidebar: a runtime page that took
@@ -488,6 +528,46 @@ mod tests {
             titled(&mut pane, &report("notes", Some((false, 0)))),
             (true, None)
         );
+    }
+
+    #[test]
+    fn each_new_tasks_request_is_taken_once_and_never_from_a_first_report() {
+        let (mut pane, received) = shown_pane();
+        let report = |request: &str| {
+            format!(r#"rhizome-desktop:{{"v":1,"section":"tasks","search":""{request}}}"#)
+        };
+        let start = |n: u32| format!(r#","request":{{"n":{n},"action":"startTask","item":"8"}}"#);
+        loading(&mut pane, &page("/tasks"));
+        // A late title from an earlier document only sets the count.
+        titled(&mut pane, &report(&start(4)));
+        assert_eq!(pane.asked.take(), None);
+        titled(&mut pane, &report(&start(4)));
+        assert_eq!(pane.asked.take(), None, "a repeated report asks nothing");
+        titled(&mut pane, &report(&start(5)));
+        assert_eq!(pane.asked.take(), Some(Ask::StartTask { item: "8".into() }));
+        let open = r#","request":{"n":6,"action":"openTaskWorktree","path":"/r/w"}"#;
+        titled(&mut pane, &report(open));
+        assert_eq!(
+            pane.asked.take(),
+            Some(Ask::OpenTaskWorktree {
+                path: "/r/w".into()
+            })
+        );
+        // The shell never sees the request.
+        let last = received.try_iter().last().unwrap();
+        assert_eq!(last["state"], json!({"section": "tasks", "search": ""}));
+        // A new document counts from its own first report.
+        loading(&mut pane, &page("/tasks"));
+        titled(&mut pane, &report(""));
+        titled(&mut pane, &report(&start(1)));
+        assert_eq!(pane.asked.take(), Some(Ask::StartTask { item: "8".into() }));
+        for unknown in [
+            r#","request":{"n":2,"action":"exec","command":"ls"}"#,
+            r#","request":{"n":2,"action":"startTask"}"#,
+        ] {
+            titled(&mut pane, &report(unknown));
+            assert_eq!(pane.asked.take(), None, "{unknown}");
+        }
     }
 
     #[test]
