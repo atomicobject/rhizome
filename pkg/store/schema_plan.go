@@ -9,9 +9,9 @@ import (
 
 const (
 	intelBaselineVersion          = 56
-	currentSchemaVersion          = 77
+	currentSchemaVersion          = 78
 	intelVecTablePrefix           = "intel_embeddings_vec_d"
-	currentIntelSchemaFingerprint = "intel-schema-v77-2026-10-17-section-source-identity"
+	currentIntelSchemaFingerprint = "intel-schema-v78-2026-10-31-ontology-embedding-cache"
 )
 
 // forwardSchemaMigrations contains only migrations added after the consolidated
@@ -83,6 +83,9 @@ var forwardSchemaMigrations = []domains.TxStep{
 		return createOntologyReadinessSchema(ctx, tx)
 	},
 	addIntelSectionSourceIdentitySchema, // v76 -> v77
+	func(ctx context.Context, tx *sql.Tx) error { // v77 -> v78
+		return createOntologyEmbeddingCacheSchema(ctx, tx)
+	},
 }
 
 func (s *Store) ensureSchemaVersion(ctx context.Context, target int) error {

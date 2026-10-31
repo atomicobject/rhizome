@@ -81,6 +81,7 @@ func (s *Store) ResetDomain(ctx context.Context) error {
 			"ontology_node_field_values",
 			"ontology_node_field_value_dependencies",
 			"ontology_node_embedding_state",
+			"ontology_embedding_cache",
 			"mcp_session_item_reservations",
 			"mcp_session_maintenance",
 		}
@@ -215,6 +216,7 @@ func (s *Store) ResetDomain(ctx context.Context) error {
 			"ontology_type_policies",
 			"ontology_schema_state",
 			"ontology_node_embedding_state",
+			"ontology_embedding_cache",
 			"ontology_node_field_value_dependencies",
 			"ontology_node_field_values",
 			"ontology_nodes",

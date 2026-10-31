@@ -14,10 +14,11 @@ import (
 
 func (r *unifiedSemanticResources) writerHandlers(store *semdb.Store) indexwriter.Handlers {
 	handlers := indexwriter.Handlers{
-		ApplyIntelChunks:         store.ReplaceIntelChunks,
-		ApplyIntelChunksByFamily: store.ReplaceIntelChunksByFamily,
-		ApplyIntelEmbeddings:     store.UpsertEmbeddings,
-		ApplyOntologyNodeStates:  store.UpsertOntologyNodeEmbeddingStates,
+		ApplyIntelChunks:            store.ReplaceIntelChunks,
+		ApplyIntelChunksByFamily:    store.ReplaceIntelChunksByFamily,
+		ApplyIntelEmbeddings:        store.UpsertEmbeddings,
+		ApplyOntologyNodeStates:     store.UpsertOntologyNodeEmbeddingStates,
+		ApplyOntologyEmbeddingCache: store.UpsertOntologyEmbeddingCache,
 		ApplyValidationState: func(ctx context.Context, write indexwriter.ValidationStateWrite) error {
 			generation, err := store.SetValidationRunning(ctx)
 			if err != nil {

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOntologyNodeSyncerReembedsRevertedContentAfterProviderFailure(t *testing.T) {
+func TestOntologyNodeSyncerRestoresRevertedContentAfterProviderFailure(t *testing.T) {
 	ctx := context.Background()
 	root, schema, original := setupOntologyNodeChunkFixture(t)
 	store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
@@ -79,12 +79,13 @@ func TestOntologyNodeSyncerReembedsRevertedContentAfterProviderFailure(t *testin
 		require.NotContains(t, changedIDs, hit.ChunkID)
 	}
 
-	// Reverting before B ever receives a vector must restore authorization for A.
+	// Reverting before B ever receives a vector must restore authorization for
+	// A from the content-addressed cache, without sending A's text again.
 	require.NoError(t, os.WriteFile(path, initialSource, 0o644))
 	provider.Reset()
 	syncer.Provider = provider
 	require.NoError(t, syncer.SyncProjections(ctx, original))
-	require.Positive(t, provider.calls.Load())
+	require.Zero(t, provider.calls.Load())
 	reverted, err := store.EmbeddingsByChunkIDs(ctx, ids)
 	require.NoError(t, err)
 	require.Equal(t, initialVectors, reverted)

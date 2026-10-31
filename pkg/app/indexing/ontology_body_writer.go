@@ -6,6 +6,7 @@ import (
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
 type ontologyBodyWriteQueue interface {
@@ -14,6 +15,7 @@ type ontologyBodyWriteQueue interface {
 	SubmitIntelChunks(context.Context, []string, []codeanchor.IntelChunk) error
 	SubmitIntelEmbeddings(context.Context, map[string]embeddings.Embedding) error
 	SubmitOntologyNodeEmbeddingStates(context.Context, []codeanchor.IntelOntologyNodeEmbeddingState) error
+	SubmitOntologyEmbeddingCache(context.Context, []semdb.OntologyEmbeddingCacheEntry) error
 }
 
 type ontologyBodyQueuedStore struct {
@@ -22,6 +24,7 @@ type ontologyBodyQueuedStore struct {
 		OntologyNodesByPaths(context.Context, []string) ([]readmodel.NodeRow, error)
 		OntologyNodeFieldValuesByNodeIDs(context.Context, []string, []string) ([]readmodel.FieldValueRow, error)
 		IntelChunksByOwners(context.Context, []string) ([]codeanchor.IntelChunk, error)
+		OntologyEmbeddingCacheVectors(context.Context, string, string, int, []string) (map[string]embeddings.Embedding, error)
 	}
 	queue ontologyBodyWriteQueue
 }
@@ -44,6 +47,14 @@ func (s ontologyBodyQueuedStore) UpsertEmbeddings(ctx context.Context, rows map[
 
 func (s ontologyBodyQueuedStore) UpsertOntologyNodeEmbeddingStates(ctx context.Context, states []codeanchor.IntelOntologyNodeEmbeddingState) error {
 	return s.queue.SubmitOntologyNodeEmbeddingStates(ctx, states)
+}
+
+func (s ontologyBodyQueuedStore) UpsertOntologyEmbeddingCache(ctx context.Context, entries []semdb.OntologyEmbeddingCacheEntry) error {
+	return s.queue.SubmitOntologyEmbeddingCache(ctx, entries)
+}
+
+func (s ontologyBodyQueuedStore) OntologyEmbeddingCacheVectors(ctx context.Context, provider, model string, dims int, hashes []string) (map[string]embeddings.Embedding, error) {
+	return s.readStore.OntologyEmbeddingCacheVectors(ctx, provider, model, dims, hashes)
 }
 
 func (s ontologyBodyQueuedStore) OntologyNodeEmbeddingStatesByChunkIDs(ctx context.Context, chunkIDs []string) (map[string]codeanchor.IntelOntologyNodeEmbeddingState, error) {

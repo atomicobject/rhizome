@@ -294,6 +294,7 @@ const (
 	OntologyNotesConsidered                          MetricName = "ontology.notes_considered"
 	OntologyNotesSkipped                             MetricName = "ontology.notes_skipped"
 	OntologyRelations                                MetricName = "ontology.relations"
+	OntologyBodyChunksCacheHit                       MetricName = "ontology_body.chunks_cache_hit"
 	OntologyBodyChunksEmbedded                       MetricName = "ontology_body.chunks_embedded"
 	OntologyBodyChunksPlanned                        MetricName = "ontology_body.chunks_planned"
 	OntologyBodyChunksReused                         MetricName = "ontology_body.chunks_reused"

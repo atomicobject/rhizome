@@ -9,6 +9,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/store"
 )
 
 // OntologyDerivedPlan seals projected chunks, provider text and cleanup before
@@ -19,6 +20,8 @@ type OntologyDerivedPlan struct {
 	chunksChanged bool
 	ids           []string
 	texts         []string
+	cached        map[string]embeddings.Embedding
+	textHashes    map[string]string
 	states        []codeanchor.IntelOntologyNodeEmbeddingState
 }
 type OntologyDerivedResult struct {
@@ -53,12 +56,22 @@ func (s OntologyNodeSyncer) PublishDerived(ctx context.Context, result OntologyD
 				return err
 			}
 		}
-		rows := make(map[string]embeddings.Embedding, len(plan.ids))
+		rows := make(map[string]embeddings.Embedding, len(plan.ids)+len(plan.cached))
+		for id, vector := range plan.cached {
+			rows[id] = vector
+		}
 		for i, id := range plan.ids {
 			rows[id] = result.vectors[i]
 		}
 		if len(rows) > 0 {
 			if err := s.Store.UpsertEmbeddings(ctx, rows); err != nil {
+				return err
+			}
+			entries := make([]store.OntologyEmbeddingCacheEntry, 0, len(rows))
+			for id, vector := range rows {
+				entries = append(entries, store.OntologyEmbeddingCacheEntry{Provider: s.ProviderInfo.Provider, Model: s.ProviderInfo.Model, TextHash: plan.textHashes[id], Vector: vector})
+			}
+			if err := s.Store.UpsertOntologyEmbeddingCache(ctx, entries); err != nil {
 				return err
 			}
 		}

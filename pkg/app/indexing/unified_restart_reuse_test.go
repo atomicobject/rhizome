@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/atomicobject/rhizome/internal/testkit"
@@ -68,6 +69,28 @@ func TestSameBuildCatchUpReusesUnchangedEmbeddings(t *testing.T) {
 	require.NoError(t, err)
 	rebuilt, byPhase := providerTexts()
 	require.Zero(t, rebuilt, "an ontology rebuild over unchanged content must reuse stored embeddings; provider texts by phase: %v", byPhase)
+
+	// A build that bumps the Markdown ProjectionVersion turns every note into a
+	// changed owner, so the ownership transition deletes its ontology chunk and
+	// embedding-state rows. Text already embedded must not reach the provider.
+	store, closeStore, err = indexstore.Open(root, indexstore.Options{Access: indexstore.ReadWrite, RequireEnabled: false})
+	require.NoError(t, err)
+	_, err = store.DB().ExecContext(context.Background(), `UPDATE note_projection_state SET projection_version = 'markdown-projection-v4'`)
+	closeStore()
+	require.NoError(t, err)
+	reprojected, byPhase := providerTexts()
+	require.Zero(t, reprojected, "a projection-version bump over unchanged content must reuse embedded text; provider texts by phase: %v", byPhase)
+
+	// Editing one typed body sends only that body's chunk; reverting the edit
+	// is answered from the content-addressed vector cache.
+	decisionCache := "---\nsummary: Cache embeddings\n---\n# Cache embeddings\n\nReuse vectors when content is unchanged.\n\n## Consequences\n\nRestarts stay cheap.\n"
+	write("notes/decision-cache.md", strings.Replace(decisionCache, "when content is unchanged", "when chunk text is unchanged", 1))
+	edited, byPhase := providerTexts()
+	require.Equal(t, map[string]int64{"embed_ontology_nodes": 1}, byPhase, "only the edited ontology body may embed")
+	require.Equal(t, int64(1), edited)
+	write("notes/decision-cache.md", decisionCache)
+	reverted, byPhase := providerTexts()
+	require.Zero(t, reverted, "reverting an edit must reuse the cached vector; provider texts by phase: %v", byPhase)
 
 	write("notes/decision-lane.md", "# Serialize indexing\n\nOne lane owns the index lock, and explicit index preempts it.\n")
 	write("src/foo.go", "package fixture\n\n// Foo computes a result.\nfunc Foo() int { return 1 }\n\n// Bar computes a different result.\nfunc Bar() int { return 3 }\n")
