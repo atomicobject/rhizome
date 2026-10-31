@@ -84,7 +84,7 @@ describe("GraphView", () => {
     expect(screen.getByText(/pick a file or folder, or rebuild the index/i)).toBeInTheDocument();
   });
 
-  it("leaves ordinary scrolling native and zooms smoothly for pinch wheel events", () => {
+  it("pans for two-finger scroll and zooms smoothly for pinch wheel events", () => {
     const restoreWebGL = installFakeWebGL();
     const sigmaOn = vi.spyOn(Sigma.prototype, "on");
     let view: ReturnType<typeof render> | null = null;
@@ -105,10 +105,21 @@ describe("GraphView", () => {
       const camera = renderer.getCamera();
       const canvas = renderer.getCanvases().mouse;
       const before = camera.getState();
-      const scroll = new WheelEvent("wheel", { deltaY: 120, bubbles: true, cancelable: true });
+
+      const scroll = new WheelEvent("wheel", {
+        deltaX: 30,
+        deltaY: 120,
+        bubbles: true,
+        cancelable: true,
+      });
+
       canvas.dispatchEvent(scroll);
-      expect(scroll.defaultPrevented).toBe(false);
-      expect(camera.getState()).toEqual(before);
+      expect(scroll.defaultPrevented).toBe(true);
+      const panned = camera.getState();
+      expect(panned.ratio).toBe(before.ratio);
+      expect(panned.x).toBeGreaterThan(before.x);
+      expect(panned.y).not.toBe(before.y);
+      camera.setState(before);
 
       const pinch = new WheelEvent("wheel", {
         deltaY: -10,
