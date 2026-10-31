@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -39,11 +38,11 @@ func newAuthAdminCommand(deps authDeps) *cobra.Command {
 			}
 			var raw json.RawMessage
 			err = session.Call(cmd.Context(), account.HTTPClient(), method, account.Origin()+path, "", "rzm/"+deps.version, data, &raw)
-			if errors.Is(err, io.EOF) {
-				raw, err = json.RawMessage(`{"ok":true}`), nil
-			}
 			if err != nil {
 				return authFail(cmd, err)
+			}
+			if len(raw) == 0 { // the gateway confirmed with an empty body
+				raw = json.RawMessage(`{"ok":true}`)
 			}
 			if asJSON, _ := cmd.Flags().GetBool("json"); asJSON {
 				var compact bytes.Buffer

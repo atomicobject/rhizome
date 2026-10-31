@@ -164,10 +164,13 @@ func Call(ctx context.Context, client *http.Client, method, url, token, userAgen
 	if resp.StatusCode/100 != 2 {
 		return fmt.Errorf("team API %s %s: HTTP %d", method, req.URL.Path, resp.StatusCode)
 	}
-	if out == nil {
+	if out == nil || resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, wire.MaxResponseBytes)).Decode(out); err != nil {
+	// An empty successful body leaves out untouched. io.EOF here means the
+	// gateway answered with no body, not a lost connection: that fails earlier
+	// or as an unexpected EOF.
+	if err := json.NewDecoder(io.LimitReader(resp.Body, wire.MaxResponseBytes)).Decode(out); err != nil && !errors.Is(err, io.EOF) {
 		return fmt.Errorf("team API %s %s: malformed response: %w", method, req.URL.Path, err)
 	}
 	return nil

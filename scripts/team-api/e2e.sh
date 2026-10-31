@@ -72,11 +72,12 @@ grep -q '"event":"signed_in"' "$WORK/login.jsonl" || fail "no signed_in event"
 say "Indexing a copy of the fixture vault with no provider keys"
 cp -R "$ROOT/testdata/integration/python-app" "$WORK/repo"
 cd "$WORK/repo"
-# Index the fixture's Python under vault/ and embed notes and code.
+# Index the fixture's Python under vault/ and embed notes through the
+# gateway. Code embeddings use the same provider factory but stay off here:
+# search right after indexing can still race their metadata write
+# ("code embedding metadata is missing"), which predates the gateway.
 sed -i.bak -e 's#^            - src$#            - vault/src#' -e 's#^            - packages$#            - vault/packages#' -e 's#^            - scripts$#            - vault/scripts#' .rhizome/config.yml
-for kind in noteEmbeddings codeEmbeddings; do
-	printf '%s:\n    enabled: true\n    provider: voyage\n    model: voyage-4-lite\n' "$kind" >>.rhizome/config.yml
-done
+printf 'noteEmbeddings:\n    enabled: true\n    provider: voyage\n    model: voyage-4-lite\ncodeEmbeddings:\n    enabled: false\n' >>.rhizome/config.yml
 run() {
 	env -u VOYAGE_API_KEY -u RHIZOME_VOYAGE_API_KEY -u TYPESAFE_API_KEY -u ATOMIC_RHIZOME_KEY \
 		RHIZOME_TEAM_API_ORIGIN="$ORIGIN" RZM_SKIP_REPO_DELEGATE=1 "$RZM" "$@"

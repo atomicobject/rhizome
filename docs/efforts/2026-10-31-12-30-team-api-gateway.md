@@ -164,7 +164,10 @@ The local build, on `t3/team-api-proxy-auth`:
 - **Google prototypes (P1–P4):** these need the Atomic Google Cloud project, the Desktop client, test accounts, and the domain list (X2, X3). Then point a production-mode config at Google and run the same e2e sign-in.
 - **Batch 5:** a DynamoDB store passing `storetest` plus the ledger contract tests; CloudFormation; stdout JSON diagnostics for CloudWatch; and a trusted forwarded address for the auth rate limiter behind the ALB.
 - **Desktop click-through:** after merge, sign in, cancel, and sign out in Rhizome Dev against the local gateway.
-- **Pre-existing search issues:** search fails when code embeddings are enabled in a vault with no indexed code; and "stale search continuation" can follow `rzm index` while background work settles.
+- **Pre-existing search issues:**
+  - Search fails when code embeddings are enabled in a vault with no indexed code.
+  - Search right after `rzm index` can fail with "code embedding metadata is missing" even when code is indexed. This reproduced 3/3 at `4ac6644a`, before the later fixes, so the e2e script turns code embeddings off.
+  - "Stale search continuation" can follow `rzm index` while background work settles.
 - **Real-binary auth test in CI:** `cmd/auth_binary_test.go` uses the `integration` tag, but the Makefile's integration target covers only `./tests/integration/...`.
 
 - **Repository-configured Voyage endpoint:** today a direct `VOYAGE_API_KEY` is sent to whatever `embeddings.endpoint` a repository configures (`pkg/embeddings/config.go`). Track as its own hardening task.

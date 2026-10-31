@@ -542,3 +542,29 @@ func TestStatusFollowsANewSignInAtTheSameOrigin(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Bearer "+newer.AccessToken, get())
 }
+
+// An empty successful answer is a success; a connection closed without an
+// answer stays an error, so admin commands never report an unconfirmed change.
+func TestCallSeparatesEmptySuccessFromALostConnection(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/no-content":
+			w.WriteHeader(http.StatusNoContent)
+		case "/empty":
+		case "/drop":
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err == nil {
+				_ = conn.Close()
+			}
+		}
+	}))
+	t.Cleanup(srv.Close)
+	client := NewClient(nil)
+	for _, path := range []string{"/no-content", "/empty"} {
+		var raw json.RawMessage
+		require.NoError(t, Call(context.Background(), client, http.MethodPost, srv.URL+path, "", "", nil, &raw), path)
+		require.Empty(t, raw, path)
+	}
+	var raw json.RawMessage
+	require.Error(t, Call(context.Background(), client, http.MethodPost, srv.URL+"/drop", "", "", nil, &raw))
+}
