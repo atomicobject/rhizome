@@ -47,3 +47,22 @@ func TestRetainLeavesFoldersAloneWhenStateFails(t *testing.T) {
 		t.Fatalf("retention deleted a run folder while state was unreadable: %v", err)
 	}
 }
+
+// An attempt that leaves Running set without saving its result is recorded,
+// not dropped, so its run shows in history and the clock advances.
+func TestEndRecordsAnAttemptThatSavedNoResult(t *testing.T) {
+	dir := newRepo(t, map[string]string{"look.yml": lookTask})
+	svc := newService(t, dir, &fakeAgent{}, "notify")
+	a := svc.newAttempt(false)
+	if err := svc.begin(context.Background(), a, a.record("look", "", time.Now()), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	svc.end(context.Background(), a)
+
+	st := mustState(t, svc)
+	last, ok := st.LastRun("look")
+	if st.Running != nil || !ok || last.ID != a.id || last.Outcome != OutcomeFailed {
+		t.Fatalf("running=%v last=%+v, want the attempt recorded as failed", st.Running, last)
+	}
+}

@@ -81,7 +81,12 @@ export function TaskRunView({
   interrupted: boolean;
   onBack: () => void;
 }) {
-  const { detail, error, loading, retry } = useRunTranscript(runID, live);
+  const { detail, error, refreshError, loading, retry } = useRunTranscript(
+    runID,
+    live,
+    interrupted,
+  );
+
   const expansion = useExpansion();
   const events = useMemo(() => detail?.events ?? [], [detail?.events]);
   const blocks = useMemo(() => buildTimeline(events), [events]);
@@ -227,6 +232,15 @@ export function TaskRunView({
             </p>
           ) : (
             <div className="task-timeline__list">
+              {refreshError ? (
+                <p className="task-inline-error" role="alert">
+                  Could not refresh this run.{" "}
+                  {refreshError instanceof Error ? refreshError.message : String(refreshError)}{" "}
+                  <button type="button" className="task-ghost-button" onClick={retry}>
+                    Retry
+                  </button>
+                </p>
+              ) : null}
               {checkLog ? <CheckLogBlock log={checkLog} expansion={expansion} /> : null}
               {blocks.map((block) => (
                 <TimelineEntry key={block.key} block={block} expansion={expansion} />

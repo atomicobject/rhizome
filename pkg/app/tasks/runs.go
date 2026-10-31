@@ -152,8 +152,10 @@ func (s *Service) begin(ctx context.Context, a attempt, r RunRecord, fn func(*St
 	})
 }
 
-// end clears Running when this attempt left it set without a record, as
-// when saving its result failed. A crash skips it, which is the point.
+// end records this attempt as failed when it left Running set without a
+// record, as when saving its result failed, so the run is not lost. If this
+// save fails too, Running stays and the next pass records it as
+// interrupted. A crash skips end, which is the point.
 func (s *Service) end(ctx context.Context, a attempt) {
 	st, err := s.store.Load()
 	if err != nil || st.Running == nil || st.Running.ID != a.id {
@@ -161,7 +163,10 @@ func (s *Service) end(ctx context.Context, a attempt) {
 	}
 	_ = s.store.Update(context.WithoutCancel(ctx), func(st *State) error {
 		if st.Running != nil && st.Running.ID == a.id {
-			st.Running = nil
+			r := *st.Running
+			r.At, r.Outcome = s.opts.Now(), OutcomeFailed
+			r.Message = "the run ended without saving its result"
+			st.Record(r)
 		}
 		return nil
 	})

@@ -254,6 +254,47 @@ describe("TasksWorkspace", () => {
     expect(http.count("GET", `/api/tasks/runs/${RUN_ID}`)).toBe(3);
   });
 
+  it("finishes a run that started and ended between live-state polls", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW });
+    const finished = runsFixture(NOW)[0]!;
+    const unfinished = { ...finished, outcome: "", at: "" };
+    let detail: TaskRunDetail = { run: unfinished, events: [], next: 0 };
+    http.on("GET", `/api/tasks/runs/${RUN_ID}`, () => jsonReply(detail));
+    open(`/tasks/docs-drift/runs/${RUN_ID}`);
+    render(<TasksWorkspace />);
+
+    expect(
+      await screen.findByText("Running", { selector: ".task-run__head .status-mark__label" }),
+    ).toBeVisible();
+    detail = runDetailFixture(NOW);
+    await act(() => vi.advanceTimersByTimeAsync(2_100));
+
+    expect(
+      await screen.findByText("Ready", { selector: ".task-run__head .status-mark__label" }),
+    ).toBeVisible();
+  });
+
+  it("keeps the transcript and offers Retry when a later read fails", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW });
+    const running = { ...runsFixture(NOW)[0]!, outcome: "", at: "" };
+    let fail = false;
+    http.on("GET", `/api/tasks/runs/${RUN_ID}`, () =>
+      fail
+        ? jsonReply({ error: "runtime restarting" }, 503)
+        : jsonReply({ run: running, events: runDetailFixture(NOW).events.slice(0, 4), next: 400 }),
+    );
+    open(`/tasks/docs-drift/runs/${RUN_ID}`);
+    render(<TasksWorkspace />);
+
+    const timeline = await screen.findByRole("region", { name: "Timeline" });
+    await waitFor(() => expect(summaryRow("Thinking")).toBeInTheDocument());
+    fail = true;
+    await act(() => vi.advanceTimersByTimeAsync(2_100));
+
+    expect(await within(timeline).findByText(/Could not refresh this run/)).toBeVisible();
+    expect(summaryRow("Thinking")).toBeInTheDocument();
+  });
+
   it("polls live state after Run until the launched run appears", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW });
     const launchedAt = new Date(NOW).toISOString();

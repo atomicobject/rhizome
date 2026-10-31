@@ -133,9 +133,13 @@ type TranscriptState = { id: string; detail?: TaskRunDetail; error?: unknown };
  * Reads a run's detail, then, while `live`, resumes from `next` every 2 s.
  * One more read after it stops being live picks up the tail and the record.
  */
-export function useRunTranscript(runID: string | undefined, live: boolean) {
+export function useRunTranscript(runID: string | undefined, liveRun: boolean, interrupted = false) {
   const visible = usePageVisible();
   const [data, setData] = useState<TranscriptState | null>(null);
+  // A run can start and finish between live-state polls; a held detail with
+  // no outcome yet keeps reading until the run records one.
+  const heldRun = data?.id === runID ? data?.detail?.run : undefined;
+  const live = liveRun || (Boolean(heldRun) && !heldRun?.outcome && !interrupted);
   const [attempt, setAttempt] = useState(0);
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -148,7 +152,8 @@ export function useRunTranscript(runID: string | undefined, live: boolean) {
     const held = dataRef.current?.id === runID ? dataRef.current.detail : undefined;
     const wasLive = readLive.current.id === runID && readLive.current.live;
 
-    if (held && (!visible || (!live && !wasLive))) return;
+    // A held detail that has its outcome already includes the tail.
+    if (held && (!visible || (!live && (!wasLive || Boolean(held.run.outcome))))) return;
     readLive.current = { id: runID, live };
     let offset = held?.next ?? 0;
     let timer = 0;
@@ -206,6 +211,8 @@ export function useRunTranscript(runID: string | undefined, live: boolean) {
   return {
     detail: current?.detail,
     error: current?.detail ? undefined : current?.error,
+    /** A later read failed; the detail held from earlier reads stays shown. */
+    refreshError: current?.detail ? current?.error : undefined,
     loading: Boolean(runID) && !current,
     retry,
   };
