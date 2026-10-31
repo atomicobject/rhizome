@@ -36,12 +36,14 @@ func main() {
 	if len(os.Args) < 2 {
 		usage()
 	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	var err error
 	switch os.Args[1] {
 	case "serve":
-		err = serve(os.Args[2:])
+		err = serve(ctx, os.Args[2:])
 	case "dev":
-		err = dev(os.Args[2:])
+		err = dev(ctx, os.Args[2:])
 	default:
 		usage()
 	}
@@ -56,7 +58,7 @@ func usage() {
 	os.Exit(2)
 }
 
-func serve(args []string) error {
+func serve(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	path := fs.String("config", "", "configuration file")
 	_ = fs.Parse(args)
@@ -68,12 +70,13 @@ func serve(args []string) error {
 		return err
 	}
 	keys := providerKeys{Voyage: os.Getenv("VOYAGE_API_KEY"), TypeSafe: os.Getenv("TYPESAFE_API_KEY")}
-	return run(cfg, keys, http.NewServeMux(), 0)
+	return run(ctx, cfg, keys, http.NewServeMux(), 0, nil)
 }
 
-// run composes the gateway on mux and serves it until a signal, or until no
-// request arrives for idleExit when that is positive.
-func run(cfg config.Config, keys providerKeys, mux *http.ServeMux, idleExit time.Duration) error {
+// run composes the gateway on mux and serves it until ctx ends, or until no
+// request arrives for idleExit when that is positive. ready, when set,
+// receives the bound address once the listener is open.
+func run(ctx context.Context, cfg config.Config, keys providerKeys, mux *http.ServeMux, idleExit time.Duration, ready chan<- string) error {
 	if err := keys.check(); err != nil {
 		return err
 	}
@@ -125,8 +128,6 @@ func run(cfg config.Config, keys providerKeys, mux *http.ServeMux, idleExit time
 	if err != nil {
 		return err
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	go func() {
 		if idleExit > 0 {
 			idle.wait(ctx, idleExit)
@@ -138,6 +139,9 @@ func run(cfg config.Config, keys providerKeys, mux *http.ServeMux, idleExit time
 		_ = srv.Shutdown(shutdown)
 	}()
 	slog.Info("team-api listening", "addr", ln.Addr().String(), "mode", cfg.Mode, "data_dir", cfg.DataDir)
+	if ready != nil {
+		ready <- ln.Addr().String()
+	}
 	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

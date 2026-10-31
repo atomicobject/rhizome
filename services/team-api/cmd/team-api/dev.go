@@ -34,7 +34,11 @@ const (
 // dev runs the gateway, the development identity provider, and (with
 // --upstreams fake) fake providers on one loopback listener. Live upstreams
 // use the development keys from the environment or the login keychain.
-func dev(args []string) error {
+func dev(ctx context.Context, args []string) error {
+	return devWithReady(ctx, args, nil)
+}
+
+func devWithReady(ctx context.Context, args []string, ready chan<- string) error {
 	fs := flag.NewFlagSet("dev", flag.ExitOnError)
 	listen := fs.String("listen", "127.0.0.1:8788", "loopback address")
 	dataDir := fs.String("data-dir", "", "directory for the SQLite file and diagnostics")
@@ -93,7 +97,7 @@ func dev(args []string) error {
 		mux.Handle(devVoyagePath+"/", http.StripPrefix(devVoyagePath, fakeupstream.NewVoyage(fakeupstream.Options{Key: keys.Voyage})))
 		mux.Handle(devTSPath+"/", http.StripPrefix(devTSPath, fakeupstream.NewTypeSafe(fakeupstream.Options{Key: keys.TypeSafe})))
 	}
-	return run(cfg, keys, mux, *idleExit)
+	return run(ctx, cfg, keys, mux, *idleExit, ready)
 }
 
 func syntheticKey() string {
