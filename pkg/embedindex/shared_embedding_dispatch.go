@@ -314,20 +314,6 @@ func (n *SharedEmbeddingNode) run() {
 			}
 		}(phase)
 	}
-	dispatchReady := func(force bool) {
-		draining := force
-		for active < n.config().maxConcurrent && len(pending) > 0 {
-			if !force && !ready() {
-				return
-			}
-			setWait("")
-			dec := prepareDispatchDecision(draining)
-			dispatch(take(dec.BatchTexts), dec)
-			if !draining {
-				force = false
-			}
-		}
-	}
 	complete := func(req *sharedEmbeddingRequest, err error) {
 		if req.err == nil && err != nil {
 			req.err = err
@@ -352,6 +338,26 @@ func (n *SharedEmbeddingNode) run() {
 		clear(pending[len(kept):])
 		pending = kept
 		indexingperf.SetGauge(n.ctx, indexingperf.EmbedReadyDepth, int64(len(pending)))
+	}
+	dispatchReady := func(force bool) {
+		draining := force
+		for active < n.config().maxConcurrent && len(pending) > 0 {
+			// Every batch selection filters cancelled jobs, so a cancellation
+			// that raced a result, timer, or request is never sent.
+			dropCancelled()
+			if len(pending) == 0 {
+				return
+			}
+			if !force && !ready() {
+				return
+			}
+			setWait("")
+			dec := prepareDispatchDecision(draining)
+			dispatch(take(dec.BatchTexts), dec)
+			if !draining {
+				force = false
+			}
+		}
 	}
 	defer func() {
 		setWait("")
