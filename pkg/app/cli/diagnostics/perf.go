@@ -200,7 +200,9 @@ func (a *perfAggregator) warn(event evidence.Event) {
 	}
 }
 
-func (a *perfAggregator) summary() PerfSummary {
+// summary takes the scan's per-process contiguous coverage, which bounds where
+// a missing terminal record is evidence rather than an unread one.
+func (a *perfAggregator) summary(contiguous map[string]time.Time) PerfSummary {
 	out := PerfSummary{Groups: []PerfGroup{}, Flags: []PerfFlag{}}
 	for _, samples := range a.groups {
 		group := samples.group
@@ -220,7 +222,7 @@ func (a *perfAggregator) summary() PerfSummary {
 		return out.Groups[i].Kind+out.Groups[i].Name < out.Groups[j].Kind+out.Groups[j].Name
 	})
 	out.Flags = append(out.Flags, runtimeBursts(a.runtimeStarts)...)
-	if flag, ok := a.unfinished(); ok {
+	if flag, ok := a.unfinished(contiguous); ok {
 		out.Flags = append(out.Flags, flag)
 	}
 	for _, warning := range a.warnings {
@@ -280,12 +282,14 @@ func burstFlag(starts []timedOperation) PerfFlag {
 
 // unfinished flags started operations whose process kept recording for a while
 // without a terminal record. A process that stopped recording may still be
-// running or may have crashed; that evidence stays unknown, not flagged.
-func (a *perfAggregator) unfinished() (PerfFlag, bool) {
+// running or may have crashed; that evidence stays unknown, not flagged. So is
+// a start before its process's contiguous coverage, whose terminal record may
+// sit in a segment head or record the scan did not read.
+func (a *perfAggregator) unfinished(contiguous map[string]time.Time) (PerfFlag, bool) {
 	flag := PerfFlag{Kind: "unfinished_operations"}
 	ids := make([]string, 0)
 	for id, start := range a.started {
-		if a.finished[id] || a.lastSeen[start.process].Sub(start.at) < unfinishedQuietTime {
+		if a.finished[id] || a.lastSeen[start.process].Sub(start.at) < unfinishedQuietTime || start.at.Before(contiguous[start.process]) {
 			continue
 		}
 		if flag.Count == 0 || start.at.Before(flag.FirstAt) {
