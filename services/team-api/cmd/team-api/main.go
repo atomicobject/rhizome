@@ -154,3 +154,15 @@ func (k providerKeys) check() error {
 	}
 	return nil
 }
+
+// trafficConfig takes the provider keys and, in development, the upstream
+// overrides. Slots, waits, and charges keep the traffic defaults; the
+// per-person slot limit is combined across providers.
+func trafficConfig(cfg config.Config, keys providerKeys) traffic.Config {
+	return traffic.Config{
+		VoyageKey:       keys.Voyage,
+		TypeSafeKey:     keys.TypeSafe,
+		VoyageBaseURL:   cfg.Upstreams.Voyage,
+		TypeSafeBaseURL: cfg.Upstreams.TypeSafe,
+	}
+}
