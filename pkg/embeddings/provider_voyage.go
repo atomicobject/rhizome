@@ -355,16 +355,13 @@ func (p *voyageProvider) embedBatch(ctx context.Context, texts []string) ([]Embe
 // new physical batches and allocate their own keys.
 func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body []byte) (*http.Response, error) {
 	const maxAttempts = 3
-
 	var lastErr error
 	var idempotencyKey string
 	if p.managed {
 		idempotencyKey = crand.Text()
 	}
-	// mayHaveDispatched sticks once an attempt might have reached the provider
-	// (a lost response or request_in_progress). From then on the key never
-	// changes: a later definitive rejection of a retry does not prove the
-	// earlier attempt was free, and a new key could charge the batch twice.
+	// Once an attempt may have reached the provider, the key never changes: a
+	// later rejection does not prove that attempt was free.
 	mayHaveDispatched := false
 	renewKey := func() {
 		if !mayHaveDispatched {
@@ -406,7 +403,6 @@ func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body [
 					renewKey()
 				}
 			case isTransientNetworkError(err):
-				// Possibly dispatched: keep the key for the rest of this request.
 				mayHaveDispatched = true
 				indexingperf.AddCount(ctx, indexingperf.ProviderRequestVoyageNetworkFailures, 1)
 			default:
@@ -439,9 +435,7 @@ func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body [
 			_ = resp.Body.Close()
 
 			lastErr = fmt.Errorf("http status %d: %s", resp.StatusCode, string(msg))
-			// In managed mode a provider 5xx reached the gateway after dispatch, so
-			// it holds this key as an unknown outcome and a retry could only
-			// return upstream_outcome_unknown: stop here.
+			// Managed: the gateway holds a provider 5xx as an unknown outcome.
 			if httpAttempts >= maxAttempts || (p.managed && resp.StatusCode >= 500) {
 				return nil, lastErr
 			}
