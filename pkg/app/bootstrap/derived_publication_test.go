@@ -70,7 +70,7 @@ func produce(n int, sink func(context.Context, fakeDerivedResult) error) error {
 func TestDerivedPublicationBatchesResultsIntoFewLaneJobs(t *testing.T) {
 	s, counted, ticket := derivedPublicationFixture(t)
 	published := map[fakeDerivedResult]bool{}
-	err := computeAndPublish(s, t.Context(), ticket, func(sink func(context.Context, fakeDerivedResult) error) error {
+	err := computeAndPublish(s, t.Context(), ticket, func(_ context.Context, sink func(context.Context, fakeDerivedResult) error) error {
 		return produce(1000, sink)
 	}, func(_ context.Context, r fakeDerivedResult) error {
 		published[r] = true
@@ -86,8 +86,11 @@ func TestDerivedPublicationStopsWhenWorkIsSupersededMidPass(t *testing.T) {
 	s, _, ticket := derivedPublicationFixture(t)
 	store := s.watcher.intelStore
 	var published atomic.Int64
-	err := computeAndPublish(s, t.Context(), ticket, func(sink func(context.Context, fakeDerivedResult) error) error {
-		return produce(1000, sink)
+	var computeStopped bool
+	err := computeAndPublish(s, t.Context(), ticket, func(ctx context.Context, sink func(context.Context, fakeDerivedResult) error) error {
+		err := produce(1000, sink)
+		computeStopped = ctx.Err() != nil
+		return err
 	}, func(ctx context.Context, _ fakeDerivedResult) error {
 		if published.Add(1) == 1 {
 			// A newer generation arrives while the first batch publishes.
@@ -98,6 +101,7 @@ func TestDerivedPublicationStopsWhenWorkIsSupersededMidPass(t *testing.T) {
 	})
 	require.ErrorIs(t, err, errDerivedSuperseded)
 	require.Less(t, published.Load(), int64(1000), "later batches must not publish superseded work")
+	require.True(t, computeStopped, "a failed batch cancels compute so the pass stops calling the provider")
 	pending, err := store.HasDerivedWork(t.Context(), codeanchor.DerivedCode)
 	require.NoError(t, err)
 	require.True(t, pending, "superseded work is never acknowledged")
@@ -110,7 +114,7 @@ func TestDerivedPublicationYieldsToExplicitIndexBetweenBatches(t *testing.T) {
 	var once sync.Once
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- computeAndPublish(s, t.Context(), ticket, func(sink func(context.Context, fakeDerivedResult) error) error {
+		errCh <- computeAndPublish(s, t.Context(), ticket, func(_ context.Context, sink func(context.Context, fakeDerivedResult) error) error {
 			return produce(1000, sink)
 		}, func(ctx context.Context, _ fakeDerivedResult) error {
 			batches.Add(1)
