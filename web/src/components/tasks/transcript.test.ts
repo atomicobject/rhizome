@@ -27,4 +27,13 @@ describe("transcript lines", () => {
 
     expect(blocks.map((block) => block.kind)).toEqual(["thinking", "thinking"]);
   });
+
+  it("drops the streamed copy of the final answer pinned above the timeline", () => {
+    const blocks = buildTimeline([
+      line(1, "assistant-text-delta", "Done: three notes fixed."),
+      line(2, "final-message", "Done: three notes fixed."),
+    ]);
+
+    expect(blocks).toEqual([]);
+  });
 });

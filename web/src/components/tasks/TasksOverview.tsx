@@ -150,6 +150,7 @@ export function TasksOverview({
   announcements = [],
   onDismiss,
   onDiscard,
+  itemError,
 }: {
   report: TasksReport;
   onOpen: (task: string) => void;
@@ -164,6 +165,8 @@ export function TasksOverview({
   announcements?: TaskItem[];
   onDismiss?: (item: TaskItem) => void;
   onDiscard?: (item: TaskItem) => void;
+  /** The last failed action; shown beside the item it names. */
+  itemError?: { scope: string; text: string } | null;
 }) {
   return (
     <div className="tasks-overview">
@@ -204,6 +207,11 @@ export function TasksOverview({
               <button type="button" className="task-button" onClick={() => onDismiss(item)}>
                 {item.kind === "announcement" ? "Dismiss" : "Done"}
               </button>
+            ) : null}
+            {itemError?.scope === item.id ? (
+              <p className="task-inline-error" role="alert">
+                {itemError.text}
+              </p>
             ) : null}
           </div>
         ))}

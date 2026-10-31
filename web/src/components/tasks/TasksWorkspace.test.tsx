@@ -139,6 +139,11 @@ describe("TasksWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
 
     await waitFor(() => expect(http.count("POST", "/api/tasks/items/13/discard")).toBe(1));
+
+    http.json("POST", "/api/tasks/items/13/done", { error: "a task run is in progress" }, 409);
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("a task run is in progress");
   });
 
   it("pauses and resumes all background work", async () => {

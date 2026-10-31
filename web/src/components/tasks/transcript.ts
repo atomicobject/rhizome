@@ -194,6 +194,12 @@ export function buildTimeline(events: TaskTranscriptEvent[]): TimelineBlock[] {
     }
   }
 
+  // The final answer is pinned above the timeline; drop its streamed copy.
+  const final = finalMessage(events)?.trim();
+  const last = blocks.at(-1);
+
+  if (final && last?.kind === "text" && last.content.trim() === final) blocks.pop();
+
   return blocks;
 }
 

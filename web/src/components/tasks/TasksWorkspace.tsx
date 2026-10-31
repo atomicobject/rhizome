@@ -258,6 +258,7 @@ export function TasksWorkspace({
         )}
         onDismiss={(item) => runCommand(item, { kind: "done" })}
         onDiscard={(item) => runCommand(item, { kind: "discard" })}
+        itemError={actionError}
       />
     );
   } else if (!task) {
