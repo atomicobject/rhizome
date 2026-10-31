@@ -267,10 +267,9 @@ export function OntologyGraph({ atlas }: Props) {
           nodesDraggable={false}
           nodesConnectable={false}
           panOnDrag
-          panOnScroll={false}
+          panOnScroll
           zoomOnScroll={false}
           zoomOnPinch
-          preventScrolling={false}
           proOptions={{ hideAttribution: true }}
         >
           <FocusViewport ids={focusedIds} selected={selected} />

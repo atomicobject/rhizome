@@ -480,16 +480,27 @@ export function useSigmaGraph({
     const mouseCanvas = sigma.getCanvases().mouse;
 
     const onWheel = (event: WheelEvent) => {
-      // Trackpad pinches arrive as Ctrl+wheel. Leave ordinary scrolling native,
-      // before Sigma's wheel listener can consume it or move the camera.
+      // Trackpad pinches arrive as Ctrl+wheel and zoom; any other scroll pans.
+      // Handle both before Sigma's own wheel listener zooms on every scroll.
       event.stopImmediatePropagation();
-
-      if (!event.ctrlKey) return;
       event.preventDefault();
       const bounds = container.getBoundingClientRect();
+      const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? bounds.height : 1;
 
-      const delta =
-        event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? bounds.height : 1);
+      if (!event.ctrlKey) {
+        const { width, height } = sigma.getDimensions();
+
+        const center = sigma.viewportToFramedGraph({
+          x: width / 2 + event.deltaX * scale,
+          y: height / 2 + event.deltaY * scale,
+        });
+
+        camera.setState({ x: center.x, y: center.y });
+
+        return;
+      }
+
+      const delta = event.deltaY * scale;
 
       const ratio = camera.getBoundedRatio(camera.getState().ratio * Math.exp(delta * 0.01));
       camera.setState(
