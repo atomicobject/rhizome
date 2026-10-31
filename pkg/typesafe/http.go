@@ -127,7 +127,10 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 			}
 			batch.gate.pause(delay)
 		}
-		if !apiErr.Retryable() || attempt >= c.maxRetries {
+		// In managed mode a provider 5xx reached the gateway after dispatch, so
+		// it holds this key as an unknown outcome and a retry could only return
+		// upstream_outcome_unknown.
+		if !apiErr.Retryable() || attempt >= c.maxRetries || (c.managed != nil && apiErr.StatusCode >= 500) {
 			return nil, "", apiErr
 		}
 		if apiErr.StatusCode < 500 {

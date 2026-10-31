@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
 	"github.com/atomicobject/rhizome/pkg/app/teamdev"
@@ -37,7 +39,34 @@ type teamManaged struct {
 
 func (m teamManaged) Limits() wire.Limits { return m.limits }
 
+// teamAccountTTL bounds how long one process reuses its account lookup.
+// Providers are built per search and per evaluation, and each lookup reads
+// the keychain through a /usr/bin/security subprocess; a sign-in or sign-out
+// elsewhere is noticed within this window, and a revoked session already
+// fails its next request.
+const teamAccountTTL = 30 * time.Second
+
+var teamAccountCache struct {
+	sync.Mutex
+	at      time.Time
+	account *session.Account
+	status  session.Status
+	err     error
+}
+
 func openTeamAccount() (*session.Account, session.Status, error) {
+	c := &teamAccountCache
+	c.Lock()
+	defer c.Unlock()
+	if !c.at.IsZero() && time.Since(c.at) < teamAccountTTL {
+		return c.account, c.status, c.err
+	}
+	c.account, c.status, c.err = lookupTeamAccount()
+	c.at = time.Now()
+	return c.account, c.status, c.err
+}
+
+func lookupTeamAccount() (*session.Account, session.Status, error) {
 	store, err := session.DefaultStore()
 	if err != nil {
 		// No supported secret store on this platform: never signed in.
@@ -79,7 +108,7 @@ func loadTeamSession() (provideraccess.Managed, bool, error) {
 	case !teamdev.Loopback(origin):
 	case version.Development() && origin == session.DevelopmentOrigin:
 		check = teamdev.Ensure(context.Background(), origin)
-	case version.Development() && os.Getenv(session.OriginEnv) == origin:
+	case version.Development() && explicitOrigin() == origin:
 		// A fixture run chose this origin explicitly; fake upstreams are allowed.
 	default:
 		// A loopback origin reached through the selector must not route a real
@@ -91,6 +120,16 @@ func loadTeamSession() (provideraccess.Managed, bool, error) {
 		return failingManaged{teamManaged: m, err: check}, true, nil
 	}
 	return m, true, nil
+}
+
+// explicitOrigin is RHIZOME_TEAM_API_ORIGIN in canonical form, so a trailing
+// slash still names the same origin.
+func explicitOrigin() string {
+	origin, err := session.CanonicalOrigin(os.Getenv(session.OriginEnv))
+	if err != nil {
+		return ""
+	}
+	return origin
 }
 
 func teamSessionStatus() provideraccess.TeamStatus {

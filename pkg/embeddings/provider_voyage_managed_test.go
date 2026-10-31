@@ -129,25 +129,16 @@ func TestVoyageManagedFreshKeyAfterUpstream429(t *testing.T) {
 }
 
 func TestVoyageManagedAmbiguousFailuresReuseKeyAndNeverSplit(t *testing.T) {
-	t.Run("upstream 502 then outcome unknown", func(t *testing.T) {
+	t.Run("upstream 502 stops without retry or split", func(t *testing.T) {
 		p, calls, _ := fakeVoyageGateway(t, func(n int, _ gatewayCall, w http.ResponseWriter) bool {
-			if n == 1 {
-				w.WriteHeader(http.StatusBadGateway)
-			} else {
-				gatewayError(w, wire.CodeOutcomeUnknown, "")
-			}
+			w.WriteHeader(http.StatusBadGateway)
 			return true
 		})
 		_, err := p.EmbedTexts(context.Background(), []string{"a", "b", "c", "d"})
-		var gatewayErr *wire.GatewayError
-		require.ErrorAs(t, err, &gatewayErr)
-		require.Equal(t, wire.CodeOutcomeUnknown, gatewayErr.Code)
+		require.ErrorContains(t, err, "http status 502")
 		got := calls()
-		require.Len(t, got, 2)
-		require.Equal(t, got[0].key, got[1].key)
-		for _, call := range got {
-			require.Len(t, call.inputs, 4, "no split after an ambiguous failure")
-		}
+		require.Len(t, got, 1, "the gateway holds the key as unknown; retrying could only return outcome unknown")
+		require.Len(t, got[0].inputs, 4, "no split after an ambiguous failure")
 	})
 	t.Run("connection drop after sending", func(t *testing.T) {
 		p, calls, _ := fakeVoyageGateway(t, func(n int, _ gatewayCall, w http.ResponseWriter) bool {

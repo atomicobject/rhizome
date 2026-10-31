@@ -426,7 +426,10 @@ func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body [
 			_ = resp.Body.Close()
 
 			lastErr = fmt.Errorf("http status %d: %s", resp.StatusCode, string(msg))
-			if httpAttempts >= maxAttempts {
+			// In managed mode a provider 5xx reached the gateway after dispatch, so
+			// it holds this key as an unknown outcome and a retry could only
+			// return upstream_outcome_unknown: stop here.
+			if httpAttempts >= maxAttempts || (p.managed && resp.StatusCode >= 500) {
 				return nil, lastErr
 			}
 			if p.managed && resp.StatusCode == http.StatusTooManyRequests {

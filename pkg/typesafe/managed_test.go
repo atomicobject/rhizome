@@ -128,27 +128,36 @@ func TestManagedTerminalGatewayErrorsStop(t *testing.T) {
 	}
 }
 
+// A passed-through 429 is definitive, so the retry gets a fresh key. A
+// passed-through 5xx is an unknown outcome at the gateway, so the call stops
+// after one attempt instead of retrying into upstream_outcome_unknown.
 func TestManagedUpstreamStatusKeyLifetime(t *testing.T) {
-	for _, tc := range []struct {
-		status  int
-		sameKey bool
-	}{{429, false}, {502, true}} {
-		t.Run(fmt.Sprint(tc.status), func(t *testing.T) {
-			client, calls := managedClient(t, func(n int, w http.ResponseWriter) bool {
-				if n == 1 {
-					w.Header().Set("retry-after-ms", "1")
-					w.WriteHeader(tc.status) // passed through: no gateway header
-					return true
-				}
-				return false
-			})
-			_, err := client.Evaluate(context.Background(), mixedRequest())
-			require.NoError(t, err)
-			got := calls()
-			require.Len(t, got, 2)
-			require.Equal(t, tc.sameKey, got[0].key == got[1].key)
+	t.Run("429", func(t *testing.T) {
+		client, calls := managedClient(t, func(n int, w http.ResponseWriter) bool {
+			if n == 1 {
+				w.Header().Set("retry-after-ms", "1")
+				w.WriteHeader(http.StatusTooManyRequests) // passed through: no gateway header
+				return true
+			}
+			return false
 		})
-	}
+		_, err := client.Evaluate(context.Background(), mixedRequest())
+		require.NoError(t, err)
+		got := calls()
+		require.Len(t, got, 2)
+		require.NotEqual(t, got[0].key, got[1].key)
+	})
+	t.Run("502", func(t *testing.T) {
+		client, calls := managedClient(t, func(n int, w http.ResponseWriter) bool {
+			w.WriteHeader(http.StatusBadGateway)
+			return true
+		})
+		_, err := client.Evaluate(context.Background(), mixedRequest())
+		var apiErr *typesafe.APIError
+		require.ErrorAs(t, err, &apiErr)
+		require.Equal(t, http.StatusBadGateway, apiErr.StatusCode)
+		require.Len(t, calls(), 1)
+	})
 }
 
 func TestManagedBatchClassifiesGatewayRejections(t *testing.T) {
