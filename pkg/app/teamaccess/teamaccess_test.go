@@ -3,6 +3,8 @@ package teamaccess
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/teamapi/session"
@@ -35,5 +37,32 @@ func TestCheckRoutesOrigins(t *testing.T) {
 	a.development = false
 	if err := a.check(ctx, session.DevelopmentOrigin); !errors.Is(err, errLive) {
 		t.Fatalf("release build, loopback origin: %v, want require live", err)
+	}
+}
+
+// The development gateway exits after an idle hour while a vault keeps its
+// provider, so the transport makes sure it is up before every request.
+func TestEnsureTransportStartsTheGatewayBeforeEachRequest(t *testing.T) {
+	var ensured int
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	t.Cleanup(srv.Close)
+	tr := ensureTransport{inner: http.DefaultTransport, origin: session.DevelopmentOrigin,
+		ensure: func(context.Context, string) error { ensured++; return nil }}
+	for range 2 {
+		req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+		resp, err := tr.RoundTrip(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+	if ensured != 2 {
+		t.Fatalf("ensure ran %d times, want once per request", ensured)
+	}
+	failing := ensureTransport{inner: http.DefaultTransport, origin: session.DevelopmentOrigin,
+		ensure: func(context.Context, string) error { return errors.New("cannot start") }}
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	if _, err := failing.RoundTrip(req); err == nil {
+		t.Fatal("a gateway that cannot start must fail the request")
 	}
 }

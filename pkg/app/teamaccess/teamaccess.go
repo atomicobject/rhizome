@@ -109,6 +109,11 @@ func (a *access) load() (provideraccess.Managed, bool, error) {
 		return nil, false, err
 	}
 	m := managed{Account: account, limits: status.Limits}
+	if a.development && account.Origin() == session.DevelopmentOrigin {
+		// A long-running vault keeps this provider while the on-demand gateway
+		// exits after an idle hour, so every request makes sure it is up.
+		return ensuring{managed: m, ensure: a.ensure}, true, nil
+	}
 	if err := a.check(context.Background(), account.Origin()); err != nil {
 		// Fail every call loudly rather than quietly billing a direct key.
 		return failing{managed: m, err: err}, true, nil
@@ -167,6 +172,29 @@ type failing struct {
 }
 
 func (f failing) Transport() http.RoundTripper { return errorTransport{f.err} }
+
+// ensuring starts the development gateway, if needed, before each request.
+type ensuring struct {
+	managed
+	ensure func(context.Context, string) error
+}
+
+func (e ensuring) Transport() http.RoundTripper {
+	return ensureTransport{inner: e.managed.Transport(), origin: e.Origin(), ensure: e.ensure}
+}
+
+type ensureTransport struct {
+	inner  http.RoundTripper
+	origin string
+	ensure func(context.Context, string) error
+}
+
+func (t ensureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if err := t.ensure(req.Context(), t.origin); err != nil {
+		return nil, err
+	}
+	return t.inner.RoundTrip(req)
+}
 
 type errorTransport struct{ err error }
 
