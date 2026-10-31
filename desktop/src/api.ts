@@ -208,7 +208,7 @@ export type FinderChoice =
   | { choice: "add" }
   | { choice: "open"; repository: string; worktree: string | null; newWindow: boolean }
   | { choice: "menu"; repository: string; x: number; y: number };
-export type PageSection = "notes" | "ontology" | "explorer" | "agent" | "graphql";
+export type PageSection = "notes" | "ontology" | "explorer" | "agent" | "tasks" | "graphql";
 /** What the toolbar's page controls show; see SPEC-0119. */
 export interface PageState {
   section: PageSection;

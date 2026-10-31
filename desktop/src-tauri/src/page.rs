@@ -51,6 +51,7 @@ pub enum Section {
     Ontology,
     Explorer,
     Agent,
+    Tasks,
     Graphql,
 }
 
@@ -312,6 +313,12 @@ mod tests {
             serde_json::to_value(&report).unwrap(),
             json!({"section": "graphql", "search": ""})
         );
+        let title = r#"rhizome-desktop:{"v":1,"section":"tasks","search":""}"#;
+        let report = decode(title, &page("/tasks/nightly"), Some(&runtime())).unwrap();
+        assert_eq!(
+            serde_json::to_value(&report).unwrap(),
+            json!({"section": "tasks", "search": ""})
+        );
     }
 
     #[test]
@@ -491,6 +498,13 @@ mod tests {
         assert_eq!(
             command.script().unwrap(),
             r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"search","query":"a'b\"</script>"} }))"#
+        );
+        assert_eq!(
+            serde_json::from_value::<Command>(json!({"command": "section", "section": "tasks"}))
+                .unwrap(),
+            Command::Section {
+                section: Section::Tasks
+            }
         );
         let command: Command =
             serde_json::from_value(json!({"command": "section", "section": "ontology"})).unwrap();

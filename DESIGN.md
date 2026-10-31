@@ -299,7 +299,7 @@ The scale is fixed: `--fs-xs` 12, `--fs-sm` 13, `--fs-base` 14, `--fs-md` 15, `-
 
 ## 4. Layout
 
-**Shell.** A 44px top bar on `--chrome-top` holds the brand, the sidebar toggle, the section tabs (Notes, Ontology, Explorer, Agent, GraphQL), a centred global search up to 560px wide, and the tools. Below it every section except GraphQL is the same two-column workbench on `--chrome-bg`: the themed sidebar, then the content panel, inset 6px from the right and bottom with a 10px corner. With the sidebar hidden, the panel insets 6px on the left too.
+**Shell.** A 44px top bar on `--chrome-top` holds the brand, the sidebar toggle, the section tabs (Notes, Ontology, Explorer, Agent, Tasks, GraphQL), a centred global search up to 560px wide, and the tools. Below it every section except GraphQL is the same two-column workbench on `--chrome-bg`: the themed sidebar, then the content panel, inset 6px from the right and bottom with a 10px corner. With the sidebar hidden, the panel insets 6px on the left too.
 
 **Resizable panes.** The sidebar ranges from 200 to 400px (264 default) and never takes more than 45% of the window. The right pane ranges from 280 to 560px (340 default). Each has an 8px drag handle on its inner edge that shows a 2px line on hover and a red line on keyboard focus; it is a `role=separator` that moves in 16px steps with the arrow keys and jumps to its bounds with Home and End. Widths and collapsed state persist per browser; the sidebar's are shared by every section and change only when the user changes them, never on search or a section switch.
 
@@ -355,7 +355,7 @@ The top bar is the theme's `--chrome-top`. The brand is a 7px AO-red diamond and
 
 ### Sidebar
 
-The sidebar sits on `--chrome-bg` and is one frame for every section: it names the vault or repository (16/600), and only its contents change. Notes holds All notes, Recently changed, and Problems, then Views, then the type tree in collapsible groups; Ontology holds an Atlas row and the same type tree; Explorer holds the vault tree; Agent holds the session list. Rows are 30px, 14px, muted chrome text with 16px icons; hover uses `--chrome-raised`, and the current row is a light pill (`--chrome-pill`, 600 weight, `--chrome-pill-text`). Counts sit at the right in 12px tabular figures; a problem count turns `--chrome-risk`. Focus inside the sidebar is a 2px `--chrome-text` ring inset on the row. There is no note list; ⌘P finds notes.
+The sidebar sits on `--chrome-bg` and is one frame for every section: it names the vault or repository (16/600), and only its contents change. Notes holds All notes, Recently changed, and Problems, then Views, then the type tree in collapsible groups; Ontology holds an Atlas row and the same type tree; Explorer holds the vault tree; Agent holds the session list; Tasks holds All tasks and one row per registered task with its next due time. Rows are 30px, 14px, muted chrome text with 16px icons; hover uses `--chrome-raised`, and the current row is a light pill (`--chrome-pill`, 600 weight, `--chrome-pill-text`). Counts sit at the right in 12px tabular figures; a problem count turns `--chrome-risk`. Focus inside the sidebar is a 2px `--chrome-text` ring inset on the row. There is no note list; ⌘P finds notes.
 
 ### Buttons
 

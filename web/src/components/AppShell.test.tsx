@@ -6,6 +6,7 @@ import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { AppShell } from "./AppShell";
 import type { DesktopCommand } from "./desktopHost";
 import { resetSidebarForTests, SIDEBAR_KEY } from "./sidebarState";
+import { reportFixture, stateFixture } from "./tasks/taskFixtures";
 
 type StatusStub = { vaultName: string; vaultPath: string; indexState?: "initializing" | "ready" };
 
@@ -467,6 +468,18 @@ describe("AppShell", () => {
 
       await send({ command: "issues" });
       expect(window.location.pathname).toBe("/notes/issues");
+    });
+
+    it("opens Tasks on the app's section command and reports it", async () => {
+      http
+        .json("GET", "/api/tasks", reportFixture())
+        .json("GET", "/api/tasks/state", stateFixture());
+      render(<AppShell />);
+
+      await send({ command: "section", section: "tasks" });
+      expect(window.location.pathname).toBe("/tasks");
+      await waitFor(() => expect(report()).toEqual({ v: 1, section: "tasks", search: "" }));
+      expect(await screen.findByRole("table")).toHaveTextContent("Docs drift check");
     });
 
     it("leaves ⌘K to the app", () => {
