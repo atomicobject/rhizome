@@ -324,3 +324,52 @@ func (p *cancelAfterProvider) EmbedTexts(ctx context.Context, texts []string) ([
 	}
 	return vectors, err
 }
+
+// Real indexing embeds through the shared node. A pass cancelled while its
+// texts are at the provider must still cache the vectors the provider returns.
+func TestOntologyNodeSyncerSharedNodeCachesVectorsWhenPassIsCancelled(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		maxText int
+		wrap    func(*lazyDimsProvider, context.CancelFunc) embeddings.Provider
+	}{
+		{
+			// Another lane failing cancels the pass mid-batch.
+			name: "cancelled mid-batch", maxText: 8,
+			wrap: func(p *lazyDimsProvider, cancel context.CancelFunc) embeddings.Provider {
+				p.fail = func(string) bool { cancel(); return false }
+				return p
+			},
+		},
+		{
+			// Every batch succeeds, then publication runs on the cancelled context.
+			name: "publication cancelled", maxText: 1,
+			wrap: func(p *lazyDimsProvider, cancel context.CancelFunc) embeddings.Provider {
+				return &cancelAfterProvider{lazyDimsProvider: p, cancel: cancel, after: 3}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, schema, projection := setupOntologyNodeChunkFixture(t)
+			store, err := semdb.Open(filepath.Join(t.TempDir(), "intel.db"))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = store.Close() })
+			model, err := ontology.BuildIntelOntologyNodeReadModel(schema, projection, 1)
+			require.NoError(t, err)
+			require.NoError(t, store.ReplaceOntologyNodeReadModel(context.Background(), model))
+			info := embeddings.ProviderConfig{Provider: "test", Model: "deterministic", Dimensions: 8}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			provider := tc.wrap(newLazyDimsProvider(), cancel)
+			node := NewSharedEmbeddingNode(context.Background(), provider, 3, nil, EmbedPackerOptions{MinTexts: 1, MaxTexts: tc.maxText, MaxBytes: 1 << 20, MaxWait: time.Millisecond})
+			defer node.Close()
+			err = OntologyNodeSyncer{Store: store, Schema: schema, Provider: provider, ProviderInfo: info, EmbeddingNode: node}.SyncProjections(ctx, projection)
+			require.Error(t, err)
+
+			retry := newLazyDimsProvider()
+			require.NoError(t, syncOntologyFixtureFresh(t, store, schema, projection, OntologyNodeSyncer{Provider: retry, ProviderInfo: info}))
+			require.Zero(t, retry.texts.Load(), "vectors the provider returned before cancellation are cached")
+		})
+	}
+}

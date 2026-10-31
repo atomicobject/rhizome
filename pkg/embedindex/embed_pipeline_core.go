@@ -298,7 +298,7 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() error {
 			var vecs []embeddings.Embedding
 			var err error
 			if useSharedNode {
-				vecs, err = p.sharedNode.Submit(p.ctx, indexingperf.PhaseFromContext(p.ctx), batchTexts)
+				vecs, err = p.sharedNode.submit(p.ctx, indexingperf.PhaseFromContext(p.ctx), batchTexts, false)
 			} else {
 				vecs, err = p.provider.EmbedTexts(p.ctx, batchTexts)
 			}

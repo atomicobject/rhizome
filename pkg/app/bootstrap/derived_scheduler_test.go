@@ -282,8 +282,10 @@ func TestDerivedSharedNodePriorityYieldsAndRuntimeShutdownDrainsPhysicalProvider
 	priority, err := indexlock.RequestPriority(repoconfig.IndexLockPath(rt.VaultPath))
 	require.NoError(t, err)
 	defer priority.Close()
-	require.Eventually(t, func() bool { w.derived.mu.Lock(); defer w.derived.mu.Unlock(); return w.derived.running == "" }, time.Second, 5*time.Millisecond)
-	require.Zero(t, provider.canceled.Load(), "canceling one submitter preserves shared physical request ownership")
+	// Priority cancels computation, but the dispatched physical request keeps
+	// running so its vectors can still be cached.
+	require.Never(t, func() bool { return provider.canceled.Load() > 0 }, 300*time.Millisecond, 5*time.Millisecond,
+		"canceling one submitter preserves shared physical request ownership")
 	release, acquired, err := indexlock.TryAcquire(repoconfig.IndexLockPath(rt.VaultPath))
 	require.NoError(t, err)
 	require.True(t, acquired, "shared provider dispatch must leave writer lease available")
@@ -297,7 +299,9 @@ func TestDerivedSharedNodePriorityYieldsAndRuntimeShutdownDrainsPhysicalProvider
 	h = w.processOwnershipBatch()
 	watcherJobTerminal(t, h)
 	require.NoError(t, h.Err())
-	w.derived.close()
+	// As in production, the runtime cancels its context, and with it the
+	// shared node, before closing the derived scheduler.
+	rt.addCloser(w.derived.close)
 	done := make(chan error, 1)
 	go func() { done <- rt.Close() }()
 	select {

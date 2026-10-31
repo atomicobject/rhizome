@@ -337,6 +337,22 @@ func (n *SharedEmbeddingNode) run() {
 			close(req.done)
 		}
 	}
+	// dropCancelled completes queued jobs whose submitter's context ended so
+	// their texts are never sent; jobs already in a provider batch finish.
+	dropCancelled := func() {
+		kept := pending[:0]
+		for _, job := range pending {
+			if err := job.req.ctx.Err(); err != nil {
+				bytes -= job.bytes
+				complete(job.req, err)
+				continue
+			}
+			kept = append(kept, job)
+		}
+		clear(pending[len(kept):])
+		pending = kept
+		indexingperf.SetGauge(n.ctx, indexingperf.EmbedReadyDepth, int64(len(pending)))
+	}
 	defer func() {
 		setWait("")
 		stopTimer()
@@ -375,7 +391,13 @@ func (n *SharedEmbeddingNode) run() {
 			if !ok {
 				n.requests = nil
 				stopTimer()
+				dropCancelled()
 				dispatchReady(true)
+				continue
+			}
+			if err := req.ctx.Err(); err != nil {
+				req.err = err
+				close(req.done)
 				continue
 			}
 			for i, text := range req.texts {
@@ -397,6 +419,9 @@ func (n *SharedEmbeddingNode) run() {
 			if len(pending) > 0 {
 				startTimer()
 			}
+		case <-n.cancelled:
+			dropCancelled()
+			dispatchReady(false)
 		case <-timerCh:
 			stopTimer()
 			dispatchReady(true)
