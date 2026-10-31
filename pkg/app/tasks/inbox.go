@@ -42,6 +42,11 @@ type Item struct {
 	Changed  []string  `json:"changed,omitempty"`
 	Tokens   int64     `json:"tokens,omitempty"`
 	Reason   string    `json:"reason,omitempty"`
+	// Run is the attempt that owns the item's worktree.
+	Run string `json:"run,omitempty"`
+	// LaunchError is why the person's last Run failed before it started;
+	// the item's next state change clears it.
+	LaunchError string `json:"launchError,omitempty"`
 }
 
 // Active reports whether the item still needs the person or is in progress.
@@ -87,7 +92,16 @@ func (s *State) AddItem(it Item, now time.Time) *Item {
 
 // set moves an item to a new state.
 func (it *Item) set(state ItemState, now time.Time) {
-	it.State, it.Updated = state, now
+	it.State, it.Updated, it.LaunchError = state, now, ""
+}
+
+// interrupt moves an item left running by a crash to needs attention.
+func (it *Item) interrupt(now time.Time) {
+	it.set(StateAttention, now)
+	it.Reason = "the run was interrupted before it finished"
+	if it.Worktree != "" {
+		it.Reason += " (worktree kept at " + it.Worktree + ")"
+	}
 }
 
 // pruneItems drops finished items older than a month, keeping the file

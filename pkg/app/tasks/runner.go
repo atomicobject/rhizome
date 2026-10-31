@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,6 +90,10 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 		return RunSummary{}, err
 	}
 	defer func() { _ = release() }()
+	if err := s.finalizeInterrupted(ctx); err != nil {
+		return RunSummary{}, err
+	}
+	defer s.retain(ctx)
 
 	ref, commit, err := s.opts.Repo.ResolvePrimary(ctx, s.opts.Config.PrimaryRef)
 	if err != nil {
@@ -175,16 +178,10 @@ func (s *Service) bookkeep(ctx context.Context, st *State, defs []Definition, ta
 	for i := range st.Items {
 		it := &st.Items[i]
 		// This pass holds the run lock, so nothing is running: an item left
-		// running was interrupted by a crash or reboot.
+		// running was interrupted by a crash or reboot. finalizeInterrupted
+		// already recorded the run, so the task waits for its cadence.
 		if it.State == StateRunning {
-			it.set(StateAttention, now)
-			it.Reason = "the run was interrupted before it finished"
-			if it.Worktree != "" {
-				it.Reason += " (worktree kept at " + it.Worktree + ")"
-			}
-			// The attempt counts as a run, so the task waits for its cadence
-			// instead of starting again in this pass.
-			st.Record(RunRecord{Task: it.Task, At: now, Outcome: OutcomeFailed, Message: it.Reason})
+			it.interrupt(now)
 		}
 		if t := tagged[it.Task]; it.Kind == KindTask && it.Active() && t != nil && s.newlyMerged(ctx, *t, *it) {
 			it.set(StateDone, now)
@@ -220,21 +217,30 @@ func (s *Service) lastTagged(ctx context.Context, ref string, defs []Definition)
 
 // runTask runs one due task's check, then notifies or does the work.
 func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, commit string) Outcome {
-	now := s.opts.Now()
+	a := s.newAttempt(false)
+	base := a.record(def.ID, "", time.Time{})
+	base.Commit = commit
+	if err := s.begin(ctx, a, base, nil); err != nil {
+		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
+	}
+	defer s.end(ctx, a)
 	loc := s.locations(def, commit)
 	check := CheckResult{Needed: true}
 	if def.Check != nil {
-		log, closeLog := s.openLog(def.ID, "check")
+		log := s.openCheckLog(a)
 		var err error
 		check, err = s.runCheck(ctx, def, loc, log, "")
-		closeLog()
+		log.Close()
 		if err != nil {
-			return s.fail(ctx, def, "", commit, "check failed: "+err.Error(), 0)
+			return s.fail(ctx, def, a, "", commit, "check failed: "+err.Error(), 0)
 		}
 	}
+	now := s.opts.Now()
 	if !check.Needed {
 		_ = s.store.Update(ctx, func(st *State) error {
-			st.Record(RunRecord{Task: def.ID, At: now, Outcome: OutcomeNotNeeded})
+			r := a.record(def.ID, OutcomeNotNeeded, now)
+			r.Commit = commit
+			st.Record(r)
 			return nil
 		})
 		return Outcome{Task: def.ID, Outcome: OutcomeNotNeeded}
@@ -243,7 +249,9 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 		var id string
 		err := s.store.Update(ctx, func(st *State) error {
 			id = st.AddItem(Item{Task: def.ID, Kind: KindTask, State: StateDue, Summary: check.Summary, Context: check.Context, Commit: commit}, now).ID
-			st.Record(RunRecord{Task: def.ID, At: now, Outcome: OutcomeNotified, Message: check.Summary})
+			r := a.record(def.ID, OutcomeNotified, now)
+			r.Message, r.Item, r.Commit = check.Summary, id, commit
+			st.Record(r)
 			return nil
 		})
 		if err != nil {
@@ -254,17 +262,20 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 	var id string
 	if err := s.store.Update(ctx, func(st *State) error {
 		id = st.AddItem(Item{Task: def.ID, Kind: KindTask, State: StateRunning, Summary: check.Summary, Context: check.Context, Commit: commit}, now).ID
+		running(st, a, func(r *RunRecord) { r.Item = id })
 		return nil
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
 	}
-	return s.work(ctx, def, id, check, ref, commit)
+	return s.work(ctx, def, a, id, check, ref, commit)
 }
 
 // fail records a failed run, with any tokens it used, and a needs-attention
 // item. A failure with no item of its own reuses the task's earlier
 // failure notice when that holds no worktree, so notices do not pile up.
-func (s *Service) fail(ctx context.Context, def Definition, itemID, commit, reason string, tokens int64) Outcome {
+// The record takes the item's branch and worktree only when this attempt
+// made them. A draft's failure updates its item but is not recorded.
+func (s *Service) fail(ctx context.Context, def Definition, a attempt, itemID, commit, reason string, tokens int64) Outcome {
 	now := s.opts.Now()
 	_ = s.store.Update(ctx, func(st *State) error {
 		var it *Item
@@ -283,7 +294,15 @@ func (s *Service) fail(ctx context.Context, def Definition, itemID, commit, reas
 		it.set(StateAttention, now)
 		it.Reason, it.Tokens = reason, tokens
 		itemID = it.ID
-		st.Record(RunRecord{Task: def.ID, At: now, Outcome: OutcomeFailed, Message: reason, Tokens: tokens})
+		if a.draft {
+			return nil
+		}
+		r := a.record(def.ID, OutcomeFailed, now)
+		r.Message, r.Tokens, r.Item, r.Commit = reason, tokens, it.ID, commit
+		if it.Run == a.id {
+			r.Branch, r.Worktree = it.Branch, it.Worktree
+		}
+		st.Record(r)
 		return nil
 	})
 	return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: reason}
@@ -322,20 +341,6 @@ func (s *Service) lockRun(ctx context.Context, wait time.Duration) (func() error
 		return nil, err
 	}
 	return acquire(ctx, filepath.Join(s.stateDir, runLock), "tasks/run", wait)
-}
-
-// openLog opens a per-run log file; failures fall back to discarding.
-func (s *Service) openLog(task, step string) (io.Writer, func()) {
-	dir := filepath.Join(s.stateDir, "logs")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return io.Discard, func() {}
-	}
-	name := fmt.Sprintf("%s-%s-%s.log", task, s.opts.Now().UTC().Format("20060102T150405Z"), step)
-	f, err := os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
-	if err != nil {
-		return io.Discard, func() {}
-	}
-	return f, func() { _ = f.Close() }
 }
 
 func short(commit string) string {

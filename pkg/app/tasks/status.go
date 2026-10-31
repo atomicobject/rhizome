@@ -80,11 +80,7 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 			copy := *it
 			ts.Item = &copy
 		}
-		for _, r := range st.History {
-			if r.Task == def.ID && now.Sub(r.At) < 30*24*time.Hour {
-				ts.Tokens += r.Tokens
-			}
-		}
+		ts.Tokens = st.TokensLast30Days(def.ID, now)
 		report.Tasks = append(report.Tasks, ts)
 	}
 	for _, def := range defs {

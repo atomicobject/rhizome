@@ -17,7 +17,6 @@ import (
 const (
 	stateFile    = "state.json"
 	stateLock    = "state.lock"
-	maxHistory   = 500
 	lockWait     = 10 * time.Second
 	lockPollTime = 50 * time.Millisecond
 )
@@ -50,16 +49,33 @@ const (
 	OutcomeFailed    = "failed"
 	OutcomeStarted   = "started"
 	OutcomeSkipped   = "skipped"
+	// OutcomeInterrupted is a run whose process ended before it finished.
+	OutcomeInterrupted = "interrupted"
+)
+
+// Run stages, recorded only on State.Running.
+const (
+	StageCheck = "check"
+	StageAgent = "agent"
 )
 
 // RunRecord is one run of a task by this person. Every outcome counts for
-// the person's clock.
+// the person's clock. A record keeps its own item, branch, and worktree, so
+// an old run never shows a newer attempt's work.
 type RunRecord struct {
-	Task    string    `json:"task"`
-	At      time.Time `json:"at"`
-	Outcome string    `json:"outcome"`
-	Tokens  int64     `json:"tokens,omitempty"`
-	Message string    `json:"message,omitempty"`
+	ID        string    `json:"id,omitempty"`
+	Task      string    `json:"task"`
+	StartedAt time.Time `json:"startedAt,omitzero"`
+	At        time.Time `json:"at"`
+	Outcome   string    `json:"outcome"`
+	Stage     string    `json:"stage,omitempty"`
+	Tokens    int64     `json:"tokens,omitempty"`
+	Message   string    `json:"message,omitempty"`
+	Item      string    `json:"item,omitempty"`
+	Branch    string    `json:"branch,omitempty"`
+	Commit    string    `json:"commit,omitempty"`
+	Worktree  string    `json:"worktree,omitempty"`
+	Changed   []string  `json:"changed,omitempty"`
 }
 
 // State is one person's task state for one repository.
@@ -70,6 +86,12 @@ type State struct {
 	History []RunRecord          `json:"history,omitempty"`
 	// Last keeps each task's latest run even after history is trimmed.
 	Last map[string]RunRecord `json:"last,omitempty"`
+	// Running is the run holding run.lock, set when it starts. One left
+	// behind by a crash is recorded as interrupted by the next run.
+	Running *RunRecord `json:"running,omitempty"`
+	// Tokens is task -> UTC day ("2006-01-02") -> tokens, for 30 days, so
+	// totals survive history trimming.
+	Tokens map[string]map[string]int64 `json:"tokens,omitempty"`
 	// PassError is why the latest run-due pass failed before running tasks.
 	PassError *PassError `json:"passError,omitempty"`
 	Items     []Item     `json:"items,omitempty"`
@@ -95,16 +117,82 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 	return RunRecord{}, false
 }
 
-// Record appends a run, keeping history bounded.
+// Record appends a run and counts its tokens. It clears Running when that
+// is this run. Retention trims history at the end of each run.
 func (s *State) Record(r RunRecord) {
 	if s.Last == nil {
 		s.Last = map[string]RunRecord{}
 	}
+	r.Stage = ""
+	// Seed before appending, so this run is not counted twice.
+	s.seedTokens()
 	s.Last[r.Task] = r
 	s.History = append(s.History, r)
-	if extra := len(s.History) - maxHistory; extra > 0 {
-		s.History = append([]RunRecord(nil), s.History[extra:]...)
+	if s.Running != nil && r.ID != "" && s.Running.ID == r.ID {
+		s.Running = nil
 	}
+	if r.Tokens > 0 {
+		s.addTokens(r.Task, r.At, r.Tokens)
+	}
+}
+
+const tokenDays = 30
+
+func tokenDay(t time.Time) string { return t.UTC().Format(time.DateOnly) }
+
+// tokenCutoff is the oldest day bucket that still counts at now.
+func tokenCutoff(now time.Time) string { return tokenDay(now.AddDate(0, 0, -(tokenDays - 1))) }
+
+func (s *State) addTokens(task string, at time.Time, n int64) {
+	if s.Tokens[task] == nil {
+		s.Tokens[task] = map[string]int64{}
+	}
+	s.Tokens[task][tokenDay(at)] += n
+}
+
+// seedTokens builds the token buckets from history the first time, for
+// state written before buckets existed.
+func (s *State) seedTokens() {
+	if s.Tokens != nil {
+		return
+	}
+	s.Tokens = map[string]map[string]int64{}
+	for _, r := range s.History {
+		if r.Tokens > 0 {
+			s.addTokens(r.Task, r.At, r.Tokens)
+		}
+	}
+}
+
+// trimTokens drops day buckets older than 30 days.
+func (s *State) trimTokens(now time.Time) {
+	cutoff := tokenCutoff(now)
+	for task, days := range s.Tokens {
+		for day := range days {
+			if day < cutoff {
+				delete(days, day)
+			}
+		}
+		if len(days) == 0 {
+			delete(s.Tokens, task)
+		}
+	}
+}
+
+// TokensLast30Days sums a task's token buckets for the last 30 UTC days.
+func (s *State) TokensLast30Days(task string, now time.Time) int64 {
+	st := *s
+	if st.Tokens == nil {
+		st.seedTokens()
+	}
+	cutoff := tokenCutoff(now)
+	var total int64
+	for day, n := range st.Tokens[task] {
+		if day >= cutoff {
+			total += n
+		}
+	}
+	return total
 }
 
 // ResolveMode returns a task's mode and where it came from: the person's

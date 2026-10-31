@@ -6,7 +6,7 @@ reference-kind: guide
 
 # Scheduled tasks
 
-Last verified: 2026-10-25
+Last verified: 2026-10-31
 
 Scheduled tasks are periodic agent work that a repository declares once and that runs on each teammate's machine, in that person's own agent harness (Claude Code or Codex). The contract is [[scheduled-tasks|SPEC-0127]].
 
@@ -105,4 +105,8 @@ An item closes by itself when a commit carrying its task's tag reaches the prima
 
 ## Where state lives
 
-Everything personal stays in the main checkout's ignored `.rhizome/task-state/`, shared by every worktree of the repository: modes, run history, inbox items, the check checkout, background worktrees, data folders, and logs. A repository without a main checkout keeps it in Rhizome's per-user configuration folder.
+Everything personal stays in the main checkout's ignored `.rhizome/task-state/`, shared by every worktree of the repository: modes, run history, inbox items, the check checkout, background worktrees, data folders, and run folders. A repository without a main checkout keeps it in Rhizome's per-user configuration folder.
+
+Every run gets an ID like `20261031T143000Z-1a2b3c4d` before its check starts, and a folder `runs/<id>/` holding `check.log` (the check's stderr, cut at 1 MB) and, when agent work ran, `events.jsonl` (the harness transcript). A run left unfinished by a crash or reboot is recorded once as `interrupted` by the next run. Per task, Rhizome keeps the 20 newest runs with a transcript and 100 others, and the 20 newest transcripts and check logs; token totals cover the last 30 days even after older runs are trimmed. `rzm tasks run --file` runs are not recorded and do not move the task's clock; their folders are deleted after 7 days.
+
+When `rzm tasks run <item>` fails before the run starts, for example because another run holds the lock, the reason is saved on the item until its next state change.
