@@ -105,7 +105,7 @@ Live measurement: the old build (`main` at `dbc04f3a`) and the new build ran sid
 
 ## Status
 
-Complete on branch `t3/investigate-performance-bottlenecks`; the pull request carries the work.
+Complete. Delivered by [#62](https://github.com/atomicobject/rhizome/pull/62) on branch `t3/investigate-performance-bottlenecks`.
 
 ## Closure Checklist
 
