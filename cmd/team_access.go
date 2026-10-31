@@ -46,6 +46,10 @@ func (m teamManaged) Limits() wire.Limits { return m.limits }
 // fails its next request.
 const teamAccountTTL = 30 * time.Second
 
+// teamBaseTransport is shared by every account lookup in the process, so
+// rebuilding the account each TTL keeps its pooled connections.
+var teamBaseTransport = session.DefaultBaseTransport()
+
 var teamAccountCache struct {
 	sync.Mutex
 	at      time.Time
@@ -85,7 +89,7 @@ func lookupTeamAccount() (*session.Account, session.Status, error) {
 		return nil, session.Status{}, err
 	}
 	account, err := session.Open(session.Options{Origin: origin, Store: store, LockPath: lock, SelectorPath: selector,
-		BaseTransport: session.DefaultBaseTransport(), UserAgent: "rzm/" + version.Version})
+		BaseTransport: teamBaseTransport, UserAgent: "rzm/" + version.Version})
 	if err != nil {
 		return nil, session.Status{}, err
 	}

@@ -317,12 +317,12 @@ func (a *Account) rotate(ctx context.Context, rec Record) (Record, error) {
 	return recordFromGrant(a.origin, rec.Generation, grant)
 }
 
-// clear deletes the record after the gateway ended the session, unless a
-// newer sign-in has replaced it.
-// clear deletes the stored record only if it is still the session that was
-// rejected. Generations restart after logout, so the session ID is compared
-// too: a late rejection of an old session never deletes a newer sign-in.
+// clear forgets this process's cached record, then deletes the stored record
+// only if it is still the session that was rejected. Generations restart
+// after logout, so the session ID is compared too: a late rejection of an old
+// session never deletes a newer sign-in.
 func (a *Account) clear(ctx context.Context, generation uint64, sessionID string) {
+	a.setCache(nil)
 	unlock, err := lockFile(ctx, a.lockPath)
 	if err != nil {
 		return
