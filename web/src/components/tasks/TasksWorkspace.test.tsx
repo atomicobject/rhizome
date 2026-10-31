@@ -385,6 +385,58 @@ describe("TasksWorkspace", () => {
     ).toBeVisible();
   });
 
+  it("labels the run in progress in history when the runs list already has it", async () => {
+    const running = { ...runsFixture(NOW)[0]!, outcome: "", stage: "agent" as const };
+    http.json("GET", "/api/tasks/state", { ...stateFixture(NOW), running, stale: true });
+    http.json("GET", "/api/tasks/runs", { runs: [running, ...runsFixture(NOW).slice(1)] });
+    open(`/tasks/docs-drift/runs/${RUN_ID}`);
+    render(<TasksWorkspace />);
+
+    const history = await screen.findByRole("region", { name: "Run history" });
+    const row = await waitFor(() => history.querySelector<HTMLElement>(".is-selected")!);
+
+    expect(within(row).getByText("Interrupted")).toBeVisible();
+  });
+
+  it("shows check stderr written after the run view opened", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW });
+    const running = { ...runsFixture(NOW)[0]!, outcome: "", stage: "check" as const };
+    http.json("GET", "/api/tasks/state", { ...stateFixture(NOW), running });
+    let checkLog = "scanning";
+    http.on("GET", `/api/tasks/runs/${RUN_ID}`, () =>
+      jsonReply({ run: running, events: [], next: 0, checkLog }),
+    );
+    open(`/tasks/docs-drift/runs/${RUN_ID}`);
+    render(<TasksWorkspace />);
+
+    fireEvent.click(await waitFor(() => summaryRow("Check stderr")));
+    checkLog = "scanning\ncheck failed: no such file";
+    await act(() => vi.advanceTimersByTimeAsync(2_100));
+
+    expect(await screen.findByText(/check failed: no such file/)).toBeVisible();
+  });
+
+  it("keeps awaiting a retried launch while the item shows an earlier launch error", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW });
+    const state = stateFixture(NOW);
+    const earlier = new Date(NOW - 60_000).toISOString();
+    http.json("GET", "/api/tasks/state", {
+      ...state,
+      items: state.items.map((item) =>
+        item.id === "9" ? { ...item, launchError: "busy", updated: earlier } : item,
+      ),
+    });
+    http.json("POST", "/api/tasks/items/9/run", { launchedAt: new Date(NOW).toISOString() });
+    open("/tasks/dependency-updates");
+    render(<TasksWorkspace />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Run" }));
+    expect(await screen.findByText("Starting the run…")).toBeVisible();
+    await act(() => vi.advanceTimersByTimeAsync(4_100));
+
+    expect(screen.getByText("Starting the run…")).toBeVisible();
+  });
+
   it("explains an empty registry and a load failure", async () => {
     http.json("GET", "/api/tasks", { ...reportFixture(NOW), tasks: [] });
     open("/tasks");

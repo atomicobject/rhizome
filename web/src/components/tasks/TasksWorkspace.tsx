@@ -40,16 +40,15 @@ function currentItem(task: TaskStatus, state?: TasksLiveState): TaskItem | undef
 function withRunning(runs: TaskRunView[], task: string, state?: TasksLiveState): TaskRunView[] {
   const running = state?.running;
 
-  if (!running?.id || running.task !== task || runs.some((run) => run.id === running.id))
-    return runs;
+  if (!running?.id || running.task !== task) return runs;
+  const outcome = state?.stale ? "interrupted" : "running";
+
+  // The runs endpoint lists the run in progress too, with no outcome yet.
+  if (runs.some((run) => run.id === running.id))
+    return runs.map((run) => (run.id === running.id && !run.outcome ? { ...run, outcome } : run));
 
   return [
-    {
-      ...running,
-      outcome: state?.stale ? "interrupted" : "running",
-      hasTranscript: running.stage === "agent",
-      hasCheckLog: true,
-    },
+    { ...running, outcome, hasTranscript: running.stage === "agent", hasCheckLog: true },
     ...runs,
   ];
 }

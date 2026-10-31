@@ -57,7 +57,14 @@ function launchResolved(watch: LaunchWatch, state: TasksLiveState): boolean {
   return (
     (state.running ? startedSince(state.running.task, state.running.startedAt) : false) ||
     state.recent.some((record) => startedSince(record.task, record.startedAt)) ||
-    state.items.some((item) => item.id === watch.item && Boolean(item.launchError))
+    // An error from an earlier launch is still in the cached state; only one
+    // recorded since this launch ends the wait.
+    state.items.some(
+      (item) =>
+        item.id === watch.item &&
+        Boolean(item.launchError) &&
+        new Date(item.updated).getTime() >= since,
+    )
   );
 }
 
@@ -163,7 +170,7 @@ export function useRunTranscript(runID: string | undefined, live: boolean) {
               ? {
                   ...detail,
                   events: appendEvents(previous.events, detail.events),
-                  checkLog: previous.checkLog ?? detail.checkLog,
+                  checkLog: detail.checkLog ?? previous.checkLog,
                 }
               : { ...detail, events: appendEvents([], detail.events) },
           };

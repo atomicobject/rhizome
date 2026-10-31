@@ -1083,3 +1083,7 @@
     padding-inline: 8px;
   }
 }
+
+.task-notice__sentence::first-letter {
+  text-transform: uppercase;
+}

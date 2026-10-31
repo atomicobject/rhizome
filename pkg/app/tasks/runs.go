@@ -187,8 +187,13 @@ func (s *Service) finalizeInterrupted(ctx context.Context) error {
 		r.At, r.Outcome = now, OutcomeInterrupted
 		r.Message = "the run was interrupted before it finished"
 		if r.Item != "" {
-			if it, err := st.Item(r.Item); err == nil && it.State == StateRunning {
-				it.interrupt(now)
+			// A manual Run's item is still due or needs attention during
+			// its check; done and dismissed items stay closed.
+			if it, err := st.Item(r.Item); err == nil {
+				switch it.State {
+				case StateRunning, StateDue, StateAttention:
+					it.interrupt(now)
+				}
 			}
 		}
 		st.Record(r)
@@ -206,7 +211,9 @@ func (s *Service) retain(ctx context.Context) {
 	ctx = context.WithoutCancel(ctx)
 	_ = os.RemoveAll(filepath.Join(s.stateDir, "logs")) // phase 1 layout
 	referenced := map[string]bool{}
-	_ = s.store.Update(ctx, func(st *State) error {
+	// Without a saved history, referenced is incomplete and the folder sweep
+	// below would delete recorded runs.
+	if err := s.store.Update(ctx, func(st *State) error {
 		st.seedTokens()
 		st.trimTokens(s.opts.Now())
 		transcripts, logs := map[string]int{}, map[string]int{}
@@ -242,7 +249,9 @@ func (s *Service) retain(ctx context.Context) {
 			referenced[st.Running.ID] = true
 		}
 		return nil
-	})
+	}); err != nil {
+		return
+	}
 	root := filepath.Join(s.stateDir, runsDir)
 	entries, err := os.ReadDir(root)
 	if err != nil {

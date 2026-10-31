@@ -58,7 +58,8 @@ export function TasksNotices({
       {report.untrusted ? (
         <div className="task-notice task-notice--risk" role="alert">
           <StatusMark tone="risk" label="Not trusted" />
-          <p>No task runs in this repository until it is trusted. {report.untrusted}</p>
+          {/* The reason already says what to run; it starts lowercase. */}
+          <p className="task-notice__sentence">{report.untrusted}</p>
         </div>
       ) : null}
       {report.refError ? (
