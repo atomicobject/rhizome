@@ -65,7 +65,7 @@ func (t transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 	if errors.Is(gerr, wire.ErrSignInRequired) {
-		a.clear(ctx, rec.Generation)
+		a.clear(ctx, rec.Generation, rec.SessionID)
 	}
 	return nil, gerr
 }

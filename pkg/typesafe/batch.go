@@ -79,6 +79,13 @@ func (c *Client) EvaluateBatch(ctx context.Context, items []BatchItem, concurren
 					var apiErr *APIError
 					var gatewayErr *wire.GatewayError
 					switch {
+					case errors.As(err, &apiErr) && c.managed != nil && apiErr.StatusCode >= 500:
+						// The gateway passed through a provider 5xx after dispatch and
+						// keeps that receipt as an unknown outcome: the work may have
+						// been billed, so resubmitting is not known to be safe.
+						result.Status = "uncertain"
+						result.StatusCode = apiErr.StatusCode
+						result.RequestID = apiErr.RequestID
 					case errors.As(err, &apiErr):
 						result.Status = "failed"
 						result.StatusCode = apiErr.StatusCode

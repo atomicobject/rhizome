@@ -32,6 +32,8 @@ const (
 	DefaultTypeSafeBaseURL = "https://api.typesafe.ai"
 	defaultTypeSafeModel   = "jev-latest"
 	userAgent              = "rhizome-team-api/1"
+	// bodyReadTimeout bounds reading one paid request body (the plan's 30 s).
+	bodyReadTimeout = 30 * time.Second
 )
 
 // Charge is a model's conservative reservation bound and settlement rate, in
@@ -234,12 +236,16 @@ func (t *Traffic) servePaid(w http.ResponseWriter, r *http.Request, p *provider,
 	if !validKey(key) {
 		return fail(wire.CodeBadRequest, "Idempotency-Key must be 8 to 128 characters of A-Z, a-z, 0-9, '.', '_', or '-'")
 	}
+	// The ingress permit is held for as long as the body stays buffered, so
+	// at most BodyReaders paid bodies are in memory at once, and the read has
+	// its own deadline so a stalled upload cannot hold a permit.
 	done, ok := t.ingress.enter(ctx)
 	if !ok {
 		return &gwError{wire.CodeRateLimited, "too many request bodies are being read", time.Second}
 	}
+	defer done()
+	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(bodyReadTimeout))
 	body, e := readBody(r, p.maxBody)
-	done()
 	if e != nil {
 		return e
 	}

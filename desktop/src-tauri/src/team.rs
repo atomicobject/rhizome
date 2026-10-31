@@ -40,6 +40,12 @@ enum Event {
     Error { code: String, message: String },
 }
 
+/// How `rzm auth status`, `logout`, and `admin` report a failure with --json.
+#[derive(Deserialize)]
+struct ErrorDocument {
+    error: Failure,
+}
+
 #[derive(Deserialize, Serialize)]
 struct Status {
     signed_in: bool,
@@ -79,12 +85,16 @@ fn auth(sidecar: &Path, directory: &Path, subcommand: &str) -> Command {
     command
 }
 
-/// The error event on any line, else the last line that parses as `T`.
+/// The error (a login error event or an error document) on any line, else
+/// the last line that parses as `T`.
 fn parse<T: for<'a> Deserialize<'a>>(stdout: &[u8]) -> Result<Option<T>, Failure> {
     let mut found = None;
     for line in String::from_utf8_lossy(stdout).lines() {
         if let Ok(Event::Error { code, message }) = serde_json::from_str(line) {
             return Err(Failure { code, message });
+        }
+        if let Ok(ErrorDocument { error }) = serde_json::from_str(line) {
+            return Err(error);
         }
         if let Ok(value) = serde_json::from_str(line) {
             found = Some(value);
@@ -479,6 +489,12 @@ echo '{"event":"signed_in","email":"ada@example.test","origin":"https://team.exa
                 .unwrap_err()
                 .code,
             "keychain_locked"
+        );
+        assert_eq!(
+            check(r#"echo '{"error":{"code":"secure_store_unavailable","message":"Unlock the keychain."}}'; exit 1"#, "status")
+                .unwrap_err()
+                .code,
+            "secure_store_unavailable"
         );
     }
 }

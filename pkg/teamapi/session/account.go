@@ -18,6 +18,9 @@ import (
 // without refreshing first.
 const refreshMargin = 60 * time.Second
 
+// logoutTimeout bounds remote revocation during logout. A variable for tests.
+var logoutTimeout = 10 * time.Second
+
 // Options configure an Account. Production callers pass DefaultStore and
 // DefaultLockPath, which derive from the real OS user; tests inject both.
 type Options struct {
@@ -185,7 +188,11 @@ func (a *Account) Logout(ctx context.Context) (remoteRevoked bool, err error) {
 	case err != nil:
 		return false, err
 	}
-	remoteRevoked = a.revoke(ctx, rec)
+	// Remote revocation is bounded so an unresponsive gateway cannot hold the
+	// session lock or keep the local record; local cleanup always happens.
+	revokeCtx, cancel := context.WithTimeout(ctx, logoutTimeout)
+	remoteRevoked = a.revoke(revokeCtx, rec)
+	cancel()
 	return remoteRevoked, errors.Join(a.delete(), a.clearSelector())
 }
 
@@ -312,13 +319,16 @@ func (a *Account) rotate(ctx context.Context, rec Record) (Record, error) {
 
 // clear deletes the record after the gateway ended the session, unless a
 // newer sign-in has replaced it.
-func (a *Account) clear(ctx context.Context, generation uint64) {
+// clear deletes the stored record only if it is still the session that was
+// rejected. Generations restart after logout, so the session ID is compared
+// too: a late rejection of an old session never deletes a newer sign-in.
+func (a *Account) clear(ctx context.Context, generation uint64, sessionID string) {
 	unlock, err := lockFile(ctx, a.lockPath)
 	if err != nil {
 		return
 	}
 	defer unlock()
-	if rec, err := a.load(); err == nil && rec.Generation == generation {
+	if rec, err := a.load(); err == nil && rec.Generation == generation && rec.SessionID == sessionID {
 		_ = a.delete()
 	}
 }

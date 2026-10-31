@@ -412,3 +412,49 @@ func TestRefreshDiagnosticsNeverContainTokens(t *testing.T) {
 	}))
 	require.NotZero(t, scanned)
 }
+
+// Generations restart after logout, so a late rejection of the old session
+// must not delete a newer sign-in that reuses its generation number.
+func TestLateRejectionOfOldSessionKeepsNewSignIn(t *testing.T) {
+	g := newFakeGateway(t)
+	store := &MemoryStore{}
+	saveRecord(t, store, g.record(time.Now().Add(5*time.Minute)))
+	a := openAccount(t, g.origin(), store, filepath.Join(t.TempDir(), "lock"))
+	resp, err := a.HTTPClient().Get(g.origin() + wire.RouteSession)
+	require.NoError(t, err)
+	resp.Body.Close()
+
+	// Logout and a new sign-in happened elsewhere; the new record reuses the
+	// generation number but names a different session.
+	newer := g.record(time.Now().Add(5 * time.Minute))
+	newer.SessionID, newer.AccessToken = "s-new", "rzt_a_s-new.x"
+	saveRecord(t, store, newer)
+	g.mu.Lock()
+	g.revoked = true
+	g.mu.Unlock()
+	_, err = a.HTTPClient().Get(g.origin() + wire.RouteSession)
+	require.ErrorIs(t, err, wire.ErrSignInRequired)
+	rec, ok := loadRecord(t, store, g.origin())
+	require.True(t, ok, "the new sign-in was deleted")
+	require.Equal(t, "s-new", rec.SessionID)
+}
+
+func TestLogoutAgainstUnresponsiveGatewayStillSignsOut(t *testing.T) {
+	hang := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-hang }))
+	t.Cleanup(func() { close(hang); srv.Close() })
+	old := logoutTimeout
+	logoutTimeout = 200 * time.Millisecond
+	t.Cleanup(func() { logoutTimeout = old })
+	store := &MemoryStore{}
+	rec := newFakeGateway(t).record(time.Now().Add(5 * time.Minute))
+	rec.Origin = srv.URL
+	saveRecord(t, store, rec)
+	start := time.Now()
+	revoked, err := openAccount(t, srv.URL, store, filepath.Join(t.TempDir(), "lock")).Logout(context.Background())
+	require.NoError(t, err)
+	require.False(t, revoked)
+	require.Less(t, time.Since(start), 5*time.Second)
+	_, ok := loadRecord(t, store, srv.URL)
+	require.False(t, ok)
+}

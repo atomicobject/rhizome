@@ -205,3 +205,20 @@ func TestDirectRequestHeadersUnchanged(t *testing.T) {
 type roundTrip func(*http.Request) (*http.Response, error)
 
 func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// A provider 5xx passed through by the gateway is an unknown outcome there,
+// so a managed batch reports it as uncertain rather than safe to resubmit,
+// whether retries ran out or were never allowed.
+func TestManagedBatchReportsUpstream5xxAsUncertain(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(server.Close)
+	client, err := typesafe.NewClient("", typesafe.WithManaged(typesafe.Managed{Origin: server.URL, Transport: sessionTransport{}}), typesafe.WithMaxRetries(0))
+	require.NoError(t, err)
+	question := map[string]typesafe.Question{"q": typesafe.Noul{Instructions: "?"}}
+	results, err := client.EvaluateBatch(context.Background(), []typesafe.BatchItem{{ID: "a", Request: typesafe.Request{State: "x", Questions: question}}}, 1)
+	require.NoError(t, err)
+	require.Equal(t, "uncertain", results[0].Status)
+	require.False(t, results[0].Retryable)
+}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -74,9 +75,11 @@ func (r *Runtime) Invalidate() {
 	r.mu.Unlock()
 }
 
-// eligible reports whether p may hold a session under c.
+// eligible reports whether p may hold a session under c. Sign-in, refresh,
+// and every paid call use it, so removing an accepted domain from the
+// configuration also ends that domain's existing sessions.
 func eligible(p store.Person, c core.Runtime) bool {
-	if p.Status != wire.PersonActive {
+	if p.Status != wire.PersonActive || !slices.Contains(c.AcceptedDomains, strings.ToLower(p.HostedDomain)) {
 		return false
 	}
 	return c.EligibilityMode == wire.EligibilityAll ||

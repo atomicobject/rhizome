@@ -283,3 +283,33 @@ func TestUsageScanner(t *testing.T) {
 		require.Equal(t, want, string(s.result()), in)
 	}
 }
+
+// A fully read body stays buffered while it waits for a paid slot and while
+// the call runs, so it keeps its ingress permit until the request ends.
+func TestIngressPermitCoversBufferedBodies(t *testing.T) {
+	release := make(chan struct{})
+	slow := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+		okVoyage(w, r)
+	})
+	h := newHarness(t, opts{voyage: slow, cfg: func(c *Config) {
+		c.BodyReaders, c.PersonSlots, c.GlobalSlots, c.SlotWait = 2, 8, 8, 300*time.Millisecond
+	}})
+	const requests = 5
+	done := make(chan reply, requests)
+	for i := range requests {
+		go func() { done <- h.voyage("alice", key(i), voyageBody("x")) }()
+	}
+	time.Sleep(600 * time.Millisecond)
+	require.Equal(t, 2, len(h.tr.ingress.ch), "two buffered bodies keep their permits while upstream is slow")
+	close(release)
+	limited := 0
+	for range requests {
+		if r := <-done; r.code() == wire.CodeRateLimited {
+			limited++
+		} else {
+			require.Equal(t, http.StatusOK, r.status, r.body)
+		}
+	}
+	require.Equal(t, requests-2, limited)
+}
