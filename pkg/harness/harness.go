@@ -173,3 +173,26 @@ type Capabilities struct {
 	SupportsAllowForSession bool             `json:"supportsAllowForSession"`
 	PermissionModes         []PermissionMode `json:"permissionModes"`
 }
+
+// MaxOutputBytes bounds tool and command output on an Event.
+const MaxOutputBytes = 16 * 1024
+
+// BoundedRaw returns raw unchanged when it fits in MaxOutputBytes. Otherwise
+// it returns a JSON string of at most MaxOutputBytes: the leading text of a
+// JSON string value, or the leading bytes of any other value, and true.
+func BoundedRaw(raw json.RawMessage) (json.RawMessage, bool) {
+	if len(raw) <= MaxOutputBytes {
+		return append(json.RawMessage(nil), raw...), false
+	}
+	var text string
+	if json.Unmarshal(raw, &text) == nil {
+		bytes := []byte(text)
+		if len(bytes) > MaxOutputBytes-2 {
+			bytes = bytes[:MaxOutputBytes-2]
+		}
+		encoded, _ := json.Marshal(string(bytes))
+		return encoded, true
+	}
+	encoded, _ := json.Marshal(string(raw[:MaxOutputBytes-2]))
+	return encoded, true
+}

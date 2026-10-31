@@ -128,15 +128,9 @@ func approvalEvent(msg message, request controlRequest, turnID string) harness.E
 	return event
 }
 
-const maxOutputBytes = 16 * 1024
-
 func boundedJSON(value any) (json.RawMessage, bool) {
 	raw, _ := json.Marshal(value)
-	if len(raw) <= maxOutputBytes {
-		return raw, false
-	}
-	encoded, _ := json.Marshal(string(raw[:maxOutputBytes-2]))
-	return encoded, true
+	return harness.BoundedRaw(raw)
 }
 
 func contentText(value any) string {
