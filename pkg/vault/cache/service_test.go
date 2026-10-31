@@ -841,21 +841,16 @@ func TestCollectionCacheContextDocInitialAndIncrementalParity(t *testing.T) {
 	require.True(t, ok)
 }
 
-// waitResynced drains refreshes until a background recrawl reports
-// completion through RefreshResult.Recrawls.
+// waitResynced drains refreshes until the recrawl its caller armed has
+// finished: every caller marks the cache stale synchronously or has a recrawl
+// in flight, so a settled cache (neither stale nor recrawling) means it ran.
+// Checking settlement rather than a completion count taken here avoids racing
+// a recrawl that finishes before the helper starts.
 func waitResynced(t *testing.T, svc *Service) {
 	t.Helper()
-	svc.mu.RLock()
-	before := svc.recrawls
-	svc.mu.RUnlock()
-	sawResynced := false
 	require.Eventually(t, func() bool {
-		result, err := svc.RefreshWithResult(context.Background())
+		_, err := svc.RefreshWithResult(context.Background())
 		require.NoError(t, err)
-		sawResynced = sawResynced || result.Recrawls > before
-		if !sawResynced {
-			return false
-		}
 		svc.mu.RLock()
 		settled := !svc.stale && !svc.recrawling
 		svc.mu.RUnlock()
