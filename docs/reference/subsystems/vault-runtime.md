@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the vault runtime: one auto-started serve process per vault root that wins the runtime lock, publishes a probe-verified manifest, runs every indexing job on one lane, and serves the loopback control API that rzm index and code mode execute through."
 reference-kind: guide
-last-verified: 2026-10-25
+last-verified: 2026-10-31
 code-paths:
   - pkg/app/runtime
   - pkg/app/bootstrap
@@ -38,7 +38,7 @@ code-anchors:
 ## Design constraints
 
 - **Structural readiness precedes provider completion.** Debounced watch-hub events wake structural reconciliation directly; the periodic tick remains a recovery mechanism. Ordinary rewrites do not wait for the former per-path cooldown. The watcher publishes `node.changed` only after shared structural publication commits, and derived completion publishes `index.changed` with the completed domain. Resync invalidation does not replace the subsequent committed-path event. Open panes refresh affected successful or pending reads on committed path events, because raw file-watch reads can precede catalog type publication.
-- **Derived computation releases the writer lease.** The runtime scheduler reads durable work on startup and quiet retry ticks, prepares under a lane job, computes outside the lease, and publishes through bounded lane jobs after checking work identity and structural inputs. Explicit indexing and external priority cancel computation. Shutdown cancels and joins computation and publication before stores close; cancellation alone is not completion.
+- **Derived computation releases the writer lease.** The runtime scheduler reads durable work on startup and quiet retry ticks, prepares under a lane job, computes outside the lease, and publishes through bounded lane jobs, one per batch of up to 128 results, 16 MiB of vectors, or 250 ms, after checking work identity and structural inputs once per batch. Acknowledgement waits for every batch to publish. Explicit indexing and external priority cancel computation. Shutdown cancels and joins computation and publication before stores close; cancellation alone is not completion.
 - **Desktop uses the existing runtime owner.** The desktop bridge resolves the exact executable, requires its headless capability, verifies existing manifest and health folder identity and loopback origin, then calls `Ensure` with that executable's build identity. External-manager shims retain their manager's build authority, so their shim file is never used to derive a runtime replacement identity. It never exposes control tokens to the native UI or stops a runtime when a window closes. Discovery probes reject HTTP redirects, so a manifest grants authority only to its recorded listener.
 
 - **Replacement fallback restarts after indexing.** When an index job loses its runtime because the database was replaced or the owner exited, the outer index/worktree command owns any restart. It restarts only after in-process indexing and its cleanup return, including failure cleanup; the delegation helper never spawns a successor over an unfinished replacement.

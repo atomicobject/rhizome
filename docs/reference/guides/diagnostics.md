@@ -3,7 +3,7 @@ type: ReferenceDoc
 summary: "Read retained operational logs, measured indexing reports, and performance summaries without starting Rhizome's runtime or opening its index."
 reference-kind: guide
 status: active
-last-verified: 2026-10-25
+last-verified: 2026-10-31
 ---
 
 # Operational diagnostics
@@ -33,7 +33,7 @@ History reads default to seven days and at most 100 records. Use `--since` and `
 
 - `groups` lists operations by kind and name, such as a command, HTTP route, agent operation with its transport, or indexing job kind. Each group has count, errors, cancellations, total, median, and maximum duration, plus queue and lock waits when present. `p95_ms` appears only with at least 20 samples.
 - `web` summarizes browser and desktop windows: frame gaps over 50 ms and 200 ms, background refresh cycles, refetches that returned unchanged data, refreshes judged as churn, stream reconnects, and error names. Per-region render counts appear only when render timing is on: always in Rhizome Dev and development builds, and in the released desktop app when its Diagnostics setting is on.
-- `flags` lists runtime start bursts (more than three in 60 seconds), operations started without a terminal record while their process kept recording (runtime lifetimes and open event streams excluded), WARN and ERROR events by name, index integrity failures, frame stalls over 200 ms, refreshes judged as churn, and two or more stream reconnects within one ten-second window. Each flag names supporting operation IDs or `session:` client IDs.
+- `flags` lists runtime start bursts (more than three in 60 seconds), operations started without a terminal record while their process kept recording (runtime lifetimes and open event streams excluded, and only within the range of that process's events the reader read without a gap), WARN and ERROR events by name, index integrity failures, frame stalls over 200 ms, refreshes judged as churn, and two or more stream reconnects within one ten-second window. Each flag names supporting operation IDs or `session:` client IDs.
 
 Flags are observations to investigate, not diagnoses. Follow their operation IDs into `report` and `logs`. `rzm agent code execute` command reports carry Node startup, script time, and per-operation host-call counts and durations, split into in-process and forwarded calls.
 
@@ -49,7 +49,7 @@ diagnostics:
   level: info
 ```
 
-Retention must be positive and `maxBytes` must be at least 4096. Operational warnings and errors remain visible on stderr. Boundaries whose CLI, JSON, or HTTP response already carries the result retain their diagnostic outcome quietly. Routine informational events go to retained files. Help, completion, version, and static agent metadata commands do not record diagnostics. An explicit `enabled: false` remains effective even if another diagnostics setting is invalid. Structured events correlate process, operation, parent operation, and trace IDs. No database or separate viewer is required.
+Retention must be positive and `maxBytes` must be at least 4096. Operational warnings and errors remain visible on stderr. Boundaries whose CLI, JSON, or HTTP response already carries the result retain their diagnostic outcome quietly. Healthy runtime health probes (`GET /api/v1/runtime` below status 400 in under one second) record nothing; failed, slow, or canceled probes record their start and finish together. Routine informational events go to retained files. Help, completion, version, and static agent metadata commands do not record diagnostics. An explicit `enabled: false` remains effective even if another diagnostics setting is invalid. Structured events correlate process, operation, parent operation, and trace IDs. No database or separate viewer is required.
 
 ## Performance evidence
 
