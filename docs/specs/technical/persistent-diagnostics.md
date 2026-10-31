@@ -4,7 +4,7 @@ id: SPEC-0116
 aliases: [SPEC-0116, Persistent diagnostics]
 summary: "Bounded local diagnostic events and operation reports, useful indexing, runtime, code-mode, and web UI measurements, and an offline reader that summarizes performance and flags instability for humans and agents."
 spec-status: active
-last-updated: 2026-10-25
+last-updated: 2026-10-31
 ---
 
 # Persistent diagnostics
@@ -52,6 +52,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 - Any job that fails, is canceled or preempted, records a fallback or truncation, or runs for at least one second MUST still publish a report. Explicit indexing and boot catch-up MUST always publish reports.
 - `job.finished` events MUST carry the job kind, trigger, status, duration, queue wait, lock wait, and execution time, so aggregate views can account for jobs without reports. Jobs without a report SHOULD carry their bounded indexing metrics snapshot in the event's `metrics`.
 - On a vault with continuous watcher activity, routine jobs MUST NOT be the reason history younger than the retention window is evicted.
+- A periodic watcher tick with no pending paths, resync, cache work, ownership reconciliation, or unready derived work MUST NOT admit a lane job. A tick that cannot read that state admits one. Hub wakes and foreground freshness checks always admit.
 
 ### Indexing evidence
 
@@ -66,6 +67,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 
 - One process-level recorder MUST serve the vault's participating boundaries. Request and job context MUST preserve correlation while retaining existing cancellation and ownership behavior.
 - Runtime lifecycle and readiness, MCP tool outcome, HTTP route/status/latency, and background job outcomes MUST have stable structured events with useful safe attributes.
+- A runtime health probe (`GET /api/v1/runtime`) that answers below status 400 within the slow-request threshold MUST NOT record request events. Failed, slow, canceled, and panicking probes MUST record their start and terminal events together when the probe finishes, under one operation identity. This is the one exception to a start event preceding work: the terminal event's `duration_ms` carries the probe's real duration.
 - Legacy logging bridges MUST avoid recursive logging and unsafe payload capture. Redacted or unavailable detail MUST be recognizable as incomplete evidence.
 
 ### Code-mode evidence
@@ -100,7 +102,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 - It MUST summarize web UI evidence per render region and surface: commits, render time, frame stalls, refresh churn, and stability counts.
 - It MUST flag these anomalies with the supporting operation or event identifiers:
   - more than three runtime starts for the vault within 60 seconds, timed by their start events;
-  - started operations with no terminal record that are older than the newest evidence from their process, excluding runtime lifetimes and event-stream requests, which finish only when they stop;
+  - started operations with no terminal record that are older than the newest evidence from their process, excluding runtime lifetimes and event-stream requests, which finish only when they stop. The flag applies only to starts at or after the point from which the reader read that process's events contiguously; starts before a skipped range or near malformed records are not flagged, because their terminal may be in the unread bytes;
   - WARN and ERROR events grouped by event name, including index integrity failures;
   - refreshes the browser judged as churn (only where render regions are enabled);
   - frame stalls over 200 ms;
