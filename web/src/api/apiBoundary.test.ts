@@ -33,7 +33,12 @@ function isPublicOrInternalAgentRoute(route: string) {
 }
 
 function isInternalAgentRoute(route: string) {
-  return route === "/api/agent" || route.startsWith("/api/agent/");
+  return (
+    route === "/api/agent" ||
+    route.startsWith("/api/agent/") ||
+    route === "/api/tasks" ||
+    route.startsWith("/api/tasks/")
+  );
 }
 
 describe("frontend API boundary", () => {
