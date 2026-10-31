@@ -52,9 +52,11 @@ describe("desktopTasks", () => {
       item(String(index), "due", { summary: "é".repeat(300) }),
     );
 
-    const tasks = desktopTasks({ paused: false, items, recent: [] }, new Map(), NOW);
+    const names = new Map(items.map((entry) => [entry.task, "n".repeat(300)]));
+    const tasks = desktopTasks({ paused: false, items, recent: [] }, names, NOW);
 
     expect(tasks.needs).toBe(60);
+    expect([...(tasks.items[0].name ?? "")]).toHaveLength(200);
     expect(tasks.items).toHaveLength(50);
     expect([...tasks.items[0].text]).toHaveLength(200);
     expect(tasks.items[0].text.endsWith("…")).toBe(true);

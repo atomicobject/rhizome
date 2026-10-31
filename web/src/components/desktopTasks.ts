@@ -45,7 +45,7 @@ export function desktopTasks(
     items: items.slice(0, ITEM_LIMIT).map((item) => ({
       id: item.id,
       task: item.task,
-      name: names.get(item.task) || undefined,
+      name: shorten(names.get(item.task) ?? "") || undefined,
       state: item.state,
       text: shorten(item.summary || item.reason || ""),
     })),
